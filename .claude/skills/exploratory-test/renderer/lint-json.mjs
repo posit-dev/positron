@@ -4,22 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Checks report.json against the ledger it was written from, and against the
-// write-up rules in lint.mjs. The ledger is the record of what the run did; the
-// report may leave out, but not add or change. Usage:
+// write-up rules in lint-wording.mjs and lint-ledger.mjs. The ledger is the
+// record of what the run did; the report may leave out, but not add or
+// change. Usage:
 //   node lint-json.mjs <report.json> [ledger.md]
 // Each check is logged to format-checks.jsonl beside the report, for the run's
-// stats. settleReportJson
-// is the same check once the explorer is done, with one retry.
+// stats. readCheckedReport is the same check once the explorer is done, logged.
 
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readKnownIssues } from './agents/finish.mjs';
-import { absolutePathProblems, findingProblems, modelProblems, rateProblem, rateProblems, resultProblems, runProblems, splitProblems } from './lint.mjs';
+import { absolutePathProblems, modelProblems, rateProblem, runProblems } from './lint/lint-ledger.mjs';
+import { problem, splitProblems } from './lint/lint-rules.mjs';
+import { findingProblems, rateProblems, resultProblems } from './lint/lint-wording.mjs';
+import { readRunDir } from './page/html.mjs';
 import { reportFromJson } from './page/report-json.mjs';
 import { recordCheck } from './stats.mjs';
-import { parseLedger, plainText, verifyText } from './report-parse.mjs';
+import { parseLedger, verifyText } from './shared/ledger.mjs';
 
 const norm = text => String(text ?? '').replace(/\s+/g, ' ').replace(/[.\s]+$/, '').trim();
 const FILLER = new Set(['a', 'an', 'the', 'of', 'in', 'on', 'at', 'to', 'for', 'from', 'with', 'by', 'and', 'or', 'it', 'its', 'is', 'are', 'was', 'be', 'that', 'this']);
@@ -44,7 +46,6 @@ function stepDistance(ledgerText, reportText) {
 	const added = [...report].filter(w => !ledger.has(w)).length;
 	return report.size >= 3 && added <= Math.floor(report.size / 3) ? added + 0.5 : Infinity;
 }
-const failRate = scenario => /\bFails (\d+\/\d+)\b/.exec(plainText(scenario.resultHtml ?? ''))?.[1] ?? null;
 const named = (scenario, n) => scenario.findings.includes(n) || scenario.steps.some(st => st.finding === n);
 
 /** The finding's steps against one scenario's: each one the ledger's, in its order, with its result. */
@@ -64,76 +65,44 @@ function stepProblems(f, scenario) {
 		});
 		if (found < 0) {
 			const anywhere = ledger.some(st => distance(st) < Infinity);
-			problems.push(`Finding ${f.n} step ${i + 1} ${anywhere ? 'is out of order against' : 'is not a step of'} ${scenario.id}: "${text}"`);
+			problems.push(problem(anywhere ? 'finding-step-out-of-order' : 'finding-step-not-in-scenario', `Finding ${f.n} step ${i + 1} ${anywhere ? 'is out of order against' : 'is not a step of'} ${scenario.id}: "${text}"`));
 			return;
 		}
 		at = found + 1;
 		const want = ledger[found];
 		const result = s.kind === 'verify' ? s.result ?? null : null;
 		if (result !== want.result) {
-			problems.push(`Finding ${f.n} step ${i + 1} is ${result ?? 'no result'}, but ${scenario.id} recorded ${want.result ?? 'no result'}`);
+			problems.push(problem('finding-step-result', `Finding ${f.n} step ${i + 1} is ${result ?? 'no result'}, but ${scenario.id} recorded ${want.result ?? 'no result'}`));
 		} else if (result === 'fail' && s.finding !== want.finding) {
-			problems.push(`Finding ${f.n} step ${i + 1} fails for Finding ${s.finding}, but ${scenario.id} recorded Finding ${want.finding}`);
+			problems.push(problem('finding-step-finding', `Finding ${f.n} step ${i + 1} fails for Finding ${s.finding}, but ${scenario.id} recorded Finding ${want.finding}`));
 		}
 	});
 	return problems;
 }
 
 /**
- * Problems with report.json against the ledger, each with the finding number
- * or scenario ID it is about, so a retry can be taken for those parts only.
+ * Problems with report.json's findings against the ledger, each with the
+ * finding number it is about, so a retry can be taken for those parts only.
  */
 export function checkReportJson(json, ledgerText) {
 	const ledger = parseLedger(ledgerText);
 	if (!ledger) {
-		return [{ text: 'no ledger to check against' }];
+		return [problem('no-ledger', 'no ledger to check against')];
 	}
 	const problems = [];
-	const onFinding = (n, text) => problems.push({ text, finding: n });
-	const onScenario = (id, text) => problems.push({ text, scenario: id });
-	const scenarios = new Map(ledger.exercised.map(s => [s.id, s]));
-	const notRun = new Set(ledger.notExercised.map(s => s.id));
+	const onFinding = (n, rule, text) => problems.push(problem(rule, text, { finding: n }));
 
 	// Findings: the same numbers the ledger fails.
-	const ledgerFindings = new Set(ledger.exercised.flatMap(s => [...s.findings, ...s.steps.map(st => st.finding).filter(n => n !== null)]));
+	const ledgerFindings = new Set(ledger.exercised.flatMap(s => [...s.findings, ...s.steps.map(st => st.finding).filter(n => n !== null && n !== undefined)]));
 	const findings = json.findings ?? [];
 	for (const f of findings) {
 		if (!ledgerFindings.has(f.n)) {
-			onFinding(f.n, `Finding ${f.n} is not in the ledger: no scenario fails for it`);
+			onFinding(f.n, 'finding-not-in-ledger', `Finding ${f.n} is not in the ledger: no scenario fails for it`);
 		}
 	}
 	for (const n of ledgerFindings) {
 		if (!findings.some(f => f.n === n)) {
-			onFinding(n, `the ledger's Finding ${n} is missing`);
-		}
-	}
-
-	// Scenarios: each one the ledger's, with its status, rate and findings.
-	for (const s of json.scenarios ?? []) {
-		const own = scenarios.get(s.id);
-		if (s.status === 'not-run') {
-			if (!own && !notRun.has(s.id)) {
-				onScenario(s.id, `${s.id} is not in the ledger`);
-			} else if (own) {
-				onScenario(s.id, `${s.id} is not run, but the ledger ran it`);
-			}
-			continue;
-		}
-		if (!own) {
-			onScenario(s.id, `${s.id} is not in the ledger${notRun.has(s.id) ? ', which did not run it' : ''}`);
-			continue;
-		}
-		if (s.status !== own.status) {
-			onScenario(s.id, `${s.id} is ${s.status}, but the ledger has ${own.status}`);
-		}
-		const rate = /\bFails (\d+\/\d+)\b/.exec(s.result ?? '')?.[1];
-		if (rate && failRate(own) && rate !== failRate(own)) {
-			onScenario(s.id, `${s.id} fails ${rate}, but the ledger has ${failRate(own)}`);
-		}
-		const want = [...new Set(own.findings)].sort().join(',');
-		const got = [...new Set(s.findings ?? [])].sort().join(',');
-		if (own.status === 'fail' && want !== got) {
-			onScenario(s.id, `${s.id} names findings [${got}], but the ledger has [${want}]`);
+			onFinding(n, 'ledger-finding-missing', `the ledger's Finding ${n} is missing`);
 		}
 	}
 
@@ -145,10 +114,10 @@ export function checkReportJson(json, ledgerText) {
 		}
 		const tries = owners.map(s => ({ s, problems: stepProblems(f, s) }));
 		const best = tries.reduce((a, b) => (b.problems.length < a.problems.length ? b : a));
-		best.problems.forEach(text => onFinding(f.n, text));
+		best.problems.forEach(p => problems.push({ ...p, finding: f.n }));
 		const rate = rateProblem(f.reproduced ? `${f.reproduced.n}/${f.reproduced.m}` : null, best.s, owners);
 		if (rate) {
-			onFinding(f.n, `Finding ${f.n}'s rate ${rate}`);
+			onFinding(f.n, 'finding-rate', `Finding ${f.n}'s rate ${rate}`);
 		}
 		// A log line was either found or looked for and missing, not both.
 		const kinds = new Map();
@@ -160,7 +129,7 @@ export function checkReportJson(json, ledgerText) {
 		}
 		for (const [path, k] of kinds) {
 			if (k.size === 2) {
-				onFinding(f.n, `Finding ${f.n} evidence lists ${path} as both a log line and missing`);
+				onFinding(f.n, 'evidence-found-and-missing', `Finding ${f.n} evidence lists ${path} as both a log line and missing`);
 			}
 		}
 	}
@@ -215,12 +184,12 @@ export function formatProblems(json, ledger, options = {}) {
 	// The schema asks only that they are there; the page has nothing to show for an empty one.
 	for (const [key, label] of [['result', 'Result'], ['tested', 'Tested'], ['notExercised', 'Not exercised']]) {
 		if (!String(header[key] ?? '').trim()) {
-			problems.push(`report: header.${key} is empty; write the ${label} line`);
+			problems.push(problem('header-empty', `report: header.${key} is empty; write the ${label} line`));
 		}
 	}
 	for (const f of findings) {
 		if (!String(f.feature ?? '').trim()) {
-			problems.push(`report: Finding ${f.n} has no feature; name the area of Positron it is in, such as "data explorer"`);
+			problems.push(problem('feature-missing', `report: Finding ${f.n} has no feature; name the area of Positron it is in, such as "data explorer"`));
 		}
 		problems.push(...rateProblems(f.n, f.severity, f.reproduced ? `${f.reproduced.n}/${f.reproduced.m}` : ''));
 		const steps = (f.steps ?? []).map((s, i) => ({ n: String(i + 1), verify: s.kind === 'verify', text: s.text, result: s.result?.toUpperCase() }));
@@ -235,23 +204,23 @@ export function formatProblems(json, ledger, options = {}) {
 		}));
 		const frame = (f.errors ?? []).flatMap(e => e.frames ?? []).find(fr => /\bout\/vs\/\S+\.js$/.test(fr.path ?? ''));
 		if (frame) {
-			problems.push(`report: map compiled frames to source paths: "${frame.path}:${frame.line}"`);
+			problems.push(problem('compiled-frames', `report: map compiled frames to source paths: "${frame.path}:${frame.line}"`));
 		}
 		problems.push(...absolutePathProblems('report', [...(f.evidence ?? []).map(e => e.path ?? ''), ...(f.steps ?? []).map(s => String(s.log?.source ?? '').split(/[\s|]/)[0])]));
 		const outside = (f.evidence ?? []).find(e => e.kind === 'shot' && !/^shots\//.test(e.path ?? ''));
 		if (outside) {
-			problems.push(`report: Finding ${f.n} links the screenshot ${outside.path}; link it as shots/<file>`);
+			problems.push(problem('shot-outside-shots', `report: Finding ${f.n} links the screenshot ${outside.path}; link it as shots/<file>`));
 		}
 		if (options.fileExists) {
 			const shots = [...(f.steps ?? []).flatMap(s => s.shots ?? []), ...(f.evidence ?? []).filter(e => e.kind === 'shot').map(e => e.path)];
 			for (const p of [...new Set(shots)].filter(p => p && !options.fileExists(p))) {
-				problems.push(`report: Finding ${f.n} cites ${p}, which is not in the run directory`);
+				problems.push(problem('shot-missing', `report: Finding ${f.n} cites ${p}, which is not in the run directory`));
 			}
 		}
 	}
 	// A markdown link anywhere in the prose is a file the reader opens.
 	const links = stringsOf({ header, findings }).flatMap(t => [...t.matchAll(/\]\(([^)\s]+)\)/g)].map(m => m[1]));
-	problems.push(...absolutePathProblems('report', [...(json.logs ?? []), ...(json.files ?? [])].map(x => x.path ?? '').concat(links)));
+	problems.push(...absolutePathProblems('report', links));
 	problems.push(...modelProblems(reportFromJson(json, { ledger }).findings, ledger, options));
 	problems.push(...runProblems(stringsOf({ header, findings }).join('\n'), ledger, {
 		...options,
@@ -264,113 +233,45 @@ export function formatProblems(json, ledger, options = {}) {
 
 /** Problems with report.json against the ledger, as `report.json: ...` lines. */
 export function lintReportJson(json, ledgerText) {
-	return checkReportJson(json, ledgerText).map(p => `report.json: ${p.text}`);
-}
-
-/** The writer's second chance: the problems, and what to fix them from. */
-export function buildRetryPrompt(problems) {
-	return [
-		'A check compared the report you returned with ledger.md, the record of what the run did, and found these problems:',
-		'',
-		...problems.map(p => `- ${p.text}`),
-		'',
-		'Fix each one from ledger.md: a finding\'s steps and rate are the scenario\'s that failed for it, each step as the ledger words it (you may trim, not add), and each scenario\'s status and rate as the ledger records them. Where the ledger supports neither version, drop the claim. Change nothing else, and return the whole report again.',
-	].join('\n');
-}
-
-/**
- * The first report with the retry's version of each finding and scenario the
- * check flagged, and nothing else of the retry's: a retry asked to fix one
- * thing rewords others, and those were already right. Returns the report and
- * the parts the retry changed that were not taken.
- */
-export function mergeRetry(first, retry, problems) {
-	const findings = new Set(problems.map(p => p.finding).filter(n => n !== undefined));
-	const scenarios = new Set(problems.map(p => p.scenario).filter(Boolean));
-	const take = (key, flagged, a = [], b = []) => {
-		const theirs = new Map(b.map(x => [x[key], x]));
-		const kept = a.filter(x => !flagged.has(x[key]) || theirs.has(x[key])).map(x => (flagged.has(x[key]) ? theirs.get(x[key]) : x));
-		const added = b.filter(x => flagged.has(x[key]) && !a.some(y => y[key] === x[key]));
-		const ignored = b.filter(x => !flagged.has(x[key]) && JSON.stringify(x) !== JSON.stringify(a.find(y => y[key] === x[key]))).map(x => x[key]);
-		return { list: [...kept, ...added], ignored };
-	};
-	const f = take('n', findings, first.findings, retry.findings);
-	const s = take('id', scenarios, first.scenarios, retry.scenarios);
-	const order = x => [x.id[0] === 'N' ? 1 : 0, Number(x.id.slice(1))];
-	s.list.sort((x, y) => order(x)[0] - order(y)[0] || order(x)[1] - order(y)[1]);
-	f.list.sort((x, y) => x.n - y.n);
-	return {
-		report: { ...first, findings: f.list, scenarios: s.list },
-		ignored: [...f.ignored.map(n => `Finding ${n}`), ...s.ignored],
-	};
+	return checkReportJson(json, ledgerText).map(p => ({ ...p, text: `report.json: ${p.text}` }));
 }
 
 /** Schema problems first: the ledger check reads fields the schema requires. */
 function problemsOf(json, ledger) {
 	const shape = schemaProblems(json);
-	return shape.length ? shape.map(text => ({ text })) : checkReportJson(json, ledger);
+	return shape.length ? shape.map(text => problem('schema', text)) : checkReportJson(json, ledger);
 }
 
 /**
- * Checks report.json against the ledger and, if anything is wrong, sends
- * `resume` the problems once, keeping only the parts it was asked to fix.
- * Returns the report, or null when the explorer wrote none.
+ * report.json once the explorer is done, or null when it wrote none that
+ * parses. What the check still finds is logged: the explorer runs it until it
+ * passes, so a problem here is one it left on purpose or ran out of time for.
  */
-export async function settleReportJson(workDir, { resume, log = console.log }) {
+export function readCheckedReport(workDir, { log = console.log } = {}) {
 	const path = join(workDir, 'report.json');
 	if (!existsSync(path)) {
 		return null;
 	}
+	let json;
+	try {
+		json = JSON.parse(readFileSync(path, 'utf8'));
+	} catch (err) {
+		log(`[json] report.json does not parse: ${err.message}`);
+		return null;
+	}
 	const ledger = existsSync(join(workDir, 'ledger.md')) ? readFileSync(join(workDir, 'ledger.md'), 'utf8') : '';
-	const read = () => {
-		try {
-			return JSON.parse(readFileSync(path, 'utf8'));
-		} catch (err) {
-			log(`[json] report.json does not parse: ${err.message}`);
-			return null;
-		}
-	};
-	const first = read();
-	const problems = first ? problemsOf(first, ledger) : [{ text: 'report.json is not valid JSON' }];
-	log(`[json] ${problems.length} problems after the explorer: ${problems.map(p => p.text).join(' | ')}`);
-	if (!problems.length || !resume) {
-		return first;
-	}
-	if (first) {
-		copyFileSync(path, join(workDir, 'report.first.json'));
-	}
-	await resume(`${buildRetryPrompt(problems)}\n\nWrite it to \`${path}\` again and run the check.`);
-	const retry = read();
-	if (!retry) {
-		return first;
-	}
-	copyFileSync(path, join(workDir, 'report.retry.json'));
-	// A broken first draft has nothing to merge into.
-	const { report, ignored } = first && !schemaProblems(first).length ? mergeRetry(first, retry, problems) : { report: retry, ignored: [] };
-	const left = problemsOf(report, ledger);
-	log(`[json] after the retry: ${left.length} problems${ignored.length ? `; kept the first version of ${ignored.join(', ')}` : ''}`);
-	writeFileSync(path, `${JSON.stringify(report, null, '\t')}\n`);
-	writeFileSync(join(workDir, 'json-trial.json'), `${JSON.stringify({ first: problems.map(p => p.text), left: left.map(p => p.text), ignored }, null, 2)}\n`);
-	return report;
+	const problems = problemsOf(json, ledger);
+	log(`[json] ${problems.length} problems after the explorer${problems.length ? `: ${problems.map(p => p.text).join(' | ')}` : ''}`);
+	return json;
 }
 
 /** formatProblems' options for the run directory `dir`. */
 function runDirOptions(dir) {
-	const read = name => (existsSync(join(dir, name)) ? readFileSync(join(dir, name), 'utf8') : undefined);
-	const files = join(dir, 'files');
 	// Test paths are relative to the checkout the explorer runs in.
 	const repo = (() => {
 		try { return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; }
 	})();
-	return {
-		fileExists: path => existsSync(join(dir, path)),
-		listFiles: () => (existsSync(files)
-			? readdirSync(files, { recursive: true }).map(p => join(files, p)).filter(p => statSync(p).isFile()).map(p => relative(dir, p).split('\\').join('/'))
-			: []),
-		repoFileExists: repo ? path => existsSync(join(repo, path)) : undefined,
-		knownIssues: readKnownIssues(dir) ?? undefined,
-		actionsLog: read('actions.log'),
-	};
+	return { ...readRunDir(dir), repoFileExists: repo ? path => existsSync(join(repo, path)) : undefined };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -384,22 +285,22 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 		const json = JSON.parse(readFileSync(input, 'utf8'));
 		const shape = schemaProblems(json);
 		if (shape.length) {
-			problems = shape.map(p => `report.json: ${p}`);
+			problems = shape.map(p => problem('schema', `report.json: ${p}`));
 		} else {
 			const ledger = readFileSync(ledgerPath ?? join(dirname(input), 'ledger.md'), 'utf8');
 			problems = [...lintReportJson(json, ledger), ...formatProblems(json, ledger, runDirOptions(dirname(input)))];
 		}
 	} catch (err) {
-		problems = [`report.json: ${err.message}`];
+		problems = [problem('schema', `report.json: ${err.message}`)];
 	}
 	const { errors, warnings } = splitProblems(problems);
 	// How many checks a report took to pass, and what each one found.
 	recordCheck(dirname(input), problems, errors.length);
 	if (errors.length) {
-		console.log(`errors, fix each one and check again:\n${errors.map(p => `  ${p}`).join('\n')}`);
+		console.log(`errors, fix each one and check again:\n${errors.map(p => `  ${p.text}`).join('\n')}`);
 	}
 	if (warnings.length) {
-		console.log(`warnings, fix any that are quick; they need no further check:\n${warnings.map(p => `  ${p}`).join('\n')}`);
+		console.log(`warnings, fix any that are quick; they need no further check:\n${warnings.map(p => `  ${p.text}`).join('\n')}`);
 	}
 	process.exitCode = errors.length ? 1 : 0;
 }

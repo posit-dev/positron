@@ -94,6 +94,8 @@ test('reviewEdits keeps a title and opening that cite only what the record has',
 	const { kept, rejected } = reviewEdits(REPORT, parseEdits(reply({ title: 'Viewer: Run Shiny App on an R app leaves the Viewer empty' })));
 	assert.deepEqual(rejected, []);
 	assert.equal(kept.get(1).title, 'Run Shiny App on an R app leaves the Viewer empty');
+	// Backticks around on-screen text go; the title is kept.
+	assert.equal(reviewEdits(REPORT, parseEdits(reply({ title: 'Run Shiny App on an R app leaves the `Viewer` empty' }))).kept.get(1).title, 'Run Shiny App on an R app leaves the Viewer empty');
 	assert.deepEqual(kept.get(1).opening, { summary: 'When you run an R Shiny app, the Viewer stays empty, though a toast says "will preview it".', where: 'Python apps preview as expected.' });
 });
 
@@ -110,7 +112,7 @@ test('reviewEdits rejects an opening or title that invents a fact or reads like 
 	assert.deepEqual(review({ where: 'Seen in S10.' }), [{ n: 1, field: 'opening', reason: 'names the scenario ID S10' }]);
 	assert.deepEqual(review({ title: 'Run Shiny App on an R app never shows the running app in the Viewer pane at all' }), [{ n: 1, field: 'title', reason: 'is 18 words, over 15; cut filler, never a word that narrows the bug' }]);
 	assert.deepEqual(review({ title: 'Run Shiny App on an R app leaves the Viewer empty after the app starts' }), []);
-	assert.deepEqual(review({ title: 'Viewer | empty' }), [{ n: 1, field: 'title', reason: 'has a |, ; or code' }]);
+	assert.deepEqual(review({ title: 'Viewer | empty' }), [{ n: 1, field: 'title', reason: 'has a | or ;' }]);
 	assert.deepEqual(reasons(reviewEdits(REPORT, parseEdits('=== Finding 2\nTITLE: No such finding')).rejected), [{ n: 2, field: 'title', reason: 'Finding 2 is not in the report' }]);
 });
 

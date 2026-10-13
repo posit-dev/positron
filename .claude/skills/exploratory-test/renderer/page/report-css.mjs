@@ -19,7 +19,6 @@ const PROFESSIONAL = `
 	--muted: #6A6F76;
 	--faint: #8A8F96;
 	--faint-rate: #7A7F86;
-	--secondary: #4F535A;
 	--dot-neutral: #CFCAC0;
 	--sep: #B8B4AA;
 	--divider: #CFCAC0;
@@ -43,7 +42,6 @@ const PROFESSIONAL = `
 	--success: #1A7F45;
 	--danger: #A12C1F;
 	--pass-bg: #E8F3EC;
-	--notrun: #E2DFD7;
 	--notrun-bar: #DAD6CD;
 	--stage-1: #5E646C;
 	--stage-2: #CFCAC0;
@@ -60,9 +58,7 @@ const PROFESSIONAL = `
 	--thumb-border: #EFEDE7;
 	--thumb-a: #F9F8F5;
 	--thumb-b: #F3F1EC;
-	--quiet: #767B82;
 	--dash: #D9D5CB;
-	--chip-border: #DAD6CD;
 	--cv-chev: #C4C0B6;
 	--st-ev: #8A8F96;
 	--st-target: #F6F1E4;
@@ -161,7 +157,6 @@ const PARTY = `
 	--muted: #9D95C6;
 	--faint: #8A82B8;
 	--faint-rate: #8A82B8;
-	--secondary: #B8B0DE;
 	--dot-neutral: #4E4580;
 	--sep: #5B4F92;
 	--divider: #4A3F7A;
@@ -184,7 +179,6 @@ const PARTY = `
 	--success: #3BD69E;
 	--danger: #FF8FA8;
 	--pass-bg: #17352C;
-	--notrun: #3A3068;
 	--notrun-bar: #4A3F7A;
 	--stage-1: #5CE1E6;
 	--stage-2: #6E64A8;
@@ -201,9 +195,7 @@ const PARTY = `
 	--thumb-border: #2A2250;
 	--thumb-a: #1C1636;
 	--thumb-b: #19132F;
-	--quiet: #948DBF;
 	--dash: #4A3F7A;
-	--chip-border: #5B4F92;
 	--cv-chev: #5B4F92;
 	--st-ev: #8A82B8;
 	--st-target: #2A2250;
@@ -344,7 +336,6 @@ h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line
 .hd-act.hd-inline{display:inline-flex;align-items:center;margin:0 0 0 auto;gap:8px}
 .mode-tip{position:relative;transition:background-color .15s ease,color .15s ease}
 .mode-tip:hover::after,.mode-tip:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;letter-spacing:0;text-transform:none;pointer-events:none;z-index:3}
-.mode-tip:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .th-sw{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:0;border-radius:999px;background:transparent;color:var(--th-sw-icon);cursor:pointer}
 .th-sw:hover{color:var(--ink);background:var(--th-sw-hover-bg)}
 .th-sw svg{width:14px;height:14px}
@@ -352,7 +343,6 @@ h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line
 :root[data-theme="party"] .th-sw .th-sun{display:block}
 .sh-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:28px;padding:0 11px;gap:5px;border:1px solid var(--pill-border);border-radius:999px;background:var(--pill-bg);color:var(--body);font:500 12px/1 var(--sans);cursor:pointer;transition:color .15s ease,border-color .15s ease}
 .sh-btn:hover{color:var(--ink);border-color:var(--hover-border)}
-.sh-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .sh-btn svg{width:13px;height:13px}
 .sh-btn .sh-ok{display:none}
 .sh-btn.is-copied{color:var(--success)}
@@ -385,7 +375,6 @@ h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line
 .tile{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--tile-shadow);padding:18px 20px;display:flex;flex-direction:column;gap:12px;position:relative;color:inherit;text-decoration:none;transition:border-color .15s ease}
 .tile::after{bottom:calc(100% + 5px);right:10px}
 a.tile:hover{border-color:var(--hover-border);text-decoration:none;color:inherit}
-a.tile:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .tile-arrow{position:absolute;top:16px;right:16px;opacity:0;color:var(--muted);transition:opacity .15s ease}
 a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 .tile-label{font-size:12px;font-weight:500;color:var(--muted)}
@@ -467,7 +456,6 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .ki-dot{color:var(--dot-neutral);margin:0 6px}
 .ki-cnt{color:var(--muted);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--muted) 50%,transparent);text-underline-offset:3px;cursor:pointer;border-radius:2px}
 .ki-cnt:hover,.ki-cnt[aria-expanded="true"]{color:var(--ink);text-decoration-color:currentColor}
-.ki-cnt:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .ki-lc{position:fixed;z-index:60;width:360px;max-width:calc(100vw - 24px);max-height:min(320px,60vh);overflow:auto;box-sizing:border-box;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:10px 12px;display:none;flex-direction:column;font-family:var(--sans);text-align:left}
 .ki-lc.is-open{display:flex}
 .ki-lc-h{font-size:11.5px;font-weight:600;color:var(--faint);padding:2px 2px 6px}
@@ -526,34 +514,27 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .meta .reproduced{color:var(--faint-rate)}
 /* A finding's linked issues end the meta line; a label never wraps away from its number. */
 .meta .f-ki{color:var(--faint-rate);white-space:nowrap}
-.cp-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px -6px -6px auto;align-self:center;position:relative;border:0;padding:0;border-radius:7px;background:transparent;color:var(--cp-rest);cursor:pointer;transition:color .15s ease,background-color .15s ease}
-.card .cp-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
-.card .cp-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
-.cp-btn:hover::after,.cp-btn:focus-visible::after,.cp-btn.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
+.cp-btn,.ln-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px -6px -6px auto;align-self:center;position:relative;border:0;padding:0;border-radius:7px;background:transparent;color:var(--cp-rest);cursor:pointer;transition:color .15s ease,background-color .15s ease}
+.card .cp-btn:hover,.card .ln-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
+.card .cp-btn:focus-visible,.gh-btn:focus-visible,.card .ln-btn:focus-visible,.code-cp:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
+.cp-btn:hover::after,.cp-btn:focus-visible::after,.cp-btn.is-copied::after,.gh-btn:hover::after,.gh-btn:focus-visible::after,.ln-btn:hover::after,.ln-btn:focus-visible::after,.ln-btn.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 .cp-btn .cp-ok{display:none}
 /* File a GitHub issue: sits just left of Copy, the pair pushed right together. */
 .gh-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px 0 -6px auto;align-self:center;position:relative;border-radius:7px;color:var(--cp-rest);text-decoration:none;transition:color .15s ease,background-color .15s ease}
 .gh-btn:last-child{margin-right:-6px}
 .gh-btn+.cp-btn{margin-left:-19px}
 .gh-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
-.gh-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
-.gh-btn:hover::after,.gh-btn:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 .gh-toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,8px);display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;background:var(--toast-bg);color:var(--toast-text);border:1px solid var(--toast-border);font-family:var(--sans);font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;z-index:50}
 .gh-toast.show{opacity:1;transform:translate(-50%,0)}
 .gh-toast svg{color:var(--toast-check)}
 @media (prefers-reduced-motion:reduce){.gh-btn,.gh-toast{transition:none}}
-.cp-btn.is-copied{color:var(--success) !important}
+.cp-btn.is-copied,.ln-btn.is-copied{color:var(--success) !important}
 .cp-btn.is-copied .cp-ok{display:block}
 .cp-btn.is-copied .cp-ico{display:none}
-/* Copy link: last in the row, after Copy prompt. Same look as Copy prompt. */
-.ln-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px -6px -6px auto;align-self:center;position:relative;border:0;padding:0;border-radius:7px;background:transparent;color:var(--cp-rest);cursor:pointer;transition:color .15s ease,background-color .15s ease}
+/* Copy link: last in the row, after Copy prompt, and styled with it above. */
 .cp-btn:has(+.ln-btn){margin-right:0}
 .cp-btn+.ln-btn,.gh-btn+.ln-btn{margin-left:-19px}
-.card .ln-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
-.card .ln-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
-.ln-btn:hover::after,.ln-btn:focus-visible::after,.ln-btn.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 .ln-btn .ln-ok{display:none}
-.ln-btn.is-copied{color:var(--success) !important}
 .ln-btn.is-copied .ln-ok{display:block}
 .ln-btn.is-copied .ln-ico{display:none}
 /* Opened from a shared link: a short ring shows which finding was meant. */
@@ -577,7 +558,6 @@ code.cc:hover{background:var(--code-chip-hover-bg)}
 code.cc:hover::after,code.cc.is-copied::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:5}
 code.cc.is-copied::after{color:var(--success)}
 @media (prefers-reduced-motion:reduce){code.cc{transition:none}}
-.code-cp:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
 .code-cp:hover::after,.code-cp:focus-visible::after,.code-cp.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 .code-cp .cp-ok{display:none}
 .code-cp.is-copied{color:var(--success) !important}
@@ -669,7 +649,6 @@ span.rt-file{color:var(--body)}
 .rt-sep{color:var(--sep)}
 .rt-t{flex:none;min-width:30px;box-sizing:border-box;text-align:center;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;line-height:1}
 .rt-t-tint{padding:3px 5px;border-radius:4px;background:var(--rt-tag-bg);color:var(--rt-tag-ink)}
-.card-prose{font-size:15px;line-height:1.65;color:var(--body)}
 
 /* Coverage */
 /* Filter tabs are labels for hidden radios, which precede the tabs and the
@@ -765,12 +744,10 @@ span.rt-file{color:var(--body)}
 .f-pl li{position:relative}
 .f-pl-p{position:absolute;right:calc(100% + 8px);top:0;font-size:13px;color:var(--faint)}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
-.cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
 /* The screenshot icon supports the check: faint at rest, ink on hover or focus */
 .st-ev{color:var(--st-ev);white-space:nowrap;padding:2px 3px;margin-left:3px;border-radius:4px;cursor:zoom-in;transition:color .15s ease}
 .st-ev svg{width:1.15em;height:1.15em;stroke-width:1.25;vertical-align:-0.245em}
 .st-ev:hover,.st-ev:focus-visible{color:var(--ink) !important;background:none;text-decoration:none}
-.st-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
 /* Steps: action / verify / result */
 .st-v{color:inherit}
@@ -801,7 +778,6 @@ a.st-ev.ev-below .ev-pop{bottom:auto;top:calc(100% + 8px)}
 .folds details{border-bottom:1px solid var(--border);scroll-margin-top:24px}
 .folds summary{display:flex;align-items:center;gap:10px;padding:16px 0;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;list-style:none}
 .folds summary::-webkit-details-marker{display:none}
-.folds summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .folds summary .hint{font-weight:400;color:var(--muted);font-size:13px}
 .chev{flex:none;transition:transform .15s ease;color:var(--muted)}
 .folds details[open] .chev{transform:rotate(90deg)}
@@ -879,7 +855,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .lb-img{position:relative}
 .lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;padding:0;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--lb-nav-bg);border:1px solid var(--lb-nav-border);color:var(--lb-nav-text);box-shadow:0 1px 3px rgba(0,0,0,.14);cursor:pointer}
 .lb-nav[hidden]{display:none}
-.lb-nav:focus-visible{outline:2px solid var(--focus);outline-offset:2px}.lb-prev{left:12px}.lb-next{right:12px}.lb-nav.dis{opacity:.35;pointer-events:none}
+.lb-prev{left:12px}.lb-next{right:12px}.lb-nav.dis{opacity:.35;pointer-events:none}
 .lb-pos{margin:0 -6px 0 auto;align-self:flex-start;line-height:1.5;font-size:14px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
 .lb-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .lb-meta{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -890,12 +866,10 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .lb-file a{font-family:var(--mono)}
 .lb-close{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:999px;background:var(--card);border:1px solid var(--border);color:var(--body);cursor:pointer;transition:border-color .15s ease,color .15s ease}
 .lb-close:hover{border-color:var(--hover-border);color:var(--ink)}
-.lb-close:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
 /* Test files: the name opens the viewer, where Copy and Download live */
 .fn{font-family:var(--mono);font-size:.9em;background:var(--code-bg);padding:1px 5px;border-radius:4px;color:var(--link);text-decoration:none;border-bottom:1px dashed color-mix(in srgb,var(--link) 45%,transparent);cursor:zoom-in}
 .fn:hover{color:var(--link-hover);border-bottom-style:solid;text-decoration:none}
-.fn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .fv-panel{position:relative;width:min(960px,100%);max-height:100%;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;background:var(--card);border:1px solid var(--border);box-shadow:var(--lb-shadow)}
 .fv-h{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;border-bottom:1px solid var(--hairline);background:var(--thead)}
 .fv-n{min-width:0;display:flex;white-space:nowrap;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--ink)}
@@ -927,7 +901,8 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .to-top{position:fixed;right:24px;bottom:24px;z-index:20;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:999px;background:var(--totop-bg);border:1px solid var(--totop-border);color:var(--totop-icon);box-shadow:var(--totop-shadow);text-decoration:none;opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .2s ease,transform .2s ease,border-color .15s ease,color .15s ease}
 .to-top.show{opacity:1;pointer-events:auto;transform:translateY(0)}
 .to-top:hover{border-color:var(--hover-border);color:var(--totop-icon-hover);text-decoration:none}
-.to-top:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* The shared focus ring. Last, so .folds summary still beats .lc>summary and .cv>summary. */
+.mode-tip:focus-visible,.sh-btn:focus-visible,a.tile:focus-visible,.ki-cnt:focus-visible,.st-ev:focus-visible,.folds summary:focus-visible,.lb-nav:focus-visible,.lb-close:focus-visible,.fn:focus-visible,.to-top:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .to-top::after{right:calc(100% + 8px);top:50%;transform:translateY(-50%)}
 
 @media (max-width:820px){

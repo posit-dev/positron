@@ -16,8 +16,8 @@
 // its stats.json and usage.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -43,15 +43,17 @@ const { dependencies } = JSON.parse(readFileSync(join(here, 'package.json'), 'ut
 if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules', name)))) {
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
-const { missingFiles, readRunDir, skillVersion, writeRunPage } = await import('./page/html.mjs');
-const { lintLedgerOnly, splitProblems, untaggedShots } = await import('./lint.mjs');
+const { missingFiles, readRunDir, writeRunPage } = await import('./page/html.mjs');
+const { skillVersion } = await import('./page/page-common.mjs');
+const { lintLedgerOnly, untaggedShots } = await import('./lint/lint-ledger.mjs');
+const { splitProblems } = await import('./lint/lint-rules.mjs');
 const { reportFromJson } = await import('./page/report-json.mjs');
 const { loadIssueRefs } = await import('./known-issues.mjs');
-const { buildStats, readChecks } = await import('./stats.mjs');
+const { buildStats, passStats, readChecks } = await import('./stats.mjs');
 const { ranInCi, reportUsageOnce } = await import('./shared/usage.mjs');
 
 const dir = dirname(resolve(input));
-const { ledger, actionsLog, knownIssues, changeBase, fileExists, readFile } = readRunDir(dir);
+const { ledger, actionsLog, knownIssues, changeBase, fileExists, readFile, listFiles } = readRunDir(dir);
 
 // The ledger alone, while the run is still exploring.
 if (flags.check) {
@@ -59,17 +61,12 @@ if (flags.check) {
 		console.error(`no ledger.md in ${dir}`);
 		process.exit(1);
 	}
-	// Every file saved under files/, so lint can find one the ledger never listed.
-	const root = join(dir, 'files');
-	const listFiles = () => (existsSync(root)
-		? readdirSync(root, { recursive: true }).map(p => join(root, p)).filter(p => statSync(p).isFile()).map(p => relative(dir, p).split('\\').join('/'))
-		: []);
 	const { errors, warnings } = splitProblems(lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog }));
 	if (errors.length) {
-		console.error(`format errors, fix each one and check again:\n${errors.map(p => `  ${p}`).join('\n')}`);
+		console.error(`format errors, fix each one and check again:\n${errors.map(p => `  ${p.text}`).join('\n')}`);
 	}
 	if (warnings.length) {
-		console.error(`format warnings, fix any that are quick:\n${warnings.map(p => `  ${p}`).join('\n')}`);
+		console.error(`format warnings, fix any that are quick:\n${warnings.map(p => `  ${p.text}`).join('\n')}`);
 	}
 	if (!errors.length) {
 		console.log('no format errors');
@@ -88,18 +85,11 @@ const born = statSync(dir).birthtime;
 // run.mjs does, before the page is written, so the page can link them. A
 // replayed CI run keeps the stats CI recorded, and a publish's render records none.
 const passes = json.cost?.passes ?? [];
-const pass = label => passes.find(p => p.label === label);
 const stats = passes.length && !flags.out && !ranInCi(dir) ? buildStats({
 	where: 'local',
 	date: (born.getTime() > 0 ? born : new Date()).toISOString(),
 	version: skillVersion(),
-	model: pass('explore')?.model ?? null,
-	// claude -p's num_turns, or a replayed run's subagent tool_uses.
-	turns: pass('explore')?.turns ?? null,
-	costUsd: passes.every(p => typeof p.costUsd === 'number') ? passes.reduce((sum, p) => sum + p.costUsd, 0) : null,
-	durationMs: passes.reduce((sum, p) => sum + (p.durationMs ?? 0), 0),
-	// Isolation is the one pass whose cost is a choice, so it is kept apart to judge it.
-	isolate: pass('isolate') ? { durationMs: pass('isolate').durationMs, turns: pass('isolate').turns ?? null } : null,
+	...passStats(passes),
 	parsed,
 	checks: readChecks(dir),
 }) : null;

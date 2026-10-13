@@ -5,11 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderReportHtml } from './html.mjs';
 import { reportFromJson } from './report-json.mjs';
-
-// The renders these tests run must not post usage rows.
-process.env.EXPLORATORY_TEST_NO_USAGE = '1';
 
 /** One finding, as report.json writes it. */
 function json() {
@@ -150,19 +146,11 @@ test('a finding from report.json builds the model the page lays out', () => {
 	});
 });
 
-test('the header carries the title, chips, PR link, lead and severity counts', () => {
-	const r = reportFromJson(json());
-	assert.deepEqual(
-		{ title: r.title, chips: r.chips, pr: r.pr, severityCounts: r.severityCounts, findingCount: r.findingCount },
-		{ title: 'Save As', chips: ['mi/save-as', 'abc1234'], pr: { number: 123, url: 'https://github.com/posit-dev/positron/pull/123' }, severityCounts: { major: 0, moderate: 0, minor: 1 }, findingCount: 1 },
-	);
-	assert.match(r.leadHtml, /<strong>The session picker keeps the old name\.<\/strong>/);
-});
-
-test('a PR repo that is not owner/name gets no link', () => {
+test('findings sort by severity, then by number', () => {
 	const j = json();
-	j.header.pr.repo = 'evil.example/x/y';
-	assert.equal(reportFromJson(j).pr, undefined);
+	const at = (n, severity) => ({ ...j.findings[0], n, severity });
+	j.findings = [at(5, 'moderate'), at(2, 'moderate'), at(4, 'minor'), at(1, 'moderate'), at(3, 'major')];
+	assert.deepEqual(reportFromJson(j).findings.map(f => f.n), [3, 1, 2, 5, 4]);
 });
 
 test('a log looked for and not found is a "none found" line, not a log body', () => {
@@ -189,33 +177,4 @@ test('tests carry their level, path and a "new file" note', () => {
 		{ cases: cases.map(c => [c.level, c.path, c.note]), related: related.map(r => [r.level, r.path, r.note]) },
 		{ cases: [['Unit', 'src/a.vitest.ts', 'new file']], related: [['Unit', 'src/b.vitest.ts', 'the URI move']] },
 	);
-});
-
-test('with no ledger, coverage comes from the report\'s scenarios', () => {
-	const { coverage } = reportFromJson(json());
-	assert.deepEqual(
-		{ exercised: coverage.exercised.map(s => [s.id, s.status, s.findings]), notExercised: coverage.notExercised.map(s => [s.id, s.reason]) },
-		{ exercised: [['S01', 'fail', [1]]], notExercised: [['S02', 'no web build']] },
-	);
-});
-
-test('the pipeline\'s cost passes reach the Run tile, with a total only when each has a cost', () => {
-	const cost = passes => reportFromJson({ ...json(), cost: { passes } }).cost;
-	assert.deepEqual(cost([
-		{ label: 'explore', model: 'claude-opus-5-5', costUsd: 3.2, turns: 40, maxTurns: 200, durationMs: 1500000 },
-		{ label: 'verify', model: 'sonnet', costUsd: 0.5, turns: 4, durationMs: 120000 },
-	]), {
-		passes: [
-			{ label: 'explore', model: 'Opus 5.5', cost: '$3.20', turns: '40', maxTurns: '200', duration: '25m' },
-			{ label: 'verify', model: 'Sonnet', cost: '$0.50', turns: '4', maxTurns: null, duration: '2m' },
-		],
-		total: '$3.70',
-		duration: '27m',
-	});
-	assert.equal(cost([{ label: 'explore', model: 'opus', costUsd: null, durationMs: 60000 }, { label: 'edit', model: 'sonnet', costUsd: 0.1, durationMs: 1000 }]).total, null);
-});
-
-test('a report.json model renders through the page', () => {
-	const html = renderReportHtml(reportFromJson(json()));
-	assert.match(html, /<h2 class="card-title"[^>]*>Session picker shows old name<\/h2>/);
 });

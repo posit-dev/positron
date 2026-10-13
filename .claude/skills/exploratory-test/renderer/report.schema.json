@@ -2,11 +2,7 @@
 	"type": "object",
 	"required": [
 		"header",
-		"findings",
-		"scenarios",
-		"logs",
-		"files",
-		"environment"
+		"findings"
 	],
 	"$defs": {
 		"md": {
@@ -16,28 +12,6 @@
 		"int": {
 			"type": "integer",
 			"minimum": 1
-		},
-		"issueRef": {
-			"type": "object",
-			"required": [
-				"n",
-				"kind"
-			],
-			"properties": {
-				"n": {
-					"$ref": "#/$defs/int"
-				},
-				"kind": {
-					"enum": [
-						"observed",
-						"back",
-						"held",
-						"failed",
-						"skipped",
-						"not-exercised"
-					]
-				}
-			}
 		},
 		"step": {
 			"type": "object",
@@ -424,108 +398,6 @@
 				}
 			}
 		},
-		"scenarios": {
-			"type": "array",
-			"items": {
-				"type": "object",
-				"required": [
-					"id",
-					"name",
-					"status"
-				],
-				"properties": {
-					"id": {
-						"type": "string",
-						"pattern": "^[SN]\\d+$"
-					},
-					"name": {
-						"$ref": "#/$defs/md"
-					},
-					"status": {
-						"enum": [
-							"pass",
-							"fail",
-							"not-run"
-						]
-					},
-					"findings": {
-						"type": "array",
-						"items": {
-							"$ref": "#/$defs/int"
-						}
-					},
-					"result": {
-						"$ref": "#/$defs/md"
-					},
-					"reason": {
-						"$ref": "#/$defs/md"
-					},
-					"issues": {
-						"type": "array",
-						"items": {
-							"$ref": "#/$defs/issueRef"
-						}
-					}
-				}
-			}
-		},
-		"logs": {
-			"type": "array",
-			"items": {
-				"type": "object",
-				"required": [
-					"path"
-				],
-				"properties": {
-					"path": {
-						"type": "string"
-					},
-					"source": {
-						"$ref": "#/$defs/md"
-					},
-					"note": {
-						"$ref": "#/$defs/md"
-					}
-				}
-			}
-		},
-		"files": {
-			"type": "array",
-			"items": {
-				"type": "object",
-				"required": [
-					"path"
-				],
-				"properties": {
-					"path": {
-						"type": "string"
-					},
-					"desc": {
-						"$ref": "#/$defs/md"
-					},
-					"uses": {
-						"$ref": "#/$defs/md"
-					}
-				}
-			}
-		},
-		"environment": {
-			"type": "object",
-			"properties": {
-				"positron": {
-					"type": "string"
-				},
-				"os": {
-					"type": "string"
-				},
-				"kernels": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					}
-				}
-			}
-		},
 		"verification": {
 			"type": "object",
 			"required": [
@@ -538,9 +410,39 @@
 				},
 				"text": {
 					"$ref": "#/$defs/md"
+				},
+				"related": {
+					"type": "array",
+					"items": {
+						"type": "integer"
+					},
+					"description": "The findings whose fix likely belongs to the change under test."
+				},
+				"linked": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"required": [
+							"issue",
+							"severity"
+						],
+						"properties": {
+							"issue": {
+								"type": "integer"
+							},
+							"severity": {
+								"enum": [
+									"major",
+									"moderate",
+									"minor"
+								]
+							}
+						}
+					},
+					"description": "The verifier's severity for each linked issue the run ran into."
 				}
 			},
-			"description": "The verifier's reply, as the page's Verification details show it. Written by the pipeline after the explorer; the explorer leaves it out."
+			"description": "The verifier's notes, as the page's Verification details show them, and what it said about the change and linked issues. Written by the pipeline after the explorer; the explorer leaves it out."
 		},
 		"cost": {
 			"type": "object",

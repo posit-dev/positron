@@ -6,19 +6,18 @@
 // Drives the Claude Agent SDK to run the exploratory-test skill against a
 // Positron instance already launched and attached by the workflow.
 
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { missingFiles, readRunDir, skillVersion } from '../../../.claude/skills/exploratory-test/renderer/page/html.mjs';
-import { settleReportJson } from '../../../.claude/skills/exploratory-test/renderer/lint-json.mjs';
-import { reportFromJson, writeJsonPage } from '../../../.claude/skills/exploratory-test/renderer/page/report-json.mjs';
+import { missingFiles, readRunDir, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/page/html.mjs';
+import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
+import { reportFromJson } from '../../../.claude/skills/exploratory-test/renderer/page/report-json.mjs';
 import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/agents/finish.mjs';
-import { finishRun } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
+import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TIME_UP, readEnvironment } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
+import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
-import { buildTaskLine, describeChange, costJson, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, describeChange, gitIn, mustEnv, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -50,8 +49,6 @@ const VERIFY_ENABLED = process.env.VERIFY !== 'false';
 const ISOLATE_MAX_TURNS = parsePosIntEnv('ISOLATE_MAX_TURNS', 100, process.env.ISOLATE_MAX_TURNS);
 // Off for teams whose AI policy does not allow the report's copy-for-agent prompts.
 const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
-// Each later pass bills separately from the explore pass, summed over its sessions.
-const passCosts = { verify: buildCostRecord(null), isolate: buildCostRecord(null), edit: buildCostRecord(null), retry: buildCostRecord(null) };
 const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
@@ -61,15 +58,6 @@ const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || undefined;
 // Fails fast with a named error instead of letting the SDK surface an opaque
 // auth error when a 1Password resolution comes back empty.
 mustEnv('ANTHROPIC_API_KEY');
-
-function mustEnv(name) {
-	const v = process.env[name];
-	if (!v) {
-		console.error(`Missing required env var: ${name}`);
-		process.exit(1);
-	}
-	return v;
-}
 
 // Shots stay relative (`shots/<file>`): index.html and report.json are
 // published beside shots/, so they resolve without a base URL in the prompt.
@@ -173,17 +161,11 @@ async function runAgent(step) {
 		prompt: step.role === 'isolate' ? step.prompt + ISOLATE_CI_TAIL : step.prompt,
 		allowedTools: step.tools, maxTurns, cwd: step.cwd, resume: step.resume,
 		timeLimit: step.timeLimitMinutes ?? null, timeUpMessage: step.timeUpMessage,
-		...(step.role === 'verify' ? { effort: 'medium' } : {}),
+		// The verifier and editor make few calls, so each is logged in full for
+		// whoever audits the run; the isolator drives the app, like the explorer.
+		fullLog: step.role !== 'isolate',
 	});
-	addCost(step.role, result.cost);
-	return { text: result.finalText, durationMs: result.cost.duration_ms, turns: result.cost.num_turns, costUsd: result.cost.total_cost_usd, sessionId: result.sessionId };
-}
-
-/** Adds a session's cost to its pass's. */
-function addCost(role, record) {
-	const sum = passCosts[role];
-	const add = key => (sum[key] ?? 0) + (record[key] ?? 0) || null;
-	passCosts[role] = { ...record, total_cost_usd: add('total_cost_usd'), num_turns: add('num_turns'), duration_ms: add('duration_ms') };
+	return { text: result.finalText, model: result.cost.model, durationMs: result.cost.duration_ms, turns: result.cost.num_turns, costUsd: result.cost.total_cost_usd, sessionId: result.sessionId };
 }
 
 async function main() {
@@ -196,7 +178,7 @@ async function main() {
 	const knownBrief = buildKnownIssuesBrief(knownIssues);
 
 	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
-	const git = args => execFileSync('git', ['-C', REPO_ROOT, '-c', 'color.ui=never', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+	const git = gitIn(REPO_ROOT);
 	const { stat, upstream } = describeChange({ git, base: BASE_SHA, head: HEAD_SHA });
 
 	const userPrompt = [
@@ -222,7 +204,7 @@ async function main() {
 		buildTaskLine(FOCUS, upstream),
 		'',
 		...(knownBrief ? [knownBrief, ''] : []),
-		'**The build is already the branch.** `out/` was compiled in this job from the ref under test, and the restored caches hold npm dependencies, built-ins and Playwright, never compiled output. Skip the skill\'s build-vs-branch grep and say in Run details that CI compiled it.',
+		environmentBrief(environmentLines(readEnvironment(REPO_ROOT))),
 		'',
 		'Write the report to `report.json` in the run directory. Return a two or three line summary and nothing else.',
 	].join('\n');
@@ -238,6 +220,7 @@ async function main() {
 		maxTurns: MAX_TURNS,
 		cwd: REPO_ROOT,
 		timeLimit: TIME_LIMIT,
+		timeUpMessage: EXPLORE_TIME_UP,
 		effort: EFFORT,
 		// Summarized display returns the notes the model writes between tool
 		// calls, which otherwise arrive as empty thinking blocks. gate.mjs and the
@@ -255,32 +238,18 @@ async function main() {
 
 	// The agent was told to write report.json itself. A report with problems
 	// gets one retry in the same session.
-	const resume = session.sessionId ? async prompt => {
-		const again = await runSession({ prompt, systemPrompt, allowedTools: ['Bash', 'Read', 'Glob', 'Grep'], model: MODEL, maxTurns: 30, cwd: REPO_ROOT, resume: session.sessionId, claudeCodePath: CLAUDE_CODE_PATH, label: 'json-retry' });
-		addCost('retry', again.cost);
-	} : null;
-	let report = await settleReportJson(WORK_DIR, { resume, log: line => console.log(line) });
-	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
-	if (report && /^\d+$/.test(process.env.PR_NUMBER ?? '') && process.env.GITHUB_REPOSITORY) {
-		report = { ...report, header: { ...report.header, pr: { repo: process.env.GITHUB_REPOSITORY, number: Number(process.env.PR_NUMBER) } } };
-		writeFileSync(join(WORK_DIR, 'report.json'), `${JSON.stringify(report, null, '\t')}\n`);
-	}
-
-	// Lazy: passCosts is not filled in until the verification below has run, and
-	// rendering this eagerly left the verify line and the total out of every
-	// footer. In the order they ran; the gate bills in its own job.
-	const billed = () => [
-		{ label: 'explore', main: true, cost },
-		{ label: 'verify', cost: passCosts.verify },
-		{ label: 'isolate', cost: passCosts.isolate },
-		{ label: 'edit', cost: passCosts.edit },
-		{ label: 'json retry', cost: passCosts.retry },
-	];
-	const footer = () => renderCostFooter(billed(), MAX_TURNS);
+	const explored = { model: cost.model, costUsd: cost.total_cost_usd, turns: cost.num_turns, maxTurns: MAX_TURNS, durationMs: cost.duration_ms };
+	const pr = /^\d+$/.test(process.env.PR_NUMBER ?? '') && process.env.GITHUB_REPOSITORY ? { pr: { repo: process.env.GITHUB_REPOSITORY, number: Number(process.env.PR_NUMBER) } } : {};
+	const report = await completeRun(WORK_DIR, explored, {
+		repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL,
+		branchCheck: `CI compiled \`out/\` in this job from the ref under test (head \`${HEAD_SHA.slice(0, 10)}\`).`,
+		header: pr,
+		log: line => console.log(`[pipeline] ${line}`),
+	});
+	// The explorer's alone when there is no report to carry the rest.
+	const passes = report?.cost.passes ?? costPasses(explored, []);
+	const footer = () => renderCostFooter(passes);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
-	// Read by the workflow to choose the final reaction and the PR comment.
-	// Written before anything below can exit, so a run with no report still
-	// says why.
 	if (process.env.GITHUB_OUTPUT) {
 		appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${runOutcome({ report, numTurns: cost.num_turns, maxTurns: MAX_TURNS, timedOut })}\n`);
 	}
@@ -289,22 +258,13 @@ async function main() {
 		console.log(nearCap);
 	}
 
-	// One line per run that GitHub keeps for 90 days, after the artifact is
-	// gone: stats.mjs reads it back to compare skill versions. Written before
-	// the page, which links stats.json from Run details.
 	const recordStats = parsed => {
 		const stats = buildStats({
 			where: 'ci',
 			date: STARTED_AT.toISOString(),
 			run: process.env.GITHUB_RUN_ID,
 			version: skillVersion(),
-			model: cost.model,
-			turns: cost.num_turns,
-			maxTurns: MAX_TURNS,
-			costUsd: [cost, ...Object.values(passCosts)].reduce((sum, c) => sum + (c.total_cost_usd ?? 0), 0) || null,
-			durationMs: [cost, ...Object.values(passCosts)].reduce((sum, c) => sum + (c.duration_ms ?? 0), 0) || null,
-			// Isolation is the one pass whose cost is a choice, so it is kept apart to judge it.
-			isolate: passCosts.isolate.duration_ms ? { durationMs: passCosts.isolate.duration_ms, turns: passCosts.isolate.num_turns } : null,
+			...passStats(passes),
 			parsed,
 			checks: readChecks(WORK_DIR),
 			timeLimit: TIME_LIMIT ? { minutes: TIME_LIMIT, reached: timeWasUp, stopped: timedOut } : null,
@@ -313,22 +273,15 @@ async function main() {
 		console.log(`[exploratory] stats: ${JSON.stringify(stats)}`);
 	};
 
-	// The job summary is a signpost: the verdict, and where to read the report.
 	let summary;
 	if (report) {
-		// Annotation is best effort and never removes a finding, because a wrong
-		// FALSE POSITIVE that deleted a real finding would be invisible to everyone.
-		await finishRun(WORK_DIR, { repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL, log: line => console.log(`[pipeline] ${line}`) });
-		// The passes edited report.json; it keeps what each one cost, for the Run tile.
-		report = { ...JSON.parse(readFileSync(join(WORK_DIR, 'report.json'), 'utf8')), cost: costJson(billed(), MAX_TURNS) };
-		writeFileSync(join(WORK_DIR, 'report.json'), `${JSON.stringify(report, null, '\t')}\n`);
 		// Read after the pipeline, which writes change-base.json.
 		const run = readRunDir(WORK_DIR);
 		const parsed = reportFromJson(report, { ledger: run.ledger });
 		recordStats(parsed);
 		// index.html is what the published run directory's URL already points at.
 		try {
-			await writeJsonPage(WORK_DIR, report, { agentPrompts: AGENT_PROMPTS, base: REPORT_BASE_URL || WORK_DIR, diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`, startedAt: STARTED_AT });
+			await writeRunPage(join(WORK_DIR, 'index.html'), parsed, { ...run, skillVersion: skillVersion(), agentPrompts: AGENT_PROMPTS, base: REPORT_BASE_URL || WORK_DIR, diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`, startedAt: STARTED_AT });
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const { logs, files } = missingFiles(parsed, run.fileExists);
 			const missing = [...logs, ...files];

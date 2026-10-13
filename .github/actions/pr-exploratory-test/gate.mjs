@@ -7,10 +7,9 @@
 // compile, an Xvfb, a launch and a Playwright attach; a change this pass would
 // decline should not pay for any of it.
 
-import { query } from '@anthropic-ai/claude-agent-sdk';
-import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
-import { buildCostRecord, describeChange, ENVIRONMENT, isProductPath, parsePosIntEnv, parseGate, renderPrBody } from './lib.mjs';
+import { describeChange, ENVIRONMENT, gitIn, isProductPath, mustEnv, parsePosIntEnv, parseGate, renderPrBody } from './lib.mjs';
+import { runSession } from './session.mjs';
 
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const BASE_SHA = mustEnv('BASE_SHA');
@@ -21,15 +20,6 @@ const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || undefined;
 const GITHUB_OUTPUT = process.env.GITHUB_OUTPUT;
 const PR_BODY_FILE = process.env.PR_BODY_FILE || '';
 mustEnv('ANTHROPIC_API_KEY');
-
-function mustEnv(name) {
-	const v = process.env[name];
-	if (!v) {
-		console.error(`Missing required env var: ${name}`);
-		process.exit(1);
-	}
-	return v;
-}
 
 function emit(testable, reason) {
 	console.log(`[gate] testable=${testable}${reason ? ` reason=${reason}` : ''}`);
@@ -52,7 +42,7 @@ function emit(testable, reason) {
 async function main() {
 	// Free, and not up to the model: a diff with no product file in it has
 	// nothing to explore.
-	const git = args => execFileSync('git', ['-C', REPO_ROOT, '-c', 'color.ui=never', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+	const git = gitIn(REPO_ROOT);
 	const { entries, stat, upstream } = describeChange({ git, base: BASE_SHA, head: HEAD_SHA });
 	const files = entries.map(e => e.path);
 	if (files.length && !files.some(isProductPath)) {
@@ -109,33 +99,14 @@ async function main() {
 		'A bail-out has to survive someone reading the file list above it, so name what you are declining on. If any file outside `.github/` and `.claude/` changes behavior a user could see, the answer is TESTABLE.',
 	].join('\n');
 
-	const chunks = [];
-	for await (const message of query({
-		prompt,
-		options: {
-			model: GATE_MODEL,
-			cwd: REPO_ROOT,
-			allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
-			maxTurns: GATE_MAX_TURNS,
-			thinking: { type: 'disabled' },
-			stderr: data => process.stderr.write(`[gate stderr] ${data}`),
-			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
-		},
-	})) {
-		if (message.type === 'assistant') {
-			const text = (message.message?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-			if (text) {
-				chunks.push(text);
-			}
-		} else if (message.type === 'result') {
-			const cost = buildCostRecord(message);
-			console.log(`[gate] result: ${JSON.stringify(cost)}`);
-			if (GITHUB_OUTPUT && typeof cost.total_cost_usd === 'number') {
-				appendFileSync(GITHUB_OUTPUT, `cost=${cost.total_cost_usd.toFixed(2)}\nturns=${cost.num_turns}\n`);
-			}
-		}
+	const { texts, cost } = await runSession({
+		prompt, model: GATE_MODEL, cwd: REPO_ROOT, allowedTools: ['Bash', 'Read', 'Glob', 'Grep'], maxTurns: GATE_MAX_TURNS,
+		thinking: { type: 'disabled' }, claudeCodePath: CLAUDE_CODE_PATH, label: 'gate',
+	});
+	if (GITHUB_OUTPUT && typeof cost.total_cost_usd === 'number') {
+		appendFileSync(GITHUB_OUTPUT, `cost=${cost.total_cost_usd.toFixed(2)}\nturns=${cost.num_turns}\n`);
 	}
-	const gate = parseGate(chunks.join('\n'));
+	const gate = parseGate(texts.join('\n'));
 	// Fails open: an unparseable answer, a missing line or a refusal to commit
 	// all mean explore anyway. A gate whose own bugs skip runs is worse than none.
 	if (gate && !gate.testable) {

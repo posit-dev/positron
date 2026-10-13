@@ -5,10 +5,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { reportUsage, reportUsageOnce } from './usage.mjs';
+import { withTmpDir } from './tmp-dirs.mjs';
 
 const ROW = { email: 'a@posit.co', event: 'finished', runId: '20261001T100000', stats: { where: 'local', turns: 3 } };
 
@@ -37,30 +37,20 @@ test('reportUsage swallows network errors and timeouts', async () => {
 	assert.equal(await reportUsage(ROW, { fetch: hang, env: {}, timeoutMs: 20 }), false);
 });
 
-test('reportUsageOnce sends one row per run, and retries a send that failed', async () => {
-	const dir = mkdtempSync(join(tmpdir(), 'usage-'));
-	try {
-		let calls = 0;
-		let ok = false;
-		const fetch = async () => { calls++; return { ok }; };
-		assert.equal(await reportUsageOnce(dir, ROW, { fetch, env: {} }), false);
-		ok = true;
-		assert.equal(await reportUsageOnce(dir, ROW, { fetch, env: {} }), true);
-		assert.equal(await reportUsageOnce(dir, ROW, { fetch, env: {} }), false);
-		assert.equal(calls, 2);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+test('reportUsageOnce sends one row per run, and retries a send that failed', () => withTmpDir('usage-', async dir => {
+	let calls = 0;
+	let ok = false;
+	const fetch = async () => { calls++; return { ok }; };
+	assert.equal(await reportUsageOnce(dir, ROW, { fetch, env: {} }), false);
+	ok = true;
+	assert.equal(await reportUsageOnce(dir, ROW, { fetch, env: {} }), true);
+	assert.equal(await reportUsageOnce(dir, ROW, { fetch, env: {} }), false);
+	assert.equal(calls, 2);
+}));
 
-test('reportUsageOnce sends nothing for a CI run, which a local render can only be replaying', async () => {
-	const dir = mkdtempSync(join(tmpdir(), 'usage-'));
-	try {
-		writeFileSync(join(dir, 'cost.json'), '{}');
-		let calls = 0;
-		assert.equal(await reportUsageOnce(dir, ROW, { fetch: async () => { calls++; return { ok: true }; }, env: {} }), false);
-		assert.equal(calls, 0);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+test('reportUsageOnce sends nothing for a CI run, which a local render can only be replaying', () => withTmpDir('usage-', async dir => {
+	writeFileSync(join(dir, 'cost.json'), '{}');
+	let calls = 0;
+	assert.equal(await reportUsageOnce(dir, ROW, { fetch: async () => { calls++; return { ok: true }; }, env: {} }), false);
+	assert.equal(calls, 0);
+}));

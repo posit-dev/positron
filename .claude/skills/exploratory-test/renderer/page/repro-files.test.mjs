@@ -5,16 +5,14 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseLedger } from '../report-parse.mjs';
+import { parseLedger } from '../shared/ledger.mjs';
 import { renderReportHtml } from './html.mjs';
 import { formatProblems } from '../lint-json.mjs';
 import { reportFromJson } from './report-json.mjs';
 import { PREVIEW_LINES, EMBED_BYTES, findFile } from './repro-files.mjs';
+import { withLogsRun } from '../shared/tmp-dirs.mjs';
 
 // The renders these tests spawn must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
@@ -165,7 +163,7 @@ test('files: nothing about files renders when the ledger lists none', () => {
 /** The fixture's lint lines about files, with the files it saved on disk. */
 function fileProblems(report, ledger, { exists = p => Boolean(readFixture(p)), list = () => ['files/slow.py'] } = {}) {
 	return formatProblems(report, ledger, { fileExists: exists, listFiles: list })
-		.filter(p => /files\/|not saved/.test(p));
+		.map(p => p.text).filter(p => /files\/|not saved/.test(p));
 }
 
 test('lint: the fixture saves and lists every file it names', () => {
@@ -224,23 +222,18 @@ test('lint: a drive-positron helper a precondition names is not a test file', ()
 	]);
 });
 
-test('files: render.mjs fails the run when a listed file was not saved', () => {
-	const dir = mkdtempSync(join(tmpdir(), 'files-run-'));
-	cpSync(fileURLToPath(DIR), dir, { recursive: true });
-	const render = fileURLToPath(new URL('../render.mjs', import.meta.url));
-	const run = (...args) => spawnSync(process.execPath, [render, ...args], { encoding: 'utf8' });
-	assert.equal(run(join(dir, 'report.json')).status, 0);
+test('files: render.mjs fails the run when a listed file was not saved', () => withLogsRun(({ dir, report, render }) => {
+	assert.equal(render(report).status, 0);
 	rmSync(join(dir, 'files', 'slow.py'));
-	const failed = run(join(dir, 'report.json'));
+	const failed = render(report);
 	assert.equal(failed.status, 1);
 	assert.match(failed.stderr, /missing test files, listed in files but not beside the report:\n {2}files\/slow\.py/);
 	// A saved file the ledger never listed is a lint line, not a failure.
 	writeFileSync(join(dir, 'files', 'slow.py'), SLOW);
 	writeFileSync(join(dir, 'files', 'stray.py'), 'x = 1\n');
-	const stray = run('--check', join(dir, 'ledger.md'));
+	const stray = render('--check', join(dir, 'ledger.md'));
 	assert.match(stray.stderr, /files\/stray\.py is saved but not listed in ## Files/);
-	rmSync(dir, { recursive: true, force: true });
-});
+}));
 
 const NOTEBOOK = Buffer.from(JSON.stringify({
 	cells: [

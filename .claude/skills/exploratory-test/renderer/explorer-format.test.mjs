@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { schemaProblems } from './lint-json.mjs';
 import { reportFromJson } from './page/report-json.mjs';
-import { parseLedger } from './report-parse.mjs';
+import { parseLedger } from './shared/ledger.mjs';
 
 const EXPLORER = readFileSync(new URL('../explorer.md', import.meta.url), 'utf8');
 

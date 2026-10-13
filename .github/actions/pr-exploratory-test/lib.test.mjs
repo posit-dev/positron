@@ -5,7 +5,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, buildCostRecord, costJson, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, timeUpMessage, WRAP_UP_MINUTES, renderPrComment, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
+import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
+import { EXPLORE_TIME_UP } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 
 test('buildCostRecord extracts the fields the spec names', () => {
 	const record = buildCostRecord({
@@ -42,14 +43,14 @@ test('buildCostRecord tolerates a result message missing usage', () => {
 });
 
 test('renderCostFooter reports cost, turns against the cap, and wall clock', () => {
-	const footer = renderCostFooter([{ label: 'explore', main: true, cost: { total_cost_usd: 1.2, num_turns: 87, duration_ms: 1500000 } }], 200);
+	const footer = renderCostFooter([{ label: 'explore', maxTurns: 200, costUsd: 1.2, turns: 87, durationMs: 1500000 }]);
 	assert.match(footer, /\$1\.20/);
 	assert.match(footer, /87\/200 turns/);
 	assert.match(footer, /25m/);
 });
 
 test('renderCostFooter degrades gracefully with no result message', () => {
-	const footer = renderCostFooter([{ label: 'explore', main: true, cost: { total_cost_usd: null, num_turns: null, duration_ms: null } }], 200);
+	const footer = renderCostFooter([{ label: 'explore', maxTurns: 200, costUsd: null, turns: null, durationMs: null }]);
 	assert.match(footer, /unknown/);
 });
 
@@ -114,10 +115,10 @@ test('parseGate returns null when it cannot tell, so the run proceeds', () => {
 
 test('renderCostFooter renders passes in the order they ran, then a total', () => {
 	const footer = renderCostFooter([
-		{ label: 'gate', cost: { total_cost_usd: 0.01, num_turns: 3 } },
-		{ label: 'explore', main: true, cost: { total_cost_usd: 2.52, num_turns: 67, duration_ms: 930000 } },
-		{ label: 'verify', cost: { total_cost_usd: 0.48, num_turns: 24 } },
-	], 200);
+		{ label: 'gate', costUsd: 0.01, turns: 3 },
+		{ label: 'explore', maxTurns: 200, costUsd: 2.52, turns: 67, durationMs: 930000 },
+		{ label: 'verify', costUsd: 0.48, turns: 24 },
+	]);
 	const lines = footer.split('\n');
 	assert.match(lines[0], /gate: \$0\.01 \| 3 turns/);
 	assert.match(lines[1], /explore: \$2\.52 \| 67\/200 turns \| 16m/);
@@ -128,10 +129,10 @@ test('renderCostFooter renders passes in the order they ran, then a total', () =
 
 test('renderCostFooter omits passes that did not run, and the total with them', () => {
 	const footer = renderCostFooter([
-		{ label: 'gate', cost: { total_cost_usd: null } },
-		{ label: 'explore', main: true, cost: { total_cost_usd: 2.52, num_turns: 67, duration_ms: 930000 } },
-		{ label: 'verify', cost: { total_cost_usd: null } },
-	], 200);
+		{ label: 'gate', costUsd: null },
+		{ label: 'explore', maxTurns: 200, costUsd: 2.52, turns: 67, durationMs: 930000 },
+		{ label: 'verify', costUsd: null },
+	]);
 	assert.doesNotMatch(footer, /gate|verify|total/);
 	assert.match(footer, /explore: \$2\.52/);
 });
@@ -175,9 +176,9 @@ test('renderStepSummary points at the artifact when nothing was published', () =
 
 test('renderCostFooter totals the time as well as the money', () => {
 	const footer = renderCostFooter([
-		{ label: 'explore', main: true, cost: { total_cost_usd: 0.99, num_turns: 20, duration_ms: 408211 } },
-		{ label: 'verify', cost: { total_cost_usd: 0.31, num_turns: 14, duration_ms: 75643 } },
-	], 200);
+		{ label: 'explore', maxTurns: 200, costUsd: 0.99, turns: 20, durationMs: 408211 },
+		{ label: 'verify', costUsd: 0.31, turns: 14, durationMs: 75643 },
+	]);
 	// 6.8m of exploring and 1.3m of verifying is an 8m run, not a 7m one.
 	assert.match(footer, /_explore: \$0\.99 \| 20\/200 turns \| 7m_/);
 	assert.match(footer, /_verify: \$0\.31 \| 14 turns \| 1m_/);
@@ -186,9 +187,9 @@ test('renderCostFooter totals the time as well as the money', () => {
 
 test('renderCostFooter does not report a pass that ran as taking no time', () => {
 	const footer = renderCostFooter([
-		{ label: 'explore', main: true, cost: { total_cost_usd: 0.10, num_turns: 2, duration_ms: 20000 } },
-		{ label: 'verify', cost: { total_cost_usd: 0.05, num_turns: 1, duration_ms: 9000 } },
-	], 200);
+		{ label: 'explore', maxTurns: 200, costUsd: 0.10, turns: 2, durationMs: 20000 },
+		{ label: 'verify', costUsd: 0.05, turns: 1, durationMs: 9000 },
+	]);
 	// Rounding to minutes turned forty seconds of work into "0m".
 	assert.doesNotMatch(footer, /\b0m\b/);
 	assert.match(footer, /_explore: \$0\.10 \| 2\/200 turns \| <1m_/);
@@ -209,8 +210,8 @@ test('buildCostRecord names the model that billed most', () => {
 
 test('renderCostFooter leads a pass with its model when one is known', () => {
 	const footer = renderCostFooter([
-		{ label: 'explore', main: true, cost: { total_cost_usd: 1.2, num_turns: 25, duration_ms: 360000, model: 'claude-opus-5-5' } },
-	], 200);
+		{ label: 'explore', maxTurns: 200, costUsd: 1.2, turns: 25, durationMs: 360000, model: 'claude-opus-5-5' },
+	]);
 	assert.match(footer, /_explore: Opus 5\.5 \| \$1\.20 \| 25\/200 turns \| 6m_/);
 });
 
@@ -415,21 +416,21 @@ test('runOutcome is timed-out when the hard stop fired, whatever else is true', 
 test('timeUpHook adds nothing before the deadline, then tells every tool result time is up, calling onTimeUp once', async () => {
 	let clock = 1000;
 	let calls = 0;
-	const hook = timeUpHook({ deadline: 2000, minutes: 20, now: () => clock, onTimeUp: () => calls++ });
+	const hook = timeUpHook({ deadline: 2000, message: 'Time is up.', now: () => clock, onTimeUp: () => calls++ });
 	// Told the time left, the agent rushed; before the deadline it hears nothing.
 	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), {});
 	assert.equal(calls, 0);
 	clock = 2000;
-	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: timeUpMessage(20) } });
+	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: 'Time is up.' } });
 	// A failed tool call gets it too, under its own event name.
 	assert.equal((await hook({ hook_event_name: 'PostToolUseFailure' })).hookSpecificOutput.hookEventName, 'PostToolUseFailure');
 	assert.equal(calls, 1);
-	assert.match(timeUpMessage(20), /Stop exploring now\..*Not run.*report\.json/);
-	assert.match(timeUpMessage(20), new RegExp(`stopped in ${WRAP_UP_MINUTES} minutes`));
+	// The explorer's message is the pipeline's, so it must name CI's own hard stop.
+	assert.match(EXPLORE_TIME_UP, new RegExp(`stopped in ${WRAP_UP_MINUTES} minutes`));
 });
 
 test('timeUpHook tells an agent that is not the explorer its own message', async () => {
-	const hook = timeUpHook({ deadline: 0, minutes: 12, message: 'Write isolation.md now.' });
+	const hook = timeUpHook({ deadline: 0, message: 'Write isolation.md now.' });
 	assert.equal((await hook({ hook_event_name: 'PostToolUse' })).hookSpecificOutput.additionalContext, 'Write isolation.md now.');
 });
 
@@ -534,18 +535,4 @@ test('buildTaskLine targets Positron on top of an upstream merge, unless a focus
 	const upstream = { from: '1.134.0', to: '1.138.0' };
 	assert.match(buildTaskLine('', upstream), /merges upstream Code OSS 1\.134\.0 to 1\.138\.0/);
 	assert.match(buildTaskLine('the console', upstream), /asked you to test this/);
-});
-
-test('costJson keeps the passes that ran, with the cap on the explorer\'s', () => {
-	const record = (usd, turns, ms) => ({ model: 'claude-opus-5-5', total_cost_usd: usd, num_turns: turns, duration_ms: ms });
-	assert.deepEqual(costJson([
-		{ label: 'explore', main: true, cost: record(4, 120, 1500000) },
-		{ label: 'verify', cost: record(0.6, 9, 200000) },
-		{ label: 'isolate', cost: { total_cost_usd: null } },
-	], 250), {
-		passes: [
-			{ label: 'explore', model: 'claude-opus-5-5', costUsd: 4, turns: 120, maxTurns: 250, durationMs: 1500000 },
-			{ label: 'verify', model: 'claude-opus-5-5', costUsd: 0.6, turns: 9, durationMs: 200000 },
-		],
-	});
 });
