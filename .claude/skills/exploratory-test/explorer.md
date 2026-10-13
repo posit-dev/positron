@@ -30,14 +30,6 @@ Attach under the Playwright session your brief names, and use that name in
 every command and helper. Other runs on this machine may be driving their own
 instances, and two under one name drive the same window.
 
-When your brief says Positron is already launched with that session attached,
-drive that instance. Launch your own only for a state it cannot reach: a fresh
-or seeded profile, a cold start, a launch flag, or a workspace that must hold
-something before startup. Attach it under your session's name plus a suffix,
-and stop it when you are done with it. When you will not go back to the one
-you were given, collect its logs and stop it first, as "When you stop" says:
-each instance holds gigabytes.
-
 Every tool call is a turn, and every turn re-sends the whole context, so turn
 count drives cost far more than output size. Batch independent steps into one
 call. Capture screenshots freely, since writing a file is free, but reading one
@@ -66,8 +58,8 @@ report.
 
 ## Set up the run directory
 
-Your brief names the run directory, already made. Before you launch, do
-these, skipping any your brief says is done: set `RUN` to it, then:
+Your brief names the run directory, already made. Before you launch, set
+`RUN` to it, then:
 
 - `export DRIVE_POSITRON_LOG="$RUN/actions.log" DRIVE_POSITRON_SHOTS="$RUN/shots"`,
   so every helper logs there and `shot.sh` saves straight into `shots/`. Never

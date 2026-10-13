@@ -57,9 +57,8 @@ It first checks the checkout: at the head SHA, built since the last change to
 `src/`, and with its native binaries (the Python locator, Ark, Kallichore). If
 not, it exits 1 before anything is spent and prints each fix; relay them, and
 pass `--skip-checkout-check` only when the person wants to run anyway. Then it
-makes the run directory and prints it, launches Positron with a Playwright
-session attached for the explorer, as CI does (`--no-launch` leaves that to
-the explorer), and runs each agent as a `claude -p` session: an Opus explorer, a verifier that checks its findings, an
+makes the run directory and prints it, and runs each agent as a
+`claude -p` session: an Opus explorer, a verifier that checks its findings, an
 isolator when one needs controls, and an editor that rewrites their openings
 in plain words, as CI does. It prints the `index.html` path last. Keeping the
 agents out of your session keeps screenshots, snapshots and dead ends out of

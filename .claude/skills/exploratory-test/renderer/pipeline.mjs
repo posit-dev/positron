@@ -9,8 +9,7 @@
 //
 // Local usage, each agent a `claude -p` session:
 //   node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [...]
-//     checks the checkout, launches Positron for the explorer (not with --no-launch),
-//     explores in a new run directory, then runs the rest. The time
+//     checks the checkout, explores in a new run directory, then runs the rest. The time
 //     limit is in the file it prints (write 0 to stop now), outside the run directory
 //     because an explorer that finds its budget rushes.
 //   node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha>
@@ -18,10 +17,10 @@
 //     replays a run from its explorer's report.json; the explorer's figures fill the Run tile.
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, machine, release, type } from 'node:os';
 import { basename, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude, stopAgents, WRAP_UP_MINUTES } from './agents/claude-cli.mjs';
 import { applyEditReply, writeEditPrompt } from './agents/edit.mjs';
@@ -130,55 +129,8 @@ export function sessionName(dir) {
 	return `et-${basename(dir).replace(/^.*-/, '')}`;
 }
 
-/**
- * Launches the explorer's instance and attaches `session` to it, as CI does,
- * so the explorer starts driving rather than setting up. The workspace holds
- * only the run's own venv, linked as `.venv`. `run(file, args)` runs a command
- * in the checkout and returns its stdout, throwing when it fails. Returns
- * `{ pid, cdpPort, runDir, logFile, workspace }`, or `{ error }` when a step
- * failed; an instance launched before that is in instances.jsonl, to be
- * stopped with the rest.
- */
-export function prepareInstance(dir, { repo, session, run }) {
-	const scripts = join(repo, '.claude', 'skills', 'drive-positron', 'scripts');
-	const workspace = join(dir, 'workspace');
-	const step = (what, file, args) => {
-		try {
-			return run(file, args);
-		} catch (err) {
-			throw new Error(`${what} failed: ${String(err?.stderr || err?.message || err).trim().split('\n').pop()}`);
-		}
-	};
-	try {
-		for (const sub of ['tmp', 'shots', 'workspace']) {
-			mkdirSync(join(dir, sub), { recursive: true });
-		}
-		step('saving the listeners', 'bash', [join(scripts, 'listeners.sh'), '--save', join(dir, 'tmp', 'listeners-before.txt')]);
-		step('making the venv', 'bash', [join(scripts, 'run-venv.sh'), join(dir, 'tmp', 'venv')]);
-		symlinkSync(join(dir, 'tmp', 'venv'), join(workspace, '.venv'));
-		const line = step('launching', 'bash', [join(scripts, 'launch.sh'), '--', '--folder-uri', pathToFileURL(workspace).href, '--log', 'debug']).trim().split('\n').pop();
-		appendFileSync(join(dir, 'instances.jsonl'), `${line}\n`);
-		const { pid, cdpPort, runDir, logFile } = JSON.parse(line);
-		step('attaching', join(repo, 'node_modules', '.bin', 'playwright-cli'), [`-s=${session}`, 'attach', `--cdp=http://127.0.0.1:${cdpPort}`]);
-		return { pid, cdpPort, runDir, logFile, workspace };
-	} catch (err) {
-		return { error: String(err?.message ?? err) };
-	}
-}
-
-/** What the explorer is told about the instance the pipeline launched for it. */
-function instanceBrief(dir, instance) {
-	return [
-		'## The running app',
-		'',
-		`Positron is already launched, and the Playwright session \`${sessionName(dir)}\` is attached to it on CDP port ${instance.cdpPort}. \`launch.sh\` printed: pid ${instance.pid}, runDir \`${instance.runDir}\`, logFile \`${instance.logFile}\`, and its line is in \`instances.jsonl\`. It was started with \`--log debug\` on a copy of the dev profile, on the workspace \`${instance.workspace}\`, which holds only the run's own venv (\`tmp/venv\`, linked as \`.venv\`).`,
-		'',
-		'Already done, so skip them under "Set up the run directory": `$RUN`, `$DRIVE_POSITRON_LOG` and `$DRIVE_POSITRON_SHOTS` are set in your environment, and the listeners are saved to `$RUN/tmp/listeners-before.txt`.',
-	].join('\n');
-}
-
-/** The explorer's prompt: explorer.md, the brief, the Environment lines, and what a local run sets up for it, with the instance it launched, if any. */
-export function explorePrompt(dir, brief, environment = [], instance = null) {
+/** The explorer's prompt: explorer.md, the brief, the Environment lines, and what a local run sets up for it. */
+export function explorePrompt(dir, brief, environment = []) {
 	return [
 		readFileSync(EXPLORER_PATH, 'utf8').trim(),
 		'',
@@ -193,7 +145,6 @@ export function explorePrompt(dir, brief, environment = [], instance = null) {
 		'',
 		`Playwright session: \`${sessionName(dir)}\`, also in \`$PW_SESSION\`.`,
 		'',
-		...(instance ? [instanceBrief(dir, instance), ''] : []),
 		`The renderer is \`${RENDER}\`; \`lint-json.mjs\` and \`report.schema.json\` are beside it.`,
 		'',
 		'Write the report to `report.json` in the run directory. Return a two or three line summary and nothing else.',
@@ -206,8 +157,8 @@ export function explorePrompt(dir, brief, environment = [], instance = null) {
  * `{ role, model, durationMs, turns, costUsd }`, or null when it failed. Its
  * time limit is the minutes in `timeLimitPath`, if any.
  */
-export async function explore(dir, { brief, repo, runAgent, model = 'opus', timeLimitPath = null, environment = environmentLines(readEnvironment(repo)), instance = null, log = () => { } }) {
-	const prompt = explorePrompt(dir, brief, environment, instance);
+export async function explore(dir, { brief, repo, runAgent, model = 'opus', timeLimitPath = null, environment = environmentLines(readEnvironment(repo)), log = () => { } }) {
+	const prompt = explorePrompt(dir, brief, environment);
 	writeFileSync(join(dir, 'explore-prompt.md'), prompt);
 	log('new explore agent');
 	try {
@@ -494,7 +445,7 @@ async function main(argv) {
 			repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' },
 			brief: { type: 'string' }, 'time-limit': { type: 'string' },
 			'duration-ms': { type: 'string' }, turns: { type: 'string' }, model: { type: 'string' },
-			'no-agent-prompts': { type: 'boolean' }, 'skip-checkout-check': { type: 'boolean' }, 'no-launch': { type: 'boolean' },
+			'no-agent-prompts': { type: 'boolean' }, 'skip-checkout-check': { type: 'boolean' },
 		},
 	});
 	const [command, given] = positionals;
@@ -502,7 +453,7 @@ async function main(argv) {
 	const replay = given && existsSync(join(given, 'report.json'));
 	const fresh = !given && values.brief && existsSync(values.brief) && (limit === 'none' || /^\d+$/.test(limit));
 	if (command !== 'run' || !(replay || fresh)) {
-		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts] [--skip-checkout-check] [--no-launch]');
+		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts] [--skip-checkout-check]');
 		console.error('       node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]');
 		return 2;
 	}
@@ -538,22 +489,13 @@ async function main(argv) {
 		// The agents and the helpers they run inherit it, so a call that leaves
 		// out the session still drives this run's window.
 		process.env.PW_SESSION = process.env.PLAYWRIGHT_CLI_SESSION = sessionName(dir);
-		Object.assign(process.env, { RUN: dir, DRIVE_POSITRON_LOG: join(dir, 'actions.log'), DRIVE_POSITRON_SHOTS: join(dir, 'shots') });
 		const timeLimitPath = timeLimitFile(dir);
 		if (limit !== 'none') {
 			writeFileSync(timeLimitPath, `${limit}\n`);
 		}
 		console.log(`run directory: ${dir}`);
 		log(limit === 'none' ? 'exploring with no time limit' : `exploring for ${limit} minutes; write other minutes to ${timeLimitPath} to change it, or 0 to stop now`);
-		let instance = null;
-		if (!values['no-launch']) {
-			log('launching Positron for the explorer');
-			const run = (file, args) => execFileSync(file, args, { cwd: values.repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-			const prepared = prepareInstance(dir, { repo: values.repo, session: sessionName(dir), run });
-			instance = prepared.error ? null : prepared;
-			log(prepared.error ? `${prepared.error}; the explorer launches its own` : `launched on CDP port ${prepared.cdpPort}`);
-		}
-		explored = await explore(dir, { brief: readFileSync(values.brief, 'utf8'), repo: values.repo, runAgent, timeLimitPath, instance, log });
+		explored = await explore(dir, { brief: readFileSync(values.brief, 'utf8'), repo: values.repo, runAgent, timeLimitPath, log });
 	}
 	const explorer = explored ?? { model: values.model ?? 'opus', durationMs: number(values['duration-ms']), turns: number(values.turns), costUsd: null };
 	// A replay keeps the check its run recorded.
