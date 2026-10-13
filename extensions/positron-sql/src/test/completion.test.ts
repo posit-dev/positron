@@ -106,6 +106,57 @@ suite('SqlCompletionItemProvider', () => {
 		assert.ok(!keywords.includes('WHERE'), keywords.join(', '));
 	});
 
+	test('an unqualified position offers the aliases the statement gave its tables', async () => {
+		const { list } = await complete('SELECT | FROM orders o JOIN customers c ON true');
+
+		assert.deepStrictEqual(ofKind(list, vscode.CompletionItemKind.Variable), ['o', 'c']);
+		const alias = list.items.find(item => item.label === 'o');
+		assert.strictEqual(alias?.documentation, 'Alias of orders');
+	});
+
+	test('an alias is offered for a table the schema does not know, and without a schema', async () => {
+		const unknown = await complete('SELECT | FROM shipments s');
+		const empty = await complete('SELECT | FROM orders o', { schema: schemaOf() });
+
+		assert.deepStrictEqual(ofKind(unknown.list, vscode.CompletionItemKind.Variable), ['s']);
+		assert.deepStrictEqual(ofKind(empty.list, vscode.CompletionItemKind.Variable), ['o']);
+	});
+
+	test('an alias ranks with the columns, ahead of the tables and keywords', async () => {
+		const { list } = await complete('SELECT o| FROM orders o');
+
+		assert.strictEqual(list.items.find(item => item.label === 'o')?.sortText?.[0], '1');
+	});
+
+	test('a select-list alias is offered where it can be named, and says what it renames', async () => {
+		const { list } = await complete('SELECT total AS t FROM orders ORDER BY |');
+		const alias = list.items.find(item => item.label === 't');
+
+		assert.strictEqual(alias?.kind, vscode.CompletionItemKind.Variable);
+		assert.strictEqual(alias?.documentation, 'Alias of total');
+	});
+
+	test('a derived table\'s alias is offered', async () => {
+		const { list } = await complete('SELECT | FROM (SELECT id FROM orders) x');
+
+		assert.deepStrictEqual(ofKind(list, vscode.CompletionItemKind.Variable), ['x']);
+	});
+
+	test('a CTE is offered with the tables, once', async () => {
+		const before = await complete('WITH recent AS (SELECT * FROM orders) SELECT * FROM |');
+		// Once read it is also the relation the select reads, and is still one word to type.
+		const after = await complete('WITH recent AS (SELECT * FROM orders) SELECT | FROM recent');
+
+		assert.ok(ofKind(before.list, vscode.CompletionItemKind.Class).includes('recent'));
+		assert.deepStrictEqual(after.labels.filter(label => label === 'recent'), ['recent']);
+	});
+
+	test('no alias is offered after a dot', async () => {
+		const { list } = await complete('SELECT o.| FROM orders o');
+
+		assert.deepStrictEqual(ofKind(list, vscode.CompletionItemKind.Variable), []);
+	});
+
 	test('columns are offered from the statement the cursor is in', async () => {
 		const { list } = await complete('SELECT * FROM orders;\nSELECT | FROM customers');
 
