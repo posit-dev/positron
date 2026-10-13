@@ -152,6 +152,12 @@ test('errors are what makes a repro or its evidence wrong; wording, length and a
 	const backdated = [at(24), at(16)].join('\n');
 	assert.equal(split(lintRaw(report(), LEDGER, { fileExists: () => true, actionsLog: backdated })).errors.filter(p => /^actions\.log:/.test(p)).length, 1);
 	assert.equal(split(ledgerLint.lintLedgerOnly(LEDGER, { fileExists: () => true, actionsLog: backdated })).errors.filter(p => /^actions\.log:/.test(p)).length, 1);
+	// With the run's session, a line under another name is a warning, mid-run and at the end; its replay's name is its own.
+	const driven = ['et-ab12', 'et-ab12-replay', 'positron'].map((name, i) => `2026-10-05T04:00:0${i}Z ui.sh -s=${name}: click Run`).join('\n');
+	const sessions = run => split(run).warnings.filter(p => /Playwright session/.test(p));
+	assert.deepEqual(sessions(ledgerLint.lintLedgerOnly(LEDGER, { fileExists: () => true, actionsLog: driven, session: 'et-ab12' })), ['actions.log: line 3 drove Playwright session "positron", not this run\'s "et-ab12" or a name starting "et-ab12-"; another run on this machine may own that window, so check what those lines read, and use your own session from here']);
+	assert.equal(sessions(lintRaw(report(), LEDGER, { fileExists: () => true, actionsLog: driven, session: 'et-ab12' })).length, 1);
+	assert.deepEqual(sessions(ledgerLint.lintLedgerOnly(LEDGER, { fileExists: () => true, actionsLog: driven })), [], 'no session given, as in CI: not checked');
 	// A shot retaken before the next check is a warning; retaken after it, an error.
 	const ledger3 = ['## S01 - x', 'Status: pass', '', 'Steps:', '1. VERIFY a -> PASS', '   Evidence: S01-01.png', '2. VERIFY b -> PASS', '   Evidence: S01-02.png', '3. VERIFY c -> PASS', '   Evidence: S01-03.png', ''].join('\n');
 	const shots = names => names.map((n, i) => `20:00:0${i}Z shot.sh -s=p: screenshot ${n}`).join('\n');

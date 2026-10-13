@@ -1075,6 +1075,8 @@ export function readRunDir(dir) {
 	return {
 		ledger: existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined,
 		actionsLog: existsSync(join(dir, 'actions.log')) ? readFileSync(join(dir, 'actions.log'), 'utf8') : undefined,
+		// Set by a local pipeline run, which names a session per run; CI drives its own.
+		session: process.env.PW_SESSION || undefined,
 		knownIssues: readKnownIssues(dir) ?? undefined,
 		issueRefs: readIssueRefs(dir),
 		changeBase: readJson(join(dir, 'change-base.json'), undefined),

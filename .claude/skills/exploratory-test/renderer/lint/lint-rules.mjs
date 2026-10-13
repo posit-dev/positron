@@ -121,6 +121,7 @@ export const LINT_RULES = {
 	// actions.log and the shots it took
 	'log-unstamped': 'error',
 	'log-backdated': 'error',
+	'log-other-session': 'warning',
 	'shot-name-unlogged': 'error',
 	'shot-retaken-in-place': 'warning',
 	'shot-retaken': 'error',

@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage } from './pipeline.mjs';
+import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage, sessionName } from './pipeline.mjs';
 import { parseSystemLine } from './shared/ledger.mjs';
 import { reportFromJson } from './page/report-json.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
@@ -102,7 +102,7 @@ test('an UNRESOLVED verdict is isolated, then the verifier revises in the same s
 	assert.equal(isolate.timeLimitMinutes, ISOLATE_MINUTES);
 	assert.equal(isolate.timeUpMessage, isolateTimeUpMessage(run.dir));
 	assert.match(isolate.prompt, /^You are narrowing down the cause/);
-	assert.match(isolate.prompt, /Checkout: `\/repo`\nBase: `aaaa1111`\nHead: `bbbb2222`\nReport: `[^`]*\/report\.json`\nFindings: Finding 2\n/);
+	assert.match(isolate.prompt, /Checkout: `\/repo`\nBase: `aaaa1111`\nHead: `bbbb2222`\nReport: `[^`]*\/report\.json`\nPlaywright session: `et-[^`]+-iso`\nFindings: Finding 2\n/);
 	assert.match(isolate.prompt, /needs the same steps with the setting off/);
 	assert.deepEqual({ resume: revise.resume, prompt: revise.prompt }, { resume: 'verify-session', prompt: reviseMessage(run.dir) });
 	assert.equal(run.stops, 2, 'the isolator\'s instances are stopped too');
@@ -230,6 +230,7 @@ test('the explorer gets explorer.md, the brief and its run directory, and keeps 
 	assert.match(step.prompt, /^# Exploratory testing: the explorer/);
 	assert.match(step.prompt, /# Brief\n\nTest the Variables pane\.\n/);
 	assert.ok(step.prompt.includes(`Run directory: \`${dir}\``));
+	assert.ok(step.prompt.includes(`Playwright session: \`${sessionName(dir)}\``));
 	assert.deepEqual({ ...step, prompt: undefined }, { role: 'explore', purpose: 'explore', model: 'opus', prompt: undefined, tools: ['Bash', 'Read', 'Glob', 'Grep'], cwd: '/repo', timeLimitPath: join(dir, 'time-limit'), timeUpMessage: EXPLORE_TIME_UP });
 	assert.deepEqual(pass, { role: 'explore', model: 'opus', durationMs: 600000, turns: 70, costUsd: 3.1 });
 	assert.equal(readFileSync(join(dir, 'explore-reply.md'), 'utf8'), 'Found one.');
@@ -275,6 +276,27 @@ test('a stopped run stops the agent it started', () => withTmpDir('pipeline-stop
 	} finally {
 		run.kill('SIGKILL');
 	}
+}));
+
+test('sessionName is the run directory\'s id, so two runs never share one', () => {
+	assert.equal(sessionName('/state/output/20261013T122204-EAzyXV'), 'et-EAzyXV');
+	assert.notEqual(sessionName('/state/output/20261013T122204-EAzyXV'), sessionName('/state/output/20261013T122204-IJD6rF'));
+});
+
+test('a fresh run gives its agents its own Playwright session in their environment', () => withTmpDir('pipeline-session-', home => {
+	const bin = join(home, 'bin');
+	const seen = join(home, 'env.txt');
+	mkdirSync(bin);
+	// A stand-in for claude that records the session it was given and fails.
+	writeFileSync(join(bin, 'claude'), `#!/bin/sh\ncat > /dev/null\necho "$PW_SESSION $PLAYWRIGHT_CLI_SESSION" > '${seen}'\nexit 1\n`);
+	chmodSync(join(bin, 'claude'), 0o755);
+	writeFileSync(join(home, 'brief.md'), 'Test the Variables pane.\n');
+	const run = spawnSync('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none', '--skip-checkout-check'], {
+		env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, PW_SESSION: 'positron', PLAYWRIGHT_CLI_SESSION: 'positron' }, encoding: 'utf8',
+	});
+	const dir = /run directory: (\S+)/.exec(run.stdout)?.[1];
+	assert.ok(dir, run.stderr);
+	assert.equal(readFileSync(seen, 'utf8').trim(), `${sessionName(dir)} ${sessionName(dir)}`);
 }));
 
 test('checkoutProblems names a checkout off its head, a stale or missing build, and each missing binary, with its fix', () => {

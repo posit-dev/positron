@@ -57,6 +57,7 @@ Then update the rule's row here in the same PR.
 | Point drive-positron's log and shots at the run directory. Never save a shot elsewhere to copy later. | drive-positron's cleanup deletes its own run directory. | Lint (`evidence-shot-missing`): Evidence not in `shots/`. | - | #16245 |
 | Pipe every launch through `tee -a "$RUN/instances.jsonl"`. | An instance left running is stopped after the run. | `stop-instances.sh` stops what is listed. | - | #16355 |
 | Keep helpers and scratch files in `$RUN/tmp/`, and write the run path out in full. | Runs on one machine start together, and a shared helper drives the wrong instance. | Nothing | - | #16421 |
+| Attach under the Playwright session your brief names, and use it in every command and helper. | Runs side by side on one checkout share playwright-cli's sessions: in the 2026-10-13 comparison, two runs under one name drove each other's windows. | Lint (`log-other-session`): an `actions.log` line under another session. Pipeline: sets `PW_SESSION` and `PLAYWRIGHT_CLI_SESSION` for a call that leaves it out. | - | TBD |
 
 ## How to explore
 
@@ -161,7 +162,7 @@ Then update the rule's row here in the same PR.
 
 | Rule | Why | Caught by | Measured | Since |
 |---|---|---|---|---|
-| Don't build. Launch your own instance, tee it to `instances.jsonl`, and write only `isolation.md`. | The checkout is built already. A stray instance outlives the run. | `stop-instances.sh` stops what is listed. | - | #16355 |
+| Don't build. Launch your own instance under the Playwright session your brief names, tee it to `instances.jsonl`, and write only `isolation.md`. | The checkout is built already. A stray instance outlives the run, and one under another run's session drives that run's window. | `stop-instances.sh` stops what is listed. | - | #16355, TBD |
 | Take findings most severe first. Run the control the verifier said was missing before any other. | It is the question the verifier couldn't answer. | Nothing | - | #16421 |
 | Change one thing at a time, and stop at the first control that points to one cause. | Not recorded. | Nothing | - | #16355 |
 | A conclusion is only as wide as its controls. | Not recorded. | Verifier: re-judges with `isolation.md`. | - | #16355 |
@@ -181,10 +182,10 @@ Then update the rule's row here in the same PR.
 
 ## What this shows
 
-There are 94 rules: 64 for the explorer, 18 for the verifier, 6 for the
+There are 95 rules: 65 for the explorer, 18 for the verifier, 6 for the
 isolator and 6 for the editor.
 
-For the explorer, lint, the pipeline or publishing catches 32 rules when
+For the explorer, lint, the pipeline or publishing catches 33 rules when
 they're broken. For 8 more, only the verifier or isolator notices, which adds
 a note to the finding but sends nothing back. The other 24 have nothing behind
 them but the prompt. For 13, no PR or commit says why they exist.

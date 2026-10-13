@@ -26,6 +26,10 @@ Write a helper of your own only for what none of them does, in `$RUN/tmp/`,
 and log its actions with `node <drive-positron>/scripts/dp.ts log` (see its
 `--help`).
 
+Attach under the Playwright session your brief names, and use that name in
+every command and helper. Other runs on this machine may be driving their own
+instances, and two under one name drive the same window.
+
 Every tool call is a turn, and every turn re-sends the whole context, so turn
 count drives cost far more than output size. Batch independent steps into one
 call. Capture screenshots freely, since writing a file is free, but reading one
@@ -505,8 +509,9 @@ as Unproven.
 
 Otherwise a cold replay is for a finding that may depend on built-up state,
 timing or load (a cache, a restored session, a race). Launch a second instance
-beside the first under its own Playwright session (`-s=replay`), do only what
-the finding's preconditions and steps say, then collect its logs and stop it.
+beside the first under its own Playwright session (your session's name plus
+`-replay`), do only what the finding's preconditions and steps say, then
+collect its logs and stop it.
 Keep one replay instance at a time. A window reload is not cold. If the replay
 fails where the others passed, look for what the steps leave out and write it
 in.
