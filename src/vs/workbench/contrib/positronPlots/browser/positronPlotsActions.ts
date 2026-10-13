@@ -65,6 +65,9 @@ abstract class AbstractPlotsAction extends Action2 {
 	abstract executeTargetAction(target: PlotActionTarget, plotsService: IPositronPlotsService,
 		editorService: IEditorService, notificationService: INotificationService): void;
 
+	/** The item each action's picker accepted last, by action id. */
+	private static readonly lastPickedIds = new Map<string, string>();
+
 	async run(accessor: ServicesAccessor, target?: PlotActionTarget): Promise<void> {
 		const plotsService = accessor.get(IPositronPlotsService);
 		const notificationService = accessor.get(INotificationService);
@@ -89,6 +92,11 @@ abstract class AbstractPlotsAction extends Action2 {
 			const quickPicker = this.quickPickService.createQuickPick();
 
 			quickPicker.items = quickPickItems;
+			// Start on the plot this action used last time, if it is still open.
+			const lastPicked = quickPickItems.find(item => item.id === AbstractPlotsAction.lastPickedIds.get(this.desc.id));
+			if (lastPicked) {
+				quickPicker.activeItems = [lastPicked];
+			}
 			quickPicker.ignoreFocusOut = true;
 			quickPicker.hideInput = false;
 			quickPicker.matchOnDescription = true;
@@ -99,6 +107,9 @@ abstract class AbstractPlotsAction extends Action2 {
 				const selectedItem =
 					quickPicker.selectedItems[0];
 				if (selectedItem) {
+					if (selectedItem.id) {
+						AbstractPlotsAction.lastPickedIds.set(this.desc.id, selectedItem.id);
+					}
 					this.executeQuickPick(selectedItem, plotsService, editorService, notificationService);
 				} else {
 					notificationService.info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
