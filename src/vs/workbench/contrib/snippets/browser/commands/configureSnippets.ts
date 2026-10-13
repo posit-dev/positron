@@ -221,8 +221,10 @@ async function createLanguageSnippetFile(pick: ISnippetPick, fileService: IFileS
 	}
 	// --- Start Positron ---
 	let contents: string;
+	// Key on the file name: since 1.138 the pick label is the language name ("R"), not the id.
+	const fileName = basename(pick.filepath);
 
-	if (pick.label === 'r') {
+	if (fileName === 'r.json') {
 		contents = [
 			'{',
 			'\t// Place your snippets for R here. Each snippet is defined under a snippet name and has a prefix, body and ',
@@ -241,7 +243,7 @@ async function createLanguageSnippetFile(pick: ISnippetPick, fileService: IFileS
 			'\t// }',
 			'}'
 		].join('\n');
-	} else if (pick.label === 'python') {
+	} else if (fileName === 'python.json') {
 		contents = [
 			'{',
 			'\t// Place your snippets for Python here. Each snippet is defined under a snippet name and has a prefix, body and ',
