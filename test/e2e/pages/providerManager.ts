@@ -35,6 +35,9 @@ const SAVE_BUTTON = '[data-testid="provider-config-save"]';
 const DEVICE_USER_CODE = '[data-testid="device-user-code"]';
 // Hidden span holding the auth server's verification URL, so the test needn't click "Open Browser to Authorize".
 const DEVICE_VERIFICATION_URL = '[data-testid="device-verification-url"]';
+const SNOWFLAKE_ACCOUNT_INPUT = '[data-testid="provider-custom-account-input"]';
+// The Snowflake form offers connections.toml entries first when it finds any; this switches it to a typed token.
+const SNOWFLAKE_MANUAL_TOGGLE = 'Enter a Bearer token manually instead';
 // The disconnect confirmation replaces the provider list; its buttons are Cancel then the confirm action.
 const CONFIRM_VIEW = 'div.space-y-4:has(> div > h2)';
 
@@ -85,6 +88,17 @@ export class ProviderManager {
 			try {
 				const card = frame.locator(PROVIDER_CARD(provider));
 				if (await this.isConnected(frame, provider)) {
+					return;
+				}
+
+				if (provider === 'snowflake-cortex') {
+					await this.connectSnowflake(frame, options);
+					await expect(card).toContainText('Connected', { timeout });
+					return;
+				}
+				if (provider === 'databricks') {
+					await this.connectDatabricks(frame, options);
+					await expect(card).toContainText('Connected', { timeout });
 					return;
 				}
 
@@ -183,6 +197,58 @@ export class ProviderManager {
 				await this.close();
 			}
 		});
+	}
+
+	/** Connects Snowflake Cortex with an account identifier and a bearer token (programmatic access token). */
+	private async connectSnowflake(frame: FrameLocator, options: LoginModelProviderOptions) {
+		const provider = 'snowflake-cortex';
+		const apiKey = options.apiKey ?? getProviderEnvKey(provider);
+		const account = options.baseUrl ?? process.env[getProviderBaseUrlEnvVarName(provider)];
+		if (!apiKey || !account) {
+			throw new Error(
+				`Snowflake Cortex needs ${getProviderEnvVarName(provider)} and ${getProviderBaseUrlEnvVarName(provider)}, or apiKey and baseUrl in options.`
+			);
+		}
+
+		await this.clickConnect(frame, provider);
+		const apiKeyInput = frame.locator(API_KEY_INPUT);
+		const manualToggle = frame.getByLabel(SNOWFLAKE_MANUAL_TOGGLE);
+		await expect(apiKeyInput.or(manualToggle)).toBeVisible({ timeout: 15000 });
+		if (await manualToggle.isVisible()) {
+			await manualToggle.check();
+		}
+		await fillSecretValue(apiKeyInput, apiKey);
+		await frame.locator(SNOWFLAKE_ACCOUNT_INPUT).fill(account);
+		await frame.getByRole('button', { name: 'Save', exact: true }).click();
+	}
+
+	/** Connects Databricks with a workspace URL and a personal access token. The panel has no OAuth sign-in on Positron yet. */
+	private async connectDatabricks(frame: FrameLocator, options: LoginModelProviderOptions) {
+		const provider = 'databricks';
+		if (options.authMethod === 'oauth') {
+			throw new Error('The provider manager does not offer Databricks OAuth sign-in on Positron yet');
+		}
+		const token = options.apiKey ?? getProviderEnvKey(provider);
+		const workspace = options.baseUrl ?? process.env[getProviderBaseUrlEnvVarName(provider)];
+		if (!token || !workspace) {
+			throw new Error(
+				`Databricks needs ${getProviderEnvVarName(provider)} and ${getProviderBaseUrlEnvVarName(provider)}, or apiKey and baseUrl in options.`
+			);
+		}
+
+		await this.clickConnect(frame, provider);
+		await frame.getByLabel('Authentication method').selectOption('api-key');
+		await frame.getByLabel('Workspace URL').fill(workspace);
+		await fillSecretValue(frame.getByLabel('Personal access token'), token);
+		await frame.getByRole('button', { name: 'Continue', exact: true }).click();
+	}
+
+	/** Not-connected rows offer Connect; rows that need signing in again offer Sign In under the same label. */
+	private async clickConnect(frame: FrameLocator, provider: ModelProvider) {
+		await frame.locator(PROVIDER_CARD(provider))
+			.locator(`${PROVIDER_ACTION('connect', provider)}, ${PROVIDER_ACTION('sign-in', provider)}`)
+			.first()
+			.click();
 	}
 
 	/** Closes the modal editor through its header, which disposes the panel. Escape goes to the focused webview instead. */

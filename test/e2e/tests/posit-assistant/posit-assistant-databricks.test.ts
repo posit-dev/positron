@@ -16,12 +16,6 @@ test.use({
 	extraEnv: { DATABRICKS_TOKEN: undefined, DATABRICKS_HOST: undefined },
 });
 
-// Quarantined: this suite drives the core "Configure LLM Providers" modal, which
-// has been removed along with the `positron.ai` provider-configuration API.
-// Provider sign-in now lives in the Posit Assistant extension's provider-manager
-// webview, which needs its own page object before these can be restored.
-test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager; awaiting a page object for it.');
-
 
 // Databricks is the one provider whose sign-in differs by build, so it gets its own
 // file rather than joining the provider loop in posit-assistant-signin.test.ts:
@@ -45,6 +39,9 @@ test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager;
 test.describe('Posit Assistant - Databricks OAuth', {
 	tag: [tags.ASSISTANT],
 }, () => {
+	// Posit Assistant's AI Providers panel doesn't offer Databricks OAuth on Positron yet.
+	test.skip(true, 'Databricks OAuth sign-in is not available in the AI Providers panel yet');
+
 	test('Sign in with OAuth, send hello, sign out', async function ({ app }) {
 		// The Okta credentials are wired per lane, so skip rather than fail where they
 		// are absent (the same convention the Redshift data-connection tests follow).
