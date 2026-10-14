@@ -97,15 +97,15 @@ test.describe('Data Connections - Redshift', {
 		await dataConnections.save();
 		await dataConnections.expectConnectionInTree(connectionName);
 
-		await test.step('Expand the tree down to tables and views', async () => {
+		await test.step('Expand the tree down to tables', async () => {
 			await dataConnections.expandConnection(connectionName);
 			await dataConnections.expandNode('Databases');
 			await dataConnections.expandNode(detailDatabase, 'database');
 			// The flights database has a single schema, which the tree hides by default, so Tables
-			// and Views sit directly under the database and there is no 'Schemas' or 'public' row to
-			// expand. The Databases group above keeps its row, since dev is there alongside flights.
+			// sits directly under the database and there is no 'Schemas' or 'public' row to expand.
+			// The database has no views either, so the tree shows no 'Views' row. The Databases
+			// group above keeps its row, since dev is there alongside flights.
 			await dataConnections.expandNode('Tables');
-			await dataConnections.expandNode('Views');
 		});
 	});
 
