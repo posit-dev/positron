@@ -12,6 +12,7 @@ import { PositronReactServices } from '../../../../../base/browser/positronReact
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IResourceEditorInput } from '../../../../../platform/editor/common/editor.js';
+import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IEditorPane } from '../../../../common/editor.js';
@@ -22,6 +23,8 @@ import { BackendState, DataExplorerBackendRequest, DataExplorerFrontendEvent, Su
 import { IDataExplorerRpcTransport } from '../../common/dataExplorerRpcTransport.js';
 import { DUCKDB_DATA_EXPLORER_PROVIDER_ID } from '../../common/positronDataExplorerDuckDBBackend.js';
 import { PositronDataExplorerService } from '../../browser/positronDataExplorerService.js';
+import { PositronDataExplorerUri } from '../../common/positronDataExplorerUri.js';
+import { PositronDataExplorerEditorInput } from '../../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput.js';
 import { IPositronDataExplorerInstance } from '../../browser/interfaces/positronDataExplorerInstance.js';
 
 /** Everything unsupported; these tests exercise the instance lifecycle, not grid features. */
@@ -127,9 +130,16 @@ describe('PositronDataExplorerService extension-backed explorers', () => {
 		service.registerRpcProvider(DUCKDB_DATA_EXPLORER_PROVIDER_ID, transport);
 	});
 
-	/** Closes the explorer's editor tab, as PositronDataExplorerEditorInput.dispose does. */
-	function closeTab(instance: IPositronDataExplorerInstance) {
-		instance.dataExplorerClientInstance.dispose();
+	/**
+	 * Closes the dataset's Data Explorer editor tab. The group disposes the tab's editor input when
+	 * it closes, and the input releases the explorer it shows.
+	 */
+	function closeTab(entry: EntryPoint) {
+		new PositronDataExplorerEditorInput(
+			PositronDataExplorerUri.generate(entry.identifier),
+			service,
+			new NullLogService()
+		).dispose();
 	}
 
 	/** Counts the data-update UI events that reach the instance's backend. */
@@ -150,7 +160,7 @@ describe('PositronDataExplorerService extension-backed explorers', () => {
 			const closed = service.getInstance(entry.identifier)!;
 			const disposeSpy = vi.spyOn(closed, 'dispose');
 
-			closeTab(closed);
+			closeTab(entry);
 			const forgottenOnClose = service.getInstance(entry.identifier) === undefined;
 			await entry.open(service);
 			const reopened = service.getInstance(entry.identifier);
@@ -170,9 +180,9 @@ describe('PositronDataExplorerService extension-backed explorers', () => {
 
 		it('tells the provider each time a reopened explorer closes', async () => {
 			await entry.open(service);
-			closeTab(service.getInstance(entry.identifier)!);
+			closeTab(entry);
 			await entry.open(service);
-			closeTab(service.getInstance(entry.identifier)!);
+			closeTab(entry);
 
 			const expected = { providerId: entry.providerId, datasetId: entry.datasetUri };
 			expect(disposedBackends).toEqual([expected, expected]);
@@ -182,7 +192,7 @@ describe('PositronDataExplorerService extension-backed explorers', () => {
 			await entry.open(service);
 			const closed = service.getInstance(entry.identifier)!;
 			const closedUpdates = countDataUpdates(closed);
-			closeTab(closed);
+			closeTab(entry);
 			sendDataUpdate(entry);
 
 			await entry.open(service);
@@ -191,30 +201,20 @@ describe('PositronDataExplorerService extension-backed explorers', () => {
 
 			expect({ closed: closedUpdates.count, reopened: reopenedUpdates.count }).toEqual({ closed: 0, reopened: 1 });
 		});
-	});
 
-	it('focuses an open table rather than building a second explorer for it', async () => {
-		await TABLE.open(service);
-		const first = service.getInstance(TABLE.identifier);
-		await TABLE.open(service);
+		it('keeps the open explorer when it is opened again while its tab is open', async () => {
+			await entry.open(service);
+			const open = service.getInstance(entry.identifier);
+			const openUpdates = countDataUpdates(open!);
+			await entry.open(service);
+			sendDataUpdate(entry);
 
-		expect(service.getInstance(TABLE.identifier) === first).toBe(true);
-	});
-
-	it('keeps a newer explorer for the same dataset when an older one closes', async () => {
-		// openWithDuckDB always builds a new explorer, replacing any registered for the same file.
-		await FILE.open(service);
-		const older = service.getInstance(FILE.identifier)!;
-		await FILE.open(service);
-		const newer = service.getInstance(FILE.identifier)!;
-		const newerUpdates = countDataUpdates(newer);
-
-		closeTab(older);
-		sendDataUpdate(FILE);
-
-		expect({
-			current: service.getInstance(FILE.identifier) === newer,
-			newerUpdates: newerUpdates.count,
-		}).toEqual({ current: true, newerUpdates: 1 });
+			// Compare instances rather than printing them (see above). UI events reaching the open
+			// explorer show that no second backend took over its dataset.
+			expect({
+				kept: service.getInstance(entry.identifier) === open,
+				openUpdates: openUpdates.count,
+			}).toEqual({ kept: true, openUpdates: 1 });
+		});
 	});
 });

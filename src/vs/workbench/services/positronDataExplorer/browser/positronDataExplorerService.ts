@@ -18,7 +18,7 @@ import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService
 import { IPositronDataExplorerService, OpenExtensionBackendPayload } from './interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { DataExplorerBackendRequest, PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { PositronDataExplorerDuckDBBackend } from '../common/positronDataExplorerDuckDBBackend.js';
+import { duckDBClientId, PositronDataExplorerDuckDBBackend } from '../common/positronDataExplorerDuckDBBackend.js';
 import { PositronDataExplorerExtensionBackend } from '../common/positronDataExplorerExtensionBackend.js';
 import { IDataExplorerRpcTransport, IDataExplorerUiEventDto } from '../common/dataExplorerRpcTransport.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
@@ -439,6 +439,15 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 	 * @param filePath Path to file to open with positron-duckdb extension
 	 */
 	async openWithDuckDB(uri: URI) {
+		// If a Data Explorer is already open for the file, keep it rather than building a second
+		// backend that would replace it while its tab still shows it. The editor resolver calls this
+		// again when an open file is reopened, because it looks for an open editor by the file's URI
+		// and the open tab's resource is the Data Explorer URI. Closing the tab releases the
+		// instance (see registerExtensionBackend), so reopening a closed file starts fresh.
+		if (this._positronDataExplorerInstances.has(duckDBClientId(uri))) {
+			return;
+		}
+
 		const backend = new PositronDataExplorerDuckDBBackend(this._rpcRouter, uri);
 
 		// TODO: error handling if opening the file failed
@@ -667,18 +676,20 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 	 * @param backend The extension backend.
 	 */
 	private registerExtensionBackend(displayName: string, backend: PositronDataExplorerExtensionBackend) {
-		// Route async UI events (e.g. column profiles) for this dataset back to this backend. Events
+		const client = new DataExplorerClientInstance(backend);
+		const { instance, registration } = this.registerDataExplorerClient(displayName, client);
+
+		// Route async UI events (e.g. column profiles) for this dataset back to this backend. Set only
+		// once the instance is registered, so a failed registration leaves no handler behind. Events
 		// are tagged with the dataset uri (the bare file uri for DuckDB), so route by that, not the
 		// clientId.
 		const uiEventHandler = (event: IDataExplorerUiEventDto) => backend.handleUiEvent(event);
 		this._uiEventHandlers.set(backend.datasetUri, uiEventHandler);
 
-		const client = new DataExplorerClientInstance(backend);
-		const { instance, registration } = this.registerDataExplorerClient(displayName, client);
-
 		// The backend closes when it is disposed, which happens when its Data Explorer editor closes.
 		// Forget the instance and its UI event handler, and dispose the instance. Dataset ids are
-		// reused across opens, so only remove the entries if they are still this registration's.
+		// reused across opens, so only remove the entries if they are still this registration's;
+		// a close must never evict a newer registration of the same dataset.
 		registration.add(client.onDidClose(() => {
 			if (this._positronDataExplorerInstances.get(client.identifier) === instance) {
 				this._positronDataExplorerInstances.delete(client.identifier);
