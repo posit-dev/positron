@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, renderTable, resolveTestedSha, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -229,4 +229,15 @@ test('settledRows keeps a previous run\'s fixed and not-acted-on rows by run and
 	assert.deepEqual([...kept.keys()], ['10#1', '10#2', '11#1']);
 	assert.deepEqual(kept.get('10#1'), { run: '10', finding: 1, outcome: 'fixed-in-pr' });
 	assert.equal(kept.get('11#1').dupMaybe, undefined);
+});
+
+test('savedPrChecks keeps a merged PR\'s "no" answer by run and finding, and never an unclear one', () => {
+	const no = { answer: 'no', reason: 'touches other code', source: 'pr abc1234' };
+	const kept = savedPrChecks([
+		{ run: '10', finding: 1, outcome: 'pending', prCheck: no },
+		{ run: '10', finding: 2, outcome: 'pending', prCheck: { answer: 'unclear', reason: 'no reply', source: 'pr' } },
+		{ run: '11', finding: 1, outcome: 'pending' },
+	]);
+	assert.deepEqual([...kept.keys()], ['10#1']);
+	assert.deepEqual(kept.get('10#1'), no);
 });

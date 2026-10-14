@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, guarded, markDuplicates, parseCheck, parsePageFindings, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, renderTable, resolveTestedSha, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, guarded, markDuplicates, parseCheck, parsePageFindings, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -27,7 +27,9 @@ const WHOLE = ['.', ':(exclude)**/package-lock.json'];
 // PRs opened only to try the harness, whose findings no one meant to act on.
 const SKIPPED_PRS = new Set([16616]);
 const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, api: { type: 'boolean', default: false }, previous: { type: 'string' }, out: { type: 'string' } } });
-const SETTLED = args.previous ? settledRows(readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l))) : new Map();
+const PREVIOUS = args.previous ? readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
+const SETTLED = settledRows(PREVIOUS);
+const SAVED_PR_CHECKS = savedPrChecks(PREVIOUS);
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 
@@ -206,7 +208,9 @@ async function prRows(number) {
 				continue;
 			}
 			const paths = extractPaths(finding, FILES);
-			const inPr = tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null;
+			// Only the PR's own answer is reused; the checks for a later fix on main or an issue run every time.
+			const saved = prState === 'merged' ? SAVED_PR_CHECKS.get(`${parsed.run}#${finding.n}`) : undefined;
+			const inPr = saved ?? (tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null);
 			const later = prState === 'open' ? [] : await laterChecks(finding, paths, pr, comment.created_at);
 			const decided = tested.sha
 				? decideOutcome({ prState, mergedAt: pr.merged_at, now: new Date(), hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later })
@@ -215,9 +219,9 @@ async function prRows(number) {
 				pr: number, run: parsed.run, trigger: parsed.trigger, postedAt: comment.created_at, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
 				skillVersion: stats?.version ?? null, model: stats?.model ?? null,
 				finding: finding.n, title: finding.title, severity: finding.severity, feature: finding.feature, verified: finding.verified,
-				related: report.fromPage ? null : related.has(finding.n), paths, ...decided, decidedAt: new Date().toISOString().slice(0, 10),
+				related: report.fromPage ? null : related.has(finding.n), paths, ...decided, prCheck: prState === 'merged' ? inPr : null, decidedAt: new Date().toISOString().slice(0, 10),
 			});
-			console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${decided.outcome}`);
+			console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${decided.outcome}${saved ? ' (PR check kept from --previous)' : ''}`);
 		}
 	}
 	return rows;

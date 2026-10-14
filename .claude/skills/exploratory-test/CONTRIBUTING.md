@@ -119,7 +119,10 @@ its owner can open it until others are added in Connect, and if the user
 behind the workflow's `CONNECT_API_KEY` isn't the owner, add them as a
 collaborator so the deploy is allowed. The rows go
 up beside the page, and the next run passes them as `--previous`, so a
-finding already fixed or not acted on is kept rather than checked again. In
+finding already fixed or not acted on is kept rather than checked again. For
+a pending finding on a merged PR, the answer to whether the PR fixed it is
+kept too, since that diff can't change; the checks for a later fix on main or
+a matching issue still run every night. In
 CI the model is reached through the API (`--api`), and a call that takes
 more than 10 minutes counts as unclear.
 

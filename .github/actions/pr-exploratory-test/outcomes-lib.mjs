@@ -124,6 +124,11 @@ export function settledRows(rows) {
 	return new Map(rows.filter(r => SETTLED.has(r.outcome)).map(({ dupOf, dupMaybe, ...r }) => [`${r.run}#${r.finding}`, r]));
 }
 
+/** A previous run's "no" from asking whether a merged PR fixed the finding, by `run#finding`; a merged PR's diff can't change. */
+export function savedPrChecks(rows) {
+	return new Map(rows.filter(r => r.prCheck?.answer === 'no').map(r => [`${r.run}#${r.finding}`, r.prCheck]));
+}
+
 const words = t => String(t ?? '').toLowerCase().replace(/[`*_]/g, '').match(/[a-z0-9]+/g) ?? [];
 const sameSet = (a, b) => a.length > 0 && a.length === b.length && a.every(x => b.includes(x));
 
