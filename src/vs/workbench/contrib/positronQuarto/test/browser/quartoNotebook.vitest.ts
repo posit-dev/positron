@@ -40,7 +40,7 @@ Closing text.
 `;
 
 describe('QuartoNotebook', () => {
-	const executeCells = vi.fn<(uri: URI, cells: QuartoCodeCell[]) => Promise<void>>(() => Promise.resolve());
+	const executeCell = vi.fn<(uri: URI, cell: QuartoCodeCell) => Promise<void>>(() => Promise.resolve());
 	let outputs: ICellOutput[] = [];
 
 	const ctx = createTestContainer()
@@ -48,7 +48,7 @@ describe('QuartoNotebook', () => {
 		.stub(ICodeEditorService, { listCodeEditors: () => [] })
 		.stub(IEditorService, { activeTextEditorControl: undefined })
 		.stub(IQuartoExecutionManager, {
-			executeCells,
+			executeCell,
 			getExecutionState: () => CellExecutionState.Idle,
 		})
 		.stub(IQuartoKernelManager, { getSessionForDocument: () => undefined })
@@ -56,7 +56,7 @@ describe('QuartoNotebook', () => {
 		.build();
 
 	beforeEach(() => {
-		executeCells.mockClear();
+		executeCell.mockClear();
 		outputs = [];
 	});
 
@@ -115,10 +115,10 @@ describe('QuartoNotebook', () => {
 	it('runs the requested cells, refusing any that do not exist', async () => {
 		const { notebook } = createNotebook(DOCUMENT);
 
-		await notebook.runCells([1]);
+		await notebook.runCells([1, 0]);
 		await expect(notebook.runCells([1, 5])).rejects.toThrow('Cell not found at index: 5');
 
-		expect(executeCells.mock.calls.map(([, cells]) => cells.map(cell => cell.index))).toEqual([[1]]);
+		expect(executeCell.mock.calls.map(([, cell]) => cell.index)).toEqual([1, 0]);
 	});
 
 	it('decodes image outputs and passes text outputs through', async () => {

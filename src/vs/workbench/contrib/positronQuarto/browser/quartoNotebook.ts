@@ -120,12 +120,18 @@ export class QuartoNotebook {
 		return this.getCells()[index];
 	}
 
+	/**
+	 * Runs cells one at a time, since running several at once is treated as a
+	 * run-all gesture that prompts for missing packages and skips some cells.
+	 */
 	async runCells(indices: readonly number[]): Promise<void> {
 		const cells = this._cells();
 		for (const index of indices) {
 			this._checkIndex(index, cells);
 		}
-		await this._executionManager.executeCells(this.uri, indices.map(index => cells[index]));
+		for (const index of indices) {
+			await this._executionManager.executeCell(this.uri, cells[index]);
+		}
 	}
 
 	/** Adds a code chunk in the document's primary language, returning its index. */

@@ -2001,12 +2001,11 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 	}
 
 	getOutputsForCell(documentUri: URI, cellId: string): readonly ICellOutput[] {
-		return this._outputsByCell.get(`${documentUri.toString()}:${cellId}`) ?? [];
+		return this._outputsByCell.get(this._keyForCell(documentUri, cellId)) ?? [];
 	}
 
 	clearOutputsForCell(documentUri: URI, cellId: string): void {
-		const key = `${documentUri.toString()}:${cellId}`;
-		this._outputsByCell.delete(key);
+		this._outputsByCell.delete(this._keyForCell(documentUri, cellId));
 
 		// Clear from cache
 		this._cacheService.clearCellOutputs(documentUri, cellId);
@@ -2016,6 +2015,27 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 			documentUri,
 			outputs: [],
 		});
+	}
+
+	/**
+	 * The key of a cell's outputs. Cell ids begin with the cell's index, which
+	 * changes when cells above it are added or removed, so if no outputs are
+	 * stored under the cell's id, this looks for its content at another index.
+	 */
+	private _keyForCell(documentUri: URI, cellId: string): string {
+		const prefix = `${documentUri.toString()}:`;
+		const key = prefix + cellId;
+		if (this._outputsByCell.has(key)) {
+			return key;
+		}
+		const withoutIndex = (id: string) => id.replace(/^\d+/, '');
+		const content = withoutIndex(cellId);
+		for (const candidate of this._outputsByCell.keys()) {
+			if (candidate.startsWith(prefix) && withoutIndex(candidate.substring(prefix.length)) === content) {
+				return candidate;
+			}
+		}
+		return key;
 	}
 
 	clearAllOutputs(documentUri: URI): void {
