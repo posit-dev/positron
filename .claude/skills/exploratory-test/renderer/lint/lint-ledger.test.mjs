@@ -46,6 +46,7 @@ const BASE = {
 		reproduced: { n: 2, m: 2 },
 		feature: 'console',
 		title: 'Retry does nothing',
+		summary: 'Clicking Retry leaves the panel empty.',
 		steps: [
 			{ kind: 'action', text: 'Click Retry.' },
 			{ kind: 'verify', text: 'it loads', result: 'fail', finding: 1, observed: 'empty', shots: ['shots/a.png'], log: { source: 'none found in logs/r.log' } },
@@ -228,7 +229,12 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 	// The report as a whole.
 	'a report written to the format is clean': () => [...lint(), ...lintReportJson(report(), LEDGER), ...schemaProblems(report())],
 	'without a ledger, the ledger checks are skipped': () => lint(report(), undefined),
-	'the opening the edit pass writes is skipped': () => edited(f => { f.summary = 'When you click Retry, nothing happens.'; f.where = 'Web only, as in S05.'; }),
+	'a finding with no summary, and summaries that run on': () => [
+		...edited(f => { delete f.summary; }),
+		...edited(f => { f.summary = `${words(51)}.`; }),
+		...edited(f => { f.summary = 'Retry fails. The panel stays empty. Nothing is logged.'; }),
+	],
+	'a two-sentence summary within the limit is clean': () => edited(f => { f.summary = `Clicking Retry leaves the panel empty. ${words(40)}.`; }),
 	'the schema names a missing Feature, notExercised or rate, and a step shot outside shots/': () => [
 		...schemaProblems(report(f => { delete f.feature; })), ...schemaProblems(report((f, r) => { delete r.header.notExercised; })),
 		...['$U/a.png', 'https://cdn.example/run/shots/a.png'].flatMap(t => schemaProblems(report(f => { f.steps[1].shots = [t]; }))),

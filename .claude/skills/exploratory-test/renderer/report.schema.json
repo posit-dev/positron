@@ -389,11 +389,11 @@
 					},
 					"summary": {
 						"$ref": "#/$defs/md",
-						"description": "The editor's opening, in a reader's words. Written by the pipeline after the explorer; the explorer leaves it out."
+						"description": "The sentence that opens the GitHub issue filed from this finding: the visible failure, with exact numbers and on-screen text."
 					},
 					"where": {
 						"$ref": "#/$defs/md",
-						"description": "Where the finding happens, beside summary. Written by the pipeline after the explorer; the explorer leaves it out."
+						"description": "Where the finding happens, beside summary. Written by the editor pass in reports before version 1.64; the explorer leaves it out."
 					}
 				}
 			}

@@ -168,8 +168,9 @@ export function lintPreconditionActions(preconditions) {
 	return problems;
 }
 
-// The Result, and a Cause's lead sentence, are read at a glance.
+// The Result, a finding's summary and a Cause's lead sentence are read at a glance.
 export const SUMMARY_WORDS = 60;
+export const OPENING_WORDS = 50;
 export const CAUSE_LEAD_WORDS = 40;
 
 /** Words in prose, a code span counting as one. */

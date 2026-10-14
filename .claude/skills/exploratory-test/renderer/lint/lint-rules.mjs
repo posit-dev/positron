@@ -68,6 +68,8 @@ export const LINT_RULES = {
 	'points-at-finding': 'error',
 	'finding-scenario-id': 'error',
 	'cause-lead-length': 'warning',
+	'summary-missing': 'error',
+	'summary-length': 'warning',
 	// screenshots and evidence on a finding
 	'shot-no-step': 'error',
 	'shot-unknown-scenario': 'error',

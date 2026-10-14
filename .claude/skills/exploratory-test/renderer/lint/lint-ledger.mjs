@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fileProcess, isPositronLog, parseLedger, parseSystemLine } from '../shared/ledger.mjs';
 import { problem } from './lint-rules.mjs';
-import { CAUSE_LEAD_WORDS, lintPreconditionActions, RESULT_MAX, SCENARIO_ID, sentencesOf, stepListProblems, stepProblems, verifyProblems, wordsOf } from './lint-wording.mjs';
+import { CAUSE_LEAD_WORDS, lintPreconditionActions, OPENING_WORDS, RESULT_MAX, SCENARIO_ID, sentencesOf, stepListProblems, stepProblems, verifyProblems, wordsOf } from './lint-wording.mjs';
 import { FILE_NAME, FILES_PATH, findFile } from '../page/repro-files.mjs';
 import { basename, escapeRegExp, isNewTestFile } from '../shared/text.mjs';
 
@@ -378,6 +378,17 @@ export function modelProblems(findings, ledger, { repoFileExists } = {}) {
 			if (ids.length) {
 				problems.push(problem('finding-scenario-id', `report: Finding ${f.n} ${label} names ${ids.join(', ')}; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs`));
 			}
+		}
+	}
+	// The summary opens the issue filed from the finding; without one its description is dropped.
+	for (const f of findings) {
+		const summary = f.text.summary.trim();
+		const sentences = sentencesOf(summary).length;
+		if (!summary) {
+			problems.push(problem('summary-missing', `report: Finding ${f.n} has no summary; write the sentence that opens its GitHub issue: the visible failure, with exact numbers and on-screen text`));
+		} else if (sentences > 2 || wordsOf(summary) > OPENING_WORDS) {
+			const size = sentences > 2 ? `has ${sentences} sentences` : `is ${wordsOf(summary)} words`;
+			problems.push(problem('summary-length', `report: Finding ${f.n} summary ${size}; keep it to one sentence of ${OPENING_WORDS} words or fewer, two only when the bug needs it`));
 		}
 	}
 	// A reader who stops after a Cause's first sentence still learns the suspect.

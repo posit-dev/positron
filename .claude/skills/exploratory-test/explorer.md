@@ -565,6 +565,7 @@ field it can have:
 	"reproduced": { "n": 3, "m": 3 },
 	"feature": "<feature>",
 	"title": "<concise claim>",
+	"summary": "<the issue's opening sentence>",
 	"preconditions": [
 		{ "name": "<2 to 4 words, for Coverage, e.g. `slow.py`>", "text": "<the full line the finding shows, e.g. `slow.py`, which builds tables that are slow to summarize; the step that runs it comes first>" }
 	],
@@ -600,6 +601,15 @@ nothing was logged. A step that pastes a file or a block of code into the app
 puts it in `code`, as a fenced markdown block. Text fields take markdown: code
 and data values in backticks. The first time evidence names an internal ID (a session, client or
 request ID), say which file, document or session it belongs to.
+
+### Summary
+
+`summary` opens the GitHub issue filed from this finding, for an engineer who
+has not seen the run. Write one sentence; add a second only when the bug cannot
+be understood without it. Lead with the visible failure, add the condition
+that triggers it only when it tells this bug apart, and say what should happen
+only when that is not obvious. Keep numbers and on-screen text exact, with data
+values in backticks. No setup, retries, investigation or cause.
 
 ### Observed and Expected
 
@@ -752,7 +762,7 @@ renderer:
 request, or from `gh pr view --json number,url` on the branch. Coverage, Logs,
 Files and Environment come from `ledger.md`, so the report does not repeat
 them.
-Leave out `verified`, `known`, `intended`, `summary`, `where`, `verification`
+Leave out `verified`, `known`, `intended`, `where`, `verification`
 and `cost`: the passes after you write them.
 
 `result` says what the change now does for a user, in their terms. Where it

@@ -4,7 +4,12 @@
 ==== without a ledger, the ledger checks are skipped
 (none)
 
-==== the opening the edit pass writes is skipped
+==== a finding with no summary, and summaries that run on
+report: Finding 1 has no summary; write the sentence that opens its GitHub issue: the visible failure, with exact numbers and on-screen text
+report: Finding 1 summary is 51 words; keep it to one sentence of 50 words or fewer, two only when the bug needs it
+report: Finding 1 summary has 3 sentences; keep it to one sentence of 50 words or fewer, two only when the bug needs it
+
+==== a two-sentence summary within the limit is clean
 (none)
 
 ==== the schema names a missing Feature, notExercised or rate, and a step shot outside shots/

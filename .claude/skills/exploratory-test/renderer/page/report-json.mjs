@@ -99,7 +99,7 @@ function findingFromJson(f) {
 		verified: f.verified ?? null,
 		known: f.known ?? [],
 		intended: f.intended ?? [],
-		// The edit pass's opening, when it has run.
+		// The explorer's opening sentence for the issue.
 		summaryHtml: f.summary ? inline(f.summary) : '',
 		observedHtml: f.observed ? inline(f.observed) : '',
 		expectedHtml: f.expected ? inline(f.expected) : '',

@@ -19,14 +19,10 @@ is handed:
 3. **Isolator** (`isolator.md`) runs only when a finding is UNRESOLVED. It
    launches its own instance, runs a few controls in 12 minutes, and writes
    `isolation.md`. The verifier is then sent that file and revises.
-4. **Editor** (`editor.md`) rewrites each finding's title and opening for a
-   reader who wasn't there. It never touches the repro steps, and a rewrite
-   that fails `reviewEdits` is dropped in favor of the original.
 
 Each of them writes what it decided into `report.json`: verdicts, known
-issues, titles and openings, and what each pass cost. `renderer/render.mjs`
-(or `run.mjs` in CI, through the same `writeRunPage`) then turns
-`report.json` into `index.html`.
+issues, and what each pass cost. `renderer/render.mjs` (or `run.mjs` in CI,
+through the same `writeRunPage`) then turns `report.json` into `index.html`.
 
 Local and CI runs share every step after the explorer: `completeRun` in
 `renderer/pipeline.mjs` checks the report, runs the later passes in order and
@@ -51,12 +47,11 @@ holds the text helpers and the ledger parser.
 
 | To change | Edit |
 |---|---|
-| What an agent is told | `explorer.md`, `verifier.md`, `isolator.md`, `editor.md` |
+| What an agent is told | `explorer.md`, `verifier.md`, `isolator.md` |
 | Why each agent's rules exist, and what checks them | `RULES.md` |
 | Step order, retries, fallbacks, the isolator's brief | `renderer/pipeline.mjs` |
 | How a local run starts an agent, and its time limit | `renderer/agents/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
 | The verifier's prompt and how verdicts are applied | `renderer/agents/finish.mjs` |
-| The editor's prompt and how rewrites are checked | `renderer/agents/edit.mjs` |
 | The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (runs every check on report.json: against the ledger, and the write-up rules), `renderer/lint/lint-wording.mjs` and `renderer/lint/lint-ledger.mjs` (the write-up rules), `renderer/lint/lint-rules.mjs` (each rule's ID and severity), `renderer/page/report-json.mjs` (what the page reads) |
 | Reading the ledger | `renderer/shared/ledger.mjs` |
 | The page | `renderer/page/html.mjs` (template), `renderer/page/report-css.mjs` (tokens), `renderer/page/page-scripts.mjs` (its scripts), `renderer/page/page-common.mjs` (icons and shared helpers), `renderer/shared/text.mjs` (markdown to safe HTML) |

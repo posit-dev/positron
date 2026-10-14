@@ -5,7 +5,7 @@
 
 // The steps after the explorer, shared by CI (run.mjs) and a local run: stop
 // its instances, verify, isolate what the verifier could not settle, apply the
-// verdicts, edit. The caller only says how to run an agent.
+// verdicts. The caller only says how to run an agent.
 //
 // Local usage, each agent a `claude -p` session:
 //   node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [...]
@@ -23,7 +23,6 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude, stopAgents, WRAP_UP_MINUTES } from './agents/claude-cli.mjs';
-import { applyEditReply, writeEditPrompt } from './agents/edit.mjs';
 import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
 
@@ -249,7 +248,6 @@ export async function finishRun(dir, { repo, base, head, baseName, runAgent, ver
 	if (verify) {
 		await verifyFindings(dir, { repo, base, head, baseName }, ask, stop, log);
 	}
-	await editReport(dir, ask, log);
 	return passes;
 }
 
@@ -291,21 +289,6 @@ async function verifyFindings(dir, range, ask, stop, log) {
 		result = applyVerifyReply(dir, usable ? again.text : best, { final: true });
 	}
 	(result.logLines ?? []).forEach(line => log(line));
-}
-
-/** Rewrites the findings' openings; an edit the guard rejects gets one retry. */
-async function editReport(dir, ask, log) {
-	const promptPath = writeEditPrompt(dir);
-	if (!promptPath) {
-		return;
-	}
-	const editor = { role: 'edit', tools: [], cwd: dir };
-	const { rejected, retry } = applyEditReply(dir, (await ask({ ...editor, purpose: 'edit', prompt: readFileSync(promptPath, 'utf8') })).text);
-	rejected.forEach(line => log(line));
-	if (retry) {
-		const text = (await ask({ ...editor, purpose: 'edit-retry', prompt: readFileSync(retry, 'utf8') })).text;
-		applyEditReply(dir, text, { last: true }).rejected.forEach(line => log(line));
-	}
 }
 
 /**

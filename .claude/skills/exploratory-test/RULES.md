@@ -1,13 +1,13 @@
 # The agents' rules
 
-Each agent's prompt (`explorer.md`, `verifier.md`, `isolator.md`,
-`editor.md`) tells it what to do, and most of its lines are rules. This file
+Each agent's prompt (`explorer.md`, `verifier.md`, `isolator.md`) tells it
+what to do, and most of its lines are rules. This file
 lists each rule once: why it is there, what catches a run that breaks it, and
 whether anyone has measured that it helps. Read it before you add, reword or
 cut a rule.
 
 The explorer's rules come first, in the order `explorer.md` has them, then the
-verifier's, the isolator's and the editor's.
+verifier's and the isolator's.
 
 ## Adding, changing or cutting a rule
 
@@ -20,8 +20,8 @@ A new rule lands only with something that shows it works:
   Measured column.
 
 Fix the general instruction. Never add an example or an edge case taken from
-the one run that went wrong: the editor prompt grew stiff that way and was cut
-from about 820 to 360 words.
+the one run that went wrong: the old editor's prompt grew stiff that way and
+was cut from about 820 to 360 words.
 
 When you cut a rule, check whether lint names it. Lint repeating a rule
 doesn't make the prose spare. The 2026-10-11 trial cut the prose behind a lint
@@ -37,7 +37,7 @@ Then update the rule's row here in the same PR.
 - **Caught by** is what notices a run that breaks it, with lint's rule IDs from
   `renderer/lint/lint-rules.mjs` in brackets. Lint hands the problem back
   to the explorer to fix, and the pipeline acts on its own. For the later
-  agents, the code that reads their reply (`finish.mjs`, `edit.mjs`) plays
+  agents, the code that reads their reply (`finish.mjs`) plays
   lint's part. The verifier only adds a note to the finding. "Nothing" means
   only the agent's own reading of the rule stands behind it.
 - **Measured** names a comparison of runs with and without the rule. Most
@@ -120,11 +120,12 @@ Then update the rule's row here in the same PR.
 | Report genuine problems only, each verifiable from its artifacts. | Not recorded. | Verifier verdicts | - | #16162 |
 | Before reporting a bug after a palette or quick-input action, confirm the intended command ran. | A wrong row run in its place is a tool error. | Nothing | - | #16421 |
 | Set severity by user impact only, with the anchors given. | Not recorded. | Nothing | - | #16421 |
-| A title names what is broken, as a fact, under about 90 characters, with no "any" or "every" beyond what was tried. | Readers often read only the title. | Lint (`title-lowercase`, `title-code`, `title-hedge`, `title-possessive`, `title-parenthetical`): case, code names, hedges, possessives, parentheticals. Verifier: "any" and "every". The editor rewrites it afterwards. | - | #16421, #16487 |
+| A title names what is broken, as a fact, under about 90 characters, with no "any" or "every" beyond what was tried. | Readers often read only the title. | Lint (`title-lowercase`, `title-code`, `title-hedge`, `title-possessive`, `title-parenthetical`): case, code names, hedges, possessives, parentheticals. Verifier: "any" and "every". | - | #16421, #16487 |
 | Always give `reproduced`. Another trigger is not another try. | "Every time" and "one in three" are different bugs. | Lint (`rate-format`, `finding-rate`): rate format, and the rate matches the scenario's. | - | #16421 |
 | Cold-replay first-start faults and anything that may depend on state or timing. Scale a race up until it fails every try. | A finding that only fails warm doesn't reproduce for the reader. | Nothing | - | #16355 |
 | Write each precondition in full, one state per item. A running app is never a precondition. | Not recorded. | Lint (`precondition-name-length`, `precondition-scratch-path`, `precondition-running-app`): name length, paths, running apps. | - | #16421 |
-| Observed and Expected lead with the exact difference in one or two sentences. A reference goes in Expected. | The card shows them side by side. | Lint (`comparison-length`, `semicolon`, `judgment-word`, `reference-in-observed`, `digit-grouping`): sentence count, semicolons, judgment words, a reference in Observed, digit grouping. The editor rewrites the opening. | - | #16421 |
+| Observed and Expected lead with the exact difference in one or two sentences. A reference goes in Expected. | The card shows them side by side. | Lint (`comparison-length`, `semicolon`, `judgment-word`, `reference-in-observed`, `digit-grouping`): sentence count, semicolons, judgment words, a reference in Observed, digit grouping. | - | #16421 |
+| A finding's `summary` opens its GitHub issue: one sentence, two only when the bug needs it, leading with the visible failure, with exact numbers and on-screen text and no setup, investigation or cause. | An issue filed from the report starts with it; without one, its description is dropped. | Lint (`summary-missing`, `summary-length`): a missing summary, more than two sentences or over 50 words. | 2026-10-13: 6 runs on 3 targets with the explorer writing it and no editor: all 14 findings had one, median 29 words, max 48, no semicolons; the editor's 47 had median 31, max 56, 18 with semicolons. The editor cost about $0.06 a run. | TBD |
 | Claim no more than the run checked. Take Expected from a user or a reference, never from the code. | Code tells you why, not whether it is right. | Verifier: VERIFY and Observed claims against the log and shots. | - | #16421 |
 | A failed check is about one finding. A different behavior on the same screen is its own finding. | Not recorded. | Lint (`scenario-fails-other-finding`): Status names another finding. Verifier: Observed against its finding. | - | #16421 |
 | Evidence is Positron's log lines, verbatim, with no note after them. Never `actions.log` or a file the run saved. | A reader must tell what was logged from what the agent concluded. | Lint (`evidence-note`, `evidence-run-file`, `evidence-trailing-note`, `log-process-mismatch`): notes, run-written files, trailing commentary. | - | #16452 |
@@ -171,31 +172,18 @@ Then update the rule's row here in the same PR.
 | Record the state a check depends on, such as the focused element or a context key. | Not recorded. | Nothing | - | #16355 |
 | Run a case three times only when its result can vary. Twice is enough otherwise. | The isolator has 12 minutes. | Nothing | - | #16421 |
 
-## The editor
-
-| Rule | Why | Caught by | Measured | Since |
-|---|---|---|---|---|
-| Compress, don't summarize: one sentence by default, leading with the visible failure, with the expected behavior only when it adds something. | Reports read like a log of the test run. | `edit.mjs` rejects an opening over 60 words. | #16526: on 11 findings from two runs, openings went from 36 to 21 words, all one sentence. | #16526 |
-| Don't narrate the test, and prefer concrete product words over the listed stock phrases. | Same as above. | Nothing | Same trial as above. | #16526 |
-| Don't broaden the bug, and keep numbers and on-screen text exact. | A rewrite added facts the run never recorded. | `edit.mjs` rejects a rewrite citing code, quotes or numbers the record lacks, then retries once. | - | #16487 |
-| Keep titles short but specific, without the feature. | The issue title is `<feature>: <title>`. | `edit.mjs` rejects a title over 15 words, or with `\|`, `;` or a scenario ID, and drops backticks from it. | - | #16526 |
-| Fill WHERE only for an OS, the web build or a setting. | Not recorded. | Nothing | - | #16526 |
-| Never rewrite the steps. | Steps are the run's record. | `edit.mjs` drops any field it doesn't ask for, such as steps. | - | #16487 |
-
 ## What this shows
 
-There are 95 rules: 65 for the explorer, 18 for the verifier, 6 for the
-isolator and 6 for the editor.
+There are 92 rules: 68 for the explorer, 18 for the verifier and 6 for the
+isolator.
 
-For the explorer, lint, the pipeline or publishing catches 33 rules when
+For the explorer, lint, the pipeline or publishing catches 36 rules when
 they're broken. For 8 more, only the verifier or isolator notices, which adds
 a note to the finding but sends nothing back. The other 24 have nothing behind
-them but the prompt. For 13, no PR or commit says why they exist.
+them but the prompt. For 14, no PR or commit says why they exist.
 
-The later agents are the opposite of the explorer. The editor is the best
-checked: `edit.mjs` enforces 4 of its 6 rules, and its prompt is the only one
-compared against an older version. The verifier is the least checked: code
-reads 6 of its 18 rules from its reply, and nothing confirms it did the other
+The later agents are checked less than the explorer. The verifier is the
+least checked: code reads 6 of its 18 rules from its reply, and nothing confirms it did the other
 12, such as tracing the cause or checking steps against the log. Those 12 are
 how a finding gets judged, so a weak verifier would go unnoticed.
 
