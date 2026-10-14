@@ -111,7 +111,7 @@ turns those rows into one page: the share of resolved findings that got
 fixed, bars by severity and by PR, and each finding's evidence by outcome with
 links to its report, PR and fixing commit or issue.
 
-`exploratory-outcomes.yml` does both every Monday and deploys the page to
+`exploratory-outcomes.yml` does both every night and deploys the page to
 Posit Connect with `outcomes-publish.mjs`. The content was made once with
 `CONNECT_API_KEY=<your key> node outcomes-publish.mjs create`, which prints
 its GUID; that went in the `EXPLORE_OUTCOMES_CONNECT_GUID` repo variable. Only
