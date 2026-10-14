@@ -23,6 +23,9 @@ import {
     CreateEnvironmentProvider,
     CreateEnvironmentResult,
 } from '../../../../client/pythonEnvironments/creation/proposed.createEnvApis';
+// --- Start Positron ---
+import { reusedEnvironmentResult } from '../../../../client/pythonEnvironments/creation/reusedEnvironment';
+// --- End Positron ---
 
 chaiUse(chaiAsPromised.default);
 
@@ -610,6 +613,17 @@ suite('venv Creation provider tests', () => {
         });
         progressMock.verifyAll();
         assert.isTrue(showErrorMessageWithLogsStub.notCalled);
+        assert.isTrue(deleteEnvironmentStub.notCalled);
+    });
+
+    test('Use existing .venv returns the existing environment marked as reused', async () => {
+        pickExistingVenvActionStub.resolves(venvUtils.ExistingVenvAction.UseExisting);
+        pickWorkspaceFolderStub.resolves(workspace1);
+
+        const result = await venvProvider.createEnvironment();
+
+        assert.deepStrictEqual(result, reusedEnvironmentResult(commonUtils.getVenvExecutable(workspace1), workspace1));
+        assert.isTrue(withProgressStub.notCalled);
         assert.isTrue(deleteEnvironmentStub.notCalled);
     });
     // --- End Positron ---

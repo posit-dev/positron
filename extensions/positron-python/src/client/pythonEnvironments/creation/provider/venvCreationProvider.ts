@@ -33,6 +33,9 @@ import {
 } from '../proposed.createEnvApis';
 import { shouldDisplayEnvCreationProgress } from './hideEnvCreation';
 import { noop } from '../../../common/utils/misc';
+// --- Start Positron ---
+import { reusedEnvironmentResult } from '../reusedEnvironment';
+// --- End Positron ---
 
 interface IVenvCommandArgs {
     argv: string[];
@@ -350,7 +353,11 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
                 sendTelemetryEvent(EventName.ENVIRONMENT_REUSE, undefined, {
                     environmentType: 'venv',
                 });
-                return { path: getVenvExecutable(workspace), workspaceFolder: workspace };
+                // --- Start Positron ---
+                // Mark the result as reused so its sessions aren't shut down as if it were recreated.
+                // return { path: getVenvExecutable(workspace), workspaceFolder: workspace };
+                return reusedEnvironmentResult(getVenvExecutable(workspace), workspace);
+                // --- End Positron ---
             }
         }
 
