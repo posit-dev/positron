@@ -31,9 +31,16 @@ SCRIPT_DIR=$(dirname "$0")
 ENV_FILE="$SCRIPT_DIR/envVars.txt"
 
 # Read the JSON file and set the variables
-TEMP_PS1=$(grep '^PS1=' $ENV_FILE | cut -d '=' -f 2)
-TEMP_PATH=$(grep '^PATH=' $ENV_FILE | cut -d '=' -f 2)
-TEMP_PYTHONHOME=$(grep '^PYTHONHOME=' $ENV_FILE | cut -d '=' -f 2)
+# --- Start Positron ---
+# Quote the path. The script folder can be in global storage, which can have
+# spaces in its path (for example, "Application Support" on macOS).
+# TEMP_PS1=$(grep '^PS1=' $ENV_FILE | cut -d '=' -f 2)
+# TEMP_PATH=$(grep '^PATH=' $ENV_FILE | cut -d '=' -f 2)
+# TEMP_PYTHONHOME=$(grep '^PYTHONHOME=' $ENV_FILE | cut -d '=' -f 2)
+TEMP_PS1=$(grep '^PS1=' "$ENV_FILE" | cut -d '=' -f 2)
+TEMP_PATH=$(grep '^PATH=' "$ENV_FILE" | cut -d '=' -f 2)
+TEMP_PYTHONHOME=$(grep '^PYTHONHOME=' "$ENV_FILE" | cut -d '=' -f 2)
+# --- End Positron ---
 # Initialize the variables required by deactivate function
 _OLD_VIRTUAL_PS1="${TEMP_PS1:-}"
 _OLD_VIRTUAL_PATH="$TEMP_PATH"
