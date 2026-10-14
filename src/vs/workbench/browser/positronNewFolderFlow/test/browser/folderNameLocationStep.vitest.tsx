@@ -10,6 +10,7 @@ import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { URI } from '../../../../../base/common/uri.js';
 import { Event } from '../../../../../base/common/event.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -31,11 +32,13 @@ const WRITABLE_FOLDER = URI.file('/home/astrid');
 const NO_PERMISSION = 'You don\'t have permission to create a folder in this location.';
 
 /**
- * Selects the folder template, which the step cannot set itself.
+ * Selects the folder template, which the step cannot set itself. The provider never disposes the
+ * state it creates, so the test takes ownership of it here.
  */
-const SelectTemplate = (props: { template: FolderTemplate }) => {
+const SelectTemplate = (props: { template: FolderTemplate; onState: (state: IDisposable) => void }) => {
 	const context = useNewFolderFlowContext();
 	useEffect(() => {
+		props.onState(context);
 		context.folderTemplate = props.template;
 		// Set once, when the provider has built the state.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,7 +89,7 @@ describe('FolderNameLocationStep', () => {
 				initialStep={NewFolderFlowStep.FolderNameLocation}
 				parentFolder={PARENT_FOLDER}
 			>
-				<SelectTemplate template={template} />
+				<SelectTemplate template={template} onState={state => ctx.disposables.add(state)} />
 				{/* The step renders into a dialog, which reaches into its renderer only for key */}
 				{/* and resize events. */}
 				<FlowDialogProvider

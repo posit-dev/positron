@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { useState } from 'react';
+import { useRef } from 'react';
 
 // Other dependencies.
 import { NewFolderFlowContextProvider, useNewFolderFlowContext } from './newFolderFlowContext.js';
@@ -16,7 +16,10 @@ import { NewFolderFlowStep } from './interfaces/newFolderFlowEnums.js';
 import { showChooseNewFolderWindowModalDialog } from './chooseNewFolderWindowModalDialog.js';
 import { URI } from '../../../base/common/uri.js';
 import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
-import { acceptNewFolderFlow, createNewFolderFlowDialogHandlers } from './utilities/acceptNewFolderFlow.js';
+import { localize } from '../../../nls.js';
+import { isCancellationError } from '../../../base/common/errors.js';
+import { toErrorMessage } from '../../../base/common/errorMessage.js';
+import { createFolderErrorMessage } from '../utils/createFolder.js';
 
 /**
  * Shows the NewFolderFlowModalDialog.
@@ -32,8 +35,23 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 			parentFolder={await renderer.services.fileDialogService.defaultFolderPath()}
 		>
 			<NewFolderFlowModalDialog
-				renderer={renderer}
-				setUpFolder={async (result, folder, existingFolder) => {
+				createFolder={async result => {
+					// Create the new folder if it doesn't already exist. The Folder Name and
+					// Location step already checked that the folder can be created, so a failure
+					// here is rare.
+					const folder = URI.joinPath(result.parentFolder, result.folderName);
+					let existingFolder: boolean;
+					try {
+						existingFolder = await renderer.services.fileService.exists(folder);
+						if (!existingFolder) {
+							await renderer.services.fileService.createFolder(folder);
+						}
+					} catch (err) {
+						renderer.services.logService.error('New Folder Flow: could not create the folder', err);
+						renderer.services.notificationService.error(createFolderErrorMessage(err));
+						return;
+					}
+
 					// Install ipykernel if applicable.
 					if (result.installIpykernel) {
 						const pythonPath =
@@ -117,6 +135,7 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 						}
 					);
 				}}
+				renderer={renderer}
 			/>
 		</NewFolderFlowContextProvider>
 	);
@@ -127,7 +146,7 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
  */
 interface NewFolderFlowModalDialogProps {
 	renderer: PositronModalReactRenderer;
-	setUpFolder: (result: NewFolderFlowState, folder: URI, existingFolder: boolean) => Promise<void>;
+	createFolder: (result: NewFolderFlowState) => Promise<void>;
 }
 
 /**
@@ -139,27 +158,50 @@ const NewFolderFlowModalDialog = (props: NewFolderFlowModalDialogProps) => {
 	// State.
 	const context = useNewFolderFlowContext();
 
-	// The accept and cancel handlers, created once so that their in-flight and closed flags
-	// survive re-renders.
-	const [handlers] = useState(() => createNewFolderFlowDialogHandlers(
-		() => acceptNewFolderFlow(
-			context,
-			props.renderer.services,
-			() => props.renderer.dispose(),
-			props.setUpFolder
-		),
-		() => props.renderer.dispose()
-	));
+	// Set when the dialog closes. Create on the Empty Project step checks the location before it
+	// accepts, so the user can cancel in between; a late accept must not create the folder.
+	const closed = useRef(false);
+
+	// The accept handler.
+	const acceptHandler = async () => {
+		if (closed.current) {
+			return;
+		}
+		closed.current = true;
+		const state = context.getState();
+		props.renderer.dispose();
+		try {
+			await props.createFolder(state);
+		} catch (err) {
+			// Opening the folder in this window may cancel the pending call as the window shuts
+			// down; that is not a failure.
+			if (isCancellationError(err)) {
+				return;
+			}
+			props.renderer.services.logService.error('New Folder Flow: could not set up the new folder', err);
+			props.renderer.services.notificationService.error(localize(
+				'positron.newFolderFlow.setUpFolderFailed',
+				"Could not set up the new folder '{0}': {1}",
+				state.folderName, toErrorMessage(err)
+			));
+		}
+	};
+
+	// The cancel handler.
+	const cancelHandler = () => {
+		closed.current = true;
+		props.renderer.dispose();
+	};
 
 	// Render. Each step renders its own dialog, sized to the step's content.
 	return (
 		<FlowDialogProvider
 			dialog={{
 				renderer: props.renderer,
-				onCancel: handlers.cancel,
+				onCancel: cancelHandler,
 			}}
 		>
-			<NewFolderFlowStepContainer accept={handlers.accept} cancel={handlers.cancel} />
+			<NewFolderFlowStepContainer accept={acceptHandler} cancel={cancelHandler} />
 		</FlowDialogProvider>
 	);
 };
