@@ -245,3 +245,37 @@ export function pickPrCheck(named, whole) {
 export function capDiff(diff, max) {
 	return diff.length <= max ? diff : `${diff.slice(0, max)}\n[diff cut at ${max} of ${diff.length} characters]`;
 }
+
+// Lines that are only a reference, like "Fixes #123" or "- Related to https://...".
+const REFERENCE = /^(?:[-*]\s+)?(?:fix(?:es|ed)?|close[sd]?|resolve[sd]?|addresses|related to|part of|refs?)\b[\s:]*(?:(?:#\d+|https?:\/\/\S+|[\w.-]+\/[\w.-]+#\d+)[\s,.]*(?:and\s+)?)+$/i;
+const LISTED = /^\s*(?:[-*+]|\d+\.)\s/;
+
+/** The first paragraph of prose in a PR body, as plain text. */
+function firstParagraph(body) {
+	const blocks = String(body ?? '').replace(/\r/g, '').replace(/<!--[\s\S]*?-->/g, '').replace(/```[\s\S]*?```/g, '').replace(/<[^>]+>/g, '').split(/\n\s*\n/);
+	for (const block of blocks) {
+		const lines = block.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#') && !REFERENCE.test(l));
+		const prose = [];
+		for (const l of lines) {
+			if (LISTED.test(l)) {
+				break;
+			}
+			prose.push(l);
+		}
+		const text = prose.join(' ').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+			.replace(/[`*]|\b_|_\b/g, '').replace(/\s+/g, ' ').trim();
+		if (text) {
+			return text;
+		}
+	}
+	return '';
+}
+
+/** What the page's PR card shows, from the REST pull request. */
+export function prPreview(pr) {
+	const state = pr.merged_at ? 'merged' : pr.state === 'open' ? 'open' : 'closed';
+	return {
+		title: pr.title, author: pr.user?.login ?? '', state, date: pr.merged_at ?? (state === 'open' ? pr.created_at : pr.closed_at),
+		additions: pr.additions, deletions: pr.deletions, files: pr.changed_files, desc: firstParagraph(pr.body),
+	};
+}

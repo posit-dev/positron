@@ -118,6 +118,9 @@ A date picker narrows everything to findings whose run was posted in the last
 7, 30 (the default) or 90 days, all time, or a custom range, kept in
 `?range=`. The page embeds every row and filters in the browser; without
 JavaScript it shows all time.
+Hovering or focusing a PR link shows a card with the PR's title, author, size
+and the first paragraph of its description, saved on each row (`prPreview`)
+when the rows are built, so the page makes no GitHub calls.
 
 `exploratory-outcomes.yml` does both every night and deploys the page to
 Posit Connect with `outcomes-publish.mjs`. The content was made once with

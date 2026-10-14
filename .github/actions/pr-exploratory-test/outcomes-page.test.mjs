@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { renderOutcomesPage, renderView, resolveRange, splitEvidence, summarize, VIEW_SOURCE } from './outcomes-page.mjs';
+import { prCard, renderOutcomesPage, renderView, resolveRange, splitEvidence, summarize, VIEW_SOURCE } from './outcomes-page.mjs';
 
 const row = (outcome, extra = {}) => ({
 	pr: 1, run: '10', finding: 1, title: 'A finding', severity: 'minor', trigger: 'explore', decidedBy: 'diff+model',
@@ -243,7 +243,7 @@ test('an expanded finding shows its evidence, commits as chips, files, run and l
 	assert.match(text(html), /Decided by The diff, read by the model/);
 	assert.match(text(html), /Run 37#2 ~ started by \/explore ~ skill 1\.9 ~ opus/);
 	assert.match(html, /<a href="https:\/\/example.com\/r\/index.html">Open report<\/a>/);
-	assert.match(html, /<a href="https:\/\/github.com\/posit-dev\/positron\/pull\/16556">Open PR<\/a>/);
+	assert.match(html, /<a href="https:\/\/github.com\/posit-dev\/positron\/pull\/16556" data-pr="16556">Open PR<\/a>/);
 	assert.match(text(render([row('not-fixed', { decidedBy: 'merged-no-fix' })])), /Decided by Merged with no fix found/);
 });
 
@@ -337,4 +337,32 @@ test('the detail sits over the legend so nothing moves, and the row under the ba
 	assert.match(html, /\.under\{position:relative;min-height:20px;margin-top:4px\}/);
 	assert.match(html, /\.seg-detail\{position:absolute;top:0;left:0;right:0;/);
 	assert.match(html, /\.hero\{[^}]*font-size:44px/);
+});
+
+const preview = extra => ({ title: 'Plots: <one> name', author: 'someone', state: 'merged', date: '2026-10-03T09:00:00Z', additions: 38, deletions: 12, files: 3, desc: 'Fixes the thing.', ...extra });
+
+test('the page embeds one PR preview per PR, not one per finding', () => {
+	const html = render([row('fixed-in-pr', { pr: 7, prPreview: preview() }), row('not-fixed', { pr: 7, prPreview: preview() }), row('pending', { pr: 8 })]);
+	const data = JSON.parse(html.match(/<script id="rows" type="application\/json">([\s\S]*?)<\/script>/)[1]);
+	assert.deepEqual(Object.keys(data.prs), ['7']);
+	assert.equal(data.prs[7].title, 'Plots: <one> name');
+	assert.ok(data.rows.every(r => !('prPreview' in r)));
+});
+
+test('every PR link is marked for the card, and the page has one hidden card', () => {
+	const html = markup(render([row('fixed-in-pr', { pr: 7 })]));
+	assert.match(html, /<a class="name mono" href="https:\/\/github.com\/posit-dev\/positron\/pull\/7" data-pr="7">#7<\/a>/);
+	assert.match(html, /<span class="mono link" data-pr="7">#7<\/span>/);
+	assert.match(html, /<a href="https:\/\/github.com\/posit-dev\/positron\/pull\/7" data-pr="7">Open PR<\/a>/);
+	assert.match(html, /<div class="pr-card" id="pr-card" role="tooltip" hidden><\/div>/);
+});
+
+test('the PR card shows state and date, title, author, size and the description', () => {
+	assert.equal(text(prCard(7, preview({ title: 'Plots: one name' }))).trim(), 'Merged Oct 3, 2026 #7 Plots: one name @someone ~ +38 &minus;12 ~ 3 files Fixes the thing.');
+	assert.match(prCard(7, preview()), /Plots: &lt;one&gt; name/);
+	assert.match(prCard(7, preview()), /<span class="pill merged">/);
+	assert.match(text(prCard(8, preview({ state: 'open', date: '2026-10-01T10:00:00Z' }))), /^ ?Open opened Oct 1, 2026 #8/);
+	assert.match(text(prCard(9, preview({ state: 'closed' }))), /^ ?Closed without merging Oct 3, 2026/);
+	assert.match(text(prCard(7, preview({ files: 1, desc: '' }))), /~ 1 file $/);
+	assert.ok(!prCard(7, preview({ desc: '' })).includes('<p>'));
 });

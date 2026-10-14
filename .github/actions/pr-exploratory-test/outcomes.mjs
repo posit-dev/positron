@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, guarded, issueOf, markDuplicates, parseCheck, parsePageFindings, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, guarded, issueOf, markDuplicates, parseCheck, parsePageFindings, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -184,6 +184,7 @@ async function laterChecks(finding, paths, pr, postedAt) {
 async function prRows(number) {
 	const pr = await gh(`/repos/${REPO}/pulls/${number}`);
 	const prState = pr.merged_at ? 'merged' : pr.state === 'open' ? 'open' : 'closed';
+	const preview = prPreview(pr);
 	git('fetch', '-q', 'origin', `refs/pull/${number}/head`, 'main');
 	const prCommits = await gh(`/repos/${REPO}/pulls/${number}/commits?per_page=100`);
 	const comments = (await gh(`/repos/${REPO}/issues/${number}/comments?per_page=100`)).filter(c => c.user?.login === 'github-actions[bot]');
@@ -204,7 +205,7 @@ async function prRows(number) {
 		for (const finding of (report.findings ?? []).filter(f => f.verified === 'confirmed')) {
 			const kept = SETTLED.get(`${parsed.run}#${finding.n}`);
 			if (kept) {
-				rows.push(kept);
+				rows.push({ ...kept, prPreview: preview });
 				console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${kept.outcome} (kept from --previous)`);
 				continue;
 			}
@@ -220,7 +221,7 @@ async function prRows(number) {
 				pr: number, run: parsed.run, trigger: parsed.trigger, postedAt: comment.created_at, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
 				skillVersion: stats?.version ?? null, model: stats?.model ?? null,
 				finding: finding.n, title: finding.title, severity: finding.severity, feature: finding.feature, verified: finding.verified,
-				related: report.fromPage ? null : related.has(finding.n), paths, ...decided, prCheck: prState === 'merged' ? inPr : null, decidedAt: new Date().toISOString().slice(0, 10),
+				related: report.fromPage ? null : related.has(finding.n), paths, ...decided, prCheck: prState === 'merged' ? inPr : null, decidedAt: new Date().toISOString().slice(0, 10), prPreview: preview,
 			});
 			console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${decided.outcome}${saved ? ' (PR check kept from --previous)' : ''}`);
 		}

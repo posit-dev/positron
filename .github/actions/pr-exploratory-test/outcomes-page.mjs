@@ -40,6 +40,8 @@ const INK = '#2B2A27';
 // Each severity needs about this many counted findings before their rates are worth comparing.
 const ENOUGH = 10;
 const SEP = ' &middot; ';
+// The PR card's state pill, and what goes before its date.
+const PR_STATE = { merged: ['Merged', ''], open: ['Open', 'opened '], closed: ['Closed without merging', ''] };
 
 const pct = (a, b) => `${Math.round(a / b * 100)}%`;
 const codeSpans = text => escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code>');
@@ -215,7 +217,7 @@ function prRows(own) {
 	const rows = [...byPr].sort(([a, x], [b, y]) => y.length - x.length || b - a).map(([pr, list]) => {
 		const s = summarize(list);
 		const parts = [[s.fixed, 'fixed'], [s.counts['filed-issue'], 'filed as issue'], [s.counts['not-fixed'], 'not fixed'], [s.notCounted, 'open']].filter(([n]) => n).map(([n, what]) => `${n} ${what}`);
-		return `<div class="grid-row pr"><a class="name mono" href="${REPO_URL}/pull/${Number(pr)}">#${Number(pr)}</a><span class="pct small">${plural(list.length, 'finding')}</span>`
+		return `<div class="grid-row pr"><a class="name mono" href="${REPO_URL}/pull/${Number(pr)}" data-pr="${Number(pr)}">#${Number(pr)}</a><span class="pct small">${plural(list.length, 'finding')}</span>`
 			+ `<div class="grow bar mid">${segments(list)}</div><span class="end small">${parts.join(SEP)}</span></div>`;
 	}).join('\n');
 	return accordion('pr', 'By PR', plural(byPr.size, 'PR'), `<div class="rows">${rows}</div>`);
@@ -235,10 +237,10 @@ function findingRow(r, n) {
 		r.paths?.length ? ['Files', r.paths.map(p => `<code class="chip">${escapeHtml(p)}</code>`).join(' ')] : null,
 		['Run', `<span class="mono">${escapeHtml(r.run)}#${escapeHtml(r.finding)}</span>${SEP}${TRIGGER[r.trigger] ?? 'trigger unknown'}${SEP}skill ${escapeHtml(r.skillVersion ?? '?')}${SEP}${escapeHtml(r.model ?? '?')}`],
 	].filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
-	const links = [report ? `<a href="${escapeHtml(report)}">Open report</a>` : '', `<a href="${REPO_URL}/pull/${pr}">Open PR</a>`].join('');
+	const links = [report ? `<a href="${escapeHtml(report)}">Open report</a>` : '', `<a href="${REPO_URL}/pull/${pr}" data-pr="${pr}">Open PR</a>`].join('');
 	return `<div class="finding"><button type="button" class="row" aria-expanded="false" aria-controls="d${n}">`
 		+ `<span class="num">${n}</span><span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}</span>`
-		+ `<span class="mono link">#${pr}</span><span class="sev">${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity ?? '')}</span><span class="sign" aria-hidden="true">+</span></button>`
+		+ `<span class="mono link" data-pr="${pr}">#${pr}</span><span class="sev">${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity ?? '')}</span><span class="sign" aria-hidden="true">+</span></button>`
 		+ `<div class="detail" id="d${n}" hidden>${ev.text ? `<p class="ev">${codeSpans(ev.text)}</p>` : ''}<dl>${dl}</dl><div class="links">${links}</div></div></div>`;
 }
 
@@ -256,6 +258,16 @@ function evidence(own, s) {
 		...FILTERS.filter(([k]) => counts[k]).map(([k, label]) => `<button type="button" class="filter" data-filter="${k}" aria-pressed="false">${label} ${counts[k]}</button>`)].join('');
 	const controls = `<div class="controls"><div role="group" aria-label="Filter by outcome">${filters}</div><button type="button" class="toggle-all">Expand all</button></div>`;
 	return accordion('ev', 'Evidence', plural(s.total, 'finding'), `${controls}\n${groups}`, ' id="evidence"');
+}
+
+/** The card shown over a PR link: the PR as it was when the page was built. */
+export function prCard(n, p) {
+	const [label, lead] = PR_STATE[p.state] ?? PR_STATE.closed;
+	const dot = '<span class="pc-dot" aria-hidden="true">&middot;</span>';
+	return `<div class="pc-state"><span class="pill ${PR_STATE[p.state] ? p.state : 'closed'}"><i></i>${label}</span>${p.date ? lead + day(p.date, true) : ''}</div>`
+		+ `<div class="pc-title"><span class="mono">#${Number(n)}</span> ${escapeHtml(p.title ?? '')}</div>`
+		+ `<div class="pc-meta"><span>@${escapeHtml(p.author ?? '')}</span>${dot}<span class="mono"><span class="add">+${Number(p.additions)}</span> <span class="del">&minus;${Number(p.deletions)}</span></span>${dot}<span>${plural(Number(p.files), 'file')}</span></div>`
+		+ (p.desc ? `<p>${escapeHtml(p.desc)}</p>` : '');
 }
 
 function footer(s) {
@@ -277,9 +289,9 @@ export function renderView(rows, { now, range }) {
 const runDates = rows => rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, pct, codeSpans, plural, day, time, summarize, splitEvidence, segments, triggers, minusDays, isDay, resolveRange, rangeText, header, allBar, severityRows, accordion, prRows, findingRow, evidence, footer, renderView };
+const VIEW_FNS = { escapeHtml, safeUrl, pct, codeSpans, plural, day, time, summarize, splitEvidence, segments, triggers, minusDays, isDay, resolveRange, rangeText, header, allBar, severityRows, accordion, prRows, findingRow, evidence, footer, renderView, prCard };
 export const VIEW_SOURCE = [
-	...Object.entries({ SEVERITY_LABEL, REPO_URL, OUTCOMES, FILTERS, DECIDED_BY, PRESETS, TRIGGER, HERO_COLOR, INK, ENOUGH, SEP }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
+	...Object.entries({ SEVERITY_LABEL, REPO_URL, OUTCOMES, FILTERS, DECIDED_BY, PRESETS, TRIGGER, HERO_COLOR, INK, ENOUGH, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
 ].join('\n');
 
@@ -416,9 +428,19 @@ dt{color:#7A766F}dd{margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:bas
 code.chip{background:#ECE9E2;border:0}
 .links{display:flex;gap:16px;font-size:13px}
 footer{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:#7A766F}
+.pr-card{position:absolute;z-index:30;width:340px;max-width:calc(100vw - 16px);box-sizing:border-box;padding:16px;background:#FBFAF7;border:1px solid #E4E1D9;border-radius:10px;box-shadow:0 8px 24px rgba(43,42,39,.14);display:flex;flex-direction:column;gap:10px;font-size:13px;color:#2B2A27}
+.pr-card[hidden]{display:none}.pr-card.passive{pointer-events:none}
+.pc-state{display:flex;align-items:center;gap:8px;font-size:12px;color:#6B6862}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;font-weight:500}.pill i{width:6px;height:6px;border-radius:50%}
+.pill.merged{background:#ECE9E2;color:#2B2A27}.pill.merged i{background:#2B2A27}
+.pill.open{border:1px solid #D6D2C8;color:#3A3833}.pill.open i{background:#B5B1A7}
+.pill.closed{background:#EEEBE4;color:#6B6862}.pill.closed i{background:#7D7568}
+.pc-title{font-size:15px;line-height:1.4;font-weight:600}.pc-title .mono{font-weight:500;color:#6B6862}
+.pc-meta{display:flex;flex-wrap:wrap;gap:4px 8px;font-size:12px;color:#6B6862}.pc-dot{color:#D6D2C8}.add{color:#3B7D4F}.del{color:#7D7568}
+.pr-card p{margin:0;padding-top:10px;border-top:1px solid #E4E1D9;line-height:1.5;color:#3A3833;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 `;
 
-// The date range, accordions, filters, segment clicks, the bar's hover detail and expanding rows; runs after VIEW_SOURCE.
+// The date range, accordions, filters, segment clicks, the bar's hover detail, expanding rows and the PR card; runs after VIEW_SOURCE.
 // Without it the page shows all time with everything expanded (see the noscript style).
 const SCRIPT = `
 const $ = s => document.querySelector(s);
@@ -431,6 +453,10 @@ const items = $$('[role=menuitemradio]');
 const from = $('#range-from');
 const to = $('#range-to');
 const findings = () => $$('.finding .row');
+const card = $('#pr-card');
+let anchor = null;
+let openTimer;
+let closeTimer;
 const setOpen = (b, open) => { b.setAttribute('aria-expanded', open); const sign = b.querySelector('.sign'); if (sign) { sign.textContent = open ? '\\u2212' : '+'; } document.getElementById(b.getAttribute('aria-controls')).hidden = !open; };
 const sync = () => { $('.toggle-all').textContent = findings().some(b => b.getAttribute('aria-expanded') === 'true') ? 'Collapse all' : 'Expand all'; };
 const filter = key => {
@@ -442,6 +468,7 @@ const apply = (param, write) => {
 	const range = resolveRange(param, dates, data.now);
 	const view = renderView(data.rows, { now: data.now, range });
 	const open = $$('.acc[aria-expanded=true]').map(b => b.getAttribute('aria-controls'));
+	closeCard();
 	$('.range-label').innerHTML = view.label;
 	btn.setAttribute('aria-label', 'Date range: ' + $('.range-label').textContent);
 	$('.triggers').innerHTML = view.triggers;
@@ -475,6 +502,48 @@ menu.addEventListener('keydown', e => {
 	else if (at >= 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); items[(at + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); }
 	else if (at >= 0 && (e.key === 'Home' || e.key === 'End')) { e.preventDefault(); items[e.key === 'Home' ? 0 : items.length - 1].focus(); }
 });
+// One card for every PR link, below it or above it when there's no room. The number in an evidence row sits inside the row's button, so its card can't be hovered.
+function openCard(a) {
+	clearTimeout(openTimer);
+	clearTimeout(closeTimer);
+	const p = data.prs?.[a.dataset.pr];
+	if (!p || a === anchor) { return; }
+	anchor?.removeAttribute('aria-describedby');
+	anchor = a;
+	card.innerHTML = prCard(a.dataset.pr, p);
+	card.classList.toggle('passive', !!a.closest('.row'));
+	if (a.matches('a')) { a.setAttribute('aria-describedby', 'pr-card'); }
+	card.hidden = false;
+	const r = a.getBoundingClientRect();
+	const above = r.bottom + 8 + card.offsetHeight > innerHeight && r.top - 8 - card.offsetHeight >= 0;
+	card.style.top = scrollY + (above ? r.top - 8 - card.offsetHeight : r.bottom + 8) + 'px';
+	card.style.left = scrollX + Math.max(8, Math.min(r.left - 12, document.documentElement.clientWidth - card.offsetWidth - 8)) + 'px';
+}
+function closeCard() {
+	clearTimeout(openTimer);
+	clearTimeout(closeTimer);
+	card.hidden = true;
+	anchor?.removeAttribute('aria-describedby');
+	anchor = null;
+}
+const closeSoon = () => { clearTimeout(openTimer); clearTimeout(closeTimer); closeTimer = setTimeout(closeCard, 150); };
+const prLink = t => t?.closest?.('[data-pr]');
+const onCard = t => !!t?.closest?.('#pr-card');
+if (matchMedia('(hover: hover)').matches) {
+	document.addEventListener('mouseover', e => {
+		const a = prLink(e.target);
+		if (a) { clearTimeout(closeTimer); if (a !== anchor) { clearTimeout(openTimer); openTimer = setTimeout(() => openCard(a), anchor ? 0 : 300); } }
+		else if (onCard(e.target)) { clearTimeout(closeTimer); }
+	});
+	document.addEventListener('mouseout', e => {
+		const to = e.relatedTarget;
+		if ((prLink(e.target) || onCard(e.target)) && !(to && (prLink(to) === anchor && anchor || onCard(to)))) { closeSoon(); }
+	});
+	document.addEventListener('focusin', e => { const a = prLink(e.target); if (a && a.matches('a')) { openCard(a); } });
+	document.addEventListener('focusout', e => { if (prLink(e.target)) { closeSoon(); } });
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !card.hidden) { closeCard(); } });
+addEventListener('resize', closeCard);
 const seg = e => e.target.closest?.('.bar.big .seg');
 document.addEventListener('mouseover', e => { if (seg(e)) { show(seg(e).dataset.key); } });
 document.addEventListener('mouseout', e => { if (seg(e) && !seg({ target: e.relatedTarget ?? document.body })) { show(document.activeElement?.closest?.('.bar.big') ? document.activeElement.dataset.key : null); } });
@@ -503,7 +572,8 @@ export function renderOutcomesPage(rows, { now = new Date() } = {}) {
 	const dates = runDates(rows);
 	const range = resolveRange('all', dates, today);
 	const view = renderView(rows, { now: today, range });
-	const data = JSON.stringify({ rows, now: today }).replace(/</g, '\\u003c');
+	const prs = Object.fromEntries(rows.filter(r => r.prPreview).map(r => [r.pr, r.prPreview]));
+	const data = JSON.stringify({ rows: rows.map(({ prPreview, ...r }) => r), now: today, prs }).replace(/</g, '\\u003c');
 	const script = `${VIEW_SOURCE}\n${SCRIPT}`.replace(/<\/script/gi, '<\\/script');
 	return `<!doctype html>
 <html lang="en">
@@ -519,6 +589,7 @@ export function renderOutcomesPage(rows, { now = new Date() } = {}) {
 </header>
 <div class="view">${view.body}</div>
 </div></main>
+<div class="pr-card" id="pr-card" role="tooltip" hidden></div>
 <script id="rows" type="application/json">${data}</script>
 <script>${script}</script>
 </body></html>

@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -261,4 +261,28 @@ test('savedPrChecks keeps a merged PR\'s "no" answer by run and finding, and nev
 	]);
 	assert.deepEqual([...kept.keys()], ['10#1']);
 	assert.deepEqual(kept.get('10#1'), no);
+});
+
+const pull = extra => ({
+	title: 'Plots: one accessible name per thumbnail', user: { login: 'someone' }, body: 'Fixes the thing.', state: 'closed',
+	created_at: '2026-10-01T10:00:00Z', merged_at: '2026-10-03T09:00:00Z', closed_at: '2026-10-03T09:00:00Z', additions: 38, deletions: 12, changed_files: 3, ...extra,
+});
+
+test('prPreview keeps what the PR card shows, dated by merge, close or open', () => {
+	assert.deepEqual(prPreview(pull()), { title: 'Plots: one accessible name per thumbnail', author: 'someone', state: 'merged', date: '2026-10-03T09:00:00Z', additions: 38, deletions: 12, files: 3, desc: 'Fixes the thing.' });
+	assert.equal(prPreview(pull({ merged_at: null })).state, 'closed');
+	const open = prPreview(pull({ state: 'open', merged_at: null, closed_at: null }));
+	assert.deepEqual([open.state, open.date], ['open', '2026-10-01T10:00:00Z']);
+	assert.equal(prPreview(pull({ body: null })).desc, '');
+});
+
+test('prPreview takes the first paragraph of prose, skipping headings, references, lists and checklists', () => {
+	const desc = body => prPreview(pull({ body })).desc;
+	assert.equal(desc('### Summary\n\nFixes keyboard focus being lost after #16450 merged.\n- A bullet\n- Another'), 'Fixes keyboard focus being lost after #16450 merged.');
+	assert.equal(desc('Fixes #12081\nFixes #14767\n\n### Summary\n\nAdds an `interpreters.definitions` setting.\n\nMore.'), 'Adds an interpreters.definitions setting.');
+	assert.equal(desc('- Addresses #10753\n- Related to https://github.com/quarto-dev/quarto/pull/1193\n\n### Summary\n\nExtensions can show a stop button.'), 'Extensions can show a stop button.');
+	assert.equal(desc('<!-- Thank you! -->\n- [ ] Tested\n\n```json\n{}\n```\n\nSee the **[docs](https://x.y)** for ![shot](https://x.y/a.png) _details_.'), 'See the docs for details.');
+	assert.equal(desc('<img width="10" src="a.png" />\n\nBefore this PR,\nthe Viewer had no stop button.'), 'Before this PR, the Viewer had no stop button.');
+	assert.equal(desc('### Only a heading\n- [x] done'), '');
+	assert.equal(desc('Fixes #13104 .\r\n\r\n### Summary\r\nA missing uv no longer dead-ends the flow.\r\n- Install uv'), 'A missing uv no longer dead-ends the flow.');
 });
