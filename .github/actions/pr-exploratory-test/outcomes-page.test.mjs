@@ -146,7 +146,8 @@ test('severity rows always show Major, Moderate and Minor, with no fixed-of-coun
 	assert.match(t, /Major - No Major findings in this period Moderate/);
 	assert.match(t, /Moderate 80% 4 1 \+3 not counted yet Minor 71% 4 1 2 \+1 not counted yet $/);
 	assert.doesNotMatch(t, /of \d+ counted|Fixed of counted/);
-	assert.doesNotMatch(section(html, 'sev-h'), /class="end"/);
+	assert.equal(section(html, 'sev-h').match(/<span class="end[ "]/g).length, 4, 'the header and each row end in the 240px column');
+	assert.match(section(html, 'sev-h'), /<span class="grow">Outcomes<\/span><span class="end"><\/span><\/div>/);
 	assert.match(section(html, 'sev-h'), /aria-label="No data"/);
 	assert.match(text(section(render([row('pending', { severity: 'major' }), row('unclear', { severity: 'major' })]), 'sev-h')), /Major - 2 findings, none counted yet Moderate/);
 });
@@ -156,10 +157,12 @@ test('a severity bar holds counted findings only, so its green share is the % fi
 	const moderate = sev.slice(sev.indexOf('>Moderate<')).split('sev-row')[0];
 	assert.deepEqual([...moderate.matchAll(/class="seg o-([a-z-]+)" style="flex:(\d+) 1 0" title="([^"]+)"/g)].map(m => [m[1], m[2], m[3]]),
 		[['fixed-in-pr', '4', '4 Fixed in the PR'], ['not-fixed', '1', '1 Not fixed']]);
-	assert.match(moderate, /<span class="uncounted">\+3 not counted yet<\/span>/);
+	assert.match(moderate, /<div class="grow bar mid">(<span class="seg[^>]*>\d+<\/span>)+<\/div><span class="end uncounted">\+3 not counted yet<\/span><\/div>/);
+	const major = section(render([row('fixed-in-pr', { severity: 'major' })]), 'sev-h');
+	assert.match(major.slice(major.indexOf('>Major<')).split('sev-row')[0], /<\/div><span class="end uncounted"><\/span><\/div>/);
 	assert.doesNotMatch(moderate, /o-pending|width:/);
 	assert.match(render(today), /\.sev-row \.seg\{min-width:0\}/);
-	assert.match(render(today), /\.uncounted\{flex:0 0 auto;font-size:12px;color:#7A766F;white-space:nowrap\}/);
+	assert.match(render(today), /\.uncounted\{font-size:12px;color:#7A766F;white-space:nowrap\}/);
 });
 
 test('the severity header has its ink rule under the labels, not above', () => {

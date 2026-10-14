@@ -180,22 +180,22 @@ function severityRows(own) {
 	const few = per.some(p => p.s.counted < ENOUGH) ? ' Too few so far to compare severities.' : '';
 	const rows = per.map(({ label, list, s }) => {
 		const rate = s.counted ? `<div class="pct green">${pct(s.fixed, s.counted)}</div>` : '<div class="pct none" aria-label="No data">&ndash;</div>';
+		const end = `<span class="end uncounted">${s.counted && s.notCounted ? `+${s.notCounted} not counted yet` : ''}</span>`;
 		if (!s.total) {
-			return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow empty">No ${label} findings in this period</div></div>`;
+			return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow empty">No ${label} findings in this period</div>${end}</div>`;
 		}
 		if (!s.counted) {
-			return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow empty">${plural(s.total, 'finding')}, none counted yet</div></div>`;
+			return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow empty">${plural(s.total, 'finding')}, none counted yet</div>${end}</div>`;
 		}
 		// Counted findings only, so the green share matches % fixed.
 		const segs = OUTCOMES.filter(o => o.group !== 'open' && s.counts[o.key])
 			.map(o => `<span class="seg o-${o.key}" style="flex:${s.counts[o.key]} 1 0" title="${s.counts[o.key]} ${o.label}">${s.counts[o.key]}</span>`).join('');
-		const uncounted = s.notCounted ? `<span class="uncounted">+${s.notCounted} not counted yet</span>` : '';
-		return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow out"><div class="bar mid">${segs}</div>${uncounted}</div></div>`;
+		return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow bar mid">${segs}</div>${end}</div>`;
 	}).join('\n');
 	return `<section aria-labelledby="sev-h">
 <div class="sec-head"><h2 id="sev-h">Fix rate by severity</h2><p class="sub">% fixed = findings fixed (in the PR or later) &divide; findings on merged or closed PRs.${few}</p></div>
 <div class="rows sev-rows">
-<div class="grid-row cols" aria-hidden="true"><span class="name">Severity</span><span class="pct">% fixed</span><span class="grow">Outcomes</span></div>
+<div class="grid-row cols" aria-hidden="true"><span class="name">Severity</span><span class="pct">% fixed</span><span class="grow">Outcomes</span><span class="end"></span></div>
 ${rows}
 </div>
 </section>`;
@@ -389,8 +389,7 @@ i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-s
 .cols{padding:0 0 8px;color:#6B6862;border-bottom:1px solid #2B2A27}
 .sev-rows{border-top:0}
 .sev-row{min-height:64px}.sev-row .seg{min-width:0}
-.out{display:flex;align-items:center;gap:12px}.out .bar{flex:1 1 auto}
-.uncounted{flex:0 0 auto;font-size:12px;color:#7A766F;white-space:nowrap}.sev-row .name{font-size:16px;font-weight:600}
+.uncounted{font-size:12px;color:#7A766F;white-space:nowrap}.sev-row .name{font-size:16px;font-weight:600}
 .sev-row .pct{font-size:28px;line-height:1}.sev-row .pct.none{font-size:18px;font-weight:400;color:#B5B1A7}
 .empty{font-size:13px;color:#7A766F}
 .pr{min-height:56px}.pr .name{font-size:14px;font-weight:500}
