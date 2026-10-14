@@ -141,8 +141,10 @@ export class ProviderManager {
 						break;
 					}
 					case 'aws':
-						// Positron's authentication extension owns Bedrock and signs in from the AWS credential chain; the panel only shows its status.
-						throw new Error(`${provider} isn't connected. It needs valid AWS credentials in the environment (keys or an active profile).`);
+						// Positron's authentication extension signs Bedrock in from the AWS credential chain, which can finish after the panel renders.
+						await expect(card, `${provider} isn't connected. It needs valid AWS credentials in the environment (keys or an active profile).`)
+							.toContainText('Connected', { timeout });
+						return;
 					default:
 						throw new Error(`The provider manager page object doesn't support ${provider} yet`);
 				}
