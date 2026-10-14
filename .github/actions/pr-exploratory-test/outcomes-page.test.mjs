@@ -270,8 +270,9 @@ test('the header ends with the build date, linked to the run that built the page
 	const html = renderOutcomesPage(today, { now: NOW, runUrl: 'https://github.com/o/r/actions/runs/42' });
 	const eyebrow = html.slice(html.indexOf('<div class="eyebrow">')).split('<div class="head">')[0];
 	assert.match(eyebrow, /<a class="updated" href="https:\/\/github\.com\/o\/r\/actions\/runs\/42" title="Open the workflow run that built this report">Updated&nbsp;<time datetime="2026-10-14">Oct 14, 2026<\/time><\/a><\/div>\s*$/);
-	assert.match(html, /\.updated\{margin-left:auto;display:inline-flex;align-items:center;min-height:32px;font:13px 'IBM Plex Sans',sans-serif;color:#3A3833;text-decoration:underline dotted #B5B1A7;text-underline-offset:3px\}/);
-	assert.match(html, /a\.updated:hover\{color:#2F6B55\}/);
+	assert.match(html, /\.eyebrow\{[^}]*font-size:13px;color:#6B6862;/);
+	assert.match(html, /\.updated\{margin-left:auto;display:inline-flex;align-items:center;min-height:32px;color:inherit;text-decoration:none\}/);
+	assert.match(html, /a\.updated:hover\{color:#2F6B55;text-decoration:underline;text-underline-offset:3px\}/);
 	assert.doesNotMatch(text(html), /Generated/);
 });
 

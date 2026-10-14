@@ -307,7 +307,7 @@ function picker(range, dates, now) {
 
 const CSS = `
 body{margin:0;background:#F5F4F0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#2B2A27}
-a{color:#2F6B55}a:not(.seg):hover{color:#1F4D3D}a.updated:hover{color:#2F6B55}
+a{color:#2F6B55}a:not(.seg):hover{color:#1F4D3D}a.updated:hover{color:#2F6B55;text-decoration:underline;text-underline-offset:3px}
 main{padding:56px 24px 96px}
 .page{width:100%;max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:64px}
 .mono,.n,code,.chip,.seg,.num,.sign{font-family:'IBM Plex Mono',monospace}
@@ -321,7 +321,7 @@ header{display:flex;flex-direction:column}
 .eyebrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:13px;color:#6B6862;margin-bottom:16px}
 .triggers,.head,.view{display:contents}
 .range{position:relative}
-.updated{margin-left:auto;display:inline-flex;align-items:center;min-height:32px;font:13px 'IBM Plex Sans',sans-serif;color:#3A3833;text-decoration:underline dotted #B5B1A7;text-underline-offset:3px}
+.updated{margin-left:auto;display:inline-flex;align-items:center;min-height:32px;color:inherit;text-decoration:none}
 .range-btn{display:inline-flex;align-items:center;gap:4px;min-height:32px;padding:0 6px;margin-left:-6px;border:0;border-radius:6px;background:transparent;color:#3A3833;font:13px 'IBM Plex Sans',sans-serif;cursor:pointer;text-decoration:underline dotted #B5B1A7;text-underline-offset:3px}
 .range-btn:disabled{cursor:default;text-decoration:none}.range-btn:disabled svg{display:none}
 .range-btn svg{transition:transform .15s}.range-btn[aria-expanded=true]{background:#ECE9E2}.range-btn[aria-expanded=true] svg{transform:rotate(180deg)}
