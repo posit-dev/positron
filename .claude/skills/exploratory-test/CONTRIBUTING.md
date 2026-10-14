@@ -106,6 +106,11 @@ finding's cause names and asks Opus (`--model` picks another) whether the
 change addresses it, on your own `claude` login. Older runs published only the page, so their findings are
 read from it. Read every "fixed" row before trusting the numbers.
 
+`node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
+turns those rows into one page: how many findings with a known outcome were
+fixed, a bar per group (what started the run, severity), and every row by
+outcome with links to its report, PR and fixing commit or issue.
+
 ## Where things live
 
 The top of `renderer/` holds only what gets run: the pipeline, `render.mjs`,

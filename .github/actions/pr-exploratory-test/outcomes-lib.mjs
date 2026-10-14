@@ -11,7 +11,7 @@ import { COMMENT_MARKER } from './lib.mjs';
 export const WINDOW_DAYS = 60;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** A result comment's tested short SHA, report base URL and run id, or null when it links no report. */
+/** A result comment's tested short SHA, report base URL, run id and what started it, or null when it links no report. */
 export function parseResultComment(body) {
 	if (!body?.includes(COMMENT_MARKER)) {
 		return null;
@@ -19,7 +19,8 @@ export function parseResultComment(body) {
 	const sha = body.match(/Exploratory testing\*\* ([0-9a-f]{7,40})/)?.[1];
 	const base = body.match(/\[View report [^\]]*\]\((https:\/\/\S+?)\/index\.html\)/)?.[1];
 	const run = base?.match(/exploratory-report-(\d+)-/)?.[1];
-	return sha && base && run ? { shortSha: sha, reportBase: base, run } : null;
+	const trigger = body.includes('Started automatically for the [auto-run experiment]') ? 'auto' : 'explore';
+	return sha && base && run ? { shortSha: sha, reportBase: base, run, trigger } : null;
 }
 
 /** Repo paths the finding's cause names in backticks (with a directory), plus its test case paths. */

@@ -11,7 +11,12 @@ const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-384433041
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
 
 test('parseResultComment takes the short SHA, report base and run id from a result comment', () => {
-	assert.deepEqual(parseResultComment(RESULT), { shortSha: '78afc20', reportBase: BASE, run: '38443304195' });
+	assert.deepEqual(parseResultComment(RESULT), { shortSha: '78afc20', reportBase: BASE, run: '38443304195', trigger: 'explore' });
+});
+
+test('parseResultComment marks a run the auto-run experiment started', () => {
+	const auto = `${RESULT}\n> Started automatically for the [auto-run experiment](https://github.com/posit-dev/positron/issues/16610). Was it useful?\n`;
+	assert.equal(parseResultComment(auto).trigger, 'auto');
 });
 
 test('parseResultComment skips comments with no report: running, declined, cancelled, not ours', () => {

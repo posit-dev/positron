@@ -164,7 +164,7 @@ async function prRows(number) {
 				? decideOutcome({ prState, mergedAt: pr.merged_at, now: new Date(), hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later })
 				: { outcome: 'pending', decidedBy: 'sha', evidence: tested.reason };
 			rows.push({
-				pr: number, run: parsed.run, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
+				pr: number, run: parsed.run, trigger: parsed.trigger, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
 				skillVersion: stats?.version ?? null, model: stats?.model ?? null,
 				finding: finding.n, title: finding.title, severity: finding.severity, feature: finding.feature, verified: finding.verified,
 				related: report.fromPage ? null : related.has(finding.n), paths, ...decided, decidedAt: new Date().toISOString().slice(0, 10),
