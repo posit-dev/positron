@@ -42,6 +42,11 @@ describe('ConsoleQuickFix', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
+	beforeEach(() => {
+		executeCommand.mockReset().mockResolvedValue(undefined);
+		notifyError.mockReset();
+	});
+
 	it('dispatches posit-assistant.newChat with a fix prompt and the error as a data URI attachment when Fix is clicked', async () => {
 		const user = userEvent.setup();
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
@@ -91,5 +96,66 @@ describe('ConsoleQuickFix', () => {
 
 		await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1));
 		expect(notifyError.mock.calls[0][0]).toMatch(/Posit Assistant could not be opened/);
+	});
+
+	/** The newChat options from the most recent call, with attachments decoded. */
+	function lastNewChatOptions() {
+		const [command, options] = executeCommand.mock.calls.at(-1)!;
+		expect(command).toBe('posit-assistant.newChat');
+		return {
+			...options,
+			files: options.files?.map((file: { name: string; uri: string }) => ({ name: file.name, content: decodeDataUri(file.uri) })),
+		};
+	}
+
+	it('sends Fix to the current Posit Assistant chat with the error attached', async () => {
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+		await user.click(screen.getByText('Fix'));
+
+		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
+		expect(lastNewChatOptions()).toEqual({
+			prompt: 'Fix this console error.',
+			target: 'auto',
+			behavior: 'submit',
+			files: [{ name: 'Console Error', content: expectedAttachmentText }],
+		});
+	});
+
+	it('sends Explain to the current Posit Assistant chat without the explain-only constraint', async () => {
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+		await user.click(screen.getByText('Explain'));
+
+		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
+		expect(lastNewChatOptions()).toEqual({
+			prompt: 'Explain this console error.',
+			target: 'auto',
+			behavior: 'submit',
+			files: [{ name: 'Console Error', content: expectedAttachmentText }],
+		});
+	});
+
+	it('attaches the error output verbatim, without trimming', async () => {
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix outputLines={[line('1', '  Error: boom'), line('2', '')]} tracebackLines={[]} />);
+		await user.click(screen.getByText('Fix'));
+
+		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
+		expect(lastNewChatOptions().files).toEqual([{ name: 'Console Error', content: '  Error: boom\n' }]);
+	});
+
+	it('attaches only the message when there is no traceback', async () => {
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={[]} />);
+		await user.click(screen.getByText('Fix'));
+
+		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
+		expect(lastNewChatOptions().files).toEqual([{ name: 'Console Error', content: 'NameError: name "x" is not defined' }]);
+	});
+
+	it('offers no option to start a new chat', () => {
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+		expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['Fix', 'Explain']);
 	});
 });

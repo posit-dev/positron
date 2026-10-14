@@ -7,12 +7,13 @@
 
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { Event } from '../../../../../base/common/event.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { ContextKeyService } from '../../../../../platform/contextkey/browser/contextKeyService.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
@@ -82,5 +83,66 @@ describe('ActivityErrorMessage assistant actions gate (Posit Assistant not insta
 
 		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
 		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
+	});
+});
+
+describe('ActivityErrorMessage assistant actions gate (live updates)', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IExtensionService, { extensions: [positAssistant], onDidChangeExtensions: Event.None })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	/** A real context key service, so key changes re-render the error. */
+	let contextKeyService: ContextKeyService;
+
+	beforeEach(() => {
+		contextKeyService = ctx.disposables.add(new ContextKeyService(ctx.get(IConfigurationService)));
+		ctx.instantiationService.stub(IContextKeyService, contextKeyService);
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		configurationService.setUserConfiguration('ai.enabled', true);
+		configurationService.setUserConfiguration('console.assistantActions.enabled', true);
+	});
+
+	/** Change a setting and notify listeners, as the real configuration service would. */
+	async function changeConfiguration(key: string, value: unknown) {
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		await configurationService.setUserConfiguration(key, value);
+		act(() => configurationService.onDidChangeConfigurationEmitter.fire({ affectedKeys: new Set([key]), affectsConfiguration: (changed: string) => changed === key } as unknown as IConfigurationChangeEvent));
+	}
+
+	it('shows and hides the actions as Posit Assistant gains and loses chat models', () => {
+		const hasChatModels = contextKeyService.createKey<boolean>('posit-assistant.hasChatModels', false);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
+
+		act(() => hasChatModels.set(true));
+		expect(screen.getByText('Fix')).toBeInTheDocument();
+
+		act(() => hasChatModels.set(false));
+		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
+	});
+
+	it('shows and hides the actions as AI features are turned on and off', async () => {
+		contextKeyService.createKey('posit-assistant.hasChatModels', true);
+		await changeConfiguration('ai.enabled', false);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
+
+		await changeConfiguration('ai.enabled', true);
+		expect(screen.getByText('Fix')).toBeInTheDocument();
+
+		await changeConfiguration('ai.enabled', false);
+		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
+	});
+
+	it('shows and hides the actions as the console setting is turned on and off', async () => {
+		contextKeyService.createKey('posit-assistant.hasChatModels', true);
+		await changeConfiguration('console.assistantActions.enabled', false);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
+
+		await changeConfiguration('console.assistantActions.enabled', true);
+		expect(screen.getByText('Fix')).toBeInTheDocument();
 	});
 });

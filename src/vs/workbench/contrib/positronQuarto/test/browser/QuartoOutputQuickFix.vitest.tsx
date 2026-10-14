@@ -5,12 +5,18 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+/* eslint-disable local/code-no-dangerous-type-assertions */
+
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
+import { ContextKeyService } from '../../../../../platform/contextkey/browser/contextKeyService.js';
+import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { IContextMenuDelegate } from '../../../../../base/browser/contextmenu.js';
+import { IAction } from '../../../../../base/common/actions.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { decodeBase64 } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -23,12 +29,21 @@ describe('QuartoOutputQuickFix', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
+		.stub(IContextMenuService, { showContextMenu: vi.fn() })
+		.stub(INotificationService, { error: vi.fn() })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
+	/** A real context key service, so key changes re-render the quick fix. */
+	let contextKeyService: ContextKeyService;
+
+	beforeEach(() => {
+		contextKeyService = ctx.disposables.add(new ContextKeyService(ctx.get(IConfigurationService)));
+		ctx.instantiationService.stub(IContextKeyService, contextKeyService);
+	});
+
 	function setGates(aiEnabled: boolean | undefined, hasChatModels: boolean | undefined) {
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
-		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
 		if (aiEnabled !== undefined) {
 			configurationService.setUserConfiguration('ai.enabled', aiEnabled);
 		}
@@ -37,13 +52,37 @@ describe('QuartoOutputQuickFix', () => {
 		}
 	}
 
-	function renderQuickFix(cellContext?: QuartoCellErrorContext) {
+	function renderQuickFix(cellContext?: QuartoCellErrorContext, errorContent = 'NameError: name "x" is not defined') {
 		return rtl.render(
 			<QuartoOutputQuickFix
 				cellContext={cellContext}
-				errorContent='NameError: name "x" is not defined'
+				errorContent={errorContent}
 			/>
 		);
+	}
+
+	/** Change a setting and notify listeners, as the real configuration service would. */
+	async function changeConfiguration(key: string, value: unknown) {
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		await configurationService.setUserConfiguration(key, value);
+		act(() => configurationService.onDidChangeConfigurationEmitter.fire({ affectedKeys: new Set([key]), affectsConfiguration: (changed: string) => changed === key } as unknown as IConfigurationChangeEvent));
+	}
+
+	/** Run the first action in the dropdown opened by the given button. */
+	async function runDropdownAction(user: ReturnType<typeof userEvent.setup>, buttonName: string) {
+		await user.click(screen.getByRole('button', { name: buttonName }));
+		const showContextMenu = vi.mocked(ctx.get(IContextMenuService).showContextMenu);
+		const delegate = showContextMenu.mock.calls.at(-1)?.[0] as IContextMenuDelegate;
+		await (delegate.getActions() as IAction[])[0].run();
+	}
+
+	/** The newChat options from the most recent call, with attachments decoded. */
+	function lastDecodedNewChatOptions() {
+		const options = lastNewChatOptions();
+		return {
+			...options,
+			files: options.files?.map(file => ({ name: file.name, content: decodeAttachment(file.uri) })),
+		};
 	}
 
 	function lastNewChatOptions(): NewChatOptions {
@@ -145,5 +184,109 @@ describe('QuartoOutputQuickFix', () => {
 				attachment: 'NameError: name "x" is not defined',
 			});
 		});
+	});
+
+	it('sends Explain without chunk context to a new chat with the explain-only constraint', async () => {
+		const user = userEvent.setup();
+		setGates(true, true);
+		renderQuickFix(undefined);
+		await user.click(screen.getByRole('button', { name: 'Ask assistant to explain in new chat' }));
+
+		expect(lastDecodedNewChatOptions()).toEqual({
+			prompt: 'Explain this Quarto inline output error. Do not make changes or edit any files; just explain the error.',
+			target: 'new',
+			behavior: 'submit',
+			files: [{ name: 'Quarto Output Error', content: 'NameError: name "x" is not defined' }],
+		});
+	});
+
+	it('continues the current chat from the Fix dropdown', async () => {
+		const user = userEvent.setup();
+		setGates(true, true);
+		renderQuickFix(undefined);
+		await runDropdownAction(user, 'More fix options');
+
+		expect(lastDecodedNewChatOptions()).toEqual({
+			prompt: 'Fix this Quarto inline output error.',
+			target: 'auto',
+			behavior: 'submit',
+			files: [{ name: 'Quarto Output Error', content: 'NameError: name "x" is not defined' }],
+		});
+	});
+
+	it('continues the current chat from the Explain dropdown', async () => {
+		const user = userEvent.setup();
+		setGates(true, true);
+		renderQuickFix(undefined);
+		await runDropdownAction(user, 'More explain options');
+
+		expect(lastDecodedNewChatOptions()).toEqual({
+			prompt: 'Explain this Quarto inline output error. Do not make changes or edit any files; just explain the error.',
+			target: 'auto',
+			behavior: 'submit',
+			files: [{ name: 'Quarto Output Error', content: 'NameError: name "x" is not defined' }],
+		});
+	});
+
+	it('strips ANSI escape codes and surrounding whitespace from the whole attachment', async () => {
+		const user = userEvent.setup();
+		setGates(true, true);
+		renderQuickFix({
+			path: 'report.qmd',
+			language: 'python',
+			code: 'raise ValueError("boom")',
+			codeStartLine: 3,
+			codeEndLine: 3,
+		}, '\u001b[31mValueError\u001b[0m: boom\n\n');
+		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+
+		expect(lastDecodedNewChatOptions().files).toEqual([{
+			name: 'Quarto Output Error',
+			content: [
+				'Error from the python code chunk in report.qmd, lines 3-3:',
+				'',
+				'--- Failing code ---',
+				'raise ValueError("boom")',
+				'',
+				'--- Error output ---',
+				'ValueError: boom',
+			].join('\n'),
+		}]);
+	});
+
+	it('notifies the user when Posit Assistant cannot be opened', async () => {
+		vi.mocked(ctx.get(ICommandService).executeCommand).mockRejectedValueOnce(new Error('command not found'));
+		const user = userEvent.setup();
+		setGates(true, true);
+		renderQuickFix(undefined);
+		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+
+		const notifyError = vi.mocked(ctx.get(INotificationService).error);
+		await waitFor(() => expect(notifyError).toHaveBeenCalledWith('Posit Assistant could not be opened: command not found'));
+	});
+
+	it('shows and hides the buttons as Posit Assistant gains and loses chat models', () => {
+		setGates(true, false);
+		renderQuickFix();
+		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
+
+		const hasChatModels = contextKeyService.createKey<boolean>('posit-assistant.hasChatModels', false);
+		act(() => hasChatModels.set(true));
+		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
+
+		act(() => hasChatModels.set(false));
+		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
+	});
+
+	it('shows and hides the buttons as AI features are turned on and off', async () => {
+		setGates(false, true);
+		renderQuickFix();
+		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
+
+		await changeConfiguration('ai.enabled', true);
+		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
+
+		await changeConfiguration('ai.enabled', false);
+		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
 	});
 });
