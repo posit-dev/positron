@@ -62,15 +62,22 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * editor that then takes focus from the editor-type button's menu, which
 		 * closes on blur. A trial click first does Playwright's checks (in view,
 		 * visible, stable, enabled, not covered), so a failure reads as the click's.
+		 * A person's pointer also rests on the target before they press, so the
+		 * page gets a task turn after the move too: a Positron action bar button
+		 * re-renders on mouseenter and remounts its label (ActionBarButton declares
+		 * its face inside its render), and a press on the old label with a release
+		 * on the new one is no click at all (Convert to Code, Import Data).
 		 */
 		click: async (el: Locator | ElementHandle, opts: { button?: 'left' | 'right'; timeout?: number } = {}) => {
 			await el.click({ trial: true, button: opts.button, timeout: opts.timeout ?? 3000 });
 			const box = await el.boundingBox();
 			if (!box) { throw new Error('the element went away before the click; nothing was done'); }
+			// One task turn: a setTimeout(0) queued now runs after those the input queued.
+			const turn = () => page.evaluate(() => new Promise<void>(r => setTimeout(r, 0)));
 			await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+			await turn();
 			await page.mouse.down({ button: opts.button });
-			// One task turn: a setTimeout(0) queued now runs after those the press queued.
-			await page.evaluate(() => new Promise<void>(r => setTimeout(r, 0)));
+			await turn();
 			await page.mouse.up({ button: opts.button });
 		},
 
