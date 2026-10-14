@@ -8,9 +8,6 @@
 
 import { COMMENT_MARKER } from './lib.mjs';
 
-export const WINDOW_DAYS = 30;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /** A result comment's tested short SHA, report base URL, run id and what started it, or null when it links no report. */
 export function parseResultComment(body) {
 	if (!body?.includes(COMMENT_MARKER)) {
@@ -91,7 +88,7 @@ const evidenceOf = c => `${c.source}: ${c.reason}`;
 const decidedByOf = c => c.source.startsWith('issue') ? 'issue+model' : 'diff+model';
 
 /** One finding's outcome from its checks. `Check` is `{ answer, reason, source }`. */
-export function decideOutcome({ prState, mergedAt, now, hasPaths, prCheck, laterChecks }) {
+export function decideOutcome({ prState, hasPaths, prCheck, laterChecks }) {
 	if (prCheck?.answer === 'yes') {
 		return { outcome: 'fixed-in-pr', decidedBy: 'diff+model', evidence: evidenceOf(prCheck) };
 	}
@@ -109,15 +106,11 @@ export function decideOutcome({ prState, mergedAt, now, hasPaths, prCheck, later
 	if (unclear) {
 		return { outcome: 'unclear', decidedBy: decidedByOf(unclear), evidence: evidenceOf(unclear) };
 	}
-	const expired = prState === 'closed' || now - new Date(mergedAt) > WINDOW_DAYS * DAY_MS;
 	const no = [prCheck, ...laterChecks].find(c => c?.answer === 'no');
-	const evidence = no ? evidenceOf(no) : '';
-	return expired
-		? { outcome: 'not-acted-on', decidedBy: prState === 'closed' ? 'closed-unmerged' : 'window', evidence }
-		: { outcome: 'pending', decidedBy: 'window', evidence };
+	return { outcome: 'not-fixed', decidedBy: prState === 'closed' ? 'closed-unmerged' : 'merged-no-fix', evidence: no ? evidenceOf(no) : '' };
 }
 
-// Not acted on isn't final: a later fix or a matching issue still moves it to fixed later.
+// Not fixed isn't final: a later fix or a matching issue still moves it to fixed later.
 const SETTLED = new Set(['fixed-in-pr', 'fixed-later']);
 
 /** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. */

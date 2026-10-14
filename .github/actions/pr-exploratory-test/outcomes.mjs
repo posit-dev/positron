@@ -213,7 +213,7 @@ async function prRows(number) {
 			const inPr = saved ?? (tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null);
 			const later = prState === 'open' ? [] : await laterChecks(finding, paths, pr, comment.created_at);
 			const decided = tested.sha
-				? decideOutcome({ prState, mergedAt: pr.merged_at, now: new Date(), hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later })
+				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later })
 				: { outcome: 'pending', decidedBy: 'sha', evidence: tested.reason };
 			rows.push({
 				pr: number, run: parsed.run, trigger: parsed.trigger, postedAt: comment.created_at, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,

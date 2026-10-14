@@ -100,9 +100,9 @@ harness.
 
 `node .github/actions/pr-exploratory-test/outcomes.mjs [--pr N] [--out rows.jsonl]`
 decides, for each confirmed finding on PRs with a result comment, whether it
-was fixed in the PR, fixed later (on main, or a matching issue was filed), not acted
-on (the PR closed unmerged, or merged 30+ days ago with no fix found), or is
-still pending. It diffs the files the
+was fixed in the PR, fixed later (on main, or a matching issue was filed), not
+fixed (the PR merged or closed with no fix found), or is pending while its PR
+is open. It diffs the files the
 finding's cause names and asks Opus (`--model` picks another) whether the
 change addresses it, on your own `claude` login. Older runs published only the page, so their findings are
 read from it. Read every "fixed" row before trusting the numbers.
@@ -121,9 +121,9 @@ its owner can open it until others are added in Connect, and if the user
 behind the workflow's `CONNECT_API_KEY` isn't the owner, add them as a
 collaborator so the deploy is allowed. The rows go
 up beside the page, and the next run passes them as `--previous`, so a
-finding already fixed is kept rather than checked again. Not acted on isn't
-final: a later fix or matching issue moves it to fixed later. For a pending or
-not-acted-on finding on a merged PR, the answer to whether the PR fixed it is
+finding already fixed is kept rather than checked again. Not fixed isn't
+final: a later fix or matching issue moves it to fixed later. For a not-fixed
+finding on a merged PR, the answer to whether the PR fixed it is
 kept too, since that diff can't change; the checks for a later fix on main or
 a matching issue still run every night. In
 CI the model is reached through the API (`--api`), and a call that takes

@@ -12,28 +12,29 @@ import { fileURLToPath } from 'node:url';
 import { REPO_URL, SEVERITY_LABEL } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
 import { escapeHtml, safeUrl } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
 
-// In this order everywhere. `group` is the evidence filter: fixed, not acted on, or unresolved.
+// In this order everywhere. `group` is the evidence filter: fixed, not fixed, or not counted yet;
+// `short` names it in severity rows.
 const OUTCOMES = [
 	{ key: 'fixed-in-pr', label: 'Fixed in the PR', group: 'fixed', def: 'A commit pushed to the PR after the run fixed it.' },
 	{ key: 'fixed-later', label: 'Fixed later', group: 'fixed', def: 'Fixed on main after the merge, or someone filed a matching issue.' },
-	{ key: 'not-acted-on', label: 'Not acted on', group: 'not', def: 'PR closed without merging, or merged 30+ days ago with no fix found.' },
-	{ key: 'pending', label: 'Pending', group: 'open', def: 'PR still open, or merged within the last 30 days with no fix found yet.' },
-	{ key: 'unclear', label: 'Unclear', group: 'open', def: 'A check failed or the model couldn\'t say.' },
-	{ key: 'no-paths', label: 'No files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.' },
+	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged or closed with no fix. Moves to Fixed later if a fix lands afterwards.' },
+	{ key: 'pending', label: 'PR still open', short: 'still open', group: 'open', def: 'The PR hasn\'t merged yet. These count once it merges or closes.' },
+	{ key: 'unclear', label: 'Unclear', short: 'unclear', group: 'open', def: 'A check failed or the model couldn\'t say.' },
+	{ key: 'no-paths', label: 'No files named', short: 'no files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.' },
 ];
-const FILTERS = [['fixed', 'Fixed'], ['not', 'Not acted on'], ['open', 'Unresolved']];
+const FILTERS = [['fixed', 'Fixed'], ['not', 'Not fixed'], ['open', 'Not counted']];
 const DECIDED_BY = {
 	'diff+model': 'The diff, read by the model',
 	'issue+model': 'A matching issue, confirmed by the model',
 	'pr-open': 'PR is still open',
-	'window': 'Merged under 30 days ago, no fix found yet',
+	'merged-no-fix': 'Merged with no fix found',
 	'closed-unmerged': 'PR closed without merging',
 	'sha': 'A specific commit',
 };
 const TRIGGER = { auto: 'started automatically', explore: 'started by /explore' };
-const HERO_COLOR = { 'fixed-in-pr': '#3B7D4F', 'not-acted-on': '#7D7568' };
+const HERO_COLOR = { 'fixed-in-pr': '#3B7D4F', 'not-fixed': '#7D7568' };
 const INK = '#2B2A27';
-// Each severity needs about this many tracked findings before their rates are worth comparing.
+// Each severity needs about this many counted findings before their rates are worth comparing.
 const ENOUGH = 10;
 const SEP = ' &middot; ';
 
@@ -48,8 +49,8 @@ export function summarize(rows) {
 	const own = rows.filter(r => !r.dupOf);
 	const counts = Object.fromEntries(OUTCOMES.map(o => [o.key, own.filter(r => r.outcome === o.key).length]));
 	const fixed = counts['fixed-in-pr'] + counts['fixed-later'];
-	const resolved = fixed + counts['not-acted-on'];
-	return { total: own.length, counts, fixed, resolved, unresolved: own.length - resolved, dups: rows.length - own.length };
+	const counted = fixed + counts['not-fixed'];
+	return { total: own.length, counts, fixed, counted, notCounted: own.length - counted, dups: rows.length - own.length };
 }
 
 /** Evidence split into its source (commits on the PR or main, or an issue) and the model's reason. */
@@ -92,7 +93,8 @@ function eyebrow(rows) {
 
 function header(rows, s) {
 	const inPr = s.counts['fixed-in-pr'];
-	const headline = inPr ? `Developers fixed <span class="green">${inPr}</span> ${inPr === 1 ? 'finding' : 'findings'} before merging.` : 'Developers fixed no findings before merging.';
+	const of = inPr === s.counted ? `<span class="green">all ${inPr}</span>` : `<span class="green">${inPr}</span> of ${s.counted}`;
+	const headline = s.counted ? `Developers fixed ${of} ${s.counted === 1 ? 'finding' : 'findings'} before merging.` : 'No PRs with findings have merged yet.';
 	const prs = new Set(rows.map(r => r.pr)).size;
 	const changed = new Set(rows.filter(r => r.outcome === 'fixed-in-pr' || r.outcome === 'fixed-later').map(r => r.pr)).size;
 	const unchecked = s.counts.unclear + s.counts['no-paths'];
@@ -104,7 +106,7 @@ ${eyebrow(rows)}
 <div class="cards">
 ${card('Issues fixed', `<span class="big green">${s.fixed}</span>`, `${inPr} in the PR${SEP}${s.fixed - inPr} later`, 'Problems developers fixed after /explore flagged them.')}
 ${card('PRs changed', `<span class="big">${changed}</span>`, `of ${plural(prs, 'PR')}`, 'PRs where at least one /explore finding got fixed.')}
-${card('Pending', `<span class="big">${s.counts.pending}</span>`, 'findings', 'PR still open, or merged in the last 30 days. Each resolves once a fix lands or the 30-day window closes.'
+${card('Still open', `<span class="big">${s.counts.pending}</span>`, s.counts.pending === 1 ? 'finding' : 'findings', 'Findings on PRs that haven\'t merged yet. They count once the PR merges or closes.'
 		+ (unchecked ? ` ${unchecked} more can't be checked (unclear or no files named).` : ''))}
 </div>
 </header>`;
@@ -112,8 +114,8 @@ ${card('Pending', `<span class="big">${s.counts.pending}</span>`, 'findings', 'P
 
 function allBar(s, own) {
 	const brackets = [
-		s.resolved ? `<div class="bracket resolved" style="width:${pct(s.resolved, s.total)}"><b>Resolved</b><span>${SEP}${s.resolved}</span></div>` : '',
-		s.unresolved ? `<div class="bracket unresolved" style="width:${pct(s.unresolved, s.total)}"><b>Unresolved</b><span>${SEP}${s.unresolved}</span></div>` : '',
+		s.counted ? `<div class="bracket counted" style="width:${pct(s.counted, s.total)}"><b>Counted</b><span>${SEP}${s.counted}</span></div>` : '',
+		s.notCounted ? `<div class="bracket not-counted" style="width:${pct(s.notCounted, s.total)}"><b>Not counted yet</b><span>${SEP}${s.notCounted}</span></div>` : '',
 	].join('');
 	const present = OUTCOMES.filter(o => s.counts[o.key]);
 	const legend = present.map(o => `<span><i class="o-${o.key}"></i>${o.label} <span class="n">${s.counts[o.key]}</span></span>`).join('');
@@ -134,21 +136,21 @@ function severityRows(own) {
 		const list = own.filter(r => r.severity === key);
 		return { label: SEVERITY_LABEL[key], list, s: summarize(list) };
 	});
-	const few = per.some(p => p.s.resolved < ENOUGH) ? ' Too few so far to compare severities.' : '';
+	const few = per.some(p => p.s.counted < ENOUGH) ? ' Too few so far to compare severities.' : '';
 	const rows = per.map(({ label, list, s }) => {
-		const rate = s.resolved ? `<div class="pct green">${pct(s.fixed, s.resolved)}</div>` : '<div class="pct none" aria-label="No data">&ndash;</div>';
+		const rate = s.counted ? `<div class="pct green">${pct(s.fixed, s.counted)}</div>` : '<div class="pct none" aria-label="No data">&ndash;</div>';
 		if (!s.total) {
 			return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow empty">No ${label} findings in this period</div><div class="end"></div></div>`;
 		}
-		const open = OUTCOMES.filter(o => o.group === 'open' && s.counts[o.key]).map(o => `${s.counts[o.key]} ${o.label.toLowerCase()}`).join(SEP);
-		const fixedOf = s.resolved ? `${s.fixed} of ${s.resolved} tracked` : 'None tracked yet';
+		const open = OUTCOMES.filter(o => o.group === 'open' && s.counts[o.key]).map(o => `${s.counts[o.key]} ${o.short}`).join(SEP);
+		const fixedOf = s.counted ? `${s.fixed} of ${s.counted} counted` : 'None counted yet';
 		return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow bar mid">${segments(list)}</div>`
-			+ `<div class="end"><span>${fixedOf}</span>${open ? `<span class="small">${open} not yet tracked</span>` : ''}</div></div>`;
+			+ `<div class="end"><span>${fixedOf}</span>${open ? `<span class="small">${open}, not counted yet</span>` : ''}</div></div>`;
 	}).join('\n');
 	return `<section aria-labelledby="sev-h">
-<div class="sec-head"><h2 id="sev-h">Fix rate by severity</h2><p class="sub">% fixed = fixed &divide; findings we could track.${few}</p></div>
+<div class="sec-head"><h2 id="sev-h">Fix rate by severity</h2><p class="sub">% fixed = findings fixed (in the PR or later) &divide; findings on merged or closed PRs.${few}</p></div>
 <div class="rows">
-<div class="grid-row cols" aria-hidden="true"><span class="name">Severity</span><span class="pct">% fixed</span><span class="grow">Outcomes</span><span class="end">Fixed of tracked</span></div>
+<div class="grid-row cols" aria-hidden="true"><span class="name">Severity</span><span class="pct">% fixed</span><span class="grow">Outcomes</span><span class="end">Fixed of counted</span></div>
 ${rows}
 </div>
 </section>`;
@@ -169,7 +171,7 @@ function prRows(own) {
 	}
 	const rows = [...byPr].sort(([a, x], [b, y]) => y.length - x.length || b - a).map(([pr, list]) => {
 		const s = summarize(list);
-		const parts = [s.fixed ? `${s.fixed} fixed` : '', s.counts['not-acted-on'] ? `${s.counts['not-acted-on']} not acted on` : '', s.unresolved ? `${s.unresolved} open` : ''].filter(Boolean);
+		const parts = [s.fixed ? `${s.fixed} fixed` : '', s.counts['not-fixed'] ? `${s.counts['not-fixed']} not fixed` : '', s.notCounted ? `${s.notCounted} open` : ''].filter(Boolean);
 		return `<div class="grid-row pr"><a class="name mono" href="${REPO_URL}/pull/${Number(pr)}">#${Number(pr)}</a><span class="pct small">${plural(list.length, 'finding')}</span>`
 			+ `<div class="grow bar mid">${segments(list)}</div><span class="end small">${parts.join(SEP)}</span></div>`;
 	}).join('\n');
@@ -203,7 +205,7 @@ function evidence(own, s) {
 			+ `<div class="rows">${items.map(r => findingRow(r, ++n)).join('\n')}</div></div>`
 			: '';
 	}).join('\n');
-	const counts = { fixed: s.fixed, not: s.counts['not-acted-on'], open: s.unresolved };
+	const counts = { fixed: s.fixed, not: s.counts['not-fixed'], open: s.notCounted };
 	const filters = [`<button type="button" class="filter" data-filter="all" aria-pressed="true">All ${s.total}</button>`,
 		...FILTERS.filter(([k]) => counts[k]).map(([k, label]) => `<button type="button" class="filter" data-filter="${k}" aria-pressed="false">${label} ${counts[k]}</button>`)].join('');
 	const controls = `<div class="controls"><div role="group" aria-label="Filter by outcome">${filters}</div><button type="button" class="toggle-all">Expand all</button></div>`;
@@ -243,10 +245,11 @@ section{display:flex;flex-direction:column;gap:16px}
 .sub{margin:0;font-size:14px;color:#6B6862}
 .all{display:flex;flex-direction:column;gap:8px}
 .brackets{display:flex;gap:3px}
-.bracket{display:flex;align-items:baseline;gap:8px;padding-bottom:6px;min-width:0;white-space:nowrap;overflow:hidden}
+.bracket{display:flex;align-items:baseline;gap:8px;padding-bottom:6px;min-width:0;white-space:nowrap}
+.bracket.not-counted{justify-content:flex-end}
 .bracket span{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5A5751}
-.bracket.resolved{border-bottom:2px solid #2B2A27}
-.bracket.unresolved{border-bottom:2px solid #B5B1A7}.bracket.unresolved b{color:#5A5751}
+.bracket.counted{border-bottom:2px solid #2B2A27}
+.bracket.not-counted{border-bottom:2px solid #B5B1A7}.bracket.not-counted b{color:#5A5751}
 .bar{display:flex;min-width:0}
 .bar.big{height:56px;gap:3px}
 .bar.mid{height:24px;gap:2px}
@@ -259,7 +262,7 @@ section{display:flex;flex-direction:column;gap:16px}
 .bar.big:has(.seg:hover,.seg:focus-visible) .seg:not(:hover,:focus-visible){opacity:.35}
 .o-fixed-in-pr{background:#3B7D4F;color:#FFF}
 .o-fixed-later{background:#9CC7A6;color:#1F3D28}
-.o-not-acted-on{background:#7D7568;color:#FFF}
+.o-not-fixed{background:#7D7568;color:#FFF}
 .o-pending{background:#DCD8CE;color:#5A5751}
 .o-unclear{background:repeating-linear-gradient(135deg,#E6E2D9 0 5px,#D3CEC2 5px 10px);color:#3A3833}
 .o-no-paths{background:#EEEBE4;color:#5A5751;border:1.5px dashed #B5B1A7}

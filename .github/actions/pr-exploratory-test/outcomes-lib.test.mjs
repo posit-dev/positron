@@ -59,10 +59,9 @@ test('parseCheck reads yes, no and unclear in any casing or markdown, and anythi
 	assert.equal(parseCheck('').answer, 'unclear');
 });
 
-const NOW = new Date('2026-12-01T00:00:00Z');
 const yes = source => ({ answer: 'yes', reason: 'fixes it', source });
 const no = source => ({ answer: 'no', reason: 'unrelated', source });
-const base = { prState: 'merged', mergedAt: '2026-11-20T00:00:00Z', now: NOW, hasPaths: true, prCheck: null, laterChecks: [] };
+const base = { prState: 'merged', hasPaths: true, prCheck: null, laterChecks: [] };
 
 test('decideOutcome: a yes in the PR wins, then a yes later', () => {
 	assert.equal(decideOutcome({ ...base, prCheck: yes('commit abc'), laterChecks: [yes('#1')] }).outcome, 'fixed-in-pr');
@@ -70,14 +69,10 @@ test('decideOutcome: a yes in the PR wins, then a yes later', () => {
 	assert.deepEqual(later, { outcome: 'fixed-later', decidedBy: 'issue+model', evidence: 'issue #9: fixes it' });
 });
 
-test('decideOutcome: open PRs are pending, closed unmerged with no yes is not acted on', () => {
-	assert.equal(decideOutcome({ ...base, prState: 'open', mergedAt: null }).outcome, 'pending');
-	assert.equal(decideOutcome({ ...base, prState: 'closed', mergedAt: null, prCheck: no('commit abc') }).outcome, 'not-acted-on');
-});
-
-test('decideOutcome: the 30-day window, counted from merge', () => {
-	assert.equal(decideOutcome({ ...base, mergedAt: '2026-11-01T00:00:00Z' }).outcome, 'pending');
-	assert.equal(decideOutcome({ ...base, mergedAt: '2026-10-31T23:59:59Z' }).outcome, 'not-acted-on');
+test('decideOutcome: open PRs are pending; merged or closed with no yes is not fixed at once', () => {
+	assert.equal(decideOutcome({ ...base, prState: 'open' }).outcome, 'pending');
+	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc') }), { outcome: 'not-fixed', decidedBy: 'merged-no-fix', evidence: 'commit abc: unrelated' });
+	assert.equal(decideOutcome({ ...base, prState: 'closed', prCheck: no('commit abc') }).decidedBy, 'closed-unmerged');
 });
 
 test('decideOutcome: no paths unless an issue says yes; unclear beats pending', () => {
@@ -216,11 +211,11 @@ test('parseCheck says an empty reply is no reply, so a stopped call reads as suc
 	assert.deepEqual(parseCheck(''), { answer: 'unclear', reason: 'no reply: the model call was stopped or timed out' });
 });
 
-test('settledRows keeps a previous run\'s fixed rows by run and finding, without duplicate marks; not acted on is checked again', () => {
+test('settledRows keeps a previous run\'s fixed rows by run and finding, without duplicate marks; not fixed is checked again', () => {
 	const prev = [
 		{ run: '10', finding: 1, outcome: 'fixed-in-pr', dupOf: '9#1' },
 		{ run: '10', finding: 2, outcome: 'fixed-later' },
-		{ run: '11', finding: 1, outcome: 'not-acted-on', dupMaybe: '10#1' },
+		{ run: '11', finding: 1, outcome: 'not-fixed', dupMaybe: '10#1' },
 		{ run: '11', finding: 2, outcome: 'pending' },
 		{ run: '12', finding: 1, outcome: 'unclear' },
 		{ run: '12', finding: 2, outcome: 'no-paths' },
