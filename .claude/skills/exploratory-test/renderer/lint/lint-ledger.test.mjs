@@ -313,7 +313,7 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 		'`app.py` that calls `app.run(port=5057)`', 'any URL shown in the Viewer, here the R Shiny app', 'the R Shiny app running in its Shiny console',
 	]),
 	'a precondition that says how an earlier scenario made its state, in a user\'s words': () => each(t => pre(t, 'Made earlier'), [
-		'An R 4.5.1 console, started with Start New Console Session', 'A `Shop` SQLite connection saved from the Add Data Connection dialog',
+		'An R 4.5.1 console, started with Start New Console Session', 'A Python 3.12 console, launched from the session picker', 'A `Shop` SQLite connection saved from the Add Data Connection dialog',
 		'A `conn` in the Python console, made by Connect With Python', '`orders` open in the Data Explorer, opened in S02',
 	]),
 	'a precondition that points at a step': () => each(t => pre(t, 'polars'), ['Python 3.12 with the polars version installed in step 2', 'Python 3.12 with polars 1.9.0']),

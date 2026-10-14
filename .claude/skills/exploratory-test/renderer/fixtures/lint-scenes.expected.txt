@@ -212,6 +212,8 @@ the R Shiny app running in its Shiny console
 ==== a precondition that says how an earlier scenario made its state, in a user's words
 An R 4.5.1 console, started with Start New Console Session
   -> (none)
+A Python 3.12 console, launched from the session picker
+  -> (none)
 A `Shop` SQLite connection saved from the Add Data Connection dialog
   -> (none)
 A `conn` in the Python console, made by Connect With Python
