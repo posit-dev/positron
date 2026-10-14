@@ -47,12 +47,4 @@ suite('PROVIDER_METADATA package.json consistency', () => {
 
 		assert.deepStrictEqual(orphans, []);
 	});
-
-	test('Databricks is catalog-backed', () => {
-		assert.deepStrictEqual(PROVIDER_METADATA.databricks, {
-			id: 'databricks',
-			displayName: 'Databricks',
-			catalogId: 'databricks',
-		});
-	});
 });

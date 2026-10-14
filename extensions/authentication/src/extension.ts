@@ -142,7 +142,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			// Match core's rule: enabled only when `enabled === true`, so a
 			// missing or false entry counts as off.
 			const disabled = Object.values(PROVIDER_METADATA)
-				.filter(meta => getCachedProvider(meta.catalogId)?.enabled !== true)
+				.filter(meta => getCachedProvider(meta.id)?.enabled !== true)
 				.map(meta => meta.displayName);
 
 			return { authenticated: authenticated.sort(), disabled: disabled.sort() };
@@ -161,8 +161,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	// in the catalog, and re-resolve chain sessions whose connection changed.
 	context.subscriptions.push(
 		onDidChangeProviderCatalog(async (e) => {
-			for (const { id, catalogId } of Object.values(PROVIDER_METADATA)) {
-				if (e.disabledIds.includes(catalogId)) {
+			for (const { id } of Object.values(PROVIDER_METADATA)) {
+				if (e.disabledIds.includes(id)) {
 					const provider = authProviders.get(id);
 					if (provider) {
 						for (const session of await provider.getSessions()) {
@@ -170,7 +170,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						}
 					}
 				}
-				if (e.changedConnectionIds.includes(catalogId)) {
+				if (e.changedConnectionIds.includes(id)) {
 					await authProviders.get(id)?.resolveChainCredentials();
 				}
 			}
@@ -195,7 +195,7 @@ async function registerAwsProvider(
 	const logger = new AuthProviderLogger('AWS');
 
 	const credentialChain = createAwsCredentialChain(
-		() => getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws,
+		() => getCachedProvider(PROVIDER_METADATA.amazonBedrock.id)?.connection.aws,
 		process.env,
 		fromNodeProviderChain,
 	);
@@ -204,18 +204,11 @@ async function registerAwsProvider(
 		credentialChain,
 		createAwsSsoRecovery({
 			getProfile: () => getCachedProvider(
-				PROVIDER_METADATA.amazonBedrock.catalogId!
+				PROVIDER_METADATA.amazonBedrock.id
 			)?.connection.aws?.profile,
 		})
 	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			AWS_AUTH_PROVIDER_ID, 'AWS', provider,
-			{ supportsMultipleAccounts: false }
-		),
-		provider
-	);
-	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider);
+	context.subscriptions.push(registerProvider(AWS_AUTH_PROVIDER_ID, 'AWS', provider));
 
 	const tokenWatcher = watchWebIdentityTokenFile(
 		process.env, credentialChain, () => provider.resolveChainCredentials()
@@ -311,7 +304,7 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): ProviderRe
 		SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake Cortex', context,
 		{
 			resolve: async () => {
-				const snowflake = getCachedProvider(PROVIDER_METADATA.snowflake.catalogId!)?.connection.snowflake;
+				const snowflake = getCachedProvider(PROVIDER_METADATA.snowflake.id)?.connection.snowflake;
 				const credentials = await detectSnowflakeCredentials(snowflake);
 				if (!credentials) {
 					throw new Error('No Snowflake credentials found');
@@ -333,7 +326,7 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): ProviderRe
 				return credentials.token;
 			},
 			shouldRefresh: async () => {
-				const snowflake = getCachedProvider(PROVIDER_METADATA.snowflake.catalogId!)?.connection.snowflake;
+				const snowflake = getCachedProvider(PROVIDER_METADATA.snowflake.id)?.connection.snowflake;
 				const tomlPath = getSnowflakeConnectionsTomlPath(snowflake);
 				if (!tomlPath) {
 					return false;

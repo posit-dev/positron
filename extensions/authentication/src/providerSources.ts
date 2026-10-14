@@ -10,10 +10,9 @@ import {
 } from './constants';
 
 export interface ProviderMetadata {
-	id: string;
-	displayName: string;
-	/** Provider id in the resolved catalog (providers.json). */
-	readonly catalogId: string;
+	/** Auth provider id, which is also the provider's id in the catalog (providers.json). */
+	readonly id: string;
+	readonly displayName: string;
 }
 
 /**
@@ -21,25 +20,21 @@ export interface ProviderMetadata {
  * against a general-purpose cloud credential system, or against Posit
  * Workbench managed credentials, rather than holding a language-model API key.
  *
- * Keyed by a short internal name; `id` is the `vscode.authentication` provider
- * id declared in `contributes.authentication`, and `catalogId` is the entry in
- * the resolved provider catalog (providers.json) that supplies its connection
- * settings.
+ * Keyed by a short internal name; `id` is both the `vscode.authentication`
+ * provider id and the entry in the resolved provider catalog (providers.json)
+ * that supplies its connection settings.
  */
 export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 	amazonBedrock: {
 		id: AWS_AUTH_PROVIDER_ID,
 		displayName: 'Amazon Bedrock',
-		catalogId: 'bedrock',
 	},
 	snowflake: {
 		id: SNOWFLAKE_AUTH_PROVIDER_ID,
 		displayName: 'Snowflake Cortex',
-		catalogId: 'snowflake-cortex',
 	},
 	databricks: {
 		id: DATABRICKS_AUTH_PROVIDER_ID,
 		displayName: 'Databricks',
-		catalogId: 'databricks',
 	},
 };

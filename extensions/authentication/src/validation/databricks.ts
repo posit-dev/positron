@@ -55,7 +55,7 @@ export async function validateDatabricksApiKey(
 	const host = normalizeHost(rawHost);
 	const meEndpoint = `${host}/api/2.0/preview/scim/v2/Me`;
 	const headers = getValidationHeaders(
-		PROVIDER_METADATA.databricks.catalogId!,
+		PROVIDER_METADATA.databricks.id,
 		{
 			'Authorization': `Bearer ${apiKey}`,
 		}
