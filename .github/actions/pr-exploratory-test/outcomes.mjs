@@ -47,6 +47,8 @@ async function gh(path) {
 }
 
 const git = (...a) => execFileSync('git', ['-C', ROOT, '--no-pager', ...a], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+// For a cause that names a file without its folder.
+const FILES = git('ls-files').split('\n').filter(Boolean);
 
 async function fetchJson(url) {
 	const res = await fetch(url);
@@ -96,11 +98,33 @@ function ownDiff(own, paths, max) {
 	return { diff: capDiff(parts.map(p => p.diff).join('\n'), max), commits: parts.map(p => p.sha.slice(0, 10)) };
 }
 
+/** A force-pushed PR: its own change as tested against its own change as merged, each measured from its base on main. */
+async function rebasedCheck(finding, paths, pr, prCommits, testedSha) {
+	let named = null;
+	try {
+		git('fetch', '-q', 'origin', testedSha, pr.head.sha, pr.base.sha);
+		const messages = prCommits.map(c => `${c.sha.slice(0, 10)} ${(c.commit?.message ?? '').trim()}`).join('\n\n');
+		const own = (sha, p, max) => capDiff(git('diff', '--no-color', `${git('merge-base', sha, pr.base.sha).trim()}..${sha}`, '--', ...p), max);
+		const versions = (p, max) => ({ before: own(testedSha, p, max), text: own(pr.head.sha, p, max) });
+		if (paths.length) {
+			const v = versions(paths, MAX_DIFF_CHARS);
+			named = v.before !== v.text ? await check(finding, { kind: 'diff', messages, ...v }, 'pr (rebased)') : null;
+			if (named?.answer === 'yes') {
+				return named;
+			}
+		}
+		const v = versions(WHOLE, MAX_WHOLE_DIFF_CHARS / 2);
+		return pickPrCheck(named, v.before !== v.text ? await check(finding, { kind: 'diff', messages, whole: true, ...v }, 'pr (rebased, whole)') : null);
+	} catch (err) {
+		return named ?? { answer: 'unclear', reason: `tested commit is not among the PR's commits and could not be compared: ${String(err).slice(0, 200)}`, source: 'pr' };
+	}
+}
+
 /** Whether the PR fixed the finding: its own changes to the finding's files, then, unless that said yes, its whole change. */
-async function prCheck(finding, paths, prCommits, testedSha) {
+async function prCheck(finding, paths, pr, prCommits, testedSha) {
 	const own = prOwnChanges(prCommits, testedSha);
 	if (!own) {
-		return { answer: 'unclear', reason: 'tested commit is not among the PR\'s commits (force-pushed?)', source: 'pr' };
+		return rebasedCheck(finding, paths, pr, prCommits, testedSha);
 	}
 	const messages = prOwnMessages(prCommits, testedSha);
 	let named = null;
@@ -159,8 +183,8 @@ async function prRows(number) {
 		const tested = await resolveTestedSha({ headSha: report.header?.headSha, shortSha: parsed.shortSha, lookup: async s => (await gh(`/repos/${REPO}/commits/${s}`)).sha });
 		const related = new Set(report.verification?.related ?? []);
 		for (const finding of (report.findings ?? []).filter(f => f.verified === 'confirmed')) {
-			const paths = extractPaths(finding);
-			const inPr = tested.sha && prState !== 'open' ? await prCheck(finding, paths, prCommits, tested.sha) : null;
+			const paths = extractPaths(finding, FILES);
+			const inPr = tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null;
 			const later = prState === 'open' ? [] : await laterChecks(finding, paths, pr, comment.created_at);
 			const decided = tested.sha
 				? decideOutcome({ prState, mergedAt: pr.merged_at, now: new Date(), hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later })

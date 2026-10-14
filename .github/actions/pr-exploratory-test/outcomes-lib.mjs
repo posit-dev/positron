@@ -23,11 +23,17 @@ export function parseResultComment(body) {
 	return sha && base && run ? { shortSha: sha, reportBase: base, run, trigger } : null;
 }
 
-/** Repo paths the finding's cause names in backticks (with a directory), plus its test case paths. */
-export function extractPaths(finding) {
+/** Repo paths the finding's cause names in backticks, plus its test case paths. A bare file name counts when exactly one of `files` has it. */
+export function extractPaths(finding, files = []) {
+	const unique = name => {
+		const found = files.filter(f => f.endsWith(`/${name}`));
+		return found.length === 1 ? found[0] : null;
+	};
 	const fromCause = [...String(finding?.cause ?? '').matchAll(/`([^`\s]+)`/g)]
 		.map(m => m[1].replace(/:\d+(:\d+)?$/, ''))
-		.filter(p => p.includes('/') && /\.[a-z]{1,5}$/i.test(p) && !p.startsWith('/') && !p.includes('://'));
+		.filter(p => /\.[a-z]{1,5}$/i.test(p) && !p.startsWith('/') && !p.includes('://'))
+		.map(p => p.includes('/') ? p : unique(p))
+		.filter(Boolean);
 	const fromTests = (finding?.tests?.cases ?? []).map(c => c.path).filter(Boolean);
 	return [...new Set([...fromCause, ...fromTests])].sort();
 }
@@ -40,11 +46,15 @@ export function searchTerms(title) {
 	return found.filter(w => !STOP.has(w.toLowerCase())).slice(0, 6).join(' ');
 }
 
-/** One question for the model: does this diff or issue address the finding? `whole` marks a diff of the whole PR, not only the finding's files. */
-export function buildCheckPrompt({ finding, kind, text, messages, whole }) {
+/**
+ * One question for the model: does this diff or issue address the finding? `whole` marks a diff of the whole PR,
+ * not only the finding's files; `before` is the PR's own change as tested, when a force-push lost the commits since.
+ */
+export function buildCheckPrompt({ finding, kind, text, messages, whole, before }) {
 	const what = kind === 'diff'
 		? [
 			whole ? 'This is the whole change, not only the files the finding names; most of it may be about other things.' : '',
+			before ? 'The PR was force-pushed after the test. <before> is its own change as tested, <diff> its own change as merged. Count it a fix only if what changed between them addresses the behavior.' : '',
 			'Does this diff fix the problem the finding describes? Count it only if the change addresses this behavior, not if it merely touches the same file.',
 			'A change that means the problem can no longer be reached counts as a fix.',
 		].filter(Boolean).join(' ')
@@ -58,6 +68,7 @@ export function buildCheckPrompt({ finding, kind, text, messages, whole }) {
 		`Cause: ${finding.cause ?? ''}`,
 		'</finding>',
 		...(messages ? ['<commits>', messages, '</commits>'] : []),
+		...(before ? ['<before>', before, '</before>'] : []),
 		`<${kind}>`,
 		text,
 		`</${kind}>`,

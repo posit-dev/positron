@@ -189,3 +189,17 @@ test('capDiff cuts a long diff and says so, so the model does not read a cut dif
 	assert.equal(capDiff('abc', 5), 'abc');
 	assert.equal(capDiff('abcdefgh', 5), 'abcde\n[diff cut at 5 of 8 characters]');
 });
+
+test('extractPaths finds a bare file name in the repo when exactly one file has it', () => {
+	const files = ['src/a/runtimeSession.ts', 'src/b/dup.ts', 'src/c/dup.ts'];
+	const finding = { cause: 'Throws at `runtimeSession.ts:684`, also in `dup.ts` and `missing.ts`.' };
+	assert.deepEqual(extractPaths(finding, files), ['src/a/runtimeSession.ts']);
+	assert.deepEqual(extractPaths(finding), []);
+});
+
+test('buildCheckPrompt compares the PR as tested with the PR as merged after a force-push', () => {
+	const prompt = buildCheckPrompt({ finding: { title: 'T' }, kind: 'diff', text: 'AFTER', before: 'BEFORE' });
+	assert.ok(prompt.indexOf('<before>\nBEFORE\n</before>') < prompt.indexOf('<diff>\nAFTER\n</diff>'));
+	assert.match(prompt, /only if what changed between them addresses/);
+	assert.doesNotMatch(buildCheckPrompt({ finding: { title: 'T' }, kind: 'diff', text: 'D' }), /<before>/);
+});
