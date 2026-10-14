@@ -105,6 +105,7 @@ test.describe('Data Connections - Redshift', {
 			// sits directly under the database and there is no 'Schemas' or 'public' row to expand.
 			// The database has no views either, so the tree shows no 'Views' row. The Databases
 			// group above keeps its row, since dev is there alongside flights.
+			await dataConnections.expectNodeAbsent('Views');
 			await dataConnections.expandNode('Tables');
 		});
 	});
