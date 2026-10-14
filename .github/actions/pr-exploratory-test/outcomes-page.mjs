@@ -229,7 +229,7 @@ const CSS = `
 body{margin:0;background:#F5F4F0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#2B2A27}
 a{color:#2F6B55}a:not(.seg):hover{color:#1F4D3D}
 main{padding:56px 24px 96px}
-.page{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:64px}
+.page{width:100%;max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:64px}
 .mono,.n,code,.chip,.seg,.num,.sign{font-family:'IBM Plex Mono',monospace}
 h1,h2{font-family:'Source Serif 4',Georgia,serif;margin:0}
 h1{font-size:46px;line-height:1.1;font-weight:500;letter-spacing:-0.01em}

@@ -118,6 +118,9 @@ test('the palette is the warm one from the handoff', () => {
 	assert.match(html, /\.o-fixed-in-pr\{background:#3B7D4F;color:#FFF\}/);
 	assert.match(html, /\.o-filed-issue\{background:#B3A894;color:#2B2A27\}/);
 	assert.match(html, /body\{[^}]*background:#F5F4F0/);
+	assert.match(html, /main\{padding:56px 24px 96px\}/);
+	assert.match(html, /\.page\{width:100%;max-width:1040px;margin:0 auto;/);
+	assert.match(html, /<body><main><div class="page">[\s\S]*<footer>[\s\S]*<\/div><\/main>/);
 	assert.match(html, /a:not\(\.seg\):hover\{color:#1F4D3D\}/);
 	assert.match(html, /family=Source\+Serif\+4/);
 });
