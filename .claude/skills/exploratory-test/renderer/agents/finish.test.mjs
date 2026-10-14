@@ -114,6 +114,10 @@ test('buildVerifyPrompt gives the verifier lint\'s check of actions.log', () => 
 	const backdated = check('2026-10-05T03:59:24Z shot.sh -s=p: screenshot S01-01.png\n2026-10-05T03:58:25Z raw press Escape\n');
 	assert.equal(backdated.length, 2);
 	assert.match(backdated[1], /^- actions\.log: line 2 \(2026-10-05T03:58:25Z\) is earlier than line 1 above it/);
+	// With the run's session, a line under another run's session is flagged, as in the explorer's own check.
+	const other = '2026-10-05T03:59:24Z ui.sh -s=et-other: click Run\n';
+	assert.match(buildVerifyPrompt(VERIFIER, { ...RUN, actionsLog: other, session: 'et-mine' }), /drove Playwright session "et-other", not this run's "et-mine"/);
+	assert.doesNotMatch(buildVerifyPrompt(VERIFIER, { ...RUN, actionsLog: other }), /drove Playwright session/);
 	// No log at the run's path: said so, not passed off as clean.
 	assert.match(buildVerifyPrompt(VERIFIER, RUN), /lint's check of it: no actions\.log in the run directory\./);
 });
