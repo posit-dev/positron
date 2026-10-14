@@ -129,6 +129,9 @@
 				"sha": {
 					"type": "string"
 				},
+				"headSha": {
+					"type": "string"
+				},
 				"pr": {
 					"type": "object",
 					"properties": {
