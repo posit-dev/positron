@@ -45,9 +45,18 @@ export function bundle(files) {
 }
 
 function client({ server, key, fetch }) {
+	// Connect's load balancer is sticky by cookie; without it a task can be polled on a server that doesn't have it.
+	const cookies = new Map();
 	return async (method, path, { body, type = 'application/json', raw = false } = {}) => {
 		const url = path.startsWith('http') ? path : `${server}${path}`;
-		const res = await fetch(url, { method, headers: { Authorization: `Key ${key}`, ...(body ? { 'Content-Type': type } : {}) }, body });
+		const cookie = [...cookies].map(([k, v]) => `${k}=${v}`).join('; ');
+		const res = await fetch(url, { method, headers: { Authorization: `Key ${key}`, ...(body ? { 'Content-Type': type } : {}), ...(cookie ? { Cookie: cookie } : {}) }, body });
+		for (const c of res.headers.getSetCookie()) {
+			const [, k, v] = c.match(/^([^=;\s]+)=([^;]*)/) ?? [];
+			if (k) {
+				cookies.set(k, v);
+			}
+		}
 		if (!res.ok) {
 			throw new Error(`Connect ${method} ${url.replace(server, '')} failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
 		}

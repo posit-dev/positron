@@ -26,8 +26,8 @@ function fakeConnect(routes) {
 		if (reply === undefined) {
 			return new Response('not found', { status: 404 });
 		}
-		const value = typeof reply === 'function' ? reply() : reply;
-		return typeof value === 'string' ? new Response(value) : Response.json(value);
+		const value = typeof reply === 'function' ? reply(init) : reply;
+		return value instanceof Response ? value : typeof value === 'string' ? new Response(value) : Response.json(value);
 	};
 	return { fetch, calls };
 }
@@ -75,6 +75,19 @@ test('deploy uploads to the given content, waits for the task, and never creates
 	assert.deepEqual(JSON.parse(calls.find(c => c.path.endsWith('/deploy')).body), { bundle_id: 'b1' });
 	assert.equal(polls, 2);
 	assert.deepEqual(calls.map(c => c.method).filter(m => m !== 'GET'), ['POST', 'POST']);
+});
+
+test('deploy sends back the cookies Connect sets, so a load balancer keeps the task on one server', async () => {
+	const sticky = (body, cookie) => Response.json(body, { headers: [['Set-Cookie', `${cookie}; Path=/; HttpOnly`]] });
+	const { fetch, calls } = fakeConnect({
+		'GET /__api__/v1/content/c1': () => sticky(CONTENT, 'lb=a'),
+		'POST /__api__/v1/content/c1/bundles': { id: 'b1' },
+		'POST /__api__/v1/content/c1/deploy': () => sticky({ task_id: 't1' }, 'lb=b'),
+		'GET /__api__/v1/tasks/t1?wait=5': init => init.headers.Cookie === 'lb=b' ? { finished: true, code: 0 } : new Response('task not found', { status: 404 }),
+	});
+	await deploy({ server: SERVER, key: 'k', guid: 'c1', archive: Buffer.from('x'), fetch });
+	assert.equal(calls[0].headers.Cookie, undefined);
+	assert.equal(calls[1].headers.Cookie, 'lb=a');
 });
 
 test('create makes acl content at the vanity path and returns its GUID', async () => {
