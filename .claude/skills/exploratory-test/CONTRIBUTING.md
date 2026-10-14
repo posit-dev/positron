@@ -108,9 +108,10 @@ change addresses it, on your own `claude` login. Older runs published only the p
 read from it. Read every "fixed" row before trusting the numbers.
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
-turns those rows into one page: the share of resolved findings that got
-fixed, bars by severity and by PR, and each finding's evidence by outcome with
-links to its report, PR and fixing commit or issue.
+turns those rows into one page: how many findings developers fixed before
+merging, a bar of every outcome, the fix rate by severity, and collapsible
+By PR and Evidence sections. Clicking a bar segment opens the evidence for
+that outcome, with links to each report, PR and fixing commit or issue.
 
 `exploratory-outcomes.yml` does both every night and deploys the page to
 Posit Connect with `outcomes-publish.mjs`. The content was made once with
