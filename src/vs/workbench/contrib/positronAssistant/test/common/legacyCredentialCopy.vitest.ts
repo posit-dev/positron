@@ -61,6 +61,36 @@ describe('planLegacyCredentialCopy', () => {
 		expect(JSON.parse(writes[0].value)).toMatchObject({ source: 'api-key', apiKeyAuth: { apiKey: 'fk-1' } });
 	});
 
+	it('copies Snowflake and Databricks personal access tokens', async () => {
+		const writes = await planLegacyCredentialCopy(source({
+			accounts: {
+				'snowflake-cortex': [{ id: 's1', label: 'me' }],
+				'databricks': [{ id: 'd1', label: 'Databricks (dbx.example.com)' }],
+			},
+			secrets: { 'apiKey-snowflake-cortex-s1': 'pat-s', 'apiKey-databricks-d1': 'pat-d' },
+		}), options);
+
+		expect(writes.map(w => [w.key, JSON.parse(w.value).apiKeyAuth.apiKey])).toEqual([
+			[extensionSecretKey(ASSISTANT_EXTENSION_ID, 'auth:snowflake-cortex:apikey'), 'pat-s'],
+			[extensionSecretKey(ASSISTANT_EXTENSION_ID, 'auth:databricks:apikey'), 'pat-d'],
+		]);
+	});
+
+	it('skips Databricks OAuth tokens and warns', async () => {
+		const warned: string[] = [];
+		const writes = await planLegacyCredentialCopy(source({
+			secrets: {
+				'databricks.access_token': 'acc',
+				'databricks.refresh_token': 'ref',
+				'databricks.token_expiry': '1700000600000',
+				'databricks.host': 'https://dbx.example.com',
+			},
+		}), { ...options, log: (level, m) => { if (level === 'warn') { warned.push(m); } } });
+
+		expect(writes).toEqual([]);
+		expect(warned).toEqual([expect.stringContaining('databricks')]);
+	});
+
 	it('takes the first account with a secret and logs the rest', async () => {
 		const logged: string[] = [];
 		const writes = await planLegacyCredentialCopy(source({

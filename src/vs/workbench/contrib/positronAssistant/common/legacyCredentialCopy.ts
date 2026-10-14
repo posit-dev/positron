@@ -12,8 +12,8 @@ export const LEGACY_AUTH_EXTENSION_ID = 'positron.authentication';
 /** The extension whose store receives them. */
 export const ASSISTANT_EXTENSION_ID = 'posit.assistant';
 
-/** The API-key providers Assistant now owns; each is looked up in the legacy-ID table, `openai-compatible` never renamed. */
-const API_KEY_PROVIDER_IDS = ['anthropic', 'openai', 'gemini', 'deepseek', 'openai-compatible', 'ms-foundry'] as const;
+/** The API-key providers Assistant now owns; each is looked up in the legacy-ID table, ids missing from it never changed. */
+const API_KEY_PROVIDER_IDS = ['anthropic', 'openai', 'gemini', 'deepseek', 'openai-compatible', 'ms-foundry', 'snowflake-cortex', 'databricks'] as const;
 
 const API_KEY_RENAMES: readonly { legacyId: string; providerId: string }[] = API_KEY_PROVIDER_IDS.map(
 	providerId => ({ legacyId: POSITRON_LEGACY_AUTH_PROVIDER_IDS[providerId] ?? providerId, providerId }),
@@ -22,6 +22,7 @@ const API_KEY_RENAMES: readonly { legacyId: string; providerId: string }[] = API
 const POSIT_AI_ACCESS_TOKEN = 'posit-ai.access_token';
 const POSIT_AI_REFRESH_TOKEN = 'posit-ai.refresh_token';
 const POSIT_AI_TOKEN_EXPIRY = 'posit-ai.token_expiry';
+const DATABRICKS_ACCESS_TOKEN = 'databricks.access_token';
 
 export interface LegacyStoredAccount {
 	readonly id: string;
@@ -70,6 +71,11 @@ export async function planLegacyCredentialCopy(
 			authenticated: true,
 			apiKeyAuth: { apiKey },
 		}));
+	}
+
+	// Assistant doesn't support Databricks user OAuth yet, so those tokens can't carry over.
+	if (await source.secret(DATABRICKS_ACCESS_TOKEN)) {
+		options.log('warn', 'databricks: OAuth sign-in not copied; Assistant does not support Databricks user OAuth yet, sign in again');
 	}
 
 	const positai = await positaiRecord(source, options);
