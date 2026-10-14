@@ -5,7 +5,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderOutcomesPage, splitEvidence, summarize } from './outcomes-page.mjs';
+import vm from 'node:vm';
+import { renderOutcomesPage, renderView, resolveRange, splitEvidence, summarize, VIEW_SOURCE } from './outcomes-page.mjs';
 
 const row = (outcome, extra = {}) => ({
 	pr: 1, run: '10', finding: 1, title: 'A finding', severity: 'minor', trigger: 'explore', decidedBy: 'diff+model',
@@ -14,8 +15,10 @@ const row = (outcome, extra = {}) => ({
 const NOW = new Date('2026-10-14T12:00:00Z');
 const render = rows => renderOutcomesPage(rows, { now: NOW });
 // Visible text only, with tags dropped and the entities used here undone.
-const text = html => html.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/g, '').replace(/<[^>]+>/g, ' ')
+const text = html => html.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/g, '').replace(/<div class="range-menu"[\s\S]*?<\/div><\/div>/, '').replace(/<[^>]+>/g, ' ')
 	.replace(/&middot;/g, '~').replace(/&ndash;/g, '-').replace(/&divide;/g, '/').replace(/&mdash;/g, '--').replace(/&#39;/g, '\'').replace(/\s+/g, ' ');
+// The markup, without the embedded rows and the script's copy of the view.
+const markup = html => html.replace(/<script[\s\S]*?<\/script>/g, '');
 const section = (html, id) => html.slice(html.indexOf(`id="${id}"`)).split('</section>')[0];
 // Today's data from the handoff: 8 fixed in the PR, 1 fixed later, 3 not fixed, 4 on open PRs.
 const today = [
@@ -58,7 +61,7 @@ test('the headline counts findings fixed before merging out of those on merged o
 
 test('the eyebrow gives the date range, with the year once, and triggers only when mixed', () => {
 	const one = render([row('fixed-in-pr', { postedAt: '2026-08-18T10:00:00Z' }), row('pending', { postedAt: '2026-10-13T08:00:00Z' })]);
-	assert.match(text(one.match(/<div class="eyebrow">[\s\S]*?<\/div>/)[0]), /^ \/explore Aug 18 - Oct 13, 2026 $/);
+	assert.match(text(one.match(/<button type="button" class="range-btn"[\s\S]*?<\/button>/)[0]), /^ Aug 18 - Oct 13, 2026 $/);
 	assert.match(one, /<time datetime="2026-08-18">Aug 18<\/time>/);
 	const mixed = text(render([row('fixed-in-pr', { postedAt: '2025-12-20T10:00:00Z' }), row('pending', { trigger: 'auto', postedAt: '2026-01-05T08:00:00Z' })]));
 	assert.match(mixed, /\/explore Dec 20, 2025 - Jan 5, 2026 ~ 1 started by \/explore ~ 1 started automatically/);
@@ -95,7 +98,7 @@ test('the bar has one linked segment per outcome present, in palette order, and 
 
 test('with nothing counted the COUNTED bracket is left out and Issues fixed is 0', () => {
 	const html = render([row('pending'), row('unclear')]);
-	assert.doesNotMatch(html, /class="bracket counted"/);
+	assert.doesNotMatch(markup(html), /class="bracket counted"/);
 	assert.match(text(html), /Not counted yet ~ 2/);
 	assert.match(text(html), /Issues fixed 0 /);
 });
@@ -190,7 +193,7 @@ test('a finding with an issue shows it as a linked chip with its state, else the
 	assert.match(text(html), /Decided by A matching issue, confirmed by the model/);
 	assert.match(text(render([row('fixed-later', { decidedBy: 'issue-closed', issue: { number: 7, url: 'https://github.com/posit-dev/positron/issues/7', state: 'closed as completed' } })])), /Decided by Its issue was closed as completed .*Issue #7 ~ closed as completed/);
 	assert.match(render([row('filed-issue', { evidence: 'issue #12: same' })]), /<dt>Issue<\/dt><dd><a class="chip" href="https:\/\/github.com\/posit-dev\/positron\/issues\/12">#12<\/a>/);
-	assert.doesNotMatch(render([row('filed-issue', { issue: { number: 3, url: 'javascript:alert(1)', state: 'open' } })]), /javascript:/);
+	assert.doesNotMatch(markup(render([row('filed-issue', { issue: { number: 3, url: 'javascript:alert(1)', state: 'open' } })])), /javascript:/);
 	assert.doesNotMatch(render([row('fixed-in-pr')]), /<dt>Issue/);
 });
 
@@ -226,7 +229,7 @@ test('a finding without paths or a source prefix has no Files or Commits line', 
 test('a possible duplicate is counted and tagged; a sure duplicate appears nowhere and is counted in the footer', () => {
 	const html = render([row('fixed-in-pr', { dupMaybe: '9#1' }), row('fixed-in-pr', { title: 'Hidden twin', dupOf: '9#2' })]);
 	assert.match(html, /<span class="maybe">Possible duplicate<\/span>/);
-	assert.ok(!html.includes('Hidden twin'));
+	assert.ok(!markup(html).includes('Hidden twin'));
 	assert.match(text(html), /All 1 /);
 	assert.match(text(html), /Generated Oct 14, 2026 ~ 1 duplicate of earlier runs left out\./);
 });
@@ -236,7 +239,74 @@ test('the footer says when the page was made and that duplicates are left out', 
 });
 
 test('titles are escaped and a report URL that is not http(s) is not linked', () => {
-	const html = render([row('pending', { title: '<img src=x onerror=alert(1)>', reportUrl: 'javascript:alert(1)' })]);
+	const html = markup(render([row('pending', { title: '<img src=x onerror=alert(1)>', reportUrl: 'javascript:alert(1)' })]));
 	assert.ok(!html.includes('<img src=x'));
 	assert.ok(!html.includes('javascript:'));
+});
+
+const at = (outcome, postedAt, extra = {}) => row(outcome, { postedAt: `${postedAt}T10:00:00Z`, ...extra });
+const spread = [at('fixed-in-pr', '2026-10-13'), at('not-fixed', '2026-10-01'), at('pending', '2026-08-20', { pr: 2 }), at('fixed-later', '2025-12-20', { pr: 3 })];
+
+test('resolveRange: presets end on the generated date, all time spans the runs, custom is swapped, anything else is 30 days', () => {
+	const dates = ['2025-12-20', '2026-08-20', '2026-10-13'];
+	assert.deepEqual(resolveRange('7d', dates, '2026-10-14'), { key: '7d', from: '2026-10-08', to: '2026-10-14' });
+	assert.deepEqual(resolveRange('30d', dates, '2026-10-14'), { key: '30d', from: '2026-09-15', to: '2026-10-14' });
+	assert.deepEqual(resolveRange('90d', dates, '2026-10-14'), { key: '90d', from: '2026-07-17', to: '2026-10-14' });
+	assert.deepEqual(resolveRange('all', dates, '2026-10-14'), { key: 'all', from: '2025-12-20', to: '2026-10-13' });
+	assert.deepEqual(resolveRange('2026-09-30..2026-09-01', dates, '2026-10-14'), { key: 'custom', from: '2026-09-01', to: '2026-09-30' });
+	for (const bad of [null, '', 'week', '2026-13-01..2026-09-01', '2026-09-01..', '2026-02-30..2026-03-01']) {
+		assert.deepEqual(resolveRange(bad, dates, '2026-10-14'), { key: '30d', from: '2026-09-15', to: '2026-10-14' }, String(bad));
+	}
+});
+
+test('the range filters findings by run date and everything recalculates', () => {
+	const view = renderView(spread, { now: '2026-10-14', range: resolveRange('30d', [], '2026-10-14') });
+	const t = text(view.head + view.body);
+	assert.match(t, /Developers fixed 1 of 2 findings before merging\./);
+	assert.match(t, /All 2 Fixed 1 Not fixed 1 Expand all/);
+	assert.doesNotMatch(t, /PR still open \d|Fixed later \d/);
+	assert.match(text(view.label), /^ ?Sep 15 - Oct 14, 2026 ?$/);
+	const all = renderView(spread, { now: '2026-10-14', range: resolveRange('all', spread.map(r => r.postedAt.slice(0, 10)), '2026-10-14') });
+	assert.match(text(all.body), /All 4 /);
+	assert.match(text(all.label), /Dec 20, 2025 - Oct 13, 2026/);
+});
+
+test('an empty range says so and leaves out the sections', () => {
+	const view = renderView(spread, { now: '2026-10-14', range: resolveRange('2026-09-02..2026-09-10', [], '2026-10-14') });
+	assert.match(text(view.head), /Does \/explore change what ships\? No \/explore findings in this date range\./);
+	assert.doesNotMatch(view.head, /class="cards"/);
+	assert.doesNotMatch(view.body, /Findings by outcome|Fix rate|By PR|Evidence/);
+	assert.match(text(view.body), /Generated Oct 14, 2026/);
+});
+
+test('the browser renders the same view as the server from the shipped source', () => {
+	const ctx = vm.createContext({});
+	vm.runInContext(`${VIEW_SOURCE}; globalThis.renderView = renderView; globalThis.resolveRange = resolveRange;`, ctx);
+	const dates = spread.map(r => r.postedAt.slice(0, 10));
+	const rows = [...spread, row('filed-issue', { postedAt: '2026-10-02T00:00:00Z', issue: { number: 4, url: 'https://github.com/posit-dev/positron/issues/4', state: 'open' } }), row('no-paths', { postedAt: '2026-10-03T00:00:00Z', severity: 'major', dupMaybe: '1#1' })];
+	for (const key of ['7d', '30d', 'all', '2026-08-01..2026-10-02']) {
+		const range = resolveRange(key, dates, '2026-10-14');
+		assert.deepEqual(JSON.parse(JSON.stringify(ctx.resolveRange(key, dates, '2026-10-14'))), range);
+		assert.deepEqual(JSON.parse(JSON.stringify(ctx.renderView(rows, { now: '2026-10-14', range }))), renderView(rows, { now: '2026-10-14', range }), key);
+	}
+});
+
+test('the page renders all time with an inert picker, and embeds the rows where a title cannot close the script', () => {
+	const html = render([...spread, at('pending', '2026-10-10', { title: '</script><img src=x>' })]);
+	assert.match(html, /<button type="button" class="range-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Date range: Dec 20, 2025 &ndash; Oct 13, 2026" disabled>/);
+	assert.match(text(section(html, 'ev-h')), /All 5 /);
+	const data = html.match(/<script id="rows" type="application\/json">([\s\S]*?)<\/script>/)[1];
+	assert.ok(!data.includes('<'));
+	assert.equal(JSON.parse(data).rows.length, 5);
+	assert.equal(JSON.parse(data).now, '2026-10-14');
+	assert.match(html, /<div class="range-menu" role="menu" aria-label="Date range" hidden>/);
+	assert.deepEqual([...html.matchAll(/role="menuitemradio" data-range="([^"]+)"/g)].map(m => m[1]), ['7d', '30d', '90d', 'all', 'custom']);
+	assert.match(html, /<input id="range-from" type="date" min="2025-12-20" max="2026-10-14">/);
+});
+
+test('the detail sits over the legend so nothing moves, and the row under the bar is only as tall as the legend', () => {
+	const html = render(today);
+	assert.match(html, /\.under\{position:relative;min-height:20px;margin-top:4px\}/);
+	assert.match(html, /\.seg-detail\{position:absolute;top:0;left:0;right:0;/);
+	assert.match(html, /\.hero\{[^}]*font-size:44px/);
 });

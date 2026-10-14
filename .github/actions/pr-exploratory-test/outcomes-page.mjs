@@ -33,6 +33,7 @@ const DECIDED_BY = {
 	'closed-unmerged': 'PR closed without merging',
 	'sha': 'A specific commit',
 };
+const PRESETS = [['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['90d', 'Last 90 days', 90], ['all', 'All time']];
 const TRIGGER = { auto: 'started automatically', explore: 'started by /explore' };
 const HERO_COLOR = { 'fixed-in-pr': '#3B7D4F', 'not-fixed': '#7D7568' };
 const INK = '#2B2A27';
@@ -79,18 +80,46 @@ function segments(rows, { big = false } = {}) {
 	}).join('');
 }
 
-function eyebrow(rows) {
-	const dates = rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
-	const [from, to] = [dates[0], dates.at(-1)];
-	const range = !from ? '' : from === to ? time(to, true)
-		: `${time(from, from.slice(0, 4) !== to.slice(0, 4))} &ndash; ${time(to, true)}`;
-	const triggers = {};
+function triggers(rows) {
+	const counts = {};
 	for (const r of rows) {
 		const t = TRIGGER[r.trigger] ?? 'trigger unknown';
-		triggers[t] = (triggers[t] ?? 0) + 1;
+		counts[t] = (counts[t] ?? 0) + 1;
 	}
-	const mixed = Object.keys(triggers).length > 1 ? Object.entries(triggers).map(([t, n]) => `${SEP}<span>${n} ${t}</span>`).join('') : '';
-	return `<div class="eyebrow"><span class="chip-cmd">/explore</span>${range ? `<span>${range}</span>` : ''}${mixed}</div>`;
+	return Object.keys(counts).length > 1 ? Object.entries(counts).map(([t, n]) => `${SEP}<span>${n} ${t}</span>`).join('') : '';
+}
+
+function minusDays(iso, n) {
+	const d = new Date(`${iso}T00:00:00Z`);
+	d.setUTCDate(d.getUTCDate() - n);
+	return d.toISOString().slice(0, 10);
+}
+
+function isDay(v) {
+	const t = Date.parse(`${v}T00:00:00Z`);
+	return /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(t) && new Date(t).toISOString().startsWith(v);
+}
+
+/** The window for `?range=` (7d, 30d, 90d, all, or from..to), given the run dates and the generated date; 30 days if invalid. */
+export function resolveRange(param, dates, today) {
+	if (param === 'all') {
+		const sorted = [...dates].sort();
+		return { key: 'all', from: sorted[0] ?? today, to: sorted.at(-1) ?? today };
+	}
+	const preset = PRESETS.find(([k]) => k === param);
+	if (preset) {
+		return { key: param, from: minusDays(today, preset[2] - 1), to: today };
+	}
+	const [, a, b] = String(param ?? '').match(/^(.+)\.\.(.+)$/) ?? [];
+	if (isDay(a) && isDay(b)) {
+		return { key: 'custom', from: a < b ? a : b, to: a < b ? b : a };
+	}
+	return resolveRange('30d', dates, today);
+}
+
+function rangeText({ from, to }, plain) {
+	const [f, t] = plain ? [day, day] : [time, time];
+	return from === to ? t(to, true) : `${f(from, from.slice(0, 4) !== to.slice(0, 4))} &ndash; ${t(to, true)}`;
 }
 
 function header(rows, s) {
@@ -102,16 +131,16 @@ function header(rows, s) {
 	const unchecked = s.counts.unclear + s.counts['no-paths'];
 	const card = (label, num, side, note) => `<div class="card"><div class="label">${label}</div>`
 		+ `<div class="card-num">${num}<span class="side">${side}</span></div><div class="note">${note}</div></div>`;
-	return `<header>
-${eyebrow(rows)}
-<div class="lede"><h1>Does /explore change what ships?</h1><p class="headline">${headline}</p></div>
+	if (!s.total) {
+		return '<div class="lede"><h1>Does /explore change what ships?</h1><p class="headline">No /explore findings in this date range.</p></div>';
+	}
+	return `<div class="lede"><h1>Does /explore change what ships?</h1><p class="headline">${headline}</p></div>
 <div class="cards">
 ${card('Issues fixed', `<span class="big green">${s.fixed}</span>`, `${inPr} in the PR${SEP}${s.fixed - inPr} later`, 'Problems developers fixed after /explore flagged them.')}
 ${card('PRs changed', `<span class="big">${changed}</span>`, `of ${plural(prs, 'PR')}`, 'PRs where at least one /explore finding got fixed.')}
 ${card('Still open', `<span class="big">${s.counts.pending}</span>`, s.counts.pending === 1 ? 'finding' : 'findings', 'Findings on PRs that haven\'t merged yet. They count once the PR merges or closes.'
 		+ (unchecked ? ` ${unchecked} more can't be checked (unclear or no files named).` : ''))}
-</div>
-</header>`;
+</div>`;
 }
 
 function allBar(s, own) {
@@ -225,6 +254,40 @@ function footer(s) {
 	return `<footer><span>Generated ${time(s.now, true)}</span>${SEP}<span>${dups}</span></footer>`;
 }
 
+/** The parts of the page that change with the date range: the button's dates, mixed triggers, the lede and cards, and the sections. */
+export function renderView(rows, { now, range }) {
+	const inRange = range.key === 'all' ? rows : rows.filter(r => {
+		const d = r.postedAt?.slice(0, 10);
+		return d && d >= range.from && d <= range.to;
+	});
+	const own = inRange.filter(r => !r.dupOf);
+	const s = { ...summarize(inRange), now };
+	const body = s.total ? [allBar(s, own), severityRows(own), `<div class="accordion">\n${prRows(own)}\n${evidence(own, s)}\n</div>`] : [];
+	return { label: rangeText(range), triggers: triggers(own), head: header(own, s), body: [...body, footer(s)].join('\n') };
+}
+
+const runDates = rows => rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
+
+// The browser's copy of the view, so it renders the same markup as the server.
+const VIEW_FNS = { escapeHtml, safeUrl, pct, codeSpans, plural, day, time, summarize, splitEvidence, segments, triggers, minusDays, isDay, resolveRange, rangeText, header, allBar, severityRows, accordion, prRows, findingRow, evidence, footer, renderView };
+export const VIEW_SOURCE = [
+	...Object.entries({ SEVERITY_LABEL, REPO_URL, OUTCOMES, FILTERS, DECIDED_BY, PRESETS, TRIGGER, HERO_COLOR, INK, ENOUGH, SEP }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
+	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
+].join('\n');
+
+const CHECK = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#3B7D4F" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5l2.5 2.5L11 4.5"/></svg>';
+
+function picker(range, dates, now) {
+	const item = (key, label) => `<button type="button" role="menuitemradio" data-range="${key}" aria-checked="${range.key === key}" tabindex="-1"><span>${label}</span>${CHECK}</button>`;
+	return `<span class="range"><button type="button" class="range-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Date range: ${rangeText(range, true)}" disabled>`
+		+ `<span class="range-label">${rangeText(range)}</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#3A3833" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5L7 9l3.5-3.5"/></svg></button>`
+		+ '<div class="range-menu" role="menu" aria-label="Date range" hidden>'
+		+ PRESETS.map(([key, label]) => item(key, label)).join('')
+		+ `<div class="sep" role="separator"></div>${item('custom', 'Custom range&hellip;')}`
+		+ `<div class="custom" hidden><label for="range-from">From</label><input id="range-from" type="date" min="${dates[0] ?? now}" max="${now}">`
+		+ `<label for="range-to">To</label><input id="range-to" type="date" min="${dates[0] ?? now}" max="${now}"></div></div></span>`;
+}
+
 const CSS = `
 body{margin:0;background:#F5F4F0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#2B2A27}
 a{color:#2F6B55}a:not(.seg):hover{color:#1F4D3D}
@@ -239,6 +302,18 @@ h2{font-size:24px;line-height:1.3;font-weight:600}
 .label,.bracket b,.cols{font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase}
 header{display:flex;flex-direction:column}
 .eyebrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:13px;color:#6B6862;margin-bottom:16px}
+.triggers,.head,.view{display:contents}
+.range{position:relative}
+.range-btn{display:inline-flex;align-items:center;gap:4px;min-height:32px;padding:0 6px;margin-left:-6px;border:0;border-radius:6px;background:transparent;color:#3A3833;font:13px 'IBM Plex Sans',sans-serif;cursor:pointer;text-decoration:underline dotted #B5B1A7;text-underline-offset:3px}
+.range-btn:disabled{cursor:default;text-decoration:none}.range-btn:disabled svg{display:none}
+.range-btn svg{transition:transform .15s}.range-btn[aria-expanded=true]{background:#ECE9E2}.range-btn[aria-expanded=true] svg{transform:rotate(180deg)}
+.range-menu{position:absolute;top:38px;left:-6px;z-index:20;width:248px;box-sizing:border-box;padding:6px;background:#FBFAF7;border:1px solid #E4E1D9;border-radius:10px;box-shadow:0 8px 24px rgba(43,42,39,.12);display:flex;flex-direction:column}
+.range-menu[hidden],.custom[hidden]{display:none}
+[role=menuitemradio]{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:#2B2A27;font:14px 'IBM Plex Sans',sans-serif;text-align:left;cursor:pointer}
+[role=menuitemradio][aria-checked=true]{background:#ECE9E2}[role=menuitemradio] svg{visibility:hidden}[role=menuitemradio][aria-checked=true] svg{visibility:visible}
+.range-menu .sep{height:1px;background:#E4E1D9;margin:4px 0}
+.custom{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:6px 8px;padding:8px 10px 6px;font-size:13px;color:#5A5751}
+.custom input{min-height:32px;padding:0 8px;border:1px solid #D6D2C8;border-radius:6px;background:#F5F4F0;color:#2B2A27;font:13px 'IBM Plex Sans',sans-serif}
 .chip-cmd{font-family:'IBM Plex Mono',monospace;font-weight:500;color:#2B2A27;background:#ECE9E2;padding:4px 8px;border-radius:4px}
 .lede{display:flex;flex-direction:column;gap:8px;max-width:760px;margin-bottom:40px}
 .headline{margin:0;font-size:22px;line-height:1.4;font-weight:500}
@@ -275,14 +350,14 @@ section{display:flex;flex-direction:column;gap:16px}
 .o-pending{background:#DCD8CE;color:#5A5751}
 .o-unclear{background:repeating-linear-gradient(135deg,#E6E2D9 0 5px,#D3CEC2 5px 10px);color:#3A3833}
 .o-no-paths{background:#EEEBE4;color:#5A5751;border:1.5px dashed #B5B1A7}
-.under{min-height:72px;display:flex;align-items:center}
+.under{position:relative;min-height:20px;margin-top:4px}
 .legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:#5A5751}
 .legend>span{display:flex;align-items:center;gap:6px}
 i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-sizing:border-box}
 .n{color:#7A766F;font-weight:400}
 .legend[hidden],.seg-detail[hidden],.group[hidden],.acc-body[hidden],.detail[hidden]{display:none}
-.seg-detail{display:flex;align-items:center;gap:20px;min-width:0}
-.hero{flex:0 0 auto;font-family:'Source Serif 4',Georgia,serif;font-size:48px;font-weight:600;line-height:1}
+.seg-detail{position:absolute;top:0;left:0;right:0;z-index:1;min-height:48px;background:#F5F4F0;display:flex;align-items:center;gap:20px;min-width:0}
+.hero{flex:0 0 auto;font-family:'Source Serif 4',Georgia,serif;font-size:44px;font-weight:600;line-height:1}
 .seg-detail>div{display:flex;flex-direction:column;gap:2px;min-width:0}
 .what{font-size:15px}.what span{color:#6B6862}
 .def{font-size:14px;color:#3A3833}
@@ -331,45 +406,93 @@ code.chip{background:#ECE9E2;border:0}
 footer{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:#7A766F}
 `;
 
-// Accordions, filters, segment clicks, the bar's hover detail and expanding rows. Without it everything shows expanded (see the noscript style).
+// The date range, accordions, filters, segment clicks, the bar's hover detail and expanding rows; runs after VIEW_SOURCE.
+// Without it the page shows all time with everything expanded (see the noscript style).
 const SCRIPT = `
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const rows = () => $$('.finding .row');
+const data = JSON.parse($('#rows').textContent);
+const dates = data.rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
+const btn = $('.range-btn');
+const menu = $('.range-menu');
+const items = $$('[role=menuitemradio]');
+const from = $('#range-from');
+const to = $('#range-to');
+const findings = () => $$('.finding .row');
 const setOpen = (b, open) => { b.setAttribute('aria-expanded', open); const sign = b.querySelector('.sign'); if (sign) { sign.textContent = open ? '\\u2212' : '+'; } document.getElementById(b.getAttribute('aria-controls')).hidden = !open; };
-const toggleAll = $('.toggle-all');
-const sync = () => { toggleAll.textContent = rows().some(b => b.getAttribute('aria-expanded') === 'true') ? 'Collapse all' : 'Expand all'; };
+const sync = () => { $('.toggle-all').textContent = findings().some(b => b.getAttribute('aria-expanded') === 'true') ? 'Collapse all' : 'Expand all'; };
 const filter = key => {
 	$$('.filter').forEach(b => b.setAttribute('aria-pressed', b.dataset.filter === key));
 	$$('.group').forEach(g => { g.hidden = key !== 'all' && g.dataset.group !== key; });
 };
-const legend = $('.legend');
-const show = key => {
-	legend.hidden = !!key;
-	$$('.seg-detail').forEach(d => { d.hidden = d.dataset.for !== key; });
+const show = key => { $$('.seg-detail').forEach(d => { d.hidden = d.dataset.for !== key; }); };
+const apply = (param, write) => {
+	const range = resolveRange(param, dates, data.now);
+	const view = renderView(data.rows, { now: data.now, range });
+	const open = $$('.acc[aria-expanded=true]').map(b => b.getAttribute('aria-controls'));
+	$('.range-label').innerHTML = view.label;
+	btn.setAttribute('aria-label', 'Date range: ' + $('.range-label').textContent);
+	$('.triggers').innerHTML = view.triggers;
+	$('.head').innerHTML = view.head;
+	$('.view').innerHTML = view.body;
+	open.forEach(id => { const b = $('.acc[aria-controls="' + id + '"]'); if (b) { setOpen(b, true); } });
+	items.forEach(i => i.setAttribute('aria-checked', i.dataset.range === range.key));
+	$('.custom').hidden = range.key !== 'custom';
+	if (from.value !== range.from) { from.value = range.from; }
+	if (to.value !== range.to) { to.value = range.to; }
+	if (write) {
+		const url = new URL(location.href);
+		url.searchParams.set('range', range.key === 'custom' ? range.from + '..' + range.to : range.key);
+		history.replaceState(null, '', url);
+	}
 };
-$$('.bar.big .seg').forEach(a => {
-	a.addEventListener('mouseenter', () => show(a.dataset.key));
-	a.addEventListener('focus', () => show(a.dataset.key));
-	a.addEventListener('mouseleave', () => show(document.activeElement?.closest?.('.bar.big') ? document.activeElement.dataset.key : null));
-	a.addEventListener('blur', () => show(null));
-	a.addEventListener('click', () => { setOpen($('#ev-h .acc'), true); filter(a.dataset.filter); });
+const setMenu = open => {
+	menu.hidden = !open;
+	btn.setAttribute('aria-expanded', open);
+	if (open) { (items.find(i => i.getAttribute('aria-checked') === 'true') ?? items[0]).focus(); }
+};
+btn.disabled = false;
+apply(new URLSearchParams(location.search).get('range'), false);
+btn.addEventListener('click', () => setMenu(menu.hidden));
+const edit = () => { if (from.value && to.value) { apply(from.value + '..' + to.value, true); } };
+from.addEventListener('input', edit);
+to.addEventListener('input', edit);
+menu.addEventListener('keydown', e => {
+	const at = items.indexOf(document.activeElement);
+	if (e.key === 'Escape') { setMenu(false); btn.focus(); }
+	else if (at >= 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); items[(at + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); }
+	else if (at >= 0 && (e.key === 'Home' || e.key === 'End')) { e.preventDefault(); items[e.key === 'Home' ? 0 : items.length - 1].focus(); }
 });
+const seg = e => e.target.closest?.('.bar.big .seg');
+document.addEventListener('mouseover', e => { if (seg(e)) { show(seg(e).dataset.key); } });
+document.addEventListener('mouseout', e => { if (seg(e) && !seg({ target: e.relatedTarget ?? document.body })) { show(document.activeElement?.closest?.('.bar.big') ? document.activeElement.dataset.key : null); } });
+document.addEventListener('focusin', e => { if (seg(e)) { show(seg(e).dataset.key); } });
+document.addEventListener('focusout', e => { if (seg(e)) { show(null); } });
 document.addEventListener('click', e => {
-	const acc = e.target.closest('.acc');
-	const row = e.target.closest('.finding .row');
-	const f = e.target.closest('.filter');
-	if (acc) { setOpen(acc, acc.getAttribute('aria-expanded') !== 'true'); }
+	const t = e.target;
+	if (!menu.hidden && !t.closest('.range')) { setMenu(false); }
+	const item = t.closest('[role=menuitemradio]');
+	const acc = t.closest('.acc');
+	const row = t.closest('.finding .row');
+	const f = t.closest('.filter');
+	if (item && item.dataset.range === 'custom') { apply(from.value + '..' + to.value, true); from.focus(); }
+	else if (item) { apply(item.dataset.range, true); setMenu(false); btn.focus(); }
+	else if (seg(e)) { setOpen($('#ev-h .acc'), true); filter(seg(e).dataset.filter); }
+	else if (acc) { setOpen(acc, acc.getAttribute('aria-expanded') !== 'true'); }
 	else if (row) { setOpen(row, row.getAttribute('aria-expanded') !== 'true'); sync(); }
 	else if (f) { filter(f.dataset.filter); }
-	else if (e.target === toggleAll) { const open = toggleAll.textContent === 'Expand all'; rows().forEach(b => setOpen(b, open)); sync(); }
+	else if (t.closest('.toggle-all')) { const open = t.textContent === 'Expand all'; findings().forEach(b => setOpen(b, open)); sync(); }
 });
 `;
 
-/** The whole page for `rows`, as outcomes.mjs writes them. */
+/** The whole page for `rows`, as outcomes.mjs writes them: all time, which the script narrows to `?range=` (last 30 days by default). */
 export function renderOutcomesPage(rows, { now = new Date() } = {}) {
-	const own = rows.filter(r => !r.dupOf);
-	const s = { ...summarize(rows), now: now.toISOString().slice(0, 10) };
+	const today = now.toISOString().slice(0, 10);
+	const dates = runDates(rows);
+	const range = resolveRange('all', dates, today);
+	const view = renderView(rows, { now: today, range });
+	const data = JSON.stringify({ rows, now: today }).replace(/</g, '\\u003c');
+	const script = `${VIEW_SOURCE}\n${SCRIPT}`.replace(/<\/script/gi, '<\\/script');
 	return `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>/explore outcomes</title>
@@ -378,16 +501,14 @@ export function renderOutcomesPage(rows, { now = new Date() } = {}) {
 <style>${CSS}</style>
 <noscript><style>.acc-body[hidden]{display:block}#ev-body[hidden]{display:flex;flex-direction:column;gap:32px}.detail[hidden]{display:flex}.controls,.acc svg{display:none}</style></noscript></head>
 <body><main><div class="page">
-${header(own, s)}
-${allBar(s, own)}
-${severityRows(own)}
-<div class="accordion">
-${prRows(own)}
-${evidence(own, s)}
-</div>
-${footer(s)}
+<header>
+<div class="eyebrow"><span class="chip-cmd">/explore</span>${picker(range, dates, today)}<span class="triggers">${view.triggers}</span></div>
+<div class="head">${view.head}</div>
+</header>
+<div class="view">${view.body}</div>
 </div></main>
-<script>${SCRIPT}</script>
+<script id="rows" type="application/json">${data}</script>
+<script>${script}</script>
 </body></html>
 `;
 }
