@@ -162,7 +162,7 @@ export class Workbench {
 		this.assistant = new Assistant(code, this.quickaccess, this.toasts);
 		this.positConnect = new PositConnect(code);
 		this.positAssistant = new PositAssistant(code);
-		this.providerManager = new ProviderManager(code, this.quickaccess, this.toasts);
+		this.providerManager = new ProviderManager(code, this.toasts);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 		this.publisher = new Publisher(this.quickInput);

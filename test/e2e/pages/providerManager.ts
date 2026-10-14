@@ -5,7 +5,6 @@
 
 import { expect, FrameLocator, test } from '@playwright/test';
 import { Code } from '../infra/code';
-import { QuickAccess } from './quickaccess.js';
 import { Toasts } from './dialog-toasts.js';
 import {
 	ModelProvider,
@@ -46,18 +45,18 @@ const CONFIRM_VIEW = 'div.space-y-4:has(> div > h2)';
  * Keeps the `loginModelProvider` / `logoutModelProvider` signatures of the old core provider modal.
  */
 export class ProviderManager {
-	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts) { }
+	constructor(private code: Code, private toasts: Toasts) { }
 
 	/**
 	 * Opens the panel and returns its frame. Editor webviews are overlays that sit outside the editor DOM,
 	 * so the panel can't be told apart from the chat sidebar by position; find the one holding the provider list.
 	 */
-	async open(timeout = 15000): Promise<FrameLocator> {
-		// The command is hidden until Assistant sees AI turn on, and the palette then picks a similar command instead, so retry.
+	async open(timeout = 45000): Promise<FrameLocator> {
+		// Run by id, since the palette hides it until Assistant sees AI turn on. Retry until Assistant registers it.
 		let frame: FrameLocator | undefined;
 		await expect(async () => {
-			await this.quickaccess.runCommand(CONFIGURE_PROVIDERS_COMMAND);
-			frame = await this.frame(5000);
+			await this.code.driver.executeCommand(CONFIGURE_PROVIDERS_COMMAND);
+			frame = await this.frame(10000);
 		}).toPass({ timeout });
 		return frame!;
 	}
@@ -84,7 +83,7 @@ export class ProviderManager {
 		const { timeout = 15000 } = options;
 
 		await test.step(`Connect to ${provider} in the provider manager`, async () => {
-			const frame = await this.open(timeout);
+			const frame = await this.open();
 			try {
 				const card = frame.locator(PROVIDER_CARD(provider));
 				if (await this.isConnected(frame, provider)) {
@@ -159,7 +158,7 @@ export class ProviderManager {
 		const { timeout = 15000 } = options;
 
 		await test.step(`Disconnect ${provider} in the provider manager`, async () => {
-			const frame = await this.open(timeout);
+			const frame = await this.open();
 			try {
 				if (!(await this.isConnected(frame, provider))) {
 					return;
@@ -187,7 +186,7 @@ export class ProviderManager {
 		const { timeout = 15000 } = options;
 
 		await test.step(`Check ${provider} is managed by ${managedBy}`, async () => {
-			const frame = await this.open(timeout);
+			const frame = await this.open();
 			try {
 				const card = frame.locator(PROVIDER_CARD(provider));
 				await expect(card).toContainText('Connected', { timeout });
