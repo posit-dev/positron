@@ -79,6 +79,9 @@ export function buildCheckPrompt({ finding, kind, text, messages, whole, before 
 
 /** The model's answer; anything it did not plainly say yes or no to is unclear. */
 export function parseCheck(text) {
+	if (!String(text ?? '').trim()) {
+		return { answer: 'unclear', reason: 'no reply: the model call was stopped or timed out' };
+	}
 	const line = String(text ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? '';
 	const m = line.replace(/[*_]/g, '').match(/^(yes|no|unclear)\b[\s.:,-]*(.*)$/i);
 	return m ? { answer: m[1].toLowerCase(), reason: m[2].trim() } : { answer: 'unclear', reason: `unparsed reply: ${line.slice(0, 120)}` };
@@ -112,6 +115,13 @@ export function decideOutcome({ prState, mergedAt, now, hasPaths, prCheck, later
 	return expired
 		? { outcome: 'not-acted-on', decidedBy: prState === 'closed' ? 'closed-unmerged' : 'window', evidence }
 		: { outcome: 'pending', decidedBy: 'window', evidence };
+}
+
+const SETTLED = new Set(['fixed-in-pr', 'fixed-later', 'not-acted-on']);
+
+/** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. */
+export function settledRows(rows) {
+	return new Map(rows.filter(r => SETTLED.has(r.outcome)).map(({ dupOf, dupMaybe, ...r }) => [`${r.run}#${r.finding}`, r]));
 }
 
 const words = t => String(t ?? '').toLowerCase().replace(/[`*_]/g, '').match(/[a-z0-9]+/g) ?? [];

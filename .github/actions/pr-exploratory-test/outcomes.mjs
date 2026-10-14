@@ -5,15 +5,17 @@
 
 // Decides what happened to each confirmed finding on PRs with an exploratory
 // result comment, and prints a table to read by hand. Run locally from a
-// checkout with origin fetched; the model check uses your own `claude` login.
-//   node outcomes.mjs [--pr N] [--since YYYY-MM-DD] [--model opus] [--out rows.jsonl]
+// checkout with origin fetched; the model check uses your own `claude` login,
+// or with --api the Anthropic API and ANTHROPIC_API_KEY (CI). --previous takes
+// an earlier --out and keeps its settled rows instead of checking them again.
+//   node outcomes.mjs [--pr N] [--since YYYY-MM-DD] [--model opus] [--api] [--previous rows.jsonl] [--out rows.jsonl]
 
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { runClaude } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
+import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, guarded, markDuplicates, parseCheck, parsePageFindings, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
+import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, guarded, markDuplicates, parseCheck, parsePageFindings, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, renderTable, resolveTestedSha, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -24,7 +26,8 @@ const MAX_WHOLE_DIFF_CHARS = 60000;
 const WHOLE = ['.', ':(exclude)**/package-lock.json'];
 // PRs opened only to try the harness, whose findings no one meant to act on.
 const SKIPPED_PRS = new Set([16616]);
-const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, out: { type: 'string' } } });
+const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, api: { type: 'boolean', default: false }, previous: { type: 'string' }, out: { type: 'string' } } });
+const SETTLED = args.previous ? settledRows(readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l))) : new Map();
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 
@@ -73,10 +76,23 @@ async function prNumbers() {
 	return (await gh(`/search/issues?q=${q}&per_page=100`)).items.map(i => i.number).filter(n => !SKIPPED_PRS.has(n));
 }
 
+let anthropic = null;
+
+/** The model's reply to `prompt`: through the API with --api, else `claude -p`. Either is stopped after WRAP_UP_MINUTES, which leaves no reply. */
+async function ask(prompt) {
+	if (args.api) {
+		const { default: Anthropic } = await import('@anthropic-ai/sdk');
+		anthropic ??= new Anthropic({ timeout: WRAP_UP_MINUTES * 60000 });
+		const response = await anthropic.messages.create({ model: args.model, max_tokens: 2000, messages: [{ role: 'user', content: prompt }] });
+		return response.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
+	}
+	// A zero limit with no tools: nothing to warn, so it is stopped once the wrap-up minutes pass.
+	return (await runClaude({ prompt, model: args.model, tools: [], cwd: ROOT, timeLimitMinutes: 0, feed: () => { } })).text;
+}
+
 async function check(finding, evidence, source) {
 	try {
-		const { text: reply } = await runClaude({ prompt: buildCheckPrompt({ finding, ...evidence }), model: args.model, tools: [], cwd: ROOT, feed: () => { } });
-		return { ...parseCheck(reply), source };
+		return { ...parseCheck(await ask(buildCheckPrompt({ finding, ...evidence }))), source };
 	} catch (err) {
 		return { answer: 'unclear', reason: `model failed: ${String(err).slice(0, 200)}`, source };
 	}
@@ -183,6 +199,12 @@ async function prRows(number) {
 		const tested = await resolveTestedSha({ headSha: report.header?.headSha, shortSha: parsed.shortSha, lookup: async s => (await gh(`/repos/${REPO}/commits/${s}`)).sha });
 		const related = new Set(report.verification?.related ?? []);
 		for (const finding of (report.findings ?? []).filter(f => f.verified === 'confirmed')) {
+			const kept = SETTLED.get(`${parsed.run}#${finding.n}`);
+			if (kept) {
+				rows.push(kept);
+				console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${kept.outcome} (kept from --previous)`);
+				continue;
+			}
 			const paths = extractPaths(finding, FILES);
 			const inPr = tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null;
 			const later = prState === 'open' ? [] : await laterChecks(finding, paths, pr, comment.created_at);

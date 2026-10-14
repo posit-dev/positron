@@ -111,6 +111,14 @@ turns those rows into one page: the share of resolved findings that got
 fixed, bars by severity and by PR, and each finding's evidence by outcome with
 links to its report, PR and fixing commit or issue.
 
+`exploratory-outcomes.yml` does both every Monday and publishes the page to
+Posit Connect with `outcomes-publish.mjs`. Only the owner of
+`CONNECT_API_KEY` can open it until others are added in Connect. The rows go
+up beside the page, and the next run passes them as `--previous`, so a
+finding already fixed or not acted on is kept rather than checked again. In
+CI the model is reached through the API (`--api`), and a call that takes
+more than 10 minutes counts as unclear.
+
 ## Where things live
 
 The top of `renderer/` holds only what gets run: the pipeline, `render.mjs`,
@@ -138,7 +146,7 @@ holds the text helpers and the ledger parser.
 | CI's prompt and agent sessions | `.github/actions/pr-exploratory-test/run.mjs`, `lib.mjs`, `session.mjs` |
 | Whether a PR gets a run | `gate.mjs` (declines `/explore`), `suggest.ts` (suggests it) |
 | The PR comment | `renderPrComment` in `lib.mjs`, posted by `comment.mjs` |
-| The workflows | `test-exploratory.yml` (`/explore` and manual runs), `test-exploratory-suggest.yml`, `exploratory-test-checks.yml` |
+| The workflows | `test-exploratory.yml` (`/explore` and manual runs), `test-exploratory-suggest.yml`, `exploratory-test-checks.yml`, `exploratory-outcomes.yml` |
 
 Launching and driving the app belongs to drive-positron. See its
 [CONTRIBUTING.md](../drive-positron/CONTRIBUTING.md).

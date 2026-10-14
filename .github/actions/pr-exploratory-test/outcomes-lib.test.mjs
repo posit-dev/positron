@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
+import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, renderTable, resolveTestedSha, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -210,4 +210,23 @@ test('decideOutcome keeps the reason a check said no, so a not-fixed row can be 
 	assert.equal(decideOutcome({ ...base, ...checks, prState: 'closed', mergedAt: null }).evidence, 'pr abc: unrelated');
 	assert.equal(decideOutcome({ ...base, prCheck: null, laterChecks: [no('main def')] }).evidence, 'main def: unrelated');
 	assert.equal(decideOutcome({ ...base, prState: 'open', mergedAt: null }).evidence, '');
+});
+
+test('parseCheck says an empty reply is no reply, so a stopped call reads as such', () => {
+	assert.deepEqual(parseCheck(''), { answer: 'unclear', reason: 'no reply: the model call was stopped or timed out' });
+});
+
+test('settledRows keeps a previous run\'s fixed and not-acted-on rows by run and finding, without duplicate marks', () => {
+	const prev = [
+		{ run: '10', finding: 1, outcome: 'fixed-in-pr', dupOf: '9#1' },
+		{ run: '10', finding: 2, outcome: 'fixed-later' },
+		{ run: '11', finding: 1, outcome: 'not-acted-on', dupMaybe: '10#1' },
+		{ run: '11', finding: 2, outcome: 'pending' },
+		{ run: '12', finding: 1, outcome: 'unclear' },
+		{ run: '12', finding: 2, outcome: 'no-paths' },
+	];
+	const kept = settledRows(prev);
+	assert.deepEqual([...kept.keys()], ['10#1', '10#2', '11#1']);
+	assert.deepEqual(kept.get('10#1'), { run: '10', finding: 1, outcome: 'fixed-in-pr' });
+	assert.equal(kept.get('11#1').dupMaybe, undefined);
 });
