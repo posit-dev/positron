@@ -22,6 +22,8 @@ const MAX_DIFF_CHARS = 20000;
 const MAX_WHOLE_DIFF_CHARS = 60000;
 // The whole PR's change, less lockfiles.
 const WHOLE = ['.', ':(exclude)**/package-lock.json'];
+// PRs opened only to try the harness, whose findings no one meant to act on.
+const SKIPPED_PRS = new Set([16616]);
 const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, out: { type: 'string' } } });
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
@@ -66,7 +68,7 @@ async function prNumbers() {
 		return [Number(args.pr)];
 	}
 	const q = encodeURIComponent(`repo:${REPO} is:pr "View report" "Exploratory testing" in:comments created:>=${args.since}`);
-	return (await gh(`/search/issues?q=${q}&per_page=100`)).items.map(i => i.number);
+	return (await gh(`/search/issues?q=${q}&per_page=100`)).items.map(i => i.number).filter(n => !SKIPPED_PRS.has(n));
 }
 
 async function check(finding, evidence, source) {
