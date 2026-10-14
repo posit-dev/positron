@@ -383,7 +383,7 @@ function registerDatabricksProvider(
 				if (!host) {
 					throw new Error(
 						'DATABRICKS_TOKEN is set but no workspace host is configured. ' +
-						'Set DATABRICKS_HOST or enter the workspace URL in the provider dialog.'
+						'Set DATABRICKS_HOST, or add the workspace URL in Posit Assistant\'s AI provider settings.'
 					);
 				}
 				await validateDatabricksApiKey(envToken, { baseUrl: host });
