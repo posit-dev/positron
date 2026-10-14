@@ -39,6 +39,10 @@ test('summarize counts fixed, counted and not counted yet, after dropping duplic
 	assert.equal(s.notCounted, 3);
 	assert.equal(s.dups, 1);
 	assert.equal(s.counts['fixed-in-pr'], 2);
+	const filed = summarize([row('fixed-in-pr'), row('filed-issue'), row('pending')]);
+	assert.equal(filed.fixed, 1);
+	assert.equal(filed.counted, 2);
+	assert.equal(filed.notCounted, 1);
 });
 
 test('the headline counts findings fixed before merging out of those on merged or closed PRs', () => {
@@ -112,21 +116,23 @@ test('the palette is the warm one from the handoff', () => {
 	const html = render([row('not-fixed')]);
 	assert.match(html, /\.o-not-fixed\{background:#7D7568;color:#FFF\}/);
 	assert.match(html, /\.o-fixed-in-pr\{background:#3B7D4F;color:#FFF\}/);
+	assert.match(html, /\.o-filed-issue\{background:#B3A894;color:#2B2A27\}/);
 	assert.match(html, /body\{[^}]*background:#F5F4F0/);
 	assert.match(html, /a:not\(\.seg\):hover\{color:#1F4D3D\}/);
 	assert.match(html, /family=Source\+Serif\+4/);
 });
 
-test('severity rows always show Major, Moderate and Minor, as fixed of counted', () => {
+test('severity rows always show Major, Moderate and Minor, with no fixed-of-counted column', () => {
 	const html = render(today);
 	const t = text(section(html, 'sev-h'));
 	assert.match(t, /% fixed = findings fixed \(in the PR or later\) \/ findings on merged or closed PRs\. Too few so far to compare severities\./);
-	assert.match(t, /Severity % fixed Outcomes Fixed of counted/);
-	assert.match(t, /Major - No Major findings in this period/);
-	assert.match(t, /Moderate 80% 4 1 3 4 of 5 counted 3 still open, not counted yet/);
-	assert.match(t, /Minor 71% 4 1 2 1 5 of 7 counted 1 still open, not counted yet/);
+	assert.match(t, /Severity % fixed Outcomes Major/);
+	assert.match(t, /Major - No Major findings in this period Moderate/);
+	assert.match(t, /Moderate 80% 4 1 3 Minor 71% 4 1 2 1 $/);
+	assert.doesNotMatch(t, /counted yet|of \d+ counted|Fixed of counted/);
+	assert.doesNotMatch(section(html, 'sev-h'), /class="end"/);
 	assert.match(section(html, 'sev-h'), /aria-label="No data"/);
-	assert.match(text(section(render([row('pending', { severity: 'major' }), row('unclear', { severity: 'major' })]), 'sev-h')), /Major - 1 1 None counted yet 1 still open ~ 1 unclear, not counted yet/);
+	assert.match(text(section(render([row('pending', { severity: 'major' }), row('unclear', { severity: 'major' })]), 'sev-h')), /Major - 1 1 Moderate/);
 });
 
 test('enough counted findings in every severity drops the too-few note', () => {
@@ -145,6 +151,8 @@ test('By PR and Evidence start collapsed behind a heading button, PRs with the m
 	assert.match(text(by), /By PR 2 PRs/);
 	assert.match(text(by), /#7 2 findings 1 1 1 not fixed ~ 1 open/);
 	assert.match(text(by), /#5 1 finding 1 1 fixed/);
+	const filed = text(section(render([row('fixed-in-pr'), row('filed-issue'), row('filed-issue'), row('not-fixed'), row('pending')]), 'pr-h'));
+	assert.match(filed, /#1 5 findings 1 2 1 1 1 fixed ~ 2 filed as issue ~ 1 not fixed ~ 1 open/);
 	assert.match(text(section(html, 'ev-h')), /> Evidence 3 findings All 3/);
 });
 
@@ -154,6 +162,33 @@ test('the evidence filters leave out empty groups, and findings are grouped in p
 	assert.match(ev, /All 16 Fixed 9 Not fixed 3 Not counted 4 Expand all/);
 	assert.doesNotMatch(text(section(render([row('fixed-in-pr')]), 'ev-h')), /Not fixed 0|Not counted 0/);
 	assert.match(ev, /Fixed in the PR 8 A commit pushed.*Fixed later 1 Fixed on main.*Not fixed 3 The PR merged or closed.*PR still open 4 The PR hasn't merged yet/);
+	const filed = render([row('fixed-in-pr'), row('filed-issue'), row('not-fixed'), row('pending')]);
+	assert.match(text(section(filed, 'ev-h')), /All 4 Fixed 1 Filed as issue 1 Not fixed 1 Not counted 1 Expand all/);
+	assert.match(filed, /data-filter="filed" aria-pressed="false">Filed as issue 1</);
+	assert.match(filed, /<div class="group" data-group="filed">/);
+	assert.match(text(section(filed, 'ev-h')), /Fixed in the PR 1 .*Filed as issue 1 An issue matching the finding was opened after the run, and nothing has fixed it yet\. .*Not fixed 1 The PR merged or closed with no fix\. Moves to Filed as issue or Fixed later if that happens afterwards\./);
+});
+
+test('filed as issue sits between fixed later and not fixed, counted but not fixed, with an ink hero', () => {
+	const html = render([row('not-fixed'), row('filed-issue'), row('fixed-later'), row('fixed-in-pr')]);
+	const bar = html.match(/<div class="bar big">([\s\S]*?)<\/div>/)[1];
+	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'fixed-later', 'filed-issue', 'not-fixed']);
+	assert.match(bar, /data-filter="filed" data-key="filed-issue"/);
+	const detail = html.match(/<div class="seg-detail" data-for="filed-issue" hidden>[\s\S]*?<\/div><\/div>/)[0];
+	assert.match(detail, /<span class="hero" style="color:#2B2A27">25%<\/span>/);
+	assert.match(text(detail), /Filed as issue ~ 1 of 4 counted findings/);
+	assert.match(text(html), /Developers fixed 1 of 4 findings before merging\./);
+	assert.match(text(html), /Fixed later 1 Fixed on main after the merge, or its issue was closed as completed\./);
+});
+
+test('a finding with an issue shows it as a linked chip with its state, else the issue from its evidence', () => {
+	const html = render([row('filed-issue', { decidedBy: 'issue+model', evidence: 'issue #16290: same', issue: { number: 16290, url: 'https://github.com/posit-dev/positron/issues/16290', state: 'open' } })]);
+	assert.match(html, /<dt>Issue<\/dt><dd><a class="chip" href="https:\/\/github.com\/posit-dev\/positron\/issues\/16290">#16290 &middot; open<\/a><\/dd>/);
+	assert.match(text(html), /Decided by A matching issue, confirmed by the model/);
+	assert.match(text(render([row('fixed-later', { decidedBy: 'issue-closed', issue: { number: 7, url: 'https://github.com/posit-dev/positron/issues/7', state: 'closed as completed' } })])), /Decided by Its issue was closed as completed .*Issue #7 ~ closed as completed/);
+	assert.match(render([row('filed-issue', { evidence: 'issue #12: same' })]), /<dt>Issue<\/dt><dd><a class="chip" href="https:\/\/github.com\/posit-dev\/positron\/issues\/12">#12<\/a>/);
+	assert.doesNotMatch(render([row('filed-issue', { issue: { number: 3, url: 'javascript:alert(1)', state: 'open' } })]), /javascript:/);
+	assert.doesNotMatch(render([row('fixed-in-pr')]), /<dt>Issue/);
 });
 
 test('splitEvidence takes the source off the front: commits, issue, or none', () => {

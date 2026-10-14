@@ -87,17 +87,32 @@ export function parseCheck(text) {
 const evidenceOf = c => `${c.source}: ${c.reason}`;
 const decidedByOf = c => c.source.startsWith('issue') ? 'issue+model' : 'diff+model';
 
+/** An issue's number, link and state as the page shows it. */
+export function issueOf(i) {
+	const reason = { completed: ' as completed', not_planned: ' as not planned' }[i.state_reason] ?? '';
+	return { number: i.number, url: i.html_url, state: i.state === 'closed' ? `closed${reason}` : 'open' };
+}
+
 /** One finding's outcome from its checks. `Check` is `{ answer, reason, source }`. */
 export function decideOutcome({ prState, hasPaths, prCheck, laterChecks }) {
 	if (prCheck?.answer === 'yes') {
 		return { outcome: 'fixed-in-pr', decidedBy: 'diff+model', evidence: evidenceOf(prCheck) };
 	}
-	const later = laterChecks.find(c => c.answer === 'yes');
-	if (later) {
-		return { outcome: 'fixed-later', decidedBy: decidedByOf(later), evidence: evidenceOf(later) };
+	const yesLater = laterChecks.filter(c => c.answer === 'yes');
+	const onMain = yesLater.find(c => !c.source.startsWith('issue'));
+	if (onMain) {
+		return { outcome: 'fixed-later', decidedBy: 'diff+model', evidence: evidenceOf(onMain) };
+	}
+	const done = yesLater.find(c => c.issue?.state === 'closed as completed');
+	if (done) {
+		return { outcome: 'fixed-later', decidedBy: 'issue-closed', evidence: evidenceOf(done), issue: done.issue };
 	}
 	if (prState === 'open') {
 		return { outcome: 'pending', decidedBy: 'pr-open', evidence: '' };
+	}
+	const filed = yesLater[0];
+	if (filed) {
+		return { outcome: 'filed-issue', decidedBy: 'issue+model', evidence: evidenceOf(filed), ...(filed.issue ? { issue: filed.issue } : {}) };
 	}
 	if (!hasPaths) {
 		return { outcome: 'no-paths', decidedBy: 'none', evidence: 'the cause names no file' };

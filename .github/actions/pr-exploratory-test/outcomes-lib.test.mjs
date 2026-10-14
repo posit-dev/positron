@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -65,8 +65,8 @@ const base = { prState: 'merged', hasPaths: true, prCheck: null, laterChecks: []
 
 test('decideOutcome: a yes in the PR wins, then a yes later', () => {
 	assert.equal(decideOutcome({ ...base, prCheck: yes('commit abc'), laterChecks: [yes('#1')] }).outcome, 'fixed-in-pr');
-	const later = decideOutcome({ ...base, prCheck: no('commit abc'), laterChecks: [yes('issue #9')] });
-	assert.deepEqual(later, { outcome: 'fixed-later', decidedBy: 'issue+model', evidence: 'issue #9: fixes it' });
+	const later = decideOutcome({ ...base, prCheck: no('commit abc'), laterChecks: [yes('main def')] });
+	assert.deepEqual(later, { outcome: 'fixed-later', decidedBy: 'diff+model', evidence: 'main def: fixes it' });
 });
 
 test('decideOutcome: open PRs are pending; merged or closed with no yes is not fixed at once', () => {
@@ -75,9 +75,36 @@ test('decideOutcome: open PRs are pending; merged or closed with no yes is not f
 	assert.equal(decideOutcome({ ...base, prState: 'closed', prCheck: no('commit abc') }).decidedBy, 'closed-unmerged');
 });
 
+const issue = (state, answer = 'yes') => ({ answer, reason: 'same bug', source: 'issue #9', issue: { number: 9, url: 'https://github.com/o/r/issues/9', state } });
+
+test('decideOutcome: a matching issue is filed as issue, carrying the issue, and a fix wins over it', () => {
+	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc'), laterChecks: [issue('open')] }),
+		{ outcome: 'filed-issue', decidedBy: 'issue+model', evidence: 'issue #9: same bug', issue: issue('open').issue });
+	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open'), yes('main def')] }).outcome, 'fixed-later');
+	assert.equal(decideOutcome({ ...base, prCheck: yes('commit abc'), laterChecks: [issue('open')] }).outcome, 'fixed-in-pr');
+	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open', 'no')] }).outcome, 'not-fixed');
+});
+
+test('decideOutcome: an issue closed as completed is fixed later; closed as not planned stays filed', () => {
+	const done = decideOutcome({ ...base, laterChecks: [issue('closed as completed')] });
+	assert.equal(done.outcome, 'fixed-later');
+	assert.equal(done.decidedBy, 'issue-closed');
+	assert.equal(done.issue.number, 9);
+	assert.equal(decideOutcome({ ...base, laterChecks: [issue('closed as not planned')] }).outcome, 'filed-issue');
+	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open'), issue('closed as completed')] }).outcome, 'fixed-later');
+});
+
+test('issueOf names an issue\'s state the way the page shows it', () => {
+	const at = (state, state_reason) => issueOf({ number: 9, html_url: 'https://github.com/o/r/issues/9', state, state_reason });
+	assert.deepEqual(at('open', null), { number: 9, url: 'https://github.com/o/r/issues/9', state: 'open' });
+	assert.equal(at('closed', 'completed').state, 'closed as completed');
+	assert.equal(at('closed', 'not_planned').state, 'closed as not planned');
+	assert.equal(at('closed', 'duplicate').state, 'closed');
+});
+
 test('decideOutcome: no paths unless an issue says yes; unclear beats pending', () => {
 	assert.equal(decideOutcome({ ...base, hasPaths: false }).outcome, 'no-paths');
-	assert.equal(decideOutcome({ ...base, hasPaths: false, laterChecks: [yes('issue #9')] }).outcome, 'fixed-later');
+	assert.equal(decideOutcome({ ...base, hasPaths: false, laterChecks: [yes('issue #9')] }).outcome, 'filed-issue');
 	assert.equal(decideOutcome({ ...base, prCheck: { answer: 'unclear', reason: 'model failed: x', source: 'commit abc' } }).outcome, 'unclear');
 });
 

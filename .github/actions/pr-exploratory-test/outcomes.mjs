@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, guarded, markDuplicates, parseCheck, parsePageFindings, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, guarded, issueOf, markDuplicates, parseCheck, parsePageFindings, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -173,7 +173,8 @@ async function laterChecks(finding, paths, pr, postedAt) {
 		const found = terms ? (await searchIssues(terms, REPO)).filter(i => !i.pull_request && i.created_at > postedAt) : [];
 		const checks = [];
 		for (const issue of found) {
-			checks.push(await check(finding, { kind: 'issue', text: `#${issue.number}: ${issue.title}\n\n${String(issue.body ?? '').slice(0, 4000)}` }, `issue #${issue.number}`));
+			const c = await check(finding, { kind: 'issue', text: `#${issue.number}: ${issue.title}\n\n${String(issue.body ?? '').slice(0, 4000)}` }, `issue #${issue.number}`);
+			checks.push({ ...c, issue: issueOf(issue) });
 		}
 		return checks;
 	});

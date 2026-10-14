@@ -100,9 +100,11 @@ harness.
 
 `node .github/actions/pr-exploratory-test/outcomes.mjs [--pr N] [--out rows.jsonl]`
 decides, for each confirmed finding on PRs with a result comment, whether it
-was fixed in the PR, fixed later (on main, or a matching issue was filed), not
-fixed (the PR merged or closed with no fix found), or is pending while its PR
-is open. It diffs the files the
+was fixed in the PR, fixed later (on main, or its matching issue was closed
+as completed), filed as an issue (a matching issue opened after the run is
+still open), not fixed (the PR merged or closed with no fix found), or is
+pending while its PR is open. A filed issue counts as a finding acted on but
+not as a fix. It diffs the files the
 finding's cause names and asks Opus (`--model` picks another) whether the
 change addresses it, on your own `claude` login. Older runs published only the page, so their findings are
 read from it. Read every "fixed" row before trusting the numbers.
@@ -122,7 +124,8 @@ behind the workflow's `CONNECT_API_KEY` isn't the owner, add them as a
 collaborator so the deploy is allowed. The rows go
 up beside the page, and the next run passes them as `--previous`, so a
 finding already fixed is kept rather than checked again. Not fixed isn't
-final: a later fix or matching issue moves it to fixed later. For a not-fixed
+final: a matching issue moves it to filed as an issue, and a later fix, or that
+issue closing as completed, moves it to fixed later. For a not-fixed
 finding on a merged PR, the answer to whether the PR fixed it is
 kept too, since that diff can't change; the checks for a later fix on main or
 a matching issue still run every night. In

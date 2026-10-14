@@ -12,20 +12,22 @@ import { fileURLToPath } from 'node:url';
 import { REPO_URL, SEVERITY_LABEL } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
 import { escapeHtml, safeUrl } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
 
-// In this order everywhere. `group` is the evidence filter: fixed, not fixed, or not counted yet;
+// In this order everywhere. `group` is the evidence filter: fixed, filed, not fixed, or not counted yet;
 // `short` names it in severity rows.
 const OUTCOMES = [
 	{ key: 'fixed-in-pr', label: 'Fixed in the PR', group: 'fixed', def: 'A commit pushed to the PR after the run fixed it.' },
-	{ key: 'fixed-later', label: 'Fixed later', group: 'fixed', def: 'Fixed on main after the merge, or someone filed a matching issue.' },
-	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged or closed with no fix. Moves to Fixed later if a fix lands afterwards.' },
+	{ key: 'fixed-later', label: 'Fixed later', group: 'fixed', def: 'Fixed on main after the merge, or its issue was closed as completed.' },
+	{ key: 'filed-issue', label: 'Filed as issue', short: 'filed as issue', group: 'filed', def: 'An issue matching the finding was opened after the run, and nothing has fixed it yet.' },
+	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged or closed with no fix. Moves to Filed as issue or Fixed later if that happens afterwards.' },
 	{ key: 'pending', label: 'PR still open', short: 'still open', group: 'open', def: 'The PR hasn\'t merged yet. These count once it merges or closes.' },
 	{ key: 'unclear', label: 'Unclear', short: 'unclear', group: 'open', def: 'A check failed or the model couldn\'t say.' },
 	{ key: 'no-paths', label: 'No files named', short: 'no files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.' },
 ];
-const FILTERS = [['fixed', 'Fixed'], ['not', 'Not fixed'], ['open', 'Not counted']];
+const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['not', 'Not fixed'], ['open', 'Not counted']];
 const DECIDED_BY = {
 	'diff+model': 'The diff, read by the model',
 	'issue+model': 'A matching issue, confirmed by the model',
+	'issue-closed': 'Its issue was closed as completed',
 	'pr-open': 'PR is still open',
 	'merged-no-fix': 'Merged with no fix found',
 	'closed-unmerged': 'PR closed without merging',
@@ -49,7 +51,7 @@ export function summarize(rows) {
 	const own = rows.filter(r => !r.dupOf);
 	const counts = Object.fromEntries(OUTCOMES.map(o => [o.key, own.filter(r => r.outcome === o.key).length]));
 	const fixed = counts['fixed-in-pr'] + counts['fixed-later'];
-	const counted = fixed + counts['not-fixed'];
+	const counted = fixed + counts['filed-issue'] + counts['not-fixed'];
 	return { total: own.length, counts, fixed, counted, notCounted: own.length - counted, dups: rows.length - own.length };
 }
 
@@ -146,17 +148,14 @@ function severityRows(own) {
 	const rows = per.map(({ label, list, s }) => {
 		const rate = s.counted ? `<div class="pct green">${pct(s.fixed, s.counted)}</div>` : '<div class="pct none" aria-label="No data">&ndash;</div>';
 		if (!s.total) {
-			return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow empty">No ${label} findings in this period</div><div class="end"></div></div>`;
+			return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow empty">No ${label} findings in this period</div></div>`;
 		}
-		const open = OUTCOMES.filter(o => o.group === 'open' && s.counts[o.key]).map(o => `${s.counts[o.key]} ${o.short}`).join(SEP);
-		const fixedOf = s.counted ? `${s.fixed} of ${s.counted} counted` : 'None counted yet';
-		return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow bar mid">${segments(list)}</div>`
-			+ `<div class="end"><span>${fixedOf}</span>${open ? `<span class="small">${open}, not counted yet</span>` : ''}</div></div>`;
+		return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow bar mid">${segments(list)}</div></div>`;
 	}).join('\n');
 	return `<section aria-labelledby="sev-h">
 <div class="sec-head"><h2 id="sev-h">Fix rate by severity</h2><p class="sub">% fixed = findings fixed (in the PR or later) &divide; findings on merged or closed PRs.${few}</p></div>
 <div class="rows">
-<div class="grid-row cols" aria-hidden="true"><span class="name">Severity</span><span class="pct">% fixed</span><span class="grow">Outcomes</span><span class="end">Fixed of counted</span></div>
+<div class="grid-row cols" aria-hidden="true"><span class="name">Severity</span><span class="pct">% fixed</span><span class="grow">Outcomes</span></div>
 ${rows}
 </div>
 </section>`;
@@ -177,7 +176,7 @@ function prRows(own) {
 	}
 	const rows = [...byPr].sort(([a, x], [b, y]) => y.length - x.length || b - a).map(([pr, list]) => {
 		const s = summarize(list);
-		const parts = [s.fixed ? `${s.fixed} fixed` : '', s.counts['not-fixed'] ? `${s.counts['not-fixed']} not fixed` : '', s.notCounted ? `${s.notCounted} open` : ''].filter(Boolean);
+		const parts = [[s.fixed, 'fixed'], [s.counts['filed-issue'], 'filed as issue'], [s.counts['not-fixed'], 'not fixed'], [s.notCounted, 'open']].filter(([n]) => n).map(([n, what]) => `${n} ${what}`);
 		return `<div class="grid-row pr"><a class="name mono" href="${REPO_URL}/pull/${Number(pr)}">#${Number(pr)}</a><span class="pct small">${plural(list.length, 'finding')}</span>`
 			+ `<div class="grow bar mid">${segments(list)}</div><span class="end small">${parts.join(SEP)}</span></div>`;
 	}).join('\n');
@@ -188,10 +187,13 @@ function findingRow(r, n) {
 	const ev = splitEvidence(r.evidence);
 	const report = safeUrl(r.reportUrl);
 	const pr = Number(r.pr);
+	const issueUrl = safeUrl(r.issue?.url);
+	const issue = r.issue && issueUrl ? `<a class="chip" href="${escapeHtml(issueUrl)}">#${Number(r.issue.number)}${SEP}${escapeHtml(r.issue.state)}</a>`
+		: ev.issue ? `<a class="chip" href="${REPO_URL}/issues/${ev.issue}">#${ev.issue}</a>` : '';
 	const dl = [
 		['Decided by', DECIDED_BY[r.decidedBy] ? escapeHtml(DECIDED_BY[r.decidedBy]) : '&mdash;'],
 		ev.commits.length ? [ev.where === 'main' ? 'Commits on main' : 'Commits on the PR', ev.commits.map(c => `<a class="chip" href="${REPO_URL}/commit/${c}">${c}</a>`).join(' ')] : null,
-		ev.issue ? ['Issue', `<a class="chip" href="${REPO_URL}/issues/${ev.issue}">#${ev.issue}</a>`] : null,
+		issue ? ['Issue', issue] : null,
 		r.paths?.length ? ['Files', r.paths.map(p => `<code class="chip">${escapeHtml(p)}</code>`).join(' ')] : null,
 		['Run', `<span class="mono">${escapeHtml(r.run)}#${escapeHtml(r.finding)}</span>${SEP}${TRIGGER[r.trigger] ?? 'trigger unknown'}${SEP}skill ${escapeHtml(r.skillVersion ?? '?')}${SEP}${escapeHtml(r.model ?? '?')}`],
 	].filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
@@ -211,7 +213,7 @@ function evidence(own, s) {
 			+ `<div class="rows">${items.map(r => findingRow(r, ++n)).join('\n')}</div></div>`
 			: '';
 	}).join('\n');
-	const counts = { fixed: s.fixed, not: s.counts['not-fixed'], open: s.notCounted };
+	const counts = { fixed: s.fixed, filed: s.counts['filed-issue'], not: s.counts['not-fixed'], open: s.notCounted };
 	const filters = [`<button type="button" class="filter" data-filter="all" aria-pressed="true">All ${s.total}</button>`,
 		...FILTERS.filter(([k]) => counts[k]).map(([k, label]) => `<button type="button" class="filter" data-filter="${k}" aria-pressed="false">${label} ${counts[k]}</button>`)].join('');
 	const controls = `<div class="controls"><div role="group" aria-label="Filter by outcome">${filters}</div><button type="button" class="toggle-all">Expand all</button></div>`;
@@ -268,6 +270,7 @@ section{display:flex;flex-direction:column;gap:16px}
 .bar.big:has(.seg:hover,.seg:focus-visible) .seg:not(:hover,:focus-visible){opacity:.35}
 .o-fixed-in-pr{background:#3B7D4F;color:#FFF}
 .o-fixed-later{background:#9CC7A6;color:#1F3D28}
+.o-filed-issue{background:#B3A894;color:#2B2A27}
 .o-not-fixed{background:#7D7568;color:#FFF}
 .o-pending{background:#DCD8CE;color:#5A5751}
 .o-unclear{background:repeating-linear-gradient(135deg,#E6E2D9 0 5px,#D3CEC2 5px 10px);color:#3A3833}
@@ -290,7 +293,6 @@ i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-s
 .cols{padding:0 0 8px;color:#6B6862;border-bottom:0}
 .sev-row{min-height:64px}.sev-row .name{font-size:16px;font-weight:600}
 .sev-row .pct{font-size:28px;line-height:1}.sev-row .pct.none{font-size:18px;font-weight:400;color:#B5B1A7}
-.sev-row .end span:first-child{font-size:14px}.sev-row .end .small{font-size:12px;color:#7A766F}
 .empty{font-size:13px;color:#7A766F}
 .pr{min-height:56px}.pr .name{font-size:14px;font-weight:500}
 .accordion{display:flex;flex-direction:column;border-top:1px solid #E4E1D9}
