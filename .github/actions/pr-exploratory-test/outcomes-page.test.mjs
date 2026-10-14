@@ -97,12 +97,10 @@ test('the bar has one linked segment per outcome present, in palette order', () 
 	assert.match(text(section(html, 'all-h')), /Findings by outcome Outcome known ~ 3 No outcome yet ~ 1/);
 });
 
-test('the legend lists only the outcomes too narrow to show their label in the bar', () => {
-	const legend = html => html.match(/<div class="legend">([\s\S]*?)<\/div>/)[1];
-	assert.equal(legend(render([row('pending'), row('fixed-later'), row('fixed-in-pr'), row('fixed-in-pr')])), '');
-	const narrow = legend(render([row('pending'), row('fixed-later'), ...[...Array(4)].map(() => row('fixed-in-pr'))]));
-	assert.deepEqual([...narrow.matchAll(/class="o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-later', 'pending']);
-	assert.equal(text(narrow).trim(), 'Fixed later PR still open');
+test('there is no legend under the bar: the row holds only the hover details', () => {
+	const html = render([row('pending'), row('fixed-later'), ...[...Array(4)].map(() => row('fixed-in-pr'))]);
+	assert.doesNotMatch(html, /class="legend"|\.legend/);
+	assert.match(html, /<div class="under" aria-live="polite"><div class="seg-detail" data-for="fixed-in-pr" hidden>/);
 });
 
 test('the brackets and the bar share one grid, a column per segment sized by its count', () => {
@@ -122,7 +120,7 @@ test('with no known outcome the Outcome known bracket is left out and Findings f
 	assert.match(text(html), /Findings fixed 0 /);
 });
 
-test('each bar segment has a detail to show in place of the legend: share of known outcomes, or a bare count with none', () => {
+test('each bar segment has a detail to show on hover: share of known outcomes, or a bare count with none', () => {
 	const html = render([row('pending'), row('fixed-in-pr'), row('fixed-in-pr'), row('fixed-in-pr'), row('not-fixed')]);
 	const detail = html.match(/<div class="seg-detail" data-for="fixed-in-pr" hidden>[\s\S]*?<\/div><\/div>/)[0];
 	assert.match(detail, /<span class="hero" style="color:#3B7D4F">75%<\/span>/);
@@ -372,7 +370,7 @@ test('the page renders all time with an inert picker, and embeds the rows where 
 	assert.match(html, /<input id="range-from" type="date" min="2025-12-20" max="2026-10-14">/);
 });
 
-test('the detail sits over the legend so nothing moves, and the row under the bar is only as tall as the legend', () => {
+test('the detail sits over a 20px row under the bar and hangs into the gap below, so nothing moves', () => {
 	const html = render(today);
 	assert.match(html, /\.under\{position:relative;min-height:20px;margin-top:4px\}/);
 	assert.match(html, /\.seg-detail\{position:absolute;top:0;left:0;right:0;/);

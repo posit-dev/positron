@@ -68,7 +68,7 @@ export function splitEvidence(evidence) {
 	return { where: m[1], commits: m[1] === 'issue' ? [] : m[2].match(/\b[0-9a-f]{7,40}\b/g) ?? [], issue, text: text.slice(m[0].length) };
 }
 
-/** The big bar's segments, leaving out outcomes with none, each a link to its evidence. Narrow ones leave their label to the legend. */
+/** The big bar's segments, leaving out outcomes with none, each a link to its evidence. Narrow ones show their label only on hover. */
 function segments(s) {
 	return OUTCOMES.filter(o => s.counts[o.key]).map(o => {
 		const n = s.counts[o.key];
@@ -167,7 +167,6 @@ function allBar(s) {
 		k ? `<div class="bracket counted" style="grid-column:1 / span ${k}"><b>Outcome known</b><span>${SEP}${s.counted}</span></div>` : '',
 		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>No outcome yet</b><span>${SEP}${s.notCounted}</span></div>` : '',
 	].join('');
-	const legend = present.filter(o => s.counts[o.key] / s.total < 0.2).map(o => `<span><i class="o-${o.key}"></i>${o.label}</span>`).join('');
 	// A share of the known outcomes, or a bare count for the rest so denominators don't mix.
 	const details = present.map(o => {
 		const n = s.counts[o.key];
@@ -181,7 +180,7 @@ function allBar(s) {
 <div class="all" style="grid-template-columns:${columns}">
 <div class="brackets">${brackets}</div>
 <div class="bar big">${segments(s)}</div>
-<div class="under" aria-live="polite"><div class="legend">${legend}</div>${details}</div>
+<div class="under" aria-live="polite">${details}</div>
 </div>
 </section>`;
 }
@@ -371,11 +370,9 @@ section{display:flex;flex-direction:column;gap:16px}
 .o-unclear{background:repeating-linear-gradient(135deg,#E6E2D9 0 5px,#D3CEC2 5px 10px);color:#3A3833}
 .o-no-paths{background:#EEEBE4;color:#5A5751;border:1.5px dashed #B5B1A7}
 .under{position:relative;min-height:20px;margin-top:4px}
-.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:#5A5751}
-.legend>span{display:flex;align-items:center;gap:6px}
 i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-sizing:border-box}
 .n{color:#7A766F;font-weight:400}
-.legend[hidden],.seg-detail[hidden],.group[hidden],.acc-body[hidden],.detail[hidden]{display:none}
+.seg-detail[hidden],.group[hidden],.acc-body[hidden],.detail[hidden]{display:none}
 .seg-detail{position:absolute;top:0;left:0;right:0;z-index:1;min-height:48px;background:#F5F4F0;display:flex;align-items:center;gap:20px;min-width:0}
 .hero{flex:0 0 auto;font-family:'Source Serif 4',Georgia,serif;font-size:44px;font-weight:600;line-height:1}
 .seg-detail>div{display:flex;flex-direction:column;gap:2px;min-width:0}
