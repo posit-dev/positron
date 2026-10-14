@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// One HTML page from the rows outcomes.mjs writes: how many findings we could
-// check got fixed, by severity and by PR, then the evidence for each.
+// One HTML page from the rows outcomes.mjs writes: how many resolved findings
+// got fixed, by severity and by PR, then the evidence for each.
 //   node outcomes-page.mjs rows.jsonl > outcomes.html
 
 import { readFileSync } from 'node:fs';
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { REPO_URL, SEVERITY_LABEL } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
 import { escapeHtml, safeUrl } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
 
-// In this order everywhere. `group` is the evidence filter: fixed, not acted on, or can't check yet.
+// In this order everywhere. `group` is the evidence filter: fixed, not acted on, or unresolved.
 const OUTCOMES = [
 	{ key: 'fixed-in-pr', label: 'Fixed in the PR', group: 'fixed', def: 'A commit pushed to the PR after the run fixed it.' },
 	{ key: 'fixed-later', label: 'Fixed later', group: 'fixed', def: 'Fixed on main after the merge, or someone filed a matching issue.' },
@@ -21,7 +21,7 @@ const OUTCOMES = [
 	{ key: 'unclear', label: 'Unclear', group: 'open', def: 'A check failed or the model couldn\'t say.' },
 	{ key: 'no-paths', label: 'No files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.' },
 ];
-const FILTERS = [['fixed', 'Fixed'], ['not', 'Not acted on'], ['open', 'Can\'t check yet']];
+const FILTERS = [['fixed', 'Fixed'], ['not', 'Not acted on'], ['open', 'Unresolved']];
 const DECIDED_BY = {
 	'diff+model': 'The diff, read by the model',
 	'issue+model': 'A matching issue, confirmed by the model',
@@ -31,7 +31,7 @@ const DECIDED_BY = {
 	'sha': 'A specific commit',
 };
 const TRIGGER = { auto: 'started automatically', explore: 'started by /explore' };
-// Each severity needs about this many checked findings before their rates are worth comparing.
+// Each severity needs about this many resolved findings before their rates are worth comparing.
 const ENOUGH = 10;
 const SEP = ' &middot; ';
 
@@ -44,8 +44,8 @@ export function summarize(rows) {
 	const own = rows.filter(r => !r.dupOf);
 	const counts = Object.fromEntries(OUTCOMES.map(o => [o.key, own.filter(r => r.outcome === o.key).length]));
 	const fixed = counts['fixed-in-pr'] + counts['fixed-later'];
-	const checked = fixed + counts['not-acted-on'];
-	return { total: own.length, counts, fixed, checked, open: own.length - checked, dups: rows.length - own.length };
+	const resolved = fixed + counts['not-acted-on'];
+	return { total: own.length, counts, fixed, resolved, unresolved: own.length - resolved, dups: rows.length - own.length };
 }
 
 /** Evidence split into its source (commits on the PR or main, or an issue) and the model's reason. */
@@ -59,7 +59,7 @@ export function splitEvidence(evidence) {
 	return { where: m[1], commits: m[1] === 'issue' ? [] : m[2].match(/\b[0-9a-f]{7,40}\b/g) ?? [], issue, text: text.slice(m[0].length) };
 }
 
-/** The non-zero can't-check-yet counts, as "7 pending, 1 unclear". */
+/** The non-zero unresolved counts, as "7 pending, 1 unclear". */
 function openParts(s) {
 	return OUTCOMES.filter(o => o.group === 'open' && s.counts[o.key]).map(o => `${s.counts[o.key]} ${o.label.toLowerCase()}`);
 }
@@ -74,7 +74,7 @@ function segments(rows, { counts = false, labels = false, links = false } = {}) 
 		const inner = counts ? `${n}${labels && share >= 0.2 ? `<span>${o.label}</span>` : ''}` : '';
 		const style = `style="width:${+(share * 100).toFixed(2)}%"`;
 		return links
-			? `<a class="seg o-${o.key}" href="#ev-h" data-filter="${o.group}" title="${tip}" ${style}>${inner}</a>`
+			? `<a class="seg o-${o.key}" href="#ev-h" data-filter="${o.group}" data-key="${o.key}" ${style}>${inner}</a>`
 			: `<span class="seg o-${o.key}" title="${tip}" ${style}>${inner}</span>`;
 	}).join('');
 }
@@ -92,39 +92,40 @@ function header(rows, s) {
 	const trigger = kinds.length === 1 ? `All runs ${kinds[0]}` : kinds.map(k => `${triggers[k]} ${k}`).join(SEP);
 	const inPr = s.counts['fixed-in-pr'];
 	const open = openParts(s);
-	const footnote = `${s.fixed} of ${s.checked} checked findings fixed, out of ${s.total} total${open.length ? `; ${open.join(', ')}` : ''}.`
+	const footnote = `${s.fixed} of ${s.resolved} resolved findings fixed, out of ${s.total} total${open.length ? `; ${open.join(', ')}` : ''}.`
 		+ (s.dups ? ` ${s.dups} duplicates of earlier runs left out.` : ' Duplicates of earlier runs are left out.');
-	const serious = rows.filter(r => (r.outcome === 'fixed-in-pr' || r.outcome === 'fixed-later') && (r.severity === 'major' || r.severity === 'moderate')).length;
-	const checkedPct = pct(s.checked, s.total) === 'n/a' ? '0%' : pct(s.checked, s.total);
-	const card = (label, num, side, note, extra = '') => `<div class="card"><div class="card-label">${label}</div>`
-		+ `<div class="card-num"><span>${num}</span> <span class="side">${side}</span></div>${extra}<div class="note">${note}</div></div>`;
+	const changed = new Set(rows.filter(r => r.outcome === 'fixed-in-pr' || r.outcome === 'fixed-later').map(r => r.pr)).size;
+	const unchecked = s.counts.unclear + s.counts['no-paths'];
+	const card = (label, num, side, note) => `<div class="card"><div class="card-label">${label}</div>`
+		+ `<div class="card-num"><span>${num}</span> <span class="side">${side}</span></div><div class="note">${note}</div></div>`;
 	return `<header>
 <div class="meta"><span class="chip-cmd">/explore</span><span>Outcome report</span><span>${plural(prs, 'PR')}${range}</span><span>${trigger}</span><span>Generated ${s.now}</span></div>
 <div class="lede"><h1>What happens after /explore finds something</h1>
-<p class="headline"><b>${pct(s.fixed, s.checked)}</b> of findings we could check get fixed, <b>${pct(inPr, s.fixed)}</b> before the PR even merges.</p>
+<p class="headline"><b>${pct(s.fixed, s.resolved)}</b> of resolved findings get fixed, <b>${pct(inPr, s.fixed)}</b> before the PR even merges.</p>
 <p class="footnote">${footnote}</p></div>
 <div class="cards">
-${card('Issues fixed', `<span class="green">${s.fixed}</span>`, `${inPr} in the PR${SEP}${s.fixed - inPr} later`,
-		serious ? `${serious} of them were Moderate or Major, real bugs, not just polish.` : 'All were Minor this period.')}
-${card('Not acted on', s.counts['not-acted-on'], 'findings',
-			s.counts['not-acted-on'] ? `${s.counts['not-acted-on']} of ${s.checked} checked findings were left as is.` : 'Every finding we could check was acted on. None were left as is.')}
-${card('Checked so far', checkedPct, `${s.checked} of ${s.total}`, `The fix rate is based on these.${open.length ? ` The rest: ${open.join(', ')}.` : ''}`,
-				`<div class="progress"><div style="width:${checkedPct}"></div></div>`)}
+${card('Issues fixed', `<span class="green">${s.fixed}</span>`, `${inPr} in the PR${SEP}${s.fixed - inPr} later`, 'Problems developers fixed after /explore flagged them.')}
+${card('PRs changed', changed, `of ${plural(prs, 'PR')}`, 'PRs where at least one /explore finding got fixed.')}
+${card('Pending', s.counts.pending, 'findings', 'PR still open, or merged in the last 60 days. Each resolves once a fix lands or the 60-day window closes.'
+		+ (unchecked ? ` ${unchecked} more can't be checked (unclear or no files named).` : ''))}
 </div>
 </header>`;
 }
 
 function allBar(s, own) {
 	const brackets = [
-		s.checked ? `<div class="bracket checked" style="width:${pct(s.checked, s.total)}"><b>Checked</b> <span>${s.checked}${SEP}${s.fixed === s.checked ? 'all fixed' : `${s.fixed} fixed`}</span></div>` : '',
-		s.open ? `<div class="bracket open" style="width:${pct(s.open, s.total)}"><b>Can't check yet</b> <span>${s.open}</span></div>` : '',
+		s.resolved ? `<div class="bracket resolved" style="width:${pct(s.resolved, s.total)}"><b>Resolved</b> <span>${SEP}${s.resolved}</span></div>` : '',
+		s.unresolved ? `<div class="bracket unresolved" style="width:${pct(s.unresolved, s.total)}"><b>Unresolved</b> <span>${SEP}${s.unresolved}</span></div>` : '',
 	].join('');
-	const legend = OUTCOMES.map(o => `<span title="${escapeHtml(o.def)}"><i class="o-${o.key}"></i>${o.label} <span class="n">${s.counts[o.key]}</span></span>`).join('');
+	const present = OUTCOMES.filter(o => s.counts[o.key]);
+	const legend = present.map(o => `<span><i class="o-${o.key}"></i>${o.label} <span class="n">${s.counts[o.key]}</span></span>`).join('');
+	const details = present.map(o => `<p class="seg-detail" data-for="${o.key}" hidden><i class="o-${o.key}"></i><b>${o.label}</b>`
+		+ `<span class="n">${s.counts[o.key]} of ${s.total} (${pct(s.counts[o.key], s.total)})</span><span>${escapeHtml(o.def)}</span></p>`).join('');
 	return `<section aria-labelledby="all-h">
-<div class="sec-head"><h2 id="all-h">All ${s.total} findings by outcome</h2><span class="sub">Click a segment to filter the evidence.</span></div>
+<div class="sec-head"><h2 id="all-h">Findings by outcome</h2></div>
 <div class="brackets">${brackets}</div>
 <div class="bar big">${segments(own, { counts: true, labels: true, links: true })}</div>
-<div class="legend">${legend}</div>
+<div class="legend-wrap"><div class="legend">${legend}</div>${details}</div>
 </section>`;
 }
 
@@ -133,17 +134,17 @@ function severityRows(own) {
 		const list = own.filter(r => r.severity === key);
 		return { label: SEVERITY_LABEL[key], list, s: summarize(list) };
 	});
-	const few = per.some(p => p.s.checked < ENOUGH) ? ' Too few so far to compare severities.' : '';
+	const few = per.some(p => p.s.resolved < ENOUGH) ? ' Too few so far to compare severities.' : '';
 	const rows = per.map(({ label, list, s }) => {
-		const under = s.total === 0 ? '0 findings' : s.checked ? `${s.fixed} of ${s.checked} we could check` : 'none we could check yet';
-		const parts = [`${s.fixed} of ${s.total} fixed overall`, s.counts['not-acted-on'] ? `${s.counts['not-acted-on']} not acted on` : '', s.open ? `${s.open} can't check yet` : ''].filter(Boolean);
+		const under = s.total === 0 ? '0 findings' : s.resolved ? `${s.fixed} of ${s.resolved} resolved` : 'none resolved yet';
+		const parts = [`${s.fixed} of ${s.total} fixed overall`, s.counts['not-acted-on'] ? `${s.counts['not-acted-on']} not acted on` : '', s.unresolved ? `${s.unresolved} unresolved` : ''].filter(Boolean);
 		const bar = s.total
 			? `<div class="bar mid">${segments(list, { counts: true })}</div><span class="sub small">${parts.join(SEP)}</span>`
 			: `<div class="empty">No ${label} findings in this period</div>`;
-		return `<div class="sev-row"><div class="sev-name">${label}</div><div class="sev-pct"><span class="${s.checked ? 'green' : 'grey'}">${pct(s.fixed, s.checked)}</span><span class="small">${under}</span></div><div class="sev-bar">${bar}</div></div>`;
+		return `<div class="sev-row"><div class="sev-name">${label}</div><div class="sev-pct"><span class="${s.resolved ? 'green' : 'grey'}">${pct(s.fixed, s.resolved)}</span><span class="small">${under}</span></div><div class="sev-bar">${bar}</div></div>`;
 	}).join('\n');
 	return `<section aria-labelledby="sev-h">
-<div class="sec-head"><h2 id="sev-h">Fix rate by severity</h2><span class="sub">% fixed = fixed / findings we could check.${few}</span></div>
+<div class="sec-head"><h2 id="sev-h">Fix rate by severity</h2><span class="sub">% fixed = fixed / resolved findings.${few}</span></div>
 <div class="rows">${rows}</div>
 </section>`;
 }
@@ -155,7 +156,7 @@ function prRows(own) {
 	}
 	const rows = [...byPr].sort(([a, x], [b, y]) => y.length - x.length || b - a).map(([pr, list]) => {
 		const s = summarize(list);
-		const parts = [s.fixed ? `${s.fixed} fixed` : '', s.counts['not-acted-on'] ? `${s.counts['not-acted-on']} not acted on` : '', s.open ? `${s.open} open` : ''].filter(Boolean);
+		const parts = [s.fixed ? `${s.fixed} fixed` : '', s.counts['not-acted-on'] ? `${s.counts['not-acted-on']} not acted on` : '', s.unresolved ? `${s.unresolved} open` : ''].filter(Boolean);
 		return `<div class="pr-row"><a class="mono" href="${REPO_URL}/pull/${Number(pr)}">#${Number(pr)}</a><span class="pr-n">${plural(list.length, 'finding')}</span><div class="bar thin">${segments(list)}</div><span class="pr-sum">${parts.join(SEP)}</span></div>`;
 	}).join('\n');
 	return `<section aria-labelledby="pr-h">
@@ -191,7 +192,7 @@ function evidence(own, s) {
 			+ `<div class="rows">${items.map(r => findingRow(r, ++n)).join('\n')}</div></div>`
 			: '';
 	}).join('\n');
-	const counts = { fixed: s.fixed, not: s.counts['not-acted-on'], open: s.open };
+	const counts = { fixed: s.fixed, not: s.counts['not-acted-on'], open: s.unresolved };
 	const filters = [`<button type="button" class="filter" data-filter="all" aria-pressed="true">All ${s.total}</button>`,
 		...FILTERS.filter(([k]) => counts[k]).map(([k, label]) => `<button type="button" class="filter" data-filter="${k}" aria-pressed="false">${label} ${counts[k]}</button>`)].join('');
 	return `<section aria-labelledby="ev-h">
@@ -202,7 +203,7 @@ ${groups}
 
 const CSS = `
 body{margin:0;background:#fff;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#17191C}
-a{color:#1E5A86}a:hover{color:#123E5E}
+a{color:#1E5A86}a:not(.seg):hover{color:#123E5E}
 main{padding:56px 24px 96px}
 .page{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:64px}
 .mono,.n,code,.chip,.seg,.num,.sign{font-family:'IBM Plex Mono',monospace}
@@ -222,7 +223,6 @@ h1{margin:0;font-size:44px;line-height:1.1;font-weight:600;letter-spacing:-0.01e
 .card-num>span:first-child{font-size:40px;font-weight:600;line-height:1}
 .side{font-size:14px;color:#4A5159}
 .note{font-size:14px;line-height:1.45;color:#4A5159}
-.progress{height:6px;background:#ECEEF0;border-radius:3px;overflow:hidden}.progress div{height:6px;background:#17191C}
 section{display:flex;flex-direction:column;gap:16px}
 .sec-head{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:baseline;justify-content:space-between}
 h2{margin:0;font-size:22px;font-weight:600}
@@ -231,8 +231,8 @@ h2{margin:0;font-size:22px;font-weight:600}
 .bracket{display:flex;align-items:baseline;gap:8px;padding-bottom:6px;min-width:0;white-space:nowrap;overflow:hidden}
 .bracket b{font-weight:600;letter-spacing:0.06em;text-transform:uppercase}
 .bracket span{font-family:'IBM Plex Mono',monospace;color:#4A5159}
-.bracket.checked{border-bottom:2px solid #17191C}
-.bracket.open{border-bottom:2px solid #9AA1A9}.bracket.open b{color:#4A5159}
+.bracket.resolved{border-bottom:2px solid #17191C}
+.bracket.unresolved{border-bottom:2px solid #9AA1A9}.bracket.unresolved b{color:#4A5159}
 .bar{display:flex}
 .bar.big{height:56px;gap:3px}
 .bar.mid{height:28px;gap:2px}
@@ -245,11 +245,18 @@ h2{margin:0;font-size:22px;font-weight:600}
 .bar.thin .seg{border-radius:2px}
 .o-fixed-in-pr{background:#1E6B4F;color:#fff}
 .o-fixed-later{background:#9FD3B9;color:#0F3D2C}
-.o-not-acted-on{background:#C2410C;color:#fff}
+.o-not-acted-on{background:#8FA3C0;color:#17191C}
 .o-pending{background:#fff;color:#4A5159;border:1.5px dashed #8A929B}
 .o-unclear{background:repeating-linear-gradient(135deg,#D6DADF 0 5px,#C4C9D0 5px 10px);color:#17191C}
 .o-no-paths{background:#D6DADF;color:#17191C}
-a.seg:hover{filter:brightness(0.95)}
+a.seg{transition:opacity .15s}
+a.seg:focus-visible{outline:2px solid #17191C;outline-offset:2px}
+.bar.big:has(.seg:hover,.seg:focus-visible) .seg:not(:hover,:focus-visible){opacity:.35}
+.legend-wrap{min-height:44px;display:flex;align-items:center}
+.seg-detail{margin:0;width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;background:#F4F5F6;border-radius:6px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:13px;color:#4A5159}
+.seg-detail[hidden],.legend[hidden]{display:none}
+.seg-detail i{display:inline-block;width:12px;height:12px;border-radius:2px;box-sizing:border-box}
+.seg-detail b{color:#17191C;font-weight:600}
 .legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:#4A5159}
 .legend>span{display:flex;align-items:center;gap:6px}
 .legend i,.group-head i{display:inline-block;width:12px;height:12px;border-radius:2px;box-sizing:border-box}
@@ -294,7 +301,7 @@ code.chip{background:#F1F2F4;border:0}
 .links{display:flex;gap:16px;font-size:13px}
 `;
 
-// Filters, segment clicks and expanding rows. Without it every row shows expanded (see the noscript style).
+// Filters, segment clicks, the bar's hover details and expanding rows. Without it every row shows expanded (see the noscript style).
 const SCRIPT = `
 const rows = () => [...document.querySelectorAll('.finding .row')];
 const setOpen = (b, open) => { b.setAttribute('aria-expanded', open); b.querySelector('.sign').textContent = open ? '-' : '+'; document.getElementById(b.getAttribute('aria-controls')).hidden = !open; };
@@ -304,6 +311,17 @@ const filter = key => {
 	document.querySelectorAll('.filter').forEach(b => b.setAttribute('aria-pressed', b.dataset.filter === key));
 	document.querySelectorAll('.group').forEach(g => { g.hidden = key !== 'all' && g.dataset.group !== key; });
 };
+const legend = document.querySelector('.legend');
+const show = key => {
+	legend.hidden = !!key;
+	document.querySelectorAll('.seg-detail').forEach(d => { d.hidden = d.dataset.for !== key; });
+};
+document.querySelectorAll('.bar.big .seg').forEach(a => {
+	a.addEventListener('mouseenter', () => show(a.dataset.key));
+	a.addEventListener('focus', () => show(a.dataset.key));
+	a.addEventListener('mouseleave', () => show(document.activeElement?.dataset?.key ?? null));
+	a.addEventListener('blur', () => show(null));
+});
 document.addEventListener('click', e => {
 	const row = e.target.closest('.finding .row');
 	const f = e.target.closest('[data-filter]');
