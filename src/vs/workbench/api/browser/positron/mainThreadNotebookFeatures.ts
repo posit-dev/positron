@@ -79,7 +79,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		// A notebook can be open without being the active editor pane (a Data
 		// Explorer or plot editor took the pane, focus moved to another tab
 		// mid-turn). Fall back to an open notebook so assistant tools can
-		// still find it (#14762).
+		// still find it.
 		const foregroundNotebookUri = this._runtimeSessionService.foregroundSession?.metadata.notebookUri;
 		if (foregroundNotebookUri) {
 			const foregroundInstance = this._positronNotebookService.listInstances(foregroundNotebookUri)[0];

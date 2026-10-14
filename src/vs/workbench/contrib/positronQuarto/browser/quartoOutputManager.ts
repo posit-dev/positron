@@ -135,10 +135,9 @@ export interface IQuartoOutputManager {
 	readonly onDidRequestClearAll: Event<void>;
 
 	/**
-	 * Get the outputs of a cell: those of its run in this window if it has
-	 * run, otherwise those restored from the output cache.
+	 * Get the outputs of a cell's run in this window.
 	 */
-	getOutputsForCell(documentUri: URI, cell: QuartoCodeCell): readonly ICellOutput[];
+	getOutputsForCell(documentUri: URI, cellId: string): readonly ICellOutput[];
 
 	/**
 	 * Clear outputs for a cell.
@@ -2001,25 +2000,8 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 		}, 30000);
 	}
 
-	getOutputsForCell(documentUri: URI, cell: QuartoCodeCell): readonly ICellOutput[] {
-		if (this._executionManager.getExecutionState(cell.id) !== CellExecutionState.Idle) {
-			return this._outputsByCell.get(`${documentUri.toString()}:${cell.id}`) ?? [];
-		}
-
-		// Cached cell ids go stale when cells move, so fall back to matching
-		// on the content hash embedded in the id.
-		const cached = this._cacheService.getCachedOutputs(documentUri);
-		const exact = cached.get(cell.id);
-		if (exact) {
-			return exact;
-		}
-		const { hashPrefix } = parseCellId(cell.id);
-		for (const [cellId, outputs] of cached) {
-			if (parseCellId(cellId).hashPrefix === hashPrefix) {
-				return outputs;
-			}
-		}
-		return [];
+	getOutputsForCell(documentUri: URI, cellId: string): readonly ICellOutput[] {
+		return this._outputsByCell.get(`${documentUri.toString()}:${cellId}`) ?? [];
 	}
 
 	clearOutputsForCell(documentUri: URI, cellId: string): void {

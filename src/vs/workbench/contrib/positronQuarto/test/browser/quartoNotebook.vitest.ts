@@ -7,6 +7,7 @@
 
 import { URI } from '../../../../../base/common/uri.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { NotebookCellType } from '../../../../common/positron/notebookAssistant.js';
@@ -44,6 +45,7 @@ describe('QuartoNotebook', () => {
 
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
+		.stub(ICodeEditorService, { listCodeEditors: () => [] })
 		.stub(IEditorService, { activeTextEditorControl: undefined })
 		.stub(IQuartoExecutionManager, {
 			executeCells,
@@ -86,6 +88,12 @@ describe('QuartoNotebook', () => {
 			.replace('Closing text.\n', 'Closing text.\n\n```{r}\nz\n```\n'));
 	});
 
+	it('refuses content that would end the chunk', () => {
+		const { notebook } = createNotebook(DOCUMENT);
+
+		expect(() => notebook.updateCellContent(1, 'x <- "\n```\n"')).toThrow('end the chunk');
+	});
+
 	it('refuses to add a markdown cell', () => {
 		const { notebook } = createNotebook(DOCUMENT);
 
@@ -115,7 +123,7 @@ describe('QuartoNotebook', () => {
 		const { notebook } = createNotebook(DOCUMENT);
 		outputs = [
 			{ outputId: '1', items: [{ mime: 'application/vnd.code.notebook.stdout', data: '[1] 2' }] },
-			{ outputId: '2', items: [{ mime: 'image/png', data: 'iVBORw0K' }] },
+			{ outputId: '2', items: [{ mime: 'image/png', data: 'iVBO\nRw0K\n' }] },
 		];
 
 		expect(await notebook.getCellOutputs(1)).toEqual([

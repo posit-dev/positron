@@ -6,6 +6,7 @@
 import { decodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditor, isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { ISingleEditOperation } from '../../../../editor/common/core/editOperation.js';
 import { ScrollType } from '../../../../editor/common/editorCommon.js';
 import { ITextModel } from '../../../../editor/common/model.js';
@@ -19,15 +20,21 @@ import { collectOutputDTOs } from '../../positronNotebook/browser/notebookAgentO
 import { isImageMimeType } from '../../positronNotebook/browser/notebookMimeUtils.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../positronNotebook/common/positronNotebookConfig.js';
 import { isQuartoDocument, usingQuartoInlineOutput } from '../common/positronQuartoConfig.js';
-import { CellExecutionState, IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
+import { CellExecutionState, ICellOutput, IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
 import { IQuartoDocumentModel, QuartoCodeCell } from '../common/quartoTypes.js';
 import { computeDeleteCellEdit, computeInsertCellEdit, computeReplaceCellCodeEdit } from './quartoCellOperations.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
-import { IQuartoOutputManager } from './quartoOutputManager.js';
+import { IQuartoOutputManager, QuartoOutputContribution } from './quartoOutputManager.js';
 
-/** Removes trailing line breaks, which the cell boundaries supply. */
-function trimTrailingNewlines(content: string): string {
+/**
+ * Prepares content to go between a chunk's fences: removes trailing line
+ * breaks, which the fences supply, and rejects lines that would close the chunk.
+ */
+function toChunkCode(content: string): string {
+	if (/^\s*```/m.test(content)) {
+		throw new Error('Code chunk content cannot contain a line starting with ```, which would end the chunk.');
+	}
 	return content.replace(/(\r?\n)+$/, '');
 }
 
@@ -74,6 +81,7 @@ export class QuartoNotebook {
 	constructor(
 		private readonly _textModel: ITextModel,
 		private readonly _documentModel: IQuartoDocumentModel,
+		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
@@ -101,9 +109,11 @@ export class QuartoNotebook {
 	}
 
 	getCells(): INotebookCellDTO[] {
+		const cells = this._cells();
 		const activeLine = this._activeEditor()?.getPosition()?.lineNumber;
 		const activeCell = activeLine === undefined ? undefined : this._documentModel.getCellAtLine(activeLine);
-		return this._cells().map(cell => this._toDTO(cell, cell === activeCell));
+		const outputs = this._outputsForCell();
+		return cells.map(cell => this._toDTO(cell, cell === activeCell, outputs(cell).length > 0));
 	}
 
 	getCell(index: number): INotebookCellDTO | undefined {
@@ -131,7 +141,7 @@ export class QuartoNotebook {
 		const cells = this._cells();
 		const insertIndex = Math.max(0, Math.min(index, cells.length));
 		const insertLine = insertIndex < cells.length ? cells[insertIndex].startLine : this._textModel.getLineCount() + 1;
-		const { edits } = computeInsertCellEdit(this._textModel, language, insertLine, trimTrailingNewlines(content));
+		const { edits } = computeInsertCellEdit(this._textModel, language, insertLine, toChunkCode(content));
 		this._applyEdits(() => edits);
 		return insertIndex;
 	}
@@ -151,17 +161,17 @@ export class QuartoNotebook {
 	updateCellContent(index: number, content: string): void {
 		const cells = this._cells();
 		this._checkIndex(index, cells);
-		this._applyEdits(() => computeReplaceCellCodeEdit(this._textModel, cells[index], trimTrailingNewlines(content)));
+		this._applyEdits(() => computeReplaceCellCodeEdit(this._textModel, cells[index], toChunkCode(content)));
 	}
 
 	async getCellOutputs(index: number): Promise<INotebookCellOutputDTO[]> {
 		const cells = this._cells();
 		this._checkIndex(index, cells);
-		// Image data is base64-encoded; everything else is text.
-		const outputs = this._outputManager.getOutputsForCell(this.uri, cells[index]).map(output =>
+		// Image data is base64-encoded, possibly with line breaks; everything else is text.
+		const outputs = this._outputsForCell()(cells[index]).map(output =>
 			output.items.map(item => ({
 				mime: item.mime,
-				data: isImageMimeType(item.mime) ? decodeBase64(item.data) : VSBuffer.fromString(item.data),
+				data: isImageMimeType(item.mime) ? decodeBase64(item.data.replace(/\s/g, '')) : VSBuffer.fromString(item.data),
 			})));
 		return collectOutputDTOs(outputs, this._logService, { textOnly: false });
 	}
@@ -196,14 +206,28 @@ export class QuartoNotebook {
 		return this._documentModel.cells;
 	}
 
-	private _toDTO(cell: QuartoCodeCell, isActive: boolean): INotebookCellDTO {
+	/**
+	 * Looks up cell outputs. An editor showing the document tracks its outputs,
+	 * including cached ones and those of cells that have moved; otherwise only
+	 * runs in this window have outputs.
+	 */
+	private _outputsForCell(): (cell: QuartoCodeCell) => readonly ICellOutput[] {
+		const contribution = this._codeEditorService.listCodeEditors()
+			.find(editor => editor.getModel() === this._textModel)
+			?.getContribution<QuartoOutputContribution>(QuartoOutputContribution.ID);
+		return contribution
+			? cell => contribution.getOutputsForCell(cell.id)
+			: cell => this._outputManager.getOutputsForCell(this.uri, cell.id);
+	}
+
+	private _toDTO(cell: QuartoCodeCell, isActive: boolean, hasOutput: boolean): INotebookCellDTO {
 		const state = this._executionManager.getExecutionState(cell.id);
 		return {
 			id: cell.id,
 			index: cell.index,
 			type: NotebookCellType.Code,
 			content: this._documentModel.getCellCode(cell),
-			hasOutput: this._outputManager.getOutputsForCell(this.uri, cell).length > 0,
+			hasOutput,
 			selectionStatus: isActive ? 'active' : 'unselected',
 			executionStatus: state === CellExecutionState.Running ? 'running'
 				: state === CellExecutionState.Queued ? 'pending'
