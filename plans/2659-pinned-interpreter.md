@@ -18,7 +18,7 @@ At launch, `startupSequence()` (`runtimeStartup.ts:660`) would run these steps:
 | Step | What happens | Changed? |
 |---|---|---|
 | 1. Restore sessions | Reconnect to sessions that are still running. If any console comes back, the later steps don't auto-start anything. | No |
-| 2. Write pinned runtimes | Right after core activates a language's extension, ask it for its pinned interpreter. If it reports a valid one, write it into the stored affiliation. For a language that step 3 starts, this happens inside step 3, between activating the extension and starting the runtime. For every other language, it happens when step 4 or discovery activates the extension. See the rules below, and Q19 for why. | **New**. Never activates an extension earlier than today (see the hard requirement below). |
+| 2. Write pinned runtimes | Right after core activates a language's extension, ask it for its pinned interpreter. If it reports a valid one, write it into the stored affiliation. For a language that step 3 starts, this happens inside step 3, between activating the extension and starting the runtime. For every other language, it happens when step 4 or discovery activates the extension. See the rules below. Q19 covers which method core calls. | **New**. Never activates an extension earlier than today (see the hard requirement below). |
 | 3. Start affiliated runtimes | Start the affiliated runtime for each language, using today's rules. | No |
 | 4. Recommendations | Each extension recommends one runtime for the workspace. Core starts it if it's marked to start right away. Otherwise it fills in an affiliation only where none exists. | The step's code doesn't change. The setting stays in Python's recommendation, ranked above the `.venv` (Q8). So the pinned interpreter also reaches startup through this step: under `recommended` (Q18), and on a first launch with no affiliation. |
 
@@ -33,7 +33,7 @@ So step 2 can't ask every extension for its pinned interpreter up front. It need
 1. **Whether a language has a pinned interpreter set** (Q19).
 2. **Runtime metadata for the pinned path**, so it can be written into the affiliation (Q20).
 
-**Proposed answer:** core asks each extension right after core activates it, never earlier. [2659-extension-activation.md](2659-extension-activation.md) explains how extensions activate at startup and walks through the proposal with diagrams. Q19 and Q20 summarize it.
+**Proposed timing:** core checks each extension for a pinned interpreter right after core activates it, never earlier. Q19 compares two ways to do the check. [2659-extension-activation.md](2659-extension-activation.md) explains which activations the first console waits for, and compares the two.
 
 The discovery cache can't be the only source of metadata. It has no entry for the pinned path when:
 
@@ -42,7 +42,7 @@ The discovery cache can't be the only source of metadata. It has no entry for th
 - discovery never found the path, for example a project-local `${workspaceFolder}/.rvenv/bin/R` outside every folder discovery searches
 - the pinned path is new, for example after a `git pull` changed the setting
 
-That's why the proposal gets metadata from the extension instead.
+That's why both Q19 options get metadata from the extension instead.
 
 ### Rules for step 2
 
@@ -56,7 +56,7 @@ That's why the proposal gets metadata from the extension instead.
 - Removing the setting leaves the last pinned runtime as the affiliation, not the last dropdown pick.
 - `getPreferredRuntime()` (`runtimeStartup.ts:1757`) reads the affiliation, so anything that asks for "the preferred R" gets the pinned R.
 - "Clear Saved Interpreter" clears the affiliation, but on a pinned workspace the next launch writes the pinned runtime back.
-- Cost: for the first affiliated language, asking adds one call into its extension before its console starts. See Q20.
+- Cost: depending on the Q19 option, at most one new call into the first affiliated language's extension before its console starts. See Q20.
 
 ## Questions
 
@@ -171,7 +171,7 @@ Core also needs to learn when a pinned interpreter is set but broken, so it can 
 
 Every option has to meet the hard requirement. A and B are methods on the extension, so the extension has to be active before it can answer. With C, core can tell whether a setting is set without activating anything, but `registerRuntimeFromPath()` still runs in the extension. Q19 and Q20 cover those two parts separately.
 
-**Proposed:** A, called only right after core activates the extension. See Q19.
+Q19 compares the two options still on the table: A, and extending `validateMetadata()` the way "current R" works.
 
 ### Q10. Does a pinned R get its conda or pixi environment?
 
@@ -268,15 +268,23 @@ What the code shows:
 - Step 3 only runs for languages set to `always` or `auto` (`runtimeStartup.ts:1862`). Under `recommended`, it skips the language. Recommendations (step 4) still start.
 - So the pinned runtime, stored as the affiliation, would not start under `recommended` if it weren't also the recommendation.
 
-### Q19. How does step 2 learn a language has a pinned interpreter without activating its extension? (open, answer proposed)
+### Q19. How does step 2 learn a language has a pinned interpreter without activating its extension? (open)
 
-**Proposed answer:** core asks the extension right after core activates it, never earlier. A new optional method on `LanguageRuntimeManager` (Q9 option A) returns the pinned runtime's metadata, or the pinned path and why it failed.
+Two options are left. Both check at the same moment: right after core activates the extension, never earlier.
 
-- For a language that step 3 starts, core asks between activating the extension and starting the runtime. Step 3 already activates that extension, so core waits on nothing new.
-- For every other language, core asks when step 4 or discovery activates the extension.
-- The setting name and the rules for reading it stay in the extension, so step 2 always agrees with them. This answers both questions this section used to ask: where the knowledge lives, and how it stays consistent.
+- For a language that step 3 starts, core checks between activating the extension and starting the runtime. Step 3 already activates that extension, so core waits on nothing new.
+- For every other language, core checks when step 4 or discovery activates the extension.
 
-[2659-extension-activation.md](2659-extension-activation.md) has the diagrams, the cost, and the other options: core reading the setting itself, and extending `validateMetadata()` the way "current R" works.
+They differ in which method core calls:
+
+| Option | How it works | What it needs |
+|---|---|---|
+| A. A new method | A new optional method on `LanguageRuntimeManager` (Q9 option A) returns the pinned runtime's metadata, or the pinned path and why it failed. | One new API method. One new call before the first console. |
+| C. `validateMetadata()` swaps in the pinned runtime | Each extension's `validateMetadata()` returns the pinned runtime instead of the stored one, the way R swaps in "current R" today. No new method. | Four fixes, so it also covers languages core doesn't start, languages with no affiliation, and the Q5 notification and start reason. |
+
+Either way, the setting name and the rules for reading it stay in the extension, so step 2 always agrees with them.
+
+[2659-extension-activation.md](2659-extension-activation.md) has a startup diagram, a side-by-side comparison, C's gaps and fixes, and the options we ruled out.
 
 What the code shows:
 
@@ -290,16 +298,16 @@ What the code shows:
 
 Questions for Jonathan:
 
-1. Is asking right after activation, inside step 3, acceptable? It adds one call into the extension host for the first affiliated language before its console starts.
-2. Do you prefer a new optional method on `LanguageRuntimeManager` (option A in the activation doc), or extending `validateMetadata()` the way "current R" works (option C)?
+1. Is checking right after activation acceptable, including inside step 3?
+2. A or C? If C, are its fixes acceptable? Two of them change behavior beyond pinning: `validateMetadata()` would also run when nothing is about to start (C1), and recommendations would be saved for languages that step 4 skipped (C2).
 
 ### Q20. How does step 2 get runtime metadata for the pinned path without activating extensions early? (open, answer proposed)
 
-**Proposed answer:** the extension returns the metadata with its Q19 answer, so core never needs it before the extension is active. That settles the three questions this section used to ask:
+**Proposed answer:** under either Q19 option, the extension returns the metadata when core checks, so core never needs it before the extension is active. That settles the three questions this section used to ask:
 
 1. *Can step 2 activate an extension early?* It doesn't need to. Core only asks extensions it has already activated.
-2. *Is Python's path resolution acceptable before the first console starts?* It replaces the resolution that `validateMetadata()` does today. Core registers the metadata the extension returns, and a registered runtime skips `validateMetadata()` (`runtimeSession.ts:1890-1894`). So the first console waits as long as it does today.
-3. *How does a failed pinned interpreter fall back (Q5)?* The extension reports the failure in its answer, before core touches the affiliation. Core starts the stored affiliation as usual. The `validateMetadata()` failure described below still stops startup, but only for a broken stored affiliation, as it does today.
+2. *Is Python's path resolution acceptable before the first console starts?* It replaces the resolution that `validateMetadata()` does today. Under A, core registers the metadata the extension returns, and a registered runtime skips `validateMetadata()` (`runtimeSession.ts:1890-1894`). Under C, `validateMetadata()` resolves the pinned path instead of the stored one. Either way, the first console waits as long as it does today.
+3. *How does a failed pinned interpreter fall back (Q5)?* The extension falls back before core touches the affiliation. Under A, it reports the failure and core starts the stored affiliation. Under C, `validateMetadata()` checks the stored runtime instead and returns that. The `validateMetadata()` failure described below still stops startup, but only when the stored affiliation is broken too, as it does today.
 
 What the code shows:
 
