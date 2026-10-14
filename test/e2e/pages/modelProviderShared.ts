@@ -8,11 +8,9 @@ import { Code } from '../infra/code';
 import { completeDatabricksOktaSignIn } from '../utils/databricksOAuth.js';
 import { armExternalUrlCapture, waitForExternalUrl } from '../utils/externalUrl.js';
 
-// Modal-agnostic helpers for authenticating against model providers, kept free
-// of any particular modal's selectors. These backed both the legacy provider
-// dialog and the Configure LLM Providers modal; the legacy page object is gone,
-// but the split still keeps provider metadata and the OAuth device-code flow out
-// of the modal's selector-level code.
+// Helpers for authenticating against model providers, kept free of any particular
+// UI's selectors so provider metadata and the OAuth device-code flow stay out of
+// the provider manager page object.
 
 /**
  * Fills an input element's value using evaluate() instead of Playwright's
@@ -105,7 +103,7 @@ export interface LoginModelProviderOptions {
 	/**
 	 * Which authentication method to pick when the provider offers a choice
 	 * (currently Databricks: OAuth or API Key). Defaults to the provider's own
-	 * default, which is whatever the modal preselects.
+	 * default, which is whatever the provider screen preselects.
 	 */
 	authMethod?: 'oauth' | 'apiKey';
 }
@@ -136,7 +134,7 @@ export function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
 /**
  * Whether the provider requires a Base URL alongside its API key (e.g.
  * Microsoft Foundry's Azure endpoint). These providers expose a "Base URL"
- * field in the Configure Providers modal in addition to the API key field.
+ * field on Posit Assistant's provider screen in addition to the API key field.
  *
  * Databricks labels the same field "Workspace URL" and needs it under both auth
  * methods -- OAuth discovers the workspace's OIDC endpoints from it. Snowflake
@@ -274,8 +272,7 @@ export async function completeOAuthDeviceCodeLoginWithCode(config: OAuthDeviceCo
 /**
  * Completes Databricks' OAuth sign-in, which is authorization code + PKCE against a
  * loopback server on the machine running Positron -- not a device code flow, and so
- * offered on desktop only (see `supportedOptions` in the authentication extension's
- * providerSources.ts).
+ * desktop only.
  *
  * The extension hands the authorize URL to the system browser via
  * `vscode.env.openExternal`, and the URL carries a one-time state and PKCE challenge

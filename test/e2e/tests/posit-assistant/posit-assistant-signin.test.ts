@@ -20,9 +20,8 @@ test.use({
 // extension host re-probes the cloud credential-chain metadata endpoints (AWS/Azure
 // IMDS, metadata.google.internal). Those are unreachable from the test container and
 // hang, starving DNS for api.anthropic.com and api.openai.com. Provider key
-// validation then aborts on its own fixed budget (KEY_VALIDATION_TIMEOUT_MS in
-// extensions/authentication/src/constants.ts) and the modal never reaches the
-// Connected view. Settings that need to be in place go through `extraSettings`,
+// validation then times out and the provider screen never reaches the Connected
+// view. Settings that need to be in place go through `extraSettings`,
 // which is written before the app starts and so needs no reload.
 
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [

@@ -26,10 +26,9 @@ test.use({
 
 // Pins the reply to a single known word so the response assertion can check for it,
 // matching the Workbench Snowflake test. This matters more here than for the other
-// desktop providers: Snowflake has no lightweight key-validation endpoint, so
-// validateSnowflakeApiKey only checks the account's *format* and Connect succeeds even
-// with a bad token. The first real credential check is this message, and a length-only
-// assertion would pass on the error text that a rejected token renders.
+// desktop providers: Snowflake has no lightweight key-validation endpoint, so Connect
+// can succeed even with a bad token. The first real credential check is this message,
+// and a length-only assertion would pass on the error text that a rejected token renders.
 const HELLO_PROMPT = 'Reply with only the word hello.';
 
 // WIN covers the Windows lane and, because the e2e-macOS-ci project greps /@:win/, the

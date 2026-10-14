@@ -97,8 +97,7 @@ export class AuthProvider
 
 	/**
 	 * Cancel an in-flight interactive sign-in, if the provider supports
-	 * one (e.g. OAuth providers). The config dialog calls this when the
-	 * user cancels.
+	 * one (e.g. OAuth providers).
 	 */
 	cancelSignIn?(): void;
 
@@ -360,8 +359,8 @@ export class AuthProvider
 	 * `removeSession` can't do this on its own for API-key providers: stored
 	 * accounts are keyed by a random UUID, so `removeSession(providerId)`
 	 * matches nothing and no-ops. That leaves a provider whose secret is gone
-	 * but whose account entry remains stuck as "configured" (and so stuck in
-	 * the dialog's "Needs Attention" group). Use this to reset such a provider.
+	 * but whose account entry remains stuck as "configured". Use this to reset
+	 * such a provider.
 	 */
 	async clearConfiguration(): Promise<void> {
 		const accounts = this.getStoredAccounts();

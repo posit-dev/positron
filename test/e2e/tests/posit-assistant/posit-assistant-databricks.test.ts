@@ -23,8 +23,7 @@ test.use({
 //   - Desktop advertises OAuth (authorization code + PKCE against a loopback server
 //     on ports 8020-8040) and API Key.
 //   - Web and remote advertise API Key only -- the loopback redirect cannot reach an
-//     extension host on another machine. See `supportedOptions` in the authentication
-//     extension's providerSources.ts.
+//     extension host on another machine.
 //
 // So the OAuth case is tagged for desktop lanes only, and the API-key case carries WEB
 // so the chromium lane covers the path that build actually offers. Tags cannot be

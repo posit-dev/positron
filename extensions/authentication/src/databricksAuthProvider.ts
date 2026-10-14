@@ -90,8 +90,8 @@ export class DatabricksAuthProvider extends AuthProvider {
 		_scopes: readonly string[],
 		_options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession> {
-		// The config dialog persists the workspace host before calling this, so
-		// a chain that failed at startup for a missing host can resolve now.
+		// The workspace host may have been set since startup, so a chain that
+		// failed then for a missing host can resolve now.
 		const chainSessionBeforeHost = await this.resolveChainCredentials();
 		if (chainSessionBeforeHost) {
 			return chainSessionBeforeHost;
@@ -205,7 +205,7 @@ export class DatabricksAuthProvider extends AuthProvider {
 				});
 			}
 			// The refresh runs from getSessions, so this can fire while the
-			// user is mid-chat with no provider modal open. Clearing the
+			// user is mid-chat with no provider screen open. Clearing the
 			// secrets signs them out, so say so rather than failing silently.
 			vscode.window.showErrorMessage(vscode.l10n.t(
 				'Databricks sign-in has expired. Sign in again to keep using Databricks models: {0}',
@@ -293,10 +293,8 @@ export class DatabricksAuthProvider extends AuthProvider {
 	 * Resolve the workspace host from the provider catalog. The catalog already
 	 * folds in the DATABRICKS_HOST env var and the legacy
 	 * `authentication.databricks.credentials` setting, so both are covered by the
-	 * single read, and the config dialog persists the Workspace URL the user
-	 * typed before it calls createSession. So by this point the host has been
-	 * supplied or it is not coming, and a missing one is an error to report
-	 * rather than something to ask for.
+	 * single read. A missing host is an error to report rather than something
+	 * to ask for.
 	 */
 	private resolveHost(): string {
 		const configuredHost = getCachedProvider('databricks')
