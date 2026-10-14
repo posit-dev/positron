@@ -18,7 +18,7 @@ import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, getResolvedFilterSettingPaths, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
-import { discoverPixiBinaries, pixiRootSignatureCandidates } from './provider-pixi.js';
+import { discoverPixiBinaries } from './provider-pixi.js';
 import { discoverModuleBinaries, getEnvironmentModulesApi } from './provider-module.js';
 import { discoverRVersionsBinaries } from './provider-rversions.js';
 import { packagerMetadataForPath } from './packager-detection.js';
@@ -62,10 +62,9 @@ export enum RRuntimeSource {
  * (see `discoverServerBinaries`) walks on POSIX. Listed here so the warm-start
  * root-signature snapshot covers the same surface the discoverer does.
  *
- * Conda/Pixi/Module roots are intentionally excluded here: those discovery
- * paths use subprocess calls or per-project state that can't be fingerprinted
- * with a cheap stat of a fixed directory. Pixi projects in the open workspace
- * folders are covered separately by `pixiRootSignatureCandidates()`.
+ * Conda/Pixi/Module roots are intentionally excluded: those discovery paths
+ * use subprocess calls or per-project state that can't be fingerprinted with
+ * a cheap directory stat. They fall back to the periodic-refresh trigger.
  */
 const R_SERVER_ROOTS_POSIX: readonly string[] = [
 	'/usr/lib/R',
@@ -168,12 +167,6 @@ export function computeRootSignatureEntries(candidates: readonly string[]): RRoo
  *   - User-specified `positron.r.interpreters.override`.
  *   - Hard-coded server-installation roots (POSIX only).
  *   - Hard-coded ad-hoc binary paths.
- *   - Pixi projects in the open workspace folders, when
- *     `positron.r.interpreters.pixiDiscovery` is on: each project's
- *     `.pixi/envs` directory and `pixi.lock` (see
- *     `pixiRootSignatureCandidates()`). Pixi R runtimes are never cached, so
- *     without these a newly opened Pixi project would reuse the last
- *     signature and skip the discovery pass that finds them.
  *   - Discovery-gating settings (`positron.r.interpreters.exclude` /
  *     `.default` / `.condaDiscovery` / `.pixiDiscovery` / `.pathDiscoveryMode`)
  *     folded into the opaque digest so a settings change flips the signature
@@ -181,8 +174,7 @@ export function computeRootSignatureEntries(candidates: readonly string[]): RRoo
  *
  * Sources intentionally excluded (fall back to the periodic-refresh trigger):
  *   - Conda environments (require `conda env list`).
- *   - Pixi environments outside the workspace folder (e.g. Pixi's
- *     `detached-environments`); a `pixi.lock` change still flips the signature.
+ *   - Pixi environments (per-project store).
  *   - Module-managed binaries (depend on env-modules state at session start).
  *   - Windows registry (not statable; an `opaque` digest could be added later).
  */
@@ -208,12 +200,6 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
 		addAll(R_SERVER_ROOTS_POSIX);
 	}
 	addAll(R_AD_HOC_BINARIES);
-	// Empty unless Pixi discovery is on and a workspace folder is a Pixi
-	// project, so the signature is unchanged for everyone else.
-	addAll(pixiRootSignatureCandidates(
-		vscode.workspace.getConfiguration('positron.r').get<boolean>('interpreters.pixiDiscovery') ?? false,
-		(vscode.workspace.workspaceFolders ?? []).map(folder => folder.uri.fsPath),
-	));
 
 	return { entries: computeRootSignatureEntries(candidates), opaque: getRFilterSettingsDigest() };
 }
@@ -392,6 +378,28 @@ export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<stri
 		}
 		const metadata = await makeMetadata(rInst);
 		yield { ...metadata, definitionOnly: true };
+	}
+}
+
+/**
+ * Yields metadata for the R installations in the Pixi environments of the
+ * open workspace folders, without the rest of R discovery.
+ *
+ * Pixi runtimes are never cached, so on a warm start, when Positron serves R
+ * from its discovery cache and skips `rRuntimeDiscoverer()`, this is the only
+ * way they are found. Runtime IDs depend only on the binary path and version,
+ * so a runtime found by both this and full discovery is registered once.
+ */
+export async function* rPixiRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+	const binaries = deduplicateRBinaries(await discoverPixiBinaries());
+	for (const rbin of binaries) {
+		const rInst = new RInstallation(rbin.path, false, rbin.reasons, rbin.packagerMetadata);
+		if (!rInst.usable) {
+			LOGGER.info(`Filtering out ${rInst.binpath}, reason: ${friendlyReason(rInst.reasonRejected)}.`);
+			continue;
+		}
+		const metadata = await makeMetadata(rInst);
+		yield metadata;
 	}
 }
 
