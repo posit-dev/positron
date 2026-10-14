@@ -7,6 +7,12 @@ import { test, tags } from '../../_test.setup';
 import { MetricTargetType } from '../../../utils/metrics/metric-base.js';
 import { TestTags } from '../../../infra/index.js';
 
+// Every test case is the nycflights13 flights table (the 5M-row cases repeat it), so the same cells
+// mark a finished sort and filter.
+const SORT_COLUMN_INDEX = 4; // sched_dep_time
+const SORTED_TOP_VALUE = '2359';
+const TAILNUM_COLUMN_INDEX = 11;
+
 const testCases: {
 	env: 'Python' | 'R' | 'DuckDB';
 	data: string;
@@ -88,11 +94,17 @@ test.describe('Data Explorer: Performance', { tag: [] }, () => {
 				await dataExplorer.expectStatusBarToHaveText(testCase.preFilterSummary);
 				await dataExplorer.maximize(false);
 
+				// Sort and filter time how long the user waits to see the result in the grid. They wait
+				// for idle first so they don't absorb work started by an earlier step, and don't wait for
+				// idle inside the timer because idle also covers background column-summary requests.
+				await dataExplorer.waitForIdle();
+
 				// Perform and record basic sorting
 				await metric.dataExplorer.sort(async () => {
 					await dataExplorer.grid.sortColumnBy(5, 'Sort Descending');
-					await dataExplorer.waitForIdle();
+					await dataExplorer.grid.waitForCellText({ rowIndex: 0, colIndex: SORT_COLUMN_INDEX, value: SORTED_TOP_VALUE });
 				}, testCase.varType);
+				await dataExplorer.waitForIdle();
 				await dataExplorer.editorActionBar.clickButton('Clear Column Sorting');
 
 				// Verify full grid by checking data in the bottom right corner
@@ -101,7 +113,11 @@ test.describe('Data Explorer: Performance', { tag: [] }, () => {
 
 				// Perform and record basic filtering
 				await dataExplorer.grid.clickUpperLeftCorner();
-				await dataExplorer.filters.add({ columnName: 'tailnum', condition: 'is equal to', value: 'N532UA', metricRecord: metric, metricTargetType: testCase.varType });
+				await dataExplorer.waitForIdle();
+				await dataExplorer.filters.add({
+					columnName: 'tailnum', condition: 'is equal to', value: 'N532UA', metricRecord: metric, metricTargetType: testCase.varType,
+					metricDone: () => dataExplorer.grid.waitForCellText({ rowIndex: 0, colIndex: TAILNUM_COLUMN_INDEX, value: 'N532UA' })
+				});
 				await dataExplorer.filters.add({ columnName: 'arr_delay', condition: 'is equal to', value: '-49' });
 				await dataExplorer.expectStatusBarToHaveText(testCase.postFilterSummary);
 			});
