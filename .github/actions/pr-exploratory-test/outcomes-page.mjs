@@ -119,8 +119,14 @@ function allBar(s, own) {
 	].join('');
 	const present = OUTCOMES.filter(o => s.counts[o.key]);
 	const legend = present.map(o => `<span><i class="o-${o.key}"></i>${o.label} <span class="n">${s.counts[o.key]}</span></span>`).join('');
-	const details = present.map(o => `<div class="seg-detail" data-for="${o.key}" hidden><span class="hero" style="color:${HERO_COLOR[o.key] ?? INK}">${pct(s.counts[o.key], s.total)}</span>`
-		+ `<div><div class="what"><b>${o.label}</b><span>${SEP}${s.counts[o.key]} of ${s.total} findings</span></div><div class="def">${escapeHtml(o.def)}</div></div></div>`).join('');
+	// A share of counted findings, or a bare count for the rest so denominators don't mix.
+	const details = present.map(o => {
+		const n = s.counts[o.key];
+		const counted = o.group !== 'open';
+		const [hero, of] = counted ? [pct(n, s.counted), `${n} of ${s.counted} counted findings`] : [n, `${n === 1 ? 'finding' : 'findings'}, not counted yet`];
+		return `<div class="seg-detail" data-for="${o.key}" hidden><span class="hero" style="color:${HERO_COLOR[o.key] ?? INK}">${hero}</span>`
+			+ `<div><div class="what"><b>${o.label}</b><span>${SEP}${of}</span></div><div class="def">${escapeHtml(o.def)}</div></div></div>`;
+	}).join('');
 	return `<section aria-labelledby="all-h">
 <h2 id="all-h">Findings by outcome</h2>
 <div class="all">

@@ -96,12 +96,15 @@ test('with nothing counted the COUNTED bracket is left out and Issues fixed is 0
 	assert.match(text(html), /Issues fixed 0 /);
 });
 
-test('each bar segment has a detail to show in place of the legend: a large share, its count, and what it means', () => {
-	const html = render([row('pending'), row('fixed-in-pr'), row('fixed-in-pr'), row('fixed-in-pr')]);
+test('each bar segment has a detail to show in place of the legend: share of counted, or a bare count when not counted', () => {
+	const html = render([row('pending'), row('fixed-in-pr'), row('fixed-in-pr'), row('fixed-in-pr'), row('not-fixed')]);
 	const detail = html.match(/<div class="seg-detail" data-for="fixed-in-pr" hidden>[\s\S]*?<\/div><\/div>/)[0];
 	assert.match(detail, /<span class="hero" style="color:#3B7D4F">75%<\/span>/);
-	assert.match(text(detail), /Fixed in the PR ~ 3 of 4 findings A commit pushed to the PR after the run fixed it\./);
-	assert.match(html, /<div class="seg-detail" data-for="pending" hidden><span class="hero" style="color:#2B2A27">/);
+	assert.match(text(detail), /Fixed in the PR ~ 3 of 4 counted findings A commit pushed to the PR after the run fixed it\./);
+	const open = html.match(/<div class="seg-detail" data-for="pending" hidden>[\s\S]*?<\/div><\/div>/)[0];
+	assert.match(open, /<span class="hero" style="color:#2B2A27">1<\/span>/);
+	assert.match(text(open), /PR still open ~ finding, not counted yet/);
+	assert.match(text(render([row('pending'), row('pending')])), /PR still open ~ findings, not counted yet/);
 	assert.match(render([row('not-fixed')]), /<span class="hero" style="color:#7D7568">100%/);
 });
 
