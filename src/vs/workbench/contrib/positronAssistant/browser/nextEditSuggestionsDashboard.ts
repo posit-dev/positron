@@ -28,6 +28,7 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { defaultButtonStyles, defaultCheckboxStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { DomWidget } from '../../../../platform/domWidget/browser/domWidget.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { CONFIGURE_PROVIDERS_COMMAND } from '../common/positronAssistantCommands.js';
 
 /** Setting controlling which file types receive next edit suggestions. */
 export const NES_ENABLE_SETTING = 'nextEditSuggestions.enabled';
@@ -59,13 +60,6 @@ export const NES_CONTEXT_BUSY = 'nextEditSuggestions.busy';
  * Context key (owned by the extension) that is true when next edit suggestions are enabled for the active file.
  */
 export const NES_CONTEXT_FILE_ENABLED = 'nextEditSuggestions.fileEnabled';
-
-/**
- * Command (owned by the Posit Assistant extension) that opens provider
- * configuration. This is the Assistant's canonical entry point: it owns the
- * routing decision, so callers do not choose a surface.
- */
-const CONFIGURE_PROVIDERS_COMMAND = 'posit-assistant.configureProviders';
 
 /** Shape of the {@link NES_CONTEXT_MODEL} context key value. */
 interface INextEditSuggestionsModel {

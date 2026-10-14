@@ -8,8 +8,8 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { localize2 } from '../../../../nls.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { localize, localize2 } from '../../../../nls.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { codiconsLibrary } from '../../../../base/common/codiconsLibrary.js';
 import { ICodeBlockActionContext } from '../../chat/browser/widget/chatContentParts/codeBlockPart.js';
@@ -18,7 +18,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { ChatContextKeys } from '../../chat/common/actions/chatContextKeys.js';
 import { RuntimeCodeExecutionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { ChatAgentLocation, ChatConfiguration } from '../../chat/common/constants.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, USER_INITIATED_METADATA_KEY } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
@@ -33,6 +33,8 @@ import { Categories } from '../../../../platform/action/common/actionCommonCateg
 import { CreateAIDiagnosticReportAction } from './aiDiagnostics.js';
 // Importing this module also registers the `ai.enabled` main switch for Positron's AI features.
 import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
+import { CONFIGURE_PROVIDERS_COMMAND } from '../common/positronAssistantCommands.js';
+import { ASSISTANT_EXTENSION_ID } from '../common/legacyCredentialCopy.js';
 
 // Register the migration from the deprecated
 // `positron.assistant.inlineCompletions.enable` setting to `github.copilot.enable`.
@@ -40,13 +42,6 @@ import './inlineCompletionsMigration.js';
 
 // Register the agent-compatible `positronAssistant.getProviderStatus` command.
 import './providerStatusCommand.js';
-
-/**
- * Command (owned by the Posit Assistant extension) that opens provider
- * configuration. This is the Assistant's canonical entry point: it owns the
- * routing decision, so callers do not choose a surface.
- */
-const CONFIGURE_PROVIDERS_COMMAND = 'posit-assistant.configureProviders';
 
 // Register the commit message generation feature.
 registerCommitMessageGeneration();
@@ -82,7 +77,24 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 			}
 
 			override async run(accessor: ServicesAccessor): Promise<void> {
-				return accessor.get(ICommandService).executeCommand(CONFIGURE_PROVIDERS_COMMAND);
+				const commandService = accessor.get(ICommandService);
+				const notificationService = accessor.get(INotificationService);
+				try {
+					await commandService.executeCommand(CONFIGURE_PROVIDERS_COMMAND);
+				} catch (error) {
+					// Posit Assistant is turned off or uninstalled.
+					if (CommandsRegistry.getCommand(CONFIGURE_PROVIDERS_COMMAND)) {
+						throw error;
+					}
+					notificationService.prompt(
+						Severity.Info,
+						localize('positron.configureProviders.needsAssistant', "Language model providers are configured in Posit Assistant. Install or enable Posit Assistant to configure them."),
+						[{
+							label: localize('positron.configureProviders.showAssistant', "Show Posit Assistant"),
+							run: () => commandService.executeCommand('workbench.extensions.action.showExtensionsWithIds', [ASSISTANT_EXTENSION_ID]),
+						}],
+					);
+				}
 			}
 		});
 
