@@ -3,11 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Publishes the outcomes page to Posit Connect as static content only its
-// owner can open, with the rows beside it so the next run can start from them.
+// Publishes the outcomes page to Posit Connect, with the rows beside it so the
+// next run can start from them. The content is made once, by hand, and belongs
+// to whoever made it; CI only deploys to its GUID, so its key's user must own
+// the content or be a collaborator on it.
+//   node outcomes-publish.mjs create            (once; prints the GUID)
 //   node outcomes-publish.mjs previous > previous.jsonl
 //   node outcomes-publish.mjs deploy index.html rows.jsonl
-// Needs CONNECT_API_KEY; the content belongs to the key's owner.
+// Needs CONNECT_API_KEY, and CONNECT_CONTENT_GUID for previous and deploy.
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -42,7 +45,7 @@ export function bundle(files) {
 }
 
 function client({ server, key, fetch }) {
-	const call = async (method, path, { body, type = 'application/json', raw = false } = {}) => {
+	return async (method, path, { body, type = 'application/json', raw = false } = {}) => {
 		const url = path.startsWith('http') ? path : `${server}${path}`;
 		const res = await fetch(url, { method, headers: { Authorization: `Key ${key}`, ...(body ? { 'Content-Type': type } : {}) }, body });
 		if (!res.ok) {
@@ -50,45 +53,36 @@ function client({ server, key, fetch }) {
 		}
 		return raw ? res : res.json();
 	};
-	return {
-		call,
-		/** The content named `name` that the key's owner owns, or null. */
-		async find(name) {
-			const me = await call('GET', '/__api__/v1/user');
-			const found = await call('GET', `/__api__/v1/content?name=${encodeURIComponent(name)}&owner_guid=${me.guid}`);
-			return found[0] ?? null;
-		},
-	};
+}
+
+/** Makes the content, open only to its owner until others are added; returns its GUID. */
+export async function create({ server, key, name = NAME, title = TITLE, vanity = VANITY, fetch = globalThis.fetch }) {
+	const call = client({ server, key, fetch });
+	const content = await call('POST', '/__api__/v1/content', { body: JSON.stringify({ name, title, access_type: 'acl' }) });
+	await call('PUT', `/__api__/v1/content/${content.guid}/vanity`, { body: JSON.stringify({ path: vanity }) });
+	return content.guid;
 }
 
 /** The rows the last deploy published, or '' before the first. */
-export async function fetchPrevious({ server, key, name = NAME, fetch = globalThis.fetch }) {
-	const c = client({ server, key, fetch });
-	const content = await c.find(name);
-	if (!content) {
-		return '';
-	}
+export async function fetchPrevious({ server, key, guid, fetch = globalThis.fetch }) {
+	const call = client({ server, key, fetch });
+	const content = await call('GET', `/__api__/v1/content/${guid}`);
 	try {
-		return await (await c.call('GET', `${content.content_url}rows.jsonl`, { raw: true })).text();
+		return await (await call('GET', `${content.content_url}rows.jsonl`, { raw: true })).text();
 	} catch {
 		// Deployed, but not with rows yet.
 		return '';
 	}
 }
 
-/** Deploys `archive`, creating the content on the first run; returns its URL once the deploy task ends. */
-export async function deploy({ server, key, name = NAME, title = TITLE, vanity = VANITY, archive, fetch = globalThis.fetch, wait = 5 }) {
-	const c = client({ server, key, fetch });
-	let content = await c.find(name);
-	if (!content) {
-		// acl with no one added: only the owner can open it until someone is added in Connect.
-		content = await c.call('POST', '/__api__/v1/content', { body: JSON.stringify({ name, title, access_type: 'acl' }) });
-		await c.call('PUT', `/__api__/v1/content/${content.guid}/vanity`, { body: JSON.stringify({ path: vanity }) });
-	}
-	const { id } = await c.call('POST', `/__api__/v1/content/${content.guid}/bundles`, { body: archive, type: 'application/gzip' });
-	const { task_id: task } = await c.call('POST', `/__api__/v1/content/${content.guid}/deploy`, { body: JSON.stringify({ bundle_id: id }) });
+/** Deploys `archive` to the content; returns its URL once the deploy task ends. */
+export async function deploy({ server, key, guid, archive, fetch = globalThis.fetch, wait = 5 }) {
+	const call = client({ server, key, fetch });
+	const content = await call('GET', `/__api__/v1/content/${guid}`);
+	const { id } = await call('POST', `/__api__/v1/content/${guid}/bundles`, { body: archive, type: 'application/gzip' });
+	const { task_id: task } = await call('POST', `/__api__/v1/content/${guid}/deploy`, { body: JSON.stringify({ bundle_id: id }) });
 	for (; ;) {
-		const status = await c.call('GET', `/__api__/v1/tasks/${task}?wait=${wait}`);
+		const status = await call('GET', `/__api__/v1/tasks/${task}?wait=${wait}`);
 		if (status.finished) {
 			if (status.code !== 0) {
 				throw new Error(`Connect deploy failed: ${status.error || `code ${status.code}`}`);
@@ -105,13 +99,21 @@ async function main() {
 		throw new Error('CONNECT_API_KEY is not set');
 	}
 	const server = process.env.CONNECT_SERVER || 'https://connect.posit.it';
+	if (command === 'create') {
+		console.log(await create({ server, key }));
+		return;
+	}
+	const guid = process.env.CONNECT_CONTENT_GUID;
+	if (!guid) {
+		throw new Error('CONNECT_CONTENT_GUID is not set; make the content once with `create`');
+	}
 	if (command === 'previous') {
-		process.stdout.write(await fetchPrevious({ server, key }));
+		process.stdout.write(await fetchPrevious({ server, key, guid }));
 	} else if (command === 'deploy') {
 		const files = Object.fromEntries(paths.map(p => [basename(p), readFileSync(p)]));
-		console.log(`[outcomes] published ${await deploy({ server, key, archive: bundle(files) })}`);
+		console.log(`[outcomes] published ${await deploy({ server, key, guid, archive: bundle(files) })}`);
 	} else {
-		throw new Error('usage: outcomes-publish.mjs previous | deploy <file>...');
+		throw new Error('usage: outcomes-publish.mjs create | previous | deploy <file>...');
 	}
 }
 

@@ -111,9 +111,13 @@ turns those rows into one page: the share of resolved findings that got
 fixed, bars by severity and by PR, and each finding's evidence by outcome with
 links to its report, PR and fixing commit or issue.
 
-`exploratory-outcomes.yml` does both every Monday and publishes the page to
-Posit Connect with `outcomes-publish.mjs`. Only the owner of
-`CONNECT_API_KEY` can open it until others are added in Connect. The rows go
+`exploratory-outcomes.yml` does both every Monday and deploys the page to
+Posit Connect with `outcomes-publish.mjs`. The content was made once with
+`CONNECT_API_KEY=<your key> node outcomes-publish.mjs create`, which prints
+its GUID; that went in the `EXPLORE_OUTCOMES_CONNECT_GUID` repo variable. Only
+its owner can open it until others are added in Connect, and if the user
+behind the workflow's `CONNECT_API_KEY` isn't the owner, add them as a
+collaborator so the deploy is allowed. The rows go
 up beside the page, and the next run passes them as `--previous`, so a
 finding already fixed or not acted on is kept rather than checked again. In
 CI the model is reached through the API (`--api`), and a call that takes
