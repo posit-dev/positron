@@ -18,6 +18,9 @@ export class WindowIgnoreMenuShortcutsManager {
 	private readonly _webviewMainService: IWebviewManagerService;
 
 	constructor(
+		// --- Start Positron ---
+		private readonly _webviewId: string,
+		// --- End Positron ---
 		configurationService: IConfigurationService,
 		mainProcessService: IMainProcessService,
 		private readonly _nativeHostService: INativeHostService
@@ -41,7 +44,10 @@ export class WindowIgnoreMenuShortcutsManager {
 
 	protected setIgnoreMenuShortcuts(value: boolean) {
 		if (this._shouldToggleMenuShortcutsEnablement) {
-			this._webviewMainService.setIgnoreMenuShortcuts({ windowId: this._nativeHostService.windowId }, value);
+			// --- Start Positron ---
+			// this._webviewMainService.setIgnoreMenuShortcuts({ windowId: this._nativeHostService.windowId }, value);
+			this._webviewMainService.setIgnoreMenuShortcuts({ windowId: this._nativeHostService.windowId, webviewId: this._webviewId }, value);
+			// --- End Positron ---
 		}
 	}
 }

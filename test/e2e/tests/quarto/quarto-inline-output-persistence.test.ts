@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags } from './_test.setup';
+import { test, expect, tags } from './_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -50,7 +50,7 @@ test.describe('Quarto - Inline Output: Persistence', {
 		await inlineQuarto.expectOutputVisible();
 	});
 
-	test('Python - Verify inline output works in untitled Quarto document and persists through save', async function ({ app, python, page, runCommand, hotKeys, saveFileAs }) {
+	test('Python - Verify inline output and kernel state survive saving an untitled Quarto document', async function ({ app, python, page, runCommand, hotKeys, saveFileAs }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Set up a unique filename for the untitled document
@@ -67,12 +67,18 @@ test.describe('Quarto - Inline Output: Persistence', {
 		await page.keyboard.press('ControlOrMeta+End');
 		await page.keyboard.type(`
 \`\`\`{python}
+x = "kept across save"
 print("Hello from untitled!")
+\`\`\`
+
+\`\`\`{python}
+print(x)
 \`\`\``);
 
 		// Run using toolbar and verify output
+		await inlineQuarto.gotoLine(8);
 		await inlineQuarto.clickToolbarRunButton(0);
-		await inlineQuarto.gotoLine(10);
+		await inlineQuarto.gotoLine(11);
 		await inlineQuarto.expectOutputVisible();
 		await inlineQuarto.expectStdoutContains('Hello from untitled!');
 
@@ -84,16 +90,20 @@ print("Hello from untitled!")
 		await inlineQuarto.expectKernelStatusVisible();
 
 		// Verify output still visible after save
-		await inlineQuarto.gotoLine(10);
+		await inlineQuarto.gotoLine(11);
 		await inlineQuarto.expectOutputVisible();
 		await inlineQuarto.expectStdoutContains('Hello from untitled!');
+
+		// The kernel must be the same one: a new kernel would not know `x`.
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 14, outputLine: 15, target: inlineQuarto.inlineOutput.last() });
+		await expect(inlineQuarto.stdoutOutput.filter({ hasText: 'kept across save' })).toBeVisible({ timeout: 30000 });
 
 		// Reload and wait for kernel status to be visible again
 		await hotKeys.reloadWindow(true);
 		await inlineQuarto.expectKernelStatusVisible();
 
 		// Verify output still visible after reload
-		await inlineQuarto.gotoLine(10);
+		await inlineQuarto.gotoLine(11);
 		await inlineQuarto.expectOutputVisible();
 		await inlineQuarto.expectStdoutContains('Hello from untitled!');
 	});

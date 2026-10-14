@@ -1168,12 +1168,6 @@ configurationRegistry.registerConfiguration({
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
-		// [NotebookSetting.openOutputInPreviewEditor]: {
-		// 	description: nls.localize('notebook.output.openInPreviewEditor.description', "Controls whether or not the action to open a cell output in a preview editor is enabled. This action can be used via the cell output menu."),
-		// 	type: 'boolean',
-		// 	default: false,
-		// 	tags: ['preview']
-		// },
 		[NotebookSetting.showFoldingControls]: {
 			description: nls.localize('notebook.showFoldingControls.description', "Controls when the Markdown header folding arrow is shown."),
 			type: 'string',

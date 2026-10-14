@@ -144,8 +144,10 @@ export class PolicyConfiguration extends Disposable implements IPolicyConfigurat
 		}
 		// --- End PWB ---
 
-		this.update(await this.updatePolicyDefinitions(this.defaultConfiguration.configurationModel.keys), false);
-		this.update(await this.updatePolicyDefinitions(Object.keys(this.configurationRegistry.getExcludedConfigurationProperties())), false);
+		this.update(await this.updatePolicyDefinitions([
+			...this.defaultConfiguration.configurationModel.keys,
+			...Object.keys(this.configurationRegistry.getExcludedConfigurationProperties()),
+		]), false);
 		this._register(this.policyService.onDidChange(policyNames => this.onDidChangePolicies(policyNames)));
 		this._register(this.defaultConfiguration.onDidChangeConfiguration(async ({ properties }) => this.update(await this.updatePolicyDefinitions(properties), true)));
 		return this._configurationModel;

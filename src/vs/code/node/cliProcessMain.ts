@@ -13,6 +13,9 @@ import { Disposable } from '../../base/common/lifecycle.js';
 import { Schemas } from '../../base/common/network.js';
 import { isAbsolute, join } from '../../base/common/path.js';
 import { isWindows, isMacintosh, isLinux } from '../../base/common/platform.js';
+// --- Start Positron ---
+import { formatDeprecatedEnvWarning, getDeprecatedEnvFallbacks } from '../../base/common/positronEnvironment.js';
+// --- End Positron ---
 import { cwd } from '../../base/common/process.js';
 import { URI } from '../../base/common/uri.js';
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
@@ -111,6 +114,13 @@ class CliMain extends Disposable {
 
 			// Log info
 			logService.info('CLI main', this.argv);
+
+			// --- Start Positron ---
+			// Warn about deprecated VSCODE_* path overrides on stderr, keeping stdout parseable.
+			for (const name of getDeprecatedEnvFallbacks(process.env)) {
+				process.stderr.write(`${formatDeprecatedEnvWarning(name)}\n`);
+			}
+			// --- End Positron ---
 
 			// Error handler
 			this.registerErrorHandler(logService);

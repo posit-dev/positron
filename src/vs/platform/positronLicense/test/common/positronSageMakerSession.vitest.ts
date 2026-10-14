@@ -31,11 +31,11 @@ async function loadSession(options: { web?: boolean } = {}) {
 describe('positronSageMakerSession', () => {
 	describe('sageMakerMarkerScript', () => {
 		it('emits the marker script for a SageMaker session', () => {
-			expect(sageMakerMarkerScript(true)).toBe('<script>globalThis._POSITRON_IS_SAGEMAKER = true;</script>');
+			expect(sageMakerMarkerScript('n0nce', true)).toBe('<script nonce="n0nce">globalThis._POSITRON_IS_SAGEMAKER = true;</script>');
 		});
 
 		it('emits nothing for a session that is not SageMaker', () => {
-			expect(sageMakerMarkerScript(false)).toBe('');
+			expect(sageMakerMarkerScript('n0nce', false)).toBe('');
 		});
 	});
 

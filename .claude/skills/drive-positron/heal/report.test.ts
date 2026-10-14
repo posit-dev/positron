@@ -268,3 +268,17 @@ test('the title counts every helper the fixes reach', () => {
 	assert.equal(prTitle(night({ findings: [fixed('a', 'a.sh', ['a.sh', 'b.sh', 'c.sh', 'd.sh', 'e.sh']), fixed('b', 'b.sh', ['b.sh'])] })), 'drive-positron: fix a.sh, b.sh and 3 more helpers from the nightly run');
 	assert.equal(prTitle(night({ findings: [fixed('a', 'a.sh', 'all'), fixed('b', 'b.sh', ['b.sh'])] })), 'drive-positron: fix a.sh, b.sh and code every helper shares from the nightly run');
 });
+
+test('a product bug already filed says so, and is not in the to do', () => {
+	const known = f('k', { outcome: 'product', issue: 16340 });
+	const body = summaryMarkdown(night({ findings: [known] }), 'u');
+	assert.match(body, /- \*\*Known issue:\*\* `#16340`, hit again tonight\./);
+	assert.match(body, /\*\*To do:\*\* nothing\./);
+	assert.match(summaryMarkdown(night({ findings: [known, f('n', { outcome: 'product' })] }), 'u'), /Look at the 1 product bug below/);
+	assert.match(slackText(night({ findings: [known] }), 'u', null), /`k`\n\*Broke\* \u00b7 obs k\n\*Status\* \u00b7 product bug\n_Known issue #16340, hit again tonight\._/);
+});
+
+test('a finding from a lead says what it cost the agent in a real run', () => {
+	const led = f('l', { outcome: 'product', lead: 'https://run/1', cost: { kind: 'gave up', evidence: 'took a shot, then opened settings #2' } });
+	assert.match(summaryMarkdown(night({ findings: [led] }), 'u'), /- \*\*In a real run:\*\* the agent gave up: took a shot, then opened settings `#2`/);
+});

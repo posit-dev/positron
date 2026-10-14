@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../base/common/event.js';
-import { combinedDisposable, DisposableStore, DisposableMap } from '../../../base/common/lifecycle.js';
+import { combinedDisposable, Disposable, DisposableMap, DisposableStore } from '../../../base/common/lifecycle.js';
 import { ICodeEditor, isCodeEditor, isDiffEditor, IActiveCodeEditor } from '../../../editor/browser/editorBrowser.js';
 import { ICodeEditorService } from '../../../editor/browser/services/codeEditorService.js';
 import { IEditor } from '../../../editor/common/editorCommon.js';
@@ -283,15 +283,14 @@ class MainThreadDocumentAndEditorStateComputer {
 // Additionally implement IMainThreadHiddenEditorManager so MainThreadConsoleService can register
 // the console input editor without it leaking into core editor APIs (see
 // `registerHiddenTextEditor` below).
-// export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator {
-export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, IMainThreadHiddenEditorManager {
+// export class MainThreadDocumentsAndEditors extends Disposable implements IMainThreadEditorLocator {
+export class MainThreadDocumentsAndEditors extends Disposable implements IMainThreadEditorLocator, IMainThreadHiddenEditorManager {
 	// --- End Positron ---
 
-	private readonly _toDispose = new DisposableStore();
 	private readonly _proxy: ExtHostDocumentsAndEditorsShape;
 	private readonly _mainThreadDocuments: MainThreadDocuments;
 	private readonly _mainThreadEditors: MainThreadTextEditors;
-	private readonly _textEditors = new Map<string, MainThreadTextEditor>();
+	private readonly _textEditors = this._register(new DisposableMap<string, MainThreadTextEditor>());
 
 	constructor(
 		extHostContext: IExtHostContext,
@@ -311,25 +310,22 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, 
 		@IConfigurationService configurationService: IConfigurationService,
 		@IQuickDiffModelService quickDiffModelService: IQuickDiffModelService
 	) {
+		super();
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostDocumentsAndEditors);
 
-		this._mainThreadDocuments = this._toDispose.add(new MainThreadDocuments(extHostContext, this._modelService, this._textFileService, fileService, textModelResolverService, environmentService, uriIdentityService, workingCopyFileService, pathService));
+		this._mainThreadDocuments = this._register(new MainThreadDocuments(extHostContext, this._modelService, this._textFileService, fileService, textModelResolverService, environmentService, uriIdentityService, workingCopyFileService, pathService));
 		extHostContext.set(MainContext.MainThreadDocuments, this._mainThreadDocuments);
 
-		this._mainThreadEditors = this._toDispose.add(new MainThreadTextEditors(this, extHostContext, codeEditorService, this._editorService, this._editorGroupService, configurationService, quickDiffModelService, uriIdentityService));
+		this._mainThreadEditors = this._register(new MainThreadTextEditors(this, extHostContext, codeEditorService, this._editorService, this._editorGroupService, configurationService, quickDiffModelService, uriIdentityService));
 		extHostContext.set(MainContext.MainThreadTextEditors, this._mainThreadEditors);
 
 		// It is expected that the ctor of the state computer calls our `_onDelta`.
-		this._toDispose.add(new MainThreadDocumentAndEditorStateComputer(delta => this._onDelta(delta), _modelService, codeEditorService, this._editorService, paneCompositeService));
+		this._register(new MainThreadDocumentAndEditorStateComputer(delta => this._onDelta(delta), _modelService, codeEditorService, this._editorService, paneCompositeService));
 
 		// --- Start Positron ---
 		// Register this instance so MainThreadConsoleService can reach it via getRaw.
 		extHostContext.set(MainPositronContext.MainThreadHiddenEditorManager, this);
 		// --- End Positron ---
-	}
-
-	dispose(): void {
-		this._toDispose.dispose();
 	}
 
 	private _onDelta(delta: DocumentAndEditorStateDelta): void {
@@ -353,8 +349,7 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, 
 		for (const { id } of delta.removedEditors) {
 			const mainThreadEditor = this._textEditors.get(id);
 			if (mainThreadEditor) {
-				mainThreadEditor.dispose();
-				this._textEditors.delete(id);
+				this._textEditors.deleteAndDispose(id);
 				removedEditors.push(id);
 			}
 		}
@@ -479,10 +474,9 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, 
 			addData: this._toTextEditorAddData(editor),
 			onPropertiesChanged: editor.onPropertiesChanged,
 			dispose: () => {
-				this._textEditors.delete(id);
 				// Disposing the editor also disposes its `onPropertiesChanged` emitter, so no
 				// further state can be forwarded for an id the caller is about to retire.
-				editor.dispose();
+				this._textEditors.deleteAndDispose(id);
 			}
 		};
 	}

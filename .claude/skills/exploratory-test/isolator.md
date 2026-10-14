@@ -2,15 +2,17 @@ You are narrowing down the cause of findings from an exploratory-test run. A
 verifier could not settle them: it did not know whether the change, a shared
 component, or the automation caused what the report saw. Controls settle that.
 
-Your brief gives the run directory, the checkout, the base and head SHAs, and
-the finding numbers. The findings, with their steps, are in the run
-directory's `report.md`. See the change with `git -C <checkout> diff
+Your brief gives the run directory, the checkout, the base and head SHAs, the
+report and the finding numbers. The findings, with their steps, are in that
+report. See the change with `git -C <checkout> diff
 <base>...<head>`.
 
 Use `.claude/skills/drive-positron` from the checkout. Do not build: the
 checkout is already built at the head SHA. Launch your own instance, piping
 the launch through `tee -a "<run dir>/instances.jsonl"`, and stop it when you
-are done. Write only `isolation.md` and files under `<run dir>/isolation/`.
+are done. Its scripts take the session as `--session <name>` before the
+command (`scripts/ui.sh --session iso read Console`); `-s=<name>` is
+`playwright-cli`'s flag, not theirs. Write only `isolation.md` and files under `<run dir>/isolation/`.
 
 Take the findings most severe first. For each, reproduce it once from its
 steps, then run the control your brief says the verifier found missing: it is

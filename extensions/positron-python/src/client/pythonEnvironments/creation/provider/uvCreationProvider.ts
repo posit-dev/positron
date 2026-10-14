@@ -29,8 +29,8 @@ import {
     getAvailablePythonVersions,
     getStablePythonAfterUpdate,
     getUvPythonVersionInfo,
-    isUvInstalled,
 } from '../../common/environmentManagers/uv';
+import { ensureUvInstalledWithProgress } from '../../common/environmentManagers/uvPythonInstaller';
 import { pickPythonVersion } from './uvUtils';
 import { uvInstallDeps } from './autoCreateVenv';
 
@@ -87,10 +87,9 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
     public async createEnvironment(
         options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
     ): Promise<CreateEnvironmentResult | undefined> {
-        const uvIsInstalled = await isUvInstalled();
-        if (!uvIsInstalled) {
-            traceError('uv is not installed');
-            showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
+        // Offer to install uv rather than failing, so picking uv works on machines without it.
+        // A failed install shows its own error; a declined one ends quietly.
+        if (!(await ensureUvInstalledWithProgress()).ok) {
             return undefined;
         }
 

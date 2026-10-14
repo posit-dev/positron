@@ -75,7 +75,7 @@ export function failures(log: string): Failure[] {
 			if (a.name === 'click' || a.name === 'raw' || (a.name === 'note' && /^(click|press|type)\b/i.test(a.text))) { next = 'by hand'; break; }
 		}
 		const norm = normalizeError(error);
-		out.push({ helper: e.name, word, error: norm, key: `${e.name}${word ? ' ' + word : ''}: ${norm}`, line: e.line, next, after: after.slice(0, 3).map(a => a.line) });
+		out.push({ helper: e.name, word, error: norm, key: `${e.name}${word ? ' ' + word : ''}: ${norm}`, line: e.line, next, after: after.map(a => a.line) });
 	});
 	return out;
 }

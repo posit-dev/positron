@@ -19,7 +19,7 @@ import { fileURLToPath } from 'url';
 import { launchFixture, readFixtureState, stopFixture, type App } from '../test/fixture-app.ts';
 import { flagValue, unknownArg } from '../test/smoke-lib.ts';
 import { readFindings, validateFinding } from './finding.ts';
-import { isoWeek, pickArea, type Area } from './finder-lib.ts';
+import { isoWeek, knownBugs, pickArea, type Area } from './finder-lib.ts';
 import { formatLeads, type Lead } from './leads-lib.ts';
 
 /** How many leads the brief lists; the rest wait for a night with fewer. */
@@ -72,8 +72,10 @@ function main(): number {
 			app = a;
 			writeFileSync(stateFile, JSON.stringify({ cdpPort: a.cdpPort, runDir: a.runDir }));
 		} });
+		const known = knownBugs(recent);
 		const brief = [
 			...(leads.length ? [`Leads (see "Leads from exploratory runs"), most telling first:\n\n${formatLeads(leads, MAX_LEADS)}`] : []),
+			...(known.length ? [`Known product bugs (see "Writing a finding"):\n\n${known.join('\n')}`] : []),
 			...(leadsOnly ? ['No area tonight: stop once the leads are done.'] : [`Area: ${area.name}: ${area.focus}.`, `Helpers: ${area.helpers.join(', ')}.`]),
 			`Checkout: ${repo}. Run helpers from there.`,
 			`A Positron instance is running on a copy of the smoke fixture and attached as Playwright session \`heal-find\` (CDP port ${up.cdpPort}). Pass \`--session heal-find\` to every helper.`,

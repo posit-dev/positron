@@ -21,7 +21,7 @@ import { IRequestService } from '../../request/common/request.js';
 import { StorageScope, StorageTarget } from '../../storage/common/storage.js';
 import { IApplicationStorageMainService } from '../../storage/electron-main/storageMainService.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
-import { AvailableForDownload, DisablementReason, IUpdateService, State, StateType, UpdateType } from '../common/update.js';
+import { AvailableForDownload, DisablementReason, IUpdate, IUpdateService, State, StateType, UpdateType } from '../common/update.js';
 
 const LAST_KNOWN_VERSION_STORAGE_KEY = 'abstractUpdateService/lastKnownVersion';
 
@@ -34,8 +34,6 @@ export interface IUpdateURLOptions {
 import * as crypto from 'crypto';
 // eslint-disable-next-line no-duplicate-imports
 import { asJson, asText } from '../../request/common/request.js';
-// eslint-disable-next-line no-duplicate-imports
-import { IUpdate } from '../common/update.js';
 import { hasUpdate } from '../common/positronVersion.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 import { IStateService } from '../../state/node/state.js';
@@ -208,6 +206,12 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 
 		lifecycleMainService.when(LifecycleMainPhase.AfterWindowOpen)
 			.finally(() => this.initialize());
+
+		this._register(this.meteredConnectionService.onDidChangeIsConnectionMetered(isMetered => {
+			if (!isMetered) {
+				this.resumeAutomaticUpdates();
+			}
+		}));
 	}
 
 	/**
@@ -245,6 +249,8 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			this.logService.info('update#ctor - updates are disabled as there is no update URL');
 			return;
 		}
+
+		await this.meteredConnectionService.whenConnectionStateInitialized;
 
 		// React to runtime `update.mode`/policy changes so switching to/from `none` applies without a restart.
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
@@ -319,8 +325,8 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 
 		// One-time platform init, gated behind updates being enabled so a pending update is never resumed under `none`.
 		if (!this._postInitialized) {
-			this._postInitialized = true;
 			await this.postInitialize();
+			this._postInitialized = true;
 		}
 
 		this.scheduleAccordingToMode(updateMode);
@@ -369,6 +375,16 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			this.logService.info('update#ctor - manual checks only; automatic updates are disabled by user preference');
 			return;
 		}
+
+		if (this._state.deferred && !this.meteredConnectionService.isConnectionMetered) {
+			this.resumeAutomaticUpdates();
+			return;
+		}
+
+		if (this.state.type !== StateType.Idle) {
+			return;
+		}
+		this.setDeferred(false);
 
 		if (updateMode === 'start') {
 			this.logService.info('update#ctor - startup checks only; automatic updates are disabled by user preference');
@@ -461,6 +477,45 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		promise.catch(() => { /* cancelled, or the service went away */ });
 	}
 	// --- End Positron ---
+
+	private resumeAutomaticUpdates(): void {
+		// --- Start Positron ---
+		// Positron resolves the feed URL from the release channel and never sets `quality`.
+		// if (this._disabledPermanently || !this._postInitialized || !this.quality) {
+		if (this._disabledPermanently || !this._postInitialized || !this.url) {
+			// --- End Positron ---
+			return;
+		}
+
+		const updateMode = this.configurationService.getValue<'none' | 'manual' | 'start' | 'default'>('update.mode');
+		if (updateMode === 'none' || updateMode === 'manual') {
+			return;
+		}
+
+		if (this.state.type === StateType.AvailableForDownload) {
+			if (this._state.deferred) {
+				this.resumeDeferredDownload();
+			}
+			return;
+		}
+
+		if (this.state.type === StateType.Ready) {
+			if (this._state.deferred) {
+				void this.checkForOverwriteUpdates();
+			}
+			return;
+		}
+
+		if (this.state.type !== StateType.Idle) {
+			return;
+		}
+
+		if (updateMode === 'start' && !this._state.deferred) {
+			return;
+		}
+		this.setDeferred(false);
+		this.scheduleCheckForUpdates(0, updateMode === 'default');
+	}
 
 	private async trackVersionChange(): Promise<void> {
 		await this.applicationStorageMainService.whenReady;
@@ -594,6 +649,13 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			return;
 		}
 
+		if (!explicit && this.meteredConnectionService.isConnectionMetered) {
+			this.setDeferred(true);
+			this.logService.info('update#checkForUpdates - skipping automatic check because connection is metered');
+			return;
+		}
+
+		this.setDeferred(false);
 		this.setState(State.CheckingForUpdates(explicit));
 
 		// Build URL with optional parameters
@@ -668,10 +730,12 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		}
 
 		if (!explicit && this.meteredConnectionService.isConnectionMetered) {
+			this.setDeferred(true);
 			this.logService.info('update#downloadUpdate - skipping download because connection is metered');
 			return;
 		}
 
+		this.setDeferred(false);
 		await this.doDownloadUpdate(this.state);
 	}
 
@@ -688,6 +752,20 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		this.setState(State.Idle(this.getUpdateType()));
 	}
 	// --- End Positron ---
+
+	protected resumeDeferredDownload(): void {
+		void this.downloadUpdate(false);
+	}
+
+	protected deferAutomaticDownload(update: IUpdate, explicit: boolean): boolean {
+		if (explicit || !this.meteredConnectionService.isConnectionMetered) {
+			return false;
+		}
+
+		this.logService.info('update#deferAutomaticDownload - deferring download because connection is metered');
+		this.setState(State.AvailableForDownload(update), { deferred: true });
+		return true;
+	}
 
 	async applyUpdate(): Promise<void> {
 		this.logService.trace('update#applyUpdate, state = ', this.state.type);

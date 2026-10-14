@@ -37,11 +37,17 @@ export interface Finding {
 	reviewVerdict?: 'approve' | 'revise';
 	/** The exploratory run whose failure led the finder here; absent for a finding from exploring an area. */
 	lead?: string;
+	/** What a lead's failure cost the agent in that run, with the lines that show it; required with `lead`. */
+	cost?: { kind: Cost; evidence: string };
+	/** The open issue a product finding is already filed as. */
+	issue?: number;
 	/** The helpers the kept change can reach, or 'all'. */
 	reaches?: string[] | 'all';
 }
 
 const OUTCOMES = ['fixed', 'product', 'flake', 'resolved'];
+export type Cost = 'gave up' | 'by hand' | 'repeated';
+const COSTS: string[] = ['gave up', 'by hand', 'repeated'];
 
 export function slug(s: string): string {
 	return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -61,6 +67,10 @@ export function validateFinding(x: unknown): string[] {
 	else if (f.reproductions.filter(r => r?.result === 'fail').length < 2) { p.push('reproductions: needs two failing reproductions'); }
 	if (f.outcome !== undefined && !OUTCOMES.includes(f.outcome)) { p.push(`outcome: "${f.outcome}" is not one of ${OUTCOMES.join(', ')}`); }
 	if (f.outcome === 'resolved' && !f.resolvedBy) { p.push('resolvedBy: a resolved finding names what resolved it'); }
+	if (f.lead !== undefined && (!COSTS.includes(f.cost?.kind as string) || typeof f.cost?.evidence !== 'string' || !f.cost.evidence.trim())) {
+		p.push(`cost: a finding from a lead says what it cost the agent (${COSTS.join(', ')}) and quotes the evidence`);
+	}
+	if (f.issue !== undefined && !(Number.isInteger(f.issue) && f.issue > 0)) { p.push(`issue: "${f.issue}" is not an issue number`); }
 	return p;
 }
 

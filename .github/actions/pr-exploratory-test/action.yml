@@ -6,7 +6,7 @@ inputs:
     required: false
     default: ""
   work-dir:
-    description: "Run directory for report.md, actions.log, shots/ and cost.json; not needed in gate mode"
+    description: "Run directory for report.json, actions.log, shots/ and cost.json; not needed in gate mode"
     required: false
     default: ""
   repo-root:
@@ -37,6 +37,10 @@ inputs:
     default: ""
   base-sha:
     description: "Explore and gate modes: diff base SHA"
+    required: false
+    default: ""
+  base-ref:
+    description: "Explore mode: the base branch's name, which the Findings table's change mark names"
     required: false
     default: ""
   head-sha:
@@ -102,6 +106,10 @@ inputs:
     description: "Comment mode: the comment to edit; empty posts a new one"
     required: false
     default: ""
+  auto-run:
+    description: "Comment mode: 'true' when the auto-run experiment started this run, not a person"
+    required: false
+    default: "false"
 outputs:
   outcome:
     description: "Explore mode: complete, partial or no-report; empty if the run crashed"
@@ -171,6 +179,7 @@ runs:
         BRANCH: ${{ inputs.branch }}
         PR_BODY_FILE: ${{ inputs.pr-body-file }}
         BASE_SHA: ${{ inputs.base-sha }}
+        BASE_REF: ${{ inputs.base-ref }}
         HEAD_SHA: ${{ inputs.head-sha }}
         MODEL: ${{ inputs.model }}
         FOCUS: ${{ inputs.focus }}
@@ -186,6 +195,7 @@ runs:
         PR_NUMBER: ${{ inputs.pr-number }}
         GH_TOKEN: ${{ inputs.github-token }}
         COMMENT_ID: ${{ inputs.comment-id }}
+        AUTO_RUN: ${{ inputs.auto-run }}
         # VERIFY is deliberately absent: it defaults on, a job-level env var still reaches it for
         # debugging, and verification is what makes an unattended report worth
         # trusting, so it is not a dispatch-time choice.

@@ -11,7 +11,7 @@
 // these.
 
 import { readFileSync } from 'fs';
-import { Exit, inPage, log, logRead, mod, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, logRead, mod, notACommand, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
 import { notifications } from './dp-notifications.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
@@ -253,7 +253,7 @@ export const nbCommands: Record<string, (argv: string[]) => Json | string> = {
 				break;
 			}
 			default:
-				throw new Exit(2, { ok: false, error: `unknown command ${cmd}` });
+				notACommand(cmd, commands.split(', '));
 		}
 		if (out.ok && cmd === 'read') {
 			const cells = out.cells as { cell: number; state: string; output: string }[];

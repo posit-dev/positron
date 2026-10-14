@@ -24,3 +24,10 @@ export function pickArea(areas: Area[], week: number, recent: Finding[]): { area
 	const area = areas[week % areas.length];
 	return { area, why: `ISO week ${week}` };
 }
+
+/** Earlier finder product bugs filed as an issue, one line each, so a finder that meets one again keeps its id. */
+export function knownBugs(recent: Finding[]): string[] {
+	const seen = new Set<string>();
+	return recent.filter(f => f.source === 'finder' && f.outcome === 'product' && f.issue && !seen.has(f.id) && seen.add(f.id))
+		.map(f => `- ${f.id} (${f.helper}, issue #${f.issue}): ${String(f.observed).replace(/\s+/g, ' ').slice(0, 200)}`);
+}

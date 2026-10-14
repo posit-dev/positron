@@ -8,6 +8,9 @@ import { memoize } from '../../../base/common/decorators.js';
 import { FileAccess, Schemas } from '../../../base/common/network.js';
 import { dirname, join, normalize, resolve } from '../../../base/common/path.js';
 import { env } from '../../../base/common/process.js';
+// --- Start Positron ---
+import { getPositronEnv } from '../../../base/common/positronEnvironment.js';
+// --- End Positron ---
 import { joinPath } from '../../../base/common/resources.js';
 import { URI } from '../../../base/common/uri.js';
 import { NativeParsedArgs } from './argv.js';
@@ -102,7 +105,10 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
 
 	@memoize
 	get argvResource(): URI {
-		const vscodePortable = env['VSCODE_PORTABLE'];
+		// --- Start Positron ---
+		// const vscodePortable = env['VSCODE_PORTABLE'];
+		const vscodePortable = getPositronEnv(env, 'PORTABLE');
+		// --- End Positron ---
 		if (vscodePortable) {
 			return URI.file(join(vscodePortable, 'argv.json'));
 		}
@@ -143,12 +149,18 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
 			return resolve(cliExtensionsDir);
 		}
 
-		const vscodeExtensions = env['VSCODE_EXTENSIONS'];
+		// --- Start Positron ---
+		// const vscodeExtensions = env['VSCODE_EXTENSIONS'];
+		const vscodeExtensions = getPositronEnv(env, 'EXTENSIONS');
+		// --- End Positron ---
 		if (vscodeExtensions) {
 			return vscodeExtensions;
 		}
 
-		const vscodePortable = env['VSCODE_PORTABLE'];
+		// --- Start Positron ---
+		// const vscodePortable = env['VSCODE_PORTABLE'];
+		const vscodePortable = getPositronEnv(env, 'PORTABLE');
+		// --- End Positron ---
 		if (vscodePortable) {
 			return join(vscodePortable, 'extensions');
 		}
@@ -163,7 +175,10 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
 			return URI.file(resolve(cliSharedDataDir));
 		}
 
-		const vscodePortable = env['VSCODE_PORTABLE'];
+		// --- Start Positron ---
+		// const vscodePortable = env['VSCODE_PORTABLE'];
+		const vscodePortable = getPositronEnv(env, 'PORTABLE');
+		// --- End Positron ---
 		if (vscodePortable) {
 			return URI.file(join(vscodePortable, 'shared-data'));
 		}
@@ -280,7 +295,10 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
 	@memoize
 	get policyFile(): URI | undefined {
 		if (this.args['__enable-file-policy']) {
-			const vscodePortable = env['VSCODE_PORTABLE'];
+			// --- Start Positron ---
+			// const vscodePortable = env['VSCODE_PORTABLE'];
+			const vscodePortable = getPositronEnv(env, 'PORTABLE');
+			// --- End Positron ---
 			if (vscodePortable) {
 				return URI.file(join(vscodePortable, 'policy.json'));
 			}

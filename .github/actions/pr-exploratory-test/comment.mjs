@@ -6,9 +6,10 @@
 // Posts or edits the PR comment for one `/explore` run. The body comes from
 // renderPrComment in lib.mjs; this file is only the GitHub I/O around it.
 
-import { appendFileSync, readFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { readJson } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
 import { renderPrComment, buildShotsBaseUrl } from './lib.mjs';
 
 const API = 'https://api.github.com';
@@ -43,28 +44,22 @@ export async function postOrEditComment({ fetchImpl, token, repo, prNumber, comm
 	return { action: 'created', id: created.id };
 }
 
+/** The run's report.json, or null when the build failed first or the agent never wrote one. */
 function readReport(workDir) {
-	if (!workDir) {
-		return null;
-	}
-	try {
-		return readFileSync(join(workDir, 'report.md'), 'utf8');
-	} catch {
-		// No report: the build failed first, or the agent never wrote one.
-		return null;
-	}
+	return workDir ? readJson(join(workDir, 'report.json')) : null;
 }
 
 async function main() {
 	const state = process.env.COMMENT_STATE === 'running' ? 'running' : (process.env.OUTCOME || '');
 	const body = renderPrComment({
 		state,
-		markdown: state === 'running' ? null : readReport(process.env.WORK_DIR),
+		report: state === 'running' ? null : readReport(process.env.WORK_DIR),
 		baseUrl: buildShotsBaseUrl(process.env.REPORT_BASE_URL || ''),
 		runUrl: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
 		headSha: process.env.HEAD_SHA || '',
 		reason: process.env.DECLINE_REASON || '',
 		focus: process.env.FOCUS || '',
+		autoRun: process.env.AUTO_RUN === 'true',
 	});
 	const { action, id } = await postOrEditComment({
 		fetchImpl: fetch,

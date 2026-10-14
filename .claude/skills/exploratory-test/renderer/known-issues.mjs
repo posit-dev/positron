@@ -19,7 +19,8 @@
 //     failed search exits 1, so it cannot pass for no matches.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
+import { readJson } from './shared/text.mjs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -200,26 +201,6 @@ export function buildKnownIssuesBrief(data, { file } = {}) {
 }
 
 /**
- * The verifier's `LINKED: #5678=moderate; #5301=minor` line, as a Map of
- * issue number to severity. Entries it cannot read are left out, and the
- * issue shows unrated.
- */
-export function parseLinked(text) {
-	const out = new Map();
-	const line = String(text ?? '').split('\n').find(l => /^LINKED:/i.test(l.trim()));
-	if (!line) {
-		return out;
-	}
-	for (const part of line.trim().slice('LINKED:'.length).split(';')) {
-		const m = /^#?(\d+)\s*=\s*(major|moderate|minor)\b/i.exec(part.trim());
-		if (m) {
-			out.set(Number(m[1]), m[2].toLowerCase());
-		}
-	}
-	return out;
-}
-
-/**
  * What the run found about each linked issue, from the ledger's `Issue:` lines
  * (on Coverage rows as `issues`), the verifier's severities, and its KNOWN
  * matches (finding number to issue numbers):
@@ -258,11 +239,7 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 			}
 			// A failed fix or a returned issue is the row's finding.
 			const findingOf = map => {
-				for (const f of new Set([row.finding, ...(row.findings ?? [])].filter(Boolean))) {
-					const list = map.get(f) ?? [];
-					if (!list.includes(issue)) { list.push(issue); }
-					map.set(f, list);
-				}
+				for (const f of new Set([row.finding, ...(row.findings ?? [])].filter(Boolean))) { push(map, f, issue); }
 			};
 			if (issue.relation === 'fixes') {
 				if (kind === 'held') {
@@ -346,11 +323,8 @@ function push(map, key, value) {
 }
 
 function token() {
-	if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) {
-		return process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-	}
 	try {
-		return execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+		return process.env.GH_TOKEN || process.env.GITHUB_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 	} catch {
 		return '';
 	}
@@ -427,11 +401,7 @@ export async function fetchRefs(numbers, repo = DEFAULT_REPO, { auth = token() }
 
 /** A run directory's fetched issue and PR previews, or none. */
 export function readIssueRefs(dir) {
-	try {
-		return JSON.parse(readFileSync(join(dir, REFS_FILE), 'utf8')).refs ?? [];
-	} catch {
-		return [];
-	}
+	return readJson(join(dir, REFS_FILE))?.refs ?? [];
 }
 
 /**
@@ -460,8 +430,10 @@ export async function searchIssues(terms, repo = DEFAULT_REPO, { auth = token() 
 /** A search's results as `#12 (closed): "title"` lines, or `no matches`. Titles are quoted as data. */
 export function formatSearch(items) {
 	const issues = (items ?? []).filter(i => !i.pull_request);
+	// Not planned is the verifier's cue that the behavior was judged intended.
+	const state = i => i.state !== 'closed' ? 'open' : i.state_reason === 'not_planned' ? 'closed as not planned' : 'closed';
 	return issues.length
-		? issues.map(i => `#${i.number} (${i.state === 'closed' ? 'closed' : 'open'}): ${JSON.stringify(i.title ?? '')}`).join('\n')
+		? issues.map(i => `#${i.number} (${state(i)}): ${JSON.stringify(i.title ?? '')}`).join('\n')
 		: 'no matches';
 }
 

@@ -44,6 +44,21 @@ test('resolved needs resolvedBy', () => {
 	assert.ok(validateFinding({ ...base(), outcome: 'resolved' }).some(p => p.includes('resolvedBy')));
 });
 
+test('a finding from a lead names what the failure cost the agent', () => {
+	const lead = { ...base(), source: 'finder' as const, id: 'finder-x', lead: '37707094533' };
+	assert.ok(validateFinding(lead).some(p => p.startsWith('cost:')));
+	assert.ok(validateFinding({ ...lead, cost: { kind: 'looked again', evidence: 'screenshot' } }).some(p => p.startsWith('cost:')));
+	assert.ok(validateFinding({ ...lead, cost: { kind: 'gave up', evidence: ' ' } }).some(p => p.startsWith('cost:')));
+	assert.deepEqual(validateFinding({ ...lead, cost: { kind: 'gave up', evidence: 'the next 6 lines leave the session list' } }), []);
+	assert.deepEqual(validateFinding(base()), []);
+});
+
+test('an issue is a positive whole number', () => {
+	assert.ok(validateFinding({ ...base(), issue: 0 }).some(p => p.startsWith('issue:')));
+	assert.ok(validateFinding({ ...base(), issue: '16340' as unknown as number }).some(p => p.startsWith('issue:')));
+	assert.deepEqual(validateFinding({ ...base(), issue: 16340 }), []);
+});
+
 test('addFields adds and appends reproductions', () => {
 	const f = addFields(base(), { outcome: 'fixed', reason: 'selector', reproductions: [{ at: 'x', by: 'fixer', result: 'fail', observed: 'o' }] });
 	assert.equal(f.outcome, 'fixed');

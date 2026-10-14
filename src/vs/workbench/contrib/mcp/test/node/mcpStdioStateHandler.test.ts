@@ -9,7 +9,9 @@ import * as assert from 'assert';
 import { McpStdioStateHandler } from '../../node/mcpStdioStateHandler.js';
 import { isWindows } from '../../../../../base/common/platform.js';
 
-const GRACE_TIME = 100;
+// Must be comfortably larger than the time it takes to spawn the helper shell
+// script that signals the process tree, otherwise SIGKILL can race SIGTERM.
+const GRACE_TIME = 1000;
 
 suite('McpStdioStateHandler', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
@@ -87,8 +89,10 @@ suite('McpStdioStateHandler', () => {
 	// non-Windows assertion depends on the child's SIGTERM output being
 	// captured within the shutdown-grace window, which is intermittent on
 	// Linux (microsoft/vscode#253370; #255289). Re-enable if upstream hardens.
-	test.skip('sigkill after grace', async () => {
+	test.skip('sigkill after grace', async function () {
 		// --- End Positron ---
+		this.timeout(GRACE_TIME * 10);
+
 		const { handler, output } = run(`
 			setInterval(() => {}, 1000);
 			process.stdin.on('end', () => process.stdout.write('stdin ended\\n'));

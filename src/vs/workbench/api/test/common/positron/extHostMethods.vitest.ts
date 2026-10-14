@@ -175,6 +175,44 @@ describe('ExtHostMethods', function () {
 		});
 	});
 
+	describe('call: last_active_editor_context', function () {
+
+		function createMethodsWithConsoleFocusedLast() {
+			return createMethods({
+				paneEditor: createFakeEditor('/path/to/file.R'),
+				consoleEditors: { 'session-r': createFakeEditor('inmemory://repl-r') },
+				consoleInputFocusedLastSessionId: 'session-r',
+			});
+		}
+
+		it('returns the editor pane when allow_console is false, even if the console was focused last', async function () {
+			// Regression test for https://github.com/posit-dev/positron/issues/16405.
+			// `rstudioapi::getSourceEditorContext()` must never report the console.
+			const methods = createMethodsWithConsoleFocusedLast();
+
+			const response = await methods.call('ext', UiFrontendRequest.LastActiveEditorContext, { allow_console: false }, 'session-r');
+
+			expect(response).toMatchObject({ result: { id: undefined, document: { path: '/path/to/file.R' } } });
+		});
+
+		it('returns the console when allow_console is null', async function () {
+			// Ark serializes an omitted optional param as `null`
+			const methods = createMethodsWithConsoleFocusedLast();
+
+			const response = await methods.call('ext', UiFrontendRequest.LastActiveEditorContext, { allow_console: null }, 'session-r');
+
+			expect(response).toMatchObject({ result: { id: '#console', document: { path: '' } } });
+		});
+
+		it('rejects unknown params', async function () {
+			const methods = createMethodsWithConsoleFocusedLast();
+
+			const response = await methods.call('ext', UiFrontendRequest.LastActiveEditorContext, { foo: true }, 'session-r');
+
+			expect(response).toHaveProperty('error');
+		});
+	});
+
 	describe('modifyEditorLocations', function () {
 
 		it('edits the editor pane when there is no caller session id', async function () {

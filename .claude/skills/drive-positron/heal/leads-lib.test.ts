@@ -44,3 +44,9 @@ test('groupLeads ranks by runs, then by how often the agent got past it', () => 
 		['ui.sh choose: no item "_" in the menu or popup', ['a']],
 	]);
 });
+
+test('failures keep every line of the window, so the finder can tell a block from a detour', () => {
+	const click = failures(LOG)[0];
+	assert.equal(click.after.length, 6);
+	assert.match(click.after[5], /palette-run.sh .*did not open/);
+});

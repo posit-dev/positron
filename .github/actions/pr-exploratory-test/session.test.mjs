@@ -27,6 +27,14 @@ test('collects text and the cost record, and passes the options through', async 
 	assert.equal(seen.options.canUseTool, undefined);
 });
 
+test('returns the session id, and resumes a session it is given', async () => {
+	let seen;
+	const query = async function* ({ options }) { seen = options; yield { type: 'system', session_id: 's1' }; yield assistant('again'); yield result; };
+	const s = await runSession({ prompt: 'p', allowedTools: [], model: 'sonnet', maxTurns: 9, cwd: '/r', resume: 's0', query, log: quiet });
+	assert.equal(seen.resume, 's0');
+	assert.equal(s.sessionId, 's1');
+});
+
 test('a time limit installs the hook and aborts after the wrap-up', async () => {
 	let opts;
 	const query = async function* ({ options }) {
@@ -60,4 +68,19 @@ test('a write root installs the guard', async () => {
 	const query = async function* ({ options }) { seen = options; yield result; };
 	await runSession({ prompt: 'p', allowedTools: ['Edit'], model: 'opus', maxTurns: 9, cwd: '/r', writeRoot: '/r/x', query, log: quiet });
 	assert.equal(typeof seen.canUseTool, 'function');
+});
+
+test('runSession clips logged tool calls to 200 characters, or logs them in full for a short pass', async () => {
+	const command = 'x'.repeat(500);
+	const query = async function* () {
+		yield { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command } }] } };
+		yield { type: 'result' };
+	};
+	const logged = async fullLog => {
+		const lines = [];
+		await runSession({ prompt: 'p', allowedTools: [], model: 'sonnet', maxTurns: 2, cwd: '/r', query, fullLog, log: line => lines.push(line) });
+		return lines.find(l => l.includes('tool calls'));
+	};
+	assert.equal((await logged(false)).length, '[msg 1] tool calls: Bash()'.length + 200);
+	assert.ok((await logged(true)).includes(command));
 });
