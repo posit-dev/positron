@@ -389,7 +389,11 @@
 					},
 					"summary": {
 						"$ref": "#/$defs/md",
-						"description": "The sentence that opens the GitHub issue filed from this finding: the visible failure, with exact numbers and on-screen text."
+						"description": "The sentence that opened the GitHub issue filed from this finding, in reports before version 1.67; impact replaced it, and the explorer leaves it out."
+					},
+					"impact": {
+						"$ref": "#/$defs/md",
+						"description": "How the bug affects users, in one or two sentences: who runs into it, what it costs them, and whether they would notice. It opens the GitHub issue filed from this finding."
 					},
 					"where": {
 						"$ref": "#/$defs/md",

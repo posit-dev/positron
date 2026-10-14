@@ -297,10 +297,11 @@ Steps:
   errors"). An error no check is tied to is counted here and nowhere else.
 - `Preconditions:` is everything a scenario needs before step 1, one bullet
   each, repeated on every scenario that needs it, with the creating scenario's
-  ID in the middle field when there is one. A precondition is state that
-  exists before the app does anything: a setting, a file, an installed
-  interpreter. Anything done in the app to get there, such as starting a
-  console or opening a file, is a step, even if it is only setup.
+  ID in the middle field when there is one. A precondition is state before
+  step 1: a setting, a file, an installed interpreter, or something an
+  earlier scenario made in the app, such as a saved connection or a variable
+  in a console. Each says how to make it, in a user's words, since a reader
+  has no earlier scenario. What the scenario itself does is a step.
 - Some state lives with a file, not the profile: a notebook remembers its
   kernel, and Reopen Editor With its editor. A scenario that needs a file the
   app has not touched says so ("a fresh copy of `rnb.ipynb` that has not been
@@ -547,7 +548,8 @@ Run details: name a workspace by what it holds ("A workspace with
 
 Repeat each finding's preconditions in full, one state per item ("pandas 3.0.3
 in `.venv`", "R 4.5.1 with dplyr", the file in backticks), never a catch-all
-such as "Data scripts". Loading the file is a step, with the exact command
+such as "Data scripts", and keep what the ledger says about how to make each
+state. Loading the file is a step, with the exact command
 ("Run `%run -i slow.py` in the Python console."). The workspace's files
 share one line ("A workspace with `app.R` and `app.py`"). Package names keep
 their real case (dplyr, not Dplyr). An app the bug needs running, or a pane
@@ -565,7 +567,7 @@ field it can have:
 	"reproduced": { "n": 3, "m": 3 },
 	"feature": "<feature>",
 	"title": "<concise claim>",
-	"summary": "<the issue's opening sentence>",
+	"impact": "<how the bug affects users, in one or two sentences>",
 	"preconditions": [
 		{ "name": "<2 to 4 words, for Coverage, e.g. `slow.py`>", "text": "<the full line the finding shows, e.g. `slow.py`, which builds tables that are slow to summarize; the step that runs it comes first>" }
 	],
@@ -602,14 +604,15 @@ puts it in `code`, as a fenced markdown block. Text fields take markdown: code
 and data values in backticks. The first time evidence names an internal ID (a session, client or
 request ID), say which file, document or session it belongs to.
 
-### Summary
+### Impact
 
-`summary` opens the GitHub issue filed from this finding, for an engineer who
-has not seen the run. Write one sentence; add a second only when the bug cannot
-be understood without it. Lead with the visible failure, add the condition
-that triggers it only when it tells this bug apart, and say what should happen
-only when that is not obvious. Keep numbers and on-screen text exact, with data
-values in backticks. No setup, retries, investigation or cause.
+`impact` opens the GitHub issue filed from this finding, for whoever decides
+on the fix, and says how the bug affects users in one or two sentences: who runs into it (everyone who does something common, or
+only under a setup few have), what it costs them (lost work, wrong results, a
+dead end, a moment's confusion), and whether they would notice. Say plainly
+when it takes an unusual setup or has an easy way around it: a narrow bug
+stated as narrow is easier to trust than one made to sound big. It agrees with
+`severity`.
 
 ### Observed and Expected
 

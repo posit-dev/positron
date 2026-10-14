@@ -46,7 +46,7 @@ const BASE = {
 		reproduced: { n: 2, m: 2 },
 		feature: 'console',
 		title: 'Retry does nothing',
-		summary: 'Clicking Retry leaves the panel empty.',
+		impact: 'Anyone who clicks Retry stays stuck on an empty panel, with no other way to load it.',
 		steps: [
 			{ kind: 'action', text: 'Click Retry.' },
 			{ kind: 'verify', text: 'it loads', result: 'fail', finding: 1, observed: 'empty', shots: ['shots/a.png'], log: { source: 'none found in logs/r.log' } },
@@ -229,12 +229,12 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 	// The report as a whole.
 	'a report written to the format is clean': () => [...lint(), ...lintReportJson(report(), LEDGER), ...schemaProblems(report())],
 	'without a ledger, the ledger checks are skipped': () => lint(report(), undefined),
-	'a finding with no summary, and summaries that run on': () => [
-		...edited(f => { delete f.summary; }),
-		...edited(f => { f.summary = `${words(51)}.`; }),
-		...edited(f => { f.summary = 'Retry fails. The panel stays empty. Nothing is logged.'; }),
+	'a missing or overlong impact': () => [
+		...edited(f => { delete f.impact; }),
+		...edited(f => { f.impact = `${words(51)}.`; }),
+		...edited(f => { f.impact = 'Few hit it. It needs a renamed file. Reopening fixes it.'; }),
 	],
-	'a two-sentence summary within the limit is clean': () => edited(f => { f.summary = `Clicking Retry leaves the panel empty. ${words(40)}.`; }),
+	'a two-sentence impact within the limit is clean': () => edited(f => { f.impact = `Anyone who clicks Retry stays stuck. ${words(40)}.`; }),
 	'the schema names a missing Feature, notExercised or rate, and a step shot outside shots/': () => [
 		...schemaProblems(report(f => { delete f.feature; })), ...schemaProblems(report((f, r) => { delete r.header.notExercised; })),
 		...['$U/a.png', 'https://cdn.example/run/shots/a.png'].flatMap(t => schemaProblems(report(f => { f.steps[1].shots = [t]; }))),
@@ -301,7 +301,7 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 	'a moderate or major finding tried once': () => each((severity, n, m) => edited(f => { f.severity = severity; f.reproduced = { n: Number(n), m: Number(m) }; }), [['moderate', '1', '1'], ['major', '1', '1'], ['minor', '1', '1'], ['moderate', '1', '2']]),
 
 	// Preconditions.
-	'a precondition done in the app, in the report': () => each(pre, ['`app.R` started with its Run Shiny App button', '`flask_app.py` running, then opened in an editor tab', 'A Shiny console in which Run Shiny App started `shiny_app.R`', 'A Python 3.12 console, which Positron starts on launch', 'a Python with polars is selected', '`slow.py` loaded', '`p1_setup.py` run in the first Python session', 'A Python 3.12 venv to run in']),
+	'a precondition done in the app, in the report': () => each(pre, ['`app.R` started with its Run Shiny App button', '`flask_app.py` running, then opened in an editor tab', 'A Shiny console in which Run Shiny App started `shiny_app.R`', 'A Python 3.12 console, which Positron starts on launch', 'a Python with polars is selected', '`slow.py` loaded', '`p1_setup.py` run in the first Python session', 'A Python 3.12 venv to run in', '`notes` open in the Data Explorer, then dropped from the R console', '`orders` open in the Data Explorer, then a row inserted from the console', '`race.sh`, which clicks Run, then presses Enter at once']),
 	'a precondition done in the app, in the ledger, where the third field may say how a scenario made it': () => each(row => ledgerOnly('Status: fail - Finding 1\n', `Status: fail - Finding 1\n\nPreconditions:\n- ${row}\n`), [
 		'Variables loaded | S01 | `setup.py` run in the first Python session', 'app running | `app.R` started with Run Shiny App',
 		'`pd_ints` in the session | S01 | Defined in the Python console by S01 (files/ints.py)', 'R console | S03 | The R console started in S03',
@@ -312,6 +312,7 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 		'the app from `shiny_app.R` serving on port 56934 in an R Shiny console', 'Python 3.12.11 in the run\'s venv with shiny 1.8.0 installed', 'Python 3.12 with shiny 1.8.0',
 		'`app.py` that calls `app.run(port=5057)`', 'any URL shown in the Viewer, here the R Shiny app', 'the R Shiny app running in its Shiny console',
 	]),
+	'a precondition that points at a step': () => each(t => pre(t, 'polars'), ['Python 3.12 with the polars version installed in step 2', 'Python 3.12 with polars 1.9.0']),
 	'a precondition that runs a command': () => each(t => pre(t, '`slow.py` loaded'), ['`slow.py` loaded with `%run -i slow.py`', '`debug.R` sourced with `source("debug.R")`', '`debug_demo.R`, which defines `outer_fn()`', '`py.qmd` whose cell prints `tick 0` to `tick 4`']),
 
 	// Steps.

@@ -25,7 +25,7 @@ const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|te
 const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\/(?:Users|home)\/\S*)/;
 // An app already serving is what the steps start, so the reader sees it start.
 const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+|\brunning in (?:\w+ ){0,3}console\b/i;
-const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran)|Run(?: Shiny)? App|shown in the|in the session|defined in the|still open|drew|(?:started|opened) (?:in|by) S\d+|S\d+ (?:started|drew|opened|left))\b/i;
+const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:(?:\w+\s+){0,3}?\w+ed|ran)|Run(?: Shiny)? App|shown in the|in the session|defined in the|still open|drew|(?:started|opened) (?:in|by) S\d+|S\d+ (?:started|drew|opened|left))\b/i;
 // A finding's reader runs the file as its first step; a ledger row's third field may say how a scenario made it.
 const RUN_IN_SESSION = /\brun in (?:the |its |their |each |both )?(?:\w+ ){0,3}(?:sessions?|consoles?)\b/i;
 // Code a precondition runs rather than describes: loading it is step 1.
@@ -156,6 +156,10 @@ export function lintPreconditionActions(preconditions) {
 		const running = RUNNING_APP.exec(text.replace(/`[^`]*`/g, 'code'));
 		if (running) {
 			problems.push(problem('precondition-running-app', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" is a running app ("${running[0]}"); start it in the steps, with a check that it runs`));
+		}
+		const stepRef = where.startsWith('Finding') ? /\bsteps? \d+\b/i.exec(text) : null;
+		if (stepRef) {
+			problems.push(problem('precondition-step-reference', `report: ${where} precondition "${name}" points at ${stepRef[0]}; write the name or value itself, so the precondition reads on its own`));
 		}
 		if (where.startsWith('Finding') && /\bthe run's\b/i.test(text)) {
 			problems.push(problem('precondition-the-runs', `report: ${where} precondition "${name}" says "the run's", which the reader does not have; name the interpreter and package ("Python 3.12 with shiny 1.9.1")`));

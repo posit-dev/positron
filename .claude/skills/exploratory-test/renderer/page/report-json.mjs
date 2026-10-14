@@ -117,6 +117,7 @@ function findingFromJson(f) {
 			steps: steps.map(stepText),
 			cause: f.cause ?? '',
 			summary: f.summary ?? '',
+			impact: f.impact ?? '',
 			opening: f.summary ? { summary: f.summary, where: f.where ?? '' } : null,
 		},
 	};

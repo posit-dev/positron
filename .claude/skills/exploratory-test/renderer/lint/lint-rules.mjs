@@ -45,6 +45,7 @@ export const LINT_RULES = {
 	'precondition-running-app': 'error',
 	'precondition-the-runs': 'error',
 	'precondition-scratch-path': 'error',
+	'precondition-step-reference': 'warning',
 	'precondition-needs-name': 'warning',
 	'precondition-name-length': 'warning',
 	// a finding's title, Observed and Expected, and the Result
@@ -68,8 +69,8 @@ export const LINT_RULES = {
 	'points-at-finding': 'error',
 	'finding-scenario-id': 'error',
 	'cause-lead-length': 'warning',
-	'summary-missing': 'error',
-	'summary-length': 'warning',
+	'impact-missing': 'error',
+	'impact-length': 'warning',
 	// screenshots and evidence on a finding
 	'shot-no-step': 'error',
 	'shot-unknown-scenario': 'error',

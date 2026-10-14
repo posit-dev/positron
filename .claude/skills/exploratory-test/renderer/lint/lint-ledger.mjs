@@ -380,15 +380,15 @@ export function modelProblems(findings, ledger, { repoFileExists } = {}) {
 			}
 		}
 	}
-	// The summary opens the issue filed from the finding; without one its description is dropped.
+	// Impact opens the issue filed from the finding; without one its description is dropped.
 	for (const f of findings) {
-		const summary = f.text.summary.trim();
-		const sentences = sentencesOf(summary).length;
-		if (!summary) {
-			problems.push(problem('summary-missing', `report: Finding ${f.n} has no summary; write the sentence that opens its GitHub issue: the visible failure, with exact numbers and on-screen text`));
-		} else if (sentences > 2 || wordsOf(summary) > OPENING_WORDS) {
-			const size = sentences > 2 ? `has ${sentences} sentences` : `is ${wordsOf(summary)} words`;
-			problems.push(problem('summary-length', `report: Finding ${f.n} summary ${size}; keep it to one sentence of ${OPENING_WORDS} words or fewer, two only when the bug needs it`));
+		const impact = (f.text.impact ?? '').trim();
+		const sentences = sentencesOf(impact).length;
+		if (!impact) {
+			problems.push(problem('impact-missing', `report: Finding ${f.n} has no impact; say in one or two sentences who runs into it, what it costs them, and whether they would notice`));
+		} else if (sentences > 2 || wordsOf(impact) > OPENING_WORDS) {
+			const size = sentences > 2 ? `has ${sentences} sentences` : `is ${wordsOf(impact)} words`;
+			problems.push(problem('impact-length', `report: Finding ${f.n} impact ${size}; keep it to two sentences of ${OPENING_WORDS} words or fewer`));
 		}
 	}
 	// A reader who stops after a Cause's first sentence still learns the suspect.

@@ -1171,6 +1171,7 @@ const SCENES = {
 		const long = logsWith(1, { steps: f.steps.map((s, i) => (i === 2 ? { ...s, log: { ...s.log, body: [step.log.body, frame, frame, frame, frame].join('\n') } } : s)) });
 		return [between(issueCopied(logsHtml(long), 1), '## Error messages', '## Evidence'), between(issueCopied(render(rep({ findings: [fnd(1, { observed: 'nothing.' })] })), 1), '## Error messages', '## Evidence')].join('\n--\n');
 	},
+	'issue: under the report line is a box a person ticks once they reproduce it, and Describe the issue is its impact': () => issueCopied(logsHtml(logsWith(1, { summary: 'Retry leaves the summary panel empty.', impact: 'Anyone with a slow data source sees no summaries and has no way to load them.' })), 1).split('## Steps to reproduce')[0],
 	'issue: a local run links no report, and the likely cause folds as a hypothesis': () => issueCopied(fullHtml(FULL, { base: '/runs/r1' }), 1),
 	'issue: an opening describes the issue but stays off the card': () => {
 		const html = logsHtml(logsWith(1, { summary: 'When you open a slow column, its summary never loads.', where: 'polars only; R was not checked.' }));

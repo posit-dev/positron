@@ -644,6 +644,8 @@ scripts: copy codeCopy; with no inline code: (none)
 --
 <sub>Reported by exploratory test of `branch/name` @ `abc1234`</sub>
 
+- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->
+
 ## System details
 
 - **Positron:** not recorded
@@ -856,6 +858,8 @@ console: Quarto previews go blank
 ==== issue: System details list each kernel the ledger records
 <sub>Reported by [exploratory test](https://cdn.example/run1/index.html#f1) of #1234 (`midleman/exp-ab-dx-opus` @ `ed2487a1a2`)</sub>
 
+- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->
+
 ## System details
 
 - **Positron:** 2026.10.0 build 12 (`ed2487a1a2`)
@@ -929,8 +933,25 @@ Logged in logs/44987-app.log:1182 (Renderer), 2x after each Retry.
 --
 
 
+==== issue: under the report line is a box a person ticks once they reproduce it, and Describe the issue is its impact
+<sub>Reported by [exploratory test](https://cdn.example/run1/index.html#f1) of #1234 (`midleman/exp-ab-dx-opus` @ `ed2487a1a2`)</sub>
+
+- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->
+
+## System details
+
+- **Positron:** 2026.10.0 build 12 (`ed2487a1a2`)
+- **OS:** Ubuntu 22.04 (Linux x64)
+
+## Describe the issue
+Anyone with a slow data source sees no summaries and has no way to load them.
+
+
+
 ==== issue: a local run links no report, and the likely cause folds as a hypothesis
 <sub>Reported by exploratory test of `branch/name` @ `abc1234`</sub>
+
+- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->
 
 ## System details
 
@@ -963,6 +984,8 @@ The timeout was cut to 10 s.
 
 ==== issue: an opening describes the issue but stays off the card
 <sub>Reported by [exploratory test](https://cdn.example/run1/index.html#f1) of #1234 (`midleman/exp-ab-dx-opus` @ `ed2487a1a2`)</sub>
+
+- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->
 
 ## System details
 
