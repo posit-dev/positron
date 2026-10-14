@@ -263,8 +263,8 @@ test('a possible duplicate is counted and tagged; a sure duplicate appears nowhe
 	assert.match(text(html), /Generated Oct 14, 2026 ~ 1 duplicate of earlier runs left out\./);
 });
 
-test('the footer says when the page was made and that duplicates are left out', () => {
-	assert.match(text(render(today)), /Generated Oct 14, 2026 ~ Duplicates of earlier runs are left out\. $/);
+test('with no duplicates the footer only says when the page was made', () => {
+	assert.match(text(render(today)), /Generated Oct 14, 2026 $/);
 });
 
 test('titles are escaped and a report URL that is not http(s) is not linked', () => {

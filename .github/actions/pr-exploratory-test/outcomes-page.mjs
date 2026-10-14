@@ -259,8 +259,8 @@ function evidence(own, s) {
 }
 
 function footer(s) {
-	const dups = s.dups ? `${plural(s.dups, 'duplicate')} of earlier runs left out.` : 'Duplicates of earlier runs are left out.';
-	return `<footer><span>Generated ${time(s.now, true)}</span>${SEP}<span>${dups}</span></footer>`;
+	const dups = s.dups ? `${SEP}<span>${plural(s.dups, 'duplicate')} of earlier runs left out.</span>` : '';
+	return `<footer><span>Generated ${time(s.now, true)}</span>${dups}</footer>`;
 }
 
 /** The parts of the page that change with the date range: the button's dates, mixed triggers, the lede and cards, and the sections. */
