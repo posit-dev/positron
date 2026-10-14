@@ -107,9 +107,9 @@ change addresses it, on your own `claude` login. Older runs published only the p
 read from it. Read every "fixed" row before trusting the numbers.
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
-turns those rows into one page: how many findings with a known outcome were
-fixed, a bar per group (what started the run, severity), and every row by
-outcome with links to its report, PR and fixing commit or issue.
+turns those rows into one page: the share of findings we could check that got
+fixed, bars by severity and by PR, and each finding's evidence by outcome with
+links to its report, PR and fixing commit or issue.
 
 ## Where things live
 
