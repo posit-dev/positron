@@ -169,5 +169,17 @@ describe('QuartoOutputManagerService', () => {
 
 			expect([outputs, service.getOutputsForCell(uriA, '1-abcd1234-fig-plot')]).toEqual([[output], []]);
 		});
+
+		it('are not matched when several cells have the same content', () => {
+			const service = createService();
+			const output = { outputId: 'o1', items: [{ mime: 'text/plain', data: '2' }] };
+			onDidReceiveOutput.fire({ documentUri: uriA, cellId: '0-abcd1234-unlabeled', output });
+			onDidReceiveOutput.fire({ documentUri: uriA, cellId: '1-abcd1234-unlabeled', output });
+
+			const outputs = service.getOutputsForCell(uriA, '2-abcd1234-unlabeled');
+			service.clearOutputsForCell(uriA, '2-abcd1234-unlabeled');
+
+			expect([outputs, service.getOutputsForCell(uriA, '0-abcd1234-unlabeled'), service.getOutputsForCell(uriA, '1-abcd1234-unlabeled')]).toEqual([[], [output], [output]]);
+		});
 	});
 });

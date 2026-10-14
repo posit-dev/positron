@@ -2021,6 +2021,8 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 	 * The key of a cell's outputs. Cell ids begin with the cell's index, which
 	 * changes when cells above it are added or removed, so if no outputs are
 	 * stored under the cell's id, this looks for its content at another index.
+	 * Cells with the same content and label are indistinguishable, so this
+	 * only falls back when exactly one stored cell matches.
 	 */
 	private _keyForCell(documentUri: URI, cellId: string): string {
 		const prefix = `${documentUri.toString()}:`;
@@ -2030,12 +2032,9 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 		}
 		const withoutIndex = (id: string) => id.replace(/^\d+/, '');
 		const content = withoutIndex(cellId);
-		for (const candidate of this._outputsByCell.keys()) {
-			if (candidate.startsWith(prefix) && withoutIndex(candidate.substring(prefix.length)) === content) {
-				return candidate;
-			}
-		}
-		return key;
+		const candidates = [...this._outputsByCell.keys()].filter(candidate =>
+			candidate.startsWith(prefix) && withoutIndex(candidate.substring(prefix.length)) === content);
+		return candidates.length === 1 ? candidates[0] : key;
 	}
 
 	clearAllOutputs(documentUri: URI): void {
