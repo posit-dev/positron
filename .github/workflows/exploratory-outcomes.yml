@@ -2,9 +2,8 @@ name: "Exploratory: Outcomes Page"
 
 # Rebuilds the page of what happened to /explore's findings and deploys it to
 # the Posit Connect content whose GUID is in the EXPLORE_OUTCOMES_CONNECT_GUID
-# repo variable. Findings already fixed or not acted on are carried
-# over from the last publish, so only pending, unclear and new ones cost model
-# calls. See "What happened to a run's findings" in the exploratory-test
+# repo variable. Findings already fixed are carried over from the last
+# publish, so only the rest cost model calls. See "What happened to a run's findings" in the exploratory-test
 # skill's CONTRIBUTING.md.
 on:
   schedule:

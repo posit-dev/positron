@@ -75,9 +75,9 @@ test('decideOutcome: open PRs are pending, closed unmerged with no yes is not ac
 	assert.equal(decideOutcome({ ...base, prState: 'closed', mergedAt: null, prCheck: no('commit abc') }).outcome, 'not-acted-on');
 });
 
-test('decideOutcome: the 60-day window, counted from merge', () => {
-	assert.equal(decideOutcome({ ...base, mergedAt: '2026-10-02T00:00:00Z' }).outcome, 'pending');
-	assert.equal(decideOutcome({ ...base, mergedAt: '2026-10-01T23:59:59Z' }).outcome, 'not-acted-on');
+test('decideOutcome: the 30-day window, counted from merge', () => {
+	assert.equal(decideOutcome({ ...base, mergedAt: '2026-11-01T00:00:00Z' }).outcome, 'pending');
+	assert.equal(decideOutcome({ ...base, mergedAt: '2026-10-31T23:59:59Z' }).outcome, 'not-acted-on');
 });
 
 test('decideOutcome: no paths unless an issue says yes; unclear beats pending', () => {
@@ -216,7 +216,7 @@ test('parseCheck says an empty reply is no reply, so a stopped call reads as suc
 	assert.deepEqual(parseCheck(''), { answer: 'unclear', reason: 'no reply: the model call was stopped or timed out' });
 });
 
-test('settledRows keeps a previous run\'s fixed and not-acted-on rows by run and finding, without duplicate marks', () => {
+test('settledRows keeps a previous run\'s fixed rows by run and finding, without duplicate marks; not acted on is checked again', () => {
 	const prev = [
 		{ run: '10', finding: 1, outcome: 'fixed-in-pr', dupOf: '9#1' },
 		{ run: '10', finding: 2, outcome: 'fixed-later' },
@@ -226,9 +226,8 @@ test('settledRows keeps a previous run\'s fixed and not-acted-on rows by run and
 		{ run: '12', finding: 2, outcome: 'no-paths' },
 	];
 	const kept = settledRows(prev);
-	assert.deepEqual([...kept.keys()], ['10#1', '10#2', '11#1']);
+	assert.deepEqual([...kept.keys()], ['10#1', '10#2']);
 	assert.deepEqual(kept.get('10#1'), { run: '10', finding: 1, outcome: 'fixed-in-pr' });
-	assert.equal(kept.get('11#1').dupMaybe, undefined);
 });
 
 test('savedPrChecks keeps a merged PR\'s "no" answer by run and finding, and never an unclear one', () => {

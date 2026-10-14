@@ -8,7 +8,7 @@
 
 import { COMMENT_MARKER } from './lib.mjs';
 
-export const WINDOW_DAYS = 60;
+export const WINDOW_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** A result comment's tested short SHA, report base URL, run id and what started it, or null when it links no report. */
@@ -117,7 +117,8 @@ export function decideOutcome({ prState, mergedAt, now, hasPaths, prCheck, later
 		: { outcome: 'pending', decidedBy: 'window', evidence };
 }
 
-const SETTLED = new Set(['fixed-in-pr', 'fixed-later', 'not-acted-on']);
+// Not acted on isn't final: a later fix or a matching issue still moves it to fixed later.
+const SETTLED = new Set(['fixed-in-pr', 'fixed-later']);
 
 /** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. */
 export function settledRows(rows) {
