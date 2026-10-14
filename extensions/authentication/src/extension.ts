@@ -116,6 +116,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	await migrateSettingsAndPrimeCatalog(context);
 
+	// On PWB, Posit AI Pass defaults to off so admins control AI access.
+	applyPwbPositAIDefault(context).catch(err =>
+		log.error(`Failed to apply the Posit Workbench default for Posit AI Pass: ${err}`)
+	);
+
 	// Reports provider state for the core "AI: Create Diagnostic Report" command:
 	// which providers the user is signed in to, and which are turned off in
 	// settings. Returns display names only (no account details). Bridged as a

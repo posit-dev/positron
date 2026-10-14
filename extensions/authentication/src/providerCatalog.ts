@@ -281,6 +281,13 @@ async function logDisabledProviders(options: ProviderCatalogOptions): Promise<vo
 	}
 }
 
+/** Whether the admin default layer (POSIT_AI_PROVIDERS_DEFAULT) decides a provider's `enabled`. */
+export async function adminDefaultDecidesEnabled(id: string, options: ProviderCatalogOptions = {}): Promise<boolean> {
+	const { loadConfigSources } = await import('ai-config/node');
+	const sources = await loadConfigSources({ configPath: options.configPath, env: options.envVars });
+	return definesEnabled(sources.find(source => source.kind === 'default'), id);
+}
+
 /**
  * Whether a config layer decides a provider's `enabled`, either in the
  * provider's own block or in the layer's `default` block -- the same test

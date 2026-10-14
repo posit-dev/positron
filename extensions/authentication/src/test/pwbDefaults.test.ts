@@ -107,6 +107,28 @@ suite('applyPwbPositAIDefault', () => {
 		assert.ok(info.includes(configPath), `expected the info log to name ${configPath}, got: ${info}`);
 	});
 
+	test('leaves positai to an admin default that decides it', async () => {
+		const { context, globalState } = makeContext();
+		const { logger, messages } = makeLogger();
+		const envVars = { POSIT_AI_PROVIDERS_DEFAULT: JSON.stringify({ providers: { positai: { enabled: true } } }) };
+
+		await applyPwbPositAIDefault(context, true, { configPath, envVars }, logger);
+
+		assert.strictEqual(fs.existsSync(configPath), false);
+		assert.strictEqual(globalState.get('positAI.pwbDefaultApplied'), undefined);
+		assert.match(messages('info').join('\n'), /ai-providers-default/);
+	});
+
+	test('applies when the admin default does not decide positai', async () => {
+		const { context } = makeContext();
+		const envVars = { POSIT_AI_PROVIDERS_DEFAULT: JSON.stringify({ providers: { anthropic: { enabled: false } } }) };
+
+		await applyPwbPositAIDefault(context, true, { configPath, envVars }, makeLogger().logger);
+
+		const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+		assert.strictEqual(config.providers.positai.enabled, false);
+	});
+
 	test('marks as applied even when the write fails', async () => {
 		const { context, globalState } = makeContext();
 		// A file in place of a directory segment makes `mkdir` fail, so the
