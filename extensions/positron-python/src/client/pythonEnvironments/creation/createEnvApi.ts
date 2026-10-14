@@ -122,11 +122,16 @@ export const { onCreateEnvironmentStarted, onCreateEnvironmentExited, isCreating
 /**
  * The registered providers, with uv first when it is installed. The registration order is fixed at
  * activation, and uv can be installed after that (the New Folder flow's Install uv button).
+ * uv is left out when it is missing and python.allowUvPythonInstall is off, since picking it could only fail.
  */
 async function getRankedProviders(): Promise<readonly CreateEnvironmentProvider[]> {
     const providers = [..._createEnvironmentProviders.getAll()];
     const uvIndex = providers.findIndex((p) => p.id === UV_PROVIDER_ID);
-    if (uvIndex > 0 && (await isUvInstalled())) {
+    if (uvIndex >= 0 && !(await isUvInstalled())) {
+        if (getConfiguration('python').get<boolean>('allowUvPythonInstall') === false) {
+            providers.splice(uvIndex, 1);
+        }
+    } else if (uvIndex > 0) {
         providers.unshift(...providers.splice(uvIndex, 1));
     }
     return providers;

@@ -37,6 +37,61 @@ is stopped only if it is still going ten minutes later.
 No step after the explorer can fail the run. A crashed or empty reply leaves
 the report as the explorer wrote it, with the findings marked unreviewed.
 
+## When a PR gets a run
+
+A run on a PR starts in one of three ways:
+
+1. **Someone comments `/explore`.** `test-exploratory.yml` runs if both the
+   commenter and the PR author are active `positron-dev` members and the
+   branch is in this repo.
+2. **The PR is sent for review and looks worth it.** `test-exploratory-suggest.yml`
+   then posts a tip saying to comment `/explore`. Nothing runs until someone does.
+3. **The same, and the author is on the auto-run list.** The workflow
+   starts `test-exploratory.yml` itself, with no comment, as an experiment
+   for one release ([#16610](https://github.com/posit-dev/positron/issues/16610)).
+
+For 2 and 3, a PR goes through three checks, each stricter than the last
+about cost:
+
+1. **When:** a reviewer is requested, or a PR that already has one leaves
+   draft.
+2. **Free checks** (`skipReason` in `suggest-lib.ts`). Skipped if the PR is
+   closed or a draft, its branch is on a fork, it targets `release/*`, its
+   author is a bot or not an active `positron-dev` member, the thread already
+   has a tip, an `/explore` or a run's result, or no file it changes is
+   product code (tests, docs, `.md`, `.github/` and `.claude/` are not).
+3. **The judge** (`buildSuggestPrompt`). One model call with no tools reads
+   the title, description and diff. It says yes only for a change a user can
+   see or do with edge cases a reviewer reading the diff would miss, and no
+   when unsure. An error means no.
+
+Every run, however it started, then goes through the worthiness check
+(`gate.mjs`) unless a focus was given. It is lenient the other way: it
+declines only a change it can name a blocker for. On a `/explore` run it says
+why in the PR. An automatic run posts nothing until the check passes, so a
+decline leaves the PR untouched.
+
+So a PR gets at most one tip or one automatic run, ever. Commenting
+`/explore` runs it again after new pushes.
+
+### The auto-run list
+
+`EXPLORE_AUTO_RUN_AUTHORS` is a repo variable (Settings > Secrets and
+variables > Actions > Variables): GitHub logins separated by commas. Edit it
+to add or remove someone; empty it to end the experiment. No PR needed.
+
+An automatic run is named `Exploratory auto-run #<PR>`, and the suggest
+workflow skips a PR that already has a run by that name. If starting the run
+fails, it posts the tip instead.
+
+Its PR comment says it was started automatically and, once there is a
+report, asks for a thumbs up or down on the comment and an answer to "Is this
+finding right?" on each finding in the report.
+
+To try the whole path before merging, dispatch `test-exploratory-suggest.yml`
+from your branch with dry run off. The run it starts uses your branch's
+harness.
+
 ## Where things live
 
 The top of `renderer/` holds only what gets run: the pipeline, `render.mjs`,

@@ -134,6 +134,7 @@
   "src/vs/editor/contrib/positronStatementRange/": [],
   "src/vs/platform/actions/": [],
   "src/vs/platform/agentHost/": [],
+  "src/vs/platform/environment/": [],
   "src/vs/platform/extensionManagement/": [],
   "src/vs/platform/extensionManagement/common/positronGalleryTelemetry.ts": ["@:extensions"],
   "src/vs/platform/extensionManagement/node/positronBootstrapExtensionsInitializer.ts": ["@:extensions"],

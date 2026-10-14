@@ -7,7 +7,7 @@ metadata:
   # told or allowed, or what is done with its reply. versioned-files.txt lists
   # the files that count. Feedback is grouped by it, so a change to how the
   # page looks does not count.
-  version: "1.65"
+  version: "1.66"
 ---
 
 # Exploratory testing

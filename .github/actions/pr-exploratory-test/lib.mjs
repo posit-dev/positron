@@ -405,6 +405,16 @@ export function turnCapWarning({ numTurns, maxTurns }) {
 	return `::warning title=Exploratory run near the turn cap::Used ${numTurns} of ${maxTurns} turns. A run that reaches the cap can end without a report.`;
 }
 
+const AUTO_RUN_EXPERIMENT = 'https://github.com/posit-dev/positron/issues/16610';
+
+/** Says a run nobody asked for was started on purpose, and once there is a report, asks how it did. */
+function autoRunNote(hasReport) {
+	const started = `Started automatically for the [auto-run experiment](${AUTO_RUN_EXPERIMENT}).`;
+	return hasReport
+		? `\n> ${started} Was it useful? React with \u{1F44D} or \u{1F44E} on this comment, and answer "Is this finding right?" on each finding in the report.`
+		: `\n> ${started}`;
+}
+
 /**
  * The body of the PR comment: a title with the head it tested, the finding
  * tally, and a link to the report or run. A push after `/explore` makes the result stale,
@@ -415,11 +425,11 @@ export function turnCapWarning({ numTurns, maxTurns }) {
  * needs, and `reason` says what to do), `cancelled`, or empty when the agent
  * never ran (the build failed first).
  */
-export function renderPrComment({ state, report, baseUrl, runUrl, headSha, reason, focus }) {
+export function renderPrComment({ state, report, baseUrl, runUrl, headSha, reason, focus, autoRun = false }) {
 	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
 	const run = `[View run \u2192](${runUrl})`;
 	const focusLine = focus ? `Focus: ${focus}\n\n` : '';
-	const comment = lines => `${COMMENT_MARKER}\n${title}\n\n${focusLine}${lines.join('\n')}\n`;
+	const comment = (lines, hasReport = false) => `${COMMENT_MARKER}\n${title}\n\n${focusLine}${[...lines, ...(autoRun ? [autoRunNote(hasReport)] : [])].join('\n')}\n`;
 	if (state === 'running') {
 		return comment(['Off exploring, back soon\u2026', run]);
 	}
@@ -437,7 +447,7 @@ export function renderPrComment({ state, report, baseUrl, runUrl, headSha, reaso
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
 		if (state === 'timed-out') { lines.push('_Partial run: the agent was stopped at its time limit, so coverage is incomplete._'); }
 		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);
-		return comment(lines);
+		return comment(lines, true);
 	}
 	const why = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
 		: state === 'timed-out' ? 'The agent was stopped at its time limit before writing a report.'

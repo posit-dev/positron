@@ -87,7 +87,7 @@ suite('Create Environment Trigger', () => {
         // --- Start Positron ---
         sinon
             .stub(autoCreateVenv, 'detectAutoCreateContext')
-            .resolves({ hasRequirements: true, hasPyprojectToml: false, uvAvailable: true });
+            .resolves({ hasRequirements: true, hasPyprojectToml: false, useUv: true });
         sinon.stub(autoCreateVenv, 'describeDepFiles').returns('requirements.txt');
         sinon.stub(autoCreateVenv, 'describeTool').returns('uv');
         autoCreateVenvWithDepsStub = sinon.stub(autoCreateVenv, 'autoCreateVenvWithDeps');

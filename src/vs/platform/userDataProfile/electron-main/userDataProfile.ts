@@ -19,6 +19,9 @@ import { URI } from '../../../base/common/uri.js';
 import { NativeParsedArgs } from '../../environment/common/argv.js';
 import { env } from '../../../base/common/process.js';
 import { join, resolve } from '../../../base/common/path.js';
+// --- Start Positron ---
+import { getPositronEnv } from '../../../base/common/positronEnvironment.js';
+// --- End Positron ---
 
 export const IUserDataProfilesMainService = refineServiceDecorator<IUserDataProfilesService, IUserDataProfilesMainService>(IUserDataProfilesService);
 export interface IUserDataProfilesMainService extends IUserDataProfilesService {
@@ -82,7 +85,10 @@ function getAgentPluginsPath(args: NativeParsedArgs, userHome: URI): string {
 		return vscodeAgentPlugins;
 	}
 
-	const vscodePortable = env['VSCODE_PORTABLE'];
+	// --- Start Positron ---
+	// const vscodePortable = env['VSCODE_PORTABLE'];
+	const vscodePortable = getPositronEnv(env, 'PORTABLE');
+	// --- End Positron ---
 	if (vscodePortable) {
 		return join(vscodePortable, 'agent-plugins');
 	}

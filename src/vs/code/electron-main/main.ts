@@ -19,6 +19,9 @@ import { Schemas } from '../../base/common/network.js';
 import { basename, join, resolve } from '../../base/common/path.js';
 import { mark } from '../../base/common/performance.js';
 import { IProcessEnvironment, isLinux, isMacintosh, isWindows, OS } from '../../base/common/platform.js';
+// --- Start Positron ---
+import { formatDeprecatedEnvWarning, getDeprecatedEnvFallbacks } from '../../base/common/positronEnvironment.js';
+// --- End Positron ---
 import { cwd } from '../../base/common/process.js';
 import { rtrim, trim } from '../../base/common/strings.js';
 import { Promises as FSPromises } from '../../base/node/pfs.js';
@@ -131,6 +134,13 @@ class CodeMain {
 				const lifecycleMainService = accessor.get(ILifecycleMainService);
 				const fileService = accessor.get(IFileService);
 				const loggerService = accessor.get(ILoggerService);
+
+				// --- Start Positron ---
+				// Warn about deprecated VSCODE_* path overrides that are in effect.
+				for (const name of getDeprecatedEnvFallbacks(process.env)) {
+					logService.warn(formatDeprecatedEnvWarning(name));
+				}
+				// --- End Positron ---
 
 				// Create the main IPC server by trying to be the server
 				// If this throws an error it means we are not the first
@@ -318,7 +328,12 @@ class CodeMain {
 			VSCODE_IPC_HOOK: environmentMainService.mainIPCHandle
 		};
 
-		['VSCODE_NLS_CONFIG', 'VSCODE_PORTABLE'].forEach(key => {
+		// --- Start Positron ---
+		// Preserve POSITRON_PORTABLE across restarts; configurePortable() normalizes
+		// the portable signal to it, so VSCODE_PORTABLE is never set on desktop.
+		// ['VSCODE_NLS_CONFIG', 'VSCODE_PORTABLE'].forEach(key => {
+		['VSCODE_NLS_CONFIG', 'VSCODE_PORTABLE', 'POSITRON_PORTABLE'].forEach(key => {
+			// --- End Positron ---
 			const value = process.env[key];
 			if (typeof value === 'string') {
 				instanceEnvironment[key] = value;
