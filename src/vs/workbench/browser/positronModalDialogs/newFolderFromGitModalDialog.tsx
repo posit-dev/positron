@@ -14,6 +14,7 @@ import { localize } from '../../../nls.js';
 import { URI } from '../../../base/common/uri.js';
 import { toErrorMessage } from '../../../base/common/errorMessage.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../utils/path.js';
+import { checkCanCreateFolderIn } from '../utils/createFolder.js';
 import { folderNameFromGitRepoUrl } from './newFolderFromGitFolderName.js';
 import { checkGitStatus, getGitStatusNow, GitStatus } from './newFolderFromGitStatus.js';
 import { CommandsRegistry } from '../../../platform/commands/common/commands.js';
@@ -24,6 +25,7 @@ import { usePositronReactServicesContext } from '../../../base/browser/positronR
 import { PositronReactServices } from '../../../base/browser/positronReactServices.js';
 import { VerticalSpacer } from '../positronComponents/positronModalDialog/components/verticalSpacer.js';
 import { checkIfPathValid, isInputEmpty } from '../positronComponents/positronModalDialog/components/fileInputValidators.js';
+import { useDebouncedValidator } from '../positronComponents/positronModalDialog/components/useDebouncedValidator.js';
 import { LabeledTextInput } from '../positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { PositronDynamicModalDialog } from '../positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
@@ -128,6 +130,17 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 		return undefined;
 	}, [parentFolderLabel, result.parentFolder, services.fileService]);
 
+	// Checked as the location changes, so OK is disabled for a location the user cannot write to.
+	// Only once Git can clone: until then the form, and its location, is not shown.
+	const checkLocation = useCallback(
+		(parentFolder: URI) => checkCanCreateFolderIn(parentFolder, services),
+		[services]
+	);
+	const locationError = useDebouncedValidator({
+		value: result.parentFolder,
+		validator: gitStatus === 'available' ? checkLocation : undefined,
+	});
+
 	// The browse handler.
 	const browseHandler = async () => {
 		// Construct the parent folder URI.
@@ -194,6 +207,7 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 		<OKCancelModalDialog
 			catchErrors
 			height={360}
+			okDisabled={locationError !== undefined}
 			renderer={props.renderer}
 			title={localize(
 				'positronNewFolderFromGitModalDialogTitle',
@@ -210,6 +224,12 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 				const error = await validateFolderName(result.folderName);
 				if (error) {
 					throw new Error(error);
+				}
+				// OK can be pressed before the debounced location check finishes. Without this, Git
+				// would report the failure after the dialog is gone.
+				const currentLocationError = await checkLocation(result.parentFolder);
+				if (currentLocationError) {
+					throw new Error(currentLocationError);
 				}
 				// Dispose dialog immediately, then start cloning
 				props.renderer.dispose();
@@ -248,6 +268,7 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 					onChange={e => onChangeFolderName(e.target.value)}
 				/>
 				<LabeledFolderInput
+					errorMsg={locationError}
 					label={localize(
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
