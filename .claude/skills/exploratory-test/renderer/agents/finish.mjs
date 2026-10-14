@@ -23,10 +23,10 @@ import { readJson } from '../shared/text.mjs';
  * unless `actionsLog` is given. A placeholder with no value, or a value with
  * no placeholder, throws, so the template and this list cannot drift apart quietly.
  */
-export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha, actionsLog, changeBase, reportFile = join(workDir, 'report.json') }) {
+export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha, actionsLog, changeBase, session, reportFile = join(workDir, 'report.json') }) {
 	const logPath = join(workDir, 'actions.log');
 	const log = actionsLog ?? (existsSync(logPath) ? readFileSync(logPath, 'utf8') : undefined);
-	const logProblems = log === undefined ? [] : lintActionsLog(log);
+	const logProblems = log === undefined ? [] : lintActionsLog(log, { session });
 	const values = {
 		LOG_CHECK: log === undefined
 			? 'no actions.log in the run directory.'
@@ -359,6 +359,8 @@ export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
 	const out = join(dir, 'verify-prompt.md');
 	writeFileSync(out, buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
 		workDir: dir, repoRoot: repo, baseSha: base, headSha: head, changeBase: changed, reportFile: path,
+		// Set by a local pipeline run, as for the explorer's own check; CI drives its own session.
+		session: process.env.PW_SESSION || undefined,
 	}));
 	return out;
 }

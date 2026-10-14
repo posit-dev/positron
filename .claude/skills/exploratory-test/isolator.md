@@ -10,8 +10,9 @@ report. See the change with `git -C <checkout> diff
 Use `.claude/skills/drive-positron` from the checkout. Do not build: the
 checkout is already built at the head SHA. Launch your own instance, piping
 the launch through `tee -a "<run dir>/instances.jsonl"`, and stop it when you
-are done. Its scripts take the session as `--session <name>` before the
-command (`scripts/ui.sh --session iso read Console`); `-s=<name>` is
+are done. Attach it under the Playwright session your brief names. Its scripts
+take the session as `--session <name>` before the command
+(`scripts/ui.sh --session <name> read Console`); `-s=<name>` is
 `playwright-cli`'s flag, not theirs. Write only `isolation.md` and files under `<run dir>/isolation/`.
 
 Take the findings most severe first. For each, reproduce it once from its

@@ -155,13 +155,13 @@ ${ENVIRONMENT}
  * itself reads. Its verdicts are advisory and never remove a finding.
  */
 async function runAgent(step) {
-	const maxTurns = { edit: 2, isolate: ISOLATE_MAX_TURNS, verify: VERIFY_MAX_TURNS }[step.role];
+	const maxTurns = { isolate: ISOLATE_MAX_TURNS, verify: VERIFY_MAX_TURNS }[step.role];
 	const result = await runSession({
 		model: step.model, claudeCodePath: CLAUDE_CODE_PATH, label: step.purpose,
 		prompt: step.role === 'isolate' ? step.prompt + ISOLATE_CI_TAIL : step.prompt,
 		allowedTools: step.tools, maxTurns, cwd: step.cwd, resume: step.resume,
 		timeLimit: step.timeLimitMinutes ?? null, timeUpMessage: step.timeUpMessage,
-		// The verifier and editor make few calls, so each is logged in full for
+		// The verifier makes few calls, so each is logged in full for
 		// whoever audits the run; the isolator drives the app, like the explorer.
 		fullLog: step.role !== 'isolate',
 	});

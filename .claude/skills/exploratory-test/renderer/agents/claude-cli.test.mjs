@@ -30,6 +30,7 @@ test('a session gets its tools, model and a session id, and returns its reply an
 	const [{ args, prompt, options }] = calls;
 	assert.deepEqual({ prompt, cwd: options.cwd, stopAt: calls[0].stopAt }, { prompt: 'read this', cwd: '/repo', stopAt: Infinity });
 	assert.ok(!args.includes('--settings'));
+	assert.equal(options.env.CLAUDE_CODE_DISABLE_CLAUDE_MDS, '1');
 	assert.deepEqual([flag(args, '--model'), flag(args, '--tools'), flag(args, '--allowedTools'), flag(args, '--output-format')], ['sonnet', 'Bash,Read', 'Bash,Read', 'stream-json']);
 	assert.deepEqual(out, { text: 'reply', durationMs: 1000, turns: 3, costUsd: 0.25, sessionId: flag(args, '--session-id') });
 });

@@ -5,7 +5,7 @@
 
 // The steps after the explorer, shared by CI (run.mjs) and a local run: stop
 // its instances, verify, isolate what the verifier could not settle, apply the
-// verdicts, edit. The caller only says how to run an agent.
+// verdicts. The caller only says how to run an agent.
 //
 // Local usage, each agent a `claude -p` session:
 //   node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [...]
@@ -23,7 +23,6 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude, stopAgents, WRAP_UP_MINUTES } from './agents/claude-cli.mjs';
-import { applyEditReply, writeEditPrompt } from './agents/edit.mjs';
 import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
 
@@ -120,6 +119,15 @@ export function recordBranchCheck(dir, body) {
 	writeReport(path, { ...report, header: { ...report.header, details: [...details, { title: 'Branch verification', body }] } });
 }
 
+/**
+ * The Playwright session a local run drives its instance under, named for the
+ * run: runs side by side on one checkout share playwright-cli's sessions, and
+ * two under one name drive the same window.
+ */
+export function sessionName(dir) {
+	return `et-${basename(dir).replace(/^.*-/, '')}`;
+}
+
 /** The explorer's prompt: explorer.md, the brief, the Environment lines, and what a local run sets up for it. */
 export function explorePrompt(dir, brief, environment = []) {
 	return [
@@ -133,6 +141,8 @@ export function explorePrompt(dir, brief, environment = []) {
 		'',
 		...(environment.length ? [environmentBrief(environment), ''] : []),
 		`Run directory: \`${dir}\``,
+		'',
+		`Playwright session: \`${sessionName(dir)}\`, also in \`$PW_SESSION\`.`,
 		'',
 		`The renderer is \`${RENDER}\`; \`lint-json.mjs\` and \`report.schema.json\` are beside it.`,
 		'',
@@ -200,6 +210,7 @@ function isolatePrompt(dir, { repo, base, head }, findings, reply) {
 		`Base: \`${base}\``,
 		`Head: \`${head}\``,
 		`Report: \`${reportPath(dir)}\``,
+		`Playwright session: \`${sessionName(dir)}-iso\``,
 		`Findings: ${findings.map(n => `Finding ${n}`).join(', ')}`,
 		'',
 		'The verifier\'s reply, which says for each of them what evidence is missing. Run that control first:',
@@ -237,7 +248,6 @@ export async function finishRun(dir, { repo, base, head, baseName, runAgent, ver
 	if (verify) {
 		await verifyFindings(dir, { repo, base, head, baseName }, ask, stop, log);
 	}
-	await editReport(dir, ask, log);
 	return passes;
 }
 
@@ -279,21 +289,6 @@ async function verifyFindings(dir, range, ask, stop, log) {
 		result = applyVerifyReply(dir, usable ? again.text : best, { final: true });
 	}
 	(result.logLines ?? []).forEach(line => log(line));
-}
-
-/** Rewrites the findings' openings; an edit the guard rejects gets one retry. */
-async function editReport(dir, ask, log) {
-	const promptPath = writeEditPrompt(dir);
-	if (!promptPath) {
-		return;
-	}
-	const editor = { role: 'edit', tools: [], cwd: dir };
-	const { rejected, retry } = applyEditReply(dir, (await ask({ ...editor, purpose: 'edit', prompt: readFileSync(promptPath, 'utf8') })).text);
-	rejected.forEach(line => log(line));
-	if (retry) {
-		const text = (await ask({ ...editor, purpose: 'edit-retry', prompt: readFileSync(retry, 'utf8') })).text;
-		applyEditReply(dir, text, { last: true }).rejected.forEach(line => log(line));
-	}
 }
 
 /**
@@ -474,6 +469,9 @@ async function main(argv) {
 		});
 	}
 	if (fresh) {
+		// The agents and the helpers they run inherit it, so a call that leaves
+		// out the session still drives this run's window.
+		process.env.PW_SESSION = process.env.PLAYWRIGHT_CLI_SESSION = sessionName(dir);
 		const timeLimitPath = timeLimitFile(dir);
 		if (limit !== 'none') {
 			writeFileSync(timeLimitPath, `${limit}\n`);

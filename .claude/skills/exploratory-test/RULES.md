@@ -1,13 +1,13 @@
 # The agents' rules
 
-Each agent's prompt (`explorer.md`, `verifier.md`, `isolator.md`,
-`editor.md`) tells it what to do, and most of its lines are rules. This file
+Each agent's prompt (`explorer.md`, `verifier.md`, `isolator.md`) tells it
+what to do, and most of its lines are rules. This file
 lists each rule once: why it is there, what catches a run that breaks it, and
 whether anyone has measured that it helps. Read it before you add, reword or
 cut a rule.
 
 The explorer's rules come first, in the order `explorer.md` has them, then the
-verifier's, the isolator's and the editor's.
+verifier's and the isolator's.
 
 ## Adding, changing or cutting a rule
 
@@ -20,8 +20,8 @@ A new rule lands only with something that shows it works:
   Measured column.
 
 Fix the general instruction. Never add an example or an edge case taken from
-the one run that went wrong: the editor prompt grew stiff that way and was cut
-from about 820 to 360 words.
+the one run that went wrong: the old editor's prompt grew stiff that way and
+was cut from about 820 to 360 words.
 
 When you cut a rule, check whether lint names it. Lint repeating a rule
 doesn't make the prose spare. The 2026-10-11 trial cut the prose behind a lint
@@ -37,7 +37,7 @@ Then update the rule's row here in the same PR.
 - **Caught by** is what notices a run that breaks it, with lint's rule IDs from
   `renderer/lint/lint-rules.mjs` in brackets. Lint hands the problem back
   to the explorer to fix, and the pipeline acts on its own. For the later
-  agents, the code that reads their reply (`finish.mjs`, `edit.mjs`) plays
+  agents, the code that reads their reply (`finish.mjs`) plays
   lint's part. The verifier only adds a note to the finding. "Nothing" means
   only the agent's own reading of the rule stands behind it.
 - **Measured** names a comparison of runs with and without the rule. Most
@@ -57,6 +57,7 @@ Then update the rule's row here in the same PR.
 | Point drive-positron's log and shots at the run directory. Never save a shot elsewhere to copy later. | drive-positron's cleanup deletes its own run directory. | Lint (`evidence-shot-missing`): Evidence not in `shots/`. | - | #16245 |
 | Pipe every launch through `tee -a "$RUN/instances.jsonl"`. | An instance left running is stopped after the run. | `stop-instances.sh` stops what is listed. | - | #16355 |
 | Keep helpers and scratch files in `$RUN/tmp/`, and write the run path out in full. | Runs on one machine start together, and a shared helper drives the wrong instance. | Nothing | - | #16421 |
+| Attach under the Playwright session your brief names, and use it in every command and helper. | Runs side by side on one checkout share playwright-cli's sessions: in the 2026-10-13 comparison, two runs under one name drove each other's windows. | Lint (`log-other-session`): an `actions.log` line under another session. Pipeline: sets `PW_SESSION` and `PLAYWRIGHT_CLI_SESSION` for a call that leaves it out. | - | #16627 |
 
 ## How to explore
 
@@ -91,7 +92,7 @@ Then update the rule's row here in the same PR.
 | Write the ledger as you go, and run `--check` after two scenarios and before `stop.sh`. | A slip that needs a new shot can be fixed only while the instance is up. | Nothing | - | #16421 |
 | A pass that showed something unexpected gets a VERIFY before moving on. | An unexplained pass can hide a bug. | Nothing | - | #16421 |
 | Start `## Environment` with the lines the brief gives, as they are. | The issue button copies them into System details. | Pipeline: reads them from the checkout and the machine. Lint (`environment-first-line`): the first bullet's format. | - | #16247, #16538, #16597 |
-| A precondition is state before step 1. Anything done in the app is a step. | Not recorded. | Lint (`precondition-runs-command`, `precondition-done-in-app`, `precondition-running-app`): a precondition that runs a command, acts in the app, or is a running app. | - | #16487 |
+| A precondition is state before step 1, including state an earlier scenario made in the app, and says how to make it. What the scenario itself does is a step. | A reader has no earlier scenario. In local runs from 2026-10-12 to 10-14, 29 of 84 findings listed state an earlier scenario made in the app, and one, a table with no source, could not be reproduced from its card. | Lint (`precondition-runs-command`, `precondition-done-in-app`, `precondition-running-app`): a precondition that runs a command, says it was done in the app in ways lint knows ("then dropped", "opened in S02"), but not one that says how ("started with Start New Console Session"), or is a running app. Nothing checks that it says how to make it. | 2026-10-14: a lint error keyed on the ledger's creating-scenario IDs was tried and dropped; in a Data Connections rerun the explorer wrote no IDs, so it never fired. The same rerun's preconditions each said how to make their state. One run, not a comparison. A later run's ledger said how to make a connection, and its finding's card dropped it, so a finding's preconditions now keep what the ledger says about how to make each state. A later rerun said how for every precondition, but one moved the action that sets off its bug ("then dropped") into a precondition; lint now flags "then" followed by a past-tense action. | #16487 |
 | A scenario that needs an untouched file makes a fresh copy as step 1. | A file remembers its kernel and editor. | Nothing | - | #16421 |
 | Install packages only into the run's own venv. A finding's precondition names the interpreter and package. | Other runs share those. The reader has no run. | Lint (`precondition-the-runs`): a precondition that says "the run's". | - | #16421 |
 | Each run stands alone; never cite another run's output. | Not recorded. | Nothing | - | #16421 |
@@ -103,6 +104,7 @@ Then update the rule's row here in the same PR.
 |---|---|---|---|---|
 | Steps replay `actions.log`. The log is append-only and only helpers write it. | The verifier checks steps against it. | Lint (`log-unstamped`, `log-backdated`): timestamps and order. Verifier: steps against the log. | - | #16421 |
 | Sample a state that lasts under a second with `ui.sh watch`. | A read after the action misses it. | Nothing | - | #16421 |
+| A finding's shot names the step it proves, or the scenario that took it, which cites it as Evidence. A step's second shot gets its own caption. | A reader matches each shot to what it proves. | Lint (`shot-no-step`, `shot-unknown-scenario`, `shot-scenario-uncited`, `too-many-shots`, `second-shot-caption`) | - | #16627 |
 | Name the exact way in, as the UI labels it. Palette commands keep their category. | Two ways in can open different features. | Lint (`palette-row-unopened`): a palette row with no step opening the palette. Verifier: a step done another way than the log shows. | - | #16355 |
 | Merge a wait into its action, naming what it waits for, never a time. | Not recorded. | Lint (`fixed-wait`, `wait-only-step`): a fixed-time wait, a wait-only step. | - | #16355 |
 | Write a VERIFY before you look, with one expected outcome. | A check that passes on either outcome checks nothing. | Verifier | - | #16221 |
@@ -118,15 +120,17 @@ Then update the rule's row here in the same PR.
 | Report genuine problems only, each verifiable from its artifacts. | Not recorded. | Verifier verdicts | - | #16162 |
 | Before reporting a bug after a palette or quick-input action, confirm the intended command ran. | A wrong row run in its place is a tool error. | Nothing | - | #16421 |
 | Set severity by user impact only, with the anchors given. | Not recorded. | Nothing | - | #16421 |
-| A title names what is broken, as a fact, under about 90 characters, with no "any" or "every" beyond what was tried. | Readers often read only the title. | Lint (`title-lowercase`, `title-code`, `title-hedge`, `title-possessive`, `title-parenthetical`): case, code names, hedges, possessives, parentheticals. Verifier: "any" and "every". The editor rewrites it afterwards. | - | #16421, #16487 |
+| A title names what is broken, as a fact, under about 90 characters, with no "any" or "every" beyond what was tried. | Readers often read only the title. | Lint (`title-lowercase`, `title-code`, `title-hedge`, `title-possessive`, `title-parenthetical`): case, code names, hedges, possessives, parentheticals. Verifier: "any" and "every". | - | #16421, #16487 |
 | Always give `reproduced`. Another trigger is not another try. | "Every time" and "one in three" are different bugs. | Lint (`rate-format`, `finding-rate`): rate format, and the rate matches the scenario's. | - | #16421 |
 | Cold-replay first-start faults and anything that may depend on state or timing. Scale a race up until it fails every try. | A finding that only fails warm doesn't reproduce for the reader. | Nothing | - | #16355 |
-| Write each precondition in full, one state per item. A running app is never a precondition. | Not recorded. | Lint (`precondition-name-length`, `precondition-scratch-path`, `precondition-running-app`): name length, paths, running apps. | - | #16421 |
-| Observed and Expected lead with the exact difference in one or two sentences. A reference goes in Expected. | The card shows them side by side. | Lint (`comparison-length`, `semicolon`, `judgment-word`, `reference-in-observed`, `digit-grouping`): sentence count, semicolons, judgment words, a reference in Observed, digit grouping. The editor rewrites the opening. | - | #16421 |
+| Write each precondition in full, one state per item. A running app is never a precondition. | Not recorded. | Lint (`precondition-name-length`, `precondition-scratch-path`, `precondition-running-app`, `precondition-step-reference`): name length, paths, running apps, a precondition that points at a step instead of giving the value. | - | #16421 |
+| Observed and Expected lead with the exact difference in one or two sentences. A reference goes in Expected. | The card shows them side by side. | Lint (`comparison-length`, `semicolon`, `judgment-word`, `reference-in-observed`, `digit-grouping`): sentence count, semicolons, judgment words, a backend giving a value in Observed ("pandas shows"), digit grouping. | - | #16421 |
+| A finding's `impact` opens its GitHub issue: one or two sentences on who runs into the bug, what it costs them and whether they would notice, saying so when it is narrow. It agrees with `severity`. | Whoever triages the issue can tell an edge case from a broken workflow without reproducing it first. Without one, the issue's description is dropped. | Lint (`impact-missing`, `impact-length`): a missing impact, more than two sentences or over 50 words. Nothing checks that it is honest about how narrow the bug is. | 2026-10-14: one Data Connections run gave all six findings an impact that matched its severity and named narrow bugs as narrow; it replaced `summary`, which repeated the title and Observed. `summary` itself replaced an editor pass (2026-10-13, 6 runs on 3 targets). | #16627 |
 | Claim no more than the run checked. Take Expected from a user or a reference, never from the code. | Code tells you why, not whether it is right. | Verifier: VERIFY and Observed claims against the log and shots. | - | #16421 |
 | A failed check is about one finding. A different behavior on the same screen is its own finding. | Not recorded. | Lint (`scenario-fails-other-finding`): Status names another finding. Verifier: Observed against its finding. | - | #16421 |
 | Evidence is Positron's log lines, verbatim, with no note after them. Never `actions.log` or a file the run saved. | A reader must tell what was logged from what the agent concluded. | Lint (`evidence-note`, `evidence-run-file`, `evidence-trailing-note`, `log-process-mismatch`): notes, run-written files, trailing commentary. | - | #16452 |
 | Add a `missing` item only for a line you can quote exactly. | Not recorded. | Nothing | - | #16452 |
+| A Cause opens with a sentence of 40 words or fewer naming the suspect, then the detail. | Not recorded. | Lint (`cause-lead-length`) | - | #16627 |
 | The Cause blames the defective line. Say whether the change added it only when the diff settles it, and never label a finding new or pre-existing. | Not recorded. It replaced an Introduced? label. | Verifier: the origin sentence against the diff. | - | #16233 |
 | Map JavaScript stacks through `map-stack.mjs`. | Compiled frames point at `out/`, not the source. | Lint (`compiled-frames`): compiled frames. | - | #16221 |
 | List a test file only after opening it, at the lowest level that catches the bug. Leave the list empty rather than guess. | A wrong test file is worse than none. | Lint (`test-file-missing`): a test file not in the repo. Verifier: coverage claims. | - | #16233 |
@@ -161,38 +165,25 @@ Then update the rule's row here in the same PR.
 
 | Rule | Why | Caught by | Measured | Since |
 |---|---|---|---|---|
-| Don't build. Launch your own instance, tee it to `instances.jsonl`, and write only `isolation.md`. | The checkout is built already. A stray instance outlives the run. | `stop-instances.sh` stops what is listed. | - | #16355 |
+| Don't build. Launch your own instance under the Playwright session your brief names, tee it to `instances.jsonl`, and write only `isolation.md`. | The checkout is built already. A stray instance outlives the run, and one under another run's session drives that run's window. | `stop-instances.sh` stops what is listed. | - | #16355, #16627 |
 | Take findings most severe first. Run the control the verifier said was missing before any other. | It is the question the verifier couldn't answer. | Nothing | - | #16421 |
 | Change one thing at a time, and stop at the first control that points to one cause. | Not recorded. | Nothing | - | #16355 |
 | A conclusion is only as wide as its controls. | Not recorded. | Verifier: re-judges with `isolation.md`. | - | #16355 |
 | Record the state a check depends on, such as the focused element or a context key. | Not recorded. | Nothing | - | #16355 |
 | Run a case three times only when its result can vary. Twice is enough otherwise. | The isolator has 12 minutes. | Nothing | - | #16421 |
 
-## The editor
-
-| Rule | Why | Caught by | Measured | Since |
-|---|---|---|---|---|
-| Compress, don't summarize: one sentence by default, leading with the visible failure, with the expected behavior only when it adds something. | Reports read like a log of the test run. | `edit.mjs` rejects an opening over 60 words. | #16526: on 11 findings from two runs, openings went from 36 to 21 words, all one sentence. | #16526 |
-| Don't narrate the test, and prefer concrete product words over the listed stock phrases. | Same as above. | Nothing | Same trial as above. | #16526 |
-| Don't broaden the bug, and keep numbers and on-screen text exact. | A rewrite added facts the run never recorded. | `edit.mjs` rejects a rewrite citing code, quotes or numbers the record lacks, then retries once. | - | #16487 |
-| Keep titles short but specific, without the feature. | The issue title is `<feature>: <title>`. | `edit.mjs` rejects a title over 15 words, or with `\|`, `;` or a scenario ID, and drops backticks from it. | - | #16526 |
-| Fill WHERE only for an OS, the web build or a setting. | Not recorded. | Nothing | - | #16526 |
-| Never rewrite the steps. | Steps are the run's record. | `edit.mjs` drops any field it doesn't ask for, such as steps. | - | #16487 |
-
 ## What this shows
 
-There are 94 rules: 64 for the explorer, 18 for the verifier, 6 for the
-isolator and 6 for the editor.
+There are 92 rules: 68 for the explorer, 18 for the verifier and 6 for the
+isolator.
 
-For the explorer, lint, the pipeline or publishing catches 32 rules when
+For the explorer, lint, the pipeline or publishing catches 36 rules when
 they're broken. For 8 more, only the verifier or isolator notices, which adds
 a note to the finding but sends nothing back. The other 24 have nothing behind
-them but the prompt. For 13, no PR or commit says why they exist.
+them but the prompt. For 14, no PR or commit says why they exist.
 
-The later agents are the opposite of the explorer. The editor is the best
-checked: `edit.mjs` enforces 4 of its 6 rules, and its prompt is the only one
-compared against an older version. The verifier is the least checked: code
-reads 6 of its 18 rules from its reply, and nothing confirms it did the other
+The later agents are checked less than the explorer. The verifier is the
+least checked: code reads 6 of its 18 rules from its reply, and nothing confirms it did the other
 12, such as tracing the cause or checking steps against the log. Those 12 are
 how a finding gets judged, so a weak verifier would go unnoticed.
 

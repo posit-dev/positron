@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage } from './pipeline.mjs';
+import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage, sessionName } from './pipeline.mjs';
 import { parseSystemLine } from './shared/ledger.mjs';
 import { reportFromJson } from './page/report-json.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
@@ -59,30 +59,27 @@ function runWith(report, agents, options = {}) {
 	});
 }
 
-const EDIT = () => 'RESULT: Two things broke.';
 /** A verifier reply: a json block with `findings` as [n, verdict, extra fields], then notes. */
 const verdicts = (findings, notes = '') => `\`\`\`json\n${JSON.stringify({ findings: findings.map(([n, verdict, more = {}]) => ({ n, verdict, ...more })) })}\n\`\`\`${notes ? `\n\n${notes}` : ''}`;
 const fail = message => () => { throw new Error(message); };
 
-test('a report with no findings and no Result needs no agent', async () => {
+test('a report with no findings needs no agent', async () => {
 	const run = await runWith({ header: { title: 'Exploratory test: x' }, findings: [] }, {});
 	assert.deepEqual(run.steps, []);
 	assert.equal(run.stops, 1);
 });
 
-test('a clean verify goes on to the editor, and each agent is recorded', async () => {
-	const run = await runWith(REPORT, { verify: () => `notes\n${verdicts([[1, 'confirmed'], [2, 'confirmed']], '- 1: matches.')}`, edit: EDIT });
-	assert.deepEqual(run.purposes, ['verify', 'edit']);
-	const [verify, edit] = run.steps;
+test('a clean verify is the only agent, and it is recorded', async () => {
+	const run = await runWith(REPORT, { verify: () => `notes\n${verdicts([[1, 'confirmed'], [2, 'confirmed']], '- 1: matches.')}` });
+	assert.deepEqual(run.purposes, ['verify']);
+	const [verify] = run.steps;
 	assert.deepEqual({ ...verify, prompt: undefined }, { model: 'sonnet', role: 'verify', purpose: 'verify', tools: ['Bash', 'Read', 'Glob', 'Grep'], cwd: '/repo', prompt: undefined });
 	assert.match(verify.prompt, /aaaa1111/);
-	assert.deepEqual({ ...edit, prompt: undefined }, { model: 'sonnet', role: 'edit', purpose: 'edit', tools: [], cwd: run.dir, prompt: undefined });
 	assert.equal(run.report.findings[1].verified, 'confirmed');
 	assert.equal(run.changeBase.name, 'main', 'the base branch reaches the change mark');
 	assert.equal(run.stops, 1);
 	assert.deepEqual(run.passes, [
 		{ role: 'verify', model: 'sonnet', durationMs: 1000, turns: 2, costUsd: 0.5 },
-		{ role: 'edit', model: 'sonnet', durationMs: 1000, turns: 2, costUsd: 0.5 },
 	]);
 });
 
@@ -95,14 +92,13 @@ test('an UNRESOLVED verdict is isolated, then the verifier revises in the same s
 			return 'done';
 		},
 		revise: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]),
-		edit: EDIT,
 	});
-	assert.deepEqual(run.purposes, ['verify', 'isolate', 'revise', 'edit']);
+	assert.deepEqual(run.purposes, ['verify', 'isolate', 'revise']);
 	const [, isolate, revise] = run.steps;
 	assert.equal(isolate.timeLimitMinutes, ISOLATE_MINUTES);
 	assert.equal(isolate.timeUpMessage, isolateTimeUpMessage(run.dir));
 	assert.match(isolate.prompt, /^You are narrowing down the cause/);
-	assert.match(isolate.prompt, /Checkout: `\/repo`\nBase: `aaaa1111`\nHead: `bbbb2222`\nReport: `[^`]*\/report\.json`\nFindings: Finding 2\n/);
+	assert.match(isolate.prompt, /Checkout: `\/repo`\nBase: `aaaa1111`\nHead: `bbbb2222`\nReport: `[^`]*\/report\.json`\nPlaywright session: `et-[^`]+-iso`\nFindings: Finding 2\n/);
 	assert.match(isolate.prompt, /needs the same steps with the setting off/);
 	assert.deepEqual({ resume: revise.resume, prompt: revise.prompt }, { resume: 'verify-session', prompt: reviseMessage(run.dir) });
 	assert.equal(run.stops, 2, 'the isolator\'s instances are stopped too');
@@ -111,84 +107,71 @@ test('an UNRESOLVED verdict is isolated, then the verifier revises in the same s
 		{ label: 'explore', model: 'opus', costUsd: null, turns: 40, durationMs: 60000 },
 		{ label: 'verify', model: 'sonnet', costUsd: 1, turns: 4, durationMs: 2000 },
 		{ label: 'isolate', model: 'sonnet', costUsd: 0.5, turns: 2, durationMs: 1000 },
-		{ label: 'edit', model: 'sonnet', costUsd: 0.5, turns: 2, durationMs: 1000 },
 	]);
 });
 
 test('an isolator that writes nothing, or a revision that fails, keeps the first verdicts', async () => {
 	const unresolved = () => verdicts([[1, 'confirmed'], [2, 'unresolved']]);
-	const silent = await runWith(REPORT, { verify: unresolved, isolate: () => '', edit: EDIT });
-	assert.deepEqual(silent.purposes, ['verify', 'isolate', 'edit']);
+	const silent = await runWith(REPORT, { verify: unresolved, isolate: () => '' });
+	assert.deepEqual(silent.purposes, ['verify', 'isolate']);
 	assert.equal(silent.report.findings[1].verified, 'unresolved');
 	assert.ok(silent.logs.includes('the isolator wrote no isolation.md; applying the verifier\'s first reply'));
 	const crashed = await runWith(REPORT, {
 		verify: unresolved,
 		isolate: (step, dir) => { writeFileSync(join(dir, 'isolation.md'), 'x'); return ''; },
 		revise: fail('the session crashed'),
-		edit: EDIT,
 	});
-	assert.deepEqual(crashed.purposes, ['verify', 'isolate', 'revise', 'edit']);
+	assert.deepEqual(crashed.purposes, ['verify', 'isolate', 'revise']);
 	assert.equal(crashed.report.findings[1].verified, 'unresolved');
 	assert.ok(crashed.logs.includes('the verify agent failed: the session crashed'));
 });
 
 test('verdicts keyed to the wrong numbers get one retry, then mark the findings unreviewed', async () => {
-	const fixed = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [3, 'confirmed']]), recheck: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]), edit: EDIT });
+	const fixed = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [3, 'confirmed']]), recheck: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]) });
 	const retry = fixed.steps[1];
 	assert.equal(retry.resume, 'verify-session');
 	assert.match(retry.prompt, /^the verdicts give findings 1, 3, but the report's findings are 1, 2.*Reply again in full, in the same format\.$/);
 	assert.equal(fixed.report.findings[1].verified, 'confirmed');
-	const wrongAgain = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [3, 'confirmed']]), recheck: () => verdicts([[2, 'confirmed'], [3, 'confirmed']]), edit: EDIT });
+	const wrongAgain = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [3, 'confirmed']]), recheck: () => verdicts([[2, 'confirmed'], [3, 'confirmed']]) });
 	assert.equal(wrongAgain.report.verification.failed, true);
 	assert.match(wrongAgain.report.verification.text, /^_Verification did not complete: the verdicts give findings 2, 3.*The findings above are unreviewed\._/);
 });
 
 test('a last message with no json block gets one request for the reply again, in the same session', async () => {
 	const late = 'The background search finished; nothing changes.';
-	const fixed = await runWith(REPORT, { verify: () => late, reformat: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]), edit: EDIT });
-	assert.deepEqual(fixed.purposes, ['verify', 'reformat', 'edit']);
+	const fixed = await runWith(REPORT, { verify: () => late, reformat: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]) });
+	assert.deepEqual(fixed.purposes, ['verify', 'reformat']);
 	assert.deepEqual({ resume: fixed.steps[1].resume, prompt: fixed.steps[1].prompt }, { resume: 'verify-session', prompt: REFORMAT_MESSAGE });
 	assert.equal(fixed.report.findings[1].verified, 'confirmed');
 	// Still none: the findings are marked unreviewed, as before.
-	const still = await runWith(REPORT, { verify: () => late, reformat: () => late, edit: EDIT });
+	const still = await runWith(REPORT, { verify: () => late, reformat: () => late });
 	assert.match(still.report.verification.text, /^_Verification did not complete: the reply has no ```json block\./);
 });
 
 test('a verifier that fails leaves the findings marked unreviewed, with its error', async () => {
-	const empty = await runWith(REPORT, { verify: () => '', edit: EDIT });
+	const empty = await runWith(REPORT, { verify: () => '' });
 	assert.match(empty.report.verification.text, /^_Verification did not complete\. The findings above are unreviewed\._/);
-	const crashed = await runWith(REPORT, { verify: fail('maxTurns reached'), edit: EDIT });
+	const crashed = await runWith(REPORT, { verify: fail('maxTurns reached') });
 	assert.match(crashed.report.verification.text, /^_Verification did not complete: maxTurns reached\. The findings above are unreviewed\._/);
-	assert.deepEqual(crashed.passes.map(p => p.role), ['edit'], 'a failed agent has no usage to record');
+	assert.deepEqual(crashed.passes, [], 'a failed agent has no usage to record');
 });
 
-test('an edit the guard rejects gets one retry, applied as the last', async () => {
-	const run = await runWith(REPORT, {
-		verify: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]),
-		edit: () => 'RESULT: Two things broke.\n\n=== Finding 1\nTITLE: first | claim',
-		'edit-retry': () => '=== Finding 1\nTITLE: first | claim again',
-	});
-	assert.deepEqual(run.purposes, ['verify', 'edit', 'edit-retry']);
-	assert.equal(run.logs.filter(line => line.startsWith('kept the original')).length, 2);
-	assert.ok(run.logs.includes('kept the original of Finding 1\'s title: the rewrite has a | or ;'));
-});
-
-test('with verify off it goes straight to the editor; with it on it needs the diff range', async () => {
-	const off = await runWith(REPORT, { edit: EDIT }, { verify: false, repo: undefined });
-	assert.deepEqual(off.purposes, ['edit']);
+test('with verify off no agent runs; with it on it needs the diff range', async () => {
+	const off = await runWith(REPORT, {}, { verify: false, repo: undefined });
+	assert.deepEqual(off.purposes, []);
 	assert.ok(!off.exists('verify-prompt.md'));
 	await assert.rejects(runWith(REPORT, {}, { repo: undefined }), /verifying needs --repo, --base and --head/);
 });
 
-test('the verdicts, the isolation\'s revision and the edits land in report.json, and the page shows them', async () => {
-	const run = await runWith(REPORT, {
+test('the verdicts and the isolation\'s revision land in report.json, and the page shows them with the explorer\'s summary', async () => {
+	const report = { ...REPORT, findings: [{ ...REPORT.findings[0], summary: 'It broke.' }, REPORT.findings[1]] };
+	const run = await runWith(report, {
 		verify: () => verdicts([[1, 'confirmed'], [2, 'unresolved']], '- 2: needs the same steps with the setting off.'),
 		isolate: (step, dir) => {
 			writeFileSync(join(dir, 'isolation.md'), '## Finding 2\n\nThe setting decides it.');
 			return 'done';
 		},
 		revise: () => verdicts([[1, 'confirmed', { known: [15102], related: true }], [2, 'false positive', { intended: [999], feature: 'Plot settings', title: 'second claim, with the setting off' }]], '- 2: the setting decides it.'),
-		edit: () => 'RESULT: Two things broke, one by design.\n\n=== Finding 1\nTITLE: first claim, reworded\nSUMMARY: It broke.\nWHERE: It works.',
 	});
 	assert.match(run.steps[1].prompt, /Report: `[^`]*\/report\.json`/);
 	const page = reportFromJson(run.report);
@@ -198,11 +181,11 @@ test('the verdicts, the isolation\'s revision and the edits land in report.json,
 		change: [...page.verification.change],
 		findings: page.findings.map(f => ({ n: f.n, title: f.title, feature: f.feature, verified: f.verified, known: f.known, intended: f.intended, opening: f.text.opening })),
 	}, {
-		leadHtml: 'Two things broke, one by design.',
+		leadHtml: 'Two things broke.',
 		verdicts: [{ n: 1, word: 'confirmed' }, { n: 2, word: 'disputed' }],
 		change: [1],
 		findings: [
-			{ n: 1, title: 'first claim, reworded', feature: 'Console', verified: 'confirmed', known: [15102], intended: [], opening: { summary: 'It broke.', where: 'It works.' } },
+			{ n: 1, title: 'first claim', feature: 'Console', verified: 'confirmed', known: [15102], intended: [], opening: { summary: 'It broke.', where: '' } },
 			{ n: 2, title: 'second claim, with the setting off', feature: 'Plot settings', verified: 'disputed', known: [], intended: [999], opening: null },
 		],
 	});
@@ -211,12 +194,12 @@ test('the verdicts, the isolation\'s revision and the edits land in report.json,
 test('costPasses sums each later role over its sessions, after the explorer', () => {
 	assert.deepEqual(costPasses({ model: 'opus', durationMs: 60000, turns: 40, costUsd: 3 }, [
 		{ role: 'verify', model: 'sonnet', durationMs: 1000, turns: 2, costUsd: 0.5 },
-		{ role: 'edit', model: 'sonnet', durationMs: 500, turns: null, costUsd: null },
+		{ role: 'isolate', model: 'sonnet', durationMs: 500, turns: null, costUsd: null },
 		{ role: 'verify', model: 'sonnet', durationMs: 1000, turns: 2, costUsd: 0.5 },
 	]), [
 		{ label: 'explore', model: 'opus', costUsd: 3, turns: 40, durationMs: 60000 },
 		{ label: 'verify', model: 'sonnet', costUsd: 1, turns: 4, durationMs: 2000 },
-		{ label: 'edit', model: 'sonnet', costUsd: null, turns: null, durationMs: 500 },
+		{ label: 'isolate', model: 'sonnet', costUsd: null, turns: null, durationMs: 500 },
 	]);
 });
 
@@ -230,6 +213,7 @@ test('the explorer gets explorer.md, the brief and its run directory, and keeps 
 	assert.match(step.prompt, /^# Exploratory testing: the explorer/);
 	assert.match(step.prompt, /# Brief\n\nTest the Variables pane\.\n/);
 	assert.ok(step.prompt.includes(`Run directory: \`${dir}\``));
+	assert.ok(step.prompt.includes(`Playwright session: \`${sessionName(dir)}\``));
 	assert.deepEqual({ ...step, prompt: undefined }, { role: 'explore', purpose: 'explore', model: 'opus', prompt: undefined, tools: ['Bash', 'Read', 'Glob', 'Grep'], cwd: '/repo', timeLimitPath: join(dir, 'time-limit'), timeUpMessage: EXPLORE_TIME_UP });
 	assert.deepEqual(pass, { role: 'explore', model: 'opus', durationMs: 600000, turns: 70, costUsd: 3.1 });
 	assert.equal(readFileSync(join(dir, 'explore-reply.md'), 'utf8'), 'Found one.');
@@ -277,6 +261,27 @@ test('a stopped run stops the agent it started', () => withTmpDir('pipeline-stop
 	}
 }));
 
+test('sessionName is the run directory\'s id, so two runs never share one', () => {
+	assert.equal(sessionName('/state/output/20261013T122204-EAzyXV'), 'et-EAzyXV');
+	assert.notEqual(sessionName('/state/output/20261013T122204-EAzyXV'), sessionName('/state/output/20261013T122204-IJD6rF'));
+});
+
+test('a fresh run gives its agents its own Playwright session in their environment', () => withTmpDir('pipeline-session-', home => {
+	const bin = join(home, 'bin');
+	const seen = join(home, 'env.txt');
+	mkdirSync(bin);
+	// A stand-in for claude that records the session it was given and fails.
+	writeFileSync(join(bin, 'claude'), `#!/bin/sh\ncat > /dev/null\necho "$PW_SESSION $PLAYWRIGHT_CLI_SESSION" > '${seen}'\nexit 1\n`);
+	chmodSync(join(bin, 'claude'), 0o755);
+	writeFileSync(join(home, 'brief.md'), 'Test the Variables pane.\n');
+	const run = spawnSync('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none', '--skip-checkout-check'], {
+		env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, PW_SESSION: 'positron', PLAYWRIGHT_CLI_SESSION: 'positron' }, encoding: 'utf8',
+	});
+	const dir = /run directory: (\S+)/.exec(run.stdout)?.[1];
+	assert.ok(dir, run.stderr);
+	assert.equal(readFileSync(seen, 'utf8').trim(), `${sessionName(dir)} ${sessionName(dir)}`);
+}));
+
 test('checkoutProblems names a checkout off its head, a stale or missing build, and each missing binary, with its fix', () => {
 	const git = ({ at = 'bbb', time = '100' } = {}) => args => ({ 'rev-parse HEAD': at, 'rev-parse bbb^{commit}': 'bbb', 'log -1 --format=%ct -- src': time })[args.join(' ')] ?? '';
 	const binaries = path => path.endsWith('.exe') ? null : 1;
@@ -319,9 +324,8 @@ test('recordBranchCheck replaces the Branch verification a report has, and skips
 test('completeRun adds the header, the branch check and every pass\'s cost, or returns null with no report', () => withTmpDir('complete-', async dir => {
 	const options = {
 		...SHAS,
-		verify: false,
 		// The model that answered, when the runner knows it, over the one asked for.
-		runAgent: async () => ({ text: EDIT(), model: 'claude-sonnet-5', durationMs: 1000, turns: 2, costUsd: 0.5 }),
+		runAgent: async () => ({ text: verdicts([[1, 'confirmed'], [2, 'confirmed']]), model: 'claude-sonnet-5', durationMs: 1000, turns: 2, costUsd: 0.5 }),
 		stop: () => { },
 		branchCheck: 'Checked by CI.',
 		header: { pr: { repo: 'posit-dev/positron', number: 7 } },
@@ -335,7 +339,7 @@ test('completeRun adds the header, the branch check and every pass\'s cost, or r
 	assert.deepEqual(json.header.details.at(-1), { title: 'Branch verification', body: 'Checked by CI.' });
 	assert.deepEqual(json.cost.passes, [
 		{ label: 'explore', model: 'claude-opus-5-5', costUsd: 3, turns: 40, maxTurns: 200, durationMs: 60000 },
-		{ label: 'edit', model: 'claude-sonnet-5', costUsd: 0.5, turns: 2, durationMs: 1000 },
+		{ label: 'verify', model: 'claude-sonnet-5', costUsd: 0.5, turns: 2, durationMs: 1000 },
 	]);
 }));
 
@@ -352,11 +356,10 @@ test('a verifier that does not show it checked the action log and the screenshot
 			assert.match(step.prompt, /^Your reply for Finding 2 gave no actions\.log lines\./);
 			return verdicts([[1, 'confirmed', { log: [1, 3], shots: [{ file: 'S01-01.png', shows: 'a spinner' }] }], [2, 'confirmed', { log: [3, 5], shots: [{ file: 'S02-01.png', shows: 'no file' }] }]], 'No process issues.');
 		},
-		edit: EDIT,
 	}, { files });
-	assert.deepEqual(fixed.purposes, ['verify', 'recheck', 'edit']);
+	assert.deepEqual(fixed.purposes, ['verify', 'recheck']);
 	assert.equal(fixed.report.verification.unchecked, undefined);
-	const skipped = await runWith(report, { verify: () => verdicts([[1, 'confirmed'], [2, 'confirmed', { log: [3, 5] }]], 'No process issues.'), recheck: () => 'no block', edit: EDIT }, { files });
+	const skipped = await runWith(report, { verify: () => verdicts([[1, 'confirmed'], [2, 'confirmed', { log: [3, 5] }]], 'No process issues.'), recheck: () => 'no block' }, { files });
 	assert.deepEqual(skipped.report.verification.unchecked, { log: [1], shots: [1, 2] });
 	assert.deepEqual(skipped.report.findings.map(f => f.verified), ['confirmed', 'confirmed']);
 });
