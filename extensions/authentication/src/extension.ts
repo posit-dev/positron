@@ -205,7 +205,6 @@ async function registerAwsProvider(
 	);
 	const provider = new AuthProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,
-		undefined,
 		credentialChain,
 		createAwsSsoRecovery({
 			getProfile: () => getCachedProvider(
@@ -314,7 +313,6 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): ProviderRe
 
 	const provider = new AuthProvider(
 		SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake Cortex', context,
-		undefined,
 		{
 			resolve: async () => {
 				const snowflake = getCachedProvider(PROVIDER_METADATA.snowflake.catalogId!)?.connection.snowflake;

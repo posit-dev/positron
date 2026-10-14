@@ -63,7 +63,7 @@ export class DatabricksAuthProvider extends AuthProvider {
 		context: vscode.ExtensionContext,
 		credentialChain?: CredentialChainConfig,
 	) {
-		super(DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', context, undefined, credentialChain);
+		super(DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', context, credentialChain);
 	}
 
 	// --- AuthProvider overrides ---

@@ -158,7 +158,6 @@ suite('AuthProvider (credential chain)', () => {
 
 		chainProvider = new AuthProvider(
 			'test-chain', 'Test Chain', createMockContext(),
-			undefined,
 			{
 				resolve: async () => {
 					if (resolveShouldFail) {
@@ -217,7 +216,6 @@ suite('AuthProvider (credential chain)', () => {
 	test('removeSession is blocked when preventSignOut is set and chain resolves', async () => {
 		const protectedProvider = new AuthProvider(
 			'test-protected', 'Test Protected', createMockContext(),
-			undefined,
 			{
 				resolve: async () => resolveResult,
 				preventSignOut: true,
@@ -333,7 +331,7 @@ suite('AuthProvider - credential chain refresh', () => {
 	test('credentials with no expiry stay signed in without re-resolving (string form)', async () => {
 		let count = 0;
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{ resolve: async () => { count++; return 'x'; } }
 		));
 
@@ -349,7 +347,7 @@ suite('AuthProvider - credential chain refresh', () => {
 	test('credentials with no expiry stay signed in without re-resolving (object form)', async () => {
 		let count = 0;
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{ resolve: async () => { count++; return { token: 'x' }; } }
 		));
 
@@ -364,7 +362,7 @@ suite('AuthProvider - credential chain refresh', () => {
 	test('credentials still well before expiry are reused, not re-fetched', async () => {
 		let count = 0;
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{
 				resolve: async () => {
 					count++;
@@ -388,7 +386,7 @@ suite('AuthProvider - credential chain refresh', () => {
 			new Date(Date.now() + 60 * 60 * 1000),
 		];
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{
 				resolve: async () => {
 					const i = count++;
@@ -411,7 +409,7 @@ suite('AuthProvider - credential chain refresh', () => {
 	test('user is signed out when expiring credentials can no longer be refreshed', async () => {
 		let count = 0;
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{
 				resolve: async () => {
 					if (count++ === 0) {
@@ -442,7 +440,7 @@ suite('AuthProvider - credential chain refresh', () => {
 		let count = 0;
 		const tokens = ['x', 'y'];
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{ resolve: async () => tokens[count++] }
 		));
 
@@ -467,7 +465,7 @@ suite('AuthProvider - credential chain refresh', () => {
 	test('signing in resolves credentials and makes the session available', async () => {
 		let count = 0;
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{ resolve: async () => { count++; return 'x'; } }
 		));
 
@@ -482,7 +480,7 @@ suite('AuthProvider - credential chain refresh', () => {
 		let count = 0;
 		let refreshOnNext = false;
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{
 				resolve: async () => { count++; return 'x'; },
 				shouldRefresh: async () => {
@@ -507,7 +505,7 @@ suite('AuthProvider - credential chain refresh', () => {
 		// Not tracked for teardown disposal: dispose() clears the interval and
 		// must run while the fake clock owns that timer, before clock.restore().
 		const provider = new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{ resolve: async () => { count++; return 'x'; }, refreshIntervalMs: 1000 }
 		);
 
@@ -528,7 +526,7 @@ suite('AuthProvider - credential chain refresh', () => {
 		let release!: () => void;
 		const gate = new Promise<void>(resolve => { release = resolve; });
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{ resolve: async () => { await gate; return 'x'; } }
 		));
 
@@ -561,7 +559,7 @@ suite('AuthProvider - configured provider state', () => {
 
 	test('chain provider is not configured before first resolution', async () => {
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{ resolve: async () => 'x' }
 		));
 
@@ -570,7 +568,7 @@ suite('AuthProvider - configured provider state', () => {
 
 	test('successful chain resolution marks the provider configured', async () => {
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{ resolve: async () => 'x' }
 		));
 
@@ -582,7 +580,7 @@ suite('AuthProvider - configured provider state', () => {
 	test('failed resolution keeps a previously configured provider configured', async () => {
 		let count = 0;
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{
 				resolve: async () => {
 					if (count++ === 0) { return 'x'; }
@@ -600,7 +598,7 @@ suite('AuthProvider - configured provider state', () => {
 
 	test('chain sign-out clears the configured flag', async () => {
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{ resolve: async () => 'x' }
 		));
 
@@ -613,7 +611,7 @@ suite('AuthProvider - configured provider state', () => {
 	test('sign-out clears the configured flag even when the cached session is gone', async () => {
 		let count = 0;
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{
 				resolve: async () => {
 					if (count++ === 0) { return 'x'; }
@@ -631,7 +629,7 @@ suite('AuthProvider - configured provider state', () => {
 
 	test('preventSignOut chains are not marked configured', async () => {
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{ resolve: async () => 'x', preventSignOut: true }
 		));
 
@@ -692,7 +690,7 @@ suite('AuthProvider - configured provider state', () => {
 		const warnSpy = sinon.spy(log, 'warn');
 		let count = 0;
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{
 				resolve: async () => {
 					if (count++ === 0) { return 'x'; }
@@ -714,7 +712,7 @@ suite('AuthProvider - configured provider state', () => {
 	test('failed resolution for an unconfigured provider does not warn', async () => {
 		const warnSpy = sinon.spy(log, 'warn');
 		const provider = track(new AuthProvider(
-			'test', 'Test', createMockContext(), undefined,
+			'test', 'Test', createMockContext(),
 			{ resolve: async () => { throw new Error('no creds'); } }
 		));
 
