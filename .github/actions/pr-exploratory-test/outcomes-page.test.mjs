@@ -88,12 +88,23 @@ test('the bar has one linked segment per outcome present, in palette order, and 
 	const html = render([row('pending'), row('fixed-later'), row('fixed-in-pr'), row('fixed-in-pr')]);
 	const bar = html.match(/<div class="bar big">([\s\S]*?)<\/div>/)[1];
 	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'fixed-later', 'pending']);
-	assert.match(bar, /href="#evidence" data-filter="fixed" data-key="fixed-in-pr"[^>]*style="width:50%">2<span>Fixed in the PR<\/span><\/a>/);
+	assert.match(bar, /href="#evidence" data-filter="fixed" data-key="fixed-in-pr"[^>]*>2<span>Fixed in the PR<\/span><\/a>/);
+	assert.doesNotMatch(bar, /width:/);
 	assert.match(bar, /data-key="fixed-later"[^>]*>1<span>Fixed later<\/span>/);
 	assert.doesNotMatch(bar, /title=/);
 	assert.match(text(section(html, 'all-h')), /Findings by outcome Counted ~ 3 Not counted yet ~ 1/);
 	const legend = html.match(/<div class="legend">([\s\S]*?)<\/div>/)[1];
 	assert.deepEqual([...legend.matchAll(/class="o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'fixed-later', 'pending']);	assert.equal(text(legend).trim(), 'Fixed in the PR Fixed later PR still open');
+});
+
+test('the brackets and the bar share one grid, a column per segment sized by its count', () => {
+	const html = render([row('pending'), row('fixed-later'), row('fixed-in-pr'), row('fixed-in-pr')]);
+	assert.match(html, /<div class="all" style="grid-template-columns:minmax\(0, 2fr\) minmax\(0, 1fr\) minmax\(0, 1fr\)">/);
+	assert.match(html, /<div class="bracket counted" style="grid-column:1 \/ span 2">/);
+	assert.match(html, /<div class="bracket not-counted" style="grid-column:3 \/ span 1">/);
+	assert.match(markup(render([row('pending')])), /<div class="bracket not-counted" style="grid-column:1 \/ span 1">/);
+	assert.match(html, /\.all\{display:grid;column-gap:3px;row-gap:8px\}/);
+	assert.match(html, /\.brackets,\.bar\.big\{grid-column:1 \/ -1;display:grid;grid-template-columns:subgrid/);
 });
 
 test('with nothing counted the COUNTED bracket is left out and Issues fixed is 0', () => {

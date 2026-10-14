@@ -73,10 +73,9 @@ function segments(rows, { big = false } = {}) {
 	return OUTCOMES.filter(o => s.counts[o.key]).map(o => {
 		const n = s.counts[o.key];
 		const share = n / s.total;
-		const style = `style="width:${+(share * 100).toFixed(2)}%"`;
 		return big
-			? `<a class="seg o-${o.key}" href="#evidence" data-filter="${o.group}" data-key="${o.key}" aria-label="${n} ${o.label}, show these findings" ${style}>${n}${share >= 0.2 ? `<span>${o.label}</span>` : ''}</a>`
-			: `<span class="seg o-${o.key}" ${style}>${n}</span>`;
+			? `<a class="seg o-${o.key}" href="#evidence" data-filter="${o.group}" data-key="${o.key}" aria-label="${n} ${o.label}, show these findings">${n}${share >= 0.2 ? `<span>${o.label}</span>` : ''}</a>`
+			: `<span class="seg o-${o.key}" style="width:${+(share * 100).toFixed(2)}%">${n}</span>`;
 	}).join('');
 }
 
@@ -144,11 +143,14 @@ ${card('Still open', `<span class="big">${s.counts.pending}</span>`, s.counts.pe
 }
 
 function allBar(s, own) {
-	const brackets = [
-		s.counted ? `<div class="bracket counted" style="width:${pct(s.counted, s.total)}"><b>Counted</b><span>${SEP}${s.counted}</span></div>` : '',
-		s.notCounted ? `<div class="bracket not-counted" style="width:${pct(s.notCounted, s.total)}"><b>Not counted yet</b><span>${SEP}${s.notCounted}</span></div>` : '',
-	].join('');
+	// Brackets and segments share the grid's columns, one per segment, so the brackets line up with the bar.
 	const present = OUTCOMES.filter(o => s.counts[o.key]);
+	const columns = present.map(o => `minmax(0, ${s.counts[o.key]}fr)`).join(' ');
+	const k = present.filter(o => o.group !== 'open').length;
+	const brackets = [
+		k ? `<div class="bracket counted" style="grid-column:1 / span ${k}"><b>Counted</b><span>${SEP}${s.counted}</span></div>` : '',
+		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>Not counted yet</b><span>${SEP}${s.notCounted}</span></div>` : '',
+	].join('');
 	const legend = present.map(o => `<span><i class="o-${o.key}"></i>${o.label}</span>`).join('');
 	// A share of counted findings, or a bare count for the rest so denominators don't mix.
 	const details = present.map(o => {
@@ -160,7 +162,7 @@ function allBar(s, own) {
 	}).join('');
 	return `<section aria-labelledby="all-h">
 <h2 id="all-h">Findings by outcome</h2>
-<div class="all">
+<div class="all" style="grid-template-columns:${columns}">
 <div class="brackets">${brackets}</div>
 <div class="bar big">${segments(own, { big: true })}</div>
 <div class="under" aria-live="polite"><div class="legend">${legend}</div>${details}</div>
@@ -326,19 +328,20 @@ header{display:flex;flex-direction:column}
 section{display:flex;flex-direction:column;gap:16px}
 .sec-head{display:flex;flex-direction:column;gap:4px}
 .sub{margin:0;font-size:14px;color:#6B6862}
-.all{display:flex;flex-direction:column;gap:8px}
-.brackets{display:flex;gap:3px}
+.all{display:grid;column-gap:3px;row-gap:8px}
+.brackets,.bar.big{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}
+.under{grid-column:1 / -1}
 .bracket{display:flex;align-items:baseline;gap:8px;padding-bottom:6px;min-width:0;white-space:nowrap}
 .bracket.not-counted{justify-content:flex-end}
 .bracket span{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5A5751}
 .bracket.counted{border-bottom:2px solid #2B2A27}
 .bracket.not-counted{border-bottom:2px solid #B5B1A7}.bracket.not-counted b{color:#5A5751}
 .bar{display:flex;min-width:0}
-.bar.big{height:56px;gap:3px}
+.bar.big{height:56px}
 .bar.mid{height:24px;gap:2px}
 .seg{box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;border-radius:3px;font-size:12px}
-.bar.big .seg{border-radius:0;gap:10px;padding:0 12px;font-size:18px;font-weight:500;text-decoration:none;transition:opacity .15s}
-.bar.big .seg:has(span){justify-content:flex-start}
+.bar.big .seg{border-radius:0;gap:10px;padding:0;font-size:18px;font-weight:500;text-decoration:none;transition:opacity .15s}
+.bar.big .seg:has(span){justify-content:flex-start;padding:0 12px}
 .bar.big .seg:first-child{border-top-left-radius:6px;border-bottom-left-radius:6px}.bar.big .seg:last-child{border-top-right-radius:6px;border-bottom-right-radius:6px}
 .bar.big .seg span{font-family:'IBM Plex Sans',sans-serif;font-size:14px}
 .bar.big .seg:focus-visible{outline:2px solid #2B2A27;outline-offset:2px}
