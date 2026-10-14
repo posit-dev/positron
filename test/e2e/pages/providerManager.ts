@@ -218,7 +218,7 @@ export class ProviderManager {
 			await manualToggle.check();
 		}
 		await fillSecretValue(apiKeyInput, apiKey);
-		await frame.locator(SNOWFLAKE_ACCOUNT_INPUT).fill(account);
+		await fillSecretValue(frame.locator(SNOWFLAKE_ACCOUNT_INPUT), account);
 		await frame.getByRole('button', { name: 'Save', exact: true }).click();
 	}
 
@@ -238,7 +238,7 @@ export class ProviderManager {
 
 		await this.clickConnect(frame, provider);
 		await frame.getByLabel('Authentication method').selectOption('api-key');
-		await frame.getByLabel('Workspace URL').fill(workspace);
+		await fillSecretValue(frame.getByLabel('Workspace URL'), workspace);
 		await fillSecretValue(frame.getByLabel('Personal access token'), token);
 		await frame.getByRole('button', { name: 'Continue', exact: true }).click();
 	}
