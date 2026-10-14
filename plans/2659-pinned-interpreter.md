@@ -18,9 +18,9 @@ At launch, `startupSequence()` (`runtimeStartup.ts:660`) would run these steps:
 | Step | What happens | Changed? |
 |---|---|---|
 | 1. Restore sessions | Reconnect to sessions that are still running. If any console comes back, the later steps don't auto-start anything. | No |
-| 2. Write pinned runtimes | Find each language's pinned interpreter (how we do this is still an open question, see Q9, Q19, and Q20). For each language with a valid pinned interpreter, write it into the stored affiliation. See the rules below. | **New**, and runs earlier than today's recommendation step. Must not activate extensions early (see the hard requirement below). |
+| 2. Write pinned runtimes | Right after core activates a language's extension, ask it for its pinned interpreter. If it reports a valid one, write it into the stored affiliation. For a language that step 3 starts, this happens inside step 3, between activating the extension and starting the runtime. For every other language, it happens when step 4 or discovery activates the extension. See the rules below, and Q19 for why. | **New**. Never activates an extension earlier than today (see the hard requirement below). |
 | 3. Start affiliated runtimes | Start the affiliated runtime for each language, using today's rules. | No |
-| 4. Recommendations | Extensions' guesses (such as Python's `.venv` detection) fill in an affiliation only where none exists. | The step's code doesn't change, but it only receives guesses now. Today it also receives the setting value, which moves to step 2. |
+| 4. Recommendations | Each extension recommends one runtime for the workspace. Core starts it if it's marked to start right away. Otherwise it fills in an affiliation only where none exists. | The step's code doesn't change. The setting stays in Python's recommendation, ranked above the `.venv` (Q8). So the pinned interpreter also reaches startup through this step: under `recommended` (Q18), and on a first launch with no affiliation. |
 
 ### Hard requirement: step 2 must not activate every language's extension before step 3
 
@@ -28,12 +28,12 @@ From review: we must not activate every language's extension before starting the
 
 Today step 3 is deliberately fast. It activates only the extension for the first affiliated language, then starts that runtime using the metadata stored in the affiliation (`runtimeStartup.ts:1919-1929`). The extension checks and rebuilds that metadata just before the start (see Q20). Other affiliated languages activate and start in the background. Activating every language's extension first would hold up the first console until all of them finish.
 
-So step 2 can't simply ask each extension for its pinned interpreter. It needs two things without activating extensions early:
+So step 2 can't ask every extension for its pinned interpreter up front. It needs two things without activating extensions early:
 
 1. **Whether a language has a pinned interpreter set** (Q19).
 2. **Runtime metadata for the pinned path**, so it can be written into the affiliation (Q20).
 
-When the affiliation already points at the pinned path, which is the usual case after the first launch, neither is needed beyond a path comparison.
+**Proposed answer:** core asks each extension right after core activates it, never earlier. [2659-extension-activation.md](2659-extension-activation.md) explains how extensions activate at startup and walks through the proposal with diagrams. Q19 and Q20 summarize it.
 
 The discovery cache can't be the only source of metadata. It has no entry for the pinned path when:
 
@@ -42,7 +42,7 @@ The discovery cache can't be the only source of metadata. It has no entry for th
 - discovery never found the path, for example a project-local `${workspaceFolder}/.rvenv/bin/R` outside every folder discovery searches
 - the pinned path is new, for example after a `git pull` changed the setting
 
-Whatever step 2 does when the cache has no entry must also meet this requirement.
+That's why the proposal gets metadata from the extension instead.
 
 ### Rules for step 2
 
@@ -56,7 +56,7 @@ Whatever step 2 does when the cache has no entry must also meet this requirement
 - Removing the setting leaves the last pinned runtime as the affiliation, not the last dropdown pick.
 - `getPreferredRuntime()` (`runtimeStartup.ts:1757`) reads the affiliation, so anything that asks for "the preferred R" gets the pinned R.
 - "Clear Saved Interpreter" clears the affiliation, but on a pinned workspace the next launch writes the pinned runtime back.
-- Cost: any work step 2 does before step 3 delays the first console. That's why the hard requirement above limits it.
+- Cost: for the first affiliated language, asking adds one call into its extension before its console starts. See Q20.
 
 ## Questions
 
@@ -81,6 +81,7 @@ Known costs:
 1. Anyone with a user-level value today gets it written over the affiliation in every workspace after upgrading. That replaces picks they made in those workspaces.
 2. With a user-level pinned interpreter, a dropdown pick lasts only until the window closes. The next launch writes the pinned runtime back.
 3. `python.defaultInterpreterPath` comes from upstream VS Code, where it's a first-run default. Positron will behave differently.
+4. A user-level value also beats a project's own `.venv` (Q8). Today the `.venv` wins.
 
 These need a release note and new setting descriptions.
 
@@ -89,6 +90,8 @@ These need a release note and new setting descriptions.
 Only which. Step 2 replaces the runtime but keeps the timestamps, and it writes new affiliations where today's code writes recommendations. So step 3 starts something exactly when it would today. `interpreters.startupBehavior` still applies: under `manual`, nothing auto-starts.
 
 Example: a user-level pinned R in a project where R has never run. R gets an affiliation with zero timestamps, the same as a recommended R today. It does not start on its own.
+
+Where a guess would start right away, such as a project's `.venv`, the pinned interpreter starts instead, because it ranks above the guess (Q8). The pinned interpreter never changes whether something starts.
 
 ### Q5. What if the pinned path is missing or broken?
 
@@ -112,9 +115,20 @@ This needs no new code. Step 1 restores sessions. Every auto-start path after it
 
 If a restored session turns out to be dead, it isn't restored. Steps 2-4 then run normally, and the pinned interpreter starts.
 
-### Q8. Where does a pinned Python interpreter sit relative to `.venv` detection? (open)
+### Q8. Does a pinned interpreter beat the project's own interpreter? (decided)
 
-Today `recommendedWorkspaceInterpreterPath()` (`extensions/positron-python/src/client/positron/manager.ts:271-312`) checks, in order:
+Yes, at every setting level, including user settings. Isabel and Dhruvi agreed on this in Slack on 2026-10-13.
+
+A project's own interpreter is one that lives in or is named by the project:
+
+- **Python:** a `.venv` or `.conda` folder, or any `*/bin/python` one level down
+- **R:** the R version in `renv.lock` or a rig `rproj.toml`. R doesn't read either file today, so this only matters if it starts to.
+
+Only Python has to change for this milestone. R follows the same rule.
+
+Why: Positron already picks the project's own interpreter when nothing is pinned, so people who keep one environment per project are covered. The settings exist for people who use one environment for everything, and that's a lot of people. For them, the interpreter they set should always win.
+
+Today it's the reverse. `recommendedWorkspaceInterpreterPath()` (`extensions/positron-python/src/client/positron/manager.ts:271-312`) checks, in order:
 
 1. A `.venv` folder
 2. A `.conda` folder
@@ -123,33 +137,17 @@ Today `recommendedWorkspaceInterpreterPath()` (`extensions/positron-python/src/c
 
 So a `.venv` beats the setting at every level.
 
-Separately, core starts the affiliated runtime **before** it asks extensions for a recommendation (`runtimeStartup.ts:705-715`). So the affiliation also beats `.venv`. If you pick Python 3.11 from the dropdown in a project with a `.venv`, 3.11 starts on reopen, not the venv. Dhruvi didn't know this, and it may be something #15825 plans to change.
+Scenario: user settings point at `/usr/local/bin/python3.12`. You clone a project that has its own `.venv`. The global 3.12 starts, and packages installed in the venv are missing. That's the accepted cost. Picking the venv from the dropdown lasts only until the window closes (Q3). To keep the venv, pin it in the project's `.vscode/settings.json`, because a workspace or folder value beats a user value.
 
-Under the pinning design, `.venv` detection is a guess (step 4) and the setting names a pinned interpreter (step 2). Left as is, any pinned interpreter, including a user-level one, would beat `.venv`. The user level matters most here, because many people coming from VS Code have `python.defaultInterpreterPath` in user settings.
+This holds on the first launch too. Where the `.venv` would have started right away, the pinned interpreter starts in its place. That follows Q4: a pinned interpreter changes which runtime starts, not whether one starts.
 
-Scenario: user settings point at `/usr/local/bin/python3.12`. You clone a project that has its own `.venv`.
+What the Python extension changes:
 
-| Option | What starts |
-|---|---|
-| A. Any pinned interpreter beats `.venv` | The global 3.12. Packages installed in the venv are missing. |
-| B. A workspace- or folder-level pinned interpreter beats `.venv`; `.venv` beats a user-level one | The project's `.venv`. A workspace-level pinned interpreter, if set, beats both. |
-| C. `.venv` beats every pinned interpreter (today) | The project's `.venv`, even when the project's own settings pin something else. |
+- It reports the pinned interpreter (Q9) whether or not the project has a `.venv`.
+- `recommendedWorkspaceRuntime()` ranks the setting above the project's own interpreter. The Python interpreter ranking doc sets the full order. The top of it is: `interpreters.definitions` entries (see Q21), then the setting at any level, then a `.venv` or other environment at the project root, then the interpreter named in `.python-version`.
+- In the ranking doc, whether the recommendation starts right away depends on the folder, not on which interpreter won. A folder with Python files or a root project environment starts it when the folder opens. So where the `.venv` would have started, the pinned interpreter starts instead, and step 4 starts it the same way. Core doesn't change.
 
-If B is chosen, the Python extension handles it in step 2: when the project has a `.venv`, `.conda`, or `*/bin/python`, it doesn't report a user-level pinned interpreter. Core doesn't need to know. The order would be:
-
-| Project has | Order on launch ("folder", "workspace", "user" = the pinned interpreter set at that level) |
-|---|---|
-| `.venv` / `.conda` / `*/bin/python` | folder > workspace > affiliation > `.venv` detection (user not reported) |
-| None of those | folder > workspace > user > affiliation |
-
-B has to work this way to stay consistent. A simpler "folder > workspace > `.venv` > user > affiliation" would mean adding a user-level pinned interpreter flips whether your own dropdown pick sticks in a venv project.
-
-B as described needs the Python extension to check for a `.venv` during step 2, which means it is active before step 3. That runs into the hard requirement. Core could check for the folders itself, but that puts Python-specific rules in core. See Q19.
-
-Questions for Isabel:
-
-1. What does #15825 plan to change about this order? In particular, should the affiliation keep beating `.venv`?
-2. Should a user-level `python.defaultInterpreterPath` beat a project's `.venv`?
+Separately, core starts the affiliated runtime **before** it asks extensions for a recommendation (`runtimeStartup.ts:705-715`). So when nothing is pinned, the affiliation beats `.venv`. If you pick Python 3.11 from the dropdown in a project with a `.venv`, 3.11 starts on reopen, not the venv. The ranking doc keeps this under `auto` and `always`. Under `recommended`, the affiliation is ignored, so the `.venv` starts.
 
 ### Q9. How does core learn about a pinned interpreter? (open)
 
@@ -167,11 +165,13 @@ Core also needs to learn when a pinned interpreter is set but broken, so it can 
 
 | Option | How it works |
 |---|---|
-| A. New optional method for pinned interpreters | e.g. `pinnedWorkspaceRuntime()`, returning the pinned runtime or "interpreter pinned at path X, failed because Y." `recommendedWorkspaceRuntime()` returns guesses only. |
+| A. New optional method for pinned interpreters | e.g. `pinnedWorkspaceRuntime()`, returning the pinned runtime or "interpreter pinned at path X, failed because Y." `recommendedWorkspaceRuntime()` keeps returning the top-ranked interpreter, which can be the pinned one (Q8). |
 | B. Flag on the existing method | `recommendedWorkspaceRuntime()` also reports pinned vs guessed, plus failure details. |
 | C. Core reads the settings itself | Each language declares its pinning setting in `package.json`. Core reads it, resolves `${workspaceFolder}`, and calls the existing `registerRuntimeFromPath()` (`positron.d.ts:1313`). |
 
 Every option has to meet the hard requirement. A and B are methods on the extension, so the extension has to be active before it can answer. With C, core can tell whether a setting is set without activating anything, but `registerRuntimeFromPath()` still runs in the extension. Q19 and Q20 cover those two parts separately.
+
+**Proposed:** A, called only right after core activates the extension. See Q19.
 
 ### Q10. Does a pinned R get its conda or pixi environment?
 
@@ -227,10 +227,10 @@ One PR containing:
 - The core change: step 2, the failure notification and start reason (Q5), and the handling of blocked pinned interpreters (Q14)
 - The extension API for reporting pinned interpreters (Q9)
 - The R changes: conda/pixi (Q10) and folder-level values (Q11)
-- The Python changes: the pinned interpreter vs `.venv` order (Q8) and reading enforced values (Q13)
+- The Python changes: a pinned interpreter beats the project's `.venv` (Q8), and Python reads enforced values (Q13)
 - The setting descriptions
 
-Docs in positron-website#486 follow. The PR waits until Q8, Q9, Q18, Q19, and Q20 are settled.
+Docs in positron-website#486 follow. The PR waits until Q9, Q18, Q19, Q20, Q21, and Q22 are settled.
 
 ### Q17. Tests
 
@@ -242,32 +242,41 @@ Docs in positron-website#486 follow. The PR waits until Q8, Q9, Q18, Q19, and Q2
 | A restored session blocks the start | Vitest |
 | R reads folder-level values; pinned R gets conda/pixi info | Vitest where reachable without `vscode`, otherwise extension host tests |
 | Pick a different R, restart, the pinned R comes back | Extend `test/e2e/tests/interpreters/default-r-interpreter.test.ts` |
-| Same for Python | Extend `default-python-interpreter.test.ts` once Q8 is settled |
+| Same for Python. Also: a user-level pinned Python starts instead of a project's `.venv` on the first launch and after (Q8), and a pinned Python starts under `recommended` (Q18). | Extend `default-python-interpreter.test.ts` |
 | Admin-enforced pinned interpreter on Workbench | Manual |
 
 The existing e2e tests only cover a workspace with no affiliation. That's the one case where the old and new behavior agree.
 
-### Q18. Should a pinned interpreter start under `startupBehavior: recommended`? (open)
+### Q18. Should a pinned interpreter start under `startupBehavior: recommended`? (answer proposed)
 
-`interpreters.startupBehavior` already has a `recommended` value (`languageRuntimeService.ts:824`). Its description says an interpreter "will start when the extension providing the interpreter recommends it." #15825 item 2 confirms the intent: under `recommended`, the affiliated runtime should not start when a folder reopens.
+**Proposed answer:** yes, as the recommendation. The Python interpreter ranking doc settles this for Python:
 
-Today the step that starts affiliated runtimes (step 3) only runs for languages set to `always` or `auto` (`runtimeStartup.ts:1862`). Under `recommended`, it skips the language. Recommendations (step 4) still start.
+- `recommended` starts the recommendation only, and ignores the affiliation. That covers anything stored as the affiliation, not just dropdown picks.
+- The setting stays in Python's recommendation, ranked above every project environment, at any setting level (Q8).
 
-That matters for this design, because the pinned runtime is stored as the affiliation. Left as is, a pinned interpreter would not start under `recommended`, even though step 2 wrote it.
+So a pinned Python is the recommendation in every folder, with or without a `.venv`, and from any setting level. The ranking doc decides when it starts by looking at the folder. A folder with Python files or a root project environment starts it when the folder opens. Otherwise it starts when you open a `.py` file or run code.
 
-Scenario: a user sets `startupBehavior: recommended` for Python. The project's `.vscode/settings.json` pins Python 3.11, and the project also has a `.venv`.
+The exception is an `interpreters.definitions` entry, which ranks above the setting. See Q21.
 
-| Option | What starts on reopen |
-|---|---|
-| A. A pinned interpreter counts as a recommendation | Python 3.11. Under `recommended`, a dropdown pick still doesn't start on reopen, but a pinned interpreter does. |
-| B. A pinned interpreter is an affiliation, and `recommended` skips it | The `.venv`, which comes from step 4. The pinned interpreter only decides what starts under `always` and `auto`. |
+R already returns its setting as its recommendation, marked to start when you open an R file (`runtime-manager.ts:147-160`). So under `recommended`, a pinned R starts when you open an R file, not when the folder opens.
 
-Questions for Isabel:
+Both "start when you open a file" cases need checking. The path that starts a runtime when you open a file skips any language with an affiliation, and step 2 always writes one. See "Opening a file later in the session" under To check.
 
-1. Is `recommended` meant to skip dropdown picks only, or anything stored as the affiliation?
-2. Does the answer change if the pinned interpreter comes from user settings instead of the project?
+What the code shows:
 
-### Q19. How does step 2 learn a language has a pinned interpreter without activating its extension? (open)
+- `interpreters.startupBehavior` already has a `recommended` value (`languageRuntimeService.ts:824`). Its description says an interpreter "will start when the extension providing the interpreter recommends it." #15825 item 2 confirms the intent: under `recommended`, the affiliated runtime should not start when a folder reopens.
+- Step 3 only runs for languages set to `always` or `auto` (`runtimeStartup.ts:1862`). Under `recommended`, it skips the language. Recommendations (step 4) still start.
+- So the pinned runtime, stored as the affiliation, would not start under `recommended` if it weren't also the recommendation.
+
+### Q19. How does step 2 learn a language has a pinned interpreter without activating its extension? (open, answer proposed)
+
+**Proposed answer:** core asks the extension right after core activates it, never earlier. A new optional method on `LanguageRuntimeManager` (Q9 option A) returns the pinned runtime's metadata, or the pinned path and why it failed.
+
+- For a language that step 3 starts, core asks between activating the extension and starting the runtime. Step 3 already activates that extension, so core waits on nothing new.
+- For every other language, core asks when step 4 or discovery activates the extension.
+- The setting name and the rules for reading it stay in the extension, so step 2 always agrees with them. This answers both questions this section used to ask: where the knowledge lives, and how it stays consistent.
+
+[2659-extension-activation.md](2659-extension-activation.md) has the diagrams, the cost, and the other options: core reading the setting itself, and extending `validateMetadata()` the way "current R" works.
 
 What the code shows:
 
@@ -277,14 +286,20 @@ What the code shows:
   - Python treats the value `python` as unset (`interpreterSettings.ts:506`).
   - Python checks for `.venv`, `.conda`, and `*/bin/python` before it reads the setting (`manager.ts:283-307`). See Q8.
 - Core can read an extension's settings before that extension activates. Settings are registered when extensions are scanned, not when they activate (`configurationExtensionPoint.ts:261-279`, `abstractExtensionService.ts:588`).
-- Both extensions activate at every launch anyway, on `onStartupFinished`. Python also activates early on `workspaceContains` for files such as `.venv` and `pyproject.toml` (`positron-r/package.json:27-32`, `positron-python/package.json:76-101`). So the requirement is about activating before step 3, not about whether they activate.
+- Both extensions activate at every launch anyway, on `onStartupFinished`. Python also activates early on `workspaceContains` for files such as `.venv` and `pyproject.toml` (`positron-r/package.json:27-32`, `positron-python/package.json:76-101`). So the requirement is about what core waits for before the first console starts, not about whether an extension activates.
 
-Questions:
+Questions for Jonathan:
 
-1. Where should the knowledge "this setting pins this language's interpreter" live: in each extension, or in core?
-2. However step 2 learns about a pinned interpreter, how does it stay consistent with each extension's own rules for reading the setting, including Q8?
+1. Is asking right after activation, inside step 3, acceptable? It adds one call into the extension host for the first affiliated language before its console starts.
+2. Do you prefer a new optional method on `LanguageRuntimeManager` (option A in the activation doc), or extending `validateMetadata()` the way "current R" works (option C)?
 
-### Q20. How does step 2 get runtime metadata for the pinned path without activating extensions early? (open)
+### Q20. How does step 2 get runtime metadata for the pinned path without activating extensions early? (open, answer proposed)
+
+**Proposed answer:** the extension returns the metadata with its Q19 answer, so core never needs it before the extension is active. That settles the three questions this section used to ask:
+
+1. *Can step 2 activate an extension early?* It doesn't need to. Core only asks extensions it has already activated.
+2. *Is Python's path resolution acceptable before the first console starts?* It replaces the resolution that `validateMetadata()` does today. Core registers the metadata the extension returns, and a registered runtime skips `validateMetadata()` (`runtimeSession.ts:1890-1894`). So the first console waits as long as it does today.
+3. *How does a failed pinned interpreter fall back (Q5)?* The extension reports the failure in its answer, before core touches the affiliation. Core starts the stored affiliation as usual. The `validateMetadata()` failure described below still stops startup, but only for a broken stored affiliation, as it does today.
 
 What the code shows:
 
@@ -300,15 +315,59 @@ What the code shows:
 - `registerRuntimeFromPath()` turns a path into metadata, but it also writes the path into a user-level setting (`runtime-manager.ts:410-414`, `manager.ts:675-683`).
 - If `validateMetadata()` fails at launch, the error escapes the `try` in `startupSequence()`. Neither the old affiliation nor the recommendations start (`runtimeSession.ts:1969-1977`, `runtimeStartup.ts:714-717`). This matters for the Q5 fallback.
 
-Questions:
+### Q21. Does an `interpreters.definitions` entry beat a pinned interpreter? (open)
 
-1. Does the requirement allow activating an extension before step 3 if its language has a pinned interpreter? Or must step 2 never activate an extension that step 3 wouldn't activate anyway?
-2. Is Python's path resolution time acceptable before the first console starts?
-3. How should a failed pinned interpreter fall back to the old affiliation (Q5), given that a validation failure today stops the rest of startup?
+An `interpreters.definitions` entry is a labeled variant of the interpreter at a path, started with extra environment variables or a startup script (`interpreterDefinitions.ts:20-30`). The ranking doc puts Python's definitions entries first, above `python.defaultInterpreterPath`. That ranking is the same under every startup behavior.
+
+Either answer is fine, but it has to hold under every startup behavior and on every launch. The plan as written doesn't do that, because the pinned interpreter reaches startup two ways and only one of them goes through the ranking:
+
+- **Under `auto` and `always`**, step 2 writes it into the affiliation, and step 3 starts the affiliation before core asks for a recommendation. The ranking never runs, so a definitions entry can't beat it.
+- **Under `recommended`, and on a first launch with no affiliation**, core starts the recommendation. The ranking runs, and the definitions entry wins.
+
+Example, with the plan as written:
+
+- User settings have one Python entry in `interpreters.definitions`, pointing at Python 3.10.
+- The project's `.vscode/settings.json` sets `python.defaultInterpreterPath` to Python 3.12.
+- The folder has `.py` files. It has been opened before, so Python already has an affiliation. Which interpreter the affiliation holds doesn't matter.
+
+| Step | `auto` | `recommended` |
+|---|---|---|
+| 1. Restore sessions | Nothing to restore | Nothing to restore |
+| 3. Start the affiliation | Core activates Python and asks for its pinned interpreter. Python reports 3.12, and core writes it over the affiliation. Step 3 starts 3.12. | Skipped. Step 3 doesn't run for a language set to `recommended` (`runtimeStartup.ts:1862`). |
+| 4. Recommendation | Skipped, because a console is already starting. Python's ranking never runs. | Core activates Python and asks for its pinned interpreter. It writes 3.12 into the affiliation, but nothing reads the affiliation under `recommended`. Core then asks Python for its recommendation. The ranking puts the 3.10 definitions entry first and the 3.12 setting second. The folder has Python files, so 3.10 starts right away. |
+| **What starts** | **3.12** | **3.10** |
+
+`always` behaves like `auto` here.
+
+A first launch under `auto` splits the same way. There's no affiliation yet, so step 3 has nothing to start, step 4 runs, and 3.10 starts. Step 2 saved 3.12 as the affiliation along the way, so 3.12 starts on later launches. This is the same first-launch flip Q8 fixed for the `.venv`.
+
+| Option | How it stays consistent | Result in the example |
+|---|---|---|
+| A. The pinned interpreter ranks above definitions entries | Python moves the setting above definitions entries in its ranking. Step 2 doesn't change. | 3.12 under every startup behavior, on every launch |
+| B. A definitions entry beats the pinned interpreter | While an eligible Python definitions entry exists, Python doesn't report a pinned interpreter in step 2. The setting is ignored, as if nothing were pinned. The Q5 notification would need to say why. | 3.10 under `recommended` and on a first launch. Under `auto` and `always`, the affiliation starts as it would with nothing pinned, which may be a dropdown pick. |
+
+A related gap: the pinned interpreter is a path, but several definitions entries can share one path with different startup scripts. If the pinned path matches a definitions entry, it isn't clear which variant is pinned. The 2026-09-30 comment on #2659 raised this.
+
+Questions for Isabel:
+
+1. Why does the ranking doc put definitions entries above `python.defaultInterpreterPath`?
+2. A or B? R should follow the same answer.
+
+### Q22. What if the pinned Python has no compatible ipykernel? (open)
+
+The ranking doc lists an interpreter with no compatible ipykernel, or of an unknown environment type, in the picker but never recommends it. The plan doesn't say what happens when that interpreter is the pinned one. This mostly affects a Python that can't use Positron's bundled ipykernel, for example an unsupported version (`ipykernel.ts:85-173`).
+
+| Option | What happens |
+|---|---|
+| A. Treat it as a failed pinned interpreter | Step 2 writes nothing, and the Q5 notification says why. The stored affiliation starts as usual. |
+| B. Pin it anyway | Step 2 writes it. Under `auto` and `always`, step 3 starts it, as it would a dropdown pick of that Python today. Python tries to install ipykernel when the session starts (`session.ts:411-419`). Under `recommended`, it never starts, because it's never the recommendation. |
+
+Question for Isabel: A or B?
 
 ## To check during implementation
 
 These follow from the design. They weren't decided in the Q&A:
 
 - **Opening a file later in the session.** The path that starts a runtime when you open a file of that language skips any language that has an affiliation (`runtimeStartup.ts:422-430`). Once a pinned runtime is stored as the affiliation, that path behaves as it does today for any affiliated runtime. If that means nothing starts, the gap already exists for every affiliation, not just pinned ones.
+- **Discovery can start the affiliation under `recommended`.** When discovery registers the affiliated runtime, `onDidRegisterRuntime` starts it unless the language is `disabled` or `manual` (`runtimeStartup.ts:1616-1650`). The ranking doc says `recommended` ignores the affiliation, so this path would break that. This comes from reading the code. It hasn't been tested.
 - **R's "newest R" guess.** When a folder looks like an R project, R discovery marks the newest R to start right away (`provider.ts:327-337`). The path that starts it doesn't check the affiliation (`runtimeStartup.ts:406-410`). Confirm it can't start ahead of the pinned R.
