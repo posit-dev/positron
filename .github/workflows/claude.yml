@@ -51,7 +51,7 @@ jobs:
           permission-actions: read
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: write
+          permission-issues: read
           permission-members: read
           owner: posit-dev
           repositories: positron
