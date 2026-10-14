@@ -198,13 +198,15 @@ function comparisonProblems(n, label, text) {
 
 // Backends a reference to the right answer usually comes from.
 const BACKENDS = [['pandas', /\bpandas\b/i], ['polars', /\bpolars\b/i], ['R', /\bR\b/]];
+// A backend giving a value ("pandas shows"), not one named as what was tested ("the R session").
+const REPORTS_VALUE = /\s+(?:also\s+)?(?:shows|gives|returns|reports|displays|says)\b/.source;
 
 /**
  * Observed and Expected read as sentences about one thing, each number written
  * one way. The checks are narrow on purpose: each names its fix.
  * - A semicolon joins notes; write sentences.
- * - A backend the title does not name is the reference that shows the right
- *   answer, so it belongs in Expected.
+ * - A backend the title does not name, giving a value, is the reference that
+ *   shows the right answer, so it belongs in Expected.
  * - The same number grouped in one place and ungrouped in another reads as
  *   two numbers.
  */
@@ -254,7 +256,7 @@ function clarityProblems(n, title, observed, expected) {
 		}
 	}
 	if (observed) {
-		const named = BACKENDS.filter(([, re]) => re.test(prose(observed)) && !re.test(title)).map(([name]) => name);
+		const named = BACKENDS.filter(([, re]) => new RegExp(re.source + REPORTS_VALUE, re.flags).test(prose(observed)) && !re.test(title)).map(([name]) => name);
 		if (named.length) {
 			problems.push(problem('reference-in-observed', `report: Finding ${n} observed names ${named.join(' and ')}, which the title does not; the reference that shows the right answer goes in expected ("as ${named[0]} shows for the same data")`));
 		}

@@ -281,9 +281,15 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 		['The `n` column, whose largest value is 1,500, shows Max 1.', '`n` shows Max 1,500, as pandas shows for the same data.'],
 		['Max 1 for 1,500; Min 1 for 1,234,567.', 'Max 1,500.'],
 		['`n` shows Max 1. pandas shows Max 1,500.', 'Max 1,500.'],
+		['`n` shows Max 1, where R also gives 1,500.', 'Max 1,500.'],
 		['`pop` shows Min 1.', 'Min 1,234,567, as pandas shows 1234567.'],
 		['`pop` shows Max 12300000.', 'Max 12,345,678.'],
 		['Running `a; b` shows Max 1.', 'Max 1,500.'],
+	]),
+	'a backend named as what was tested is not a reference': () => each(pair, [
+		['Typing `Frameworks` hides the R 4.5.1 session and leaves only `New Console Session...`.', 'The R 4.5.1 session stays listed.'],
+		['The mouse wheel stops at the R row of the setup card.', 'The page scrolls to its end.'],
+		['After the R language section expands, scrolling stops where the page used to end.', 'The page scrolls to its end.'],
 	]),
 	'prose names no scenario ID, but code and an Evidence caption may': () => [
 		...pair('The panel stays empty.', 'The panel loads, as it did after Restart Kernel (S05, S06).'),

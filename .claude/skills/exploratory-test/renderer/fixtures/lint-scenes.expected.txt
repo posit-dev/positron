@@ -115,11 +115,21 @@ Max 1 for 1,500; Min 1 for 1,234,567. | Max 1,500.
   -> report: Finding 1 observed joins notes with a semicolon; write it as sentences
 `n` shows Max 1. pandas shows Max 1,500. | Max 1,500.
   -> report: Finding 1 observed names pandas, which the title does not; the reference that shows the right answer goes in expected ("as pandas shows for the same data")
+`n` shows Max 1, where R also gives 1,500. | Max 1,500.
+  -> report: Finding 1 observed names R, which the title does not; the reference that shows the right answer goes in expected ("as R shows for the same data")
 `pop` shows Min 1. | Min 1,234,567, as pandas shows 1234567.
   -> report: Finding 1 writes 1234567 both with and without digit grouping; write each number one way (1,234,567), except a value quoted exactly as the UI shows it
 `pop` shows Max 12300000. | Max 12,345,678.
   -> (none)
 Running `a; b` shows Max 1. | Max 1,500.
+  -> (none)
+
+==== a backend named as what was tested is not a reference
+Typing `Frameworks` hides the R 4.5.1 session and leaves only `New Console Session...`. | The R 4.5.1 session stays listed.
+  -> (none)
+The mouse wheel stops at the R row of the setup card. | The page scrolls to its end.
+  -> (none)
+After the R language section expands, scrolling stops where the page used to end. | The page scrolls to its end.
   -> (none)
 
 ==== prose names no scenario ID, but code and an Evidence caption may
