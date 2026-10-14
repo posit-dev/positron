@@ -93,7 +93,7 @@ test('the bar has one linked segment per outcome present, in palette order, and 
 	assert.doesNotMatch(bar, /title=/);
 	assert.match(text(section(html, 'all-h')), /Findings by outcome Counted ~ 3 Not counted yet ~ 1/);
 	const legend = html.match(/<div class="legend">([\s\S]*?)<\/div>/)[1];
-	assert.deepEqual([...legend.matchAll(/class="o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'fixed-later', 'pending']);
+	assert.deepEqual([...legend.matchAll(/class="o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'fixed-later', 'pending']);	assert.equal(text(legend).trim(), 'Fixed in the PR Fixed later PR still open');
 });
 
 test('with nothing counted the COUNTED bracket is left out and Issues fixed is 0', () => {

@@ -149,7 +149,7 @@ function allBar(s, own) {
 		s.notCounted ? `<div class="bracket not-counted" style="width:${pct(s.notCounted, s.total)}"><b>Not counted yet</b><span>${SEP}${s.notCounted}</span></div>` : '',
 	].join('');
 	const present = OUTCOMES.filter(o => s.counts[o.key]);
-	const legend = present.map(o => `<span><i class="o-${o.key}"></i>${o.label} <span class="n">${s.counts[o.key]}</span></span>`).join('');
+	const legend = present.map(o => `<span><i class="o-${o.key}"></i>${o.label}</span>`).join('');
 	// A share of counted findings, or a bare count for the rest so denominators don't mix.
 	const details = present.map(o => {
 		const n = s.counts[o.key];
