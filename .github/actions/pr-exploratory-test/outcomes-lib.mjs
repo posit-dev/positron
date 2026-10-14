@@ -107,9 +107,11 @@ export function decideOutcome({ prState, mergedAt, now, hasPaths, prCheck, later
 		return { outcome: 'unclear', decidedBy: decidedByOf(unclear), evidence: evidenceOf(unclear) };
 	}
 	const expired = prState === 'closed' || now - new Date(mergedAt) > WINDOW_DAYS * DAY_MS;
+	const no = [prCheck, ...laterChecks].find(c => c?.answer === 'no');
+	const evidence = no ? evidenceOf(no) : '';
 	return expired
-		? { outcome: 'not-acted-on', decidedBy: prState === 'closed' ? 'closed-unmerged' : 'window', evidence: '' }
-		: { outcome: 'pending', decidedBy: 'window', evidence: '' };
+		? { outcome: 'not-acted-on', decidedBy: prState === 'closed' ? 'closed-unmerged' : 'window', evidence }
+		: { outcome: 'pending', decidedBy: 'window', evidence };
 }
 
 const words = t => String(t ?? '').toLowerCase().replace(/[`*_]/g, '').match(/[a-z0-9]+/g) ?? [];

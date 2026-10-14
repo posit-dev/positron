@@ -203,3 +203,11 @@ test('buildCheckPrompt compares the PR as tested with the PR as merged after a f
 	assert.match(prompt, /only if what changed between them addresses/);
 	assert.doesNotMatch(buildCheckPrompt({ finding: { title: 'T' }, kind: 'diff', text: 'D' }), /<before>/);
 });
+
+test('decideOutcome keeps the reason a check said no, so a not-fixed row can be checked by hand', () => {
+	const checks = { prCheck: no('pr abc'), laterChecks: [no('issue #9')] };
+	assert.equal(decideOutcome({ ...base, ...checks, mergedAt: '2026-10-02T00:00:00Z' }).evidence, 'pr abc: unrelated');
+	assert.equal(decideOutcome({ ...base, ...checks, prState: 'closed', mergedAt: null }).evidence, 'pr abc: unrelated');
+	assert.equal(decideOutcome({ ...base, prCheck: null, laterChecks: [no('main def')] }).evidence, 'main def: unrelated');
+	assert.equal(decideOutcome({ ...base, prState: 'open', mergedAt: null }).evidence, '');
+});
