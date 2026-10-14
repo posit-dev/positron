@@ -52,18 +52,11 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	/**
 	 * Whether a provider is enabled in the resolved catalog (providers.json).
 	 *
-	 * `providerId` is a catalog id. A provider the catalog has never heard of
-	 * stays enabled, so a chat vendor that has no providers.json entry is not
-	 * silently filtered out of the model picker.
+	 * `providerId` is a catalog id. A vendor the catalog doesn't know (e.g.
+	 * Copilot CLI or Copilot's own provider vendors) is off.
 	 */
 	isProviderEnabled(providerId: string): boolean {
-		// Keep Copilot CLI off, as it was before the catalog. Otherwise it can
-		// become the current provider and make Copilot's agent the default.
-		if (providerId === 'copilotcli') {
-			return false;
-		}
-		return this._aiProviderService.getProvider(providerId) === undefined
-			|| this._aiProviderService.isEnabled(providerId);
+		return this._aiProviderService.isEnabled(providerId);
 	}
 }
 

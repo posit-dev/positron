@@ -54,10 +54,10 @@ describe('PositronAssistantConfigurationService', () => {
 			]).toEqual([true, false]);
 		});
 
-		it('leaves a provider the catalog has never heard of enabled', () => {
-			// A chat vendor with no providers.json entry must not be silently
-			// filtered out of the model picker.
-			expect(service.isProviderEnabled('some-third-party-vendor')).toBe(true);
+		it('turns off vendors the catalog does not know', () => {
+			// Copilot CLI and Copilot's own provider vendors have no catalog entry.
+			expect(['copilotcli', 'xai', 'azure', 'customendpoint'].map(id => service.isProviderEnabled(id)))
+				.toEqual([false, false, false, false]);
 		});
 
 		it('follows a later catalog flip', () => {
