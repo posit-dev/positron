@@ -57,6 +57,11 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	 * silently filtered out of the model picker.
 	 */
 	isProviderEnabled(providerId: string): boolean {
+		// Keep Copilot CLI off, as it was before the catalog. Otherwise it can
+		// become the current provider and make Copilot's agent the default.
+		if (providerId === 'copilotcli') {
+			return false;
+		}
 		return this._aiProviderService.getProvider(providerId) === undefined
 			|| this._aiProviderService.isEnabled(providerId);
 	}
