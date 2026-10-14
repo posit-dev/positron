@@ -9,15 +9,16 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ListPackageDocs, ReadHelpTopic, ReadVignette } from '../../browser/positronHelpActions.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 type CallMethod = (method: string, ...args: unknown[]) => Promise<unknown>;
 
 /** A session whose runtime reports the given language and answers calls with `callMethod`. */
-function sessionFor(languageId: string, callMethod: CallMethod): ILanguageRuntimeSession {
+function sessionFor(languageId: string, callMethod: CallMethod, state = RuntimeState.Ready): ILanguageRuntimeSession {
 	return stubInterface<ILanguageRuntimeSession>({
 		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId }),
 		callMethod,
+		getRuntimeState: () => state,
 	});
 }
 
@@ -95,6 +96,25 @@ describe('ReadHelpTopic', () => {
 		const result = await run('mean', 'julia');
 
 		expect(result).toEqual({ found: false, languageId: 'julia', message: 'No running julia interpreter session to read help from.' });
+	});
+
+	it('skips exited sessions', async () => {
+		const exitedCall = vi.fn<CallMethod>();
+		const exited = sessionFor('r', exitedCall, RuntimeState.Exited);
+		stubSessions(sessionFor('python', pythonCall), [exited, sessionFor('r', rCall)]);
+
+		await run('mean', 'r');
+
+		expect(rCall).toHaveBeenCalledWith('get_help_page', 'mean', '');
+		expect(exitedCall).not.toHaveBeenCalled();
+	});
+
+	it('reports when the only session for the language has exited', async () => {
+		stubSessions(undefined, [sessionFor('r', rCall, RuntimeState.Exited)]);
+
+		const result = await run('mean', 'r');
+
+		expect(result).toEqual({ found: false, languageId: 'r', message: 'No running r interpreter session to read help from.' });
 	});
 
 	it('reports when no interpreter is running', async () => {

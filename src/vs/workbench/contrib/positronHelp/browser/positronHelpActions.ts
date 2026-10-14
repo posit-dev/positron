@@ -24,6 +24,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { POSITRON_RUNTIME_LANGUAGE_IDS } from '../../languageRuntime/browser/languageRuntimeContextKeys.js';
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 
 export class ShowHelpAtCursor extends Action2 {
 	constructor() {
@@ -215,15 +216,10 @@ export class LookupHelpTopic extends Action2 {
 			}
 		}
 
-		// Make sure we have an active session for the language ID.
-		const sessions = sessionService.activeSessions;
-		let found = false;
-		for (const session of sessions) {
-			if (session.runtimeMetadata.languageId === languageId) {
-				found = true;
-				break;
-			}
-		}
+		// Make sure we have a running session for the language ID.
+		const found = sessionService.activeSessions.some(s =>
+			s.runtimeMetadata.languageId === languageId &&
+			s.getRuntimeState() !== RuntimeState.Exited);
 		if (!found) {
 			const message = localize('positron.help.noLanguage', "Open a file for the language you want to look up help topics for, or start an interpreter for that language.");
 			notificationService.info(message);
@@ -283,7 +279,8 @@ interface IHelpMethodResult<T> {
 /**
  * Calls a help method on an interpreter session for the given language
  * (defaulting to the foreground session's language), preferring the
- * foreground session. Runtimes return an object on success and a message
+ * foreground session. Exited sessions are skipped, since they queue calls
+ * until a restart. Runtimes return an object on success and a message
  * string otherwise.
  */
 async function callHelpMethod<T>(
@@ -294,9 +291,9 @@ async function callHelpMethod<T>(
 ): Promise<IHelpMethodResult<T>> {
 	const foreground = sessionService.foregroundSession;
 	const languageId = stringArg(languageIdArg).toLowerCase() || foreground?.runtimeMetadata.languageId;
-	const session = foreground?.runtimeMetadata.languageId === languageId ?
-		foreground :
-		sessionService.activeSessions.find(s => s.runtimeMetadata.languageId === languageId);
+	const session = [foreground, ...sessionService.activeSessions].find(s =>
+		s && s.runtimeMetadata.languageId === languageId &&
+		s.getRuntimeState() !== RuntimeState.Exited);
 	if (!session?.callMethod) {
 		return { languageId, message: languageId ? `No running ${languageId} interpreter session to read help from.` : 'No interpreter session is running.' };
 	}
