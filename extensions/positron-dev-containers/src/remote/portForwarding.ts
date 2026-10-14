@@ -85,13 +85,22 @@ export class PortForwardingManager {
 				// 2. Try netcat (nc) if bash is not available
 				// 3. Try socat as a last resort
 				// Note: positron-server listens on ::1 (IPv6), so we use that instead of 127.0.0.1
+				//       unless IPv6 is disabled, in which case we fall-back to 127.0.0.1
 				const portForwardCommand = `
 					if command -v bash >/dev/null 2>&1; then
-						exec bash -c 'exec 3<>/dev/tcp/::1/${remotePort}; cat <&3 & cat >&3; kill %1'
+						exec bash -c '{ exec 3<>/dev/tcp/::1/${remotePort}; } 2>/dev/null || exec 3<>/dev/tcp/127.0.0.1/${remotePort} || exit 1; cat <&3 & cat >&3; kill %1'
 					elif command -v nc >/dev/null 2>&1; then
-						exec nc ::1 ${remotePort}
+						if nc -z ::1 ${remotePort} >/dev/null 2>&1; then
+							exec nc ::1 ${remotePort}
+						else
+							exec nc 127.0.0.1 ${remotePort}
+						fi
 					elif command -v socat >/dev/null 2>&1; then
-						exec socat - TCP6:[::1]:${remotePort}
+						if socat -u /dev/null TCP6:[::1]:${remotePort} >/dev/null 2>&1; then
+							exec socat - TCP6:[::1]:${remotePort}
+						else
+							exec socat - TCP4:127.0.0.1:${remotePort}
+						fi
 					else
 						echo "ERROR: No suitable tool found for port forwarding (need bash, nc, or socat)" >&2
 						exit 1
