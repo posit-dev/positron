@@ -154,7 +154,7 @@ test('By severity is the first accordion section, listing Major, Moderate and Mi
 	const sev = section(html, 'sev-h');
 	assert.ok(html.indexOf('<div class="accordion">') < html.indexOf('id="sev-h"'));
 	assert.ok(html.indexOf('id="sev-h"') < html.indexOf('id="pr-h"') && html.indexOf('id="pr-h"') < html.indexOf('id="ev-h"'));
-	assert.match(text(sev), /By severity Too few findings to compare yet Severity % fixed Outcomes Major - No Major findings in this period Moderate 80% 4 of 5 4 1 3 Minor 71% 5 of 7 4 1 2 1 % fixed includes fixes made after merging\. Findings with no outcome yet aren't in it\./);
+	assert.match(text(sev), /By severity 8 moderate ~ 8 minor Severity % fixed Outcomes Major - No Major findings in this period Moderate 80% 4 of 5 4 1 3 Minor 71% 5 of 7 4 1 2 1 % fixed includes fixes made after merging\. Findings with no outcome yet aren't in it\./);
 	assert.match(sev, /<div class="pct"><span class="green">80%<\/span><span class="of">4 of 5<\/span><\/div>/);
 	assert.match(sev, /<span class="grow">Outcomes<\/span><\/div>/);
 	assert.doesNotMatch(sev, /class="end|not counted|class="sub"/);
@@ -181,14 +181,15 @@ test('the severity header has its ink rule under the labels, not above', () => {
 	assert.match(html, /\.sev-rows\{border-top:0\}/);
 });
 
-test('By severity starts collapsed below 20 findings with a known outcome, and open past it with each rate in its heading', () => {
-	const few = render(today);
-	assert.match(few, /<h2 id="sev-h"><button type="button" class="acc" aria-expanded="false" aria-controls="sev-body">/);
-	assert.match(few, /<div class="acc-body" id="sev-body" hidden>/);
+test('By severity starts collapsed however many findings there are, with the findings at each severity in its heading', () => {
 	const many = render([['major', 1], ['moderate', 3], ['minor', 5]].flatMap(([severity, fixed]) => [...Array(7)].map((_, i) => row(i < fixed ? 'fixed-in-pr' : 'not-fixed', { severity }))));
-	assert.match(many, /<h2 id="sev-h"><button type="button" class="acc" aria-expanded="true" aria-controls="sev-body">/);
-	assert.match(many, /<div class="acc-body" id="sev-body">/);
-	assert.match(text(section(many, 'sev-h')), /By severity Major 14% ~ Moderate 43% ~ Minor 71% Severity/);
+	for (const html of [render(today), many]) {
+		assert.match(html, /<h2 id="sev-h"><button type="button" class="acc" aria-expanded="false" aria-controls="sev-body">/);
+		assert.match(html, /<div class="acc-body" id="sev-body" hidden>/);
+	}
+	assert.match(text(section(many, 'sev-h')), /By severity 7 major ~ 7 moderate ~ 7 minor Severity/);
+	// Counts every finding, including the ones with no outcome yet, and skips a severity with none.
+	assert.match(text(section(render(today), 'sev-h')), /By severity 8 moderate ~ 8 minor Severity/);
 });
 
 test('the last row of each list drops its hairline, so the divider under it is the only line', () => {

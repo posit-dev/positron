@@ -37,8 +37,6 @@ const PRESETS = [['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['90d', 
 const TRIGGER = { auto: 'started automatically', explore: 'started by /explore' };
 const HERO_COLOR = { 'fixed-in-pr': '#3B7D4F', 'not-fixed': '#7D7568' };
 const INK = '#2B2A27';
-// Findings with a known outcome needed before the severities' rates are worth comparing.
-const ENOUGH = 20;
 const SEP = ' &middot; ';
 // The PR card's state pill, and what goes before its date.
 const PR_STATE = { merged: ['Merged', ''], open: ['Open', 'opened '], closed: ['Closed without merging', ''] };
@@ -198,21 +196,21 @@ function severityRows(own) {
 			: '<div class="pct none" aria-label="No outcome yet">&ndash;</div>';
 		return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}${s.total ? splitBar(list) : `<div class="grow empty">No ${label} findings in this period</div>`}</div>`;
 	}).join('\n');
-	const enough = summarize(own).counted >= ENOUGH;
-	const summary = enough ? per.filter(p => p.s.counted).map(p => `${p.label} ${pct(p.s.fixed, p.s.counted)}`).join(SEP) : 'Too few findings to compare yet';
+	// Every finding, like the other sections' counts.
+	const summary = per.filter(p => p.s.total).map(p => `${p.s.total} ${p.label.toLowerCase()}`).join(SEP);
 	return accordion('sev', 'By severity', summary, `<div class="rows sev-rows">
 <div class="grid-row cols" aria-hidden="true"><span class="name">Severity</span><span class="pct">% fixed</span><span class="grow">Outcomes</span></div>
 ${rows}
 </div>
-<p class="foot">% fixed includes fixes made after merging. Findings with no outcome yet aren't in it.</p>`, '', enough);
+<p class="foot">% fixed includes fixes made after merging. Findings with no outcome yet aren't in it.</p>`);
 }
 
-/** A section behind a full-width button in its heading, collapsed unless `open`. */
-function accordion(id, title, count, body, attrs = '', open = false) {
+/** A section that starts collapsed behind a full-width button in its heading. */
+function accordion(id, title, count, body, attrs = '') {
 	return `<section aria-labelledby="${id}-h"${attrs}>
-<h2 id="${id}-h"><button type="button" class="acc" aria-expanded="${open}" aria-controls="${id}-body"><span>${title}<span class="count">${count}</span></span>`
+<h2 id="${id}-h"><button type="button" class="acc" aria-expanded="false" aria-controls="${id}-body"><span>${title}<span class="count">${count}</span></span>`
 		+ '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#5A5751" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l5 5 5-5"/></svg></button></h2>'
-		+ `\n<div class="acc-body" id="${id}-body"${open ? '' : ' hidden'}>\n${body}\n</div>\n</section>`;
+		+ `\n<div class="acc-body" id="${id}-body" hidden>\n${body}\n</div>\n</section>`;
 }
 
 function prRows(own) {
@@ -292,7 +290,7 @@ const runDates = rows => rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean)
 // The browser's copy of the view, so it renders the same markup as the server.
 const VIEW_FNS = { escapeHtml, safeUrl, pct, codeSpans, plural, day, time, isFixed, summarize, splitEvidence, segments, splitBar, prState, triggers, minusDays, isDay, resolveRange, rangeText, header, allBar, severityRows, accordion, prRows, findingRow, evidence, renderView, prCard };
 export const VIEW_SOURCE = [
-	...Object.entries({ SEVERITY_LABEL, REPO_URL, OUTCOMES, FILTERS, DECIDED_BY, PRESETS, TRIGGER, HERO_COLOR, INK, ENOUGH, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
+	...Object.entries({ SEVERITY_LABEL, REPO_URL, OUTCOMES, FILTERS, DECIDED_BY, PRESETS, TRIGGER, HERO_COLOR, INK, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
 ].join('\n');
 
