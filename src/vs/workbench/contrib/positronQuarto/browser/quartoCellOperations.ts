@@ -101,7 +101,7 @@ export function computeJoinCellsEdit(textModel: ITextModel, firstCell: QuartoCod
 
 /**
  * The result of computing a cell insertion: the edits to apply and the 1-based
- * line number where the cursor should land (the new cell's empty code line).
+ * line number where the cursor should land (the new cell's first code line).
  */
 export interface InsertCellEdit {
 	readonly edits: ISingleEditOperation[];
@@ -112,7 +112,7 @@ export interface InsertCellEdit {
  * Compute the edit that inserts a new code cell at the start of the given line
  * (1-based), empty unless `code` is given, guaranteeing at least one blank buffer line between the
  * new cell and its neighbors on both sides (except at the very top/bottom of
- * the document). The returned `cursorLine` is the new cell's empty code line.
+ * the document). The returned `cursorLine` is the new cell's first code line.
  *
  * Computed as a direct edit (rather than delegating to the Quarto extension's
  * insert command) so the cell always lands exactly where the user asked,
@@ -154,7 +154,7 @@ export function computeInsertCellEdit(textModel: ITextModel, language: string, i
 	const text = prefix + cellBlock + suffix;
 	return {
 		edits: [{ range: new Range(insertLine, 1, insertLine, 1), text }],
-		// The empty code line sits one line below the opening fence.
+		// The first code line sits one line below the opening fence.
 		cursorLine: insertLine + (prefix ? 1 : 0) + 1,
 	};
 }

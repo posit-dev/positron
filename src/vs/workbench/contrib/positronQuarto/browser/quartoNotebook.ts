@@ -32,8 +32,8 @@ import { IQuartoOutputManager, QuartoOutputContribution } from './quartoOutputMa
  * breaks, which the fences supply, and rejects lines that would close the chunk.
  */
 function toChunkCode(content: string): string {
-	if (/^\s*```/m.test(content)) {
-		throw new Error('Code chunk content cannot contain a line starting with ```, which would end the chunk.');
+	if (/^```\s*$/m.test(content)) {
+		throw new Error('Code chunk content cannot contain a ``` line, which would end the chunk.');
 	}
 	return content.replace(/(\r?\n)+$/, '');
 }
@@ -51,9 +51,9 @@ export class QuartoNotebooks {
 		@IQuartoDocumentModelService private readonly _documentModelService: IQuartoDocumentModelService,
 	) { }
 
-	/** The Quarto document at `uri` as a notebook, if it can be used as one. */
+	/** The Quarto document at `uri` as a notebook, if it is open in an editor and can be used as one. */
 	get(uri: URI): QuartoNotebook | undefined {
-		if (!usingQuartoInlineOutput(this._configurationService)) {
+		if (!usingQuartoInlineOutput(this._configurationService) || this._editorService.findEditors(uri).length === 0) {
 			return undefined;
 		}
 		const textModel = this._modelService.getModel(uri);
@@ -122,11 +122,10 @@ export class QuartoNotebook {
 
 	async runCells(indices: readonly number[]): Promise<void> {
 		const cells = this._cells();
-		const toRun = indices.map(index => cells[index]).filter(cell => cell !== undefined);
-		if (toRun.length === 0) {
-			throw new Error(`No cells found with indices: ${indices.join(', ')}`);
+		for (const index of indices) {
+			this._checkIndex(index, cells);
 		}
-		await this._executionManager.executeCells(this.uri, toRun);
+		await this._executionManager.executeCells(this.uri, indices.map(index => cells[index]));
 	}
 
 	/** Adds a code chunk in the document's primary language, returning its index. */
@@ -195,7 +194,9 @@ export class QuartoNotebook {
 		for (const index of indices) {
 			this._checkIndex(index, cells);
 		}
+		const contribution = this._outputContribution();
 		for (const index of indices) {
+			contribution?.clearOutputsForCell(cells[index].id);
 			this._outputManager.clearOutputsForCell(this.uri, cells[index].id);
 		}
 	}
@@ -212,12 +213,17 @@ export class QuartoNotebook {
 	 * runs in this window have outputs.
 	 */
 	private _outputsForCell(): (cell: QuartoCodeCell) => readonly ICellOutput[] {
-		const contribution = this._codeEditorService.listCodeEditors()
-			.find(editor => editor.getModel() === this._textModel)
-			?.getContribution<QuartoOutputContribution>(QuartoOutputContribution.ID);
+		const contribution = this._outputContribution();
 		return contribution
 			? cell => contribution.getOutputsForCell(cell.id)
 			: cell => this._outputManager.getOutputsForCell(this.uri, cell.id);
+	}
+
+	/** The output contribution of an editor showing this document, if any. */
+	private _outputContribution(): QuartoOutputContribution | undefined {
+		return this._codeEditorService.listCodeEditors()
+			.find(editor => editor.getModel() === this._textModel)
+			?.getContribution<QuartoOutputContribution>(QuartoOutputContribution.ID) ?? undefined;
 	}
 
 	private _toDTO(cell: QuartoCodeCell, isActive: boolean, hasOutput: boolean): INotebookCellDTO {

@@ -601,13 +601,12 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	}
 
 	/**
-	 * Gets the Quarto document at a URI as a notebook, unless it is open in a
-	 * Positron notebook editor.
+	 * Gets the Quarto document at a URI as a notebook.
 	 * @param uriString The document URI as a string.
 	 * @returns The Quarto notebook, or undefined if not found.
 	 */
 	private _getQuartoNotebook(uriString: string): QuartoNotebook | undefined {
-		return this._getInstanceByUri(uriString) ? undefined : this._quartoNotebooks.get(URI.parse(uriString));
+		return this._quartoNotebooks.get(URI.parse(uriString));
 	}
 
 	dispose(): void {

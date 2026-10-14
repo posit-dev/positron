@@ -92,6 +92,8 @@ describe('QuartoNotebook', () => {
 		const { notebook } = createNotebook(DOCUMENT);
 
 		expect(() => notebook.updateCellContent(1, 'x <- "\n```\n"')).toThrow('end the chunk');
+		notebook.updateCellContent(1, 'x <- "\n  ```{r}\n"');
+		expect(notebook.getCell(1)?.content).toBe('x <- "\n  ```{r}\n"');
 	});
 
 	it('refuses to add a markdown cell', () => {
@@ -110,13 +112,13 @@ describe('QuartoNotebook', () => {
 		expect(textModel.getValue()).toBe(DOCUMENT);
 	});
 
-	it('runs the requested cells', async () => {
+	it('runs the requested cells, refusing any that do not exist', async () => {
 		const { notebook } = createNotebook(DOCUMENT);
 
-		await notebook.runCells([1, 5]);
+		await notebook.runCells([1]);
+		await expect(notebook.runCells([1, 5])).rejects.toThrow('Cell not found at index: 5');
 
 		expect(executeCells.mock.calls.map(([, cells]) => cells.map(cell => cell.index))).toEqual([[1]]);
-		await expect(notebook.runCells([5])).rejects.toThrow('No cells found');
 	});
 
 	it('decodes image outputs and passes text outputs through', async () => {
