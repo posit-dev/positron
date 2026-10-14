@@ -35,12 +35,11 @@ test.use({
 // under the e2e driver Positron refuses to show prompts at all (dialogService.ts), so
 // sign-in fails before it starts rather than showing a dialog a test could answer.
 
-test.describe('Posit Assistant - Databricks OAuth', {
+// Posit Assistant's AI Providers panel doesn't offer Databricks OAuth on Positron yet.
+test.describe.fixme('Posit Assistant - Databricks OAuth', {
 	tag: [tags.ASSISTANT],
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/assistant/issues/2740' }]
 }, () => {
-	// Posit Assistant's AI Providers panel doesn't offer Databricks OAuth on Positron yet.
-	test.skip(true, 'Databricks OAuth sign-in is not available in the AI Providers panel yet');
-
 	test('Sign in with OAuth, send hello, sign out', async function ({ app }) {
 		// The Okta credentials are wired per lane, so skip rather than fail where they
 		// are absent (the same convention the Redshift data-connection tests follow).
