@@ -106,9 +106,9 @@ test.describe('Release Screenshots - Snippets', () => {
 		await expect(quickInput.rowByAriaLabelPrefix('New Global Snippets file')).toBeVisible();
 
 		// Scroll the picker so python/quarto/r are all rendered.
-		const pythonRow = quickInput.rowByAriaLabelPrefix('python, (');
-		const quartoRow = quickInput.rowByAriaLabelPrefix('quarto, (');
-		const rRow = quickInput.rowByAriaLabelPrefix('r, (');
+		const pythonRow = quickInput.rowByAriaLabelPrefix('Python, (');
+		const quartoRow = quickInput.rowByAriaLabelPrefix('Quarto, (');
+		const rRow = quickInput.rowByAriaLabelPrefix('R, (');
 		await quickInput.scrollIntoView([pythonRow, quartoRow, rRow]);
 
 		const pickerBox = await picker.boundingBox();
@@ -158,9 +158,9 @@ test.describe('Release Screenshots - Snippets', () => {
 		await annotate(page, [
 			{
 				selector: [
-					'.quick-input-list .monaco-list-row[aria-label^="python, ("]',
-					'.quick-input-list .monaco-list-row[aria-label^="quarto, ("]',
-					'.quick-input-list .monaco-list-row[aria-label^="r, ("]',
+					'.quick-input-list .monaco-list-row[aria-label^="Python, ("]',
+					'.quick-input-list .monaco-list-row[aria-label^="Quarto, ("]',
+					'.quick-input-list .monaco-list-row[aria-label^="R, ("]',
 				],
 				label: '3',
 				color: ANNOTATION_COLOR,

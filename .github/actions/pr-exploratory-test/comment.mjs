@@ -59,6 +59,7 @@ async function main() {
 		headSha: process.env.HEAD_SHA || '',
 		reason: process.env.DECLINE_REASON || '',
 		focus: process.env.FOCUS || '',
+		autoRun: process.env.AUTO_RUN === 'true',
 	});
 	const { action, id } = await postOrEditComment({
 		fetchImpl: fetch,

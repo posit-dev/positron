@@ -23,6 +23,9 @@ suite('Processes', () => {
 			VSCODE_IPC_HOOK: 'x',
 			VSCODE_NLS_CONFIG: 'x',
 			VSCODE_PORTABLE: '3',
+			// --- Start Positron ---
+			POSITRON_PORTABLE: '4',
+			// --- End Positron ---
 			VSCODE_PID: 'x',
 			VSCODE_SHELL_LOGIN: '1',
 			VSCODE_CODE_CACHE_PATH: 'x',
@@ -39,12 +42,19 @@ suite('Processes', () => {
 		assert.strictEqual(env['FOO'], 'bar');
 		assert.strictEqual(env['VSCODE_SHELL_LOGIN'], '1');
 		assert.strictEqual(env['VSCODE_PORTABLE'], '3');
+		// --- Start Positron ---
+		assert.strictEqual(env['POSITRON_PORTABLE'], '4');
+		// --- End Positron ---
 		assert.strictEqual(env['VSCODE_PYTHON_BASH_ACTIVATE'], undefined);
 		assert.strictEqual(env['VSCODE_PYTHON_ZSH_ACTIVATE'], undefined);
 		assert.strictEqual(env['VSCODE_PYTHON_PWSH_ACTIVATE'], undefined);
 		assert.strictEqual(env['VSCODE_PYTHON_FISH_ACTIVATE'], undefined);
 		assert.strictEqual(env['VSCODE_PYTHON_AUTOACTIVATE_GUARD'], undefined);
-		assert.strictEqual(Object.keys(env).length, 3);
+		// --- Start Positron ---
+		// POSITRON_PORTABLE also survives sanitizing.
+		// assert.strictEqual(Object.keys(env).length, 3);
+		assert.strictEqual(Object.keys(env).length, 4);
+		// --- End Positron ---
 	});
 
 	test('removeDangerousEnvVariables', () => {

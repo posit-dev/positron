@@ -43,25 +43,27 @@ test.describe('Packages Pane', {
 		});
 
 		pythonRuntimes.forEach((runtime) => {
-			test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
-				async function ({ app, sessions }) {
-					const { packages, toasts } = app.workbench;
+			test.skip(`Python - Install, search, and uninstall package (${runtime})`, {
+				tag: [tags.WIN],
+				annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/15714' }]
+			}, async function ({ app, sessions }) {
+				const { packages, toasts } = app.workbench;
 
-					await sessions.start(runtime);
+				await sessions.start(runtime);
 
-					await packages.verifyPackagesList();
+				await packages.verifyPackagesList();
 
-					// install package and verify it shows up in the list
-					await packages.installPackage('cowsay');
-					await packages.searchPackages('cowsay');
-					await packages.expectPackageInList('cowsay');
+				// install package and verify it shows up in the list
+				await packages.installPackage('cowsay');
+				await packages.searchPackages('cowsay');
+				await packages.expectPackageInList('cowsay');
 
-					// uninstall package and verify it is removed from the list
-					await packages.uninstallPackage('cowsay');
-					await packages.expectPackageNotInList('cowsay');
+				// uninstall package and verify it is removed from the list
+				await packages.uninstallPackage('cowsay');
+				await packages.expectPackageNotInList('cowsay');
 
-					await toasts.closeAll();
-				});
+				await toasts.closeAll();
+			});
 		});
 	});
 

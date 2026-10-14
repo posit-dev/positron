@@ -2318,6 +2318,15 @@ export default defineConfig(
 						'*' // node.js
 					]
 				},
+				// The portable mode env helpers are imported by bootstrap-node.ts and,
+				// like it, must not import anything from vs/. The test needs vitest.
+				{
+					'target': 'src/{bootstrap-portable-env.ts,bootstrap-portable-env.vitest.ts}',
+					'restrictions': [
+						'src/*.js',
+						'vitest'
+					]
+				},
 				// The inno_updater branding guard scans a vendored binary; it
 				// only uses node built-ins.
 				{
