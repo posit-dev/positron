@@ -221,8 +221,8 @@ export class Filters {
 	 * Add a filter to the data explorer. Only works for a single filter at the moment. Optionally record metric.
 	 * @param options Object containing filter parameters
 	 */
-	async add(options: { columnName: string; condition: string; value?: string; metricRecord?: RecordMetric; metricTargetType?: MetricTargetType }): Promise<void> {
-		const { columnName, condition, value, metricRecord, metricTargetType } = options;
+	async add(options: { columnName: string; condition: string; value?: string; metricRecord?: RecordMetric; metricTargetType?: MetricTargetType; metricDone?: () => Promise<void> }): Promise<void> {
+		const { columnName, condition, value, metricRecord, metricTargetType, metricDone } = options;
 		await test.step(`Add filter: ${columnName} ${condition} ${value}`, async () => {
 			await this.addFilterButton.click();
 
@@ -239,12 +239,13 @@ export class Filters {
 				await this.code.driver.currentPage.getByRole('textbox', { name: 'value' }).fill(value);
 			}
 
-			// record metric only for loading after apply
+			// record metric only for loading after apply; metricDone defines when the filter counts as applied
 			if (metricRecord && metricTargetType) {
 				await metricRecord.dataExplorer.filter(async () => {
 					await this.applyFilterButton.click();
-					await this.workbench.dataExplorer.waitForIdle();
+					await (metricDone ? metricDone() : this.workbench.dataExplorer.waitForIdle());
 				}, metricTargetType);
+				await this.workbench.dataExplorer.waitForIdle();
 			} else {
 				await this.applyFilterButton.click();
 			}
@@ -698,6 +699,25 @@ export class DataGrid {
 				const cell = this.grid.locator(`#data-grid-row-cell-content-${colIndex}-${rowIndex}`);
 				await expect(cell).toHaveText(String(value));
 			}).toPass();
+		});
+	}
+
+	/**
+	 * Wait until a cell shows the given text. Checks every animation frame rather than on expect()'s
+	 * backoff (which settles at 500ms), so it returns within a frame of the value painting -- use it
+	 * to end a timed measurement.
+	 */
+	async waitForCellText({ rowIndex, colIndex, value }: { rowIndex: number; colIndex: number; value: string }, timeout = 60000): Promise<void> {
+		await test.step(`Wait for cell (${rowIndex}, ${colIndex}) to show: ${value}`, async () => {
+			// Also require no loading placeholders, so a partly filled viewport can't satisfy the wait.
+			await this.code.driver.currentPage.waitForFunction(
+				({ id, value }) => {
+					const grid = document.querySelector('.data-explorer .right-column');
+					return grid?.querySelector(`#${id}`)?.textContent === value && !grid.querySelector('.table-data-cell-placeholder');
+				},
+				{ id: `data-grid-row-cell-content-${colIndex}-${rowIndex}`, value },
+				{ polling: 'raf', timeout }
+			);
 		});
 	}
 
