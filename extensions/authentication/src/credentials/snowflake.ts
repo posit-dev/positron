@@ -179,15 +179,3 @@ export function getSnowflakeConnectionsTomlPath(
 		return undefined;
 	}
 }
-
-/**
- * Reads the Snowflake account identifier from the provider catalog's
- * `connection.snowflake` slice.
- * @param snowflake Catalog `connection.snowflake` slice supplying `account`
- * @returns The account identifier, or an empty string if not set.
- */
-export function getConfiguredSnowflakeAccount(
-	snowflake?: { account?: string }
-): string {
-	return snowflake?.account || '';
-}

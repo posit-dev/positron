@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import {
 	AWS_AUTH_PROVIDER_ID,
-	CREDENTIAL_REFRESH_INTERVAL_MS,
 	DATABRICKS_AUTH_PROVIDER_ID,
 	SNOWFLAKE_AUTH_PROVIDER_ID,
 } from './constants';
@@ -43,9 +42,6 @@ import {
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
 	ProviderCatalogOptions,
-	removeProviderBlock,
-	saveCustomProviderModels,
-	saveAwsSettings,
 	saveDatabricksHost,
 	saveSnowflakeAccount,
 } from './providerCatalog';

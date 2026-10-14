@@ -203,22 +203,6 @@ export function getProviderEnvKey(provider: ModelProvider): string | undefined {
 	return process.env[getProviderEnvVarName(provider)];
 }
 
-export function getProviderAutoSignInEnvVarName(provider: ModelProvider): string | undefined {
-	switch (provider.toLowerCase()) {
-		case 'anthropic':
-			return 'ANTHROPIC_API_KEY';
-		case 'openai':
-			return 'OPENAI_API_KEY';
-		default:
-			return undefined;
-	}
-}
-
-export function isProviderAutoSignedIn(provider: ModelProvider): boolean {
-	const envVarName = getProviderAutoSignInEnvVarName(provider);
-	return envVarName ? !!process.env[envVarName] : false;
-}
-
 async function completePositLogin(page: Page, config: OAuthDeviceCodeConfig, verificationUrl: string): Promise<void> {
 	const email = process.env[config.envVars.username];
 	const password = process.env[config.envVars.password];
