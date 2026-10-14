@@ -270,9 +270,6 @@ export function prCard(n, p) {
 		+ (p.desc ? `<p>${escapeHtml(p.desc)}</p>` : '');
 }
 
-function footer(s) {
-	return `<footer><span>Generated ${time(s.now, true)}</span></footer>`;
-}
 
 /** The parts of the page that change with the date range: the button's dates, mixed triggers, the lede and cards, and the sections. */
 export function renderView(rows, { now, range }) {
@@ -281,15 +278,15 @@ export function renderView(rows, { now, range }) {
 		return d && d >= range.from && d <= range.to;
 	});
 	const own = inRange.filter(r => !r.dupOf);
-	const s = { ...summarize(inRange), now };
+	const s = summarize(inRange);
 	const body = s.total ? [allBar(s, own), severityRows(own), `<div class="accordion">\n${prRows(own)}\n${evidence(own, s)}\n</div>`] : [];
-	return { label: rangeText(range), triggers: triggers(own), head: header(own, s), body: [...body, footer(s)].join('\n') };
+	return { label: rangeText(range), triggers: triggers(own), head: header(own, s), body: body.join('\n') };
 }
 
 const runDates = rows => rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, pct, codeSpans, plural, day, time, summarize, splitEvidence, segments, triggers, minusDays, isDay, resolveRange, rangeText, header, allBar, severityRows, accordion, prRows, findingRow, evidence, footer, renderView, prCard };
+const VIEW_FNS = { escapeHtml, safeUrl, pct, codeSpans, plural, day, time, summarize, splitEvidence, segments, triggers, minusDays, isDay, resolveRange, rangeText, header, allBar, severityRows, accordion, prRows, findingRow, evidence, renderView, prCard };
 export const VIEW_SOURCE = [
 	...Object.entries({ SEVERITY_LABEL, REPO_URL, OUTCOMES, FILTERS, DECIDED_BY, PRESETS, TRIGGER, HERO_COLOR, INK, ENOUGH, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
@@ -310,7 +307,7 @@ function picker(range, dates, now) {
 
 const CSS = `
 body{margin:0;background:#F5F4F0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#2B2A27}
-a{color:#2F6B55}a:not(.seg):hover{color:#1F4D3D}
+a{color:#2F6B55}a:not(.seg):hover{color:#1F4D3D}a.updated:hover{color:#2F6B55}
 main{padding:56px 24px 96px}
 .page{width:100%;max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:64px}
 .mono,.n,code,.chip,.seg,.num,.sign{font-family:'IBM Plex Mono',monospace}
@@ -324,6 +321,7 @@ header{display:flex;flex-direction:column}
 .eyebrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:13px;color:#6B6862;margin-bottom:16px}
 .triggers,.head,.view{display:contents}
 .range{position:relative}
+.updated{margin-left:auto;display:inline-flex;align-items:center;min-height:32px;font:13px 'IBM Plex Sans',sans-serif;color:#3A3833;text-decoration:underline dotted #B5B1A7;text-underline-offset:3px}
 .range-btn{display:inline-flex;align-items:center;gap:4px;min-height:32px;padding:0 6px;margin-left:-6px;border:0;border-radius:6px;background:transparent;color:#3A3833;font:13px 'IBM Plex Sans',sans-serif;cursor:pointer;text-decoration:underline dotted #B5B1A7;text-underline-offset:3px}
 .range-btn:disabled{cursor:default;text-decoration:none}.range-btn:disabled svg{display:none}
 .range-btn svg{transition:transform .15s}.range-btn[aria-expanded=true]{background:#ECE9E2}.range-btn[aria-expanded=true] svg{transform:rotate(180deg)}
@@ -389,7 +387,7 @@ i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-s
 .cols{padding:0 0 8px;color:#6B6862;border-bottom:1px solid #2B2A27}
 .sev-rows{border-top:0}
 .sev-row{min-height:64px}.sev-row .seg{min-width:0}
-.uncounted{font-size:12px;color:#7A766F;white-space:nowrap}.sev-row .name{font-size:16px;font-weight:600}
+.uncounted{font-size:13px;color:#7A766F;white-space:nowrap}.sev-row .name{font-size:16px;font-weight:600}
 .sev-row .pct{font-size:28px;line-height:1}.sev-row .pct.none{font-size:18px;font-weight:400;color:#B5B1A7}
 .empty{font-size:13px;color:#7A766F}
 .pr{min-height:56px}.pr .name{font-size:14px;font-weight:500}
@@ -426,7 +424,6 @@ dt{color:#7A766F}dd{margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:bas
 .chip{font-size:12px;color:#3A3833;border:1px solid #E4E1D9;padding:1px 6px;border-radius:3px;text-decoration:none}
 code.chip{background:#ECE9E2;border:0}
 .links{display:flex;gap:16px;font-size:13px}
-footer{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:#7A766F}
 .pr-card{position:absolute;z-index:30;width:340px;max-width:calc(100vw - 16px);box-sizing:border-box;padding:16px;background:#FBFAF7;border:1px solid #E4E1D9;border-radius:10px;box-shadow:0 8px 24px rgba(43,42,39,.14);display:flex;flex-direction:column;gap:10px;font-size:13px;color:#2B2A27}
 .pr-card[hidden]{display:none}.pr-card.passive{pointer-events:none}
 .pc-state{display:flex;align-items:center;gap:8px;font-size:12px;color:#6B6862}
@@ -565,8 +562,14 @@ document.addEventListener('click', e => {
 });
 `;
 
+/** The workflow run building the page, or the workflow's page outside Actions. */
+export function runUrl(env) {
+	const { GITHUB_SERVER_URL: server, GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: id } = env;
+	return server && repo && id ? `${server}/${repo}/actions/runs/${id}` : `${REPO_URL}/actions/workflows/exploratory-outcomes.yml`;
+}
+
 /** The whole page for `rows`, as outcomes.mjs writes them: all time, which the script narrows to `?range=` (last 30 days by default). */
-export function renderOutcomesPage(rows, { now = new Date() } = {}) {
+export function renderOutcomesPage(rows, { now = new Date(), runUrl: run = runUrl({}) } = {}) {
 	const today = now.toISOString().slice(0, 10);
 	const dates = runDates(rows);
 	const range = resolveRange('all', dates, today);
@@ -583,7 +586,7 @@ export function renderOutcomesPage(rows, { now = new Date() } = {}) {
 <noscript><style>.acc-body[hidden]{display:block}#ev-body[hidden]{display:flex;flex-direction:column;gap:32px}.detail[hidden]{display:flex}.controls,.acc svg{display:none}</style></noscript></head>
 <body><main><div class="page">
 <header>
-<div class="eyebrow"><span class="chip-cmd">/explore</span>${picker(range, dates, today)}<span class="triggers">${view.triggers}</span></div>
+<div class="eyebrow"><span class="chip-cmd">/explore</span>${picker(range, dates, today)}<span class="triggers">${view.triggers}</span><a class="updated" href="${escapeHtml(run)}" title="Open the workflow run that built this report">Updated&nbsp;${time(today, true)}</a></div>
 <div class="head">${view.head}</div>
 </header>
 <div class="view">${view.body}</div>
@@ -597,5 +600,5 @@ export function renderOutcomesPage(rows, { now = new Date() } = {}) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
 	const rows = readFileSync(process.argv[2], 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l));
-	process.stdout.write(renderOutcomesPage(rows));
+	process.stdout.write(renderOutcomesPage(rows, { runUrl: runUrl(process.env) }));
 }

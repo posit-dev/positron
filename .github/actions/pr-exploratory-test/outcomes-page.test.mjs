@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { prCard, renderOutcomesPage, renderView, resolveRange, splitEvidence, summarize, VIEW_SOURCE } from './outcomes-page.mjs';
+import { prCard, renderOutcomesPage, renderView, resolveRange, runUrl, splitEvidence, summarize, VIEW_SOURCE } from './outcomes-page.mjs';
 
 const row = (outcome, extra = {}) => ({
 	pr: 1, run: '10', finding: 1, title: 'A finding', severity: 'minor', trigger: 'explore', decidedBy: 'diff+model',
@@ -133,7 +133,8 @@ test('the palette is the warm one from the handoff', () => {
 	assert.match(html, /body\{[^}]*background:#F5F4F0/);
 	assert.match(html, /main\{padding:56px 24px 96px\}/);
 	assert.match(html, /\.page\{width:100%;max-width:1040px;margin:0 auto;/);
-	assert.match(html, /<body><main><div class="page">[\s\S]*<footer>[\s\S]*<\/div><\/main>/);
+	assert.match(html, /<body><main><div class="page">[\s\S]*<\/div><\/main>/);
+	assert.doesNotMatch(html, /<footer|footer\{/);
 	assert.match(html, /a:not\(\.seg\):hover\{color:#1F4D3D\}/);
 	assert.match(html, /family=Source\+Serif\+4/);
 });
@@ -162,7 +163,7 @@ test('a severity bar holds counted findings only, so its green share is the % fi
 	assert.match(major.slice(major.indexOf('>Major<')).split('sev-row')[0], /<\/div><span class="end uncounted"><\/span><\/div>/);
 	assert.doesNotMatch(moderate, /o-pending|width:/);
 	assert.match(render(today), /\.sev-row \.seg\{min-width:0\}/);
-	assert.match(render(today), /\.uncounted\{font-size:12px;color:#7A766F;white-space:nowrap\}/);
+	assert.match(render(today), /\.uncounted\{font-size:13px;color:#7A766F;white-space:nowrap\}/);
 });
 
 test('the severity header has its ink rule under the labels, not above', () => {
@@ -262,11 +263,24 @@ test('a possible duplicate is counted and tagged; a sure duplicate appears nowhe
 	assert.match(html, /<span class="maybe">Possible duplicate<\/span>/);
 	assert.ok(!markup(html).includes('Hidden twin'));
 	assert.match(text(html), /All 1 /);
-	assert.match(text(html), /Generated Oct 14, 2026 $/);
+	assert.doesNotMatch(text(html), /uplicates? (of|were|left)|removed/);
 });
 
-test('the footer only says when the page was made', () => {
-	assert.match(text(render(today)), /Generated Oct 14, 2026 $/);
+test('the header ends with the build date, linked to the run that built the page', () => {
+	const html = renderOutcomesPage(today, { now: NOW, runUrl: 'https://github.com/o/r/actions/runs/42' });
+	const eyebrow = html.slice(html.indexOf('<div class="eyebrow">')).split('<div class="head">')[0];
+	assert.match(eyebrow, /<a class="updated" href="https:\/\/github\.com\/o\/r\/actions\/runs\/42" title="Open the workflow run that built this report">Updated&nbsp;<time datetime="2026-10-14">Oct 14, 2026<\/time><\/a><\/div>\s*$/);
+	assert.match(html, /\.updated\{margin-left:auto;display:inline-flex;align-items:center;min-height:32px;font:13px 'IBM Plex Sans',sans-serif;color:#3A3833;text-decoration:underline dotted #B5B1A7;text-underline-offset:3px\}/);
+	assert.match(html, /a\.updated:hover\{color:#2F6B55\}/);
+	assert.doesNotMatch(text(html), /Generated/);
+});
+
+test('runUrl: the Actions run when built there, else the workflow page', () => {
+	const workflow = 'https://github.com/posit-dev/positron/actions/workflows/exploratory-outcomes.yml';
+	assert.equal(runUrl({ GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'o/r', GITHUB_RUN_ID: '42' }), 'https://github.com/o/r/actions/runs/42');
+	assert.equal(runUrl({}), workflow);
+	assert.equal(runUrl({ GITHUB_REPOSITORY: 'o/r' }), workflow);
+	assert.ok(render([]).includes(`href="${workflow}"`));
 });
 
 test('titles are escaped and a report URL that is not http(s) is not linked', () => {
@@ -307,7 +321,6 @@ test('an empty range says so and leaves out the sections', () => {
 	assert.match(text(view.head), /Does \/explore change what ships\? No \/explore findings in this date range\./);
 	assert.doesNotMatch(view.head, /class="cards"/);
 	assert.doesNotMatch(view.body, /Findings by outcome|Fix rate|By PR|Evidence/);
-	assert.match(text(view.body), /Generated Oct 14, 2026/);
 });
 
 test('the browser renders the same view as the server from the shipped source', () => {
