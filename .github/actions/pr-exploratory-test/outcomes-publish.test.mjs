@@ -110,6 +110,16 @@ test('a failed deploy task throws with its error', async () => {
 	await assert.rejects(deploy({ server: SERVER, key: 'k', guid: 'c1', archive: Buffer.from('x'), fetch }), /bad manifest/);
 });
 
+test('a deploy task that never finishes fails at the deadline', async () => {
+	const { fetch } = fakeConnect({
+		'GET /__api__/v1/content/c1': CONTENT,
+		'POST /__api__/v1/content/c1/bundles': { id: 'b3' },
+		'POST /__api__/v1/content/c1/deploy': { task_id: 't3' },
+		'GET /__api__/v1/tasks/t3?wait=5': { finished: false },
+	});
+	await assert.rejects(deploy({ server: SERVER, key: 'k', guid: 'c1', archive: Buffer.from('x'), fetch, timeout: 0 }), /deploy task t3 did not finish/);
+});
+
 test('a Connect error names the call that failed', async () => {
 	const { fetch } = fakeConnect({});
 	await assert.rejects(fetchPrevious({ server: SERVER, key: 'k', guid: 'c1', fetch }), /GET \/__api__\/v1\/content\/c1 failed: 404/);

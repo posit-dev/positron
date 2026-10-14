@@ -84,12 +84,13 @@ export async function fetchPrevious({ server, key, guid, fetch = globalThis.fetc
 	}
 }
 
-/** Deploys `archive` to the content; returns its URL once the deploy task ends. */
-export async function deploy({ server, key, guid, archive, fetch = globalThis.fetch, wait = 5 }) {
+/** Deploys `archive` to the content; returns its URL once the deploy task ends, or throws after `timeout` ms. */
+export async function deploy({ server, key, guid, archive, fetch = globalThis.fetch, wait = 5, timeout = 30 * 60_000 }) {
 	const call = client({ server, key, fetch });
 	const content = await call('GET', `/__api__/v1/content/${guid}`);
 	const { id } = await call('POST', `/__api__/v1/content/${guid}/bundles`, { body: archive, type: 'application/gzip' });
 	const { task_id: task } = await call('POST', `/__api__/v1/content/${guid}/deploy`, { body: JSON.stringify({ bundle_id: id }) });
+	const deadline = Date.now() + timeout;
 	for (; ;) {
 		const status = await call('GET', `/__api__/v1/tasks/${task}?wait=${wait}`);
 		if (status.finished) {
@@ -97,6 +98,9 @@ export async function deploy({ server, key, guid, archive, fetch = globalThis.fe
 				throw new Error(`Connect deploy failed: ${status.error || `code ${status.code}`}`);
 			}
 			return content.content_url;
+		}
+		if (Date.now() >= deadline) {
+			throw new Error(`Connect deploy task ${task} did not finish in ${timeout / 60_000} minutes`);
 		}
 	}
 }

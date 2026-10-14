@@ -498,6 +498,8 @@ menu.addEventListener('keydown', e => {
 	else if (at >= 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); items[(at + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); }
 	else if (at >= 0 && (e.key === 'Home' || e.key === 'End')) { e.preventDefault(); items[e.key === 'Home' ? 0 : items.length - 1].focus(); }
 });
+// Tabbing out closes the menu; focus moving to the custom dates inside it doesn't.
+menu.addEventListener('focusout', e => { if (e.relatedTarget && !e.relatedTarget.closest('.range')) { setMenu(false); } });
 // One card for every PR link, below it or above it when there's no room. The number in an evidence row sits inside the row's button, so its card can't be hovered.
 function openCard(a) {
 	clearTimeout(openTimer);
@@ -532,8 +534,8 @@ if (matchMedia('(hover: hover)').matches) {
 		else if (onCard(e.target)) { clearTimeout(closeTimer); }
 	});
 	document.addEventListener('mouseout', e => {
-		const to = e.relatedTarget;
-		if ((prLink(e.target) || onCard(e.target)) && !(to && (prLink(to) === anchor && anchor || onCard(to)))) { closeSoon(); }
+		const next = e.relatedTarget;
+		if ((prLink(e.target) || onCard(e.target)) && !(next && (prLink(next) === anchor && anchor || onCard(next)))) { closeSoon(); }
 	});
 	document.addEventListener('focusin', e => { const a = prLink(e.target); if (a && a.matches('a')) { openCard(a); } });
 	document.addEventListener('focusout', e => { if (prLink(e.target)) { closeSoon(); } });
