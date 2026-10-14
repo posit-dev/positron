@@ -5,12 +5,13 @@
 
 /// <reference types="vitest/globals" />
 
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { IQuartoExecutionManager, IQuartoOutputCacheService } from '../../common/quartoExecutionTypes.js';
+import { CellExecutionState, ExecutionOutputEvent, ICellOutput, IQuartoExecutionManager, IQuartoOutputCacheService } from '../../common/quartoExecutionTypes.js';
+import { QuartoCodeCell } from '../../common/quartoTypes.js';
 import { QuartoOutputManagerService } from '../../browser/quartoOutputManager.js';
 
 // Must match the non-exported constant in quartoOutputManager.ts. If the key
@@ -18,17 +19,28 @@ import { QuartoOutputManagerService } from '../../browser/quartoOutputManager.js
 const STORAGE_KEY = 'positron.quarto.collapsedCells';
 
 describe('QuartoOutputManagerService', () => {
+	const onDidReceiveOutput = new Emitter<ExecutionOutputEvent>();
+	let executionState = CellExecutionState.Idle;
+	let cachedOutputs = new Map<string, ICellOutput[]>();
+
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
 		.stub(IQuartoExecutionManager, {
-			onDidReceiveOutput: Event.None,
+			onDidReceiveOutput: onDidReceiveOutput.event,
 			onDidChangeExecutionState: Event.None,
+			getExecutionState: () => executionState,
 		})
 		.stub(IQuartoOutputCacheService, {
 			clearCache: vi.fn(),
 			runCleanup: () => Promise.resolve(),
+			getCachedOutputs: () => cachedOutputs,
 		})
 		.build();
+
+	beforeEach(() => {
+		executionState = CellExecutionState.Idle;
+		cachedOutputs = new Map();
+	});
 
 	function createService(): QuartoOutputManagerService {
 		const service = ctx.instantiationService.createInstance(QuartoOutputManagerService);
@@ -123,6 +135,29 @@ describe('QuartoOutputManagerService', () => {
 			expect(handlerFired).toBe(true);
 			expect(firedUri?.toString()).toBe(uriA.toString());
 			expect(JSON.parse(storageAtFireTime!)).toEqual({ [uriB.toString()]: ['cell3'] });
+		});
+	});
+
+	describe('getOutputsForCell()', () => {
+		const output: ICellOutput = { outputId: 'o1', items: [{ mime: 'text/plain', data: '2' }] };
+		const cell = (id: string): QuartoCodeCell => ({
+			id, language: 'r', startLine: 1, endLine: 3, codeStartLine: 2, codeEndLine: 2,
+			options: '', contentHash: 'abcd1234abcd1234', index: 0,
+		});
+
+		it('returns the outputs of a cell run in this window, scoped to its document', () => {
+			const service = createService();
+			executionState = CellExecutionState.Completed;
+			onDidReceiveOutput.fire({ cellId: '0-abcd1234-unlabeled', output, documentUri: uriA });
+
+			expect(service.getOutputsForCell(uriA, cell('0-abcd1234-unlabeled'))).toEqual([output]);
+			expect(service.getOutputsForCell(uriB, cell('0-abcd1234-unlabeled'))).toEqual([]);
+		});
+
+		it('falls back to cached outputs matched by content hash for a cell that has not run', () => {
+			cachedOutputs = new Map([['0-abcd1234-unlabeled', [output]]]);
+
+			expect(createService().getOutputsForCell(uriA, cell('2-abcd1234-unlabeled'))).toEqual([output]);
 		});
 	});
 

@@ -135,9 +135,10 @@ export interface IQuartoOutputManager {
 	readonly onDidRequestClearAll: Event<void>;
 
 	/**
-	 * Get outputs for a cell.
+	 * Get the outputs of a cell: those of its run in this window if it has
+	 * run, otherwise those restored from the output cache.
 	 */
-	getOutputsForCell(cellId: string): readonly ICellOutput[];
+	getOutputsForCell(documentUri: URI, cell: QuartoCodeCell): readonly ICellOutput[];
 
 	/**
 	 * Clear outputs for a cell.
@@ -2000,11 +2001,21 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 		}, 30000);
 	}
 
-	getOutputsForCell(cellId: string): readonly ICellOutput[] {
-		// This is a simplified implementation
-		// In practice, we'd need the document URI to get the right outputs
-		for (const [key, outputs] of this._outputsByCell) {
-			if (key.endsWith(`:${cellId}`)) {
+	getOutputsForCell(documentUri: URI, cell: QuartoCodeCell): readonly ICellOutput[] {
+		if (this._executionManager.getExecutionState(cell.id) !== CellExecutionState.Idle) {
+			return this._outputsByCell.get(`${documentUri.toString()}:${cell.id}`) ?? [];
+		}
+
+		// Cached cell ids go stale when cells move, so fall back to matching
+		// on the content hash embedded in the id.
+		const cached = this._cacheService.getCachedOutputs(documentUri);
+		const exact = cached.get(cell.id);
+		if (exact) {
+			return exact;
+		}
+		const { hashPrefix } = parseCellId(cell.id);
+		for (const [cellId, outputs] of cached) {
+			if (parseCellId(cellId).hashPrefix === hashPrefix) {
 				return outputs;
 			}
 		}
