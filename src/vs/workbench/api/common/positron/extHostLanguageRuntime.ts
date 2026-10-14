@@ -327,13 +327,57 @@ export class ExtHostRuntimeSessionProxy
 	}
 
 	/**
-	 * Shut down the runtime; returns a Thenable that resolves when the
-	 * runtime shutdown sequence has been successfully started (not
-	 * necessarily when it has completed).
+	 * Shut down the runtime, through Positron core; returns a Thenable that
+	 * resolves when the session has exited.
 	 */
 	shutdown(exitReason: positron.RuntimeExitReason) {
 		return this._proxy.$shutdownSession(this.sessionId, exitReason);
 	}
+}
+
+/**
+ * Wraps a session owned by this extension host so that the operations that
+ * change its lifecycle (`restart`, `interrupt`, `shutdown`) route through
+ * Positron core instead of going straight to the session (#12589). Core then
+ * dispatches them back to the session, staying in the loop (busy/idle
+ * indicators, coordinated restart and shutdown).
+ *
+ * Every other member is the session's own, and the wrapper reports the
+ * session's prototype, so callers that narrow it with `instanceof` or a cast
+ * to `LanguageRuntimeSession` keep working.
+ *
+ * @param session The session to wrap
+ * @param requestingExtensionId The ID of the extension the wrapper is for
+ * @param proxy A proxy to the main thread language runtime API
+ */
+function createManagedRuntimeSession(
+	session: positron.LanguageRuntimeSession,
+	requestingExtensionId: string,
+	proxy: extHostProtocol.MainThreadLanguageRuntimeShape,
+): positron.LanguageRuntimeSession {
+	const sessionId = session.metadata.sessionId;
+	return new Proxy(session, {
+		get(target, property) {
+			switch (property) {
+				case 'restart':
+					// Core restarts the runtime in the session's current working
+					// directory, so a requested one is not honored.
+					return async (_workingDirectory?: string) => {
+						if (!await proxy.$restartSession(sessionId, requestingExtensionId, false)) {
+							throw new Error(`Session '${sessionId}' was not restarted.`);
+						}
+					};
+				case 'interrupt':
+					return () => proxy.$interruptSession(sessionId);
+				case 'shutdown':
+					return (exitReason: positron.RuntimeExitReason) => proxy.$shutdownSession(sessionId, exitReason);
+			}
+			const value = Reflect.get(target, property, target);
+			// Bind methods to the session itself, so that the calls it makes on
+			// `this` reach the session rather than this wrapper.
+			return typeof value === 'function' ? value.bind(target) : value;
+		}
+	});
 }
 
 export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
@@ -358,6 +402,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	// A list of runtime proxies to sessions owned by other extension hosts; map of
 	// session ID to proxy
 	private readonly _runtimeProxies = new Map<string, ExtHostRuntimeSessionProxy>();
+
+	// The wrappers handed out for sessions owned by this extension host; map of
+	// session to requesting extension ID to wrapper. See
+	// `createManagedRuntimeSession`.
+	private readonly _managedSessions = new WeakMap<positron.LanguageRuntimeSession, Map<string, positron.LanguageRuntimeSession>>();
 
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
@@ -1510,20 +1559,38 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._proxy.$getPreferredRuntime(languageId);
 	}
 
-	public async getActiveSessions(): Promise<positron.BaseLanguageRuntimeSession[]> {
+	public async getActiveSessions(requestingExtensionId: string): Promise<positron.BaseLanguageRuntimeSession[]> {
 		return (await this._proxy.$getActiveSessions())
-			.map(session => this.getRuntimeSessionInterface(session)!);
+			.map(session => this.getRuntimeSessionInterface(requestingExtensionId, session)!);
 	}
 
-	public async getSession(sessionId: string): Promise<positron.BaseLanguageRuntimeSession | undefined> {
+	public async getSession(sessionId: string, requestingExtensionId: string): Promise<positron.BaseLanguageRuntimeSession | undefined> {
 		const session = await this._proxy.$getSession(sessionId);
 		if (!session) {
 			return undefined;
 		}
-		return this.getRuntimeSessionInterface(session);
+		return this.getRuntimeSessionInterface(requestingExtensionId, session);
 	}
 
-	private getRuntimeSessionInterface(session?: extHostProtocol.IActiveRuntimeSessionMetadataDto): positron.BaseLanguageRuntimeSession | undefined {
+	/**
+	 * Gets the wrapper handed to an extension for a session owned by this
+	 * extension host, creating it on first use.
+	 */
+	private getManagedSession(session: positron.LanguageRuntimeSession, requestingExtensionId: string): positron.LanguageRuntimeSession {
+		let wrappers = this._managedSessions.get(session);
+		if (!wrappers) {
+			wrappers = new Map();
+			this._managedSessions.set(session, wrappers);
+		}
+		let wrapper = wrappers.get(requestingExtensionId);
+		if (!wrapper) {
+			wrapper = createManagedRuntimeSession(session, requestingExtensionId, this._proxy);
+			wrappers.set(requestingExtensionId, wrapper);
+		}
+		return wrapper;
+	}
+
+	private getRuntimeSessionInterface(requestingExtensionId: string, session?: extHostProtocol.IActiveRuntimeSessionMetadataDto): positron.BaseLanguageRuntimeSession | undefined {
 		// If there's no session, return undefined
 		if (!session) {
 			return undefined;
@@ -1531,10 +1598,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		const sessionId = session.metadata.sessionId;
 
-		// Check to see if we already have this session
+		// Check to see if we already have this session. Hand out a wrapper
+		// rather than the session itself, so that lifecycle operations on it
+		// route through Positron core.
 		const existing = this._runtimeSessions.find(s => s.metadata.sessionId === sessionId);
 		if (existing) {
-			return existing;
+			return this.getManagedSession(existing, requestingExtensionId);
 		}
 
 		// The session doesn't exist on this host. Check to see if we have a
@@ -1588,19 +1657,20 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @returns The current foreground session, if any
 	 */
-	public async getForegroundSession(): Promise<positron.BaseLanguageRuntimeSession | undefined> {
+	public async getForegroundSession(requestingExtensionId: string): Promise<positron.BaseLanguageRuntimeSession | undefined> {
 		const session = await this._proxy.$getForegroundSession();
-		return this.getRuntimeSessionInterface(session);
+		return this.getRuntimeSessionInterface(requestingExtensionId, session);
 	}
 
 	/**
 	 * Get the language runtime session associated with a notebook, if any.
 	 * @param notebookUri the URI of the notebook
+	 * @param requestingExtensionId The ID of the extension making the request.
 	 * @returns The session associated with the notebook, if any
 	 */
-	public async getNotebookSession(notebookUri: URI): Promise<positron.BaseLanguageRuntimeSession | undefined> {
+	public async getNotebookSession(notebookUri: URI, requestingExtensionId: string): Promise<positron.BaseLanguageRuntimeSession | undefined> {
 		const session = await this._proxy.$getNotebookSession(notebookUri);
-		return this.getRuntimeSessionInterface(session);
+		return this.getRuntimeSessionInterface(requestingExtensionId, session);
 	}
 
 	/**
@@ -1905,17 +1975,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (!session) {
 			throw new Error(`Session ID '${sessionId}' not found.`);
 		}
-		return session;
+		return this.getManagedSession(session, requestingExtensionId);
 	}
 
 	/**
-	 * Restarts an active session.
+	 * Restarts an active session, offering to interrupt it first if it is busy.
 	 *
 	 * @param sessionId The session ID to restart.
 	 * @param requestingExtensionId The ID of the extension that requested the restart.
 	 */
 	public restartSession(sessionId: string, requestingExtensionId: string): Promise<boolean> {
-		return this._proxy.$restartSession(sessionId, requestingExtensionId);
+		return this._proxy.$restartSession(sessionId, requestingExtensionId, true);
 	}
 
 	/**

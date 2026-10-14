@@ -22,7 +22,7 @@ import { IQuartoExecutionManager } from '../../../../contrib/positronQuarto/comm
 import { IRuntimeNotebookKernelService } from '../../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeExitReason } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { IPositronConnectionsService } from '../../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -288,17 +288,33 @@ describe('MainThreadLanguageRuntime - extension-requested sessions', () => {
 		]);
 	});
 
-	it('passes the calling extension to a restart', async () => {
+	it('passes the calling extension and interrupt choice to a restart', async () => {
 		const restartSession = vi.fn<IRuntimeSessionService['restartSession']>(async () => true);
 		const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
 			registerSessionManager: () => Disposable.None,
 			restartSession,
 		}));
 
-		await mainThread.$restartSession('session-1', 'positron.positron-run-app');
+		await mainThread.$restartSession('session-1', 'positron.positron-run-app', true);
+		await mainThread.$restartSession('session-1', 'positron.positron-run-app', false);
 
-		expect(restartSession.mock.calls[0]).toEqual([
-			'session-1', 'Extension-requested runtime restart via Positron API', true, 'positron.positron-run-app']);
+		expect(restartSession.mock.calls).toEqual([
+			['session-1', 'Extension-requested runtime restart via Positron API', true, 'positron.positron-run-app'],
+			['session-1', 'Extension-requested runtime restart via Positron API', false, 'positron.positron-run-app'],
+		]);
+	});
+
+	it('routes a shutdown through the session service', async () => {
+		const shutdownSession = vi.fn<IRuntimeSessionService['shutdownSession']>(async () => { });
+		const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
+			registerSessionManager: () => Disposable.None,
+			shutdownSession,
+		}));
+
+		await mainThread.$shutdownSession('session-1', RuntimeExitReason.Shutdown);
+
+		expect(shutdownSession.mock.calls).toEqual([
+			['session-1', RuntimeExitReason.Shutdown, 'Extension-requested runtime shutdown via Positron API']]);
 	});
 
 	it('attributes code to the calling extension and the kernel that sent it, ignoring caller-supplied values', async () => {

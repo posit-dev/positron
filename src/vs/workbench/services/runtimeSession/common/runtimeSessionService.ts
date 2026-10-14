@@ -1206,6 +1206,22 @@ export interface IRuntimeSessionService {
 	shutdownNotebookSession(notebookUri: URI, exitReason: RuntimeExitReason, source: string): Promise<void>;
 
 	/**
+	 * Shut down a runtime session, leaving it registered (unlike
+	 * `deleteSession`).
+	 *
+	 * Concurrent requests to shut down the same session are coalesced, and
+	 * the returned promise resolves only once the session has ended (its
+	 * `onDidEndSession` event has fired).
+	 *
+	 * @param sessionId The identifier of the session to shut down.
+	 * @param exitReason The reason for exiting.
+	 * @param source The source of the request to shutdown the session, for debugging purposes.
+	 * @returns A promise that resolves when the session has exited. Rejects if
+	 *  the session is not found or does not exit in time.
+	 */
+	shutdownSession(sessionId: string, exitReason: RuntimeExitReason, source: string): Promise<void>;
+
+	/**
 	 * Updates the URI of a notebook session to maintain session continuity when
 	 * a notebook is saved under a new URI.
 	 *
