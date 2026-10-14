@@ -7,7 +7,12 @@
 	display: flex;
 	flex-direction: row;
 	column-gap: 2px;
-	align-items: center;
+	/* Keep the icon on the first line when the text wraps. */
+	align-items: flex-start;
+}
+
+.flow-step .flow-formatted-text-icon {
+	flex-shrink: 0;
 }
 
 .flow-step .flow-formatted-text-info {

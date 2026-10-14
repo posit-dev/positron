@@ -339,6 +339,8 @@ async function bundleIPykernel() {
         './python_files/ipykernel_requirements/py3-requirements.txt',
     ]);
 
+    await removeJedi();
+
     // On macOS, different packages have different wheel availability:
     // - cp3-requirements (psutil, tornado): Only have arch-specific abi3 wheels (no universal2)
     // - cpx-requirements (pyzmq): Only have universal2 wheels (no arch-specific)
@@ -568,6 +570,19 @@ async function removeTornadoTestFolder(arch) {
         fancyLog.error('Error removing tornado test folder from', ansiColors.cyan(tornadoTestPath), ':', error);
         // Don't fail the build if we can't remove the test folder
     }
+}
+
+/**
+ * IPython requires jedi (which requires parso), but only IPython's completer
+ * uses it, and only for a Jupyter `complete_request`. Positron never sends one:
+ * completions come from the language server. Without jedi, IPython falls back
+ * to its other matchers. Jedi and its typeshed stubs are about 1,900 files.
+ * See https://github.com/posit-dev/positron/issues/16025.
+ */
+async function removeJedi() {
+    const py3Path = path.join(__dirname, 'python_files/lib/ipykernel/py3');
+    fancyLog('Removing jedi and parso from:', ansiColors.cyan(py3Path));
+    await del(['jedi', 'jedi-*.dist-info', 'parso', 'parso-*.dist-info'], { cwd: py3Path });
 }
 // --- End Positron ---
 

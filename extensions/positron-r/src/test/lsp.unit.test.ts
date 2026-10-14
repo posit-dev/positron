@@ -26,8 +26,9 @@ suite('Session manager', () => {
 
 			const [_ses2, ses2Disposable, ses2Lsp] = await testKit.startR();
 
-			// Session 1 now offline
+			// Session 1 now offline, and no longer serving anything
 			assert.deepStrictEqual(states.pop(), [1, ArkLspState.Running, ArkLspState.Stopped]);
+			assert.strictEqual(ses1Lsp.activationDisposableCount, 0);
 
 			// Session 2 now online
 			assert.strictEqual(ses2Lsp.state, ArkLspState.Running);
@@ -42,16 +43,31 @@ suite('Session manager', () => {
 			// Session 2 now offline
 			assert.deepStrictEqual(states.pop(), [2, ArkLspState.Running, ArkLspState.Stopped]);
 
-			// The LSP of the first session eventually goes back online
-			testKit.pollForSuccess(() => {
+			// The LSP of the first session eventually goes back online, with its
+			// registrations restored
+			await testKit.pollForSuccess(() => {
 				assert.strictEqual(ses1Lsp.state, ArkLspState.Running);
 			});
+			assert.notStrictEqual(ses1Lsp.activationDisposableCount, 0);
+		});
+	});
 
-			// We would expect the following but currently we start the LSP client
-			// anew on each activation, so the event handler is no longer active.
-			// This test would allow us to robustly check for event ordering.
+	test('should stop serving when the client stops without deactivation', async () => {
+		await testKit.withDisposables(async (disposables) => {
+			const [_ses, sesDisposable, sesLsp] = await testKit.startR();
+			disposables.push(sesDisposable);
 
-			// assert.deepStrictEqual(states.pop(), [1, State.Stopped, State.Running]);
+			assert.strictEqual(sesLsp.state, ArkLspState.Running);
+			assert.notStrictEqual(sesLsp.activationDisposableCount, 0);
+
+			// Stop the client the way a server crash does: the session layer
+			// never calls `deactivate()` on a wrapper that is no longer running.
+			sesLsp.stopClientForTesting();
+
+			await testKit.pollForSuccess(() => {
+				assert.strictEqual(sesLsp.state, ArkLspState.Stopped);
+			});
+			assert.strictEqual(sesLsp.activationDisposableCount, 0);
 		});
 	});
 });

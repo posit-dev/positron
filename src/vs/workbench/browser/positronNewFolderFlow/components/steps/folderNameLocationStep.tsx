@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -25,6 +25,8 @@ import { PathDisplay } from '../pathDisplay.js';
 import { useDebouncedValidator } from '../../../positronComponents/positronModalDialog/components/useDebouncedValidator.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../../../utils/path.js';
 import { ActionBarButtonConfig } from '../../../positronComponents/positronModalDialog/components/okCancelBackNextActionBar.js';
+import { checkCanCreateFolderIn } from '../../../utils/createFolder.js';
+import { URI } from '../../../../../base/common/uri.js';
 
 // OK button configuration interface.
 interface OKButtonConfig {
@@ -55,6 +57,8 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 	const [folderName, setFolderName] = useState(context.folderName);
 	const [parentFolder, setParentFolder] = useState(() => pathUriToLabel(context.parentFolder, labelService));
 	const [folderNameFeedback, setFolderNameFeedback] = useState(context.folderNameFeedback);
+	// Set by the location check that runs when Next or Create is pressed.
+	const [locationError, setLocationError] = useState<string | undefined>(undefined);
 	const [maxFolderPathLength, setMaxFolderPathLength] = useState(() => getMaxFolderPathLength(parentFolder.length));
 	// TODO: Merge `nameValidationErrorMsg` and `parentPathErrorMsg` with the `checkProjectName()`
 	// function.
@@ -65,12 +69,20 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 		})
 	});
 	const isInvalidName = nameValidationErrorMsg !== undefined;
+	// Checks that the location exists and that the user can create a folder in it. Memoized, so the
+	// debounced validation reruns when the location changes, not on every render.
+	const validateLocation = useCallback(async (pathUri: URI) =>
+		await checkIfURIExists(pathUri, fileService) ??
+		await checkCanCreateFolderIn(pathUri, context.services),
+		[context, fileService]
+	);
+	const validateParentFolder = useCallback(async (folder: string) =>
+		validateLocation(await combineLabelWithPathUri(folder, context.parentFolder, pathService)),
+		[context, pathService, validateLocation]
+	);
 	const parentPathErrorMsg = useDebouncedValidator({
 		value: parentFolder,
-		validator: async folder => {
-			const pathUri = await combineLabelWithPathUri(folder, context.parentFolder, pathService);
-			return checkIfURIExists(pathUri, fileService);
-		}
+		validator: validateParentFolder
 	});
 	const isInvalidParentPath = parentPathErrorMsg !== undefined;
 
@@ -116,6 +128,7 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 
 	// Update the project name and the project name feedback.
 	const onChangeProjectName = async (name: string) => {
+		setLocationError(undefined);
 		context.folderName = name.trim();
 		const parentFolderUri = await combineLabelWithPathUri(
 			parentFolder,
@@ -134,6 +147,7 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 		// Update the parent folder component state. The parent folder URI will be updated in the
 		// context when the user navigates to the next step.
 		setParentFolder(folder);
+		setLocationError(undefined);
 
 		// Check that the project name is still valid.
 		const parentFolderUri = await combineLabelWithPathUri(
@@ -157,10 +171,20 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 		);
 	};
 
+	// Next and Create can be pressed before the debounced location validation finishes, so the
+	// location is checked again here.
+	const updateAndCheckLocation = async () => {
+		await updateParentFolder();
+		const error = await validateLocation(context.parentFolder);
+		setLocationError(error);
+		return error === undefined;
+	};
+
 	// Navigate to the next step in the flow, based on the selected project type.
 	const nextStep = async () => {
-		// Update the parent folder URI in the context before navigating to the next step.
-		await updateParentFolder();
+		if (!await updateAndCheckLocation()) {
+			return;
+		}
 
 		switch (context.folderTemplate) {
 			case FolderTemplate.RProject:
@@ -208,8 +232,9 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 		okNextButtonConfig = {
 			okButtonConfig: {
 				onClick: async () => {
-					await updateParentFolder();
-					props.accept();
+					if (await updateAndCheckLocation()) {
+						props.accept();
+					}
 				},
 				disable: okNextButtonDisabled,
 				title: localize(
@@ -268,9 +293,9 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 			</PositronFlowSubStep>
 			<PositronFlowSubStep
 				feedback={
-					parentPathErrorMsg ?
+					parentPathErrorMsg || locationError ?
 						<FlowFormattedText type={FlowFormattedTextType.Error}>
-							{parentPathErrorMsg}
+							{parentPathErrorMsg ?? locationError}
 						</FlowFormattedText> :
 						<FlowFormattedText type={FlowFormattedTextType.Info}>
 							{/* One span, so the path wraps with the sentence instead of beside it. */}
@@ -296,7 +321,7 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 			>
 				<LabeledFolderInput
 					skipValidation
-					error={Boolean(parentPathErrorMsg)}
+					error={Boolean(parentPathErrorMsg || locationError)}
 					label={localize(
 						'folderNameLocationSubStep.parentFolder.description',
 						"Select the location of your new {0} folder",
