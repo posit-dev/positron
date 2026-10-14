@@ -48,10 +48,10 @@ jobs:
         with:
           client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
           private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
-          permission-actions: read
+          # permission-actions: read
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: read
+          # permission-issues: write
           permission-members: read
           owner: posit-dev
           repositories: positron
