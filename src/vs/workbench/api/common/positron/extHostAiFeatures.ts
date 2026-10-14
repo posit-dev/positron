@@ -76,6 +76,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$isProviderEnabled(id);
 	}
 
+	async getProviderBaseUrl(id: string): Promise<string | undefined> {
+		return this._proxy.$getProviderBaseUrl(id);
+	}
+
 	async getAgentAllowedCommands(options?: { includeDisabled?: boolean }): Promise<extHostProtocol.ISerializedAgentCommand[]> {
 		return this._proxy.$getAgentAllowedCommands(options);
 	}

@@ -31,7 +31,7 @@ suite('model / getLLMConfiguration', () => {
 
 	setup(() => {
 		getSession = sinon.stub(vscode.authentication, 'getSession');
-		sinon.stub(configModule, 'getGatewayBaseUrl').returns(BASE_URL);
+		sinon.stub(configModule, 'getGatewayBaseUrl').resolves(BASE_URL);
 		getSelectedModelId = sinon.stub(configModule, 'getSelectedCompletionModelId').returns('');
 		fetchStub = sinon.stub(globalThis, 'fetch');
 		// Deterministic weighted selection: random=0 always picks the first model.

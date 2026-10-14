@@ -492,6 +492,7 @@ export interface MainThreadAiFeaturesShape {
 	$getCurrentPlotUri(): Promise<string | undefined>;
 	$generateAssistantPrompt(request: IGenerateAssistantPromptRequest): Thenable<string>;
 	$isProviderEnabled(id: string): Thenable<boolean>;
+	$getProviderBaseUrl(id: string): Thenable<string | undefined>;
 	$getAgentAllowedCommands(options?: { includeDisabled?: boolean }): Promise<ISerializedAgentCommand[]>;
 	$validateAndExecuteCommand(
 		commandId: string,

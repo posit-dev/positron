@@ -187,9 +187,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	return {
 		getLogs: () => log.formatEntriesForDiagnostics(),
-		// Lets `next-edit-suggestions` read a resolved connection value without
-		// duplicating the catalog here.
-		getResolvedProviderBaseUrl: (catalogId: string) => getCachedProvider(catalogId)?.connection.baseUrl,
 		// Lets the Snowflake and Databricks data connection drivers offer a "Workbench managed
 		// credentials" mechanism without parsing Workbench's credential files themselves.
 		managedCredentials: createManagedCredentialsApi(),

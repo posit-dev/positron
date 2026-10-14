@@ -4620,6 +4620,15 @@ declare module 'positron' {
 		 */
 		export function isProviderEnabled(id: string): Thenable<boolean>;
 
+		/**
+		 * The resolved base URL for the provider with the given CATALOG id
+		 * (e.g. 'positai'), after ai-config applies every layer: enforced
+		 * settings, environment variables, providers.json, admin defaults, and
+		 * built-in defaults. Undefined for unknown ids or providers without a
+		 * base URL.
+		 */
+		export function getProviderBaseUrl(id: string): Thenable<string | undefined>;
+
 		/** Fires when a provider's catalog enablement flips. Ids are catalog ids. */
 		export const onDidChangeProviderEnablement: vscode.Event<{ readonly id: string; readonly enabled: boolean }>;
 

@@ -551,6 +551,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			isProviderEnabled(id: string): Thenable<boolean> {
 				return extHostAiFeatures.isProviderEnabled(id);
 			},
+			getProviderBaseUrl(id: string): Thenable<string | undefined> {
+				return extHostAiFeatures.getProviderBaseUrl(id);
+			},
 			getAgentAllowedCommands(options?: positron.ai.GetAgentAllowedCommandsOptions): Thenable<positron.ai.AgentCommand[]> {
 				return extHostAiFeatures.getAgentAllowedCommands(options);
 			},

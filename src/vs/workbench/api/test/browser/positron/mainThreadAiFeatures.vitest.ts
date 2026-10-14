@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -44,6 +45,7 @@ describe('MainThreadAiFeatures', () => {
 			whenInitialized,
 			getProviders: () => catalog,
 			isEnabled: (id: string) => catalog.find(p => p.id === id)?.enabled ?? false,
+			getProvider: (id: string) => catalog.find(p => p.id === id),
 			onDidChangeProviders: onDidChangeProviders.event,
 		});
 		const extHostContext = stubInterface<IExtHostContext>({
@@ -85,6 +87,18 @@ describe('MainThreadAiFeatures', () => {
 
 		await expect(mainThread.$isProviderEnabled('copilot')).resolves.toBe(true);
 		await expect(mainThread.$isProviderEnabled('unknown')).resolves.toBe(false);
+	});
+
+	it('$getProviderBaseUrl waits for initialization then reads the catalog', async () => {
+		const initialized = new DeferredPromise<void>();
+		const mainThread = await createMainThread([], initialized.p);
+
+		const baseUrl = mainThread.$getProviderBaseUrl('positai');
+		catalog = [{ ...resolvedProvider('positai', true), connection: { baseUrl: 'https://example.test' } }];
+		initialized.complete();
+
+		await expect(baseUrl).resolves.toBe('https://example.test');
+		await expect(mainThread.$getProviderBaseUrl('unknown')).resolves.toBeUndefined();
 	});
 
 	it('forwards a flipped enablement to the extension host', async () => {

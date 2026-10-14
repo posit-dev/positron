@@ -144,6 +144,14 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
+	 * Return a provider's resolved base URL (identified by its catalog id).
+	 */
+	async $getProviderBaseUrl(id: string): Promise<string | undefined> {
+		await this._aiProviderService.whenInitialized;
+		return this._aiProviderService.getProvider(id)?.connection.baseUrl;
+	}
+
+	/**
 	 * Return the curated set of Positron commands available to AI agents.
 	 */
 	async $getAgentAllowedCommands(options?: { includeDisabled?: boolean }): Promise<ISerializedAgentCommand[]> {

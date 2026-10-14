@@ -135,7 +135,7 @@ export async function getLLMConfiguration(): Promise<LLMConfig | null> {
 		return null;
 	}
 
-	const baseUrl = getGatewayBaseUrl();
+	const baseUrl = await getGatewayBaseUrl();
 	const selectedModelId = getSelectedCompletionModelId();
 
 	let model: CompletionModel | undefined;
