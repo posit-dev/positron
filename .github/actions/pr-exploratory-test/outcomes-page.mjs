@@ -12,18 +12,18 @@ import { fileURLToPath } from 'node:url';
 import { REPO_URL, SEVERITY_LABEL } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
 import { escapeHtml, safeUrl } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
 
-// In this order everywhere. `group` is the evidence filter: fixed, filed, not fixed, or not counted yet;
-// `short` names it in severity rows.
+// In this order everywhere. `group` is the evidence filter: fixed, filed, not fixed, or no outcome yet;
+// `def` explains it under the bar, `brief` under its evidence group.
 const OUTCOMES = [
-	{ key: 'fixed-in-pr', label: 'Fixed in the PR', group: 'fixed', def: 'A commit pushed to the PR after the run fixed it.' },
-	{ key: 'fixed-later', label: 'Fixed later', group: 'fixed', def: 'Fixed on main after the merge, or its issue was closed as completed.' },
-	{ key: 'filed-issue', label: 'Filed as issue', short: 'filed as issue', group: 'filed', def: 'An issue matching the finding was opened after the run, and nothing has fixed it yet.' },
-	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged or closed with no fix. Moves to Filed as issue or Fixed later if that happens afterwards.' },
-	{ key: 'pending', label: 'PR still open', short: 'still open', group: 'open', def: 'The PR hasn\'t merged yet. These count once it merges or closes.' },
-	{ key: 'unclear', label: 'Unclear', short: 'unclear', group: 'open', def: 'A check failed or the model couldn\'t say.' },
-	{ key: 'no-paths', label: 'No files named', short: 'no files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.' },
+	{ key: 'fixed-in-pr', label: 'Fixed in the PR', group: 'fixed', def: 'A commit pushed to the PR after the run fixed it.', brief: 'Fixed by a later commit on the PR.' },
+	{ key: 'fixed-later', label: 'Fixed later', group: 'fixed', def: 'Fixed on main after the merge, or its issue was closed as completed.', brief: 'Fixed on main after merging.' },
+	{ key: 'filed-issue', label: 'Filed as issue', group: 'filed', def: 'An issue matching the finding was opened after the run, and nothing has fixed it yet.', brief: 'Tracked in an issue, not fixed yet.' },
+	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged or closed with no fix. Moves to Filed as issue or Fixed later if that happens afterwards.', brief: 'Merged or closed without a fix.' },
+	{ key: 'pending', label: 'PR still open', group: 'open', def: 'The PR hasn\'t merged yet. These count once it merges or closes.', brief: 'Waiting for the PR to merge or close.' },
+	{ key: 'unclear', label: 'Unclear', group: 'open', def: 'A check failed or the model couldn\'t say.', brief: 'Couldn\'t tell from the diff.' },
+	{ key: 'no-paths', label: 'No files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.', brief: 'No files named, so main couldn\'t be checked.' },
 ];
-const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['not', 'Not fixed'], ['open', 'Not counted']];
+const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['not', 'Not fixed'], ['open', 'No outcome yet']];
 const DECIDED_BY = {
 	'diff+model': 'The diff, read by the model',
 	'issue+model': 'A matching issue, confirmed by the model',
@@ -37,8 +37,8 @@ const PRESETS = [['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['90d', 
 const TRIGGER = { auto: 'started automatically', explore: 'started by /explore' };
 const HERO_COLOR = { 'fixed-in-pr': '#3B7D4F', 'not-fixed': '#7D7568' };
 const INK = '#2B2A27';
-// Each severity needs about this many counted findings before their rates are worth comparing.
-const ENOUGH = 10;
+// Findings with a known outcome needed before the severities' rates are worth comparing.
+const ENOUGH = 20;
 const SEP = ' &middot; ';
 // The PR card's state pill, and what goes before its date.
 const PR_STATE = { merged: ['Merged', ''], open: ['Open', 'opened '], closed: ['Closed without merging', ''] };
@@ -48,6 +48,7 @@ const codeSpans = text => escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const day = (iso, year) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' } : {}), timeZone: 'UTC' });
 const time = (iso, year) => `<time datetime="${iso}">${day(iso, year)}</time>`;
+const isFixed = r => r.outcome === 'fixed-in-pr' || r.outcome === 'fixed-later';
 
 /** Counts for `rows`; rows marked `dupOf` are dropped first. */
 export function summarize(rows) {
@@ -69,16 +70,29 @@ export function splitEvidence(evidence) {
 	return { where: m[1], commits: m[1] === 'issue' ? [] : m[2].match(/\b[0-9a-f]{7,40}\b/g) ?? [], issue, text: text.slice(m[0].length) };
 }
 
-/** Stacked segments for `rows`, leaving out outcomes with none; the big bar's link to the evidence. */
-function segments(rows, { big = false } = {}) {
-	const s = summarize(rows);
+/** The big bar's segments, leaving out outcomes with none, each a link to its evidence. Narrow ones leave their label to the legend. */
+function segments(s) {
 	return OUTCOMES.filter(o => s.counts[o.key]).map(o => {
 		const n = s.counts[o.key];
-		const share = n / s.total;
-		return big
-			? `<a class="seg o-${o.key}" href="#evidence" data-filter="${o.group}" data-key="${o.key}" aria-label="${n} ${o.label}, show these findings">${n}${share >= 0.2 ? `<span>${o.label}</span>` : ''}</a>`
-			: `<span class="seg o-${o.key}" style="width:${+(share * 100).toFixed(2)}%">${n}</span>`;
+		return `<a class="seg o-${o.key}" href="#evidence" data-filter="${o.group}" data-key="${o.key}" aria-label="${n} ${o.label}, show these findings">${n}${n / s.total >= 0.2 ? `<span>${o.label}</span>` : ''}</a>`;
 	}).join('');
+}
+
+/** A severity or PR bar: known outcomes, a gap, then the ones with no outcome yet, so the green share of the first part is the % fixed. */
+function splitBar(rows) {
+	const s = summarize(rows);
+	const part = open => {
+		const present = OUTCOMES.filter(o => (o.group === 'open') === open && s.counts[o.key]);
+		const n = present.reduce((sum, o) => sum + s.counts[o.key], 0);
+		return n ? `<span class="part" style="flex:${n} 1 0">${present.map(o => `<span class="seg o-${o.key}" style="flex:${s.counts[o.key]} 1 0" title="${s.counts[o.key]} ${o.label}">${s.counts[o.key]}</span>`).join('')}</span>` : '';
+	};
+	return `<div class="grow bar mid">${part(false)}${part(true)}</div>`;
+}
+
+/** Merged, open or closed: from the PR's preview, else from its findings' outcomes. */
+function prState(pr, rows, prs) {
+	const list = rows.filter(r => r.pr === pr);
+	return prs[pr]?.state ?? (list.some(r => r.outcome === 'pending') ? 'open' : list.some(r => r.decidedBy === 'closed-unmerged') ? 'closed' : 'merged');
 }
 
 function triggers(rows) {
@@ -123,13 +137,16 @@ function rangeText({ from, to }, plain) {
 	return from === to ? t(to, true) : `${f(from, from.slice(0, 4) !== to.slice(0, 4))} &ndash; ${t(to, true)}`;
 }
 
-function header(rows, s) {
+function header(rows, s, prs) {
 	const inPr = s.counts['fixed-in-pr'];
+	const later = s.fixed - inPr;
 	const of = inPr === s.counted ? `<span class="green">all ${inPr}</span>` : `<span class="green">${inPr}</span> of ${s.counted}`;
-	const headline = s.counted ? `Developers fixed ${of} ${s.counted === 1 ? 'finding' : 'findings'} before merging.` : 'No PRs with findings have merged yet.';
-	const prs = new Set(rows.map(r => r.pr)).size;
-	const changed = new Set(rows.filter(r => r.outcome === 'fixed-in-pr' || r.outcome === 'fixed-later').map(r => r.pr)).size;
-	const unchecked = s.counts.unclear + s.counts['no-paths'];
+	const rate = inPr === s.counted ? '' : `<span class="muted"> (${pct(inPr, s.counted)})</span>`;
+	const headline = s.counted ? `Developers fixed ${of} ${s.counted === 1 ? 'finding' : 'findings'}${rate} before merging.` : 'No PRs with findings have merged yet.';
+	const when = !later ? 'before merging' : !inPr ? 'after merging' : `${inPr} before merging${SEP}${later} after`;
+	// Open PRs can't have a fix yet and closed ones never ship, so only merged PRs count.
+	const merged = [...new Set(rows.map(r => r.pr))].filter(pr => prState(pr, rows, prs) === 'merged');
+	const withFix = merged.filter(pr => rows.some(r => r.pr === pr && isFixed(r))).length;
 	const card = (label, num, side, note) => `<div class="card"><div class="label">${label}</div>`
 		+ `<div class="card-num">${num}<span class="side">${side}</span></div><div class="note">${note}</div></div>`;
 	if (!s.total) {
@@ -137,28 +154,27 @@ function header(rows, s) {
 	}
 	return `<div class="lede"><h1>Does /explore change what ships?</h1><p class="headline">${headline}</p></div>
 <div class="cards">
-${card('Issues fixed', `<span class="big green">${s.fixed}</span>`, `${inPr} in the PR${SEP}${s.fixed - inPr} later`, 'Problems developers fixed after /explore flagged them.')}
-${card('PRs changed', `<span class="big">${changed}</span>`, `of ${plural(prs, 'PR')}`, 'PRs where at least one /explore finding got fixed.')}
-${card('Still open', `<span class="big">${s.counts.pending}</span>`, s.counts.pending === 1 ? 'finding' : 'findings', 'Findings on PRs that haven\'t merged yet. They count once the PR merges or closes.'
-		+ (unchecked ? ` ${unchecked} more can't be checked (unclear or no files named).` : ''))}
+${card('Findings fixed', `<span class="big green">${s.fixed}</span>`, when, 'Flagged by /explore, then fixed.')}
+${merged.length ? card('PRs with fixes', `<span class="big">${withFix}</span>`, `of ${plural(merged.length, 'merged PR')}`, 'At least one finding fixed.')
+		: card('PRs with fixes', '<span class="big">&ndash;</span>', '', 'No PRs with findings have merged yet.')}
 </div>`;
 }
 
-function allBar(s, own) {
+function allBar(s) {
 	// Brackets and segments share the grid's columns, one per segment, so the brackets line up with the bar.
 	const present = OUTCOMES.filter(o => s.counts[o.key]);
 	const columns = present.map(o => `minmax(0, ${s.counts[o.key]}fr)`).join(' ');
 	const k = present.filter(o => o.group !== 'open').length;
 	const brackets = [
-		k ? `<div class="bracket counted" style="grid-column:1 / span ${k}"><b>Counted</b><span>${SEP}${s.counted}</span></div>` : '',
-		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>Not counted yet</b><span>${SEP}${s.notCounted}</span></div>` : '',
+		k ? `<div class="bracket counted" style="grid-column:1 / span ${k}"><b>Outcome known</b><span>${SEP}${s.counted}</span></div>` : '',
+		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>No outcome yet</b><span>${SEP}${s.notCounted}</span></div>` : '',
 	].join('');
-	const legend = present.map(o => `<span><i class="o-${o.key}"></i>${o.label}</span>`).join('');
-	// A share of counted findings, or a bare count for the rest so denominators don't mix.
+	const legend = present.filter(o => s.counts[o.key] / s.total < 0.2).map(o => `<span><i class="o-${o.key}"></i>${o.label}</span>`).join('');
+	// A share of the known outcomes, or a bare count for the rest so denominators don't mix.
 	const details = present.map(o => {
 		const n = s.counts[o.key];
 		const counted = o.group !== 'open';
-		const [hero, of] = counted ? [pct(n, s.counted), `${n} of ${s.counted} counted findings`] : [n, `${n === 1 ? 'finding' : 'findings'}, not counted yet`];
+		const [hero, of] = counted ? [pct(n, s.counted), `${n} of ${s.counted} findings with a known outcome`] : [n, `${n === 1 ? 'finding' : 'findings'}, no outcome yet`];
 		return `<div class="seg-detail" data-for="${o.key}" hidden><span class="hero" style="color:${HERO_COLOR[o.key] ?? INK}">${hero}</span>`
 			+ `<div><div class="what"><b>${o.label}</b><span>${SEP}${of}</span></div><div class="def">${escapeHtml(o.def)}</div></div></div>`;
 	}).join('');
@@ -166,7 +182,7 @@ function allBar(s, own) {
 <h2 id="all-h">Findings by outcome</h2>
 <div class="all" style="grid-template-columns:${columns}">
 <div class="brackets">${brackets}</div>
-<div class="bar big">${segments(own, { big: true })}</div>
+<div class="bar big">${segments(s)}</div>
 <div class="under" aria-live="polite"><div class="legend">${legend}</div>${details}</div>
 </div>
 </section>`;
@@ -177,36 +193,26 @@ function severityRows(own) {
 		const list = own.filter(r => r.severity === key);
 		return { label: SEVERITY_LABEL[key], list, s: summarize(list) };
 	});
-	const few = per.some(p => p.s.counted < ENOUGH) ? ' Too few so far to compare severities.' : '';
 	const rows = per.map(({ label, list, s }) => {
-		const rate = s.counted ? `<div class="pct green">${pct(s.fixed, s.counted)}</div>` : '<div class="pct none" aria-label="No data">&ndash;</div>';
-		const end = `<span class="end uncounted">${s.counted && s.notCounted ? `+${s.notCounted} not counted yet` : ''}</span>`;
-		if (!s.total) {
-			return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow empty">No ${label} findings in this period</div>${end}</div>`;
-		}
-		if (!s.counted) {
-			return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow empty">${plural(s.total, 'finding')}, none counted yet</div>${end}</div>`;
-		}
-		// Counted findings only, so the green share matches % fixed.
-		const segs = OUTCOMES.filter(o => o.group !== 'open' && s.counts[o.key])
-			.map(o => `<span class="seg o-${o.key}" style="flex:${s.counts[o.key]} 1 0" title="${s.counts[o.key]} ${o.label}">${s.counts[o.key]}</span>`).join('');
-		return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}<div class="grow bar mid">${segs}</div>${end}</div>`;
+		const rate = s.counted ? `<div class="pct"><span class="green">${pct(s.fixed, s.counted)}</span><span class="of">${s.fixed} of ${s.counted}</span></div>`
+			: '<div class="pct none" aria-label="No outcome yet">&ndash;</div>';
+		return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}${s.total ? splitBar(list) : `<div class="grow empty">No ${label} findings in this period</div>`}</div>`;
 	}).join('\n');
-	return `<section aria-labelledby="sev-h">
-<div class="sec-head"><h2 id="sev-h">Fix rate by severity</h2><p class="sub">% fixed = findings fixed (in the PR or later) &divide; findings on merged or closed PRs.${few}</p></div>
-<div class="rows sev-rows">
-<div class="grid-row cols" aria-hidden="true"><span class="name">Severity</span><span class="pct">% fixed</span><span class="grow">Outcomes</span><span class="end"></span></div>
+	const enough = summarize(own).counted >= ENOUGH;
+	const summary = enough ? per.filter(p => p.s.counted).map(p => `${p.label} ${pct(p.s.fixed, p.s.counted)}`).join(SEP) : 'Too few findings to compare yet';
+	return accordion('sev', 'By severity', summary, `<div class="rows sev-rows">
+<div class="grid-row cols" aria-hidden="true"><span class="name">Severity</span><span class="pct">% fixed</span><span class="grow">Outcomes</span></div>
 ${rows}
 </div>
-</section>`;
+<p class="foot">% fixed includes fixes made after merging. Findings with no outcome yet aren't in it.</p>`, '', enough);
 }
 
-/** A section that starts collapsed behind a full-width button in its heading. */
-function accordion(id, title, count, body, attrs = '') {
+/** A section behind a full-width button in its heading, collapsed unless `open`. */
+function accordion(id, title, count, body, attrs = '', open = false) {
 	return `<section aria-labelledby="${id}-h"${attrs}>
-<h2 id="${id}-h"><button type="button" class="acc" aria-expanded="false" aria-controls="${id}-body"><span>${title}<span class="count">${count}</span></span>`
+<h2 id="${id}-h"><button type="button" class="acc" aria-expanded="${open}" aria-controls="${id}-body"><span>${title}<span class="count">${count}</span></span>`
 		+ '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#5A5751" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l5 5 5-5"/></svg></button></h2>'
-		+ `\n<div class="acc-body" id="${id}-body" hidden>\n${body}\n</div>\n</section>`;
+		+ `\n<div class="acc-body" id="${id}-body"${open ? '' : ' hidden'}>\n${body}\n</div>\n</section>`;
 }
 
 function prRows(own) {
@@ -214,13 +220,11 @@ function prRows(own) {
 	for (const r of own) {
 		byPr.set(r.pr, [...(byPr.get(r.pr) ?? []), r]);
 	}
-	const rows = [...byPr].sort(([a, x], [b, y]) => y.length - x.length || b - a).map(([pr, list]) => {
-		const s = summarize(list);
-		const parts = [[s.fixed, 'fixed'], [s.counts['filed-issue'], 'filed as issue'], [s.counts['not-fixed'], 'not fixed'], [s.notCounted, 'open']].filter(([n]) => n).map(([n, what]) => `${n} ${what}`);
-		return `<div class="grid-row pr"><a class="name mono" href="${REPO_URL}/pull/${Number(pr)}" data-pr="${Number(pr)}">#${Number(pr)}</a><span class="pct small">${plural(list.length, 'finding')}</span>`
-			+ `<div class="grow bar mid">${segments(list)}</div><span class="end small">${parts.join(SEP)}</span></div>`;
-	}).join('\n');
-	return accordion('pr', 'By PR', plural(byPr.size, 'PR'), `<div class="rows">${rows}</div>`);
+	// Most findings first, then the newest PR.
+	const rows = [...byPr].sort(([a, x], [b, y]) => y.length - x.length || b - a).map(([pr, list]) =>
+		`<div class="grid-row pr"><a class="name mono" href="${REPO_URL}/pull/${Number(pr)}" data-pr="${Number(pr)}">#${Number(pr)}</a><span class="pct small">${plural(list.length, 'finding')}</span>${splitBar(list)}</div>`).join('\n');
+	const withFix = [...byPr.values()].filter(list => list.some(isFixed)).length;
+	return accordion('pr', 'By PR', `${plural(byPr.size, 'PR')}${SEP}${withFix} with fixes`, `<div class="rows">${rows}</div>`);
 }
 
 function findingRow(r, n) {
@@ -238,8 +242,8 @@ function findingRow(r, n) {
 		['Run', `<span class="mono">${escapeHtml(r.run)}#${escapeHtml(r.finding)}</span>${SEP}${TRIGGER[r.trigger] ?? 'trigger unknown'}${SEP}skill ${escapeHtml(r.skillVersion ?? '?')}${SEP}${escapeHtml(r.model ?? '?')}`],
 	].filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 	const links = [report ? `<a href="${escapeHtml(report)}">Open report</a>` : '', `<a href="${REPO_URL}/pull/${pr}" data-pr="${pr}">Open PR</a>`].join('');
-	return `<div class="finding"><button type="button" class="row" aria-expanded="false" aria-controls="d${n}">`
-		+ `<span class="num">${n}</span><span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}</span>`
+	return `<div class="finding" id="f${n}"><button type="button" class="row" aria-expanded="false" aria-controls="d${n}">`
+		+ `<span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}</span>`
 		+ `<span class="mono link" data-pr="${pr}">#${pr}</span><span class="sev">${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity ?? '')}</span><span class="sign" aria-hidden="true">+</span></button>`
 		+ `<div class="detail" id="d${n}" hidden>${ev.text ? `<p class="ev">${codeSpans(ev.text)}</p>` : ''}<dl>${dl}</dl><div class="links">${links}</div></div></div>`;
 }
@@ -249,7 +253,7 @@ function evidence(own, s) {
 	const groups = OUTCOMES.map(o => {
 		const items = own.filter(r => r.outcome === o.key);
 		return items.length
-			? `<div class="group" data-group="${o.group}"><div class="group-head"><h3><i class="o-${o.key}"></i>${o.label} <span class="n">${items.length}</span></h3><span class="small">${escapeHtml(o.def)}</span></div>`
+			? `<div class="group" data-group="${o.group}"><div class="group-head"><h3><i class="o-${o.key}"></i>${o.label} <span class="n">${items.length}</span></h3><span class="brief">${escapeHtml(o.brief)}</span></div>`
 			+ `<div class="rows">${items.map(r => findingRow(r, ++n)).join('\n')}</div></div>`
 			: '';
 	}).join('\n');
@@ -272,21 +276,21 @@ export function prCard(n, p) {
 
 
 /** The parts of the page that change with the date range: the button's dates, mixed triggers, the lede and cards, and the sections. */
-export function renderView(rows, { now, range }) {
+export function renderView(rows, { now, range, prs = {} }) {
 	const inRange = range.key === 'all' ? rows : rows.filter(r => {
 		const d = r.postedAt?.slice(0, 10);
 		return d && d >= range.from && d <= range.to;
 	});
 	const own = inRange.filter(r => !r.dupOf);
 	const s = summarize(inRange);
-	const body = s.total ? [allBar(s, own), severityRows(own), `<div class="accordion">\n${prRows(own)}\n${evidence(own, s)}\n</div>`] : [];
-	return { label: rangeText(range), triggers: triggers(own), head: header(own, s), body: body.join('\n') };
+	const body = s.total ? [allBar(s), `<div class="accordion">\n${severityRows(own)}\n${prRows(own)}\n${evidence(own, s)}\n</div>`] : [];
+	return { label: rangeText(range), triggers: triggers(own), head: header(own, s, prs), body: body.join('\n') };
 }
 
 const runDates = rows => rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, pct, codeSpans, plural, day, time, summarize, splitEvidence, segments, triggers, minusDays, isDay, resolveRange, rangeText, header, allBar, severityRows, accordion, prRows, findingRow, evidence, renderView, prCard };
+const VIEW_FNS = { escapeHtml, safeUrl, pct, codeSpans, plural, day, time, isFixed, summarize, splitEvidence, segments, splitBar, prState, triggers, minusDays, isDay, resolveRange, rangeText, header, allBar, severityRows, accordion, prRows, findingRow, evidence, renderView, prCard };
 export const VIEW_SOURCE = [
 	...Object.entries({ SEVERITY_LABEL, REPO_URL, OUTCOMES, FILTERS, DECIDED_BY, PRESETS, TRIGGER, HERO_COLOR, INK, ENOUGH, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
@@ -309,12 +313,12 @@ const CSS = `
 body{margin:0;background:#F5F4F0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#2B2A27}
 a{color:#2F6B55}a:not(.seg):hover{color:#1F4D3D}a.updated:hover{color:#2F6B55;text-decoration:underline;text-underline-offset:3px}
 main{padding:56px 24px 96px}
-.page{width:100%;max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:64px}
-.mono,.n,code,.chip,.seg,.num,.sign{font-family:'IBM Plex Mono',monospace}
+.page{width:100%;max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+.mono,.n,code,.chip,.seg,.sign{font-family:'IBM Plex Mono',monospace}
 h1,h2{font-family:'Source Serif 4',Georgia,serif;margin:0}
 h1{font-size:46px;line-height:1.1;font-weight:500;letter-spacing:-0.01em}
 h2{font-size:24px;line-height:1.3;font-weight:600}
-.green{color:#3B7D4F;font-weight:600}
+.green{color:#3B7D4F;font-weight:600}.muted{color:#6B6862;font-weight:400}
 .small{font-size:13px;color:#5A5751}
 .label,.bracket b,.cols{font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase}
 header{display:flex;flex-direction:column}
@@ -333,17 +337,15 @@ header{display:flex;flex-direction:column}
 .custom{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:6px 8px;padding:8px 10px 6px;font-size:13px;color:#5A5751}
 .custom input{min-height:32px;padding:0 8px;border:1px solid #D6D2C8;border-radius:6px;background:#F5F4F0;color:#2B2A27;font:13px 'IBM Plex Sans',sans-serif}
 .chip-cmd{font-family:'IBM Plex Mono',monospace;font-weight:500;color:#2B2A27;background:#ECE9E2;padding:4px 8px;border-radius:4px}
-.lede{display:flex;flex-direction:column;gap:8px;max-width:760px;margin-bottom:40px}
+.lede{display:flex;flex-direction:column;gap:8px;max-width:760px;margin-bottom:32px}
 .headline{margin:0;font-size:22px;line-height:1.4;font-weight:500}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px}
 .card{padding:20px 24px;background:#FBFAF7;border:1px solid #E4E1D9;border-radius:10px;display:flex;flex-direction:column;gap:8px}
 .label{color:#5A5751}
 .card-num{display:flex;align-items:baseline;gap:10px}
 .card-num .big{font-size:40px;font-weight:600;line-height:1}
 .side,.note{font-size:14px;line-height:1.45;color:#5A5751}
 section{display:flex;flex-direction:column;gap:16px}
-.sec-head{display:flex;flex-direction:column;gap:4px}
-.sub{margin:0;font-size:14px;color:#6B6862}
 .all{display:grid;column-gap:3px;row-gap:8px}
 .brackets,.bar.big{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}
 .under{grid-column:1 / -1}
@@ -354,7 +356,8 @@ section{display:flex;flex-direction:column;gap:16px}
 .bracket.not-counted{border-bottom:2px solid #B5B1A7}.bracket.not-counted b{color:#5A5751}
 .bar{display:flex;min-width:0}
 .bar.big{height:56px}
-.bar.mid{height:24px;gap:2px}
+.bar.mid{height:24px;gap:8px}
+.part{display:flex;gap:2px;min-width:0}.part .seg{min-width:0}
 .seg{box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;border-radius:3px;font-size:12px}
 .bar.big .seg{border-radius:0;gap:10px;padding:0;font-size:18px;font-weight:500;text-decoration:none;transition:opacity .15s}
 .bar.big .seg:has(span){justify-content:flex-start;padding:0 12px}
@@ -383,12 +386,13 @@ i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-s
 .rows{display:flex;flex-direction:column;border-top:1px solid #2B2A27}
 .grid-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px;padding:12px 0;box-sizing:border-box;border-bottom:1px solid #E4E1D9}
 .grid-row .name{flex:0 0 120px}.grid-row .pct{flex:0 0 160px}.grid-row .grow{flex:1 1 280px;min-width:0}
-.grid-row .end{flex:0 0 240px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right}
+.rows>:last-child{border-bottom:0}
 .cols{padding:0 0 8px;color:#6B6862;border-bottom:1px solid #2B2A27}
 .sev-rows{border-top:0}
-.sev-row{min-height:64px}.sev-row .seg{min-width:0}
-.uncounted{font-size:13px;color:#7A766F;white-space:nowrap}.sev-row .name{font-size:16px;font-weight:600}
-.sev-row .pct{font-size:28px;line-height:1}.sev-row .pct.none{font-size:18px;font-weight:400;color:#B5B1A7}
+.sev-row{min-height:56px}.sev-row .name{font-size:16px;font-weight:600}
+.sev-row .pct{display:flex;align-items:baseline;gap:8px}.sev-row .green{font-size:28px;line-height:1}.of{font-size:13px;color:#6B6862}
+.sev-row .pct.none{font-size:18px;line-height:1;font-weight:400;color:#B5B1A7}
+.foot{margin:12px 0 0;font-size:13px;color:#7A766F}
 .empty{font-size:13px;color:#7A766F}
 .pr{min-height:56px}.pr .name{font-size:14px;font-weight:500}
 .accordion{display:flex;flex-direction:column;border-top:1px solid #E4E1D9}
@@ -407,16 +411,16 @@ i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-s
 .toggle-all{min-height:36px;padding:0;border:0;background:transparent;color:#2F6B55;font:500 13px 'IBM Plex Sans',sans-serif;cursor:pointer;text-decoration:underline}
 .group{display:flex;flex-direction:column}
 .group-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding-bottom:12px}
+.brief{font-size:13px;color:#7A766F}
 h3{margin:0;display:flex;align-items:center;gap:8px;font-size:16px;font-weight:600}
 .finding{border-bottom:1px solid #E4E1D9}
 .row{width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:12px 0;background:transparent;border:0;color:inherit;text-align:left;cursor:pointer;font:inherit;min-height:52px}
-.num{flex:0 0 28px;font-size:14px;color:#6B6862}
 .title{flex:1 1 380px;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:16px;line-height:1.4;font-weight:500}
 .maybe{font-size:12px;font-weight:400;color:#7A3E00;background:#FDF0E1;padding:2px 8px;border-radius:999px}
-.link{flex:0 0 72px;font-size:13px;color:#2F6B55}
-.sev{flex:0 0 80px;font-size:13px;color:#5A5751}
+.link{flex:0 0 72px;font-size:12px;color:#6B6862;text-decoration:underline dotted #C9C5BB;text-underline-offset:3px}
+.sev{flex:0 0 72px;font-size:12px;color:#7A766F}
 .sign{flex:0 0 20px;text-align:center;font-size:16px;color:#5A5751}
-.detail{padding:0 0 24px 44px;display:flex;flex-direction:column;gap:12px}
+.detail{margin:0 0 20px;padding:4px 0 4px 16px;border-left:2px solid #E4E1D9;display:flex;flex-direction:column;gap:12px}
 .ev{margin:0;font-size:15px;line-height:1.6;color:#3A3833;max-width:820px}
 code{font-size:13px;background:#ECE9E2;padding:1px 5px;border-radius:3px}
 dl{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 16px;font-size:13px;color:#5A5751;max-width:820px}
@@ -450,10 +454,13 @@ const from = $('#range-from');
 const to = $('#range-to');
 const findings = () => $$('.finding .row');
 const card = $('#pr-card');
+// Sections the reader opened or closed, kept across range changes; the rest follow each view's default.
+const chosen = {};
 let anchor = null;
 let openTimer;
 let closeTimer;
 const setOpen = (b, open) => { b.setAttribute('aria-expanded', open); const sign = b.querySelector('.sign'); if (sign) { sign.textContent = open ? '\\u2212' : '+'; } document.getElementById(b.getAttribute('aria-controls')).hidden = !open; };
+const toggle = (b, open) => { chosen[b.getAttribute('aria-controls')] = open; setOpen(b, open); };
 const sync = () => { $('.toggle-all').textContent = findings().some(b => b.getAttribute('aria-expanded') === 'true') ? 'Collapse all' : 'Expand all'; };
 const filter = key => {
 	$$('.filter').forEach(b => b.setAttribute('aria-pressed', b.dataset.filter === key));
@@ -462,15 +469,14 @@ const filter = key => {
 const show = key => { $$('.seg-detail').forEach(d => { d.hidden = d.dataset.for !== key; }); };
 const apply = (param, write) => {
 	const range = resolveRange(param, dates, data.now);
-	const view = renderView(data.rows, { now: data.now, range });
-	const open = $$('.acc[aria-expanded=true]').map(b => b.getAttribute('aria-controls'));
+	const view = renderView(data.rows, { now: data.now, range, prs: data.prs });
 	closeCard();
 	$('.range-label').innerHTML = view.label;
 	btn.setAttribute('aria-label', 'Date range: ' + $('.range-label').textContent);
 	$('.triggers').innerHTML = view.triggers;
 	$('.head').innerHTML = view.head;
 	$('.view').innerHTML = view.body;
-	open.forEach(id => { const b = $('.acc[aria-controls="' + id + '"]'); if (b) { setOpen(b, true); } });
+	Object.entries(chosen).forEach(([id, open]) => { const b = $('.acc[aria-controls="' + id + '"]'); if (b) { setOpen(b, open); } });
 	items.forEach(i => i.setAttribute('aria-checked', i.dataset.range === range.key));
 	$('.custom').hidden = range.key !== 'custom';
 	if (from.value !== range.from) { from.value = range.from; }
@@ -486,6 +492,9 @@ const setMenu = open => {
 	btn.setAttribute('aria-expanded', open);
 	if (open) { (items.find(i => i.getAttribute('aria-checked') === 'true') ?? items[0]).focus(); }
 };
+const built = $('.updated time');
+const at = new Date(built.dateTime);
+built.textContent = at.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + (at.getHours() % 12 || 12) + ':' + String(at.getMinutes()).padStart(2, '0') + (at.getHours() < 12 ? ' AM' : ' PM');
 btn.disabled = false;
 apply(new URLSearchParams(location.search).get('range'), false);
 btn.addEventListener('click', () => setMenu(menu.hidden));
@@ -556,8 +565,8 @@ document.addEventListener('click', e => {
 	const f = t.closest('.filter');
 	if (item && item.dataset.range === 'custom') { apply(from.value + '..' + to.value, true); from.focus(); }
 	else if (item) { apply(item.dataset.range, true); setMenu(false); btn.focus(); }
-	else if (seg(e)) { setOpen($('#ev-h .acc'), true); filter(seg(e).dataset.filter); }
-	else if (acc) { setOpen(acc, acc.getAttribute('aria-expanded') !== 'true'); }
+	else if (seg(e)) { toggle($('#ev-h .acc'), true); filter(seg(e).dataset.filter); }
+	else if (acc) { toggle(acc, acc.getAttribute('aria-expanded') !== 'true'); }
 	else if (row) { setOpen(row, row.getAttribute('aria-expanded') !== 'true'); sync(); }
 	else if (f) { filter(f.dataset.filter); }
 	else if (t.closest('.toggle-all')) { const open = t.textContent === 'Expand all'; findings().forEach(b => setOpen(b, open)); sync(); }
@@ -570,13 +579,19 @@ export function runUrl(env) {
 	return server && repo && id ? `${server}/${repo}/actions/runs/${id}` : `${REPO_URL}/actions/workflows/exploratory-outcomes.yml`;
 }
 
+/** "Oct 14, 9:05 AM" in UTC; the script switches it to the reader's time. */
+function clock(d) {
+	const h = d.getUTCHours();
+	return `<time datetime="${d.toISOString()}">${day(d.toISOString(), false)}, ${h % 12 || 12}:${String(d.getUTCMinutes()).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}</time>`;
+}
+
 /** The whole page for `rows`, as outcomes.mjs writes them: all time, which the script narrows to `?range=` (last 30 days by default). */
 export function renderOutcomesPage(rows, { now = new Date(), runUrl: run = runUrl({}) } = {}) {
 	const today = now.toISOString().slice(0, 10);
 	const dates = runDates(rows);
 	const range = resolveRange('all', dates, today);
-	const view = renderView(rows, { now: today, range });
 	const prs = Object.fromEntries(rows.filter(r => r.prPreview).map(r => [r.pr, r.prPreview]));
+	const view = renderView(rows, { now: today, range, prs });
 	const data = JSON.stringify({ rows: rows.map(({ prPreview, ...r }) => r), now: today, prs }).replace(/</g, '\\u003c');
 	const script = `${VIEW_SOURCE}\n${SCRIPT}`.replace(/<\/script/gi, '<\\/script');
 	return `<!doctype html>
@@ -588,7 +603,7 @@ export function renderOutcomesPage(rows, { now = new Date(), runUrl: run = runUr
 <noscript><style>.acc-body[hidden]{display:block}#ev-body[hidden]{display:flex;flex-direction:column;gap:32px}.detail[hidden]{display:flex}.controls,.acc svg{display:none}</style></noscript></head>
 <body><main><div class="page">
 <header>
-<div class="eyebrow"><span class="chip-cmd">/explore</span>${picker(range, dates, today)}<span class="triggers">${view.triggers}</span><a class="updated" href="${escapeHtml(run)}" title="Open the workflow run that built this report">Updated&nbsp;${time(today, true)}</a></div>
+<div class="eyebrow"><span class="chip-cmd">/explore</span>${picker(range, dates, today)}<span class="triggers">${view.triggers}</span><a class="updated" href="${escapeHtml(run)}" title="Open the workflow run that built this report">Updated&nbsp;${clock(now)}</a></div>
 <div class="head">${view.head}</div>
 </header>
 <div class="view">${view.body}</div>
