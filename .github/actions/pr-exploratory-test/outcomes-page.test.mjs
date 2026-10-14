@@ -145,11 +145,29 @@ test('severity rows always show Major, Moderate and Minor, with no fixed-of-coun
 	assert.match(t, /% fixed = findings fixed \(in the PR or later\) \/ findings on merged or closed PRs\. Too few so far to compare severities\./);
 	assert.match(t, /Severity % fixed Outcomes Major/);
 	assert.match(t, /Major - No Major findings in this period Moderate/);
-	assert.match(t, /Moderate 80% 4 1 3 Minor 71% 4 1 2 1 $/);
-	assert.doesNotMatch(t, /counted yet|of \d+ counted|Fixed of counted/);
+	assert.match(t, /Moderate 80% 4 1 \+3 not counted yet Minor 71% 4 1 2 \+1 not counted yet $/);
+	assert.doesNotMatch(t, /of \d+ counted|Fixed of counted/);
 	assert.doesNotMatch(section(html, 'sev-h'), /class="end"/);
 	assert.match(section(html, 'sev-h'), /aria-label="No data"/);
-	assert.match(text(section(render([row('pending', { severity: 'major' }), row('unclear', { severity: 'major' })]), 'sev-h')), /Major - 1 1 Moderate/);
+	assert.match(text(section(render([row('pending', { severity: 'major' }), row('unclear', { severity: 'major' })]), 'sev-h')), /Major - 2 findings, none counted yet Moderate/);
+});
+
+test('a severity bar holds counted findings only, so its green share is the % fixed', () => {
+	const sev = section(render(today), 'sev-h');
+	const moderate = sev.slice(sev.indexOf('>Moderate<')).split('sev-row')[0];
+	assert.deepEqual([...moderate.matchAll(/class="seg o-([a-z-]+)" style="flex:(\d+) 1 0" title="([^"]+)"/g)].map(m => [m[1], m[2], m[3]]),
+		[['fixed-in-pr', '4', '4 Fixed in the PR'], ['not-fixed', '1', '1 Not fixed']]);
+	assert.match(moderate, /<span class="uncounted">\+3 not counted yet<\/span>/);
+	assert.doesNotMatch(moderate, /o-pending|width:/);
+	assert.match(render(today), /\.sev-row \.seg\{min-width:0\}/);
+	assert.match(render(today), /\.uncounted\{flex:0 0 auto;font-size:12px;color:#7A766F;white-space:nowrap\}/);
+});
+
+test('the severity header has its ink rule under the labels, not above', () => {
+	const html = render(today);
+	assert.match(section(html, 'sev-h'), /<div class="rows sev-rows">\n<div class="grid-row cols"/);
+	assert.match(html, /\.cols\{padding:0 0 8px;color:#6B6862;border-bottom:1px solid #2B2A27\}/);
+	assert.match(html, /\.sev-rows\{border-top:0\}/);
 });
 
 test('enough counted findings in every severity drops the too-few note', () => {
