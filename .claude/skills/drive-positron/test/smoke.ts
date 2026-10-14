@@ -277,6 +277,9 @@ const cases: Case[] = [
 	{ name: 'ui click blocked by the filter popup', run: ['ui.sh', 'click', 'button', 'Add Filter', '--in', 'editor'], fail: true, check: o => (/\u001b|Call log|locator\(/.test(o.text) && `raw Playwright error: ${o.text.slice(0, 200)}`) || includes(o.json!.error, 'the click on button "Add Filter" in editor did not happen within 3 s: something drawn on top of it took the click; open on top: a dialog') },
 	{ name: 'ui choose condition in the filter popup', run: ['ui.sh', 'choose', 'button', 'Select Condition', 'is not empty', '--in', 'dialog'], check: o => includes(o.json!.trigger, 'Select Condition -> is not empty') },
 	{ name: 'ui click Apply Filter', run: ['ui.sh', 'click', 'button', 'Apply Filter', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
+	// The pointer comes from the closed popup: the toolbar button remounts its label on mouseenter, so click must let that run before pressing.
+	{ name: 'ui click Import Data right after the filter popup closed opens its dialog', run: ['ui.sh', 'click', 'button', 'Import Data', '--in', 'editor'], check: o => includes(o.json!.opened, 'a dialog: read it with ui.sh read dialog') },
+	{ name: 'ui click Cancel closes the Import Data dialog', run: ['ui.sh', 'click', 'button', 'Cancel', '--in', 'dialog'], check: o => includes(o.json!.note, 'the dialog closed') },
 
 	// ---- Notebook and Quarto
 	{ name: 'open-file notebook.ipynb', quick: true, run: ['open-file.sh', 'notebook.ipynb'] },
