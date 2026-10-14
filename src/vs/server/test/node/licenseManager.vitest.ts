@@ -8,7 +8,7 @@
 import { createHmac } from 'crypto';
 import { EventEmitter } from 'events';
 import { PassThrough } from 'stream';
-import { ILicenseManagerOptions, ILicenseManagerProcess, LicenseManager, parseLicenseManagerFrame } from '../../node/licenseManager.js';
+import { ILicenseManagerOptions, ILicenseManagerProcess, LicenseManager, parseLicenseManagerFrame, readLicenseArn } from '../../node/licenseManager.js';
 import { ensureNoLeakedDisposables } from '../../../test/vitest/vitestUtils.js';
 
 /** Stands in for the key. */
@@ -27,6 +27,17 @@ function expiredBody(ts: number = Date.now()): string {
 		'"product-key":"","shiny-users":"0","users":"0","user-activity-days":"0",' +
 		'"allow-apis":"","days-left":0,"has-key":false,"has-trial":false,' +
 		'"license-scope":"","sessions":"0","enable-launcher":"0","max-repo-count":"0"}';
+}
+
+const TEST_ARN = 'arn:aws:license-manager::111122223333:license:l-0123456789abcdef0123456789abcdef';
+
+/** The body `verify` prints: the lease fields plus the license ARN and name. */
+function verifyBody(arn: string = TEST_ARN, ts: number = Date.now()): string {
+	return `{"status":"activated","expiration":9999999999000,"ts":${ts},` +
+		'"shiny-users":"0","users":"51","user-activity-days":"0","allow-apis":"1",' +
+		'"days-left":8770,"has-key":false,"has-trial":false,"license-scope":"",' +
+		'"sessions":"0","enable-launcher":"1","max-repo-count":"0",' +
+		`"license-arn":"${arn}","license-name":"Test License"}`;
 }
 
 function digestOf(body: string, key: string = TEST_KEY): string {
@@ -101,6 +112,41 @@ describe('parseLicenseManagerFrame', () => {
 	it('ignores a truncated JSON line rather than throwing', () => {
 		const truncated = '{"status":"activa';
 		expect(parseLicenseManagerFrame(digestOf(truncated), truncated, TEST_KEY)).toBeUndefined();
+	});
+
+	it('decodes the license ARN when the frame carries one', () => {
+		const body = verifyBody();
+		expect(parseLicenseManagerFrame(digestOf(body), body, TEST_KEY)?.licenseArn).toBe(TEST_ARN);
+	});
+
+	it('leaves the license ARN unset when it is empty', () => {
+		const body = verifyBody('');
+		expect(parseLicenseManagerFrame(digestOf(body), body, TEST_KEY)).not.toHaveProperty('licenseArn');
+	});
+});
+
+describe('readLicenseArn', () => {
+	/** Runs a fake client that writes `output` to stdout and exits. */
+	function fakeVerify(output: string, exitCode: number = 0): Promise<string | undefined> {
+		const script = `process.stdout.write(${JSON.stringify(output)}); process.exitCode = ${exitCode};`;
+		return readLicenseArn(process.execPath, ['-e', script], TEST_KEY);
+	}
+
+	it('reads the ARN from the frame verify prints', async () => {
+		await expect(fakeVerify(frameOf(verifyBody()))).resolves.toBe(TEST_ARN);
+	});
+
+	it('returns undefined for a frame signed with another key', async () => {
+		const otherKey = 'ff'.repeat(32);
+		await expect(fakeVerify(frameOf(verifyBody(), otherKey))).resolves.toBeUndefined();
+	});
+
+	it('returns undefined when there is no digest line', async () => {
+		await expect(fakeVerify(`${verifyBody()}\n`)).resolves.toBeUndefined();
+	});
+
+	it('returns undefined when the client fails', async () => {
+		await expect(fakeVerify('', 1)).resolves.toBeUndefined();
 	});
 });
 

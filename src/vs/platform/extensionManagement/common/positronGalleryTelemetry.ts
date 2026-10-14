@@ -104,8 +104,8 @@ export function isP3MGalleryUrl(url: string): boolean {
  * `User-Agent` overrides, so a header-based approach would not work uniformly.
  *
  * `checkTrigger` is omitted from the URL when undefined (browse / non-update-check
- * traffic), and `positron-license-hash` when the session has no license file behind it
- * (desktop, and the license paths with nothing meaningful to hash). `positron-session-type`,
+ * traffic), and `positron-license-hash` when the session has no license to hash
+ * (desktop, and a per-connection Workbench token). `positron-session-type`,
  * `positron-version`, and `positron-is-academic` are always sent.
  */
 export function appendPositronGalleryParams(

@@ -9,8 +9,8 @@ import * as os from 'os';
 import * as path from '../../base/common/path.js';
 import * as crypto from 'crypto';
 import { FileAccess } from '../../base/common/network.js';
-import { LicenseManager } from './licenseManager.js';
-import { activateWithManager, verifyLocalLicense } from './localLicense.js';
+import { LicenseManager, readLicenseArn } from './licenseManager.js';
+import { activateWithManager, hashLicenseContents, verifyLocalLicense } from './localLicense.js';
 
 /** How a validated license was issued, where that matters downstream. */
 export type PositronLicenseKind =
@@ -36,11 +36,11 @@ export interface ILicenseValidationResult {
 	 */
 	kind?: PositronLicenseKind;
 	/**
-	 * A short, stable hash of the license file that licensed this deployment, reported to
+	 * A short, stable hash of the license that licensed this deployment, reported to
 	 * P3M as `positron-license-hash` so Posit can count session starts per license it
-	 * issued. Computed by `hashLicenseContents` in `localLicense.ts` and carried up
-	 * through the raw-license-file paths; a signed Workbench token is per-connection and
-	 * the AWS license manager exposes no key material, so neither of those sets it.
+	 * issued. Computed by `hashLicenseContents` in `localLicense.ts`: over the license
+	 * file on the raw-license-file paths, and over the AWS license ARN on SageMaker. A
+	 * signed Workbench token is per-connection, so that path does not set it.
 	 */
 	licenseHash?: string;
 }
@@ -400,5 +400,8 @@ async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseV
 	}
 
 	// The lease verified under the AWS license manager's key, so this deployment is on SageMaker.
-	return { valid: true, kind: 'sagemaker' };
+	// The ARN is hashed rather than sent as is, since it carries the customer's AWS account ID.
+	const licenseArn = await readLicenseArn(binaryPath);
+	const licenseHash = licenseArn ? hashLicenseContents(Buffer.from(licenseArn)) : undefined;
+	return licenseHash ? { valid: true, kind: 'sagemaker', licenseHash } : { valid: true, kind: 'sagemaker' };
 }
