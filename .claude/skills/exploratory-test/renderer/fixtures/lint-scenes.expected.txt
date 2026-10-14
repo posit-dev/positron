@@ -150,7 +150,7 @@ moderate | 1 | 2
 ==== a precondition done in the app, in the report
 `app.R` started with its Run Shiny App button
   -> app.R is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
-  -> report: Finding 1 precondition "app running" is done in the app ("started with"); do it as a step, and keep the precondition to the state before step 1
+  -> report: Finding 1 precondition "app running" is done in the app ("Run Shiny App"); do it as a step, and keep the precondition to the state before step 1
 `flask_app.py` running, then opened in an editor tab
   -> flask_app.py is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
   -> report: Finding 1 precondition "app running" is done in the app ("then opened"); do it as a step, and keep the precondition to the state before step 1
@@ -180,7 +180,7 @@ Variables loaded | S01 | `setup.py` run in the first Python session
   -> setup.py is named by S02 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
 app running | `app.R` started with Run Shiny App
   -> app.R is named by S02 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
-  -> ledger: S02 precondition "app running" is done in the app ("started with"); do it as a step, and keep the precondition to the state before step 1
+  -> ledger: S02 precondition "app running" is done in the app ("Run Shiny App"); do it as a step, and keep the precondition to the state before step 1
 `pd_ints` in the session | S01 | Defined in the Python console by S01 (files/ints.py)
   -> ledger: files/ints.py is named but not listed in ## Files
   -> ledger: S02 precondition "`pd_ints` in the session" is done in the app ("in the session"); do it as a step, and keep the precondition to the state before step 1
@@ -208,6 +208,16 @@ any URL shown in the Viewer, here the R Shiny app
   -> report: Finding 1 precondition "State" is done in the app ("shown in the"); do it as a step, and keep the precondition to the state before step 1
 the R Shiny app running in its Shiny console
   -> report: Finding 1 precondition "State" is a running app ("running in its Shiny console"); start it in the steps, with a check that it runs
+
+==== a precondition that says how an earlier scenario made its state, in a user's words
+An R 4.5.1 console, started with Start New Console Session
+  -> (none)
+A `Shop` SQLite connection saved from the Add Data Connection dialog
+  -> (none)
+A `conn` in the Python console, made by Connect With Python
+  -> (none)
+`orders` open in the Data Explorer, opened in S02
+  -> report: Finding 1 precondition "Made earlier" is done in the app ("opened in S02"); do it as a step, and keep the precondition to the state before step 1
 
 ==== a precondition that points at a step
 Python 3.12 with the polars version installed in step 2

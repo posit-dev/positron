@@ -20,12 +20,12 @@ export const RESULT_MAX = 160;
 // actions.log and a check can sit between any two. A lowercase verb after
 // "then" is a second action; a capitalized word is a menu item ("More, then Insert Cell Above").
 const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|ten|\d+) times|each of)\b/i;
-// A precondition saying how it was done in the app ("started with Run App", "then opened"): that is a step.
+// A precondition that is something done in the app ("then opened", a running Shiny app, "started in S03"): that is a step. Saying how an earlier scenario made a state ("a console started with ...") is allowed.
 // A scratch path the reader does not have; a workspace is named by what it holds.
 const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\/(?:Users|home)\/\S*)/;
 // An app already serving is what the steps start, so the reader sees it start.
 const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+|\brunning in (?:\w+ ){0,3}console\b/i;
-const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:(?:\w+\s+){0,3}?\w+ed|ran)|Run(?: Shiny)? App|shown in the|in the session|defined in the|still open|drew|(?:started|opened) (?:in|by) S\d+|S\d+ (?:started|drew|opened|left))\b/i;
+const DONE_IN_APP = /\b(?:(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:(?:\w+\s+){0,3}?\w+ed|ran)|Run(?: Shiny)? App|shown in the|in the session|defined in the|still open|drew|(?:started|opened) (?:in|by) S\d+|S\d+ (?:started|drew|opened|left))\b/i;
 // A finding's reader runs the file as its first step; a ledger row's third field may say how a scenario made it.
 const RUN_IN_SESSION = /\brun in (?:the |its |their |each |both )?(?:\w+ ){0,3}(?:sessions?|consoles?)\b/i;
 // Code a precondition runs rather than describes: loading it is step 1.
