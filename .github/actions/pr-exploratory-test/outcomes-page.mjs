@@ -47,13 +47,13 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const day = (iso, year) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' } : {}), timeZone: 'UTC' });
 const time = (iso, year) => `<time datetime="${iso}">${day(iso, year)}</time>`;
 
-/** Counts for `rows`; rows marked `dupOf` are dropped first and counted as `dups`. */
+/** Counts for `rows`; rows marked `dupOf` are dropped first. */
 export function summarize(rows) {
 	const own = rows.filter(r => !r.dupOf);
 	const counts = Object.fromEntries(OUTCOMES.map(o => [o.key, own.filter(r => r.outcome === o.key).length]));
 	const fixed = counts['fixed-in-pr'] + counts['fixed-later'];
 	const counted = fixed + counts['filed-issue'] + counts['not-fixed'];
-	return { total: own.length, counts, fixed, counted, notCounted: own.length - counted, dups: rows.length - own.length };
+	return { total: own.length, counts, fixed, counted, notCounted: own.length - counted };
 }
 
 /** Evidence split into its source (commits on the PR or main, or an issue) and the model's reason. */
@@ -259,8 +259,7 @@ function evidence(own, s) {
 }
 
 function footer(s) {
-	const dups = s.dups ? `${SEP}<span>${plural(s.dups, 'duplicate')} of earlier runs left out.</span>` : '';
-	return `<footer><span>Generated ${time(s.now, true)}</span>${dups}</footer>`;
+	return `<footer><span>Generated ${time(s.now, true)}</span></footer>`;
 }
 
 /** The parts of the page that change with the date range: the button's dates, mixed triggers, the lede and cards, and the sections. */

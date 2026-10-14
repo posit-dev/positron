@@ -40,7 +40,6 @@ test('summarize counts fixed, counted and not counted yet, after dropping duplic
 	assert.equal(s.fixed, 3);
 	assert.equal(s.counted, 4);
 	assert.equal(s.notCounted, 3);
-	assert.equal(s.dups, 1);
 	assert.equal(s.counts['fixed-in-pr'], 2);
 	const filed = summarize([row('fixed-in-pr'), row('filed-issue'), row('pending')]);
 	assert.equal(filed.fixed, 1);
@@ -255,15 +254,15 @@ test('a finding without paths or a source prefix has no Files or Commits line', 
 	assert.match(text(html), /Decided by --/);
 });
 
-test('a possible duplicate is counted and tagged; a sure duplicate appears nowhere and is counted in the footer', () => {
+test('a possible duplicate is counted and tagged; a sure duplicate appears nowhere, not even as a footer count', () => {
 	const html = render([row('fixed-in-pr', { dupMaybe: '9#1' }), row('fixed-in-pr', { title: 'Hidden twin', dupOf: '9#2' })]);
 	assert.match(html, /<span class="maybe">Possible duplicate<\/span>/);
 	assert.ok(!markup(html).includes('Hidden twin'));
 	assert.match(text(html), /All 1 /);
-	assert.match(text(html), /Generated Oct 14, 2026 ~ 1 duplicate of earlier runs left out\./);
+	assert.match(text(html), /Generated Oct 14, 2026 $/);
 });
 
-test('with no duplicates the footer only says when the page was made', () => {
+test('the footer only says when the page was made', () => {
 	assert.match(text(render(today)), /Generated Oct 14, 2026 $/);
 });
 
