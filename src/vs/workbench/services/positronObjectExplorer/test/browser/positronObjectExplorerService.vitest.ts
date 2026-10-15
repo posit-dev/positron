@@ -53,8 +53,7 @@ describe('PositronObjectExplorerService', () => {
 		expect(instance).toBeDefined();
 		expect(service.getInstanceForVariablePath(session.sessionId, ['d'])).toBe(instance);
 		expect(openEditor).toHaveBeenCalledWith({
-			resource: PositronObjectExplorerUri.generate(client.getClientId()),
-			options: { pinned: true }
+			resource: PositronObjectExplorerUri.generate(client.getClientId())
 		});
 	});
 

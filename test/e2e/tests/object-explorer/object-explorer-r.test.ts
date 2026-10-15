@@ -29,6 +29,6 @@ test.describe('Object Explorer - R', {
 
 		await objectExplorer.expandRow('coefficients');
 		await objectExplorer.selectRow('wt');
-		await objectExplorer.expectStatus('fit[["coefficients"]][["wt"]]');
+		await objectExplorer.expectStatus('fit[["coefficients"]]["wt"]');
 	});
 });

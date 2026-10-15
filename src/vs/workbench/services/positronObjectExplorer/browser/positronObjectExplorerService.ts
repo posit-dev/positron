@@ -306,8 +306,7 @@ export class PositronObjectExplorerService extends Disposable implements IPositr
 	 */
 	private async openEditor(identifier: string): Promise<void> {
 		const editorPane = await this._editorService.openEditor({
-			resource: PositronObjectExplorerUri.generate(identifier),
-			options: { pinned: true }
+			resource: PositronObjectExplorerUri.generate(identifier)
 		});
 		if (!editorPane) {
 			this._notificationService.error(localize(

@@ -13,12 +13,14 @@ import { EditorExtensions } from '../../../common/editor.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { IPositronObjectExplorerService } from '../../../services/positronObjectExplorer/browser/interfaces/positronObjectExplorerService.js';
 import { PositronObjectExplorerUri } from '../../../services/positronObjectExplorer/common/positronObjectExplorerUri.js';
+import { DataExplorerPreviewEnabled } from '../../../services/positronDataExplorer/browser/positronDataExplorerSummary.js';
 import { PositronObjectExplorerEditor } from './positronObjectExplorerEditor.js';
 import { PositronObjectExplorerEditorInput } from './positronObjectExplorerEditorInput.js';
 import { registerPositronObjectExplorerActions } from './positronObjectExplorerActions.js';
@@ -38,6 +40,7 @@ class PositronObjectExplorerContribution extends Disposable {
 	constructor(
 		@IEditorResolverService editorResolverService: IEditorResolverService,
 		@IInstantiationService instantiationService: IInstantiationService,
+		@IConfigurationService configurationService: IConfigurationService,
 		@INotificationService notificationService: INotificationService,
 		@IPositronObjectExplorerService objectExplorerService: IPositronObjectExplorerService,
 	) {
@@ -63,7 +66,8 @@ class PositronObjectExplorerContribution extends Disposable {
 					}
 					return {
 						editor: instantiationService.createInstance(PositronObjectExplorerEditorInput, resource),
-						options: { ...options, pinned: true }
+						// Share the Data Explorer's preview setting, overriding the default preview behavior.
+						options: { ...options, pinned: !DataExplorerPreviewEnabled(configurationService) }
 					};
 				}
 			}
