@@ -86,7 +86,7 @@ export class PositAssistantErrorActionsContribution extends Disposable implement
  * Build the posit-assistant.newChat request for a Fix or Explain action: a
  * prompt naming where the error came from, with the error attached.
  */
-function getPositAssistantChatOptions(kind: ErrorActionKind, context: IErrorActionContext): NewChatOptions {
+export function getPositAssistantChatOptions(kind: ErrorActionKind, context: IErrorActionContext): NewChatOptions {
 	const location = context.location;
 	let fixPrompt: string;
 	let explainPrompt: string;

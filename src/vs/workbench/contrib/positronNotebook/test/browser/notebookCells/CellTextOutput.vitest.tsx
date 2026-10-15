@@ -21,7 +21,7 @@ import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvi
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
 import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
-import { registerPositAssistantErrorActions } from '../../../../positronAssistant/test/browser/positAssistantErrorActionsTestUtils.js';
+import { IErrorActionsService } from '../../../../positronAssistant/common/errorActions.js';
 
 /** Generate multiline content with the given number of lines. */
 function makeLines(n: number): string {
@@ -33,11 +33,6 @@ describe('CellTextOutput', () => {
 		.withReactServices()
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
-
-	// Send errors to Posit Assistant, as the workbench does.
-	beforeEach(() => {
-		registerPositAssistantErrorActions(ctx);
-	});
 
 	let optionsEmitter: Emitter<NotebookOptionsChangeEvent>;
 	let layoutConfig: Partial<NotebookLayoutConfiguration & NotebookDisplayOptions>;
@@ -98,7 +93,7 @@ describe('CellTextOutput', () => {
 		const contextKeyService = ctx.get(IContextKeyService);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
-		contextKeyService.createKey('posit-assistant.hasChatModels', true);
+		ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } }));
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
@@ -122,7 +117,7 @@ describe('CellTextOutput', () => {
 		const contextKeyService = ctx.get(IContextKeyService);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, false);
-		contextKeyService.createKey('posit-assistant.hasChatModels', true);
+		ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } }));
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 

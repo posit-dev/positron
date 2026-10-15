@@ -5,17 +5,13 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
-import { decodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
+import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { ConsoleQuickFix } from '../../browser/components/activityErrorQuickFix.js';
-import { registerPositAssistantErrorActions } from '../../../positronAssistant/test/browser/positAssistantErrorActionsTestUtils.js';
 
 const line = (id: string, text: string): ANSIOutputLine => ({
 	id,
@@ -25,162 +21,64 @@ const line = (id: string, text: string): ANSIOutputLine => ({
 const outputLines: ANSIOutputLine[] = [line('1', 'NameError: name "x" is not defined')];
 const tracebackLines: ANSIOutputLine[] = [line('2', '  File "<stdin>", line 1')];
 
-const expectedAttachmentText =
-	'NameError: name "x" is not defined\n  File "<stdin>", line 1';
-
-const decodeDataUri = (uri: string): string => {
-	const base64 = uri.slice(uri.indexOf(',') + 1);
-	return VSBuffer.wrap(decodeBase64(base64).buffer).toString();
-};
-
 describe('ConsoleQuickFix', () => {
-	const executeCommand = vi.fn().mockResolvedValue(undefined);
-	const notifyError = vi.fn();
-
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(ICommandService, { executeCommand })
-		.stub(INotificationService, { error: notifyError })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	// Send errors to Posit Assistant, as the workbench does, with a chat model available.
-	beforeEach(() => {
-		registerPositAssistantErrorActions(ctx).createKey('posit-assistant.hasChatModels', true);
-	});
+	const run = vi.fn();
 
 	beforeEach(() => {
-		executeCommand.mockReset().mockResolvedValue(undefined);
-		notifyError.mockReset();
+		run.mockReset().mockResolvedValue(undefined);
 	});
 
-	it('dispatches posit-assistant.newChat with a fix prompt and the error as a data URI attachment when Fix is clicked', async () => {
-		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
-		await user.click(screen.getByText('Fix'));
-
-		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
-		const [cmd, payload] = executeCommand.mock.calls[0];
-		expect(cmd).toBe('posit-assistant.newChat');
-		expect(payload.prompt).toMatch(/fix/i);
-		expect(payload.prompt).not.toContain('/fix');
-		expect(payload.target).toBe('auto');
-		expect(payload.behavior).toBe('submit');
-		expect(payload.files).toHaveLength(1);
-		expect(payload.files[0].name).toBe('Console Error');
-		expect(payload.files[0].uri).toMatch(/^data:text\/plain;base64,/);
-		expect(decodeDataUri(payload.files[0].uri)).toBe(expectedAttachmentText);
-	});
-
-	it('dispatches posit-assistant.newChat with an explain prompt when Explain is clicked', async () => {
-		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
-		await user.click(screen.getByText('Explain'));
-
-		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
-		const [, payload] = executeCommand.mock.calls[0];
-		expect(payload.prompt).toMatch(/explain/i);
-		expect(payload.prompt).not.toContain('/explain');
-		expect(payload.target).toBe('auto');
-	});
-
-	it('omits the attachment when there is no error output', async () => {
-		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={[]} tracebackLines={[]} />);
-		await user.click(screen.getByText('Fix'));
-
-		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
-		const [, payload] = executeCommand.mock.calls[0];
-		expect(payload.files).toBeUndefined();
-	});
-
-	it('surfaces a notification when the command throws (extension missing)', async () => {
-		executeCommand.mockRejectedValueOnce(new Error('command not found'));
-
-		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
-		await user.click(screen.getByText('Fix'));
-
-		await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1));
-		expect(notifyError.mock.calls[0][0]).toMatch(/Posit Assistant could not be opened/);
-	});
-
-	/** The newChat options from the most recent call, with attachments decoded. */
-	function lastNewChatOptions() {
-		const [command, options] = executeCommand.mock.calls.at(-1)!;
-		expect(command).toBe('posit-assistant.newChat');
-		return {
-			...options,
-			files: options.files?.map((file: { name: string; uri: string }) => ({ name: file.name, content: decodeDataUri(file.uri) })),
-		};
+	/** Register the handler errors are sent to. */
+	function registerHandler(options: Partial<IErrorActionHandler> = {}) {
+		ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: true, run, ...options }));
 	}
 
-	it('sends Fix to the current Posit Assistant chat with the error attached', async () => {
+	it('sends the message and traceback to the current chat', async () => {
+		registerHandler();
 		const user = userEvent.setup();
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Fix'));
-
-		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
-		expect(lastNewChatOptions()).toEqual({
-			prompt: 'Fix this console error.',
-			target: 'auto',
-			behavior: 'submit',
-			files: [{ name: 'Console Error', content: expectedAttachmentText }],
-		});
-	});
-
-	it('sends Explain to the current Posit Assistant chat without the explain-only constraint', async () => {
-		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Explain'));
 
-		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
-		expect(lastNewChatOptions()).toEqual({
-			prompt: 'Explain this console error.',
-			target: 'auto',
-			behavior: 'submit',
-			files: [{ name: 'Console Error', content: expectedAttachmentText }],
-		});
+		const context = {
+			error: 'NameError: name "x" is not defined\n  File "<stdin>", line 1',
+			location: { kind: 'console' },
+			chat: 'current',
+		};
+		expect(run.mock.calls).toEqual([['fix', context], ['explain', context]]);
 	});
 
-	it('attaches the error output verbatim, without trimming', async () => {
+	it('sends only the message, untrimmed, when there is no traceback', async () => {
+		registerHandler();
 		const user = userEvent.setup();
 		rtl.render(<ConsoleQuickFix outputLines={[line('1', '  Error: boom'), line('2', '')]} tracebackLines={[]} />);
 		await user.click(screen.getByText('Fix'));
 
-		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
-		expect(lastNewChatOptions().files).toEqual([{ name: 'Console Error', content: '  Error: boom\n' }]);
+		expect(run.mock.calls[0][1].error).toBe('  Error: boom\n');
 	});
 
-	it('attaches only the message when there is no traceback', async () => {
+	it('sends errors to a new chat when the handler cannot continue the current chat', async () => {
+		registerHandler({ canContinueChat: false });
 		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={[]} />);
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Fix'));
 
-		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
-		expect(lastNewChatOptions().files).toEqual([{ name: 'Console Error', content: 'NameError: name "x" is not defined' }]);
+		expect(run.mock.calls[0][1].chat).toBe('new');
 	});
 
-	it('offers no option to start a new chat', () => {
+	it('offers only Fix and Explain', () => {
+		registerHandler();
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
 		expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['Fix', 'Explain']);
 	});
-});
 
-describe('ConsoleQuickFix with a handler that cannot continue the current chat', () => {
-	const ctx = createTestContainer()
-		.withReactServices()
-		.build();
-	const rtl = setupRTLRenderer(() => ctx.reactServices);
-
-	it('sends errors to a new chat', async () => {
-		const run = vi.fn().mockResolvedValue(undefined);
-		ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: false, run }));
-
-		const user = userEvent.setup();
+	it('renders nothing when there is no active handler', () => {
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
-		await user.click(screen.getByText('Fix'));
-
-		expect(run).toHaveBeenCalledWith('fix', { error: expectedAttachmentText, location: { kind: 'console' }, chat: 'new' });
+		expect(screen.queryByRole('button')).not.toBeInTheDocument();
 	});
 });
