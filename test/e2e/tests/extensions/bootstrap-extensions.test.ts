@@ -129,7 +129,8 @@ function recordMismatches(mismatched: Set<string>, installedVersions: Map<string
 		path.join(outDir, 'mismatched-extensions.txt'),
 		Array.from(mismatched).join(' ')
 	);
-	// Installed (newer) version per extension, for the nightly's Slack message.
+	// Installed (newer) version per extension. The nightly pins exactly this
+	// version and quotes it in its Slack message.
 	fs.writeFileSync(
 		path.join(outDir, 'mismatched-versions.json'),
 		JSON.stringify(Object.fromEntries(Array.from(mismatched, ext => [ext, installedVersions.get(ext)])))
