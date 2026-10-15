@@ -10,6 +10,9 @@
 #                project first. This edits package-lock.json in place, staying
 #                inside the semver ranges in package.json (no --force), so it
 #                fixes transitive advisories that need only a lockfile refresh.
+#                dependency-audit-lockcheck.mts then compares the lockfiles: a
+#                fix that leaves a dependency outside its declared range is
+#                reverted, and changed direct dependencies are listed for review.
 #   --snyk:      also run `snyk test` on each lockfile (after any fix), so the
 #                report shows what the security team sees in Snyk. Needs the
 #                snyk CLI on PATH and SNYK_TOKEN in the environment.
@@ -80,6 +83,12 @@ fmt() {
 rows=()
 clean=0
 errors=()
+direct=()
+reverted=()
+
+LOCKCHECK="$(dirname "$0")/dependency-audit-lockcheck.mts"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
 
 while IFS= read -r dir || [ -n "$dir" ]; do
 	dir="${dir%%#*}"
@@ -99,10 +108,22 @@ while IFS= read -r dir || [ -n "$dir" ]; do
 	# Skip clean projects: npm audit fix can still rewrite their lockfiles
 	# (format or extraneous-entry churn), which only adds noise to the PR.
 	if [ "$FIX" = true ] && [ -n "$before_counts" ] && [ "$before_counts" != "0 0 0" ]; then
+		cp "$dir/package-lock.json" "$WORK/before.json"
 		if ! (cd "$dir" && npm audit fix --package-lock-only --omit=dev >/dev/null 2>&1); then
 			# npm audit fix exits non-zero when some advisories need a manual
 			# (semver-major) fix; that's expected, so this is only a note.
 			echo "  npm audit fix left advisories in $dir" >&2
+		fi
+		check="$(node "$LOCKCHECK" "$WORK/before.json" "$dir/package-lock.json" "$dir/package.json")"
+		problems="$(echo "$check" | jq -r '.problems | join("; ")')"
+		if [ -n "$problems" ]; then
+			# The new lockfile leaves a dependency outside its declared range.
+			# Keep the old lockfile; a person has to make this fix.
+			cp "$WORK/before.json" "$dir/package-lock.json"
+			reverted+=("${dir#extensions/}: $problems")
+		else
+			changes="$(echo "$check" | jq -r '.directChanges | join(", ")')"
+			[ -n "$changes" ] && direct+=("${dir#extensions/}: $changes")
 		fi
 		after="$(npm_audit "$dir")"
 	fi
@@ -158,6 +179,22 @@ if [ ${#rows[@]} -gt 0 ]; then
 	echo ""
 fi
 echo "$clean other projects have no advisories."
+if [ ${#direct[@]} -gt 0 ]; then
+	echo ""
+	echo "### Direct dependency changes"
+	echo ""
+	echo "The fix changed these direct dependencies of a project. Ask the owner of each project to review them, because a direct bump can change behavior more than a transitive patch."
+	echo ""
+	printf -- '- %s\n' "${direct[@]}"
+fi
+if [ ${#reverted[@]} -gt 0 ]; then
+	echo ""
+	echo "### Fixes not applied"
+	echo ""
+	echo "The fixed lockfile left a dependency outside its declared range, so these projects keep their old lockfile. Their \"After\" counts are the same as \"Before\"."
+	echo ""
+	printf -- '- %s\n' "${reverted[@]}"
+fi
 if [ ${#errors[@]} -gt 0 ]; then
 	echo ""
 	echo "### Errors"
