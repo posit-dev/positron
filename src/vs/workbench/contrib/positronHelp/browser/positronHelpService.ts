@@ -127,7 +127,7 @@ export interface IPositronHelpService {
 	getHelpTopics(query: string, limit: number): Promise<HelpTopicSuggestion[]>;
 
 	/** Show an exact topic, distinguishing missing help from an unavailable interpreter. */
-	showHelpTopicForForegroundSession(topic: string): Promise<HelpTopicResult>;
+	showHelpTopicForForegroundSession(topic: string, packageName?: string): Promise<HelpTopicResult>;
 
 	/**
 	 * Navigates the help service.
@@ -394,12 +394,12 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		return this.foregroundHelpClient()?.getHelpTopics(query, limit) ?? Promise.resolve([]);
 	}
 
-	async showHelpTopicForForegroundSession(topic: string): Promise<HelpTopicResult> {
+	async showHelpTopicForForegroundSession(topic: string, packageName?: string): Promise<HelpTopicResult> {
 		const client = this.foregroundHelpClient();
 		if (!client) {
 			return HelpTopicResult.Unavailable;
 		}
-		return await client.showHelpTopic(topic) ? HelpTopicResult.Found : HelpTopicResult.NotFound;
+		return await client.showHelpTopic(topic, packageName) ? HelpTopicResult.Found : HelpTopicResult.NotFound;
 	}
 
 	private foregroundHelpClient(): HelpClientInstance | undefined {

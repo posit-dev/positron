@@ -30,6 +30,12 @@ export interface HelpTopicSuggestion {
 	 */
 	detail?: string;
 
+	/**
+	 * Optional package to send unchanged with topic when opening this
+	 * suggestion.
+	 */
+	package?: string;
+
 }
 
 /**
@@ -40,6 +46,13 @@ export interface ShowHelpTopicParams {
 	 * The help topic to show
 	 */
 	topic: string;
+
+	/**
+	 * Optional package containing a literal documentation alias. When
+	 * supplied, topic is an exact alias, not an expression. Omit for normal
+	 * help resolution.
+	 */
+	package_name?: string;
 }
 
 /**
@@ -165,12 +178,15 @@ export class PositronHelpComm extends PositronBaseComm {
 	 * delivered.
 	 *
 	 * @param topic The help topic to show
+	 * @param packageName Optional package containing a literal documentation
+	 * alias. When supplied, topic is an exact alias, not an expression. Omit
+	 * for normal help resolution.
 	 *
 	 * @returns Whether the topic was found and shown. Topics are shown via a
 	 * Show Help notification.
 	 */
-	showHelpTopic(topic: string): Promise<boolean> {
-		return super.performRpc('show_help_topic', ['topic'], [topic]);
+	showHelpTopic(topic: string, packageName: string | undefined): Promise<boolean> {
+		return super.performRpc('show_help_topic', ['topic', 'package_name'], [topic, packageName]);
 	}
 
 	/**

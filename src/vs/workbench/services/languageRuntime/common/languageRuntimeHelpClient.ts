@@ -47,8 +47,8 @@ export class HelpClientInstance extends Disposable {
 	 * @returns A promise that resolves to 'true' if the topic was found, and
 	 *   'false' otherwise.
 	 */
-	async showHelpTopic(topic: string): Promise<boolean> {
-		return this._comm.showHelpTopic(topic);
+	async showHelpTopic(topic: string, packageName?: string): Promise<boolean> {
+		return this._comm.showHelpTopic(topic, packageName);
 	}
 
 	searchHelp(query: string, searchId: string): Promise<boolean> {

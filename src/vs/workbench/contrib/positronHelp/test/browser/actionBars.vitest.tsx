@@ -31,7 +31,7 @@ describe('Help ActionBars', () => {
 	const info = vi.fn<INotificationService['info']>();
 	const warn = vi.fn<INotificationService['warn']>();
 	const getHelpTopics = vi.fn<IPositronHelpService['getHelpTopics']>().mockResolvedValue([
-		{ label: 'plot', topic: 'graphics::plot', detail: 'graphics' },
+		{ label: 'plot', topic: 'plot', package: 'graphics', detail: 'graphics' },
 		{ label: 'plot.lm', topic: 'stats::plot.lm', detail: 'stats' },
 	]);
 	const session = stubInterface<ILanguageRuntimeSession>({
@@ -90,14 +90,23 @@ describe('Help ActionBars', () => {
 		const option = await screen.findByRole('option', { name: /plot graphics/ });
 		await user.click(option);
 
-		expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('graphics::plot');
+		expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('plot', 'graphics');
 		expect(searchHelp).not.toHaveBeenCalled();
 		expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
 		expect({ info: info.mock.calls, warn: warn.mock.calls }).toEqual({ info: [], warn: [] });
 	});
 
+	it('opens a colon-prefixed alias without combining it with the package', async () => {
+		getHelpTopics.mockResolvedValueOnce([{ label: ':=', topic: ':=', package: 'data.table', detail: 'data.table' }]);
+		const user = userEvent.setup();
+		rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+		await user.type(screen.getByRole('combobox'), ':=');
+		await user.click(await screen.findByRole('option', { name: ':= data.table' }));
+		expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith(':=', 'data.table');
+	});
+
 	it.each([
-		{ result: HelpTopicResult.NotFound, message: 'No help found for \'graphics::plot\'.' },
+		{ result: HelpTopicResult.NotFound, message: 'No help found for \'plot\'.' },
 		{ result: HelpTopicResult.Unavailable, message: 'Help search is unavailable for the active interpreter.' },
 	])('reports a $result topic result', async ({ result, message }) => {
 		showHelpTopicForForegroundSession.mockResolvedValueOnce(result);
@@ -165,7 +174,7 @@ describe('Help ActionBars', () => {
 		});
 		await waitFor(() => expect(getHelpTopics).toHaveBeenCalledExactlyOnceWith('plot', 50));
 		await act(async () => {
-			resolve([{ label: 'plot', topic: 'graphics::plot', detail: 'graphics' }]);
+			resolve([{ label: 'plot', topic: 'plot', package: 'graphics', detail: 'graphics' }]);
 			await Promise.resolve();
 			runtimeState = RuntimeState.Idle;
 			runtimeEvents.fire(runtimeState);
@@ -236,7 +245,7 @@ describe('Help ActionBars', () => {
 			expect(input).not.toHaveAttribute('aria-activedescendant');
 			expect(input).toHaveAttribute('aria-controls', screen.getByRole('listbox').id);
 			await user.keyboard('{ArrowDown}{Enter}');
-			expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('graphics::plot.new');
+			expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('graphics::plot.new', undefined);
 		});
 
 		it('skips intermediate queries and ignores an old response while the latest query waits', async () => {
@@ -451,12 +460,12 @@ describe('Help ActionBars', () => {
 			await user.keyboard('{Enter}{Enter}');
 			expect(searchHelp).toHaveBeenCalledExactlyOnceWith('plot');
 			expect(cancelSearch).toHaveBeenCalledOnce();
-			expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('graphics::plot');
+			expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('plot', 'graphics');
 			await act(async () => { await oldRequest.complete(false); });
 			expect(screen.getByRole('status')).toBeInTheDocument();
 			await act(async () => { await topicRequest.complete(HelpTopicResult.NotFound); });
 			expect({ info: info.mock.calls, warn: warn.mock.calls }).toEqual({
-				info: [['No help found for \'graphics::plot\'.']], warn: [],
+				info: [['No help found for \'plot\'.']], warn: [],
 			});
 		});
 
@@ -558,7 +567,7 @@ describe('Help ActionBars', () => {
 		expect(scrolledOptions.at(-1)).toBe(options[48]);
 		expect(input).toHaveFocus();
 		await user.keyboard('{Enter}');
-		expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('package::topic48');
+		expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('package::topic48', undefined);
 	});
 
 	it('keeps options out of the tab order and closes immediately on blur', async () => {
@@ -604,7 +613,7 @@ describe('Help ActionBars', () => {
 		expect(input).toHaveFocus();
 		expect(option).toBeInTheDocument();
 		await user.pointer({ keys: '[/MouseLeft]' });
-		expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('graphics::plot');
+		expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('plot', 'graphics');
 		expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
 	});
 

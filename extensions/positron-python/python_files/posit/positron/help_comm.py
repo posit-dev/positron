@@ -36,6 +36,11 @@ class HelpTopicSuggestion(BaseModel):
         description="Optional context such as the package containing the topic.",
     )
 
+    package: Optional[StrictStr] = Field(
+        default=None,
+        description="Optional package to send unchanged with topic when opening this suggestion.",
+    )
+
 
 @enum.unique
 class ShowHelpKind(str, enum.Enum):
@@ -76,6 +81,11 @@ class ShowHelpTopicParams(BaseModel):
 
     topic: StrictStr = Field(
         description="The help topic to show",
+    )
+
+    package_name: Optional[StrictStr] = Field(
+        default=None,
+        description="Optional package containing a literal documentation alias. When supplied, topic is an exact alias, not an expression. Omit for normal help resolution.",
     )
 
 

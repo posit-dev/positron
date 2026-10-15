@@ -380,7 +380,7 @@ def test_handle_get_help_topics(help_comm, help_service, monkeypatch) -> None:
     assert help_comm.messages == [
         json_rpc_response(
             result=[
-                {"label": "example", "topic": "example", "detail": None},
+                {"label": "example", "topic": "example", "detail": None, "package": None},
             ]
         )
     ]

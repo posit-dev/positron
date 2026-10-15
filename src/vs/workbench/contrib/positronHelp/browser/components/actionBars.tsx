@@ -53,7 +53,7 @@ const HelpSearch = () => {
 	const [activeIndex, setActiveIndex] = useState(-1);
 	const [submitting, setSubmitting] = useState(false);
 	const submission = useRef(0);
-	const activeSubmission = useRef<{ query: string; topic: string | undefined } | undefined>(undefined);
+	const activeSubmission = useRef<{ query: string; topic: string | undefined; package: string | undefined } | undefined>(undefined);
 	const suggestionSessionVersion = useRef(0);
 	const suggestionsRef = useRef<HTMLDivElement>(null);
 	const [runtimeState, setRuntimeState] = useState(foregroundSession?.getRuntimeState());
@@ -166,18 +166,18 @@ const HelpSearch = () => {
 			return;
 		}
 		// Ignore repeated Enter/click events for the same pending request.
-		if (activeSubmission.current?.query === value && (!topic || activeSubmission.current.topic === topic.topic)) {
+		if (activeSubmission.current?.query === value && (!topic || (activeSubmission.current.topic === topic.topic && activeSubmission.current.package === topic.package))) {
 			return;
 		}
 		cancelSubmission();
 		const currentSubmission = ++submission.current;
-		activeSubmission.current = { query: value, topic: topic?.topic };
+		activeSubmission.current = { query: value, topic: topic?.topic, package: topic?.package };
 		setSubmitting(true);
 		setActiveIndex(-1);
 		setFocused(false);
 		try {
 			const result = topic
-				? await services.positronHelpService.showHelpTopicForForegroundSession(topic.topic)
+				? await services.positronHelpService.showHelpTopicForForegroundSession(topic.topic, topic.package)
 				: await services.positronHelpService.searchHelp(value);
 			if (activeSubmission.current && submission.current === currentSubmission) {
 				if (topic && result === HelpTopicResult.NotFound) {
@@ -253,7 +253,7 @@ const HelpSearch = () => {
 			</button>}
 			{suggestionsVisible && <div ref={suggestionsRef} aria-label={placeholder} className='help-search-suggestions' id={listId} role='listbox'>
 				{topics.map((suggestion, index) => <button
-					key={suggestion.topic}
+					key={JSON.stringify([suggestion.package, suggestion.topic])}
 					aria-selected={index === activeIndex}
 					className={index === activeIndex ? 'active' : undefined}
 					id={`${listId}-${index}`}

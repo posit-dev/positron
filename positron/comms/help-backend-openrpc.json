@@ -16,6 +16,14 @@
 					"schema": {
 						"type": "string"
 					}
+				},
+				{
+					"name": "package_name",
+					"required": false,
+					"description": "Optional package containing a literal documentation alias. When supplied, topic is an exact alias, not an expression. Omit for normal help resolution.",
+					"schema": {
+						"type": "string"
+					}
 				}
 			],
 			"result": {
@@ -105,6 +113,10 @@
 					"detail": {
 						"type": "string",
 						"description": "Optional context such as the package containing the topic."
+					},
+					"package": {
+						"type": "string",
+						"description": "Optional package to send unchanged with topic when opening this suggestion."
 					}
 				},
 				"required": [

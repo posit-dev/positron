@@ -160,7 +160,14 @@ describe('PositronHelpService', () => {
 				expect({
 					result: await service.showHelpTopicForForegroundSession('plot'),
 					requests: showHelpTopic.mock.calls,
-				}).toEqual({ result, requests: [['plot']] });
+				}).toEqual({ result, requests: [['plot', undefined]] });
+			});
+
+			it('forwards a literal alias and its package unchanged', async () => {
+				attachClient();
+				showHelpTopic.mockResolvedValue(true);
+				expect(await service.showHelpTopicForForegroundSession(':=', 'data.table')).toBe(HelpTopicResult.Found);
+				expect(showHelpTopic).toHaveBeenCalledExactlyOnceWith(':=', 'data.table');
 			});
 
 			it('returns unavailable when the foreground session has no help client', async () => {
