@@ -75,8 +75,9 @@ describe('PreviewOverlayWebview Viewer bridge (web)', () => {
 
 	it('reads output that a notebook renderer draws in the webview\'s own document, even with a frame of the Viewer\'s ID inside it', async () => {
 		const active = addFrame(addFrame(container).contentDocument!.body, 'active-frame');
-		active.contentDocument!.body.innerHTML = '<div id="container"><input type="range" aria-label="Bins" min="1" max="50" value="10"></div>';
-		addFrame(active.contentDocument!.getElementById('container')!, 'preview-iframe');
+		const output = active.contentDocument!.body.appendChild(active.contentDocument!.createElement('div'));
+		output.innerHTML = '<input type="range" aria-label="Bins" min="1" max="50" value="10">';
+		addFrame(output, 'preview-iframe');
 
 		expect((await createOverlay().runBridge('snapshot', { interactiveOnly: true })).text).toBe('- slider "Bins" [ref=e1] value=10 min=1 max=50');
 	});
