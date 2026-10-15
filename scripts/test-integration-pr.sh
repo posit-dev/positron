@@ -149,6 +149,24 @@ run_extension_suite npm run test-extension -- -l positron-data-driver-odbc
 kill_app
 
 echo
+echo "### Positron PostgreSQL data connection tests"
+echo
+run_extension_suite npm run test-extension -- -l positron-data-driver-postgresql
+kill_app
+
+echo
+echo "### Positron Redshift data connection tests"
+echo
+run_extension_suite npm run test-extension -- -l positron-data-driver-redshift
+kill_app
+
+echo
+echo "### Positron Snowflake data connection tests"
+echo
+run_extension_suite npm run test-extension -- -l positron-data-driver-snowflake
+kill_app
+
+echo
 echo "### Positron Zed tests"
 echo
 run_extension_suite npm run test-extension -- -l positron-zed
