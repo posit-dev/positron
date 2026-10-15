@@ -104,7 +104,10 @@ test.describe('Data Connections - Redshift', {
 			// The flights database has a single schema, which the tree hides by default, so Tables
 			// sits directly under the database and there is no 'Schemas' or 'public' row to expand.
 			// The database has no views either, so the tree shows no 'Views' row. The Databases
-			// group above keeps its row, since dev is there alongside flights.
+			// group above keeps its row, since dev is there alongside flights. The tree decides the
+			// Views row before it shows the level, so wait for Tables first; checking any earlier
+			// would pass against a level that had not loaded yet.
+			await dataConnections.expectNodeVisible('Tables');
 			await dataConnections.expectNodeAbsent('Views');
 			await dataConnections.expandNode('Tables');
 		});
