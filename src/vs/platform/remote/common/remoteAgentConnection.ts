@@ -44,6 +44,11 @@ export interface AuthRequest {
 	type: 'auth';
 	auth: string;
 	data: string;
+	// --- Start Positron ---
+	// Duplicates the URL query values because some proxies drop the WebSocket query string
+	reconnectionToken?: string;
+	reconnection?: boolean;
+	// --- End Positron ---
 }
 
 export interface SignRequest {
@@ -260,6 +265,10 @@ async function connectToRemoteExtensionHostAgent<T extends RemoteConnection>(opt
 		auth: options.connectionToken || '00000000000000000000',
 		data: message.data
 	};
+	// --- Start Positron ---
+	authRequest.reconnectionToken = options.reconnectionToken;
+	authRequest.reconnection = !!options.reconnectionProtocol;
+	// --- End Positron ---
 	protocol.sendControl(VSBuffer.fromString(JSON.stringify(authRequest)));
 
 	try {

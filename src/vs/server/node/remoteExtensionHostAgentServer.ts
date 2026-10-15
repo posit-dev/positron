@@ -52,6 +52,7 @@ import { INativeEnvironmentService } from '../../platform/environment/common/env
 import { IExtensionManagementService } from '../../platform/extensionManagement/common/extensionManagement.js';
 import { IFileService } from '../../platform/files/common/files.js';
 import { IPositronIdleTrackingService } from '../../platform/positronIdleTracking/common/positronIdleTracking.js';
+import { resolveReconnectionInfo } from './reconnectionHandshake.js';
 // --- End Positron ---
 
 // --- Start PWB: Server proxy support ---
@@ -355,7 +356,11 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 	 */
 	private _handleWebSocketConnection(socket: NodeSocket | WebSocketNodeSocket, isReconnection: boolean, reconnectionToken: string): void {
 		const remoteAddress = this._getRemoteAddress(socket);
-		const logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+		// --- Start Positron ---
+		// Reassigned when the auth message carries the reconnection token
+		// const logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+		let logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+		// --- End Positron ---
 		const protocol = new PersistentProtocol({ socket });
 
 		const validator = this._vsdaMod ? new this._vsdaMod.validator() : null;
@@ -386,6 +391,14 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				if (msg1.type !== 'auth') {
 					return rejectWebSocketConnection(`Invalid first message`);
 				}
+
+				// --- Start Positron ---
+				// Proxies that drop the query string leave the token in the auth message only
+				const reconnection = resolveReconnectionInfo(msg1, { reconnectionToken, isReconnection });
+				reconnectionToken = reconnection.reconnectionToken;
+				isReconnection = reconnection.isReconnection;
+				logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+				// --- End Positron ---
 
 				if (this._connectionToken.type === ServerConnectionTokenType.Mandatory && !this._connectionToken.validate(msg1.auth)) {
 					return rejectWebSocketConnection(`Unauthorized client refused: auth mismatch`);
