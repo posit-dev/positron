@@ -26,6 +26,9 @@ use crate::text::TextIndex;
 /// overflowing the wasm stack and trapping the whole module.
 pub(crate) const RECURSION_LIMIT: usize = 50;
 
+/// The length of `VISUALISE`, which is also the length of `VISUALIZE`.
+const VISUALISE_WIDTH: u32 = 9;
+
 pub struct Diagnostic {
     pub start: u32,
     pub end: u32,
@@ -63,7 +66,8 @@ pub fn parse(tokenized: &Tokenized, dialect: &dyn Dialect, index: &TextIndex) ->
     .then(|| tokenized.statements.len() - 1);
 
     for (at, statement) in tokenized.statements.iter().enumerate() {
-        if Some(at) == truncated {
+        // A ggsql statement with no query in front of its VISUALISE leaves nothing to parse.
+        if Some(at) == truncated || statement.tokens.is_empty() {
             continue;
         }
         match parse_one(statement, dialect, index) {
@@ -137,9 +141,24 @@ fn diagnose(error: &ParserError, statement: &Statement, index: &TextIndex) -> Di
     // The offending token, taken from the message rather than from the parser: sqlparser builds
     // the message from the token it rejected, whereas by the time the error is returned the
     // parser's own cursor has moved past it and points at whatever follows.
-    let (start, end) = locate(message, statement, index)
-        .unwrap_or((statement.start, statement.end));
-    Diagnostic { start, end, message: sentence(strip_location(message)) }
+    if let Some((start, end)) = locate(message, statement, index) {
+        return Diagnostic { start, end, message: sentence(strip_location(message)) };
+    }
+
+    // The end of input, which for a ggsql statement is where its query stops and its `VISUALISE`
+    // begins. That keyword is what the author sees there, so it is what is blamed, rather than an
+    // end of file that is nowhere near.
+    if let Some(keyword) = statement.visualise {
+        let message = strip_location(message).replace("found: EOF", "found: VISUALISE");
+        let end = (keyword + VISUALISE_WIDTH).min(statement.end);
+        return Diagnostic { start: keyword, end, message: sentence(&message) };
+    }
+
+    Diagnostic {
+        start: statement.start,
+        end: statement.end,
+        message: sentence(strip_location(message)),
+    }
 }
 
 /// The extent of the token a message blames, as offsets in the document.
