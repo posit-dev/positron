@@ -14,8 +14,13 @@ is handed:
 2. **Verifier** (`verifier.md`) never touches the app. It reads the report,
    the ledger and the diff, and gives each finding a verdict: CONFIRMED, FALSE
    POSITIVE or UNRESOLVED. It also flags a finding that matches a known issue
-   or one closed as not planned. It replies with a `json` block, which
-   `parseVerifyReply` in `finish.mjs` reads, then its notes.
+   or one closed as not planned, and rewrites a title, feature, cause,
+   observed or test list the evidence contradicts; the card and the issue say
+   which it revised. It replies with a `json` block, which
+   `parseVerifyReply` in `finish.mjs` reads, then its notes. Each runner
+   reports the files the session read, so a screenshot it lists but never
+   opened is asked about once, then shown as not checked. So is a finding
+   whose reply has no `setup` list of the run's own setup.
 3. **Isolator** (`isolator.md`) runs only when a finding is UNRESOLVED. It
    launches its own instance, runs a few controls in 12 minutes, and writes
    `isolation.md`. The verifier is then sent that file and revises.

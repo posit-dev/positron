@@ -605,7 +605,7 @@ function renderCardDetails(f, report, options = {}) {
 	const sha = report.chips[1];
 	const rows = [
 		renderEvidenceRow(f, sha, options.fileExists),
-		f.causeHtml ? collapsedRow(' hyp', 'Likely cause', 'Hypothesis', `<p>${f.causeHtml}</p>`) : '',
+		f.causeHtml ? collapsedRow(' hyp', 'Likely cause', f.corrected?.includes('cause') ? 'Revised in review' : 'Hypothesis', `<p>${f.causeHtml}</p>`) : '',
 		renderRegressionTest(f, sha),
 	].filter(Boolean);
 	return rows.length ? `<div class="card-details">${rows.join('')}</div>` : '';
@@ -677,7 +677,7 @@ function renderFindingCard(f, report, options) {
 	// saw, marked by severity, beside what should have happened.
 	const half = (cls, label, html) => (html ? `<div class="${cls}"><div class="f-lab">${label}</div><p class="f-txt">${html}</p></div>` : '');
 	const comparison = f.observedHtml || f.expectedHtml
-		? `<div class="f-cmp ${f.severity}">${half('f-cmp-o', 'Observed', f.observedHtml)}${half('f-cmp-e', 'Expected', f.expectedHtml)}</div>`
+		? `<div class="f-cmp ${f.severity}">${half('f-cmp-o', f.corrected?.includes('observed') ? 'Observed &middot; revised in review' : 'Observed', f.observedHtml)}${half('f-cmp-e', 'Expected', f.expectedHtml)}</div>`
 		: '';
 
 	// Text only: each step's screenshots open from its icon.

@@ -60,7 +60,7 @@ function runWith(report, agents, options = {}) {
 }
 
 /** A verifier reply: a json block with `findings` as [n, verdict, extra fields], then notes. */
-const verdicts = (findings, notes = '') => `\`\`\`json\n${JSON.stringify({ findings: findings.map(([n, verdict, more = {}]) => ({ n, verdict, ...more })) })}\n\`\`\`${notes ? `\n\n${notes}` : ''}`;
+const verdicts = (findings, notes = '') => `\`\`\`json\n${JSON.stringify({ findings: findings.map(([n, verdict, more = {}]) => ({ n, verdict, setup: [], ...more })) })}\n\`\`\`${notes ? `\n\n${notes}` : ''}`;
 const fail = message => () => { throw new Error(message); };
 
 test('a report with no findings needs no agent', async () => {
@@ -73,13 +73,13 @@ test('a clean verify is the only agent, and it is recorded', async () => {
 	const run = await runWith(REPORT, { verify: () => `notes\n${verdicts([[1, 'confirmed'], [2, 'confirmed']], '- 1: matches.')}` });
 	assert.deepEqual(run.purposes, ['verify']);
 	const [verify] = run.steps;
-	assert.deepEqual({ ...verify, prompt: undefined }, { model: 'sonnet', role: 'verify', purpose: 'verify', tools: ['Bash', 'Read', 'Glob', 'Grep'], cwd: '/repo', prompt: undefined });
+	assert.deepEqual({ ...verify, prompt: undefined }, { model: 'opus', role: 'verify', purpose: 'verify', tools: ['Bash', 'Read', 'Glob', 'Grep'], cwd: '/repo', prompt: undefined });
 	assert.match(verify.prompt, /aaaa1111/);
 	assert.equal(run.report.findings[1].verified, 'confirmed');
 	assert.equal(run.changeBase.name, 'main', 'the base branch reaches the change mark');
 	assert.equal(run.stops, 1);
 	assert.deepEqual(run.passes, [
-		{ role: 'verify', model: 'sonnet', durationMs: 1000, turns: 2, costUsd: 0.5 },
+		{ role: 'verify', model: 'opus', durationMs: 1000, turns: 2, costUsd: 0.5 },
 	]);
 });
 
@@ -105,7 +105,8 @@ test('an UNRESOLVED verdict is isolated, then the verifier revises in the same s
 	assert.equal(run.report.findings[1].verified, 'confirmed');
 	assert.deepEqual(costPasses({ model: 'opus', durationMs: 60000, turns: 40, costUsd: null }, run.passes), [
 		{ label: 'explore', model: 'opus', costUsd: null, turns: 40, durationMs: 60000 },
-		{ label: 'verify', model: 'sonnet', costUsd: 1, turns: 4, durationMs: 2000 },
+		{ label: 'verify', model: 'opus', costUsd: 1, turns: 4, durationMs: 2000 },
+		// The isolator keeps its own model.
 		{ label: 'isolate', model: 'sonnet', costUsd: 0.5, turns: 2, durationMs: 1000 },
 	]);
 });

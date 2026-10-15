@@ -106,6 +106,14 @@ export function describeEvent(event, paths = {}) {
 	});
 }
 
+/** The files an assistant event's Read calls open. */
+export function readPaths(event) {
+	if (event.type !== 'assistant') {
+		return [];
+	}
+	return (event.message?.content ?? []).filter(block => block.type === 'tool_use' && block.name === 'Read' && typeof block.input?.file_path === 'string').map(block => block.input.file_path);
+}
+
 const shellQuote = text => `'${String(text).replace(/'/g, `'\\''`)}'`;
 
 /**
@@ -133,7 +141,7 @@ function timeLimitSettings(path, minutes, message, minuteMs) {
 }
 
 /**
- * One agent session: `{ text, durationMs, turns, costUsd, sessionId }`, or a
+ * One agent session: `{ text, durationMs, turns, costUsd, sessionId, opened }`, or a
  * throw when it fails. An agent with a time limit, `timeLimitMinutes` or the
  * minutes in `timeLimitPath` (read throughout, so it can change), is told
  * `timeUpMessage` once it is up. One stopped for running past it returns no
@@ -152,9 +160,14 @@ export async function runClaude({ prompt, model, role = 'agent', tools = [], cwd
 		...(limit ? limit.args : []),
 		...(resume ? ['--resume', resume] : ['--session-id', sessionId]),
 	];
+	// What the agent read, so a claim to have looked at a file can be checked.
+	const opened = [];
 	let run;
 	try {
-		const onEvent = event => describeEvent(event, feedPaths).forEach(line => feed(`  ${role}: ${line}`));
+		const onEvent = event => {
+			describeEvent(event, feedPaths).forEach(line => feed(`  ${role}: ${line}`));
+			opened.push(...readPaths(event));
+		};
 		// The checkout's CLAUDE.md and rules are for developing Positron, not
 		// driving it; loaded, they add about 15k tokens to every turn. CI's SDK
 		// sessions do not load them either.
@@ -164,11 +177,11 @@ export async function runClaude({ prompt, model, role = 'agent', tools = [], cwd
 		limit?.cleanup();
 	}
 	if (run.killed) {
-		return { text: '', durationMs: run.ms, turns: null, costUsd: null, sessionId };
+		return { text: '', durationMs: run.ms, turns: null, costUsd: null, sessionId, opened };
 	}
 	const result = parseResult(run);
 	if (run.status !== 0 || !result || result.is_error) {
 		throw new Error(`claude exited ${run.status}: ${result?.result || result?.subtype || run.stdout.slice(-500) || 'no output'}`);
 	}
-	return { text: result.result ?? '', durationMs: result.duration_ms ?? run.ms, turns: result.num_turns ?? null, costUsd: result.total_cost_usd ?? null, sessionId };
+	return { text: result.result ?? '', durationMs: result.duration_ms ?? run.ms, turns: result.num_turns ?? null, costUsd: result.total_cost_usd ?? null, sessionId, opened };
 }

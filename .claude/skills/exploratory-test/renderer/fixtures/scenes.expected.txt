@@ -475,6 +475,56 @@ Commit: abc1234
 
 Please investigate this finding using the repository and the evidence above.
 
+==== a cause and observed the verifier revised say so on the card, prompt and issue
+<article id="f1" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a claim</h2></header>
+<div class="f-cmp minor"><div class="f-cmp-o"><div class="f-lab">Observed &middot; revised in review</div><p class="f-txt">The tab shows <code>Pytho...</code>.</p></div></div>
+
+<div class="card-details"><details class="lc hyp"><summary><svg><span>Likely cause<span class="lc-tail"> &middot; Revised in review</span></span></summary><div class="lc-body"><p>A width gate skips the dot.</p></div></details></div>
+
+
+
+--
+## Finding 1 — Minor
+
+A claim.
+
+Status: Confirmed
+Reproduced: 1/1
+
+### Observed (revised by the reviewing agent)
+The tab shows `Pytho...`.
+
+### Likely cause (revised by the reviewing agent, not verified by a run)
+A width gate skips the dot.
+
+### Context
+Branch: branch/name
+Commit: abc1234
+
+Please investigate this finding using the repository and the evidence above.
+--
+<sub>Reported by exploratory test of `branch/name` @ `abc1234`</sub>
+
+- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->
+
+## System details
+
+- **Positron:** not recorded
+- **OS:** not recorded
+
+## Observed (revised by the reviewing agent)
+The tab shows `Pytho...`.
+
+## Error messages
+None recorded by the run.
+
+<details><summary>Likely cause (revised by the reviewing agent, not verified by a run)</summary>
+
+A width gate skips the dot.
+
+</details>
+
 ==== a missing case with no file keeps its level and says new file
 <article id="f1" class="card">
 <header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a claim</h2></header>

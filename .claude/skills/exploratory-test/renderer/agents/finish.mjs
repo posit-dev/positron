@@ -118,6 +118,8 @@ export function parseVerifyReply(text) {
 	const issues = value => (Array.isArray(value) ? [...new Set(value.filter(Number.isInteger))] : []);
 	// A title or feature lands in the filed issue's title, where `|` breaks the table.
 	const words = value => (typeof value === 'string' && value.trim() && !value.includes('|') ? value.trim() : null);
+	// A corrected Cause or Observed goes in the issue's body, where `|` is safe.
+	const prose = value => (typeof value === 'string' && value.trim() ? value.trim() : null);
 	for (const f of Array.isArray(data?.findings) ? data.findings : []) {
 		const verified = VERDICTS[String(f?.verdict ?? '').trim().toLowerCase()];
 		if (Number.isInteger(f?.n) && verified) {
@@ -126,7 +128,11 @@ export function parseVerifyReply(text) {
 			const shots = Array.isArray(f.shots)
 				? f.shots.map(x => (typeof x === 'string' ? { file: x } : x)).filter(x => typeof x?.file === 'string').map(x => ({ file: basename(x.file.trim()), shows: typeof x.shows === 'string' ? x.shows.trim() : '' }))
 				: null;
-			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), related: f.related === true, log, shots });
+			// An entry without what it is is kept, with `what` empty, so it is asked for.
+			const setup = Array.isArray(f.setup)
+				? f.setup.filter(x => x && typeof x === 'object').map(x => ({ what: typeof x.what === 'string' ? x.what.trim() : '', log: Number.isInteger(x.log) ? x.log : null, alone: x.alone === true, why: typeof x.why === 'string' ? x.why.trim() : '' }))
+				: null;
+			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), related: f.related === true, log, shots, setup });
 		}
 	}
 	for (const l of Array.isArray(data?.linked) ? data.linked : []) {
@@ -136,6 +142,31 @@ export function parseVerifyReply(text) {
 		}
 	}
 	return out;
+}
+
+/**
+ * A reply's corrected `tests`, in the report's shape, or null when it gave none
+ * or one that is not that shape. Entries missing a field report.schema.json
+ * requires are dropped; empty lists are kept, since a wrong test claim may be removed.
+ */
+function testsCorrection(value) {
+	if (!value || typeof value !== 'object' || Array.isArray(value) || (!Array.isArray(value.cases) && !Array.isArray(value.related))) {
+		return null;
+	}
+	const text = x => typeof x === 'string' && x.trim();
+	const level = x => TEST_LEVELS.includes(x);
+	const items = (list, ok) => (Array.isArray(list) ? list.filter(x => x && typeof x === 'object' && ok(x)) : []);
+	return {
+		cases: items(value.cases, x => text(x.text) && level(x.level) && typeof x.path === 'string' && typeof x.isNew === 'boolean'),
+		related: items(value.related, x => text(x.path) && level(x.level) && text(x.note)),
+	};
+}
+
+const TEST_LEVELS = ['unit', 'extension', 'e2e'];
+
+/** JSON with each object's keys sorted, so two values compare equal whatever order their keys were written in. */
+function canonical(value) {
+	return JSON.stringify(value, (key, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v));
 }
 
 /** Finding number to the issues the reply matched it with, under `key` (`known` or `intended`). */
@@ -193,12 +224,18 @@ function failShots(f) {
  * Each check the reply does not show it made, as `{ n, kind, why }`: a
  * finding with no `log` range, a range past the log's end or one that misses a
  * line its failing scenario cites (`kind` 'log'); and a finding whose `shots`
- * leave out a screenshot its failing VERIFY steps cite ('shots'). Without an
- * action log there is nothing to check the steps against.
+ * leave out a screenshot its failing VERIFY steps cite, or list one the
+ * session never opened ('shots'); and a finding with no `setup` list, or
+ * confirmed with a setup that alone would show it and no `why` ('setup').
+ * `opened` is the files the verifier's session
+ * read, when its runner records them; without it only the reply's own word is
+ * checked. Without an action log there is nothing to check the steps against.
  */
-export function checkGaps(report, reply, { ledger, actionsLog }) {
+export function checkGaps(report, reply, { ledger, actionsLog, opened = null }) {
 	// A shot the notes say was not opened was not checked, whatever the list says.
 	const unopened = new Set([...String(reply.notes ?? '').matchAll(/\b(?:did not|didn't|could not|couldn't) (?:open|view|look at|check|read)\s+`?([\w.-]+\.(?:png|jpe?g))/gi)].map(m => m[1]));
+	// A shot is seen only by reading it: its "shows" can be copied from the ledger.
+	const seen = opened ? new Set([...opened].map(p => basename(String(p)))) : null;
 	const lines = String(actionsLog ?? '').split('\n').filter(Boolean).length;
 	return (report?.findings ?? []).flatMap(f => {
 		const { n } = f;
@@ -221,9 +258,20 @@ export function checkGaps(report, reply, { ledger, actionsLog }) {
 			[cited.filter(shot => !listed.has(shot)), 'did not list'],
 			[cited.filter(shot => listed.has(shot) && !listed.get(shot)), 'listed without saying what it shows'],
 			[cited.filter(shot => listed.get(shot) && unopened.has(shot)), 'listed but says it did not open'],
+			[seen ? [...listed.keys()].filter(shot => listed.get(shot) && !unopened.has(shot) && !seen.has(shot)) : [], 'listed but never opened'],
 		].filter(([shots]) => shots.length);
 		for (const [shots, what] of missing) {
-			gaps.push({ n, kind: 'shots', why: `${what} ${shots.join(', ')}, which its failing VERIFY steps cite` });
+			gaps.push({ n, kind: 'shots', why: what === 'listed but never opened' ? `${what} ${shots.join(', ')}` : `${what} ${shots.join(', ')}, which its failing VERIFY steps cite` });
+		}
+		if (got && !got.setup) {
+			gaps.push({ n, kind: 'setup', why: 'gave no setup list' });
+		} else if (got?.setup.some(x => !x.what)) {
+			gaps.push({ n, kind: 'setup', why: 'listed a setup without saying what it is' });
+		} else if (got?.verified === 'confirmed') {
+			const unsettled = got.setup.filter(x => x.alone && !x.why).map(x => x.what);
+			if (unsettled.length) {
+				gaps.push({ n, kind: 'setup', why: `is confirmed with a setup that alone would show it, ${unsettled.join('; ')}, and does not say what settles it` });
+			}
 		}
 		return gaps;
 	});
@@ -231,7 +279,13 @@ export function checkGaps(report, reply, { ledger, actionsLog }) {
 
 /** The message that asks the verifier for the checks it did not show it made. */
 export function checkMessage(gaps) {
-	return `Your reply ${gaps.map(g => `for Finding ${g.n} ${g.why}`).join('; ')}. For each of those findings, do the check your instructions ask: read the lines of actions.log its failing scenario covers and check its steps and VERIFY lines against them, giving that range as \`log\`; and look at each screenshot its failing VERIFY steps cite and check its Observed against it, listing each in \`shots\` with what it shows. Reply again in full, in the same format.`;
+	const asks = {
+		log: 'For a log gap, read the lines of actions.log its failing scenario covers and check its steps and VERIFY lines against them, giving that range as `log`.',
+		shots: 'For a screenshot gap, open each screenshot its failing VERIFY steps cite with the Read tool and check its Observed against it, listing each in `shots` with what it shows. List only screenshots you opened.',
+		setup: 'For a setup gap, list each setup the run made, as question 2 asks, in `setup`, reading the code each one reaches, and settle any that alone would show the finding or mark it unresolved.',
+	};
+	const kinds = Object.keys(asks).filter(kind => gaps.some(g => g.kind === kind));
+	return `Your reply ${gaps.map(g => `for Finding ${g.n} ${g.why}`).join('; ')}. ${kinds.map(kind => asks[kind]).join(' ')} Reply again in full, in the same format.`;
 }
 
 /**
@@ -262,7 +316,10 @@ export function readKnownIssues(dir) {
 	return readJson(join(dir, 'known-issues.json'));
 }
 
-const PREAMBLE = 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.';
+const PREAMBLE = 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was removed. A title, feature, cause, observed or test list it corrected replaces the explorer\'s, and a corrected cause or observed is marked on its finding.';
+
+/** The finding fields a verifier reply can rewrite. */
+const CORRECTABLE = ['title', 'feature', 'cause', 'observed', 'tests'];
 
 /**
  * report.json with the verifier's verdicts on its findings, and its notes as
@@ -280,21 +337,26 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 		if (!v) {
 			return f;
 		}
+		// A field the verifier rewrote replaces the explorer's, which is kept
+		// under `explorer` so the page can say what changed.
+		const corrections = Object.fromEntries(CORRECTABLE.filter(key => v[key] && canonical(v[key]) !== canonical(f[key])).map(key => [key, v[key]]));
+		const corrected = Object.keys(corrections);
 		return {
 			...f,
 			verified: v.verified,
 			...(v.known.length ? { known: v.known } : {}),
 			...(v.intended.length ? { intended: v.intended } : {}),
-			...(v.title ? { title: v.title } : {}),
-			...(v.feature ? { feature: v.feature } : {}),
+			...corrections,
+			...(corrected.length ? { corrected, explorer: Object.fromEntries(corrected.map(key => [key, f[key] ?? null])) } : {}),
 		};
 	});
 	const related = [...reply.findings].filter(([, f]) => f.related).map(([n]) => n);
-	const unchecked = Object.fromEntries(['log', 'shots'].map(kind => [kind, [...new Set(gaps.filter(g => g.kind === kind).map(g => g.n))]]).filter(([, ns]) => ns.length));
+	const unchecked = Object.fromEntries(['log', 'shots', 'setup'].map(kind => [kind, [...new Set(gaps.filter(g => g.kind === kind).map(g => g.n))]]).filter(([, ns]) => ns.length));
 	const named = ns => ns.map(n => `Finding ${n}`).join(', ');
 	const skipped = [
 		unchecked.log ? `the steps of ${named(unchecked.log)} against the action log` : '',
 		unchecked.shots ? `the Observed of ${named(unchecked.shots)} against its screenshots` : '',
+		unchecked.setup ? `${named(unchecked.setup)} against the run's setup` : '',
 	].filter(Boolean).join(', or ');
 	const linked = [...reply.linked].map(([issue, severity]) => ({ issue, severity }));
 	return {
@@ -370,13 +432,14 @@ export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
  * nothing, when the reply can be fixed by asking once more: its verdicts keyed
  * to other numbers than the report's, or a check it does not show it made (a
  * finding's steps against the action log, its Observed against its
- * screenshots). `retry` is the message to send. With `final` nothing is asked:
+ * screenshots, which `opened`, the files its session read, shows it opened).
+ * `retry` is the message to send. With `final` nothing is asked:
  * wrong numbers mark the findings unreviewed, and a missing check is named in
  * the report. An `error`, or an empty reply or one with no verdicts, says the
  * verification did not complete rather than leaving the findings looking
  * reviewed. Otherwise returns `{ failed, logLines }`.
  */
-export function applyVerifyReply(dir, reply, { error = '', final = false } = {}) {
+export function applyVerifyReply(dir, reply, { error = '', final = false, opened = null } = {}) {
 	const { path, report, ledger, actionsLog, knownIssues } = readRun(dir);
 	if (isVerified(report)) {
 		return { already: true };
@@ -389,7 +452,7 @@ export function applyVerifyReply(dir, reply, { error = '', final = false } = {})
 		return { retry: `${mismatch} Reply again in full, in the same format.` };
 	}
 	const failed = Boolean(error || mismatch) || !reply || Boolean(parsed.problem) || (findings && !parsed.findings.size);
-	const gaps = failed ? [] : checkGaps(report, parsed, { ledger, actionsLog });
+	const gaps = failed ? [] : checkGaps(report, parsed, { ledger, actionsLog, opened });
 	if (gaps.length && !final) {
 		return { retry: checkMessage(gaps) };
 	}
