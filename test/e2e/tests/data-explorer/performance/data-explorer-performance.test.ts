@@ -113,6 +113,8 @@ test.describe('Data Explorer: Performance', { tag: [] }, () => {
 
 				// Perform and record basic filtering
 				await dataExplorer.grid.clickUpperLeftCorner();
+				// The filter timer reads the tailnum cell, which isn't rendered while it's off-screen.
+				await dataExplorer.grid.scrollToColumn(TAILNUM_COLUMN_INDEX);
 				await dataExplorer.waitForIdle();
 				await dataExplorer.filters.add({
 					columnName: 'tailnum', condition: 'is equal to', value: 'N532UA', metricRecord: metric, metricTargetType: testCase.varType,

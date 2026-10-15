@@ -305,6 +305,21 @@ export class DataGrid {
 	}
 
 	/**
+	 * Scroll a column into view by moving the cursor to it from the first cell. The grid only renders
+	 * on-screen columns, so do this before reading a cell that may sit past the viewport's right edge.
+	 * @param columnIndex (Index is 0-based)
+	 */
+	async scrollToColumn(columnIndex: number): Promise<void> {
+		await test.step(`Scroll column ${columnIndex} into view`, async () => {
+			await this.clickCell(0, 0);
+			for (let i = 0; i < columnIndex; i++) {
+				await this.code.driver.currentPage.keyboard.press('ArrowRight');
+			}
+			await expect(this.grid.locator(`[id^="data-grid-row-cell-content-${columnIndex}-"]`).first()).toBeVisible();
+		});
+	}
+
+	/**
 	 * Sort the specified column by the given sort option.
 	 * @param columnIndex (Index is 1-based)
 	 * @param sortBy
