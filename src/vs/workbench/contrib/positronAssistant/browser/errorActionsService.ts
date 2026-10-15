@@ -5,6 +5,7 @@
 
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IErrorActionHandler, IErrorActionsService, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../common/errorActions.js';
@@ -18,10 +19,20 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 	/** Registered handlers, by id. */
 	private readonly _handlersById = new Map<string, IErrorActionHandler>();
 
+	/** Context keys read by the registered handlers' `when` expressions. */
+	private _whenKeys = new Set<string>();
+
 	constructor(
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
+
+		this._register(this._contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(this._whenKeys)) {
+				this._onDidChange.fire();
+			}
+		}));
 	}
 
 	register(handler: IErrorActionHandler): IDisposable {
@@ -31,17 +42,26 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 		}
 
 		this._handlersById.set(handler.id, handler);
-		this._onDidChange.fire();
+		this._update();
 		return toDisposable(() => {
 			if (this._handlersById.get(handler.id) === handler) {
 				this._handlersById.delete(handler.id);
-				this._onDidChange.fire();
+				this._update();
 			}
 		});
 	}
 
 	getHandler(): IErrorActionHandler | undefined {
-		return this._handlersById.get(POSIT_ASSISTANT_ERROR_ACTIONS_ID);
+		const handler = this._handlersById.get(POSIT_ASSISTANT_ERROR_ACTIONS_ID);
+		return handler && (!handler.when || this._contextKeyService.contextMatchesRules(handler.when))
+			? handler
+			: undefined;
+	}
+
+	/** Refresh the watched context keys and notify listeners. */
+	private _update(): void {
+		this._whenKeys = new Set([...this._handlersById.values()].flatMap(handler => handler.when?.keys() ?? []));
+		this._onDidChange.fire();
 	}
 }
 

@@ -5,6 +5,9 @@
 
 /// <reference types="vitest/globals" />
 
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { ContextKeyService } from '../../../../../platform/contextkey/browser/contextKeyService.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ErrorActionsService } from '../../browser/errorActionsService.js';
@@ -16,12 +19,19 @@ describe('ErrorActionsService', () => {
 		.stub(ILogService, { error: logError })
 		.build();
 
+	let contextKeyService: ContextKeyService;
+
+	beforeEach(() => {
+		contextKeyService = ctx.disposables.add(new ContextKeyService(new TestConfigurationService()));
+		ctx.instantiationService.stub(IContextKeyService, contextKeyService);
+	});
+
 	function createService(): ErrorActionsService {
 		return ctx.disposables.add(ctx.instantiationService.createInstance(ErrorActionsService));
 	}
 
-	function createHandler(id = POSIT_ASSISTANT_ERROR_ACTIONS_ID): IErrorActionHandler {
-		return { id, run: async () => { } };
+	function createHandler(options: Partial<IErrorActionHandler> = {}): IErrorActionHandler {
+		return { id: POSIT_ASSISTANT_ERROR_ACTIONS_ID, run: async () => { }, ...options };
 	}
 
 	it('sends errors to Posit Assistant while it is registered', () => {
@@ -38,9 +48,26 @@ describe('ErrorActionsService', () => {
 		expect(onDidChange).toHaveBeenCalledTimes(2);
 	});
 
+	it('sends errors to Posit Assistant only while its when is true', () => {
+		const service = createService();
+		const onDidChange = vi.fn();
+		const enabled = contextKeyService.createKey<boolean>('test.enabled', false);
+		const handler = createHandler({ when: ContextKeyExpr.has('test.enabled') });
+		ctx.disposables.add(service.register(handler));
+		ctx.disposables.add(service.onDidChange(onDidChange));
+		expect(service.getHandler()).toBeUndefined();
+
+		enabled.set(true);
+		expect(service.getHandler()).toBe(handler);
+
+		enabled.set(false);
+		expect(service.getHandler()).toBeUndefined();
+		expect(onDidChange).toHaveBeenCalledTimes(2);
+	});
+
 	it('ignores other handlers', () => {
 		const service = createService();
-		ctx.disposables.add(service.register(createHandler('other')));
+		ctx.disposables.add(service.register(createHandler({ id: 'other' })));
 
 		expect(service.getHandler()).toBeUndefined();
 	});

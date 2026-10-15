@@ -5,6 +5,7 @@
 
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 
 /** Posit Assistant's error action handler, registered by Positron. */
@@ -66,6 +67,8 @@ export interface IErrorActionContext {
 export interface IErrorActionHandler {
 	/** Unique identifier of the handler. */
 	readonly id: string;
+	/** When the handler can take errors; always when undefined. */
+	readonly when?: ContextKeyExpression;
 	/** Run the given action on the error. Failures are surfaced to the user, not thrown. */
 	run(kind: ErrorActionKind, context: IErrorActionContext): Promise<void>;
 }
@@ -76,7 +79,7 @@ export const IErrorActionsService = createDecorator<IErrorActionsService>('error
 export interface IErrorActionsService {
 	readonly _serviceBrand: undefined;
 
-	/** Fires when a handler is registered or unregistered. */
+	/** Fires when a handler is registered or unregistered, or its `when` changes. */
 	readonly onDidChange: Event<void>;
 
 	/**
@@ -88,7 +91,8 @@ export interface IErrorActionsService {
 
 	/**
 	 * Get the handler that errors are sent to.
-	 * @returns Posit Assistant's handler, or undefined while it is not registered.
+	 * @returns Posit Assistant's handler, or undefined while it is not
+	 *   registered or its `when` is false.
 	 */
 	getHandler(): IErrorActionHandler | undefined;
 }

@@ -14,7 +14,7 @@ import { decodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ConsoleQuickFix } from '../../browser/components/activityErrorQuickFix.js';
-import { PositAssistantErrorActionsContribution } from '../../../positronAssistant/browser/positAssistantErrorActions.js';
+import { registerPositAssistantErrorActions } from '../../../positronAssistant/test/browser/positAssistantErrorActionsTestUtils.js';
 
 const line = (id: string, text: string): ANSIOutputLine => ({
 	id,
@@ -43,10 +43,9 @@ describe('ConsoleQuickFix', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	// Send errors to Posit Assistant, as the workbench does. Registered after
-	// the container's stubs apply, so it uses the stubbed command service.
+	// Send errors to Posit Assistant, as the workbench does, with a chat model available.
 	beforeEach(() => {
-		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+		registerPositAssistantErrorActions(ctx).createKey('posit-assistant.hasChatModels', true);
 	});
 
 	beforeEach(() => {

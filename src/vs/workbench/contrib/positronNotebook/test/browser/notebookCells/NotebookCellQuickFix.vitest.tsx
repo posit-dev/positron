@@ -14,7 +14,6 @@ import { ICommandService } from '../../../../../../platform/commands/common/comm
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ContextKeyService } from '../../../../../../platform/contextkey/browser/contextKeyService.js';
-import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../../../platform/contextview/browser/contextView.js';
 import { INotificationService } from '../../../../../../platform/notification/common/notification.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
@@ -23,7 +22,7 @@ import { NewChatOptions, POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } fro
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { NotebookCellQuickFix } from '../../../browser/notebookCells/NotebookCellQuickFix.js';
-import { PositAssistantErrorActionsContribution } from '../../../../positronAssistant/browser/positAssistantErrorActions.js';
+import { registerPositAssistantErrorActions } from '../../../../positronAssistant/test/browser/positAssistantErrorActionsTestUtils.js';
 
 describe('NotebookCellQuickFix', () => {
 	const executeCommand = vi.fn();
@@ -37,20 +36,14 @@ describe('NotebookCellQuickFix', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	// Send errors to Posit Assistant, as the workbench does. Registered after
-	// the container's stubs apply, so it uses the stubbed command service.
-	beforeEach(() => {
-		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
-	});
-
 	/** A real context key service, so key changes re-render the quick fix. */
 	let contextKeyService: ContextKeyService;
 
 	beforeEach(() => {
 		executeCommand.mockReset().mockResolvedValue(undefined);
 		notifyError.mockReset();
-		contextKeyService = ctx.disposables.add(new ContextKeyService(ctx.get(IConfigurationService)));
-		ctx.instantiationService.stub(IContextKeyService, contextKeyService);
+		// Send errors to Posit Assistant, as the workbench does.
+		contextKeyService = registerPositAssistantErrorActions(ctx);
 	});
 
 	/** Set the quick fix's gates; each defaults to showing the buttons. */

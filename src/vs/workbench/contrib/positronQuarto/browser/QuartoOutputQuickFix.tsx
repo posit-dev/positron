@@ -8,9 +8,8 @@ import { useCallback, useLayoutEffect } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { usePositronConfiguration, useContextKeyFromString } from '../../../../base/browser/positronReactHooks.js';
+import { usePositronConfiguration } from '../../../../base/browser/positronReactHooks.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { POSIT_HAS_CHAT_MODELS_KEY } from '../../positronAssistant/browser/positAssistantChat.js';
 import { IErrorActionContext } from '../../positronAssistant/common/errorActions.js';
 import { AssistantErrorQuickFix } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
 import { QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
@@ -30,12 +29,11 @@ interface QuartoOutputQuickFixProps {
 }
 
 /**
- * Quick fix buttons for Quarto inline output errors. Gated on ai.enabled +
- * posit-assistant.hasChatModels; renders nothing when either is off.
+ * Quick fix buttons for Quarto inline output errors. Gated on ai.enabled, and
+ * hidden while no error action handler can take errors.
  */
 export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
-	const hasChatModels = useContextKeyFromString<boolean>(POSIT_HAS_CHAT_MODELS_KEY);
 
 	const { errorContent, cellContext, onLayout } = props;
 
@@ -61,7 +59,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		},
 	}), [cellContext, errorContent]);
 
-	if (aiEnabled === false || !hasChatModels) {
+	if (aiEnabled === false) {
 		return null;
 	}
 

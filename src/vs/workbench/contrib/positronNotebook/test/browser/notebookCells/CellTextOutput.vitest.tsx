@@ -13,7 +13,6 @@ import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibr
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
-import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NotebookDisplayOptions, NotebookLayoutConfiguration, NotebookOptions, NotebookOptionsChangeEvent } from '../../../../notebook/browser/notebookOptions.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
@@ -22,7 +21,7 @@ import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvi
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
 import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
-import { PositAssistantErrorActionsContribution } from '../../../../positronAssistant/browser/positAssistantErrorActions.js';
+import { registerPositAssistantErrorActions } from '../../../../positronAssistant/test/browser/positAssistantErrorActionsTestUtils.js';
 
 /** Generate multiline content with the given number of lines. */
 function makeLines(n: number): string {
@@ -35,10 +34,9 @@ describe('CellTextOutput', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	// Send errors to Posit Assistant, as the workbench does. Registered after
-	// the container's stubs apply, so it uses the stubbed command service.
+	// Send errors to Posit Assistant, as the workbench does.
 	beforeEach(() => {
-		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+		registerPositAssistantErrorActions(ctx);
 	});
 
 	let optionsEmitter: Emitter<NotebookOptionsChangeEvent>;
@@ -97,7 +95,7 @@ describe('CellTextOutput', () => {
 		// notebook AI gate is a context key (positronNotebook.aiEnabled), not a
 		// config value.
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
-		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+		const contextKeyService = ctx.get(IContextKeyService);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
 		contextKeyService.createKey('posit-assistant.hasChatModels', true);
@@ -121,7 +119,7 @@ describe('CellTextOutput', () => {
 		// notebook.ai.enabled composition is covered in
 		// notebookAIEnabledContextKey.vitest.ts.)
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
-		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+		const contextKeyService = ctx.get(IContextKeyService);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, false);
 		contextKeyService.createKey('posit-assistant.hasChatModels', true);

@@ -14,13 +14,12 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputViewZone } from '../../browser/quartoOutputViewZone.js';
-import { PositAssistantErrorActionsContribution } from '../../../positronAssistant/browser/positAssistantErrorActions.js';
+import { registerPositAssistantErrorActions } from '../../../positronAssistant/test/browser/positAssistantErrorActionsTestUtils.js';
 
 // The inline-output webview is a fixed-position overlay anchored to a
 // placeholder inside the editor view zone. It must be shown only while its view
@@ -199,10 +198,9 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
 		.build();
 
-	// Send errors to Posit Assistant, as the workbench does. Registered after
-	// the container's stubs apply, so it uses the stubbed command service.
+	// Send errors to Posit Assistant, as the workbench does.
 	beforeEach(() => {
-		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+		registerPositAssistantErrorActions(ctx);
 	});
 
 	// jsdom performs no layout, so offsetHeight is always 0. Inject a measurer
@@ -262,7 +260,7 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 	it('grows to fit the async quick-fix buttons on the first run and again on a re-run', async () => {
 		// Gate the assistant on so the Fix/Explain buttons actually render.
 		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('ai.enabled', true);
-		(ctx.get(IContextKeyService) as MockContextKeyService).createKey('posit-assistant.hasChatModels', true);
+		(ctx.get(IContextKeyService)).createKey('posit-assistant.hasChatModels', true);
 		// The view zone renders the buttons through a PositronReactRenderer,
 		// which reads the services singleton; bridge the test container in.
 		PositronReactServices.services = ctx.reactServices;

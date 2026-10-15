@@ -7,7 +7,6 @@
 
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ContextKeyService } from '../../../../../platform/contextkey/browser/contextKeyService.js';
@@ -22,7 +21,7 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { POSIT_NEW_CHAT_COMMAND, NewChatOptions } from '../../../positronAssistant/browser/positAssistantChat.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
 import { QuartoCellErrorContext } from '../../common/quartoExecutionTypes.js';
-import { PositAssistantErrorActionsContribution } from '../../../positronAssistant/browser/positAssistantErrorActions.js';
+import { registerPositAssistantErrorActions } from '../../../positronAssistant/test/browser/positAssistantErrorActionsTestUtils.js';
 
 describe('QuartoOutputQuickFix', () => {
 	const ctx = createTestContainer()
@@ -33,18 +32,12 @@ describe('QuartoOutputQuickFix', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	// Send errors to Posit Assistant, as the workbench does. Registered after
-	// the container's stubs apply, so it uses the stubbed command service.
-	beforeEach(() => {
-		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
-	});
-
 	/** A real context key service, so key changes re-render the quick fix. */
 	let contextKeyService: ContextKeyService;
 
 	beforeEach(() => {
-		contextKeyService = ctx.disposables.add(new ContextKeyService(ctx.get(IConfigurationService)));
-		ctx.instantiationService.stub(IContextKeyService, contextKeyService);
+		// Send errors to Posit Assistant, as the workbench does.
+		contextKeyService = registerPositAssistantErrorActions(ctx);
 	});
 
 	function setGates(aiEnabled: boolean | undefined, hasChatModels: boolean | undefined) {
