@@ -23,6 +23,7 @@ import { Common, CreateEnv } from '../../../../client/common/utils/localize';
 import * as uv from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
 import * as uvPythonInstaller from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import * as venvUtils from '../../../../client/pythonEnvironments/creation/provider/venvUtils';
+import { reusedEnvironmentResult } from '../../../../client/pythonEnvironments/creation/reusedEnvironment';
 import {
     CreateEnvironmentProvider,
     CreateEnvironmentResult,
@@ -325,7 +326,7 @@ suite('uv Creation provider tests', () => {
         assert.isTrue(execObservableStub.notCalled);
         assert.isTrue(withProgressStub.notCalled);
 
-        assert.deepStrictEqual(result, { path: '/path/to/existing/venv/bin/python', workspaceFolder: workspace1 });
+        assert.deepStrictEqual(result, reusedEnvironmentResult('/path/to/existing/venv/bin/python', workspace1));
     });
 
     test('Create uv environment with options and pre-selected python version', async () => {

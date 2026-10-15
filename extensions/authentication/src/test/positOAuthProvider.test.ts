@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { PositOAuthProvider } from '../positOAuthProvider';
 import { initProviderCatalog } from '../providerCatalog';
+import { removeTempDir } from './tempDir';
 
 function storeValidTokens(secrets: Map<string, string>, overrides?: {
 	accessToken?: string;
@@ -142,11 +143,11 @@ suite('PositOAuthProvider', () => {
 			catalogContext = { subscriptions: [] } as unknown as vscode.ExtensionContext;
 		});
 
-		teardown(() => {
+		teardown(async () => {
 			for (const d of catalogContext.subscriptions) {
 				d.dispose();
 			}
-			fs.rmSync(dir, { recursive: true, force: true });
+			await removeTempDir(dir);
 		});
 
 		async function refreshAndCaptureRequest(): Promise<{ url: string; body: string }> {

@@ -35,6 +35,7 @@ import {
 } from '../customProviderAuth';
 import { CustomProviderRegistry } from '../customProviderRegistry';
 import { customProviderSource, getRegistrableCustomProviders } from '../providerSources';
+import { removeTempDir } from './tempDir';
 
 /** The model sources Positron registers for the catalog's custom entries. */
 function customSources() {
@@ -123,11 +124,11 @@ suite('custom providers', () => {
 		context = fakeContext();
 	});
 
-	teardown(() => {
+	teardown(async () => {
 		for (const d of context.subscriptions) {
 			d.dispose();
 		}
-		fs.rmSync(dir, { recursive: true, force: true });
+		await removeTempDir(dir);
 	});
 
 	suite('write path', () => {

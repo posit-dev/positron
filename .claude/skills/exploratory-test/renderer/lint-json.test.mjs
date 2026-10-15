@@ -160,3 +160,9 @@ test('readCheckedReport returns the report and logs what the check still finds, 
 		assert.match(lines[1], /^\[json\] \d+ problems after the explorer: report\.header is missing/);
 	});
 });
+
+test('schemaProblems checks header.headSha is a string', () => {
+	const header = { title: 't', branch: 'b', sha: 'abc1234567', result: 'r', tested: 't', notExercised: 'n' };
+	assert.deepEqual(schemaProblems({ header: { ...header, headSha: 'a'.repeat(40) }, findings: [] }).filter(p => /headSha/.test(p)), []);
+	assert.ok(schemaProblems({ header: { ...header, headSha: 7 }, findings: [] }).some(p => /headSha/.test(p)));
+});

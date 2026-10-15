@@ -21,9 +21,10 @@ import { IPositronVariablesService } from '../../../services/positronVariables/c
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IViewDataFrameByVariableArgs, PositronDataExplorerCommandId } from './positronDataExplorerActions.js';
 import { resolveDataFrameAtPosition } from './positronDataExplorerResolveDataFrame.js';
+import { opensInObjectExplorer } from '../../../services/positronDataExplorer/browser/positronDataExplorerViewVariableItem.js';
 
 /**
- * The languages for which the "Open in Data Explorer" code action is offered.
+ * The languages for which the "Open in Data/Object Explorer" code action is offered.
  * Quarto is included so the action works inside R/Python chunks of a .qmd file;
  * the resolver keys off the embedded language at the cursor. Notebook cells are
  * covered by the 'r'/'python' selectors, since a cell editor's model language
@@ -36,8 +37,8 @@ const CODE_ACTION_LANGUAGES = ['r', 'python', 'quarto'];
  * symbol at the cursor names a viewable data frame in the editor's runtime
  * session.
  *
- * The action is a thin wrapper over the same resolution flow as the "View Data
- * Frame at Cursor" command: it resolves the symbol to a variable and, on
+ * The action is a thin wrapper over the same resolution flow as the "View
+ * Variable at Cursor" command: it resolves the symbol to a variable and, on
  * success, emits an action whose command opens that variable. Resolution runs
  * with `wait: false` and `openVariablesViewIfNeeded: false` so feeding the
  * lightbulb is instant and free of side effects -- if the variable isn't
@@ -87,21 +88,33 @@ export class PositronDataExplorerCodeActionProvider implements CodeActionProvide
 			sessionId: resolution.sessionId,
 			variableId: resolution.item.id,
 		};
+		const objectExplorer = opensInObjectExplorer(resolution.item);
 		return {
 			actions: [
 				{
-					title: localize(
-						'positron.dataExplorer.openInDataExplorer',
-						"Open '{0}' in Data Explorer",
-						resolution.item.displayName,
-					),
+					title: objectExplorer
+						? localize(
+							'positron.dataExplorer.openInObjectExplorer',
+							"Open '{0}' in Object Explorer",
+							resolution.item.displayName,
+						)
+						: localize(
+							'positron.dataExplorer.openInDataExplorer',
+							"Open '{0}' in Data Explorer",
+							resolution.item.displayName,
+						),
 					kind: CodeActionKind.Refactor.value,
 					command: {
 						id: PositronDataExplorerCommandId.ViewDataFrameByVariableAction,
-						title: localize(
-							'positron.dataExplorer.openInDataExplorer.command',
-							"Open in Data Explorer",
-						),
+						title: objectExplorer
+							? localize(
+								'positron.dataExplorer.openInObjectExplorer.command',
+								"Open in Object Explorer",
+							)
+							: localize(
+								'positron.dataExplorer.openInDataExplorer.command',
+								"Open in Data Explorer",
+							),
 						arguments: [args],
 					},
 				},

@@ -13,6 +13,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, ILanguageRuntimeMessageUpdateOutput, RuntimeExitReason, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { DATA_EXPLORER_MIME_TYPE } from '../../positronNotebook/browser/getOutputContents.js';
+import { OBJECT_EXPLORER_MIME_TYPE } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 import { POSITRON_CONSOLE_EXEC_PREFIX } from '../../../services/positronConsole/browser/positronConsoleService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -431,11 +432,11 @@ function toOutputItems(data: ILanguageRuntimeMessageOutputData): IOutputItemDto[
 			case 'application/vnd.vegalite.v3+json':
 			case 'application/vnd.vegalite.v4+json':
 			case 'application/x-nteract-model-debug+json':
-			// Positron inline data explorer: R (ark) sends the payload as a
-			// native object, so it needs JSON.stringify like the types above.
-			// Python sends it as a pre-serialized JSON string, so we must
+			// Positron inline data and object explorers: the payload may arrive
+			// as a native object or as a pre-serialized JSON string, so we must
 			// check the type to avoid double-encoding.
 			case DATA_EXPLORER_MIME_TYPE:
+			case OBJECT_EXPLORER_MIME_TYPE:
 				if (typeof value === 'string') {
 					outputItems.push({ data: VSBuffer.fromString(value), mime });
 				} else {

@@ -22,6 +22,7 @@ import {
 	saveProviderEnabled,
 	saveSnowflakeAccount,
 } from '../providerCatalog';
+import { removeTempDir } from './tempDir';
 
 /** Minimal ExtensionContext stub: only `subscriptions` is read by initProviderCatalog. */
 function fakeContext(): vscode.ExtensionContext {
@@ -67,12 +68,12 @@ suite('providerCatalog', () => {
 		context = fakeContext();
 	});
 
-	teardown(() => {
+	teardown(async () => {
 		// Dispose the watcher registered on the (soon-deleted) tmpdir.
 		for (const d of context.subscriptions) {
 			d.dispose();
 		}
-		fs.rmSync(dir, { recursive: true, force: true });
+		await removeTempDir(dir);
 	});
 
 	test('init loads the baseline catalog and getCachedProvider answers synchronously', async () => {

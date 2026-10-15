@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describeEvent, runClaude } from './claude-cli.mjs';
+import { describeEvent, readPaths, runClaude } from './claude-cli.mjs';
 import { withTmpDir } from '../shared/tmp-dirs.mjs';
 
 const result = fields => JSON.stringify({ type: 'result', is_error: false, result: 'reply', duration_ms: 1000, num_turns: 3, total_cost_usd: 0.25, ...fields });
@@ -30,8 +30,23 @@ test('a session gets its tools, model and a session id, and returns its reply an
 	const [{ args, prompt, options }] = calls;
 	assert.deepEqual({ prompt, cwd: options.cwd, stopAt: calls[0].stopAt }, { prompt: 'read this', cwd: '/repo', stopAt: Infinity });
 	assert.ok(!args.includes('--settings'));
+	assert.equal(options.env.CLAUDE_CODE_DISABLE_CLAUDE_MDS, '1');
 	assert.deepEqual([flag(args, '--model'), flag(args, '--tools'), flag(args, '--allowedTools'), flag(args, '--output-format')], ['sonnet', 'Bash,Read', 'Bash,Read', 'stream-json']);
-	assert.deepEqual(out, { text: 'reply', durationMs: 1000, turns: 3, costUsd: 0.25, sessionId: flag(args, '--session-id') });
+	assert.deepEqual(out, { text: 'reply', durationMs: 1000, turns: 3, costUsd: 0.25, sessionId: flag(args, '--session-id'), opened: [] });
+});
+
+test('a session returns the files its Read calls opened, so a claim to have looked can be checked', async () => {
+	const event = { type: 'assistant', message: { content: [
+		{ type: 'tool_use', name: 'Read', input: { file_path: '/run/shots/S01-01.png' } },
+		{ type: 'tool_use', name: 'Bash', input: { command: 'cat /run/shots/S01-02.png' } },
+	] } };
+	assert.deepEqual(readPaths(event), ['/run/shots/S01-01.png']);
+	assert.deepEqual(readPaths({ type: 'user', message: { content: [] } }), []);
+	const exec = async (args, prompt, options) => {
+		options.onEvent(event);
+		return { status: 0, killed: false, ms: 1, stdout: result({}) };
+	};
+	assert.deepEqual((await runClaude({ prompt: 'p', model: 'sonnet', exec })).opened, ['/run/shots/S01-01.png']);
 });
 
 test('the stream\'s result event is the reply, after the events before it', async () => {
@@ -101,7 +116,7 @@ test('a time limit read from a file follows changes to it', () => withTmpDir('li
 test('an agent stopped for running past its wrap-up returns no text and no cost', async () => {
 	const { exec } = fakeExec([{ stdout: '', status: null, killed: true, ms: 1320000 }]);
 	const out = await runClaude({ prompt: 'p', model: 'sonnet', timeLimitMinutes: 12, timeUpMessage: 'Time is up.', exec });
-	assert.deepEqual({ ...out, sessionId: undefined }, { text: '', durationMs: 1320000, turns: null, costUsd: null, sessionId: undefined });
+	assert.deepEqual({ ...out, sessionId: undefined }, { text: '', durationMs: 1320000, turns: null, costUsd: null, sessionId: undefined, opened: [] });
 });
 
 test('a session that errors throws with what it said', async () => {

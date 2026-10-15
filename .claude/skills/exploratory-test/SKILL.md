@@ -7,7 +7,7 @@ metadata:
   # told or allowed, or what is done with its reply. versioned-files.txt lists
   # the files that count. Feedback is grouped by it, so a change to how the
   # page looks does not count.
-  version: "1.61"
+  version: "1.68"
 ---
 
 # Exploratory testing
@@ -59,8 +59,7 @@ not, it exits 1 before anything is spent and prints each fix; relay them, and
 pass `--skip-checkout-check` only when the person wants to run anyway. Then it
 makes the run directory and prints it, and runs each agent as a
 `claude -p` session: an Opus explorer, a verifier that checks its findings, an
-isolator when one needs controls, and an editor that rewrites their openings
-in plain words, as CI does. It prints the `index.html` path last. Keeping the
+isolator when one needs controls, as CI does. It prints the `index.html` path last. Keeping the
 agents out of your session keeps screenshots, snapshots and dead ends out of
 it too. Its output is a live feed of each agent's notes and tool calls; tell
 the person they can open the background shell to watch it.

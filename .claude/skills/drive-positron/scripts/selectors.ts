@@ -70,6 +70,12 @@ export const css = {
 		notifications: '.notifications-toasts, .notifications-center',
 		modal: '.positron-modal-overlay, .context-view', // what holds focus while a Positron menu or popup is open; no role
 	},
+	splitButton: {
+		// Positron's action-bar split button: two halves that can share one name, and
+		// neither has aria-haspopup, so only the class tells which half opens the menu.
+		action: '.action-bar-button-action-button',
+		dropDown: '.action-bar-button-drop-down-button',
+	},
 	quickInput: {
 		// Closed widgets stay in the DOM; the live one is the visible one. Its rows
 		// are a virtual list moved by a transform (references/reading-ui-state.md).

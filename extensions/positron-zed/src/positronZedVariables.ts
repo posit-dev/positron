@@ -11,7 +11,7 @@ import { JsonRpcErrorCode } from './jsonrpc';
 /**
  * ZedVar is a simple Zed variable.
  */
-class ZedVariable {
+export class ZedVariable {
 	// Zed variables do not currently support truncation.
 	public readonly is_truncated: boolean = false;
 	public readonly display_type;
@@ -46,12 +46,17 @@ class ZedVariable {
 			this.kind = 'vector';
 		}
 
+		// Lists have their own Zed type, ZedLIST, but are collections in the variables.
+		if (this.kind === 'list') {
+			this.kind = 'collection';
+		}
+
 		// The has_children property is true if the variable has children.
 		this.has_children = children.length > 0;
 
-		// The has_viewer property is true if the variable has a viewer.
-		// Currently, only tables have viewers.
-		this.has_viewer = kind === 'table';
+		// Tables have a viewer, as do lists and maps that have something to explore.
+		this.has_viewer = this.kind === 'table' ||
+			((this.kind === 'map' || this.kind === 'collection') && this.has_children);
 	}
 }
 
@@ -146,15 +151,9 @@ export class ZedVariables {
 				this.formatVariable(message.params.format, message.params.path);
 				break;
 
-			// A request to open a variable in a data viewer
+			// A request to open a variable in a viewer
 			case 'view':
-				// The object "name" to be viewed is just the path to the variable
-				// this.runtime.simulateDataView(message_id,
-				// 	`view ${message.params.path.join('.')}`,
-				// 	`Zed: ${message.params.path.join('.')}`);
-
-				// Let the front end know we're done
-				// this.emitResult(null);
+				this.viewVar(message_id, message.params.path);
 				break;
 		}
 	}
@@ -243,11 +242,16 @@ export class ZedVariables {
 					value = bytes.join(', ');
 					size = bytes.length;
 				}
-			} else if (oldVar.kind === 'list') {
+			} else if (oldVar.kind === 'collection') {
 				// Lists: Add a new random element to the end
 				oldVar.children.push(this.generateVars(1, 'random')[0]);
 				children = oldVar.children;
 				value = `list(${children.length} elements)`;
+				size = children.length;
+			} else if (oldVar.kind === 'map') {
+				// Maps: Give 'alpha' a new value, keeping the shape of the map
+				children = sampleMapEntries(Math.floor(Math.random() * 100));
+				value = mapDisplayValue(children);
 				size = children.length;
 			} else if (oldVar.kind === 'table') {
 				// Tables: Just generate a new random table
@@ -261,9 +265,10 @@ export class ZedVariables {
 				size = value.length;
 			}
 
-			const newVar = new ZedVariable(oldVar.display_name, value, oldVar.kind,
-				value.length, size, children);
+			const newVar = new ZedVariable(oldVar.display_name, value,
+				oldVar.kind === 'collection' ? 'list' : oldVar.kind, value.length, size, children);
 			this._vars.set(key, newVar);
+			this.runtime.notifyObjectExplorersUpdated(key);
 
 			// Add the variable to the list of updated variables
 			updated.push(newVar);
@@ -291,6 +296,7 @@ export class ZedVariables {
 		const keys = this.selectRandomKeys(count);
 		for (const key of keys) {
 			this._vars.delete(key);
+			this.runtime.closeObjectExplorersFor(key);
 		}
 
 		// Emit the removed variables to the front end
@@ -304,6 +310,9 @@ export class ZedVariables {
 	 */
 	public clearAllVars() {
 		// Clear the variables
+		for (const key of this._vars.keys()) {
+			this.runtime.closeObjectExplorersFor(key);
+		}
 		this._vars.clear();
 
 		// Reply to the RPC
@@ -333,6 +342,7 @@ export class ZedVariables {
 				// Looks like we have this variable, so remove it
 				removed.push(name);
 				this._vars.delete(name);
+				this.runtime.closeObjectExplorersFor(name);
 			} else {
 				// We don't have this variable, so add it to the list of unknown variables
 				unknown.push(name);
@@ -444,7 +454,7 @@ export class ZedVariables {
 	/**
 	 * Finds a variable at a given path
 	 */
-	private findVar(path: string[]): ZedVariable | undefined {
+	public findVar(path: string[]): ZedVariable | undefined {
 		let v: ZedVariable | undefined = undefined;
 		for (const p of path) {
 			if (v === undefined) {
@@ -461,6 +471,24 @@ export class ZedVariables {
 		}
 
 		return v;
+	}
+
+	/**
+	 * Opens an object explorer on a list or map and replies with its comm ID
+	 *
+	 * @param messageId The ID of the view request
+	 * @param path The path to the variable to view
+	 */
+	private viewVar(messageId: string, path: string[]) {
+		const v = this.findVar(path);
+		if (!v) {
+			this.emitError(JsonRpcErrorCode.INVALID_PARAMS,
+				`Can't view; variable not found: ${path.join('.')}`);
+		} else if (v.kind !== 'map' && v.kind !== 'collection') {
+			this.emitError(JsonRpcErrorCode.INVALID_PARAMS, 'Zed can only view lists and maps');
+		} else {
+			this.emitResult(this.runtime.openObjectExplorer(messageId, path));
+		}
 	}
 
 	/**
@@ -517,8 +545,8 @@ export class ZedVariables {
 			if (!kind || kind === 'random') {
 				// Random: pick a random kind
 				kindToUse =
-					['string', 'number', 'vector', 'blob', 'list', 'table']
-					[Math.floor(Math.random() * 6)];
+					['string', 'number', 'vector', 'blob', 'list', 'map', 'table']
+					[Math.floor(Math.random() * 7)];
 			}
 
 			const name = `${kindToUse}${start + i}`;
@@ -553,6 +581,11 @@ export class ZedVariables {
 				children = this.generateVars(numElements, 'random');
 				value = `list(${numElements} elements)`;
 				size = numElements;
+			} else if (kindToUse === 'map') {
+				// Maps: The same nested shape every time, so tests can rely on it
+				children = sampleMapEntries(1);
+				value = mapDisplayValue(children);
+				size = children.length;
 			} else if (kindToUse === 'table') {
 				// Tables: Have 1 - 10 columns of 10 - 100 rows
 				const numColumns = Math.floor(Math.random() * 10) + 1;
@@ -611,4 +644,34 @@ export class ZedVariables {
 			'params': payload
 		});
 	}
+}
+
+/**
+ * Builds the entries of a sample map: a number, a string, and a nested map holding a list too long
+ * to show at once and a further nested map.
+ *
+ * @param alpha The value of the 'alpha' entry
+ */
+function sampleMapEntries(alpha: number): ZedVariable[] {
+	const numbers = Array.from({ length: 1200 }, (_, i) =>
+		new ZedVariable(`[${i + 1}]`, String(i + 1), 'number', 1, 4));
+	const epsilon = [new ZedVariable('zeta', 'deep needle', 'string', 11, 11)];
+	const gamma = [
+		new ZedVariable('delta', `list(${numbers.length} elements)`, 'list', numbers.length, numbers.length, numbers),
+		new ZedVariable('epsilon', mapDisplayValue(epsilon), 'map', epsilon.length, epsilon.length, epsilon),
+	];
+	return [
+		new ZedVariable('alpha', String(alpha), 'number', 1, 4),
+		new ZedVariable('beta', 'needle', 'string', 6, 6),
+		new ZedVariable('gamma', mapDisplayValue(gamma), 'map', gamma.length, gamma.length, gamma),
+	];
+}
+
+/**
+ * Formats the value of a map for display.
+ *
+ * @param entries The entries of the map
+ */
+function mapDisplayValue(entries: ZedVariable[]): string {
+	return `map(${entries.map(e => e.display_name).join(', ')})`;
 }

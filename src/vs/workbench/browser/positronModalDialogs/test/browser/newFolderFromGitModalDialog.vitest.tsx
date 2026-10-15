@@ -22,6 +22,7 @@ import { IContextKeyService } from '../../../../../platform/contextkey/common/co
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { NewFolderFromGitModalDialog } from '../../newFolderFromGitModalDialog.js';
+import { CAN_CREATE_FOLDER_IN_COMMAND } from '../../../utils/createFolder.js';
 
 describe('NewFolderFromGitModalDialog', () => {
 	const ctx = createTestContainer()
@@ -46,12 +47,20 @@ describe('NewFolderFromGitModalDialog', () => {
 	/**
 	 * Renders the dialog over a parent folder that holds the given folder names, so a test can set
 	 * up the collision it wants to see reported.
+	 * @param existingFolders The folders in the parent folder.
+	 * @param writable Whether a folder can be created in the parent folder.
 	 */
-	function renderDialog(existingFolders: readonly string[] = []) {
+	function renderDialog(existingFolders: readonly string[] = [], writable = true) {
 		const createFolder = vi.fn().mockResolvedValue(undefined);
 		ctx.instantiationService.stub(IFileService, {
 			exists: async (resource: URI) =>
 				existingFolders.some(name => resource.path === `${parentFolder.path}/${name}`),
+		});
+		// The extension host answers whether the user can write to the parent folder.
+		ctx.instantiationService.stub(ICommandService, {
+			executeCommand: vi.fn(async (commandId: string) =>
+				commandId === CAN_CREATE_FOLDER_IN_COMMAND ? writable : undefined
+			) as unknown as ICommandService['executeCommand'],
 		});
 		registerGitClone();
 		rtl.render(
@@ -245,6 +254,22 @@ describe('NewFolderFromGitModalDialog', () => {
 		));
 	});
 
+	it('explains under the location, without OK, that the location is not writable, and disables OK', async () => {
+		const user = userEvent.setup();
+		const { createFolder } = renderDialog([], false);
+
+		expect(await screen.findByText('You don\'t have permission to create a folder in this location.')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'OK' })).toBeDisabled();
+
+		// Neither a click nor Enter gets past the disabled button.
+		await user.type(repoUrl(), 'https://github.com/posit-dev/positron.git');
+		await user.click(screen.getByRole('button', { name: 'OK' }));
+		await user.keyboard('{Enter}');
+
+		expect(createFolder).not.toHaveBeenCalled();
+		expect(renderer.dispose).not.toHaveBeenCalled();
+	});
+
 	it('refuses to create a folder that already exists', async () => {
 		const user = userEvent.setup();
 		const { createFolder } = renderDialog(['positron']);
@@ -314,6 +339,16 @@ describe('NewFolderFromGitModalDialog', () => {
 			// The dialog blocks the rest of the window, so it offers no fix of its own; OK closes it.
 			expect(renderer.dispose).toHaveBeenCalled();
 			expect(executeCommand).not.toHaveBeenCalled();
+		});
+
+		it('does not check the location while it explains that Git cannot clone', async () => {
+			const { executeCommand } = renderWithGit({ gitMissing: true });
+			expect(await screen.findByText('Git was not found.')).toBeInTheDocument();
+
+			// Longer than the location check's debounce.
+			await new Promise(resolve => setTimeout(resolve, 300));
+
+			expect(executeCommand).not.toHaveBeenCalledWith(CAN_CREATE_FOLDER_IN_COMMAND, expect.anything());
 		});
 
 		it('explains that Git is turned off, and closes itself to open the setting', async () => {

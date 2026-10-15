@@ -42,6 +42,8 @@ const bin = (name: string) => join(repo, 'node_modules/.bin', name);
 const ts = (dir: string) => readdirSync(dir).filter(f => f.endsWith('.ts')).map(f => join(dir, f));
 const tsIn = (dir: string) => existsSync(dir) ? ts(dir) : [];
 const sh = readdirSync(scripts).filter(f => f.endsWith('.sh')).sort();
+// Files only: a relative NPM_CONFIG_CACHE leaves a .npm-cache directory in scripts/ when npx runs there.
+const filesIn = (dir: string) => readdirSync(dir, { withFileTypes: true }).filter(d => d.isFile()).map(d => join(dir, d.name));
 
 /** Runs a tool and returns its output lines when it fails, nothing when it passes. */
 function run(cmd: string, args: string[]): string[] {
@@ -79,7 +81,7 @@ const checks: Record<string, () => string[] | Promise<string[]>> = {
 	},
 
 	lint: () => {
-		const files = [...readdirSync(scripts).map(f => join(scripts, f)), ...ts(test), ...(existsSync(heal) ? readdirSync(heal).map(f => join(heal, f)) : []), ...['SKILL.md', 'CONTRIBUTING.md', 'test/README.md'].map(f => join(skill, f))];
+		const files = [...filesIn(scripts), ...ts(test), ...(existsSync(heal) ? filesIn(heal) : []), ...['SKILL.md', 'CONTRIBUTING.md', 'test/README.md'].map(f => join(skill, f))];
 		const ascii = files.flatMap(f => readFileSync(f, 'utf8').split('\n').flatMap((l, i) => /[^\x00-\x7F]/.test(l) ? [`${f.slice(skill.length + 1)}:${i + 1}: not ASCII: ${l.trim().slice(0, 80)}`] : []));
 		return [...ascii, ...run(bin('eslint'), ['--quiet', ...ts(scripts), ...ts(test), ...tsIn(heal)])];
 	},

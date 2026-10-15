@@ -97,7 +97,7 @@ function buildAgentPrompt(f, report, options = {}) {
 	}).join('\n'));
 	// A match on a not-planned issue: check it was not judged intended before fixing.
 	section('Closed as not planned', (f.intended ?? []).map(n => `- ${REPO_URL}/issues/${Number(n)}`).join('\n'));
-	section('Observed', capitalize(t.observed));
+	section(observedHeading(t), capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
 	section('Preconditions', t.preconditions.length === 1
 		? t.preconditions[0]
@@ -112,7 +112,7 @@ function buildAgentPrompt(f, report, options = {}) {
 	// Every error, including the ones the card hides for having no stack: a bare
 	// message is still a lead for whoever picks this up.
 	section('Error output', errorOutput(f, p => absolutePath(p, base)));
-	section('Likely cause (hypothesis, not verified)', capitalize(t.cause));
+	section(causeHeading(t), capitalize(t.cause));
 	const regression = regressionTest(f);
 	if (regression) {
 		section(regression.heading, regression.body);
@@ -265,6 +265,16 @@ function markBelow(text, file) {
 	return { text: out, done };
 }
 
+/** The Cause's heading, saying when the verifier rewrote it. Neither was checked by a run. */
+function causeHeading(t) {
+	return t.corrected?.includes('cause') ? 'Likely cause (revised by the reviewing agent, not verified by a run)' : 'Likely cause (hypothesis, not verified)';
+}
+
+/** The Observed heading, saying when the verifier rewrote it from the screenshots. */
+function observedHeading(t) {
+	return t.corrected?.includes('observed') ? 'Observed (revised by the reviewing agent)' : 'Observed';
+}
+
 /** A step as the issue writes it: its result in bold, and no log line, which Error messages has. */
 function issueStep(step, observed) {
 	const result = step.result
@@ -290,7 +300,9 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const at = [branch && `\`${branch}\``, sha && `\`${sha}\``].filter(Boolean).join(' @ ');
 	const of = report.pr ? `#${report.pr.number}${at ? ` (${at})` : ''}` : at;
 	const opening = t.opening;
-	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', systemDetails(report), ''];
+	// Ticked by whoever reproduces it, with their note before the comment, which shows only while editing.
+	const reproduced = '- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->';
+	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', reproduced, '', systemDetails(report), ''];
 	// Linked both ways, so GitHub cross-references the fix and its PR.
 	const failedFixes = options.ki?.fixFailed.get(f.n);
 	const back = options.ki?.cameBack.get(f.n);
@@ -310,7 +322,9 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	};
 	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', escapeLoneTildes(safeLinks(body)), '', '</details>', '');
 
-	section('Describe the issue', opening ? [opening.summary, opening.where].filter(Boolean).map(capitalize).join('\n\n') : capitalize(t.summary));
+	// How the bug affects users; a report from before impact existed has its summary instead.
+	const legacy = opening ? [opening.summary, opening.where].filter(Boolean).map(capitalize).join('\n\n') : capitalize(t.summary ?? '');
+	section('Describe the issue', capitalize(t.impact ?? '') || legacy);
 
 	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps].join('\n')).filter(file => file.kind !== 'missing');
 	const marked = new Set();
@@ -331,7 +345,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 		preconditions.map(p => `- ${p.replace(/\n/g, '\n  ')}`).join('\n'),
 		f.steps.map((st, i) => `${i + 1}. ${issueStep(st, observed).replace(/\n/g, '\n   ')}`).join('\n'),
 	].filter(Boolean).join('\n\n'));
-	section('Observed', capitalize(t.observed));
+	section(observedHeading(t), capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
 
 	const clip = raw => {
@@ -343,7 +357,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	section('Evidence', evidenceItems(f, p => p, e => e.file) && `Screenshots and logs are in the ${by} report for this run.`);
 
 	if (t.cause && !drop.has('cause')) {
-		fold('Likely cause (hypothesis, not verified)', capitalize(t.cause));
+		fold(causeHeading(t), capitalize(t.cause));
 	}
 	const regression = regressionTest(f);
 	if (regression && !drop.has('regression')) {

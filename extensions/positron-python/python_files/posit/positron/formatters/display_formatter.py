@@ -16,6 +16,7 @@ from IPython.core.formatters import (
 )
 
 from .data_explorer_formatter import create_data_explorer_formatter
+from .object_explorer_formatter import create_object_explorer_formatter
 
 if TYPE_CHECKING:
     import plotnine
@@ -45,6 +46,10 @@ class PositronDisplayFormatter(DisplayFormatter):
         # Add PositronDataExplorerFormatter for inline data explorer
         explorer_formatter = create_data_explorer_formatter(parent=self, kernel=self.parent.kernel)
         formatters[explorer_formatter.format_type] = explorer_formatter
+
+        # Add PositronObjectExplorerFormatter for inline object explorer
+        object_formatter = create_object_explorer_formatter(parent=self, kernel=self.parent.kernel)
+        formatters[object_formatter.format_type] = object_formatter
 
         return formatters
 

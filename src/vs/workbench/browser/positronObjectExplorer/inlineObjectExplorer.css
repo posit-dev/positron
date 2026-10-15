@@ -1,0 +1,91 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* The border and header heights add up to INLINE_OBJECT_EXPLORER_CHROME_HEIGHT. */
+.inline-object-explorer {
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	margin: 4px 0;
+	overflow: hidden;
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 4px;
+	/* Drives the container query that collapses the open button to its icon. */
+	container-type: inline-size;
+}
+
+.inline-object-explorer-header {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: space-between;
+	box-sizing: border-box;
+	height: 24px;
+	padding: 0 8px;
+	background-color: var(--vscode-editorWidget-background);
+	border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+/* Clears the floating action bar a notebook shows over cell outputs on hover. */
+.inline-object-explorer.clears-output-actions .inline-object-explorer-header {
+	padding-right: 44px;
+}
+
+.inline-object-explorer-title {
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-weight: 500;
+}
+
+.inline-object-explorer-open-button {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	padding: 2px 8px;
+	border: none;
+	border-radius: 2px;
+	background-color: transparent;
+	color: var(--vscode-textLink-foreground);
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.inline-object-explorer-open-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.inline-object-explorer-open-button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.inline-object-explorer-open-button-label {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+@container (max-width: 400px) {
+	.inline-object-explorer-open-button-label {
+		display: none;
+	}
+}
+
+.inline-object-explorer-content {
+	position: relative;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.inline-object-explorer-message {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	height: 100%;
+	padding: 0 8px;
+	color: var(--vscode-descriptionForeground);
+}

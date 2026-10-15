@@ -20,12 +20,12 @@ export const RESULT_MAX = 160;
 // actions.log and a check can sit between any two. A lowercase verb after
 // "then" is a second action; a capitalized word is a menu item ("More, then Insert Cell Above").
 const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|ten|\d+) times|each of)\b/i;
-// A precondition saying how it was done in the app ("started with Run App", "then opened"): that is a step.
+// A precondition that is something done in the app ("then opened", a running Shiny app, "started in S03"): that is a step. Saying how an earlier scenario made a state ("a console started with ...") is allowed.
 // A scratch path the reader does not have; a workspace is named by what it holds.
 const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\/(?:Users|home)\/\S*)/;
 // An app already serving is what the steps start, so the reader sees it start.
 const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+|\brunning in (?:\w+ ){0,3}console\b/i;
-const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran)|Run(?: Shiny)? App|shown in the|in the session|defined in the|still open|drew|(?:started|opened) (?:in|by) S\d+|S\d+ (?:started|drew|opened|left))\b/i;
+const DONE_IN_APP = /\b(?:(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:(?:\w+\s+){0,3}?\w+ed|ran)|Run(?: Shiny)? App|shown in the|in the session|defined in the|still open|drew|(?:started|opened) (?:in|by) S\d+|S\d+ (?:started|drew|opened|left))\b/i;
 // A finding's reader runs the file as its first step; a ledger row's third field may say how a scenario made it.
 const RUN_IN_SESSION = /\brun in (?:the |its |their |each |both )?(?:\w+ ){0,3}(?:sessions?|consoles?)\b/i;
 // Code a precondition runs rather than describes: loading it is step 1.
@@ -157,6 +157,10 @@ export function lintPreconditionActions(preconditions) {
 		if (running) {
 			problems.push(problem('precondition-running-app', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" is a running app ("${running[0]}"); start it in the steps, with a check that it runs`));
 		}
+		const stepRef = where.startsWith('Finding') ? /\bsteps? \d+\b/i.exec(text) : null;
+		if (stepRef) {
+			problems.push(problem('precondition-step-reference', `report: ${where} precondition "${name}" points at ${stepRef[0]}; write the name or value itself, so the precondition reads on its own`));
+		}
 		if (where.startsWith('Finding') && /\bthe run's\b/i.test(text)) {
 			problems.push(problem('precondition-the-runs', `report: ${where} precondition "${name}" says "the run's", which the reader does not have; name the interpreter and package ("Python 3.12 with shiny 1.9.1")`));
 		}
@@ -168,8 +172,9 @@ export function lintPreconditionActions(preconditions) {
 	return problems;
 }
 
-// The Result, and a Cause's lead sentence, are read at a glance.
+// The Result, a finding's summary and a Cause's lead sentence are read at a glance.
 export const SUMMARY_WORDS = 60;
+export const OPENING_WORDS = 50;
 export const CAUSE_LEAD_WORDS = 40;
 
 /** Words in prose, a code span counting as one. */
@@ -197,13 +202,15 @@ function comparisonProblems(n, label, text) {
 
 // Backends a reference to the right answer usually comes from.
 const BACKENDS = [['pandas', /\bpandas\b/i], ['polars', /\bpolars\b/i], ['R', /\bR\b/]];
+// A backend giving a value ("pandas shows"), not one named as what was tested ("the R session").
+const REPORTS_VALUE = /\s+(?:also\s+)?(?:shows|gives|returns|reports|displays|says)\b/.source;
 
 /**
  * Observed and Expected read as sentences about one thing, each number written
  * one way. The checks are narrow on purpose: each names its fix.
  * - A semicolon joins notes; write sentences.
- * - A backend the title does not name is the reference that shows the right
- *   answer, so it belongs in Expected.
+ * - A backend the title does not name, giving a value, is the reference that
+ *   shows the right answer, so it belongs in Expected.
  * - The same number grouped in one place and ungrouped in another reads as
  *   two numbers.
  */
@@ -253,7 +260,7 @@ function clarityProblems(n, title, observed, expected) {
 		}
 	}
 	if (observed) {
-		const named = BACKENDS.filter(([, re]) => re.test(prose(observed)) && !re.test(title)).map(([name]) => name);
+		const named = BACKENDS.filter(([, re]) => new RegExp(re.source + REPORTS_VALUE, re.flags).test(prose(observed)) && !re.test(title)).map(([name]) => name);
 		if (named.length) {
 			problems.push(problem('reference-in-observed', `report: Finding ${n} observed names ${named.join(' and ')}, which the title does not; the reference that shows the right answer goes in expected ("as ${named[0]} shows for the same data")`));
 		}

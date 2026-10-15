@@ -11,7 +11,8 @@ import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
-import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
+import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, OBJECT_EXPLORER_MIME_TYPE, CellExecutionState, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
+import { InlineObjectExplorer } from '../../../browser/positronObjectExplorer/inlineObjectExplorer.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
 import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
@@ -1762,6 +1763,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			return { kind: 'other', text: localize('quartoOutputSummaryDataFrameGeneric', 'Data frame') };
 		}
 
+		// Nested data (inline object explorer)
+		if (output.items.some(item => item.mime === OBJECT_EXPLORER_MIME_TYPE)) {
+			return { kind: 'other', text: localize('quartoOutputSummaryObject', 'Object') };
+		}
+
 		// Interactive output (widget / plotly / viewer)
 		if (output.webviewMetadata?.webviewType) {
 			return { kind: 'other', text: localize('quartoOutputSummaryInteractive', 'Interactive output') };
@@ -2274,8 +2280,14 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			item => item.mime === DATA_EXPLORER_MIME_TYPE
 		);
 
+		const objectExplorerItem = output.items.find(
+			item => item.mime === OBJECT_EXPLORER_MIME_TYPE
+		);
+
 		if (dataExplorerItem && this._isDataExplorerEnabled()) {
 			this._renderDataExplorerOutput(dataExplorerItem, output, outputElement);
+		} else if (objectExplorerItem) {
+			this._renderObjectExplorerOutput(objectExplorerItem, output, outputElement);
 		} else if (output.webviewMetadata?.webviewType && this._webviewService && this._session) {
 			// Check if this output needs webview rendering
 			// Render via webview for interactive/complex outputs
@@ -2299,9 +2311,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			const hasDataExplorer = output.items.some(i => i.mime === DATA_EXPLORER_MIME_TYPE);
 			const shouldExcludePlainText = (hasHtml || hasImage) && !hasDataExplorer;
 
-			// Render items normally, skipping data explorer MIME
+			// Render items normally, skipping the explorer MIME types
 			for (const item of output.items) {
-				if (item.mime === DATA_EXPLORER_MIME_TYPE) {
+				if (item.mime === DATA_EXPLORER_MIME_TYPE || item.mime === OBJECT_EXPLORER_MIME_TYPE) {
 					continue;
 				}
 				if (item.mime === 'text/plain' && shouldExcludePlainText) {
@@ -2443,6 +2455,52 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				documentUri: this._documentUri ?? URI.parse(''),
 				onFallback: handleFallback,
 				onHeightChange: handleHeightChange,
+			})
+		);
+	}
+
+	/**
+	 * Render an object explorer output using a React component bridge, falling back to the
+	 * output's text when the object explorer is unavailable.
+	 */
+	private _renderObjectExplorerOutput(
+		objectExplorerItem: ICellOutputItem,
+		output: ICellOutput,
+		container: HTMLElement
+	): void {
+		let payload: { comm_id?: string; title?: string };
+		try {
+			payload = JSON.parse(objectExplorerItem.data);
+		} catch {
+			payload = {};
+		}
+		const commId = payload.comm_id;
+		if (!commId) {
+			this._renderDataExplorerFallback(output, container);
+			return;
+		}
+
+		const objectExplorerContainer = document.createElement('div');
+		objectExplorerContainer.className = 'quarto-output-object-explorer';
+		container.appendChild(objectExplorerContainer);
+
+		const renderer = new PositronReactRenderer(objectExplorerContainer);
+		this._reactRenderersByOutputId.set(output.outputId, renderer);
+
+		const handleFallback = () => {
+			renderer.dispose();
+			this._reactRenderersByOutputId.delete(output.outputId);
+			objectExplorerContainer.remove();
+			this._renderDataExplorerFallback(output, container);
+			this._updateHeight();
+		};
+
+		renderer.render(
+			React.createElement(InlineObjectExplorer, {
+				commId,
+				title: payload.title ?? '',
+				onFallback: handleFallback,
+				onDidChangeHeight: () => this._updateHeight(),
 			})
 		);
 	}

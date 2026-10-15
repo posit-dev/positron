@@ -12,6 +12,7 @@ import { JupyterExecuteResult } from './jupyter/ExecuteRequest';
 import { JupyterDisplayData } from './jupyter/JupyterDisplayData';
 import { JupyterCommMsg } from './jupyter/JupyterCommMsg';
 import { JupyterCommOpen } from './jupyter/JupyterCommOpen';
+import { JupyterCommClose } from './jupyter/JupyterCommClose';
 import { JupyterClearOutput } from './jupyter/JupyterClearOutput';
 import { JupyterErrorReply } from './jupyter/JupyterErrorReply';
 import { JupyterStreamOutput } from './jupyter/JupyterStreamOutput';
@@ -30,6 +31,7 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 
 	private readonly _emitter = new vscode.EventEmitter<positron.LanguageRuntimeCommMessage
 		| positron.LanguageRuntimeCommOpen
+		| positron.LanguageRuntimeCommClosed
 		| positron.LanguageRuntimeDebugEvent
 		| positron.LanguageRuntimeDebugReply
 		| positron.LanguageRuntimeResult
@@ -61,6 +63,9 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 				break;
 			case JupyterMessageType.CommOpen:
 				this.onCommOpen(msg, msg.content as JupyterCommOpen);
+				break;
+			case JupyterMessageType.CommClose:
+				this.onCommClose(msg, msg.content as JupyterCommClose);
 				break;
 			case JupyterMessageType.DebugEvent:
 				this.onDebugEvent(msg, msg.content as positron.DebugProtocolEvent);
@@ -247,6 +252,26 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 			metadata: message.metadata,
 			buffers: message.buffers,
 		} satisfies positron.LanguageRuntimeCommOpen);
+	}
+
+	/**
+	 * Delivers a comm_close message from the kernel to the front end, so that
+	 * the front-end representation of the comm learns that it was closed.
+	 *
+	 * @param message The outer message packet
+	 * @param data The inner comm_close message
+	 */
+	private onCommClose(message: JupyterMessage, data: JupyterCommClose): void {
+		this._emitter.fire({
+			id: message.header.msg_id,
+			parent_id: message.parent_header?.msg_id,
+			when: message.header.date,
+			type: positron.LanguageRuntimeMessageType.CommClosed,
+			comm_id: data.comm_id,
+			data: data.data,
+			metadata: message.metadata,
+			buffers: message.buffers,
+		} satisfies positron.LanguageRuntimeCommClosed);
 	}
 
 	/**

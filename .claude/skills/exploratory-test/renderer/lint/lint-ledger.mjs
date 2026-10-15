@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fileProcess, isPositronLog, parseLedger, parseSystemLine } from '../shared/ledger.mjs';
 import { problem } from './lint-rules.mjs';
-import { CAUSE_LEAD_WORDS, lintPreconditionActions, RESULT_MAX, SCENARIO_ID, sentencesOf, stepListProblems, stepProblems, verifyProblems, wordsOf } from './lint-wording.mjs';
+import { CAUSE_LEAD_WORDS, lintPreconditionActions, OPENING_WORDS, RESULT_MAX, SCENARIO_ID, sentencesOf, stepListProblems, stepProblems, verifyProblems, wordsOf } from './lint-wording.mjs';
 import { FILE_NAME, FILES_PATH, findFile } from '../page/repro-files.mjs';
 import { basename, escapeRegExp, isNewTestFile } from '../shared/text.mjs';
 
@@ -380,6 +380,17 @@ export function modelProblems(findings, ledger, { repoFileExists } = {}) {
 			}
 		}
 	}
+	// Impact opens the issue filed from the finding; without one its description is dropped.
+	for (const f of findings) {
+		const impact = (f.text.impact ?? '').trim();
+		const sentences = sentencesOf(impact).length;
+		if (!impact) {
+			problems.push(problem('impact-missing', `report: Finding ${f.n} has no impact; say in one or two sentences who runs into it, what it costs them, and whether they would notice`));
+		} else if (sentences > 2 || wordsOf(impact) > OPENING_WORDS) {
+			const size = sentences > 2 ? `has ${sentences} sentences` : `is ${wordsOf(impact)} words`;
+			problems.push(problem('impact-length', `report: Finding ${f.n} impact ${size}; keep it to two sentences of ${OPENING_WORDS} words or fewer`));
+		}
+	}
 	// A reader who stops after a Cause's first sentence still learns the suspect.
 	for (const f of findings) {
 		const lead = f.text.cause && sentencesOf(f.text.cause)[0];
@@ -468,7 +479,7 @@ export function absolutePathProblems(name, paths) {
  * report's prose, for the files/ paths it names; `needs` is `[where, text, name?]` for
  * each of its setup lines.
  */
-export function runProblems(text, ledger, { needs = [], findingNumbers, notExercised, fileExists, listFiles, knownIssues, actionsLog } = {}) {
+export function runProblems(text, ledger, { needs = [], findingNumbers, notExercised, fileExists, listFiles, knownIssues, actionsLog, session } = {}) {
 	const problems = [];
 	for (const { line } of prose(ledger)) {
 		problems.push(...absolutePathProblems('ledger', citedPaths(line)));
@@ -491,7 +502,7 @@ export function runProblems(text, ledger, { needs = [], findingNumbers, notExerc
 		}
 	}
 	if (actionsLog !== undefined) {
-		problems.push(...lintActionsLog(actionsLog));
+		problems.push(...lintActionsLog(actionsLog, { session }));
 	}
 	return problems;
 }
@@ -502,7 +513,7 @@ export function runProblems(text, ledger, { needs = [], findingNumbers, notExerc
  * report, and no linked fix still to be tested.
  * @returns {string[]} one line per problem, as lint-json's
  */
-export function lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog } = {}) {
+export function lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog, session } = {}) {
 	const problems = [...lintLedger(ledger, null, fileExists).problems];
 	problems.push(...lintFiles('', ledger, ledgerPreconditions(ledger), { fileExists, listFiles }));
 	problems.push(...lintPreconditionActions(ledgerPreconditions(ledger)));
@@ -510,7 +521,7 @@ export function lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, act
 		problems.push(...lintKnownIssues(ledger, knownIssues, { final: false }));
 	}
 	if (actionsLog !== undefined) {
-		problems.push(...lintShotNames(ledger, actionsLog), ...lintShotTiming(ledger, actionsLog), ...lintActionsLog(actionsLog));
+		problems.push(...lintShotNames(ledger, actionsLog), ...lintShotTiming(ledger, actionsLog), ...lintActionsLog(actionsLog, { session }));
 	}
 	return problems;
 }
@@ -527,14 +538,21 @@ const LOG_SLACK_MS = 1000;
  * than one above it. A line in another format was written by hand, and one that
  * goes back in time was backdated or moved: either way the log no longer says
  * what happened when, which is what the verifier checks the steps against.
+ * With the run's Playwright `session`, a line under another session name drove
+ * a window that may be another run's.
  * @returns {string[]} one line per kind of problem
  */
-export function lintActionsLog(actionsLog) {
+export function lintActionsLog(actionsLog, { session } = {}) {
 	const unstamped = [];
 	const back = [];
+	const other = [];
 	let latest = null;
 	String(actionsLog ?? '').split('\n').forEach((line, i) => {
 		if (!line.trim()) { return; }
+		const name = / -s=([^\s:]+):/.exec(line)?.[1];
+		if (session && name && name !== session && !name.startsWith(`${session}-`)) {
+			other.push({ n: i + 1, name });
+		}
 		const m = LOG_TIME.exec(line);
 		if (!m) {
 			unstamped.push({ n: i + 1, line: line.trim() });
@@ -557,6 +575,9 @@ export function lintActionsLog(actionsLog) {
 		const [b] = back;
 		const first = `line ${b.n} (${b.at}) is earlier than line ${b.after.n} above it (${b.after.at})`;
 		problems.push(problem('log-backdated', `actions.log: ${back.length > 1 ? `${lines(back)} are earlier than a line above them, first ${first}` : first}; the log is append-only, so log a missed action as a note when you notice it, and never backdate or move a line`));
+	}
+	if (other.length) {
+		problems.push(problem('log-other-session', `actions.log: ${lines(other)} drove Playwright session "${other[0].name}", not this run's "${session}" or a name starting "${session}-"; another run on this machine may own that window, so check what those lines read, and use your own session from here`));
 	}
 	return problems;
 }

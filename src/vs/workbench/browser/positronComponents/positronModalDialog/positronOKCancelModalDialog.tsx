@@ -22,6 +22,10 @@ export interface OKCancelModalDialogProps extends PositronModalDialogProps {
 	title: string;
 	okButtonTitle?: string;
 	cancelButtonTitle?: string;
+	/**
+	 * Disables the OK button, and with it Enter, while the dialog cannot be accepted.
+	 */
+	okDisabled?: boolean;
 	onAccept: () => (void | Promise<void>);
 	onCancel: () => (void | Promise<void>);
 	/**

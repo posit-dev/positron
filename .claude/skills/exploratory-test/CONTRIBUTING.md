@@ -14,19 +14,20 @@ is handed:
 2. **Verifier** (`verifier.md`) never touches the app. It reads the report,
    the ledger and the diff, and gives each finding a verdict: CONFIRMED, FALSE
    POSITIVE or UNRESOLVED. It also flags a finding that matches a known issue
-   or one closed as not planned. It replies with a `json` block, which
-   `parseVerifyReply` in `finish.mjs` reads, then its notes.
+   or one closed as not planned, and rewrites a title, feature, cause,
+   observed or test list the evidence contradicts; the card and the issue say
+   which it revised. It replies with a `json` block, which
+   `parseVerifyReply` in `finish.mjs` reads, then its notes. Each runner
+   reports the files the session read, so a screenshot it lists but never
+   opened is asked about once, then shown as not checked. So is a finding
+   whose reply has no `setup` list of the run's own setup.
 3. **Isolator** (`isolator.md`) runs only when a finding is UNRESOLVED. It
    launches its own instance, runs a few controls in 12 minutes, and writes
    `isolation.md`. The verifier is then sent that file and revises.
-4. **Editor** (`editor.md`) rewrites each finding's title and opening for a
-   reader who wasn't there. It never touches the repro steps, and a rewrite
-   that fails `reviewEdits` is dropped in favor of the original.
 
 Each of them writes what it decided into `report.json`: verdicts, known
-issues, titles and openings, and what each pass cost. `renderer/render.mjs`
-(or `run.mjs` in CI, through the same `writeRunPage`) then turns
-`report.json` into `index.html`.
+issues, and what each pass cost. `renderer/render.mjs` (or `run.mjs` in CI,
+through the same `writeRunPage`) then turns `report.json` into `index.html`.
 
 Local and CI runs share every step after the explorer: `completeRun` in
 `renderer/pipeline.mjs` checks the report, runs the later passes in order and
@@ -96,6 +97,49 @@ To try the whole path before merging, dispatch `test-exploratory-suggest.yml`
 from your branch with dry run off. The run it starts uses your branch's
 harness.
 
+### What happened to a run's findings
+
+`node .github/actions/pr-exploratory-test/outcomes.mjs [--pr N] [--out rows.jsonl]`
+decides, for each confirmed finding on PRs with a result comment, whether it
+was fixed in the PR, fixed later (on main, or its matching issue was closed
+as completed), filed as an issue (a matching issue opened after the run is
+still open), not fixed (the PR merged or closed with no fix found), or is
+pending while its PR is open. A filed issue counts as a finding acted on but
+not as a fix. It diffs the files the
+finding's cause names and asks Opus (`--model` picks another) whether the
+change addresses it, on your own `claude` login. Older runs published only the page, so their findings are
+read from it. Read every "fixed" row before trusting the numbers.
+
+`node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
+turns those rows into one page: how many findings developers fixed before
+merging, a bar of every outcome, the fix rate by severity, and collapsible
+By PR and Evidence sections. Clicking a bar segment opens the evidence for
+that outcome, with links to each report, PR and fixing commit or issue.
+A date picker narrows everything to findings whose run was posted in the last
+7, 30 (the default) or 90 days, all time, or a custom range, kept in
+`?range=`. The page embeds every row and filters in the browser; without
+JavaScript it shows all time.
+Hovering or focusing a PR link shows a card with the PR's title, author, size
+and the first paragraph of its description, saved on each row (`prPreview`)
+when the rows are built, so the page makes no GitHub calls.
+
+`exploratory-outcomes.yml` does both every night and deploys the page to
+Posit Connect with `outcomes-publish.mjs`. The content was made once with
+`CONNECT_API_KEY=<your key> node outcomes-publish.mjs create`, which prints
+its GUID; that went in the `EXPLORE_OUTCOMES_CONNECT_GUID` repo variable. Only
+its owner can open it until others are added in Connect, and if the user
+behind the workflow's `CONNECT_API_KEY` isn't the owner, add them as a
+collaborator so the deploy is allowed. The rows go
+up beside the page, and the next run passes them as `--previous`, so a
+finding already fixed is kept rather than checked again. Not fixed isn't
+final: a matching issue moves it to filed as an issue, and a later fix, or that
+issue closing as completed, moves it to fixed later. For a not-fixed
+finding on a merged PR, the answer to whether the PR fixed it is
+kept too, since that diff can't change; the checks for a later fix on main or
+a matching issue still run every night. In
+CI the model is reached through the API (`--api`), and a call that takes
+more than 10 minutes counts as unclear.
+
 ## Where things live
 
 The top of `renderer/` holds only what gets run: the pipeline, `render.mjs`,
@@ -106,12 +150,11 @@ holds the text helpers and the ledger parser.
 
 | To change | Edit |
 |---|---|
-| What an agent is told | `explorer.md`, `verifier.md`, `isolator.md`, `editor.md` |
+| What an agent is told | `explorer.md`, `verifier.md`, `isolator.md` |
 | Why each agent's rules exist, and what checks them | `RULES.md` |
 | Step order, retries, fallbacks, the isolator's brief | `renderer/pipeline.mjs` |
 | How a local run starts an agent, and its time limit | `renderer/agents/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
 | The verifier's prompt and how verdicts are applied | `renderer/agents/finish.mjs` |
-| The editor's prompt and how rewrites are checked | `renderer/agents/edit.mjs` |
 | The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (runs every check on report.json: against the ledger, and the write-up rules), `renderer/lint/lint-wording.mjs` and `renderer/lint/lint-ledger.mjs` (the write-up rules), `renderer/lint/lint-rules.mjs` (each rule's ID and severity), `renderer/page/report-json.mjs` (what the page reads) |
 | Reading the ledger | `renderer/shared/ledger.mjs` |
 | The page | `renderer/page/html.mjs` (template), `renderer/page/report-css.mjs` (tokens), `renderer/page/page-scripts.mjs` (its scripts), `renderer/page/page-common.mjs` (icons and shared helpers), `renderer/shared/text.mjs` (markdown to safe HTML) |
@@ -123,7 +166,7 @@ holds the text helpers and the ledger parser.
 | CI's prompt and agent sessions | `.github/actions/pr-exploratory-test/run.mjs`, `lib.mjs`, `session.mjs` |
 | Whether a PR gets a run | `gate.mjs` (declines `/explore`), `suggest.ts` (suggests it) |
 | The PR comment | `renderPrComment` in `lib.mjs`, posted by `comment.mjs` |
-| The workflows | `test-exploratory.yml` (`/explore` and manual runs), `test-exploratory-suggest.yml`, `exploratory-test-checks.yml` |
+| The workflows | `test-exploratory.yml` (`/explore` and manual runs), `test-exploratory-suggest.yml`, `exploratory-test-checks.yml`, `exploratory-outcomes.yml` |
 
 Launching and driving the app belongs to drive-positron. See its
 [CONTRIBUTING.md](../drive-positron/CONTRIBUTING.md).

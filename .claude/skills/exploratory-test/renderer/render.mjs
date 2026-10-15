@@ -53,7 +53,7 @@ const { buildStats, passStats, readChecks } = await import('./stats.mjs');
 const { ranInCi, reportUsageOnce } = await import('./shared/usage.mjs');
 
 const dir = dirname(resolve(input));
-const { ledger, actionsLog, knownIssues, changeBase, fileExists, readFile, listFiles } = readRunDir(dir);
+const { ledger, actionsLog, session, knownIssues, changeBase, fileExists, readFile, listFiles } = readRunDir(dir);
 
 // The ledger alone, while the run is still exploring.
 if (flags.check) {
@@ -61,7 +61,7 @@ if (flags.check) {
 		console.error(`no ledger.md in ${dir}`);
 		process.exit(1);
 	}
-	const { errors, warnings } = splitProblems(lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog }));
+	const { errors, warnings } = splitProblems(lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog, session }));
 	if (errors.length) {
 		console.error(`format errors, fix each one and check again:\n${errors.map(p => `  ${p.text}`).join('\n')}`);
 	}
