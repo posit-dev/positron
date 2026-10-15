@@ -21,21 +21,31 @@ For EACH finding, answer these five questions explicitly:
    Check the hypothesis against every observation in the steps, including ones
    it does not mention. When the repro depends on a test file, read it: the
    trigger is what the file contains, not what the report says it contains.
-   If the Cause is worded more widely than the cases the report tried, narrow
-   it to what they show. For each "any", "every", "all" or "always" in a
+   If the Cause is wrong, or worded more widely than the cases the report
+   tried, give it as it should read in `cause`. For each "any", "every", "all" or "always" in a
    title, name one case it covers that the run did not try and check it
    against the code: "any even-length integer column" fails on `c(1L, 3L)`,
    whose median 2 displays correctly. When the claim does not hold, narrow it
-   with a `title`. Look at each screenshot the finding's failing VERIFY steps
-   cite and check Observed against it, the values beside it included: when
-   Observed says nothing on screen shows the problem, a Max below the Mean on
-   the same panel is on screen. Say so when a screenshot contradicts it.
+   with a `title`. Open each screenshot the finding's failing VERIFY steps
+   cite with the Read tool and check Observed against it, the values beside
+   it included: when Observed says nothing on screen shows the problem, a Max
+   below the Mean on the same panel is on screen. The ledger's words for a
+   screenshot are not a look at it. When a screenshot contradicts Observed,
+   give the Observed it shows in `observed`.
    When the Cause is a race, find the log lines that show the events in the
    order it claims, with their timestamps, or say the order is unconfirmed.
-2. Could anything the reporting agent did to its own test environment produce
-   the reported symptom? Read the action log, the ledger's `## Environment` and
-   Run details for how it set the machine up, then ask whether that setup,
-   rather than the product, explains what it saw.
+2. Could the run's own setup produce the symptom? List each setup the
+   report's Run details, the ledger's `## Environment` or the action log say
+   the run made: a setting, a launch flag, a view or window it opened or hid,
+   a package it changed, a theme or color it set. Go through all three
+   sources; each goes in the finding's `setup` list. For each, find the
+   action log line that made it, and read the code that reads it: the
+   setting's key, the flag, the view's handler. Ask whether that alone would
+   show what the finding reports. One that would is a confound whether or
+   not the action log shows it: logged, the symptom may be the setup's; not
+   logged, the report describes a setup the run may not have made. Settle it
+   before you confirm, from the code or from a case in the run without that
+   setup; otherwise the finding is UNRESOLVED, naming the setup.
 3. If Cause says whether the blamed code was added by this change or is older
    code the change now reaches, check that sentence against the diff. Flag it
    if the diff does not show it, or if it is written as a label ("New",
@@ -45,7 +55,9 @@ For EACH finding, answer these five questions explicitly:
 4. For each test file the report says already covers something (a
    `tests.cases` path that is not new, or a `tests.related` note), open it
    and say whether it does. A wrong claim does not change the verdict; name the
-   file and what it actually covers. If a test asserts the very behavior the
+   file and what it actually covers, and give the finding's tests as they
+   should read in `tests`, in the report's shape, with that entry fixed or
+   removed. If a test asserts the very behavior the
    finding reports as wrong, such as expecting different counts from two
    backends, say so: it may be intended, and the reader decides.
 5. Is it already a known issue? Check the linked issues file first, then search open and closed issues in
@@ -83,8 +95,9 @@ to mark each finding, so nothing else goes in it:
 ```json
 {
 	"findings": [
-		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": [{ "file": "S04-03.png", "shows": "Median N/A beside Mean 2.5" }], "related": true },
-		{ "n": 3, "verdict": "false positive", "log": [201, 233], "shots": [{ "file": "S07-04.png", "shows": "the picker lists R 4.4 once" }], "known": [15102], "feature": "new folder flow" }
+		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": [{ "file": "S04-03.png", "shows": "Median N/A beside Mean 2.5" }], "setup": [{ "what": "dataExplorer.summaryCollapsed set to false", "log": 18, "alone": false, "why": "only sets whether the summary panel starts open (summaryPanel.tsx:88)" }], "related": true },
+		{ "n": 2, "verdict": "confirmed", "log": [150, 171], "shots": [{ "file": "S05-02.png", "shows": "the filter chip is red" }], "setup": [], "cause": "the chip turns red for any filter on a string column (filterChip.tsx:54), not only an invalid one", "observed": "the filter chip is red after a valid filter on a string column" },
+		{ "n": 3, "verdict": "unresolved", "log": [201, 233], "shots": [{ "file": "S07-04.png", "shows": "the picker lists R 4.4 once" }], "setup": [{ "what": "a second window opened on the same folder", "log": null, "alone": true, "why": "a second window holds the lock (duckdb.ts:212); the log never opens one, and no case ran without it" }], "known": [15102], "feature": "new folder flow" }
 	],
 	"linked": [{ "issue": 5678, "severity": "moderate" }]
 }
@@ -103,9 +116,17 @@ to mark each finding, so nothing else goes in it:
 - `shots`: each screenshot you looked at to check the finding's Observed, as
   question 1 asks: its file name, and what it shows that bears on Observed, in
   a few words. It must include every screenshot the finding's failing VERIFY
-  steps cite. List only shots you opened: one left out, listed with nothing it
-  shows, or that your notes say you did not open is shown as not checked
+  steps cite. List only shots you opened with the Read tool: one left out,
+  listed with nothing it shows, or never opened is shown as not checked
   against its screenshots.
+- `setup`: one entry for each setup question 2 lists, `[]` when the run made
+  none. `what` is the setup in a few words; `log` the action log line that
+  made it, or `null` when the log shows none; `alone` whether it by itself
+  would show what the finding reports; `why` the code you read that decides
+  `alone` (a file and line), and, when `alone` is true, what settles it. A
+  finding without the list, or one confirmed with a setup that alone would
+  show it and no `why` that settles it, is shown as not checked against the
+  run's setup.
 - `known`: the issues question 5 matched, when it matched any. A match does
   not change the verdict.
 - `intended`: the issues closed as not planned that the finding matched, when
@@ -125,6 +146,14 @@ to mark each finding, so nothing else goes in it:
   capital, with no function, file or type names, which belong in Cause. Use no
   `;` or `|`. Example: "Project R is missing from the picker when its signature
   check times out on reload".
+- `cause`, `observed`, `tests`: when questions 1 and 4 find the report's
+  Cause, Observed or test list wrong, the field as it should read. Each
+  replaces the report's on the finding and in the filed issue, marked as
+  yours, so write it as the report writes it: a Cause opens with one sentence
+  naming the suspect, then the detail and code pointers; an Observed is one
+  or two sentences of what happened; `tests` has the report's `cases` and
+  `related` lists. A correction does not change the verdict: the bug can be
+  real with its cause wrong.
 - `related`: `true` for a finding whose fix likely belongs to the change under
   test. {{CHANGE_SCOPE}}
 
@@ -183,7 +212,8 @@ section is for what the verdict cannot say.
   behavior, and the reason the issue gives for not fixing it.
 - An issue in `linked` gets one line: what the run saw that set its
   severity.
-- A finding with a new `feature` or `title` gets one line: what moved it.
+- A finding with a new `feature`, `title`, `cause`, `observed` or `tests`
+  gets one line per field: what moved it.
 - A finding marked `related` gets one line: the fix you named, and the
   commit in the change or the deleted line it touches.
 - A finding you dispute or cannot resolve gets a short paragraph: the evidence

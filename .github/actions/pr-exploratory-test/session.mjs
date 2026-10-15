@@ -8,6 +8,7 @@
 
 import { resolve, sep } from 'node:path';
 import { query as sdkQuery } from '@anthropic-ai/claude-agent-sdk';
+import { readPaths } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { buildCostRecord, timeUpHook, WRAP_UP_MINUTES } from './lib.mjs';
 
 const FILE_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit']);
@@ -35,6 +36,8 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 	// own num_turns runs about 40% lower. Labelled "msg" so a live log cannot be
 	// read as approaching the cap.
 	let messages = 0;
+	// What the agent read, so a claim to have looked at a file can be checked.
+	const opened = [];
 	const abortController = new AbortController();
 	let hardStop;
 	let hooks;
@@ -89,6 +92,7 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 					const shown = fullLog ? joined : joined.slice(0, 1000);
 					log(`[msg ${messages}] assistant text (${joined.length} chars):\n${shown}${shown.length < joined.length ? '\n...(truncated)' : ''}`);
 				}
+				opened.push(...readPaths(message));
 				// The explorer's calls are clipped: hundreds of them, some writing whole files.
 				const tools = content.filter(b => b.type === 'tool_use').map(b => `${b.name}(${JSON.stringify(b.input).slice(0, fullLog ? 4000 : 200)})`);
 				if (tools.length) { log(`[msg ${messages}] tool calls: ${tools.join(' | ')}`); }
@@ -104,5 +108,5 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 	} finally {
 		clearTimeout(hardStop);
 	}
-	return { texts, finalText: texts.at(-1) ?? '', cost, timedOut, timeWasUp, messages, sessionId };
+	return { texts, finalText: texts.at(-1) ?? '', cost, timedOut, timeWasUp, messages, sessionId, opened };
 }
