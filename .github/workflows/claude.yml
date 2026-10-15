@@ -10,7 +10,7 @@ on:
   pull_request_review:
     types: [submitted]
   pull_request:
-    # Trigger for workflow testing
+    # Run on PRs that modify this file to test that the changes run
     paths:
       - '.github/workflows/claude.yml'
 
@@ -108,7 +108,6 @@ jobs:
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         env:
-          ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-5-5
           # Pass git config via environment to rewrite SSH URLs to authenticated HTTPS
           # This is for installing plugins from private repos
           # Probably related: https://github.com/anthropics/claude-code-action/issues/850
