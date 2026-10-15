@@ -7,6 +7,8 @@ name: "Weekly: Dependency Audit"
 # so CI runs on it with the usual secrets. The report (npm audit before and
 # after the fix, plus Snyk) goes in the PR body and the job summary.
 on:
+  push:
+    branches: [ci/weekly-dependency-audit] # TEMP: remove before merge
   schedule:
     - cron: "0 12 * * 1" # Mondays, 12:00 UTC
   workflow_dispatch:
