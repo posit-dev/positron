@@ -7,37 +7,43 @@
 
 import { URI } from '../../../../../base/common/uri.js';
 import { Schemas } from '../../../../../base/common/network.js';
-import { posix, win32 } from '../../../../../base/common/path.js';
+import { posix } from '../../../../../base/common/path.js';
 // vs/test/vitest/** is allow-listed for test files (eslint.config.js), but the rule does not
 // recognize src/vs/workbench/browser/<feature>/test/ as a test path, so it flags the import.
 // eslint-disable-next-line local/code-import-patterns
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { IConfigurationService, IConfigurationValue } from '../../../../../platform/configuration/common/configuration.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
+import { CAN_CREATE_FOLDER_IN_COMMAND } from '../../createFolder.js';
 import { resolveGitCloneParentPath, resolveNewFolderParentPath } from '../../newFolderParentPath.js';
 
 const remoteAuthority = 'test-remote';
 
 /**
- * The parent of a `/cloud/project` workspace, which `defaultFolderPath()` returns.
+ * The workspace on Workbench, as in the workshop report: the user home is open as the workspace,
+ * so `defaultFolderPath()` returns its parent, `/home`.
  */
-const workspaceParent = URI.file('/cloud');
+const workspaceParent = URI.file('/home');
+
+/**
+ * What `preferredHome()` returns: the user `files.dialog.defaultPath` value, or the user home.
+ */
+const preferredHome = URI.file('/home/user');
 
 interface SetupOptions {
 	/** Whether the window is remote, as on Workbench. */
 	readonly remote?: boolean;
-	/** Whether the target OS is Windows. */
-	readonly windows?: boolean;
-	/** The `files.dialog.defaultPath` values. */
-	readonly defaultPath?: Pick<IConfigurationValue<string>, 'policyValue' | 'userLocalValue' | 'userRemoteValue'>;
 	/** The `git.defaultCloneDirectory` value; the setting defaults to `null`. */
 	readonly defaultCloneDirectory?: string | null;
 	/** Paths that do not exist; every other path exists. */
 	readonly missing?: string[];
+	/** Whether the user cannot create a folder in the parent of the workspace. */
+	readonly workspaceParentNotWritable?: boolean;
 }
 
 /**
@@ -48,12 +54,16 @@ function setup(options: SetupOptions = {}) {
 	const toUri = (path: string) => options.remote
 		? URI.from({ scheme, authority: remoteAuthority, path })
 		: URI.file(path);
-	const userHome = options.windows ? URI.file('c:/Users/x') : toUri('/user/home');
+	const userHome = toUri('/user/home');
 	const missing = new Set((options.missing ?? []).map(path => toUri(path).toString()));
 
 	const services = {
+		commandService: stubInterface<ICommandService>({
+			executeCommand: vi.fn(async (_id: string, folder: URI) =>
+				!(options.workspaceParentNotWritable && folder === workspaceParent)
+			) as unknown as ICommandService['executeCommand'],
+		}),
 		configurationService: stubInterface<IConfigurationService>({
-			inspect: vi.fn(() => ({ value: undefined, ...options.defaultPath })) as unknown as IConfigurationService['inspect'],
 			getValue: vi.fn(() => options.defaultCloneDirectory ?? null) as unknown as IConfigurationService['getValue'],
 		}),
 		fileService: stubInterface<IFileService>({
@@ -61,10 +71,11 @@ function setup(options: SetupOptions = {}) {
 		}),
 		fileDialogService: stubInterface<IFileDialogService>({
 			defaultFolderPath: vi.fn(async () => workspaceParent),
+			preferredHome: vi.fn(async () => preferredHome),
 		}),
 		pathService: stubInterface<IPathService>({
 			defaultUriScheme: scheme,
-			path: Promise.resolve(options.windows ? win32 : posix),
+			path: Promise.resolve(posix),
 			fileURI: vi.fn(async (path: string) => toUri(path)),
 			userHome: vi.fn(async () => userHome) as unknown as IPathService['userHome'],
 		}),
@@ -77,56 +88,38 @@ function setup(options: SetupOptions = {}) {
 }
 
 describe('resolveNewFolderParentPath', () => {
-	it('uses the preferred path when it is absolute and exists', async () => {
-		const { services } = setup({ defaultPath: { userLocalValue: '/dialogs' } });
+	it('uses the parent of the workspace when the user can create a folder there', async () => {
+		const { services } = setup();
+
+		expect(await resolveNewFolderParentPath(services)).toBe(workspaceParent);
+		expect(services.commandService.executeCommand).toHaveBeenCalledWith(CAN_CREATE_FOLDER_IN_COMMAND, workspaceParent);
+		expect(services.fileDialogService.preferredHome).not.toHaveBeenCalled();
+	});
+
+	it('uses the preferred home when the user cannot create a folder in the parent of the workspace', async () => {
+		const { services } = setup({ workspaceParentNotWritable: true });
+
+		expect(await resolveNewFolderParentPath(services)).toBe(preferredHome);
+		expect(services.logService.info).toHaveBeenCalledTimes(1);
+	});
+
+	it('uses the preferred path when it is absolute and exists, without a permission check', async () => {
+		const { services } = setup();
 
 		const result = await resolveNewFolderParentPath(services, '/clones');
 
 		expect(result.toString()).toBe(URI.file('/clones').toString());
-		expect(services.fileDialogService.defaultFolderPath).not.toHaveBeenCalled();
+		expect(services.commandService.executeCommand).not.toHaveBeenCalled();
 	});
 
 	it.each([
 		['not absolute', 'clones'],
 		['missing', '/clones'],
-	])('logs a preferred path that is %s and uses files.dialog.defaultPath', async (_, preferredPath) => {
-		const { services } = setup({ defaultPath: { userLocalValue: '/dialogs' }, missing: ['/clones'] });
+	])('logs a preferred path that is %s and uses the parent of the workspace', async (_, preferredPath) => {
+		const { services } = setup({ missing: ['/clones'] });
 
-		const result = await resolveNewFolderParentPath(services, preferredPath);
-
-		expect(result.toString()).toBe(URI.file('/dialogs').toString());
+		expect(await resolveNewFolderParentPath(services, preferredPath)).toBe(workspaceParent);
 		expect(services.logService.info).toHaveBeenCalledTimes(1);
-	});
-
-	it('uses the parent of the workspace when nothing is set', async () => {
-		const { services } = setup();
-
-		expect(await resolveNewFolderParentPath(services)).toBe(workspaceParent);
-		expect(services.logService.info).not.toHaveBeenCalled();
-	});
-
-	it('prefers a files.dialog.defaultPath user value to the parent of the workspace', async () => {
-		const { services } = setup({ defaultPath: { userLocalValue: '/dialogs' } });
-
-		expect((await resolveNewFolderParentPath(services)).toString()).toBe(URI.file('/dialogs').toString());
-	});
-
-	it('prefers a files.dialog.defaultPath policy value to the user value', async () => {
-		const { services } = setup({ defaultPath: { policyValue: '/enforced', userLocalValue: '/dialogs' } });
-
-		expect((await resolveNewFolderParentPath(services)).toString()).toBe(URI.file('/enforced').toString());
-	});
-
-	it('reads the remote user value in a remote window, and ignores the local one', async () => {
-		const { services, toUri } = setup({ remote: true, defaultPath: { userLocalValue: '/local', userRemoteValue: '/remote' } });
-
-		expect((await resolveNewFolderParentPath(services)).toString()).toBe(toUri('/remote').toString());
-	});
-
-	it('ignores a local user value in a remote window (the Workbench User tab case)', async () => {
-		const { services } = setup({ remote: true, defaultPath: { userLocalValue: '/local' } });
-
-		expect(await resolveNewFolderParentPath(services)).toBe(workspaceParent);
 	});
 
 	it('expands ~ in the preferred path to the user home', async () => {
@@ -135,63 +128,39 @@ describe('resolveNewFolderParentPath', () => {
 		expect((await resolveNewFolderParentPath(services, '~/clones')).path).toBe(`${userHome.path}/clones`);
 	});
 
+	it('expands ~ in the preferred path to the remote user home in a remote window', async () => {
+		const { services, toUri } = setup({ remote: true });
+
+		expect((await resolveNewFolderParentPath(services, '~')).toString()).toBe(toUri('/user/home').toString());
+		expect(services.pathService.userHome).toHaveBeenCalledWith({ preferLocal: false });
+	});
+
 	it('does not expand ~ followed by a name', async () => {
 		const { services } = setup();
 
 		expect(await resolveNewFolderParentPath(services, '~clones')).toBe(workspaceParent);
 		expect(services.pathService.userHome).not.toHaveBeenCalled();
 	});
-
-	it.each([
-		['~', ''],
-		['~/projects', '/projects'],
-	])('expands a files.dialog.defaultPath policy value of %s to the user home', async (policyValue, rest) => {
-		const { services, userHome } = setup({ defaultPath: { policyValue } });
-
-		expect((await resolveNewFolderParentPath(services)).path).toBe(userHome.path + rest);
-	});
-
-	it('expands a policy value to the remote user home in a remote window', async () => {
-		const { services, toUri } = setup({ remote: true, defaultPath: { policyValue: '~' } });
-
-		expect((await resolveNewFolderParentPath(services)).toString()).toBe(toUri('/user/home').toString());
-		expect(services.pathService.userHome).toHaveBeenCalledWith({ preferLocal: false });
-	});
-
-	it('logs a missing policy value and uses the parent of the workspace', async () => {
-		const { services } = setup({ defaultPath: { policyValue: '/enforced' }, missing: ['/enforced'] });
-
-		expect(await resolveNewFolderParentPath(services)).toBe(workspaceParent);
-		expect(services.logService.info).toHaveBeenCalledTimes(1);
-	});
-
-	it('does not expand ~ in a files.dialog.defaultPath user value', async () => {
-		const { services } = setup({ defaultPath: { userLocalValue: '~/clones' } });
-
-		expect(await resolveNewFolderParentPath(services)).toBe(workspaceParent);
-		expect(services.logService.info).not.toHaveBeenCalled();
-	});
 });
 
 describe('resolveGitCloneParentPath', () => {
-	it('prefers git.defaultCloneDirectory to files.dialog.defaultPath', async () => {
-		const { services } = setup({ defaultCloneDirectory: '/clones', defaultPath: { userLocalValue: '/dialogs' } });
+	it('prefers git.defaultCloneDirectory to the parent of the workspace', async () => {
+		const { services } = setup({ defaultCloneDirectory: '/clones' });
 
 		expect((await resolveGitCloneParentPath(services)).toString()).toBe(URI.file('/clones').toString());
 		expect(services.configurationService.getValue).toHaveBeenCalledWith('git.defaultCloneDirectory');
 	});
 
-	it('falls back to files.dialog.defaultPath when git.defaultCloneDirectory is not set', async () => {
-		const { services } = setup({ defaultPath: { userLocalValue: '/dialogs' } });
-
-		expect((await resolveGitCloneParentPath(services)).toString()).toBe(URI.file('/dialogs').toString());
-		expect(services.logService.info).not.toHaveBeenCalled();
-	});
-
-	it('falls back to the parent of the workspace when nothing is set', async () => {
+	it('falls back to the parent of the workspace when git.defaultCloneDirectory is not set', async () => {
 		const { services } = setup();
 
 		expect(await resolveGitCloneParentPath(services)).toBe(workspaceParent);
 		expect(services.logService.info).not.toHaveBeenCalled();
+	});
+
+	it('falls back to the preferred home when git.defaultCloneDirectory is not set and the parent of the workspace is not writable', async () => {
+		const { services } = setup({ workspaceParentNotWritable: true });
+
+		expect(await resolveGitCloneParentPath(services)).toBe(preferredHome);
 	});
 });

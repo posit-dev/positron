@@ -9,48 +9,30 @@ import * as resources from '../../../base/common/resources.js';
 import { isAbsolute as localPathIsAbsolute, normalize as localPathNormalize } from '../../../base/common/path.js';
 import type { PositronReactServices } from '../../../base/browser/positronReactServices.js';
 import { expandHomePath } from '../../services/path/common/positronPathUtils.js';
+import { checkCanCreateFolderIn } from './createFolder.js';
 
 /**
  * The services needed to resolve the default parent folder for a new folder.
  */
 export type NewFolderParentPathServices = Pick<
 	PositronReactServices,
-	'configurationService' | 'fileService' | 'fileDialogService' | 'pathService' | 'workbenchEnvironmentService' | 'logService'
+	'commandService' | 'configurationService' | 'fileService' | 'fileDialogService' | 'pathService' | 'workbenchEnvironmentService' | 'logService'
 >;
 
 /**
- * Options for resolving a configured path.
- */
-interface ResolveConfiguredPathOptions {
-	/** Whether the window is local, so the path is on this machine. */
-	readonly preferLocal: boolean;
-	/** Whether a leading `~` expands to the user home. */
-	readonly expandHome: boolean;
-	/** Logs why the path cannot be used. */
-	readonly logUnusable: (message: string) => void;
-}
-
-/**
- * Resolves a configured path to an existing folder. This mirrors the validation in
- * `AbstractFileDialogService.preferredHome()`, which upstream may change.
+ * Resolves a configured path to an existing folder. A leading `~` expands to the user home. Other
+ * paths must be absolute, as in `AbstractFileDialogService.preferredHome()`.
  * @param services The services to use.
  * @param candidate The configured path.
- * @param description Describes the path in log messages.
- * @param options The options.
  * @returns The folder, or undefined when the path is not absolute or does not exist.
  */
-async function resolveConfiguredPath(
-	services: NewFolderParentPathServices,
-	candidate: string,
-	description: string,
-	options: ResolveConfiguredPathOptions
-): Promise<URI | undefined> {
-	const { preferLocal } = options;
-	let folder = options.expandHome ? await expandHomePath(candidate, services.pathService, { preferLocal }) : undefined;
+async function resolveConfiguredPath(services: NewFolderParentPathServices, candidate: string): Promise<URI | undefined> {
+	const preferLocal = services.pathService.defaultUriScheme === Schemas.file;
+	let folder = await expandHomePath(candidate, services.pathService, { preferLocal });
 	if (!folder) {
 		const isAbsolute = preferLocal ? localPathIsAbsolute(candidate) : (await services.pathService.path).isAbsolute(candidate);
 		if (!isAbsolute) {
-			options.logUnusable(`[NewFolderParentPath] ${description} is not absolute: ${candidate}`);
+			services.logService.info(`[NewFolderParentPath] Preferred path is not absolute: ${candidate}`);
 			return undefined;
 		}
 		const normalized = preferLocal ? localPathNormalize(candidate) : (await services.pathService.path).normalize(candidate);
@@ -62,7 +44,7 @@ async function resolveConfiguredPath(
 	}
 
 	if (!(await services.fileService.exists(folder))) {
-		options.logUnusable(`[NewFolderParentPath] ${description} does not exist: ${folder}`);
+		services.logService.info(`[NewFolderParentPath] Preferred path does not exist: ${folder}`);
 		return undefined;
 	}
 	return folder;
@@ -70,47 +52,34 @@ async function resolveConfiguredPath(
 
 /**
  * Resolves the default parent folder for a "new folder" flow. Resolution order: the given
- * preferred path (if usable), then the `files.dialog.defaultPath` setting (the policy value first,
- * then the user value), then `IFileDialogService.defaultFolderPath()`.
+ * preferred path (if usable), then `IFileDialogService.defaultFolderPath()` (the parent of the
+ * workspace) if the user can create a folder there, then `IFileDialogService.preferredHome()` (the
+ * `files.dialog.defaultPath` setting, or the user home).
  *
- * A leading `~` expands to the user home in the preferred path and in the policy value. An
- * enforced setting is one value for every user, so `~` is the only way it can name each user's own
- * home. A user value must be absolute, as in `preferredHome()`.
+ * The fallback is for servers such as Workbench, where the parent of the workspace is often not
+ * writable (`/cloud`, or `/home` when the workspace is the user home).
  * @param services The services to use.
  * @param preferredPath The path to use first, such as a feature-specific setting.
  * @returns The parent folder.
  */
 export async function resolveNewFolderParentPath(services: NewFolderParentPathServices, preferredPath?: string): Promise<URI> {
-	const preferLocal = services.pathService.defaultUriScheme === Schemas.file;
-	const logInfo = (message: string) => services.logService.info(message);
-	const logDebug = (message: string) => services.logService.debug(message);
-
-	// Someone set these on purpose, so log at info when they cannot be used.
-	const defaultPathConfig = services.configurationService.inspect<string>('files.dialog.defaultPath');
-	const candidates = [
-		{ value: preferredPath, description: 'Preferred path', expandHome: true, logUnusable: logInfo },
-		{ value: defaultPathConfig.policyValue, description: 'files.dialog.defaultPath policy value', expandHome: true, logUnusable: logInfo },
-		{
-			value: preferLocal ? defaultPathConfig.userLocalValue : defaultPathConfig.userRemoteValue,
-			description: 'files.dialog.defaultPath user value',
-			expandHome: false,
-			logUnusable: logDebug,
-		},
-	];
-
-	for (const { value, description, expandHome, logUnusable } of candidates) {
-		if (value) {
-			const folder = await resolveConfiguredPath(services, value, description, { preferLocal, expandHome, logUnusable });
-			if (folder) {
-				logDebug(`[NewFolderParentPath] Using ${description}: ${folder}`);
-				return folder;
-			}
+	if (preferredPath) {
+		const folder = await resolveConfiguredPath(services, preferredPath);
+		if (folder) {
+			services.logService.debug(`[NewFolderParentPath] Using the preferred path: ${folder}`);
+			return folder;
 		}
 	}
 
 	const defaultFolder = await services.fileDialogService.defaultFolderPath();
-	logDebug(`[NewFolderParentPath] Using the default folder path: ${defaultFolder}`);
-	return defaultFolder;
+	if (!(await checkCanCreateFolderIn(defaultFolder, services))) {
+		services.logService.debug(`[NewFolderParentPath] Using the default folder path: ${defaultFolder}`);
+		return defaultFolder;
+	}
+
+	const preferredHome = await services.fileDialogService.preferredHome();
+	services.logService.info(`[NewFolderParentPath] Cannot create a folder in ${defaultFolder}, so using ${preferredHome}`);
+	return preferredHome;
 }
 
 /**
