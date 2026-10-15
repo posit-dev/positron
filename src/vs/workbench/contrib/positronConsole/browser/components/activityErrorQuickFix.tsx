@@ -54,17 +54,21 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 
 	const pressedExplainHandler = () => run('explain');
 
+	// Name the handler errors are sent to.
+	const fixTooltip = localize('positronConsoleErrorActionsFixTooltip', "Ask {0} to fix", handler.label);
+	const explainTooltip = localize('positronConsoleErrorActionsExplainTooltip', "Ask {0} to explain", handler.label);
+
 	// Render.
 	return (
 		<div className='quick-fix'>
 			<Button className='assistant-action' onPressed={pressedFixHandler}>
-				<div ref={buttonRef} className='link-text'>
+				<div ref={buttonRef} className='link-text' title={fixTooltip}>
 					<span className='codicon codicon-sparkle' />
 					{localize('positronConsoleAssistantFix', "Fix")}
 				</div>
 			</Button>
 			<Button className='assistant-action' onPressed={pressedExplainHandler}>
-				<div ref={buttonRef} className='link-text'>
+				<div ref={buttonRef} className='link-text' title={explainTooltip}>
 					<span className='codicon codicon-sparkle' />
 					{localize('positronConsoleAssistantExplain', "Explain")}
 				</div>

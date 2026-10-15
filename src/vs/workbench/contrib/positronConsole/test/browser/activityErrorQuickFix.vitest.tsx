@@ -10,6 +10,7 @@ import { userEvent } from '@testing-library/user-event';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { ErrorActionsService } from '../../../positronAssistant/browser/errorActionsService.js';
 import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { ConsoleQuickFix } from '../../browser/components/activityErrorQuickFix.js';
 
@@ -25,6 +26,11 @@ describe('ConsoleQuickFix', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.build();
+
+	// Replace the preset's inert stub with a real service, so tests can register handlers.
+	beforeEach(() => {
+		ctx.instantiationService.stub(IErrorActionsService, ctx.disposables.add(ctx.instantiationService.createInstance(ErrorActionsService)));
+	});
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	const run = vi.fn();

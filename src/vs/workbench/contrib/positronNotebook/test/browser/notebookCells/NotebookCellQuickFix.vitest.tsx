@@ -12,6 +12,8 @@ import { TestConfigurationService } from '../../../../../../platform/configurati
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
+import { ErrorActionsService } from '../../../../positronAssistant/browser/errorActionsService.js';
+import { IDisposable } from '../../../../../../base/common/lifecycle.js';
 import { IErrorActionsService } from '../../../../positronAssistant/common/errorActions.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
@@ -21,14 +23,20 @@ describe('NotebookCellQuickFix', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.build();
+
+	// Replace the preset's inert stub with a real service, so tests can register handlers.
+	beforeEach(() => {
+		ctx.instantiationService.stub(IErrorActionsService, ctx.disposables.add(ctx.instantiationService.createInstance(ErrorActionsService)));
+	});
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	const run = vi.fn();
 
 	// Give errors somewhere to go, so only the notebook's own gates are tested.
+	let registration: IDisposable;
 	beforeEach(() => {
 		run.mockReset().mockResolvedValue(undefined);
-		ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: true, run }));
+		registration = ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: true, run }));
 	});
 
 	/** Set the quick fix's gates; each defaults to showing the buttons. */
@@ -62,6 +70,13 @@ describe('NotebookCellQuickFix', () => {
 
 	it('hides the buttons when notebook AI is off', () => {
 		setGates({ notebookAiEnabled: false });
+		renderQuickFix();
+		expect(screen.queryByRole('group', quickFixGroup)).not.toBeInTheDocument();
+	});
+
+	it('hides the buttons when no handler can take errors', () => {
+		registration.dispose();
+		setGates();
 		renderQuickFix();
 		expect(screen.queryByRole('group', quickFixGroup)).not.toBeInTheDocument();
 	});

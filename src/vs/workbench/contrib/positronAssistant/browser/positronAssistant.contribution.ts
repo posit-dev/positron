@@ -164,7 +164,7 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).regi
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(AiExtensionActivationContribution, LifecyclePhase.Eventually);
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantToolsContribution, LifecyclePhase.Restored);
-// Register before the console, notebooks, and Quarto documents restore, so
-// their errors' Fix and Explain actions have somewhere to go from the start.
-registerWorkbenchContribution2(PositAssistantErrorActionsContribution.ID, PositAssistantErrorActionsContribution, WorkbenchPhase.BlockStartup);
+// The quick fixes follow the active handler as it changes, and Posit Assistant
+// only registers once extensions are, so there's no need to block startup.
+registerWorkbenchContribution2(PositAssistantErrorActionsContribution.ID, PositAssistantErrorActionsContribution, WorkbenchPhase.AfterRestored);
 

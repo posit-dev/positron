@@ -48,14 +48,18 @@ export interface IQuartoErrorChunk {
 }
 
 /** Where an error was raised. */
-export type IErrorLocation = IConsoleErrorLocation | INotebookErrorLocation | IQuartoErrorLocation;
+export type ErrorLocation = IConsoleErrorLocation | INotebookErrorLocation | IQuartoErrorLocation;
 
-/** The error passed to an error action handler when the user presses Fix or Explain. */
-export interface IErrorActionContext {
+/** An error and where it was raised. */
+export interface IErrorDetails {
 	/** The error output. May contain ANSI escape codes. */
 	readonly error: string;
 	/** Where the error was raised. */
-	readonly location: IErrorLocation;
+	readonly location: ErrorLocation;
+}
+
+/** The error passed to an error action handler when the user presses Fix or Explain. */
+export interface IErrorActionContext extends IErrorDetails {
 	/** Whether to start a new chat or continue the current one. */
 	readonly chat: ErrorActionChat;
 }

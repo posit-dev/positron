@@ -10,7 +10,8 @@ import { useCallback, useLayoutEffect } from 'react';
 import { localize } from '../../../../nls.js';
 import { usePositronConfiguration } from '../../../../base/browser/positronReactHooks.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { IErrorActionContext } from '../../positronAssistant/common/errorActions.js';
+import { IErrorDetails } from '../../positronAssistant/common/errorActions.js';
+import { useActiveErrorActionHandler } from '../../positronAssistant/browser/useActiveErrorActionHandler.js';
 import { AssistantErrorQuickFix } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
 import { QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 
@@ -34,6 +35,10 @@ interface QuartoOutputQuickFixProps {
  */
 export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
+	// Read here rather than in AssistantErrorQuickFix so that a handler change
+	// re-renders this component and runs the layout effect below, re-measuring
+	// the host view zone when the buttons appear or disappear.
+	const handler = useActiveErrorActionHandler();
 
 	const { errorContent, cellContext, onLayout } = props;
 
@@ -44,7 +49,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		onLayout?.();
 	});
 
-	const getErrorContext = useCallback((): Omit<IErrorActionContext, 'chat'> => ({
+	const getErrorDetails = useCallback((): IErrorDetails => ({
 		error: errorContent,
 		location: {
 			kind: 'quarto',
@@ -59,14 +64,15 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		},
 	}), [cellContext, errorContent]);
 
-	if (aiEnabled === false) {
+	if (aiEnabled === false || !handler) {
 		return null;
 	}
 
 	return (
 		<AssistantErrorQuickFix
-			getErrorContext={getErrorContext}
+			getErrorDetails={getErrorDetails}
 			groupAriaLabel={localize('positron.quarto.quickFixGroup', "Output quick fix actions")}
+			handler={handler}
 		/>
 	);
 };

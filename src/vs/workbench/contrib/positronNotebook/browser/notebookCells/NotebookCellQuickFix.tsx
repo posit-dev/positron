@@ -8,7 +8,8 @@ import { useCallback } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { IErrorActionContext } from '../../../positronAssistant/common/errorActions.js';
+import { IErrorDetails } from '../../../positronAssistant/common/errorActions.js';
+import { useActiveErrorActionHandler } from '../../../positronAssistant/browser/useActiveErrorActionHandler.js';
 import { usePositronConfiguration, useContextKey } from '../../../../../base/browser/positronReactHooks.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
@@ -37,27 +38,29 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	// settings' default of true.
 	const notebookAiEnabled = useContextKey<boolean>(NotebookContextKeys.aiEnabled);
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
+	const handler = useActiveErrorActionHandler();
 
 	// Stable identity so AssistantErrorQuickFix's click handler and dropdown
 	// actions aren't recreated on every render.
-	const getErrorContext = useCallback(
-		(): Omit<IErrorActionContext, 'chat'> => ({ error: errorContent, location: { kind: 'notebook' } }),
+	const getErrorDetails = useCallback(
+		(): IErrorDetails => ({ error: errorContent, location: { kind: 'notebook' } }),
 		[errorContent]
 	);
 
-	// Only show buttons if notebook AI is enabled and notebook mode is enabled.
-	// AssistantErrorQuickFix also hides them while no handler can take errors.
+	// Only show buttons if notebook AI is enabled, notebook mode is enabled, and
+	// a handler can take errors.
 	const showQuickFix = notebookAiEnabled !== false && enableNotebookMode;
 
 	// Don't render if assistant features are not enabled
-	if (!showQuickFix) {
+	if (!showQuickFix || !handler) {
 		return null;
 	}
 
 	return (
 		<AssistantErrorQuickFix
-			getErrorContext={getErrorContext}
+			getErrorDetails={getErrorDetails}
 			groupAriaLabel={localize('positron.notebook.quickFixGroup', "Cell output quick fix actions")}
+			handler={handler}
 		/>
 	);
 };

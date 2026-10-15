@@ -5,12 +5,14 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
+import { ErrorActionsService } from '../../../positronAssistant/browser/errorActionsService.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
 import { QuartoCellErrorContext } from '../../common/quartoExecutionTypes.js';
@@ -19,14 +21,25 @@ describe('QuartoOutputQuickFix', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.build();
+
+	// Replace the preset's inert stub with a real service, so tests can register handlers.
+	beforeEach(() => {
+		ctx.instantiationService.stub(IErrorActionsService, ctx.disposables.add(ctx.instantiationService.createInstance(ErrorActionsService)));
+	});
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	const run = vi.fn();
 
+	/** Register the handler errors are sent to. */
+	function registerHandler(): IDisposable {
+		return ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: true, run }));
+	}
+
 	// Give errors somewhere to go, so only Quarto's own gate is tested.
+	let registration: IDisposable;
 	beforeEach(() => {
 		run.mockReset().mockResolvedValue(undefined);
-		ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: true, run }));
+		registration = registerHandler();
 	});
 
 	function setAiEnabled(aiEnabled: boolean) {
@@ -52,6 +65,24 @@ describe('QuartoOutputQuickFix', () => {
 		setAiEnabled(false);
 		renderQuickFix();
 		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
+	});
+
+	it('does not render the buttons when no handler can take errors', () => {
+		registration.dispose();
+		renderQuickFix();
+		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
+	});
+
+	it('notifies the host to re-measure when a handler registers after the first render', () => {
+		registration.dispose();
+		const onLayout = vi.fn();
+		rtl.render(<QuartoOutputQuickFix errorContent='NameError: name "x" is not defined' onLayout={onLayout} />);
+		onLayout.mockClear();
+
+		act(() => { registerHandler(); });
+
+		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
+		expect(onLayout).toHaveBeenCalled();
 	});
 
 	it('sends the error with the chunk that raised it', async () => {

@@ -13,47 +13,44 @@ import { useCallback, useMemo } from 'react';
 import { localize } from '../../../../../nls.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IAction } from '../../../../../base/common/actions.js';
-import { ErrorActionChat, ErrorActionKind, IErrorActionContext } from '../../../positronAssistant/common/errorActions.js';
-import { useActiveErrorActionHandler } from '../../../positronAssistant/browser/useActiveErrorActionHandler.js';
+import { ErrorActionChat, ErrorActionKind, IErrorActionHandler, IErrorDetails } from '../../../positronAssistant/common/errorActions.js';
 import { SplitButton } from '../utilityComponents/SplitButton.js';
 
 /**
  * Props for the AssistantErrorQuickFix component.
  */
 interface AssistantErrorQuickFixProps {
+	/** The error action handler the error is sent to. */
+	handler: IErrorActionHandler;
 	/**
 	 * Resolves the error and where it was raised when a button is pressed (not
 	 * at render time), so it can reflect the error source's current location.
 	 */
-	getErrorContext: () => Omit<IErrorActionContext, 'chat'>;
+	getErrorDetails: () => IErrorDetails;
 	/** Accessible label for the button group. */
 	groupAriaLabel: string;
 }
 
 /**
  * Presentational "Fix" and "Explain" split buttons for an error output. Sends
- * the error to the error action handler: the primary click starts a fresh
- * conversation, the dropdown continues the current one.
+ * the error to the given error action handler: the primary click starts a
+ * fresh conversation, the dropdown continues the current one.
  *
- * This component does no gating beyond hiding while there is no handler; each
- * caller decides whether to render it (see NotebookCellQuickFix and
- * QuartoOutputQuickFix, which apply their surface's assistant-availability
- * checks first).
+ * This component does no gating; each caller decides whether to render it and
+ * passes the active handler (see NotebookCellQuickFix and QuartoOutputQuickFix).
  */
 export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 	const services = usePositronReactServicesContext();
 	const { contextMenuService } = services;
-	const handler = useActiveErrorActionHandler();
-	const label = handler?.label ?? '';
-	const canContinueChat = handler?.canContinueChat ?? false;
 
-	const { getErrorContext } = props;
+	const { handler, getErrorDetails } = props;
+	const { label, canContinueChat } = handler;
 
-	// Resolve the error context when a button is pressed (not at render time) so
+	// Resolve the error details when a button is pressed (not at render time) so
 	// the provider can report the error source's current location.
 	const run = useCallback((kind: ErrorActionKind, chat: ErrorActionChat) => {
-		return handler?.run(kind, { ...getErrorContext(), chat });
-	}, [handler, getErrorContext]);
+		return handler.run(kind, { ...getErrorDetails(), chat });
+	}, [handler, getErrorDetails]);
 
 	const pressedFixHandler = () => run('fix', 'new');
 
@@ -89,10 +86,6 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 	const fixDropdownTooltip = localize('positronAssistantFixDropdownTooltip', "More fix options");
 	const explainTooltip = localize('positronErrorActionsExplainTooltip', "Ask {0} to explain in new chat", label);
 	const explainDropdownTooltip = localize('positronAssistantExplainDropdownTooltip', "More explain options");
-
-	if (!handler) {
-		return null;
-	}
 
 	// Render.
 	return (
