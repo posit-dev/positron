@@ -19,7 +19,10 @@ test.describe('Snowflake Connection', {
 	tag: [tags.WEB, tags.CONNECTIONS]
 }, () => {
 
-	test('Python - Can establish a Snowflake connection', { tag: [tags.PYTHON] }, async function ({ python, packages, app }) {
+	// Skipped while a Snowflake account configuration issue on the QA side makes this fail
+	// in CI (Oct 2026): the connect is rejected with 390432 "Network policy is required".
+	// Not a Positron bug; re-enable once Snowflake is fixed.
+	test.skip('Python - Can establish a Snowflake connection', { tag: [tags.PYTHON] }, async function ({ python, packages, app }) {
 
 		await packages.manage('snowflake', 'install');
 
