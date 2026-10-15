@@ -14,70 +14,67 @@
 //! Doing the conversion here rather than on the TypeScript side is what keeps that hazard in one
 //! place: everything leaving the analyzer is already a UTF-16 offset the caller can hand
 //! straight to `TextDocument.positionAt`.
+//!
+//! The column arithmetic is rust-analyzer's `line-index`, which converts a column within a line
+//! between UTF-8, UTF-16 and UTF-32 and only does work on the lines that hold a character outside
+//! ASCII. What is kept here is the one thing it does not offer: offsets counted from the start of
+//! the document in UTF-16 units, rather than from the start of a line.
 
+use line_index::WideEncoding::{self, Utf16, Utf32};
+use line_index::{LineCol, LineIndex, WideLineCol};
 use sqlparser::tokenizer::Location;
 
 /// Maps sqlparser locations to UTF-16 offsets for one document.
 ///
-/// Built once per analysis and reused for every position in it. The alternative -- walking the
-/// text per conversion -- is quadratic on a document with many diagnostics.
+/// Built once per analysis and reused for every position in it.
 pub struct TextIndex {
-    /// UTF-16 offset of the first character of each line. Every document has a line 0, including
-    /// the empty one, so this is never empty.
-    line_starts: Vec<u32>,
-    /// UTF-16 offset just past the last character of each line, its line break excluded, parallel
-    /// to `line_starts`. Where a construct that has to be closed on the line it opened on gets its
-    /// closing delimiter; see [`crate::statements`].
-    line_ends: Vec<u32>,
-    /// Character index of the first character of each line, parallel to `line_starts`. Kept so
-    /// the non-ASCII path can start its walk at the line rather than at the document, which is
-    /// what makes converting many positions linear rather than quadratic.
-    line_char_starts: Vec<usize>,
-    /// Whether the document is entirely ASCII, in which case a column is already an offset and
-    /// the per-character walk can be skipped. The overwhelmingly common case.
-    ascii: bool,
-    /// The document, kept for the per-character walk on the non-ASCII path.
-    text: Vec<char>,
-    /// UTF-16 length of the whole document, which every offset is clamped to.
-    len: u32,
+    lines: LineIndex,
+    /// UTF-16 offset of the first character of each line, and one entry more: the length of the
+    /// document, which is where a line after the last one would start. Every document has a line
+    /// 0, including the empty one.
+    starts: Vec<u32>,
+    /// UTF-16 offset just past the last character of each line, its line break excluded. Where a
+    /// construct that has to be closed on the line it opened on gets its closing delimiter; see
+    /// [`crate::statements`].
+    ends: Vec<u32>,
 }
 
 impl TextIndex {
     pub fn new(text: &str) -> Self {
-        let ascii = text.is_ascii();
-        let mut line_starts = vec![0u32];
-        let mut line_ends = Vec::new();
-        let mut line_char_starts = vec![0usize];
-        let mut offset = 0u32;
-        let chars: Vec<char> = text.chars().collect();
-        for (index, character) in chars.iter().enumerate() {
-            if *character == '\n' {
-                // `offset` is still the offset of the newline itself, which is where the line
-                // ends. A carriage return before it belongs to the break rather than to the line.
-                let carriage = index > 0 && chars[index - 1] == '\r';
-                line_ends.push(if carriage { offset - 1 } else { offset });
-            }
-            offset += character.len_utf16() as u32;
-            if *character == '\n' {
-                line_starts.push(offset);
-                line_char_starts.push(index + 1);
-            }
+        let lines = LineIndex::new(text);
+        let mut starts = vec![0u32];
+        let mut ends = Vec::new();
+        for line in 0u32.. {
+            let Some(range) = lines.line(line) else { break };
+            let start = *starts.last().unwrap_or(&0);
+            // The line's range includes its break. A carriage return before the newline belongs
+            // to the break rather than to the line.
+            let body = &text[range];
+            let content = body.strip_suffix('\n').unwrap_or(body);
+            let content = content.strip_suffix('\r').unwrap_or(content);
+            ends.push(start + utf16_len(content));
+            starts.push(start + utf16_len(body));
         }
-        // The last line ends where the document does, whether or not a break followed it.
-        line_ends.push(offset);
-        Self {
-            line_starts,
-            line_ends,
-            line_char_starts,
-            ascii,
-            text: if ascii { Vec::new() } else { chars },
-            len: offset,
-        }
+        Self { lines, starts, ends }
     }
 
     /// The offset of the end of the document, in UTF-16 code units.
     pub fn end(&self) -> u32 {
-        self.len
+        *self.starts.last().unwrap_or(&0)
+    }
+
+    /// How many lines the document has.
+    fn line_count(&self) -> usize {
+        self.ends.len()
+    }
+
+    /// Converts a column within a 0-based line from one encoding to another.
+    fn convert(&self, line: usize, column: u32, from: WideEncoding, to: WideEncoding) -> u32 {
+        let line = line as u32;
+        self.lines
+            .to_utf8(from, WideLineCol { line, col: column })
+            .and_then(|utf8: LineCol| self.lines.to_wide(to, utf8))
+            .map_or(column, |wide| wide.col)
     }
 
     /// The offset just past the last character of a 0-based line, its line break excluded.
@@ -85,7 +82,7 @@ impl TextIndex {
     /// A line past the end of the document ends where the document does, so a caller working from
     /// a location it has not checked cannot be handed an offset outside the text.
     pub fn line_end(&self, line: usize) -> u32 {
-        self.line_ends.get(line).copied().unwrap_or(self.len)
+        self.ends.get(line).copied().unwrap_or(self.end())
     }
 
     /// The tokenizer location of a UTF-16 offset: the inverse of [`Self::offset`].
@@ -94,32 +91,13 @@ impl TextIndex {
     /// position, so that what the parser makes of it comes back locatable rather than as a node
     /// that came from nowhere. See [`crate::cursor`].
     pub fn location(&self, offset: u32) -> Location {
-        let offset = offset.min(self.len);
-        let line = match self.line_starts.binary_search(&offset) {
-            Ok(line) => line,
-            // The offset falls inside the line before the first one that starts past it. There is
-            // always such a line, since line 0 starts at 0.
-            Err(next) => next.saturating_sub(1),
-        };
-        let start = self.line_starts[line];
-
-        let column = if self.ascii {
-            offset - start
-        } else {
-            // A column counts Unicode scalar values and the offset counts UTF-16 units, so the
-            // difference between them is a walk rather than a subtraction.
-            let mut walked = start;
-            let mut characters = 0u32;
-            let mut at = self.line_char_starts[line];
-            while walked < offset {
-                let Some(character) = self.text.get(at) else { break };
-                walked += character.len_utf16() as u32;
-                characters += 1;
-                at += 1;
-            }
-            characters
-        };
-
+        let offset = offset.min(self.end());
+        // The last line that starts at or before the offset. There is always one, since line 0
+        // starts at 0.
+        let line = self.starts[..self.line_count()]
+            .partition_point(|start| *start <= offset)
+            .saturating_sub(1);
+        let column = self.convert(line, offset - self.starts[line], Utf16, Utf32);
         // Both are 1-based.
         Location::new(line as u64 + 1, column as u64 + 1)
     }
@@ -133,38 +111,14 @@ impl TextIndex {
             return None;
         }
         let line = (location.line - 1) as usize;
-        let start = *self.line_starts.get(line)?;
+        if line >= self.line_count() {
+            return None;
+        }
         // Columns are 1-based, so column 1 is the line start itself.
-        let column = (location.column - 1) as u32;
-
-        if self.ascii {
-            return Some(self.clamp(start + column, line));
-        }
-
-        // Walk the line's characters, accumulating UTF-16 units, until the requested column is
-        // reached. `start` counts UTF-16 units, so it cannot index `self.text` directly; the
-        // parallel table gives the line's character index without rescanning the document.
-        let mut offset = start;
-        let mut index = self.line_char_starts[line];
-        let mut remaining = column;
-        while remaining > 0 {
-            match self.text.get(index) {
-                Some('\n') | None => break,
-                Some(character) => {
-                    offset += character.len_utf16() as u32;
-                    index += 1;
-                    remaining -= 1;
-                }
-            }
-        }
-        Some(self.clamp(offset, line))
-    }
-
-    /// Clamps an offset to the end of its line, so a column past the end of a line -- which is
-    /// what sqlparser reports for a token that ended the line -- cannot run into the next one.
-    fn clamp(&self, offset: u32, line: usize) -> u32 {
-        let line_end = self.line_starts.get(line + 1).copied().unwrap_or(self.len);
-        offset.min(line_end).min(self.len)
+        let column = self.convert(line, (location.column - 1) as u32, Utf32, Utf16);
+        // Clamped to the start of the next line, so a column past the end of a line -- which is
+        // what sqlparser reports for a token that ended the line -- cannot run into the next one.
+        Some((self.starts[line] + column).min(self.starts[line + 1]))
     }
 
     /// The UTF-16 range of a span, or `None` when the span carries no position.
@@ -176,6 +130,10 @@ impl TextIndex {
         let end = self.offset(span.end).unwrap_or(start + 1);
         Some((start, end.max(start)))
     }
+}
+
+fn utf16_len(text: &str) -> u32 {
+    text.encode_utf16().count() as u32
 }
 
 #[cfg(test)]
