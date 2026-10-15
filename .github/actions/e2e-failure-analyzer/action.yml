@@ -37,7 +37,9 @@ runs:
     - name: Set up Node
       uses: actions/setup-node@v6
       with:
-        node-version: "20"
+        # Must satisfy the latest @anthropic-ai/claude-code's `engines.node`
+        # (>=22 as of 2.1.294); see the --engine-strict install below.
+        node-version: "24"
 
     - name: Install action dependencies
       shell: bash
@@ -49,9 +51,17 @@ runs:
       # before the glibc one on Linux runners (claude-agent-sdk-typescript#296).
       # Installing @anthropic-ai/claude-code globally and pointing the SDK at
       # it via pathToClaudeCodeExecutable bypasses the buggy resolver.
+      #
+      # It also keeps the model current: the CLI resolves the `opus` alias, so
+      # installing the latest CLI on every run picks up new Opus releases
+      # without a lockfile bump. Keep the explicit @latest and --engine-strict:
+      # an untagged install quietly picks the newest CLI that supports the
+      # running Node, which left the alias on an old model (Node 20 held this
+      # at CLI 2.1.197 / Opus 4.8 for months). With both, a CLI that needs a
+      # newer Node fails this step instead of downgrading.
       shell: bash
       run: |
-        npm install -g @anthropic-ai/claude-code
+        npm install -g --engine-strict @anthropic-ai/claude-code@latest
         echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
         claude --version
 
@@ -306,10 +316,18 @@ runs:
           LINK="$RUN_URL"
         fi
 
+        # analyze.mjs writes a one-line issue breakdown (counts by root-cause
+        # bucket, built from the report's Summary table). Plain counts and fixed
+        # words, so it needs no Slack mrkdwn escaping. Omitted if absent.
+        TEXT="E2E failure analysis complete: <${LINK}|View report>"
+        if [ -s "$WORK_DIR/slack-summary.txt" ]; then
+          TEXT="E2E failure analysis complete. $(cat "$WORK_DIR/slack-summary.txt") <${LINK}|View report>"
+        fi
+
         payload=$(jq -n \
           --arg repo_id "$REPO_ID" \
           --arg run_id "$WORKFLOW_RUN_ID" \
-          --arg text "E2E failure analysis complete: <${LINK}|View report>" \
+          --arg text "$TEXT" \
           '{repo_id: $repo_id, workflow_run_id: $run_id, text: $text}')
 
         response=$(curl -s -w "\n%{http_code}" -X POST \

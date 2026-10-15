@@ -25,6 +25,11 @@ import * as ws from '../../client/common/vscodeApis/workspaceApis';
 import * as uvApi from '../../client/pythonEnvironments/common/environmentManagers/uv';
 import * as externalDeps from '../../client/pythonEnvironments/common/externalDependencies';
 import * as nativeFinder from '../../client/pythonEnvironments/base/locators/common/nativePythonFinder';
+import { EventEmitter, FileSystemWatcher, RelativePattern, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
+import * as asyncUtils from '../../client/common/utils/async';
+import { RECREATE_TIMEOUT_MS } from '../../client/pythonEnvironments/recreatedEnvWatcher';
+import { FileChangeType } from '../../client/common/platform/fileSystemWatcher';
+import { PythonEnvCollectionChangedEvent } from '../../client/pythonEnvironments/base/watcher';
 // --- End Positron ---
 
 suite('Native Python API', () => {
@@ -40,6 +45,7 @@ suite('Native Python API', () => {
     // --- Start Positron ---
     let isUvEnvironmentStub: sinon.SinonStub;
     let isUvManagedBasePythonStub: sinon.SinonStub;
+    let pathExistsStub: sinon.SinonStub;
     // --- End Positron ---
 
     const basicEnv: NativeEnvInfo = {
@@ -154,6 +160,8 @@ suite('Native Python API', () => {
         // --- Start Positron ---
         isUvEnvironmentStub = sinon.stub(uvApi, 'isUvEnvironment');
         isUvManagedBasePythonStub = sinon.stub(uvApi, 'isUvManagedBasePython');
+        // The fixture paths don't exist on this machine.
+        pathExistsStub = sinon.stub(externalDeps, 'pathExists').resolves(true);
         // --- End Positron ---
         getWorkspaceFoldersStub = sinon.stub(ws, 'getWorkspaceFolders');
         getWorkspaceFoldersStub.returns([]);
@@ -1270,6 +1278,269 @@ suite('Native Python API', () => {
 
             await api.resolveEnv(aliasPath);
             assert.equal(resolveCount, 2, 'alias cache entry should be cleared by removeEnv');
+        });
+    });
+
+    suite('workspace path deleted', () => {
+        const venvDir = path.join(path.sep, 'home', 'user', 'project', '.venv');
+        const venvPython = path.join(venvDir, 'bin', 'python');
+        const venvEnv: NativeEnvInfo = {
+            displayName: 'Project venv',
+            name: '.venv',
+            executable: venvPython,
+            kind: NativePythonEnvironmentKind.Venv,
+            version: '3.12.0',
+            prefix: venvDir,
+        };
+        let workspaceEnvChanged: EventEmitter<pw.PythonWorkspaceEnvEvent>;
+        let workspaceFoldersChanged: EventEmitter<WorkspaceFoldersChangeEvent>;
+        let changes: PythonEnvCollectionChangedEvent[];
+        // What PET returns for the venv executable. A test can swap it out.
+        let resolveVenv: () => Promise<NativeEnvInfo>;
+        // Whether the venv executable is on disk.
+        let executableExists: boolean;
+        // Watchers the API opens for the folders of a removed env.
+        let folderWatchers: { folder: string; created: EventEmitter<Uri>; disposed: boolean }[];
+
+        const workspaceFolder = {
+            uri: Uri.file(path.join(path.sep, 'home', 'user', 'project')),
+            name: 'project',
+            index: 0,
+        };
+
+        // The watcher reports a deleted folder as one delete for the folder.
+        function fireDeleted(deletedPath: string): void {
+            workspaceEnvChanged.fire({ type: FileChangeType.Deleted, workspaceFolder, executable: deletedPath });
+        }
+
+        function deleteVenv(): void {
+            executableExists = false;
+            fireDeleted(venvDir);
+        }
+
+        function fireFolderCreated(folder: string): void {
+            folderWatchers.find((w) => w.folder === folder)?.created.fire(Uri.file(folder));
+        }
+
+        const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
+
+        setup(async () => {
+            sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([]);
+            workspaceEnvChanged = new EventEmitter();
+            mockWatcher.setup((w) => w.onDidWorkspaceEnvChanged).returns(() => workspaceEnvChanged.event);
+            workspaceFoldersChanged = new EventEmitter();
+            sinon
+                .stub(ws, 'onDidChangeWorkspaceFolders')
+                .callsFake((listener: (e: WorkspaceFoldersChangeEvent) => void) =>
+                    workspaceFoldersChanged.event(listener),
+                );
+            folderWatchers = [];
+            sinon.stub(ws, 'createFileSystemWatcher').callsFake((globPattern) => {
+                const { base, pattern } = globPattern as RelativePattern;
+                const watcher = { folder: path.join(base, pattern), created: new EventEmitter<Uri>(), disposed: false };
+                folderWatchers.push(watcher);
+                return {
+                    onDidCreate: watcher.created.event,
+                    dispose: () => {
+                        watcher.disposed = true;
+                    },
+                } as unknown as FileSystemWatcher;
+            });
+            sinon.stub(asyncUtils, 'sleep').resolves(0);
+            executableExists = true;
+            pathExistsStub.withArgs(venvPython).callsFake(async () => executableExists);
+            resolveVenv = () => Promise.resolve(venvEnv);
+            mockFinder.setup((f) => f.resolve(venvPython)).returns(() => resolveVenv());
+            api = nativeAPI.createNativeEnvironmentsApi(mockFinder.object);
+
+            await api.resolveEnv(venvPython);
+            assert.equal(api.getEnvs().length, 1);
+            changes = [];
+            api.onChanged((e) => changes.push(e));
+        });
+
+        teardown(() => {
+            workspaceEnvChanged.dispose();
+            workspaceFoldersChanged.dispose();
+        });
+
+        test('deleting the folder that holds an env removes the env', () => {
+            deleteVenv();
+
+            assert.equal(api.getEnvs().length, 0);
+            assert.deepEqual(
+                changes.map((e) => [e.type, e.old?.executable.filename]),
+                [[FileChangeType.Deleted, venvPython]],
+            );
+        });
+
+        test('a deleted executable is not resolved back into the list', async () => {
+            deleteVenv();
+
+            assert.isUndefined(await api.resolveEnv(venvPython));
+            assert.equal(api.getEnvs().length, 0);
+            mockFinder.verify((f) => f.resolve(venvPython), typemoq.Times.once());
+        });
+
+        test('a bare command name is still passed to PET', async () => {
+            // PET looks a command name up on PATH; there is no file named `python` to check.
+            pathExistsStub.withArgs('python').resolves(false);
+            mockFinder.setup((f) => f.resolve('python')).returns(() => Promise.resolve(venvEnv));
+
+            assert.equal((await api.resolveEnv('python'))?.executable.filename, venvPython);
+        });
+
+        test('recreating the deleted folder brings the env back', async () => {
+            deleteVenv();
+            executableExists = true;
+            // On Linux only the new folder is reported, not the executable inside it.
+            fireFolderCreated(venvDir);
+            await settle();
+
+            assert.deepStrictEqual(
+                {
+                    watched: folderWatchers.map((w) => [w.folder, w.disposed]),
+                    envs: api.getEnvs().map((env) => env.executable.filename),
+                    changes: changes.map((e) => e.type),
+                },
+                {
+                    watched: [
+                        [path.join(venvDir, 'bin'), true],
+                        [venvDir, true],
+                    ],
+                    envs: [venvPython],
+                    changes: [FileChangeType.Deleted, FileChangeType.Created],
+                },
+            );
+        });
+
+        test('a venv already recreated when its delete is handled is added back', async () => {
+            // A delete and recreate reported together leave no folder creation to wait for.
+            fireDeleted(venvDir);
+            await settle();
+
+            assert.deepStrictEqual(
+                {
+                    envs: api.getEnvs().map((env) => env.executable.filename),
+                    watchersDisposed: folderWatchers.map((w) => w.disposed),
+                },
+                { envs: [venvPython], watchersDisposed: [true, true] },
+            );
+        });
+
+        test('a recreated folder waits for the executable to appear', async () => {
+            deleteVenv();
+            await settle();
+            // The executable appears on the second look after the folder is created.
+            let lookups = 0;
+            pathExistsStub.withArgs(venvPython).callsFake(async () => {
+                lookups += 1;
+                return lookups > 1;
+            });
+            fireFolderCreated(venvDir);
+            await settle();
+
+            assert.deepStrictEqual(
+                api.getEnvs().map((env) => env.executable.filename),
+                [venvPython],
+            );
+        });
+
+        test('a folder created while a check is running is checked again', async () => {
+            deleteVenv();
+            await settle();
+            // The check started by `.venv` sees no executable on any of its 10 looks. `bin` is
+            // created during that check, and the executable is there by the next look.
+            let lookups = 0;
+            pathExistsStub.withArgs(venvPython).callsFake(async () => {
+                lookups += 1;
+                return lookups > 10;
+            });
+            fireFolderCreated(venvDir);
+            fireFolderCreated(path.join(venvDir, 'bin'));
+            await settle();
+
+            assert.deepStrictEqual(
+                api.getEnvs().map((env) => env.executable.filename),
+                [venvPython],
+            );
+        });
+
+        test('a recreated env that PET cannot resolve yet is tried again', async () => {
+            deleteVenv();
+            executableExists = true;
+            let resolveCalls = 0;
+            resolveVenv = () => {
+                resolveCalls += 1;
+                return resolveCalls === 1
+                    ? Promise.reject(new Error('the venv is still being written'))
+                    : Promise.resolve(venvEnv);
+            };
+            fireFolderCreated(venvDir);
+            await settle();
+
+            assert.deepStrictEqual(
+                {
+                    resolveCalls,
+                    envs: api.getEnvs().map((env) => env.executable.filename),
+                    watchersDisposed: folderWatchers.map((w) => w.disposed),
+                },
+                { resolveCalls: 2, envs: [venvPython], watchersDisposed: [true, true] },
+            );
+        });
+
+        test('a recreate reported for both the folder and the executable adds the env once', async () => {
+            deleteVenv();
+            executableExists = true;
+            // macOS and Windows report the new executable as well as the new folder.
+            workspaceEnvChanged.fire({ type: FileChangeType.Created, workspaceFolder, executable: venvPython });
+            fireFolderCreated(venvDir);
+            await settle();
+
+            assert.deepStrictEqual(
+                api.getEnvs().map((env) => env.executable.filename),
+                [venvPython],
+            );
+        });
+
+        test('watching for a removed env stops after the time limit', async () => {
+            const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+            try {
+                deleteVenv();
+                await clock.tickAsync(RECREATE_TIMEOUT_MS);
+                // A folder created after the time limit no longer brings the env back.
+                executableExists = true;
+                fireFolderCreated(venvDir);
+                await clock.tickAsync(10);
+
+                assert.deepStrictEqual(
+                    {
+                        watchersDisposed: folderWatchers.map((w) => w.disposed),
+                        envs: api.getEnvs().map((env) => env.executable.filename),
+                    },
+                    { watchersDisposed: [true, true], envs: [] },
+                );
+            } finally {
+                clock.restore();
+            }
+        });
+
+        test('removing the workspace folder stops watching for its removed envs', async () => {
+            deleteVenv();
+            await settle();
+            workspaceFoldersChanged.fire({ added: [], removed: [workspaceFolder] });
+
+            assert.deepStrictEqual(
+                folderWatchers.map((w) => w.disposed),
+                [true, true],
+            );
+        });
+
+        test('deleting a path outside the env leaves the env', () => {
+            fireDeleted(path.join(path.sep, 'home', 'user', 'project', '.venv-data'));
+
+            assert.equal(api.getEnvs().length, 1);
+            assert.deepEqual(changes, []);
         });
     });
     // --- End Positron ---

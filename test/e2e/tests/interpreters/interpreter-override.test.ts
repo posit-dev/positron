@@ -21,7 +21,7 @@ test.describe('Interpreter: Override', {
 		await expectSessionStartToFail(sessions, 'r', buildRPath('override'));
 	});
 
-	test('Python - Can Override Interpreter Discovery', async function ({ sessions }) {
+	test('Python - Can Override Interpreter Discovery', { tag: [tags.PYTHON] }, async function ({ sessions }) {
 		await expectSessionStartToFail(sessions, 'python', buildPythonPath('override'));
 	});
 });

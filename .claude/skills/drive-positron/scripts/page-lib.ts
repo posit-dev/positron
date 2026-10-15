@@ -9,10 +9,10 @@
 // enforces that. Its members, by section:
 //
 //   registry          css, names: selectors.ts, passed in by inPage
-//   waits and focus   sleep, blur
+//   waits and focus   sleep, blur, click
 //   scopes and views  scope, snapshot, byRole, unstack
-//   overlays          quickOpen, closeQuickInput, openQuickInput, rows, pick,
-//                     clickRow
+//   overlays          quickOpen, closeQuickInput, openQuickInput, rows,
+//                     allRows, hasWords, pick, clickRow
 //   dialogs and menus dialogs, explain, toasts, newToast, listIn, menu,
 //                     closeMenu, choose
 //   opened, on top    markOverlays, opened, onTop, failure
@@ -54,6 +54,32 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const wb = document.querySelector<HTMLElement>(root);
 			if (wb) { wb.setAttribute('tabindex', '-1'); wb.focus(); }
 		}, s.workbench.root),
+		/**
+		 * Clicks as a person does: press, let the page run the tasks the press
+		 * queued, release. Playwright's own click releases at once, so the click
+		 * handler runs before them, and one that opens a menu loses it: the editor
+		 * title's mousedown (upstream editorGroupView.ts) queues a focus of the
+		 * editor that then takes focus from the editor-type button's menu, which
+		 * closes on blur. A trial click first does Playwright's checks (in view,
+		 * visible, stable, enabled, not covered), so a failure reads as the click's.
+		 * A person's pointer also rests on the target before they press, so the
+		 * page gets a task turn after the move too: a Positron action bar button
+		 * re-renders on mouseenter and remounts its label (ActionBarButton declares
+		 * its face inside its render), and a press on the old label with a release
+		 * on the new one is no click at all (Convert to Code, Import Data).
+		 */
+		click: async (el: Locator | ElementHandle, opts: { button?: 'left' | 'right'; timeout?: number } = {}) => {
+			await el.click({ trial: true, button: opts.button, timeout: opts.timeout ?? 3000 });
+			const box = await el.boundingBox();
+			if (!box) { throw new Error('the element went away before the click; nothing was done'); }
+			// One task turn: a setTimeout(0) queued now runs after those the input queued.
+			const turn = () => page.evaluate(() => new Promise<void>(r => setTimeout(r, 0)));
+			await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+			await turn();
+			await page.mouse.down({ button: opts.button });
+			await turn();
+			await page.mouse.up({ button: opts.button });
+		},
 
 		// ---- Scopes and views: where a command looks, and what it reads there
 		/**
@@ -85,7 +111,9 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				menu: visible(page.locator(s.overlay.menu)).last(),
 				notifications: visible(page.locator(s.overlay.notifications)).first(),
 				sidebar: page.locator(s.part.sidebar), secondary: page.locator(s.part.secondary), panel: page.locator(s.part.panel),
-				editor: page.locator(s.editorGroup.active), statusbar: page.locator(s.part.statusbar),
+				// A modal editor (Workspace Trust, Settings) has an active group of its
+				// own, drawn over the main one and later in the DOM.
+				editor: visible(page.locator(s.editorGroup.active)).last(), statusbar: page.locator(s.part.statusbar),
 			};
 			if (!name) { return { loc: page.locator('body'), name: 'page' }; }
 			const key = name.toLowerCase();
@@ -145,13 +173,16 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * name without a trailing keybinding ("Continue (F5)" for Continue), then
 		 * the name before a comma and more (a Breakpoints row "dbg.R 7, Unverified
 		 * Breakpoint" for "dbg.R 7", the label the view shows), then, with
-		 * partial, any name holding it. A leading icon glyph is ignored (the Data
-		 * Explorer's column buttons read " team", an icon before the name).
+		 * partial, any name holding it. An icon glyph at either end is ignored, as
+		 * read leaves it out (the Data Explorer's column buttons read " team", an
+		 * icon before the name; a notebook's "Positron Notebook" editor-type
+		 * button ends in a drop-down chevron).
 		 */
 		byRole: async (scope: ReturnType<typeof page.locator>, role: string, name: string, partial: boolean) => {
 			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 			const lead = '^[\\s\\uE000-\\uF8FF]*';
-			const tries = [new RegExp(`${lead}${esc}\\s*$`, 'i'), new RegExp(`${lead}${esc}\\s*\\(.*\\)\\s*$`, 'i'), new RegExp(`${lead}${esc}\\s*,`, 'i'), ...(partial ? [new RegExp(esc, 'i')] : [])];
+			const tail = '[\\s\\uE000-\\uF8FF]*$';
+			const tries = [new RegExp(`${lead}${esc}${tail}`, 'i'), new RegExp(`${lead}${esc}\\s*\\(.*\\)${tail}`, 'i'), new RegExp(`${lead}${esc}\\s*,`, 'i'), ...(partial ? [new RegExp(esc, 'i')] : [])];
 			for (const re of tries) {
 				const all = scope.getByRole(role as Parameters<typeof page.getByRole>[0], { name: re });
 				if (await all.count()) { return all; }
@@ -185,17 +216,69 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				.filter(r => Number.isFinite(r.index) && !r.separator);
 		}, { q: s.quickInput, label: s.label, list: s.list }),
 		/**
-		 * The one row a match picks, waiting up to a second for the list to filter.
-		 * With words, each must be a whole word ("R" is not the r in "positron-python");
-		 * a word may end at a dot, so "4.5" matches "4.5.1".
+		 * Every row of the open quick input, not only the ones drawn: the list is
+		 * virtual, so this walks it with ArrowDown from the filter, reading the rows
+		 * drawn at each step, until focus comes round to where it started (or stops
+		 * at the end, in a list that does not loop, and is put back). It presses no
+		 * key unless focus is in the quick input; then, or after max steps, it
+		 * returns what it read with complete false.
 		 */
-		pick: async (m: { exact?: string; words?: string; folder?: string; preferRoot?: boolean }) => {
-			const words = (m.words ?? '').split(/\s+/).filter(Boolean)
+		allRows: async (max = 100) => {
+			const seen = new Map<number, Awaited<ReturnType<typeof lib.rows>>[number]>();
+			const read = async () => { for (const r of await lib.rows()) { seen.set(r.index, r); } };
+			// The focused row's index once the list has drawn: -1 for none, null when focus is outside the quick input.
+			const at = () => page.evaluate(({ q, list }) => new Promise<number | null>(done => requestAnimationFrame(() => requestAnimationFrame(() => {
+				const w = [...document.querySelectorAll<HTMLElement>(q.widget)].find(x => x.offsetParent !== null);
+				const f = w?.contains(document.activeElement) ? w.querySelector(list.focusedRow) : undefined;
+				done(f === undefined ? null : f ? Number(f.getAttribute(list.indexAttr)) : -1);
+			}))), { q: s.quickInput, list: s.list });
+			await read();
+			let start = await at();
+			// Nothing focused yet: the first ArrowDown focuses the first row.
+			if (start === -1) { await page.keyboard.press('ArrowDown'); start = await at(); await read(); }
+			let complete = false;
+			if (start !== null && start >= 0) {
+				let prev = start;
+				for (let i = 0; i < max; i++) {
+					await page.keyboard.press('ArrowDown');
+					const now = await at();
+					await read();
+					if (now === null || now < 0) { break; }
+					if (now === start || now === prev) { complete = true; break; }
+					prev = now;
+				}
+				// A list that does not loop ends with focus at its end: walk it back.
+				for (let i = 0; i < max; i++) {
+					const now = await at();
+					if (now === null || now <= start) { break; }
+					await page.keyboard.press('ArrowUp');
+				}
+			}
+			return { rows: [...seen.values()].sort((x, y) => x.index - y.index), complete };
+		},
+		/**
+		 * Whether a row holds all these words, each a whole word ("R" is not the r
+		 * in "positron-python"); a word may end at a dot, so "4.5" matches "4.5.1".
+		 */
+		hasWords: (text: string) => {
+			const words = text.split(/\s+/).filter(Boolean)
 				.map(x => new RegExp('(^|[^\\w.-])' + x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\w-])', 'i'));
-			const hit = (r: { label: string; description: string }) =>
-				(m.exact !== undefined ? r.label === m.exact : words.every(x => x.test(r.label + ' ' + r.description)))
-				// A folder is the whole description, or its end ("rapp" in "apps/rapp").
-				&& (!m.folder || r.description === m.folder || r.description.endsWith('/' + m.folder) || r.description.endsWith(' ' + m.folder));
+			return (r: { label: string; description: string }) => words.every(x => x.test(r.label + ' ' + r.description));
+		},
+		/**
+		 * The one row a match picks, waiting up to a second for the list to filter.
+		 * Words match as lib.hasWords does. An exact match is the label, or else
+		 * the row as "shown" writes it, "label (description)", so a row copied from
+		 * an error picks it when several rows share the label. nth (1 = first, in
+		 * list order) takes one of several matches. On failure, "shown" holds up
+		 * to 8 rows and "more" says how many it left out.
+		 */
+		pick: async (m: { exact?: string; words?: string; folder?: string; preferRoot?: boolean; nth?: number }) => {
+			const words = lib.hasWords(m.words ?? '');
+			const shownAs = (r: { label: string; description: string }) => r.label + (r.description ? ' (' + r.description + ')' : '');
+			// A folder is the whole description, or its end ("rapp" in "apps/rapp").
+			const inFolder = (r: { label: string; description: string }) =>
+				!m.folder || r.description === m.folder || r.description.endsWith('/' + m.folder) || r.description.endsWith(' ' + m.folder);
 			// Quick Open lists recent files first and adds search results a moment
 			// later, so match only once the rows have stopped changing.
 			let all: Awaited<ReturnType<typeof lib.rows>> = [];
@@ -207,29 +290,40 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				prev = now;
 				await lib.sleep(150);
 			}
-			let found = all.filter(hit);
+			let found = all.filter(r => (m.exact !== undefined ? r.label === m.exact : words(r)) && inFolder(r));
+			// No label is the text: it may be a row as "shown" writes it, with its description.
+			if (!found.length && m.exact !== undefined) { found = all.filter(r => shownAs(r) === m.exact && inFolder(r)); }
+			found.sort((x, y) => x.index - y.index);
 			// A bare file name means the one at the workspace root, which has no folder beside it.
 			if (found.length > 1 && m.preferRoot && found.filter(r => !r.description).length === 1) { found = found.filter(r => !r.description); }
-			const show = (rs: typeof all) => rs.slice(0, 8).map(r => r.label + (r.description ? ' (' + r.description + ')' : ''));
+			const show = (rs: typeof all) => ({ shown: rs.slice(0, 8).map(shownAs), ...(rs.length > 8 ? { more: `${rs.length - 8} more rows not shown` } : {}) });
 			const want = m.exact ?? m.words;
-			if (found.length === 0) { return { ok: false as const, error: `no row matches "${want}"`, shown: show(all) }; }
-			if (found.length > 1) { return { ok: false as const, error: `${found.length} rows match "${want}"; be more specific`, shown: show(found) }; }
-			return { ok: true as const, row: found[0] };
+			if (found.length === 0) { return { ok: false as const, error: `no row matches "${want}"`, ...show(all) }; }
+			if (m.nth && m.nth > found.length) { return { ok: false as const, error: `${found.length} row${found.length === 1 ? '' : 's'} match "${want}", so there is no row ${m.nth}`, ...show(found) }; }
+			// More words narrow a words match; an exact one is the caller's to say how to narrow.
+			if (found.length > 1 && !m.nth) { return { ok: false as const, error: `${found.length} rows match "${want}"${m.exact === undefined ? '; be more specific' : ''}`, ...show(found) }; }
+			const row = found[(m.nth || 1) - 1];
+			// Which of the rows that look the same as it (label and description) it is, for clickRow.
+			return { ok: true as const, row: { ...row, occurrence: found.slice(0, (m.nth || 1) - 1).filter(r => shownAs(r) === shownAs(row)).length } };
 		},
 		/**
 		 * A real click, which runs it, on the row with this label (and description),
 		 * found at click time: Quick Open re-sorts its rows as results arrive, so an
 		 * index read earlier can point at another row by now.
 		 */
-		clickRow: async (row: { label: string; description: string }) => {
+		clickRow: async (row: { label: string; description: string; occurrence?: number }) => {
 			// Label and description both exact, as rows() reads them: an empty
 			// description is the file at the workspace root, not any row of that name.
+			// Of several rows that look the same, the occurrence-th in list order.
 			const all = widget.locator(s.list.row);
-			const at = await all.evaluateAll((rs, { r, label }) => {
+			const at = await all.evaluateAll((rs, { r, label, list }) => {
 				const clean = (el: Element | null | undefined) => el ? (el.textContent ?? '').replace(/\s+/g, ' ').trim() : '';
-				return rs.findIndex(x => (x as HTMLElement).offsetParent !== null && clean(x.querySelector(label.name)) === r.label
-					&& clean([...x.querySelectorAll(label.description)].find(d => d.getBoundingClientRect().height > 0)) === r.description);
-			}, { r: row, label: s.label });
+				const same = rs.map((x, i) => ({ i, index: Number(x.getAttribute(list.indexAttr)) }))
+					.filter(({ i }) => (rs[i] as HTMLElement).offsetParent !== null && clean(rs[i].querySelector(label.name)) === r.label
+						&& clean([...rs[i].querySelectorAll(label.description)].find(d => d.getBoundingClientRect().height > 0)) === r.description)
+					.sort((x, y) => x.index - y.index);
+				return same[r.occurrence ?? 0]?.i ?? -1;
+			}, { r: row, label: s.label, list: s.list });
 			if (at < 0) { throw new Error(`the row "${row.label}"${row.description ? ` (${row.description})` : ''} is no longer listed`); }
 			return all.nth(at).click({ timeout: 3000 });
 		},
@@ -277,12 +371,13 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * The items a list offers, by name: its menu items or options, else its
 		 * buttons (Positron's context menu, a drop-down list's popup and the Data
 		 * Explorer's column picker draw buttons). A name is read without an icon
-		 * glyph or the space around it.
+		 * glyph or the space around it, and by innerText, so a label and its
+		 * description in separate blocks read "uv Use uv to...", not "uvUse uv".
 		 */
 		listIn: async (box: Locator): Promise<List> => {
 			let items = box.locator(s.menu.items).filter({ visible: true });
 			if (!await items.count()) { items = box.getByRole('button').filter({ visible: true }); }
-			const names = (await items.evaluateAll(es => es.map(e => (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g, ' ').trim())))
+			const names = (await items.evaluateAll(es => es.map(e => (e.getAttribute('aria-label') || (e as HTMLElement).innerText || '').replace(/\s+/g, ' ').trim())))
 				.map(x => x.replace(/[\uE000-\uF8FF]/g, '').trim());
 			const off = await items.evaluateAll(es => es.map(e => (e as HTMLButtonElement).disabled || e.getAttribute('aria-disabled') === 'true'));
 			return { box, items, names, off };
@@ -419,7 +514,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const css = waiting.match(/^locator\('([^']*)'\)/)?.[1] ?? '';
 			const parts: Record<string, string> = { [s.editorGroup.active]: 'editor', [s.part.editor]: 'editor', [s.part.sidebar]: 'sidebar', [s.part.secondary]: 'secondary', [s.part.panel]: 'panel', [s.part.statusbar]: 'statusbar', [s.overlay.dialog]: 'dialog', [s.overlay.menu]: 'menu', [s.quickInput.widget]: 'quickpick' };
 			const role = waiting.match(/getByRole\('(\w+)'(?:, \{ name: \/(.*?)\/i? \})?/);
-			// The name as lib.byRole wrote it: ^[\s\uE000-\uF8FF]*NAME\s*$, with a "(keys)" or "," tail, escaped.
+			// The name as lib.byRole wrote it: ^[\s\uE000-\uF8FF]*NAME[\s\uE000-\uF8FF]*$, with a "(keys)" or "," tail, escaped.
 			const name = (role?.[2] ?? '').split('[\\s\\uE000-\\uF8FF]*').join('').split('\\s*').join('').replace(/^\^|\$$/g, '').replace(/(\\\(\.\*\\\)|,)$/, '').replace(/\\(.)/g, '$1');
 			const target = role ? `${role[1]}${name ? ` "${name}"` : ''}` : 'the element';
 			const where = parts[css] ? ` in ${parts[css]}` : css && !/^(body|html)$/.test(css) ? ` in ${css.length > 60 ? 'its view' : css}` : '';

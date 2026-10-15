@@ -40,7 +40,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 	if (githubActions && process.platform !== 'win32') {
 
-		test('Python - Verify data loads with very large unique data dataframe', async function ({ app, openFile, runCommand, python, metric }) {
+		test('Python - Verify data loads with very large unique data dataframe', { tag: [tags.PYTHON] }, async function ({ app, openFile, runCommand, python, metric }) {
 			const { dataExplorer, variables, editors } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'loadBigParquet.py'));
@@ -76,7 +76,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		});
 	} else {
 
-		test('Python - Verify data loads with very large duplicated data dataframe', async function ({ app, openFile, runCommand, hotKeys, python, metric }) {
+		test('Python - Verify data loads with very large duplicated data dataframe', { tag: [tags.PYTHON] }, async function ({ app, openFile, runCommand, hotKeys, python, metric }) {
 			const { dataExplorer, variables, editors } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'multiplyParquet.py'));
@@ -93,7 +93,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			}
 		});
 
-		test('R - Verify data loads with very large duplicated data dataframe', async function ({ app, openFile, runCommand, hotKeys, r, metric }) {
+		test('R - Verify data loads with very large duplicated data dataframe', { tag: [tags.ARK] }, async function ({ app, openFile, runCommand, hotKeys, r, metric }) {
 			const { variables, editors, dataExplorer } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'multiplyParquet.r'));

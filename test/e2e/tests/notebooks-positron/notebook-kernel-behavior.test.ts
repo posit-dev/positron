@@ -15,7 +15,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.SESSIONS]
 }, () => {
 
-	test('ensure notebook session states update correctly during start, restart, and shutdown', async function ({ app }) {
+	test('ensure notebook session states update correctly during start, restart, and shutdown', { tag: [tags.PYTHON] }, async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
 		// create new notebook
@@ -66,7 +66,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'Python' });
 	});
 
-	test('ensure variable and output persistence after kernel restart', async function ({ app }) {
+	test('ensure variable and output persistence after kernel restart', { tag: [tags.ARK] }, async function ({ app }) {
 		const { notebooksPositron, variables, inlineDataExplorer } = app.workbench;
 
 		// create new notebook
@@ -121,7 +121,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		]);
 	});
 
-	test('ensure new notebooks use foreground session kernel', async function ({ app, sessions }) {
+	test('ensure new notebooks use foreground session kernel', { tag: [tags.PYTHON, tags.ARK] }, async function ({ app, sessions }) {
 		const { notebooksPositron } = app.workbench;
 
 		// start multiple sessions and select R
@@ -134,7 +134,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 	});
 
 	test('ensure existing notebooks use their correct interpreter kernel',
-		async function ({ app, sessions }) {
+		{ tag: [tags.PYTHON, tags.ARK] }, async function ({ app, sessions }) {
 			const { notebooksPositron } = app.workbench;
 			const pythonNotebook = path.join('workspaces', 'data-explorer-update-datasets', 'pandas-update-dataframe.ipynb');
 			const rRnotebook = path.join('workspaces', 'r_notebooks', 'Introduction+to+R.ipynb');
@@ -152,7 +152,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'R' });
 		});
 
-	test('ensure notebook console attaches and terminates with active kernel', async function ({ app, sessions }) {
+	test('ensure notebook console attaches and terminates with active kernel', { tag: [tags.PYTHON, tags.ARK] }, async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
 
 		const [, rSession] = await sessions.start(['python', 'r']);
@@ -180,7 +180,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR] }, async function ({ app, sessions, runCommand }) {
+	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR, tags.PYTHON, tags.ARK] }, async function ({ app, sessions, runCommand }) {
 		const { notebooksPositron } = app.workbench;
 
 		// clear any sessions left by prior tests (e.g. a terminated notebook
@@ -205,7 +205,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await sessions.expectSessionCountToBe(sessionCountBefore);
 	});
 
-	test('Python - console accepts input after notebook cell execution', { tag: [tags.CONSOLE] }, async function ({ app, sessions }) {
+	test('Python - console accepts input after notebook cell execution', { tag: [tags.CONSOLE, tags.PYTHON] }, async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
 		await sessions.start(['python']);
 		await notebooksPositron.newNotebook();
@@ -226,7 +226,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await expect(notebooksPositron.cellOutput(0)).not.toContainText('done');
 	});
 
-	test('opening .qmd alongside notebook does not produce duplicate kernel selectors', async function ({ app, openFile, sessions }) {
+	test('opening .qmd alongside notebook does not produce duplicate kernel selectors', { tag: [tags.ARK] }, async function ({ app, openFile, sessions }) {
 		const { notebooksPositron } = app.workbench;
 
 		await sessions.deleteDisconnectedSessions();

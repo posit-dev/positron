@@ -12,7 +12,7 @@ import { ProgressBar } from '../../../base/browser/ui/progressbar/progressbar.js
 import { disposableTimeout } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../base/common/event.js';
-import { Disposable, DisposableStore, IDisposable, MutableDisposable, dispose } from '../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, MutableDisposable, dispose, toDisposable } from '../../../base/common/lifecycle.js';
 import Severity from '../../../base/common/severity.js';
 import { isString } from '../../../base/common/types.js';
 import { isModifierKey } from '../../../base/common/keyCodes.js';
@@ -47,7 +47,7 @@ const VIEWSTATE_STORAGE_KEY = 'workbench.quickInput.viewState';
 const QUICK_INPUT_MOTION_CLOSING_CLASS = 'quick-input-widget-closing';
 const QUICK_INPUT_OVERLAY_CLASS = 'quick-input-widget-overlay';
 const QUICK_INPUT_CLOSE_ANIMATION_DURATION = 150;
-const QUICK_INPUT_MOTION_ANCESTOR_CLASSES = ['style-override', 'monaco-enable-motion'];
+const QUICK_INPUT_MOTION_ANCESTOR_CLASSES = ['modern-ui', 'monaco-enable-motion'];
 
 type QuickInputViewState = {
 	readonly top?: number;
@@ -63,11 +63,9 @@ type QuickInputOverlayLayoutCorrection = {
 	readonly width: number;
 };
 
-export function getQuickInputWidth(availableWidth: number): number {
-	return Math.min(availableWidth * 0.62, 600);
-}
-
 export class QuickInputController extends Disposable {
+	private static readonly MAX_WIDTH = 600; // Max total width of quick input widget
+
 	private idPrefix: string;
 	private ui: QuickInputUI | undefined;
 	private dimension?: dom.IDimension;
@@ -137,8 +135,12 @@ export class QuickInputController extends Disposable {
 		this.viewState = this.loadViewState();
 
 		// --- Start Positron ---
-		// When the quick pick hides, restore interaction on the Positron modal it was reparented into (if any).
-		this._register(this.onHide(() => this.clearPositronModalInert()));
+		// When the quick pick hides, restore interaction on the Positron modal it was reparented into (if any),
+		// and stop watching that modal.
+		this._register(this.onHide(() => {
+			this.clearPositronModalInert();
+			this.positronModalObserver.clear();
+		}));
 		// --- End Positron ---
 	}
 
@@ -163,6 +165,13 @@ export class QuickInputController extends Disposable {
 	private positronModalInertElements: HTMLElement[] = [];
 
 	/**
+	 * Watches the modal hosting a visible quick input and hides the quick input if the modal
+	 * drops it. Cleared on hide and before every move, so it can never fire on the move of a
+	 * later quick input out of a modal that has already closed.
+	 */
+	private readonly positronModalObserver = this._register(new MutableDisposable());
+
+	/**
 	 * Special handling for Positron modals. Reparents the quick input into the modal so it is
 	 * inside the dialog's focus scope, and marks the modal's other children `inert` so the dialog
 	 * can't be interacted with while the quick pick is open (matching the desktop modality
@@ -174,24 +183,24 @@ export class QuickInputController extends Disposable {
 		if (modalContainer && this.ui) {
 			if (!modalContainer.isSameNode(this.ui.container.parentNode)) {
 				// a Positron modal is open, the quick pick will need to set its parent to it
+				this.positronModalObserver.clear();
 				dom.append(modalContainer, this.ui.container);
 				this.ui.container.style.position = 'fixed'; // modal hides overflow so this positions it so that nothing is hidden
 				this.ui.container.style.zIndex = 'auto'; // paint in DOM order inside the dialog rather than at 2550 outside it
-				// close the quick pick if the modal closed
-				new MutationObserver((_mutations, observer) => {
-					if (this.ui && !modalContainer.contains(this.ui.container)) {
-						this.hide();
-						observer.disconnect();
-					}
-				}).observe(modalContainer, { childList: true });
+				if (this.isVisible()) {
+					// a modal opened while the quick input was visible
+					this.watchPositronModal(modalContainer);
+				}
 			}
 			if (applyInert) {
+				this.watchPositronModal(modalContainer);
 				this.applyPositronModalInert(modalContainer);
 			}
 		} else {
 			if (this.ui) {
 				// restore parent
 				if (!this._container.isSameNode(this.ui.container.parentNode)) {
+					this.positronModalObserver.clear();
 					this._container.appendChild(this.ui.container);
 					this.ui.container.style.zIndex = '';
 					this.ui.container.style.position = 'absolute';
@@ -222,6 +231,24 @@ export class QuickInputController extends Disposable {
 		);
 		const topDialog = dialogs.length ? dialogs[dialogs.length - 1] : undefined;
 		return dom.isHTMLElement(topDialog) ? topDialog : undefined;
+	}
+
+	/**
+	 * Closes the quick input if the modal hosting it drops it.
+	 */
+	private watchPositronModal(modalContainer: HTMLElement) {
+		const observer = new MutationObserver(() => {
+			if (this.ui && (!modalContainer.isConnected || !modalContainer.contains(this.ui.container))) {
+				this.hide();
+			}
+		});
+		observer.observe(modalContainer, { childList: true });
+		// Closing a modal removes its whole overlay, which the dialog box never sees.
+		const overlayHost = modalContainer.closest('.positron-modal-overlay')?.parentElement;
+		if (overlayHost) {
+			observer.observe(overlayHost, { childList: true });
+		}
+		this.positronModalObserver.value = toDisposable(() => observer.disconnect());
 	}
 
 	private applyPositronModalInert(modalContainer: HTMLElement) {
@@ -875,6 +902,7 @@ export class QuickInputController extends Disposable {
 
 	private setVisibilities(visibilities: Visibilities) {
 		const ui = this.getUI();
+		ui.titleBar.style.display = visibilities.title ? '' : 'none';
 		ui.title.style.display = visibilities.title ? '' : 'none';
 		ui.description1.style.display = visibilities.description && (visibilities.inputBox || visibilities.checkAll) ? '' : 'none';
 		ui.description2.style.display = visibilities.description && !(visibilities.inputBox || visibilities.checkAll) ? '' : 'none';
@@ -1046,7 +1074,7 @@ export class QuickInputController extends Disposable {
 	private updateLayout() {
 		if (this.ui && this.isVisible()) {
 			const style = this.ui.container.style;
-			let width = getQuickInputWidth(this.dimension!.width);
+			let width = Math.min(this.dimension!.width * 0.62 /* golden cut */, QuickInputController.MAX_WIDTH);
 			style.width = width + 'px';
 
 			let listHeight = this.dimension && this.dimension.height * 0.4;

@@ -51,7 +51,7 @@ const runApp: PageFn<{ label: string; list: boolean }> = async (page, a, lib) =>
 
 export const runAppCommands: Record<string, (argv: string[]) => Json | string> = {
 	'run-app': argv => {
-		const p = parse(argv, ['session', 'label']);
+		const p = parse(argv, ['session', 'label'], 0, ['list']);
 		if (p.flags.help) { usage('run-app.sh'); }
 		const r = inPage(p.session, runApp, { label: String(p.flags.label ?? ''), list: !!p.flags.list });
 		if (r.clicked) {

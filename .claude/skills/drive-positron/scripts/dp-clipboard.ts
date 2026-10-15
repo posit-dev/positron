@@ -10,7 +10,7 @@
 import { execFileSync } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname, join, resolve } from 'path';
-import { Exit, log, logRead, parse, usage, type Json } from './dp-lib.ts';
+import { commandWord, log, logRead, parse, usage, type Json } from './dp-lib.ts';
 
 // The pasteboard's types and text; with a path, its image written there as a
 // PNG (a TIFF converted), with its size. Run by osascript -l JavaScript.
@@ -36,10 +36,9 @@ export const clipboardCommands: Record<string, (argv: string[]) => Json | string
 	clipboard: argv => {
 		const p = parse(argv, ['session', 'image'], 1);
 		if (p.flags.help || !p.rest[0]) { usage('clipboard.sh'); }
-		if (p.rest[0] !== 'read') { throw new Exit(2, { ok: false, error: 'command: read [--image FILE]' }); }
+		commandWord(p.rest[0], ['read [--image FILE]']);
 		if (process.platform !== 'darwin') { return { ok: false, error: `clipboard.sh reads the clipboard on macOS only (osascript); this is ${process.platform}, so nothing was read` }; }
-		const file = typeof p.flags.image === 'string' ? p.flags.image : '';
-		if (p.flags.image !== undefined && !file) { throw new Exit(2, { ok: false, error: '--image takes the file to write, such as clip-01.png' }); }
+		const file = String(p.flags.image ?? '');
 		// A bare name goes in the run's shots folder, as shot.sh's does, and is never overwritten.
 		const path = !file ? '' : file.includes('/') ? resolve(file) : join(process.env.DRIVE_POSITRON_SHOTS ?? '.', file);
 		if (path && existsSync(path)) { return { ok: false, error: `${path} already exists; give another name` }; }

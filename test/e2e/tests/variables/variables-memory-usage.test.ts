@@ -22,7 +22,7 @@ test.describe('Variables: Memory Usage', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	test('Shut-down session is removed from memory usage meter', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
+	test('Shut-down session is removed from memory usage meter', { tag: [tags.WEB, tags.PYTHON, tags.ARK] }, async function ({ app, sessions, settings }) {
 		const { console, variables } = app.workbench;
 
 		// Set a fast polling interval so the memory meter updates quickly
@@ -56,7 +56,7 @@ test.describe('Variables: Memory Usage', {
 		});
 	});
 
-	test('Low memory warning icon appears when memory is low', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
+	test('Low memory warning icon appears when memory is low', { tag: [tags.WEB, tags.PYTHON] }, async function ({ app, sessions, settings }) {
 		const { variables } = app.workbench;
 
 		// Set a fast polling interval and a 100% threshold. The warning fires when
@@ -80,7 +80,7 @@ test.describe('Variables: Memory Usage', {
 		await variables.expectLowMemoryWarning(true);
 	});
 
-	test('Memory bar segments render with their designated colors', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
+	test('Memory bar segments render with their designated colors', { tag: [tags.WEB, tags.PYTHON] }, async function ({ app, sessions, settings }) {
 		const { variables } = app.workbench;
 
 		// Poll quickly so the meter populates fast, and disable the low-memory
@@ -107,6 +107,7 @@ test.describe('Variables: Memory Usage', {
 	});
 
 	test.skip('Reconnected session reappears in memory usage meter after extension host restart', {
+		tag: [tags.ARK],
 		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }
 	}, async function ({ app, sessions, settings }) {
 		const { console: consolePage, quickaccess, variables } = app.workbench;
@@ -136,7 +137,7 @@ test.describe('Variables: Memory Usage', {
 	});
 
 	test.skip('Restarted session reappears in memory usage meter', {
-		tag: [tags.WEB],
+		tag: [tags.WEB, tags.PYTHON],
 		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }
 	}, async function ({ app, sessions, settings }) {
 		const { variables } = app.workbench;

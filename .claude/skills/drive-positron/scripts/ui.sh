@@ -43,6 +43,9 @@
 #                         banner): start it in the background, act, then wait.
 #                         The view must be on screen when it starts
 #   click ROLE NAME       roles: button, tab, treeitem, row, checkbox, link, option...
+#                         Pressed, then released once the page has run what the
+#                         press queued, as a person's click is (choose and check
+#                         click so too): a menu the click opens stays open
 #   fill NAME TEXT        a field by its name: textbox, spinbutton, combobox or
 #                         searchbox
 #   check NAME on|off     a checkbox, by the check mark drawn; reports "checked"
@@ -63,7 +66,10 @@
 #                         (after a click that opened an input); --enter to submit,
 #                         refused in a quick pick (Enter runs the highlighted
 #                         row, maybe another one): use pick there
-#   pick TEXT             the open quick pick's row whose label is TEXT
+#   pick TEXT             the open quick pick's row whose label is TEXT; when
+#                         several rows share it, TEXT as the error's "shown"
+#                         writes the row, "label (description)", or --nth N
+#                         for the Nth of them in list order
 #
 # Flags:
 #   --session NAME  the @playwright/cli session attached to the instance (or $PW_SESSION)
@@ -74,7 +80,8 @@
 #   --partial       let NAME match part of the accessible name
 #   --watch VIEW    report the change in this view instead (click Step Over,
 #                   watch Call Stack)
-#   --wait SECS     how long to wait for the view to change after an action (default 2)
+#   --wait SECS     how long to wait for the view to change after an action
+#                   (default 2); not a positive number: a usage error
 #   --for SECS      watch: how long to sample (default 5, at most 120)
 #   --every MS      watch: how often (default 100, 20 to 5000)
 #

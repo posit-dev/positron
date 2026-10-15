@@ -33,7 +33,8 @@ export function isSageMakerSession(): boolean {
 /**
  * Builds the inline `<script>` that carries {@link isSageMakerSession} to the browser, for
  * injection into the served workbench HTML. Empty when false: an absent global reads as false.
+ * `nonce` is the per-request CSP script nonce.
  */
-export function sageMakerMarkerScript(isSageMaker: boolean): string {
-	return isSageMaker ? `<script>globalThis.${POSITRON_IS_SAGEMAKER_GLOBAL} = true;</script>` : '';
+export function sageMakerMarkerScript(nonce: string, isSageMaker: boolean): string {
+	return isSageMaker ? `<script nonce="${nonce}">globalThis.${POSITRON_IS_SAGEMAKER_GLOBAL} = true;</script>` : '';
 }

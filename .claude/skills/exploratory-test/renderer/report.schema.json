@@ -1,0 +1,502 @@
+{
+	"type": "object",
+	"required": [
+		"header",
+		"findings"
+	],
+	"$defs": {
+		"md": {
+			"type": "string",
+			"description": "markdown"
+		},
+		"int": {
+			"type": "integer",
+			"minimum": 1
+		},
+		"step": {
+			"type": "object",
+			"required": [
+				"kind",
+				"text"
+			],
+			"properties": {
+				"kind": {
+					"enum": [
+						"action",
+						"verify"
+					]
+				},
+				"text": {
+					"$ref": "#/$defs/md",
+					"description": "An action, or for a verify step the expectation alone, without a VERIFY prefix."
+				},
+				"result": {
+					"enum": [
+						"pass",
+						"fail"
+					]
+				},
+				"finding": {
+					"$ref": "#/$defs/int"
+				},
+				"observed": {
+					"$ref": "#/$defs/md"
+				},
+				"shots": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"pattern": "^shots/"
+					}
+				},
+				"log": {
+					"type": "object",
+					"properties": {
+						"source": {
+							"type": "string"
+						},
+						"body": {
+							"type": "string"
+						}
+					}
+				},
+				"code": {
+					"$ref": "#/$defs/md"
+				}
+			}
+		},
+		"error": {
+			"type": "object",
+			"required": [
+				"source",
+				"message"
+			],
+			"properties": {
+				"source": {
+					"type": "string"
+				},
+				"process": {
+					"type": "string"
+				},
+				"count": {
+					"type": "integer"
+				},
+				"message": {
+					"type": "string"
+				},
+				"frames": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"fn": {
+								"type": "string"
+							},
+							"path": {
+								"type": "string"
+							},
+							"line": {
+								"type": "integer"
+							}
+						}
+					}
+				},
+				"note": {
+					"type": "string",
+					"description": "When it was logged, such as \"after each Retry\"."
+				}
+			}
+		}
+	},
+	"properties": {
+		"header": {
+			"type": "object",
+			"required": [
+				"title",
+				"branch",
+				"sha",
+				"result",
+				"tested",
+				"notExercised"
+			],
+			"properties": {
+				"title": {
+					"type": "string"
+				},
+				"branch": {
+					"type": "string"
+				},
+				"sha": {
+					"type": "string"
+				},
+				"headSha": {
+					"type": "string"
+				},
+				"pr": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "string"
+						},
+						"number": {
+							"type": "integer"
+						}
+					}
+				},
+				"result": {
+					"$ref": "#/$defs/md"
+				},
+				"tested": {
+					"$ref": "#/$defs/md"
+				},
+				"notExercised": {
+					"$ref": "#/$defs/md"
+				},
+				"details": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"title": {
+								"type": "string"
+							},
+							"body": {
+								"$ref": "#/$defs/md"
+							}
+						}
+					}
+				}
+			}
+		},
+		"findings": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"required": [
+					"n",
+					"severity",
+					"reproduced",
+					"feature",
+					"title",
+					"observed",
+					"expected",
+					"steps",
+					"tests"
+				],
+				"properties": {
+					"n": {
+						"$ref": "#/$defs/int"
+					},
+					"severity": {
+						"enum": [
+							"major",
+							"moderate",
+							"minor"
+						]
+					},
+					"reproduced": {
+						"type": "object",
+						"required": [
+							"n",
+							"m"
+						],
+						"properties": {
+							"n": {
+								"type": "integer"
+							},
+							"m": {
+								"type": "integer"
+							}
+						}
+					},
+					"feature": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					},
+					"observed": {
+						"$ref": "#/$defs/md"
+					},
+					"expected": {
+						"$ref": "#/$defs/md"
+					},
+					"cause": {
+						"$ref": "#/$defs/md"
+					},
+					"preconditions": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string"
+								},
+								"text": {
+									"$ref": "#/$defs/md"
+								},
+								"file": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"steps": {
+						"type": "array",
+						"items": {
+							"$ref": "#/$defs/step"
+						}
+					},
+					"evidence": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"required": [
+								"kind"
+							],
+							"properties": {
+								"kind": {
+									"enum": [
+										"shot",
+										"log",
+										"missing",
+										"note"
+									]
+								},
+								"path": {
+									"type": "string"
+								},
+								"step": {
+									"type": "integer"
+								},
+								"scenario": {
+									"type": "string"
+								},
+								"featured": {
+									"type": "boolean"
+								},
+								"process": {
+									"type": "string"
+								},
+								"when": {
+									"type": "string"
+								},
+								"window": {
+									"type": "string"
+								},
+								"quote": {
+									"type": "string"
+								},
+								"caption": {
+									"$ref": "#/$defs/md"
+								}
+							}
+						}
+					},
+					"errors": {
+						"type": "array",
+						"items": {
+							"$ref": "#/$defs/error"
+						}
+					},
+					"tests": {
+						"type": "object",
+						"properties": {
+							"cases": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"text": {
+											"$ref": "#/$defs/md"
+										},
+										"level": {
+											"enum": [
+												"unit",
+												"extension",
+												"e2e"
+											]
+										},
+										"path": {
+											"type": "string"
+										},
+										"isNew": {
+											"type": "boolean"
+										},
+										"note": {
+											"$ref": "#/$defs/md",
+											"description": "For a case in an existing file, what that file covers now."
+										}
+									},
+									"required": [
+										"text",
+										"level",
+										"path",
+										"isNew"
+									]
+								}
+							},
+							"related": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"path": {
+											"type": "string"
+										},
+										"level": {
+											"enum": [
+												"unit",
+												"extension",
+												"e2e"
+											]
+										},
+										"note": {
+											"$ref": "#/$defs/md"
+										}
+									},
+									"required": [
+										"path",
+										"level",
+										"note"
+									]
+								}
+							}
+						},
+						"required": [
+							"cases",
+							"related"
+						]
+					},
+					"verified": {
+						"enum": [
+							"confirmed",
+							"disputed",
+							"unresolved"
+						],
+						"description": "The verifier's verdict. Written by the pipeline after the explorer; the explorer leaves it out."
+					},
+					"known": {
+						"type": "array",
+						"items": {
+							"$ref": "#/$defs/int"
+						},
+						"description": "Issues the verifier says may already describe this finding. Written by the pipeline after the explorer; the explorer leaves it out."
+					},
+					"intended": {
+						"type": "array",
+						"items": {
+							"$ref": "#/$defs/int"
+						},
+						"description": "Issues closed as not planned that match this finding. Written by the pipeline after the explorer; the explorer leaves it out."
+					},
+					"summary": {
+						"$ref": "#/$defs/md",
+						"description": "The sentence that opened the GitHub issue filed from this finding, in reports before version 1.67; impact replaced it, and the explorer leaves it out."
+					},
+					"impact": {
+						"$ref": "#/$defs/md",
+						"description": "How the bug affects users, in one or two sentences: who runs into it, what it costs them, and whether they would notice. It opens the GitHub issue filed from this finding."
+					},
+					"where": {
+						"$ref": "#/$defs/md",
+						"description": "Where the finding happens, beside summary. Written by the editor pass in reports before version 1.64; the explorer leaves it out."
+					}
+				}
+			}
+		},
+		"verification": {
+			"type": "object",
+			"required": [
+				"failed",
+				"text"
+			],
+			"properties": {
+				"failed": {
+					"type": "boolean"
+				},
+				"text": {
+					"$ref": "#/$defs/md"
+				},
+				"related": {
+					"type": "array",
+					"items": {
+						"type": "integer"
+					},
+					"description": "The findings whose fix likely belongs to the change under test."
+				},
+				"linked": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"required": [
+							"issue",
+							"severity"
+						],
+						"properties": {
+							"issue": {
+								"type": "integer"
+							},
+							"severity": {
+								"enum": [
+									"major",
+									"moderate",
+									"minor"
+								]
+							}
+						}
+					},
+					"description": "The verifier's severity for each linked issue the run ran into."
+				}
+			},
+			"description": "The verifier's notes, as the page's Verification details show them, and what it said about the change and linked issues. Written by the pipeline after the explorer; the explorer leaves it out."
+		},
+		"cost": {
+			"type": "object",
+			"properties": {
+				"passes": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"required": [
+							"label"
+						],
+						"properties": {
+							"label": {
+								"type": "string"
+							},
+							"model": {
+								"type": [
+									"string",
+									"null"
+								]
+							},
+							"costUsd": {
+								"type": [
+									"number",
+									"null"
+								]
+							},
+							"turns": {
+								"type": [
+									"integer",
+									"null"
+								]
+							},
+							"maxTurns": {
+								"type": "integer"
+							},
+							"durationMs": {
+								"type": [
+									"number",
+									"null"
+								]
+							}
+						}
+					}
+				}
+			},
+			"description": "Each agent pass's model, cost, turns and time, for the Run tile. Written by the pipeline after the explorer; the explorer leaves it out."
+		}
+	}
+}

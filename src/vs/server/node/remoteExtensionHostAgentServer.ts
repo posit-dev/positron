@@ -68,6 +68,13 @@ function parseRequestUrl(requestUrl: string): URL | undefined {
 	}
 }
 
+function getRemoteResourceResponseHeaders(): Record<string, string> {
+	return {
+		'Content-Security-Policy': `default-src 'none'; sandbox`,
+		'X-Content-Type-Options': 'nosniff',
+	};
+}
+
 declare namespace vsda {
 	// the signer is a native module that for historical reasons uses a lower case class name
 	// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -226,7 +233,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				return serveError(req, res, 400, `Bad request.`);
 			}
 
-			const responseHeaders: Record<string, string> = Object.create(null);
+			const responseHeaders = getRemoteResourceResponseHeaders();
 			if (this._environmentService.isBuilt) {
 				if (isEqualOrParent(filePath, this._environmentService.builtinExtensionsPath, !platform.isLinux)
 					|| isEqualOrParent(filePath, this._environmentService.extensionsPath, !platform.isLinux)
@@ -698,7 +705,7 @@ export interface IServerAPI {
 	// --- End Positron ---
 }
 
-export async function createServer(address: string | net.AddressInfo | null, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string): Promise<IServerAPI> {
+export async function createServer(address: string | net.AddressInfo | null, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, agentHostBridgeConnectionToken: string | undefined): Promise<IServerAPI> {
 
 	const connectionToken = await determineServerConnectionToken(args);
 	if (connectionToken instanceof ServerConnectionTokenParseError) {
@@ -783,7 +790,7 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	if (licenseValidationResult?.kind === 'sagemaker') {
 		markSageMakerSession();
 	}
-	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables, positronLicenseeInfo, licenseValidationResult?.licenseHash);
+	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, agentHostBridgeConnectionToken, disposables, positronLicenseeInfo, licenseValidationResult?.licenseHash);
 	// --- End Positron ---
 
 	// --- Start Positron ---

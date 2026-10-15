@@ -23,6 +23,11 @@ says how a helper is built and checked.
    bug stops showing. Calling it a regression needs evidence that the case once passed on this
    platform (`git log` on the helper and its case); a helper that never worked here is the
    helper's bug.
+   **Look for the issue.** For a `product` outcome, search the open issues for its symptom, a
+   few words at a time, and set `issue` only to one that describes the same behavior. An earlier
+   verdict that names an issue is the place to start. Search with
+   `curl -s "https://api.github.com/search/issues?q=repo:posit-dev/positron+is:issue+is:open+<words>"`
+   (ten searches a minute). Only read: never comment on or open an issue.
    **`product` means Positron-owned behavior.** When the cause is in upstream VS Code code that
    Positron has not changed (`scripts/file-origin.sh <file>`, and no `// --- Start Positron ---`
    block around it), the helper adapts: the outcome is `fixed`, and the reason names the upstream
@@ -30,8 +35,8 @@ says how a helper is built and checked.
 5. **No sleeps, retries or longer timeouts to get a pass.** Waiting for a named condition the
    helper can observe is fine; waiting longer and hoping is not.
 6. **Never loosen a check.** `test/` and `heal/` hold the checks your fix is judged by; a change
-   there is flagged at the top of the report. If you change one, the reason must say which check,
-   what it asserted before, and why the old assertion was wrong.
+   there is flagged at the top of the report. If you change one, `checks` says which check, what it
+   asserted before, and why the old assertion was wrong, in one or two sentences.
 7. **Check your fix:** run the helper again on the kept instance; helper edits apply without a
    relaunch. Then stop the instance (smoke prints the `stop.sh` line) and run
    `node .claude/skills/drive-positron/test/check.ts`, which must pass (apart from checks the brief
@@ -43,8 +48,11 @@ says how a helper is built and checked.
    and the `dp-*.ts` it imports). When the shared code is where it goes wrong, or where it should
    be handled for everyone (argument parsing, number and duration flags, session lookup), fix it
    there and let the callers inherit it; do not patch one caller. Reuse the existing helpers
-   (`parse()`, `seconds()`, `textFlag()` in `dp-lib.ts`) rather than writing a local copy. Your
+   (`parse()`, `seconds()`, `count()` in `dp-lib.ts`) rather than writing a local copy. Your
    reason names every helper the fix reaches.
+   **Size the fix to the finding.** A sibling joins the fix only when you ran it and it fails the
+   same way. An error that did not say what to do gets a better sentence, not a table of the
+   words agents might guess; and never a hand-kept copy of a list the code already has.
 9. **Valid input keeps working.** A command that worked before with valid input must behave the
    same after your fix. If it cannot (a flag that was silently ignored now errors), the reason says
    which helpers and inputs change, in one line.
@@ -54,11 +62,15 @@ says how a helper is built and checked.
     changes `scripts/` and adds no case is rejected. Write each case on one line, like the ones
     around it. If no smoke case can show the bug (it only
     happens on another platform, or needs state smoke cannot build), set `untestable` to why.
-11. **Close what your fix covers.** The brief lists tonight's other open findings. When your fix
+11. **Only a real run adds a feature.** A finder finding with no `lead` came from exploring, not
+    from a real run: fix what is wrong on a path the helper already offers, but add no flag,
+    command or accepted form. If only a new one would fix it, make the helper fail loud with a
+    sentence saying what it cannot do, instead.
+12. **Close what your fix covers.** The brief lists tonight's other open findings. When your fix
     also fixes one of them, run that finding's steps again after your fix and, if it now passes,
     put its id in `covers`. List only finder ids you re-ran; a smoke finding closes when its own
     case passes in the post-fix run, so leave it out.
-12. **A review may send your change back once.** The brief then ends with the reviewer's notes and
+13. **A review may send your change back once.** The brief then ends with the reviewer's notes and
     your change is still in the tree. Act on the notes that are right, keep the rest of the rules,
     and write the outcome file again; your `reason` names any note you did not act on and why.
 
@@ -85,8 +97,12 @@ Write exactly one JSON file to the outcome path in the brief, then end with a on
       "cause": "why, in one sentence",
       "change": "what the fix does differently (fixed only)",
       "untestable": "why no smoke case can show this bug (only when you add none)",
-      "covers": ["ids of other open findings your fix fixes, each re-run after the fix"]
+      "checks": "the check you changed under test/ or heal/, what it asserted, and why (only when you change one)",
+      "covers": ["ids of other open findings your fix fixes, each re-run after the fix"],
+      "issue": 12345
     }
+
+`issue` is the open issue that already describes a `product` outcome; leave it out otherwise.
 
 `reason` is for the next fixer and the reviewer. `broke`, `cause` and `change` lead the nightly
 report, for a reader who has not seen the code: one plain sentence each, under about 25 words, no

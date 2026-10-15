@@ -12,6 +12,10 @@ import { autorun, observableFromEvent } from '../../../util/vs/base/common/obser
 import { registerUnificationCommands } from '../../completions-core/vscode-node/completionsServiceBridges';
 import { ICopilotInlineCompletionItemProviderService } from '../common/copilotInlineCompletionItemProviderService';
 import { unificationStateObservable } from './completionsUnificationContribution';
+// --- Start Positron ---
+import { ILogService } from '../../../platform/log/common/logService';
+import { CopilotSuggestionsGate } from '../../inlineEdits/vscode-node/positronCopilotSuggestionsGate';
+// --- End Positron ---
 
 export class CompletionsCoreContribution extends Disposable {
 
@@ -21,13 +25,27 @@ export class CompletionsCoreContribution extends Disposable {
 		@ICopilotInlineCompletionItemProviderService _copilotInlineCompletionItemProviderService: ICopilotInlineCompletionItemProviderService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IExperimentationService experimentationService: IExperimentationService,
-		@IAuthenticationService private readonly authenticationService: IAuthenticationService
+		@IAuthenticationService private readonly authenticationService: IAuthenticationService,
+		// --- Start Positron ---
+		@ILogService logService: ILogService,
+		// --- End Positron ---
 	) {
 		super();
 
 		const unificationState = unificationStateObservable(this);
 
+		// --- Start Positron ---
+		// Register no completions provider when ai.enabled or the Copilot
+		// provider is off.
+		const suggestionsGate = this._register(new CopilotSuggestionsGate(logService));
+		// --- End Positron ---
+
 		this._register(autorun(reader => {
+			// --- Start Positron ---
+			if (!suggestionsGate.allowed.read(reader)) {
+				return;
+			}
+			// --- End Positron ---
 			const unificationStateValue = unificationState.read(reader);
 			const configEnabled = configurationService.getExperimentBasedConfigObservable<boolean>(ConfigKey.TeamInternal.InlineEditsEnableGhCompletionsProvider, experimentationService).read(reader);
 			// --- Start Positron ---

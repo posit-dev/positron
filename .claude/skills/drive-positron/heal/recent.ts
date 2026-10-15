@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Fetches the past week's findings from earlier runs of this workflow into
-// <dir>/recent/<run id>/, for the finder's area pick and the fixer's brief.
+// <dir>/recent/<run id>/, for the finder's area pick and the fixer's brief,
+// and whether each product issue they name is still open, into
+// <dir>/recent/issues.json.
 //
 //   node .claude/skills/drive-positron/heal/recent.ts --dir /tmp/heal [--days 7]
 //
@@ -18,6 +20,7 @@ import { mkdirSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { flagValue, unknownArg } from '../test/smoke-lib.ts';
+import { readFindings, type Finding } from './finding.ts';
 
 const WORKFLOW = 'drive-positron-nightly.yml';
 const ARTIFACT = 'drive-positron-heal';
@@ -43,6 +46,11 @@ function findingsDir(root: string): string | null {
 /** The nightly's completed runs since `since`; only main's, so a branch test run never becomes a later night's history. */
 export function runsUrl(api: string, repo: string, workflow: string, since: string): string {
 	return `${api}/repos/${repo}/actions/workflows/${workflow}/runs?branch=main&status=completed&created=%3E%3D${since}&per_page=50`;
+}
+
+/** The issues earlier product findings were filed as, each once, in order. */
+export function issuesIn(runs: Finding[][]): number[] {
+	return [...new Set(runs.flat().flatMap(f => f.outcome === 'product' && f.issue ? [f.issue] : []))].sort((a, b) => a - b);
 }
 
 async function main(): Promise<number> {
@@ -93,6 +101,12 @@ async function main(): Promise<number> {
 		}
 	}
 	console.log(`recent: findings from ${got} of ${runs.length} run(s) since ${since}`);
+	const states: Record<number, string> = {};
+	const runDirs = readdirSync(out, { withFileTypes: true }).filter(d => d.isDirectory() && !d.name.startsWith('.'));
+	for (const n of issuesIn(runDirs.map(d => readFindings(join(out, d.name))))) {
+		try { states[n] = (await (await get(`${api}/repos/${repo}/issues/${n}`)).json()).state; } catch (e) { console.log(`recent: issue ${n} skipped (${e instanceof Error ? e.message : e})`); }
+	}
+	writeFileSync(join(out, 'issues.json'), `${JSON.stringify(states, null, '\t')}\n`);
 	return 0;
 }
 

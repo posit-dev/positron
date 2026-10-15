@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Quarto - Variables Follow Mode', {
-	tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.VARIABLES]
+	tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.VARIABLES, tags.PYTHON]
 }, () => {
 
 	test('Python - Variables pane follows active QMD editor', async function ({ app, python, openFile, page }) {

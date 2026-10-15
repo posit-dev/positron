@@ -24,6 +24,7 @@ import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IUntitledTextEditorService } from '../../../services/untitled/common/untitledTextEditorService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { timeout } from '../../../../base/common/async.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -154,6 +155,12 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	/** Persisted runtime selections keyed by document URI string. */
 	private readonly _kernelBindings = new Map<string, string>();
 
+	/**
+	 * Untitled documents whose kernel followed a Save As, mapped to the saved
+	 * URI, until the untitled editor closes.
+	 */
+	private readonly _savedAsTargets = new ResourceMap<URI>();
+
 	/** Pending cleanup timeouts, tracked so they can be cancelled on dispose */
 	private readonly _pendingCleanupTimeouts = new Set<ReturnType<typeof setTimeout>>();
 
@@ -174,6 +181,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IQuartoOutputCacheService private readonly _cacheService: IQuartoOutputCacheService,
+		@IUntitledTextEditorService private readonly _untitledTextEditorService: IUntitledTextEditorService,
 	) {
 		super();
 
@@ -192,22 +200,27 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// Clean up sessions when documents are closed
 		this._register(this._editorService.onDidCloseEditor(e => {
 			const uri = e.editor.resource;
-			// Check if this is a Quarto document by extension OR if we're tracking it
-			// (the latter handles untitled documents that don't have a .qmd extension)
-			if (uri && (isQuartoOrRmdFile(uri.path) || this._documentKernels.has(uri))) {
-				// Delay cleanup slightly to handle editor tabs being moved
-				const handle = setTimeout(async () => {
-					this._pendingCleanupTimeouts.delete(handle);
-					// Check if the document is still open in any editor
-					const stillOpen = this._editorService.findEditors(uri).length > 0;
-					if (!stillOpen) {
-						this._logService.debug(`[QuartoKernelManager] Document closed, cleaning up: ${uri.toString()}`);
-						await this.shutdownKernelForDocument(uri);
-					}
-				}, 100);
-				this._pendingCleanupTimeouts.add(handle);
+			if (!uri) {
+				return;
+			}
+			// Check by extension OR if we're tracking it; an untitled document
+			// ("Untitled-1") has no extension to check.
+			if (isQuartoOrRmdFile(uri.path) || this._documentKernels.has(uri)) {
+				this._shutdownKernelIfClosed(uri);
+			}
+			// The kernel of an untitled document that was saved now belongs to
+			// the saved file. A normal Save As opens that file in place of the
+			// untitled editor, but closing a dirty untitled tab with "Save" does
+			// not, so the kernel must go if no editor shows the saved file.
+			const target = this._savedAsTargets.get(uri);
+			if (target) {
+				this._savedAsTargets.delete(uri);
+				this._shutdownKernelIfClosed(target);
 			}
 		}));
+
+		// Follow an untitled document to the file it is saved as.
+		this._register(this._untitledTextEditorService.onDidSave(e => this._followSaveAs(e.source, e.target)));
 
 		// Shutdown all kernels when feature is disabled
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
@@ -223,12 +236,15 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// This allows us to adopt sessions that were restored by the runtime session service
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
 			const notebookUri = session.metadata.notebookUri;
-			// Check by extension OR if the session's notebookUri matches what we track
-			// (this handles untitled documents that may not have .qmd extension)
-			if (notebookUri && (isQuartoOrRmdFile(notebookUri.path) || this._documentKernels.has(notebookUri))) {
+			// A Quarto session carries its hidden notebook URI; that covers
+			// untitled documents, whose URI has no extension to test.
+			if (notebookUri && (session.metadata.quartoNotebookUri !== undefined || this._documentKernels.has(notebookUri))) {
+				if (notebookUri.scheme === 'untitled' && this._editorService.findEditors(notebookUri).length === 0) {
+					return;
+				}
 				// Check if we're already tracking this session
 				const existing = this._documentKernels.get(notebookUri);
-				if (!existing || !existing.session) {
+				if (!existing || (!existing.session && !existing.startupCancellation)) {
 					this._logService.debug(`[QuartoKernelManager] Session started for Quarto document, adopting: ${notebookUri.toString()}`);
 					// Fire and forget - we don't need to wait for adoption to complete
 					this._tryAdoptExistingSession(notebookUri).catch(e => {
@@ -252,6 +268,25 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		}
 
 		await Promise.allSettled(shutdownPromises);
+	}
+
+	/**
+	 * Shut down a document's kernel after a short delay, unless an editor
+	 * shows the document by then. The delay lets an editor tab move between
+	 * groups without losing its kernel.
+	 *
+	 * @param documentUri The URI of the document whose editor closed.
+	 */
+	private _shutdownKernelIfClosed(documentUri: URI): void {
+		const handle = setTimeout(async () => {
+			this._pendingCleanupTimeouts.delete(handle);
+			const stillOpen = this._editorService.findEditors(documentUri).length > 0;
+			if (!stillOpen) {
+				this._logService.debug(`[QuartoKernelManager] Document closed, cleaning up: ${documentUri.toString()}`);
+				await this.shutdownKernelForDocument(documentUri);
+			}
+		}, 100);
+		this._pendingCleanupTimeouts.add(handle);
 	}
 
 	/**
@@ -310,7 +345,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	 * and we need to reconnect to it.
 	 *
 	 * For untitled documents, the URI may change after a window reload
-	 * (e.g., "untitled:Untitled-1.qmd" -> "untitled:Untitled-2.qmd"). In this case,
+	 * (e.g., "untitled:Untitled-1" -> "untitled:Untitled-2"). In this case,
 	 * we search for any untitled Quarto session using content hash matching.
 	 *
 	 * @param documentUri The URI of the Quarto document.
@@ -368,7 +403,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	 * whose URI changed after window reload.
 	 *
 	 * After a window reload, an untitled document may get a different URI
-	 * (e.g., "untitled:Untitled-1.qmd" -> "untitled:Untitled-2.qmd").
+	 * (e.g., "untitled:Untitled-1" -> "untitled:Untitled-2").
 	 * This method searches all active sessions for an untitled Quarto session
 	 * and updates its URI mapping if found.
 	 *
@@ -383,34 +418,33 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// Get all active sessions
 		const activeSessions = this._runtimeSessionService.getActiveSessions();
 
-		// Filter for untitled Quarto notebook sessions
+		// A session another document uses is NOT orphaned
+		const trackedSessionIds = new Set<string>();
+		for (const [, info] of this._documentKernels) {
+			if (info.session) {
+				trackedSessionIds.add(info.session.sessionId);
+			}
+		}
+
+		// Filter for orphaned untitled Quarto notebook sessions
 		const untitledQuartoSessions = activeSessions.filter(activeSession => {
 			const session = activeSession.session;
 			const notebookUri = session.metadata.notebookUri;
 
-			// Must be a notebook session with an untitled Quarto/Rmd URI
+			// Must be a Quarto session for an untitled document
 			return (
 				session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook &&
 				notebookUri &&
 				notebookUri.scheme === 'untitled' &&
-				isQuartoOrRmdFile(notebookUri.path)
+				session.metadata.quartoNotebookUri !== undefined &&
+				!trackedSessionIds.has(session.sessionId) &&
+				this._editorService.findEditors(notebookUri).length === 0
 			);
 		});
 
 		if (untitledQuartoSessions.length === 0) {
 			return undefined;
 		}
-
-		// If we found exactly one untitled Quarto session, it's likely for this document
-		if (untitledQuartoSessions.length === 1) {
-			return this._adoptUntitledSession(untitledQuartoSessions[0].session, newDocumentUri);
-		}
-
-		// Multiple untitled Quarto sessions exist - need to match more precisely
-		this._logService.debug(
-			`[QuartoKernelManager] Found ${untitledQuartoSessions.length} untitled Quarto sessions, ` +
-			`using content hash matching for ${newDocumentUri.toString()}`
-		);
 
 		// Get the document's primary language for initial filtering
 		const documentLanguage = this._getDocumentLanguageSync(newDocumentUri);
@@ -514,6 +548,51 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		});
 
 		return session;
+	}
+
+	/**
+	 * Move a document's kernel from its untitled URI to the URI it was saved as,
+	 * the way a notebook's session follows a Save As.
+	 */
+	private _followSaveAs(source: URI, target: URI): void {
+		const info = this._documentKernels.get(source);
+		const session = info?.session;
+		if (!info || !session ||
+			(info.state !== QuartoKernelState.Ready && info.state !== QuartoKernelState.Busy) ||
+			!isQuartoOrRmdFile(target.path) ||
+			this._documentKernels.has(target) ||
+			this._runtimeSessionService.getNotebookSessionForNotebookUri(target)) {
+			return;
+		}
+
+		this._logService.debug(`[QuartoKernelManager] Following Save As: ${source.toString()} -> ${target.toString()}`);
+
+		// Report the untitled document as having no kernel before it goes away
+		const state = info.state;
+		this._onDidChangeKernelState.fire({ documentUri: source, oldState: state, newState: QuartoKernelState.None, session: undefined });
+		this._documentKernels.delete(source);
+		this._documentKernels.set(target, info);
+
+		// The session listeners close over the document URI, so bind them again
+		info.disposables.clear();
+		this._setupSessionListeners(target, session, info);
+
+		const binding = this._kernelBindings.get(source.toString());
+		if (binding) {
+			this._kernelBindings.delete(source.toString());
+			this._kernelBindings.set(target.toString(), binding);
+			this._persistKernelBindings();
+		}
+
+		this._adoptUntitledSession(session, target);
+		this._savedAsTargets.set(source, target);
+
+		this._onDidChangeKernelState.fire({
+			documentUri: target,
+			oldState: QuartoKernelState.None,
+			newState: state,
+			session,
+		});
 	}
 
 	/**

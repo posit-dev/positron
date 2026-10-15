@@ -74,7 +74,7 @@ export function notifications(session: string, o: { click: string; match: string
 
 export const notificationsCommands: Record<string, (argv: string[]) => Json | string> = {
 	'notifications': argv => {
-		const p = parse(argv, ['session', 'click', 'match']);
+		const p = parse(argv, ['session', 'click', 'match'], 0, ['clear']);
 		if (p.flags.help) { usage('notifications.sh'); }
 		return notifications(p.session, { click: String(p.flags.click ?? ''), match: String(p.flags.match ?? ''), clear: !!p.flags.clear });
 	},

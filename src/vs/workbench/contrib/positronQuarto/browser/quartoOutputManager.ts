@@ -19,7 +19,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { localize } from '../../../../nls.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { basename } from '../../../../base/common/resources.js';
+import { basename, isEqual } from '../../../../base/common/resources.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
@@ -39,6 +39,7 @@ import { IResourceUsageHistoryService } from '../../../services/positronConsole/
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ILabelService } from '../../../../platform/label/common/label.js';
+import { IUntitledTextEditorService } from '../../../services/untitled/common/untitledTextEditorService.js';
 
 // Workspace storage key for collapsed inline outputs. Value is JSON:
 // `{ [documentUri]: string[] }` - each entry is the list of cell IDs whose
@@ -233,6 +234,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	// The full cell list as of the last position update, tracked or not
 	private _previousCells: readonly QuartoCodeCell[] = [];
 	private _documentUri: URI | undefined;
+	// Where the untitled document was just saved; consumed by the next model swap
+	private _savedAsTarget: URI | undefined;
 	private _featureEnabled: boolean;
 	private _outputHandlingInitialized = false;
 	private _maxLines: number;
@@ -308,6 +311,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@ILabelService private readonly _labelService: ILabelService,
+		@IUntitledTextEditorService private readonly _untitledTextEditorService: IUntitledTextEditorService,
 	) {
 		super();
 
@@ -356,6 +360,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		}));
 
+		this._register(this._untitledTextEditorService.onDidSave(e => {
+			if (this._documentUri && isEqual(e.source, this._documentUri)) {
+				this._savedAsTarget = e.target;
+			}
+		}));
+
 		// Handle editor model changes (e.g., file closed and reopened, or untitled saved to file)
 		this._register(this._editor.onDidChangeModel(() => {
 			// Capture the previous URI before updating
@@ -388,11 +398,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._documentUri = newModel?.uri;
 
 			// Handle untitled->saved transition: transfer cache from old URI to new URI.
-			// Any non-untitled scheme counts as saved; a remote or web window saves
-			// to `vscode-remote`, not `file`.
+			// Only for a real Save As: the editor widget is reused across tabs, so a
+			// tab switch also swaps an untitled model for a saved one.
+			const savedAsTarget = this._savedAsTarget;
+			this._savedAsTarget = undefined;
 			if (previousUri && this._documentUri &&
-				previousUri.scheme === 'untitled' &&
-				this._documentUri.scheme !== 'untitled' &&
+				savedAsTarget && isEqual(savedAsTarget, this._documentUri) &&
 				this._isQuartoDocument()) {
 				this._transferCacheFromUntitled(previousUri, this._documentUri);
 			}

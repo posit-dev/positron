@@ -763,11 +763,11 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
 def _pydoc_getdoc(object_: Any) -> str:
     """Get the doc string or comments for an object."""
     result = inspect.getdoc(object_) or inspect.getcomments(object_)
-    try:
-        if object_.__qualname__ == "Kernel.raw_input" and result is not None:
-            result += _ipykernel_input_info()
-    except AttributeError:
-        pass
+    # Use getattr with a default instead of attribute access since some objects return
+    # non-string values for any attribute via `__getattr__` (e.g. `polars.col`).
+    qualname = getattr(object_, "__qualname__", None)
+    if isinstance(qualname, str) and qualname == "Kernel.raw_input" and result is not None:
+        result += _ipykernel_input_info()
     return (result and re.sub("^ *\n", "", result.rstrip())) or ""
 
 

@@ -1,0 +1,1107 @@
+==== a card with every collapsed row, step-tagged shots, errors with frames, and a test gap
+<article id="f1" class="card major">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 3/3</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">A column never loads, and Retry cannot help</h2></header>
+<div class="f-cmp major"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">it never loads.</p></div></div>
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">Open it.</li>
+<li id="f1-s2">Wait.</li>
+<li id="f1-s3">Click Retry.</li></ol></div></div>
+<div class="card-details"><details class="lc ev"><summary><svg><span>Evidence<span class="lc-tail"> &middot; 1 error, <span class="n-x">2x</span>, 1 log line</span></span></summary><div class="lc-body"><div class="ev-snip"><div class="ev-snip-h"><a href="logs/app.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/app.log</a><span title="Logged by Positron’s renderer process (the UI), not the extension host or a language runtime">Renderer process</span><span>Logged <span class="n-x">2x</span></span></div><div class="ev-snip-b"><span class="ev-err">Error: get_column_profiles timed out after 10 seconds</span>
+  at Client.getColumnProfiles (<a class="err-loc" href="https://github.com/posit-dev/positron/blob/abc1234/src/vs/client.ts#L212" title="src/vs/client.ts" target="_blank" rel="noreferrer">client.ts:212</a>)
+  at <span class="err-loc" title="/abs/out/cache.js">cache.js:538</span></div></div><div class="ev-snip"><div class="ev-snip-h"><a href="logs/app.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/app.log</a></div><div class="ev-snip-b">timed out</div></div></div></details><details class="lc hyp"><summary><svg><span>Likely cause<span class="lc-tail"> &middot; Hypothesis</span></span></summary><div class="lc-body"><p>the timeout was cut.</p></div></details><details class="lc regtest"><summary><svg><span>Test gap<span class="lc-tail"> &middot; 2 missing cases</span></span></summary><div class="lc-body"><div class="rt-group"><div class="rt-label">Suggested cases</div><ol class="rt-cases"><li>Retry after a timeout loads the summary.<div class="rt-meta rt-row"><span class="rt-t rt-t-tint">Unit</span><span>Add to <a class="rt-file" href="https://github.com/posit-dev/positron/blob/abc1234/src/vs/test/cache.test.ts" title="src/vs/test/cache.test.ts" target="_blank" rel="noreferrer">cache.test.ts</a></span></div></li><li>A slow source offers no Retry.<div class="rt-meta rt-row"><span class="rt-t rt-t-tint">E2E</span><span>Add to <span class="rt-file" title="test/e2e/tests/slow.test.ts">slow.test.ts</span> <span class="rt-sep" aria-hidden="true">&middot;</span> new file</span></div></li></ol></div><div class="rt-group"><div class="rt-label">Other tests that touch this code</div><ul class="rt-other"><li><div class="rt-meta rt-row"><span class="rt-t rt-t-tint">Unit</span><span><a class="rt-file" href="https://github.com/posit-dev/positron/blob/abc1234/src/vs/test/client.test.ts" title="src/vs/test/client.test.ts" target="_blank" rel="noreferrer">client.test.ts</a> <span class="rt-sep" aria-hidden="true">&middot;</span> checks request shape only</span></div></li></ul></div></div></details></div>
+<div class="shot-links" hidden><a class="shot" id="shot-f1-1" href="https://cdn.example/shots/a.png" data-lb="f1-g1" data-i="0" data-caption="The notice" data-file="a.png" data-step="Step 2" data-step-href="#f1-s2" hidden></a><a class="shot" id="shot-f1-2" href="https://cdn.example/shots/b.png" data-lb="f1-g2" data-i="1" data-caption="After Retry" data-file="b.png" data-step="Step 3" data-step-href="#f1-s3" hidden></a></div>
+<div class="fb">
+
+
+==== typed steps: verify steps carry PASS or FAIL, a PR run links its PR, and Coverage comes from the ledger
+<header class="head">
+<div class="eyebrow"><span class="kicker">Exploratory test</span><span class="bullet"></span><a class="pr-link" href="https://github.com/posit-dev/positron/pull/1234" target="_blank" rel="noopener" title="Open the pull request on GitHub">PR #1234<svg></a><code>midleman/exp-ab-dx-opus</code><code>ed2487a1a2</code><div class="hd-act hd-inline"><button type="button" class="mode-tip th-sw" data-tip="Switch to dark mode" aria-label="Switch to dark mode"><svg><svg></button><button type="button" class="sh-btn" aria-label="Share: copy a link to this report"><svg><svg><span class="sh-l">Share</span></button></div></div>
+<h1 class="title">column summaries on slow sources</h1>
+<p class="lead">Column summaries load and pause on schedule. <strong>A column over 10 s never loads, and Continue loads the wrong columns.</strong></p>
+
+--
+<article id="f1" class="card major">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 3/3</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">A column over 10 s never loads, and Retry cannot help</h2></header>
+<div class="f-cmp major"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">The summary never loads; the panel shows &quot;Some summaries unavailable. Retry&quot;, and Retry shows it again.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">The summary loads, or Retry loads it.</p></div></div>
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P</span><code class="cc" data-tip="Copy">slow.py</code> loaded with <code class="cc" data-tip="Copy">%run -i slow.py</code>.</li></ul><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">Run <code class="cc" data-tip="Copy">one12 = make_slow(ncols=1, nrows=1000, delay=0.012)</code>. One string column whose frequency table takes about 13 s.</li>
+<li id="f1-s2">Run <code class="cc" data-tip="Copy">%view one12</code> and wait 15 s.</li>
+<li id="f1-s3"><span class="st-v">Verify the column summary loads.</span><span class="st-rs st-fail">FAIL</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f1-1" data-open="shot-f1-1" aria-label="2 screenshots for this step"><span class="ev-pop" aria-hidden="true"><img src="shots/09-one12-unavailable.png" alt="" loading="lazy"><span class="ev-cap">1 of 2 &middot; click to enlarge</span></span><svg><span class="st-n">2</span></a><span class="st-obs">Observed: Loading dots, then &quot;Some summaries unavailable. Retry&quot;; the sparkline slot empties.</span></li>
+<li id="f1-s4">Click Retry and wait 15 s. Repeat once.</li>
+<li id="f1-s5"><span class="st-v">Verify the summary loads after Retry.</span><span class="st-rs st-fail">FAIL</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f1-3" data-open="shot-f1-3" aria-label="Screenshot for this step"><span class="ev-pop" aria-hidden="true"><img src="shots/08-slow12-after-retry.png" alt="" loading="lazy"><span class="ev-cap">Click to enlarge</span></span><svg></a><span class="st-obs">Observed: Same notice after each Retry.</span></li></ol></div></div>
+
+<div class="shot-links" hidden><a class="shot" id="shot-f1-1" href="shots/09-one12-unavailable.png" data-lb="f1-g1" data-i="0" data-caption="The notice on a one-column frame" data-file="09-one12-unavailable.png" data-step="Step 3" data-step-href="#f1-s3" hidden></a><a class="shot" id="shot-f1-2" href="shots/07-slow12-unavailable.png" data-lb="f1-g1" data-i="1" data-caption="The notice on a twelve-column frame" data-file="07-slow12-unavailable.png" data-step="Step 3" data-step-href="#f1-s3" hidden></a><a class="shot" id="shot-f1-3" href="shots/08-slow12-after-retry.png" data-lb="f1-g2" data-i="2" data-caption="Same notice after Retry" data-file="08-slow12-after-retry.png" data-step="Step 5" data-step-href="#f1-s5" hidden></a></div>
+
+
+--
+id="coverage" class="section">
+<div class="section-head"><h2 class="section-label">Exploratory Coverage</h2></div>
+<p class="card-summary">The summary panel on pandas and a slow source.</p>
+<div class="cf" role="group" aria-label="Filter scenarios">
+<input type="radio" name="cf" id="cf-all" class="cf-radio" checked><input type="radio" name="cf" id="cf-i" class="cf-radio"><input type="radio" name="cf" id="cf-p" class="cf-radio"><input type="radio" name="cf" id="cf-n" class="cf-radio">
+<div class="cf-tabs"><label for="cf-all" class="cf-tab cf-tab-all"><span class="cf-l">All <span class="cf-cnt">11</span></span><span class="cf-g" aria-hidden="true">All 11</span></label><label for="cf-i" class="cf-tab cf-tab-i"><span class="cf-l">Failed <span class="cf-cnt">2</span></span><span class="cf-g" aria-hidden="true">Failed 2</span></label><label for="cf-p" class="cf-tab cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">6</span></span><span class="cf-g" aria-hidden="true">Passed 6</span></label><label for="cf-n" class="cf-tab cf-tab-n"><span class="cf-l">Not run <span class="cf-cnt">3</span></span><span class="cf-g" aria-hidden="true">Not run 3</span></label></div>
+<div class="panel cf-card">
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span></span></div>
+<div class="cov-rows">
+<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all 11 scenarios">
+<div class="row coverage-grid cf-r cf-i" id="cv-row-1"><span class="cov-scenario"><span class="cov-dot issue" aria-hidden="true"></span><span>Retry on a source over 10 s per column</span></span><span class="cov-result"><a href="#f1" class="cv-f">Finding 1</a></span><span></span></div>
+<div class="row coverage-grid cf-r cf-i" id="cv-row-2"><span class="cov-scenario"><span class="cov-dot issue" aria-hidden="true"></span><span>Continue after scrolling down</span></span><span class="cov-result"><a href="#f2" class="cv-f">Finding 2</a></span><span></span></div>
+<details class="cv cf-r cf-p" id="cv-row-3"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pandas frame, mixed types</span></span><span class="cov-result">Null %, histograms and frequency tables all load; datetime/all-null show no sparkline as before</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Create <code class="cc" data-tip="Copy">df</code> with int, float, str, datetime, bool and all-null columns.</li>
+<li>Run <code class="cc" data-tip="Copy">%view df</code>.</li>
+<li><span class="st-v">Verify Null %, histograms and frequency tables load, and datetime and all-null columns show no sparkline, as before.</span><span class="st-rs st-pass">PASS</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="shots/01-df-open.png" data-lb="cv-0" data-caption="pandas frame, mixed types" data-file="01-df-open.png" aria-label="Screenshot for this step: pandas frame, mixed types"><svg></a></li></ol></div></details>
+<details class="cv cf-r cf-p" id="cv-row-4"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>Edge values (all-NaN, inf, all-null string, object, complex)</span></span><span class="cov-result">Every expected sparkline loads, no stuck placeholders</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Create <code class="cc" data-tip="Copy">edge</code> with all-NaN, inf, all-null string, object and complex columns.</li>
+<li>Run <code class="cc" data-tip="Copy">%view edge</code>.</li>
+<li><span class="st-v">Verify every column shows its sparkline and no loading dots remain.</span><span class="st-rs st-pass">PASS</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="shots/02-edge-open.png" data-lb="cv-1" data-caption="Edge values (all-NaN, inf, all-null string, object, complex)" data-file="02-edge-open.png" aria-label="Screenshot for this step: Edge values (all-NaN, inf, all-null string, object, complex)"><svg></a></li></ol></div></details>
+<details class="cv cf-r cf-p" id="cv-row-5"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>Expand on a healthy source</span></span><span class="cov-result">Summary stats appear for NaN and inf columns</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><p class="cv-pre" tabindex="0" aria-label="Preconditions"><span class="pre-mark" aria-hidden="true">P</span><code>edge</code> open<span class="pre-pop" role="tooltip"><span class="pre-t">Preconditions</span><span class="pre-i"><b><code>edge</code> open</b>Created in <a href="#cv-row-4">Edge values (all-NaN, inf, all-null string, object, complex)</a>: <code>edge</code> with all-NaN, inf, all-null string, object and complex columns, opened with <code>%view edge</code>.</span></span></p><ol class="steps"><li>Expand the all-NaN and inf columns.</li>
+<li><span class="st-v">Verify the summary stats appear.</span><span class="st-rs st-pass">PASS</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="shots/03-edge-expanded.png" data-lb="cv-2" data-caption="Expand on a healthy source" data-file="03-edge-expanded.png" aria-label="Screenshot for this step: Expand on a healthy source"><svg></a></li></ol></div></details>
+<details class="cv cf-r cf-p" id="cv-row-6"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>Paced loading on a slow source</span></span><span class="cov-result">Sparklines land about 2 per 4 s, loading dots in the rest, pause at about 30 s</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><p class="cv-pre" tabindex="0" aria-label="Preconditions"><span class="pre-mark" aria-hidden="true">P</span><code>slow.py</code> loaded<span class="pre-pop" role="tooltip"><span class="pre-t">Preconditions</span><span class="pre-i"><b><code>slow.py</code> loaded</b>Run <code>%run -i slow.py</code>. <code>make_slow()</code> makes each value&#39;s hash sleep, standing in for a large or remote table.</span></span></p><ol class="steps"><li>Run <code class="cc" data-tip="Copy">slow = make_slow(ncols=20, delay=0.002)</code> (about 2 s per column), then <code class="cc" data-tip="Copy">%view slow</code>.</li>
+<li>Watch for 35 s.</li>
+<li><span class="st-v">Verify Sparklines arrive steadily (about 2 every 4 s), with loading dots on the rest.</span><span class="st-rs st-pass">PASS</span></li>
+<li><span class="st-v">Verify Loading pauses at about 30 s with &quot;Summaries paused. Continue&quot;.</span><span class="st-rs st-pass">PASS</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="shots/04-slow-paused.png" data-lb="cv-3" data-caption="Paced loading on a slow source" data-file="04-slow-paused.png" aria-label="Screenshot for this step: Paced loading on a slow source"><svg></a></li></ol></div></details>
+<details class="cv cf-r cf-p cov-extra" id="cv-row-7"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>polars frame</span></span><span class="cov-result">Same summaries as pandas</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Run <code class="cc" data-tip="Copy">pl_df = pl.from_pandas(df)</code>, then <code class="cc" data-tip="Copy">%view pl_df</code>.</li>
+<li><span class="st-v">Verify the summaries match the pandas frame&#39;s.</span><span class="st-rs st-pass">PASS</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="shots/05-polars.png" data-lb="cv-4" data-caption="polars frame" data-file="05-polars.png" aria-label="Screenshot for this step: polars frame"><svg></a></li></ol></div></details>
+<details class="cv cf-r cf-p cov-extra" id="cv-row-8"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>DuckDB relation over Parquet</span></span><span class="cov-result">Summaries load for every column</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><p class="cv-pre" tabindex="0" aria-label="Preconditions"><span class="pre-mark" aria-hidden="true">P</span><code>trips.parquet</code> on disk<span class="pre-pop" role="tooltip"><span class="pre-t">Preconditions</span><span class="pre-i"><b><code>trips.parquet</code> on disk</b>Write 1,000 rows of <code>df</code> with <code>df.to_parquet(&quot;trips.parquet&quot;)</code>.</span></span></p><ol class="steps"><li>Run <code class="cc" data-tip="Copy">rel = duckdb.read_parquet(&quot;trips.parquet&quot;)</code>, then <code class="cc" data-tip="Copy">%view rel</code>.</li>
+<li><span class="st-v">Verify every column gets a summary.</span><span class="st-rs st-pass">PASS</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="shots/06-duckdb.png" data-lb="cv-5" data-caption="DuckDB relation over Parquet" data-file="06-duckdb.png" aria-label="Screenshot for this step: DuckDB relation over Parquet"><svg></a></li></ol></div></details>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-9"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>R data.frame / tibble backend</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Time; Python and DuckDB cover both null-vs-omitted serializations the diff mentions</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-10"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>Data-grid cell and row-header placeholders, &quot;Value unavailable&quot;</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Could not make value fetches slow: the slow-hash trick only slows profiling</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-11"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>Positron web</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Desktop build only</span></div>
+<label for="cov-all" class="cov-more"><span class="cov-all">Show all 11 scenarios</span><span class="cov-less">Show fewer</span><svg></label>
+</div>
+</div>
+</div>
+
+
+==== a step's shots are one lightbox group behind its icon
+<article id="f1" class="card major">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 3/3</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">A column never loads</h2></header>
+
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">Open it.</li>
+<li id="f1-s2">Wait.</li>
+<li id="f1-s3"><span class="st-v">Verify a notice offers Retry</span><span class="st-rs st-pass">PASS</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f1-1" data-open="shot-f1-1" aria-label="2 screenshots for this step"><span class="ev-pop" aria-hidden="true"><img src="shots/a.png" alt="" loading="lazy"><span class="ev-cap">1 of 2 &middot; click to enlarge</span></span><svg><span class="st-n">2</span></a></li>
+<li id="f1-s4">Click Retry.</li>
+<li id="f1-s5"><span class="st-v">Verify it loads</span><span class="st-rs st-fail">FAIL</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f1-3" data-open="shot-f1-3" aria-label="Screenshot for this step"><span class="ev-pop" aria-hidden="true"><img src="shots/c.png" alt="" loading="lazy"><span class="ev-cap">Click to enlarge</span></span><svg></a></li></ol></div></div>
+
+<div class="shot-links" hidden><a class="shot" id="shot-f1-1" href="shots/a.png" data-lb="f1-g1" data-i="0" data-caption="After Retry" data-file="a.png" data-step="Step 3" data-step-href="#f1-s3" hidden></a><a class="shot" id="shot-f1-2" href="shots/b.png" data-lb="f1-g1" data-i="1" data-caption="The notice again" data-file="b.png" data-step="Step 3" data-step-href="#f1-s3" hidden></a><a class="shot" id="shot-f1-3" href="shots/c.png" data-lb="f1-g2" data-i="2" data-caption="Still empty" data-file="c.png" data-step="Step 5" data-step-href="#f1-s5" hidden></a></div>
+
+
+
+==== known issues: Linked issues row, fixes that did not hold, regressions and dupes
+<article id="f1" class="card major">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 3/3</span><span class="sep" aria-hidden="true">&middot;</span><span class="f-ki">Fix didn&rsquo;t hold <a class="ki-num" href="https://github.com/posit-dev/positron/issues/11" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="failed" data-summary="x">#11</a></span><span class="sep" aria-hidden="true">&middot;</span><span class="f-ki">Dupe? <a class="ki-num" href="https://github.com/posit-dev/positron/issues/15102" target="_blank" rel="noopener">#15102</a></span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">Still jumps</h2></header>
+<div class="f-cmp major"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">it jumps.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">it stays.</p></div></div>
+
+
+
+<div class="fb">
+
+--
+<article id="f2" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 2</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed">Disputed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 2/2</span><span class="sep" aria-hidden="true">&middot;</span><span class="f-ki">Closed &middot; <a class="ki-num" href="https://github.com/posit-dev/positron/issues/21" target="_blank" rel="noopener" data-state="closed" data-opened="Opened Aug 20" data-title="regressed" data-summary="">#21</a></span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 2 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f2" aria-label="Copy prompt for an agent: finding 2"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f2" data-tip="Copy link" aria-label="Copy link to finding 2"><svg><svg></button></div><h2 class="card-title">Old bug back</h2></header>
+<div class="f-cmp minor"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">it is back.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">it is gone.</p></div></div>
+
+
+
+<div class="fb">
+
+--
+<article id="f3" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 3</span><span class="pill sev-moderate"><span class="dot"></span>Moderate</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed">Unresolved</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 2/2</span><span class="sep" aria-hidden="true">&middot;</span><span class="f-ki">Dupe? <a class="ki-num" href="https://github.com/posit-dev/positron/issues/25" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="similar" data-summary="">#25</a> <a class="ki-num" href="https://github.com/posit-dev/positron/issues/20" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="also similar" data-summary="">#20</a></span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 3 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f3" aria-label="Copy prompt for an agent: finding 3"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f3" data-tip="Copy link" aria-label="Copy link to finding 3"><svg><svg></button></div><h2 class="card-title">Looks known</h2></header>
+<div class="f-cmp moderate"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">it is slow.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">it is fast.</p></div></div>
+
+
+
+<div class="fb">
+
+--
+id="findings" class="section">
+<h2 class="section-label">Findings</h2>
+<div class="panel">
+<div class="row row-head findings-grid"><span>Severity</span><span>Finding</span><span class="right">Reproduced</span><span class="right">Status</span></div>
+<a href="#f1" class="row findings-grid"><span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="finding-cell"><span class="claim"><span class="n">1</span>Still jumps</span></span><span class="rate">3/3</span><span class="ki-st"><span class="ki-reg"><span class="ki-x"><svg></span>Fix didn&rsquo;t hold</span><span class="ki-state">Fixes <span class="ki-num-t" data-state="open" data-opened="Opened Aug 20" data-title="failed" data-summary="x">#11</span></span></span></a>
+<a href="#f3" class="row findings-grid"><span><span class="pill sev-moderate"><span class="dot"></span>Moderate</span></span><span class="finding-cell"><span class="claim"><span class="n">3</span>Looks known</span></span><span class="rate">2/2</span><span class="ki-st"><span class="status muted">Unresolved</span><span class="ki-state">Dupe? <span class="ki-num-t" data-state="open" data-opened="Opened Aug 20" data-title="similar" data-summary="">#25</span> +1</span></span></a>
+<a href="#f2" class="row findings-grid"><span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="finding-cell"><span class="claim"><span class="n">2</span>Old bug back</span></span><span class="rate">2/2</span><span class="ki-st"><span class="status muted">Disputed</span><span class="ki-state">Closed &middot; <span class="ki-num-t" data-state="closed" data-opened="Opened Aug 20" data-title="regressed" data-summary="">#21</span></span></span></a>
+<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum"><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-fix">1 fix verified</span><span class="ki-dot" aria-hidden="true">&middot;</span><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-obs">3 observed</span><span class="ki-dot" aria-hidden="true">&middot;</span><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-no">1 not observed</span></span></div></div>
+<div class="ki-list" id="ki-list-obs" hidden><div class="ki-lc-h">Known issues observed this run</div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/23" target="_blank" rel="noopener">#23</a><span>major one<span class="ki-lc-m">Open &middot; seen in &ldquo;other&rdquo; &middot; <a class="ki-ev" href="#cv-row-5">View evidence</a></span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/26" target="_blank" rel="noopener">#26</a><span>minor one<span class="ki-lc-m">Open &middot; seen in &ldquo;fix one&rdquo; and &ldquo;other&rdquo; &middot; <a class="ki-ev" href="#cv-row-4">View evidence</a></span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/22" target="_blank" rel="noopener">#22</a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">Open &middot; seen in &ldquo;other&rdquo; &middot; <a class="ki-ev" href="#cv-row-5">View evidence</a></span></span></div></div><div class="ki-list" id="ki-list-fix" hidden><div class="ki-lc-h">Fix verified this run</div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/10" target="_blank" rel="noopener">#10</a><span>held<span class="ki-lc-m">Open &middot; passed in &ldquo;fix one&rdquo;</span></span></div></div><div class="ki-list" id="ki-list-no" hidden><div class="ki-lc-h">Linked to this PR, not observed</div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/24" target="_blank" rel="noopener">#24</a><span>not seen<span class="ki-lc-m">Open &middot; skipped on purpose, see Coverage</span></span></div></div>
+</div>
+</section>
+
+
+--
+id="coverage" class="section">
+<div class="section-head"><h2 class="section-label">Exploratory Coverage</h2></div>
+<p class="card-summary">The panel.</p>
+<div class="cf" role="group" aria-label="Filter scenarios">
+<input type="radio" name="cf" id="cf-all" class="cf-radio" checked><input type="radio" name="cf" id="cf-i" class="cf-radio"><input type="radio" name="cf" id="cf-p" class="cf-radio"><input type="radio" name="cf" id="cf-n" class="cf-radio">
+<div class="cf-tabs"><label for="cf-all" class="cf-tab cf-tab-all"><span class="cf-l">All <span class="cf-cnt">8</span></span><span class="cf-g" aria-hidden="true">All 8</span></label><label for="cf-i" class="cf-tab cf-tab-i"><span class="cf-l">Failed <span class="cf-cnt">3</span></span><span class="cf-g" aria-hidden="true">Failed 3</span></label><label for="cf-p" class="cf-tab cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">2</span></span><span class="cf-g" aria-hidden="true">Passed 2</span></label><label for="cf-n" class="cf-tab cf-tab-n"><span class="cf-l">Not run <span class="cf-cnt">3</span></span><span class="cf-g" aria-hidden="true">Not run 3</span></label></div>
+<div class="panel cf-card">
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span></span></div>
+<div class="cov-rows">
+<div class="row coverage-grid cf-r cf-i" id="cv-row-1"><span class="cov-scenario"><span class="cov-dot issue" aria-hidden="true"></span><span>fix two</span></span><span class="cov-result"><a href="#f1" class="cv-f">Finding 1</a> &middot; Fix didn&rsquo;t hold for <a class="ki-num" href="https://github.com/posit-dev/positron/issues/11" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="failed" data-summary="x">#11</a></span><span></span></div>
+<div class="row coverage-grid cf-r cf-i" id="cv-row-2"><span class="cov-scenario"><span class="cov-dot issue" aria-hidden="true"></span><span>old bug</span></span><span class="cov-result"><a href="#f2" class="cv-f">Finding 2</a> &middot; Regressed <a class="ki-num" href="https://github.com/posit-dev/positron/issues/21" target="_blank" rel="noopener" data-state="closed" data-opened="Opened Aug 20" data-title="regressed" data-summary="">#21</a></span><span></span></div>
+<div class="row coverage-grid cf-r cf-i" id="cv-row-3"><span class="cov-scenario"><span class="cov-dot issue" aria-hidden="true"></span><span>slow</span></span><span class="cov-result"><a href="#f3" class="cv-f">Finding 3</a> &middot; Also observed <a class="ki-num" href="https://github.com/posit-dev/positron/issues/25" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="similar" data-summary="">#25</a></span><span></span></div>
+<div class="row coverage-grid cf-r cf-p" id="cv-row-4"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>fix one</span></span><span class="cov-result">Fix verified for <a class="ki-num" href="https://github.com/posit-dev/positron/issues/10" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="held" data-summary="">#10</a> &middot; Also observed <a class="ki-num" href="https://github.com/posit-dev/positron/issues/26" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="minor one" data-summary="">#26</a> &middot; Loads</span><span></span></div>
+<div class="row coverage-grid cf-r cf-p" id="cv-row-5"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>other</span></span><span class="cov-result">Also observed <a class="ki-num" href="https://github.com/posit-dev/positron/issues/22" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="Title &quot;&lt;script&gt;&amp;" data-summary="a &quot;&lt;b&gt;&quot; &amp; c">#22</a>, <a class="ki-num" href="https://github.com/posit-dev/positron/issues/23" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="major one" data-summary="">#23</a>, <a class="ki-num" href="https://github.com/posit-dev/positron/issues/26" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="minor one" data-summary="">#26</a> &middot; Fine</span><span></span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-6"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>web</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Fix for <a class="ki-num" href="https://github.com/posit-dev/positron/issues/12" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="skipped" data-summary="">#12</a> not exercised: desktop only</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-7"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>scroll</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Already filed as <a class="ki-num" href="https://github.com/posit-dev/positron/issues/24" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="not seen" data-summary="">#24</a></span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-8"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>unaccounted &lt;b&gt;&quot;&amp;</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Fix for <a class="ki-num" href="https://github.com/posit-dev/positron/issues/13" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="unaccounted &lt;b&gt;&quot;&amp;" data-summary="">#13</a> not exercised: the run did not record it</span></div>
+
+</div>
+</div>
+</div>
+
+
+==== a report with no title gets the kicker alone
+<h1 class="title">Exploratory test
+
+==== with no Run details, the Run tile is not a link
+<section class="tiles"><a class="tile tip" href="#findings" data-tip="Jump to Findings" aria-label="Jump to Findings"><svg><div class="tile-label">Findings</div><div class="tile-num">2</div><div class="tile-bar"><span style="flex:1 1 0;background:var(--major-dot)"></span><span style="flex:1 1 0;background:var(--minor-dot)"></span></div><div class="tile-legend"><span class="legend-item"><b>1</b> major</span><span class="legend-sep" aria-hidden="true">&middot;</span><span class="legend-item"><b>1</b> minor</span></div></a><a class="tile tip" href="#coverage" data-tip="Jump to Coverage" aria-label="Jump to Coverage"><svg><div class="tile-label">Coverage</div><div class="tile-figure"><span class="tile-num">4</span><span class="unit">scenarios</span></div><div class="tile-bar"><span style="flex:2 1 0;background:var(--success)"></span><span style="flex:1 1 0;background:var(--moderate-dot)"></span><span style="flex:1 1 0;background:var(--notrun-bar)"></span></div><div class="tile-legend"><span class="legend-item"><b>2</b> passed</span><span class="legend-sep" aria-hidden="true">&middot;</span><span class="legend-item"><b>1</b> failed</span><span class="legend-sep" aria-hidden="true">&middot;</span><span class="legend-item"><b>1</b> not run</span></div></a><div class="tile"><div class="tile-label">Run</div><div class="tile-figure"><span class="tile-num">&mdash;</span></div></div>
+
+==== a report with only its cost still gets a Run details fold
+<section class="tiles"><div class="tile"><div class="tile-label">Findings</div><div class="tile-num">0</div></div><div class="tile"><div class="tile-label">Coverage</div><div class="tile-figure"><span class="tile-num">0</span><span class="unit">scenarios</span></div></div><a class="tile tip" href="#run-details" data-tip="Jump to Run details" aria-label="Jump to Run details"><svg><div class="tile-label">Run</div><div class="tile-figure"><span class="tile-num">2m</span><span class="unit">$1.00</span></div><div class="tile-bar"><span style="flex:100 1 0;background:var(--stage-1)"></span></div><div class="tile-legend"><span class="legend-item">explore</span></div></a>
+
+==== the Run tile sizes stages by time when a pass has no cost
+<section class="tiles"><div class="tile"><div class="tile-label">Findings</div><div class="tile-num">0</div></div><div class="tile"><div class="tile-label">Coverage</div><div class="tile-figure"><span class="tile-num">0</span><span class="unit">scenarios</span></div></div><a class="tile tip" href="#run-details" data-tip="Jump to Run details" aria-label="Jump to Run details"><svg><div class="tile-label">Run</div><div class="tile-figure"><span class="tile-num">11m</span></div><div class="tile-bar"><span style="flex:110 1 0;background:var(--stage-1)"></span><span style="flex:5 1 0;background:var(--stage-2)"></span></div><div class="tile-legend"><span class="legend-item"><b>Opus</b> explore</span><span class="legend-sep" aria-hidden="true">&middot;</span><span class="legend-item"><b>Sonnet</b> verify</span></div></a>
+
+==== the copyright is dated by the run, and the version shows with a v when known
+<footer class="sig">
+<div class="sg" aria-hidden="true"><span class="sg-line"></span><span class="sg-bug"><svg></span><svg><span class="sg-q">?</span><span class="sg-bang">!</span><span class="sg-pop"><svg></span></div>
+<p>Generated by <a class="sig-link" href="https://github.com/posit-dev/positron/blob/main/.claude/skills/exploratory-test/SKILL.md" target="_blank" rel="noreferrer">exploratory-test &#8599;</a></p>
+<p class="sig-legal">&copy; 2031 Posit Software, PBC</p>
+
+<footer class="sig">
+<div class="sg" aria-hidden="true"><span class="sg-line"></span><span class="sg-bug"><svg></span><svg><span class="sg-q">?</span><span class="sg-bang">!</span><span class="sg-pop"><svg></span></div>
+<p>Generated by <a class="sig-link" href="https://github.com/posit-dev/positron/blob/main/.claude/skills/exploratory-test/SKILL.md" target="_blank" rel="noreferrer">exploratory-test <span class="sig-ver">v1.2</span> &#8599;</a></p>
+<p class="sig-legal">&copy; 2026 Posit Software, PBC</p>
+
+
+==== chat apps get a preview: the title alone, no description without a branch, an image only when written
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Positron exploratory test">
+<meta property="og:title" content="A &quot;quoted&quot; title">
+--
+<meta name="description" content="branch/name">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Positron exploratory test">
+<meta property="og:title" content="Something">
+<meta property="og:description" content="branch/name">
+<meta property="og:image" content="https://cdn.example/run/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="1 major, 1 minor findings">
+--
+<meta name="description" content="branch/name">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Positron exploratory test">
+<meta property="og:title" content="Something">
+<meta property="og:description" content="branch/name">
+<meta property="og:image" content="https://cdn.example/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="No findings">
+--
+<meta name="description" content="branch/name">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Positron exploratory test">
+<meta property="og:title" content="Something">
+<meta property="og:description" content="branch/name">
+<meta property="og:image" content="https://cdn.example/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="1 minor finding">
+
+==== no findings and no issues: an empty state and no column header
+id="findings" class="section">
+<h2 class="section-label">Findings</h2>
+<div class="panel">
+<div class="ki-empty"><span class="ki-empty-ic"><svg></span><span><b>No new findings</b><span class="ki-empty-sum"><b>1</b> passed</span></span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a></div>
+</div>
+
+
+==== a "defaults" precondition is dropped, and a qualified one kept
+<article id="f1" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a claim</h2></header>
+
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">Do the thing.</li></ol></div></div>
+
+
+
+
+--
+<article id="f1" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a claim</h2></header>
+
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P</span>Shipped defaults. Slowness is manufactured with a slow hash.</li></ul><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">Do the thing.</li></ol></div></div>
+
+
+
+
+
+==== each precondition by its text, with a pasted file kept as a block
+<article id="f1" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a claim</h2></header>
+
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P</span><code class="cc" data-tip="Copy">positron.notebook.enabled: true</code> in <code class="cc" data-tip="Copy">.vscode/settings.json</code></li><li><span class="f-pl-p" aria-hidden="true">P</span><p><code class="cc" data-tip="Copy">nb.ipynb</code> in the workspace</p>
+<div class="code-blk"><pre><code class="language-python">import cv2</code></pre><button type="button" class="code-cp" data-tip="Copy code" aria-label="Copy code"><svg><svg></button></div>
+</li><li><span class="f-pl-p" aria-hidden="true">P</span>A Python 3.10.15 venv with ipykernel</li></ul><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">Add a markdown cell with this source:<div class="code-blk"><pre><code>&lt;div class=&quot;alert&quot;&gt;
+
+**Tip:** text
+
+&lt;/div&gt;</code></pre><button type="button" class="code-cp" data-tip="Copy code" aria-label="Copy code"><svg><svg></button></div>
+</li>
+<li id="f1-s2">Open <code class="cc" data-tip="Copy">nb.ipynb</code>.</li></ol></div></div>
+
+
+
+
+
+==== a prompt leaves empty sections out, and Context names only what the header carries
+## Finding 1 — Minor
+
+A claim.
+
+Status: Confirmed
+Reproduced: 1/1
+
+### Observed
+It broke.
+
+### Context
+Branch: branch/name
+Commit: abc1234
+
+Please investigate this finding using the repository and the evidence above.
+
+==== with agent prompts off: no prompt button or block, and issue and link buttons stay
+<article id="f1" class="card major">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 3/3</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a longer claim</h2></header>
+<div class="f-cmp major"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">it spun forever.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">it should have stopped.</p></div></div>
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P</span>A console with pandas</li></ul><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">Run the thing.</li>
+<li id="f1-s2">Wait 15 s.</li></ol></div></div>
+<div class="card-details"><details class="lc ev"><summary><svg><span>Evidence<span class="lc-tail"> &middot; 1 log line</span></span></summary><div class="lc-body"><div class="ev-snip"><div class="ev-snip-h"><a href="logs/app.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/app.log</a><span>repeated twice</span></div><div class="ev-snip-b">[123:INFO:CONSOLE] &quot;RPC timed out after 5 seconds&quot;</div></div></div></details><details class="lc hyp"><summary><svg><span>Likely cause<span class="lc-tail"> &middot; Hypothesis</span></span></summary><div class="lc-body"><p>the timeout was cut to 10 s.</p></div></details></div>
+
+
+
+scripts: (none)
+
+==== the verifier's verdict wins on card, row and prompt; a disputed finding hides its test gap
+<article id="f1" class="card major">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed">Disputed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 3/3</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">A column never loads, and Retry cannot help</h2></header>
+<div class="f-cmp major"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">it never loads.</p></div></div>
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">Open it.</li>
+<li id="f1-s2">Wait.</li>
+<li id="f1-s3">Click Retry.</li></ol></div></div>
+<div class="card-details"><details class="lc ev"><summary><svg><span>Evidence<span class="lc-tail"> &middot; 1 error, <span class="n-x">2x</span>, 1 log line</span></span></summary><div class="lc-body"><div class="ev-snip"><div class="ev-snip-h"><a href="logs/app.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/app.log</a><span title="Logged by Positron’s renderer process (the UI), not the extension host or a language runtime">Renderer process</span><span>Logged <span class="n-x">2x</span></span></div><div class="ev-snip-b"><span class="ev-err">Error: get_column_profiles timed out after 10 seconds</span>
+  at Client.getColumnProfiles (<a class="err-loc" href="https://github.com/posit-dev/positron/blob/abc1234/src/vs/client.ts#L212" title="src/vs/client.ts" target="_blank" rel="noreferrer">client.ts:212</a>)
+  at <span class="err-loc" title="/abs/out/cache.js">cache.js:538</span></div></div><div class="ev-snip"><div class="ev-snip-h"><a href="logs/app.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/app.log</a></div><div class="ev-snip-b">timed out</div></div></div></details><details class="lc hyp"><summary><svg><span>Likely cause<span class="lc-tail"> &middot; Hypothesis</span></span></summary><div class="lc-body"><p>the timeout was cut.</p></div></details></div>
+<div class="shot-links" hidden><a class="shot" id="shot-f1-1" href="https://cdn.example/shots/a.png" data-lb="f1-g1" data-i="0" data-caption="The notice" data-file="a.png" data-step="Step 2" data-step-href="#f1-s2" hidden></a><a class="shot" id="shot-f1-2" href="https://cdn.example/shots/b.png" data-lb="f1-g2" data-i="1" data-caption="After Retry" data-file="b.png" data-step="Step 3" data-step-href="#f1-s3" hidden></a></div>
+
+
+--
+<a href="#f1" class="row findings-grid"><span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="finding-cell"><span class="claim"><span class="n">1</span>A column never loads, and Retry cannot help</span></span><span class="rate">3/3</span><span class="status muted">Disputed</span></a>
+--
+## Finding 1 — Major
+
+A column never loads, and Retry cannot help.
+
+Status: Disputed
+Reproduced: 3/3
+
+### Observed
+It never loads.
+
+### Reproduction
+1. Open it.
+2. Wait.
+3. Click Retry.
+
+### Evidence
+- https://cdn.example/shots/a.png — Step 2: The notice
+- https://cdn.example/shots/b.png — Step 3: After Retry
+- https://cdn.example/shots/c.png — Variant: five columns
+- logs/app.log — “timed out”
+- logs/ext.log — “Warning: no stack here” (Extension host)
+
+### Error output
+```
+Error: get_column_profiles timed out after 10 seconds
+at Client.getColumnProfiles (src/vs/client.ts:212)
+at /abs/out/cache.js:538
+```
+Logged in logs/app.log (Renderer), 2x.
+
+```
+Warning: no stack here
+```
+Logged in logs/ext.log (Extension host).
+
+### Likely cause (hypothesis, not verified)
+The timeout was cut.
+
+### Context
+Branch: branch/name
+Commit: abc1234
+
+Please investigate this finding using the repository and the evidence above.
+
+==== an unresolved finding caveats its test gap
+<details class="lc regtest"><summary><svg><span>Test gap<span class="lc-tail"> &middot; 2 missing cases · finding unresolved</span></span>
+--
+## Finding 1 — Major
+
+A column never loads, and Retry cannot help.
+
+Status: Unresolved
+Reproduced: 3/3
+
+### Observed
+It never loads.
+
+### Reproduction
+1. Open it.
+2. Wait.
+3. Click Retry.
+
+### Evidence
+- https://cdn.example/shots/a.png — Step 2: The notice
+- https://cdn.example/shots/b.png — Step 3: After Retry
+- https://cdn.example/shots/c.png — Variant: five columns
+- logs/app.log — “timed out”
+- logs/ext.log — “Warning: no stack here” (Extension host)
+
+### Error output
+```
+Error: get_column_profiles timed out after 10 seconds
+at Client.getColumnProfiles (src/vs/client.ts:212)
+at /abs/out/cache.js:538
+```
+Logged in logs/app.log (Renderer), 2x.
+
+```
+Warning: no stack here
+```
+Logged in logs/ext.log (Extension host).
+
+### Likely cause (hypothesis, not verified)
+The timeout was cut.
+
+### Test gap (suggestion; the verifier left this finding unresolved)
+- Retry after a timeout loads the summary. → add to src/vs/test/cache.test.ts (Unit)
+- A slow source offers no Retry. → add to test/e2e/tests/slow.test.ts (E2E)
+Other tests that touch this code: src/vs/test/client.test.ts (Unit)
+
+### Context
+Branch: branch/name
+Commit: abc1234
+
+Please investigate this finding using the repository and the evidence above.
+
+==== a finding the verifier matched to an issue says Dupe? on its card and prompt only
+<article id="f1" class="card major">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 3/3</span><span class="sep" aria-hidden="true">&middot;</span><span class="f-ki">Dupe? <a class="ki-num" href="https://github.com/posit-dev/positron/issues/15102" target="_blank" rel="noopener">#15102</a> <a class="ki-num" href="https://github.com/posit-dev/positron/issues/14991" target="_blank" rel="noopener">#14991</a></span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a longer claim</h2></header>
+<div class="f-cmp major"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">it spun forever.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">it should have stopped.</p></div></div>
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P</span>A console with pandas</li></ul><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">Run the thing.</li>
+<li id="f1-s2">Wait 15 s.</li></ol></div></div>
+<div class="card-details"><details class="lc ev"><summary><svg><span>Evidence<span class="lc-tail"> &middot; 1 log line</span></span></summary><div class="lc-body"><div class="ev-snip"><div class="ev-snip-h"><a href="logs/app.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/app.log</a><span>repeated twice</span></div><div class="ev-snip-b">[123:INFO:CONSOLE] &quot;RPC timed out after 5 seconds&quot;</div></div></div></details><details class="lc hyp"><summary><svg><span>Likely cause<span class="lc-tail"> &middot; Hypothesis</span></span></summary><div class="lc-body"><p>the timeout was cut to 10 s.</p></div></details></div>
+
+
+
+--
+<a href="#f1" class="row findings-grid"><span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="finding-cell"><span class="claim"><span class="n">1</span>a longer claim</span></span><span class="rate">3/3</span><span class="status"><svg>Confirmed</span></a>
+--
+## Finding 1 — Major
+
+A longer claim.
+
+Status: Confirmed
+Reproduced: 3/3
+
+### Possible duplicates
+- https://github.com/posit-dev/positron/issues/15102
+- https://github.com/posit-dev/positron/issues/14991
+
+### Observed
+It spun forever.
+
+### Expected
+It should have stopped.
+
+### Preconditions
+A console with pandas
+
+### Reproduction
+1. Run the thing.
+2. Wait 15 s.
+
+### Evidence
+- https://cdn.example/shots/01-stuck.png — The spinner, 60 s later
+- logs/app.log — [123:INFO:CONSOLE] "RPC timed out after 5 seconds"
+
+### Likely cause (hypothesis, not verified)
+The timeout was cut to 10 s.
+
+### Context
+Branch: branch/name
+Commit: abc1234
+
+Please investigate this finding using the repository and the evidence above.
+
+==== a finding matched to a not-planned issue says Intended?
+<article id="f2" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 2</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span><span class="sep" aria-hidden="true">&middot;</span><span class="f-ki">Intended? <a class="ki-num" href="https://github.com/posit-dev/positron/issues/14210" target="_blank" rel="noopener">#14210</a></span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 2 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f2" aria-label="Copy prompt for an agent: finding 2"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f2" data-tip="Copy link" aria-label="Copy link to finding 2"><svg><svg></button></div><h2 class="card-title">a second claim</h2></header>
+<div class="f-cmp minor"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">the icon touches the text.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">a 6 px gap.</p></div></div>
+
+
+
+
+
+--
+## Finding 2 — Minor
+
+A second claim.
+
+Status: Confirmed
+Reproduced: 1/1
+
+### Closed as not planned
+- https://github.com/posit-dev/positron/issues/14210
+
+### Observed
+The icon touches the text.
+
+### Expected
+A 6 px gap.
+
+### Context
+Branch: branch/name
+Commit: abc1234
+
+Please investigate this finding using the repository and the evidence above.
+
+==== a missing case with no file keeps its level and says new file
+<article id="f1" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a claim</h2></header>
+<div class="f-cmp minor"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">it broke.</p></div></div>
+
+<div class="card-details"><details class="lc regtest"><summary><svg><span>Test gap<span class="lc-tail"> &middot; 1 missing case</span></span></summary><div class="lc-body"><div class="rt-group"><div class="rt-label">Suggested case</div><ol class="rt-cases"><li>A checked box reads as checked.<div class="rt-meta rt-row"><span class="rt-t rt-t-tint">Unit</span><span>new file</span></div></li></ol></div></div></details></div>
+
+
+
+--
+## Finding 1 — Minor
+
+A claim.
+
+Status: Confirmed
+Reproduced: 1/1
+
+### Observed
+It broke.
+
+### Test gap (suggestion)
+- A checked box reads as checked. → Unit test; place it per the repo's test guidance
+
+### Context
+Branch: branch/name
+Commit: abc1234
+
+Please investigate this finding using the repository and the evidence above.
+
+==== a regression case naming a folder shows the folder
+<ol class="rt-cases"><li>Retry after a timeout loads the summary.<div class="rt-meta rt-row"><span class="rt-t rt-t-tint">Unit</span><span>Add to <a class="rt-file" href="https://github.com/posit-dev/positron/blob/abc1234/src/vs/test/cache.test.ts" title="src/vs/test/cache.test.ts" target="_blank" rel="noreferrer">cache.test.ts</a></span></div></li><li>A slow source offers no Retry.<div class="rt-meta rt-row"><span class="rt-t rt-t-tint">E2E</span><span>Add to <span class="rt-file" title="test/e2e/tests/data-explorer/">data-explorer/</span> <span class="rt-sep" aria-hidden="true">&middot;</span> new file</span></div></li>
+
+==== a card with nothing to collapse has no collapsed rows
+<article id="f1" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a claim</h2></header>
+<div class="f-cmp minor"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">it broke.</p></div></div>
+
+
+
+
+
+
+==== a Python traceback shows as frames, linking only the repo's files
+<article id="f1" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a claim</h2></header>
+
+
+<div class="card-details"><details class="lc ev"><summary><svg><span>Evidence<span class="lc-tail"> &middot; 1 error, <span class="n-x">4x</span></span></span></summary><div class="lc-body"><div class="ev-snip"><div class="ev-snip-h"><a href="logs/python-kernel.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/python-kernel.log:23</a><span title="Logged by the language runtime">Python kernel</span><span>Logged <span class="n-x">4x</span></span></div><div class="ev-snip-b"><span class="ev-err">[positron.data_explorer] ERROR | invalid series dtype</span>
+  at _polars_summarize_string (<a class="err-loc" href="https://github.com/posit-dev/positron/blob/abc1234/extensions/positron-python/python_files/posit/positron/data_explorer.py#L2139" title="extensions/positron-python/python_files/posit/positron/data_explorer.py" target="_blank" rel="noreferrer">data_explorer.py:2139</a>)
+  at wrapper (<span class="err-loc" title=".venv/lib/python3.14/site-packages/polars/series/utils.py">utils.py:104</span>)</div></div></div></details></div>
+
+
+
+
+==== an error fence in the prompt is longer than any ``` inside it
+## Finding 1 — Minor
+
+A claim.
+
+Status: Confirmed
+Reproduced: 1/1
+
+### Observed
+X
+
+### Evidence
+- logs/a.log — “Error: bad template” (Renderer)
+
+### Error output
+````
+Error: bad template
+```
+tail
+````
+Logged in logs/a.log (Renderer).
+
+### Context
+Branch: branch/name
+Commit: abc1234
+
+Please investigate this finding using the repository and the evidence above.
+
+==== Evidence rows: a log header over the line, a bare log, several lines, a line not logged; notes and the agent's files stay out
+<details class="lc ev"><summary><svg><span>Evidence<span class="lc-tail"> &middot; 1 log line</span></span></summary><div class="lc-body"><div class="ev-snip"><div class="ev-snip-h"><a href="logs/36561-python-language-pack.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/36561-python-language-pack.log:1489</a><span title="Logged by the extension host, the process extensions run in">Extension host</span><span>00:18:39</span></div><div class="ev-snip-b">2026-10-06 00:18:39.958 [debug] env change <mark>/tmp/w/.venv/bin/python</mark> remove</div></div></div></details>
+--
+<details class="lc ev"><summary><svg><span>Evidence<span class="lc-tail"> &middot; 1 log line</span></span></summary><div class="lc-body"><div class="ev-snip"><div class="ev-snip-h"><a href="logs/44987-exthost.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/44987-exthost.log</a><span title="Logged by the extension host, the process extensions run in">Extension host</span><span>00:18:39</span></div><div class="ev-snip-b">2026-10-06 00:18:39.958 [info] started</div></div></div></details>
+--
+<details class="lc ev"><summary><svg><span>Evidence<span class="lc-tail"> &middot; 2 log lines</span></span></summary><div class="lc-body"><div class="ev-snip"><div class="ev-snip-h"><a href="logs/1-renderer.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/1-renderer.log:10</a><span title="Logged by Positron’s renderer process (the UI), not the extension host or a language runtime">Renderer process</span><span>00:00:01</span></div><div class="ev-snip-b">first line
+  second &quot;line&quot;</div></div></div></details>
+--
+<details class="lc ev"><summary><svg><span>Evidence<span class="lc-tail"> &middot; 1 log line, 1 missing</span></span></summary><div class="lc-body"><div class="ev-snip"><div class="ev-snip-h"><a href="logs/1-exthost.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/1-exthost.log:5</a><span title="Logged by the extension host, the process extensions run in">Extension host</span><span>00:18:39</span></div><div class="ev-snip-b">env change /x remove</div></div><div class="ev-snip ev-miss"><div class="ev-snip-h"><span class="ev-miss-k">Not logged</span><a href="logs/1-exthost.log" class="log-link" title="Open the full log" target="_blank" rel="noreferrer">logs/1-exthost.log</a><span>00:18:39-00:19:24</span></div><div class="ev-snip-b">env change /x add</div></div></div></details>
+--
+
+
+==== Observed stays off the steps when the card says it once
+<article id="f2" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 2</span><span class="pill sev-moderate"><span class="dot"></span>Moderate</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 2/2</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 2 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f2" aria-label="Copy prompt for an agent: finding 2"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f2" data-tip="Copy link" aria-label="Copy link to finding 2"><svg><svg></button></div><h2 class="card-title">Continue loads off-screen columns, not the visible ones</h2></header>
+<div class="f-cmp moderate"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">After Continue, the visible columns stay empty while columns above them load.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">Continue loads the columns on screen first.</p></div></div>
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P</span><code class="cc" data-tip="Copy">slow.py</code> loaded with <code class="cc" data-tip="Copy">%run -i slow.py</code>.</li></ul><div class="repro-group steps"><ol class="repro-steps steps"><li id="f2-s1">Run <code class="cc" data-tip="Copy">slow80 = make_slow(ncols=80, nrows=1000, delay=0.002)</code>, then <code class="cc" data-tip="Copy">%view slow80</code>.</li>
+<li id="f2-s2">Wait about 35 s until &quot;Summaries paused. Continue&quot; appears.</li>
+<li id="f2-s3"><span class="st-v">Verify s00 to s13 have sparklines.</span><span class="st-rs st-pass">PASS</span></li>
+<li id="f2-s4">Scroll the summary panel to the bottom (s62 to s79 visible), click Continue and wait until &quot;Summaries paused.&quot; returns (32 s).</li>
+<li id="f2-s5">Look at the visible columns.</li>
+<li id="f2-s6">Scroll the summary panel up by about one screen.</li>
+<li id="f2-s7"><span class="st-v">Verify Continue spent its budget on the visible columns, not the ones above them.</span><span class="st-rs st-fail">FAIL</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f2-1" data-open="shot-f2-1" aria-label="Screenshot for this step"><span class="ev-pop" aria-hidden="true"><img src="shots/22-continue-loaded-offscreen.png" alt="" loading="lazy"><span class="ev-cap">Click to enlarge</span></span><svg></a></li></ol></div></div>
+
+<div class="shot-links" hidden><a class="shot" id="shot-f2-1" href="shots/22-continue-loaded-offscreen.png" data-lb="f2-g1" data-i="0" data-caption="Columns above the fold loaded instead" data-file="22-continue-loaded-offscreen.png" data-step="Step 7" data-step-href="#f2-s7" hidden></a></div>
+
+
+
+==== a step with two shots shows the icon with a count
+<article id="f1" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a claim</h2></header>
+
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">Open it.</li>
+<li id="f1-s2"><span class="st-v">Verify it loads.</span><span class="st-rs st-fail">FAIL</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f1-1" data-open="shot-f1-1" aria-label="2 screenshots for this step"><span class="ev-pop" aria-hidden="true"><img src="https://cdn.example/shots/a.png" alt="" loading="lazy"><span class="ev-cap">1 of 2 &middot; click to enlarge</span></span><svg><span class="st-n">2</span></a></li></ol></div></div>
+
+<div class="shot-links" hidden><a class="shot" id="shot-f1-1" href="https://cdn.example/shots/a.png" data-lb="f1-g1" data-i="0" data-caption="First" data-file="a.png" data-step="Step 2" data-step-href="#f1-s2" hidden></a><a class="shot" id="shot-f1-2" href="https://cdn.example/shots/b.png" data-lb="f1-g1" data-i="1" data-caption="Second" data-file="b.png" data-step="Step 2" data-step-href="#f1-s2" hidden></a></div>
+
+
+
+==== a shot a step cites reaches its step with no Evidence item, and a check with no result gets none
+<article id="f1" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a claim</h2></header>
+
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1"><span class="st-v">Verify the panel opens</span><span class="st-rs st-pass">PASS</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f1-1" data-open="shot-f1-1" aria-label="Screenshot for this step"><span class="ev-pop" aria-hidden="true"><img src="shots/S01-01.png" alt="" loading="lazy"><span class="ev-cap">Click to enlarge</span></span><svg></a></li>
+<li id="f1-s2">Click Retry.</li>
+<li id="f1-s3"><span class="st-v">Verify it loads</span><span class="st-rs st-fail">FAIL</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f1-2" data-open="shot-f1-2" aria-label="Screenshot for this step"><span class="ev-pop" aria-hidden="true"><img src="shots/S01-03.png" alt="" loading="lazy"><span class="ev-cap">Click to enlarge</span></span><svg></a></li>
+<li id="f1-s4"><span class="st-v">Confirm the dialog closes</span></li></ol></div></div>
+
+<div class="shot-links" hidden><a class="shot" id="shot-f1-1" href="shots/S01-01.png" data-lb="f1-g1" data-i="0" data-caption="Verify the panel opens" data-file="S01-01.png" data-step="Step 1" data-step-href="#f1-s1" hidden></a><a class="shot" id="shot-f1-2" href="shots/S01-03.png" data-lb="f1-g2" data-i="1" data-caption="Empty panel" data-file="S01-03.png" data-step="Step 3" data-step-href="#f1-s3" hidden></a></div>
+
+
+
+==== a fenced step block gets its own copy button, with prompts on or off
+<article id="f1" class="card major">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 3/3</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">A column over 10 s never loads, and Retry cannot help</h2></header>
+<div class="f-cmp major"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">The summary never loads; the panel shows &quot;Some summaries unavailable. Retry&quot;, and Retry shows it again.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">The summary loads, or Retry loads it.</p></div></div>
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P</span><code class="cc" data-tip="Copy">slow.py</code> loaded with <code class="cc" data-tip="Copy">%run -i slow.py</code>.</li></ul><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">In the Python console, make a one-column table:<div class="code-blk"><pre><code class="language-python">%run -i slow.py
+one12 = make_slow(ncols=1, nrows=1000, delay=0.012)</code></pre><button type="button" class="code-cp" data-tip="Copy code" aria-label="Copy code"><svg><svg></button></div>
+</li>
+<li id="f1-s2">Run <code class="cc" data-tip="Copy">%view one12</code> and wait 15 s.</li>
+<li id="f1-s3"><span class="st-v">Verify the column summary loads.</span><span class="st-rs st-fail">FAIL</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f1-1" data-open="shot-f1-1" aria-label="2 screenshots for this step"><span class="ev-pop" aria-hidden="true"><img src="shots/09-one12-unavailable.png" alt="" loading="lazy"><span class="ev-cap">1 of 2 &middot; click to enlarge</span></span><svg><span class="st-n">2</span></a><span class="st-obs">Observed: Loading dots, then &quot;Some summaries unavailable. Retry&quot;; the sparkline slot empties.</span></li>
+<li id="f1-s4">Click Retry and wait 15 s. Repeat once.</li>
+<li id="f1-s5"><span class="st-v">Verify the summary loads after Retry.</span><span class="st-rs st-fail">FAIL</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f1-3" data-open="shot-f1-3" aria-label="Screenshot for this step"><span class="ev-pop" aria-hidden="true"><img src="shots/08-slow12-after-retry.png" alt="" loading="lazy"><span class="ev-cap">Click to enlarge</span></span><svg></a><span class="st-obs">Observed: Same notice after each Retry.</span></li></ol></div></div>
+
+<div class="shot-links" hidden><a class="shot" id="shot-f1-1" href="shots/09-one12-unavailable.png" data-lb="f1-g1" data-i="0" data-caption="The notice on a one-column frame" data-file="09-one12-unavailable.png" data-step="Step 3" data-step-href="#f1-s3" hidden></a><a class="shot" id="shot-f1-2" href="shots/07-slow12-unavailable.png" data-lb="f1-g1" data-i="1" data-caption="The notice on a twelve-column frame" data-file="07-slow12-unavailable.png" data-step="Step 3" data-step-href="#f1-s3" hidden></a><a class="shot" id="shot-f1-3" href="shots/08-slow12-after-retry.png" data-lb="f1-g2" data-i="2" data-caption="Same notice after Retry" data-file="08-slow12-after-retry.png" data-step="Step 5" data-step-href="#f1-s5" hidden></a></div>
+
+
+scripts: copy codeCopy; prompts off: copy codeCopy; no block, prompts off: codeCopy
+
+==== inline code in Reproduce copies on click; Observed and code blocks do not
+<article id="f1" class="card">
+<header><div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button></div><h2 class="card-title">a claim</h2></header>
+<div class="f-cmp minor"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">the grid showed <code>None</code>.</p></div></div>
+<div class="f-sec repro"><div class="f-lab">Reproduce</div><ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P</span>A Python console.</li><li><span class="f-pl-p" aria-hidden="true">P</span><code class="cc" data-tip="Copy">slow.py</code> loaded with <code class="cc" data-tip="Copy">%run -i slow.py</code>.</li></ul><div class="repro-group steps"><ol class="repro-steps steps"><li id="f1-s1">Run <code class="cc" data-tip="Copy">%view df</code>.<div class="code-blk"><pre><code class="language-python">df.head()</code></pre><button type="button" class="code-cp" data-tip="Copy code" aria-label="Copy code"><svg><svg></button></div>
+</li>
+<li id="f1-s2"><span class="st-v">Verify the grid shows <code class="cc" data-tip="Copy">df</code>.</span><span class="st-rs st-fail">FAIL</span></li></ol></div></div>
+
+
+
+
+scripts: copy codeCopy; with no inline code: (none)
+
+==== a lone ~ means about, and only ~~ strikes through, on the card and in the issue
+<details class="lc hyp"><summary><svg><span>Likely cause<span class="lc-tail"> &middot; Hypothesis</span></span></summary><div class="lc-body"><p><code>run()</code> (~L12-40) calls <code>wait()</code> (~L80), and <code>y ~ x</code> is <del>not</del> fine.</p></div>
+--
+<sub>Reported by exploratory test of `branch/name` @ `abc1234`</sub>
+
+- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->
+
+## System details
+
+- **Positron:** not recorded
+- **OS:** not recorded
+
+## Steps to reproduce
+- A console with pandas
+
+1. Run the thing.
+2. Wait 15 s.
+
+## Observed
+It spun forever.
+
+## Expected
+It should have stopped.
+
+## Error messages
+None recorded by the run.
+
+## Evidence
+Screenshots and logs are in the exploratory test report for this run.
+
+<details><summary>Likely cause (hypothesis, not verified)</summary>
+
+`run()` (\~L12-40) calls `wait()` (\~L80), and `y ~ x` is ~~not~~ fine.
+
+</details>
+
+==== an issue or PR named in a card, the lead or the verifier notes gets a preview link; with no preview it stays text
+<div class="f-cmp major"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">it spun forever.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">it should have stopped, as <a class="ki-num" href="https://github.com/posit-dev/positron/issues/2330" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="Zoom spec" data-summary="sizes">#2330</a> says, since <a class="ki-num" href="https://github.com/posit-dev/positron/pull/8126" target="_blank" rel="noopener" data-state="merged" data-kind="pr" data-opened="Opened Aug 20" data-title="Zoom plots" data-summary="">#8126</a>.</p>
+--
+Searches returned only <a class="ki-num" href="https://github.com/posit-dev/positron/issues/3698" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="Blurry labels" data-summary="">#3698</a> (open).
+--
+<div class="f-cmp major"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">it spun forever.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">it should have stopped, as #2330 says, since #8126.</p>
+
+==== the change mark: a confirmed related finding on a run with a usable base, in the table only, opening upward on the last row
+id="findings" class="section">
+<h2 class="section-label">Findings</h2>
+<div class="panel">
+<div class="row row-head findings-grid"><span>Severity</span><span>Finding</span><span class="right">Reproduced</span><span class="right">Status</span></div>
+<a href="#f1" class="row findings-grid"><span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="finding-cell"><span class="claim"><span class="n">1</span>a longer claim<span class="chg"><span aria-hidden="true">&Delta;</span><span class="chg-sr">Likely related to this branch. Based on code changes. Not verified against release/2026.10.</span><span class="chg-tip" aria-hidden="true"><b>Likely related to this branch</b><span>Based on code changes. Not verified against release/2026.10.</span></span></span></span></span><span class="rate">3/3</span><span class="status"><svg>Confirmed</span></a>
+<a href="#f2" class="row findings-grid"><span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="finding-cell"><span class="claim"><span class="n">2</span>a second claim<span class="chg chg-up"><span aria-hidden="true">&Delta;</span><span class="chg-sr">Likely related to this branch. Based on code changes. Not verified against release/2026.10.</span><span class="chg-tip" aria-hidden="true"><b>Likely related to this branch</b><span>Based on code changes. Not verified against release/2026.10.</span></span></span></span></span><span class="rate">1/1</span><span class="status"><svg>Confirmed</span></a>
+</div>
+
+
+==== no change mark on a disputed finding, without a usable base, or with no base recorded
+<a href="#f2" class="row findings-grid"><span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="finding-cell"><span class="claim"><span class="n">2</span>a second claim</span></span><span class="rate">1/1</span><span class="status muted">Disputed</span></a>
+--
+<a href="#f1" class="row findings-grid"><span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="finding-cell"><span class="claim"><span class="n">1</span>a longer claim</span></span><span class="rate">3/3</span><span class="status"><svg>Confirmed</span></a>
+--
+<a href="#f1" class="row findings-grid"><span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="finding-cell"><span class="claim"><span class="n">1</span>a longer claim</span></span><span class="rate">3/3</span><span class="status"><svg>Confirmed</span></a>
+
+==== a PR run's change mark says PR, and a base with no name says the base branch
+<a href="#f1" class="row findings-grid"><span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="finding-cell"><span class="claim"><span class="n">1</span>a longer claim<span class="chg"><span aria-hidden="true">&Delta;</span><span class="chg-sr">Likely related to this PR. Based on code changes. Not verified against the base branch.</span><span class="chg-tip" aria-hidden="true"><b>Likely related to this PR</b><span>Based on code changes. Not verified against the base branch.</span></span></span></span></span><span class="rate">3/3</span><span class="status"><svg>Confirmed</span></a>
+
+==== issues, then passes, then not run; passes past the first 4 collapse behind Show all
+id="coverage" class="section">
+<div class="section-head"><h2 class="section-label">Exploratory Coverage</h2></div>
+<p class="card-summary">The summary panel on two backends.</p>
+<div class="cf" role="group" aria-label="Filter scenarios">
+<input type="radio" name="cf" id="cf-all" class="cf-radio" checked><input type="radio" name="cf" id="cf-i" class="cf-radio"><input type="radio" name="cf" id="cf-p" class="cf-radio"><input type="radio" name="cf" id="cf-n" class="cf-radio">
+<div class="cf-tabs"><label for="cf-all" class="cf-tab cf-tab-all"><span class="cf-l">All <span class="cf-cnt">24</span></span><span class="cf-g" aria-hidden="true">All 24</span></label><label for="cf-i" class="cf-tab cf-tab-i"><span class="cf-l">Failed <span class="cf-cnt">2</span></span><span class="cf-g" aria-hidden="true">Failed 2</span></label><label for="cf-p" class="cf-tab cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">10</span></span><span class="cf-g" aria-hidden="true">Passed 10</span></label><label for="cf-n" class="cf-tab cf-tab-n"><span class="cf-l">Not run <span class="cf-cnt">12</span></span><span class="cf-g" aria-hidden="true">Not run 12</span></label></div>
+<div class="panel cf-card">
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span></span></div>
+<div class="cov-rows">
+<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all 24 scenarios">
+<div class="row coverage-grid cf-r cf-i" id="cv-row-1"><span class="cov-scenario"><span class="cov-dot issue" aria-hidden="true"></span><span>first hit</span></span><span class="cov-result"><a href="#f1" class="cv-f">Finding 1</a></span><span></span></div>
+<div class="row coverage-grid cf-r cf-i" id="cv-row-2"><span class="cov-scenario"><span class="cov-dot issue" aria-hidden="true"></span><span>second hit</span></span><span class="cov-result"><a href="#f2" class="cv-f">Finding 2</a></span><span></span></div>
+<div class="row coverage-grid cf-r cf-p" id="cv-row-3"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 1</span></span><span class="cov-result">Fine</span><span></span></div>
+<div class="row coverage-grid cf-r cf-p" id="cv-row-4"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 2</span></span><span class="cov-result">Fine</span><span></span></div>
+<div class="row coverage-grid cf-r cf-p" id="cv-row-5"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 3</span></span><span class="cov-result">Fine</span><span></span></div>
+<div class="row coverage-grid cf-r cf-p" id="cv-row-6"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 4</span></span><span class="cov-result">Fine</span><span></span></div>
+<div class="row coverage-grid cf-r cf-p cov-extra" id="cv-row-7"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 5</span></span><span class="cov-result">Fine</span><span></span></div>
+<div class="row coverage-grid cf-r cf-p cov-extra" id="cv-row-8"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 6</span></span><span class="cov-result">Fine</span><span></span></div>
+<div class="row coverage-grid cf-r cf-p cov-extra" id="cv-row-9"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 7</span></span><span class="cov-result">Fine</span><span></span></div>
+<div class="row coverage-grid cf-r cf-p cov-extra" id="cv-row-10"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 8</span></span><span class="cov-result">Fine</span><span></span></div>
+<div class="row coverage-grid cf-r cf-p cov-extra" id="cv-row-11"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 9</span></span><span class="cov-result">Fine</span><span></span></div>
+<div class="row coverage-grid cf-r cf-p cov-extra" id="cv-row-12"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 10</span></span><span class="cov-result">Fine</span><span></span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-13"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 0</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-14"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 1</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-15"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 2</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-16"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 3</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-17"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 4</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-18"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 5</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-19"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 6</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-20"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 7</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-21"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 8</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-22"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 9</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-23"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 10</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<div class="row coverage-grid cf-r cf-n" id="cv-row-24"><span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"></span><span>skip 11</span></span><span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; Later</span></div>
+<label for="cov-all" class="cov-more"><span class="cov-all">Show all 24 scenarios</span><span class="cov-less">Show fewer</span><svg></label>
+</div>
+</div>
+</div>
+
+
+==== one passing scenario: no empty filter tabs, and a line saying everything was exercised
+id="coverage" class="section">
+<div class="section-head"><h2 class="section-label">Exploratory Coverage</h2></div>
+<p class="card-summary">The summary panel on two backends.</p>
+<div class="cf" role="group" aria-label="Filter scenarios">
+<input type="radio" name="cf" id="cf-all" class="cf-radio" checked><input type="radio" name="cf" id="cf-p" class="cf-radio">
+<div class="cf-tabs"><label for="cf-all" class="cf-tab cf-tab-all"><span class="cf-l">All <span class="cf-cnt">1</span></span><span class="cf-g" aria-hidden="true">All 1</span></label><label for="cf-p" class="cf-tab cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">1</span></span><span class="cf-g" aria-hidden="true">Passed 1</span></label></div>
+<div class="panel cf-card">
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span></span></div>
+<div class="cov-rows">
+<div class="row coverage-grid cf-r cf-p" id="cv-row-1"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pandas frame</span></span><span class="cov-result">Fine</span><span></span></div>
+
+</div>
+</div>
+<p class="cov-empty">Everything in scope was exercised.</p>
+</div>
+
+<section class="tiles"><div class="tile"><div class="tile-label">Findings</div><div class="tile-num">0</div></div><a class="tile tip" href="#coverage" data-tip="Jump to Coverage" aria-label="Jump to Coverage"><svg><div class="tile-label">Coverage</div><div class="tile-figure"><span class="tile-num">1</span><span class="unit">scenarios</span></div><div class="tile-bar"><span style="flex:1 1 0;background:var(--success)"></span></div><div class="tile-legend"><span class="legend-item"><b>1</b> passed</span></div></a><div class="tile"><div class="tile-label">Run</div><div class="tile-figure"><span class="tile-num">&mdash;</span></div></div>
+
+==== Show all keeps working over rows that expand
+id="coverage" class="section">
+<div class="section-head"><h2 class="section-label">Exploratory Coverage</h2></div>
+<p class="card-summary">The summary panel on two backends.</p>
+<div class="cf" role="group" aria-label="Filter scenarios">
+<input type="radio" name="cf" id="cf-all" class="cf-radio" checked><input type="radio" name="cf" id="cf-p" class="cf-radio">
+<div class="cf-tabs"><label for="cf-all" class="cf-tab cf-tab-all"><span class="cf-l">All <span class="cf-cnt">10</span></span><span class="cf-g" aria-hidden="true">All 10</span></label><label for="cf-p" class="cf-tab cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">10</span></span><span class="cf-g" aria-hidden="true">Passed 10</span></label></div>
+<div class="panel cf-card">
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span></span></div>
+<div class="cov-rows">
+<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all 10 scenarios">
+<details class="cv cf-r cf-p" id="cv-row-1"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 0</span></span><span class="cov-result">Fine</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Step for 0.</li></ol></div></details>
+<details class="cv cf-r cf-p" id="cv-row-2"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 1</span></span><span class="cov-result">Fine</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Step for 1.</li></ol></div></details>
+<details class="cv cf-r cf-p" id="cv-row-3"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 2</span></span><span class="cov-result">Fine</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Step for 2.</li></ol></div></details>
+<details class="cv cf-r cf-p" id="cv-row-4"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 3</span></span><span class="cov-result">Fine</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Step for 3.</li></ol></div></details>
+<details class="cv cf-r cf-p cov-extra" id="cv-row-5"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 4</span></span><span class="cov-result">Fine</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Step for 4.</li></ol></div></details>
+<details class="cv cf-r cf-p cov-extra" id="cv-row-6"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 5</span></span><span class="cov-result">Fine</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Step for 5.</li></ol></div></details>
+<details class="cv cf-r cf-p cov-extra" id="cv-row-7"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 6</span></span><span class="cov-result">Fine</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Step for 6.</li></ol></div></details>
+<details class="cv cf-r cf-p cov-extra" id="cv-row-8"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 7</span></span><span class="cov-result">Fine</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Step for 7.</li></ol></div></details>
+<details class="cv cf-r cf-p cov-extra" id="cv-row-9"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 8</span></span><span class="cov-result">Fine</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Step for 8.</li></ol></div></details>
+<details class="cv cf-r cf-p cov-extra" id="cv-row-10"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>pass 9</span></span><span class="cov-result">Fine</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Step for 9.</li></ol></div></details>
+<label for="cov-all" class="cov-more"><span class="cov-all">Show all 10 scenarios</span><span class="cov-less">Show fewer</span><svg></label>
+</div>
+</div>
+<p class="cov-empty">Everything in scope was exercised.</p>
+</div>
+
+
+==== a finding row links every finding its steps failed on
+id="cv-row-1"><span class="cov-scenario"><span class="cov-dot issue" aria-hidden="true"></span><span>Retry on a source over 10 s per column</span></span><span class="cov-result"><a href="#f1" class="cv-f">Finding 1</a> &middot; <a href="#f2" class="cv-f">Finding 2</a></span><span></span>
+
+==== nothing not run: no Not run tab, and a line saying so
+<div class="cf-tabs"><label for="cf-all" class="cf-tab cf-tab-all"><span class="cf-l">All <span class="cf-cnt">8</span></span><span class="cf-g" aria-hidden="true">All 8</span></label><label for="cf-i" class="cf-tab cf-tab-i"><span class="cf-l">Failed <span class="cf-cnt">2</span></span><span class="cf-g" aria-hidden="true">Failed 2</span></label><label for="cf-p" class="cf-tab cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">6</span></span><span class="cf-g" aria-hidden="true">Passed 6</span></label></div>
+<label for="cov-all" class="cov-more"><span class="cov-all">Show all 8 scenarios</span><span class="cov-less">Show fewer</span><svg></label>
+</div>
+</div>
+<p class="cov-empty">Everything in scope was exercised.</p>
+</div>
+
+
+==== a scenario name reaches the photo caption as plain text
+id="coverage" class="section">
+<div class="section-head"><h2 class="section-label">Exploratory Coverage</h2></div>
+<p class="card-summary">The summary panel on two backends.</p>
+<div class="cf" role="group" aria-label="Filter scenarios">
+<input type="radio" name="cf" id="cf-all" class="cf-radio" checked><input type="radio" name="cf" id="cf-p" class="cf-radio">
+<div class="cf-tabs"><label for="cf-all" class="cf-tab cf-tab-all"><span class="cf-l">All <span class="cf-cnt">1</span></span><span class="cf-g" aria-hidden="true">All 1</span></label><label for="cf-p" class="cf-tab cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">1</span></span><span class="cf-g" aria-hidden="true">Passed 1</span></label></div>
+<div class="panel cf-card">
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span></span></div>
+<div class="cov-rows">
+<details class="cv cf-r cf-p" id="cv-row-1"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span><strong>Bold</strong> <code>code</code> <a href="https://x.example">link</a> &amp; more</span></span><span class="cov-result">Ok</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li><span class="st-v">Verify it shows</span><span class="st-rs st-pass">PASS</span> <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="https://cdn.example/shots/a.png" data-lb="cv-0" data-caption="Bold code link &amp; more" data-file="a.png" aria-label="Screenshot for this step: Bold code link &amp; more"><svg></a></li></ol></div></details>
+
+</div>
+</div>
+<p class="cov-empty">Everything in scope was exercised.</p>
+</div>
+
+
+==== a fenced block under a ledger step gets the copy button in Coverage
+id="coverage" class="section">
+<div class="section-head"><h2 class="section-label">Exploratory Coverage</h2></div>
+<p class="card-summary">The summary panel on pandas and a slow source.</p>
+<div class="cf" role="group" aria-label="Filter scenarios">
+<input type="radio" name="cf" id="cf-all" class="cf-radio" checked><input type="radio" name="cf" id="cf-p" class="cf-radio">
+<div class="cf-tabs"><label for="cf-all" class="cf-tab cf-tab-all"><span class="cf-l">All <span class="cf-cnt">1</span></span><span class="cf-g" aria-hidden="true">All 1</span></label><label for="cf-p" class="cf-tab cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">1</span></span><span class="cf-g" aria-hidden="true">Passed 1</span></label></div>
+<div class="panel cf-card">
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span></span></div>
+<div class="cov-rows">
+<details class="cv cf-r cf-p" id="cv-row-1"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"></span><span>Paced loading</span></span><span class="cov-result">Loads</span><span class="cv-chev-cell"><svg></span></summary><div class="cv-steps"><ol class="steps"><li>Load the slow source:<div class="code-blk"><pre><code class="language-python">%run -i slow.py
+slow = make_slow()</code></pre><button type="button" class="code-cp" data-tip="Copy code" aria-label="Copy code"><svg><svg></button></div>
+</li>
+<li><span class="st-v">Verify it loads</span><span class="st-rs st-pass">PASS</span></li></ol></div></details>
+
+</div>
+</div>
+<p class="cov-empty">Everything in scope was exercised.</p>
+</div>
+
+
+==== a listed file that is missing is shown unlinked, and a folder never links
+<ul class="log-list"><li><span class="log-file">logs/all/44987/</span> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">Every log</span> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">artifact only</span></li><li><a href="logs/44987-app.log" class="log-file" title="Open the full log" target="_blank" rel="noreferrer">logs/44987-app.log</a> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">Positron window (renderer and dev-tools console)</span> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">2 errors, both in Finding 1</span></li><li><span class="log-file">logs/exthost.log</span> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">Extension host</span> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">no errors</span></li><li><a href="logs/python-console.log" class="log-file" title="Open the full log" target="_blank" rel="noreferrer">logs/python-console.log</a> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">Python console output</span> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">no errors</span></li>
+
+==== Run details leaves the explorer's format checks to stats.json
+Agents, Change under test, Environment, State manipulation, Test ledger, Logs, Test files, Branch verification
+
+==== issue titles: the Feature leads, and the claim starts lowercase unless its first word is a name used elsewhere
+console: typing while busy aborts
+console: R aborts while busy
+console: PyPI lookups are skipped
+console: a preview goes blank
+console: quarto previews go blank
+console: Quarto previews go blank
+
+==== issue: System details list each kernel the ledger records
+<sub>Reported by [exploratory test](https://cdn.example/run1/index.html#f1) of #1234 (`midleman/exp-ab-dx-opus` @ `ed2487a1a2`)</sub>
+
+- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->
+
+## System details
+
+- **Positron:** 2026.10.0 build 12 (`ed2487a1a2`)
+- **OS:** Ubuntu 22.04 (Linux x64)
+- **Ark:** 0.1.252+355.f1af004
+- **Kallichore:** 0.1.71
+
+## Steps to reproduce
+- `slow.py` (below) loaded with `%run -i slow.py`.
+
+1. Run `one12 = make_slow(ncols=1, nrows=1000, delay=0.012)`. One string column whose frequency table takes about 13 s.
+2. Run `%view one12` and wait 15 s.
+3. Verify the column summary loads. → **FAIL** (observed: Loading dots, then "Some summaries unavailable. Retry"; the sparkline slot empties.)
+4. Click Retry and wait 15 s. Repeat once.
+5. Verify the summary loads after Retry. → **FAIL** (observed: Same notice after each Retry.)
+
+## Observed
+The summary never loads; the panel shows "Some summaries unavailable. Retry", and Retry shows it again.
+
+## Expected
+The summary loads, or Retry loads it.
+
+## Error messages
+```
+Error: get_column_profiles timed out after 10 seconds
+  at DataExplorerClient.getColumnProfiles (languageRuntimeDataExplorerClient.ts:212)
+  at TableSummaryCache.loadColumnProfiles (tableSummaryCache.ts:538)
+  at TableSummaryCache.retryColumnProfiles (tableSummaryCache.ts:611)
+```
+Logged in logs/44987-app.log:1182 (Renderer), 2x after each Retry.
+
+## Evidence
+Screenshots and logs are in the [exploratory test](https://cdn.example/run1/index.html#f1) report for this run.
+
+<details><summary>slow.py</summary>
+
+```python
+# slow.py: builds DataFrames whose values hash slowly, standing in for a
+# large or remote table. Frequency tables (value_counts) get slow; counts don't.
+import time
+import pandas as pd
+
+class Slow(str):
+    delay = 0.002
+    def __hash__(self):
+        time.sleep(Slow.delay)
+        return str.__hash__(self)
+
+def make_slow(ncols=20, nrows=1000, delay=0.002):
+    Slow.delay = delay
+    data = {f"s{i:02d}": [Slow(f"v{j % 50}") for j in range(nrows)] for i in range(ncols)}
+    return pd.DataFrame(data)
+```
+
+</details>
+
+==== issue: an error longer than six lines is clipped, and a finding with none says so
+## Error messages
+```
+Error: get_column_profiles timed out after 10 seconds
+  at DataExplorerClient.getColumnProfiles (languageRuntimeDataExplorerClient.ts:212)
+  at TableSummaryCache.loadColumnProfiles (tableSummaryCache.ts:538)
+  at TableSummaryCache.retryColumnProfiles (tableSummaryCache.ts:611)
+  at TableSummaryCache.retryColumnProfiles (tableSummaryCache.ts:611)
+  at TableSummaryCache.retryColumnProfiles (tableSummaryCache.ts:611)
+    …
+```
+Logged in logs/44987-app.log:1182 (Renderer), 2x after each Retry.
+
+
+--
+
+
+==== issue: under the report line is a box a person ticks once they reproduce it, and Describe the issue is its impact
+<sub>Reported by [exploratory test](https://cdn.example/run1/index.html#f1) of #1234 (`midleman/exp-ab-dx-opus` @ `ed2487a1a2`)</sub>
+
+- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->
+
+## System details
+
+- **Positron:** 2026.10.0 build 12 (`ed2487a1a2`)
+- **OS:** Ubuntu 22.04 (Linux x64)
+
+## Describe the issue
+Anyone with a slow data source sees no summaries and has no way to load them.
+
+
+
+==== issue: a local run links no report, and the likely cause folds as a hypothesis
+<sub>Reported by exploratory test of `branch/name` @ `abc1234`</sub>
+
+- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->
+
+## System details
+
+- **Positron:** not recorded
+- **OS:** not recorded
+
+## Steps to reproduce
+- A console with pandas
+
+1. Run the thing.
+2. Wait 15 s.
+
+## Observed
+It spun forever.
+
+## Expected
+It should have stopped.
+
+## Error messages
+None recorded by the run.
+
+## Evidence
+Screenshots and logs are in the exploratory test report for this run.
+
+<details><summary>Likely cause (hypothesis, not verified)</summary>
+
+The timeout was cut to 10 s.
+
+</details>
+
+==== issue: an opening describes the issue but stays off the card
+<sub>Reported by [exploratory test](https://cdn.example/run1/index.html#f1) of #1234 (`midleman/exp-ab-dx-opus` @ `ed2487a1a2`)</sub>
+
+- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->
+
+## System details
+
+- **Positron:** 2026.10.0 build 12 (`ed2487a1a2`)
+- **OS:** Ubuntu 22.04 (Linux x64)
+
+## Describe the issue
+When you open a slow column, its summary never loads.
+
+polars only; R was not checked.
+
+## Steps to reproduce
+- `slow.py` (below) loaded with `%run -i slow.py`.
+
+1. Run `one12 = make_slow(ncols=1, nrows=1000, delay=0.012)`. One string column whose frequency table takes about 13 s.
+2. Run `%view one12` and wait 15 s.
+3. Verify the column summary loads. → **FAIL** (observed: Loading dots, then "Some summaries unavailable. Retry"; the sparkline slot empties.)
+4. Click Retry and wait 15 s. Repeat once.
+5. Verify the summary loads after Retry. → **FAIL** (observed: Same notice after each Retry.)
+
+## Observed
+The summary never loads; the panel shows "Some summaries unavailable. Retry", and Retry shows it again.
+
+## Expected
+The summary loads, or Retry loads it.
+
+## Error messages
+```
+Error: get_column_profiles timed out after 10 seconds
+  at DataExplorerClient.getColumnProfiles (languageRuntimeDataExplorerClient.ts:212)
+  at TableSummaryCache.loadColumnProfiles (tableSummaryCache.ts:538)
+  at TableSummaryCache.retryColumnProfiles (tableSummaryCache.ts:611)
+```
+Logged in logs/44987-app.log:1182 (Renderer), 2x after each Retry.
+
+## Evidence
+Screenshots and logs are in the [exploratory test](https://cdn.example/run1/index.html#f1) report for this run.
+
+<details><summary>slow.py</summary>
+
+```python
+# slow.py: builds DataFrames whose values hash slowly, standing in for a
+# large or remote table. Frequency tables (value_counts) get slow; counts don't.
+import time
+import pandas as pd
+
+class Slow(str):
+    delay = 0.002
+    def __hash__(self):
+        time.sleep(Slow.delay)
+        return str.__hash__(self)
+
+def make_slow(ncols=20, nrows=1000, delay=0.002):
+    Slow.delay = delay
+    data = {f"s{i:02d}": [Slow(f"v{j % 50}") for j in range(nrows)] for i in range(ncols)}
+    return pd.DataFrame(data)
+```
+
+</details>
+--
+</header>
+<div class="f-cmp major"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">The summary never loads; the panel shows &quot;Some summaries unavailable. Retry&quot;, and Retry shows it again.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">The summary loads, or Retry loads it.</p></div></div>
+
+
+==== Linked issues leaves out a zero count
+an class="ki-st"><span class="status muted">Disputed</span><span class="ki-state">Closed &middot; <span class="ki-num-t" data-state="closed" data-opened="Opened Aug 20" data-title="regressed" data-summary="">#21</span></span></span></a>
+<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum"><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-obs">3 observed</span><span class="ki-dot" aria-hidden="true">&middot;</span><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-no">1 not observed</span></span></div></div>
+
+
+==== Linked issues with nothing observed
+<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum"><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-fix">1 fix verified</span><span class="ki-dot" aria-hidden="true">&middot;</span><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-no">4 not observed</span></span></div></div>
+
+
+==== no Linked issues row when a failed fix is a finding and an unexercised one is in Coverage
+(none)
+
+==== an issue no scenario reached is listed as not observed
+id="ki-list-no" hidden><div class="ki-lc-h">Linked to this PR, not observed</div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/22" target="_blank" rel="noopener">#22</a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">Open &middot; no scenario reached it</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/24" target="_blank" rel="noopener">#24</a><span>not seen<span class="ki-lc-m">Open &middot; skipped on purpose, see Coverage</span></span>
+
+==== a confirmed regression says Regressed with a red x
+<a href="#f2" class="row findings-grid"><span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="finding-cell"><span class="claim"><span class="n">2</span>Old bug back</span></span><span class="rate">2/2</span><span class="ki-st"><span class="ki-reg"><span class="ki-x"><svg></span>Regressed</span><span class="ki-state">Closed &middot; <span class="ki-num-t" data-state="closed" data-opened="Opened Aug 20" data-title="regressed" data-summary="">#21</span></span></span></a>
+
+==== with no issue list, a finding row is a plain link
+<a href="#f1" class="row findings-grid"><span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="finding-cell"><span class="claim"><span class="n">1</span>Still jumps</span></span><span class="rate">3/3</span><span class="status"><svg>Confirmed</span></a>
+
+==== one dupe shows no count
+<a href="#f3" class="row findings-grid"><span><span class="pill sev-moderate"><span class="dot"></span>Moderate</span></span><span class="finding-cell"><span class="claim"><span class="n">3</span>Looks known</span></span><span class="rate">2/2</span><span class="ki-st"><span class="status muted">Unresolved</span><span class="ki-state">Dupe? <span class="ki-num-t" data-state="open" data-opened="Opened Aug 20" data-title="similar" data-summary="">#25</span></span></span></a>
+
+==== a finding's own issue wins the row, and a dupe stays on the card
+<a href="#f1" class="row findings-grid"><span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="finding-cell"><span class="claim"><span class="n">1</span>Still jumps</span></span><span class="rate">3/3</span><span class="ki-st"><span class="ki-reg"><span class="ki-x"><svg></span>Fix didn&rsquo;t hold</span><span class="ki-state">Fixes <span class="ki-num-t" data-state="open" data-opened="Opened Aug 20" data-title="failed" data-summary="x">#11</span></span></span></a>
+--
+<div class="meta"><span class="group identity"><span class="who">Finding 1</span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 3/3</span><span class="sep" aria-hidden="true">&middot;</span><span class="f-ki">Fix didn&rsquo;t hold <a class="ki-num" href="https://github.com/posit-dev/positron/issues/11" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="failed" data-summary="x">#11</a></span><span class="sep" aria-hidden="true">&middot;</span><span class="f-ki">Dupe? <a class="ki-num" href="https://github.com/posit-dev/positron/issues/25" target="_blank" rel="noopener" data-state="open" data-opened="Opened Aug 20" data-title="similar" data-summary="">#25</a></span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f1" data-tip="Copy link" aria-label="Copy link to finding 1"><svg><svg></button>
+
+==== with no findings, linked counts join the empty state
+id="findings" class="section">
+<h2 class="section-label">Findings</h2>
+<div class="panel">
+<div class="ki-empty"><span class="ki-empty-ic"><svg></span><span><b>No new findings</b><span class="ki-empty-sum"><b>5</b> passed<span class="ki-dot" aria-hidden="true">&middot;</span><b>3</b> not run<span class="ki-dot" aria-hidden="true">&middot;</span><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-fix">2 fixes verified</span><span class="ki-dot" aria-hidden="true">&middot;</span><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-obs">3 known issues observed</span><span class="ki-dot" aria-hidden="true">&middot;</span><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-no">4 linked issues not observed</span></span></span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a></div>
+<div class="ki-list" id="ki-list-obs" hidden><div class="ki-lc-h">Known issues observed this run</div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/23" target="_blank" rel="noopener">#23</a><span>major one<span class="ki-lc-m">Open &middot; seen in &ldquo;other&rdquo; &middot; <a class="ki-ev" href="#cv-row-5">View evidence</a></span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/26" target="_blank" rel="noopener">#26</a><span>minor one<span class="ki-lc-m">Open &middot; seen in &ldquo;fix one&rdquo; and &ldquo;other&rdquo; &middot; <a class="ki-ev" href="#cv-row-1">View evidence</a></span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/22" target="_blank" rel="noopener">#22</a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">Open &middot; seen in &ldquo;other&rdquo; &middot; <a class="ki-ev" href="#cv-row-5">View evidence</a></span></span></div></div><div class="ki-list" id="ki-list-fix" hidden><div class="ki-lc-h">Fix verified this run</div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/10" target="_blank" rel="noopener">#10</a><span>held<span class="ki-lc-m">Open &middot; passed in &ldquo;fix one&rdquo;</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/11" target="_blank" rel="noopener">#11</a><span>failed<span class="ki-lc-m">Open &middot; passed in &ldquo;fix two&rdquo;</span></span></div></div><div class="ki-list" id="ki-list-no" hidden><div class="ki-lc-h">Linked to this PR, not observed</div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/20" target="_blank" rel="noopener">#20</a><span>also similar<span class="ki-lc-m">Open &middot; no scenario reached it</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/21" target="_blank" rel="noopener">#21</a><span>regressed<span class="ki-lc-m">Closed &middot; no scenario reached it</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/24" target="_blank" rel="noopener">#24</a><span>not seen<span class="ki-lc-m">Open &middot; skipped on purpose, see Coverage</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/25" target="_blank" rel="noopener">#25</a><span>similar<span class="ki-lc-m">Open &middot; no scenario reached it</span></span></div></div>
+</div>
+
+
+==== with no findings and nothing observed, the counts left join the empty state
+id="findings" class="section">
+<h2 class="section-label">Findings</h2>
+<div class="panel">
+<div class="ki-empty"><span class="ki-empty-ic"><svg></span><span><b>No new findings</b><span class="ki-empty-sum"><b>5</b> passed<span class="ki-dot" aria-hidden="true">&middot;</span><b>3</b> not run<span class="ki-dot" aria-hidden="true">&middot;</span><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-fix">2 fixes verified</span><span class="ki-dot" aria-hidden="true">&middot;</span><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-no">7 linked issues not observed</span></span></span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a></div>
+<div class="ki-list" id="ki-list-fix" hidden><div class="ki-lc-h">Fix verified this run</div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/10" target="_blank" rel="noopener">#10</a><span>held<span class="ki-lc-m">Open &middot; passed in &ldquo;fix one&rdquo;</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/11" target="_blank" rel="noopener">#11</a><span>failed<span class="ki-lc-m">Open &middot; passed in &ldquo;fix two&rdquo;</span></span></div></div><div class="ki-list" id="ki-list-no" hidden><div class="ki-lc-h">Linked to this PR, not observed</div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/20" target="_blank" rel="noopener">#20</a><span>also similar<span class="ki-lc-m">Open &middot; no scenario reached it</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/21" target="_blank" rel="noopener">#21</a><span>regressed<span class="ki-lc-m">Closed &middot; no scenario reached it</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/22" target="_blank" rel="noopener">#22</a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">Open &middot; no scenario reached it</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/23" target="_blank" rel="noopener">#23</a><span>major one<span class="ki-lc-m">Open &middot; no scenario reached it</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/24" target="_blank" rel="noopener">#24</a><span>not seen<span class="ki-lc-m">Open &middot; skipped on purpose, see Coverage</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/25" target="_blank" rel="noopener">#25</a><span>similar<span class="ki-lc-m">Open &middot; no scenario reached it</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/26" target="_blank" rel="noopener">#26</a><span>minor one<span class="ki-lc-m">Open &middot; no scenario reached it</span></span></div></div>
+</div>
+
+
+==== with no findings and no linked issues, only the empty state shows
+id="findings" class="section">
+<h2 class="section-label">Findings</h2>
+<div class="panel">
+<div class="ki-empty"><span class="ki-empty-ic"><svg></span><span><b>No new findings</b><span class="ki-empty-sum"><b>5</b> passed<span class="ki-dot" aria-hidden="true">&middot;</span><b>2</b> not run</span></span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a></div>
+</div>
+
+scripts: (none)

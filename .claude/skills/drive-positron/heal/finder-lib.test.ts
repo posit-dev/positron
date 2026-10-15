@@ -8,14 +8,14 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import type { Finding } from './finding.ts';
-import { isoWeek, pickArea, type Area } from './finder-lib.ts';
+import { isoWeek, knownBugs, pickArea, type Area } from './finder-lib.ts';
 
 const here = dirname(new URL(import.meta.url).pathname);
 const areas = (JSON.parse(readFileSync(join(here, 'areas.json'), 'utf8')) as { areas: Area[] }).areas;
 
-test('every helper is in exactly one area, besides arguments', () => {
+test('every helper is in exactly one area', () => {
 	const sh = readdirSync(join(here, '../scripts')).filter(f => f.endsWith('.sh')).sort();
-	const listed = areas.filter(a => a.name !== 'arguments').flatMap(a => a.helpers).sort();
+	const listed = areas.flatMap(a => a.helpers).sort();
 	assert.deepEqual(listed, sh);
 });
 
@@ -40,4 +40,10 @@ test('the most recent fixed or product smoke finding picks the area', () => {
 	const got = pickArea(areas, 41, recent);
 	assert.equal(got.area.name, 'notebooks');
 	assert.match(got.why, /nb\.sh/);
+});
+
+test('knownBugs: finder product findings filed as an issue, each id once', () => {
+	const p = (id: string, extra: Partial<Finding>): Finding => ({ id, source: 'finder', helper: 'palette-run.sh', steps: ['s'], observed: 'the palette did\nnot open', expected: 'e', reproductions: [], outcome: 'product', ...extra });
+	assert.deepEqual(knownBugs([p('finder-a', { issue: 16340 }), p('finder-a', { issue: 16340 }), p('finder-b', {}), p('finder-c', { outcome: 'fixed', issue: 1 }), { ...p('smoke-d', { issue: 2 }), source: 'smoke' }]),
+		['- finder-a (palette-run.sh, issue #16340): the palette did not open']);
 });

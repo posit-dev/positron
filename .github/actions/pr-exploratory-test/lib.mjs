@@ -6,29 +6,9 @@
 // Pure helpers for run.mjs, kept separate so they can be unit tested without
 // the Agent SDK or a live container.
 
-import { formatMinutes, modelDisplayName, parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-
-/** Pick the latest assistant message that looks like the report. */
-export function pickReport(messages) {
-	for (let i = messages.length - 1; i >= 0; i--) {
-		if (/\|\s*#\s*\|\s*Finding\s*\|/.test(messages[i])) {
-			return messages[i];
-		}
-	}
-	return null;
-}
-
-/**
- * Prefer the report the agent wrote to report.md; scrape chat text with
- * pickReport only when that file is missing or empty. A report that came
- * from the file is authoritative and must never be replaced by a scrape.
- */
-export function resolveReport(fileReportContent, messages) {
-	if (typeof fileReportContent === 'string' && fileReportContent.trim().length > 0) {
-		return fileReportContent;
-	}
-	return pickReport(messages);
-}
+import { execFileSync } from 'node:child_process';
+import { formatMinutes, modelDisplayName } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
+export { WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 
 /** Flatten the SDK result message into the record written to cost.json. */
 export function buildCostRecord(message) {
@@ -36,11 +16,8 @@ export function buildCostRecord(message) {
 		total_cost_usd: message?.total_cost_usd ?? null,
 		num_turns: message?.num_turns ?? null,
 		duration_ms: message?.duration_ms ?? null,
-		// input_tokens counts only the uncached input, which for a long run is a
-		// small fraction of what is actually sent: a 142-turn run reported
-		// 11,706. The cache reads are the context re-sent on every turn, and
-		// they are what total_cost_usd is mostly paying for, so record them
-		// too or the cost cannot be decomposed after the fact.
+		// input_tokens is only the uncached input; the cache reads are what the
+		// cost mostly pays for, so they are kept to decompose it.
 		input_tokens: message?.usage?.input_tokens ?? null,
 		cache_read_input_tokens: message?.usage?.cache_read_input_tokens ?? null,
 		cache_creation_input_tokens: message?.usage?.cache_creation_input_tokens ?? null,
@@ -77,6 +54,21 @@ export function buildShotsBaseUrl(reportBaseUrl) {
 	return reportBaseUrl.endsWith('/') ? reportBaseUrl.slice(0, -1) : reportBaseUrl;
 }
 
+/** The value of env var `name`; a missing one stops the script, naming it. */
+export function mustEnv(name) {
+	const v = process.env[name];
+	if (!v) {
+		console.error(`Missing required env var: ${name}`);
+		process.exit(1);
+	}
+	return v;
+}
+
+/** A function that runs git in `root` and returns what it prints. */
+export function gitIn(root) {
+	return args => execFileSync('git', ['-C', root, '-c', 'color.ui=never', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+}
+
 /**
  * Parse a positive-integer env var. Falls back to `fallback` (with a logged
  * warning) for unset, empty, NaN, non-integer, or non-positive values.
@@ -91,32 +83,35 @@ export function parsePosIntEnv(name, fallback, rawValue) {
 	return n;
 }
 
-export function renderCostFooter(passes, maxTurns) {
+/**
+ * The step summary's cost lines from report.json's `cost.passes`. A pass with
+ * no cost did not run, and only the explorer's carries a turn cap.
+ */
+export function renderCostFooter(passes) {
 	const lines = [];
 	let total = null;
 	let elapsed = 0;
 	for (const pass of passes) {
-		const c = pass?.cost;
-		if (!c || typeof c.total_cost_usd !== 'number') {
+		if (typeof pass?.costUsd !== 'number') {
 			// A pass that did not run has nothing to bill and no line.
 			continue;
 		}
-		const bits = [`$${c.total_cost_usd.toFixed(2)}`];
-		const model = modelDisplayName(c.model);
+		const bits = [`$${pass.costUsd.toFixed(2)}`];
+		const model = modelDisplayName(pass.model);
 		if (model) {
 			bits.unshift(model);
 		}
-		if (typeof c.num_turns === 'number') {
+		if (typeof pass.turns === 'number') {
 			// Only the explore pass has a cap worth watching; showing one for
 			// the others invites reading a limit nobody is near.
-			bits.push(pass.main ? `${c.num_turns}/${maxTurns} turns` : `${c.num_turns} turns`);
+			bits.push(pass.maxTurns ? `${pass.turns}/${pass.maxTurns} turns` : `${pass.turns} turns`);
 		}
-		if (typeof c.duration_ms === 'number') {
-			bits.push(formatMinutes(c.duration_ms));
-			elapsed += c.duration_ms;
+		if (typeof pass.durationMs === 'number') {
+			bits.push(formatMinutes(pass.durationMs));
+			elapsed += pass.durationMs;
 		}
 		lines.push(`_${pass.label}: ${bits.join(' | ')}_`);
-		total = (total === null ? 0 : total) + c.total_cost_usd;
+		total = (total === null ? 0 : total) + pass.costUsd;
 	}
 	if (lines.length === 0) {
 		return '_cost unknown_';
@@ -305,11 +300,19 @@ export function renderSummaryTarget(branch, repo, number, focus, timeLimit) {
 }
 
 /**
- * The per-severity breakdown ("2 moderate · 3 minor"). The total only shows
- * when there is nothing to break down: no findings, or none with a severity.
+ * The per-severity breakdown ("2 moderate · 3 minor") of report.json's
+ * findings. The total only shows when there is nothing to break down: no
+ * findings, or none with a severity.
  */
-function tallyFindings(markdown) {
-	const { findingCount, severityCounts } = parseReport(markdown);
+function tallyFindings(report) {
+	const findings = report?.findings ?? [];
+	const findingCount = findings.length;
+	const severityCounts = { major: 0, moderate: 0, minor: 0 };
+	for (const f of findings) {
+		if (f.severity in severityCounts) {
+			severityCounts[f.severity]++;
+		}
+	}
 	const breakdown = ['major', 'moderate', 'minor']
 		.filter(severity => severityCounts[severity] > 0)
 		.map(severity => `${severityCounts[severity]} ${severity}`)
@@ -319,23 +322,11 @@ function tallyFindings(markdown) {
 }
 
 /**
- * Renders the job's step summary.
- *
- * The whole report used to be pasted here, which made a reviewer scroll a
- * screenful of repro steps and log excerpts inside a page that cannot show a
- * screenshot properly. The report has its own rendered page now, so this is a
- * signpost: the verdict, and where to read the rest.
- *
- * `baseUrl` is the published run directory. Without one -- a local run, or an
- * upload that failed -- the link is omitted rather than written dead, and the
- * summary says where the report actually is.
- *
- * Nothing else belongs here. The link says what it is, and the cost of the
- * run is on the report's own Run tile; repeating either on the job page is a
- * second thing to read before getting to the one that matters.
+ * The job's step summary: a signpost with the verdict and a link to the run's page.
+ * Without `baseUrl` (a local run or failed upload) it says where the report is instead of linking dead.
  */
-export function renderStepSummary(markdown, baseUrl) {
-	const tally = tallyFindings(markdown);
+export function renderStepSummary(report, baseUrl) {
+	const tally = tallyFindings(report);
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
@@ -366,9 +357,6 @@ export function runOutcome({ report, numTurns, maxTurns, timedOut = false }) {
 	return report ? 'complete' : 'no-report';
 }
 
-/** How long a run has to write up after it is told time is up, before it is stopped. */
-export const WRAP_UP_MINUTES = 10;
-
 /**
  * The time limit, in whole minutes, from a dispatch input or an `/explore 20m`
  * word: `20`, `20m` or empty. Null when there is none or it is not a positive
@@ -380,11 +368,6 @@ export function parseTimeLimit(raw) {
 	return Number.isInteger(minutes) && minutes > 0 ? minutes : null;
 }
 
-/** What the agent is told on each tool result once its time is up. */
-export function timeUpMessage(minutes) {
-	return `Time is up: your ${minutes} minutes for exploring have run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.md and check it. The run is stopped in ${WRAP_UP_MINUTES} minutes.`;
-}
-
 /**
  * A PostToolUse (and PostToolUseFailure) hook that, once `deadline` has
  * passed, appends the time-up message to every tool result, so the agent
@@ -392,9 +375,10 @@ export function timeUpMessage(minutes) {
  * Before then it adds nothing: told its budget or the time left, the agent
  * rushed from the first step and wrapped up at about 70% of it, in every CI
  * run that had a limit. `onTimeUp` is called the first time. `now` is the
- * clock, for tests.
+ * clock, for tests. `message` is what the agent is told: the pipeline's, for
+ * the explorer and the isolator alike.
  */
-export function timeUpHook({ deadline, minutes, now = Date.now, onTimeUp = () => {} }) {
+export function timeUpHook({ deadline, message, now = Date.now, onTimeUp = () => {} }) {
 	let told = false;
 	return async input => {
 		if (now() < deadline) {
@@ -404,7 +388,7 @@ export function timeUpHook({ deadline, minutes, now = Date.now, onTimeUp = () =>
 			told = true;
 			onTimeUp();
 		}
-		return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: timeUpMessage(minutes) } };
+		return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: message } };
 	};
 }
 
@@ -421,6 +405,16 @@ export function turnCapWarning({ numTurns, maxTurns }) {
 	return `::warning title=Exploratory run near the turn cap::Used ${numTurns} of ${maxTurns} turns. A run that reaches the cap can end without a report.`;
 }
 
+const AUTO_RUN_EXPERIMENT = 'https://github.com/posit-dev/positron/issues/16610';
+
+/** Says a run nobody asked for was started on purpose, and once there is a report, asks how it did. */
+function autoRunNote(hasReport) {
+	const started = `Started automatically for the [auto-run experiment](${AUTO_RUN_EXPERIMENT}).`;
+	return hasReport
+		? `\n> ${started} Was it useful? React with \u{1F44D} or \u{1F44E} on this comment, and answer "Is this finding right?" on each finding in the report.`
+		: `\n> ${started}`;
+}
+
 /**
  * The body of the PR comment: a title with the head it tested, the finding
  * tally, and a link to the report or run. A push after `/explore` makes the result stale,
@@ -431,11 +425,11 @@ export function turnCapWarning({ numTurns, maxTurns }) {
  * needs, and `reason` says what to do), `cancelled`, or empty when the agent
  * never ran (the build failed first).
  */
-export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, reason, focus }) {
+export function renderPrComment({ state, report, baseUrl, runUrl, headSha, reason, focus, autoRun = false }) {
 	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
 	const run = `[View run \u2192](${runUrl})`;
 	const focusLine = focus ? `Focus: ${focus}\n\n` : '';
-	const comment = lines => `${COMMENT_MARKER}\n${title}\n\n${focusLine}${lines.join('\n')}\n`;
+	const comment = (lines, hasReport = false) => `${COMMENT_MARKER}\n${title}\n\n${focusLine}${[...lines, ...(autoRun ? [autoRunNote(hasReport)] : [])].join('\n')}\n`;
 	if (state === 'running') {
 		return comment(['Off exploring, back soon\u2026', run]);
 	}
@@ -448,38 +442,18 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, rea
 	if (state === 'cancelled') {
 		return comment(['Cancelled before the agent produced a report.', run]);
 	}
-	if (markdown && (state === 'complete' || state === 'partial' || state === 'timed-out')) {
-		const lines = [tallyFindings(markdown)];
+	if (report && (state === 'complete' || state === 'partial' || state === 'timed-out')) {
+		const lines = [tallyFindings(report)];
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
 		if (state === 'timed-out') { lines.push('_Partial run: the agent was stopped at its time limit, so coverage is incomplete._'); }
 		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);
-		return comment(lines);
+		return comment(lines, true);
 	}
 	const why = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
 		: state === 'timed-out' ? 'The agent was stopped at its time limit before writing a report.'
 			: state === 'no-report' ? 'The agent finished without writing a report.'
 				: 'The run failed before the agent produced a report.';
 	return comment([why, run]);
-}
-
-/**
- * Stamps `PR: <repo>#<n>` under the report's `<branch>` | `<sha>` line, which
- * is where the renderer reads it for the header link. The agent is not asked
- * to write it: CI knows the PR from the event, the agent would only copy it.
- * A report that already names one, or has no meta line, is left alone.
- */
-export function withPrLine(markdown, repo, number) {
-	if (!markdown || !repo || !/^\d+$/.test(String(number ?? '')) || /^(\*\*)?PR:/m.test(markdown)) {
-		return markdown;
-	}
-	const lines = markdown.split('\n');
-	const title = lines.findIndex(l => l.startsWith('# '));
-	const meta = lines.findIndex((l, i) => i > title && title !== -1 && l.trim().startsWith('`'));
-	if (meta === -1 || lines.slice(title + 1, meta).some(l => l.startsWith('#'))) {
-		return markdown;
-	}
-	lines.splice(meta + 1, 0, '', `PR: ${repo}#${number}`);
-	return lines.join('\n');
 }
 
 /**

@@ -8,6 +8,7 @@
 import { Emitter } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -36,11 +37,21 @@ const summaryOf = (state: EnvironmentHealthState) =>
 const pageA = stubInterface<GettingStartedInput>();
 const pageB = stubInterface<GettingStartedInput>();
 
+/** The extension service's change event, carrying only the identifiers the service reads. */
+const extensionDelta = (added: readonly string[], removed: readonly string[] = []) => ({
+	added: added.map(id => stubInterface<IExtensionDescription>({ identifier: new ExtensionIdentifier(id) })),
+	removed: removed.map(id => stubInterface<IExtensionDescription>({ identifier: new ExtensionIdentifier(id) })),
+});
+
 /** Resolves once every pending promise callback has run. */
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('EnvironmentHealthService', () => {
 	const onDidChangeConfiguration = new Emitter<{ affectsConfiguration: (key: string) => boolean }>();
+	const onDidChangeExtensions = new Emitter<ReturnType<typeof extensionDelta>>();
+	const onDidChangeExtensionsStatus = new Emitter<ExtensionIdentifier[]>();
+	/** What the extension service reports once an extension has activated. */
+	const activated = (id: string) => onDidChangeExtensionsStatus.fire([new ExtensionIdentifier(id)]);
 	const executeCommand = vi.fn();
 	const getExtension = vi.fn();
 	const getValue = vi.fn();
@@ -49,7 +60,11 @@ describe('EnvironmentHealthService', () => {
 
 	const ctx = createTestContainer()
 		.stub(ICommandService, { executeCommand })
-		.stub(IExtensionService, { getExtension })
+		.stub(IExtensionService, {
+			getExtension,
+			onDidChangeExtensions: onDidChangeExtensions.event,
+			onDidChangeExtensionsStatus: onDidChangeExtensionsStatus.event,
+		})
 		.stub(IConfigurationService, { getValue, onDidChangeConfiguration: onDidChangeConfiguration.event })
 		.stub(ILogService, { trace, warn })
 		.build();
@@ -366,6 +381,91 @@ describe('EnvironmentHealthService', () => {
 		await settle();
 		expect(environmentHealthService.state.find(l => l.language === 'r')!.state.kind).toBe('unavailable');
 		expect(executeCommand.mock.calls.map(c => c[0])).not.toContain('r.getEnvironmentHealth');
+		environmentHealthService.dispose();
+	});
+
+	it('checks a language again once its added extension activates', async () => {
+		// Trusting a workspace turns on the Python extension, which does not run
+		// in an untrusted one. The card used to keep saying the extension was not
+		// available until the window reloaded.
+		getExtension.mockImplementation(async (id: string) => id === 'ms-python.python' ? undefined : {});
+		const environmentHealthService = open();
+		await settle();
+		expect(environmentHealthService.state[0].state.kind).toBe('unavailable');
+
+		getExtension.mockResolvedValue({});
+		onDidChangeExtensions.fire(extensionDelta(['ms-python.python']));
+		await settle();
+		// The added event comes before the extension host has loaded the
+		// extension, so its command is not registered yet. Calling it here fails
+		// with "command not found".
+		expect(executeCommand.mock.calls.map(c => c[0])).not.toContain('python.getEnvironmentHealth');
+
+		activated('ms-python.python');
+		await settle();
+		expect(environmentHealthService.state[0].state.kind).toBe('result');
+		environmentHealthService.dispose();
+	});
+
+	it('does not check a language again when its extension activates without being added', async () => {
+		// The status event also fires for an extension's runtime errors. Rerunning
+		// on those would repeat a full R discovery for nothing.
+		const environmentHealthService = open();
+		await settle();
+		executeCommand.mockClear();
+		activated('positron.positron-r');
+		await settle();
+		expect(executeCommand).not.toHaveBeenCalled();
+		environmentHealthService.dispose();
+	});
+
+	it('checks a language again when its extension is removed', async () => {
+		const environmentHealthService = open();
+		await settle();
+		getExtension.mockResolvedValue(undefined);
+		onDidChangeExtensions.fire(extensionDelta([], ['positron.positron-r']));
+		await settle();
+		expect(environmentHealthService.state.map(l => l.state.kind)).toEqual(['result', 'unavailable']);
+		environmentHealthService.dispose();
+	});
+
+	it('checks a language again when its extension is added during a check', async () => {
+		// The check in flight may have looked for the extension before it was
+		// added, so its answer cannot be trusted to include it.
+		let resolveLookup: (value: unknown) => void = () => { };
+		getExtension.mockImplementation((id: string) => id === 'ms-python.python'
+			? new Promise(resolve => { resolveLookup = resolve; })
+			: Promise.resolve({}));
+		const environmentHealthService = open();
+		await settle();
+
+		getExtension.mockResolvedValue({});
+		onDidChangeExtensions.fire(extensionDelta(['ms-python.python']));
+		activated('ms-python.python');
+		resolveLookup(undefined);
+		await settle();
+		expect(environmentHealthService.state[0].state.kind).toBe('result');
+		environmentHealthService.dispose();
+	});
+
+	it('does not check anything when an extension is added before a page opens', async () => {
+		const environmentHealthService = build();
+		onDidChangeExtensions.fire(extensionDelta(['ms-python.python']));
+		activated('ms-python.python');
+		await settle();
+		expect(getExtension).not.toHaveBeenCalled();
+		expect(executeCommand).not.toHaveBeenCalled();
+		environmentHealthService.dispose();
+	});
+
+	it('ignores an extension that no language checks', async () => {
+		const environmentHealthService = open();
+		await settle();
+		executeCommand.mockClear();
+		onDidChangeExtensions.fire(extensionDelta(['vscode.git']));
+		activated('vscode.git');
+		await settle();
+		expect(executeCommand).not.toHaveBeenCalled();
 		environmentHealthService.dispose();
 	});
 

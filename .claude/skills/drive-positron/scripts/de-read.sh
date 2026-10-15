@@ -11,7 +11,8 @@
 #
 # Flags:
 #   --session NAME  the @playwright/cli session attached to the instance (or $PW_SESSION)
-#   --rows N        how many of the top rows to read (default 10)
+#   --rows N        how many of the top rows to read, a whole number from 1
+#                   (default 10)
 #   --title TEXT    the editor tab the grid must be in, such as "Data: df";
 #                   refuses when the active tab is another, so a grid left
 #                   open from an earlier step is never read by mistake
@@ -23,7 +24,8 @@
 # "Showing 5 rows (41.67% of 12 total) 3 columns". Every value is the text the
 # cell shows; a cell the grid has not drawn yet reads as null. Column names are taken as
 # unique; with two columns of one name, the second gets " (2)".
-# Exit code: 0 when a grid was read, 1 when there is none.
+# Exit code: 0 when a grid was read, 1 when there is none, 2 on a usage error
+# (such as --rows abc), before the grid is read.
 
 # Implemented in dp-de.ts.
 exec node "$(dirname "${BASH_SOURCE[0]}")/dp.ts" de-read "$@"

@@ -145,6 +145,7 @@ export class SettingsEditor2 extends EditorPane {
 		'@tag:accessibility',
 		'@tag:preview',
 		'@tag:experimental',
+		'@tag:agentMerge',
 		`@tag:${ADVANCED_SETTING_TAG}`,
 		// --- Start Positron ---
 		// Suggest a filter for every registered setting badge (e.g. legacy). See POSITRON_SETTING_BADGES.

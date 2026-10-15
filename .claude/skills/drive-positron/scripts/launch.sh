@@ -40,13 +40,16 @@
 #                       picker looks like a product bug
 #   --use-mock-keychain keeps the OS keychain out (a GitHubLoginFailed log line
 #                       is expected)
+#   --password-store=basic  (Linux) keeps the "An OS keyring couldn't be
+#                       identified" dialog from blocking the window where no
+#                       keyring runs, as in CI
 #   --skip-welcome      keeps the Welcome editor from taking focus
 #   --disable-backgrounding-occluded-windows, --disable-renderer-backgrounding
 #                       keep a covered window painting; otherwise every click
 #                       and element screenshot times out on Playwright's
 #                       stability check while keys and eval still work
 #   --shared-data-dir, --logsPath (<runDir>/logs), and the CDP and inspect ports
-# --no-default-app-args drops the first five, only for testing what they suppress
+# --no-default-app-args drops all but the last line, only for testing what they suppress
 # (the workspace trust prompt, say).
 #
 # It reads the source profile one way (no --delete) and writes only to the
@@ -109,6 +112,9 @@
 set -euo pipefail
 umask 077
 DIR="$(dirname "${BASH_SOURCE[0]}")"
+# A usage error: the error on stderr, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error --text "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 
 # Platform and tool detection. Git Bash on Windows (MSYS) ships neither rsync
 # nor pgrep, and Electron there cannot read MSYS-style paths such as /tmp/x.
@@ -212,21 +218,25 @@ REUSE=""
 # them Playwright's actionability checks wait for a frame that never comes.
 AUTOMATION_ARGS=(--use-mock-keychain --disable-workspace-trust --skip-welcome
 	--disable-backgrounding-occluded-windows --disable-renderer-backgrounding)
+if [[ "$(uname -s)" == Linux ]]; then
+	AUTOMATION_ARGS+=(--password-store=basic)
+fi
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
+		--source-user-data-dir=*|--repo=*|--reuse-profile=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
 		--agents) AGENTS=1; shift ;;
-		--source-user-data-dir) SOURCE_UDD="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--repo) REPO="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--source-user-data-dir) SOURCE_UDD="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--repo) REPO="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		--clone-extensions|--copy-extensions) CLONE_EXTENSIONS=1; shift ;;
 		--full) FULL=1; shift ;;
 		--no-default-app-args) DEFAULT_APP_ARGS=0; shift ;;
 		--keep-first-run-prompts) FIRST_RUN_PROMPTS=1; shift ;;
 		--no-pyrefly) NO_PYREFLY=1; shift ;;
-		--reuse-profile) REUSE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--reuse-profile) REUSE="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		--) shift; EXTRA_ARGS=("$@"); break ;;
-		*) echo "Unknown arg: $1" >&2; exit 2 ;;
+		*) usage_error "unknown argument $1" ;;
 	esac
 done
 
@@ -464,7 +474,7 @@ if [[ "$DEFAULT_APP_ARGS" == "1" ]]; then
 	for automation_arg in "${AUTOMATION_ARGS[@]}"; do
 		supplied=0
 		for extra_arg in ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}; do
-			if [[ "$extra_arg" == "$automation_arg" || "$extra_arg" == "$automation_arg="* ]]; then
+			if [[ "$extra_arg" == "${automation_arg%%=*}" || "$extra_arg" == "${automation_arg%%=*}="* ]]; then
 				supplied=1
 				break
 			fi

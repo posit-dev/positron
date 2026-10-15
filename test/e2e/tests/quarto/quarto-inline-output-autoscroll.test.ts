@@ -19,7 +19,7 @@ test.use({
 const CELL_LINE = 15;
 
 test.describe('Quarto - Inline Output: Auto Scroll', {
-	tag: [tags.WEB, tags.WIN, tags.QUARTO]
+	tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.PYTHON]
 }, () => {
 
 	test.afterEach(async function ({ hotKeys }) {

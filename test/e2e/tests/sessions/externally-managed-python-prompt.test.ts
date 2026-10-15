@@ -28,7 +28,7 @@ test.use({
 });
 
 test.describe('Sessions: Externally managed Python prompt', {
-	tag: [tags.SESSIONS, tags.INTERPRETER, tags.MODAL]
+	tag: [tags.SESSIONS, tags.INTERPRETER, tags.MODAL, tags.PYTHON]
 }, () => {
 	// Linux only: Ubuntu 24 CI guarantees a /usr/bin/python3 that carries the PEP 668 marker.
 	test.skip(process.platform !== 'linux', 'Requires a distro Python with a PEP 668 marker');

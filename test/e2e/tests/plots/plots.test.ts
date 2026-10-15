@@ -23,7 +23,7 @@ test.use({
 const isMacIntel = process.platform === 'darwin' && process.arch === 'x64';
 
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
-	test.describe('Python Plots', () => {
+	test.describe('Python Plots', { tag: [tags.PYTHON] }, () => {
 
 		test.beforeAll(async function ({ sessions }) {
 			await sessions.start('python');
@@ -388,7 +388,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			// the action-bar button because the Cmd+L C keybinding does not clear headlessly.
 			await app.workbench.plots.clearAllPlots();
 			// Save Plot defaults to the last active file's folder, not the workspace root.
-			await app.workbench.quickaccess.runCommand('workbench.action.clearEditorHistory');
+			await app.workbench.quickaccess.clearEditorHistory();
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {

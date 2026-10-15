@@ -14,7 +14,7 @@ const SCRIPT = 'sleep-job.R';
 const FINISHED_MARKER = 'Workbench job finished after 20 seconds';
 
 test.describe('Workbench Jobs', {
-	tag: [tags.WORKBENCH],
+	tag: [tags.WORKBENCH, tags.ARK],
 }, () => {
 
 	// The R session is what makes the job runnable: the launcher defaults its R Version to the

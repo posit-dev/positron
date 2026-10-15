@@ -13,7 +13,7 @@ test.use({
 });
 
 test.describe('New Folder Flow: Jupyter Project', {
-	tag: [tags.MODAL, tags.NEW_FOLDER_FLOW],
+	tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.PYTHON],
 	annotation: [{
 		type: 'issue',
 		description: 'https://github.com/posit-dev/positron/issues/14163'

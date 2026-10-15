@@ -79,6 +79,12 @@ function runPolicyExport(codeScript: string, outputPath: string, userDataPath: s
 	const env = { ...process.env };
 	delete env['VSCODE_PORTABLE'];
 	delete env['VSCODE_APPDATA'];
+	// --- Start Positron ---
+	// Positron reads POSITRON_* first, so clear those too for a clean child env.
+	delete env['POSITRON_PORTABLE'];
+	delete env['POSITRON_APPDATA'];
+	delete env['POSITRON_EXTENSIONS'];
+	// --- End Positron ---
 	return new Promise((resolve, reject) => {
 		const child = spawn(codeScript, args, {
 			cwd: rootPath,

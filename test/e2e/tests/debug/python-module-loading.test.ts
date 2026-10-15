@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Python Debugging', {
-	tag: [tags.DEBUG, tags.WEB, tags.WIN, tags.CONSOLE]
+	tag: [tags.DEBUG, tags.WEB, tags.WIN, tags.CONSOLE, tags.PYTHON]
 }, () => {
 
 	test.afterAll(async function ({ cleanup }) {

@@ -54,7 +54,8 @@
 #   wait N [SECS]   wait until cell N's toolbar shows its Run this cell button
 #                   (it reads Stop cell execution while the cell runs, Cancel
 #                   pending execution while it waits), in two reads 500 ms
-#                   apart, up to SECS (default 60); report the cell as state
+#                   apart, up to SECS (default 60; not a positive number:
+#                   a usage error, nothing done); report the cell as state
 #                   does, or fail naming the buttons it showed. It brings the
 #                   cell back on screen as outputs above it grow; when it
 #                   cannot, it fails saying so, with no output read

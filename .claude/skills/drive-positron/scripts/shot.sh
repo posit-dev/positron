@@ -31,7 +31,7 @@
 #                   in front alone, since every session's console is laid out
 #                   under it and a selector for one matches them all
 #
-# Stdout: the path written (--list: one JSON line). Exit code: 0 when the file was written, 1 when not.
+# Stdout: the path written (--list: one JSON line). Exit code: 0 when the file was written, 1 when not, 2 on a usage error (such as --window abc).
 
 # Implemented in dp-shot.ts.
 exec node "$(dirname "${BASH_SOURCE[0]}")/dp.ts" shot "$@"

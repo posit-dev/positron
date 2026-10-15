@@ -52,7 +52,7 @@ test.describe('Packages Pane - Security Advisories', {
 		await app.workbench.console.clickConsoleLabel();
 	});
 
-	test('Python - Flags an installed package with a known CVE', async function ({ app, python: _python }) {
+	test('Python - Flags an installed package with a known CVE', { tag: [tags.PYTHON] }, async function ({ app, python: _python }) {
 		const { packages } = app.workbench;
 
 		// bottle 0.12.19 is affected by CVE-2022-31799, fixed in 0.12.20, so the
@@ -86,7 +86,7 @@ test.describe('Packages Pane - Security Advisories', {
 		await packages.expectPackageNotInList('bottle');
 	});
 
-	test('R - Flags an installed package with an unscored CRAN advisory', async function ({ app, r: _r, executeCode }) {
+	test('R - Flags an installed package with an unscored CRAN advisory', { tag: [tags.ARK] }, async function ({ app, r: _r, executeCode }) {
 		const { packages } = app.workbench;
 
 		// widgetframe has system requirements, all already in the image. With `CI`

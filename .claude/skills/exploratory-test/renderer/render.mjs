@@ -3,22 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Renders a local run's report.md as index.html beside it, the same page CI
+// Renders a run's report.json as index.html beside it, the same page CI
 // publishes. Usage:
-//   node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>]
-//     [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>]
-//     [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n>] [--no-agent-prompts] [--base <url> --out <file>]
-// The flags record the explore agent's run, and the verifier's when there was
-// one, on the Run tile, as CI's cost footer does. Given --duration-ms, they replace the report's footer lines.
+//   node render.mjs <path/to/report.json> [--no-agent-prompts] [--base <url> --out <file>]
+//   node render.mjs --check <path/to/ledger.md>
 // --no-agent-prompts leaves out the findings' copy-for-agent buttons.
 // --base renders the page for where it will be published, so issues link back
 // to it; --out writes that page elsewhere, leaving the local one as it is.
-// --check lints without rendering, and exits 1 only on errors. Given ledger.md,
-// or a report.md not written yet, it checks the ledger alone, for a mid-run check.
+// --check lints the ledger alone, for a mid-run check, and exits 1 only on
+// errors; lint-json.mjs checks the report.
+// A local run's first render, with the passes' cost in report.json, records
+// its stats.json and usage.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -26,15 +25,6 @@ const here = dirname(fileURLToPath(import.meta.url));
 const { values: flags, positionals } = parseArgs({
 	allowPositionals: true,
 	options: {
-		model: { type: 'string' },
-		'duration-ms': { type: 'string' },
-		turns: { type: 'string' },
-		'verify-model': { type: 'string' },
-		'verify-duration-ms': { type: 'string' },
-		'verify-turns': { type: 'string' },
-		'isolate-model': { type: 'string' },
-		'isolate-duration-ms': { type: 'string' },
-		'isolate-turns': { type: 'string' },
 		'no-agent-prompts': { type: 'boolean' },
 		check: { type: 'boolean' },
 		base: { type: 'string' },
@@ -43,7 +33,7 @@ const { values: flags, positionals } = parseArgs({
 });
 const input = positionals[0];
 if (!input) {
-	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>] [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
+	console.error('usage: node render.mjs <path/to/report.json> [--no-agent-prompts] [--base <url> --out <file>]\n       node render.mjs --check <path/to/ledger.md>');
 	process.exit(1);
 }
 
@@ -53,106 +43,53 @@ const { dependencies } = JSON.parse(readFileSync(join(here, 'package.json'), 'ut
 if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules', name)))) {
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
-const { missingFiles, readRunDir, skillVersion, writeRunPage } = await import('./html.mjs');
-const { formatMinutes, modelDisplayName, parseReport } = await import('./report-parse.mjs');
-const { lintLedgerOnly, lintReport, splitProblems, untaggedShots } = await import('./lint.mjs');
+const { missingFiles, readRunDir, writeRunPage } = await import('./page/html.mjs');
+const { skillVersion } = await import('./page/page-common.mjs');
+const { lintLedgerOnly, untaggedShots } = await import('./lint/lint-ledger.mjs');
+const { splitProblems } = await import('./lint/lint-rules.mjs');
+const { reportFromJson } = await import('./page/report-json.mjs');
 const { loadIssueRefs } = await import('./known-issues.mjs');
-const { buildStats, readChecks, recordCheck } = await import('./stats.mjs');
-const { reportUsageOnce } = await import('./usage.mjs');
+const { buildStats, passStats, readChecks } = await import('./stats.mjs');
+const { ranInCi, reportUsageOnce } = await import('./shared/usage.mjs');
 
 const dir = dirname(resolve(input));
-// The ledger alone, while the run is still exploring and there is no report yet.
-const ledgerOnly = flags.check && (basename(input) === 'ledger.md' || !existsSync(input));
-let markdown = ledgerOnly ? '' : readFileSync(input, 'utf8');
-const { ledger, actionsLog, knownIssues, fileExists, readFile } = readRunDir(dir);
-// Every file saved under files/, so lint can find one the ledger never listed.
-const listFiles = () => {
-	const root = join(dir, 'files');
-	return existsSync(root)
-		? readdirSync(root, { recursive: true }).map(p => join(root, p)).filter(p => statSync(p).isFile()).map(p => relative(dir, p).split('\\').join('/'))
-		: [];
-};
-// Test paths in the report are relative to the checkout the explorer runs in.
-const repoRoot = (() => {
-	try { return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; }
-})();
-const repoFileExists = repoRoot ? path => existsSync(join(repoRoot, path)) : undefined;
-// The explorer's own checks are counted, to see what the prose did not teach;
-// the renders the harness does afterwards (the Run tile's, a publish's) are not.
-const byExplorer = !flags['duration-ms'] && !flags.out && !flags.base;
-const printProblems = () => {
-	const problems = ledgerOnly
-		? lintLedgerOnly(ledger ?? '', { fileExists, listFiles, knownIssues, actionsLog })
-		: lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists, knownIssues, actionsLog });
-	const { errors, warnings } = splitProblems(problems);
-	// A mid-run ledger check is not the report's first check, so it is not counted.
-	if (byExplorer && !ledgerOnly) {
-		recordCheck(dir, problems, errors.length);
-	}
-	if (errors.length) {
-		console.error(`format errors, fix each one and check again:\n${errors.map(p => `  ${p}`).join('\n')}`);
-	}
-	if (warnings.length) {
-		console.error(`format warnings, fix any that are quick; they need no further render:\n${warnings.map(p => `  ${p}`).join('\n')}`);
-	}
-	return errors;
-};
+const { ledger, actionsLog, session, knownIssues, changeBase, fileExists, readFile, listFiles } = readRunDir(dir);
 
-// Lint only, for a run that renders elsewhere or a ledger mid-run.
+// The ledger alone, while the run is still exploring.
 if (flags.check) {
-	if (ledgerOnly && ledger === undefined) {
+	if (ledger === undefined) {
 		console.error(`no ledger.md in ${dir}`);
 		process.exit(1);
 	}
-	const errors = printProblems();
+	const { errors, warnings } = splitProblems(lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog, session }));
+	if (errors.length) {
+		console.error(`format errors, fix each one and check again:\n${errors.map(p => `  ${p.text}`).join('\n')}`);
+	}
+	if (warnings.length) {
+		console.error(`format warnings, fix any that are quick:\n${warnings.map(p => `  ${p.text}`).join('\n')}`);
+	}
 	if (!errors.length) {
 		console.log('no format errors');
 	}
 	process.exit(errors.length ? 1 : 0);
 }
-if (flags['duration-ms']) {
-	// Written here rather than by the action's renderCostFooter (lib.mjs):
-	// a local run has no bill, and that footer drops any pass without one.
-	const line = (label, model, turns, ms) => `_${label}: ${[modelDisplayName(model), turns && `${turns} turns`, formatMinutes(ms)].filter(Boolean).join(' | ')}_`;
-	const explore = Number(flags['duration-ms']);
-	const verify = Number(flags['verify-duration-ms']);
-	const isolate = Number(flags['isolate-duration-ms']);
-	// The total covers every pass, as CI's does; with one pass there is none.
-	// Its flag, not its value, says there was a pass: 0 ms is still one.
-	const later = [
-		flags['verify-duration-ms'] !== undefined && line('verify', flags['verify-model'], flags['verify-turns'], verify),
-		flags['isolate-duration-ms'] !== undefined && line('isolate', flags['isolate-model'], flags['isolate-turns'], isolate),
-	].filter(Boolean);
-	const footer = later.length
-		? [line('explore', flags.model, flags.turns, explore), ...later, `_total: ${formatMinutes(explore + (verify || 0) + (isolate || 0))}_`].join('\n')
-		: line('explore', flags.model, flags.turns, explore);
-	// Re-rendering must not stack a second footer under the first; only the
-	// labels a footer is written with, so a body line like `_note: x_` survives.
-	const body = markdown.split('\n').filter(l => !/^_(explore|verify|isolate|total):.*_$/.test(l.trim())).join('\n').trimEnd();
-	markdown = `${body}\n\n${footer}\n`;
-	writeFileSync(input, markdown);
-}
+
+const json = JSON.parse(readFileSync(input, 'utf8'));
+const parsed = reportFromJson(json, { ledger });
 
 // The run directory is made when the run starts. A filesystem with no birth
 // time reports the epoch, and the footer falls back to now.
 const born = statSync(dir).birthtime;
 
-const parsed = parseReport(markdown, { ledger });
-
-// The Run tile's render is the run's last: record its stats, as CI's run.mjs
-// does, before the page is written, so the page can link them.
-const stats = flags['duration-ms'] ? buildStats({
+// The pipeline's render is a local run's last: record its stats, as CI's
+// run.mjs does, before the page is written, so the page can link them. A
+// replayed CI run keeps the stats CI recorded, and a publish's render records none.
+const passes = json.cost?.passes ?? [];
+const stats = passes.length && !flags.out && !ranInCi(dir) ? buildStats({
 	where: 'local',
 	date: (born.getTime() > 0 ? born : new Date()).toISOString(),
 	version: skillVersion(),
-	model: flags.model,
-	// A subagent's tool_uses, which is what the footer calls turns here.
-	turns: flags.turns ? Number(flags.turns) : null,
-	durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0) + (Number(flags['isolate-duration-ms']) || 0),
-	// Isolation is the one pass whose cost is a choice, so it is kept apart to judge it.
-	isolate: flags['isolate-duration-ms'] !== undefined
-		? { durationMs: Number(flags['isolate-duration-ms']), turns: flags['isolate-turns'] ? Number(flags['isolate-turns']) : null }
-		: null,
+	...passStats(passes),
 	parsed,
 	checks: readChecks(dir),
 }) : null;
@@ -170,10 +107,10 @@ function gitEmail() {
 }
 
 // Every issue or PR the report names gets its preview card. Not under test, which must not reach GitHub.
-const issueRefs = await loadIssueRefs(dir, markdown, knownIssues, { offline: Boolean(process.env.NODE_TEST_CONTEXT) });
+const issueRefs = await loadIssueRefs(dir, JSON.stringify(json), knownIssues, { offline: Boolean(process.env.NODE_TEST_CONTEXT) });
 
 const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
-await writeRunPage(out, markdown, parsed, {
+await writeRunPage(out, parsed, {
 	// Coverage is built from the run's ledger when it wrote one.
 	ledger,
 	agentPrompts: !flags['no-agent-prompts'],
@@ -187,11 +124,9 @@ await writeRunPage(out, markdown, parsed, {
 	startedAt: born.getTime() > 0 ? born : undefined,
 	knownIssues,
 	issueRefs,
+	changeBase,
 });
 console.log(out);
-
-// Printed, not fatal: the page still renders. Fix each error and render again.
-const errors = printProblems();
 
 // A listed log that was never copied is a dead link; the page shows it unlinked,
 // and the run fails so it gets copied rather than shipped.
@@ -201,14 +136,13 @@ if (missing.length) {
 }
 // The same for test files: a finding that names one nobody can open cannot be reproduced.
 if (missingTestFiles.length) {
-	console.error(`missing test files, listed in ## Files but not beside the report:\n${missingTestFiles.map(p => `  ${p}`).join('\n')}`);
+	console.error(`missing test files, listed in files but not beside the report:\n${missingTestFiles.map(p => `  ${p}`).join('\n')}`);
 }
 // Evidence groups by step, so a shot with none has nowhere to go; lint names it.
 const untagged = untaggedShots(parsed.findings);
 // Sent last, so the row says whether the render failed the run.
 if (stats) {
-	// Warnings never fail a run, so the final count is the errors left.
-	const final = { problems: errors.length, missingLogs: missing.length, missingFiles: missingTestFiles.length, untaggedShots: untagged.length };
+	const final = { missingLogs: missing.length, missingFiles: missingTestFiles.length, untaggedShots: untagged.length };
 	await reportUsageOnce(dir, { email: gitEmail(), event: 'finished', runId: basename(dir), stats: { ...stats, final } });
 }
 if (missing.length || missingTestFiles.length || untagged.length) {

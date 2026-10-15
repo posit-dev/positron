@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test } from '../_test.setup';
+import { tags, test } from '../_test.setup';
 import { defineMemoryScenario } from './memory-scenario';
 
 test.use({
@@ -20,6 +20,7 @@ test.use({
 // proves kcserver itself did not crash.
 defineMemoryScenario({
 	scenario: 'session-r',
+	tag: tags.ARK,
 	prepare: async ({ sessions }) => {
 		await sessions.startAndSkipMetadata({ language: 'R', waitForReady: true });
 	},

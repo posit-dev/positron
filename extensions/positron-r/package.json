@@ -279,7 +279,7 @@
         "title": "%r.configuration.title-dev%",
         "properties": {
           "positron.r.customRootFolders": {
-            "scope": "resource",
+            "scope": "window",
             "type": "array",
             "items": {
               "type": "string"
@@ -292,7 +292,7 @@
             "markdownDescription": "%r.configuration.customRootFolders.markdownDescription%"
           },
           "positron.r.customBinaries": {
-            "scope": "resource",
+            "scope": "window",
             "type": "array",
             "items": {
               "type": "string"
@@ -305,7 +305,7 @@
             "markdownDescription": "%r.configuration.customBinaries.markdownDescription%"
           },
           "positron.r.interpreters.exclude": {
-            "scope": "resource",
+            "scope": "window",
             "type": "array",
             "items": {
               "type": "string"
@@ -318,7 +318,7 @@
             "markdownDescription": "%r.configuration.interpreters.exclude.markdownDescription%"
           },
           "positron.r.interpreters.override": {
-            "scope": "resource",
+            "scope": "window",
             "type": "array",
             "items": {
               "type": "string"
@@ -331,7 +331,7 @@
             "markdownDescription": "%r.configuration.interpreters.override.markdownDescription%"
           },
           "positron.r.interpreters.default": {
-            "scope": "resource",
+            "scope": "window",
             "type": "string",
             "default": null,
             "tags": [
@@ -340,7 +340,7 @@
             "markdownDescription": "%r.configuration.interpreters.default.markdownDescription%"
           },
           "positron.r.interpreters.condaDiscovery": {
-            "scope": "resource",
+            "scope": "window",
             "type": "boolean",
             "default": false,
             "tags": [
@@ -350,7 +350,7 @@
             "markdownDescription": "%r.configuration.interpreters.condaDiscovery.markdownDescription%"
           },
           "positron.r.interpreters.pixiDiscovery": {
-            "scope": "resource",
+            "scope": "window",
             "type": "boolean",
             "default": false,
             "tags": [
@@ -360,7 +360,7 @@
             "markdownDescription": "%r.configuration.interpreters.pixiDiscovery.markdownDescription%"
           },
           "positron.r.interpreters.pathDiscoveryMode": {
-            "scope": "resource",
+            "scope": "window",
             "type": "string",
             "enum": [
               "auto",

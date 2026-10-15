@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Diagnostics', {
-	tag: [tags.PYREFLY, tags.WEB],
+	tag: [tags.PYREFLY, tags.WEB, tags.PYTHON],
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {

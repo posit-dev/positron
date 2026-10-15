@@ -6,66 +6,34 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildStats, CHECKS_FILE, readChecks, recordCheck, ruleKey, statsFromLog, summarizeByVersion, summarizeChecks } from './stats.mjs';
+import { problem } from './lint/lint-rules.mjs';
+import { withLogsRun, withTmpDir } from './shared/tmp-dirs.mjs';
+import { buildStats, CHECKS_FILE, readChecks, recordCheck, statsFromLog, summarizeByVersion, summarizeChecks } from './stats.mjs';
 
 // The renders these tests spawn must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
 
-const RENDER = fileURLToPath(new URL('./render.mjs', import.meta.url));
+const LINT_JSON = fileURLToPath(new URL('./lint-json.mjs', import.meta.url));
 const SCRIPT = fileURLToPath(new URL('./stats.mjs', import.meta.url));
-const LOGS_DIR = fileURLToPath(new URL('./fixtures/logs-run/', import.meta.url));
-
-function tempDir() {
-	return mkdtempSync(join(tmpdir(), 'stats-'));
-}
-
-test('ruleKey gives one key per rule, whatever run-specific details a message carries', () => {
-	assert.equal(
-		ruleKey('ledger: S17 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it'),
-		ruleKey('ledger: S03 step 11 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it'),
-	);
-	assert.equal(
-		ruleKey('report: finding 2 Severity must be major, moderate or minor, got "High"'),
-		ruleKey('report: finding 5 Severity must be major, moderate or minor, got "blocker"'),
-	);
-	assert.equal(
-		ruleKey('report: Finding 1 names test file src/vs/a/test/a.vitest.ts, which is not in the repository; fix the path, mark it (new file), or drop it'),
-		ruleKey('report: Finding 3 names test file extensions/b/src/test/b.test.ts, which is not in the repository; fix the path, mark it (new file), or drop it'),
-	);
-	// Lists of places, however long, and file names that start with a scenario ID.
-	assert.equal(
-		ruleKey('data.csv is named by Finding 1, Finding 2, S03, S04 but not saved; save it to files/'),
-		ruleKey('app.py is named by Finding 2, S01 but not saved; save it to files/'),
-	);
-	assert.equal(
-		ruleKey('ledger: S02-02.png is Evidence for S02 step 2 and S03 step 2 and S04 step 1; take a screenshot for each check'),
-		ruleKey('ledger: a.png is Evidence for S20 step 2 and S24 step 2; take a screenshot for each check'),
-	);
-	assert.notEqual(ruleKey('report: leave a blank line after </summary>'), ruleKey('report: leave a blank line before </details>'));
-});
 
 test('recordCheck and summarizeChecks keep the rounds, and the first and last check', () => {
-	const dir = tempDir();
-	try {
+	withTmpDir('stats-', dir => {
 		assert.equal(readChecks(dir), null);
-		recordCheck(dir, ['report: finding 1 Reproduction must be N/M, got "3 of 3"', 'report: finding 2 Reproduction must be N/M, got "always"', 'report: leave a blank line after </summary>']);
-		recordCheck(dir, ['report: leave a blank line after </summary>']);
+		recordCheck(dir, [problem('rate-format', 'report: Finding 1 rate'), problem('rate-format', 'report: Finding 2 rate'), problem('two-actions', 'ledger: S01 step 1')]);
+		recordCheck(dir, [problem('two-actions', 'ledger: S01 step 1')]);
 		recordCheck(dir, []);
 		const checks = readChecks(dir);
 		assert.equal(checks.rounds, 3);
 		assert.equal(checks.first.problems, 3);
 		assert.equal(checks.last, 0);
-		assert.deepEqual(Object.values(checks.first.rules).sort(), [1, 2]);
+		assert.deepEqual(checks.first.rules, { 'rate-format': 2, 'two-actions': 1 });
 		// A torn last line from an interrupted run is skipped, not fatal.
 		writeFileSync(join(dir, CHECKS_FILE), `${readFileSync(join(dir, CHECKS_FILE), 'utf8')}{"at":`);
 		assert.equal(readChecks(dir).rounds, 3);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	});
 	assert.equal(summarizeChecks(''), null);
 });
 
@@ -107,18 +75,15 @@ test('summarizeByVersion counts a rule once per run it fired in', () => {
 	assert.equal(v12.medianRounds, 4);
 });
 
-test('render.mjs counts the explorer\'s checks, not the harness\'s renders, and the last render writes stats.json', () => {
-	const dir = tempDir();
-	try {
-		cpSync(LOGS_DIR, dir, { recursive: true });
-		const report = join(dir, 'report.md');
-		const render = args => spawnSync(process.execPath, [RENDER, report, ...args], { encoding: 'utf8' });
-		render([]);
-		render(['--check']);
+test('lint-json counts the explorer\'s checks, renders do not, and the pipeline\'s render writes stats.json', () => {
+	withLogsRun(({ dir, report, render }) => {
+		const lint = () => spawnSync(process.execPath, [LINT_JSON, report], { encoding: 'utf8' });
+		lint();
+		lint();
 		assert.equal(readChecks(dir).rounds, 2);
-		render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142']);
-		render(['--base', 'https://example.test/run', '--out', join(dir, 'published.html')]);
-		assert.equal(readChecks(dir).rounds, 2, 'the Run tile and publish renders are not the explorer\'s');
+		render(report);
+		render(report, '--base', 'https://example.test/run', '--out', join(dir, 'published.html'));
+		assert.equal(readChecks(dir).rounds, 2, 'the pipeline\'s and publish\'s renders are not the explorer\'s');
 		const stats = JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8'));
 		assert.equal(stats.where, 'local');
 		assert.equal(stats.turns, 142);
@@ -134,32 +99,37 @@ test('render.mjs counts the explorer\'s checks, not the harness\'s renders, and 
 		]);
 		// The checks tune the skill, so they stay in stats.json and off the page.
 		assert.doesNotMatch(readFileSync(join(dir, 'index.html'), 'utf8'), /Format checks|Raw stats/);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	}, [{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 142, durationMs: 1500000 }]);
 });
 
-test('render.mjs records an isolation pass in the footer, the Agents table and stats.json', () => {
-	const dir = tempDir();
-	try {
-		cpSync(LOGS_DIR, dir, { recursive: true });
-		const report = join(dir, 'report.md');
-		spawnSync(process.execPath, [RENDER, report, '--model', 'claude-opus-5-5', '--duration-ms', '600000', '--turns', '70',
-			'--verify-model', 'claude-sonnet-5-5', '--verify-duration-ms', '60000', '--verify-turns', '10',
-			'--isolate-model', 'claude-sonnet-5-5', '--isolate-duration-ms', '300000', '--isolate-turns', '30'], { encoding: 'utf8' });
-		const md = readFileSync(report, 'utf8');
-		assert.match(md, /^_isolate: [^\n]*30 turns \| 5m_$/m);
-		assert.match(md, /^_total: 16m_$/m);
+test('render.mjs records an isolation pass in the Agents table and stats.json', () => {
+	withLogsRun(({ dir, report, render }) => {
+		render(report);
 		const stats = JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8'));
 		assert.deepEqual(stats.isolate, { durationMs: 300000, turns: 30 });
 		assert.equal(stats.durationMs, 960000);
 		assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /<div class="agents-row"><span>Isolate<\/span>/);
-		// A re-render without the flag drops the line rather than stacking it.
-		spawnSync(process.execPath, [RENDER, report, '--model', 'claude-opus-5-5', '--duration-ms', '600000', '--turns', '70'], { encoding: 'utf8' });
-		assert.doesNotMatch(readFileSync(report, 'utf8'), /_isolate:/);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	}, [
+		{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 70, durationMs: 600000 },
+		{ label: 'verify', model: 'claude-sonnet-5-5', costUsd: null, turns: 10, durationMs: 60000 },
+		{ label: 'isolate', model: 'claude-sonnet-5-5', costUsd: null, turns: 30, durationMs: 300000 },
+	]);
+});
+
+test('render.mjs gives the stats a cost when every pass has one, and keeps the stats CI recorded', () => {
+	withLogsRun(({ dir, report, render }) => {
+		render(report);
+		assert.equal(JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8')).costUsd, 4.12);
+	}, [
+		{ label: 'explore', model: 'opus', costUsd: 3.7, turns: 142, durationMs: 1500000 },
+		{ label: 'verify', model: 'sonnet', costUsd: 0.4231, turns: 24, durationMs: 180000 },
+	]);
+	withLogsRun(({ dir, report, render }) => {
+		writeFileSync(join(dir, 'cost.json'), '{}');
+		writeFileSync(join(dir, 'stats.json'), '{"where":"ci"}\n');
+		render(report);
+		assert.equal(readFileSync(join(dir, 'stats.json'), 'utf8'), '{"where":"ci"}\n');
+	}, [{ label: 'explore', model: 'opus', costUsd: null, turns: 10, durationMs: 60000 }]);
 });
 
 test('buildStats clips a long Not run reason', () => {
@@ -170,8 +140,7 @@ test('buildStats clips a long Not run reason', () => {
 });
 
 test('the stats command tables local runs and sums them up by version', () => {
-	const root = tempDir();
-	try {
+	withTmpDir('stats-', root => {
 		for (const [name, version, rounds] of [['20260927T100000', '1.1', 2], ['20260928T100000', '1.2', 3]]) {
 			mkdirSync(join(root, name));
 			writeFileSync(join(root, name, 'stats.json'), JSON.stringify({
@@ -187,9 +156,7 @@ test('the stats command tables local runs and sums them up by version', () => {
 		assert.match(out, /version 1\.2: 1 runs .* median rounds 3/);
 		assert.match(out, /1x {2}report: leave a blank line after <\/summary>/);
 		assert.ok(existsSync(root));
-	} finally {
-		rmSync(root, { recursive: true, force: true });
-	}
+	});
 });
 
 test('the stats command rejects a --limit that is not a positive whole number', () => {

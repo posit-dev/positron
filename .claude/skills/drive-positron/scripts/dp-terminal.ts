@@ -7,7 +7,7 @@
 // terminal-run.sh wraps it.
 
 import { readFileSync } from 'fs';
-import { Exit, inPage, log, mod, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { count, Exit, inPage, log, mod, parse, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -88,18 +88,12 @@ const terminal: PageFn<{ index: number; text: string; key: string; read: boolean
 	if (a.key) {
 		// Playwright checks a key name only as it presses it: in Control+BackSpace
 		// it has pressed Control down before it rejects BackSpace, and leaves it
-		// down for every later key. Release what went down, and report the name.
+		// down for every later key. Release the modifiers, and report the name.
 		try { await page.keyboard.press(a.key); } catch (e) {
 			const unknown = String((e as Error)?.message ?? e).match(/Unknown key: "(.*)"/)?.[1];
 			if (unknown === undefined) { throw e; }
-			// Playwright's own split: "+" ends a name unless it starts one ("Shift++").
-			const tokens: string[] = [];
-			let t = '';
-			for (const ch of a.key) { if (ch === '+' && t) { tokens.push(t); t = ''; } else { t += ch; } }
-			tokens.push(t);
-			const down = tokens.slice(0, Math.max(0, tokens.indexOf(unknown)));
-			for (const k of [...down].reverse()) { await page.keyboard.up(k).catch(() => { }); }
-			return { ok: false, ...base, sent: null, unknownKey: unknown, released: down };
+			for (const k of ['Control', 'Shift', 'Alt', 'Meta']) { await page.keyboard.up(k).catch(() => { }); }
+			return { ok: false, ...base, sent: null, unknownKey: unknown };
 		}
 		if (!await focused()) { return { ok: false, ...base, sent: null, error: 'focus left the terminal; the key may have gone elsewhere' }; }
 		return { ok: true, ...base, sent: a.key };
@@ -117,14 +111,9 @@ const terminal: PageFn<{ index: number; text: string; key: string; read: boolean
 	return { ok: true, ...base, entered: true };
 };
 
-// For the hint after an unknown key name: Playwright's names that are often
-// written in another case (BackSpace, PAGEUP), and other programs' names for them.
-const keyNames = ['Backspace', 'Tab', 'Enter', 'Escape', 'Delete', 'Insert', 'Home', 'End', 'PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Control', 'Shift', 'Alt', 'Meta', 'ControlOrMeta'];
-const keyAliases: Record<string, string> = { ctrl: 'Control', control_l: 'Control', cmd: 'Meta', command: 'Meta', super: 'Meta', option: 'Alt', esc: 'Escape', return: 'Enter', del: 'Delete', ins: 'Insert', up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', pgup: 'PageUp', pgdn: 'PageDown', prior: 'PageUp', next: 'PageDown', bksp: 'Backspace' };
-
 export const terminalCommands: Record<string, (argv: string[]) => Json | string> = {
 	'terminal-run': argv => {
-		const p = parse(argv, ['session', 'index', 'key', 'tail'], Infinity);
+		const p = parse(argv, ['session', 'index', 'key', 'tail'], Infinity, ['read']);
 		if (p.flags.help) { usage('terminal-run.sh'); }
 		const read = !!p.flags.read;
 		const key = String(p.flags.key ?? '');
@@ -135,14 +124,12 @@ export const terminalCommands: Record<string, (argv: string[]) => Json | string>
 		if (p.rest.length > most) { throw new Exit(2, { ok: false, error: `unexpected argument ${JSON.stringify(p.rest[most])}: ${most ? 'give the command as one quoted argument' : `--${read ? 'read' : 'key'} takes no command`}` }); }
 		if (!read && !key && p.rest[0] === 'read') { throw new Exit(2, { ok: false, error: 'to read the terminal pass --read; "read" alone is not typed into the shell' }); }
 		if (p.flags.tail !== undefined && !read) { throw new Exit(2, { ok: false, error: '--tail goes with --read' }); }
-		// Number() would turn "abc" into NaN and "0" into 0, both read below as
-		// "no --index" (terminal 1) or "no --tail" (every line), and a negative
-		// --tail into slice(N): refuse them instead.
-		if (p.flags.index !== undefined && !/^[1-9]\d*$/.test(String(p.flags.index))) { throw new Exit(2, { ok: false, error: `--index must be a terminal number from 1, not ${JSON.stringify(p.flags.index)}` }); }
-		if (p.flags.tail !== undefined && !/^\d+$/.test(String(p.flags.tail))) { throw new Exit(2, { ok: false, error: `--tail must be a whole number of lines (0 for all), not ${JSON.stringify(p.flags.tail)}` }); }
+		// count() refuses "abc", "", "0" and "-2" for --index, which Number() would read as
+		// "no --index" (terminal 1), and a negative --tail, which would reach slice(N).
+		const index = count(p, 'index', 0, 1, 'a terminal number'), tail = count(p, 'tail', 0, 0, 'how many lines to read');
 		const text = read || key ? '' : (p.rest.length ? p.rest.join(' ') : readFileSync(0, 'utf8').replace(/\n$/, ''));
 		if (!read && !key && !text) { throw new Exit(2, { ok: false, error: 'empty input' }); }
-		const args = { index: Number(p.flags.index ?? 0), text, key, read, tail: Number(p.flags.tail ?? 0), wait: 0, mod };
+		const args = { index, text, key, read, tail, wait: 0, mod };
 		let r = inPage(p.session, terminal, args);
 		// Another panel tab (the Console, after a console run) hides the terminals:
 		// bring the Terminal view forward, as console-run does the Console.
@@ -153,10 +140,7 @@ export const terminalCommands: Record<string, (argv: string[]) => Json | string>
 		}
 		delete r.noTerminal;
 		if (r.unknownKey !== undefined) {
-			const bad = String(r.unknownKey), released = r.released as string[];
-			const fix = keyNames.find(k => k.toLowerCase() === bad.toLowerCase()) ?? keyAliases[bad.toLowerCase()];
-			const pressed = released.length ? `${released.join(' and ')} went down and up; nothing else was sent` : 'nothing was sent';
-			throw new Exit(2, { ok: false, index: r.index, visible: r.visible, sent: null, error: `${JSON.stringify(bad)} is not a Playwright key name${fix ? ` (try ${fix})` : ''}; ${pressed}. Names are case-sensitive, such as Backspace, Enter, Escape, ArrowUp, Control+c` });
+			throw new Exit(2, { ok: false, index: r.index, visible: r.visible, sent: null, error: `${JSON.stringify(r.unknownKey)} is not a Playwright key name; nothing was sent. Names are case-sensitive, such as Backspace, Enter, Escape, ArrowUp, Control+c` });
 		}
 		if (r.ok && key) { log('terminal-run.sh', p.session, `key ${key} in terminal ${r.index}`); }
 		if (r.ok && text) { log('terminal-run.sh', p.session, text.split('\n')[0].slice(0, 200)); }

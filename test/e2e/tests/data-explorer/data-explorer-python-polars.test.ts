@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Data Explorer - Python Polars', {
-	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.DATA_EXPLORER]
+	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.DATA_EXPLORER, tags.PYTHON]
 }, () => {
 
 	test.beforeEach(async function ({ app, openFile, runCommand, python }) {

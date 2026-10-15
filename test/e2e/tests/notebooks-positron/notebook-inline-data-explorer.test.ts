@@ -24,7 +24,7 @@ df = pd.DataFrame({'Value': [30, 10, 50, 20, 40], 'Label': ['E', 'A', 'C', 'B', 
 df`;
 
 test.describe('Positron Notebooks: Inline Data Explorer', {
-	tag: [tags.POSITRON_NOTEBOOKS, tags.DATA_EXPLORER, tags.WEB, tags.WIN]
+	tag: [tags.POSITRON_NOTEBOOKS, tags.DATA_EXPLORER, tags.WEB, tags.WIN, tags.PYTHON]
 }, () => {
 
 	test.beforeEach(async function ({ app, python }) {

@@ -14,7 +14,7 @@ test.describe('Tasks', {
 	tag: [tags.TASKS]
 }, () => {
 
-	test('Python: Verify Basic Tasks Functionality', async function ({ app, python, openFile }) {
+	test('Python: Verify Basic Tasks Functionality', { tag: [tags.PYTHON] }, async function ({ app, python, openFile }) {
 
 		await openFile(join('workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 

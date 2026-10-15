@@ -98,6 +98,10 @@ command and helper (`--session positron`):
 
 - Do not derive the name from `$$`: each shell call has its own PID, so each
   would get its own session.
+- Use a name no other driver on this machine is using: drivers in one checkout
+  share playwright-cli's sessions, so two under one name drive the same window.
+  When `$PW_SESSION` is set, use it; the helpers read it when `--session` is
+  left out.
 - Run from the repository root and call the binary directly. `npx` costs about a
   second per call, and from another folder installs its own copy, which reports
   `The browser 'NAME' is not open`.

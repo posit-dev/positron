@@ -350,7 +350,9 @@ export enum EditorOption {
 	effectiveAllowVariableFonts = 173,
 	quickSuggestionsMinimumLength = 174,
 	doubleClickSelectsBlock = 175,
-	tabSuggest = 176
+	fullwidthCharacterWidth = 176,
+	effectiveFullwidthCharacterWidth = 177,
+	tabSuggest = 178
 }
 
 /**

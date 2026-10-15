@@ -2,7 +2,7 @@ name: "Exploratory Test: Checks"
 
 # Runs the exploratory-test skill's own tests on a PR that changes the skill or
 # the action that runs it in CI, and checks the skill's version was bumped when
-# the agent's instructions changed. Nothing else in CI runs these tests.
+# something that shapes a run's findings changed. Nothing else in CI runs these tests.
 #
 # Plain `pull_request`: no secrets and a read-only token, so a fork PR is safe.
 
@@ -12,6 +12,7 @@ on:
       - ".claude/skills/exploratory-test/**"
       - ".github/actions/pr-exploratory-test/**"
       - ".github/workflows/exploratory-test-checks.yml"
+      - ".github/workflows/test-exploratory.yml"
 
 permissions:
   contents: read
@@ -35,6 +36,7 @@ jobs:
             .claude/skills/exploratory-test
             .claude/skills/drive-positron/scripts
             .github/actions/pr-exploratory-test
+            .github/workflows/test-exploratory.yml
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -42,18 +44,24 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # Feedback is grouped by this version, so a change to what the agent is
-      # told has to land under a new one.
+      # Feedback is grouped by this version, so a change to what shapes a run's
+      # findings has to land under a new one.
       - name: Check the skill version was bumped
         shell: bash
         run: |
           SKILL=.claude/skills/exploratory-test
           version() { sed -n '/^---$/,/^---$/p' | sed -nE 's/^[[:space:]]+version:[[:space:]]*"?([^"[:space:]]+)"?.*$/\1/p'; }
-          # run.mjs and lib.mjs build the prompt CI gives the explorer.
-          ACTION=.github/actions/pr-exploratory-test
-          CHANGED=$(git diff --name-only HEAD^1 HEAD -- "$SKILL/SKILL.md" "$SKILL/explorer.md" "$SKILL/verifier.md" "$SKILL/editor.md" "$ACTION/run.mjs" "$ACTION/lib.mjs")
+          # What the agents are told and allowed, and what is done with their
+          # replies: the files versioned-files.txt lists.
+          FILES=()
+          while IFS= read -r f; do FILES+=("$f"); done < <(grep -v '^#' "$SKILL/versioned-files.txt" | grep -v '^[[:space:]]*$')
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "::error file=$SKILL/versioned-files.txt::versioned-files.txt lists no files."
+            exit 1
+          fi
+          CHANGED=$(git diff --name-only HEAD^1 HEAD -- "${FILES[@]}")
           if [ -z "$CHANGED" ]; then
-            echo "The agent's instructions did not change."
+            echo "Nothing that shapes a run's findings changed."
             exit 0
           fi
           BEFORE=$(git show "HEAD^1:$SKILL/SKILL.md" 2>/dev/null | version || true)
@@ -65,7 +73,7 @@ jobs:
             exit 1
           fi
           if [ -n "$BEFORE" ] && [ "$BEFORE" = "$AFTER" ]; then
-            echo "::error file=$SKILL/SKILL.md::The agent's instructions changed, so bump metadata.version in SKILL.md (now $AFTER)."
+            echo "::error file=$SKILL/SKILL.md::What shapes a run's findings changed, so bump metadata.version in SKILL.md (now $AFTER)."
             exit 1
           fi
 

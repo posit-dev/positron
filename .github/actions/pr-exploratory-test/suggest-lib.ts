@@ -15,6 +15,24 @@ export const SUGGEST_MARKER = '<!-- exploratory-testing:candidate -->';
 /** Every name test-exploratory.yml's membership job accepts. */
 export const RUN_COMMANDS = ['/explore', '/test', '/exploratory-test'];
 
+/**
+ * The name test-exploratory.yml gives a run the post job starts for an author
+ * on the auto-run list (#16610). A declined run leaves nothing on the PR, so
+ * this name is how a later event knows it already started one.
+ */
+export function autoRunName(prNumber) {
+	return `Exploratory auto-run #${prNumber}`;
+}
+
+/**
+ * Whether `login` is on the auto-run list: the EXPLORE_AUTO_RUN_AUTHORS repo
+ * variable, logins separated by commas or whitespace. Empty runs nobody.
+ */
+export function isAutoRunAuthor(login, list) {
+	const names = String(list ?? '').split(/[\s,]+/).filter(Boolean).map(n => n.toLowerCase());
+	return !!login && names.includes(String(login).toLowerCase());
+}
+
 /** Caps what the model reads; the rest of the diff is listed by name only. */
 export const DIFF_MAX = 40000;
 

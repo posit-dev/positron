@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stands in for a network failure: fails like curl does when the host cannot be resolved.
+echo "curl: (6) Could not resolve host: astral.sh" >&2
+exit 6

@@ -3731,6 +3731,11 @@ declare namespace monaco.editor {
 		 */
 		formatOnPaste?: boolean;
 		/**
+		 * Controls the width used to render full-width characters.
+		 * Defaults to 'font'.
+		 */
+		fullwidthCharacterWidth?: 'font' | 'twoCells';
+		/**
 		 * Controls whether double-clicking next to a bracket or quote selects the content inside.
 		 * Defaults to true.
 		 */
@@ -4015,6 +4020,8 @@ declare namespace monaco.editor {
 		 */
 		inlineCompletionsAccessibilityVerbose?: boolean;
 	}
+
+	export type DiffEditorViewMode = 'inline' | 'sideBySide' | 'automatic';
 
 	export interface IDiffEditorBaseOptions {
 		/**
@@ -5285,7 +5292,9 @@ declare namespace monaco.editor {
 		effectiveAllowVariableFonts = 173,
 		quickSuggestionsMinimumLength = 174,
 		doubleClickSelectsBlock = 175,
-		tabSuggest = 176
+		fullwidthCharacterWidth = 176,
+		effectiveFullwidthCharacterWidth = 177,
+		tabSuggest = 178
 	}
 
 	export const EditorOptions: {
@@ -5342,7 +5351,7 @@ declare namespace monaco.editor {
 		renderRichScreenReaderContent: IEditorOption<EditorOption.renderRichScreenReaderContent, boolean>;
 		stickyScroll: IEditorOption<EditorOption.stickyScroll, Readonly<Required<IEditorStickyScrollOptions>>>;
 		experimentalGpuAcceleration: IEditorOption<EditorOption.experimentalGpuAcceleration, 'on' | 'off'>;
-		experimentalWhitespaceRendering: IEditorOption<EditorOption.experimentalWhitespaceRendering, 'off' | 'svg' | 'font'>;
+		experimentalWhitespaceRendering: IEditorOption<EditorOption.experimentalWhitespaceRendering, 'off' | 'font' | 'svg'>;
 		extraEditorClassName: IEditorOption<EditorOption.extraEditorClassName, string>;
 		fastScrollSensitivity: IEditorOption<EditorOption.fastScrollSensitivity, number>;
 		find: IEditorOption<EditorOption.find, Readonly<Required<IEditorFindOptions>>>;
@@ -5361,6 +5370,7 @@ declare namespace monaco.editor {
 		fontVariations: IEditorOption<EditorOption.fontVariations, string>;
 		formatOnPaste: IEditorOption<EditorOption.formatOnPaste, boolean>;
 		formatOnType: IEditorOption<EditorOption.formatOnType, boolean>;
+		fullwidthCharacterWidth: IEditorOption<EditorOption.fullwidthCharacterWidth, 'font' | 'twoCells'>;
 		glyphMargin: IEditorOption<EditorOption.glyphMargin, boolean>;
 		gotoLocation: IEditorOption<EditorOption.gotoLocation, Readonly<Required<IGotoLocationOptions>>>;
 		hideCursorInOverviewRuler: IEditorOption<EditorOption.hideCursorInOverviewRuler, boolean>;
@@ -5466,6 +5476,7 @@ declare namespace monaco.editor {
 		wrappingStrategy: IEditorOption<EditorOption.wrappingStrategy, 'simple' | 'advanced'>;
 		effectiveEditContextEnabled: IEditorOption<EditorOption.effectiveEditContext, boolean>;
 		effectiveAllowVariableFonts: IEditorOption<EditorOption.effectiveAllowVariableFonts, boolean>;
+		effectiveFullwidthCharacterWidth: IEditorOption<EditorOption.effectiveFullwidthCharacterWidth, 'font' | 'twoCells'>;
 	};
 
 	type EditorOptionsType = typeof EditorOptions;
@@ -6642,6 +6653,11 @@ declare namespace monaco.languages {
 	export function getLanguages(): ILanguageExtensionPoint[];
 
 	export function getEncodedLanguageId(languageId: string): number;
+
+	/**
+	 * Compute the score of a language selector against a candidate Uri and language.
+	 */
+	export function score(selector: LanguageSelector | undefined, candidateUri: Uri, candidateLanguage: string): number;
 
 	/**
 	 * An event emitted when a language is associated for the first time with a text model.

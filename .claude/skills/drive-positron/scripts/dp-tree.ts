@@ -5,31 +5,43 @@
 
 // A tree in a view: upstream trees (Explorer, Outline) are lists of treeitems
 // with levels and expanded states in the accessibility tree; Positron's own
-// trees (Data Connections) are a grid with no rows, levels or states there, so
-// their rows are read from the page until they get those roles. Rows are found
-// by label: the whole text of one piece of the row ("orders", without its
-// "Table" prefix). tree.sh wraps these.
+// trees (Data Connections, Variables) are grids with no rows, levels or states
+// there, so their rows are read from the page until they get those roles. Rows
+// are found by label: the whole text of one piece of the row ("orders", without
+// its "Table" prefix). tree.sh wraps these.
 
-import { Exit, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { commandWord, count, Exit, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
 
 interface Args { view: string; cmd: string; label: string; nth: number; item: string }
 
 // runs in run-code
 const tree: PageFn<Args> = async (page, a, lib) => {
-	let scope = page.locator('body');
-	if (a.view) {
-		const sc = await lib.scope(a.view);
-		if (!('loc' in sc) || !sc.loc) { return { ok: false, ...sc }; }
-		scope = sc.loc;
-	}
+	// lib.scope marks the other sessions' Variables, stacked under the one on screen; read leaves their rows out.
+	const sc = await lib.scope(a.view);
+	if (!('loc' in sc) || !sc.loc) { return { ok: false, ...sc }; }
+	const scope = sc.loc;
 	// Every visible row, top to bottom: level (0 = top), state and pieces of text.
 	const t = lib.css.tree;
 	const read = () => scope.evaluate((root, t) => {
 		const clean = (e: Element | null | undefined) => e ? (e.textContent ?? '').replace(/\s+/g, ' ').trim() : '';
-		const rows = [...root.querySelectorAll<HTMLElement>(`${t.row}, ${t.listRow}`)]
-			.filter(r => r.offsetParent !== null)
+		// Marks left by an earlier read (in another view, or on rows now stacked or hidden) would share an index with a row read now.
+		root.ownerDocument.querySelectorAll('[data-dp-row]').forEach(e => e.removeAttribute('data-dp-row'));
+		const rows = [...root.querySelectorAll<HTMLElement>(`${t.row}, ${t.listRow}, ${t.varRow}`)]
+			.filter(r => r.offsetParent !== null && !(r.matches(t.varRow) && r.closest('[data-dp-stacked]')))
 			.sort((p, q) => p.getBoundingClientRect().top - q.getBoundingClientRect().top);
 		return rows.map((r, index) => {
+			if (r.matches(t.varRow)) {
+				// Variables: pieces are the name (or group title), value and type.
+				const icon = r.querySelector(t.varIcon);
+				const indent = r.querySelector(t.varIndent);
+				const pieces = [...r.querySelectorAll('*')].filter(e => e.children.length === 0).map(clean).filter(Boolean);
+				r.setAttribute('data-dp-row', String(index));
+				return {
+					index, level: indent ? Math.round((parseFloat(getComputedStyle(indent).marginLeft) || 0) / 20) : 0,
+					state: !icon ? 'leaf' : icon.matches(t.varExpanded) ? 'expanded' : 'collapsed',
+					text: pieces.join(' '), pieces, hasTwisty: !!icon,
+				};
+			}
 			const positron = r.matches(t.row);
 			const content = (positron ? r.querySelector(t.content) : r.querySelector(t.listContent)) ?? r;
 			const twisty = positron ? r.querySelector(t.twisty) : r.querySelector(t.listTwisty);
@@ -55,8 +67,8 @@ const tree: PageFn<Args> = async (page, a, lib) => {
 	const hit = hits[(a.nth || 1) - 1];
 	if (!hit) { return { ok: false, error: `only ${hits.length} rows labelled "${a.label}"` }; }
 	const row = scope.locator(`[data-dp-row="${hit.index}"]`);
-	const content = row.locator(`${t.content}, ${t.listContent}`).first();
-	const twisty = row.locator(`${t.twisty}, ${t.listTwisty}`).first();
+	const content = row.locator(`${t.content}, ${t.listContent}, ${t.varContent}`).first();
+	const twisty = row.locator(`${t.twisty}, ${t.listTwisty}, ${t.varTwisty}`).first();
 	const now = async () => (await read()).find(x => x.text === hit.text && x.level === hit.level);
 	switch (a.cmd) {
 		case 'expand': case 'collapse': {
@@ -100,10 +112,11 @@ export const treeCommands: Record<string, (argv: string[]) => Json | string> = {
 		const p = parse(argv, ['session', 'view', 'nth'], { rows: 1, expand: 2, collapse: 2, click: 2, menu: 3 });
 		const [cmd, label, item] = p.rest;
 		if (p.flags.help || !cmd) { usage('tree.sh'); }
+		commandWord(cmd, ['rows', 'expand LABEL', 'collapse LABEL', 'click LABEL', 'menu LABEL ITEM']);
 		if (cmd !== 'rows' && !label) { throw new Exit(2, { ok: false, error: 'give the row label' }); }
 		if (cmd === 'menu' && !item) { throw new Exit(2, { ok: false, error: 'give the row label and the menu item' }); }
 		const view = String(p.flags.view ?? '');
-		const out = inPage(p.session, tree, { view, cmd, label: label ?? '', nth: Number(p.flags.nth ?? 0), item: item ?? '' });
+		const out = inPage(p.session, tree, { view, cmd, label: label ?? '', nth: count(p, 'nth', 0, 1, 'which row to take, 1 = top'), item: item ?? '' });
 		if (out.ok && cmd !== 'rows' && out.changed !== false) {
 			log('tree.sh', p.session, `${cmd === 'menu' ? `menu "${item}" on` : cmd} "${label}"${p.flags.nth ? ` (nth ${p.flags.nth})` : ''} in ${view || 'any view'}`);
 		}

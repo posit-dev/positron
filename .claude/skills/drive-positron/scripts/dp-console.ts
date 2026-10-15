@@ -7,7 +7,7 @@
 // files are wrappers.
 
 import { readFileSync } from 'fs';
-import { Exit, failText, inPage, language, log, logRead, mod, parse, pause, seconds, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
+import { count, Exit, failText, inPage, language, log, logRead, mod, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -55,9 +55,25 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 			p = await lib.pick({ words: a.words });
 		}
 		if (!p.ok) {
+			// pick shows only rows on screen (the first 8), of any language. With --name
+			// and no match, or with several rows matching, walk the whole picker (as
+			// filtered now) and list this language's rows that --name can be chosen from.
+			const none = p.error.startsWith('no row matches');
+			const several = / rows match /.test(p.error);
+			const all = (a.name && none) || several ? await lib.allRows() : null;
+			const fits = lib.hasWords(several ? a.words : a.word);
+			const ours = (all?.rows ?? []).filter(r => r.label.startsWith(a.word + ' ') && fits(r)).map(r => r.label + (r.description ? ' (' + r.description + ')' : ''));
 			// Interpreter discovery lists languages one by one: say whether this one has any row yet.
-			const listed = (await lib.rows()).some(r => r.label.startsWith(a.word + ' '));
+			const listed = ours.length > 0 || (await lib.rows()).some(r => r.label.startsWith(a.word + ' '));
 			await lib.closeQuickInput();
+			const more = all?.complete ? {} : { more: 'the picker lists more rows than were read' };
+			const how = 'pass words from one of the rows in "shown" as --name, in the order the row shows them, such as its version';
+			if (ours.length && none) {
+				return { ok: false, error: `--name "${a.name}" matches no ${a.word} interpreter the picker could pick; ${how}`, shown: ours, ...more, listed };
+			}
+			if (ours.length > 1) {
+				return { ok: false, error: `${ours.length} ${a.word} interpreters match${a.name ? ` --name "${a.name}"` : ''}; ${how}`, shown: ours, ...more, listed };
+			}
 			return { ...p, listed };
 		}
 		if (!p.row.label.startsWith(a.word + ' ')) {
@@ -325,9 +341,9 @@ function consoleRun(session: string, o: { language: 'python' | 'r'; name: string
 
 export const consoleCommands: Record<string, (argv: string[]) => Json | string> = {
 	'start-session': argv => {
-		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'answer']);
+		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'answer'], 0, ['new']);
 		if (p.flags.help) { usage('start-session.sh'); }
-		return startSession(p.session, language(p), textFlag(p, 'name'), seconds(p, 'timeout', 60), textFlag(p, 'answer'), !!p.flags.new);
+		return startSession(p.session, language(p), String(p.flags.name ?? ''), seconds(p, 'timeout', 60), String(p.flags.answer ?? ''), !!p.flags.new);
 	},
 	'console-run': argv => {
 		// A flag it does not take is refused: read as a switch, its value (--capture-timout 5)
@@ -337,7 +353,7 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 		const lang = language(p);
 		// Checked before anything is typed: a NaN timeout ends the echo wait before it starts.
 		const timeout = seconds(p, 'timeout', 10), captureTimeout = seconds(p, 'capture-timeout', 60);
-		const name = textFlag(p, 'name');
+		const name = String(p.flags.name ?? '');
 		// Read stdin whole: a shell's $(cat) would drop the blank line that ends a Python block.
 		const text = p.rest.length ? p.rest.join(' ') : readFileSync(0, 'utf8');
 		if (!text) { throw new Exit(2, { ok: false, error: 'empty input' }); }
@@ -350,13 +366,10 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 		// A flag it does not take (--langauge=r) is refused: ignored, the call would read the active console.
 		const p = parse(argv, ['session', 'language', 'name', 'tail', 'after'], 0, ['expand', 'prompt', 'help']);
 		if (p.flags.help) { usage('console-read.sh'); }
-		// An empty --language, --name or --after is a usage error, not the flag left out:
-		// read as absent, the call would read whichever console is active.
 		const lang = p.flags.language === undefined ? '' : language(p);
-		const name = textFlag(p, 'name'), afterText = textFlag(p, 'after');
+		const name = String(p.flags.name ?? ''), afterText = String(p.flags.after ?? '');
 		// Number() reads "abc" as NaN (falsy, so every line) and slice(-(-2)) drops the first two.
-		const tailFlag = String(p.flags.tail ?? 40);
-		if (!/^\d+$/.test(tailFlag)) { throw new Exit(2, { ok: false, error: `--tail must be a whole number of lines (0 for all), not ${JSON.stringify(tailFlag)}` }); }
+		const tail = count(p, 'tail', 40, 0, 'how many lines to read');
 		const r = readConsole(p.session, lang, name, !!p.flags.expand);
 		if (!r.ok) { failText('console-read.sh', String(r.error)); }
 		const tracebacks = `${r.expanded ? `; expanded ${r.expanded} traceback${r.expanded === 1 ? '' : 's'}` : ''}${r.collapsed ? `; ${r.collapsed} traceback${r.collapsed === 1 ? ' is' : 's are'} collapsed (Show Traceback): its frames are not in this text, --expand shows them` : ''}`;
@@ -377,7 +390,6 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 			process.stderr.write(`console-read.sh: --after matched ${a.used}\n`);
 			text = a.text;
 		}
-		const tail = Number(tailFlag);
 		const shown = tail ? text.split('\n').slice(-tail).join('\n') : text;
 		// The last lines are what a reading is usually for.
 		logRead('console-read.sh', p.session, `${r.session}, ${typeof r.prompt === 'string' ? `prompt ${r.prompt}` : typeof r.waiting === 'string' ? `input request ${JSON.stringify(r.waiting)}` : 'no prompt'}${r.collapsed ? `, ${r.collapsed} collapsed` : ''}: ...${shown.split('\n').filter(l => l.trim()).slice(-3).join(' | ')}`);

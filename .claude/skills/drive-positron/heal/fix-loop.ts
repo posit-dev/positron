@@ -23,7 +23,7 @@ import { readFixtureState, stopFixture } from '../test/fixture-app.ts';
 import { flagValue, readResults, SMOKE_ROOT, SMOKE_SESSION, unknownArg, type SmokeResults } from '../test/smoke-lib.ts';
 import { addFields, readFindings, readState, writeFinding, writeState, type Finding } from './finding.ts';
 import { addedKeys, affectedHelpers, postSections, readGraph, selectorUsers } from './affected.ts';
-import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, inSections, newCaseProblems, newCheckFailures, otherOpen, parseChecks, placeSections, queue, readOutcome, regressions, readReview, replaceCases, type FixerOutcome, type Review } from './fix-lib.ts';
+import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, inSections, knownProduct, newCaseProblems, newCheckFailures, otherOpen, parseChecks, placeSections, queue, readOutcome, regressions, readReview, replaceCases, type FixerOutcome, type IssueStates, type Review } from './fix-lib.ts';
 import { checksChanged } from './links.ts';
 import { cascade, mergeResults } from './rerun-lib.ts';
 import { outside, pathsFromStatus, SKILL_PREFIX } from './scope.ts';
@@ -79,8 +79,20 @@ function main(): number {
 	// recent/<run id>/ holds earlier nights' findings, fetched by the workflow.
 	const recentDir = join(dir, 'recent');
 	const recent = new Map(existsSync(recentDir) ? readdirSync(recentDir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => [d.name, readFindings(join(recentDir, d.name))]) : []);
-	const { attempt, notAttempted } = queue(findings, order, cap);
 	const save = (f: Finding) => { writeFinding(fdir, f); findings = findings.map(x => x.id === f.id ? f : x); };
+	// A product bug filed as an open issue needs no fixer; tonight's two failing reproductions say it is still there.
+	const issuesFile = join(recentDir, 'issues.json');
+	const states: IssueStates = existsSync(issuesFile) ? JSON.parse(readFileSync(issuesFile, 'utf8')) : {};
+	for (const f of findings.filter(x => x.outcome === undefined)) {
+		const k = knownProduct(recent, f, states);
+		if (!k) { continue; }
+		const { broke, cause } = k.finding;
+		save(addFields(f, {
+			outcome: 'product', issue: k.issue, reason: `a known product bug, open as issue #${k.issue} (run ${k.run}); no fixer ran`,
+			...(broke ? { broke } : {}), ...(cause ? { cause } : {}),
+		}));
+	}
+	const { attempt, notAttempted } = queue(findings, order, cap);
 	for (const f of findings.filter(x => x.outcome === undefined)) {
 		const runs = fixedBefore(recent, f);
 		if (runs.length) { save(addFields(f, { fixedBefore: runs })); }
@@ -203,7 +215,7 @@ function main(): number {
 		let { o, touched } = first;
 		if (o.outcome !== 'fixed' || !touched.length) {
 			discard(pre, false);
-			save(addFields(f, { outcome: o.outcome, reason: o.reason, reproductions: [o.reproduction], ...o.plain, ...(o.outcome === 'fixed' ? { rejected: 'outcome fixed with no change' } : {}) }));
+			save(addFields(f, { outcome: o.outcome, reason: o.reason, reproductions: [o.reproduction], ...o.plain, ...(o.issue ? { issue: o.issue } : {}), ...(o.outcome === 'fixed' ? { rejected: 'outcome fixed with no change' } : {}) }));
 			continue;
 		}
 
@@ -218,6 +230,7 @@ function main(): number {
 		}
 		const r1 = reviewFix(f, o, pre, 1);
 		let notes = r1?.notes ?? [];
+		let reviewVerdict = r1?.verdict;
 		let revised = false;
 		// One send-back, and only while the night has time; the second review is recorded, not obeyed.
 		if (r1?.verdict === 'revise' && Date.now() - started < budgetMs) {
@@ -245,7 +258,9 @@ function main(): number {
 				continue;
 			}
 			added = added2;
-			notes = reviewFix(f, o, pre, 2)?.notes ?? [];
+			const r2 = reviewFix(f, o, pre, 2);
+			notes = r2?.notes ?? [];
+			reviewVerdict = r2?.verdict;
 		}
 		// Added cases are not a change to what judges the fix.
 		const changed = checksChanged(added?.length ? touched.filter(p => p !== SMOKE) : touched);
@@ -264,7 +279,10 @@ function main(): number {
 		const scripts = join(here, '../scripts');
 		const reach = touched.flatMap(p => p === SMOKE && added?.length ? added.map(a => `${SKILL_PREFIX}scripts/${a.helper}`)
 			: p === `${SKILL_PREFIX}scripts/selectors.ts` ? selectorUsers(addedKeys(git('diff', '-U0', '--no-color', pre, sha, '--', p)), scripts) ?? [p] : [p]);
-		const scoped = postSections(baseline, affectedHelpers(reach, readGraph(scripts)), f);
+		const graph = readGraph(scripts);
+		const scoped = postSections(baseline, affectedHelpers(reach, graph), f);
+		// The helpers its scripts/ change reaches, for the PR title.
+		const reaches = affectedHelpers(reach.filter(p => p.startsWith(`${SKILL_PREFIX}scripts/`)), graph);
 		// Cases the fix added can sit past a section's baseline last case, or in a section the baseline did not pick.
 		let sections = scoped;
 		if (scoped && added?.length) {
@@ -292,7 +310,8 @@ function main(): number {
 						: after && added?.length ? newCaseProblems(added, after).join('; ') : '';
 		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, checksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}),
 			...(added?.length ? { newCases: added.map(a => a.name) } : {}), ...(o.untestable ? { untestable: o.untestable } : {}),
-			...(notes.length ? { review: notes } : {}), ...(revised ? { revised } : {}), ...(verdict ? { rejected: verdict } : {}) }));
+			...(notes.length ? { review: notes } : {}), ...(revised ? { revised } : {}), ...(reviewVerdict ? { reviewVerdict } : {}),
+			reaches: reaches === 'all' ? 'all' : [...reaches].sort(), ...(verdict ? { rejected: verdict } : {}) }));
 		if (verdict) {
 			discard(pre, false);
 			console.log(`fix-loop: ${f.id} fix rejected: ${verdict}`);

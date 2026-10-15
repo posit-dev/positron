@@ -5,8 +5,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { COMMENT_MARKER } from './lib.mjs';
-import { buildSuggestPrompt, findPriorUse, isRunCommand, parseVerdict, reasonClause, renderDiff, renderSuggestComment, skipReason, SUGGEST_MARKER } from './suggest-lib.ts';
+import { autoRunName, buildSuggestPrompt, findPriorUse, isAutoRunAuthor, isRunCommand, parseVerdict, reasonClause, renderDiff, renderSuggestComment, skipReason, SUGGEST_MARKER } from './suggest-lib.ts';
 
 test('isRunCommand accepts every alias as the first word of the first non-blank line', () => {
 	for (const body of ['/explore', '/test', '/exploratory-test', '\r\n\r\n/explore the plots pane\r\n', '  /test 20m']) {
@@ -72,6 +73,20 @@ test('skipReason on ready_for_review needs a reviewer or team already requested'
 	assert.equal(skipReason({ ...ok, action: 'ready_for_review', pr: { ...none, requested_teams: [{ slug: 'positron' }] } }), null);
 	// A request is itself the signal, even if the list has since been cleared.
 	assert.equal(skipReason({ ...ok, action: 'review_requested', pr: none }), null);
+});
+
+test('isAutoRunAuthor matches a listed login, ignoring case and separators', () => {
+	assert.equal(isAutoRunAuthor('Someone', 'other, someone'), true);
+	assert.equal(isAutoRunAuthor('someone', ' other\nsomeone '), true);
+	assert.equal(isAutoRunAuthor('some', 'someone'), false);
+	assert.equal(isAutoRunAuthor('someone', ''), false);
+	assert.equal(isAutoRunAuthor('someone', undefined), false);
+	assert.equal(isAutoRunAuthor('', 'someone'), false);
+});
+
+test('autoRunName matches the run-name test-exploratory.yml gives an auto-run', () => {
+	assert.equal(autoRunName(123), 'Exploratory auto-run #123');
+	assert.match(readFileSync(new URL('../../workflows/test-exploratory.yml', import.meta.url), 'utf8'), /format\('Exploratory auto-run #\{0\}', inputs\.auto_run_pr\)/);
 });
 
 test('parseVerdict reads YES with a reason and NO with or without one', () => {

@@ -530,6 +530,18 @@ export interface ModifyEditorSelectionsParams {
 }
 
 /**
+ * Parameters for the LastActiveEditorContext method.
+ */
+export interface LastActiveEditorContextParams {
+	/**
+	 * Whether the calling session's console input may be returned when it
+	 * was the last editor focused. Set to false to return only editors in
+	 * the editor area. If omitted, defaults to true.
+	 */
+	allow_console?: boolean;
+}
+
+/**
  * Parameters for the ShowUrl method.
  */
 export interface ShowUrlParams {
@@ -971,6 +983,13 @@ export interface ModifyEditorSelectionsRequest {
  * user. The result may be undefined if there are no active editors.
  */
 export interface LastActiveEditorContextRequest {
+	/**
+	 * Whether the calling session's console input may be returned when it
+	 * was the last editor focused. Set to false to return only editors in
+	 * the editor area. If omitted, defaults to true.
+	 */
+	allow_console: boolean;
+
 }
 
 export enum UiFrontendEvent {

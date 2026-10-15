@@ -70,8 +70,13 @@ rm -f "$L/.console.err"
 # What each interpreter's console printed, read from the live window (the app
 # writes no file of it): <port>-<language>-console.log, with the session id
 # added when two consoles share a language. Tracebacks are expanded first.
-DP="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../drive-positron/scripts" && pwd)"
-if SESSIONS=$(DRIVE_POSITRON_QUIET_READS=1 bash "$DP/panel.sh" --session "$SESSION" sessions 2>/dev/null); then
+# drive-positron is this script's sibling in a checkout, but not in CI's
+# sparse harness copy, so fall back to the checkout it runs from.
+DP="$(dirname "${BASH_SOURCE[0]}")/../../drive-positron/scripts"
+[[ -f "$DP/panel.sh" ]] || DP="$PWD/.claude/skills/drive-positron/scripts"
+if [[ ! -f "$DP/panel.sh" ]]; then
+	echo "collect-logs: no drive-positron/scripts beside this script or under $PWD/.claude/skills, so no <language>-console.log was saved: run it from the checkout" >&2
+elif SESSIONS=$(DRIVE_POSITRON_QUIET_READS=1 bash "$DP/panel.sh" --session "$SESSION" sessions 2>/dev/null); then
 	while IFS=$'\t' read -r id lang; do
 		[[ -z "$id" ]] && continue
 		n=$(echo "$SESSIONS" | jq --arg l "$lang" '[.sessions[] | select(.language == $l)] | length')

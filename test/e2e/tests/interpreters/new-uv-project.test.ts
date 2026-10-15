@@ -22,7 +22,7 @@ test.use({
 });
 
 test.describe('New uv Environment', {
-	tag: [tags.INTERPRETER]
+	tag: [tags.INTERPRETER, tags.PYTHON]
 }, () => {
 
 	test.afterAll(async () => {

@@ -76,7 +76,7 @@
 #                    with its Close button; fails when nothing happened
 #                    within --timeout
 #   suggest, hover and definition take --at LINE[:COL] (goto first) and
-#   --timeout SECS (default 5). The list and the hover are closed without
+#   --timeout SECS (default 5; not a positive number: usage error). The list and the hover are closed without
 #   Escape, which in a .qmd interrupts a busy kernel whatever has focus: focus
 #   leaves the editor (they close on blur) and comes back, the cursor where it
 #   was ("closed", "focused").

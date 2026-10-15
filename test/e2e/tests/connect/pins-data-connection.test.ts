@@ -35,7 +35,7 @@ let connectServer: string;
 // The publisher's username, which is the owner node the seeded pins live under in the tree.
 let ownerUsername: string;
 
-test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, tags.CONNECT, tags.CONNECTIONS] }, () => {
+test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, tags.CONNECT, tags.CONNECTIONS, tags.ARK] }, () => {
 
 	test.beforeAll('Resolve Connect credentials', async function ({ app, runDockerCommand }) {
 		const isLocal = test.info().project.name === 'e2e-connect';

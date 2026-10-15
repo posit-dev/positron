@@ -19,7 +19,7 @@ test.describe('Data Explorer - XLSX', {
 		await hotKeys.showSecondarySidebar();
 	});
 
-	test('Python - Verify data explorer functionality with XLSX input', async function ({ app, python, openFile, runCommand, hotKeys, metric }) {
+	test('Python - Verify data explorer functionality with XLSX input', { tag: [tags.PYTHON] }, async function ({ app, python, openFile, runCommand, hotKeys, metric }) {
 		const { dataExplorer, variables, editors } = app.workbench;
 
 		await openFile(join('workspaces', 'read-xlsx-py', 'supermarket-sales.py'));
@@ -38,7 +38,7 @@ test.describe('Data Explorer - XLSX', {
 		expect(firstRow!['Invoice ID']).toBe('898-04-2717');
 	});
 
-	test('R - Verify data explorer functionality with XLSX input', async function ({ app, r, openFile, runCommand, hotKeys, metric }) {
+	test('R - Verify data explorer functionality with XLSX input', { tag: [tags.ARK] }, async function ({ app, r, openFile, runCommand, hotKeys, metric }) {
 		const { dataExplorer, variables, editors } = app.workbench;
 
 		await openFile(join('workspaces', 'read-xlsx-r', 'supermarket-sales.r'));

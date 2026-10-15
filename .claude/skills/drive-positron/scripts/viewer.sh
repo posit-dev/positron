@@ -27,7 +27,8 @@
 #   fill NAME T  type T into the field named NAME (or labelled, or with that
 #                placeholder) inside the page
 #   wait-content [SECS]
-#                wait up to SECS (default 15) for the page to show anything;
+#                wait up to SECS (default 15; not a positive number: a
+#                usage error) for the page to show anything;
 #                says "blank" when it never does, which a snapshot alone cannot
 #                tell from a page still loading
 #
@@ -39,12 +40,15 @@
 
 set -u
 DIR="$(dirname "${BASH_SOURCE[0]}")"
+# A usage error: one JSON line on stdout, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 SESSION=""
 ARGS=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--session=*) SESSION="${1#--session=}"; shift ;;
+		--session=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
+		--session) [[ -n "${2-}" ]] || usage_error "--session needs a value; leave the flag out for \$PW_SESSION"; SESSION="$2"; shift 2 ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) ARGS+=("$1"); shift ;;
 	esac
@@ -55,7 +59,7 @@ if [[ "${ARGS[0]:-}" == open ]]; then
 	case "${ARGS[1]:-}" in
 		editor) ITEM="$viewer_openInEditor" ;;
 		browser) ITEM="$viewer_openInBrowser" ;;
-		*) echo '{"ok":false,"error":"open editor or open browser"}'; exit 2 ;;
+		*) usage_error "open editor or open browser" ;;
 	esac
 	exec bash "$DIR/ui.sh" "${S[@]}" choose button "$viewer_openMenu" "$ITEM" --in "$views_viewer"
 fi

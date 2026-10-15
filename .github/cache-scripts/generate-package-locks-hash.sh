@@ -125,6 +125,8 @@ const buildScripts = [
   'build/npm/preinstall.ts',   // Preinstall script - installs build/ dependencies
   'build/npm/postinstall.ts',  // Postinstall script - runs npm install in all dirs
   'build/npm/dirs.ts',         // List of directories that get npm install
+  'build/npm/electronTypes.ts',   // Downloads .build/typings/electron.d.ts
+  'build/checksums/electron.txt', // Pins the electron.d.ts content
   // Defines which paths this cache saves. Changing the set (e.g. adding a
   // node_modules dir) must rotate the key: on a plain key hit actions/cache
   // restores the old blob and never re-saves, so a newly-added path would stay

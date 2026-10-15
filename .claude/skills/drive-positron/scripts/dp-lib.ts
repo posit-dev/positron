@@ -200,11 +200,13 @@ export interface Parsed { session: string; flags: Record<string, string | true>;
  * listed. Positional arguments beyond `most` are a usage error (exit 2), so a
  * stray word is refused rather than typed or run; `most` is a count, or a count
  * per command word (the first positional, counted too). A command word not
- * listed is left to the command. Given `switches` (the flags that take no
- * value), any other flag is a usage error too, so a misspelled flag
- * (--langauge) is refused rather than ignored.
+ * listed is left to the command. A flag that is neither in `withValue` nor in
+ * `switches` (the flags that take no value; --help always counts) is a usage
+ * error too, so a misspelled flag (--clera, --usr) is refused rather than
+ * ignored, and so is a value flag with no value (last on the line, --flag= or
+ * --flag ''): read as '', it would act like the flag left out.
  */
-export function parse(argv: string[], withValue: string[], most: number | Record<string, number> = 0, switches?: string[]): Parsed {
+export function parse(argv: string[], withValue: string[], most: number | Record<string, number> = 0, switches: string[] = []): Parsed {
 	const flags: Record<string, string | true> = {};
 	const rest: string[] = [];
 	for (let i = 0; i < argv.length; i++) {
@@ -216,11 +218,14 @@ export function parse(argv: string[], withValue: string[], most: number | Record
 		if (/^--[\w-]+\s/.test(a)) { throw new Exit(2, { ok: false, error: `${JSON.stringify(a)} is one argument; pass the flag and its value as two (or --flag=value)` }); }
 		const m = a.match(/^--([\w-]+)(?:=(.*))?$/);
 		if (!m) { rest.push(a); continue; }
-		if (m[2] !== undefined) { flags[m[1]] = m[2]; } else if (withValue.includes(m[1])) { flags[m[1]] = argv[++i] ?? ''; } else { flags[m[1]] = true; }
+		if (m[2] !== undefined) { flags[m[1]] = m[2]; } else if (withValue.includes(m[1])) { flags[m[1]] = i + 1 < argv.length ? argv[++i] : true; } else { flags[m[1]] = true; }
 	}
-	if (switches && !flags.help) {
-		const unknown = Object.keys(flags).find(f => !withValue.includes(f) && !switches.includes(f));
-		if (unknown) { throw new Exit(2, { ok: false, error: `unknown flag --${unknown}; it takes ${[...withValue, ...switches].map(f => `--${f}`).join(', ')} (see --help)` }); }
+	if (!flags.help) {
+		const known = [...withValue, ...switches.filter(f => f !== 'help')];
+		const unknown = Object.keys(flags).find(f => !known.includes(f));
+		if (unknown) { throw new Exit(2, { ok: false, error: `unknown flag --${unknown}; it takes ${known.map(f => `--${f}`).join(', ')} (see --help)` }); }
+		const bare = withValue.find(f => flags[f] === true || flags[f] === '');
+		if (bare) { throw new Exit(2, { ok: false, error: `--${bare} needs a value` }); }
 	}
 	const max = typeof most === 'number' ? most : most[rest[0]] ?? Infinity;
 	if (!flags.help && rest.length > max) { throw new Exit(2, { ok: false, error: `unexpected argument ${JSON.stringify(rest[max])}${max ? ` after ${JSON.stringify(rest.slice(0, max).join(' '))}` : ''}; see --help for the arguments and flags it takes` }); }
@@ -244,6 +249,26 @@ export function usage(script: string): never {
 	throw new Exit(0, '');
 }
 
+/**
+ * Refuses a command word the helper does not have (exit 2), before any page
+ * call, with an error that names the word and lists the commands. `commands`
+ * are as the error lists them, each with what it takes ('tab NAME'). A word
+ * that a command starts with, or that starts with a command ("sessio",
+ * "plot"), names that command.
+ */
+export function commandWord(cmd: string, commands: string[]): void {
+	if (!commands.some(c => c.split(' ')[0] === cmd)) { notACommand(cmd, commands); }
+}
+
+/** The usage error commandWord throws, for a `default:` branch that has only unknown words left. */
+export function notACommand(cmd: string, commands: string[]): never {
+	const words = commands.map(c => c.split(' ')[0]);
+	const near = cmd.length > 2 ? words.filter(w => w.startsWith(cmd) || cmd.startsWith(w)) : [];
+	const hint = near.length ? `the nearest is ${near.join(' or ')}` : '';
+	const list = commands.length > 1 ? `${commands.slice(0, -1).join(', ')} or ${commands[commands.length - 1]}` : commands.join('');
+	throw new Exit(2, { ok: false, error: `${JSON.stringify(cmd)} is not a command${hint ? `: ${hint}` : ''}; the commands: ${list}` });
+}
+
 /** Blocks for this many seconds, between two page calls. */
 export function pause(seconds: number): void {
 	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, seconds * 1000);
@@ -255,23 +280,44 @@ export function pause(seconds: number): void {
  * as 0, and a wait bounded by either ends before it starts.
  */
 export function seconds(p: Parsed, flag: string, fallback: number): number {
-	const v = p.flags[flag];
+	return secondsOf(p.flags[flag], `--${flag}`, fallback);
+}
+
+/**
+ * The same check for a duration given as a positional argument (`wait N SECS`):
+ * `name` is how the error names it. Call it before anything is done, so a bad
+ * value is refused with nothing changed.
+ */
+export function secondsOf(v: string | true | undefined, name: string, fallback: number): number {
 	if (v === undefined) { return fallback; }
 	const n = typeof v === 'string' && /^\s*\d*\.?\d+\s*$/.test(v) ? Number(v) : NaN;
-	if (!(n > 0)) { throw new Exit(2, { ok: false, error: `--${flag} must be a positive number of seconds, not ${JSON.stringify(v === true ? '' : v)}` }); }
+	if (!(n > 0)) { throw new Exit(2, { ok: false, error: `${name} must be a positive number of seconds, not ${JSON.stringify(v === true ? '' : v)}` }); }
 	return n;
 }
 
 /**
- * A text flag's value, or '' when it is absent. Given with no value (last on
- * the line, or --flag=) or an empty one is a usage error (exit 2): '' would
- * read as the flag left out, and the command would act on whatever is active.
+ * A flag that counts something (rows, a match, a window), or the default when
+ * it is absent. Anything but a whole number from `from` (1, or 0 where 0 means
+ * "all") is a usage error (exit 2): Number() reads "abc" as NaN and "" as 0,
+ * which read as the flag left out, and a negative or fractional count reaches
+ * the page as an index that is not there. `what` says what it counts, as in
+ * "--rows must be how many rows to read: a whole number from 1".
  */
-export function textFlag(p: Parsed, flag: string): string {
-	const v = p.flags[flag];
-	if (v === undefined) { return ''; }
-	if (v === true || v === '') { throw new Exit(2, { ok: false, error: `--${flag} needs a value; leave the flag out for none` }); }
-	return v;
+export function count(p: Parsed, flag: string, fallback: number, from: 0 | 1, what: string): number {
+	return countOf(p.flags[flag], `--${flag}`, fallback, from, what);
+}
+
+/**
+ * The same check for a count given as a positional argument (`select N`):
+ * `name` is how the error names it, and with no `fallback` the argument is
+ * required. Call it before anything is done, so a bad value is refused with
+ * nothing changed; "0" for a 1-based N would reach the page as nth(-1), which
+ * Playwright reads as the last match.
+ */
+export function countOf(v: string | true | undefined, name: string, fallback: number | undefined, from: 0 | 1, what: string): number {
+	if (v === undefined && fallback !== undefined) { return fallback; }
+	if (typeof v !== 'string' || !/^\d+$/.test(v) || Number(v) < from) { throw new Exit(2, { ok: false, error: `${name} must be ${what}: a whole number from ${from}${from ? '' : ' (0 for all)'}, not ${v === undefined ? 'left out' : JSON.stringify(v === true ? '' : v)}` }); }
+	return Number(v);
 }
 
 export function language(p: Parsed): 'python' | 'r' {

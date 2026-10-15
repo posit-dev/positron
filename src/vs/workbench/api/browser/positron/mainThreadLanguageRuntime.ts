@@ -897,6 +897,10 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 		this._proxy.$updateSessionNameLanguageRuntime(this.handle, sessionName);
 	}
 
+	updateNotebookUri(notebookUri: URI, quartoNotebookUri: URI | undefined): void {
+		this._proxy.$updateNotebookUriLanguageRuntime(this.handle, notebookUri, quartoNotebookUri);
+	}
+
 	async showProfile(): Promise<void> {
 		return this._proxy.$showProfileLanguageRuntime(this.handle);
 	}

@@ -773,6 +773,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			aria-labelledby={`console-panel-${props.positronConsoleInstance.sessionMetadata.sessionId}`}
 			className='console-instance'
 			data-testid={`console-${props.positronConsoleInstance.sessionMetadata.sessionId}`}
+			// An inactive console sits behind the active one (z-index), so take it out of
+			// the accessibility tree and the tab order too.
+			inert={!props.active}
 			role='tabpanel'
 			style={{
 				width: adjustedWidth,

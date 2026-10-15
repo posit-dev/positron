@@ -110,7 +110,7 @@ function openFile(session: string, file: string): Json {
 
 export const paletteCommands: Record<string, (argv: string[]) => Json | string> = {
 	'palette-run': argv => {
-		const p = parse(argv, ['session'], 1);
+		const p = parse(argv, ['session'], 1, ['dry-run']);
 		if (p.flags.help) { usage('palette-run.sh'); }
 		const title = p.rest[0];
 		if (!title) { throw new Exit(2, { ok: false, error: 'give the command title' }); }

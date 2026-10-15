@@ -317,13 +317,16 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 
 						{/* Connection Name */}
 						<div className='parameter-field'>
-							<label className='parameter-label'>{localize('positron.connectionName', 'Connection Name')}</label>
+							{/* Linked like the parameter fields below, so a screen reader announces the label, not the placeholder. */}
+							<label className='parameter-label' htmlFor='data-connection-name'>{localize('positron.connectionName', 'Connection Name')}</label>
 							<input
 								ref={connectionNameInputRef}
+								aria-invalid={connectionNameError}
 								className={positronClassNames(
 									'parameter-input', 'text-input',
 									{ 'error': connectionNameError }
 								)}
+								id='data-connection-name'
 								placeholder={localize('positron.connectionNamePlaceholder', 'e.g. My Connection')}
 								type='text'
 								value={connectionName}
