@@ -73,7 +73,7 @@ fmt() {
 		echo "error"
 	else
 		read -r c h t <<< "$1"
-		echo "$c / $h / $t"
+		echo "$c/$h/$t"
 	fi
 }
 
@@ -126,7 +126,7 @@ while IFS= read -r dir || [ -n "$dir" ]; do
 		continue
 	fi
 
-	row="| \`$dir\` | $(fmt "$before_counts")"
+	row="| ${dir#extensions/} | $(fmt "$before_counts")"
 	[ "$FIX" = true ] && row="$row | $(fmt "$after_counts")"
 	[ "$SNYK" = true ] && row="$row | $(fmt "$snyk_counts")"
 	row="$row | ${remaining:-none} |"
@@ -135,17 +135,23 @@ done < "$MANIFESTS"
 
 echo "## Dependency audit: runtime dependencies"
 echo ""
-echo "Counts are critical / high / all advisories, from \`npm audit --omit=dev\`$( [ "$SNYK" = true ] && echo " and \`snyk test\`" )."
+echo "Projects are under \`extensions/\`. Counts are critical/high/all advisories, from \`npm audit --omit=dev\`$( [ "$SNYK" = true ] && echo " and \`snyk test\`" )."
 if [ "$FIX" = true ]; then
-	echo "\"After fix\" is the result of \`npm audit fix --package-lock-only --omit=dev\`. Packages that still have a high or critical advisory after the fix need a manual change, usually a semver-major bump or an \`overrides\` entry."
+	echo "\"After fix\" is npm audit after \`npm audit fix --package-lock-only --omit=dev\`. \"Needs manual fix\" lists packages that still have a high or critical advisory after the fix, which usually need a semver-major bump or an \`overrides\` entry."
 fi
 echo ""
 if [ ${#rows[@]} -gt 0 ]; then
-	header="| Project | npm audit"
-	divider="|---|---"
-	[ "$FIX" = true ] && header="$header (before) | npm audit (after fix)" && divider="$divider|---"
+	header="| Project"
+	divider="|---"
+	if [ "$FIX" = true ]; then
+		header="$header | Before | After fix"
+		divider="$divider|---|---"
+	else
+		header="$header | npm audit"
+		divider="$divider|---"
+	fi
 	[ "$SNYK" = true ] && header="$header | Snyk" && divider="$divider|---"
-	echo "$header | Still high or critical (npm) |"
+	echo "$header | Needs manual fix |"
 	echo "$divider|---|"
 	printf '%s\n' "${rows[@]}"
 	echo ""
