@@ -295,8 +295,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.168.0",
-			"sha256": "72ee76b0d3c149e48c4887de16df9fbbe0cd97820274ccaa7dfd202dc76dd02f",
+			"version": "0.166.1",
+			"sha256": "898a1f264e5d49067815df5ba04f6340addeb89e55c949a2995c3181d8c05249",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
