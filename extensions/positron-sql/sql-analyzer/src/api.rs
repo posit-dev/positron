@@ -195,14 +195,13 @@ pub fn handle(request: &str) -> Response {
         Request::Keywords => Response::Keywords { keywords: keywords::everything() },
 
         Request::KeywordsAt { text, dialect, offset } => {
-            let canonical = dialects::canonical(&dialect).unwrap_or("generic");
             let (dialect, _) = dialects::resolve(&dialect);
             let index = TextIndex::new(&text);
             let tokenized = statements::split(&text, dialect.as_ref(), &index);
             let statement = statements::statement_at(&tokenized.statements, offset);
             let position = keywords::at(statement, offset, &index);
             Response::KeywordsAt {
-                keywords: keywords::offered(position, canonical),
+                keywords: keywords::offered(position),
                 position: position.name().to_string(),
             }
         }

@@ -98,15 +98,6 @@ suite('SqlAnalyzer', () => {
 		assert.ok(!keywords.includes('SELECT'), 'a statement verb does not belong after a table');
 	});
 
-	test('the dialect reaches the keyword table', () => {
-		// LISTEN is Postgres alone, so the two dialects must not answer alike.
-		const postgres = testAnalyzer().keywordsAt('', 'postgres', 0).keywords;
-		const mysql = testAnalyzer().keywordsAt('', 'mysql', 0).keywords;
-
-		assert.ok(postgres.includes('LISTEN'));
-		assert.ok(!mysql.includes('LISTEN'));
-	});
-
 	test('a dialect renamed since the setting was written still resolves', () => {
 		// A user who picked `tsql` from the settings list meant Transact-SQL, which sqlparser
 		// spells `mssql`. Falling back to generic would quietly stop honouring their choice.
