@@ -38,7 +38,7 @@ test('the bar brackets triaged against awaiting and puts segments in outcome ord
 test('the bar detail adds the milestone for Release or backlog and the median days for Future', () => {
 	const { bar } = view();
 	assert.match(text(bar), /Now: 1 in 2027 Backlog\./);
-	assert.match(text(bar), /3 of 6 triaged findings\. Median 4 days there\./);
+	assert.match(text(bar), /3 of 6 triaged issues\. Median 4 days there\./);
 });
 
 test('the headline counts fixed or planned issues out of the triaged ones', () => {

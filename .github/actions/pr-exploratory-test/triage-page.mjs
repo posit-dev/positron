@@ -80,7 +80,7 @@ function extra(key, rows, now) {
 	if (key === 'future') {
 		const triaged = rows.filter(r => r.out !== 'awaiting').length;
 		const days = rows.filter(r => r.out === 'future' && r.futureSince).map(r => daysBetween(r.futureSince, now));
-		return ` ${count(rows, 'future')} of ${triaged} triaged findings.${days.length ? ` Median ${plural(median(days), 'day')} there.` : ''}`;
+		return ` ${count(rows, 'future')} of ${triaged} triaged issues.${days.length ? ` Median ${plural(median(days), 'day')} there.` : ''}`;
 	}
 	return '';
 }
@@ -186,7 +186,7 @@ function age(r, now) {
 	return r.closed && r.out !== 'active' ? `${r.out === 'completed' ? 'completed' : 'closed'} ${day(r.closed)}` : '';
 }
 
-function issueRow(r, now) {
+function renderIssueRow(r, now) {
 	const links = [safeUrl(r.reportUrl) && `<a href="${escapeHtml(r.reportUrl)}">report</a>`, safeUrl(r.findingUrl) && `<a href="${escapeHtml(r.findingUrl)}">finding</a>`].filter(Boolean);
 	const meta = [`<span class="mono">#${Number(r.num)}</span>`, escapeHtml(r.areas.join(', ') || 'no feature label'), `filed ${day(r.filed)}`, ...links].join(SEP);
 	return `<div class="issue" id="i${Number(r.num)}"><span class="sev-col">${sevPill(r.sev)}</span>`
@@ -200,7 +200,7 @@ function issueList(rows, filter, now) {
 	const shown = rows.filter(r => matches(r, filter)).sort((a, b) => order.indexOf(a.out) - order.indexOf(b.out) || b.filed.localeCompare(a.filed) || b.num - a.num);
 	const label = [filter.sev && sevLabel(filter.sev), filter.area && escapeHtml(filter.area), filter.out && outLabel(filter.out), filter.issue && `#${Number(filter.issue)}`].filter(Boolean);
 	const chip = label.length ? `<div class="showing">Showing <span class="chip-filter">${[...label, shown.length].join(SEP)}<button type="button" class="clear" aria-label="Clear filter, show all issues">&times;</button></span></div>` : '';
-	const list = shown.length ? `<div class="issues">${shown.map(r => issueRow(r, now)).join('\n')}</div>` : label.length ? '<p class="foot">No issues match this filter in this date range.</p>' : NONE;
+	const list = shown.length ? `<div class="issues">${shown.map(r => renderIssueRow(r, now)).join('\n')}</div>` : label.length ? '<p class="foot">No issues match this filter in this date range.</p>' : NONE;
 	return accordion('issues', 'All issues', plural(rows.length, 'issue'), `${chip}${list}`, ' id="issues"');
 }
 
@@ -216,7 +216,7 @@ export function renderView(rows, { now, range, filter = {} }) {
 }
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, count, plural, pct, daysBetween, outLabel, sevLabel, sevPill, areasOf, median, byVersion, matches, header, extra, bar, rowBar, barTable, bySeverity, byFeature, tally, breakdown, age, issueRow, issueList, renderView };
+const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, count, plural, pct, daysBetween, outLabel, sevLabel, sevPill, areasOf, median, byVersion, matches, header, extra, bar, rowBar, barTable, bySeverity, byFeature, tally, breakdown, age, renderIssueRow, issueList, renderView };
 export const VIEW_SOURCE = [
 	...Object.entries({ ...SHARED_CONSTS, SEVERITY_LABEL, OUT, NO_SEV, NO_AREA, SEP, NONE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
