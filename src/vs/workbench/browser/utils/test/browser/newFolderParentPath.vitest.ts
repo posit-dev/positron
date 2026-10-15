@@ -129,33 +129,10 @@ describe('resolveNewFolderParentPath', () => {
 		expect(await resolveNewFolderParentPath(services)).toBe(workspaceParent);
 	});
 
-	it.each([
-		['~', ''],
-		['~/clones', '/clones'],
-		['~/a/b', '/a/b'],
-		['~/a//b/', '/a/b'],
-	])('expands a preferred path of %s to the user home', async (preferredPath, rest) => {
+	it('expands ~ in the preferred path to the user home', async () => {
 		const { services, userHome } = setup();
 
-		const result = await resolveNewFolderParentPath(services, preferredPath);
-
-		expect(result.path).toBe(userHome.path + rest);
-	});
-
-	it('splits on backslashes for a Windows target', async () => {
-		const { services } = setup({ windows: true });
-
-		const result = await resolveNewFolderParentPath(services, '~\\clones');
-
-		expect(result.path).toBe('/c:/Users/x/clones');
-	});
-
-	it('keeps a backslash as part of a name for a POSIX target', async () => {
-		const { services, userHome } = setup();
-
-		const result = await resolveNewFolderParentPath(services, '~/a\\b');
-
-		expect(result.path).toBe(`${userHome.path}/a\\b`);
+		expect((await resolveNewFolderParentPath(services, '~/clones')).path).toBe(`${userHome.path}/clones`);
 	});
 
 	it('does not expand ~ followed by a name', async () => {

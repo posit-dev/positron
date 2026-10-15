@@ -8,6 +8,7 @@ import { Schemas } from '../../../base/common/network.js';
 import * as resources from '../../../base/common/resources.js';
 import { isAbsolute as localPathIsAbsolute, normalize as localPathNormalize } from '../../../base/common/path.js';
 import type { PositronReactServices } from '../../../base/browser/positronReactServices.js';
+import { expandHomePath } from '../../services/path/common/positronPathUtils.js';
 
 /**
  * The services needed to resolve the default parent folder for a new folder.
@@ -30,27 +31,6 @@ interface ResolveConfiguredPathOptions {
 }
 
 /**
- * Expands a path of `~`, or `~` and a separator, to the user home.
- * @param services The services to use.
- * @param candidate The path.
- * @param preferLocal Whether the window is local.
- * @returns The user home, or a folder in it. Undefined when the path does not start with `~`.
- */
-async function expandHomePath(services: NewFolderParentPathServices, candidate: string, preferLocal: boolean): Promise<URI | undefined> {
-	// The separators of the OS where the files are. On POSIX, a backslash is a valid name
-	// character, so only a slash separates.
-	const separator = (await services.pathService.path).sep === '\\' ? /[\\/]/ : /\//;
-	if (candidate !== '~' && !(candidate.startsWith('~') && separator.test(candidate.charAt(1)))) {
-		return undefined;
-	}
-
-	// Join the segments one at a time, because joinPath does not split on backslashes.
-	const segments = candidate.slice(1).split(separator).filter(segment => segment.length > 0);
-	const userHome = await services.pathService.userHome({ preferLocal });
-	return segments.length > 0 ? resources.joinPath(userHome, ...segments) : userHome;
-}
-
-/**
  * Resolves a configured path to an existing folder. This mirrors the validation in
  * `AbstractFileDialogService.preferredHome()`, which upstream may change.
  * @param services The services to use.
@@ -66,7 +46,7 @@ async function resolveConfiguredPath(
 	options: ResolveConfiguredPathOptions
 ): Promise<URI | undefined> {
 	const { preferLocal } = options;
-	let folder = options.expandHome ? await expandHomePath(services, candidate, preferLocal) : undefined;
+	let folder = options.expandHome ? await expandHomePath(candidate, services.pathService, { preferLocal }) : undefined;
 	if (!folder) {
 		const isAbsolute = preferLocal ? localPathIsAbsolute(candidate) : (await services.pathService.path).isAbsolute(candidate);
 		if (!isAbsolute) {
