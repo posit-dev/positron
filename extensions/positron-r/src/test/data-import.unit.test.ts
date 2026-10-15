@@ -11,6 +11,7 @@ import * as positron from 'positron';
 import {
 	createRDataImporters,
 	escapeRString,
+	generateJsonliteImportCode,
 	generateNanoparquetImportCode,
 	generateReadrImportCode,
 	generateReadxlImportCode,
@@ -364,6 +365,21 @@ suite('generateNanoparquetImportCode', () => {
 	});
 });
 
+suite('generateJsonliteImportCode', () => {
+	test('generates a read_json call with the comment directly above it', () => {
+		assert.strictEqual(
+			generateJsonliteImportCode({ pathLiteral: '"data/config.json"', variableName: 'config' }).code,
+			[
+				'library(jsonlite)',
+				'',
+				'# Load config data',
+				'config <- read_json("data/config.json", simplifyVector = TRUE)',
+				'',
+			].join('\n')
+		);
+	});
+});
+
 suite('createRDataImporters', () => {
 	/** Runs the importer registered for a file's extension over that file. */
 	async function generate(
@@ -390,6 +406,7 @@ suite('createRDataImporters', () => {
 				['r', 'R (readr)', ['csv', 'tsv']],
 				['r', 'R (readxl)', ['xlsx']],
 				['r', 'R (nanoparquet)', ['parquet', 'parq']],
+				['r', 'R (jsonlite)', ['json']],
 			]
 		);
 	});
@@ -402,6 +419,7 @@ suite('createRDataImporters', () => {
 		['xlsx', 'read_excel('],
 		['parquet', 'read_parquet('],
 		['parq', 'read_parquet('],
+		['json', 'read_json('],
 	];
 	for (const [extension, readCall] of readCalls) {
 		test(`reads a .${extension} file with ${readCall})`, async () => {

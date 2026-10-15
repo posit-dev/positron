@@ -19,6 +19,7 @@ import { printInterpreterDebugInfo } from './interpreterSettings';
 import { registerLanguageServerManager } from './languageServerManager';
 import { registerPythonFilePasteAndDropProvider } from '../languageFeatures/pythonFilePasteAndDropProvider';
 import { registerPandasDataImporter } from './dataImport/pandasImporter';
+import { registerJsonDataImporter } from './dataImport/jsonImporter';
 
 export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
     try {
@@ -116,6 +117,7 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
 
         // Register the pandas data importer used by Import Data.
         registerPandasDataImporter(disposables);
+        registerJsonDataImporter(disposables);
 
         traceInfo('activatePositron: done!');
     } catch (ex) {

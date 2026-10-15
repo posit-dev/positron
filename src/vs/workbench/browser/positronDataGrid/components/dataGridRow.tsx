@@ -26,6 +26,8 @@ interface DataGridRowProps {
 	rowIndex: number;
 	top: number;
 	width: number;
+	/** Overrides the stacking order of the row; see the sticky rows in DataGridWaffle. */
+	zIndex?: number;
 }
 
 /**
@@ -91,6 +93,7 @@ export const DataGridRow = (props: DataGridRowProps) => {
 			style={{
 				top: props.top,
 				height: props.height,
+				zIndex: props.zIndex,
 			}}
 		>
 			{dataGridRowCells}

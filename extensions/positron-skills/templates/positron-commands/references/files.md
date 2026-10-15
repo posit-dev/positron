@@ -18,9 +18,12 @@ of them are agent-compatible, and none of them appear anywhere in this skill --
 if you are reaching for one, you are working from general VS Code knowledge
 rather than from this file.
 
-`vscode.open` is the only file-opening command this skill documents. If the
-user has not given you a path and you cannot work one out from the workspace,
-ask them which file they mean rather than opening a picker so they can browse.
+`vscode.open` opens any file, and
+`workbench.action.positronObjectExplorer.openJsonFile` opens a JSON file in the
+Object Explorer; these are the only file-opening commands this skill documents.
+If the user has not given you a path and you cannot work one out from the
+workspace, ask them which file they mean rather than opening a picker so they
+can browse.
 
 ## `vscode.open`
 
@@ -55,6 +58,7 @@ user may not know about.
 | `.csv`, `.tsv`, `.parquet`, `.parq`, `.xlsx` | Data Explorer |
 | The `.gz` form of any of those, e.g. `data.csv.gz` | Data Explorer |
 | `.ipynb` | A notebook editor |
+| `.json` | A text editor (see below for the Object Explorer) |
 | Anything else | A text editor |
 
 Extensions are matched lowercase, so `DATA.CSV` gets a text editor, not the
@@ -74,3 +78,22 @@ place, which the summary-panel commands in
   yourself or run code in the session.
 - **http and https URLs do not open an editor.** They go to the user's external
   browser. Say that is what you are about to do before doing it.
+
+## `workbench.action.positronObjectExplorer.openJsonFile`
+
+Opens a JSON file in the Object Explorer, which shows its nested structure as a
+collapsible, searchable tree. Use it when the user wants to explore or navigate
+a JSON file rather than edit its text: "open config.json in the Object
+Explorer", "let me browse this JSON", "show me the structure of response.json".
+For editing the text, use `vscode.open`.
+
+{{command:workbench.action.positronObjectExplorer.openJsonFile}}
+
+Pass an absolute path or `file://` URI, built the same way as for `vscode.open`.
+Without a path it opens the `.json` file in the active editor, and fails if the
+active editor isn't one, so only omit it when the user is looking at the JSON
+file they mean. If the file is already open in the Object Explorer, its editor
+is brought to the front instead.
+
+The command fails with an error if the file is missing or isn't valid JSON. The
+tree reloads by itself when the file changes on disk.
