@@ -121,7 +121,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.84.0",
+			"version": "2026.86.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -295,8 +295,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.162.0",
-			"sha256": "819e5127fe6c221b868e78145d77e5276ababc49db8e2798014470d31e2f8f22",
+			"version": "0.166.1",
+			"sha256": "898a1f264e5d49067815df5ba04f6340addeb89e55c949a2995c3181d8c05249",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
@@ -309,8 +309,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "1.7.0",
-			"sha256": "53d44aaa72a5a3824c6475cffb3bc36fc7eba6b7578dbc3222b93ed238d2b5ab",
+			"version": "1.8.0",
+			"sha256": "fb7ff69ac42953a44cd4f68bd0a3e081d85d980f2a22b952f8a7a610b35e0450",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
