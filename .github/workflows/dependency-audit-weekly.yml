@@ -84,7 +84,21 @@ jobs:
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          BODY=$(printf '%s\n\n--\n_This PR is auto-managed by the [weekly dependency audit](%s); the body may be overwritten on subsequent runs. Advisories that remain after the fix need a manual change._' "$(cat report.md)" "$RUN_URL")
+          # pr-tags-parse.sh skips lockfiles when it derives e2e tags from
+          # changed paths, so a lockfile-only PR would run only the critical
+          # suite. Map each changed lockfile to its package.json and look it up
+          # in the same path map, then write the tags into the body, which CI
+          # always honors. Diff against main (not just the staged changes) so
+          # that commits from earlier runs on this branch keep their tags.
+          source scripts/lib/pr-tags-lib.sh
+          git fetch --depth=1 origin main
+          CHANGED=$(git diff --cached --name-only origin/main -- '*package-lock.json' | sed 's#package-lock\.json$#package.json#')
+          TAGS=$(derive_map_tags "$CHANGED" .github/workflows/test-tag-paths-map.json | tr ',' ' ')
+          VALIDATION=""
+          if [ -n "$TAGS" ]; then
+            VALIDATION=$(printf '### Validation Steps\n\n%s' "$TAGS")
+          fi
+          BODY=$(printf '%s\n\n%s\n\n--\n_This PR is auto-managed by the [weekly dependency audit](%s); the body may be overwritten on subsequent runs. Advisories that remain after the fix need a manual change._' "$(cat report.md)" "$VALIDATION" "$RUN_URL")
           # Randomized delimiter so a body line can't accidentally match it and
           # truncate the multiline output.
           DELIM="PR_BODY_EOF_$(openssl rand -hex 8)"
