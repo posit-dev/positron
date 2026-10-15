@@ -51,24 +51,24 @@ describe('PositAssistantErrorActionsContribution', () => {
 	it('takes errors only while Posit Assistant has a chat model', () => {
 		const hasChatModels = contextKeyService.createKey<boolean>(POSIT_HAS_CHAT_MODELS_KEY, false);
 		createContribution();
-		expect(errorActionsService.getHandler()).toBeUndefined();
+		expect(errorActionsService.activeHandler).toBeUndefined();
 
 		hasChatModels.set(true);
-		expect(errorActionsService.getHandler()).toBeDefined();
+		expect(errorActionsService.activeHandler).toBeDefined();
 	});
 
 	it('takes errors only while Posit Assistant is installed', () => {
 		contextKeyService.createKey(POSIT_HAS_CHAT_MODELS_KEY, true);
 		extensions = [];
 		createContribution();
-		expect(errorActionsService.getHandler()).toBeUndefined();
+		expect(errorActionsService.activeHandler).toBeUndefined();
 
 		extensions = [positAssistant];
 		onDidChangeExtensions.fire({ added: [], removed: [] });
-		expect(errorActionsService.getHandler()).toBeDefined();
+		expect(errorActionsService.activeHandler).toBeDefined();
 
 		extensions = [];
 		onDidChangeExtensions.fire({ added: [], removed: [] });
-		expect(errorActionsService.getHandler()).toBeUndefined();
+		expect(errorActionsService.activeHandler).toBeUndefined();
 	});
 });

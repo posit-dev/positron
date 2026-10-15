@@ -8,15 +8,18 @@ import { Disposable, IDisposable, toDisposable } from '../../../../base/common/l
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IErrorActionHandler, IErrorActionsService, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../common/errorActions.js';
+import { IErrorActionHandler, IErrorActionsService } from '../common/errorActions.js';
 
 export class ErrorActionsService extends Disposable implements IErrorActionsService {
 	declare readonly _serviceBrand: undefined;
 
-	private readonly _onDidChange = this._register(new Emitter<void>());
-	readonly onDidChange = this._onDidChange.event;
+	private readonly _onDidChangeActiveHandler = this._register(new Emitter<IErrorActionHandler | undefined>());
+	readonly onDidChangeActiveHandler = this._onDidChangeActiveHandler.event;
 
-	/** Registered handlers, by id. */
+	/** The active handler, as of the last registration or `when` key change. */
+	private _activeHandler: IErrorActionHandler | undefined;
+
+	/** Registered handlers, by id, in registration order. */
 	private readonly _handlersById = new Map<string, IErrorActionHandler>();
 
 	/** Context keys read by the registered handlers' `when` expressions. */
@@ -30,7 +33,7 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 
 		this._register(this._contextKeyService.onDidChangeContext(e => {
 			if (e.affectsSome(this._whenKeys)) {
-				this._onDidChange.fire();
+				this._updateActiveHandler();
 			}
 		}));
 	}
@@ -44,24 +47,32 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 		this._handlersById.set(handler.id, handler);
 		this._update();
 		return toDisposable(() => {
-			if (this._handlersById.get(handler.id) === handler) {
+			// Nothing to update once the service itself is disposed.
+			if (!this._store.isDisposed && this._handlersById.get(handler.id) === handler) {
 				this._handlersById.delete(handler.id);
 				this._update();
 			}
 		});
 	}
 
-	getHandler(): IErrorActionHandler | undefined {
-		const handler = this._handlersById.get(POSIT_ASSISTANT_ERROR_ACTIONS_ID);
-		return handler && (!handler.when || this._contextKeyService.contextMatchesRules(handler.when))
-			? handler
-			: undefined;
+	get activeHandler(): IErrorActionHandler | undefined {
+		return this._activeHandler;
 	}
 
-	/** Refresh the watched context keys and notify listeners. */
+	/** Refresh the watched context keys and the active handler. */
 	private _update(): void {
 		this._whenKeys = new Set([...this._handlersById.values()].flatMap(handler => handler.when?.keys() ?? []));
-		this._onDidChange.fire();
+		this._updateActiveHandler();
+	}
+
+	/** Pick the first registered handler whose `when` is true, firing when it changes. */
+	private _updateActiveHandler(): void {
+		const activeHandler = [...this._handlersById.values()].find(handler =>
+			!handler.when || this._contextKeyService.contextMatchesRules(handler.when));
+		if (activeHandler !== this._activeHandler) {
+			this._activeHandler = activeHandler;
+			this._onDidChangeActiveHandler.fire(activeHandler);
+		}
 	}
 }
 

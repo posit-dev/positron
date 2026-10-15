@@ -13,6 +13,7 @@ import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { decodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { ConsoleQuickFix } from '../../browser/components/activityErrorQuickFix.js';
 import { registerPositAssistantErrorActions } from '../../../positronAssistant/test/browser/positAssistantErrorActionsTestUtils.js';
 
@@ -163,5 +164,23 @@ describe('ConsoleQuickFix', () => {
 	it('offers no option to start a new chat', () => {
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
 		expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['Fix', 'Explain']);
+	});
+});
+
+describe('ConsoleQuickFix with a handler that cannot continue the current chat', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('sends errors to a new chat', async () => {
+		const run = vi.fn().mockResolvedValue(undefined);
+		ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: false, run }));
+
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+		await user.click(screen.getByText('Fix'));
+
+		expect(run).toHaveBeenCalledWith('fix', { error: expectedAttachmentText, location: { kind: 'console' }, chat: 'new' });
 	});
 });

@@ -15,7 +15,7 @@ import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { ErrorActionKind } from '../../../positronAssistant/common/errorActions.js';
-import { useErrorActionHandler } from '../../../positronAssistant/browser/useErrorActionHandler.js';
+import { useActiveErrorActionHandler } from '../../../positronAssistant/browser/useActiveErrorActionHandler.js';
 
 interface ConsoleQuickFixProps {
 	outputLines: ANSIOutputLine[];
@@ -36,16 +36,18 @@ const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputL
  */
 export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const buttonRef = useRef<HTMLDivElement>(undefined!);
-	const handler = useErrorActionHandler();
+	const handler = useActiveErrorActionHandler();
 
 	if (!handler) {
 		return null;
 	}
 
+	// Continue the current chat when the handler can, for follow-ups on
+	// earlier console work.
 	const run = (kind: ErrorActionKind) => handler.run(kind, {
 		error: formatOutput(props.outputLines, props.tracebackLines),
 		location: { kind: 'console' },
-		chat: 'current',
+		chat: handler.canContinueChat ? 'current' : 'new',
 	});
 
 	const pressedFixHandler = () => run('fix');

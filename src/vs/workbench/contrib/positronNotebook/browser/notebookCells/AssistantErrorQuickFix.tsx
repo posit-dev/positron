@@ -14,7 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { ErrorActionChat, ErrorActionKind, IErrorActionContext } from '../../../positronAssistant/common/errorActions.js';
-import { useErrorActionHandler } from '../../../positronAssistant/browser/useErrorActionHandler.js';
+import { useActiveErrorActionHandler } from '../../../positronAssistant/browser/useActiveErrorActionHandler.js';
 import { SplitButton } from '../utilityComponents/SplitButton.js';
 
 /**
@@ -43,7 +43,9 @@ interface AssistantErrorQuickFixProps {
 export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 	const services = usePositronReactServicesContext();
 	const { contextMenuService } = services;
-	const handler = useErrorActionHandler();
+	const handler = useActiveErrorActionHandler();
+	const label = handler?.label ?? '';
+	const canContinueChat = handler?.canContinueChat ?? false;
 
 	const { getErrorContext } = props;
 
@@ -57,34 +59,35 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 
 	const pressedExplainHandler = () => run('explain', 'new');
 
-	// Memoize dropdown actions for Fix button
-	const fixDropdownActions = useMemo((): IAction[] => [
+	// Memoize dropdown actions for Fix button. None while the handler can't
+	// continue the current chat, which hides the dropdown.
+	const fixDropdownActions = useMemo((): IAction[] => canContinueChat ? [
 		{
 			id: 'continue-in-existing-chat',
-			label: localize('positronAssistantFixInCurrentChat', "Ask assistant to fix in current chat"),
+			label: localize('positronErrorActionsFixInCurrentChat', "Ask {0} to fix in current chat", label),
 			tooltip: localize('positronAssistantFixInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 			class: undefined,
 			enabled: true,
 			run: () => run('fix', 'current')
 		}
-	], [run]);
+	] : [], [canContinueChat, label, run]);
 
 	// Memoize dropdown actions for Explain button
-	const explainDropdownActions = useMemo((): IAction[] => [
+	const explainDropdownActions = useMemo((): IAction[] => canContinueChat ? [
 		{
 			id: 'continue-in-existing-chat',
-			label: localize('positronAssistantExplainInCurrentChat', "Ask assistant to explain in current chat"),
+			label: localize('positronErrorActionsExplainInCurrentChat', "Ask {0} to explain in current chat", label),
 			tooltip: localize('positronAssistantExplainInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 			class: undefined,
 			enabled: true,
 			run: () => run('explain', 'current')
 		}
-	], [run]);
+	] : [], [canContinueChat, label, run]);
 
 	// Tooltip strings
-	const fixTooltip = localize('positronAssistantFixTooltip', "Ask assistant to fix in new chat");
+	const fixTooltip = localize('positronErrorActionsFixTooltip', "Ask {0} to fix in new chat", label);
 	const fixDropdownTooltip = localize('positronAssistantFixDropdownTooltip', "More fix options");
-	const explainTooltip = localize('positronAssistantExplainTooltip', "Ask assistant to explain in new chat");
+	const explainTooltip = localize('positronErrorActionsExplainTooltip', "Ask {0} to explain in new chat", label);
 	const explainDropdownTooltip = localize('positronAssistantExplainDropdownTooltip', "More explain options");
 
 	if (!handler) {

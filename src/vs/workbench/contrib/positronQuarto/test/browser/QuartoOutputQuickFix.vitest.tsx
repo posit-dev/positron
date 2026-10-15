@@ -125,7 +125,7 @@ describe('QuartoOutputQuickFix', () => {
 			const user = userEvent.setup();
 			setGates(true, true);
 			renderQuickFix(cellContext);
-			await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+			await user.click(screen.getByRole('button', { name: 'Ask Posit Assistant to fix in new chat' }));
 
 			const options = lastNewChatOptions();
 			expect({
@@ -151,7 +151,7 @@ describe('QuartoOutputQuickFix', () => {
 			const user = userEvent.setup();
 			setGates(true, true);
 			renderQuickFix(cellContext);
-			await user.click(screen.getByRole('button', { name: 'Ask assistant to explain in new chat' }));
+			await user.click(screen.getByRole('button', { name: 'Ask Posit Assistant to explain in new chat' }));
 
 			expect(lastNewChatOptions().prompt).toBe(
 				'Explain the error from the python code chunk at lines 8-8 of report.qmd. The failing code and its error output are attached. Do not make changes or edit any files; just explain the error.'
@@ -162,7 +162,7 @@ describe('QuartoOutputQuickFix', () => {
 			const user = userEvent.setup();
 			setGates(true, true);
 			renderQuickFix(undefined);
-			await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+			await user.click(screen.getByRole('button', { name: 'Ask Posit Assistant to fix in new chat' }));
 
 			const options = lastNewChatOptions();
 			expect({
@@ -181,7 +181,7 @@ describe('QuartoOutputQuickFix', () => {
 		const user = userEvent.setup();
 		setGates(true, true);
 		renderQuickFix(undefined);
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to explain in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Posit Assistant to explain in new chat' }));
 
 		expect(lastDecodedNewChatOptions()).toEqual({
 			prompt: 'Explain this Quarto inline output error. Do not make changes or edit any files; just explain the error.',
@@ -229,7 +229,7 @@ describe('QuartoOutputQuickFix', () => {
 			codeStartLine: 3,
 			codeEndLine: 3,
 		}, '\u001b[31mValueError\u001b[0m: boom\n\n');
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Posit Assistant to fix in new chat' }));
 
 		expect(lastDecodedNewChatOptions().files).toEqual([{
 			name: 'Quarto Output Error',
@@ -250,7 +250,7 @@ describe('QuartoOutputQuickFix', () => {
 		const user = userEvent.setup();
 		setGates(true, true);
 		renderQuickFix(undefined);
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Posit Assistant to fix in new chat' }));
 
 		const notifyError = vi.mocked(ctx.get(INotificationService).error);
 		await waitFor(() => expect(notifyError).toHaveBeenCalledWith('Posit Assistant could not be opened: command not found'));

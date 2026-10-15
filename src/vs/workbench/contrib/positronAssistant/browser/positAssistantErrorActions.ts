@@ -14,8 +14,11 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
-import { ErrorActionKind, IErrorActionContext, IErrorActionsService, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../common/errorActions.js';
+import { ErrorActionKind, IErrorActionContext, IErrorActionsService } from '../common/errorActions.js';
 import { NewChatOptions, openPositAssistantChat, POSIT_HAS_CHAT_MODELS_KEY } from './positAssistantChat.js';
+
+/** Posit Assistant's error action handler id. */
+const POSIT_ASSISTANT_ERROR_ACTIONS_ID = 'posit-assistant';
 
 /** The Posit Assistant extension's identifier. */
 const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
@@ -66,6 +69,8 @@ export class PositAssistantErrorActionsContribution extends Disposable implement
 		// model such as Copilot).
 		this._registration.value = this._errorActionsService.register({
 			id: POSIT_ASSISTANT_ERROR_ACTIONS_ID,
+			label: localize('positronAssistantErrorActionsLabel', "Posit Assistant"),
+			canContinueChat: true,
 			when: ContextKeyExpr.has(POSIT_HAS_CHAT_MODELS_KEY),
 			run: (kind, context) => openPositAssistantChat(
 				this._commandService,

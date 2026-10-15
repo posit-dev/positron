@@ -14,7 +14,7 @@ import { IAction } from '../../../../../base/common/actions.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { IErrorActionContext, IErrorActionsService, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../../../positronAssistant/common/errorActions.js';
+import { IErrorActionContext, IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { AssistantErrorQuickFix } from '../../browser/notebookCells/AssistantErrorQuickFix.js';
 
 describe('AssistantErrorQuickFix', () => {
@@ -27,8 +27,8 @@ describe('AssistantErrorQuickFix', () => {
 	const run = vi.fn();
 
 	/** Register the handler errors are sent to. */
-	function registerHandler(): IDisposable {
-		return ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: POSIT_ASSISTANT_ERROR_ACTIONS_ID, run }));
+	function registerHandler(options: Partial<IErrorActionHandler> = {}): IDisposable {
+		return ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: true, run, ...options }));
 	}
 
 	beforeEach(() => {
@@ -62,8 +62,8 @@ describe('AssistantErrorQuickFix', () => {
 		registerHandler();
 		const user = userEvent.setup();
 		renderQuickFix();
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to explain in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to explain in new chat' }));
 
 		expect(run.mock.calls).toEqual([
 			['fix', { ...errorContext, chat: 'new' }],
@@ -90,7 +90,7 @@ describe('AssistantErrorQuickFix', () => {
 		let error = 'stale location';
 		renderQuickFix({ getErrorContext: () => ({ ...errorContext, error }) });
 		error = 'fresh location';
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 
 		expect(run.mock.calls[0][1].error).toBe('fresh location');
 	});
@@ -105,5 +105,26 @@ describe('AssistantErrorQuickFix', () => {
 
 		act(() => registration?.dispose());
 		expect(screen.queryByRole('group', { name: 'Error quick fix actions' })).not.toBeInTheDocument();
+	});
+
+	it('names the handler in the dropdown actions', async () => {
+		registerHandler();
+		const user = userEvent.setup();
+		renderQuickFix();
+		await user.click(screen.getByRole('button', { name: 'More fix options' }));
+		await user.click(screen.getByRole('button', { name: 'More explain options' }));
+
+		const showContextMenu = vi.mocked(ctx.get(IContextMenuService).showContextMenu);
+		const labels = showContextMenu.mock.calls.map(([delegate]) => (delegate as IContextMenuDelegate).getActions().map(action => action.label));
+		expect(labels).toEqual([['Ask Test Agent to fix in current chat'], ['Ask Test Agent to explain in current chat']]);
+	});
+
+	it('offers no dropdowns when the handler cannot continue the current chat', () => {
+		registerHandler({ canContinueChat: false });
+		renderQuickFix();
+
+		expect(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'More fix options' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'More explain options' })).not.toBeInTheDocument();
 	});
 });

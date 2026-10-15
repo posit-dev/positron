@@ -85,7 +85,7 @@ describe('NotebookCellQuickFix', () => {
 		const user = userEvent.setup();
 		setGates();
 		renderQuickFix();
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Posit Assistant to fix in new chat' }));
 
 		expect(lastNewChatOptions()).toEqual({
 			prompt: 'Fix this notebook cell error.',
@@ -99,7 +99,7 @@ describe('NotebookCellQuickFix', () => {
 		const user = userEvent.setup();
 		setGates();
 		renderQuickFix();
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to explain in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Posit Assistant to explain in new chat' }));
 
 		expect(lastNewChatOptions()).toEqual({
 			prompt: 'Explain this notebook cell error. Do not make changes or edit any files; just explain the error.',
@@ -141,7 +141,7 @@ describe('NotebookCellQuickFix', () => {
 		const user = userEvent.setup();
 		setGates();
 		renderQuickFix('\n  \u001b[31mValueError\u001b[0m: boom\n\n');
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Posit Assistant to fix in new chat' }));
 
 		expect(lastNewChatOptions().files).toEqual([{ name: 'Notebook Cell Error', content: 'ValueError: boom' }]);
 	});
@@ -150,7 +150,7 @@ describe('NotebookCellQuickFix', () => {
 		const user = userEvent.setup();
 		setGates();
 		renderQuickFix('  \n');
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Posit Assistant to fix in new chat' }));
 
 		expect(lastNewChatOptions().files).toBeUndefined();
 	});
@@ -160,7 +160,7 @@ describe('NotebookCellQuickFix', () => {
 		const user = userEvent.setup();
 		setGates();
 		renderQuickFix();
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Posit Assistant to fix in new chat' }));
 
 		await waitFor(() => expect(notifyError).toHaveBeenCalledWith('Posit Assistant could not be opened: command not found'));
 	});

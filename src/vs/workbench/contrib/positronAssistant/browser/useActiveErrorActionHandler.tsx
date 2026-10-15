@@ -11,18 +11,18 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
 import { IErrorActionHandler, IErrorActionsService } from '../common/errorActions.js';
 
 /**
- * The error action handler that errors are sent to, kept current as handlers
- * are registered and unregistered.
+ * The active error action handler, which errors are sent to, kept current as
+ * it changes.
  * @returns The handler, or undefined when there is nowhere to send errors.
  */
-export function useErrorActionHandler(): IErrorActionHandler | undefined {
+export function useActiveErrorActionHandler(): IErrorActionHandler | undefined {
 	const services = usePositronReactServicesContext();
 	const errorActionsService = useMemo(() => services.get(IErrorActionsService), [services]);
-	const [handler, setHandler] = useState(() => errorActionsService.getHandler());
+	const [handler, setHandler] = useState(() => errorActionsService.activeHandler);
 
 	useEffect(() => {
-		setHandler(errorActionsService.getHandler());
-		const disposable = errorActionsService.onDidChange(() => setHandler(errorActionsService.getHandler()));
+		setHandler(errorActionsService.activeHandler);
+		const disposable = errorActionsService.onDidChangeActiveHandler(setHandler);
 		return () => disposable.dispose();
 	}, [errorActionsService]);
 

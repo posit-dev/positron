@@ -21,7 +21,7 @@ import { IErrorActionsService } from '../../../workbench/contrib/positronAssista
  *   svc.stub(INewService, {});
  */
 export function stubReactServices(svc: TestInstantiationService, disposables: Pick<DisposableStore, 'add'>): void {
-	// Read by useErrorActionHandler, which the console, notebook, and Quarto
+	// Read by useActiveErrorActionHandler, which the console, notebook, and Quarto
 	// error quick fixes call. No handlers are registered, so the quick fixes
 	// hide; tests that need one register it after their own stubs apply.
 	svc.stub(IErrorActionsService, disposables.add(svc.createInstance(ErrorActionsService)));

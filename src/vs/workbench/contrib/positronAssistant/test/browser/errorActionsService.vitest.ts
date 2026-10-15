@@ -11,7 +11,7 @@ import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/cont
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ErrorActionsService } from '../../browser/errorActionsService.js';
-import { IErrorActionHandler, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../../common/errorActions.js';
+import { IErrorActionHandler } from '../../common/errorActions.js';
 
 describe('ErrorActionsService', () => {
 	const logError = vi.fn();
@@ -31,45 +31,65 @@ describe('ErrorActionsService', () => {
 	}
 
 	function createHandler(options: Partial<IErrorActionHandler> = {}): IErrorActionHandler {
-		return { id: POSIT_ASSISTANT_ERROR_ACTIONS_ID, run: async () => { }, ...options };
+		return { id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { }, ...options };
 	}
 
-	it('sends errors to Posit Assistant while it is registered', () => {
+	it('sends errors to a handler while it is registered', () => {
 		const service = createService();
-		const onDidChange = vi.fn();
-		ctx.disposables.add(service.onDidChange(onDidChange));
+		const onDidChangeActiveHandler = vi.fn();
+		ctx.disposables.add(service.onDidChangeActiveHandler(onDidChangeActiveHandler));
 		const handler = createHandler();
 
 		const registration = service.register(handler);
-		expect(service.getHandler()).toBe(handler);
+		expect(service.activeHandler).toBe(handler);
 
 		registration.dispose();
-		expect(service.getHandler()).toBeUndefined();
-		expect(onDidChange).toHaveBeenCalledTimes(2);
+		expect(service.activeHandler).toBeUndefined();
+		expect(onDidChangeActiveHandler.mock.calls).toEqual([[handler], [undefined]]);
 	});
 
-	it('sends errors to Posit Assistant only while its when is true', () => {
+	it('sends errors to a handler only while its when is true', () => {
 		const service = createService();
-		const onDidChange = vi.fn();
+		const onDidChangeActiveHandler = vi.fn();
 		const enabled = contextKeyService.createKey<boolean>('test.enabled', false);
 		const handler = createHandler({ when: ContextKeyExpr.has('test.enabled') });
 		ctx.disposables.add(service.register(handler));
-		ctx.disposables.add(service.onDidChange(onDidChange));
-		expect(service.getHandler()).toBeUndefined();
+		ctx.disposables.add(service.onDidChangeActiveHandler(onDidChangeActiveHandler));
+		expect(service.activeHandler).toBeUndefined();
 
 		enabled.set(true);
-		expect(service.getHandler()).toBe(handler);
+		expect(service.activeHandler).toBe(handler);
 
 		enabled.set(false);
-		expect(service.getHandler()).toBeUndefined();
-		expect(onDidChange).toHaveBeenCalledTimes(2);
+		expect(service.activeHandler).toBeUndefined();
+		expect(onDidChangeActiveHandler).toHaveBeenCalledTimes(2);
 	});
 
-	it('ignores other handlers', () => {
+	it('sends errors to the first registered handler whose when is true', () => {
 		const service = createService();
-		ctx.disposables.add(service.register(createHandler({ id: 'other' })));
+		contextKeyService.createKey<boolean>('test.enabled', false);
+		const disabled = createHandler({ id: 'disabled', when: ContextKeyExpr.has('test.enabled') });
+		const first = createHandler({ id: 'first' });
+		ctx.disposables.add(service.register(disabled));
+		ctx.disposables.add(service.register(first));
+		ctx.disposables.add(service.register(createHandler({ id: 'second' })));
 
-		expect(service.getHandler()).toBeUndefined();
+		expect(service.activeHandler).toBe(first);
+	});
+
+	it('fires only when the active handler changes', () => {
+		const service = createService();
+		const onDidChangeActiveHandler = vi.fn();
+		ctx.disposables.add(service.onDidChangeActiveHandler(onDidChangeActiveHandler));
+		contextKeyService.createKey<boolean>('test.enabled', false);
+
+		// Activates the first handler.
+		ctx.disposables.add(service.register(createHandler({ id: 'first' })));
+		// Registering a later handler, or one that's disabled, leaves it active.
+		ctx.disposables.add(service.register(createHandler({ id: 'second' })));
+		ctx.disposables.add(service.register(createHandler({ id: 'disabled', when: ContextKeyExpr.has('test.enabled') })));
+
+		expect(onDidChangeActiveHandler).toHaveBeenCalledTimes(1);
 	});
 
 	it('ignores and logs a handler whose id is already registered', () => {
@@ -79,7 +99,7 @@ describe('ErrorActionsService', () => {
 
 		service.register(createHandler()).dispose();
 
-		expect(service.getHandler()).toBe(handler);
-		expect(logError).toHaveBeenCalledWith(`An error action handler with the id '${POSIT_ASSISTANT_ERROR_ACTIONS_ID}' is already registered`);
+		expect(service.activeHandler).toBe(handler);
+		expect(logError).toHaveBeenCalledWith(`An error action handler with the id 'test-agent' is already registered`);
 	});
 });
