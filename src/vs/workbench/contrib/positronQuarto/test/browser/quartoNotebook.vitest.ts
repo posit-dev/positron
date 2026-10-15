@@ -10,8 +10,12 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { NotebookCellType } from '../../../../common/positron/notebookAssistant.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CellExecutionState, ICellOutput, IQuartoExecutionManager } from '../../common/quartoExecutionTypes.js';
 import { QuartoCodeCell } from '../../common/quartoTypes.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
@@ -42,6 +46,8 @@ Closing text.
 describe('QuartoNotebook', () => {
 	const executeCell = vi.fn<(uri: URI, cell: QuartoCodeCell) => Promise<void>>(() => Promise.resolve());
 	let outputs: ICellOutput[] = [];
+	let foregroundSession: ILanguageRuntimeSession | undefined;
+	let affiliatedRuntimes: ILanguageRuntimeMetadata[] = [];
 
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
@@ -53,11 +59,15 @@ describe('QuartoNotebook', () => {
 		})
 		.stub(IQuartoKernelManager, { getSessionForDocument: () => undefined })
 		.stub(IQuartoOutputManager, { getOutputsForCell: () => outputs })
+		.stub(IRuntimeSessionService, { get foregroundSession() { return foregroundSession; } })
+		.stub(IRuntimeStartupService, { getAffiliatedRuntimes: () => affiliatedRuntimes })
 		.build();
 
 	beforeEach(() => {
 		executeCell.mockClear();
 		outputs = [];
+		foregroundSession = undefined;
+		affiliatedRuntimes = [];
 	});
 
 	function createNotebook(content: string) {
@@ -86,6 +96,21 @@ describe('QuartoNotebook', () => {
 		expect(textModel.getValue()).toBe(DOCUMENT
 			.replace('```{r}\nx + 1', '```{r}\nz <- 3\n```\n\n```{r}\nx + 1')
 			.replace('Closing text.\n', 'Closing text.\n\n```{r}\nz\n```\n'));
+	});
+
+	it('takes the language of a document without chunks from the foreground session, then the affiliated runtime', () => {
+		const addFirstCell = () => {
+			const { notebook, textModel } = createNotebook('Text.\n');
+			notebook.addCell(NotebookCellType.Code, 0, 'x');
+			return textModel.getValue();
+		};
+		expect(addFirstCell).toThrow('no language');
+
+		affiliatedRuntimes = [stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' })];
+		expect(addFirstCell()).toBe('Text.\n\n```{python}\nx\n```\n');
+
+		foregroundSession = stubInterface<ILanguageRuntimeSession>({ runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'r' }) });
+		expect(addFirstCell()).toBe('Text.\n\n```{r}\nx\n```\n');
 	});
 
 	it('refuses content that would end the chunk', () => {

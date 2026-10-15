@@ -16,6 +16,8 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotebookCellDTO, INotebookCellOutputDTO, INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { collectOutputDTOs } from '../../positronNotebook/browser/notebookAgentOperations.js';
 import { isImageMimeType } from '../../positronNotebook/browser/notebookMimeUtils.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../positronNotebook/common/positronNotebookConfig.js';
@@ -88,6 +90,8 @@ export class QuartoNotebook {
 		@IQuartoExecutionManager private readonly _executionManager: IQuartoExecutionManager,
 		@IQuartoKernelManager private readonly _kernelManager: IQuartoKernelManager,
 		@IQuartoOutputManager private readonly _outputManager: IQuartoOutputManager,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 	) { }
 
 	get uri(): URI {
@@ -134,14 +138,14 @@ export class QuartoNotebook {
 		}
 	}
 
-	/** Adds a code chunk in the document's primary language, returning its index. */
+	/** Adds a code chunk in the document's language, returning its index. */
 	addCell(type: NotebookCellType, index: number, content: string): number {
 		if (type !== NotebookCellType.Code) {
 			throw new Error('The cells of a Quarto document are its code chunks. Edit the text between them with the text tools.');
 		}
-		const language = this._documentModel.primaryLanguage;
+		const language = this._chunkLanguage();
 		if (!language) {
-			throw new Error('Cannot add a code chunk: the document has no primary language.');
+			throw new Error('Cannot add a code chunk: the document has no language and no interpreter is running.');
 		}
 		const cells = this._cells();
 		const insertIndex = Math.max(0, Math.min(index, cells.length));
@@ -205,6 +209,17 @@ export class QuartoNotebook {
 			contribution?.clearOutputsForCell(cells[index].id);
 			this._outputManager.clearOutputsForCell(this.uri, cells[index].id);
 		}
+	}
+
+	/**
+	 * The language for new code chunks: the document's own, else that of its
+	 * session, the foreground session, or the workspace's affiliated runtime.
+	 */
+	private _chunkLanguage(): string | undefined {
+		return this._documentModel.primaryLanguage
+			?? this._kernelManager.getSessionForDocument(this.uri)?.runtimeMetadata.languageId
+			?? this._runtimeSessionService.foregroundSession?.runtimeMetadata.languageId
+			?? this._runtimeStartupService.getAffiliatedRuntimes()[0]?.languageId;
 	}
 
 	/** The document's code chunks, reflecting its current content. */
