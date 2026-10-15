@@ -39,7 +39,7 @@ const DEFAULT_RESTART_DELAY_MS = 10_000;
 const DEFAULT_STOP_TIMEOUT_MS = 5_000;
 
 /** How long to wait for the one-shot `verify` subcommand. */
-const VERIFY_TIMEOUT_MS = 10_000;
+const VERIFY_TIMEOUT_MS = 2_000;
 
 /** A message decoded from the client's stdout. */
 export interface ILicenseManagerMessage {
@@ -174,9 +174,14 @@ export async function readLicenseArn(binaryPath: string, args: string[] = ['veri
 	const lines = stdout.split('\n').map(line => line.trim()).filter(line => line);
 	const jsonIndex = lines.findIndex(line => line.startsWith('{'));
 	if (jsonIndex < 1) {
+		console.error('[license-manager] Could not read the license ARN: verify printed no digest and frame.');
 		return undefined;
 	}
-	return parseLicenseManagerFrame(lines[jsonIndex - 1], lines[jsonIndex], key)?.licenseArn;
+	const licenseArn = parseLicenseManagerFrame(lines[jsonIndex - 1], lines[jsonIndex], key)?.licenseArn;
+	if (!licenseArn) {
+		console.error('[license-manager] Could not read the license ARN: the verify frame failed verification or has no license-arn.');
+	}
+	return licenseArn;
 }
 
 /**
