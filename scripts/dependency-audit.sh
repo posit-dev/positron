@@ -135,16 +135,17 @@ done < "$MANIFESTS"
 
 echo "## Dependency audit: runtime dependencies"
 echo ""
-echo "Projects are under \`extensions/\`. Counts are critical/high/all advisories, from \`npm audit --omit=dev\`$( [ "$SNYK" = true ] && echo " and \`snyk test\`" )."
+echo "Counts are critical/high/all advisories, from \`npm audit --omit=dev\`$( [ "$SNYK" = true ] && echo " and \`snyk test\`" )."
 if [ "$FIX" = true ]; then
-	echo "\"After fix\" is npm audit after \`npm audit fix --package-lock-only --omit=dev\`. \"Needs manual fix\" lists packages that still have a high or critical advisory after the fix, which usually need a semver-major bump or an \`overrides\` entry."
+	echo "- \"After\" is npm audit after \`npm audit fix --package-lock-only --omit=dev\`."
+	echo "- \"Needs manual fix\" lists packages that still have a high or critical advisory after the fix, which usually need a semver-major bump or an \`overrides\` entry."
 fi
 echo ""
 if [ ${#rows[@]} -gt 0 ]; then
 	header="| Project"
 	divider="|---"
 	if [ "$FIX" = true ]; then
-		header="$header | Before | After fix"
+		header="$header | Before | After"
 		divider="$divider|---|---"
 	else
 		header="$header | npm audit"
