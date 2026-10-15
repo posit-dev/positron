@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { AuthProvider } from '../authProvider';
+import { AuthProvider, RecoverCallback } from '../authProvider';
 import { log } from '../log';
 import { useFakeTimers } from './fakeTimers';
 
@@ -310,6 +310,61 @@ suite('AuthProvider (credential chain)', () => {
 		assert.strictEqual(event.removed!.length, 1);
 		sessions = await chainProvider.getSessions();
 		assert.strictEqual(sessions.length, 0);
+	});
+});
+
+suite('AuthProvider - recover and retry', () => {
+	let providers: AuthProvider[];
+
+	setup(() => {
+		providers = [];
+	});
+
+	teardown(() => {
+		providers.forEach(provider => provider.dispose());
+	});
+
+	/** A chain provider whose resolve fails `failures` times before succeeding. */
+	function makeFlakyChainProvider(failures: number, recover?: RecoverCallback) {
+		let attempts = 0;
+		const provider = new AuthProvider(
+			'test-chain', 'Test Chain', createMockContext(),
+			{
+				resolve: async () => {
+					attempts++;
+					if (attempts <= failures) {
+						throw new Error('chain unavailable');
+					}
+					return JSON.stringify({ accessKeyId: 'AKIA', secretAccessKey: 'secret' });
+				},
+			},
+			recover,
+		);
+		providers.push(provider);
+		return { provider, attempts: () => attempts };
+	}
+
+	test('retries once when recover succeeds', async () => {
+		let recoverCalls = 0;
+		const { provider, attempts } = makeFlakyChainProvider(1, async () => { recoverCalls++; return true; });
+
+		await provider.createSession([]);
+
+		assert.deepStrictEqual([recoverCalls, attempts(), (await provider.getSessions()).length], [1, 2, 1]);
+	});
+
+	test('rethrows the original error when recover declines', async () => {
+		const { provider, attempts } = makeFlakyChainProvider(Number.MAX_SAFE_INTEGER, async () => false);
+
+		await assert.rejects(provider.createSession([]), /No credentials found for Test Chain/);
+		assert.strictEqual(attempts(), 1);
+	});
+
+	test('retries only once when the chain still fails after recovering', async () => {
+		const { provider, attempts } = makeFlakyChainProvider(Number.MAX_SAFE_INTEGER, async () => true);
+
+		await assert.rejects(provider.createSession([]), /No credentials found for Test Chain/);
+		assert.strictEqual(attempts(), 2);
 	});
 });
 
