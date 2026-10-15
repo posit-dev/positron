@@ -20,6 +20,7 @@ import { IExtensionService } from '../../../../services/extensions/common/extens
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ActivityErrorMessage } from '../../browser/components/activityErrorMessage.js';
+import { PositAssistantErrorActionsContribution } from '../../../positronAssistant/browser/positAssistantErrorActions.js';
 
 const positAssistant = { identifier: new ExtensionIdentifier('posit.assistant') } as IExtensionDescription;
 
@@ -32,6 +33,12 @@ describe('ActivityErrorMessage assistant actions gate', () => {
 		.stub(IExtensionService, { extensions: [positAssistant], onDidChangeExtensions: Event.None })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	// Send errors to Posit Assistant, as the workbench does. Registered after
+	// the container's stubs apply, so it uses the stubbed command service.
+	beforeEach(() => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+	});
 
 	function setup(options: { aiEnabled?: boolean; actionsEnabled?: boolean; hasChatModels?: boolean }) {
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
@@ -74,6 +81,12 @@ describe('ActivityErrorMessage assistant actions gate (Posit Assistant not insta
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
+	// Send errors to Posit Assistant, as the workbench does. Registered after
+	// the container's stubs apply, so it uses the stubbed command service.
+	beforeEach(() => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+	});
+
 	it('hides the actions when Posit Assistant is not installed', () => {
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
@@ -92,6 +105,12 @@ describe('ActivityErrorMessage assistant actions gate (live updates)', () => {
 		.stub(IExtensionService, { extensions: [positAssistant], onDidChangeExtensions: Event.None })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	// Send errors to Posit Assistant, as the workbench does. Registered after
+	// the container's stubs apply, so it uses the stubbed command service.
+	beforeEach(() => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+	});
 
 	/** A real context key service, so key changes re-render the error. */
 	let contextKeyService: ContextKeyService;

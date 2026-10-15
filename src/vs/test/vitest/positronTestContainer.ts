@@ -259,7 +259,7 @@ export class PositronTestContainerBuilder {
 			//    because they stub disjoint services today. If they ever
 			//    overlap, the later-applied layer wins -- document it then.
 			if (useReactServices) {
-				stubReactServices(_instantiationService);
+				stubReactServices(_instantiationService, disposables);
 			}
 			if (useContributionServices) {
 				stubContributionServices(_instantiationService);

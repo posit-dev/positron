@@ -14,6 +14,7 @@ import { decodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ConsoleQuickFix } from '../../browser/components/activityErrorQuickFix.js';
+import { PositAssistantErrorActionsContribution } from '../../../positronAssistant/browser/positAssistantErrorActions.js';
 
 const line = (id: string, text: string): ANSIOutputLine => ({
 	id,
@@ -41,6 +42,12 @@ describe('ConsoleQuickFix', () => {
 		.stub(INotificationService, { error: notifyError })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	// Send errors to Posit Assistant, as the workbench does. Registered after
+	// the container's stubs apply, so it uses the stubbed command service.
+	beforeEach(() => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+	});
 
 	beforeEach(() => {
 		executeCommand.mockReset().mockResolvedValue(undefined);

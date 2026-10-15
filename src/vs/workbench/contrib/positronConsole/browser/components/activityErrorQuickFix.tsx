@@ -8,20 +8,14 @@
 import './activityErrorQuickFix.css';
 
 // React.
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
-import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
-import { NewChatFile, NewChatOptions, openPositAssistantChat } from '../../../positronAssistant/browser/positAssistantChat.js';
-
-const fixPrompt = localize('positronConsoleAssistantFixPrompt', "Fix this console error.");
-const explainPrompt = localize('positronConsoleAssistantExplainPrompt', "Explain this console error.");
-
-const ATTACHMENT_NAME = localize('positronConsoleAssistantErrorAttachmentName', "Console Error");
+import { ErrorActionKind } from '../../../positronAssistant/common/errorActions.js';
+import { useErrorActionHandler } from '../../../positronAssistant/browser/useErrorActionHandler.js';
 
 interface ConsoleQuickFixProps {
 	outputLines: ANSIOutputLine[];
@@ -36,41 +30,27 @@ const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputL
 	return traceback ? `${message}\n${traceback}` : message;
 };
 
-const buildAttachment = (text: string): NewChatFile | undefined => {
-	if (!text) {
-		return undefined;
-	}
-	const base64 = encodeBase64(VSBuffer.fromString(text));
-	return { uri: `data:text/plain;base64,${base64}`, name: ATTACHMENT_NAME };
-};
-
 /**
  * Quick fix component.
  * @returns The rendered component.
  */
 export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const buttonRef = useRef<HTMLDivElement>(undefined!);
-	const services = usePositronReactServicesContext();
-	const { commandService, logService, notificationService } = services;
+	const handler = useErrorActionHandler();
 
-	const attachment = useMemo(
-		() => buildAttachment(formatOutput(props.outputLines, props.tracebackLines)),
-		[props.outputLines, props.tracebackLines]
-	);
+	if (!handler) {
+		return null;
+	}
 
-	const runNewChat = (prompt: string) => {
-		const options: NewChatOptions = {
-			prompt,
-			target: 'auto',
-			behavior: 'submit',
-			...(attachment && { files: [attachment] }),
-		};
-		return openPositAssistantChat(commandService, notificationService, logService, options);
-	};
+	const run = (kind: ErrorActionKind) => handler.run(kind, {
+		error: formatOutput(props.outputLines, props.tracebackLines),
+		location: { kind: 'console' },
+		chat: 'current',
+	});
 
-	const pressedFixHandler = () => runNewChat(fixPrompt);
+	const pressedFixHandler = () => run('fix');
 
-	const pressedExplainHandler = () => runNewChat(explainPrompt);
+	const pressedExplainHandler = () => run('explain');
 
 	// Render.
 	return (

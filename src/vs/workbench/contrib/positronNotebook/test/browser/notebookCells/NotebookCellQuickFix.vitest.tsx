@@ -23,6 +23,7 @@ import { NewChatOptions, POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } fro
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { NotebookCellQuickFix } from '../../../browser/notebookCells/NotebookCellQuickFix.js';
+import { PositAssistantErrorActionsContribution } from '../../../../positronAssistant/browser/positAssistantErrorActions.js';
 
 describe('NotebookCellQuickFix', () => {
 	const executeCommand = vi.fn();
@@ -35,6 +36,12 @@ describe('NotebookCellQuickFix', () => {
 		.stub(INotificationService, { error: notifyError })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	// Send errors to Posit Assistant, as the workbench does. Registered after
+	// the container's stubs apply, so it uses the stubbed command service.
+	beforeEach(() => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+	});
 
 	/** A real context key service, so key changes re-render the quick fix. */
 	let contextKeyService: ContextKeyService;

@@ -20,6 +20,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputViewZone } from '../../browser/quartoOutputViewZone.js';
+import { PositAssistantErrorActionsContribution } from '../../../positronAssistant/browser/positAssistantErrorActions.js';
 
 // The inline-output webview is a fixed-position overlay anchored to a
 // placeholder inside the editor view zone. It must be shown only while its view
@@ -197,6 +198,12 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		.withReactServices()
 		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
 		.build();
+
+	// Send errors to Posit Assistant, as the workbench does. Registered after
+	// the container's stubs apply, so it uses the stubbed command service.
+	beforeEach(() => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+	});
 
 	// jsdom performs no layout, so offsetHeight is always 0. Inject a measurer
 	// that reports the styled container as taller once the Fix/Explain buttons

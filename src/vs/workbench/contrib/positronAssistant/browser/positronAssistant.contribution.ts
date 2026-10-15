@@ -5,7 +5,7 @@
 
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
+import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { localize2 } from '../../../../nls.js';
@@ -30,6 +30,8 @@ import { IAiProviderService } from '../../../services/positronAiProvider/common/
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { CreateAIDiagnosticReportAction } from './aiDiagnostics.js';
+import { PositAssistantErrorActionsContribution } from './positAssistantErrorActions.js';
+import './errorActionsService.js';
 // Importing this module also registers the `ai.enabled` main switch for Positron's AI features.
 import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 
@@ -162,4 +164,7 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).regi
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(AiExtensionActivationContribution, LifecyclePhase.Eventually);
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantToolsContribution, LifecyclePhase.Restored);
+// Register before the console, notebooks, and Quarto documents restore, so
+// their errors' Fix and Explain actions have somewhere to go from the start.
+registerWorkbenchContribution2(PositAssistantErrorActionsContribution.ID, PositAssistantErrorActionsContribution, WorkbenchPhase.BlockStartup);
 

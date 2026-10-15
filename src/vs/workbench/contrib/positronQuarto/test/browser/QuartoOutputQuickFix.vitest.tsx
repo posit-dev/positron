@@ -24,6 +24,7 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { POSIT_NEW_CHAT_COMMAND, NewChatOptions } from '../../../positronAssistant/browser/positAssistantChat.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
 import { QuartoCellErrorContext } from '../../common/quartoExecutionTypes.js';
+import { PositAssistantErrorActionsContribution } from '../../../positronAssistant/browser/positAssistantErrorActions.js';
 
 describe('QuartoOutputQuickFix', () => {
 	const ctx = createTestContainer()
@@ -33,6 +34,12 @@ describe('QuartoOutputQuickFix', () => {
 		.stub(INotificationService, { error: vi.fn() })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	// Send errors to Posit Assistant, as the workbench does. Registered after
+	// the container's stubs apply, so it uses the stubbed command service.
+	beforeEach(() => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+	});
 
 	/** A real context key service, so key changes re-render the quick fix. */
 	let contextKeyService: ContextKeyService;

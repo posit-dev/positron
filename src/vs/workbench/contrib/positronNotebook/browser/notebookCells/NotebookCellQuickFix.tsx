@@ -8,16 +8,12 @@ import { useCallback } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { IErrorActionContext } from '../../../positronAssistant/common/errorActions.js';
 import { usePositronConfiguration, useContextKey, useContextKeyFromString } from '../../../../../base/browser/positronReactHooks.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { POSIT_HAS_CHAT_MODELS_KEY } from '../../../positronAssistant/browser/positAssistantChat.js';
 import { AssistantErrorQuickFix } from './AssistantErrorQuickFix.js';
-
-const fixPrompt = localize('positronNotebookAssistantFixPrompt', "Fix this notebook cell error.");
-const explainPrompt = localize('positronNotebookAssistantExplainPrompt', "Explain this notebook cell error.");
-
-const ATTACHMENT_NAME = localize('positronNotebookAssistantErrorAttachmentName', "Notebook Cell Error");
 
 /**
  * Props for the NotebookCellQuickFix component.
@@ -47,8 +43,8 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 	// Stable identity so AssistantErrorQuickFix's click handler and dropdown
 	// actions aren't recreated on every render.
-	const getPayload = useCallback(
-		() => ({ fixPrompt, explainPrompt, attachmentContent: errorContent }),
+	const getErrorContext = useCallback(
+		(): Omit<IErrorActionContext, 'chat'> => ({ error: errorContent, location: { kind: 'notebook' } }),
 		[errorContent]
 	);
 
@@ -63,8 +59,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 	return (
 		<AssistantErrorQuickFix
-			attachmentName={ATTACHMENT_NAME}
-			getPayload={getPayload}
+			getErrorContext={getErrorContext}
 			groupAriaLabel={localize('positron.notebook.quickFixGroup', "Cell output quick fix actions")}
 		/>
 	);

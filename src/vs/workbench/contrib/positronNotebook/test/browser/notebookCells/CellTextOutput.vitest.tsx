@@ -22,6 +22,7 @@ import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvi
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
 import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
+import { PositAssistantErrorActionsContribution } from '../../../../positronAssistant/browser/positAssistantErrorActions.js';
 
 /** Generate multiline content with the given number of lines. */
 function makeLines(n: number): string {
@@ -33,6 +34,12 @@ describe('CellTextOutput', () => {
 		.withReactServices()
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	// Send errors to Posit Assistant, as the workbench does. Registered after
+	// the container's stubs apply, so it uses the stubbed command service.
+	beforeEach(() => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+	});
 
 	let optionsEmitter: Emitter<NotebookOptionsChangeEvent>;
 	let layoutConfig: Partial<NotebookLayoutConfiguration & NotebookDisplayOptions>;
