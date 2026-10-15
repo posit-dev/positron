@@ -117,38 +117,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		log.error(`Failed to apply the Posit Workbench default for Posit AI Pass: ${err}`)
 	);
 
-	// Reports provider state for the core "AI: Create Diagnostic Report" command:
-	// which providers the user is signed in to, and which are turned off in
-	// settings. Returns display names only (no account details). Bridged as a
-	// command for the same reason as the logs above.
-	context.subscriptions.push(
-		vscode.commands.registerCommand('authentication.getProviderDiagnostics', async () => {
-			const authenticated: string[] = [];
-
-			// "Authenticated" means an active session (getSessions().length > 0),
-			// matching how the Accounts UI decides signed-in - not isConfigured(),
-			// which also counts providers set up once but now signed out or expired.
-			await Promise.all([...authProviders.values()].map(async (provider) => {
-				try {
-					if ((await provider.getSessions()).length > 0) {
-						authenticated.push(provider.label);
-					}
-				} catch (e) {
-					log.warn(`getProviderDiagnostics: could not check ${provider.label}: ${e instanceof Error ? e.message : String(e)}`);
-				}
-			}));
-
-			// "Disabled" means the provider's catalog entry isn't enabled.
-			// Match core's rule: enabled only when `enabled === true`, so a
-			// missing or false entry counts as off.
-			const disabled = Object.values(PROVIDER_METADATA)
-				.filter(meta => getCachedProvider(meta.id)?.enabled !== true)
-				.map(meta => meta.displayName);
-
-			return { authenticated: authenticated.sort(), disabled: disabled.sort() };
-		}),
-	);
-
 	await registerAwsProvider(context);
 	const snowflake = registerUnlessAssistantOwns(SNOWFLAKE_AUTH_PROVIDER_ID, () => registerSnowflakeProvider(context));
 	context.subscriptions.push(snowflake.disposable);

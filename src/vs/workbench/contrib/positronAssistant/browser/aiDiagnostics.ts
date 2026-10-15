@@ -21,9 +21,12 @@ import { IExtensionManagementService, ILocalExtension } from '../../../../platfo
 import { PlatformToString, platform } from '../../../../base/common/platform.js';
 import { raceTimeout } from '../../../../base/common/async.js';
 import { parse } from '../../../../base/common/json.js';
+import { isDefined } from '../../../../base/common/types.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IExtensionService, IExtensionsStatus } from '../../../services/extensions/common/extensions.js';
 import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
+import { IAuthenticationService } from '../../../services/authentication/common/authentication.js';
+import { IResolvedProviderData } from '../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { IHeadlessLanguageModelService, IModelListingDiagnostics } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -128,7 +131,7 @@ export interface IAIDiagnosticsInputs {
 	readonly extensions: readonly IAIDiagnosticsExtension[];
 	/** Provider labels the user is authenticated with (empty when none/unknown). */
 	readonly authenticatedProviders: readonly string[];
-	/** Provider labels turned off in settings (empty when none/unknown). */
+	/** Provider labels turned off in providers.json (empty when none/unknown). */
 	readonly disabledProviders: readonly string[];
 	/**
 	 * What each provider actually contributed, as opposed to what providers.json
@@ -427,10 +430,6 @@ const AI_LOG_SOURCES: readonly { label: string; id: string; command: string }[] 
 	{ label: 'Posit AI NES', id: 'positron.next-edit-suggestions', command: 'next-edit-suggestions.getDiagnosticLogs' },
 ];
 
-/** The authentication extension and its bridge command reporting provider state. */
-const AUTH_EXTENSION_ID = 'positron.authentication';
-const AUTH_PROVIDERS_COMMAND = 'authentication.getProviderDiagnostics';
-
 /** The Posit Assistant extension and its bridge command producing the diagnostics bundle. */
 const ASSISTANT_EXTENSION_ID = 'posit.assistant';
 const ASSISTANT_BUNDLE_COMMAND = 'posit.assistant.collectDiagnosticsBundle';
@@ -438,8 +437,14 @@ const ASSISTANT_BUNDLE_COMMAND = 'posit.assistant.collectDiagnosticsBundle';
 /** The Next Edit Suggestions extension. */
 const NES_EXTENSION_ID = 'positron.next-edit-suggestions';
 
-/** Shape returned by {@link AUTH_PROVIDERS_COMMAND}. */
-interface IProviderDiagnostics {
+/** Catalog ids whose sign-in is served under a different authentication provider id. */
+const AUTH_PROVIDER_ID_OVERRIDES: Readonly<Record<string, string>> = { copilot: 'github' };
+
+/** The authentication provider Posit Assistant serves every custom providers.json entry under. */
+const CUSTOM_PROVIDERS_AUTH_ID = 'custom-providers';
+
+/** Provider labels for the report's Providers section. */
+export interface IProviderDiagnostics {
 	readonly authenticated: string[];
 	readonly disabled: string[];
 }
@@ -555,6 +560,7 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 		const outputService = accessor.get(IOutputService);
 		const fileService = accessor.get(IFileService);
 		const aiProviderService = accessor.get(IAiProviderService);
+		const authenticationService = accessor.get(IAuthenticationService);
 		const headlessLanguageModelService = accessor.get(IHeadlessLanguageModelService);
 		const languageModelsService = accessor.get(ILanguageModelsService);
 		const editorService = accessor.get(IEditorService);
@@ -625,7 +631,7 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 			}
 
 			progress.report({ message: localize('positron.ai.diagnostics.collectingProviders', "Reading provider configuration") });
-			const providers = await collectProviderDiagnostics(extensionService, commandService);
+			const providers = await collectProviderDiagnostics(aiProviderService, authenticationService);
 			const providerConfig = await collectProvidersConfig(aiProviderService, fileService);
 
 			// Independent sources, so run them together: the section's worst case is
@@ -907,31 +913,40 @@ async function collectBridgedLogs(
 }
 
 /**
- * Asks the authentication extension which providers the user is authenticated
- * with and which are disabled, via its bridge command. Returns empty lists when
- * auth isn't installed or the call fails, so the report shows "None" rather than
- * erroring.
+ * Lists the providers the user is signed in to and the ones turned off in the
+ * provider catalog, whichever extension owns each sign-in. Anything that can't
+ * be read in time is left out, so the report shows "None" rather than erroring.
  */
-async function collectProviderDiagnostics(
-	extensionService: IExtensionService,
-	commandService: ICommandService,
+export async function collectProviderDiagnostics(
+	aiProviderService: IAiProviderService,
+	authenticationService: IAuthenticationService,
 ): Promise<IProviderDiagnostics> {
-	const empty: IProviderDiagnostics = { authenticated: [], disabled: [] };
-	if (!await extensionService.getExtension(AUTH_EXTENSION_ID)) {
-		return empty;
+	await raceTimeout(aiProviderService.whenInitialized, BRIDGE_TIMEOUT_MS);
+	const catalog = aiProviderService.status === 'ready' ? aiProviderService.getProviders() : [];
+
+	// Declared providers have labels before their extension activates.
+	const labels = new Map(authenticationService.declaredProviders.map(provider => [provider.id, provider.label]));
+	for (const id of authenticationService.getProviderIds()) {
+		labels.set(id, authenticationService.getProvider(id).label);
 	}
-	// The bridge call gets its own budget, for the same reason as the log
-	// collection above: one shared with the activation is spent by a hang.
-	try {
-		await activateWithTimeout(extensionService, AUTH_EXTENSION_ID);
-	} catch {
-		// Fall through to the bridge call.
-	}
-	try {
-		return (await raceTimeout(commandService.executeCommand<IProviderDiagnostics>(AUTH_PROVIDERS_COMMAND), BRIDGE_TIMEOUT_MS)) ?? empty;
-	} catch {
-		return empty;
-	}
+	const authIdFor = (provider: IResolvedProviderData) =>
+		provider.custom ? CUSTOM_PROVIDERS_AUTH_ID : AUTH_PROVIDER_ID_OVERRIDES[provider.id] ?? provider.id;
+
+	const authIds = new Set(catalog.map(authIdFor).filter(id => labels.has(id)));
+	const authenticated = await Promise.all([...authIds].map(async id => {
+		try {
+			const sessions = await raceTimeout(authenticationService.getSessions(id), BRIDGE_TIMEOUT_MS);
+			return sessions?.length ? labels.get(id) : undefined;
+		} catch {
+			return undefined;
+		}
+	}));
+
+	const disabled = catalog
+		.filter(provider => !provider.enabled)
+		.map(provider => provider.custom ? provider.id : labels.get(authIdFor(provider)) ?? provider.id);
+
+	return { authenticated: authenticated.filter(isDefined).sort(), disabled: disabled.sort() };
 }
 
 /**

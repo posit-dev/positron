@@ -12,7 +12,6 @@ import {
 export interface ProviderMetadata {
 	/** Auth provider id, which is also the provider's id in the catalog (providers.json). */
 	readonly id: string;
-	readonly displayName: string;
 }
 
 /**
@@ -27,14 +26,11 @@ export interface ProviderMetadata {
 export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 	amazonBedrock: {
 		id: AWS_AUTH_PROVIDER_ID,
-		displayName: 'Amazon Bedrock',
 	},
 	snowflake: {
 		id: SNOWFLAKE_AUTH_PROVIDER_ID,
-		displayName: 'Snowflake Cortex',
 	},
 	databricks: {
 		id: DATABRICKS_AUTH_PROVIDER_ID,
-		displayName: 'Databricks',
 	},
 };

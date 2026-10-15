@@ -6,8 +6,11 @@
 /// <reference types="vitest/globals" />
 
 import { IConfigurationService, IConfigurationValue } from '../../../../../platform/configuration/common/configuration.js';
+import { IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { capLogLines, collectAISettings, describeExtensionStatus, describeFeatureToggle, featureState, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey, redactProvidersConfig } from '../../browser/aiDiagnostics.js';
+import { AuthenticationSession, IAuthenticationProvider, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
+import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
+import { capLogLines, collectAISettings, collectProviderDiagnostics, describeExtensionStatus, describeFeatureToggle, featureState, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey, redactProvidersConfig } from '../../browser/aiDiagnostics.js';
 
 function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsInputs {
 	return {
@@ -487,5 +490,92 @@ describe('capLogLines', () => {
 			cappedLineCount: capped.length,
 			keptMostRecent: capped[capped.length - 1],
 		}).toEqual({ underUnchanged: true, cappedLineCount: 500, keptMostRecent: 'line 599' });
+	});
+});
+
+describe('collectProviderDiagnostics', () => {
+	const session = stubInterface<AuthenticationSession>({ id: 'session' });
+
+	function catalogEntry(id: string, overrides: Partial<IResolvedProviderData> = {}): IResolvedProviderData {
+		return { id, enabled: true, connection: {}, ...overrides };
+	}
+
+	/** Stubs the catalog and the sign-ins: `signedIn` lists the auth ids with a session. */
+	function collect(options: {
+		catalog: IResolvedProviderData[];
+		declared?: { id: string; label: string }[];
+		registered?: { id: string; label: string }[];
+		signedIn?: string[];
+		catalogReady?: boolean;
+	}) {
+		const { catalog, declared = [], registered = [], signedIn = [], catalogReady = true } = options;
+		const aiProviderService = stubInterface<IAiProviderService>({
+			whenInitialized: Promise.resolve(),
+			status: catalogReady ? 'ready' : 'error',
+			getProviders: () => catalog,
+		});
+		const authenticationService = stubInterface<IAuthenticationService>({
+			declaredProviders: declared,
+			getProviderIds: () => registered.map(provider => provider.id),
+			getProvider: (id: string) => stubInterface<IAuthenticationProvider>({ label: registered.find(provider => provider.id === id)!.label }),
+			getSessions: async (id: string) => signedIn.includes(id) ? [session] : [],
+		});
+		return collectProviderDiagnostics(aiProviderService, authenticationService);
+	}
+
+	it('covers every catalog provider, whichever extension owns its sign-in', async () => {
+		expect(await collect({
+			catalog: [
+				catalogEntry('anthropic'),
+				catalogEntry('positai'),
+				catalogEntry('bedrock'),
+				catalogEntry('openai', { enabled: false }),
+				catalogEntry('ollama', { enabled: false }),
+			],
+			declared: [
+				{ id: 'anthropic', label: 'Anthropic' },
+				{ id: 'positai', label: 'Posit AI' },
+				{ id: 'openai', label: 'OpenAI' },
+			],
+			registered: [{ id: 'bedrock', label: 'Amazon Bedrock' }],
+			signedIn: ['anthropic', 'bedrock'],
+		})).toEqual({
+			authenticated: ['Amazon Bedrock', 'Anthropic'],
+			disabled: ['OpenAI', 'ollama'],
+		});
+	});
+
+	it('checks Copilot under GitHub and custom entries under the custom providers sign-in', async () => {
+		expect(await collect({
+			catalog: [catalogEntry('copilot'), catalogEntry('my-gateway', { custom: true, enabled: false })],
+			registered: [{ id: 'github', label: 'GitHub' }, { id: 'custom-providers', label: 'Custom Providers' }],
+			signedIn: ['github', 'custom-providers'],
+		})).toEqual({
+			authenticated: ['Custom Providers', 'GitHub'],
+			disabled: ['my-gateway'],
+		});
+	});
+
+	it('leaves out a sign-in that fails to answer', async () => {
+		const aiProviderService = stubInterface<IAiProviderService>({
+			whenInitialized: Promise.resolve(),
+			status: 'ready',
+			getProviders: () => [catalogEntry('anthropic')],
+		});
+		const authenticationService = stubInterface<IAuthenticationService>({
+			declaredProviders: [{ id: 'anthropic', label: 'Anthropic' }],
+			getProviderIds: () => [],
+			getSessions: async () => { throw new Error('boom'); },
+		});
+		expect(await collectProviderDiagnostics(aiProviderService, authenticationService)).toEqual({ authenticated: [], disabled: [] });
+	});
+
+	it('reports nothing when the catalog could not be read', async () => {
+		expect(await collect({
+			catalog: [catalogEntry('anthropic', { enabled: false })],
+			declared: [{ id: 'anthropic', label: 'Anthropic' }],
+			signedIn: ['anthropic'],
+			catalogReady: false,
+		})).toEqual({ authenticated: [], disabled: [] });
 	});
 });
