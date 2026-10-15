@@ -136,6 +136,8 @@ pub const BASE: &[&[&str]] = &[
     ],
     // valuesRow
     &["ON CONFLICT", "ON DUPLICATE KEY UPDATE", "RETURNING"],
+    // rowCount
+    &[],
 ];
 
 /// The keywords a single dialect offers on top of [`BASE`], as `(dialect, position, added)`.

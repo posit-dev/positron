@@ -144,7 +144,46 @@ const POSITIONS: &[(&str, &str)] = &[
     ("SELECT a FROM orders UNION |", "setOperand"),
     ("UPDATE orders SET a = 1 |", "assignment"),
     ("INSERT INTO orders VALUES (1) |", "valuesRow"),
+    ("SELECT * FROM orders LIMIT |", "rowCount"),
 ];
+
+#[test]
+fn every_way_of_writing_a_row_count_is_one_position() {
+    let cases = [
+        "SELECT * FROM orders ORDER BY id LIMIT |",
+        "SELECT * FROM orders LIMIT 10 OFFSET |",
+        "SELECT * FROM orders LIMIT 10, |",
+        "SELECT TOP |",
+        "SELECT * FROM orders OFFSET 5 ROWS FETCH FIRST |",
+        "SELECT * FROM orders OFFSET 5 ROWS FETCH NEXT |",
+    ];
+    let found: Vec<(&str, String)> = cases.iter().map(|marked| (*marked, position(marked))).collect();
+    let expected: Vec<(&str, String)> =
+        cases.iter().map(|marked| (*marked, "rowCount".to_string())).collect();
+    assert_eq!(found, expected);
+}
+
+#[test]
+fn a_row_count_offers_no_keyword_in_any_dialect() {
+    // `LIMIT ALL` is PostgreSQL's alone, and a syntax error in MySQL; the parser accepts it in
+    // both, so it cannot be offered in one and not the other.
+    for dialect in ["", "mysql", "postgres"] {
+        assert_eq!(
+            at_cursor_as(dialect, "SELECT * FROM orders LIMIT |").0,
+            Vec::<String>::new(),
+            "{dialect}"
+        );
+    }
+}
+
+#[test]
+fn what_follows_a_row_count_is_not_a_row_count() {
+    // The count itself finishes the clause: `LIMIT 10 |` goes on to `OFFSET`, and the `FIRST` of
+    // `NULLS FIRST` is an ordering, not a `FETCH`.
+    assert_eq!(position("SELECT * FROM orders LIMIT 10 |"), "expression");
+    assert_eq!(position("SELECT * FROM orders ORDER BY id NULLS FIRST |"), "orderItem");
+    assert_eq!(position("SELECT * FROM orders WHERE id IN (1, |"), "value");
+}
 
 #[test]
 fn the_position_of_the_cursor_is_recognized() {
@@ -234,7 +273,12 @@ fn every_position_covered_by_the_table_is_reachable() {
 fn no_position_is_answered_with_nothing() {
     // An empty list is a worse failure than an over-broad one: it is indistinguishable from the
     // extension being broken, and it silently removes a completion that used to work.
-    for (marked, _) in POSITIONS {
+    // Except where nothing is the answer: a row count is a number, and the one keyword that could
+    // stand there, `ALL`, is PostgreSQL's alone. See `a_row_count_offers_no_keyword_in_any_dialect`.
+    for (marked, name) in POSITIONS {
+        if *name == "rowCount" {
+            continue;
+        }
         assert!(!offered(marked).is_empty(), "nothing offered at {marked:?}");
     }
 }
@@ -449,7 +493,8 @@ fn every_dialect_has_a_row_for_every_position() {
     // The generated table is indexed by position, so a missing row would silently answer as the
     // fallback for one dialect and correctly for the rest.
     for dialect in CANONICAL {
-        for (marked, _) in POSITIONS {
+        // The row count offers nothing in every dialect, by design; see above.
+        for (marked, _) in POSITIONS.iter().filter(|(_, name)| *name != "rowCount") {
             let (keywords, position) = at_cursor_as(dialect, marked);
             assert!(!keywords.is_empty(), "{dialect} offered nothing at {position}");
         }

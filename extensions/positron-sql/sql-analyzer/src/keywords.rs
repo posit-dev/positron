@@ -105,6 +105,11 @@ pub enum Position {
     Assignment,
     /// After a complete row of an `INSERT`'s `VALUES`.
     ValuesRow,
+    /// Where a row count belongs: after `LIMIT`, `OFFSET`, `TOP`, the comma of MySQL's
+    /// `LIMIT offset, count`, or the `FIRST`/`NEXT` of a `FETCH`. A count is a number, so no
+    /// column, table or alias belongs here either, and the caller is told by name so it can leave
+    /// them out.
+    RowCount,
     /// The position could not be placed, so everything is offered. Deliberately not an empty
     /// list: an empty one is indistinguishable from the extension being broken, and silently
     /// removes a completion that used to work.
@@ -142,6 +147,7 @@ pub const POSITIONS: &[Position] = &[
     Position::SetOperand,
     Position::Assignment,
     Position::ValuesRow,
+    Position::RowCount,
 ];
 
 impl Position {
@@ -171,6 +177,7 @@ impl Position {
             Position::SetOperand => "setOperand",
             Position::Assignment => "assignment",
             Position::ValuesRow => "valuesRow",
+            Position::RowCount => "rowCount",
             Position::Everything => "everything",
             Position::Visualise => "visualise",
         }
@@ -224,6 +231,7 @@ impl Position {
             Position::SetOperand => &["SELECT 1 UNION ", "SELECT 1 UNION ALL "],
             Position::Assignment => &["UPDATE orders SET a = 1 "],
             Position::ValuesRow => &["INSERT INTO orders VALUES (1) "],
+            Position::RowCount => &["SELECT * FROM orders LIMIT "],
             Position::Everything | Position::Visualise => &[],
         }
     }
@@ -238,6 +246,7 @@ impl Position {
             self,
             Position::SelectStart
                 | Position::Value
+                | Position::RowCount
                 | Position::Subquery
                 | Position::ColumnDefinition
                 | Position::Everything
@@ -305,6 +314,11 @@ impl Position {
             Position::ValuesRow => {
                 ["ON CONFLICT", "ON DUPLICATE KEY UPDATE", "RETURNING"].to_vec()
             }
+            // A number or a parameter goes here, so no keyword is offered. Not even PostgreSQL's
+            // `LIMIT ALL`: sqlparser accepts it in every dialect, so trial parsing cannot keep it
+            // out of MySQL's list, where it is a syntax error. Typing `A` still reaches it through
+            // the whole-vocabulary fallback.
+            Position::RowCount => Vec::new(),
             Position::Everything | Position::Visualise => Vec::new(),
         };
         all.sort_unstable();
@@ -757,6 +771,15 @@ fn decide(
             if previous_word.keyword == Keyword::SET {
                 return Position::Name;
             }
+            // A count, which `starts_value` below would otherwise call a value -- and a value
+            // is where columns are offered.
+            let fetch = local.len().checked_sub(2).and_then(|before| word(&local[before]));
+            if matches!(previous_word.keyword, Keyword::LIMIT | Keyword::OFFSET | Keyword::TOP)
+                || (matches!(previous_word.keyword, Keyword::FIRST | Keyword::NEXT)
+                    && fetch.is_some_and(|before| before.keyword == Keyword::FETCH))
+            {
+                return Position::RowCount;
+            }
             if starts_value(previous_word.keyword) {
                 return Position::Value;
             }
@@ -771,6 +794,8 @@ fn decide(
                 (_, Some(Keyword::FROM | Keyword::JOIN | Keyword::INTO | Keyword::UPDATE)) => {
                     Position::Name
                 }
+                // MySQL's `LIMIT offset, count`.
+                (Group::None, Some(Keyword::LIMIT)) => Position::RowCount,
                 _ => Position::Value,
             }
         }

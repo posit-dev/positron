@@ -731,7 +731,9 @@ fn every_offset_of_a_mangled_statement_is_answered() {
                 match result {
                     Err(_) => failures.add("panicked".to_string(), format!("seed {seed} at {offset}: {variant:?}")),
                     Ok((keywords, position, sources)) => {
-                        if keywords.is_empty() {
+                        // A row count offers nothing on purpose: a number belongs there, and the one
+                        // keyword that could, `ALL`, is PostgreSQL's alone. See `Position::RowCount`.
+                        if keywords.is_empty() && position != "rowCount" {
                             failures.add(format!("no keywords ({position})"), format!("seed {seed} at {offset}: {variant:?}"));
                         }
                         if !sources["sources"].is_array() {
