@@ -94,7 +94,7 @@ suite('Snowflake Credentials', () => {
 		test('getSnowflakeConnectionsTomlPath derives the path from the slice home', () => {
 			assert.strictEqual(
 				getSnowflakeConnectionsTomlPath({ home: '/snowflake/home' }),
-				'/snowflake/home/connections.toml'
+				path.join('/snowflake/home', 'connections.toml')
 			);
 			assert.strictEqual(getSnowflakeConnectionsTomlPath({}), undefined);
 			assert.strictEqual(getSnowflakeConnectionsTomlPath(undefined), undefined);

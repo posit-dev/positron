@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 import { getProviderSources, getRegistrableProviderSources, PROVIDER_METADATA } from '../providerSources';
 import { POSITRON_CUSTOM_AUTH_PROVIDER_ID } from '../constants';
 import { getCachedProvider, initProviderCatalog } from '../providerCatalog';
+import { removeTempDir } from './tempDir';
 
 /**
  * Guards against drift between PROVIDER_METADATA in providerSources.ts and the
@@ -77,11 +78,11 @@ suite('getProviderSources baseUrl defaults from the catalog', () => {
 		context = fakeContext();
 	});
 
-	teardown(() => {
+	teardown(async () => {
 		for (const d of context.subscriptions) {
 			d.dispose();
 		}
-		fs.rmSync(dir, { recursive: true, force: true });
+		await removeTempDir(dir);
 	});
 
 	test('a saved catalog baseUrl overrides the per-provider default literal', async () => {
@@ -146,11 +147,11 @@ suite('the legacy openai-compatible provider', () => {
 		context = fakeContext();
 	});
 
-	teardown(() => {
+	teardown(async () => {
 		for (const d of context.subscriptions) {
 			d.dispose();
 		}
-		fs.rmSync(dir, { recursive: true, force: true });
+		await removeTempDir(dir);
 	});
 
 	test('getRegistrableProviderSources leaves it out when providers.json has no openai-compatible block', async () => {
@@ -191,11 +192,11 @@ suite('getProviderSources connection provenance', () => {
 		context = fakeContext();
 	});
 
-	teardown(() => {
+	teardown(async () => {
 		for (const d of context.subscriptions) {
 			d.dispose();
 		}
-		fs.rmSync(dir, { recursive: true, force: true });
+		await removeTempDir(dir);
 	});
 
 	function bedrockSource() {
