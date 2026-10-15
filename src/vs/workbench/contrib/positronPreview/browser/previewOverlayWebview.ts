@@ -12,7 +12,7 @@ import { htmlAttributeEncodeValue } from '../../../../base/common/strings.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IOverlayWebview } from '../../webview/browser/webview.js';
 import { IViewerBridge } from '../common/positronViewerAgent.js';
-import { createViewerBridge } from './viewerBridge.js';
+import { createViewerBridge, findViewerContentWindow } from './viewerBridge.js';
 import { captureDomScreenshot, IViewerCapture } from './viewerScreenshot.js';
 
 /**
@@ -35,12 +35,6 @@ export class PreviewOverlayWebview extends Disposable {
 
 	/** Cancelled when the webview is disposed, as when other content replaces it in the Viewer. */
 	private readonly _disposed = new CancellationTokenSource();
-
-	/**
-	 * Whether agents can read HTML shown as a string (`openHtmlString`), rather
-	 * than loaded from a URI.
-	 */
-	public readonly canReadHtmlStrings: boolean = true;
 
 	constructor(public readonly webview: IOverlayWebview) {
 		super();
@@ -206,32 +200,20 @@ export class PreviewOverlayWebview extends Disposable {
 
 	/**
 	 * Gets the window of the page showing in the webview, through its
-	 * same-origin frames: the webview's iframe, its #active-frame, then the
-	 * #preview-iframe that loadUri creates.
+	 * same-origin frames: the webview's iframe, then the frames inside it
+	 * that `findViewerContentWindow` looks through.
 	 */
 	private getAppWindow(): Window & typeof globalThis {
-		// The webview builds these frames itself (webview/browser/pre/index.html
-		// and loadUri above), so there are no element references to them.
+		// The webview builds its iframe itself (webview/browser/webviewElement.ts),
+		// so there's no element reference to it.
 		// eslint-disable-next-line no-restricted-syntax
 		const outer = this.webview.container.querySelector('iframe');
-		const outerDocument = outer?.contentDocument;
-		if (outer && !outerDocument) {
-			throw new Error('Positron can\'t read the Viewer\'s content, because the Viewer is served from a different origin than Positron.');
-		}
-		// eslint-disable-next-line no-restricted-syntax
-		const active = outerDocument?.querySelector<HTMLIFrameElement>('#active-frame');
-		if (!active?.contentDocument) {
+		if (!outer?.contentWindow) {
 			throw new Error('The Viewer\'s content hasn\'t loaded yet.');
 		}
-		// eslint-disable-next-line no-restricted-syntax
-		const app = active.contentDocument.querySelector<HTMLIFrameElement>('#preview-iframe');
-		if (!app) {
-			throw new Error('Agents can\'t read this kind of Viewer content yet.');
+		if (!outer.contentDocument) {
+			throw new Error('Positron can\'t read the Viewer\'s content, because the Viewer is served from a different origin than Positron.');
 		}
-		const appWindow = app.contentWindow;
-		if (!appWindow || !app.contentDocument) {
-			throw new Error('Positron can\'t read the Viewer\'s content, because the page is served from a different origin than Positron.');
-		}
-		return appWindow as Window & typeof globalThis;
+		return findViewerContentWindow(outer.contentWindow);
 	}
 }

@@ -71,13 +71,19 @@ describe('PreviewOverlayWebview Viewer bridge (web)', () => {
 		expect((await overlay.runBridge('snapshot')).text).toBe('- button "Next" [ref=e1]');
 	});
 
-	it('says why it can\'t reach the app\'s page', async () => {
-		const overlay = createOverlay();
-		const outer = addFrame(container).contentDocument!;
-		const notLoaded = await overlay.runBridge('viewport').catch((error: Error) => error.message);
-		addFrame(outer.body, 'active-frame');
-		const noApp = await overlay.runBridge('viewport').catch((error: Error) => error.message);
+	it('reads output that a notebook renderer draws in the webview\'s own document', async () => {
+		const active = addFrame(addFrame(container).contentDocument!.body, 'active-frame');
+		active.contentDocument!.body.innerHTML = '<div id="container"><input type="range" aria-label="Bins" min="1" max="50" value="10"></div>';
 
-		expect([notLoaded, noApp]).toEqual(['The Viewer\'s content hasn\'t loaded yet.', 'Agents can\'t read this kind of Viewer content yet.']);
+		expect((await createOverlay().runBridge('snapshot')).text).toBe('- slider "Bins" [ref=e1] value=10 min=1 max=50');
+	});
+
+	it('says when the content hasn\'t loaded', async () => {
+		const overlay = createOverlay();
+		const noWebview = await overlay.runBridge('viewport').catch((error: Error) => error.message);
+		addFrame(container);
+		const noContent = await overlay.runBridge('viewport').catch((error: Error) => error.message);
+
+		expect([noWebview, noContent]).toEqual(['The Viewer\'s content hasn\'t loaded yet.', 'The Viewer\'s content hasn\'t loaded yet.']);
 	});
 });

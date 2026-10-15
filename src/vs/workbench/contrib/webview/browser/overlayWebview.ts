@@ -489,6 +489,14 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined> {
 		return this._webview.value?.getFrameUrl(frameId) ?? Promise.resolve(undefined);
 	}
+
+	/**
+	 * Gets the frame running the webview's own index.html, which holds the
+	 * frame that content set with setHtml is written into (Electron only).
+	 */
+	getHostFrameId(): Promise<WebviewFrameId | undefined> {
+		return this._webview.value?.getHostFrameId() ?? Promise.resolve(undefined);
+	}
 	// --- End Positron ---
 
 	private _withWebview(f: (webview: IWebview) => void): void {

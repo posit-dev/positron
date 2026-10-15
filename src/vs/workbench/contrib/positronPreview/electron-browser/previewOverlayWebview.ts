@@ -19,8 +19,8 @@ type ViewerBridgeScriptResult<M extends keyof IViewerBridge> =
  */
 export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 
-	/** The bridge runs in the frame the webview loaded a URI in, and an HTML string has none. */
-	public override readonly canReadHtmlStrings = false;
+	/** Whether the webview has loaded a URI, rather than content set with setHtml. */
+	private _loadedUri = false;
 
 	/**
 	 * Loads a URI in the preview's underlying webview.
@@ -33,22 +33,27 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 		//
 		// This is both more efficient and lets us inject scripts into the
 		// webview to hook up copy/paste, link handling, etc.
+		this._loadedUri = true;
 		this.webview.setUri(uri);
 	}
 
 	/**
 	 * On Desktop the app's frame is cross-origin from Positron, so the bridge
-	 * is sent as a script and run in that frame by the main process. The
-	 * script runs in the page's own JavaScript world, which the page can
-	 * tamper with.
+	 * is sent as a script and run by the main process: in the frame the
+	 * webview loaded a URI in, or else in the webview's host frame, which
+	 * reaches the content set with setHtml (HTML strings and notebook output)
+	 * through its same-origin frames. The script runs in the page's own
+	 * JavaScript world, which the page can tamper with.
 	 */
 	protected override async callBridge<M extends keyof IViewerBridge>(method: M, args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
-		const frameId = this.webview.getContentFrameId();
+		const contentFrameId = this.webview.getContentFrameId();
+		// Until a URI's frame is known, the host frame holds an empty page.
+		const frameId = contentFrameId ?? (this._loadedUri ? undefined : await this.webview.getHostFrameId());
 		if (!frameId) {
-			throw new Error('Agents can\'t read this kind of Viewer content yet, or it hasn\'t loaded.');
+			throw new Error('The Viewer\'s content hasn\'t loaded yet.');
 		}
 		const result: ViewerBridgeScriptResult<M> | undefined =
-			await this.webview.executeJavaScript(frameId, viewerBridgeScript(method, args));
+			await this.webview.executeJavaScript(frameId, viewerBridgeScript(method, args, !contentFrameId));
 		if (!result) {
 			throw new Error('The Viewer\'s content didn\'t respond.');
 		}

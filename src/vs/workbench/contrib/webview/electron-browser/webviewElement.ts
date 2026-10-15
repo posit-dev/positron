@@ -196,6 +196,10 @@ export class ElectronWebviewElement extends WebviewElement {
 	public override getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined> {
 		return this._webviewMainService.getFrameUrl(frameId);
 	}
+
+	public override getHostFrameId(): Promise<WebviewFrameId | undefined> {
+		return this._webviewMainService.getWebviewHostFrameId(this.id);
+	}
 	// --- End Positron ---
 
 	protected override handleFocusChange(isFocused: boolean): void {

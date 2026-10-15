@@ -11,7 +11,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { PreviewSourceType } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { IPositronViewerAgentService, IViewerActOutcome, IViewerActResult, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions, IViewerViewport, ViewerAction, ViewerContentKind } from '../common/positronViewerAgent.js';
-import { IPositronPreviewService, POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
+import { IPositronPreviewService, POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
 import { PreviewHtml } from './previewHtml.js';
 import { VIEWER_CONTENT_CHANGED_MESSAGE } from './previewOverlayWebview.js';
 import { PreviewUrl, QUERY_NONCE_PARAMETER } from './previewUrl.js';
@@ -115,7 +115,11 @@ function contentKindOf(preview: PreviewWebview | undefined): ViewerContentKind {
 	// HTML files (PreviewHtml) and HTML strings shown with openHtmlString, such
 	// as Quarto output opened in the Viewer.
 	if (preview.viewType === POSITRON_PREVIEW_HTML_VIEW_TYPE) {
-		return preview instanceof PreviewHtml || preview.webview.canReadHtmlStrings ? 'html' : 'other';
+		return 'html';
+	}
+	// Widgets and other output from a console session or a Quarto chunk.
+	if (preview.viewType === POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE) {
+		return 'output';
 	}
 	return 'other';
 }
@@ -273,17 +277,18 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 
 	/**
 	 * Gets the address of the page showing in the Viewer, as the browser has
-	 * it, or else the one Positron last loaded.
+	 * it, or else the one Positron last loaded. HTML strings and output have
+	 * none worth reporting (`about:srcdoc` or the webview's own address).
 	 */
 	private async currentUrl(preview: PreviewWebview): Promise<string | undefined> {
+		if (!(preview instanceof PreviewUrl || preview instanceof PreviewHtml)) {
+			return undefined;
+		}
 		const url = await preview.webview.getCurrentUrl();
 		if (url) {
 			return cleanUrl(url);
 		}
-		if (preview instanceof PreviewUrl) {
-			return uriToString(preview.currentUri);
-		}
-		return preview instanceof PreviewHtml ? uriToString(preview.uri) : undefined;
+		return uriToString(preview instanceof PreviewUrl ? preview.currentUri : preview.uri);
 	}
 
 	/**
