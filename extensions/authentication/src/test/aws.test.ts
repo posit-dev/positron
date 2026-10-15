@@ -97,7 +97,7 @@ suite('AWS credential chain (web identity)', () => {
 			},
 		} as unknown as vscode.ExtensionContext;
 		chain = createAwsCredentialChain(() => ({ region: 'eu-west-1' }), env, fakeChain);
-		const created = new AuthProvider(AWS_AUTH_PROVIDER_ID, 'AWS', context, undefined, chain);
+		const created = new AuthProvider(AWS_AUTH_PROVIDER_ID, 'AWS', context, chain);
 		created.onDidChangeSessions(e => {
 			events.added += e.added?.length ?? 0;
 			events.changed += e.changed?.length ?? 0;

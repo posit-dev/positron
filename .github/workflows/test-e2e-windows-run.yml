@@ -100,8 +100,8 @@ jobs:
       AWS_S3_BUCKET: positron-test-reports
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
-      # Account identifier for the posit-assistant Snowflake Cortex test, which types it
-      # into the modal alongside SNOWFLAKE_API_KEY (loaded from 1Password below). The
+      # Account identifier for the posit-assistant Snowflake Cortex test, which signs in
+      # with it and SNOWFLAKE_API_KEY (loaded from 1Password below). The
       # Linux lanes set this from the same secret for the data-connections suite.
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
       # Username/password sign-in for connections-snowflake.test.ts's Snowflake Connection

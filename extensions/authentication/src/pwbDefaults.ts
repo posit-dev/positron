@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { IS_RUNNING_ON_PWB } from './constants';
 import { log } from './log';
-import { ProviderCatalogOptions, resolveProvidersConfigPath, saveProviderEnabled } from './providerCatalog';
+import { adminDefaultDecidesEnabled, ProviderCatalogOptions, resolveProvidersConfigPath, saveProviderEnabled } from './providerCatalog';
 
 /** The levels this module logs at, so a test can supply its own sink. */
 type PwbDefaultLogger = Pick<vscode.LogOutputChannel, 'debug' | 'info' | 'warn'>;
@@ -20,6 +20,7 @@ type PwbDefaultLogger = Pick<vscode.LogOutputChannel, 'debug' | 'info' | 'warn'>
  * to track whether we've applied the PWB default. This ensures:
  * - First run on PWB: Posit AI Pass is disabled (unless already configured)
  * - Admin configures via policy: their choice is respected because we can't overwrite admin policies
+ * - Admin sets an `ai-providers-default` that covers Posit AI Pass: we don't write, so their default applies
  * - User changes the setting: their choice is preserved
  * - Subsequent runs: we don't overwrite existing choices
  *
@@ -44,6 +45,13 @@ export async function applyPwbPositAIDefault(
 		// Debug, not info: this fires on every Workbench launch after the first,
 		// and says nothing about the value in effect.
 		logger.debug('Posit AI Pass: the Posit Workbench default was applied on an earlier run, skipping.');
+		return;
+	}
+
+	// Writing to providers.json would override an admin default, so leave it to them.
+	// Not marked as applied, so it still applies if the admin default is later removed.
+	if (await adminDefaultDecidesEnabled('positai', options)) {
+		logger.info('Posit AI Pass: the admin\'s ai-providers-default setting (POSIT_AI_PROVIDERS_DEFAULT) already turns it on or off, so the Posit Workbench default was not applied.');
 		return;
 	}
 

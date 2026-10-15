@@ -9,9 +9,9 @@ import { connectToRemoteHost, sshKeyscan } from './connect';
 test.use({
 	suiteId: __filename,
 	// Launch the client with the auto-sign-in env var unset so Anthropic starts
-	// disconnected and the test genuinely drives the modal's connect flow instead
+	// disconnected and the test genuinely drives the provider manager's connect flow instead
 	// of finding the provider already signed in. This does not starve the test of a
-	// key: the modal types `ANTHROPIC_KEY`, which the lane loads separately (see
+	// key: the provider manager types `ANTHROPIC_KEY`, which the lane loads separately (see
 	// .github/workflows/test-e2e-remote-ssh-ubuntu.yml).
 	extraEnv: { ANTHROPIC_API_KEY: undefined },
 });
@@ -45,7 +45,7 @@ test.describe('Remote SSH: Posit Assistant', {
 
 		const { sshWorkbench } = await connectToRemoteHost(app);
 
-		await sshWorkbench.modelProviderModal.loginModelProvider('anthropic-api');
+		await sshWorkbench.providerManager.loginModelProvider('anthropic');
 
 		try {
 			await sshWorkbench.positAssistant.open();
@@ -55,14 +55,14 @@ test.describe('Remote SSH: Posit Assistant', {
 			// Select the just-signed-in provider's model rather than relying on an
 			// auto-selected default, which may belong to another signed-in provider.
 			// `newConversation: false` keeps that selection.
-			await sshWorkbench.positAssistant.selectProviderModel('anthropic-api');
+			await sshWorkbench.positAssistant.selectProviderModel('anthropic');
 			await sshWorkbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
 			await sshWorkbench.positAssistant.expectResponseVisible();
 
 			const responseText = await sshWorkbench.positAssistant.getLastResponseText();
 			expect(responseText.length).toBeGreaterThan(0);
 		} finally {
-			await sshWorkbench.modelProviderModal.logoutModelProvider('anthropic-api');
+			await sshWorkbench.providerManager.logoutModelProvider('anthropic');
 		}
 	});
 });

@@ -13,19 +13,19 @@ test.use({
 // The Fix/Explain buttons and the Ask Assistant action only render once Posit
 // Assistant reports a usable chat model, so a real provider has to be connected
 // for the "visible" cases; the echo test provider is gone.
-const PROVIDER = 'anthropic-api';
+const PROVIDER = 'anthropic';
 
 test.describe('Notebook Assistant: Feature Toggle', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WIN]
 }, () => {
 
 	test.beforeAll(async function ({ app }) {
-		await app.workbench.modelProviderModal.loginModelProvider(PROVIDER);
+		await app.workbench.providerManager.loginModelProvider(PROVIDER);
 	});
 
 	test.afterAll(async function ({ app, settings }) {
 		await settings.remove(['ai.enabled']);
-		await app.workbench.modelProviderModal.logoutModelProvider(PROVIDER);
+		await app.workbench.providerManager.logoutModelProvider(PROVIDER);
 	});
 
 	test('Notebook AI features hidden when AI disabled', { tag: [tags.ARK] }, async function ({ app, settings }) {
@@ -74,8 +74,8 @@ test.describe('Notebook Assistant: Interaction Flow', {
 }, () => {
 
 	test.beforeAll(async function ({ app }) {
-		const { modelProviderModal, positAssistant } = app.workbench;
-		await modelProviderModal.loginModelProvider(PROVIDER);
+		const { providerManager, positAssistant } = app.workbench;
+		await providerManager.loginModelProvider(PROVIDER);
 		// Open the chat once up front: newChat against a webview that has never
 		// rendered submits before the model catalog has loaded and is rejected with
 		// "No model selected" (posit-dev/assistant#2646).
@@ -84,7 +84,7 @@ test.describe('Notebook Assistant: Interaction Flow', {
 	});
 
 	test.afterAll(async function ({ app }) {
-		await app.workbench.modelProviderModal.logoutModelProvider(PROVIDER);
+		await app.workbench.providerManager.logoutModelProvider(PROVIDER);
 	});
 
 	test('Fix error button opens chat and sends error context', { tag: [tags.PYTHON] }, async function ({ app }) {

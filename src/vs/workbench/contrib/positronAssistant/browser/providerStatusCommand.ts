@@ -8,77 +8,26 @@ import { localize } from '../../../../nls.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { AiProviderServiceStatus, IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
-import { IPositronAssistantConfigurationService, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
-
-/**
- * A provider's sign-in state, as this payload reports it. Sign-in only, on
- * purpose: provider health is broader than credentials (an unreachable custom
- * endpoint is a problem for a provider that is signed in), so it travels in
- * the separate `problem` field rather than being collapsed into a third auth
- * value that would misread every configuration issue as a credential one.
- */
-export type ProviderAuthState = 'signed-in' | 'not-signed-in';
 
 /** One AI provider, as the getProviderStatus command reports it. */
 export interface IProviderStatusEntry {
 	/**
 	 * The provider's id in the resolved provider catalog (providers.json), e.g.
 	 * 'anthropic' or 'bedrock'; for a custom provider, the entry name the user
-	 * chose. Falls back to the registration id when the registration declares
-	 * no catalog id.
+	 * chose.
 	 */
 	id: string;
-
-	/** The name the UI shows, when the provider registered one. */
-	displayName?: string;
 
 	/**
 	 * The catalog's enablement verdict, with administrator-enforced layers
 	 * already folded in. Absent only when the catalog could not be read
 	 * (catalogStatus is not 'ready'): enablement is then unknown, and
-	 * reporting a guess would be worse than saying so -- the enablement
-	 * fallback treats a provider an unreadable catalog "has never heard of"
-	 * as disabled, the opposite of the documented unknown-means-enabled rule
-	 * for genuinely unlisted providers.
+	 * reporting a guess would be worse than saying so.
 	 */
 	enabled?: boolean;
 
-	/**
-	 * Present only for a provider whose sign-in state has actually been
-	 * reported to this window and that is not known-disabled. Absent means
-	 * unknown, never "signed out": a disabled provider's sign-in state is
-	 * moot (the authentication extension drops its sessions), a catalog-only
-	 * entry has nothing to report, and a registration the initial session
-	 * sweep has not reached yet carries no verdict.
-	 */
-	auth?: ProviderAuthState;
-
-	/**
-	 * Present when the provider reports a problem with its configuration or
-	 * credentials (its registered status is 'error'), whatever its sign-in
-	 * state: an expired credential reports this alongside 'not-signed-in',
-	 * while a signed-in provider with an unreachable custom endpoint reports
-	 * it alongside 'signed-in'. Carries the provider's own status text (first
-	 * line only, length-capped), or 'unspecified' when it gave none. Unlike
-	 * every other field, the text is provider-supplied prose passed through,
-	 * not constructed by this command -- an error can name the endpoint or
-	 * account it failed against, the same text the user's own error UI shows.
-	 * Omitted for known-disabled providers, whose health is moot.
-	 */
-	problem?: string;
-
-	/** Present only for a provider not yet stable: 'preview' or 'experimental'. */
-	maturity?: 'preview' | 'experimental';
-
 	/** Present, and true, only for a provider from a custom providers.json entry. */
 	custom?: boolean;
-
-	/**
-	 * Present, and true, only when the provider registered as serving inline
-	 * completions rather than chat. Mechanical, from the registration's own
-	 * type: no provider is assumed completion-only by name.
-	 */
-	completionsOnly?: boolean;
 
 	/**
 	 * Names of the connection fields whose resolved value differs from this
@@ -100,20 +49,11 @@ export interface IProviderStatusResult {
 	 * been read, 'error' when it could not be, 'initializing' when the first
 	 * load had not completed within this command's bounded wait. When it is
 	 * not 'ready', enablement is unknown and every entry omits `enabled`
-	 * rather than guessing; sign-in state is still reported, since it comes
-	 * from the live registrations, not the catalog.
+	 * rather than guessing.
 	 */
 	catalogStatus: AiProviderServiceStatus;
 
 	providers: IProviderStatusEntry[];
-
-	/**
-	 * Present, and true, only when no provider has registered sign-in state
-	 * with this window at all (the authentication extension is missing or has
-	 * not finished activating). Every entry then lacks `auth`, and the safe
-	 * statement is which providers are enabled, not which are signed in.
-	 */
-	authStateUnavailable?: boolean;
 }
 
 /**
@@ -125,75 +65,24 @@ export interface IProviderStatusResult {
  */
 const CATALOG_INIT_TIMEOUT_MS = 5000;
 
-/** Cap on the pass-through provider status text, in characters. */
-const PROBLEM_MESSAGE_CHAR_CAP = 200;
-
-/**
- * The provider's own status text, bounded for a payload: first line only,
- * hard character cap. The text is provider-supplied prose (this command
- * constructs every other field itself), so the bound keeps a chatty SDK error
- * from dumping a stack of detail into the transcript.
- * @param message The registration's statusMessage.
- */
-function summarizeStatusMessage(message: string | undefined): string | undefined {
-	const firstLine = message?.split('\n', 1)[0].trim();
-	if (!firstLine) {
-		return undefined;
-	}
-	return firstLine.length <= PROBLEM_MESSAGE_CHAR_CAP
-		? firstLine
-		: `${firstLine.slice(0, PROBLEM_MESSAGE_CHAR_CAP - 3).trimEnd()}...`;
-}
-
-/**
- * A registration's sign-in state as the payload's vocabulary: `signedIn` and
- * nothing else. The registration's `status` is provider *health* (an expired
- * credential and an unreachable endpoint both report 'error'), so it feeds
- * the separate `problem` field rather than this one.
- *
- * Returns undefined when the registration carries no verdict yet: the
- * authentication extension registers providers first and sweeps sessions
- * afterward, so during activation `signedIn` is still unset. Unknown must not
- * read as 'not-signed-in' -- that is this payload's own absence-is-not-signed-
- * out rule, applied to its input.
- * @param source The provider's registered source.
- */
-function authState(source: IPositronLanguageModelSource): ProviderAuthState | undefined {
-	if (source.signedIn === undefined) {
-		return undefined;
-	}
-	return source.signedIn ? 'signed-in' : 'not-signed-in';
-}
-
-/**
- * Whether a registration carries any sign-in verdict at all. The initial
- * session sweep sets `signedIn` (and `status`) on every registered provider,
- * so a registration with neither has not been swept yet.
- * @param source The provider's registered source.
- */
-function hasAuthState(source: IPositronLanguageModelSource): boolean {
-	return source.signedIn !== undefined || source.status !== undefined;
-}
-
 /**
  * Reports every AI language model provider this window knows: the catalog's
- * enablement verdict, live sign-in state, and whether the connection is
- * customized.
+ * enablement verdict and whether the connection is customized.
  *
- * Reads renderer state only, on purpose. Sign-in state is the same
- * registration data the Configure Language Model Providers modal renders
- * (pushed by the authentication extension at activation and kept fresh on
- * every session change), and enablement comes from the warmed catalog
- * snapshot, so this command answers from local state -- no extension-host
- * round trip and no network; the only wait is a bounded one for the catalog
- * service's first fetch attempt. That also makes this payload authoritative
- * over anything an extension resolves from providers.json on its own: only
- * the host side sees both the resolved catalog and the credential state.
+ * Reads renderer state only, on purpose: enablement comes from the warmed
+ * catalog snapshot, so this command answers from local state -- no
+ * extension-host round trip and no network; the only wait is a bounded one for
+ * the catalog service's first fetch attempt. That also makes this payload
+ * authoritative over anything an extension resolves from providers.json on its
+ * own, since only the host side sees the fully resolved catalog.
+ *
+ * Sign-in state is deliberately absent: credentials belong to the extensions
+ * that register the authentication providers, not to the workbench, so a
+ * caller that needs it asks them.
  * @param accessor The command's services accessor.
  */
 export async function getProviderStatus(accessor: ServicesAccessor): Promise<IProviderStatusResult> {
 	const aiProviderService = accessor.get(IAiProviderService);
-	const assistantConfigurationService = accessor.get(IPositronAssistantConfigurationService);
 
 	// The first catalog fetch attempt; resolves on failure too, never rejects.
 	// Bounded, so a stalled remote-agent channel cannot hang the command.
@@ -201,83 +90,26 @@ export async function getProviderStatus(accessor: ServicesAccessor): Promise<IPr
 
 	// Enablement verdicts are only real when the catalog was actually read.
 	// When it was not ('error', or 'initializing' after the bounded wait),
-	// isProviderEnabled resolves against an empty snapshot and would report
-	// every catalogId-declaring provider as disabled -- so enablement is
-	// reported as unknown instead, while sign-in state (which comes from the
-	// live registrations, not the catalog) is still carried.
+	// enablement is reported as unknown rather than guessed.
 	const catalogKnown = aiProviderService.status === 'ready';
 
-	const registrations = assistantConfigurationService.getProviderRegistrations();
-	const providers: IProviderStatusEntry[] = [];
-	const coveredCatalogIds = new Set<string>();
-
-	for (const source of registrations) {
-		// The catalog resolves enablement by this same fallback (a registration
-		// without a declared catalogId is looked up by its own id).
-		const catalogId = source.provider.catalogId ?? source.provider.id;
-		coveredCatalogIds.add(catalogId);
-		const enabled = catalogKnown
-			? assistantConfigurationService.isProviderEnabled(source.provider.id)
-			: undefined;
-		// Sign-in state and health are withheld only when the provider is
-		// KNOWN disabled; unknown enablement does not invalidate live data.
-		const relevant = enabled !== false;
-		providers.push({
-			id: catalogId,
-			displayName: source.provider.displayName,
-			enabled,
-			auth: relevant ? authState(source) : undefined,
-			problem: relevant && source.status === 'error'
-				? (summarizeStatusMessage(source.statusMessage) ?? 'unspecified')
-				: undefined,
-			maturity: source.provider.status,
-			custom: source.provider.customKind !== undefined ? true : undefined,
-			completionsOnly: source.type === PositronLanguageModelType.Completion ? true : undefined,
-			customizedConnection: aiProviderService.getProvider(catalogId)?.customizedConnection,
-		});
-	}
-
-	// Catalog entries nothing has registered a source for: a providers.json
-	// entry for a provider this window does not offer, or any entry when the
-	// authentication extension has not activated. Known to exist and worth
-	// reporting, but with no sign-in state to carry. (Reached only with a
-	// readable catalog -- an unread one has no entries -- so `enabled` here is
-	// always a real verdict.)
-	for (const provider of aiProviderService.getProviders()) {
-		if (coveredCatalogIds.has(provider.id)) {
-			continue;
-		}
-		providers.push({
-			id: provider.id,
-			enabled: provider.enabled,
-			custom: provider.custom ? true : undefined,
-			customizedConnection: provider.customizedConnection,
-		});
-	}
+	const providers: IProviderStatusEntry[] = aiProviderService.getProviders().map(provider => ({
+		id: provider.id,
+		enabled: catalogKnown ? provider.enabled : undefined,
+		custom: provider.custom ? true : undefined,
+		customizedConnection: provider.customizedConnection,
+	}));
 
 	// Most interesting entries first, so a transport that truncates a large
 	// payload by keeping an array's leading elements sheds the boring tail:
-	// providers reporting a problem (worth a warning, whatever their sign-in
-	// state -- the Configure Providers modal groups these as needs-attention
-	// the same way), then the signed-in providers (the answer to "which
-	// providers do I have"), then the rest, with known-disabled ones last.
-	// Alphabetical within each band.
-	const interest = (entry: IProviderStatusEntry): number =>
-		entry.problem !== undefined ? 0
-			: entry.auth === 'signed-in' ? 1
-				: entry.enabled !== false ? 2 : 3;
+	// enabled providers (the answer to "which providers do I have"), then the
+	// known-disabled ones. Alphabetical within each band.
+	const interest = (entry: IProviderStatusEntry): number => entry.enabled !== false ? 0 : 1;
 	providers.sort((a, b) => interest(a) - interest(b) || a.id.localeCompare(b.id));
-
-	// Sign-in state is unavailable both when nothing has registered at all
-	// (authentication extension missing) and when registrations exist but none
-	// has been swept yet (extension still activating): in either case no entry
-	// carries an auth verdict, and the caller must not read that as signed out.
-	const authStateUnavailable = !registrations.some(hasAuthState);
 
 	return {
 		catalogStatus: aiProviderService.status,
 		providers,
-		authStateUnavailable: authStateUnavailable ? true : undefined,
 	};
 }
 
@@ -303,10 +135,10 @@ CommandsRegistry.registerCommand({
 	metadata: {
 		description: localize(
 			'positron.assistant.getProviderStatus.description',
-			"Report the AI language model providers this Positron knows: which are enabled in the provider catalog, which the user is signed in to right now, and which are configured but failing to authenticate. Changes nothing and shows the user nothing. Reads live state, not any file, so it is correct on desktop, on the web, over a remote connection, and on Posit Workbench."
+			"Report the AI language model providers this Positron knows: which are enabled in the provider catalog, and whose connection settings have been customized. Does not report sign-in state. Changes nothing and shows the user nothing. Reads live state, not any file, so it is correct on desktop, on the web, over a remote connection, and on Posit Workbench."
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
-		returns: 'An object with catalogStatus, providers, and sometimes authStateUnavailable. catalogStatus is the provider catalog\'s lifecycle: \'ready\' when the resolved catalog (providers.json plus any administrator-enforced layers) has been read; \'error\' when it could not be; \'initializing\' when the first load had not completed within this command\'s short wait. When catalogStatus is not \'ready\', enablement is unknown: every entry omits enabled rather than guessing, sign-in state is still reported (it comes from live registrations, not the catalog), and the honest phrasing is which providers are signed in, with enablement unknown. providers is one entry per known provider, ordered most-noteworthy first: providers reporting a problem, then signed-in providers, then the rest, with known-disabled ones last. Each entry carries: id, the provider\'s name in the provider catalog, which for a custom provider is the entry name the user chose; displayName, the name the UI shows, when the provider registered one; enabled, the catalog\'s verdict, with administrator-enforced layers already folded in -- false means turned off in providers.json or by an administrator, and sign-in state is then not reported, since a disabled provider is unusable regardless; absent means the catalog could not be read and enablement is unknown, not false. auth is present only for a provider that has registered its sign-in state with this window and is not known-disabled: \'signed-in\' means a credential resolves right now; \'not-signed-in\' means no credential resolves (never set up, or signed out). An entry with no auth field has UNKNOWN sign-in state -- absence is not \'signed out\'. problem is present when the provider reports a problem with its configuration or credentials, whatever its sign-in state, carrying the provider\'s own status text (first line, length-capped; \'unspecified\' when it gave none) -- the one field whose wording this command does not construct. Read auth and problem together: \'not-signed-in\' with a problem like \'Authentication expired\' means re-authenticating is the likely fix, while \'signed-in\' with a problem means the credential works and the issue is configuration (e.g. an unreachable custom endpoint), which re-authenticating will not fix -- report the problem text rather than prescribing a remedy the payload does not name. maturity is present only for a provider that is not yet stable (\'preview\' or \'experimental\'); custom is present and true only for a provider defined by a custom providers.json entry; completionsOnly is present and true only when the provider registered as serving inline completions rather than chat -- rely on this flag, never on a provider\'s name, to decide whether it answers a chat question. customizedConnection lists the names of connection fields whose value differs from this build\'s built-in defaults (e.g. \'baseUrl\', \'aws.profile\', \'customHeaders\'), meaning the user or an administrator set them; a stock install reports none, and a provider\'s default endpoint never appears here. Names only, never values, deliberately: if the user needs the actual URL or value, direct them to open providers.json rather than guessing at it. authStateUnavailable is present and true only when NO provider has registered sign-in state in this window (the authentication extension is missing or has not finished activating): every entry then lacks auth, and the safe statement is which providers are enabled, not which are signed in. A provider is usable for chat exactly when enabled is true, auth is \'signed-in\', and no problem is reported.',
+		returns: 'An object with catalogStatus and providers. catalogStatus is the provider catalog\'s lifecycle: \'ready\' when the resolved catalog (providers.json plus any administrator-enforced layers) has been read; \'error\' when it could not be; \'initializing\' when the first load had not completed within this command\'s short wait. When catalogStatus is not \'ready\', enablement is unknown: every entry omits enabled rather than guessing. providers is one entry per catalog provider, enabled ones first, then known-disabled ones, alphabetical within each band. Each entry carries: id, the provider\'s name in the provider catalog, which for a custom provider is the entry name the user chose; enabled, the catalog\'s verdict with administrator-enforced layers already folded in -- false means turned off in providers.json or by an administrator, and absent means the catalog could not be read and enablement is unknown, not false; custom, present and true only for a provider defined by a custom providers.json entry; customizedConnection, the names of connection fields whose value differs from this build\'s built-in defaults (e.g. \'baseUrl\', \'aws.profile\', \'customHeaders\'), meaning the user or an administrator set them -- a stock install reports none, and a provider\'s default endpoint never appears here. Names only, never values, deliberately: if the user needs the actual URL or value, direct them to open providers.json rather than guessing at it. This payload does NOT report sign-in state: credentials belong to the extensions that register the authentication providers, so enabled does not mean signed in, and a provider being enabled says nothing about whether a credential resolves for it.',
 	},
 });

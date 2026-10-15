@@ -10,15 +10,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import {
 	getCachedProvider,
-	getUserProviderBlock,
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
-	readConnectionEnv,
-	refreshProviderCatalog,
-	removeProviderBlock,
-	saveAwsSettings,
-	saveCustomProviderModels,
-	saveProviderBaseUrl,
 	saveProviderEnabled,
 	saveSnowflakeAccount,
 } from '../providerCatalog';
@@ -129,119 +122,18 @@ suite('providerCatalog', () => {
 		await initProviderCatalog(context, { configPath });
 		assert.strictEqual(getCachedProvider('anthropic')?.enabled, true);
 
-		// Drive the reload directly instead of through the file watcher. The
-		// disabledIds diff lives in applyCatalog, which the watch handler and
-		// refreshProviderCatalog both funnel through, so this covers the same
-		// logic with no dependence on fs.watch delivery latency. The watcher's
-		// own delivery is covered by the file-edit test above.
+		// Write through a save helper instead of waiting on the file watcher.
+		// Both reload paths share the disabledIds diff, so this covers it with no
+		// dependence on fs.watch delivery latency. The watcher's own delivery is
+		// covered by the file-edit test above.
 		let payload: Parameters<Parameters<typeof onDidChangeProviderCatalog>[0]>[0] | undefined;
 		const sub = onDidChangeProviderCatalog(p => { payload = p; });
 
-		writeConfig(configPath, { anthropic: { enabled: false } });
-		await refreshProviderCatalog();
+		await saveProviderEnabled('anthropic', false, false, { configPath });
 		sub.dispose();
 
 		assert.ok(payload?.disabledIds.includes('anthropic'), 'disabledIds should include anthropic');
 		assert.strictEqual(getCachedProvider('anthropic')?.enabled, false);
-	});
-
-	test('refreshProviderCatalog picks up a just-written file without waiting for the watcher', async () => {
-		writeConfig(configPath, { anthropic: { baseUrl: 'https://one.example.com' } });
-		await initProviderCatalog(context, { configPath });
-
-		writeConfig(configPath, { anthropic: { baseUrl: 'https://two.example.com' } });
-		await refreshProviderCatalog();
-
-		assert.strictEqual(getCachedProvider('anthropic')?.connection.baseUrl, 'https://two.example.com');
-	});
-
-	test('refreshProviderCatalog fires the change event with the same per-provider diff an external edit would', async () => {
-		writeConfig(configPath, { anthropic: { baseUrl: 'https://one.example.com' } });
-		await initProviderCatalog(context, { configPath });
-
-		let payload: Parameters<Parameters<typeof onDidChangeProviderCatalog>[0]>[0] | undefined;
-		const sub = onDidChangeProviderCatalog(p => { payload = p; });
-
-		writeConfig(configPath, { anthropic: { baseUrl: 'https://three.example.com' } });
-		await refreshProviderCatalog();
-		sub.dispose();
-
-		assert.ok(payload, 'refresh should fire the change event');
-		assert.deepStrictEqual(payload.changedConnectionIds, ['anthropic']);
-		assert.deepStrictEqual(payload.disabledIds, []);
-	});
-
-	test('saveProviderBaseUrl writes providers.<id>.baseUrl and the cache reflects it immediately', async () => {
-		writeConfig(configPath, { anthropic: {} });
-		await initProviderCatalog(context, { configPath });
-
-		await saveProviderBaseUrl('anthropic', 'https://saved.example.com', { configPath });
-
-		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-		assert.strictEqual(written.providers.anthropic.baseUrl, 'https://saved.example.com');
-		assert.strictEqual(getCachedProvider('anthropic')?.connection.baseUrl, 'https://saved.example.com');
-	});
-
-	test('saveProviderBaseUrl appends the version segment when the bare public host is saved', async () => {
-		writeConfig(configPath, { anthropic: {} });
-		await initProviderCatalog(context, { configPath });
-
-		// Bare host (with a stray trailing slash) is rewritten to the versioned form.
-		await saveProviderBaseUrl('anthropic', 'https://api.anthropic.com/', { configPath });
-
-		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-		assert.strictEqual(written.providers.anthropic.baseUrl, 'https://api.anthropic.com/v1');
-	});
-
-	test('saveProviderBaseUrl leaves a custom host untouched', async () => {
-		writeConfig(configPath, { anthropic: {} });
-		await initProviderCatalog(context, { configPath });
-
-		// A proxy / non-public host is not the bare known host, so it passes through.
-		await saveProviderBaseUrl('anthropic', 'https://my-proxy.example.com', { configPath });
-
-		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-		assert.strictEqual(written.providers.anthropic.baseUrl, 'https://my-proxy.example.com');
-	});
-
-	test('saveCustomProviderModels writes protocol and models.custom with discovery off', async () => {
-		writeConfig(configPath, { 'openai-compatible': { baseUrl: 'https://proxy.example/v1' } });
-		await initProviderCatalog(context, { configPath });
-
-		const models = [
-			{ id: 'm1', name: 'm1', maxContextLength: 128000, supportsTools: true, supportsImages: false, supportsToolResultImages: false, supportsWebSearch: false },
-		];
-		await saveCustomProviderModels('openai-compatible', 'anthropic-messages', models, { configPath });
-
-		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-		assert.deepStrictEqual(written.providers['openai-compatible'], {
-			baseUrl: 'https://proxy.example/v1',
-			protocol: 'anthropic-messages',
-			models: { discovery: 'off', custom: models },
-		});
-	});
-
-	test('saveCustomProviderModels ignores an unknown protocol and leaves models untouched when the list is empty', async () => {
-		writeConfig(configPath, { 'openai-compatible': { baseUrl: 'https://proxy.example/v1' } });
-		await initProviderCatalog(context, { configPath });
-
-		await saveCustomProviderModels('openai-compatible', 'not-a-protocol', [], { configPath });
-
-		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-		assert.deepStrictEqual(written.providers['openai-compatible'], { baseUrl: 'https://proxy.example/v1' });
-	});
-
-	test('removeProviderBlock drops the whole block and leaves the others alone', async () => {
-		writeConfig(configPath, {
-			'openai-compatible': { baseUrl: 'https://proxy.example/v1', protocol: 'anthropic-messages' },
-			anthropic: { baseUrl: 'https://gateway.example.com' },
-		});
-		await initProviderCatalog(context, { configPath });
-
-		await removeProviderBlock('openai-compatible', { configPath });
-
-		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-		assert.deepStrictEqual(written.providers, { anthropic: { baseUrl: 'https://gateway.example.com' } });
 	});
 
 	test('saveSnowflakeAccount writes the snowflake account field, only when changed', async () => {
@@ -303,140 +195,5 @@ suite('providerCatalog', () => {
 
 		assert.strictEqual(wrote, true);
 		assert.strictEqual(getCachedProvider('anthropic')?.enabled, false);
-	});
-
-	test('getUserProviderBlock reads providers.json alone, with no environment merged in', async () => {
-		writeConfig(configPath, { bedrock: { aws: { region: 'us-east-1' } } });
-		await initProviderCatalog(context, { configPath, envVars: { AWS_REGION: 'us-east-2' } });
-
-		assert.deepStrictEqual(
-			getUserProviderBlock('bedrock')?.aws,
-			{ region: 'us-east-1' },
-			'the connect form must show the saved value, not the environment override'
-		);
-		assert.strictEqual(
-			getCachedProvider('bedrock')?.connection.aws?.region,
-			'us-east-2',
-			'the resolved catalog still reflects the environment, for the credential chain'
-		);
-	});
-
-	test('a user-layer change is reported even when the environment hides it from the resolved value', async () => {
-		// AWS_REGION outranks the file, so saving a different region leaves the
-		// resolved connection identical. Listeners that mirror the *file* (the
-		// connect dialog's pre-filled values) still have to hear about it.
-		const envOpts = { configPath, envVars: { AWS_REGION: 'us-east-2' } };
-		writeConfig(configPath, { bedrock: { aws: { region: 'us-east-1' } } });
-		await initProviderCatalog(context, envOpts);
-
-		const changePromise = nextCatalogChange();
-		await saveAwsSettings({ region: 'eu-west-1' }, envOpts);
-		const payload = await changePromise;
-
-		assert.deepStrictEqual(payload.changedUserProviderIds, ['bedrock']);
-		assert.deepStrictEqual(
-			payload.changedConnectionIds, [],
-			'the resolved connection is unchanged -- the environment still wins'
-		);
-	});
-
-	test('getUserProviderBlock reflects a write without waiting for the watcher', async () => {
-		writeConfig(configPath, { bedrock: {} });
-		await initProviderCatalog(context, { configPath });
-
-		await saveAwsSettings({ profile: 'data-team' }, { configPath });
-
-		assert.deepStrictEqual(getUserProviderBlock('bedrock')?.aws, { profile: 'data-team' });
-	});
-
-	test('a malformed providers.json leaves the user view empty rather than throwing', async () => {
-		// ai-config's loadConfigSources flattens per-layer issues into logger
-		// warnings, so an unreadable file arrives as an absent user source.
-		// The form renders blank; it cannot distinguish this from "nothing set".
-		fs.writeFileSync(configPath, '{ "providers": { "bedrock": ');
-		await initProviderCatalog(context, { configPath });
-
-		assert.strictEqual(getUserProviderBlock('bedrock'), undefined);
-	});
-
-	test('saveAwsSettings writes the submitted profile and region, trimmed', async () => {
-		writeConfig(configPath, { bedrock: {} });
-		await initProviderCatalog(context, { configPath });
-
-		await saveAwsSettings({ profile: '  data-team  ', region: 'eu-west-1' }, { configPath });
-
-		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-		assert.deepStrictEqual(written.providers.bedrock.aws, { profile: 'data-team', region: 'eu-west-1' });
-		assert.deepStrictEqual(getCachedProvider('bedrock')?.connection.aws, { profile: 'data-team', region: 'eu-west-1' });
-	});
-
-	test('saveAwsSettings leaves an omitted field alone, so an env-pinned value survives', async () => {
-		writeConfig(configPath, { bedrock: { aws: { profile: 'data-team', region: 'eu-west-1' } } });
-		await initProviderCatalog(context, { configPath });
-
-		// The dialog omits a field pinned by AWS_PROFILE / AWS_REGION.
-		await saveAwsSettings({ region: 'us-west-2' }, { configPath });
-
-		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-		assert.deepStrictEqual(written.providers.bedrock.aws, { profile: 'data-team', region: 'us-west-2' });
-	});
-
-	test('saveAwsSettings removes a field the user emptied', async () => {
-		writeConfig(configPath, { bedrock: { aws: { profile: 'data-team', region: 'eu-west-1' } } });
-		await initProviderCatalog(context, { configPath });
-
-		await saveAwsSettings({ profile: '', region: 'eu-west-1' }, { configPath });
-
-		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-		assert.deepStrictEqual(written.providers.bedrock.aws, { region: 'eu-west-1' });
-	});
-
-	test('saveAwsSettings removes the whole bedrock entry when nothing is left in it', async () => {
-		writeConfig(configPath, { anthropic: {}, bedrock: { aws: { region: 'us-east-1' } } });
-		await initProviderCatalog(context, { configPath });
-
-		await saveAwsSettings({ profile: '', region: '' }, { configPath });
-
-		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-		assert.deepStrictEqual(
-			written.providers,
-			{ anthropic: {} },
-			'clearing both boxes should leave no bedrock residue, not "bedrock": {}'
-		);
-	});
-
-	test('saveAwsSettings removes the aws block entirely once both fields are empty', async () => {
-		writeConfig(configPath, { bedrock: { enabled: true, aws: { profile: 'data-team', region: 'eu-west-1' } } });
-		await initProviderCatalog(context, { configPath });
-
-		await saveAwsSettings({ profile: '', region: '' }, { configPath });
-
-		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-		assert.deepStrictEqual(
-			written.providers.bedrock,
-			{ enabled: true },
-			'an emptied block must go away, not linger as {}, and must not disturb sibling keys'
-		);
-	});
-
-	test('readConnectionEnv consults names in order and treats empty as unset', async () => {
-		// Aliased variables are how ai-config handles a provider with a legacy
-		// name (google-vertex has two per field), so the primary name has to win
-		// when both are set, and an empty value has to fall through rather than
-		// count as present.
-		writeConfig(configPath, {});
-		await initProviderCatalog(context, {
-			configPath,
-			envVars: { PRIMARY: 'first', LEGACY: 'second', BLANK: '' },
-		});
-
-		assert.deepStrictEqual(
-			[
-				readConnectionEnv(['PRIMARY', 'LEGACY']),
-				readConnectionEnv(['BLANK', 'LEGACY']),
-				readConnectionEnv(['MISSING']),
-			],
-			['first', 'second', undefined]
-		);
 	});
 });

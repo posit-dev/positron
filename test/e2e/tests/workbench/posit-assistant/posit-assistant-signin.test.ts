@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Posit Assistant sign-in coverage on Posit Workbench, through the Configure LLM
- * Providers modal.
+ * Posit Assistant sign-in coverage on Posit Workbench, through Assistant's AI
+ * Providers panel.
  *
  * The desktop equivalent lives in `tests/posit-assistant/posit-assistant-signin.test.ts`.
  * Running the same flow on Workbench is not redundant: the provider catalog, the
@@ -26,14 +26,14 @@ test.use({
 	suiteId: __filename,
 	// On Workbench the authentication extension disables Posit AI on first
 	// activation so admins control AI access, and the catalog file it writes ranks
-	// above any setting -- so the Posit AI tile is absent from the modal entirely
+	// above any setting -- so the Posit AI row is absent from the panel entirely
 	// unless the catalog says otherwise. The fixture seeds it before the session
 	// starts, which is also what lets this suite avoid a window reload (see
 	// `enablePositAIProviderInContainer`).
 	enablePositAIProvider: true,
 });
 
-const SIGNIN_PROVIDERS: ModelProvider[] = ['anthropic-api', 'openai-api', 'posit-ai'];
+const SIGNIN_PROVIDERS: ModelProvider[] = ['anthropic', 'openai', 'positai'];
 
 // Pins the reply to a single known word so the response assertion can check for
 // it. A bare "Say hello" leaves the model free to answer with a greeting that
@@ -46,7 +46,7 @@ test.describe('Posit Assistant Sign-in - Workbench', {
 
 	for (const provider of SIGNIN_PROVIDERS) {
 		test(`${provider} - Sign in, send hello, sign out`, async function ({ app }) {
-			await app.workbench.modelProviderModal.loginModelProvider(provider);
+			await app.workbench.providerManager.loginModelProvider(provider);
 
 			try {
 				await app.workbench.positAssistant.open();
@@ -71,7 +71,7 @@ test.describe('Posit Assistant Sign-in - Workbench', {
 				const responseText = await app.workbench.positAssistant.getLastResponseText();
 				expect(responseText).toMatch(/hello/i);
 			} finally {
-				await app.workbench.modelProviderModal.logoutModelProvider(provider);
+				await app.workbench.providerManager.logoutModelProvider(provider);
 			}
 		});
 	}
