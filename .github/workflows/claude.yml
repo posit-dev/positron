@@ -30,11 +30,20 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
+    env:
+      ALLOWED_BOTS: "posit-connect-projects[bot],positron-projects[bot]"
     steps:
       - name: Check actor has write permission
         env:
           GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
         run: |
+          # Bots are not collaborators, so the permission lookup fails for them.
+          # Let explicitly allowed bots through; claude-code-action checks the list again.
+          if [[ ",$ALLOWED_BOTS," == *",$ACTOR,"* ]]; then
+            echo "Actor $ACTOR is an allowed bot"
+            exit 0
+          fi
           PERMISSION=$(gh api /repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission --jq '.permission')
           if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" ]]; then
             echo "::error::Actor ${{ github.actor }} has '$PERMISSION' permission, requires 'write' or 'admin'"
@@ -72,7 +81,7 @@ jobs:
 
       - name: Load secret
         id: load_secrets
-        uses: 1password/load-secrets-action@v5
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
@@ -107,22 +116,13 @@ jobs:
 
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
-        env:
-          # Pass git config via environment to rewrite SSH URLs to authenticated HTTPS
-          # This is for installing plugins from private repos
-          # Probably related: https://github.com/anthropics/claude-code-action/issues/850
-          GIT_CONFIG_COUNT: "2"
-          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.generate-token.outputs.token }}@github.com/.insteadOf
-          GIT_CONFIG_VALUE_0: "git@github.com:"
-          GIT_CONFIG_KEY_1: url.https://x-access-token:${{ steps.generate-token.outputs.token }}@github.com/.insteadOf
-          GIT_CONFIG_VALUE_1: "https://github.com/"
         with:
           anthropic_api_key: ${{ steps.load_secrets.outputs.ANTHROPIC_KEY }}
           show_full_output: true
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ steps.branch-prefix.outputs.value }}
           additional_permissions: "actions: read"
-          allowed_bots: "posit-connect-projects[bot]"
+          allowed_bots: ${{ env.ALLOWED_BOTS }}
           track_progress: true
           plugin_marketplaces: |
             ./.claude-plugins/simple-english
@@ -176,4 +176,4 @@ jobs:
           claude_args: |
             --model opus
             --fallback-model haiku
-            --allowedTools WebFetch,WebSearch,Bash,Read,mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_pull_request_review_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__sub_issue_write
+            --allowedTools WebFetch,WebSearch,Bash,Read,mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue
