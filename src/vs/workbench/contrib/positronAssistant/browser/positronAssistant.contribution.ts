@@ -33,7 +33,7 @@ import { Categories } from '../../../../platform/action/common/actionCommonCateg
 import { CreateAIDiagnosticReportAction } from './aiDiagnostics.js';
 // Importing this module also registers the `ai.enabled` main switch for Positron's AI features.
 import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
-import { CONFIGURE_PROVIDERS_COMMAND } from '../common/positronAssistantCommands.js';
+import { CONFIGURE_PROVIDERS_ACTION_ID, CONFIGURE_PROVIDERS_COMMAND } from '../common/positronAssistantCommands.js';
 import { ASSISTANT_EXTENSION_ID } from '../common/legacyCredentialCopy.js';
 
 // Register the migration from the deprecated
@@ -61,7 +61,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 		registerAction2(class ConfigureProvidersFromAccountsAction extends Action2 {
 			constructor() {
 				super({
-					id: 'workbench.action.positronAssistant.configureProvidersFromAccounts',
+					id: CONFIGURE_PROVIDERS_ACTION_ID,
 					title: localize2('positron.configureProviders', "Configure Language Model Providers"),
 					menu: {
 						id: MenuId.AccountsContext,

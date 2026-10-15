@@ -28,7 +28,7 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { defaultButtonStyles, defaultCheckboxStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { DomWidget } from '../../../../platform/domWidget/browser/domWidget.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { CONFIGURE_PROVIDERS_COMMAND } from '../common/positronAssistantCommands.js';
+import { CONFIGURE_PROVIDERS_ACTION_ID } from '../common/positronAssistantCommands.js';
 
 /** Setting controlling which file types receive next edit suggestions. */
 export const NES_ENABLE_SETTING = 'nextEditSuggestions.enabled';
@@ -146,14 +146,14 @@ export class NextEditSuggestionsStatusDashboard extends DomWidget {
 
 		if (!signedIn) {
 			const description = this.element.appendChild($('div.description'));
-			const signIn = localize('positron.nes.signIn', "[Sign in to Posit AI Pass]({0}) to enable Next Edit Suggestions.", `command:${CONFIGURE_PROVIDERS_COMMAND}`);
+			const signIn = localize('positron.nes.signIn', "[Sign in to Posit AI Pass]({0}) to enable Next Edit Suggestions.", `command:${CONFIGURE_PROVIDERS_ACTION_ID}`);
 			for (const node of parseLinkedText(signIn).nodes) {
 				if (typeof node === 'string') {
 					description.append(...renderLabelWithIcons(node));
 				} else {
 					disposables.add(new Link(description, node, {
 						opener: href => {
-							void this.openerService.open(href, { allowCommands: [CONFIGURE_PROVIDERS_COMMAND] });
+							void this.openerService.open(href, { allowCommands: [CONFIGURE_PROVIDERS_ACTION_ID] });
 							this.hoverService.hideHover(true);
 						}
 					}, this.hoverService, this.openerService));
