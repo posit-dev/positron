@@ -38,7 +38,9 @@ const HELLO_PROMPT = 'Reply with only the word hello.';
 test.describe('Posit Assistant - Snowflake Cortex API Key', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
-	test('Sign in with an API key, send hello, sign out', async function ({ app }) {
+	// Skipped while a Snowflake account configuration issue on the QA side makes this fail
+	// in CI (Oct 2026). Not a Positron or Assistant bug; re-enable once Snowflake is fixed.
+	test.skip('Sign in with an API key, send hello, sign out', async function ({ app }) {
 		test.skip(!process.env.SNOWFLAKE_API_KEY || !process.env.SNOWFLAKE_ACCOUNT,
 			'Snowflake Cortex sign-in requires SNOWFLAKE_ACCOUNT and SNOWFLAKE_API_KEY');
 
