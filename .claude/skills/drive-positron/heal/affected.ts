@@ -28,7 +28,8 @@ export interface ScriptGraph {
 
 export function readGraph(scripts: string): ScriptGraph {
 	const g: ScriptGraph = { moduleOf: new Map(), imports: new Map(), commands: new Map(), calls: new Map() };
-	for (const f of readdirSync(scripts)) {
+	// Files only: a relative NPM_CONFIG_CACHE leaves a .npm-cache directory here when npx runs in scripts/.
+	for (const f of readdirSync(scripts, { withFileTypes: true }).filter(d => d.isFile()).map(d => d.name)) {
 		const text = readFileSync(join(scripts, f), 'utf8');
 		if (/^dp-[a-z-]+\.ts$/.test(f) && f !== 'dp-lib.ts') {
 			g.imports.set(f, [...text.matchAll(/from '\.\/(dp-[a-z-]+\.ts)'/g)].map(m => m[1]).filter(m => m !== 'dp-lib.ts'));

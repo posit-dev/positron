@@ -182,9 +182,19 @@ const choose: PageFn<Target & { item: string; wait: number }> = async (page, a, 
 	if (!('loc' in sc) || !sc.loc) { return { ok: false, ...sc }; }
 	let trig = (await lib.byRole(sc.loc, a.role, a.name, a.partial)).filter({ visible: true });
 	// A split button has two halves of one name; the menu is the one with a popup.
+	// Positron's action-bar split button marks neither half (the Plots open
+	// button): when the two are exactly its action and drop-down halves, of one
+	// button, the menu is the drop-down. Any other same-named pair still refuses.
 	if (await trig.count() > 1 && !a.nth) {
 		const popup = trig.and(sc.loc.locator('[aria-haspopup]'));
-		if (await popup.count() === 1) { trig = popup; }
+		const half = (s: string) => trig.and(sc.loc.locator(s));
+		const dropDown = half(lib.css.splitButton.dropDown);
+		if (await popup.count() === 1) {
+			trig = popup;
+		} else if (await trig.count() === 2 && await half(lib.css.splitButton.action).count() === 1 && await dropDown.count() === 1
+			&& await trig.evaluateAll(es => es[0].parentElement === es[1].parentElement)) {
+			trig = dropDown;
+		}
 	}
 	const n = await trig.count();
 	if (n !== 1 && !a.nth) { return { ok: false, error: n ? `${n} visible ${a.role} "${a.name}"; pass --nth` : `no visible ${a.role} "${a.name}"` }; }
