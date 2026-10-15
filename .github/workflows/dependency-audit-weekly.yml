@@ -94,11 +94,22 @@ jobs:
           git fetch --depth=1 origin main
           CHANGED=$(git diff --cached --name-only origin/main -- '*package-lock.json' | sed 's#package-lock\.json$#package.json#')
           TAGS=$(derive_map_tags "$CHANGED" .github/workflows/test-tag-paths-map.json | tr ',' ' ')
+          if [ -n "$CHANGED" ]; then
+            # The lockfiles are regenerated on Linux but ship on every platform,
+            # and many carry per-OS native packages, so always run Windows.
+            TAGS="$TAGS @:win"
+            # positron-proxy serves apps and the Viewer in the browser, and its
+            # path map entry has no tags, so run web when it changes.
+            if echo "$CHANGED" | grep -qx 'extensions/positron-proxy/package.json'; then
+              TAGS="$TAGS @:web"
+            fi
+            TAGS=$(echo $TAGS)
+          fi
           VALIDATION=""
           if [ -n "$TAGS" ]; then
             VALIDATION=$(printf '### Validation Steps\n\n%s' "$TAGS")
           fi
-          BODY=$(printf '%s\n\n%s\n\n--\n_This PR is auto-managed by the [weekly dependency audit](%s); the body may be overwritten on subsequent runs. Advisories that remain after the fix need a manual change._' "$(cat report.md)" "$VALIDATION" "$RUN_URL")
+          BODY=$(printf '%s\n\n%s\n\n------\n_This PR is auto-managed by the [weekly dependency audit](%s); the body may be overwritten on subsequent runs. Advisories that remain after the fix need a manual change._' "$(cat report.md)" "$VALIDATION" "$RUN_URL")
           # Randomized delimiter so a body line can't accidentally match it and
           # truncate the multiline output.
           DELIM="PR_BODY_EOF_$(openssl rand -hex 8)"
