@@ -165,7 +165,8 @@ pub enum Response {
         opaque: bool,
         /// How the answer was reached: `parsed` when the statement parsed with the cursor filled
         /// in, and the tables are the ones the cursor can actually see; `tokens` when it did not,
-        /// and they are every table the statement mentions. For the caller's log, not for logic.
+        /// and they are every table the statement mentions; `visualise` when the cursor is in a
+        /// statement's ggsql part, and there are none. For the caller's log, not for logic.
         origin: String,
     },
     Keywords { keywords: Vec<String> },
@@ -271,6 +272,17 @@ pub fn handle(request: &str) -> Response {
             let index = TextIndex::new(&text);
             let tokenized = statements::split(&text, dialect.as_ref(), &index);
             let statement = statements::statement_at(&tokenized.statements, offset);
+
+            // The ggsql part of a statement names columns of the query above it, not anything a
+            // SQL scope holds, so it is answered with nothing rather than with the query's tables.
+            if statement.is_some_and(|statement| statement.in_visualise(offset)) {
+                return Response::Sources {
+                    sources: Vec::new(),
+                    locals: Vec::new(),
+                    opaque: false,
+                    origin: "visualise".to_string(),
+                };
+            }
 
             // Parsing the statement with the cursor filled in is what makes the answer a scope
             // rather than a list, so it is tried first. When half typed SQL defeats even that, the

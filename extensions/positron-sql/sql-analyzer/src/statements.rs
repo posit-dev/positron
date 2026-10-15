@@ -35,14 +35,17 @@ use crate::text::TextIndex;
 
 /// One statement of a document: its tokens, and its extent as UTF-16 offsets.
 pub struct Statement {
-    /// The statement's significant tokens, excluding whitespace, comments and its terminating
-    /// semicolon. Their spans are absolute in the document, so anything derived from them needs
-    /// no offset arithmetic.
+    /// The statement's significant SQL tokens, excluding whitespace, comments, its terminating
+    /// semicolon and any ggsql `VISUALISE` part. Their spans are absolute in the document, so
+    /// anything derived from them needs no offset arithmetic.
     pub tokens: Vec<TokenWithSpan>,
     /// Offset of the statement's first token.
     pub start: u32,
     /// Offset just past the statement's last character, including its semicolon.
     pub end: u32,
+    /// Offset of the `VISUALISE` keyword that begins the statement's ggsql part, if it has one.
+    /// See [`visualise_at`].
+    pub visualise: Option<u32>,
     /// Whether the statement was closed by a semicolon, as opposed to running to end of file.
     pub terminated: bool,
     /// Whether the statement holds a construct the tokenizer had to be helped to close. Its tokens
@@ -279,15 +282,64 @@ fn flush(
         .and_then(|token| index.span(token.span))
         .map(|(start, _)| start)
         .unwrap_or(0);
+    let mut tokens = std::mem::take(current);
+    let visualise = visualise_at(&tokens).map(|at| {
+        let offset = index.span(tokens[at].span).map(|(offset, _)| offset).unwrap_or(start);
+        tokens.truncate(at);
+        offset
+    });
     statements.push(Statement {
-        tokens: std::mem::take(current),
+        tokens,
         start,
         end: end.max(start),
+        visualise,
         terminated,
         // Filled in once the whole document is split, since a repair is located in the document
         // rather than in the statement it turns out to have landed in.
         repaired: false,
     });
+}
+
+/// The index of the token that begins a statement's ggsql part, if it has one.
+///
+/// ggsql extends SQL with a visualization written after the query it plots: `SELECT ... VISUALISE
+/// x, y DRAW point`, possibly with no query at all. What follows the keyword is not SQL in any
+/// dialect, so it is left out of the tokens the parser sees rather than reported as an error in
+/// every statement that has it. It stays inside the statement's extent, because running the
+/// statement means sending both parts to ggsql together.
+///
+/// Either spelling, unquoted and outside any parentheses. ggsql's own grammar takes the keyword
+/// anywhere, but inside parentheses it is an error there too, and that one is worth reporting.
+fn visualise_at(tokens: &[TokenWithSpan]) -> Option<usize> {
+    let mut depth = 0usize;
+    tokens.iter().position(|token| match &token.token {
+        Token::LParen => {
+            depth += 1;
+            false
+        }
+        Token::RParen => {
+            depth = depth.saturating_sub(1);
+            false
+        }
+        Token::Word(word) => {
+            depth == 0
+                && word.quote_style.is_none()
+                && (word.value.eq_ignore_ascii_case("VISUALISE")
+                    || word.value.eq_ignore_ascii_case("VISUALIZE"))
+        }
+        _ => false,
+    })
+}
+
+impl Statement {
+    /// Whether an offset falls in the statement's ggsql part, where nothing the SQL analysis knows
+    /// applies.
+    ///
+    /// Exclusive of the keyword's first character, so a cursor at `|VISUALISE` is still at the end
+    /// of the query and completes as SQL.
+    pub fn in_visualise(&self, offset: u32) -> bool {
+        self.visualise.is_some_and(|start| offset > start)
+    }
 }
 
 /// The statement a UTF-16 offset falls in, or `None` if it falls between statements.

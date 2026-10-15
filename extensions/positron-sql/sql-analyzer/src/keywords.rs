@@ -109,11 +109,15 @@ pub enum Position {
     /// list: an empty one is indistinguishable from the extension being broken, and silently
     /// removes a completion that used to work.
     Everything,
+    /// In the ggsql `VISUALISE` part of a statement, which is not SQL, so no SQL keyword belongs.
+    /// The one position that offers nothing, on purpose, and named so the caller can tell.
+    Visualise,
 }
 
 /// Every position that has a generated row, in the order the generated table is indexed by.
 ///
-/// `Everything` is absent: it answers from the whole vocabulary rather than from a row.
+/// `Everything` is absent: it answers from the whole vocabulary rather than from a row. So is
+/// `Visualise`, which answers with nothing.
 pub const POSITIONS: &[Position] = &[
     Position::StatementStart,
     Position::Ddl,
@@ -168,6 +172,7 @@ impl Position {
             Position::Assignment => "assignment",
             Position::ValuesRow => "valuesRow",
             Position::Everything => "everything",
+            Position::Visualise => "visualise",
         }
     }
 
@@ -219,7 +224,7 @@ impl Position {
             Position::SetOperand => &["SELECT 1 UNION ", "SELECT 1 UNION ALL "],
             Position::Assignment => &["UPDATE orders SET a = 1 "],
             Position::ValuesRow => &["INSERT INTO orders VALUES (1) "],
-            Position::Everything => &[],
+            Position::Everything | Position::Visualise => &[],
         }
     }
 
@@ -236,6 +241,7 @@ impl Position {
                 | Position::Subquery
                 | Position::ColumnDefinition
                 | Position::Everything
+                | Position::Visualise
         )
     }
 
@@ -299,7 +305,7 @@ impl Position {
             Position::ValuesRow => {
                 ["ON CONFLICT", "ON DUPLICATE KEY UPDATE", "RETURNING"].to_vec()
             }
-            Position::Everything => Vec::new(),
+            Position::Everything | Position::Visualise => Vec::new(),
         };
         all.sort_unstable();
         all.dedup();
@@ -435,6 +441,9 @@ pub fn everything() -> Vec<String> {
 /// vocabulary rather than to nothing, which is also what an unplaceable position does: the two
 /// ways of not knowing should not differ, and neither should cost the user their completions.
 pub fn offered(position: Position, dialect: &str) -> Vec<String> {
+    if position == Position::Visualise {
+        return Vec::new();
+    }
     let Some(index) = position.index() else {
         return everything();
     };
@@ -460,6 +469,9 @@ pub fn at(statement: Option<&Statement>, offset: u32, index: &TextIndex) -> Posi
     let Some(statement) = statement else {
         return Position::StatementStart;
     };
+    if statement.in_visualise(offset) {
+        return Position::Visualise;
+    }
     // Only what the user has finished typing: at `WHERE|` the five characters are a word becoming
     // `WHERE`, and reading them as a finished one would answer for the position after it.
     let (finished, _) = tokens::around(&statement.tokens, offset, index);
