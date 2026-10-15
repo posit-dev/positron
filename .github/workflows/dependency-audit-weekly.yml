@@ -28,6 +28,9 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      # Local actions need the repo on disk; detect-managed-pr checks out
+      # again with the bot token.
+      - uses: actions/checkout@v7
       - name: Detect managed PR
         id: detect
         uses: ./.github/actions/detect-managed-pr
