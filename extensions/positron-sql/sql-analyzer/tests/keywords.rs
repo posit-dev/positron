@@ -6,12 +6,10 @@
 //! The keyword lists completion offers, and where each one belongs.
 //!
 //! Every case is SQL halfway through being typed, because that is the state a document is in
-//! whenever completion is asked for. Which keywords a *dialect* accepts at each position is
-//! generated rather than asserted here; see `keyword_table.rs`.
+//! whenever completion is asked for.
 
 mod support;
 
-use positron_sql_analyzer::dialects::CANONICAL;
 use serde_json::json;
 use support::{cursor, request};
 
@@ -466,17 +464,13 @@ fn keywords_at_no_position() -> Vec<String> {
 }
 
 #[test]
-fn the_dialect_decides_which_keywords_a_position_offers() {
-    // The generated table's whole reason for existing. `LISTEN` is Postgres alone, and the
-    // fallback list has to keep offering it to everyone.
+fn every_dialect_is_offered_the_same_keywords() {
+    // Withholding a word per dialect was tried and dropped: sqlparser's dialects are lenient in
+    // different places, so what it rejects is as often its own gap as the dialect's. A word a
+    // dialect lacks costs a line in a filtered list; a word withheld wrongly costs a completion.
     let (postgres, _) = at_cursor_as("postgres", "|");
     let (mysql, _) = at_cursor_as("mysql", "|");
-    assert!(postgres.iter().any(|keyword| keyword == "LISTEN"));
-    assert!(!mysql.iter().any(|keyword| keyword == "LISTEN"));
-    // `LIMIT` is where sqlparser's Snowflake support has a gap rather than Snowflake having one,
-    // so the corroboration rule keeps it.
-    let (snowflake, _) = at_cursor_as("snowflake", "SELECT * FROM orders |");
-    assert!(snowflake.iter().any(|keyword| keyword == "LIMIT"));
+    assert_eq!(postgres, mysql);
 }
 
 #[test]
@@ -486,17 +480,4 @@ fn an_unrecognized_dialect_is_answered_as_the_generic_one() {
     let (unknown, _) = at_cursor_as("not-a-dialect", "SELECT * FROM orders |");
     let (generic, _) = at_cursor_as("", "SELECT * FROM orders |");
     assert_eq!(unknown, generic);
-}
-
-#[test]
-fn every_dialect_has_a_row_for_every_position() {
-    // The generated table is indexed by position, so a missing row would silently answer as the
-    // fallback for one dialect and correctly for the rest.
-    for dialect in CANONICAL {
-        // The row count offers nothing in every dialect, by design; see above.
-        for (marked, _) in POSITIONS.iter().filter(|(_, name)| *name != "rowCount") {
-            let (keywords, position) = at_cursor_as(dialect, marked);
-            assert!(!keywords.is_empty(), "{dialect} offered nothing at {position}");
-        }
-    }
 }

@@ -7,10 +7,8 @@
 
 use sqlparser::dialect::{dialect_from_str, Dialect, GenericDialect};
 
-/// Every dialect sqlparser implements, under the one spelling this crate uses for it.
-///
-/// The generated keyword table has a row per entry here, so this is the list [`canonical`] maps
-/// into and the order is part of that table's contract.
+/// Every dialect sqlparser implements, under the one spelling this crate uses for it: the list
+/// [`canonical`] maps into.
 pub const CANONICAL: &[&str] = &[
     "generic",
     "ansi",
@@ -68,10 +66,7 @@ pub fn resolve(name: &str) -> (Box<dyn Dialect>, bool) {
 }
 
 /// The entry of [`CANONICAL`] a configured name means, or `None` if it means nothing.
-///
-/// The one place that knows how the `sql.dialect` setting's spellings map onto sqlparser's, so that
-/// the parser and the generated keyword table cannot end up keyed on different answers.
-pub fn canonical(name: &str) -> Option<&'static str> {
+fn canonical(name: &str) -> Option<&'static str> {
     let normalized = name.trim().to_ascii_lowercase();
     if normalized.is_empty() {
         return Some("generic");
@@ -83,4 +78,18 @@ pub fn canonical(name: &str) -> Option<&'static str> {
         return CANONICAL.iter().copied().find(|known| known == to);
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CANONICAL;
+    use sqlparser::dialect::dialect_from_str;
+
+    #[test]
+    fn every_canonical_name_is_one_sqlparser_knows() {
+        // `resolve` would otherwise parse a recognized dialect as generic without saying so.
+        let unknown: Vec<&str> =
+            CANONICAL.iter().copied().filter(|name| dialect_from_str(name).is_none()).collect();
+        assert_eq!(unknown, Vec::<&str>::new());
+    }
 }

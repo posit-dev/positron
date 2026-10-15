@@ -30,7 +30,6 @@ pub mod cursor;
 pub mod diagnostics;
 pub mod dialects;
 pub mod keywords;
-pub mod keywords_generated;
 pub mod scopes;
 pub mod sources;
 pub mod statements;
