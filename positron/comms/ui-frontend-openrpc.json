@@ -253,6 +253,13 @@
 					"schema": {
 						"type": "boolean"
 					}
+				},
+				{
+					"name": "default_dir",
+					"description": "The directory the file dialog starts in",
+					"schema": {
+						"type": "string"
+					}
 				}
 			],
 			"result": {

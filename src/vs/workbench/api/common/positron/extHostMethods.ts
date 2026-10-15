@@ -19,6 +19,7 @@ import { UiFrontendRequest, EditorContext, Range as UIRange } from '../../../ser
 import { JsonRpcErrorCode } from '../../../services/languageRuntime/common/positronBaseComm.js';
 import { Range } from '../extHostTypes.js';
 import { EndOfLine, TextEditorOpenOptions } from '../extHostTypeConverters.js';
+import { URI } from '../../../../base/common/uri.js';
 
 type JsonRpcResponse = JsonRpcResult | JsonRpcError;
 
@@ -170,11 +171,12 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 				case UiFrontendRequest.SelectFile: {
 					if (!params ||
 						!Object.keys(params).includes('title') ||
-						!Object.keys(params).includes('existing')) {
+						!Object.keys(params).includes('existing') ||
+						!Object.keys(params).includes('default_dir')) {
 						return newInvalidParamsError(method);
 					}
 					result = await this.selectFile(params.title as string,
-						params.existing as boolean);
+						params.existing as boolean, params.default_dir as string);
 					break;
 				}
 				case UiFrontendRequest.ExecuteCode: {
@@ -405,10 +407,11 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		return result;
 	}
 
-	async selectFile(title: string, existing: boolean): Promise<string | null> {
+	async selectFile(title: string, existing: boolean, defaultDir: string): Promise<string | null> {
+		const defaultUri = URI.file(defaultDir);
 		const uri = existing ?
-			(await this.fileDialogs.showOpenDialog({ title, canSelectFiles: true, canSelectFolders: false, canSelectMany: false }))?.[0] :
-			await this.fileDialogs.showSaveDialog({ title });
+			(await this.fileDialogs.showOpenDialog({ title, defaultUri, canSelectFiles: true, canSelectFolders: false, canSelectMany: false }))?.[0] :
+			await this.fileDialogs.showSaveDialog({ title, defaultUri });
 		return uri?.fsPath ?? null;
 	}
 

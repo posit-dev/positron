@@ -281,32 +281,33 @@ describe('ExtHostMethods', function () {
 
 	describe('call: select_file', function () {
 		const uri = URI.file('/data/file.csv');
+		const defaultUri = URI.file('/data');
 
 		it('shows an open dialog for an existing file', async function () {
 			const showOpenDialog = vi.fn<ExtHostDialogs['showOpenDialog']>(async () => [uri]);
 			const methods = createMethods({ fileDialogs: stubInterface<ExtHostDialogs>({ showOpenDialog }) });
 
-			const response = await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: true });
+			const response = await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: true, default_dir: '/data' });
 
 			expect(response).toEqual({ result: uri.fsPath });
-			expect(showOpenDialog.mock.calls).toEqual([[{ title: 'Select File', canSelectFiles: true, canSelectFolders: false, canSelectMany: false }]]);
+			expect(showOpenDialog.mock.calls).toEqual([[{ title: 'Select File', defaultUri, canSelectFiles: true, canSelectFolders: false, canSelectMany: false }]]);
 		});
 
 		it('shows a save dialog for a new file', async function () {
 			const showSaveDialog = vi.fn<ExtHostDialogs['showSaveDialog']>(async () => uri);
 			const methods = createMethods({ fileDialogs: stubInterface<ExtHostDialogs>({ showSaveDialog }) });
 
-			const response = await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: false });
+			const response = await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: false, default_dir: '/data' });
 
 			expect(response).toEqual({ result: uri.fsPath });
-			expect(showSaveDialog.mock.calls).toEqual([[{ title: 'Select File' }]]);
+			expect(showSaveDialog.mock.calls).toEqual([[{ title: 'Select File', defaultUri }]]);
 		});
 
 		it('returns null when the user cancels', async function () {
 			const showOpenDialog = vi.fn<ExtHostDialogs['showOpenDialog']>(async () => undefined);
 			const methods = createMethods({ fileDialogs: stubInterface<ExtHostDialogs>({ showOpenDialog }) });
 
-			const response = await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: true });
+			const response = await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: true, default_dir: '/data' });
 
 			expect(response).toEqual({ result: null });
 		});

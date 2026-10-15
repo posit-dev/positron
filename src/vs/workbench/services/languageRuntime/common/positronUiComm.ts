@@ -423,6 +423,11 @@ export interface SelectFileParams {
 	 * the name of a new file.
 	 */
 	existing: boolean;
+
+	/**
+	 * The directory the file dialog starts in
+	 */
+	default_dir: string;
 }
 
 /**
@@ -913,6 +918,11 @@ export interface SelectFileRequest {
 	 * the name of a new file.
 	 */
 	existing: boolean;
+
+	/**
+	 * The directory the file dialog starts in
+	 */
+	default_dir: string;
 
 }
 

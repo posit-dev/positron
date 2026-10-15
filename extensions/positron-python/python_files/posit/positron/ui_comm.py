@@ -556,6 +556,10 @@ class SelectFileParams(BaseModel):
         description="Whether the file must already exist. If false, the user may also enter the name of a new file.",
     )
 
+    default_dir: StrictStr = Field(
+        description="The directory the file dialog starts in",
+    )
+
 
 class PromptStateParams(BaseModel):
     """
