@@ -12,7 +12,7 @@ import { IWorkbenchEnvironmentService } from '../../../services/environment/comm
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
-import { IPositronDataImporterRegistry } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
+import { IDataImportOptions, IDataImportView, IPositronDataImporterRegistry } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { isSessionVisibleFile } from '../../../services/positronDataExplorer/common/importDataFileUri.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { ImportDataModalDialogOptions, showImportDataModalDialog } from '../../../browser/positronModalDialogs/importDataModalDialog.js';
@@ -58,6 +58,38 @@ export async function showImportDataDialogForInstance(
 	instance: IPositronDataExplorerInstance,
 	showDialog: (options: ImportDataModalDialogOptions) => void = showImportDataModalDialog
 ): Promise<void> {
+	// The view (filters and sorts) the user is looking at, offered behind an opt-in checkbox.
+	// A freshly opened file has none, and the dialog shows no checkbox for an empty view.
+	const view = await instance.getImportView().catch(() => undefined);
+
+	await showImportDataDialogForFile(
+		services,
+		fileUri,
+		{
+			hasHeaderRow: instance.fileHasHeaderRow,
+			// Import the sheet the user is looking at, not the workbook's default one.
+			sheetName: instance.fileSelectedSheet,
+		},
+		view,
+		showDialog
+	);
+}
+
+/**
+ * Shows the Import Data dialog for a file.
+ * @param services The workbench services the flow needs.
+ * @param fileUri The file to import.
+ * @param options The file options, such as whether the first row holds column names.
+ * @param view The filters and sorts to offer to reproduce, if any.
+ * @param showDialog Injectable for tests; defaults to the real dialog.
+ */
+export async function showImportDataDialogForFile(
+	services: Pick<IImportDataServices, 'environmentService' | 'importerRegistry' | 'runtimeSessionService'>,
+	fileUri: URI,
+	options: IDataImportOptions,
+	view: IDataImportView | undefined,
+	showDialog: (options: ImportDataModalDialogOptions) => void = showImportDataModalDialog
+): Promise<void> {
 	// Ask the registry which importers can read this file. This activates contributing
 	// extensions, so it must happen before the dialog opens.
 	//
@@ -68,18 +100,10 @@ export async function showImportDataDialogForInstance(
 		? await services.importerRegistry.getImporters(extname(fileUri))
 		: [];
 
-	// The view (filters and sorts) the user is looking at, offered behind an opt-in checkbox.
-	// A freshly opened file has none, and the dialog shows no checkbox for an empty view.
-	const view = await instance.getImportView().catch(() => undefined);
-
 	showDialog({
 		fileUri,
 		importers,
-		options: {
-			hasHeaderRow: instance.fileHasHeaderRow,
-			// Import the sheet the user is looking at, not the workbook's default one.
-			sheetName: instance.fileSelectedSheet,
-		},
+		options,
 		preferredLanguageId: services.runtimeSessionService.foregroundSession?.runtimeMetadata.languageId,
 		view,
 	});

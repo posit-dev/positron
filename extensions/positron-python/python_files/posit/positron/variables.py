@@ -176,10 +176,14 @@ class VariablesService:
         # Look for any assigned or removed variables that are active
         # in the data explorer service
         exp_service = self.kernel.data_explorer_service
+        obj_service = self.kernel.object_explorer_service
         con_service = self.kernel.connections_service
         for name in removed:
             if exp_service.variable_has_active_explorers(name):
                 exp_service.handle_variable_deleted(name)
+
+            if obj_service.variable_has_active_explorers(name):
+                obj_service.handle_variable_deleted(name)
 
             if con_service.variable_has_active_connection(name):
                 con_service.handle_variable_deleted(name)
@@ -188,6 +192,9 @@ class VariablesService:
         for name, value in updated.items():
             if exp_service.variable_has_active_explorers(name):
                 exp_service.handle_variable_updated(name, value)
+
+            if obj_service.variable_has_active_explorers(name):
+                obj_service.handle_variable_updated(name, value)
 
             if con_service.variable_has_active_connection(name):
                 con_service.handle_variable_updated(name, value)
@@ -541,9 +548,13 @@ class VariablesService:
         # Look for any removed variables that are active in the data
         # explorer service
         exp_service = self.kernel.data_explorer_service
+        obj_service = self.kernel.object_explorer_service
         for name in removed:
             if exp_service.variable_has_active_explorers(name):
                 exp_service.handle_variable_deleted(name)
+
+            if obj_service.variable_has_active_explorers(name):
+                obj_service.handle_variable_deleted(name)
 
         self._send_result([encode_access_key(name) for name in sorted(removed)])
 
@@ -582,6 +593,8 @@ class VariablesService:
                 self._open_connections_pane(path, value)
             elif self.kernel.data_explorer_service.is_supported(value):
                 self._open_data_explorer(path, value)
+            elif self.kernel.object_explorer_service.is_supported(value):
+                self._open_object_explorer(path, value)
             else:
                 self._send_error(
                     JsonRpcErrorCode.INTERNAL_ERROR,
@@ -601,6 +614,18 @@ class VariablesService:
 
         title = str(decode_access_key(access_key))
         comm_id = self.kernel.data_explorer_service.register_table(value, title, variable_path=path)
+        self._send_result(comm_id)
+
+    def _open_object_explorer(self, path: list[str], value: Any) -> None:
+        """Opens an ObjectExplorer comm for the variable at the requested path in the current user session."""
+        from .object_explorer import path_accessor
+
+        title = str(decode_access_key(path[-1]))
+        name = str(decode_access_key(path[0]))
+        root_accessor = path_accessor(name, self._get_user_ns()[name], path[1:])
+        comm_id = self.kernel.object_explorer_service.register_object(
+            value, title, variable_path=path, root_accessor=root_accessor
+        )
         self._send_result(comm_id)
 
     def _open_connections_pane(self, path: list[str], value: Any) -> None:

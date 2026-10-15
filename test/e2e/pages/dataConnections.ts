@@ -486,6 +486,18 @@ export class DataConnections {
 	}
 
 	/**
+	 * Asserts that a tree node with the given label does not exist in the virtualized tree.
+	 * Scans the tree first (see {@link revealNode}), so a matching row below the fold is not missed.
+	 * @param label The node label.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
+	 */
+	async expectNodeAbsent(label: string, kind?: DataConnectionNodeKind): Promise<void> {
+		const row = this.treeRow(label, kind);
+		await this.revealNode(row);
+		await expect(row, `Expected node "${label}" to be absent`).toHaveCount(0);
+	}
+
+	/**
 	 * Asserts that a column node is visible with the expected name and data type.
 	 * @param name The column name, e.g. 'actor_id'.
 	 * @param dataType The column data type as shown in the tree, e.g. 'integer'.

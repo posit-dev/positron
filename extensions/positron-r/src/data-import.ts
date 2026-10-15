@@ -382,9 +382,36 @@ export function generateNanoparquetImportCode(request: NanoparquetImportRequest)
 	);
 }
 
+/** A request to generate a jsonlite load statement. */
+export interface JsonliteImportRequest {
+	/**
+	 * The path of the file to load as a ready-to-embed string literal, already quoted and escaped
+	 * (the output of positron.paths.formatPathForCode): workspace-relative when the file is inside
+	 * the workspace, absolute otherwise.
+	 */
+	pathLiteral: string;
+
+	/** The target variable name. */
+	variableName: string;
+}
+
 /**
- * Builds the readr, readxl, and nanoparquet data importers, which generate the code that loads
- * a delimited file, Excel workbook, or Parquet file into a data frame. Generation is pure
+ * Generates the jsonlite code that loads a JSON file. JSON is nested data rather than a table, so
+ * there is no view to reproduce; simplifyVector turns arrays of records into data frames.
+ */
+export function generateJsonliteImportCode(request: JsonliteImportRequest): RImportResult {
+	return assembleRImportCode(
+		'jsonlite',
+		`read_json(${request.pathLiteral}, simplifyVector = TRUE)`,
+		request.variableName,
+		undefined,
+		undefined,
+	);
+}
+
+/**
+ * Builds the readr, readxl, nanoparquet, and jsonlite data importers, which generate the code that
+ * loads a delimited file, Excel workbook, Parquet file, or JSON file. Generation is pure
  * TypeScript; no R runtime is involved, so the importers can be built and exercised without
  * registering them.
  */
@@ -429,6 +456,17 @@ export function createRDataImporters(): positron.DataImporter[] {
 					view: request.view,
 				}),
 		},
+		{
+			languageId: 'r',
+			displayName: 'R (jsonlite)',
+			fileExtensions: ['json'],
+			reservedNames: R_RESERVED_NAMES,
+			generateCode: async (request: positron.DataImportRequest): Promise<positron.DataImportResult> =>
+				generateJsonliteImportCode({
+					pathLiteral: await pathLiteralFor(request),
+					variableName: request.variableName,
+				}),
+		},
 	];
 }
 
@@ -441,7 +479,7 @@ function pathLiteralFor(request: positron.DataImportRequest): Thenable<string> {
 	return positron.paths.formatPathForCode(request.fileUri.fsPath, { relativeTo: 'workspace' });
 }
 
-/** Registers the readr, readxl, and nanoparquet data importers with the Data Explorer. */
+/** Registers the readr, readxl, nanoparquet, and jsonlite data importers. */
 export function registerRDataImporter(context: vscode.ExtensionContext): void {
 	for (const importer of createRDataImporters()) {
 		context.subscriptions.push(positron.dataExplorer.registerDataImporter(importer));

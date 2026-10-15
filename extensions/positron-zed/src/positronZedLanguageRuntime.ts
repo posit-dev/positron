@@ -11,6 +11,7 @@ import * as positron from 'positron';
 import { ZedPlot } from './positronZedPlot';
 import { ZedPreview } from './positronZedPreview';
 import { ZedVariables } from './positronZedVariables';
+import { ZedObjectExplorer } from './positronZedObjectExplorer';
 import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
 import { ZedUi as ZedUi } from './positronZedUi';
 import { ZedConnection } from './positronZedConnection';
@@ -67,7 +68,7 @@ const HelpLines = [
 	'crash            - Simulates a crash',
 	'env clear        - Clears all variables from the environment',
 	'env def X        - Defines X variables (randomly typed)',
-	'env def X Y      - Defines X variables of type Y, where Y is one of: string, number, vector, list, or blob',
+	'env def X Y      - Defines X variables of type Y, where Y is one of: string, number, vector, list, map, or blob',
 	'env max X        - Set the maximum number of displayed variables to X',
 	'env rm X         - Removes X variables',
 	'env update X     - Updates X variables',
@@ -94,7 +95,7 @@ const HelpLines = [
 	'restart          - Simulates orderly restart',
 	'shutdown X       - Simulates orderly shutdown, or sets the shutdown delay to X',
 	'static plot      - Renders a static plot (image)',
-	'view X           - Open a data viewer named X (currently disabled)',
+	'view X           - Open X in the Object Explorer (lists and maps)',
 	'version          - Shows the Zed version'
 ].join('\n');
 
@@ -171,6 +172,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * A map of plot IDs to plot instances.
 	 */
 	private readonly _plots: Map<string, ZedPlot> = new Map();
+
+	/**
+	 * A map of object explorer IDs to object explorer instances.
+	 */
+	private readonly _objectExplorers: Map<string, ZedObjectExplorer> = new Map();
 
 	/**
 	 * The active preview instance, if any.
@@ -506,6 +512,9 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 			// Listen for code execution events, defaulting to 10 events.
 			const limit = match[1] ? parseInt(match[1], 10) : 10;
 			this.simulateListen(id, code, limit);
+			return;
+		} else if (match = code.match(/^view (\w+)$/)) {
+			this.simulateView(id, code, match[1]);
 			return;
 		}
 
@@ -1090,6 +1099,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 
 			case positron.RuntimeClientType.Plot:
 			case positron.RuntimeClientType.DataExplorer:
+			case positron.RuntimeClientType.ObjectExplorer:
 				// These types can only be created by the back end; it's an
 				// error if the front end tries to create one.
 				throw new Error(`Client type ${type} cannot be created by the front end.`);
@@ -1152,6 +1162,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 				clients[this._ui.id] = positron.RuntimeClientType.Ui;
 			}
 		}
+		if (!type || type === positron.RuntimeClientType.ObjectExplorer) {
+			for (const explorer of this._objectExplorers.values()) {
+				clients[explorer.id] = positron.RuntimeClientType.ObjectExplorer;
+			}
+		}
 		return clients;
 	}
 
@@ -1169,6 +1184,8 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 			this._plots.delete(id);
 		} else if (this._connections.has(id)) {
 			this._connections.delete(id);
+		} else if (this._objectExplorers.has(id)) {
+			this._objectExplorers.delete(id);
 		} else {
 			throw new Error(`Can't remove client; unknown client id ${id}`);
 		}
@@ -1203,6 +1220,14 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		if (connection) {
 			this._pendingRpcs.push(message_id);
 			connection.handleMessage(message);
+			return;
+		}
+
+		// See if this ID is a known object explorer
+		const explorer = this._objectExplorers.get(client_id);
+		if (explorer) {
+			this._pendingRpcs.push(message_id);
+			explorer.handleMessage(message);
 			return;
 		}
 
@@ -1393,7 +1418,9 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		const enviromentIds = Array.from(this._environments.keys());
 		const plotIds = Array.from(this._plots.keys());
 		const connectionIds = Array.from(this._connections.keys());
-		const allIds = enviromentIds.concat(plotIds).concat(connectionIds);
+		const explorerIds = Array.from(this._objectExplorers.keys());
+		this._objectExplorers.clear();
+		const allIds = enviromentIds.concat(plotIds).concat(connectionIds).concat(explorerIds);
 		allIds.forEach(id => {
 			this._onDidReceiveRuntimeMessage.fire({
 				id: randomUUID(),
@@ -1911,6 +1938,115 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	}
 
 	/**
+	 * Opens an object explorer on a variable.
+	 *
+	 * @param parentId The ID of the request that asked for the explorer.
+	 * @param variablePath The path to the variable.
+	 * @returns The ID of the object explorer comm.
+	 */
+	public openObjectExplorer(parentId: string, variablePath: string[]): string {
+		const resolveRoot = () => {
+			for (const env of this._environments.values()) {
+				const v = env.findVar(variablePath);
+				if (v) {
+					return v;
+				}
+			}
+			return undefined;
+		};
+		const title = variablePath[variablePath.length - 1];
+		const explorer = new ZedObjectExplorer(title, variablePath, resolveRoot,
+			() => this.openObjectExplorer('', variablePath));
+		this.connectClientEmitter(explorer);
+		this._objectExplorers.set(explorer.id, explorer);
+
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.CommOpen,
+			comm_id: explorer.id,
+			target_name: positron.RuntimeClientType.ObjectExplorer,
+			data: {
+				title,
+				variable_path: variablePath
+			}
+		} as positron.LanguageRuntimeCommOpen);
+
+		return explorer.id;
+	}
+
+	/**
+	 * Tells the object explorers showing a variable that it changed.
+	 *
+	 * @param name The name of the variable.
+	 */
+	public notifyObjectExplorersUpdated(name: string) {
+		for (const explorer of this._objectExplorers.values()) {
+			if (explorer.variablePath[0] === name) {
+				this._onDidReceiveRuntimeMessage.fire({
+					id: randomUUID(),
+					parent_id: '',
+					when: new Date().toISOString(),
+					type: positron.LanguageRuntimeMessageType.CommData,
+					comm_id: explorer.id,
+					data: { jsonrpc: '2.0', method: 'update', params: {} }
+				} as positron.LanguageRuntimeCommMessage);
+			}
+		}
+	}
+
+	/**
+	 * Closes the object explorers showing a variable.
+	 *
+	 * @param name The name of the variable.
+	 */
+	public closeObjectExplorersFor(name: string) {
+		for (const explorer of Array.from(this._objectExplorers.values())) {
+			if (explorer.variablePath[0] === name) {
+				this._objectExplorers.delete(explorer.id);
+				this._onDidReceiveRuntimeMessage.fire({
+					id: randomUUID(),
+					parent_id: '',
+					when: new Date().toISOString(),
+					type: positron.LanguageRuntimeMessageType.CommClosed,
+					comm_id: explorer.id,
+					data: {}
+				} as positron.LanguageRuntimeCommClosed);
+			}
+		}
+	}
+
+	/**
+	 * Simulates viewing a variable in the Object Explorer.
+	 *
+	 * @param parentId The parent identifier.
+	 * @param code The code.
+	 * @param name The name of the variable.
+	 */
+	private simulateView(parentId: string, code: string, name: string) {
+		const v = Array.from(this._environments.values())
+			.map(env => env.findVar([name]))
+			.find(v => v !== undefined);
+		if (!v) {
+			this.simulateUnsuccessfulCodeExecution(parentId, code, 'Not Found',
+				`There is no variable named '${name}'.`, []);
+		} else if (v.kind === 'table') {
+			this.simulateUnsuccessfulCodeExecution(parentId, code, 'Not Implemented',
+				'Data explorer is not implemented in Zed.', []);
+		} else if (v.kind !== 'map' && v.kind !== 'collection') {
+			this.simulateUnsuccessfulCodeExecution(parentId, code, 'Not Viewable',
+				'Zed can only view lists and maps.', []);
+		} else {
+			this.simulateBusyState(parentId);
+			this.simulateInputMessage(parentId, code);
+			this.openObjectExplorer(parentId, [name]);
+			this.simulateOutputMessage(parentId, `Opened object explorer for ${name}`);
+			this.simulateIdleState(parentId);
+		}
+	}
+
+	/**
 	 * Simulates a database connection.
 	 *
 	 * @param parentId The parent identifier.
@@ -2251,7 +2387,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: ZedVariables | ZedPlot | ZedUi | ZedConnection) {
+	private connectClientEmitter(client: ZedVariables | ZedPlot | ZedUi | ZedConnection | ZedObjectExplorer) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {
