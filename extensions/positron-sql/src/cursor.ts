@@ -47,6 +47,13 @@ export interface Cursor {
 	readonly replaceStart: number;
 
 	/**
+	 * Where a completion's edit should end: the cursor, or just past it inside a quote the editor
+	 * closed as it was opened, `"Order T|"`. Every completion brings its own closing quote, so the
+	 * one already there would otherwise be left dangling after it.
+	 */
+	readonly replaceEnd: number;
+
+	/**
 	 * The dotted names in front of the prefix, outermost first: `sales.orders.` gives
 	 * `['sales', 'orders']`. Empty when the cursor is not after a dot.
 	 */
@@ -157,6 +164,7 @@ export function readCursor(text: string, offset: number): Cursor {
 			prefix: '',
 			prefixStart: offset,
 			replaceStart: offset,
+			replaceEnd: offset,
 			qualifiers: [],
 			suppressed: true,
 			quoted: false,
@@ -206,10 +214,12 @@ export function readCursor(text: string, offset: number): Cursor {
 	}
 
 	const quoted = openQuote !== undefined;
+	const closedAtCursor = quoted && text[offset] === IDENTIFIER_QUOTES.get(openQuote.delimiter);
 	return {
 		prefix,
 		prefixStart,
 		replaceStart: quoted ? prefixStart - 1 : prefixStart,
+		replaceEnd: closedAtCursor ? offset + 1 : offset,
 		qualifiers,
 		suppressed: false,
 		quoted,
@@ -225,10 +235,12 @@ export function readCursor(text: string, offset: number): Cursor {
  * just the identifier. Replacing the partial identifier, opening quote included, makes it
  * ordinary SQL again.
  */
-export function probeText(text: string, cursor: Cursor, offset: number): { text: string; offset: number } {
+export function probeText(text: string, cursor: Cursor): { text: string; offset: number } {
 	const start = cursor.replaceStart;
 	return {
-		text: text.slice(0, start) + PLACEHOLDER + text.slice(offset),
+		// Through the end of the edit rather than the cursor: a closing quote the editor inserted
+		// would otherwise open a new quoted identifier after the placeholder.
+		text: text.slice(0, start) + PLACEHOLDER + text.slice(cursor.replaceEnd),
 		offset: start + PLACEHOLDER.length,
 	};
 }
