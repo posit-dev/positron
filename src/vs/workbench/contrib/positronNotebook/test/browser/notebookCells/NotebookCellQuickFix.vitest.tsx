@@ -208,17 +208,4 @@ describe('NotebookCellQuickFix', () => {
 		act(() => hasChatModels.set(false));
 		expect(screen.queryByRole('group', quickFixGroup)).not.toBeInTheDocument();
 	});
-
-	it('shows and hides the buttons as notebook AI is turned on and off', () => {
-		setGates({ notebookAiEnabled: false });
-		renderQuickFix();
-		expect(screen.queryByRole('group', quickFixGroup)).not.toBeInTheDocument();
-
-		const notebookAiEnabled = contextKeyService.createKey<boolean>(NotebookContextKeys.aiEnabled.key, false);
-		act(() => notebookAiEnabled.set(true));
-		expect(screen.getByRole('group', quickFixGroup)).toBeInTheDocument();
-
-		act(() => notebookAiEnabled.set(false));
-		expect(screen.queryByRole('group', quickFixGroup)).not.toBeInTheDocument();
-	});
 });

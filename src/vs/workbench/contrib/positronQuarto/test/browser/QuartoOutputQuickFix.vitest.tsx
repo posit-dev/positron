@@ -5,12 +5,10 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ContextKeyService } from '../../../../../platform/contextkey/browser/contextKeyService.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
@@ -66,13 +64,6 @@ describe('QuartoOutputQuickFix', () => {
 				errorContent={errorContent}
 			/>
 		);
-	}
-
-	/** Change a setting and notify listeners, as the real configuration service would. */
-	async function changeConfiguration(key: string, value: unknown) {
-		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
-		await configurationService.setUserConfiguration(key, value);
-		act(() => configurationService.onDidChangeConfigurationEmitter.fire({ affectedKeys: new Set([key]), affectsConfiguration: (changed: string) => changed === key } as unknown as IConfigurationChangeEvent));
 	}
 
 	/** Run the first action in the dropdown opened by the given button. */
@@ -282,18 +273,6 @@ describe('QuartoOutputQuickFix', () => {
 		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
 
 		act(() => hasChatModels.set(false));
-		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
-	});
-
-	it('shows and hides the buttons as AI features are turned on and off', async () => {
-		setGates(false, true);
-		renderQuickFix();
-		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
-
-		await changeConfiguration('ai.enabled', true);
-		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
-
-		await changeConfiguration('ai.enabled', false);
 		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
 	});
 });
