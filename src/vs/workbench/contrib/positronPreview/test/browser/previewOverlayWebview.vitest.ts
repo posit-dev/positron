@@ -7,6 +7,7 @@
 
 import { mainWindow } from '../../../../../base/browser/window.js';
 import { Event } from '../../../../../base/common/event.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { IOverlayWebview } from '../../../webview/browser/webview.js';
@@ -40,13 +41,14 @@ describe('PreviewOverlayWebview Viewer bridge (web)', () => {
 		return active;
 	}
 
-	function createOverlay(): PreviewOverlayWebview {
+	function createOverlay(overrides: Partial<IOverlayWebview> = {}): PreviewOverlayWebview {
 		return disposables.add(new PreviewOverlayWebview(stubInterface<IOverlayWebview>({
 			onDidNavigate: Event.None,
 			onDidDispose: Event.None,
 			onDidLoad: Event.None,
 			dispose: () => { },
 			container,
+			...overrides,
 		})));
 	}
 
@@ -71,19 +73,24 @@ describe('PreviewOverlayWebview Viewer bridge (web)', () => {
 		expect((await overlay.runBridge('snapshot')).text).toBe('- button "Next" [ref=e1]');
 	});
 
-	it('reads output that a notebook renderer draws in the webview\'s own document', async () => {
+	it('reads output that a notebook renderer draws in the webview\'s own document, even with a frame of the Viewer\'s ID inside it', async () => {
 		const active = addFrame(addFrame(container).contentDocument!.body, 'active-frame');
 		active.contentDocument!.body.innerHTML = '<div id="container"><input type="range" aria-label="Bins" min="1" max="50" value="10"></div>';
+		addFrame(active.contentDocument!.getElementById('container')!, 'preview-iframe');
 
-		expect((await createOverlay().runBridge('snapshot')).text).toBe('- slider "Bins" [ref=e1] value=10 min=1 max=50');
+		expect((await createOverlay().runBridge('snapshot', { interactiveOnly: true })).text).toBe('- slider "Bins" [ref=e1] value=10 min=1 max=50');
 	});
 
-	it('says when the content hasn\'t loaded', async () => {
+	it('says when the content hasn\'t loaded, including a URI\'s page before its frame is there', async () => {
 		const overlay = createOverlay();
 		const noWebview = await overlay.runBridge('viewport').catch((error: Error) => error.message);
-		addFrame(container);
+		const outer = addFrame(container).contentDocument!;
 		const noContent = await overlay.runBridge('viewport').catch((error: Error) => error.message);
+		addFrame(outer.body, 'active-frame');
+		const uri = createOverlay({ setHtml: () => { } });
+		uri.loadUri(URI.parse('http://localhost:8000/'));
+		const noUriFrame = await uri.runBridge('viewport').catch((error: Error) => error.message);
 
-		expect([noWebview, noContent]).toEqual(['The Viewer\'s content hasn\'t loaded yet.', 'The Viewer\'s content hasn\'t loaded yet.']);
+		expect([noWebview, noContent, noUriFrame]).toEqual(Array(3).fill('The Viewer\'s content hasn\'t loaded yet.'));
 	});
 });

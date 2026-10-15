@@ -5,6 +5,7 @@
 
 import { getWindow } from '../../../../base/browser/dom.js';
 import { URI } from '../../../../base/common/uri.js';
+import { WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
 import { IViewerBridge } from '../common/positronViewerAgent.js';
 import { PreviewOverlayWebview, ViewerBridgeResult } from '../browser/previewOverlayWebview.js';
 import { viewerBridgeScript } from '../browser/viewerBridge.js';
@@ -19,8 +20,8 @@ type ViewerBridgeScriptResult<M extends keyof IViewerBridge> =
  */
 export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 
-	/** Whether the webview has loaded a URI, rather than content set with setHtml. */
-	private _loadedUri = false;
+	/** The webview's host frame, once found, for content set with setHtml. */
+	private _hostFrameId: WebviewFrameId | undefined;
 
 	/**
 	 * Loads a URI in the preview's underlying webview.
@@ -33,7 +34,6 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 		//
 		// This is both more efficient and lets us inject scripts into the
 		// webview to hook up copy/paste, link handling, etc.
-		this._loadedUri = true;
 		this.webview.setUri(uri);
 	}
 
@@ -48,12 +48,12 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 	protected override async callBridge<M extends keyof IViewerBridge>(method: M, args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
 		const contentFrameId = this.webview.getContentFrameId();
 		// Until a URI's frame is known, the host frame holds an empty page.
-		const frameId = contentFrameId ?? (this._loadedUri ? undefined : await this.webview.getHostFrameId());
-		if (!frameId) {
+		if (!contentFrameId && this.loadedUri) {
 			throw new Error('The Viewer\'s content hasn\'t loaded yet.');
 		}
-		const result: ViewerBridgeScriptResult<M> | undefined =
-			await this.webview.executeJavaScript(frameId, viewerBridgeScript(method, args, !contentFrameId));
+		const result: ViewerBridgeScriptResult<M> | undefined = contentFrameId ?
+			await this.webview.executeJavaScript(contentFrameId, viewerBridgeScript(method, args)) :
+			await this.executeInHostFrame(viewerBridgeScript(method, args, true));
 		if (!result) {
 			throw new Error('The Viewer\'s content didn\'t respond.');
 		}
@@ -61,6 +61,28 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 			throw new Error(result.error);
 		}
 		return result.value;
+	}
+
+	/**
+	 * Runs a script in the webview's host frame, finding the frame the first
+	 * time, and again if it's gone, as when the webview is created anew.
+	 */
+	private async executeInHostFrame(script: string): Promise<unknown> {
+		if (this._hostFrameId) {
+			try {
+				return await this.webview.executeJavaScript(this._hostFrameId, script);
+			} catch (error) {
+				// Only retry when the script never ran, so an action isn't taken twice.
+				if (!/No frame found/.test(error instanceof Error ? error.message : String(error))) {
+					throw error;
+				}
+			}
+		}
+		this._hostFrameId = await this.webview.getHostFrameId();
+		if (!this._hostFrameId) {
+			throw new Error('The Viewer\'s content hasn\'t loaded yet.');
+		}
+		return this.webview.executeJavaScript(this._hostFrameId, script);
 	}
 
 	/**

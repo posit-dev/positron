@@ -36,6 +36,12 @@ export class PreviewOverlayWebview extends Disposable {
 	/** Cancelled when the webview is disposed, as when other content replaces it in the Viewer. */
 	private readonly _disposed = new CancellationTokenSource();
 
+	/**
+	 * Whether the webview has loaded a URI, rather than content set with
+	 * setHtml (HTML strings and notebook output). A preview keeps one kind.
+	 */
+	protected loadedUri = false;
+
 	constructor(public readonly webview: IOverlayWebview) {
 		super();
 		// Disposing the webview cancels _disposed, so dispose it first.
@@ -69,6 +75,7 @@ export class PreviewOverlayWebview extends Disposable {
 	public loadUri(uri: URI): void {
 		// Forget the last page's title; the new page reports its own when it loads.
 		this._title = undefined;
+		this.loadedUri = true;
 		this.loadUriInWebview(uri);
 	}
 
@@ -214,6 +221,6 @@ export class PreviewOverlayWebview extends Disposable {
 		if (!outer.contentDocument) {
 			throw new Error('Positron can\'t read the Viewer\'s content, because the Viewer is served from a different origin than Positron.');
 		}
-		return findViewerContentWindow(outer.contentWindow);
+		return findViewerContentWindow(outer.contentWindow, this.loadedUri);
 	}
 }
