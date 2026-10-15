@@ -487,24 +487,14 @@ export class DataConnections {
 
 	/**
 	 * Asserts that a tree node with the given label does not exist in the virtualized tree.
-	 * Scans from the top of the tree so a matching row cannot be missed off-screen.
+	 * Scans the tree first (see {@link revealNode}), so a matching row below the fold is not missed.
 	 * @param label The node label.
 	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
 	 */
 	async expectNodeAbsent(label: string, kind?: DataConnectionNodeKind): Promise<void> {
 		const row = this.treeRow(label, kind);
-		const page = this.code.driver.currentPage;
-
-		await this.scrollToTop();
-		let wasRendered = await row.count() > 0;
-		for (let i = 0; i < 60 && !wasRendered; i++) {
-			await page.mouse.wheel(0, 200);
-			wasRendered = await row.count() > 0;
-		}
-
-		expect(wasRendered, `Expected node "${label}" to be absent`).toBe(false);
-		await this.scrollToTop();
-		await expect(row).toHaveCount(0);
+		await this.revealNode(row);
+		await expect(row, `Expected node "${label}" to be absent`).toHaveCount(0);
 	}
 
 	/**
