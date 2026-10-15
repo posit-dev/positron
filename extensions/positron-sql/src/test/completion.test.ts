@@ -20,7 +20,7 @@ const SCHEMA = schemaOf('sales.orders: id, total, Order Total', 'customers: id, 
  */
 async function complete(
 	marked: string,
-	options: { schema?: SchemaIndex; dialect?: string } = {},
+	options: { schema?: SchemaIndex; dialect?: string; trigger?: string } = {},
 ): Promise<{
 	labels: string[];
 	list: vscode.CompletionList;
@@ -40,7 +40,15 @@ async function complete(
 		keywords: testAnalyzer().keywords(),
 		log,
 	}));
-	const list = provider.provideCompletionItems(document, document.positionAt(offset));
+	const context: vscode.CompletionContext = options.trigger === undefined
+		? { triggerKind: vscode.CompletionTriggerKind.Invoke, triggerCharacter: undefined }
+		: { triggerKind: vscode.CompletionTriggerKind.TriggerCharacter, triggerCharacter: options.trigger };
+	const list = provider.provideCompletionItems(
+		document,
+		document.positionAt(offset),
+		new vscode.CancellationTokenSource().token,
+		context,
+	);
 	return {
 		labels: list.items.map(item => (typeof item.label === 'string' ? item.label : item.label.label)),
 		list,
@@ -241,6 +249,42 @@ suite('SqlCompletionItemProvider', () => {
 		assert.strictEqual(list.items[0].label, 'Order Total');
 		assert.strictEqual(document.getText(list.items[0].textEdit!.range), '"Order T');
 		assert.strictEqual(list.items[0].textEdit!.newText, '"Order Total"');
+	});
+
+	test('an item inside a quoted identifier is filtered by what was typed, quote included', async () => {
+		// The editor matches the text from the start of the edit -- the opening quote -- against
+		// an item's filter text. Left as the bare label, `` `Ord `` would match nothing at all.
+		const { list } = await complete('SELECT o.`Ord| FROM orders o', { dialect: 'mysql' });
+
+		assert.deepStrictEqual(
+			list.items.map(item => [item.label, item.filterText]),
+			[['Order Total', '`Order Total']],
+		);
+	});
+
+	test('a quote the editor closed as it was opened is replaced along with the opening one', async () => {
+		// Typing `"` inserts `""`; a completion brings its own closing quote, so the one already
+		// there would otherwise be left dangling after it.
+		const { list, document } = await complete('SELECT o."Order T|" FROM orders o');
+
+		assert.strictEqual(document.getText(list.items[0].textEdit!.range), '"Order T"');
+		assert.strictEqual(list.items[0].textEdit!.newText, '"Order Total"');
+	});
+
+	test('a quote that opens an identifier asks for completions, and one that closes it does not', async () => {
+		const opened = await complete('SELECT o.`| FROM orders o', { dialect: 'mysql', trigger: '`' });
+		const closed = await complete('SELECT o.`Order Total`| FROM orders o', { dialect: 'mysql', trigger: '`' });
+
+		assert.deepStrictEqual([opened.labels, closed.labels], [['id', 'total', 'Order Total'], []]);
+	});
+
+	test('a row count is offered no names', async () => {
+		// A column there is a query that fails when it runs; MySQL calls it an undeclared variable.
+		// No keyword either: PostgreSQL's `LIMIT ALL` is a syntax error in MySQL.
+		const limit = await complete('SELECT o.id FROM orders o LIMIT |', { dialect: 'mysql' });
+		const offset = await complete('SELECT o.id FROM orders o LIMIT 10 OFFSET |');
+
+		assert.deepStrictEqual([limit.labels, offset.labels], [[], []]);
 	});
 
 	test('nothing is offered inside a string literal', async () => {

@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer } from './analyzer';
-import { SqlCompletionItemProvider } from './completion';
+import { QUOTE_TRIGGERS, SqlCompletionItemProvider } from './completion';
 import { collectDiagnostics } from './diagnostics';
 import { dialectOfDriver } from './dialects';
 import { hoverFor } from './hover';
@@ -180,10 +180,11 @@ class SqlSession implements vscode.Disposable {
 					keywords: this._keywordList(),
 					log: this._log,
 				})),
-				// `.` is the one character that changes what a completion means rather than just
-				// extending a prefix, so it is the only one worth an automatic request; the
-				// editor triggers the rest itself as the user types an identifier.
+				// `.` changes what a completion means rather than just extending a prefix; the
+				// editor triggers the rest itself as the user types an identifier, except inside a
+				// quoted one, which the grammar calls a string and the editor leaves alone.
 				'.',
+				...QUOTE_TRIGGERS,
 			),
 
 			vscode.languages.registerDocumentLinkProvider(SQL_DOCUMENTS, {

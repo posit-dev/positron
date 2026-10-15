@@ -107,3 +107,21 @@ suite('replaceStart', () => {
 		assert.strictEqual(cursor.replaceStart, cursor.prefixStart - 1);
 	});
 });
+
+suite('replaceEnd', () => {
+
+	test('an edit ends at the cursor', () => {
+		assert.deepStrictEqual(
+			[at('SELECT cus| FROM t').replaceEnd, at('SELECT o."Order T| FROM t').replaceEnd],
+			[10, 17],
+		);
+	});
+
+	test('a quote the editor closed at the cursor is replaced too', () => {
+		// Typing `"` inserts `""`. Each completion brings its own closing quote.
+		assert.deepStrictEqual(
+			[at('SELECT o."Order T|" FROM t').replaceEnd, at('SELECT o.`Ord|` FROM t').replaceEnd],
+			[18, 14],
+		);
+	});
+});

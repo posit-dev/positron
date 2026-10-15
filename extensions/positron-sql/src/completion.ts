@@ -67,6 +67,21 @@ const DIALECT_QUOTES = new Map([
 	['mssql', '['],
 ]);
 
+/**
+ * The characters that open a quoted identifier, as completion triggers.
+ *
+ * The grammar scopes a quoted identifier as a string, where the editor does not suggest as the user
+ * types, so without a trigger the list would never appear inside one unless asked for. `[` is left
+ * out: outside T-SQL it opens an array subscript far more often than a name.
+ */
+export const QUOTE_TRIGGERS: readonly string[] = ['"', '`'];
+
+/**
+ * The analyzer positions where no name belongs, only a keyword or a literal: the row count after
+ * `LIMIT`, `OFFSET`, `TOP` or `FETCH FIRST`.
+ */
+const NAMELESS_POSITIONS = new Set(['rowCount']);
+
 /** What a completion request needs to know about the world, gathered by the caller. */
 export interface CompletionContext {
 	/** Undefined when the analyzer could not be loaded, in which case nothing is offered. */
@@ -105,6 +120,8 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 	public provideCompletionItems(
 		document: vscode.TextDocument,
 		position: vscode.Position,
+		_token?: vscode.CancellationToken,
+		context?: vscode.CompletionContext,
 	): vscode.CompletionList {
 		const { analyzer, schema, dialect, keywords, log } = this._context(document);
 		if (!analyzer) {
@@ -124,10 +141,21 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 			return new vscode.CompletionList([], false);
 		}
 
+		if (context?.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter
+			&& QUOTE_TRIGGERS.includes(context.triggerCharacter ?? '') && !cursor.quoted) {
+			// The quote just typed closed an identifier rather than opening one. Nothing is being
+			// typed, and a list popping up at the end of every quoted name would be in the way.
+			return new vscode.CompletionList([], false);
+		}
+
 		// The extent a completion replaces. An explicit edit rather than letting the editor
 		// decide: its own idea of the word under the cursor stops at a quote or a dot, which
 		// would leave the opening quote of `"Order T` behind and insert a second one after it.
-		const replace = new vscode.Range(document.positionAt(cursor.replaceStart), position);
+		const replace = new vscode.Range(
+			document.positionAt(cursor.replaceStart),
+			document.positionAt(cursor.replaceEnd),
+		);
+		const opening = cursor.quoted ? text[cursor.replaceStart] : undefined;
 
 		const { tables: scope, names } = inScope(analyzer, schema, dialect, text, cursor, offset);
 
@@ -150,10 +178,13 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		} else {
 			const contextual = contextualKeywords(analyzer, cursor, text, dialect, offset);
 			keywordSource = contextual.source;
+			// A row count is a number: a column, table or alias there is a query that fails when
+			// run, so the keywords that belong are all there is to offer.
+			const namesBelong = !NAMELESS_POSITIONS.has(contextual.position ?? '');
 			items = [
-				...columnItems(scope, dialect, replace),
-				...nameItems(names, dialect, replace),
-				...schema.tables.map(table => tableItem(table, dialect, replace)),
+				...(namesBelong ? columnItems(scope, dialect, replace) : []),
+				...(namesBelong ? nameItems(names, dialect, replace) : []),
+				...(namesBelong ? schema.tables.map(table => tableItem(table, dialect, replace)) : []),
 				...contextual.keywords.map(keyword => keywordItem(keyword, replace)),
 			];
 		}
@@ -172,6 +203,15 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 				keywordSource = 'the full keyword list, nothing at the cursor having matched';
 			} else {
 				items = matching;
+			}
+		}
+
+		if (opening !== undefined) {
+			// The editor filters an item by the text from the start of its edit to the cursor, and
+			// that edit starts at the opening quote. Filtered by its bare name, `order-events`
+			// would never match the typed `` `ord ``, and nothing would survive to be shown.
+			for (const item of items) {
+				item.filterText = opening + label(item);
 			}
 		}
 
@@ -211,7 +251,7 @@ function contextualKeywords(
 	text: string,
 	dialect: string,
 	offset: number,
-): { keywords: readonly string[]; source: string } {
+): { keywords: readonly string[]; source: string; position?: string } {
 	if (cursor.quoted) {
 		// A quoted identifier is never a keyword, by the same reasoning that offers none after a
 		// dot. The analyzer is not asked a question whose answer would only be thrown away.
@@ -221,7 +261,11 @@ function contextualKeywords(
 	// that `SELECT * FROM ord` answers for the table slot rather than reading `ord` as a finished
 	// token.
 	const placed = analyzer.keywordsAt(text, dialect, offset);
-	return { keywords: placed.keywords, source: `keywords for ${placed.position}` };
+	return {
+		keywords: placed.keywords,
+		source: `keywords for ${placed.position}`,
+		position: placed.position,
+	};
 }
 
 /**
@@ -329,7 +373,7 @@ function inScope(
 ): InScope {
 	// The identifier being typed is swapped for a plain one first, so that a half typed quoted
 	// identifier does not cost the statement its tables; see `probeText`.
-	const probe = cursor.quoted ? probeText(text, cursor, offset) : { text, offset };
+	const probe = cursor.quoted ? probeText(text, cursor) : { text, offset };
 	// Scoped to where the cursor is rather than to everything the statement mentions: the select
 	// after a `WITH` reads from the CTE, not from the tables the CTE reads from, and offering
 	// those columns there would be offering names that are errors.
