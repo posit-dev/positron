@@ -7,6 +7,7 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import { PostgreSQLClient } from '../postgresqlClient.js';
 import { buildPgClient, connectionTarget, PostgreSQLConnection, PostgreSQLConnectionConfig } from '../postgresqlConnection.js';
+import { generateQueryCode } from '../postgresqlDriver.js';
 import { createSchemaNode } from '../postgresqlNodes.js';
 
 // Default config for tests -- not used to connect, just to construct.
@@ -743,5 +744,40 @@ suite('PostgreSQL Lazy pg Loading', () => {
 		assert.deepStrictEqual(
 			{ connect: typeof client.connect, query: typeof client.query },
 			{ connect: 'function', query: 'function' });
+	});
+});
+suite('PostgreSQL Query Code', () => {
+
+	// The quoting and the recipes themselves are covered by positron-data-driver-common's own tests.
+	// What is this driver's own is which variant ids map to which recipe, so that is what is asserted
+	// here. The connection variable is whatever the session bound, which is why each variant is given
+	// the name its own connection code binds.
+	function code(languageId: string, variantId: string, connectionVariable: string): string | undefined {
+		return generateQueryCode({ languageId, variantId, connectionVariable, query: 'SELECT 1' });
+	}
+
+	test('each connection code variant is queried the way its own connection object is', () => {
+		assert.deepStrictEqual(
+			{
+				psycopg2: code('python', 'psycopg2', 'conn'),
+				sqlalchemy: code('python', 'sqlalchemy', 'engine'),
+				dbi: code('r', 'dbi', 'con'),
+			},
+			{
+				psycopg2: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", conn)',
+				sqlalchemy: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", engine)',
+				dbi: 'DBI::dbGetQuery(con, "SELECT 1")',
+			}
+		);
+	});
+
+	test('nothing is generated for a variant or a language this driver cannot query', () => {
+		assert.deepStrictEqual(
+			{
+				unknownVariant: code('python', 'pyodbc', 'conn'),
+				unknownLanguage: code('julia', 'psycopg2', 'conn'),
+			},
+			{ unknownVariant: undefined, unknownLanguage: undefined }
+		);
 	});
 });

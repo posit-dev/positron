@@ -15,6 +15,7 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { createQueryCodeGenerator, dbiGetQuery, pandasReadSql } from 'positron-data-driver-common';
 import { buildConnectionString, describeConnectionTarget, redactConnectionString } from './odbcConnectionString';
 import { OdbcConnection } from './odbcConnection';
 import { IOdbcDataExplorerHost } from './odbcDataExplorerRpcHandler';
@@ -244,6 +245,9 @@ function renderPythonCode(connectionString: string): positron.ConnectionCodeVari
 			id: 'pyodbc',
 			label: 'pyodbc',
 			code: `import pyodbc\n\nconn = pyodbc.connect("${escaped}")\n`,
+			// What the Variables pane calls each object, so a connection the user made by hand
+			// is queried the way its library expects.
+			objectTypes: ['Connection'],
 		},
 		{
 			id: 'sqlalchemy',
@@ -251,6 +255,7 @@ function renderPythonCode(connectionString: string): positron.ConnectionCodeVari
 			// SQLAlchemy takes the ODBC string as a single percent-encoded query parameter, which
 			// avoids having to re-express the connection in SQLAlchemy's own URL grammar.
 			code: `import sqlalchemy as sa\nfrom urllib.parse import quote_plus\n\nengine = sa.create_engine(\n\t"mssql+pyodbc:///?odbc_connect=" + quote_plus("${escaped}")\n)\n`,
+			objectTypes: ['Engine'],
 		},
 	];
 }
@@ -267,6 +272,23 @@ function renderGgsqlCode(connectionString: string): positron.ConnectionCodeVaria
 		code: `-- @connect: odbc://${connectionString}`,
 	}];
 }
+// --- Query code generation ---
+
+/**
+ * Generates the code that runs a query through a connection one of the code variants above created.
+ * Shared by every driver this extension registers, since they all connect the same way; the recipes
+ * and the quoting they depend on are shared with the other SQL driver extensions too, so only the
+ * variant ids below are this extension's own.
+ */
+const generateQueryCode: (request: positron.QueryCodeRequest) => string | undefined = createQueryCodeGenerator({
+	python: {
+		pyodbc: pandasReadSql,
+		sqlalchemy: pandasReadSql,
+	},
+	r: {
+		dbi: dbiGetQuery,
+	},
+});
 
 // --- Driver construction ---
 
@@ -426,6 +448,8 @@ function createDriver(
 					return [];
 			}
 		},
+
+		generateQueryCode,
 
 		redactParameterValue(mechanismId: string, parameterId: string, value: string): string | undefined {
 			// The connection string is the only parameter shown in plaintext while embedding a

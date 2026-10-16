@@ -14,6 +14,7 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { createQueryCodeGenerator, dbiGetQuery, pandasReadSql } from 'positron-data-driver-common';
 import { RedshiftConnection } from './redshiftConnection.js';
 import { RedshiftDataExplorerRpcHandler } from './redshiftDataExplorerRpcHandler.js';
 import type { RedshiftIamConfig } from './redshiftIamCredentials.js';
@@ -433,6 +434,22 @@ function generateConnectionCodeForFields(languageId: string, fields: RedshiftCon
 	}
 }
 
+// --- Query code generation ---
+
+/**
+ * Generates the code that runs a query through a connection one of this driver's connection code
+ * variants created. Only the variant ids are this driver's own; the recipes and the quoting they
+ * depend on are shared with every other SQL driver.
+ */
+export const generateQueryCode: (request: positron.QueryCodeRequest) => string | undefined = createQueryCodeGenerator({
+	python: {
+		redshift_connector: pandasReadSql,
+	},
+	r: {
+		dbi: dbiGetQuery,
+	},
+});
+
 /**
  * Creates the Amazon Redshift DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
@@ -646,5 +663,6 @@ export function createRedshiftDriver(
 					return [];
 			}
 		},
+		generateQueryCode,
 	};
 }

@@ -295,4 +295,46 @@ suite('createOdbcDrivers', () => {
 			}
 		);
 	});
+
+	test('generates the code that runs a query through each connection variant', async () => {
+		const [generic] = createOdbcDrivers(testContext(), CONFIG, noopHost);
+
+		// The quoting and the recipes themselves are covered by positron-data-driver-common's own
+		// tests. What is this extension's own is which variant ids map to which recipe. The
+		// connection variable is whatever the session bound: pyodbc binds `conn`, SQLAlchemy
+		// `engine`, and DBI `con`.
+		const queryCode = (languageId: string, variantId: string, connectionVariable: string) =>
+			generic.generateQueryCode!({ languageId, variantId, connectionVariable, query: 'SELECT 1' });
+
+		assert.deepStrictEqual(
+			{
+				pyodbc: await queryCode('python', 'pyodbc', 'conn'),
+				sqlalchemy: await queryCode('python', 'sqlalchemy', 'engine'),
+				dbi: await queryCode('r', 'dbi', 'con'),
+			},
+			{
+				// pandas reads from a DBAPI2 connection and a SQLAlchemy connectable alike, taking the
+				// query as a plain string in both cases.
+				pyodbc: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", conn)',
+				sqlalchemy: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", engine)',
+				dbi: 'DBI::dbGetQuery(con, "SELECT 1")',
+			}
+		);
+	});
+
+	test('generates no query code for a variant or a language it cannot query', async () => {
+		const [generic] = createOdbcDrivers(testContext(), CONFIG, noopHost);
+
+		assert.deepStrictEqual(
+			{
+				unknownVariant: await generic.generateQueryCode!({
+					languageId: 'python', variantId: 'duckdb', connectionVariable: 'conn', query: 'SELECT 1',
+				}),
+				unknownLanguage: await generic.generateQueryCode!({
+					languageId: 'julia', variantId: 'pyodbc', connectionVariable: 'conn', query: 'SELECT 1',
+				}),
+			},
+			{ unknownVariant: undefined, unknownLanguage: undefined }
+		);
+	});
 });
