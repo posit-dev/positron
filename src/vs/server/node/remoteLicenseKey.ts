@@ -393,6 +393,10 @@ async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseV
 	// so all this can do is signal the client and hope it outlives us.
 	process.on('exit', () => manager.dispose());
 
+	// `verify` reads the license and does not depend on the lease, so it runs
+	// alongside lease acquisition rather than adding to startup. It never rejects.
+	const licenseArnPromise = readLicenseArn(binaryPath);
+
 	if (!await manager.start()) {
 		await manager.stop();
 		console.error('The license manager did not report an activated license. Positron requires a license to run in a hosted environment.');
@@ -401,7 +405,7 @@ async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseV
 
 	// The lease verified under the AWS license manager's key, so this deployment is on SageMaker.
 	// The ARN is hashed rather than sent as is, since it carries the customer's AWS account ID.
-	const licenseArn = await readLicenseArn(binaryPath);
+	const licenseArn = await licenseArnPromise;
 	const licenseHash = licenseArn ? hashLicenseContents(Buffer.from(licenseArn)) : undefined;
 	return { valid: true, kind: 'sagemaker', licenseHash };
 }
