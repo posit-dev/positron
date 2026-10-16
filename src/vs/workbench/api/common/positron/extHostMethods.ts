@@ -10,6 +10,7 @@ import { ExtHostDocuments } from '../extHostDocuments.js';
 import { ExtHostWorkspace } from '../extHostWorkspace.js';
 import { ExtHostQuickOpen } from '../extHostQuickOpen.js';
 import { ExtHostCommands } from '..//extHostCommands.js';
+import { ExtHostDialogs } from '../extHostDialogs.js';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs.js';
 import { ExtHostContextKeyService } from '../positron/extHostContextKeyService.js';
 import { ExtHostConsoleService } from '../positron/extHostConsoleService.js';
@@ -18,6 +19,7 @@ import { UiFrontendRequest, EditorContext, Range as UIRange } from '../../../ser
 import { JsonRpcErrorCode } from '../../../services/languageRuntime/common/positronBaseComm.js';
 import { Range } from '../extHostTypes.js';
 import { EndOfLine, TextEditorOpenOptions } from '../extHostTypeConverters.js';
+import { URI } from '../../../../base/common/uri.js';
 
 type JsonRpcResponse = JsonRpcResult | JsonRpcError;
 
@@ -50,7 +52,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		private readonly quickOpen: ExtHostQuickOpen,
 		private readonly commands: ExtHostCommands,
 		private readonly contextKeys: ExtHostContextKeyService,
-		private readonly consoleService: ExtHostConsoleService
+		private readonly consoleService: ExtHostConsoleService,
+		private readonly fileDialogs: ExtHostDialogs
 	) {
 	}
 
@@ -163,6 +166,17 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						return newInvalidParamsError(method);
 					}
 					result = await this.askForPassword(params.prompt as string);
+					break;
+				}
+				case UiFrontendRequest.SelectFile: {
+					if (!params ||
+						!Object.keys(params).includes('title') ||
+						!Object.keys(params).includes('existing') ||
+						!Object.keys(params).includes('default_dir')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.selectFile(params.title as string,
+						params.existing as boolean, params.default_dir as string);
 					break;
 				}
 				case UiFrontendRequest.ExecuteCode: {
@@ -391,6 +405,14 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			return null;
 		}
 		return result;
+	}
+
+	async selectFile(title: string, existing: boolean, defaultDir: string): Promise<string | null> {
+		const defaultUri = URI.file(defaultDir);
+		const uri = existing ?
+			(await this.fileDialogs.showOpenDialog({ title, defaultUri, canSelectFiles: true, canSelectFolders: false, canSelectMany: false }))?.[0] :
+			await this.fileDialogs.showSaveDialog({ title, defaultUri });
+		return uri?.fsPath ?? null;
 	}
 
 	async executeCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean, callerSessionId?: string): Promise<Record<string, any>> {
