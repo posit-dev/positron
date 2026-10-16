@@ -1161,18 +1161,6 @@ suite('Snowflake Connections File Options', () => {
 			{ host: 'myorg-myacct.internal.snowflakecomputing.com', authenticator: 'OAUTH', token: 'oauth-token', password: undefined });
 	});
 
-	test('a PAT entry with the PAT authenticator passes its token as the token', () => {
-		const options = connectionOptionsFromToml('pat', {
-			account: 'myorg-myacct',
-			user: 'testuser',
-			token: 'pat-token',
-			authenticator: 'programmatic_access_token',
-		});
-		assert.deepStrictEqual(
-			{ authenticator: options.authenticator, token: options.token, password: options.password },
-			{ authenticator: 'PROGRAMMATIC_ACCESS_TOKEN', token: 'pat-token', password: undefined });
-	});
-
 	test('a token with no authenticator is a PAT supplied as the password', () => {
 		const options = connectionOptionsFromToml('pat', { account: 'myorg-myacct', user: 'testuser', token: 'pat-token' });
 		assert.deepStrictEqual(

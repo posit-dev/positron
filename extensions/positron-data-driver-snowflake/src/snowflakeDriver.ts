@@ -49,8 +49,6 @@ const SNOWFLAKE_AUTH_PROVIDER_ID = 'snowflake-cortex';
 const SNOWFLAKE_MANAGED_ENV_VAR = 'SNOWFLAKE_HOME';
 /** The snowflake-sdk authenticator constant for a pre-issued OAuth access token. */
 const AUTHENTICATOR_OAUTH = 'OAUTH';
-/** The snowflake-sdk authenticator constant for a programmatic access token. */
-const AUTHENTICATOR_PAT = 'PROGRAMMATIC_ACCESS_TOKEN';
 /** The snowflake-sdk authenticator constant for interactive external-browser SSO. */
 const AUTHENTICATOR_EXTERNAL_BROWSER = 'EXTERNALBROWSER';
 /** The snowflake-sdk authenticator constant for key-pair auth. */
@@ -441,9 +439,9 @@ export function connectionOptionsFromToml(name: string, entry: SnowflakeConnecti
 	}
 	const authenticator = tomlString(entry, 'authenticator')?.toUpperCase();
 	const token = tomlString(entry, 'token');
-	// snowflake-sdk's OAUTH and PROGRAMMATIC_ACCESS_TOKEN authenticators read only `token`. With no
-	// authenticator, a token is a PAT, which Snowflake accepts where a password is expected.
-	const readsToken = authenticator === AUTHENTICATOR_OAUTH || authenticator === AUTHENTICATOR_PAT;
+	// snowflake-sdk's OAUTH authenticator reads only `token`. Otherwise a token is a PAT, which
+	// Snowflake accepts where a password is expected.
+	const readsToken = authenticator === AUTHENTICATOR_OAUTH;
 	return {
 		account: parseSnowflakeAccount(account),
 		host: tomlString(entry, 'host'),

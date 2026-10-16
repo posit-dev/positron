@@ -40,7 +40,7 @@ export interface SnowflakeConnectionOptions {
 	password?: string;
 	/** The snowflake-sdk authenticator constant (e.g. `SNOWFLAKE_JWT`, `OAUTH_CLIENT_CREDENTIALS`). */
 	authenticator?: string;
-	/** A pre-issued OAuth access token (authenticator `OAUTH`) or PAT (authenticator `PROGRAMMATIC_ACCESS_TOKEN`). */
+	/** A pre-issued OAuth access token (authenticator `OAUTH`). */
 	token?: string;
 	/**
 	 * Supplies the OAuth access token afresh each time a connection is built, for tokens an external
