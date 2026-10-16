@@ -25,6 +25,12 @@
 export interface SnowflakeConnectionOptions {
 	/** The Snowflake account identifier (e.g. `myorg-myacct`), never the full hostname. */
 	account: string;
+	/**
+	 * The hostname to connect to, when it is not the one the SDK derives from `account`. Inside
+	 * Snowpark Container Services this is `$SNOWFLAKE_HOST`, the account's internal endpoint, which a
+	 * container can reach without egress to the public one.
+	 */
+	host?: string;
 	/** The login name. Required for key-pair and PAT; optional for OAuth client credentials. */
 	username?: string;
 	/**
@@ -164,6 +170,7 @@ export const defaultConnectionFactory: SnowflakeConnectionFactory = async option
 	// Cast at the SDK boundary since the two execute shapes aren't structurally assignable.
 	return snowflake.createConnection({
 		account: options.account,
+		host: options.host,
 		username: options.username,
 		password: options.password,
 		authenticator: options.authenticator,
