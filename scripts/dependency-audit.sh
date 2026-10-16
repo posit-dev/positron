@@ -174,6 +174,9 @@ echo ""
 echo "Counts are critical/high/all advisories, from \`npm audit --omit=dev\`$( [ "$SNYK" = true ] && echo " and \`snyk test\`" )."
 if [ "$FIX" = true ]; then
 	echo "- \"After\" is npm audit after \`npm audit fix --package-lock-only --omit=dev\`."
+	if [ "$SNYK" = true ]; then
+		echo "- \"Snyk\" is \`snyk test\` after the fix. Snyk uses its own advisory database, so its counts can differ from npm audit."
+	fi
 	echo "- \"Needs manual fix\" lists packages that still have a high or critical advisory after the fix, which usually need a semver-major bump or an \`overrides\` entry."
 fi
 echo ""
