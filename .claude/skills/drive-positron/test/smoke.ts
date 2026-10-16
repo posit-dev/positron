@@ -266,6 +266,7 @@ const cases: Case[] = [
 	// ---- Explorer tree, Data Explorer
 	{ name: 'palette-run Show Explorer', quick: true, run: ['palette-run.sh', 'View: Show Explorer'] },
 	{ name: 'tree rows Explorer', quick: true, run: ['tree.sh', '--view', 'Explorer', 'rows'], check: o => includes(o.json!.rows, '"text":"cars.csv"') || includes(o.json!.rows, '"state":"leaf"') },
+	{ name: 'tree click in the folder pane by the title it reads', run: ['tree.sh', '--view', 'ws', 'click', 'cars.csv'], check: o => includes(o.json!.text, 'cars.csv') },
 	{ name: 'tree menu missing item', run: ['tree.sh', '--view', 'Explorer', 'menu', 'cars.csv', 'No Such Item'], fail: true },
 	{ name: 'tree missing row', run: ['tree.sh', '--view', 'Explorer', 'click', 'no-such-file.txt'], fail: true },
 	{ name: 'tree unknown command is a usage error, before the page', run: ['tree.sh', '--view', 'Explorer', 'expnad', 'cars.csv'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"expnad" is not a command') },
@@ -380,7 +381,8 @@ const cases: Case[] = [
 	{ name: 'open-file broken.json', run: ['open-file.sh', 'broken.json'] },
 	{ name: 'panel tab Problems (badge)', wait: 1500, run: ['panel.sh', 'tab', 'Problems'], retry: 2, retryOn: /not selected/, check: o => o.json!.tab !== 'Problems' && `tab ${o.json!.tab}` },
 	{ name: 'view-read Problems', run: ['view-read.sh', '--view', 'Problems'], check: o => includes(o.text, 'broken.json') },
-	// The editor area hidden: its tabs are still listed, and it says so.
+	// The editor area hidden: its tabs are still listed, and it says so. Close All Editors (matplotlib plot tab) closed analysis.R in a full run: open it again first.
+	{ name: 'open-file analysis.R again, before the editor area is hidden', run: ['open-file.sh', 'analysis.R'], check: o => o.json!.activeTab !== 'analysis.R' && `active tab ${o.json!.activeTab}` },
 	{ name: 'palette-run Toggle Maximized Panel', run: ['palette-run.sh', 'View: Toggle Maximized Panel'] },
 	{ name: 'panel editors, editor area hidden', run: ['panel.sh', 'editors'], check: o => (o.json!.editorArea !== 'hidden' && 'editorArea is not hidden') || includes(o.json!.groups, '"title":"analysis.R"') },
 	{ name: 'palette-run Toggle Maximized Panel back', run: ['palette-run.sh', 'View: Toggle Maximized Panel'] },

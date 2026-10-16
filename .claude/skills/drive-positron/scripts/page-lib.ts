@@ -120,12 +120,15 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			if (special[key]) {
 				return (await special[key].count()) ? { loc: special[key], name: key } : { error: `no ${key} is open` };
 			}
-			// A view: the pane whose header heading is the name.
-			const pane = visible(page.locator(s.view.pane)).filter({ has: page.getByRole('heading', { name, exact: true }) });
+			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			// A view: the pane whose header heading is the name, as its accessible name
+			// or its text. The Explorer's folder pane labels its heading "Explorer
+			// Section: ws" while it reads "ws", the text the views list below gives.
+			const heading = page.getByRole('heading', { name, exact: true }).or(page.getByRole('heading').filter({ hasText: new RegExp('^\\s*' + esc + '\\s*$') }));
+			const pane = visible(page.locator(s.view.pane)).filter({ has: heading });
 			if (await pane.count() === 1) { return { loc: pane, name }; }
 			// A container with one view shows no pane header: the part's own title is
 			// the name, or the part's selected tab is (Viewer, Help, Console, Terminal).
-			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 			const tabName = new RegExp('^\\s*' + esc + '(\\s*\\(.*\\))?\\s*$', 'i');
 			// A tab with a badge ("Problems 4") has a longer accessible name; its label is the name alone.
 			const labelled = page.locator('[role=tab][aria-selected=true]').filter({ has: page.locator(s.workbench.tabLabel, { hasText: new RegExp('^\\s*' + esc + '\\s*$', 'i') }) });
