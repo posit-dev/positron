@@ -78,6 +78,11 @@ suite('budgetCommandResult', () => {
 			});
 	});
 
+	test('returns an image unchanged, however large', () => {
+		const image = { kind: 'image', mimeType: 'image/png', data: 'x'.repeat(COMMAND_RESULT_BUDGET_BYTES + 1) };
+		assert.strictEqual(budgetCommandResult(image), image);
+	});
+
 	test('explains itself when there is nothing structural to shed', () => {
 		const budgeted = budgetCommandResult('x'.repeat(COMMAND_RESULT_BUDGET_BYTES + 1)) as {
 			truncated: { field: string; returned: number };
