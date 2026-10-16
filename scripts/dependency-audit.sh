@@ -1,0 +1,221 @@
+#!/usr/bin/env bash
+# Audit the runtime npm dependencies of the projects that Positron owns and
+# print a Markdown report on stdout. The project list lives in
+# .github/dependency-audit-manifests.txt; the weekly workflow
+# (dependency-audit-weekly.yml) runs this with --fix --snyk and opens a PR with
+# the lockfile changes.
+#
+# Usage: scripts/dependency-audit.sh [--fix] [--snyk] [--manifests FILE]
+#   --fix:       run `npm audit fix --package-lock-only --omit=dev` in each
+#                project first. This edits package-lock.json in place, staying
+#                inside the semver ranges in package.json (no --force), so it
+#                fixes transitive advisories that need only a lockfile refresh.
+#                dependency-audit-lockcheck.mts then compares the lockfiles: a
+#                fix that leaves a dependency outside its declared range, or
+#                that `npm ci --dry-run` rejects, is reverted, and changed
+#                direct dependencies are listed for review.
+#   --snyk:      also run `snyk test` on each lockfile (after any fix), so the
+#                report shows what the security team sees in Snyk. Needs the
+#                snyk CLI on PATH and SNYK_TOKEN in the environment.
+#   --manifests: project list to read (default
+#                .github/dependency-audit-manifests.txt).
+#
+# Run from the repo root. Exits 0 even when advisories remain: the report is the
+# result. Exits 2 on bad arguments or a missing project list.
+set -uo pipefail
+
+FIX=false
+SNYK=false
+MANIFESTS=.github/dependency-audit-manifests.txt
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--fix) FIX=true ;;
+		--snyk) SNYK=true ;;
+		--manifests) MANIFESTS="$2"; shift ;;
+		*) echo "Unknown argument: $1" >&2; exit 2 ;;
+	esac
+	shift
+done
+
+if [ ! -f "$MANIFESTS" ]; then
+	echo "Project list not found: $MANIFESTS" >&2
+	exit 2
+fi
+
+# Do not set npm config (such as legacy-peer-deps) for all projects here. npm
+# reads each project's own .npmrc, which matches how build/npm/postinstall.ts
+# installs them in CI. A global setting can write a lockfile that `npm ci`
+# then rejects: legacy-peer-deps drops auto-installed peer entries.
+
+# Prints the reason if `npm ci` would reject project $1's lockfile as out of
+# sync with its package.json, else nothing. Runs on a copy of the project, so
+# it never touches a real node_modules.
+ci_check() {
+	local copy="$WORK/ci"
+	rm -rf "$copy" && mkdir -p "$copy"
+	cp "$1/package.json" "$1/package-lock.json" "$copy/"
+	[ -f "$1/.npmrc" ] && cp "$1/.npmrc" "$copy/"
+	(cd "$copy" && npm ci --dry-run --ignore-scripts 2>&1) |
+		grep -q 'EUSAGE' && echo "npm ci rejects the lockfile (out of sync with package.json)"
+}
+
+# Prints "<critical> <high> <total>|<comma-separated high/critical packages>"
+# for the runtime dependencies of project $1, or nothing if npm audit failed.
+npm_audit() {
+	(cd "$1" && npm audit --package-lock-only --omit=dev --json 2>/dev/null) |
+		jq -r '
+			select(.metadata.vulnerabilities) |
+			(.metadata.vulnerabilities | "\(.critical) \(.high) \(.total)") + "|" +
+			([.vulnerabilities[] | select(.severity == "critical" or .severity == "high") | .name] | join(", "))
+		' 2>/dev/null
+}
+
+# Prints "<critical> <high> <total>" from `snyk test` for project $1, or nothing
+# if Snyk failed. Snyk excludes dev dependencies by default. One advisory can
+# reach a package through several paths, so count unique advisory IDs.
+snyk_audit() {
+	# snyk exits 1 when it finds issues, so ignore its status and read the JSON.
+	(cd "$1" && snyk test --file=package-lock.json --json 2>/dev/null) |
+		jq -r '
+			select(.error | not) |
+			[.vulnerabilities // [] | unique_by(.id)[]] |
+			"\(map(select(.severity == "critical")) | length) \(map(select(.severity == "high")) | length) \(length)"
+		' 2>/dev/null
+}
+
+# "<critical> <high> <total>" -> "C / H / total" for the table.
+fmt() {
+	if [ -z "$1" ]; then
+		echo "error"
+	else
+		read -r c h t <<< "$1"
+		echo "$c/$h/$t"
+	fi
+}
+
+rows=()
+clean=0
+errors=()
+direct=()
+reverted=()
+
+LOCKCHECK="$(dirname "$0")/dependency-audit-lockcheck.mts"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+while IFS= read -r dir || [ -n "$dir" ]; do
+	dir="${dir%%#*}"
+	dir="$(echo "$dir" | xargs)"
+	[ -z "$dir" ] && continue
+
+	if [ ! -f "$dir/package-lock.json" ]; then
+		errors+=("\`$dir\`: no package-lock.json")
+		continue
+	fi
+	echo "Auditing $dir" >&2
+
+	before="$(npm_audit "$dir")"
+	before_counts="${before%%|*}"
+
+	after="$before"
+	# Skip clean projects: npm audit fix can still rewrite their lockfiles
+	# (format or extraneous-entry churn), which only adds noise to the PR.
+	if [ "$FIX" = true ] && [ -n "$before_counts" ] && [ "$before_counts" != "0 0 0" ]; then
+		cp "$dir/package-lock.json" "$WORK/before.json"
+		if ! (cd "$dir" && npm audit fix --package-lock-only --omit=dev >/dev/null 2>&1); then
+			# npm audit fix exits non-zero when some advisories need a manual
+			# (semver-major) fix; that's expected, so this is only a note.
+			echo "  npm audit fix left advisories in $dir" >&2
+		fi
+		check="$(node "$LOCKCHECK" "$WORK/before.json" "$dir/package-lock.json" "$dir/package.json")"
+		problems="$(echo "$check" | jq -r '.problems | join("; ")')"
+		[ -z "$problems" ] && problems="$(ci_check "$dir")"
+		if [ -n "$problems" ]; then
+			# The new lockfile leaves a dependency outside its declared range,
+			# or npm ci would reject it. Keep the old lockfile; a person has to
+			# make this fix.
+			cp "$WORK/before.json" "$dir/package-lock.json"
+			reverted+=("${dir#extensions/}: $problems")
+		else
+			changes="$(echo "$check" | jq -r '.directChanges | join(", ")')"
+			[ -n "$changes" ] && direct+=("${dir#extensions/}: $changes")
+		fi
+		after="$(npm_audit "$dir")"
+	fi
+	after_counts="${after%%|*}"
+	remaining="${after#*|}"
+
+	snyk_counts=""
+	if [ "$SNYK" = true ]; then
+		snyk_counts="$(snyk_audit "$dir")"
+		[ -z "$snyk_counts" ] && errors+=("\`$dir\`: snyk test failed")
+	fi
+
+	if [ -z "$before_counts" ] || [ -z "$after_counts" ]; then
+		errors+=("\`$dir\`: npm audit failed")
+	fi
+
+	# Leave clean projects out of the table so the report stays short.
+	if [ "$before_counts" = "0 0 0" ] && [ "$after_counts" = "0 0 0" ] &&
+		{ [ "$SNYK" = false ] || [ "$snyk_counts" = "0 0 0" ]; }; then
+		clean=$((clean + 1))
+		continue
+	fi
+
+	row="| ${dir#extensions/} | $(fmt "$before_counts")"
+	[ "$FIX" = true ] && row="$row | $(fmt "$after_counts")"
+	[ "$SNYK" = true ] && row="$row | $(fmt "$snyk_counts")"
+	row="$row | ${remaining:-none} |"
+	rows+=("$row")
+done < "$MANIFESTS"
+
+echo "## Dependency audit: runtime dependencies"
+echo ""
+echo "Counts are critical/high/all advisories, from \`npm audit --omit=dev\`$( [ "$SNYK" = true ] && echo " and \`snyk test\`" )."
+if [ "$FIX" = true ]; then
+	echo "- \"After\" is npm audit after \`npm audit fix --package-lock-only --omit=dev\`."
+	if [ "$SNYK" = true ]; then
+		echo "- \"Snyk\" is \`snyk test\` after the fix. Snyk uses its own advisory database, so its counts can differ from npm audit."
+	fi
+	echo "- \"Needs manual fix\" lists packages that still have a high or critical advisory after the fix, which usually need a semver-major bump or an \`overrides\` entry."
+fi
+echo ""
+if [ ${#rows[@]} -gt 0 ]; then
+	header="| Project"
+	divider="|---"
+	if [ "$FIX" = true ]; then
+		header="$header | Before | After"
+		divider="$divider|---|---"
+	else
+		header="$header | npm audit"
+		divider="$divider|---"
+	fi
+	[ "$SNYK" = true ] && header="$header | Snyk" && divider="$divider|---"
+	echo "$header | Needs manual fix |"
+	echo "$divider|---|"
+	printf '%s\n' "${rows[@]}"
+	echo ""
+fi
+echo "$clean other projects have no advisories."
+if [ ${#direct[@]} -gt 0 ]; then
+	echo ""
+	echo "### Direct dependency changes"
+	echo ""
+	echo "The fix changed these direct dependencies of a project. Ask the owner of each project to review them, because a direct bump can change behavior more than a transitive patch."
+	echo ""
+	printf -- '- %s\n' "${direct[@]}"
+fi
+if [ ${#reverted[@]} -gt 0 ]; then
+	echo ""
+	echo "### Fixes not applied"
+	echo ""
+	echo "The fixed lockfile left a dependency outside its declared range, or \`npm ci\` rejected it, so these projects keep their old lockfile. Their \"After\" counts are the same as \"Before\"."
+	echo ""
+	printf -- '- %s\n' "${reverted[@]}"
+fi
+if [ ${#errors[@]} -gt 0 ]; then
+	echo ""
+	echo "### Errors"
+	echo ""
+	printf -- '- %s\n' "${errors[@]}"
+fi

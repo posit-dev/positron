@@ -1,0 +1,160 @@
+name: "Weekly: Dependency Audit"
+
+# Audits the runtime npm dependencies of the projects that Positron owns
+# (.github/dependency-audit-manifests.txt), refreshes their lockfiles with
+# `npm audit fix --package-lock-only`, and opens or updates one PR with the
+# changes. The PR is opened with the POSITRON_BOT app token, not GITHUB_TOKEN,
+# so CI runs on it with the usual secrets. The report (npm audit before and
+# after the fix, plus Snyk) goes in the PR body and the job summary.
+on:
+  push:
+    branches: [ci/weekly-dependency-audit] # TEMP: remove before merge
+  schedule:
+    - cron: "0 12 * * 1" # Mondays, 12:00 UTC
+  workflow_dispatch:
+    inputs:
+      dryrun:
+        description: 'Dry run: audit and compute fixes, but skip commit/push/PR.'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Local actions need the repo on disk; detect-managed-pr checks out
+      # again with the bot token.
+      - uses: actions/checkout@v7
+      - name: Detect managed PR
+        id: detect
+        uses: ./.github/actions/detect-managed-pr
+        with:
+          branch-prefix: automated/dependency-audit
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+
+      - name: Refresh branch
+        if: steps.detect.outputs.exists == 'true'
+        env:
+          MODE: ${{ steps.detect.outputs.mode }}
+        run: |
+          if [ "$MODE" = "reset" ]; then
+            echo "Resetting to origin/main; fixes will be recomputed from scratch."
+            git reset --hard origin/main
+          else
+            # Additive: keep the human commits, but merge current main so the
+            # audit sees lockfile changes that landed on main since this PR opened.
+            echo "Additive mode: merging origin/main while keeping human commits."
+            if ! git merge --no-edit origin/main; then
+              git merge --abort
+              echo "::error::Cannot merge origin/main into the PR branch (conflict); resolve by hand." >&2
+              exit 1
+            fi
+          fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Snyk CLI
+        run: npm install -g snyk@1.1301.2
+
+      - name: Audit and fix
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          bash scripts/dependency-audit.sh --fix --snyk > report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          # Stage only the lockfiles of the listed projects, so nothing else
+          # in the working tree can end up in the PR.
+          grep -v '^\s*\(#\|$\)' .github/dependency-audit-manifests.txt | while read -r dir; do
+            git add -- "$dir/package-lock.json"
+          done
+          git --no-pager diff --staged --stat
+
+      - name: Build PR body
+        id: content
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # pr-tags-parse.sh skips lockfiles when it derives e2e tags from
+          # changed paths, so a lockfile-only PR would run only the critical
+          # suite. Map each changed lockfile to its package.json and look it up
+          # in the same path map, then write the tags into the body, which CI
+          # always honors. Diff against main (not just the staged changes) so
+          # that commits from earlier runs on this branch keep their tags.
+          source scripts/lib/pr-tags-lib.sh
+          git fetch --depth=1 origin main
+          CHANGED=$(git diff --cached --name-only origin/main -- '*package-lock.json' | sed 's#package-lock\.json$#package.json#')
+          TAGS=$(derive_map_tags "$CHANGED" .github/workflows/test-tag-paths-map.json | tr ',' ' ')
+          if [ -n "$CHANGED" ]; then
+            # The lockfiles are regenerated on Linux but ship on every platform,
+            # and many carry per-OS native packages, so always run Windows.
+            TAGS="$TAGS @:win"
+            # positron-proxy serves apps and the Viewer in the browser, and its
+            # path map entry has no tags, so run web when it changes.
+            if echo "$CHANGED" | grep -qx 'extensions/positron-proxy/package.json'; then
+              TAGS="$TAGS @:web"
+            fi
+            TAGS=$(echo $TAGS)
+          fi
+          VALIDATION=""
+          if [ -n "$TAGS" ]; then
+            VALIDATION=$(printf '### Validation Steps\n\n%s' "$TAGS")
+          fi
+          BODY=$(printf '%s\n\n%s\n\n------\n_This PR is auto-managed by the [weekly dependency audit](%s); the body may be overwritten on subsequent runs. Advisories that remain after the fix need a manual change._' "$(cat report.md)" "$VALIDATION" "$RUN_URL")
+          # Randomized delimiter so a body line can't accidentally match it and
+          # truncate the multiline output.
+          DELIM="PR_BODY_EOF_$(openssl rand -hex 8)"
+          {
+            echo "body<<$DELIM"
+            printf '%s\n' "$BODY"
+            echo "$DELIM"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Commit and sync PR
+        id: sync
+        uses: ./.github/actions/commit-and-sync-pr
+        with:
+          github-token: ${{ steps.detect.outputs.github-token }}
+          exists: ${{ steps.detect.outputs.exists }}
+          mode: ${{ steps.detect.outputs.mode }}
+          pr_number: ${{ steps.detect.outputs.pr_number }}
+          pr_url: ${{ steps.detect.outputs.pr_url }}
+          pr_branch: ${{ steps.detect.outputs.pr_branch }}
+          branch-prefix: automated/dependency-audit
+          commit-message: 'chore: refresh lockfiles for npm audit advisories'
+          title: 'chore: refresh lockfiles for npm audit advisories'
+          body: ${{ steps.content.outputs.body }}
+          dryrun: ${{ inputs.dryrun }}
+          clear-stale-branch-on-empty-reset: 'true'
+
+      - name: Write PR result to summary
+        if: always()
+        env:
+          DRYRUN: ${{ inputs.dryrun }}
+          PR_ACTION: ${{ steps.sync.outputs.pr_action }}
+          PR_URL: ${{ steps.sync.outputs.pr_url }}
+        run: |
+          {
+            echo ""
+            echo "### Pull request"
+            echo ""
+            if [ "$DRYRUN" = "true" ]; then
+              echo "**Dry run:** no commit, push, or PR was made."
+              echo ""
+            fi
+            case "$PR_ACTION" in
+              created|updated) echo "**PR:** ${PR_ACTION}${PR_URL:+ ($PR_URL)}" ;;
+              reset-cleared)   echo "**PR:** reset the branch of $PR_URL to \`main\` (nothing left to fix)." ;;
+              unchanged)       echo "**PR:** none -- existing PR $PR_URL left as-is." ;;
+              *)               echo "**PR:** none -- no lockfile changes." ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"
