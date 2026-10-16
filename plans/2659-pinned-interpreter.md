@@ -230,9 +230,18 @@ All three changes are in the R extension, as part of #2659. Isabel's core change
 
 One visible change for pinned users: today a pinned R starts on the second open of any folder, because of the saved affiliated runtime. After this change, in a folder with no R files, it waits until you open an R file or run R code, as Q3 describes.
 
-### Q14. How does the pinned check get a language's pinned interpreter from its extension? (open)
+### Q14. How does the pinned check get the pinned interpreter without activating every extension before the first console starts? (open)
 
-Not answered yet. The options and findings so far are in [2659-pinned-check.md](2659-pinned-check.md). Once it's decided, the answer goes here.
+The pinned check needs each language's pinned interpreter, and only that language's extension can provide it. Core can only ask an extension once the extension is active, meaning VS Code has loaded it and run its startup code. For the language whose console is starting, that costs nothing extra, because core already waits for that extension before it starts the console. The problem is asking any other language before that console starts. Core would have to activate that language's extension too, and the console would wait for it (`runtimeStartup.ts:1983-2027`).
+
+Example: R and Python both have an affiliated runtime in this folder, and R was used most recently.
+
+- **Today:** step 2 activates only the R extension, then starts the R console. The Python extension activates in the background, and the Python console starts when it's ready. The R console never waits for Python.
+- **If the pinned check asked every extension up front,** before step 2 started any console, core would have to activate the Python extension and wait for it first. The R console would then wait for Python, even though R doesn't need it. #12645 removed exactly this wait.
+
+That's the hard requirement above. The plan so far is to ask each extension right after core activates it. R's check runs between activating R and starting the R console. Python's runs in the background, before the Python console starts.
+
+Not answered yet: what core calls to ask. The options and findings so far are in [2659-pinned-check.md](2659-pinned-check.md). Once it's decided, the answer goes here.
 
 ## To check during implementation
 

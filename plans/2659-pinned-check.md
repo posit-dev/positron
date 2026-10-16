@@ -1,10 +1,10 @@
-# How the pinned check gets the pinned interpreter (#2659)
+# How the pinned check gets the pinned interpreter without activating every extension first (#2659)
 
 Working doc for Q14 in [2659-pinned-interpreter.md](2659-pinned-interpreter.md). Once this has an answer, the answer goes back into that plan.
 
-At every launch, the pinned check replaces a language's affiliated runtime with the pinned interpreter. To do that, core needs the pinned interpreter's runtime metadata, and only the language's extension can build it. This doc works out how core asks the extension for it.
+At every launch, the pinned check replaces a language's affiliated runtime with the pinned interpreter. To do that, core needs the pinned interpreter's runtime metadata, and only the language's extension can build it. The hard requirement: core can't activate every language's extension before step 2 starts the first console. Today step 2 activates only the first language's extension, and the first console would otherwise wait for all of them. This doc works out how core asks each extension for its pinned interpreter within that limit.
 
-The "Hard requirement" section of the plan explains why the check can't make the first console wait for every extension. [extension-activation.md](extension-activation.md) explains which extension activations the first console waits for today.
+Q14 in the plan has an example of the wait this would add, and the plan's "Hard requirement" section has the details. [extension-activation.md](extension-activation.md) explains which extension activations the first console waits for today.
 
 ## What any answer has to do
 
