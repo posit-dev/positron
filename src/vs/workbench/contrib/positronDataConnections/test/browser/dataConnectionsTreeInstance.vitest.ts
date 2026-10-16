@@ -447,20 +447,33 @@ describe('DataConnectionsTreeInstance', () => {
 		]);
 	});
 
-	it('drops a lone schema out of the tree by default, standing its contents where it stood', async () => {
-		// connection > Schemas > public > Tables, Views. With one schema there is nothing to choose
-		// between, so both tiers go and the objects they held move up to the connection.
-		const { tree } = createTreeOverNodes(
+	/**
+	 * connection > Schemas > public > Tables, Views, where the Views group (handle 4) answers with
+	 * whatever `views` returns at the time it is asked. The lone schema is elided by default, so
+	 * Tables and Views sit directly under the connection.
+	 */
+	function lonePublicSchema(views: () => IDataConnectionNodeDTO[], viewsGroup: Partial<IDataConnectionNodeDTO> = {}) {
+		return createTreeOverNodes(
 			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
 			nodeHandle => nodeHandle === 1
 				? [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]
 				: nodeHandle === 2
 					? [
 						nodeDto({ nodeHandle: 3, name: 'Tables', kind: 'group-tables' }),
-						nodeDto({ nodeHandle: 4, name: 'Views', kind: 'group-views' }),
+						nodeDto({ nodeHandle: 4, name: 'Views', kind: 'group-views', ...viewsGroup }),
 					]
-					: []
+					: nodeHandle === 4
+						? views()
+						: []
 		);
+	}
+
+	const view = nodeDto({ nodeHandle: 5, name: 'v_orders', kind: 'view', hasGetChildren: false });
+
+	it('drops a lone schema out of the tree by default, standing its contents where it stood', async () => {
+		// connection > Schemas > public > Tables, Views. With one schema there is nothing to choose
+		// between, so both tiers go and the objects they held move up to the connection.
+		const { tree } = lonePublicSchema(() => [view]);
 		await tree.refresh();
 		await tree.expand(ENTRY_ID);
 
@@ -524,6 +537,132 @@ describe('DataConnectionsTreeInstance', () => {
 			],
 			callsBeforeExpanding: 1,
 			callsAfterExpanding: 1,
+		});
+	});
+
+	it('drops an empty Views group from a lone schema\'s contents', async () => {
+		const { tree } = lonePublicSchema(() => []);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		expect(rows(tree)).toEqual([
+			{ name: 'connection', prefix: undefined, expanded: true },
+			{ name: 'Tables', prefix: undefined, expanded: false },
+		]);
+	});
+
+	it('keeps a Views group that holds views, and opens it without querying again', async () => {
+		const { tree, nodeGetChildren } = lonePublicSchema(() => [view]);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		const callsBeforeExpanding = nodeGetChildren.mock.calls.length;
+		await tree.expand('dto:1:4');
+
+		expect({
+			rows: rows(tree),
+			callsAfterExpanding: nodeGetChildren.mock.calls.length,
+		}).toEqual({
+			rows: [
+				{ name: 'connection', prefix: undefined, expanded: true },
+				{ name: 'Tables', prefix: undefined, expanded: false },
+				{ name: 'Views', prefix: undefined, expanded: true },
+				{ name: 'v_orders', prefix: undefined, expanded: false },
+			],
+			callsAfterExpanding: callsBeforeExpanding,
+		});
+	});
+
+	it('keeps a Views group whose look-ahead fails, and shows the error when it is opened', async () => {
+		const { tree } = lonePublicSchema(() => { throw new Error('boom'); });
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		await tree.expand('dto:1:4');
+
+		expect({
+			rows: rows(tree).map(row => row.name),
+			error: tree.getError('dto:1:4'),
+		}).toEqual({
+			rows: ['connection', 'Tables', 'Views'],
+			error: new Error('boom'),
+		});
+	});
+
+	it('keeps a Views group it cannot look into, without fetching', async () => {
+		const { tree, nodeGetChildren } = lonePublicSchema(() => [], { hasGetChildren: false });
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		expect({
+			rows: rows(tree).map(row => row.name),
+			askedForViews: nodeGetChildren.mock.calls.some(([nodeHandle]) => nodeHandle === 4),
+		}).toEqual({
+			rows: ['connection', 'Tables', 'Views'],
+			askedForViews: false,
+		});
+	});
+
+	it('falls back to the schema row when its only content is an empty Views group', async () => {
+		// Dropping the group leaves the schema with nothing to stand in its place, so it is kept
+		// rather than leaving the connection looking empty -- the same fallback as an empty schema.
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+			nodeHandle => nodeHandle === 1
+				? [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]
+				: nodeHandle === 2
+					? [nodeDto({ nodeHandle: 4, name: 'Views', kind: 'group-views' })]
+					: []
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		expect(rows(tree)).toEqual([
+			{ name: 'connection', prefix: undefined, expanded: true },
+			{ name: 'public', prefix: 'Schemas', expanded: true },
+		]);
+	});
+
+	it('decides each schema\'s Views group on its own expand', async () => {
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+			nodeHandle => {
+				switch (nodeHandle) {
+					case 1: return [
+						nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' }),
+						nodeDto({ nodeHandle: 3, name: 'staging', kind: 'schema' }),
+					];
+					case 2: return [nodeDto({ nodeHandle: 4, name: 'Views', kind: 'group-views' })];
+					case 3: return [nodeDto({ nodeHandle: 6, name: 'Views', kind: 'group-views' })];
+					case 4: return [view];
+					default: return [];
+				}
+			}
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+		await tree.expand('dto:1:1');
+		await tree.expand('dto:1:2');
+		await tree.expand('dto:1:3');
+
+		expect(rows(tree).map(row => row.name)).toEqual(['connection', 'Schemas', 'public', 'Views', 'staging']);
+	});
+
+	it('shows a Views group once views appear and the connection is refreshed', async () => {
+		// There is no Views row to refresh, so a view created after the tree loaded shows up when
+		// the level above it is refreshed: here, the connection row's own Refresh.
+		let views: IDataConnectionNodeDTO[] = [];
+		const { tree } = lonePublicSchema(() => views);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+		const before = rows(tree).map(row => row.name);
+
+		views = [view];
+		await tree.reload(ENTRY_ID);
+
+		expect({ before, after: rows(tree).map(row => row.name) }).toEqual({
+			before: ['connection', 'Tables'],
+			after: ['connection', 'Tables', 'Views'],
 		});
 	});
 

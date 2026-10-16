@@ -54,7 +54,7 @@ const getScriptElement = (script: string, id: string) =>
 export class ProxyServer implements Disposable {
 	/**
 	 * Constructor.
-	 * @param serverOrigin The server origin.
+	 * @param serverOrigin The server origin, resolved to an external uri if applicable.
 	 * @param targetOrigin The target origin.
 	 * @param server The server.
 	 */
@@ -405,7 +405,7 @@ export class PositronProxy implements Disposable {
 
 		// Add the proxy server.
 		this._proxyServers.set(targetOrigin, new ProxyServer(
-			serverOrigin,
+			externalUri.toString(true),
 			targetOrigin,
 			server,
 			serverType

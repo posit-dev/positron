@@ -87,7 +87,7 @@ jobs:
   # A version can be published for Linux but not Windows (meta.pyrefly 1.3.2
   # shipped without a win32-x64 build). Windows only reports a mismatch once the
   # new version actually installs there, and auto-update bumps an extension only
-  # when both platforms report it.
+  # when both platforms report it at the same version.
   extensions-windows:
     name: 'extensions-windows'
     timeout-minutes: 90
@@ -342,16 +342,27 @@ jobs:
           # Empty when Windows found no drift, or failed before recording any;
           # either way nothing is confirmed there, so nothing is bumped.
           WINDOWS_MISMATCHED=$(cat mismatched/windows/mismatched-extensions.txt 2>/dev/null || true)
+          # Version Positron actually installed on a platform, or empty.
+          installed_version() {
+            jq -r --arg e "$2" '.[$e] // empty' "mismatched/$1/mismatched-versions.json" 2>/dev/null || true
+          }
           EXTENSIONS_TO_BUMP=()
+          declare -A BUMP_VERSION=()
           HELD_BACK=()
           NOT_ON_WINDOWS=()
+          VERSION_SPLIT=()
           for ext in "${MISMATCHED[@]}"; do
+            linux_version=$(installed_version linux "$ext")
+            windows_version=$(installed_version windows "$ext")
             if [[ " $FLAGGED " == *" $ext "* ]]; then
               HELD_BACK+=("$ext")
             elif [[ " $WINDOWS_MISMATCHED " != *" $ext "* ]]; then
               NOT_ON_WINDOWS+=("$ext")
+            elif [ -z "$linux_version" ] || [ "$linux_version" != "$windows_version" ]; then
+              VERSION_SPLIT+=("$ext ${linux_version:-unknown} ${windows_version:-unknown}")
             else
               EXTENSIONS_TO_BUMP+=("$ext")
+              BUMP_VERSION[$ext]=$linux_version
             fi
           done
           {
@@ -360,7 +371,7 @@ jobs:
             if [ ${#EXTENSIONS_TO_BUMP[@]} -eq 0 ]; then
               echo "- (none)"
             else
-              printf -- '- %s\n' "${EXTENSIONS_TO_BUMP[@]}"
+              for ext in "${EXTENSIONS_TO_BUMP[@]}"; do echo "- $ext ${BUMP_VERSION[$ext]}"; done
             fi
             if [ ${#HELD_BACK[@]} -gt 0 ]; then
               echo ""
@@ -374,12 +385,21 @@ jobs:
               echo ""
               printf -- '- %s\n' "${NOT_ON_WINDOWS[@]}"
             fi
+            if [ ${#VERSION_SPLIT[@]} -gt 0 ]; then
+              echo ""
+              echo "Held back, Linux and Windows installed different versions (Linux, Windows):"
+              echo ""
+              printf -- '- %s\n' "${VERSION_SPLIT[@]}"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
           if [ ${#HELD_BACK[@]} -gt 0 ]; then
             echo "Holding back: ${HELD_BACK[*]}"
           fi
           if [ ${#NOT_ON_WINDOWS[@]} -gt 0 ]; then
             echo "Holding back (not on Windows): ${NOT_ON_WINDOWS[*]}"
+          fi
+          if [ ${#VERSION_SPLIT[@]} -gt 0 ]; then
+            echo "Holding back (platform versions differ): $(printf '%s; ' "${VERSION_SPLIT[@]}")"
           fi
           # A failed check that recorded no drift failed for some other reason
           # (setup, install timeout), so slack-notify still sends the generic alert.
@@ -399,6 +419,10 @@ jobs:
           HELD_BACK_LINES=$(
             for ext in "${HELD_BACK[@]}"; do held_back_line "$ext" "latest version depends on a blocked extension"; done
             for ext in "${NOT_ON_WINDOWS[@]}"; do held_back_line "$ext" "new version not confirmed on Windows"; done
+            for split in "${VERSION_SPLIT[@]}"; do
+              read -r ext linux_version windows_version <<< "$split"
+              held_back_line "$ext" "Linux installed $linux_version, Windows installed $windows_version"
+            done
           )
           if [ -n "$HELD_BACK_LINES" ]; then
             DELIM="HELD_BACK_EOF_$(openssl rand -hex 8)"
@@ -413,7 +437,18 @@ jobs:
             exit 0
           fi
           echo "Bumping extensions: ${EXTENSIONS_TO_BUMP[*]}"
-          ./scripts/update-extensions.sh "${EXTENSIONS_TO_BUMP[@]}"
+          # Pin the version Positron installed, not the newest one on the
+          # mirror. The newest can need a newer VS Code engine than Positron
+          # has (GitHub.vscode-pull-request-github 0.168.0 needs ^1.141.0),
+          # which then never installs; the observed version passed that check.
+          # One call per extension because --version applies to the whole call,
+          # and one failed download must not cost the run the other bumps.
+          for ext in "${EXTENSIONS_TO_BUMP[@]}"; do
+            if ! ./scripts/update-extensions.sh "$ext" --version "${BUMP_VERSION[$ext]}"; then
+              echo "::warning::Could not pin $ext to ${BUMP_VERSION[$ext]}"
+              printf -- '- Could not pin %s to %s\n' "$ext" "${BUMP_VERSION[$ext]}" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
           git add product.json
 
       - name: Show product.json diff

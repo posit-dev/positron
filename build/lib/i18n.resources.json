@@ -275,6 +275,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronObjectExplorerEditor",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronModalDialogs",
 			"project": "vscode-workbench"
 		},
@@ -612,6 +616,10 @@
 		},
 		{
 			"name": "vs/workbench/services/positronDataExplorer",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/services/positronObjectExplorer",
 			"project": "vscode-workbench"
 		},
 		{

@@ -27,6 +27,7 @@ export enum PositronDataExplorerClosedStatus {
 export interface PositronDataExplorerClosedProps {
 	closedReason: PositronDataExplorerClosedStatus;
 	errorMessage?: string;
+	closeButtonLabel?: string;
 	onClose: () => void;
 }
 
@@ -58,7 +59,7 @@ export const PositronDataExplorerClosed = (
 	}
 
 	// Localize the close button.
-	const closeDataExplorer = localize(
+	const closeDataExplorer = props.closeButtonLabel ?? localize(
 		'positron.dataExplorerEditor.closeDataExplorer',
 		"Close Data Explorer"
 	);

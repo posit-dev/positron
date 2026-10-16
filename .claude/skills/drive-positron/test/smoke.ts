@@ -247,6 +247,10 @@ const cases: Case[] = [
 	{ name: 'console-run python matplotlib plot', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'import matplotlib.pyplot as plt; plt.plot([1, 2, 3], [2, 1, 3]); plt.show()'] },
 	{ name: 'plots save --width (intrinsic size)', wait: 1500, run: ['plots.sh', 'save', '--width', '640'], check: o => includes(o.json!.intrinsicSize, 'unticked') || includes(o.json!.tree, 'spinbutton "Width": "640"') },
 	{ name: 'ui click Cancel (intrinsic size)', run: ['ui.sh', 'click', 'button', 'Cancel', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
+	// The Plots open control is an action-bar split button: both halves are "Select where to open plot" and neither has aria-haspopup.
+	{ name: 'console-run python matplotlib plot 2', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'plt.figure(); plt.plot([3, 1], color="red"); plt.show()'] },
+	{ name: 'plots open editor through the split button whose halves share one name', wait: 1500, run: ['plots.sh', 'open', 'editor'], check: o => includes(o.json!.opened, 'editor tab "matplotlib') },
+	{ name: 'palette-run Close All Editors (matplotlib plot tab)', run: ['palette-run.sh', 'View: Close All Editors'], check: o => o.json!.closed !== true && 'the palette did not close' },
 	{ name: 'console-run r html to Viewer', quick: true, run: ['console-run.sh', '--language', 'r', 'print(htmltools::browsable(htmltools::tags$button("smoke-viewer-button")))'] },
 	{ name: 'viewer wait-content', quick: true, run: ['viewer.sh', 'wait-content', '20'], check: o => includes(o.json!.shown, 'smoke-viewer-button') },
 	{ name: 'view-read Viewer', quick: true, run: ['view-read.sh', '--view', 'Viewer'], check: o => includes(o.text, 'button "smoke-viewer-button"') },

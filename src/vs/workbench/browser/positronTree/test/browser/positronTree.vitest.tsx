@@ -801,6 +801,20 @@ describe('PositronTreeInstance', () => {
 			focusedId: tree.focusedId, // cursor still on r0
 		}).toEqual({ rows: 4, focusedId: 'r0' });
 	});
+
+	it('keeps a node\'s row height as rows above it come and go', async () => {
+		const tree = await newTree(3, 2);
+		tree.setNodeHeight('r1', 100);
+		await tree.expand('r0');
+		const expanded = [tree.rowTop(3), tree.rowTop(4)];
+
+		tree.setNodeHeight('r1', undefined);
+
+		expect({ expanded, restored: tree.rowTop(4) }).toEqual({
+			expanded: [3 * ROW_HEIGHT, 3 * ROW_HEIGHT + 100],
+			restored: 4 * ROW_HEIGHT,
+		});
+	});
 });
 
 describe('PositronTree keyboard navigation', () => {
@@ -1102,5 +1116,66 @@ describe('PositronTree rendering and loading states', () => {
 		const twisty = await screen.findByRole('button', { name: 'Expand' });
 		expect(twisty).toHaveClass('positron-tree-twisty-error');
 		expect(twisty).toHaveAttribute('title', 'boom');
+	});
+});
+
+describe('PositronTree sticky scroll', () => {
+	const ctx = createTestContainer().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	let store: DisposableStore;
+	let restoreLayout: () => void;
+	beforeEach(() => {
+		store = new DisposableStore();
+		// Room for four rows.
+		restoreLayout = stubGridLayoutWithSize(VIEWPORT_WIDTH, ROW_HEIGHT * 4);
+	});
+	afterEach(() => {
+		store.dispose();
+		vi.unstubAllGlobals();
+		restoreLayout();
+	});
+
+	/**
+	 * Renders a root with ten leaf children, expanded and scrolled so the root is out of view.
+	 */
+	async function renderScrolledTree(stickyScroll: boolean) {
+		const instance = store.add(new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
+			stickyScroll,
+			getRoots: async () => [branch('root')],
+			getChildren: async () => Array.from({ length: 10 }, (_, i) => leaf(`child${i}`)),
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		}));
+		await instance.refresh();
+		await instance.expand('root');
+		rtl.render(<PositronTree instance={instance} />);
+		await instance.setVerticalScrollOffset(ROW_HEIGHT * 3);
+		return instance;
+	}
+
+	it('sticks the expanded ancestor of the rows at the top', async () => {
+		await renderScrolledTree(true);
+
+		const band = await screen.findByTestId('data-grid-sticky-rows');
+		expect(band).toHaveTextContent('root');
+	});
+
+	it('does not stick rows by default', async () => {
+		await renderScrolledTree(false);
+
+		expect(await screen.findByText('child4')).toBeInTheDocument();
+		expect(screen.queryByTestId('data-grid-sticky-rows')).not.toBeInTheDocument();
+	});
+
+	it('reveals the cursor row below the band', async () => {
+		const instance = await renderScrolledTree(true);
+
+		// child2 is the fourth row, under the band at the top of the viewport.
+		instance.setCursorRow(3);
+		await instance.scrollToCursor();
+
+		expect(instance.verticalScrollOffset).toBe(ROW_HEIGHT * 2);
 	});
 });
