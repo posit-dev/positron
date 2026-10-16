@@ -55,14 +55,9 @@ test.describe('Python Venv Auto-Creation', {
 		await openFolder('test-files/venv-creation-test');
 		await app.workbench.sessions.expectNoStartUpMessaging();
 
-		// The prompt is gated on resolving the active interpreter, which waits on
-		// full discovery -- `expectNoStartUpMessaging` returns well before that.
-		await app.workbench.quickaccess.runCommand('python.setInterpreter', { keepOpen: true });
-		await app.workbench.quickInput.waitForInterpreterDiscoveryToComplete({ timeout: 120000 });
-		await app.workbench.quickInput.closeQuickInput();
-
-		const toast = app.workbench.toasts.toastNotification.filter({ hasText: /requirements\.txt/ });
-		await expect(toast).toBeVisible({ timeout: 60000 });
+		// Info toasts auto-hide after 10s when the window has focus; the notification
+		// center keeps the prompt, and waitForAppear checks both.
+		await app.workbench.toasts.waitForAppear(/requirements\.txt/, { timeout: 60000 });
 		await app.workbench.toasts.clickButton('Yes', { notificationFilter: /requirements\.txt/ });
 
 		const venvPath = path.join(tempWorkspace, '.venv');
