@@ -201,6 +201,16 @@ export function parsePageFindings(html) {
 	}));
 }
 
+/** The run's report.json; runs before 2026-10-13 published only the page, so read the findings from it. */
+export async function fetchReport(base, get = fetch) {
+	const json = await get(`${base}/report.json`);
+	if (json.ok) {
+		return json.json();
+	}
+	const page = await get(`${base}/index.html`);
+	return page.ok ? { findings: parsePageFindings(await page.text()), fromPage: true } : null;
+}
+
 /** The PR's own commits after `testedSha`, from the PR commits API list; null when the tested commit is not in it. */
 export function prOwnCommits(commits, testedSha) {
 	const i = commits.findIndex(c => c.sha === testedSha);

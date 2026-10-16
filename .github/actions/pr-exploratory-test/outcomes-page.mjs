@@ -11,6 +11,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { REPO_URL, SEVERITY_LABEL } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
 import { escapeHtml, safeUrl } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
+import { accordion, day, FONTS, footer, inlineJson, inlineScript, PAGES, rangeText, resolveRange, runUrl, SHARED_CONSTS, SHARED_VIEW, SHELL_CSS, SHELL_SCRIPT, topRow } from './explore-pages.mjs';
+
+export { resolveRange, runUrl };
 
 // In this order everywhere. `group` is the evidence filter: fixed, filed, not fixed, or no outcome yet;
 // `def` explains it under the bar, `brief` under its evidence group.
@@ -33,7 +36,6 @@ const DECIDED_BY = {
 	'closed-unmerged': 'PR closed without merging',
 	'sha': 'A specific commit',
 };
-const PRESETS = [['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['90d', 'Last 90 days', 90], ['all', 'All time']];
 const TRIGGER = { auto: 'started automatically', explore: 'started by /explore' };
 const HERO_COLOR = { 'fixed-in-pr': '#3B7D4F', 'not-fixed': '#7D7568' };
 const INK = '#2B2A27';
@@ -44,8 +46,6 @@ const PR_STATE = { merged: ['Merged', ''], open: ['Open', 'opened '], closed: ['
 const pct = (a, b) => `${Math.round(a / b * 100)}%`;
 const codeSpans = text => escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code>');
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-const day = (iso, year) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' } : {}), timeZone: 'UTC' });
-const time = (iso, year) => `<time datetime="${iso}">${day(iso, year)}</time>`;
 const isFixed = r => r.outcome === 'fixed-in-pr' || r.outcome === 'fixed-later';
 
 /** Counts for `rows`; rows marked `dupOf` are dropped first. */
@@ -87,12 +87,6 @@ function splitBar(rows) {
 	return `<div class="grow bar mid">${part(false)}${part(true)}</div>`;
 }
 
-/** Merged, open or closed: from the PR's preview, else from its findings' outcomes. */
-function prState(pr, rows, prs) {
-	const list = rows.filter(r => r.pr === pr);
-	return prs[pr]?.state ?? (list.some(r => r.outcome === 'pending') ? 'open' : list.some(r => r.decidedBy === 'closed-unmerged') ? 'closed' : 'merged');
-}
-
 function triggers(rows) {
 	const counts = {};
 	for (const r of rows) {
@@ -102,60 +96,13 @@ function triggers(rows) {
 	return Object.keys(counts).length > 1 ? Object.entries(counts).map(([t, n]) => `${SEP}<span>${n} ${t}</span>`).join('') : '';
 }
 
-function minusDays(iso, n) {
-	const d = new Date(`${iso}T00:00:00Z`);
-	d.setUTCDate(d.getUTCDate() - n);
-	return d.toISOString().slice(0, 10);
-}
-
-function isDay(v) {
-	const t = Date.parse(`${v}T00:00:00Z`);
-	return /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(t) && new Date(t).toISOString().startsWith(v);
-}
-
-/** The window for `?range=` (7d, 30d, 90d, all, or from..to), given the run dates and the generated date; 30 days if invalid. */
-export function resolveRange(param, dates, today) {
-	if (param === 'all') {
-		const sorted = [...dates].sort();
-		return { key: 'all', from: sorted[0] ?? today, to: sorted.at(-1) ?? today };
-	}
-	const preset = PRESETS.find(([k]) => k === param);
-	if (preset) {
-		return { key: param, from: minusDays(today, preset[2] - 1), to: today };
-	}
-	const [, a, b] = String(param ?? '').match(/^(.+)\.\.(.+)$/) ?? [];
-	if (isDay(a) && isDay(b)) {
-		return { key: 'custom', from: a < b ? a : b, to: a < b ? b : a };
-	}
-	return resolveRange('30d', dates, today);
-}
-
-function rangeText({ from, to }, plain) {
-	const [f, t] = plain ? [day, day] : [time, time];
-	return from === to ? t(to, true) : `${f(from, from.slice(0, 4) !== to.slice(0, 4))} &ndash; ${t(to, true)}`;
-}
-
-function header(rows, s, prs) {
+function header(s) {
 	const inPr = s.counts['fixed-in-pr'];
-	const later = s.fixed - inPr;
 	const of = inPr === s.counted ? `<span class="green">all ${inPr}</span>` : `<span class="green">${inPr}</span> of ${s.counted}`;
 	const rate = inPr === s.counted ? '' : `<span class="muted"> (${pct(inPr, s.counted)})</span>`;
-	const headline = s.counted ? `Developers fixed ${of} ${s.counted === 1 ? 'finding' : 'findings'}${rate} before merging.` : 'No PRs with findings have merged yet.';
-	const when = !later ? 'before merging' : !inPr ? 'after merging' : `${inPr} before merging${SEP}${later} after`;
-	// Open PRs can't have a fix yet and closed ones never ship, so only merged PRs count.
-	const merged = [...new Set(rows.map(r => r.pr))].filter(pr => prState(pr, rows, prs) === 'merged');
-	const withFix = merged.filter(pr => rows.some(r => r.pr === pr && isFixed(r))).length;
-	const card = (label, num, side, note) => `<div class="card"><div class="label">${label}</div>`
-		+ `<div class="card-num">${num}<span class="side">${side}</span></div><div class="note">${note}</div></div>`;
-	if (!s.total) {
-		return '<div class="lede"><h1>Does /explore change what ships?</h1><p class="headline">No /explore findings in this date range.</p></div>';
-	}
-	return `<div class="lede"><h1>Does /explore change what ships?</h1><p class="headline">${headline}</p></div>
-<div class="cards">
-${card('Findings fixed', `<span class="big green">${s.fixed}</span>`, when, 'Flagged by /explore, then fixed.')}
-${merged.length ? card('PRs with fixes', `<span class="big">${withFix}</span>`, `of ${plural(merged.length, 'merged PR')}`, 'At least one finding fixed.')
-		: card('PRs with fixes', '<span class="big">&ndash;</span>', '', 'No PRs with findings have merged yet.')}
-</div>`;
+	const headline = !s.total ? 'No /explore findings in this date range.'
+		: s.counted ? `Developers fixed ${of} ${s.counted === 1 ? 'finding' : 'findings'}${rate} before merging.` : 'No PRs with findings have merged yet.';
+	return `<div class="lede"><h1>Does /explore change what ships?</h1><p class="headline">${headline}</p></div>`;
 }
 
 function allBar(s) {
@@ -204,14 +151,6 @@ ${rows}
 <p class="foot">% fixed includes fixes made after merging. Findings with no outcome yet aren't in it.</p>`);
 }
 
-/** A section that starts collapsed behind a full-width button in its heading. */
-function accordion(id, title, count, body, attrs = '') {
-	return `<section aria-labelledby="${id}-h"${attrs}>
-<h2 id="${id}-h"><button type="button" class="acc" aria-expanded="false" aria-controls="${id}-body"><span>${title}<span class="count">${count}</span></span>`
-		+ '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#5A5751" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l5 5 5-5"/></svg></button></h2>'
-		+ `\n<div class="acc-body" id="${id}-body" hidden>\n${body}\n</div>\n</section>`;
-}
-
 function prRows(own) {
 	const byPr = new Map();
 	for (const r of own) {
@@ -238,7 +177,10 @@ function findingRow(r, n) {
 		r.paths?.length ? ['Files', r.paths.map(p => `<code class="chip">${escapeHtml(p)}</code>`).join(' ')] : null,
 		['Run', `<span class="mono">${escapeHtml(r.run)}#${escapeHtml(r.finding)}</span>${SEP}${TRIGGER[r.trigger] ?? 'trigger unknown'}${SEP}skill ${escapeHtml(r.skillVersion ?? '?')}${SEP}${escapeHtml(r.model ?? '?')}`],
 	].filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
-	const links = [report ? `<a href="${escapeHtml(report)}">Open report</a>` : '', `<a href="${REPO_URL}/pull/${pr}" data-pr="${pr}">Open PR</a>`].join('');
+	// A filed issue's triage outcome lives on the other page.
+	const issueNum = Number(r.issue?.number) || ev.issue;
+	const triage = r.outcome === 'filed-issue' && issueNum ? `<a href="${PAGES.triage.url}?issue=${issueNum}">See its triage</a>` : '';
+	const links = [report ? `<a href="${escapeHtml(report)}">Open report</a>` : '', `<a href="${REPO_URL}/pull/${pr}" data-pr="${pr}">Open PR</a>`, triage].join('');
 	return `<div class="finding" id="f${n}"><button type="button" class="row" aria-expanded="false" aria-controls="d${n}">`
 		+ `<span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}</span>`
 		+ `<span class="mono link" data-pr="${pr}">#${pr}</span><span class="sev">${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity ?? '')}</span><span class="sign" aria-hidden="true">+</span></button>`
@@ -256,7 +198,7 @@ function evidence(own, s) {
 	}).join('\n');
 	const counts = { fixed: s.fixed, filed: s.counts['filed-issue'], not: s.counts['not-fixed'], open: s.notCounted };
 	const filters = [`<button type="button" class="filter" data-filter="all" aria-pressed="true">All ${s.total}</button>`,
-		...FILTERS.filter(([k]) => counts[k]).map(([k, label]) => `<button type="button" class="filter" data-filter="${k}" aria-pressed="false">${label} ${counts[k]}</button>`)].join('');
+	...FILTERS.filter(([k]) => counts[k]).map(([k, label]) => `<button type="button" class="filter" data-filter="${k}" aria-pressed="false">${label} ${counts[k]}</button>`)].join('');
 	const controls = `<div class="controls"><div role="group" aria-label="Filter by outcome">${filters}</div><button type="button" class="toggle-all">Expand all</button></div>`;
 	return accordion('ev', 'Evidence', plural(s.total, 'finding'), `${controls}\n${groups}`, ' id="evidence"');
 }
@@ -272,8 +214,8 @@ export function prCard(n, p) {
 }
 
 
-/** The parts of the page that change with the date range: the button's dates, mixed triggers, the lede and cards, and the sections. */
-export function renderView(rows, { now, range, prs = {} }) {
+/** The parts of the page that change with the date range: the button's dates, mixed triggers, the lede, and the sections. */
+export function renderView(rows, { range }) {
 	const inRange = range.key === 'all' ? rows : rows.filter(r => {
 		const d = r.postedAt?.slice(0, 10);
 		return d && d >= range.from && d <= range.to;
@@ -281,103 +223,35 @@ export function renderView(rows, { now, range, prs = {} }) {
 	const own = inRange.filter(r => !r.dupOf);
 	const s = summarize(inRange);
 	const body = s.total ? [allBar(s), `<div class="accordion">\n${severityRows(own)}\n${prRows(own)}\n${evidence(own, s)}\n</div>`] : [];
-	return { label: rangeText(range), triggers: triggers(own), head: header(own, s, prs), body: body.join('\n') };
+	return { label: rangeText(range), triggers: triggers(own), head: header(s), body: body.join('\n') };
 }
 
 const runDates = rows => rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, pct, codeSpans, plural, day, time, isFixed, summarize, splitEvidence, segments, splitBar, prState, triggers, minusDays, isDay, resolveRange, rangeText, header, allBar, severityRows, accordion, prRows, findingRow, evidence, renderView, prCard };
+const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, pct, codeSpans, plural, isFixed, summarize, splitEvidence, segments, splitBar, triggers, header, allBar, severityRows, prRows, findingRow, evidence, renderView, prCard };
 export const VIEW_SOURCE = [
-	...Object.entries({ SEVERITY_LABEL, REPO_URL, OUTCOMES, FILTERS, DECIDED_BY, PRESETS, TRIGGER, HERO_COLOR, INK, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
+	...Object.entries({ ...SHARED_CONSTS, SEVERITY_LABEL, OUTCOMES, FILTERS, DECIDED_BY, TRIGGER, HERO_COLOR, INK, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
 ].join('\n');
 
-const CHECK = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#3B7D4F" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5l2.5 2.5L11 4.5"/></svg>';
-
-function picker(range, dates, now) {
-	const item = (key, label) => `<button type="button" role="menuitemradio" data-range="${key}" aria-checked="${range.key === key}" tabindex="-1"><span>${label}</span>${CHECK}</button>`;
-	return `<span class="range"><button type="button" class="range-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Date range: ${rangeText(range, true)}" disabled>`
-		+ `<span class="range-label">${rangeText(range)}</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#3A3833" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5L7 9l3.5-3.5"/></svg></button>`
-		+ '<div class="range-menu" role="menu" aria-label="Date range" hidden>'
-		+ PRESETS.map(([key, label]) => item(key, label)).join('')
-		+ `<div class="sep" role="separator"></div>${item('custom', 'Custom range&hellip;')}`
-		+ `<div class="custom" hidden><label for="range-from">From</label><input id="range-from" type="date" min="${dates[0] ?? now}" max="${now}">`
-		+ `<label for="range-to">To</label><input id="range-to" type="date" min="${dates[0] ?? now}" max="${now}"></div></div></span>`;
-}
-
 const CSS = `
-body{margin:0;background:#F5F4F0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#2B2A27}
-a{color:#2F6B55}a:not(.seg):hover{color:#1F4D3D}a.updated:hover{color:#2F6B55;text-decoration:underline;text-underline-offset:3px}
-main{padding:56px 24px 96px}
-.page{width:100%;max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
-.mono,.n,code,.chip,.seg,.sign{font-family:'IBM Plex Mono',monospace}
-h1,h2{font-family:'Source Serif 4',Georgia,serif;margin:0}
-h1{font-size:46px;line-height:1.1;font-weight:500;letter-spacing:-0.01em}
-h2{font-size:24px;line-height:1.3;font-weight:600}
-.green{color:#3B7D4F;font-weight:600}.muted{color:#6B6862;font-weight:400}
 .small{font-size:13px;color:#5A5751}
-.label,.bracket b,.cols{font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase}
-header{display:flex;flex-direction:column}
-.eyebrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:13px;color:#6B6862;margin-bottom:16px}
-.triggers,.head,.view{display:contents}
-.range{position:relative}
-.updated{margin-left:auto;display:inline-flex;align-items:center;min-height:32px;color:inherit;text-decoration:none}
-.range-btn{display:inline-flex;align-items:center;gap:4px;min-height:32px;padding:0 6px;margin-left:-6px;border:0;border-radius:6px;background:transparent;color:#3A3833;font:13px 'IBM Plex Sans',sans-serif;cursor:pointer;text-decoration:underline dotted #B5B1A7;text-underline-offset:3px}
-.range-btn:disabled{cursor:default;text-decoration:none}.range-btn:disabled svg{display:none}
-.range-btn svg{transition:transform .15s}.range-btn[aria-expanded=true]{background:#ECE9E2}.range-btn[aria-expanded=true] svg{transform:rotate(180deg)}
-.range-menu{position:absolute;top:38px;left:-6px;z-index:20;width:248px;box-sizing:border-box;padding:6px;background:#FBFAF7;border:1px solid #E4E1D9;border-radius:10px;box-shadow:0 8px 24px rgba(43,42,39,.12);display:flex;flex-direction:column}
-.range-menu[hidden],.custom[hidden]{display:none}
-[role=menuitemradio]{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:#2B2A27;font:14px 'IBM Plex Sans',sans-serif;text-align:left;cursor:pointer}
-[role=menuitemradio][aria-checked=true]{background:#ECE9E2}[role=menuitemradio] svg{visibility:hidden}[role=menuitemradio][aria-checked=true] svg{visibility:visible}
-.range-menu .sep{height:1px;background:#E4E1D9;margin:4px 0}
-.custom{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:6px 8px;padding:8px 10px 6px;font-size:13px;color:#5A5751}
-.custom input{min-height:32px;padding:0 8px;border:1px solid #D6D2C8;border-radius:6px;background:#F5F4F0;color:#2B2A27;font:13px 'IBM Plex Sans',sans-serif}
-.chip-cmd{font-family:'IBM Plex Mono',monospace;font-weight:500;color:#2B2A27;background:#ECE9E2;padding:4px 8px;border-radius:4px}
-.lede{display:flex;flex-direction:column;gap:8px;max-width:760px;margin-bottom:32px}
-.headline{margin:0;font-size:22px;line-height:1.4;font-weight:500}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px}
-.card{padding:20px 24px;background:#FBFAF7;border:1px solid #E4E1D9;border-radius:10px;display:flex;flex-direction:column;gap:8px}
-.label{color:#5A5751}
-.card-num{display:flex;align-items:baseline;gap:10px}
-.card-num .big{font-size:40px;font-weight:600;line-height:1}
-.side,.note{font-size:14px;line-height:1.45;color:#5A5751}
-section{display:flex;flex-direction:column;gap:16px}
-.all{display:grid;column-gap:3px;row-gap:8px}
-.brackets,.bar.big{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}
-.under{grid-column:1 / -1}
-.bracket{display:flex;align-items:baseline;gap:8px;padding-bottom:6px;min-width:0;white-space:nowrap}
 .bracket.not-counted{justify-content:flex-end}
-.bracket span{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5A5751}
 .bracket.counted{border-bottom:2px solid #2B2A27}
 .bracket.not-counted{border-bottom:2px solid #B5B1A7}.bracket.not-counted b{color:#5A5751}
-.bar{display:flex;min-width:0}
-.bar.big{height:56px}
 .bar.mid{height:24px;gap:8px}
 .part{display:flex;gap:2px;min-width:0}.part .seg{min-width:0}
-.seg{box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;border-radius:3px;font-size:12px}
-.bar.big .seg{border-radius:0;gap:10px;padding:0;font-size:18px;font-weight:500;text-decoration:none;transition:opacity .15s}
-.bar.big .seg:has(span){justify-content:flex-start;padding:0 12px}
-.bar.big .seg:first-child{border-top-left-radius:6px;border-bottom-left-radius:6px}.bar.big .seg:last-child{border-top-right-radius:6px;border-bottom-right-radius:6px}
-.bar.big .seg span{font-family:'IBM Plex Sans',sans-serif;font-size:14px}
-.bar.big .seg:focus-visible{outline:2px solid #2B2A27;outline-offset:2px}
-.bar.big:has(.seg:hover,.seg:focus-visible) .seg:not(:hover,:focus-visible){opacity:.35}
 .o-fixed-in-pr{background:#3B7D4F;color:#FFF}
 .o-fixed-later{background:#9CC7A6;color:#1F3D28}
-.o-filed-issue{background:#B3A894;color:#2B2A27}
+.o-filed-issue{background:repeating-linear-gradient(135deg,#CFC8BB 0 8px,#C5BEB0 8px 10px);color:#2B2A27}
 .o-not-fixed{background:#7D7568;color:#FFF}
-.o-pending{background:#DCD8CE;color:#5A5751}
-.o-unclear{background:repeating-linear-gradient(135deg,#E6E2D9 0 5px,#D3CEC2 5px 10px);color:#3A3833}
-.o-no-paths{background:#EEEBE4;color:#5A5751;border:1.5px dashed #B5B1A7}
-.under{position:relative;min-height:20px;margin-top:4px}
+.o-pending{background:#F5F4F0;color:#5A5751;border:1.5px dashed #B5B1A7}
+.o-unclear{background:#EEEBE4;color:#3A3833}
+.o-no-paths{background:#E6E2D9;color:#5A5751}
 i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-sizing:border-box}
 .n{color:#7A766F;font-weight:400}
-.seg-detail[hidden],.group[hidden],.acc-body[hidden],.detail[hidden]{display:none}
-.seg-detail{position:absolute;top:0;left:0;right:0;z-index:1;min-height:48px;background:#F5F4F0;display:flex;align-items:center;gap:20px;min-width:0}
-.hero{flex:0 0 auto;font-family:'Source Serif 4',Georgia,serif;font-size:44px;font-weight:600;line-height:1}
-.seg-detail>div{display:flex;flex-direction:column;gap:2px;min-width:0}
-.what{font-size:15px}.what span{color:#6B6862}
-.def{font-size:14px;color:#3A3833}
+.group[hidden],.detail[hidden]{display:none}
 .rows{display:flex;flex-direction:column;border-top:1px solid #2B2A27}
 .grid-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px;padding:12px 0;box-sizing:border-box;border-bottom:1px solid #E4E1D9}
 .grid-row .name{flex:0 0 120px}.grid-row .pct{flex:0 0 160px}.grid-row .grow{flex:1 1 280px;min-width:0}
@@ -387,17 +261,8 @@ i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-s
 .sev-row{min-height:56px}.sev-row .name{font-size:16px;font-weight:600}
 .sev-row .pct{display:flex;align-items:baseline;gap:8px}.sev-row .green{font-size:28px;line-height:1}.of{font-size:13px;color:#6B6862}
 .sev-row .pct.none{font-size:18px;line-height:1;font-weight:400;color:#B5B1A7}
-.foot{margin:12px 0 0;font-size:13px;color:#7A766F}
 .empty{font-size:13px;color:#7A766F}
 .pr{min-height:56px}.pr .name{font-size:14px;font-weight:500}
-.accordion{display:flex;flex-direction:column;border-top:1px solid #E4E1D9}
-.accordion section{gap:0;border-bottom:1px solid #E4E1D9}
-.acc{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px;padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;text-align:left}
-.acc>span{display:flex;align-items:baseline;gap:12px}
-.count{font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:400;color:#6B6862}
-.acc svg{flex:0 0 auto;transition:transform .15s}
-.acc[aria-expanded=true] svg{transform:rotate(180deg)}
-.acc-body{margin-bottom:24px}
 #ev-body:not([hidden]){display:flex;flex-direction:column;gap:32px}
 .controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px}
 .controls [role=group]{display:flex;flex-wrap:wrap;gap:6px}
@@ -435,18 +300,11 @@ code.chip{background:#ECE9E2;border:0}
 .pr-card p{margin:0;padding-top:10px;border-top:1px solid #E4E1D9;line-height:1.5;color:#3A3833;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 `;
 
-// The date range, accordions, filters, segment clicks, the bar's hover detail, expanding rows and the PR card; runs after VIEW_SOURCE.
+// The range, accordions, filters, segment clicks, the bar's hover detail, expanding rows and the PR card; runs after VIEW_SOURCE and SHELL_SCRIPT.
 // Without it the page shows all time with everything expanded (see the noscript style).
 const SCRIPT = `
-const $ = s => document.querySelector(s);
-const $$ = s => [...document.querySelectorAll(s)];
 const data = JSON.parse($('#rows').textContent);
 const dates = data.rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
-const btn = $('.range-btn');
-const menu = $('.range-menu');
-const items = $$('[role=menuitemradio]');
-const from = $('#range-from');
-const to = $('#range-to');
 const findings = () => $$('.finding .row');
 const card = $('#pr-card');
 // Sections the reader opened or closed, kept across range changes; the rest follow each view's default.
@@ -464,46 +322,15 @@ const filter = key => {
 const show = key => { $$('.seg-detail').forEach(d => { d.hidden = d.dataset.for !== key; }); };
 const apply = (param, write) => {
 	const range = resolveRange(param, dates, data.now);
-	const view = renderView(data.rows, { now: data.now, range, prs: data.prs });
+	const view = renderView(data.rows, { range });
 	closeCard();
-	$('.range-label').innerHTML = view.label;
-	btn.setAttribute('aria-label', 'Date range: ' + $('.range-label').textContent);
 	$('.triggers').innerHTML = view.triggers;
 	$('.head').innerHTML = view.head;
 	$('.view').innerHTML = view.body;
 	Object.entries(chosen).forEach(([id, open]) => { const b = $('.acc[aria-controls="' + id + '"]'); if (b) { setOpen(b, open); } });
-	items.forEach(i => i.setAttribute('aria-checked', i.dataset.range === range.key));
-	$('.custom').hidden = range.key !== 'custom';
-	if (from.value !== range.from) { from.value = range.from; }
-	if (to.value !== range.to) { to.value = range.to; }
-	if (write) {
-		const url = new URL(location.href);
-		url.searchParams.set('range', range.key === 'custom' ? range.from + '..' + range.to : range.key);
-		history.replaceState(null, '', url);
-	}
+	syncPicker(range, write);
 };
-const setMenu = open => {
-	menu.hidden = !open;
-	btn.setAttribute('aria-expanded', open);
-	if (open) { (items.find(i => i.getAttribute('aria-checked') === 'true') ?? items[0]).focus(); }
-};
-const built = $('.updated time');
-const at = new Date(built.dateTime);
-built.textContent = at.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + (at.getHours() % 12 || 12) + ':' + String(at.getMinutes()).padStart(2, '0') + (at.getHours() < 12 ? ' AM' : ' PM');
-btn.disabled = false;
 apply(new URLSearchParams(location.search).get('range'), false);
-btn.addEventListener('click', () => setMenu(menu.hidden));
-const edit = () => { if (from.value && to.value) { apply(from.value + '..' + to.value, true); } };
-from.addEventListener('input', edit);
-to.addEventListener('input', edit);
-menu.addEventListener('keydown', e => {
-	const at = items.indexOf(document.activeElement);
-	if (e.key === 'Escape') { setMenu(false); btn.focus(); }
-	else if (at >= 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); items[(at + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); }
-	else if (at >= 0 && (e.key === 'Home' || e.key === 'End')) { e.preventDefault(); items[e.key === 'Home' ? 0 : items.length - 1].focus(); }
-});
-// Tabbing out closes the menu; focus moving to the custom dates inside it doesn't.
-menu.addEventListener('focusout', e => { if (e.relatedTarget && !e.relatedTarget.closest('.range')) { setMenu(false); } });
 // One card for every PR link, below it or above it when there's no room. The number in an evidence row sits inside the row's button, so its card can't be hovered.
 function openCard(a) {
 	clearTimeout(openTimer);
@@ -553,14 +380,10 @@ document.addEventListener('focusin', e => { if (seg(e)) { show(seg(e).dataset.ke
 document.addEventListener('focusout', e => { if (seg(e)) { show(null); } });
 document.addEventListener('click', e => {
 	const t = e.target;
-	if (!menu.hidden && !t.closest('.range')) { setMenu(false); }
-	const item = t.closest('[role=menuitemradio]');
 	const acc = t.closest('.acc');
 	const row = t.closest('.finding .row');
 	const f = t.closest('.filter');
-	if (item && item.dataset.range === 'custom') { apply(from.value + '..' + to.value, true); from.focus(); }
-	else if (item) { apply(item.dataset.range, true); setMenu(false); btn.focus(); }
-	else if (seg(e)) { toggle($('#ev-h .acc'), true); filter(seg(e).dataset.filter); }
+	if (seg(e)) { toggle($('#ev-h .acc'), true); filter(seg(e).dataset.filter); }
 	else if (acc) { toggle(acc, acc.getAttribute('aria-expanded') !== 'true'); }
 	else if (row) { setOpen(row, row.getAttribute('aria-expanded') !== 'true'); sync(); }
 	else if (f) { filter(f.dataset.filter); }
@@ -568,40 +391,28 @@ document.addEventListener('click', e => {
 });
 `;
 
-/** The workflow run building the page, or the workflow's page outside Actions. */
-export function runUrl(env) {
-	const { GITHUB_SERVER_URL: server, GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: id } = env;
-	return server && repo && id ? `${server}/${repo}/actions/runs/${id}` : `${REPO_URL}/actions/workflows/exploratory-outcomes.yml`;
-}
-
-/** "Oct 14, 9:05 AM" in UTC; the script switches it to the reader's time. */
-function clock(d) {
-	const h = d.getUTCHours();
-	return `<time datetime="${d.toISOString()}">${day(d.toISOString(), false)}, ${h % 12 || 12}:${String(d.getUTCMinutes()).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}</time>`;
-}
-
 /** The whole page for `rows`, as outcomes.mjs writes them: all time, which the script narrows to `?range=` (last 30 days by default). */
 export function renderOutcomesPage(rows, { now = new Date(), runUrl: run = runUrl({}) } = {}) {
 	const today = now.toISOString().slice(0, 10);
 	const dates = runDates(rows);
 	const range = resolveRange('all', dates, today);
 	const prs = Object.fromEntries(rows.filter(r => r.prPreview).map(r => [r.pr, r.prPreview]));
-	const view = renderView(rows, { now: today, range, prs });
-	const data = JSON.stringify({ rows: rows.map(({ prPreview, ...r }) => r), now: today, prs }).replace(/</g, '\\u003c');
-	const script = `${VIEW_SOURCE}\n${SCRIPT}`.replace(/<\/script/gi, '<\\/script');
+	const view = renderView(rows, { range });
+	const data = inlineJson({ rows: rows.map(({ prPreview, ...r }) => r), now: today, prs });
+	const script = inlineScript(`${VIEW_SOURCE}\n${SHELL_SCRIPT}\n${SCRIPT}`);
 	return `<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>/explore outcomes</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&amp;display=swap">
-<style>${CSS}</style>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>/explore shipping impact</title>
+${FONTS}
+<style>${SHELL_CSS}${CSS}</style>
 <noscript><style>.acc-body[hidden]{display:block}#ev-body[hidden]{display:flex;flex-direction:column;gap:32px}.detail[hidden]{display:flex}.controls,.acc svg{display:none}</style></noscript></head>
 <body><main><div class="page">
 <header>
-<div class="eyebrow"><span class="chip-cmd">/explore</span>${picker(range, dates, today)}<span class="triggers">${view.triggers}</span><a class="updated" href="${escapeHtml(run)}" title="Open the workflow run that built this report">Updated&nbsp;${clock(now)}</a></div>
+${topRow('impact', range, dates, today)}
 <div class="head">${view.head}</div>
 </header>
 <div class="view">${view.body}</div>
+${footer(now, escapeHtml(run), `<span class="triggers">${view.triggers}</span>`)}
 </div></main>
 <div class="pr-card" id="pr-card" role="tooltip" hidden></div>
 <script id="rows" type="application/json">${data}</script>
