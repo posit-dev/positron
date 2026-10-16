@@ -31,6 +31,8 @@ jobs:
       issues: write
       id-token: write
     env:
+      # positron-projects[bot] is intentionally allowed: it needs to trigger Claude,
+      # even though this workflow also runs as that App.
       ALLOWED_BOTS: "posit-connect-projects[bot],positron-projects[bot]"
       # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
       # The action only does this by default when allowed_non_write_users is set.
