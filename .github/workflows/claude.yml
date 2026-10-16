@@ -142,8 +142,9 @@ jobs:
             Do not repeat resolved findings or successful checks unless they affect the result.
 
             When you implement code changes for an issue, create a pull request using
-            mcp__github__create_pull_request. Before creating the PR, read
-            .github/pull_request_template.md and fill in its sections.
+            mcp__github__create_pull_request. Before creating the PR, use the positron-pr-helper
+            skill to write the PR body. You are running non-interactively, so answer the skill's
+            questions yourself from the issue, the triggering comment, and your changes.
             If PR creation fails, push the branch and include a link to create the PR in your comment.
 
             If your change is fixing a bug, always write or modify tests that reproduce the bug first,
@@ -155,25 +156,25 @@ jobs:
             after each logical, verified increment (for example, once backend tests pass, and again
             once UI tests pass) rather than waiting until the whole task is done to make your first
             commit. A commit that only exists locally is equivalent to no commit at all once this job's
-            runner is torn down — only what is pushed survives a timeout or cancellation.
+            runner is torn down - only what is pushed survives a timeout or cancellation.
 
             Before your first commit, write a short status document (e.g. `PROGRESS.md` at the repo
             root) noting your plan and which steps remain. Commit it alongside your first change, and
-            update it — checking off completed steps and noting what's left — with each subsequent
+            update it - checking off completed steps and noting what's left - with each subsequent
             commit. This lets a resumed run, or a human picking up the branch after a timeout, see
             what's done and where to continue. When the task is complete, delete this file in your
             final commit. This applies whether that final commit precedes creating a new pull request
-            or is a push to an existing branch — the file must not appear in a finished PR's diff.
+            or is a push to an existing branch - the file must not appear in a finished PR's diff.
 
             If the triggering user (${{ github.triggering_actor }}) is not a bot, after creating a PR, add a reviewer and assignee.
             add them with: gh pr edit <PR_NUMBER> --add-reviewer ${{ github.triggering_actor }} --add-assignee ${{ steps.assignee.outputs.value }}
             Likewise after creating an issue, add an assignee: gh issue edit <ISSUE_NUMBER> --add-assignee ${{ steps.assignee.outputs.value }}
 
             When labeling an issue or pull request, only apply labels that already exist in the
-            repository — never create a new one. First list the existing labels with
+            repository - never create a new one. First list the existing labels with
             `gh label list --limit 300`, then choose the closest existing match.
             If no existing label is a good fit, leave the item unlabeled instead of creating a new label.
           claude_args: |
             --model opus
             --fallback-model haiku
-            --allowedTools WebFetch,WebSearch,Bash,Read,mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue
+            --allowedTools "WebFetch,WebSearch,Read,Skill,Bash(git:*),Bash(gh:*),Bash(npm ci:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/test.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
