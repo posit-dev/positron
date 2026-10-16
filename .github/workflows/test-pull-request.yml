@@ -372,3 +372,37 @@ jobs:
     secrets: inherit
     with:
       pull_request: true
+
+  # Single stable check for the tag-driven e2e lanes, so it can be marked
+  # required in the branch ruleset. The lanes themselves can't be required
+  # directly: when a lane's tag is absent its job is skipped at the caller
+  # level, so its "e2e / <lane>" check is never created and a required check
+  # would wait forever. Skipped lanes count as passing here; a failed or
+  # cancelled lane (or a failed pr-tags) fails the gate.
+  e2e-tagged-gate:
+    name: e2e-tagged-gate
+    if: ${{ always() }}
+    needs:
+      [
+        pr-tags,
+        e2e-windows-electron,
+        e2e-ubuntu-browser,
+        e2e-rocky-electron,
+        e2e-rocky-chromium,
+        e2e-suse-electron,
+        e2e-suse-chromium,
+        e2e-sles-electron,
+        e2e-sles-chromium,
+        e2e-debian-electron,
+        e2e-debian-chromium,
+      ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any tagged lane failed
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          echo "One or more tag-driven e2e lanes failed or were cancelled:"
+          echo "$NEEDS_JSON" | jq -r 'to_entries[] | "  \(.key): \(.value.result)"'
+          exit 1
