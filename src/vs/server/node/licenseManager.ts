@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import * as crypto from 'crypto';
 import { Readable } from 'stream';
 import { DeferredPromise, TimeoutTimer, timeout } from '../../base/common/async.js';
@@ -38,6 +38,9 @@ const DEFAULT_RESTART_DELAY_MS = 10_000;
 /** How long to wait for the client to check the seat back in on shutdown. */
 const DEFAULT_STOP_TIMEOUT_MS = 5_000;
 
+/** How long to wait for the one-shot `verify` subcommand. */
+const VERIFY_TIMEOUT_MS = 10_000;
+
 /** A message decoded from the client's stdout. */
 export interface ILicenseManagerMessage {
 	/** Lease status; 'activated' or 'expired'. */
@@ -48,6 +51,8 @@ export interface ILicenseManagerMessage {
 	daysLeft?: number;
 	/** Named user count. Arrives string-encoded via Go's `,string` tag. */
 	users?: number;
+	/** ARN of the AWS license backing the lease, when the client reports one. */
+	licenseArn?: string;
 }
 
 /**
@@ -138,7 +143,63 @@ export function parseLicenseManagerFrame(digest: string, line: string, key: stri
 		expirationMs: optionalNumber(parsed['expiration']),
 		daysLeft: optionalNumber(parsed['days-left']),
 		users: optionalNumber(parsed['users']),
+		// Only set when present, so a frame without an ARN decodes exactly as before.
+		...(typeof parsed['license-arn'] === 'string' && parsed['license-arn'] !== '' ? { licenseArn: parsed['license-arn'] } : {}),
 	};
+}
+
+/**
+ * Pairs each frame with the digest line before it, for both the lease stream and
+ * `verify`. Feed it one trimmed, non-empty line at a time; it returns the decoded
+ * message on a frame's JSON line, and undefined otherwise.
+ *
+ * @param key Overrides the built-in key. Used by tests.
+ */
+function createFrameReader(key: string = MessageKey): (line: string) => ILicenseManagerMessage | undefined {
+	let digest = '';
+	return line => {
+		if (!line.startsWith('{')) {
+			digest = line;
+			return undefined;
+		}
+		const message = parseLicenseManagerFrame(digest, line, key);
+		digest = '';
+		return message;
+	};
+}
+
+/**
+ * Reads the ARN of the AWS license this deployment runs under by running the
+ * client's one-shot `verify` subcommand, which prints a single frame in the same
+ * signed format as the lease messages.
+ *
+ * Returns undefined on any failure. The ARN only feeds usage reporting, so a
+ * failure here must never fail an otherwise valid lease.
+ *
+ * @param binaryPath Path to the license manager client binary.
+ * @param args Overrides the subcommand. Used by tests.
+ * @param key Overrides the built-in key. Used by tests.
+ */
+export async function readLicenseArn(binaryPath: string, args: string[] = ['verify'], key: string = MessageKey): Promise<string | undefined> {
+	let stdout: string;
+	try {
+		stdout = await new Promise<string>((resolve, reject) => {
+			execFile(binaryPath, args, { timeout: VERIFY_TIMEOUT_MS }, (err, out) => err ? reject(err) : resolve(out));
+		});
+	} catch (err) {
+		console.error('[license-manager] Could not read the license ARN: ', err);
+		return undefined;
+	}
+
+	const readFrame = createFrameReader(key);
+	for (const line of stdout.split('\n').map(line => line.trim()).filter(line => line)) {
+		const licenseArn = readFrame(line)?.licenseArn;
+		if (licenseArn) {
+			return licenseArn;
+		}
+	}
+	console.error('[license-manager] Could not read the license ARN: verify printed no verified frame with a license-arn.');
+	return undefined;
 }
 
 /**
@@ -259,22 +320,17 @@ export class LicenseManager extends Disposable {
 
 		// Each frame arrives as two lines, so the first is held until the second
 		// can be checked against it.
-		let digest = '';
+		const readFrame = createFrameReader(this.options.key);
 		child.stdout?.pipe(new StreamSplitter('\n')).on('data', (chunk: Buffer) => {
 			const line = chunk.toString('utf8').trim();
 			if (!line) {
 				return;
 			}
-			if (!line.startsWith('{')) {
-				digest = line;
-				return;
-			}
 
-			const message = parseLicenseManagerFrame(digest, line, this.options.key);
-			digest = '';
+			const message = readFrame(line);
 			if (message) {
 				this.onMessage(message);
-			} else {
+			} else if (line.startsWith('{')) {
 				console.error('[license-manager] Discarding an unusable message.');
 			}
 		});
