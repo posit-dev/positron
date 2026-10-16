@@ -17,6 +17,11 @@ export interface ManagedCredential {
 	 * (possibly with a scheme).
 	 */
 	readonly locator: string;
+	/**
+	 * The host to connect to instead of the one the locator implies, when Workbench names one (the
+	 * Snowflake account's `$SNOWFLAKE_HOST` inside Snowpark Container Services).
+	 */
+	readonly host?: string;
 }
 
 /**
@@ -48,7 +53,7 @@ async function readManagedCredential(authProviderId: string): Promise<ManagedCre
 			// Read without deriving the Cortex base URL, whose account validation rejects regional
 			// identifiers (e.g. `xy12345.us-east-2.aws`) that the data drivers accept.
 			const credential = readSnowflakeManagedCredentials({ home: process.env.SNOWFLAKE_HOME });
-			return credential?.account ? { accessToken: credential.token, locator: credential.account } : undefined;
+			return credential?.account ? { accessToken: credential.token, locator: credential.account, host: credential.host } : undefined;
 		}
 		case DATABRICKS_AUTH_PROVIDER_ID: {
 			// hasManagedCredentials has confirmed DATABRICKS_CONFIG_FILE points at the managed file.
