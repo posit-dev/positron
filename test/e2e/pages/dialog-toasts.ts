@@ -96,8 +96,12 @@ export class Toasts {
 			// a strict mode violation.
 			const toastButton = scopedToast.getByRole('button', { name: button }).first();
 			if (await toastButton.isVisible()) {
-				await toastButton.click();
-				return;
+				try {
+					await toastButton.click({ timeout: 5000 });
+					return;
+				} catch {
+					// The toast auto-hid mid-click; the notification center still has it.
+				}
 			}
 
 			// Open notification center and try clicking there (handles smoke test mode

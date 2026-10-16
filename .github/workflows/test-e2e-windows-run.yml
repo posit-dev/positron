@@ -108,6 +108,12 @@ jobs:
       # suite. Same secrets the Linux lanes export.
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+      # Pinned because the graphviz plot tests compare against a master
+      # screenshot (graphviz-win32) rendered with this version. Bump the
+      # version, the hash, and the screenshot together. The hash is the one
+      # Graphviz publishes next to the zip (append .sha256 to its URL).
+      GRAPHVIZ_VERSION: '16.1.0'
+      GRAPHVIZ_SHA256: '733e49626c492242eb8dca30ea627b6ead20710e207998c7933b4909d92d6abc'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -157,7 +163,7 @@ jobs:
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
 
       - name: Setup Node
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
 
@@ -439,12 +445,20 @@ jobs:
           rig add ${{ steps.r-versions.outputs.r_alt_version }}
           rig ls
 
-      # `choco install` can exit 0 while installing nothing: when the community
-      # feed returns a 5xx, choco prints "Unable to find package 'Graphviz'" and
-      # "Chocolatey installed 0/0 packages" but still succeeds, so the step goes
-      # green and the graphviz plot tests fail half an hour later as a confusing
-      # screenshot diff. Retry the transient feed failures, then prove `dot` runs
-      # before moving on.
+      - name: Cache Graphviz
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}\graphviz
+          key: graphviz-win64-${{ env.GRAPHVIZ_VERSION }}
+
+      # Graphviz comes from the cache, else the official zip on the Graphviz
+      # GitLab package registry, else Chocolatey. The Chocolatey community feed
+      # alone was not reliable enough: it has returned 503/504 for every retry
+      # in a run, and `choco install` exits 0 when that happens ("Chocolatey
+      # installed 0/0 packages"), so the step went green and the graphviz plot
+      # tests failed half an hour later as a confusing screenshot diff. Both
+      # sources install the same pinned version, and the step proves `dot`
+      # runs before moving on.
       - name: Setup Graphviz
         uses: nick-fields/retry@v4
         with:
@@ -454,16 +468,44 @@ jobs:
           shell: pwsh
           command: |
             $ErrorActionPreference = 'Stop'
-            choco install graphviz -y --no-progress
-            # The graphviz installer puts its bin dir on the machine PATH, which
-            # the already-running runner process does not pick up. Re-read it so
-            # `dot` resolves here, then publish it for the later test steps.
-            $env:PATH = "$([Environment]::GetEnvironmentVariable('Path', 'Machine'));$env:PATH"
-            $dot = Get-Command dot -ErrorAction SilentlyContinue
-            if (-not $dot) {
-              throw 'choco reported success but dot is not installed (see the choco output above)'
+            $ProgressPreference = 'SilentlyContinue'
+            $ver = $env:GRAPHVIZ_VERSION
+            $gvRoot = Join-Path $env:RUNNER_TEMP 'graphviz'
+            $bin = Join-Path $gvRoot "Graphviz-$ver-win64\bin"
+
+            if (-not (Test-Path (Join-Path $bin 'dot.exe'))) {
+              try {
+                $url = "https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/$ver/windows_10_cmake_Release_Graphviz-$ver-win64.zip"
+                $zip = Join-Path $env:RUNNER_TEMP "graphviz-$ver.zip"
+                Invoke-WebRequest $url -OutFile $zip -MaximumRetryCount 2 -RetryIntervalSec 5
+                $hash = (Get-FileHash $zip -Algorithm SHA256).Hash
+                if ($hash -ne $env:GRAPHVIZ_SHA256) {
+                  throw "SHA256 mismatch: expected $env:GRAPHVIZ_SHA256, got $hash"
+                }
+                Expand-Archive $zip -DestinationPath $gvRoot -Force
+              } catch {
+                Write-Warning "Graphviz zip install failed, falling back to Chocolatey: $_"
+                # Don't leave a partial extraction behind for the next attempt
+                # (or the cache) to mistake for a good install.
+                Remove-Item $gvRoot -Recurse -Force -ErrorAction SilentlyContinue
+              }
             }
-            $bin = Split-Path $dot.Source -Parent
+
+            if (-not (Test-Path (Join-Path $bin 'dot.exe'))) {
+              choco install graphviz --version $ver -y --no-progress
+              # The graphviz installer puts its bin dir on the machine PATH, which
+              # the already-running runner process does not pick up. Re-read it so
+              # `dot` resolves here.
+              $env:PATH = "$([Environment]::GetEnvironmentVariable('Path', 'Machine'));$env:PATH"
+              $dot = Get-Command dot -ErrorAction SilentlyContinue
+              if (-not $dot) {
+                throw 'Graphviz is not installed from the zip or Chocolatey (see the output above)'
+              }
+              $bin = Split-Path $dot.Source -Parent
+            }
+
+            # Use it here, then publish it for the later test steps.
+            $env:PATH = "$bin;$env:PATH"
             if ((Get-Content $env:GITHUB_PATH -ErrorAction SilentlyContinue) -notcontains $bin) {
               Add-Content -Path $env:GITHUB_PATH -Value $bin
             }
@@ -596,7 +638,7 @@ jobs:
         if: ${{ inputs.commit != '' }}
         run: git checkout ${{ inputs.commit }}
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 20
 

@@ -115,5 +115,38 @@ suite('Snowflake Credentials', () => {
 				fs.rmSync(home, { recursive: true, force: true });
 			}
 		});
+
+		test('readSnowflakeManagedCredentials returns the host Workbench names', () => {
+			const home = fs.mkdtempSync(path.join(os.tmpdir(), 'snowflake-home-'));
+			try {
+				fs.writeFileSync(
+					path.join(home, 'connections.toml'),
+					'[workbench]\naccount = "myorg-myacct"\nhost = "myorg-myacct.internal.snowflakecomputing.com"\ntoken = "abc"\nauthenticator = "oauth"\n'
+				);
+				assert.deepStrictEqual(
+					readSnowflakeManagedCredentials({ home }),
+					{ account: 'myorg-myacct', token: 'abc', host: 'myorg-myacct.internal.snowflakecomputing.com' }
+				);
+			} finally {
+				fs.rmSync(home, { recursive: true, force: true });
+			}
+		});
+
+		test('readSnowflakeManagedCredentials reads an indented or unspaced host, not a proxy_host', () => {
+			const home = fs.mkdtempSync(path.join(os.tmpdir(), 'snowflake-home-'));
+			try {
+				// CRLF line endings, as a file saved on Windows would have.
+				fs.writeFileSync(
+					path.join(home, 'connections.toml'),
+					'[workbench]\r\naccount = "myorg-myacct"\r\nproxy_host = "proxy.example.com"\r\n  host="myorg-myacct.internal.snowflakecomputing.com"\r\ntoken = "abc"\r\n'
+				);
+				assert.deepStrictEqual(
+					readSnowflakeManagedCredentials({ home }),
+					{ account: 'myorg-myacct', token: 'abc', host: 'myorg-myacct.internal.snowflakecomputing.com' }
+				);
+			} finally {
+				fs.rmSync(home, { recursive: true, force: true });
+			}
+		});
 	});
 });

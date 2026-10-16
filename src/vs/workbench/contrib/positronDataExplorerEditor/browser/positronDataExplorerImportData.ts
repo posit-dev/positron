@@ -15,6 +15,7 @@ import { IPositronDataExplorerInstance } from '../../../services/positronDataExp
 import { IDataImportOptions, IDataImportView, IPositronDataImporterRegistry } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { isSessionVisibleFile } from '../../../services/positronDataExplorer/common/importDataFileUri.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
+import { duckDBClientId } from '../../../services/positronDataExplorer/common/positronDataExplorerDuckDBBackend.js';
 import { ImportDataModalDialogOptions, showImportDataModalDialog } from '../../../browser/positronModalDialogs/importDataModalDialog.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 
@@ -123,7 +124,7 @@ export async function openFileAndShowImportDataDialog(
 	fileUri: URI,
 	showDialog: (options: ImportDataModalDialogOptions) => void = showImportDataModalDialog
 ): Promise<void> {
-	const identifier = `duckdb:${fileUri.toString()}`;
+	const identifier = duckDBClientId(fileUri);
 	const explorerUri = PositronDataExplorerUri.generate(identifier);
 
 	// Reuse the Data Explorer already showing this file, if there is one.

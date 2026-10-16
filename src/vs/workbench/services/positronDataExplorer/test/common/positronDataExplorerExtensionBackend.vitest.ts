@@ -102,4 +102,15 @@ describe('PositronDataExplorerExtensionBackend', () => {
 
 		expect(disposed).toEqual([{ providerId: PROVIDER_ID, datasetId: IDENTIFIER }]);
 	});
+
+	it('fires onDidClose once when disposed', () => {
+		const { backend } = createBackend(() => ({ result: undefined }));
+		let closeCount = 0;
+		store.add(backend.onDidClose(() => closeCount++));
+
+		backend.dispose();
+		backend.dispose();
+
+		expect(closeCount).toBe(1);
+	});
 });

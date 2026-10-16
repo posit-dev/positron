@@ -44,6 +44,10 @@ export interface AuthRequest {
 	type: 'auth';
 	auth: string;
 	data: string;
+	// --- Start PWB: Duplicate the URL query values because some proxies drop the WebSocket query string ---
+	reconnectionToken?: string;
+	reconnection?: boolean;
+	// --- End PWB ---
 }
 
 export interface SignRequest {
@@ -260,6 +264,10 @@ async function connectToRemoteExtensionHostAgent<T extends RemoteConnection>(opt
 		auth: options.connectionToken || '00000000000000000000',
 		data: message.data
 	};
+	// --- Start PWB: Repeat the reconnection token in the auth message for query-stripping proxies ---
+	authRequest.reconnectionToken = options.reconnectionToken;
+	authRequest.reconnection = !!options.reconnectionProtocol;
+	// --- End PWB ---
 	protocol.sendControl(VSBuffer.fromString(JSON.stringify(authRequest)));
 
 	try {

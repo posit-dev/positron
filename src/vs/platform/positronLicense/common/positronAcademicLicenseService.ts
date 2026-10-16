@@ -24,11 +24,11 @@ export interface IPositronAcademicLicenseService {
 	readonly isAcademic: boolean;
 
 	/**
-	 * A short, stable hash of the license file backing this session, sent to P3M as
-	 * `positron-license-hash` so Posit can count session starts per license it issued.
-	 * Undefined when the session has no license file to hash: desktop, a signed Posit
-	 * Workbench token (per-connection, so hashing it would say nothing), and the AWS
-	 * license manager (no key material). See `hashLicenseContents` in `localLicense.ts`.
+	 * A short, stable hash of the license backing this session (the license file, or
+	 * the AWS license ARN on SageMaker), sent to P3M as `positron-license-hash` so Posit
+	 * can count session starts per license it issued. Undefined when there is no license
+	 * to hash: desktop, and a signed Posit Workbench token (per-connection, so hashing it
+	 * would say nothing). See `hashLicenseContents` in `localLicense.ts`.
 	 */
 	readonly licenseHash: string | undefined;
 }
