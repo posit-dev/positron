@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, guarded, issueOf, markDuplicates, parseCheck, parsePageFindings, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, fetchReport, guarded, issueOf, markDuplicates, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -58,16 +58,6 @@ const FILES = git('ls-files').split('\n').filter(Boolean);
 async function fetchJson(url) {
 	const res = await fetch(url);
 	return res.ok ? res.json() : null;
-}
-
-/** The run's report.json; runs before 2026-10-13 published only the page, so read the findings from it. */
-async function fetchReport(base) {
-	const report = await fetchJson(`${base}/report.json`);
-	if (report) {
-		return report;
-	}
-	const res = await fetch(`${base}/index.html`);
-	return res.ok ? { findings: parsePageFindings(await res.text()), fromPage: true } : null;
 }
 
 async function prNumbers() {
