@@ -351,7 +351,10 @@ export class DataConnections {
 		await test.step(`Collapse connection: ${connectionName}`, async () => {
 			const row = this.code.driver.currentPage.locator(TREE_ROW)
 				.filter({ has: this.connectionEntries.filter({ hasText: connectionName }) });
+			// revealNode can return before the row renders; checking the twisty then would see none
+			// and skip the collapse.
 			await this.revealNode(row);
+			await expect(row).toBeVisible({ timeout: this.actionTimeout });
 			const expandedTwisty = row.locator(TREE_TWISTY_EXPANDED);
 			if (await expandedTwisty.count() > 0) {
 				await expandedTwisty.first().dispatchEvent('click');

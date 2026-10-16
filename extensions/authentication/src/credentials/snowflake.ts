@@ -93,8 +93,9 @@ function extractCredentialsFromToml(connectionsTomlPath: string): { account: str
 		account = accountLine ? accountLine.replace('account = ', '').trim().replace(/"/g, '') : '';
 
 		// Workbench names a host only when the session must reach Snowflake through $SNOWFLAKE_HOST.
-		const hostLine = cfg.find(line => line.startsWith('host = '));
-		const host = hostLine ? hostLine.replace('host = ', '').trim().replace(/"/g, '') : '';
+		// Matched as a whole key so that keys merely ending in "host" (e.g. `proxy_host`) are skipped.
+		const hostMatch = cfg.map(line => /^\s*host\s*=\s*(?<value>.*)\s*$/.exec(line)).find(match => match);
+		const host = hostMatch?.groups?.value.trim().replace(/"/g, '') ?? '';
 
 		if (account && token) {
 			return host ? { account, token, host } : { account, token };

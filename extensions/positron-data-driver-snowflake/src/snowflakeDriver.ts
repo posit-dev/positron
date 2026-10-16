@@ -468,6 +468,32 @@ function tomlConnectionEntry(filePath: string, name: string): SnowflakeConnectio
 }
 
 /**
+ * Builds the normalized snowflake-sdk connection options for a named connection in connections.toml.
+ * An OAuth entry's token expires and is rewritten in the file (Posit Workbench rotates the one it
+ * provisions), so it is re-read on every (re)connect, and a token since written for a different account
+ * or host is refused rather than sent to the original one. Exported for unit tests.
+ * @param filePath The connections.toml path.
+ * @param name The connection's table name in the file.
+ */
+export function connectionsFileOptions(filePath: string, name: string): SnowflakeConnectionOptions {
+	const options = connectionOptionsFromToml(name, tomlConnectionEntry(filePath, name));
+	if (options.authenticator !== AUTHENTICATOR_OAUTH) {
+		return options;
+	}
+	const tokenProvider = async () => {
+		const current = connectionOptionsFromToml(name, tomlConnectionEntry(filePath, name));
+		if (current.account !== options.account || current.host !== options.host || current.authenticator !== options.authenticator) {
+			throw new Error(vscode.l10n.t("Connection '{0}' in connections.toml now names a different account, host, or authenticator. Connect again to use it.", name));
+		}
+		if (!current.token) {
+			throw new Error(vscode.l10n.t("Connection '{0}' in connections.toml has no token.", name));
+		}
+		return current.token;
+	};
+	return { ...options, tokenProvider };
+}
+
+/**
  * Builds the normalized snowflake-sdk connection options for the Workbench-managed mechanism. The
  * account is read together with the token from the credential Workbench provisions, and the token is
  * re-read on every (re)connect so Workbench's rotations are picked up.
@@ -489,8 +515,7 @@ async function workbenchConnectionOptions(params: positron.DataConnectionParamet
  */
 function connectionOptions(filePath: string, mechanismId: string, params: positron.DataConnectionParameterValues): SnowflakeConnectionOptions {
 	if (mechanismId === CONNECTIONS_FILE_MECHANISM_ID) {
-		const name = params.connectionName as string;
-		return connectionOptionsFromToml(name, tomlConnectionEntry(filePath, name));
+		return connectionsFileOptions(filePath, params.connectionName as string);
 	}
 	const account = parseSnowflakeAccount(params.account as string);
 	const common = commonFields(params);
