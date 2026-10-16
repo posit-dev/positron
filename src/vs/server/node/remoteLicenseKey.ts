@@ -403,5 +403,5 @@ async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseV
 	// The ARN is hashed rather than sent as is, since it carries the customer's AWS account ID.
 	const licenseArn = await readLicenseArn(binaryPath);
 	const licenseHash = licenseArn ? hashLicenseContents(Buffer.from(licenseArn)) : undefined;
-	return licenseHash ? { valid: true, kind: 'sagemaker', licenseHash } : { valid: true, kind: 'sagemaker' };
+	return { valid: true, kind: 'sagemaker', licenseHash };
 }

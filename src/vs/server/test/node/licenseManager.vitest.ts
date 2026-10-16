@@ -141,6 +141,11 @@ describe('readLicenseArn', () => {
 		await expect(fakeVerify(frameOf(verifyBody(), otherKey))).resolves.toBeUndefined();
 	});
 
+	it('reads the ARN from a later frame when an earlier one does not verify', async () => {
+		const otherKey = 'ff'.repeat(32);
+		await expect(fakeVerify(frameOf(verifyBody(), otherKey) + frameOf(verifyBody()))).resolves.toBe(TEST_ARN);
+	});
+
 	it('returns undefined when there is no digest line', async () => {
 		await expect(fakeVerify(`${verifyBody()}\n`)).resolves.toBeUndefined();
 	});

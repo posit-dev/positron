@@ -39,7 +39,7 @@ const DEFAULT_RESTART_DELAY_MS = 10_000;
 const DEFAULT_STOP_TIMEOUT_MS = 5_000;
 
 /** How long to wait for the one-shot `verify` subcommand. */
-const VERIFY_TIMEOUT_MS = 2_000;
+const VERIFY_TIMEOUT_MS = 5_000;
 
 /** A message decoded from the client's stdout. */
 export interface ILicenseManagerMessage {
@@ -149,6 +149,26 @@ export function parseLicenseManagerFrame(digest: string, line: string, key: stri
 }
 
 /**
+ * Pairs each frame with the digest line before it, for both the lease stream and
+ * `verify`. Feed it one trimmed, non-empty line at a time; it returns the decoded
+ * message on a frame's JSON line, and undefined otherwise.
+ *
+ * @param key Overrides the built-in key. Used by tests.
+ */
+function createFrameReader(key: string = MessageKey): (line: string) => ILicenseManagerMessage | undefined {
+	let digest = '';
+	return line => {
+		if (!line.startsWith('{')) {
+			digest = line;
+			return undefined;
+		}
+		const message = parseLicenseManagerFrame(digest, line, key);
+		digest = '';
+		return message;
+	};
+}
+
+/**
  * Reads the ARN of the AWS license this deployment runs under by running the
  * client's one-shot `verify` subcommand, which prints a single frame in the same
  * signed format as the lease messages.
@@ -171,17 +191,15 @@ export async function readLicenseArn(binaryPath: string, args: string[] = ['veri
 		return undefined;
 	}
 
-	const lines = stdout.split('\n').map(line => line.trim()).filter(line => line);
-	const jsonIndex = lines.findIndex(line => line.startsWith('{'));
-	if (jsonIndex < 1) {
-		console.error('[license-manager] Could not read the license ARN: verify printed no digest and frame.');
-		return undefined;
+	const readFrame = createFrameReader(key);
+	for (const line of stdout.split('\n').map(line => line.trim()).filter(line => line)) {
+		const licenseArn = readFrame(line)?.licenseArn;
+		if (licenseArn) {
+			return licenseArn;
+		}
 	}
-	const licenseArn = parseLicenseManagerFrame(lines[jsonIndex - 1], lines[jsonIndex], key)?.licenseArn;
-	if (!licenseArn) {
-		console.error('[license-manager] Could not read the license ARN: the verify frame failed verification or has no license-arn.');
-	}
-	return licenseArn;
+	console.error('[license-manager] Could not read the license ARN: verify printed no verified frame with a license-arn.');
+	return undefined;
 }
 
 /**
@@ -302,22 +320,17 @@ export class LicenseManager extends Disposable {
 
 		// Each frame arrives as two lines, so the first is held until the second
 		// can be checked against it.
-		let digest = '';
+		const readFrame = createFrameReader(this.options.key);
 		child.stdout?.pipe(new StreamSplitter('\n')).on('data', (chunk: Buffer) => {
 			const line = chunk.toString('utf8').trim();
 			if (!line) {
 				return;
 			}
-			if (!line.startsWith('{')) {
-				digest = line;
-				return;
-			}
 
-			const message = parseLicenseManagerFrame(digest, line, this.options.key);
-			digest = '';
+			const message = readFrame(line);
 			if (message) {
 				this.onMessage(message);
-			} else {
+			} else if (line.startsWith('{')) {
 				console.error('[license-manager] Discarding an unusable message.');
 			}
 		});
