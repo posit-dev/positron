@@ -63,11 +63,11 @@ export function constructSnowflakeBaseUrl(account: string): string {
 }
 
 /**
- * Extracts account and token from Posit Workbench-managed connections.toml
+ * Extracts account, token, and host (when Workbench names one) from Posit Workbench-managed connections.toml
  * @param connectionsTomlPath Full path to the connections.toml file
- * @returns Object with account and token, or null if not found
+ * @returns Object with account, token, and optional host, or null if not found
  */
-function extractCredentialsFromToml(connectionsTomlPath: string): { account: string; token: string } | null {
+function extractCredentialsFromToml(connectionsTomlPath: string): { account: string; token: string; host?: string } | null {
 	try {
 		if (!fs.existsSync(connectionsTomlPath)) {
 			logger.error('connections.toml file does not exist. Please ensure SNOWFLAKE_HOME is set correctly.');
@@ -92,8 +92,12 @@ function extractCredentialsFromToml(connectionsTomlPath: string): { account: str
 		}
 		account = accountLine ? accountLine.replace('account = ', '').trim().replace(/"/g, '') : '';
 
+		// Workbench names a host only when the session must reach Snowflake through $SNOWFLAKE_HOST.
+		const hostLine = cfg.find(line => line.startsWith('host = '));
+		const host = hostLine ? hostLine.replace('host = ', '').trim().replace(/"/g, '') : '';
+
 		if (account && token) {
-			return { account, token };
+			return host ? { account, token, host } : { account, token };
 		}
 
 		logger.error('Incomplete credentials in connections.toml');
@@ -105,14 +109,14 @@ function extractCredentialsFromToml(connectionsTomlPath: string): { account: str
 }
 
 /**
- * Reads the account and token from Posit Workbench managed connections.toml, without
+ * Reads the account, token, and host from Posit Workbench managed connections.toml, without
  * validating the account or deriving the Cortex base URL
  * @param snowflake Catalog `connection.snowflake` slice supplying `home`
- * @returns Account and token, or undefined if none found
+ * @returns Account, token, and optional host, or undefined if none found
  */
 export function readSnowflakeManagedCredentials(
 	snowflake?: { home?: string }
-): { account: string; token: string } | undefined {
+): { account: string; token: string; host?: string } | undefined {
 	const connectionsTomlPath = getSnowflakeConnectionsTomlPath(snowflake);
 	if (!connectionsTomlPath) {
 		logger.debug('No Posit Workbench managed credentials detected');

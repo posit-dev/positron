@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
 import { defaultConnectionFactory, isStatementError, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
 import { createDatabaseNode, createSchemaNode, parseSemanticViewDescription, stageFilePath } from '../snowflakeNodes.js';
-import { parseSnowflakeAccount } from '../snowflakeDriver.js';
+import { connectionOptionsFromToml, parseSnowflakeAccount } from '../snowflakeDriver.js';
 import { isWorkbenchManaged } from '../workbenchCredentials.js';
 
 // Default config for tests -- not used to connect, just to construct.
@@ -1144,6 +1144,40 @@ suite('Workbench Managed Credentials Detection', () => {
 			userHome: false,
 			unset: false,
 		});
+	});
+});
+
+suite('Snowflake Connections File Options', () => {
+	test('an OAuth entry passes its token as the token and connects through its host', () => {
+		// The entry Posit Workbench writes; the host is the account's $SNOWFLAKE_HOST.
+		const options = connectionOptionsFromToml('workbench', {
+			account: 'myorg-myacct',
+			host: 'myorg-myacct.internal.snowflakecomputing.com',
+			token: 'oauth-token',
+			authenticator: 'oauth',
+		});
+		assert.deepStrictEqual(
+			{ host: options.host, authenticator: options.authenticator, token: options.token, password: options.password },
+			{ host: 'myorg-myacct.internal.snowflakecomputing.com', authenticator: 'OAUTH', token: 'oauth-token', password: undefined });
+	});
+
+	test('a PAT entry with the PAT authenticator passes its token as the token', () => {
+		const options = connectionOptionsFromToml('pat', {
+			account: 'myorg-myacct',
+			user: 'testuser',
+			token: 'pat-token',
+			authenticator: 'programmatic_access_token',
+		});
+		assert.deepStrictEqual(
+			{ authenticator: options.authenticator, token: options.token, password: options.password },
+			{ authenticator: 'PROGRAMMATIC_ACCESS_TOKEN', token: 'pat-token', password: undefined });
+	});
+
+	test('a token with no authenticator is a PAT supplied as the password', () => {
+		const options = connectionOptionsFromToml('pat', { account: 'myorg-myacct', user: 'testuser', token: 'pat-token' });
+		assert.deepStrictEqual(
+			{ host: options.host, authenticator: options.authenticator, token: options.token, password: options.password },
+			{ host: undefined, authenticator: undefined, token: undefined, password: 'pat-token' });
 	});
 });
 

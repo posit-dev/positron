@@ -49,6 +49,8 @@ const SNOWFLAKE_AUTH_PROVIDER_ID = 'snowflake-cortex';
 const SNOWFLAKE_MANAGED_ENV_VAR = 'SNOWFLAKE_HOME';
 /** The snowflake-sdk authenticator constant for a pre-issued OAuth access token. */
 const AUTHENTICATOR_OAUTH = 'OAUTH';
+/** The snowflake-sdk authenticator constant for a programmatic access token. */
+const AUTHENTICATOR_PAT = 'PROGRAMMATIC_ACCESS_TOKEN';
 /** The snowflake-sdk authenticator constant for interactive external-browser SSO. */
 const AUTHENTICATOR_EXTERNAL_BROWSER = 'EXTERNALBROWSER';
 /** The snowflake-sdk authenticator constant for key-pair auth. */
@@ -430,20 +432,25 @@ function summarizeConnection(entry: SnowflakeConnectionsFileEntry): string | und
  * Maps a raw connections.toml entry to normalized snowflake-sdk options. Reads the connector's
  * snake_case keys (with the common aliases the SDK accepts) and passes whatever authenticator the file
  * names -- including interactive ones like `externalbrowser` -- upper-cased so the client routes it
- * correctly. Throws if the entry has no account, the one field always required.
+ * correctly. Throws if the entry has no account, the one field always required. Exported for unit tests.
  */
-function connectionOptionsFromToml(name: string, entry: SnowflakeConnectionsFileEntry): SnowflakeConnectionOptions {
+export function connectionOptionsFromToml(name: string, entry: SnowflakeConnectionsFileEntry): SnowflakeConnectionOptions {
 	const account = tomlString(entry, 'account');
 	if (!account) {
 		throw new Error(vscode.l10n.t("Connection '{0}' in connections.toml has no account.", name));
 	}
-	const authenticator = tomlString(entry, 'authenticator');
+	const authenticator = tomlString(entry, 'authenticator')?.toUpperCase();
+	const token = tomlString(entry, 'token');
+	// snowflake-sdk's OAUTH and PROGRAMMATIC_ACCESS_TOKEN authenticators read only `token`. With no
+	// authenticator, a token is a PAT, which Snowflake accepts where a password is expected.
+	const readsToken = authenticator === AUTHENTICATOR_OAUTH || authenticator === AUTHENTICATOR_PAT;
 	return {
 		account: parseSnowflakeAccount(account),
+		host: tomlString(entry, 'host'),
 		username: tomlString(entry, 'user') ?? tomlString(entry, 'username'),
-		// A PAT or OAuth token in the file is supplied where a password is expected.
-		password: tomlString(entry, 'password') ?? tomlString(entry, 'token'),
-		authenticator: authenticator?.toUpperCase(),
+		password: tomlString(entry, 'password') ?? (readsToken ? undefined : token),
+		token: readsToken ? token : undefined,
+		authenticator,
 		privateKeyPath: tomlString(entry, 'private_key_file') ?? tomlString(entry, 'private_key_path'),
 		privateKeyPass: tomlString(entry, 'private_key_file_pwd') ?? tomlString(entry, 'private_key_pwd'),
 		warehouse: tomlString(entry, 'warehouse'),
@@ -468,9 +475,10 @@ function tomlConnectionEntry(filePath: string, name: string): SnowflakeConnectio
  * re-read on every (re)connect so Workbench's rotations are picked up.
  */
 async function workbenchConnectionOptions(params: positron.DataConnectionParameterValues): Promise<SnowflakeConnectionOptions> {
-	const { locator, tokenProvider } = await resolveManagedCredential(SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake', parseSnowflakeAccount);
+	const { locator, host, tokenProvider } = await resolveManagedCredential(SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake', parseSnowflakeAccount);
 	return {
 		account: locator,
+		host,
 		authenticator: AUTHENTICATOR_OAUTH,
 		tokenProvider,
 		...commonFields(params),
