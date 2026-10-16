@@ -1,0 +1,197 @@
+name: Claude PR Assistant
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened]
+  pull_request_review:
+    types: [submitted]
+  pull_request:
+    # Run on PRs that modify this file to test that the changes run
+    paths:
+      - '.github/workflows/claude.yml'
+
+jobs:
+  claude-code-action:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    env:
+      # positron-projects[bot] is intentionally allowed: it needs to trigger Claude,
+      # even though this workflow also runs as that App.
+      ALLOWED_BOTS: "posit-connect-projects[bot],positron-projects[bot]"
+      # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
+      # The action only does this by default when allowed_non_write_users is set.
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+    steps:
+      - name: Check actor has write permission
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          # Bots are not collaborators, so the permission lookup fails for them.
+          # Let explicitly allowed bots through; claude-code-action checks the list again.
+          if [[ ",$ALLOWED_BOTS," == *",$ACTOR,"* ]]; then
+            echo "Actor $ACTOR is an allowed bot"
+            exit 0
+          fi
+          PERMISSION=$(gh api /repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission --jq '.permission')
+          if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" ]]; then
+            echo "::error::Actor ${{ github.actor }} has '$PERMISSION' permission, requires 'write' or 'admin'"
+            exit 1
+          fi
+          echo "Actor ${{ github.actor }} authorized with '$PERMISSION' permission"
+
+      - name: Generate token for GitHub App
+        id: generate-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          permission-actions: read
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+          permission-members: read
+          owner: posit-dev
+          repositories: positron
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          token: ${{ steps.generate-token.outputs.token }}
+          # claude-code-action sets up its own git auth for pushing
+          persist-credentials: false
+
+      - name: Checkout Simple English plugin
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: AminBlg/SimpleEnglish
+          ref: dfd0ca7615eb6f9297d2261c932f44807a8f4c0b # v1.2.0
+          path: .claude-plugins/simple-english
+          persist-credentials: false
+
+      - name: Load secret
+        id: load_secrets
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      # Determine who to assign to issues/PRs created by Claude.
+      # If the triggering actor is a human, use them directly.
+      # If it's a bot, fall back to the origin issue/PR's assignee or author.
+      - name: Determine assignee
+        id: assignee
+        run: |
+          TRIGGERING_ACTOR="${{ github.triggering_actor }}"
+          if [[ "$TRIGGERING_ACTOR" != *"[bot]"* && "$TRIGGERING_ACTOR" != *"_bot"* ]]; then
+            echo "value=$TRIGGERING_ACTOR" >> "$GITHUB_OUTPUT"
+          else
+            ASSIGNEE="${{ github.event.issue.assignees[0].login }}${{ github.event.pull_request.assignees[0].login }}"
+            AUTHOR="${{ github.event.issue.user.login }}${{ github.event.pull_request.user.login }}"
+            echo "value=${ASSIGNEE:-$AUTHOR}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate branch prefix
+        id: branch-prefix
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          TITLE="${ISSUE_TITLE:-$PR_TITLE}"
+          NUMBER="${ISSUE_NUMBER:-$PR_NUMBER}"
+          SLUG=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/-\+/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-40)
+          echo "value=claude/${NUMBER}-${SLUG}-" >> "$GITHUB_OUTPUT"
+
+      # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs bubblewrap. claude-code-action only installs it
+      # when allowed_non_write_users is set, so mirror its setup here.
+      - name: Install subprocess isolation dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends bubblewrap socat
+          # Ubuntu 24.04+ restricts unprivileged user namespaces via AppArmor.
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        with:
+          anthropic_api_key: ${{ steps.load_secrets.outputs.ANTHROPIC_KEY }}
+          github_token: ${{ steps.generate-token.outputs.token }}
+          branch_prefix: ${{ steps.branch-prefix.outputs.value }}
+          additional_permissions: "actions: read"
+          allowed_bots: ${{ env.ALLOWED_BOTS }}
+          track_progress: true
+          plugin_marketplaces: |
+            ./.claude-plugins/simple-english
+          plugins: |
+            simple-english@simple-english
+          settings: |
+            {
+              "outputStyle": "simple-english:simple-english"
+            }
+          prompt: |
+            You are a helpful AI assistant for code reviews and issue triage.
+            Respond to comments and issues that mention you by creating pull requests, summarizing research, updating issues, and otherwise providing actionable advice.
+            Apply the Simple English output style to issue and pull request comments and descriptions, review summaries, and progress and failure messages.
+            Keep issue and pull request text brief.
+            Lead with the result.
+            Include only actionable findings.
+            Do not repeat resolved findings or successful checks unless they affect the result.
+
+            When you implement code changes for an issue, create a pull request using
+            mcp__github__create_pull_request. Before creating the PR, use the positron-pr-helper
+            skill to write the PR body. You are running non-interactively, so answer the skill's
+            questions yourself from the issue, the triggering comment, and your changes.
+            If PR creation fails, push the branch and include a link to create the PR in your comment.
+
+            If your change is fixing a bug, always write or modify tests that reproduce the bug first,
+            push those as a separate commit and ensure that CI fails before then pushing the actual
+            fix. If you are modifying existing code, check if there are existing tests and update
+            them or put new tests alongside the old ones.
+
+            For any task involving real build/test work, commit and push progress to your branch
+            after each logical, verified increment (for example, once backend tests pass, and again
+            once UI tests pass) rather than waiting until the whole task is done to make your first
+            commit. A commit that only exists locally is equivalent to no commit at all once this job's
+            runner is torn down - only what is pushed survives a timeout or cancellation.
+
+            Before your first commit, write a short status document (e.g. `PROGRESS.md` at the repo
+            root) noting your plan and which steps remain. Commit it alongside your first change, and
+            update it - checking off completed steps and noting what's left - with each subsequent
+            commit. This lets a resumed run, or a human picking up the branch after a timeout, see
+            what's done and where to continue. When the task is complete, delete this file in your
+            final commit. This applies whether that final commit precedes creating a new pull request
+            or is a push to an existing branch - the file must not appear in a finished PR's diff.
+
+            If the triggering user (${{ github.triggering_actor }}) is not a bot, after creating a PR, add a reviewer and assignee.
+            add them with: gh pr edit <PR_NUMBER> --add-reviewer ${{ github.triggering_actor }} --add-assignee ${{ steps.assignee.outputs.value }}
+            Likewise after creating an issue, add an assignee: gh issue edit <ISSUE_NUMBER> --add-assignee ${{ steps.assignee.outputs.value }}
+
+            When labeling an issue or pull request, only apply labels that already exist in the
+            repository - never create a new one. First list the existing labels with
+            `gh label list --limit 300`, then choose the closest existing match.
+            If no existing label is a good fit, leave the item unlabeled instead of creating a new label.
+          claude_args: |
+            --model opus
+            --fallback-model haiku
+            --allowedTools "WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh:*),Bash(npm ci:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/test.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
