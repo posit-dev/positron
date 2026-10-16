@@ -39,7 +39,7 @@ const DEFAULT_RESTART_DELAY_MS = 10_000;
 const DEFAULT_STOP_TIMEOUT_MS = 5_000;
 
 /** How long to wait for the one-shot `verify` subcommand. */
-const VERIFY_TIMEOUT_MS = 5_000;
+const VERIFY_TIMEOUT_MS = 10_000;
 
 /** A message decoded from the client's stdout. */
 export interface ILicenseManagerMessage {
