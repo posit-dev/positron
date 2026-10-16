@@ -43,12 +43,13 @@ export const enum QuartoCommandId {
 	CollapseAllOutputs = 'positronQuarto.collapseAllOutputs',
 	ToggleOutputCollapse = 'positronQuarto.toggleOutputCollapse',
 	RestartAndClearAllOutputs = 'positronQuarto.restartAndClearAllOutputs',
+	AskAssistant = 'positronQuarto.askAssistant',
 }
 
 /**
  * Category for Quarto commands.
  */
-const QUARTO_CATEGORY = localize2('quarto.category', "Quarto");
+export const QUARTO_CATEGORY = localize2('quarto.category', "Quarto");
 
 /**
  * Common precondition for Quarto commands: feature enabled and in a Quarto document.

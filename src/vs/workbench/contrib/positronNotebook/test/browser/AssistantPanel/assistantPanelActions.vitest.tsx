@@ -17,17 +17,16 @@ import { createTestContainer } from '../../../../../../test/vitest/positronTestC
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
-import { INotebookContextDTO } from '../../../../../common/positron/notebookAssistant.js';
+import { AI_ENABLED_KEY } from '../../../../positronAssistant/common/positronAIConfiguration.js';
 import { IHeadlessLanguageModelService } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
-import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
-import { AssistantPanelActions } from '../../../browser/AssistantPanel/AssistantPanelActions.js';
+import { AssistantPanelActions, AssistantPanelDocumentKind } from '../../../browser/AssistantPanel/AssistantPanelActions.js';
 
-const { mockGenerateNotebookSuggestions } = vi.hoisted(() => ({
-	mockGenerateNotebookSuggestions: vi.fn().mockResolvedValue([]),
+const { mockGenerateSuggestions } = vi.hoisted(() => ({
+	mockGenerateSuggestions: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('../../../browser/AssistantPanel/notebookSuggestions.js', () => ({
-	generateNotebookSuggestions: mockGenerateNotebookSuggestions,
+	generateSuggestions: mockGenerateSuggestions,
 }));
 
 describe('AssistantPanelActions AI gate', () => {
@@ -44,28 +43,22 @@ describe('AssistantPanelActions AI gate', () => {
 		configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		contextKeyService = ctx.get(IContextKeyService);
 		notificationService = stubInterface<INotificationService>({ info: vi.fn(), error: vi.fn() });
-		mockGenerateNotebookSuggestions.mockReset().mockResolvedValue([]);
+		mockGenerateSuggestions.mockReset().mockResolvedValue([]);
 		// Default the composite notebook AI gate on (matching the default) and
 		// nothing excluded.
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
 		configurationService.setUserConfiguration('positron.assistant.aiExcludes', []);
 	});
 
-	function renderActions() {
-		const notebookContext: INotebookContextDTO = {
-			uri: 'file:///n.ipynb',
-			kernelLanguage: 'python',
-			cellCount: 0,
-			selectedCells: [],
-			allCells: [],
-		};
+	function renderActions(kind: AssistantPanelDocumentKind = 'notebook') {
 		rtl.render(
 			<AssistantPanelActions
 				configurationService={configurationService}
 				headlessLmService={stubInterface<IHeadlessLanguageModelService>({})}
-				notebook={stubInterface<IPositronNotebookInstance>({ uri: URI.parse('file:///n.ipynb') })}
-				notebookContext={notebookContext}
+				kind={kind}
 				notificationService={notificationService}
+				suggestionsRequest={{ systemPrompt: '', context: '' }}
+				uri={URI.parse('file:///n.ipynb')}
 				onActionSelected={vi.fn()}
 				onClose={vi.fn()}
 			/>
@@ -80,7 +73,7 @@ describe('AssistantPanelActions AI gate', () => {
 	it('requests suggestions when AI is enabled', async () => {
 		renderActions();
 		await clickGenerate();
-		await waitFor(() => expect(mockGenerateNotebookSuggestions).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(mockGenerateSuggestions).toHaveBeenCalledTimes(1));
 	});
 
 	it('does not request suggestions when the notebook AI gate is off, and notifies instead', async () => {
@@ -90,7 +83,16 @@ describe('AssistantPanelActions AI gate', () => {
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, false);
 		renderActions();
 		await clickGenerate();
-		expect(mockGenerateNotebookSuggestions).not.toHaveBeenCalled();
+		expect(mockGenerateSuggestions).not.toHaveBeenCalled();
+		expect(notificationService.info).toHaveBeenCalledTimes(1);
+	});
+
+	it('gates documents on ai.enabled rather than the notebook AI gate', async () => {
+		// The notebook AI gate stays on; only ai.enabled is off.
+		configurationService.setUserConfiguration(AI_ENABLED_KEY, false);
+		renderActions('document');
+		await clickGenerate();
+		expect(mockGenerateSuggestions).not.toHaveBeenCalled();
 		expect(notificationService.info).toHaveBeenCalledTimes(1);
 	});
 
@@ -100,8 +102,8 @@ describe('AssistantPanelActions AI gate', () => {
 			// Simulate a stalling model: the generator resolves with nothing only
 			// once its request token is cancelled, mirroring the parser returning
 			// what it has when the timeout fires.
-			mockGenerateNotebookSuggestions.mockImplementation(
-				(_service, _context, _model, token: CancellationToken) =>
+			mockGenerateSuggestions.mockImplementation(
+				(_service, _request, _model, token: CancellationToken) =>
 					new Promise(resolve => {
 						const listener = token.onCancellationRequested(() => {
 							listener.dispose();

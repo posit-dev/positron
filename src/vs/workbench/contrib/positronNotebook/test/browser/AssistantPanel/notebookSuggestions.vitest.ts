@@ -12,8 +12,9 @@ import { ChatModeKind } from '../../../../chat/common/constants.js';
 import { INotebookContextDTO, NotebookCellType } from '../../../../../common/positron/notebookAssistant.js';
 import { IHeadlessLanguageModelService, StreamTextResult } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import {
+	buildNotebookSuggestionsRequest,
 	buildSuggestionsContext,
-	generateNotebookSuggestions,
+	generateSuggestions,
 	parseNotebookSuggestions,
 } from '../../../browser/AssistantPanel/notebookSuggestions.js';
 
@@ -71,15 +72,15 @@ describe('parseNotebookSuggestions', () => {
 	});
 });
 
-describe('generateNotebookSuggestions', () => {
+describe('generateSuggestions', () => {
 	it('throws the typed reason when the service is unavailable', async () => {
 		const service = fakeService({ available: false, reason: 'sign-in-required' });
-		await expect(generateNotebookSuggestions(service, contextWith(), undefined, CancellationToken.None, noop)).rejects.toThrow('sign-in-required');
+		await expect(generateSuggestions(service, buildNotebookSuggestionsRequest(contextWith()), undefined, CancellationToken.None, noop)).rejects.toThrow('sign-in-required');
 	});
 
 	it('returns the parsed suggestions when the service streams a response', async () => {
 		const service = fakeService({ available: true, model: { id: 'm', name: 'Haiku' }, usedFallback: false, text: AsyncIterableObject.fromArray([VALID_XML]) });
-		const result = await generateNotebookSuggestions(service, contextWith(), undefined, CancellationToken.None, noop);
+		const result = await generateSuggestions(service, buildNotebookSuggestionsRequest(contextWith()), undefined, CancellationToken.None, noop);
 		expect(result).toEqual([{ label: 'Inspect', detail: undefined, query: 'Show df.head()', mode: ChatModeKind.Ask, iconClass: undefined }]);
 	});
 });

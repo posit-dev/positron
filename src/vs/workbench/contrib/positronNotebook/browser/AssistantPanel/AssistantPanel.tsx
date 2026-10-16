@@ -7,7 +7,7 @@
 import './AssistantPanel.css';
 
 // React.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
@@ -20,6 +20,7 @@ import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { PositronNotebookAssistantController } from '../contrib/assistant/controller.js';
 import { AssistantPanelContext } from './AssistantPanelContext.js';
 import { AssistantPanelActions } from './AssistantPanelActions.js';
+import { buildNotebookSuggestionsRequest } from './notebookSuggestions.js';
 import { INotebookContextDTO } from '../../../../common/positron/notebookAssistant.js';
 import { ChatModeKind } from '../../../chat/common/constants.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -347,6 +348,11 @@ const ReadyState = ({
 		? ghostCellSuggestionsOverride === 'enabled'
 		: globalGhostCellSuggestions;
 
+	const suggestionsRequest = useMemo(
+		() => notebookContext && buildNotebookSuggestionsRequest(notebookContext),
+		[notebookContext]
+	);
+
 	return (
 		<>
 			<div className='assistant-panel-section-header'>
@@ -417,9 +423,10 @@ const ReadyState = ({
 			<AssistantPanelActions
 				configurationService={configurationService}
 				headlessLmService={headlessLmService}
-				notebook={notebook}
-				notebookContext={notebookContext}
+				kind='notebook'
 				notificationService={notificationService}
+				suggestionsRequest={suggestionsRequest}
+				uri={notebook.uri}
 				onActionSelected={onActionSelected}
 				onClose={onClose}
 			/>
