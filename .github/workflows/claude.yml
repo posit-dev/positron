@@ -32,6 +32,9 @@ jobs:
       id-token: write
     env:
       ALLOWED_BOTS: "posit-connect-projects[bot],positron-projects[bot]"
+      # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
+      # The action only does this by default when allowed_non_write_users is set.
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
     steps:
       - name: Check actor has write permission
         env:
@@ -70,6 +73,8 @@ jobs:
         with:
           fetch-depth: 1
           token: ${{ steps.generate-token.outputs.token }}
+          # claude-code-action sets up its own git auth for pushing
+          persist-credentials: false
 
       - name: Checkout Simple English plugin
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -118,7 +123,6 @@ jobs:
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         with:
           anthropic_api_key: ${{ steps.load_secrets.outputs.ANTHROPIC_KEY }}
-          show_full_output: true
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ steps.branch-prefix.outputs.value }}
           additional_permissions: "actions: read"
@@ -177,4 +181,4 @@ jobs:
           claude_args: |
             --model opus
             --fallback-model haiku
-            --allowedTools "WebFetch,WebSearch,Read,Skill,Bash(git:*),Bash(gh:*),Bash(npm ci:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/test.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
+            --allowedTools "WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh:*),Bash(npm ci:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/test.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
