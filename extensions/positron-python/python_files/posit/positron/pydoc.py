@@ -19,7 +19,6 @@ import warnings
 from dataclasses import dataclass
 from functools import partial
 from pydoc import (
-    ModuleScanner,
     _is_bound_method,  # type: ignore
     describe,
     isdata,
@@ -35,6 +34,7 @@ from ._vendor.pygments.formatters.html import HtmlFormatter
 from ._vendor.pygments.lexers import get_lexer_by_name
 from ._vendor.pygments.util import ClassNotFound
 from .docstrings import convert_docstring
+from .help_index import HelpIndex
 from .utils import get_module_name, is_numpy_ufunc
 
 if TYPE_CHECKING:
@@ -228,6 +228,10 @@ class _Attr:
 
 
 class _PositronHTMLDoc(pydoc.HTMLDoc):
+    def __init__(self, help_index: HelpIndex | None = None):
+        super().__init__()
+        self._help_index = help_index
+
     def document(self, object: Any, *args: Any):  # noqa: A002
         # Handle numpy ufuncs, which don't return True for `inspect.isroutine` but which we still
         # want to document as routines.
@@ -584,21 +588,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
     def html_search(self, key):
         """Search results page."""
-        # scan for modules
-        search_result = []
-
-        def callback(_path, modname, desc):
-            if modname[-9:] == ".__init__":
-                modname = modname[:-9] + " (package)"
-            search_result.append((modname, desc and "- " + desc))
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")  # ignore problems during import
-
-            def onerror(modname):
-                pass
-
-            ModuleScanner().run(callback, key, onerror=onerror)
+        if self._help_index is None:
+            self._help_index = HelpIndex()
+        search_result = self._help_index.get().search(key)
 
         # format page
         def bltinlink(name):
@@ -608,9 +600,12 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         heading = self.heading(
             '<strong class="title">Search Results</strong>',
         )
-        for name, desc in search_result:
-            results.append(bltinlink(name) + desc)
-        contents = heading + self.bigsection(f"key = {key}", "index", "<br>".join(results))
+        for topic in search_result:
+            description = " - " + self.escape(topic.summary) if topic.summary else ""
+            results.append(bltinlink(topic.name) + description)
+        contents = heading + self.bigsection(
+            f"key = {self.escape(key)}", "index", "<br>".join(results)
+        )
         return "Search Results", contents
 
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
@@ -954,7 +949,7 @@ def _docstring_to_html(docstring: str, object_: Any) -> str:
 
 
 # adapted from pydoc._url_handler
-def _url_handler(url: str, content_type="text/html"):
+def _url_handler(url: str, content_type="text/html", *, help_index: HelpIndex | None = None):
     """The pydoc url handler for use with the pydoc server.
 
     If the content_type is 'text/css', the _pydoc.css style
@@ -966,7 +961,7 @@ def _url_handler(url: str, content_type="text/html"):
     # --- Start Positron ---
     # moved subclass _HTMLDoc and functions to _PositronHTMLDoc
 
-    html = _PositronHTMLDoc()
+    html = _PositronHTMLDoc(help_index)
 
     # --- End Positron ---
 
@@ -993,10 +988,11 @@ def _ipykernel_input_info() -> str:
 """
 
 
-def start_server(port: int = 0):
+def start_server(port: int = 0, *, help_index: HelpIndex | None = None):
     """Adapted from pydoc.browser."""
     # Setting port to 0 will use an arbitrary port
-    thread = pydoc._start_server(_url_handler, hostname="localhost", port=port)  # type: ignore  # noqa: SLF001
+    handler = partial(_url_handler, help_index=help_index or HelpIndex())
+    thread = pydoc._start_server(handler, hostname="localhost", port=port)  # type: ignore  # noqa: SLF001
 
     if thread.error:
         logger.error(f"Could not start the pydoc help server. Error: {thread.error}")

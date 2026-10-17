@@ -11,14 +11,19 @@ import pydoc
 import re
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote_plus
 
 from .help_comm import (
+    GetHelpTopicsRequest,
     HelpBackendMessageContent,
     HelpFrontendEvent,
+    HelpTopicSuggestion,
+    SearchHelpRequest,
     ShowHelpKind,
     ShowHelpParams,
     ShowHelpTopicRequest,
 )
+from .help_index import HelpIndex
 from .positron_comm import CommMessage, PositronComm
 from .pydoc import start_server
 from .utils import JsonRecord, get_module_name, get_qualname
@@ -152,6 +157,7 @@ class HelpService:
     def __init__(self):
         self._comm: PositronComm | None = None
         self._pydoc_thread = None
+        self._help_index = HelpIndex()
 
     def on_comm_open(self, comm: BaseComm, _msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
@@ -165,6 +171,22 @@ class HelpService:
             if self._comm is not None:
                 self._comm.send_result(data=True)
             self.show_help(request.params.topic)
+
+        elif isinstance(request, SearchHelpRequest):
+            shown = self.search_help(request.params.query, request.params.search_id)
+            if self._comm is not None:
+                self._comm.send_result(data=shown)
+
+        elif isinstance(request, GetHelpTopicsRequest):
+            if self._comm is not None:
+                self._comm.send_result(
+                    data=[
+                        topic.dict()
+                        for topic in self.get_help_topics(
+                            request.params.query, request.params.limit
+                        )
+                    ]
+                )
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -181,7 +203,8 @@ class HelpService:
                 self._comm.close()
 
     def start(self):
-        self._pydoc_thread = start_server()
+        self._help_index.update_context()
+        self._pydoc_thread = start_server(help_index=self._help_index)
 
     def show_help(self, request: str | Any | None) -> None:
         if self._pydoc_thread is None or not self._pydoc_thread.serving:
@@ -230,4 +253,33 @@ class HelpService:
         # Submit the event to the frontend service
         event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True)
         if self._comm is not None:
-            self._comm.send_event(name=HelpFrontendEvent.ShowHelp.value, payload=event.dict())
+            self._comm.send_event(
+                name=HelpFrontendEvent.ShowHelp.value, payload=event.dict(exclude_none=True)
+            )
+
+    def search_help(self, query: str, search_id: str) -> bool:
+        """Show native pydoc results using the import-free discovery index."""
+        if self._pydoc_thread is None or not self._pydoc_thread.serving or self._comm is None:
+            logger.warning("Ignoring help search, the pydoc server or comm is not available")
+            return False
+
+        self._help_index.update_context()
+        self._help_index.get()
+        url = f"{self._pydoc_thread.url}search?key={quote_plus(query)}"
+        event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True, search_id=search_id)
+        self._comm.send_event(
+            name=HelpFrontendEvent.ShowHelp.value, payload=event.dict(exclude_none=True)
+        )
+        return True
+
+    def get_help_topics(self, query: str, limit: int) -> list[HelpTopicSuggestion]:
+        """Return bounded module-name suggestions without importing packages."""
+        if not 1 <= limit <= 50:
+            raise ValueError("Help suggestion limit must be between 1 and 50")
+        if not query.strip():
+            return []
+        self._help_index.update_context()
+        return [
+            HelpTopicSuggestion(label=topic.name, topic=topic.name)
+            for topic in self._help_index.get().suggest(query, limit)
+        ]
