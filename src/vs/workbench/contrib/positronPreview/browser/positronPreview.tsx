@@ -12,7 +12,7 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 // Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PreviewContainer } from './components/previewContainer.js';
-import { IPositronPreviewService, PreviewOpenTarget } from './positronPreviewSevice.js';
+import { IPositronPreviewService, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, PreviewOpenTarget } from './positronPreviewSevice.js';
 import { PreviewWebview } from './previewWebview.js';
 import { PositronPreviewViewPane } from './positronPreviewView.js';
 import { UrlActionBars } from './components/urlActionBars.js';
@@ -83,7 +83,7 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	const urlToolbar = activePreview && activePreview instanceof PreviewUrl;
 	const htmlToolbar = activePreview && activePreview instanceof PreviewHtml;
 	const basicToolbar =
-		activePreview && activePreview.viewType === 'notebookRenderer';
+		activePreview && activePreview.viewType === POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE;
 	const showToolbar = urlToolbar || htmlToolbar || basicToolbar;
 
 	// Render.

@@ -5,6 +5,7 @@
 
 import { getWindow } from '../../../../base/browser/dom.js';
 import { URI } from '../../../../base/common/uri.js';
+import { WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
 import { IViewerBridge } from '../common/positronViewerAgent.js';
 import { PreviewOverlayWebview, ViewerBridgeResult } from '../browser/previewOverlayWebview.js';
 import { viewerBridgeScript } from '../browser/viewerBridge.js';
@@ -19,8 +20,8 @@ type ViewerBridgeScriptResult<M extends keyof IViewerBridge> =
  */
 export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 
-	/** The bridge runs in the frame the webview loaded a URI in, and an HTML string has none. */
-	public override readonly canReadHtmlStrings = false;
+	/** The webview's host frame, once found, for content set with setHtml. */
+	private _hostFrameId: WebviewFrameId | undefined;
 
 	/**
 	 * Loads a URI in the preview's underlying webview.
@@ -38,17 +39,21 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 
 	/**
 	 * On Desktop the app's frame is cross-origin from Positron, so the bridge
-	 * is sent as a script and run in that frame by the main process. The
-	 * script runs in the page's own JavaScript world, which the page can
-	 * tamper with.
+	 * is sent as a script and run by the main process: in the frame the
+	 * webview loaded a URI in, or else in the webview's host frame, which
+	 * reaches the content set with setHtml (HTML strings and notebook output)
+	 * through its same-origin frames. The script runs in the page's own
+	 * JavaScript world, which the page can tamper with.
 	 */
 	protected override async callBridge<M extends keyof IViewerBridge>(method: M, args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
-		const frameId = this.webview.getContentFrameId();
-		if (!frameId) {
-			throw new Error('Agents can\'t read this kind of Viewer content yet, or it hasn\'t loaded.');
+		const contentFrameId = this.webview.getContentFrameId();
+		// Until a URI's frame is known, the host frame holds an empty page.
+		if (!contentFrameId && this.loadedUri) {
+			throw new Error('The Viewer\'s content hasn\'t loaded yet.');
 		}
-		const result: ViewerBridgeScriptResult<M> | undefined =
-			await this.webview.executeJavaScript(frameId, viewerBridgeScript(method, args));
+		const result: ViewerBridgeScriptResult<M> | undefined = contentFrameId ?
+			await this.webview.executeJavaScript(contentFrameId, viewerBridgeScript(method, args)) :
+			await this.executeInHostFrame(viewerBridgeScript(method, args, true));
 		if (!result) {
 			throw new Error('The Viewer\'s content didn\'t respond.');
 		}
@@ -56,6 +61,28 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 			throw new Error(result.error);
 		}
 		return result.value;
+	}
+
+	/**
+	 * Runs a script in the webview's host frame, finding the frame the first
+	 * time, and again if it's gone, as when the webview is created anew.
+	 */
+	private async executeInHostFrame(script: string): Promise<unknown> {
+		if (this._hostFrameId) {
+			try {
+				return await this.webview.executeJavaScript(this._hostFrameId, script);
+			} catch (error) {
+				// Only retry when the script never ran, so an action isn't taken twice.
+				if (!/No frame found/.test(error instanceof Error ? error.message : String(error))) {
+					throw error;
+				}
+			}
+		}
+		this._hostFrameId = await this.webview.getHostFrameId();
+		if (!this._hostFrameId) {
+			throw new Error('The Viewer\'s content hasn\'t loaded yet.');
+		}
+		return this.webview.executeJavaScript(this._hostFrameId, script);
 	}
 
 	/**

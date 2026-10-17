@@ -147,5 +147,16 @@ export interface IWebviewManagerService {
 	 * @returns The frame's URL, or undefined if the frame is gone.
 	 */
 	getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined>;
+
+	/**
+	 * Gets the ID of a webview's host frame, the one running the webview's own
+	 * index.html. Content set with `setHtml` is written into a frame inside it,
+	 * which has no ID of its own that Positron knows.
+	 *
+	 * @param webviewId The webview's ID.
+	 *
+	 * @returns The frame's ID, or undefined if the webview has no frame.
+	 */
+	getWebviewHostFrameId(webviewId: string): Promise<WebviewFrameId | undefined>;
 	// --- End Positron ---
 }

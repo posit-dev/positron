@@ -292,6 +292,26 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	}
 
 	/**
+	 * Gets the ID of a webview's host frame, the one running the webview's own
+	 * index.html. The webview's content is written into a frame inside it.
+	 *
+	 * @param webviewId The webview's ID, which names its frame.
+	 * @returns The frame's ID, or undefined if the webview has no frame.
+	 */
+	public async getWebviewHostFrameId(webviewId: string): Promise<WebviewFrameId | undefined> {
+		const webviewPrefix = `${Schemas.vscodeWebview}://`;
+		for (const contents of webContents.getAllWebContents()) {
+			// A frame inside the webview could take the same name, so skip those.
+			const frame = contents.mainFrame.framesInSubtree.find(f =>
+				f.name === webviewId && f.url.startsWith(webviewPrefix) && !f.parent?.url.startsWith(webviewPrefix));
+			if (frame) {
+				return { processId: frame.processId, routingId: frame.routingId, frameTreeNodeId: frame.frameTreeNodeId };
+			}
+		}
+		return undefined;
+	}
+
+	/**
 	 * Finds a frame by its ID. If the frame has gone to another document, the
 	 * saved process and routing IDs point at a gone or detached frame, so find
 	 * the frame by its place in the frame tree instead.
