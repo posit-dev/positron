@@ -199,7 +199,12 @@ R detects the environment with `packagerMetadataForPath()`. R found through `pos
 
 The fix is to call `packagerMetadataForPath()` when the R extension turns the pinned path into runtime metadata. That covers both the pinned check and R's recommendation. The docs in https://github.com/posit-dev/positron-website/pull/486 already assume this works.
 
-### Q13. How do we stop the machine's current R from starting ahead of a pinned R in a new folder?
+### Q13. How do we stop the wrong R from starting in a new folder?
+
+This question covers two ways the wrong R can start in a folder:
+
+- The machine's current R starts instead of the pinned R. The current R is the machine's default R, for example the one that runs when you type `R` in a terminal.
+- R starts in a folder that has no R files at all. That's #16376, and it can happen whether or not a pin is set.
 
 **The problem.** This only affects a folder where R has no affiliated runtime yet. That's the first time you open a folder, or the next launch after you shut down the R console, because shutting it down deletes the affiliated runtime.
 
@@ -209,6 +214,16 @@ In that folder, two things want to start R:
 - R's interpreter search marks the machine's current R to start right away when the folder has R files at any depth, or when the folder is empty and you used RStudio in the last 30 days (`provider.ts:311-337`, `1337-1360`). Step 5 starts it if nothing else is running and no language has an affiliated runtime.
 
 Today the pinned R wins by accident. Core saves R's recommendation as an affiliated runtime that never started. Any affiliated runtime stops step 5, so the current R doesn't start. Nothing starts on the first open, and the pinned R starts on the second.
+
+**#16376: the "start right away" decision gets reused in the wrong folder.** This happens without a pin. Here's how:
+
+- Core keeps a record for every interpreter, called its runtime metadata. One field on the record, `startupBehavior`, says when to start it. The value `immediate` means "start right away when the folder opens".
+- R's interpreter search lists every R on the machine. When the open folder has R files, it sets `immediate` on the current R. That's a fact about the folder, but it's stored on the R's record.
+- The discovery cache saves the search's records, so the next launch can skip the search. There's one cache for the whole app, and every folder shares it.
+- You open folder A, which has R files. The search sets the current R's `startupBehavior` to `immediate`, and the cache saves the record with that value.
+- Then you open folder B, which has no R files and has never been opened. The cache is up to date, so R's search doesn't run. Core loads R from the cache, still set to `immediate`. Nothing else is running and no language has an affiliated runtime, so step 5 starts R.
+
+`immediate` also gets into the cache a second way. Core calls the extension's `validateMetadata()` to check that a saved record still works, and the extension returns a fresh record. R's version always sets `startupBehavior` to `immediate` on the record it returns (`runtime-manager.ts:398`). When a cached R's files change, for example after an upgrade, core rechecks the record this way and writes the answer back into the cache (`runtimeStartup.ts:1566`).
 
 **Isabel's core change 1.** Isabel's design lists five core changes that land before her Python changes (see "Core changes" in [python-startup-policy-design.md](python-startup-policy-design.md)). The first one lets each language decide whether core saves its recommendation as an affiliated runtime before that recommendation has started:
 
@@ -220,17 +235,45 @@ We don't want to keep that save for R. It makes the pinned R start on the second
 
 **Answer**
 
+Move the "start right away" decision out of R's interpreter search and into R's recommendation, in every folder, pinned or not. The recommendation is R's answer to "which R fits the folder that's open?" (`recommendedWorkspaceRuntime()`). Core asks for it in step 3, on every launch where no console has started yet, and never saves it in the cache. So the answer always comes from the folder that's open.
+
 - R turns off the save, the same way Python does (`recommendationIsProjectDefault: false`).
-- When a pinned R is set, R's recommendation marks it to start right away in the same cases where R's search marks the current R today, listed above. Otherwise it's marked to start when you open an R file.
-- When a pinned R is set, R's search marks nothing to start right away.
+- R's recommendation sets `startupBehavior` to `immediate` in the same cases where R's search sets it today: the folder has R files at any depth, or the folder is empty and you used RStudio in the last 30 days.
+  - With a pin set, it returns the pinned R set to `immediate`. In any other folder, it returns the pinned R set to `implicit`, which means it starts when you open an R file or run R code.
+  - Without a pin, it returns the R that R's search would list first, set to `immediate`. That's the current R if there is one, otherwise the highest version. In any other folder, it recommends nothing.
+- R's search never sets `immediate`, in any folder.
+- R's `validateMetadata()` keeps the `startupBehavior` the saved record already had, instead of always answering `immediate`.
+- Core never saves `immediate` in the discovery cache. If a record set to `immediate` comes in, core saves it as `implicit`. This protects every language, even if an extension's search sets `immediate` again later.
 
-So the pinned R starts in the same situations where the current R starts today, and nothing can start ahead of it. Users without a pinned R see no change.
+The result:
 
-All three changes are in the R extension, as part of #2659. Isabel's core change 1 has to land first, so the option exists. Turning off the save also gives R Isabel's core change 2: core remembers R's recommendation and uses it when core has to pick an R itself, such as under `always`, for Quarto and notebooks, or when you run R code with no console.
+- With a pin, the pinned R starts in the same situations where the current R starts today. Nothing can start ahead of it, because no cached record says "start right away".
+- Without a pin, R still starts in folders with R files, and no longer starts in folders without them.
+
+Who makes which change:
+
+- The #16376 fix makes every change above that doesn't involve a pin: R's search, R's `validateMetadata()`, the no-pin part of R's recommendation, and core's rule that the cache never stores `immediate`. Its R changes land before #2659. [16376-discovery-cache-startup.md](16376-discovery-cache-startup.md) has the details.
+- #2659 makes the two pin changes, both in the R extension:
+  - the part of R's recommendation that handles a pinned R
+  - setting `recommendationIsProjectDefault: false`, so core stops saving R's recommendation as an affiliated runtime before that R has ever started
+- That setting needs Isabel's core change 1 to land first, because that change adds the `recommendationIsProjectDefault` option.
+- The same setting also gives R Isabel's core change 2. With it, core remembers R's recommendation and uses it whenever core has to pick an R itself: under `always`, for Quarto and notebooks, or when you run R code with no R console.
 
 One visible change for pinned users: today a pinned R starts on the second open of any folder, because of the saved affiliated runtime. After this change, in a folder with no R files, it waits until you open an R file or run R code, as Q3 describes.
 
-### Q14. How does the pinned check get the pinned interpreter without activating every extension before the first console starts? (open)
+**R users who turn on conda, pixi, r-versions, or environment-module discovery.** These settings make R's interpreter search find more R installations by running other programs: `conda env list`, `pixi info`, or module commands. That's slow, so the recommendation avoids it when it can.
+
+- Without a pin, the recommendation picks the R that R's search would list first. The search always lists the current R first. So if the machine has a usable current R, the recommendation picks it without running the full search. Finding more R installations in conda or pixi environments couldn't change that answer.
+- The recommendation runs the full search, including those programs, only when:
+  - the machine has no current R, or it isn't usable (too old, or excluded by `positron.r.interpreters.exclude`)
+  - environment modules or an r-versions file are set up for R. Environment modules are a Linux tool that servers use to load software. An r-versions file lists R installations on Posit Workbench servers.
+  - `positron.r.interpreters.override` is set, which limits R to the paths it lists
+- When the full search runs, step 3 waits for it, and so does the first console.
+- A pinned R isn't affected, because the recommendation only looks up the pinned path.
+
+[16376-discovery-cache-startup.md](16376-discovery-cache-startup.md) explains why each of these cases needs the full search.
+
+### Q14. How does the pinned check get the pinned interpreter without activating every extension before the first console starts?
 
 The pinned check needs each language's pinned interpreter, and only that language's extension can provide it. Core can only ask an extension once the extension is active, meaning VS Code has loaded it and run its startup code. For the language whose console is starting, that costs nothing extra, because core already waits for that extension before it starts the console. The problem is asking any other language before that console starts. Core would have to activate that language's extension too, and the console would wait for it (`runtimeStartup.ts:1983-2027`).
 
@@ -239,9 +282,39 @@ Example: R and Python both have an affiliated runtime in this folder, and R was 
 - **Today:** step 2 activates only the R extension, then starts the R console. The Python extension activates in the background, and the Python console starts when it's ready. The R console never waits for Python.
 - **If the pinned check asked every extension up front,** before step 2 started any console, core would have to activate the Python extension and wait for it first. The R console would then wait for Python, even though R doesn't need it. #12645 removed exactly this wait.
 
-That's the hard requirement above. The plan so far is to ask each extension right after core activates it. R's check runs between activating R and starting the R console. Python's runs in the background, before the Python console starts.
+That's the "Hard requirement" section near the top of this plan.
 
-Not answered yet: what core calls to ask. The options and findings so far are in [2659-pinned-check.md](2659-pinned-check.md). Once it's decided, the answer goes here.
+**Answer:** add a new optional method, `pinnedWorkspaceRuntime()`, to the runtime manager. The runtime manager is the object each language extension registers with core to report its interpreters and start them. It already has `recommendedWorkspaceRuntime()`, and the new method sits next to it. Core calls the new method right after it activates that language's extension, so it never activates an extension early.
+
+In the example above:
+
+- R's check runs after core activates R and before core starts the R console.
+- Python's check runs in the background, after Python activates and before the Python console starts. The R console doesn't wait for it.
+
+The reasoning is in [2659-pinned-check.md](https://github.com/posit-dev/positron/blob/5765199db335ebc748aef67a9c76c71e362c196c/plans/2659-pinned-check.md), an earlier working doc.
+
+What the method returns:
+
+- The runtime metadata for the interpreter at the language's pinned path. That's the record core needs to start it.
+- Nothing, in any of these cases:
+  - no pin is set
+  - the path doesn't lead to an interpreter the extension can start
+  - `exclude`, `override`, or `definitionsOnly` blocks the path, as Q9 describes
+- It never runs an interpreter search, because a search would slow down startup.
+- The record it returns is never set to `immediate`. The pin decides which interpreter starts, not when, as Q3 says.
+
+What core does with the answer:
+
+- Calls the method from `activateExtensionsForLanguages()`, the function core uses to activate extensions. Steps 2, 3, and 4 all go through that function, so the check runs at every point listed in "Where the pinned check runs".
+- Asks each language only once per window. Steps 2, 3, and 4 can each activate the same extension, but only the first one asks. Later steps wait for that first answer.
+- If the language has an affiliated runtime, writes the pinned runtime over it and keeps the old last-started and last-used times. Step 2 uses those times to decide which languages to start. Keeping them means the pinned runtime is started or skipped the same way the old one would have been.
+- Registers the pinned runtime, which adds it to the list of interpreters Positron knows about in this window. Registering doesn't write to the discovery cache, so one folder's pin never shows up in another folder.
+- In step 2, reads the affiliated runtime again after the check. Today step 2 reads the saved affiliated runtime before it activates the extension. Without reading it again, step 2 would start the old interpreter.
+
+Why the first console doesn't wait longer:
+
+- R turns a path into runtime metadata by reading a few files, which takes milliseconds.
+- For Python, the lookup can take longer, but it replaces a lookup that already happens. Today, before core starts a saved interpreter that isn't registered yet, it calls `validateMetadata()`, and Python's version looks up the saved path. Core skips that call when the interpreter is already registered. Because core registers the pinned runtime, Python still does only one lookup.
 
 ## To check during implementation
 
