@@ -277,7 +277,7 @@ describe('DataConnectionsTreeInstance', () => {
 	 */
 	function createTreeOverNodes(
 		rootDtos: IDataConnectionNodeDTO[],
-		childrenOf: (nodeHandle: number) => IDataConnectionNodeDTO[],
+		childrenOf: (nodeHandle: number) => IDataConnectionNodeDTO[] | Promise<IDataConnectionNodeDTO[]>,
 		profiles: IDataConnectionProfile[] = [profile],
 		// Defaulted to the setting's own default, so a test that says nothing gets what a user gets:
 		// a lone schema dropped from the tree. The breadcrumb tests below opt in explicitly.
@@ -452,7 +452,7 @@ describe('DataConnectionsTreeInstance', () => {
 	 * whatever `views` returns at the time it is asked. The lone schema is elided by default, so
 	 * Tables and Views sit directly under the connection.
 	 */
-	function lonePublicSchema(views: () => IDataConnectionNodeDTO[], viewsGroup: Partial<IDataConnectionNodeDTO> = {}) {
+	function lonePublicSchema(views: () => IDataConnectionNodeDTO[] | Promise<IDataConnectionNodeDTO[]>, viewsGroup: Partial<IDataConnectionNodeDTO> = {}) {
 		return createTreeOverNodes(
 			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
 			nodeHandle => nodeHandle === 1
@@ -587,6 +587,56 @@ describe('DataConnectionsTreeInstance', () => {
 			rows: ['connection', 'Tables', 'Views'],
 			error: new Error('boom'),
 		});
+	});
+
+	it('keeps a Views group when its look-ahead times out, and loads its children on expand', async () => {
+		// A metadata query that never answers must not pin the level. Tables needed no look-ahead
+		// of its own, and the Views row stays so the user can open it -- the same as a look-ahead
+		// that failed. The query is left to finish; what it returns is not what the row shows.
+		vi.useFakeTimers();
+		try {
+			let releaseLookAhead!: (children: IDataConnectionNodeDTO[]) => void;
+			const lookAhead = new Promise<IDataConnectionNodeDTO[]>(resolve => {
+				releaseLookAhead = resolve;
+			});
+			const lateView = nodeDto({ nodeHandle: 6, name: 'v_late', kind: 'view', hasGetChildren: false });
+			let viewsQueries = 0;
+			const { tree, nodeGetChildren } = lonePublicSchema(() => {
+				viewsQueries++;
+				if (viewsQueries === 1) {
+					return lookAhead;
+				}
+				return [view];
+			});
+			await tree.refresh();
+
+			const expanding = tree.expand(ENTRY_ID);
+			// Short of the timeout the Views query is still pending, so the level has not rendered.
+			await vi.advanceTimersByTimeAsync(999);
+			expect(rows(tree).map(row => row.name)).toEqual(['connection']);
+
+			await vi.advanceTimersByTimeAsync(1);
+			await expanding;
+			const callsBeforeExpanding = nodeGetChildren.mock.calls.length;
+
+			// The timed-out query answers with a different child than the connection holds now.
+			// Opening Views must fetch again and show that result, not the late one.
+			releaseLookAhead([lateView]);
+			await lookAhead;
+			await tree.expand('dto:1:4');
+
+			expect({
+				rows: rows(tree).map(row => row.name),
+				viewsQueries,
+				callsAfterExpanding: nodeGetChildren.mock.calls.length,
+			}).toEqual({
+				rows: ['connection', 'Tables', 'Views', 'v_orders'],
+				viewsQueries: 2,
+				callsAfterExpanding: callsBeforeExpanding + 1,
+			});
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('keeps a Views group it cannot look into, without fetching', async () => {
