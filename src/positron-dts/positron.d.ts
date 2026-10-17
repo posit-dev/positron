@@ -3562,6 +3562,15 @@ declare module 'positron' {
 
 		/**
 		 * List all active sessions.
+		 *
+		 * The sessions returned by this function, `getSession`,
+		 * `getForegroundSession`, `getNotebookSession`, and
+		 * `startLanguageRuntime` are managed by Positron: calling `restart`,
+		 * `interrupt`, or `shutdown` on one routes the request through
+		 * Positron, which coordinates it with the UI and other requests.
+		 * `restart` does not offer to interrupt a busy session (unlike
+		 * {@link restartSession}) and restarts in the session's current
+		 * working directory. All other members are the session's own.
 		 */
 		export function getActiveSessions(): Thenable<BaseLanguageRuntimeSession[]>;
 
