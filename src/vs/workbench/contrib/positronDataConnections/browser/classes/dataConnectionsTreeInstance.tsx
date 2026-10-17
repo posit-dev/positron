@@ -218,6 +218,18 @@ interface PathLookup {
  */
 const REVEAL_ROOTS_TIMEOUT_MS = 10_000;
 
+/**
+ * How long a look-ahead waits for a group's children before keeping the row and moving on.
+ *
+ * The look-ahead runs before a level can render, so one metadata query that hangs -- common on a
+ * cloud warehouse, and paid for Views groups as well as namespace groups -- would otherwise hold
+ * every sibling at that level, including rows such as Tables that needed no query of their own,
+ * and leave the level pending for good. A second is long enough that a query which is merely not
+ * instant still breadcrumbs a namespace group or hides an empty Views group, and short enough that
+ * a slow one reads as "open the row to see what it holds".
+ */
+const LOOK_AHEAD_TIMEOUT_MS = 1_000;
+
 export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> implements IDataConnectionNodeOpener {
 	// Children a look-ahead fetched for a namespace group or Views group that went on to keep its
 	// row, held until that group is expanded so the user's own expand doesn't repeat the query. Keyed
@@ -1011,13 +1023,19 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	/**
 	 * Fetches a node's children ahead of its expand, to decide how its row is shown.
 	 *
-	 * The look-ahead is an optimization, so a node it cannot look into, or a fetch that fails,
-	 * leaves the row as it would have been without it. Expanding the row runs the same call again
-	 * and surfaces any error through the tree's own error state, where the user can retry it.
+	 * The look-ahead is an optimization, so a node it cannot look into, a fetch that fails, or one
+	 * that does not answer within LOOK_AHEAD_TIMEOUT_MS leaves the row as it would have been without
+	 * it. Expanding the row runs the same call again and surfaces any error through the tree's own
+	 * error state, where the user can retry it.
+	 *
+	 * A query that answers after the timeout is ignored. Nothing is written to _lookAheadChildren
+	 * for it, so the answer cannot satisfy the later expand -- or a reload, which would otherwise
+	 * be handed children fetched under a handle the reload has since dropped.
 	 *
 	 * @param dto The node to look into.
 	 * @param handle The connection handle the DTO came from.
-	 * @returns The node's children, or undefined when it has none to fetch or the fetch failed.
+	 * @returns The node's children, or undefined when it has none to fetch, the fetch failed, or it
+	 * timed out.
 	 */
 	private async _lookAhead(
 		dto: IDataConnectionNodeDTO,
@@ -1028,7 +1046,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		}
 
 		try {
-			return await handle.nodeGetChildren(dto.nodeHandle);
+			return await raceTimeout(handle.nodeGetChildren(dto.nodeHandle), LOOK_AHEAD_TIMEOUT_MS);
 		} catch {
 			return undefined;
 		}
@@ -1042,7 +1060,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * A group that is kept holds what the look-ahead fetched for its expand to consume, the same as
 	 * a namespace group in _breadcrumbNamespaceGroups. A group whose emptiness is unknown, because
-	 * the look-ahead could not run or failed, is kept as an ordinary row.
+	 * the look-ahead could not run, failed, or timed out, is kept as an ordinary row.
 	 *
 	 * @param dto The DTO to wrap.
 	 * @param handle The connection handle the DTO came from.
