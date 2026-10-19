@@ -155,7 +155,39 @@ for (const inst of sortedInstalls) {
 return makeMetadata(inst, saved.startupBehavior);   // was: 'immediate'
 ```
 
-**Clear the old records.** Add a version field to R's settings digest (`getRFilterSettingsDigest()`, `provider.ts:234`). The digest is a hash of the R settings that affect what the search finds. Core compares it at each launch. When it changes, core treats R's cached records as out of date and runs R's search again. So the first launch after upgrading runs a full R search, and the search rewrites every cached R record with `implicit`. Isabel's Python design does the same thing for Python.
+**How core decides whether R's cache is out of date.** At each launch, core asks the R extension for a signature (`getDiscoveryRootSignature()`, `provider.ts:181-205`). It has two parts:
+
+- The folders where R installations live, each with its last-changed time. Installing a new R changes one of these times.
+- **R's settings hash:** one hash of the R settings that change what R's search finds (`getRFilterSettingsDigest()`, `provider.ts:234-247`). The code calls it a digest. It covers:
+  - `positron.r.interpreters.exclude`
+  - `positron.r.interpreters.default`, the pin
+  - `positron.r.interpreters.condaDiscovery` and `positron.r.interpreters.pixiDiscovery`
+  - `positron.r.interpreters.pathDiscoveryMode`
+  - whether `interpreters.discovery` is `definitionsOnly`
+
+Core saves the signature with the cache. At the next launch, it compares the saved signature with the current one (`runtimeStartup.ts:1321-1327`). If anything differs, core treats R's cache as out of date. It skips R's cached records, deletes them, and runs R's full search, which writes fresh ones (`runtimeStartup.ts:1114-1127`).
+
+**Stop storing the pin on R records.** This is the same kind of bug as 16376: a value for one folder, stored on a record every folder shares.
+
+- Every R installation gets a `default` flag that says whether its path matches `positron.r.interpreters.default` (`r-installation.ts:268-272`). The flag is copied onto the R's record (`provider.ts:791`), so the cache stores it. Nothing reads it.
+- Because the cache stores the flag, R's settings hash includes the pin (`provider.ts:239`). So a different pin looks like a settings change, and core runs a full R search.
+- There's one cache for the whole app. Two projects with different pins, or one pinned and one not, each run a full R search when you switch between them. With conda or pixi discovery on, that search also runs `conda env list` and `pixi info`. A pin that uses `${workspaceFolder}` is different in every folder.
+- #2659 makes a pin per project the normal case, so this would happen often.
+
+The change:
+
+- Remove the `default` flag from `RInstallation` and `RMetadataExtra` (`r-installation.ts:39-41`, `241`, `268-272`) and from the record (`provider.ts:791`).
+- Take the pin out of R's settings hash (`provider.ts:239`), and update the comments that explain it (`provider.ts:171`, `215-217`).
+
+**This also clears out the old records.** Records that older builds saved can still be set to `immediate`. Removing the pin from the hashed settings changes R's settings hash for every user, whatever their settings. So on the first launch after upgrading:
+
+- core sees a different signature and treats R's cache as out of date
+- it deletes R's old cached records, including any set to `immediate`
+- R's full search runs, and under PR 1 it writes every record as `implicit`
+
+From the second launch on, the hashes match again, and the cache works as usual. The cost is one full R search on that first launch.
+
+PR 1 doesn't need a separate version field to force this. If the pin removal is ever moved out of PR 1, the old records still get rewritten at R's next regular refresh. By default that's within a day (`interpreters.discoveryCache.refreshIntervalDays`). Until then users see the same bug they have today, so no version field is needed in that case either.
 
 After PR 1:
 
@@ -168,7 +200,7 @@ Isabel's design ([python-startup-policy-design.md](python-startup-policy-design.
 
 - the search sets every interpreter to `explicit`
 - the recommendation decides what starts
-- a policy version is added to Python's settings digest, so Python's old cached records get rewritten too
+- a policy version is added to Python's settings hash, the Python version of R's settings hash, so Python's old cached records get rewritten too
 
 That fixes the Python half of 16376. This plan only adds one test request for her PR (see Tests).
 
@@ -190,7 +222,7 @@ if (fresh.startupBehavior === 'immediate') {
 
 `upsert()` is the function that writes a record into the cache. `revalidateOne()` is the background recheck described in "Three ways `immediate` gets into the cache".
 
-There's no cache version bump. By the time PR 2 lands, R's and Python's digest changes will already have rewritten their records.
+PR 2 doesn't change the cache's version. By the time PR 2 lands, the changes to R's and Python's settings hashes will already have rewritten their records.
 
 ## Behavior changes
 
@@ -206,12 +238,28 @@ There's no cache version bump. By the time PR 2 lands, R's and Python's digest c
 **Step 3 waits longer in folders with no affiliated runtime**
 
 - Core asks every language for its recommendation at the same time and waits for all of them (`extHostLanguageRuntime.ts:1243-1264`). So the slowest language decides how long step 3 takes.
-- R now adds its search for R files to that wait.
-- When `pickStartupR()` runs the full search, R also adds the time to run the programs those settings turn on (`conda env list --json`, `pixi info --json`, module commands). They list every R before R picks one. The R it picks is still the first in the search's order: the current R if there is one, otherwise the highest version. It doesn't prefer the project's own conda or pixi R. Pinning that path (#2659) does that.
-- Most conda and pixi users have a current R, so they skip the full search and don't wait.
-- Decided: accept the wait for the rest: users with no usable current R, with environment modules, or with an r-versions file.
+- **There's no timeout, so R still starts where it should.** Nothing limits how long R's search for R files can take:
+  - R's `findFiles()` call (`provider.ts:1363-1366`)
+  - the file search service
+  - the extension host (`extHostLanguageRuntime.ts:1246-1264`)
+  - core's step 3 (`runtimeStartup.ts:1804-1810`)
 
-**The first launch after upgrading runs a full R search**, because the digest changed.
+  So the search always finishes, and R starts in every folder that has R files. Don't add a timeout here. It would skip R in large R projects.
+- **PR 1 starts R in more R projects than today, not fewer.** Today, when the cache is up to date, R starts in a new R project only if the last full search happened to run in a folder with R files.
+- **The search for R files.** R now adds this search to the wait, so every language's first console waits for it. Measured on 2026-10-19 with the ripgrep binary Positron bundles, using the same options `findFiles()` uses, on a local SSD with the files already in memory:
+  - Positron checkout, about 62,000 files, no R files: 0.36 seconds
+  - `~/development`, about 244,000 files, no R files: 0.86 seconds
+  - `~/development`, stopping at the first R file: 0.29 seconds
+
+  Network drives, such as Posit Cloud or a Workbench home folder, are slower. Isabel's design measured Python's three similar searches at about 12 seconds in Posit Cloud.
+- **The full R search.** When `pickStartupR()` runs the full search, R also adds the time to run the programs those settings turn on (`conda env list --json`, `pixi info --json`, module commands). They list every R before R picks one. The R it picks is still the first in the search's order: the current R if there is one, otherwise the highest version. It doesn't prefer the project's own conda or pixi R. Pinning that path (#2659) does that.
+- Most conda and pixi users have a current R, so they skip the full search and don't wait.
+- Decided: accept both waits. Everyone waits for the search for R files. Only users with no usable current R, with environment modules, or with an r-versions file also wait for the full search.
+- Follow-up: if the wait turns out to matter, core can start each recommendation as soon as it arrives. Then one language's search no longer holds up another language's console. Isabel's design lists this as a later performance change.
+
+**The first launch after upgrading runs a full R search**, because R's settings hash changed.
+
+**Switching between projects with different pins no longer runs a full R search**, because the pin is no longer part of R's settings hash.
 
 **No change:**
 
@@ -269,6 +317,7 @@ The same file tests when `pickStartupR()` may skip the full search:
 - The search returns no record set to `immediate`.
 - `validateMetadata()` returns `implicit` for a record set to `implicit`, and `immediate` for a record set to `immediate`.
 - On a machine with a current R, the quick path and the full search return the same runtime ID.
+- Changing only `positron.r.interpreters.default` doesn't change R's settings hash.
 
 **E2E**, one test file in `test/e2e/tests/interpreters/`, with `interpreters.startupBehavior` set to `auto`:
 
