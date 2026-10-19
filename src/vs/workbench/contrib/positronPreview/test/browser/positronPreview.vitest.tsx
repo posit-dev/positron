@@ -47,13 +47,13 @@ describe('PositronPreview stop button', () => {
 
 	it('shows the stop button only while the preview is stoppable', () => {
 		rtl.render(<PositronPreview reactComponentContainer={container} />);
-		expect(screen.queryByRole('button', { name: 'Interrupt execution' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Stop the preview' })).not.toBeInTheDocument();
 
 		act(() => { preview.stoppable = true; });
-		expect(screen.getByRole('button', { name: 'Interrupt execution' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Stop the preview' })).toBeInTheDocument();
 
 		act(() => { preview.stoppable = false; });
-		expect(screen.queryByRole('button', { name: 'Interrupt execution' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Stop the preview' })).not.toBeInTheDocument();
 	});
 
 	it('asks the preview\'s owner to stop and hides the button when the user clicks stop', async () => {
@@ -63,9 +63,9 @@ describe('PositronPreview stop button', () => {
 		preview.stoppable = true;
 		rtl.render(<PositronPreview reactComponentContainer={container} />);
 
-		await user.click(screen.getByRole('button', { name: 'Interrupt execution' }));
+		await user.click(screen.getByRole('button', { name: 'Stop the preview' }));
 
 		expect(onStop).toHaveBeenCalledTimes(1);
-		expect(screen.queryByRole('button', { name: 'Interrupt execution' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Stop the preview' })).not.toBeInTheDocument();
 	});
 });

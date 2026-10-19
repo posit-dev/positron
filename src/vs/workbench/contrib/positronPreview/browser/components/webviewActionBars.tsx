@@ -21,7 +21,7 @@ import { PreviewWebview } from '../previewWebview.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 const clear = localize('positron.preview.webview.clear', "Clear the content");
-const interruptExecution = localize('positron.preview.interruptExecution', "Interrupt execution");
+const stop = localize('positron.preview.webview.stop', "Stop the preview");
 
 /**
  * WebviewActionBarsProps interface.
@@ -58,8 +58,8 @@ export const WebviewActionBars = (props: PropsWithChildren<WebviewActionBarsProp
 					<ActionBarRegion location='right'>
 						<ActionBarButton
 							align='right'
-							ariaLabel={interruptExecution}
-							tooltip={interruptExecution}
+							ariaLabel={stop}
+							tooltip={stop}
 							onPressed={() => props.preview.requestStop()}>
 							<div className='action-bar-button-icon interrupt codicon codicon-positron-interrupt-runtime' />
 						</ActionBarButton>
