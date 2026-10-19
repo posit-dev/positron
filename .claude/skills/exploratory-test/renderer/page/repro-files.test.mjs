@@ -79,6 +79,14 @@ test('files: a saved file named in a finding opens its viewer; a command naming 
 	assert.doesNotMatch(c, /f-copy|f-dl/);
 });
 
+test('files: a file in a hidden folder such as .vscode/ shows that folder on the card and in the prompt; one in a plain folder shows its name', () => {
+	const settings = renderWith('files/.vscode/settings.json', Buffer.from('{ "a.b": true }\n'), 'files/.vscode/settings.json');
+	assert.match(card(settings, 1), /<a class="fn" href="files\/\.vscode\/settings\.json" data-file="[\w-]+" title="Open \.vscode\/settings\.json">\.vscode\/settings\.json<\/a> open/);
+	assert.match(promptText(settings, 1), /^\.vscode\/settings\.json: files\/\.vscode\/settings\.json$/m);
+	const plain = renderWith('files/proj/src/app.py', Buffer.from('print(1)\n'), 'files/proj/src/app.py');
+	assert.match(card(plain, 1), /title="Open proj\/src\/app\.py">app\.py<\/a> open/);
+});
+
 test('files: the viewer shows every line numbered, with Copy and Download, and starts hidden', () => {
 	const html = render();
 	const v = viewer(html, 'file-slow-py');
@@ -163,7 +171,8 @@ test('files: nothing about files renders when the ledger lists none', () => {
 /** The fixture's lint lines about files, with the files it saved on disk. */
 function fileProblems(report, ledger, { exists = p => Boolean(readFixture(p)), list = () => ['files/slow.py'] } = {}) {
 	return formatProblems(report, ledger, { fileExists: exists, listFiles: list })
-		.map(p => p.text).filter(p => /files\/|not saved/.test(p));
+		// The setting rules suggest a files/ path but are not about a saved file.
+		.filter(p => !p.rule.startsWith('precondition-setting')).map(p => p.text).filter(p => /files\/|not saved/.test(p));
 }
 
 test('lint: the fixture saves and lists every file it names', () => {
@@ -320,10 +329,10 @@ test('table: a TSV splits on tabs, and a quoted field may span lines', () => {
 	assert.doesNotMatch(v, /Showing the first/);
 });
 
-test('files: a nested file shows its workspace folder in the viewer and Test files, and its name on the card', () => {
+test('files: a nested file shows its workspace folder in the viewer and Test files, and on the card from its hidden folder on', () => {
 	const html = renderWith('files/ws-off/.vscode/settings.json', Buffer.from('{ "quarto.embeddedLanguageFeatures.native": false }\n'), 'settings.json');
 	const id = 'file-ws-off-vscode-settings-json';
-	assert.match(card(html, 1), new RegExp(`<a class="fn" href="files/ws-off/\\.vscode/settings\\.json" data-file="${id}" title="Open ws-off/\\.vscode/settings\\.json">settings\\.json</a> open`));
+	assert.match(card(html, 1), new RegExp(`<a class="fn" href="files/ws-off/\\.vscode/settings\\.json" data-file="${id}" title="Open ws-off/\\.vscode/settings\\.json">\\.vscode/settings\\.json</a> open`));
 	const v = viewer(html, id);
 	assert.match(v, /aria-label="ws-off\/\.vscode\/settings\.json" hidden>/);
 	assert.match(v, /<span class="fv-n" title="ws-off\/\.vscode\/settings\.json"><span class="fv-dir">ws-off\/\.vscode\/<\/span><span class="fv-f">settings\.json<\/span><\/span>/);

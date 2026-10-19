@@ -9,7 +9,7 @@
 
 import { parseSystemLine } from '../shared/ledger.mjs';
 import { escapeHtml, escapeRegExp } from '../shared/text.mjs';
-import { promptFilesSection, filesNamedIn, fileSource } from './repro-files.mjs';
+import { promptFilesSection, filesNamedIn, fileSource, shownName } from './repro-files.mjs';
 import { absolutePath, capitalize, countText, escapeLoneTildes, ICON, logFile, REPO_URL, safeLinks, SEVERITY_LABEL, statusWord } from './page-common.mjs';
 
 /**
@@ -259,7 +259,7 @@ function markBelow(text, file) {
 		}
 		return part.replace(part.startsWith('`') ? quoted : bare, () => {
 			done = true;
-			return `\`${file.name}\` (below)`;
+			return `\`${shownName(file)}\` (below)`;
 		});
 	}).join('');
 	return { text: out, done };
@@ -361,9 +361,9 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	for (const file of files) {
 		const source = drop.has('fileText') ? null : fileSource(file);
 		if (source) {
-			fold(escapeHtml(file.name), fenced(source.text, source.lang));
+			fold(escapeHtml(shownName(file)), fenced(source.text, source.lang));
 		} else {
-			out.push(`\`${file.name}\` is in the report's \`files/\` folder.`, '');
+			out.push(`\`${shownName(file)}\` is in the report's \`files/\` folder.`, '');
 		}
 	}
 	return out.join('\n').trimEnd();

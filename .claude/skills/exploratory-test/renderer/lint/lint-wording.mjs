@@ -12,6 +12,7 @@
 
 import { problem } from './lint-rules.mjs';
 import { LOWERCASE_NAMES } from '../shared/text.mjs';
+import { FILE_NAME } from '../page/repro-files.mjs';
 
 // A one-line Result, as explorer.md asks; anything longer is a scenario's worth of notes.
 export const RESULT_MAX = 160;
@@ -29,9 +30,18 @@ const DONE_IN_APP = /\b(?:(?:started|opened|launched|ran|loaded)\s+code|then\s+(
 // A finding's reader runs the file as its first step; a ledger row's third field may say how a scenario made it.
 // Opening a view or typing into it is something the reader does, so it is step 1.
 const UI_ACTION = /\btyped (?:into|in)\b|\b(?:editor|pane|panel|view|dialog|palette|picker) open\b/i;
-// A setting is its key and value; how to reset it is known, and what it then shows is a check.
-const SETTING_KEY = /`[a-z][\w-]*(?:\.[\w-]+)+`/i;
+// A setting at its default says so; one the run changed is a saved settings file.
+// How to reset a setting is known, and what it then shows is a check.
+const SETTING_KEY = /`([a-z][\w-]*(?:\.[\w-]+)+)(?::[^`]*)?`/gi;
+const SETTING_WORDS = /\bsettings?\b|\bdefault\b|\b(?:true|false)\b|\bset to\b|`[^`]*: [^`]*`/i;
 const SETTING_EXTRA = /\bso (?:the|that|it)\b|\bReset Setting\b|\bgear menu\b|\bnot set in\b/i;
+const SETTINGS_FILE = /`files\/(?:[\w.-]+\/)*settings\.json`/;
+const WHOLE_FILE_NAME = new RegExp(`^(?:${FILE_NAME.source})$`, 'i');
+
+/** Whether a precondition is about a setting: a dotted key in backticks that is not a file, and words that say so. */
+function namesSetting(text) {
+	return [...text.matchAll(SETTING_KEY)].some(m => !WHOLE_FILE_NAME.test(m[1]) && !m[1].includes('/')) && SETTING_WORDS.test(text);
+}
 const RUN_IN_SESSION = /\brun in (?:the |its |their |each |both )?(?:\w+ ){0,3}(?:sessions?|consoles?)\b/i;
 // Code a precondition runs rather than describes: loading it is step 1.
 const RUN_COMMAND = /^(?:%run\b|%load\b|!|source\(|library\(|require\(|exec\(|import\s|from\s+\S+\s+import\s|install\.packages\(|pip\s)/;
@@ -166,9 +176,14 @@ export function lintPreconditionActions(preconditions) {
 		if (ui) {
 			problems.push(problem('precondition-ui-action', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" is done in the app ("${ui[0]}"); open or type it in step 1, and keep the precondition to the state before it`));
 		}
-		const extra = SETTING_KEY.test(text) ? SETTING_EXTRA.exec(plainText) : null;
+		// A ledger row's later fields say how the state was made, so only the state counts.
+		const state = text.split(' | ')[0];
+		const setting = !ui && namesSetting(state);
+		const extra = setting ? SETTING_EXTRA.exec(state.replace(/`[^`]*`/g, 'code')) : null;
 		if (extra) {
-			problems.push(problem('precondition-setting-form', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" says more than the setting ("${extra[0]}"); write \`key\`: value, or \`key\` at its default, and check what it shows in a step`));
+			problems.push(problem('precondition-setting-form', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" says more than the setting ("${extra[0]}"); write \`key\` at its default, or save a changed value in \`files/.vscode/settings.json\`, and check what it shows in a step`));
+		} else if (setting && !/\bat its default\b/i.test(state) && !SETTINGS_FILE.test(state)) {
+			problems.push(problem('precondition-setting-file', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" writes a changed setting out; save it in \`files/.vscode/settings.json\` (or \`files/settings.json\` for one that only works in user settings) and name that path, which the page links`));
 		}
 		const stepRef = where.startsWith('Finding') ? /\bsteps? \d+\b/i.exec(text) : null;
 		if (stepRef) {

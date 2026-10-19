@@ -321,7 +321,12 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 		'The Settings editor open (`Preferences: Open Settings (UI)`) with `interpreters.languageOrder` typed into its search box', 'The Command Palette open', 'A JSON file open', '`interpreters.languageOrder` at its default',
 	]),
 	'a setting precondition that says how to reset it or what it shows': () => each(t => pre(t, 'languageOrder default'), [
-		'`interpreters.languageOrder` not set in user settings.json (Reset Setting from the setting\'s gear menu), so the list reads JavaScript, Python, R, Zed', '`interpreters.languageOrder` at its default, so the list reads JavaScript, Python, R, Zed', '`interpreters.languageOrder` at its default', '`positron.notebook.enabled`: true',
+		'`interpreters.languageOrder` not set in user settings.json (Reset Setting from the setting\'s gear menu), so the list reads JavaScript, Python, R, Zed', '`interpreters.languageOrder` at its default, so the list reads JavaScript, Python, R, Zed', '`interpreters.languageOrder` at its default',
+	]),
+	'a changed setting written out rather than saved in a settings file': () => each(t => pre(t, 'languageOrder set'), [
+		'`interpreters.languageOrder`: true', '`positron.notebook.enabled: true` in `.vscode/settings.json`', '`interpreters.languageOrder` set to `["r", "python"]`',
+		'A workspace with `files/.vscode/settings.json`, which sets `interpreters.languageOrder` to R first', '`interpreters.languageOrder` from `files/settings.json` copied into user settings',
+		'`slow.py`, which builds slow tables', '`pd.DataFrame` with 3 columns', '`app.py` set to listen on port 8000',
 	]),
 	'a precondition that runs a command': () => each(t => pre(t, '`slow.py` loaded'), ['`slow.py` loaded with `%run -i slow.py`', '`debug.R` sourced with `source("debug.R")`', '`debug_demo.R`, which defines `outer_fn()`', '`py.qmd` whose cell prints `tick 0` to `tick 4`']),
 

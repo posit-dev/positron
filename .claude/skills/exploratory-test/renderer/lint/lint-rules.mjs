@@ -48,6 +48,7 @@ export const LINT_RULES = {
 	'precondition-step-reference': 'warning',
 	'precondition-ui-action': 'warning',
 	'precondition-setting-form': 'warning',
+	'precondition-setting-file': 'warning',
 	'precondition-needs-name': 'warning',
 	'precondition-name-length': 'warning',
 	// a finding's title, Observed and Expected, and the Result

@@ -555,8 +555,10 @@ share one line ("A workspace with `app.R` and `app.py`"). Package names keep
 their real case (dplyr, not Dplyr). An app the bug needs running, or a pane
 showing it, is never a precondition, even when another finding starts it the
 same way: its steps start it, with a check that it runs. So is a view the
-reader opens or a search they type: that is step 1. A setting is its key and
-value, or "at its default"; what the setting then shows is a check.
+reader opens or a search they type: that is step 1. A setting at its default
+is "`key` at its default". Save the settings you changed in the file that
+holds them, `files/.vscode/settings.json` for the workspace, and name that
+path. What a setting then shows is a check.
 
 `n` is the finding's number, given in the order you found them and never
 changed; the page sorts them by severity, then number. One finding, with every
