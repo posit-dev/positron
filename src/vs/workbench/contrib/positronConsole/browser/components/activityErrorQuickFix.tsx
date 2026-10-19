@@ -7,9 +7,6 @@
 // CSS.
 import './activityErrorQuickFix.css';
 
-// React.
-import { useRef } from 'react';
-
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
@@ -35,7 +32,6 @@ const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputL
  * @returns The rendered component.
  */
 export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
-	const buttonRef = useRef<HTMLDivElement>(undefined!);
 	const handler = useActiveErrorActionHandler();
 
 	if (!handler) {
@@ -62,13 +58,13 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	return (
 		<div className='quick-fix'>
 			<Button className='assistant-action' onPressed={pressedFixHandler}>
-				<div ref={buttonRef} className='link-text' title={fixTooltip}>
+				<div className='link-text' title={fixTooltip}>
 					<span className='codicon codicon-sparkle' />
 					{localize('positronConsoleAssistantFix', "Fix")}
 				</div>
 			</Button>
 			<Button className='assistant-action' onPressed={pressedExplainHandler}>
-				<div ref={buttonRef} className='link-text' title={explainTooltip}>
+				<div className='link-text' title={explainTooltip}>
 					<span className='codicon codicon-sparkle' />
 					{localize('positronConsoleAssistantExplain', "Explain")}
 				</div>
