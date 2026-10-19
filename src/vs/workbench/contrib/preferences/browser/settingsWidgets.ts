@@ -174,6 +174,9 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 	protected readonly _onDidChangeList = this._register(new Emitter<SettingListEvent<TDataItem>>());
 	protected readonly model = new ListSettingListModel<TDataItem>(this.getEmptyItem());
 	protected readonly listDisposables = this._register(new DisposableStore());
+	// --- Start Positron ---
+	private restoringFocus = false;
+	// --- End Positron ---
 
 	readonly onDidChangeList: Event<SettingListEvent<TDataItem>> = this._onDidChangeList.event;
 
@@ -257,7 +260,13 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 	}
 
 	protected renderList(): void {
-		const focused = DOM.isAncestorOfActiveElement(this.listElement);
+		// --- Start Positron ---
+		// The settings tree re-renders twice in a row after a save; the second
+		// render must not drop the refocus the first one scheduled.
+		// const focused = DOM.isAncestorOfActiveElement(this.listElement);
+		const focused = DOM.isAncestorOfActiveElement(this.listElement) || this.restoringFocus;
+		this.restoringFocus = false;
+		// --- End Positron ---
 
 		DOM.clearNode(this.listElement);
 		this.listDisposables.clear();
@@ -356,7 +365,14 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 		this.addTooltipsToRow(rowElementGroup, item);
 
 		if (item.selected && listFocused) {
-			disposableTimeout(() => rowElement.focus(), undefined, this.listDisposables);
+			// --- Start Positron ---
+			// disposableTimeout(() => rowElement.focus(), undefined, this.listDisposables);
+			this.restoringFocus = true;
+			disposableTimeout(() => {
+				this.restoringFocus = false;
+				rowElement.focus();
+			}, undefined, this.listDisposables);
+			// --- End Positron ---
 		}
 
 		this.listDisposables.add(DOM.addDisposableListener(rowElement, 'click', (e) => {

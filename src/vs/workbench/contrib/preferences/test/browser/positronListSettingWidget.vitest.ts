@@ -8,6 +8,7 @@
 import { ListSettingWidget, ExcludeSettingWidget, IListDataItem, IIncludeExcludeDataItem, SettingListEvent } from '../../browser/settingsWidgets.js';
 import { SettingValueType } from '../../../../services/preferences/common/preferences.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { timeout } from '../../../../../base/common/async.js';
 
 describe('ListSettingWidget reordering', () => {
 	const ctx = createTestContainer().withWorkbenchServices().build();
@@ -135,6 +136,19 @@ describe('ListSettingWidget reordering', () => {
 			expect.objectContaining({ type: 'move', sourceIndex: 1, targetIndex: 2 }),
 		]);
 		expect(rowValues(rows)).toEqual(['b', 'c', 'a']);
+	});
+
+	it('keeps focus on the moved row when the settings tree re-renders the list', async () => {
+		const { widget, container, rows } = createWidget(['a', 'b', 'c']);
+		selectFirst(rows);
+		pressKey(listOf(container), 'ArrowDown', true);
+		await timeout(0);
+		expect(rows()[1]).toHaveFocus();
+		// What the settings tree does once the setting saves.
+		widget.cancelEdit();
+		widget.setValue(['b', 'a', 'c'].map(data => ({ value: { type: 'string', data } })), { reorderOnly: true });
+		await timeout(0);
+		expect(rows()[1]).toHaveFocus();
 	});
 
 	it('Alt+Up on the first row does nothing but still swallows the key', () => {
