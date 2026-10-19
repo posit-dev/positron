@@ -32,7 +32,7 @@
 	cursor: grab;
 }
 
-/* Room for the move up/down actions next to edit and remove. */
+/* Room for the move up/down actions. */
 .settings-editor .setting-item.setting-item-list .setting-list-reorderable .setting-list-value {
 	padding-right: 100px;
 }

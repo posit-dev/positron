@@ -701,28 +701,21 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 			if (this.dragDetails.element !== rowElement) {
 				// --- Start Positron ---
 				// Apply the move locally so the selection follows the dragged row and later moves use fresh indexes.
-				const { item: draggedItem, itemIndex } = this.dragDetails;
-				const reorderable = this.reorderOnly;
-				if (reorderable) {
-					this.model.move(itemIndex, idx);
+				if (this.reorderOnly) {
+					this.model.move(this.dragDetails.itemIndex, idx);
 				} else {
 					this.model.select(idx);
 				}
-				// this._onDidChangeList.fire({
-				// 	type: 'move',
-				// 	originalItem: this.dragDetails.item,
-				// 	sourceIndex: this.dragDetails.itemIndex,
-				// 	newItem: item,
-				// 	targetIndex: idx
-				// });
+				// --- End Positron ---
 				this._onDidChangeList.fire({
 					type: 'move',
-					originalItem: draggedItem,
-					sourceIndex: itemIndex,
+					originalItem: this.dragDetails.item,
+					sourceIndex: this.dragDetails.itemIndex,
 					newItem: item,
 					targetIndex: idx
 				});
-				if (reorderable) {
+				// --- Start Positron ---
+				if (this.reorderOnly) {
 					// The re-render drops this row, so dragend never clears the drag state.
 					this.dragDetails = undefined;
 					this.renderList();
