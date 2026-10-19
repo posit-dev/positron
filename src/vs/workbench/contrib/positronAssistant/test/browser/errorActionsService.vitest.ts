@@ -9,14 +9,17 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { ContextKeyService } from '../../../../../platform/contextkey/browser/contextKeyService.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ErrorActionsService } from '../../browser/errorActionsService.js';
-import { IErrorActionHandler } from '../../common/errorActions.js';
+import { IErrorActionContext, IErrorActionHandler } from '../../common/errorActions.js';
 
 describe('ErrorActionsService', () => {
 	const logError = vi.fn();
+	const notifyError = vi.fn();
 	const ctx = createTestContainer()
 		.stub(ILogService, { error: logError })
+		.stub(INotificationService, { error: notifyError })
 		.build();
 
 	let contextKeyService: ContextKeyService;
@@ -101,5 +104,27 @@ describe('ErrorActionsService', () => {
 
 		expect(service.activeHandler).toBe(handler);
 		expect(logError).toHaveBeenCalledWith(`An error action handler with the id 'test-agent' is already registered`);
+	});
+
+	const context: IErrorActionContext = { error: 'boom', location: { kind: 'console' }, chat: 'new' };
+
+	it('runs the action with the handler', async () => {
+		const service = createService();
+		const run = vi.fn().mockResolvedValue(undefined);
+
+		await service.run(createHandler({ run }), 'fix', context);
+
+		expect(run).toHaveBeenCalledWith('fix', context);
+		expect(notifyError).not.toHaveBeenCalled();
+	});
+
+	it('logs and notifies, rather than throws, when the handler fails', async () => {
+		const service = createService();
+		const error = new Error('command not found');
+
+		await service.run(createHandler({ run: () => Promise.reject(error) }), 'explain', context);
+
+		expect(logError).toHaveBeenCalledWith('Failed to send the error to Test Agent', error);
+		expect(notifyError).toHaveBeenCalledWith('Could not send the error to Test Agent: command not found');
 	});
 });

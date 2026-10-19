@@ -13,7 +13,7 @@ import { useCallback, useMemo } from 'react';
 import { localize } from '../../../../../nls.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IAction } from '../../../../../base/common/actions.js';
-import { ErrorActionChat, ErrorActionKind, IErrorActionHandler, IErrorDetails } from '../../../positronAssistant/common/errorActions.js';
+import { ErrorActionChat, ErrorActionKind, IErrorActionHandler, IErrorActionsService, IErrorDetails } from '../../../positronAssistant/common/errorActions.js';
 import { SplitButton } from '../utilityComponents/SplitButton.js';
 
 /**
@@ -49,8 +49,8 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 	// Resolve the error details when a button is pressed (not at render time) so
 	// the provider can report the error source's current location.
 	const run = useCallback((kind: ErrorActionKind, chat: ErrorActionChat) => {
-		return handler.run(kind, { ...getErrorDetails(), chat });
-	}, [handler, getErrorDetails]);
+		return services.get(IErrorActionsService).run(handler, kind, { ...getErrorDetails(), chat });
+	}, [services, handler, getErrorDetails]);
 
 	const pressedFixHandler = () => run('fix', 'new');
 

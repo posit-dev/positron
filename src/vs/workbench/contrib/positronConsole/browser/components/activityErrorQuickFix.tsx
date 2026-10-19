@@ -11,7 +11,8 @@ import './activityErrorQuickFix.css';
 import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
-import { ErrorActionKind } from '../../../positronAssistant/common/errorActions.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { ErrorActionKind, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { useActiveErrorActionHandler } from '../../../positronAssistant/browser/useActiveErrorActionHandler.js';
 
 interface ConsoleQuickFixProps {
@@ -32,6 +33,7 @@ const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputL
  * @returns The rendered component.
  */
 export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
+	const services = usePositronReactServicesContext();
 	const handler = useActiveErrorActionHandler();
 
 	if (!handler) {
@@ -40,7 +42,7 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 
 	// Continue the current chat when the handler can, for follow-ups on
 	// earlier console work.
-	const run = (kind: ErrorActionKind) => handler.run(kind, {
+	const run = (kind: ErrorActionKind) => services.get(IErrorActionsService).run(handler, kind, {
 		error: formatOutput(props.outputLines, props.tracebackLines),
 		location: { kind: 'console' },
 		chat: handler.canContinueChat ? 'current' : 'new',

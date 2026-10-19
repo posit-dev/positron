@@ -3,12 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize } from '../../../../nls.js';
+import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IErrorActionHandler, IErrorActionsService } from '../common/errorActions.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ErrorActionKind, IErrorActionContext, IErrorActionHandler, IErrorActionsService } from '../common/errorActions.js';
 
 export class ErrorActionsService extends Disposable implements IErrorActionsService {
 	declare readonly _serviceBrand: undefined;
@@ -28,6 +31,7 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 	constructor(
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
 	) {
 		super();
 
@@ -57,6 +61,17 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 
 	get activeHandler(): IErrorActionHandler | undefined {
 		return this._activeHandler;
+	}
+
+	async run(handler: IErrorActionHandler, kind: ErrorActionKind, context: IErrorActionContext): Promise<void> {
+		try {
+			await handler.run(kind, context);
+		} catch (error) {
+			this._logService.error(`Failed to send the error to ${handler.label}`, error);
+			this._notificationService.error(
+				localize('positron.errorActions.runFailed', "Could not send the error to {0}: {1}", handler.label, toErrorMessage(error))
+			);
+		}
 	}
 
 	/** Refresh the watched context keys and the active handler. */

@@ -74,7 +74,10 @@ export interface IErrorActionHandler {
 	readonly when?: ContextKeyExpression;
 	/** Whether the handler can continue the current chat, which offers actions that do. */
 	readonly canContinueChat: boolean;
-	/** Run the given action on the error. Failures are surfaced to the user, not thrown. */
+	/**
+	 * Run the given action on the error. Call {@link IErrorActionsService.run}
+	 * rather than this directly; it surfaces failures to the user.
+	 */
 	run(kind: ErrorActionKind, context: IErrorActionContext): Promise<void>;
 }
 
@@ -99,4 +102,10 @@ export interface IErrorActionsService {
 	 * handler whose `when` is true. Undefined when there is none.
 	 */
 	readonly activeHandler: IErrorActionHandler | undefined;
+
+	/**
+	 * Run an action with a handler. Failures are logged and surfaced as a
+	 * notification rather than thrown.
+	 */
+	run(handler: IErrorActionHandler, kind: ErrorActionKind, context: IErrorActionContext): Promise<void>;
 }
