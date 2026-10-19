@@ -8,7 +8,10 @@ name: "Test: SQL Analyzer"
 #     That includes tests/keyword_table.rs, which regenerates the committed keyword table from
 #     the parser and fails if it has drifted -- so `npm run build-keywords` is gated here too,
 #     without needing a step of its own.
-#   - that the committed module still matches the crate (`--check`), since it is rebuilt by hand
+#   - that the committed module was rebuilt when the crate changed (`--check`), since that is done
+#     by hand. It compares a fingerprint of the crate's inputs and the module rather than
+#     rebuilding and comparing bytes: the bytes differ between hosts, so a module built on macOS
+#     could never match one built here. See scripts/build-analyzer.mts.
 #
 # Path-filtered and toolchain-only: this needs no npm install, because build-analyzer.mts uses
 # only Node builtins. Keeping it out of Test: Unit means PRs that do not touch the crate do not
@@ -56,10 +59,12 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      # Installs the toolchain pinned in sql-analyzer/rust-toolchain.toml, target included. It
+      # has to be that one rather than whatever stable is: a different rustc builds a different
+      # module, and the check below compares bytes.
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
+        working-directory: extensions/positron-sql/sql-analyzer
+        run: rustup toolchain install
 
       - name: Cache cargo registry and build
         uses: actions/cache@v4
@@ -74,7 +79,7 @@ jobs:
       - name: Run the crate's tests
         run: npm run test-analyzer
 
-      # Rebuilds into a temporary file and byte-compares, without touching the committed module.
-      # Fails with the command to run when the two have drifted apart.
+      # Recomputes sql-analyzer/wasm-fingerprint.txt without building. Fails with the command to
+      # run when the crate changed without a rebuild, or the module changed without the crate.
       - name: Check the committed module matches the crate
         run: npm run check-analyzer
