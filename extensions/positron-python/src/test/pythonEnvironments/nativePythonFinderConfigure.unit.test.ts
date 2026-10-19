@@ -22,6 +22,7 @@ import {
 } from '../../client/pythonEnvironments/base/locators/common/nativePythonFinder';
 import * as windowsApis from '../../client/common/vscodeApis/windowApis';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
+import * as workspaceScan from '../../client/positron/workspaceScan';
 import { MockOutputChannel } from '../mockClasses';
 
 suite('Native Python Finder - configuration failures must not hang discovery', () => {
@@ -109,6 +110,24 @@ suite('Native Python Finder - configuration failures must not hang discovery', (
             // The refresh request must not go out against a stale configuration; if
             // it did, its success would clear the error and hide the failure.
             assert.match(finder.lastDiscoveryError ?? '', /workspace folders unavailable/);
+        } finally {
+            finder.dispose();
+        }
+    });
+
+    test('configure sends nested project env dirs as workspace directories', async () => {
+        const ws = path.join(path.parse(process.cwd()).root, 'positron-nested-ws-does-not-exist');
+        const nested = path.join(ws, 'app', '.venv');
+        getWorkspaceFolderPathsStub.returns([ws]);
+        sinon.stub(workspaceScan, 'findNestedEnvironmentDirs').withArgs(ws).resolves([nested]);
+
+        const finder = createNativePythonFinder();
+        try {
+            // Read the options directly: `lastConfiguration` is reset whenever PET shuts
+            // down, which this suite's zero idle timeout makes likely.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const options = await (finder as any).configurationOptions();
+            assert.deepEqual(options.workspaceDirectories, [ws, nested]);
         } finally {
             finder.dispose();
         }

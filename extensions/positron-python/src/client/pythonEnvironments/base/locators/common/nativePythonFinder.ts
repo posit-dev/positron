@@ -37,6 +37,7 @@ import { traceVerbose } from '../../../../logging';
 import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
 import { PythonEnvSource } from '../../info/index';
 import { getUvDirs } from '../../../common/environmentManagers/uv';
+import { findNestedEnvironmentDirs } from '../../../../positron/workspaceScan';
 // --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
@@ -778,8 +779,14 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
      * there without the throw reaching the caller's refresh.
      */
     private async configurationOptions(): Promise<ConfigurationOptions> {
+        const workspaceFolders = getWorkspaceFolderPaths();
+        // Envs one level below each workspace folder (e.g. <folder>/app/.venv). PET
+        // reports a workspace directory that is itself an env and stops there.
+        const nestedEnvDirs = (
+            await Promise.all(workspaceFolders.map((folder) => findNestedEnvironmentDirs(folder)))
+        ).flat();
         return {
-            workspaceDirectories: getWorkspaceFolderPaths(),
+            workspaceDirectories: [...workspaceFolders, ...nestedEnvDirs],
             // We do not want to mix this with `search_paths`
             // environmentDirectories: getCustomVirtualEnvDirs(),
             environmentDirectories: await getEnvironmentDirs(),
