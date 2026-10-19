@@ -362,7 +362,14 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 			return;
 		}
 
-		e.preventDefault();
+		// --- Start Positron ---
+		// Cancelling pointerdown on a draggable row also cancels the native drag,
+		// so drag-to-reorder never starts. Upstream: microsoft/vscode#342556.
+		// e.preventDefault();
+		if (!this.rowElements[targetIdx]?.draggable) {
+			e.preventDefault();
+		}
+		// --- End Positron ---
 		e.stopImmediatePropagation();
 		if (this.model.getSelected() === targetIdx) {
 			return;
