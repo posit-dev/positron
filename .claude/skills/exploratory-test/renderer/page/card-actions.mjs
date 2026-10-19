@@ -9,7 +9,7 @@
 
 import { parseSystemLine } from '../shared/ledger.mjs';
 import { escapeHtml, escapeRegExp } from '../shared/text.mjs';
-import { promptFilesSection, filesNamedIn, fileSource } from './repro-files.mjs';
+import { promptFilesSection, filesNamedIn, fileSource, shownName } from './repro-files.mjs';
 import { absolutePath, capitalize, countText, escapeLoneTildes, ICON, logFile, REPO_URL, safeLinks, SEVERITY_LABEL, statusWord } from './page-common.mjs';
 
 /**
@@ -97,7 +97,7 @@ function buildAgentPrompt(f, report, options = {}) {
 	}).join('\n'));
 	// A match on a not-planned issue: check it was not judged intended before fixing.
 	section('Closed as not planned', (f.intended ?? []).map(n => `- ${REPO_URL}/issues/${Number(n)}`).join('\n'));
-	section(observedHeading(t), capitalize(t.observed));
+	section('Observed', capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
 	section('Preconditions', t.preconditions.length === 1
 		? t.preconditions[0]
@@ -259,7 +259,7 @@ function markBelow(text, file) {
 		}
 		return part.replace(part.startsWith('`') ? quoted : bare, () => {
 			done = true;
-			return `\`${file.name}\` (below)`;
+			return `\`${shownName(file)}\` (below)`;
 		});
 	}).join('');
 	return { text: out, done };
@@ -268,11 +268,6 @@ function markBelow(text, file) {
 /** The Cause's heading, saying when the verifier rewrote it. Neither was checked by a run. */
 function causeHeading(t) {
 	return t.corrected?.includes('cause') ? 'Likely cause (revised by the reviewing agent, not verified by a run)' : 'Likely cause (hypothesis, not verified)';
-}
-
-/** The Observed heading, saying when the verifier rewrote it from the screenshots. */
-function observedHeading(t) {
-	return t.corrected?.includes('observed') ? 'Observed (revised by the reviewing agent)' : 'Observed';
 }
 
 /** A step as the issue writes it: its result in bold, and no log line, which Error messages has. */
@@ -345,7 +340,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 		preconditions.map(p => `- ${p.replace(/\n/g, '\n  ')}`).join('\n'),
 		f.steps.map((st, i) => `${i + 1}. ${issueStep(st, observed).replace(/\n/g, '\n   ')}`).join('\n'),
 	].filter(Boolean).join('\n\n'));
-	section(observedHeading(t), capitalize(t.observed));
+	section('Observed', capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
 
 	const clip = raw => {
@@ -366,9 +361,9 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	for (const file of files) {
 		const source = drop.has('fileText') ? null : fileSource(file);
 		if (source) {
-			fold(escapeHtml(file.name), fenced(source.text, source.lang));
+			fold(escapeHtml(shownName(file)), fenced(source.text, source.lang));
 		} else {
-			out.push(`\`${file.name}\` is in the report's \`files/\` folder.`, '');
+			out.push(`\`${shownName(file)}\` is in the report's \`files/\` folder.`, '');
 		}
 	}
 	return out.join('\n').trimEnd();
