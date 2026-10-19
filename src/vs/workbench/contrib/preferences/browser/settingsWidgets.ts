@@ -34,6 +34,9 @@ import { validatePropertyName } from '../../../services/preferences/common/prefe
 import { IJSONSchema } from '../../../../base/common/jsonSchema.js';
 import { settingsSelectBackground, settingsSelectBorder, settingsSelectForeground, settingsSelectListBorder, settingsTextInputBackground, settingsTextInputBorder, settingsTextInputForeground } from '../common/settingsEditorColorRegistry.js';
 import './media/settingsWidgets.css';
+// --- Start Positron ---
+import './media/positronSettingsListReorder.css';
+// --- End Positron ---
 import { settingsDiscardIcon, settingsEditIcon, settingsRemoveIcon } from './preferencesIcons.js';
 
 const $ = DOM.$;
@@ -496,14 +499,53 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 	}
 
 	protected getContainerClasses(): string[] {
-		return ['setting-list-widget'];
+		// --- Start Positron ---
+		// return ['setting-list-widget'];
+		return ['setting-list-widget', 'setting-list-reorderable'];
+		// --- End Positron ---
 	}
+
+	// --- Start Positron ---
+	// Selects the row's new position so the selection follows the moved row.
+	private moveItem(item: TListDataItem, sourceIndex: number, targetIndex: number): void {
+		this.model.select(targetIndex);
+		this._onDidChangeList.fire({ type: 'move', originalItem: item, newItem: item, sourceIndex, targetIndex });
+	}
+
+	// Move up/down actions so reordering is discoverable without dragging.
+	private getMoveActions(item: TListDataItem, idx: number): IAction[] {
+		const count = this.model.items.length;
+		if (count < 2) {
+			return [];
+		}
+		return [
+			{
+				class: ThemeIcon.asClassName(Codicon.arrowUp),
+				enabled: idx > 0,
+				id: 'workbench.action.moveListItemUp',
+				tooltip: localize('positron.moveListItemUp', "Move Up"),
+				run: () => this.moveItem(item, idx, idx - 1)
+			},
+			{
+				class: ThemeIcon.asClassName(Codicon.arrowDown),
+				enabled: idx < count - 1,
+				id: 'workbench.action.moveListItemDown',
+				tooltip: localize('positron.moveListItemDown', "Move Down"),
+				run: () => this.moveItem(item, idx, idx + 1)
+			}
+		] as IAction[];
+	}
+	// --- End Positron ---
 
 	protected getActionsForItem(item: TListDataItem, idx: number): IAction[] {
 		if (this.isReadOnly) {
 			return [];
 		}
 		return [
+			// --- Start Positron ---
+			// Include/exclude widgets subclass this one and are not reorderable.
+			...(this.getContainerClasses().includes('setting-list-reorderable') ? this.getMoveActions(item, idx) : []),
+			// --- End Positron ---
 			{
 				class: ThemeIcon.asClassName(settingsEditIcon),
 				enabled: true,
@@ -525,6 +567,11 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 
 	protected renderItem(item: TListDataItem, idx: number): RowElementGroup {
 		const rowElement = $('.setting-list-row');
+		// --- Start Positron ---
+		if (this.getContainerClasses().includes('setting-list-reorderable')) {
+			DOM.append(rowElement, $('.setting-list-drag-handle' + ThemeIcon.asCSSSelector(Codicon.gripper)));
+		}
+		// --- End Positron ---
 		const valueElement = DOM.append(rowElement, $('.setting-list-value'));
 		const siblingElement = DOM.append(rowElement, $('.setting-list-sibling'));
 
@@ -587,6 +634,10 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 			ev.preventDefault();
 			counter = 0;
 			if (this.dragDetails.element !== rowElement) {
+				// --- Start Positron ---
+				// Keep the selection on the dragged row, not its old position.
+				this.model.select(idx);
+				// --- End Positron ---
 				this._onDidChangeList.fire({
 					type: 'move',
 					originalItem: this.dragDetails.item,
@@ -746,7 +797,10 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 			: localize('listSiblingHintLabel', "List item `{0}` with sibling `${1}`", value.data, sibling);
 
 		const { rowElement } = rowElementGroup;
-		this.listDisposables.add(this.hoverService.setupDelayedHover(rowElement, { content: title }));
+		// --- Start Positron ---
+		// The hover only repeats the row text and covers the buttons.
+		// this.listDisposables.add(this.hoverService.setupDelayedHover(rowElement, { content: title }));
+		// --- End Positron ---
 		rowElement.setAttribute('aria-label', title);
 	}
 

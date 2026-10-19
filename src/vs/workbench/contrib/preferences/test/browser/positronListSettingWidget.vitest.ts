@@ -37,4 +37,52 @@ describe('ListSettingWidget reordering', () => {
 		rows()[1].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
 		expect(rows()[1]).toHaveClass('selected');
 	});
+
+	function findAction(row: HTMLElement, label: string) {
+		// eslint-disable-next-line no-restricted-syntax -- action bar items have no roles or test ids
+		return row.querySelector<HTMLElement>(`.action-label[aria-label="${label}"]`);
+	}
+
+	function clickAction(row: HTMLElement, label: string) {
+		const button = findAction(row, label);
+		expect(button).not.toBeNull();
+		button!.click();
+	}
+
+	it('Move Down fires a move from the row to the next index', () => {
+		const { rows, events } = createWidget(['a', 'b', 'c']);
+		clickAction(rows()[0], 'Move Down');
+		expect(events).toEqual([expect.objectContaining({ type: 'move', sourceIndex: 0, targetIndex: 1 })]);
+	});
+
+	it('Move Up fires a move from the row to the previous index', () => {
+		const { rows, events } = createWidget(['a', 'b', 'c']);
+		clickAction(rows()[2], 'Move Up');
+		expect(events).toEqual([expect.objectContaining({ type: 'move', sourceIndex: 2, targetIndex: 1 })]);
+	});
+
+	it('disables Move Up on the first row and Move Down on the last', () => {
+		const { rows } = createWidget(['a', 'b']);
+		expect(findAction(rows()[0], 'Move Up')).toHaveClass('disabled');
+		expect(findAction(rows()[1], 'Move Down')).toHaveClass('disabled');
+	});
+
+	it('shows no move buttons when there is only one row', () => {
+		const { rows } = createWidget(['a']);
+		expect(findAction(rows()[0], 'Move Up')).toBeNull();
+	});
+
+	it('selects the moved row at its new index once the new value renders', () => {
+		const { widget, rows } = createWidget(['a', 'b', 'c']);
+		clickAction(rows()[0], 'Move Down');
+		widget.setValue(['b', 'a', 'c'].map(data => ({ value: { type: 'string', data } })));
+		expect(rows()[1]).toHaveClass('selected');
+		expect(rows()[1]).toHaveTextContent('a');
+	});
+
+	it('renders a drag handle on each row', () => {
+		const { rows } = createWidget(['a', 'b']);
+		// eslint-disable-next-line no-restricted-syntax -- decorative handle has no role or test id
+		expect(rows().every(r => r.querySelector('.setting-list-drag-handle'))).toBe(true);
+	});
 });

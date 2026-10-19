@@ -1,0 +1,28 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.settings-editor .setting-item.setting-item-list .setting-list-reorderable .setting-list-drag-handle {
+	flex: 0 0 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	opacity: 0;
+	cursor: grab;
+	color: var(--vscode-descriptionForeground);
+}
+
+.settings-editor .setting-item.setting-item-list .setting-list-reorderable .setting-list-row:hover .setting-list-drag-handle,
+.settings-editor .setting-item.setting-item-list .setting-list-reorderable .setting-list-row.selected .setting-list-drag-handle {
+	opacity: 1;
+}
+
+.settings-editor .setting-item.setting-item-list .setting-list-reorderable .setting-list-row.draggable {
+	cursor: grab;
+}
+
+/* Room for the move up/down actions next to edit and remove. */
+.settings-editor .setting-item.setting-item-list .setting-list-reorderable .setting-list-value {
+	padding-right: 100px;
+}
