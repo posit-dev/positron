@@ -268,10 +268,10 @@ export const copyrightFilter = Object.freeze<string[]>([
 	// --- Start Positron ---
 	'!extensions/positron-r/resources/testing/**',
 	`!**/*.jsonl`,
-	// Cargo manifests and lock files are generated and edited by the Rust toolchain, which has
-	// no reason to preserve a header. Neither does the CLI's own Cargo.toml carry one.
-	'!**/Cargo.toml',
-	'!**/Cargo.lock',
+	// The SQL analyzer's Cargo manifest and lock file are generated and edited by the Rust
+	// toolchain, which has no reason to preserve a header.
+	'!extensions/positron-sql/sql-analyzer/Cargo.toml',
+	'!extensions/positron-sql/sql-analyzer/Cargo.lock',
 	// --- End Positron ---
 
 	'!extensions/mermaid-markdown-features/chat-webview-out/**',
