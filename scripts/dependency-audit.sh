@@ -10,10 +10,10 @@
 #                project first. This edits package-lock.json in place, staying
 #                inside the semver ranges in package.json (no --force), so it
 #                fixes transitive advisories that need only a lockfile refresh.
-#                dependency-audit-lockcheck.mts then compares the lockfiles: a
-#                fix that leaves a dependency outside its declared range, or
-#                that `npm ci --dry-run` rejects, is reverted, and changed
-#                direct dependencies are listed for review.
+#                A fix that `npm ci --dry-run` rejects (a dependency outside
+#                its declared range, or missing) is reverted.
+#                dependency-audit-lockcheck.mts then lists the changed direct
+#                dependencies for review.
 #   --snyk:      also run `snyk test` on each lockfile (after any fix), so the
 #                report shows what the security team sees in Snyk. Needs the
 #                snyk CLI on PATH and SNYK_TOKEN in the environment.
@@ -47,16 +47,20 @@ fi
 # installs them in CI. A global setting can write a lockfile that `npm ci`
 # then rejects: legacy-peer-deps drops auto-installed peer entries.
 
-# Prints the reason if `npm ci` would reject project $1's lockfile as out of
-# sync with its package.json, else nothing. Runs on a copy of the project, so
-# it never touches a real node_modules.
+# Prints the reason if `npm ci` would reject project $1's lockfile, else
+# nothing. npm checks every dependency range in the lockfile (direct,
+# transitive, nested, and optional), and it honors `overrides`. Runs on a copy
+# of the project, so it never touches a real node_modules.
 ci_check() {
-	local copy="$WORK/ci"
+	local copy="$WORK/ci" output reasons
 	rm -rf "$copy" && mkdir -p "$copy"
 	cp "$1/package.json" "$1/package-lock.json" "$copy/"
 	[ -f "$1/.npmrc" ] && cp "$1/.npmrc" "$copy/"
-	(cd "$copy" && npm ci --dry-run --ignore-scripts 2>&1) |
-		grep -q 'EUSAGE' && echo "npm ci rejects the lockfile (out of sync with package.json)"
+	output="$(cd "$copy" && npm ci --dry-run --ignore-scripts 2>&1)"
+	echo "$output" | grep -q 'EUSAGE' || return 0
+	# For example: "Invalid: lock file's qs@6.5.0 does not satisfy qs@~6.16.0".
+	reasons="$(echo "$output" | sed -nE 's/^npm error ((Invalid|Missing): .*)/\1/p' | paste -sd ';' - | sed 's/;/; /g')"
+	echo "npm ci rejects the lockfile: ${reasons:-out of sync with package.json}"
 }
 
 # Prints "<critical> <high> <total>|<comma-separated high/critical packages>"
@@ -127,25 +131,21 @@ while IFS= read -r dir || [ -n "$dir" ]; do
 			# (semver-major) fix; that's expected, so this is only a note.
 			echo "  npm audit fix left advisories in $dir" >&2
 		fi
-		if ! check="$(node "$LOCKCHECK" "$WORK/before.json" "$dir/package-lock.json" "$dir/package.json")" ||
-			! echo "$check" | jq -e '(.problems | type == "array") and (.directChanges | type == "array")' >/dev/null 2>&1; then
-			# The range check did not run, so the fix is unverified. Keep the
-			# old lockfile.
+		problems="$(ci_check "$dir")"
+		if [ -n "$problems" ]; then
+			# npm ci would reject the new lockfile. Keep the old lockfile; a
+			# person has to make this fix.
 			cp "$WORK/before.json" "$dir/package-lock.json"
-			errors+=("\`$dir\`: lockfile check failed, so the fix was not applied")
+			reverted+=("${dir#extensions/}: $problems")
+		elif ! check="$(node "$LOCKCHECK" "$WORK/before.json" "$dir/package-lock.json")" ||
+			! echo "$check" | jq -e '.directChanges | type == "array"' >/dev/null 2>&1; then
+			# Without the list, a direct bump would land with no flag for
+			# review. Keep the old lockfile.
+			cp "$WORK/before.json" "$dir/package-lock.json"
+			errors+=("\`$dir\`: could not list direct dependency changes, so the fix was not applied")
 		else
-			problems="$(echo "$check" | jq -r '.problems | join("; ")')"
-			[ -z "$problems" ] && problems="$(ci_check "$dir")"
-			if [ -n "$problems" ]; then
-				# The new lockfile leaves a dependency outside its declared
-				# range, or npm ci would reject it. Keep the old lockfile; a
-				# person has to make this fix.
-				cp "$WORK/before.json" "$dir/package-lock.json"
-				reverted+=("${dir#extensions/}: $problems")
-			else
-				changes="$(echo "$check" | jq -r '.directChanges | join(", ")')"
-				[ -n "$changes" ] && direct+=("${dir#extensions/}: $changes")
-			fi
+			changes="$(echo "$check" | jq -r '.directChanges | join(", ")')"
+			[ -n "$changes" ] && direct+=("${dir#extensions/}: $changes")
 		fi
 		after="$(npm_audit "$dir")"
 	fi
@@ -216,7 +216,7 @@ if [ ${#reverted[@]} -gt 0 ]; then
 	echo ""
 	echo "### Fixes not applied"
 	echo ""
-	echo "The fixed lockfile left a dependency outside its declared range, or \`npm ci\` rejected it, so these projects keep their old lockfile. Their \"After\" counts are the same as \"Before\"."
+	echo "\`npm ci\` rejected the fixed lockfile (a dependency outside its declared range, or missing), so these projects keep their old lockfile. Their \"After\" counts are the same as \"Before\"."
 	echo ""
 	printf -- '- %s\n' "${reverted[@]}"
 fi
