@@ -1,0 +1,268 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { assert } from 'chai';
+import * as path from 'path';
+import * as sinon from 'sinon';
+import * as TypeMoq from 'typemoq';
+import * as vscode from 'vscode';
+import { Architecture } from '../../client/common/utils/platform';
+import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
+import { IActivatedEnvironmentLaunch } from '../../client/interpreter/contracts';
+import { IServiceContainer } from '../../client/ioc/types';
+import {
+    buildRankingContext,
+    RankingContext,
+    rankInterpreters,
+    Tier,
+    tierOf,
+    withDiscoveredFacts,
+} from '../../client/positron/interpreterRanking';
+import * as interpreterSettings from '../../client/positron/interpreterSettings';
+import * as workspaceScan from '../../client/positron/workspaceScan';
+import { createTypeMoq } from '../mocks/helper';
+import { NativePythonEnvironmentKind } from '../../client/pythonEnvironments/base/locators/common/nativePythonUtils';
+import * as moduleLocator from '../../client/pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
+import { EnvironmentType, PythonEnvironment } from '../../client/pythonEnvironments/info';
+
+/**
+ * An absolute path on every OS: as written on macOS and Linux, drive-rooted with
+ * backslashes on Windows, where `isParentPath` compares with `path.sep`.
+ */
+function p(posixPath: string): string {
+    return path.resolve(posixPath);
+}
+
+function env(
+    executable: string,
+    envType: EnvironmentType,
+    version: string,
+    extra: Partial<PythonEnvironment> = {},
+): PythonEnvironment {
+    const [major, minor, patch] = version.split('.').map(Number);
+    const envPath = path.dirname(path.dirname(executable));
+    return {
+        id: executable,
+        path: executable,
+        envType,
+        envPath,
+        sysPrefix: envPath,
+        architecture: Architecture.x64,
+        version: { major, minor, patch, raw: version, build: [], prerelease: [] },
+        ...extra,
+    };
+}
+
+const emptyContext: RankingContext = {
+    workspacePath: p('/proj'),
+    activatedEnvPrefix: undefined,
+    definitionPaths: [],
+    definitionsOnly: false,
+    defaultInterpreterPath: undefined,
+    rootProjectEnv: undefined,
+    pythonVersion: undefined,
+    pythonVersionDir: undefined,
+    nestedEnvDirs: [],
+    hasPythonSignals: false,
+    configuredPaths: [],
+    modulePaths: new Set(),
+    positronDefaultEnvDir: p('/home/u/.virtualenvs/positron'),
+    uvPythonInstallDirs: [p('/home/u/.local/share/uv/python')],
+    externallyManagedPaths: new Set(),
+};
+
+suite('interpreterRanking', () => {
+    teardown(() => sinon.restore());
+
+    const activated = env(p('/home/u/envs/active/bin/python'), EnvironmentType.Venv, '3.12.1');
+    const defaultPath = env(p('/opt/team/bin/python'), EnvironmentType.Custom, '3.11.3');
+    const rootVenv = env(p('/proj/.venv/bin/python'), EnvironmentType.Venv, '3.12.7');
+    const pyenvPinned = env(p('/home/u/.pyenv/versions/3.10.4/bin/python'), EnvironmentType.Pyenv, '3.10.4');
+    const nestedB = env(p('/proj/b/.venv/bin/python'), EnvironmentType.Venv, '3.13.0');
+    const nestedA = env(p('/proj/a/.venv/bin/python'), EnvironmentType.Venv, '3.9.1');
+    const inFolderPoetry = env(p('/proj/tools/env/bin/python'), EnvironmentType.Poetry, '3.12.0');
+    const defined = env(p('/opt/defined/bin/python'), EnvironmentType.Custom, '3.11.2');
+    const module = env(p('/apps/python/3.12/bin/python'), EnvironmentType.Module, '3.12.3');
+    // PET reports many module Pythons as plain globals; moduleMetadataMap knows better.
+    const moduleByMetadata = env(p('/apps/python/3.11/bin/python'), EnvironmentType.Global, '3.11.9');
+    const venvFolder = env(p('/srv/venvs/team/bin/python'), EnvironmentType.Venv, '3.13.4');
+    const positronDefault = env(p('/home/u/.virtualenvs/positron/bin/python'), EnvironmentType.Venv, '3.12.4');
+    const condaNamed = env(p('/home/u/miniconda3/envs/ds/bin/python'), EnvironmentType.Conda, '3.11.0', { envName: 'ds' });
+    const pyenvVirtualenv = env(p('/home/u/.pyenv/versions/3.13.1/envs/tool/bin/python'), EnvironmentType.Pyenv, '3.13.1', {
+        nativeKind: NativePythonEnvironmentKind.PyenvVirtualEnv,
+        envName: 'tool',
+    });
+    const uvBase = env(p('/home/u/.local/share/uv/python/cpython-3.12.8/bin/python3'), EnvironmentType.Global, '3.12.8', {
+        nativeKind: NativePythonEnvironmentKind.Uv,
+    });
+    const condaBase = env(p('/home/u/miniconda3/bin/python'), EnvironmentType.Conda, '3.11.1', { envName: 'base' });
+    const pyenv = env(p('/home/u/.pyenv/versions/3.13.1/bin/python'), EnvironmentType.Pyenv, '3.13.1');
+    const globalVirtualenv = env(p('/home/u/.virtualenvs/other/bin/python'), EnvironmentType.VirtualEnvWrapper, '3.13.6');
+    const pythonOrg = env(p('/Library/Frameworks/Python.framework/Versions/3.12/bin/python3'), EnvironmentType.System, '3.12.5', {
+        nativeKind: NativePythonEnvironmentKind.MacPythonOrg,
+    });
+    const homebrew = env(p('/opt/homebrew/bin/python3'), EnvironmentType.System, '3.13.2', {
+        nativeKind: NativePythonEnvironmentKind.Homebrew,
+    });
+    const unknown = env(p('/weird/python'), EnvironmentType.Unknown, '3.12.0');
+
+    const context: RankingContext = {
+        ...emptyContext,
+        activatedEnvPrefix: p('/home/u/envs/active'),
+        definitionPaths: [defined.path],
+        defaultInterpreterPath: defaultPath.path,
+        rootProjectEnv: { envDir: p('/proj/.venv'), executable: rootVenv.path },
+        pythonVersion: '3.10.4',
+        pythonVersionDir: p('/home/u/.pyenv/versions/3.10.4'),
+        nestedEnvDirs: [p('/proj/a/.venv'), p('/proj/b/.venv')],
+        configuredPaths: [p('/srv/venvs')],
+        modulePaths: new Set([moduleByMetadata.path]),
+        // uv installs its Pythons with an EXTERNALLY-MANAGED marker; uv base is still GlobalEnv.
+        externallyManagedPaths: new Set([homebrew.path, uvBase.path]),
+    };
+
+    test('ranks every kind of interpreter in tier order', () => {
+        // Shuffled on purpose: the result must not depend on input order.
+        const interpreters = [
+            unknown, homebrew, pythonOrg, globalVirtualenv, pyenv, condaBase, uvBase, pyenvVirtualenv, condaNamed,
+            positronDefault, venvFolder, moduleByMetadata, module, defined, inFolderPoetry, nestedB, nestedA, pyenvPinned,
+            rootVenv, defaultPath, activated,
+        ];
+
+        const ranked = rankInterpreters(interpreters, context).map(({ interpreter, tier }) => [
+            interpreter.path,
+            tier === undefined ? 'never' : Tier[tier],
+        ]);
+
+        assert.deepEqual(ranked, [
+            [activated.path, 'ActivatedEnv'],
+            [defaultPath.path, 'DefaultInterpreterPath'],
+            [rootVenv.path, 'ProjectEnv'],
+            [pyenvPinned.path, 'PythonVersionFile'],
+            [nestedA.path, 'WorkspaceEnv'],
+            [nestedB.path, 'WorkspaceEnv'],
+            [inFolderPoetry.path, 'WorkspaceEnv'],
+            [defined.path, 'Configured'],
+            [module.path, 'Configured'],
+            [moduleByMetadata.path, 'Configured'],
+            [venvFolder.path, 'Configured'],
+            [positronDefault.path, 'PositronDefaultEnv'],
+            [condaNamed.path, 'NamedEnv'],
+            [pyenvVirtualenv.path, 'NamedEnv'],
+            [uvBase.path, 'GlobalEnv'],
+            [condaBase.path, 'GlobalEnv'],
+            [pyenv.path, 'GlobalEnv'],
+            [globalVirtualenv.path, 'GlobalEnv'],
+            [pythonOrg.path, 'BaseInstall'],
+            [homebrew.path, 'ExternallyManaged'],
+            [unknown.path, 'never'],
+        ]);
+    });
+
+    test('in definitionsOnly mode, definitions are ranked by what they are, then in list order', () => {
+        const definitionsOnly: RankingContext = {
+            ...emptyContext,
+            definitionsOnly: true,
+            definitionPaths: [homebrew.path, defined.path, rootVenv.path],
+            rootProjectEnv: { envDir: p('/proj/.venv'), executable: rootVenv.path },
+            externallyManagedPaths: new Set([homebrew.path]),
+        };
+
+        assert.deepEqual(
+            rankInterpreters([homebrew, defined, rootVenv], definitionsOnly).map((r) => [r.interpreter.path, Tier[r.tier!]]),
+            [
+                [rootVenv.path, 'ProjectEnv'],
+                [homebrew.path, 'Configured'],
+                [defined.path, 'Configured'],
+            ],
+        );
+    });
+
+    test('.python-version: a named pyenv virtualenv is a ProjectEnv, a named pyenv version is a PythonVersionFile', () => {
+        const versions = p('/home/u/.pyenv/versions');
+        const named = (name: string) => ({
+            ...emptyContext,
+            pythonVersion: name,
+            pythonVersionDir: path.join(versions, name),
+        });
+        // PET reports X.Y.Z in version.raw, so a pre-release is matched by its folder.
+        const prerelease = env(p('/home/u/.pyenv/versions/3.13.0rc1/bin/python'), EnvironmentType.Pyenv, '3.13.0');
+        assert.deepEqual(
+            [
+                tierOf(pyenvVirtualenv, named('tool')),
+                tierOf(pyenv, named('3.13.1')),
+                tierOf(prerelease, named('3.13.0rc1')),
+                // A virtualenv built on the named version is not what the file names.
+                tierOf(pyenvVirtualenv, named('3.13.1')),
+            ],
+            [Tier.ProjectEnv, Tier.PythonVersionFile, Tier.PythonVersionFile, Tier.NamedEnv],
+        );
+    });
+
+    test('buildRankingContext reads defaultInterpreterPath with get(), never selects, and scans the folder', async () => {
+        let value: string | undefined;
+        sinon.stub(workspaceApis, 'getConfiguration').returns(({
+            get: (key: string) => (key === 'defaultInterpreterPath' ? value : undefined),
+        } as unknown) as vscode.WorkspaceConfiguration);
+        sinon.stub(interpreterSettings, 'getResolvedFilterSettingPaths').returns({ include: [], exclude: [], override: [] });
+        sinon.stub(interpreterSettings, 'getInterpreterDefinitionPaths').returns([]);
+        sinon.stub(interpreterSettings, 'isDefinitionsOnlyDiscovery').returns(false);
+        const moduleWait = sinon.stub(moduleLocator, 'whenModuleMetadataReady').resolves();
+        sinon.stub(workspaceScan, 'scanWorkspace').resolves({
+            rootProjectEnv: undefined,
+            nestedEnvDirs: [],
+            hasPythonSignals: true,
+            pythonVersion: undefined,
+        });
+        const launch = createTypeMoq<IActivatedEnvironmentLaunch>();
+        launch.setup((a) => a.getActivatedEnvPrefix()).returns(() => Promise.resolve(p('/home/u/envs/active')));
+        const serviceContainer = createTypeMoq<IServiceContainer>();
+        serviceContainer.setup((c) => c.get(IActivatedEnvironmentLaunch)).returns(() => launch.object);
+
+        async function read(setting: string | undefined) {
+            value = setting;
+            const c = await buildRankingContext(serviceContainer.object, vscode.Uri.file(p('/proj')));
+            return [c.defaultInterpreterPath, c.activatedEnvPrefix, c.hasPythonSignals];
+        }
+
+        // get() already applies folder > workspace > user and admin-enforced values,
+        // so the scope a value came from never matters. `python` is the default and means unset.
+        assert.deepEqual(
+            [await read(p('/team/python')), await read('python'), await read(undefined)],
+            [
+                [p('/team/python'), p('/home/u/envs/active'), true],
+                [undefined, p('/home/u/envs/active'), true],
+                [undefined, p('/home/u/envs/active'), true],
+            ],
+        );
+        launch.verify((a) => a.selectIfLaunchedViaActivatedEnv(TypeMoq.It.isAny()), TypeMoq.Times.never());
+        // The fast path must not wait for module discovery (Performance rule 2).
+        sinon.assert.notCalled(moduleWait);
+    });
+
+    test('withDiscoveredFacts waits for module discovery, then fills modulePaths', async () => {
+        const modulePath = p('/apps/python/3.11/bin/python');
+        sinon.stub(moduleLocator, 'whenModuleMetadataReady').callsFake(async () => {
+            moduleLocator.moduleMetadataMap.set(modulePath, ({} as unknown) as moduleLocator.ModuleMetadata);
+        });
+        try {
+            const context = await withDiscoveredFacts(emptyContext, []);
+            assert.deepEqual([...context.modulePaths], [modulePath]);
+        } finally {
+            moduleLocator.moduleMetadataMap.delete(modulePath);
+        }
+    });
+
+    test('within a tier, the higher version wins, then the path', () => {
+        const older = env(p('/home/u/.pyenv/versions/3.11.0/bin/python'), EnvironmentType.Pyenv, '3.11.0');
+        const newer = env(p('/home/u/.pyenv/versions/3.12.0/bin/python'), EnvironmentType.Pyenv, '3.12.0');
+        const sameVersion = env(p('/home/u/.pyenv/versions/3.12.0x/bin/python'), EnvironmentType.Pyenv, '3.12.0');
+
+        assert.deepEqual(
+            rankInterpreters([older, sameVersion, newer], emptyContext).map((r) => r.interpreter.path),
+            [newer.path, sameVersion.path, older.path],
+        );
+    });
+});

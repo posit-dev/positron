@@ -216,6 +216,37 @@ suite('Activated Env Launch', async () => {
                 TypeMoq.Times.never(),
             );
         });
+
+        test('getActivatedEnvPrefix gives the launch env before and after selection, and never selects', async () => {
+            process.env.VIRTUAL_ENV = virtualEnvPrefix;
+            sinon
+                .stub(interpreterSettings, 'getUserDefaultInterpreter')
+                .returns(({} as unknown) as InspectInterpreterSettingType);
+            workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
+            const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
+            workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
+            pythonPathUpdaterService
+                .setup((p) =>
+                    p.updatePythonPath(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+                )
+                .returns(() => Promise.resolve())
+                .verifiable(TypeMoq.Times.once());
+            activatedEnvLaunch = new ActivatedEnvironmentLaunch(
+                workspaceService.object,
+                appShell.object,
+                pythonPathUpdaterService.object,
+                interpreterService.object,
+                processServiceFactory.object,
+            );
+
+            const before = await activatedEnvLaunch.getActivatedEnvPrefix();
+            await activatedEnvLaunch.selectIfLaunchedViaActivatedEnv();
+            const after = await activatedEnvLaunch.getActivatedEnvPrefix();
+
+            expect([before, after]).to.deep.equal([virtualEnvPrefix, virtualEnvPrefix]);
+            // Only selectIfLaunchedViaActivatedEnv wrote the selection.
+            pythonPathUpdaterService.verifyAll();
+        });
         // --- End Positron ---
 
         test('Does not update interpreter path if VSCode is not launched via CLI', async () => {

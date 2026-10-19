@@ -93,6 +93,32 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
         await this.selectIfLaunchedViaActivatedEnv(true);
         await this.selectionWritten?.catch(() => undefined);
     }
+
+    private activatedEnvPrefix: Promise<string | undefined> | undefined;
+
+    /**
+     * The env prefix the window was launched with, read-only. Unlike
+     * `selectIfLaunchedViaActivatedEnv`, it never writes the selection, and it gives
+     * the same answer before and after upstream's own selection has run. Read once per
+     * window: the launch environment can't change, and for a conda env it resolves the
+     * interpreter through PET, which the ranking would otherwise repeat on every ask.
+     */
+    public getActivatedEnvPrefix(): Promise<string | undefined> {
+        this.activatedEnvPrefix ??= this.readActivatedEnvPrefix();
+        return this.activatedEnvPrefix;
+    }
+
+    private async readActivatedEnvPrefix(): Promise<string | undefined> {
+        if (process.env.VSCODE_CLI !== '1') {
+            return undefined;
+        }
+        // Same exception as _selectIfLaunchedViaActivatedEnv: with no folder open, the
+        // user's defaultInterpreterPath wins, so the console matches the language server.
+        if (getUserDefaultInterpreter().globalValue && !this.workspaceService.workspaceFolders) {
+            return undefined;
+        }
+        return this.getPrefixOfSelectedActivatedEnv();
+    }
     // --- End Positron ---
 
     @cache(-1, true)

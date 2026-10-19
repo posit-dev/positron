@@ -72,7 +72,7 @@ const HOME_RELATIVE_PATHS: readonly string[] = [
  *        as a legacy fallback; uv still honors it when it exists.
  *      - Windows: `%APPDATA%\uv\python` (Roaming, matching uv).
  */
-function getUvPythonInstallDirs(): string[] {
+export function getUvPythonInstallDirs(): string[] {
     const installDirOverride = process.env['UV_PYTHON_INSTALL_DIR'];
     if (installDirOverride) {
         return [installDirOverride];

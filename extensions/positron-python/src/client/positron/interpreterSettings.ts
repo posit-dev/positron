@@ -35,7 +35,7 @@ import { SubstitutionResult, substituteWorkspaceFolder } from './settingVariable
  * If omitted, ignored paths are not logged.
  * @returns The absolute path, or undefined if the path is ignored
  */
-function resolveSettingPath(value: string, description?: string): string | undefined {
+export function resolveSettingPath(value: string, description?: string): string | undefined {
     const result = substituteWorkspaceFolder(value, getWorkspaceFolders()?.[0]?.uri.fsPath);
     if (result.resolved === false) {
         if (description) {

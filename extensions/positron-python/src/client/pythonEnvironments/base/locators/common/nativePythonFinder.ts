@@ -844,7 +844,11 @@ type ConfigurationOptions = {
 /**
  * Gets all custom virtual environment locations to look for environments.
  */
-function getCustomVirtualEnvDirs(): string[] {
+// --- Start Positron ---
+// Exported so the interpreter ranking reuses PET's resolution of venvPath and venvFolders.
+// function getCustomVirtualEnvDirs(): string[] {
+export function getCustomVirtualEnvDirs(): string[] {
+// --- End Positron ---
     const venvDirs: string[] = [];
     const venvPath = getPythonSettingAndUntildify<string>(VENVPATH_SETTING_KEY);
     if (venvPath) {
