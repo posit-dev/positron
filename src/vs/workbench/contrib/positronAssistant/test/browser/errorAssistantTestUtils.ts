@@ -26,7 +26,7 @@ export function registerTestErrorAssistant(ctx: IErrorAssistantTestContainer, ov
 		id: 'test-agent',
 		label: 'Test Agent',
 		supportsChatContinuation: true,
-		run: async () => { },
+		ask: async () => { },
 		...overrides,
 	}));
 }

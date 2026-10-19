@@ -24,10 +24,10 @@ describe('AssistantErrorQuickFix', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	const run = vi.fn();
+	const ask = vi.fn();
 
 	beforeEach(() => {
-		run.mockReset().mockResolvedValue(undefined);
+		ask.mockReset().mockResolvedValue(undefined);
 	});
 
 	const errorContext: IErrorAssistantContext = {
@@ -37,7 +37,7 @@ describe('AssistantErrorQuickFix', () => {
 
 	/** Register an assistant errors are sent to, and render the quick fix for it. */
 	function renderQuickFix(options: Partial<IErrorAssistant> = {}, overrides: Partial<ComponentProps<typeof AssistantErrorQuickFix>> = {}) {
-		registerTestErrorAssistant(ctx, { run, ...options });
+		registerTestErrorAssistant(ctx, { ask, ...options });
 		return rtl.render(
 			<AssistantErrorQuickFix
 				assistant={ctx.get(IErrorAssistantService).activeAssistant!}
@@ -62,7 +62,7 @@ describe('AssistantErrorQuickFix', () => {
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to explain in new chat' }));
 
-		expect(run.mock.calls).toEqual([
+		expect(ask.mock.calls).toEqual([
 			['fix', errorContext, { continueChat: false }],
 			['explain', errorContext, { continueChat: false }],
 		]);
@@ -74,7 +74,7 @@ describe('AssistantErrorQuickFix', () => {
 		await runDropdownAction(user, 'More fix options');
 		await runDropdownAction(user, 'More explain options');
 
-		expect(run.mock.calls).toEqual([
+		expect(ask.mock.calls).toEqual([
 			['fix', errorContext, { continueChat: true }],
 			['explain', errorContext, { continueChat: true }],
 		]);
@@ -87,7 +87,7 @@ describe('AssistantErrorQuickFix', () => {
 		error = 'fresh location';
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 
-		expect(run.mock.calls[0][1].error).toBe('fresh location');
+		expect(ask.mock.calls[0][1].error).toBe('fresh location');
 	});
 
 	it('names the assistant in the dropdown actions', async () => {

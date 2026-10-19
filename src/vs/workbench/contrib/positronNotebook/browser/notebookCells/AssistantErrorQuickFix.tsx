@@ -48,13 +48,13 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 
 	// Resolve the error context when a button is pressed (not at render time)
 	// so it reflects the error source's current location.
-	const run = useCallback((action: ErrorAssistantAction, continueChat: boolean) => {
-		return services.get(IErrorAssistantService).run(id, action, getErrorContext(), { continueChat });
+	const ask = useCallback((action: ErrorAssistantAction, continueChat: boolean) => {
+		return services.get(IErrorAssistantService).ask(id, action, getErrorContext(), { continueChat });
 	}, [services, id, getErrorContext]);
 
-	const pressedFixHandler = () => run('fix', false);
+	const pressedFixHandler = () => ask('fix', false);
 
-	const pressedExplainHandler = () => run('explain', false);
+	const pressedExplainHandler = () => ask('explain', false);
 
 	// Memoize dropdown actions for Fix button. None while the assistant can't
 	// continue the active chat, which hides the dropdown.
@@ -65,9 +65,9 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 			tooltip: localize('positronAssistantFixInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 			class: undefined,
 			enabled: true,
-			run: () => run('fix', true)
+			run: () => ask('fix', true)
 		}
-	] : [], [supportsChatContinuation, label, run]);
+	] : [], [supportsChatContinuation, label, ask]);
 
 	// Memoize dropdown actions for Explain button
 	const explainDropdownActions = useMemo((): IAction[] => supportsChatContinuation ? [
@@ -77,9 +77,9 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 			tooltip: localize('positronAssistantExplainInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 			class: undefined,
 			enabled: true,
-			run: () => run('explain', true)
+			run: () => ask('explain', true)
 		}
-	] : [], [supportsChatContinuation, label, run]);
+	] : [], [supportsChatContinuation, label, ask]);
 
 	// Tooltip strings
 	const fixTooltip = localize('positronErrorAssistantFixTooltip', "Ask {0} to fix in new chat", label);

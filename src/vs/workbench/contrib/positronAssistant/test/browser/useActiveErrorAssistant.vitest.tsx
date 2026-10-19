@@ -16,7 +16,7 @@ import { IErrorAssistant, IErrorAssistantInfo, IErrorAssistantService } from '..
 import { registerTestErrorAssistant } from './errorAssistantTestUtils.js';
 
 function createAssistant(id: string): IErrorAssistant {
-	return { id, label: id, supportsChatContinuation: true, run: async () => { } };
+	return { id, label: id, supportsChatContinuation: true, ask: async () => { } };
 }
 
 /** Renders the active assistant's label, and counts its renders. */

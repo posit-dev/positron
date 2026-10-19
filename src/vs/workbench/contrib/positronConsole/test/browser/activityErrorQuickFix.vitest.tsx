@@ -29,15 +29,15 @@ describe('ConsoleQuickFix', () => {
 
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	const run = vi.fn();
+	const ask = vi.fn();
 
 	beforeEach(() => {
-		run.mockReset().mockResolvedValue(undefined);
+		ask.mockReset().mockResolvedValue(undefined);
 	});
 
 	/** Register the assistant errors are sent to. */
 	function registerAssistant(options: Partial<IErrorAssistant> = {}) {
-		registerTestErrorAssistant(ctx, { run, ...options });
+		registerTestErrorAssistant(ctx, { ask, ...options });
 	}
 
 	it('sends the message and traceback to the active chat', async () => {
@@ -52,7 +52,7 @@ describe('ConsoleQuickFix', () => {
 			location: { kind: 'console' },
 		};
 		const options = { continueChat: true };
-		expect(run.mock.calls).toEqual([['fix', context, options], ['explain', context, options]]);
+		expect(ask.mock.calls).toEqual([['fix', context, options], ['explain', context, options]]);
 	});
 
 	it('sends only the message, untrimmed, when there is no traceback', async () => {
@@ -61,7 +61,7 @@ describe('ConsoleQuickFix', () => {
 		rtl.render(<ConsoleQuickFix outputLines={[line('1', '  Error: boom'), line('2', '')]} tracebackLines={[]} />);
 		await user.click(screen.getByText('Fix'));
 
-		expect(run.mock.calls[0][1].error).toBe('  Error: boom\n');
+		expect(ask.mock.calls[0][1].error).toBe('  Error: boom\n');
 	});
 
 	it('sends errors to a new chat when the assistant cannot continue the active chat', async () => {
@@ -70,7 +70,7 @@ describe('ConsoleQuickFix', () => {
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Fix'));
 
-		expect(run.mock.calls[0][2]).toEqual({ continueChat: false });
+		expect(ask.mock.calls[0][2]).toEqual({ continueChat: false });
 	});
 
 	it('offers only Fix and Explain', () => {

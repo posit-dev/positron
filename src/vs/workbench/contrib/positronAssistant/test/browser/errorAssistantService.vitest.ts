@@ -43,7 +43,7 @@ describe('ErrorAssistantService', () => {
 	}
 
 	function createAssistant(options: Partial<IErrorAssistant> = {}): IErrorAssistant {
-		return { id: 'test-agent', label: 'Test Agent', supportsChatContinuation: true, run: async () => { }, ...options };
+		return { id: 'test-agent', label: 'Test Agent', supportsChatContinuation: true, ask: async () => { }, ...options };
 	}
 
 	it('sends errors to an assistant while it is registered', () => {
@@ -108,32 +108,32 @@ describe('ErrorAssistantService', () => {
 
 	const context: IErrorAssistantContext = { error: 'boom', location: { kind: 'console' } };
 
-	it('runs the action with the assistant', async () => {
+	it('asks the assistant to take the action', async () => {
 		const service = createService();
-		const run = vi.fn().mockResolvedValue(undefined);
-		ctx.disposables.add(service.register(createAssistant({ run })));
+		const ask = vi.fn().mockResolvedValue(undefined);
+		ctx.disposables.add(service.register(createAssistant({ ask })));
 
-		await service.run('test-agent', 'fix', context, { continueChat: true });
+		await service.ask('test-agent', 'fix', context, { continueChat: true });
 
-		expect(run).toHaveBeenCalledWith('fix', context, { continueChat: true });
+		expect(ask).toHaveBeenCalledWith('fix', context, { continueChat: true });
 		expect(notifyError).not.toHaveBeenCalled();
 	});
 
 	it('does nothing while AI is disabled', async () => {
 		const service = createService();
-		const run = vi.fn().mockResolvedValue(undefined);
-		ctx.disposables.add(service.register(createAssistant({ run })));
+		const ask = vi.fn().mockResolvedValue(undefined);
+		ctx.disposables.add(service.register(createAssistant({ ask })));
 		setAIEnabled(false);
 
-		await service.run('test-agent', 'fix', context, {});
+		await service.ask('test-agent', 'fix', context, {});
 
-		expect(run).not.toHaveBeenCalled();
+		expect(ask).not.toHaveBeenCalled();
 	});
 
 	it('logs a warning when no assistant has the id', async () => {
 		const service = createService();
 
-		await service.run('removed', 'fix', context, {});
+		await service.ask('removed', 'fix', context, {});
 
 		expect(logWarn).toHaveBeenCalledWith(`No error assistant with the id 'removed' is registered`);
 		expect(notifyError).not.toHaveBeenCalled();
@@ -142,9 +142,9 @@ describe('ErrorAssistantService', () => {
 	it('logs and notifies, rather than throws, when the assistant fails', async () => {
 		const service = createService();
 		const error = new Error('command not found');
-		ctx.disposables.add(service.register(createAssistant({ run: () => Promise.reject(error) })));
+		ctx.disposables.add(service.register(createAssistant({ ask: () => Promise.reject(error) })));
 
-		await service.run('test-agent', 'explain', context, {});
+		await service.ask('test-agent', 'explain', context, {});
 
 		expect(logError).toHaveBeenCalledWith('Failed to send the error to Test Agent', error);
 		expect(notifyError).toHaveBeenCalledWith('Could not send the error to Test Agent: command not found');

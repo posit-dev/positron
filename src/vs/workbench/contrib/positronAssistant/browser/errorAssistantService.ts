@@ -61,7 +61,7 @@ export class ErrorAssistantService extends Disposable implements IErrorAssistant
 		});
 	}
 
-	async run(assistantId: string, action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions): Promise<void> {
+	async ask(assistantId: string, action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions): Promise<void> {
 		if (!this._isAIEnabled()) {
 			return;
 		}
@@ -71,7 +71,7 @@ export class ErrorAssistantService extends Disposable implements IErrorAssistant
 			return;
 		}
 		try {
-			await assistant.run(action, context, options);
+			await assistant.ask(action, context, options);
 		} catch (error) {
 			this._logService.error(`Failed to send the error to ${assistant.label}`, error);
 			this._notificationService.error(

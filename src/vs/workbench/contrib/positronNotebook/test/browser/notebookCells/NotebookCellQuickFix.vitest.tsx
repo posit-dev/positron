@@ -25,13 +25,13 @@ describe('NotebookCellQuickFix', () => {
 
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	const run = vi.fn();
+	const ask = vi.fn();
 
 	// Give errors somewhere to go, so only the notebook's own gates are tested.
 	let registration: IDisposable;
 	beforeEach(() => {
-		run.mockReset().mockResolvedValue(undefined);
-		registration = registerTestErrorAssistant(ctx, { run });
+		ask.mockReset().mockResolvedValue(undefined);
+		registration = registerTestErrorAssistant(ctx, { ask });
 	});
 
 	/** Set the quick fix's gates; each defaults to showing the buttons. */
@@ -54,7 +54,7 @@ describe('NotebookCellQuickFix', () => {
 		rtl.render(<NotebookCellQuickFix errorContent={'\u001b[31mNameError\u001b[0m: name "x" is not defined'} />);
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 
-		expect(run).toHaveBeenCalledWith('fix', { error: 'NameError: name "x" is not defined', location: { kind: 'notebook' } }, { continueChat: false });
+		expect(ask).toHaveBeenCalledWith('fix', { error: 'NameError: name "x" is not defined', location: { kind: 'notebook' } }, { continueChat: false });
 	});
 
 	it('shows the buttons before the notebook AI context key is bound', () => {

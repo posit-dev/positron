@@ -22,13 +22,13 @@ describe('QuartoOutputQuickFix', () => {
 
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	const run = vi.fn();
+	const ask = vi.fn();
 
 	// Give errors somewhere to go.
 	let registration: IDisposable;
 	beforeEach(() => {
-		run.mockReset().mockResolvedValue(undefined);
-		registration = registerTestErrorAssistant(ctx, { run });
+		ask.mockReset().mockResolvedValue(undefined);
+		registration = registerTestErrorAssistant(ctx, { ask });
 	});
 
 	function renderQuickFix(cellContext?: QuartoCellErrorContext) {
@@ -52,7 +52,7 @@ describe('QuartoOutputQuickFix', () => {
 		rtl.render(<QuartoOutputQuickFix errorContent='NameError: name "x" is not defined' onLayout={onLayout} />);
 		onLayout.mockClear();
 
-		act(() => { registerTestErrorAssistant(ctx, { run }); });
+		act(() => { registerTestErrorAssistant(ctx, { ask }); });
 
 		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
 		expect(onLayout).toHaveBeenCalled();
@@ -64,7 +64,7 @@ describe('QuartoOutputQuickFix', () => {
 		renderQuickFix({ uri, language: 'python', label: 'setup', code: 'raise RuntimeError("boom")', codeStartLine: 8, codeEndLine: 9 });
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 
-		expect(run).toHaveBeenCalledWith('fix', {
+		expect(ask).toHaveBeenCalledWith('fix', {
 			error: 'NameError: name "x" is not defined',
 			location: {
 				kind: 'quarto',
@@ -78,7 +78,7 @@ describe('QuartoOutputQuickFix', () => {
 		rtl.render(<QuartoOutputQuickFix errorContent={'\u001b[31mNameError\u001b[0m: x'} />);
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 
-		expect(run.mock.calls[0][1].error).toBe('NameError: x');
+		expect(ask.mock.calls[0][1].error).toBe('NameError: x');
 	});
 
 	it('sends the error without a chunk when it cannot be found', async () => {
@@ -86,6 +86,6 @@ describe('QuartoOutputQuickFix', () => {
 		renderQuickFix(undefined);
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 
-		expect(run).toHaveBeenCalledWith('fix', { error: 'NameError: name "x" is not defined', location: { kind: 'quarto', chunk: undefined } }, { continueChat: false });
+		expect(ask).toHaveBeenCalledWith('fix', { error: 'NameError: name "x" is not defined', location: { kind: 'quarto', chunk: undefined } }, { continueChat: false });
 	});
 });

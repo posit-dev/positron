@@ -78,7 +78,7 @@ export class PositAssistantErrorAssistantContribution extends Disposable impleme
 			id: POSIT_ASSISTANT_ERROR_ASSISTANT_ID,
 			label: localize('positronAssistantErrorAssistantLabel', "Posit Assistant"),
 			supportsChatContinuation: true,
-			run: async (action, context, options) => {
+			ask: async (action, context, options) => {
 				const pathLabel = (uri: URI) => this._labelService.getUriLabel(uri, { relative: true });
 				await this._commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, getPositAssistantChatOptions(action, context, options, pathLabel));
 			},

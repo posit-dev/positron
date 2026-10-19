@@ -93,7 +93,7 @@ describe('PositAssistantErrorAssistantContribution', () => {
 		createContribution();
 		const chunk = { uri: URI.file('/report.qmd'), languageId: 'python', code: 'x', startLine: 1, endLine: 1 };
 
-		await errorAssistantService.run('posit-assistant', 'fix', { error: 'boom', location: { kind: 'quarto', chunk } }, {});
+		await errorAssistantService.ask('posit-assistant', 'fix', { error: 'boom', location: { kind: 'quarto', chunk } }, {});
 
 		expect(executeCommand).toHaveBeenCalledWith(POSIT_NEW_CHAT_COMMAND, expect.objectContaining({
 			prompt: 'Fix the error from the python code chunk at lines 1-1 of report.qmd. The failing code and its error output are attached; fix only this error.',

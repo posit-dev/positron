@@ -42,14 +42,14 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 
 	// Continue the active chat when the assistant can, for follow-ups on
 	// earlier console work.
-	const run = (action: ErrorAssistantAction) => services.get(IErrorAssistantService).run(assistant.id, action, {
+	const ask = (action: ErrorAssistantAction) => services.get(IErrorAssistantService).ask(assistant.id, action, {
 		error: formatOutput(props.outputLines, props.tracebackLines),
 		location: { kind: 'console' },
 	}, { continueChat: assistant.supportsChatContinuation });
 
-	const pressedFixHandler = () => run('fix');
+	const pressedFixHandler = () => ask('fix');
 
-	const pressedExplainHandler = () => run('explain');
+	const pressedExplainHandler = () => ask('explain');
 
 	// Name the assistant errors are sent to.
 	const fixTooltip = localize('positronConsoleErrorAssistantFixTooltip', "Ask {0} to fix", assistant.label);

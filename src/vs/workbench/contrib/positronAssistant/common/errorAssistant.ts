@@ -84,10 +84,10 @@ export interface IErrorAssistantInfo {
  */
 export interface IErrorAssistant extends IErrorAssistantInfo {
 	/**
-	 * Take the action on the error. Reject on failure; the service reports it
-	 * to the user.
+	 * Ask the assistant to take the action on the error. Reject on failure;
+	 * the service reports it to the user.
 	 */
-	run(action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions): Promise<void>;
+	ask(action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions): Promise<void>;
 }
 
 export const IErrorAssistantService = createDecorator<IErrorAssistantService>('errorAssistantService');
@@ -113,10 +113,10 @@ export interface IErrorAssistantService {
 	register(assistant: IErrorAssistant): IDisposable;
 
 	/**
-	 * Take an action on an error with an assistant. Does nothing while
+	 * Ask an assistant to take an action on an error. Does nothing while
 	 * `ai.enabled` is off or when no assistant has the id. Logs and notifies
 	 * the user on failure; never rejects.
 	 * @param assistantId The id of the assistant the user saw named.
 	 */
-	run(assistantId: string, action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions): Promise<void>;
+	ask(assistantId: string, action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions): Promise<void>;
 }
