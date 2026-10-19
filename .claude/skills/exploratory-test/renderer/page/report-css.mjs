@@ -742,7 +742,7 @@ span.rt-file{color:var(--body)}
 /* On a finding card the row sits over the steps: its text on the step text, its P over the digits. */
 .f-pl{list-style:none;margin:0 0 10px 20px;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:1.6;color:var(--body)}
 .f-pl li{position:relative}
-.f-pl-p{position:absolute;right:calc(100% + 8px);top:0;font-size:13px;color:var(--faint)}
+.f-pl-p{position:absolute;right:calc(100% + 8px);top:0;font-size:13px;color:var(--faint);cursor:help}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
 /* The screenshot icon supports the check: faint at rest, ink on hover or focus */
 .st-ev{color:var(--st-ev);white-space:nowrap;padding:2px 3px;margin-left:3px;border-radius:4px;cursor:zoom-in;transition:color .15s ease}
