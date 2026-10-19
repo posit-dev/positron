@@ -310,6 +310,7 @@ async function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[])
         // realpath is not the interpreter they run. Omitted (not undefined) when
         // absent so deep-equality comparisons of envs are unaffected.
         ...(nativeEnv.symlinks && { symlinks: nativeEnv.symlinks }),
+        ...(nativeEnv.kind && { nativeKind: nativeEnv.kind }),
         // --- End Positron ---
         detailedDisplayName: displayName,
         display: displayName,
@@ -342,6 +343,11 @@ function hasChanged(old: PythonEnvInfo, newEnv: PythonEnvInfo): boolean {
     if (old.arch !== newEnv.arch) {
         return true;
     }
+    // --- Start Positron ---
+    if (old.nativeKind !== newEnv.nativeKind) {
+        return true;
+    }
+    // --- End Positron ---
 
     return false;
 }

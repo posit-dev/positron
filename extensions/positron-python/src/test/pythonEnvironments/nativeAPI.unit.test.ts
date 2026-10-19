@@ -75,6 +75,9 @@ suite('Native Python API', () => {
         executable: { filename: '/usr/bin/python', sysPrefix: '/usr/bin', ctime: -1, mtime: -1 },
         kind: PythonEnvKind.System,
         location: '/usr/bin/python',
+        // --- Start Positron ---
+        nativeKind: NativePythonEnvironmentKind.LinuxGlobal,
+        // --- End Positron ---
         source: [],
         name: 'basic_python',
         type: undefined,
@@ -125,6 +128,9 @@ suite('Native Python API', () => {
             mtime: -1,
         },
         kind: PythonEnvKind.Conda,
+        // --- Start Positron ---
+        nativeKind: NativePythonEnvironmentKind.Conda,
+        // --- End Positron ---
         location: '/home/user/.conda/envs/conda_python',
         source: [],
         name: 'conda_python',
@@ -145,6 +151,9 @@ suite('Native Python API', () => {
             mtime: -1,
         },
         kind: PythonEnvKind.Conda,
+        // --- Start Positron ---
+        nativeKind: NativePythonEnvironmentKind.Conda,
+        // --- End Positron ---
         location: '/home/user/.conda/envs/conda_python',
         source: [],
         name: 'conda_python',
@@ -200,6 +209,35 @@ suite('Native Python API', () => {
         const actual = api.getEnvs();
         assert.deepEqual(actual, [expectedBasicEnv]);
     });
+
+    // --- Start Positron ---
+    test('Keeps the PET kind of a system interpreter', async () => {
+        const homebrew: NativeEnvInfo = {
+            displayName: 'Python 3.13',
+            executable: '/opt/homebrew/bin/python3.13',
+            kind: NativePythonEnvironmentKind.Homebrew,
+            version: '3.13.1',
+            prefix: '/opt/homebrew/opt/python@3.13/Frameworks/Python.framework/Versions/3.13',
+        };
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [homebrew];
+                }
+                return generator();
+            })
+            .verifiable(typemoq.Times.once());
+
+        await api.triggerRefresh();
+        const [env] = api.getEnvs();
+
+        assert.deepEqual(
+            { kind: env.kind, nativeKind: env.nativeKind },
+            { kind: PythonEnvKind.System, nativeKind: NativePythonEnvironmentKind.Homebrew },
+        );
+    });
+    // --- End Positron ---
 
     test('Trigger refresh with resolve', async () => {
         mockFinder

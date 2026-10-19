@@ -92,6 +92,11 @@ function convertEnvInfo(info: PythonEnvInfo): PythonEnvironment {
     env.displayName = info.display;
     env.detailedDisplayName = info.detailedDisplayName;
     env.type = info.type;
+    // --- Start Positron ---
+    if (info.nativeKind) {
+        env.nativeKind = info.nativeKind;
+    }
+    // --- End Positron ---
     // We do not worry about using distro.defaultDisplayName.
 
     return env;
