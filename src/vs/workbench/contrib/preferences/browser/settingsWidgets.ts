@@ -174,9 +174,6 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 	protected readonly _onDidChangeList = this._register(new Emitter<SettingListEvent<TDataItem>>());
 	protected readonly model = new ListSettingListModel<TDataItem>(this.getEmptyItem());
 	protected readonly listDisposables = this._register(new DisposableStore());
-	// --- Start Positron ---
-	private restoringFocus = false;
-	// --- End Positron ---
 
 	readonly onDidChangeList: Event<SettingListEvent<TDataItem>> = this._onDidChangeList.event;
 
@@ -260,13 +257,7 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 	}
 
 	protected renderList(): void {
-		// --- Start Positron ---
-		// The settings tree re-renders twice in a row after a save; the second
-		// render must not drop the refocus the first one scheduled.
-		// const focused = DOM.isAncestorOfActiveElement(this.listElement);
-		const focused = DOM.isAncestorOfActiveElement(this.listElement) || this.restoringFocus;
-		this.restoringFocus = false;
-		// --- End Positron ---
+		const focused = DOM.isAncestorOfActiveElement(this.listElement);
 
 		DOM.clearNode(this.listElement);
 		this.listDisposables.clear();
@@ -288,6 +279,13 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 
 		this.rowElements = this.model.items.map((item, i) => this.renderDataOrEditItem(item, i, focused));
 		this.rowElements.forEach(rowElement => this.listElement.appendChild(rowElement));
+		// --- Start Positron ---
+		// Refocus now rather than on a timeout: the settings tree re-renders the list
+		// twice after a save, and the second render would cancel the timeout.
+		if (focused && this.listElement.isConnected) {
+			this.rowElements.find(row => row.classList.contains('selected'))?.focus();
+		}
+		// --- End Positron ---
 
 	}
 
@@ -365,14 +363,7 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 		this.addTooltipsToRow(rowElementGroup, item);
 
 		if (item.selected && listFocused) {
-			// --- Start Positron ---
-			// disposableTimeout(() => rowElement.focus(), undefined, this.listDisposables);
-			this.restoringFocus = true;
-			disposableTimeout(() => {
-				this.restoringFocus = false;
-				rowElement.focus();
-			}, undefined, this.listDisposables);
-			// --- End Positron ---
+			disposableTimeout(() => rowElement.focus(), undefined, this.listDisposables);
 		}
 
 		this.listDisposables.add(DOM.addDisposableListener(rowElement, 'click', (e) => {

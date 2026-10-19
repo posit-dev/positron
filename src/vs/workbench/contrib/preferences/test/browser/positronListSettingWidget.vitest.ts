@@ -147,7 +147,7 @@ describe('ListSettingWidget reordering', () => {
 		// What the settings tree does once the setting saves.
 		widget.cancelEdit();
 		widget.setValue(['b', 'a', 'c'].map(data => ({ value: { type: 'string', data } })), { reorderOnly: true });
-		await timeout(0);
+		// Without waiting: a frame with focus outside the list flashes the setting's border.
 		expect(rows()[1]).toHaveFocus();
 	});
 
