@@ -92,7 +92,7 @@ jobs:
       fail-fast: false
       matrix:
         # Run pyright on the oldest and most recent versions of Python.
-        python: ['3.9', '3.14']
+        python: ['3.9', '3.15']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -120,6 +120,13 @@ jobs:
           uv pip install --upgrade -r build/test-requirements.txt
           uv sync --active --inexact --frozen --project python_files/posit
 
+      # Some optional packages aren't installed on 3.15 yet (see posit/pyproject.toml),
+      # so report their imports as warnings there. 3.9 still fails on missing imports.
+      - name: Allow missing imports on Python 3.15
+        if: matrix.python == '3.15'
+        run: sed -i '/^\[tool.pyright\]/a reportMissingImports = "warning"' pyproject.toml
+        working-directory: ${{ env.PYTHON_SRC_DIR }}
+
       - name: Run Pyright
         uses: jakebailey/pyright-action@8ec14b5cfe41f26e5f41686a31eb6012758217ef # v3.0.2
         with:
@@ -138,7 +145,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Run the tests on the oldest and most recent versions of Python.
-        python: ['3.9', '3.14']
+        python: ['3.9', '3.15']
 
     steps:
       - name: Checkout
@@ -191,6 +198,8 @@ jobs:
             python: '3.13'
           - os: 'ubuntu-latest'
             python: '3.14'
+          - os: 'ubuntu-latest'
+            python: '3.15'
     env:
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
