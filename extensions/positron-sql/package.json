@@ -20,6 +20,15 @@
     "configuration": {
       "title": "%configuration.title%",
       "properties": {
+        "sql.enabled": {
+          "type": "boolean",
+          "default": false,
+          "order": 0,
+          "markdownDescription": "%configuration.enabled.description%",
+          "tags": [
+            "experimental"
+          ]
+        },
         "sql.dialect": {
           "type": "string",
           "default": "",

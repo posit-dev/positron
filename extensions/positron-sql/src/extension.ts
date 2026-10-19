@@ -13,19 +13,49 @@ import { SqlStatementRangeProvider } from './statementRange';
 /** The configuration section every setting this extension reads lives under. */
 const CONFIGURATION_SECTION = 'sql';
 
+/** The setting, under {@link CONFIGURATION_SECTION}, that turns every feature on. Off by default. */
+const ENABLED_SETTING = 'enabled';
+
 /** The compiled analyzer, built from `sql-analyzer/` and committed; see scripts/build-analyzer.mts. */
 const ANALYZER_MODULE = path.join('resources', 'sql-analyzer.wasm');
 
 /** Documents this extension provides features for: every SQL document, whatever its scheme. */
 const SQL_DOCUMENTS: vscode.DocumentSelector = { language: 'sql' };
 
+/**
+ * Activation only watches `sql.enabled`. Everything else -- the output channel, the providers,
+ * the analyzer -- is created when it is turned on and torn down when it is turned off, so with
+ * the setting off the extension loads nothing. No reload is needed either way.
+ */
 export function activate(context: vscode.ExtensionContext): void {
-	const log = vscode.window.createOutputChannel('SQL', { log: true });
-	context.subscriptions.push(log);
+	let log: vscode.LogOutputChannel | undefined;
+	let session: SqlSession | undefined;
 
-	const session = new SqlSession(context, log);
-	context.subscriptions.push(session);
-	session.start();
+	const update = () => {
+		const enabled = vscode.workspace.getConfiguration(CONFIGURATION_SECTION)
+			.get<boolean>(ENABLED_SETTING) === true;
+		if (enabled && !session) {
+			if (!log) {
+				log = vscode.window.createOutputChannel('SQL', { log: true });
+				context.subscriptions.push(log);
+			}
+			session = new SqlSession(context, log);
+			session.start();
+		} else if (!enabled && session) {
+			session.dispose();
+			session = undefined;
+		}
+	};
+
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration(event => {
+			if (event.affectsConfiguration(`${CONFIGURATION_SECTION}.${ENABLED_SETTING}`)) {
+				update();
+			}
+		}),
+		{ dispose: () => session?.dispose() },
+	);
+	update();
 }
 
 export function deactivate(): void { }
