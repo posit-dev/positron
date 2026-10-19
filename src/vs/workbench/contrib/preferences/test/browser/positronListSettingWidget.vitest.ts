@@ -28,8 +28,8 @@ describe('ListSettingWidget reordering', () => {
 	it('does not cancel pointerdown on a draggable row, so a native drag can start', () => {
 		const { rows } = createWidget(['a', 'b'], false);
 		const event = new PointerEvent('pointerdown', { bubbles: true, cancelable: true });
-		rows()[1].dispatchEvent(event);
 		expect(rows()[1].draggable).toBe(true);
+		rows()[1].dispatchEvent(event);
 		expect(event.defaultPrevented).toBe(false);
 	});
 

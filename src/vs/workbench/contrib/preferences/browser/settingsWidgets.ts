@@ -449,7 +449,7 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 	}
 
 	// --- Start Positron ---
-	/** Returns true if the widget handled the move. */
+	/** Returns true if the widget consumed the key, even when the row is already at the edge and nothing moved. */
 	protected moveSelectedRow(_delta: number): boolean {
 		return false;
 	}

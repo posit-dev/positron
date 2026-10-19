@@ -7,9 +7,11 @@
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { getLanguageOrderSchema } from '../../../../services/languageRuntime/common/languageOrderConfiguration.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { LanguageOrderContribution } from '../../browser/languageOrderContribution.js';
 
 describe('LanguageOrderContribution', () => {
@@ -47,7 +49,16 @@ describe('LanguageOrderContribution', () => {
 		expect(items().ids).toEqual(['julia', 'python', 'r']);
 	});
 
-	it('falls back to the runtime language name, then the ID', () => {
+	it('falls back to the runtime language name', () => {
+		languageIds = ['zig'];
+		vi.spyOn(ctx.get(ILanguageRuntimeService), 'registeredRuntimes', 'get').mockReturnValue([
+			stubInterface<ILanguageRuntimeMetadata>({ languageId: 'zig', languageName: 'Zig Language' }),
+		]);
+		ctx.disposables.add(ctx.instantiationService.createInstance(LanguageOrderContribution));
+		expect(items().labels).toEqual(['Zig Language']);
+	});
+
+	it('falls back to the ID when no runtime names the language', () => {
 		languageIds = ['zig'];
 		ctx.disposables.add(ctx.instantiationService.createInstance(LanguageOrderContribution));
 		expect(items().labels).toEqual(['zig']);
