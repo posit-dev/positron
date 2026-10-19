@@ -283,10 +283,11 @@ suite('MainThreadAuthentication Copilot grant', () => {
 	const account = { id: 'account-1', label: 'Account 1' };
 	const session = { id: 'session-1', accessToken: 'token', account, scopes: ['read:user'] };
 
-	/** Builds an instance with GitHub registered and no trusted extensions. */
+	/** Builds an instance with GitHub registered and Assistant trusted for it, as in product.json. */
 	async function setup({ existingSession = false } = {}) {
-		const productService = { ...TestProductService, trustedExtensionAuthAccess: {} };
-		const { mainThreadAuthentication: mta, instantiationService, rpcProtocol: rpc } = createMainThreadAuthentication(disposables, { productService });
+		const dialogService = new RecordingDialogService({ confirmed: true });
+		const productService = { ...TestProductService, trustedExtensionAuthAccess: { github: [assistantId] } };
+		const { mainThreadAuthentication: mta, instantiationService, rpcProtocol: rpc } = createMainThreadAuthentication(disposables, { dialogService, productService });
 		rpc.set(ExtHostContext.ExtHostAuthentication, {
 			$onDidUnregisterAuthenticationProvider: () => Promise.resolve(),
 			$getSessions: () => Promise.resolve(existingSession ? [session] : []),
@@ -302,27 +303,24 @@ suite('MainThreadAuthentication Copilot grant', () => {
 		});
 		await mta.$registerAuthenticationProvider({ id: 'github', label: 'GitHub', supportsMultipleAccounts: false });
 		const accessService = instantiationService.get(IAuthenticationAccessService);
-		if (existingSession) {
-			// The user already allowed Assistant to use this account.
-			accessService.updateAllowedExtensions('github', account.label, [{ id: assistantId, name: assistantId, allowed: true }]);
-		}
 		return {
 			getSession: (extensionId: string, options: AuthenticationGetSessionOptions) =>
 				mta.$getSession('github', ['read:user'], extensionId, extensionId, options),
 			copilotAllowed: () => accessService.isAccessAllowed('github', account.label, 'GitHub.copilot-chat') === true,
+			promptCount: () => dialogService.promptCallCount,
 		};
 	}
 
-	test('grants Copilot Chat when Assistant signs in to GitHub', async () => {
-		const { getSession, copilotAllowed } = await setup();
-		await getSession(assistantId, { createIfNone: true });
-		assert.strictEqual(copilotAllowed(), true);
+	test('grants Copilot Chat without a consent prompt when Assistant signs in to GitHub', async () => {
+		const { getSession, copilotAllowed, promptCount } = await setup();
+		assert.ok(await getSession(assistantId, { createIfNone: true }), 'expected a new session');
+		assert.deepStrictEqual({ copilot: copilotAllowed(), prompts: promptCount() }, { copilot: true, prompts: 0 });
 	});
 
-	test('grants Copilot Chat when Assistant interactively reuses an existing session', async () => {
-		const { getSession, copilotAllowed } = await setup({ existingSession: true });
-		await getSession(assistantId, { createIfNone: true });
-		assert.strictEqual(copilotAllowed(), true);
+	test('grants Copilot Chat without a consent prompt when Assistant interactively reuses an existing session', async () => {
+		const { getSession, copilotAllowed, promptCount } = await setup({ existingSession: true });
+		assert.ok(await getSession(assistantId, { createIfNone: true }), 'expected the existing session');
+		assert.deepStrictEqual({ copilot: copilotAllowed(), prompts: promptCount() }, { copilot: true, prompts: 0 });
 	});
 
 	test('does not grant Copilot Chat for a silent lookup', async () => {
