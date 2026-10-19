@@ -151,4 +151,38 @@ describe('ListSettingWidget reordering', () => {
 		expect(events).toEqual([]);
 		expect(event.defaultPrevented).toBe(false);
 	});
+
+	describe('reorderOnly', () => {
+		function createReorderOnly(values: string[]) {
+			const result = createWidget(values);
+			result.widget.setValue(values.map(data => ({ value: { type: 'string', data } })), { reorderOnly: true, showAddButton: true });
+			return result;
+		}
+
+		it('shows only the move buttons', () => {
+			const { rows } = createReorderOnly(['a', 'b']);
+			// eslint-disable-next-line no-restricted-syntax -- action bar items have no roles or test ids
+			const labels = Array.from(rows()[0].querySelectorAll('.action-label')).map(el => el.getAttribute('aria-label'));
+			expect(labels).toEqual(['Move Up', 'Move Down']);
+		});
+
+		it('hides the Add button', () => {
+			const { container } = createReorderOnly(['a', 'b']);
+			expect(container).toHaveClass('setting-list-hide-add-button');
+		});
+
+		it('does not edit on double-click', () => {
+			const { rows, container } = createReorderOnly(['a', 'b']);
+			rows()[0].dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+			// eslint-disable-next-line no-restricted-syntax -- upstream widget has no roles or test ids
+			expect(container.querySelector('.setting-list-edit-row')).toBeNull();
+		});
+
+		it('shows the enum label instead of the raw value', () => {
+			const { widget, rows } = createWidget([]);
+			widget.setValue([{ value: { type: 'enum', data: 'r', options: [{ value: 'r', label: 'R' }] } }], { reorderOnly: true });
+			// eslint-disable-next-line no-restricted-syntax -- upstream widget has no roles or test ids
+			expect(rows()[0].querySelector('.setting-list-value')).toHaveTextContent('R');
+		});
+	});
 });

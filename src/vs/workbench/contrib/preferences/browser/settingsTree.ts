@@ -71,6 +71,9 @@ import { SettingsTarget } from './preferencesWidgets.js';
 import { ISettingOverrideClickEvent, SettingsTreeIndicatorsLabel, getIndicatorsLabelAriaLabel } from './settingsEditorSettingIndicators.js';
 import { ITOCEntry, ITOCFilter } from './settingsLayout.js';
 import { ISettingsEditorViewState, SettingsTreeElement, SettingsTreeGroupChild, SettingsTreeGroupElement, SettingsTreeNewExtensionsElement, SettingsTreeSettingElement, inspectSetting, objectSettingSupportsRemoveDefaultValue, settingKeyToDisplayFormat } from './settingsTreeModels.js';
+// --- Start Positron ---
+import { isReorderOnlyList, withMissingValues } from '../common/positronReorderOnlyList.js';
+// --- End Positron ---
 import { ExcludeSettingWidget, IBoolObjectDataItem, IIncludeExcludeDataItem, IListDataItem, IObjectDataItem, IObjectEnumOption, IObjectKeySuggester, IObjectValueSuggester, IncludeSettingWidget, ListSettingWidget, ObjectSettingCheckboxWidget, ObjectSettingDropdownWidget, ObjectValue, SettingListEvent } from './settingsWidgets.js';
 
 const $ = DOM.$;
@@ -431,11 +434,17 @@ function getListDisplayValue(element: SettingsTreeSettingElement): IListDataItem
 			enumOptions = element.setting.enum.map((setting, i) => {
 				return {
 					value: setting,
+					// --- Start Positron ---
+					label: element.setting.enumItemLabels?.[i],
+					// --- End Positron ---
 					description: element.setting.enumDescriptions?.[i]
 				};
 			});
 		}
-		return element.value.map((key: string) => {
+		// --- Start Positron ---
+		// return element.value.map((key: string) => {
+		return withMissingValues(element.setting.key, element.setting.enum, element.value).map((key: string) => {
+			// --- End Positron ---
 			return {
 				value: {
 					type: 'enum',
@@ -1369,6 +1378,10 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 			} else if (Array.isArray(template.context.value)) {
 				newValue = [...template.context.value];
 			}
+			// --- Start Positron ---
+			// Row indexes include the filled-in values, so splice the same list.
+			newValue = withMissingValues(template.context.setting.key, template.context.setting.enum, newValue);
+			// --- End Positron ---
 
 			if (e.type === 'move') {
 				// A drag and drop occurred
@@ -1417,6 +1430,9 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 		const keySuggester = dataElement.setting.enum ? createArraySuggester(dataElement) : undefined;
 		template.listWidget.setValue(value, {
 			showAddButton: getShowAddButtonList(dataElement, value),
+			// --- Start Positron ---
+			reorderOnly: isReorderOnlyList(dataElement.setting.key),
+			// --- End Positron ---
 			keySuggester
 		});
 		template.context = dataElement;

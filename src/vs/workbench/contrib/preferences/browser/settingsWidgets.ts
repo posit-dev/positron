@@ -469,6 +469,9 @@ interface IListSetValueOptions {
 	showAddButton?: boolean;
 	keySuggester?: IObjectKeySuggester;
 	isReadOnly?: boolean;
+	// --- Start Positron ---
+	reorderOnly?: boolean;
+	// --- End Positron ---
 }
 
 export interface IListDataItem {
@@ -486,11 +489,18 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 	private keyValueSuggester: IObjectKeySuggester | undefined;
 	private showAddButton: boolean = true;
 	private isEditable: boolean = true;
+	// --- Start Positron ---
+	private reorderOnly = false;
+	// --- End Positron ---
 
 	override setValue(listData: TListDataItem[], options?: IListSetValueOptions) {
 		this.keyValueSuggester = options?.keySuggester;
 		this.isEditable = options?.isReadOnly === undefined ? true : !options.isReadOnly;
-		this.showAddButton = this.isEditable ? (options?.showAddButton ?? true) : false;
+		// --- Start Positron ---
+		this.reorderOnly = !!options?.reorderOnly;
+		// this.showAddButton = this.isEditable ? (options?.showAddButton ?? true) : false;
+		this.showAddButton = this.isEditable && !this.reorderOnly ? (options?.showAddButton ?? true) : false;
+		// --- End Positron ---
 		super.setValue(listData);
 	}
 
@@ -574,10 +584,24 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 	}
 	// --- End Positron ---
 
+	// --- Start Positron ---
+	// Covers double-click, which edits the row directly.
+	protected override editSetting(idx: number): void {
+		if (!this.reorderOnly) {
+			super.editSetting(idx);
+		}
+	}
+	// --- End Positron ---
+
 	protected getActionsForItem(item: TListDataItem, idx: number): IAction[] {
 		if (this.isReadOnly) {
 			return [];
 		}
+		// --- Start Positron ---
+		if (this.reorderOnly) {
+			return this.getMoveActions(item, idx);
+		}
+		// --- End Positron ---
 		return [
 			// --- Start Positron ---
 			...(this.isReorderable() ? this.getMoveActions(item, idx) : []),
@@ -611,7 +635,10 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 		const valueElement = DOM.append(rowElement, $('.setting-list-value'));
 		const siblingElement = DOM.append(rowElement, $('.setting-list-sibling'));
 
-		valueElement.textContent = item.value.data.toString();
+		// --- Start Positron ---
+		// valueElement.textContent = item.value.data.toString();
+		valueElement.textContent = (item.value.type === 'enum' ? item.value.options.find(o => o.value === item.value.data)?.label : undefined) ?? item.value.data.toString();
+		// --- End Positron ---
 		if (item.sibling) {
 			siblingElement.textContent = `when: ${item.sibling}`;
 		} else {
@@ -960,6 +987,9 @@ interface IObjectStringData {
 
 export interface IObjectEnumOption {
 	value: string;
+	// --- Start Positron ---
+	label?: string;
+	// --- End Positron ---
 	description?: string;
 }
 
