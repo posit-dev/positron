@@ -10,4 +10,6 @@
 [toolchain]
 channel = "1.97.1"
 profile = "minimal"
+# The minimal profile leaves these out, and CI runs both.
+components = ["rustfmt", "clippy"]
 targets = ["wasm32-unknown-unknown"]

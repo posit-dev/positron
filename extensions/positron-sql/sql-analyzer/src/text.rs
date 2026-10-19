@@ -55,7 +55,11 @@ impl TextIndex {
             ends.push(start + utf16_len(content));
             starts.push(start + utf16_len(body));
         }
-        Self { lines, starts, ends }
+        Self {
+            lines,
+            starts,
+            ends,
+        }
     }
 
     /// The offset of the end of the document, in UTF-16 code units.
@@ -171,7 +175,11 @@ mod tests {
         // units, which is what an editor offset counts.
         let text = "SELECT '\u{1F600}', x";
         assert_eq!(offset(text, 1, 8), Some(7), "the opening quote");
-        assert_eq!(offset(text, 1, 12), Some(12), "the comma, two units past the emoji");
+        assert_eq!(
+            offset(text, 1, 12),
+            Some(12),
+            "the comma, two units past the emoji"
+        );
         assert_eq!(u32::try_from(text.encode_utf16().count()).unwrap(), 14);
     }
 
@@ -179,7 +187,11 @@ mod tests {
     fn a_column_past_the_end_of_its_line_clamps_to_the_line() {
         // What the tokenizer reports for a token that ran to the end of a line.
         let text = "SELECT 1\nSELECT 2";
-        assert_eq!(offset(text, 1, 999), Some(9), "the end of line one, newline included");
+        assert_eq!(
+            offset(text, 1, 999),
+            Some(9),
+            "the end of line one, newline included"
+        );
     }
 
     #[test]
@@ -204,8 +216,16 @@ mod tests {
         let index = TextIndex::new("SELECT 1;\nSELECT 22;\r\nSELECT 3");
         assert_eq!(index.line_end(0), 9, "before the newline");
         assert_eq!(index.line_end(1), 20, "before the carriage return");
-        assert_eq!(index.line_end(2), 30, "the last line ends with the document");
-        assert_eq!(index.line_end(99), 30, "a line that does not exist cannot run past the end");
+        assert_eq!(
+            index.line_end(2),
+            30,
+            "the last line ends with the document"
+        );
+        assert_eq!(
+            index.line_end(99),
+            30,
+            "a line that does not exist cannot run past the end"
+        );
     }
 
     #[test]
@@ -214,14 +234,26 @@ mod tests {
         // the text it was placed in is not. Checked at every position a cursor can be, which is
         // every character boundary: an offset between the two halves of a surrogate pair is not
         // one, and nothing on either side of the boundary can produce one.
-        for text in ["SELECT 1", "SELECT 1;\nSELECT 2", "SELECT '\u{1F600}', x\nFROM t"] {
+        for text in [
+            "SELECT 1",
+            "SELECT 1;\nSELECT 2",
+            "SELECT '\u{1F600}', x\nFROM t",
+        ] {
             let index = TextIndex::new(text);
             let mut at = 0u32;
             for character in text.chars() {
-                assert_eq!(index.offset(index.location(at)), Some(at), "{text:?} at {at}");
+                assert_eq!(
+                    index.offset(index.location(at)),
+                    Some(at),
+                    "{text:?} at {at}"
+                );
                 at += character.len_utf16() as u32;
             }
-            assert_eq!(index.offset(index.location(at)), Some(index.end()), "{text:?} at the end");
+            assert_eq!(
+                index.offset(index.location(at)),
+                Some(index.end()),
+                "{text:?} at the end"
+            );
         }
     }
 

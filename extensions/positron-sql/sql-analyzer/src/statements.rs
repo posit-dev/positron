@@ -99,7 +99,10 @@ pub fn split(text: &str, dialect: &dyn Dialect, index: &TextIndex) -> Tokenized 
 
     for token in tokens {
         if matches!(token.token, Token::SemiColon) {
-            let end = index.span(token.span).map(|(_, end)| end).unwrap_or(last_end);
+            let end = index
+                .span(token.span)
+                .map(|(_, end)| end)
+                .unwrap_or(last_end);
             flush(&mut statements, &mut current, end, true, index);
             last_end = end;
             continue;
@@ -156,7 +159,10 @@ fn tokenize(
 
         // Where the construct begins is read off the tokens rather than off the error, whose
         // location is the construct for a quote but the end of the document for a comment.
-        let at = tokens.last().map(|token| token.span.end).unwrap_or(failure.location);
+        let at = tokens
+            .last()
+            .map(|token| token.span.end)
+            .unwrap_or(failure.location);
         let start = index.offset(at).unwrap_or(0);
 
         if previous == Some(start) {
@@ -187,8 +193,16 @@ fn tokenize(
         };
 
         let line = (at.line.saturating_sub(1)) as usize;
-        let end = if on_its_line { index.line_end(line) } else { index.end() };
-        let insert = if on_its_line { line_end(&source, byte) } else { source.len() };
+        let end = if on_its_line {
+            index.line_end(line)
+        } else {
+            index.end()
+        };
+        let insert = if on_its_line {
+            line_end(&source, byte)
+        } else {
+            source.len()
+        };
         source.to_mut().insert_str(insert, &closer);
         errors.push(TokenizeError {
             message: failure.message,
@@ -249,7 +263,13 @@ fn byte_at(source: &str, location: Location) -> Option<usize> {
         at += source[at..].find('\n')? + 1;
     }
     let column = (location.column - 1) as usize;
-    Some(at + source[at..].chars().take(column).map(char::len_utf8).sum::<usize>())
+    Some(
+        at + source[at..]
+            .chars()
+            .take(column)
+            .map(char::len_utf8)
+            .sum::<usize>(),
+    )
 }
 
 /// The byte index of the end of the line a byte index falls on, its line break excluded.
@@ -284,7 +304,10 @@ fn flush(
         .unwrap_or(0);
     let mut tokens = std::mem::take(current);
     let visualise = visualise_at(&tokens).map(|at| {
-        let offset = index.span(tokens[at].span).map(|(offset, _)| offset).unwrap_or(start);
+        let offset = index
+            .span(tokens[at].span)
+            .map(|(offset, _)| offset)
+            .unwrap_or(start);
         tokens.truncate(at);
         offset
     });

@@ -22,7 +22,10 @@ fn statements(response: &Value, text: &str) -> Vec<(String, bool)> {
         .expect("statements are an array")
         .iter()
         .map(|statement| {
-            (support::slice(text, statement), statement["terminated"].as_bool().unwrap_or(false))
+            (
+                support::slice(text, statement),
+                statement["terminated"].as_bool().unwrap_or(false),
+            )
         })
         .collect()
 }
@@ -62,7 +65,10 @@ fn a_semicolon_inside_a_dollar_quoted_body_does_not_split() {
 
 #[test]
 fn a_semicolon_inside_a_comment_does_not_split() {
-    assert_eq!(split("SELECT 1 -- a; b\n+ 2"), [("SELECT 1 -- a; b\n+ 2".into(), false)]);
+    assert_eq!(
+        split("SELECT 1 -- a; b\n+ 2"),
+        [("SELECT 1 -- a; b\n+ 2".into(), false)]
+    );
 }
 
 #[test]
@@ -88,14 +94,20 @@ fn a_statement_ends_at_its_semicolon_not_at_the_whitespace_after_it() {
 
 #[test]
 fn a_trailing_comment_is_not_swallowed_by_the_statement_above_it() {
-    assert_eq!(split("SELECT 1;\n-- afterwards"), [("SELECT 1;".into(), true)]);
+    assert_eq!(
+        split("SELECT 1;\n-- afterwards"),
+        [("SELECT 1;".into(), true)]
+    );
 }
 
 #[test]
 fn a_trailing_comment_is_not_swallowed_by_an_unterminated_statement_above_it() {
     // The range is what Cmd+Enter sends to the console, so the comment lines below must not ride
     // along with it.
-    assert_eq!(split("SELECT 1\n-- afterwards\n"), [("SELECT 1".into(), false)]);
+    assert_eq!(
+        split("SELECT 1\n-- afterwards\n"),
+        [("SELECT 1".into(), false)]
+    );
     assert_eq!(split("SELECT 1 /* note */"), [("SELECT 1".into(), false)]);
 }
 
@@ -119,7 +131,10 @@ fn an_unterminated_quote_does_not_swallow_the_statements_below_it() {
     assert_eq!(
         split("SELECT *\nFROM t\nWHERE a = 'oops\n  AND b = 1;\nSELECT 2;\nSELECT 3;"),
         [
-            ("SELECT *\nFROM t\nWHERE a = 'oops\n  AND b = 1;".into(), true),
+            (
+                "SELECT *\nFROM t\nWHERE a = 'oops\n  AND b = 1;".into(),
+                true
+            ),
             ("SELECT 2;".into(), true),
             ("SELECT 3;".into(), true),
         ]
@@ -133,7 +148,10 @@ fn a_semicolon_the_stray_quote_had_swallowed_stays_swallowed() {
     // still run together, which is what the text says; what is recovered is everything below.
     assert_eq!(
         split("SELECT 'oops;\nSELECT 2;\nSELECT 3;"),
-        [("SELECT 'oops;\nSELECT 2;".into(), true), ("SELECT 3;".into(), true)]
+        [
+            ("SELECT 'oops;\nSELECT 2;".into(), true),
+            ("SELECT 3;".into(), true)
+        ]
     );
 }
 
@@ -142,7 +160,10 @@ fn an_unterminated_block_comment_still_runs_to_the_end_of_the_document() {
     // The other way round from a quote, and deliberately: a block comment is written across lines
     // on purpose, so ending it at the first newline would resurrect the text the author was in
     // the middle of commenting out and bury it in diagnostics.
-    assert_eq!(split("SELECT 1;\n/* SELECT 2;\nSELECT 3;"), [("SELECT 1;".into(), true)]);
+    assert_eq!(
+        split("SELECT 1;\n/* SELECT 2;\nSELECT 3;"),
+        [("SELECT 1;".into(), true)]
+    );
 }
 
 #[test]
@@ -152,7 +173,10 @@ fn an_unterminated_dollar_quoted_body_still_runs_to_the_end_of_the_document() {
     let response = request(json!({ "op": "statements", "dialect": "postgres", "text": text }));
     assert_eq!(
         statements(&response, text),
-        [("SELECT 1;".into(), true), ("SELECT $tag$ oops;\nSELECT 3;".into(), false)]
+        [
+            ("SELECT 1;".into(), true),
+            ("SELECT $tag$ oops;\nSELECT 3;".into(), false)
+        ]
     );
 }
 
@@ -163,6 +187,9 @@ fn offsets_are_counted_in_utf16_units() {
     let response = request(json!({ "op": "statements", "text": text }));
     assert_eq!(
         statements(&response, text),
-        [("SELECT '\u{1F600}';".into(), true), ("SELECT 2".into(), false)]
+        [
+            ("SELECT '\u{1F600}';".into(), true),
+            ("SELECT 2".into(), false)
+        ]
     );
 }

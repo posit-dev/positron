@@ -29,7 +29,10 @@ fn comments_alone_have_no_diagnostics() {
 fn the_range_covers_the_offending_token() {
     assert_eq!(
         diagnostics("SELECT * FRM customers"),
-        [("FRM".to_string(), "Expected: end of statement, found: FRM.".to_string())]
+        [(
+            "FRM".to_string(),
+            "Expected: end of statement, found: FRM.".to_string()
+        )]
     );
 }
 
@@ -40,8 +43,14 @@ fn each_statement_is_reported_independently() {
     assert_eq!(
         diagnostics("SELECT * FRM a;\nSELECT 1;\nSELECT * FRM b"),
         [
-            ("FRM".to_string(), "Expected: end of statement, found: FRM.".to_string()),
-            ("FRM".to_string(), "Expected: end of statement, found: FRM.".to_string()),
+            (
+                "FRM".to_string(),
+                "Expected: end of statement, found: FRM.".to_string()
+            ),
+            (
+                "FRM".to_string(),
+                "Expected: end of statement, found: FRM.".to_string()
+            ),
         ]
     );
 }
@@ -56,23 +65,40 @@ fn only_one_diagnostic_is_reported_per_statement() {
 #[test]
 fn positions_are_correct_on_later_lines() {
     let text = "SELECT 1;\n\nSELECT 2;\nSELECT * FRM t";
-    assert_eq!(diagnostics(text), [("FRM".to_string(), "Expected: end of statement, found: FRM.".to_string())]);
+    assert_eq!(
+        diagnostics(text),
+        [(
+            "FRM".to_string(),
+            "Expected: end of statement, found: FRM.".to_string()
+        )]
+    );
 }
 
 #[test]
 fn an_unterminated_string_is_reported_at_the_string() {
     let text = "SELECT 1;\nSELECT 'oops";
     let reported = diagnostics(text);
-    assert_eq!(reported.len(), 1, "one report, not one per statement after it");
+    assert_eq!(
+        reported.len(),
+        1,
+        "one report, not one per statement after it"
+    );
     assert_eq!(reported[0].1, "Unterminated string literal.");
-    assert_eq!(reported[0].0, "'oops", "the squiggle covers the literal that never closed");
+    assert_eq!(
+        reported[0].0, "'oops",
+        "the squiggle covers the literal that never closed"
+    );
 }
 
 #[test]
 fn an_unterminated_block_comment_is_reported_at_the_comment() {
     let reported = diagnostics("SELECT 1;\n/* never closed");
     assert_eq!(reported.len(), 1);
-    assert!(reported[0].1.to_lowercase().contains("comment"), "got {:?}", reported[0].1);
+    assert!(
+        reported[0].1.to_lowercase().contains("comment"),
+        "got {:?}",
+        reported[0].1
+    );
 }
 
 #[test]
@@ -82,9 +108,18 @@ fn an_unterminated_quote_does_not_cost_the_statements_below_it_their_diagnostics
     assert_eq!(
         diagnostics("SELECT 'oops\nFROM t;\nSELECT * FRM a;\nSELECT * FRM b"),
         [
-            ("'oops".to_string(), "Unterminated string literal.".to_string()),
-            ("FRM".to_string(), "Expected: end of statement, found: FRM.".to_string()),
-            ("FRM".to_string(), "Expected: end of statement, found: FRM.".to_string()),
+            (
+                "'oops".to_string(),
+                "Unterminated string literal.".to_string()
+            ),
+            (
+                "FRM".to_string(),
+                "Expected: end of statement, found: FRM.".to_string()
+            ),
+            (
+                "FRM".to_string(),
+                "Expected: end of statement, found: FRM.".to_string()
+            ),
         ]
     );
 }
@@ -95,7 +130,10 @@ fn the_statement_holding_a_closed_quote_is_not_reported_twice() {
     // statement is an artefact of closing the quote rather than something to show anyone.
     assert_eq!(
         diagnostics("SELECT * FRM t WHERE a = 'oops\n;\nSELECT 1;"),
-        [("'oops".to_string(), "Unterminated string literal.".to_string())]
+        [(
+            "'oops".to_string(),
+            "Unterminated string literal.".to_string()
+        )]
     );
 }
 
@@ -115,7 +153,10 @@ fn the_squiggle_covers_the_token_the_message_names() {
     let text = "SELECT a, b, FROM t;";
     assert_eq!(
         diagnostics_of(&analyze_as("postgres", text), text),
-        [("FROM".to_string(), "Expected an expression, found: FROM.".to_string())]
+        [(
+            "FROM".to_string(),
+            "Expected an expression, found: FROM.".to_string()
+        )]
     );
 }
 
@@ -138,7 +179,10 @@ fn a_name_inside_a_quote_that_was_closed_is_not_reported_as_a_reference() {
         .iter()
         .map(|table| support::slice(text, table))
         .collect();
-    assert_eq!((columns, tables), (vec!["a".to_string()], vec!["orders".to_string()]));
+    assert_eq!(
+        (columns, tables),
+        (vec!["a".to_string()], vec!["orders".to_string()])
+    );
 }
 
 #[test]
@@ -166,8 +210,10 @@ fn a_construct_that_cannot_be_closed_after_a_semicolon_spares_the_statement_abov
     // The unclosed bracket starts after the first statement's semicolon, so it truncates nothing
     // the first statement holds, and that statement's own error is still reported.
     let text = "SELECT * FROM t WHERE;\n[abc";
-    let reported: Vec<String> =
-        diagnostics_of(&analyze_as("tsql", text), text).into_iter().map(|(at, _)| at).collect();
+    let reported: Vec<String> = diagnostics_of(&analyze_as("tsql", text), text)
+        .into_iter()
+        .map(|(at, _)| at)
+        .collect();
     assert_eq!(reported, ["SELECT * FROM t WHERE;", "[abc"]);
 }
 
@@ -192,7 +238,10 @@ fn an_unknown_dialect_falls_back_rather_than_failing_the_request() {
     // The setting is a plain string in settings.json, so a typo is reachable and must not leave
     // the file with no diagnostics at all.
     let text = "SELECT * FRM t";
-    assert_eq!(diagnostics_of(&analyze_as("not-a-dialect", text), text).len(), 1);
+    assert_eq!(
+        diagnostics_of(&analyze_as("not-a-dialect", text), text).len(),
+        1
+    );
 }
 
 #[test]
@@ -205,7 +254,11 @@ fn the_generic_dialect_accepts_ordinary_sql() {
         "DELETE FROM t WHERE a = 1",
         "CREATE TABLE t (a int, b text)",
     ] {
-        assert!(diagnostics(text).is_empty(), "{text:?} should parse: {:?}", diagnostics(text));
+        assert!(
+            diagnostics(text).is_empty(),
+            "{text:?} should parse: {:?}",
+            diagnostics(text)
+        );
     }
 }
 
@@ -218,7 +271,10 @@ fn diagnostic_ranges_stay_inside_the_document() {
     for diagnostic in response["diagnostics"].as_array().unwrap() {
         let start = diagnostic["start"].as_u64().unwrap();
         let end = diagnostic["end"].as_u64().unwrap();
-        assert!(start <= end && end <= length, "{start}..{end} is outside 0..{length}");
+        assert!(
+            start <= end && end <= length,
+            "{start}..{end} is outside 0..{length}"
+        );
     }
 }
 
@@ -239,7 +295,10 @@ fn ranges_are_counted_in_utf16_units() {
     // positions are converted inside the analyzer rather than on the other side of the boundary.
     assert_eq!(
         diagnostics("SELECT '\u{1F600}' FROM t GROUP"),
-        [("GROUP".to_string(), "Expected: end of statement, found: GROUP.".to_string())]
+        [(
+            "GROUP".to_string(),
+            "Expected: end of statement, found: GROUP.".to_string()
+        )]
     );
 }
 
@@ -266,7 +325,10 @@ fn a_dialect_renamed_since_the_setting_was_written_still_resolves() {
 fn an_unrecognized_dialect_says_so() {
     // So the caller can tell the user, rather than leave them wondering why their dialect's
     // syntax is being flagged.
-    assert_eq!(analyze_as("not-a-dialect", "SELECT 1")["unknownDialect"], true);
+    assert_eq!(
+        analyze_as("not-a-dialect", "SELECT 1")["unknownDialect"],
+        true
+    );
     assert_eq!(analyze_as("postgres", "SELECT 1")["unknownDialect"], false);
     assert_eq!(analyze_as("", "SELECT 1")["unknownDialect"], false);
 }

@@ -27,7 +27,15 @@ use support::request;
 
 /// The dialects whose keyword lists are checked. The grammar below is written in SQL all of them
 /// accept, so a keyword one of them does not offer is a gap, not a dialect difference.
-const DIALECTS: &[&str] = &["generic", "postgres", "mysql", "sqlite", "duckdb", "snowflake", "bigquery"];
+const DIALECTS: &[&str] = &[
+    "generic",
+    "postgres",
+    "mysql",
+    "sqlite",
+    "duckdb",
+    "snowflake",
+    "bigquery",
+];
 
 const TABLES: &[&str] = &["orders", "customers", "products", "line_items", "regions"];
 const COLUMNS: &[&str] = &["id", "name", "total", "region_id", "created_at", "status"];
@@ -108,8 +116,7 @@ impl Statement {
         let mut text = String::new();
         let mut starts = Vec::new();
         for (index, piece) in self.pieces.iter().enumerate() {
-            let glued = piece.text == "."
-                || index > 0 && self.pieces[index - 1].text == ".";
+            let glued = piece.text == "." || index > 0 && self.pieces[index - 1].text == ".";
             if index > 0 && !glued {
                 text.push(' ');
             }
@@ -163,7 +170,11 @@ struct Source {
 
 impl<'r> Builder<'r> {
     fn push(&mut self, text: impl Into<String>, kind: Kind, scope: usize) {
-        self.pieces.push(Piece { text: text.into(), kind, scope });
+        self.pieces.push(Piece {
+            text: text.into(),
+            kind,
+            scope,
+        });
     }
 
     fn keywords(&mut self, words: &str, scope: usize) {
@@ -173,7 +184,12 @@ impl<'r> Builder<'r> {
     }
 
     fn scope(&mut self, parent: Option<usize>, role: &'static str) -> usize {
-        self.scopes.push(Scope { parent, tables: Vec::new(), opaque: false, role });
+        self.scopes.push(Scope {
+            parent,
+            tables: Vec::new(),
+            opaque: false,
+            role,
+        });
         self.scopes.len() - 1
     }
 
@@ -350,11 +366,15 @@ impl<'r> Builder<'r> {
             None
         };
         if real {
-            self.scopes[scope].tables.push((name.clone(), alias.clone()));
+            self.scopes[scope]
+                .tables
+                .push((name.clone(), alias.clone()));
         } else {
             self.scopes[scope].opaque = true;
         }
-        Source { qualifier: alias.unwrap_or(name) }
+        Source {
+            qualifier: alias.unwrap_or(name),
+        }
     }
 
     /// A column, qualified by one of `sources` or not.
@@ -411,18 +431,31 @@ impl<'r> Builder<'r> {
 
 fn generate(seed: u64) -> Statement {
     let mut rng = Rng::new(seed);
-    let mut builder = Builder { rng: &mut rng, pieces: Vec::new(), scopes: Vec::new(), ctes: Vec::new(), aliases: 0 };
+    let mut builder = Builder {
+        rng: &mut rng,
+        pieces: Vec::new(),
+        scopes: Vec::new(),
+        ctes: Vec::new(),
+        aliases: 0,
+    };
     builder.statement();
-    Statement { pieces: builder.pieces, scopes: builder.scopes }
+    Statement {
+        pieces: builder.pieces,
+        scopes: builder.scopes,
+    }
 }
 
 // --- Asking the analyzer ---
 
 fn keywords_at(text: &str, dialect: &str, offset: usize) -> (Vec<String>, String) {
-    let response = request(json!({ "op": "keywordsAt", "text": text, "dialect": dialect, "offset": offset }));
+    let response =
+        request(json!({ "op": "keywordsAt", "text": text, "dialect": dialect, "offset": offset }));
     (
         strings(&response["keywords"]),
-        response["position"].as_str().unwrap_or_default().to_string(),
+        response["position"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
     )
 }
 
@@ -433,7 +466,12 @@ fn sources_at(text: &str, offset: usize) -> Value {
 fn strings(value: &Value) -> Vec<String> {
     value
         .as_array()
-        .map(|items| items.iter().filter_map(|item| item.as_str().map(str::to_string)).collect())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -489,7 +527,10 @@ impl Failures {
 
     /// As [`Failures::add`], noting a variant -- a dialect, say -- the failure was seen under.
     fn tagged(&mut self, group: String, example: String, tag: Option<&str>) {
-        let entry = self.groups.entry(group).or_insert((0, example, BTreeSet::new()));
+        let entry = self
+            .groups
+            .entry(group)
+            .or_insert((0, example, BTreeSet::new()));
         entry.0 += 1;
         if let Some(tag) = tag {
             entry.2.insert(tag.to_string());
@@ -505,9 +546,14 @@ impl Failures {
             let tags = if tags.is_empty() {
                 String::new()
             } else {
-                format!(" in {}", tags.iter().cloned().collect::<Vec<_>>().join(", "))
+                format!(
+                    " in {}",
+                    tags.iter().cloned().collect::<Vec<_>>().join(", ")
+                )
             };
-            report.push_str(&format!("\n  {group}  [{count}x{tags}]\n    e.g. {example}\n"));
+            report.push_str(&format!(
+                "\n  {group}  [{count}x{tags}]\n    e.g. {example}\n"
+            ));
         }
         panic!("{report}");
     }
@@ -573,7 +619,14 @@ fn the_tables_in_scope_at_a_column_are_the_ones_its_query_can_see() {
             let original = piece.text.clone();
             for typed in ["", &original[..1]] {
                 let mut edited = Statement {
-                    pieces: statement.pieces.iter().map(|piece| Piece { text: piece.text.clone(), ..*piece }).collect(),
+                    pieces: statement
+                        .pieces
+                        .iter()
+                        .map(|piece| Piece {
+                            text: piece.text.clone(),
+                            ..*piece
+                        })
+                        .collect(),
                     scopes: Vec::new(),
                 };
                 edited.pieces[index].text = typed.to_string();
@@ -585,7 +638,10 @@ fn the_tables_in_scope_at_a_column_are_the_ones_its_query_can_see() {
                 let example = format!("seed {seed}: {}", marked(&text, offset));
                 if origin != "parsed" {
                     failures.tagged(
-                        format!("answered from tokens, not a parse, at a column in a {}", statement.scopes[piece.scope].role),
+                        format!(
+                            "answered from tokens, not a parse, at a column in a {}",
+                            statement.scopes[piece.scope].role
+                        ),
                         example.clone(),
                         Some(hole(typed)),
                     );
@@ -594,7 +650,9 @@ fn the_tables_in_scope_at_a_column_are_the_ones_its_query_can_see() {
                     let extra: BTreeSet<String> = found
                         .iter()
                         .filter(|table| !expected.contains(table))
-                        .map(|table| format!("extra table from {}", whose(&statement, table, piece.scope)))
+                        .map(|table| {
+                            format!("extra table from {}", whose(&statement, table, piece.scope))
+                        })
                         .collect();
                     let missing: BTreeSet<String> = expected
                         .iter()
@@ -603,14 +661,21 @@ fn the_tables_in_scope_at_a_column_are_the_ones_its_query_can_see() {
                         .collect();
                     let what: Vec<String> = extra.into_iter().chain(missing).collect();
                     failures.tagged(
-                        format!("{} at a column in a {}", what.join(" and "), statement.scopes[piece.scope].role),
+                        format!(
+                            "{} at a column in a {}",
+                            what.join(" and "),
+                            statement.scopes[piece.scope].role
+                        ),
                         format!("{example}\n      expected {expected:?}, got {found:?}"),
                         Some(hole(typed)),
                     );
                 }
                 if response["opaque"].as_bool() != Some(opaque) {
                     failures.tagged(
-                        format!("opaque should be {opaque} at a column in a {}", statement.scopes[piece.scope].role),
+                        format!(
+                            "opaque should be {opaque} at a column in a {}",
+                            statement.scopes[piece.scope].role
+                        ),
                         example,
                         Some(hole(typed)),
                     );
@@ -624,7 +689,9 @@ fn the_tables_in_scope_at_a_column_are_the_ones_its_query_can_see() {
 /// What the cursor comes after, in the terms a failure is grouped by: the word itself for a
 /// keyword or a bracket, and the clause it is in for a name or a value, which only matter by kind.
 fn describe(before: &[Piece]) -> String {
-    let Some(last) = before.last() else { return "the start".to_string() };
+    let Some(last) = before.last() else {
+        return "the start".to_string();
+    };
     let clause = before
         .iter()
         .rev()
@@ -665,7 +732,11 @@ fn whose(statement: &Statement, table: &str, cursor: usize) -> String {
 }
 
 fn hole(typed: &str) -> &'static str {
-    if typed.is_empty() { "column removed" } else { "first letter typed" }
+    if typed.is_empty() {
+        "column removed"
+    } else {
+        "first letter typed"
+    }
 }
 
 /// Every offset of every statement, cut short and mangled, is answered: no panic, which in the
@@ -695,7 +766,11 @@ fn every_offset_of_a_mangled_statement_is_answered() {
                     bytes.drain(at..end);
                 }
                 2 => {
-                    for (offset, inserted) in rng.pick(&["(", "'", "\"", ")", ";", "--", "\u{e9}\u{1F600}"]).chars().enumerate() {
+                    for (offset, inserted) in rng
+                        .pick(&["(", "'", "\"", ")", ";", "--", "\u{e9}\u{1F600}"])
+                        .chars()
+                        .enumerate()
+                    {
                         bytes.insert(at + offset, inserted);
                     }
                 }
@@ -725,19 +800,32 @@ fn every_offset_of_a_mangled_statement_is_answered() {
                 let ask_sources = offset % 4 == 0 || near_wide;
                 let result = std::panic::catch_unwind(|| {
                     let (keywords, position) = keywords_at(&variant, "generic", offset);
-                    let sources = if ask_sources { sources_at(&variant, offset) } else { json!({ "sources": [] }) };
+                    let sources = if ask_sources {
+                        sources_at(&variant, offset)
+                    } else {
+                        json!({ "sources": [] })
+                    };
                     (keywords, position, sources)
                 });
                 match result {
-                    Err(_) => failures.add("panicked".to_string(), format!("seed {seed} at {offset}: {variant:?}")),
+                    Err(_) => failures.add(
+                        "panicked".to_string(),
+                        format!("seed {seed} at {offset}: {variant:?}"),
+                    ),
                     Ok((keywords, position, sources)) => {
                         // A row count offers nothing on purpose: a number belongs there, and the one
                         // keyword that could, `ALL`, is PostgreSQL's alone. See `Position::RowCount`.
                         if keywords.is_empty() && position != "rowCount" {
-                            failures.add(format!("no keywords ({position})"), format!("seed {seed} at {offset}: {variant:?}"));
+                            failures.add(
+                                format!("no keywords ({position})"),
+                                format!("seed {seed} at {offset}: {variant:?}"),
+                            );
                         }
                         if !sources["sources"].is_array() {
-                            failures.add(format!("no sources: {sources}"), format!("seed {seed} at {offset}: {variant:?}"));
+                            failures.add(
+                                format!("no sources: {sources}"),
+                                format!("seed {seed} at {offset}: {variant:?}"),
+                            );
                         }
                     }
                 }

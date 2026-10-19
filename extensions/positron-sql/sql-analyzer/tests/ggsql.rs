@@ -64,8 +64,14 @@ fn the_visualise_part_is_not_reported() {
 
 #[test]
 fn either_spelling_in_any_case_is_recognized() {
-    assert_eq!(diagnostics("SELECT x, y FROM t VISUALIZE x, y DRAW point"), []);
-    assert_eq!(diagnostics("SELECT x, y FROM t visualise x, y DRAW point"), []);
+    assert_eq!(
+        diagnostics("SELECT x, y FROM t VISUALIZE x, y DRAW point"),
+        []
+    );
+    assert_eq!(
+        diagnostics("SELECT x, y FROM t visualise x, y DRAW point"),
+        []
+    );
 }
 
 #[test]
@@ -77,7 +83,10 @@ fn the_query_in_front_of_it_is_still_analyzed() {
 fn an_error_in_the_query_in_front_of_it_is_still_reported() {
     assert_eq!(
         diagnostics("SELECT date FROM sales WHERE VISUALISE date AS x DRAW line"),
-        [("VISUALISE".to_string(), "Expected: an expression, found: VISUALISE.".to_string())]
+        [(
+            "VISUALISE".to_string(),
+            "Expected: an expression, found: VISUALISE.".to_string()
+        )]
     );
 }
 
@@ -91,14 +100,20 @@ fn a_visualise_with_no_query_is_not_reported() {
 #[test]
 fn the_statement_still_spans_both_parts() {
     // Running it sends the query and its plot to ggsql together.
-    assert_eq!(spans(&format!("{PLOT};\nSELECT 1")), [format!("{PLOT};"), "SELECT 1".to_string()]);
+    assert_eq!(
+        spans(&format!("{PLOT};\nSELECT 1")),
+        [format!("{PLOT};"), "SELECT 1".to_string()]
+    );
 }
 
 #[test]
 fn only_the_statement_holding_it_is_affected() {
     assert_eq!(
         diagnostics("SELECT x FROM t VISUALISE x DRAW point; SELECT FROM"),
-        [("SELECT FROM".to_string(), "Expected: identifier, found: EOF.".to_string())]
+        [(
+            "SELECT FROM".to_string(),
+            "Expected: identifier, found: EOF.".to_string()
+        )]
     );
 }
 
@@ -110,13 +125,22 @@ fn a_quoted_visualise_is_an_identifier() {
 
 #[test]
 fn a_visualise_inside_parentheses_is_still_an_error() {
-    assert_eq!(diagnostics("SELECT * FROM (SELECT x FROM t VISUALISE x DRAW point)").len(), 1);
+    assert_eq!(
+        diagnostics("SELECT * FROM (SELECT x FROM t VISUALISE x DRAW point)").len(),
+        1
+    );
 }
 
 #[test]
 fn no_keyword_is_offered_in_the_visualise_part() {
-    assert_eq!(keywords_at("SELECT x FROM t VISUALISE x DRAW |"), (0, "visualise".to_string()));
-    assert_eq!(keywords_at("SELECT x FROM t VISUALISE|"), (0, "visualise".to_string()));
+    assert_eq!(
+        keywords_at("SELECT x FROM t VISUALISE x DRAW |"),
+        (0, "visualise".to_string())
+    );
+    assert_eq!(
+        keywords_at("SELECT x FROM t VISUALISE|"),
+        (0, "visualise".to_string())
+    );
 }
 
 #[test]
@@ -136,5 +160,8 @@ fn no_source_is_offered_in_the_visualise_part() {
 
 #[test]
 fn the_query_in_front_of_it_still_sees_its_tables() {
-    assert_eq!(sources_at("SELECT | FROM t VISUALISE x DRAW point").0, ["t"]);
+    assert_eq!(
+        sources_at("SELECT | FROM t VISUALISE x DRAW point").0,
+        ["t"]
+    );
 }

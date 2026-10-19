@@ -38,7 +38,9 @@ pub fn around<'a>(
     let mut resume = tokens.len();
 
     for (at, token) in tokens.iter().enumerate() {
-        let Some((start, end)) = index.span(token.span) else { continue };
+        let Some((start, end)) = index.span(token.span) else {
+            continue;
+        };
         // Spans are half open, so a token occupying `[start, end)` is finished when its end has
         // been reached.
         if end <= offset {
@@ -71,6 +73,12 @@ pub fn around<'a>(
 ///
 /// `None` for a name with no parts at all.
 pub fn qualified<T: Clone>(parts: &[T]) -> Option<(T, Option<T>, Option<T>)> {
-    let part = |back: usize| parts.len().checked_sub(back).and_then(|at| parts.get(at)).cloned();
+    let part = |back: usize| {
+        parts
+            .len()
+            .checked_sub(back)
+            .and_then(|at| parts.get(at))
+            .cloned()
+    };
     Some((part(1)?, part(2), part(3)))
 }

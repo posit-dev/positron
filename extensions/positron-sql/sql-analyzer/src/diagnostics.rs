@@ -62,7 +62,10 @@ pub fn parse(tokenized: &Tokenized, dialect: &dyn Dialect, index: &TextIndex) ->
     // semicolon -- then the construct began after it, landed in no statement, and the one above
     // is whole and is parsed like any other.
     let truncated = (tokenized.errors.iter().any(|error| !error.repaired)
-        && tokenized.statements.last().is_some_and(|last| !last.terminated))
+        && tokenized
+            .statements
+            .last()
+            .is_some_and(|last| !last.terminated))
     .then(|| tokenized.statements.len() - 1);
 
     for (at, statement) in tokenized.statements.iter().enumerate() {
@@ -104,7 +107,10 @@ pub fn parse(tokenized: &Tokenized, dialect: &dyn Dialect, index: &TextIndex) ->
     // on the last line would be reported above a syntax error on the first.
     diagnostics.sort_by_key(|diagnostic| diagnostic.start);
 
-    Parsed { diagnostics, analysis }
+    Parsed {
+        diagnostics,
+        analysis,
+    }
 }
 
 fn parse_one(
@@ -135,14 +141,20 @@ fn diagnose(error: &ParserError, statement: &Statement, index: &TextIndex) -> Di
                 message: "This statement nests too deeply to parse.".to_string(),
             }
         }
-        ParserError::TokenizerError(message) | ParserError::ParserError(message) => message.as_str(),
+        ParserError::TokenizerError(message) | ParserError::ParserError(message) => {
+            message.as_str()
+        }
     };
 
     // The offending token, taken from the message rather than from the parser: sqlparser builds
     // the message from the token it rejected, whereas by the time the error is returned the
     // parser's own cursor has moved past it and points at whatever follows.
     if let Some((start, end)) = locate(message, statement, index) {
-        return Diagnostic { start, end, message: sentence(strip_location(message)) };
+        return Diagnostic {
+            start,
+            end,
+            message: sentence(strip_location(message)),
+        };
     }
 
     // The end of input, which for a ggsql statement is where its query stops and its `VISUALISE`
@@ -151,7 +163,11 @@ fn diagnose(error: &ParserError, statement: &Statement, index: &TextIndex) -> Di
     if let Some(keyword) = statement.visualise {
         let message = strip_location(message).replace("found: EOF", "found: VISUALISE");
         let end = (keyword + VISUALISE_WIDTH).min(statement.end);
-        return Diagnostic { start: keyword, end, message: sentence(&message) };
+        return Diagnostic {
+            start: keyword,
+            end,
+            message: sentence(&message),
+        };
     }
 
     Diagnostic {
@@ -195,7 +211,12 @@ fn locate(message: &str, statement: &Statement, index: &TextIndex) -> Option<(u3
 
 /// The offset of the last token of `statement` that starts at or before `offset` and reads as
 /// `text`, or `None` if there is none.
-fn named_at_or_before(text: &str, offset: u32, statement: &Statement, index: &TextIndex) -> Option<u32> {
+fn named_at_or_before(
+    text: &str,
+    offset: u32,
+    statement: &Statement,
+    index: &TextIndex,
+) -> Option<u32> {
     statement
         .tokens
         .iter()
@@ -240,7 +261,11 @@ fn sentence(message: &str) -> String {
 /// Removes the tables and columns that begin inside any of `ranges`, renumbering the scopes'
 /// references to the tables that remain.
 fn drop_within(analysis: &mut Analysis, ranges: &[(u32, u32)]) {
-    let inside = |start: u32| ranges.iter().any(|(from, to)| start >= *from && start < *to);
+    let inside = |start: u32| {
+        ranges
+            .iter()
+            .any(|(from, to)| start >= *from && start < *to)
+    };
 
     let mut renumbered: Vec<Option<u32>> = Vec::with_capacity(analysis.tables.len());
     let mut kept = 0;
@@ -254,7 +279,11 @@ fn drop_within(analysis: &mut Analysis, ranges: &[(u32, u32)]) {
     }
     analysis.tables.retain(|table| !inside(table.start));
     for scope in &mut analysis.scopes {
-        scope.tables = scope.tables.iter().filter_map(|table| renumbered[*table as usize]).collect();
+        scope.tables = scope
+            .tables
+            .iter()
+            .filter_map(|table| renumbered[*table as usize])
+            .collect();
     }
     analysis.columns.retain(|column| !inside(column.start));
 }
@@ -269,7 +298,11 @@ fn merge(into: &mut Analysis, from: Analysis) {
 
     for mut scope in from.scopes {
         scope.parent = scope.parent.map(|parent| parent + scope_offset);
-        scope.tables = scope.tables.iter().map(|table| table + table_offset).collect();
+        scope.tables = scope
+            .tables
+            .iter()
+            .map(|table| table + table_offset)
+            .collect();
         into.scopes.push(scope);
     }
     for mut table in from.tables {

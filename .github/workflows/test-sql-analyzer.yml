@@ -4,7 +4,8 @@ name: "Test: SQL Analyzer"
 # module at extensions/positron-sql/resources/sql-analyzer.wasm. Two things therefore need
 # checking, and neither is covered by the Node test suites:
 #
-#   - the crate's own tests (`cargo test`), which are where the parsing behaviour is pinned.
+#   - the crate's own tests (`cargo test`), which are where the parsing behaviour is pinned, along
+#     with `cargo fmt` and `cargo clippy`.
 #   - that the committed module was rebuilt when the crate changed (`--check`), since that is done
 #     by hand. It compares a fingerprint of the crate's inputs and the module rather than
 #     rebuilding and comparing bytes: the bytes differ between hosts, so a module built on macOS
@@ -72,6 +73,12 @@ jobs:
             extensions/positron-sql/sql-analyzer/target
           key: sql-analyzer-${{ runner.os }}-${{ hashFiles('extensions/positron-sql/sql-analyzer/Cargo.lock') }}
           restore-keys: sql-analyzer-${{ runner.os }}-
+
+      - name: Check the crate's formatting and lints
+        working-directory: extensions/positron-sql/sql-analyzer
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
 
       - name: Run the crate's tests
         run: npm run test-analyzer

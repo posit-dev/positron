@@ -60,7 +60,13 @@ fn all_at_cursor(marked: &str) -> (Vec<String>, Vec<String>, bool, String) {
             .as_array()
             .unwrap()
             .iter()
-            .map(|local| format!("{} {}", local["kind"].as_str().unwrap(), local["name"].as_str().unwrap()))
+            .map(|local| {
+                format!(
+                    "{} {}",
+                    local["kind"].as_str().unwrap(),
+                    local["name"].as_str().unwrap()
+                )
+            })
             .collect(),
         response["opaque"].as_bool().unwrap(),
         response["origin"].as_str().unwrap().to_string(),
@@ -71,7 +77,10 @@ fn all_at_cursor(marked: &str) -> (Vec<String>, Vec<String>, bool, String) {
 fn a_name_that_is_also_a_keyword_is_still_read() {
     // sqlparser's keyword table is global and over a thousand entries, so plenty of ordinary
     // table and schema names are in it.
-    assert_eq!(at_cursor("SELECT | FROM warehouse.orders"), ["warehouse.orders"]);
+    assert_eq!(
+        at_cursor("SELECT | FROM warehouse.orders"),
+        ["warehouse.orders"]
+    );
     assert_eq!(at_cursor("SELECT | FROM value v"), ["value AS v"]);
 }
 
@@ -84,7 +93,10 @@ fn a_table_is_read_with_its_alias() {
 
 #[test]
 fn a_qualified_table_keeps_its_namespace() {
-    assert_eq!(at_cursor("SELECT | FROM warehouse.sales.orders"), ["warehouse.sales.orders"]);
+    assert_eq!(
+        at_cursor("SELECT | FROM warehouse.sales.orders"),
+        ["warehouse.sales.orders"]
+    );
     assert_eq!(at_cursor("SELECT | FROM sales.orders"), ["sales.orders"]);
 }
 
@@ -98,7 +110,10 @@ fn every_joined_table_is_read() {
 
 #[test]
 fn a_comma_separated_from_clause_is_read() {
-    assert_eq!(at_cursor("SELECT | FROM orders o, customers c"), ["orders AS o", "customers AS c"]);
+    assert_eq!(
+        at_cursor("SELECT | FROM orders o, customers c"),
+        ["orders AS o", "customers AS c"]
+    );
 }
 
 #[test]
@@ -116,7 +131,10 @@ fn a_statement_that_cannot_parse_still_gives_up_its_tables() {
     // partway through typing.
     assert_eq!(at_cursor("SELECT | FROM orders o"), ["orders AS o"]);
     assert_eq!(at_cursor("SELECT o.| FROM orders o"), ["orders AS o"]);
-    assert_eq!(at_cursor("SELECT a, FROM orders o WHERE |"), ["orders AS o"]);
+    assert_eq!(
+        at_cursor("SELECT a, FROM orders o WHERE |"),
+        ["orders AS o"]
+    );
 }
 
 #[test]
@@ -126,7 +144,10 @@ fn an_unclosed_quote_costs_the_statement_its_tables() {
     // o` included. The caller substitutes a plain identifier for the one being typed before
     // asking, which is what makes `o."Order T` an ordinary statement again.
     assert!(at_cursor("SELECT o.\"Order T| FROM orders o").is_empty());
-    assert_eq!(at_cursor("SELECT o.placeholder| FROM orders o"), ["orders AS o"]);
+    assert_eq!(
+        at_cursor("SELECT o.placeholder| FROM orders o"),
+        ["orders AS o"]
+    );
 }
 
 #[test]
@@ -146,13 +167,19 @@ fn a_derived_table_names_nothing_but_does_not_swallow_its_neighbours() {
 
 #[test]
 fn a_quoted_table_name_is_read_unquoted() {
-    assert_eq!(at_cursor("SELECT | FROM \"Order Details\" d"), ["Order Details AS d"]);
+    assert_eq!(
+        at_cursor("SELECT | FROM \"Order Details\" d"),
+        ["Order Details AS d"]
+    );
 }
 
 #[test]
 fn only_the_statement_the_cursor_is_in_is_read() {
     // Completions in one statement must not be scoped to the tables of the one above it.
-    assert_eq!(at_cursor("SELECT a FROM orders;\nSELECT | FROM customers"), ["customers"]);
+    assert_eq!(
+        at_cursor("SELECT a FROM orders;\nSELECT | FROM customers"),
+        ["customers"]
+    );
 }
 
 #[test]
@@ -175,7 +202,10 @@ fn the_table_name_being_typed_is_not_read_as_one_the_statement_has() {
     // written rather than a table the statement reads from -- there is not one yet.
     assert!(at_cursor("SELECT a FROM ord|").is_empty());
     assert!(at_cursor("SELECT a FROM orders|").is_empty());
-    assert_eq!(at_cursor("SELECT a FROM orders, cust|").as_slice(), ["orders"]);
+    assert_eq!(
+        at_cursor("SELECT a FROM orders, cust|").as_slice(),
+        ["orders"]
+    );
 }
 
 #[test]
@@ -220,7 +250,10 @@ fn a_cte_offers_its_own_name_rather_than_the_tables_inside_it() {
     // Twice, as two different things: a CTE the FROM clause could name again, and the relation
     // a column here can be qualified by.
     assert_eq!(locals, ["relation recent", "cte recent"]);
-    assert!(opaque, "a column here may be one of the CTE's, which cannot be known");
+    assert!(
+        opaque,
+        "a column here may be one of the CTE's, which cannot be known"
+    );
     assert_eq!(origin, "parsed");
 }
 
@@ -236,10 +269,14 @@ fn a_cursor_inside_a_cte_sees_the_tables_the_cte_reads() {
 fn a_cursor_inside_a_cte_does_not_see_the_select_that_reads_it() {
     // The select's tables are lifted into its query so that its ORDER BY can see them, and the
     // CTE is declared on that same query -- but it cannot see them, and must not be offered them.
-    let (sources, _, opaque, _) =
-        all_at_cursor("WITH recent AS (SELECT | FROM orders) SELECT * FROM customers JOIN recent ON true");
+    let (sources, _, opaque, _) = all_at_cursor(
+        "WITH recent AS (SELECT | FROM orders) SELECT * FROM customers JOIN recent ON true",
+    );
     assert_eq!(sources, ["orders"]);
-    assert!(!opaque, "the CTE body reads only orders, whose columns are known");
+    assert!(
+        !opaque,
+        "the CTE body reads only orders, whose columns are known"
+    );
 }
 
 #[test]
@@ -253,14 +290,21 @@ fn a_cte_still_sees_the_other_ctes_beside_it() {
 #[test]
 fn a_name_the_select_list_made_up_is_offered_as_a_result_rather_than_a_relation() {
     // Something a column can be completed as, not something a table or a qualifier can be.
-    let (sources, locals, opaque, _) =
-        all_at_cursor("SELECT total AS t FROM orders o ORDER BY |");
+    let (sources, locals, opaque, _) = all_at_cursor("SELECT total AS t FROM orders o ORDER BY |");
     assert_eq!(sources, ["orders AS o"]);
     assert_eq!(locals, ["output t"]);
-    assert!(!opaque, "a result's name says nothing about the columns of orders");
+    assert!(
+        !opaque,
+        "a result's name says nothing about the columns of orders"
+    );
 
-    let (_, locals, _, _) = all_at_cursor("SELECT * FROM (SELECT total AS t FROM orders) d WHERE |");
-    assert_eq!(locals, ["relation d"], "the subquery's result names are not visible out here");
+    let (_, locals, _, _) =
+        all_at_cursor("SELECT * FROM (SELECT total AS t FROM orders) d WHERE |");
+    assert_eq!(
+        locals,
+        ["relation d"],
+        "the subquery's result names are not visible out here"
+    );
 }
 
 #[test]
@@ -289,10 +333,10 @@ fn a_derived_table_in_a_subquery_still_sees_the_query_around_it() {
 fn a_cursor_inside_an_unclosed_subquery_still_reads_it() {
     // The bracket the author has not reached yet is supplied, so a subquery being typed is a
     // subquery rather than a statement that cannot be parsed at all.
-    assert_eq!(at_cursor("SELECT * FROM orders WHERE id IN (SELECT | FROM customers"), [
-        "customers",
-        "orders"
-    ]);
+    assert_eq!(
+        at_cursor("SELECT * FROM orders WHERE id IN (SELECT | FROM customers"),
+        ["customers", "orders"]
+    );
 }
 
 #[test]
@@ -316,9 +360,18 @@ fn the_token_scan_reads_aliases_the_way_the_parser_does() {
         assert_eq!(origin, "tokens", "at {marked:?}");
         sources
     };
-    assert_eq!(scanned("SELECT a,, | FROM orders ANTI JOIN refunds r"), ["orders", "refunds AS r"]);
-    assert_eq!(scanned("SELECT a,, | FROM orders TABLESAMPLE (10)"), ["orders"]);
-    assert_eq!(scanned("SELECT a,, | FROM orders AS order"), ["orders AS order"]);
+    assert_eq!(
+        scanned("SELECT a,, | FROM orders ANTI JOIN refunds r"),
+        ["orders", "refunds AS r"]
+    );
+    assert_eq!(
+        scanned("SELECT a,, | FROM orders TABLESAMPLE (10)"),
+        ["orders"]
+    );
+    assert_eq!(
+        scanned("SELECT a,, | FROM orders AS order"),
+        ["orders AS order"]
+    );
 }
 
 #[test]
@@ -349,21 +402,35 @@ fn the_select_list_sees_its_from_clause_while_the_end_of_the_statement_is_unfini
 
 #[test]
 fn one_half_of_a_set_operation_does_not_see_the_other() {
-    assert_eq!(at_cursor("SELECT a FROM orders UNION SELECT | FROM refunds"), ["refunds"]);
-    assert_eq!(at_cursor("SELECT | FROM orders UNION SELECT a FROM refunds"), ["orders"]);
+    assert_eq!(
+        at_cursor("SELECT a FROM orders UNION SELECT | FROM refunds"),
+        ["refunds"]
+    );
+    assert_eq!(
+        at_cursor("SELECT | FROM orders UNION SELECT a FROM refunds"),
+        ["orders"]
+    );
     // The ORDER BY of the whole sees both, and so does a subquery written in it.
     assert_eq!(
         at_cursor("SELECT a FROM orders UNION SELECT a FROM refunds ORDER BY |"),
         ["orders", "refunds"]
     );
     assert_eq!(
-        at_cursor("SELECT a FROM orders o ORDER BY (SELECT max(x) FROM refunds r WHERE r.oid = o.|)"),
+        at_cursor(
+            "SELECT a FROM orders o ORDER BY (SELECT max(x) FROM refunds r WHERE r.oid = o.|)"
+        ),
         ["refunds AS r", "orders AS o"]
     );
 }
 
 #[test]
 fn the_query_an_insert_reads_from_does_not_see_the_table_it_writes_to() {
-    assert_eq!(at_cursor("INSERT INTO archive SELECT | FROM orders"), ["orders"]);
-    assert_eq!(at_cursor("UPDATE orders SET status = 1 WHERE |"), ["orders"]);
+    assert_eq!(
+        at_cursor("INSERT INTO archive SELECT | FROM orders"),
+        ["orders"]
+    );
+    assert_eq!(
+        at_cursor("UPDATE orders SET status = 1 WHERE |"),
+        ["orders"]
+    );
 }
