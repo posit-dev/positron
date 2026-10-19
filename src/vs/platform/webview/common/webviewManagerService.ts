@@ -50,6 +50,13 @@ export function isSameWebviewFrame(a: WebviewFrameId, b: WebviewFrameId): boolea
 }
 
 /**
+ * How the error from `executeJavaScript` starts when the frame is gone. It's
+ * thrown before the script runs, so a caller can find the frame again and
+ * retry without running the script twice.
+ */
+export const WEBVIEW_FRAME_NOT_FOUND_MESSAGE = 'No frame found';
+
+/**
  * An event fired when a frame navigates to a new URL.
  */
 export interface FrameNavigationEvent {

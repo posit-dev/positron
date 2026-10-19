@@ -5,7 +5,7 @@
 
 import { getWindow } from '../../../../base/browser/dom.js';
 import { URI } from '../../../../base/common/uri.js';
-import { WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
+import { WEBVIEW_FRAME_NOT_FOUND_MESSAGE, WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
 import { IViewerBridge } from '../common/positronViewerAgent.js';
 import { PreviewOverlayWebview, ViewerBridgeResult } from '../browser/previewOverlayWebview.js';
 import { viewerBridgeScript } from '../browser/viewerBridge.js';
@@ -73,7 +73,7 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 				return await this.webview.executeJavaScript(this._hostFrameId, script);
 			} catch (error) {
 				// Only retry when the script never ran, so an action isn't taken twice.
-				if (!/No frame found/.test(error instanceof Error ? error.message : String(error))) {
+				if (!(error instanceof Error ? error.message : String(error)).startsWith(WEBVIEW_FRAME_NOT_FOUND_MESSAGE)) {
 					throw error;
 				}
 			}

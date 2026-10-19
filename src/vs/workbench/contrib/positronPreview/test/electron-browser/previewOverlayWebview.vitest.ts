@@ -8,7 +8,7 @@
 import { mainWindow } from '../../../../../base/browser/window.js';
 import { Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { WebviewFrameId } from '../../../../../platform/webview/common/webviewManagerService.js';
+import { WEBVIEW_FRAME_NOT_FOUND_MESSAGE, WebviewFrameId } from '../../../../../platform/webview/common/webviewManagerService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { IOverlayWebview } from '../../../webview/browser/webview.js';
@@ -93,7 +93,7 @@ describe('ElectronPreviewOverlayWebview Viewer bridge', () => {
 			executeJavaScript: async (frameId, script) => {
 				frames.push(frameId);
 				if (frameId !== host) {
-					throw new Error(`No frame found with frameId: ${JSON.stringify(frameId)}`);
+					throw new Error(`${WEBVIEW_FRAME_NOT_FOUND_MESSAGE} with frameId: ${JSON.stringify(frameId)}`);
 				}
 				return (app.contentWindow as Window & typeof globalThis).eval(script);
 			},
@@ -110,6 +110,44 @@ describe('ElectronPreviewOverlayWebview Viewer bridge', () => {
 			lookups: 2,
 			frames: [oldHost, oldHost, oldHost, newHost],
 		});
+	});
+
+	it('reads output a notebook renderer draws in the host frame\'s #active-frame', async () => {
+		const active = app.contentDocument!.body.appendChild(app.contentDocument!.createElement('iframe'));
+		active.id = 'active-frame';
+		active.contentDocument!.body.innerHTML = '<button>Go</button>';
+		const overlay = createOverlay({
+			getContentFrameId: () => undefined,
+			getHostFrameId: async () => contentFrame,
+			executeJavaScript: async (_frameId, script) => (app.contentWindow as Window & typeof globalThis).eval(script),
+		});
+
+		expect((await overlay.runBridge('snapshot')).text).toBe('- button "Go" [ref=e1]');
+	});
+
+	it('passes on any other failure without finding the frame again, so an action never runs twice', async () => {
+		let lookups = 0;
+		let runs = 0;
+		const overlay = createOverlay({
+			getContentFrameId: () => undefined,
+			getHostFrameId: async () => {
+				lookups++;
+				return contentFrame;
+			},
+			// The first call finds the frame; the second fails after the script may have run.
+			executeJavaScript: async () => {
+				runs++;
+				if (runs > 1) {
+					throw new Error('Script failed to execute');
+				}
+				return { ok: true, value: { width: 600, height: 400 } };
+			},
+		});
+
+		await overlay.runBridge('viewport');
+		const failure = await overlay.runBridge('act', { kind: 'click', ref: 'e1' }).catch((error: Error) => error.message);
+
+		expect({ failure, lookups, runs }).toEqual({ failure: 'Script failed to execute', lookups: 1, runs: 2 });
 	});
 
 	it('says when there\'s no page to run in, or the page doesn\'t answer', async () => {

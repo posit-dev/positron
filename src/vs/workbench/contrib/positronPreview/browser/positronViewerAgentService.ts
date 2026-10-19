@@ -261,7 +261,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 			throw new Error('Nothing is showing in the Viewer.');
 		}
 		if (contentKindOf(preview) === 'other') {
-			throw new Error('Agents can\'t read this kind of Viewer content yet.');
+			throw new Error('Agents can\'t read this kind of Viewer content, such as a preview from an extension.');
 		}
 		return preview;
 	}

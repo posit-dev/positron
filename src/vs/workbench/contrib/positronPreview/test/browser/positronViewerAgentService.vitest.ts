@@ -228,7 +228,7 @@ describe('PositronViewerAgentService', () => {
 		activePreview = ctx.disposables.add(new PreviewWebview('myExtension.preview', 'preview.1', 'Preview', new FakePreviewOverlayWebview()));
 
 		expect((await service.getViewerInfo()).kind).toBe('other');
-		await expect(service.getViewerSnapshot()).rejects.toThrow('Agents can\'t read this kind of Viewer content yet.');
+		await expect(service.getViewerSnapshot()).rejects.toThrow('Agents can\'t read this kind of Viewer content, such as a preview from an extension.');
 	});
 
 	it('reads HTML shown as a string, such as Quarto output, and widget output, without the frame\'s address', async () => {
