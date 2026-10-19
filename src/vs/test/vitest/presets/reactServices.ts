@@ -5,8 +5,8 @@
 
 import { DisposableStore } from '../../../base/common/lifecycle.js';
 import { TestInstantiationService } from '../../../platform/instantiation/test/common/instantiationServiceMock.js';
-import { ErrorActionsService } from '../../../workbench/contrib/positronAssistant/browser/errorActionsService.js';
-import { IErrorActionsService } from '../../../workbench/contrib/positronAssistant/common/errorActions.js';
+import { ErrorAssistantService } from '../../../workbench/contrib/positronAssistant/browser/errorAssistantService.js';
+import { IErrorAssistantService } from '../../../workbench/contrib/positronAssistant/common/errorAssistant.js';
 
 /**
  * React services layer: stubs needed to construct PositronReactServices on
@@ -21,10 +21,11 @@ import { IErrorActionsService } from '../../../workbench/contrib/positronAssista
  *   svc.stub(INewService, {});
  */
 export function stubReactServices(svc: TestInstantiationService, disposables: Pick<DisposableStore, 'add'>): void {
-	// Read by useActiveErrorActionHandler, which the console, notebook, and Quarto
-	// error quick fixes call. A real service with no handlers, so the quick fixes
-	// hide until a test registers one. Created before the test's own stubs, so it
-	// reads the preset's IContextKeyService; a test that replaces that service
-	// and registers a handler with a `when` must re-create this one too.
-	svc.stub(IErrorActionsService, disposables.add(svc.createInstance(ErrorActionsService)));
+	// Read by useActiveErrorAssistant, which the console, notebook, and Quarto
+	// error quick fixes call. A real service with no assistants, so the quick
+	// fixes hide until a test registers one and turns on ai.enabled (see
+	// registerTestErrorAssistant). Created before the test's own stubs, so it
+	// reads the preset's IConfigurationService; a test that replaces that
+	// service must re-create this one too.
+	svc.stub(IErrorAssistantService, disposables.add(svc.createInstance(ErrorAssistantService)));
 }

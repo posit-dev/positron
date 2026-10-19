@@ -12,8 +12,8 @@ import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { ErrorActionKind, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
-import { useActiveErrorActionHandler } from '../../../positronAssistant/browser/useActiveErrorActionHandler.js';
+import { ErrorAssistantAction, IErrorAssistantService } from '../../../positronAssistant/common/errorAssistant.js';
+import { useActiveErrorAssistant } from '../../../positronAssistant/browser/useActiveErrorAssistant.js';
 
 interface ConsoleQuickFixProps {
 	outputLines: ANSIOutputLine[];
@@ -34,27 +34,26 @@ const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputL
  */
 export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const services = usePositronReactServicesContext();
-	const handler = useActiveErrorActionHandler();
+	const assistant = useActiveErrorAssistant();
 
-	if (!handler) {
+	if (!assistant) {
 		return null;
 	}
 
-	// Continue the current chat when the handler can, for follow-ups on
+	// Continue the active chat when the assistant can, for follow-ups on
 	// earlier console work.
-	const run = (kind: ErrorActionKind) => services.get(IErrorActionsService).run(handler, kind, {
+	const run = (action: ErrorAssistantAction) => services.get(IErrorAssistantService).run(assistant.id, action, {
 		error: formatOutput(props.outputLines, props.tracebackLines),
 		location: { kind: 'console' },
-		chat: handler.canContinueChat ? 'current' : 'new',
-	});
+	}, { continueChat: assistant.supportsChatContinuation });
 
 	const pressedFixHandler = () => run('fix');
 
 	const pressedExplainHandler = () => run('explain');
 
-	// Name the handler errors are sent to.
-	const fixTooltip = localize('positronConsoleErrorActionsFixTooltip', "Ask {0} to fix", handler.label);
-	const explainTooltip = localize('positronConsoleErrorActionsExplainTooltip', "Ask {0} to explain", handler.label);
+	// Name the assistant errors are sent to.
+	const fixTooltip = localize('positronConsoleErrorAssistantFixTooltip', "Ask {0} to fix", assistant.label);
+	const explainTooltip = localize('positronConsoleErrorAssistantExplainTooltip', "Ask {0} to explain", assistant.label);
 
 	// Render.
 	return (

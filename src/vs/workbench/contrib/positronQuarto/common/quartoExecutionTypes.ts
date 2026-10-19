@@ -122,8 +122,8 @@ export interface ICellOutput {
  * at the failing code instead of letting it hunt through the whole document.
  */
 export interface QuartoCellErrorContext {
-	/** Workspace-relative path of the Quarto document. */
-	path: string;
+	/** The Quarto document. */
+	uri: URI;
 	/** Language of the code chunk (e.g. 'python', 'r'). */
 	language: string;
 	/** Optional chunk label from the chunk options. */

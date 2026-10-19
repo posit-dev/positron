@@ -10,7 +10,8 @@ import { userEvent } from '@testing-library/user-event';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
+import { IErrorAssistant } from '../../../positronAssistant/common/errorAssistant.js';
+import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 import { ConsoleQuickFix } from '../../browser/components/activityErrorQuickFix.js';
 
 const line = (id: string, text: string): ANSIOutputLine => ({
@@ -34,13 +35,13 @@ describe('ConsoleQuickFix', () => {
 		run.mockReset().mockResolvedValue(undefined);
 	});
 
-	/** Register the handler errors are sent to. */
-	function registerHandler(options: Partial<IErrorActionHandler> = {}) {
-		ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: true, run, ...options }));
+	/** Register the assistant errors are sent to. */
+	function registerAssistant(options: Partial<IErrorAssistant> = {}) {
+		registerTestErrorAssistant(ctx, { run, ...options });
 	}
 
-	it('sends the message and traceback to the current chat', async () => {
-		registerHandler();
+	it('sends the message and traceback to the active chat', async () => {
+		registerAssistant();
 		const user = userEvent.setup();
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Fix'));
@@ -49,13 +50,13 @@ describe('ConsoleQuickFix', () => {
 		const context = {
 			error: 'NameError: name "x" is not defined\n  File "<stdin>", line 1',
 			location: { kind: 'console' },
-			chat: 'current',
 		};
-		expect(run.mock.calls).toEqual([['fix', context], ['explain', context]]);
+		const options = { continueChat: true };
+		expect(run.mock.calls).toEqual([['fix', context, options], ['explain', context, options]]);
 	});
 
 	it('sends only the message, untrimmed, when there is no traceback', async () => {
-		registerHandler();
+		registerAssistant();
 		const user = userEvent.setup();
 		rtl.render(<ConsoleQuickFix outputLines={[line('1', '  Error: boom'), line('2', '')]} tracebackLines={[]} />);
 		await user.click(screen.getByText('Fix'));
@@ -63,22 +64,22 @@ describe('ConsoleQuickFix', () => {
 		expect(run.mock.calls[0][1].error).toBe('  Error: boom\n');
 	});
 
-	it('sends errors to a new chat when the handler cannot continue the current chat', async () => {
-		registerHandler({ canContinueChat: false });
+	it('sends errors to a new chat when the assistant cannot continue the active chat', async () => {
+		registerAssistant({ supportsChatContinuation: false });
 		const user = userEvent.setup();
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Fix'));
 
-		expect(run.mock.calls[0][1].chat).toBe('new');
+		expect(run.mock.calls[0][2]).toEqual({ continueChat: false });
 	});
 
 	it('offers only Fix and Explain', () => {
-		registerHandler();
+		registerAssistant();
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
 		expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['Fix', 'Explain']);
 	});
 
-	it('renders nothing when there is no active handler', () => {
+	it('renders nothing when there is no active assistant', () => {
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
 		expect(screen.queryByRole('button')).not.toBeInTheDocument();
 	});

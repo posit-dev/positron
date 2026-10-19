@@ -13,78 +13,78 @@ import { useCallback, useMemo } from 'react';
 import { localize } from '../../../../../nls.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IAction } from '../../../../../base/common/actions.js';
-import { ErrorActionChat, ErrorActionKind, IErrorActionHandler, IErrorActionsService, IErrorDetails } from '../../../positronAssistant/common/errorActions.js';
+import { ErrorAssistantAction, IErrorAssistantContext, IErrorAssistantInfo, IErrorAssistantService } from '../../../positronAssistant/common/errorAssistant.js';
 import { SplitButton } from '../utilityComponents/SplitButton.js';
 
 /**
  * Props for the AssistantErrorQuickFix component.
  */
 interface AssistantErrorQuickFixProps {
-	/** The error action handler the error is sent to. */
-	handler: IErrorActionHandler;
+	/** The assistant the error is sent to. */
+	assistant: IErrorAssistantInfo;
 	/**
 	 * Resolves the error and where it was raised when a button is pressed (not
 	 * at render time), so it can reflect the error source's current location.
 	 */
-	getErrorDetails: () => IErrorDetails;
+	getErrorContext: () => IErrorAssistantContext;
 	/** Accessible label for the button group. */
 	groupAriaLabel: string;
 }
 
 /**
  * Presentational "Fix" and "Explain" split buttons for an error output. Sends
- * the error to the given error action handler: the primary click starts a
- * fresh conversation, the dropdown continues the current one.
+ * the error to the given assistant: the primary click starts a new chat, the
+ * dropdown continues the active one.
  *
  * This component does no gating; each caller decides whether to render it and
- * passes the active handler (see NotebookCellQuickFix and QuartoOutputQuickFix).
+ * passes the active assistant (see NotebookCellQuickFix and QuartoOutputQuickFix).
  */
 export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 	const services = usePositronReactServicesContext();
 	const { contextMenuService } = services;
 
-	const { handler, getErrorDetails } = props;
-	const { label, canContinueChat } = handler;
+	const { assistant, getErrorContext } = props;
+	const { id, label, supportsChatContinuation } = assistant;
 
-	// Resolve the error details when a button is pressed (not at render time) so
-	// the provider can report the error source's current location.
-	const run = useCallback((kind: ErrorActionKind, chat: ErrorActionChat) => {
-		return services.get(IErrorActionsService).run(handler, kind, { ...getErrorDetails(), chat });
-	}, [services, handler, getErrorDetails]);
+	// Resolve the error context when a button is pressed (not at render time)
+	// so it reflects the error source's current location.
+	const run = useCallback((action: ErrorAssistantAction, continueChat: boolean) => {
+		return services.get(IErrorAssistantService).run(id, action, getErrorContext(), { continueChat });
+	}, [services, id, getErrorContext]);
 
-	const pressedFixHandler = () => run('fix', 'new');
+	const pressedFixHandler = () => run('fix', false);
 
-	const pressedExplainHandler = () => run('explain', 'new');
+	const pressedExplainHandler = () => run('explain', false);
 
-	// Memoize dropdown actions for Fix button. None while the handler can't
-	// continue the current chat, which hides the dropdown.
-	const fixDropdownActions = useMemo((): IAction[] => canContinueChat ? [
+	// Memoize dropdown actions for Fix button. None while the assistant can't
+	// continue the active chat, which hides the dropdown.
+	const fixDropdownActions = useMemo((): IAction[] => supportsChatContinuation ? [
 		{
 			id: 'continue-in-existing-chat',
-			label: localize('positronErrorActionsFixInCurrentChat', "Ask {0} to fix in current chat", label),
+			label: localize('positronErrorAssistantFixInCurrentChat', "Ask {0} to fix in current chat", label),
 			tooltip: localize('positronAssistantFixInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 			class: undefined,
 			enabled: true,
-			run: () => run('fix', 'current')
+			run: () => run('fix', true)
 		}
-	] : [], [canContinueChat, label, run]);
+	] : [], [supportsChatContinuation, label, run]);
 
 	// Memoize dropdown actions for Explain button
-	const explainDropdownActions = useMemo((): IAction[] => canContinueChat ? [
+	const explainDropdownActions = useMemo((): IAction[] => supportsChatContinuation ? [
 		{
 			id: 'continue-in-existing-chat',
-			label: localize('positronErrorActionsExplainInCurrentChat', "Ask {0} to explain in current chat", label),
+			label: localize('positronErrorAssistantExplainInCurrentChat', "Ask {0} to explain in current chat", label),
 			tooltip: localize('positronAssistantExplainInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 			class: undefined,
 			enabled: true,
-			run: () => run('explain', 'current')
+			run: () => run('explain', true)
 		}
-	] : [], [canContinueChat, label, run]);
+	] : [], [supportsChatContinuation, label, run]);
 
 	// Tooltip strings
-	const fixTooltip = localize('positronErrorActionsFixTooltip', "Ask {0} to fix in new chat", label);
+	const fixTooltip = localize('positronErrorAssistantFixTooltip', "Ask {0} to fix in new chat", label);
 	const fixDropdownTooltip = localize('positronAssistantFixDropdownTooltip', "More fix options");
-	const explainTooltip = localize('positronErrorActionsExplainTooltip', "Ask {0} to explain in new chat", label);
+	const explainTooltip = localize('positronErrorAssistantExplainTooltip', "Ask {0} to explain in new chat", label);
 	const explainDropdownTooltip = localize('positronAssistantExplainDropdownTooltip', "More explain options");
 
 	// Render.

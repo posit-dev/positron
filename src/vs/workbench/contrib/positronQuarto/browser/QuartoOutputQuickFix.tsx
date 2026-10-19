@@ -8,10 +8,9 @@ import { useCallback, useLayoutEffect } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { usePositronConfiguration } from '../../../../base/browser/positronReactHooks.js';
-import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { IErrorDetails } from '../../positronAssistant/common/errorActions.js';
-import { useActiveErrorActionHandler } from '../../positronAssistant/browser/useActiveErrorActionHandler.js';
+import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
+import { IErrorAssistantContext } from '../../positronAssistant/common/errorAssistant.js';
+import { useActiveErrorAssistant } from '../../positronAssistant/browser/useActiveErrorAssistant.js';
 import { AssistantErrorQuickFix } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
 import { QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 
@@ -30,15 +29,14 @@ interface QuartoOutputQuickFixProps {
 }
 
 /**
- * Quick fix buttons for Quarto inline output errors. Gated on ai.enabled, and
- * hidden while no error action handler can take errors.
+ * Quick fix buttons for Quarto inline output errors, hidden while no assistant
+ * can take errors.
  */
 export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
-	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
-	// Read here rather than in AssistantErrorQuickFix so that a handler change
-	// re-renders this component and runs the layout effect below, re-measuring
-	// the host view zone when the buttons appear or disappear.
-	const handler = useActiveErrorActionHandler();
+	// Read here rather than in AssistantErrorQuickFix so that an assistant
+	// change re-renders this component and runs the layout effect below,
+	// re-measuring the host view zone when the buttons appear or disappear.
+	const assistant = useActiveErrorAssistant();
 
 	const { errorContent, cellContext, onLayout } = props;
 
@@ -49,12 +47,12 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		onLayout?.();
 	});
 
-	const getErrorDetails = useCallback((): IErrorDetails => ({
-		error: errorContent,
+	const getErrorContext = useCallback((): IErrorAssistantContext => ({
+		error: removeAnsiEscapeCodes(errorContent),
 		location: {
 			kind: 'quarto',
 			chunk: cellContext && {
-				path: cellContext.path,
+				uri: cellContext.uri,
 				languageId: cellContext.language,
 				label: cellContext.label,
 				code: cellContext.code,
@@ -64,15 +62,15 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		},
 	}), [cellContext, errorContent]);
 
-	if (aiEnabled === false || !handler) {
+	if (!assistant) {
 		return null;
 	}
 
 	return (
 		<AssistantErrorQuickFix
-			getErrorDetails={getErrorDetails}
+			assistant={assistant}
+			getErrorContext={getErrorContext}
 			groupAriaLabel={localize('positron.quarto.quickFixGroup', "Output quick fix actions")}
-			handler={handler}
 		/>
 	);
 };

@@ -13,7 +13,7 @@ import { IContextKeyService } from '../../../../../../platform/contextkey/common
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { IDisposable } from '../../../../../../base/common/lifecycle.js';
-import { IErrorActionsService } from '../../../../positronAssistant/common/errorActions.js';
+import { registerTestErrorAssistant } from '../../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { NotebookCellQuickFix } from '../../../browser/notebookCells/NotebookCellQuickFix.js';
@@ -31,7 +31,7 @@ describe('NotebookCellQuickFix', () => {
 	let registration: IDisposable;
 	beforeEach(() => {
 		run.mockReset().mockResolvedValue(undefined);
-		registration = ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: true, run }));
+		registration = registerTestErrorAssistant(ctx, { run });
 	});
 
 	/** Set the quick fix's gates; each defaults to showing the buttons. */
@@ -48,13 +48,13 @@ describe('NotebookCellQuickFix', () => {
 
 	const quickFixGroup = { name: 'Cell output quick fix actions' };
 
-	it('sends the error as a notebook error', async () => {
+	it('sends the error as a notebook error, without ANSI escape codes', async () => {
 		setGates();
 		const user = userEvent.setup();
-		renderQuickFix();
+		rtl.render(<NotebookCellQuickFix errorContent={'\u001b[31mNameError\u001b[0m: name "x" is not defined'} />);
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 
-		expect(run).toHaveBeenCalledWith('fix', { error: 'NameError: name "x" is not defined', location: { kind: 'notebook' }, chat: 'new' });
+		expect(run).toHaveBeenCalledWith('fix', { error: 'NameError: name "x" is not defined', location: { kind: 'notebook' } }, { continueChat: false });
 	});
 
 	it('shows the buttons before the notebook AI context key is bound', () => {
@@ -69,7 +69,7 @@ describe('NotebookCellQuickFix', () => {
 		expect(screen.queryByRole('group', quickFixGroup)).not.toBeInTheDocument();
 	});
 
-	it('hides the buttons when no handler can take errors', () => {
+	it('hides the buttons when no assistant can take errors', () => {
 		registration.dispose();
 		setGates();
 		renderQuickFix();

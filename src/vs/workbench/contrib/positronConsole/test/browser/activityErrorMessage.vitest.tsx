@@ -13,7 +13,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
-import { IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
+import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 import { ActivityErrorMessage } from '../../browser/components/activityErrorMessage.js';
 
 // The component only reads the two output-line arrays off the error message.
@@ -26,28 +26,21 @@ describe('ActivityErrorMessage assistant actions gate', () => {
 
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	// Give errors somewhere to go, so only the console's own gates are tested.
+	// Give errors somewhere to go, so only the console's own gate is tested.
 	beforeEach(() => {
-		ctx.disposables.add(ctx.get(IErrorActionsService).register({ id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } }));
+		registerTestErrorAssistant(ctx);
 	});
 
-	function setup(options: { aiEnabled?: boolean; actionsEnabled?: boolean }) {
+	function setup(options: { actionsEnabled?: boolean }) {
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
-		configurationService.setUserConfiguration('ai.enabled', options.aiEnabled ?? true);
 		configurationService.setUserConfiguration('console.assistantActions.enabled', options.actionsEnabled ?? true);
 	}
 
-	it('shows Fix and Explain when AI and the console setting are enabled', () => {
-		setup({ aiEnabled: true, actionsEnabled: true });
+	it('shows Fix and Explain when the setting is enabled', () => {
+		setup({ actionsEnabled: true });
 		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
 		expect(screen.getByText('Fix')).toBeInTheDocument();
 		expect(screen.getByText('Explain')).toBeInTheDocument();
-	});
-
-	it('hides the actions when the AI main switch is off', () => {
-		setup({ aiEnabled: false, actionsEnabled: true });
-		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
-		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
 	});
 
 	it('hides the actions when the setting is disabled', () => {

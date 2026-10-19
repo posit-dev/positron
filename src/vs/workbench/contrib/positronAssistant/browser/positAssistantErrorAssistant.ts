@@ -7,19 +7,18 @@ import { localize } from '../../../../nls.js';
 import { assertNever } from '../../../../base/common/assert.js';
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
-import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
+import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
-import { ErrorActionKind, IErrorActionContext, IErrorActionsService } from '../common/errorActions.js';
-import { NewChatOptions, openPositAssistantChat, POSIT_HAS_CHAT_MODELS_KEY } from './positAssistantChat.js';
+import { ErrorAssistantAction, IErrorAssistantContext, IErrorAssistantOptions, IErrorAssistantService } from '../common/errorAssistant.js';
+import { NewChatOptions, POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } from './positAssistantChat.js';
 
-/** Posit Assistant's error action handler id. */
-const POSIT_ASSISTANT_ERROR_ACTIONS_ID = 'posit-assistant';
+/** Posit Assistant's error assistant id. */
+const POSIT_ASSISTANT_ERROR_ASSISTANT_ID = 'posit-assistant';
 
 /** The Posit Assistant extension's identifier. */
 const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
@@ -30,34 +29,44 @@ const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
 const explainOnlyConstraint = localize('positronAssistantExplainOnlyConstraint', "Do not make changes or edit any files; just explain the error.");
 
 /**
- * Registers Posit Assistant's implementation of the error Fix and Explain
- * actions while the extension is installed. It takes errors while Posit
- * Assistant has a usable chat model.
+ * Registers Posit Assistant as the error assistant while it can take errors:
+ * while the extension is installed and has a usable chat model.
  */
-export class PositAssistantErrorActionsContribution extends Disposable implements IWorkbenchContribution {
-	static readonly ID = 'workbench.contrib.positAssistantErrorActions';
+export class PositAssistantErrorAssistantContribution extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.positAssistantErrorAssistant';
 
-	/** The handler's registration, set while Posit Assistant is installed. */
+	/** The assistant's registration, set while Posit Assistant can take errors. */
 	private readonly _registration = this._register(new MutableDisposable());
+
+	private readonly _hasChatModelsKeys = new Set([POSIT_HAS_CHAT_MODELS_KEY]);
 
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
-		@IErrorActionsService private readonly _errorActionsService: IErrorActionsService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IErrorAssistantService private readonly _errorAssistantService: IErrorAssistantService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
-		@ILogService private readonly _logService: ILogService,
-		@INotificationService private readonly _notificationService: INotificationService,
+		@ILabelService private readonly _labelService: ILabelService,
 	) {
 		super();
 
 		this._updateRegistration();
 		this._register(this._extensionService.onDidChangeExtensions(() => this._updateRegistration()));
+		this._register(this._contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(this._hasChatModelsKeys)) {
+				this._updateRegistration();
+			}
+		}));
 	}
 
-	/** Register the handler while Posit Assistant is installed, and unregister it otherwise. */
+	/** Register the assistant while Posit Assistant can take errors, and unregister it otherwise. */
 	private _updateRegistration(): void {
 		const installed = this._extensionService.extensions.some(extension =>
 			ExtensionIdentifier.equals(extension.identifier, POSIT_ASSISTANT_EXTENSION_ID));
-		if (!installed) {
+		// Set by the Posit Assistant extension when it has at least one usable
+		// model (a configured cloud provider, a local provider, or a vscode.lm
+		// model such as Copilot).
+		const hasChatModels = this._contextKeyService.getContextKeyValue<boolean>(POSIT_HAS_CHAT_MODELS_KEY) === true;
+		if (!installed || !hasChatModels) {
 			this._registration.clear();
 			return;
 		}
@@ -65,20 +74,14 @@ export class PositAssistantErrorActionsContribution extends Disposable implement
 			return;
 		}
 
-		// Set by the Posit Assistant extension when it has at least one usable
-		// model (a configured cloud provider, a local provider, or a vscode.lm
-		// model such as Copilot).
-		this._registration.value = this._errorActionsService.register({
-			id: POSIT_ASSISTANT_ERROR_ACTIONS_ID,
-			label: localize('positronAssistantErrorActionsLabel', "Posit Assistant"),
-			canContinueChat: true,
-			when: ContextKeyExpr.has(POSIT_HAS_CHAT_MODELS_KEY),
-			run: (kind, context) => openPositAssistantChat(
-				this._commandService,
-				this._notificationService,
-				this._logService,
-				getPositAssistantChatOptions(kind, context)
-			),
+		this._registration.value = this._errorAssistantService.register({
+			id: POSIT_ASSISTANT_ERROR_ASSISTANT_ID,
+			label: localize('positronAssistantErrorAssistantLabel', "Posit Assistant"),
+			supportsChatContinuation: true,
+			run: async (action, context, options) => {
+				const pathLabel = (uri: URI) => this._labelService.getUriLabel(uri, { relative: true });
+				await this._commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, getPositAssistantChatOptions(action, context, options, pathLabel));
+			},
 		});
 	}
 }
@@ -86,8 +89,14 @@ export class PositAssistantErrorActionsContribution extends Disposable implement
 /**
  * Build the posit-assistant.newChat request for a Fix or Explain action: a
  * prompt naming where the error came from, with the error attached.
+ * @param pathLabel Formats a document's URI for the prompt.
  */
-export function getPositAssistantChatOptions(kind: ErrorActionKind, context: IErrorActionContext): NewChatOptions {
+export function getPositAssistantChatOptions(
+	action: ErrorAssistantAction,
+	context: IErrorAssistantContext,
+	options: IErrorAssistantOptions,
+	pathLabel: (uri: URI) => string,
+): NewChatOptions {
 	const location = context.location;
 	let fixPrompt: string;
 	let explainPrompt: string;
@@ -106,7 +115,7 @@ export function getPositAssistantChatOptions(kind: ErrorActionKind, context: IEr
 			fixPrompt = localize('positronNotebookAssistantFixPrompt', "Fix this notebook cell error.");
 			explainPrompt = `${localize('positronNotebookAssistantExplainPrompt', "Explain this notebook cell error.")} ${explainOnlyConstraint}`;
 			attachmentName = localize('positronNotebookAssistantErrorAttachmentName', "Notebook Cell Error");
-			content = removeAnsiEscapeCodes(context.error).trim();
+			content = context.error.trim();
 			break;
 		case 'quarto': {
 			attachmentName = localize('positronQuartoAssistantErrorAttachmentName', "Quarto Output Error");
@@ -114,10 +123,11 @@ export function getPositAssistantChatOptions(kind: ErrorActionKind, context: IEr
 			if (!chunk) {
 				fixPrompt = localize('positronQuartoAssistantFixPrompt', "Fix this Quarto inline output error.");
 				explainPrompt = `${localize('positronQuartoAssistantExplainPrompt', "Explain this Quarto inline output error.")} ${explainOnlyConstraint}`;
-				content = removeAnsiEscapeCodes(context.error).trim();
+				content = context.error.trim();
 				break;
 			}
-			const { languageId, startLine, endLine, path, label } = chunk;
+			const { languageId, startLine, endLine, label } = chunk;
+			const path = pathLabel(chunk.uri);
 			fixPrompt = localize('positronQuartoAssistantFixPromptWithContext', "Fix the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached; fix only this error.", languageId, startLine, endLine, path);
 			explainPrompt = `${localize('positronQuartoAssistantExplainPromptWithContext', "Explain the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached.", languageId, startLine, endLine, path)} ${explainOnlyConstraint}`;
 			const header = label
@@ -125,7 +135,7 @@ export function getPositAssistantChatOptions(kind: ErrorActionKind, context: IEr
 				: localize('positronQuartoErrorContextHeader', "Error from the {0} code chunk in {1}, lines {2}-{3}:", languageId, path, startLine, endLine);
 			const codeHeader = localize('positronQuartoErrorContextCodeHeader', "--- Failing code ---");
 			const errorHeader = localize('positronQuartoErrorContextErrorHeader', "--- Error output ---");
-			content = removeAnsiEscapeCodes(`${header}\n\n${codeHeader}\n${chunk.code}\n\n${errorHeader}\n${context.error}`).trim();
+			content = `${header}\n\n${codeHeader}\n${chunk.code}\n\n${errorHeader}\n${context.error}`.trim();
 			break;
 		}
 		default:
@@ -133,8 +143,8 @@ export function getPositAssistantChatOptions(kind: ErrorActionKind, context: IEr
 	}
 
 	return {
-		prompt: kind === 'fix' ? fixPrompt : explainPrompt,
-		target: context.chat === 'new' ? 'new' : 'auto',
+		prompt: action === 'fix' ? fixPrompt : explainPrompt,
+		target: options.continueChat ? 'auto' : 'new',
 		behavior: 'submit',
 		...(content && { files: [{ uri: `data:text/plain;base64,${encodeBase64(VSBuffer.fromString(content))}`, name: attachmentName }] }),
 	};

@@ -38,7 +38,6 @@ import { ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, RuntimeOu
 import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IUntitledTextEditorService } from '../../../services/untitled/common/untitledTextEditorService.js';
 
 // Workspace storage key for collapsed inline outputs. Value is JSON:
@@ -310,7 +309,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IResourceUsageHistoryService private readonly _resourceUsageHistoryService: IResourceUsageHistoryService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@ILabelService private readonly _labelService: ILabelService,
 		@IUntitledTextEditorService private readonly _untitledTextEditorService: IUntitledTextEditorService,
 	) {
 		super();
@@ -1113,7 +1111,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			code: quartoModel.getCellCode(cell),
 			language: cell.language,
 			label: cell.label,
-			path: this._labelService.getUriLabel(this._documentUri, { relative: true }),
+			uri: this._documentUri,
 			codeStartLine: cell.codeStartLine,
 			codeEndLine: cell.codeEndLine,
 		};

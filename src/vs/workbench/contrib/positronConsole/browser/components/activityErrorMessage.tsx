@@ -16,7 +16,6 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
 import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
-import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -35,11 +34,8 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	// State hooks.
 	const [showTraceback, setShowTraceback] = useState(false);
 
-	// Configuration hooks.
-	// Main switch for Positron's AI features.
-	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
-	const enableAssistantActions = usePositronConfiguration<boolean>('console.assistantActions.enabled');
-	const showAssistantActions = aiEnabled && enableAssistantActions;
+	// Configuration hooks. The quick fix itself hides while AI is disabled.
+	const showAssistantActions = usePositronConfiguration<boolean>('console.assistantActions.enabled');
 
 	// Traceback useEffect.
 	useEffect(() => {
