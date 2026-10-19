@@ -511,6 +511,7 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 		this.reorderOnly = !!options?.reorderOnly;
 		// this.showAddButton = this.isEditable ? (options?.showAddButton ?? true) : false;
 		this.showAddButton = this.isEditable && !this.reorderOnly ? (options?.showAddButton ?? true) : false;
+		this.domNode.classList.toggle('setting-list-reorderable', this.reorderOnly);
 		// --- End Positron ---
 		super.setValue(listData);
 	}
@@ -540,21 +541,13 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 	}
 
 	protected getContainerClasses(): string[] {
-		// --- Start Positron ---
-		// return ['setting-list-widget'];
-		return ['setting-list-widget', 'setting-list-reorderable'];
-		// --- End Positron ---
+		return ['setting-list-widget'];
 	}
 
 	// --- Start Positron ---
-	// Include/exclude widgets subclass this one and are not reorderable.
-	private isReorderable(): boolean {
-		return this.getContainerClasses().includes('setting-list-reorderable');
-	}
-
 	protected override moveSelectedRow(delta: number): boolean {
 		const idx = this.model.getSelected();
-		if (!this.isReorderable() || this.isReadOnly || idx === null || this.model.items.some(item => item.editing)) {
+		if (!this.reorderOnly || this.isReadOnly || idx === null || this.model.items.some(item => item.editing)) {
 			return false;
 		}
 		const targetIndex = idx + delta;
@@ -610,15 +603,11 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 			return [];
 		}
 		// --- Start Positron ---
-		// if (this.reorderOnly) {
-		if (this.reorderOnly && this.isReorderable()) {
+		if (this.reorderOnly) {
 			return this.getMoveActions(item, idx);
 		}
 		// --- End Positron ---
 		return [
-			// --- Start Positron ---
-			...(this.isReorderable() ? this.getMoveActions(item, idx) : []),
-			// --- End Positron ---
 			{
 				class: ThemeIcon.asClassName(settingsEditIcon),
 				enabled: true,
@@ -641,7 +630,7 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 	protected renderItem(item: TListDataItem, idx: number): RowElementGroup {
 		const rowElement = $('.setting-list-row');
 		// --- Start Positron ---
-		if (this.isReorderable()) {
+		if (this.reorderOnly) {
 			DOM.append(rowElement, $('.setting-list-drag-handle' + ThemeIcon.asCSSSelector(Codicon.gripper)));
 		}
 		// --- End Positron ---
@@ -713,7 +702,7 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 				// --- Start Positron ---
 				// Apply the move locally so the selection follows the dragged row and later moves use fresh indexes.
 				const { item: draggedItem, itemIndex } = this.dragDetails;
-				const reorderable = this.isReorderable();
+				const reorderable = this.reorderOnly;
 				if (reorderable) {
 					this.model.move(itemIndex, idx);
 				} else {

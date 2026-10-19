@@ -12,21 +12,21 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 describe('ListSettingWidget reordering', () => {
 	const ctx = createTestContainer().withWorkbenchServices().build();
 
-	function createWidget(values: string[]) {
+	function createWidget(values: string[], reorderOnly = true) {
 		const container = document.createElement('div');
 		document.body.appendChild(container);
 		ctx.disposables.add({ dispose: () => container.remove() });
 		const widget = ctx.disposables.add(ctx.instantiationService.createInstance(ListSettingWidget<IListDataItem>, container));
 		const events: SettingListEvent<IListDataItem>[] = [];
 		ctx.disposables.add(widget.onDidChangeList(e => events.push(e)));
-		widget.setValue(values.map(data => ({ value: { type: 'string', data } })));
+		widget.setValue(values.map(data => ({ value: { type: 'string', data } })), { reorderOnly });
 		// eslint-disable-next-line no-restricted-syntax -- upstream widget has no roles or test ids on its rows
 		const rows = () => Array.from(container.querySelectorAll<HTMLElement>('.setting-list-row'));
 		return { widget, container, events, rows };
 	}
 
 	it('does not cancel pointerdown on a draggable row, so a native drag can start', () => {
-		const { rows } = createWidget(['a', 'b']);
+		const { rows } = createWidget(['a', 'b'], false);
 		const event = new PointerEvent('pointerdown', { bubbles: true, cancelable: true });
 		rows()[1].dispatchEvent(event);
 		expect(rows()[1].draggable).toBe(true);
@@ -76,7 +76,7 @@ describe('ListSettingWidget reordering', () => {
 	it('selects the moved row at its new index once the new value renders', () => {
 		const { widget, rows } = createWidget(['a', 'b', 'c']);
 		clickAction(rows()[0], 'Move Down');
-		widget.setValue(['b', 'a', 'c'].map(data => ({ value: { type: 'string', data } })));
+		widget.setValue(['b', 'a', 'c'].map(data => ({ value: { type: 'string', data } })), { reorderOnly: true });
 		expect(rows()[1]).toHaveClass('selected');
 		expect(rows()[1]).toHaveTextContent('a');
 	});
@@ -160,7 +160,20 @@ describe('ListSettingWidget reordering', () => {
 		expect(rows()[1]).toHaveClass('selected');
 	});
 
-	it('non-reorderable widgets get no handle, no move actions, and ignore Alt+Down', () => {
+	it('plain lists stay draggable but get no handle, no move actions, and ignore Alt+Down', () => {
+		const { container, rows, events } = createWidget(['a', 'b'], false);
+		selectFirst(rows);
+		const event = pressKey(listOf(container), 'ArrowDown', true);
+		expect(rows()[0].draggable).toBe(true);
+		expect(findAction(rows()[0], 'Move Down')).toBeNull();
+		expect(findAction(rows()[0], 'Remove Item')).not.toBeNull();
+		// eslint-disable-next-line no-restricted-syntax -- decorative handle has no role or test id
+		expect(rows()[0].querySelector('.setting-list-drag-handle')).toBeNull();
+		expect(events).toEqual([]);
+		expect(event.defaultPrevented).toBe(false);
+	});
+
+	it('include/exclude widgets get no handle, no move actions, and ignore Alt+Down', () => {
 		const container = document.createElement('div');
 		document.body.appendChild(container);
 		ctx.disposables.add({ dispose: () => container.remove() });

@@ -1416,8 +1416,8 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 			}
 
 			// --- Start Positron ---
-			// Only moves are applied to the widget right away, so only they can chain.
-			template.pendingList = e.type === 'move' ? newValue : undefined;
+			// Only reorder-only lists apply moves to the widget right away, so only they can chain.
+			template.pendingList = e.type === 'move' && isReorderOnlyList(template.context.setting.key) ? newValue : undefined;
 			// --- End Positron ---
 			if (
 				template.context.defaultValue &&
