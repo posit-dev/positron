@@ -20,6 +20,18 @@ import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from './dataCon
 export type DataConnectionParameterValues = Record<string, boolean | number | string>;
 
 /**
+ * The result of validating the parameter values entered in the configuration dialog.
+ */
+export interface IDataConnectionParameterValidation {
+	// Replacement values, keyed by parameter id, for parameters the driver normalized (e.g. a
+	// relative path resolved to an absolute one). Parameters not listed keep the entered value.
+	normalizedValues?: DataConnectionParameterValues;
+
+	// Error messages, keyed by parameter id. When any are present, the connection is not saved.
+	errors?: Record<string, string>;
+}
+
+/**
  * The kinds of node a driver reports in a connection's tree. Mirrors DataConnectionNodeKind in
  * positron.d.ts, and is the implementation the extension API hands out (see
  * extHostTypes.positron.ts), so the two cannot drift apart.
@@ -271,6 +283,15 @@ export interface IDataConnectionDriver {
 	 * @param value The stored cleartext parameter value.
 	 */
 	redactParameterValue(mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;
+
+	/**
+	 * Validates and normalizes the parameter values entered in the configuration dialog before the
+	 * connection is saved (e.g. checking that a database file exists and resolving it to an absolute
+	 * path). Resolves to an empty result when the driver does not implement validation.
+	 * @param mechanismId The id of the mechanism the user selected.
+	 * @param params The parameter values the user entered.
+	 */
+	validateParameters(mechanismId: string, params: DataConnectionParameterValues): Promise<IDataConnectionParameterValidation>;
 
 	/**
 	 * Lists the connections this driver found already configured on the machine (e.g. ODBC data

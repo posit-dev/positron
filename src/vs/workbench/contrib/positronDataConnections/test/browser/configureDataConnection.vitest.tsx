@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { URI } from '../../../../../base/common/uri.js';
 import { Event } from '../../../../../base/common/event.js';
@@ -17,7 +17,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { IDataConnectionDriver, IDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriver, IDataConnectionMechanism, IDataConnectionParameterValidation } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { ConfigureDataConnection } from '../../browser/dialogs/configureDataConnection.js';
 
 describe('ConfigureDataConnection', () => {
@@ -142,5 +142,117 @@ describe('ConfigureDataConnection', () => {
 
 		await user.type(connectionName, 'My Connection');
 		expect(connectionName).toBeValid();
+	});
+
+	describe('validation on Save', () => {
+		// A driver whose validateParameters the test controls.
+		const validateParameters = vi.fn<IDataConnectionDriver['validateParameters']>();
+		const validatingDriver = stubInterface<IDataConnectionDriver>({
+			id: 'duckdb',
+			metadata: driver.metadata,
+			validateParameters,
+		});
+
+		// Renders the dialog for a profile-less file mechanism with a name already entered, so a click
+		// on Save goes straight to the driver's validation.
+		const renderValidatingDialog = async (onSave = vi.fn()) => {
+			const user = userEvent.setup();
+			const result = rtl.render(
+				<ConfigureDataConnection
+					driver={validatingDriver}
+					mechanism={mechanismWithFileParameter('data.duckdb')}
+					renderer={renderer}
+					onSave={onSave}
+				/>
+			);
+			await user.type(screen.getByLabelText('Connection Name'), 'My Connection');
+			return { user, onSave, unmount: result.unmount };
+		};
+
+		// A validation result the test resolves when it chooses, to act while the driver is working.
+		const pendingValidation = () => {
+			let resolve!: (validation: IDataConnectionParameterValidation) => void;
+			validateParameters.mockReturnValueOnce(new Promise(r => { resolve = r; }));
+			return { resolve: (validation: IDataConnectionParameterValidation) => act(async () => resolve(validation)) };
+		};
+
+		it('shows the driver errors beneath their fields, does not save, and clears an error once its field is edited', async () => {
+			validateParameters.mockResolvedValueOnce({ errors: { databasePath: '"/ws/data.duckdb" does not exist.' } });
+			const { user, onSave } = await renderValidatingDialog();
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+
+			expect(await screen.findByRole('alert')).toHaveTextContent('"/ws/data.duckdb" does not exist.');
+			expect(onSave).not.toHaveBeenCalled();
+
+			await user.type(screen.getByLabelText('Database File'), 'x');
+			expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+		});
+
+		it('saves the values the driver normalized, for the mechanism parameters only', async () => {
+			validateParameters.mockResolvedValueOnce({ normalizedValues: { databasePath: '/ws/data.duckdb', unknown: 'ignored' } });
+			const { user, onSave } = await renderValidatingDialog();
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+
+			await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+				connectionName: 'My Connection',
+				parameterValues: { databasePath: '/ws/data.duckdb' },
+			})));
+			expect(validateParameters).toHaveBeenCalledWith('file', { databasePath: 'data.duckdb' });
+		});
+
+		it('saves the values as entered when the driver fails to validate them', async () => {
+			validateParameters.mockRejectedValueOnce(new Error('extension host went away'));
+			const { user, onSave } = await renderValidatingDialog();
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+
+			await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+				parameterValues: { databasePath: 'data.duckdb' },
+			})));
+		});
+
+		it('does not save when the dialog closes while the driver is validating', async () => {
+			const validation = pendingValidation();
+			const { user, onSave, unmount } = await renderValidatingDialog();
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+			unmount();
+			await validation.resolve({ normalizedValues: { databasePath: '/ws/data.duckdb' } });
+
+			expect(onSave).not.toHaveBeenCalled();
+		});
+
+		it('does not save values the user changed while the driver was validating them', async () => {
+			const validation = pendingValidation();
+			const { user, onSave } = await renderValidatingDialog();
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+			await user.type(screen.getByLabelText('Database File'), '2');
+			await validation.resolve({ errors: { databasePath: 'stale error' } });
+
+			expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+			expect(onSave).not.toHaveBeenCalled();
+
+			// The next Save validates the current values.
+			validateParameters.mockResolvedValueOnce({});
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+			await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+				parameterValues: { databasePath: 'data.duckdb2' },
+			})));
+		});
+
+		it('ignores a second Save while the driver is validating', async () => {
+			const validation = pendingValidation();
+			const { user, onSave } = await renderValidatingDialog();
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+			await validation.resolve({});
+
+			expect(validateParameters).toHaveBeenCalledTimes(1);
+			expect(onSave).toHaveBeenCalledTimes(1);
+		});
 	});
 });

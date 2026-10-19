@@ -135,6 +135,17 @@ export interface IDataConnectionCodeVariantDTO {
 }
 
 /**
+ * Serializable result of a validateParameters call.
+ */
+export interface IDataConnectionParameterValidationDTO {
+	// Replacement values, keyed by parameter id, for parameters the driver normalized.
+	normalizedValues?: DataConnectionParameterValuesDTO;
+
+	// Error messages, keyed by parameter id.
+	errors?: Record<string, string>;
+}
+
+/**
  * Serializable form of a connection a driver found already configured on this machine (e.g. an
  * ODBC data source declared in odbc.ini). Converted to an ephemeral IDataConnectionProfile at the
  * main-thread boundary; never persisted unless the user saves it.

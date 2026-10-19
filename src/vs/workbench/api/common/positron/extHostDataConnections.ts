@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../extHostTypes.js';
 
@@ -335,6 +335,24 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		}
 
 		return (await driver.redactParameterValue(mechanismId, parameterId, value)) ?? undefined;
+	}
+
+	/**
+	 * Calls the extension's driver.validateParameters() to validate and normalize the parameter
+	 * values entered in the configuration dialog. Returns an empty result when the driver does not
+	 * implement validation.
+	 * @param driverId The unique identifier of the driver.
+	 * @param mechanismId The id of the mechanism the user selected.
+	 * @param params The parameter values the user entered.
+	 */
+	async $validateParameters(driverId: string, mechanismId: string, params: Record<string, string | number | boolean>): Promise<IDataConnectionParameterValidationDTO> {
+		const driver = this._drivers.get(driverId);
+		if (!driver || !driver.validateParameters) {
+			return {};
+		}
+
+		const { normalizedValues, errors } = await driver.validateParameters(mechanismId, params);
+		return { normalizedValues, errors };
 	}
 
 	/**

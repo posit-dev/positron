@@ -21,7 +21,7 @@ import { PositronModalReactRenderer } from '../../../../../base/browser/positron
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { ThreeButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/threeButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
-import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionMechanism, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionMechanism, IDataConnectionParameterValidation, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * UI-side form state for a single parameter field, pairing the value with an error indicator.
@@ -34,6 +34,9 @@ export interface ParameterFieldState {
 	// Whether the parameter currently has a validation error. For required parameters, this is
 	// true when value is undefined.
 	error: boolean;
+
+	// The driver's validation error message for the parameter, shown beneath the field, if any.
+	errorMessage?: string;
 }
 
 /**
@@ -91,7 +94,7 @@ interface ConfigureDataConnectionProps {
  */
 export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => {
 	// Services.
-	const { fileDialogService, labelService, pathService, positronDataConnectionsService } = usePositronReactServicesContext();
+	const { fileDialogService, labelService, logService, pathService, positronDataConnectionsService } = usePositronReactServicesContext();
 
 	// Ref to the Connection Name input so we can drive initial focus to it rather than letting the
 	// dialog open with the focus on its box.
@@ -101,6 +104,21 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 	useEffect(() => {
 		connectionNameInputRef.current?.focus();
 	}, []);
+
+	// Whether the dialog has closed (Cancel, Back, or Escape). A save still waiting on the driver's
+	// validation when the dialog closes must not go on to save the profile.
+	const unmountedRef = useRef(false);
+	useEffect(() => {
+		unmountedRef.current = false;
+		return () => {
+			unmountedRef.current = true;
+		};
+	}, []);
+
+	// Counts edits to the form. A save compares it before and after waiting on the driver's
+	// validation, so values the user changed in the meantime are neither saved stale nor marked with
+	// errors that described their previous values.
+	const editCountRef = useRef(0);
 
 	// Ids of parameters that already have a secret saved for this profile. Secret fields for these
 	// show a "saved" placeholder, and leaving them blank on submit keeps the existing secret rather
@@ -174,6 +192,9 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 
 	// Updates a single parameter field state.
 	const setParameterFieldState = useCallback((parameterId: string, value: boolean | number | string | undefined) => {
+		// Count the edit.
+		editCountRef.current++;
+
 		// Update the parameter field state.
 		setParameterFieldStates(prev => ({
 			...prev,
@@ -230,8 +251,12 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		props.renderer.dispose();
 	}, [props.renderer]);
 
+	// Whether a save is in progress, so a second click on Save while the driver is validating the
+	// parameters does not save the profile twice.
+	const savingRef = useRef(false);
+
 	// Save handler.
-	const saveHandler = useCallback(() => {
+	const saveHandler = useCallback(async () => {
 		// A value which indicates whether any validation errors are present in the form. If true,
 		// the form will not be submitted and error indicators will be shown.
 		let hasErrors = false;
@@ -269,37 +294,85 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		// Set the new parameter field states.
 		setParameterFieldStates(updatedParameterFieldStates);
 
-		// If there are no errors, submit the form.
-		if (!hasErrors) {
-			// Build the parameter values.
-			const parameterValues: DataConnectionParameterValues = {};
-			for (const [id, { value }] of Object.entries(updatedParameterFieldStates)) {
-				if (value !== undefined) {
-					parameterValues[id] = value;
-				}
-			}
-
-			// Call the onSave callback with the connection profile.
-			props.onSave({
-				id: props.profile?.id ?? generateUuid(),
-				createdAt: props.profile?.createdAt ?? Date.now(),
-				lastUsedAt: props.profile?.lastUsedAt,
-				driverMetadata: {
-					id: props.driver.metadata.id,
-					name: props.driver.metadata.name,
-					iconSvg: props.driver.metadata.iconSvg,
-					supportedLanguageIds: props.driver.metadata.supportedLanguageIds,
-				},
-				connectionName,
-				mechanismId: props.mechanism.id,
-				parameterValues,
-				preferredCodeVariants: props.profile?.preferredCodeVariants,
-				// Carried through the rebuild: this is what keeps the discovery this profile was
-				// saved from from reappearing in the pane alongside it.
-				discoveredFromId: props.profile?.discoveredFromId,
-			});
+		// If there are errors, or a save is already in progress, don't submit the form.
+		if (hasErrors || savingRef.current) {
+			return;
 		}
-	}, [connectionName, parameterFieldStates, props, storedSecretIds]);
+
+		// Build the parameter values.
+		const parameterValues: DataConnectionParameterValues = {};
+		for (const [id, { value }] of Object.entries(updatedParameterFieldStates)) {
+			if (value !== undefined) {
+				parameterValues[id] = value;
+			}
+		}
+
+		// Have the driver validate and normalize the parameter values (e.g. check that a database
+		// file exists and resolve it to an absolute path).
+		savingRef.current = true;
+		const editCount = editCountRef.current;
+		let validation: IDataConnectionParameterValidation | undefined;
+		try {
+			validation = await props.driver.validateParameters(props.mechanism.id, parameterValues);
+		} catch (err) {
+			// Validation is a convenience. If the driver fails to validate, save the values as
+			// entered; connecting will surface any problem with them.
+			logService.warn(`[DataConnections] Could not validate the ${props.driver.metadata.name} connection parameters; saving them as entered.`, err);
+		} finally {
+			savingRef.current = false;
+		}
+
+		// If the dialog closed, or the user changed the form, while the driver was validating, the
+		// result describes values that are no longer the ones to save. Abandon this save; the next
+		// click on Save validates the current values.
+		if (unmountedRef.current || editCountRef.current !== editCount) {
+			return;
+		}
+
+		// If the driver reported errors for any of this mechanism's parameters, show them beneath
+		// their fields and don't submit the form.
+		const parameterIds = new Set(props.mechanism.parameters.map(parameter => parameter.id));
+		const errors = Object.entries(validation?.errors ?? {}).filter(([id]) => parameterIds.has(id));
+		if (errors.length) {
+			setParameterFieldStates(prev => {
+				const next = { ...prev };
+				for (const [id, errorMessage] of errors) {
+					next[id] = { ...next[id], error: true, errorMessage };
+				}
+				return next;
+			});
+			return;
+		}
+
+		// Save the values the driver normalized in place of the ones entered, for this mechanism's
+		// parameters only.
+		const savedParameterValues: DataConnectionParameterValues = { ...parameterValues };
+		for (const [id, value] of Object.entries(validation?.normalizedValues ?? {})) {
+			if (parameterIds.has(id)) {
+				savedParameterValues[id] = value;
+			}
+		}
+
+		// Call the onSave callback with the connection profile.
+		props.onSave({
+			id: props.profile?.id ?? generateUuid(),
+			createdAt: props.profile?.createdAt ?? Date.now(),
+			lastUsedAt: props.profile?.lastUsedAt,
+			driverMetadata: {
+				id: props.driver.metadata.id,
+				name: props.driver.metadata.name,
+				iconSvg: props.driver.metadata.iconSvg,
+				supportedLanguageIds: props.driver.metadata.supportedLanguageIds,
+			},
+			connectionName,
+			mechanismId: props.mechanism.id,
+			parameterValues: savedParameterValues,
+			preferredCodeVariants: props.profile?.preferredCodeVariants,
+			// Carried through the rebuild: this is what keeps the discovery this profile was
+			// saved from from reappearing in the pane alongside it.
+			discoveredFromId: props.profile?.discoveredFromId,
+		});
+	}, [connectionName, logService, parameterFieldStates, props, storedSecretIds]);
 
 	// Render.
 	return (
@@ -331,6 +404,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 								type='text'
 								value={connectionName}
 								onChange={e => {
+									editCountRef.current++;
 									setConnectionName(e.target.value);
 									setConnectionNameError(false);
 								}}
