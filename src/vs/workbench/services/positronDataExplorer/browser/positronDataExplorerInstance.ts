@@ -124,6 +124,16 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	private readonly _onDidChangeFileHasHeaderRowEmitter = this._register(new Emitter<boolean>());
 
 	/**
+	 * The onDidChangeRefreshing event emitter.
+	 */
+	private readonly _onDidChangeRefreshingEmitter = this._register(new Emitter<boolean>());
+
+	/**
+	 * The refresh in progress, if any.
+	 */
+	private _refreshPromise: Promise<void> | undefined;
+
+	/**
 	 * Tracks the current "has header row" state for delimited text files and
 	 * Excel workbooks (default true).
 	 */
@@ -609,6 +619,35 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Gets whether this Data Explorer's backend can rebuild its view from its source on request.
+	 */
+	get supportsRefresh(): boolean {
+		return this._dataExplorerClientInstance.supportsRefresh;
+	}
+
+	/**
+	 * Gets whether a refresh is in progress.
+	 */
+	get isRefreshing(): boolean {
+		return this._refreshPromise !== undefined;
+	}
+
+	/**
+	 * Rebuilds the view from its source and reloads the data, keeping the current sort and
+	 * filters. A call made while a refresh is in progress joins it.
+	 */
+	refresh(): Promise<void> {
+		if (!this._refreshPromise) {
+			this._refreshPromise = this.doRefresh().finally(() => {
+				this._refreshPromise = undefined;
+				this._onDidChangeRefreshingEmitter.fire(false);
+			});
+			this._onDidChangeRefreshingEmitter.fire(true);
+		}
+		return this._refreshPromise;
+	}
+
+	/**
 	 * Sets the visibility state of the data explorer.
 	 * When not visible, expensive operations are deferred until visible again.
 	 * @param visible Whether the data explorer is currently visible.
@@ -719,5 +758,35 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	readonly onDidChangeFileHasHeaderRow = this._onDidChangeFileHasHeaderRowEmitter.event;
 
+	/**
+	 * The onDidChangeRefreshing event.
+	 */
+	readonly onDidChangeRefreshing = this._onDidChangeRefreshingEmitter.event;
+
 	//#endregion IPositronDataExplorerInstance Implementation
+
+	//#region Private Methods
+
+	/**
+	 * Refreshes the data explorer client instance, reporting a failure to the user.
+	 */
+	private async doRefresh(): Promise<void> {
+		try {
+			await this._dataExplorerClientInstance.refresh();
+		} catch (error) {
+			// A Data Explorer closed while it refreshed has no one left to tell.
+			if (this._store.isDisposed) {
+				return;
+			}
+			this._services.notificationService.error(
+				localize(
+					'positron.dataExplorer.refresh.failed',
+					"Unable to refresh the data: {0}",
+					error instanceof Error ? error.message : String(error)
+				)
+			);
+		}
+	}
+
+	//#endregion Private Methods
 }

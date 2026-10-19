@@ -29,7 +29,7 @@ import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { IPositronObjectExplorerService } from '../../../services/positronObjectExplorer/browser/interfaces/positronObjectExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
@@ -80,6 +80,7 @@ export const enum PositronDataExplorerCommandId {
 	ConvertToCodeAction = 'workbench.action.positronDataExplorer.convertToCode',
 	ConvertToCodeModalAction = 'workbench.action.positronDataExplorer.convertToCodeModal',
 	FileOptionsAction = 'workbench.action.positronDataExplorer.fileOptions',
+	RefreshAction = 'workbench.action.positronDataExplorer.refresh',
 	ImportDataAction = 'workbench.action.positronDataExplorer.importData',
 	ImportDataFromFileAction = 'workbench.action.positronDataExplorer.importDataFromFile',
 	ShowColumnContextMenuAction = 'workbench.action.positronDataExplorer.showColumnContextMenu',
@@ -1063,6 +1064,73 @@ class PositronDataExplorerOpenAsSpreadsheetAction extends Action2 {
 }
 
 /**
+ * PositronDataExplorerRefreshAction action.
+ * Rebuilds the active Data Explorer's view from its source, so that changes made to a table
+ * outside Positron become visible. Offered for tables opened from a data connection whose driver
+ * supports it.
+ */
+class PositronDataExplorerRefreshAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.RefreshAction,
+			title: {
+				value: localize('positronDataExplorer.refresh', "Refresh"),
+				original: 'Refresh'
+			},
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: false
+			},
+			category,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH,
+				POSITRON_DATA_EXPLORER_IS_REFRESHING.negate()
+			),
+			icon: Codicon.refresh,
+			menu: [
+				{
+					// First in the right group, matching where refresh sits in the Data Connections
+					// and Variables panes.
+					id: MenuId.EditorActionsRight,
+					group: 'navigation',
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH
+					),
+					order: 1
+				},
+				{
+					id: MenuId.EditorTitle,
+					group: 'navigation',
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH
+					)
+				}
+			]
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
+		if (!positronDataExplorerInstance) {
+			return;
+		}
+
+		await positronDataExplorerInstance.refresh();
+	}
+}
+
+/**
  * PositronDataExplorerFileOptionsAction action.
  * Opens a modal dialog for configuring file import options (e.g., header row setting)
  * when viewing CSV/TSV files in the Data Explorer.
@@ -1701,6 +1769,7 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
 	registerAction2(PositronDataExplorerOpenAsSpreadsheetAction);
 	registerAction2(PositronDataExplorerFileOptionsAction);
+	registerAction2(PositronDataExplorerRefreshAction);
 	registerAction2(PositronDataExplorerImportDataAction);
 	registerAction2(PositronImportDataFromFileAction);
 	registerAction2(PositronDataExplorerConvertToCodeAction);

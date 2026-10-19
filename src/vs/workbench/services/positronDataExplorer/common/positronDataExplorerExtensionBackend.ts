@@ -144,6 +144,22 @@ export class PositronDataExplorerExtensionBackend extends Disposable implements 
 		return response.result as Type;
 	}
 
+	/**
+	 * Gets whether the providing extension can rebuild this dataset's view on request.
+	 */
+	get supportsRefresh(): boolean {
+		return this._transport.supportsRefresh(this._providerId);
+	}
+
+	/**
+	 * Asks the providing extension to rebuild this dataset's view from its source. The rebuilt view
+	 * has no sort keys or row filters; the caller re-applies them.
+	 */
+	async refresh(): Promise<void> {
+		await this.initialSetup;
+		await this._transport.refreshDataset(this._providerId, this.datasetUri);
+	}
+
 	async getState(): Promise<BackendState> {
 		return this._execRpc<BackendState>({
 			method: DataExplorerBackendRequest.GetState,

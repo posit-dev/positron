@@ -51,6 +51,8 @@ export interface IRedshiftDataExplorerHost {
  */
 export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedshiftDataExplorerHost {
 	private readonly _views = new Map<string, RedshiftTableView>();
+	/** How each open dataset's view was built, so that refreshDataset can build it again. */
+	private readonly _builders = new Map<string, ViewBuilder>();
 	private readonly _session: positron.DataExplorerRpcSession;
 
 	// Per-dataset column-profile coalescing. The frontend re-requests profiles on layout churn, so we
@@ -72,12 +74,14 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 		this._session = registerRpcHandler(REDSHIFT_DATA_EXPLORER_PROVIDER_ID, {
 			handleRpc: request => this.handleRequest(request as DataExplorerRpc),
 			closeDataset: datasetId => this.closeTableView(datasetId),
+			refreshDataset: datasetId => this.refreshDataset(datasetId),
 		});
 	}
 
 	dispose(): void {
 		this._session.dispose();
 		this._views.clear();
+		this._builders.clear();
 	}
 
 	/**
@@ -92,8 +96,10 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 		tableName: string,
 		kind: 'table' | 'view',
 	): Promise<void> {
-		const schema = await buildRedshiftSchema(client, database, schemaName, tableName);
-		this._views.set(datasetId, new RedshiftTableView(client, tableRef(database, schemaName, tableName), tableName, kind, schema, this._logger));
+		await this._openView(datasetId, async () => {
+			const schema = await buildRedshiftSchema(client, database, schemaName, tableName);
+			return new RedshiftTableView(client, tableRef(database, schemaName, tableName), tableName, kind, schema, this._logger);
+		});
 	}
 
 	/**
@@ -109,17 +115,56 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 		kind: 'table' | 'view',
 		columnName: string,
 	): Promise<void> {
-		const schema = await buildRedshiftSchema(client, database, schemaName, tableName);
-		const column = schema.find(c => c.column_name === columnName);
-		if (!column) {
-			throw new Error(`Column '${columnName}' not found in '${schemaName}.${tableName}'`);
+		await this._openView(datasetId, async () => {
+			const schema = await buildRedshiftSchema(client, database, schemaName, tableName);
+			const column = schema.find(c => c.column_name === columnName);
+			if (!column) {
+				throw new Error(`Column '${columnName}' not found in '${schemaName}.${tableName}'`);
+			}
+			return new RedshiftTableView(client, tableRef(database, schemaName, tableName), tableName, kind, [column], this._logger);
+		});
+	}
+
+	/**
+	 * Rebuilds a dataset's view from its table, so that it shows changes made to the table since the
+	 * view was built. The rebuilt view replaces the old one only once it has read its row count, so a
+	 * rebuild that fails -- the table was dropped, the connection is down -- leaves the old view in
+	 * place. The rebuilt view has no sort keys or row filters; Positron re-applies them.
+	 */
+	async refreshDataset(datasetId: string): Promise<void> {
+		const builder = this._builders.get(datasetId);
+		if (!builder) {
+			throw new Error(`No Redshift data explorer is open for ${datasetId}`);
 		}
-		this._views.set(datasetId, new RedshiftTableView(client, tableRef(database, schemaName, tableName), tableName, kind, [column], this._logger));
+
+		const generation = ++builder.generation;
+		const view = await builder.build();
+		await validateRebuiltView(view);
+
+		// The dataset may have closed, been reopened, or been refreshed again while this view was
+		// being built. Installing it then would resurrect a closed dataset or replace a newer view.
+		if (this._builders.get(datasetId) !== builder || builder.generation !== generation) {
+			throw new Error(vscode.l10n.t('The data explorer closed or was refreshed again before the refresh finished.'));
+		}
+
+		// Replace the view in place rather than closing the dataset, which would abandon a column
+		// profile request that is waiting for the view.
+		this._views.set(datasetId, view);
+	}
+
+	/**
+	 * Builds a dataset's view and registers it, replacing any prior view for the same dataset id and
+	 * remembering how it was built so that it can be refreshed.
+	 */
+	private async _openView(datasetId: string, build: () => Promise<RedshiftTableView>): Promise<void> {
+		this._views.set(datasetId, await build());
+		this._builders.set(datasetId, { build, generation: 0 });
 	}
 
 	/** Drops a dataset's view when its Data Explorer tab closes or its connection is disconnected. */
 	closeTableView(datasetId: string): void {
 		this._views.delete(datasetId);
+		this._builders.delete(datasetId);
 		// Abandon any in-flight or pending profile pass for the dataset.
 		const current = this._profileCurrent.get(datasetId);
 		if (current) {
@@ -274,4 +319,22 @@ export async function buildRedshiftSchema(
 			type_display: redshiftDisplayType(dataType),
 		};
 	});
+}
+
+/** How a dataset's view is built, and how many times it has been rebuilt. */
+interface ViewBuilder {
+	readonly build: () => Promise<RedshiftTableView>;
+	generation: number;
+}
+
+/**
+ * Checks that a rebuilt view can be shown before it replaces the old one: that its relation still
+ * has columns (the catalog reports none for a relation that no longer exists) and that its row
+ * count can be read.
+ */
+async function validateRebuiltView(view: RedshiftTableView): Promise<void> {
+	const state = await view.getState();
+	if (state.table_unfiltered_shape.num_columns === 0) {
+		throw new Error(vscode.l10n.t("'{0}' has no columns. It may have been dropped or renamed.", state.display_name));
+	}
 }
