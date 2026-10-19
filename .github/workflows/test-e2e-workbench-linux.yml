@@ -153,6 +153,7 @@ jobs:
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
           DATABRICKS_URL: "op://Positron/Databricks-WB-Auto/url"
           DATABRICKS_CLIENT_ID: "op://Positron/Databricks-WB-Auto/client-id"
+          DATABRICKS_HTTP_PATH: "op://Positron/Databricks-WB-Auto/http-path"
           IDE_SERVICE_ACCOUNT_EMAIL: "op://Positron/RStudioIDE_Service_Account/service-account-email"
           IDE_SERVICE_ACCOUNT_PASSWORD: "op://Positron/RStudioIDE_Service_Account/service-account-password"
           IDE_SERVICE_ACCOUNT_OTP_SECRET: "op://Positron/RStudioIDE_Service_Account/service-account-otp-secret"

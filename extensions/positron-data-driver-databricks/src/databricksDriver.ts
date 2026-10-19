@@ -10,8 +10,8 @@
 //     token. The workspace host comes with the credential, so only the HTTP path is asked for. Offered
 //     only when Workbench is supplying that credential.
 //   - Personal Access Token (PAT): a token minted in the workspace, sent as a bearer token.
-//   - OAuth User-to-Machine (U2M): interactive sign-in; the SDK opens the system browser and
-//     completes the authorization-code flow on a loopback redirect.
+//   - OAuth User-to-Machine (U2M): interactive sign-in; Positron opens the user's browser and
+//     completes the authorization-code flow (databricksSignIn.ts), then hands the SDK the token.
 //   - OAuth Machine-to-Machine (M2M): a service principal's client id and secret, exchanged for a
 //     token with no user interaction.
 // Every mechanism takes the compute resource's HTTP path and the same optional session settings
@@ -25,6 +25,7 @@ import * as vscode from 'vscode';
 import { DatabricksConnection } from './databricksConnection.js';
 import { DatabricksAuthType, DatabricksConnectionOptions } from './databricksClient.js';
 import { DatabricksDataExplorerRpcHandler } from './databricksDataExplorerRpcHandler.js';
+import { signInToDatabricks } from './databricksSignIn.js';
 import { getManagedCredential, isWorkbenchManaged, resolveManagedCredential } from './workbenchCredentials.js';
 
 /** The id of the mechanism that uses the credentials Posit Workbench provisions for the session. */
@@ -369,6 +370,17 @@ async function workbenchConnectionConfig(params: positron.DataConnectionParamete
 	};
 }
 
+/**
+ * Builds the normalized connection options for the U2M mechanism: signs the user in through the
+ * browser first, then pairs the options with the session's token provider so the SDK, and every
+ * reconnect, reuses that one sign-in.
+ */
+async function u2mConnectionConfig(params: positron.DataConnectionParameterValues, logger?: positron.DataConnectionLogger): Promise<DatabricksConnectionOptions> {
+	const base = connectionConfig(OAUTH_U2M_MECHANISM_ID, params);
+	const session = await signInToDatabricks(base.host, logger);
+	return { ...base, tokenProvider: () => session.getAccessToken() };
+}
+
 /** Builds the normalized connection options for a mechanism's parameter values. */
 function connectionConfig(mechanismId: string, params: positron.DataConnectionParameterValues): DatabricksConnectionOptions {
 	const authType = MECHANISM_AUTH_TYPES.get(mechanismId);
@@ -542,7 +554,9 @@ export function createDatabricksDriver(
 			validateRequired(mechanismId, params);
 			const config = mechanismId === WORKBENCH_MECHANISM_ID
 				? await workbenchConnectionConfig(params)
-				: connectionConfig(mechanismId, params);
+				: mechanismId === OAUTH_U2M_MECHANISM_ID
+					? await u2mConnectionConfig(params, logger)
+					: connectionConfig(mechanismId, params);
 			const connection = new DatabricksConnection(config, dataExplorerHandler, logger);
 			await connection.connect();
 			return connection;
