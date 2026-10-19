@@ -306,8 +306,13 @@ What the method returns:
 What core does with the answer:
 
 - Calls the method from `activateExtensionsForLanguages()`, the function core uses to activate extensions. Steps 2, 3, and 4 all go through that function, so the check runs at every point listed in "Where the pinned check runs".
+- Asks the extension that core just activated, matched by its extension ID as well as the language. Two extensions register a runtime manager for `python`, positron-python and positron-reticulate, so the language alone could pick the wrong one.
+- Waits for that extension to register its runtime manager, if it hasn't yet. Activation can finish before the extension has registered it. Without the wait, the check would find no runtime manager and skip the pin.
 - Asks each language only once per window. Steps 2, 3, and 4 can each activate the same extension, but only the first one asks. Later steps wait for that first answer.
-- If the language has an affiliated runtime, writes the pinned runtime over it and keeps the old last-started and last-used times. Step 2 uses those times to decide which languages to start. Keeping them means the pinned runtime is started or skipped the same way the old one would have been.
+- Skips the check in two cases:
+  - The language has no affiliated runtime. There's nothing to write over, and the recommendation already handles the pin in that case. This also saves Python a lookup in folders where Python hasn't been used.
+  - You just created the folder with the New Folder flow and picked an interpreter there. You chose it on purpose, so it starts on that launch. From the next launch on, the check writes the pin over it, the same as for any other interpreter you pick.
+- Otherwise, writes the pinned runtime over the affiliated runtime and keeps the old last-started and last-used times. Step 2 uses those times to decide which languages to start. Keeping them means the pinned runtime is started or skipped the same way the old one would have been.
 - Registers the pinned runtime, which adds it to the list of interpreters Positron knows about in this window. Registering doesn't write to the discovery cache, so one folder's pin never shows up in another folder.
 - In step 2, reads the affiliated runtime again after the check. Today step 2 reads the saved affiliated runtime before it activates the extension. Without reading it again, step 2 would start the old interpreter.
 
@@ -315,6 +320,7 @@ Why the first console doesn't wait longer:
 
 - R turns a path into runtime metadata by reading a few files, which takes milliseconds.
 - For Python, the lookup can take longer, but it replaces a lookup that already happens. Today, before core starts a saved interpreter that isn't registered yet, it calls `validateMetadata()`, and Python's version looks up the saved path. Core skips that call when the interpreter is already registered. Because core registers the pinned runtime, Python still does only one lookup.
+- Waiting for the runtime manager to register adds no time. Step 2 already waits for it today, before it starts a console.
 
 ## To check during implementation
 
