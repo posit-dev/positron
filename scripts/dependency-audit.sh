@@ -127,18 +127,25 @@ while IFS= read -r dir || [ -n "$dir" ]; do
 			# (semver-major) fix; that's expected, so this is only a note.
 			echo "  npm audit fix left advisories in $dir" >&2
 		fi
-		check="$(node "$LOCKCHECK" "$WORK/before.json" "$dir/package-lock.json" "$dir/package.json")"
-		problems="$(echo "$check" | jq -r '.problems | join("; ")')"
-		[ -z "$problems" ] && problems="$(ci_check "$dir")"
-		if [ -n "$problems" ]; then
-			# The new lockfile leaves a dependency outside its declared range,
-			# or npm ci would reject it. Keep the old lockfile; a person has to
-			# make this fix.
+		if ! check="$(node "$LOCKCHECK" "$WORK/before.json" "$dir/package-lock.json" "$dir/package.json")" ||
+			! echo "$check" | jq -e '(.problems | type == "array") and (.directChanges | type == "array")' >/dev/null 2>&1; then
+			# The range check did not run, so the fix is unverified. Keep the
+			# old lockfile.
 			cp "$WORK/before.json" "$dir/package-lock.json"
-			reverted+=("${dir#extensions/}: $problems")
+			errors+=("\`$dir\`: lockfile check failed, so the fix was not applied")
 		else
-			changes="$(echo "$check" | jq -r '.directChanges | join(", ")')"
-			[ -n "$changes" ] && direct+=("${dir#extensions/}: $changes")
+			problems="$(echo "$check" | jq -r '.problems | join("; ")')"
+			[ -z "$problems" ] && problems="$(ci_check "$dir")"
+			if [ -n "$problems" ]; then
+				# The new lockfile leaves a dependency outside its declared
+				# range, or npm ci would reject it. Keep the old lockfile; a
+				# person has to make this fix.
+				cp "$WORK/before.json" "$dir/package-lock.json"
+				reverted+=("${dir#extensions/}: $problems")
+			else
+				changes="$(echo "$check" | jq -r '.directChanges | join(", ")')"
+				[ -n "$changes" ] && direct+=("${dir#extensions/}: $changes")
+			fi
 		fi
 		after="$(npm_audit "$dir")"
 	fi
