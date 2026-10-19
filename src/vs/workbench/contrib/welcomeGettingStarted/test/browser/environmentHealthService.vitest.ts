@@ -94,7 +94,7 @@ describe('EnvironmentHealthService', () => {
 		getValue.mockImplementation((key: string) => key === LANGUAGE_ORDER_KEY ? order : ['python', 'r']);
 	}
 
-	it('lists languages alphabetically when the order is unset', () => {
+	it('keeps the default order when the order is unset', () => {
 		setLanguageOrder([]);
 		const service = ctx.disposables.add(build());
 		expect(service.state.map(s => s.language)).toEqual(['python', 'r']);
@@ -113,7 +113,6 @@ describe('EnvironmentHealthService', () => {
 		ctx.disposables.add(service.onDidChange(changed));
 		setLanguageOrder(['r']);
 		onDidChangeConfiguration.fire({ affectsConfiguration: key => key === LANGUAGE_ORDER_KEY });
-		expect(changed).toHaveBeenCalled();
 		expect(changed.mock.calls.at(-1)![0].map((s: { language: string }) => s.language)).toEqual(['r', 'python']);
 	});
 

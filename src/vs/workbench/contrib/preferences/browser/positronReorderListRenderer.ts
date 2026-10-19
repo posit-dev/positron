@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ITreeNode, ITreeRenderer } from '../../../../base/browser/ui/tree/tree.js';
-import { isReorderOnlyList, withMissingValues } from '../common/positronReorderOnlyList.js';
+import { isReorderOnlyList, reorderRows } from '../common/positronReorderOnlyList.js';
 import { PositronReorderListWidget } from './positronReorderListWidget.js';
 import { positronSettingRenderers } from './positronSettingRenderers.js';
 import { AbstractSettingRenderer, ISettingItemTemplate } from './settingsTree.js';
@@ -42,9 +42,9 @@ class PositronReorderListRenderer extends AbstractSettingRenderer implements ITr
 	protected renderValue(dataElement: SettingsTreeSettingElement, template: IReorderListTemplate, onChange: (value: string[]) => void): void {
 		const { key, enum: allowed, enumItemLabels } = dataElement.setting;
 		const saved: string[] = Array.isArray(dataElement.value) ? dataElement.value : [];
-		template.listWidget.setValue(withMissingValues(key, allowed, saved).map(id => ({
-			value: { type: 'string', data: id },
-			label: enumItemLabels?.[allowed?.indexOf(id) ?? -1] ?? id,
+		template.listWidget.setValue(reorderRows(key, allowed, enumItemLabels, saved).map(row => ({
+			value: { type: 'string', data: row.value },
+			label: row.label,
 		})));
 		template.context = dataElement;
 		template.onChange = onChange;

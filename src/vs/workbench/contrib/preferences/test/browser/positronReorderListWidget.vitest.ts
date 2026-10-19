@@ -8,7 +8,6 @@
 import { IReorderListItem, PositronReorderListWidget } from '../../browser/positronReorderListWidget.js';
 import { SettingListEvent } from '../../browser/settingsWidgets.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { timeout } from '../../../../../base/common/async.js';
 
 describe('PositronReorderListWidget', () => {
 	const ctx = createTestContainer().withWorkbenchServices().build();
@@ -71,6 +70,13 @@ describe('PositronReorderListWidget', () => {
 		expect(rows()[0]).toHaveClass('selected');
 	});
 
+	it('ignores a drop that did not start in the list', () => {
+		const { rows, events } = createWidget(['a', 'b']);
+		rows()[0].dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+		expect(events).toEqual([]);
+		expect(rowLabels(rows)).toEqual(['A', 'B']);
+	});
+
 	it('Move Down and Move Up fire moves to the adjacent index', () => {
 		const { rows, events } = createWidget(['a', 'b', 'c']);
 		clickAction(rows()[0], 'Move Down');
@@ -113,7 +119,7 @@ describe('PositronReorderListWidget', () => {
 			expect.objectContaining({ type: 'move', sourceIndex: 0, targetIndex: 1 }),
 			expect.objectContaining({ type: 'move', sourceIndex: 1, targetIndex: 2 }),
 		]);
-		expect((events[1] as { originalItem: IReorderListItem }).originalItem.value.data).toBe('a');
+		expect(events[1]).toEqual(expect.objectContaining({ originalItem: expect.objectContaining({ value: { type: 'string', data: 'a' } }) }));
 		expect(rowLabels(rows)).toEqual(['B', 'C', 'A']);
 		expect(rows()[2]).toHaveClass('selected');
 	});
@@ -141,11 +147,10 @@ describe('PositronReorderListWidget', () => {
 		expect(rows()[1]).toHaveClass('selected');
 	});
 
-	it('keeps the moved row selected and focused when the settings tree re-renders the list', async () => {
+	it('keeps the moved row selected and focused when the settings tree re-renders the list', () => {
 		const { widget, list, rows } = createWidget(['a', 'b', 'c']);
 		pointerDown(rows()[0]);
 		pressKey(list, 'ArrowDown', true);
-		await timeout(0);
 		expect(rows()[1]).toHaveFocus();
 		// What the settings tree does once the setting saves.
 		widget.cancelEdit();

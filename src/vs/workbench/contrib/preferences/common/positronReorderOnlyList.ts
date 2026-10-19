@@ -22,3 +22,11 @@ export function withMissingValues(key: string, allowed: readonly string[] | unde
 	}
 	return [...value, ...allowed.filter(v => !value.includes(v))];
 }
+
+/** The rows to show: each value from `withMissingValues`, labeled from `allowedLabels` or else by itself. */
+export function reorderRows(key: string, allowed: readonly string[] | undefined, allowedLabels: readonly string[] | undefined, value: readonly string[]): { value: string; label: string }[] {
+	return withMissingValues(key, allowed, value).map(v => ({
+		value: v,
+		label: allowedLabels?.[allowed?.indexOf(v) ?? -1] ?? v,
+	}));
+}

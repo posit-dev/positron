@@ -308,9 +308,9 @@ describe('selectNewLanguageRuntime', () => {
 			(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(LANGUAGE_ORDER_KEY, []);
 		});
 
-		/** Item labels in picker order, separators dropped. */
-		function itemLabels(): string[] {
-			return pick.items.filter(item => item.type !== 'separator').map(item => item.label);
+		/** The R and Python runtime labels, in picker order. */
+		function runtimeLabels(): string[] {
+			return pick.items.filter(item => item.type !== 'separator').map(item => item.label).filter(label => label === 'R 4.4' || label === 'Python 3.12');
 		}
 
 		it('lists languages in the configured order', async () => {
@@ -319,7 +319,7 @@ describe('selectNewLanguageRuntime', () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'r', languageId: 'r', languageName: 'R', runtimeName: 'R 4.4' }));
 			const promise = runPicker();
 			await waitUntilOpened();
-			expect(itemLabels().indexOf('R 4.4')).toBeLessThan(itemLabels().indexOf('Python 3.12'));
+			expect(runtimeLabels()).toEqual(['R 4.4', 'Python 3.12']);
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
 		});
@@ -329,7 +329,7 @@ describe('selectNewLanguageRuntime', () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py', languageId: 'python', languageName: 'Python', runtimeName: 'Python 3.12' }));
 			const promise = runPicker();
 			await waitUntilOpened();
-			expect(itemLabels().indexOf('Python 3.12')).toBeLessThan(itemLabels().indexOf('R 4.4'));
+			expect(runtimeLabels()).toEqual(['Python 3.12', 'R 4.4']);
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
 		});
@@ -810,8 +810,9 @@ describe('selectLanguage', () => {
 	beforeEach(() => {
 		pick = ctx.disposables.add(new TestQuickPick<IQuickPickItem>());
 		const runtimeService = ctx.get(ILanguageRuntimeService);
-		ctx.disposables.add(runtimeService.registerRuntime(makeRuntime({ runtimeId: 'py', languageId: 'python', languageName: 'Python' })));
+		// R first, so the default order only comes out alphabetical if it is sorted.
 		ctx.disposables.add(runtimeService.registerRuntime(makeRuntime({ runtimeId: 'r', languageId: 'r', languageName: 'R' })));
+		ctx.disposables.add(runtimeService.registerRuntime(makeRuntime({ runtimeId: 'py', languageId: 'python', languageName: 'Python' })));
 	});
 
 	async function promptLabels(): Promise<string[]> {

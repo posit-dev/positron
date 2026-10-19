@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { isReorderOnlyList, withMissingValues } from '../../common/positronReorderOnlyList.js';
+import { isReorderOnlyList, reorderRows, withMissingValues } from '../../common/positronReorderOnlyList.js';
 
 const KEY = 'interpreters.languageOrder';
 const allowed = ['julia', 'python', 'r'];
@@ -25,11 +25,37 @@ describe('withMissingValues', () => {
 
 	it('leaves other settings alone', () => {
 		expect(withMissingValues('git.branchProtection', allowed, ['a'])).toEqual(['a']);
-		expect(isReorderOnlyList('git.branchProtection')).toBe(false);
-		expect(isReorderOnlyList(KEY)).toBe(true);
 	});
 
 	it('returns the saved value when the setting has no allowed values', () => {
 		expect(withMissingValues(KEY, undefined, ['r'])).toEqual(['r']);
+	});
+});
+
+describe('isReorderOnlyList', () => {
+	it('is true only for the language order', () => {
+		expect(isReorderOnlyList(KEY)).toBe(true);
+		expect(isReorderOnlyList('git.branchProtection')).toBe(false);
+	});
+});
+
+describe('reorderRows', () => {
+	it('labels each value from the label at its allowed index', () => {
+		expect(reorderRows(KEY, allowed, ['Julia', 'Python', 'R'], ['r'])).toEqual([
+			{ value: 'r', label: 'R' },
+			{ value: 'julia', label: 'Julia' },
+			{ value: 'python', label: 'Python' },
+		]);
+	});
+
+	it('labels a saved value that is not allowed by itself', () => {
+		expect(reorderRows(KEY, ['python'], ['Python'], ['ark'])).toEqual([
+			{ value: 'ark', label: 'ark' },
+			{ value: 'python', label: 'Python' },
+		]);
+	});
+
+	it('labels values by themselves when there are no labels', () => {
+		expect(reorderRows(KEY, ['python'], undefined, [])).toEqual([{ value: 'python', label: 'python' }]);
 	});
 });
