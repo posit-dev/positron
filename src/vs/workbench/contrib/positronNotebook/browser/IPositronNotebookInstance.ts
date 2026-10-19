@@ -125,7 +125,7 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly uri: URI;
 
 	/**
-	 * The notebook view type (e.g., 'jupyter-notebook' or 'quarto-notebook').
+	 * The notebook view type (e.g., 'jupyter-notebook').
 	 */
 	readonly viewType: string;
 

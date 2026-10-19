@@ -5230,7 +5230,12 @@ declare module 'positron' {
 	}
 
 	/**
-	 * Namespace for interacting with Positron notebooks
+	 * Namespace for interacting with Positron notebooks.
+	 *
+	 * Quarto and R Markdown documents open in an editor while inline output is
+	 * enabled are also presented as notebooks whose cells are their code
+	 * chunks. Adding markdown cells, and moving and reordering cells, are not
+	 * supported for them.
 	 */
 	export namespace notebooks {
 		/**
@@ -5360,10 +5365,10 @@ declare module 'positron' {
 		/**
 		 * Get context about the active notebook.
 		 *
-		 * When no Positron notebook is the active editor pane (e.g. focus is
-		 * in another editor or view), falls back to the open notebook attached
-		 * to the foreground session, then to the most recently active Positron
-		 * notebook that is still open.
+		 * When no Positron notebook or Quarto document is the active editor
+		 * pane (e.g. focus is in another editor or view), falls back to the
+		 * open notebook or Quarto document attached to the foreground session,
+		 * then to the most recently active Positron notebook that is still open.
 		 *
 		 * Resolves with `undefined` when no notebook is open. Rejects with an
 		 * actionable error when the active editor holds a notebook in an
