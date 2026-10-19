@@ -39,12 +39,16 @@ class ExtHostPreviewPanel extends Disposable implements positron.PreviewPanel {
 	#visible: boolean = true;
 	#active: boolean;
 	#isDisposed: boolean = false;
+	#stoppable: boolean = false;
 
 	readonly #onDidDispose = this._register(new Emitter<void>());
 	public readonly onDidDispose = this.#onDidDispose.event;
 
 	readonly #onDidChangeViewState = this._register(new Emitter<positron.PreviewPanelOnDidChangeViewStateEvent>());
 	public readonly onDidChangeViewState = this.#onDidChangeViewState.event;
+
+	readonly #onDidRequestStop = this._register(new Emitter<void>());
+	public readonly onDidRequestStop = this.#onDidRequestStop.event;
 
 	/**
 	 * Construct a new PreviewPanel.
@@ -108,6 +112,34 @@ class ExtHostPreviewPanel extends Disposable implements positron.PreviewPanel {
 			this.#title = value;
 			this.#proxy.$setTitle(this.#handle, value);
 		}
+	}
+
+	get stoppable(): boolean {
+		this.assertNotDisposed();
+		return this.#stoppable;
+	}
+
+	set stoppable(value: boolean) {
+		this.assertNotDisposed();
+		if (this.#stoppable !== value) {
+			this.#stoppable = value;
+			this.#proxy.$setStoppable(this.#handle, value);
+		}
+	}
+
+	/**
+	 * Called when the user clicks the Viewer's stop button.
+	 */
+	_requestStop() {
+		if (this.#isDisposed) {
+			return;
+		}
+
+		// The main thread already hid the button, but the extension may have
+		// shown it again while this request was in flight. Use the setter so
+		// the main thread ends up hidden too.
+		this.stoppable = false;
+		this.#onDidRequestStop.fire();
 	}
 
 	get iconPath(): IconPath | undefined {
@@ -287,6 +319,10 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 				visible: newState.visible,
 			});
 		}
+	}
+
+	public $onDidRequestStop(handle: extHostProtocol.PreviewHandle): void {
+		this.getPreviewPanel(handle)?._requestStop();
 	}
 
 	async $onDidDisposePreviewPanel(handle: extHostProtocol.PreviewHandle): Promise<void> {

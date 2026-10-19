@@ -61,10 +61,18 @@ export class SnowflakeDataExplorerRpcHandler implements vscode.Disposable, ISnow
 	private readonly _profilePending = new Map<string, GetColumnProfilesParams>();
 	private readonly _profileDraining = new Set<string>();
 
-	/** @param _logger Optional diagnostic log sink, threaded to each table view for profile timing. */
-	constructor(private readonly _logger?: positron.DataConnectionLogger) {
-		this._session = positron.dataExplorer.registerRpcHandler(SNOWFLAKE_DATA_EXPLORER_PROVIDER_ID, {
-			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
+	/**
+	 * @param _logger Optional diagnostic log sink, threaded to each table view for profile timing.
+	 * @param registerRpcHandler Registers the handler with Positron. Tests pass a fake so they can drive
+	 * the registered hooks without replacing the running extension's provider.
+	 */
+	constructor(
+		private readonly _logger?: positron.DataConnectionLogger,
+		registerRpcHandler: typeof positron.dataExplorer.registerRpcHandler = positron.dataExplorer.registerRpcHandler,
+	) {
+		this._session = registerRpcHandler(SNOWFLAKE_DATA_EXPLORER_PROVIDER_ID, {
+			handleRpc: request => this.handleRequest(request as DataExplorerRpc),
+			closeDataset: datasetId => this.closeTableView(datasetId),
 		});
 	}
 
@@ -116,7 +124,7 @@ export class SnowflakeDataExplorerRpcHandler implements vscode.Disposable, ISnow
 		this._views.set(datasetId, new SnowflakeTableView(client, tableRef(database, schemaName, tableName), tableName, kind, [column], this._logger));
 	}
 
-	/** Drops a dataset's view, e.g. when its connection is disconnected. */
+	/** Drops a dataset's view when its Data Explorer tab closes or its connection is disconnected. */
 	closeTableView(datasetId: string): void {
 		this._views.delete(datasetId);
 		// Abandon any in-flight or pending profile pass for the dataset.
@@ -165,7 +173,7 @@ export class SnowflakeDataExplorerRpcHandler implements vscode.Disposable, ISnow
 			case DataExplorerBackendRequest.SuggestCodeSyntax:
 				return view.suggestCodeSyntax();
 			case DataExplorerBackendRequest.GetColumnProfiles:
-				return this._getColumnProfiles(view, rpc.uri, rpc.params as GetColumnProfilesParams);
+				return this._getColumnProfiles(rpc.uri, rpc.params as GetColumnProfilesParams);
 			default:
 				throw new Error(`Unsupported data explorer method: ${rpc.method}`);
 		}
@@ -176,7 +184,7 @@ export class SnowflakeDataExplorerRpcHandler implements vscode.Disposable, ISnow
 	 * the dataset's latest pending pass (cancelling any running one), and let the drain loop compute it
 	 * and push the results to the frontend via the registration session.
 	 */
-	private _getColumnProfiles(view: SnowflakeTableView, datasetId: string, params: GetColumnProfilesParams): void {
+	private _getColumnProfiles(datasetId: string, params: GetColumnProfilesParams): void {
 		this._profilePending.set(datasetId, params);
 		// Supersede a running pass so it abandons itself at the next statement boundary.
 		const current = this._profileCurrent.get(datasetId);
@@ -184,7 +192,7 @@ export class SnowflakeDataExplorerRpcHandler implements vscode.Disposable, ISnow
 			current.isCancellationRequested = true;
 		}
 		if (!this._profileDraining.has(datasetId)) {
-			void this._drainColumnProfiles(view, datasetId);
+			void this._drainColumnProfiles(datasetId);
 		}
 	}
 
@@ -193,12 +201,20 @@ export class SnowflakeDataExplorerRpcHandler implements vscode.Disposable, ISnow
 	 * request overwrites the single pending slot and cancels the running pass, only the latest request
 	 * of a burst is fully computed; the connection never carries more than one pass's statements.
 	 */
-	private async _drainColumnProfiles(view: SnowflakeTableView, datasetId: string): Promise<void> {
+	private async _drainColumnProfiles(datasetId: string): Promise<void> {
 		this._profileDraining.add(datasetId);
 		try {
 			let params: GetColumnProfilesParams | undefined;
 			while ((params = this._profilePending.get(datasetId)) !== undefined) {
 				this._profilePending.delete(datasetId);
+				// Look the view up for each pass rather than holding the one the loop started with. A tab
+				// that closes and reopens gets a new view under the same dataset id while this loop may
+				// still be finishing the closed view's pass, and the reopened tab's request must run on
+				// its own view.
+				const view = this._views.get(datasetId);
+				if (!view) {
+					break;
+				}
 				const token = { isCancellationRequested: false };
 				this._profileCurrent.set(datasetId, token);
 				try {

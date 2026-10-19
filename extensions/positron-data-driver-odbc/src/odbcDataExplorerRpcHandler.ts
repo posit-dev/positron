@@ -57,9 +57,18 @@ export class OdbcDataExplorerRpcHandler implements vscode.Disposable, IOdbcDataE
 	private readonly _views = new Map<string, OdbcTableView>();
 	private readonly _session: positron.DataExplorerRpcSession;
 
-	constructor(private readonly _logger?: positron.DataConnectionLogger) {
-		this._session = positron.dataExplorer.registerRpcHandler(ODBC_DATA_EXPLORER_PROVIDER_ID, {
-			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
+	/**
+	 * @param _logger Optional diagnostic log sink.
+	 * @param registerRpcHandler Registers the handler with Positron. Tests pass a fake so they can drive
+	 * the registered hooks without replacing the running extension's provider.
+	 */
+	constructor(
+		private readonly _logger?: positron.DataConnectionLogger,
+		registerRpcHandler: typeof positron.dataExplorer.registerRpcHandler = positron.dataExplorer.registerRpcHandler,
+	) {
+		this._session = registerRpcHandler(ODBC_DATA_EXPLORER_PROVIDER_ID, {
+			handleRpc: request => this.handleRequest(request as DataExplorerRpc),
+			closeDataset: datasetId => this.closeTableView(datasetId),
 		});
 	}
 
@@ -109,7 +118,7 @@ export class OdbcDataExplorerRpcHandler implements vscode.Disposable, IOdbcDataE
 		this._views.set(datasetId, new OdbcTableView(client, ref, dialect, [column], rowIdentity));
 	}
 
-	/** Drops a dataset's view, e.g. when its connection is disconnected. */
+	/** Drops a dataset's view when its Data Explorer tab closes or its connection is disconnected. */
 	closeTableView(datasetId: string): void {
 		this._views.delete(datasetId);
 	}

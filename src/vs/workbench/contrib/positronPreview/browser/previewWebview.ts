@@ -23,8 +23,12 @@ export class PreviewWebview extends Disposable {
 
 	private _active = false;
 
+	private _stoppable = false;
+
 	private _onDidChangeActiveState = new Emitter<boolean>();
 	private _onDidChangeVisibleState = new Emitter<boolean>();
+	private readonly _onDidChangeStoppable = this._register(new Emitter<boolean>());
+	private readonly _onDidRequestStop = this._register(new Emitter<void>());
 
 	/**
 	 * Construct a new PreviewWebview.
@@ -63,6 +67,16 @@ export class PreviewWebview extends Disposable {
 	 */
 	onDidChangeVisibleState: Event<boolean>;
 
+	/**
+	 * Fires when the preview's stoppable state changes.
+	 */
+	readonly onDidChangeStoppable: Event<boolean> = this._onDidChangeStoppable.event;
+
+	/**
+	 * Fires when the user asks to stop the process that serves the preview.
+	 */
+	readonly onDidRequestStop: Event<void> = this._onDidRequestStop.event;
+
 	isDisposed(): boolean {
 		return this._disposed;
 	}
@@ -83,6 +97,31 @@ export class PreviewWebview extends Disposable {
 	set visible(visible: boolean) {
 		this._visible = visible;
 		this._onDidChangeActiveState.fire(visible);
+	}
+
+	/**
+	 * Whether the Viewer shows a stop button for this preview. The preview's
+	 * owner (usually an extension) sets this while its process is running.
+	 */
+	get stoppable(): boolean {
+		return this._stoppable;
+	}
+
+	set stoppable(stoppable: boolean) {
+		if (this._stoppable !== stoppable) {
+			this._stoppable = stoppable;
+			this._onDidChangeStoppable.fire(stoppable);
+		}
+	}
+
+	/**
+	 * Hides the stop button and asks the preview's owner to stop.
+	 */
+	requestStop() {
+		if (this._stoppable) {
+			this.stoppable = false;
+			this._onDidRequestStop.fire();
+		}
 	}
 
 	override dispose() {

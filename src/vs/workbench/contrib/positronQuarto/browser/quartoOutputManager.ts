@@ -135,9 +135,9 @@ export interface IQuartoOutputManager {
 	readonly onDidRequestClearAll: Event<void>;
 
 	/**
-	 * Get outputs for a cell.
+	 * Get the outputs of a cell's run in this window.
 	 */
-	getOutputsForCell(cellId: string): readonly ICellOutput[];
+	getOutputsForCell(documentUri: URI, cellId: string): readonly ICellOutput[];
 
 	/**
 	 * Clear outputs for a cell.
@@ -2000,20 +2000,12 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 		}, 30000);
 	}
 
-	getOutputsForCell(cellId: string): readonly ICellOutput[] {
-		// This is a simplified implementation
-		// In practice, we'd need the document URI to get the right outputs
-		for (const [key, outputs] of this._outputsByCell) {
-			if (key.endsWith(`:${cellId}`)) {
-				return outputs;
-			}
-		}
-		return [];
+	getOutputsForCell(documentUri: URI, cellId: string): readonly ICellOutput[] {
+		return this._outputsByCell.get(this._keyForCell(documentUri, cellId)) ?? [];
 	}
 
 	clearOutputsForCell(documentUri: URI, cellId: string): void {
-		const key = `${documentUri.toString()}:${cellId}`;
-		this._outputsByCell.delete(key);
+		this._outputsByCell.delete(this._keyForCell(documentUri, cellId));
 
 		// Clear from cache
 		this._cacheService.clearCellOutputs(documentUri, cellId);
@@ -2023,6 +2015,26 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 			documentUri,
 			outputs: [],
 		});
+	}
+
+	/**
+	 * The key of a cell's outputs. Cell ids begin with the cell's index, which
+	 * changes when cells above it are added or removed, so if no outputs are
+	 * stored under the cell's id, this looks for its content at another index.
+	 * Cells with the same content and label are indistinguishable, so this
+	 * only falls back when exactly one stored cell matches.
+	 */
+	private _keyForCell(documentUri: URI, cellId: string): string {
+		const prefix = `${documentUri.toString()}:`;
+		const key = prefix + cellId;
+		if (this._outputsByCell.has(key)) {
+			return key;
+		}
+		const withoutIndex = (id: string) => id.replace(/^\d+/, '');
+		const content = withoutIndex(cellId);
+		const candidates = [...this._outputsByCell.keys()].filter(candidate =>
+			candidate.startsWith(prefix) && withoutIndex(candidate.substring(prefix.length)) === content);
+		return candidates.length === 1 ? candidates[0] : key;
 	}
 
 	clearAllOutputs(documentUri: URI): void {

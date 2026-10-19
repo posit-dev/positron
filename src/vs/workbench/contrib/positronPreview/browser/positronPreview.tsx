@@ -20,6 +20,7 @@ import { PreviewUrl } from './previewUrl.js';
 import { PreviewHtml } from './previewHtml.js';
 import { HtmlActionBars } from './components/htmlActionBars.js';
 import { BasicActionBars } from './components/basicActionBars.js';
+import { WebviewActionBars } from './components/webviewActionBars.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
@@ -48,6 +49,7 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	// Initial selected preview item.
 	const initialActivePreview = services.positronPreviewService.activePreviewWebview;
 	const [activePreview, setActivePreview] = useState<PreviewWebview | undefined>(initialActivePreview);
+	const [, setStoppableVersion] = useState(0);
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
@@ -80,11 +82,26 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 		return () => disposableStore.dispose();
 	}, [services.positronPreviewService, props.reactComponentContainer]);
 
+	// Re-render when the active preview's stoppable state changes. The toolbar
+	// reads `activePreview.stoppable` during render, so switching previews never
+	// shows a stale toolbar. The state can change between the render and this
+	// subscription, so re-render once on subscribe too.
+	useEffect(() => {
+		if (!activePreview) {
+			return;
+		}
+		const rerender = () => setStoppableVersion(version => version + 1);
+		const disposable = activePreview.onDidChangeStoppable(rerender);
+		rerender();
+		return () => disposable.dispose();
+	}, [activePreview]);
+
 	const urlToolbar = activePreview && activePreview instanceof PreviewUrl;
 	const htmlToolbar = activePreview && activePreview instanceof PreviewHtml;
 	const basicToolbar =
 		activePreview && activePreview.viewType === 'notebookRenderer';
-	const showToolbar = urlToolbar || htmlToolbar || basicToolbar;
+	const webviewToolbar = activePreview && activePreview.stoppable && !urlToolbar && !htmlToolbar && !basicToolbar;
+	const showToolbar = urlToolbar || htmlToolbar || basicToolbar || webviewToolbar;
 
 	// Render.
 	return (
@@ -101,6 +118,9 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 			}
 			{basicToolbar &&
 				<BasicActionBars key={activePreview.previewId} preview={activePreview} {...props} />
+			}
+			{webviewToolbar &&
+				<WebviewActionBars key={activePreview.previewId} preview={activePreview} {...props} />
 			}
 			<PreviewContainer
 				height={height - (showToolbar ? 32 : 0)}
