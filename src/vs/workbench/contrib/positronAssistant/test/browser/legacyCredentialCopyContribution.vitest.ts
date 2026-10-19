@@ -21,11 +21,13 @@ describe('LegacyCredentialCopyContribution', () => {
 	let flag = false;
 	let extensionState: Record<string, unknown> = {};
 	let catalogStatus: 'ready' | 'error' = 'ready';
+	let secretsType: ISecretStorageService['type'] = 'persisted';
 
 	const ctx = createTestContainer()
 		.stub(ISecretStorageService, stubInterface<ISecretStorageService>({
 			get: async key => secrets.get(key),
 			set: async (key, value) => { secrets.set(key, value); },
+			get type() { return secretsType; },
 		}))
 		.stub(IExtensionStorageService, stubInterface<IExtensionStorageService>({
 			getExtensionState: (id, global) =>
@@ -58,6 +60,7 @@ describe('LegacyCredentialCopyContribution', () => {
 		flag = false;
 		extensionState = {};
 		catalogStatus = 'ready';
+		secretsType = 'persisted';
 	});
 
 	async function run(): Promise<void> {
@@ -97,15 +100,22 @@ describe('LegacyCredentialCopyContribution', () => {
 		expect([...secrets.keys()].some(k => k.includes(ASSISTANT_EXTENSION_ID))).toBe(false);
 	});
 
-	it('does not overwrite a record Assistant already holds', async () => {
-		extensionState = { 'auth.accounts.anthropic-api': [{ id: 'u', label: 'u' }] };
+	it('keeps a signed-in Assistant record and replaces a signed-out one', async () => {
+		extensionState = {
+			'auth.accounts.anthropic-api': [{ id: 'u', label: 'u' }],
+			'auth.accounts.my-gateway': [{ id: 'g', label: 'g' }],
+		};
 		secrets.set(extensionSecretKey(LEGACY_AUTH_EXTENSION_ID, 'apiKey-anthropic-api-u'), 'legacy');
-		const existing = extensionSecretKey(ASSISTANT_EXTENSION_ID, 'auth:anthropic:apikey');
-		secrets.set(existing, '{"apiKeyAuth":{"apiKey":"newer"}}');
+		secrets.set(extensionSecretKey(LEGACY_AUTH_EXTENSION_ID, 'apiKey-my-gateway-g'), 'gw');
+		const signedIn = extensionSecretKey(ASSISTANT_EXTENSION_ID, 'auth:anthropic:apikey');
+		const signedOut = extensionSecretKey(ASSISTANT_EXTENSION_ID, 'auth:my-gateway:apikey');
+		secrets.set(signedIn, '{"authenticated":true,"apiKeyAuth":{"apiKey":"newer"}}');
+		secrets.set(signedOut, '{"readiness":"unauthenticated","configured":false,"authenticated":false}');
 
 		await run();
 
-		expect(secrets.get(existing)).toBe('{"apiKeyAuth":{"apiKey":"newer"}}');
+		expect(secrets.get(signedIn)).toBe('{"authenticated":true,"apiKeyAuth":{"apiKey":"newer"}}');
+		expect(JSON.parse(secrets.get(signedOut)!).apiKeyAuth).toEqual({ apiKey: 'gw' });
 		expect(flag).toBe(true);
 	});
 
@@ -120,12 +130,16 @@ describe('LegacyCredentialCopyContribution', () => {
 		expect([...secrets.keys()].some(k => k.includes(ASSISTANT_EXTENSION_ID))).toBe(false);
 	});
 
-	it('leaves the flag unset when accounts exist but no secret is readable', async () => {
+	it('retries only while secret storage is not persisted when accounts have no readable secret', async () => {
 		extensionState = { 'auth.accounts.anthropic-api': [{ id: 'u', label: 'u' }] };
 
+		secretsType = 'in-memory';
 		await run();
-
 		expect(flag).toBe(false);
+
+		secretsType = 'persisted';
+		await run();
+		expect(flag).toBe(true);
 	});
 
 	it('leaves the flag unset when a write fails', async () => {

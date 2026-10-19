@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import type { StoredProviderCredentials } from 'ai-credentials/store-backend';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IExtensionStorageService } from '../../../../platform/extensionManagement/common/extensionStorage.js';
@@ -24,7 +25,7 @@ const DEFAULT_POSITAI_SCOPE = 'prism';
 /**
  * Copies the credentials `positron.authentication` stored for the providers
  * that moved to Assistant into Assistant's secret store, once per profile and
- * never over a record Assistant already holds. Reads another extension's
+ * never over a provider already signed in to Assistant. Reads another extension's
  * storage keys directly; a migration step, to be removed a fixed number of
  * releases after it ships.
  */
@@ -75,19 +76,23 @@ export class LegacyCredentialCopyContribution extends Disposable implements IWor
 				log: (level, message) => this._log[level](`[legacy-credential-copy] ${message}`),
 			});
 			if (indexedAccounts > 0 && readableSecrets === 0) {
-				this._log.warn('[legacy-credential-copy] accounts are indexed but no secret was readable; will retry next launch');
-				return;
+				if (this._secrets.type !== 'persisted') {
+					this._log.warn('[legacy-credential-copy] accounts are indexed but secret storage is not persisted; will retry next launch');
+					return;
+				}
+				this._log.warn('[legacy-credential-copy] accounts are indexed but their secrets are gone; nothing to copy');
 			}
 			let copied = 0;
 			for (const write of writes) {
-				if (await this._secrets.get(write.key) !== undefined) {
+				const existing: Partial<StoredProviderCredentials> = JSON.parse(await this._secrets.get(write.key) ?? '{}');
+				if (existing.authenticated === true || existing.readiness === 'pending') {
 					continue;
 				}
 				await this._secrets.set(write.key, write.value);
 				copied++;
 			}
 			this._storage.store(DONE_KEY, true, StorageScope.PROFILE, StorageTarget.MACHINE);
-			this._log.info(`[legacy-credential-copy] copied ${copied} of ${writes.length} record(s) to Assistant; the rest already existed`);
+			this._log.info(`[legacy-credential-copy] copied ${copied} of ${writes.length} record(s) to Assistant; the rest were already signed in`);
 		} catch (error) {
 			this._log.error('[legacy-credential-copy] failed; will retry next launch', error);
 		}
