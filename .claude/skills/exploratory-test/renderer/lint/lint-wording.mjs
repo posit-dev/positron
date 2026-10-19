@@ -30,7 +30,7 @@ const DONE_IN_APP = /\b(?:(?:started|opened|launched|ran|loaded)\s+code|then\s+(
 // A finding's reader runs the file as its first step; a ledger row's third field may say how a scenario made it.
 // Opening a view or typing into it is something the reader does, so it is step 1.
 const UI_ACTION = /\btyped (?:into|in)\b|\b(?:editor|pane|panel|view|dialog|palette|picker) open\b/i;
-// A setting at its default says so; one the run changed is a saved settings file.
+// A setting at its default says it is one and at its default; one the run changed is a saved settings file.
 // How to reset a setting is known, and what it then shows is a check.
 const SETTING_KEY = /`([a-z][\w-]*(?:\.[\w-]+)+)(?::[^`]*)?`/gi;
 const SETTING_WORDS = /\bsettings?\b|\bdefault\b|\b(?:true|false)\b|\bset to\b|`[^`]*: [^`]*`/i;
@@ -181,7 +181,9 @@ export function lintPreconditionActions(preconditions) {
 		const setting = !ui && namesSetting(state);
 		const extra = setting ? SETTING_EXTRA.exec(state.replace(/`[^`]*`/g, 'code')) : null;
 		if (extra) {
-			problems.push(problem('precondition-setting-form', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" says more than the setting ("${extra[0]}"); write \`key\` at its default, or save a changed value in \`files/.vscode/settings.json\`, and check what it shows in a step`));
+			problems.push(problem('precondition-setting-form', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" says more than the setting ("${extra[0]}"); write \`key\` setting at its default, or save a changed value in \`files/.vscode/settings.json\`, and check what it shows in a step`));
+		} else if (setting && /\bat its default\b/i.test(state) && !/\bsetting at its default\b/i.test(state)) {
+			problems.push(problem('precondition-setting-form', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" does not say its key is a setting; write \`key\` setting at its default`));
 		} else if (setting && !/\bat its default\b/i.test(state) && !SETTINGS_FILE.test(state)) {
 			problems.push(problem('precondition-setting-file', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" writes a changed setting out; save it in \`files/.vscode/settings.json\` (or \`files/settings.json\` for one that only works in user settings) and name that path, which the page links`));
 		}

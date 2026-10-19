@@ -318,10 +318,10 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 	]),
 	'a precondition that points at a step': () => each(t => pre(t, 'polars'), ['Python 3.12 with the polars version installed in step 2', 'Python 3.12 with polars 1.9.0']),
 	'a precondition that opens a view or types into it': () => each(t => pre(t, 'Settings open'), [
-		'The Settings editor open (`Preferences: Open Settings (UI)`) with `interpreters.languageOrder` typed into its search box', 'The Command Palette open', 'A JSON file open', '`interpreters.languageOrder` at its default',
+		'The Settings editor open (`Preferences: Open Settings (UI)`) with `interpreters.languageOrder` typed into its search box', 'The Command Palette open', 'A JSON file open', '`interpreters.languageOrder` setting at its default',
 	]),
 	'a setting precondition that says how to reset it or what it shows': () => each(t => pre(t, 'languageOrder default'), [
-		'`interpreters.languageOrder` not set in user settings.json (Reset Setting from the setting\'s gear menu), so the list reads JavaScript, Python, R, Zed', '`interpreters.languageOrder` at its default, so the list reads JavaScript, Python, R, Zed', '`interpreters.languageOrder` at its default',
+		'`interpreters.languageOrder` not set in user settings.json (Reset Setting from the setting\'s gear menu), so the list reads JavaScript, Python, R, Zed', '`interpreters.languageOrder` setting at its default, so the list reads JavaScript, Python, R, Zed', '`interpreters.languageOrder` at its default', '`interpreters.languageOrder` setting at its default',
 	]),
 	'a changed setting written out rather than saved in a settings file': () => each(t => pre(t, 'languageOrder set'), [
 		'`interpreters.languageOrder`: true', '`positron.notebook.enabled: true` in `.vscode/settings.json`', '`interpreters.languageOrder` set to `["r", "python"]`',

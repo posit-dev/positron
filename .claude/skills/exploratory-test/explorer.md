@@ -556,7 +556,7 @@ their real case (dplyr, not Dplyr). An app the bug needs running, or a pane
 showing it, is never a precondition, even when another finding starts it the
 same way: its steps start it, with a check that it runs. So is a view the
 reader opens or a search they type: that is step 1. A setting at its default
-is "`key` at its default". Save the settings you changed in the file that
+is "`key` setting at its default". Save the settings you changed in the file that
 holds them, `files/.vscode/settings.json` for the workspace, and name that
 path. What a setting then shows is a check.
 

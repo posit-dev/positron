@@ -234,15 +234,17 @@ The Command Palette open
   -> report: Finding 1 precondition "Settings open" is done in the app ("Palette open"); open or type it in step 1, and keep the precondition to the state before it
 A JSON file open
   -> (none)
-`interpreters.languageOrder` at its default
+`interpreters.languageOrder` setting at its default
   -> (none)
 
 ==== a setting precondition that says how to reset it or what it shows
 `interpreters.languageOrder` not set in user settings.json (Reset Setting from the setting's gear menu), so the list reads JavaScript, Python, R, Zed
-  -> report: Finding 1 precondition "languageOrder default" says more than the setting ("not set in"); write `key` at its default, or save a changed value in `files/.vscode/settings.json`, and check what it shows in a step
-`interpreters.languageOrder` at its default, so the list reads JavaScript, Python, R, Zed
-  -> report: Finding 1 precondition "languageOrder default" says more than the setting ("so the"); write `key` at its default, or save a changed value in `files/.vscode/settings.json`, and check what it shows in a step
+  -> report: Finding 1 precondition "languageOrder default" says more than the setting ("not set in"); write `key` setting at its default, or save a changed value in `files/.vscode/settings.json`, and check what it shows in a step
+`interpreters.languageOrder` setting at its default, so the list reads JavaScript, Python, R, Zed
+  -> report: Finding 1 precondition "languageOrder default" says more than the setting ("so the"); write `key` setting at its default, or save a changed value in `files/.vscode/settings.json`, and check what it shows in a step
 `interpreters.languageOrder` at its default
+  -> report: Finding 1 precondition "languageOrder default" does not say its key is a setting; write `key` setting at its default
+`interpreters.languageOrder` setting at its default
   -> (none)
 
 ==== a changed setting written out rather than saved in a settings file
