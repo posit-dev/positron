@@ -710,9 +710,7 @@
 		"rstudio"
 	],
 	"trustedExtensionAuthAccess": {
-		"github": [
-			"posit.assistant"
-		],
+		"github": [],
 		"github-enterprise": [
 			"GitHub.copilot-chat"
 		],

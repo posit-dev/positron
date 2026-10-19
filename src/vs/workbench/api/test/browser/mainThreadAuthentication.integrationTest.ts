@@ -40,6 +40,9 @@ import { DynamicAuthenticationProviderStorageService } from '../../../services/a
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+// --- Start Positron ---
+import { AuthenticationGetSessionOptions } from '../../browser/mainThreadAuthentication.js';
+// --- End Positron ---
 
 class TestAuthUsageService implements IAuthenticationUsageService {
 	_serviceBrand: undefined;
@@ -271,6 +274,67 @@ suite('MainThreadAuthentication createIfNone trust', () => {
 		await mta.$getSession(providerId, [], extensionId, 'Test Extension', { createIfNone: true });
 
 		assert.strictEqual(dialogService.promptCallCount, 0, 'expected the consent dialog to be skipped for a trusted extension');
+	});
+});
+
+suite('MainThreadAuthentication Copilot grant', () => {
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const assistantId = 'posit.assistant';
+	const account = { id: 'account-1', label: 'Account 1' };
+	const session = { id: 'session-1', accessToken: 'token', account, scopes: ['read:user'] };
+
+	/** Builds an instance with GitHub registered and no trusted extensions. */
+	async function setup({ existingSession = false } = {}) {
+		const productService = { ...TestProductService, trustedExtensionAuthAccess: {} };
+		const { mainThreadAuthentication: mta, instantiationService, rpcProtocol: rpc } = createMainThreadAuthentication(disposables, { productService });
+		rpc.set(ExtHostContext.ExtHostAuthentication, {
+			$onDidUnregisterAuthenticationProvider: () => Promise.resolve(),
+			$getSessions: () => Promise.resolve(existingSession ? [session] : []),
+			$createSession: () => Promise.resolve(session),
+			$removeSession: () => Promise.resolve(),
+			$onDidChangeAuthenticationSessions: () => Promise.resolve(),
+			$registerDynamicAuthProvider: () => Promise.resolve('test'),
+			$registerXaaAuthProvider: () => Promise.resolve('test'),
+			$onDidChangeDynamicAuthProviderTokens: () => Promise.resolve(),
+			$getSessionsFromChallenges: () => Promise.resolve([]),
+			// eslint-disable-next-line local/code-no-any-casts
+			$createSessionFromChallenges: () => Promise.resolve({} as any),
+		});
+		await mta.$registerAuthenticationProvider({ id: 'github', label: 'GitHub', supportsMultipleAccounts: false });
+		const accessService = instantiationService.get(IAuthenticationAccessService);
+		if (existingSession) {
+			// The user already allowed Assistant to use this account.
+			accessService.updateAllowedExtensions('github', account.label, [{ id: assistantId, name: assistantId, allowed: true }]);
+		}
+		return {
+			getSession: (extensionId: string, options: AuthenticationGetSessionOptions) =>
+				mta.$getSession('github', ['read:user'], extensionId, extensionId, options),
+			copilotAllowed: () => accessService.isAccessAllowed('github', account.label, 'GitHub.copilot-chat') === true,
+		};
+	}
+
+	test('grants Copilot Chat when Assistant signs in to GitHub', async () => {
+		const { getSession, copilotAllowed } = await setup();
+		await getSession(assistantId, { createIfNone: true });
+		assert.strictEqual(copilotAllowed(), true);
+	});
+
+	test('grants Copilot Chat when Assistant interactively reuses an existing session', async () => {
+		const { getSession, copilotAllowed } = await setup({ existingSession: true });
+		await getSession(assistantId, { createIfNone: true });
+		assert.strictEqual(copilotAllowed(), true);
+	});
+
+	test('does not grant Copilot Chat for a silent lookup', async () => {
+		const { getSession, copilotAllowed } = await setup({ existingSession: true });
+		assert.ok(await getSession(assistantId, { silent: true }), 'expected the silent lookup to return the session');
+		assert.strictEqual(copilotAllowed(), false);
+	});
+
+	test('does not grant Copilot Chat when another extension signs in', async () => {
+		const { getSession, copilotAllowed } = await setup();
+		await getSession('test.extension', { createIfNone: true });
+		assert.strictEqual(copilotAllowed(), false);
 	});
 });
 // --- End Positron ---
