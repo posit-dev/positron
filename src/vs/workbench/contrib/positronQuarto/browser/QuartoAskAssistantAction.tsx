@@ -29,7 +29,7 @@ import { openPositAssistantChat } from '../../positronAssistant/browser/positAss
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { AssistantPanelActions } from '../../positronNotebook/browser/AssistantPanel/AssistantPanelActions.js';
 import { ISuggestionsRequest } from '../../positronNotebook/browser/AssistantPanel/notebookSuggestions.js';
-import { IS_QUARTO_DOCUMENT } from '../common/positronQuartoConfig.js';
+import { IS_QUARTO_DOCUMENT, usingQuartoInlineOutput } from '../common/positronQuartoConfig.js';
 import { QUARTO_CATEGORY, QuartoCommandId } from './quartoCommands.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { QUARTO_LANG_WHEN } from './quartoEditorActionBar.js';
@@ -134,6 +134,7 @@ class QuartoAskAssistantAction extends Action2 {
 		}
 
 		const commandService = accessor.get(ICommandService);
+		const configurationService = accessor.get(IConfigurationService);
 		const notificationService = accessor.get(INotificationService);
 		const logService = accessor.get(ILogService);
 		const documentModel = accessor.get(IQuartoDocumentModelService).getModel(textModel);
@@ -155,14 +156,15 @@ class QuartoAskAssistantAction extends Action2 {
 
 		renderer.render(
 			<QuartoAssistantPanel
-				configurationService={accessor.get(IConfigurationService)}
+				configurationService={configurationService}
 				headlessLmService={accessor.get(IHeadlessLanguageModelService)}
 				notificationService={notificationService}
 				renderer={renderer}
 				suggestionsRequest={buildQuartoSuggestionsRequest(
 					textModel.getValue(),
 					documentModel.primaryLanguage,
-					documentModel.cells.length
+					documentModel.cells.length,
+					usingQuartoInlineOutput(configurationService)
 				)}
 				uri={uri}
 				onActionSelected={handleActionSelected}

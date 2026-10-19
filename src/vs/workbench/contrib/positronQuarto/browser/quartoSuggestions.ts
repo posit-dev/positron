@@ -30,11 +30,12 @@ const MAX_DOCUMENT_CONTENT = 20_000;
 /**
  * Build the suggestions request for a Quarto document from its source text.
  */
-export function buildQuartoSuggestionsRequest(source: string, language: string | undefined, codeCellCount: number): ISuggestionsRequest {
+export function buildQuartoSuggestionsRequest(source: string, language: string | undefined, codeCellCount: number, inlineOutput: boolean): ISuggestionsRequest {
 	const context = [
 		'## Document Context',
 		`- Primary language: ${language ?? 'unknown'}`,
 		`- Code chunk count: ${codeCellCount}`,
+		`- Inline output: ${inlineOutput ? 'enabled (the assistant can run chunks and read their output)' : 'disabled'}`,
 		'',
 		'## Source',
 		'````',

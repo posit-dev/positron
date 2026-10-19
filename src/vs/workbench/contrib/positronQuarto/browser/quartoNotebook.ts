@@ -134,6 +134,7 @@ export class QuartoNotebook {
 			this._checkIndex(index, cells);
 		}
 		for (const index of indices) {
+			this._follow(cells[index]);
 			await this._executionManager.executeCell(this.uri, cells[index]);
 		}
 	}
@@ -152,6 +153,7 @@ export class QuartoNotebook {
 		const insertLine = insertIndex < cells.length ? cells[insertIndex].startLine : this._textModel.getLineCount() + 1;
 		const { edits } = computeInsertCellEdit(this._textModel, language, insertLine, toChunkCode(content));
 		this._applyEdits(() => edits);
+		this._follow(this._cells()[insertIndex]);
 		return insertIndex;
 	}
 
@@ -164,13 +166,16 @@ export class QuartoNotebook {
 		// Delete from the bottom up, re-reading each cell after the previous
 		// edit, since a deletion can reach into the line above it.
 		const descending = [...new Set(indices)].sort((a, b) => b - a);
+		const firstLine = cells[descending[descending.length - 1]].startLine;
 		this._applyEdits(...descending.map(index => () => computeDeleteCellEdit(this._textModel, this._cells()[index])));
+		this._follow({ startLine: firstLine, endLine: firstLine });
 	}
 
 	updateCellContent(index: number, content: string): void {
 		const cells = this._cells();
 		this._checkIndex(index, cells);
 		this._applyEdits(() => computeReplaceCellCodeEdit(this._textModel, cells[index], toChunkCode(content)));
+		this._follow(this._cells()[index]);
 	}
 
 	async getCellOutputs(index: number): Promise<INotebookCellOutputDTO[]> {
@@ -187,11 +192,17 @@ export class QuartoNotebook {
 
 	/** Reveals a cell in the active editor, unless assistant auto-follow is off. */
 	scrollToCellIfNeeded(index: number): void {
-		const cell = this._cells()[index];
-		const autoFollow = this._configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
-		if (cell && autoFollow) {
-			this._activeEditor()?.revealLinesInCenterIfOutsideViewport(cell.startLine, cell.endLine, ScrollType.Smooth);
+		this._follow(this._cells()[index]);
+	}
+
+	/** Reveals the lines of a cell the assistant touched, unless assistant auto-follow is off. */
+	private _follow(cell: Pick<QuartoCodeCell, 'startLine' | 'endLine'> | undefined): void {
+		if (!cell || !(this._configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true)) {
+			return;
 		}
+		const lastLine = this._textModel.getLineCount();
+		this._activeEditor()?.revealLinesInCenterIfOutsideViewport(
+			Math.min(cell.startLine, lastLine), Math.min(cell.endLine, lastLine), ScrollType.Smooth);
 	}
 
 	/** Clears the outputs of the given cells, or of all cells. */
