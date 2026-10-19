@@ -5,7 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
-import { ListSettingWidget, IListDataItem, SettingListEvent } from '../../browser/settingsWidgets.js';
+import { ListSettingWidget, ExcludeSettingWidget, IListDataItem, IIncludeExcludeDataItem, SettingListEvent } from '../../browser/settingsWidgets.js';
+import { SettingValueType } from '../../../../services/preferences/common/preferences.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 
 describe('ListSettingWidget reordering', () => {
@@ -84,5 +85,70 @@ describe('ListSettingWidget reordering', () => {
 		const { rows } = createWidget(['a', 'b']);
 		// eslint-disable-next-line no-restricted-syntax -- decorative handle has no role or test id
 		expect(rows().every(r => r.querySelector('.setting-list-drag-handle'))).toBe(true);
+	});
+
+	function pressKey(target: HTMLElement, key: 'ArrowUp' | 'ArrowDown', altKey: boolean) {
+		const event = new KeyboardEvent('keydown', { key, code: key, keyCode: key === 'ArrowUp' ? 38 : 40, altKey, bubbles: true, cancelable: true });
+		target.dispatchEvent(event);
+		return event;
+	}
+
+	function selectFirst(rows: () => HTMLElement[]) {
+		rows()[0].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+	}
+
+	// eslint-disable-next-line no-restricted-syntax -- upstream widget has no roles or test ids
+	const listOf = (container: HTMLElement) => container.querySelector<HTMLElement>('.setting-list-widget')!;
+
+	it('Alt+Down moves the selected row down', () => {
+		const { container, rows, events } = createWidget(['a', 'b', 'c']);
+		selectFirst(rows);
+		const event = pressKey(listOf(container), 'ArrowDown', true);
+		expect(events).toEqual([expect.objectContaining({ type: 'move', sourceIndex: 0, targetIndex: 1 })]);
+		expect(event.defaultPrevented).toBe(true);
+	});
+
+	it('Alt+Up on the first row does nothing but still swallows the key', () => {
+		const { container, rows, events } = createWidget(['a', 'b']);
+		selectFirst(rows);
+		const event = pressKey(listOf(container), 'ArrowUp', true);
+		expect(events).toEqual([]);
+		expect(event.defaultPrevented).toBe(true);
+	});
+
+	it('Alt+Down with no selection is left alone', () => {
+		const { container, events } = createWidget(['a', 'b']);
+		const event = pressKey(listOf(container), 'ArrowDown', true);
+		expect(events).toEqual([]);
+		expect(event.defaultPrevented).toBe(false);
+	});
+
+	it('plain Down still only changes the selection', () => {
+		const { container, rows, events } = createWidget(['a', 'b']);
+		selectFirst(rows);
+		pressKey(listOf(container), 'ArrowDown', false);
+		expect(events).toEqual([]);
+		expect(rows()[1]).toHaveClass('selected');
+	});
+
+	it('non-reorderable widgets get no handle, no move actions, and ignore Alt+Down', () => {
+		const container = document.createElement('div');
+		document.body.appendChild(container);
+		ctx.disposables.add({ dispose: () => container.remove() });
+		const widget = ctx.disposables.add(ctx.instantiationService.createInstance(ExcludeSettingWidget, container));
+		const events: SettingListEvent<IIncludeExcludeDataItem>[] = [];
+		ctx.disposables.add(widget.onDidChangeList(e => events.push(e)));
+		widget.setValue(['a', 'b'].map(data => ({ value: { type: 'string' as const, data }, elementType: SettingValueType.Exclude })));
+		// eslint-disable-next-line no-restricted-syntax -- upstream widget has no roles or test ids on its rows
+		const rows = Array.from(container.querySelectorAll<HTMLElement>('.setting-list-row'));
+		rows[0].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+		// eslint-disable-next-line no-restricted-syntax -- upstream widget has no roles or test ids
+		const list = container.querySelector<HTMLElement>('.setting-list-include-exclude-widget')!;
+		const event = pressKey(list, 'ArrowDown', true);
+		expect(findAction(rows[0], 'Move Down')).toBeNull();
+		// eslint-disable-next-line no-restricted-syntax -- decorative handle has no role or test id
+		expect(rows[0].querySelector('.setting-list-drag-handle')).toBeNull();
+		expect(events).toEqual([]);
+		expect(event.defaultPrevented).toBe(false);
 	});
 });

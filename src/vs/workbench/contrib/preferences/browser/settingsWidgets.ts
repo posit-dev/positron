@@ -17,7 +17,10 @@ import { disposableTimeout } from '../../../../base/common/async.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { MarkdownString } from '../../../../base/common/htmlContent.js';
-import { KeyCode } from '../../../../base/common/keyCodes.js';
+// --- Start Positron ---
+// import { KeyCode } from '../../../../base/common/keyCodes.js';
+import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+// --- End Positron ---
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isIOS } from '../../../../base/common/platform.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
@@ -193,6 +196,16 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 		this._register(DOM.addDisposableListener(this.listElement, DOM.EventType.DBLCLICK, e => this.onListDoubleClick(e)));
 
 		this._register(DOM.addStandardDisposableListener(this.listElement, 'keydown', (e: StandardKeyboardEvent) => {
+			// --- Start Positron ---
+			// Alt+Up/Down moves the selected row, like moving lines in the editor.
+			if (e.equals(KeyMod.Alt | KeyCode.UpArrow) || e.equals(KeyMod.Alt | KeyCode.DownArrow)) {
+				if (this.moveSelectedRow(e.keyCode === KeyCode.UpArrow ? -1 : 1)) {
+					e.preventDefault();
+					e.stopPropagation();
+				}
+				return;
+			}
+			// --- End Positron ---
 			if (e.equals(KeyCode.UpArrow)) {
 				this.selectPreviousRow();
 			} else if (e.equals(KeyCode.DownArrow)) {
@@ -424,6 +437,13 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 		return targetIdx;
 	}
 
+	// --- Start Positron ---
+	/** Returns true if the widget handled the move. */
+	protected moveSelectedRow(_delta: number): boolean {
+		return false;
+	}
+	// --- End Positron ---
+
 	private selectRow(idx: number): void {
 		this.model.select(idx);
 		this.rowElements.forEach(row => row.classList.remove('selected'));
@@ -506,6 +526,23 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 	}
 
 	// --- Start Positron ---
+	// Include/exclude widgets subclass this one and are not reorderable.
+	private isReorderable(): boolean {
+		return this.getContainerClasses().includes('setting-list-reorderable');
+	}
+
+	protected override moveSelectedRow(delta: number): boolean {
+		const idx = this.model.getSelected();
+		if (!this.isReorderable() || this.isReadOnly || idx === null || this.model.items.some(item => item.editing)) {
+			return false;
+		}
+		const targetIndex = idx + delta;
+		if (targetIndex >= 0 && targetIndex < this.model.items.length) {
+			this.moveItem(this.model.items[idx], idx, targetIndex);
+		}
+		return true;
+	}
+
 	// Selects the row's new position so the selection follows the moved row.
 	private moveItem(item: TListDataItem, sourceIndex: number, targetIndex: number): void {
 		this.model.select(targetIndex);
@@ -543,8 +580,7 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 		}
 		return [
 			// --- Start Positron ---
-			// Include/exclude widgets subclass this one and are not reorderable.
-			...(this.getContainerClasses().includes('setting-list-reorderable') ? this.getMoveActions(item, idx) : []),
+			...(this.isReorderable() ? this.getMoveActions(item, idx) : []),
 			// --- End Positron ---
 			{
 				class: ThemeIcon.asClassName(settingsEditIcon),
@@ -568,7 +604,7 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 	protected renderItem(item: TListDataItem, idx: number): RowElementGroup {
 		const rowElement = $('.setting-list-row');
 		// --- Start Positron ---
-		if (this.getContainerClasses().includes('setting-list-reorderable')) {
+		if (this.isReorderable()) {
 			DOM.append(rowElement, $('.setting-list-drag-handle' + ThemeIcon.asCSSSelector(Codicon.gripper)));
 		}
 		// --- End Positron ---
