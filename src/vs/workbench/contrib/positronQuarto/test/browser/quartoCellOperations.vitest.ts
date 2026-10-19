@@ -10,7 +10,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
-import { computeDeleteCellEdit, computeInsertCellEdit, computeJoinCellsEdit } from '../../browser/quartoCellOperations.js';
+import { computeDeleteCellEdit, computeInsertCellEdit, computeJoinCellsEdit, computeReplaceCellCodeEdit } from '../../browser/quartoCellOperations.js';
 import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
 
 describe('quartoCellOperations', () => {
@@ -209,6 +209,39 @@ describe('quartoCellOperations', () => {
 				"
 			`);
 			expect(cursorLine).toBe(6);
+		});
+
+		it('fills the new cell with the given code', () => {
+			const { textModel, model } = buildModel(
+				'```{r}\nx <- 1\n```\n'
+			);
+
+			const { edits } = computeInsertCellEdit(textModel, 'r', model.cells[0].startLine, 'y <- 2\ny');
+			textModel.applyEdits(edits);
+
+			expect(textModel.getValue()).toBe('```{r}\ny <- 2\ny\n```\n\n```{r}\nx <- 1\n```\n');
+		});
+	});
+
+	describe('computeReplaceCellCodeEdit', () => {
+		it('replaces the code between the fences', () => {
+			const { textModel, model } = buildModel(
+				'```{r}\n#| label: a\nx <- 1\n```\n'
+			);
+
+			textModel.applyEdits(computeReplaceCellCodeEdit(textModel, model.cells[0], 'y <- 2\ny'));
+
+			expect(textModel.getValue()).toBe('```{r}\ny <- 2\ny\n```\n');
+		});
+
+		it('fills a cell that has no code lines', () => {
+			const { textModel, model } = buildModel(
+				'```{r}\n```\n'
+			);
+
+			textModel.applyEdits(computeReplaceCellCodeEdit(textModel, model.cells[0], 'x'));
+
+			expect(textModel.getValue()).toBe('```{r}\nx\n```\n');
 		});
 	});
 });

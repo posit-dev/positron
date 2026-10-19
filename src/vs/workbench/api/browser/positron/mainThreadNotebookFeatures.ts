@@ -22,14 +22,18 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { EditorsOrder } from '../../../common/editor.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../contrib/positronNotebook/common/positronNotebookCommon.js';
 import { addNotebookCell, collectCellOutputDTOs, deleteNotebookCells, mapCellToDTO, runNotebookCells, updateNotebookCellContent } from '../../../contrib/positronNotebook/browser/notebookAgentOperations.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { QuartoNotebook, QuartoNotebooks } from '../../../contrib/positronQuarto/browser/quartoNotebook.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
- * Provides methods for interacting with Positron notebooks from extensions.
+ * Provides methods for interacting with Positron notebooks from extensions, and
+ * with Quarto documents using inline output, which are presented as notebooks.
  */
 @extHostNamedCustomer(MainPositronContext.MainThreadNotebookFeatures)
 export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesShape {
 	private readonly _disposables = new DisposableStore();
+	private readonly _quartoNotebooks: QuartoNotebooks;
 
 	constructor(
 		_extHostContext: IExtHostContext,
@@ -38,40 +42,68 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		@ILogService private readonly _logService: ILogService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IInstantiationService instantiationService: IInstantiationService,
 	) {
-		// No initialization needed
+		this._quartoNotebooks = instantiationService.createInstance(QuartoNotebooks);
 	}
 
 	/**
-	 * Gets the context information for the currently active notebook. When no
-	 * Positron notebook is the active editor pane, falls back to the open
-	 * notebook attached to the foreground session, then to the most recently
-	 * active Positron notebook that is still open.
+	 * Gets the context information for the currently active notebook: the
+	 * Positron notebook or Quarto document in the active editor pane. Otherwise
+	 * falls back to the open notebook or Quarto document attached to the
+	 * foreground session, then to the most recently active Positron notebook
+	 * that is still open.
 	 * @returns The notebook context DTO, or undefined if no notebook is open.
 	 */
 	async $getActiveNotebookContext(): Promise<INotebookContextDTO | undefined> {
-		// Use existing helper function instead of service method
-		let instance = getNotebookInstanceFromActiveEditorPane(this._editorService);
-		if (!instance) {
-			// A notebook may be open, but in the built-in editor rather than the
-			// Positron Notebook Editor that this API operates on. Surface an
-			// actionable error telling the user how to switch editors, instead of
-			// a bare "no notebook is open" that callers cannot distinguish from
-			// having nothing open at all.
-			const unsupportedEditorMessage = getUnsupportedNotebookEditorMessage(this._editorService);
-			if (unsupportedEditorMessage) {
-				throw new Error(unsupportedEditorMessage);
-			}
-			// A Positron notebook can be open without being the active editor
-			// pane (a Data Explorer or plot editor took the pane, focus moved
-			// to another tab mid-turn). Fall back to an open notebook so
-			// assistant tools can still find it (#14762).
-			instance = this._getFallbackNotebookInstance();
-			if (!instance) {
-				return undefined;
-			}
+		const instance = getNotebookInstanceFromActiveEditorPane(this._editorService);
+		if (instance) {
+			return this._getNotebookContext(instance);
 		}
 
+		// A notebook may be open, but in the built-in editor rather than the
+		// Positron Notebook Editor that this API operates on. Surface an
+		// actionable error telling the user how to switch editors, instead of
+		// a bare "no notebook is open" that callers cannot distinguish from
+		// having nothing open at all.
+		const unsupportedEditorMessage = getUnsupportedNotebookEditorMessage(this._editorService);
+		if (unsupportedEditorMessage) {
+			throw new Error(unsupportedEditorMessage);
+		}
+
+		const activeQuartoNotebook = this._quartoNotebooks.getActive();
+		if (activeQuartoNotebook) {
+			return activeQuartoNotebook.getContext();
+		}
+
+		// A notebook can be open without being the active editor pane (a Data
+		// Explorer or plot editor took the pane, focus moved to another tab
+		// mid-turn). Fall back to an open notebook so assistant tools can
+		// still find it.
+		const foregroundNotebookUri = this._runtimeSessionService.foregroundSession?.metadata.notebookUri;
+		if (foregroundNotebookUri) {
+			const foregroundInstance = this._positronNotebookService.listInstances(foregroundNotebookUri)[0];
+			if (foregroundInstance) {
+				return this._getNotebookContext(foregroundInstance);
+			}
+			const foregroundQuartoNotebook = this._quartoNotebooks.get(foregroundNotebookUri);
+			if (foregroundQuartoNotebook) {
+				return foregroundQuartoNotebook.getContext();
+			}
+		}
+		for (const { editor } of this._editorService.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
+			if (editor.typeId !== POSITRON_NOTEBOOK_EDITOR_INPUT_ID || !editor.resource) {
+				continue;
+			}
+			const recentInstance = this._positronNotebookService.listInstances(editor.resource)[0];
+			if (recentInstance) {
+				return this._getNotebookContext(recentInstance);
+			}
+		}
+		return undefined;
+	}
+
+	private _getNotebookContext(instance: IPositronNotebookInstance): INotebookContextDTO {
 		// Get current state from observables
 		const cells = instance.cells.get();
 		const kernel = instance.kernel.get();
@@ -109,6 +141,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @returns Array of all cells in the notebook.
 	 */
 	async $getCells(notebookUri: string): Promise<INotebookCellDTO[]> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			return quartoNotebook.getCells();
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -131,6 +168,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @returns The cell DTO, or undefined if not found.
 	 */
 	async $getCell(notebookUri: string, cellIndex: number): Promise<INotebookCellDTO | undefined> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			return quartoNotebook.getCell(cellIndex);
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -150,6 +192,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @param cellIndices Array of cell indices to run.
 	 */
 	async $runCells(notebookUri: string, cellIndices: number[]): Promise<void> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			return quartoNotebook.runCells(cellIndices);
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -170,6 +217,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @returns The index of the newly created cell.
 	 */
 	async $addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Promise<number> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			return quartoNotebook.addCell(type, index, content);
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -184,6 +236,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @param cellIndex The index of the cell to delete.
 	 */
 	async $deleteCell(notebookUri: string, cellIndex: number): Promise<void> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			return quartoNotebook.deleteCells([cellIndex]);
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -213,6 +270,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @param cellIndices Array of cell indices to delete.
 	 */
 	async $deleteCells(notebookUri: string, cellIndices: number[]): Promise<void> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			return quartoNotebook.deleteCells(cellIndices);
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -231,6 +293,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @param content The new content for the cell.
 	 */
 	async $updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			return quartoNotebook.updateCellContent(cellIndex, content);
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -254,6 +321,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @returns Array of output objects with MIME type and data (text or base64-encoded binary).
 	 */
 	async $getCellOutputs(notebookUri: string, cellIndex: number): Promise<INotebookCellOutputDTO[]> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			return quartoNotebook.getCellOutputs(cellIndex);
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -274,6 +346,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @param toIndex The target index where the cell should be moved to.
 	 */
 	async $moveCell(notebookUri: string, fromIndex: number, toIndex: number): Promise<void> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			throw new Error('Moving cells is not supported in Quarto documents. Edit the document text instead.');
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -320,6 +397,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 *                 that should be at position i in the reordered notebook.
 	 */
 	async $reorderCells(notebookUri: string, newOrder: number[]): Promise<void> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			throw new Error('Reordering cells is not supported in Quarto documents. Edit the document text instead.');
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -417,6 +499,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @param cellIndex The index of the cell to scroll to.
 	 */
 	async $scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			return quartoNotebook.scrollToCellIfNeeded(cellIndex);
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			return;
@@ -453,6 +540,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @param cellIndices Optional array of cell indices to clear.
 	 */
 	async $clearCellOutputs(notebookUri: string, cellIndices?: number[]): Promise<void> {
+		const quartoNotebook = this._getQuartoNotebook(notebookUri);
+		if (quartoNotebook) {
+			return quartoNotebook.clearCellOutputs(cellIndices);
+		}
+
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -498,34 +590,6 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	}
 
 	/**
-	 * Finds an open Positron notebook instance when none is the active editor
-	 * pane. Prefers the notebook attached to the foreground session (what the
-	 * interpreter picker shows, and what assistant notebook mode is keyed on),
-	 * then falls back to the notebook whose editor was most recently active.
-	 * @returns The notebook instance, or undefined if no Positron notebook
-	 * editor is open.
-	 */
-	private _getFallbackNotebookInstance(): IPositronNotebookInstance | undefined {
-		const foregroundNotebookUri = this._runtimeSessionService.foregroundSession?.metadata.notebookUri;
-		if (foregroundNotebookUri) {
-			const instances = this._positronNotebookService.listInstances(foregroundNotebookUri);
-			if (instances.length > 0) {
-				return instances[0];
-			}
-		}
-		for (const { editor } of this._editorService.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
-			if (editor.typeId !== POSITRON_NOTEBOOK_EDITOR_INPUT_ID || !editor.resource) {
-				continue;
-			}
-			const instances = this._positronNotebookService.listInstances(editor.resource);
-			if (instances.length > 0) {
-				return instances[0];
-			}
-		}
-		return undefined;
-	}
-
-	/**
 	 * Helper method to get a notebook instance by URI string.
 	 * @param uriString The notebook URI as a string.
 	 * @returns The notebook instance, or undefined if not found.
@@ -534,6 +598,15 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		const uri = URI.parse(uriString);
 		const instances = this._positronNotebookService.listInstances(uri);
 		return instances.length > 0 ? instances[0] : undefined;
+	}
+
+	/**
+	 * Gets the Quarto document at a URI as a notebook.
+	 * @param uriString The document URI as a string.
+	 * @returns The Quarto notebook, or undefined if not found.
+	 */
+	private _getQuartoNotebook(uriString: string): QuartoNotebook | undefined {
+		return this._quartoNotebooks.get(URI.parse(uriString));
 	}
 
 	dispose(): void {

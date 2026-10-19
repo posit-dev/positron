@@ -5,12 +5,12 @@
 
 /// <reference types="vitest/globals" />
 
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { IQuartoExecutionManager, IQuartoOutputCacheService } from '../../common/quartoExecutionTypes.js';
+import { ExecutionOutputEvent, IQuartoExecutionManager, IQuartoOutputCacheService } from '../../common/quartoExecutionTypes.js';
 import { QuartoOutputManagerService } from '../../browser/quartoOutputManager.js';
 
 // Must match the non-exported constant in quartoOutputManager.ts. If the key
@@ -18,14 +18,16 @@ import { QuartoOutputManagerService } from '../../browser/quartoOutputManager.js
 const STORAGE_KEY = 'positron.quarto.collapsedCells';
 
 describe('QuartoOutputManagerService', () => {
+	const onDidReceiveOutput = new Emitter<ExecutionOutputEvent>();
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
 		.stub(IQuartoExecutionManager, {
-			onDidReceiveOutput: Event.None,
+			onDidReceiveOutput: onDidReceiveOutput.event,
 			onDidChangeExecutionState: Event.None,
 		})
 		.stub(IQuartoOutputCacheService, {
 			clearCache: vi.fn(),
+			clearCellOutputs: vi.fn(),
 			runCleanup: () => Promise.resolve(),
 		})
 		.build();
@@ -153,6 +155,31 @@ describe('QuartoOutputManagerService', () => {
 
 			expect(handlerFired).toBe(true);
 			expect(storageAtFireTime).toBeUndefined();
+		});
+	});
+
+	describe('outputs of a cell that has moved', () => {
+		it('are found and cleared under the cell\'s new index', () => {
+			const service = createService();
+			const output = { outputId: 'o1', items: [{ mime: 'text/plain', data: '2' }] };
+			onDidReceiveOutput.fire({ documentUri: uriA, cellId: '1-abcd1234-fig-plot', output });
+
+			const outputs = service.getOutputsForCell(uriA, '2-abcd1234-fig-plot');
+			service.clearOutputsForCell(uriA, '2-abcd1234-fig-plot');
+
+			expect([outputs, service.getOutputsForCell(uriA, '1-abcd1234-fig-plot')]).toEqual([[output], []]);
+		});
+
+		it('are not matched when several cells have the same content', () => {
+			const service = createService();
+			const output = { outputId: 'o1', items: [{ mime: 'text/plain', data: '2' }] };
+			onDidReceiveOutput.fire({ documentUri: uriA, cellId: '0-abcd1234-unlabeled', output });
+			onDidReceiveOutput.fire({ documentUri: uriA, cellId: '1-abcd1234-unlabeled', output });
+
+			const outputs = service.getOutputsForCell(uriA, '2-abcd1234-unlabeled');
+			service.clearOutputsForCell(uriA, '2-abcd1234-unlabeled');
+
+			expect([outputs, service.getOutputsForCell(uriA, '0-abcd1234-unlabeled'), service.getOutputsForCell(uriA, '1-abcd1234-unlabeled')]).toEqual([[], [output], [output]]);
 		});
 	});
 });
