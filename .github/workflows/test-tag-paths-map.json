@@ -107,7 +107,7 @@
   "extensions/positron-javascript/": [],
   "extensions/positron-notebook-export/": [],
   "extensions/positron-pdf-server/": ["@:pdf"],
-  "extensions/positron-proxy/": [],
+  "extensions/positron-proxy/": ["@:web"],
   "extensions/positron-python/": ["@:interpreter", "@:console"],
   "extensions/positron-python/src/client/positron/packages/": ["@:packages-pane"],
   "extensions/positron-python/python_files/posit/positron/": ["@:console", "@:interpreter"],
