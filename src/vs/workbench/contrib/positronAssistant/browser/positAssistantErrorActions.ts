@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import { assertNever } from '../../../../base/common/assert.js';
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
@@ -127,6 +128,8 @@ export function getPositAssistantChatOptions(kind: ErrorActionKind, context: IEr
 			content = removeAnsiEscapeCodes(`${header}\n\n${codeHeader}\n${chunk.code}\n\n${errorHeader}\n${context.error}`).trim();
 			break;
 		}
+		default:
+			assertNever(location);
 	}
 
 	return {
