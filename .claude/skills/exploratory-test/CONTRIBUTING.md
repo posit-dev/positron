@@ -16,7 +16,7 @@ is handed:
    POSITIVE or UNRESOLVED. It also flags a finding that matches a known issue
    or one closed as not planned, and rewrites a title, feature, cause,
    observed or test list the evidence contradicts; the card and the issue say
-   which it revised. It replies with a `json` block, which
+   when it revised the cause. It replies with a `json` block, which
    `parseVerifyReply` in `finish.mjs` reads, then its notes. Each runner
    reports the files the session read, so a screenshot it lists but never
    opened is asked about once, then shown as not checked. So is a finding

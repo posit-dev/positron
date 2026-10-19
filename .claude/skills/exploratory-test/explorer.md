@@ -554,7 +554,9 @@ state. Loading the file is a step, with the exact command
 share one line ("A workspace with `app.R` and `app.py`"). Package names keep
 their real case (dplyr, not Dplyr). An app the bug needs running, or a pane
 showing it, is never a precondition, even when another finding starts it the
-same way: its steps start it, with a check that it runs.
+same way: its steps start it, with a check that it runs. So is a view the
+reader opens or a search they type: that is step 1. A setting is its key and
+value, or "at its default"; what the setting then shows is a check.
 
 `n` is the finding's number, given in the order you found them and never
 changed; the page sorts them by severity, then number. One finding, with every
@@ -623,7 +625,7 @@ run saw that makes the finding worse or gets past it, stated as what happened:
 no error was shown, only reopening restored it, a workaround worked. Claim that
 nothing on screen shows the problem only after checking the whole view in your
 screenshot, including anything beside the value that contradicts it. Leave the
-setup, the values that were right, extra runs and log lines to Reproduce and
+setup, the values that were right, extra runs and log lines to Steps to Reproduce and
 Evidence.
 Put data values in backticks, as you do code, here and in a failed step's
 `observed`. Too terse, then right:

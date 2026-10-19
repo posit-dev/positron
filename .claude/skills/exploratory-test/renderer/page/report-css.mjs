@@ -551,7 +551,7 @@ article.card:target{animation:ln-ring 2.4s ease-out 1}
 .code-cp{position:absolute;top:7px;right:7px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;padding:0;border-radius:6px;background:transparent;color:var(--faint);cursor:pointer;opacity:0;transition:opacity .15s ease,color .15s ease,background-color .15s ease}
 .code-blk:hover .code-cp,.code-blk:focus-within .code-cp,.code-cp.is-copied{opacity:1}
 .code-cp:hover{color:var(--ink);background:var(--code-cp-hover-bg)}
-/* Inline code in Reproduce: click to copy. The ordinary pointer, not the copy
+/* Inline code in Steps to Reproduce: click to copy. The ordinary pointer, not the copy
    cursor, and a tooltip above the chip that turns green once it has copied. */
 code.cc{position:relative;cursor:pointer;transition:background-color .15s ease}
 code.cc:hover{background:var(--code-chip-hover-bg)}
@@ -589,7 +589,7 @@ article.card .card-details{max-width:720px}
 @media (max-width:640px){.f-cmp{grid-template-columns:1fr}}
 
 
-/* Reproduce answers "how do I make this happen?", so it is text only and one
+/* Steps to Reproduce answers "how do I make this happen?", so it is text only and one
    column. Screenshots all live under Evidence, which answers "show me that it
    happened"; a featured shot here meant the same image appeared twice. */
 /* What must be true first, then what to do. Setup is Coverage's P row, so

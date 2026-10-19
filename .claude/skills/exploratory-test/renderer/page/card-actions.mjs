@@ -97,7 +97,7 @@ function buildAgentPrompt(f, report, options = {}) {
 	}).join('\n'));
 	// A match on a not-planned issue: check it was not judged intended before fixing.
 	section('Closed as not planned', (f.intended ?? []).map(n => `- ${REPO_URL}/issues/${Number(n)}`).join('\n'));
-	section(observedHeading(t), capitalize(t.observed));
+	section('Observed', capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
 	section('Preconditions', t.preconditions.length === 1
 		? t.preconditions[0]
@@ -270,11 +270,6 @@ function causeHeading(t) {
 	return t.corrected?.includes('cause') ? 'Likely cause (revised by the reviewing agent, not verified by a run)' : 'Likely cause (hypothesis, not verified)';
 }
 
-/** The Observed heading, saying when the verifier rewrote it from the screenshots. */
-function observedHeading(t) {
-	return t.corrected?.includes('observed') ? 'Observed (revised by the reviewing agent)' : 'Observed';
-}
-
 /** A step as the issue writes it: its result in bold, and no log line, which Error messages has. */
 function issueStep(step, observed) {
 	const result = step.result
@@ -345,7 +340,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 		preconditions.map(p => `- ${p.replace(/\n/g, '\n  ')}`).join('\n'),
 		f.steps.map((st, i) => `${i + 1}. ${issueStep(st, observed).replace(/\n/g, '\n   ')}`).join('\n'),
 	].filter(Boolean).join('\n\n'));
-	section(observedHeading(t), capitalize(t.observed));
+	section('Observed', capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
 
 	const clip = raw => {

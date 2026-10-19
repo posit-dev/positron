@@ -109,7 +109,7 @@ test('files: the embedded source is the file byte for byte', () => {
 
 test('files: a listed file that is missing renders as code, with no viewer and no dead link', () => {
 	const html = render({ readFile: () => null });
-	// Plain code, which Reproduce then makes copyable like any other.
+	// Plain code, which Steps to Reproduce then makes copyable like any other.
 	assert.match(card(html, 1), /<code class="cc" data-tip="Copy">slow\.py<\/code> loaded/);
 	assert.equal(viewer(html, 'file-slow-py'), null);
 	assert.doesNotMatch(html, /href="files\//);

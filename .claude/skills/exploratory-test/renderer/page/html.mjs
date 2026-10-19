@@ -357,7 +357,7 @@ function withCodeCopy(html) {
 }
 
 /**
- * Inline code becomes click-to-copy: Reproduce and Coverage steps are full of
+ * Inline code becomes click-to-copy: Steps to Reproduce and Coverage steps are full of
  * short commands people run one at a time. Code blocks are left alone, since they have a Copy button,
  * and so is a file chip, which linkFiles has already made a link.
  */
@@ -677,7 +677,7 @@ function renderFindingCard(f, report, options) {
 	// saw, marked by severity, beside what should have happened.
 	const half = (cls, label, html) => (html ? `<div class="${cls}"><div class="f-lab">${label}</div><p class="f-txt">${html}</p></div>` : '');
 	const comparison = f.observedHtml || f.expectedHtml
-		? `<div class="f-cmp ${f.severity}">${half('f-cmp-o', f.corrected?.includes('observed') ? 'Observed &middot; revised in review' : 'Observed', f.observedHtml)}${half('f-cmp-e', 'Expected', f.expectedHtml)}</div>`
+		? `<div class="f-cmp ${f.severity}">${half('f-cmp-o', 'Observed', f.observedHtml)}${half('f-cmp-e', 'Expected', f.expectedHtml)}</div>`
 		: '';
 
 	// Text only: each step's screenshots open from its icon.
@@ -699,7 +699,7 @@ function renderFindingCard(f, report, options) {
 		: '';
 	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.
 	const repro = (preconditions || steps)
-		? copyableCode(linkFiles(`<div class="f-sec repro"><div class="f-lab">Reproduce</div>${preconditions}${steps}</div>`, files))
+		? copyableCode(linkFiles(`<div class="f-sec repro"><div class="f-lab">Steps to Reproduce</div>${preconditions}${steps}</div>`, files))
 		: '';
 
 	const details = renderCardDetails(f, report, options);

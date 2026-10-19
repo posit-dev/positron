@@ -27,6 +27,11 @@ const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\
 const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+|\brunning in (?:\w+ ){0,3}console\b/i;
 const DONE_IN_APP = /\b(?:(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:(?:\w+\s+){0,3}?\w+ed|ran)|Run(?: Shiny)? App|shown in the|in the session|defined in the|still open|drew|(?:started|opened) (?:in|by) S\d+|S\d+ (?:started|drew|opened|left))\b/i;
 // A finding's reader runs the file as its first step; a ledger row's third field may say how a scenario made it.
+// Opening a view or typing into it is something the reader does, so it is step 1.
+const UI_ACTION = /\btyped (?:into|in)\b|\b(?:editor|pane|panel|view|dialog|palette|picker) open\b/i;
+// A setting is its key and value; how to reset it is known, and what it then shows is a check.
+const SETTING_KEY = /`[a-z][\w-]*(?:\.[\w-]+)+`/i;
+const SETTING_EXTRA = /\bso (?:the|that|it)\b|\bReset Setting\b|\bgear menu\b|\bnot set in\b/i;
 const RUN_IN_SESSION = /\brun in (?:the |its |their |each |both )?(?:\w+ ){0,3}(?:sessions?|consoles?)\b/i;
 // Code a precondition runs rather than describes: loading it is step 1.
 const RUN_COMMAND = /^(?:%run\b|%load\b|!|source\(|library\(|require\(|exec\(|import\s|from\s+\S+\s+import\s|install\.packages\(|pip\s)/;
@@ -156,6 +161,14 @@ export function lintPreconditionActions(preconditions) {
 		const running = RUNNING_APP.exec(text.replace(/`[^`]*`/g, 'code'));
 		if (running) {
 			problems.push(problem('precondition-running-app', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" is a running app ("${running[0]}"); start it in the steps, with a check that it runs`));
+		}
+		const ui = done || running ? null : UI_ACTION.exec(plainText);
+		if (ui) {
+			problems.push(problem('precondition-ui-action', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" is done in the app ("${ui[0]}"); open or type it in step 1, and keep the precondition to the state before it`));
+		}
+		const extra = SETTING_KEY.test(text) ? SETTING_EXTRA.exec(plainText) : null;
+		if (extra) {
+			problems.push(problem('precondition-setting-form', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" says more than the setting ("${extra[0]}"); write \`key\`: value, or \`key\` at its default, and check what it shows in a step`));
 		}
 		const stepRef = where.startsWith('Finding') ? /\bsteps? \d+\b/i.exec(text) : null;
 		if (stepRef) {
