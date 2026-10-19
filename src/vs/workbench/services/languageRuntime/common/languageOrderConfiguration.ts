@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { equals } from '../../../../base/common/arrays.js';
 import { localize } from '../../../../nls.js';
 import { ConfigurationScope, Extensions, IConfigurationNode, IConfigurationPropertySchema, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -35,8 +36,15 @@ registry.registerConfiguration(languageOrderNode);
 
 /** Replaces the allowed values. `entries` must already be in display order. */
 export function updateLanguageOrderSchema(entries: readonly ILanguageOrderEntry[]): void {
-	(languageOrderSchema.items as IConfigurationPropertySchema).enum = entries.map(e => e.languageId);
-	languageOrderSchema.enumItemLabels = entries.map(e => e.languageName);
+	const items = languageOrderSchema.items as IConfigurationPropertySchema;
+	const ids = entries.map(e => e.languageId);
+	const labels = entries.map(e => e.languageName);
+	// A schema update re-renders the Settings editor, so skip it when a reorder changed nothing here.
+	if (equals(items.enum, ids) && equals(languageOrderSchema.enumItemLabels, labels)) {
+		return;
+	}
+	items.enum = ids;
+	languageOrderSchema.enumItemLabels = labels;
 	registry.notifyConfigurationSchemaUpdated(languageOrderNode);
 }
 

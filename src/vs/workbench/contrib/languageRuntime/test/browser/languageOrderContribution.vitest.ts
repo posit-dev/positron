@@ -7,6 +7,11 @@
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { Extensions, IConfigurationRegistry } from '../../../../../platform/configuration/common/configurationRegistry.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { Registry } from '../../../../../platform/registry/common/platform.js';
+import { LANGUAGE_ORDER_KEY } from '../../../../services/languageRuntime/common/languageOrder.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { getLanguageOrderSchema } from '../../../../services/languageRuntime/common/languageOrderConfiguration.js';
@@ -30,7 +35,16 @@ describe('LanguageOrderContribution', () => {
 
 	beforeEach(() => {
 		languageIds = ['r', 'python'];
+		setOrder(undefined);
 	});
+
+	function setOrder(order: string[] | undefined) {
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		configurationService.setUserConfiguration(LANGUAGE_ORDER_KEY, order);
+		configurationService.onDidChangeConfigurationEmitter.fire(stubInterface<IConfigurationChangeEvent>({
+			affectsConfiguration: (key: string) => key === LANGUAGE_ORDER_KEY,
+		}));
+	}
 
 	function items() {
 		const schema = getLanguageOrderSchema();
@@ -62,5 +76,19 @@ describe('LanguageOrderContribution', () => {
 		languageIds = ['zig'];
 		ctx.disposables.add(ctx.instantiationService.createInstance(LanguageOrderContribution));
 		expect(items().labels).toEqual(['zig']);
+	});
+
+	it('allows saved languages that are not installed, so the value has no error', () => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(LanguageOrderContribution));
+		setOrder(['zed', 'r']);
+		expect(items()).toEqual({ ids: ['python', 'r', 'zed'], labels: ['Python', 'R', 'zed (not installed)'] });
+	});
+
+	it('does not update the schema when a reorder leaves the languages unchanged', () => {
+		setOrder(['zed', 'r']);
+		ctx.disposables.add(ctx.instantiationService.createInstance(LanguageOrderContribution));
+		const notify = vi.spyOn(Registry.as<IConfigurationRegistry>(Extensions.Configuration), 'notifyConfigurationSchemaUpdated');
+		setOrder(['r', 'zed']);
+		expect(notify).not.toHaveBeenCalled();
 	});
 });
