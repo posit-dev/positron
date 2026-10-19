@@ -42,11 +42,13 @@ suite('SQLite paging integration Tests', () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-sqlite-paging-'));
 	});
 
-	teardown(() => {
+	teardown(async () => {
 		for (const client of clients.splice(0)) {
 			client.dispose();
 		}
-		fs.rmSync(tmpDir, { recursive: true, force: true });
+		// The worker process can still have the database open for a moment after
+		// disconnect, and Windows will not delete an open file. Retry asynchronously.
+		await fs.promises.rm(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 	});
 
 	/** Builds a database holding each relation shape the read plan has to handle. */

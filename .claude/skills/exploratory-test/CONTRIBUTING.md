@@ -111,7 +111,7 @@ change addresses it, on your own `claude` login. Older runs published only the p
 read from it. Read every "fixed" row before trusting the numbers.
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
-turns those rows into one page: how many findings developers fixed before
+turns those rows into the Shipping impact page: how many findings developers fixed before
 merging, a bar of every outcome, the fix rate by severity, and collapsible
 By PR and Evidence sections. Clicking a bar segment opens the evidence for
 that outcome, with links to each report, PR and fixing commit or issue.
@@ -139,6 +139,27 @@ kept too, since that diff can't change; the checks for a later fix on main or
 a matching issue still run every night. In
 CI the model is reached through the API (`--api`), and a call that takes
 more than 10 minutes counts as unclear.
+
+### Where filed issues end up
+
+`node .github/actions/pr-exploratory-test/triage.mjs --out triage.json` reads
+every `ai-discovered` issue whose body links to a report finding and records
+where it stands today: completed, in a release or backlog milestone, in
+Future, closed another way, or awaiting triage (no milestone). Severity comes
+from the report and the skill version from the run's `stats.json`. Issues
+with no report link are left out. It makes no model calls.
+
+`node .github/actions/pr-exploratory-test/triage-page.mjs triage.json > triage.html`
+turns that into the Triage outcomes page: a bar of every outcome, the same
+outcomes by severity and by feature, the type, source and skill version
+counts, and every issue. Selecting a bar segment lists those issues, and
+`?issue=N` lists one, which is how the Shipping impact page links to it.
+
+The two pages share a top row (a switch between them and the date picker)
+and a footer, from `explore-pages.mjs`. The same nightly workflow builds
+both, in separate jobs. The triage job runs only once the
+`EXPLORE_TRIAGE_CONNECT_GUID` repo variable is set, from
+`CONNECT_API_KEY=<your key> node outcomes-publish.mjs create triage`.
 
 ## Where things live
 

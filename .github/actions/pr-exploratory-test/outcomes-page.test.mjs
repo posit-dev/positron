@@ -58,24 +58,21 @@ test('the headline counts findings fixed before merging out of those with a know
 	assert.match(text(render([row('pending')])), /No PRs with findings have merged yet\./);
 });
 
-test('the eyebrow gives the date range, with the year once, and triggers only when mixed', () => {
+test('the top row gives the date range, with the year once, and the footer gives triggers only when mixed', () => {
 	const one = render([row('fixed-in-pr', { postedAt: '2026-08-18T10:00:00Z' }), row('pending', { postedAt: '2026-10-13T08:00:00Z' })]);
 	assert.match(text(one.match(/<button type="button" class="range-btn"[\s\S]*?<\/button>/)[0]), /^ Aug 18 - Oct 13, 2026 $/);
 	assert.match(one, /<time datetime="2026-08-18">Aug 18<\/time>/);
 	const mixed = text(render([row('fixed-in-pr', { postedAt: '2025-12-20T10:00:00Z' }), row('pending', { trigger: 'auto', postedAt: '2026-01-05T08:00:00Z' })]));
-	assert.match(mixed, /\/explore Dec 20, 2025 - Jan 5, 2026 ~ 1 started by \/explore ~ 1 started automatically/);
+	assert.match(mixed, /\/explore Shipping impact Triage outcomes Dec 20, 2025 - Jan 5, 2026 Does/);
+	assert.match(mixed, /Updated Oct 14, 12:00 PM ~ 1 started by \/explore ~ 1 started automatically $/);
+	assert.match(one, /<span class="triggers"><\/span><\/footer>/);
 });
 
-test('two cards: findings fixed and when, and merged PRs with a fix', () => {
-	assert.match(text(render(today)), /Findings fixed 9 8 before merging ~ 1 after Flagged by \/explore, then fixed\. PRs with fixes 1 of 1 merged PR At least one finding fixed\. Findings by outcome/);
-	assert.match(text(render([row('fixed-in-pr'), row('not-fixed')])), /Findings fixed 1 before merging Flagged/);
-	assert.match(text(render([row('fixed-later'), row('not-fixed')])), /Findings fixed 1 after merging Flagged/);
-	// PR 2 is open, 3 closed without merging, 4 merged with no fix, and 5's preview says it's open.
-	const prs = render([row('fixed-in-pr'), row('pending', { pr: 2 }), row('fixed-in-pr', { pr: 3 }), row('not-fixed', { pr: 3, decidedBy: 'closed-unmerged' }),
-		row('not-fixed', { pr: 4 }), row('unclear', { pr: 5, prPreview: preview({ state: 'open' }) })]);
-	assert.match(text(prs), /PRs with fixes 1 of 2 merged PRs At least one finding fixed\./);
-	assert.match(text(render([row('pending')])), /PRs with fixes - No PRs with findings have merged yet\. Findings by outcome/);
-	assert.match(prs, /\.cards\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,320px\),1fr\)\);gap:16px\}/);
+test('the header ends with the headline: no summary cards', () => {
+	const html = render(today);
+	assert.match(text(html), /before merging\. Findings by outcome/);
+	assert.doesNotMatch(html, /class="cards?"|Findings fixed|PRs with fixes/);
+	assert.match(text(render([row('pending')])), /No PRs with findings have merged yet\. Findings by outcome/);
 });
 
 test('the header leaves out what the handoff removed', () => {
@@ -113,11 +110,10 @@ test('the brackets and the bar share one grid, a column per segment sized by its
 	assert.match(html, /\.brackets,\.bar\.big\{grid-column:1 \/ -1;display:grid;grid-template-columns:subgrid/);
 });
 
-test('with no known outcome the Outcome known bracket is left out and Findings fixed is 0', () => {
+test('with no known outcome the Outcome known bracket is left out', () => {
 	const html = render([row('pending'), row('unclear')]);
 	assert.doesNotMatch(markup(html), /class="bracket counted"/);
 	assert.match(text(html), /No outcome yet ~ 2/);
-	assert.match(text(html), /Findings fixed 0 /);
 });
 
 test('each bar segment has a detail to show on hover: share of known outcomes, or a bare count with none', () => {
@@ -136,13 +132,11 @@ test('the palette is the warm one from the handoff', () => {
 	const html = render([row('not-fixed')]);
 	assert.match(html, /\.o-not-fixed\{background:#7D7568;color:#FFF\}/);
 	assert.match(html, /\.o-fixed-in-pr\{background:#3B7D4F;color:#FFF\}/);
-	assert.match(html, /\.o-filed-issue\{background:#B3A894;color:#2B2A27\}/);
+	assert.match(html, /\.o-filed-issue\{background:repeating-linear-gradient\(135deg,#CFC8BB 0 8px,#C5BEB0 8px 10px\);color:#2B2A27\}/);
 	assert.match(html, /body\{[^}]*background:#F5F4F0/);
 	assert.match(html, /main\{padding:56px 24px 96px\}/);
 	assert.match(html, /\.page\{width:100%;max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:56px\}/);
-	assert.match(html, /\.lede\{[^}]*margin-bottom:32px\}/);
 	assert.match(html, /<body><main><div class="page">[\s\S]*<\/div><\/main>/);
-	assert.doesNotMatch(html, /<footer|footer\{/);
 	assert.match(html, /a:not\(\.seg\):hover\{color:#1F4D3D\}/);
 	assert.match(html, /family=Source\+Serif\+4/);
 });
@@ -285,16 +279,25 @@ test('a possible duplicate is counted and tagged; a sure duplicate appears nowhe
 	assert.doesNotMatch(text(html), /uplicates? (of|were|left)|removed/);
 });
 
-test('the header ends with the build time, linked to the run that built the page', () => {
+test('the top row has only the page switch and the date range; the footer has the build time, linked to the run', () => {
 	const html = renderOutcomesPage(today, { now: NOW, runUrl: 'https://github.com/o/r/actions/runs/42' });
-	const eyebrow = html.slice(html.indexOf('<div class="eyebrow">')).split('<div class="head">')[0];
-	assert.match(eyebrow, /<a class="updated" href="https:\/\/github\.com\/o\/r\/actions\/runs\/42" title="Open the workflow run that built this report">Updated&nbsp;<time datetime="2026-10-14T12:00:00\.000Z">Oct 14, 12:00 PM<\/time><\/a><\/div>\s*$/);
-	assert.match(renderOutcomesPage([], { now: new Date('2026-10-14T09:05:00Z') }), />Updated&nbsp;<time datetime="2026-10-14T09:05:00\.000Z">Oct 14, 9:05 AM<\/time>/);
+	const top = html.slice(html.indexOf('<div class="top">')).split('<div class="head">')[0];
+	assert.match(top, /^<div class="top"><nav class="switch" aria-label="Report"><span class="cmd">\/explore<\/span><span class="pages"><a aria-current="page" href="https:\/\/connect\.posit\.it\/explore-outcomes\/">Shipping impact<\/a><a class="switch-link" href="https:\/\/connect\.posit\.it\/explore-triage\/">Triage outcomes<\/a><\/span><\/nav><span class="range">/);
+	assert.doesNotMatch(top, /Updated|started/);
+	assert.match(html, /<footer>Updated <a class="quiet" href="https:\/\/github\.com\/o\/r\/actions\/runs\/42" title="Open the workflow run that built this report"><time datetime="2026-10-14T12:00:00\.000Z">Oct 14, 12:00 PM<\/time><\/a><span class="triggers"><\/span><\/footer>\s*<\/div><\/main>/);
+	assert.match(renderOutcomesPage([], { now: new Date('2026-10-14T09:05:00Z') }), />Updated <a [^>]*><time datetime="2026-10-14T09:05:00\.000Z">Oct 14, 9:05 AM<\/time>/);
 	assert.match(renderOutcomesPage([], { now: new Date('2026-10-15T00:30:00Z') }), />Oct 15, 12:30 AM<\/time>/);
-	assert.match(html, /\.eyebrow\{[^}]*font-size:13px;color:#6B6862;/);
-	assert.match(html, /\.updated\{margin-left:auto;display:inline-flex;align-items:center;min-height:32px;color:inherit;text-decoration:none\}/);
-	assert.match(html, /a\.updated:hover\{color:#2F6B55;text-decoration:underline;text-underline-offset:3px\}/);
+	assert.match(html, /\.range\{position:relative;margin-left:auto\}/);
+	assert.match(html, /\.range-menu\{position:absolute;top:38px;right:-6px;/);
+	assert.match(html, /footer\{margin-top:-24px;font-size:13px;color:#7A766F\}/);
+	assert.match(html, /footer a\.quiet\{color:inherit;text-decoration:none\}footer a\.quiet:hover\{color:#2F6B55;text-decoration:underline;text-underline-offset:3px\}/);
 	assert.doesNotMatch(text(html), /Generated/);
+});
+
+test('a finding filed as an issue links to that issue on the triage page', () => {
+	const html = render([row('filed-issue', { issue: { number: 16645, url: 'https://github.com/posit-dev/positron/issues/16645', state: 'open' } }), row('not-fixed', { evidence: 'issue #16646: no fix' })]);
+	assert.match(html, /<a href="https:\/\/connect\.posit\.it\/explore-triage\/\?issue=16645">See its triage<\/a>/);
+	assert.doesNotMatch(html, /issue=16646/);
 });
 
 test('runUrl: the Actions run when built there, else the workflow page', () => {
@@ -372,7 +375,7 @@ test('the page renders all time with an inert picker, and embeds the rows where 
 
 test('the detail sits over a 20px row under the bar and hangs into the gap below, so nothing moves', () => {
 	const html = render(today);
-	assert.match(html, /\.under\{position:relative;min-height:20px;margin-top:4px\}/);
+	assert.match(html, /\.under\{grid-column:1 \/ -1;position:relative;min-height:20px;margin-top:4px\}/);
 	assert.match(html, /\.seg-detail\{position:absolute;top:0;left:0;right:0;/);
 	assert.match(html, /\.hero\{[^}]*font-size:44px/);
 });

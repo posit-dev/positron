@@ -5,7 +5,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import { addedKeys, affectedHelpers, postSections, readGraph, selectorUsers } from './affected.ts';
@@ -83,4 +84,13 @@ test('selectorUsers: the scripts that use a key, null when a shared file does', 
 	assert.equal(selectorUsers(null, scripts), null);
 	const prev = selectorUsers(['previous'], scripts) ?? [];
 	assert.ok(prev.includes(P + 'scripts/plots.sh'), 'bash $plots_previous');
+});
+
+test('readGraph skips a directory in scripts/, such as the CI npm cache', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'dp-affected-'));
+	try {
+		mkdirSync(join(dir, '.npm-cache'));
+		writeFileSync(join(dir, 'x.sh'), 'exec node "$(dirname "${BASH_SOURCE[0]}")/dp.ts" x "$@"\n');
+		assert.deepEqual(readGraph(dir).commands.get('x.sh'), ['x']);
+	} finally { rmSync(dir, { recursive: true }); }
 });

@@ -7,6 +7,7 @@ import * as assert from 'assert';
 import * as Sinon from 'sinon';
 import * as positron from 'positron';
 import { LSP_DISPOSE_TIMEOUT_MS, RSession } from '../session';
+import { RSessionManager } from '../session-manager';
 
 /**
  * `deleteSession()` disposes a runtime that wouldn't exit. Kernel disposal
@@ -16,6 +17,20 @@ import { LSP_DISPOSE_TIMEOUT_MS, RSession } from '../session';
  * See https://github.com/posit-dev/positron/issues/15781.
  */
 suite('RSession disposal', () => {
+	// The RSession constructor registers itself with the session manager
+	// singleton. Stub it rather than relying on the activated extension
+	// having initialized it: that depends on activation order, and on Windows
+	// the tests can end up with their own copy of the module (loaded through
+	// `C:\` while the extension host uses `c:\`) that is never initialized.
+	// The stub also keeps these fake sessions out of the live manager.
+	let instanceStub: Sinon.SinonStub;
+	setup(() => {
+		instanceStub = Sinon.stub(RSessionManager, 'instance').get(() => ({ setSession: () => { } }));
+	});
+	teardown(() => {
+		instanceStub.restore();
+	});
+
 	function createSession(lspDispose: () => Promise<void>) {
 		const runtimeMetadata = {
 			runtimeName: 'R 4.5.2',

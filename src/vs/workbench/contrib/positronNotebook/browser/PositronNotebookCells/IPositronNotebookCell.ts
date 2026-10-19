@@ -460,6 +460,17 @@ export interface ParsedDataExplorerOutput {
 }
 
 /**
+ * Parsed output for inline object explorer
+ */
+export interface ParsedObjectExplorerOutput {
+	type: 'objectExplorer';
+	commId: string;
+	title: string;
+	version: number;
+	variablePath?: string[];
+}
+
+/**
  * Contents from cell outputs parsed for React components to display
  */
 export type ParsedOutput = ParsedTextOutput |
@@ -493,7 +504,8 @@ export type ParsedOutput = ParsedTextOutput |
 	type: 'unknown';
 	content: string;
 } |
-	ParsedDataExplorerOutput;
+	ParsedDataExplorerOutput |
+	ParsedObjectExplorerOutput;
 
 
 export interface NotebookCellOutputs {

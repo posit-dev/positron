@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { migrateSettingsAndPrimeCatalog } from '../extension';
 import { getCachedProvider } from '../providerCatalog';
+import { removeTempDir } from './tempDir';
 
 /** Minimal ExtensionContext stub: only `subscriptions` is read by initProviderCatalog. */
 function fakeContext(): vscode.ExtensionContext {
@@ -45,7 +46,7 @@ suite('activation ordering', () => {
 		for (const d of context.subscriptions) {
 			d.dispose();
 		}
-		fs.rmSync(dir, { recursive: true, force: true });
+		await removeTempDir(dir);
 		await vscode.workspace.getConfiguration('authentication.aws')
 			.update('credentials', undefined, vscode.ConfigurationTarget.Global);
 		await vscode.workspace.getConfiguration('authentication.snowflake')

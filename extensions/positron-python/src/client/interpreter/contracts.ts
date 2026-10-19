@@ -150,4 +150,8 @@ export type WorkspacePythonPath = {
 export const IActivatedEnvironmentLaunch = Symbol('IActivatedEnvironmentLaunch');
 export interface IActivatedEnvironmentLaunch {
     selectIfLaunchedViaActivatedEnv(doNotBlockOnSelection?: boolean): Promise<string | undefined>;
+    // --- Start Positron ---
+    /** Resolves once any activated-environment selection has been written to the interpreter setting. */
+    waitForSelection(): Promise<void>;
+    // --- End Positron ---
 }

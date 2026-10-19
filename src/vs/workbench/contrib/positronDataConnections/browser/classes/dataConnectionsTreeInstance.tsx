@@ -219,10 +219,11 @@ interface PathLookup {
 const REVEAL_ROOTS_TIMEOUT_MS = 10_000;
 
 export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> implements IDataConnectionNodeOpener {
-	// Children the breadcrumb look-ahead fetched for a namespace group that went on to keep its row,
-	// held until that group is expanded so the user's own expand doesn't repeat the query. Keyed by
-	// the group's node id, which carries the node handle the fetch minted, so an entry can only ever
-	// be read by the row it was fetched for. See _breadcrumbNamespaceGroups and _takeLookAhead.
+	// Children a look-ahead fetched for a namespace group or Views group that went on to keep its
+	// row, held until that group is expanded so the user's own expand doesn't repeat the query. Keyed
+	// by the group's node id, which carries the node handle the fetch minted, so an entry can only
+	// ever be read by the row it was fetched for. See _breadcrumbNamespaceGroups,
+	// _wrapUnlessEmptyViews, and _takeLookAhead.
 	private readonly _lookAheadChildren = new Map<string, readonly IDataConnectionNodeDTO[]>();
 
 	// Rows whose children a path lookup loaded without the row ever being expanded. Having loaded
@@ -830,8 +831,8 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * the connect + getChildren as one continuous operation, and a connect failure surfaces
 	 * through the tree's existing error state.
 	 *
-	 * A namespace group that kept its row is answered from what the look-ahead already fetched for
-	 * it, so opening it costs nothing rather than repeating that query.
+	 * A namespace group or Views group that kept its row is answered from what the look-ahead already
+	 * fetched for it, so opening it costs nothing rather than repeating that query.
 	 *
 	 * Failures are not reported from here. The base also calls this while restoring a reload's
 	 * expansion, where a failed branch is deliberately left collapsed rather than shown as an error;
@@ -920,17 +921,13 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		handle: IDataConnectionHandle
 	): Promise<readonly TreeNode<DataConnectionNode>[]> {
 		const level = await Promise.all(dtos.map(async dto => {
-			if (!BREADCRUMB_GROUP_KINDS.has(dto.kind) || !dto.hasGetChildren) {
-				return [wrapDto(dto, handle)];
+			if (!BREADCRUMB_GROUP_KINDS.has(dto.kind)) {
+				const row = await this._wrapUnlessEmptyViews(dto, handle);
+				return row === undefined ? [] : [row];
 			}
 
-			let children: readonly IDataConnectionNodeDTO[];
-			try {
-				children = await handle.nodeGetChildren(dto.nodeHandle);
-			} catch {
-				// The look-ahead is an optimization, so a failure just leaves the group as an
-				// ordinary row. Expanding it will run the same call again and surface the error
-				// through the tree's own error state, where the user can retry it.
+			const children = await this._lookAhead(dto, handle);
+			if (children === undefined) {
 				return [wrapDto(dto, handle)];
 			}
 
@@ -981,8 +978,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * This costs a second look-ahead -- the group's children found the schema, and this fetches the
 	 * schema's -- so opening a single-schema connection is three sequential round trips rather than
-	 * two. That is the price of the default; the result is not wasted, since these are the rows the
-	 * level goes on to hold. Turning the setting on takes the second one back off.
+	 * two, and a fourth when the schema has a Views group (see _wrapUnlessEmptyViews). That is the
+	 * price of the default; the result is not wasted, since these are the rows the level goes on to
+	 * hold.
+	 * Turning the setting on takes the second one back off.
 	 *
 	 * Returns undefined when the schema cannot stand aside, leaving the caller to breadcrumb it as
 	 * usual. A schema with no children is one of those cases: eliding it would leave the connection
@@ -996,24 +995,81 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		schema: IDataConnectionNodeDTO,
 		handle: IDataConnectionHandle
 	): Promise<readonly TreeNode<DataConnectionNode>[] | undefined> {
-		if (!schema.hasGetChildren) {
+		const contents = await this._lookAhead(schema, handle);
+		if (contents === undefined || contents.length === 0) {
 			return undefined;
 		}
 
-		let contents: readonly IDataConnectionNodeDTO[];
+		const rows = await Promise.all(contents.map(dto => this._wrapUnlessEmptyViews(dto, handle, schema.name)));
+		const level = rows.filter(row => row !== undefined);
+
+		// A schema whose only content was an empty Views group holds nothing after all, and falls
+		// back for the same reason an empty schema does.
+		return level.length === 0 ? undefined : level;
+	}
+
+	/**
+	 * Fetches a node's children ahead of its expand, to decide how its row is shown.
+	 *
+	 * The look-ahead is an optimization, so a node it cannot look into, or a fetch that fails,
+	 * leaves the row as it would have been without it. Expanding the row runs the same call again
+	 * and surfaces any error through the tree's own error state, where the user can retry it.
+	 *
+	 * @param dto The node to look into.
+	 * @param handle The connection handle the DTO came from.
+	 * @returns The node's children, or undefined when it has none to fetch or the fetch failed.
+	 */
+	private async _lookAhead(
+		dto: IDataConnectionNodeDTO,
+		handle: IDataConnectionHandle
+	): Promise<readonly IDataConnectionNodeDTO[] | undefined> {
+		if (!dto.hasGetChildren) {
+			return undefined;
+		}
+
 		try {
-			contents = await handle.nodeGetChildren(schema.nodeHandle);
+			return await handle.nodeGetChildren(dto.nodeHandle);
 		} catch {
-			// Same reasoning as the group look-ahead above: a failed optimization falls back to the
-			// visible row, where expanding it runs the call again and surfaces the error.
+			return undefined;
+		}
+	}
+
+	/**
+	 * Wraps a DTO as a row, unless it is a Views group that holds no views: a "Views" row with
+	 * nothing under it is noise beside a Tables group, and most drivers build one whether or not
+	 * there is anything to put in it. Deciding that needs the group's children, so a Views group
+	 * costs one extra round trip on the level above, paid whether or not the user goes on to open it.
+	 *
+	 * A group that is kept holds what the look-ahead fetched for its expand to consume, the same as
+	 * a namespace group in _breadcrumbNamespaceGroups. A group whose emptiness is unknown, because
+	 * the look-ahead could not run or failed, is kept as an ordinary row.
+	 *
+	 * @param dto The DTO to wrap.
+	 * @param handle The connection handle the DTO came from.
+	 * @param elidedSchema The lone schema the row stands in for, when it was dropped.
+	 * @returns The row, or undefined for a Views group that holds no views.
+	 */
+	private async _wrapUnlessEmptyViews(
+		dto: IDataConnectionNodeDTO,
+		handle: IDataConnectionHandle,
+		elidedSchema?: string
+	): Promise<TreeNode<DataConnectionNode> | undefined> {
+		const row = wrapDto(dto, handle, undefined, elidedSchema);
+		if (dto.kind !== DataConnectionNodeKind.GroupViews) {
+			return row;
+		}
+
+		const children = await this._lookAhead(dto, handle);
+		if (children === undefined) {
+			return row;
+		}
+
+		if (children.length === 0) {
 			return undefined;
 		}
 
-		if (contents.length === 0) {
-			return undefined;
-		}
-
-		return contents.map(dto => wrapDto(dto, handle, undefined, schema.name));
+		this._lookAheadChildren.set(row.id, children);
+		return row;
 	}
 
 	/**

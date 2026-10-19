@@ -29,12 +29,15 @@ function withPlatform(platform: NodeJS.Platform, fn: () => void): void {
 
 suite('R discovery-root signature', () => {
 
+	// `withPlatform()` fakes `process.platform` but not the `path` module, so
+	// expectations go through `path.join()` too; on a Windows host it joins
+	// with backslashes even while the platform reads 'linux'.
 	suite('rCurrentSymlinks', () => {
 		test('returns the platform-appropriate default-version symlink, or none on Windows', () => {
 			const hq = ['/opt/R'];
-			withPlatform('linux', () => assert.deepStrictEqual(rCurrentSymlinks(hq), ['/opt/R/current']));
+			withPlatform('linux', () => assert.deepStrictEqual(rCurrentSymlinks(hq), [path.join('/opt/R', 'current')]));
 			// macOS uses uppercase 'Current'.
-			withPlatform('darwin', () => assert.deepStrictEqual(rCurrentSymlinks(hq), ['/opt/R/Current']));
+			withPlatform('darwin', () => assert.deepStrictEqual(rCurrentSymlinks(hq), [path.join('/opt/R', 'Current')]));
 			// Windows has no `current` symlink (default comes from the registry).
 			withPlatform('win32', () => assert.deepStrictEqual(rCurrentSymlinks(hq), []));
 		});
@@ -42,7 +45,7 @@ suite('R discovery-root signature', () => {
 		test('maps each headquarters directory', () => {
 			withPlatform('linux', () => assert.deepStrictEqual(
 				rCurrentSymlinks(['/opt/R', '/custom/R']),
-				['/opt/R/current', '/custom/R/current'],
+				[path.join('/opt/R', 'current'), path.join('/custom/R', 'current')],
 			));
 		});
 	});

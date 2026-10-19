@@ -261,6 +261,13 @@ class NoneInspector(PositronInspector[type(None)]):
     def is_mutable(self) -> bool:
         return False
 
+    def value_to_json(self) -> JsonData:
+        return None
+
+    @classmethod
+    def value_from_json(cls, type_name: str, data: JsonData) -> None:  # noqa: ARG003
+        return None
+
 
 class BooleanInspector(PositronInspector[bool]):
     def is_mutable(self) -> bool:
@@ -613,6 +620,10 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
             or safe_isinstance(self.value, "fastcore.foundation", "L")
         )
 
+    def has_viewer(self) -> bool:
+        # Lists and tuples open in the Object Explorer.
+        return isinstance(self.value, (list, tuple)) and self.has_children()
+
     def value_to_json(self) -> JsonData:
         if isinstance(self.value, range):
             return {
@@ -620,6 +631,9 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
                 "stop": self.value.stop,
                 "step": self.value.step,
             }
+
+        if isinstance(self.value, tuple):
+            return [get_inspector(item).to_json() for item in self.value]
 
         return super().value_to_json()
 
@@ -644,6 +658,14 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
                 cast("int", data["stop"]),
                 cast("int", data["step"]),
             )
+
+        if type_name == "tuple":
+            from .access_keys import access_key_from_json
+
+            if not isinstance(data, list):
+                raise ValueError(f"Expected data to be list, got {data}")
+
+            return cast("CollectionT", tuple(access_key_from_json(item) for item in data))  # type: ignore
 
         return super().value_from_json(type_name, data)
 
@@ -826,6 +848,10 @@ class MapInspector(_BaseMapInspector[Mapping]):
 
     def is_mutable(self) -> bool:
         return isinstance(self.value, MutableMapping)
+
+    def has_viewer(self) -> bool:
+        # Mappings open in the Object Explorer.
+        return self.has_children()
 
     def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         prefix, suffix = "{", "}"

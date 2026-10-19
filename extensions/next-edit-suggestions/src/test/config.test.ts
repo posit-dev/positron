@@ -214,6 +214,21 @@ suite('config / isCompletionEnabled', () => {
 			assert.strictEqual(isCompletionEnabled(doc), false);
 		});
 
+		test('exact filename matching works with Windows-style file paths', () => {
+			setupConfigStubs({
+				aiExcludes: [],
+				enable: { '*': true, Dockerfile: false },
+			});
+
+			const doc = {
+				uri: vscode.Uri.file('/project/Dockerfile'),
+				fileName: 'C:\\project\\Dockerfile',
+				languageId: 'plaintext',
+			} as vscode.TextDocument;
+
+			assert.strictEqual(isCompletionEnabled(doc), false);
+		});
+
 		test('wildcard applies when no language or glob match', () => {
 			setupConfigStubs({
 				aiExcludes: [],

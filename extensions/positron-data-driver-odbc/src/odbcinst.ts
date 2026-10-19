@@ -214,6 +214,9 @@ const SYSTEM_CONFIG_DIRS = ['/etc', '/etc/unixODBC', '/usr/local/etc', '/opt/hom
  * - `ODBCINSTINI` overrides the system driver file; relative values resolve against ODBCSYSINI.
  * - `ODBCINI` overrides the *user* DSN file outright, and is an absolute path.
  *
+ * Uses `path.posix` rather than the host `path`, because these are unixODBC paths whatever
+ * platform this runs on (the platform is injected through `host`).
+ *
  * Exported for tests.
  */
 export function resolveUnixConfigPaths(host: IOdbcConfigHost): {
@@ -227,10 +230,10 @@ export function resolveUnixConfigPaths(host: IOdbcConfigHost): {
 
 	const instIni = host.env('ODBCINSTINI');
 	const systemDrivers = instIni
-		? (path.isAbsolute(instIni) ? [instIni] : systemDirs.map(dir => path.join(dir, instIni)))
-		: systemDirs.map(dir => path.join(dir, 'odbcinst.ini'));
+		? (path.posix.isAbsolute(instIni) ? [instIni] : systemDirs.map(dir => path.posix.join(dir, instIni)))
+		: systemDirs.map(dir => path.posix.join(dir, 'odbcinst.ini'));
 
-	const systemDsns = systemDirs.map(dir => path.join(dir, 'odbc.ini'));
+	const systemDsns = systemDirs.map(dir => path.posix.join(dir, 'odbc.ini'));
 
 	const home = host.homeDir();
 	const userDsnOverride = host.env('ODBCINI');
@@ -239,8 +242,8 @@ export function resolveUnixConfigPaths(host: IOdbcConfigHost): {
 		systemDrivers,
 		systemDsns,
 		// There is no environment override for the per-user driver file.
-		userDrivers: [path.join(home, '.odbcinst.ini')],
-		userDsns: userDsnOverride ? [userDsnOverride] : [path.join(home, '.odbc.ini')],
+		userDrivers: [path.posix.join(home, '.odbcinst.ini')],
+		userDsns: userDsnOverride ? [userDsnOverride] : [path.posix.join(home, '.odbc.ini')],
 	};
 }
 

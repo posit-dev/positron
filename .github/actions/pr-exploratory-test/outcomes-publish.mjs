@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Publishes the outcomes page to Posit Connect, with the rows beside it so the
-// next run can start from them. The content is made once, by hand, and belongs
+// Publishes the Shipping impact page (with its rows beside it, so the next run
+// can start from them) or the Triage outcomes page to Posit Connect. The content is made once, by hand, and belongs
 // to whoever made it; CI only deploys to its GUID, so its key's user must own
 // the content or be a collaborator on it.
-//   node outcomes-publish.mjs create            (once; prints the GUID)
+//   node outcomes-publish.mjs create [triage]   (once per page; prints the GUID)
 //   node outcomes-publish.mjs previous > previous.jsonl
 //   node outcomes-publish.mjs deploy index.html rows.jsonl
 // Needs CONNECT_API_KEY, and CONNECT_CONTENT_GUID for previous and deploy.
@@ -19,9 +19,10 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const NAME = 'explore-outcomes';
-const TITLE = '/explore outcomes';
-const VANITY = '/explore-outcomes/';
+export const CONTENT = {
+	outcomes: { name: 'explore-outcomes', title: '/explore shipping impact', vanity: '/explore-outcomes/' },
+	triage: { name: 'explore-triage', title: '/explore triage outcomes', vanity: '/explore-triage/' },
+};
 
 /** The manifest for a static bundle of `files` (`{ name: content }`), opening on index.html. */
 export function buildManifest(files) {
@@ -64,8 +65,8 @@ function client({ server, key, fetch }) {
 	};
 }
 
-/** Makes the content, open only to its owner until others are added; returns its GUID. */
-export async function create({ server, key, name = NAME, title = TITLE, vanity = VANITY, fetch = globalThis.fetch }) {
+/** Makes the content (`CONTENT.outcomes` by default), open only to its owner until others are added; returns its GUID. */
+export async function create({ server, key, name = CONTENT.outcomes.name, title = CONTENT.outcomes.title, vanity = CONTENT.outcomes.vanity, fetch = globalThis.fetch }) {
 	const call = client({ server, key, fetch });
 	const content = await call('POST', '/__api__/v1/content', { body: JSON.stringify({ name, title, access_type: 'acl' }) });
 	await call('PUT', `/__api__/v1/content/${content.guid}/vanity`, { body: JSON.stringify({ path: vanity }) });
@@ -113,7 +114,11 @@ async function main() {
 	}
 	const server = process.env.CONNECT_SERVER || 'https://connect.posit.it';
 	if (command === 'create') {
-		console.log(await create({ server, key }));
+		const page = CONTENT[paths[0] ?? 'outcomes'];
+		if (!page) {
+			throw new Error(`usage: outcomes-publish.mjs create [${Object.keys(CONTENT).join('|')}]`);
+		}
+		console.log(await create({ server, key, ...page }));
 		return;
 	}
 	const guid = process.env.CONNECT_CONTENT_GUID;
@@ -126,7 +131,7 @@ async function main() {
 		const files = Object.fromEntries(paths.map(p => [basename(p), readFileSync(p)]));
 		console.log(`[outcomes] published ${await deploy({ server, key, guid, archive: bundle(files) })}`);
 	} else {
-		throw new Error('usage: outcomes-publish.mjs create | previous | deploy <file>...');
+		throw new Error('usage: outcomes-publish.mjs create [outcomes|triage] | previous | deploy <file>...');
 	}
 }
 
