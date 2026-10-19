@@ -20,7 +20,7 @@ const languageOrderSchema: IConfigurationPropertySchema = {
 	enumItemLabels: [],
 	description: localize(
 		'positron.interpreters.languageOrder',
-		"The order of languages when picking an interpreter or language. Languages not listed come after, alphabetically."
+		"The order of languages in the interpreter and language pickers and on the Welcome page. Languages not listed come after, alphabetically."
 	),
 	tags: ['interpreterSettings'],
 };

@@ -225,6 +225,7 @@ describe('ListSettingWidget reordering', () => {
 			widget.setValue([{ value: { type: 'enum', data: 'r', options: [{ value: 'r', label: 'R' }] } }], { reorderOnly: true });
 			// eslint-disable-next-line no-restricted-syntax -- upstream widget has no roles or test ids
 			expect(rows()[0].querySelector('.setting-list-value')).toHaveTextContent('R');
+			expect(rows()[0]).toHaveAttribute('aria-label', 'List item `R`');
 		});
 	});
 });

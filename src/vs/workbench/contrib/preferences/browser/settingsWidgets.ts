@@ -590,6 +590,13 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 	// --- End Positron ---
 
 	// --- Start Positron ---
+	// Enum rows show the option label, falling back to the raw value.
+	private getDisplayText(value: TListDataItem['value']): string {
+		return (value.type === 'enum' ? value.options.find(o => o.value === value.data)?.label : undefined) ?? value.data.toString();
+	}
+	// --- End Positron ---
+
+	// --- Start Positron ---
 	// Covers double-click, which edits the row directly.
 	protected override editSetting(idx: number): void {
 		if (!this.reorderOnly) {
@@ -639,7 +646,7 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 
 		// --- Start Positron ---
 		// valueElement.textContent = item.value.data.toString();
-		valueElement.textContent = (item.value.type === 'enum' ? item.value.options.find(o => o.value === item.value.data)?.label : undefined) ?? item.value.data.toString();
+		valueElement.textContent = this.getDisplayText(item.value);
 		// --- End Positron ---
 		if (item.sibling) {
 			siblingElement.textContent = `when: ${item.sibling}`;
@@ -868,9 +875,16 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 	}
 
 	protected addTooltipsToRow(rowElementGroup: RowElementGroup, { value, sibling }: TListDataItem) {
+		// --- Start Positron ---
+		// Read the label the row shows, not the raw enum value.
+		// const title = isUndefinedOrNull(sibling)
+		// 	? localize('listValueHintLabel', "List item `{0}`", value.data)
+		// 	: localize('listSiblingHintLabel', "List item `{0}` with sibling `${1}`", value.data, sibling);
+		const text = this.getDisplayText(value);
 		const title = isUndefinedOrNull(sibling)
-			? localize('listValueHintLabel', "List item `{0}`", value.data)
-			: localize('listSiblingHintLabel', "List item `{0}` with sibling `${1}`", value.data, sibling);
+			? localize('listValueHintLabel', "List item `{0}`", text)
+			: localize('listSiblingHintLabel', "List item `{0}` with sibling `${1}`", text, sibling);
+		// --- End Positron ---
 
 		const { rowElement } = rowElementGroup;
 		// --- Start Positron ---
