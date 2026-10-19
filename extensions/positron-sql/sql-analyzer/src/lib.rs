@@ -104,5 +104,8 @@ pub unsafe extern "C" fn sql_analyze(pointer: *mut u8, len: usize) -> *mut u8 {
 pub unsafe extern "C" fn sql_free(pointer: *mut u8) {
     let mut length = [0u8; HEADER];
     length.copy_from_slice(std::slice::from_raw_parts(pointer, HEADER));
-    dealloc(pointer, layout(HEADER + u32::from_le_bytes(length) as usize));
+    dealloc(
+        pointer,
+        layout(HEADER + u32::from_le_bytes(length) as usize),
+    );
 }

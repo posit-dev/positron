@@ -15,23 +15,43 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{cursor, dialects, diagnostics, keywords, scopes, sources, statements, text::TextIndex};
+use crate::{
+    cursor, diagnostics, dialects, keywords, scopes, sources, statements, text::TextIndex,
+};
 
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase")]
 pub enum Request {
     /// Split a document into statements. Answers the statement range provider, which runs on the
     /// user's keystroke when they execute code and cannot wait for anything.
-    Statements { text: String, #[serde(default)] dialect: String },
+    Statements {
+        text: String,
+        #[serde(default)]
+        dialect: String,
+    },
     /// Parse a document: its syntax errors, and every name it refers to.
-    Analyze { text: String, #[serde(default)] dialect: String },
+    Analyze {
+        text: String,
+        #[serde(default)]
+        dialect: String,
+    },
     /// The tables and names the statement at an offset can see from there.
-    Sources { text: String, #[serde(default)] dialect: String, offset: u32 },
+    Sources {
+        text: String,
+        #[serde(default)]
+        dialect: String,
+        offset: u32,
+    },
     /// The keywords worth completing, whatever the position: the caller's fallback for a prefix
     /// that matches nothing offered at the cursor.
     Keywords,
     /// The keywords worth completing at an offset, which is nearly always a much shorter list.
-    KeywordsAt { text: String, #[serde(default)] dialect: String, offset: u32 },
+    KeywordsAt {
+        text: String,
+        #[serde(default)]
+        dialect: String,
+        offset: u32,
+    },
 }
 
 #[derive(Serialize)]
@@ -141,7 +161,9 @@ pub struct SourceRef {
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Response {
-    Statements { statements: Vec<StatementSpan> },
+    Statements {
+        statements: Vec<StatementSpan>,
+    },
     // `rename_all` on the enum renames the variants, not their fields, so the field naming has
     // to be spelled out on the variant that has more than one word in a field name.
     #[serde(rename_all = "camelCase")]
@@ -169,7 +191,9 @@ pub enum Response {
         /// statement's ggsql part, and there are none. For the caller's log, not for logic.
         origin: String,
     },
-    Keywords { keywords: Vec<String> },
+    Keywords {
+        keywords: Vec<String>,
+    },
     // `rename_all` on the enum renames the variants rather than their fields, so a variant with a
     // second field has to say so itself.
     #[serde(rename_all = "camelCase")]
@@ -182,19 +206,31 @@ pub enum Response {
     },
     /// The request itself could not be understood. Never the user's SQL being wrong -- that is a
     /// diagnostic -- so it means the two sides have drifted apart.
-    Error { message: String },
+    Error {
+        message: String,
+    },
 }
 
 pub fn handle(request: &str) -> Response {
     let request: Request = match serde_json::from_str(request) {
         Ok(request) => request,
-        Err(error) => return Response::Error { message: error.to_string() },
+        Err(error) => {
+            return Response::Error {
+                message: error.to_string(),
+            }
+        }
     };
 
     match request {
-        Request::Keywords => Response::Keywords { keywords: keywords::everything() },
+        Request::Keywords => Response::Keywords {
+            keywords: keywords::everything(),
+        },
 
-        Request::KeywordsAt { text, dialect, offset } => {
+        Request::KeywordsAt {
+            text,
+            dialect,
+            offset,
+        } => {
             let (dialect, _) = dialects::resolve(&dialect);
             let index = TextIndex::new(&text);
             let tokenized = statements::split(&text, dialect.as_ref(), &index);
@@ -266,7 +302,11 @@ pub fn handle(request: &str) -> Response {
             }
         }
 
-        Request::Sources { text, dialect, offset } => {
+        Request::Sources {
+            text,
+            dialect,
+            offset,
+        } => {
             let (dialect, _) = dialects::resolve(&dialect);
             let index = TextIndex::new(&text);
             let tokenized = statements::split(&text, dialect.as_ref(), &index);
@@ -293,7 +333,9 @@ pub fn handle(request: &str) -> Response {
                 Some(found) => (found, "parsed"),
                 None => (
                     cursor::AtCursor {
-                        sources: statement.map(|at| sources::scan(&at.tokens)).unwrap_or_default(),
+                        sources: statement
+                            .map(|at| sources::scan(&at.tokens))
+                            .unwrap_or_default(),
                         locals: Vec::new(),
                         opaque: false,
                     },
@@ -328,9 +370,10 @@ fn to_local(local: scopes::Local) -> Local {
             scopes::LocalKind::Relation => LocalKind::Relation,
             scopes::LocalKind::Output => LocalKind::Output,
         },
-        column: local
-            .column
-            .map(|column| Renamed { name: column.name, qualifier: column.qualifier }),
+        column: local.column.map(|column| Renamed {
+            name: column.name,
+            qualifier: column.qualifier,
+        }),
     }
 }
 

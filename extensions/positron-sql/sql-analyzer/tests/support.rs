@@ -18,8 +18,13 @@ use serde_json::Value;
 /// so it is written into the SQL rather than counted out by hand beside it. Counted in UTF-16
 /// units, like every offset the analyzer deals in, so a case may hold an emoji.
 pub fn cursor(marked: &str) -> (String, u32) {
-    let (before, after) = marked.split_once('|').expect("the text marks the cursor with |");
-    (format!("{before}{after}"), before.encode_utf16().count() as u32)
+    let (before, after) = marked
+        .split_once('|')
+        .expect("the text marks the cursor with |");
+    (
+        format!("{before}{after}"),
+        before.encode_utf16().count() as u32,
+    )
 }
 
 pub fn request(request: Value) -> Value {
@@ -51,7 +56,10 @@ pub fn diagnostics_of(response: &Value, text: &str) -> Vec<(String, String)> {
         .map(|diagnostic| {
             (
                 slice(text, diagnostic),
-                diagnostic["message"].as_str().unwrap_or_default().to_string(),
+                diagnostic["message"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
             )
         })
         .collect()

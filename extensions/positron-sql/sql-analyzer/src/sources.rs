@@ -31,7 +31,10 @@ pub struct SourceRef {
 
 /// The keywords a table name may follow.
 fn introduces_table(keyword: Keyword) -> bool {
-    matches!(keyword, Keyword::FROM | Keyword::JOIN | Keyword::INTO | Keyword::UPDATE)
+    matches!(
+        keyword,
+        Keyword::FROM | Keyword::JOIN | Keyword::INTO | Keyword::UPDATE
+    )
 }
 
 /// The keywords that end a FROM clause, so a word after one of them is not read as a table.
@@ -110,7 +113,9 @@ pub fn scan(tokens: &[TokenWithSpan]) -> Vec<SourceRef> {
     let mut at = 0;
 
     while at < tokens.len() {
-        let introduces = word(&tokens[at]).map(|word| introduces_table(word.keyword)).unwrap_or(false);
+        let introduces = word(&tokens[at])
+            .map(|word| introduces_table(word.keyword))
+            .unwrap_or(false);
         at += 1;
         if !introduces {
             continue;
@@ -129,7 +134,10 @@ fn read_table_list(tokens: &[TokenWithSpan], mut at: usize, sources: &mut Vec<So
     loop {
         // A parenthesized source is either a derived table or a nested join. Either way it names
         // nothing that can be looked up in the schema, so it is skipped whole.
-        let named = if matches!(tokens.get(at).map(|token| &token.token), Some(Token::LParen)) {
+        let named = if matches!(
+            tokens.get(at).map(|token| &token.token),
+            Some(Token::LParen)
+        ) {
             at = skip_parenthesized(tokens, at);
             false
         } else {
@@ -171,7 +179,10 @@ fn read_table(tokens: &[TokenWithSpan], mut at: usize) -> Option<(SourceRef, usi
         }
         parts.push(word.value.clone());
         at += 1;
-        if matches!(tokens.get(at).map(|token| &token.token), Some(Token::Period)) {
+        if matches!(
+            tokens.get(at).map(|token| &token.token),
+            Some(Token::Period)
+        ) {
             at += 1;
             continue;
         }
@@ -179,7 +190,15 @@ fn read_table(tokens: &[TokenWithSpan], mut at: usize) -> Option<(SourceRef, usi
     }
 
     let (name, schema, catalog) = qualified(&parts)?;
-    Some((SourceRef { name, schema, catalog, alias: None }, at))
+    Some((
+        SourceRef {
+            name,
+            schema,
+            catalog,
+            alias: None,
+        },
+        at,
+    ))
 }
 
 /// Reads the alias a table was given, if it has one, and where it ended.

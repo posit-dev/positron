@@ -21,8 +21,15 @@ fn tables(text: &str) -> Vec<(String, Option<String>)> {
         .as_array()
         .unwrap()
         .iter()
-        .filter(|table| !table["local"].as_bool().unwrap() && !table["definition"].as_bool().unwrap())
-        .map(|table| (qualified(table), table["alias"].as_str().map(str::to_string)))
+        .filter(|table| {
+            !table["local"].as_bool().unwrap() && !table["definition"].as_bool().unwrap()
+        })
+        .map(|table| {
+            (
+                qualified(table),
+                table["alias"].as_str().map(str::to_string),
+            )
+        })
         .collect()
 }
 
@@ -44,8 +51,8 @@ fn columns(text: &str) -> Vec<(String, Option<String>, bool)> {
         .iter()
         .map(|column| {
             let scope = &scopes[column["scope"].as_u64().unwrap() as usize];
-            let judgeable =
-                !scope["opaque"].as_bool().unwrap() && !scope["tables"].as_array().unwrap().is_empty();
+            let judgeable = !scope["opaque"].as_bool().unwrap()
+                && !scope["tables"].as_array().unwrap().is_empty();
             (
                 column["name"].as_str().unwrap().to_string(),
                 column["qualifier"].as_str().map(str::to_string),
@@ -102,14 +109,26 @@ fn a_quoted_name_is_covered_along_with_its_quotes() {
 
 #[test]
 fn tables_in_writes_are_resolved_too() {
-    assert_eq!(tables("INSERT INTO customers (id) VALUES (1)"), [("customers".to_string(), None)]);
-    assert_eq!(tables("UPDATE customers SET id = 1"), [("customers".to_string(), None)]);
-    assert_eq!(tables("DELETE FROM customers WHERE id = 1"), [("customers".to_string(), None)]);
+    assert_eq!(
+        tables("INSERT INTO customers (id) VALUES (1)"),
+        [("customers".to_string(), None)]
+    );
+    assert_eq!(
+        tables("UPDATE customers SET id = 1"),
+        [("customers".to_string(), None)]
+    );
+    assert_eq!(
+        tables("DELETE FROM customers WHERE id = 1"),
+        [("customers".to_string(), None)]
+    );
 }
 
 #[test]
 fn a_columns_of_a_write_target_resolve_against_it() {
-    assert_eq!(visible("UPDATE customers SET name = 'x' WHERE id = 1", "name"), ["customers"]);
+    assert_eq!(
+        visible("UPDATE customers SET name = 'x' WHERE id = 1", "name"),
+        ["customers"]
+    );
 }
 
 #[test]
@@ -124,14 +143,20 @@ fn the_object_a_create_defines_is_not_a_table_reference() {
     assert!(tables("CREATE TABLE new_orders (id int)").is_empty());
     assert!(tables("CREATE VIEW v AS SELECT 1").is_empty());
     // The table a CREATE reads from does have to exist.
-    assert_eq!(tables("CREATE VIEW v AS SELECT * FROM orders"), [("orders".to_string(), None)]);
+    assert_eq!(
+        tables("CREATE VIEW v AS SELECT * FROM orders"),
+        [("orders".to_string(), None)]
+    );
 }
 
 #[test]
 fn the_object_a_create_defines_is_reported_as_a_definition() {
     // Reported rather than left out, so it can still be linked and named, for a view as well as a
     // table: the parser's visitor reaches a table's name but not a view's.
-    for text in ["CREATE TABLE new_orders (id int)", "CREATE OR REPLACE VIEW new_orders AS SELECT 1"] {
+    for text in [
+        "CREATE TABLE new_orders (id int)",
+        "CREATE OR REPLACE VIEW new_orders AS SELECT 1",
+    ] {
         let definitions: Vec<String> = analyze(text)["tables"]
             .as_array()
             .unwrap()
@@ -175,9 +200,15 @@ fn a_column_in_a_clause_that_follows_the_select_still_sees_its_tables() {
     // `ORDER BY`, `LIMIT` and `OFFSET` hang off the query rather than off the select inside it,
     // and are reached after the select has closed. Without the select handing its tables up, a
     // column in one of them would sit in a scope reading from nothing and look unknown.
-    assert_eq!(visible("SELECT total FROM orders ORDER BY placed", "placed"), ["orders"]);
+    assert_eq!(
+        visible("SELECT total FROM orders ORDER BY placed", "placed"),
+        ["orders"]
+    );
     assert_eq!(visible("SELECT total FROM orders LIMIT n", "n"), ["orders"]);
-    assert_eq!(visible("SELECT total FROM orders OFFSET n", "n"), ["orders"]);
+    assert_eq!(
+        visible("SELECT total FROM orders OFFSET n", "n"),
+        ["orders"]
+    );
 }
 
 #[test]
@@ -189,7 +220,10 @@ fn a_name_the_select_list_made_up_is_not_a_column_of_anything() {
     let response = analyze("SELECT total AS t FROM orders ORDER BY t");
     let scope = &response["scopes"][response["columns"][1]["scope"].as_u64().unwrap() as usize];
     assert_eq!(response["columns"][1]["name"], "t");
-    assert_eq!(scope["locals"], json!([{ "name": "t", "kind": "output", "column": { "name": "total" } }]));
+    assert_eq!(
+        scope["locals"],
+        json!([{ "name": "t", "kind": "output", "column": { "name": "total" } }])
+    );
 }
 
 /// The output locals of the statement's outermost query.
@@ -209,7 +243,9 @@ fn outputs(text: &str) -> Value {
 fn a_select_item_that_only_renames_a_column_says_which() {
     // So that `uis` in `WHERE uis = 10` can be resolved as the column it stands for.
     assert_eq!(
-        outputs("SELECT p.UnitsInStock AS uis, (price) AS p2, price * 2 AS doubled FROM products p"),
+        outputs(
+            "SELECT p.UnitsInStock AS uis, (price) AS p2, price * 2 AS doubled FROM products p"
+        ),
         json!([
             { "name": "uis", "kind": "output", "column": { "name": "UnitsInStock", "qualifier": "p" } },
             { "name": "p2", "kind": "output", "column": { "name": "price" } },
@@ -223,7 +259,10 @@ fn a_subquery_does_not_hand_its_tables_to_the_query_around_it() {
     // Only the query's own body is lifted. A subquery in a `WHERE` closes into the select it sits
     // in, not into the one above, or every scope would eventually see every table.
     assert_eq!(
-        visible("SELECT total FROM orders WHERE id IN (SELECT id FROM customers)", "total"),
+        visible(
+            "SELECT total FROM orders WHERE id IN (SELECT id FROM customers)",
+            "total"
+        ),
         ["orders"]
     );
 }
@@ -243,7 +282,10 @@ fn a_name_the_select_list_made_up_does_not_hide_a_table_of_the_same_name() {
         tables("SELECT 1 AS orders UNION SELECT nope FROM orders"),
         [("orders".to_string(), None)]
     );
-    assert_eq!(visible("SELECT 1 AS orders UNION SELECT nope FROM orders", "nope"), ["orders"]);
+    assert_eq!(
+        visible("SELECT 1 AS orders UNION SELECT nope FROM orders", "nope"),
+        ["orders"]
+    );
 }
 
 #[test]
@@ -266,21 +308,33 @@ fn a_column_from_a_cte_is_not_judged() {
     // The outer select cannot see `orders` at all, so judging `x` against it would report a name
     // that may well be a real column of the CTE.
     let text = "WITH recent AS (SELECT id FROM orders) SELECT x FROM recent";
-    let judged: Vec<_> = columns(text).into_iter().filter(|(_, _, judgeable)| *judgeable).collect();
-    assert_eq!(judged, [("id".to_string(), None, true)], "only the CTE body's own column");
+    let judged: Vec<_> = columns(text)
+        .into_iter()
+        .filter(|(_, _, judgeable)| *judgeable)
+        .collect();
+    assert_eq!(
+        judged,
+        [("id".to_string(), None, true)],
+        "only the CTE body's own column"
+    );
 }
 
 #[test]
 fn a_derived_table_is_not_judged() {
     let text = "SELECT x FROM (SELECT 1 AS y) t";
-    assert!(columns(text).iter().all(|(name, _, judgeable)| name == "y" || !judgeable));
+    assert!(columns(text)
+        .iter()
+        .all(|(name, _, judgeable)| name == "y" || !judgeable));
 }
 
 #[test]
 fn a_scope_mixing_a_known_table_and_a_derived_one_is_not_judged() {
     // The column may belong to the half that cannot be seen.
     let text = "SELECT total FROM orders JOIN (SELECT 1 AS n) d ON true";
-    let (_, _, judgeable) = columns(text).into_iter().find(|(name, _, _)| name == "total").unwrap();
+    let (_, _, judgeable) = columns(text)
+        .into_iter()
+        .find(|(name, _, _)| name == "total")
+        .unwrap();
     assert!(!judgeable);
 }
 
@@ -301,7 +355,9 @@ fn a_subquery_in_a_where_clause_gets_its_own_scope() {
 
 #[test]
 fn a_column_in_a_statement_naming_no_table_is_not_judged() {
-    assert!(columns("SELECT some_column").iter().all(|(_, _, judgeable)| !judgeable));
+    assert!(columns("SELECT some_column")
+        .iter()
+        .all(|(_, _, judgeable)| !judgeable));
 }
 
 #[test]
@@ -315,10 +371,19 @@ fn every_statement_in_a_document_is_analyzed() {
     // renumbered rather than colliding when the document's results are merged.
     assert_eq!(
         tables("SELECT a FROM orders;\nSELECT b FROM customers"),
-        [("orders".to_string(), None), ("customers".to_string(), None)]
+        [
+            ("orders".to_string(), None),
+            ("customers".to_string(), None)
+        ]
     );
-    assert_eq!(visible("SELECT a FROM orders;\nSELECT b FROM customers", "a"), ["orders"]);
-    assert_eq!(visible("SELECT a FROM orders;\nSELECT b FROM customers", "b"), ["customers"]);
+    assert_eq!(
+        visible("SELECT a FROM orders;\nSELECT b FROM customers", "a"),
+        ["orders"]
+    );
+    assert_eq!(
+        visible("SELECT a FROM orders;\nSELECT b FROM customers", "b"),
+        ["customers"]
+    );
 }
 
 #[test]

@@ -76,7 +76,12 @@ pub fn at(
     let marker = marker(offset, index);
 
     let with_tail = |kept: usize| -> Vec<TokenWithSpan> {
-        before.iter().chain(&marker).chain(&after[..kept]).cloned().collect()
+        before
+            .iter()
+            .chain(&marker)
+            .chain(&after[..kept])
+            .cloned()
+            .collect()
     };
 
     // The whole statement first. Then with its last few tokens cut off, for a statement whose
@@ -131,7 +136,10 @@ fn close(mut tokens: Vec<TokenWithSpan>) -> Vec<TokenWithSpan> {
     for _ in 0..depth.max(0) {
         // No position: this is not in the document, and a node built out of it must not be
         // reported as though it were.
-        tokens.push(TokenWithSpan { token: Token::RParen, span: Span::empty() });
+        tokens.push(TokenWithSpan {
+            token: Token::RParen,
+            span: Span::empty(),
+        });
     }
     tokens
 }
@@ -170,7 +178,11 @@ fn marker_scope(analysis: &Analysis) -> Option<u32> {
 
 /// Walks out from the cursor's scope, collecting what each level along the way can see.
 fn collect(analysis: &Analysis, scope: u32) -> AtCursor {
-    let mut found = AtCursor { sources: Vec::new(), locals: Vec::new(), opaque: false };
+    let mut found = AtCursor {
+        sources: Vec::new(),
+        locals: Vec::new(),
+        opaque: false,
+    };
     // A select hands its tables up to the query around it, so walking out from a select reaches
     // the same reference twice; see `lift` in [`crate::scopes`].
     let mut seen: HashSet<u32> = HashSet::new();
@@ -184,7 +196,10 @@ fn collect(analysis: &Analysis, scope: u32) -> AtCursor {
     for _ in 0..analysis.scopes.len() {
         let Some(id) = up else { break };
         path.insert(id);
-        up = analysis.scopes.get(id as usize).and_then(|entry| entry.parent);
+        up = analysis
+            .scopes
+            .get(id as usize)
+            .and_then(|entry| entry.parent);
     }
 
     let mut at = Some(scope);
@@ -194,7 +209,9 @@ fn collect(analysis: &Analysis, scope: u32) -> AtCursor {
     // the one failure the caller cannot recover from.
     for _ in 0..analysis.scopes.len() {
         let Some(id) = at else { break };
-        let Some(entry) = analysis.scopes.get(id as usize) else { break };
+        let Some(entry) = analysis.scopes.get(id as usize) else {
+            break;
+        };
 
         // Whether the cursor's own select lifted tables into this level, which makes the others
         // lifted beside them a sibling's. Not otherwise: a subquery in a query's ORDER BY reaches
@@ -202,7 +219,10 @@ fn collect(analysis: &Analysis, scope: u32) -> AtCursor {
         // scope is exempt either way, since what was lifted into it is what its ORDER BY names.
         let beside = id != scope
             && entry.tables.iter().any(|at| {
-                analysis.tables.get(*at as usize).is_some_and(|table| table.scope != id && path.contains(&table.scope))
+                analysis
+                    .tables
+                    .get(*at as usize)
+                    .is_some_and(|table| table.scope != id && path.contains(&table.scope))
             });
 
         found.opaque |= entry.opaque;
@@ -214,8 +234,11 @@ fn collect(analysis: &Analysis, scope: u32) -> AtCursor {
             }
         }
         for at in &entry.tables {
-            let Some(table) = analysis.tables.get(*at as usize) else { continue };
-            if table.name == MARKER || (beside && !path.contains(&table.scope)) || !seen.insert(*at) {
+            let Some(table) = analysis.tables.get(*at as usize) else {
+                continue;
+            };
+            if table.name == MARKER || (beside && !path.contains(&table.scope)) || !seen.insert(*at)
+            {
                 continue;
             }
             found.sources.push(SourceRef {

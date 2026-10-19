@@ -88,8 +88,11 @@ mod tests {
     #[test]
     fn every_canonical_name_is_one_sqlparser_knows() {
         // `resolve` would otherwise parse a recognized dialect as generic without saying so.
-        let unknown: Vec<&str> =
-            CANONICAL.iter().copied().filter(|name| dialect_from_str(name).is_none()).collect();
+        let unknown: Vec<&str> = CANONICAL
+            .iter()
+            .copied()
+            .filter(|name| dialect_from_str(name).is_none())
+            .collect();
         assert_eq!(unknown, Vec::<&str>::new());
     }
 }

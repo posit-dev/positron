@@ -29,9 +29,8 @@ fn at_cursor(marked: &str) -> (Vec<String>, String) {
 
 fn at_cursor_as(dialect: &str, marked: &str) -> (Vec<String>, String) {
     let (text, offset) = cursor(marked);
-    let response = request(
-        json!({ "op": "keywordsAt", "text": text, "dialect": dialect, "offset": offset }),
-    );
+    let response =
+        request(json!({ "op": "keywordsAt", "text": text, "dialect": dialect, "offset": offset }));
     (
         response["keywords"]
             .as_array()
@@ -54,8 +53,14 @@ fn position(marked: &str) -> String {
 /// Asserts that every one of `present` is offered and none of `absent` is.
 fn expect(marked: &str, present: &[&str], absent: &[&str]) {
     let keywords = offered(marked);
-    let missing: Vec<&&str> = present.iter().filter(|k| !keywords.iter().any(|o| o == **k)).collect();
-    let unwanted: Vec<&&str> = absent.iter().filter(|k| keywords.iter().any(|o| o == **k)).collect();
+    let missing: Vec<&&str> = present
+        .iter()
+        .filter(|k| !keywords.iter().any(|o| o == **k))
+        .collect();
+    let unwanted: Vec<&&str> = absent
+        .iter()
+        .filter(|k| keywords.iter().any(|o| o == **k))
+        .collect();
     assert_eq!(
         (missing, unwanted),
         (Vec::new(), Vec::new()),
@@ -68,7 +73,10 @@ fn expect(marked: &str, present: &[&str], absent: &[&str]) {
 fn the_ordinary_keywords_are_offered() {
     let keywords = keywords();
     for expected in ["SELECT", "FROM", "WHERE", "JOIN", "INSERT", "DISTINCT"] {
-        assert!(keywords.iter().any(|keyword| keyword == expected), "missing {expected}");
+        assert!(
+            keywords.iter().any(|keyword| keyword == expected),
+            "missing {expected}"
+        );
     }
 }
 
@@ -77,7 +85,10 @@ fn multi_word_keywords_are_offered_whole() {
     // sqlparser tokenizes each word separately and has no notion of a phrase, so these are ours.
     let keywords = keywords();
     for expected in ["GROUP BY", "ORDER BY", "LEFT OUTER JOIN", "UNION ALL"] {
-        assert!(keywords.iter().any(|keyword| keyword == expected), "missing {expected}");
+        assert!(
+            keywords.iter().any(|keyword| keyword == expected),
+            "missing {expected}"
+        );
     }
 }
 
@@ -91,7 +102,9 @@ fn operators_are_not_offered_as_keywords() {
             "{keyword:?} does not start with a letter"
         );
         assert!(
-            keyword.chars().any(|character| character.is_ascii_uppercase()),
+            keyword
+                .chars()
+                .any(|character| character.is_ascii_uppercase()),
             "{keyword:?} is punctuation rather than a word"
         );
     }
@@ -137,7 +150,10 @@ const POSITIONS: &[(&str, &str)] = &[
     ("SELECT CAST(x AS |", "columnDefinition"),
     ("SELECT * FROM orders GROUP |", "expectingBy"),
     ("SELECT * FROM orders LEFT |", "expectingJoin"),
-    ("SELECT * FROM orders ORDER BY id NULLS |", "expectingNullsOrder"),
+    (
+        "SELECT * FROM orders ORDER BY id NULLS |",
+        "expectingNullsOrder",
+    ),
     ("SELECT * FROM orders WHERE a IS |", "expectingIsPredicate"),
     ("SELECT a FROM orders UNION |", "setOperand"),
     ("UPDATE orders SET a = 1 |", "assignment"),
@@ -155,9 +171,14 @@ fn every_way_of_writing_a_row_count_is_one_position() {
         "SELECT * FROM orders OFFSET 5 ROWS FETCH FIRST |",
         "SELECT * FROM orders OFFSET 5 ROWS FETCH NEXT |",
     ];
-    let found: Vec<(&str, String)> = cases.iter().map(|marked| (*marked, position(marked))).collect();
-    let expected: Vec<(&str, String)> =
-        cases.iter().map(|marked| (*marked, "rowCount".to_string())).collect();
+    let found: Vec<(&str, String)> = cases
+        .iter()
+        .map(|marked| (*marked, position(marked)))
+        .collect();
+    let expected: Vec<(&str, String)> = cases
+        .iter()
+        .map(|marked| (*marked, "rowCount".to_string()))
+        .collect();
     assert_eq!(found, expected);
 }
 
@@ -179,16 +200,23 @@ fn what_follows_a_row_count_is_not_a_row_count() {
     // The count itself finishes the clause: `LIMIT 10 |` goes on to `OFFSET`, and the `FIRST` of
     // `NULLS FIRST` is an ordering, not a `FETCH`.
     assert_eq!(position("SELECT * FROM orders LIMIT 10 |"), "expression");
-    assert_eq!(position("SELECT * FROM orders ORDER BY id NULLS FIRST |"), "orderItem");
+    assert_eq!(
+        position("SELECT * FROM orders ORDER BY id NULLS FIRST |"),
+        "orderItem"
+    );
     assert_eq!(position("SELECT * FROM orders WHERE id IN (1, |"), "value");
 }
 
 #[test]
 fn the_position_of_the_cursor_is_recognized() {
-    let found: Vec<(&str, String)> =
-        POSITIONS.iter().map(|(marked, _)| (*marked, position(marked))).collect();
-    let expected: Vec<(&str, String)> =
-        POSITIONS.iter().map(|(marked, name)| (*marked, (*name).to_string())).collect();
+    let found: Vec<(&str, String)> = POSITIONS
+        .iter()
+        .map(|(marked, _)| (*marked, position(marked)))
+        .collect();
+    let expected: Vec<(&str, String)> = POSITIONS
+        .iter()
+        .map(|(marked, name)| (*marked, (*name).to_string()))
+        .collect();
     assert_eq!(found, expected);
 }
 
@@ -213,7 +241,10 @@ fn a_ddl_modifier_only_counts_inside_a_ddl_statement() {
             ("CREATE TEMP |", "ddl".to_string()),
             ("SELECT * FROM orders WHERE a = 1 OR |", "value".to_string()),
             ("SELECT temp |", "selectItem".to_string()),
-            ("SELECT * FROM orders WHERE unique |", "expression".to_string()),
+            (
+                "SELECT * FROM orders WHERE unique |",
+                "expression".to_string()
+            ),
         ]
     );
 }
@@ -224,16 +255,35 @@ fn a_finished_join_condition_offers_the_next_join_and_the_where() {
     // after `ON` the FROM list is still being written.
     expect(
         "SELECT * FROM a JOIN b ON a.id = b.id |",
-        &["WHERE", "JOIN", "LEFT JOIN", "INNER JOIN", "ORDER BY", "AND"],
+        &[
+            "WHERE",
+            "JOIN",
+            "LEFT JOIN",
+            "INNER JOIN",
+            "ORDER BY",
+            "AND",
+        ],
         &[],
     );
-    expect("SELECT * FROM a WHERE a.id = 1 |", &["AND", "ORDER BY"], &["WHERE", "JOIN"]);
+    expect(
+        "SELECT * FROM a WHERE a.id = 1 |",
+        &["AND", "ORDER BY"],
+        &["WHERE", "JOIN"],
+    );
 }
 
 #[test]
 fn a_window_frame_offers_the_words_of_its_bounds() {
-    expect("SELECT sum(x) OVER (ORDER BY y ROWS |", &["BETWEEN", "UNBOUNDED PRECEDING"], &[]);
-    expect("SELECT sum(x) OVER (ORDER BY y ROWS BETWEEN UNBOUNDED PRECEDING |", &["AND"], &[]);
+    expect(
+        "SELECT sum(x) OVER (ORDER BY y ROWS |",
+        &["BETWEEN", "UNBOUNDED PRECEDING"],
+        &[],
+    );
+    expect(
+        "SELECT sum(x) OVER (ORDER BY y ROWS BETWEEN UNBOUNDED PRECEDING |",
+        &["AND"],
+        &[],
+    );
     // The second bound, not a value: `AND` here is not the connective it is in a `WHERE`.
     expect(
         "SELECT sum(x) OVER (ORDER BY y ROWS BETWEEN 1 PRECEDING AND |",
@@ -244,14 +294,25 @@ fn a_window_frame_offers_the_words_of_its_bounds() {
 
 #[test]
 fn an_on_that_is_not_a_join_s_is_not_a_join_condition() {
-    assert_ne!(position("CREATE INDEX idx ON orders (id) |"), "joinCondition");
+    assert_ne!(
+        position("CREATE INDEX idx ON orders (id) |"),
+        "joinCondition"
+    );
 }
 
 #[test]
 fn a_join_to_a_subquery_still_takes_its_on() {
     // The subquery has clauses of its own; once it closes, the join it is the table of resumes.
-    expect("SELECT * FROM a JOIN (SELECT id FROM c) d |", &["ON", "USING"], &[]);
-    expect("SELECT * FROM a JOIN b ON a.id IN (SELECT id FROM c) |", &["WHERE", "JOIN"], &[]);
+    expect(
+        "SELECT * FROM a JOIN (SELECT id FROM c) d |",
+        &["ON", "USING"],
+        &[],
+    );
+    expect(
+        "SELECT * FROM a JOIN b ON a.id IN (SELECT id FROM c) |",
+        &["WHERE", "JOIN"],
+        &[],
+    );
 }
 
 #[test]
@@ -313,24 +374,46 @@ fn a_name_slot_offers_almost_nothing() {
 #[test]
 fn a_word_that_dictates_its_follower_offers_only_that() {
     assert_eq!(offered("SELECT * FROM orders GROUP |"), ["BY"]);
-    assert_eq!(offered("SELECT * FROM orders ORDER BY id NULLS |"), ["FIRST", "LAST"]);
+    assert_eq!(
+        offered("SELECT * FROM orders ORDER BY id NULLS |"),
+        ["FIRST", "LAST"]
+    );
 }
 
 #[test]
 fn the_select_list_and_the_clauses_after_it_are_told_apart() {
-    expect("SELECT |", &["DISTINCT", "CASE", "COUNT"], &["FROM", "WHERE", "ASC", "ZONE"]);
-    expect("SELECT total |", &["AS", "FROM"], &["SELECT", "DISTINCT", "ASC", "ZONE"]);
+    expect(
+        "SELECT |",
+        &["DISTINCT", "CASE", "COUNT"],
+        &["FROM", "WHERE", "ASC", "ZONE"],
+    );
+    expect(
+        "SELECT total |",
+        &["AS", "FROM"],
+        &["SELECT", "DISTINCT", "ASC", "ZONE"],
+    );
 }
 
 #[test]
 fn a_table_reference_is_followed_by_clauses_and_joins() {
     expect(
         "SELECT * FROM orders |",
-        &["AS", "WHERE", "GROUP BY", "ORDER BY", "LEFT OUTER JOIN", "LIMIT"],
+        &[
+            "AS",
+            "WHERE",
+            "GROUP BY",
+            "ORDER BY",
+            "LEFT OUTER JOIN",
+            "LIMIT",
+        ],
         &["SELECT", "DISTINCT", "ASC", "ZONE", "ON"],
     );
     // `ON` belongs only after a table that was joined, which is why it is a position of its own.
-    expect("SELECT * FROM a JOIN b |", &["ON", "USING"], &["SELECT", "ZONE"]);
+    expect(
+        "SELECT * FROM a JOIN b |",
+        &["ON", "USING"],
+        &["SELECT", "ZONE"],
+    );
 }
 
 #[test]
@@ -358,17 +441,36 @@ fn an_order_by_item_offers_its_own_words() {
 
 #[test]
 fn a_write_statement_is_followed_by_its_own_clauses() {
-    expect("UPDATE orders |", &["SET", "AS"], &["WHERE", "SELECT", "ZONE"]);
-    expect("INSERT INTO orders |", &["VALUES", "SELECT"], &["WHERE", "ASC", "ZONE"]);
-    expect("CREATE TABLE orders (id |", &["INTEGER", "PRIMARY KEY", "NOT NULL"], &["SELECT", "WHERE"]);
+    expect(
+        "UPDATE orders |",
+        &["SET", "AS"],
+        &["WHERE", "SELECT", "ZONE"],
+    );
+    expect(
+        "INSERT INTO orders |",
+        &["VALUES", "SELECT"],
+        &["WHERE", "ASC", "ZONE"],
+    );
+    expect(
+        "CREATE TABLE orders (id |",
+        &["INTEGER", "PRIMARY KEY", "NOT NULL"],
+        &["SELECT", "WHERE"],
+    );
 }
 
 #[test]
 fn a_set_operator_is_followed_by_the_next_query() {
-    expect("SELECT a FROM orders UNION |", &["SELECT", "ALL", "DISTINCT"], &["WHERE", "JOIN"]);
+    expect(
+        "SELECT a FROM orders UNION |",
+        &["SELECT", "ALL", "DISTINCT"],
+        &["WHERE", "JOIN"],
+    );
     // Its `ALL` and `DISTINCT` are the operator's, not a select list's.
     assert_eq!(position("SELECT a UNION ALL |"), "setOperand");
-    assert_eq!(position("SELECT a FROM orders EXCEPT DISTINCT |"), "setOperand");
+    assert_eq!(
+        position("SELECT a FROM orders EXCEPT DISTINCT |"),
+        "setOperand"
+    );
 }
 
 #[test]
@@ -376,22 +478,37 @@ fn an_update_assigns_to_columns_and_is_then_filtered() {
     assert_eq!(position("UPDATE orders SET |"), "name");
     assert_eq!(position("UPDATE orders SET a = 1, |"), "name");
     assert_eq!(position("UPDATE orders SET a = |"), "value");
-    expect("UPDATE orders SET a = 1 |", &["WHERE", "FROM"], &["GROUP BY", "HAVING", "LIMIT"]);
+    expect(
+        "UPDATE orders SET a = 1 |",
+        &["WHERE", "FROM"],
+        &["GROUP BY", "HAVING", "LIMIT"],
+    );
 }
 
 #[test]
 fn a_values_row_holds_values_and_is_followed_by_the_insert_s_own_clauses() {
     assert_eq!(position("INSERT INTO orders VALUES (|"), "value");
     assert_eq!(position("INSERT INTO orders VALUES (1), (|"), "value");
-    expect("INSERT INTO orders VALUES (|", &["NULL", "DEFAULT"], &["SELECT"]);
-    expect("INSERT INTO orders VALUES (1) |", &["ON CONFLICT", "RETURNING"], &["GROUP BY", "HAVING"]);
+    expect(
+        "INSERT INTO orders VALUES (|",
+        &["NULL", "DEFAULT"],
+        &["SELECT"],
+    );
+    expect(
+        "INSERT INTO orders VALUES (1) |",
+        &["ON CONFLICT", "RETURNING"],
+        &["GROUP BY", "HAVING"],
+    );
     // A subquery inside a row is still a subquery.
     assert_eq!(position("INSERT INTO orders VALUES (1, (|"), "subquery");
 }
 
 #[test]
 fn the_query_an_insert_reads_from_has_ordinary_clauses() {
-    assert_eq!(position("INSERT INTO archive SELECT * FROM orders |"), "tableItem");
+    assert_eq!(
+        position("INSERT INTO archive SELECT * FROM orders |"),
+        "tableItem"
+    );
 }
 
 #[test]
@@ -416,18 +533,33 @@ fn punctuation_at_the_cursor_is_finished() {
 #[test]
 fn the_innermost_parenthesis_decides() {
     // A subquery in a WHERE answers for the subquery, not for the clause around it.
-    assert_eq!(position("SELECT * FROM o WHERE cid IN (SELECT |"), "selectStart");
-    assert_eq!(position("SELECT * FROM o WHERE cid IN (SELECT id FROM |"), "name");
+    assert_eq!(
+        position("SELECT * FROM o WHERE cid IN (SELECT |"),
+        "selectStart"
+    );
+    assert_eq!(
+        position("SELECT * FROM o WHERE cid IN (SELECT id FROM |"),
+        "name"
+    );
     // And the clause around it again once the group has closed.
-    assert_eq!(position("SELECT * FROM o WHERE cid IN (SELECT id FROM c) |"), "expression");
+    assert_eq!(
+        position("SELECT * FROM o WHERE cid IN (SELECT id FROM c) |"),
+        "expression"
+    );
 }
 
 #[test]
 fn a_position_is_read_across_comments_and_literals() {
     // The reason this is in Rust rather than a raw-text scan on the TypeScript side: looking back
     // for the governing keyword has to see past whatever lies between.
-    assert_eq!(position("SELECT * FROM orders -- a comment\n|"), "tableItem");
-    assert_eq!(position("SELECT * FROM orders /* from where? */ |"), "tableItem");
+    assert_eq!(
+        position("SELECT * FROM orders -- a comment\n|"),
+        "tableItem"
+    );
+    assert_eq!(
+        position("SELECT * FROM orders /* from where? */ |"),
+        "tableItem"
+    );
     assert_eq!(position("SELECT 'from orders where' |"), "selectItem");
 }
 
@@ -441,7 +573,8 @@ fn a_table_named_after_a_keyword_is_still_a_table() {
 
 #[test]
 fn an_offset_past_the_end_of_the_document_is_answered_rather_than_failing() {
-    let response = request(json!({ "op": "keywordsAt", "text": "SELECT a FROM orders", "offset": 9999 }));
+    let response =
+        request(json!({ "op": "keywordsAt", "text": "SELECT a FROM orders", "offset": 9999 }));
     assert_eq!(response["position"], "tableItem");
 }
 

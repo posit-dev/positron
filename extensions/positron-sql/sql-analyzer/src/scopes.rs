@@ -108,7 +108,11 @@ pub enum LocalKind {
 
 impl Local {
     fn new(name: String, kind: LocalKind) -> Self {
-        Self { name, kind, column: None }
+        Self {
+            name,
+            kind,
+            column: None,
+        }
     }
 }
 
@@ -172,7 +176,12 @@ impl<'a> Collector<'a> {
 
     fn push(&mut self, parent: Option<u32>, locals: Vec<Local>) -> u32 {
         let id = self.analysis.scopes.len() as u32;
-        self.analysis.scopes.push(Scope { parent, tables: Vec::new(), opaque: false, locals });
+        self.analysis.scopes.push(Scope {
+            parent,
+            tables: Vec::new(),
+            opaque: false,
+            locals,
+        });
         self.stack.push(id);
         id
     }
@@ -191,8 +200,10 @@ impl<'a> Collector<'a> {
         let mut scope = Some(self.current());
         while let Some(id) = scope {
             let entry = &self.analysis.scopes[id as usize];
-            let found =
-                entry.locals.iter().any(|local| local.kind == LocalKind::Cte && fold(&local.name) == folded);
+            let found = entry
+                .locals
+                .iter()
+                .any(|local| local.kind == LocalKind::Cte && fold(&local.name) == folded);
             if found {
                 return true;
             }
@@ -247,7 +258,12 @@ impl<'a> Collector<'a> {
         match factor {
             // A table-valued function (`FROM generate_series(...)`) names nothing in the schema
             // and produces columns that cannot be known.
-            TableFactor::Table { args: Some(_), name, alias, .. } => {
+            TableFactor::Table {
+                args: Some(_),
+                name,
+                alias,
+                ..
+            } => {
                 self.mark_seen(name);
                 self.mark_opaque(alias.as_ref().map(|alias| alias.name.value.clone()));
             }
@@ -273,20 +289,29 @@ impl<'a> Collector<'a> {
                 }
             }
             // A nested join is still this scope's sources, one bracket deeper.
-            TableFactor::NestedJoin { table_with_joins, alias } => {
+            TableFactor::NestedJoin {
+                table_with_joins,
+                alias,
+            } => {
                 if let Some(alias) = alias {
                     self.add_local(Local::new(alias.name.value.clone(), LocalKind::Relation));
                 }
                 self.scan_from(std::slice::from_ref(table_with_joins));
             }
             other => {
-                if let TableFactor::Derived { lateral: false, subquery, .. } = other {
+                if let TableFactor::Derived {
+                    lateral: false,
+                    subquery,
+                    ..
+                } = other
+                {
                     // A derived table cannot see the other tables of the select it sits in --
                     // that is what LATERAL is for -- so it hangs from the scope around that
                     // select's query, past the tables the select will lift into it. What it can
                     // still see is the CTEs, and the queries further out it may be correlated to.
                     let query = self.analysis.scopes[self.current() as usize].parent;
-                    let outside = query.and_then(|query| self.analysis.scopes[query as usize].parent);
+                    let outside =
+                        query.and_then(|query| self.analysis.scopes[query as usize].parent);
                     self.parents.insert(&**subquery as *const Query, outside);
                 }
                 if let Some(name) = function_name(other) {
@@ -300,7 +325,12 @@ impl<'a> Collector<'a> {
     /// Claims a name's span without recording it, so the traversal that reaches the same name
     /// later does not record it as a real table.
     fn mark_seen(&mut self, name: &ObjectName) {
-        if let Some(last) = name.0.iter().filter_map(ObjectNamePart::as_ident).next_back() {
+        if let Some(last) = name
+            .0
+            .iter()
+            .filter_map(ObjectNamePart::as_ident)
+            .next_back()
+        {
             if let Some(span) = self.index.span(last.span) {
                 self.seen.insert(span);
             }
@@ -313,7 +343,9 @@ impl<'a> Collector<'a> {
         let scope = self.current();
         self.analysis.scopes[scope as usize].opaque = true;
         if let Some(alias) = alias {
-            self.analysis.scopes[scope as usize].locals.push(Local::new(alias, LocalKind::Relation));
+            self.analysis.scopes[scope as usize]
+                .locals
+                .push(Local::new(alias, LocalKind::Relation));
         }
     }
 
@@ -321,7 +353,9 @@ impl<'a> Collector<'a> {
     fn record_assigned(&mut self, name: &ObjectName) {
         let parts: Vec<&Ident> = name.0.iter().filter_map(ObjectNamePart::as_ident).collect();
         let Some(last) = parts.last() else { return };
-        let Some((start, end)) = self.index.span(last.span) else { return };
+        let Some((start, end)) = self.index.span(last.span) else {
+            return;
+        };
         self.analysis.columns.push(ColumnRef {
             name: last.value.clone(),
             qualifier: parts.iter().rev().nth(1).map(|part| part.value.clone()),
@@ -349,7 +383,9 @@ impl<'a> Collector<'a> {
     /// column of a table nor a mistake: it names something the statement made up, and a caller
     /// looking it up in the schema would find nothing and be wrong to say so.
     fn lift(&mut self, from: u32, produced: Vec<Local>) {
-        let Some(parent) = self.analysis.scopes[from as usize].parent else { return };
+        let Some(parent) = self.analysis.scopes[from as usize].parent else {
+            return;
+        };
         let tables = self.analysis.scopes[from as usize].tables.clone();
         let locals = self.analysis.scopes[from as usize].locals.clone();
         let opaque = self.analysis.scopes[from as usize].opaque;
@@ -382,7 +418,10 @@ fn produced(select: &Select) -> Vec<Local> {
 /// The column an expression is, if it is nothing but one.
 fn renamed(expr: &Expr) -> Option<Renamed> {
     match expr {
-        Expr::Identifier(ident) => Some(Renamed { name: ident.value.clone(), qualifier: None }),
+        Expr::Identifier(ident) => Some(Renamed {
+            name: ident.value.clone(),
+            qualifier: None,
+        }),
         Expr::CompoundIdentifier(parts) => match parts.as_slice() {
             [.., qualifier, ident] => Some(Renamed {
                 name: ident.value.clone(),
@@ -415,7 +454,10 @@ fn alias_of(factor: &TableFactor) -> Option<String> {
 
 /// The last identifier of a dotted name, which is the object it actually names.
 fn last_ident(name: &ObjectName) -> Option<&Ident> {
-    name.0.iter().filter_map(ObjectNamePart::as_ident).next_back()
+    name.0
+        .iter()
+        .filter_map(ObjectNamePart::as_ident)
+        .next_back()
 }
 
 /// The name of a table factor that is a function call rather than a table.
@@ -478,7 +520,10 @@ impl Visitor for Collector<'_> {
 
         // A DROP holds its objects in a field the visitor does not treat as a relation, so they
         // are picked up here instead. Unlike a CREATE's target, they have to exist.
-        if let Statement::Drop { object_type, names, .. } = statement {
+        if let Statement::Drop {
+            object_type, names, ..
+        } = statement
+        {
             if matches!(object_type, ObjectType::Table | ObjectType::View) {
                 for name in names {
                     if let Some(at) = self.record_table(name, None) {
@@ -497,7 +542,11 @@ impl Visitor for Collector<'_> {
             .parents
             .remove(&(query as *const Query))
             .unwrap_or_else(|| self.stack.last().copied());
-        let ctes: Vec<_> = query.with.iter().flat_map(|with| with.cte_tables.iter()).collect();
+        let ctes: Vec<_> = query
+            .with
+            .iter()
+            .flat_map(|with| with.cte_tables.iter())
+            .collect();
         if ctes.is_empty() {
             self.push(parent, Vec::new());
             self.pushed.push(1);

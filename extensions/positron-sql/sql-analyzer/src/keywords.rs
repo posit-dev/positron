@@ -183,7 +183,9 @@ impl Position {
         let mut all: Vec<&'static str> = match self {
             Position::StatementStart => STATEMENT_START.to_vec(),
             Position::Ddl => DDL.to_vec(),
-            Position::SelectStart => [VALUE_STARTERS, &["ALL", "DISTINCT", "DISTINCT ON", "TOP"]].concat(),
+            Position::SelectStart => {
+                [VALUE_STARTERS, &["ALL", "DISTINCT", "DISTINCT ON", "TOP"]].concat()
+            }
             Position::SelectItem => [
                 OPERATORS,
                 CALL_SUFFIXES,
@@ -197,9 +199,7 @@ impl Position {
                 [TABLE_TAIL, TABLE_TAIL_CLAUSES, JOINS, &["ON", "USING"]].concat()
             }
             Position::UpdateItem => [TABLE_TAIL, &["AS", "FROM", "SET"]].concat(),
-            Position::InsertTarget => {
-                ["DEFAULT VALUES", "SELECT", "VALUES", "WITH", "AS"].to_vec()
-            }
+            Position::InsertTarget => ["DEFAULT VALUES", "SELECT", "VALUES", "WITH", "AS"].to_vec(),
             Position::Value => [VALUE_STARTERS, GROUPING_MODIFIERS].concat(),
             Position::Subquery => [
                 VALUE_STARTERS,
@@ -207,17 +207,22 @@ impl Position {
                 &["ALL", "DISTINCT", "SELECT", "VALUES", "WITH"],
             ]
             .concat(),
-            Position::Expression => {
-                [OPERATORS, PREDICATE_TAIL_CLAUSES, SET_OPERATORS].concat()
-            }
+            Position::Expression => [OPERATORS, PREDICATE_TAIL_CLAUSES, SET_OPERATORS].concat(),
             Position::JoinCondition => {
                 [OPERATORS, TABLE_TAIL_CLAUSES, JOINS, SET_OPERATORS].concat()
             }
             Position::OrderItem => [
                 OPERATORS,
                 &[
-                    "ASC", "DESC", "NULLS FIRST", "NULLS LAST", "COLLATE", "FETCH", "FOR UPDATE",
-                    "LIMIT", "OFFSET",
+                    "ASC",
+                    "DESC",
+                    "NULLS FIRST",
+                    "NULLS LAST",
+                    "COLLATE",
+                    "FETCH",
+                    "FOR UPDATE",
+                    "LIMIT",
+                    "OFFSET",
                 ],
             ]
             .concat(),
@@ -229,15 +234,21 @@ impl Position {
             }
             Position::ExpectingNullsOrder => ["FIRST", "LAST"].to_vec(),
             Position::ExpectingIsPredicate => [
-                "DISTINCT FROM", "FALSE", "NOT", "NOT DISTINCT FROM", "NOT FALSE", "NOT NULL",
-                "NOT TRUE", "NULL", "TRUE", "UNKNOWN",
+                "DISTINCT FROM",
+                "FALSE",
+                "NOT",
+                "NOT DISTINCT FROM",
+                "NOT FALSE",
+                "NOT NULL",
+                "NOT TRUE",
+                "NULL",
+                "TRUE",
+                "UNKNOWN",
             ]
             .to_vec(),
             Position::SetOperand => ["ALL", "DISTINCT", "SELECT", "VALUES"].to_vec(),
             Position::Assignment => [OPERATORS, &["FROM", "RETURNING", "WHERE"]].concat(),
-            Position::ValuesRow => {
-                ["ON CONFLICT", "ON DUPLICATE KEY UPDATE", "RETURNING"].to_vec()
-            }
+            Position::ValuesRow => ["ON CONFLICT", "ON DUPLICATE KEY UPDATE", "RETURNING"].to_vec(),
             // A number or a parameter goes here, so no keyword is offered. Not even PostgreSQL's
             // `LIMIT ALL`, which is a syntax error in MySQL and would be offered to both. Typing
             // `A` still reaches it through the whole-vocabulary fallback.
@@ -252,17 +263,58 @@ impl Position {
 
 /// The words a value may begin with, wherever an expression may start.
 const VALUE_STARTERS: &[&str] = &[
-    "ARRAY", "CASE", "CAST", "COALESCE", "COUNT", "CURRENT_DATE", "CURRENT_TIME",
-    "CURRENT_TIMESTAMP", "CURRENT_USER", "DATE", "DEFAULT", "EXISTS", "EXTRACT", "FALSE",
-    "INTERVAL", "MAX", "MIN", "NOT", "NULL", "NULLIF", "SUBSTRING", "SUM", "TIME", "TIMESTAMP",
-    "TRIM", "TRUE", "TRY_CAST",
+    "ARRAY",
+    "CASE",
+    "CAST",
+    "COALESCE",
+    "COUNT",
+    "CURRENT_DATE",
+    "CURRENT_TIME",
+    "CURRENT_TIMESTAMP",
+    "CURRENT_USER",
+    "DATE",
+    "DEFAULT",
+    "EXISTS",
+    "EXTRACT",
+    "FALSE",
+    "INTERVAL",
+    "MAX",
+    "MIN",
+    "NOT",
+    "NULL",
+    "NULLIF",
+    "SUBSTRING",
+    "SUM",
+    "TIME",
+    "TIMESTAMP",
+    "TRIM",
+    "TRUE",
+    "TRY_CAST",
 ];
 
 /// The operators and predicates that continue a value once one has been written.
 const OPERATORS: &[&str] = &[
-    "AND", "AT TIME ZONE", "BETWEEN", "COLLATE", "ILIKE", "IN", "IS",
-    "IS DISTINCT FROM", "IS FALSE", "IS NOT DISTINCT FROM", "IS NOT NULL", "IS NULL", "IS TRUE",
-    "LIKE", "NOT BETWEEN", "NOT ILIKE", "NOT IN", "NOT LIKE", "OR", "OVERLAPS", "RLIKE",
+    "AND",
+    "AT TIME ZONE",
+    "BETWEEN",
+    "COLLATE",
+    "ILIKE",
+    "IN",
+    "IS",
+    "IS DISTINCT FROM",
+    "IS FALSE",
+    "IS NOT DISTINCT FROM",
+    "IS NOT NULL",
+    "IS NULL",
+    "IS TRUE",
+    "LIKE",
+    "NOT BETWEEN",
+    "NOT ILIKE",
+    "NOT IN",
+    "NOT LIKE",
+    "OR",
+    "OVERLAPS",
+    "RLIKE",
     "SIMILAR TO",
 ];
 
@@ -274,7 +326,15 @@ const TABLE_TAIL_CLAUSES: &[&str] = &[
 /// The clauses that may follow a complete predicate, which `WHERE` may not: it has already been
 /// written by the time the cursor is here.
 const PREDICATE_TAIL_CLAUSES: &[&str] = &[
-    "FETCH", "FOR UPDATE", "GROUP BY", "HAVING", "LIMIT", "OFFSET", "ORDER BY", "QUALIFY", "WINDOW",
+    "FETCH",
+    "FOR UPDATE",
+    "GROUP BY",
+    "HAVING",
+    "LIMIT",
+    "OFFSET",
+    "ORDER BY",
+    "QUALIFY",
+    "WINDOW",
 ];
 
 /// The operators that combine one query with another.
@@ -288,8 +348,16 @@ const TABLE_TAIL: &[&str] = &["AS", "MATCH_RECOGNIZE", "PIVOT", "TABLESAMPLE", "
 
 /// Every spelling of a join.
 const JOINS: &[&str] = &[
-    "CROSS JOIN", "FULL JOIN", "FULL OUTER JOIN", "INNER JOIN", "JOIN", "LEFT JOIN",
-    "LEFT OUTER JOIN", "NATURAL JOIN", "RIGHT JOIN", "RIGHT OUTER JOIN",
+    "CROSS JOIN",
+    "FULL JOIN",
+    "FULL OUTER JOIN",
+    "INNER JOIN",
+    "JOIN",
+    "LEFT JOIN",
+    "LEFT OUTER JOIN",
+    "NATURAL JOIN",
+    "RIGHT JOIN",
+    "RIGHT OUTER JOIN",
 ];
 
 /// The few words that belong where a name does.
@@ -300,40 +368,130 @@ const GROUPING_MODIFIERS: &[&str] = &["CUBE", "GROUPING SETS", "ROLLUP"];
 
 /// What a window specification is built from.
 const WINDOW_SPEC: &[&str] = &[
-    "AND", "BETWEEN", "CURRENT ROW", "FOLLOWING", "GROUPS", "ORDER BY", "PARTITION BY", "PRECEDING",
-    "RANGE", "ROW", "ROWS", "UNBOUNDED FOLLOWING", "UNBOUNDED PRECEDING",
+    "AND",
+    "BETWEEN",
+    "CURRENT ROW",
+    "FOLLOWING",
+    "GROUPS",
+    "ORDER BY",
+    "PARTITION BY",
+    "PRECEDING",
+    "RANGE",
+    "ROW",
+    "ROWS",
+    "UNBOUNDED FOLLOWING",
+    "UNBOUNDED PRECEDING",
 ];
 
 /// The verbs a statement may begin with.
 const STATEMENT_START: &[&str] = &[
-    "ALTER TABLE", "ALTER VIEW", "ANALYZE", "BEGIN", "CALL", "COMMIT", "COPY", "CREATE",
-    "CREATE INDEX", "CREATE MATERIALIZED VIEW", "CREATE OR REPLACE VIEW", "CREATE SCHEMA",
-    "CREATE TABLE", "CREATE TEMPORARY TABLE", "CREATE VIEW", "DELETE FROM", "DESCRIBE",
-    "DROP INDEX", "DROP TABLE", "DROP VIEW", "EXECUTE", "EXPLAIN", "GRANT", "INSERT INTO",
-    "LISTEN", "MERGE INTO", "NOTIFY", "PRAGMA", "PREPARE", "REVOKE", "ROLLBACK", "SELECT", "SET",
-    "SHOW", "START TRANSACTION", "TRUNCATE TABLE", "UNLISTEN", "UPDATE", "USE", "VACUUM",
-    "VALUES", "WITH", "WITH RECURSIVE",
+    "ALTER TABLE",
+    "ALTER VIEW",
+    "ANALYZE",
+    "BEGIN",
+    "CALL",
+    "COMMIT",
+    "COPY",
+    "CREATE",
+    "CREATE INDEX",
+    "CREATE MATERIALIZED VIEW",
+    "CREATE OR REPLACE VIEW",
+    "CREATE SCHEMA",
+    "CREATE TABLE",
+    "CREATE TEMPORARY TABLE",
+    "CREATE VIEW",
+    "DELETE FROM",
+    "DESCRIBE",
+    "DROP INDEX",
+    "DROP TABLE",
+    "DROP VIEW",
+    "EXECUTE",
+    "EXPLAIN",
+    "GRANT",
+    "INSERT INTO",
+    "LISTEN",
+    "MERGE INTO",
+    "NOTIFY",
+    "PRAGMA",
+    "PREPARE",
+    "REVOKE",
+    "ROLLBACK",
+    "SELECT",
+    "SET",
+    "SHOW",
+    "START TRANSACTION",
+    "TRUNCATE TABLE",
+    "UNLISTEN",
+    "UPDATE",
+    "USE",
+    "VACUUM",
+    "VALUES",
+    "WITH",
+    "WITH RECURSIVE",
 ];
 
 /// The object kinds and modifiers a DDL verb takes.
 const DDL: &[&str] = &[
-    "DATABASE", "EXTERNAL TABLE", "FUNCTION", "INDEX", "MATERIALIZED VIEW", "OR REPLACE",
-    "PROCEDURE", "SCHEMA", "SEQUENCE", "TABLE", "TEMPORARY TABLE", "TRIGGER", "UNIQUE INDEX",
+    "DATABASE",
+    "EXTERNAL TABLE",
+    "FUNCTION",
+    "INDEX",
+    "MATERIALIZED VIEW",
+    "OR REPLACE",
+    "PROCEDURE",
+    "SCHEMA",
+    "SEQUENCE",
+    "TABLE",
+    "TEMPORARY TABLE",
+    "TRIGGER",
+    "UNIQUE INDEX",
     "VIEW",
 ];
 
 /// The type names a column definition may use.
 const DATA_TYPES: &[&str] = &[
-    "ARRAY", "BIGINT", "BLOB", "BOOLEAN", "BYTEA", "CHAR", "DATE", "DECIMAL", "DOUBLE",
-    "DOUBLE PRECISION", "FLOAT", "INT", "INTEGER", "INTERVAL", "JSON", "JSONB", "NUMERIC", "REAL",
-    "SMALLINT", "TEXT", "TIME", "TIMESTAMP", "TIMESTAMP WITH TIME ZONE", "TINYINT", "UUID",
+    "ARRAY",
+    "BIGINT",
+    "BLOB",
+    "BOOLEAN",
+    "BYTEA",
+    "CHAR",
+    "DATE",
+    "DECIMAL",
+    "DOUBLE",
+    "DOUBLE PRECISION",
+    "FLOAT",
+    "INT",
+    "INTEGER",
+    "INTERVAL",
+    "JSON",
+    "JSONB",
+    "NUMERIC",
+    "REAL",
+    "SMALLINT",
+    "TEXT",
+    "TIME",
+    "TIMESTAMP",
+    "TIMESTAMP WITH TIME ZONE",
+    "TINYINT",
+    "UUID",
     "VARCHAR",
 ];
 
 /// The constraints a column definition may carry.
 const COLUMN_CONSTRAINTS: &[&str] = &[
-    "AUTOINCREMENT", "CHECK", "COLLATE", "COMMENT", "CONSTRAINT", "DEFAULT",
-    "GENERATED ALWAYS AS", "NOT NULL", "NULL", "PRIMARY KEY", "REFERENCES", "UNIQUE",
+    "AUTOINCREMENT",
+    "CHECK",
+    "COLLATE",
+    "COMMENT",
+    "CONSTRAINT",
+    "DEFAULT",
+    "GENERATED ALWAYS AS",
+    "NOT NULL",
+    "NULL",
+    "PRIMARY KEY",
+    "REFERENCES",
+    "UNIQUE",
 ];
 
 /// The multi-word keywords worth offering whole.
@@ -377,7 +535,11 @@ pub fn offered(position: Position) -> Vec<String> {
     match position {
         Position::Visualise => Vec::new(),
         Position::Everything => everything(),
-        _ => position.candidates().into_iter().map(ToString::to_string).collect(),
+        _ => position
+            .candidates()
+            .into_iter()
+            .map(ToString::to_string)
+            .collect(),
     }
 }
 
@@ -649,7 +811,10 @@ fn decide(
             }
             // Checked before the `DISTINCT` of a select below: `UNION DISTINCT` is the set
             // operator's, and the query after it has yet to begin.
-            let set_operator = local.len().checked_sub(2).and_then(|before| word(&local[before]));
+            let set_operator = local
+                .len()
+                .checked_sub(2)
+                .and_then(|before| word(&local[before]));
             if is_set_operator(previous_word.keyword)
                 || (matches!(previous_word.keyword, Keyword::ALL | Keyword::DISTINCT)
                     && set_operator.is_some_and(|before| is_set_operator(before.keyword)))
@@ -679,10 +844,15 @@ fn decide(
             }
             // A count, which `starts_value` below would otherwise call a value -- and a value
             // is where columns are offered.
-            let fetch = local.len().checked_sub(2).and_then(|before| word(&local[before]));
-            if matches!(previous_word.keyword, Keyword::LIMIT | Keyword::OFFSET | Keyword::TOP)
-                || (matches!(previous_word.keyword, Keyword::FIRST | Keyword::NEXT)
-                    && fetch.is_some_and(|before| before.keyword == Keyword::FETCH))
+            let fetch = local
+                .len()
+                .checked_sub(2)
+                .and_then(|before| word(&local[before]));
+            if matches!(
+                previous_word.keyword,
+                Keyword::LIMIT | Keyword::OFFSET | Keyword::TOP
+            ) || (matches!(previous_word.keyword, Keyword::FIRST | Keyword::NEXT)
+                && fetch.is_some_and(|before| before.keyword == Keyword::FETCH))
             {
                 return Position::RowCount;
             }
@@ -703,7 +873,7 @@ fn decide(
                 // MySQL's `LIMIT offset, count`.
                 (Group::None, Some(Keyword::LIMIT)) => Position::RowCount,
                 _ => Position::Value,
-            }
+            };
         }
         // Anything else that is not a completed value opens one. Inverted deliberately: sqlparser
         // has some eighty operator tokens and enumerating them would rot, whereas the tokens that
@@ -795,7 +965,10 @@ fn starts_value(keyword: Keyword) -> bool {
 
 /// Whether a word combines one query with another.
 fn is_set_operator(keyword: Keyword) -> bool {
-    matches!(keyword, Keyword::UNION | Keyword::INTERSECT | Keyword::EXCEPT | Keyword::MINUS)
+    matches!(
+        keyword,
+        Keyword::UNION | Keyword::INTERSECT | Keyword::EXCEPT | Keyword::MINUS
+    )
 }
 
 fn is_ddl_verb(keyword: Keyword) -> bool {
