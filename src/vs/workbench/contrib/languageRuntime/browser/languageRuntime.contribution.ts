@@ -6,6 +6,7 @@
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerLanguageRuntimeActions } from './languageRuntimeActions.js';
 import { registerLanguageRuntimeActionsForSmokeTests } from './languageRuntimeActionsForSmokeTests.js';
+import { LanguageOrderContribution } from './languageOrderContribution.js';
 import { PositronRuntimeLanguagesContextKeyContribution } from './languageRuntimeContextKeys.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from '../../../common/contributions.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
@@ -23,5 +24,13 @@ registerLanguageRuntimeActionsForSmokeTests();
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench)
 	.registerWorkbenchContribution(
 		PositronRuntimeLanguagesContextKeyContribution,
+		LifecyclePhase.Restored,
+	);
+
+// Keep the allowed values of `interpreters.languageOrder` in step with the
+// installed languages.
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench)
+	.registerWorkbenchContribution(
+		LanguageOrderContribution,
 		LifecyclePhase.Restored,
 	);
