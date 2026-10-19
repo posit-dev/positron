@@ -14,7 +14,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -129,7 +129,12 @@ async function main() {
 		process.stdout.write(await fetchPrevious({ server, key, guid }));
 	} else if (command === 'deploy') {
 		const files = Object.fromEntries(paths.map(p => [basename(p), readFileSync(p)]));
-		console.log(`[outcomes] published ${await deploy({ server, key, guid, archive: bundle(files) })}`);
+		const url = await deploy({ server, key, guid, archive: bundle(files) });
+		console.log(`[outcomes] published ${url}`);
+		// A link in the job summary, so the page is one click from the run.
+		if (process.env.GITHUB_STEP_SUMMARY) {
+			appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\nPublished to <${url}>\n`);
+		}
 	} else {
 		throw new Error('usage: outcomes-publish.mjs create [outcomes|triage] | previous | deploy <file>...');
 	}
