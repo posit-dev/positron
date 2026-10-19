@@ -265,4 +265,16 @@ suite('interpreterRanking', () => {
             [newer.path, sameVersion.path, older.path],
         );
     });
+
+    test('equal or missing versions tie, so the order does not depend on input order', () => {
+        const noVersionB = env(p('/home/u/.pyenv/versions/b/bin/python'), EnvironmentType.Pyenv, '3.0.0', { version: undefined });
+        const noVersionA = env(p('/home/u/.pyenv/versions/a/bin/python'), EnvironmentType.Pyenv, '3.0.0', { version: undefined });
+        const rawB = env(p('/home/u/.pyenv/versions/d/bin/python'), EnvironmentType.Pyenv, '3.12.0');
+        const rawA = env(p('/home/u/.pyenv/versions/c/bin/python'), EnvironmentType.Pyenv, '3.12.0');
+        rawB.version = { ...rawB.version!, raw: '3.12.0rc1' };
+        const paths = (list: PythonEnvironment[]) => rankInterpreters(list, emptyContext).map((r) => r.interpreter.path);
+
+        assert.deepEqual(paths([noVersionB, rawB, noVersionA, rawA]), paths([rawA, noVersionA, rawB, noVersionB]));
+        assert.deepEqual(paths([noVersionB, rawB, noVersionA, rawA]), [rawA.path, rawB.path, noVersionA.path, noVersionB.path]);
+    });
 });

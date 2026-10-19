@@ -117,7 +117,13 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
         if (getUserDefaultInterpreter().globalValue && !this.workspaceService.workspaceFolders) {
             return undefined;
         }
-        return this.getPrefixOfSelectedActivatedEnv();
+        // Memoized, so a failed read must not stick: treat it as no activated env.
+        try {
+            return await this.getPrefixOfSelectedActivatedEnv();
+        } catch (ex) {
+            traceWarn(`Could not read the activated environment: ${ex}`);
+            return undefined;
+        }
     }
     // --- End Positron ---
 

@@ -247,6 +247,28 @@ suite('Activated Env Launch', async () => {
             // Only selectIfLaunchedViaActivatedEnv wrote the selection.
             pythonPathUpdaterService.verifyAll();
         });
+        test('getActivatedEnvPrefix resolves undefined when the interpreter details lookup rejects', async () => {
+            process.env.CONDA_PREFIX = condaPrefix;
+            process.env.CONDA_SHLVL = '1';
+            delete process.env.VIRTUAL_ENV;
+            sinon
+                .stub(interpreterSettings, 'getUserDefaultInterpreter')
+                .returns(({} as unknown) as InspectInterpreterSettingType);
+            workspaceService.setup((w) => w.workspaceFolders).returns(() => [{ name: 'one', uri, index: 0 }]);
+            interpreterService
+                .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
+                .returns(() => Promise.reject(new Error('PET failed')));
+            activatedEnvLaunch = new ActivatedEnvironmentLaunch(
+                workspaceService.object,
+                appShell.object,
+                pythonPathUpdaterService.object,
+                interpreterService.object,
+                processServiceFactory.object,
+            );
+
+            expect(await activatedEnvLaunch.getActivatedEnvPrefix()).to.equal(undefined);
+        });
+
         // --- End Positron ---
 
         test('Does not update interpreter path if VSCode is not launched via CLI', async () => {

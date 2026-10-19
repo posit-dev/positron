@@ -120,6 +120,21 @@ function compareStrings(a: string, b: string): number {
     return a > b ? 1 : 0;
 }
 
+/**
+ * Higher version first. `comparePythonVersionDescending` is not antisymmetric (it says 1 both
+ * ways for two missing versions, or equal X.Y.Z with a different `raw`), so ties are made
+ * explicit here and fall through to the path tie-break.
+ */
+function compareVersions(a: PythonEnvironment['version'], b: PythonEnvironment['version']): number {
+    if (!a && !b) {
+        return 0;
+    }
+    if (a && b && a.major === b.major && a.minor === b.minor && a.patch === b.patch) {
+        return 0;
+    }
+    return comparePythonVersionDescending(a, b);
+}
+
 /** Which env one level deep this interpreter belongs to (found order), or -1. */
 function nestedIndex(interpreter: PythonEnvironment, context: RankingContext): number {
     return context.nestedEnvDirs.findIndex((dir) => isUnder(interpreter.path, dir));
@@ -302,7 +317,7 @@ export function rankInterpreters(interpreters: PythonEnvironment[], context: Ran
         (a, b) =>
             a.tierKey - b.tierKey ||
             a.within - b.within ||
-            comparePythonVersionDescending(a.interpreter.version, b.interpreter.version) ||
+            compareVersions(a.interpreter.version, b.interpreter.version) ||
             a.definition - b.definition ||
             compareStrings(a.interpreter.path, b.interpreter.path),
     );
