@@ -2049,6 +2049,30 @@ declare module 'positron' {
 		readonly onDidDispose: vscode.Event<void>;
 
 		/**
+		 * Whether the Viewer shows a stop button for this preview. Set this to
+		 * `true` while the process that serves the preview's content is
+		 * running, and to `false` when it stops. When the user clicks the
+		 * button, the Viewer sets this to `false` and fires
+		 * {@link onDidRequestStop}. Defaults to `false`.
+		 *
+		 * Applies only to panels from {@link window.createPreviewPanel}.
+		 * Panels from {@link window.previewUrl} get a stop button from their
+		 * `source` instead.
+		 */
+		stoppable: boolean;
+
+		/**
+		 * Fired when the user clicks the Viewer's stop button. The extension
+		 * stops its process, and disposes the panel if it wants to close the
+		 * preview; clicking stop does not close the preview.
+		 *
+		 * The user can also close the preview with the Viewer's clear button,
+		 * which fires {@link onDidDispose} but not this event. Stop the process
+		 * in an `onDidDispose` handler too if it should not outlive the preview.
+		 */
+		readonly onDidRequestStop: vscode.Event<void>;
+
+		/**
 		 * Show the preview panel
 		 *
 		 * Only one preview panel can be shown at a time. If a different preview
@@ -5206,7 +5230,12 @@ declare module 'positron' {
 	}
 
 	/**
-	 * Namespace for interacting with Positron notebooks
+	 * Namespace for interacting with Positron notebooks.
+	 *
+	 * Quarto and R Markdown documents open in an editor while inline output is
+	 * enabled are also presented as notebooks whose cells are their code
+	 * chunks. Adding markdown cells, and moving and reordering cells, are not
+	 * supported for them.
 	 */
 	export namespace notebooks {
 		/**
@@ -5336,10 +5365,10 @@ declare module 'positron' {
 		/**
 		 * Get context about the active notebook.
 		 *
-		 * When no Positron notebook is the active editor pane (e.g. focus is
-		 * in another editor or view), falls back to the open notebook attached
-		 * to the foreground session, then to the most recently active Positron
-		 * notebook that is still open.
+		 * When no Positron notebook or Quarto document is the active editor
+		 * pane (e.g. focus is in another editor or view), falls back to the
+		 * open notebook or Quarto document attached to the foreground session,
+		 * then to the most recently active Positron notebook that is still open.
 		 *
 		 * Resolves with `undefined` when no notebook is open. Rejects with an
 		 * actionable error when the active editor holds a notebook in an
