@@ -23,4 +23,5 @@ export interface IPositronSettingRendererDescriptor {
 	): AbstractSettingRenderer;
 }
 
+// Register at module load: the Settings editor reads this list once, when it is created.
 export const positronSettingRenderers: IPositronSettingRendererDescriptor[] = [];

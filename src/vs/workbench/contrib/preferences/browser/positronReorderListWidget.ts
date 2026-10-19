@@ -61,7 +61,8 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 	/** Reorders locally before firing, so a second move before the setting re-renders uses fresh indexes. */
 	private moveItem(sourceIndex: number, targetIndex: number): void {
 		const items: IReorderListItem[] = this.model.items.map(({ value, label }) => ({ value, label }));
-		if (targetIndex < 0 || targetIndex >= items.length || sourceIndex === targetIndex) {
+		// A drag can outlive a re-render that shortened the list.
+		if (sourceIndex < 0 || sourceIndex >= items.length || targetIndex < 0 || targetIndex >= items.length || sourceIndex === targetIndex) {
 			return;
 		}
 		const [moved] = items.splice(sourceIndex, 1);

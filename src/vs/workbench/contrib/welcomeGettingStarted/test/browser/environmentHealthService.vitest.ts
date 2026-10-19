@@ -113,7 +113,7 @@ describe('EnvironmentHealthService', () => {
 		ctx.disposables.add(service.onDidChange(changed));
 		setLanguageOrder(['r']);
 		onDidChangeConfiguration.fire({ affectsConfiguration: key => key === LANGUAGE_ORDER_KEY });
-		expect(changed.mock.calls.at(-1)![0].map((s: { language: string }) => s.language)).toEqual(['r', 'python']);
+		expect(changed.mock.lastCall?.[0].map((s: { language: string }) => s.language)).toEqual(['r', 'python']);
 	});
 
 	it('checks nothing until a welcome page opens', async () => {
