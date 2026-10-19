@@ -182,12 +182,6 @@ describe('DatabricksOAuthSession', () => {
 });
 
 describe('listenForCallback', () => {
-	// Port 0 lets the OS pick a free port; the production port is fixed by Databricks' registration.
-	async function listenOnFreePort(state: string) {
-		const listener = await listenForCallback(0, state, '<p>done</p>');
-		return listener;
-	}
-
 	function get(url: string): Promise<{ status: number; body: string }> {
 		return new Promise((resolve, reject) => {
 			http.get(url, response => {
@@ -199,10 +193,10 @@ describe('listenForCallback', () => {
 	}
 
 	it('ignores requests that are not its callback and settles on the one that is', async () => {
-		const listener = await listenOnFreePort('s1');
+		// Port 0 lets the OS pick a free port; the production port is fixed by Databricks' registration.
+		const listener = await listenForCallback(0, 's1', '<p>done</p>');
 		try {
-			// The listener does not expose its port, so find it through a probe request's server.
-			const server = await probeServer(listener);
+			const server = `http://localhost:${listener.port}`;
 			const probe = await get(`${server}/favicon.ico`);
 			const other = await get(`${server}/?code=x&state=other`);
 			const callback = await get(`${server}/?code=abc&state=s1`);
@@ -217,20 +211,4 @@ describe('listenForCallback', () => {
 			listener.close();
 		}
 	});
-
-	// Reaches the listener's bound port through Node's handle table, since the public interface
-	// deliberately hides the server.
-	async function probeServer(listener: { close(): void }): Promise<string> {
-		const handles = (process as unknown as { _getActiveHandles(): unknown[] })._getActiveHandles();
-		const server = handles.find((h): h is http.Server => h instanceof http.Server && h.listening);
-		if (!server) {
-			listener.close();
-			throw new Error('no listening server found');
-		}
-		const address = server.address();
-		if (!address || typeof address === 'string') {
-			throw new Error('unexpected server address');
-		}
-		return `http://localhost:${address.port}`;
-	}
 });

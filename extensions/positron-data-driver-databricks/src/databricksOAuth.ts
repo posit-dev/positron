@@ -277,6 +277,8 @@ export class DatabricksOAuthSession {
 
 /** A loopback listener awaiting the redirect. */
 export interface CallbackListener {
+	/** The port the listener is bound to. */
+	readonly port: number;
 	/** Settles with the redirect's contents. Never settles if the listener is closed first. */
 	readonly result: Promise<CallbackResult>;
 	/** Stops listening and drops any connections, freeing the port for the next sign-in. */
@@ -307,6 +309,7 @@ export function listenForCallback(port: number, state: string, responseHtml: str
 		});
 		server.on('error', reject);
 		server.listen(port, 'localhost', () => resolve({
+			port: (server.address() as { port: number }).port,
 			result,
 			close: () => {
 				server.close();
