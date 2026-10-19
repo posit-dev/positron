@@ -117,10 +117,12 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
         if (getUserDefaultInterpreter().globalValue && !this.workspaceService.workspaceFolders) {
             return undefined;
         }
-        // Memoized, so a failed read must not stick: treat it as no activated env.
+        // Memoized, so a failed read must not stick: treat it as no activated env
+        // for this caller and clear the memo so the next call retries.
         try {
             return await this.getPrefixOfSelectedActivatedEnv();
         } catch (ex) {
+            this.activatedEnvPrefix = undefined;
             traceWarn(`Could not read the activated environment: ${ex}`);
             return undefined;
         }

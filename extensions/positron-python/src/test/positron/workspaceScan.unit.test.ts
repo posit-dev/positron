@@ -55,11 +55,13 @@ suite('workspaceScan', () => {
     });
 
     test('finds nothing in an empty folder, or one that cannot be read', async () => {
-        const empty = { rootProjectEnv: undefined, nestedEnvDirs: [], hasPythonSignals: false, pythonVersion: undefined };
-        assert.deepEqual(
-            [await scanWorkspace(root), await scanWorkspace(path.join(root, 'missing'))],
-            [empty, empty],
-        );
+        const empty = {
+            rootProjectEnv: undefined,
+            nestedEnvDirs: [],
+            hasPythonSignals: false,
+            pythonVersion: undefined,
+        };
+        assert.deepEqual([await scanWorkspace(root), await scanWorkspace(path.join(root, 'missing'))], [empty, empty]);
     });
 
     test('picks the root env by priority, skipping broken and excluded ones', async () => {
@@ -76,7 +78,10 @@ suite('workspaceScan', () => {
         for (const c of cases) {
             const dir = fs.mkdtempSync(path.join(root, 'case-'));
             const executables = new Map(
-                c.make.map((name) => [name, makeEnv(path.join(dir, name), name === '.venv' || name === 'venv' ? 'venv' : 'conda')]),
+                c.make.map((name) => [
+                    name,
+                    makeEnv(path.join(dir, name), name === '.venv' || name === 'venv' ? 'venv' : 'conda'),
+                ]),
             );
             for (const name of c.broken ?? []) {
                 fs.mkdirSync(path.join(dir, name));
@@ -87,7 +92,10 @@ suite('workspaceScan', () => {
             const found = (await scanWorkspace(dir)).rootProjectEnv;
             actual.push(found && path.relative(dir, found.envDir).split(path.sep).join('/'));
         }
-        assert.deepEqual(actual, cases.map((c) => c.expected));
+        assert.deepEqual(
+            actual,
+            cases.map((c) => c.expected),
+        );
     });
 
     test('finds envs exactly one level down, in found order, not two levels and not at the root', async () => {
@@ -141,6 +149,10 @@ suite('workspaceScan', () => {
             '.python-version',
             'uv.lock',
             'pixi.toml',
+            'Requirements.txt',
+            'Setup.py',
+            'X.PY',
+            'PIPFILE',
         ];
         for (const name of names) {
             const dir = fs.mkdtempSync(path.join(root, 'signal-'));
@@ -151,6 +163,11 @@ suite('workspaceScan', () => {
 
     test('reads the first version in .python-version', async () => {
         fs.writeFileSync(path.join(root, '.python-version'), '\n3.12.7\n3.11.9\n');
+        assert.strictEqual((await scanWorkspace(root)).pythonVersion, '3.12.7');
+    });
+
+    test('reads the version from a .python-version file that starts with a BOM', async () => {
+        fs.writeFileSync(path.join(root, '.python-version'), '\uFEFF3.12.7\n');
         assert.strictEqual((await scanWorkspace(root)).pythonVersion, '3.12.7');
     });
 

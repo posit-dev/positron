@@ -49,7 +49,7 @@ const MAX_CONCURRENT_READS = 32;
 /** File names that mark a folder as Python, besides `*.py`, `*.ipynb` and requirements files. */
 const SIGNAL_FILE_NAMES = new Set([
     'pyproject.toml',
-    'Pipfile',
+    'pipfile',
     'setup.py',
     'setup.cfg',
     'environment.yml',
@@ -72,7 +72,8 @@ export interface WorkspaceScan {
     pythonVersion: string | undefined;
 }
 
-function isSignalFile(name: string): boolean {
+function isSignalFile(fileName: string): boolean {
+    const name = fileName.toLowerCase();
     return (
         SIGNAL_FILE_NAMES.has(name) ||
         name.endsWith('.py') ||
@@ -174,6 +175,7 @@ async function readPythonVersionFile(root: string): Promise<string | undefined> 
     try {
         const content = await fs.readFile(path.join(root, '.python-version'), 'utf-8');
         return content
+            .replace(/^\uFEFF/, '')
             .split(/\r?\n/)
             .map((line) => line.trim())
             .find((line) => line.length > 0);

@@ -221,7 +221,7 @@ suite('Activated Env Launch', async () => {
             process.env.VIRTUAL_ENV = virtualEnvPrefix;
             sinon
                 .stub(interpreterSettings, 'getUserDefaultInterpreter')
-                .returns(({} as unknown) as InspectInterpreterSettingType);
+                .returns({} as unknown as InspectInterpreterSettingType);
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -247,17 +247,24 @@ suite('Activated Env Launch', async () => {
             // Only selectIfLaunchedViaActivatedEnv wrote the selection.
             pythonPathUpdaterService.verifyAll();
         });
-        test('getActivatedEnvPrefix resolves undefined when the interpreter details lookup rejects', async () => {
+
+        test('getActivatedEnvPrefix resolves undefined when the interpreter details lookup rejects, then retries', async () => {
             process.env.CONDA_PREFIX = condaPrefix;
             process.env.CONDA_SHLVL = '1';
             delete process.env.VIRTUAL_ENV;
             sinon
                 .stub(interpreterSettings, 'getUserDefaultInterpreter')
-                .returns(({} as unknown) as InspectInterpreterSettingType);
+                .returns({} as unknown as InspectInterpreterSettingType);
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [{ name: 'one', uri, index: 0 }]);
+            let calls = 0;
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.reject(new Error('PET failed')));
+                .returns(() => {
+                    calls += 1;
+                    return calls === 1
+                        ? Promise.reject(new Error('PET failed'))
+                        : Promise.resolve({ envName: 'env' } as unknown as PythonEnvironment);
+                });
             activatedEnvLaunch = new ActivatedEnvironmentLaunch(
                 workspaceService.object,
                 appShell.object,
@@ -267,8 +274,9 @@ suite('Activated Env Launch', async () => {
             );
 
             expect(await activatedEnvLaunch.getActivatedEnvPrefix()).to.equal(undefined);
+            expect(await activatedEnvLaunch.getActivatedEnvPrefix()).to.equal(condaPrefix);
+            expect(calls).to.equal(2);
         });
-
         // --- End Positron ---
 
         test('Does not update interpreter path if VSCode is not launched via CLI', async () => {

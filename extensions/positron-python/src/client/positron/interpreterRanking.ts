@@ -234,7 +234,10 @@ export function tierOf(interpreter: PythonEnvironment, context: RankingContext):
     if (context.positronDefaultEnvDir && isUnder(interpreter.path, context.positronDefaultEnvDir)) {
         return Tier.PositronDefaultEnv;
     }
-    if ((interpreter.envType === EnvironmentType.Conda && !isBaseCondaEnvironment(interpreter)) || isPyenvVirtualenv(interpreter)) {
+    if (
+        (interpreter.envType === EnvironmentType.Conda && !isBaseCondaEnvironment(interpreter)) ||
+        isPyenvVirtualenv(interpreter)
+    ) {
         return Tier.NamedEnv;
     }
     // Before the externally managed check: uv installs its Pythons with an EXTERNALLY-MANAGED marker.

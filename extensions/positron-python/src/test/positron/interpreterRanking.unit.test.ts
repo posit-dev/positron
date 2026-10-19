@@ -89,20 +89,41 @@ suite('interpreterRanking', () => {
     const moduleByMetadata = env(p('/apps/python/3.11/bin/python'), EnvironmentType.Global, '3.11.9');
     const venvFolder = env(p('/srv/venvs/team/bin/python'), EnvironmentType.Venv, '3.13.4');
     const positronDefault = env(p('/home/u/.virtualenvs/positron/bin/python'), EnvironmentType.Venv, '3.12.4');
-    const condaNamed = env(p('/home/u/miniconda3/envs/ds/bin/python'), EnvironmentType.Conda, '3.11.0', { envName: 'ds' });
-    const pyenvVirtualenv = env(p('/home/u/.pyenv/versions/3.13.1/envs/tool/bin/python'), EnvironmentType.Pyenv, '3.13.1', {
-        nativeKind: NativePythonEnvironmentKind.PyenvVirtualEnv,
-        envName: 'tool',
+    const condaNamed = env(p('/home/u/miniconda3/envs/ds/bin/python'), EnvironmentType.Conda, '3.11.0', {
+        envName: 'ds',
     });
-    const uvBase = env(p('/home/u/.local/share/uv/python/cpython-3.12.8/bin/python3'), EnvironmentType.Global, '3.12.8', {
-        nativeKind: NativePythonEnvironmentKind.Uv,
-    });
+    const pyenvVirtualenv = env(
+        p('/home/u/.pyenv/versions/3.13.1/envs/tool/bin/python'),
+        EnvironmentType.Pyenv,
+        '3.13.1',
+        {
+            nativeKind: NativePythonEnvironmentKind.PyenvVirtualEnv,
+            envName: 'tool',
+        },
+    );
+    const uvBase = env(
+        p('/home/u/.local/share/uv/python/cpython-3.12.8/bin/python3'),
+        EnvironmentType.Global,
+        '3.12.8',
+        {
+            nativeKind: NativePythonEnvironmentKind.Uv,
+        },
+    );
     const condaBase = env(p('/home/u/miniconda3/bin/python'), EnvironmentType.Conda, '3.11.1', { envName: 'base' });
     const pyenv = env(p('/home/u/.pyenv/versions/3.13.1/bin/python'), EnvironmentType.Pyenv, '3.13.1');
-    const globalVirtualenv = env(p('/home/u/.virtualenvs/other/bin/python'), EnvironmentType.VirtualEnvWrapper, '3.13.6');
-    const pythonOrg = env(p('/Library/Frameworks/Python.framework/Versions/3.12/bin/python3'), EnvironmentType.System, '3.12.5', {
-        nativeKind: NativePythonEnvironmentKind.MacPythonOrg,
-    });
+    const globalVirtualenv = env(
+        p('/home/u/.virtualenvs/other/bin/python'),
+        EnvironmentType.VirtualEnvWrapper,
+        '3.13.6',
+    );
+    const pythonOrg = env(
+        p('/Library/Frameworks/Python.framework/Versions/3.12/bin/python3'),
+        EnvironmentType.System,
+        '3.12.5',
+        {
+            nativeKind: NativePythonEnvironmentKind.MacPythonOrg,
+        },
+    );
     const homebrew = env(p('/opt/homebrew/bin/python3'), EnvironmentType.System, '3.13.2', {
         nativeKind: NativePythonEnvironmentKind.Homebrew,
     });
@@ -126,9 +147,27 @@ suite('interpreterRanking', () => {
     test('ranks every kind of interpreter in tier order', () => {
         // Shuffled on purpose: the result must not depend on input order.
         const interpreters = [
-            unknown, homebrew, pythonOrg, globalVirtualenv, pyenv, condaBase, uvBase, pyenvVirtualenv, condaNamed,
-            positronDefault, venvFolder, moduleByMetadata, module, defined, inFolderPoetry, nestedB, nestedA, pyenvPinned,
-            rootVenv, defaultPath, activated,
+            unknown,
+            homebrew,
+            pythonOrg,
+            globalVirtualenv,
+            pyenv,
+            condaBase,
+            uvBase,
+            pyenvVirtualenv,
+            condaNamed,
+            positronDefault,
+            venvFolder,
+            moduleByMetadata,
+            module,
+            defined,
+            inFolderPoetry,
+            nestedB,
+            nestedA,
+            pyenvPinned,
+            rootVenv,
+            defaultPath,
+            activated,
         ];
 
         const ranked = rankInterpreters(interpreters, context).map(({ interpreter, tier }) => [
@@ -171,7 +210,10 @@ suite('interpreterRanking', () => {
         };
 
         assert.deepEqual(
-            rankInterpreters([homebrew, defined, rootVenv], definitionsOnly).map((r) => [r.interpreter.path, Tier[r.tier!]]),
+            rankInterpreters([homebrew, defined, rootVenv], definitionsOnly).map((r) => [
+                r.interpreter.path,
+                Tier[r.tier!],
+            ]),
             [
                 [rootVenv.path, 'ProjectEnv'],
                 [homebrew.path, 'Configured'],
@@ -203,10 +245,12 @@ suite('interpreterRanking', () => {
 
     test('buildRankingContext reads defaultInterpreterPath with get(), never selects, and scans the folder', async () => {
         let value: string | undefined;
-        sinon.stub(workspaceApis, 'getConfiguration').returns(({
+        sinon.stub(workspaceApis, 'getConfiguration').returns({
             get: (key: string) => (key === 'defaultInterpreterPath' ? value : undefined),
-        } as unknown) as vscode.WorkspaceConfiguration);
-        sinon.stub(interpreterSettings, 'getResolvedFilterSettingPaths').returns({ include: [], exclude: [], override: [] });
+        } as unknown as vscode.WorkspaceConfiguration);
+        sinon
+            .stub(interpreterSettings, 'getResolvedFilterSettingPaths')
+            .returns({ include: [], exclude: [], override: [] });
         sinon.stub(interpreterSettings, 'getInterpreterDefinitionPaths').returns([]);
         sinon.stub(interpreterSettings, 'isDefinitionsOnlyDiscovery').returns(false);
         const moduleWait = sinon.stub(moduleLocator, 'whenModuleMetadataReady').resolves();
@@ -245,7 +289,7 @@ suite('interpreterRanking', () => {
     test('withDiscoveredFacts waits for module discovery, then fills modulePaths', async () => {
         const modulePath = p('/apps/python/3.11/bin/python');
         sinon.stub(moduleLocator, 'whenModuleMetadataReady').callsFake(async () => {
-            moduleLocator.moduleMetadataMap.set(modulePath, ({} as unknown) as moduleLocator.ModuleMetadata);
+            moduleLocator.moduleMetadataMap.set(modulePath, {} as unknown as moduleLocator.ModuleMetadata);
         });
         try {
             const context = await withDiscoveredFacts(emptyContext, []);
@@ -267,14 +311,24 @@ suite('interpreterRanking', () => {
     });
 
     test('equal or missing versions tie, so the order does not depend on input order', () => {
-        const noVersionB = env(p('/home/u/.pyenv/versions/b/bin/python'), EnvironmentType.Pyenv, '3.0.0', { version: undefined });
-        const noVersionA = env(p('/home/u/.pyenv/versions/a/bin/python'), EnvironmentType.Pyenv, '3.0.0', { version: undefined });
+        const noVersionB = env(p('/home/u/.pyenv/versions/b/bin/python'), EnvironmentType.Pyenv, '3.0.0', {
+            version: undefined,
+        });
+        const noVersionA = env(p('/home/u/.pyenv/versions/a/bin/python'), EnvironmentType.Pyenv, '3.0.0', {
+            version: undefined,
+        });
         const rawB = env(p('/home/u/.pyenv/versions/d/bin/python'), EnvironmentType.Pyenv, '3.12.0');
         const rawA = env(p('/home/u/.pyenv/versions/c/bin/python'), EnvironmentType.Pyenv, '3.12.0');
         rawB.version = { ...rawB.version!, raw: '3.12.0rc1' };
-        const paths = (list: PythonEnvironment[]) => rankInterpreters(list, emptyContext).map((r) => r.interpreter.path);
+        const paths = (list: PythonEnvironment[]) =>
+            rankInterpreters(list, emptyContext).map((r) => r.interpreter.path);
 
         assert.deepEqual(paths([noVersionB, rawB, noVersionA, rawA]), paths([rawA, noVersionA, rawB, noVersionB]));
-        assert.deepEqual(paths([noVersionB, rawB, noVersionA, rawA]), [rawA.path, rawB.path, noVersionA.path, noVersionB.path]);
+        assert.deepEqual(paths([noVersionB, rawB, noVersionA, rawA]), [
+            rawA.path,
+            rawB.path,
+            noVersionA.path,
+            noVersionB.path,
+        ]);
     });
 });

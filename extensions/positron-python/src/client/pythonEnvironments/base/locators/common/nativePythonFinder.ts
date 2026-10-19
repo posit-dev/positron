@@ -664,7 +664,10 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
             refreshOptions.searchKind = options;
         }
         trackPromiseAndNotifyOnCompletion(
-            this.configure()
+            // --- Start Positron ---
+            // this.configure()
+            this.configure(true)
+                // --- End Positron ---
                 .then(() =>
                     // --- Start Positron ---
                     // this.connection
@@ -715,6 +718,10 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
     private lastConfiguration?: ConfigurationOptions;
 
     // --- Start Positron ---
+    private nestedEnvDirs: string[] = [];
+    // --- End Positron ---
+
+    // --- Start Positron ---
     // Serializes configure requests. PET (as of 2026.12) reports zero environments
     // if a `refresh` is processed while a `configure` is still in flight. At startup
     // the constructor fires `void this.configure()` and the first refresh
@@ -731,16 +738,16 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
      * Must be invoked when ever there are changes to any data related to the configuration details.
      */
     // --- Start Positron ---
-    private configure(): Promise<void> {
+    private configure(scanNestedEnvs = false): Promise<void> {
         this.beginRequest();
-        const next = this.configureQueue.then(() => this.configureImpl());
+        const next = this.configureQueue.then(() => this.configureImpl(scanNestedEnvs));
         // A failed configure must not poison the queue for later callers; the
         // returned promise still rejects so this caller observes the failure.
         this.configureQueue = next.catch(() => undefined);
         return next.finally(() => this.endRequest());
     }
 
-    private async configureImpl() {
+    private async configureImpl(scanNestedEnvs: boolean) {
         // Assembling the options reads settings and the filesystem, so it can
         // throw. Report it and rethrow: the caller must not go on to send
         // `refresh` against a stale or absent configuration, and a successful
@@ -748,7 +755,7 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         // caller's catch settles the operation without hanging discovery.
         let options: ConfigurationOptions;
         try {
-            options = await this.configurationOptions();
+            options = await this.configurationOptions(scanNestedEnvs);
         } catch (ex) {
             this.outputChannel.error('Failed to assemble the Python Locator configuration', ex);
             this._lastDiscoveryError = `Configure error: ${ex instanceof Error ? ex.message : String(ex)}`;
@@ -778,15 +785,19 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
      * `configureImpl` so that a failure while it is assembled can be handled
      * there without the throw reaching the caller's refresh.
      */
-    private async configurationOptions(): Promise<ConfigurationOptions> {
+    private async configurationOptions(scanNestedEnvs: boolean): Promise<ConfigurationOptions> {
         const workspaceFolders = getWorkspaceFolderPaths();
         // Envs one level below each workspace folder (e.g. <folder>/app/.venv). PET
-        // reports a workspace directory that is itself an env and stops there.
-        const nestedEnvDirs = (
-            await Promise.all(workspaceFolders.map((folder) => findNestedEnvironmentDirs(folder)))
-        ).flat();
+        // reports a workspace directory that is itself an env and stops there. The
+        // scan runs only for a refresh; resolve() configures reuse the last result so
+        // they do not wait on a folder scan.
+        if (scanNestedEnvs) {
+            this.nestedEnvDirs = (
+                await Promise.all(workspaceFolders.map((folder) => findNestedEnvironmentDirs(folder)))
+            ).flat();
+        }
         return {
-            workspaceDirectories: [...workspaceFolders, ...nestedEnvDirs],
+            workspaceDirectories: [...workspaceFolders, ...this.nestedEnvDirs],
             // We do not want to mix this with `search_paths`
             // environmentDirectories: getCustomVirtualEnvDirs(),
             environmentDirectories: await getEnvironmentDirs(),
@@ -855,7 +866,7 @@ type ConfigurationOptions = {
 // Exported so the interpreter ranking reuses PET's resolution of venvPath and venvFolders.
 // function getCustomVirtualEnvDirs(): string[] {
 export function getCustomVirtualEnvDirs(): string[] {
-// --- End Positron ---
+    // --- End Positron ---
     const venvDirs: string[] = [];
     const venvPath = getPythonSettingAndUntildify<string>(VENVPATH_SETTING_KEY);
     if (venvPath) {
