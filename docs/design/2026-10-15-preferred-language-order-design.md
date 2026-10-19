@@ -17,11 +17,8 @@ Leave comments inline on the lines they're about. These are the open decisions:
    but it starts a new namespace.
 2. **Carrying a patch to the list widget.** Reordering needs changes to VS Code's
    Settings editor list widget (see "List widget changes"). The drag fix is one line and
-   is already up upstream. The handle and arrows are bigger, and we'd likely carry them
-   for good.
-3. **Languages installed after you reorder.** They go to the end of the order, but they
-   don't appear as rows in the Settings editor until you add them (see "Edge cases"). I
-   think that's acceptable.
+   is already up upstream. The handle, arrows, and reorder-only mode are bigger, and we'd
+   likely carry them for good.
 
 ## Problem
 
@@ -37,8 +34,9 @@ Add one setting, `interpreters.languageOrder`: an ordered list of language IDs.
 
 - By default it lists every installed language in alphabetical order, so nobody sees a
   change unless they reorder it.
-- You reorder by dragging a row or using the Move Up/Down buttons that appear on hover.
-  Every installed language is already listed, so there's nothing to add.
+- You reorder by dragging a row, using the Move Up/Down buttons that appear on hover, or
+  pressing Alt+Up/Down on a selected row. Every installed language is already listed, so
+  the list has no Add, Edit, or Remove buttons.
 - It only reorders. It never hides a language. Any installed language that isn't in the
   list goes after the listed ones, alphabetically.
 - The list comes from the installed language extensions, so Julia or any other
@@ -123,9 +121,9 @@ const languageOrderSchema: IConfigurationPropertySchema = {
 The values are language IDs, the same ones as `ILanguageRuntimeMetadata.languageId`. The
 setting uses window scope (the default), so it can be set per workspace.
 
-`uniqueItems` plus an `enum` is what makes the list work without an Add button: each row's
-dropdown only offers languages that aren't already listed, and the Settings editor hides
-Add once every allowed value is in the list (`getShowAddButtonList` in `settingsTree.ts`).
+`uniqueItems` and the `enum` keep `settings.json` valid: each value must be an installed
+language, listed once. The Settings editor shows this setting as a reorder-only list (see
+"List widget changes"), so users never pick values from a dropdown.
 
 ### Building the list from installed languages
 
@@ -190,24 +188,33 @@ rough for ordering, so we patch it, wrapped in `// --- Start Positron ---` marke
   dragged, and Move Up/Down buttons sit next to Edit and Remove for keyboard users and
   anyone who doesn't think to drag. We carry these as a Positron patch. Once the drag
   fix is reviewed, I'll ask on that PR whether upstream would take them.
+- **Alt+Up/Down.** Moves the selected row, the same shortcut that moves lines in the
+  editor and cells in notebooks. The moved row stays selected, and dragging or clicking
+  Move Up/Down also selects the row you moved.
 - **No row tooltip.** The "List item `r`" hover covers the buttons. The row keeps its
   `aria-label`.
+- **Reorder-only mode.** A new `reorderOnly` option on the widget hides Add, Edit, and
+  Remove (double-click doesn't edit either), leaving only the move controls. Only
+  `interpreters.languageOrder` uses it.
+- **Filling in missing languages.** For this setting, `settingsTree.ts` appends any
+  installed language that's missing from the saved value, alphabetically, before it
+  renders the rows. A move applies to that same full list, so the saved value then
+  includes every language.
 
-The handle and arrows apply to every list setting, not just this one. That's the same
-behavior upstream would get, and I don't see a reason to limit it.
+The handle, arrows, and Alt+Up/Down apply to every list setting, not just this one.
+That's the same behavior upstream would get, and I don't see a reason to limit it.
 
 ### Edge cases
 
 - **A language installed after you reorder.** Your saved list doesn't include it, so it
-  goes at the end, after the languages you ordered. It doesn't appear as a row in the
-  Settings editor, but the Add button comes back (there's now an allowed value that isn't
-  listed), which hints that there's something new. Showing it as a row automatically
-  would need a custom settings renderer.
+  goes at the end, after the languages you ordered. The Settings editor shows it as the
+  last row, so you can move it like any other. `settings.json` doesn't change until you
+  move something.
 - **A language you uninstall.** If it's in your saved list, `settings.json` shows a "value
   is not accepted" warning. Nothing breaks, because `compareLanguages` skips IDs that
   aren't installed.
-- **Removing a row.** It drops back to the alphabetical tail. It doesn't hide the
-  language.
+- **Editing `settings.json` by hand.** Leaving a language out of the list just puts it
+  in the alphabetical tail. It never hides the language.
 
 ## Testing
 
@@ -215,7 +222,10 @@ behavior upstream would get, and I don't see a reason to limit it.
   language missing from the list (goes after, alphabetically), and an ID in the list that
   isn't installed (ignored).
 - **Vitest for the list widget.** Pressing a draggable row doesn't call
-  `preventDefault()`, and Move Up/Down fire a `move` change with the right indexes.
+  `preventDefault()`. Move Up/Down and Alt+Up/Down fire a `move` change with the right
+  indexes and move the selection. Reorder-only mode shows no Add, Edit, or Remove.
+- **Vitest for the fill-in.** Missing languages are appended alphabetically, and a move
+  on the filled-in list saves the full order.
 - **Manual.** Reorder the setting and check each surface above. Install and uninstall a
   language extension and confirm the list and default update. Reset the setting and
   confirm nothing changed.
