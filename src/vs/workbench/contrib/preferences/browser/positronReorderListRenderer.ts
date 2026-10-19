@@ -40,9 +40,9 @@ class PositronReorderListRenderer extends AbstractSettingRenderer implements ITr
 	}
 
 	protected renderValue(dataElement: SettingsTreeSettingElement, template: IReorderListTemplate, onChange: (value: string[]) => void): void {
-		const { key, enum: allowed, enumItemLabels } = dataElement.setting;
+		const { enum: allowed, enumItemLabels } = dataElement.setting;
 		const saved: string[] = Array.isArray(dataElement.value) ? dataElement.value : [];
-		template.listWidget.setValue(reorderRows(key, allowed, enumItemLabels, saved).map(row => ({
+		template.listWidget.setValue(reorderRows(allowed, enumItemLabels, saved).map(row => ({
 			value: { type: 'string', data: row.value },
 			label: row.label,
 		})));

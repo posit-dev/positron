@@ -13,19 +13,12 @@ export function isReorderOnlyList(key: string): boolean {
 }
 
 /**
- * Appends allowed values missing from the saved list, in allowed order, so a newly
- * installed language shows up as a row. Other settings are returned unchanged.
+ * The rows to show: the saved values, then any allowed values missing from them (so a
+ * newly installed language shows up). Each is labeled from `allowedLabels`, or else by itself.
  */
-export function withMissingValues(key: string, allowed: readonly string[] | undefined, value: readonly string[]): string[] {
-	if (!isReorderOnlyList(key) || !allowed) {
-		return [...value];
-	}
-	return [...value, ...allowed.filter(v => !value.includes(v))];
-}
-
-/** The rows to show: each value from `withMissingValues`, labeled from `allowedLabels` or else by itself. */
-export function reorderRows(key: string, allowed: readonly string[] | undefined, allowedLabels: readonly string[] | undefined, value: readonly string[]): { value: string; label: string }[] {
-	return withMissingValues(key, allowed, value).map(v => ({
+export function reorderRows(allowed: readonly string[] | undefined, allowedLabels: readonly string[] | undefined, value: readonly string[]): { value: string; label: string }[] {
+	const missing = allowed?.filter(v => !value.includes(v)) ?? [];
+	return [...value, ...missing].map(v => ({
 		value: v,
 		label: allowedLabels?.[allowed?.indexOf(v) ?? -1] ?? v,
 	}));
