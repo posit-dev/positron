@@ -686,7 +686,7 @@ function renderFindingCard(f, report, options) {
 	// command in view; Coverage keeps the short names.
 	const preconditions = f.preconditions.length
 		? '<ul class="f-pl" aria-label="Preconditions">'
-		+ f.preconditions.map((p, k) => `<li><span class="f-pl-p" aria-hidden="true" title="Precondition">P</span>${withCodeCopy(p || f.preconditionNames?.[k] || '')}</li>`).join('')
+		+ f.preconditions.map((p, k) => `<li><span class="f-pl-p tip" aria-hidden="true" data-tip="Precondition">P</span>${withCodeCopy(p || f.preconditionNames?.[k] || '')}</li>`).join('')
 		+ '</ul>'
 		: '';
 	// The card's Observed says what went wrong, so a step repeats it only when

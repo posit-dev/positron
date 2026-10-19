@@ -365,7 +365,7 @@ h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line
 .fb .fb-act:hover,.fb .fb-act:focus-visible{color:var(--link);border-bottom-color:currentColor;outline:none}
 @media (prefers-reduced-motion:reduce){.fb a,.fb-done{transition:none}}
 
-/* One tooltip style for the whole page: tiles, back to top. */
+/* One tooltip style for the whole page: tiles, back to top, a precondition's P. */
 .tip{position:relative}
 .tip::after{content:attr(data-tip);position:absolute;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;letter-spacing:0;text-transform:none;pointer-events:none;opacity:0;transition:opacity .15s ease;z-index:3}
 .tip:hover::after,.tip:focus-visible::after{opacity:1}
@@ -743,6 +743,7 @@ span.rt-file{color:var(--body)}
 .f-pl{list-style:none;margin:0 0 10px 20px;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:1.6;color:var(--body)}
 .f-pl li{position:relative}
 .f-pl-p{position:absolute;right:calc(100% + 8px);top:0;font-size:13px;color:var(--faint);cursor:help}
+.f-pl-p::after{left:-4px;top:calc(100% + 3px)}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
 /* The screenshot icon supports the check: faint at rest, ink on hover or focus */
 .st-ev{color:var(--st-ev);white-space:nowrap;padding:2px 3px;margin-left:3px;border-radius:4px;cursor:zoom-in;transition:color .15s ease}
