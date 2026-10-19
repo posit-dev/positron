@@ -303,6 +303,20 @@ describe('ExtHostMethods', function () {
 			expect(showSaveDialog.mock.calls).toEqual([[{ title: 'Select File', defaultUri }]]);
 		});
 
+		it('starts in the calling session\'s working directory when no directory is given', async function () {
+			const showOpenDialog = vi.fn<ExtHostDialogs['showOpenDialog']>(async () => [uri]);
+			const getSessionWorkingDirectory = vi.fn<ExtHostLanguageRuntime['getSessionWorkingDirectory']>(async () => '/data');
+			const methods = createMethods({
+				fileDialogs: stubInterface<ExtHostDialogs>({ showOpenDialog }),
+				runtime: stubInterface<ExtHostLanguageRuntime>({ getSessionWorkingDirectory }),
+			});
+
+			await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: true }, 'r-1');
+
+			expect(getSessionWorkingDirectory.mock.calls).toEqual([['r-1']]);
+			expect(showOpenDialog.mock.calls).toEqual([[{ title: 'Select File', defaultUri, canSelectFiles: true, canSelectFolders: false, canSelectMany: false }]]);
+		});
+
 		it('returns null when the user cancels', async function () {
 			const showOpenDialog = vi.fn<ExtHostDialogs['showOpenDialog']>(async () => undefined);
 			const methods = createMethods({ fileDialogs: stubInterface<ExtHostDialogs>({ showOpenDialog }) });

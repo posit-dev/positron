@@ -171,12 +171,12 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 				case UiFrontendRequest.SelectFile: {
 					if (!params ||
 						!Object.keys(params).includes('title') ||
-						!Object.keys(params).includes('existing') ||
-						!Object.keys(params).includes('default_dir')) {
+						!Object.keys(params).includes('existing')) {
 						return newInvalidParamsError(method);
 					}
 					result = await this.selectFile(params.title as string,
-						params.existing as boolean, params.default_dir as string);
+						params.existing as boolean, params.default_dir as string | undefined,
+						callerSessionId);
 					break;
 				}
 				case UiFrontendRequest.ExecuteCode: {
@@ -407,8 +407,9 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		return result;
 	}
 
-	async selectFile(title: string, existing: boolean, defaultDir: string): Promise<string | null> {
-		const defaultUri = URI.file(defaultDir);
+	async selectFile(title: string, existing: boolean, defaultDir?: string, callerSessionId?: string): Promise<string | null> {
+		defaultDir ??= await this.runtime.getSessionWorkingDirectory(callerSessionId);
+		const defaultUri = defaultDir ? URI.file(defaultDir) : undefined;
 		const uri = existing ?
 			(await this.fileDialogs.showOpenDialog({ title, defaultUri, canSelectFiles: true, canSelectFolders: false, canSelectMany: false }))?.[0] :
 			await this.fileDialogs.showSaveDialog({ title, defaultUri });

@@ -256,7 +256,8 @@
 				},
 				{
 					"name": "default_dir",
-					"description": "The directory the file dialog starts in",
+					"description": "The directory the file dialog starts in. If omitted, defaults to the session's working directory.",
+					"required": false,
 					"schema": {
 						"type": "string"
 					}

@@ -425,9 +425,10 @@ export interface SelectFileParams {
 	existing: boolean;
 
 	/**
-	 * The directory the file dialog starts in
+	 * The directory the file dialog starts in. If omitted, defaults to the
+	 * session's working directory.
 	 */
-	default_dir: string;
+	default_dir?: string;
 }
 
 /**
@@ -920,7 +921,8 @@ export interface SelectFileRequest {
 	existing: boolean;
 
 	/**
-	 * The directory the file dialog starts in
+	 * The directory the file dialog starts in. If omitted, defaults to the
+	 * session's working directory.
 	 */
 	default_dir: string;
 
