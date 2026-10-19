@@ -96,6 +96,17 @@ export class ListSettingListModel<TDataItem extends object> {
 		this._dataItems = listData;
 	}
 
+	// --- Start Positron ---
+	// Reorders locally and selects the moved row.
+	move(sourceIndex: number, targetIndex: number): void {
+		const items = this._dataItems.slice();
+		const [moved] = items.splice(sourceIndex, 1);
+		items.splice(targetIndex, 0, moved);
+		this._dataItems = items;
+		this._selectedIdx = targetIndex;
+	}
+	// --- End Positron ---
+
 	select(idx: number | null): void {
 		this._selectedIdx = idx;
 	}
@@ -553,10 +564,11 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 		return true;
 	}
 
-	// Selects the row's new position so the selection follows the moved row.
+	// Reorders locally before firing so a second move before the config write lands splices fresh indexes.
 	private moveItem(item: TListDataItem, sourceIndex: number, targetIndex: number): void {
-		this.model.select(targetIndex);
+		this.model.move(sourceIndex, targetIndex);
 		this._onDidChangeList.fire({ type: 'move', originalItem: item, newItem: item, sourceIndex, targetIndex });
+		this.renderList();
 	}
 
 	// Move up/down actions so reordering is discoverable without dragging.
@@ -598,7 +610,8 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 			return [];
 		}
 		// --- Start Positron ---
-		if (this.reorderOnly) {
+		// if (this.reorderOnly) {
+		if (this.reorderOnly && this.isReorderable()) {
 			return this.getMoveActions(item, idx);
 		}
 		// --- End Positron ---
@@ -698,16 +711,34 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 			counter = 0;
 			if (this.dragDetails.element !== rowElement) {
 				// --- Start Positron ---
-				// Keep the selection on the dragged row, not its old position.
-				this.model.select(idx);
-				// --- End Positron ---
+				// Apply the move locally so the selection follows the dragged row and later moves use fresh indexes.
+				const { item: draggedItem, itemIndex } = this.dragDetails;
+				const reorderable = this.isReorderable();
+				if (reorderable) {
+					this.model.move(itemIndex, idx);
+				} else {
+					this.model.select(idx);
+				}
+				// this._onDidChangeList.fire({
+				// 	type: 'move',
+				// 	originalItem: this.dragDetails.item,
+				// 	sourceIndex: this.dragDetails.itemIndex,
+				// 	newItem: item,
+				// 	targetIndex: idx
+				// });
 				this._onDidChangeList.fire({
 					type: 'move',
-					originalItem: this.dragDetails.item,
-					sourceIndex: this.dragDetails.itemIndex,
+					originalItem: draggedItem,
+					sourceIndex: itemIndex,
 					newItem: item,
 					targetIndex: idx
 				});
+				if (reorderable) {
+					// The re-render drops this row, so dragend never clears the drag state.
+					this.dragDetails = undefined;
+					this.renderList();
+				}
+				// --- End Positron ---
 			}
 			return true;
 		}));

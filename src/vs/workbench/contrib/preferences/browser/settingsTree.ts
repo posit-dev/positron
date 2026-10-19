@@ -776,6 +776,10 @@ interface ISettingComplexObjectItemTemplate extends ISettingComplexItemTemplate 
 interface ISettingListItemTemplate extends ISettingItemTemplate<string[] | undefined> {
 	listWidget: ListSettingWidget<IListDataItem>;
 	validationErrorMessageElement: HTMLElement;
+	// --- Start Positron ---
+	// Last list computed from a widget event; base for the next one until the setting re-renders.
+	pendingList?: string[];
+	// --- End Positron ---
 }
 
 interface ISettingIncludeExcludeItemTemplate extends ISettingItemTemplate<void> {
@@ -1379,6 +1383,12 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 				newValue = [...template.context.value];
 			}
 			// --- Start Positron ---
+			// Chain onto the previous event's result; the setting may not have re-rendered yet.
+			if (template.pendingList) {
+				newValue = [...template.pendingList];
+			}
+			// --- End Positron ---
+			// --- Start Positron ---
 			// Row indexes include the filled-in values, so splice the same list.
 			newValue = withMissingValues(template.context.setting.key, template.context.setting.enum, newValue);
 			// --- End Positron ---
@@ -1407,6 +1417,9 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 				newValue.push(e.newItem.value.data.toString());
 			}
 
+			// --- Start Positron ---
+			template.pendingList = newValue;
+			// --- End Positron ---
 			if (
 				template.context.defaultValue &&
 				Array.isArray(template.context.defaultValue) &&
@@ -1426,6 +1439,9 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 	}
 
 	protected renderValue(dataElement: SettingsTreeSettingElement, template: ISettingListItemTemplate, onChange: (value: string[] | number[] | undefined) => void): void {
+		// --- Start Positron ---
+		template.pendingList = undefined;
+		// --- End Positron ---
 		const value = getListDisplayValue(dataElement);
 		const keySuggester = dataElement.setting.enum ? createArraySuggester(dataElement) : undefined;
 		template.listWidget.setValue(value, {

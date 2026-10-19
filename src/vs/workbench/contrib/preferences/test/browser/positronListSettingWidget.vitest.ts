@@ -108,6 +108,35 @@ describe('ListSettingWidget reordering', () => {
 		expect(event.defaultPrevented).toBe(true);
 	});
 
+	// eslint-disable-next-line no-restricted-syntax -- upstream widget has no roles or test ids on its rows
+	const rowValues = (rows: () => HTMLElement[]) => rows().map(r => r.querySelector('.setting-list-value')?.textContent);
+
+	it('two quick Alt+Down presses move the same item twice and render the moved order', () => {
+		const { container, rows, events } = createWidget(['a', 'b', 'c']);
+		selectFirst(rows);
+		pressKey(listOf(container), 'ArrowDown', true);
+		pressKey(listOf(container), 'ArrowDown', true);
+		expect(events).toEqual([
+			expect.objectContaining({ type: 'move', sourceIndex: 0, targetIndex: 1 }),
+			expect.objectContaining({ type: 'move', sourceIndex: 1, targetIndex: 2 }),
+		]);
+		expect((events[1] as { originalItem: IListDataItem }).originalItem.value.data).toBe('a');
+		expect(rowValues(rows)).toEqual(['b', 'c', 'a']);
+		expect(rows()[2]).toHaveClass('selected');
+	});
+
+	it('clicking Move Down twice on the same row moves it twice', () => {
+		const { rows, events } = createWidget(['a', 'b', 'c']);
+		const firstRow = rows()[0];
+		clickAction(firstRow, 'Move Down');
+		clickAction(rows()[1], 'Move Down');
+		expect(events).toEqual([
+			expect.objectContaining({ type: 'move', sourceIndex: 0, targetIndex: 1 }),
+			expect.objectContaining({ type: 'move', sourceIndex: 1, targetIndex: 2 }),
+		]);
+		expect(rowValues(rows)).toEqual(['b', 'c', 'a']);
+	});
+
 	it('Alt+Up on the first row does nothing but still swallows the key', () => {
 		const { container, rows, events } = createWidget(['a', 'b']);
 		selectFirst(rows);
