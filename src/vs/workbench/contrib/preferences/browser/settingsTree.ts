@@ -1387,8 +1387,6 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 			if (template.pendingList) {
 				newValue = [...template.pendingList];
 			}
-			// --- End Positron ---
-			// --- Start Positron ---
 			// Row indexes include the filled-in values, so splice the same list.
 			newValue = withMissingValues(template.context.setting.key, template.context.setting.enum, newValue);
 			// --- End Positron ---
@@ -1418,7 +1416,8 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 			}
 
 			// --- Start Positron ---
-			template.pendingList = newValue;
+			// Only moves are applied to the widget right away, so only they can chain.
+			template.pendingList = e.type === 'move' ? newValue : undefined;
 			// --- End Positron ---
 			if (
 				template.context.defaultValue &&
