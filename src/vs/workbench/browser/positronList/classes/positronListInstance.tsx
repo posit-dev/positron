@@ -240,6 +240,13 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 			this._verticalScrollOffset = this.maximumVerticalScrollOffset;
 		}
 
+		// Keep the cursor within the new entries. When the entries shrink past the cursor, move it
+		// back to the last selectable row so keyboard navigation and getCursorItem keep working.
+		const lastSelectableRowIndex = this.lastSelectableRowIndex;
+		if (lastSelectableRowIndex !== undefined && this.cursorRowIndex > lastSelectableRowIndex) {
+			this.setCursorRow(lastSelectableRowIndex);
+		}
+
 		// If the cursor landed on a section (typical on first render when the first entry is a
 		// section header), advance it to the next selectable item row.
 		if (!this.isRowSelectable(this.cursorRowIndex)) {
