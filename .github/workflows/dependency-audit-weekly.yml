@@ -102,7 +102,10 @@ jobs:
           if [ -n "$CHANGED" ]; then
             # The lockfiles are regenerated on Linux but ship on every platform,
             # and many carry per-OS native packages, so always run Windows.
-            TAGS="$TAGS @:win"
+            # Also always run Workbench. That lane runs the whole @:workbench
+            # suite whatever the other tags are, so adding it per project
+            # would not save time.
+            TAGS="$TAGS @:win @:workbench"
             TAGS=$(echo $TAGS)
           fi
           VALIDATION=""
