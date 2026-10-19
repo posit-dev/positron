@@ -73,10 +73,15 @@ jobs:
           bash scripts/dependency-audit.sh --fix --snyk > report.md
           cat report.md >> "$GITHUB_STEP_SUMMARY"
           # Stage only the lockfiles of the listed projects, so nothing else
-          # in the working tree can end up in the PR.
-          grep -v '^\s*\(#\|$\)' .github/dependency-audit-manifests.txt | while read -r dir; do
-            git add -- "$dir/package-lock.json"
-          done
+          # in the working tree can end up in the PR. Parse the list the same
+          # way the script does, and skip a project with no lockfile (the
+          # script reports it as an error).
+          while IFS= read -r dir || [ -n "$dir" ]; do
+            dir="$(echo "${dir%%#*}" | xargs)"
+            if [ -n "$dir" ] && [ -f "$dir/package-lock.json" ]; then
+              git add -- "$dir/package-lock.json"
+            fi
+          done < .github/dependency-audit-manifests.txt
           git --no-pager diff --staged --stat
 
       - name: Build PR body
