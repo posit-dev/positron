@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from '../../../base/common/event.js';
-import { Disposable } from '../../../base/common/lifecycle.js';
+import { DisposableStore } from '../../../base/common/lifecycle.js';
 import { TestInstantiationService } from '../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { ErrorActionsService } from '../../../workbench/contrib/positronAssistant/browser/errorActionsService.js';
 import { IErrorActionsService } from '../../../workbench/contrib/positronAssistant/common/errorActions.js';
 
 /**
@@ -20,13 +20,11 @@ import { IErrorActionsService } from '../../../workbench/contrib/positronAssista
  * fails, add an empty stub here:
  *   svc.stub(INewService, {});
  */
-export function stubReactServices(svc: TestInstantiationService): void {
+export function stubReactServices(svc: TestInstantiationService, disposables: Pick<DisposableStore, 'add'>): void {
 	// Read by useActiveErrorActionHandler, which the console, notebook, and Quarto
-	// error quick fixes call. Inert, so the quick fixes hide; tests that need a
-	// handler stub a real ErrorActionsService and register one.
-	svc.stub(IErrorActionsService, {
-		activeHandler: undefined,
-		onDidChangeActiveHandler: Event.None,
-		register: () => Disposable.None,
-	});
+	// error quick fixes call. A real service with no handlers, so the quick fixes
+	// hide until a test registers one. Created before the test's own stubs, so it
+	// reads the preset's IContextKeyService; a test that replaces that service
+	// and registers a handler with a `when` must re-create this one too.
+	svc.stub(IErrorActionsService, disposables.add(svc.createInstance(ErrorActionsService)));
 }

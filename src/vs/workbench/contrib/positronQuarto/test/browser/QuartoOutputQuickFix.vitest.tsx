@@ -11,7 +11,6 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { ErrorActionsService } from '../../../positronAssistant/browser/errorActionsService.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
@@ -22,10 +21,6 @@ describe('QuartoOutputQuickFix', () => {
 		.withReactServices()
 		.build();
 
-	// Replace the preset's inert stub with a real service, so tests can register handlers.
-	beforeEach(() => {
-		ctx.instantiationService.stub(IErrorActionsService, ctx.disposables.add(ctx.instantiationService.createInstance(ErrorActionsService)));
-	});
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	const run = vi.fn();

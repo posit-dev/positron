@@ -13,7 +13,6 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
-import { ErrorActionsService } from '../../../positronAssistant/browser/errorActionsService.js';
 import { IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { ActivityErrorMessage } from '../../browser/components/activityErrorMessage.js';
 
@@ -25,10 +24,6 @@ describe('ActivityErrorMessage assistant actions gate', () => {
 		.withReactServices()
 		.build();
 
-	// Replace the preset's inert stub with a real service, so tests can register handlers.
-	beforeEach(() => {
-		ctx.instantiationService.stub(IErrorActionsService, ctx.disposables.add(ctx.instantiationService.createInstance(ErrorActionsService)));
-	});
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	// Give errors somewhere to go, so only the console's own gates are tested.

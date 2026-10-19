@@ -21,7 +21,6 @@ import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvi
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
 import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
-import { ErrorActionsService } from '../../../../positronAssistant/browser/errorActionsService.js';
 import { IErrorActionsService } from '../../../../positronAssistant/common/errorActions.js';
 
 /** Generate multiline content with the given number of lines. */
@@ -33,11 +32,6 @@ describe('CellTextOutput', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.build();
-
-	// Replace the preset's inert stub with a real service, so tests can register handlers.
-	beforeEach(() => {
-		ctx.instantiationService.stub(IErrorActionsService, ctx.disposables.add(ctx.instantiationService.createInstance(ErrorActionsService)));
-	});
 
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
