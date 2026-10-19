@@ -38,6 +38,7 @@ import {
 	IQuartoExecutionManager,
 	DEFAULT_EXECUTION_CONFIG,
 	DATA_EXPLORER_MIME_TYPE,
+	OBJECT_EXPLORER_MIME_TYPE,
 	WillExecuteEvent,
 } from '../common/quartoExecutionTypes.js';
 import { usingQuartoInlineOutputStatementSplitting } from '../common/positronQuartoConfig.js';
@@ -2171,17 +2172,16 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		// Determine which rich MIME types are present to filter out redundant text/plain.
 		// When a richer representation (HTML, images) is available, we should not
 		// show the plain text fallback as it duplicates the content.
-		// Exception: when data explorer is present, always keep text/plain. The data
-		// explorer is a live component that won't work after the document is closed
-		// and reopened; text/plain serves as the cache-safe fallback for that case.
+		// Exception: when a data or object explorer is present, always keep text/plain.
+		// The explorers are live components that won't work after the document is
+		// closed and reopened; text/plain serves as the cache-safe fallback for that case.
+		const explorerMimeTypes = [DATA_EXPLORER_MIME_TYPE, OBJECT_EXPLORER_MIME_TYPE];
 		const hasHtml = 'text/html' in data;
 		const hasImage = mimeOrder.some(mime =>
 			mime.startsWith('image/') && mime in data
 		);
-		const hasDataExplorer = Object.keys(data).some(
-			mime => mime === DATA_EXPLORER_MIME_TYPE
-		);
-		const shouldExcludePlainText = (hasHtml || hasImage) && !hasDataExplorer;
+		const hasExplorer = explorerMimeTypes.some(mime => data[mime] !== undefined);
+		const shouldExcludePlainText = (hasHtml || hasImage) && !hasExplorer;
 
 		for (const mime of mimeOrder) {
 			// Skip text/plain when a richer representation is available
@@ -2201,12 +2201,12 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		// Handle any remaining MIME types, skipping Positron-internal types
 		// that are used for comm channel metadata and should not be rendered
-		// as output. The data explorer MIME type is allowed through so it can
-		// be rendered as an inline data grid.
+		// as output. The explorer MIME types are allowed through so they can
+		// be rendered inline.
 		for (const [mime, value] of Object.entries(data)) {
 			if (!mimeOrder.includes(mime) && value !== undefined &&
 				(!mime.startsWith('application/vnd.positron.') ||
-					mime === DATA_EXPLORER_MIME_TYPE)) {
+					explorerMimeTypes.includes(mime))) {
 				if (typeof value === 'string') {
 					outputItems.push({ mime, data: value });
 				} else {

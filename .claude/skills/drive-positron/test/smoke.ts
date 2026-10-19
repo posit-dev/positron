@@ -247,6 +247,10 @@ const cases: Case[] = [
 	{ name: 'console-run python matplotlib plot', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'import matplotlib.pyplot as plt; plt.plot([1, 2, 3], [2, 1, 3]); plt.show()'] },
 	{ name: 'plots save --width (intrinsic size)', wait: 1500, run: ['plots.sh', 'save', '--width', '640'], check: o => includes(o.json!.intrinsicSize, 'unticked') || includes(o.json!.tree, 'spinbutton "Width": "640"') },
 	{ name: 'ui click Cancel (intrinsic size)', run: ['ui.sh', 'click', 'button', 'Cancel', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
+	// The Plots open control is an action-bar split button: both halves are "Select where to open plot" and neither has aria-haspopup.
+	{ name: 'console-run python matplotlib plot 2', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'plt.figure(); plt.plot([3, 1], color="red"); plt.show()'] },
+	{ name: 'plots open editor through the split button whose halves share one name', wait: 1500, run: ['plots.sh', 'open', 'editor'], check: o => includes(o.json!.opened, 'editor tab "matplotlib') },
+	{ name: 'palette-run Close All Editors (matplotlib plot tab)', run: ['palette-run.sh', 'View: Close All Editors'], check: o => o.json!.closed !== true && 'the palette did not close' },
 	{ name: 'console-run r html to Viewer', quick: true, run: ['console-run.sh', '--language', 'r', 'print(htmltools::browsable(htmltools::tags$button("smoke-viewer-button")))'] },
 	{ name: 'viewer wait-content', quick: true, run: ['viewer.sh', 'wait-content', '20'], check: o => includes(o.json!.shown, 'smoke-viewer-button') },
 	{ name: 'view-read Viewer', quick: true, run: ['view-read.sh', '--view', 'Viewer'], check: o => includes(o.text, 'button "smoke-viewer-button"') },
@@ -262,6 +266,7 @@ const cases: Case[] = [
 	// ---- Explorer tree, Data Explorer
 	{ name: 'palette-run Show Explorer', quick: true, run: ['palette-run.sh', 'View: Show Explorer'] },
 	{ name: 'tree rows Explorer', quick: true, run: ['tree.sh', '--view', 'Explorer', 'rows'], check: o => includes(o.json!.rows, '"text":"cars.csv"') || includes(o.json!.rows, '"state":"leaf"') },
+	{ name: 'tree click in the folder pane by the title it reads', run: ['tree.sh', '--view', 'ws', 'click', 'cars.csv'], check: o => includes(o.json!.text, 'cars.csv') },
 	{ name: 'tree menu missing item', run: ['tree.sh', '--view', 'Explorer', 'menu', 'cars.csv', 'No Such Item'], fail: true },
 	{ name: 'tree missing row', run: ['tree.sh', '--view', 'Explorer', 'click', 'no-such-file.txt'], fail: true },
 	{ name: 'tree unknown command is a usage error, before the page', run: ['tree.sh', '--view', 'Explorer', 'expnad', 'cars.csv'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"expnad" is not a command') },
@@ -376,7 +381,8 @@ const cases: Case[] = [
 	{ name: 'open-file broken.json', run: ['open-file.sh', 'broken.json'] },
 	{ name: 'panel tab Problems (badge)', wait: 1500, run: ['panel.sh', 'tab', 'Problems'], retry: 2, retryOn: /not selected/, check: o => o.json!.tab !== 'Problems' && `tab ${o.json!.tab}` },
 	{ name: 'view-read Problems', run: ['view-read.sh', '--view', 'Problems'], check: o => includes(o.text, 'broken.json') },
-	// The editor area hidden: its tabs are still listed, and it says so.
+	// The editor area hidden: its tabs are still listed, and it says so. Close All Editors (matplotlib plot tab) closed analysis.R in a full run: open it again first.
+	{ name: 'open-file analysis.R again, before the editor area is hidden', run: ['open-file.sh', 'analysis.R'], check: o => o.json!.activeTab !== 'analysis.R' && `active tab ${o.json!.activeTab}` },
 	{ name: 'palette-run Toggle Maximized Panel', run: ['palette-run.sh', 'View: Toggle Maximized Panel'] },
 	{ name: 'panel editors, editor area hidden', run: ['panel.sh', 'editors'], check: o => (o.json!.editorArea !== 'hidden' && 'editorArea is not hidden') || includes(o.json!.groups, '"title":"analysis.R"') },
 	{ name: 'palette-run Toggle Maximized Panel back', run: ['palette-run.sh', 'View: Toggle Maximized Panel'] },

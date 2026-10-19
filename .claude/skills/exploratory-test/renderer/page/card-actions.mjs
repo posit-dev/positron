@@ -9,7 +9,7 @@
 
 import { parseSystemLine } from '../shared/ledger.mjs';
 import { escapeHtml, escapeRegExp } from '../shared/text.mjs';
-import { promptFilesSection, filesNamedIn, fileSource } from './repro-files.mjs';
+import { promptFilesSection, filesNamedIn, fileSource, shownName } from './repro-files.mjs';
 import { absolutePath, capitalize, countText, escapeLoneTildes, ICON, logFile, REPO_URL, safeLinks, SEVERITY_LABEL, statusWord } from './page-common.mjs';
 
 /**
@@ -112,7 +112,7 @@ function buildAgentPrompt(f, report, options = {}) {
 	// Every error, including the ones the card hides for having no stack: a bare
 	// message is still a lead for whoever picks this up.
 	section('Error output', errorOutput(f, p => absolutePath(p, base)));
-	section('Likely cause (hypothesis, not verified)', capitalize(t.cause));
+	section(causeHeading(t), capitalize(t.cause));
 	const regression = regressionTest(f);
 	if (regression) {
 		section(regression.heading, regression.body);
@@ -259,10 +259,15 @@ function markBelow(text, file) {
 		}
 		return part.replace(part.startsWith('`') ? quoted : bare, () => {
 			done = true;
-			return `\`${file.name}\` (below)`;
+			return `\`${shownName(file)}\` (below)`;
 		});
 	}).join('');
 	return { text: out, done };
+}
+
+/** The Cause's heading, saying when the verifier rewrote it. Neither was checked by a run. */
+function causeHeading(t) {
+	return t.corrected?.includes('cause') ? 'Likely cause (revised by the reviewing agent, not verified by a run)' : 'Likely cause (hypothesis, not verified)';
 }
 
 /** A step as the issue writes it: its result in bold, and no log line, which Error messages has. */
@@ -290,7 +295,9 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const at = [branch && `\`${branch}\``, sha && `\`${sha}\``].filter(Boolean).join(' @ ');
 	const of = report.pr ? `#${report.pr.number}${at ? ` (${at})` : ''}` : at;
 	const opening = t.opening;
-	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', systemDetails(report), ''];
+	// Ticked by whoever reproduces it, with their note before the comment, which shows only while editing.
+	const reproduced = '- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->';
+	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', reproduced, '', systemDetails(report), ''];
 	// Linked both ways, so GitHub cross-references the fix and its PR.
 	const failedFixes = options.ki?.fixFailed.get(f.n);
 	const back = options.ki?.cameBack.get(f.n);
@@ -310,7 +317,9 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	};
 	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', escapeLoneTildes(safeLinks(body)), '', '</details>', '');
 
-	section('Describe the issue', opening ? [opening.summary, opening.where].filter(Boolean).map(capitalize).join('\n\n') : capitalize(t.summary));
+	// How the bug affects users; a report from before impact existed has its summary instead.
+	const legacy = opening ? [opening.summary, opening.where].filter(Boolean).map(capitalize).join('\n\n') : capitalize(t.summary ?? '');
+	section('Describe the issue', capitalize(t.impact ?? '') || legacy);
 
 	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps].join('\n')).filter(file => file.kind !== 'missing');
 	const marked = new Set();
@@ -343,7 +352,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	section('Evidence', evidenceItems(f, p => p, e => e.file) && `Screenshots and logs are in the ${by} report for this run.`);
 
 	if (t.cause && !drop.has('cause')) {
-		fold('Likely cause (hypothesis, not verified)', capitalize(t.cause));
+		fold(causeHeading(t), capitalize(t.cause));
 	}
 	const regression = regressionTest(f);
 	if (regression && !drop.has('regression')) {
@@ -352,9 +361,9 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	for (const file of files) {
 		const source = drop.has('fileText') ? null : fileSource(file);
 		if (source) {
-			fold(escapeHtml(file.name), fenced(source.text, source.lang));
+			fold(escapeHtml(shownName(file)), fenced(source.text, source.lang));
 		} else {
-			out.push(`\`${file.name}\` is in the report's \`files/\` folder.`, '');
+			out.push(`\`${shownName(file)}\` is in the report's \`files/\` folder.`, '');
 		}
 	}
 	return out.join('\n').trimEnd();

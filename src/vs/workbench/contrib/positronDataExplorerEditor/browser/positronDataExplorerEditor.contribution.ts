@@ -11,11 +11,15 @@ import { EditorExtensions } from '../../../common/editor.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { EditorInputFactoryFunction, IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { PositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
+import { moveOpenDataExplorerEditorToGroup } from './positronDataExplorerEditorResolution.js';
 import { registerPositronDataExplorerActions } from './positronDataExplorerActions.js';
 import { PositronDataExplorerCodeActionContribution } from './positronDataExplorerCodeActionProvider.js';
 import { PositronDataExplorerClickToViewContribution } from './positronDataExplorerClickToViewProvider.js';
@@ -28,6 +32,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
+import { duckDBClientId } from '../../../services/positronDataExplorer/common/positronDataExplorerDuckDBBackend.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { DataExplorerPreviewEnabled } from '../../../services/positronDataExplorer/browser/positronDataExplorerSummary.js';
 
@@ -42,12 +47,18 @@ class PositronDataExplorerContribution extends Disposable {
 
 	/**
 	 * Constructor.
+	 * @param configurationService The configuration service.
+	 * @param editorGroupsService The editor groups service.
 	 * @param editorResolverService The editor resolver service.
+	 * @param editorService The editor service.
 	 * @param instantiationService The instantiation service.
+	 * @param dataExplorerService The Positron data explorer service.
 	 */
 	constructor(
 		@IConfigurationService configurationService: IConfigurationService,
+		@IEditorGroupsService editorGroupsService: IEditorGroupsService,
 		@IEditorResolverService editorResolverService: IEditorResolverService,
+		@IEditorService editorService: IEditorService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IPositronDataExplorerService dataExplorerService: IPositronDataExplorerService
 	) {
@@ -61,25 +72,23 @@ class PositronDataExplorerContribution extends Disposable {
 			priority: RegisteredEditorPriority.builtin
 		};
 
-		const createDataExplorerEditor: EditorInputFactoryFunction = ({ resource, options }) => {
+		const dataExplorerEditorOptions = (options: IEditorOptions | undefined): IEditorOptions => ({
+			...options,
 			// Determine pinned state based on preview setting.
 			// When preview is enabled, tabs open unpinned (in preview mode).
 			// See https://github.com/posit-dev/positron/issues/11289
 			// Note: We intentionally ignore options.pinned here to ensure our setting
 			// takes precedence over VS Code's default preview behavior for files.
-			const pinned = !DataExplorerPreviewEnabled(configurationService);
+			pinned: !DataExplorerPreviewEnabled(configurationService)
+		});
 
-			return {
-				editor: instantiationService.createInstance(
-					PositronDataExplorerEditorInput,
-					resource
-				),
-				options: {
-					...options,
-					pinned
-				}
-			};
-		};
+		const createDataExplorerEditor: EditorInputFactoryFunction = ({ resource, options }) => ({
+			editor: instantiationService.createInstance(
+				PositronDataExplorerEditorInput,
+				resource
+			),
+			options: dataExplorerEditorOptions(options)
+		});
 
 		// Register the editor.
 		this._register(editorResolverService.registerEditor(
@@ -114,13 +123,26 @@ class PositronDataExplorerContribution extends Disposable {
 			},
 			{
 				createEditorInput: async ({ resource, options }, group) => {
+					const explorerResource = PositronDataExplorerUri.generate(duckDBClientId(resource));
+
+					// If a Data Explorer is already open for the file, bring its tab to the group
+					// rather than opening a second tab over the same Data Explorer.
+					const openEditor = moveOpenDataExplorerEditorToGroup(
+						explorerResource,
+						group,
+						editorService,
+						editorGroupsService
+					);
+					if (openEditor) {
+						return { editor: openEditor, options: dataExplorerEditorOptions(options) };
+					}
+
 					await dataExplorerService.openWithDuckDB(resource);
 
 					// We create a data explorer URI that will use the DuckDB client
 					// that we just created.
-					const newResource = PositronDataExplorerUri.generate(`duckdb:${resource.toString()}`);
 					return createDataExplorerEditor({
-						resource: newResource,
+						resource: explorerResource,
 						options
 					}, group);
 				}

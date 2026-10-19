@@ -14,19 +14,20 @@ is handed:
 2. **Verifier** (`verifier.md`) never touches the app. It reads the report,
    the ledger and the diff, and gives each finding a verdict: CONFIRMED, FALSE
    POSITIVE or UNRESOLVED. It also flags a finding that matches a known issue
-   or one closed as not planned. It replies with a `json` block, which
-   `parseVerifyReply` in `finish.mjs` reads, then its notes.
+   or one closed as not planned, and rewrites a title, feature, cause,
+   observed or test list the evidence contradicts; the card and the issue say
+   when it revised the cause. It replies with a `json` block, which
+   `parseVerifyReply` in `finish.mjs` reads, then its notes. Each runner
+   reports the files the session read, so a screenshot it lists but never
+   opened is asked about once, then shown as not checked. So is a finding
+   whose reply has no `setup` list of the run's own setup.
 3. **Isolator** (`isolator.md`) runs only when a finding is UNRESOLVED. It
    launches its own instance, runs a few controls in 12 minutes, and writes
    `isolation.md`. The verifier is then sent that file and revises.
-4. **Editor** (`editor.md`) rewrites each finding's title and opening for a
-   reader who wasn't there. It never touches the repro steps, and a rewrite
-   that fails `reviewEdits` is dropped in favor of the original.
 
 Each of them writes what it decided into `report.json`: verdicts, known
-issues, titles and openings, and what each pass cost. `renderer/render.mjs`
-(or `run.mjs` in CI, through the same `writeRunPage`) then turns
-`report.json` into `index.html`.
+issues, and what each pass cost. `renderer/render.mjs` (or `run.mjs` in CI,
+through the same `writeRunPage`) then turns `report.json` into `index.html`.
 
 Local and CI runs share every step after the explorer: `completeRun` in
 `renderer/pipeline.mjs` checks the report, runs the later passes in order and
@@ -110,7 +111,7 @@ change addresses it, on your own `claude` login. Older runs published only the p
 read from it. Read every "fixed" row before trusting the numbers.
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
-turns those rows into one page: how many findings developers fixed before
+turns those rows into the Shipping impact page: how many findings developers fixed before
 merging, a bar of every outcome, the fix rate by severity, and collapsible
 By PR and Evidence sections. Clicking a bar segment opens the evidence for
 that outcome, with links to each report, PR and fixing commit or issue.
@@ -139,6 +140,27 @@ a matching issue still run every night. In
 CI the model is reached through the API (`--api`), and a call that takes
 more than 10 minutes counts as unclear.
 
+### Where filed issues end up
+
+`node .github/actions/pr-exploratory-test/triage.mjs --out triage.json` reads
+every `ai-discovered` issue whose body links to a report finding and records
+where it stands today: completed, in a release or backlog milestone, in
+Future, closed another way, or awaiting triage (no milestone). Severity comes
+from the report and the skill version from the run's `stats.json`. Issues
+with no report link are left out. It makes no model calls.
+
+`node .github/actions/pr-exploratory-test/triage-page.mjs triage.json > triage.html`
+turns that into the Triage outcomes page: a bar of every outcome, the same
+outcomes by severity and by feature, the type, source and skill version
+counts, and every issue. Selecting a bar segment lists those issues, and
+`?issue=N` lists one, which is how the Shipping impact page links to it.
+
+The two pages share a top row (a switch between them and the date picker)
+and a footer, from `explore-pages.mjs`. The same nightly workflow builds
+both, in separate jobs. The triage job runs only once the
+`EXPLORE_TRIAGE_CONNECT_GUID` repo variable is set, from
+`CONNECT_API_KEY=<your key> node outcomes-publish.mjs create triage`.
+
 ## Where things live
 
 The top of `renderer/` holds only what gets run: the pipeline, `render.mjs`,
@@ -149,12 +171,11 @@ holds the text helpers and the ledger parser.
 
 | To change | Edit |
 |---|---|
-| What an agent is told | `explorer.md`, `verifier.md`, `isolator.md`, `editor.md` |
+| What an agent is told | `explorer.md`, `verifier.md`, `isolator.md` |
 | Why each agent's rules exist, and what checks them | `RULES.md` |
 | Step order, retries, fallbacks, the isolator's brief | `renderer/pipeline.mjs` |
 | How a local run starts an agent, and its time limit | `renderer/agents/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
 | The verifier's prompt and how verdicts are applied | `renderer/agents/finish.mjs` |
-| The editor's prompt and how rewrites are checked | `renderer/agents/edit.mjs` |
 | The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (runs every check on report.json: against the ledger, and the write-up rules), `renderer/lint/lint-wording.mjs` and `renderer/lint/lint-ledger.mjs` (the write-up rules), `renderer/lint/lint-rules.mjs` (each rule's ID and severity), `renderer/page/report-json.mjs` (what the page reads) |
 | Reading the ledger | `renderer/shared/ledger.mjs` |
 | The page | `renderer/page/html.mjs` (template), `renderer/page/report-css.mjs` (tokens), `renderer/page/page-scripts.mjs` (its scripts), `renderer/page/page-common.mjs` (icons and shared helpers), `renderer/shared/text.mjs` (markdown to safe HTML) |

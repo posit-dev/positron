@@ -292,7 +292,7 @@ async function createLanguageSnippetFile(pick: ISnippetPick, fileService: IFileS
 			'\t// }',
 			'}'
 		].join('\n');
-	// --- Start Positron ---
+		// --- Start Positron ---
 	}
 	// --- End Positron ---
 	await textFileService.write(pick.filepath, contents);

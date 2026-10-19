@@ -366,7 +366,7 @@ jobs:
       - name: Copy the pristine skill
         run: cp -r .claude/skills/drive-positron "$RUNNER_TEMP/dp"
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
 
@@ -524,7 +524,7 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
 

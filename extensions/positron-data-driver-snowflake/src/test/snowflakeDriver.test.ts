@@ -4,13 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as positron from 'positron';
 import { Readable } from 'stream';
 import * as vscode from 'vscode';
 import { SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
 import { defaultConnectionFactory, isStatementError, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
 import { createDatabaseNode, createSchemaNode, parseSemanticViewDescription, stageFilePath } from '../snowflakeNodes.js';
-import { parseSnowflakeAccount } from '../snowflakeDriver.js';
+import { connectionOptionsFromToml, connectionsFileOptions, parseSnowflakeAccount } from '../snowflakeDriver.js';
 import { isWorkbenchManaged } from '../workbenchCredentials.js';
 
 // Default config for tests -- not used to connect, just to construct.
@@ -1143,6 +1146,64 @@ suite('Workbench Managed Credentials Detection', () => {
 			notWorkbench: false,
 			userHome: false,
 			unset: false,
+		});
+	});
+});
+
+suite('Snowflake Connections File Options', () => {
+	test('an OAuth entry passes its token as the token and connects through its host', () => {
+		// The entry Posit Workbench writes; the host is the account's $SNOWFLAKE_HOST.
+		const options = connectionOptionsFromToml('workbench', {
+			account: 'myorg-myacct',
+			host: 'myorg-myacct.internal.snowflakecomputing.com',
+			token: 'oauth-token',
+			authenticator: 'oauth',
+		});
+		assert.deepStrictEqual(
+			{ host: options.host, authenticator: options.authenticator, token: options.token, password: options.password },
+			{ host: 'myorg-myacct.internal.snowflakecomputing.com', authenticator: 'OAUTH', token: 'oauth-token', password: undefined });
+	});
+
+	test('a token with no authenticator is a PAT supplied as the password', () => {
+		const options = connectionOptionsFromToml('pat', { account: 'myorg-myacct', user: 'testuser', token: 'pat-token' });
+		assert.deepStrictEqual(
+			{ host: options.host, authenticator: options.authenticator, token: options.token, password: options.password },
+			{ host: undefined, authenticator: undefined, token: undefined, password: 'pat-token' });
+	});
+
+	suite('re-reading the file on reconnect', () => {
+		let dir: string;
+		let filePath: string;
+		const writeEntry = (fields: string) => fs.writeFileSync(filePath, `[workbench]\n${fields}\n`);
+
+		setup(() => {
+			dir = fs.mkdtempSync(path.join(os.tmpdir(), 'snowflake-connections-'));
+			filePath = path.join(dir, 'connections.toml');
+		});
+
+		teardown(() => {
+			fs.rmSync(dir, { recursive: true, force: true });
+		});
+
+		test('an OAuth entry supplies the token the file holds at each connect', async () => {
+			// Workbench rewrites the file when it rotates the token; a reconnect must not reuse the old one.
+			writeEntry('account = "myorg-myacct"\nauthenticator = "oauth"\ntoken = "token-1"');
+			const options = connectionsFileOptions(filePath, 'workbench');
+			writeEntry('account = "myorg-myacct"\nauthenticator = "oauth"\ntoken = "token-2"');
+			assert.strictEqual(await options.tokenProvider!(), 'token-2');
+		});
+
+		test('an OAuth entry since written for a different account is refused', async () => {
+			writeEntry('account = "myorg-myacct"\nauthenticator = "oauth"\ntoken = "token-1"');
+			const options = connectionsFileOptions(filePath, 'workbench');
+			writeEntry('account = "otherorg-otheracct"\nauthenticator = "oauth"\ntoken = "token-2"');
+			await assert.rejects(options.tokenProvider!(), /different account/);
+		});
+
+		test('a PAT entry is read once, with no token provider', () => {
+			writeEntry('account = "myorg-myacct"\nuser = "testuser"\ntoken = "pat-token"');
+			const options = connectionsFileOptions(filePath, 'workbench');
+			assert.deepStrictEqual({ password: options.password, tokenProvider: options.tokenProvider }, { password: 'pat-token', tokenProvider: undefined });
 		});
 	});
 });

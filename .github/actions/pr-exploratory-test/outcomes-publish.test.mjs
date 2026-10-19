@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildManifest, bundle, create, deploy, fetchPrevious } from './outcomes-publish.mjs';
+import { buildManifest, bundle, CONTENT as PAGES, create, deploy, fetchPrevious } from './outcomes-publish.mjs';
 
 const SERVER = 'https://connect.example.com';
 const CONTENT = { guid: 'c1', content_url: `${SERVER}/content/c1/` };
@@ -96,8 +96,18 @@ test('create makes acl content at the vanity path and returns its GUID', async (
 		'PUT /__api__/v1/content/c1/vanity': {},
 	});
 	assert.equal(await create({ server: SERVER, key: 'k', fetch }), 'c1');
-	assert.deepEqual(JSON.parse(calls[0].body), { name: 'explore-outcomes', title: '/explore outcomes', access_type: 'acl' });
+	assert.deepEqual(JSON.parse(calls[0].body), { name: 'explore-outcomes', title: '/explore shipping impact', access_type: 'acl' });
 	assert.deepEqual(JSON.parse(calls[1].body), { path: '/explore-outcomes/' });
+});
+
+test('create makes the triage page at its own name and vanity path', async () => {
+	const { fetch, calls } = fakeConnect({
+		'POST /__api__/v1/content': CONTENT,
+		'PUT /__api__/v1/content/c1/vanity': {},
+	});
+	await create({ server: SERVER, key: 'k', fetch, ...PAGES.triage });
+	assert.deepEqual(JSON.parse(calls[0].body), { name: 'explore-triage', title: '/explore triage outcomes', access_type: 'acl' });
+	assert.deepEqual(JSON.parse(calls[1].body), { path: '/explore-triage/' });
 });
 
 test('a failed deploy task throws with its error', async () => {

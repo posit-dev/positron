@@ -28,6 +28,7 @@ const CUSTOM_CONTEXT_MENU_ITEMS = '.custom-context-menu-items';
 // button (aria-label "Expand" when collapsed) and a content area holding the node label.
 const TREE_ROW = '.positron-tree-row';
 const TREE_TWISTY_COLLAPSED = '.positron-tree-twisty-collapsed';
+const TREE_TWISTY_EXPANDED = '.positron-tree-twisty-expanded';
 
 // The container that hosts the connection tree, and the virtualized grid inside it. The grid renders
 // only the rows that fit in the viewport (no overscan), so rows below the fold are absent from the
@@ -183,6 +184,22 @@ export class DataConnections {
 	}
 
 	/**
+	 * Picks a value in an Option-type field of the "Configure Database" dialog. Option parameters
+	 * render as a native select rather than a text input, so {@link fillConnectionInputs} cannot set
+	 * them.
+	 * @param label The field label, e.g. 'Connection'.
+	 * @param value The option to select.
+	 */
+	async selectConnectionOption(label: string, value: string): Promise<void> {
+		await test.step(`Select ${label}: ${value}`, async () => {
+			const field = this.dialog.locator(PARAMETER_FIELD).filter({
+				has: this.code.driver.currentPage.getByText(label, { exact: true })
+			});
+			await field.locator('.parameter-select').selectOption(value);
+		});
+	}
+
+	/**
 	 * Saves the connection in the "Configure Database" dialog and waits for it to close.
 	 */
 	async save(): Promise<void> {
@@ -322,6 +339,28 @@ export class DataConnections {
 		const row = this.code.driver.currentPage.locator(TREE_ROW)
 			.filter({ has: this.connectionEntries.filter({ hasText: connectionName }) });
 		await this.expandRow(row, connectionName);
+	}
+
+	/**
+	 * Collapses the root connection entry, removing its subtree from the grid. Use when a suite
+	 * drives more than one connection: node labels such as 'Databases' repeat under every expanded
+	 * connection, and the label-based lookups above are strict. No-op if already collapsed.
+	 * @param connectionName The connection name shown in the tree.
+	 */
+	async collapseConnection(connectionName: string): Promise<void> {
+		await test.step(`Collapse connection: ${connectionName}`, async () => {
+			const row = this.code.driver.currentPage.locator(TREE_ROW)
+				.filter({ has: this.connectionEntries.filter({ hasText: connectionName }) });
+			// revealNode can return before the row renders; checking the twisty then would see none
+			// and skip the collapse.
+			await this.revealNode(row);
+			await expect(row).toBeVisible({ timeout: this.actionTimeout });
+			const expandedTwisty = row.locator(TREE_TWISTY_EXPANDED);
+			if (await expandedTwisty.count() > 0) {
+				await expandedTwisty.first().dispatchEvent('click');
+				await expect(row.locator(TREE_TWISTY_COLLAPSED)).toHaveCount(1);
+			}
+		});
 	}
 
 	/**
@@ -483,6 +522,18 @@ export class DataConnections {
 		const row = this.treeRow(label, kind);
 		await this.revealNode(row);
 		await expect(row).toBeVisible({ timeout: this.actionTimeout });
+	}
+
+	/**
+	 * Asserts that a tree node with the given label does not exist in the virtualized tree.
+	 * Scans the tree first (see {@link revealNode}), so a matching row below the fold is not missed.
+	 * @param label The node label.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
+	 */
+	async expectNodeAbsent(label: string, kind?: DataConnectionNodeKind): Promise<void> {
+		const row = this.treeRow(label, kind);
+		await this.revealNode(row);
+		await expect(row, `Expected node "${label}" to be absent`).toHaveCount(0);
 	}
 
 	/**

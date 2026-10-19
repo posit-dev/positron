@@ -12,6 +12,7 @@
 
 import { problem } from './lint-rules.mjs';
 import { LOWERCASE_NAMES } from '../shared/text.mjs';
+import { FILE_NAME } from '../page/repro-files.mjs';
 
 // A one-line Result, as explorer.md asks; anything longer is a scenario's worth of notes.
 export const RESULT_MAX = 160;
@@ -20,13 +21,27 @@ export const RESULT_MAX = 160;
 // actions.log and a check can sit between any two. A lowercase verb after
 // "then" is a second action; a capitalized word is a menu item ("More, then Insert Cell Above").
 const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|ten|\d+) times|each of)\b/i;
-// A precondition saying how it was done in the app ("started with Run App", "then opened"): that is a step.
+// A precondition that is something done in the app ("then opened", a running Shiny app, "started in S03"): that is a step. Saying how an earlier scenario made a state ("a console started with ...") is allowed.
 // A scratch path the reader does not have; a workspace is named by what it holds.
 const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\/(?:Users|home)\/\S*)/;
 // An app already serving is what the steps start, so the reader sees it start.
 const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+|\brunning in (?:\w+ ){0,3}console\b/i;
-const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran)|Run(?: Shiny)? App|shown in the|in the session|defined in the|still open|drew|(?:started|opened) (?:in|by) S\d+|S\d+ (?:started|drew|opened|left))\b/i;
+const DONE_IN_APP = /\b(?:(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:(?:\w+\s+){0,3}?\w+ed|ran)|Run(?: Shiny)? App|shown in the|in the session|defined in the|still open|drew|(?:started|opened) (?:in|by) S\d+|S\d+ (?:started|drew|opened|left))\b/i;
 // A finding's reader runs the file as its first step; a ledger row's third field may say how a scenario made it.
+// Opening a view or typing into it is something the reader does, so it is step 1.
+const UI_ACTION = /\btyped (?:into|in)\b|\b(?:editor|pane|panel|view|dialog|palette|picker) open\b/i;
+// A setting at its default says it is one and at its default; one the run changed is a saved settings file.
+// How to reset a setting is known, and what it then shows is a check.
+const SETTING_KEY = /`([a-z][\w-]*(?:\.[\w-]+)+)(?::[^`]*)?`/gi;
+const SETTING_WORDS = /\bsettings?\b|\bdefault\b|\b(?:true|false)\b|\bset to\b|`[^`]*: [^`]*`/i;
+const SETTING_EXTRA = /\bso (?:the|that|it)\b|\bReset Setting\b|\bgear menu\b|\bnot set in\b/i;
+const SETTINGS_FILE = /`files\/(?:[\w.-]+\/)*settings\.json`/;
+const WHOLE_FILE_NAME = new RegExp(`^(?:${FILE_NAME.source})$`, 'i');
+
+/** Whether a precondition is about a setting: a dotted key in backticks that is not a file, and words that say so. */
+function namesSetting(text) {
+	return [...text.matchAll(SETTING_KEY)].some(m => !WHOLE_FILE_NAME.test(m[1]) && !m[1].includes('/')) && SETTING_WORDS.test(text);
+}
 const RUN_IN_SESSION = /\brun in (?:the |its |their |each |both )?(?:\w+ ){0,3}(?:sessions?|consoles?)\b/i;
 // Code a precondition runs rather than describes: loading it is step 1.
 const RUN_COMMAND = /^(?:%run\b|%load\b|!|source\(|library\(|require\(|exec\(|import\s|from\s+\S+\s+import\s|install\.packages\(|pip\s)/;
@@ -157,6 +172,25 @@ export function lintPreconditionActions(preconditions) {
 		if (running) {
 			problems.push(problem('precondition-running-app', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" is a running app ("${running[0]}"); start it in the steps, with a check that it runs`));
 		}
+		const ui = done || running ? null : UI_ACTION.exec(plainText);
+		if (ui) {
+			problems.push(problem('precondition-ui-action', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" is done in the app ("${ui[0]}"); open or type it in step 1, and keep the precondition to the state before it`));
+		}
+		// A ledger row's later fields say how the state was made, so only the state counts.
+		const state = text.split(' | ')[0];
+		const setting = !ui && namesSetting(state);
+		const extra = setting ? SETTING_EXTRA.exec(state.replace(/`[^`]*`/g, 'code')) : null;
+		if (extra) {
+			problems.push(problem('precondition-setting-form', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" says more than the setting ("${extra[0]}"); write \`key\` setting at its default, or save a changed value in \`files/.vscode/settings.json\`, and check what it shows in a step`));
+		} else if (setting && /\bat its default\b/i.test(state) && !/\bsetting at its default\b/i.test(state)) {
+			problems.push(problem('precondition-setting-form', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" does not say its key is a setting; write \`key\` setting at its default`));
+		} else if (setting && !/\bat its default\b/i.test(state) && !SETTINGS_FILE.test(state)) {
+			problems.push(problem('precondition-setting-file', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" writes a changed setting out; save it in \`files/.vscode/settings.json\` (or \`files/settings.json\` for one that only works in user settings) and name that path, which the page links`));
+		}
+		const stepRef = where.startsWith('Finding') ? /\bsteps? \d+\b/i.exec(text) : null;
+		if (stepRef) {
+			problems.push(problem('precondition-step-reference', `report: ${where} precondition "${name}" points at ${stepRef[0]}; write the name or value itself, so the precondition reads on its own`));
+		}
 		if (where.startsWith('Finding') && /\bthe run's\b/i.test(text)) {
 			problems.push(problem('precondition-the-runs', `report: ${where} precondition "${name}" says "the run's", which the reader does not have; name the interpreter and package ("Python 3.12 with shiny 1.9.1")`));
 		}
@@ -168,8 +202,9 @@ export function lintPreconditionActions(preconditions) {
 	return problems;
 }
 
-// The Result, and a Cause's lead sentence, are read at a glance.
+// The Result, a finding's summary and a Cause's lead sentence are read at a glance.
 export const SUMMARY_WORDS = 60;
+export const OPENING_WORDS = 50;
 export const CAUSE_LEAD_WORDS = 40;
 
 /** Words in prose, a code span counting as one. */
@@ -197,13 +232,15 @@ function comparisonProblems(n, label, text) {
 
 // Backends a reference to the right answer usually comes from.
 const BACKENDS = [['pandas', /\bpandas\b/i], ['polars', /\bpolars\b/i], ['R', /\bR\b/]];
+// A backend giving a value ("pandas shows"), not one named as what was tested ("the R session").
+const REPORTS_VALUE = /\s+(?:also\s+)?(?:shows|gives|returns|reports|displays|says)\b/.source;
 
 /**
  * Observed and Expected read as sentences about one thing, each number written
  * one way. The checks are narrow on purpose: each names its fix.
  * - A semicolon joins notes; write sentences.
- * - A backend the title does not name is the reference that shows the right
- *   answer, so it belongs in Expected.
+ * - A backend the title does not name, giving a value, is the reference that
+ *   shows the right answer, so it belongs in Expected.
  * - The same number grouped in one place and ungrouped in another reads as
  *   two numbers.
  */
@@ -253,7 +290,7 @@ function clarityProblems(n, title, observed, expected) {
 		}
 	}
 	if (observed) {
-		const named = BACKENDS.filter(([, re]) => re.test(prose(observed)) && !re.test(title)).map(([name]) => name);
+		const named = BACKENDS.filter(([, re]) => new RegExp(re.source + REPORTS_VALUE, re.flags).test(prose(observed)) && !re.test(title)).map(([name]) => name);
 		if (named.length) {
 			problems.push(problem('reference-in-observed', `report: Finding ${n} observed names ${named.join(' and ')}, which the title does not; the reference that shows the right answer goes in expected ("as ${named[0]} shows for the same data")`));
 		}

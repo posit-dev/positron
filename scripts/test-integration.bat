@@ -6,6 +6,16 @@ set "SCRIPT_DIR=%~dp0"
 
 pushd %SCRIPT_DIR%\..
 
+:: --- Start Positron ---
+:: Same workaround as test-remote-integration.bat and test-web-integration.bat:
+:: resolve TMP to its long form. On CI it is C:\Users\RUNNER~1\..., and under
+:: Node 24.16+ fs.watch on an 8.3 short-name path drops every event (libuv
+:: regression, https://github.com/nodejs/node/issues/63638), which breaks the
+:: extension tests that watch files in temp directories.
+for /f "delims=" %%i in ('node -p "require('fs').realpathSync.native(require('os').tmpdir())"') do set "TMP=%%i"
+set "TEMP=%TMP%"
+:: --- End Positron ---
+
 :: Parse arguments for help and filters
 set "HAS_FILTER="
 set "RUN_FILE="
@@ -171,6 +181,11 @@ call "%INTEGRATION_TEST_ELECTRON_PATH%" %SCRIPT_DIR%\..\extensions\vscode-api-te
 if %errorlevel% neq 0 exit /b %errorlevel%
 :skip_api_workspace
 
+:: --- Start Positron ---
+:: Colorize tests disabled -- see https://github.com/posit-dev/positron/issues/7349
+:: (mirrors test-integration.sh)
+goto skip_colorize
+:: --- End Positron ---
 call :should_run_suite colorize || goto skip_colorize
 echo.
 echo ### Colorize tests
@@ -293,6 +308,27 @@ if defined GREP_PATTERN (
 )
 if %errorlevel% neq 0 exit /b %errorlevel%
 :skip_copilot
+
+:: --- Start Positron ---
+:: Positron extension suites. Keep this list in sync with test-integration.sh.
+:: positron-run-app is left out there too (flaky). Skipped when --suite is
+:: given, since these suites are not selectable by name.
+if defined SUITE_FILTER goto skip_positron
+:: The extension host loads an extension from a path with a lowercase drive
+:: letter (c:\), while vscode-test requires the test files through the config
+:: file's path (C:\). Node keys its module cache by path, so a test that
+:: imports extension modules would get its own copy, separate from the
+:: activated extension's state. Pass the config through a lowercase-drive path
+:: so both load the same modules.
+for /f "delims=" %%i in ('node -p "const p = require('path').resolve('.vscode-test.js'); p[0].toLowerCase() + p.slice(1)"') do set "VSCODE_TEST_CONFIG=%%i"
+for %%e in (authentication positron-skills positron-code-cells next-edit-suggestions positron-r positron-connections positron-duckdb positron-data-driver-duckdb positron-data-driver-sqlite positron-data-driver-databricks positron-data-driver-pins positron-data-driver-odbc positron-zed) do (
+	echo.
+	echo ### %%e tests
+	call npm run test-extension -- -l %%e --config "%VSCODE_TEST_CONFIG%"
+	if errorlevel 1 exit /b 1
+)
+:skip_positron
+:: --- End Positron ---
 
 :: Tests standalone (CommonJS)
 

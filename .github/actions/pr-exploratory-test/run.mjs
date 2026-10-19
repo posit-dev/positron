@@ -41,11 +41,13 @@ const TIME_LIMIT = parseTimeLimit(process.env.TIME_LIMIT);
 let timedOut = false;
 let timeWasUp = false;
 // The verify pass never drives the app, so it needs far fewer turns than the
-// run it checks; two trial passes used 22 and 26 tool calls.
-const VERIFY_MODEL = process.env.VERIFY_MODEL || 'sonnet';
+// run it checks; two trial passes used 22 and 26 tool calls. Opus caught
+// every planted mistake in the plant test that Sonnet missed a quarter of.
+const VERIFY_MODEL = process.env.VERIFY_MODEL || 'opus';
 const VERIFY_MAX_TURNS = parsePosIntEnv('VERIFY_MAX_TURNS', 60, process.env.VERIFY_MAX_TURNS);
 const VERIFY_ENABLED = process.env.VERIFY !== 'false';
 // The isolator drives the app, but only to run a few controls in its 12 minutes.
+const ISOLATE_MODEL = process.env.ISOLATE_MODEL || 'sonnet';
 const ISOLATE_MAX_TURNS = parsePosIntEnv('ISOLATE_MAX_TURNS', 100, process.env.ISOLATE_MAX_TURNS);
 // Off for teams whose AI policy does not allow the report's copy-for-agent prompts.
 const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
@@ -155,17 +157,17 @@ ${ENVIRONMENT}
  * itself reads. Its verdicts are advisory and never remove a finding.
  */
 async function runAgent(step) {
-	const maxTurns = { edit: 2, isolate: ISOLATE_MAX_TURNS, verify: VERIFY_MAX_TURNS }[step.role];
+	const maxTurns = { isolate: ISOLATE_MAX_TURNS, verify: VERIFY_MAX_TURNS }[step.role];
 	const result = await runSession({
 		model: step.model, claudeCodePath: CLAUDE_CODE_PATH, label: step.purpose,
 		prompt: step.role === 'isolate' ? step.prompt + ISOLATE_CI_TAIL : step.prompt,
 		allowedTools: step.tools, maxTurns, cwd: step.cwd, resume: step.resume,
 		timeLimit: step.timeLimitMinutes ?? null, timeUpMessage: step.timeUpMessage,
-		// The verifier and editor make few calls, so each is logged in full for
+		// The verifier makes few calls, so each is logged in full for
 		// whoever audits the run; the isolator drives the app, like the explorer.
 		fullLog: step.role !== 'isolate',
 	});
-	return { text: result.finalText, model: result.cost.model, durationMs: result.cost.duration_ms, turns: result.cost.num_turns, costUsd: result.cost.total_cost_usd, sessionId: result.sessionId };
+	return { text: result.finalText, model: result.cost.model, durationMs: result.cost.duration_ms, turns: result.cost.num_turns, costUsd: result.cost.total_cost_usd, sessionId: result.sessionId, opened: result.opened };
 }
 
 async function main() {
@@ -241,7 +243,7 @@ async function main() {
 	const explored = { model: cost.model, costUsd: cost.total_cost_usd, turns: cost.num_turns, maxTurns: MAX_TURNS, durationMs: cost.duration_ms };
 	const pr = /^\d+$/.test(process.env.PR_NUMBER ?? '') && process.env.GITHUB_REPOSITORY ? { pr: { repo: process.env.GITHUB_REPOSITORY, number: Number(process.env.PR_NUMBER) } } : {};
 	const report = await completeRun(WORK_DIR, explored, {
-		repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL,
+		repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL, isolateModel: ISOLATE_MODEL,
 		branchCheck: `CI compiled \`out/\` in this job from the ref under test (head \`${HEAD_SHA.slice(0, 10)}\`).`,
 		header: { ...pr, headSha: HEAD_SHA },
 		log: line => console.log(`[pipeline] ${line}`),

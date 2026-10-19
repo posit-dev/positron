@@ -10,15 +10,16 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { LookupHelpTopic } from '../../browser/positronHelpActions.js';
 import { IPositronHelpService } from '../../browser/positronHelpService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 
 /** A session whose runtime reports the given language. */
-function sessionFor(languageId: string): ILanguageRuntimeSession {
+function sessionFor(languageId: string, state = RuntimeState.Ready): ILanguageRuntimeSession {
 	return stubInterface<ILanguageRuntimeSession>({
 		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId }),
+		getRuntimeState: () => state,
 	});
 }
 
@@ -128,6 +129,19 @@ describe('LookupHelpTopic', () => {
 
 	it('reports when no session matches the resolved language', async () => {
 		stubServices(sessionFor('r'), [sessionFor('python')]);
+
+		const result = await run('mean');
+
+		expect(result).toEqual({
+			found: false,
+			message: 'Open a file for the language you want to look up help topics for, or start an interpreter for that language.',
+		});
+		expect(showHelpTopic).not.toHaveBeenCalled();
+	});
+
+	it('reports when the only session for the language has exited', async () => {
+		const exited = sessionFor('r', RuntimeState.Exited);
+		stubServices(exited, [exited]);
 
 		const result = await run('mean');
 

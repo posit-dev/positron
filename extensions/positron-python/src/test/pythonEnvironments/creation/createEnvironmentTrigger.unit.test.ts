@@ -24,6 +24,8 @@ import { Common, CreateEnv } from '../../../client/common/utils/localize';
 import * as autoCreateVenv from '../../../client/pythonEnvironments/creation/provider/autoCreateVenv';
 import * as autoCreateLockFileEnv from '../../../client/pythonEnvironments/creation/provider/autoCreateLockFileEnv';
 import { IPythonRuntimeManager } from '../../../client/positron/manager';
+import { IActivatedEnvironmentLaunch } from '../../../client/interpreter/contracts';
+import { createDeferred } from '../../../client/common/utils/async';
 import * as fsapi from '../../../client/common/platform/fs-paths';
 import * as pixiModule from '../../../client/pythonEnvironments/common/environmentManagers/pixi';
 // --- End Positron ---
@@ -53,6 +55,7 @@ suite('Create Environment Trigger', () => {
     let autoInstallPixiEnvStub: sinon.SinonStub;
     let showPixiNotInstalledWarningStub: sinon.SinonStub;
     const pythonRuntimeManager = {} as IPythonRuntimeManager;
+    let waitForSelectionStub: sinon.SinonStub;
     const pixi = {} as pixiModule.Pixi;
     // --- End Positron ---
 
@@ -111,7 +114,10 @@ suite('Create Environment Trigger', () => {
         showPixiNotInstalledWarningStub = sinon.stub(autoCreateLockFileEnv, 'showPixiNotInstalledWarning');
         showPixiNotInstalledWarningStub.resolves(undefined);
         sinon.stub(commandApis, 'registerCommand').returns({ dispose: () => undefined });
-        registerCreateEnvironmentTriggers([], pythonRuntimeManager);
+        waitForSelectionStub = sinon.stub().resolves();
+        registerCreateEnvironmentTriggers([], pythonRuntimeManager, {
+            waitForSelection: waitForSelectionStub,
+        } as unknown as IActivatedEnvironmentLaunch);
         // --- End Positron ---
     });
 
@@ -266,6 +272,30 @@ suite('Create Environment Trigger', () => {
         // --- End Positron ---
         sinon.assert.notCalled(disableCreateEnvironmentTriggerStub);
     });
+
+    // --- Start Positron ---
+    test('Waits for the activated-environment selection before reading the interpreter', async () => {
+        shouldPromptToCreateEnvStub.returns(true);
+        hasVenvStub.resolves(false);
+        hasPrefixCondaEnvStub.resolves(false);
+        hasRequirementFilesStub.resolves(true);
+        hasKnownFilesStub.resolves(false);
+        isGlobalPythonSelectedStub.resolves(true);
+        showInformationMessageStub.resolves(undefined);
+        const selection = createDeferred<void>();
+        waitForSelectionStub.returns(selection.promise);
+
+        const check = triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+        await new Promise((resolve) => setImmediate(resolve));
+        sinon.assert.calledOnce(waitForSelectionStub);
+        sinon.assert.notCalled(isGlobalPythonSelectedStub);
+
+        selection.resolve();
+        await check;
+        sinon.assert.calledOnce(isGlobalPythonSelectedStub);
+        sinon.assert.calledOnce(showInformationMessageStub);
+    });
+    // --- End Positron ---
 
     test('Should show prompt if all conditions met: User clicks create', async () => {
         shouldPromptToCreateEnvStub.returns(true);

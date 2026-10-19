@@ -3,9 +3,9 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 # ---------------------------------------------------------------------------------------------
 
-# Tell cli that Positron's console supports colors.
+# Tell cli that Positron's console supports 24-bit (true) color.
 # Requires cli >=3.6.1.9000 (https://github.com/r-lib/cli/pull/625)
-options(cli.default_num_colors = 256L)
+options(cli.default_num_colors = 256L^3)
 
 # Tell cli that Positron's console supports dynamic updates
 # TODO: This would be better as `cli.default_dynamic`, but that doesn't exist

@@ -9,8 +9,20 @@ import { assert, use as chaiUse } from 'chai';
 import * as windowApis from '../../../client/common/vscodeApis/windowApis';
 import { handleCreateEnvironmentCommand } from '../../../client/pythonEnvironments/creation/createEnvironment';
 import { IDisposableRegistry } from '../../../client/common/types';
-import { onCreateEnvironmentStarted } from '../../../client/pythonEnvironments/creation/createEnvApi';
-import { CreateEnvironmentProvider } from '../../../client/pythonEnvironments/creation/proposed.createEnvApis';
+// --- Start Positron ---
+// import { onCreateEnvironmentStarted } from '../../../client/pythonEnvironments/creation/createEnvApi';
+// import { CreateEnvironmentProvider } from '../../../client/pythonEnvironments/creation/proposed.createEnvApis';
+import { Uri } from 'vscode';
+import {
+    onCreateEnvironmentExited,
+    onCreateEnvironmentStarted,
+} from '../../../client/pythonEnvironments/creation/createEnvApi';
+import {
+    CreateEnvironmentProvider,
+    EnvironmentDidCreateEvent,
+} from '../../../client/pythonEnvironments/creation/proposed.createEnvApis';
+import { reusedEnvironmentResult } from '../../../client/pythonEnvironments/creation/reusedEnvironment';
+// --- End Positron ---
 
 chaiUse(chaiAsPromised.default);
 
@@ -273,4 +285,37 @@ suite('Create Environments Tests', () => {
         assert.isTrue(showQuickPickStub.notCalled);
         assert.isTrue(showQuickPickWithBackStub.calledOnce);
     });
+
+    // --- Start Positron ---
+    test('The creation event does not carry the reused marker', async () => {
+        // The marker is internal to Positron; extensions listening to onDidCreateEnvironment
+        // get the standard result.
+        const folder = { uri: Uri.file('/project'), name: 'project', index: 0 };
+        const reused = reusedEnvironmentResult('/project/.venv/bin/python', folder);
+        const provider = typemoq.Mock.ofType<CreateEnvironmentProvider>();
+        provider.setup((p) => p.name).returns(() => 'test');
+        provider.setup((p) => p.id).returns(() => 'test-id');
+        provider.setup((p) => p.description).returns(() => 'test-description');
+        provider.setup((p) => p.createEnvironment(typemoq.It.isAny())).returns(() => Promise.resolve(reused));
+        provider.setup((p) => (p as any).then).returns(() => undefined);
+        showQuickPickStub.resolves(provider.object);
+        let event: EnvironmentDidCreateEvent | undefined;
+        disposables.push(
+            onCreateEnvironmentExited((e) => {
+                event = e;
+            }),
+        );
+
+        const result = await handleCreateEnvironmentCommand([provider.object]);
+
+        assert.deepStrictEqual(
+            {
+                eventHasMarker: event !== undefined && 'reused' in event,
+                path: event?.path,
+                resultHasMarker: result !== undefined && 'reused' in result,
+            },
+            { eventHasMarker: false, path: '/project/.venv/bin/python', resultHasMarker: true },
+        );
+    });
+    // --- End Positron ---
 });

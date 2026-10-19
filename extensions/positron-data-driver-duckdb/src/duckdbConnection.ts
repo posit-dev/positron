@@ -14,8 +14,12 @@ export const DUCKDB_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-duckdb';
 /** Monotonically increasing id so each connection's previewed datasets get a unique key. */
 let nextConnectionId = 1;
 
-/** Matches the native error DuckDB raises when another process already holds the file's lock. */
-const LOCK_CONFLICT_PATTERN = /could not set lock|conflicting lock/i;
+/**
+ * Matches the native error DuckDB raises when another process already holds the file's lock. On
+ * Windows that is a sharing violation rather than a lock error; the OS text is localized, so match
+ * DuckDB's own "File is already open in <process>" suffix instead.
+ */
+const LOCK_CONFLICT_PATTERN = /could not set lock|conflicting lock|file is already open in/i;
 
 /**
  * Formats an open failure for display. DuckDB takes an OS-level lock on a database file and allows

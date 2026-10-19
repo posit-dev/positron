@@ -5,7 +5,7 @@
 
 // The steps after the explorer, shared by CI (run.mjs) and a local run: stop
 // its instances, verify, isolate what the verifier could not settle, apply the
-// verdicts, edit. The caller only says how to run an agent.
+// verdicts. The caller only says how to run an agent.
 //
 // Local usage, each agent a `claude -p` session:
 //   node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [...]
@@ -23,7 +23,6 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude, stopAgents, WRAP_UP_MINUTES } from './agents/claude-cli.mjs';
-import { applyEditReply, writeEditPrompt } from './agents/edit.mjs';
 import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
 
@@ -120,6 +119,15 @@ export function recordBranchCheck(dir, body) {
 	writeReport(path, { ...report, header: { ...report.header, details: [...details, { title: 'Branch verification', body }] } });
 }
 
+/**
+ * The Playwright session a local run drives its instance under, named for the
+ * run: runs side by side on one checkout share playwright-cli's sessions, and
+ * two under one name drive the same window.
+ */
+export function sessionName(dir) {
+	return `et-${basename(dir).replace(/^.*-/, '')}`;
+}
+
 /** The explorer's prompt: explorer.md, the brief, the Environment lines, and what a local run sets up for it. */
 export function explorePrompt(dir, brief, environment = []) {
 	return [
@@ -133,6 +141,8 @@ export function explorePrompt(dir, brief, environment = []) {
 		'',
 		...(environment.length ? [environmentBrief(environment), ''] : []),
 		`Run directory: \`${dir}\``,
+		'',
+		`Playwright session: \`${sessionName(dir)}\`, also in \`$PW_SESSION\`.`,
 		'',
 		`The renderer is \`${RENDER}\`; \`lint-json.mjs\` and \`report.schema.json\` are beside it.`,
 		'',
@@ -200,6 +210,7 @@ function isolatePrompt(dir, { repo, base, head }, findings, reply) {
 		`Base: \`${base}\``,
 		`Head: \`${head}\``,
 		`Report: \`${reportPath(dir)}\``,
+		`Playwright session: \`${sessionName(dir)}-iso\``,
 		`Findings: ${findings.map(n => `Finding ${n}`).join(', ')}`,
 		'',
 		'The verifier\'s reply, which says for each of them what evidence is missing. Run that control first:',
@@ -212,15 +223,23 @@ function isolatePrompt(dir, { repo, base, head }, findings, reply) {
 /**
  * Runs every step after the explorer on `dir`, rewriting its report.json; returns each agent's `{ role, model, durationMs, turns, costUsd }`.
  * `runAgent({ role, purpose, model, prompt, tools, cwd, resume, timeLimitMinutes, timeUpMessage })` resolves to
- * `{ text, durationMs, turns, costUsd, sessionId }`; a throw leaves the report as it was. Replies go to `<purpose>-reply.md`.
+ * `{ text, durationMs, turns, costUsd, sessionId, opened }`, `opened` being the files it read, if known; a throw leaves the report as it was. Replies go to `<purpose>-reply.md`.
+ * `model` is the verifier's, `isolateModel` the isolator's: Opus caught every planted mistake in the 2026-10-15 plant test, and the isolator was not measured.
  */
-export async function finishRun(dir, { repo, base, head, baseName, runAgent, verify = true, model = 'sonnet', stop = stopInstances, log = () => { } }) {
+export async function finishRun(dir, { repo, base, head, baseName, runAgent, verify = true, model = 'opus', isolateModel = 'sonnet', stop = stopInstances, log = () => { } }) {
 	const passes = [];
+	// Every file a verifier session read, across its replies, so its claim to
+	// have looked at a screenshot can be checked. Null when the runner does not say.
+	let opened = null;
 	const ask = async step => {
 		log(`${step.resume ? 'message to' : 'new'} ${step.role} agent: ${step.purpose}`);
 		try {
-			const result = await runAgent({ model, ...step });
-			passes.push({ role: step.role, model: result.model ?? model, durationMs: result.durationMs ?? null, turns: result.turns ?? null, costUsd: result.costUsd ?? null });
+			const asked = step.role === 'isolate' ? isolateModel : model;
+			const result = await runAgent({ model: asked, ...step });
+			if (step.role === 'verify' && Array.isArray(result.opened)) {
+				opened = [...(opened ?? []), ...result.opened];
+			}
+			passes.push({ role: step.role, model: result.model ?? asked, durationMs: result.durationMs ?? null, turns: result.turns ?? null, costUsd: result.costUsd ?? null });
 			const text = String(result.text ?? '').trim();
 			writeFileSync(join(dir, `${step.purpose}-reply.md`), text);
 			return { text, sessionId: result.sessionId ?? null, error: '' };
@@ -235,13 +254,12 @@ export async function finishRun(dir, { repo, base, head, baseName, runAgent, ver
 	}
 	stop(dir);
 	if (verify) {
-		await verifyFindings(dir, { repo, base, head, baseName }, ask, stop, log);
+		await verifyFindings(dir, { repo, base, head, baseName }, ask, stop, log, () => opened);
 	}
-	await editReport(dir, ask, log);
 	return passes;
 }
 
-async function verifyFindings(dir, range, ask, stop, log) {
+async function verifyFindings(dir, range, ask, stop, log, opened = () => null) {
 	const promptPath = writeVerifyPrompt(dir, range);
 	if (!promptPath) {
 		return;
@@ -268,7 +286,7 @@ async function verifyFindings(dir, range, ask, stop, log) {
 	if (best && session && parseVerifyReply(best).problem) {
 		best = (await ask({ ...verifier, purpose: 'reformat', resume: session, prompt: REFORMAT_MESSAGE })).text || best;
 	}
-	let result = applyVerifyReply(dir, best, { error: best ? '' : first.error });
+	let result = applyVerifyReply(dir, best, { error: best ? '' : first.error, opened: opened() });
 	// One more ask when its numbers do not match the report's, or it does not
 	// show a check it was asked to make (the action log, the screenshots). After
 	// that, wrong numbers mark the findings unreviewed and a missing check is
@@ -276,24 +294,9 @@ async function verifyFindings(dir, range, ask, stop, log) {
 	if (result.retry) {
 		const again = session ? await ask({ ...verifier, purpose: 'recheck', resume: session, prompt: result.retry }) : { text: '' };
 		const usable = again.text && !parseVerifyReply(again.text).problem;
-		result = applyVerifyReply(dir, usable ? again.text : best, { final: true });
+		result = applyVerifyReply(dir, usable ? again.text : best, { final: true, opened: opened() });
 	}
 	(result.logLines ?? []).forEach(line => log(line));
-}
-
-/** Rewrites the findings' openings; an edit the guard rejects gets one retry. */
-async function editReport(dir, ask, log) {
-	const promptPath = writeEditPrompt(dir);
-	if (!promptPath) {
-		return;
-	}
-	const editor = { role: 'edit', tools: [], cwd: dir };
-	const { rejected, retry } = applyEditReply(dir, (await ask({ ...editor, purpose: 'edit', prompt: readFileSync(promptPath, 'utf8') })).text);
-	rejected.forEach(line => log(line));
-	if (retry) {
-		const text = (await ask({ ...editor, purpose: 'edit-retry', prompt: readFileSync(retry, 'utf8') })).text;
-		applyEditReply(dir, text, { last: true }).rejected.forEach(line => log(line));
-	}
 }
 
 /**
@@ -474,6 +477,9 @@ async function main(argv) {
 		});
 	}
 	if (fresh) {
+		// The agents and the helpers they run inherit it, so a call that leaves
+		// out the session still drives this run's window.
+		process.env.PW_SESSION = process.env.PLAYWRIGHT_CLI_SESSION = sessionName(dir);
 		const timeLimitPath = timeLimitFile(dir);
 		if (limit !== 'none') {
 			writeFileSync(timeLimitPath, `${limit}\n`);

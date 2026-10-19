@@ -41,13 +41,14 @@ import {
 import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 
 // --- Start Positron ---
+import { RecreatedEnvWatcher } from './recreatedEnvWatcher';
 import { getUvDirs, isUvEnvironment, isUvManagedBasePython } from './common/environmentManagers/uv';
 import { isCustomEnvironment, isEagerDiscoveryDisabled } from '../positron/interpreterSettings';
 import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalInstalledEnvs';
 // eslint-disable-next-line import/no-duplicates
 import { PythonEnvSource } from './base/info';
 import { getShortestString } from '../common/stringUtils';
-import { arePathsSame, canonicalizePath, isParentPath, normCasePath } from './common/externalDependencies';
+import { arePathsSame, canonicalizePath, isParentPath, normCasePath, pathExists } from './common/externalDependencies';
 import {
     ModuleEnvironmentLocator,
     moduleMetadataMap,
@@ -663,6 +664,9 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                         return existingEnv;
                     case ExistingEnvAction.AddNewEnv:
                         // Proceed to add the 'info' env because we truly do not have an 'old' env.
+                        // Another addEnv for the same path can finish while we await
+                        // checkForExistingEnv; update its entry rather than adding a duplicate.
+                        old = this._envs.find((item) => item.executable.filename === info.executable.filename);
                         break;
                     case ExistingEnvAction.ReplaceExistingEnv:
                         // 'info' is the shorter path env; set the 'old' env to the equivalent one we found
@@ -782,6 +786,12 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     }
 
     private async _doResolveEnv(envPath: string): Promise<PythonEnvInfo | undefined> {
+        // PET can resolve an executable that no longer exists, which would add a
+        // just-deleted env straight back. A bare command name like `python` is
+        // looked up on PATH by PET, so only check absolute paths.
+        if (path.isAbsolute(envPath) && !(await pathExists(envPath))) {
+            return undefined;
+        }
         // --- End Positron ---
         try {
             const native = await this.finder.resolve(envPath);
@@ -820,9 +830,15 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             }),
             onDidChangeWorkspaceFolders((e: WorkspaceFoldersChangeEvent) => {
                 e.removed.forEach((wf) => watcher.unwatchWorkspace(wf));
+                // --- Start Positron ---
+                e.removed.forEach((wf) => this._recreatedEnvWatcher.unwatchFolder(wf));
+                // --- End Positron ---
                 e.added.forEach((wf) => watcher.watchWorkspace(wf));
             }),
             watcher,
+            // --- Start Positron ---
+            this._recreatedEnvWatcher,
+            // --- End Positron ---
         );
 
         getWorkspaceFolders()?.forEach((wf) => watcher.watchWorkspace(wf));
@@ -863,9 +879,33 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                 // --- End Positron ---
             }
         } else {
-            this.removeEnv(e.executable);
+            // --- Start Positron ---
+            // The deleted path can be a folder holding envs (e.g. `.venv`), since
+            // the watcher reports a deleted folder rather than each file in it.
+            // Remove every env whose executable is the deleted path or inside it.
+            // this.removeEnv(e.executable);
+            this._envIdentities.delete(e.executable);
+            this.evictResolvedEnv(e.executable);
+            this._envs
+                .filter((env) => isParentPath(env.executable.filename, e.executable))
+                .forEach((env) => {
+                    this.removeEnv(env);
+                    this._recreatedEnvWatcher.watch(env.executable.filename, e.workspaceFolder);
+                });
+            // --- End Positron ---
         }
     }
+
+    // --- Start Positron ---
+    // Watches for a removed workspace env to come back; see RecreatedEnvWatcher.
+    private readonly _recreatedEnvWatcher = new RecreatedEnvWatcher(async (executable, workspaceFolder) => {
+        const native = await this.finder.resolve(executable).catch(() => undefined);
+        if (native === undefined) {
+            return false;
+        }
+        return (await this.addEnv(native, workspaceFolder.uri)) !== undefined;
+    });
+    // --- End Positron ---
 }
 
 export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscoveryAPI & Disposable {

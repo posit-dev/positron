@@ -309,6 +309,14 @@ export class DataExplorerClientInstance extends Disposable {
 	}
 
 	override dispose(): void {
+		// Disposing the backend fires its close event, and a close listener may dispose this client
+		// again (e.g. by disposing the Data Explorer instance that owns it). Only the outer call does
+		// the work: disposing the close emitter from the inner call, while it is still firing, would
+		// stop the event from reaching the remaining listeners.
+		if (this._store.isDisposed) {
+			return;
+		}
+
 		// Call the base class's dispose method.
 		super.dispose();
 

@@ -357,7 +357,7 @@ function withCodeCopy(html) {
 }
 
 /**
- * Inline code becomes click-to-copy: Reproduce and Coverage steps are full of
+ * Inline code becomes click-to-copy: Steps to Reproduce and Coverage steps are full of
  * short commands people run one at a time. Code blocks are left alone, since they have a Copy button,
  * and so is a file chip, which linkFiles has already made a link.
  */
@@ -605,7 +605,7 @@ function renderCardDetails(f, report, options = {}) {
 	const sha = report.chips[1];
 	const rows = [
 		renderEvidenceRow(f, sha, options.fileExists),
-		f.causeHtml ? collapsedRow(' hyp', 'Likely cause', 'Hypothesis', `<p>${f.causeHtml}</p>`) : '',
+		f.causeHtml ? collapsedRow(' hyp', 'Likely cause', f.corrected?.includes('cause') ? 'Revised in review' : 'Hypothesis', `<p>${f.causeHtml}</p>`) : '',
 		renderRegressionTest(f, sha),
 	].filter(Boolean);
 	return rows.length ? `<div class="card-details">${rows.join('')}</div>` : '';
@@ -686,7 +686,7 @@ function renderFindingCard(f, report, options) {
 	// command in view; Coverage keeps the short names.
 	const preconditions = f.preconditions.length
 		? '<ul class="f-pl" aria-label="Preconditions">'
-		+ f.preconditions.map((p, k) => `<li><span class="f-pl-p" aria-hidden="true">P</span>${withCodeCopy(p || f.preconditionNames?.[k] || '')}</li>`).join('')
+		+ f.preconditions.map((p, k) => `<li><span class="f-pl-p tip" aria-hidden="true" data-tip="Precondition">P</span>${withCodeCopy(p || f.preconditionNames?.[k] || '')}</li>`).join('')
 		+ '</ul>'
 		: '';
 	// The card's Observed says what went wrong, so a step repeats it only when
@@ -699,7 +699,7 @@ function renderFindingCard(f, report, options) {
 		: '';
 	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.
 	const repro = (preconditions || steps)
-		? copyableCode(linkFiles(`<div class="f-sec repro"><div class="f-lab">Reproduce</div>${preconditions}${steps}</div>`, files))
+		? copyableCode(linkFiles(`<div class="f-sec repro"><div class="f-lab">Steps to Reproduce</div>${preconditions}${steps}</div>`, files))
 		: '';
 
 	const details = renderCardDetails(f, report, options);
@@ -1075,6 +1075,8 @@ export function readRunDir(dir) {
 	return {
 		ledger: existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined,
 		actionsLog: existsSync(join(dir, 'actions.log')) ? readFileSync(join(dir, 'actions.log'), 'utf8') : undefined,
+		// Set by a local pipeline run, which names a session per run; CI drives its own.
+		session: process.env.PW_SESSION || undefined,
 		knownIssues: readKnownIssues(dir) ?? undefined,
 		issueRefs: readIssueRefs(dir),
 		changeBase: readJson(join(dir, 'change-base.json'), undefined),

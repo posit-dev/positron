@@ -1,10 +1,12 @@
-name: "Exploratory: Outcomes Page"
+name: "Exploratory: Outcome Pages"
 
-# Rebuilds the page of what happened to /explore's findings and deploys it to
+# Rebuilds the Shipping impact page, what happened to /explore's findings, and deploys it to
 # the Posit Connect content whose GUID is in the EXPLORE_OUTCOMES_CONNECT_GUID
 # repo variable. Findings already fixed are carried over from the last
 # publish, so only the rest cost model calls. See "What happened to a run's findings" in the exploratory-test
 # skill's CONTRIBUTING.md.
+# The triage job rebuilds the Triage outcomes page, where each filed issue
+# stands today, into EXPLORE_TRIAGE_CONNECT_GUID. It makes no model calls.
 on:
   schedule:
     - cron: "0 6 * * *"
@@ -29,7 +31,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
 
@@ -68,3 +70,39 @@ jobs:
         run: |
           node outcomes-page.mjs "$RUNNER_TEMP/rows.jsonl" > "$RUNNER_TEMP/index.html"
           node outcomes-publish.mjs deploy "$RUNNER_TEMP/index.html" "$RUNNER_TEMP/rows.jsonl"
+
+  triage:
+    name: triage
+    if: vars.EXPLORE_TRIAGE_CONNECT_GUID != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: |
+          npm ci --no-audit --no-fund --prefix .claude/skills/exploratory-test/renderer
+          npm ci --no-audit --no-fund --prefix .github/actions/pr-exploratory-test
+
+      - name: Read where the issues stand
+        working-directory: .github/actions/pr-exploratory-test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/triage"
+          node triage.mjs --out "$RUNNER_TEMP/triage/triage.json"
+
+      - name: Build and publish the page
+        working-directory: .github/actions/pr-exploratory-test
+        env:
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          CONNECT_CONTENT_GUID: ${{ vars.EXPLORE_TRIAGE_CONNECT_GUID }}
+        run: |
+          node triage-page.mjs "$RUNNER_TEMP/triage/triage.json" > "$RUNNER_TEMP/triage/index.html"
+          node outcomes-publish.mjs deploy "$RUNNER_TEMP/triage/index.html" "$RUNNER_TEMP/triage/triage.json"

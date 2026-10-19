@@ -69,6 +69,7 @@ export enum FeatureTags {
 	NEW_FOLDER_FLOW = '@:new-folder-flow',
 	NOTEBOOKS = '@:notebooks',
 	POSITRON_NOTEBOOKS = '@:positron-notebooks',
+	OBJECT_EXPLORER = '@:object-explorer',
 	OUTLINE = '@:outline',
 	OUTPUT = '@:output',
 	PACKAGES_PANE = '@:packages-pane',
