@@ -11,6 +11,8 @@ import { PositronRuntimeLanguagesContextKeyContribution } from './languageRuntim
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from '../../../common/contributions.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import './languageRuntimeActions.css';
+// Shows `interpreters.languageOrder` in Settings as a reorder-only list.
+import '../../preferences/browser/positronReorderListRenderer.js';
 
 // Register commands
 registerLanguageRuntimeActions();

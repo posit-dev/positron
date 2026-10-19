@@ -72,7 +72,7 @@ import { ISettingOverrideClickEvent, SettingsTreeIndicatorsLabel, getIndicatorsL
 import { ITOCEntry, ITOCFilter } from './settingsLayout.js';
 import { ISettingsEditorViewState, SettingsTreeElement, SettingsTreeGroupChild, SettingsTreeGroupElement, SettingsTreeNewExtensionsElement, SettingsTreeSettingElement, inspectSetting, objectSettingSupportsRemoveDefaultValue, settingKeyToDisplayFormat } from './settingsTreeModels.js';
 // --- Start Positron ---
-import { isReorderOnlyList, withMissingValues } from '../common/positronReorderOnlyList.js';
+import { positronSettingRenderers } from './positronSettingRenderers.js';
 // --- End Positron ---
 import { ExcludeSettingWidget, IBoolObjectDataItem, IIncludeExcludeDataItem, IListDataItem, IObjectDataItem, IObjectEnumOption, IObjectKeySuggester, IObjectValueSuggester, IncludeSettingWidget, ListSettingWidget, ObjectSettingCheckboxWidget, ObjectSettingDropdownWidget, ObjectValue, SettingListEvent } from './settingsWidgets.js';
 
@@ -434,17 +434,11 @@ function getListDisplayValue(element: SettingsTreeSettingElement): IListDataItem
 			enumOptions = element.setting.enum.map((setting, i) => {
 				return {
 					value: setting,
-					// --- Start Positron ---
-					label: element.setting.enumItemLabels?.[i],
-					// --- End Positron ---
 					description: element.setting.enumDescriptions?.[i]
 				};
 			});
 		}
-		// --- Start Positron ---
-		// return element.value.map((key: string) => {
-		return withMissingValues(element.setting.key, element.setting.enum, element.value).map((key: string) => {
-			// --- End Positron ---
+		return element.value.map((key: string) => {
 			return {
 				value: {
 					type: 'enum',
@@ -727,7 +721,11 @@ interface IDisposableTemplate {
 	readonly toDispose: DisposableStore;
 }
 
-interface ISettingItemTemplate<T = any> extends IDisposableTemplate {
+// --- Start Positron ---
+// Exported for Positron setting renderers.
+// interface ISettingItemTemplate<T = any> extends IDisposableTemplate {
+export interface ISettingItemTemplate<T = any> extends IDisposableTemplate {
+	// --- End Positron ---
 	onChange?: (value: T) => void;
 
 	context?: SettingsTreeSettingElement;
@@ -776,10 +774,6 @@ interface ISettingComplexObjectItemTemplate extends ISettingComplexItemTemplate 
 interface ISettingListItemTemplate extends ISettingItemTemplate<string[] | undefined> {
 	listWidget: ListSettingWidget<IListDataItem>;
 	validationErrorMessageElement: HTMLElement;
-	// --- Start Positron ---
-	// Last list computed from a widget event; base for the next one until the setting re-renders.
-	pendingList?: string[];
-	// --- End Positron ---
 }
 
 interface ISettingIncludeExcludeItemTemplate extends ISettingItemTemplate<void> {
@@ -1382,14 +1376,6 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 			} else if (Array.isArray(template.context.value)) {
 				newValue = [...template.context.value];
 			}
-			// --- Start Positron ---
-			// Chain onto the previous event's result; the setting may not have re-rendered yet.
-			if (template.pendingList) {
-				newValue = [...template.pendingList];
-			}
-			// Row indexes include the filled-in values, so splice the same list.
-			newValue = withMissingValues(template.context.setting.key, template.context.setting.enum, newValue);
-			// --- End Positron ---
 
 			if (e.type === 'move') {
 				// A drag and drop occurred
@@ -1415,10 +1401,6 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 				newValue.push(e.newItem.value.data.toString());
 			}
 
-			// --- Start Positron ---
-			// Only reorder-only lists apply moves to the widget right away, so only they can chain.
-			template.pendingList = e.type === 'move' && isReorderOnlyList(template.context.setting.key) ? newValue : undefined;
-			// --- End Positron ---
 			if (
 				template.context.defaultValue &&
 				Array.isArray(template.context.defaultValue) &&
@@ -1438,16 +1420,10 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 	}
 
 	protected renderValue(dataElement: SettingsTreeSettingElement, template: ISettingListItemTemplate, onChange: (value: string[] | number[] | undefined) => void): void {
-		// --- Start Positron ---
-		template.pendingList = undefined;
-		// --- End Positron ---
 		const value = getListDisplayValue(dataElement);
 		const keySuggester = dataElement.setting.enum ? createArraySuggester(dataElement) : undefined;
 		template.listWidget.setValue(value, {
 			showAddButton: getShowAddButtonList(dataElement, value),
-			// --- Start Positron ---
-			reorderOnly: isReorderOnlyList(dataElement.setting.key),
-			// --- End Positron ---
 			keySuggester
 		});
 		template.context = dataElement;
@@ -2303,6 +2279,9 @@ export class SettingTreeRenderers extends Disposable {
 			this._instantiationService.createInstance(SettingEnumRenderer, this.settingActions, actionFactory),
 			this._instantiationService.createInstance(SettingObjectRenderer, this.settingActions, actionFactory),
 			this._instantiationService.createInstance(SettingBoolObjectRenderer, this.settingActions, actionFactory),
+			// --- Start Positron ---
+			...positronSettingRenderers.map(r => r.create(this._instantiationService, this.settingActions, actionFactory)),
+			// --- End Positron ---
 			extensionRenderer
 		];
 
@@ -2608,6 +2587,13 @@ class SettingsTreeDelegate extends CachedListVirtualDelegate<SettingsTreeGroupCh
 			if (element.valueType === SettingValueType.Enum) {
 				return SETTINGS_ENUM_TEMPLATE_ID;
 			}
+
+			// --- Start Positron ---
+			const positronRenderer = positronSettingRenderers.find(r => r.matches(element));
+			if (positronRenderer) {
+				return positronRenderer.templateId;
+			}
+			// --- End Positron ---
 
 			if (element.valueType === SettingValueType.Array) {
 				return SETTINGS_ARRAY_TEMPLATE_ID;

@@ -17,10 +17,7 @@ import { disposableTimeout } from '../../../../base/common/async.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { MarkdownString } from '../../../../base/common/htmlContent.js';
-// --- Start Positron ---
-// import { KeyCode } from '../../../../base/common/keyCodes.js';
-import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
-// --- End Positron ---
+import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isIOS } from '../../../../base/common/platform.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
@@ -37,9 +34,6 @@ import { validatePropertyName } from '../../../services/preferences/common/prefe
 import { IJSONSchema } from '../../../../base/common/jsonSchema.js';
 import { settingsSelectBackground, settingsSelectBorder, settingsSelectForeground, settingsSelectListBorder, settingsTextInputBackground, settingsTextInputBorder, settingsTextInputForeground } from '../common/settingsEditorColorRegistry.js';
 import './media/settingsWidgets.css';
-// --- Start Positron ---
-import './media/positronSettingsListReorder.css';
-// --- End Positron ---
 import { settingsDiscardIcon, settingsEditIcon, settingsRemoveIcon } from './preferencesIcons.js';
 
 const $ = DOM.$;
@@ -95,17 +89,6 @@ export class ListSettingListModel<TDataItem extends object> {
 	setValue(listData: TDataItem[]): void {
 		this._dataItems = listData;
 	}
-
-	// --- Start Positron ---
-	// Reorders locally and selects the moved row.
-	move(sourceIndex: number, targetIndex: number): void {
-		const items = this._dataItems.slice();
-		const [moved] = items.splice(sourceIndex, 1);
-		items.splice(targetIndex, 0, moved);
-		this._dataItems = items;
-		this._selectedIdx = targetIndex;
-	}
-	// --- End Positron ---
 
 	select(idx: number | null): void {
 		this._selectedIdx = idx;
@@ -207,16 +190,6 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 		this._register(DOM.addDisposableListener(this.listElement, DOM.EventType.DBLCLICK, e => this.onListDoubleClick(e)));
 
 		this._register(DOM.addStandardDisposableListener(this.listElement, 'keydown', (e: StandardKeyboardEvent) => {
-			// --- Start Positron ---
-			// Alt+Up/Down moves the selected row, like moving lines in the editor.
-			if (e.equals(KeyMod.Alt | KeyCode.UpArrow) || e.equals(KeyMod.Alt | KeyCode.DownArrow)) {
-				if (this.moveSelectedRow(e.keyCode === KeyCode.UpArrow ? -1 : 1)) {
-					e.preventDefault();
-					e.stopPropagation();
-				}
-				return;
-			}
-			// --- End Positron ---
 			if (e.equals(KeyCode.UpArrow)) {
 				this.selectPreviousRow();
 			} else if (e.equals(KeyCode.DownArrow)) {
@@ -279,13 +252,6 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 
 		this.rowElements = this.model.items.map((item, i) => this.renderDataOrEditItem(item, i, focused));
 		this.rowElements.forEach(rowElement => this.listElement.appendChild(rowElement));
-		// --- Start Positron ---
-		// Refocus now rather than on a timeout: the settings tree re-renders the list
-		// twice after a save, and the second render would cancel the timeout.
-		if (focused && this.listElement.isConnected) {
-			this.rowElements.find(row => row.classList.contains('selected'))?.focus();
-		}
-		// --- End Positron ---
 
 	}
 
@@ -396,14 +362,7 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 			return;
 		}
 
-		// --- Start Positron ---
-		// Cancelling pointerdown on a draggable row also cancels the native drag,
-		// so drag-to-reorder never starts. Upstream: microsoft/vscode#342556.
-		// e.preventDefault();
-		if (!this.rowElements[targetIdx]?.draggable) {
-			e.preventDefault();
-		}
-		// --- End Positron ---
+		e.preventDefault();
 		e.stopImmediatePropagation();
 		if (this.model.getSelected() === targetIdx) {
 			return;
@@ -455,13 +414,6 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 		return targetIdx;
 	}
 
-	// --- Start Positron ---
-	/** Returns true if the widget consumed the key, even when the row is already at the edge and nothing moved. */
-	protected moveSelectedRow(_delta: number): boolean {
-		return false;
-	}
-	// --- End Positron ---
-
 	private selectRow(idx: number): void {
 		this.model.select(idx);
 		this.rowElements.forEach(row => row.classList.remove('selected'));
@@ -487,9 +439,6 @@ interface IListSetValueOptions {
 	showAddButton?: boolean;
 	keySuggester?: IObjectKeySuggester;
 	isReadOnly?: boolean;
-	// --- Start Positron ---
-	reorderOnly?: boolean;
-	// --- End Positron ---
 }
 
 export interface IListDataItem {
@@ -507,19 +456,11 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 	private keyValueSuggester: IObjectKeySuggester | undefined;
 	private showAddButton: boolean = true;
 	private isEditable: boolean = true;
-	// --- Start Positron ---
-	private reorderOnly = false;
-	// --- End Positron ---
 
 	override setValue(listData: TListDataItem[], options?: IListSetValueOptions) {
 		this.keyValueSuggester = options?.keySuggester;
 		this.isEditable = options?.isReadOnly === undefined ? true : !options.isReadOnly;
-		// --- Start Positron ---
-		this.reorderOnly = !!options?.reorderOnly;
-		// this.showAddButton = this.isEditable ? (options?.showAddButton ?? true) : false;
-		this.showAddButton = this.isEditable && !this.reorderOnly ? (options?.showAddButton ?? true) : false;
-		this.domNode.classList.toggle('setting-list-reorderable', this.reorderOnly);
-		// --- End Positron ---
+		this.showAddButton = this.isEditable ? (options?.showAddButton ?? true) : false;
 		super.setValue(listData);
 	}
 
@@ -551,76 +492,10 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 		return ['setting-list-widget'];
 	}
 
-	// --- Start Positron ---
-	protected override moveSelectedRow(delta: number): boolean {
-		const idx = this.model.getSelected();
-		if (!this.reorderOnly || this.isReadOnly || idx === null || this.model.items.some(item => item.editing)) {
-			return false;
-		}
-		const targetIndex = idx + delta;
-		if (targetIndex >= 0 && targetIndex < this.model.items.length) {
-			this.moveItem(this.model.items[idx], idx, targetIndex);
-		}
-		return true;
-	}
-
-	// Reorders locally before firing so a second move before the config write lands splices fresh indexes.
-	private moveItem(item: TListDataItem, sourceIndex: number, targetIndex: number): void {
-		this.model.move(sourceIndex, targetIndex);
-		this._onDidChangeList.fire({ type: 'move', originalItem: item, newItem: item, sourceIndex, targetIndex });
-		this.renderList();
-	}
-
-	// Move up/down actions so reordering is discoverable without dragging.
-	private getMoveActions(item: TListDataItem, idx: number): IAction[] {
-		const count = this.model.items.length;
-		if (count < 2) {
-			return [];
-		}
-		return [
-			{
-				class: ThemeIcon.asClassName(Codicon.arrowUp),
-				enabled: idx > 0,
-				id: 'workbench.action.moveListItemUp',
-				tooltip: localize('positron.moveListItemUp', "Move Up"),
-				run: () => this.moveItem(item, idx, idx - 1)
-			},
-			{
-				class: ThemeIcon.asClassName(Codicon.arrowDown),
-				enabled: idx < count - 1,
-				id: 'workbench.action.moveListItemDown',
-				tooltip: localize('positron.moveListItemDown', "Move Down"),
-				run: () => this.moveItem(item, idx, idx + 1)
-			}
-		] as IAction[];
-	}
-	// --- End Positron ---
-
-	// --- Start Positron ---
-	// Enum rows show the option label, falling back to the raw value.
-	private getDisplayText(value: TListDataItem['value']): string {
-		return (value.type === 'enum' ? value.options.find(o => o.value === value.data)?.label : undefined) ?? value.data.toString();
-	}
-	// --- End Positron ---
-
-	// --- Start Positron ---
-	// Covers double-click, which edits the row directly.
-	protected override editSetting(idx: number): void {
-		if (!this.reorderOnly) {
-			super.editSetting(idx);
-		}
-	}
-	// --- End Positron ---
-
 	protected getActionsForItem(item: TListDataItem, idx: number): IAction[] {
 		if (this.isReadOnly) {
 			return [];
 		}
-		// --- Start Positron ---
-		if (this.reorderOnly) {
-			return this.getMoveActions(item, idx);
-		}
-		// --- End Positron ---
 		return [
 			{
 				class: ThemeIcon.asClassName(settingsEditIcon),
@@ -643,18 +518,10 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 
 	protected renderItem(item: TListDataItem, idx: number): RowElementGroup {
 		const rowElement = $('.setting-list-row');
-		// --- Start Positron ---
-		if (this.reorderOnly) {
-			DOM.append(rowElement, $('.setting-list-drag-handle' + ThemeIcon.asCSSSelector(Codicon.gripper)));
-		}
-		// --- End Positron ---
 		const valueElement = DOM.append(rowElement, $('.setting-list-value'));
 		const siblingElement = DOM.append(rowElement, $('.setting-list-sibling'));
 
-		// --- Start Positron ---
-		// valueElement.textContent = item.value.data.toString();
-		valueElement.textContent = this.getDisplayText(item.value);
-		// --- End Positron ---
+		valueElement.textContent = item.value.data.toString();
 		if (item.sibling) {
 			siblingElement.textContent = `when: ${item.sibling}`;
 		} else {
@@ -713,14 +580,6 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 			ev.preventDefault();
 			counter = 0;
 			if (this.dragDetails.element !== rowElement) {
-				// --- Start Positron ---
-				// Apply the move locally so the selection follows the dragged row and later moves use fresh indexes.
-				if (this.reorderOnly) {
-					this.model.move(this.dragDetails.itemIndex, idx);
-				} else {
-					this.model.select(idx);
-				}
-				// --- End Positron ---
 				this._onDidChangeList.fire({
 					type: 'move',
 					originalItem: this.dragDetails.item,
@@ -728,13 +587,6 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 					newItem: item,
 					targetIndex: idx
 				});
-				// --- Start Positron ---
-				if (this.reorderOnly) {
-					// The re-render drops this row, so dragend never clears the drag state.
-					this.dragDetails = undefined;
-					this.renderList();
-				}
-				// --- End Positron ---
 			}
 			return true;
 		}));
@@ -882,22 +734,12 @@ export class ListSettingWidget<TListDataItem extends IListDataItem> extends Abst
 	}
 
 	protected addTooltipsToRow(rowElementGroup: RowElementGroup, { value, sibling }: TListDataItem) {
-		// --- Start Positron ---
-		// Read the label the row shows, not the raw enum value.
-		// const title = isUndefinedOrNull(sibling)
-		// 	? localize('listValueHintLabel', "List item `{0}`", value.data)
-		// 	: localize('listSiblingHintLabel', "List item `{0}` with sibling `${1}`", value.data, sibling);
-		const text = this.getDisplayText(value);
 		const title = isUndefinedOrNull(sibling)
-			? localize('listValueHintLabel', "List item `{0}`", text)
-			: localize('listSiblingHintLabel', "List item `{0}` with sibling `${1}`", text, sibling);
-		// --- End Positron ---
+			? localize('listValueHintLabel', "List item `{0}`", value.data)
+			: localize('listSiblingHintLabel', "List item `{0}` with sibling `${1}`", value.data, sibling);
 
 		const { rowElement } = rowElementGroup;
-		// --- Start Positron ---
-		// The hover only repeats the row text and covers the buttons.
-		// this.listDisposables.add(this.hoverService.setupDelayedHover(rowElement, { content: title }));
-		// --- End Positron ---
+		this.listDisposables.add(this.hoverService.setupDelayedHover(rowElement, { content: title }));
 		rowElement.setAttribute('aria-label', title);
 	}
 
@@ -1021,9 +863,6 @@ interface IObjectStringData {
 
 export interface IObjectEnumOption {
 	value: string;
-	// --- Start Positron ---
-	label?: string;
-	// --- End Positron ---
 	description?: string;
 }
 
