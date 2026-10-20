@@ -17,6 +17,7 @@ import * as runtime from '../../client/positron/runtime';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as environmentTypeComparer from '../../client/interpreter/configuration/environmentTypeComparer';
 import * as interpreterRecommendation from '../../client/positron/interpreterRecommendation';
+import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';
 import { IConfigurationService, IDisposable, IDisposableRegistry } from '../../client/common/types';
 import { IServiceContainer } from '../../client/ioc/types';
@@ -163,6 +164,30 @@ suite('Python runtime manager', () => {
             },
             { runtimeManager: pythonRuntimeManager, interpreterPath: pythonPath, metadata: sessionMetadata },
         );
+    });
+
+    test('createSession: refuses an interpreter filtered out by exclude or override', async () => {
+        sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').withArgs(pythonPath).returns(false);
+
+        await assert.rejects(
+            pythonRuntimeManager.createSession(runtimeMetadata.object, {} as positron.RuntimeSessionMetadata),
+            /python\.interpreters\.exclude/,
+        );
+    });
+
+    test('discoverAllRuntimes: skips an excluded interpreters.definitions path', async () => {
+        sinon.stub(interpreterSettings, 'isDefinitionsOnlyDiscovery').returns(true);
+        sinon.stub(interpreterSettings, 'getInterpreterDefinitionPaths').returns(['/excluded/python']);
+        sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').withArgs('/excluded/python').returns(false);
+        const createMetadata = sinon.stub(runtime, 'createPythonRuntimeMetadata');
+
+        const yielded: positron.LanguageRuntimeMetadata[] = [];
+        for await (const r of pythonRuntimeManager.discoverAllRuntimes()) {
+            yielded.push(r);
+        }
+
+        assert.deepStrictEqual(yielded, []);
+        sinon.assert.notCalled(createMetadata);
     });
 
     // TODO: Test discoverRuntimes

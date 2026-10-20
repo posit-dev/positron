@@ -473,6 +473,18 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(extraData)}`);
         }
 
+        // Exclude and override always win, including for an affiliated runtime or
+        // one picked before the settings changed. Running sessions are restored
+        // through restoreSession, which is not affected.
+        if (!shouldIncludeInterpreter(extraData.pythonPath)) {
+            throw new Error(
+                vscode.l10n.t(
+                    'Python interpreter {0} is filtered out by the python.interpreters.exclude or python.interpreters.override setting.',
+                    extraData.pythonPath,
+                ),
+            );
+        }
+
         // When the user explicitly picks an externally-managed Python, offer to create a
         // virtual environment instead. Aborting here is invisible to the user: the console
         // instance is not created until this method resolves.
@@ -758,6 +770,12 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // Positron hides these and shows only the variants created from the
         // definitions, so they are not saved with the discovered runtimes.
         for (const pythonPath of getInterpreterDefinitionPaths()) {
+            if (!shouldIncludeInterpreter(pythonPath)) {
+                traceInfo(
+                    `Ignoring Python interpreter ${pythonPath} from interpreters.definitions: filtered out by settings`,
+                );
+                continue;
+            }
             if (this.registeredPythonRuntimes.has(pythonPath)) {
                 continue;
             }
