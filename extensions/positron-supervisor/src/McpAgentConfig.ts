@@ -204,7 +204,8 @@ async function autoConfigureClaudeCode(
 }
 
 /**
- * Rewrite the entries written with another command line: those from before
+ * Put back the launcher the configured entries start, if it has gone, and
+ * rewrite the entries written with another command line: those from before
  * agents were configured to start the launcher, which named the supervisor
  * binary in its versioned install directory.
  *
@@ -219,6 +220,15 @@ async function refreshConfiguredAgents(
 ): Promise<void> {
 	const { launch } = launcher;
 	const records = loadConfiguredAgents(context);
+	if (records.length === 0) {
+		return;
+	}
+	// The entries below name the launcher, so put it back if it has gone.
+	try {
+		await launcher.install();
+	} catch (err) {
+		log(`Could not install the MCP launcher: ${summarizeError(err)}`);
+	}
 	let changed = false;
 	for (const record of records) {
 		const agent = findMcpAgent(record.id);
