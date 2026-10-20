@@ -34,8 +34,12 @@ const languageOrderNode: IConfigurationNode = {
 const registry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
 registry.registerConfiguration(languageOrderNode);
 
-/** Replaces the allowed values. `entries` must already be in display order. */
-export function updateLanguageOrderSchema(entries: readonly ILanguageOrderEntry[]): void {
+let installedLanguageIds: readonly string[] = [];
+
+/** Replaces the allowed values: installed languages, then saved ones that aren't. Each in display order. */
+export function updateLanguageOrderSchema(installed: readonly ILanguageOrderEntry[], notInstalled: readonly ILanguageOrderEntry[]): void {
+	installedLanguageIds = installed.map(e => e.languageId);
+	const entries = [...installed, ...notInstalled];
 	const items = languageOrderSchema.items as IConfigurationPropertySchema;
 	const ids = entries.map(e => e.languageId);
 	const labels = entries.map(e => e.languageName);
@@ -46,6 +50,11 @@ export function updateLanguageOrderSchema(entries: readonly ILanguageOrderEntry[
 	items.enum = ids;
 	languageOrderSchema.enumItemLabels = labels;
 	registry.notifyConfigurationSchemaUpdated(languageOrderNode);
+}
+
+/** Saved languages that aren't installed are allowed only so the scope that saved them validates. */
+export function getInstalledLanguageIds(): readonly string[] {
+	return installedLanguageIds;
 }
 
 export function getLanguageOrderSchema(): IConfigurationPropertySchema {

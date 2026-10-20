@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ITreeNode, ITreeRenderer } from '../../../../base/browser/ui/tree/tree.js';
-import { isReorderOnlyList, reorderRows } from '../common/positronReorderOnlyList.js';
+import { isReorderOnlyList, reorderListDefaults, reorderRows } from '../common/positronReorderOnlyList.js';
 import { PositronReorderListWidget } from './positronReorderListWidget.js';
 import { positronSettingRenderers } from './positronSettingRenderers.js';
 import { AbstractSettingRenderer, ISettingItemTemplate } from './settingsTree.js';
@@ -16,7 +16,7 @@ interface IReorderListTemplate extends ISettingItemTemplate<string[]> {
 	listWidget: PositronReorderListWidget;
 }
 
-/** Renders a reorder-only list setting: every allowed value is a row, and the user only reorders them. */
+/** Renders a reorder-only list setting: the user only reorders its rows, never adds or edits them. */
 class PositronReorderListRenderer extends AbstractSettingRenderer implements ITreeRenderer<SettingsTreeSettingElement, never, IReorderListTemplate> {
 	readonly templateId = POSITRON_REORDER_LIST_TEMPLATE_ID;
 
@@ -42,7 +42,7 @@ class PositronReorderListRenderer extends AbstractSettingRenderer implements ITr
 	protected renderValue(dataElement: SettingsTreeSettingElement, template: IReorderListTemplate, onChange: (value: string[]) => void): void {
 		const { enum: allowed, enumItemLabels } = dataElement.setting;
 		const saved: string[] = Array.isArray(dataElement.value) ? dataElement.value : [];
-		template.listWidget.setValue(reorderRows(allowed, enumItemLabels, saved).map(row => ({
+		template.listWidget.setValue(reorderRows(allowed, enumItemLabels, reorderListDefaults(dataElement.setting.key), saved).map(row => ({
 			value: { type: 'string', data: row.value },
 			label: row.label,
 		})));

@@ -14,7 +14,7 @@ import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { LANGUAGE_ORDER_KEY } from '../../../../services/languageRuntime/common/languageOrder.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { getLanguageOrderSchema } from '../../../../services/languageRuntime/common/languageOrderConfiguration.js';
+import { getInstalledLanguageIds, getLanguageOrderSchema } from '../../../../services/languageRuntime/common/languageOrderConfiguration.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { LanguageOrderContribution } from '../../browser/languageOrderContribution.js';
@@ -82,6 +82,8 @@ describe('LanguageOrderContribution', () => {
 		ctx.disposables.add(ctx.instantiationService.createInstance(LanguageOrderContribution));
 		setOrder(['zed', 'r']);
 		expect(items()).toEqual({ ids: ['python', 'r', 'zed'], labels: ['Python', 'R', 'zed (not installed)'] });
+		// So another scope's Settings list doesn't pick up, and then save, this scope's `zed`.
+		expect(getInstalledLanguageIds()).toEqual(['python', 'r']);
 	});
 
 	it('does not update the schema when a reorder leaves the languages unchanged', () => {

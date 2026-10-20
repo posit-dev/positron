@@ -36,18 +36,16 @@ export class LanguageOrderContribution extends Disposable implements IWorkbenchC
 
 	private _update(): void {
 		const installed = this._runtimeStartupService.languageIds;
-		const entries: ILanguageOrderEntry[] = installed
+		const installedEntries: ILanguageOrderEntry[] = installed
 			.map(languageId => ({ languageId, languageName: this._languageName(languageId) }))
 			.sort((a, b) => compareLanguages(a, b, []));
-		for (const languageId of this._savedLanguageIds()) {
-			if (!installed.includes(languageId)) {
-				entries.push({
-					languageId,
-					languageName: localize('positron.interpreters.languageOrder.notInstalled', "{0} (not installed)", this._languageName(languageId)),
-				});
-			}
-		}
-		updateLanguageOrderSchema(entries);
+		const notInstalled: ILanguageOrderEntry[] = [...this._savedLanguageIds()]
+			.filter(languageId => !installed.includes(languageId))
+			.map(languageId => ({
+				languageId,
+				languageName: localize('positron.interpreters.languageOrder.notInstalled', "{0} (not installed)", this._languageName(languageId)),
+			}));
+		updateLanguageOrderSchema(installedEntries, notInstalled);
 	}
 
 	/** IDs saved at any scope, since the Settings editor validates each scope's value. */
