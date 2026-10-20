@@ -31,7 +31,7 @@ It runs right after core activates a language's extension, never earlier.
 |---|---|---|
 | 1. Reconnect consoles | Reconnects consoles that are still running | Nothing. A reconnected console keeps its interpreter (Q6). |
 | 2. Start affiliated runtimes | Activates the extension for the most recently used language, then starts its affiliated runtime. Other languages follow in the background. | The pinned check runs for each language between activating its extension and starting its affiliated runtime. So the affiliated runtime that starts is the pinned one. The recommendation step handles starting the pinned interpreter when there is no affiliation. |
-| 3. Start recommendations | Activates every language's extension and asks each for a recommendation | If a language already has an affiliated runtime from an earlier session, but step 2 doesn't start it, then step 3 is where the pinned check updates the affiliated runtime. This happens when `interpreters.startupBehavior` is `manual` OR `recommended` and step 2 didn't start a console for another language. Nothing starts, but the affiliated runtime now points at the pinned interpreter. |
+| 3. Start recommendations | Activates every language's extension and asks each for a recommendation | If a language already has an affiliated runtime from an earlier session, but step 2 doesn't start it, then step 3 is where the pinned check updates the affiliated runtime. This happens when `interpreters.startupBehavior` is `manual` and step 2 didn't start a console for another language. Nothing starts, but the affiliated runtime now points at the pinned interpreter. |
 | 4. Find interpreters | Activates every language's extension, if it isn't active yet | The pinned check updates the affiliated runtime for any language whose extension first activates here. This happens when step 1 reconnected a console, OR step 2 started one language but not another. For example, Python is set to auto and starts in step 2, while R is set to manual. Nothing starts, but the affiliated runtime now points at the pinned interpreter. |
 | 5. Start after the search | Starts an interpreter marked "start right away", or starts an interpreter for any language whose `interpreters.startupBehavior` is set to `always` | Nothing |
 
@@ -307,11 +307,12 @@ What core does with the answer:
 
 - Calls the method from `activateExtensionsForLanguages()`, the function core uses to activate extensions. Steps 2, 3, and 4 all go through that function, so the check runs at every point listed in "Where the pinned check runs".
 - Asks the extension that core just activated, matched by its extension ID as well as the language. Two extensions register a runtime manager for `python`, positron-python and positron-reticulate, so the language alone could pick the wrong one.
-- Waits for that extension to register its runtime manager, if it hasn't yet. Activation can finish before the extension has registered it. Without the wait, the check would find no runtime manager and skip the pin.
+- Doesn't wait for the extension to register its runtime manager. R and Python register theirs while they activate, so it's there by the time the check runs.
 - Asks each language only once per window. Steps 2, 3, and 4 can each activate the same extension, but only the first one asks. Later steps wait for that first answer.
-- Skips the check in two cases:
+- Skips the check in three cases:
   - The language has no affiliated runtime. There's nothing to write over, and the recommendation already handles the pin in that case. This also saves Python a lookup in folders where Python hasn't been used.
   - You just created the folder with the New Folder flow and picked an interpreter there. You chose it on purpose, so it starts on that launch. From the next launch on, the check writes the pin over it, the same as for any other interpreter you pick.
+  - The language's `interpreters.startupBehavior` is `recommended`. The recommendation already handles the pin there.
 - Otherwise, writes the pinned runtime over the affiliated runtime and keeps the old last-started and last-used times. Step 2 uses those times to decide which languages to start. Keeping them means the pinned runtime is started or skipped the same way the old one would have been.
 - Registers the pinned runtime, which adds it to the list of interpreters Positron knows about in this window. Registering doesn't write to the discovery cache, so one folder's pin never shows up in another folder.
 - In step 2, reads the affiliated runtime again after the check. Today step 2 reads the saved affiliated runtime before it activates the extension. Without reading it again, step 2 would start the old interpreter.
@@ -320,8 +321,6 @@ Why the first console doesn't wait longer:
 
 - R turns a path into runtime metadata by reading a few files, which takes milliseconds.
 - For Python, the lookup can take longer, but it replaces a lookup that already happens. Today, before core starts a saved interpreter that isn't registered yet, it calls `validateMetadata()`, and Python's version looks up the saved path. Core skips that call when the interpreter is already registered. Because core registers the pinned runtime, Python still does only one lookup.
-- Waiting for the runtime manager to register adds no time. Step 2 already waits for it today, before it starts a console.
-
 ## To check during implementation
 
 Both items depend on Isabel's core changes, not on #2659. Check them when her core PR lands.

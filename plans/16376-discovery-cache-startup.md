@@ -176,7 +176,7 @@ Core saves the signature with the cache. At the next launch, it compares the sav
 
 The change:
 
-- Remove the `default` flag from `RInstallation` and `RMetadataExtra` (`r-installation.ts:39-41`, `241`, `268-272`) and from the record (`provider.ts:791`).
+- Remove the `default` flag from `RInstallation` and `RMetadataExtra` (`r-installation.ts:39-41`, `241`, `268-272`) and from the record (`provider.ts:791`). Also remove `default: false` from the test helper in `extensions/positron-r/src/test/r-process-environment.unit.test.ts:19`, which won't compile without the field.
 - Take the pin out of R's settings hash (`provider.ts:239`), and update the comments that explain it (`provider.ts:171`, `215-217`).
 
 **This also clears out the old records.** Records that older builds saved can still be set to `immediate`. Removing the pin from the hashed settings changes R's settings hash for every user, whatever their settings. So on the first launch after upgrading:

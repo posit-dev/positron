@@ -64,13 +64,13 @@ Each layer between the extension and core needs one addition. `getDiscoveryRootS
 - **Extension API:** add the method to `LanguageRuntimeManager` in `src/positron-dts/positron.d.ts`, next to `recommendedWorkspaceRuntime()` (`1231`).
 - **Extension host:** add `$pinnedWorkspaceRuntime(extensionId, languageId)` to `src/vs/workbench/api/common/positron/extHostLanguageRuntime.ts`.
   - Find the manager by both language and extension ID, like `$getDiscoveryRootSignature()` (`1218-1230`). Two extensions register a manager for `python`: positron-python and positron-reticulate. Matching on the language alone could pick the wrong one.
-  - If that extension hasn't registered its manager yet, wait for it, the way `runtimeManagerForRuntime()` does, with its 10-second limit (`603-650`). `activateById()` can return before an extension has registered its manager (comment at `runtimeStartup.ts:2108-2115`). Without the wait, the check could find no manager and skip the pin. Step 2 already waits for the same registration before it starts a console, so this adds no time in practice.
+  - Don't wait for the manager to register. If no manager matches the extension ID and language, return undefined right away. R and Python register their managers inside `activate()`, and step 3's `$recommendWorkspaceRuntimes()` already relies on that. A wait would also hold up startup for an extension that registers late: positron-javascript registers its manager only when you run its start command (`extensions/positron-javascript/src/commands.ts:83-97`).
   - Return undefined when the manager doesn't have the method. Add `extensionId` to the answer the way `$recommendWorkspaceRuntimes()` does (`1254-1257`). Catch errors and return undefined, so one extension's bug can't stop startup.
 - **Protocol:** add the method to `ExtHostLanguageRuntimeShape` in `extHost.positron.protocol.ts`, next to `$getDiscoveryRootSignature` (`163`).
 - **Core's interface:** add `pinnedWorkspaceRuntime(extensionId, languageId)` to `IRuntimeManager` in `src/vs/workbench/services/languageRuntime/common/languageRuntimeService.ts`, next to `getDiscoveryRootSignature()` (`1168`).
 - **Main thread:** add a method to `MainThreadLanguageRuntime` in `src/vs/workbench/api/browser/positron/mainThreadLanguageRuntime.ts` that forwards to the extension host, like the one at `1866-1868`.
 
-Core has one `IRuntimeManager` for each extension host, and doesn't know which one runs a given extension. Ask only the extension host that does, using `getHostedLanguageContributions()` (`languageRuntimeService.ts:1185`). Otherwise an extension host without that extension would wait the full 10 seconds.
+Core has one `IRuntimeManager` for each extension host, and doesn't know which one runs a given extension. Ask every extension host, as `getRecommendedRuntimes()` does (`runtimeStartup.ts:1689-1699`), and use the answer that isn't undefined. A host with no matching manager answers right away, so asking every host costs nothing. Don't use `getHostedLanguageContributions()` to pick the host: it only lists managers that have already registered (`extHostLanguageRuntime.ts:1210-1216`).
 
 positron-reticulate doesn't declare `languageRuntimes` in its `package.json`, so core never activates it for Python, and the check never asks it.
 
@@ -78,14 +78,15 @@ positron-reticulate doesn't declare `languageRuntimes` in its `package.json`, so
 
 All in `src/vs/workbench/services/runtimeStartup/common/runtimeStartup.ts`.
 
-**Where it runs.** Inside `activateExtensionsForLanguages()` (`2018-2026`), right after `activateExtension(extension, languageId)` returns. That function already loops over each extension that declares the language, so the check asks each of those extensions in turn. Steps 2, 3, and 4 all activate extensions through this function, so the check runs at every point in the plan's "Where the pinned check runs" table.
+**Where it runs.** Inside `activateExtensionsForLanguages()` (`2018-2026`), right after `activateExtension(extension, languageId)` returns. That function already loops over each extension that declares the language, so the check asks each of those extensions in turn. Steps 2, 3, and 4 all activate extensions through this function, so the check runs at every point in the plan's "Where the pinned check runs" table. The function starts the check but doesn't wait for it. Step 2 waits for it before it starts the affiliated runtime, and step 4 waits for it before it loads the cache. Step 3 doesn't wait, because it starts recommendations, not affiliated runtimes.
 
-**Once per language per window.** Keep a map from language ID to the check's promise. The first activation starts the check, and later activations wait for the same promise. A setting change takes effect on the next launch, as Q5 says, so there's no reason to ask again.
+**Once per language per window.** Keep a map from language ID to the check's promise. The first activation starts the check, and later activations get the same promise. A setting change takes effect on the next launch, as Q5 says, so there's no reason to ask again.
 
-**When it skips the call.** Two cases:
+**When it skips the call.** Three cases:
 
 - **The language has no affiliated runtime.** There's nothing to write over, and the recommendation already handles the pin in that case. This also saves Python a lookup in folders Python hasn't been used in.
 - **The New Folder flow just picked the interpreter.** When you create a folder with the New Folder flow, core saves the interpreter you picked as the affiliated runtime before step 2 (`runtimeStartup.ts:678-691`). Remember that language, and skip the check for it on this launch. You picked that interpreter on purpose, so it should start. From the next launch on, the check writes the pin over it, the same as for any other pick. Isabel's core change 5 covers settings in the New Folder flow, so check that it follows the same rule.
+- **The language's `interpreters.startupBehavior` is `recommended`.** Under `recommended`, the recommendation handles the pin, so there's nothing for the check to do. Read the setting with `getStartupBehavior(languageId)`.
 
 **What the check does:**
 
@@ -100,7 +101,9 @@ All in `src/vs/workbench/services/runtimeStartup/common/runtimeStartup.ts`.
 - The first language: after `await this.activateExtensionsForLanguages([languageId])` (`1936`), read `getAffiliatedRuntime(languageId)` again and start that.
 - The other languages, which start in the background: do the same inside the `.then()` (`1941-1945`).
 
-**Steps 3 and 4 need no change.** They activate through the same function. Step 4 waits for activation (`1018`) before it loads interpreters from the cache (`1059`). So when `onDidRegisterRuntime()` checks whether a newly registered interpreter is the affiliated runtime (`1583-1666`), it compares against the pinned one.
+**Step 2 starts every `always` language.** When two or more languages have an affiliated runtime, step 2 skips one that never started, or wasn't used since it last started (`1884-1915`). Apply that rule only under `auto`. Under `always`, step 2 starts the affiliated runtime of every `always` language, which is the pinned one when a pin is set. Without this, an `always` language you didn't use last time starts nothing, because step 5 doesn't run while any language has an affiliated runtime (`331`).
+
+**Steps 3 and 4 need no other change.** Step 3 starts the check without waiting for it, as described under "Where it runs". Step 4 waits for activation and the check (`1018`) before it loads interpreters from the cache (`1059`). So when `onDidRegisterRuntime()` checks whether a newly registered interpreter is the affiliated runtime (`1583-1666`), it compares against the pinned one.
 
 **Step 1 needs no change.** Reconnecting a console activates extensions with `activateExtension()` directly, not through `activateExtensionsForLanguages()` (`2116-2120`). The check runs in step 4 instead. Q6 says that's the intended behavior: the console keeps running, and the affiliated runtime goes back to the pinned interpreter for the next launch.
 
@@ -119,12 +122,15 @@ In `extensions/positron-r/src/runtime-manager.ts`. Put the work in a helper that
 1. If `isDefinitionsOnlyDiscovery()`, return undefined. That's the Q9 rule, the same as the recommendation today (`149-151`).
 2. Read the path with `getDefaultInterpreterPath()` (`interpreter-settings.ts:186-197`). It already replaces `${workspaceFolder}`, expands `~`, and ignores relative paths. Return undefined if it's unset or the file doesn't exist.
 3. Build the R installation the way `registerRuntimeFromPath()` does (`runtime-manager.ts:409-411`):
-   - `current` is true only when the path is the current R. A macOS `R.framework/Resources` path is only usable as the current R (`r-installation.ts:323-326`).
+   - `current` is true when the path and the current R are the same file after following symlinks. Compare them with a new `arePathsSameFile()` in `path-utils.ts`. It calls `fs.realpathSync()` on both paths, falls back to the path as given if that throws, then calls `arePathsSame()`. A plain string comparison isn't enough: `currentRBinary()` returns the path with symlinks followed (`provider.ts:998-1002`), and a macOS `R.framework/Resources` path is only usable as the current R (`r-installation.ts:323-326`). So on a CRAN install, a pin like `/usr/local/bin/R` would be dropped as not usable.
+   - When the pin is the current R, build the installation from the current R's path, so its runtime ID matches discovery's entry and the picker doesn't list it twice.
    - Pass `packagerMetadataForPath(path)`, so a pinned R inside a conda or pixi environment starts with that environment activated (Q12).
 4. If `!inst.usable`, return undefined. That covers `exclude` and `override` (`r-installation.ts:328-334`), an R that's too old, and a path that isn't a real install (Q9).
 5. Return `makeMetadata(inst)`. Its default `startupBehavior` is `implicit` (`provider.ts:724-727`).
 
-Today's recommendation builds the pinned R without steps 3 and 4 (`runtime-manager.ts:159-160`). Using the helper there fixes Q9 and Q12 for the recommendation too.
+Use `arePathsSameFile()` in the three places that compare against the current R today: `validateMetadata()` (`runtime-manager.ts:381-382`), `registerRuntimeFromPath()` (`410`), and `rDefinitionOnlyRuntimes()` (`provider.ts:374`, which passes `false` today). They have the same bug: on macOS with CRAN's installer, an R at `/usr/local/bin/R` is rejected as not usable.
+
+This commit doesn't change the recommendation. 16376 PR 1 restructures that function, so commit 7 makes the recommendation use the helper. That keeps commits 1 to 6 buildable before PR 1 lands.
 
 ### 5. Python: `pinnedWorkspaceRuntime()`
 
@@ -156,8 +162,10 @@ Suggested meaning for both: the interpreter at this path starts in this workspac
 
 On top of 16376 PR 1's recommendation, change only the pinned part:
 
-- Use the helper from commit 4.
+- Use the helper from commit 4. That also fixes Q9 and Q12 for the recommendation, which today builds the pinned R without the usable check or the packager metadata (`runtime-manager.ts:159-160`).
 - Return the pinned R with `startupBehavior` set to `immediate` when `looksLikeRProject()` is true, otherwise `implicit`. This is the Q13 answer.
+- Keep the pinned branch, including `looksLikeRProject()`, inside PR 1's `try`. A throw there would lose every language's recommendation (`extHostLanguageRuntime.ts:1245-1261`), and no console would start on that launch.
+- Add the pinned cases to PR 1's decision function and its Vitest file, not a second one.
 
 This needs 16376 PR 1. Without it, R's search still sets `immediate`, and the cache can bring that value into a folder where the pinned R is `implicit`.
 
@@ -171,6 +179,8 @@ The plan's "To check during implementation" section lists two:
 
 - Opening an R or Python file starts the pinned interpreter, not the first registered one. That needs her core change 2.
 - Under `recommended`, step 4 doesn't start the affiliated runtime. That needs her core change 3.
+
+The tests under "Tests that need Isabel's core changes" check two more: `getPreferredRuntime()` under `recommended`, and step 5 under `always`.
 
 Also check that her Python PR ranks `python.defaultInterpreterPath` first at every setting level. Until it does, a folder with no affiliated Python and a root `.venv` starts the `.venv`, not the pin (`manager.ts:376-402`).
 
@@ -199,18 +209,26 @@ Cases:
 - The pinned runtime is never written to the discovery cache.
 - Step 2 uses the "pinned" start reason.
 - Two languages, and Python's check is slow: the R console starts before Python's check finishes.
+- Under `recommended`: the method isn't called.
+- Under `always`, with two languages and one not used last time: step 2 starts both, each with its pin.
+
+Tests that need Isabel's core changes. Each fails until the behavior exists. #2659 merges after her core PR. If her change already makes a test pass, nothing else is needed. If not, #2659 makes the change.
+
+- Under `recommended`, with an old affiliated runtime and a pin set, running code with no console starts the pin, not the old interpreter. The fake runtime manager returns the pin as its recommendation, so the test doesn't depend on Python's ranking. This covers `getPreferredRuntime()`.
+- Under `always`, in a new folder with no affiliated runtime and two pinned languages, both pinned interpreters start. This covers step 5 starting each `always` language's recommendation, not the first registered interpreter of one language. `always` set for one language, such as `[r]`, starts that language. `always` set for all languages starts every language.
 
 In `src/vs/workbench/api/test/common/positron/extHostLanguageRuntime.vitest.ts`, which already builds fake managers (`139-273`):
 
 - Two managers registered for `python`: `$pinnedWorkspaceRuntime()` asks the one with the matching extension ID.
-- The manager registers after the call: the call waits for it.
+- No manager for that extension ID and language: the call returns undefined right away.
 - The manager doesn't have the method, or it throws: the call returns undefined.
 
 ### R
 
 positron-r has no tests for `runtime-manager.ts` today. Vitest can't load files that import `vscode`, and `runtime-manager.ts`, `provider.ts`, `interpreter-settings.ts`, and `r-installation.ts` all do.
 
-- **Vitest:** put the decision itself in a file with no `vscode` import, next to `packager-detection.vitest.ts`. Given the resolved path, whether it exists, whether it's usable, its packager metadata, and whether the folder looks like an R project, it returns what the method and the recommendation return. Cases: no pin, missing path, not usable, `definitionsOnly`, a pixi path keeps its packager metadata, R project gives `immediate`, other folders give `implicit`.
+- **Vitest:** put the decision itself in a file with no `vscode` import, next to `packager-detection.vitest.ts`. Given the resolved path, whether it exists, whether it's usable, its packager metadata, and whether the folder looks like an R project, it returns what the method and the recommendation return. Cases: no pin, missing path, not usable, `definitionsOnly`, a pixi path keeps its packager metadata. The R-project cases (`immediate` in an R project, `implicit` elsewhere) go in 16376 PR 1's decision function, in commit 7.
+- **Vitest for `arePathsSameFile()`:** a new `path-utils.vitest.ts`. `path-utils.ts` imports only `path`, `os`, and `fs`, so Vitest can load it. Build a temp folder holding a chain of symlinks like the R framework layout (`Resources -> Versions/Current -> 4.6`), the way `packager-detection.vitest.ts` builds its temp folders.
 - **Extension host (Mocha),** `npm run test-extension -- -l positron-r`, with a real R. CI's extension host job runs in an image with R 4.5.2 (`.github/workflows/test-ext-host.yml:33-36`). Cases: the method returns R for a pinned real R, and nothing for an excluded one.
 
 ### Python
