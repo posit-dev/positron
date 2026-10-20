@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -92,6 +92,27 @@ test('decideOutcome: an issue closed as completed is fixed later; closed as not 
 	assert.equal(done.issue.number, 9);
 	assert.equal(decideOutcome({ ...base, laterChecks: [issue('closed as not planned')] }).outcome, 'filed-issue');
 	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open'), issue('closed as completed')] }).outcome, 'fixed-later');
+});
+
+test('candidateIssues adds issues that mention the PR to the search\'s, each once', () => {
+	const repo = 'posit-dev/positron';
+	const issue = (number, created_at, extra = {}) => ({ number, created_at, repository: { full_name: repo }, ...extra });
+	const ref = i => ({ event: 'cross-referenced', source: { type: 'issue', issue: i } });
+	const got = candidateIssues({
+		found: [issue(1, '2026-10-02'), issue(2, '2026-09-30'), issue(3, '2026-10-02', { pull_request: {} })],
+		timeline: [
+			{ event: 'commented' },
+			ref(issue(1, '2026-10-02')),
+			ref(issue(4, '2026-10-03')),
+			ref(issue(5, '2026-10-03', { pull_request: {} })),
+			ref(issue(6, '2026-10-03', { repository: { full_name: 'posit-dev/ark' } })),
+			ref(issue(7, '2026-09-30')),
+		],
+		postedAt: '2026-10-01',
+		repo,
+	});
+	assert.deepEqual(got.map(i => i.number), [1, 4]);
+	assert.deepEqual(candidateIssues({ found: [], timeline: undefined, postedAt: '2026-10-01', repo }), []);
 });
 
 test('issueOf names an issue\'s state the way the page shows it', () => {
