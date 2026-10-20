@@ -620,10 +620,6 @@ const excludedExtensions = [
 	'theme-red',
 	'theme-solarized-dark',
 	'theme-solarized-light',
-	// Build-time-only package: shared query code generation that the SQL data driver
-	// extensions bundle via esbuild. It is not an extension and must not be packaged
-	// or activated at runtime.
-	'positron-data-driver-common',
 	// --- End Positron ---
 ];
 

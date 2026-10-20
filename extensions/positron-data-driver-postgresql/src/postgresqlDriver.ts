@@ -8,7 +8,6 @@ import * as os from 'os';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { createQueryCodeGenerator, dbiGetQuery, pandasReadSql } from 'positron-data-driver-common';
 import { PostgreSQLConnection } from './postgresqlConnection.js';
 import { PostgresDataExplorerRpcHandler } from './postgresqlDataExplorerRpcHandler.js';
 
@@ -267,9 +266,6 @@ function renderPsycopg2Code(fields: PostgresConnectionFields): positron.Connecti
 		id: 'psycopg2',
 		label: 'psycopg2',
 		code: `import psycopg2\n\nconn = psycopg2.connect(\n${args.map(arg => `\t${arg},`).join('\n')}\n)\n`,
-		// What the Variables pane calls the object, so a connection the user made by hand is
-		// queried the way its library expects. psycopg2's class name is lowercase.
-		objectTypes: ['connection'],
 	};
 }
 
@@ -297,7 +293,6 @@ function renderSqlAlchemyCode(fields: PostgresConnectionFields): positron.Connec
 		id: 'sqlalchemy',
 		label: 'SQLAlchemy',
 		code: `import sqlalchemy as sa\n\nengine = sa.create_engine(sa.URL.create(\n${args.map(arg => `\t${arg},`).join('\n')}\n))\n`,
-		objectTypes: ['Engine'],
 	};
 }
 
@@ -512,23 +507,6 @@ function redactConnectionString(connectionString: string): string {
 		`$1$2${REDACTED_PASSWORD}`
 	);
 }
-
-// --- Query code generation ---
-
-/**
- * Generates the code that runs a query through a connection one of this driver's connection code
- * variants created. Only the variant ids are this driver's own; the recipes and the quoting they
- * depend on are shared with every other SQL driver.
- */
-export const generateQueryCode: (request: positron.QueryCodeRequest) => string | undefined = createQueryCodeGenerator({
-	python: {
-		psycopg2: pandasReadSql,
-		sqlalchemy: pandasReadSql,
-	},
-	r: {
-		dbi: dbiGetQuery,
-	},
-});
 
 // --- Connect-time validators ---
 
@@ -748,7 +726,6 @@ export function createPostgreSQLDriver(
 					return [];
 			}
 		},
-		generateQueryCode,
 		redactParameterValue(mechanismId: string, parameterId: string, value: string): string | undefined {
 			// The connection string is the only parameter shown in plaintext while embedding a
 			// secret, so it is the only one with a meaningful redacted preview.

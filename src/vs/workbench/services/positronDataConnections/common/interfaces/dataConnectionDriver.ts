@@ -225,29 +225,6 @@ export interface IDataConnectionCodeVariant {
 
 	// The generated connection code for this variant.
 	code: string;
-
-	// The type names a session reports for the object this variant's code creates, e.g. `Engine`.
-	// Optional; identifies the variant of a connection the user made by hand.
-	objectTypes?: readonly string[];
-}
-
-/**
- * Service-level form of a query code generation request. Same shape as
- * IDataConnectionQueryCodeRequestDTO; kept distinct so the in-process representation can evolve
- * independently of the wire contract.
- */
-export interface IDataConnectionQueryCodeRequest {
-	// The language to generate code for. One of the driver's supported language ids.
-	readonly languageId: string;
-
-	// The id of the connection code variant the connection was made with.
-	readonly variantId: string;
-
-	// The name of the variable the connection is bound to in the session.
-	readonly connectionVariable: string;
-
-	// The query to run, as the user wrote it.
-	readonly query: string;
 }
 
 /**
@@ -271,19 +248,6 @@ export interface IDataConnectionDriver {
 	 * @param params The current connection parameter values.
 	 */
 	generateConnectionCode(mechanismId: string, languageId: string, params: DataConnectionParameterValues): Promise<IDataConnectionCodeVariant[]>;
-
-	/**
-	 * Generates the code that runs a query through a connection this driver's connection code
-	 * created, so a user can run SQL from the R or Python session the connection lives in.
-	 *
-	 * Only the driver knows what its connection code produced -- a SQLAlchemy engine, a DBAPI
-	 * connection and a DBI connection all come from the same driver and are queried three
-	 * different ways -- which is why the request carries the variant the connection was made with.
-	 * Resolves to undefined when the driver does not implement query generation, or does not for
-	 * that variant.
-	 * @param request What to run and what to run it through.
-	 */
-	generateQueryCode(request: IDataConnectionQueryCodeRequest): Promise<string | undefined>;
 
 	/**
 	 * Produces a display-safe, redacted form of a stored parameter value (e.g. masking the password

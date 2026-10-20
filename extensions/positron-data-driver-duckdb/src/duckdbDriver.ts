@@ -8,7 +8,6 @@ import * as os from 'os';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { createQueryCodeGenerator, dbiGetQuery, duckdbRelational, pandasReadSql } from 'positron-data-driver-common';
 import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
 import { DuckDBConnection } from './duckdbConnection.js';
 
@@ -53,23 +52,6 @@ function escapeDoubleQuoted(value: string): string {
  * the connect switch, so the two stay in sync.
  */
 const FILE_MECHANISM_ID = 'file';
-
-// --- Query code generation ---
-
-/**
- * Generates the code that runs a query through a connection one of this driver's connection code
- * variants created. Only the variant ids are this driver's own; the recipes and the quoting they
- * depend on are shared with every other SQL driver.
- */
-export const generateQueryCode: (request: positron.QueryCodeRequest) => string | undefined = createQueryCodeGenerator({
-	python: {
-		duckdb: duckdbRelational,
-		sqlalchemy: pandasReadSql,
-	},
-	r: {
-		dbi: dbiGetQuery,
-	},
-});
 
 /**
  * Reads the `readOnly` parameter, defaulting to true to match the parameter's declared
@@ -198,15 +180,11 @@ export function createDuckDBDriver(
 							id: 'duckdb',
 							label: 'duckdb',
 							code: `import duckdb\n\nconn = ${duckdbConnect}\n`,
-							// What the Variables pane calls each object, so a connection the
-							// user made by hand is queried the way its library expects.
-							objectTypes: ['DuckDBPyConnection'],
 						},
 						{
 							id: 'sqlalchemy',
 							label: 'SQLAlchemy',
 							code: `import sqlalchemy as sa\n\nengine = ${sqlalchemyEngine}\n`,
-							objectTypes: ['Engine'],
 						},
 					];
 				}
@@ -238,6 +216,5 @@ export function createDuckDBDriver(
 					return [];
 			}
 		},
-		generateQueryCode,
 	};
 }

@@ -8,11 +8,10 @@
 import { Emitter } from '../../../../../base/common/event.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
-import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
-import { IDataConnectionSessionBinding, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { IDataConnectionsDriverManager } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionsDriverManager.js';
 import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
@@ -85,13 +84,11 @@ describe('MainThreadDataConnections', () => {
 	let instances: IDataConnectionInstance[];
 	let onDidChangeInstances: Emitter<IDataConnectionInstance[]>;
 	let onDidChangeProfiles: Emitter<IDataConnectionProfile[]>;
-	let sessionBindings: IDataConnectionSessionBinding[];
 
 	beforeEach(() => {
 		registeredDrivers = [];
 		profiles = [];
 		instances = [];
-		sessionBindings = [];
 		onDidChangeInstances = disposables.add(new Emitter<IDataConnectionInstance[]>());
 		onDidChangeProfiles = disposables.add(new Emitter<IDataConnectionProfile[]>());
 		configurationService = new TestConfigurationService({ dataConnections: { enabled: true } });
@@ -101,7 +98,6 @@ describe('MainThreadDataConnections', () => {
 		const driverManager = stubInterface<IDataConnectionsDriverManager>({
 			registerDriver: driver => { registeredDrivers.push(driver); },
 			getDrivers: () => registeredDrivers,
-			getDriver: (id: string) => registeredDrivers.find(driver => driver.id === id),
 		});
 		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({
 			driverManager,
@@ -110,10 +106,6 @@ describe('MainThreadDataConnections', () => {
 			getInstances: () => instances,
 			getInstanceForProfile: (profileId: string) => instances.find(i => i.profileId === profileId),
 			connect,
-			getSessionBinding: (profileId: string, sessionId: string) => sessionBindings.find(
-				candidate => candidate.profileId === profileId && candidate.sessionId === sessionId),
-			getSessionBindings: (sessionId: string) => sessionBindings.filter(
-				candidate => candidate.sessionId === sessionId),
 			onDidChangeInstances: onDidChangeInstances.event,
 			onDidChangeProfiles: onDidChangeProfiles.event,
 		});
@@ -125,11 +117,7 @@ describe('MainThreadDataConnections', () => {
 		});
 		mainThread = disposables.add(
 			new MainThreadDataConnections(
-				extHostContext,
-				dataConnectionsService,
-				configurationService,
-				new NullLogService(),
-				stubInterface<INotificationService>({}),
+				extHostContext, dataConnectionsService, configurationService, new NullLogService(),
 			),
 		);
 	});
@@ -256,9 +244,6 @@ describe('MainThreadDataConnections', () => {
 				    "driverName": "DuckDB",
 				    "name": "Sales",
 				    "profileId": "p1",
-				    "supportedLanguageIds": [
-				      "python",
-				    ],
 				  },
 				  {
 				    "connected": false,
@@ -266,9 +251,6 @@ describe('MainThreadDataConnections', () => {
 				    "driverName": "DuckDB",
 				    "name": "Archive",
 				    "profileId": "p2",
-				    "supportedLanguageIds": [
-				      "python",
-				    ],
 				  },
 				]
 			`);
@@ -406,94 +388,6 @@ describe('MainThreadDataConnections', () => {
 			onDidChangeProfiles.fire([]);
 
 			expect($onDidChangeDataConnections).toHaveBeenCalledTimes(1);
-		});
-	});
-
-	describe('running a query through a session\'s connection', () => {
-
-		const binding = {
-			profileId: 'p1',
-			sessionId: 'session-1',
-			languageId: 'r',
-			variantId: 'dbi',
-			variableName: 'con',
-		};
-
-		it('reports the connections a session holds', async () => {
-			sessionBindings = [binding, { ...binding, sessionId: 'session-2' }];
-
-			await expect(mainThread.$getDataConnectionSessionBindings('session-1'))
-				.resolves.toEqual([binding]);
-		});
-
-		it('rejects rather than reporting no bindings when the feature is disabled', async () => {
-			sessionBindings = [binding];
-			configurationService.setUserConfiguration('dataConnections', { enabled: false });
-
-			await expect(mainThread.$getDataConnectionSessionBindings('session-1')).rejects.toThrow('"dataConnections.enabled" setting is disabled');
-		});
-
-		describe('for a connection Positron did not make', () => {
-
-			// The user connected by hand and then pointed at the variable, so there is no variant
-			// recorded -- only the type the session reported for it, if any.
-			const { variantId, ...withoutVariant } = binding;
-
-			beforeEach(() => {
-				profiles = [profile('p1', 'Sales')];
-				registeredDrivers.push(stubInterface<IDataConnectionDriver>({
-					id: 'duckdb',
-					generateConnectionCode: async () => [
-						{ id: 'duckdb', label: 'duckdb', code: 'conn = x', objectTypes: ['DuckDBPyConnection'] },
-						{ id: 'sqlalchemy', label: 'SQLAlchemy', code: 'engine = y', objectTypes: ['Engine'] },
-					],
-					generateQueryCode: async request => `${request.variantId}(${request.connectionVariable})`,
-				}));
-			});
-
-			it('assumes the variant whose object the variable is', async () => {
-				// An engine queried as a DuckDB connection fails, and the choice is remembered, so
-				// every later run would fail the same way.
-				await expect(mainThread.$generateDataConnectionQueryCode({ ...withoutVariant, variableType: 'Engine' }, 'SELECT 1'))
-					.resolves.toBe('sqlalchemy(con)');
-			});
-
-			it('assumes the driver\'s preferred variant when the type is unknown', async () => {
-				// The dialog's own suggestion is the best guess at what they ran.
-				await expect(mainThread.$generateDataConnectionQueryCode(withoutVariant, 'SELECT 1'))
-					.resolves.toBe('duckdb(con)');
-			});
-
-			it('assumes the driver\'s preferred variant when no variant makes that type', async () => {
-				await expect(mainThread.$generateDataConnectionQueryCode({ ...withoutVariant, variableType: 'list' }, 'SELECT 1'))
-					.resolves.toBe('duckdb(con)');
-			});
-		});
-
-		it('asks the profile\'s driver for the query code, naming the variable and the variant', async () => {
-			// Only the driver knows what its own connection code created: a SQLAlchemy engine and
-			// a DBI connection come out of the same driver and are queried differently.
-			profiles = [profile('p1', 'Sales')];
-			registeredDrivers.push(stubInterface<IDataConnectionDriver>({
-				id: 'duckdb',
-				generateQueryCode: async request => `${request.variantId}(${request.connectionVariable}, ${request.query})`,
-			}));
-
-			await expect(mainThread.$generateDataConnectionQueryCode(binding, 'SELECT 1'))
-				.resolves.toBe('dbi(con, SELECT 1)');
-		});
-
-		it('generates nothing for a profile whose driver is not registered', async () => {
-			// The driver's extension may not be installed or may not have activated yet.
-			profiles = [profile('p1', 'Sales')];
-
-			await expect(mainThread.$generateDataConnectionQueryCode(binding, 'SELECT 1'))
-				.resolves.toBeUndefined();
-		});
-
-		it('generates nothing for a profile the user has removed', async () => {
-			await expect(mainThread.$generateDataConnectionQueryCode(binding, 'SELECT 1'))
-				.resolves.toBeUndefined();
 		});
 	});
 });

@@ -8,7 +8,6 @@ import * as os from 'os';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { createQueryCodeGenerator, dbiGetQuery, pandasReadSql } from 'positron-data-driver-common';
 import { SQLiteConnection } from './sqliteConnection.js';
 import { SqliteDataExplorerRpcHandler } from './sqliteDataExplorerRpcHandler.js';
 
@@ -53,23 +52,6 @@ function escapeDoubleQuoted(value: string): string {
  * the connect switch, so the two stay in sync.
  */
 const FILE_MECHANISM_ID = 'file';
-
-// --- Query code generation ---
-
-/**
- * Generates the code that runs a query through a connection one of this driver's connection code
- * variants created. Only the variant ids are this driver's own; the recipes and the quoting they
- * depend on are shared with every other SQL driver.
- */
-export const generateQueryCode: (request: positron.QueryCodeRequest) => string | undefined = createQueryCodeGenerator({
-	python: {
-		sqlite3: pandasReadSql,
-		sqlalchemy: pandasReadSql,
-	},
-	r: {
-		dbi: dbiGetQuery,
-	},
-});
 
 /**
  * Creates the SQLite DataConnectionDriver.
@@ -173,9 +155,6 @@ export function createSQLiteDriver(
 							id: 'sqlite3',
 							label: 'sqlite3',
 							code: `import sqlite3\n\nconn = ${sqlite3Connect}\n`,
-							// What the Variables pane calls each object, so a connection the
-							// user made by hand is queried the way its library expects.
-							objectTypes: ['Connection'],
 						},
 						{
 							id: 'sqlalchemy',
@@ -183,7 +162,6 @@ export function createSQLiteDriver(
 							code: readOnly
 								? `import sqlalchemy as sa\n\nengine = sa.create_engine("sqlite:///file:${escapedPath}?mode=ro&uri=true")\n`
 								: `import sqlalchemy as sa\n\nengine = sa.create_engine("sqlite:///${escapedPath}")\n`,
-							objectTypes: ['Engine'],
 						},
 					];
 				}
@@ -218,6 +196,5 @@ export function createSQLiteDriver(
 					return [];
 			}
 		},
-		generateQueryCode,
 	};
 }

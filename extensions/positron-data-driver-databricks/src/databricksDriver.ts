@@ -22,7 +22,6 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { createQueryCodeGenerator, dbiGetQuery, pandasReadSql } from 'positron-data-driver-common';
 import { DatabricksConnection } from './databricksConnection.js';
 import { DatabricksAuthType, DatabricksConnectionOptions } from './databricksClient.js';
 import { DatabricksDataExplorerRpcHandler } from './databricksDataExplorerRpcHandler.js';
@@ -370,22 +369,6 @@ async function workbenchConnectionConfig(params: positron.DataConnectionParamete
 	};
 }
 
-// --- Query code generation ---
-
-/**
- * Generates the code that runs a query through a connection one of this driver's connection code
- * variants created. Only the variant ids are this driver's own; the recipes and the quoting they
- * depend on are shared with every other SQL driver.
- */
-export const generateQueryCode: (request: positron.QueryCodeRequest) => string | undefined = createQueryCodeGenerator({
-	python: {
-		'databricks-sql-connector': pandasReadSql,
-	},
-	r: {
-		dbi: dbiGetQuery,
-	},
-});
-
 /** Builds the normalized connection options for a mechanism's parameter values. */
 function connectionConfig(mechanismId: string, params: positron.DataConnectionParameterValues): DatabricksConnectionOptions {
 	const authType = MECHANISM_AUTH_TYPES.get(mechanismId);
@@ -578,6 +561,5 @@ export function createDatabricksDriver(
 			}
 			return generateConnectionCode(mechanismId, languageId, params);
 		},
-		generateQueryCode,
 	};
 }
