@@ -44,6 +44,9 @@ const SELECT_CONNECTION_COMMAND = 'sql.selectDataConnection';
  */
 const RUN_STATEMENT_COMMAND = 'sql.runStatement';
 
+/** Set when the user asks not to be offered ggsql again; see the `no-runtime` case of a run. */
+const HIDE_GGSQL_INSTALL_KEY = 'sql.hideGgsqlInstallPrompt';
+
 /** The compiled analyzer, built from `sql-analyzer/` and committed through Git LFS; see scripts/build-analyzer.mts. */
 const ANALYZER_MODULE = path.join('resources', 'sql-analyzer.wasm');
 
@@ -104,7 +107,7 @@ export interface SessionApi extends DataConnectionsApi {
 }
 
 /** What a session needs of the extension context. */
-export type SessionContext = Pick<vscode.ExtensionContext, 'extensionPath' | 'workspaceState'>;
+export type SessionContext = Pick<vscode.ExtensionContext, 'extensionPath' | 'workspaceState' | 'globalState'>;
 
 /**
  * The extension's state and the editor features that read it.
@@ -757,19 +760,33 @@ export class SqlSession implements vscode.Disposable {
 				));
 				break;
 
-			case 'no-runtime':
+			case 'no-runtime': {
 				// Offered rather than done: installing an extension is the user's call. The
 				// extension's page shows what it is and has the Install button; `extension.open`
 				// finds it in the gallery when it is not installed.
+				//
+				// A user who has said they do not want ggsql is not asked again on every Cmd+Enter.
+				// Nothing can run without it, so the press does nothing beyond a line in the log.
+				// Kept for the user rather than the workspace: not wanting ggsql is not about a
+				// project.
+				if (this._context.globalState.get<boolean>(HIDE_GGSQL_INSTALL_KEY) === true) {
+					return;
+				}
+				const install = vscode.l10n.t("Install ggsql");
+				const dontShowAgain = vscode.l10n.t("Don't Show Again");
 				void vscode.window.showWarningMessage(
 					vscode.l10n.t("Statements run in a ggsql console, and ggsql is not installed."),
-					vscode.l10n.t("Install ggsql"),
+					install,
+					dontShowAgain,
 				).then(chosen => {
-					if (chosen) {
+					if (chosen === install) {
 						void vscode.commands.executeCommand('extension.open', GGSQL_EXTENSION_ID);
+					} else if (chosen === dontShowAgain) {
+						void this._context.globalState.update(HIDE_GGSQL_INSTALL_KEY, true);
 					}
 				});
 				break;
+			}
 
 			case 'not-started':
 				void vscode.window.showWarningMessage(vscode.l10n.t(
