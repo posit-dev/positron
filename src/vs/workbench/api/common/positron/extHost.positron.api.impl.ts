@@ -402,6 +402,17 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 			/** Fires when the user's connections change. */
 			onDidChangeConnections: extHostDataConnections.onDidChangeConnections,
+
+			/**
+			 * Reads the code behind the connection comm a session opened most recently.
+			 * @param sessionId The session to ask about.
+			 */
+			getSessionConnectionCode(sessionId: string): Thenable<string | undefined> {
+				return extHostDataConnections.getSessionConnectionCode(sessionId);
+			},
+
+			/** Fires when a session's connection code changes. */
+			onDidChangeSessionConnectionCode: extHostDataConnections.onDidChangeSessionConnectionCode,
 		};
 
 		const dataExplorer: typeof positron.dataExplorer = {

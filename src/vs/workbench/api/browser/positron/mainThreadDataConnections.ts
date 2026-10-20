@@ -8,11 +8,18 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../../contrib/positronDataConnections/browser/positronDataConnectionsConfiguration.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
+import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk, walkDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
+
+/**
+ * The setting that turns on SQL support. It belongs to the positron-sql extension; the session
+ * connection code is read here only on its behalf, so it is unavailable while the setting is off.
+ */
+const SQL_ENABLED_KEY = 'sql.enabled';
 
 /**
  * Narrows a wire-format IDataConnectionParameterDTO to the service-level
@@ -126,6 +133,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		@IPositronDataConnectionsService private readonly _dataConnectionsService: IPositronDataConnectionsService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
+		@IPositronConnectionsService private readonly _connectionsService: IPositronConnectionsService,
 	) {
 		// Get the ext host proxy so adapters can call back for connect/getChildren/etc.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostDataConnections);
@@ -135,6 +143,13 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		const notify = () => this._proxy.$onDidChangeDataConnections();
 		this._disposableStore.add(this._dataConnectionsService.onDidChangeInstances(notify));
 		this._disposableStore.add(this._dataConnectionsService.onDidChangeProfiles(notify));
+
+		// Only while SQL support is on, read at the time of each change: nothing else asks.
+		this._disposableStore.add(this._connectionsService.onDidChangeSessionConnectionCode(e => {
+			if (this._configurationService.getValue<boolean>(SQL_ENABLED_KEY) === true) {
+				this._proxy.$onDidChangeSessionConnectionCode(e.sessionId, e.code);
+			}
+		}));
 	}
 
 	/**
@@ -198,6 +213,18 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 			this._logService.trace(`[DataConnections] getSchema: profile ${profileId} was truncated by the caller's bounds.`);
 		}
 		return walk;
+	}
+
+	/**
+	 * The code behind the connection comm a runtime session opened most recently, as the
+	 * connections service recorded it on its way to closing the comm.
+	 */
+	async $getSessionConnectionCode(sessionId: string): Promise<string | undefined> {
+		this._throwIfDisabled();
+		if (this._configurationService.getValue<boolean>(SQL_ENABLED_KEY) !== true) {
+			throw new Error(`Session connections are unavailable because the "${SQL_ENABLED_KEY}" setting is disabled.`);
+		}
+		return this._connectionsService.getSessionConnectionCode(sessionId);
 	}
 
 	/**

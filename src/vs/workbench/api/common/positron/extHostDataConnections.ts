@@ -145,6 +145,9 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	/** Fires when the user's connections change; see {@link onDidChangeConnections}. */
 	private readonly _onDidChangeConnections = new Emitter<void>();
 
+	/** Fires when a session's connection code changes; see {@link onDidChangeSessionConnectionCode}. */
+	private readonly _onDidChangeSessionConnectionCode = new Emitter<positron.SessionConnectionCodeChangeEvent>();
+
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
 	) {
@@ -204,6 +207,20 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	/** Called by the main thread when the user's connections change. */
 	public $onDidChangeDataConnections(): void {
 		this._onDidChangeConnections.fire();
+	}
+
+	/** The code behind the connection comm a session opened most recently, if any. */
+	public async getSessionConnectionCode(sessionId: string): Promise<string | undefined> {
+		return (await this._proxy.$getSessionConnectionCode(sessionId)) ?? undefined;
+	}
+
+	/** Fires when a session's connection code changes, including to `undefined` when it exits. */
+	public readonly onDidChangeSessionConnectionCode = this._onDidChangeSessionConnectionCode.event;
+
+	/** Called by the main thread when a session's connection code changes. */
+	public $onDidChangeSessionConnectionCode(sessionId: string, code: string | undefined): void {
+		// An undefined argument arrives as null over RPC.
+		this._onDidChangeSessionConnectionCode.fire({ sessionId, code: code ?? undefined });
 	}
 
 	// --- Public API (called by extension via positron.dataConnections.registerDriver) ---
