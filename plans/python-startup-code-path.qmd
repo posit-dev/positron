@@ -1,0 +1,327 @@
+---
+title: "Python startup: today and after #15825"
+format:
+  html:
+    page-layout: full
+    embed-resources: true
+    mermaid:
+      theme: default
+    include-in-header:
+      text: |
+        <style>
+          :root {
+            --mermaid-bg-color: #ffffff;
+            --mermaid-fg-color: #1f2328;
+            --mermaid-node-bg-color: #f6f8fa;
+            --mermaid-node-fg-color: #1f2328;
+            --mermaid-edge-color: #57606a;
+            --mermaid-label-bg-color: #ffffff;
+            --mermaid-label-fg-color: #1f2328;
+          }
+          .mermaid, .cell-output-display svg { background: #ffffff !important; }
+          .columns { gap: 2rem; }
+          h3 { margin-top: 0.5rem; }
+        </style>
+---
+
+Today is `origin/main` at `4fa2fa523ca`. "After" is the Python plan (`2026-09-25-python-startup-policy.md`) plus the core PR it depends on. In the "after" diagrams, [yellow]{style="background:#fff4ce;padding:0 4px"} marks a step that changed and [green]{style="background:#dff3e0;padding:0 4px"} marks a new one.
+
+## Terms
+
+**Startup behavior.** Each runtime Python registers carries one of these. It says when Positron may start that runtime without being asked:
+
+| Behavior | Starts |
+|---|---|
+| `Immediate` | As soon as Positron sees it, when the folder opens |
+| `Implicit` | The first time Python is needed: a `.py` file is opened, code is run (for example Run Line with no console), or Quarto or a notebook asks for a Python kernel |
+| `Explicit` | Only when the user picks it, in the interpreter picker or the console's start button |
+
+**`interpreters.startupBehavior`.** The user setting that controls startup for every language; `"[python]": { "interpreters.startupBehavior": ... }` overrides it for Python. Values:
+
+| Value | Meaning |
+|---|---|
+| `auto` (default) | Start the affiliated runtime if there is one, otherwise the recommendation |
+| `recommended` ("recommended mode") | Start only the recommendation; ignore the affiliated runtime |
+| `always` | Always start a runtime for the language, even in a folder with no files for it |
+| `manual` | Never start one automatically |
+| `disabled` | Don't discover or start the language at all |
+
+**Affiliated runtime.** The interpreter last used in this folder, which core remembers and starts again next time (under `auto` and `always`).
+
+**0/0 affiliation.** Today, when a recommendation is not `Immediate`, core saves it as the folder's affiliated runtime with both timestamps set to 0. A lone affiliation starts on the next open regardless of its timestamps, so a recommendation that wasn't meant to start now does start next time. After this change Python opts out of that save; R doesn't.
+
+**Recommendation.** The one interpreter per language that the language's extension suggests for this folder. Python's is the top eligible interpreter in the ranking below.
+
+**Startup ask and follow-up ask.** During startup, core asks every language for its recommendation once (the *startup ask*) and waits for all the answers before it starts discovery. After this change Python answers the startup ask using only interpreters it can find by path, without a full scan, so it answers within a couple of seconds at most (usually much less) instead of waiting for the full scan and holding up R and the cached runtimes. If none of those interpreters is usable, it answers "nothing yet". Core then asks Python a second time once discovery has finished (the *follow-up ask*), and Python ranks everything discovery found.
+
+**Discovery.** Finding every interpreter on the machine. PET (python-environment-tools) does the scan for Python. The discovery cache lets core show interpreters from the last session before the scan finishes.
+
+**Root env.** An environment directly in the folder's root: `.venv`, `.conda`, `venv`, `.virtualenv`, or `.pixi/envs/<name>`. An env one folder further down (for example `app/.venv`) is not a root env.
+
+**Python folder.** A folder with a root env, or with any of these at the root or one level down: `*.py`, `*.ipynb`, `pyproject.toml`, a `requirements*.txt`, `Pipfile`, `setup.py`, `setup.cfg`, `environment.yml`, `.python-version`, `uv.lock`, `pixi.toml`.
+
+## The ranking (after)
+
+The recommendation is the first interpreter in this order that passes the filters (`python.interpreters.exclude` and `override`, a supported Python version, and a compatible ipykernel unless it's the project's own env).
+
+| Tier | Interpreter | What it is | Startup behavior of the recommendation |
+|---|---|---|---|
+| 0 | Launch-shell env | The env that was active in the terminal Positron was started from (`VIRTUAL_ENV`, or a non-base `CONDA_PREFIX`) | `Immediate` in a Python folder, otherwise `Implicit` |
+| 1 | `python.defaultInterpreterPath` | The interpreter set in settings, at any scope, including an admin-enforced value | Same |
+| 2 | Root env, then the pyenv virtualenv named in `.python-version` | The project's own env (see Terms) | Same |
+| 3 | The pyenv version named in `.python-version` | For example `3.12.4` in the file, installed with `pyenv install` | Same |
+| 4 | Envs one level deep, then other envs inside the folder | `app/.venv`, or a poetry or hatch env stored inside the folder | Same |
+| 5 | Configured | `interpreters.definitions` > environment modules > `python.interpreters.include` > `python.venvPath` > `python.venvFolders` | Same |
+| 6 | Positron's default env | `~/.virtualenvs/positron`, or under `$WORKON_HOME` | Same |
+| 7 | Named envs | Envs a tool created and named, outside the folder: conda envs (`conda create -n ds`), then pyenv virtualenvs (`pyenv virtualenv 3.12 tool`) | Same |
+| 8 | Global envs | Shared Pythons not tied to any project: uv base Pythons (`uv python install`), then conda base (the Python that comes with Anaconda or Miniconda), then pyenv versions (`pyenv install`), then global virtualenvs (`~/.virtualenvs/<name>`, virtualenvwrapper, and poetry, pipenv, hatch or uv envs stored outside the folder) | Same |
+| 9 | Base installs | python.org installers, the Windows Store and registry, other Pythons on `PATH` | `Explicit` |
+| 10 | Externally managed and system | Homebrew, Xcode Command Line Tools, distro `/usr/bin`, anything with a PEP 668 `EXTERNALLY-MANAGED` marker | `Explicit` |
+
+**"Recommended, but only when picked" (tiers 9-10).** If the best interpreter on the machine is a python.org, Homebrew or system Python, it is still the recommendation: it is shown first in the interpreter picker, and `always` uses it. But its startup behavior is `Explicit`, so opening the folder, opening a `.py` file or running code never starts it on its own. The user has to pick it once; after that it is the folder's affiliated runtime and starts like any other.
+
+Every other interpreter is registered `Explicit`.
+
+## 1. Who calls whom
+
+Core talks to the Python extension through the extension host; those hops are left out.
+
+:::: {.columns}
+
+::: {.column width="49%"}
+### Today
+
+```{mermaid}
+%%{init: {"theme": "default", "themeVariables": {"background": "#ffffff", "fontSize": "15px", "clusterBkg": "#f6f8fa", "clusterBorder": "#d0d7de"}, "sequence": {"wrap": true, "width": 120, "actorMargin": 20, "boxMargin": 4, "noteMargin": 6, "messageMargin": 28, "mirrorActors": false, "messageFontSize": 15, "noteFontSize": 14}}}%%
+sequenceDiagram
+    participant Core
+    participant Py as Python extension
+    participant PET
+    participant Sup as Supervisor
+
+    Core->>Core: Restore sessions: running ones reconnect, exited ones are retried,<br/>disabled languages are dropped
+    opt Affiliated runtime, setting is auto or always
+        Core->>Py: validateMetadata(stored runtime)
+        Core->>Sup: Start the affiliated console
+    end
+    Core->>Py: recommendedWorkspaceRuntime()
+    Py->>Py: findFiles .venv, .conda, */bin/python (slow)
+    Py->>PET: Resolve the path (refresh and retry on failure)
+    Py-->>Core: Metadata
+    alt Immediate
+        Core->>Sup: Start it
+    else Not Immediate
+        Core->>Core: Save as 0/0 affiliation
+    end
+    Note over Core: Every language waits for this answer
+    Core->>Core: Replay the discovery cache
+    Core->>Py: discoverAllRuntimes()
+    Py->>PET: triggerRefresh (full scan)
+    PET-->>Py: Environments
+    Py->>Py: Sort by env type, findFiles **/*.py,<br/>ipykernel check per interpreter
+    Py-->>Core: Runtimes: first sorted Immediate, the rest Implicit
+    Core->>Sup: At Complete, start the first Immediate
+    Note over Core,Sup: File opened with no console:<br/>first registered Implicit runtime starts
+```
+
+:::
+
+::: {.column width="49%"}
+### After
+
+```{mermaid}
+%%{init: {"theme": "default", "themeVariables": {"background": "#ffffff", "fontSize": "15px", "clusterBkg": "#f6f8fa", "clusterBorder": "#d0d7de"}, "sequence": {"wrap": true, "width": 120, "actorMargin": 20, "boxMargin": 4, "noteMargin": 6, "messageMargin": 28, "mirrorActors": false, "messageFontSize": 15, "noteFontSize": 14}}}%%
+sequenceDiagram
+    participant Core
+    participant Py as Python extension
+    participant PET
+    participant Sup as Supervisor
+
+    rect rgb(255, 244, 206)
+    Core->>Core: Restore sessions: every running session reconnects, even an excluded<br/>interpreter or a disabled language. One whose kernel has exited isn't retried
+    end
+    opt Affiliated runtime, setting is auto or always
+        Core->>Py: validateMetadata(stored runtime)
+        Core->>Sup: Start it (Python refuses if excluded)
+    end
+    rect rgb(255, 244, 206)
+    Core->>Py: recommendedWorkspaceRuntime() (startup ask)
+    Py->>Py: Read folder: root + one level, no findFiles
+    Py->>PET: Resolve only the interpreters it can find by path (tiers 0-3), 2 s each, no full scan
+    Py-->>Core: Top of the ranking, or nothing yet
+    end
+    alt Immediate
+        Core->>Sup: Start it
+    else Implicit or Explicit
+        Core->>Core: Remember it (no 0/0 save)
+    end
+    Note over Core: Python answers without waiting for the full scan, so R and the cached runtimes aren't held up
+    Core->>Core: Replay the discovery cache
+    Core->>Py: discoverAllRuntimes()
+    Py->>PET: triggerRefresh (full scan)
+    PET-->>Py: Environments
+    rect rgb(255, 244, 206)
+    Py->>Py: Rank, no ipykernel install check
+    Py-->>Core: Runtimes, all Explicit
+    end
+    rect rgb(223, 243, 224)
+    opt Startup ask answered nothing yet
+        Core->>Py: recommendedWorkspaceRuntime(afterDiscovery) (follow-up ask)
+        Py->>Py: Rank everything, no new scan
+        Py-->>Core: Recommendation
+        Core->>Sup: Start it if Immediate, otherwise remember it
+    end
+    end
+    Note over Core,Sup: File opened, Run Line, Quarto, notebook:<br/>the remembered recommendation starts
+```
+
+:::
+
+::::
+
+## 2. Startup steps in core
+
+:::: {.columns}
+
+::: {.column width="49%"}
+### Today
+
+```{mermaid}
+%%{init: {"theme": "default", "themeVariables": {"background": "#ffffff", "fontSize": "15px", "clusterBkg": "#f6f8fa", "clusterBorder": "#d0d7de"}}}%%
+flowchart TD
+    A[Window opens] --> B[Restore sessions<br/>running ones reconnect,<br/>exited ones are retried,<br/>disabled languages are dropped]
+    B --> C{Console running?}
+    C -- no --> D{Affiliated runtime<br/>and setting is<br/>auto or always?}
+    D -- yes --> E[Start affiliated runtime]
+    D -- no --> F
+    E --> F{Console running?}
+    F -- no --> G[Ask each language<br/>for a recommendation]
+    G --> H{Immediate?}
+    H -- yes --> I[Start it]
+    H -- no --> J[Save as 0/0 affiliation:<br/>starts on next open]
+    C -- yes --> K
+    F -- yes --> K
+    I --> K
+    J --> K
+    K[Discovery: cache replay,<br/>then each extension]
+    K --> L[Complete: start first Immediate,<br/>or first runtime of an always language]
+```
+
+:::
+
+::: {.column width="49%"}
+### After
+
+```{mermaid}
+%%{init: {"theme": "default", "themeVariables": {"background": "#ffffff", "fontSize": "15px", "clusterBkg": "#f6f8fa", "clusterBorder": "#d0d7de"}}}%%
+flowchart TD
+    A[Window opens] --> B[Restore sessions<br/>every running session reconnects,<br/>even an excluded interpreter or<br/>a disabled language. One whose<br/>kernel has exited isn't retried]
+    B --> C{Console running?}
+    C -- no --> D{Affiliated runtime<br/>and setting is<br/>auto or always?}
+    D -- yes --> E[Start affiliated runtime<br/>Python refuses if excluded<br/>skipped when the setting is recommended]
+    D -- no --> F
+    E --> F{Console running?}
+    F -- no --> G[Startup ask: each language<br/>recommends one runtime<br/>Python uses only interpreters it<br/>can find by path, no full scan]
+    G --> H{Immediate?}
+    H -- yes --> I[Start it]
+    H -- no --> J[Remember it<br/>no 0/0 save for Python]
+    C -- yes --> K
+    F -- yes --> K
+    I --> K
+    J --> K
+    K[Discovery: cache replay,<br/>then each extension]
+    K --> L[Follow-up ask: Python again,<br/>if its startup ask answered nothing<br/>or was skipped]
+    L --> M{Immediate, and no<br/>console for it?}
+    M -- yes --> N[Start it]
+    M -- no --> O[Remember it: starts when<br/>Python is first needed if Implicit,<br/>only when picked if Explicit]
+
+    classDef changed fill:#fff4ce,stroke:#bf8700,color:#1f2328
+    classDef new fill:#dff3e0,stroke:#1a7f37,color:#1f2328
+    class B,E,G,J changed
+    class L,M,N,O new
+```
+
+:::
+
+::::
+
+"Skipped" means a console was already starting, for example an affiliated R console: today Python isn't asked at all then, so it has no recommendation. R is unchanged: it doesn't opt out of the 0/0 save, and it never answers "nothing yet".
+
+## 3. What starts a Python runtime
+
+:::: {.columns}
+
+::: {.column width="49%"}
+### Today
+
+```{mermaid}
+%%{init: {"theme": "default", "themeVariables": {"background": "#ffffff", "fontSize": "15px", "clusterBkg": "#f6f8fa", "clusterBorder": "#d0d7de"}}}%%
+flowchart TD
+    subgraph Marked["Which runtimes may start"]
+        direction TB
+        R1[Recommendation: Immediate if<br/>.venv, .conda or */bin/python]
+        R2[Discovery: first sorted interpreter<br/>Immediate if the folder has Python files]
+        R3[Every other interpreter: Implicit<br/>Explicit if no ipykernel]
+    end
+    subgraph Triggers["What starts one"]
+        direction TB
+        T1[Affiliated runtime registered]
+        T2[Immediate runtime registered<br/>or discovery completes]
+        T3[File opened, no console:<br/>first registered Implicit runtime]
+        T4[Setting is always:<br/>first registered runtime]
+    end
+    R1 ~~~ R2 ~~~ R3
+    T1 ~~~ T2 ~~~ T3 ~~~ T4
+    Marked --> Triggers
+```
+:::
+
+::: {.column width="49%"}
+### After
+
+```{mermaid}
+%%{init: {"theme": "default", "themeVariables": {"background": "#ffffff", "fontSize": "15px", "clusterBkg": "#f6f8fa", "clusterBorder": "#d0d7de"}}}%%
+flowchart TD
+    subgraph Marked["Which runtimes may start"]
+        direction TB
+        R1[Only the recommendation, tiers 0-8:<br/>Immediate in a Python folder,<br/>otherwise Implicit]
+        R2[Recommendation from tiers 9-10<br/>python.org, PATH, Homebrew, system:<br/>Explicit. First in the picker,<br/>starts only when the user picks it]
+        R3[Every other interpreter: Explicit]
+    end
+    subgraph Triggers["What starts one"]
+        direction TB
+        T1[Affiliated runtime registered<br/>unless the setting is recommended]
+        T2[An Immediate recommendation starts<br/>as soon as Python returns it, from<br/>the startup ask or the follow-up ask]
+        T3[File opened, Run Line, Quarto, notebook:<br/>the remembered recommendation,<br/>if Immediate or Implicit]
+        T4[Setting is always:<br/>the recommendation]
+    end
+    R1 ~~~ R2 ~~~ R3
+    T1 ~~~ T2 ~~~ T3 ~~~ T4
+    Marked --> Triggers
+
+    classDef changed fill:#fff4ce,stroke:#bf8700,color:#1f2328
+    class R1,R2,R3,T1,T2,T3,T4 changed
+```
+
+:::
+
+::::
+
+## Code references (today)
+
+| Step | Where |
+|---|---|
+| Startup sequence | `runtimeStartup.ts` `startupSequence` :660; affiliated :708; recommendation :714; discovery :722 |
+| Restore sessions | `restoreSessions` :2064, `restoreWorkspaceSessions` :2092 |
+| Affiliated runtimes | `startAffiliatedLanguageRuntimes` :1858, `startAffiliatedRuntime` :2034 |
+| Recommendations | `startRecommendedLanguageRuntimes` :1804; 0/0 save :1838 |
+| Discovery and cache | `discoverAllRuntimes` :984, `loadFromDiscoveryCache` :1157 |
+| Start triggers | affiliated at registration :1583; Immediate at registration :400; at Complete :316 |
+| File open | `runtimeSession.ts` :243-281 |
+| Start a session | `autoStartRuntime` (session service) :1740, `doCreateRuntimeSession` :2007 |
+| Python recommendation | `manager.ts` `recommendedWorkspaceRuntime` :430, `recommendedWorkspaceInterpreterPath` :362 |
+| Python discovery | `discoverer.ts` `pythonRuntimeDiscoverer` :33; `createPythonRuntimeMetadata` `runtime.ts` :155 |
+| PET | `nativeAPI.ts` `triggerRefresh` :464; `nativePythonFinder.ts` `refresh` :284 |
+| Supervisor | `KallichoreAdapterApi.createSession` :1554, `KallichoreSession.start` :1410 |
+
+Line numbers were read on `origin/main` at `4fa2fa523ca`.
