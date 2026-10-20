@@ -2148,7 +2148,8 @@ export class MainThreadLanguageRuntime
 		documentUri?: URI,
 		executionMetadata?: Record<string, unknown>,
 		attributionMetadata?: Record<string, unknown>,
-		callerSessionId?: string): Promise<string> {
+		callerSessionId?: string,
+		preserveActiveTab?: boolean): Promise<string> {
 
 		// Revive the URI from the serialized form, if provided.
 		const revivedUri = documentUri ? URI.revive(documentUri) : undefined;
@@ -2199,7 +2200,7 @@ export class MainThreadLanguageRuntime
 		}
 
 		return this._positronConsoleService.executeCode(
-			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId, undefined, executionMetadata);
+			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId, undefined, executionMetadata, preserveActiveTab);
 	}
 
 	$executeInlineCells(_extensionId: string, documentUri: URI, ranges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void> {

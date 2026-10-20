@@ -46,6 +46,7 @@ import { TestNotebookExecutionStateService } from '../../contrib/notebook/test/b
 import { NotebookKernelService } from '../../contrib/notebook/browser/services/notebookKernelServiceImpl.js';
 import { NotebookService } from '../../contrib/notebook/browser/services/notebookServiceImpl.js';
 import { IRuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IViewDescriptorService } from '../../common/views.js';
 import { RuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartup.js';
 import { IPositronNewFolderService } from '../../services/positronNewFolder/common/positronNewFolder.js';
 import { PositronNewFolderService } from '../../services/positronNewFolder/common/positronNewFolderService.js';
@@ -99,8 +100,10 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
 	instantiationService.stub(IPositronWebviewPreloadService, disposables.add(instantiationService.createInstance(PositronWebviewPreloadService)));
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
-	instantiationService.stub(IPositronPlotsService, disposables.add(instantiationService.createInstance(PositronPlotsService)));
+	// No views are registered here, so no view has a container.
+	instantiationService.stub(IViewDescriptorService, { getViewContainerByViewId: () => null, getViewContainerLocation: () => null });
 	instantiationService.stub(IPositronConsoleService, new TestPositronConsoleService());
+	instantiationService.stub(IPositronPlotsService, disposables.add(instantiationService.createInstance(PositronPlotsService)));
 	instantiationService.stub(IQuartoExecutionManager, disposables.add(instantiationService.createInstance(QuartoExecutionManager)));
 	instantiationService.stub(IPositronVariablesService, disposables.add(instantiationService.createInstance(PositronVariablesService)));
 	// Created on first use, not now, so it gets the configuration, log, and

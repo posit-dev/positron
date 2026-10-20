@@ -18,6 +18,8 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IObservable, ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { IViewsService } from '../../views/common/viewsService.js';
+import { IViewDescriptorService } from '../../../common/views.js';
+import { openViewPreservingActiveTab } from '../../views/browser/positronViews.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -73,6 +75,11 @@ const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
  * The trace output max length.
  */
 const TRACE_OUTPUT_MAX_LENGTH = 1000;
+
+/**
+ * The number of `preserveActiveTab` execution IDs to remember.
+ */
+const MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS = 100;
 
 /**
  * The prefix for execution IDs affiliated with the Positron Console
@@ -463,6 +470,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 */
 	private _consoleWidthDebounceTimer: Timeout | undefined;
 
+	/**
+	 * The most recent IDs of executions started with `preserveActiveTab`, oldest first.
+	 */
+	private readonly _preserveActiveTabExecutionIds = new Set<string>();
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -478,6 +490,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param _storageService The storage service.
 	 * @param _viewsService The views service.
 	 * @param _notificationService The notification service.
+	 * @param _viewDescriptorService The view descriptor service.
 	 */
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -488,7 +501,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IViewsService private readonly _viewsService: IViewsService,
-		@INotificationService private readonly _notificationService: INotificationService
+		@INotificationService private readonly _notificationService: INotificationService,
+		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService
 	) {
 		// Call the disposable constructor.
 		super();
@@ -802,6 +816,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID that can be used to identify the execution
 	 *   (e.g. for tracking execution history). If not provided, one will be assigned.
+	 * @param executionMetadata Optional metadata to pass to the language runtime.
+	 * @param preserveActiveTab Whether to avoid switching the active tab when revealing the
+	 *   Console (and Plots, for plots this execution produces). Ignored when `focus` is true.
 	 * @returns The session ID that will be used to execute the code.
 	 */
 	async executeCode(languageId: string,
@@ -814,10 +831,17 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string,
 		_documentUri?: URI,
-		executionMetadata?: Record<string, unknown>): Promise<string> {
+		executionMetadata?: Record<string, unknown>,
+		preserveActiveTab?: boolean): Promise<string> {
 		// When code is executed in the console service, open the console view. This opens
 		// the relevant pane composite if needed.
-		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+		if (preserveActiveTab && !focus) {
+			executionId ??= generateUuid();
+			this.rememberPreserveActiveTabExecution(executionId);
+			await openViewPreservingActiveTab(POSITRON_CONSOLE_VIEW_ID, this._viewsService, this._viewDescriptorService);
+		} else {
+			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+		}
 
 		let positronConsoleInstance: PositronConsoleInstance | undefined;
 
@@ -924,6 +948,10 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Enqueue the code in the Positron console instance.
 		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId, executionMetadata);
 		return Promise.resolve(positronConsoleInstance.sessionId);
+	}
+
+	shouldPreserveActiveTab(executionId: string): boolean {
+		return this._preserveActiveTabExecutionIds.has(executionId);
 	}
 
 	/**
@@ -1182,6 +1210,21 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Ask the console instance to reveal the execution.
 		if (!consoleInstance.revealExecution(executionId)) {
 			throw new Error(`Cannot reveal execution: execution ID ${executionId} not found in session ID ${sessionId}.`);
+		}
+	}
+
+	/**
+	 * Remembers an execution started with `preserveActiveTab`, forgetting the oldest
+	 * once there are more than `MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS`.
+	 * @param executionId The execution ID.
+	 */
+	private rememberPreserveActiveTabExecution(executionId: string) {
+		this._preserveActiveTabExecutionIds.add(executionId);
+		if (this._preserveActiveTabExecutionIds.size > MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS) {
+			const oldest = this._preserveActiveTabExecutionIds.values().next().value;
+			if (oldest !== undefined) {
+				this._preserveActiveTabExecutionIds.delete(oldest);
+			}
 		}
 	}
 

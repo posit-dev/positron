@@ -27,6 +27,8 @@ import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { IViewDescriptorService, ViewContainer, ViewContainerLocation } from '../../../../common/views.js';
+import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 describe('Positron - Plots Service', () => {
 
@@ -491,6 +493,52 @@ describe('Positron - Plots Service', () => {
 
 			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['console-plot-1']);
 			expect(openViewSpy).toHaveBeenCalledWith(POSITRON_PLOTS_VIEW_ID, false);
+		});
+
+		describe('executions that preserve the active tab', () => {
+			// Another container (e.g. the Assistant) is the active tab where Plots lives.
+			function showOtherContainer() {
+				const viewDescriptorService = ctx.instantiationService.get(IViewDescriptorService);
+				vi.spyOn(viewDescriptorService, 'getViewContainerByViewId')
+					.mockReturnValue(stubInterface<ViewContainer>({ id: 'sessionContainer' }));
+				vi.spyOn(viewDescriptorService, 'getViewContainerLocation').mockReturnValue(ViewContainerLocation.AuxiliaryBar);
+				const viewsService = ctx.instantiationService.get(IViewsService);
+				vi.spyOn(viewsService, 'getVisibleViewContainer')
+					.mockReturnValue(stubInterface<ViewContainer>({ id: 'otherContainer' }));
+				vi.spyOn(ctx.instantiationService.get(IPositronConsoleService), 'shouldPreserveActiveTab')
+					.mockImplementation(executionId => executionId === 'exec-preserve');
+				return vi.spyOn(viewsService, 'openView');
+			}
+
+			it('adds a static plot without switching tabs', async () => {
+				const openViewSpy = showOtherContainer();
+				const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+				session.receiveOutputMessage({ ...staticImageMessage('console-plot-1'), parent_id: 'exec-preserve' });
+
+				expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['console-plot-1']);
+				expect(openViewSpy).not.toHaveBeenCalled();
+			});
+
+			it('still raises the pane for other executions', async () => {
+				const openViewSpy = showOtherContainer();
+				const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+				session.receiveOutputMessage({ ...staticImageMessage('console-plot-1'), parent_id: 'exec-other' });
+
+				expect(openViewSpy).toHaveBeenCalledWith(POSITRON_PLOTS_VIEW_ID, false);
+			});
+
+			// Plot updates carry no parent ID, so they're attributed to the most recent execution.
+			it('updates a dynamic plot without switching tabs', async () => {
+				const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+				const client = await session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+				const openViewSpy = showOtherContainer();
+
+				session.receiveInputMessage({ parent_id: 'exec-preserve', code: 'abline(h = 0)' });
+				client.receiveData({ data: { method: 'show', params: {} } });
+
+				expect(plotsService.selectedPlotId).toBe('plot1');
+				expect(openViewSpy).not.toHaveBeenCalled();
+			});
 		});
 
 		// A plot preview stays in the console after the user clears the Plots
