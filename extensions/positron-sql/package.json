@@ -104,15 +104,27 @@
         "command": "sql.refreshDatabaseSchema",
         "title": "%command.refreshDatabaseSchema.title%",
         "category": "SQL",
-        "enablement": "editorLangId == sql"
+        "enablement": "config.sql.enabled && editorLangId == sql"
       },
       {
         "command": "sql.selectDataConnection",
         "title": "%command.selectDataConnection.title%",
         "category": "SQL",
-        "enablement": "editorLangId == sql"
+        "enablement": "config.sql.enabled && editorLangId == sql"
       }
-    ]
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "sql.refreshDatabaseSchema",
+          "when": "config.sql.enabled"
+        },
+        {
+          "command": "sql.selectDataConnection",
+          "when": "config.sql.enabled"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
