@@ -124,14 +124,15 @@ suite('Native Python Finder - configuration failures must not hang discovery', (
 
         const finder = createNativePythonFinder();
         try {
-            // Read the options directly: `lastConfiguration` is reset whenever PET shuts
-            // down, which this suite's zero idle timeout makes likely.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const refreshOptions = await (finder as any).configurationOptions(true);
-            assert.deepEqual(refreshOptions.workspaceDirectories, [ws, nested]);
+            // Drain the first refresh before disposing: a configure still queued when the
+            // finder is disposed would respawn PET and keep the test process alive.
+            // The refresh scans for nested envs once.
+            await refreshWithin(finder, 60_000);
             assert.strictEqual(scanStub.callCount, 1);
 
-            // A resolve-path configure reuses the last list instead of rescanning.
+            // A resolve-path configure reuses the list the refresh found instead of
+            // rescanning. Read the options directly: `lastConfiguration` is reset whenever
+            // PET shuts down, which this suite's zero idle timeout makes likely.
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const resolveOptions = await (finder as any).configurationOptions(false);
             assert.deepEqual(resolveOptions.workspaceDirectories, [ws, nested]);
