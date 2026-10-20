@@ -15,7 +15,7 @@ import * as crypto from 'crypto';
 import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata, isRVersionsMetadata, ModuleMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
-import { getInterpreterOverridePaths, getResolvedFilterSettingPaths, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
+import { getInterpreterOverridePaths, getResolvedExcludePaths, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
@@ -168,7 +168,7 @@ export function computeRootSignatureEntries(candidates: readonly string[]): RRoo
  *   - Hard-coded server-installation roots (POSIX only).
  *   - Hard-coded ad-hoc binary paths.
  *   - Discovery-gating settings (`positron.r.interpreters.exclude` /
- *     `.default` / `.condaDiscovery` / `.pixiDiscovery` / `.pathDiscoveryMode`)
+ *     `.condaDiscovery` / `.pixiDiscovery` / `.pathDiscoveryMode`)
  *     folded into the opaque digest so a settings change flips the signature
  *     and re-runs discovery.
  *
@@ -212,9 +212,6 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
  * Settings covered:
  *   - `interpreters.exclude`: post-discovery filter; without this an
  *     excluded R would outlive the setting via the cache.
- *   - `interpreters.default`: stamped onto cached metadata as `default: true`
- *     by `RInstallation`; flipping the default would otherwise leave the
- *     wrong installation flagged as default until the periodic refresh.
  *   - `interpreters.condaDiscovery` / `.pixiDiscovery`: per-provider toggles;
  *     enabling either should produce a discovery run that picks up envs
  *     these providers find (their results are non-cacheable, so the only
@@ -227,16 +224,17 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
  *
  * `interpreters.override` contributes as path entries above, not here.
  *
- * `interpreters.exclude` and `interpreters.default` are hashed after replacing
- * `${workspaceFolder}`, so two workspaces with the same setting text don't
- * share a cache entry.
+ * `interpreters.default` is left out: discovery doesn't depend on it, and
+ * hashing it would make every switch between projects with different defaults
+ * re-run discovery.
+ *
+ * `interpreters.exclude` is hashed after replacing `${workspaceFolder}`, so
+ * two workspaces with the same setting text don't share a cache entry.
  */
 function getRFilterSettingsDigest(): string {
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const filterPaths = getResolvedFilterSettingPaths();
 	const payload = {
-		exclude: filterPaths.exclude,
-		default: filterPaths.default,
+		exclude: getResolvedExcludePaths(),
 		condaDiscovery: config.get<boolean>('interpreters.condaDiscovery') ?? false,
 		pixiDiscovery: config.get<boolean>('interpreters.pixiDiscovery') ?? false,
 		pathDiscoveryMode: config.get<string>('interpreters.pathDiscoveryMode') ?? '',
@@ -788,7 +786,6 @@ export async function makeMetadata(
 		scriptpath: scriptPath,
 		arch: rInst.arch || undefined,
 		current: rInst.current,
-		default: rInst.default,
 		reasonDiscovered: rInst.reasonDiscovered,
 		packagerMetadata: rInst.packagerMetadata,
 	};
