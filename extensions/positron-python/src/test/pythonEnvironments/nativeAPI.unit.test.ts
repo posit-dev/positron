@@ -1339,6 +1339,8 @@ suite('Native Python API', () => {
         let executableExists: boolean;
         // Watchers the API opens for the folders of a removed env.
         let folderWatchers: { folder: string; created: EventEmitter<Uri>; disposed: boolean }[];
+        // The API under test, typed so teardown can dispose it.
+        let nativeApi: ReturnType<typeof nativeAPI.createNativeEnvironmentsApi>;
 
         const workspaceFolder = {
             uri: Uri.file(path.join(path.sep, 'home', 'user', 'project')),
@@ -1366,6 +1368,8 @@ suite('Native Python API', () => {
             sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([]);
             workspaceEnvChanged = new EventEmitter();
             mockWatcher.setup((w) => w.onDidWorkspaceEnvChanged).returns(() => workspaceEnvChanged.event);
+            // Gives the API a real listener disposable, so teardown can dispose it.
+            mockWatcher.setup((w) => w.onDidGlobalEnvChanged).returns(() => new EventEmitter<never>().event);
             workspaceFoldersChanged = new EventEmitter();
             sinon
                 .stub(ws, 'onDidChangeWorkspaceFolders')
@@ -1389,7 +1393,8 @@ suite('Native Python API', () => {
             pathExistsStub.withArgs(venvPython).callsFake(async () => executableExists);
             resolveVenv = () => Promise.resolve(venvEnv);
             mockFinder.setup((f) => f.resolve(venvPython)).returns(() => resolveVenv());
-            api = nativeAPI.createNativeEnvironmentsApi(mockFinder.object);
+            nativeApi = nativeAPI.createNativeEnvironmentsApi(mockFinder.object);
+            api = nativeApi;
 
             await api.resolveEnv(venvPython);
             assert.equal(api.getEnvs().length, 1);
@@ -1398,6 +1403,8 @@ suite('Native Python API', () => {
         });
 
         teardown(() => {
+            // Stops the RecreatedEnvWatcher timers, which would otherwise keep mocha alive.
+            nativeApi.dispose();
             workspaceEnvChanged.dispose();
             workspaceFoldersChanged.dispose();
         });
