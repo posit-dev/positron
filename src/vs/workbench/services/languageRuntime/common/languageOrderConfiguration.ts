@@ -52,11 +52,15 @@ export function updateLanguageOrderSchema(installed: readonly ILanguageOrderEntr
 	registry.notifyConfigurationSchemaUpdated(languageOrderNode);
 }
 
-/** Saved languages that aren't installed are allowed only so the scope that saved them validates. */
-export function getInstalledLanguageIds(): readonly string[] {
-	return installedLanguageIds;
+export interface ILanguageOrderChoices {
+	readonly allowed: readonly string[];
+	readonly labels: readonly string[];
+	/** Installed languages, shown in every scope; saved ones that aren't are allowed only so their scope validates. */
+	readonly defaults: readonly string[];
 }
 
-export function getLanguageOrderSchema(): IConfigurationPropertySchema {
-	return languageOrderSchema;
+/** The current schema values; the Settings editor caches older copies. */
+export function getLanguageOrderChoices(): ILanguageOrderChoices {
+	const items = languageOrderSchema.items as IConfigurationPropertySchema;
+	return { allowed: items.enum ?? [], labels: languageOrderSchema.enumItemLabels ?? [], defaults: installedLanguageIds };
 }

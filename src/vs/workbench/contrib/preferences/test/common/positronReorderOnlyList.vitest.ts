@@ -19,19 +19,19 @@ describe('isReorderOnlyList', () => {
 
 describe('reorderRows', () => {
 	it('shows every allowed value, in allowed order, when nothing is saved', () => {
-		expect(values(reorderRows(allowed, undefined, allowed, []))).toEqual(['julia', 'python', 'r']);
+		expect(values(reorderRows({ allowed, labels: [], defaults: allowed }, []))).toEqual(['julia', 'python', 'r']);
 	});
 
 	it('keeps the saved order and appends new values in allowed order', () => {
-		expect(values(reorderRows(allowed, undefined, allowed, ['r']))).toEqual(['r', 'julia', 'python']);
+		expect(values(reorderRows({ allowed, labels: [], defaults: allowed }, ['r']))).toEqual(['r', 'julia', 'python']);
 	});
 
 	it('returns the saved value when the setting has no allowed values', () => {
-		expect(values(reorderRows(undefined, undefined, [], ['r']))).toEqual(['r']);
+		expect(values(reorderRows({ allowed: [], labels: [], defaults: [] }, ['r']))).toEqual(['r']);
 	});
 
 	it('labels each value from the label at its allowed index', () => {
-		expect(reorderRows(allowed, ['Julia', 'Python', 'R'], allowed, ['r'])).toEqual([
+		expect(reorderRows({ allowed, labels: ['Julia', 'Python', 'R'], defaults: allowed }, ['r'])).toEqual([
 			{ value: 'r', label: 'R' },
 			{ value: 'julia', label: 'Julia' },
 			{ value: 'python', label: 'Python' },
@@ -40,12 +40,12 @@ describe('reorderRows', () => {
 
 	it('leaves out an allowed value that is not a default unless this scope saved it', () => {
 		const labels = ['Julia (not installed)', 'Python', 'R'];
-		expect(values(reorderRows(allowed, labels, ['python', 'r'], ['r']))).toEqual(['r', 'python']);
-		expect(reorderRows(allowed, labels, ['python', 'r'], ['julia'])[0]).toEqual({ value: 'julia', label: 'Julia (not installed)' });
+		expect(values(reorderRows({ allowed, labels, defaults: ['python', 'r'] }, ['r']))).toEqual(['r', 'python']);
+		expect(reorderRows({ allowed, labels, defaults: ['python', 'r'] }, ['julia'])[0]).toEqual({ value: 'julia', label: 'Julia (not installed)' });
 	});
 
 	it('keeps a saved value that is not allowed, labeled by itself', () => {
-		expect(reorderRows(['python'], ['Python'], ['python'], ['ark'])).toEqual([
+		expect(reorderRows({ allowed: ['python'], labels: ['Python'], defaults: ['python'] }, ['ark'])).toEqual([
 			{ value: 'ark', label: 'ark' },
 			{ value: 'python', label: 'Python' },
 		]);
