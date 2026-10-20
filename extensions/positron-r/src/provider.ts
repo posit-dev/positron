@@ -22,6 +22,7 @@ import { discoverPixiBinaries } from './provider-pixi.js';
 import { discoverModuleBinaries, getEnvironmentModulesApi } from './provider-module.js';
 import { discoverRVersionsBinaries } from './provider-rversions.js';
 import { packagerMetadataForPath } from './packager-detection.js';
+import { compareRInstallations } from './startup-choice.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -307,16 +308,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	}
 
 	// Sort the R installations
-	rInstallations.sort((a, b) => {
-		if (a.current || b.current) {
-			// always put the current R version first
-			return Number(b.current) - Number(a.current);
-		}
-		// otherwise, sort by version number, descending
-		// break ties by architecture
-		// (currently taking advantage of the fact that 'aarch64' > 'x86_64')
-		return semver.compare(b.semVersion, a.semVersion) || a.arch.localeCompare(b.arch);
-	});
+	rInstallations.sort(compareRInstallations);
 
 	// For now, we recommend an R runtime for the workspace based on a set of
 	// non-runtime-specific heuristics.
