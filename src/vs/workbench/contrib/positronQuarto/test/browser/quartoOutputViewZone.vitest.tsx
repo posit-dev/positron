@@ -10,7 +10,6 @@ import { Event } from '../../../../../base/common/event.js';
 import { BareFontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { EditorOption } from '../../../../../editor/common/config/editorOptions.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -192,7 +191,6 @@ describe('QuartoOutputViewZone collapse across a re-execution', () => {
 describe('QuartoOutputViewZone error quick-fix height', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
 		.build();
 
 	// jsdom performs no layout, so offsetHeight is always 0. Inject a measurer
