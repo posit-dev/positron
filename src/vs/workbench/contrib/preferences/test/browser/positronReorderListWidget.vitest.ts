@@ -70,6 +70,15 @@ describe('PositronReorderListWidget', () => {
 		expect(rows()[0]).toHaveClass('selected');
 	});
 
+	it.each(['dragover', 'drop', 'dragleave'])('keeps %s on a row from reaching the settings tree', type => {
+		const { rows, container } = createWidget(['a', 'b', 'c']);
+		const outer = vi.fn();
+		container.addEventListener(type, outer);
+		rows()[2].dispatchEvent(new Event('dragstart', { bubbles: true }));
+		rows()[1].dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+		expect(outer).not.toHaveBeenCalled();
+	});
+
 	it('ignores a drop that did not start in the list', () => {
 		const { rows, events } = createWidget(['a', 'b']);
 		rows()[0].dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));

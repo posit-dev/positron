@@ -134,6 +134,10 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 		rowElement.focus();
 	}
 
+	clearSelection(): void {
+		this.model.select(null);
+	}
+
 	protected override addDragAndDrop(rowElement: HTMLElement, item: IReorderListItem, idx: number): void {
 		rowElement.draggable = true;
 		rowElement.classList.add('draggable');
@@ -142,7 +146,9 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 			this.dragSourceIndex = idx;
 			applyDragImage(e, rowElement, item.label);
 		}));
+		// Keep drag events from bubbling to the Settings tree, which reads our rows' data-index as its own.
 		this.listDisposables.add(DOM.addDisposableListener(rowElement, DOM.EventType.DRAG_OVER, e => {
+			e.stopPropagation();
 			if (this.dragSourceIndex !== undefined) {
 				e.preventDefault();
 				if (e.dataTransfer) {
@@ -154,12 +160,14 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 			counter++;
 			rowElement.classList.add('drag-hover');
 		}));
-		this.listDisposables.add(DOM.addDisposableListener(rowElement, DOM.EventType.DRAG_LEAVE, () => {
+		this.listDisposables.add(DOM.addDisposableListener(rowElement, DOM.EventType.DRAG_LEAVE, e => {
+			e.stopPropagation();
 			if (!--counter) {
 				rowElement.classList.remove('drag-hover');
 			}
 		}));
 		this.listDisposables.add(DOM.addDisposableListener(rowElement, DOM.EventType.DROP, e => {
+			e.stopPropagation();
 			const sourceIndex = this.dragSourceIndex;
 			if (sourceIndex === undefined) {
 				return;

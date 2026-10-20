@@ -5,7 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
-import { isReorderOnlyList, reorderRows } from '../../common/positronReorderOnlyList.js';
+import { updateLanguageOrderSchema } from '../../../../services/languageRuntime/common/languageOrderConfiguration.js';
+import { isReorderOnlyList, reorderListError, reorderRows } from '../../common/positronReorderOnlyList.js';
 
 const allowed = ['julia', 'python', 'r'];
 const values = (rows: { value: string }[]) => rows.map(row => row.value);
@@ -40,10 +41,26 @@ describe('reorderRows', () => {
 		expect(reorderRows({ allowed, labels, defaults: ['python', 'r'] }, ['julia'])[0]).toEqual({ value: 'julia', label: 'Julia (not installed)' });
 	});
 
+	it('shows a hand-edited duplicate once and drops non-strings, so a reorder saves a clean value', () => {
+		expect(values(reorderRows({ allowed, labels: [], defaults: ['python', 'r'] }, ['r', 3, 'python', 'r']))).toEqual(['r', 'python']);
+	});
+
 	it('keeps a saved value that is not allowed, labeled by itself', () => {
 		expect(reorderRows({ allowed: ['python'], labels: ['Python'], defaults: ['python'] }, ['ark'])).toEqual([
 			{ value: 'ark', label: 'ark' },
 			{ value: 'python', label: 'Python' },
 		]);
+	});
+});
+
+describe('reorderListError', () => {
+	beforeEach(() => updateLanguageOrderSchema([{ languageId: 'python', languageName: 'Python' }, { languageId: 'r', languageName: 'R' }], []));
+
+	it('flags a saved value with duplicates, like other list settings', () => {
+		expect(reorderListError('interpreters.languageOrder', ['r', 'python', 'r'])).toContain('Array has duplicate items');
+	});
+
+	it('accepts a valid saved value', () => {
+		expect(reorderListError('interpreters.languageOrder', ['r', 'python'])).toBeNull();
 	});
 });

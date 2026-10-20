@@ -3,8 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { $ } from '../../../../base/browser/dom.js';
+import { localize } from '../../../../nls.js';
 import { ITreeNode, ITreeRenderer } from '../../../../base/browser/ui/tree/tree.js';
-import { isReorderOnlyList, reorderListChoices, reorderRows } from '../common/positronReorderOnlyList.js';
+import { isReorderOnlyList, reorderListChoices, reorderListError, reorderRows } from '../common/positronReorderOnlyList.js';
 import { PositronReorderListWidget } from './positronReorderListWidget.js';
 import { positronSettingRenderers } from './positronSettingRenderers.js';
 import { AbstractSettingRenderer, ISettingItemTemplate } from './settingsTree.js';
@@ -14,6 +16,9 @@ const POSITRON_REORDER_LIST_TEMPLATE_ID = 'settings.positronReorderList.template
 
 interface IReorderListTemplate extends ISettingItemTemplate<string[]> {
 	listWidget: PositronReorderListWidget;
+	validationErrorMessageElement: HTMLElement;
+	/** Not `context`, which the base class has already set to the new element. */
+	renderedElement?: SettingsTreeSettingElement;
 }
 
 /** Renders a reorder-only list setting: the user only reorders its rows, never adds or edits them. */
@@ -25,7 +30,12 @@ class PositronReorderListRenderer extends AbstractSettingRenderer implements ITr
 		const listWidget = common.toDispose.add(this._instantiationService.createInstance(PositronReorderListWidget, common.controlElement));
 		listWidget.domNode.classList.add(AbstractSettingRenderer.CONTROL_CLASS);
 
-		const template: IReorderListTemplate = { ...common, listWidget };
+		// Placed as upstream's list renderer does, so a hand-edited value shows the same error.
+		const validationErrorMessageElement = $('.setting-item-validation-message');
+		// eslint-disable-next-line no-restricted-syntax
+		common.containerElement.querySelector('.setting-item-description')!.after(validationErrorMessageElement);
+
+		const template: IReorderListTemplate = { ...common, listWidget, validationErrorMessageElement };
 		this.addSettingElementFocusHandler(template);
 
 		// The widget has already applied the move, so its rows are the new value.
@@ -40,7 +50,18 @@ class PositronReorderListRenderer extends AbstractSettingRenderer implements ITr
 	}
 
 	protected renderValue(dataElement: SettingsTreeSettingElement, template: IReorderListTemplate, onChange: (value: string[]) => void): void {
-		const saved: string[] = Array.isArray(dataElement.value) ? dataElement.value : [];
+		// A tab switch builds new elements; keep the other tab's selected row from carrying over.
+		if (template.renderedElement !== dataElement) {
+			template.listWidget.clearSelection();
+			template.renderedElement = dataElement;
+		}
+		const error = reorderListError(dataElement.setting.key, dataElement.value);
+		template.containerElement.classList.toggle('invalid-input', !!error);
+		template.validationErrorMessageElement.innerText = error ?? '';
+		const key = dataElement.setting.key;
+		template.containerElement.setAttribute('aria-label', error ? [key, localize('validationError', "Validation Error."), error].join(' ') : key);
+
+		const saved: unknown[] = Array.isArray(dataElement.value) ? dataElement.value : [];
 		template.listWidget.setValue(reorderRows(reorderListChoices(dataElement.setting.key), saved).map(row => ({
 			value: { type: 'string', data: row.value },
 			label: row.label,
