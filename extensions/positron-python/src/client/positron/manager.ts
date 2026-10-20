@@ -451,7 +451,13 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             );
 
             if (interpreter) {
-                const metadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, isImmediate);
+                const metadata = await createPythonRuntimeMetadata(
+                    interpreter,
+                    this.serviceContainer,
+                    isImmediate
+                        ? positron.LanguageRuntimeStartupBehavior.Immediate
+                        : positron.LanguageRuntimeStartupBehavior.Implicit,
+                );
                 traceInfo(`Recommended runtime for workspace: ${interpreter.path}`);
                 return metadata;
             }
@@ -742,7 +748,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         return createPythonRuntimeMetadata(
             definitionPath ? { ...interpreter, path: resolvePath } : interpreter,
             this.serviceContainer,
-            false,
         );
     }
 
@@ -849,7 +854,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 const runtime = await createPythonRuntimeMetadata(
                     { ...interpreter, path: pythonPath },
                     this.serviceContainer,
-                    false,
                 );
                 yield { ...runtime, definitionOnly: true };
             } catch (err) {
@@ -894,7 +898,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         if (interpreter) {
             // Set recommendedForWorkspace to false, since we change the active runtime
             // in the onDidChangeActiveEnvironmentPath listener.
-            const newRuntime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
+            const newRuntime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer);
             // On a forceRefresh, if the resolved runtime matches what's already
             // registered for this path, there's nothing to do. If it differs (e.g.
             // the real version supersedes a stale one from discovery),

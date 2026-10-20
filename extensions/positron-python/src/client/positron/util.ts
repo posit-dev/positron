@@ -97,7 +97,7 @@ async function raceWithTimeout<T>(promise: Promise<T>, ms: number, onTimeout: ()
 }
 
 /** A single bounded resolve attempt; errors and timeouts count as unresolved. */
-async function resolveInterpreterOnce(
+export async function resolveInterpreterOnce(
     interpreterService: IInterpreterService,
     pythonPath: string,
     resource?: vscode.Uri,

@@ -222,6 +222,13 @@ suite('interpreterRanking', () => {
         );
     });
 
+    test('a definition located inside the workspace folder is a WorkspaceEnv, not Configured', () => {
+        const inWorkspace = env(p('/proj/tools/env/bin/python'), EnvironmentType.Custom, '3.12.0');
+        const context: RankingContext = { ...emptyContext, definitionPaths: [inWorkspace.path] };
+
+        assert.strictEqual(Tier[tierOf(inWorkspace, context)!], 'WorkspaceEnv');
+    });
+
     test('.python-version: a named pyenv virtualenv is a ProjectEnv, a named pyenv version is a PythonVersionFile', () => {
         const versions = p('/home/u/.pyenv/versions');
         const named = (name: string) => ({

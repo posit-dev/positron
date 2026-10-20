@@ -184,7 +184,7 @@ suite('Python runtime manager', () => {
         const validated = await pythonRuntimeManager.validateMetadata(runtimeMetadata.object);
 
         assert.strictEqual(validated, rehydrated.object);
-        sinon.assert.calledOnceWithExactly(createStub, interpreter.object, serviceContainer.object, false);
+        sinon.assert.calledOnceWithExactly(createStub, interpreter.object, serviceContainer.object);
         interpreterService.verify((i) => i.triggerRefresh(), TypeMoq.Times.never());
     });
 
@@ -265,12 +265,7 @@ suite('Python runtime manager', () => {
             assert.equal(registeredRuntime?.extraRuntimeData.pythonPath, pythonPath);
         });
 
-        sinon.assert.calledOnceWithExactly(
-            createPythonRuntimeMetadata,
-            interpreter.object,
-            serviceContainer.object,
-            false,
-        );
+        sinon.assert.calledOnceWithExactly(createPythonRuntimeMetadata, interpreter.object, serviceContainer.object);
     });
 
     test('selectLanguageRuntimeFromPath: calls positron.runtime.selectLanguageRuntime with the corresponding runtime ID', async () => {

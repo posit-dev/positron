@@ -102,11 +102,7 @@ export async function* pythonRuntimeDiscoverer(
                     continue;
                 }
 
-                const runtime = await createPythonRuntimeMetadata(
-                    interpreter,
-                    serviceContainer,
-                    recommendedForWorkspace,
-                );
+                const runtime = await createPythonRuntimeMetadata(interpreter, serviceContainer);
 
                 // Ensure we only recommend one runtime for the workspace.
                 recommendedForWorkspace = false;

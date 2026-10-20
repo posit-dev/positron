@@ -110,6 +110,13 @@ export enum LanguageRuntimeArchitecture {
     Other = 'other',
 }
 
+export enum LanguageRuntimeStartupBehavior {
+    Immediate = 'immediate',
+    Implicit = 'implicit',
+    Explicit = 'explicit',
+    Manual = 'manual',
+}
+
 export enum RuntimeExitReason {
     StartupFailed = 'startupFailed',
     Shutdown = 'shutdown',
