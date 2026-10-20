@@ -37,7 +37,7 @@ export class Console {
 	private error: Locator;
 
 	get emptyConsole() {
-		return this.code.driver.currentPage.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
+		return this.code.driver.currentPage.locator(EMPTY_CONSOLE).getByText('There is no session running');
 	}
 
 	constructor(private code: Code, private quickinput: QuickInput, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
