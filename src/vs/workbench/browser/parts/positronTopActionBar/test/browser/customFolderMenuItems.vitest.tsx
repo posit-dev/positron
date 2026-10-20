@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { URI } from '../../../../../../base/common/uri.js';
 import { IRecentFolder } from '../../../../../../platform/workspaces/common/workspaces.js';
@@ -78,6 +78,18 @@ describe('CustomFolderMenuItems', () => {
 		renderMenu(recentFolder('a'), recentFolder('b'), recentFolder('c'));
 
 		expect(folderRows().map(row => row.textContent)).toEqual(['project-b', 'project-c', 'project-a']);
+	});
+
+	it('keeps keyboard focus on the pin button of a folder as it moves', async () => {
+		const user = userEvent.setup();
+		renderMenu(recentFolder('a'), recentFolder('b'), recentFolder('c'));
+
+		act(() => screen.getByRole('button', { name: 'Pin project-c' }).focus());
+		await user.keyboard('{Enter}');
+		expect(screen.getByRole('button', { name: 'Unpin project-c' })).toHaveFocus();
+
+		await user.keyboard('{Enter}');
+		expect(screen.getByRole('button', { name: 'Pin project-c' })).toHaveFocus();
 	});
 
 	it('returns an unpinned folder to its place in the recent list', async () => {

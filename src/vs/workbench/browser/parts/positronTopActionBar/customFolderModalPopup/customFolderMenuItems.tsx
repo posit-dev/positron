@@ -7,7 +7,7 @@
 import './customFolderMenuItems.css';
 
 // React.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -98,6 +98,19 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 		readPinnedFolders(services.storageService, services.logService)
 	);
 
+	// Reference hooks.
+	const pinButtonsRef = useRef(new Map<string, HTMLButtonElement>());
+	const pinButtonToFocusRef = useRef<string | undefined>(undefined);
+
+	// Pinning or unpinning moves a folder between the pinned and recent lists, which remounts its
+	// menu item and drops keyboard focus. After the move, focus the pin button of the moved folder.
+	useEffect(() => {
+		if (pinButtonToFocusRef.current) {
+			pinButtonsRef.current.get(pinButtonToFocusRef.current)?.focus();
+			pinButtonToFocusRef.current = undefined;
+		}
+	});
+
 	// The recently opened folders and workspaces that aren't pinned.
 	const recentFolders = props.recentlyOpened.workspaces
 		.filter(recent => !pinnedFolders.some(pinned => isEqual(recentUri(pinned), recentUri(recent))))
@@ -116,6 +129,7 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 			storedPinnedFolders.filter(pinned => !isEqual(recentUri(pinned), uri)) :
 			[...storedPinnedFolders, recent];
 		storePinnedFolders(services.storageService, newPinnedFolders);
+		pinButtonToFocusRef.current = uri.toString();
 		setPinnedFolders(newPinnedFolders);
 	};
 
@@ -166,6 +180,7 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 	const renderRecentMenuItem = (recent: RecentFolderOrWorkspace, pinned: boolean) => {
 		// Setup the handler.
 		const uri = recentUri(recent);
+		const key = uri.toString();
 		let label: string;
 		let openable: IWindowOpenable;
 		if (isRecentWorkspace(recent)) {
@@ -179,9 +194,16 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 		// Render.
 		return (
 			<CustomFolderRecentlyUsedMenuItem
-				key={uri.toString()}
+				key={key}
 				enabled={true}
 				label={label}
+				pinButtonRef={pinButton => {
+					if (pinButton) {
+						pinButtonsRef.current.set(key, pinButton);
+					} else {
+						pinButtonsRef.current.delete(key);
+					}
+				}}
 				pinned={pinned}
 				onOpen={e => {
 					props.onMenuItemSelected();

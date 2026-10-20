@@ -6,6 +6,9 @@
 // CSS.
 import './customFolderRecentlyUsedMenuItem.css';
 
+// React.
+import { Ref } from 'react';
+
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
@@ -23,6 +26,7 @@ const positronUnpinFolder = localize('positron.unpinFolder', "Unpin");
 interface CustomFolderRecentlyUsedMenuItemProps {
 	enabled: boolean;
 	label: string;
+	pinButtonRef?: Ref<HTMLButtonElement>;
 	pinned: boolean;
 	onOpen: (e: KeyboardModifiers) => void;
 	onOpenInNewWindow: (e: KeyboardModifiers) => void;
@@ -52,7 +56,7 @@ export const CustomFolderRecentlyUsedMenuItem = (props: CustomFolderRecentlyUsed
 			<div className='title' title={props.label}>
 				{props.label}
 			</div>
-			<Button ariaLabel={pinAriaLabel} className='pin' onPressed={props.onTogglePinned}>
+			<Button ref={props.pinButtonRef} ariaLabel={pinAriaLabel} className='pin' onPressed={props.onTogglePinned}>
 				<div className={`codicon codicon-${props.pinned ? 'pinned' : 'pin'}`} title={pinLabel} />
 			</Button>
 			<Button className='open-in-new-window' onPressed={props.onOpenInNewWindow}>
