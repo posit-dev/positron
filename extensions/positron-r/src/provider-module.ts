@@ -92,6 +92,24 @@ export function parseRVersion(output: string): string | undefined {
 }
 
 /**
+ * Whether module discovery could find R on this machine: environment modules
+ * are on, and an environment in `positron.environmentModules.environments`
+ * lists R. Reads settings only, so it never starts a shell.
+ */
+export function moduleEnvironmentsConfiguredForR(): boolean {
+	// Module systems are only supported on Linux
+	if (process.platform === 'win32' || process.platform === 'darwin') {
+		return false;
+	}
+	const config = vscode.workspace.getConfiguration('positron.environmentModules');
+	if (!config.get<boolean>('enabled', true)) {
+		return false;
+	}
+	const environments = config.get<Record<string, { languages?: string[] }>>('environments', {});
+	return Object.values(environments).some(env => env.languages?.includes('r'));
+}
+
+/**
  * Discover R binaries from module environments.
  */
 export async function discoverModuleBinaries(): Promise<RBinary[]> {

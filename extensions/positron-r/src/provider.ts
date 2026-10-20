@@ -19,10 +19,10 @@ import { getInterpreterOverridePaths, getResolvedExcludePaths, getInterpreterDef
 import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
-import { discoverModuleBinaries, getEnvironmentModulesApi } from './provider-module.js';
-import { discoverRVersionsBinaries } from './provider-rversions.js';
+import { discoverModuleBinaries, getEnvironmentModulesApi, moduleEnvironmentsConfiguredForR } from './provider-module.js';
+import { discoverRVersionsBinaries, findRVersionsFile } from './provider-rversions.js';
 import { packagerMetadataForPath } from './packager-detection.js';
-import { compareRInstallations } from './startup-choice.js';
+import { compareRInstallations, RFullSearchTriggers } from './startup-choice.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -310,22 +310,11 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// Sort the R installations
 	rInstallations.sort(compareRInstallations);
 
-	// For now, we recommend an R runtime for the workspace based on a set of
-	// non-runtime-specific heuristics.
-	// In the future, we will use more sophisticated heuristics, such as
-	// checking an renv lockfile for a match against a system version of R.
-	let recommendedForWorkspace = await shouldRecommendForWorkspace();
-
-	// Construct and yield the metadata for each R installation
+	// Construct and yield the metadata for each R installation. None of them
+	// asks to start right away: the discovery cache shares these records with
+	// every folder, so whether R should start in this folder is decided by
+	// R's recommendation instead (see chooseStartupR).
 	for (const rInst of rInstallations) {
-		// If we're recommending an R runtime, request immediate startup.
-		const startupBehavior = recommendedForWorkspace ?
-			positron.LanguageRuntimeStartupBehavior.Immediate :
-			positron.LanguageRuntimeStartupBehavior.Implicit;
-		// But immediate startup only applies to, at most, one R installation -- specifically, the
-		// first element of rInstallations.
-		recommendedForWorkspace = false;
-
 		// If there is another R installation with the same version but different architecture,
 		// we need to disambiguate the runtime name by appending the architecture.
 		// For example, if x86_64 and arm64 versions of R 4.4.0 exist simultaneously.
@@ -337,7 +326,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 			}
 		}
 
-		const metadata = makeMetadata(rInst, startupBehavior, needsArch);
+		const metadata = makeMetadata(rInst, positron.LanguageRuntimeStartupBehavior.Implicit, needsArch);
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		yield metadata;
@@ -1322,8 +1311,44 @@ function generateVersions(): string[] {
 }
 
 
-// Should we recommend an R runtime for the workspace?
-async function shouldRecommendForWorkspace(): Promise<boolean> {
+/**
+ * The current R, built the same way the search builds it, so its record gets
+ * the same runtime ID. Undefined if there is no current R.
+ */
+export async function currentRInstallation(): Promise<RInstallation | undefined> {
+	const current = (await currentRBinaryCandidates())[0];
+	if (!current) {
+		return undefined;
+	}
+	// A file check tells whether the current R lives in a conda or pixi
+	// environment, without listing every environment.
+	return new RInstallation(current.path, true, current.reasons, packagerMetadataForPath(current.path));
+}
+
+/**
+ * Which settings and files are set that can make the full search pick a
+ * different R than the current R. Each mirrors how `getBinaries()` decides
+ * whether to consult that source.
+ */
+export function rFullSearchTriggers(): RFullSearchTriggers {
+	return {
+		overrideListSet: getInterpreterOverridePaths().length > 0,
+		rVersionsFileExists: process.platform !== 'win32' && findRVersionsFile() !== undefined,
+		modulesConfiguredForR: moduleEnvironmentsConfiguredForR(),
+	};
+}
+
+/**
+ * Folders that hold installed packages and environments rather than your own
+ * code. The search for R files skips them to stay fast.
+ */
+const NON_PROJECT_FOLDERS = ['node_modules', '.venv', 'venv', '.virtualenv', '.conda', '.pixi'];
+
+/**
+ * Whether the open folder looks like an R project: it has R files at any
+ * depth, or it's empty and you've used RStudio in the last 30 days.
+ */
+export async function looksLikeRProject(): Promise<boolean> {
 	// Check if the workspace contains R-related files.
 	const globs = [
 		'**/*.R',
@@ -1336,12 +1361,14 @@ async function shouldRecommendForWorkspace(): Promise<boolean> {
 	];
 	// Convert to the glob format used by vscode.workspace.findFiles.
 	const glob = `{${globs.join(',')}}`;
-	if (await hasFiles(glob)) {
+	if (await hasFiles(glob, `**/{${NON_PROJECT_FOLDERS.join(',')}}/**`)) {
 		return true;
 	}
 
-	// Check if the workspace is empty and the user is an RStudio user.
-	if (!(await hasFiles('**/*')) && isRStudioUser()) {
+	// Check if the workspace is empty and the user is an RStudio user. Only
+	// node_modules is skipped here, so a folder holding only a .venv doesn't
+	// count as empty.
+	if (!(await hasFiles('**/*', '**/node_modules/**')) && isRStudioUser()) {
 		return true;
 	}
 
@@ -1349,9 +1376,8 @@ async function shouldRecommendForWorkspace(): Promise<boolean> {
 }
 
 // Check if the current workspace contains files matching a glob pattern.
-async function hasFiles(glob: string): Promise<boolean> {
-	// Exclude node_modules for performance reasons
-	return (await vscode.workspace.findFiles(glob, '**/node_modules/**', 1)).length > 0;
+async function hasFiles(glob: string, exclude: string): Promise<boolean> {
+	return (await vscode.workspace.findFiles(glob, exclude, 1)).length > 0;
 }
 
 /**

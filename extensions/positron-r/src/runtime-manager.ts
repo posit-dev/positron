@@ -6,7 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { currentRBinary, getRDiscoveryRootSignature, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rRuntimeDiscoverer } from './provider';
+import { currentRBinary, currentRInstallation, discoverRInstallations, getRDiscoveryRootSignature, looksLikeRProject, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rRuntimeDiscoverer } from './provider';
 import { PackagerMetadata, RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata, isRVersionsMetadata } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
@@ -18,6 +18,7 @@ import { packagerMetadataForPath } from './packager-detection.js';
 import { setupArkJupyterKernel } from './kernel';
 import { getRTerminalEnvironmentMutations, isROnPath } from './r-process-environment';
 import { RSessionManager } from './session-manager';
+import { chooseStartupR } from './startup-choice.js';
 
 /**
  * Extract the list of environment modules to load from an R installation's
@@ -152,19 +153,44 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 		// If the default interpreter path is set and the path exists on the filesystem,
 		// recommend it with implicit startup behavior.
+		let pinned: RInstallation | undefined;
 		const defaultInterpreterPath = getDefaultInterpreterPath();
 		if (defaultInterpreterPath) {
 			if (fs.existsSync(defaultInterpreterPath)) {
 				LOGGER.info(`[recommendedWorkspaceRuntime] Recommending R runtime from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting: ${defaultInterpreterPath}`);
-				const inst = new RInstallation(defaultInterpreterPath, undefined, [ReasonDiscovered.userSetting]);
-				return makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Implicit);
+				pinned = new RInstallation(defaultInterpreterPath, undefined, [ReasonDiscovered.userSetting]);
 			} else {
-				LOGGER.info(`[recommendedWorkspaceRuntime] Path from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting does not exist: ${defaultInterpreterPath}...cannot recommend R runtime`);
+				LOGGER.info(`[recommendedWorkspaceRuntime] Path from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting does not exist: ${defaultInterpreterPath}`);
 			}
 		} else {
-			LOGGER.debug(`[recommendedWorkspaceRuntime] '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting not set...cannot recommend R runtime`);
+			LOGGER.debug(`[recommendedWorkspaceRuntime] '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting not set`);
 		}
-		return undefined;
+
+		// Otherwise, recommend an R that starts right away when the folder
+		// looks like an R project. This is checked here, in the folder that's
+		// open now, because Positron never caches the recommendation. The
+		// search's records are cached and shared by every folder.
+		try {
+			const choice = await chooseStartupR({
+				pinned,
+				looksLikeRProject,
+				currentR: currentRInstallation,
+				fullSearchTriggers: rFullSearchTriggers,
+				fullSearch: discoverRInstallations,
+			});
+			if (!choice) {
+				return undefined;
+			}
+			if (!pinned) {
+				LOGGER.info(`[recommendedWorkspaceRuntime] Recommending R ${choice.installation.version} at ${choice.installation.binpath} to start right away, because the folder looks like an R project`);
+			}
+			return await makeMetadata(choice.installation, choice.startupBehavior as positron.LanguageRuntimeStartupBehavior);
+		} catch (err) {
+			// Positron asks every language at once and waits for all of them,
+			// so a throw here would lose every language's recommendation.
+			LOGGER.error(`[recommendedWorkspaceRuntime] Failed to recommend an R runtime: ${err}`);
+			return undefined;
+		}
 	}
 
 	async createSession(
