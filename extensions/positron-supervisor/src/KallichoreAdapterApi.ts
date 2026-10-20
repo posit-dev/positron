@@ -25,7 +25,6 @@ import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, 
 import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
 import { MCP_ENV_VARS } from './mcpConnection.js';
-import { installMcpLauncher } from './mcpLauncher.js';
 import { McpClientsStatusBar, SHOW_CONNECTED_AGENTS_COMMAND, showConnectedAgents } from './McpClientsStatusBar.js';
 
 /**
@@ -417,8 +416,7 @@ export class KCApi implements PositronSupervisorApi {
 		}));
 
 		this._context.subscriptions.push(vscode.commands.registerCommand(CONFIGURE_AGENT_COMMAND, (agentId?: string) => {
-			return configureAgent(this._context, () => installMcpLauncher(
-				this._context.globalStorageUri, this.getKallichorePath(), message => this.log(message)), agentId);
+			return configureAgent(this._context, this._mcp.launch, agentId);
 		}));
 
 		// Listen for changes to the idle shutdown hours config setting; if the

@@ -73,17 +73,22 @@ interface InstallResult {
  * entry.
  *
  * @param context The extension context, which remembers what we configure.
- * @param launch Installs the launcher and returns the command line that starts it.
+ * @param launch The command line that starts the launcher, if it is installed.
  * @param agentId The harness to configure. Omitted when the user ran the
  *  command from the palette, in which case they are asked to pick one.
  */
 export async function configureAgent(
 	context: vscode.ExtensionContext,
-	launch: () => Promise<McpLaunch>,
+	launch: McpLaunch | undefined,
 	agentId?: string,
 ): Promise<void> {
 	if (!mcpFeatureEnabled()) {
 		await warnNotRunning();
+		return;
+	}
+	if (!launch) {
+		await vscode.window.showWarningMessage(vscode.l10n.t(
+			"Positron's MCP server is not ready yet. See the Kernel Supervisor output for details."));
 		return;
 	}
 
@@ -93,15 +98,13 @@ export async function configureAgent(
 	}
 
 	let result: InstallResult;
-	let written: McpLaunch;
 	try {
-		written = await launch();
-		result = await installAgent(agent, written);
+		result = await installAgent(agent, launch);
 	} catch (err) {
 		await vscode.window.showErrorMessage(summarizeError(err));
 		return;
 	}
-	await recordConfiguredAgent(context, agent, written);
+	await recordConfiguredAgent(context, agent, launch);
 
 	const open = vscode.l10n.t("Open File");
 	const choice = await vscode.window.showInformationMessage(

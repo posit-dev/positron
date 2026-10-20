@@ -138,6 +138,9 @@ export class McpFrontend implements vscode.Disposable {
 	/** The current registration, when the feature is on and the server is up. */
 	private _connection: McpConnection | undefined;
 
+	/** How agents start the launcher, once this registration installed it. */
+	private _launch: McpLaunch | undefined;
+
 	/** Fires when {@link connection} is issued, replaced, or given up. */
 	private readonly _onDidChangeConnection = new vscode.EventEmitter<void>();
 
@@ -239,6 +242,14 @@ export class McpFrontend implements vscode.Disposable {
 	 */
 	public get clients(): readonly McpClient[] {
 		return this._clients;
+	}
+
+	/**
+	 * The command line agents start the launcher with, or undefined until a
+	 * registration has installed it.
+	 */
+	public get launch(): McpLaunch | undefined {
+		return this._launch;
 	}
 
 	/** Fires whenever {@link clients} changes. */
@@ -565,6 +576,7 @@ export class McpFrontend implements vscode.Disposable {
 			// by its folders are affected.
 			this._log(`Could not write the MCP connection files: ${summarizeError(err)}`);
 		}
+		this._launch = launch;
 		return launch;
 	}
 
@@ -587,6 +599,7 @@ export class McpFrontend implements vscode.Disposable {
 			delete this._processEnv[name];
 		}
 		this._environment.description = undefined;
+		this._launch = undefined;
 		if (connection) {
 			try {
 				await removeConnectionFiles(this._storageUri, connection);
