@@ -56,7 +56,7 @@ suite('workspaceScan', () => {
 
     test('finds nothing in an empty folder, or one that cannot be read', async () => {
         const empty = {
-            rootProjectEnv: undefined,
+            rootProjectEnvs: [],
             nestedEnvDirs: [],
             hasPythonSignals: false,
             pythonVersion: undefined,
@@ -89,12 +89,23 @@ suite('workspaceScan', () => {
             for (const name of c.excluded ?? []) {
                 includeStub.withArgs(executables.get(name)).returns(false);
             }
-            const found = (await scanWorkspace(dir)).rootProjectEnv;
+            const found = (await scanWorkspace(dir)).rootProjectEnvs[0];
             actual.push(found && path.relative(dir, found.envDir).split(path.sep).join('/'));
         }
         assert.deepEqual(
             actual,
             cases.map((c) => c.expected),
+        );
+    });
+
+    test('keeps every root env, highest priority first', async () => {
+        for (const name of ['venv', '.conda', '.venv']) {
+            makeEnv(path.join(root, name), name === '.conda' ? 'conda' : 'venv');
+        }
+
+        assert.deepEqual(
+            (await scanWorkspace(root)).rootProjectEnvs.map((e) => path.basename(e.envDir)),
+            ['.venv', '.conda', 'venv'],
         );
     });
 
@@ -194,7 +205,7 @@ suite('workspaceScan', () => {
 
     test('recognizes the project env by env dir when PET reports a different executable name', async () => {
         const executable = makeEnv(path.join(root, '.venv'));
-        const projectEnv = (await scanWorkspace(root)).rootProjectEnv;
+        const projectEnv = (await scanWorkspace(root)).rootProjectEnvs[0];
         const petPath = path.join(path.dirname(executable), 'python3');
 
         assert.deepEqual(

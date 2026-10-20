@@ -66,7 +66,8 @@ export interface ProjectEnvironment {
 
 /** What `scanWorkspace` found. */
 export interface WorkspaceScan {
-    rootProjectEnv: ProjectEnvironment | undefined;
+    /** Root project envs, highest priority first. */
+    rootProjectEnvs: ProjectEnvironment[];
     nestedEnvDirs: string[];
     hasPythonSignals: boolean;
     pythonVersion: string | undefined;
@@ -123,19 +124,18 @@ async function pixiEnvDirs(root: string): Promise<string[]> {
 }
 
 /**
- * The project environment at the root of `root` (`ProjectEnv`), if any. Envs that
- * `python.interpreters.exclude` or `override` filter out are treated as absent.
+ * The project environments at the root of `root` (`ProjectEnv`), highest priority first.
+ * All of them are kept, so when the first can't be recommended (e.g. an unsupported
+ * Python version) the next one is. Envs that `python.interpreters.exclude` or `override`
+ * filter out are treated as absent.
  */
-async function findRootProjectEnvironment(root: string): Promise<ProjectEnvironment | undefined> {
+async function findRootProjectEnvironments(root: string): Promise<ProjectEnvironment[]> {
     const envDirs = [...ENV_DIR_NAMES.map((name) => path.join(root, name)), ...(await pixiEnvDirs(root))];
     const executables = await mapBounded(envDirs, (dir) => getInterpreterPathFromDir(dir));
-    const index = executables.findIndex(
-        (executable) => executable !== undefined && shouldIncludeInterpreter(executable),
-    );
-    if (index === -1) {
-        return undefined;
-    }
-    return { envDir: envDirs[index], executable: executables[index] as string };
+    return envDirs.flatMap((envDir, i) => {
+        const executable = executables[i];
+        return executable !== undefined && shouldIncludeInterpreter(executable) ? [{ envDir, executable }] : [];
+    });
 }
 
 /**
@@ -199,13 +199,13 @@ export function scanWorkspace(root: string, rescan = false): Promise<WorkspaceSc
 /** Reads the folder. The root and each child folder are read once. */
 async function readWorkspace(root: string): Promise<WorkspaceScan> {
     const rootEntries = await readEntries(root);
-    const [rootProjectEnv, children, pythonVersion] = await Promise.all([
-        findRootProjectEnvironment(root),
+    const [rootProjectEnvs, children, pythonVersion] = await Promise.all([
+        findRootProjectEnvironments(root),
         scanChildFolders(root, rootEntries),
         readPythonVersionFile(root),
     ]);
     return {
-        rootProjectEnv,
+        rootProjectEnvs,
         nestedEnvDirs: children.nestedEnvDirs,
         hasPythonSignals: hasSignalFile(rootEntries) || children.hasPythonSignals,
         pythonVersion,
