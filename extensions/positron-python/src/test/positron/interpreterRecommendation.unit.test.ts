@@ -330,6 +330,25 @@ suite('interpreterRecommendation', () => {
         assert.deepEqual(await recommend(), { path: pyenv.path, startupBehavior: B.Implicit });
     });
 
+    test('an ipykernel check that throws skips that candidate instead of failing the recommendation', async () => {
+        discovered = [condaBase, pyenv];
+        (runtime.checkIpykernel as sinon.SinonStub).callsFake(async (interpreter: PythonEnvironment) => {
+            if (interpreter.path === condaBase.path) {
+                throw new Error('boom');
+            }
+            return { compatible: true, bundle };
+        });
+
+        assert.deepEqual(await recommend(), { path: pyenv.path, startupBehavior: B.Implicit });
+    });
+
+    test('a runtime that cannot be created for the top candidate falls through to the next', async () => {
+        discovered = [condaBase, pyenv];
+        createStub.withArgs(sinon.match({ path: condaBase.path })).rejects(new Error('boom'));
+
+        assert.deepEqual(await recommend(), { path: pyenv.path, startupBehavior: B.Implicit });
+    });
+
     test('skips a system Python without a compatible ipykernel', async () => {
         discovered = [homebrew];
         noKernel.add(homebrew.path);

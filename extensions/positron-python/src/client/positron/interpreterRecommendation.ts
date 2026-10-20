@@ -23,7 +23,7 @@ import {
 } from '../interpreter/configuration/environmentTypeComparer';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
-import { traceInfo, traceWarn } from '../logging';
+import { traceError, traceInfo, traceWarn } from '../logging';
 import { getInterpreterPathFromDir } from '../pythonEnvironments/common/commonUtils';
 import { isParentPath, pathExists } from '../pythonEnvironments/common/externalDependencies';
 import { PythonEnvironment } from '../pythonEnvironments/info';
@@ -160,7 +160,9 @@ async function resolveNamedInterpreters(
                 return 'absent' as const;
             }
             if (!(await pathExists(namedPath))) {
-                traceWarn(`Interpreter ranking: ${namedPath} is named by the settings but does not exist...ignoring`);
+                traceWarn(
+                    `Interpreter ranking: ${namedPath} is named by the settings or the folder but does not exist...ignoring`,
+                );
                 return 'absent' as const;
             }
             const interpreter = await resolveInterpreterOnce(interpreterService, namedPath, workspaceUri);
@@ -199,17 +201,30 @@ async function firstEligible(
         if (tier === undefined) {
             return undefined;
         }
-        const eligibility = await skipReason(serviceContainer, interpreter, tier, context, workspaceUri);
+        let eligibility: Awaited<ReturnType<typeof skipReason>>;
+        try {
+            eligibility = await skipReason(serviceContainer, interpreter, tier, context, workspaceUri);
+        } catch (err) {
+            traceInfo(
+                `Interpreter ranking: skipped ${interpreter.path} (${Tier[tier]}): ipykernel check failed: ${err}`,
+            );
+            continue;
+        }
         if (eligibility.skip !== undefined) {
             traceInfo(`Interpreter ranking: skipped ${interpreter.path} (${Tier[tier]}): ${eligibility.skip}`);
             continue;
         }
         const startupBehavior = startupBehaviorFor(tier, context);
-        traceInfo(`Interpreter ranking: recommended ${interpreter.path} (${Tier[tier]}, ${startupBehavior})`);
-        return createPythonRuntimeMetadata(interpreter, serviceContainer, startupBehavior, {
-            skipModuleWait: !canBeModulePython(tier),
-            ...(eligibility.ipykernelBundle && { ipykernelBundle: eligibility.ipykernelBundle }),
-        });
+        try {
+            const metadata = await createPythonRuntimeMetadata(interpreter, serviceContainer, startupBehavior, {
+                skipModuleWait: !canBeModulePython(tier),
+                ...(eligibility.ipykernelBundle && { ipykernelBundle: eligibility.ipykernelBundle }),
+            });
+            traceInfo(`Interpreter ranking: recommended ${interpreter.path} (${Tier[tier]}, ${startupBehavior})`);
+            return metadata;
+        } catch (err) {
+            traceError(`Interpreter ranking: could not create the runtime for ${interpreter.path}: ${err}`);
+        }
     }
     return undefined;
 }
@@ -270,9 +285,11 @@ export async function recommendWorkspaceRuntime(
     }
     if (!afterDiscovery) {
         traceInfo(
-            unresolved > 0
-                ? 'Interpreter ranking: a named path did not resolve; recommending after discovery'
-                : 'Interpreter ranking: nothing named by path is eligible; recommending after discovery',
+            `${
+                unresolved > 0
+                    ? 'Interpreter ranking: a named path did not resolve; recommending after discovery'
+                    : 'Interpreter ranking: nothing named by path is eligible; recommending after discovery'
+            } (${Date.now() - started} ms)`,
         );
         return undefined;
     }

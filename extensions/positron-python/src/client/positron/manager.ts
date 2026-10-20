@@ -381,12 +381,17 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
     async recommendedWorkspaceRuntime(afterDiscovery?: boolean): Promise<positron.LanguageRuntimeMetadata | undefined> {
         // TODO: may need other handling for multiroot workspaces
         const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
-        return recommendWorkspaceRuntime(
-            this.serviceContainer,
-            this.interpreterService,
-            workspaceUri,
-            !!afterDiscovery,
-        );
+        try {
+            return await recommendWorkspaceRuntime(
+                this.serviceContainer,
+                this.interpreterService,
+                workspaceUri,
+                !!afterDiscovery,
+            );
+        } catch (err) {
+            traceError(`Failed to recommend a Python runtime for the workspace: ${err}`);
+            return undefined;
+        }
     }
 
     /**
@@ -837,8 +842,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         const interpreter = await this.interpreterService.getInterpreterDetails(pythonPath);
         // Create the runtime and register it with Positron.
         if (interpreter) {
-            // Set recommendedForWorkspace to false, since we change the active runtime
-            // in the onDidChangeActiveEnvironmentPath listener.
             const newRuntime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer);
             // On a forceRefresh, if the resolved runtime matches what's already
             // registered for this path, there's nothing to do. If it differs (e.g.

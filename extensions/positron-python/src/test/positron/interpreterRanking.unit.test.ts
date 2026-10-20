@@ -20,6 +20,7 @@ import {
     tierOf,
     withDiscoveredFacts,
 } from '../../client/positron/interpreterRanking';
+import * as externallyManagedEnvironment from '../../client/positron/externallyManagedEnvironment';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import * as workspaceScan from '../../client/positron/workspaceScan';
 import { createTypeMoq } from '../mocks/helper';
@@ -304,6 +305,25 @@ suite('interpreterRanking', () => {
         } finally {
             moduleLocator.moduleMetadataMap.delete(modulePath);
         }
+    });
+
+    test('withDiscoveredFacts fills externallyManagedPaths with the interpreters that are externally managed', async () => {
+        const a = env(p('/usr/lib/a/bin/python'), EnvironmentType.System, '3.12.0');
+        const b = env(p('/usr/lib/b/bin/python'), EnvironmentType.System, '3.12.0');
+        sinon.stub(moduleLocator, 'whenModuleMetadataReady').resolves();
+        sinon
+            .stub(externallyManagedEnvironment, 'isExternallyManagedEnvironment')
+            .callsFake(async (options) => options.interpreterPath === a.path);
+
+        const context = await withDiscoveredFacts(emptyContext, [a, b]);
+
+        assert.deepEqual([...context.externallyManagedPaths], [a.path]);
+    });
+
+    test('conda base stays a global env even when it is externally managed', () => {
+        const context = { ...emptyContext, externallyManagedPaths: new Set([condaBase.path]) };
+
+        assert.strictEqual(tierOf(condaBase, context), Tier.GlobalEnv);
     });
 
     test('within a tier, the higher version wins, then the path', () => {

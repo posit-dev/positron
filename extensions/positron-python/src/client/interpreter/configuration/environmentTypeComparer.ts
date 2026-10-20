@@ -285,7 +285,7 @@ export function isProblematicCondaEnvironment(environment: PythonEnvironment): b
  * Compare 2 Python versions in decending order, most recent one comes first.
  */
 // --- Start Positron ---
-// We export this function for Positron to use in sortInterpreters function.
+// We export this function for Positron's interpreter ranking (interpreterRanking.ts) to use.
 export function comparePythonVersionDescending(a: PythonVersion | undefined, b: PythonVersion | undefined): number {
     // --- End Positron ---
     if (!a) {
