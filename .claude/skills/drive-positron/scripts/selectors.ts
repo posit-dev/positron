@@ -143,6 +143,7 @@ export const css = {
 		activeTab: '.tab.active',
 		dirty: '.dirty', // a tab's unsaved mark: not in its accessible name
 		actions: '.editor-actions', // the editor's action bar, beside the tabs: no toolbar role
+		modal: '.modal-editor-part', // the modal editor (settings.json): a dialog whose name is a path, which ui.sh's dialog matches like any other
 	},
 	monaco: {
 		editor: '.monaco-editor',
@@ -290,6 +291,7 @@ export const names = {
 		suggest: 'Suggest', // the completion list (a listbox of options)
 		closePeek: 'Close', // the peek view's close button
 		cursorStatusPattern: 'Ln (\\d+), Col (\\d+)(?: \\((\\d+) selected\\))?', // the status bar button
+		moveModalToMain: 'Open Modal Editor in Main Window', // the modal editor's header button
 	},
 	viewer: {
 		url: 'The current URL',
