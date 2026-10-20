@@ -22,6 +22,22 @@ export function createUniqueId(): string {
 }
 
 /**
+ * Set `process.platform` for the duration of a callback and restore it after.
+ * The callback must be synchronous, because other code in the extension host
+ * reads `process.platform` too.
+ * @returns The callback's result.
+ */
+export function withPlatform<T>(platform: NodeJS.Platform, fn: () => T): T {
+	const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
+	Object.defineProperty(process, 'platform', { value: platform });
+	try {
+		return fn();
+	} finally {
+		Object.defineProperty(process, 'platform', original);
+	}
+}
+
+/**
  * Normalize a file path for robust comparison (realpath, normalize, lower-case).
  */
 export function normalizePath(p: string): string {

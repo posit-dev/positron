@@ -11,23 +11,11 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { computeRootSignatureEntries, getRDiscoveryRootSignature, rCurrentSymlinks } from '../provider';
+import { withPlatform } from './kit';
 
-/**
- * Set `process.platform` for the duration of a callback and restore it after.
- * `process.platform` is read at call time by `rCurrentSymlinks()`, so PR CI
- * (R discovery runs Linux-only) can't exercise the darwin / win32 branches
- * without this -- we assert all three explicitly.
- */
-function withPlatform(platform: NodeJS.Platform, fn: () => void): void {
-	const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
-	Object.defineProperty(process, 'platform', { value: platform });
-	try {
-		fn();
-	} finally {
-		Object.defineProperty(process, 'platform', original);
-	}
-}
-
+// `rCurrentSymlinks()` reads `process.platform` at call time, so PR CI (R
+// discovery runs Linux-only) can't exercise the darwin / win32 branches
+// without `withPlatform()` -- we assert all three explicitly.
 suite('R discovery-root signature', () => {
 
 	// `withPlatform()` fakes `process.platform` but not the `path` module, so

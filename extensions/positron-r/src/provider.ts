@@ -1367,8 +1367,9 @@ const NON_PROJECT_FOLDERS = ['node_modules', '.venv', 'venv', '.virtualenv', '.c
 /**
  * Whether the open folder looks like an R project: it has R files at any
  * depth, or it's empty and you've used RStudio in the last 30 days.
+ * @param folder A folder to search instead of the open folder, for tests.
  */
-export async function looksLikeRProject(): Promise<boolean> {
+export async function looksLikeRProject(folder?: vscode.Uri): Promise<boolean> {
 	// Check if the workspace contains R-related files.
 	const globs = [
 		'**/*.R',
@@ -1381,23 +1382,24 @@ export async function looksLikeRProject(): Promise<boolean> {
 	];
 	// Convert to the glob format used by vscode.workspace.findFiles.
 	const glob = `{${globs.join(',')}}`;
-	if (await hasFiles(glob, `**/{${NON_PROJECT_FOLDERS.join(',')}}/**`)) {
+	if (await hasFiles(glob, `**/{${NON_PROJECT_FOLDERS.join(',')}}/**`, folder)) {
 		return true;
 	}
 
 	// Check if the workspace is empty and the user is an RStudio user. Only
 	// node_modules is skipped here, so a folder holding only a .venv doesn't
 	// count as empty.
-	if (!(await hasFiles('**/*', '**/node_modules/**')) && isRStudioUser()) {
+	if (!(await hasFiles('**/*', '**/node_modules/**', folder)) && isRStudioUser()) {
 		return true;
 	}
 
 	return false;
 }
 
-// Check if the current workspace contains files matching a glob pattern.
-async function hasFiles(glob: string, exclude: string): Promise<boolean> {
-	return (await vscode.workspace.findFiles(glob, exclude, 1)).length > 0;
+// Check if the current workspace, or the given folder, contains files matching a glob pattern.
+async function hasFiles(glob: string, exclude: string, folder?: vscode.Uri): Promise<boolean> {
+	const include = folder ? new vscode.RelativePattern(folder, glob) : glob;
+	return (await vscode.workspace.findFiles(include, exclude, 1)).length > 0;
 }
 
 /**
