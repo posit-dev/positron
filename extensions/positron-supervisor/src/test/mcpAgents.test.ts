@@ -55,8 +55,8 @@ suite('mergeAgentConfig', () => {
 			].join('\n'));
 	});
 
-	test('writes OpenCode a nested entry, and takes it out again', () => {
-		const existing = JSON.stringify({ mcp: { servers: { other: { type: 'remote' } } } });
+	test('writes OpenCode an entry under mcp, and takes it out again', () => {
+		const existing = JSON.stringify({ mcp: { other: { type: 'remote' } } });
 		const merged = mergeAgentConfig(fileInstall('opencode'), existing, LAUNCH);
 
 		assert.deepStrictEqual(
@@ -64,10 +64,8 @@ suite('mergeAgentConfig', () => {
 			[
 				{
 					mcp: {
-						servers: {
-							other: { type: 'remote' },
-							positron: { type: 'local', command: ['/storage/mcp/bin/positron-mcp'] },
-						},
+						other: { type: 'remote' },
+						positron: { type: 'local', command: ['/storage/mcp/bin/positron-mcp'] },
 					},
 				},
 				JSON.parse(existing),

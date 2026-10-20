@@ -48,7 +48,7 @@ export interface McpFileInstall {
 	/** The file's format, which decides how an entry is merged into it. */
 	readonly format: 'json' | 'toml';
 
-	/** The dotted path the servers live under: `mcpServers`, `mcp.servers`. */
+	/** The dotted path the servers live under: `mcpServers`, `mcp_servers`. */
 	readonly serversKey: string;
 
 	/** The server entry, in the harness's own vocabulary. */
@@ -145,7 +145,7 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 				'config.toml',
 			],
 			format: 'toml',
-			serversKey: 'mcp_servers',
+			serversKey: 'mcp',
 			// Codex hands a server only an allowlist of its environment, so a
 			// Codex started from a Positron terminal has to be told to pass the
 			// endpoint on.
@@ -200,7 +200,7 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 				'opencode.json',
 			],
 			format: 'json',
-			serversKey: 'mcp.servers',
+			serversKey: 'mcp',
 			entry: launch => ({ type: 'local', command: [launch.command, ...launch.args] }),
 		},
 	},
