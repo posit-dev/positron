@@ -98,6 +98,12 @@ class SqlSession implements vscode.Disposable {
 	private readonly _disposables: vscode.Disposable[] = [];
 	private readonly _diagnostics: vscode.DiagnosticCollection;
 
+	/**
+	 * Set when `sql.enabled` is turned off. A schema read or a connection pick can still be in
+	 * flight then, and must not write to the diagnostics or status bar it has just lost.
+	 */
+	private _disposed = false;
+
 	/** Compiled on first use: it takes a moment, and activation should not wait for it. */
 	private _analyzer: SqlAnalyzer | undefined;
 
@@ -242,6 +248,9 @@ class SqlSession implements vscode.Disposable {
 		// The files already open are asked about only once the first read has said what is open
 		// already, so a connection that is up is not opened a second time.
 		void this.refreshSchema().then(() => {
+			if (this._disposed) {
+				return;
+			}
 			for (const document of vscode.workspace.textDocuments) {
 				void this._openConnectionFor(document);
 			}
@@ -249,6 +258,7 @@ class SqlSession implements vscode.Disposable {
 	}
 
 	public dispose(): void {
+		this._disposed = true;
 		for (const pending of this._pending.values()) {
 			clearTimeout(pending);
 		}
@@ -303,8 +313,9 @@ class SqlSession implements vscode.Disposable {
 
 	/** Re-reads the user's data connections and re-analyzes every open document. */
 	public async refreshSchema(): Promise<void> {
+		let payload: SqlSchema;
 		try {
-			this._payload = await readConnectionSchema(this._log);
+			payload = await readConnectionSchema(this._log);
 		} catch (error) {
 			// Completions still work without metadata: keywords are always available, and the
 			// alternative to keeping the old schema is dropping tables the user can still see in
@@ -312,6 +323,10 @@ class SqlSession implements vscode.Disposable {
 			this._log.warn(`Could not read the database schema: ${error}`);
 			return;
 		}
+		if (this._disposed) {
+			return;
+		}
+		this._payload = payload;
 		this._scoped.clear();
 		// The schema decides which names are unknown, so every open document's diagnostics are
 		// stale. The status bar is stale too: a connection this file chose may have just closed.
@@ -349,7 +364,7 @@ class SqlSession implements vscode.Disposable {
 			return;
 		}
 		const chosen = await pickConnection(this._payload.connections, this._selection.get(document.uri));
-		if (!chosen) {
+		if (!chosen || this._disposed) {
 			return;
 		}
 		this._selection.set(document.uri, chosen);
