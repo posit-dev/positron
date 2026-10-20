@@ -40,7 +40,12 @@ function numFlag(name: string, fallback: number): number {
 const fast = argv.includes('--fast');
 const staleDays = numFlag('--stale-days', 14);
 // Consecutive all-triaged pages (100 issues each) before --fast gives up looking.
-const FAST_CLEAN_PAGES = numFlag('--fast-clean-pages', 3);
+// At least 1: with 0 the stop rule would fire on the first page even when it had hits.
+const FAST_CLEAN_PAGES = Math.max(1, numFlag('--fast-clean-pages', 3));
+// Parallel `gh` processes for the per-issue detail pass. The queue includes every
+// waiting-on-user issue, so it can grow well past today's handful; an uncapped
+// fan-out invites GitHub's secondary rate limit.
+const DETAIL_CONCURRENCY = 8;
 // No age filter by default. --fast applies one so the ordered early-stop is
 // valid, which also makes --fast mean "anything new since the full sweep".
 const discussionDays = numFlag('--discussion-days', fast ? RECENT_DAYS : Infinity);
@@ -168,6 +173,7 @@ interface NeedsReply {
 }
 
 interface DiscussionScan {
+	skipped: boolean;
 	needsReply: NeedsReply[];
 	total: number;
 	scanned: number;
@@ -180,6 +186,9 @@ interface SweepResult {
 	fast: boolean;
 	scan: Omit<ScanResult, 'queue'> & { queueSize: number };
 	issues: BucketedIssue[];
+	// Queued issues whose detail fetch failed (rate limit, transferred mid-run).
+	// Reported, not silently dropped, so the queue count stays honest.
+	failedDetails: number[];
 	discussions: DiscussionScan;
 }
 
@@ -201,6 +210,20 @@ async function graphql<T>(query: string, vars: Record<string, string | number | 
 		args.push(typeof v === 'number' ? '-F' : '-f', `${k}=${v}`);
 	}
 	return JSON.parse(await gh(args)) as T;
+}
+
+// Map with at most `limit` calls in flight, preserving input order.
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+	const results = new Array<R>(items.length);
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) {
+			const i = next++;
+			results[i] = await fn(items[i]);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+	return results;
 }
 
 // --- Pass 1: enumerate open issues, read project Status inline ----------------
@@ -305,6 +328,9 @@ async function fetchDetail({ number, repo }: QueuedIssue): Promise<IssueDetail |
 // The distinction that matters: an unstatused issue may be brand new, or it may
 // be one we already answered and are waiting on. Same empty Status field, very
 // different next action.
+//
+// Only `comments(last: 30)` is read. An issue with more than 30 comments whose
+// only team comment is older than that looks `untouched`; rare in the queue.
 function bucketIssue(iss: IssueDetail): BucketedIssue {
 	const labels = iss.labels.nodes.map(l => l.name);
 	const infoNeeded = labels.includes('info needed');
@@ -312,19 +338,28 @@ function bucketIssue(iss: IssueDetail): BucketedIssue {
 	const teamComments = comments.filter(c => TEAM_ASSOC.has(c.authorAssociation));
 	const lastTeam = teamComments.at(-1) ?? null;
 	const last = comments.at(-1) ?? null;
-	const lastIsTeam = last ? TEAM_ASSOC.has(last.authorAssociation) : false;
+	// "The reporter replied" means the issue's own author has the last word. A +1
+	// from a bystander or a bot comment does not answer anything we asked.
+	const reporter = iss.author?.login;
+	const reporterReply = last && !TEAM_ASSOC.has(last.authorAssociation)
+		&& reporter && last.author?.login === reporter ? last : null;
+	// When `info needed` was set without a team comment, staleness is measured
+	// from the last activity we can see, so the issue can still go quiet.
+	const quietSince = lastTeam?.createdAt ?? last?.createdAt ?? iss.createdAt;
 
 	let bucket: Bucket;
 	let waitingDays: number | null = null;
-	if (infoNeeded && last && !lastIsTeam) {
+	if (reporterReply && (lastTeam || infoNeeded)) {
+		// Covers both `info needed` answered, and a question asked without the
+		// label that the reporter has since answered. Either way, we owe a reply.
 		bucket = 'user-replied';
-		waitingDays = round(days(last.createdAt));
-	} else if (infoNeeded && lastTeam && days(lastTeam.createdAt) > staleDays) {
+		waitingDays = round(days(reporterReply.createdAt));
+	} else if (infoNeeded && days(quietSince) > staleDays) {
 		bucket = 'gone-quiet';
-		waitingDays = round(days(lastTeam.createdAt));
+		waitingDays = round(days(quietSince));
 	} else if (infoNeeded) {
 		bucket = 'waiting-on-user';
-		waitingDays = lastTeam ? round(days(lastTeam.createdAt)) : round(days(iss.createdAt));
+		waitingDays = round(days(quietSince));
 	} else if (!lastTeam) {
 		bucket = 'untouched';
 		waitingDays = round(days(iss.createdAt));
@@ -336,7 +371,7 @@ function bucketIssue(iss: IssueDetail): BucketedIssue {
 	// Signals the drill-in uses; cheap to compute here, saves a re-read.
 	const body = iss.body || '';
 	const hasVersionBlock = /Positron Version:|Version: Positron|Code - OSS/i.test(body);
-	const versionMatch = body.match(/Positron(?: Version)?:?\s*(\d{4}\.\d{2}\.\d+[^\s,)]*)/i);
+	const versionMatch = body.match(/Positron(?: Version)?:?\s*(?<version>\d{4}\.\d{2}\.\d+[^\s,)]*)/i);
 	const areaLabels = labels.filter(l => /^(area|lang|theme):/.test(l));
 
 	return {
@@ -355,7 +390,7 @@ function bucketIssue(iss: IssueDetail): BucketedIssue {
 		ageDays: round(days(iss.createdAt)),
 		bucket,
 		waitingDays,
-		reportedVersion: versionMatch ? versionMatch[1].replace(/[.,;:]+$/, '') : null,
+		reportedVersion: versionMatch?.groups?.version.replace(/[.,;:]+$/, '') ?? null,
 		hasVersionBlock,
 		bodyChars: body.length,
 	};
@@ -369,6 +404,10 @@ function bucketIssue(iss: IssueDetail): BucketedIssue {
 // Team answers also get posted as nested replies inside a thread, so scanning
 // only top-level comments misses them (that alone moved the last-word count from
 // 140 to 186). Both levels are checked.
+//
+// Known limit: only the first 40 comments and first 20 replies per comment are
+// read, so a team answer past those would be missed. Unanswered threads are short
+// in practice (5 comments at most as of Oct 2026); page further if that changes.
 const DISCUSSION_QUERY = `
 query($owner: String!, $repo: String!, $cursor: String) {
   repository(owner: $owner, name: $repo) {
@@ -450,13 +489,13 @@ async function scanDiscussions(): Promise<DiscussionScan> {
 		}
 		cursor = d.pageInfo.endCursor;
 	}
-	return { needsReply, total, scanned, truncated };
+	return { skipped: false, needsReply, total, scanned, truncated };
 }
 
 // --- Report ------------------------------------------------------------------
 const BUCKET_ORDER: Bucket[] = ['user-replied', 'untouched', 'needs-status', 'waiting-on-user', 'gone-quiet'];
 const BUCKET_LABEL: Record<Bucket, string> = {
-	'user-replied': 'User replied -- re-assess and drop `info needed`',
+	'user-replied': 'Reporter replied -- re-assess (and drop `info needed` if set)',
 	'untouched': 'Untouched -- full triage needed',
 	'needs-status': 'Team engaged, Status still empty -- likely just needs `Triage`',
 	'waiting-on-user': 'Waiting on user -- no action, just tracking',
@@ -487,15 +526,25 @@ function render(r: SweepResult): string {
 	const recentDiscussions = activeDiscussions.filter(d => d.ageDays <= RECENT_DAYS);
 	L.push(`# positron intake sweep -- ${new Date().toISOString().slice(0, 16).replace('T', ' ')}Z`);
 	L.push('');
-	L.push(`Issue queue: **${r.issues.length}** open issue(s) on project #${PROJECT} with no Status. `
-		+ `Scanned ${r.scan.scanned} of ${r.scan.totalOpen} open issues (${r.scan.pages} pages). `
-		+ (r.discussions.truncated
-			? `Discussions with no Posit reply, opened in the last ${discussionDays}d: `
-			+ `**${activeDiscussions.length}** (of ${r.discussions.total} open; older not counted).`
+	const discussionSummary = r.discussions.skipped
+		? 'Discussions: not checked (`--no-discussions`).'
+		: r.discussions.truncated
+			? `Discussions with no Posit reply and activity in the last ${discussionDays}d: `
+			+ `**${activeDiscussions.length}** (of ${r.discussions.total} open; quieter ones not counted).`
 			: `Discussions with no Posit reply: **${activeDiscussions.length}** `
 			+ `of ${r.discussions.total} open, ${recentDiscussions.length} from the last `
-			+ `${RECENT_DAYS}d.`));
+			+ `${RECENT_DAYS}d.`;
+	L.push(`Issue queue: **${r.issues.length + r.failedDetails.length}** open issue(s) on project #${PROJECT} `
+		+ `with no Status. Scanned ${r.scan.scanned} of ${r.scan.totalOpen} open issues `
+		+ `(${r.scan.pages} pages). ${discussionSummary}`);
 	L.push('');
+
+	if (r.failedDetails.length) {
+		L.push(`> **Could not load ${r.failedDetails.length} queued issue(s):** `
+			+ r.failedDetails.map(n => `#${n}`).join(', ')
+			+ '. Not bucketed below -- check them by hand or re-run the sweep.');
+		L.push('');
+	}
 
 	if (r.scan.stoppedEarly) {
 		L.push(`> **\`--fast\`: partial scan.** Stopped after ${FAST_CLEAN_PAGES} consecutive pages `
@@ -516,12 +565,14 @@ function render(r: SweepResult): string {
 		parts.push(`${recentDiscussions.length} new discussion(s) with no Posit reply`);
 	}
 	if (r.scan.offBoard.length) { parts.push(`${r.scan.offBoard.length} issue(s) off-board`); }
+	if (r.failedDetails.length) { parts.push(`${r.failedDetails.length} issue(s) could not be loaded`); }
+	const notChecked = r.discussions.skipped ? ' Discussions were not checked.' : '';
 	if (parts.length) {
 		L.push(`**Verdict:** ${parts.join('; ')}. `
-			+ `${r.issues.length - actionable.length} issue(s) are waiting on the user (no action).`);
+			+ `${r.issues.length - actionable.length} issue(s) are waiting on the user (no action).${notChecked}`);
 	} else {
 		L.push(`**Verdict:** nothing actionable on the GitHub side. `
-			+ `All ${r.issues.length} queued issue(s) are waiting on the user. Still check Jira.`);
+			+ `All ${r.issues.length} queued issue(s) are waiting on the user.${notChecked} Still check Jira.`);
 	}
 	L.push('');
 
@@ -553,14 +604,12 @@ function render(r: SweepResult): string {
 		L.push('');
 		// Newest first: a thread nobody answered last week matters more than one
 		// from 2024. Age is shown so stale ones are obvious rather than hidden.
-		const items = r.discussions.needsReply
-			.filter(d => d.quietDays <= discussionDays)
-			.sort((a, b) => a.ageDays - b.ageDays);
+		const items = [...activeDiscussions].sort((a, b) => a.ageDays - b.ageDays);
 
 		if (!items.length) {
 			L.push(discussionDays === Infinity
 				? '_None. Every open discussion has had a reply from someone at Posit._'
-				: `_None opened in the last ${discussionDays}d without a Posit reply._`);
+				: `_None with activity in the last ${discussionDays}d and no Posit reply._`);
 		} else {
 			const recent = items.filter(d => d.ageDays <= RECENT_DAYS);
 			const older = items.filter(d => d.ageDays > RECENT_DAYS);
@@ -610,11 +659,29 @@ function render(r: SweepResult): string {
 
 // --- Main --------------------------------------------------------------------
 try {
+	// The discussion scan does not depend on the issue scan, so start it first and
+	// let the two page through GitHub at the same time.
+	const discussionsPromise = skipDiscussions
+		? Promise.resolve<DiscussionScan>({ skipped: true, needsReply: [], total: 0, scanned: 0 })
+		: scanDiscussions();
+	// Mark the rejection as handled now; it still surfaces at the await below.
+	// Without this, a discussion failure during the issue scan would crash Node
+	// as an unhandled rejection instead of reaching the catch at the bottom.
+	discussionsPromise.catch(() => { });
 	const scan = await scanQueue();
-	const [details, discussions] = await Promise.all([
-		Promise.all(scan.queue.map(fetchDetail)),
-		skipDiscussions ? Promise.resolve<DiscussionScan>({ needsReply: [], total: 0, scanned: 0 }) : scanDiscussions(),
-	]);
+	// One failed lookup must not sink the whole report: record it and move on.
+	const failedDetails: number[] = [];
+	const details = await mapLimit(scan.queue, DETAIL_CONCURRENCY, async q => {
+		try {
+			const detail = await fetchDetail(q);
+			if (!detail) { failedDetails.push(q.number); }
+			return detail;
+		} catch {
+			failedDetails.push(q.number);
+			return null;
+		}
+	});
+	const discussions = await discussionsPromise;
 	const result: SweepResult = {
 		generatedAt: new Date().toISOString(),
 		staleDays,
@@ -629,6 +696,7 @@ try {
 			offBoard: scan.offBoard.sort((a, b) => b - a),
 		},
 		issues: details.filter((d): d is IssueDetail => d !== null).map(bucketIssue),
+		failedDetails: failedDetails.sort((a, b) => b - a),
 		discussions,
 	};
 	process.stdout.write(asJson ? JSON.stringify(result, null, 2) : render(result));

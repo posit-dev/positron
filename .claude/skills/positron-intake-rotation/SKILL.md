@@ -106,10 +106,10 @@ From the repo root:
 node .claude/skills/positron-intake-rotation/scripts/sweep.ts
 ```
 
-About 30 seconds for a complete scan of all open issues, or just under a minute with
-discussions included (those add ~28s of their own paging). It
-emits a verdict line, then the issue queue bucketed by what each item is waiting on,
-then discussions needing a reply.
+About a minute for a complete scan of all open issues and discussions (the two page
+through GitHub in parallel). It emits a verdict line, then the issue queue bucketed by
+what each item is waiting on, then discussions needing a reply. If a queued issue
+cannot be loaded, the report lists it as such rather than failing; check it by hand.
 
 Flags: `--fast`, `--json`, `--no-discussions`, `--discussion-days N`,
 `--stale-days N`, `--fast-clean-pages N`.
@@ -168,11 +168,16 @@ The buckets are the point. An empty `Status` field means very different things:
 
 | Bucket | Meaning | Action |
 |---|---|---|
-| `user-replied` | we asked, they answered | re-assess, drop `info needed` |
+| `user-replied` | the reporter has the last word after we engaged or set `info needed` | re-assess; drop `info needed` if set |
 | `untouched` | nobody from the team has commented | full triage |
-| `needs-status` | team engaged, no `info needed`, `Status` still empty | probably just needs `Triage` |
-| `waiting-on-user` | we have the last word, `info needed` set | **no action** -- tracking only |
+| `needs-status` | team engaged and has the last word, no `info needed`, `Status` still empty | probably just needs `Triage` |
+| `waiting-on-user` | `info needed` set, the reporter has not answered | **no action** -- tracking only |
 | `gone-quiet` | `info needed`, silent past the threshold | propose closing |
+
+"The reporter" means the issue's author. A +1 or a bot comment from someone else does
+not count as an answer, so it leaves the issue where it was. Silence for `gone-quiet` is
+measured from our last comment, or from the last activity if `info needed` was set
+without one.
 
 `waiting-on-user` is not work. A queue that is entirely `waiting-on-user` is a quiet
 day; say so rather than walking the person through six items they cannot act on.
