@@ -52,12 +52,13 @@ export function mcpLauncherLaunch(storageUri: vscode.Uri): McpLaunch {
  * @param storageUri The extension's global storage directory.
  * @param supervisorPath The supervisor binary.
  * @param log Writes a line to the Kernel Supervisor output channel.
+ * @returns The launch to write into an agent's configuration.
  */
 export async function installMcpLauncher(
 	storageUri: vscode.Uri,
 	supervisorPath: string,
 	log: (message: string) => void,
-): Promise<void> {
+): Promise<McpLaunch> {
 	const target = mcpLauncherPath(storageUri);
 	const connections = mcpConnectionsDirectory(storageUri);
 	const script = os.platform() === 'win32'
@@ -68,7 +69,7 @@ export async function installMcpLauncher(
 		: '#!/bin/sh\n' +
 		`exec ${shellQuote(supervisorPath)} mcp-stdio --connections ${shellQuote(connections)} "$@"\n`;
 	if (await fs.readFile(target, 'utf8').catch(() => undefined) === script) {
-		return;
+		return mcpLauncherLaunch(storageUri);
 	}
 
 	log(`Writing ${target}, which coding agents start as Positron's MCP server, to run ${supervisorPath}`);
@@ -82,6 +83,7 @@ export async function installMcpLauncher(
 	} finally {
 		await fs.rm(temporary, { force: true });
 	}
+	return mcpLauncherLaunch(storageUri);
 }
 
 /**

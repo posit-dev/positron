@@ -21,6 +21,7 @@ import {
 	removeConnectionFiles,
 	writeConnectionFiles,
 } from './mcpConnection';
+import { McpLaunch } from './McpAgents';
 import { installMcpLauncher, mcpLauncherPath } from './mcpLauncher';
 import { summarizeError } from './util';
 
@@ -178,8 +179,8 @@ export class McpFrontend implements vscode.Disposable {
 	 * @param _enabled Whether the feature is turned on. Read on every sync
 	 *  rather than cached, since both switches apply without a reload and
 	 *  `ai.enabled` can be enforced by a Workbench administrator at any time.
-	 * @param _onRegistered Called with the registration once the endpoint is
-	 *  live, for work that should not point agents at a listener that does not
+	 * @param _onRegistered Called with the launcher's launch once the endpoint
+	 *  is live and the launcher installed, for work that should not point agents at a listener that does not
 	 *  exist yet.
 	 * @param _onDeregistered Called once the endpoint is gone, for work that
 	 *  should not outlive it -- the entries agents were configured with, which
@@ -198,7 +199,7 @@ export class McpFrontend implements vscode.Disposable {
 		private readonly _sessionIds: () => string[],
 		private readonly _supervisorPath: () => string,
 		private readonly _enabled: () => boolean = mcpFeatureEnabled,
-		private readonly _onRegistered: (connection: McpConnection) => void | Thenable<void> = () => { },
+		private readonly _onRegistered: (launch: McpLaunch) => void | Thenable<void> = () => { },
 		private readonly _onDeregistered: () => void | Thenable<void> = () => { },
 		private readonly _processEnv: NodeJS.ProcessEnv = process.env,
 	) {
@@ -410,13 +411,13 @@ export class McpFrontend implements vscode.Disposable {
 		};
 		this.setConnection(connection);
 		await this._saveState({ workspaceId, port, token });
-		const installed = await this.publishEnvironment(connection);
+		const launch = await this.publishEnvironment(connection);
 		this._log(`Registered MCP workspace ${workspaceId}; agents can connect at ${url}, ` +
 			`or read ${mcpDescriptorPath(this._storageUri, workspaceId)}`);
 		this.openChannel(workspaceId);
 		// Agents configured now would be told to start a launcher that is not there.
-		if (installed) {
-			this.runHook(() => this._onRegistered(connection));
+		if (launch) {
+			this.runHook(() => this._onRegistered(launch));
 		}
 	}
 
@@ -537,23 +538,22 @@ export class McpFrontend implements vscode.Disposable {
 	 * predates registration has to be restarted to pick them up; the
 	 * description explains that in the terminal's environment hover.
 	 *
-	 * @returns Whether the launcher was installed.
+	 * @returns The launcher's launch, if it was installed.
 	 */
-	private async publishEnvironment(connection: McpConnection): Promise<boolean> {
+	private async publishEnvironment(connection: McpConnection): Promise<McpLaunch | undefined> {
 		this._environment.description = vscode.l10n.t(
 			"Lets coding agents run code in this workspace's Positron sessions. Reopen a terminal to pick up changes.");
 		this.setVariable(MCP_URL_ENV_VAR, connection.url);
 		this.setVariable(MCP_TOKEN_ENV_VAR, connection.token);
 		this.setVariable(MCP_CONNECTIONS_ENV_VAR, mcpConnectionsDirectory(this._storageUri));
-		let installed = false;
+		let launch: McpLaunch | undefined;
 		try {
 			const supervisorPath = this._supervisorPath();
 			this.setVariable(SUPERVISOR_PATH_ENV_VAR, supervisorPath);
 			// Points the launcher at this window's supervisor, which may be a
 			// different version's than the one that last wrote it.
-			await installMcpLauncher(this._storageUri, supervisorPath, this._log);
+			launch = await installMcpLauncher(this._storageUri, supervisorPath, this._log);
 			this.setVariable(MCP_LAUNCHER_ENV_VAR, mcpLauncherPath(this._storageUri));
-			installed = true;
 		} catch (err) {
 			this._log(`Could not install the MCP launcher: ${summarizeError(err)}`);
 		}
@@ -565,7 +565,7 @@ export class McpFrontend implements vscode.Disposable {
 			// by its folders are affected.
 			this._log(`Could not write the MCP connection files: ${summarizeError(err)}`);
 		}
-		return installed;
+		return launch;
 	}
 
 	/** Publish a variable to terminals and to the extension host's environment. */
