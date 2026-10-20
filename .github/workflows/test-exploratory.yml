@@ -163,18 +163,21 @@ jobs:
             [ "$state" = "active" ]
           }
 
-          # The URL of a run on this PR still queued or going, or nothing. An
-          # auto-run is found by its run-name; a comment run has no PR number,
-          # so by the run link in the comment it posts.
+          # The URL of a run still queued or going on this PR's head ($1), or
+          # nothing. Each run's comment names its run and short SHA; an auto-run
+          # yet to comment is found by its run-name. A focused run is no repeat.
           busy_run() {
-            local ids status
-            ids=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
-              --jq '.[] | select(.user.type == "Bot" and (.body | contains("<!-- exploratory-test -->"))) | .body' \
-              | { grep -oE 'actions/runs/[0-9]+' || true; } | cut -d/ -f3 | jq -sc '.')
+            local seen status
+            seen=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+              --jq '[.[] | select(.user.type == "Bot") | .body
+                | select(contains("<!-- exploratory-test -->") and (contains("\nFocus: ") | not))
+                | {run: (capture("actions/runs/(?<r>[0-9]+)").r | tonumber), sha: capture("Exploratory testing\\*\\* (?<s>[0-9a-f]{7})").s}]' \
+              | jq -sc 'add // []')
             for status in queued in_progress; do
               gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/test-exploratory.yml/runs?status=${status}&per_page=100" \
-                | jq -r --argjson ids "$ids" --arg title "Exploratory auto-run #${PR_NUMBER}" \
-                  '.workflow_runs[] | select(.display_title == $title or (.id as $id | $ids | index($id))) | .html_url'
+                | jq -r --argjson seen "$seen" --arg head "${1:0:7}" --arg title "Exploratory auto-run #${PR_NUMBER}" \
+                  '.workflow_runs[] | .id as $id | ($seen | map(select(.run == $id))) as $mine
+                  | select(if $mine == [] then .display_title == $title else any($mine[]; .sha == $head) end) | .html_url'
             done | head -n 1
           }
 
@@ -198,10 +201,10 @@ jobs:
             exit 0
           fi
 
-          # A plain /explore while a run on this PR is going is a repeat. Fails
+          # A plain /explore while a run on the same head is going is a repeat. Fails
           # open: a missed repeat costs a run, a wrong block costs theirs.
           if [ -z "$focus" ]; then
-            busy=$(GH_TOKEN="$REPO_TOKEN" busy_run 2>/dev/null)
+            busy=$(GH_TOKEN="$REPO_TOKEN" busy_run "$(jq -r '.head.sha' <<<"$pr")" 2>/dev/null)
             if [ -n "$busy" ]; then
               echo "busy=$busy" >> "$GITHUB_OUTPUT"
               echo "Already running on this PR: $busy"
