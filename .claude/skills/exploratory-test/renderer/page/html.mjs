@@ -250,15 +250,39 @@ const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" ari
  * instead; the last row's tooltip opens upward, away from the panel's edge.
  */
 function changeMark(report, f, base, last) {
-	if (base?.usable !== true || !report.verification?.change?.has(f.n) || statusWord(f) !== 'confirmed') {
+	const words = changeWords(report, f, base);
+	if (!words) {
 		return '';
 	}
-	const title = `Likely related to this ${report.pr ? 'PR' : 'branch'}`;
-	const text = `Based on code changes. Not verified against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`;
 	return `<span class="chg${last ? ' chg-up' : ''}"><span aria-hidden="true">&Delta;</span>`
-		+ `<span class="chg-sr">${title}. ${text}</span>`
-		+ `<span class="chg-tip" aria-hidden="true"><b>${title}</b><span>${text}</span></span></span>`;
+		+ `<span class="chg-sr">${words.title}. ${words.text}</span>`
+		+ changeTip(words) + '</span>';
 }
+
+/**
+ * The same mark after a card's title. The title is not a link, so the mark
+ * takes focus itself and its label carries the text.
+ */
+function cardChangeMark(report, f, base) {
+	const words = changeWords(report, f, base);
+	if (!words) {
+		return '';
+	}
+	return `<span class="chg chg-card" tabindex="0" role="img" aria-label="${words.title}. ${words.text}"><span aria-hidden="true">&Delta;</span>`
+		+ changeTip(words) + '</span>';
+}
+
+function changeWords(report, f, base) {
+	if (base?.usable !== true || !report.verification?.change?.has(f.n) || statusWord(f) !== 'confirmed') {
+		return null;
+	}
+	return {
+		title: `Likely related to this ${report.pr ? 'PR' : 'branch'}`,
+		text: `Based on code changes. Not verified against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`,
+	};
+}
+
+const changeTip = ({ title, text }) => `<span class="chg-tip" aria-hidden="true"><b>${title}</b><span>${text}</span></span>`;
 
 function renderFindingsList(report, ki = null, changeBase = null) {
 	const rows = report.findings.map((f, i) => {
@@ -664,7 +688,7 @@ function renderFindingCard(f, report, options) {
 		+ '</div>';
 
 	const head = `<header>${meta}`
-		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
+		+ `<h2 class="card-title">${escapeHtml(f.title)}${cardChangeMark(report, f, options.changeBase)}</h2>`
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);
