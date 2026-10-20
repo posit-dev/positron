@@ -232,6 +232,19 @@ suite('interpreterRanking', () => {
         assert.strictEqual(Tier[tierOf(inWorkspace, context)!], 'WorkspaceEnv');
     });
 
+    test('an interpreter PET cannot classify is ranked only when the user names it', () => {
+        const custom = env(p('/opt/python/3.12.4/bin/python3'), EnvironmentType.Unknown, '3.12.4');
+        assert.deepEqual(
+            [
+                tierOf(custom, { ...emptyContext, defaultInterpreterPath: custom.path }),
+                tierOf(custom, { ...emptyContext, activatedEnvPrefix: custom.envPath }),
+                tierOf(custom, { ...emptyContext, definitionPaths: [custom.path] }),
+                tierOf(custom, emptyContext),
+            ],
+            [Tier.DefaultInterpreterPath, Tier.ActivatedEnv, Tier.Configured, undefined],
+        );
+    });
+
     test('with home opened as the folder, only envs one level down are WorkspaceEnv', () => {
         const nestedVenv = env(p('/home/u/proj/.venv/bin/python'), EnvironmentType.Venv, '3.12.0');
         const pyenvVersion = env(p('/home/u/.pyenv/versions/3.12.0/bin/python'), EnvironmentType.Pyenv, '3.12.0');

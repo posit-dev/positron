@@ -165,11 +165,6 @@ async function scanChildFolders(
     };
 }
 
-/** Env folders exactly one level below `root`, e.g. `<root>/app/.venv`. Passed to PET so they are discovered. */
-export async function findNestedEnvironmentDirs(root: string): Promise<string[]> {
-    return (await scanChildFolders(root, await readEntries(root))).nestedEnvDirs;
-}
-
 /** The first version named in `<root>/.python-version`, if any. Parent folders are not read. */
 async function readPythonVersionFile(root: string): Promise<string | undefined> {
     try {
@@ -184,8 +179,25 @@ async function readPythonVersionFile(root: string): Promise<string | undefined> 
     }
 }
 
-/** Everything the ranking needs from the folder. The root and each child folder are read once. */
-export async function scanWorkspace(root: string): Promise<WorkspaceScan> {
+/** The latest scan of each folder. Discovery and the ranking share it, so startup reads a folder once. */
+const latestScans = new Map<string, Promise<WorkspaceScan>>();
+
+/**
+ * Everything the ranking needs from the folder, and the env folders one level down that
+ * are passed to PET. Returns the latest scan of `root`, starting one if there is none;
+ * `rescan` reads the folder again and makes that the latest.
+ */
+export function scanWorkspace(root: string, rescan = false): Promise<WorkspaceScan> {
+    let scan = latestScans.get(root);
+    if (!scan || rescan) {
+        scan = readWorkspace(root);
+        latestScans.set(root, scan);
+    }
+    return scan;
+}
+
+/** Reads the folder. The root and each child folder are read once. */
+async function readWorkspace(root: string): Promise<WorkspaceScan> {
     const rootEntries = await readEntries(root);
     const [rootProjectEnv, children, pythonVersion] = await Promise.all([
         findRootProjectEnvironment(root),
