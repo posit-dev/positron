@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { useCallback, useLayoutEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
@@ -45,11 +45,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		onLayout?.();
 	});
 
-	const getErrorContext = useCallback((): IErrorAssistantContext => ({
-		kind: 'quarto',
-		error: errorContent,
-		cell,
-	}), [cell, errorContent]);
+	const getErrorContext = (): IErrorAssistantContext => ({ kind: 'quarto', error: errorContent, cell });
 
 	if (!assistant) {
 		return null;

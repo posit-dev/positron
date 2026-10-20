@@ -3,9 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// React.
-import { useCallback } from 'react';
-
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { IErrorAssistantContext } from '../../../positronAssistant/common/errorAssistant.js';
@@ -40,12 +37,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
 	const assistant = useActiveErrorAssistant();
 
-	// Stable identity so AssistantErrorQuickFix's click handler and dropdown
-	// actions aren't recreated on every render.
-	const getErrorContext = useCallback(
-		(): IErrorAssistantContext => ({ kind: 'notebook', error: errorContent }),
-		[errorContent]
-	);
+	const getErrorContext = (): IErrorAssistantContext => ({ kind: 'notebook', error: errorContent });
 
 	// Only show buttons if notebook AI is enabled, notebook mode is enabled, and
 	// an assistant can take errors.
