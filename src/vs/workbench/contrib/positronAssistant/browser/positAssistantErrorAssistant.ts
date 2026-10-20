@@ -23,7 +23,7 @@ const POSIT_ASSISTANT_ERROR_ASSISTANT_ID = 'posit-assistant';
 /** The Posit Assistant extension's identifier. */
 const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
 
-// Appended to every notebook and Quarto Explain prompt. Without it, an agentic
+// Appended to every Explain prompt. Without it, an agentic
 // assistant treats "Explain this error" plus an attached traceback as license
 // to fix it too.
 const explainOnlyConstraint = localize('positronAssistantExplainOnlyConstraint', "Do not make changes or edit any files; just explain the error.");
@@ -104,10 +104,9 @@ export function getPositAssistantChatOptions(
 	let content: string;
 	switch (location.kind) {
 		case 'console':
-			// The console's prompts have no explain-only constraint, and its
-			// error output is attached verbatim.
+			// The console's error output is attached verbatim.
 			fixPrompt = localize('positronConsoleAssistantFixPrompt', "Fix this console error.");
-			explainPrompt = localize('positronConsoleAssistantExplainPrompt', "Explain this console error.");
+			explainPrompt = `${localize('positronConsoleAssistantExplainPrompt', "Explain this console error.")} ${explainOnlyConstraint}`;
 			attachmentName = localize('positronConsoleAssistantErrorAttachmentName', "Console Error");
 			content = context.error;
 			break;

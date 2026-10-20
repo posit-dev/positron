@@ -117,11 +117,11 @@ describe('getPositAssistantChatOptions', () => {
 		};
 	}
 
-	it('sends console errors verbatim, with no explain-only constraint', () => {
+	it('sends console errors verbatim, and constrains Explain', () => {
 		const context: IErrorAssistantContext = { error: '  Error: boom\n', location: { kind: 'console' } };
 		expect([getOptions('fix', context, { continueChat: true }), getOptions('explain', context, { continueChat: true })]).toEqual([
 			{ prompt: 'Fix this console error.', target: 'auto', behavior: 'submit', files: [{ name: 'Console Error', content: '  Error: boom\n' }] },
-			{ prompt: 'Explain this console error.', target: 'auto', behavior: 'submit', files: [{ name: 'Console Error', content: '  Error: boom\n' }] },
+			{ prompt: `Explain this console error. ${constraint}`, target: 'auto', behavior: 'submit', files: [{ name: 'Console Error', content: '  Error: boom\n' }] },
 		]);
 	});
 
