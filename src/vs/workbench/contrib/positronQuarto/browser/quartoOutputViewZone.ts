@@ -11,7 +11,8 @@ import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
-import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, OBJECT_EXPLORER_MIME_TYPE, CellExecutionState, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
+import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, OBJECT_EXPLORER_MIME_TYPE, CellExecutionState } from '../common/quartoExecutionTypes.js';
+import { IQuartoErroredCell } from '../../positronAssistant/common/errorAssistant.js';
 import { InlineObjectExplorer } from '../../../browser/positronObjectExplorer/inlineObjectExplorer.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
@@ -382,7 +383,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Quick-fix support for error outputs (suppressed by default; the live
 	// execution path calls enableQuickFix() to opt in).
 	private _quickFixEnabled = false;
-	private _cellContext: QuartoCellErrorContext | undefined;
+	private _erroredCell: IQuartoErroredCell | undefined;
 	private _quickFixRenderer: PositronReactRenderer | undefined;
 
 	constructor(
@@ -1078,9 +1079,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * zone. Only the live execution path calls this; restore paths leave
 	 * the default (suppressed) so stale errors don't show buttons.
 	 */
-	enableQuickFix(context?: QuartoCellErrorContext): void {
+	enableQuickFix(cell?: IQuartoErroredCell): void {
 		this._quickFixEnabled = true;
-		this._cellContext = context;
+		this._erroredCell = cell;
 	}
 
 	/**
@@ -2696,7 +2697,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._quickFixRenderer.render(
 				React.createElement(QuartoOutputQuickFix, {
 					errorContent: errorText,
-					cellContext: this._cellContext,
+					cell: this._erroredCell,
 					// The buttons mount asynchronously; re-measure once they are in
 					// the DOM so the zone reserves room for them. Relying on the
 					// ResizeObserver alone misses a re-run that produces an

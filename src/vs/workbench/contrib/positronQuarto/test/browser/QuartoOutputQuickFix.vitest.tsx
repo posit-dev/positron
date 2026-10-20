@@ -13,7 +13,7 @@ import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
-import { QuartoCellErrorContext } from '../../common/quartoExecutionTypes.js';
+import { IQuartoErroredCell } from '../../../positronAssistant/common/errorAssistant.js';
 
 describe('QuartoOutputQuickFix', () => {
 	const ctx = createTestContainer()
@@ -31,8 +31,8 @@ describe('QuartoOutputQuickFix', () => {
 		registration = registerTestErrorAssistant(ctx, { ask });
 	});
 
-	function renderQuickFix(cellContext?: QuartoCellErrorContext) {
-		return rtl.render(<QuartoOutputQuickFix cellContext={cellContext} errorContent='NameError: name "x" is not defined' />);
+	function renderQuickFix(cell?: IQuartoErroredCell) {
+		return rtl.render(<QuartoOutputQuickFix cell={cell} errorContent='NameError: name "x" is not defined' />);
 	}
 
 	it('renders Fix/Explain buttons when an assistant can take errors', () => {
@@ -61,7 +61,7 @@ describe('QuartoOutputQuickFix', () => {
 	it('sends the error with the cell that raised it', async () => {
 		const user = userEvent.setup();
 		const uri = URI.file('/report.qmd');
-		renderQuickFix({ uri, language: 'python', label: 'setup', code: 'raise RuntimeError("boom")', codeStartLine: 8, codeEndLine: 9 });
+		renderQuickFix({ uri, languageId: 'python', label: 'setup', code: 'raise RuntimeError("boom")', startLine: 8, endLine: 9 });
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 
 		expect(ask).toHaveBeenCalledWith('fix', {

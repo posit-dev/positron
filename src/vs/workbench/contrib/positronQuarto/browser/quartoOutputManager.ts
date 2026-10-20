@@ -28,7 +28,8 @@ import { IPositronPreviewService } from '../../positronPreview/browser/positronP
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { QuartoCodeCell } from '../common/quartoTypes.js';
 import { parseCellId } from './quartoDocumentModel.js';
-import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
+import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
+import { IQuartoErroredCell } from '../../positronAssistant/common/errorAssistant.js';
 import { ICellAssociation, reconcileCellAssociations } from '../common/quartoCellReconciliation.js';
 import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY, affectsQuartoConfig, getQuartoConfigValue, isQuartoDocument, usingQuartoInlineOutputAutoScroll } from '../common/positronQuartoConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -1092,9 +1093,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	/**
-	 * Resolve the cell context (code, language, location) for quick-fix buttons.
+	 * Resolve the cell (code, language, location) for quick-fix buttons.
 	 */
-	private _resolveCellContext(cellId: string): QuartoCellErrorContext | undefined {
+	private _resolveErroredCell(cellId: string): IQuartoErroredCell | undefined {
 		if (!this._documentUri) {
 			return undefined;
 		}
@@ -1108,12 +1109,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			return undefined;
 		}
 		return {
-			code: quartoModel.getCellCode(cell),
-			language: cell.language,
-			label: cell.label,
 			uri: this._documentUri,
-			codeStartLine: cell.codeStartLine,
-			codeEndLine: cell.codeEndLine,
+			languageId: cell.language,
+			label: cell.label,
+			code: quartoModel.getCellCode(cell),
+			startLine: cell.codeStartLine,
+			endLine: cell.codeEndLine,
 		};
 	}
 
@@ -1143,8 +1144,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._viewZones.set(cellId, viewZone);
 		}
 
-		// Enable quick-fix buttons with cell context (code, language, location)
-		viewZone.enableQuickFix(this._resolveCellContext(cellId));
+		// Enable quick-fix buttons with the cell (code, language, location)
+		viewZone.enableQuickFix(this._resolveErroredCell(cellId));
 
 		// Add output to view zone
 		viewZone.addOutput(output);

@@ -9,16 +9,15 @@ import { useCallback, useLayoutEffect } from 'react';
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
-import { IErrorAssistantContext } from '../../positronAssistant/common/errorAssistant.js';
+import { IErrorAssistantContext, IQuartoErroredCell } from '../../positronAssistant/common/errorAssistant.js';
 import { useActiveErrorAssistant } from '../../positronAssistant/browser/useActiveErrorAssistant.js';
 import { AssistantErrorQuickFix } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
-import { QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 
 interface QuartoOutputQuickFixProps {
 	/** The error output content from the Quarto cell execution. */
 	errorContent: string;
-	/** Cell context resolved at render time. */
-	cellContext?: QuartoCellErrorContext;
+	/** The cell that raised the error, as it was when the output arrived. */
+	cell?: IQuartoErroredCell;
 	/**
 	 * Called after each render commits to the DOM. The buttons mount
 	 * asynchronously, so the host view zone uses this to re-measure its height
@@ -38,7 +37,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	// re-measuring the host view zone when the buttons appear or disappear.
 	const assistant = useActiveErrorAssistant();
 
-	const { errorContent, cellContext, onLayout } = props;
+	const { errorContent, cell, onLayout } = props;
 
 	// Notify the host after every commit (declared before the early return so it
 	// runs whether or not the buttons render). Layout effects fire once the DOM
@@ -50,15 +49,8 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	const getErrorContext = useCallback((): IErrorAssistantContext => ({
 		kind: 'quarto',
 		error: removeAnsiEscapeCodes(errorContent),
-		cell: cellContext && {
-			uri: cellContext.uri,
-			languageId: cellContext.language,
-			label: cellContext.label,
-			code: cellContext.code,
-			startLine: cellContext.codeStartLine,
-			endLine: cellContext.codeEndLine,
-		},
-	}), [cellContext, errorContent]);
+		cell,
+	}), [cell, errorContent]);
 
 	if (!assistant) {
 		return null;
