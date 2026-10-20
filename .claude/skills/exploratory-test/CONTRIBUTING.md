@@ -77,7 +77,9 @@ why in the PR. An automatic run posts nothing until the check passes, so a
 decline leaves the PR untouched.
 
 So a PR gets at most one tip or one automatic run, ever. Commenting
-`/explore` runs it again after new pushes.
+`/explore` runs it again after new pushes. A plain `/explore` while a run on
+the PR is still queued or going, automatic or not, is skipped with a reply
+linking to that run; one with a focus runs alongside it.
 
 ### The auto-run list
 
