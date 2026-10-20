@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -13,7 +13,7 @@
 	align-items: center;
 	align-content: center;
 	background: transparent;
-	grid-template-columns: 1fr min-content;
+	grid-template-columns: 1fr min-content min-content;
 	color: var(--vscode-positronContextMenu-foreground);
 }
 
@@ -43,22 +43,31 @@
 	margin: 10px 5px 10px 10px;
 }
 
+.custom-folder-recently-used-menu-item .pin,
 .custom-folder-recently-used-menu-item .open-in-new-window {
 	display: flex;
 	padding: 2px 5px;
 	margin-right: 3.5px;
 }
 
+/* Only show the pin button of an unpinned folder when its row is hovered or focused. */
+.custom-folder-recently-used-menu-item:not(.pinned):not(:hover):not(:focus-within) .pin {
+	opacity: 0;
+}
+
+.custom-folder-recently-used-menu-item .pin:hover,
 .custom-folder-recently-used-menu-item .open-in-new-window:hover {
 	border-radius: 5px;
 	color: var(--vscode-positronContextMenu-hoverForeground);
 	background: var(--vscode-positronContextMenu-actionHoverBackground);
 }
 
+.custom-folder-recently-used-menu-item .pin:focus,
 .custom-folder-recently-used-menu-item .open-in-new-window:focus {
 	outline: none !important;
 }
 
+.custom-folder-recently-used-menu-item .pin:focus-visible,
 .custom-folder-recently-used-menu-item .open-in-new-window:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
