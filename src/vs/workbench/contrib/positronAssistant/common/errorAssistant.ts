@@ -96,7 +96,8 @@ export interface IErrorAssistantService {
 
 	/**
 	 * The assistant errors are sent to: the first registered assistant, while
-	 * `ai.enabled` is true. Undefined otherwise.
+	 * `ai.enabled` is true. Undefined otherwise. An assistant that unregisters
+	 * and registers again goes behind any others.
 	 */
 	readonly activeAssistant: IErrorAssistantInfo | undefined;
 
