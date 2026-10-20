@@ -650,6 +650,18 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(extraData)}`);
         }
 
+        // Exclude and override always win. Refusing here keeps Positron from
+        // registering a filtered-out interpreter it was asked to start, such as the
+        // workspace's saved default, so it never becomes the preferred runtime.
+        if (!shouldIncludeInterpreter(extraData.pythonPath)) {
+            throw new Error(
+                vscode.l10n.t(
+                    'Python interpreter {0} is filtered out by the python.interpreters.exclude or python.interpreters.override setting.',
+                    extraData.pythonPath,
+                ),
+            );
+        }
+
         // Ensure that the Python interpreter exists
         const exists = await fs.pathExists(extraData.pythonPath);
         if (!exists) {

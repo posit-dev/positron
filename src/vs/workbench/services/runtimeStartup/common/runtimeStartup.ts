@@ -737,13 +737,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				this.hasAffiliatedRuntime()) {
 				await this.startAffiliatedLanguageRuntimes(disabledLanguages, enabledLanguages);
 			}
+		} catch (err) {
+			// An affiliated runtime that can't start (e.g. one its extension
+			// now refuses) falls through to the recommendations below.
+			this._logService.error(`[Runtime startup] Error starting affiliated runtimes: ${err}`);
+		}
 
+		try {
 			// Start any runtimes recommended by the extensions.
 			if (!this._runtimeSessionService.hasStartingOrRunningConsole()) {
 				await this.startRecommendedLanguageRuntimes(disabledLanguages, enabledLanguages);
 			}
 		} catch (err) {
-			this._logService.error(`[Runtime startup] Error starting affiliated runtimes: ${err}`);
+			this._logService.error(`[Runtime startup] Error starting recommended runtimes: ${err}`);
 		}
 
 		// Then, discover all language runtimes.

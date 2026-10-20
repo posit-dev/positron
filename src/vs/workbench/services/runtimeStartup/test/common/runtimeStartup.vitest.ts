@@ -1427,6 +1427,34 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		expect(svc.getPreferredRuntime(sessionRuntime.languageId)?.runtimeId).toBe(sessionRuntime.runtimeId);
 	});
 
+	it('goes on to the recommendations when the affiliated runtime fails to start', async () => {
+		ctx.instantiationService.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: Event.None,
+			startupPhase: NewFolderStartupPhase.Complete,
+			initTasksComplete: { isOpen: () => true },
+		} as unknown as IPositronNewFolderService);
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const internals = svc as unknown as {
+			startupSequence(): Promise<void>;
+			restoreSessions(): Promise<void>;
+			hasAffiliatedRuntime(): boolean;
+			startAffiliatedLanguageRuntimes(): Promise<void>;
+			startRecommendedLanguageRuntimes(): Promise<void>;
+			discoverAllRuntimes(): Promise<void>;
+		};
+		vi.spyOn(internals, 'restoreSessions').mockResolvedValue();
+		vi.spyOn(internals, 'hasAffiliatedRuntime').mockReturnValue(true);
+		// e.g. the extension refuses an interpreter the settings now filter out.
+		vi.spyOn(internals, 'startAffiliatedLanguageRuntimes').mockRejectedValue(new Error('filtered out'));
+		const startRecommended = vi.spyOn(internals, 'startRecommendedLanguageRuntimes').mockResolvedValue();
+		vi.spyOn(internals, 'discoverAllRuntimes').mockResolvedValue();
+
+		await internals.startupSequence();
+
+		expect(startRecommended).toHaveBeenCalledTimes(1);
+	});
+
 	it('asks again after discovery and prefers that answer over the first registered runtime', async () => {
 		const svc = ctx.disposables.add(
 			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;

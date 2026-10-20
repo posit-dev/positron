@@ -233,6 +233,17 @@ suite('Python runtime manager', () => {
         assert.rejects(() => pythonRuntimeManager.validateMetadata(invalidRuntimeMetadata.object));
     });
 
+    test('validateMetadata: refuses an interpreter filtered out by exclude or override', async () => {
+        sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').withArgs(pythonPath).returns(false);
+        const pathExists = sinon.stub(fs, 'pathExists').resolves(true);
+
+        await assert.rejects(
+            pythonRuntimeManager.validateMetadata(runtimeMetadata.object),
+            /python\.interpreters\.exclude/,
+        );
+        sinon.assert.notCalled(pathExists);
+    });
+
     test('validateMetadata: throws if interpreter path does not exist', async () => {
         sinon.stub(fs, 'pathExists').resolves(false);
         assert.rejects(() => pythonRuntimeManager.validateMetadata(runtimeMetadata.object));
