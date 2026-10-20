@@ -438,6 +438,11 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .chg-tip b{font-weight:600;color:var(--tip-text)}
 .chg:hover .chg-tip,a.row:focus-visible .chg-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
 .chg-up .chg-tip{top:auto;bottom:calc(100% + 8px)}
+/* After a card's title: larger to hold its own beside the 24px title, in the
+   sans so it's the table's glyph, and focusable since the title is no link. */
+.chg-card{margin-left:10px;font-family:var(--sans);font-size:18px;vertical-align:baseline}
+.chg-card:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:3px}
+.chg-card:focus-visible .chg-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
 @media (prefers-reduced-motion:reduce){.chg-tip{transition:none}}
 .rate{text-align:right;font-family:var(--mono);font-size:13px;color:var(--body)}
 .status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
