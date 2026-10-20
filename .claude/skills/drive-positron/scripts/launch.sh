@@ -269,18 +269,16 @@ if [[ ! -d "$SOURCE_UDD" ]]; then
 	exit 2
 fi
 
-pick_port() {
-	node -e '
-		const net = require("net");
-		const s = net.createServer();
-		s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => console.log(p)); });
-	'
-}
-
-CDP_PORT=$(pick_port)
-EXTHOST_PORT=$(pick_port)
-MAIN_PORT=$(pick_port)
-AGENTHOST_PORT=$(pick_port)
+# Hold every socket open until all four are bound. Picking them one at a time
+# can return the same freed port twice, and a shared CDP/inspect port breaks attach.
+read -r CDP_PORT EXTHOST_PORT MAIN_PORT AGENTHOST_PORT < <(node -e '
+	const net = require("net");
+	const servers = [0, 1, 2, 3].map(() => net.createServer());
+	Promise.all(servers.map(s => new Promise(r => s.listen(0, "127.0.0.1", r)))).then(() => {
+		console.log(servers.map(s => s.address().port).join(" "));
+		servers.forEach(s => s.close());
+	});
+')
 
 STAMP=$(date +%Y%m%d-%H%M%S)-$$
 # Keep the run directory short enough for the main-process Unix socket. Windows
@@ -593,7 +591,8 @@ for i in $(seq 1 90); do
 		tail -n 80 "$LOG_FILE" >&2
 		exit 1
 	fi
-	if curl -sf -o /dev/null --max-time 1 "http://127.0.0.1:$CDP_PORT/json/version" 2>/dev/null; then
+	# Node's inspector also answers /json/version, but without a browser websocket URL.
+	if curl -sf --max-time 1 "http://127.0.0.1:$CDP_PORT/json/version" 2>/dev/null | grep -q webSocketDebuggerUrl; then
 		READY=1
 		echo "[launch.sh] CDP ready after ${i}s" >&2
 		break
