@@ -20,6 +20,7 @@ import type { IpykernelBundle } from '../../client/positron/ipykernel';
 import { recommendWorkspaceRuntime, startupBehaviorFor } from '../../client/positron/interpreterRecommendation';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import * as runtime from '../../client/positron/runtime';
+import * as util from '../../client/positron/util';
 import * as commonUtils from '../../client/pythonEnvironments/common/commonUtils';
 import * as externalDependencies from '../../client/pythonEnvironments/common/externalDependencies';
 import { NativePythonEnvironmentKind } from '../../client/pythonEnvironments/base/locators/common/nativePythonUtils';
@@ -380,35 +381,37 @@ suite('interpreterRecommendation', () => {
         );
     });
 
-    test('in definitionsOnly mode, an unresolved definition defers the answer to after discovery', async () => {
-        sinon.stub(logging, 'traceWarn');
-        const first = p('/opt/first/bin/python');
-        const second = p('/opt/homebrew/bin/python3');
-        context.definitionsOnly = true;
-        context.definitionPaths = [first, second];
-        resolvable.set(second, homebrew);
+    test('after discovery, a named path is resolved without a timeout, so a slow resolve still wins', async () => {
+        const resolveOnce = sinon.spy(util, 'resolveInterpreterOnce');
+        context.hasPythonSignals = true;
+        context.rootProjectEnv = { envDir: p('/proj/.venv'), executable: rootVenv.path };
+        context.defaultInterpreterPath = pyenv.path;
+        resolvable.set(rootVenv.path, rootVenv);
+        resolvable.set(pyenv.path, pyenv);
+        // Discovery doesn't find the setting's interpreter, so only its resolve can rank it.
+        discovered = [rootVenv];
 
-        assert.strictEqual(await recommend(false), undefined);
-        resolvable.set(first, env(first, EnvironmentType.Custom));
-        assert.strictEqual((await recommend(true))?.path, first);
+        assert.strictEqual((await recommend(true))?.path, pyenv.path);
+        // resolveInterpreterOnce gives up after RESOLVE_TIMEOUT_MS; after discovery it isn't used.
+        sinon.assert.notCalled(resolveOnce);
     });
 
-    test('in definitionsOnly mode, ranks only definitions and keeps their paths, even after discovery', async () => {
-        const definedPath = p('/opt/homebrew/bin/python3');
-        context.definitionsOnly = true;
-        context.definitionPaths = [definedPath];
-        resolvable.set(definedPath, { ...homebrew, path: p('/opt/homebrew/Cellar/python/bin/python3.13') });
+    test('after discovery, a failed discovery recommends nothing rather than ranking what it found', async () => {
+        sinon.stub(logging, 'traceError');
         context.hasPythonSignals = true;
         discovered = [pyenv];
+        refreshPromise = Promise.reject(new Error('PET exited'));
+        refreshPromise.catch(() => undefined);
 
-        // A Homebrew definition is Configured, so it starts on its own.
-        assert.deepEqual(
-            [await recommend(false), await recommend(true)],
-            [
-                { path: definedPath, startupBehavior: B.Immediate },
-                { path: definedPath, startupBehavior: B.Immediate },
-            ],
-        );
+        assert.strictEqual(await recommend(true), undefined);
+    });
+
+    test('an interpreter PET cannot classify is recommended when the user names it', async () => {
+        const custom = env(p('/opt/python/3.12.4/bin/python3'), EnvironmentType.Unknown);
+        context.defaultInterpreterPath = custom.path;
+        resolvable.set(custom.path, custom);
+
+        assert.strictEqual((await recommend(false))?.path, custom.path);
     });
 
     test('recommends nothing when nothing is eligible', async () => {

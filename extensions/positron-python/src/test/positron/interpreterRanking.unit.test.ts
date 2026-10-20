@@ -24,6 +24,7 @@ import {
 import * as externallyManagedEnvironment from '../../client/positron/externallyManagedEnvironment';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import * as workspaceScan from '../../client/positron/workspaceScan';
+import * as externalDependencies from '../../client/pythonEnvironments/common/externalDependencies';
 import { createTypeMoq } from '../mocks/helper';
 import { NativePythonEnvironmentKind } from '../../client/pythonEnvironments/base/locators/common/nativePythonUtils';
 import * as moduleLocator from '../../client/pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
@@ -335,6 +336,17 @@ suite('interpreterRanking', () => {
             [await containsHome(p('/proj')), await containsHome(p('/proj/u')), await containsHome(p('/elsewhere'))],
             [true, true, false],
         );
+
+        // A home reached through a symlink (e.g. /home/u -> /export/home/u) still matches
+        // the folder opened by its real path.
+        sinon
+            .stub(externalDependencies, 'canonicalizePath')
+            .callsFake(async (candidate: string) =>
+                candidate === p('/home/u') ? p('/export/home/u') : path.normalize(candidate),
+            );
+        home.returns(p('/home/u'));
+        const realHomeOpened = await buildRankingContext(serviceContainer.object, vscode.Uri.file(p('/export/home/u')));
+        assert.isTrue(realHomeOpened.homeInsideWorkspace);
     });
 
     test('withDiscoveredFacts waits for module discovery, then fills modulePaths', async () => {

@@ -106,54 +106,63 @@ export function startupBehaviorFor(tier: Tier, context: RankingContext): positro
 /** The interpreters named by path, and the context to rank them with. */
 interface NamedInterpreters {
     resolved: PythonEnvironment[];
-    /** Named paths that should exist but didn't resolve. Any of them makes the first pass unsafe. */
+    /** Named paths that exist but didn't resolve. Any of them makes the first pass unsafe. */
     unresolved: number;
     context: RankingContext;
 }
 
 /**
- * Interpreters named by path in the context (every candidate for tiers 0-3, or every
- * definition in `definitionsOnly` mode), resolved in parallel without a full scan, each
- * with the usual `RESOLVE_TIMEOUT_MS`.
+ * Interpreters named by path in the context (every candidate for tiers 0-3), resolved
+ * in parallel without a full scan.
  *
  * A named path that doesn't exist is absent: it is logged as a warning and skipped, as
  * if it had never been named, since discovery can't find it either. That covers a stale
- * `defaultInterpreterPath` or definition, and a launch-shell env with no Python. A path
- * that exists but doesn't resolve (a timeout, or PET failing on it) is logged as a
- * warning and counted in `unresolved`, so the answer waits for the ask after discovery.
+ * `defaultInterpreterPath` and a launch-shell env with no Python. A path that exists but
+ * doesn't resolve is logged as a warning and counted in `unresolved`.
  *
- * In `definitionsOnly` mode the path is kept as written, since Positron matches
- * definitions on the exact path. Otherwise the interpreter keeps the path PET resolved,
- * which is the path discovery registers, so the runtime ID matches the discovered
- * runtime; `defaultInterpreterPath` in the returned context is updated to match.
+ * Before discovery each resolve has the usual `RESOLVE_TIMEOUT_MS`, since core waits for
+ * this answer before anything else starts; a timeout only defers the answer. After
+ * discovery there is no timeout: a resolve that is slow but succeeds must not let a
+ * lower tier win, so the answer never depends on timing.
+ *
+ * The interpreter keeps the path PET resolved, which is the path discovery registers,
+ * so the runtime ID matches the discovered runtime; `defaultInterpreterPath` in the
+ * returned context is updated to match.
  */
 async function resolveNamedInterpreters(
     interpreterService: IInterpreterService,
     context: RankingContext,
     workspaceUri: vscode.Uri | undefined,
+    afterDiscovery: boolean,
 ): Promise<NamedInterpreters> {
-    let named: (string | undefined)[];
-    if (context.definitionsOnly) {
-        named = context.definitionPaths;
-    } else {
-        const activatedExecutable = context.activatedEnvPrefix
-            ? await getInterpreterPathFromDir(context.activatedEnvPrefix)
-            : undefined;
-        if (context.activatedEnvPrefix && !activatedExecutable) {
-            traceWarn(
-                `Interpreter ranking: no Python found in the launch shell's env ${context.activatedEnvPrefix}...ignoring`,
-            );
-        }
-        named = [
-            activatedExecutable,
-            context.defaultInterpreterPath,
-            context.rootProjectEnv?.executable,
-            // pyenv links each virtualenv into its versions folder, so this covers both
-            // a named virtualenv (ProjectEnv) and a named version (PythonVersionFile).
-            // A name pyenv doesn't have is not an error: the file may name something else.
-            context.pythonVersionDir ? await getInterpreterPathFromDir(context.pythonVersionDir) : undefined,
-        ];
+    const activatedExecutable = context.activatedEnvPrefix
+        ? await getInterpreterPathFromDir(context.activatedEnvPrefix)
+        : undefined;
+    if (context.activatedEnvPrefix && !activatedExecutable) {
+        traceWarn(
+            `Interpreter ranking: no Python found in the launch shell's env ${context.activatedEnvPrefix}...ignoring`,
+        );
     }
+    const named = [
+        activatedExecutable,
+        context.defaultInterpreterPath,
+        context.rootProjectEnv?.executable,
+        // pyenv links each virtualenv into its versions folder, so this covers both
+        // a named virtualenv (ProjectEnv) and a named version (PythonVersionFile).
+        // A name pyenv doesn't have is not an error: the file may name something else.
+        context.pythonVersionDir ? await getInterpreterPathFromDir(context.pythonVersionDir) : undefined,
+    ];
+    const resolve = async (namedPath: string): Promise<PythonEnvironment | undefined> => {
+        if (!afterDiscovery) {
+            return resolveInterpreterOnce(interpreterService, namedPath, workspaceUri);
+        }
+        try {
+            return await interpreterService.getInterpreterDetails(namedPath, workspaceUri);
+        } catch (err) {
+            traceWarn(`Interpreter ranking: error resolving ${namedPath}: ${err}`);
+            return undefined;
+        }
+    };
     const results = await Promise.all(
         named.map(async (namedPath) => {
             if (!namedPath) {
@@ -165,17 +174,14 @@ async function resolveNamedInterpreters(
                 );
                 return 'absent' as const;
             }
-            const interpreter = await resolveInterpreterOnce(interpreterService, namedPath, workspaceUri);
+            const interpreter = await resolve(namedPath);
             if (!interpreter) {
                 traceWarn(
                     `Interpreter ranking: ${namedPath} is named by the settings or the folder but could not be resolved`,
                 );
                 return 'unresolved' as const;
             }
-            return {
-                named: namedPath,
-                interpreter: context.definitionsOnly ? { ...interpreter, path: namedPath } : interpreter,
-            };
+            return { named: namedPath, interpreter };
         }),
     );
     const found = results.filter(
@@ -242,20 +248,22 @@ function dedupeByPath(interpreters: PythonEnvironment[]): PythonEnvironment[] {
 
 /**
  * The runtime to recommend for the workspace, or undefined. One ranking, run in at
- * most two passes over growing candidate sets.
+ * most two passes over growing candidate sets. The answer depends only on the folder,
+ * the settings and the interpreters on disk, never on how long anything takes.
  *
  * Pass 1 ranks the interpreters named by path without a scan, so a project env or a set
- * defaultInterpreterPath is recommended in milliseconds. Outside `definitionsOnly` those
- * are tiers 0-3, which have no other members, so when every named path resolved, pass 1's
- * pick is the full ranking's pick. If any named path didn't resolve, pass 1 waits for the
- * ask after discovery: a slow or failed resolve must not let a lower tier win on timing
- * (Stability rule 1). In `definitionsOnly` mode the definitions are every candidate, so
- * pass 1 is the whole ranking and there is no pass 2.
+ * defaultInterpreterPath is recommended in milliseconds. Those are tiers 0-3, which have
+ * no other members, so when every named path resolved, pass 1's pick is the full
+ * ranking's pick. If any named path didn't resolve, pass 1 waits for the ask after
+ * discovery: a slow or failed resolve must not let a lower tier win on timing
+ * (Stability rule 1).
  *
  * Pass 2 ranks everything discovery found. It runs only when core asks after discovery
  * (`afterDiscovery`). Core asks first during startup and waits for every language's
  * answer before discovery starts, so the first ask must never wait for PET or module
  * discovery (Performance rule 1); it answers undefined instead, and core asks again.
+ * Pass 2 ranks only a finished discovery: if discovery failed, what it found depends on
+ * when it failed, so nothing is recommended.
  */
 export async function recommendWorkspaceRuntime(
     serviceContainer: IServiceContainer,
@@ -269,17 +277,15 @@ export async function recommendWorkspaceRuntime(
         resolved: named,
         unresolved,
         context,
-    } = await resolveNamedInterpreters(interpreterService, baseContext, workspaceUri);
+    } = await resolveNamedInterpreters(interpreterService, baseContext, workspaceUri, afterDiscovery);
 
-    if (unresolved === 0 || (context.definitionsOnly && afterDiscovery)) {
+    if (unresolved === 0) {
         // A `.python-version` that names neither a pyenv virtualenv nor an exact pyenv
         // version resolves to something below tier 3; leave that to pass 2.
-        const pass1 = context.definitionsOnly
-            ? named
-            : named.filter((i) => (tierOf(i, context) ?? Number.MAX_SAFE_INTEGER) <= Tier.PythonVersionFile);
+        const pass1 = named.filter((i) => (tierOf(i, context) ?? Number.MAX_SAFE_INTEGER) <= Tier.PythonVersionFile);
         const fromNamed = await firstEligible(serviceContainer, pass1, context, workspaceUri);
         traceInfo(`Interpreter ranking: pass 1 took ${Date.now() - started} ms`);
-        if (fromNamed || context.definitionsOnly) {
+        if (fromNamed) {
             return fromNamed;
         }
     }
@@ -300,7 +306,8 @@ export async function recommendWorkspaceRuntime(
         // finished, triggerRefresh reruns PET and module discovery from scratch.
         await interpreterService.refreshPromise;
     } catch (err) {
-        traceWarn(`Interpreter ranking: discovery failed, ranking what was found: ${err}`);
+        traceError(`Interpreter ranking: discovery failed, so nothing is recommended: ${err}`);
+        return undefined;
     }
     const all = dedupeByPath([...named, ...interpreterService.getInterpreters(workspaceUri)]);
     const fromAll = await firstEligible(serviceContainer, all, await withDiscoveredFacts(context, all), workspaceUri);

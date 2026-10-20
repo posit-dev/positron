@@ -31,7 +31,7 @@ import {
     moduleMetadataMap,
     whenModuleMetadataReady,
 } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
-import { arePathsSame, isParentPath } from '../pythonEnvironments/common/externalDependencies';
+import { arePathsSame, canonicalizePath, isParentPath } from '../pythonEnvironments/common/externalDependencies';
 import { getGlobalEnvironmentDir } from '../pythonEnvironments/common/environmentManagers/globalEnvironment';
 import { getPyenvVersionsDir } from '../pythonEnvironments/common/environmentManagers/pyenv';
 import { EnvironmentType, PythonEnvironment } from '../pythonEnvironments/info';
@@ -401,6 +401,22 @@ export async function withDiscoveredFacts(
 }
 
 /**
+ * Whether `folder` is the home folder or one of its ancestors. Compared as given and by
+ * real path, so a home reached through a symlink (common for network homes) still matches.
+ */
+async function containsHome(folder: string): Promise<boolean> {
+    const home = getUserHomeDir();
+    if (!home) {
+        return false;
+    }
+    if (isParentPath(home, folder)) {
+        return true;
+    }
+    const [realHome, realFolder] = await Promise.all([canonicalizePath(home), canonicalizePath(folder)]);
+    return isParentPath(realHome, realFolder);
+}
+
+/**
  * Gather the settings, environment and workspace facts the ranking reads. This is
  * the only place they are read; it scans the folder and never selects or writes an
  * interpreter. `modulePaths` and `externallyManagedPaths` start empty;
@@ -410,14 +426,14 @@ export async function buildRankingContext(
     serviceContainer: IServiceContainer,
     workspaceUri: vscode.Uri | undefined,
 ): Promise<RankingContext> {
-    const [scan, activatedEnvPrefix] = await Promise.all([
+    const [scan, activatedEnvPrefix, homeInsideWorkspace] = await Promise.all([
         workspaceUri ? scanWorkspace(workspaceUri.fsPath) : undefined,
         serviceContainer.get<IActivatedEnvironmentLaunch>(IActivatedEnvironmentLaunch).getActivatedEnvPrefix(),
+        workspaceUri ? containsHome(workspaceUri.fsPath) : false,
     ]);
-    const home = getUserHomeDir();
     return {
         workspacePath: workspaceUri?.fsPath,
-        homeInsideWorkspace: !!workspaceUri && !!home && isParentPath(home, workspaceUri.fsPath),
+        homeInsideWorkspace,
         activatedEnvPrefix,
         definitionPaths: getInterpreterDefinitionPaths(),
         definitionsOnly: isDefinitionsOnlyDiscovery(),

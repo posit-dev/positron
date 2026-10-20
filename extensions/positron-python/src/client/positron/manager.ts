@@ -379,6 +379,11 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      * only interpreters named by path are considered, so the call never waits for PET.
      */
     async recommendedWorkspaceRuntime(afterDiscovery?: boolean): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        // When discovery is limited to definitions, nothing outside them is recommended.
+        if (isDefinitionsOnlyDiscovery()) {
+            return undefined;
+        }
+
         // TODO: may need other handling for multiroot workspaces
         const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
         try {
