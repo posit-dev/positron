@@ -98,6 +98,17 @@ describe('CustomFolderMenuItems', () => {
 		expect(folderRows().map(row => row.textContent)).toEqual(['project-c', 'project-a', 'project-b']);
 	});
 
+	it('shows the current recent label of a pinned folder', async () => {
+		const user = userEvent.setup();
+		const { unmount } = renderMenu(recentFolder('a'), recentFolder('b'));
+		await user.click(screen.getByRole('button', { name: 'Pin project-a' }));
+		unmount();
+
+		renderMenu({ ...recentFolder('a'), label: 'project-a-renamed' }, recentFolder('b'));
+
+		expect(folderRows().map(row => row.textContent)).toEqual(['project-a-renamed', 'project-b']);
+	});
+
 	it('keeps a folder pinned in another window when this window pins a folder', async () => {
 		const user = userEvent.setup();
 		const firstWindow = renderMenu(recentFolder('a'), recentFolder('b'), recentFolder('c'));

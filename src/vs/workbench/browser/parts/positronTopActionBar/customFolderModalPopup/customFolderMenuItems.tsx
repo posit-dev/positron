@@ -111,6 +111,12 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 		}
 	});
 
+	// The pinned folders and workspaces. A pin stores the entry from when it was pinned, so use the
+	// current recently opened entry, with its current label, while there is one.
+	const pinnedMenuFolders = pinnedFolders.map(pinned =>
+		props.recentlyOpened.workspaces.find(recent => isEqual(recentUri(recent), recentUri(pinned))) ?? pinned
+	);
+
 	// The recently opened folders and workspaces that aren't pinned.
 	const recentFolders = props.recentlyOpened.workspaces
 		.filter(recent => !pinnedFolders.some(pinned => isEqual(recentUri(pinned), recentUri(recent))))
@@ -243,9 +249,9 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 					EmptyWorkspaceSupportContext
 				)}
 			/>
-			{(pinnedFolders.length > 0 || recentFolders.length > 0) && <CustomFolderMenuSeparator />}
-			{pinnedFolders.map(recent => renderRecentMenuItem(recent, true))}
-			{pinnedFolders.length > 0 && recentFolders.length > 0 && <CustomFolderMenuSeparator />}
+			{(pinnedMenuFolders.length > 0 || recentFolders.length > 0) && <CustomFolderMenuSeparator />}
+			{pinnedMenuFolders.map(recent => renderRecentMenuItem(recent, true))}
+			{pinnedMenuFolders.length > 0 && recentFolders.length > 0 && <CustomFolderMenuSeparator />}
 			{recentFolders.map(recent => renderRecentMenuItem(recent, false))}
 			<CustomFolderMenuSeparator />
 			<CommandActionCustomFolderMenuItem id={ClearRecentWorkspacesAction.ID} />
