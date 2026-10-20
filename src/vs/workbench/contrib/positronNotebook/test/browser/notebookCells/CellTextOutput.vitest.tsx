@@ -102,7 +102,12 @@ describe('CellTextOutput', () => {
 		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
 	});
 
-	it('does not render quick-fix for errors when assistant is disabled', () => {
+	it('does not render quick-fix for errors when no assistant can take them', () => {
+		// The notebook gates are on and no assistant is registered, isolating
+		// the assistant gate.
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('positron.notebook.enabled', true);
+		ctx.get(IContextKeyService).createKey(NotebookContextKeys.aiEnabled.key, true);
+
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
 		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');
