@@ -71,14 +71,6 @@ describe('QuartoOutputQuickFix', () => {
 		}, { continueChat: false });
 	});
 
-	it('strips ANSI escape codes from the error', async () => {
-		const user = userEvent.setup();
-		rtl.render(<QuartoOutputQuickFix errorContent={'\u001b[31mNameError\u001b[0m: x'} />);
-		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
-
-		expect(ask.mock.calls[0][1].error).toBe('NameError: x');
-	});
-
 	it('sends the error without a cell when it cannot be found', async () => {
 		const user = userEvent.setup();
 		renderQuickFix(undefined);

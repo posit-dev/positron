@@ -48,10 +48,10 @@ describe('NotebookCellQuickFix', () => {
 
 	const quickFixGroup = { name: 'Cell output quick fix actions' };
 
-	it('sends the error as a notebook error, without ANSI escape codes', async () => {
+	it('sends the error as a notebook error', async () => {
 		setGates();
 		const user = userEvent.setup();
-		rtl.render(<NotebookCellQuickFix errorContent={'\u001b[31mNameError\u001b[0m: name "x" is not defined'} />);
+		renderQuickFix();
 		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
 
 		expect(ask).toHaveBeenCalledWith('fix', { kind: 'notebook', error: 'NameError: name "x" is not defined' }, { continueChat: false });

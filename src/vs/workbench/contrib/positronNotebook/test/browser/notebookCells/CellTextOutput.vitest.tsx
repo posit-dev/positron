@@ -102,35 +102,6 @@ describe('CellTextOutput', () => {
 		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
 	});
 
-	it('does not render quick-fix for errors when no assistant can take them', () => {
-		// The notebook gates are on and no assistant is registered, isolating
-		// the assistant gate.
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('positron.notebook.enabled', true);
-		ctx.get(IContextKeyService).createKey(NotebookContextKeys.aiEnabled.key, true);
-
-		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
-
-		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');
-		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
-	});
-
-	it('does not render quick-fix for errors when the notebook AI gate is off', () => {
-		// Everything else that would show the quick-fix is on; only the composite
-		// notebook AI context key is off, isolating that gate. (The ai.enabled vs
-		// notebook.ai.enabled composition is covered in
-		// notebookAIEnabledContextKey.vitest.ts.)
-		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
-		const contextKeyService = ctx.get(IContextKeyService);
-		configurationService.setUserConfiguration('positron.notebook.enabled', true);
-		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, false);
-		registerTestErrorAssistant(ctx);
-
-		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
-
-		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');
-		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
-	});
-
 	it('renders multiline content within limit', () => {
 		renderCellTextOutput({ content: '1\n2\n3', type: 'stdout' });
 

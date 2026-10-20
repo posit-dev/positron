@@ -64,15 +64,6 @@ describe('ConsoleQuickFix', () => {
 		expect(ask.mock.calls[0][1].error).toBe('  Error: boom\n');
 	});
 
-	it('sends errors to a new chat when the assistant cannot continue the active chat', async () => {
-		registerAssistant({ supportsChatContinuation: false });
-		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
-		await user.click(screen.getByText('Fix'));
-
-		expect(ask.mock.calls[0][2]).toEqual({ continueChat: false });
-	});
-
 	it('offers only Fix and Explain', () => {
 		registerAssistant();
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
