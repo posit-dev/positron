@@ -362,6 +362,7 @@ describe('HeadlessLanguageModelService', () => {
 			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic', 'Anthropic')] } }));
 			expect(await service.getModelListingDiagnostics()).toEqual({
+				providerModule: { kind: 'compiled-in', reason: 'test' },
 				queriedProviders: ['anthropic'],
 				models: [{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic', providerId: 'anthropic' }],
 			});
@@ -383,6 +384,7 @@ describe('HeadlessLanguageModelService', () => {
 			// Diagnostics sees both, so "anthropic returned nothing" and "anthropic
 			// lost the dedupe" don't look the same in the report.
 			expect(await service.getModelListingDiagnostics()).toEqual({
+				providerModule: { kind: 'compiled-in', reason: 'test' },
 				queriedProviders: ['positai', 'anthropic'],
 				models: [
 					{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic', providerId: 'positai' },
@@ -394,7 +396,24 @@ describe('HeadlessLanguageModelService', () => {
 		it('reports a provider that was queried but returned no models', async () => {
 			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: {} }));
-			expect(await service.getModelListingDiagnostics()).toEqual({ queriedProviders: ['anthropic'], models: [] });
+			expect(await service.getModelListingDiagnostics()).toEqual({
+				providerModule: { kind: 'compiled-in', reason: 'test' },
+				queriedProviders: ['anthropic'],
+				models: [],
+			});
+		});
+
+		it('still lists models when the provider module source cannot be read', async () => {
+			signedInAuthProviders.add('anthropic');
+			const engine = {
+				...fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic', 'Anthropic')] } }),
+				getProviderModuleSource: async () => { throw new Error('channel closed'); },
+			};
+			const service = createService(engine);
+			expect(await service.getModelListingDiagnostics()).toEqual({
+				queriedProviders: ['anthropic'],
+				models: [{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic', providerId: 'anthropic' }],
+			});
 		});
 
 		it('fires onDidChangeAvailableModels only when a mapped provider changes', async () => {
@@ -613,7 +632,7 @@ describe('HeadlessLanguageModelService', () => {
 				diagnostics: await service.getModelListingDiagnostics(),
 			}).toEqual({
 				result: { available: false, reason: 'no-model-matched' },
-				diagnostics: { queriedProviders: ['anthropic'], models: [] },
+				diagnostics: { providerModule: { kind: 'compiled-in', reason: 'test' }, queriedProviders: ['anthropic'], models: [] },
 			});
 		});
 

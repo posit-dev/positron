@@ -13,7 +13,7 @@ import { hasKey } from '../../../../base/common/types.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IAiProviderService } from '../../positronAiProvider/common/aiProviderService.js';
 import { AuthenticationSession, IAuthenticationService } from '../../authentication/common/authentication.js';
-import { IHeadlessLanguageModelEngine, IModelDescriptor, IModelListing, IProviderMapping } from '../../../../platform/positronHeadlessLanguageModel/common/engine.js';
+import { IHeadlessLanguageModelEngine, IModelDescriptor, IModelListing, IProviderMapping, IProviderModuleSource } from '../../../../platform/positronHeadlessLanguageModel/common/engine.js';
 import {
 	FastCheap,
 	IAvailableModel,
@@ -311,6 +311,7 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		// "no provider was queried".
 		const state = await this._state.get();
 		return {
+			providerModule: await this.readProviderModuleSource(),
 			queriedProviders: state.queriedProviders,
 			models: state.allModels.map(model => ({
 				id: model.id,
@@ -319,6 +320,16 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 				providerId: model.providerId,
 			})),
 		};
+	}
+
+	/** Diagnostics-only: a failure here must not hide the model listing. */
+	private async readProviderModuleSource(): Promise<IProviderModuleSource | undefined> {
+		try {
+			return await this.getEngine()?.getProviderModuleSource();
+		} catch (error) {
+			this._logService.warn(`[headless-lm] Could not read the provider module source: ${error}`);
+			return undefined;
+		}
 	}
 
 	/**
