@@ -18,16 +18,12 @@ describe('isReorderOnlyList', () => {
 });
 
 describe('reorderRows', () => {
-	it('shows every allowed value, in allowed order, when nothing is saved', () => {
+	it('shows every default, in order, when nothing is saved', () => {
 		expect(values(reorderRows({ allowed, labels: [], defaults: allowed }, []))).toEqual(['julia', 'python', 'r']);
 	});
 
-	it('keeps the saved order and appends new values in allowed order', () => {
-		expect(values(reorderRows({ allowed, labels: [], defaults: allowed }, ['r']))).toEqual(['r', 'julia', 'python']);
-	});
-
-	it('returns the saved value when the setting has no allowed values', () => {
-		expect(values(reorderRows({ allowed: [], labels: [], defaults: [] }, ['r']))).toEqual(['r']);
+	it('keeps the saved order and appends missing defaults', () => {
+		expect(values(reorderRows({ allowed, labels: [], defaults: ['python', 'r'] }, ['r']))).toEqual(['r', 'python']);
 	});
 
 	it('labels each value from the label at its allowed index', () => {

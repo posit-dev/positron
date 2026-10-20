@@ -14,7 +14,7 @@ import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { LANGUAGE_ORDER_KEY } from '../../../../services/languageRuntime/common/languageOrder.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { reorderListChoices } from '../../../preferences/common/positronReorderOnlyList.js';
+import { getLanguageOrderChoices } from '../../../../services/languageRuntime/common/languageOrderConfiguration.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { LanguageOrderContribution } from '../../browser/languageOrderContribution.js';
@@ -47,7 +47,7 @@ describe('LanguageOrderContribution', () => {
 	}
 
 	function items() {
-		const { allowed, labels } = reorderListChoices(LANGUAGE_ORDER_KEY);
+		const { allowed, labels } = getLanguageOrderChoices();
 		return { ids: allowed, labels };
 	}
 
@@ -83,7 +83,13 @@ describe('LanguageOrderContribution', () => {
 		setOrder(['zed', 'r']);
 		expect(items()).toEqual({ ids: ['python', 'r', 'zed'], labels: ['Python', 'R', 'zed (not installed)'] });
 		// So another scope's Settings list doesn't pick up, and then save, this scope's `zed`.
-		expect(reorderListChoices(LANGUAGE_ORDER_KEY).defaults).toEqual(['python', 'r']);
+		expect(getLanguageOrderChoices().defaults).toEqual(['python', 'r']);
+	});
+
+	it('allows a not-installed language saved only in workspace settings', () => {
+		vi.spyOn(ctx.get(IConfigurationService), 'inspect').mockReturnValue({ value: undefined, workspaceValue: ['zed'] });
+		ctx.disposables.add(ctx.instantiationService.createInstance(LanguageOrderContribution));
+		expect(items().ids).toEqual(['python', 'r', 'zed']);
 	});
 
 	it('does not update the schema when a reorder leaves the languages unchanged', () => {
