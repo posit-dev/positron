@@ -61,6 +61,7 @@ import { IQuartoExecutionManager } from '../../contrib/positronQuarto/common/qua
 import { QuartoExecutionManager } from '../../contrib/positronQuarto/browser/quartoExecutionManager.js';
 import { IErrorAssistantService } from '../../contrib/positronAssistant/common/errorAssistant.js';
 import { ErrorAssistantService } from '../../contrib/positronAssistant/browser/errorAssistantService.js';
+import { SyncDescriptor } from '../../../platform/instantiation/common/descriptors.js';
 
 export function positronWorkbenchInstantiationService(
 	disposables: Pick<DisposableStore, 'add'> = new DisposableStore(),
@@ -102,7 +103,14 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(IPositronConsoleService, new TestPositronConsoleService());
 	instantiationService.stub(IQuartoExecutionManager, disposables.add(instantiationService.createInstance(QuartoExecutionManager)));
 	instantiationService.stub(IPositronVariablesService, disposables.add(instantiationService.createInstance(PositronVariablesService)));
-	instantiationService.stub(IErrorAssistantService, disposables.add(instantiationService.createInstance(ErrorAssistantService)));
+	// Created on first use, not now, so it gets the configuration, log, and
+	// notification services a test stubs after this preset runs.
+	instantiationService.set<IErrorAssistantService | SyncDescriptor<IErrorAssistantService>>(IErrorAssistantService, new SyncDescriptor(class extends ErrorAssistantService {
+		constructor(...args: ConstructorParameters<typeof ErrorAssistantService>) {
+			super(...args);
+			disposables.add(this);
+		}
+	}));
 
 	return instantiationService;
 }

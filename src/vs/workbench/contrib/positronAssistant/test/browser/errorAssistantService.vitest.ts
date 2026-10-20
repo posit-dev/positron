@@ -12,8 +12,9 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ErrorAssistantService } from '../../browser/errorAssistantService.js';
-import { IErrorAssistant, IErrorAssistantContext } from '../../common/errorAssistant.js';
+import { IErrorAssistant, IErrorAssistantContext, IErrorAssistantService } from '../../common/errorAssistant.js';
 import { AI_ENABLED_KEY } from '../../common/positronAIConfiguration.js';
+import { registerTestErrorAssistant } from './errorAssistantTestUtils.js';
 
 describe('ErrorAssistantService', () => {
 	const logError = vi.fn();
@@ -47,7 +48,7 @@ describe('ErrorAssistantService', () => {
 		return { id: 'test-assistant', label: 'Test Assistant', supportsChatContinuation: true, ask: async () => { }, ...options };
 	}
 
-	it('sends errors to an assistant while it is registered', () => {
+	it('makes an assistant active while it is registered', () => {
 		const service = createService();
 		const onDidChangeActiveAssistant = vi.fn();
 		ctx.disposables.add(service.onDidChangeActiveAssistant(onDidChangeActiveAssistant));
@@ -61,7 +62,7 @@ describe('ErrorAssistantService', () => {
 		expect(onDidChangeActiveAssistant.mock.calls).toEqual([[assistant], [undefined]]);
 	});
 
-	it('sends errors to the first registered assistant', () => {
+	it('makes the first registered assistant active', () => {
 		const service = createService();
 		const first = createAssistant({ id: 'first' });
 		const onDidChangeActiveAssistant = vi.fn();
@@ -181,5 +182,19 @@ describe('ErrorAssistantService', () => {
 
 		expect(logError).toHaveBeenCalledWith('Failed to send the error to Test Assistant', error);
 		expect(notifyError).toHaveBeenCalledWith('Could not send the error to Test Assistant: command not found');
+	});
+});
+
+describe('ErrorAssistantService in the workbench preset', () => {
+	// Stubbed after the preset runs, so the preset's service must pick it up.
+	const ctx = createTestContainer()
+		.withWorkbenchServices()
+		.stub(IConfigurationService, new TestConfigurationService())
+		.build();
+
+	it('reads the configuration service a test stubs', () => {
+		registerTestErrorAssistant(ctx);
+
+		expect(ctx.get(IErrorAssistantService).activeAssistant?.id).toBe('test-assistant');
 	});
 });
