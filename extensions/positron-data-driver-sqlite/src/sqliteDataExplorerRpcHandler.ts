@@ -51,15 +51,26 @@ export interface ISqliteDataExplorerHost {
  */
 export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteDataExplorerHost {
 	private readonly _views = new Map<string, SqliteTableView>();
+	/** How each open dataset's view was built, so that refreshDataset can build it again. */
+	private readonly _builders = new Map<string, ViewBuilder>();
 	private readonly _session: positron.DataExplorerRpcSession;
 
-	constructor(private readonly _logger?: positron.DataConnectionLogger) {
-		this._session = positron.dataExplorer.registerRpcHandler(SQLITE_DATA_EXPLORER_PROVIDER_ID, {
+	/**
+	 * @param _logger Optional diagnostic log sink.
+	 * @param registerRpcHandler Registers the handler with Positron. Tests pass a fake so they can drive
+	 * the registered hooks without replacing the running extension's provider.
+	 */
+	constructor(
+		private readonly _logger?: positron.DataConnectionLogger,
+		registerRpcHandler: typeof positron.dataExplorer.registerRpcHandler = positron.dataExplorer.registerRpcHandler,
+	) {
+		this._session = registerRpcHandler(SQLITE_DATA_EXPLORER_PROVIDER_ID, {
 			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc),
 			// Without this, closing a tab leaves its view registered and its snapshot in the `temp`
 			// schema until the connection disconnects or the same dataset is reopened. That was a
 			// bounded waste when a view held nothing but state; now it holds a copy of the relation.
 			closeDataset: (datasetId) => this.closeTableView(datasetId),
+			refreshDataset: (datasetId) => this.refreshDataset(datasetId),
 		});
 	}
 
@@ -80,12 +91,14 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 		tableName: string,
 		kind: 'table' | 'view',
 	): Promise<void> {
-		// Sequenced, not concurrent: a plan that has already taken a snapshot has nothing to dispose it
-		// if the schema query then fails, so nothing is created until the schema is in hand.
-		const schema = await buildSqliteSchema(client, tableName);
-		const readPlan = await createSqliteReadPlan(
-			client, tableName, kind, schema.map(c => c.column_name));
-		this._setView(datasetId, new SqliteTableView(client, tableName, readPlan, schema));
+		await this._openView(datasetId, async () => {
+			// Sequenced, not concurrent: a plan that has already taken a snapshot has nothing to dispose
+			// it if the schema query then fails, so nothing is created until the schema is in hand.
+			const schema = await buildSqliteSchema(client, tableName);
+			const readPlan = await createSqliteReadPlan(
+				client, tableName, kind, schema.map(c => c.column_name));
+			return new SqliteTableView(client, tableName, readPlan, schema);
+		});
 	}
 
 	/**
@@ -99,31 +112,69 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 		kind: 'table' | 'view',
 		columnName: string,
 	): Promise<void> {
-		const schema = await buildSqliteSchema(client, tableName);
-		const column = schema.find(c => c.column_name === columnName);
-		if (!column) {
-			throw new Error(`Column '${columnName}' not found in '${tableName}'`);
-		}
-		// The plan is given every column the relation has, not just the requested one: what it needs to
-		// know is whether the relation shadows a rowid alias, which the restricted schema would hide.
-		const readPlan = await createSqliteReadPlan(
-			client, tableName, kind, schema.map(c => c.column_name));
-		this._setView(datasetId, new SqliteTableView(client, tableName, readPlan, [column]));
+		await this._openView(datasetId, async () => {
+			const schema = await buildSqliteSchema(client, tableName);
+			const column = schema.find(c => c.column_name === columnName);
+			if (!column) {
+				throw new Error(`Column '${columnName}' not found in '${tableName}'`);
+			}
+			// The plan is given every column the relation has, not just the requested one: what it
+			// needs to know is whether the relation shadows a rowid alias, which the restricted schema
+			// would hide.
+			const readPlan = await createSqliteReadPlan(
+				client, tableName, kind, schema.map(c => c.column_name));
+			return new SqliteTableView(client, tableName, readPlan, [column]);
+		});
 	}
 
 	/**
-	 * Registers a view, disposing any view the same dataset id already had so that reopening a
-	 * dataset does not leave its predecessor's snapshot behind.
+	 * Rebuilds a dataset's view from its table, so that it shows changes made to the table since the
+	 * view was built. The rebuilt view replaces the old one only once it has read its row count, so a
+	 * rebuild that fails -- the table was dropped, the connection is down -- leaves the old view in
+	 * place. The rebuilt view has no sort keys or row filters; Positron re-applies them.
 	 */
-	private _setView(datasetId: string, view: SqliteTableView): void {
+	async refreshDataset(datasetId: string): Promise<void> {
+		const builder = this._builders.get(datasetId);
+		if (!builder) {
+			throw new Error(`No SQLite data explorer is open for ${datasetId}`);
+		}
+
+		const generation = ++builder.generation;
+		const view = await builder.build();
+		try {
+			await validateRebuiltView(view);
+			// The dataset may have closed, been reopened, or been refreshed again while this view was
+			// being built. Installing it then would resurrect a closed dataset or replace a newer view.
+			if (this._builders.get(datasetId) !== builder || builder.generation !== generation) {
+				throw new Error(vscode.l10n.t('The data explorer closed or was refreshed again before the refresh finished.'));
+			}
+		} catch (error) {
+			void view.dispose().catch(() => { });
+			throw error;
+		}
+
+		const previous = this._views.get(datasetId);
+		this._views.set(datasetId, view);
+		void previous?.dispose().catch(() => { });
+	}
+
+	/**
+	 * Builds a dataset's view and registers it, remembering how it was built so that it can be
+	 * refreshed, and disposing any view the same dataset id already had so that reopening a dataset
+	 * does not leave its predecessor's snapshot behind.
+	 */
+	private async _openView(datasetId: string, build: () => Promise<SqliteTableView>): Promise<void> {
+		const view = await build();
 		this.closeTableView(datasetId);
 		this._views.set(datasetId, view);
+		this._builders.set(datasetId, { build, generation: 0 });
 	}
 
 	/** Drops a dataset's view, e.g. when its connection is disconnected. */
 	closeTableView(datasetId: string): void {
 		const view = this._views.get(datasetId);
 		this._views.delete(datasetId);
+		this._builders.delete(datasetId);
 		// Dropping the snapshot is best-effort cleanup of a private temp table, so nothing waits on
 		// it and a failure (typically a worker that is already gone) must not surface to the caller.
 		void view?.dispose().catch(() => { });
@@ -191,6 +242,24 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 				this._logger?.error(`Failed to compute SQLite column profiles: ${message}`);
 			}
 		})();
+	}
+}
+
+/** How a dataset's view is built, and how many times it has been rebuilt. */
+interface ViewBuilder {
+	readonly build: () => Promise<SqliteTableView>;
+	generation: number;
+}
+
+/**
+ * Checks that a rebuilt view can be shown before it replaces the old one: that its relation still
+ * has columns (PRAGMA table_info reports none for a relation that no longer exists) and that its
+ * row count can be read.
+ */
+async function validateRebuiltView(view: SqliteTableView): Promise<void> {
+	const state = await view.getState();
+	if (state.table_unfiltered_shape.num_columns === 0) {
+		throw new Error(vscode.l10n.t("'{0}' has no columns. It may have been dropped or renamed.", state.display_name));
 	}
 }
 

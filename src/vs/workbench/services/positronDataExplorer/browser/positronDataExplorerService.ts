@@ -203,6 +203,18 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 		},
 		disposeBackend: (providerId, datasetId) => {
 			this._providerTransports.get(providerId)?.disposeBackend(providerId, datasetId);
+		},
+		supportsRefresh: providerId => {
+			return this._providerTransports.get(providerId)?.supportsRefresh(providerId) ?? false;
+		},
+		refreshDataset: async (providerId, datasetId) => {
+			// Unlike handleRpc, never activates: an open dataset's provider has already registered, so
+			// a missing owner means its host went away.
+			const transport = this._providerTransports.get(providerId);
+			if (!transport) {
+				throw new Error(`No extension host registered the Data Explorer provider '${providerId}'`);
+			}
+			return transport.refreshDataset(providerId, datasetId);
 		}
 	};
 

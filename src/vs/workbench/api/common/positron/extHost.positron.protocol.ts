@@ -423,7 +423,7 @@ export interface ExtHostDataConnectionsShape {
  * in the Data Explorer.
  */
 export interface MainThreadDataExplorerShape extends IDisposable {
-	$registerRpcHandler(providerId: string): void;
+	$registerRpcHandler(providerId: string, supportsRefresh: boolean): void;
 	$unregisterRpcHandler(providerId: string): void;
 	$sendUiEvent(event: IDataExplorerUiEventDto): void;
 	$open(providerId: string, datasetId: string, displayName: string): Promise<void>;
@@ -439,6 +439,7 @@ export interface MainThreadDataExplorerShape extends IDisposable {
 export interface ExtHostDataExplorerShape {
 	$handleRpc(providerId: string, rpc: IDataExplorerRpcDto): Promise<IDataExplorerResponseDto>;
 	$disposeBackend(providerId: string, datasetId: string): void;
+	$refreshDataset(providerId: string, datasetId: string): Promise<void>;
 	$generateImportCode(handle: number, request: IDataImportRequestDto): Promise<IDataImportResult | undefined>;
 }
 

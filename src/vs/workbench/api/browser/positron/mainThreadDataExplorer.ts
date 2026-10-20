@@ -31,6 +31,9 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 	/** Registry registrations for importers contributed by the ext host, keyed by handle. */
 	private readonly _importerRegistrations = new Map<number, IDisposable>();
 
+	/** The providers registered on this host whose handlers implement `refreshDataset`. */
+	private readonly _refreshableProviders = new Set<string>();
+
 	constructor(
 		extHostContext: IExtHostContext,
 		@IPositronDataExplorerService private readonly _dataExplorerService: IPositronDataExplorerService,
@@ -56,15 +59,31 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 		this._proxy.$disposeBackend(providerId, datasetId);
 	}
 
+	supportsRefresh(providerId: string): boolean {
+		return this._refreshableProviders.has(providerId);
+	}
+
+	refreshDataset(providerId: string, datasetId: string): Promise<void> {
+		return this._proxy.$refreshDataset(providerId, datasetId);
+	}
+
 	// --- MainThreadDataExplorerShape (called by the ext host) ---
 
-	$registerRpcHandler(providerId: string): void {
+	$registerRpcHandler(providerId: string, supportsRefresh: boolean): void {
+		// A re-registration replaces the handler, so it replaces the capability too.
+		if (supportsRefresh) {
+			this._refreshableProviders.add(providerId);
+		} else {
+			this._refreshableProviders.delete(providerId);
+		}
+
 		// Tells the service this host is the one that can service the provider's RPCs. In web there
 		// are two hosts and only one of them has the extension, so this is what routes correctly.
 		this._dataExplorerService.registerRpcProvider(providerId, this);
 	}
 
 	$unregisterRpcHandler(providerId: string): void {
+		this._refreshableProviders.delete(providerId);
 		this._dataExplorerService.unregisterRpcProvider(providerId, this);
 	}
 

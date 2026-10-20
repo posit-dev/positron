@@ -233,3 +233,104 @@ describe('PositronDataExplorerInstance file options', () => {
 		kernelInstance.dispose();
 	});
 });
+
+describe('PositronDataExplorerInstance refresh', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IConfigurationService, new TestConfigurationService())
+		.build();
+
+	const backendState: BackendState = {
+		display_name: 'people',
+		table_shape: { num_rows: 2, num_columns: 2 },
+		table_unfiltered_shape: { num_rows: 2, num_columns: 2 },
+		has_row_labels: false,
+		column_filters: [],
+		row_filters: [],
+		sort_keys: [],
+		supported_features: NO_FEATURES,
+	};
+
+	let instance: PositronDataExplorerInstance;
+	let refresh: ReturnType<typeof vi.fn<() => Promise<void>>>;
+	let disposables: DisposableStore;
+
+	beforeEach(() => {
+		PositronReactServices.services = ctx.reactServices;
+		refresh = vi.fn<() => Promise<void>>();
+		const client: Partial<DataExplorerClientInstance> = {
+			backendClient: stubInterface<PositronDataExplorerDuckDBBackend>({ clientId: 'duckdbconn:1:table:main.people' }),
+			get cachedBackendState() { return backendState; },
+			supportsRefresh: true,
+			refresh,
+			onDidClose: new Emitter<void>().event,
+			onDidSchemaUpdate: new Emitter<SchemaUpdateEvent>().event,
+			onDidDataUpdate: new Emitter<void>().event,
+			onDidUpdateBackendState: new Emitter<BackendState>().event,
+			getBackendState: vi.fn().mockResolvedValue(backendState),
+			getSupportedFeatures: vi.fn().mockReturnValue(backendState.supported_features),
+			dispose: vi.fn(),
+		};
+		instance = new PositronDataExplorerInstance('people', client as DataExplorerClientInstance);
+		disposables = new DisposableStore();
+	});
+
+	afterEach(() => {
+		disposables.dispose();
+		instance.dispose();
+	});
+
+	afterAll(() => {
+		PositronReactServices.services = undefined!;
+	});
+
+	it('joins a refresh that is already in progress, and reports progress while it runs', async () => {
+		let finishRefresh!: () => void;
+		refresh.mockReturnValue(new Promise<void>(resolve => finishRefresh = resolve));
+		const refreshing: boolean[] = [];
+		disposables.add(instance.onDidChangeRefreshing(isRefreshing => refreshing.push(isRefreshing)));
+
+		const first = instance.refresh();
+		const second = instance.refresh();
+		const isRefreshingWhileRunning = instance.isRefreshing;
+		finishRefresh();
+		await Promise.all([first, second]);
+
+		expect({
+			refreshCalls: refresh.mock.calls.length,
+			isRefreshingWhileRunning,
+			isRefreshingAfter: instance.isRefreshing,
+			refreshing,
+		}).toEqual({ refreshCalls: 1, isRefreshingWhileRunning: true, isRefreshingAfter: false, refreshing: [true, false] });
+	});
+
+	it('reports a failed refresh to the user and can refresh again', async () => {
+		const errorSpy = vi.spyOn(ctx.reactServices.notificationService, 'error');
+		refresh.mockRejectedValueOnce(new Error('table was dropped'));
+
+		await instance.refresh();
+		refresh.mockResolvedValueOnce();
+		await instance.refresh();
+
+		expect({
+			notified: errorSpy.mock.calls.map(([message]) => String(message)),
+			refreshCalls: refresh.mock.calls.length,
+		}).toEqual({
+			notified: ['Unable to refresh the data: table was dropped'],
+			refreshCalls: 2,
+		});
+	});
+
+	it('does not report a refresh that fails after the explorer closed', async () => {
+		const errorSpy = vi.spyOn(ctx.reactServices.notificationService, 'error');
+		let failRefresh!: (error: Error) => void;
+		refresh.mockReturnValue(new Promise<void>((_resolve, reject) => failRefresh = reject));
+
+		const refreshed = instance.refresh();
+		instance.dispose();
+		failRefresh(new Error('The data explorer backend was closed.'));
+		await refreshed;
+
+		expect(errorSpy).not.toHaveBeenCalled();
+	});
+});

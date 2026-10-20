@@ -25,10 +25,14 @@ describe('PositronDataExplorerExtensionBackend', () => {
 		store.dispose();
 	});
 
-	/** Builds a backend over a fake transport that responds with `respond(rpc)`. */
-	function createBackend(respond: (rpc: IDataExplorerRpcDto) => IDataExplorerResponseDto) {
+	/**
+	 * Builds a backend over a fake transport that responds with `respond(rpc)`.
+	 * @param refreshableProviders The providers the transport reports as supporting refresh.
+	 */
+	function createBackend(respond: (rpc: IDataExplorerRpcDto) => IDataExplorerResponseDto, refreshableProviders: string[] = []) {
 		const calls: Array<{ providerId: string; rpc: IDataExplorerRpcDto }> = [];
 		const disposed: Array<{ providerId: string; datasetId: string }> = [];
+		const refreshed: Array<{ providerId: string; datasetId: string }> = [];
 		const transport: IDataExplorerRpcTransport = {
 			handleRpc: (providerId, rpc) => {
 				calls.push({ providerId, rpc });
@@ -36,10 +40,14 @@ describe('PositronDataExplorerExtensionBackend', () => {
 			},
 			disposeBackend: (providerId, datasetId) => {
 				disposed.push({ providerId, datasetId });
-			}
+			},
+			supportsRefresh: providerId => refreshableProviders.includes(providerId),
+			refreshDataset: async (providerId, datasetId) => {
+				refreshed.push({ providerId, datasetId });
+			},
 		};
 		const backend = store.add(new PositronDataExplorerExtensionBackend(transport, PROVIDER_ID, IDENTIFIER));
-		return { backend, calls, disposed };
+		return { backend, calls, disposed, refreshed };
 	}
 
 	it('forwards an RPC tagged with the provider id and dataset identifier and unwraps the result', async () => {
@@ -92,6 +100,24 @@ describe('PositronDataExplorerExtensionBackend', () => {
 		backend.handleUiEvent(event);
 
 		expect(delivered).toEqual({ callback_id: 'cb', profiles: [] });
+	});
+
+	it('reports refresh support from the transport for its own provider', () => {
+		expect({
+			supported: createBackend(() => ({ result: undefined }), [PROVIDER_ID]).backend.supportsRefresh,
+			unsupported: createBackend(() => ({ result: undefined }), ['another-provider']).backend.supportsRefresh,
+		}).toEqual({ supported: true, unsupported: false });
+	});
+
+	it('asks the transport to refresh its own dataset, without sending an RPC', async () => {
+		const { backend, calls, refreshed } = createBackend(() => ({ result: undefined }), [PROVIDER_ID]);
+
+		await backend.refresh();
+
+		expect({ calls, refreshed }).toEqual({
+			calls: [],
+			refreshed: [{ providerId: PROVIDER_ID, datasetId: IDENTIFIER }],
+		});
 	});
 
 	it('notifies the transport that the backend closed on dispose', () => {

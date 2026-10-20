@@ -192,15 +192,27 @@ suite('OdbcTableView SQL', () => {
 	});
 
 	test('refuses a regex filter rather than approximating it', async () => {
-		const { view } = createView(LIMIT_OFFSET);
+		const { client, view } = createView(LIMIT_OFFSET);
 		const filters = [rowFilter(RowFilterType.Search, 1, {
 			search_type: TextSearchType.RegexMatch, term: '^Pen', case_sensitive: true,
 		})];
 
-		await assert.rejects(
-			() => view.setRowFilters({ filters }),
-			/no common regular expression syntax/
-		);
+		// The filter is kept, marked invalid with the reason, and not applied.
+		const result = await view.setRowFilters({ filters });
+		const state = await view.getState();
+
+		assert.deepStrictEqual({
+			hadErrors: result.had_errors,
+			isValid: state.row_filters[0].is_valid,
+			refusedForRegex: /no common regular expression syntax/.test(state.row_filters[0].error_message ?? ''),
+			// The scan-free checks (WHERE 1 = 0 ...) run while the filter is validated; none filters rows.
+			filtered: client.queries.some(sql => sql.includes('count(*)') && sql.includes('WHERE') && !sql.includes('WHERE 1 = 0')),
+		}, {
+			hadErrors: true,
+			isValid: false,
+			refusedForRegex: true,
+			filtered: false,
+		});
 	});
 
 	test('never selects a binary column\'s bytes, measuring it instead', async () => {
