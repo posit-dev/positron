@@ -234,6 +234,7 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
  */
 function getRFilterSettingsDigest(): string {
 	const config = vscode.workspace.getConfiguration('positron.r');
+	// Adding or removing a key changes every user's digest, which clears R's cached runtimes on their next launch.
 	const payload = {
 		exclude: getResolvedExcludePaths(),
 		condaDiscovery: config.get<boolean>('interpreters.condaDiscovery') ?? false,
