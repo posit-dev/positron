@@ -39,6 +39,9 @@ import { ConnectionRef } from './schema';
 /** The language id ggsql registers its runtime under. */
 export const GGSQL_LANGUAGE_ID = 'ggsql';
 
+/** The extension that provides the ggsql runtime, as published to the extension gallery. */
+export const GGSQL_EXTENSION_ID = 'ggsql.ggsql';
+
 /**
  * The part of Positron this module drives.
  *

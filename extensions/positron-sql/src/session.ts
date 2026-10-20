@@ -10,7 +10,7 @@ import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer, StatementSpan } from './analyzer
 import { QUOTE_TRIGGERS, SqlCompletionItemProvider } from './completion';
 import { collectDiagnostics } from './diagnostics';
 import { defaultSchemaOf, dialectOfDriver } from './dialects';
-import { ExecutionOutcome, positronExecutionApi, StatementRunner } from './execution';
+import { ExecutionOutcome, GGSQL_EXTENSION_ID, positronExecutionApi, StatementRunner } from './execution';
 import { hoverFor } from './hover';
 import { collectLinks } from './links';
 import { SqlLog } from './log';
@@ -758,9 +758,17 @@ export class SqlSession implements vscode.Disposable {
 				break;
 
 			case 'no-runtime':
-				void vscode.window.showWarningMessage(vscode.l10n.t(
-					"Statements run in a ggsql console, and ggsql is not installed.",
-				));
+				// Offered rather than done: installing an extension is the user's call. The
+				// extension's page shows what it is and has the Install button; `extension.open`
+				// finds it in the gallery when it is not installed.
+				void vscode.window.showWarningMessage(
+					vscode.l10n.t("Statements run in a ggsql console, and ggsql is not installed."),
+					vscode.l10n.t("Install ggsql"),
+				).then(chosen => {
+					if (chosen) {
+						void vscode.commands.executeCommand('extension.open', GGSQL_EXTENSION_ID);
+					}
+				});
 				break;
 
 			case 'not-started':
