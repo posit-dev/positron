@@ -63,10 +63,10 @@ function matches(r, f) {
 function header(rows) {
 	const triaged = rows.filter(r => r.out !== 'awaiting').length;
 	const done = count(rows, 'completed') + count(rows, 'active');
-	const of = done === triaged ? `<span class="green">all ${done}</span>` : `<span class="green">${done}</span> of ${triaged}`;
-	const rate = done === triaged ? '' : `<span class="muted"> (${pct(done, triaged)})</span>`;
+	const noun = `triaged ${triaged === 1 ? 'issue' : 'issues'}`;
+	const metric = done === triaged ? `all ${done} ${noun}` : `${done} of ${triaged} ${noun} (${pct(done, triaged)})`;
 	const headline = !rows.length ? 'No /explore issues were filed in this date range.'
-		: triaged ? `Developers fixed or planned ${of} triaged ${triaged === 1 ? 'issue' : 'issues'}${rate}.` : 'None of these issues have been triaged yet.';
+		: triaged ? `Developers fixed or planned <span class="metric">${metric}</span>.` : 'None of these issues have been triaged yet.';
 	return `<div class="lede"><h1>Where do /explore's issues end up?</h1><p class="headline">${headline}</p></div>`;
 }
 
@@ -78,9 +78,8 @@ function extra(key, rows, now) {
 		return ` Now: ${Object.entries(by).map(([m, n]) => `${n} in ${escapeHtml(m)}`).join(', ')}.`;
 	}
 	if (key === 'future') {
-		const triaged = rows.filter(r => r.out !== 'awaiting').length;
 		const days = rows.filter(r => r.out === 'future' && r.futureSince).map(r => daysBetween(r.futureSince, now));
-		return ` ${count(rows, 'future')} of ${triaged} triaged issues.${days.length ? ` Median ${plural(median(days), 'day')} there.` : ''}`;
+		return days.length ? ` Median ${plural(median(days), 'day')} there.` : '';
 	}
 	return '';
 }
@@ -106,7 +105,7 @@ function bar(rows, now) {
 	const details = present.map(o => {
 		const n = count(rows, o.key);
 		return `<div class="seg-detail" data-for="${o.key}" hidden><span class="hero" style="color:${o.hero}">${pct(n, total)}</span>`
-			+ `<div><div class="what"><b>${o.label}</b><span>${SEP}${n} of ${total} findings</span></div><div class="def">${escapeHtml(o.def)}${extra(o.key, rows, now)}</div></div></div>`;
+			+ `<div><div class="what">${o.label}</div><div class="def">${escapeHtml(o.def)}${extra(o.key, rows, now)}</div></div></div>`;
 	}).join('');
 	return `<div class="all" style="grid-template-columns:${present.map(o => `minmax(0, ${count(rows, o.key)}fr)`).join(' ')}">
 <div class="brackets">${brackets}</div>

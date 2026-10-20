@@ -98,10 +98,10 @@ function triggers(rows) {
 
 function header(s) {
 	const inPr = s.counts['fixed-in-pr'];
-	const of = inPr === s.counted ? `<span class="green">all ${inPr}</span>` : `<span class="green">${inPr}</span> of ${s.counted}`;
-	const rate = inPr === s.counted ? '' : `<span class="muted"> (${pct(inPr, s.counted)})</span>`;
+	const noun = s.counted === 1 ? 'finding' : 'findings';
+	const metric = inPr === s.counted ? `all ${inPr} ${noun}` : `${inPr} of ${s.counted} ${noun} (${pct(inPr, s.counted)})`;
 	const headline = !s.total ? 'No /explore findings in this date range.'
-		: s.counted ? `Developers fixed ${of} ${s.counted === 1 ? 'finding' : 'findings'}${rate} before merging.` : 'No PRs with findings have merged yet.';
+		: s.counted ? `Developers fixed <span class="metric">${metric}</span> before merging.` : 'No PRs with findings have merged yet.';
 	return `<div class="lede"><h1>Does /explore change what ships?</h1><p class="headline">${headline}</p></div>`;
 }
 
@@ -118,9 +118,8 @@ function allBar(s) {
 	const details = present.map(o => {
 		const n = s.counts[o.key];
 		const counted = o.group !== 'open';
-		const [hero, of] = counted ? [pct(n, s.counted), `${n} of ${s.counted} findings with a known outcome`] : [n, `${n === 1 ? 'finding' : 'findings'}, no outcome yet`];
-		return `<div class="seg-detail" data-for="${o.key}" hidden><span class="hero" style="color:${HERO_COLOR[o.key] ?? INK}">${hero}</span>`
-			+ `<div><div class="what"><b>${o.label}</b><span>${SEP}${of}</span></div><div class="def">${escapeHtml(o.def)}</div></div></div>`;
+		return `<div class="seg-detail" data-for="${o.key}" hidden><span class="hero" style="color:${HERO_COLOR[o.key] ?? INK}">${counted ? pct(n, s.counted) : n}</span>`
+			+ `<div><div class="what">${o.label}</div><div class="def">${escapeHtml(o.def)}</div></div></div>`;
 	}).join('');
 	return `<section aria-labelledby="all-h">
 <h2 id="all-h">Findings by outcome</h2>
