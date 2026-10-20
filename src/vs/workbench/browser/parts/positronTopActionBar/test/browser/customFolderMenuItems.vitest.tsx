@@ -45,17 +45,17 @@ describe('CustomFolderMenuItems', () => {
 		const user = userEvent.setup();
 		renderMenu(recentFolder('a'), recentFolder('b'), recentFolder('c'));
 
-		await user.click(within(folderRows()[2]).getByRole('button', { name: 'Pin' }));
+		await user.click(within(folderRows()[2]).getByRole('button', { name: 'Pin project-c' }));
 
 		const rows = folderRows();
 		expect(rows.map(row => row.textContent)).toEqual(['project-c', 'project-a', 'project-b']);
-		expect(within(rows[0]).getByRole('button', { name: 'Unpin' })).toBeInTheDocument();
+		expect(within(rows[0]).getByRole('button', { name: 'Unpin project-c' })).toBeInTheDocument();
 	});
 
 	it('keeps a pinned folder the next time the menu opens, even once it leaves the recent list', async () => {
 		const user = userEvent.setup();
 		const { unmount } = renderMenu(recentFolder('a'), recentFolder('b'), recentFolder('c'));
-		await user.click(within(folderRows()[2]).getByRole('button', { name: 'Pin' }));
+		await user.click(within(folderRows()[2]).getByRole('button', { name: 'Pin project-c' }));
 		unmount();
 
 		renderMenu(recentFolder('a'), recentFolder('b'));
@@ -70,8 +70,8 @@ describe('CustomFolderMenuItems', () => {
 		const rowsIn = (window: typeof firstWindow) =>
 			within(window.container).getAllByRole('button', { name: /^project-/ });
 
-		await user.click(within(rowsIn(secondWindow)[1]).getByRole('button', { name: 'Pin' }));
-		await user.click(within(rowsIn(firstWindow)[2]).getByRole('button', { name: 'Pin' }));
+		await user.click(within(rowsIn(secondWindow)[1]).getByRole('button', { name: 'Pin project-b' }));
+		await user.click(within(rowsIn(firstWindow)[2]).getByRole('button', { name: 'Pin project-c' }));
 		firstWindow.unmount();
 		secondWindow.unmount();
 
@@ -83,9 +83,9 @@ describe('CustomFolderMenuItems', () => {
 	it('returns an unpinned folder to its place in the recent list', async () => {
 		const user = userEvent.setup();
 		renderMenu(recentFolder('a'), recentFolder('b'), recentFolder('c'));
-		await user.click(within(folderRows()[1]).getByRole('button', { name: 'Pin' }));
+		await user.click(within(folderRows()[1]).getByRole('button', { name: 'Pin project-b' }));
 
-		await user.click(within(folderRows()[0]).getByRole('button', { name: 'Unpin' }));
+		await user.click(within(folderRows()[0]).getByRole('button', { name: 'Unpin project-b' }));
 
 		expect(folderRows().map(row => row.textContent)).toEqual(['project-a', 'project-b', 'project-c']);
 	});

@@ -35,8 +35,12 @@ interface CustomFolderRecentlyUsedMenuItemProps {
  * @returns The rendered component.
  */
 export const CustomFolderRecentlyUsedMenuItem = (props: CustomFolderRecentlyUsedMenuItemProps) => {
-	// The pin button label.
+	// The pin button tooltip, and its accessible name, which includes the folder so that each
+	// pin button can be told apart out of context.
 	const pinLabel = props.pinned ? positronUnpinFolder : positronPinFolder;
+	const pinAriaLabel = props.pinned ?
+		localize('positron.unpinFolderAriaLabel', "Unpin {0}", props.label) :
+		localize('positron.pinFolderAriaLabel', "Pin {0}", props.label);
 
 	// Render.
 	return (
@@ -48,7 +52,7 @@ export const CustomFolderRecentlyUsedMenuItem = (props: CustomFolderRecentlyUsed
 			<div className='title' title={props.label}>
 				{props.label}
 			</div>
-			<Button ariaLabel={pinLabel} className='pin' onPressed={props.onTogglePinned}>
+			<Button ariaLabel={pinAriaLabel} className='pin' onPressed={props.onTogglePinned}>
 				<div className={`codicon codicon-${props.pinned ? 'pinned' : 'pin'}`} title={pinLabel} />
 			</Button>
 			<Button className='open-in-new-window' onPressed={props.onOpenInNewWindow}>
