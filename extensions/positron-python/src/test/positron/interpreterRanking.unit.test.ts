@@ -65,7 +65,7 @@ const emptyContext: RankingContext = {
     definitionPaths: [],
     definitionsOnly: false,
     defaultInterpreterPath: undefined,
-    rootProjectEnv: undefined,
+    rootProjectEnvs: [],
     pythonVersion: undefined,
     pythonVersionDir: undefined,
     nestedEnvDirs: [],
@@ -138,7 +138,7 @@ suite('interpreterRanking', () => {
         activatedEnvPrefix: p('/home/u/envs/active'),
         definitionPaths: [defined.path],
         defaultInterpreterPath: defaultPath.path,
-        rootProjectEnv: { envDir: p('/proj/.venv'), executable: rootVenv.path },
+        rootProjectEnvs: [{ envDir: p('/proj/.venv'), executable: rootVenv.path }],
         pythonVersion: '3.10.4',
         pythonVersionDir: p('/home/u/.pyenv/versions/3.10.4'),
         nestedEnvDirs: [p('/proj/a/.venv'), p('/proj/b/.venv')],
@@ -209,7 +209,7 @@ suite('interpreterRanking', () => {
             ...emptyContext,
             definitionsOnly: true,
             definitionPaths: [homebrew.path, defined.path, rootVenv.path],
-            rootProjectEnv: { envDir: p('/proj/.venv'), executable: rootVenv.path },
+            rootProjectEnvs: [{ envDir: p('/proj/.venv'), executable: rootVenv.path }],
             externallyManagedPaths: new Set([homebrew.path]),
         };
 
@@ -295,7 +295,7 @@ suite('interpreterRanking', () => {
         sinon.stub(interpreterSettings, 'isDefinitionsOnlyDiscovery').returns(false);
         const moduleWait = sinon.stub(moduleLocator, 'whenModuleMetadataReady').resolves();
         sinon.stub(workspaceScan, 'scanWorkspace').resolves({
-            rootProjectEnv: undefined,
+            rootProjectEnvs: [],
             nestedEnvDirs: [],
             hasPythonSignals: true,
             pythonVersion: undefined,

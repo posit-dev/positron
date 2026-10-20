@@ -88,7 +88,8 @@ export interface RankingContext {
     definitionPaths: string[];
     definitionsOnly: boolean;
     defaultInterpreterPath: string | undefined;
-    rootProjectEnv: ProjectEnvironment | undefined;
+    /** Root project envs, highest priority first. */
+    rootProjectEnvs: ProjectEnvironment[];
     pythonVersion: string | undefined;
     /** `<pyenv versions>/<pythonVersion>`, where pyenv keeps the version or virtualenv it names. */
     pythonVersionDir: string | undefined;
@@ -140,6 +141,11 @@ function compareVersions(a: PythonEnvironment['version'], b: PythonEnvironment['
         return 0;
     }
     return comparePythonVersionDescending(a, b);
+}
+
+/** Which root project env this interpreter is (priority order), or -1. */
+function rootProjectIndex(interpreter: PythonEnvironment, context: RankingContext): number {
+    return context.rootProjectEnvs.findIndex((projectEnv) => isProjectEnvironment(interpreter, projectEnv));
 }
 
 /** Which env one level deep this interpreter belongs to (found order), or -1. */
@@ -221,7 +227,7 @@ export function tierOf(interpreter: PythonEnvironment, context: RankingContext):
         return Tier.DefaultInterpreterPath;
     }
     if (
-        isProjectEnvironment(interpreter, context.rootProjectEnv) ||
+        rootProjectIndex(interpreter, context) !== -1 ||
         (!!context.pythonVersion && isPyenvVirtualenv(interpreter) && isNamedByPythonVersion(interpreter, context))
     ) {
         return Tier.ProjectEnv;
@@ -287,9 +293,11 @@ export function tierOf(interpreter: PythonEnvironment, context: RankingContext):
 /** Order inside a tier, before version: lower first. */
 function orderWithinTier(interpreter: PythonEnvironment, tier: Tier, context: RankingContext): number {
     switch (tier) {
-        case Tier.ProjectEnv:
-            // The root project env, then the pyenv virtualenv named in .python-version.
-            return isProjectEnvironment(interpreter, context.rootProjectEnv) ? 0 : 1;
+        case Tier.ProjectEnv: {
+            // Root project envs in priority order, then the pyenv virtualenv named in .python-version.
+            const root = rootProjectIndex(interpreter, context);
+            return root !== -1 ? root : context.rootProjectEnvs.length;
+        }
         case Tier.WorkspaceEnv: {
             const nested = nestedIndex(interpreter, context);
             return nested !== -1 ? nested : context.nestedEnvDirs.length + getEnvironmentTypeRank(interpreter.envType);
@@ -438,7 +446,7 @@ export async function buildRankingContext(
         definitionPaths: getInterpreterDefinitionPaths(),
         definitionsOnly: isDefinitionsOnlyDiscovery(),
         defaultInterpreterPath: readDefaultInterpreterPath(workspaceUri),
-        rootProjectEnv: scan?.rootProjectEnv,
+        rootProjectEnvs: scan?.rootProjectEnvs ?? [],
         pythonVersion: scan?.pythonVersion,
         pythonVersionDir: scan?.pythonVersion ? path.join(getPyenvVersionsDir(), scan.pythonVersion) : undefined,
         nestedEnvDirs: scan?.nestedEnvDirs ?? [],

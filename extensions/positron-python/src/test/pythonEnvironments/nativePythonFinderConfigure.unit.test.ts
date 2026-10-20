@@ -120,7 +120,7 @@ suite('Native Python Finder - configuration failures must not hang discovery', (
         const nested = path.join(ws, 'app', '.venv');
         getWorkspaceFolderPathsStub.returns([ws]);
         const scanStub = sinon.stub(workspaceScan, 'scanWorkspace').resolves({
-            rootProjectEnv: undefined,
+            rootProjectEnvs: [],
             nestedEnvDirs: [nested],
             hasPythonSignals: false,
             pythonVersion: undefined,

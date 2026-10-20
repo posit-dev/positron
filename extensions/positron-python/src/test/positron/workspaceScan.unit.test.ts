@@ -56,7 +56,7 @@ suite('workspaceScan', () => {
 
     test('finds nothing in an empty folder, or one that cannot be read', async () => {
         const empty = {
-            rootProjectEnv: undefined,
+            rootProjectEnvs: [],
             nestedEnvDirs: [],
             hasPythonSignals: false,
             pythonVersion: undefined,
@@ -89,12 +89,23 @@ suite('workspaceScan', () => {
             for (const name of c.excluded ?? []) {
                 includeStub.withArgs(executables.get(name)).returns(false);
             }
-            const found = (await scanWorkspace(dir)).rootProjectEnv;
+            const found = (await scanWorkspace(dir)).rootProjectEnvs[0];
             actual.push(found && path.relative(dir, found.envDir).split(path.sep).join('/'));
         }
         assert.deepEqual(
             actual,
             cases.map((c) => c.expected),
+        );
+    });
+
+    test('keeps every root env, highest priority first', async () => {
+        for (const name of ['venv', '.conda', '.venv']) {
+            makeEnv(path.join(root, name), name === '.conda' ? 'conda' : 'venv');
+        }
+
+        assert.deepEqual(
+            (await scanWorkspace(root)).rootProjectEnvs.map((e) => path.basename(e.envDir)),
+            ['.venv', '.conda', 'venv'],
         );
     });
 
@@ -127,15 +138,23 @@ suite('workspaceScan', () => {
 
     test('shares the latest scan of a folder until it is rescanned', async () => {
         const first = scanWorkspace(root);
+        assert.strictEqual(scanWorkspace(root), first);
+        // Let the first scan finish before changing the folder: its reads are async, so a
+        // file written while it runs may or may not be seen.
+        const before = (await first).hasPythonSignals;
         fs.writeFileSync(path.join(root, 'main.py'), '');
 
-        assert.strictEqual(scanWorkspace(root), first);
         assert.deepEqual(
-            [(await first).hasPythonSignals, (await scanWorkspace(root, true)).hasPythonSignals],
-            [false, true],
+            [
+                before,
+                // Still the shared scan from before the file was written.
+                (await scanWorkspace(root)).hasPythonSignals,
+                (await scanWorkspace(root, true)).hasPythonSignals,
+                // The rescan is now the latest.
+                (await scanWorkspace(root)).hasPythonSignals,
+            ],
+            [false, false, true, true],
         );
-        // The rescan is now the latest.
-        assert.isTrue((await scanWorkspace(root)).hasPythonSignals);
     });
 
     test('finds Python signals at the root and one level deep, not two', async () => {
@@ -186,7 +205,7 @@ suite('workspaceScan', () => {
 
     test('recognizes the project env by env dir when PET reports a different executable name', async () => {
         const executable = makeEnv(path.join(root, '.venv'));
-        const projectEnv = (await scanWorkspace(root)).rootProjectEnv;
+        const projectEnv = (await scanWorkspace(root)).rootProjectEnvs[0];
         const petPath = path.join(path.dirname(executable), 'python3');
 
         assert.deepEqual(
