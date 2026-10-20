@@ -3,23 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 
-import { IInterpreterSelector } from '../interpreter/configuration/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { createPythonRuntimeMetadata } from './runtime';
-import {
-    comparePythonVersionDescending,
-    getEnvironmentTypeRank,
-    isProblematicCondaEnvironment,
-} from '../interpreter/configuration/environmentTypeComparer';
+import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { shouldIncludeInterpreter } from './interpreterSettings';
-import { hasFiles } from './util';
 
 /**
  * Provides Python language runtime metadata to Positron; called during the
@@ -37,7 +30,6 @@ export async function* pythonRuntimeDiscoverer(
         traceInfo('pythonRuntimeDiscoverer: Starting Python runtime discoverer');
 
         const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
-        const interpreterSelector = serviceContainer.get<IInterpreterSelector>(IInterpreterSelector);
 
         // Ensure PET discovery is complete before reading interpreters. If a
         // refresh is already in progress (started during extension
@@ -46,52 +38,13 @@ export async function* pythonRuntimeDiscoverer(
         // this starts a fresh scan.
         await interpreterService.triggerRefresh().ignoreErrors();
 
-        // Get the recommended interpreter
-        // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
-        const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
-        const suggestions = interpreterSelector.getSuggestions(workspaceUri);
-        let recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(
-            suggestions,
-            workspaceUri,
-        )?.interpreter;
-        if (!recommendedInterpreter) {
-            // fallback to active interpreter if we don't have a recommended interpreter
-            recommendedInterpreter = await interpreterService.getActiveInterpreter(workspaceUri);
-        }
-        traceInfo(`pythonRuntimeDiscoverer: recommended interpreter: ${recommendedInterpreter?.path}`);
+        // Nothing here decides what starts. Every runtime is Explicit; the recommendation
+        // (from recommendedWorkspaceRuntime) is the only one that auto-starts, and core
+        // uses it wherever it needs a Python runtime (Core contracts 2-4). The picker
+        // sorts by `runtimeSourceOrder`, so the yield order doesn't matter either.
+        const interpreters = filterInterpreters(interpreterService.getInterpreters());
+        traceInfo(`pythonRuntimeDiscoverer: ${interpreters.length} Python interpreters after filtering`);
 
-        let interpreters = interpreterService.getInterpreters();
-
-        traceInfo(`pythonRuntimeDiscoverer: discovered ${interpreters.length} Python interpreters`);
-
-        // Filter out unsupported and user-excluded interpreters
-        traceInfo('pythonRuntimeDiscoverer: filtering interpreters');
-        interpreters = filterInterpreters(interpreters);
-
-        traceInfo(`pythonRuntimeDiscoverer: ${interpreters.length} Python interpreters remain after filtering`);
-
-        // Sort the available interpreters, favoring the recommended interpreter (if one is available)
-        traceInfo('pythonRuntimeDiscoverer: sorting interpreters');
-        interpreters = sortInterpreters(interpreters, recommendedInterpreter);
-
-        // Recommend Python for the workspace if it contains Python-relevant files
-        let recommendedForWorkspace = await hasFiles([
-            // Code and notebook files
-            '**/*.py',
-            '**/*.ipynb',
-            // Virtual environment folders
-            '.venv/**/*',
-            '.conda/**/*',
-            // Config files
-            'pyproject.toml',
-            'Pipfile',
-            '*requirements.txt',
-            '.python-version',
-            'environment.yml',
-        ]);
-        traceInfo(`pythonRuntimeDiscoverer: recommended for workspace: ${recommendedForWorkspace}`);
-
-        // Register each interpreter as a language runtime metadata entry
         for (const interpreter of interpreters) {
             try {
                 // Skip conda environments without Python - they'll be handled by PickerContribution
@@ -101,12 +54,8 @@ export async function* pythonRuntimeDiscoverer(
                     );
                     continue;
                 }
-
+                // Not the recommendation, so the default `Explicit` (Core contract 2).
                 const runtime = await createPythonRuntimeMetadata(interpreter, serviceContainer);
-
-                // Ensure we only recommend one runtime for the workspace.
-                recommendedForWorkspace = false;
-
                 traceInfo(
                     `pythonRuntimeDiscoverer: registering runtime for interpreter ${interpreter.path} with id ${runtime.runtimeId}`,
                 );
@@ -140,35 +89,4 @@ function filterInterpreters(interpreters: PythonEnvironment[]): PythonEnvironmen
         // Otherwise, keep the interpreter!
         return true;
     });
-}
-
-/**
- * Returns a sorted copy of the array of Python environments: the preferred interpreter first,
- * then by environment type, then by descending Python version.
- *
- * This is the yield order only. It does not decide the picker's heading order -- runtimes are also
- * registered one at a time as discovery finds them, so the picker sorts by `runtimeSourceOrder`.
- */
-export function sortInterpreters(
-    interpreters: PythonEnvironment[],
-    preferredInterpreter: PythonEnvironment | undefined,
-): PythonEnvironment[] {
-    const copy: PythonEnvironment[] = [...interpreters];
-    copy.sort((a: PythonEnvironment, b: PythonEnvironment) => {
-        // Favor preferred interpreter, if specified, in descending order
-        if (preferredInterpreter) {
-            if (preferredInterpreter.id === a.id) return -1;
-            if (preferredInterpreter.id === b.id) return 1;
-        }
-
-        // Compare environment types, most to least useful
-        const envTypeComparison = getEnvironmentTypeRank(a.envType) - getEnvironmentTypeRank(b.envType);
-        if (envTypeComparison !== 0) {
-            return envTypeComparison;
-        }
-
-        // Compare versions in descending order
-        return comparePythonVersionDescending(a.version, b.version);
-    });
-    return copy;
 }
