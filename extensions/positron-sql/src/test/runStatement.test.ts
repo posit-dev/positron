@@ -20,6 +20,16 @@ suite('sql.runStatement', () => {
 	const showInformationMessage = vscode.window.showInformationMessage;
 	let shownMessages: string[];
 
+	suiteSetup(async () => {
+		// The command is registered once the extension is active and `sql.enabled` is on.
+		await vscode.extensions.getExtension('positron.positron-sql')!.activate();
+		await vscode.workspace.getConfiguration('sql').update('enabled', true, vscode.ConfigurationTarget.Global);
+	});
+
+	suiteTeardown(async () => {
+		await vscode.workspace.getConfiguration('sql').update('enabled', undefined, vscode.ConfigurationTarget.Global);
+	});
+
 	setup(() => {
 		shownMessages = [];
 		(vscode.window as { showInformationMessage: unknown }).showInformationMessage = (message: string) => {
