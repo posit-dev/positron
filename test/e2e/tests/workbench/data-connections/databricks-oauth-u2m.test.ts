@@ -87,9 +87,17 @@ test.describe('Data Connections - Databricks OAuth U2M', {
  */
 async function signInWithSso(popup: Page, account: { email: string; password: string; otpSecret: string }, logger: { log(message: string): void }): Promise<void> {
 	const step = (name: string) => logger.log(`[u2m] ${name}: ${popup.url().split('?')[0]}`);
-	// The workspace login page can take well over 30s to load on a cold CI runner.
-	await popup.waitForLoadState('load', { timeout: 90_000 }).catch(() => { });
-	await popup.getByText('Continue with SSO').click({ timeout: 90_000 });
+	// On CI the popup's first navigation to the authorize URL sometimes never completes, while a
+	// fresh navigation does; re-navigate rather than wait on a request that will not finish.
+	const sso = popup.getByText('Continue with SSO');
+	for (let attempt = 1; !(await sso.waitFor({ timeout: 30_000 }).then(() => true, () => false)); attempt++) {
+		console.log(`[u2m] login page not shown after 30s (attempt ${attempt}) at ${popup.url().split('?')[0]}; re-navigating`);
+		if (attempt === 3) {
+			throw new Error('The Databricks login page did not load');
+		}
+		await popup.goto(popup.url(), { timeout: 60_000 }).catch(() => { });
+	}
+	await sso.click();
 	await popup.waitForURL(/okta\.com/, { timeout: 60_000 });
 	await popup.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => { });
 	step('okta');
