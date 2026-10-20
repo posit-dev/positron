@@ -71,6 +71,19 @@ export interface OdbcDatabaseProfile {
 	};
 
 	/**
+	 * The authentication modes this database's ODBC drivers accept beyond a plain user and
+	 * password, offered as an Authentication choice in the Server form. Absent for drivers that
+	 * authenticate by `UID`/`PWD` alone.
+	 */
+	readonly authentication?: {
+		/** The connection-string attribute the mode is written under, e.g. `Authentication`. */
+		readonly key: string;
+
+		/** The accepted values, written into the connection string verbatim. */
+		readonly modes: readonly string[];
+	};
+
+	/**
 	 * Whether to register a per-database Positron driver for this database when its ODBC driver is
 	 * installed. False where Positron already ships a native driver (PostgreSQL, Snowflake,
 	 * Databricks, Redshift, SQLite): a second entry with the same name in the New Connection list
@@ -118,6 +131,20 @@ export const ODBC_DATABASE_PROFILES: readonly OdbcDatabaseProfile[] = [
 		// would emit an attribute the driver ignores, failing the connection with nothing in the
 		// form to explain why.
 		attributeKeys: { server: 'Server', database: 'Database', user: 'UID', password: 'PWD' },
+		// Microsoft's `Authentication` keyword (ODBC Driver 17 and later). Left out of the string
+		// unless chosen: the legacy "SQL Server" and Native Client drivers reject the keyword.
+		authentication: {
+			key: 'Authentication',
+			modes: [
+				'SqlPassword',
+				'ActiveDirectoryPassword',
+				'ActiveDirectoryIntegrated',
+				'ActiveDirectoryInteractive',
+				'ActiveDirectoryServicePrincipal',
+				'ActiveDirectoryMsi',
+				'ActiveDirectoryDefault',
+			],
+		},
 		registerDriver: true,
 	},
 	{

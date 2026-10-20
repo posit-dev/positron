@@ -43,6 +43,12 @@ const DRIVER_MECHANISM_ID = 'driver';
  */
 const CONNECTION_STRING_MECHANISM_ID = 'connectionString';
 
+/**
+ * The Authentication option's "none" entry: user and password alone, no attribute written. A
+ * select always shows a selection, and a driver that predates the attribute rejects it.
+ */
+const DEFAULT_AUTHENTICATION = 'Default';
+
 /** Type guard for a non-empty string. */
 function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && value.length > 0;
@@ -97,6 +103,18 @@ function connectionStringParam(): positron.DataConnectionParameter {
 	};
 }
 
+/** The authentication-mode parameter, for a database whose drivers accept one. */
+function authenticationParam(modes: readonly string[]): positron.DataConnectionParameter {
+	return {
+		id: 'authentication',
+		label: vscode.l10n.t('Authentication'),
+		description: vscode.l10n.t('Leave as Default to sign in with the user and password.'),
+		type: positron.DataConnectionParameterType.Option,
+		options: [DEFAULT_AUTHENTICATION, ...modes],
+		defaultValue: DEFAULT_AUTHENTICATION,
+	};
+}
+
 /**
  * Builds the endpoint parameters for the driver mechanism. The parameter *ids* are fixed so the
  * connect and code-generation paths can read them, but each is written into the connection string
@@ -130,6 +148,10 @@ function endpointParams(profile: OdbcDatabaseProfile | undefined): positron.Data
 			label: vscode.l10n.t('Database'),
 			type: positron.DataConnectionParameterType.String,
 		});
+	}
+
+	if (profile?.authentication !== undefined) {
+		params.push(authenticationParam(profile.authentication.modes));
 	}
 
 	return [...params, userParam(), passwordParam()];
@@ -176,6 +198,7 @@ function buildDriverConnectionString(
 		...(keys.database ? [[keys.database, asString(params.database)] as const] : []),
 		[keys.user, asString(params.user)],
 		[keys.password, asString(params.password)],
+		...(profile?.authentication ? [[profile.authentication.key, asAuthenticationMode(params.authentication)] as const] : []),
 	]);
 }
 
@@ -185,6 +208,10 @@ function asString(value: unknown): string | undefined {
 
 function asNumber(value: unknown): number | undefined {
 	return typeof value === 'number' ? value : undefined;
+}
+
+function asAuthenticationMode(value: unknown): string | undefined {
+	return value === DEFAULT_AUTHENTICATION ? undefined : asString(value);
 }
 
 /**

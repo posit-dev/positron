@@ -240,8 +240,49 @@ suite('createOdbcDrivers', () => {
 				mysql: parameterIds(`${GENERIC_ODBC_DRIVER_ID}-mysql`),
 			},
 			{
-				sqlServer: ['server', 'database', 'user', 'password'],
+				sqlServer: ['server', 'database', 'authentication', 'user', 'password'],
 				mysql: ['server', 'port', 'database', 'user', 'password'],
+			}
+		);
+	});
+
+	test('writes the chosen SQL Server authentication mode, and nothing for the default', async () => {
+		// The default must leave the attribute out: the legacy "SQL Server" and Native Client
+		// drivers, which the same profile matches, reject the keyword.
+		const config: OdbcConfiguration = {
+			drivers: [driverEntry('ODBC Driver 18 for SQL Server')],
+			dsns: [],
+			skippedDsns: [],
+			sources: [],
+		};
+		const sqlServer = createOdbcDrivers(testContext(), config, noopHost)
+			.find(driver => driver.id === `${GENERIC_ODBC_DRIVER_ID}-sqlserver`)!;
+		const authentication = sqlServer.mechanisms
+			.find(mechanism => mechanism.id === 'driver')!
+			.parameters.find(parameter => parameter.id === 'authentication')!;
+		const connectionString = async (params: Record<string, string>) => {
+			const [variant] = await sqlServer.generateConnectionCode!('driver', 'ggsql', { server: 'myhost,1433', database: 'tbird_dw', ...params });
+			return variant.code;
+		};
+
+		assert.deepStrictEqual(
+			{
+				type: authentication.type,
+				required: authentication.required,
+				defaultValue: authentication.type === 'option' ? authentication.defaultValue : undefined,
+				firstOptions: authentication.type === 'option' ? authentication.options.slice(0, 3) : [],
+				integrated: await connectionString({ authentication: 'ActiveDirectoryIntegrated' }),
+				default: await connectionString({ authentication: 'Default', user: 'brian' }),
+				unset: await connectionString({}),
+			},
+			{
+				type: 'option',
+				required: undefined,
+				defaultValue: 'Default',
+				firstOptions: ['Default', 'SqlPassword', 'ActiveDirectoryPassword'],
+				integrated: '-- @connect: odbc://Driver={ODBC Driver 18 for SQL Server};Server={myhost,1433};Database=tbird_dw;Authentication=ActiveDirectoryIntegrated',
+				default: '-- @connect: odbc://Driver={ODBC Driver 18 for SQL Server};Server={myhost,1433};Database=tbird_dw;UID=brian',
+				unset: '-- @connect: odbc://Driver={ODBC Driver 18 for SQL Server};Server={myhost,1433};Database=tbird_dw',
 			}
 		);
 	});
