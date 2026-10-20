@@ -35,6 +35,7 @@ export class LanguageOrderContribution extends Disposable implements IWorkbenchC
 	}
 
 	private _update(): void {
+		// Every supported language, not just those with an interpreter, so the list doesn't change as discovery runs.
 		const installed = this._runtimeStartupService.languageIds;
 		const installedEntries: ILanguageOrderEntry[] = installed
 			.map(languageId => ({ languageId, languageName: this._languageName(languageId) }))
