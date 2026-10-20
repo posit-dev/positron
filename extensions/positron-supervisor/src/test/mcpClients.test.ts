@@ -20,10 +20,11 @@ suite('agentLabel', () => {
 				client(1, { name: 'claude-code' }),
 				client(2, { name: 'codex-mcp-client' }),
 				client(3, { name: 'gemini-cli-mcp-client' }),
-				client(4, { name: 'my-custom-agent' }),
-				client(5),
+				client(4, { name: 'Q DEV CLI' }),
+				client(5, { name: 'my-custom-agent' }),
+				client(6),
 			].map(agentLabel),
-			['Claude Code', 'Codex', 'Gemini CLI', 'my-custom-agent', 'Unknown agent']);
+			['Claude Code', 'Codex', 'Gemini CLI', 'Kiro', 'my-custom-agent', 'Unknown agent']);
 	});
 });
 

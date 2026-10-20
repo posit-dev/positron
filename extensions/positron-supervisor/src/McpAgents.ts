@@ -83,6 +83,12 @@ export interface McpAgent {
 	/** The harness's name, as it is shown to the user. */
 	readonly label: string;
 
+	/**
+	 * The name the harness reports when it connects, when that name does not
+	 * start with {@link id}.
+	 */
+	readonly clientName?: string;
+
 	/** Either sign that the harness is installed. */
 	readonly detect: { readonly executable?: string; readonly extensionId?: string };
 
@@ -150,6 +156,21 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 		install: {
 			kind: 'file',
 			configPath: () => [os.homedir(), '.gemini', 'settings.json'],
+			format: 'json',
+			serversKey: 'mcpServers',
+		},
+	},
+	{
+		id: 'kiro',
+		label: 'Kiro',
+		// Kiro still reports the name of the Amazon Q CLI it grew out of.
+		clientName: 'Q DEV CLI',
+		detect: { executable: 'kiro-cli' },
+		// The user's MCP configuration, which the Kiro CLI and the Kiro IDE
+		// share, rather than the workspace's, for the same reason as Gemini.
+		install: {
+			kind: 'file',
+			configPath: () => [os.homedir(), '.kiro', 'settings', 'mcp.json'],
 			format: 'json',
 			serversKey: 'mcpServers',
 		},

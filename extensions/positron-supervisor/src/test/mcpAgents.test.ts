@@ -83,6 +83,7 @@ suite('mergeAgentConfig', () => {
 				['claude-code', true, 'cli'],
 				['codex', true, 'file'],
 				['gemini', true, 'file'],
+				['kiro', true, 'file'],
 			]);
 	});
 });
