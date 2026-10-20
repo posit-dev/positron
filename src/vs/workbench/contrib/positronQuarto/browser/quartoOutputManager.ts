@@ -28,7 +28,8 @@ import { IPositronPreviewService } from '../../positronPreview/browser/positronP
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { QuartoCodeCell } from '../common/quartoTypes.js';
 import { parseCellId } from './quartoDocumentModel.js';
-import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
+import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
+import { IQuartoErroredCell } from '../../positronAssistant/common/errorAssistant.js';
 import { ICellAssociation, reconcileCellAssociations } from '../common/quartoCellReconciliation.js';
 import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY, affectsQuartoConfig, getQuartoConfigValue, isQuartoDocument, usingQuartoInlineOutputAutoScroll } from '../common/positronQuartoConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -38,7 +39,6 @@ import { ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, RuntimeOu
 import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IUntitledTextEditorService } from '../../../services/untitled/common/untitledTextEditorService.js';
 
 // Workspace storage key for collapsed inline outputs. Value is JSON:
@@ -310,7 +310,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IResourceUsageHistoryService private readonly _resourceUsageHistoryService: IResourceUsageHistoryService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@ILabelService private readonly _labelService: ILabelService,
 		@IUntitledTextEditorService private readonly _untitledTextEditorService: IUntitledTextEditorService,
 	) {
 		super();
@@ -1094,9 +1093,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	/**
-	 * Resolve the cell context (code, language, location) for quick-fix buttons.
+	 * Resolve the cell (code, language, location) for quick-fix buttons.
 	 */
-	private _resolveCellContext(cellId: string): QuartoCellErrorContext | undefined {
+	private _resolveErroredCell(cellId: string): IQuartoErroredCell | undefined {
 		if (!this._documentUri) {
 			return undefined;
 		}
@@ -1110,12 +1109,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			return undefined;
 		}
 		return {
-			code: quartoModel.getCellCode(cell),
-			language: cell.language,
+			uri: this._documentUri,
+			languageId: cell.language,
 			label: cell.label,
-			path: this._labelService.getUriLabel(this._documentUri, { relative: true }),
-			codeStartLine: cell.codeStartLine,
-			codeEndLine: cell.codeEndLine,
+			code: quartoModel.getCellCode(cell),
+			startLine: cell.codeStartLine,
+			endLine: cell.codeEndLine,
 		};
 	}
 
@@ -1145,8 +1144,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._viewZones.set(cellId, viewZone);
 		}
 
-		// Enable quick-fix buttons with cell context (code, language, location)
-		viewZone.enableQuickFix(this._resolveCellContext(cellId));
+		// Enable quick-fix buttons with the cell (code, language, location)
+		viewZone.enableQuickFix(this._resolveErroredCell(cellId));
 
 		// Add output to view zone
 		viewZone.addOutput(output);
