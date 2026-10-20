@@ -27,8 +27,7 @@ export interface McpLaunch {
 /**
  * The command line that starts the MCP bridge.
  *
- * @param launcherPath The launcher, a copy of the supervisor binary kept in the
- *  connections directory.
+ * @param launcherPath The launcher kept in the connections directory.
  * @returns The launch to write into an agent's configuration.
  */
 export function mcpLaunch(launcherPath: string): McpLaunch {
@@ -145,7 +144,7 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 				'config.toml',
 			],
 			format: 'toml',
-			serversKey: 'mcp',
+			serversKey: 'mcp_servers',
 			// Codex hands a server only an allowlist of its environment, so a
 			// Codex started from a Positron terminal has to be told to pass the
 			// endpoint on.

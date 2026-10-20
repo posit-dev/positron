@@ -11,16 +11,16 @@ import * as path from 'path';
 import { mcpConnectionsDirectory } from './mcpConnection';
 
 /**
- * The launcher's name. The supervisor binary runs only the stdio bridge when
- * started under this name, and finds the connections directory from where it
- * is kept.
+ * The launcher's name. On Windows the launcher is a copy of the supervisor
+ * binary, which runs only the stdio bridge when started under this name, and
+ * finds the connections directory from where it is kept.
  */
 const LAUNCHER_NAME = 'positron-mcp';
 
 /**
- * Where the launcher is kept: a copy of the supervisor binary in the
- * connections directory, which does not move when Positron is updated, so an
- * agent configured to start it never has to be reconfigured.
+ * Where the launcher is kept: the connections directory, which does not move
+ * when Positron is updated, so an agent configured to start it never has to be
+ * reconfigured.
  *
  * @param storageUri The extension's global storage directory.
  * @returns The path to the launcher.
@@ -40,11 +40,12 @@ export async function mcpLauncherInstalled(storageUri: vscode.Uri): Promise<bool
 }
 
 /**
- * Copy the supervisor binary to the launcher, unless the launcher is already a
- * copy of it.
+ * Put the launcher in place, or point it at the given supervisor binary.
  *
- * The copy is a clone where the filesystem supports one, and takes the
- * binary's modification time, which is how a later call tells it is current.
+ * On macOS and Linux the launcher is a shell script that runs the supervisor's
+ * stdio bridge. Agents on Windows cannot start a script without a shell, so
+ * there the launcher is a copy of the supervisor binary, which keeps its
+ * signature and the trust that comes with it.
  *
  * @param storageUri The extension's global storage directory.
  * @param supervisorPath The supervisor binary.
@@ -56,6 +57,50 @@ export async function installMcpLauncher(
 	log: (message: string) => void,
 ): Promise<void> {
 	const target = mcpLauncherPath(storageUri);
+	if (os.platform() === 'win32') {
+		await copyLauncher(target, supervisorPath, log);
+	} else {
+		await writeLauncherScript(target, supervisorPath, mcpConnectionsDirectory(storageUri), log);
+	}
+}
+
+/**
+ * Write the launcher script, unless it already runs this supervisor.
+ */
+async function writeLauncherScript(
+	target: string,
+	supervisorPath: string,
+	connectionsDirectory: string,
+	log: (message: string) => void,
+): Promise<void> {
+	const script = '#!/bin/sh\n' +
+		`exec ${shellQuote(supervisorPath)} mcp-stdio --connections ${shellQuote(connectionsDirectory)} "$@"\n`;
+	if (await fs.readFile(target, 'utf8').catch(() => undefined) === script) {
+		return;
+	}
+
+	log(`Writing ${target}, which coding agents start as Positron's MCP server, to run ${supervisorPath}`);
+	await fs.mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+	await writeAndReplace(target, temporary => fs.writeFile(temporary, script, { mode: 0o755 }));
+}
+
+/** Quote a string for a POSIX shell. */
+function shellQuote(value: string): string {
+	return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * Copy the supervisor binary to the launcher, unless the launcher is already a
+ * copy of it.
+ *
+ * The copy takes the binary's modification time, which is how a later call
+ * tells it is current.
+ */
+async function copyLauncher(
+	target: string,
+	supervisorPath: string,
+	log: (message: string) => void,
+): Promise<void> {
 	const source = await fs.stat(supervisorPath);
 	const current = await fs.stat(target).catch(() => undefined);
 	if (current && current.size === source.size &&
@@ -67,13 +112,20 @@ export async function installMcpLauncher(
 	const directory = path.dirname(target);
 	await fs.mkdir(directory, { recursive: true, mode: 0o700 });
 	await removeReplacedLaunchers(directory);
-
-	// Copied beside the launcher and renamed over it, so an agent starting it
-	// never finds half a binary.
-	const temporary = `${target}.${process.pid}.tmp`;
-	try {
+	await writeAndReplace(target, async temporary => {
 		await fs.copyFile(supervisorPath, temporary, constants.COPYFILE_FICLONE);
 		await fs.utimes(temporary, source.atime, source.mtime);
+	});
+}
+
+/**
+ * Write a file beside the launcher and rename it over the launcher, so an
+ * agent starting it never finds half a file.
+ */
+async function writeAndReplace(target: string, write: (temporary: string) => Promise<void>): Promise<void> {
+	const temporary = `${target}.${process.pid}.tmp`;
+	try {
+		await write(temporary);
 		await replaceFile(temporary, target);
 	} finally {
 		await fs.rm(temporary, { force: true });

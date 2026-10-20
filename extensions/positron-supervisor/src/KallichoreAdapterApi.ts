@@ -2007,8 +2007,8 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
-	 * What an agent runs to start Positron's MCP server: the launcher, a copy
-	 * of this supervisor binary that runs only its stdio bridge.
+	 * What an agent runs to start Positron's MCP server: the launcher, which runs
+	 * this supervisor binary's stdio bridge.
 	 */
 	private mcpLauncher(): McpLauncher {
 		return {

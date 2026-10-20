@@ -68,7 +68,7 @@ export interface McpLauncher {
 
 	/**
 	 * Put the launcher in place. Called only when an entry is about to be
-	 * written, since it copies the supervisor binary.
+	 * written, since on Windows it copies the supervisor binary.
 	 */
 	install(): Promise<void>;
 }

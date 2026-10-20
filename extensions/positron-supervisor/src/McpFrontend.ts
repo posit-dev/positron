@@ -350,8 +350,8 @@ export class McpFrontend implements vscode.Disposable {
 
 	/**
 	 * Put the launcher in place, or bring it up to date, and publish where it
-	 * is. Put off until an agent is to be configured with it, since it is a
-	 * copy of the supervisor binary.
+	 * is. Put off until an agent is to be configured with it, since on
+	 * Windows it is a copy of the supervisor binary.
 	 */
 	public async installLauncher(): Promise<void> {
 		await installMcpLauncher(this._storageUri, this._supervisorPath(), this._log);

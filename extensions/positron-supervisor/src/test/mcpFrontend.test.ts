@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -154,14 +155,11 @@ function createHarness(
 	const storageUri = shared.storageUri ?? vscode.Uri.file(
 		fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-frontend-')));
 	const registry = shared.registry ?? new FakeRegistry();
-	const supervisorPath = path.join(
-		fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-supervisor-')), 'kcserver');
-	fs.writeFileSync(supervisorPath, 'supervisor');
 	const harness: Harness = {
 		environment,
 		processEnv,
 		storageUri,
-		supervisorPath,
+		supervisorPath: fakeSupervisor(),
 		registry,
 		memento,
 		registrations: 0,
@@ -174,13 +172,42 @@ function createHarness(
 			() => loadMcpState(memento),
 			state => saveMcpState(memento, state),
 			() => [],
-			() => supervisorPath,
+			() => harness.supervisorPath,
 			() => enabled,
 			() => { harness.registrations++; },
 			() => { harness.deregistrations++; },
 			processEnv),
 	};
 	return harness;
+}
+
+/**
+ * A stand-in for the supervisor binary, which prints how it was started. Its
+ * path has a space and a quote in it, which the launcher must pass through.
+ */
+function fakeSupervisor(): string {
+	const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "mcp supervisor's-")), 'kcserver');
+	fs.writeFileSync(file, '#!/bin/sh\necho "$0" "$@"\n', { mode: 0o755 });
+	return file;
+}
+
+/**
+ * Start the launcher as an agent does, and return what the supervisor it ran
+ * printed. Windows cannot run the stand-in, so there the launcher, a copy of
+ * the supervisor, is checked against it instead.
+ */
+function runLauncher(harness: Harness): string {
+	const launcher = mcpLauncherPath(harness.storageUri);
+	if (process.platform === 'win32') {
+		assert.deepStrictEqual(fs.readFileSync(launcher), fs.readFileSync(harness.supervisorPath));
+		return expectedLaunch(harness);
+	}
+	return execFileSync(launcher, { encoding: 'utf8' }).trim();
+}
+
+/** What the stand-in supervisor prints when the launcher runs its bridge. */
+function expectedLaunch(harness: Harness): string {
+	return `${harness.supervisorPath} mcp-stdio --connections ${mcpConnectionsDirectory(harness.storageUri)}`;
 }
 
 /** The JSON the frontend has left in a file, if it wrote one. */
@@ -260,7 +287,7 @@ suite('McpFrontend', () => {
 			});
 	});
 
-	test('does not copy the launcher until an agent is configured with it', async () => {
+	test('does not install the launcher until an agent is configured with it', async () => {
 		const harness = createHarness();
 		await harness.frontend.attach(harness.registry);
 		const before = fs.existsSync(mcpLauncherPath(harness.storageUri));
@@ -270,13 +297,13 @@ suite('McpFrontend', () => {
 		assert.deepStrictEqual(
 			{
 				before,
-				launcher: fs.readFileSync(mcpLauncherPath(harness.storageUri), 'utf8'),
+				launcher: runLauncher(harness),
 				variables: Object.fromEntries(harness.environment.variables),
 				processEnv: harness.processEnv,
 			},
 			{
 				before: false,
-				launcher: 'supervisor',
+				launcher: expectedLaunch(harness),
 				variables: published(harness, true),
 				processEnv: published(harness, true),
 			});
@@ -288,12 +315,10 @@ suite('McpFrontend', () => {
 		await harness.frontend.installLauncher();
 
 		// Another version's supervisor takes over.
-		fs.writeFileSync(harness.supervisorPath, 'another supervisor');
+		harness.supervisorPath = fakeSupervisor();
 		await harness.frontend.attach(new FakeRegistry());
 
-		assert.strictEqual(
-			fs.readFileSync(mcpLauncherPath(harness.storageUri), 'utf8'),
-			'another supervisor');
+		assert.strictEqual(runLauncher(harness), expectedLaunch(harness));
 	});
 
 	test('writes a connection descriptor for the stdio bridge', async () => {
