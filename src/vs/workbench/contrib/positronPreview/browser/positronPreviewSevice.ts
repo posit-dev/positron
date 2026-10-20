@@ -25,6 +25,12 @@ export const POSITRON_PREVIEW_URL_VIEW_TYPE = 'positron.previewUrl';
  */
 export const POSITRON_PREVIEW_HTML_VIEW_TYPE = 'positron.previewHtml';
 
+/**
+ * The viewType that identifies output rendered by notebook renderers in the
+ * Viewer, such as widgets.
+ */
+export const POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE = 'notebookRenderer';
+
 export const IPositronPreviewService = createDecorator<IPositronPreviewService>(POSITRON_PREVIEW_SERVICE_ID);
 
 /**
