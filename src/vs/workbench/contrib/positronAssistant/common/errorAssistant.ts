@@ -112,8 +112,8 @@ export interface IErrorAssistantService {
 
 	/**
 	 * Ask an assistant to take an action on an error. Does nothing while
-	 * `ai.enabled` is off or when no assistant has the id. Logs and notifies
-	 * the user on failure; never rejects.
+	 * `ai.enabled` is off. Logs and notifies the user when no assistant has
+	 * the id or the assistant fails; never rejects.
 	 * @param assistantId The id of the assistant the user saw named.
 	 */
 	ask(assistantId: string, action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions): Promise<void>;

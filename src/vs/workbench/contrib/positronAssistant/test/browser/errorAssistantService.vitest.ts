@@ -19,9 +19,10 @@ describe('ErrorAssistantService', () => {
 	const logError = vi.fn();
 	const logWarn = vi.fn();
 	const notifyError = vi.fn();
+	const notifyWarn = vi.fn();
 	const ctx = createTestContainer()
 		.stub(ILogService, { error: logError, warn: logWarn })
-		.stub(INotificationService, { error: notifyError })
+		.stub(INotificationService, { error: notifyError, warn: notifyWarn })
 		.build();
 
 	let configurationService: TestConfigurationService;
@@ -142,13 +143,13 @@ describe('ErrorAssistantService', () => {
 		expect(ask).not.toHaveBeenCalled();
 	});
 
-	it('logs a warning when no assistant has the id', async () => {
+	it('logs and warns the user when no assistant has the id', async () => {
 		const service = createService();
 
 		await service.ask('removed', 'fix', context, {});
 
 		expect(logWarn).toHaveBeenCalledWith(`No error assistant with the id 'removed' is registered`);
-		expect(notifyError).not.toHaveBeenCalled();
+		expect(notifyWarn).toHaveBeenCalledWith('Could not send the error: the assistant is no longer available.');
 	});
 
 	it('logs and notifies, rather than throws, when the assistant fails', async () => {

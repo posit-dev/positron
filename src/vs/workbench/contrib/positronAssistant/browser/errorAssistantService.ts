@@ -67,7 +67,12 @@ export class ErrorAssistantService extends Disposable implements IErrorAssistant
 		}
 		const assistant = this._assistantsById.get(assistantId);
 		if (!assistant) {
+			// The assistant unregistered after the user saw it named, e.g. while
+			// a quick fix's dropdown was open. Its label is gone with it.
 			this._logService.warn(`No error assistant with the id '${assistantId}' is registered`);
+			this._notificationService.warn(
+				localize('positron.errorAssistant.unavailable', "Could not send the error: the assistant is no longer available.")
+			);
 			return;
 		}
 		try {
