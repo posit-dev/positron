@@ -72,6 +72,21 @@ describe('CustomFolderMenuItems', () => {
 		expect(within(rows[0]).getByRole('button', { name: 'Unpin project-c' })).toBeInTheDocument();
 	});
 
+	it('shows the pinned folders in addition to 10 recent folders', async () => {
+		const user = userEvent.setup();
+		renderMenu(...'abcdefghijklmno'.split('').map(recentFolder));
+
+		for (const name of ['a', 'b', 'c']) {
+			await user.click(screen.getByRole('button', { name: `Pin project-${name}` }));
+		}
+
+		expect(folderRows().map(row => row.textContent)).toEqual([
+			'project-a', 'project-b', 'project-c',
+			'project-d', 'project-e', 'project-f', 'project-g', 'project-h',
+			'project-i', 'project-j', 'project-k', 'project-l', 'project-m',
+		]);
+	});
+
 	it('keeps a pinned folder the next time the menu opens, even once it leaves the recent list', async () => {
 		const user = userEvent.setup();
 		const { unmount } = renderMenu(recentFolder('a'), recentFolder('b'), recentFolder('c'));
