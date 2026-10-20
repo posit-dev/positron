@@ -191,6 +191,10 @@ export class Application {
 	private async startApplication(extraArgs: string[] = []): Promise<Code> {
 		const code = this._code = await launch({
 			...this.options,
+			// --- Start Positron ---
+			// Launch in the folder passed to restart(), not always the original one.
+			workspacePath: this._workspacePathOrFolder,
+			// --- End Positron ---
 			extraArgs: [...(this.options.extraArgs || []), ...extraArgs],
 		});
 
