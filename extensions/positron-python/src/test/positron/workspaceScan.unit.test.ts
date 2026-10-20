@@ -127,15 +127,23 @@ suite('workspaceScan', () => {
 
     test('shares the latest scan of a folder until it is rescanned', async () => {
         const first = scanWorkspace(root);
+        assert.strictEqual(scanWorkspace(root), first);
+        // Let the first scan finish before changing the folder: its reads are async, so a
+        // file written while it runs may or may not be seen.
+        const before = (await first).hasPythonSignals;
         fs.writeFileSync(path.join(root, 'main.py'), '');
 
-        assert.strictEqual(scanWorkspace(root), first);
         assert.deepEqual(
-            [(await first).hasPythonSignals, (await scanWorkspace(root, true)).hasPythonSignals],
-            [false, true],
+            [
+                before,
+                // Still the shared scan from before the file was written.
+                (await scanWorkspace(root)).hasPythonSignals,
+                (await scanWorkspace(root, true)).hasPythonSignals,
+                // The rescan is now the latest.
+                (await scanWorkspace(root)).hasPythonSignals,
+            ],
+            [false, false, true, true],
         );
-        // The rescan is now the latest.
-        assert.isTrue((await scanWorkspace(root)).hasPythonSignals);
     });
 
     test('finds Python signals at the root and one level deep, not two', async () => {
