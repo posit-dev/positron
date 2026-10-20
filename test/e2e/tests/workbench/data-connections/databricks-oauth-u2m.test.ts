@@ -87,7 +87,9 @@ test.describe('Data Connections - Databricks OAuth U2M', {
  */
 async function signInWithSso(popup: Page, account: { email: string; password: string; otpSecret: string }, logger: { log(message: string): void }): Promise<void> {
 	const step = (name: string) => logger.log(`[u2m] ${name}: ${popup.url().split('?')[0]}`);
-	await popup.getByText('Continue with SSO').click({ timeout: 30_000 });
+	// The workspace login page can take well over 30s to load on a cold CI runner.
+	await popup.waitForLoadState('load', { timeout: 90_000 }).catch(() => { });
+	await popup.getByText('Continue with SSO').click({ timeout: 90_000 });
 	await popup.waitForURL(/okta\.com/, { timeout: 60_000 });
 	await popup.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => { });
 	step('okta');
