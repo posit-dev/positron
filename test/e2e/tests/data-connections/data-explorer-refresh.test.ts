@@ -14,12 +14,8 @@ test.use({
 const connectionName = 'refresh-sample';
 const databaseFileName = 'data-explorer-refresh.sqlite';
 
-// The sample table: 10 rows, score = (i * 7) % 100, so sorting by id descending puts the newest row
-// first and 'score > 30' keeps rows 5 and up.
-const columns = ['id', 'name', 'price', 'is_active', 'created_date', 'score', 'category', 'squared', 'root', 'note'];
-const columnsWithoutScore = columns.filter(column => column !== 'score');
-const idColumn = columns.indexOf('id');
-const nameColumn = columns.indexOf('name');
+// The sample table: 10 rows, score = (i * 7) % 100, so 'score > 30' keeps rows 5 and up.
+const sampleRowCount = 10;
 
 /**
  * Runs SQL statements against the sample database from the Python console. The console is the
@@ -45,7 +41,7 @@ async function runSql(app: Application, databaseFile: string, statements: string
 }
 
 function createSampleTable(): string[] {
-	const rows = Array.from({ length: 10 }, (_, index) => sampleRow(index + 1));
+	const rows = Array.from({ length: sampleRowCount }, (_, index) => sampleRow(index + 1));
 	return [
 		'DROP TABLE IF EXISTS sample',
 		'CREATE TABLE sample (id INTEGER PRIMARY KEY, name TEXT, price REAL, is_active BOOLEAN, created_date DATE, score INTEGER, category TEXT, squared INTEGER, root REAL, note TEXT)',
@@ -58,6 +54,9 @@ function sampleRow(i: number): string {
 	return `(${i}, 'name_${i}', ${i * 1.5}, ${i % 3 === 0 ? 1 : 0}, '2026-01-${day}', ${(i * 7) % 100}, '${String.fromCharCode(64 + i)}', ${i * i}, ${Math.sqrt(i)}, 'note ${i}')`;
 }
 
+// One smoke test for the wiring: the Refresh button shows for a connection table, the click reaches
+// the driver through the extension host, and the filter is re-applied to the rebuilt view. The
+// rebuild, sort and filter remapping, and failure paths have unit tests.
 test.describe('Data Explorer - Refresh from a Data Connection', {
 	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.DATA_EXPLORER, tags.WORKBENCH]
 }, () => {
@@ -84,79 +83,25 @@ test.describe('Data Explorer - Refresh from a Data Connection', {
 		await dataConnections.expandNode('Tables');
 	});
 
-	test.beforeEach(async function ({ app, python }) {
-		const { dataConnections, dataExplorer } = app.workbench;
-
-		// Each test starts from the same 10 rows, whatever the previous test did to the table.
-		await runSql(app, databaseFile, createSampleTable());
-		await dataConnections.doubleClickNode('sample');
-		await dataExplorer.waitForIdle();
-		await dataExplorer.expectStatusBarToHaveText(/10\s+rows\s+10\s+columns/);
-	});
-
-	test.afterEach(async function ({ app, hotKeys }) {
-		await app.workbench.toasts.closeAll();
-		await hotKeys.closeAllEditors();
-	});
-
 	test.afterAll(async function ({ cleanup }) {
 		await cleanup.removeTestFiles([`data-files/${databaseFileName}`]);
 	});
 
-	test('Shows rows added outside Positron and keeps the sort and filter', async function ({ app }) {
-		const { dataExplorer } = app.workbench;
+	test('Refresh shows a row added outside Positron, with the row filter still applied', async function ({ app, python }) {
+		const { dataConnections, dataExplorer } = app.workbench;
 
-		await test.step('Sort by id descending and keep only scores above 30', async () => {
-			const columnMenu = await dataExplorer.grid.openColumnContextMenu(idColumn);
-			await columnMenu.getByRole('button', { name: 'Sort Descending' }).click();
-			await dataExplorer.filters.add({ columnName: 'score', condition: 'is greater than', value: '30' });
-			await dataExplorer.waitForIdle();
-			await dataExplorer.expectStatusBarToHaveText(/Showing\s+6\s+rows.*10\s+total/);
-			await dataExplorer.grid.expectCellContentToBe({ rowIndex: 0, colIndex: nameColumn, value: 'name_10' });
-		});
-
-		await test.step('Add a row with the highest score outside Positron', async () => {
-			await runSql(app, databaseFile, [`INSERT INTO sample VALUES ${sampleRow(11)}`]);
-			// Nothing changes until the user refreshes.
-			await dataExplorer.expectStatusBarToHaveText(/Showing\s+6\s+rows.*10\s+total/);
-		});
-
-		await test.step('Refresh shows the new row at the top, still sorted and filtered', async () => {
-			await dataExplorer.editorActionBar.clickButton('Refresh');
-			await dataExplorer.waitForIdle();
-			await dataExplorer.expectStatusBarToHaveText(/Showing\s+7\s+rows.*11\s+total/);
-			await dataExplorer.grid.expectCellContentToBe({ rowIndex: 0, colIndex: nameColumn, value: 'name_11' });
-		});
-	});
-
-	test('Keeps a filter on a dropped column as invalid, and keeps the data when the table is gone', async function ({ app }) {
-		const { dataExplorer, toasts } = app.workbench;
+		await dataConnections.doubleClickNode('sample');
+		await dataExplorer.waitForIdle();
+		await dataExplorer.expectStatusBarToHaveText(/10\s+rows\s+10\s+columns/);
 
 		await dataExplorer.filters.add({ columnName: 'score', condition: 'is greater than', value: '30' });
 		await dataExplorer.waitForIdle();
 		await dataExplorer.expectStatusBarToHaveText(/Showing\s+6\s+rows.*10\s+total/);
 
-		await test.step('Drop the filtered column and refresh', async () => {
-			await runSql(app, databaseFile, ['ALTER TABLE sample DROP COLUMN score']);
-			await dataExplorer.editorActionBar.clickButton('Refresh');
-			await dataExplorer.waitForIdle();
+		await runSql(app, databaseFile, [`INSERT INTO sample VALUES ${sampleRow(sampleRowCount + 1)}`]);
 
-			// The filter stays in the bar, marked invalid, and no longer filters anything.
-			await dataExplorer.filters.expectInvalidFilterCount(1);
-			await dataExplorer.expectStatusBarToHaveText(/Showing\s+10\s+rows.*9\s+columns/);
-			await dataExplorer.grid.expectColumnHeadersToBe(columnsWithoutScore);
-		});
-
-		await test.step('Drop the table and refresh', async () => {
-			await runSql(app, databaseFile, ['DROP TABLE sample']);
-			await dataExplorer.editorActionBar.clickButton('Refresh');
-
-			await toasts.waitForAppear(/Unable to refresh the data/);
-			await dataExplorer.expectStatusBarToHaveText(/Showing\s+10\s+rows.*9\s+columns/);
-			// The header check above scrolled the grid to its last column; focus a visible cell and jump back.
-			await dataExplorer.grid.clickCellByIndex(0, columnsWithoutScore.indexOf('note'));
-			await dataExplorer.grid.jumpToStart();
-			await dataExplorer.grid.expectCellContentToBe({ rowIndex: 0, colIndex: nameColumn, value: 'name_1' });
-		});
+		await dataExplorer.editorActionBar.clickButton('Refresh');
+		await dataExplorer.waitForIdle();
+		await dataExplorer.expectStatusBarToHaveText(/Showing\s+7\s+rows.*11\s+total/);
 	});
 });

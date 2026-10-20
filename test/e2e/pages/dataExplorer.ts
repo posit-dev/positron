@@ -252,18 +252,6 @@ export class Filters {
 		});
 	}
 
-	// --- Verifications ---
-
-	/**
-	 * Expect the number of filters in the filter bar that the backend has marked invalid.
-	 * @param count expected number of invalid filters
-	 */
-	async expectInvalidFilterCount(count: number) {
-		await test.step(`Expect ${count} invalid filter(s)`, async () => {
-			await expect(this.code.driver.currentPage.locator('.invalid-row-filter-widget')).toHaveCount(count);
-		});
-	}
-
 	async clearAll() {
 		if (await this.clearSortingButton.isVisible() && await this.clearSortingButton.isEnabled()) {
 			await this.clearSortingButton.click();
