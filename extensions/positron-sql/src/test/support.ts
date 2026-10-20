@@ -79,6 +79,7 @@ export function payloadOf(...tables: string[]): SqlSchema {
 	return {
 		tables: tables.map(parseTable),
 		connections: [{ profileId: TEST_PROFILE, name: TEST_CONNECTION, driverId: TEST_DRIVER }],
+		configured: [{ profileId: TEST_PROFILE, name: TEST_CONNECTION, driverId: TEST_DRIVER }],
 		incompleteProfiles: [],
 	};
 }

@@ -73,7 +73,7 @@ export interface StatusBarState {
  */
 export function describeSelection(
 	selection: EffectiveSelection,
-	open: readonly ConnectionRef[],
+	configured: readonly ConnectionRef[],
 	dialect: DialectInUse,
 ): StatusBarState {
 	switch (selection.kind) {
@@ -100,14 +100,14 @@ export function describeSelection(
 			};
 
 		case 'none':
-			// Two ways to have nothing, and they are not the same job: open a connection, or say
-			// which of the open ones this file is written against.
-			return open.length === 0
+			// Two ways to have nothing, and they are not the same job: set up a connection, or say
+			// which of the ones set up this file is written against.
+			return configured.length === 0
 				? {
 					text: `$(alert) ${vscode.l10n.t("No Data Connection")}`,
 					tooltip: hover(
-						vscode.l10n.t("No data connection is open"),
-						vscode.l10n.t("Only SQL keywords are completed. Open one in the Connections pane."),
+						vscode.l10n.t("No data connection is set up"),
+						vscode.l10n.t("Only SQL keywords are completed. Add one in the Data Connections pane."),
 						dialect,
 					),
 					warning: true,
@@ -116,7 +116,7 @@ export function describeSelection(
 					text: `$(alert) ${vscode.l10n.t("Select Data Connection")}`,
 					tooltip: hover(
 						vscode.l10n.t("No data connection chosen"),
-						vscode.l10n.t("{0} data connections are open. Click to say which one this file is written against; until then only SQL keywords are completed.", open.length),
+						vscode.l10n.t("Click to say which data connection this file is written against; until then only SQL keywords are completed."),
 						dialect,
 					),
 					warning: true,
@@ -204,16 +204,17 @@ export class ConnectionStatusBar implements vscode.Disposable {
  *   nothing to pick.
  */
 export async function pickConnection(
+	configured: readonly ConnectionRef[],
 	open: readonly ConnectionRef[],
 	current: ConnectionRef | undefined,
 ): Promise<ConnectionRef | undefined> {
-	if (open.length === 0) {
+	if (configured.length === 0) {
 		// Nothing to choose between. Offering an empty list would leave the user to work out that
 		// the answer is somewhere else entirely. Worded for both callers: this is reached when
 		// scoping a file's completions and when running one of its statements.
-		const connect = vscode.l10n.t("Open the Connections Pane");
+		const connect = vscode.l10n.t("Open the Data Connections Pane");
 		void Promise.resolve(vscode.window.showInformationMessage(
-			vscode.l10n.t("No data connection is open. Open one in the Connections pane to use it with this file."),
+			vscode.l10n.t("No data connection is set up. Add one in the Data Connections pane to use it with this file."),
 			connect,
 		)).then(async answer => {
 			if (answer === connect) {
@@ -226,14 +227,21 @@ export async function pickConnection(
 		return undefined;
 	}
 
-	const items: ConnectionItem[] = open.map(connection => ({
-		label: connection.name,
-		description: connection.profileId === current?.profileId
-			? vscode.l10n.t("Current")
-			: undefined,
-		picked: connection.profileId === current?.profileId,
-		connection,
-	}));
+	// Closed connections are offered too, and marked: choosing one opens it. A connection the user
+	// has just added in the pane is closed, and is the one they are most likely looking for.
+	const items: ConnectionItem[] = configured.map(connection => {
+		const isCurrent = connection.profileId === current?.profileId;
+		const isOpen = open.some(candidate => candidate.profileId === connection.profileId);
+		return {
+			label: connection.name,
+			description: [
+				isCurrent ? vscode.l10n.t("Current") : undefined,
+				isOpen ? undefined : vscode.l10n.t("Not connected"),
+			].filter(Boolean).join(', ') || undefined,
+			picked: isCurrent,
+			connection,
+		};
+	});
 
 	const picked = await vscode.window.showQuickPick(items, {
 		title: vscode.l10n.t("Select Data Connection"),
