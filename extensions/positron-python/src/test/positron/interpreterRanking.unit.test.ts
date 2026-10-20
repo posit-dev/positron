@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as sinon from 'sinon';
 import * as TypeMoq from 'typemoq';
 import * as vscode from 'vscode';
+import * as platform from '../../client/common/utils/platform';
 import { Architecture } from '../../client/common/utils/platform';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import { IActivatedEnvironmentLaunch } from '../../client/interpreter/contracts';
@@ -58,6 +59,7 @@ function env(
 
 const emptyContext: RankingContext = {
     workspacePath: p('/proj'),
+    homeInsideWorkspace: false,
     activatedEnvPrefix: undefined,
     definitionPaths: [],
     definitionsOnly: false,
@@ -230,6 +232,22 @@ suite('interpreterRanking', () => {
         assert.strictEqual(Tier[tierOf(inWorkspace, context)!], 'WorkspaceEnv');
     });
 
+    test('with home opened as the folder, only envs one level down are WorkspaceEnv', () => {
+        const nestedVenv = env(p('/home/u/proj/.venv/bin/python'), EnvironmentType.Venv, '3.12.0');
+        const pyenvVersion = env(p('/home/u/.pyenv/versions/3.12.0/bin/python'), EnvironmentType.Pyenv, '3.12.0');
+        const home = { ...emptyContext, workspacePath: p('/home/u'), nestedEnvDirs: [p('/home/u/proj/.venv')] };
+
+        assert.deepEqual(
+            [
+                tierOf(nestedVenv, { ...home, homeInsideWorkspace: true }),
+                tierOf(pyenvVersion, { ...home, homeInsideWorkspace: true }),
+                // Without the flag, everything under the folder is the folder's own.
+                tierOf(pyenvVersion, { ...home, homeInsideWorkspace: false }),
+            ].map((tier) => Tier[tier!]),
+            ['WorkspaceEnv', 'GlobalEnv', 'WorkspaceEnv'],
+        );
+    });
+
     test('.python-version: a named pyenv virtualenv is a ProjectEnv, a named pyenv version is a PythonVersionFile', () => {
         const versions = p('/home/u/.pyenv/versions');
         const named = (name: string) => ({
@@ -292,6 +310,18 @@ suite('interpreterRanking', () => {
         launch.verify((a) => a.selectIfLaunchedViaActivatedEnv(TypeMoq.It.isAny()), TypeMoq.Times.never());
         // The fast path must not wait for module discovery (Performance rule 2).
         sinon.assert.notCalled(moduleWait);
+
+        // The folder contains home when it is home or an ancestor of it, not a folder inside home.
+        const home = sinon.stub(platform, 'getUserHomeDir');
+        const containsHome = async (homeDir: string) => {
+            home.returns(homeDir);
+            return (await buildRankingContext(serviceContainer.object, vscode.Uri.file(p('/proj'))))
+                .homeInsideWorkspace;
+        };
+        assert.deepEqual(
+            [await containsHome(p('/proj')), await containsHome(p('/proj/u')), await containsHome(p('/elsewhere'))],
+            [true, true, false],
+        );
     });
 
     test('withDiscoveredFacts waits for module discovery, then fills modulePaths', async () => {

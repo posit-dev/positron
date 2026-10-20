@@ -73,6 +73,7 @@ suite('interpreterRecommendation', () => {
     setup(() => {
         context = {
             workspacePath: p('/proj'),
+            homeInsideWorkspace: false,
             activatedEnvPrefix: undefined,
             definitionPaths: [],
             definitionsOnly: false,
@@ -347,6 +348,17 @@ suite('interpreterRecommendation', () => {
         createStub.withArgs(sinon.match({ path: condaBase.path })).rejects(new Error('boom'));
 
         assert.deepEqual(await recommend(), { path: pyenv.path, startupBehavior: B.Implicit });
+    });
+
+    test('with home opened as the folder, an env under home is not exempt from the ipykernel check', async () => {
+        // pyenv lives under home, so without the home rule it would be a WorkspaceEnv and skip the check.
+        context.workspacePath = p('/home/u');
+        context.homeInsideWorkspace = true;
+        context.hasPythonSignals = true;
+        discovered = [pyenv, homebrew];
+        noKernel.add(pyenv.path);
+
+        assert.deepEqual(await recommend(), { path: homebrew.path, startupBehavior: B.Explicit });
     });
 
     test('skips a system Python without a compatible ipykernel', async () => {

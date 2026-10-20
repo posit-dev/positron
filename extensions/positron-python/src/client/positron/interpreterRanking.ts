@@ -13,6 +13,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { getUserHomeDir } from '../common/utils/platform';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { IActivatedEnvironmentLaunch } from '../interpreter/contracts';
 import {
@@ -77,6 +78,12 @@ export enum Tier {
  */
 export interface RankingContext {
     workspacePath: string | undefined;
+    /**
+     * Whether the workspace folder is the home folder or one of its ancestors. Then every
+     * env under home (pyenv, conda, uv, per-user python.org installs) is inside the folder,
+     * so only the root project env and envs one level down count as the folder's own.
+     */
+    homeInsideWorkspace: boolean;
     activatedEnvPrefix: string | undefined;
     definitionPaths: string[];
     definitionsOnly: boolean;
@@ -138,6 +145,21 @@ function compareVersions(a: PythonEnvironment['version'], b: PythonEnvironment['
 /** Which env one level deep this interpreter belongs to (found order), or -1. */
 function nestedIndex(interpreter: PythonEnvironment, context: RankingContext): number {
     return context.nestedEnvDirs.findIndex((dir) => isUnder(interpreter.path, dir));
+}
+
+/**
+ * Whether an interpreter belongs to the workspace folder (`WorkspaceEnv`): any env inside
+ * the folder, or, when the folder contains the home folder, only an env one level down.
+ * The same test exempts an interpreter from the ipykernel check in the recommendation.
+ */
+export function isWorkspaceEnv(interpreter: PythonEnvironment, context: RankingContext): boolean {
+    if (!context.workspacePath) {
+        return false;
+    }
+    if (context.homeInsideWorkspace) {
+        return nestedIndex(interpreter, context) !== -1;
+    }
+    return getEnvLocationHeuristic(interpreter, context.workspacePath) === EnvLocationHeuristic.Local;
 }
 
 function configuredIndex(interpreter: PythonEnvironment, context: RankingContext): number {
@@ -217,10 +239,7 @@ export function tierOf(interpreter: PythonEnvironment, context: RankingContext):
     }
     // Envs one level deep are inside the folder too, so this covers them; `orderWithinTier`
     // puts them first.
-    if (
-        context.workspacePath &&
-        getEnvLocationHeuristic(interpreter, context.workspacePath) === EnvLocationHeuristic.Local
-    ) {
+    if (isWorkspaceEnv(interpreter, context)) {
         return Tier.WorkspaceEnv;
     }
     if (
@@ -393,8 +412,10 @@ export async function buildRankingContext(
         workspaceUri ? scanWorkspace(workspaceUri.fsPath) : undefined,
         serviceContainer.get<IActivatedEnvironmentLaunch>(IActivatedEnvironmentLaunch).getActivatedEnvPrefix(),
     ]);
+    const home = getUserHomeDir();
     return {
         workspacePath: workspaceUri?.fsPath,
+        homeInsideWorkspace: !!workspaceUri && !!home && isParentPath(home, workspaceUri.fsPath),
         activatedEnvPrefix,
         definitionPaths: getInterpreterDefinitionPaths(),
         definitionsOnly: isDefinitionsOnlyDiscovery(),

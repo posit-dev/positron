@@ -25,12 +25,13 @@ import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo, traceWarn } from '../logging';
 import { getInterpreterPathFromDir } from '../pythonEnvironments/common/commonUtils';
-import { isParentPath, pathExists } from '../pythonEnvironments/common/externalDependencies';
+import { pathExists } from '../pythonEnvironments/common/externalDependencies';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import {
     buildRankingContext,
     RankingContext,
     rankInterpreters,
+    isWorkspaceEnv,
     Tier,
     tierOf,
     withDiscoveredFacts,
@@ -71,9 +72,8 @@ async function skipReason(
     if (isProblematicCondaEnvironment(interpreter)) {
         return { skip: 'conda env without Python' };
     }
-    const inWorkspace =
-        tier === Tier.ProjectEnv || (!!context.workspacePath && isParentPath(interpreter.path, context.workspacePath));
-    if (inWorkspace) {
+    // The folder's own envs skip the check, so the user is prompted to install ipykernel there.
+    if (tier === Tier.ProjectEnv || isWorkspaceEnv(interpreter, context)) {
         return { skip: undefined, ipykernelBundle: undefined };
     }
     const { compatible, bundle } = await checkIpykernel(interpreter, serviceContainer, workspaceUri);
