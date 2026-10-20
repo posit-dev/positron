@@ -159,7 +159,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 		const store = new DisposableStore();
 		store.add(session.onDidCreateClientInstance(({ message, client }) => {
 			if (client.getClientType() === RuntimeClientType.Connection) {
-				this.setSessionConnectionCode(session.sessionId, (message.data as Partial<IConnectionMetadata>).code);
+				this.setSessionConnectionCode(session.sessionId, (message.data as Partial<IConnectionMetadata> | undefined)?.code);
 				client.dispose();
 			}
 		}));
