@@ -275,7 +275,7 @@ Open the PRs and do the work now. Merge them in this order, as each one's depend
 2. **Isabel's #15825 core PR.** Not opened yet. It doesn't depend on PR 1, and PR 1 doesn't depend on it.
 3. **Isabel's #15825 Python PR.** Merges after her core PR. It fixes 16376 for Python.
 4. **PR 2 (core rule).** Branch from `main`. Merges after PR 1 and Isabel's Python PR.
-5. **#2659 PR.** Merges after PR 1 and both of Isabel's PRs. Its R change needs `recommendationIsProjectDefault`, which comes from Isabel's core PR, so that part has to be built on her branch once it exists.
+5. **#2659 PR.** Stacked on PR 1's branch. Merges after PR 1 and both of Isabel's PRs. Its R change needs `recommendationIsProjectDefault`, which comes from Isabel's core PR, so that part has to be built on her branch once it exists.
 
 PR 2 waits for Isabel's Python PR:
 
