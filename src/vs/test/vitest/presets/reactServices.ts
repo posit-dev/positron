@@ -24,8 +24,9 @@ export function stubReactServices(svc: TestInstantiationService, disposables: Pi
 	// Read by useActiveErrorAssistant, which the console, notebook, and Quarto
 	// error quick fixes call. A real service with no assistants, so the quick
 	// fixes hide until a test registers one and turns on ai.enabled (see
-	// registerTestErrorAssistant). Created before the test's own stubs, so it
-	// reads the preset's IConfigurationService; a test that replaces that
-	// service must re-create this one too.
+	// registerTestErrorAssistant). Like the workbench preset's real services,
+	// it's created before the test's own stubs, so it keeps the preset's
+	// IConfigurationService, ILogService, and INotificationService. A test that
+	// stubs any of those must re-create this service too.
 	svc.stub(IErrorAssistantService, disposables.add(svc.createInstance(ErrorAssistantService)));
 }

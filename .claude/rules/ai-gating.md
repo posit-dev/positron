@@ -6,11 +6,11 @@
 
 `ai.enabled` is Positron-owned, defaults to `true`, and is `WINDOW`-scoped. It's declared in [positronAIConfiguration.ts](../../src/vs/workbench/contrib/positronAssistant/common/positronAIConfiguration.ts), which exports the key as `AI_ENABLED_KEY`. Import that constant; don't hard-code the `'ai.enabled'` string.
 
-There's no shared helper that wraps the gate, so the key string is the contract. `ai.enabled` sits above each feature's own preconditions, so check it in addition to whatever feature-specific gates already exist (a feature setting, "has chat models", notebook mode, etc.) rather than replacing them. The feature shows only when `ai.enabled` and all its own conditions are true.
+The key string is the contract. `ai.enabled` sits above each feature's own preconditions, so check it in addition to whatever feature-specific gates already exist (a feature setting, "has chat models", notebook mode, etc.) rather than replacing them. The feature shows only when `ai.enabled` and all its own conditions are true.
 
 ## How to read it
 
-Pick the form that matches where the code runs. All three are in use today; copy the closest one.
+Pick the form that matches where the code runs.
 
 **Action `when` clause / precondition** (registering an action or menu item):
 
@@ -35,8 +35,6 @@ See [ghostCell/controller.ts](../../src/vs/workbench/contrib/positronNotebook/br
 ```ts
 const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
 ```
-
-See [NotebookCellQuickFix.tsx](../../src/vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellQuickFix.tsx) and [activityErrorMessage.tsx](../../src/vs/workbench/contrib/positronConsole/browser/components/activityErrorMessage.tsx).
 
 ## Things to get right
 

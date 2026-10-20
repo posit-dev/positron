@@ -30,7 +30,8 @@ describe('PositAssistantErrorAssistantContribution', () => {
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
 		.stub(ICommandService, { executeCommand })
-		.stub(ILabelService, { getUriLabel: (uri: URI) => uri.path.slice(1) })
+		// Relative to a workspace at the root, so a dropped `relative` option shows.
+		.stub(ILabelService, { getUriLabel: (uri: URI, options?: { relative?: boolean }) => options?.relative ? uri.path.slice(1) : uri.path })
 		.build();
 
 	const positAssistant = { identifier: new ExtensionIdentifier('posit.assistant') } as IExtensionDescription;
@@ -67,7 +68,11 @@ describe('PositAssistantErrorAssistantContribution', () => {
 		expect(errorAssistantService.activeAssistant).toBeUndefined();
 
 		hasChatModels.set(true);
-		expect(errorAssistantService.activeAssistant).toBeDefined();
+		expect(errorAssistantService.activeAssistant).toEqual(expect.objectContaining({
+			id: 'posit-assistant',
+			label: 'Posit Assistant',
+			supportsChatContinuation: true,
+		}));
 
 		hasChatModels.set(false);
 		expect(errorAssistantService.activeAssistant).toBeUndefined();
@@ -93,11 +98,11 @@ describe('PositAssistantErrorAssistantContribution', () => {
 		createContribution();
 		const chunk = { uri: URI.file('/report.qmd'), languageId: 'python', code: 'x', startLine: 1, endLine: 1 };
 
-		await errorAssistantService.ask('posit-assistant', 'fix', { error: 'boom', location: { kind: 'quarto', chunk } }, {});
+		await errorAssistantService.ask('posit-assistant', 'fix', { error: 'boom', location: { kind: 'quarto', chunk } }, { continueChat: true });
 
 		expect(executeCommand).toHaveBeenCalledWith(POSIT_NEW_CHAT_COMMAND, expect.objectContaining({
 			prompt: 'Fix the error from the python code chunk at lines 1-1 of report.qmd. The failing code and its error output are attached; fix only this error.',
-			target: 'new',
+			target: 'auto',
 		}));
 	});
 });

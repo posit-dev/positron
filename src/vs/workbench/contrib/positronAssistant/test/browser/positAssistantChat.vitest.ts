@@ -12,9 +12,8 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
 /**
- * All three assistant entry points (notebook panel, notebook cell quick-fix, console
- * quick-fix) route through this helper to the standalone Posit Assistant via
- * posit-assistant.newChat (issue #14541). Pin the command id and payload so a regression
+ * The notebook panel's Ask Assistant action routes through this helper to the
+ * standalone Posit Assistant via posit-assistant.newChat (issue #14541). Pin the command id and payload so a regression
  * to the inert built-in chat, or a dropped payload field, fails loudly.
  */
 describe('openPositAssistantChat', () => {

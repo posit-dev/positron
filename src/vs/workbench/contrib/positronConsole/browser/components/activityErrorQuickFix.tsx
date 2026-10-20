@@ -58,13 +58,13 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	// Render.
 	return (
 		<div className='quick-fix'>
-			<Button className='assistant-action' onPressed={pressedFixHandler}>
+			<Button ariaLabel={fixTooltip} className='assistant-action' onPressed={pressedFixHandler}>
 				<div className='link-text' title={fixTooltip}>
 					<span className='codicon codicon-sparkle' />
 					{localize('positronConsoleAssistantFix', "Fix")}
 				</div>
 			</Button>
-			<Button className='assistant-action' onPressed={pressedExplainHandler}>
+			<Button ariaLabel={explainTooltip} className='assistant-action' onPressed={pressedExplainHandler}>
 				<div className='link-text' title={explainTooltip}>
 					<span className='codicon codicon-sparkle' />
 					{localize('positronConsoleAssistantExplain', "Explain")}

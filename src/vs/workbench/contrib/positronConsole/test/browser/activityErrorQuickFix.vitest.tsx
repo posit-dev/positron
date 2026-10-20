@@ -44,8 +44,8 @@ describe('ConsoleQuickFix', () => {
 		registerAssistant();
 		const user = userEvent.setup();
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
-		await user.click(screen.getByText('Fix'));
-		await user.click(screen.getByText('Explain'));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to explain' }));
 
 		const context = {
 			error: 'NameError: name "x" is not defined\n  File "<stdin>", line 1',

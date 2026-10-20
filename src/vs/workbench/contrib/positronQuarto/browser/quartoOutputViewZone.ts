@@ -2684,8 +2684,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		container.appendChild(pre);
 
 		// Mount Fix/Explain quick-fix buttons for current-session errors.
-		// QuartoOutputQuickFix self-gates on ai.enabled and the active error
-		// action handler, and renders nothing when either is unavailable.
+		// QuartoOutputQuickFix renders nothing while there is no active error
+		// assistant to send the error to.
 		if (this._quickFixEnabled) {
 			const quickFixContainer = document.createElement('div');
 			quickFixContainer.setAttribute('aria-live', 'off');
