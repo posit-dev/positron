@@ -116,6 +116,11 @@ export type EngineStreamChunk =
 	| { readonly type: 'done' }
 	| { readonly type: 'error'; readonly message: string };
 
+/** Which copy of the provider module serves the process. */
+export type IProviderModuleSource =
+	| { readonly kind: 'assistant'; readonly folder: string }
+	| { readonly kind: 'compiled-in'; readonly reason: string };
+
 /** The IPC channel name under which the engine is registered. */
 export const HEADLESS_LM_ENGINE_CHANNEL = 'positronHeadlessLanguageModelEngine';
 
