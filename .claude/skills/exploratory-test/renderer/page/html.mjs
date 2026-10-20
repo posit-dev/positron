@@ -250,15 +250,39 @@ const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" ari
  * instead; the last row's tooltip opens upward, away from the panel's edge.
  */
 function changeMark(report, f, base, last) {
-	if (base?.usable !== true || !report.verification?.change?.has(f.n) || statusWord(f) !== 'confirmed') {
+	const words = changeWords(report, f, base);
+	if (!words) {
 		return '';
 	}
-	const title = `Likely related to this ${report.pr ? 'PR' : 'branch'}`;
-	const text = `Based on code changes. Not verified against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`;
 	return `<span class="chg${last ? ' chg-up' : ''}"><span aria-hidden="true">&Delta;</span>`
-		+ `<span class="chg-sr">${title}. ${text}</span>`
-		+ `<span class="chg-tip" aria-hidden="true"><b>${title}</b><span>${text}</span></span></span>`;
+		+ `<span class="chg-sr">${words.title}. ${words.text}</span>`
+		+ changeTip(words) + '</span>';
 }
+
+/**
+ * The same mark after a card's title. The title is not a link, so the mark
+ * takes focus itself and its label carries the text.
+ */
+function cardChangeMark(report, f, base) {
+	const words = changeWords(report, f, base);
+	if (!words) {
+		return '';
+	}
+	return `<span class="chg chg-card" tabindex="0" role="img" aria-label="${words.title}. ${words.text}"><span aria-hidden="true">&Delta;</span>`
+		+ changeTip(words) + '</span>';
+}
+
+function changeWords(report, f, base) {
+	if (base?.usable !== true || !report.verification?.change?.has(f.n) || statusWord(f) !== 'confirmed') {
+		return null;
+	}
+	return {
+		title: `Likely related to this ${report.pr ? 'PR' : 'branch'}`,
+		text: `Based on code changes. Not verified against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`,
+	};
+}
+
+const changeTip = ({ title, text }) => `<span class="chg-tip" aria-hidden="true"><b>${title}</b><span>${text}</span></span>`;
 
 function renderFindingsList(report, ki = null, changeBase = null) {
 	const rows = report.findings.map((f, i) => {
@@ -357,7 +381,7 @@ function withCodeCopy(html) {
 }
 
 /**
- * Inline code becomes click-to-copy: Reproduce and Coverage steps are full of
+ * Inline code becomes click-to-copy: Steps to Reproduce and Coverage steps are full of
  * short commands people run one at a time. Code blocks are left alone, since they have a Copy button,
  * and so is a file chip, which linkFiles has already made a link.
  */
@@ -664,7 +688,7 @@ function renderFindingCard(f, report, options) {
 		+ '</div>';
 
 	const head = `<header>${meta}`
-		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
+		+ `<h2 class="card-title">${escapeHtml(f.title)}${cardChangeMark(report, f, options.changeBase)}</h2>`
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);
@@ -677,7 +701,7 @@ function renderFindingCard(f, report, options) {
 	// saw, marked by severity, beside what should have happened.
 	const half = (cls, label, html) => (html ? `<div class="${cls}"><div class="f-lab">${label}</div><p class="f-txt">${html}</p></div>` : '');
 	const comparison = f.observedHtml || f.expectedHtml
-		? `<div class="f-cmp ${f.severity}">${half('f-cmp-o', f.corrected?.includes('observed') ? 'Observed &middot; revised in review' : 'Observed', f.observedHtml)}${half('f-cmp-e', 'Expected', f.expectedHtml)}</div>`
+		? `<div class="f-cmp ${f.severity}">${half('f-cmp-o', 'Observed', f.observedHtml)}${half('f-cmp-e', 'Expected', f.expectedHtml)}</div>`
 		: '';
 
 	// Text only: each step's screenshots open from its icon.
@@ -686,7 +710,7 @@ function renderFindingCard(f, report, options) {
 	// command in view; Coverage keeps the short names.
 	const preconditions = f.preconditions.length
 		? '<ul class="f-pl" aria-label="Preconditions">'
-		+ f.preconditions.map((p, k) => `<li><span class="f-pl-p" aria-hidden="true">P</span>${withCodeCopy(p || f.preconditionNames?.[k] || '')}</li>`).join('')
+		+ f.preconditions.map((p, k) => `<li><span class="f-pl-p tip" aria-hidden="true" data-tip="Precondition">P</span>${withCodeCopy(p || f.preconditionNames?.[k] || '')}</li>`).join('')
 		+ '</ul>'
 		: '';
 	// The card's Observed says what went wrong, so a step repeats it only when
@@ -699,7 +723,7 @@ function renderFindingCard(f, report, options) {
 		: '';
 	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.
 	const repro = (preconditions || steps)
-		? copyableCode(linkFiles(`<div class="f-sec repro"><div class="f-lab">Reproduce</div>${preconditions}${steps}</div>`, files))
+		? copyableCode(linkFiles(`<div class="f-sec repro"><div class="f-lab">Steps to Reproduce</div>${preconditions}${steps}</div>`, files))
 		: '';
 
 	const details = renderCardDetails(f, report, options);

@@ -1,0 +1,48 @@
+# npm projects that Positron owns, audited weekly by
+# .github/workflows/dependency-audit-weekly.yml (scripts/dependency-audit.sh).
+#
+# One directory per line, relative to the repo root. Each directory must
+# contain a package-lock.json. Upstream VS Code projects are intentionally not
+# listed: we take their dependency bumps through upstream merges.
+#
+# When you add a new Positron extension with its own package-lock.json, add it
+# here too.
+
+extensions/authentication
+extensions/next-edit-suggestions
+extensions/open-remote-ssh
+extensions/open-remote-wsl
+extensions/positron-code-cells
+extensions/positron-connections
+extensions/positron-data-driver-databricks
+extensions/positron-data-driver-duckdb
+extensions/positron-data-driver-odbc
+extensions/positron-data-driver-pins
+extensions/positron-data-driver-postgresql
+extensions/positron-data-driver-redshift
+extensions/positron-data-driver-snowflake
+extensions/positron-data-driver-sqlite
+extensions/positron-data-explorer-duckdb
+extensions/positron-data-explorer-formatting
+extensions/positron-data-explorer-protocol
+extensions/positron-dev-containers
+extensions/positron-duckdb
+extensions/positron-environment
+extensions/positron-environment-modules
+extensions/positron-file-transfer
+extensions/positron-ipywidgets
+extensions/positron-ipywidgets/renderer
+extensions/positron-javascript
+extensions/positron-notebook-export
+extensions/positron-notebooks
+extensions/positron-pdf-server
+extensions/positron-proxy
+extensions/positron-python
+extensions/positron-python/pythonExtensionApi
+extensions/positron-r
+extensions/positron-reticulate
+extensions/positron-run-app
+extensions/positron-runtime-debugger
+extensions/positron-supervisor
+extensions/positron-viewer
+extensions/positron-zed

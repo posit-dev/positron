@@ -10,16 +10,12 @@ import { Event } from '../../../../../base/common/event.js';
 import { BareFontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { EditorOption } from '../../../../../editor/common/config/editorOptions.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputViewZone } from '../../browser/quartoOutputViewZone.js';
+import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 
 // The inline-output webview is a fixed-position overlay anchored to a
 // placeholder inside the editor view zone. It must be shown only while its view
@@ -195,7 +191,6 @@ describe('QuartoOutputViewZone collapse across a re-execution', () => {
 describe('QuartoOutputViewZone error quick-fix height', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
 		.build();
 
 	// jsdom performs no layout, so offsetHeight is always 0. Inject a measurer
@@ -253,9 +248,8 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 	}
 
 	it('grows to fit the async quick-fix buttons on the first run and again on a re-run', async () => {
-		// Gate the assistant on so the Fix/Explain buttons actually render.
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('ai.enabled', true);
-		(ctx.get(IContextKeyService) as MockContextKeyService).createKey('posit-assistant.hasChatModels', true);
+		// Register an assistant so the Fix/Explain buttons actually render.
+		registerTestErrorAssistant(ctx);
 		// The view zone renders the buttons through a PositronReactRenderer,
 		// which reads the services singleton; bridge the test container in.
 		PositronReactServices.services = ctx.reactServices;

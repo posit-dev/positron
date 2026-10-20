@@ -8,7 +8,9 @@
 import type * as vscode from 'vscode';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { ExtHostCommands } from '../../../common/extHostCommands.js';
+import { ExtHostDialogs } from '../../../common/extHostDialogs.js';
 import { ExtHostDocuments } from '../../../common/extHostDocuments.js';
 import { ExtHostEditors } from '../../../common/extHostTextEditors.js';
 import { ExtHostQuickOpen } from '../../../common/extHostQuickOpen.js';
@@ -57,6 +59,7 @@ function createMethods(options: {
 	/** The session whose console input was the most recently focused text editor, if any. */
 	consoleInputFocusedLastSessionId?: string;
 	runtime?: ExtHostLanguageRuntime;
+	fileDialogs?: ExtHostDialogs;
 }) {
 	const editors = new class extends mock<ExtHostEditors>() {
 		override getActiveTextEditor(): vscode.TextEditor | undefined {
@@ -83,6 +86,7 @@ function createMethods(options: {
 		new (mock<ExtHostCommands>())(),
 		new (mock<ExtHostContextKeyService>())(),
 		consoleService,
+		options.fileDialogs ?? new (mock<ExtHostDialogs>())(),
 	);
 }
 
@@ -272,6 +276,54 @@ describe('ExtHostMethods', function () {
 				{ language_id: 'r', code: '1 + 1', focus: false, allow_incomplete: false }, 'r-notebook-1');
 
 			expect(queueCode.mock.calls).toEqual([['r', '1 + 1', 'positron.positron-supervisor', false, false, 'r-notebook-1']]);
+		});
+	});
+
+	describe('call: select_file', function () {
+		const uri = URI.file('/data/file.csv');
+		const defaultUri = URI.file('/data');
+
+		it('shows an open dialog for an existing file', async function () {
+			const showOpenDialog = vi.fn<ExtHostDialogs['showOpenDialog']>(async () => [uri]);
+			const methods = createMethods({ fileDialogs: stubInterface<ExtHostDialogs>({ showOpenDialog }) });
+
+			const response = await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: true, default_dir: '/data' });
+
+			expect(response).toEqual({ result: uri.fsPath });
+			expect(showOpenDialog.mock.calls).toEqual([[{ title: 'Select File', defaultUri, canSelectFiles: true, canSelectFolders: false, canSelectMany: false }]]);
+		});
+
+		it('shows a save dialog for a new file', async function () {
+			const showSaveDialog = vi.fn<ExtHostDialogs['showSaveDialog']>(async () => uri);
+			const methods = createMethods({ fileDialogs: stubInterface<ExtHostDialogs>({ showSaveDialog }) });
+
+			const response = await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: false, default_dir: '/data' });
+
+			expect(response).toEqual({ result: uri.fsPath });
+			expect(showSaveDialog.mock.calls).toEqual([[{ title: 'Select File', defaultUri }]]);
+		});
+
+		it('starts in the calling session\'s working directory when no directory is given', async function () {
+			const showOpenDialog = vi.fn<ExtHostDialogs['showOpenDialog']>(async () => [uri]);
+			const getSessionWorkingDirectory = vi.fn<ExtHostLanguageRuntime['getSessionWorkingDirectory']>(async () => '/data');
+			const methods = createMethods({
+				fileDialogs: stubInterface<ExtHostDialogs>({ showOpenDialog }),
+				runtime: stubInterface<ExtHostLanguageRuntime>({ getSessionWorkingDirectory }),
+			});
+
+			await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: true }, 'r-1');
+
+			expect(getSessionWorkingDirectory.mock.calls).toEqual([['r-1']]);
+			expect(showOpenDialog.mock.calls).toEqual([[{ title: 'Select File', defaultUri, canSelectFiles: true, canSelectFolders: false, canSelectMany: false }]]);
+		});
+
+		it('returns null when the user cancels', async function () {
+			const showOpenDialog = vi.fn<ExtHostDialogs['showOpenDialog']>(async () => undefined);
+			const methods = createMethods({ fileDialogs: stubInterface<ExtHostDialogs>({ showOpenDialog }) });
+
+			const response = await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: true, default_dir: '/data' });
+
+			expect(response).toEqual({ result: null });
 		});
 	});
 });

@@ -1077,7 +1077,7 @@ const SCENES = {
 	},
 	'a finding the verifier matched to an issue says Dupe? on its card and prompt only': () => [card(fullHtml(KNOWN), 1), findingRow(fullHtml(KNOWN), 1), promptText(fullHtml(KNOWN), 1)].join('\n--\n'),
 	'a finding matched to a not-planned issue says Intended?': () => [card(fullHtml(fullWith(2, { intended: [14210] })), 2), promptText(fullHtml(fullWith(2, { intended: [14210] })), 2)].join('\n--\n'),
-	'a cause and observed the verifier revised say so on the card, prompt and issue': () => {
+	'a cause the verifier revised says so on the card, prompt and issue, and a revised observed does not': () => {
 		const html = render(rep({ findings: [fnd(1, { verified: 'confirmed', observed: 'The tab shows `Pytho...`.', cause: 'A width gate skips the dot.', corrected: ['cause', 'observed'], explorer: { cause: 'The CSS squeezes the dot.', observed: 'The tab shows its full name.' } })] }));
 		return [card(html, 1), promptText(html, 1), issueCopied(html, 1)].join('\n--\n');
 	},
@@ -1138,12 +1138,17 @@ const SCENES = {
 		const json = { ...fullWith(1, { expected: 'it should have stopped, as #2330 says, since #8126.' }), verification: { failed: false, text: 'A second agent.\n\nSearches returned only #3698 (open).' } };
 		return [between(card(fullHtml(json, { issueRefs: ISSUE_REFS }), 1), '<div class="f-cmp', '</div></div>'), between(fullHtml(json, { issueRefs: ISSUE_REFS }), 'Searches returned', '</p>'), between(card(fullHtml(json), 1), '<div class="f-cmp', '</div></div>')].join('\n--\n');
 	},
-	'the change mark: a confirmed related finding on a run with a usable base, in the table only, opening upward on the last row': () => findingsOf(fullHtml(CHANGED, { changeBase: USABLE })),
+	'the change mark: a confirmed related finding on a run with a usable base, opening upward on the last row': () => findingsOf(fullHtml(CHANGED, { changeBase: USABLE })),
 	'no change mark on a disputed finding, without a usable base, or with no base recorded': () => [
 		findingRow(fullHtml({ ...CHANGED, findings: [CHANGED.findings[0], { ...CHANGED.findings[1], verified: 'disputed' }] }, { changeBase: USABLE }), 2),
 		findingRow(fullHtml(CHANGED, { changeBase: { usable: false, name: 'main' } }), 1),
 		findingRow(fullHtml(CHANGED), 1),
 	].join('\n--\n'),
+	'a card with the change mark shows it after its title, focusable with the tooltip text as its label; other cards do not': () => {
+		const title = (html, n) => between(card(html, n), '<h2 class="card-title">', '</h2>');
+		const html = fullHtml({ ...CHANGED, findings: [CHANGED.findings[0], { ...CHANGED.findings[1], verified: 'disputed' }] }, { changeBase: USABLE });
+		return [title(html, 1), title(html, 2), title(fullHtml(CHANGED), 1)].join('\n--\n');
+	},
 	'a PR run\'s change mark says PR, and a base with no name says the base branch': () => findingRow(fullHtml({ ...CHANGED, header: { ...CHANGED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: { usable: true, name: null } }), 1),
 
 	// Coverage.

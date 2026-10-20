@@ -1204,5 +1204,9 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 		// The default implementation can't reach frames by ID
 		return Promise.resolve(undefined);
 	}
+	public getHostFrameId(): Promise<WebviewFrameId | undefined> {
+		// The default implementation can't reach frames by ID
+		return Promise.resolve(undefined);
+	}
 	// --- End Positron ---
 }

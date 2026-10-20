@@ -17,7 +17,7 @@ import { Rectangle, webFrameMain, Menu, MenuItem } from 'electron';
 // eslint-disable-next-line no-duplicate-imports
 import { DisposableMap, IDisposable } from '../../../base/common/lifecycle.js';
 // eslint-disable-next-line no-duplicate-imports
-import { WebviewMenuShortcutsTarget, WebviewFrameId, FrameNavigationEvent } from '../common/webviewManagerService.js';
+import { WebviewMenuShortcutsTarget, WebviewFrameId, FrameNavigationEvent, WEBVIEW_FRAME_NOT_FOUND_MESSAGE } from '../common/webviewManagerService.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
 import { Schemas } from '../../../base/common/network.js';
 import { DeferredPromise } from '../../../base/common/async.js';
@@ -276,7 +276,7 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	public async executeJavaScript(frameId: WebviewFrameId, script: string): Promise<any> {
 		const frame = this.findFrame(frameId);
 		if (!frame) {
-			throw new Error(`No frame found with frameId: ${JSON.stringify(frameId)}`);
+			throw new Error(`${WEBVIEW_FRAME_NOT_FOUND_MESSAGE} with frameId: ${JSON.stringify(frameId)}`);
 		}
 		return frame.executeJavaScript(script);
 	}
@@ -289,6 +289,28 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	 */
 	public async getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined> {
 		return this.findFrame(frameId)?.url;
+	}
+
+	/**
+	 * Gets the ID of a webview's host frame, the one running the webview's own
+	 * index.html. The webview's content is written into a frame inside it.
+	 * Unlike `getFrameByName`, it searches every window (a Viewer can be in an
+	 * auxiliary one), returns undefined rather than throwing, and skips frames
+	 * inside a webview that take the same name.
+	 *
+	 * @param webviewId The webview's ID, which names its frame.
+	 * @returns The frame's ID, or undefined if the webview has no frame.
+	 */
+	public async getWebviewHostFrameId(webviewId: string): Promise<WebviewFrameId | undefined> {
+		const webviewPrefix = `${Schemas.vscodeWebview}://`;
+		for (const contents of webContents.getAllWebContents()) {
+			const frame = contents.mainFrame.framesInSubtree.find(f =>
+				f.name === webviewId && f.url.startsWith(webviewPrefix) && !f.parent?.url.startsWith(webviewPrefix));
+			if (frame) {
+				return { processId: frame.processId, routingId: frame.routingId, frameTreeNodeId: frame.frameTreeNodeId };
+			}
+		}
+		return undefined;
 	}
 
 	/**

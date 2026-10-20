@@ -9,12 +9,14 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 /**
  * What's showing in the Viewer.
  * - `url`: a web page or app loaded from a URL (Shiny, Streamlit, Dash, ...).
- * - `html`: an HTML file or string (htmlwidgets, local HTML files).
- * - `other`: something agents can't read yet, such as notebook renderer output,
- *   or on Desktop, an HTML string (Quarto output opened in the Viewer).
+ * - `html`: an HTML file or string (htmlwidgets, local HTML files, Quarto
+ *   output opened in the Viewer).
+ * - `output`: output drawn by a notebook renderer, from a console session or a
+ *   Quarto chunk (Plotly charts, HTML with scripts). It has no address.
+ * - `other`: something agents can't read, such as a preview an extension made.
  * - `none`: the Viewer is empty.
  */
-export type ViewerContentKind = 'url' | 'html' | 'other' | 'none';
+export type ViewerContentKind = 'url' | 'html' | 'output' | 'other' | 'none';
 
 /**
  * Describes what's showing in the Viewer.

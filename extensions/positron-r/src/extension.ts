@@ -13,7 +13,6 @@ import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { RRuntimeManager } from './runtime-manager';
 import { RSessionManager } from './session-manager';
 import { registerUriHandler } from './uri-handler';
-import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
 import { PositronSupervisorApi } from './positron-supervisor';
 import { registerRFilePasteAndDropProvider } from './languageFeatures/rFilePasteAndDropProvider.js';
@@ -46,9 +45,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register commands.
 	registerCommands(context, runtimeManager);
-
-	// Register LLM tools.
-	registerRLanguageModelTools(context);
 
 	// Provide tasks.
 	providePackageTasks(context);
