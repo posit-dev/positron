@@ -16,7 +16,7 @@ export type ErrorAssistantAction = 'fix' | 'explain';
 
 /** What every error an action is taken on has, wherever it was raised. */
 interface IErrorContextBase {
-	/** The error output, as plain text with no ANSI escape codes. */
+	/** The error output. The service strips ANSI escape codes before an assistant sees it. */
 	readonly error: string;
 }
 
@@ -60,8 +60,8 @@ export type IErrorAssistantContext = IConsoleErrorContext | INotebookErrorContex
 export interface IErrorAssistantOptions {
 	/**
 	 * Send the error to the user's active chat, or to a new chat if none is
-	 * open, instead of always starting a new chat. Only when the assistant
-	 * {@link IErrorAssistantInfo.supportsChatContinuation supports it}.
+	 * open, instead of always starting a new chat. The service ignores it
+	 * unless the assistant {@link IErrorAssistantInfo.supportsChatContinuation supports it}.
 	 */
 	readonly continueChat?: boolean;
 }

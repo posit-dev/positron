@@ -8,7 +8,6 @@ import { useCallback, useLayoutEffect } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { IErrorAssistantContext, IQuartoErroredCell } from '../../positronAssistant/common/errorAssistant.js';
 import { useActiveErrorAssistant } from '../../positronAssistant/browser/useActiveErrorAssistant.js';
 import { AssistantErrorQuickFix } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
@@ -48,7 +47,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 
 	const getErrorContext = useCallback((): IErrorAssistantContext => ({
 		kind: 'quarto',
-		error: removeAnsiEscapeCodes(errorContent),
+		error: errorContent,
 		cell,
 	}), [cell, errorContent]);
 

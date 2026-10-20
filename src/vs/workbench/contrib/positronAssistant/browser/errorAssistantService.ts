@@ -5,6 +5,7 @@
 
 import { localize } from '../../../../nls.js';
 import { toErrorMessage } from '../../../../base/common/errorMessage.js';
+import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -75,8 +76,11 @@ export class ErrorAssistantService extends Disposable implements IErrorAssistant
 			);
 			return;
 		}
+		// Hold every assistant to the contract here, rather than in each surface.
+		const plainContext = { ...context, error: removeAnsiEscapeCodes(context.error) };
+		const supportedOptions = { ...options, continueChat: assistant.supportsChatContinuation && options.continueChat };
 		try {
-			await assistant.ask(action, context, options);
+			await assistant.ask(action, plainContext, supportedOptions);
 		} catch (error) {
 			this._logService.error(`Failed to send the error to ${assistant.label}`, error);
 			this._notificationService.error(

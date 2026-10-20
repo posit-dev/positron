@@ -8,7 +8,6 @@ import { useCallback } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { IErrorAssistantContext } from '../../../positronAssistant/common/errorAssistant.js';
 import { useActiveErrorAssistant } from '../../../positronAssistant/browser/useActiveErrorAssistant.js';
 import { usePositronConfiguration, useContextKey } from '../../../../../base/browser/positronReactHooks.js';
@@ -44,7 +43,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	// Stable identity so AssistantErrorQuickFix's click handler and dropdown
 	// actions aren't recreated on every render.
 	const getErrorContext = useCallback(
-		(): IErrorAssistantContext => ({ kind: 'notebook', error: removeAnsiEscapeCodes(errorContent) }),
+		(): IErrorAssistantContext => ({ kind: 'notebook', error: errorContent }),
 		[errorContent]
 	);
 

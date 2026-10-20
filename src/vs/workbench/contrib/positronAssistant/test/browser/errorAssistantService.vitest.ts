@@ -120,6 +120,26 @@ describe('ErrorAssistantService', () => {
 		expect(notifyError).not.toHaveBeenCalled();
 	});
 
+	it('strips ANSI escape codes from the error', async () => {
+		const service = createService();
+		const ask = vi.fn();
+		ctx.disposables.add(service.register(createAssistant({ ask })));
+
+		await service.ask('test-agent', 'fix', { kind: 'console', error: '\u001b[31mNameError\u001b[0m: x' }, {});
+
+		expect(ask.mock.calls[0][1].error).toBe('NameError: x');
+	});
+
+	it('starts a new chat when the assistant cannot continue the active one', async () => {
+		const service = createService();
+		const ask = vi.fn();
+		ctx.disposables.add(service.register(createAssistant({ ask, supportsChatContinuation: false })));
+
+		await service.ask('test-agent', 'fix', context, { continueChat: true });
+
+		expect(ask.mock.calls[0][2]).toEqual({ continueChat: false });
+	});
+
 	it('asks the assistant the user saw named, not the active one', async () => {
 		const service = createService();
 		const askFirst = vi.fn();

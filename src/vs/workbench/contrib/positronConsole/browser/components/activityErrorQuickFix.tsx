@@ -45,7 +45,7 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const ask = (action: ErrorAssistantAction) => services.get(IErrorAssistantService).ask(assistant.id, action, {
 		kind: 'console',
 		error: formatOutput(props.outputLines, props.tracebackLines),
-	}, { continueChat: assistant.supportsChatContinuation });
+	}, { continueChat: true });
 
 	const pressedFixHandler = () => ask('fix');
 
