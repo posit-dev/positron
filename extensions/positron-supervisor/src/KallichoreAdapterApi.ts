@@ -26,7 +26,7 @@ import { CONFIGURE_AGENT_COMMAND, McpLauncher, configureAgent, onMcpRegistered, 
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
 import { mcpLaunch } from './McpAgents.js';
 import { MCP_ENV_VARS } from './mcpConnection.js';
-import { mcpLauncherPath } from './mcpLauncher.js';
+import { mcpLauncherInstalled, mcpLauncherPath } from './mcpLauncher.js';
 import { McpClientsStatusBar, SHOW_CONNECTED_AGENTS_COMMAND, showConnectedAgents } from './McpClientsStatusBar.js';
 
 /**
@@ -2013,6 +2013,7 @@ export class KCApi implements PositronSupervisorApi {
 	private mcpLauncher(): McpLauncher {
 		return {
 			launch: mcpLaunch(mcpLauncherPath(this._context.globalStorageUri)),
+			installed: () => mcpLauncherInstalled(this._context.globalStorageUri),
 			install: () => this._mcp.installLauncher(),
 		};
 	}

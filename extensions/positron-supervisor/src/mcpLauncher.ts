@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { randomUUID } from 'crypto';
 import { constants, promises as fs } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -123,7 +124,7 @@ async function copyLauncher(
  * agent starting it never finds half a file.
  */
 async function writeAndReplace(target: string, write: (temporary: string) => Promise<void>): Promise<void> {
-	const temporary = `${target}.${process.pid}.tmp`;
+	const temporary = `${target}.${randomUUID()}.tmp`;
 	try {
 		await write(temporary);
 		await replaceFile(temporary, target);
@@ -145,7 +146,7 @@ async function replaceFile(source: string, target: string): Promise<void> {
 		if (os.platform() !== 'win32') {
 			throw err;
 		}
-		await fs.rename(target, `${target}.${process.pid}.${Date.now()}.old`);
+		await fs.rename(target, `${target}.${randomUUID()}.old`);
 		await fs.rename(source, target);
 	}
 }

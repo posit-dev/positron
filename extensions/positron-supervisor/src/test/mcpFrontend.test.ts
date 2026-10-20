@@ -309,18 +309,6 @@ suite('McpFrontend', () => {
 			});
 	});
 
-	test('registering brings a launcher already in place up to date', async () => {
-		const harness = createHarness();
-		await harness.frontend.attach(harness.registry);
-		await harness.frontend.installLauncher();
-
-		// Another version's supervisor takes over.
-		harness.supervisorPath = fakeSupervisor();
-		await harness.frontend.attach(new FakeRegistry());
-
-		assert.strictEqual(runLauncher(harness), expectedLaunch(harness));
-	});
-
 	test('writes a connection descriptor for the stdio bridge', async () => {
 		const harness = createHarness();
 

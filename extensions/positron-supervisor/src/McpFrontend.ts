@@ -21,7 +21,7 @@ import {
 	removeConnectionFiles,
 	writeConnectionFiles,
 } from './mcpConnection';
-import { installMcpLauncher, mcpLauncherInstalled, mcpLauncherPath } from './mcpLauncher';
+import { installMcpLauncher, mcpLauncherPath } from './mcpLauncher';
 import { summarizeError } from './util';
 
 // The `ai.*` settings below are registered by Positron core, in
@@ -534,9 +534,10 @@ export class McpFrontend implements vscode.Disposable {
 	}
 
 	/**
-	 * Publish the endpoint and token, and the binaries that start the bridge,
-	 * to the environments agents are started from: integrated terminals, and the extension host process, whose
-	 * environment is inherited by the processes extensions spawn. The stdio
+	 * Publish the endpoint and token, and the supervisor binary that runs the
+	 * bridge, to the environments agents are started from: integrated
+	 * terminals, and the extension host process, whose environment is
+	 * inherited by the processes extensions spawn. The stdio
 	 * bridge agents start reads these first; an agent that inherits neither
 	 * falls back to the files written alongside, see
 	 * {@link writeConnectionFiles}.
@@ -553,13 +554,8 @@ export class McpFrontend implements vscode.Disposable {
 		this.setVariable(MCP_CONNECTIONS_ENV_VAR, mcpConnectionsDirectory(this._storageUri));
 		try {
 			this.setVariable(SUPERVISOR_PATH_ENV_VAR, this._supervisorPath());
-			// A launcher an agent has been configured with follows this
-			// window's supervisor, which may be a different version's.
-			if (await mcpLauncherInstalled(this._storageUri)) {
-				await this.installLauncher();
-			}
 		} catch (err) {
-			this._log(`Could not update the MCP launcher: ${summarizeError(err)}`);
+			this._log(`Could not find the supervisor binary: ${summarizeError(err)}`);
 		}
 		try {
 			await writeConnectionFiles(this._storageUri, connection);

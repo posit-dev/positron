@@ -66,6 +66,9 @@ export interface McpLauncher {
 	/** The command line, which does not change. */
 	readonly launch: McpLaunch;
 
+	/** Whether the launcher has been put in place. */
+	installed(): Promise<boolean>;
+
 	/**
 	 * Put the launcher in place. Called only when an entry is about to be
 	 * written, since on Windows it copies the supervisor binary.
@@ -204,10 +207,11 @@ async function autoConfigureClaudeCode(
 }
 
 /**
- * Put back the launcher the configured entries start, if it has gone, and
- * rewrite the entries written with another command line: those from before
- * agents were configured to start the launcher, which named the supervisor
- * binary in its versioned install directory.
+ * Point the launcher at this window's supervisor, which may be a different
+ * version's, putting it back if configured entries start it. Then rewrite the
+ * entries written with another command line: those from before agents were
+ * configured to start the launcher, which named the supervisor binary in its
+ * versioned install directory.
  *
  * @param context The extension context, which remembers what we configure.
  * @param launcher What starts the bridge.
@@ -220,14 +224,16 @@ async function refreshConfiguredAgents(
 ): Promise<void> {
 	const { launch } = launcher;
 	const records = loadConfiguredAgents(context);
-	if (records.length === 0) {
+	// Agents configured from other workspaces may start the launcher too.
+	if (records.length === 0 && !(await launcher.installed())) {
 		return;
 	}
-	// The entries below name the launcher, so put it back if it has gone.
 	try {
 		await launcher.install();
 	} catch (err) {
+		// Every entry below would name a launcher that is not there.
 		log(`Could not install the MCP launcher: ${summarizeError(err)}`);
+		return;
 	}
 	let changed = false;
 	for (const record of records) {
