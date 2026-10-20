@@ -13,7 +13,7 @@ import { dialectOfDriver } from './dialects';
 import { hoverFor } from './hover';
 import { collectLinks } from './links';
 import { SqlLog } from './log';
-import { EMPTY_SCHEMA, readConnectionSchema, schemaOfProfile, SqlSchema } from './schema';
+import { ConnectionRef, EMPTY_SCHEMA, readConnectionSchema, schemaOfProfile, SqlSchema } from './schema';
 import { SchemaIndex } from './schemaIndex';
 import { ConnectionSelection, resolveSelection } from './selection';
 import { SqlStatementRangeProvider } from './statementRange';
@@ -296,6 +296,11 @@ class SqlSession implements vscode.Disposable {
 		}
 
 		this._attempted.add(chosen.profileId);
+		await this._open(chosen, document);
+	}
+
+	/** Opens a file's connection, reporting the outcome in the log rather than to the user. */
+	private async _open(chosen: ConnectionRef, document: vscode.TextDocument): Promise<void> {
 		try {
 			const opened = await positron.dataConnections.openConnection(chosen.profileId);
 			// No refresh here: opening one fires onDidChangeConnections, which re-reads the schema
@@ -367,7 +372,11 @@ class SqlSession implements vscode.Disposable {
 			// The command is enabled only for SQL editors, but a keybinding can still reach it.
 			return;
 		}
-		const chosen = await pickConnection(this._payload.connections, this._selection.get(document.uri));
+		const chosen = await pickConnection(
+			this._payload.configured,
+			this._payload.connections,
+			this._selection.get(document.uri),
+		);
 		if (!chosen || this._disposed) {
 			return;
 		}
@@ -378,13 +387,20 @@ class SqlSession implements vscode.Disposable {
 		this._relink();
 		this._refresh(document);
 		this._updateStatusBar();
+		if (!this._payload.connections.some(open => open.profileId === chosen.profileId)) {
+			// Chosen while closed, which is an explicit ask to use it, so it is opened whatever
+			// connectOnOpen says and even if opening it failed before. The schema read that the
+			// opening triggers fills in the completions and the status bar.
+			this._attempted.add(chosen.profileId);
+			await this._open(chosen, document);
+		}
 	}
 
 	private _updateStatusBar(): void {
 		const document = activeSqlDocument();
 		this._statusBar.update(document && describeSelection(
 			resolveSelection(this._selection.get(document.uri), this._payload.connections),
-			this._payload.connections,
+			this._payload.configured,
 			this._dialectInUse(document),
 		));
 	}

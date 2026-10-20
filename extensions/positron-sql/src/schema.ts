@@ -106,6 +106,13 @@ export interface SqlSchema {
 	readonly connections: readonly ConnectionRef[];
 
 	/**
+	 * Every SQL data connection the user has set up, open or not, which is what the connection
+	 * picker offers. Choosing one that is closed opens it, so a connection just added in the Data
+	 * Connections pane can be picked without opening it there first.
+	 */
+	readonly configured: readonly ConnectionRef[];
+
+	/**
 	 * The connections whose schema is not a full picture: cut short by the node caps, or not
 	 * readable at all.
 	 *
@@ -120,7 +127,7 @@ export interface SqlSchema {
 }
 
 /** What a user with nothing connected has, and what every failed read falls back to. */
-export const EMPTY_SCHEMA: SqlSchema = { tables: [], connections: [], incompleteProfiles: [] };
+export const EMPTY_SCHEMA: SqlSchema = { tables: [], connections: [], configured: [], incompleteProfiles: [] };
 
 /**
  * The part of a schema that came from one connection.
@@ -133,6 +140,7 @@ export function schemaOfProfile(schema: SqlSchema, profileId: string): SqlSchema
 	return {
 		tables: schema.tables.filter(table => table.profileId === profileId),
 		connections: schema.connections.filter(connection => connection.profileId === profileId),
+		configured: schema.configured.filter(connection => connection.profileId === profileId),
 		incompleteProfiles: schema.incompleteProfiles.filter(id => id === profileId),
 	};
 }
@@ -265,6 +273,7 @@ export async function readConnectionSchema(
 	}
 
 	const open = connections.filter(connection => connection.connected);
+	const configured = connections.filter(connection => supportsSql(connection.driverId)).map(refOf);
 
 	// Which connections were considered and which were passed over. At debug, not info: a schema
 	// read happens when the user connects or disconnects rather than as they type, but naming
@@ -285,7 +294,7 @@ export async function readConnectionSchema(
 
 	if (live.length === 0) {
 		log.info(explainEmptySchema(connections.length, nonSql.length));
-		return EMPTY_SCHEMA;
+		return { ...EMPTY_SCHEMA, configured };
 	}
 
 	log.debug(`Reading the schema of ${live.length} live data connection(s): ${names(live)}.`);
@@ -326,7 +335,7 @@ export async function readConnectionSchema(
 	// At info, not debug: this is the line that answers "why am I not getting table completions",
 	// and it has to be readable without the user first raising the log level.
 	log.info(`Read ${tables.length} table(s) from ${live.length} live data connection(s).`);
-	return { tables, connections: read, incompleteProfiles };
+	return { tables, connections: read, configured, incompleteProfiles };
 }
 
 /** How a connection is carried once the schema has been read from it. */

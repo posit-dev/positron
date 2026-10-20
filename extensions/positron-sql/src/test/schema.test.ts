@@ -169,6 +169,10 @@ suite('schemaOfProfile', () => {
 			{ profileId: 'warehouse', name: 'Warehouse', driverId: 'positron-data-driver-snowflake' },
 			{ profileId: 'local', name: 'Local', driverId: 'positron-data-driver-duckdb' },
 		],
+		configured: [
+			{ profileId: 'warehouse', name: 'Warehouse', driverId: 'positron-data-driver-snowflake' },
+			{ profileId: 'local', name: 'Local', driverId: 'positron-data-driver-duckdb' },
+		],
 		incompleteProfiles: ['local'],
 	};
 
@@ -176,6 +180,9 @@ suite('schemaOfProfile', () => {
 		assert.deepStrictEqual(schemaOfProfile(schema, 'warehouse'), {
 			tables: [schema.tables[0]],
 			connections: [
+				{ profileId: 'warehouse', name: 'Warehouse', driverId: 'positron-data-driver-snowflake' },
+			],
+			configured: [
 				{ profileId: 'warehouse', name: 'Warehouse', driverId: 'positron-data-driver-snowflake' },
 			],
 			incompleteProfiles: [],
@@ -192,6 +199,7 @@ suite('schemaOfProfile', () => {
 		assert.deepStrictEqual(schemaOfProfile(schema, 'gone'), {
 			tables: [],
 			connections: [],
+			configured: [],
 			incompleteProfiles: [],
 		});
 	});
@@ -316,6 +324,33 @@ suite('readConnectionSchema', () => {
 		// a name that lives in the hole must not be reported as unknown. Only that connection's,
 		// though -- the one that did read is a full picture of itself.
 		assert.deepStrictEqual(schema.incompleteProfiles, ['broken']);
+	});
+
+	test('a closed connection is offered to choose from, but not read', async () => {
+		// One just added in the Data Connections pane is closed. Choosing it opens it, so the
+		// picker offers it; it has no schema until then. A pin is never offered either way.
+		const asked: string[] = [];
+		const { api, log } = harness({
+			getConnections: () => Promise.resolve([
+				connection('shop', 'Shop', false),
+				connection('pins', 'Team Pins', false, 'positron-data-driver-pins'),
+			]),
+			getSchema: (profileId: string) => {
+				asked.push(profileId);
+				return Promise.resolve(undefined);
+			},
+		});
+
+		const schema = await readConnectionSchema(log, api);
+
+		assert.deepStrictEqual(
+			{ asked, connections: schema.connections, configured: schema.configured },
+			{
+				asked: [],
+				connections: [],
+				configured: [{ profileId: 'shop', name: 'Shop', driverId: 'positron-data-driver-duckdb' }],
+			},
+		);
 	});
 
 	test('a connection that is not a SQL database is not read or offered', async () => {

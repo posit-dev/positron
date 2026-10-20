@@ -163,10 +163,10 @@ suite('describeSelection', () => {
 	/** The text and the warning treatment; what the hover says is asserted separately. */
 	function shown(
 		selection: EffectiveSelection,
-		open: readonly ConnectionRef[],
+		configured: readonly ConnectionRef[],
 		dialect: DialectInUse = SNOWFLAKE,
 	) {
-		const state = describeSelection(selection, open, dialect);
+		const state = describeSelection(selection, configured, dialect);
 		return { text: state.text, warning: state.warning };
 	}
 
@@ -184,14 +184,21 @@ suite('describeSelection', () => {
 		);
 	});
 
-	test('several open and none chosen asks for a choice, which is the job to do', () => {
+	test('several set up and none chosen asks for a choice, which is the job to do', () => {
 		assert.deepStrictEqual(
 			shown({ kind: 'none' }, [WAREHOUSE, LOCAL]),
 			{ text: '$(alert) Select Data Connection', warning: true },
 		);
 	});
 
-	test('nothing open at all asks for a connection instead, which is the other job', () => {
+	test('one set up but not open still asks for a choice, since choosing it opens it', () => {
+		assert.deepStrictEqual(
+			shown({ kind: 'none' }, [WAREHOUSE]),
+			{ text: '$(alert) Select Data Connection', warning: true },
+		);
+	});
+
+	test('nothing set up at all asks for a connection instead, which is the other job', () => {
 		assert.deepStrictEqual(
 			shown({ kind: 'none' }, []),
 			{ text: '$(alert) No Data Connection', warning: true },
@@ -258,10 +265,10 @@ suite('pickConnection', () => {
 		(vscode.window as { showInformationMessage: unknown }).showInformationMessage = showInformationMessage;
 	});
 
-	test('nothing open says so and returns without waiting for an answer', async () => {
+	test('nothing set up says so and returns without waiting for an answer', async () => {
 		const timedOut = Symbol('timed out');
 		const result = await Promise.race([
-			pickConnection([], undefined),
+			pickConnection([], [], undefined),
 			new Promise<typeof timedOut>(resolve => setTimeout(() => resolve(timedOut), 1000)),
 		]);
 
@@ -269,8 +276,37 @@ suite('pickConnection', () => {
 			{ result, shownMessages },
 			{
 				result: undefined,
-				shownMessages: ['No data connection is open. Open one in the Connections pane to use it with this file.'],
+				shownMessages: ['No data connection is set up. Add one in the Data Connections pane to use it with this file.'],
 			},
 		);
+	});
+
+	test('a connection that is set up but not open is offered, marked as such', async () => {
+		// One just added in the Data Connections pane is closed, and is the one the user is after.
+		const showQuickPick = vscode.window.showQuickPick;
+		let offered: readonly vscode.QuickPickItem[] = [];
+		(vscode.window as { showQuickPick: unknown }).showQuickPick = async (items: readonly vscode.QuickPickItem[]) => {
+			offered = items;
+			return items[1];
+		};
+		try {
+			const result = await pickConnection([WAREHOUSE, LOCAL], [WAREHOUSE], WAREHOUSE);
+
+			assert.deepStrictEqual(
+				{
+					result,
+					offered: offered.map(item => ({ label: item.label, description: item.description })),
+				},
+				{
+					result: LOCAL,
+					offered: [
+						{ label: WAREHOUSE.name, description: 'Current' },
+						{ label: LOCAL.name, description: 'Not connected' },
+					],
+				},
+			);
+		} finally {
+			(vscode.window as { showQuickPick: unknown }).showQuickPick = showQuickPick;
+		}
 	});
 });
