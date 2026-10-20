@@ -5,8 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 import { decodeBase64 } from '../../../../../base/common/buffer.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -18,6 +16,7 @@ import { IContextKeyService } from '../../../../../platform/contextkey/common/co
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { getPositAssistantChatOptions, PositAssistantErrorAssistantContribution } from '../../browser/positAssistantErrorAssistant.js';
 import { POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } from '../../browser/positAssistantChat.js';
@@ -33,7 +32,7 @@ describe('PositAssistantErrorAssistantContribution', () => {
 		.stub(ILabelService, { getUriLabel: (uri: URI, options?: { relative?: boolean }) => options?.relative ? uri.path.slice(1) : uri.path })
 		.build();
 
-	const positAssistant = { identifier: new ExtensionIdentifier('posit.assistant') } as IExtensionDescription;
+	const positAssistant = stubInterface<IExtensionDescription>({ identifier: new ExtensionIdentifier('posit.assistant') });
 
 	let contextKeyService: ContextKeyService;
 	let extensions: IExtensionDescription[];

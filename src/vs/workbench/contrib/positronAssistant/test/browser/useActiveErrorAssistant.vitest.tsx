@@ -35,22 +35,22 @@ describe('useActiveErrorAssistant', () => {
 		renders = 0;
 	});
 
-	const label = () => screen.getByTestId('label').textContent;
+	const label = () => screen.getByTestId('label');
 
 	it('follows the active assistant as assistants register and unregister', () => {
 		const first = registerTestErrorAssistant(ctx, createAssistant('first'));
 		rtl.render(<ActiveAssistantLabel />);
-		expect(label()).toBe('first');
+		expect(label()).toHaveTextContent('first');
 
 		let second!: IDisposable;
 		act(() => { second = ctx.get(IErrorAssistantService).register(createAssistant('second')); });
-		expect(label()).toBe('first');
+		expect(label()).toHaveTextContent('first');
 
 		act(() => first.dispose());
-		expect(label()).toBe('second');
+		expect(label()).toHaveTextContent('second');
 
 		act(() => second.dispose());
-		expect(label()).toBe('none');
+		expect(label()).toHaveTextContent('none');
 	});
 
 	it('renders once on mount and once per change of the active assistant', () => {
@@ -103,7 +103,7 @@ describe('useActiveErrorAssistant', () => {
 				return null;
 			};
 			rtl.render(<><ActiveAssistantLabel /><ChangeOnLayout /></>);
-			expect(label()).toBe('changed');
+			expect(label()).toHaveTextContent('changed');
 		});
 
 		it('subscribes once across re-renders and unsubscribes on unmount', () => {
@@ -120,7 +120,9 @@ describe('useActiveErrorAssistant', () => {
 		it('shares one value across components when the assistant changes', () => {
 			rtl.render(<><ActiveAssistantLabel /><ActiveAssistantLabel /></>);
 			act(() => setActiveAssistant(createAssistant('first')));
-			expect(screen.getAllByTestId('label').map(element => element.textContent)).toEqual(['first', 'first']);
+			const [one, two] = screen.getAllByTestId('label');
+			expect(one).toHaveTextContent('first');
+			expect(two).toHaveTextContent('first');
 		});
 	});
 });
