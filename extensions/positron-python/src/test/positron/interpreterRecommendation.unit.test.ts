@@ -11,6 +11,8 @@ import * as sinon from 'sinon';
 import * as TypeMoq from 'typemoq';
 import * as vscode from 'vscode';
 import { Architecture } from '../../client/common/utils/platform';
+import { IPersistentState, IPersistentStateFactory } from '../../client/common/types';
+import * as discoveryRootSignature from '../../client/positron/discoveryRootSignature';
 import * as environmentTypeComparer from '../../client/interpreter/configuration/environmentTypeComparer';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { IServiceContainer } from '../../client/ioc/types';
@@ -69,6 +71,8 @@ suite('interpreterRecommendation', () => {
     let moduleWait: sinon.SinonStub;
     let createStub: sinon.SinonStub;
     let refreshPromise: Promise<void> | undefined;
+    let remembered: unknown;
+    let rootSignature: positron.RuntimeRootSignature;
     const bundle = {} as unknown as IpykernelBundle;
 
     setup(() => {
@@ -104,6 +108,24 @@ suite('interpreterRecommendation', () => {
             .setup((s) => s.getInterpreterDetails(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
             .returns((executable: string) => Promise.resolve(resolvable.get(executable)));
         serviceContainer = createTypeMoq<IServiceContainer>();
+        // The workspace state that keeps the last answer after discovery, in memory.
+        remembered = undefined;
+        const state = {
+            get value() {
+                return remembered;
+            },
+            updateValue: async (value: unknown) => {
+                remembered = value;
+            },
+        } as IPersistentState<unknown>;
+        serviceContainer
+            .setup((c) => c.get(IPersistentStateFactory))
+            .returns(() => ({ createWorkspacePersistentState: () => state } as unknown as IPersistentStateFactory));
+        rootSignature = { entries: [] };
+        sinon.stub(discoveryRootSignature, 'getPythonDiscoveryRootSignature').callsFake(async () => rootSignature);
+        sinon
+            .stub(interpreterSettings, 'getResolvedFilterSettingPaths')
+            .returns({ include: [], exclude: [], override: [] });
 
         sinon
             .stub(commonUtils, 'getInterpreterPathFromDir')
@@ -430,6 +452,29 @@ suite('interpreterRecommendation', () => {
         resolvable.set(custom.path, custom);
 
         assert.strictEqual((await recommend(false))?.path, custom.path);
+    });
+
+    test('reuses the last answer after discovery before discovery, while its inputs are unchanged', async () => {
+        context.hasPythonSignals = true;
+        discovered = [homebrew, pyenv];
+        resolvable.set(pyenv.path, pyenv);
+        const afterDiscovery = await recommend(true);
+
+        // The next open: discovery hasn't run, so nothing is listed.
+        discovered = [];
+        const reopened = await recommend(false);
+        // A discovery root changed, so the remembered answer may be stale.
+        rootSignature = { entries: [{ path: p('/home/u/.pyenv/versions'), exists: true, mtimeMs: 1 }] };
+        const rootsChanged = await recommend(false);
+
+        assert.deepEqual(
+            [afterDiscovery, reopened, rootsChanged],
+            [
+                { path: pyenv.path, startupBehavior: B.Immediate },
+                { path: pyenv.path, startupBehavior: B.Immediate },
+                undefined,
+            ],
+        );
     });
 
     test('recommends nothing when nothing is eligible', async () => {

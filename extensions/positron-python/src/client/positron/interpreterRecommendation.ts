@@ -21,6 +21,7 @@ import {
     isProblematicCondaEnvironment,
     isVersionSupported,
 } from '../interpreter/configuration/environmentTypeComparer';
+import { IPersistentStateFactory } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo, traceWarn } from '../logging';
@@ -36,7 +37,8 @@ import {
     tierOf,
     withDiscoveredFacts,
 } from './interpreterRanking';
-import { shouldIncludeInterpreter } from './interpreterSettings';
+import { getPythonDiscoveryRootSignature } from './discoveryRootSignature';
+import { getResolvedFilterSettingPaths, shouldIncludeInterpreter } from './interpreterSettings';
 import type { IpykernelBundle } from './ipykernel';
 import { checkIpykernel, createPythonRuntimeMetadata } from './runtime';
 import { resolveInterpreterOnce } from './util';
@@ -195,13 +197,20 @@ async function resolveNamedInterpreters(
     };
 }
 
-/** The metadata of the first ranked interpreter that isn't skipped, or undefined. */
+/** A recommended interpreter, its tier, and its runtime metadata. */
+interface Recommendation {
+    interpreter: PythonEnvironment;
+    tier: Tier;
+    metadata: positron.LanguageRuntimeMetadata;
+}
+
+/** The first ranked interpreter that isn't skipped, or undefined. */
 async function firstEligible(
     serviceContainer: IServiceContainer,
     candidates: PythonEnvironment[],
     context: RankingContext,
     workspaceUri: vscode.Uri | undefined,
-): Promise<positron.LanguageRuntimeMetadata | undefined> {
+): Promise<Recommendation | undefined> {
     const ranked = rankInterpreters(candidates, context);
     for (const { interpreter, tier } of ranked) {
         if (tier === undefined) {
@@ -227,12 +236,73 @@ async function firstEligible(
                 ...(eligibility.ipykernelBundle && { ipykernelBundle: eligibility.ipykernelBundle }),
             });
             traceInfo(`Interpreter ranking: recommended ${interpreter.path} (${Tier[tier]}, ${startupBehavior})`);
-            return metadata;
+            return { interpreter, tier, metadata };
         } catch (err) {
             traceError(`Interpreter ranking: could not create the runtime for ${interpreter.path}: ${err}`);
         }
     }
     return undefined;
+}
+
+/** Workspace state key for the last answer after discovery. */
+const LAST_AFTER_DISCOVERY_KEY = 'positron.interpreterRanking.lastAfterDiscovery';
+
+/** The last answer after discovery, and the inputs it was computed from. */
+interface RememberedAnswer {
+    inputs: string;
+    path: string;
+    tier: Tier;
+}
+
+/**
+ * Everything the answer after discovery depends on: the discovery roots (one stat each,
+ * the same signature core uses to decide whether its cache is fresh), the folder scan
+ * and the settings in the context, and the interpreter filters. What it doesn't cover,
+ * such as ipykernel being installed into an env, isn't noticed until one of these changes.
+ */
+async function rankingInputs(context: RankingContext): Promise<string> {
+    const { modulePaths: _modulePaths, externallyManagedPaths: _externallyManaged, ...settingsAndScan } = context;
+    return JSON.stringify({
+        roots: await getPythonDiscoveryRootSignature(),
+        context: settingsAndScan,
+        filters: getResolvedFilterSettingPaths(),
+    });
+}
+
+function rememberedAnswerState(serviceContainer: IServiceContainer) {
+    return serviceContainer
+        .get<IPersistentStateFactory>(IPersistentStateFactory)
+        .createWorkspacePersistentState<RememberedAnswer | undefined>(LAST_AFTER_DISCOVERY_KEY, undefined);
+}
+
+/**
+ * The last answer after discovery, if it was computed from the same inputs. It is
+ * resolved like a named path, so a slow resolve defers to the ask after discovery.
+ */
+async function fromRememberedAnswer(
+    serviceContainer: IServiceContainer,
+    interpreterService: IInterpreterService,
+    inputs: string,
+    context: RankingContext,
+    workspaceUri: vscode.Uri | undefined,
+): Promise<positron.LanguageRuntimeMetadata | undefined> {
+    const remembered = rememberedAnswerState(serviceContainer).value;
+    if (!remembered || remembered.inputs !== inputs) {
+        return undefined;
+    }
+    const interpreter = await resolveInterpreterOnce(interpreterService, remembered.path, workspaceUri);
+    if (!interpreter) {
+        return undefined;
+    }
+    const startupBehavior = startupBehaviorFor(remembered.tier, context);
+    const metadata = await createPythonRuntimeMetadata(interpreter, serviceContainer, startupBehavior, {
+        skipModuleWait: !canBeModulePython(remembered.tier),
+    });
+    traceInfo(
+        `Interpreter ranking: recommended ${interpreter.path} (${Tier[remembered.tier]}, ${startupBehavior}), ` +
+            'remembered from the last answer after discovery',
+    );
+    return metadata;
 }
 
 function dedupeByPath(interpreters: PythonEnvironment[]): PythonEnvironment[] {
@@ -264,6 +334,10 @@ function dedupeByPath(interpreters: PythonEnvironment[]): PythonEnvironment[] {
  * discovery (Performance rule 1); it answers undefined instead, and core asks again.
  * Pass 2 ranks only a finished discovery: if discovery failed, what it found depends on
  * when it failed, so nothing is recommended.
+ *
+ * Pass 2's answer is remembered for the folder with the inputs it was computed from. When
+ * pass 1 finds nothing named and the inputs are unchanged, it answers with the remembered
+ * interpreter, so a folder that needs pass 2 starts without waiting for discovery again.
  */
 export async function recommendWorkspaceRuntime(
     serviceContainer: IServiceContainer,
@@ -286,10 +360,25 @@ export async function recommendWorkspaceRuntime(
         const fromNamed = await firstEligible(serviceContainer, pass1, context, workspaceUri);
         traceInfo(`Interpreter ranking: pass 1 took ${Date.now() - started} ms`);
         if (fromNamed) {
-            return fromNamed;
+            return fromNamed.metadata;
         }
     }
+    // The inputs are read from the context before any path is resolved, so both asks
+    // compute the same inputs for the same folder, settings and roots.
+    const inputs = await rankingInputs(baseContext).catch((err) => {
+        traceWarn(`Interpreter ranking: could not read the ranking inputs: ${err}`);
+        return undefined;
+    });
     if (!afterDiscovery) {
+        // Nothing named is eligible, so the answer is the one after discovery; reuse the
+        // last one if nothing it depends on has changed.
+        const remembered =
+            unresolved === 0 && inputs
+                ? await fromRememberedAnswer(serviceContainer, interpreterService, inputs, context, workspaceUri)
+                : undefined;
+        if (remembered) {
+            return remembered;
+        }
         traceInfo(
             `${
                 unresolved > 0
@@ -312,5 +401,10 @@ export async function recommendWorkspaceRuntime(
     const all = dedupeByPath([...named, ...interpreterService.getInterpreters(workspaceUri)]);
     const fromAll = await firstEligible(serviceContainer, all, await withDiscoveredFacts(context, all), workspaceUri);
     traceInfo(`Interpreter ranking: pass 2 took ${Date.now() - pass2Started} ms`);
-    return fromAll;
+    if (inputs) {
+        await rememberedAnswerState(serviceContainer).updateValue(
+            fromAll ? { inputs, path: fromAll.interpreter.path, tier: fromAll.tier } : undefined,
+        );
+    }
+    return fromAll?.metadata;
 }
