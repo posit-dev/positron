@@ -155,6 +155,9 @@ class SqlSession implements vscode.Disposable {
 	 */
 	private _cache: { key: string; analysis: Analysis } | undefined;
 
+	/** The document link provider's registration; see {@link _relink}. */
+	private _links: vscode.Disposable | undefined;
+
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _log: SqlLog,
@@ -193,11 +196,6 @@ class SqlSession implements vscode.Disposable {
 				...QUOTE_TRIGGERS,
 			),
 
-			vscode.languages.registerDocumentLinkProvider(SQL_DOCUMENTS, {
-				provideDocumentLinks: document =>
-					collectLinks(document, this._analyze(document), this._schemaFor(document)),
-			}),
-
 			vscode.languages.registerHoverProvider(SQL_DOCUMENTS, {
 				provideHover: (document, position) =>
 					hoverFor(document, position, this._analyze(document), this._schemaFor(document)),
@@ -232,7 +230,9 @@ class SqlSession implements vscode.Disposable {
 				if (event.affectsConfiguration(CONFIGURATION_SECTION)) {
 					// Both settings that matter here -- the dialect and whether unknown names
 					// count -- decide what a diagnostic is, and every open document was analyzed
-					// under the old value. The dialect is on the status bar hover too.
+					// under the old value. The dialect is on the status bar hover too, and decides
+					// which names parse as tables, so the links.
+					this._relink();
 					this._refreshAll();
 					this._updateStatusBar();
 				}
@@ -243,6 +243,7 @@ class SqlSession implements vscode.Disposable {
 			positron.dataConnections.onDidChangeConnections(() => void this.refreshSchema()),
 		);
 
+		this._relink();
 		this._refreshAll();
 		this._updateStatusBar();
 		// The files already open are asked about only once the first read has said what is open
@@ -266,6 +267,7 @@ class SqlSession implements vscode.Disposable {
 		for (const disposable of this._disposables) {
 			disposable.dispose();
 		}
+		this._links?.dispose();
 	}
 
 	/**
@@ -329,7 +331,9 @@ class SqlSession implements vscode.Disposable {
 		this._payload = payload;
 		this._scoped.clear();
 		// The schema decides which names are unknown, so every open document's diagnostics are
-		// stale. The status bar is stale too: a connection this file chose may have just closed.
+		// stale, and which names are tables, so its links are. The status bar is stale too: a
+		// connection this file chose may have just closed.
+		this._relink();
 		this._refreshAll();
 		this._updateStatusBar();
 	}
@@ -369,7 +373,9 @@ class SqlSession implements vscode.Disposable {
 		}
 		this._selection.set(document.uri, chosen);
 		this._log.info(`${document.uri.toString(true)} is written against ${chosen.name}.`);
-		// Both of these change with the choice: which names are unknown, and what the bar says.
+		// All of these change with the choice: which names are unknown, which are tables to link,
+		// and what the bar says.
+		this._relink();
 		this._refresh(document);
 		this._updateStatusBar();
 	}
@@ -511,6 +517,24 @@ class SqlSession implements vscode.Disposable {
 			document.uri,
 			collectDiagnostics(document, this._analyze(document), this._schemaFor(document), reportUnknownNames),
 		);
+	}
+
+	/**
+	 * Registers the document link provider afresh, so the editor asks every open SQL document for
+	 * its links again.
+	 *
+	 * Diagnostics are pushed, and hover and completion are asked for as they are needed, but the
+	 * editor computes links once and then only again when the text changes or a link provider is
+	 * added or removed. There is no event a provider can fire to say its answer has changed. So
+	 * without this, a file opened before its connection's schema was read never gets links until
+	 * the user edits it -- and a file switched to another connection keeps the old one's.
+	 */
+	private _relink(): void {
+		this._links?.dispose();
+		this._links = vscode.languages.registerDocumentLinkProvider(SQL_DOCUMENTS, {
+			provideDocumentLinks: document =>
+				collectLinks(document, this._analyze(document), this._schemaFor(document)),
+		});
 	}
 
 	private _refreshAll(): void {
