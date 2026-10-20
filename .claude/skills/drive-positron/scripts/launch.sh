@@ -278,7 +278,11 @@ read -r CDP_PORT EXTHOST_PORT MAIN_PORT AGENTHOST_PORT < <(node -e '
 		console.log(servers.map(s => s.address().port).join(" "));
 		servers.forEach(s => s.close());
 	});
-')
+') || true
+if [[ -z "$AGENTHOST_PORT" ]]; then
+	echo "[launch.sh] could not pick free debug ports" >&2
+	exit 1
+fi
 
 STAMP=$(date +%Y%m%d-%H%M%S)-$$
 # Keep the run directory short enough for the main-process Unix socket. Windows
@@ -592,7 +596,8 @@ for i in $(seq 1 90); do
 		exit 1
 	fi
 	# Node's inspector also answers /json/version, but without a browser websocket URL.
-	if curl -sf --max-time 1 "http://127.0.0.1:$CDP_PORT/json/version" 2>/dev/null | grep -q webSocketDebuggerUrl; then
+	VERSION=$(curl -sf --max-time 1 "http://127.0.0.1:$CDP_PORT/json/version" 2>/dev/null || true)
+	if [[ "$VERSION" == *webSocketDebuggerUrl* ]]; then
 		READY=1
 		echo "[launch.sh] CDP ready after ${i}s" >&2
 		break
