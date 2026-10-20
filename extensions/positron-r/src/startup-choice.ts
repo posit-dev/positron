@@ -118,3 +118,47 @@ export async function pickStartupR<T extends RStartupCandidate>(
 		.sort(compareRInstallations);
 	return installs[0];
 }
+
+/**
+ * Holds one search so the next search can reuse its result instead of running
+ * again. The result is handed out once, and only while it's fresh: until
+ * `maxAgeMs` after the search finishes.
+ */
+export class ReusableSearch<T> {
+	private _held: { result: Promise<T>; finishedAt?: number } | undefined;
+
+	constructor(
+		private readonly _maxAgeMs: number,
+		private readonly _now: () => number = Date.now
+	) { }
+
+	/**
+	 * Holds a search for the next `take()`.
+	 * @returns The search's result, unchanged.
+	 */
+	hold(result: Promise<T>): Promise<T> {
+		const held: { result: Promise<T>; finishedAt?: number } = { result };
+		this._held = held;
+		result.then(
+			() => { held.finishedAt = this._now(); },
+			() => {
+				if (this._held === held) {
+					this._held = undefined;
+				}
+			});
+		return result;
+	}
+
+	/**
+	 * Takes the held search, if it's still running or finished recently.
+	 * @returns Its result, or undefined if there's nothing fresh to reuse.
+	 */
+	take(): Promise<T> | undefined {
+		const held = this._held;
+		this._held = undefined;
+		if (!held || (held.finishedAt !== undefined && this._now() - held.finishedAt > this._maxAgeMs)) {
+			return undefined;
+		}
+		return held.result;
+	}
+}

@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import * as semver from 'semver';
-import { chooseStartupR, compareRInstallations, RFullSearchTriggers, RStartupCandidate, RStartupInputs } from './startup-choice';
+import { chooseStartupR, compareRInstallations, RFullSearchTriggers, RStartupCandidate, RStartupInputs, ReusableSearch } from './startup-choice';
 
 interface FakeR extends RStartupCandidate {
 	readonly name: string;
@@ -117,5 +117,50 @@ describe('chooseStartupR', () => {
 		it.each<keyof RFullSearchTriggers>(['overrideListSet', 'rVersionsFileExists', 'modulesConfiguredForR'])('runs when %s', async (trigger) => {
 			expect(await choose(inputs({ current, triggers: { [trigger]: true }, installs: [r('4.5.1')] }))).toEqual(searched);
 		});
+	});
+});
+
+describe('ReusableSearch', () => {
+	let now: number;
+	let search: ReusableSearch<string>;
+
+	beforeEach(() => {
+		now = 0;
+		search = new ReusableSearch<string>(60_000, () => now);
+	});
+
+	it('hands the held result to the next search once', async () => {
+		await search.hold(Promise.resolve('found'));
+		expect(await search.take()).toBe('found');
+		expect(search.take()).toBeUndefined();
+	});
+
+	it('hands out a search that is still running, however long it has run', async () => {
+		let finish!: (value: string) => void;
+		search.hold(new Promise(resolve => finish = resolve));
+		now = 60_001;
+		const taken = search.take();
+		finish('found');
+		expect(await taken).toBe('found');
+	});
+
+	it('does not hand out a result that finished too long ago', async () => {
+		await search.hold(Promise.resolve('found'));
+		now = 60_001;
+		expect(search.take()).toBeUndefined();
+	});
+
+	it('does not hand out a search that failed', async () => {
+		await expect(search.hold(Promise.reject(new Error('failed')))).rejects.toThrow('failed');
+		expect(search.take()).toBeUndefined();
+	});
+
+	it('keeps a newer search when an older one fails', async () => {
+		let fail!: (error: Error) => void;
+		const older = search.hold(new Promise((_, reject) => fail = reject));
+		search.hold(Promise.resolve('newer'));
+		fail(new Error('failed'));
+		await expect(older).rejects.toThrow('failed');
+		expect(await search.take()).toBe('newer');
 	});
 });

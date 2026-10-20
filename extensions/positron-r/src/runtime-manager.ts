@@ -6,7 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { currentRBinary, currentRInstallation, discoverRInstallations, getRDiscoveryRootSignature, looksLikeRProject, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rRuntimeDiscoverer } from './provider';
+import { currentRBinary, currentRInstallation, discoverRInstallationsForRecommendation, getRDiscoveryRootSignature, looksLikeRProject, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rRuntimeDiscoverer } from './provider';
 import { PackagerMetadata, RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata, isRVersionsMetadata } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
@@ -176,7 +176,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 				looksLikeRProject,
 				currentR: currentRInstallation,
 				fullSearchTriggers: rFullSearchTriggers,
-				fullSearch: discoverRInstallations,
+				fullSearch: discoverRInstallationsForRecommendation,
 			});
 			if (!choice) {
 				return undefined;
