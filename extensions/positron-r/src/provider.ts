@@ -22,7 +22,7 @@ import { discoverPixiBinaries } from './provider-pixi.js';
 import { discoverModuleBinaries, getEnvironmentModulesApi, moduleEnvironmentsConfiguredForR } from './provider-module.js';
 import { discoverRVersionsBinaries, findRVersionsFile } from './provider-rversions.js';
 import { packagerMetadataForPath } from './packager-detection.js';
-import { compareRInstallations, RFullSearchTriggers, ReusableSearch } from './startup-choice.js';
+import { compareRInstallations, createSharedSearch, RFullSearchTriggers } from './startup-choice.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -269,14 +269,14 @@ export async function discoverRInstallations(): Promise<RInstallation[]> {
  * search more than a minute old isn't from this launch's startup, so a later
  * refresh searches again.
  */
-const recommendationSearch = new ReusableSearch<RInstallation[]>(60_000);
+const sharedSearch = createSharedSearch(discoverRInstallations, 60_000);
 
 /**
  * Same as `discoverRInstallations()`, and holds the result for the
- * interpreter search that follows (see `recommendationSearch`).
+ * interpreter search that follows (see `sharedSearch`).
  */
 export function discoverRInstallationsForRecommendation(): Promise<RInstallation[]> {
-	return recommendationSearch.hold(discoverRInstallations());
+	return sharedSearch.forRecommendation();
 }
 
 /**
@@ -287,7 +287,7 @@ export function discoverRInstallationsForRecommendation(): Promise<RInstallation
 export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 	// Discover R binaries on the system and promote them to R installations,
 	// reusing the search R's recommendation just ran, if any
-	const rAll = await (recommendationSearch.take() ?? discoverRInstallations());
+	const rAll = await sharedSearch.forDiscovery();
 
 	// If no R binaries are found, log to output and end discovery.
 	if (rAll.length === 0) {

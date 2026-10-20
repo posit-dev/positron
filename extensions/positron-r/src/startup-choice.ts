@@ -162,3 +162,24 @@ export class ReusableSearch<T> {
 		return held.result;
 	}
 }
+
+/**
+ * One search shared by R's recommendation and R's interpreter search. The
+ * recommendation's search is held, and the interpreter search that follows
+ * reuses it instead of running again (see `ReusableSearch`).
+ *
+ * @param search Runs the search.
+ * @param maxAgeMs How long after it finishes a held search can be reused.
+ */
+export function createSharedSearch<T>(search: () => Promise<T>, maxAgeMs: number): {
+	/** Runs the search, and holds its result for the next `forDiscovery()`. */
+	forRecommendation(): Promise<T>;
+	/** Reuses the held search if it's fresh, and otherwise runs the search. */
+	forDiscovery(): Promise<T>;
+} {
+	const reusable = new ReusableSearch<T>(maxAgeMs);
+	return {
+		forRecommendation: () => reusable.hold(search()),
+		forDiscovery: () => reusable.take() ?? search(),
+	};
+}

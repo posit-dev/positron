@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import * as semver from 'semver';
-import { chooseStartupR, compareRInstallations, RFullSearchTriggers, RStartupCandidate, RStartupInputs, ReusableSearch } from './startup-choice';
+import { chooseStartupR, compareRInstallations, createSharedSearch, RFullSearchTriggers, RStartupCandidate, RStartupInputs, ReusableSearch } from './startup-choice';
 
 interface FakeR extends RStartupCandidate {
 	readonly name: string;
@@ -162,5 +162,35 @@ describe('ReusableSearch', () => {
 		fail(new Error('failed'));
 		await expect(older).rejects.toThrow('failed');
 		expect(await search.take()).toBe('newer');
+	});
+});
+
+describe('createSharedSearch', () => {
+	/** A shared search whose search returns how many times it has run. */
+	function countingSharedSearch() {
+		let runs = 0;
+		const shared = createSharedSearch(async () => ++runs, 60_000);
+		return { shared, runs: () => runs };
+	}
+
+	it('lets the interpreter search reuse the recommendation\'s search', async () => {
+		const { shared, runs } = countingSharedSearch();
+		const recommendation = await shared.forRecommendation();
+		const discovery = await shared.forDiscovery();
+		expect({ recommendation, discovery, runs: runs() }).toEqual({ recommendation: 1, discovery: 1, runs: 1 });
+	});
+
+	it('searches again for a second interpreter search', async () => {
+		const { shared, runs } = countingSharedSearch();
+		await shared.forRecommendation();
+		await shared.forDiscovery();
+		const second = await shared.forDiscovery();
+		expect({ second, runs: runs() }).toEqual({ second: 2, runs: 2 });
+	});
+
+	it('searches when the recommendation did not', async () => {
+		const { shared, runs } = countingSharedSearch();
+		const discovery = await shared.forDiscovery();
+		expect({ discovery, runs: runs() }).toEqual({ discovery: 1, runs: 1 });
 	});
 });
