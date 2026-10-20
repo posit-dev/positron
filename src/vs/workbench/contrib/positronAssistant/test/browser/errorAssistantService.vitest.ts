@@ -106,7 +106,7 @@ describe('ErrorAssistantService', () => {
 		expect(service.activeAssistant).toBe(assistant);
 	});
 
-	const context: IErrorAssistantContext = { error: 'boom', location: { kind: 'console' } };
+	const context: IErrorAssistantContext = { kind: 'console', error: 'boom' };
 
 	it('asks the assistant to take the action', async () => {
 		const service = createService();

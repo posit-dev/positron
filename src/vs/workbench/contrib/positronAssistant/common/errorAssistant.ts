@@ -14,49 +14,47 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 /** An action the user can take on an error. */
 export type ErrorAssistantAction = 'fix' | 'explain';
 
+/** What every error an action is taken on has, wherever it was raised. */
+interface IErrorContextBase {
+	/** The error output, as plain text with no ANSI escape codes. */
+	readonly error: string;
+}
+
 /** An error raised by code run in a console session. */
-export interface IConsoleErrorLocation {
+export interface IConsoleErrorContext extends IErrorContextBase {
 	readonly kind: 'console';
 }
 
 /** An error raised by a notebook cell. */
-export interface INotebookErrorLocation {
+export interface INotebookErrorContext extends IErrorContextBase {
 	readonly kind: 'notebook';
 }
 
-/** An error raised by a Quarto code chunk. */
-export interface IQuartoErrorLocation {
+/** An error raised by a Quarto code cell. */
+export interface IQuartoErrorContext extends IErrorContextBase {
 	readonly kind: 'quarto';
-	/** The chunk that raised the error. Undefined when it can't be found. */
-	readonly chunk?: IQuartoErrorChunk;
+	/** The cell whose code raised the error. Undefined when it can't be found. */
+	readonly cell?: IQuartoErroredCell;
 }
 
-/** A Quarto code chunk that raised an error. */
-export interface IQuartoErrorChunk {
+/** A Quarto code cell, as it was when it raised an error. */
+export interface IQuartoErroredCell {
 	/** The Quarto document. */
 	readonly uri: URI;
-	/** Language ID of the chunk, e.g. "python". */
+	/** Language ID of the cell, e.g. "python". */
 	readonly languageId: string;
-	/** The chunk's label, e.g. from `#| label: fig-plot`. Undefined when it has none. */
+	/** The cell's label, e.g. from `#| label: fig-plot`. Undefined when it has none. */
 	readonly label?: string;
-	/** The chunk's code. */
+	/** The cell's code. */
 	readonly code: string;
-	/** 1-based first line of the chunk's code. */
+	/** 1-based first line of the cell's code. */
 	readonly startLine: number;
-	/** 1-based last line of the chunk's code, inclusive. */
+	/** 1-based last line of the cell's code, inclusive. */
 	readonly endLine: number;
 }
 
-/** Where an error was raised. */
-export type IErrorLocation = IConsoleErrorLocation | INotebookErrorLocation | IQuartoErrorLocation;
-
-/** The error an action is taken on. */
-export interface IErrorAssistantContext {
-	/** The error output, as plain text with no ANSI escape codes. */
-	readonly error: string;
-	/** Where the error was raised. */
-	readonly location: IErrorLocation;
-}
+/** The error an action is taken on, tagged by where it was raised. */
+export type IErrorAssistantContext = IConsoleErrorContext | INotebookErrorContext | IQuartoErrorContext;
 
 /** How to send an error to an assistant. */
 export interface IErrorAssistantOptions {

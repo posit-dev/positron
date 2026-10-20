@@ -48,17 +48,15 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	});
 
 	const getErrorContext = useCallback((): IErrorAssistantContext => ({
+		kind: 'quarto',
 		error: removeAnsiEscapeCodes(errorContent),
-		location: {
-			kind: 'quarto',
-			chunk: cellContext && {
-				uri: cellContext.uri,
-				languageId: cellContext.language,
-				label: cellContext.label,
-				code: cellContext.code,
-				startLine: cellContext.codeStartLine,
-				endLine: cellContext.codeEndLine,
-			},
+		cell: cellContext && {
+			uri: cellContext.uri,
+			languageId: cellContext.language,
+			label: cellContext.label,
+			code: cellContext.code,
+			startLine: cellContext.codeStartLine,
+			endLine: cellContext.codeEndLine,
 		},
 	}), [cellContext, errorContent]);
 

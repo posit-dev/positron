@@ -44,7 +44,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	// Stable identity so AssistantErrorQuickFix's click handler and dropdown
 	// actions aren't recreated on every render.
 	const getErrorContext = useCallback(
-		(): IErrorAssistantContext => ({ error: removeAnsiEscapeCodes(errorContent), location: { kind: 'notebook' } }),
+		(): IErrorAssistantContext => ({ kind: 'notebook', error: removeAnsiEscapeCodes(errorContent) }),
 		[errorContent]
 	);
 

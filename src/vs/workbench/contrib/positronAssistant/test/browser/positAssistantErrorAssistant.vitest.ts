@@ -94,9 +94,9 @@ describe('PositAssistantErrorAssistantContribution', () => {
 	it('opens a Posit Assistant chat, naming documents relative to the workspace', async () => {
 		contextKeyService.createKey(POSIT_HAS_CHAT_MODELS_KEY, true);
 		createContribution();
-		const chunk = { uri: URI.file('/report.qmd'), languageId: 'python', code: 'x', startLine: 1, endLine: 1 };
+		const cell = { uri: URI.file('/report.qmd'), languageId: 'python', code: 'x', startLine: 1, endLine: 1 };
 
-		await errorAssistantService.ask('posit-assistant', 'fix', { error: 'boom', location: { kind: 'quarto', chunk } }, { continueChat: true });
+		await errorAssistantService.ask('posit-assistant', 'fix', { kind: 'quarto', error: 'boom', cell }, { continueChat: true });
 
 		expect(executeCommand).toHaveBeenCalledWith(POSIT_NEW_CHAT_COMMAND, expect.objectContaining({
 			prompt: 'Fix the error from the python code chunk at lines 1-1 of report.qmd. The failing code and its error output are attached; fix only this error.',
@@ -118,7 +118,7 @@ describe('getPositAssistantChatOptions', () => {
 	}
 
 	it('sends console errors verbatim, and constrains Explain', () => {
-		const context: IErrorAssistantContext = { error: '  Error: boom\n', location: { kind: 'console' } };
+		const context: IErrorAssistantContext = { kind: 'console', error: '  Error: boom\n' };
 		expect([getOptions('fix', context, { continueChat: true }), getOptions('explain', context, { continueChat: true })]).toEqual([
 			{ prompt: 'Fix this console error.', target: 'auto', behavior: 'submit', files: [{ name: 'Console Error', content: '  Error: boom\n' }] },
 			{ prompt: `Explain this console error. ${constraint}`, target: 'auto', behavior: 'submit', files: [{ name: 'Console Error', content: '  Error: boom\n' }] },
@@ -126,17 +126,18 @@ describe('getPositAssistantChatOptions', () => {
 	});
 
 	it('trims whitespace from notebook errors, and constrains Explain', () => {
-		const context: IErrorAssistantContext = { error: '\n ValueError: boom\n', location: { kind: 'notebook' } };
+		const context: IErrorAssistantContext = { kind: 'notebook', error: '\n ValueError: boom\n' };
 		expect([getOptions('fix', context), getOptions('explain', context)]).toEqual([
 			{ prompt: 'Fix this notebook cell error.', target: 'new', behavior: 'submit', files: [{ name: 'Notebook Cell Error', content: 'ValueError: boom' }] },
 			{ prompt: `Explain this notebook cell error. ${constraint}`, target: 'new', behavior: 'submit', files: [{ name: 'Notebook Cell Error', content: 'ValueError: boom' }] },
 		]);
 	});
 
-	it('names a Quarto chunk and attaches its code above the error', () => {
+	it('names a Quarto cell and attaches its code above the error', () => {
 		const context: IErrorAssistantContext = {
+			kind: 'quarto',
 			error: 'ValueError: boom\n',
-			location: { kind: 'quarto', chunk: { uri: URI.file('/report.qmd'), languageId: 'python', label: 'setup', code: 'raise ValueError("boom")', startLine: 8, endLine: 8 } },
+			cell: { uri: URI.file('/report.qmd'), languageId: 'python', label: 'setup', code: 'raise ValueError("boom")', startLine: 8, endLine: 8 },
 		};
 		const content = [
 			'Error from the python code chunk in report.qmd, lines 8-8 (label: setup):',
@@ -153,8 +154,8 @@ describe('getPositAssistantChatOptions', () => {
 		]);
 	});
 
-	it('attaches only the error when the Quarto chunk is not known', () => {
-		const context: IErrorAssistantContext = { error: 'NameError: x', location: { kind: 'quarto' } };
+	it('attaches only the error when the Quarto cell is not known', () => {
+		const context: IErrorAssistantContext = { kind: 'quarto', error: 'NameError: x' };
 		expect([getOptions('fix', context, { continueChat: true }), getOptions('explain', context, { continueChat: true })]).toEqual([
 			{ prompt: 'Fix this Quarto inline output error.', target: 'auto', behavior: 'submit', files: [{ name: 'Quarto Output Error', content: 'NameError: x' }] },
 			{ prompt: `Explain this Quarto inline output error. ${constraint}`, target: 'auto', behavior: 'submit', files: [{ name: 'Quarto Output Error', content: 'NameError: x' }] },
@@ -163,8 +164,8 @@ describe('getPositAssistantChatOptions', () => {
 
 	it('omits the attachment when the error is blank', () => {
 		expect([
-			getOptions('fix', { error: '', location: { kind: 'console' } }).files,
-			getOptions('fix', { error: ' \n', location: { kind: 'notebook' } }).files,
+			getOptions('fix', { kind: 'console', error: '' }).files,
+			getOptions('fix', { kind: 'notebook', error: ' \n' }).files,
 		]).toEqual([undefined, undefined]);
 	});
 });

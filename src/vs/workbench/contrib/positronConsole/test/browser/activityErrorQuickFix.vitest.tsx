@@ -48,8 +48,8 @@ describe('ConsoleQuickFix', () => {
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to explain' }));
 
 		const context = {
+			kind: 'console',
 			error: 'NameError: name "x" is not defined\n  File "<stdin>", line 1',
-			location: { kind: 'console' },
 		};
 		const options = { continueChat: true };
 		expect(ask.mock.calls).toEqual([['fix', context, options], ['explain', context, options]]);

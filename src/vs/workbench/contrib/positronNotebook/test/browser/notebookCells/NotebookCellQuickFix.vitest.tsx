@@ -54,7 +54,7 @@ describe('NotebookCellQuickFix', () => {
 		rtl.render(<NotebookCellQuickFix errorContent={'\u001b[31mNameError\u001b[0m: name "x" is not defined'} />);
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 
-		expect(ask).toHaveBeenCalledWith('fix', { error: 'NameError: name "x" is not defined', location: { kind: 'notebook' } }, { continueChat: false });
+		expect(ask).toHaveBeenCalledWith('fix', { kind: 'notebook', error: 'NameError: name "x" is not defined' }, { continueChat: false });
 	});
 
 	it('shows the buttons before the notebook AI context key is bound', () => {

@@ -43,8 +43,8 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	// Continue the active chat when the assistant can, for follow-ups on
 	// earlier console work.
 	const ask = (action: ErrorAssistantAction) => services.get(IErrorAssistantService).ask(assistant.id, action, {
+		kind: 'console',
 		error: formatOutput(props.outputLines, props.tracebackLines),
-		location: { kind: 'console' },
 	}, { continueChat: assistant.supportsChatContinuation });
 
 	const pressedFixHandler = () => ask('fix');

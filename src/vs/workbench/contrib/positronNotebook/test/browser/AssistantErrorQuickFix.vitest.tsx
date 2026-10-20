@@ -31,8 +31,8 @@ describe('AssistantErrorQuickFix', () => {
 	});
 
 	const errorContext: IErrorAssistantContext = {
+		kind: 'notebook',
 		error: 'NameError: name "x" is not defined',
-		location: { kind: 'notebook' },
 	};
 
 	/** Register an assistant errors are sent to, and render the quick fix for it. */

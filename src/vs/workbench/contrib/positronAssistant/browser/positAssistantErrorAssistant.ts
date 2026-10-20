@@ -97,12 +97,11 @@ export function getPositAssistantChatOptions(
 	options: IErrorAssistantOptions,
 	pathLabel: (uri: URI) => string,
 ): NewChatOptions {
-	const location = context.location;
 	let fixPrompt: string;
 	let explainPrompt: string;
 	let attachmentName: string;
 	let content: string;
-	switch (location.kind) {
+	switch (context.kind) {
 		case 'console':
 			// The console's error output is attached verbatim.
 			fixPrompt = localize('positronConsoleAssistantFixPrompt', "Fix this console error.");
@@ -118,15 +117,15 @@ export function getPositAssistantChatOptions(
 			break;
 		case 'quarto': {
 			attachmentName = localize('positronQuartoAssistantErrorAttachmentName', "Quarto Output Error");
-			const chunk = location.chunk;
-			if (!chunk) {
+			const cell = context.cell;
+			if (!cell) {
 				fixPrompt = localize('positronQuartoAssistantFixPrompt', "Fix this Quarto inline output error.");
 				explainPrompt = `${localize('positronQuartoAssistantExplainPrompt', "Explain this Quarto inline output error.")} ${explainOnlyConstraint}`;
 				content = context.error.trim();
 				break;
 			}
-			const { languageId, startLine, endLine, label } = chunk;
-			const path = pathLabel(chunk.uri);
+			const { languageId, startLine, endLine, label } = cell;
+			const path = pathLabel(cell.uri);
 			fixPrompt = localize('positronQuartoAssistantFixPromptWithContext', "Fix the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached; fix only this error.", languageId, startLine, endLine, path);
 			explainPrompt = `${localize('positronQuartoAssistantExplainPromptWithContext', "Explain the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached.", languageId, startLine, endLine, path)} ${explainOnlyConstraint}`;
 			const header = label
@@ -134,11 +133,11 @@ export function getPositAssistantChatOptions(
 				: localize('positronQuartoErrorContextHeader', "Error from the {0} code chunk in {1}, lines {2}-{3}:", languageId, path, startLine, endLine);
 			const codeHeader = localize('positronQuartoErrorContextCodeHeader', "--- Failing code ---");
 			const errorHeader = localize('positronQuartoErrorContextErrorHeader', "--- Error output ---");
-			content = `${header}\n\n${codeHeader}\n${chunk.code}\n\n${errorHeader}\n${context.error}`.trim();
+			content = `${header}\n\n${codeHeader}\n${cell.code}\n\n${errorHeader}\n${context.error}`.trim();
 			break;
 		}
 		default:
-			assertNever(location);
+			assertNever(context);
 	}
 
 	return {
