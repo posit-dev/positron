@@ -15,14 +15,15 @@ import { mcpConnectionsDirectory } from './mcpConnection';
 /**
  * Where the launcher is kept: the connections directory, which does not move
  * when Positron is updated, so an agent configured to start it never has to be
- * reconfigured.
+ * reconfigured. The directory's name has a space in it so that every agent
+ * quotes the path when it starts cmd.exe; see {@link mcpLauncherLaunch}.
  *
  * @param storageUri The extension's global storage directory.
  * @returns The path to the launcher.
  */
 export function mcpLauncherPath(storageUri: vscode.Uri): string {
 	const name = os.platform() === 'win32' ? 'positron-mcp.cmd' : 'positron-mcp';
-	return path.join(mcpConnectionsDirectory(storageUri), 'bin', name);
+	return path.join(mcpConnectionsDirectory(storageUri), 'Positron MCP', name);
 }
 
 /**
@@ -30,7 +31,9 @@ export function mcpLauncherPath(storageUri: vscode.Uri): string {
  * shell rather than run directly: on macOS and Linux so it works from a home
  * directory mounted `noexec`, and on Windows because Node refuses to spawn a
  * batch file without a shell. `/d` skips the user's AutoRun commands, whose
- * output would corrupt the MCP stream.
+ * output would corrupt the MCP stream. The `@` keeps the command line from
+ * starting with a quote, which cmd would otherwise strip along with the last
+ * one, leaving characters such as `&` and `^` in the path unquoted.
  *
  * @param storageUri The extension's global storage directory.
  * @returns The launch to write into an agent's configuration.
@@ -38,7 +41,7 @@ export function mcpLauncherPath(storageUri: vscode.Uri): string {
 export function mcpLauncherLaunch(storageUri: vscode.Uri): McpLaunch {
 	const launcher = mcpLauncherPath(storageUri);
 	return os.platform() === 'win32'
-		? { command: 'cmd.exe', args: ['/d', '/c', launcher] }
+		? { command: 'cmd.exe', args: ['/d', '/c', '@', launcher] }
 		: { command: '/bin/sh', args: [launcher] };
 }
 
@@ -75,9 +78,27 @@ export async function installMcpLauncher(
 	const temporary = `${target}.${randomUUID()}.tmp`;
 	try {
 		await fs.writeFile(temporary, script, { mode: 0o755 });
-		await fs.rename(temporary, target);
+		await rename(temporary, target);
 	} finally {
 		await fs.rm(temporary, { force: true });
+	}
+}
+
+/**
+ * Rename a file over another, retrying for a few seconds while Windows reports
+ * one of them in use, as it does while antivirus or the indexer has it open.
+ */
+async function rename(from: string, to: string): Promise<void> {
+	for (let attempt = 1; ; attempt++) {
+		try {
+			return await fs.rename(from, to);
+		} catch (error) {
+			const code = (error as NodeJS.ErrnoException).code;
+			if (attempt === 10 || (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES')) {
+				throw error;
+			}
+			await new Promise(resolve => setTimeout(resolve, attempt * 100));
+		}
 	}
 }
 

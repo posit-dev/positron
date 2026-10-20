@@ -310,9 +310,9 @@ suite('McpFrontend', () => {
 	test('configures no agents when the launcher cannot be installed', async () => {
 		const harness = createHarness();
 		// A file where the launcher's directory belongs.
-		const connections = mcpConnectionsDirectory(harness.storageUri);
-		fs.mkdirSync(connections, { recursive: true });
-		fs.writeFileSync(path.join(connections, 'bin'), '');
+		const directory = path.dirname(mcpLauncherPath(harness.storageUri));
+		fs.mkdirSync(path.dirname(directory), { recursive: true });
+		fs.writeFileSync(directory, '');
 
 		await harness.frontend.attach(harness.registry);
 
