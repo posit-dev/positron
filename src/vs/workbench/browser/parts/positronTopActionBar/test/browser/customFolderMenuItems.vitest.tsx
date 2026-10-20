@@ -31,15 +31,35 @@ function folderRows() {
 describe('CustomFolderMenuItems', () => {
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+	const onMenuItemSelected = vi.fn();
 
 	function renderMenu(...folders: IRecentFolder[]) {
 		return rtl.render(
 			<CustomFolderMenuItems
 				recentlyOpened={{ workspaces: folders, files: [] }}
-				onMenuItemSelected={() => { }}
+				onMenuItemSelected={onMenuItemSelected}
 			/>
 		);
 	}
+
+	it('pins a folder without opening it or closing the menu', async () => {
+		const user = userEvent.setup();
+		const openWindow = vi.spyOn(ctx.reactServices.hostService, 'openWindow');
+		renderMenu(recentFolder('a'), recentFolder('b'));
+
+		await user.click(screen.getByRole('button', { name: 'Pin project-a' }));
+		act(() => screen.getByRole('button', { name: 'Pin project-b' }).focus());
+		await user.keyboard('{Enter}');
+
+		expect(onMenuItemSelected).not.toHaveBeenCalled();
+		expect(openWindow).not.toHaveBeenCalled();
+
+		// Opening the folder from its row does both.
+		await user.click(screen.getByRole('button', { name: 'project-a' }));
+
+		expect(onMenuItemSelected).toHaveBeenCalledOnce();
+		expect(openWindow).toHaveBeenCalledOnce();
+	});
 
 	it('moves a pinned folder to the top of the menu', async () => {
 		const user = userEvent.setup();
