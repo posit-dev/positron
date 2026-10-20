@@ -19,7 +19,6 @@ import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platf
 import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
-import { ErrorAssistantService } from '../../browser/errorAssistantService.js';
 import { getPositAssistantChatOptions, PositAssistantErrorAssistantContribution } from '../../browser/positAssistantErrorAssistant.js';
 import { POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } from '../../browser/positAssistantChat.js';
 import { ErrorAssistantAction, IErrorAssistantContext, IErrorAssistantOptions, IErrorAssistantService } from '../../common/errorAssistant.js';
@@ -39,7 +38,7 @@ describe('PositAssistantErrorAssistantContribution', () => {
 	let contextKeyService: ContextKeyService;
 	let extensions: IExtensionDescription[];
 	let onDidChangeExtensions: Emitter<{ readonly added: IExtensionDescription[]; readonly removed: IExtensionDescription[] }>;
-	let errorAssistantService: ErrorAssistantService;
+	let errorAssistantService: IErrorAssistantService;
 
 	beforeEach(() => {
 		executeCommand.mockResolvedValue(undefined);
@@ -54,8 +53,7 @@ describe('PositAssistantErrorAssistantContribution', () => {
 			onDidChangeExtensions: onDidChangeExtensions.event,
 		});
 
-		errorAssistantService = ctx.disposables.add(ctx.instantiationService.createInstance(ErrorAssistantService));
-		ctx.instantiationService.stub(IErrorAssistantService, errorAssistantService);
+		errorAssistantService = ctx.get(IErrorAssistantService);
 	});
 
 	function createContribution() {

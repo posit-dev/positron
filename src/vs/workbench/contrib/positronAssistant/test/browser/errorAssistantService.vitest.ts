@@ -119,6 +119,18 @@ describe('ErrorAssistantService', () => {
 		expect(notifyError).not.toHaveBeenCalled();
 	});
 
+	it('asks the assistant the user saw named, not the active one', async () => {
+		const service = createService();
+		const askFirst = vi.fn();
+		const askSecond = vi.fn();
+		ctx.disposables.add(service.register(createAssistant({ id: 'first', ask: askFirst })));
+		ctx.disposables.add(service.register(createAssistant({ id: 'second', ask: askSecond })));
+
+		await service.ask('second', 'fix', context, {});
+
+		expect([askFirst.mock.calls.length, askSecond.mock.calls.length]).toEqual([0, 1]);
+	});
+
 	it('does nothing while AI is disabled', async () => {
 		const service = createService();
 		const ask = vi.fn().mockResolvedValue(undefined);
