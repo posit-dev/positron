@@ -7,6 +7,7 @@ import { localize } from '../../../../nls.js';
 import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { Iterable } from '../../../../base/common/iterator.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -98,7 +99,7 @@ export class ErrorAssistantService extends Disposable implements IErrorAssistant
 		if (!this._isAIEnabled()) {
 			return undefined;
 		}
-		return this._assistantsById.values().next().value;
+		return Iterable.first(this._assistantsById.values());
 	}
 
 	private _fireIfActiveAssistantChanged(): void {
