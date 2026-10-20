@@ -410,11 +410,14 @@ export class McpFrontend implements vscode.Disposable {
 		};
 		this.setConnection(connection);
 		await this._saveState({ workspaceId, port, token });
-		await this.publishEnvironment(connection);
+		const installed = await this.publishEnvironment(connection);
 		this._log(`Registered MCP workspace ${workspaceId}; agents can connect at ${url}, ` +
 			`or read ${mcpDescriptorPath(this._storageUri, workspaceId)}`);
 		this.openChannel(workspaceId);
-		this.runHook(() => this._onRegistered(connection));
+		// Agents configured now would be told to start a launcher that is not there.
+		if (installed) {
+			this.runHook(() => this._onRegistered(connection));
+		}
 	}
 
 	/**
@@ -533,13 +536,16 @@ export class McpFrontend implements vscode.Disposable {
 	 * Agents read these at startup, so a terminal or an extension host that
 	 * predates registration has to be restarted to pick them up; the
 	 * description explains that in the terminal's environment hover.
+	 *
+	 * @returns Whether the launcher was installed.
 	 */
-	private async publishEnvironment(connection: McpConnection): Promise<void> {
+	private async publishEnvironment(connection: McpConnection): Promise<boolean> {
 		this._environment.description = vscode.l10n.t(
 			"Lets coding agents run code in this workspace's Positron sessions. Reopen a terminal to pick up changes.");
 		this.setVariable(MCP_URL_ENV_VAR, connection.url);
 		this.setVariable(MCP_TOKEN_ENV_VAR, connection.token);
 		this.setVariable(MCP_CONNECTIONS_ENV_VAR, mcpConnectionsDirectory(this._storageUri));
+		let installed = false;
 		try {
 			const supervisorPath = this._supervisorPath();
 			this.setVariable(SUPERVISOR_PATH_ENV_VAR, supervisorPath);
@@ -547,6 +553,7 @@ export class McpFrontend implements vscode.Disposable {
 			// different version's than the one that last wrote it.
 			await installMcpLauncher(this._storageUri, supervisorPath, this._log);
 			this.setVariable(MCP_LAUNCHER_ENV_VAR, mcpLauncherPath(this._storageUri));
+			installed = true;
 		} catch (err) {
 			this._log(`Could not install the MCP launcher: ${summarizeError(err)}`);
 		}
@@ -558,6 +565,7 @@ export class McpFrontend implements vscode.Disposable {
 			// by its folders are affected.
 			this._log(`Could not write the MCP connection files: ${summarizeError(err)}`);
 		}
+		return installed;
 	}
 
 	/** Publish a variable to terminals and to the extension host's environment. */

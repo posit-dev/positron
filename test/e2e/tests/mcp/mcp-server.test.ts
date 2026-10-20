@@ -200,8 +200,8 @@ test.describe('MCP Server', {
 	});
 });
 
-// Runs on Windows too, where the launcher is a copy of the supervisor binary
-// rather than the shell script it is elsewhere.
+// Runs on Windows too, where the launcher is a batch file run by cmd.exe
+// rather than a shell script run by /bin/sh.
 test.describe('MCP Server over stdio', {
 	tag: [tags.MCP, tags.CONSOLE, tags.SESSIONS, tags.WIN]
 }, () => {
@@ -211,9 +211,8 @@ test.describe('MCP Server over stdio', {
 		await connectAgent(app);
 		const { command, args } = await configureCodex(app);
 
-		// The launcher, which is all an agent needs to be told to start.
-		expect(path.basename(command, '.exe')).toBe('positron-mcp');
-		expect(args).toEqual([]);
+		// The launcher, handed to its shell, is all an agent needs to be told to start.
+		expect(path.parse(args[args.length - 1]).name).toBe('positron-mcp');
 
 		// Without the variables a Positron terminal exports, the bridge has
 		// to find the workspace from the directory the agent runs in, and

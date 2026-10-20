@@ -73,13 +73,13 @@ interface InstallResult {
  * entry.
  *
  * @param context The extension context, which remembers what we configure.
- * @param launch The command line that starts the bridge.
+ * @param launch Installs the launcher and returns the command line that starts it.
  * @param agentId The harness to configure. Omitted when the user ran the
  *  command from the palette, in which case they are asked to pick one.
  */
 export async function configureAgent(
 	context: vscode.ExtensionContext,
-	launch: McpLaunch,
+	launch: () => Promise<McpLaunch>,
 	agentId?: string,
 ): Promise<void> {
 	if (!mcpFeatureEnabled()) {
@@ -93,13 +93,15 @@ export async function configureAgent(
 	}
 
 	let result: InstallResult;
+	let written: McpLaunch;
 	try {
-		result = await installAgent(agent, launch);
+		written = await launch();
+		result = await installAgent(agent, written);
 	} catch (err) {
 		await vscode.window.showErrorMessage(summarizeError(err));
 		return;
 	}
-	await recordConfiguredAgent(context, agent, launch);
+	await recordConfiguredAgent(context, agent, written);
 
 	const open = vscode.l10n.t("Open File");
 	const choice = await vscode.window.showInformationMessage(

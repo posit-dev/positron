@@ -24,8 +24,9 @@ import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
 import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
+import { McpLaunch } from './McpAgents.js';
 import { MCP_ENV_VARS } from './mcpConnection.js';
-import { mcpLauncherLaunch } from './mcpLauncher.js';
+import { installMcpLauncher, mcpLauncherLaunch } from './mcpLauncher.js';
 import { McpClientsStatusBar, SHOW_CONNECTED_AGENTS_COMMAND, showConnectedAgents } from './McpClientsStatusBar.js';
 
 /**
@@ -417,7 +418,7 @@ export class KCApi implements PositronSupervisorApi {
 		}));
 
 		this._context.subscriptions.push(vscode.commands.registerCommand(CONFIGURE_AGENT_COMMAND, (agentId?: string) => {
-			return configureAgent(this._context, mcpLauncherLaunch(this._context.globalStorageUri), agentId);
+			return configureAgent(this._context, () => this.installMcpLauncher(), agentId);
 		}));
 
 		// Listen for changes to the idle shutdown hours config setting; if the
@@ -2003,6 +2004,19 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Dispose of any other disposables
 		this._disposables.forEach(disposable => disposable.dispose());
+	}
+
+	/**
+	 * Install the launcher agents start as Positron's MCP server.
+	 *
+	 * @returns The command line that starts it.
+	 * @throws An error if the server binary cannot be found or the launcher
+	 *  cannot be written.
+	 */
+	private async installMcpLauncher(): Promise<McpLaunch> {
+		const storageUri = this._context.globalStorageUri;
+		await installMcpLauncher(storageUri, this.getKallichorePath(), message => this.log(message));
+		return mcpLauncherLaunch(storageUri);
 	}
 
 	/**

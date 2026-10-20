@@ -307,6 +307,18 @@ suite('McpFrontend', () => {
 		assert.strictEqual(runLauncher(harness), expectedLaunch(harness));
 	});
 
+	test('configures no agents when the launcher cannot be installed', async () => {
+		const harness = createHarness();
+		// A file where the launcher's directory belongs.
+		const connections = mcpConnectionsDirectory(harness.storageUri);
+		fs.mkdirSync(connections, { recursive: true });
+		fs.writeFileSync(path.join(connections, 'bin'), '');
+
+		await harness.frontend.attach(harness.registry);
+
+		assert.strictEqual(harness.registrations, 0);
+	});
+
 	test('writes a connection descriptor for the stdio bridge', async () => {
 		const harness = createHarness();
 
