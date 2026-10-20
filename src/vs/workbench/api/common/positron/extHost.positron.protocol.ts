@@ -390,6 +390,13 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * disabled.
 	 */
 	$getDataConnectionSchema(profileId: string, options: IDataConnectionSchemaSummaryOptions, token: CancellationToken): Promise<IDataConnectionSchemaWalk | undefined>;
+
+	/**
+	 * The code behind the connection comm a runtime session opened most recently -- for a ggsql
+	 * session, the `-- @connect: <uri>` line for the database it is on. Resolves to `undefined`
+	 * when none has been seen. Rejects when the Data Connections feature or SQL support is off.
+	 */
+	$getSessionConnectionCode(sessionId: string): Promise<string | undefined>;
 }
 
 /**
@@ -406,6 +413,9 @@ export interface ExtHostDataConnectionsShape {
 	 * fewer thing for the two sides to keep in step than a diff would be.
 	 */
 	$onDidChangeDataConnections(): void;
+
+	/** Called by the main thread when a session's connection code changes; see $getSessionConnectionCode. */
+	$onDidChangeSessionConnectionCode(sessionId: string, code: string | undefined): void;
 	$driverConnect(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
 	$generateConnectionCode(driverId: string, mechanismId: string, languageId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionCodeVariantDTO[]>;
 	$redactParameterValue(driverId: string, mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;

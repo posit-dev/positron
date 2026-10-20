@@ -18,6 +18,7 @@ import { TestRuntimeClientInstance } from '../../languageRuntime/test/common/tes
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
+import { RuntimeExitReason } from '../../languageRuntime/common/languageRuntimeService.js';
 
 
 describe('Positron - Connections Service', () => {
@@ -147,6 +148,53 @@ describe('Positron - Connections Service', () => {
 
 		expect(disposeSpy.mock.contexts).toContain(client);
 		expect(dataConnectionsModeService.getConnections()).toEqual([]);
+	});
+
+	describe('session connection code', () => {
+		// The ggsql kernel opens a connection comm at startup, and again whenever it switches
+		// database, with the meta-command that reaches the database as the comm's code.
+		const memory = { name: 'memory', language_id: 'ggsql', code: '-- @connect: duckdb://memory' };
+		const file = { name: 'shop.duckdb', language_id: 'ggsql', code: '-- @connect: duckdb:///data/shop.duckdb' };
+
+		function createDataConnectionsModeService() {
+			const instantiationService = ctx.disposables.add(ctx.instantiationService.createChild(new ServiceCollection(
+				[IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': true })]
+			)));
+			return ctx.disposables.add(instantiationService.createInstance(PositronConnectionsService));
+		}
+
+		it('follows the comms a session opens, and forgets them when it exits', async () => {
+			const service = createDataConnectionsModeService();
+			const changes = vi.fn();
+			ctx.disposables.add(service.onDidChangeSessionConnectionCode(changes));
+			const session = ctx.disposables.add(await createSession());
+
+			await session.createClient(RuntimeClientType.Connection, memory);
+			await session.createClient(RuntimeClientType.Connection, file);
+			const whileRunning = service.getSessionConnectionCode(session.sessionId);
+			session.endSession();
+
+			expect({
+				whileRunning,
+				afterExit: service.getSessionConnectionCode(session.sessionId),
+				changes: changes.mock.calls.map(([e]) => e.code),
+			}).toEqual({
+				whileRunning: file.code,
+				afterExit: undefined,
+				changes: [memory.code, file.code, undefined],
+			});
+		});
+
+		it('follows a restarted session, whose new kernel opens comms without the session starting again', async () => {
+			const service = createDataConnectionsModeService();
+			const session = ctx.disposables.add(await createSession());
+			await session.createClient(RuntimeClientType.Connection, file);
+
+			session.endSession({ reason: RuntimeExitReason.Restart });
+			await session.createClient(RuntimeClientType.Connection, memory);
+
+			expect(service.getSessionConnectionCode(session.sessionId)).toBe(memory.code);
+		});
 	});
 
 	describe('Driver Manager', () => {

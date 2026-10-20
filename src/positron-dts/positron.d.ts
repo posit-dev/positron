@@ -4268,6 +4268,39 @@ declare module 'positron' {
 		 * guess -- when a relevant editor is focused, say.
 		 */
 		export const onDidChangeConnections: vscode.Event<void>;
+
+		/**
+		 * The code that reproduces the connection a runtime session opened most recently.
+		 *
+		 * A runtime reports each connection it opens with the code that opens it. ggsql holds one
+		 * database at a time and reports a new one whenever that changes, with code of the form
+		 * `-- @connect: <uri>`, so for a ggsql session this says which database it is on. It is
+		 * the same code a data connection driver generates for ggsql, so the two compare directly.
+		 * Runtimes that hold several connections report each one, and this names only the latest.
+		 *
+		 * @param sessionId The session to ask about, from {@link runtime.getActiveSessions}.
+		 * @returns The code, or `undefined` when it is unknown: the session has reported no
+		 *   connection since it started or restarted, it has exited, or it was reconnected after a
+		 *   window reload (its report went to the previous window). Rejects when the
+		 *   `dataConnections.enabled` or `sql.enabled` setting is off.
+		 */
+		export function getSessionConnectionCode(sessionId: string): Thenable<string | undefined>;
+
+		/**
+		 * Fires when a session's connection code changes; see {@link getSessionConnectionCode}.
+		 * Including to `undefined`, when the session exits. Does not fire while the `sql.enabled`
+		 * setting is off.
+		 */
+		export const onDidChangeSessionConnectionCode: vscode.Event<SessionConnectionCodeChangeEvent>;
+	}
+
+	/** A session's connection code changed; see {@link dataConnections.getSessionConnectionCode}. */
+	export interface SessionConnectionCodeChangeEvent {
+		/** The session whose connection changed. */
+		readonly sessionId: string;
+
+		/** The code for its connection now, or `undefined` when it is unknown. */
+		readonly code: string | undefined;
 	}
 
 	/**

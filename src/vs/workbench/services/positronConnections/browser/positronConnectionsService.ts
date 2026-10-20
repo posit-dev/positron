@@ -7,7 +7,7 @@ import { Disposable, DisposableMap, DisposableStore } from '../../../../base/com
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
 import { ConnectionMetadata, IConnectionMetadata, IPositronConnectionInstance } from '../common/interfaces/positronConnectionsInstance.js';
-import { IPositronConnectionsService, POSITRON_CONNECTIONS_VIEW_ID } from '../common/interfaces/positronConnectionsService.js';
+import { IPositronConnectionsService, ISessionConnectionCodeChangeEvent, POSITRON_CONNECTIONS_VIEW_ID } from '../common/interfaces/positronConnectionsService.js';
 import { DisconnectedPositronConnectionsInstance, PositronConnectionsInstance } from './positronConnectionsInstance.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
@@ -31,7 +31,14 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	public onDidFocusEmitter = this._register(new Emitter<string>);
 	public onDidFocus = this.onDidFocusEmitter.event;
 
+	private readonly onDidChangeSessionConnectionCodeEmitter = this._register(new Emitter<ISessionConnectionCodeChangeEvent>);
+	readonly onDidChangeSessionConnectionCode = this.onDidChangeSessionConnectionCodeEmitter.event;
+
 	private readonly connections: IPositronConnectionInstance[] = [];
+
+	// The code behind the connection comm each session opened most recently, keyed by session id.
+	// See getSessionConnectionCode.
+	private readonly sessionConnectionCode = new Map<string, string>();
 	private readonly closeConnectionsListeners = this._register(new DisposableMap<string, DisposableStore>());
 	public readonly driverManager: PositronConnectionsDriverManager;
 
@@ -53,6 +60,9 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true) {
 			this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
 				this.closeRuntimeConnections(session);
+			}));
+			this._register(this.runtimeSessionService.onDidDeleteRuntimeSession((sessionId) => {
+				this.closeConnectionsListeners.deleteAndDispose(sessionId);
 			}));
 			return;
 		}
@@ -140,25 +150,65 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	/**
 	 * Closes the connection comms a session opens, which would otherwise stay open until the session
 	 * ends. R opens one for every odbc or DBI connection.
+	 *
+	 * Each comm's code is recorded first; see getSessionConnectionCode. The listener stays for the
+	 * life of the session rather than of its runtime: a restart starts a new kernel in the same
+	 * session without firing onDidStartRuntime again, and that kernel opens comms of its own.
 	 */
 	private async closeRuntimeConnections(session: ILanguageRuntimeSession) {
 		const store = new DisposableStore();
-		store.add(session.onDidCreateClientInstance(({ client }) => {
+		store.add(session.onDidCreateClientInstance(({ message, client }) => {
 			if (client.getClientType() === RuntimeClientType.Connection) {
+				this.setSessionConnectionCode(session.sessionId, (message.data as Partial<IConnectionMetadata>).code);
 				client.dispose();
 			}
 		}));
 		store.add(session.onDidEndSession(() => {
-			this.closeConnectionsListeners.deleteAndDispose(session.sessionId);
+			// Whatever the runtime was connected to went with it.
+			this.setSessionConnectionCode(session.sessionId, undefined);
 		}));
 		this.closeConnectionsListeners.set(session.sessionId, store);
 
 		try {
 			const clients = await session.listClients(RuntimeClientType.Connection);
-			clients.forEach(client => client.dispose());
+			await Promise.all(clients.map(async client => {
+				const connection = new ConnectionsClientInstance(client);
+				try {
+					this.setSessionConnectionCode(session.sessionId, (await connection.getMetadata()).code);
+				} finally {
+					connection.dispose();
+					client.dispose();
+				}
+			}));
 		} catch (e) {
 			this.logService.error('Error while closing runtime connections', e);
 		}
+	}
+
+	/**
+	 * The code behind the connection comm a session opened most recently, or undefined if it has
+	 * opened none since Positron started watching it.
+	 *
+	 * A ggsql session holds one database at a time and opens a comm whenever that changes, with
+	 * `-- @connect: <uri>` as its code, so for ggsql this says which database the session is on.
+	 * Positron closes these comms on arrival, so the code is read on the way past: a session
+	 * reconnected after a reload has had its comm closed already, and reads as undefined until it
+	 * connects again.
+	 */
+	getSessionConnectionCode(sessionId: string): string | undefined {
+		return this.sessionConnectionCode.get(sessionId);
+	}
+
+	private setSessionConnectionCode(sessionId: string, code: string | undefined) {
+		if (this.sessionConnectionCode.get(sessionId) === code) {
+			return;
+		}
+		if (code === undefined) {
+			this.sessionConnectionCode.delete(sessionId);
+		} else {
+			this.sessionConnectionCode.set(sessionId, code);
+		}
+		this.onDidChangeSessionConnectionCodeEmitter.fire({ sessionId, code });
 	}
 
 	attachRuntime(session: ILanguageRuntimeSession) {
