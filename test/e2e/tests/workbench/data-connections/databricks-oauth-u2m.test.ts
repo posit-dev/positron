@@ -55,14 +55,24 @@ test.describe('Data Connections - Databricks OAuth U2M', {
 		const popup = await popupPromise;
 
 		// Nothing on this machine serves the redirect; capture its URL from the request itself,
-		// which is reported even though the connection is refused.
+		// which is reported even though the connection is refused. The authorize URL is kept too,
+		// so a failed first navigation can be retried against the real address.
+		let authorizeUrl = popup.url();
 		const callbackUrl = new Promise<string>(resolve => popup.on('request', request => {
+			if (request.isNavigationRequest() && request.url().includes('/oidc/v1/authorize')) {
+				authorizeUrl = request.url();
+			}
 			if (request.url().startsWith('http://localhost:8030')) {
 				resolve(request.url());
 			}
 		}));
+		popup.on('requestfailed', request => {
+			if (request.isNavigationRequest()) {
+				console.log(`[u2m] navigation failed: ${request.failure()?.errorText} at ${request.url().split('?')[0]}`);
+			}
+		});
 
-		await signInWithSso(popup, { email: email!, password: password!, otpSecret: otpSecret! }, app.code.logger);
+		await signInWithSso(popup, () => authorizeUrl, { email: email!, password: password!, otpSecret: otpSecret! }, app.code.logger);
 		const callback = await Promise.race([
 			callbackUrl,
 			popup.waitForTimeout(90_000).then(() => { throw new Error('No redirect to the callback within 90s'); }),
@@ -85,7 +95,7 @@ test.describe('Data Connections - Databricks OAuth U2M', {
  * Signs in on the Databricks login page through "Continue with SSO", which federates to
  * posit.okta.com: password, then a TOTP code. Mirrors the Workbench auth page's Azure flow.
  */
-async function signInWithSso(popup: Page, account: { email: string; password: string; otpSecret: string }, logger: { log(message: string): void }): Promise<void> {
+async function signInWithSso(popup: Page, authorizeUrl: () => string, account: { email: string; password: string; otpSecret: string }, logger: { log(message: string): void }): Promise<void> {
 	const step = (name: string) => logger.log(`[u2m] ${name}: ${popup.url().split('?')[0]}`);
 	// On CI the popup's first navigation to the authorize URL sometimes never completes, while a
 	// fresh navigation does; re-navigate rather than wait on a request that will not finish.
@@ -95,7 +105,7 @@ async function signInWithSso(popup: Page, account: { email: string; password: st
 		if (attempt === 3) {
 			throw new Error('The Databricks login page did not load');
 		}
-		await popup.goto(popup.url(), { timeout: 60_000 }).catch(() => { });
+		await popup.goto(authorizeUrl(), { timeout: 60_000 }).catch(err => console.log(`[u2m] re-navigation failed: ${err.message.split('\n')[0]}`));
 	}
 	await sso.click();
 	await popup.waitForURL(/okta\.com/, { timeout: 60_000 });
