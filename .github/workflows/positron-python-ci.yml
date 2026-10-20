@@ -54,7 +54,7 @@ jobs:
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           enable-cache: true
           activate-environment: true
 
