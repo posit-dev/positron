@@ -21,7 +21,7 @@ const rows = [
 	row(4, 'future', { futureSince: '2026-10-11' }),
 	row(5, 'future', { futureSince: '2026-10-13', sev: null, skillVersion: null, type: null }),
 	row(6, 'awaiting', { sev: 'major', areas: [], filed: '2026-10-12', skillVersion: '1.53' }),
-	row(7, 'closed', { closed: '2026-10-10', filed: '2026-08-01' }),
+	row(7, 'closed', { closed: '2026-10-10', filed: '2026-08-01', via: 'matched' }),
 ];
 const ALL = resolveRange('all', rows.map(r => r.filed).sort(), TODAY);
 const view = (filter, range = ALL) => renderView(rows, { now: TODAY, range, filter });
@@ -95,13 +95,19 @@ test('each issue row shows where it stands and for how long', () => {
 	assert.match(t, /10 days in Future/);
 	assert.match(t, /filed 3 days ago/);
 	assert.match(t, /closed Oct 10/);
+	assert.match(t, /#7 ~ plots ~ filed Aug 1 ~ matched ~ report/);
+	assert.doesNotMatch(t, /#1 ~ plots ~ filed Oct 1 ~ matched/);
+});
+
+test('the breakdown counts issues filed from the report apart from matched ones', () => {
+	assert.match(text(section(view().body, 'kind')), /Linked by Filed from the report 6 Matched to its finding 1/);
 });
 
 test('the page has the shared top row and footer, and the counting panel says which issues count', () => {
 	const html = renderTriagePage({ rows }, { now: new Date(`${TODAY}T12:00:00Z`) });
 	assert.match(html, /<nav[^>]*class="switch"[\s\S]*aria-current="page"[^>]*>Triage outcomes/);
 	assert.match(html, /<footer>Updated /);
-	assert.match(text(html), /Only issues labelled ai-discovered that link to an exploratory-test report are counted\./);
+	assert.match(text(html), /issues filed by hand that the Shipping impact page matched to a finding and that mention its PR/);
 	assert.doesNotMatch(text(html), /left out/);
 });
 

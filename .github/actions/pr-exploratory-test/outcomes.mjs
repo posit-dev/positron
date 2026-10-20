@@ -164,7 +164,7 @@ async function laterChecks(finding, paths, pr, postedAt, timeline) {
 		const checks = [];
 		for (const issue of candidateIssues({ found, timeline, postedAt, repo: REPO })) {
 			const c = await check(finding, { kind: 'issue', text: `#${issue.number}: ${issue.title}\n\n${String(issue.body ?? '').slice(0, 4000)}` }, `issue #${issue.number}`);
-			checks.push({ ...c, issue: issueOf(issue) });
+			checks.push({ ...c, issue: { ...issueOf(issue), mentionsPr: issue.mentionsPr } });
 		}
 		return checks;
 	});

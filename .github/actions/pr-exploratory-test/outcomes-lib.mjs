@@ -95,12 +95,13 @@ export function issueOf(i) {
 
 /**
  * The title search's issues plus any that mention the PR (timeline cross-references), which catches one filed by
- * hand in other words. This repo's issues filed after `postedAt`, each once.
+ * hand in other words. This repo's issues filed after `postedAt`, each once, with `mentionsPr` set for the latter.
  */
 export function candidateIssues({ found, timeline, postedAt, repo }) {
 	const referenced = (timeline ?? [])
 		.filter(e => e.event === 'cross-referenced' && e.source?.issue?.repository?.full_name === repo)
 		.map(e => e.source.issue);
+	const mentions = new Set(referenced.map(i => i.number));
 	const seen = new Set();
 	return [...(found ?? []), ...referenced].filter(i => {
 		if (i.pull_request || !(i.created_at > postedAt) || seen.has(i.number)) {
@@ -108,7 +109,7 @@ export function candidateIssues({ found, timeline, postedAt, repo }) {
 		}
 		seen.add(i.number);
 		return true;
-	});
+	}).map(i => ({ ...i, mentionsPr: mentions.has(i.number) }));
 }
 
 /** One finding's outcome from its checks. `Check` is `{ answer, reason, source }`. */

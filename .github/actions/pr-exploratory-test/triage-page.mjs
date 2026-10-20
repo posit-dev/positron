@@ -170,6 +170,7 @@ function breakdown(rows) {
 	const body = `<div class="tallies">
 ${tally('Type', rows.map(r => r.type), ['Bug', 'Enhancement'], 'No type')}
 ${tally('Report source', rows.map(r => r.source === 'local' ? 'Local run' : 'PR run'), ['PR run', 'Local run'], '')}
+${tally('Linked by', rows.map(r => r.via === 'matched' ? 'Matched to its finding' : 'Filed from the report'), ['Filed from the report', 'Matched to its finding'], '')}
 ${tally('Skill version', rows.map(r => r.skillVersion), [], 'Not recorded', byVersion)}
 </div>`;
 	return accordion('kind', 'Type, source and skill version', summary, rows.length ? body : NONE);
@@ -188,7 +189,8 @@ function age(r, now) {
 
 function renderIssueRow(r, now) {
 	const links = [safeUrl(r.reportUrl) && `<a href="${escapeHtml(r.reportUrl)}">report</a>`, safeUrl(r.findingUrl) && `<a href="${escapeHtml(r.findingUrl)}">finding</a>`].filter(Boolean);
-	const meta = [`<span class="mono">#${Number(r.num)}</span>`, escapeHtml(r.areas.join(', ') || 'no feature label'), `filed ${day(r.filed)}`, ...links].join(SEP);
+	const matched = r.via === 'matched' ? ['<span title="Filed by hand; the outcomes job matched it to the finding, and it mentions the PR">matched</span>'] : [];
+	const meta = [`<span class="mono">#${Number(r.num)}</span>`, escapeHtml(r.areas.join(', ') || 'no feature label'), `filed ${day(r.filed)}`, ...matched, ...links].join(SEP);
 	return `<div class="issue" id="i${Number(r.num)}"><span class="sev-col">${sevPill(r.sev)}</span>`
 		+ `<span class="main"><a class="issue-title" href="${REPO_URL}/issues/${Number(r.num)}">${escapeHtml(r.title)}</a><span class="meta">${meta}</span></span>`
 		+ `<span class="out"><i class="sw o-${r.out}" aria-hidden="true"></i>${escapeHtml(r.out === 'active' ? r.milestone : outLabel(r.out))}</span>`
@@ -227,7 +229,7 @@ function howPanel() {
 	const rows = OUT.map(o => `<div class="trow" role="row"><span class="name" role="rowheader"><i class="sw o-${o.key}" aria-hidden="true"></i>${o.label}</span><span class="state" role="cell">${o.state}</span><span role="cell">${o.rule}</span></div>`).join('');
 	return `<div class="how-panel" id="how" hidden><div class="muted-line">Each finding counts once, by where it stands today.</div>
 <div class="how-table" role="table" aria-label="How outcomes are counted"><div class="trow cols" role="row"><span role="columnheader">Outcome</span><span role="columnheader">State</span><span role="columnheader">Which issues</span></div>${rows}</div>
-<div class="notes"><div>Only issues labelled ai-discovered that link to an exploratory-test report are counted.</div></div></div>`;
+<div class="notes"><div>Counted: issues labelled ai-discovered that link to an exploratory-test report, and issues filed by hand that the Shipping impact page matched to a finding and that mention its PR (marked matched).</div></div></div>`;
 }
 
 const CSS = `

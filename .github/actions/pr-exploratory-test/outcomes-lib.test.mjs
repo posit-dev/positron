@@ -111,7 +111,8 @@ test('candidateIssues adds issues that mention the PR to the search\'s, each onc
 		postedAt: '2026-10-01',
 		repo,
 	});
-	assert.deepEqual(got.map(i => i.number), [1, 4]);
+	assert.deepEqual(got.map(i => [i.number, i.mentionsPr]), [[1, true], [4, true]]);
+	assert.equal(candidateIssues({ found: [issue(8, '2026-10-02')], timeline: [], postedAt: '2026-10-01', repo })[0].mentionsPr, false);
 	assert.deepEqual(candidateIssues({ found: [], timeline: undefined, postedAt: '2026-10-01', repo }), []);
 });
 
