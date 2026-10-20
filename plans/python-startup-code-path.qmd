@@ -24,7 +24,7 @@ format:
         </style>
 ---
 
-Today is `origin/main` at `4fa2fa523ca`. "After" is the Python plan (`2026-09-25-python-startup-policy.md`) plus the core PR it depends on. In the "after" diagrams, [yellow]{style="background:#fff4ce;padding:0 4px"} marks a step that changed and [green]{style="background:#dff3e0;padding:0 4px"} marks a new one.
+Today is `origin/main` at `4fa2fa523ca`. "After" is the Python plan (`2026-09-25-python-startup-policy.md`) plus the core PR it depends on, 16376 PR 1 and PR 2 ([16376-discovery-cache-startup.md](16376-discovery-cache-startup.md)), and #2659 ([2659-implementation-plan.md](2659-implementation-plan.md)). In the "after" diagrams, [yellow]{style="background:#fff4ce;padding:0 4px"} marks a step that changed, [green]{style="background:#dff3e0;padding:0 4px"} marks a new one, and [blue]{style="background:#ddf4ff;padding:0 4px"} marks a step #2659 adds.
 
 ## Terms
 
@@ -48,7 +48,7 @@ Today is `origin/main` at `4fa2fa523ca`. "After" is the Python plan (`2026-09-25
 
 **Affiliated runtime.** The interpreter last used in this folder, which core remembers and starts again next time (under `auto` and `always`).
 
-**0/0 affiliation.** Today, when a recommendation is not `Immediate`, core saves it as the folder's affiliated runtime with both timestamps set to 0. A lone affiliation starts on the next open regardless of its timestamps, so a recommendation that wasn't meant to start now does start next time. After this change Python opts out of that save; R doesn't.
+**0/0 affiliation.** Today, when a recommendation is not `Immediate`, core saves it as the folder's affiliated runtime with both timestamps set to 0. A lone affiliation starts on the next open regardless of its timestamps, so a recommendation that wasn't meant to start now does start next time. After these changes, Python and R both opt out of that save. R's opt-out comes from #2659.
 
 **Recommendation.** The one interpreter per language that the language's extension suggests for this folder. Python's is the top eligible interpreter in the ranking below.
 
@@ -141,7 +141,13 @@ sequenceDiagram
     Core->>Core: Restore sessions: every running session reconnects, even an excluded<br/>interpreter or a disabled language. One whose kernel has exited isn't retried
     end
     opt Affiliated runtime, setting is auto or always
-        Core->>Py: validateMetadata(stored runtime)
+        rect rgb(221, 244, 255)
+        Core->>Py: pinnedWorkspaceRuntime() (pin check)
+        Py->>PET: Resolve only the pin's path, no full scan
+        Py-->>Core: The pin, or nothing
+        Core->>Core: If the pin came back: save it as the affiliated runtime and register it
+        end
+        Core->>Py: validateMetadata(stored runtime), only if no pin came back
         Core->>Sup: Start it (Python refuses if excluded)
     end
     rect rgb(255, 244, 206)
@@ -218,13 +224,14 @@ flowchart TD
     A[Window opens] --> B[Restore sessions<br/>every running session reconnects,<br/>even an excluded interpreter or<br/>a disabled language. One whose<br/>kernel has exited isn't retried]
     B --> C{Console running?}
     C -- no --> D{Affiliated runtime<br/>and setting is<br/>auto or always?}
-    D -- yes --> E[Start affiliated runtime<br/>Python refuses if excluded<br/>skipped when the setting is recommended]
+    D -- yes --> P[Pin check: ask the extension<br/>for the pin and save it as<br/>the affiliated runtime]
+    P --> E[Start affiliated runtime<br/>Python refuses if excluded<br/>skipped when the setting is recommended]
     D -- no --> F
     E --> F{Console running?}
-    F -- no --> G[Startup ask: each language<br/>recommends one runtime<br/>Python uses only interpreters it<br/>can find by path, no full scan]
+    F -- no --> G[Startup ask: each language<br/>recommends one runtime,<br/>the pin if one is set<br/>Python uses only interpreters it<br/>can find by path, no full scan]
     G --> H{Immediate?}
     H -- yes --> I[Start it]
-    H -- no --> J[Remember it<br/>no 0/0 save for Python]
+    H -- no --> J[Remember it<br/>no 0/0 save]
     C -- yes --> K
     F -- yes --> K
     I --> K
@@ -237,15 +244,17 @@ flowchart TD
 
     classDef changed fill:#fff4ce,stroke:#bf8700,color:#1f2328
     classDef new fill:#dff3e0,stroke:#1a7f37,color:#1f2328
+    classDef pinned fill:#ddf4ff,stroke:#0969da,color:#1f2328
     class B,E,G,J changed
     class L,M,N,O new
+    class P pinned
 ```
 
 :::
 
 ::::
 
-"Skipped" means a console was already starting, for example an affiliated R console: today Python isn't asked at all then, so it has no recommendation. R is unchanged: it doesn't opt out of the 0/0 save, and it never answers "nothing yet".
+"Skipped" means a console was already starting, for example an affiliated R console: today Python isn't asked at all then, so it has no recommendation. R opts out of the 0/0 save too, from #2659. It never answers "nothing yet", so core never asks it a second time.
 
 ## 3. What starts a Python runtime
 
@@ -306,6 +315,57 @@ flowchart TD
 :::
 
 ::::
+
+## 4. With a pinned interpreter
+
+A **pinned interpreter** ("the pin") is the interpreter named by `python.defaultInterpreterPath` for Python, or `positron.r.interpreters.default` for R.
+
+The first two tables each follow one launch, from top to bottom. Each row is a startup step, in the order core runs it. Each cell says what that step does when a pin is set. The last row says what's running when startup finishes.
+
+These tables assume:
+
+- `interpreters.startupBehavior` is `auto`
+- no console is still running from an earlier window, so restoring sessions reconnects nothing
+
+### A folder with an affiliated runtime
+
+You used a different interpreter in this folder last time.
+
+| Step | Today | After |
+|---|---|---|
+| Start affiliated runtime | Starts the affiliated runtime; the pin is ignored | Replaces the affiliated runtime with the pin, then starts the pin (1) |
+| Startup ask | Skipped: a console is already starting | Skipped: a console is already starting |
+| Discovery | Nothing new starts: a console is already running | Nothing new starts: a console is already running. The pin check's answer isn't cached, so other folders never see this pin |
+| Running when startup finishes | The interpreter you used last time | The pin |
+
+1. If the pin's path is missing, or `exclude` or `override` blocks it, core keeps the old affiliated runtime and starts that.
+
+### A folder with no affiliated runtime
+
+The first time you open the folder, or the next launch after you shut its console down.
+
+| Step | Today | After |
+|---|---|---|
+| Start affiliated runtime | Skipped | Skipped |
+| Startup ask | Recommends the pin as `Implicit`, so it doesn't start (2); core saves it as a 0/0 affiliation | Starts the pin if the folder has files for that language (3). Otherwise core remembers it as `Implicit`, without starting it. No 0/0 affiliation is saved |
+| Discovery finishes | Would start the first `Immediate` record, such as the current R, but the 0/0 affiliation blocks it | Nothing new starts: only startup ask answers can be `Immediate`, and the startup ask already started them (5) |
+| Running when startup finishes | Nothing, unless Python started a root env (2). See (4) for the next open | The pin, if the folder has files for that language (3). Otherwise nothing; core remembers the pin for when you open a file or run code |
+
+2. Python first checks for a root `.venv`, `.conda`, or `*/bin/python`. If it finds one, it recommends that as `Immediate` and starts it instead of the pin.
+3. For Python, a Python folder (see Terms). For R, R files at any depth, or an empty folder if you used RStudio in the last 30 days.
+4. On the next open, the "Start affiliated runtime" step starts the pin from the 0/0 affiliation, but only if no other language has an affiliated runtime in this folder. Otherwise the pin never starts on its own.
+5. R's and Python's searches no longer set `Immediate`, and core never stores it in the cache. So the only `Immediate` records are startup ask answers, such as the pin in a folder with files for that language.
+
+### When the pin changes
+
+This table covers a different moment: the first launch after you change the pin, or after you switch to a folder with a different pin. It says what happens to that language's discovery cache.
+
+| Language | Today | After |
+|---|---|---|
+| R | Cache thrown out; R's full search runs | Cache kept |
+| Python | Cache thrown out if the new pin is in a different directory from the old one; Python's full search runs | Same as today |
+
+Today the pin is part of the check that decides whether a language's cache is up to date. 16376 PR 1 takes it out of R's check. No plan takes it out of Python's.
 
 ## Code references (today)
 
