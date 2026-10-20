@@ -196,7 +196,7 @@ describe('listenForCallback', () => {
 		// Port 0 lets the OS pick a free port; the production port is fixed by Databricks' registration.
 		const listener = await listenForCallback(0, 's1', '<p>done</p>');
 		try {
-			const server = `http://localhost:${listener.port}`;
+			const server = `http://127.0.0.1:${listener.port}`;
 			const probe = await get(`${server}/favicon.ico`);
 			const other = await get(`${server}/?code=x&state=other`);
 			const callback = await get(`${server}/?code=abc&state=s1`);

@@ -297,7 +297,7 @@ export function listenForCallback(port: number, state: string, responseHtml: str
 		let settle: (result: CallbackResult) => void;
 		const result = new Promise<CallbackResult>(r => { settle = r; });
 		const server = http.createServer((req, res) => {
-			const parsed = parseCallbackUrl(`http://localhost${req.url ?? '/'}`, state);
+			const parsed = parseCallbackUrl(`http://127.0.0.1${req.url ?? '/'}`, state);
 			if (!parsed || parsed.error === 'state_mismatch') {
 				res.writeHead(404);
 				res.end();
@@ -308,7 +308,9 @@ export function listenForCallback(port: number, state: string, responseHtml: str
 			settle(parsed);
 		});
 		server.on('error', reject);
-		server.listen(port, 'localhost', () => resolve({
+		// Bind the IPv4 loopback explicitly: `localhost` may bind only IPv6 on some hosts, and the
+		// browser tries both addresses for the registered `localhost` redirect.
+		server.listen(port, '127.0.0.1', () => resolve({
 			port: (server.address() as { port: number }).port,
 			result,
 			close: () => {
