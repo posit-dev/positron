@@ -111,8 +111,8 @@ function allBar(s) {
 	const columns = present.map(o => `minmax(0, ${s.counts[o.key]}fr)`).join(' ');
 	const k = present.filter(o => o.group !== 'open').length;
 	const brackets = [
-		k ? `<div class="bracket counted" style="grid-column:1 / span ${k}"><b>Outcome known</b><span>${SEP}${s.counted}</span></div>` : '',
-		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>No outcome yet</b><span>${SEP}${s.notCounted}</span></div>` : '',
+		k ? `<div class="bracket counted" style="grid-column:1 / span ${k}"><b>Outcome known</b><span>${s.counted}</span></div>` : '',
+		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>No outcome yet</b><span>${s.notCounted}</span></div>` : '',
 	].join('');
 	// A share of the known outcomes, or a bare count for the rest so denominators don't mix.
 	const details = present.map(o => {
@@ -237,8 +237,8 @@ export const VIEW_SOURCE = [
 const CSS = `
 .small{font-size:13px;color:#5A5751}
 .bracket.not-counted{justify-content:flex-end}
-.bracket.counted{border-bottom:2px solid #2B2A27}
-.bracket.not-counted{border-bottom:2px solid #B5B1A7}.bracket.not-counted b{color:#5A5751}
+.bracket.counted{border-bottom:1px solid #5A5751}
+.bracket.not-counted{border-bottom:1px solid #C9C5BB}.bracket.not-counted b{color:#5A5751}
 .bar.mid{height:24px;gap:8px}
 .part{display:flex;gap:2px;min-width:0}.part .seg{min-width:0}
 .o-fixed-in-pr{background:#3B7D4F;color:#FFF}

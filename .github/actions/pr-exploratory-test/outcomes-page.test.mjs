@@ -91,7 +91,7 @@ test('the bar has one linked segment per outcome present, in palette order', () 
 	assert.doesNotMatch(bar, /width:/);
 	assert.match(bar, /data-key="fixed-later"[^>]*>1<span>Fixed later<\/span>/);
 	assert.doesNotMatch(bar, /title=/);
-	assert.match(text(section(html, 'all-h')), /Findings by outcome Outcome known ~ 3 No outcome yet ~ 1/);
+	assert.match(text(section(html, 'all-h')), /Findings by outcome Outcome known 3 No outcome yet 1/);
 });
 
 test('there is no legend under the bar: the row holds only the hover details', () => {
@@ -113,7 +113,7 @@ test('the brackets and the bar share one grid, a column per segment sized by its
 test('with no known outcome the Outcome known bracket is left out', () => {
 	const html = render([row('pending'), row('unclear')]);
 	assert.doesNotMatch(markup(html), /class="bracket counted"/);
-	assert.match(text(html), /No outcome yet ~ 2/);
+	assert.match(text(html), /No outcome yet 2/);
 });
 
 test('each bar segment has a detail to show on hover: share of known outcomes, or a bare count with none, then the label alone', () => {

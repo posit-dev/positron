@@ -35,11 +35,10 @@ test('the bar brackets triaged against awaiting and puts segments in outcome ord
 	assert.match(bar, /style="grid-column:1 \/ span 4"/);
 });
 
-test('the bar detail adds the milestone for Release or backlog and the median days for Future', () => {
+test('the bar detail is the label and what the outcome means, with no counts', () => {
 	const { bar } = view();
-	assert.match(text(bar), /Now: 1 in 2027 Backlog\./);
-	assert.match(text(bar), /Future Open in the Future milestone\. Median 4 days there\./);
-	assert.doesNotMatch(text(bar), /of 6 triaged issues|of 7 findings/);
+	assert.match(text(bar), /Release or backlog Planned: scheduled for a release or the backlog\. 43% Future Acknowledged, but parked for later with no plan yet\./);
+	assert.doesNotMatch(text(bar), /Now:|Median|of 6 triaged issues|of 7 findings/);
 });
 
 test('the headline counts fixed or planned issues out of the triaged ones', () => {
