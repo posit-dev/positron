@@ -56,6 +56,7 @@ import { IPositronIdleTrackingService } from '../../platform/positronIdleTrackin
 
 // --- Start PWB: Server proxy support ---
 import { kProxyRegex, VSCODE_STATIC_PREFIX } from './pwbConstants.js';
+import { resolveReconnectionInfo } from './reconnectionHandshake.js';
 // --- End PWB ---
 
 function parseRequestUrl(requestUrl: string): URL | undefined {
@@ -355,7 +356,10 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 	 */
 	private _handleWebSocketConnection(socket: NodeSocket | WebSocketNodeSocket, isReconnection: boolean, reconnectionToken: string): void {
 		const remoteAddress = this._getRemoteAddress(socket);
-		const logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+		// --- Start PWB: Reassigned when the auth message carries the reconnection token ---
+		// const logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+		let logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+		// --- End PWB ---
 		const protocol = new PersistentProtocol({ socket });
 
 		const validator = this._vsdaMod ? new this._vsdaMod.validator() : null;
@@ -386,6 +390,13 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				if (msg1.type !== 'auth') {
 					return rejectWebSocketConnection(`Invalid first message`);
 				}
+
+				// --- Start PWB: Proxies that drop the query string leave the token in the auth message only ---
+				const reconnection = resolveReconnectionInfo(msg1, { reconnectionToken, isReconnection });
+				reconnectionToken = reconnection.reconnectionToken;
+				isReconnection = reconnection.isReconnection;
+				logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+				// --- End PWB ---
 
 				if (this._connectionToken.type === ServerConnectionTokenType.Mandatory && !this._connectionToken.validate(msg1.auth)) {
 					return rejectWebSocketConnection(`Unauthorized client refused: auth mismatch`);

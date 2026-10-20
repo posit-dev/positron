@@ -10,7 +10,8 @@
   },
   "main": "./out/extension.js",
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCommand:positron.fileTransfer.canCreateFolderIn"
   ],
   "contributes": {
     "configuration": [

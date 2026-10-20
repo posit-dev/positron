@@ -25,6 +25,7 @@ import { PlatformNativeDialogActionBar } from './platformNativeDialogActionBar.j
 interface OKCancelActionBarProps {
 	okButtonTitle?: string;
 	cancelButtonTitle?: string;
+	okDisabled?: boolean;
 	preActions?: () => ReactElement;
 	onAccept: () => void;
 	onCancel: () => void;
@@ -38,7 +39,7 @@ interface OKCancelActionBarProps {
 export const OKCancelActionBar = (props: OKCancelActionBarProps) => {
 	const preActions = props.preActions ? props.preActions() : null;
 	const okButton = (
-		<Button className='action-bar-button default' onPressed={props.onAccept}>
+		<Button className='action-bar-button default' disabled={props.okDisabled} onPressed={props.onAccept}>
 			{props.okButtonTitle ?? localize('positronOK', "OK")}
 		</Button>
 	);

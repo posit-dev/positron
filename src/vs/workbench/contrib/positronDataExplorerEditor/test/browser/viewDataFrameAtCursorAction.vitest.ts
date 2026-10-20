@@ -16,6 +16,7 @@ import { ILanguageRuntimeSession, INotebookLanguageRuntimeSession, IRuntimeSessi
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IPositronDataExplorerService } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IPositronObjectExplorerService } from '../../../../services/positronObjectExplorer/browser/interfaces/positronObjectExplorerService.js';
 import { IPositronVariablesInstance } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
@@ -131,6 +132,11 @@ describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 				get positronVariablesInstances() { return variablesInstances; },
 			})
 			.stub(IPositronDataExplorerService, {
+				getInstanceForVar: () => undefined,
+				getInstanceForVariablePath: () => undefined,
+				setInstanceForVar: vi.fn(),
+			})
+			.stub(IPositronObjectExplorerService, {
 				getInstanceForVar: () => undefined,
 				getInstanceForVariablePath: () => undefined,
 				setInstanceForVar: vi.fn(),
@@ -251,7 +257,7 @@ describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			await runAction();
 
 			expect(notificationInfo).toHaveBeenCalledTimes(1);
-			expect(notificationInfo.mock.calls[0][0]).toMatch(/'missing' is not a data frame defined/);
+			expect(notificationInfo.mock.calls[0][0]).toMatch(/'missing' is not a variable defined/);
 		});
 
 		it('notifies about a still-loading session when the variables list times out', async () => {
@@ -340,6 +346,11 @@ describe('PositronDataExplorerViewDataFrameByVariableAction', () => {
 			get positronVariablesInstances() { return variablesInstances; },
 		})
 		.stub(IPositronDataExplorerService, {
+			getInstanceForVar: () => undefined,
+			getInstanceForVariablePath: () => undefined,
+			setInstanceForVar: vi.fn(),
+		})
+		.stub(IPositronObjectExplorerService, {
 			getInstanceForVar: () => undefined,
 			getInstanceForVariablePath: () => undefined,
 			setInstanceForVar: vi.fn(),

@@ -12,6 +12,7 @@ from plotnine import ggplot
 
 from ..access_keys import encode_access_key
 from ..formatters.data_explorer_formatter import PositronDataExplorerFormatter
+from ..formatters.object_explorer_formatter import PositronObjectExplorerFormatter
 from ..positron_ipkernel import PositronIPyKernel, PositronShell
 from ..session_mode import SessionMode
 
@@ -147,6 +148,50 @@ class TestPositronDataExplorerFormatter:
             title="first_df",
             variable_path=[encode_access_key("first_df")],
         )
+
+
+class TestPositronObjectExplorerFormatter:
+    format_type = PositronObjectExplorerFormatter.format_type
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, kernel: PositronIPyKernel, monkeypatch):
+        monkeypatch.setattr(kernel, "session_mode", SessionMode.NOTEBOOK)
+        yield
+        kernel.object_explorer_service.shutdown()
+
+    @pytest.mark.parametrize("obj", [{"a": 1}, [[1], 2], ({"a": 1},)])
+    def test_nested_data(self, display_formatter, shell, obj):
+        data_dict, _ = display_formatter.format(obj)
+
+        (comm_id,) = shell.kernel.object_explorer_service.comms
+        assert data_dict[self.format_type] == {
+            "comm_id": comm_id,
+            "title": type(obj).__name__,
+            "version": 1,
+        }
+        assert "text/plain" in data_dict
+
+    @pytest.mark.parametrize("obj", [[1, 2, 3], (), {}])
+    def test_flat_or_empty_data_keeps_its_text(self, display_formatter, obj):
+        data_dict, _ = display_formatter.format(obj)
+
+        assert self.format_type not in data_dict
+
+    def test_resolves_top_level_variable(self, display_formatter, shell):
+        shell.user_ns["config"] = {"a": {"b": 1}}
+
+        data_dict, _ = display_formatter.format(shell.user_ns["config"])
+
+        assert data_dict[self.format_type]["variable_path"] == [encode_access_key("config")]
+        (view,) = shell.kernel.object_explorer_service.views.values()
+        assert view.root_accessor == "config"
+
+    def test_console_mode_is_noop(self, display_formatter, shell, monkeypatch):
+        monkeypatch.setattr(shell.kernel, "session_mode", SessionMode.CONSOLE)
+
+        data_dict, _ = display_formatter.format({"a": 1})
+
+        assert self.format_type not in data_dict
 
 
 class TestPositronPlotnineFormatter:

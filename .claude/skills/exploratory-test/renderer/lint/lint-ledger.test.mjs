@@ -46,6 +46,7 @@ const BASE = {
 		reproduced: { n: 2, m: 2 },
 		feature: 'console',
 		title: 'Retry does nothing',
+		impact: 'Anyone who clicks Retry stays stuck on an empty panel, with no other way to load it.',
 		steps: [
 			{ kind: 'action', text: 'Click Retry.' },
 			{ kind: 'verify', text: 'it loads', result: 'fail', finding: 1, observed: 'empty', shots: ['shots/a.png'], log: { source: 'none found in logs/r.log' } },
@@ -152,6 +153,12 @@ test('errors are what makes a repro or its evidence wrong; wording, length and a
 	const backdated = [at(24), at(16)].join('\n');
 	assert.equal(split(lintRaw(report(), LEDGER, { fileExists: () => true, actionsLog: backdated })).errors.filter(p => /^actions\.log:/.test(p)).length, 1);
 	assert.equal(split(ledgerLint.lintLedgerOnly(LEDGER, { fileExists: () => true, actionsLog: backdated })).errors.filter(p => /^actions\.log:/.test(p)).length, 1);
+	// With the run's session, a line under another name is a warning, mid-run and at the end; its replay's name is its own.
+	const driven = ['et-ab12', 'et-ab12-replay', 'positron'].map((name, i) => `2026-10-05T04:00:0${i}Z ui.sh -s=${name}: click Run`).join('\n');
+	const sessions = run => split(run).warnings.filter(p => /Playwright session/.test(p));
+	assert.deepEqual(sessions(ledgerLint.lintLedgerOnly(LEDGER, { fileExists: () => true, actionsLog: driven, session: 'et-ab12' })), ['actions.log: line 3 drove Playwright session "positron", not this run\'s "et-ab12" or a name starting "et-ab12-"; another run on this machine may own that window, so check what those lines read, and use your own session from here']);
+	assert.equal(sessions(lintRaw(report(), LEDGER, { fileExists: () => true, actionsLog: driven, session: 'et-ab12' })).length, 1);
+	assert.deepEqual(sessions(ledgerLint.lintLedgerOnly(LEDGER, { fileExists: () => true, actionsLog: driven })), [], 'no session given, as in CI: not checked');
 	// A shot retaken before the next check is a warning; retaken after it, an error.
 	const ledger3 = ['## S01 - x', 'Status: pass', '', 'Steps:', '1. VERIFY a -> PASS', '   Evidence: S01-01.png', '2. VERIFY b -> PASS', '   Evidence: S01-02.png', '3. VERIFY c -> PASS', '   Evidence: S01-03.png', ''].join('\n');
 	const shots = names => names.map((n, i) => `20:00:0${i}Z shot.sh -s=p: screenshot ${n}`).join('\n');
@@ -222,7 +229,12 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 	// The report as a whole.
 	'a report written to the format is clean': () => [...lint(), ...lintReportJson(report(), LEDGER), ...schemaProblems(report())],
 	'without a ledger, the ledger checks are skipped': () => lint(report(), undefined),
-	'the opening the edit pass writes is skipped': () => edited(f => { f.summary = 'When you click Retry, nothing happens.'; f.where = 'Web only, as in S05.'; }),
+	'a missing or overlong impact': () => [
+		...edited(f => { delete f.impact; }),
+		...edited(f => { f.impact = `${words(51)}.`; }),
+		...edited(f => { f.impact = 'Few hit it. It needs a renamed file. Reopening fixes it.'; }),
+	],
+	'a two-sentence impact within the limit is clean': () => edited(f => { f.impact = `Anyone who clicks Retry stays stuck. ${words(40)}.`; }),
 	'the schema names a missing Feature, notExercised or rate, and a step shot outside shots/': () => [
 		...schemaProblems(report(f => { delete f.feature; })), ...schemaProblems(report((f, r) => { delete r.header.notExercised; })),
 		...['$U/a.png', 'https://cdn.example/run/shots/a.png'].flatMap(t => schemaProblems(report(f => { f.steps[1].shots = [t]; }))),
@@ -269,9 +281,15 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 		['The `n` column, whose largest value is 1,500, shows Max 1.', '`n` shows Max 1,500, as pandas shows for the same data.'],
 		['Max 1 for 1,500; Min 1 for 1,234,567.', 'Max 1,500.'],
 		['`n` shows Max 1. pandas shows Max 1,500.', 'Max 1,500.'],
+		['`n` shows Max 1, where R also gives 1,500.', 'Max 1,500.'],
 		['`pop` shows Min 1.', 'Min 1,234,567, as pandas shows 1234567.'],
 		['`pop` shows Max 12300000.', 'Max 12,345,678.'],
 		['Running `a; b` shows Max 1.', 'Max 1,500.'],
+	]),
+	'a backend named as what was tested is not a reference': () => each(pair, [
+		['Typing `Frameworks` hides the R 4.5.1 session and leaves only `New Console Session...`.', 'The R 4.5.1 session stays listed.'],
+		['The mouse wheel stops at the R row of the setup card.', 'The page scrolls to its end.'],
+		['After the R language section expands, scrolling stops where the page used to end.', 'The page scrolls to its end.'],
 	]),
 	'prose names no scenario ID, but code and an Evidence caption may': () => [
 		...pair('The panel stays empty.', 'The panel loads, as it did after Restart Kernel (S05, S06).'),
@@ -283,7 +301,7 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 	'a moderate or major finding tried once': () => each((severity, n, m) => edited(f => { f.severity = severity; f.reproduced = { n: Number(n), m: Number(m) }; }), [['moderate', '1', '1'], ['major', '1', '1'], ['minor', '1', '1'], ['moderate', '1', '2']]),
 
 	// Preconditions.
-	'a precondition done in the app, in the report': () => each(pre, ['`app.R` started with its Run Shiny App button', '`flask_app.py` running, then opened in an editor tab', 'A Shiny console in which Run Shiny App started `shiny_app.R`', 'A Python 3.12 console, which Positron starts on launch', 'a Python with polars is selected', '`slow.py` loaded', '`p1_setup.py` run in the first Python session', 'A Python 3.12 venv to run in']),
+	'a precondition done in the app, in the report': () => each(pre, ['`app.R` started with its Run Shiny App button', '`flask_app.py` running, then opened in an editor tab', 'A Shiny console in which Run Shiny App started `shiny_app.R`', 'A Python 3.12 console, which Positron starts on launch', 'a Python with polars is selected', '`slow.py` loaded', '`p1_setup.py` run in the first Python session', 'A Python 3.12 venv to run in', '`notes` open in the Data Explorer, then dropped from the R console', '`orders` open in the Data Explorer, then a row inserted from the console', '`race.sh`, which clicks Run, then presses Enter at once']),
 	'a precondition done in the app, in the ledger, where the third field may say how a scenario made it': () => each(row => ledgerOnly('Status: fail - Finding 1\n', `Status: fail - Finding 1\n\nPreconditions:\n- ${row}\n`), [
 		'Variables loaded | S01 | `setup.py` run in the first Python session', 'app running | `app.R` started with Run Shiny App',
 		'`pd_ints` in the session | S01 | Defined in the Python console by S01 (files/ints.py)', 'R console | S03 | The R console started in S03',
@@ -293,6 +311,22 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 		'the workspace `/private/tmp/et-viewer-mwIP` with `app.R`', 'a workspace with `files/ws/app.R`',
 		'the app from `shiny_app.R` serving on port 56934 in an R Shiny console', 'Python 3.12.11 in the run\'s venv with shiny 1.8.0 installed', 'Python 3.12 with shiny 1.8.0',
 		'`app.py` that calls `app.run(port=5057)`', 'any URL shown in the Viewer, here the R Shiny app', 'the R Shiny app running in its Shiny console',
+	]),
+	'a precondition that says how an earlier scenario made its state, in a user\'s words': () => each(t => pre(t, 'Made earlier'), [
+		'An R 4.5.1 console, started with Start New Console Session', 'A Python 3.12 console, launched from the session picker', 'A `Shop` SQLite connection saved from the Add Data Connection dialog',
+		'A `conn` in the Python console, made by Connect With Python', '`orders` open in the Data Explorer, opened in S02',
+	]),
+	'a precondition that points at a step': () => each(t => pre(t, 'polars'), ['Python 3.12 with the polars version installed in step 2', 'Python 3.12 with polars 1.9.0']),
+	'a precondition that opens a view or types into it': () => each(t => pre(t, 'Settings open'), [
+		'The Settings editor open (`Preferences: Open Settings (UI)`) with `interpreters.languageOrder` typed into its search box', 'The Command Palette open', 'A JSON file open', '`interpreters.languageOrder` setting at its default',
+	]),
+	'a setting precondition that says how to reset it or what it shows': () => each(t => pre(t, 'languageOrder default'), [
+		'`interpreters.languageOrder` not set in user settings.json (Reset Setting from the setting\'s gear menu), so the list reads JavaScript, Python, R, Zed', '`interpreters.languageOrder` setting at its default, so the list reads JavaScript, Python, R, Zed', '`interpreters.languageOrder` at its default', '`interpreters.languageOrder` setting at its default',
+	]),
+	'a changed setting written out rather than saved in a settings file': () => each(t => pre(t, 'languageOrder set'), [
+		'`interpreters.languageOrder`: true', '`positron.notebook.enabled: true` in `.vscode/settings.json`', '`interpreters.languageOrder` set to `["r", "python"]`',
+		'A workspace with `files/.vscode/settings.json`, which sets `interpreters.languageOrder` to R first', '`interpreters.languageOrder` from `files/settings.json` copied into user settings',
+		'`slow.py`, which builds slow tables', '`pd.DataFrame` with 3 columns', '`app.py` set to listen on port 8000',
 	]),
 	'a precondition that runs a command': () => each(t => pre(t, '`slow.py` loaded'), ['`slow.py` loaded with `%run -i slow.py`', '`debug.R` sourced with `source("debug.R")`', '`debug_demo.R`, which defines `outer_fn()`', '`py.qmd` whose cell prints `tick 0` to `tick 4`']),
 

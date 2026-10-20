@@ -18,6 +18,16 @@ import { PositronDataExplorerExtensionBackend } from './positronDataExplorerExte
 export const DUCKDB_DATA_EXPLORER_PROVIDER_ID = 'positron-duckdb';
 
 /**
+ * Gets the core-side client id for a file opened with the positron-duckdb extension: the key of its
+ * Data Explorer instance and the identifier in its Data Explorer editor URI.
+ * @param uri The file URI.
+ * @returns The client id.
+ */
+export function duckDBClientId(uri: URI): string {
+	return `duckdb:${uri.toString()}`;
+}
+
+/**
  * The Data Explorer backend for files opened with the positron-duckdb extension.
  *
  * This is a thin specialization of {@link PositronDataExplorerExtensionBackend}: it bootstraps the
@@ -32,7 +42,7 @@ export class PositronDataExplorerDuckDBBackend extends PositronDataExplorerExten
 	) {
 		// The wire `uri` is the bare file URI (which the extension parses to import the file); the
 		// core-side client id is prefixed so the editor/instance key stays distinct.
-		super(transport, DUCKDB_DATA_EXPLORER_PROVIDER_ID, uri.toString(), `duckdb:${uri.toString()}`);
+		super(transport, DUCKDB_DATA_EXPLORER_PROVIDER_ID, uri.toString(), duckDBClientId(uri));
 		this.initialSetup = this.openDataset();
 	}
 

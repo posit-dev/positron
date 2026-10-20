@@ -129,6 +129,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      */
     private _interpreterChangeQueue: Promise<void> = Promise.resolve();
 
+    /** Shutdowns this manager has requested for sessions that haven't ended, keyed by session ID. */
+    private readonly _pendingShutdowns = new Map<string, Promise<void>>();
+
     constructor(
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
@@ -199,14 +202,22 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      *   forceRefresh so that if a cached discovery pass already registered this
      *   path with a stale version, we re-resolve and supersede it.
      * - Removed (`old` only): retract the removed path's runtime and shut down
-     *   any sessions still backed by it.
+     *   any sessions still backed by it. If an interpreter is back at the path by
+     *   the time the event is handled, keep sessions on its runtime and shut down
+     *   only those on an older one.
      * - Replaced (`old` and `new` with different paths): de-duplication collapsed
      *   one interpreter alias into another (e.g. a symlink resolved to a shorter
      *   path). Retract the old alias's runtime -- which may already be in the
      *   picker from its own earlier Created event -- and register the survivor
      *   with forceRefresh so a stale cached version for the survivor path is
      *   re-resolved and superseded rather than returned as is.
-     *   Same-path changes are metadata refreshes and leave the registration as is.
+     * - Changed in place (`old` and `new` with the same path): if the major or
+     *   minor version changed (e.g. a venv deleted and recreated with another
+     *   Python, which the file watcher can report as an update rather than a
+     *   removal and an addition), re-register the path and shut down sessions
+     *   still backed by the old runtime. A patch-only change is ignored, since
+     *   discovery and a live resolve can disagree on the patch version of the
+     *   same interpreter.
      */
     private async handleInterpreterChange(event: PythonEnvironmentsChangedEvent): Promise<void> {
         if (!event.old && event.new) {
@@ -217,21 +228,24 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             );
         } else if (event.old && !event.new) {
             const deletedPath = event.old.path;
-            this.unregisterRuntimeForPath(deletedPath);
-            try {
-                // Only Python sessions; other languages' sessions may not even have
-                // extraRuntimeData (e.g. restored from a serialized state).
-                const sessions = await getActivePythonSessions();
-                const toShutdown = sessions.filter(
-                    (s) => (s.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData).pythonPath === deletedPath,
-                );
-                if (toShutdown.length > 0) {
-                    traceInfo(`Shutting down ${toShutdown.length} session(s) for deleted interpreter ${deletedPath}`);
-                    await Promise.all(toShutdown.map((s) => s.shutdown(positron.RuntimeExitReason.Shutdown)));
-                }
-            } catch (error) {
-                traceError(`Failed to clean up sessions for deleted interpreter ${deletedPath}: ${error}`);
+            // The interpreter can be back by the time this runs: a delete reported late, after
+            // Create Environment's Delete and Recreate or `rm -rf .venv && uv venv` had already
+            // recreated it and maybe started a session on it. Handle that like a change in
+            // place, keeping sessions on the runtime now at the path, so the new session survives.
+            const current = (await fs.pathExists(deletedPath))
+                ? await this.registerLanguageRuntimeFromPath(
+                      deletedPath,
+                      /* recreateRuntime */ false,
+                      /* forceRefresh */ true,
+                  )
+                : undefined;
+            if (current) {
+                traceInfo(`Interpreter ${deletedPath} was deleted and is back; keeping its current runtime's sessions`);
+                await this.shutdownSessionsForPath(deletedPath, 'replaced interpreter', current.runtimeId);
+                return;
             }
+            this.unregisterRuntimeForPath(deletedPath);
+            await this.shutdownSessionsForPath(deletedPath, 'deleted interpreter');
         } else if (event.old && event.new && event.old.path !== event.new.path) {
             this.unregisterRuntimeForPath(event.old.path);
             await this.registerLanguageRuntimeFromPath(
@@ -239,7 +253,84 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 /* recreateRuntime */ false,
                 /* forceRefresh */ true,
             );
+        } else if (event.old && event.new) {
+            const changedPath = event.new.path;
+            const oldVersion = event.old.version;
+            const newVersion = event.new.version;
+            if (oldVersion?.major === newVersion?.major && oldVersion?.minor === newVersion?.minor) {
+                traceInfo(
+                    `Interpreter ${changedPath} changed in place (${oldVersion?.raw} -> ${newVersion?.raw}); ` +
+                        'same minor version, keeping its runtime and sessions',
+                );
+                return;
+            }
+            traceInfo(`Interpreter ${changedPath} changed in place (${oldVersion?.raw} -> ${newVersion?.raw})`);
+            const current = await this.registerLanguageRuntimeFromPath(
+                changedPath,
+                /* recreateRuntime */ false,
+                /* forceRefresh */ true,
+            );
+            if (current) {
+                await this.shutdownSessionsForPath(changedPath, 'replaced interpreter', current.runtimeId);
+            }
         }
+    }
+
+    /**
+     * Shut down the Python sessions backed by an interpreter path.
+     *
+     * @param pythonPath The interpreter path whose sessions to shut down.
+     * @param reason Describes the interpreter in the log, e.g. 'deleted interpreter'.
+     * @param keepRuntimeId A runtime ID whose sessions are left running.
+     */
+    private async shutdownSessionsForPath(pythonPath: string, reason: string, keepRuntimeId?: string): Promise<void> {
+        try {
+            // Only Python sessions; other languages' sessions may not even have
+            // extraRuntimeData (e.g. restored from a serialized state).
+            const sessions = await getActivePythonSessions();
+            // Skip sessions that have exited. Two paths can shut down the same session (e.g.
+            // the watcher seeing `.venv` deleted, then Create Environment recreating its
+            // runtime), and sending a shutdown to a kernel that has exited fails. A session
+            // still exiting keeps its state until it exits; shutdownSessionOnce covers that.
+            const toShutdown = sessions.filter(
+                (s) =>
+                    (s.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData).pythonPath === pythonPath &&
+                    (keepRuntimeId === undefined || s.runtimeMetadata.runtimeId !== keepRuntimeId) &&
+                    s.getRuntimeState() !== positron.RuntimeState.Exited,
+            );
+            if (toShutdown.length > 0) {
+                traceInfo(`Shutting down ${toShutdown.length} session(s) for ${reason} ${pythonPath}`);
+                await Promise.all(toShutdown.map((s) => this.shutdownSessionOnce(s)));
+            }
+        } catch (error) {
+            traceError(`Failed to clean up sessions for ${reason} ${pythonPath}: ${error}`);
+        }
+    }
+
+    /**
+     * Shut down a session, unless this manager already asked it to shut down and it
+     * hasn't ended yet. The shutdown request can return before the kernel exits, and
+     * the session's state doesn't change until then, so a second request in that gap
+     * would be sent to a kernel on its way out.
+     */
+    private shutdownSessionOnce(session: PythonRuntimeSession): Promise<void> {
+        const { sessionId } = session.metadata;
+        const pending = this._pendingShutdowns.get(sessionId);
+        if (pending) {
+            return pending;
+        }
+        let ended: Disposable | undefined;
+        const forget = () => {
+            ended?.dispose();
+            this._pendingShutdowns.delete(sessionId);
+        };
+        ended = session.onDidEndSession(forget);
+        const request = session.shutdown(positron.RuntimeExitReason.Shutdown).catch((error) => {
+            forget();
+            throw error;
+        });
+        this._pendingShutdowns.set(sessionId, request);
+        return request;
     }
 
     /**
@@ -786,20 +877,8 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             return alreadyRegisteredRuntime;
         }
         if (alreadyRegisteredRuntime && recreateRuntime) {
-            const sessions = await getActivePythonSessions();
-            // Find any active sessions using this runtime
-            const sessionsToShutdown = sessions.filter((session) => {
-                const sessionRuntime = session.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
-                return sessionRuntime.pythonPath === pythonPath;
-            });
-
             // Shut down all sessions for this runtime before recreating it
-            if (sessionsToShutdown.length > 0) {
-                traceInfo(`Shutting down ${sessionsToShutdown.length} sessions using Python runtime at ${pythonPath}`);
-                await Promise.all(
-                    sessionsToShutdown.map((session) => session.shutdown(positron.RuntimeExitReason.Shutdown)),
-                );
-            }
+            await this.shutdownSessionsForPath(pythonPath, 'recreated runtime');
 
             // clear stale entry so registerLanguageRuntime below fires _onDidDiscoverRuntime
             // for the new runtime vs. leaving Positron with an orphaned stale entry.
@@ -859,7 +938,28 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
     }
 
     /**
+     * Whether a console session for the runtime is running, rather than exited, not yet
+     * started, or shutting down. A session this manager asked to shut down keeps its state
+     * until its kernel exits, so it counts as shutting down while that request is pending.
+     */
+    private async hasLiveConsoleSession(runtimeId: string): Promise<boolean> {
+        const sessions = await getActivePythonSessions();
+        return sessions.some((session) => {
+            const state = session.getRuntimeState();
+            return (
+                session.runtimeMetadata.runtimeId === runtimeId &&
+                session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console &&
+                state !== positron.RuntimeState.Uninitialized &&
+                state !== positron.RuntimeState.Exited &&
+                !this._pendingShutdowns.has(session.metadata.sessionId)
+            );
+        });
+    }
+
+    /**
      * Select a Python language runtime in the console by its interpreter path.
+     * When recreating the runtime, starts a new console session unless one is
+     * already running for it.
      *
      * @param pythonPath The path to the Python interpreter.
      * @returns Promise that resolves when the runtime is selected.
@@ -867,7 +967,15 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
     async selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<string | undefined> {
         const metadata = await this.resolveRuntimeMetadataFromPath(pythonPath, recreateRuntime);
         if (metadata) {
-            await positron.runtime.selectLanguageRuntime(metadata.runtimeId);
+            if (recreateRuntime && !(await this.hasLiveConsoleSession(metadata.runtimeId))) {
+                // The sessions for this path were just shut down (e.g. Create Environment >
+                // Delete and Recreate). Selecting the runtime would bring its exited console
+                // back to the front instead of starting one, since a venv recreated with the
+                // same Python keeps the same runtime ID.
+                await positron.runtime.startLanguageRuntime(metadata.runtimeId, metadata.runtimeName);
+            } else {
+                await positron.runtime.selectLanguageRuntime(metadata.runtimeId);
+            }
             return metadata.runtimeId;
         } else {
             traceError(`Tried to switch to a language runtime that has not been registered: ${pythonPath}`);

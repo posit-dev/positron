@@ -97,9 +97,11 @@ function findingFromJson(f) {
 		confirmed: f.reproduced?.n === 0 ? 'Unproven' : 'Confirmed',
 		// Set by the verifier; absent on a report it has not seen.
 		verified: f.verified ?? null,
+		// The fields the verifier rewrote, such as `cause`; the page marks them.
+		corrected: f.corrected ?? [],
 		known: f.known ?? [],
 		intended: f.intended ?? [],
-		// The edit pass's opening, when it has run.
+		// The explorer's opening sentence for the issue.
 		summaryHtml: f.summary ? inline(f.summary) : '',
 		observedHtml: f.observed ? inline(f.observed) : '',
 		expectedHtml: f.expected ? inline(f.expected) : '',
@@ -117,6 +119,8 @@ function findingFromJson(f) {
 			steps: steps.map(stepText),
 			cause: f.cause ?? '',
 			summary: f.summary ?? '',
+			impact: f.impact ?? '',
+			corrected: f.corrected ?? [],
 			opening: f.summary ? { summary: f.summary, where: f.where ?? '' } : null,
 		},
 	};

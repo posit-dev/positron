@@ -26,6 +26,10 @@ Write a helper of your own only for what none of them does, in `$RUN/tmp/`,
 and log its actions with `node <drive-positron>/scripts/dp.ts log` (see its
 `--help`).
 
+Attach under the Playwright session your brief names, and use that name in
+every command and helper. Other runs on this machine may be driving their own
+instances, and two under one name drive the same window.
+
 Every tool call is a turn, and every turn re-sends the whole context, so turn
 count drives cost far more than output size. Batch independent steps into one
 call. Capture screenshots freely, since writing a file is free, but reading one
@@ -196,9 +200,13 @@ Lint flags each of these, so get them right the first time:
   never instead.
 - A shot is taken once, at its check, and cited by that check only.
 - Every shot in a finding's `evidence` names the `step` it proves, or the
-  `scenario` that took it (another run of the bug). A control that proves no
-  step is a PASS step or left out.
+  `scenario` that took it (another run of the bug), which cites it as Evidence.
+  A control that proves no step is a PASS step or left out.
+- A step's second shot gets its own caption, saying what it shows that the
+  first does not.
 - A finding's steps and their shots are one scenario's, the one that failed for it.
+- A finding's Cause opens with a sentence of 40 words or fewer naming the
+  suspect; the detail follows.
 - A finding's title, Observed, Expected and Cause name no scenario ID (S05,
   N01); readers never see them, so say it in words.
 - One action per step: "Run `View: Close Editor`." and "Open `x.qmd`." are two.
@@ -289,10 +297,11 @@ Steps:
   errors"). An error no check is tied to is counted here and nowhere else.
 - `Preconditions:` is everything a scenario needs before step 1, one bullet
   each, repeated on every scenario that needs it, with the creating scenario's
-  ID in the middle field when there is one. A precondition is state that
-  exists before the app does anything: a setting, a file, an installed
-  interpreter. Anything done in the app to get there, such as starting a
-  console or opening a file, is a step, even if it is only setup.
+  ID in the middle field when there is one. A precondition is state before
+  step 1: a setting, a file, an installed interpreter, or something an
+  earlier scenario made in the app, such as a saved connection or a variable
+  in a console. Each says how to make it, in a user's words, since a reader
+  has no earlier scenario. What the scenario itself does is a step.
 - Some state lives with a file, not the profile: a notebook remembers its
   kernel, and Reopen Editor With its editor. A scenario that needs a file the
   app has not touched says so ("a fresh copy of `rnb.ipynb` that has not been
@@ -505,8 +514,9 @@ as Unproven.
 
 Otherwise a cold replay is for a finding that may depend on built-up state,
 timing or load (a cache, a restored session, a race). Launch a second instance
-beside the first under its own Playwright session (`-s=replay`), do only what
-the finding's preconditions and steps say, then collect its logs and stop it.
+beside the first under its own Playwright session (your session's name plus
+`-replay`), do only what the finding's preconditions and steps say, then
+collect its logs and stop it.
 Keep one replay instance at a time. A window reload is not cold. If the replay
 fails where the others passed, look for what the steps leave out and write it
 in.
@@ -538,12 +548,17 @@ Run details: name a workspace by what it holds ("A workspace with
 
 Repeat each finding's preconditions in full, one state per item ("pandas 3.0.3
 in `.venv`", "R 4.5.1 with dplyr", the file in backticks), never a catch-all
-such as "Data scripts". Loading the file is a step, with the exact command
+such as "Data scripts", and keep what the ledger says about how to make each
+state. Loading the file is a step, with the exact command
 ("Run `%run -i slow.py` in the Python console."). The workspace's files
 share one line ("A workspace with `app.R` and `app.py`"). Package names keep
 their real case (dplyr, not Dplyr). An app the bug needs running, or a pane
 showing it, is never a precondition, even when another finding starts it the
-same way: its steps start it, with a check that it runs.
+same way: its steps start it, with a check that it runs. So is a view the
+reader opens or a search they type: that is step 1. A setting at its default
+is "`key` setting at its default". Save the settings you changed in the file that
+holds them, `files/.vscode/settings.json` for the workspace, and name that
+path. What a setting then shows is a check.
 
 `n` is the finding's number, given in the order you found them and never
 changed; the page sorts them by severity, then number. One finding, with every
@@ -556,6 +571,7 @@ field it can have:
 	"reproduced": { "n": 3, "m": 3 },
 	"feature": "<feature>",
 	"title": "<concise claim>",
+	"impact": "<how the bug affects users, in one or two sentences>",
 	"preconditions": [
 		{ "name": "<2 to 4 words, for Coverage, e.g. `slow.py`>", "text": "<the full line the finding shows, e.g. `slow.py`, which builds tables that are slow to summarize; the step that runs it comes first>" }
 	],
@@ -592,6 +608,16 @@ puts it in `code`, as a fenced markdown block. Text fields take markdown: code
 and data values in backticks. The first time evidence names an internal ID (a session, client or
 request ID), say which file, document or session it belongs to.
 
+### Impact
+
+`impact` opens the GitHub issue filed from this finding, for whoever decides
+on the fix, and says how the bug affects users in one or two sentences: who runs into it (everyone who does something common, or
+only under a setup few have), what it costs them (lost work, wrong results, a
+dead end, a moment's confusion), and whether they would notice. Say plainly
+when it takes an unusual setup or has an easy way around it: a narrow bug
+stated as narrow is easier to trust than one made to sound big. It agrees with
+`severity`.
+
 ### Observed and Expected
 
 `observed` and `expected` sit side by side on the card. Lead with the exact difference, and name
@@ -601,7 +627,7 @@ run saw that makes the finding worse or gets past it, stated as what happened:
 no error was shown, only reopening restored it, a workaround worked. Claim that
 nothing on screen shows the problem only after checking the whole view in your
 screenshot, including anything beside the value that contradicts it. Leave the
-setup, the values that were right, extra runs and log lines to Reproduce and
+setup, the values that were right, extra runs and log lines to Steps to Reproduce and
 Evidence.
 Put data values in backticks, as you do code, here and in a failed step's
 `observed`. Too terse, then right:
@@ -743,7 +769,7 @@ renderer:
 request, or from `gh pr view --json number,url` on the branch. Coverage, Logs,
 Files and Environment come from `ledger.md`, so the report does not repeat
 them.
-Leave out `verified`, `known`, `intended`, `summary`, `where`, `verification`
+Leave out `verified`, `known`, `intended`, `where`, `verification`
 and `cost`: the passes after you write them.
 
 `result` says what the change now does for a user, in their terms. Where it

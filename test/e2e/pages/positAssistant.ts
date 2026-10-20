@@ -17,11 +17,13 @@ const ACTIVITY_BAR_BUTTON = 'a.action-label[aria-label="Posit Assistant"]';
 
 // Header buttons.
 // The new-chat button is scoped to the top bar because the conversation tab
-// strip and the vertical tab rail contribute their own `lucide-plus` buttons
+// strip and the vertical tab rail contribute their own new-conversation buttons
 // (`aria-label="New conversation tab"` and `aria-label="New conversation"`).
 // An unscoped selector goes strict-mode ambiguous as soon as that tab chrome
 // renders in the Positron panel.
-const NEW_CHAT_BUTTON = '[data-slot="topbar"] button:has(svg.lucide-plus)';
+// Match on the aria-label, not the icon: assistant#2751 swapped the top bar's
+// lucide `Plus` for a custom speech-bubble icon that has no `lucide-plus` class.
+const NEW_CHAT_BUTTON = '[data-slot="topbar"] button[aria-label="New conversation"]';
 const HISTORY_BUTTON = 'button:has(svg.lucide-history)';
 const MORE_BUTTON = 'button:has(svg.lucide-ellipsis):has(.sr-only:text("More"))';
 const SETTINGS_BUTTON = 'button:has(svg.lucide-settings):has(.sr-only:text("Settings"))';

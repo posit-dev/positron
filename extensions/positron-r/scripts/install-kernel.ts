@@ -81,7 +81,7 @@ type NodeArch = ReturnType<typeof arch>;
  * Information about a single asset to download for the current platform.
  */
 interface ArkAssetTarget {
-	/** The platform-arch suffix in the asset filename, e.g. `darwin-universal`. */
+	/** The platform-arch suffix in the asset filename, e.g. `darwin-arm64`. */
 	readonly assetSuffix: string;
 	/** Optional subdirectory under `resources/ark/` to extract into. */
 	readonly subdirectory?: string;
@@ -549,7 +549,7 @@ async function extractPrebuildAssets(
 	}
 
 	// Asset filenames embed the version-distance-shortSha, e.g.
-	// `ark-0.1.251-10-abc1234-darwin-universal.zip`. We strip the `ark-`
+	// `ark-0.1.251-10-abc1234-darwin-arm64.zip`. We strip the `ark-`
 	// prefix so the same string works for both the tag and the filename body.
 	const assetVersion = tagForFilename.replace(/^ark-/, '');
 

@@ -21,6 +21,7 @@ import { ExtHostPreviewPanels } from './extHostPreviewPanels.js';
 import { ExtHostModalDialogs } from './extHostModalDialogs.js';
 import { ExtHostContextKeyService } from './extHostContextKeyService.js';
 import { ExtHostDocuments } from '../extHostDocuments.js';
+import { ExtHostDialogs } from '../extHostDialogs.js';
 import { ExtHostContext } from '../extHost.protocol.js';
 import { IExtHostWorkspace } from '../extHostWorkspace.js';
 import { IExtHostCommands } from '../extHostCommands.js';
@@ -95,7 +96,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods,
 		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
 			extHostLanguageRuntime, extHostWorkspace, extHostQuickOpen, extHostCommands, extHostContextKeyService,
-			extHostConsoleService));
+			extHostConsoleService, new ExtHostDialogs(rpcProtocol)));
 	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
 	const extHostDataConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostDataConnections, new ExtHostDataConnections(rpcProtocol));
 	const extHostDataExplorer = rpcProtocol.set(ExtHostPositronContext.ExtHostDataExplorer, new ExtHostDataExplorer(rpcProtocol));

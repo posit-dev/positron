@@ -7,9 +7,9 @@ description: >
   interpreters, listing, switching, starting, restarting or interrupting
   sessions, setting up Python, reading, installing or updating a session's
   packages, starting, listing, stopping or debugging a web app (Shiny, Flask,
-  Dash, Streamlit, FastAPI, Gradio, marimo), reading Data Connections,
-  including a connection's tables and columns, and creating, editing or
-  running notebook cells. Use when the user wants Positron itself to act or to
+  Dash, Streamlit, FastAPI, Gradio, marimo), reading Data Connections and
+  their tables and columns, creating, editing or running notebook cells, and
+  reading help. Use when the user wants Positron itself to act or to
   know what is installed, not to run R or Python code. Triggers: "show the
   variables pane", "open data.csv", "show this HTML in the Viewer", "switch to
   my R session", "my session is stuck", "is pandas installed?", "set up a
@@ -73,10 +73,11 @@ Explorer's column summary panel.
 
 **Opening files** -- [references/files.md]({{skill_dir}}/references/files.md)
 Read when the user wants a file open in Positron: "open data.csv", "show me
-that file", "let's look at this CSV/Parquet/Excel file", or anything that should
-land in the Data Explorer. Read it **before** opening anything -- it documents
-the one command that opens a known path, and names the similar-looking ids that
-open a file picker instead and hand the task back to the user.
+that file", "let's look at this CSV/Parquet/Excel file", "browse this JSON
+file", or anything that should land in the Data Explorer or Object Explorer.
+Read it **before** opening anything -- it documents the commands that open a
+known path, and names the similar-looking ids that open a file picker instead
+and hand the task back to the user.
 
 **Viewer** -- [references/viewer.md]({{skill_dir}}/references/viewer.md)
 Read when the user wants to see HTML you have written -- a page, chart, report,
@@ -101,7 +102,9 @@ selected.
 
 **Stuck sessions and help** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
 Read when the user asks about a session that is stuck, needs interrupting, or
-needs restarting. Also covers looking up a help topic for a function or symbol.
+needs restarting. Also covers showing a help topic to the user, and reading
+installed help and vignettes yourself -- read them before explaining how to use
+a function or package, its arguments, or an error it raises.
 
 **Packages** -- [references/packages.md]({{skill_dir}}/references/packages.md)
 Read when the user asks about: what is installed in a session and at which

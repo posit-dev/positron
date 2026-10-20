@@ -35,7 +35,10 @@
 
 The workflow's `publish` job updates one rolling PR and requests review from `REVIEWERS` when it
 opens it (live, the default), or pushes a candidate branch per night (burn-in); nothing is ever
-merged. `vars.DRIVE_POSITRON_HEAL_PHASE` overrides the phase. The Slack DM goes to
+merged. The rolling PR keeps the fixes earlier nights put in it until it is merged, even when a
+night does not find those bugs again: a rebuild onto main (when no one has touched the PR) carries
+its diff over, and keeps the branch as it is if that diff no longer applies.
+`vars.DRIVE_POSITRON_HEAL_PHASE` overrides the phase. The Slack DM goes to
 `vars.DRIVE_POSITRON_SLACK_CHANNEL` either way.
 
 Each stage reads and writes JSON in one directory (`--dir`, `/tmp/heal` by default), so any stage can

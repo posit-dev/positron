@@ -161,6 +161,12 @@ const cases: Case[] = [
 	{ name: 'editor definition R', run: ['editor.sh', 'definition', '--at', '7:16'], check: o => (o.json!.line !== 3 && `landed at ${o.json!.tab} ${o.json!.line}`) || includes(o.json!.text, 'double_it <- function') },
 	{ name: 'editor definition R, none', run: ['editor.sh', 'definition', '--at', '2:14'], check: o => (o.json!.found !== false && 'found one') || includes(o.json!.message, "No definition found for '3'") },
 	{ name: 'editor hover --timeout abc is a usage error', run: ['editor.sh', 'hover', '--at', '1:1', '--timeout', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--timeout must be a positive number of seconds') },
+	// settings.json opens in a modal editor, which gets no cursor in the status bar; the status bar can still show analysis.R's behind it.
+	{ name: 'palette-run Open User Settings (JSON) in a modal editor', run: ['palette-run.sh', 'Preferences: Open User Settings (JSON)'] },
+	{ name: 'ui read dialog names the modal editor', run: ['ui.sh', 'read', 'dialog'], check: o => includes(o.json!.tree, 'settings.json') },
+	{ name: 'editor cursor with a modal editor in front says so', run: ['editor.sh', 'cursor'], fail: true, check: o => includes(o.json!.error, 'a modal editor is in front (') || includes(o.json!.error, "ui.sh click button 'Open Modal Editor in Main Window' --in dialog") },
+	{ name: 'ui close the modal editor', run: ['ui.sh', 'click', 'button', 'Close Modal Editor (Escape)', '--in', 'dialog'], check: o => includes(o.json!.note, 'the dialog closed') },
+	{ name: 'editor cursor back in analysis.R after the modal closed', run: ['editor.sh', 'cursor'], check: o => o.json!.tab !== 'analysis.R' && `tab ${o.json!.tab}` },
 	{ name: 'debug break analysis.R 4', quick: true, run: ['debug.sh', 'break', 'analysis.R', '4'], check: o => includes(o.json!.breakpoints, 'analysis.R 4') },
 	{ name: 'debug state (breakpoint listed)', run: ['debug.sh', 'state'], check: o => includes(o.json!.trees?.Breakpoints, 'analysis.R 4') },
 	// A line breakpoint by the label the view shows; the click renames its row.
@@ -247,6 +253,10 @@ const cases: Case[] = [
 	{ name: 'console-run python matplotlib plot', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'import matplotlib.pyplot as plt; plt.plot([1, 2, 3], [2, 1, 3]); plt.show()'] },
 	{ name: 'plots save --width (intrinsic size)', wait: 1500, run: ['plots.sh', 'save', '--width', '640'], check: o => includes(o.json!.intrinsicSize, 'unticked') || includes(o.json!.tree, 'spinbutton "Width": "640"') },
 	{ name: 'ui click Cancel (intrinsic size)', run: ['ui.sh', 'click', 'button', 'Cancel', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
+	// The Plots open control is an action-bar split button: both halves are "Select where to open plot" and neither has aria-haspopup.
+	{ name: 'console-run python matplotlib plot 2', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'plt.figure(); plt.plot([3, 1], color="red"); plt.show()'] },
+	{ name: 'plots open editor through the split button whose halves share one name', wait: 1500, run: ['plots.sh', 'open', 'editor'], check: o => includes(o.json!.opened, 'editor tab "matplotlib') },
+	{ name: 'palette-run Close All Editors (matplotlib plot tab)', run: ['palette-run.sh', 'View: Close All Editors'], check: o => o.json!.closed !== true && 'the palette did not close' },
 	{ name: 'console-run r html to Viewer', quick: true, run: ['console-run.sh', '--language', 'r', 'print(htmltools::browsable(htmltools::tags$button("smoke-viewer-button")))'] },
 	{ name: 'viewer wait-content', quick: true, run: ['viewer.sh', 'wait-content', '20'], check: o => includes(o.json!.shown, 'smoke-viewer-button') },
 	{ name: 'view-read Viewer', quick: true, run: ['view-read.sh', '--view', 'Viewer'], check: o => includes(o.text, 'button "smoke-viewer-button"') },
@@ -262,6 +272,7 @@ const cases: Case[] = [
 	// ---- Explorer tree, Data Explorer
 	{ name: 'palette-run Show Explorer', quick: true, run: ['palette-run.sh', 'View: Show Explorer'] },
 	{ name: 'tree rows Explorer', quick: true, run: ['tree.sh', '--view', 'Explorer', 'rows'], check: o => includes(o.json!.rows, '"text":"cars.csv"') || includes(o.json!.rows, '"state":"leaf"') },
+	{ name: 'tree click in the folder pane by the title it reads', run: ['tree.sh', '--view', 'ws', 'click', 'cars.csv'], check: o => includes(o.json!.text, 'cars.csv') },
 	{ name: 'tree menu missing item', run: ['tree.sh', '--view', 'Explorer', 'menu', 'cars.csv', 'No Such Item'], fail: true },
 	{ name: 'tree missing row', run: ['tree.sh', '--view', 'Explorer', 'click', 'no-such-file.txt'], fail: true },
 	{ name: 'tree unknown command is a usage error, before the page', run: ['tree.sh', '--view', 'Explorer', 'expnad', 'cars.csv'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"expnad" is not a command') },
@@ -277,6 +288,9 @@ const cases: Case[] = [
 	{ name: 'ui click blocked by the filter popup', run: ['ui.sh', 'click', 'button', 'Add Filter', '--in', 'editor'], fail: true, check: o => (/\u001b|Call log|locator\(/.test(o.text) && `raw Playwright error: ${o.text.slice(0, 200)}`) || includes(o.json!.error, 'the click on button "Add Filter" in editor did not happen within 3 s: something drawn on top of it took the click; open on top: a dialog') },
 	{ name: 'ui choose condition in the filter popup', run: ['ui.sh', 'choose', 'button', 'Select Condition', 'is not empty', '--in', 'dialog'], check: o => includes(o.json!.trigger, 'Select Condition -> is not empty') },
 	{ name: 'ui click Apply Filter', run: ['ui.sh', 'click', 'button', 'Apply Filter', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
+	// The pointer comes from the closed popup: the toolbar button remounts its label on mouseenter, so click must let that run before pressing.
+	{ name: 'ui click Import Data right after the filter popup closed opens its dialog', run: ['ui.sh', 'click', 'button', 'Import Data', '--in', 'editor'], check: o => includes(o.json!.opened, 'a dialog: read it with ui.sh read dialog') },
+	{ name: 'ui click Cancel closes the Import Data dialog', run: ['ui.sh', 'click', 'button', 'Cancel', '--in', 'dialog'], check: o => includes(o.json!.note, 'the dialog closed') },
 
 	// ---- Notebook and Quarto
 	{ name: 'open-file notebook.ipynb', quick: true, run: ['open-file.sh', 'notebook.ipynb'] },
@@ -373,7 +387,8 @@ const cases: Case[] = [
 	{ name: 'open-file broken.json', run: ['open-file.sh', 'broken.json'] },
 	{ name: 'panel tab Problems (badge)', wait: 1500, run: ['panel.sh', 'tab', 'Problems'], retry: 2, retryOn: /not selected/, check: o => o.json!.tab !== 'Problems' && `tab ${o.json!.tab}` },
 	{ name: 'view-read Problems', run: ['view-read.sh', '--view', 'Problems'], check: o => includes(o.text, 'broken.json') },
-	// The editor area hidden: its tabs are still listed, and it says so.
+	// The editor area hidden: its tabs are still listed, and it says so. Close All Editors (matplotlib plot tab) closed analysis.R in a full run: open it again first.
+	{ name: 'open-file analysis.R again, before the editor area is hidden', run: ['open-file.sh', 'analysis.R'], check: o => o.json!.activeTab !== 'analysis.R' && `active tab ${o.json!.activeTab}` },
 	{ name: 'palette-run Toggle Maximized Panel', run: ['palette-run.sh', 'View: Toggle Maximized Panel'] },
 	{ name: 'panel editors, editor area hidden', run: ['panel.sh', 'editors'], check: o => (o.json!.editorArea !== 'hidden' && 'editorArea is not hidden') || includes(o.json!.groups, '"title":"analysis.R"') },
 	{ name: 'palette-run Toggle Maximized Panel back', run: ['palette-run.sh', 'View: Toggle Maximized Panel'] },
@@ -390,6 +405,12 @@ const cases: Case[] = [
 	{ name: 'settings set workspace, second key', run: ['settings.sh', 'set', 'smoke.text', 'hello'], check: o => includes(readFileSync(String(o.json!.file), 'utf8'), '"smoke.number": 42') || includes(readFileSync(String(o.json!.file), 'utf8'), '"smoke.text": "hello"') },
 	{ name: 'settings set --user', run: ['settings.sh', 'set', 'smoke.flag', 'true', '--user'], check: o => (o.json!.scope !== 'user' && `scope ${o.json!.scope}`) || includes(readFileSync(String(o.json!.file), 'utf8'), 'quarto.inlineOutput.enabled') },
 	{ name: 'settings set without a value', run: ['settings.sh', 'set', 'smoke.number'], fail: true },
+	// The Settings editor's More Actions draws its menu inside a shadow root: choose must count it as what opened.
+	{ name: 'settings set editor.fontSize --user (for the Settings editor)', run: ['settings.sh', 'set', 'editor.fontSize', '16', '--user'] },
+	{ name: 'palette-run Open Settings (UI)', run: ['palette-run.sh', 'Preferences: Open Settings (UI)'] },
+	{ name: 'ui type editor.fontSize in the Settings dialog', run: ['ui.sh', 'type', 'editor.fontSize', '--in', 'dialog'], check: o => includes(o.json!.diff, 'Editor Font Size. Modified.') },
+	{ name: 'ui choose Reset Setting from a menu drawn in a shadow root', run: ['ui.sh', 'choose', 'button', 'More Actions... (Shift+F9)', 'Reset Setting', '--in', 'dialog', '--nth', '1'], check: o => (o.json!.chose !== 'Reset Setting' && `chose ${o.json!.chose}`) || includes(o.json!.diff, '+ - treeitem "Editor Font Size. Controls the font size in pixels."') },
+	{ name: 'ui click Close Modal Editor (Settings)', run: ['ui.sh', 'click', 'button', 'Close Modal Editor', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
 
 	// ---- Notifications, screenshots, run-app
 	{ name: 'notifications list', quick: true, run: ['notifications.sh'], check: o => !Array.isArray(o.json!.notifications) && 'no notifications array' },

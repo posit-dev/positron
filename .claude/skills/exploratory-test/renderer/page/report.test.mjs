@@ -1077,6 +1077,10 @@ const SCENES = {
 	},
 	'a finding the verifier matched to an issue says Dupe? on its card and prompt only': () => [card(fullHtml(KNOWN), 1), findingRow(fullHtml(KNOWN), 1), promptText(fullHtml(KNOWN), 1)].join('\n--\n'),
 	'a finding matched to a not-planned issue says Intended?': () => [card(fullHtml(fullWith(2, { intended: [14210] })), 2), promptText(fullHtml(fullWith(2, { intended: [14210] })), 2)].join('\n--\n'),
+	'a cause the verifier revised says so on the card, prompt and issue, and a revised observed does not': () => {
+		const html = render(rep({ findings: [fnd(1, { verified: 'confirmed', observed: 'The tab shows `Pytho...`.', cause: 'A width gate skips the dot.', corrected: ['cause', 'observed'], explorer: { cause: 'The CSS squeezes the dot.', observed: 'The tab shows its full name.' } })] }));
+		return [card(html, 1), promptText(html, 1), issueCopied(html, 1)].join('\n--\n');
+	},
 	'a missing case with no file keeps its level and says new file': () => {
 		const html = render(rep({ findings: [fnd(1, { observed: 'it broke.', tests: { cases: [{ text: 'A checked box reads as checked.', level: 'unit', path: '', isNew: true }], related: [] } })] }));
 		return [card(html, 1), promptText(html, 1)].join('\n--\n');
@@ -1171,6 +1175,7 @@ const SCENES = {
 		const long = logsWith(1, { steps: f.steps.map((s, i) => (i === 2 ? { ...s, log: { ...s.log, body: [step.log.body, frame, frame, frame, frame].join('\n') } } : s)) });
 		return [between(issueCopied(logsHtml(long), 1), '## Error messages', '## Evidence'), between(issueCopied(render(rep({ findings: [fnd(1, { observed: 'nothing.' })] })), 1), '## Error messages', '## Evidence')].join('\n--\n');
 	},
+	'issue: under the report line is a box a person ticks once they reproduce it, and Describe the issue is its impact': () => issueCopied(logsHtml(logsWith(1, { summary: 'Retry leaves the summary panel empty.', impact: 'Anyone with a slow data source sees no summaries and has no way to load them.' })), 1).split('## Steps to reproduce')[0],
 	'issue: a local run links no report, and the likely cause folds as a hypothesis': () => issueCopied(fullHtml(FULL, { base: '/runs/r1' }), 1),
 	'issue: an opening describes the issue but stays off the card': () => {
 		const html = logsHtml(logsWith(1, { summary: 'When you open a slow column, its summary never loads.', where: 'polars only; R was not checked.' }));

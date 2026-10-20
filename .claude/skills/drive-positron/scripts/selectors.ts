@@ -70,6 +70,12 @@ export const css = {
 		notifications: '.notifications-toasts, .notifications-center',
 		modal: '.positron-modal-overlay, .context-view', // what holds focus while a Positron menu or popup is open; no role
 	},
+	splitButton: {
+		// Positron's action-bar split button: two halves that can share one name, and
+		// neither has aria-haspopup, so only the class tells which half opens the menu.
+		action: '.action-bar-button-action-button',
+		dropDown: '.action-bar-button-drop-down-button',
+	},
 	quickInput: {
 		// Closed widgets stay in the DOM; the live one is the visible one. Its rows
 		// are a virtual list moved by a transform (references/reading-ui-state.md).
@@ -137,6 +143,7 @@ export const css = {
 		activeTab: '.tab.active',
 		dirty: '.dirty', // a tab's unsaved mark: not in its accessible name
 		actions: '.editor-actions', // the editor's action bar, beside the tabs: no toolbar role
+		modal: '.modal-editor-part', // the modal editor (settings.json): a dialog whose name is a path, which ui.sh's dialog matches like any other
 	},
 	monaco: {
 		editor: '.monaco-editor',
@@ -284,6 +291,7 @@ export const names = {
 		suggest: 'Suggest', // the completion list (a listbox of options)
 		closePeek: 'Close', // the peek view's close button
 		cursorStatusPattern: 'Ln (\\d+), Col (\\d+)(?: \\((\\d+) selected\\))?', // the status bar button
+		moveModalToMain: 'Open Modal Editor in Main Window', // the modal editor's header button
 	},
 	viewer: {
 		url: 'The current URL',

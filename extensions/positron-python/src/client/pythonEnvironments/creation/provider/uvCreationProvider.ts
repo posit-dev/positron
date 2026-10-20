@@ -33,6 +33,7 @@ import {
 import { ensureUvInstalledWithProgress } from '../../common/environmentManagers/uvPythonInstaller';
 import { pickPythonVersion } from './uvUtils';
 import { uvInstallDeps } from './autoCreateVenv';
+import { reusedEnvironmentResult } from '../reusedEnvironment';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
 
@@ -203,7 +204,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                 }
             } else if (existingVenvAction === ExistingVenvAction.UseExisting) {
                 traceInfo(`Using existing virtual environment in ${workspace.uri.fsPath}`);
-                return { path: getVenvExecutable(workspace), workspaceFolder: workspace };
+                return reusedEnvironmentResult(getVenvExecutable(workspace), workspace);
             }
         }
 

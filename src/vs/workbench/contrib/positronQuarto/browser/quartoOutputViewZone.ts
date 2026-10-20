@@ -11,7 +11,9 @@ import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
-import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
+import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, OBJECT_EXPLORER_MIME_TYPE, CellExecutionState } from '../common/quartoExecutionTypes.js';
+import { IQuartoErroredCell } from '../../positronAssistant/common/errorAssistant.js';
+import { InlineObjectExplorer } from '../../../browser/positronObjectExplorer/inlineObjectExplorer.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
 import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
@@ -381,7 +383,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Quick-fix support for error outputs (suppressed by default; the live
 	// execution path calls enableQuickFix() to opt in).
 	private _quickFixEnabled = false;
-	private _cellContext: QuartoCellErrorContext | undefined;
+	private _erroredCell: IQuartoErroredCell | undefined;
 	private _quickFixRenderer: PositronReactRenderer | undefined;
 
 	constructor(
@@ -1077,9 +1079,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * zone. Only the live execution path calls this; restore paths leave
 	 * the default (suppressed) so stale errors don't show buttons.
 	 */
-	enableQuickFix(context?: QuartoCellErrorContext): void {
+	enableQuickFix(cell?: IQuartoErroredCell): void {
 		this._quickFixEnabled = true;
-		this._cellContext = context;
+		this._erroredCell = cell;
 	}
 
 	/**
@@ -1762,6 +1764,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			return { kind: 'other', text: localize('quartoOutputSummaryDataFrameGeneric', 'Data frame') };
 		}
 
+		// Nested data (inline object explorer)
+		if (output.items.some(item => item.mime === OBJECT_EXPLORER_MIME_TYPE)) {
+			return { kind: 'other', text: localize('quartoOutputSummaryObject', 'Object') };
+		}
+
 		// Interactive output (widget / plotly / viewer)
 		if (output.webviewMetadata?.webviewType) {
 			return { kind: 'other', text: localize('quartoOutputSummaryInteractive', 'Interactive output') };
@@ -2274,8 +2281,14 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			item => item.mime === DATA_EXPLORER_MIME_TYPE
 		);
 
+		const objectExplorerItem = output.items.find(
+			item => item.mime === OBJECT_EXPLORER_MIME_TYPE
+		);
+
 		if (dataExplorerItem && this._isDataExplorerEnabled()) {
 			this._renderDataExplorerOutput(dataExplorerItem, output, outputElement);
+		} else if (objectExplorerItem) {
+			this._renderObjectExplorerOutput(objectExplorerItem, output, outputElement);
 		} else if (output.webviewMetadata?.webviewType && this._webviewService && this._session) {
 			// Check if this output needs webview rendering
 			// Render via webview for interactive/complex outputs
@@ -2299,9 +2312,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			const hasDataExplorer = output.items.some(i => i.mime === DATA_EXPLORER_MIME_TYPE);
 			const shouldExcludePlainText = (hasHtml || hasImage) && !hasDataExplorer;
 
-			// Render items normally, skipping data explorer MIME
+			// Render items normally, skipping the explorer MIME types
 			for (const item of output.items) {
-				if (item.mime === DATA_EXPLORER_MIME_TYPE) {
+				if (item.mime === DATA_EXPLORER_MIME_TYPE || item.mime === OBJECT_EXPLORER_MIME_TYPE) {
 					continue;
 				}
 				if (item.mime === 'text/plain' && shouldExcludePlainText) {
@@ -2443,6 +2456,52 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				documentUri: this._documentUri ?? URI.parse(''),
 				onFallback: handleFallback,
 				onHeightChange: handleHeightChange,
+			})
+		);
+	}
+
+	/**
+	 * Render an object explorer output using a React component bridge, falling back to the
+	 * output's text when the object explorer is unavailable.
+	 */
+	private _renderObjectExplorerOutput(
+		objectExplorerItem: ICellOutputItem,
+		output: ICellOutput,
+		container: HTMLElement
+	): void {
+		let payload: { comm_id?: string; title?: string };
+		try {
+			payload = JSON.parse(objectExplorerItem.data);
+		} catch {
+			payload = {};
+		}
+		const commId = payload.comm_id;
+		if (!commId) {
+			this._renderDataExplorerFallback(output, container);
+			return;
+		}
+
+		const objectExplorerContainer = document.createElement('div');
+		objectExplorerContainer.className = 'quarto-output-object-explorer';
+		container.appendChild(objectExplorerContainer);
+
+		const renderer = new PositronReactRenderer(objectExplorerContainer);
+		this._reactRenderersByOutputId.set(output.outputId, renderer);
+
+		const handleFallback = () => {
+			renderer.dispose();
+			this._reactRenderersByOutputId.delete(output.outputId);
+			objectExplorerContainer.remove();
+			this._renderDataExplorerFallback(output, container);
+			this._updateHeight();
+		};
+
+		renderer.render(
+			React.createElement(InlineObjectExplorer, {
+				commId,
+				title: payload.title ?? '',
+				onFallback: handleFallback,
+				onDidChangeHeight: () => this._updateHeight(),
 			})
 		);
 	}
@@ -2626,8 +2685,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		container.appendChild(pre);
 
 		// Mount Fix/Explain quick-fix buttons for current-session errors.
-		// QuartoOutputQuickFix self-gates on assistant availability and
-		// renders nothing when the assistant is unavailable.
+		// QuartoOutputQuickFix renders nothing while there is no active error
+		// assistant to send the error to.
 		if (this._quickFixEnabled) {
 			const quickFixContainer = document.createElement('div');
 			quickFixContainer.setAttribute('aria-live', 'off');
@@ -2638,7 +2697,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._quickFixRenderer.render(
 				React.createElement(QuartoOutputQuickFix, {
 					errorContent: errorText,
-					cellContext: this._cellContext,
+					cell: this._erroredCell,
 					// The buttons mount asynchronously; re-measure once they are in
 					// the DOM so the zone reserves room for them. Relying on the
 					// ResizeObserver alone misses a re-run that produces an

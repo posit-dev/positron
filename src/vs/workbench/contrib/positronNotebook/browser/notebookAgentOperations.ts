@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../base/common/uri.js';
-import { encodeBase64 } from '../../../../base/common/buffer.js';
+import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -135,13 +135,23 @@ export async function collectCellOutputDTOs(
 	if (!cell.isCodeCell()) {
 		return [];
 	}
+	return collectOutputDTOs(cell.outputs.get().map(output => output.outputs), logService, options);
+}
 
-	const outputs = cell.outputs.get();
+/**
+ * Convert outputs, each a list of alternative MIME representations, to DTOs.
+ * See {@link collectCellOutputDTOs}.
+ */
+export async function collectOutputDTOs(
+	outputs: readonly (readonly { readonly mime: string; readonly data: VSBuffer }[])[],
+	logService: ILogService,
+	options: { textOnly: boolean },
+): Promise<INotebookCellOutputDTO[]> {
 	const outputDTOs: INotebookCellOutputDTO[] = [];
 
-	for (const output of outputs) {
-		const hasRasterImageSibling = output.outputs.some(item => isImageMimeType(item.mime));
-		for (const item of output.outputs) {
+	for (const items of outputs) {
+		const hasRasterImageSibling = items.some(item => isImageMimeType(item.mime));
+		for (const item of items) {
 			const mimeType = item.mime;
 
 			if (mimeType === 'application/vnd.code.notebook.stderr') {

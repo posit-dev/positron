@@ -557,6 +557,7 @@ export type PreviewHandle = string;
 export interface ExtHostPreviewPanelShape {
 	$onDidChangePreviewPanelViewStates(newState: PreviewPanelViewStateData): void;
 	$onDidDisposePreviewPanel(handle: PreviewHandle): Promise<void>;
+	$onDidRequestStop(handle: PreviewHandle): void;
 }
 
 /**
@@ -600,6 +601,7 @@ export interface MainThreadPreviewPanelShape extends IDisposable {
 	$disposePreview(handle: PreviewHandle): void;
 	$reveal(handle: PreviewHandle, preserveFocus: boolean): void;
 	$setTitle(handle: PreviewHandle, value: string): void;
+	$setStoppable(handle: PreviewHandle, stoppable: boolean): void;
 }
 
 export interface MainThreadLifecycleShape extends IDisposable {
