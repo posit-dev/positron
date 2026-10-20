@@ -20,7 +20,7 @@ import { AI_ENABLED_KEY } from '.../positronAssistant/common/positronAIConfigura
 precondition: ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
 ```
 
-See [AskAssistantAction.tsx](../../src/vs/workbench/contrib/positronNotebook/browser/AskAssistantAction.tsx).
+See [commitMessageAction.ts](../../src/vs/workbench/contrib/positronAssistant/browser/commitMessageAction.ts).
 
 **Service / non-React code**:
 
@@ -28,13 +28,15 @@ See [AskAssistantAction.tsx](../../src/vs/workbench/contrib/positronNotebook/bro
 if (this._configurationService.getValue<boolean>(AI_ENABLED_KEY) === true) { ... }
 ```
 
-See [ghostCell/controller.ts](../../src/vs/workbench/contrib/positronNotebook/browser/contrib/ghostCell/controller.ts).
+See [errorAssistantService.ts](../../src/vs/workbench/contrib/positronAssistant/browser/errorAssistantService.ts).
 
 **React component**:
 
 ```ts
 const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
 ```
+
+**Error Fix/Explain actions** (a surface that sends an error to an AI assistant): don't read `ai.enabled` yourself. Show the actions only while the active error assistant is defined, using `useActiveErrorAssistant()` in React or `IErrorAssistantService.activeAssistant` elsewhere, and send the error with `IErrorAssistantService.ask`. The service applies the `ai.enabled` gate to both. Keep any surface-specific gate (a console setting, notebook mode, etc.) alongside it. See [errorAssistant.ts](../../src/vs/workbench/contrib/positronAssistant/common/errorAssistant.ts).
 
 ## Things to get right
 

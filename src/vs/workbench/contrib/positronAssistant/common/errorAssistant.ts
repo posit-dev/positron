@@ -21,17 +21,17 @@ interface IErrorContextBase {
 }
 
 /** An error raised by code run in a console session. */
-export interface IConsoleErrorContext extends IErrorContextBase {
+interface IConsoleErrorContext extends IErrorContextBase {
 	readonly kind: 'console';
 }
 
 /** An error raised by a notebook cell. */
-export interface INotebookErrorContext extends IErrorContextBase {
+interface INotebookErrorContext extends IErrorContextBase {
 	readonly kind: 'notebook';
 }
 
 /** An error raised by a Quarto code cell. */
-export interface IQuartoErrorContext extends IErrorContextBase {
+interface IQuartoErrorContext extends IErrorContextBase {
 	readonly kind: 'quarto';
 	/** The cell whose code raised the error. Undefined when it can't be found. */
 	readonly cell?: IQuartoErroredCell;

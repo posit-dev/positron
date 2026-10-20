@@ -6,8 +6,6 @@
 // CSS.
 import './AssistantErrorQuickFix.css';
 
-// React.
-
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
