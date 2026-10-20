@@ -21,7 +21,7 @@ import {
 	removeConnectionFiles,
 	writeConnectionFiles,
 } from './mcpConnection';
-import { installMcpLauncher, mcpLauncherInstalled, mcpLauncherPath } from './mcpLauncher';
+import { installMcpLauncher, mcpLauncherPath } from './mcpLauncher';
 import { summarizeError } from './util';
 
 // The `ai.*` settings below are registered by Positron core, in
@@ -348,18 +348,6 @@ export class McpFrontend implements vscode.Disposable {
 			this._connection.url));
 	}
 
-	/**
-	 * Put the launcher in place, or bring it up to date, and publish where it
-	 * is. Put off until an agent is to be configured with it, since on
-	 * Windows it is a copy of the supervisor binary.
-	 */
-	public async installLauncher(): Promise<void> {
-		await installMcpLauncher(this._storageUri, this._supervisorPath(), this._log);
-		if (this._connection) {
-			this.setVariable(MCP_LAUNCHER_ENV_VAR, mcpLauncherPath(this._storageUri));
-		}
-	}
-
 	public dispose() {
 		this.closeChannel();
 		this._onDidChangeConnection.dispose();
@@ -534,9 +522,9 @@ export class McpFrontend implements vscode.Disposable {
 	}
 
 	/**
-	 * Publish the endpoint and token, the supervisor binary that runs the
-	 * bridge, and the launcher if it is in place, to the environments agents
-	 * are started from: integrated terminals, and the extension host process,
+	 * Install the launcher, and publish it, the endpoint and token, and the
+	 * supervisor binary that runs the bridge to the environments agents are
+	 * started from: integrated terminals, and the extension host process,
 	 * whose environment is inherited by the processes extensions spawn. The
 	 * stdio bridge agents start reads these first; an agent that inherits neither
 	 * falls back to the files written alongside, see
@@ -553,12 +541,14 @@ export class McpFrontend implements vscode.Disposable {
 		this.setVariable(MCP_TOKEN_ENV_VAR, connection.token);
 		this.setVariable(MCP_CONNECTIONS_ENV_VAR, mcpConnectionsDirectory(this._storageUri));
 		try {
-			this.setVariable(SUPERVISOR_PATH_ENV_VAR, this._supervisorPath());
-		} catch (err) {
-			this._log(`Could not find the supervisor binary: ${summarizeError(err)}`);
-		}
-		if (await mcpLauncherInstalled(this._storageUri)) {
+			const supervisorPath = this._supervisorPath();
+			this.setVariable(SUPERVISOR_PATH_ENV_VAR, supervisorPath);
+			// Points the launcher at this window's supervisor, which may be a
+			// different version's than the one that last wrote it.
+			await installMcpLauncher(this._storageUri, supervisorPath, this._log);
 			this.setVariable(MCP_LAUNCHER_ENV_VAR, mcpLauncherPath(this._storageUri));
+		} catch (err) {
+			this._log(`Could not install the MCP launcher: ${summarizeError(err)}`);
 		}
 		try {
 			await writeConnectionFiles(this._storageUri, connection);

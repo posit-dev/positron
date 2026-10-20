@@ -5,10 +5,10 @@
 
 import * as assert from 'assert';
 import { agentCliCommand } from '../McpAgentConfig';
-import { McpCliInstall, findMcpAgent, mcpLaunch } from '../McpAgents';
+import { McpCliInstall, McpLaunch, findMcpAgent } from '../McpAgents';
 
 /** The command line that starts the bridge. */
-const LAUNCH = mcpLaunch('/storage/mcp/bin/positron-mcp');
+const LAUNCH: McpLaunch = { command: '/bin/sh', args: ['/storage/mcp/bin/positron-mcp'] };
 
 /** The install of the row that is configured by running its CLI. */
 function cliInstall(id: string): McpCliInstall {
@@ -31,6 +31,7 @@ suite('agentCliCommand', () => {
 					// Everything after this is the server's command line, not
 					// options for the CLI.
 					'--',
+					'/bin/sh',
 					'/storage/mcp/bin/positron-mcp',
 				],
 			});

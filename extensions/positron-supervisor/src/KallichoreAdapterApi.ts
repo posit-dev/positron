@@ -22,11 +22,10 @@ import { DefinitionTerminalEnvironment, findInterpreterDefinition, InterpreterDe
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
-import { CONFIGURE_AGENT_COMMAND, McpLauncher, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
+import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
-import { mcpLaunch } from './McpAgents.js';
 import { MCP_ENV_VARS } from './mcpConnection.js';
-import { mcpLauncherInstalled, mcpLauncherPath } from './mcpLauncher.js';
+import { mcpLauncherLaunch } from './mcpLauncher.js';
 import { McpClientsStatusBar, SHOW_CONNECTED_AGENTS_COMMAND, showConnectedAgents } from './McpClientsStatusBar.js';
 
 /**
@@ -353,7 +352,7 @@ export class KCApi implements PositronSupervisorApi {
 			() => this._sessions.map(session => session.metadata.sessionId),
 			() => this.getKallichorePath(),
 			mcpFeatureEnabled,
-			() => onMcpRegistered(_context, this.mcpLauncher(), message => this.log(message)),
+			() => onMcpRegistered(_context, mcpLauncherLaunch(_context.globalStorageUri), message => this.log(message)),
 			() => removeConfiguredAgents(_context, message => this.log(message)));
 		this._disposables.push(this._mcp);
 
@@ -418,7 +417,7 @@ export class KCApi implements PositronSupervisorApi {
 		}));
 
 		this._context.subscriptions.push(vscode.commands.registerCommand(CONFIGURE_AGENT_COMMAND, (agentId?: string) => {
-			return configureAgent(this._context, this.mcpLauncher(), agentId);
+			return configureAgent(this._context, mcpLauncherLaunch(this._context.globalStorageUri), agentId);
 		}));
 
 		// Listen for changes to the idle shutdown hours config setting; if the
@@ -2004,18 +2003,6 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Dispose of any other disposables
 		this._disposables.forEach(disposable => disposable.dispose());
-	}
-
-	/**
-	 * What an agent runs to start Positron's MCP server: the launcher, which runs
-	 * this supervisor binary's stdio bridge.
-	 */
-	private mcpLauncher(): McpLauncher {
-		return {
-			launch: mcpLaunch(mcpLauncherPath(this._context.globalStorageUri)),
-			installed: () => mcpLauncherInstalled(this._context.globalStorageUri),
-			install: () => this._mcp.installLauncher(),
-		};
 	}
 
 	/**

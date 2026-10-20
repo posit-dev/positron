@@ -58,21 +58,6 @@ interface ConfiguredAgent {
 	launch?: McpLaunch;
 }
 
-/** The command line agents are configured with, and what it starts. */
-export interface McpLauncher {
-	/** The command line, which does not change. */
-	readonly launch: McpLaunch;
-
-	/** Whether the launcher has been put in place. */
-	installed(): Promise<boolean>;
-
-	/**
-	 * Put the launcher in place. Called only when an entry is to be written or
-	 * may start it, since on Windows it copies the supervisor binary.
-	 */
-	install(): Promise<void>;
-}
-
 /** Where an installed entry landed, for the message that says so. */
 interface InstallResult {
 	/** The location, as it is shown to the user. */
@@ -88,13 +73,13 @@ interface InstallResult {
  * entry.
  *
  * @param context The extension context, which remembers what we configure.
- * @param launcher What starts the bridge.
+ * @param launch The command line that starts the bridge.
  * @param agentId The harness to configure. Omitted when the user ran the
  *  command from the palette, in which case they are asked to pick one.
  */
 export async function configureAgent(
 	context: vscode.ExtensionContext,
-	launcher: McpLauncher,
+	launch: McpLaunch,
 	agentId?: string,
 ): Promise<void> {
 	if (!mcpFeatureEnabled()) {
@@ -109,13 +94,12 @@ export async function configureAgent(
 
 	let result: InstallResult;
 	try {
-		await launcher.install();
-		result = await installAgent(agent, launcher.launch);
+		result = await installAgent(agent, launch);
 	} catch (err) {
 		await vscode.window.showErrorMessage(summarizeError(err));
 		return;
 	}
-	await recordConfiguredAgent(context, agent, launcher.launch);
+	await recordConfiguredAgent(context, agent, launch);
 
 	const open = vscode.l10n.t("Open File");
 	const choice = await vscode.window.showInformationMessage(
@@ -134,49 +118,30 @@ export async function configureAgent(
  * Bring the harnesses we have configured in line with a registration that has
  * just been issued, and configure Claude Code if this is the first one.
  *
- * Points the launcher at this window's supervisor, which may be a different
- * version's, when any entry starts it, then rewrites the entries written with
- * another command line.
- *
  * Runs after a registration succeeds, so an agent configured here finds the
  * workspace listening. Reports its own failures rather than raising them:
  * registration is complete by the time it runs, and nothing waits on it.
  *
  * @param context The extension context, which remembers what we configure.
- * @param launcher What starts the bridge.
+ * @param launch The command line that starts the bridge.
  * @param log Writes a line to the Kernel Supervisor output channel.
  */
 export async function onMcpRegistered(
 	context: vscode.ExtensionContext,
-	launcher: McpLauncher,
+	launch: McpLaunch,
 	log: (message: string) => void,
 ): Promise<void> {
 	try {
-		const records = loadConfiguredAgents(context);
-		const autoConfigured = agentToAutoConfigure(records);
-		// Agents configured from other workspaces may start the launcher too.
-		if (records.length === 0 && !autoConfigured && !(await launcher.installed())) {
-			return;
-		}
-		try {
-			await launcher.install();
-		} catch (err) {
-			// Every entry would name a launcher that is not there.
-			log(`Could not install the MCP launcher: ${summarizeError(err)}`);
-			return;
-		}
-		if (autoConfigured) {
-			await autoConfigureAgent(context, autoConfigured, launcher.launch, log);
-		}
-		await refreshConfiguredAgents(context, launcher.launch, log);
+		await autoConfigureClaudeCode(context, launch, log);
+		await refreshConfiguredAgents(context, launch, log);
 	} catch (err) {
 		log(`Could not update the configured coding agents: ${summarizeError(err)}`);
 	}
 }
 
 /**
- * The harness to configure for a user who only turned the feature on: Claude
- * Code, so that turning the feature on is all a user has to do.
+ * Adds Positron to Claude Code's configuration for this workspace, so that
+ * turning the feature on is all a user has to do.
  *
  * The entry goes in Claude Code's own configuration for the directory rather
  * than the workspace's `.mcp.json`: it stays out of the user's repository, and
@@ -187,35 +152,32 @@ export async function onMcpRegistered(
  * {@link configureAgent}: writing a global configuration would follow the user
  * into projects that have nothing to do with Positron.
  *
- * @param records The harnesses already configured in this workspace.
- * @returns The harness, or undefined when there is none to configure.
- */
-function agentToAutoConfigure(records: ConfiguredAgent[]): McpAgent | undefined {
-	const agent = findMcpAgent(AUTO_CONFIGURED_AGENT_ID);
-	// Configured once per workspace: a user who removes the entry again does
-	// not get it back. Nothing is recorded when there is no folder or no CLI,
-	// so installing Claude Code later still gets it configured.
-	if (!agent || records.some(record => record.id === agent.id) ||
-		!fileWorkspaceFolder() || !installExecutable(agent)) {
-		return undefined;
-	}
-	return agent;
-}
-
-/**
- * Write and record the entry for {@link agentToAutoConfigure}'s harness.
- *
  * @param context The extension context, which remembers what we configure.
- * @param agent The harness to configure.
  * @param launch The command line that starts the bridge.
  * @param log Writes a line to the Kernel Supervisor output channel.
  */
-async function autoConfigureAgent(
+async function autoConfigureClaudeCode(
 	context: vscode.ExtensionContext,
-	agent: McpAgent,
 	launch: McpLaunch,
 	log: (message: string) => void,
 ): Promise<void> {
+	const agent = findMcpAgent(AUTO_CONFIGURED_AGENT_ID);
+	if (!agent) {
+		return;
+	}
+
+	// Configured once per workspace: a user who removes the entry again does
+	// not get it back.
+	if (loadConfiguredAgents(context).some(record => record.id === agent.id)) {
+		return;
+	}
+
+	// Nothing is recorded when there is no folder or no CLI, so installing
+	// Claude Code later still gets it configured.
+	if (!fileWorkspaceFolder() || !installExecutable(agent)) {
+		return;
+	}
+
 	try {
 		const { description } = await installAgent(agent, launch);
 		log(`Configured ${agent.label} to use Positron's MCP server in ${description}`);

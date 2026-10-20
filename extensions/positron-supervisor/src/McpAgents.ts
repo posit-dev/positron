@@ -24,16 +24,6 @@ export interface McpLaunch {
 	readonly args: readonly string[];
 }
 
-/**
- * The command line that starts the MCP bridge.
- *
- * @param launcherPath The launcher kept in the connections directory.
- * @returns The launch to write into an agent's configuration.
- */
-export function mcpLaunch(launcherPath: string): McpLaunch {
-	return { command: launcherPath, args: [] };
-}
-
 /** A harness Positron adds itself to by editing a configuration file. */
 export interface McpFileInstall {
 	readonly kind: 'file';
