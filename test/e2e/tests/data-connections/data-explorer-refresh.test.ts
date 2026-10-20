@@ -12,7 +12,6 @@ test.use({
 });
 
 const connectionName = 'refresh-sample';
-const databaseFileName = 'data-explorer-refresh.sqlite';
 
 // The sample table: 10 rows, score = (i * 7) % 100, so 'score > 30' keeps rows 5 and up.
 const sampleRowCount = 10;
@@ -60,13 +59,16 @@ function sampleRow(i: number): string {
 test.describe('Data Explorer - Refresh from a Data Connection', {
 	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.DATA_EXPLORER, tags.WORKBENCH]
 }, () => {
+	let databaseFileName: string;
 	let databaseFile: string;
 
-	test.beforeAll(async function ({ app, python }) {
+	test.beforeAll(async function ({ app, python }, workerInfo) {
 		const { dataConnections } = app.workbench;
 
 		// The database lives in the workspace so the console, the driver, and the cleanup fixture
-		// all see the same path, on every lane.
+		// all see the same path, on every lane. Workers share the workspace, so the name carries the
+		// worker index: with --repeat-each, two copies of this suite run at once.
+		databaseFileName = `data-explorer-refresh-${workerInfo.workerIndex}.sqlite`;
 		databaseFile = join(app.workspacePathOrFolder, 'data-files', databaseFileName);
 		await runSql(app, databaseFile, createSampleTable());
 
