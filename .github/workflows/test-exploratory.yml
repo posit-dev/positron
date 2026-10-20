@@ -593,8 +593,11 @@ jobs:
         env:
           PR: ${{ github.event.issue.number || steps.pr.outputs.number }}
         run: |
+          RENDERER=.harness/.claude/skills/exploratory-test/renderer
+          # Explore installs these later, but known-issues.mjs imports them now.
+          npm --prefix "$RENDERER" ci --no-audit --no-fund
           OUT="$RUNNER_TEMP/known-issues.json"
-          node .harness/.claude/skills/exploratory-test/renderer/known-issues.mjs --pr "$PR" --out "$OUT" --repo "$GITHUB_REPOSITORY"
+          node "$RENDERER/known-issues.mjs" --pr "$PR" --out "$OUT" --repo "$GITHUB_REPOSITORY"
           echo "file=$OUT" >> "$GITHUB_OUTPUT"
 
       - name: Restore caches
