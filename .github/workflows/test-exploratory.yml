@@ -95,9 +95,12 @@ jobs:
     # No write access on the one job that runs for every matching comment,
     # which is also why a blocked caller gets silence rather than a rejection.
     permissions:
+      # To find a run already going on the PR.
+      actions: read
       pull-requests: read
     outputs:
       ok: ${{ steps.check.outputs.ok }}
+      busy: ${{ steps.check.outputs.busy }}
       head_sha: ${{ steps.check.outputs.head_sha }}
       head_ref: ${{ steps.check.outputs.head_ref }}
       base_ref: ${{ steps.check.outputs.base_ref }}
@@ -160,6 +163,24 @@ jobs:
             [ "$state" = "active" ]
           }
 
+          # The URL of a run still queued or going on this PR's head ($1), or
+          # nothing. Each run's comment names its run and short SHA; an auto-run
+          # yet to comment is found by its run-name. A focused run is no repeat.
+          busy_run() {
+            local seen status
+            seen=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+              --jq '[.[] | select(.user.type == "Bot") | .body
+                | select(contains("<!-- exploratory-test -->") and (contains("\nFocus: ") | not))
+                | {run: (capture("actions/runs/(?<r>[0-9]+)").r | tonumber), sha: capture("Exploratory testing\\*\\* (?<s>[0-9a-f]{7})").s}]' \
+              | jq -sc 'add // []')
+            for status in queued in_progress; do
+              gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/test-exploratory.yml/runs?status=${status}&per_page=100" \
+                | jq -r --argjson seen "$seen" --arg head "${1:0:7}" --arg title "Exploratory auto-run #${PR_NUMBER}" \
+                  '.workflow_runs[] | .id as $id | ($seen | map(select(.run == $id))) as $mine
+                  | select(if $mine == [] then .display_title == $title else any($mine[]; .sha == $head) end) | .html_url'
+            done | head -n 1
+          }
+
           if ! is_member "$COMMENTER" || ! is_member "$PR_AUTHOR"; then
             echo "Membership gate: blocked (commenter=$COMMENTER, author=$PR_AUTHOR)"
             exit 0
@@ -178,6 +199,17 @@ jobs:
           if [ "$state" != "open" ] || [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
             echo "Membership gate: blocked (state=$state, head repo=$head_repo)"
             exit 0
+          fi
+
+          # A plain /explore while a run on the same head is going is a repeat. Fails
+          # open: a missed repeat costs a run, a wrong block costs theirs.
+          if [ -z "$focus" ]; then
+            busy=$(GH_TOKEN="$REPO_TOKEN" busy_run "$(jq -r '.head.sha' <<<"$pr")" 2>/dev/null)
+            if [ -n "$busy" ]; then
+              echo "busy=$busy" >> "$GITHUB_OUTPUT"
+              echo "Already running on this PR: $busy"
+              exit 0
+            fi
           fi
           {
             echo "head_sha=$(jq -r '.head.sha' <<<"$pr")"
@@ -342,6 +374,25 @@ jobs:
             printf '%s\n' "${REASON:-No reason recorded.}"
             printf '\n_gate: $%s_\n' "${COST:-?}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Answers a /explore that membership turned away as a repeat, so it does not
+  # read as ignored.
+  busy:
+    name: busy
+    needs: [membership]
+    if: needs.membership.outputs.busy != ''
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Point to the run already going
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          RUN_URL: ${{ needs.membership.outputs.busy }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="An exploratory test is already running on this PR ([view run](${RUN_URL})), so this \`/explore\` was skipped. Comment \`/explore\` again once it finishes, or \`/explore <focus>\` to test something specific alongside it." > /dev/null
 
   # The write half of a /test, split from explore so the job that runs PR code
   # never holds a write token. Runs alongside explore, so the commenter sees
