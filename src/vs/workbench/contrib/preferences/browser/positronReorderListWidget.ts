@@ -72,6 +72,11 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 	}
 
 	override setValue(listData: IReorderListItem[]): void {
+		// Keep the selection on the same language when the order changes underneath it, as after Reset Setting.
+		const selected = this.model.getSelected();
+		const selectedValue = selected === null ? undefined : this.model.items[selected]?.value.data;
+		const idx = listData.findIndex(item => item.value.data === selectedValue);
+		this.model.select(idx === -1 ? null : idx);
 		super.setValue(listData, { showAddButton: false });
 	}
 

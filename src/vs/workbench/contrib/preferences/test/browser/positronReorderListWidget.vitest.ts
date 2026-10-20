@@ -90,6 +90,22 @@ describe('PositronReorderListWidget', () => {
 		expect(outer).not.toHaveBeenCalled();
 	});
 
+	it('keeps the selection on the same value when a new order is set, so Alt+Down moves that value', () => {
+		const { widget, rows, events } = createWidget(['p', 'r']);
+		pointerDown(rows()[0]);
+		widget.setValue(toItems(['j', 'p', 'r']));
+		expect(rows()[1]).toHaveClass('selected');
+		pressKey(rows()[1], 'ArrowDown', true);
+		expect(events).toEqual([expect.objectContaining({ type: 'move', sourceIndex: 1, targetIndex: 2 })]);
+	});
+
+	it('clears the selection when the selected value is no longer listed', () => {
+		const { widget, rows } = createWidget(['p', 'r']);
+		pointerDown(rows()[0]);
+		widget.setValue(toItems(['j', 'r']));
+		expect(rows().some(row => row.classList.contains('selected'))).toBe(false);
+	});
+
 	it('ignores a drop that did not start in the list', () => {
 		const { rows, events } = createWidget(['a', 'b']);
 		rows()[0].dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
