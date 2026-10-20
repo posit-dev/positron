@@ -63,6 +63,23 @@ describe('CustomFolderMenuItems', () => {
 		expect(folderRows().map(row => row.textContent)).toEqual(['project-c', 'project-a', 'project-b']);
 	});
 
+	it('keeps a folder pinned in another window when this window pins a folder', async () => {
+		const user = userEvent.setup();
+		const firstWindow = renderMenu(recentFolder('a'), recentFolder('b'), recentFolder('c'));
+		const secondWindow = renderMenu(recentFolder('a'), recentFolder('b'), recentFolder('c'));
+		const rowsIn = (window: typeof firstWindow) =>
+			within(window.container).getAllByRole('button', { name: /^project-/ });
+
+		await user.click(within(rowsIn(secondWindow)[1]).getByRole('button', { name: 'Pin' }));
+		await user.click(within(rowsIn(firstWindow)[2]).getByRole('button', { name: 'Pin' }));
+		firstWindow.unmount();
+		secondWindow.unmount();
+
+		renderMenu(recentFolder('a'), recentFolder('b'), recentFolder('c'));
+
+		expect(folderRows().map(row => row.textContent)).toEqual(['project-b', 'project-c', 'project-a']);
+	});
+
 	it('returns an unpinned folder to its place in the recent list', async () => {
 		const user = userEvent.setup();
 		renderMenu(recentFolder('a'), recentFolder('b'), recentFolder('c'));

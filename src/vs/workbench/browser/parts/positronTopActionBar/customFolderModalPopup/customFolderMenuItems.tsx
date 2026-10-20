@@ -25,6 +25,7 @@ import { CommandCenter } from '../../../../../platform/commandCenter/common/comm
 import { EmptyWorkspaceSupportContext, WorkbenchStateContext } from '../../../../common/contextkeys.js';
 import { CommandAction } from '../../../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IRecentlyOpened, IRecentFolder, IRecentWorkspace, isRecentWorkspace, isRecentFolder, restoreRecentlyOpened, toStoreData } from '../../../../../platform/workspaces/common/workspaces.js';
 import { PositronNewFolderFromTemplateAction, PositronNewFolderFromGitAction, PositronOpenFolderInNewWindowAction } from '../../../actions/positronActions.js';
@@ -47,6 +48,18 @@ type RecentFolderOrWorkspace = IRecentFolder | IRecentWorkspace;
  */
 const recentUri = (recent: RecentFolderOrWorkspace) =>
 	isRecentFolder(recent) ? recent.folderUri : recent.workspace.configPath;
+
+/**
+ * Reads the pinned folders and workspaces.
+ * @param storageService The storage service.
+ * @param logService The log service.
+ * @returns The pinned folders and workspaces.
+ */
+const readPinnedFolders = (storageService: IStorageService, logService: ILogService) =>
+	restoreRecentlyOpened(
+		storageService.getObject(kPinnedFoldersStorageKey, StorageScope.APPLICATION),
+		logService
+	).workspaces;
 
 /**
  * Stores the pinned folders and workspaces. They are shared by all windows, like the recently
@@ -81,10 +94,9 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 	const services = usePositronReactServicesContext();
 
 	// State hooks.
-	const [pinnedFolders, setPinnedFolders] = useState(() => restoreRecentlyOpened(
-		services.storageService.getObject(kPinnedFoldersStorageKey, StorageScope.APPLICATION),
-		services.logService
-	).workspaces);
+	const [pinnedFolders, setPinnedFolders] = useState(() =>
+		readPinnedFolders(services.storageService, services.logService)
+	);
 
 	// The recently opened folders and workspaces that aren't pinned.
 	const recentFolders = props.recentlyOpened.workspaces
@@ -96,10 +108,13 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 	 * @param recent The folder or workspace.
 	 */
 	const togglePinned = (recent: RecentFolderOrWorkspace) => {
+		// Start from the stored pins, not this menu's state, so that pins changed in another
+		// window since this menu opened are not overwritten.
 		const uri = recentUri(recent);
-		const newPinnedFolders = pinnedFolders.some(pinned => isEqual(recentUri(pinned), uri)) ?
-			pinnedFolders.filter(pinned => !isEqual(recentUri(pinned), uri)) :
-			[...pinnedFolders, recent];
+		const storedPinnedFolders = readPinnedFolders(services.storageService, services.logService);
+		const newPinnedFolders = storedPinnedFolders.some(pinned => isEqual(recentUri(pinned), uri)) ?
+			storedPinnedFolders.filter(pinned => !isEqual(recentUri(pinned), uri)) :
+			[...storedPinnedFolders, recent];
 		storePinnedFolders(services.storageService, newPinnedFolders);
 		setPinnedFolders(newPinnedFolders);
 	};
