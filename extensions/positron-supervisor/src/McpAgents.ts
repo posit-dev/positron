@@ -47,7 +47,7 @@ export interface McpFileInstall {
 	/** The file's format, which decides how an entry is merged into it. */
 	readonly format: 'json' | 'toml';
 
-	/** The dotted path the servers live under: `mcpServers`, `mcp_servers`. */
+	/** What the servers live under: `mcpServers`, `mcp`, `mcp_servers`. */
 	readonly serversKey: string;
 
 	/** The server entry, in the harness's own vocabulary. */
@@ -270,7 +270,7 @@ export function unmergeAgentConfig(install: McpFileInstall, existing: string): s
  * Merge the entry into a JSON configuration.
  *
  * @param existing The current contents, if the file exists.
- * @param serversKey The dotted path to the object the servers live under.
+ * @param serversKey The object the servers live under.
  * @param entry The entry from {@link McpFileInstall.entry}.
  * @returns The contents to write.
  */
@@ -280,10 +280,7 @@ function mergeJsonConfig(
 	entry: Record<string, unknown>,
 ): string {
 	const config: Record<string, unknown> = existing ? JSON.parse(existing) : {};
-	let servers = config;
-	for (const key of serversKey.split('.')) {
-		servers = (servers[key] ?? (servers[key] = {})) as Record<string, unknown>;
-	}
+	const servers = (config[serversKey] ?? (config[serversKey] = {})) as Record<string, unknown>;
 	servers[MCP_SERVER_NAME] = entry;
 	return `${JSON.stringify(config, null, 2)}\n`;
 }
@@ -292,13 +289,12 @@ function mergeJsonConfig(
  * Remove our entry from a JSON configuration.
  *
  * @param existing The current contents.
- * @param serversKey The dotted path to the object the servers live under.
+ * @param serversKey The object the servers live under.
  * @returns The contents to write.
  */
 function unmergeJsonConfig(existing: string, serversKey: string): string {
 	const config: Record<string, unknown> = JSON.parse(existing);
-	const servers = serversKey.split('.').reduce<Record<string, unknown> | undefined>(
-		(object, key) => object?.[key] as Record<string, unknown> | undefined, config);
+	const servers = config[serversKey] as Record<string, unknown> | undefined;
 	delete servers?.[MCP_SERVER_NAME];
 	return `${JSON.stringify(config, null, 2)}\n`;
 }

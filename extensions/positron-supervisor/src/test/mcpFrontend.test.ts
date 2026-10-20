@@ -159,7 +159,7 @@ function createHarness(
 		environment,
 		processEnv,
 		storageUri,
-		supervisorPath: fakeSupervisor(),
+		supervisorPath,
 		registry,
 		memento,
 		registrations: 0,
@@ -180,6 +180,9 @@ function createHarness(
 	};
 	return harness;
 }
+
+/** The stand-in supervisor every harness runs, made by {@link fakeSupervisor}. */
+let supervisorPath: string;
 
 /**
  * A stand-in for the supervisor binary, which prints how it was started. Its
@@ -256,6 +259,14 @@ function lastRegistration(harness: Harness): McpWorkspaceRegistration {
 }
 
 suite('McpFrontend', () => {
+	suiteSetup(() => {
+		supervisorPath = fakeSupervisor();
+	});
+
+	suiteTeardown(() => {
+		fs.rmSync(path.dirname(supervisorPath), { recursive: true, force: true });
+	});
+
 	test('registers and publishes the endpoint and token to terminals and extensions', async () => {
 		const harness = createHarness();
 
@@ -307,6 +318,17 @@ suite('McpFrontend', () => {
 				variables: published(harness, true),
 				processEnv: published(harness, true),
 			});
+	});
+
+	test('publishes the launcher at registration when it is already in place', async () => {
+		const first = createHarness();
+		await first.frontend.attach(first.registry);
+		await first.frontend.installLauncher();
+		const harness = createHarness(new FakeMemento(), true, { storageUri: first.storageUri });
+
+		await harness.frontend.attach(harness.registry);
+
+		assert.deepStrictEqual(harness.processEnv, published(harness, true));
 	});
 
 	test('writes a connection descriptor for the stdio bridge', async () => {
