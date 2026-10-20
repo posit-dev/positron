@@ -1952,6 +1952,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Filter out any affiliations that didn't deserialize properly.
 			return affiliation !== undefined;
 		}).filter(affiliation => {
+			// A recommendation saved as the default without being started or
+			// used, whose runtime starts only when picked, is never started.
+			if (affiliation.lastStarted === 0 &&
+				affiliation.lastUsed === 0 &&
+				affiliation.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Explicit) {
+				this._logService.debug(`[Runtime startup] Affiliated runtime ` +
+					`${formatLanguageRuntimeMetadata(affiliation.metadata)} ` +
+					`starts only when picked; not starting it`);
+				return false;
+			}
+
 			// Filter out runtimes that aren't actually being used by removing those with a
 			// lastUsed time that is less than the lastStarted time.
 

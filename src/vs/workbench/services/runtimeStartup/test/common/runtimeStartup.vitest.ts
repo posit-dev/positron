@@ -1239,6 +1239,32 @@ describe('RuntimeStartupService - affiliation healing', () => {
 		expect(svc.getAffiliatedRuntimes()[0].runtimePath).toBe(freshRuntimePath);
 	});
 
+	it.each([
+		{ startupBehavior: LanguageRuntimeStartupBehavior.Explicit, started: false },
+		{ startupBehavior: LanguageRuntimeStartupBehavior.Implicit, started: true },
+	])('starts a never-used affiliation of the only language unless it starts only when picked ($startupBehavior)', async ({ startupBehavior, started }) => {
+		ctx.instantiationService.stub(IConfigurationService,
+			new TestConfigurationService({ 'interpreters.startupBehavior': LanguageStartupBehavior.Auto }));
+		// A recommendation saved as the workspace default, never started or used.
+		ctx.get(IStorageService).store('positron.affiliatedRuntimeMetadata.v2.python',
+			JSON.stringify({ metadata: { ...metadata(), startupBehavior }, lastUsed: 0, lastStarted: 0 }),
+			StorageScope.WORKSPACE, StorageTarget.MACHINE);
+
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const internals = svc as unknown as {
+			startAffiliatedLanguageRuntimes(disabled: string[], enabled: string[]): Promise<void>;
+			startAffiliatedRuntime(): Promise<void>;
+			activateExtensionsForLanguages(): Promise<void>;
+		};
+		vi.spyOn(internals, 'activateExtensionsForLanguages').mockResolvedValue();
+		const startAffiliatedRuntime = vi.spyOn(internals, 'startAffiliatedRuntime').mockResolvedValue();
+
+		await internals.startAffiliatedLanguageRuntimes([], ['python']);
+
+		expect(startAffiliatedRuntime.mock.calls.length > 0).toBe(started);
+	});
+
 	it('keeps a stored affiliation that follows the current R when an older R re-registers', async () => {
 		// R runtime IDs hash only the binary path and version, so the same
 		// runtime ID comes back after `rig default` points at a newer R. The
