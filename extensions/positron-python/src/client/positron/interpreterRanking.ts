@@ -189,9 +189,6 @@ function definitionIndex(interpreter: PythonEnvironment, context: RankingContext
 
 /** The tier of an interpreter, or `undefined` if it is never recommended. */
 export function tierOf(interpreter: PythonEnvironment, context: RankingContext): Tier | undefined {
-    if (interpreter.envType === EnvironmentType.Unknown) {
-        return undefined;
-    }
     if (
         samePath(interpreter.envPath, context.activatedEnvPrefix) ||
         samePath(interpreter.sysPrefix, context.activatedEnvPrefix)
@@ -214,6 +211,11 @@ export function tierOf(interpreter: PythonEnvironment, context: RankingContext):
         isNamedByPythonVersion(interpreter, context)
     ) {
         return Tier.PythonVersionFile;
+    }
+    // PET couldn't classify it. Rank it only if the user named it: the tiers above, or
+    // `interpreters.definitions`.
+    if (interpreter.envType === EnvironmentType.Unknown) {
+        return definitionIndex(interpreter, context) !== -1 ? Tier.Configured : undefined;
     }
     // Envs one level deep are inside the folder too, so this covers them; `orderWithinTier`
     // puts them first.

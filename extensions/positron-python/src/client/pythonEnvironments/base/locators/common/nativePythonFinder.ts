@@ -37,7 +37,7 @@ import { traceVerbose } from '../../../../logging';
 import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
 import { PythonEnvSource } from '../../info/index';
 import { getUvDirs } from '../../../common/environmentManagers/uv';
-import { findNestedEnvironmentDirs } from '../../../../positron/workspaceScan';
+import { scanWorkspace } from '../../../../positron/workspaceScan';
 // --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
@@ -719,6 +719,9 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
 
     // --- Start Positron ---
     private nestedEnvDirs: string[] = [];
+
+    /** Whether a refresh has scanned the workspace folders yet. */
+    private scannedWorkspace = false;
     // --- End Positron ---
 
     // --- Start Positron ---
@@ -789,12 +792,15 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         const workspaceFolders = getWorkspaceFolderPaths();
         // Envs one level below each workspace folder (e.g. <folder>/app/.venv). PET
         // reports a workspace directory that is itself an env and stops there. The
-        // scan runs only for a refresh; resolve() configures reuse the last result so
-        // they do not wait on a folder scan.
+        // scan runs only for a refresh; resolve() configures reuse the last result,
+        // though one queued behind a refresh's configure waits for its scan. The first
+        // refresh shares the scan the interpreter ranking reads at startup, so the folder
+        // is read once; later refreshes read it again.
         if (scanNestedEnvs) {
-            this.nestedEnvDirs = (
-                await Promise.all(workspaceFolders.map((folder) => findNestedEnvironmentDirs(folder)))
-            ).flat();
+            const rescan = this.scannedWorkspace;
+            this.scannedWorkspace = true;
+            const scans = await Promise.all(workspaceFolders.map((folder) => scanWorkspace(folder, rescan)));
+            this.nestedEnvDirs = scans.flatMap((scan) => scan.nestedEnvDirs);
         }
         return {
             workspaceDirectories: [...workspaceFolders, ...this.nestedEnvDirs],

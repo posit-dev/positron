@@ -222,6 +222,19 @@ suite('interpreterRanking', () => {
         );
     });
 
+    test('an interpreter PET cannot classify is ranked only when the user names it', () => {
+        const custom = env(p('/opt/python/3.12.4/bin/python3'), EnvironmentType.Unknown, '3.12.4');
+        assert.deepEqual(
+            [
+                tierOf(custom, { ...emptyContext, defaultInterpreterPath: custom.path }),
+                tierOf(custom, { ...emptyContext, activatedEnvPrefix: custom.envPath }),
+                tierOf(custom, { ...emptyContext, definitionPaths: [custom.path] }),
+                tierOf(custom, emptyContext),
+            ],
+            [Tier.DefaultInterpreterPath, Tier.ActivatedEnv, Tier.Configured, undefined],
+        );
+    });
+
     test('.python-version: a named pyenv virtualenv is a ProjectEnv, a named pyenv version is a PythonVersionFile', () => {
         const versions = p('/home/u/.pyenv/versions');
         const named = (name: string) => ({

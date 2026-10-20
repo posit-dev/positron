@@ -119,16 +119,24 @@ suite('Native Python Finder - configuration failures must not hang discovery', (
         const ws = path.join(path.parse(process.cwd()).root, 'positron-nested-ws-does-not-exist');
         const nested = path.join(ws, 'app', '.venv');
         getWorkspaceFolderPathsStub.returns([ws]);
-        const scanStub = sinon.stub(workspaceScan, 'findNestedEnvironmentDirs');
-        scanStub.withArgs(ws).resolves([nested]);
+        const scanStub = sinon.stub(workspaceScan, 'scanWorkspace').resolves({
+            rootProjectEnv: undefined,
+            nestedEnvDirs: [nested],
+            hasPythonSignals: false,
+            pythonVersion: undefined,
+        });
 
         const finder = createNativePythonFinder();
         try {
             // Drain the first refresh before disposing: a configure still queued when the
             // finder is disposed would respawn PET and keep the test process alive.
-            // The refresh scans for nested envs once.
+            // The refresh scans for nested envs once. The first refresh reuses the scan
+            // the interpreter ranking shares at startup instead of reading the folder again.
             await refreshWithin(finder, 60_000);
-            assert.strictEqual(scanStub.callCount, 1);
+            assert.deepEqual(
+                scanStub.getCalls().map((call) => call.args),
+                [[ws, false]],
+            );
 
             // A resolve-path configure reuses the list the refresh found instead of
             // rescanning. Read the options directly: `lastConfiguration` is reset whenever

@@ -125,13 +125,26 @@ suite('workspaceScan', () => {
         assert.deepEqual([scan.nestedEnvDirs, scan.hasPythonSignals], [[], false]);
     });
 
+    test('shares the latest scan of a folder until it is rescanned', async () => {
+        const first = scanWorkspace(root);
+        fs.writeFileSync(path.join(root, 'main.py'), '');
+
+        assert.strictEqual(scanWorkspace(root), first);
+        assert.deepEqual(
+            [(await first).hasPythonSignals, (await scanWorkspace(root, true)).hasPythonSignals],
+            [false, true],
+        );
+        // The rescan is now the latest.
+        assert.isTrue((await scanWorkspace(root)).hasPythonSignals);
+    });
+
     test('finds Python signals at the root and one level deep, not two', async () => {
         fs.mkdirSync(path.join(root, 'a', 'b'), { recursive: true });
         fs.writeFileSync(path.join(root, 'a', 'b', 'main.py'), '');
         const twoLevels = (await scanWorkspace(root)).hasPythonSignals;
 
         fs.writeFileSync(path.join(root, 'a', 'dev-requirements.txt'), '');
-        const oneLevel = (await scanWorkspace(root)).hasPythonSignals;
+        const oneLevel = (await scanWorkspace(root, true)).hasPythonSignals;
 
         assert.deepEqual([twoLevels, oneLevel], [false, true]);
     });
