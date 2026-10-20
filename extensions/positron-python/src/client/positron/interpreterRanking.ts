@@ -179,6 +179,20 @@ function isPyenvVirtualenv(interpreter: PythonEnvironment): boolean {
     );
 }
 
+/**
+ * Whether this is a conda env created with `--prefix` for some project, reached here
+ * only when it isn't this folder's. Such an env has no name; a named env can also
+ * have none (when conda's env dirs are unknown), but it lives in an `envs` folder.
+ */
+function isOtherFolderCondaPrefixEnv(interpreter: PythonEnvironment): boolean {
+    return (
+        interpreter.envType === EnvironmentType.Conda &&
+        !interpreter.envName &&
+        !!interpreter.envPath &&
+        path.basename(path.dirname(interpreter.envPath)) !== 'envs'
+    );
+}
+
 function isUvBase(interpreter: PythonEnvironment, context: RankingContext): boolean {
     // uv venvs live elsewhere; only uv-managed base Pythons are under its install dirs.
     return context.uvPythonInstallDirs.some((dir) => isUnder(interpreter.path, dir));
@@ -260,6 +274,10 @@ export function tierOf(interpreter: PythonEnvironment, context: RankingContext):
     }
     if (context.positronDefaultEnvDir && isUnder(interpreter.path, context.positronDefaultEnvDir)) {
         return Tier.PositronDefaultEnv;
+    }
+    // Another folder's project env: never recommended unless a setting names it (above).
+    if (isOtherFolderCondaPrefixEnv(interpreter)) {
+        return undefined;
     }
     if (
         (interpreter.envType === EnvironmentType.Conda && !isBaseCondaEnvironment(interpreter)) ||
