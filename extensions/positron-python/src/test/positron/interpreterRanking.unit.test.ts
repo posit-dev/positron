@@ -235,6 +235,35 @@ suite('interpreterRanking', () => {
         );
     });
 
+    test("another folder's conda --prefix env is never recommended unless a setting names it", () => {
+        const otherProject = env(p('/home/u/code/other/.conda/bin/python'), EnvironmentType.Conda, '3.11.0', {
+            envName: '',
+        });
+        const thisFolder = env(p('/proj/.conda/bin/python'), EnvironmentType.Conda, '3.11.0', { envName: '' });
+        // A named env reported without its name still lives in an `envs` folder.
+        const unnamedNamedEnv = env(p('/home/u/miniforge3/envs/tools/bin/python'), EnvironmentType.Conda, '3.11.0', {
+            envName: '',
+        });
+        assert.deepEqual(
+            [
+                tierOf(otherProject, emptyContext),
+                tierOf(otherProject, { ...emptyContext, defaultInterpreterPath: otherProject.path }),
+                tierOf(otherProject, { ...emptyContext, definitionPaths: [otherProject.path] }),
+                tierOf(otherProject, { ...emptyContext, configuredPaths: [p('/home/u/code/other')] }),
+                tierOf(thisFolder, emptyContext),
+                tierOf(unnamedNamedEnv, emptyContext),
+            ],
+            [
+                undefined,
+                Tier.DefaultInterpreterPath,
+                Tier.Configured,
+                Tier.Configured,
+                Tier.WorkspaceEnv,
+                Tier.NamedEnv,
+            ],
+        );
+    });
+
     test('.python-version: a named pyenv virtualenv is a ProjectEnv, a named pyenv version is a PythonVersionFile', () => {
         const versions = p('/home/u/.pyenv/versions');
         const named = (name: string) => ({
