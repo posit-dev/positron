@@ -40,6 +40,10 @@ test.describe.fixme('Posit Assistant - Databricks OAuth', {
 	tag: [tags.ASSISTANT],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/assistant/issues/2740' }]
 }, () => {
+	test.beforeAll(async function ({ app, settings }) {
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+	});
+
 	test('Sign in with OAuth, send hello, sign out', async function ({ app }) {
 		// The Okta credentials are wired per lane, so skip rather than fail where they
 		// are absent (the same convention the Redshift data-connection tests follow).
@@ -85,6 +89,10 @@ test.describe.fixme('Posit Assistant - Databricks OAuth', {
 test.describe('Posit Assistant - Databricks API Key', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
+	test.beforeAll(async function ({ app, settings }) {
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+	});
+
 	test('Sign in with a personal access token, send hello, sign out', async function ({ app }) {
 		test.skip(!process.env.DATABRICKS_PAT || !process.env.DATABRICKS_WORKSPACE,
 			'Databricks API key sign-in requires DATABRICKS_WORKSPACE and DATABRICKS_PAT');

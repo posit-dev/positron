@@ -29,6 +29,10 @@ const HELLO_PROMPT = 'Reply with only the word hello.';
 test.describe('Posit Assistant - Databricks (Workbench managed credentials)', {
 	tag: [tags.WORKBENCH_DATABRICKS, tags.ASSISTANT],
 }, () => {
+	test.beforeAll(async function ({ app, settings }) {
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+	});
+
 	test('Databricks model responds when authenticated via Workbench managed credentials', async function ({ app }) {
 		// No interactive sign-in: the Workbench dashboard's Databricks credential
 		// (set up by the fixture before the session launches) writes a

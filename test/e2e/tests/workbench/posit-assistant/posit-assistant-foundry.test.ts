@@ -14,6 +14,12 @@ test.use({
 test.describe('Posit Assistant - Microsoft Foundry (Azure managed credentials)', {
 	tag: [tags.WORKBENCH_AZURE, tags.ASSISTANT],
 }, () => {
+	test.beforeAll(async function ({ app, settings }) {
+		// This shard skips the startup-messaging gate (see app-workbench.fixtures.ts),
+		// so the update must not wait on it either.
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess, { waitForReady: false });
+	});
+
 	test('Foundry shows as managed by Posit Workbench in the provider manager', async function ({ app }) {
 		await app.workbench.providerManager.expectManagedBy('ms-foundry', 'Posit Workbench');
 	});

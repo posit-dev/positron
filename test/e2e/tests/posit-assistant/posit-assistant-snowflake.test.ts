@@ -38,6 +38,10 @@ const HELLO_PROMPT = 'Reply with only the word hello.';
 test.describe('Posit Assistant - Snowflake Cortex API Key', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
+	test.beforeAll(async function ({ app, settings }) {
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+	});
+
 	test('Sign in with an API key, send hello, sign out', async function ({ app }) {
 		test.skip(!process.env.SNOWFLAKE_API_KEY || !process.env.SNOWFLAKE_ACCOUNT,
 			'Snowflake Cortex sign-in requires SNOWFLAKE_ACCOUNT and SNOWFLAKE_API_KEY');

@@ -16,13 +16,18 @@ test.use({
 	extraEnv: { ANTHROPIC_API_KEY: undefined, OPENAI_API_KEY: undefined },
 });
 
-// Whatever goes wrong in this suite, do not reach for a window reload. A restarted
-// extension host re-probes the cloud credential-chain metadata endpoints (AWS/Azure
-// IMDS, metadata.google.internal). Those are unreachable from the test container and
-// hang, starving DNS for api.anthropic.com and api.openai.com. Provider key
-// validation then times out and the provider screen never reaches the Connected
+// Apart from the dev-build update in beforeAll, do not reach for a window reload. A
+// restarted extension host re-probes the cloud credential-chain metadata endpoints
+// (AWS/Azure IMDS, metadata.google.internal). Those are unreachable from the test
+// container and hang, starving DNS for api.anthropic.com and api.openai.com. Provider
+// key validation then times out and the provider screen never reaches the Connected
 // view. Settings that need to be in place go through `extraSettings`,
 // which is written before the app starts and so needs no reload.
+//
+// The dev-build update is the one deliberate exception: it is how this suite tests
+// unreleased Assistant changes, and installing the new build needs a reload. It runs
+// before the first sign-in, so no provider is mid-validation when the extension host
+// restarts.
 
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 	'anthropic',
@@ -37,6 +42,10 @@ const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 test.describe('Posit Assistant Sign-in', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
+
+	test.beforeAll(async function ({ app, settings }) {
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+	});
 
 	for (const provider of POSIT_ASSISTANT_SIGNIN_PROVIDERS) {
 		test(`${provider} - Sign in, send hello, sign out`, async function ({ app }) {

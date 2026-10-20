@@ -28,8 +28,9 @@ test.use({
 	// activation so admins control AI access, and the catalog file it writes ranks
 	// above any setting -- so the Posit AI row is absent from the panel entirely
 	// unless the catalog says otherwise. The fixture seeds it before the session
-	// starts, which is also what lets this suite avoid a window reload (see
-	// `enablePositAIProviderInContainer`).
+	// starts, so the suite needs no window reload to pick it up (see
+	// `enablePositAIProviderInContainer`). The only reload is the dev-build
+	// update's, before any sign-in.
 	enablePositAIProvider: true,
 });
 
@@ -43,6 +44,12 @@ const HELLO_PROMPT = 'Reply with only the word hello.';
 test.describe('Posit Assistant Sign-in - Workbench', {
 	tag: [tags.WORKBENCH, tags.ASSISTANT],
 }, () => {
+
+	test.beforeAll(async function ({ app, settings }) {
+		// Runs before the first sign-in, so no provider is mid-validation when the
+		// update's reload restarts the extension host.
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+	});
 
 	for (const provider of SIGNIN_PROVIDERS) {
 		test(`${provider} - Sign in, send hello, sign out`, async function ({ app }) {

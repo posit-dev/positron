@@ -49,11 +49,13 @@ test.describe('Posit Assistant MCP', {
 					JSON.stringify({ mcpServers: { everything: { command: [process.execPath, serverEntry] } } }, null, 2),
 				);
 
+				// Update before sign-in, as in posit-assistant.test.ts: a reload with
+				// the key already saved can cache the provider with no models.
+				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
 				await app.workbench.providerManager.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');
-				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
 			});
 
 			test.afterAll(async function ({ cleanup }) {

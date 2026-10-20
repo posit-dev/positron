@@ -874,6 +874,9 @@ export class PositAssistant {
 	 * @param settings The settings fixture used to write the user setting.
 	 * @param quickaccess The quickaccess page object used to run the command.
 	 * @param options.toastTimeout Maximum time to wait for each toast (default: 30000).
+	 * @param options.waitForReady Wait for runtime startup messaging to clear after
+	 *   writing the setting and after the reload (default: true). Pass false where
+	 *   interpreter discovery never settles and the suite uses no runtime.
 	 */
 	async checkForDevBuildUpdate(
 		settings: {
@@ -885,9 +888,9 @@ export class PositAssistant {
 		quickaccess: {
 			runCommand: (command: string, options?: { exactLabelMatch?: boolean }) => Promise<any>;
 		},
-		options: { toastTimeout?: number } = {},
+		options: { toastTimeout?: number; waitForReady?: boolean } = {},
 	): Promise<void> {
-		const { toastTimeout = 30000 } = options;
+		const { toastTimeout = 30000, waitForReady = true } = options;
 
 		// A local Assistant checkout is the build under test; don't replace it with a dev build.
 		if (process.env.POSITRON_E2E_ASSISTANT_PATH) {
@@ -895,7 +898,7 @@ export class PositAssistant {
 		}
 
 		// 1. Enable the auto dev-build update check setting.
-		await settings.set({ 'assistant.autoDevBuildUpdateCheck': true });
+		await settings.set({ 'assistant.autoDevBuildUpdateCheck': true }, { waitForReady });
 
 		// 2. Trigger the dev-build update check command.
 		await quickaccess.runCommand('posit-assistant.checkForDevBuildUpdate');
@@ -923,7 +926,7 @@ export class PositAssistant {
 		await toasts.waitForAppear(/Posit Assistant has been updated\. You must reload Positron/i, { timeout: toastTimeout });
 		await new HotKeys(this.code).reloadWindowWith(
 			() => toasts.clickButton('Reload', { notificationFilter: /Posit Assistant has been updated\. You must reload Positron/i }),
-			true,
+			waitForReady,
 		);
 	}
 
