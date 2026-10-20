@@ -18,13 +18,18 @@ import {
 	saveMcpState,
 } from '../McpFrontend';
 import {
+	MCP_CONNECTIONS_ENV_VAR,
+	MCP_LAUNCHER_ENV_VAR,
 	MCP_TOKEN_ENV_VAR,
 	MCP_URL_ENV_VAR,
 	McpConnectionDescriptor,
 	McpConnectionIndex,
+	SUPERVISOR_PATH_ENV_VAR,
+	mcpConnectionsDirectory,
 	mcpDescriptorPath,
 	mcpIndexPath,
 } from '../mcpConnection';
+import { mcpLauncherPath } from '../mcpLauncher';
 
 /** Records what the frontend publishes into terminals. */
 class FakeEnvironment implements McpTerminalEnvironment {
@@ -122,6 +127,8 @@ interface Harness {
 	processEnv: NodeJS.ProcessEnv;
 	/** Stands in for the extension's global storage. */
 	storageUri: vscode.Uri;
+	/** Stands in for the supervisor binary. */
+	supervisorPath: string;
 	registry: FakeRegistry;
 	memento: FakeMemento;
 	setEnabled(enabled: boolean): void;
@@ -147,10 +154,14 @@ function createHarness(
 	const storageUri = shared.storageUri ?? vscode.Uri.file(
 		fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-frontend-')));
 	const registry = shared.registry ?? new FakeRegistry();
+	const supervisorPath = path.join(
+		fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-supervisor-')), 'kcserver');
+	fs.writeFileSync(supervisorPath, 'supervisor');
 	const harness: Harness = {
 		environment,
 		processEnv,
 		storageUri,
+		supervisorPath,
 		registry,
 		memento,
 		registrations: 0,
@@ -163,6 +174,7 @@ function createHarness(
 			() => loadMcpState(memento),
 			state => saveMcpState(memento, state),
 			() => [],
+			() => supervisorPath,
 			() => enabled,
 			() => { harness.registrations++; },
 			() => { harness.deregistrations++; },
@@ -201,6 +213,17 @@ function savedState(harness: Harness): McpFrontendState {
 	return loadMcpState(harness.memento);
 }
 
+/** The variables a harness's first registration publishes. */
+function published(harness: Harness, launcher = false): Record<string, string> {
+	return {
+		[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+		[MCP_TOKEN_ENV_VAR]: 'token-1',
+		[MCP_CONNECTIONS_ENV_VAR]: mcpConnectionsDirectory(harness.storageUri),
+		[SUPERVISOR_PATH_ENV_VAR]: harness.supervisorPath,
+		...(launcher ? { [MCP_LAUNCHER_ENV_VAR]: mcpLauncherPath(harness.storageUri) } : {}),
+	};
+}
+
 function lastRegistration(harness: Harness): McpWorkspaceRegistration {
 	return harness.registry.registrations[harness.registry.registrations.length - 1];
 }
@@ -231,16 +254,46 @@ suite('McpFrontend', () => {
 					folders: folders(),
 				},
 				saved: { workspaceId: 'workspace-1', port: 39000, token: 'token-1' },
-				variables: {
-					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
-					[MCP_TOKEN_ENV_VAR]: 'token-1',
-				},
+				variables: published(harness),
 				hasDescription: true,
-				processEnv: {
-					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
-					[MCP_TOKEN_ENV_VAR]: 'token-1',
-				},
+				processEnv: published(harness),
 			});
+	});
+
+	test('does not copy the launcher until an agent is configured with it', async () => {
+		const harness = createHarness();
+		await harness.frontend.attach(harness.registry);
+		const before = fs.existsSync(mcpLauncherPath(harness.storageUri));
+
+		await harness.frontend.installLauncher();
+
+		assert.deepStrictEqual(
+			{
+				before,
+				launcher: fs.readFileSync(mcpLauncherPath(harness.storageUri), 'utf8'),
+				variables: Object.fromEntries(harness.environment.variables),
+				processEnv: harness.processEnv,
+			},
+			{
+				before: false,
+				launcher: 'supervisor',
+				variables: published(harness, true),
+				processEnv: published(harness, true),
+			});
+	});
+
+	test('registering brings a launcher already in place up to date', async () => {
+		const harness = createHarness();
+		await harness.frontend.attach(harness.registry);
+		await harness.frontend.installLauncher();
+
+		// Another version's supervisor takes over.
+		fs.writeFileSync(harness.supervisorPath, 'another supervisor');
+		await harness.frontend.attach(new FakeRegistry());
+
+		assert.strictEqual(
+			fs.readFileSync(mcpLauncherPath(harness.storageUri), 'utf8'),
+			'another supervisor');
 	});
 
 	test('writes a connection descriptor for the stdio bridge', async () => {

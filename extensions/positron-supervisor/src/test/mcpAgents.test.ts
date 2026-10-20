@@ -16,7 +16,7 @@ import {
 } from '../McpAgents';
 
 /** The command line that starts the bridge, as a registration would build it. */
-const LAUNCH = mcpLaunch('/opt/positron/kcserver', '/storage/mcp');
+const LAUNCH = mcpLaunch('/storage/mcp/bin/positron-mcp');
 
 /** The file install of the row under test, which the table is required to have. */
 function fileInstall(id: string): McpFileInstall {
@@ -33,8 +33,8 @@ suite('mergeAgentConfig', () => {
 			{
 				mcpServers: {
 					positron: {
-						command: '/opt/positron/kcserver',
-						args: ['mcp-stdio', '--connections', '/storage/mcp'],
+						command: '/storage/mcp/bin/positron-mcp',
+						args: [],
 					},
 				},
 			});
@@ -48,8 +48,8 @@ suite('mergeAgentConfig', () => {
 			mergeAgentConfig(fileInstall('codex'), undefined, LAUNCH),
 			[
 				'[mcp_servers.positron]',
-				'command = "/opt/positron/kcserver"',
-				'args = ["mcp-stdio", "--connections", "/storage/mcp"]',
+				'command = "/storage/mcp/bin/positron-mcp"',
+				'args = []',
 				'env_vars = ["POSITRON_MCP_URL", "POSITRON_MCP_TOKEN"]',
 				'',
 			].join('\n'));

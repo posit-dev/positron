@@ -8,7 +8,7 @@ import { agentCliCommand } from '../McpAgentConfig';
 import { McpCliInstall, findMcpAgent, mcpLaunch } from '../McpAgents';
 
 /** The command line that starts the bridge. */
-const LAUNCH = mcpLaunch('/opt/positron/kcserver', '/storage/mcp');
+const LAUNCH = mcpLaunch('/storage/mcp/bin/positron-mcp');
 
 /** The install of the row that is configured by running its CLI. */
 function cliInstall(id: string): McpCliInstall {
@@ -31,8 +31,7 @@ suite('agentCliCommand', () => {
 					// Everything after this is the server's command line, not
 					// options for the CLI.
 					'--',
-					'/opt/positron/kcserver',
-					'mcp-stdio', '--connections', '/storage/mcp',
+					'/storage/mcp/bin/positron-mcp',
 				],
 			});
 	});

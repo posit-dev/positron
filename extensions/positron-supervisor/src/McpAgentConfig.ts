@@ -47,9 +47,8 @@ const AUTO_CONFIGURED_AGENT_ID = 'claude-code';
 /**
  * One harness Positron has written into, and what it was told.
  *
- * Recorded so an entry can be put right when the bridge moves -- a Positron
- * update in a versioned install directory, say -- and taken away when the
- * feature is turned off.
+ * Recorded so an entry written with an older command line can be put right,
+ * and so the entry can be taken away when the feature is turned off.
  */
 interface ConfiguredAgent {
 	/** The harness's {@link McpAgent.id}. */
@@ -57,10 +56,21 @@ interface ConfiguredAgent {
 
 	/**
 	 * The command line the entry was written with. Absent from records written
-	 * before agents were configured to start the bridge, whose entries are
-	 * rewritten on the next registration.
+	 * before agents were configured to start the bridge.
 	 */
 	launch?: McpLaunch;
+}
+
+/** The command line agents are configured with, and what it starts. */
+export interface McpLauncher {
+	/** The command line, which does not change. */
+	readonly launch: McpLaunch;
+
+	/**
+	 * Put the launcher in place. Called only when an entry is about to be
+	 * written, since it copies the supervisor binary.
+	 */
+	install(): Promise<void>;
 }
 
 /** Where an installed entry landed, for the message that says so. */
@@ -78,13 +88,13 @@ interface InstallResult {
  * entry.
  *
  * @param context The extension context, which remembers what we configure.
- * @param launch The command line that starts the bridge.
+ * @param launcher What starts the bridge.
  * @param agentId The harness to configure. Omitted when the user ran the
  *  command from the palette, in which case they are asked to pick one.
  */
 export async function configureAgent(
 	context: vscode.ExtensionContext,
-	launch: () => McpLaunch,
+	launcher: McpLauncher,
 	agentId?: string,
 ): Promise<void> {
 	if (!mcpFeatureEnabled()) {
@@ -98,15 +108,13 @@ export async function configureAgent(
 	}
 
 	let result: InstallResult;
-	let written: McpLaunch;
 	try {
-		written = launch();
-		result = await installAgent(agent, written);
+		result = await installAgent(agent, launcher);
 	} catch (err) {
 		await vscode.window.showErrorMessage(summarizeError(err));
 		return;
 	}
-	await recordConfiguredAgent(context, agent, written);
+	await recordConfiguredAgent(context, agent, launcher.launch);
 
 	const open = vscode.l10n.t("Open File");
 	const choice = await vscode.window.showInformationMessage(
@@ -130,18 +138,17 @@ export async function configureAgent(
  * registration is complete by the time it runs, and nothing waits on it.
  *
  * @param context The extension context, which remembers what we configure.
- * @param launch The command line that starts the bridge.
+ * @param launcher What starts the bridge.
  * @param log Writes a line to the Kernel Supervisor output channel.
  */
 export async function onMcpRegistered(
 	context: vscode.ExtensionContext,
-	launch: () => McpLaunch,
+	launcher: McpLauncher,
 	log: (message: string) => void,
 ): Promise<void> {
 	try {
-		const current = launch();
-		await autoConfigureClaudeCode(context, current, log);
-		await refreshConfiguredAgents(context, current, log);
+		await autoConfigureClaudeCode(context, launcher, log);
+		await refreshConfiguredAgents(context, launcher, log);
 	} catch (err) {
 		log(`Could not update the configured coding agents: ${summarizeError(err)}`);
 	}
@@ -161,12 +168,12 @@ export async function onMcpRegistered(
  * into projects that have nothing to do with Positron.
  *
  * @param context The extension context, which remembers what we configure.
- * @param launch The command line that starts the bridge.
+ * @param launcher What starts the bridge.
  * @param log Writes a line to the Kernel Supervisor output channel.
  */
 async function autoConfigureClaudeCode(
 	context: vscode.ExtensionContext,
-	launch: McpLaunch,
+	launcher: McpLauncher,
 	log: (message: string) => void,
 ): Promise<void> {
 	const agent = findMcpAgent(AUTO_CONFIGURED_AGENT_ID);
@@ -187,30 +194,30 @@ async function autoConfigureClaudeCode(
 	}
 
 	try {
-		const { description } = await installAgent(agent, launch);
+		const { description } = await installAgent(agent, launcher);
 		log(`Configured ${agent.label} to use Positron's MCP server in ${description}`);
 	} catch (err) {
 		log(`Could not configure ${agent.label}: ${summarizeError(err)}`);
 		return;
 	}
-	await recordConfiguredAgent(context, agent, launch);
+	await recordConfiguredAgent(context, agent, launcher.launch);
 }
 
 /**
- * Rewrite the entries whose command line has since moved.
- *
- * An entry names the supervisor binary, which moves when Positron is updated in
- * a versioned install directory, and when a developer switches between builds.
+ * Rewrite the entries written with another command line: those from before
+ * agents were configured to start the launcher, which named the supervisor
+ * binary in its versioned install directory.
  *
  * @param context The extension context, which remembers what we configure.
- * @param launch The command line that starts the bridge.
+ * @param launcher What starts the bridge.
  * @param log Writes a line to the Kernel Supervisor output channel.
  */
 async function refreshConfiguredAgents(
 	context: vscode.ExtensionContext,
-	launch: McpLaunch,
+	launcher: McpLauncher,
 	log: (message: string) => void,
 ): Promise<void> {
+	const { launch } = launcher;
 	const records = loadConfiguredAgents(context);
 	let changed = false;
 	for (const record of records) {
@@ -219,7 +226,7 @@ async function refreshConfiguredAgents(
 			continue;
 		}
 		try {
-			await installAgent(agent, launch);
+			await installAgent(agent, launcher);
 		} catch (err) {
 			log(`Could not update ${agent.label}'s MCP entry: ${summarizeError(err)}`);
 			continue;
@@ -356,24 +363,25 @@ function sameLaunch(a: McpLaunch | undefined, b: McpLaunch): boolean {
 }
 
 /**
- * Write Positron's entry into a harness's configuration.
+ * Write Positron's entry into a harness's configuration, putting the launcher
+ * in place first.
  *
  * @param agent The harness being configured.
- * @param launch The command line that starts the bridge.
+ * @param launcher What starts the bridge.
  * @returns Where the entry landed.
  * @throws An error whose message is fit to show the user.
  */
-async function installAgent(agent: McpAgent, launch: McpLaunch): Promise<InstallResult> {
+async function installAgent(agent: McpAgent, launcher: McpLauncher): Promise<InstallResult> {
 	return agent.install.kind === 'cli'
-		? installViaCli(agent, agent.install, launch)
-		: installViaFile(agent.install, launch);
+		? installViaCli(agent, agent.install, launcher)
+		: installViaFile(agent.install, launcher);
 }
 
 /** Add the entry by running the harness's CLI. */
 async function installViaCli(
 	agent: McpAgent,
 	install: McpCliInstall,
-	launch: McpLaunch,
+	launcher: McpLauncher,
 ): Promise<InstallResult> {
 	const folder = fileWorkspaceFolder();
 	if (!folder) {
@@ -387,6 +395,7 @@ async function installViaCli(
 			"Could not find {0} on the path. Install it, then run this command again.",
 			install.executable));
 	}
+	await launcher.install();
 
 	// Remove any entry of ours first: the CLI refuses to add a server that is
 	// already there, and one written by an older Positron may be wrong rather
@@ -396,7 +405,7 @@ async function installViaCli(
 	} catch {
 		// There was nothing of ours to remove, which is the common case.
 	}
-	await runAgentCli(executable, install.add(launch), folder);
+	await runAgentCli(executable, install.add(launcher.launch), folder);
 
 	return { description: vscode.workspace.asRelativePath(folder) };
 }
@@ -404,13 +413,13 @@ async function installViaCli(
 /** Add the entry by editing the harness's configuration file. */
 async function installViaFile(
 	install: McpFileInstall,
-	launch: McpLaunch,
+	launcher: McpLauncher,
 ): Promise<InstallResult> {
 	const target = agentConfigUri(install);
 	const existing = await readFileIfPresent(target);
 	let contents: string;
 	try {
-		contents = mergeAgentConfig(install, existing, launch);
+		contents = mergeAgentConfig(install, existing, launcher.launch);
 	} catch (err) {
 		// Refuse rather than overwrite a file we could not understand.
 		throw new Error(vscode.l10n.t(
@@ -418,6 +427,7 @@ async function installViaFile(
 			target.fsPath,
 			summarizeError(err)));
 	}
+	await launcher.install();
 	await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(contents));
 
 	return { description: target.fsPath, file: target };

@@ -13,11 +13,11 @@ import {
 } from './mcpConnection';
 
 /**
- * How an agent starts Positron's MCP server: `kcserver mcp-stdio`, which finds
- * the workspace the agent is working in and relays to its endpoint. The command
- * line names no port and no token, so an entry written with it stays correct
- * across supervisor restarts; it only has to be rewritten when the binary or
- * the connections directory moves.
+ * How an agent starts Positron's MCP server: the `positron-mcp` launcher, which
+ * finds the workspace the agent is working in and relays to its endpoint. The
+ * command line names no port, no token, and no versioned install directory, so
+ * an entry written with it stays correct across supervisor restarts and
+ * Positron updates.
  */
 export interface McpLaunch {
 	readonly command: string;
@@ -27,13 +27,12 @@ export interface McpLaunch {
 /**
  * The command line that starts the MCP bridge.
  *
- * @param kcserverPath The supervisor binary, which doubles as the bridge.
- * @param connectionsDirectory Where the connection files the bridge reads to
- *  find a workspace are kept.
+ * @param launcherPath The launcher, a copy of the supervisor binary kept in the
+ *  connections directory.
  * @returns The launch to write into an agent's configuration.
  */
-export function mcpLaunch(kcserverPath: string, connectionsDirectory: string): McpLaunch {
-	return { command: kcserverPath, args: ['mcp-stdio', '--connections', connectionsDirectory] };
+export function mcpLaunch(launcherPath: string): McpLaunch {
+	return { command: launcherPath, args: [] };
 }
 
 /** A harness Positron adds itself to by editing a configuration file. */
