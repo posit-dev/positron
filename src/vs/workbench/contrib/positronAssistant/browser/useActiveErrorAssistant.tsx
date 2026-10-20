@@ -3,11 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// React.
-import { useEffect, useMemo, useState } from 'react';
-
 // Other dependencies.
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { useEventState } from '../../../../base/browser/ui/react/useEventState.js';
 import { IErrorAssistantInfo, IErrorAssistantService } from '../common/errorAssistant.js';
 
 /**
@@ -16,15 +14,6 @@ import { IErrorAssistantInfo, IErrorAssistantService } from '../common/errorAssi
  * @returns The assistant, or undefined when there is nowhere to send errors.
  */
 export function useActiveErrorAssistant(): IErrorAssistantInfo | undefined {
-	const services = usePositronReactServicesContext();
-	const errorAssistantService = useMemo(() => services.get(IErrorAssistantService), [services]);
-	const [assistant, setAssistant] = useState(() => errorAssistantService.activeAssistant);
-
-	useEffect(() => {
-		setAssistant(errorAssistantService.activeAssistant);
-		const disposable = errorAssistantService.onDidChangeActiveAssistant(setAssistant);
-		return () => disposable.dispose();
-	}, [errorAssistantService]);
-
-	return assistant;
+	const errorAssistantService = usePositronReactServicesContext().get(IErrorAssistantService);
+	return useEventState(errorAssistantService.onDidChangeActiveAssistant, () => errorAssistantService.activeAssistant);
 }
