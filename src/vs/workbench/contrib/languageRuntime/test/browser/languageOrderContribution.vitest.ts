@@ -86,8 +86,8 @@ describe('LanguageOrderContribution', () => {
 		expect(getLanguageOrderChoices().defaults).toEqual(['python', 'r']);
 	});
 
-	it('allows a not-installed language saved only in workspace settings', () => {
-		vi.spyOn(ctx.get(IConfigurationService), 'inspect').mockReturnValue({ value: undefined, workspaceValue: ['zed'] });
+	it.each(['workspaceValue', 'policyValue'])('allows a not-installed language set only in %s', source => {
+		vi.spyOn(ctx.get(IConfigurationService), 'inspect').mockReturnValue({ value: undefined, [source]: ['zed'] });
 		ctx.disposables.add(ctx.instantiationService.createInstance(LanguageOrderContribution));
 		expect(items().ids).toEqual(['python', 'r', 'zed']);
 	});

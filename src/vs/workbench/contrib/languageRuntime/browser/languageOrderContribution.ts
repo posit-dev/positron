@@ -49,10 +49,10 @@ export class LanguageOrderContribution extends Disposable implements IWorkbenchC
 		updateLanguageOrderSchema(installedEntries, notInstalled);
 	}
 
-	/** IDs saved at any scope, since the Settings editor validates each scope's value. */
+	/** IDs saved at any scope or enforced by an admin, since the Settings editor validates each value it shows. */
 	private _savedLanguageIds(): Set<string> {
 		const inspected = this._configurationService.inspect<unknown>(LANGUAGE_ORDER_KEY);
-		const values = [inspected.userValue, inspected.userLocalValue, inspected.userRemoteValue, inspected.workspaceValue, inspected.workspaceFolderValue];
+		const values = [inspected.userValue, inspected.userLocalValue, inspected.userRemoteValue, inspected.workspaceValue, inspected.workspaceFolderValue, inspected.policyValue];
 		return new Set(values.flatMap(value => Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : []));
 	}
 

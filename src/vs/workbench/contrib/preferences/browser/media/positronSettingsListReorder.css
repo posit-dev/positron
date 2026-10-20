@@ -32,7 +32,7 @@
 	cursor: grab;
 }
 
-/* Room for the move up/down actions. */
-.settings-editor .setting-item.setting-item-list .setting-list-reorderable .setting-list-value {
-	padding-right: 100px;
+/* Room for the move up/down actions; matches upstream's selector so it outranks its 40px. */
+.settings-editor > .settings-body .settings-tree-container .setting-item.setting-item-list .setting-list-reorderable .setting-list-value {
+	padding-right: 70px;
 }
