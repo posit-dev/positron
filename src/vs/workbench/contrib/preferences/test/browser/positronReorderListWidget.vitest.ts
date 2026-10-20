@@ -79,6 +79,17 @@ describe('PositronReorderListWidget', () => {
 		expect(outer).not.toHaveBeenCalled();
 	});
 
+	it('accepts a drag over the gap between rows as a move, so the editor area cannot show a copy cursor', () => {
+		const { rows, list, container } = createWidget(['a', 'b', 'c']);
+		const outer = vi.fn();
+		container.addEventListener('dragover', outer);
+		rows()[2].dispatchEvent(new Event('dragstart', { bubbles: true }));
+		const event = new Event('dragover', { bubbles: true, cancelable: true });
+		list.dispatchEvent(event);
+		expect(event.defaultPrevented).toBe(true);
+		expect(outer).not.toHaveBeenCalled();
+	});
+
 	it('ignores a drop that did not start in the list', () => {
 		const { rows, events } = createWidget(['a', 'b']);
 		rows()[0].dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));

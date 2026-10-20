@@ -52,6 +52,23 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 				e.stopPropagation();
 			}
 		}));
+
+		// Handle drags on the whole list, gaps between rows included: the Settings tree reads our rows'
+		// data-index as its own, and the editor area would show a copy cursor.
+		this._register(DOM.addDisposableListener(this.domNode, DOM.EventType.DRAG_OVER, e => {
+			e.stopPropagation();
+			if (this.dragSourceIndex !== undefined) {
+				e.preventDefault();
+				if (e.dataTransfer) {
+					e.dataTransfer.dropEffect = 'move';
+				}
+			}
+		}));
+		this._register(DOM.addDisposableListener(this.domNode, DOM.EventType.DRAG_LEAVE, e => e.stopPropagation()));
+		this._register(DOM.addDisposableListener(this.domNode, DOM.EventType.DROP, e => {
+			e.stopPropagation();
+			e.preventDefault();
+		}));
 	}
 
 	override setValue(listData: IReorderListItem[]): void {
@@ -145,34 +162,24 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 		this.listDisposables.add(DOM.addDisposableListener(rowElement, DOM.EventType.DRAG_START, e => {
 			this.dragSourceIndex = idx;
 			applyDragImage(e, rowElement, item.label);
-		}));
-		// Keep drag events from bubbling to the Settings tree, which reads our rows' data-index as its own.
-		this.listDisposables.add(DOM.addDisposableListener(rowElement, DOM.EventType.DRAG_OVER, e => {
-			e.stopPropagation();
-			if (this.dragSourceIndex !== undefined) {
-				e.preventDefault();
-				if (e.dataTransfer) {
-					e.dataTransfer.dropEffect = 'move';
-				}
+			if (e.dataTransfer) {
+				e.dataTransfer.effectAllowed = 'move';
 			}
 		}));
 		this.listDisposables.add(DOM.addDisposableListener(rowElement, DOM.EventType.DRAG_ENTER, () => {
 			counter++;
 			rowElement.classList.add('drag-hover');
 		}));
-		this.listDisposables.add(DOM.addDisposableListener(rowElement, DOM.EventType.DRAG_LEAVE, e => {
-			e.stopPropagation();
+		this.listDisposables.add(DOM.addDisposableListener(rowElement, DOM.EventType.DRAG_LEAVE, () => {
 			if (!--counter) {
 				rowElement.classList.remove('drag-hover');
 			}
 		}));
-		this.listDisposables.add(DOM.addDisposableListener(rowElement, DOM.EventType.DROP, e => {
-			e.stopPropagation();
+		this.listDisposables.add(DOM.addDisposableListener(rowElement, DOM.EventType.DROP, () => {
 			const sourceIndex = this.dragSourceIndex;
 			if (sourceIndex === undefined) {
 				return;
 			}
-			e.preventDefault();
 			// The re-render drops the dragged row, so its dragend never clears this.
 			this.dragSourceIndex = undefined;
 			this.moveItem(sourceIndex, idx);
