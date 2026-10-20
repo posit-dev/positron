@@ -152,6 +152,32 @@ describe('PositronListInstance', () => {
 			}
 		`);
 	});
+
+	it('clamps the cursor to the last item when the shrunk entries end in a section', async () => {
+		const list = newList();
+		list.setEntries(flatItems(200));
+		await list.setSize(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+		await list.setVerticalScrollOffset(list.maximumVerticalScrollOffset);
+		list.setCursorRow(150);
+
+		// The last row is a section header, so the cursor must skip it and land on the last item.
+		list.setEntries([
+			{ kind: 'section', section: 'Section 1' },
+			{ kind: 'item', item: 'Item 1' },
+			{ kind: 'item', item: 'Item 2' },
+			{ kind: 'section', section: 'Section 2' },
+		]);
+
+		expect({
+			cursorRow: list.cursorRowIndex,
+			cursorItem: list.getCursorItem(),
+		}).toMatchInlineSnapshot(`
+			{
+			  "cursorItem": "Item 2",
+			  "cursorRow": 2,
+			}
+		`);
+	});
 });
 
 describe('PositronList keyboard navigation', () => {

@@ -243,7 +243,7 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 		// Keep the cursor within the new entries. When the entries shrink past the cursor, move it
 		// back to the last selectable row so keyboard navigation and getCursorItem keep working.
 		const lastSelectableRowIndex = this.lastSelectableRowIndex;
-		if (lastSelectableRowIndex !== undefined && this.cursorRowIndex > lastSelectableRowIndex) {
+		if (this.cursorRowIndex > lastSelectableRowIndex) {
 			this.setCursorRow(lastSelectableRowIndex);
 		}
 
