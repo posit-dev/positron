@@ -765,12 +765,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// and this one would otherwise be left open under a driver that no longer exists. A driver
 		// re-registered under the same id in the meantime still counts: the connection is live.
 		if (!this.driverManager.getDriver(driver.id)) {
-			try {
-				await handle.disconnect();
-			} catch (err) {
-				this._logService.error(`[DataConnections] disconnect() threw for profile ${profileId} after its driver was removed: ${err}`);
-			}
-			handle.release();
+			await this._closeConnectionHandle(handle, `profile ${profileId} after its driver was removed`);
 			throw new Error(`Data connection driver '${driver.id}' was removed while connecting`);
 		}
 
@@ -833,14 +828,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			}
 		}
 
-		try {
-			await instance.connectionHandle.disconnect();
-		} catch (err) {
-			// Log but don't throw -- the instance is already gone from our list and the caller
-			// can't recover from a disconnect failure.
-			this._logService.error(`[DataConnections] disconnect() threw for instance ${instance.id}: ${err}`);
-		}
-		instance.connectionHandle.release();
+		await this._closeConnectionHandle(instance.connectionHandle, `instance ${instance.id}`);
 
 		this._logService.trace(`[DataConnections] Disconnected instance ${instance.id} (profile ${profileId})`);
 		this._onDidChangeInstancesEmitter.fire([...this._instances]);
@@ -940,6 +928,23 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	//#endregion IPositronDataConnectionsService Implementation
 
 	//#region Private Methods
+
+	/**
+	 * Disconnects and then releases a connection handle. A disconnect that fails is logged and the
+	 * handle is released anyway: by the time a handle is closed it is already out of _instances (or
+	 * never made it in), so the caller can't recover from the failure and a handle kept here would
+	 * leak.
+	 * @param handle The connection handle to close.
+	 * @param description What the handle belongs to, for the log.
+	 */
+	private async _closeConnectionHandle(handle: IDataConnectionHandle, description: string): Promise<void> {
+		try {
+			await handle.disconnect();
+		} catch (err) {
+			this._logService.error(`[DataConnections] disconnect() threw for ${description}: ${err}`);
+		}
+		handle.release();
+	}
 
 	/**
 	 * Asks a driver for the redacted form of one parameter value. A driver that throws is treated

@@ -441,14 +441,23 @@ describe('MainThreadDataConnections', () => {
 			await vi.waitFor(() => {
 				expect(removed.release).toHaveBeenCalled();
 			});
+			const isConnected = (connectionHandle: number) => mainThread.$connectionIsConnectedViaService(connectionHandle)
+				.then(String, (err: Error) => err.message);
 			expect({
 				removedDisconnects: vi.mocked(removed.disconnect).mock.calls.length,
 				removedReleases: vi.mocked(removed.release).mock.calls.length,
+				removedIsConnected: await isConnected(1),
 				keptDisconnects: vi.mocked(kept.disconnect).mock.calls.length,
 				keptReleases: vi.mocked(kept.release).mock.calls.length,
-			}).toEqual({ removedDisconnects: 1, removedReleases: 1, keptDisconnects: 0, keptReleases: 0 });
-			await expect(mainThread.$connectionIsConnectedViaService(1)).rejects.toThrow('not found on the main thread');
-			expect(await mainThread.$connectionIsConnectedViaService(2)).toBe(true);
+				keptIsConnected: await isConnected(2),
+			}).toEqual({
+				removedDisconnects: 1,
+				removedReleases: 1,
+				removedIsConnected: 'Connection handle 1 not found on the main thread',
+				keptDisconnects: 0,
+				keptReleases: 0,
+				keptIsConnected: 'true',
+			});
 		});
 
 		it('closes a connection that finishes opening after its driver was removed', async () => {

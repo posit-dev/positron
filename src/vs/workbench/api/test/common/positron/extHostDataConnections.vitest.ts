@@ -293,13 +293,23 @@ describe('ExtHostDataConnections unregistering a driver', () => {
 
 		// The main thread hears about it, and the connection still works until the main thread has
 		// closed it: a browse already in flight completes, and the disconnect reaches the driver.
-		expect(removeDriver).toHaveBeenCalledWith('test-driver');
-		expect((await extHost.$connectionGetChildren(connectionHandle)).map(dto => dto.name)).toEqual(['users']);
-		await extHost.$connectionDisconnect(connectionHandle);
-		expect(disconnect).toHaveBeenCalledOnce();
-
 		// Releasing is what frees the handle.
+		const childrenAfterDispose = (await extHost.$connectionGetChildren(connectionHandle)).map(dto => dto.name);
+		await extHost.$connectionDisconnect(connectionHandle);
 		extHost.$releaseConnection(connectionHandle);
-		await expect(extHost.$connectionGetChildren(connectionHandle)).rejects.toThrow(`Connection handle ${connectionHandle} not found`);
+		const afterRelease = await extHost.$connectionGetChildren(connectionHandle)
+			.then(() => 'still open', (err: Error) => err.message);
+
+		expect({
+			removedDrivers: removeDriver.mock.calls,
+			childrenAfterDispose,
+			disconnects: disconnect.mock.calls.length,
+			afterRelease,
+		}).toEqual({
+			removedDrivers: [['test-driver']],
+			childrenAfterDispose: ['users'],
+			disconnects: 1,
+			afterRelease: `Connection handle ${connectionHandle} not found`,
+		});
 	});
 });
