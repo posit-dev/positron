@@ -16,6 +16,8 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 import { FileFilter } from '../../../../../platform/dialogs/common/dialogs.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
 import { ConfigureDataConnectionParameters } from './configureDataConnectionParameters.js';
+import { WorkbenchState } from '../../../../../platform/workspace/common/workspace.js';
+import { Checkbox } from '../../../../../base/browser/ui/positronComponents/checkbox/checkbox.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
@@ -94,7 +96,7 @@ interface ConfigureDataConnectionProps {
  */
 export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => {
 	// Services.
-	const { fileDialogService, labelService, logService, pathService, positronDataConnectionsService } = usePositronReactServicesContext();
+	const { fileDialogService, labelService, logService, pathService, positronDataConnectionsService, workspaceContextService } = usePositronReactServicesContext();
 
 	// Ref to the Connection Name input so we can drive initial focus to it rather than letting the
 	// dialog open with the focus on its box.
@@ -156,8 +158,15 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		return () => { disposed = true; };
 	}, [positronDataConnectionsService, props.profile?.id, props.mechanism.parameters, storedSecretIds]);
 
+	// The workspace a connection can be scoped to, or undefined in a window with no folder open,
+	// where there is none and the connection can only be global.
+	const [workspaceLabel] = useState(() => workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY
+		? undefined
+		: labelService.getWorkspaceLabel(workspaceContextService.getWorkspace()));
+
 	// State.
 	const [connectionName, setConnectionName] = useState(props.profile?.connectionName ?? '');
+	const [workspaceOnly, setWorkspaceOnly] = useState(props.profile?.scope === 'workspace');
 	const [connectionNameError, setConnectionNameError] = useState(false);
 	const [parameterFieldStates, setParameterFieldStates] = useState<ParameterFieldStates>(() => {
 		// Initialize parameter field states.
@@ -255,6 +264,14 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 	// parameters does not save the profile twice.
 	const savingRef = useRef(false);
 
+	// Set when Save is clicked while an earlier save is still waiting on the driver's validation.
+	// If the user changed the form in the meantime, the earlier save is abandoned, and this click is
+	// then replayed against the current form rather than dropped.
+	const saveRequestedRef = useRef(false);
+
+	// The latest save handler, so a replayed click runs against the current form.
+	const saveHandlerRef = useRef<() => Promise<void>>(undefined);
+
 	// Save handler.
 	const saveHandler = useCallback(async () => {
 		// A value which indicates whether any validation errors are present in the form. If true,
@@ -294,8 +311,15 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		// Set the new parameter field states.
 		setParameterFieldStates(updatedParameterFieldStates);
 
-		// If there are errors, or a save is already in progress, don't submit the form.
-		if (hasErrors || savingRef.current) {
+		// If there are errors, don't submit the form.
+		if (hasErrors) {
+			return;
+		}
+
+		// If a save is already waiting on the driver's validation, let it finish. If it is abandoned
+		// because the form changed, it replays this click.
+		if (savingRef.current) {
+			saveRequestedRef.current = true;
 			return;
 		}
 
@@ -310,6 +334,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		// Have the driver validate and normalize the parameter values (e.g. check that a database
 		// file exists and resolve it to an absolute path).
 		savingRef.current = true;
+		saveRequestedRef.current = false;
 		const editCount = editCountRef.current;
 		let validation: IDataConnectionParameterValidation | undefined;
 		try {
@@ -323,9 +348,14 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		}
 
 		// If the dialog closed, or the user changed the form, while the driver was validating, the
-		// result describes values that are no longer the ones to save. Abandon this save; the next
-		// click on Save validates the current values.
+		// result describes values that are no longer the ones to save. Abandon this save. If Save was
+		// clicked again meanwhile, replay that click against the current form; otherwise the next
+		// click validates the current values.
 		if (unmountedRef.current || editCountRef.current !== editCount) {
+			if (!unmountedRef.current && saveRequestedRef.current) {
+				saveRequestedRef.current = false;
+				void saveHandlerRef.current?.();
+			}
 			return;
 		}
 
@@ -367,12 +397,18 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			connectionName,
 			mechanismId: props.mechanism.id,
 			parameterValues: savedParameterValues,
+			scope: workspaceOnly && workspaceLabel !== undefined ? 'workspace' : 'global',
 			preferredCodeVariants: props.profile?.preferredCodeVariants,
 			// Carried through the rebuild: this is what keeps the discovery this profile was
 			// saved from from reappearing in the pane alongside it.
 			discoveredFromId: props.profile?.discoveredFromId,
 		});
-	}, [connectionName, logService, parameterFieldStates, props, storedSecretIds]);
+	}, [connectionName, logService, parameterFieldStates, props, storedSecretIds, workspaceLabel, workspaceOnly]);
+
+	// Keep the latest save handler for a replayed click.
+	useEffect(() => {
+		saveHandlerRef.current = saveHandler;
+	}, [saveHandler]);
 
 	// Render.
 	return (
@@ -420,6 +456,23 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 							onBrowseFile={browseFileHandler}
 							onParameterChanged={setParameterFieldState}
 						/>
+
+						{/* Scope. Offered only when a workspace is open to scope the connection to. */}
+						{workspaceLabel !== undefined &&
+							<div className='parameter-checkbox-field'>
+								<Checkbox
+									initialChecked={workspaceOnly}
+									label={localize('positron.configureDataConnection.workspaceOnly', "This Workspace Only")}
+									onChanged={checked => {
+										editCountRef.current++;
+										setWorkspaceOnly(checked);
+									}}
+								/>
+								<span className='parameter-description'>
+									{localize('positron.configureDataConnection.workspaceOnlyDescription', "Show this connection only when {0} is open.", workspaceLabel)}
+								</span>
+							</div>
+						}
 
 					</div>
 				</div>

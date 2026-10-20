@@ -36,6 +36,8 @@ describe('resolveDatabasePath', () => {
 			['strips matching single quotes', '\'/my data/db.sqlite\'', [], '/my data/db.sqlite'],
 			['strips matching double quotes', '"/my data/db.sqlite"', [], '/my data/db.sqlite'],
 			['keeps unmatched quotes', '"/data/db.sqlite\'', ['/ws'], '/ws/"/data/db.sqlite\''],
+			['leaves a blank path empty rather than resolving it to the folder', '   ', ['/ws'], ''],
+			['leaves a pair of empty quotes empty', '""', ['/ws'], ''],
 		])('%s', (_name, filePath, folders, expected) => {
 			expect(resolveDatabasePath(filePath, environment(path.posix, folders))).toBe(expected);
 		});
@@ -57,6 +59,8 @@ describe('resolveDatabasePath', () => {
 			['does not expand ~\\', '~\\db.sqlite', ['C:\\ws'], 'C:\\ws\\~\\db.sqlite'],
 			['does not expand ~/', '~/db.sqlite', ['C:\\ws'], 'C:\\ws\\~\\db.sqlite'],
 			['leaves a relative path relative when no folder is open', 'data\\db.sqlite', [], 'data\\db.sqlite'],
+			['leaves a drive-relative path unresolved', 'C:data\\db.sqlite', ['D:\\ws'], 'C:data\\db.sqlite'],
+			['leaves a bare drive unresolved', 'C:', ['D:\\ws'], 'C:'],
 		])('%s', (_name, filePath, folders, expected) => {
 			expect(resolveDatabasePath(filePath, environment(path.win32, folders))).toBe(expected);
 		});

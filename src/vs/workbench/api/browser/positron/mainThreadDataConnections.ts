@@ -92,6 +92,7 @@ function dtoToServiceMetadata(dto: IDataConnectionDriverMetadataDTO): IDataConne
 		iconSvg: dto.iconSvg,
 		mechanisms: dto.mechanisms.map(dtoToServiceMechanism),
 		supportedLanguageIds: dto.supportedLanguageIds,
+		validatesParameters: dto.validatesParameters,
 	};
 }
 
@@ -394,12 +395,15 @@ class MainThreadDataConnectionDriverAdapter implements IDataConnectionDriver {
 	}
 
 	/**
-	 * Asks the ext host to run driver.validateParameters() via RPC. Resolves to an empty result when
-	 * the driver does not implement validation.
+	 * Asks the ext host to run driver.validateParameters() via RPC. Resolves to an empty result,
+	 * without the round trip, when the driver does not implement validation.
 	 * @param mechanismId The id of the mechanism the user selected.
 	 * @param params The parameter values the user entered.
 	 */
 	async validateParameters(mechanismId: string, params: DataConnectionParameterValues): Promise<IDataConnectionParameterValidation> {
+		if (this.metadata.validatesParameters !== true) {
+			return {};
+		}
 		return this._proxy.$validateParameters(this.id, mechanismId, params);
 	}
 

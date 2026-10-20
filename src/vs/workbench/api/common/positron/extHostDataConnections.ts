@@ -493,6 +493,7 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 				parameters: m.parameters.map(p => this._convertParameter(p)),
 			})),
 			supportedLanguageIds: driver.supportedLanguageIds,
+			validatesParameters: typeof driver.validateParameters === 'function',
 		};
 	}
 

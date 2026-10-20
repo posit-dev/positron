@@ -320,12 +320,18 @@ suite('SQLite Driver Tests', () => {
 		assert.deepStrictEqual(validation, { normalizedValues: { databasePath: dbPath } });
 	});
 
+	test('validateParameters reports a blank database path', async () => {
+		const validation = await createDriver().validateParameters!('file', { databasePath: '   ' });
+
+		assert.deepStrictEqual(validation, { errors: { databasePath: 'Enter the path to a database file.' } });
+	});
+
 	test('validateParameters reports a database file that does not exist', async () => {
 		const dbPath = path.join(tmpDir, 'missing.db');
 
 		const validation = await createDriver().validateParameters!('file', { databasePath: dbPath });
 
-		assert.deepStrictEqual(validation, { errors: { databasePath: `"${dbPath}" does not exist.` } });
+		assert.deepStrictEqual(validation, { errors: { databasePath: `'${dbPath}' does not exist.` } });
 	});
 
 	test('validateParameters reports a file that is not a SQLite database', async () => {
@@ -334,6 +340,6 @@ suite('SQLite Driver Tests', () => {
 
 		const validation = await createDriver().validateParameters!('file', { databasePath: dbPath });
 
-		assert.deepStrictEqual(validation, { errors: { databasePath: `"${dbPath}" is not a SQLite database.` } });
+		assert.deepStrictEqual(validation, { errors: { databasePath: `'${dbPath}' is not a SQLite database.` } });
 	});
 });

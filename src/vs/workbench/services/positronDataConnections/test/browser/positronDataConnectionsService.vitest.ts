@@ -20,6 +20,7 @@ import { PositronDataExplorerUri } from '../../../positronDataExplorer/common/po
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IViewsService } from '../../../views/common/viewsService.js';
+import { IWorkspaceContextService, WorkbenchState } from '../../../../../platform/workspace/common/workspace.js';
 import { DataConnectionNodeKind, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
 import { IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../../common/interfaces/positronDataConnectionsService.js';
 import { PositronDataConnectionsService } from '../../browser/positronDataConnectionsService.js';
@@ -75,7 +76,12 @@ describe('PositronDataConnectionsService', () => {
 	// refusal.
 	const openedViews: string[] = [];
 
+	// Whether the window has a folder open, which is what lets a profile be scoped to the
+	// workspace. A test sets EMPTY to model a window with no folder open.
+	let workbenchState = WorkbenchState.FOLDER;
+
 	const ctx = createTestContainer()
+		.stub(IWorkspaceContextService, { getWorkbenchState: () => workbenchState })
 		.stub(IExtensionService, new NullExtensionService())
 		.stub(ILogService, new NullLogService())
 		.stub(IViewsService, {
@@ -107,6 +113,7 @@ describe('PositronDataConnectionsService', () => {
 	beforeEach(() => {
 		openDatasetIds.clear();
 		openedViews.length = 0;
+		workbenchState = WorkbenchState.FOLDER;
 		storageService = new TestStorageService();
 		ctx.disposables.add(storageService);
 		ctx.instantiationService.stub(IStorageService, storageService);
@@ -368,6 +375,20 @@ describe('PositronDataConnectionsService', () => {
 			});
 
 			expect(service.getInstanceForProfile('conn-1')).toBeDefined();
+		});
+
+		it('keeps the connection, and its stored secrets, when only the scope changes', async () => {
+			await connectProfile({ host: 'db.example.com', apiKey: 'sekret' }, [
+				{ id: 'apiKey', label: 'API Key', type: 'password', secret: true },
+			]);
+
+			// The edit dialog leaves an untouched secret field blank, so the secret is absent here.
+			service.addUpdateProfile({ ...createProfile('conn-1'), parameterValues: { host: 'db.example.com' }, scope: 'workspace' });
+
+			expect({
+				connected: service.getInstanceForProfile('conn-1') !== undefined,
+				parameterValues: (await service.getProfileWithSecrets('conn-1'))?.parameterValues,
+			}).toEqual({ connected: true, parameterValues: { host: 'db.example.com', apiKey: 'sekret' } });
 		});
 	});
 
@@ -739,6 +760,33 @@ describe('PositronDataConnectionsService', () => {
 				expect(reloaded.getDiscoveredProfiles()).toEqual([]);
 			});
 
+			// A stale global copy can be an unmarked one. When this workspace's copy, which this build
+			// wrote and marked, is the one in use, there is nothing to backfill.
+			it('leaves a profile alone when the copy in use is a marked workspace copy', async () => {
+				storageService.store(
+					'positron.dataConnections.profile.saved-1',
+					JSON.stringify({
+						profile: { ...createProfile('saved-1'), connectionName: 'Pagila (prod)', parameterValues: { dsn: 'Pagila' } },
+						secretParameterIds: [],
+						provenanceChecked: true,
+					}),
+					StorageScope.WORKSPACE,
+					StorageTarget.USER,
+				);
+				const reloaded = persistLegacyProfile({
+					...createProfile('saved-1'),
+					connectionName: 'Pagila (prod)',
+					parameterValues: { dsn: 'Pagila' },
+				});
+				registerPagilaDriver(reloaded);
+
+				await vi.waitFor(() => {
+					expect(reloaded.getDiscoveredProfiles().map(profile => profile.connectionName))
+						.toEqual(['Pagila']);
+				});
+				expect(reloaded.getProfile('saved-1')?.discoveredFromId).toBeUndefined();
+			});
+
 			// The backfill exists for profiles an older build left unmarked. A profile saved by this
 			// build already says where it came from -- including by saying nothing, for one the user
 			// typed in -- so a same-shaped discovery under another name stays a row of its own.
@@ -785,6 +833,8 @@ describe('PositronDataConnectionsService', () => {
 				connectionName: 'Pagila',
 				mechanismId: 'test-mechanism',
 				parameterValues: { dsn: 'Pagila' },
+				// Saved as a global connection, like any profile saved without a scope.
+				scope: 'global',
 				// What it was saved from, which is what suppresses that discovery's own row.
 				discoveredFromId: 'discovered:test-driver:odbc-dsn:Pagila',
 			});
@@ -1088,6 +1138,153 @@ describe('PositronDataConnectionsService', () => {
 			} finally {
 				vi.useRealTimers();
 			}
+		});
+	});
+
+	describe('profile scope', () => {
+		// Where a profile is persisted: which of the two storages holds its key.
+		const storedIn = (id: string) => ({
+			profile: storageService.get(`positron.dataConnections.profile.${id}`, StorageScope.PROFILE) !== undefined,
+			workspace: storageService.get(`positron.dataConnections.profile.${id}`, StorageScope.WORKSPACE) !== undefined,
+		});
+
+		// Starts a service against the current storage, as a window start would.
+		const startService = () => {
+			const started = ctx.instantiationService.createInstance(PositronDataConnectionsService);
+			ctx.disposables.add(started);
+			return started;
+		};
+
+		it('stores a workspace-scoped profile with the workspace, and a global one with the user profile', () => {
+			service.addUpdateProfile({ ...createProfile('workspace-1'), scope: 'workspace' });
+			service.addUpdateProfile({ ...createProfile('global-1'), scope: 'global' });
+			service.addUpdateProfile(createProfile('legacy-1'));
+
+			expect({
+				workspace: storedIn('workspace-1'),
+				global: storedIn('global-1'),
+				legacy: storedIn('legacy-1'),
+			}).toEqual({
+				workspace: { profile: false, workspace: true },
+				global: { profile: true, workspace: false },
+				legacy: { profile: true, workspace: false },
+			});
+		});
+
+		it('spells out the global scope of a profile saved without one', () => {
+			service.addUpdateProfile(createProfile('conn-1'));
+
+			expect(service.getProfile('conn-1')?.scope).toBe('global');
+		});
+
+		it('moves a profile between storages when its scope changes', () => {
+			service.addUpdateProfile({ ...createProfile('conn-1'), scope: 'global' });
+			service.addUpdateProfile({ ...createProfile('conn-1'), scope: 'workspace' });
+			const afterToWorkspace = storedIn('conn-1');
+			service.addUpdateProfile({ ...createProfile('conn-1'), scope: 'global' });
+
+			expect({ afterToWorkspace, afterToGlobal: storedIn('conn-1') }).toEqual({
+				afterToWorkspace: { profile: false, workspace: true },
+				afterToGlobal: { profile: true, workspace: false },
+			});
+		});
+
+		it('loads both kinds on the next start, each with its scope', () => {
+			service.addUpdateProfile({ ...createProfile('workspace-1'), scope: 'workspace' });
+			service.addUpdateProfile(createProfile('global-1'));
+
+			const scopes = Object.fromEntries(startService().getProfiles().map(profile => [profile.id, profile.scope]));
+
+			expect(scopes).toEqual({ 'workspace-1': 'workspace', 'global-1': 'global' });
+		});
+
+		it('does not load workspace-scoped profiles in a window with no folder open', () => {
+			service.addUpdateProfile({ ...createProfile('workspace-1'), scope: 'workspace' });
+			service.addUpdateProfile(createProfile('global-1'));
+			workbenchState = WorkbenchState.EMPTY;
+
+			expect(startService().getProfiles().map(profile => profile.id)).toEqual(['global-1']);
+		});
+
+		it('saves a workspace-scoped profile as global in a window with no folder open', () => {
+			workbenchState = WorkbenchState.EMPTY;
+
+			service.addUpdateProfile({ ...createProfile('conn-1'), scope: 'workspace' });
+
+			expect({ scope: service.getProfile('conn-1')?.scope, storedIn: storedIn('conn-1') }).toEqual({
+				scope: 'global',
+				storedIn: { profile: true, workspace: false },
+			});
+		});
+
+		it('loads a profile stored both globally and in the workspace once, as the workspace copy in the global copy\'s place', () => {
+			// Another window, holding a stale global copy of conn-2 after this workspace scoped it to
+			// itself, wrote the global copy back.
+			service.addUpdateProfile(createProfile('conn-1'));
+			service.addUpdateProfile({ ...createProfile('conn-2'), connectionName: 'Global copy' });
+			service.addUpdateProfile(createProfile('conn-3'));
+			storageService.store(
+				'positron.dataConnections.profile.conn-2',
+				JSON.stringify({ profile: { ...createProfile('conn-2'), connectionName: 'Workspace copy' }, secretParameterIds: [] }),
+				StorageScope.WORKSPACE,
+				StorageTarget.USER,
+			);
+
+			const profiles = startService().getProfiles().map(({ id, connectionName, scope }) => ({ id, connectionName, scope }));
+
+			expect(profiles).toEqual([
+				{ id: 'conn-1', connectionName: 'Connection conn-1', scope: 'global' },
+				{ id: 'conn-2', connectionName: 'Workspace copy', scope: 'workspace' },
+				{ id: 'conn-3', connectionName: 'Connection conn-3', scope: 'global' },
+			]);
+		});
+
+		it('reads the secrets of a profile stored in both from the workspace copy in use', async () => {
+			// The workspace copy records a secret that the stale global copy predates.
+			const secretStorage = new TestSecretStorageService();
+			ctx.instantiationService.stub(ISecretStorageService, secretStorage);
+			await secretStorage.set('positron.dataConnections.secret.conn-1.apiKey', 'sekret');
+			const persist = (storageScope: StorageScope, secretParameterIds: string[]) => storageService.store(
+				'positron.dataConnections.profile.conn-1',
+				JSON.stringify({ profile: { ...createProfile('conn-1'), parameterValues: { host: 'db.example.com' } }, secretParameterIds }),
+				storageScope,
+				StorageTarget.USER,
+			);
+			persist(StorageScope.PROFILE, []);
+			persist(StorageScope.WORKSPACE, ['apiKey']);
+
+			const profile = await startService().getProfileWithSecrets('conn-1');
+
+			expect(profile?.parameterValues).toEqual({ host: 'db.example.com', apiKey: 'sekret' });
+		});
+
+		it('deletes the secrets either copy records when removing a profile stored in both', async () => {
+			// The workspace copy records the secret. The stale global copy, written back by a window
+			// that never saw the secret recorded, does not.
+			const secretStorage = new TestSecretStorageService();
+			ctx.instantiationService.stub(ISecretStorageService, secretStorage);
+			await secretStorage.set('positron.dataConnections.secret.conn-1.apiKey', 'sekret');
+			const persist = (storageScope: StorageScope, secretParameterIds: string[]) => storageService.store(
+				'positron.dataConnections.profile.conn-1',
+				JSON.stringify({ profile: createProfile('conn-1'), secretParameterIds }),
+				storageScope,
+				StorageTarget.USER,
+			);
+			persist(StorageScope.PROFILE, []);
+			persist(StorageScope.WORKSPACE, ['apiKey']);
+
+			startService().removeProfile('conn-1');
+
+			expect({ secret: await secretStorage.get('positron.dataConnections.secret.conn-1.apiKey'), storedIn: storedIn('conn-1') })
+				.toEqual({ secret: undefined, storedIn: { profile: false, workspace: false } });
+		});
+
+		it('removes a workspace-scoped profile from workspace storage', () => {
+			service.addUpdateProfile({ ...createProfile('conn-1'), scope: 'workspace' });
+
+			service.removeProfile('conn-1');
+
+			expect(storedIn('conn-1')).toEqual({ profile: false, workspace: false });
 		});
 	});
 });

@@ -124,6 +124,10 @@ export interface IDataConnectionProfile {
 	// The parameter values for this connection.
 	parameterValues: DataConnectionParameterValues;
 
+	// Where the connection is available: in every workspace ('global', the default when absent), or
+	// only in the workspace it was saved in ('workspace'). Determines where the profile is stored.
+	scope?: 'global' | 'workspace';
+
 	// The user's preferred connection code variant per language (languageId -> variant id), from
 	// the driver's generateConnectionCode results. Optional: existing profiles predate this field,
 	// and languages the user has never picked a variant for are absent. Callers fall back to
@@ -209,6 +213,9 @@ export interface IDataConnectionDriverMetadata {
 	iconSvg: string;
 	mechanisms: IDataConnectionMechanism[];
 	supportedLanguageIds: string[];
+
+	// Whether the driver implements validateParameters.
+	validatesParameters?: boolean;
 }
 
 /**

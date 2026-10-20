@@ -51,6 +51,10 @@ export interface IDataConnectionDriverMetadataDTO {
 	iconSvg: string;
 	mechanisms: IDataConnectionMechanismDTO[];
 	supportedLanguageIds: string[];
+
+	// Whether the driver implements validateParameters. When it doesn't, the main thread skips the
+	// round trip to the extension host.
+	validatesParameters?: boolean;
 }
 
 /**

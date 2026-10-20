@@ -53,20 +53,24 @@ async function validateDatabasePath(filePath: string): Promise<positron.DataConn
 	// Reports an error with the database path.
 	const error = (message: string) => ({ errors: { databasePath: message } });
 
-	// A relative path can only be resolved against a workspace folder.
+	// The path must not be blank, and a relative path can only be resolved against a workspace
+	// folder.
 	const databasePath = resolveDatabasePath(filePath, databasePathEnvironment());
+	if (!databasePath) {
+		return error(vscode.l10n.t("Enter the path to a database file."));
+	}
 	if (!path.isAbsolute(databasePath)) {
-		return error(vscode.l10n.t('Enter an absolute path, or open a folder to resolve a relative path against.'));
+		return error(vscode.l10n.t("Enter an absolute path, or open a folder to resolve a relative path against."));
 	}
 
 	// The path must name an existing DuckDB database file.
 	switch (await checkDatabaseFile(databasePath, DUCKDB_SIGNATURE)) {
 		case 'missing':
-			return error(vscode.l10n.t('"{0}" does not exist.', databasePath));
+			return error(vscode.l10n.t("'{0}' does not exist.", databasePath));
 		case 'notFile':
-			return error(vscode.l10n.t('"{0}" is not a file.', databasePath));
+			return error(vscode.l10n.t("'{0}' is not a file.", databasePath));
 		case 'wrongKind':
-			return error(vscode.l10n.t('"{0}" is not a DuckDB database.', databasePath));
+			return error(vscode.l10n.t("'{0}' is not a DuckDB database.", databasePath));
 		case 'valid':
 			return { normalizedValues: { databasePath } };
 	}

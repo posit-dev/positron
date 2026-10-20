@@ -63,6 +63,17 @@ export function resolveDatabasePath(filePath: string, environment: IDatabasePath
 	// and some terminals add.
 	const unquotedPath = filePath.trim().replace(/^(?<quote>["'])(?<path>.*)\k<quote>$/, '$<path>');
 
+	// An empty path has nothing to resolve.
+	if (!unquotedPath) {
+		return unquotedPath;
+	}
+
+	// A Windows drive-relative path such as `C:data\db.sqlite` is relative to the current folder of
+	// that drive, which is no workspace folder and means nothing here, so it is left unresolved.
+	if (pathLib.sep === '\\' && /^[a-z]:(?![\\/])/i.test(unquotedPath)) {
+		return unquotedPath;
+	}
+
 	// A leading `~/` is the home directory. `~` is a Unix shell convention with no native meaning on
 	// Windows, so this only applies on macOS and Linux. The result is absolute, so return it directly.
 	if (pathLib.sep === '/' && unquotedPath.startsWith('~/')) {

@@ -233,6 +233,29 @@ describe('ExtHostDataConnections parameter validation', () => {
 		});
 	});
 
+	it('tells the main thread whether each driver validates parameters', () => {
+		const $registerDataConnectionDriver = vi.fn<MainThreadDataConnectionsShape['$registerDataConnectionDriver']>();
+		const extHost = createExtHost({ $registerDataConnectionDriver });
+		const driver = (id: string, members: Partial<positron.DataConnectionDriver>): positron.DataConnectionDriver => ({
+			id,
+			name: id,
+			description: '',
+			iconSvg: '<svg/>',
+			mechanisms: [],
+			supportedLanguageIds: [],
+			connect: async () => stubInterface<positron.DataConnection>({}),
+			...members,
+		});
+
+		extHost.registerDriver(driver('plain', {}));
+		extHost.registerDriver(driver('validating', { validateParameters: async () => ({}) }));
+
+		expect($registerDataConnectionDriver.mock.calls.map(([id, metadata]) => [id, metadata.validatesParameters])).toEqual([
+			['plain', false],
+			['validating', true],
+		]);
+	});
+
 	it('accepts the values as entered for a driver that does not validate them, or is gone', async () => {
 		const extHost = registerDriver({});
 
