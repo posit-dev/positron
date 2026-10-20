@@ -202,8 +202,12 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 		// Discovery is a property of the registered drivers, so it is re-read whenever they change:
 		// when a driver's extension activates, and when a driver re-registers because what it can
-		// see changed (the ODBC driver does this when odbc.ini is edited).
-		this._register(this.driverManager.onDidChangeDrivers(() => this._refreshDiscoveredProfiles()));
+		// see changed (the ODBC driver does this when odbc.ini is edited). A driver that went away
+		// takes its connections with it first.
+		this._register(this.driverManager.onDidChangeDrivers(() => {
+			this._disconnectUnregisteredDrivers();
+			this._refreshDiscoveredProfiles();
+		}));
 		this._refreshDiscoveredProfiles();
 	}
 
@@ -757,6 +761,19 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// Open the connection. driver.connect throws on failure; let it propagate.
 		const handle = await driver.connect(mechanism?.id ?? profile.mechanismId, profile.parameterValues);
 
+		// The driver was removed while connecting. Its other connections were closed when it went,
+		// and this one would otherwise be left open under a driver that no longer exists. A driver
+		// re-registered under the same id in the meantime still counts: the connection is live.
+		if (!this.driverManager.getDriver(driver.id)) {
+			try {
+				await handle.disconnect();
+			} catch (err) {
+				this._logService.error(`[DataConnections] disconnect() threw for profile ${profileId} after its driver was removed: ${err}`);
+			}
+			handle.release();
+			throw new Error(`Data connection driver '${driver.id}' was removed while connecting`);
+		}
+
 		// Build the live instance. Active starts true; an onDidChangeStatus emitter is wired so
 		// future status changes can fan out to listeners (currently nothing fires it).
 		const statusEmitter = this._register(new Emitter<boolean>());
@@ -1044,6 +1061,24 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 				this._logService.error(`[DataConnections] Failed to disconnect vanished profile ${instance.profileId}: ${err}`);
 			}
 		}));
+	}
+
+	/**
+	 * Closes any live connection whose driver is no longer registered -- an extension unregistered
+	 * it, or re-registers it to pick up a configuration change (the ODBC driver does this when
+	 * odbc.ini changes).
+	 *
+	 * Unregistering a driver is what closes its connections; the extension host leaves them open for
+	 * this to do. Closing them here, through disconnect, is what keeps the pane from showing a
+	 * connection as live once it is gone. A driver updated in place under the same id is still
+	 * registered, so its connections stay open.
+	 */
+	private _disconnectUnregisteredDrivers(): void {
+		const orphaned = this._instances.filter(instance => !this.driverManager.getDriver(instance.driverId));
+		for (const instance of orphaned) {
+			this._logService.info(`[DataConnections] Disconnecting instance ${instance.id}: its driver ${instance.driverId} was unregistered`);
+			void this.disconnect(instance.profileId);
+		}
 	}
 
 	/**

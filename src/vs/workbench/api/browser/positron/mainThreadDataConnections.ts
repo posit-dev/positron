@@ -114,8 +114,9 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	// The disposable store.
 	private readonly _disposableStore = new DisposableStore();
 
-	// Connection handles created via $connectToDataConnectionDriver, keyed by handle number.
-	private readonly _connectionHandles = new Map<number, IDataConnectionHandle>();
+	// Connection handles created via $connectToDataConnectionDriver, keyed by handle number, with the
+	// id of the driver each was opened through.
+	private readonly _connectionHandles = new Map<number, { readonly driverId: string; readonly handle: IDataConnectionHandle }>();
 
 	/**
 	 * Constructor.
@@ -228,10 +229,34 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 
 	/**
 	 * Called by the ext host when a driver is unregistered (its Disposable was disposed).
+	 *
+	 * The ext host leaves the driver's connections open, so they are closed from here. Removing
+	 * the driver has the service close the user's connections; the ones an extension opened through
+	 * this API are closed below.
 	 * @param driverId The unique identifier for the driver to remove.
 	 */
 	$removeDataConnectionDriver(driverId: string): void {
 		this._dataConnectionsService.driverManager.removeDriver(driverId);
+
+		for (const [connectionHandle, entry] of this._connectionHandles) {
+			if (entry.driverId === driverId) {
+				this._connectionHandles.delete(connectionHandle);
+				void this._closeConnectionHandle(entry.handle);
+			}
+		}
+	}
+
+	/**
+	 * Disconnects and then releases a connection handle. A disconnect that fails is logged and the
+	 * handle is released anyway: there is nothing left to retry it from.
+	 */
+	private async _closeConnectionHandle(handle: IDataConnectionHandle): Promise<void> {
+		try {
+			await handle.disconnect();
+		} catch (err) {
+			this._logService.error(`[DataConnections] disconnect() threw for connection handle ${handle.handle}: ${err}`);
+		}
+		handle.release();
 	}
 
 	/**
@@ -260,7 +285,15 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 			throw new Error(`Data connection driver '${driverId}' not found`);
 		}
 		const handle = await driver.connect(mechanismId, params);
-		this._connectionHandles.set(handle.handle, handle);
+
+		// The driver was removed while connecting, so $removeDataConnectionDriver has already run and
+		// nothing would close this one later.
+		if (!this._dataConnectionsService.driverManager.getDriver(driverId)) {
+			await this._closeConnectionHandle(handle);
+			throw new Error(`Data connection driver '${driverId}' was removed while connecting`);
+		}
+
+		this._connectionHandles.set(handle.handle, { driverId, handle });
 		return handle.handle;
 	}
 
@@ -319,19 +352,19 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * Releases a connection handle through the main thread handle.
 	 */
 	$releaseConnectionViaService(connectionHandle: number): void {
-		const handle = this._connectionHandles.get(connectionHandle);
-		if (handle) {
-			handle.release();
+		const entry = this._connectionHandles.get(connectionHandle);
+		if (entry) {
+			entry.handle.release();
 			this._connectionHandles.delete(connectionHandle);
 		}
 	}
 
 	private _getHandle(connectionHandle: number): IDataConnectionHandle {
-		const handle = this._connectionHandles.get(connectionHandle);
-		if (!handle) {
+		const entry = this._connectionHandles.get(connectionHandle);
+		if (!entry) {
 			throw new Error(`Connection handle ${connectionHandle} not found on the main thread`);
 		}
-		return handle;
+		return entry.handle;
 	}
 
 	// Called by the extension host manager when the extension host disconnects.

@@ -100,7 +100,9 @@ describe('MainThreadDataConnections', () => {
 		connect.mockImplementation(async (profileId: string) => instance(profileId, {}));
 		const driverManager = stubInterface<IDataConnectionsDriverManager>({
 			registerDriver: driver => { registeredDrivers.push(driver); },
+			removeDriver: driverId => { registeredDrivers = registeredDrivers.filter(d => d.id !== driverId); },
 			getDrivers: () => registeredDrivers,
+			getDriver: driverId => registeredDrivers.find(d => d.id === driverId),
 		});
 		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({
 			driverManager,
@@ -408,6 +410,87 @@ describe('MainThreadDataConnections', () => {
 			onDidChangeProfiles.fire([]);
 
 			expect($onDidChangeDataConnections).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe('an extension\'s own connections when their driver is removed', () => {
+		/** A connection handle whose teardown the test can count. */
+		function countedHandle(handle: number) {
+			return stubInterface<IDataConnectionHandle>({
+				handle,
+				disconnect: vi.fn(async () => { }),
+				release: vi.fn(),
+				isConnected: async () => true,
+			});
+		}
+
+		// The extension host leaves a removed driver's connections open for the main thread to
+		// close, so the ones an extension opened through the API are closed here.
+		it('disconnects and releases that driver\'s connections, and only that driver\'s', async () => {
+			const removed = countedHandle(1);
+			const kept = countedHandle(2);
+			registeredDrivers.push(
+				stubInterface<IDataConnectionDriver>({ id: 'duckdb', connect: async () => removed }),
+				stubInterface<IDataConnectionDriver>({ id: 'sqlite', connect: async () => kept }),
+			);
+			await mainThread.$connectToDataConnectionDriver('duckdb', 'file', {});
+			await mainThread.$connectToDataConnectionDriver('sqlite', 'file', {});
+
+			mainThread.$removeDataConnectionDriver('duckdb');
+
+			await vi.waitFor(() => {
+				expect(removed.release).toHaveBeenCalled();
+			});
+			expect({
+				removedDisconnects: vi.mocked(removed.disconnect).mock.calls.length,
+				removedReleases: vi.mocked(removed.release).mock.calls.length,
+				keptDisconnects: vi.mocked(kept.disconnect).mock.calls.length,
+				keptReleases: vi.mocked(kept.release).mock.calls.length,
+			}).toEqual({ removedDisconnects: 1, removedReleases: 1, keptDisconnects: 0, keptReleases: 0 });
+			await expect(mainThread.$connectionIsConnectedViaService(1)).rejects.toThrow('not found on the main thread');
+			expect(await mainThread.$connectionIsConnectedViaService(2)).toBe(true);
+		});
+
+		it('closes a connection that finishes opening after its driver was removed', async () => {
+			let finishConnecting!: (handle: IDataConnectionHandle) => void;
+			registeredDrivers.push(stubInterface<IDataConnectionDriver>({
+				id: 'duckdb',
+				connect: () => new Promise<IDataConnectionHandle>(resolve => { finishConnecting = resolve; }),
+			}));
+			const handle = countedHandle(1);
+
+			const connecting = mainThread.$connectToDataConnectionDriver('duckdb', 'file', {});
+			mainThread.$removeDataConnectionDriver('duckdb');
+			finishConnecting(handle);
+
+			await expect(connecting).rejects.toThrow('was removed while connecting');
+			expect({
+				disconnects: vi.mocked(handle.disconnect).mock.calls.length,
+				releases: vi.mocked(handle.release).mock.calls.length,
+			}).toEqual({ disconnects: 1, releases: 1 });
+		});
+
+		// The ODBC driver unregisters and re-registers back to back. The connection itself is live,
+		// so one that lands after the driver is back keeps going, under the driver's id.
+		it('keeps a connection that finishes opening after its driver was re-registered', async () => {
+			let finishConnecting!: (handle: IDataConnectionHandle) => void;
+			const driver = stubInterface<IDataConnectionDriver>({
+				id: 'duckdb',
+				connect: () => new Promise<IDataConnectionHandle>(resolve => { finishConnecting = resolve; }),
+			});
+			registeredDrivers.push(driver);
+			const handle = countedHandle(1);
+
+			const connecting = mainThread.$connectToDataConnectionDriver('duckdb', 'file', {});
+			mainThread.$removeDataConnectionDriver('duckdb');
+			registeredDrivers.push(driver);
+			finishConnecting(handle);
+
+			expect(await connecting).toBe(1);
+			expect({
+				connected: await mainThread.$connectionIsConnectedViaService(1),
+				disconnects: vi.mocked(handle.disconnect).mock.calls.length,
+			}).toEqual({ connected: true, disconnects: 0 });
 		});
 	});
 });

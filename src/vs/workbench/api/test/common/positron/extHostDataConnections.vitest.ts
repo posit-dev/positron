@@ -265,3 +265,41 @@ describe('ExtHostDataConnections parameter validation', () => {
 		]).toEqual([{}, {}]);
 	});
 });
+
+describe('ExtHostDataConnections unregistering a driver', () => {
+	it('leaves the driver\'s connections open for the main thread to close', async () => {
+		const removeDriver = vi.fn();
+		const extHost = createExtHost({
+			$registerDataConnectionDriver: () => { },
+			$removeDataConnectionDriver: removeDriver,
+		});
+		const disconnect = vi.fn(async () => { });
+		const connection = stubInterface<positron.DataConnection>({
+			getChildren: async () => [{ name: 'users', kind: 'table' as positron.DataConnectionNodeKind }],
+			disconnect,
+		});
+		const registration = extHost.registerDriver({
+			id: 'test-driver',
+			name: 'Test',
+			description: 'A test driver',
+			iconSvg: '<svg/>',
+			mechanisms: [],
+			supportedLanguageIds: [],
+			connect: async () => connection,
+		});
+		const connectionHandle = await extHost.$driverConnect('test-driver', 'default', {});
+
+		registration.dispose();
+
+		// The main thread hears about it, and the connection still works until the main thread has
+		// closed it: a browse already in flight completes, and the disconnect reaches the driver.
+		expect(removeDriver).toHaveBeenCalledWith('test-driver');
+		expect((await extHost.$connectionGetChildren(connectionHandle)).map(dto => dto.name)).toEqual(['users']);
+		await extHost.$connectionDisconnect(connectionHandle);
+		expect(disconnect).toHaveBeenCalledOnce();
+
+		// Releasing is what frees the handle.
+		extHost.$releaseConnection(connectionHandle);
+		await expect(extHost.$connectionGetChildren(connectionHandle)).rejects.toThrow(`Connection handle ${connectionHandle} not found`);
+	});
+});

@@ -110,8 +110,9 @@ function detailsToDTO(details: positron.DataConnectionNodeDetails): IDataConnect
  *   extension (e.g. to expand a tree node or disconnect).
  *
  * Handle lifecycle:
- * - Connection handles are created in $driverConnect and freed by $releaseConnection
- *   or when the driver is unregistered.
+ * - Connection handles are created in $driverConnect and freed only by $releaseConnection. Every
+ *   handle is held by the main thread, which owns the connection's lifecycle; unregistering a
+ *   driver tells the main thread, which disconnects and releases that driver's connections.
  * - Node handles are created each time getChildren returns and are stored per-connection.
  *   They are bulk-cleared when $connectionGetChildren is called (top-level refresh) or
  *   when $releaseConnection frees the entire connection.
@@ -136,9 +137,6 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	 * without serializing the node objects themselves.
 	 */
 	private readonly _nodes = new Map<number, Map<number, positron.DataConnectionNode>>();
-
-	/** Tracks which connection handles belong to which driver for cleanup on dispose. */
-	private readonly _driverConnections = new Map<string, Set<number>>();
 
 	/** Fires when the user's connections change; see {@link onDidChangeConnections}. */
 	private readonly _onDidChangeConnections = new Emitter<void>();
@@ -208,11 +206,10 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 	/**
 	 * Registers a data connection driver. Sends serializable metadata to the main thread and
-	 * returns a Disposable that cleans up the driver and all connections it created.
+	 * returns a Disposable that unregisters the driver.
 	 */
 	public registerDriver(driver: positron.DataConnectionDriver): Disposable {
 		this._drivers.set(driver.id, driver);
-		this._driverConnections.set(driver.id, new Set());
 
 		this._proxy.$registerDataConnectionDriver(driver.id, this._driverMetadata(driver));
 
@@ -229,15 +226,9 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 			changeListener?.dispose();
 			this._drivers.delete(driver.id);
 
-			// Release all connections created by this driver.
-			const connectionHandles = this._driverConnections.get(driver.id);
-			if (connectionHandles) {
-				for (const handle of connectionHandles) {
-					this._releaseConnectionHandle(handle);
-				}
-				this._driverConnections.delete(driver.id);
-			}
-
+			// The driver's connections are left open here for the main thread to disconnect and
+			// release (closing the Data Explorers previewed from the user's connections first), so
+			// that what the Data Connections pane shows stays in step with what is actually open.
 			this._proxy.$removeDataConnectionDriver(driver.id);
 		});
 	}
@@ -291,9 +282,6 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		const handle = this._nextConnectionHandle++;
 		this._connections.set(handle, connection);
 		this._nodes.set(handle, new Map());
-
-		// Track this connection under its driver for cleanup on driver dispose.
-		this._driverConnections.get(driverId)?.add(handle);
 
 		return handle;
 	}
@@ -471,7 +459,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 	/** Frees a connection handle and all its associated node handles. */
 	$releaseConnection(connectionHandle: number): void {
-		this._releaseConnectionHandle(connectionHandle);
+		this._connections.delete(connectionHandle);
+		this._nodes.delete(connectionHandle);
 	}
 
 	// --- Private helpers ---
@@ -495,19 +484,6 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 			supportedLanguageIds: driver.supportedLanguageIds,
 			validatesParameters: typeof driver.validateParameters === 'function',
 		};
-	}
-
-	/**
-	 * Releases a connection handle, its node map, and removes it from driver tracking so it is no
-	 * longer cleaned up on driver dispose.
-	 */
-	private _releaseConnectionHandle(connectionHandle: number): void {
-		this._connections.delete(connectionHandle);
-		this._nodes.delete(connectionHandle);
-
-		for (const handles of this._driverConnections.values()) {
-			handles.delete(connectionHandle);
-		}
 	}
 
 	/**
