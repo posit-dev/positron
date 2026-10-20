@@ -420,8 +420,10 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			throw new Error(`R installation at ${metadataExtra.binpath} is not usable. Reason: ${friendlyReason(inst.reasonRejected)}`);
 		}
 
-		// Looks like a valid R installation.
-		return Promise.resolve(makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Immediate));
+		// Looks like a valid R installation. Keep the saved startup behavior:
+		// Positron writes the result back into the discovery cache, which every
+		// folder shares.
+		return makeMetadata(inst, metadata.startupBehavior);
 	}
 
 	/**

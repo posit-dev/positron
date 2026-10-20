@@ -7,6 +7,7 @@ import './mocha-setup';
 
 import * as assert from 'assert';
 import * as positron from 'positron';
+import { runtimeManager } from '../extension';
 import { currentRInstallation, makeMetadata, rRuntimeDiscoverer } from '../provider';
 
 /** Every record the R search yields, in order. */
@@ -37,5 +38,17 @@ suite('R startup recommendation', () => {
 		const quick = await makeMetadata(current);
 		const [first] = await searchAll();
 		assert.strictEqual(quick.runtimeId, first.runtimeId);
+	});
+
+	test('validateMetadata keeps the saved startup behavior', async () => {
+		const [saved] = await searchAll();
+		const validated = await Promise.all([
+			positron.LanguageRuntimeStartupBehavior.Implicit,
+			positron.LanguageRuntimeStartupBehavior.Immediate,
+		].map(async startupBehavior => (await runtimeManager.validateMetadata({ ...saved, startupBehavior })).startupBehavior));
+		assert.deepStrictEqual(validated, [
+			positron.LanguageRuntimeStartupBehavior.Implicit,
+			positron.LanguageRuntimeStartupBehavior.Immediate,
+		]);
 	});
 });
