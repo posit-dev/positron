@@ -79,7 +79,7 @@ suite('interpreterRecommendation', () => {
             definitionPaths: [],
             definitionsOnly: false,
             defaultInterpreterPath: undefined,
-            rootProjectEnv: undefined,
+            rootProjectEnvs: [],
             pythonVersion: undefined,
             pythonVersionDir: undefined,
             nestedEnvDirs: [],
@@ -154,7 +154,7 @@ suite('interpreterRecommendation', () => {
 
     test('startupBehaviorFor: the folder decides, except that base and system installs start only when picked', () => {
         const python = { ...context, hasPythonSignals: true };
-        const projectOnly = { ...context, rootProjectEnv: { envDir: p('/proj/.venv'), executable: rootVenv.path } };
+        const projectOnly = { ...context, rootProjectEnvs: [{ envDir: p('/proj/.venv'), executable: rootVenv.path }] };
         assert.deepEqual(
             [
                 startupBehaviorFor(ranking.Tier.DefaultInterpreterPath, python),
@@ -168,7 +168,7 @@ suite('interpreterRecommendation', () => {
     });
 
     test('starts a root project env immediately, before discovery, without waiting for module discovery', async () => {
-        context.rootProjectEnv = { envDir: p('/proj/.venv'), executable: rootVenv.path };
+        context.rootProjectEnvs = [{ envDir: p('/proj/.venv'), executable: rootVenv.path }];
         resolvable.set(rootVenv.path, rootVenv);
 
         assert.deepEqual(await recommend(false), { path: rootVenv.path, startupBehavior: B.Immediate });
@@ -192,7 +192,7 @@ suite('interpreterRecommendation', () => {
         const missing = p('/opt/missing/bin/python');
         context.hasPythonSignals = true;
         context.defaultInterpreterPath = missing;
-        context.rootProjectEnv = { envDir: p('/proj/.venv'), executable: rootVenv.path };
+        context.rootProjectEnvs = [{ envDir: p('/proj/.venv'), executable: rootVenv.path }];
         resolvable.set(rootVenv.path, rootVenv);
         missingPaths.add(missing);
 
@@ -201,6 +201,24 @@ suite('interpreterRecommendation', () => {
             warn,
             sinon.match((message: string) => message.includes(missing)),
         );
+    });
+
+    test('when the first root env is unsupported, the next root env starts, before discovery', async () => {
+        const venv315 = env(p('/proj/.venv/bin/python'), EnvironmentType.Venv, {
+            version: { major: 3, minor: 15, patch: 0, raw: '3.15.0', build: [], prerelease: [] },
+        });
+        const rootConda = env(p('/proj/.conda/bin/python'), EnvironmentType.Conda);
+        (environmentTypeComparer.isVersionSupported as sinon.SinonStub).callsFake(
+            (version: PythonEnvironment['version']) => version?.minor !== 15,
+        );
+        context.rootProjectEnvs = [
+            { envDir: p('/proj/.venv'), executable: venv315.path },
+            { envDir: p('/proj/.conda'), executable: rootConda.path },
+        ];
+        resolvable.set(venv315.path, venv315);
+        resolvable.set(rootConda.path, rootConda);
+
+        assert.deepEqual(await recommend(false), { path: rootConda.path, startupBehavior: B.Immediate });
     });
 
     test('the pyenv virtualenv named in .python-version is found without a scan, even with no ipykernel', async () => {
@@ -218,7 +236,7 @@ suite('interpreterRecommendation', () => {
     });
 
     test('defaultInterpreterPath beats the root project env, from any scope', async () => {
-        context.rootProjectEnv = { envDir: p('/proj/.venv'), executable: rootVenv.path };
+        context.rootProjectEnvs = [{ envDir: p('/proj/.venv'), executable: rootVenv.path }];
         context.defaultInterpreterPath = pyenv.path;
         resolvable.set(rootVenv.path, rootVenv);
         resolvable.set(pyenv.path, pyenv);
@@ -242,7 +260,7 @@ suite('interpreterRecommendation', () => {
     test('the first pass picks what the full ranking would pick', async () => {
         // Same interpreters reachable both ways: by path (first pass), and by discovery.
         context.hasPythonSignals = true;
-        context.rootProjectEnv = { envDir: p('/proj/.venv'), executable: rootVenv.path };
+        context.rootProjectEnvs = [{ envDir: p('/proj/.venv'), executable: rootVenv.path }];
         context.defaultInterpreterPath = pyenv.path;
         resolvable.set(rootVenv.path, rootVenv);
         resolvable.set(pyenv.path, pyenv);
@@ -258,7 +276,7 @@ suite('interpreterRecommendation', () => {
     test('a named path that does not resolve is logged, and a lower tier cannot win before discovery', async () => {
         const warn = sinon.stub(logging, 'traceWarn');
         context.hasPythonSignals = true;
-        context.rootProjectEnv = { envDir: p('/proj/.venv'), executable: rootVenv.path };
+        context.rootProjectEnvs = [{ envDir: p('/proj/.venv'), executable: rootVenv.path }];
         context.defaultInterpreterPath = pyenv.path;
         // The setting's interpreter doesn't resolve by path (e.g. timed out), but
         // discovery finds it, so it still wins over the root .venv.
@@ -277,7 +295,7 @@ suite('interpreterRecommendation', () => {
         sinon.stub(logging, 'traceWarn');
         context.hasPythonSignals = true;
         context.activatedEnvPrefix = p('/home/u/envs/active');
-        context.rootProjectEnv = { envDir: p('/proj/.venv'), executable: rootVenv.path };
+        context.rootProjectEnvs = [{ envDir: p('/proj/.venv'), executable: rootVenv.path }];
         resolvable.set(rootVenv.path, rootVenv);
         (commonUtils.getInterpreterPathFromDir as sinon.SinonStub)
             .withArgs(p('/home/u/envs/active'))
@@ -384,7 +402,7 @@ suite('interpreterRecommendation', () => {
     test('after discovery, a named path is resolved without a timeout, so a slow resolve still wins', async () => {
         const resolveOnce = sinon.spy(util, 'resolveInterpreterOnce');
         context.hasPythonSignals = true;
-        context.rootProjectEnv = { envDir: p('/proj/.venv'), executable: rootVenv.path };
+        context.rootProjectEnvs = [{ envDir: p('/proj/.venv'), executable: rootVenv.path }];
         context.defaultInterpreterPath = pyenv.path;
         resolvable.set(rootVenv.path, rootVenv);
         resolvable.set(pyenv.path, pyenv);

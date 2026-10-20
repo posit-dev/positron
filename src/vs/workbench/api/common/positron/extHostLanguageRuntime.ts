@@ -1240,7 +1240,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return { extensionId: m.extension.identifier, ...runtime };
 	}
 
-	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
+	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeMetadata[]> {
 		// Get the recommended runtimes from each provider
 		const metadata = await Promise.all(
 			this._runtimeManagers.filter(m => {
@@ -1249,7 +1249,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			}
 			).map(async m => {
 				// Get the recommended runtime from the provider, if any
-				const recommended = await m.manager.recommendedWorkspaceRuntime();
+				const recommended = await m.manager.recommendedWorkspaceRuntime(afterDiscovery);
 				if (recommended) {
 					return {
 						extensionId: m.extension.identifier,

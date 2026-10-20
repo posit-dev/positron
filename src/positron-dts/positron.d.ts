@@ -1227,8 +1227,16 @@ declare module 'positron' {
 		 * metadata is respected here; use `Immediately` to start the runtime
 		 * right away, or any other value to save the runtime as the project
 		 * default without starting it.
+		 *
+		 * Core asks once during startup, before discovery. If a language has no
+		 * recommendation then, core asks again once discovery has completed,
+		 * with `afterDiscovery` set; that answer is used as the preferred runtime
+		 * and started like a newly registered runtime, but never saved as the
+		 * project default.
+		 *
+		 * @param afterDiscovery Whether runtime discovery has completed.
 		 */
-		recommendedWorkspaceRuntime(): Thenable<LanguageRuntimeMetadata | undefined>;
+		recommendedWorkspaceRuntime(afterDiscovery?: boolean): Thenable<LanguageRuntimeMetadata | undefined>;
 
 		/**
 		 * An optional snapshot of the directories this manager scans for

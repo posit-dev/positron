@@ -126,6 +126,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// (metadata.languageId) of the runtime.
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
+	// The runtime each language's extension recommended for this workspace,
+	// from the ask at startup or the ask after discovery. Keyed by languageId.
+	private readonly _recommendedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
+
 	// A map of each extension host and its runtime discovery completion state.
 	// This is keyed by the the extension host's mainThreadLanguageRuntime's id
 	// This map is used to determine if runtime discovery has been completed
@@ -316,6 +320,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._register(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
 			if (phase === RuntimeStartupPhase.Complete) {
 
+				// Languages that had no recommendation at startup get a second
+				// chance now that their interpreters are discovered.
+				this.recommendAfterDiscovery().catch(err =>
+					this._logService.error(`[Runtime startup] Error recommending runtimes after discovery: ${err}`));
+
 				// Persist the count of registered runtimes so the next session
 				// can show a determinate progress bar during discovery.
 				const count = this._languageRuntimeService.registeredRuntimes.length;
@@ -394,6 +403,25 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._register(this._languageService.onDidRequestRichLanguageFeatures(languageId => {
 			// Add the language to the set of encountered languages.
 			this._encounteredLanguagesByLanguageId.add(languageId);
+
+			// Start the language's remembered recommendation, if it is Implicit.
+			// The runtime session service starts the first registered Implicit
+			// runtime on file open, but the registry keeps the first copy of a
+			// runtime it sees, so a recommendation made after discovery stays
+			// registered with the discovered (Explicit) behavior. Leave it to
+			// that service when it has an Implicit runtime to start.
+			const recommended = this._recommendedRuntimesByLanguageId.get(languageId);
+			if (recommended?.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
+				this._startupPhase === RuntimeStartupPhase.Complete &&
+				!this._runtimeSessionService.hasStartingOrRunningConsole(languageId) &&
+				!this.getAffiliatedRuntimeMetadata(languageId) &&
+				!this._runtimeSessionService.implicitStartupSuppressed &&
+				!this._languageRuntimeService.registeredRuntimes.some(metadata =>
+					metadata.languageId === languageId &&
+					metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit) &&
+				this._languageRuntimeService.getRegisteredRuntime(recommended.runtimeId)) {
+				this.autoStartRuntime(recommended, { id: SessionStartReasonId.LanguageFileOpened }, true);
+			}
 		}));
 
 		// When a runtime is registered, check to see if we need to auto-start it.
@@ -1771,11 +1799,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		//   1. The runtime backing the active console session for the language
 		//   2. The runtime affiliated with the workspace
 		//   3. The most recently started runtime for the language
-		//   4. Any registered runtime for the language
+		//   4. The runtime the language's extension recommended for the workspace
+		//   5. Any registered runtime for the language
 		const consoleSession = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
 		return registered(consoleSession?.runtimeMetadata)
 			?? registered(this.getAffiliatedRuntimeMetadata(languageId))
 			?? registered(this._mostRecentlyStartedRuntimesByLanguageId.get(languageId))
+			?? registered(this._recommendedRuntimesByLanguageId.get(languageId))
 			?? this._languageRuntimeService.registeredRuntimes.find(info => info.languageId === languageId);
 	}
 
@@ -1826,6 +1856,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Pre-registering prevents the runtime from being unnecessarily
 			// validated later.
 			this._register(this._languageRuntimeService.registerRuntime(runtime));
+			this._recommendedRuntimesByLanguageId.set(runtime.languageId, runtime);
 
 			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
 				// Start the runtime immediately if it has Immediate startup
@@ -1850,6 +1881,45 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		});
 
 		await Promise.all(promises);
+	}
+
+	/**
+	 * Asks again, after discovery, for a recommendation for each language that
+	 * has none yet, e.g. because its extension could only rank its runtimes
+	 * once they were discovered. The answer is remembered for
+	 * `getPreferredRuntime`, and started the way a newly registered runtime
+	 * would be: `Immediate` if no console for the language is starting or
+	 * running, `Implicit` if a file of the language is already open. It is
+	 * never saved as an affiliation.
+	 */
+	private async recommendAfterDiscovery(): Promise<void> {
+		const skipLanguageIds = Array.from(this._languagePacks.keys()).filter(languageId =>
+			this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled ||
+			this._recommendedRuntimesByLanguageId.has(languageId));
+		const metadata = await Promise.all(this._runtimeManagers.map(manager =>
+			manager.recommendWorkspaceRuntimes(skipLanguageIds, true)));
+
+		for (const runtime of metadata.flat()) {
+			if (skipLanguageIds.includes(runtime.languageId)) {
+				continue;
+			}
+			this._register(this._languageRuntimeService.registerRuntime(runtime));
+			this._recommendedRuntimesByLanguageId.set(runtime.languageId, runtime);
+			this._logService.debug(`[Runtime startup] Recommended after discovery: ${formatLanguageRuntimeMetadata(runtime)}`);
+
+			if (this._runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId)) {
+				continue;
+			}
+			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
+				await this.autoStartRuntime(runtime, { id: SessionStartReasonId.ExtensionRecommendedRuntime },
+					!this._runtimeSessionService.hasStartingOrRunningConsole());
+			} else if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
+				this._encounteredLanguagesByLanguageId.has(runtime.languageId) &&
+				!this.getAffiliatedRuntimeMetadata(runtime.languageId) &&
+				!this._runtimeSessionService.implicitStartupSuppressed) {
+				await this.autoStartRuntime(runtime, { id: SessionStartReasonId.LanguageFileOpenedAtRegistration }, true);
+			}
+		}
 	}
 
 	/**

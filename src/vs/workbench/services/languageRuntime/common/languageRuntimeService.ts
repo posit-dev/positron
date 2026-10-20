@@ -1137,9 +1137,11 @@ export interface IRuntimeManager {
 	 *
 	 * @param disabledLanguageIds Languages for which no recommendations should
 	 * be made.
+	 * @param afterDiscovery Whether runtime discovery has completed; set when
+	 * core asks again after discovery.
 	 * @returns A list of recommended runtimes, asynchronously.
 	 */
-	recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
+	recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeMetadata[]>;
 
 	/**
 	 * Whether this manager is responsible for the given runtime. Used by the

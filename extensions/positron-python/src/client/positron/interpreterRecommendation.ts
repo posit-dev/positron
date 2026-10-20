@@ -98,7 +98,7 @@ export function startupBehaviorFor(tier: Tier, context: RankingContext): positro
     if (tier >= Tier.BaseInstall) {
         return positron.LanguageRuntimeStartupBehavior.Explicit;
     }
-    return context.hasPythonSignals || context.rootProjectEnv
+    return context.hasPythonSignals || context.rootProjectEnvs.length > 0
         ? positron.LanguageRuntimeStartupBehavior.Immediate
         : positron.LanguageRuntimeStartupBehavior.Implicit;
 }
@@ -146,7 +146,7 @@ async function resolveNamedInterpreters(
     const named = [
         activatedExecutable,
         context.defaultInterpreterPath,
-        context.rootProjectEnv?.executable,
+        ...context.rootProjectEnvs.map((projectEnv) => projectEnv.executable),
         // pyenv links each virtualenv into its versions folder, so this covers both
         // a named virtualenv (ProjectEnv) and a named version (PythonVersionFile).
         // A name pyenv doesn't have is not an error: the file may name something else.

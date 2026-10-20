@@ -1852,8 +1852,8 @@ export class MainThreadLanguageRuntime
 	 * should not be recommended
 	 * @returns A list of runtimes
 	 */
-	async recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
-		return this._proxy.$recommendWorkspaceRuntimes(disabledLanguageIds);
+	async recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeMetadata[]> {
+		return this._proxy.$recommendWorkspaceRuntimes(disabledLanguageIds, afterDiscovery);
 	}
 
 	/**
