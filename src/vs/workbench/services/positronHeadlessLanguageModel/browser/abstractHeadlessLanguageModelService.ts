@@ -13,7 +13,7 @@ import { hasKey } from '../../../../base/common/types.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IAiProviderService } from '../../positronAiProvider/common/aiProviderService.js';
 import { AuthenticationSession, IAuthenticationService } from '../../authentication/common/authentication.js';
-import { ICredentials, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../../../../platform/positronHeadlessLanguageModel/common/engine.js';
+import { IHeadlessLanguageModelEngine, IModelDescriptor, IModelListing, IProviderMapping } from '../../../../platform/positronHeadlessLanguageModel/common/engine.js';
 import {
 	FastCheap,
 	IAvailableModel,
@@ -25,7 +25,6 @@ import {
 	UnavailableReason,
 } from '../common/headlessLanguageModelService.js';
 import { byPriority, IModelCandidate, ResolvedModelSelection, selectModelCandidates } from '../common/headlessLanguageModelSelection.js';
-import { type CredentialConfig, type CredentialConfigTarget, shapeCredentials } from 'ai-provider-bridge/credential-shaping';
 
 interface IResolvedState {
 	readonly models: readonly IModelDescriptor[];
@@ -42,6 +41,9 @@ interface IResolvedState {
 	/** Whether any enabled, registered provider was a candidate at all (vs. genuine absence). */
 	readonly anyProvider: boolean;
 }
+
+/** A listing call that threw: credentialed, so the provider still counts as signed in. */
+const FAILED_LISTING: IModelListing = { credentialed: true, models: [] };
 
 /** No engine, or the listing failed: nothing available, nothing queried. */
 const EMPTY_STATE: IResolvedState = { models: [], allModels: [], queriedProviders: [], anyCredential: false, anyProvider: false };
@@ -64,8 +66,9 @@ const FIRST_DELTA_TIMEOUT_MS = 10_000;
 
 /**
  * All of the headless-LM policy: model selection, provider priority,
- * typed availability, read-only credential resolution, model-list
- * caching, and change notification. It is environment-agnostic and depends
+ * typed availability, read-only session lookup (the provider module shapes
+ * each raw token into credentials), model-list caching, and change
+ * notification. It is environment-agnostic and depends
  * only on two external boundaries -- the auth source and the engine port --
  * which are exactly what the interface tests fake.
  *
@@ -119,12 +122,12 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 			}
 		}));
 
-		// Availability also depends on the resolved provider catalog the credential
-		// shaping reads (base URLs, custom headers, AWS region/profile, Snowflake
-		// host/account), on each provider's enabled state, and on model policy. A
-		// custom entry can appear, disappear, or change kind on any of these, so
-		// the mappings (built from the catalog, not just the built-in table) are
-		// dropped alongside the cached listing.
+		// Availability also depends on the resolved provider catalog the provider
+		// module shapes credentials from (base URLs, custom headers, AWS
+		// region/profile, Snowflake host/account), on each provider's enabled
+		// state, and on model policy. A custom entry can appear, disappear, or
+		// change kind on any of these, so the mappings (built from the catalog, not
+		// just the built-in table) are dropped alongside the cached listing.
 		this._register(this._aiProviderService.onDidChangeProviders(e => {
 			if (e.enabledChanged || e.connectionChanged || e.modelsChanged) {
 				this._mappings.clear();
@@ -204,12 +207,12 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	}
 
 	/**
-	 * Stream one candidate model: resolve its credentials freshly, start the
+	 * Stream one candidate model: read its session freshly, start the
 	 * engine stream under a child token linked to the caller's, and wait for the
 	 * first delta with a timeout. Returns the stream (first delta re-emitted then
 	 * the rest, with the child token source disposed when iteration ends) when a
 	 * delta arrives, or `undefined` when the candidate stalls, fails before its
-	 * first delta, has no credentials, or the caller cancels -- the caller then
+	 * first delta, has no session, or the caller cancels -- the caller then
 	 * tries the next candidate. Mid-stream failures after the first delta still
 	 * surface through the returned iterable.
 	 */
@@ -219,11 +222,11 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		params: IStreamTextRequest,
 		token: CancellationToken,
 	): Promise<AsyncIterable<string> | undefined> {
-		// Resolve credentials freshly for the chosen provider so short-lived tokens
+		// Read the session freshly for the chosen provider so short-lived tokens
 		// stay valid; the model list is from credentialed providers, but a token
 		// may have lapsed since listing.
-		const credentials = await raceCancellation(this.resolveCredentialFor(model.providerId), token);
-		if (token.isCancellationRequested || !credentials) {
+		const session = await raceCancellation(this.resolveSessionFor(model.providerId), token);
+		if (token.isCancellationRequested || !session) {
 			return undefined;
 		}
 
@@ -231,20 +234,20 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		const stream = engine.streamChat({
 			providerId: model.providerId,
 			modelId: model.id,
-			credentials,
+			sessionToken: session.sessionToken,
 			systemPrompt: params.systemPrompt,
 			messages: params.messages,
 			maxOutputTokens: params.maxOutputTokens,
 		}, attemptCts.token);
 
-		const ready = await peekFirstDelta(stream, FIRST_DELTA_TIMEOUT_MS);
-		if (!ready) {
-			this._logService.warn(`[headless-lm] Model ${model.id} produced no first delta; trying the next candidate.`);
+		const peeked = await peekFirstDelta(stream, FIRST_DELTA_TIMEOUT_MS);
+		if (!hasKey(peeked, { stream: true })) {
+			this._logService.warn(`[headless-lm] Model ${model.id} produced no first delta (${peeked.failure}); trying the next candidate.`);
 			attemptCts.cancel();
 			attemptCts.dispose();
 			return undefined;
 		}
-		return disposeWhenDone(ready, attemptCts);
+		return disposeWhenDone(peeked.stream, attemptCts);
 	}
 
 	/**
@@ -350,35 +353,37 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 
 		const mappings = await this._mappings.get();
 
-		// Only query providers whose auth backend is actually registered and whose
-		// catalog entry is enabled. Calling getSessions for an unregistered provider
-		// would fire its activation event and time out waiting for it to register
-		// (e.g. 'deepseek' when the user has no DeepSeek auth) -- both slow and,
-		// uncaught, fatal to the whole sweep. The user's real sign-ins are
-		// registered, so this loses nothing.
+		// Only query providers whose catalog entry is enabled and, when they need a
+		// session, whose auth backend is actually registered. Calling getSessions
+		// for an unregistered provider would fire its activation event and time out
+		// waiting for it to register (e.g. 'deepseek' when the user has no DeepSeek
+		// auth) -- both slow and, uncaught, fatal to the whole sweep. The user's
+		// real sign-ins are registered, so this loses nothing.
 		const registered = new Set(this._authService.getProviderIds());
 		const relevant = mappings.filter(mapping =>
-			(mapping.credentialType === 'local' || (mapping.authProviderId !== undefined && registered.has(mapping.authProviderId)))
+			(!mapping.requiresSession || (mapping.authProviderId !== undefined && registered.has(mapping.authProviderId)))
 			&& this._aiProviderService.isEnabled(mapping.providerId));
 
-		// Read-only credential lookup across every registered mapped built-in or custom entry.
-		const credentialed = (await Promise.all(relevant.map(async mapping => {
-			const credentials = await this.resolveCredential(mapping);
-			return credentials ? { providerId: mapping.providerId, credentials } : undefined;
-		}))).filter((entry): entry is { providerId: string; credentials: ICredentials } => !!entry);
-
-		// List models for each credentialed provider, tolerating per-provider
-		// listing failures so one bad provider does not blank the picker.
-		const listed = await Promise.all(credentialed.map(async ({ providerId, credentials }) => {
+		// Read-only session lookup, then a listing per provider. The provider module
+		// shapes each token; an uncredentialed listing is one it could not build a
+		// credential for. A listing failure counts as credentialed with no models,
+		// so one bad provider does not blank the picker.
+		const listings = await Promise.all(relevant.map(async mapping => {
+			const session = await this.resolveSession(mapping, registered);
+			if (!session) {
+				return undefined;
+			}
 			try {
-				return await engine.listModels(providerId, credentials);
+				return { providerId: mapping.providerId, listing: await engine.listModels(mapping.providerId, session.sessionToken) };
 			} catch (error) {
-				this._logService.warn(`[headless-lm] Listing models for ${providerId} failed: ${error}`);
-				return [] as IModelDescriptor[];
+				this._logService.warn(`[headless-lm] Listing models for ${mapping.providerId} failed: ${error}`);
+				return { providerId: mapping.providerId, listing: FAILED_LISTING };
 			}
 		}));
+		const credentialed = listings.filter((entry): entry is { providerId: string; listing: IModelListing } =>
+			entry?.listing.credentialed === true);
 
-		const allModels = byPriority(listed.flat());
+		const allModels = byPriority(credentialed.flatMap(entry => entry.listing.models));
 		return {
 			models: distinct(allModels, model => model.id),
 			allModels,
@@ -399,82 +404,26 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		return { patterns: FAST_CHEAP_DEFAULT_PATTERNS };
 	}
 
-	/** Resolve credentials for a provider id, looking up its mapping first. */
-	private async resolveCredentialFor(providerId: string): Promise<ICredentials | undefined> {
+	/** Resolve the session for a provider id, looking up its mapping first. */
+	private async resolveSessionFor(providerId: string): Promise<{ sessionToken: string | undefined } | undefined> {
 		const mapping = (await this._mappings.get()).find(m => m.providerId === providerId);
-		return mapping ? this.resolveCredential(mapping) : undefined;
+		return mapping ? this.resolveSession(mapping, new Set(this._authService.getProviderIds())) : undefined;
 	}
 
-	/**
-	 * Resolve a provider's credentials. The auth-host-bound half -- the read-only
-	 * session lookup -- runs here against IAuthenticationService (the renderer's
-	 * own auth source), because the bridge's `vscode.authentication`-bound resolver
-	 * cannot load off the extension host. Strictly read-only: it never creates a
-	 * session, so a background feature can never trigger a sign-in prompt. The
-	 * pure shaping half (token + settings -> credentials) is the bridge's
-	 * `shapeCredentials`, so it stays in lockstep with the assistant path.
-	 */
-	private async resolveCredential(mapping: IProviderMapping): Promise<ICredentials | undefined> {
-		if (mapping.credentialType === 'local') {
-			const endpoint = this._aiProviderService.getProvider(mapping.providerId)?.connection.endpoint;
-			return endpoint ? { type: 'local', endpoint } : undefined;
-		}
-		const authProviderId = mapping.authProviderId;
-		if (!authProviderId) {
+	/** `undefined` means skip the provider; `{ sessionToken: undefined }` means query it without a session. Never creates a session. */
+	private async resolveSession(mapping: IProviderMapping, registered: ReadonlySet<string>): Promise<{ sessionToken: string | undefined } | undefined> {
+		const sessionToken = mapping.authProviderId !== undefined && registered.has(mapping.authProviderId)
+			? await this.readAccessToken(mapping.authProviderId, mapping.scopes)
+			: undefined;
+		if (sessionToken === undefined && mapping.requiresSession) {
 			return undefined;
 		}
-		const accessToken = await this.readAccessToken(authProviderId, mapping.scopes, mapping.fallbackScopes);
-		if (accessToken !== undefined) {
-			const credentialType = mapping.credentialType;
-			const shaped = shapeCredentials(
-				mapping.providerId,
-				{ ...mapping, authProviderId, credentialType },
-				accessToken,
-				this.credentialConfig(),
-			);
-			return shaped && shaped.type !== 'local' ? shaped : undefined;
-		}
-		return this.entraCredential(mapping.providerId);
+		return { sessionToken };
 	}
 
-	/**
-	 * Foundry in Entra mode has no session: the bearer is minted per request by
-	 * the bridge's Foundry client from this credential, which carries no secret.
-	 * A session, when one exists, has already won above (on Workbench it is the
-	 * admin-delegated bearer).
-	 */
-	private entraCredential(providerId: string): ICredentials | undefined {
-		if (providerId !== 'ms-foundry') {
-			return undefined;
-		}
-		const connection = this._aiProviderService.getProvider(providerId)?.connection;
-		if (connection?.azure?.authMode !== 'entra' || !connection.azure.scope || !connection.baseUrl) {
-			return undefined;
-		}
-		return {
-			type: 'azure-entra',
-			baseUrl: connection.baseUrl,
-			scope: connection.azure.scope,
-			tenantId: connection.azure.tenantId,
-			customHeaders: connection.customHeaders,
-		};
-	}
-
-	/** Silent session lookup with scope fallback, matching the bridge's resolver. */
-	private async readAccessToken(
-		authProviderId: string,
-		scopes: readonly string[],
-		fallbackScopes: readonly (readonly string[])[] | undefined,
-	): Promise<string | undefined> {
-		let sessions = await this.tryGetSessions(authProviderId, [...scopes]);
-		if (sessions.length === 0 && fallbackScopes) {
-			for (const fallback of fallbackScopes) {
-				sessions = await this.tryGetSessions(authProviderId, [...fallback]);
-				if (sessions.length > 0) {
-					break;
-				}
-			}
-		}
+	/** Silent session lookup for the mapping's scopes. */
+	private async readAccessToken(authProviderId: string, scopes: readonly string[]): Promise<string | undefined> {
+		const sessions = await this.tryGetSessions(authProviderId, [...scopes]);
 		return sessions[0]?.accessToken;
 	}
 
@@ -491,36 +440,20 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 			return [];
 		}
 	}
-
-	/**
-	 * The connection-reading half of `shapeCredentials`, resolving each target to
-	 * its own provider's connection.
-	 */
-	private credentialConfig(): CredentialConfig {
-		const connectionFor = (target: CredentialConfigTarget) =>
-			this._aiProviderService.getProvider(target.providerId)?.connection;
-		return {
-			getBaseUrl: target => connectionFor(target)?.baseUrl || undefined,
-			getCustomHeaders: target => connectionFor(target)?.customHeaders,
-			getAws: target => connectionFor(target)?.aws,
-			getSnowflake: target => {
-				const snowflake = connectionFor(target)?.snowflake;
-				return snowflake && { host: snowflake.host, account: snowflake.account };
-			},
-			getDatabricks: target => connectionFor(target)?.databricks,
-		};
-	}
 }
 
 /**
  * Start consuming a stream and wait for its first delta, bounded by `timeoutMs`.
  * Returns a stream that re-emits that first delta and then the rest when one
  * arrives (or an empty stream if the model completes with no delta -- a valid
- * empty response). Returns `undefined` when no first delta arrives in time (a
- * stall) or the stream fails before producing one. A failure *after* the first
- * delta is left to surface through the returned iterable.
+ * empty response). Returns a `failure` description when no first delta arrives
+ * in time (a stall) or the stream fails before producing one. A failure *after*
+ * the first delta is left to surface through the returned iterable.
  */
-async function peekFirstDelta(stream: AsyncIterable<string>, timeoutMs: number): Promise<AsyncIterable<string> | undefined> {
+async function peekFirstDelta(
+	stream: AsyncIterable<string>,
+	timeoutMs: number,
+): Promise<{ readonly stream: AsyncIterable<string> } | { readonly failure: string }> {
 	const iterator = stream[Symbol.asyncIterator]();
 	let first: IteratorResult<string>;
 	try {
@@ -528,13 +461,13 @@ async function peekFirstDelta(stream: AsyncIterable<string>, timeoutMs: number):
 		// so an undefined race result unambiguously means the timeout won.
 		const result = await raceTimeout(Promise.resolve(iterator.next()), timeoutMs);
 		if (result === undefined) {
-			return undefined;
+			return { failure: `no delta within ${timeoutMs}ms` };
 		}
 		first = result;
-	} catch {
-		return undefined;
+	} catch (error) {
+		return { failure: String(error) };
 	}
-	return (async function* () {
+	const replay = (async function* () {
 		if (first.done) {
 			return;
 		}
@@ -547,6 +480,7 @@ async function peekFirstDelta(stream: AsyncIterable<string>, timeoutMs: number):
 			yield next.value;
 		}
 	})();
+	return { stream: replay };
 }
 
 /** Re-yield a stream, disposing `cts` once iteration ends (completes, throws, or is abandoned). */

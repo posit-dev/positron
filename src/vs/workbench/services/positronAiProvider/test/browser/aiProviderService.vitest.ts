@@ -17,7 +17,7 @@ import { AbstractAiProviderService } from '../../browser/abstractAiProviderServi
 import { BrowserAiProviderService } from '../../browser/aiProviderService.js';
 
 function provider(id: string, enabled: boolean): IResolvedProviderData {
-	return { id, enabled, connection: {} };
+	return { id, enabled };
 }
 
 function change(catalog: readonly IResolvedProviderData[]): IProviderCatalogChangeData {

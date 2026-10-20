@@ -29,34 +29,29 @@ export interface IHeadlessLanguageModelEngine {
 	 * browser layer forbids) or hand-maintain its own copy.
 	 */
 	getProviderMappings(): Promise<IProviderMapping[]>;
-	/** List the models a provider offers for the given credentials (HTTP egress). */
-	listModels(providerId: string, credentials: ICredentials): Promise<IModelDescriptor[]>;
+	/** List the models a provider offers for the given session token (HTTP egress). */
+	listModels(providerId: string, sessionToken: string | undefined): Promise<IModelListing>;
 	/** Stream a chat completion as raw text deltas (HTTP egress). */
 	streamChat(request: IEngineChatRequest, token: CancellationToken): AsyncIterable<string>;
+	/** Which copy of the provider module serves this engine. */
+	getProviderModuleSource(): Promise<IProviderModuleSource>;
 }
 
 /**
  * How a logical provider maps onto Positron's workbench authentication, as the
- * provider bridge declares it (its `PROVIDER_MAP`). Plain serializable data so
- * it can cross the IPC channel. The facade reads a session for `authProviderId`
- * with `scopes` (falling back through `fallbackScopes`) and shapes the token per
- * `credentialType`.
+ * provider module declares it. Plain serializable data so it can cross the IPC
+ * channel. The facade reads a session for `authProviderId` with `scopes` and
+ * sends the raw token; the provider module shapes it.
  */
 export interface IProviderMapping {
 	/** Logical provider id understood by the engine (e.g. `anthropic`, `positai`). */
 	readonly providerId: string;
-	/** The workbench authentication provider id that backs it; absent for a `local` mapping, which reads no session. */
+	/** The workbench authentication provider id that backs it; absent for a local provider, which reads no session. */
 	readonly authProviderId?: string;
 	/** Scopes for the read-only session lookup (empty for API-key providers). */
 	readonly scopes: readonly string[];
-	/** Ordered alternative scope sets to try when the primary lookup finds none. */
-	readonly fallbackScopes?: readonly (readonly string[])[];
-	/** How to shape the session's token into credentials; `local` builds the credential from the catalog endpoint instead. */
-	readonly credentialType: 'apikey' | 'oauth' | 'aws-credentials' | 'google-cloud' | 'local';
-	/** Config namespace for apikey `baseUrl`/`customHeaders` (mirrors the bridge's overrides). */
-	readonly configKey: string;
-	/** Derive the base URL from structured connection fields instead of `baseUrl` (Snowflake account/host, Databricks host). */
-	readonly structuredBaseUrl?: 'snowflake' | 'databricks';
+	/** False when credentials come from the catalog alone (local endpoints, Foundry in Entra mode). */
+	readonly requiresSession: boolean;
 }
 
 /** A single message in a request's history (shared by the public surface and the engine). */
@@ -64,23 +59,6 @@ export interface ILanguageModelMessage {
 	readonly role: 'user' | 'assistant';
 	readonly content: string;
 }
-
-/**
- * Credentials resolved by the facade and handed straight to the engine, which
- * forwards them to the bridge. Mirrors the bridge's `ProviderCredentials` shape
- * in full, so the facade's bridge-produced credentials pass through without
- * conversion. The optional `aws`/`google-cloud` fields match the bridge: AWS
- * may authenticate by profile, and Vertex may fall back to ADC when no token
- * is brokered. `azure-entra` and `local` are built from the catalog rather
- * than from a session.
- */
-export type ICredentials =
-	| { readonly type: 'apikey'; readonly apiKey: string; readonly baseUrl?: string; readonly customHeaders?: Record<string, string> }
-	| { readonly type: 'oauth'; readonly accessToken: string }
-	| { readonly type: 'aws-credentials'; readonly region: string; readonly profile?: string; readonly accessKeyId?: string; readonly secretAccessKey?: string; readonly sessionToken?: string }
-	| { readonly type: 'google-cloud'; readonly project: string; readonly location: string; readonly accessToken?: string }
-	| { readonly type: 'local'; readonly endpoint: string }
-	| { readonly type: 'azure-entra'; readonly baseUrl: string; readonly scope: string; readonly tenantId?: string; readonly customHeaders?: Record<string, string> };
 
 /** A model as the engine reports it: enough to select, route, and display. */
 export interface IModelDescriptor {
@@ -96,11 +74,20 @@ export interface IModelDescriptor {
 	readonly providerId: string;
 }
 
-/** A fully-resolved chat request, ready for the provider bridge. */
+/**
+ * A provider's model listing. `credentialed` is false when the provider is
+ * unknown or no credential could be built from the session and catalog.
+ */
+export interface IModelListing {
+	readonly credentialed: boolean;
+	readonly models: readonly IModelDescriptor[];
+}
+
+/** A chat request for the provider module, carrying the raw session token. */
 export interface IEngineChatRequest {
 	readonly providerId: string;
 	readonly modelId: string;
-	readonly credentials: ICredentials;
+	readonly sessionToken?: string;
 	readonly systemPrompt: string;
 	readonly messages: readonly ILanguageModelMessage[];
 	readonly maxOutputTokens?: number;
@@ -136,8 +123,12 @@ export class HeadlessLanguageModelEngineChannelClient implements IHeadlessLangua
 		return this.channel.call('getProviderMappings');
 	}
 
-	listModels(providerId: string, credentials: ICredentials): Promise<IModelDescriptor[]> {
-		return this.channel.call('listModels', [providerId, credentials]);
+	listModels(providerId: string, sessionToken: string | undefined): Promise<IModelListing> {
+		return this.channel.call('listModels', [providerId, sessionToken]);
+	}
+
+	getProviderModuleSource(): Promise<IProviderModuleSource> {
+		return this.channel.call('getProviderModuleSource');
 	}
 
 	streamChat(request: IEngineChatRequest, token: CancellationToken): AsyncIterable<string> {

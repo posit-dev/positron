@@ -3,191 +3,39 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ModelInfoLike, ResolvedProviderId, SupportedCustomClientKind } from 'ai-config/node';
-import type { Logger, ModelMessage, ProviderId, ProviderRegistry } from 'ai-provider-bridge';
 import { AsyncIterableObject } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
-import { Disposable } from '../../../base/common/lifecycle.js';
-import { SelfHealingLazyPromise } from '../../../base/common/positron/async.js';
-import { ILogService } from '../../log/common/log.js';
-import { IAiProviderCatalog } from '../../positronAiProvider/common/aiProviderCatalog.js';
-import { ICredentials, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../common/engine.js';
-
-/** The aggregate auth provider Assistant registers for `providers.custom` entries. */
-const CUSTOM_PROVIDERS_AUTH_ID = 'custom-providers';
+import { IEngineChatRequest, IHeadlessLanguageModelEngine, IModelListing, IProviderMapping, IProviderModuleSource } from '../common/engine.js';
+import { HeadlessProviderModule } from './headlessProviderModule.js';
 
 /**
- * The Node-side egress engine: the one place that touches the provider bridge
- * and the network. Intentionally thin -- selection, priority, credentials, and
- * availability all live in the workbench facade; this lists models and streams
- * text for an already-chosen provider/model, and adapts the service-owned port
- * types to the bridge.
- *
- * The one policy it does apply is the catalog's model policy, because a model
- * providers.json excludes must never reach a consumer: filtering here covers
- * every caller of the channel at the point discovery happens.
- *
- * Runs in the shared process (desktop) or the remote server (Remote SSH / web)
- * and is reached over an IPC channel.
+ * The Node-side egress engine: forwards each call to the process's provider
+ * module, which owns provider mappings, credential shaping, model policy and
+ * the network. Runs in the shared process (desktop) or the remote server
+ * (Remote SSH / web) and is reached over an IPC channel.
  */
-export class HeadlessLanguageModelEngine extends Disposable implements IHeadlessLanguageModelEngine {
+export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine {
 
-	private readonly _logger: Logger;
-	/** Self-healing so a transient first-use failure (e.g. a deferred bridge import error) retries on the next call. */
-	private readonly _registry = new SelfHealingLazyPromise(() => this.createRegistry());
-
-	constructor(logService: ILogService, private readonly _catalog: IAiProviderCatalog) {
-		super();
-		this._logger = {
-			info: (m: string, ...a: unknown[]) => logService.info(m, ...a),
-			warn: (m: string, ...a: unknown[]) => logService.warn(m, ...a),
-			error: (m: string, ...a: unknown[]) => logService.error(m, ...a),
-			debug: (m: string, ...a: unknown[]) => logService.debug(m, ...a),
-			trace: (m: string, ...a: unknown[]) => logService.trace(m, ...a),
-		};
-		// Custom entries register into the same registry as the built-ins, so any
-		// catalog change rebuilds it on the next call.
-		this._register(this._catalog.onDidChangeCatalog(() => this._registry.clear()));
-	}
+	constructor(private readonly _module: HeadlessProviderModule) { }
 
 	async getProviderMappings(): Promise<IProviderMapping[]> {
-		// The bridge owns the provider -> auth mapping; forward it as plain data
-		// so the renderer never has to import the bridge or duplicate the map.
-		// Dynamic import (not static): the bridge is a node module the lint forbids
-		// loading synchronously at startup; CONFIG_KEY_OVERRIDES comes from its pure
-		// credential-shaping entry, the single source the renderer also consumes.
-		const { PROVIDER_MAP, MAPPED_PROVIDER_IDS, LOCAL_PROVIDER_IDS } = await import('ai-provider-bridge');
-		const { CONFIG_KEY_OVERRIDES } = await import('ai-provider-bridge/credential-shaping');
-		const builtIn = MAPPED_PROVIDER_IDS.flatMap((providerId: ProviderId) => {
-			const mapping = PROVIDER_MAP[providerId];
-			if (!mapping) {
-				return [];
-			}
-			return [{
-				providerId,
-				authProviderId: mapping.authProviderId,
-				scopes: mapping.scopes,
-				fallbackScopes: mapping.fallbackScopes,
-				credentialType: mapping.credentialType,
-				configKey: CONFIG_KEY_OVERRIDES[mapping.authProviderId] ?? mapping.authProviderId,
-				structuredBaseUrl: mapping.structuredBaseUrl,
-			}];
-		});
-		const localBuiltIn = LOCAL_PROVIDER_IDS.map((providerId: string) => ({ providerId, scopes: [], credentialType: 'local' as const, configKey: providerId }));
-		const custom = (await this.customEntries()).map(entry => entry.mapping);
-		return [...builtIn, ...localBuiltIn, ...custom];
+		return (await this._module.get()).providers.getProviderMappings();
 	}
 
-	/**
-	 * Custom entries the headless service can serve, each with the mapping it
-	 * will resolve credentials through. An entry without a supported custom kind,
-	 * or whose kind has no headless mapping, is left out.
-	 */
-	private async customEntries(): Promise<{ id: ResolvedProviderId; clientKind: SupportedCustomClientKind; mapping: IProviderMapping }[]> {
-		const { customProviderAuthMapping } = await import('ai-provider-bridge/credential-shaping');
-		const { LOCAL_PROVIDER_IDS } = await import('ai-provider-bridge');
-		const { isSupportedCustomClientKind } = await import('ai-config');
-		return (await this._catalog.getCatalog()).flatMap(entry => {
-			if (entry.custom !== true || !entry.clientKind || !isSupportedCustomClientKind(entry.clientKind)) {
-				return [];
-			}
-			const mapping = (LOCAL_PROVIDER_IDS as readonly string[]).includes(entry.clientKind)
-				? { providerId: entry.id, scopes: [], credentialType: 'local' as const, configKey: entry.id }
-				: customProviderAuthMapping(entry.id, entry.clientKind, CUSTOM_PROVIDERS_AUTH_ID);
-			return mapping
-				? [{ id: entry.id as ResolvedProviderId, clientKind: entry.clientKind, mapping: { providerId: entry.id, configKey: entry.id, ...mapping } }]
-				: [];
-		});
-	}
-
-	async listModels(providerId: string, credentials: ICredentials): Promise<IModelDescriptor[]> {
-		const registry = await this._registry.get();
-		const models = await registry.getModelsForProvider(providerId, credentials);
-		return applyModelPolicy(this._catalog, providerId, models);
+	async listModels(providerId: string, sessionToken: string | undefined): Promise<IModelListing> {
+		return (await this._module.get()).providers.listModels(providerId, sessionToken);
 	}
 
 	streamChat(request: IEngineChatRequest, token: CancellationToken): AsyncIterable<string> {
-		return new AsyncIterableObject<string>(async (emitter) => {
-			const registry = await this._registry.get();
-			const clientKind = (await this.customEntries()).find(entry => entry.id === request.providerId)?.clientKind;
-			const client = registry.getClientForProviderOrKind(request.providerId, request.credentials, clientKind);
-			if (!client) {
-				throw new Error(`No client for provider ${request.providerId}`);
-			}
-
-			const messages: ModelMessage[] = request.messages.map(message =>
-				message.role === 'user'
-					? { role: 'user', content: message.content }
-					: { role: 'assistant', content: message.content });
-
-			const stream = await client.chat({
-				model: request.modelId,
-				messages,
-				systemPrompt: request.systemPrompt,
-				maxOutputTokens: request.maxOutputTokens,
-				cancellationToken: token,
-			});
-
-			for await (const part of stream) {
-				if (token.isCancellationRequested) {
-					break;
-				}
-				if (part.type === 'text-delta') {
-					emitter.emitOne(part.text);
-				}
+		return new AsyncIterableObject<string>(async emitter => {
+			const { providers } = await this._module.get();
+			for await (const delta of providers.streamChat(request, token)) {
+				emitter.emitOne(delta);
 			}
 		});
 	}
 
-	private async createRegistry(): Promise<ProviderRegistry> {
-		// Deferred so the bridge and its heavy AI-SDK dependencies load only on
-		// first use rather than synchronously at startup.
-		const { ProviderRegistry, POSIT_AI_DEFAULTS, MAPPED_PROVIDER_IDS, LOCAL_PROVIDER_IDS } = await import('ai-provider-bridge');
-		const { registerAllProviders } = await import('ai-provider-bridge/providers');
-		const registry = new ProviderRegistry(this._logger);
-		// Built-ins with an auth mapping (MAPPED_PROVIDER_IDS) plus the local
-		// endpoint providers (Ollama, LM Studio) register the same way as before --
-		// the same set getProviderMappings() exposes to the renderer -- so the
-		// registered providers and the renderer-facing mappings cannot drift.
-		// Custom entries come from the catalog, without the host callbacks (none
-		// are wired in the headless path). The Posit AI gateway is the first-party
-		// path the priority policy prefers.
-		registerAllProviders(registry, this._logger, {
-			positAiBaseUrl: POSIT_AI_DEFAULTS.baseUrl,
-			userAgent: 'Positron/headless',
-			allowedProviders: [...MAPPED_PROVIDER_IDS, ...LOCAL_PROVIDER_IDS],
-			customProviders: (await this.customEntries()).map(({ id, clientKind }) => ({ id, clientKind })),
-		});
-		return registry;
+	async getProviderModuleSource(): Promise<IProviderModuleSource> {
+		return (await this._module.get()).source;
 	}
-}
-
-/** A model as discovery reports it: ai-config's resolution input plus the display vendor. */
-type IDiscoveredModel = ModelInfoLike & { readonly vendor: string };
-
-/**
- * Resolve a listing against the catalog's model policy (`discovery`, `custom`,
- * `allow`, `deny`). Declared `custom` models participate even when discovery
- * never reported them, carrying the metadata from their declaration.
- *
- * Fails open when the provider has no policy, so a catalog read failure cannot
- * blank a picker.
- */
-export async function applyModelPolicy(
-	catalog: IAiProviderCatalog,
-	providerId: string,
-	models: readonly IDiscoveredModel[],
-): Promise<IModelDescriptor[]> {
-	const providers = await catalog.getCatalog();
-	const policy = providers.find(provider => provider.id === providerId)?.models;
-	if (!policy) {
-		return models.map(model => describe(model, model.vendor, providerId));
-	}
-	const { resolveModels } = await import('ai-config');
-	const vendors = new Map(models.map(model => [model.id, model.vendor]));
-	return resolveModels(policy, models).map(model => describe(model, vendors.get(model.id), providerId));
-}
-
-function describe(model: { id: string; name: string }, vendor: string | undefined, providerId: string): IModelDescriptor {
-	return { id: model.id, name: model.name, vendor: vendor ?? providerId, providerId };
 }

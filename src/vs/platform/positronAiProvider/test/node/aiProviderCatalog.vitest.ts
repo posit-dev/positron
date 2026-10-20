@@ -7,162 +7,165 @@
 
 import * as fs from 'fs';
 import * as os from 'os';
-import type { ResolvedConnection } from 'ai-config/node';
-import { NullLogService } from '../../../log/common/log.js';
+import type { HeadlessCatalogChange, HeadlessProviderData, HeadlessProviders } from 'ai-provider-bridge/headless';
+import { DeferredPromise } from '../../../../base/common/async.js';
 import { join } from '../../../../base/common/path.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IExtensionManagementService } from '../../../extensionManagement/common/extensionManagement.js';
+import { NullLogService } from '../../../log/common/log.js';
+import { HeadlessProviderModule } from '../../../positronHeadlessLanguageModel/node/headlessProviderModule.js';
+import { IProductService } from '../../../product/common/productService.js';
+import { IUserDataProfile, IUserDataProfilesService } from '../../../userDataProfile/common/userDataProfile.js';
+import { stubInterface } from '../../../../test/vitest/stubInterface.js';
 import { AiProviderCatalog } from '../../node/aiProviderCatalog.js';
 
 describe('AiProviderCatalog', () => {
 	let dir: string;
-	let catalog: AiProviderCatalog;
+	let module: HeadlessProviderModule | undefined;
+	let catalog: AiProviderCatalog | undefined;
 
 	beforeEach(() => {
 		dir = fs.mkdtempSync(join(os.tmpdir(), 'ai-provider-catalog-'));
 	});
 	afterEach(() => {
 		catalog?.dispose();
+		module?.dispose();
+		catalog = undefined;
+		module = undefined;
 		fs.rmSync(dir, { recursive: true, force: true });
 	});
 
+	/** A catalog over the compiled-in provider module: no Assistant is installed. */
+	function createCatalog(configPath: string, envVars: Record<string, string> = {}): AiProviderCatalog {
+		module = new HeadlessProviderModule(
+			stubInterface<IExtensionManagementService>({ getInstalled: async () => [] }),
+			stubInterface<IUserDataProfilesService>({
+				profiles: [stubInterface<IUserDataProfile>({ extensionsResource: URI.file(join(dir, 'extensions.json')) })],
+			}),
+			stubInterface<IProductService>({}),
+			new NullLogService(),
+			{ configPath, envVars },
+		);
+		catalog = new AiProviderCatalog(module);
+		return catalog;
+	}
+
+	function writeConfig(configPath: string, providers: object): void {
+		fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers }));
+	}
+
 	it('resolves the baseline catalog when no file exists (default enabled)', async () => {
-		catalog = new AiProviderCatalog(new NullLogService(), {
-			configPath: join(dir, 'providers.json'), envVars: {},
-		});
-		const providers = await catalog.getCatalog();
+		const providers = await createCatalog(join(dir, 'providers.json')).getCatalog();
 		expect(providers.length).toBeGreaterThan(0);
 		expect(providers.every(p => p.enabled)).toBe(true);
 	});
 
-	it('reads enablement and connection from the file', async () => {
+	it('reads enablement, base URL and customized connection fields from the file', async () => {
 		const configPath = join(dir, 'providers.json');
-		fs.writeFileSync(configPath, JSON.stringify({
-			version: 1,
-			providers: { anthropic: { enabled: false, baseUrl: 'https://proxy.example/v1' } },
-		}));
-		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
-		const anthropic = (await catalog.getCatalog()).find(p => p.id === 'anthropic')!;
-		expect({ enabled: anthropic.enabled, baseUrl: anthropic.connection.baseUrl })
-			.toEqual({ enabled: false, baseUrl: 'https://proxy.example/v1' });
-	});
-
-	// Every mirrored connection field must be copied by the production mapper.
-	type MirroredConnectionKeys = Exclude<keyof ResolvedConnection, 'protocol' | 'endpoints' | 'keyType' | 'apiKeyHelper'>;
-	const mirroredKeys: Record<MirroredConnectionKeys, true> = {
-		baseUrl: true, endpoint: true, customHeaders: true, aws: true, azure: true,
-		googleCloud: true, snowflake: true, databricks: true, positaiLogin: true,
-	};
-
-	it('publishes every mirrored connection field, including positaiLogin', async () => {
-		const configPath = join(dir, 'providers.json');
-		fs.writeFileSync(configPath, JSON.stringify({
-			version: 1,
-			providers: { positai: { positaiLogin: { host: 'login.example' } } },
-		}));
-		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
-		const positai = (await catalog.getCatalog()).find(p => p.id === 'positai')!;
-		expect(positai.connection.positaiLogin?.host).toBe('login.example');
-		// The mapper assigns every key, so absent fields are present as undefined.
-		expect(Object.keys(positai.connection).sort()).toEqual(Object.keys(mirroredKeys).sort());
-	});
-
-	it('carries a custom entry\'s clientKind but omits it for a built-in', async () => {
-		const configPath = join(dir, 'providers.json');
-		fs.writeFileSync(configPath, JSON.stringify({
-			version: 1,
-			providers: { custom: { 'my-gateway': { type: 'openai-compatible', baseUrl: 'https://gw.example/v1' } } },
-		}));
-		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
-		const providers = await catalog.getCatalog();
-		const custom = providers.find(p => p.id === 'my-gateway')!;
-		expect(custom.clientKind).toBe('openai-compatible');
-		const anthropic = providers.find(p => p.id === 'anthropic')!;
-		expect(anthropic.clientKind).toBeUndefined();
-	});
-
-	it('reads model policy from the file and emits model-policy change events', async () => {
-		const configPath = join(dir, 'providers.json');
-		fs.writeFileSync(configPath, JSON.stringify({
-			version: 1,
-			providers: { anthropic: { models: { allow: ['claude-opus-5'] } } },
-		}));
-		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
-		const initialAnthropic = (await catalog.getCatalog()).find(p => p.id === 'anthropic')!;
-		expect(initialAnthropic.models).toEqual({ allow: ['claude-opus-5'] });
-
-		const changed = new Promise<void>(resolve => {
-			const d = catalog.onDidChangeCatalog(e => {
-				const anthropic = e.catalog.find(p => p.id === 'anthropic')!;
-				expect({
-					modelsChanged: e.modelsChanged,
-					models: anthropic.models,
-				}).toEqual({
-					modelsChanged: true,
-					models: { deny: ['claude-sonnet-5'] },
-				});
-				d.dispose();
-				resolve();
-			});
+		writeConfig(configPath, { anthropic: { enabled: false, baseUrl: 'https://proxy.example/v1' } });
+		const anthropic = (await createCatalog(configPath).getCatalog()).find(p => p.id === 'anthropic');
+		expect(anthropic).toEqual({
+			id: 'anthropic',
+			enabled: false,
+			baseUrl: 'https://proxy.example/v1',
+			customizedConnection: ['baseUrl'],
 		});
-		fs.writeFileSync(configPath, JSON.stringify({
-			version: 1,
-			providers: { anthropic: { models: { deny: ['claude-sonnet-5'] } } },
-		}));
-		await changed;
-	}, 10_000);
+	});
 
 	it('emits a change event when the file changes', async () => {
 		const configPath = join(dir, 'providers.json');
-		fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers: {} }));
-		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
-		await catalog.getCatalog();
-		const changed = new Promise<void>(resolve => {
-			const d = catalog.onDidChangeCatalog(e => {
-				expect(e.enabledChanged).toBe(true);
+		writeConfig(configPath, {});
+		const created = createCatalog(configPath);
+		await created.getCatalog();
+		const changed = new Promise<boolean>(resolve => {
+			const d = created.onDidChangeCatalog(e => {
 				d.dispose();
-				resolve();
+				resolve(e.enabledChanged);
 			});
 		});
-		fs.writeFileSync(configPath, JSON.stringify({
-			version: 1, providers: { anthropic: { enabled: false } },
-		}));
-		await changed;      // ai-config debounces ~300ms; vitest default timeout covers it
-		const anthropic = (await catalog.getCatalog()).find(p => p.id === 'anthropic')!;
-		expect(anthropic.enabled).toBe(false);
+		writeConfig(configPath, { anthropic: { enabled: false } });
+		expect(await changed).toBe(true);
+		const anthropic = (await created.getCatalog()).find(p => p.id === 'anthropic');
+		expect(anthropic?.enabled).toBe(false);
 	}, 10_000);
 
-	it('tears the watcher down on dispose', async () => {
+	it('stops firing once disposed', async () => {
 		const configPath = join(dir, 'providers.json');
-		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
-		await catalog.getCatalog();
+		const created = createCatalog(configPath);
+		await created.getCatalog();
 		const fired = vi.fn();
-		catalog.onDidChangeCatalog(fired);
-		catalog.dispose();
-		fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers: { anthropic: { enabled: false } } }));
+		created.onDidChangeCatalog(fired);
+		created.dispose();
+		writeConfig(configPath, { anthropic: { enabled: false } });
 		await new Promise(r => setTimeout(r, 600));
 		expect(fired).not.toHaveBeenCalled();
 	}, 10_000);
 
-	// PROVIDER-SETTINGS-MIGRATION(legacy-positron) gate: delete this test with
-	// the loader option. The catalog opts into the legacy admin channel only —
-	// user-set legacy settings are never read (this Positron migrates them into
-	// providers.json).
-	it('applies POSITRON_ENFORCED_SETTINGS above the user file without any reader wiring', async () => {
+	it('returns the config file location as a file URI', async () => {
 		const configPath = join(dir, 'providers.json');
-		fs.writeFileSync(configPath, JSON.stringify({
-			version: 1,
-			providers: { anthropic: { enabled: true, baseUrl: 'https://user.example/v1' } },
-		}));
-		catalog = new AiProviderCatalog(new NullLogService(), {
-			configPath,
-			envVars: {
-				POSITRON_ENFORCED_SETTINGS: JSON.stringify({
-					'authentication.anthropic.baseUrl': 'https://enforced.example/v1',
-					'positron.assistant.provider.anthropic.enable': false,
-				}),
-			},
+		expect((await createCatalog(configPath).getConfigFileUri()).toString()).toBe(URI.file(configPath).toString());
+	});
+
+	// PROVIDER-SETTINGS-MIGRATION(legacy-positron) gate: the entry opts into the
+	// legacy admin channel only; user-set legacy settings are never read.
+	it('applies POSITRON_ENFORCED_SETTINGS above the user file', async () => {
+		const configPath = join(dir, 'providers.json');
+		writeConfig(configPath, { anthropic: { enabled: true, baseUrl: 'https://user.example/v1' } });
+		const created = createCatalog(configPath, {
+			POSITRON_ENFORCED_SETTINGS: JSON.stringify({
+				'authentication.anthropic.baseUrl': 'https://enforced.example/v1',
+				'positron.assistant.provider.anthropic.enable': false,
+			}),
 		});
-		const anthropic = (await catalog.getCatalog()).find(p => p.id === 'anthropic')!;
-		expect({ enabled: anthropic.enabled, baseUrl: anthropic.connection.baseUrl })
+		const anthropic = (await created.getCatalog()).find(p => p.id === 'anthropic');
+		expect({ enabled: anthropic?.enabled, baseUrl: anthropic?.baseUrl })
 			.toEqual({ enabled: false, baseUrl: 'https://enforced.example/v1' });
+	});
+
+	describe('over a fake provider module', () => {
+		const stale: HeadlessProviderData[] = [{ id: 'anthropic', enabled: true }];
+		const fresh: HeadlessProviderData[] = [{ id: 'anthropic', enabled: false }];
+
+		function fakeProviders(getCatalog: () => Promise<readonly HeadlessProviderData[]>) {
+			const listeners = new Set<(change: HeadlessCatalogChange) => void>();
+			const providers = stubInterface<HeadlessProviders>({
+				getCatalog,
+				onDidChangeCatalog: listener => {
+					listeners.add(listener);
+					return { dispose: () => listeners.delete(listener) };
+				},
+			});
+			const fire = (catalog: readonly HeadlessProviderData[]) => listeners.forEach(listener => listener({
+				catalog, enabledChanged: true, connectionChanged: false, modelsChanged: false,
+			}));
+			return { providers, fire, listeners };
+		}
+
+		function catalogOver(get: HeadlessProviderModule['get']): AiProviderCatalog {
+			catalog = new AiProviderCatalog(stubInterface<HeadlessProviderModule>({ get }));
+			return catalog;
+		}
+
+		it('keeps a change that raced the initial load', async () => {
+			const initial = new DeferredPromise<readonly HeadlessProviderData[]>();
+			const fake = fakeProviders(() => initial.p);
+			const created = catalogOver(async () => ({ providers: fake.providers, source: { kind: 'compiled-in', reason: 'test' } }));
+			const loading = created.getCatalog();
+			await vi.waitFor(() => expect(fake.listeners.size).toBe(1));
+			fake.fire(fresh);
+			initial.complete(stale);
+			expect(await loading).toEqual(fresh);
+		});
+
+		it('retries after a failed load without subscribing twice', async () => {
+			const getCatalog = vi.fn<() => Promise<readonly HeadlessProviderData[]>>()
+				.mockRejectedValueOnce(new Error('providers.json unreadable'))
+				.mockResolvedValue(stale);
+			const fake = fakeProviders(getCatalog);
+			const created = catalogOver(async () => ({ providers: fake.providers, source: { kind: 'compiled-in', reason: 'test' } }));
+			await expect(created.getCatalog()).rejects.toThrow('providers.json unreadable');
+			expect(await created.getCatalog()).toEqual(stale);
+			expect(fake.listeners.size).toBe(1);
+		});
 	});
 });

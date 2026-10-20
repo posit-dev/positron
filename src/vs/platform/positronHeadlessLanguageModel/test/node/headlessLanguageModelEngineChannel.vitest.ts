@@ -6,30 +6,33 @@
 /// <reference types="vitest/globals" />
 
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { EngineStreamChunk, ICredentials, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../../common/engine.js';
+import { EngineStreamChunk, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelListing, IProviderMapping, IProviderModuleSource } from '../../common/engine.js';
 import { HeadlessLanguageModelEngineChannel } from '../../node/headlessLanguageModelEngineChannel.js';
 
 const request: IEngineChatRequest = {
 	providerId: 'positai',
 	modelId: 'm',
-	credentials: { type: 'oauth', accessToken: 't' },
+	sessionToken: 't',
 	systemPrompt: 's',
 	messages: [],
 };
 
 const mappings: IProviderMapping[] = [
-	{ providerId: 'positai', authProviderId: 'posit', scopes: [], credentialType: 'oauth', configKey: 'positron.assistant.positai' },
+	{ providerId: 'positai', authProviderId: 'posit', scopes: ['prism'], requiresSession: true },
 ];
 
-const models: IModelDescriptor[] = [{ id: 'm', name: 'M', vendor: 'V', providerId: 'positai' }];
+const listing: IModelListing = { credentialed: true, models: [{ id: 'm', name: 'M', vendor: 'V', providerId: 'positai' }] };
+
+const source: IProviderModuleSource = { kind: 'assistant', folder: '/ext/posit.assistant/dist/provider-module' };
 
 const noStream = (): AsyncIterable<string> => (async function* () { })();
 
 function fakeEngine(overrides: Partial<IHeadlessLanguageModelEngine> = {}): IHeadlessLanguageModelEngine {
 	return {
 		getProviderMappings: async () => mappings,
-		listModels: async () => models,
+		listModels: async () => listing,
 		streamChat: () => noStream(),
+		getProviderModuleSource: async () => source,
 		...overrides,
 	};
 }
@@ -59,13 +62,18 @@ describe('HeadlessLanguageModelEngineChannel', () => {
 		expect(await channel.call<IProviderMapping[]>(null, 'getProviderMappings')).toEqual(mappings);
 	});
 
-	it('routes listModels with its provider id and credentials', async () => {
-		let seen: [string, ICredentials] | undefined;
+	it('routes listModels with its provider id and session token', async () => {
+		let seen: [string, string | undefined] | undefined;
 		const channel = new HeadlessLanguageModelEngineChannel(fakeEngine({
-			listModels: async (providerId, credentials) => { seen = [providerId, credentials]; return models; },
+			listModels: async (providerId, sessionToken) => { seen = [providerId, sessionToken]; return listing; },
 		}));
-		const result = await channel.call<IModelDescriptor[]>(null, 'listModels', ['positai', { type: 'oauth', accessToken: 't' }]);
-		expect({ result, seen }).toEqual({ result: models, seen: ['positai', { type: 'oauth', accessToken: 't' }] });
+		const result = await channel.call<IModelListing>(null, 'listModels', ['positai', 'tok']);
+		expect({ result, seen }).toEqual({ result: listing, seen: ['positai', 'tok'] });
+	});
+
+	it('routes getProviderModuleSource to the engine', async () => {
+		const channel = new HeadlessLanguageModelEngineChannel(fakeEngine());
+		expect(await channel.call<IProviderModuleSource>(null, 'getProviderModuleSource')).toEqual(source);
 	});
 
 	it('throws on an unknown call or listen', () => {

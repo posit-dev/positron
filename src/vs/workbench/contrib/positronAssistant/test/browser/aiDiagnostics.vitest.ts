@@ -497,7 +497,7 @@ describe('collectProviderDiagnostics', () => {
 	const session = stubInterface<AuthenticationSession>({ id: 'session' });
 
 	function catalogEntry(id: string, overrides: Partial<IResolvedProviderData> = {}): IResolvedProviderData {
-		return { id, enabled: true, connection: {}, ...overrides };
+		return { id, enabled: true, ...overrides };
 	}
 
 	/** Stubs the catalog and the sign-ins: `signedIn` lists the auth ids with a session. */
