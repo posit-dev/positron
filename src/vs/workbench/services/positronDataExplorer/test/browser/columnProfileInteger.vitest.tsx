@@ -31,14 +31,14 @@ describe('ColumnProfileInteger', () => {
 	it('displays exact integer strings for Min and Max beyond float precision', () => {
 		rtl.render(<ColumnProfileInteger columnIndex={0} instance={createInstance('-9223372036854775808', '18446744073709551615')} />);
 
-		expect(screen.getByText('-9223372036854775808', { selector: '.value' })).toBeInTheDocument();
-		expect(screen.getByText('18446744073709551615', { selector: '.value' })).toBeInTheDocument();
+		expect(screen.getByTestId('column-profile-min')).toHaveTextContent(/^-9223372036854775808$/);
+		expect(screen.getByTestId('column-profile-max')).toHaveTextContent(/^18446744073709551615$/);
 	});
 
 	it('rounds Min and Max strings that are not plain integers', () => {
 		rtl.render(<ColumnProfileInteger columnIndex={0} instance={createInstance('1.5', '1.5e+07')} />);
 
-		expect(screen.getByText('2', { selector: '.value' })).toBeInTheDocument();
-		expect(screen.getByText('15000000', { selector: '.value' })).toBeInTheDocument();
+		expect(screen.getByTestId('column-profile-min')).toHaveTextContent(/^2$/);
+		expect(screen.getByTestId('column-profile-max')).toHaveTextContent(/^15000000$/);
 	});
 });
