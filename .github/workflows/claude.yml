@@ -23,7 +23,19 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A cold npm install takes ~15m; leave Claude time to work after it.
+    timeout-minutes: 45
+    # Same image as test-unit.yml, so Claude can install dependencies and run Vitest the way CI
+    # does. The npm caches are saved from inside this image and are not visible from the bare runner.
+    # seccomp/apparmor=unconfined: bubblewrap (for CLAUDE_CODE_SUBPROCESS_ENV_SCRUB) needs user
+    # namespaces, which Docker's default profiles block. The host is an ephemeral GitHub-hosted VM
+    # where the job already has sudo, so this does not widen access beyond the job itself.
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      options: --user 0:0 --init --security-opt seccomp=unconfined --security-opt apparmor=unconfined
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     permissions:
       contents: read
       packages: read
@@ -37,6 +49,7 @@ jobs:
       # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
       # The action only does this by default when allowed_non_write_users is set.
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+      HOME: /root
     steps:
       - name: Check actor has write permission
         env:
@@ -127,10 +140,49 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends bubblewrap socat
-          # Ubuntu 24.04+ restricts unprivileged user namespaces via AppArmor.
+          # Ubuntu 24.04+ restricts unprivileged user namespaces via AppArmor. /proc/sys is
+          # read-only inside the container, so this may fail; the bwrap check below is what counts.
           if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
           fi
+          # Fail here with a clear error rather than later inside Claude.
+          bwrap --ro-bind / / --unshare-user --unshare-pid --proc /proc --dev /dev true
+
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+        with:
+          restore-builtins: 'false'
+          restore-playwright: 'false'
+
+      # Same install as test-unit.yml, so Claude can run Vitest, eslint, and the precommit checks.
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          GITHUB_TOKEN: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          NPM_CONFIG_DEVDIR: '.node-gyp-cache'
+          DOCKER_CONFIG: /tmp/.docker
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: |
+            set -e
+            npm i --global node-gyp
+            bash scripts/install-npm-parallel.sh
 
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
@@ -140,6 +192,8 @@ jobs:
           branch_prefix: ${{ steps.branch-prefix.outputs.value }}
           additional_permissions: "actions: read"
           allowed_bots: ${{ env.ALLOWED_BOTS }}
+          # Required: with `prompt` set, comment events otherwise go to agent mode, which drops the
+          # triggering comment and the issue context. track_progress forces tag mode.
           track_progress: true
           plugin_marketplaces: |
             ./.claude-plugins/simple-english
@@ -150,7 +204,6 @@ jobs:
               "outputStyle": "simple-english:simple-english"
             }
           prompt: |
-            You are a helpful AI assistant for code reviews and issue triage.
             Respond to comments and issues that mention you by creating pull requests, summarizing research, updating issues, and otherwise providing actionable advice.
             Apply the Simple English output style to issue and pull request comments and descriptions, review summaries, and progress and failure messages.
             Keep issue and pull request text brief.
@@ -162,12 +215,19 @@ jobs:
             mcp__github__create_pull_request. Before creating the PR, use the positron-pr-helper
             skill to write the PR body. You are running non-interactively, so answer the skill's
             questions yourself from the issue, the triggering comment, and your changes.
+            This replaces the default instruction to provide a link to create the PR manually.
             If PR creation fails, push the branch and include a link to create the PR in your comment.
 
-            If your change is fixing a bug, always write or modify tests that reproduce the bug first,
-            push those as a separate commit and ensure that CI fails before then pushing the actual
-            fix. If you are modifying existing code, check if there are existing tests and update
-            them or put new tests alongside the old ones.
+            Node dependencies are already installed, so you can run Vitest tests, eslint, and
+            `npm run precommit`. Electron, the build daemons, and a display are not available, so
+            you cannot run Core Mocha, extension host, or e2e tests.
+
+            If your change is fixing a bug, always write or modify tests that reproduce the bug first.
+            Run the new test locally (for example `npx vitest run <file>`) and make sure that it fails
+            for the expected reason, then commit it separately before committing the fix. Put the
+            failing output in the PR body. CI does not run on your branch until the PR exists, so do
+            not wait for CI to confirm the failure. If you are modifying existing code, check if there
+            are existing tests and update them or put new tests alongside the old ones.
 
             For any task involving real build/test work, commit and push progress to your branch
             after each logical, verified increment (for example, once backend tests pass, and again
@@ -193,5 +253,5 @@ jobs:
             If no existing label is a good fit, leave the item unlabeled instead of creating a new label.
           claude_args: |
             --model opus
-            --fallback-model haiku
-            --allowedTools "WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh:*),Bash(npm ci:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/test.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
+            --fallback-model sonnet
+            --allowedTools "WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(npm ci:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
