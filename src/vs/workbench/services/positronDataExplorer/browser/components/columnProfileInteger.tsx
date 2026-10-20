@@ -36,6 +36,9 @@ const IntegerStatsValue = ({ stats, value }: { stats?: any; value?: number | str
 	} else if (typeof value === 'number') {
 		// Round to nearest integer and format without thousands separator
 		displayValue = Math.round(value).toString();
+	} else if (/^-?\d+$/.test(value)) {
+		// Already an exact integer string; parsing would lose precision beyond 2^53
+		displayValue = value;
 	} else {
 		// Already a string, try to parse and format as integer
 		const num = parseFloat(value);
