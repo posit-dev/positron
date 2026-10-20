@@ -107,7 +107,7 @@ export class EditorActionBar {
 
 	// --- Actions ---
 
-	async clickButton(buttonLabel: 'Convert to Code' | 'Import Data' | 'Clear Column Sorting' | 'Open as Plain Text File'): Promise<void> {
+	async clickButton(buttonLabel: 'Convert to Code' | 'Import Data' | 'Clear Column Sorting' | 'Open as Plain Text File' | 'Refresh'): Promise<void> {
 		await this.workbench.editorActionBar.clickButton(buttonLabel);
 	}
 
@@ -249,6 +249,18 @@ export class Filters {
 			} else {
 				await this.applyFilterButton.click();
 			}
+		});
+	}
+
+	// --- Verifications ---
+
+	/**
+	 * Expect the number of filters in the filter bar that the backend has marked invalid.
+	 * @param count expected number of invalid filters
+	 */
+	async expectInvalidFilterCount(count: number) {
+		await test.step(`Expect ${count} invalid filter(s)`, async () => {
+			await expect(this.code.driver.currentPage.locator('.invalid-row-filter-widget')).toHaveCount(count);
 		});
 	}
 
