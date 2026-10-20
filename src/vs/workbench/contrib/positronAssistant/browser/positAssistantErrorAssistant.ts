@@ -23,11 +23,6 @@ const POSIT_ASSISTANT_ERROR_ASSISTANT_ID = 'posit-assistant';
 /** The Posit Assistant extension's identifier. */
 const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
 
-// Appended to every Explain prompt. Without it, an agentic
-// assistant treats "Explain this error" plus an attached traceback as license
-// to fix it too.
-const explainOnlyConstraint = localize('positronAssistantExplainOnlyConstraint', "Do not make changes or edit any files; just explain the error.");
-
 /**
  * Registers Posit Assistant as the error assistant while it can take errors:
  * while the extension is installed and has a usable chat model.
@@ -105,13 +100,13 @@ export function getPositAssistantChatOptions(
 		case 'console':
 			// The console's error output is attached verbatim.
 			fixPrompt = localize('positronConsoleAssistantFixPrompt', "Fix this console error.");
-			explainPrompt = `${localize('positronConsoleAssistantExplainPrompt', "Explain this console error.")} ${explainOnlyConstraint}`;
+			explainPrompt = localize('positronConsoleAssistantExplainPrompt', "Explain this console error.");
 			attachmentName = localize('positronConsoleAssistantErrorAttachmentName', "Console Error");
 			content = context.error;
 			break;
 		case 'notebook':
 			fixPrompt = localize('positronNotebookAssistantFixPrompt', "Fix this notebook cell error.");
-			explainPrompt = `${localize('positronNotebookAssistantExplainPrompt', "Explain this notebook cell error.")} ${explainOnlyConstraint}`;
+			explainPrompt = localize('positronNotebookAssistantExplainPrompt', "Explain this notebook cell error.");
 			attachmentName = localize('positronNotebookAssistantErrorAttachmentName', "Notebook Cell Error");
 			content = context.error.trim();
 			break;
@@ -120,14 +115,14 @@ export function getPositAssistantChatOptions(
 			const cell = context.cell;
 			if (!cell) {
 				fixPrompt = localize('positronQuartoAssistantFixPrompt', "Fix this Quarto inline output error.");
-				explainPrompt = `${localize('positronQuartoAssistantExplainPrompt', "Explain this Quarto inline output error.")} ${explainOnlyConstraint}`;
+				explainPrompt = localize('positronQuartoAssistantExplainPrompt', "Explain this Quarto inline output error.");
 				content = context.error.trim();
 				break;
 			}
 			const { languageId, startLine, endLine, label } = cell;
 			const path = pathLabel(cell.uri);
 			fixPrompt = localize('positronQuartoAssistantFixPromptWithContext', "Fix the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached; fix only this error.", languageId, startLine, endLine, path);
-			explainPrompt = `${localize('positronQuartoAssistantExplainPromptWithContext', "Explain the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached.", languageId, startLine, endLine, path)} ${explainOnlyConstraint}`;
+			explainPrompt = localize('positronQuartoAssistantExplainPromptWithContext', "Explain the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached.", languageId, startLine, endLine, path);
 			const header = label
 				? localize('positronQuartoErrorContextHeaderLabeled', "Error from the {0} code chunk in {1}, lines {2}-{3} (label: {4}):", languageId, path, startLine, endLine, label)
 				: localize('positronQuartoErrorContextHeader', "Error from the {0} code chunk in {1}, lines {2}-{3}:", languageId, path, startLine, endLine);
@@ -141,7 +136,11 @@ export function getPositAssistantChatOptions(
 	}
 
 	return {
-		prompt: action === 'fix' ? fixPrompt : explainPrompt,
+		// Without the constraint, an agentic assistant treats "Explain this
+		// error" plus an attached traceback as license to fix it too.
+		prompt: action === 'fix'
+			? fixPrompt
+			: localize('positronAssistantExplainOnlyPrompt', "{0} Do not make changes or edit any files; just explain the error.", explainPrompt),
 		target: options.continueChat ? 'auto' : 'new',
 		behavior: 'submit',
 		...(content && { files: [{ uri: `data:text/plain;base64,${encodeBase64(VSBuffer.fromString(content))}`, name: attachmentName }] }),
