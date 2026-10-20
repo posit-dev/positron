@@ -103,7 +103,18 @@ describe('PositronReorderListWidget', () => {
 		const { widget, rows } = createWidget(['p', 'r']);
 		pointerDown(rows()[0]);
 		widget.setValue(toItems(['j', 'r']));
-		expect(rows().some(row => row.classList.contains('selected'))).toBe(false);
+		for (const row of rows()) {
+			expect(row).not.toHaveClass('selected');
+		}
+	});
+
+	it('ignores a drop after the drag was cancelled', () => {
+		const { rows, events } = createWidget(['a', 'b', 'c']);
+		rows()[2].dispatchEvent(new Event('dragstart', { bubbles: true }));
+		rows()[2].dispatchEvent(new Event('dragend', { bubbles: true }));
+		rows()[0].dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+		expect(events).toEqual([]);
+		expect(rowLabels(rows)).toEqual(['A', 'B', 'C']);
 	});
 
 	it('ignores a drop that did not start in the list', () => {

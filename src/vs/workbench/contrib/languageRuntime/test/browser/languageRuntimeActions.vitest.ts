@@ -33,6 +33,10 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { LANGUAGE_ORDER_KEY } from '../../../../services/languageRuntime/common/languageOrder.js';
 import { AGENT_SESSIONS_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfigurationKeys.js';
 
+function setLanguageOrder(configurationService: IConfigurationService, order: string[]): void {
+	(configurationService as TestConfigurationService).setUserConfiguration(LANGUAGE_ORDER_KEY, order);
+}
+
 function makeRuntime(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
 	const languageId = overrides.languageId ?? 'python';
 	const base: ILanguageRuntimeMetadata = {
@@ -305,7 +309,7 @@ describe('selectNewLanguageRuntime', () => {
 
 	describe('item structure', () => {
 		beforeEach(() => {
-			(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(LANGUAGE_ORDER_KEY, []);
+			setLanguageOrder(ctx.get(IConfigurationService), []);
 		});
 
 		/** The R and Python runtime labels, in picker order. */
@@ -314,7 +318,7 @@ describe('selectNewLanguageRuntime', () => {
 		}
 
 		it('lists languages in the configured order', async () => {
-			(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(LANGUAGE_ORDER_KEY, ['r']);
+			setLanguageOrder(ctx.get(IConfigurationService), ['r']);
 			await registerRuntime(makeRuntime({ runtimeId: 'py', languageId: 'python', languageName: 'Python', runtimeName: 'Python 3.12' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'r', languageId: 'r', languageName: 'R', runtimeName: 'R 4.4' }));
 			const promise = runPicker();
@@ -825,12 +829,12 @@ describe('selectLanguage', () => {
 	}
 
 	it('lists languages alphabetically by default', async () => {
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(LANGUAGE_ORDER_KEY, []);
+		setLanguageOrder(ctx.get(IConfigurationService), []);
 		expect(await promptLabels()).toEqual(['Python', 'R']);
 	});
 
 	it('lists languages in the configured order', async () => {
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(LANGUAGE_ORDER_KEY, ['r']);
+		setLanguageOrder(ctx.get(IConfigurationService), ['r']);
 		expect(await promptLabels()).toEqual(['R', 'Python']);
 	});
 });

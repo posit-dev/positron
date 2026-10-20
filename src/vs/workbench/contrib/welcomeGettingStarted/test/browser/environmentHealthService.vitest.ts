@@ -90,28 +90,28 @@ describe('EnvironmentHealthService', () => {
 	};
 
 	/** Answers the order setting separately from the environment checks setting. */
-	function setLanguageOrder(order: unknown) {
-		getValue.mockImplementation((key: string) => key === LANGUAGE_ORDER_KEY ? order : ['python', 'r']);
+	function setConfig({ enabled = ['python', 'r'], order }: { enabled?: string[]; order: unknown }) {
+		getValue.mockImplementation((key: string) => key === LANGUAGE_ORDER_KEY ? order : enabled);
 	}
 
 	it('keeps the default order when the order is unset', () => {
-		setLanguageOrder([]);
+		setConfig({ order: [] });
 		const service = ctx.disposables.add(build());
 		expect(service.state.map(s => s.language)).toEqual(['python', 'r']);
 	});
 
 	it('orders languages by interpreters.languageOrder', () => {
-		setLanguageOrder(['r']);
+		setConfig({ order: ['r'] });
 		const service = ctx.disposables.add(build());
 		expect(service.state.map(s => s.language)).toEqual(['r', 'python']);
 	});
 
 	it('fires onDidChange with the new order when the setting changes', () => {
-		setLanguageOrder([]);
+		setConfig({ order: [] });
 		const service = ctx.disposables.add(build());
 		const changed = vi.fn();
 		ctx.disposables.add(service.onDidChange(changed));
-		setLanguageOrder(['r']);
+		setConfig({ order: ['r'] });
 		onDidChangeConfiguration.fire({ affectsConfiguration: key => key === LANGUAGE_ORDER_KEY });
 		expect(changed.mock.lastCall?.[0].map((s: { language: string }) => s.language)).toEqual(['r', 'python']);
 	});
@@ -368,16 +368,15 @@ describe('EnvironmentHealthService', () => {
 		await settle();
 		expect(environmentHealthService.isBusy('python')).toBe(true);
 
-		// The user hides python while its check is still running. (The same value
-		// answers the order key, which only moves R first.)
-		getValue.mockReturnValue(['r']);
+		// The user hides python while its check is still running.
+		setConfig({ enabled: ['r'], order: [] });
 		onDidChangeConfiguration.fire({ affectsConfiguration: () => true });
-		expect(environmentHealthService.state.find(l => l.language === 'python')!.state.kind).toBe('hidden');
+		expect(environmentHealthService.state[0].state.kind).toBe('hidden');
 
 		resolveRun(passing);
 		await settle();
 
-		expect(environmentHealthService.state.find(l => l.language === 'python')!.state.kind).toBe('hidden');
+		expect(environmentHealthService.state[0].state.kind).toBe('hidden');
 		expect(environmentHealthService.isBusy('python')).toBe(false);
 		environmentHealthService.dispose();
 	});
