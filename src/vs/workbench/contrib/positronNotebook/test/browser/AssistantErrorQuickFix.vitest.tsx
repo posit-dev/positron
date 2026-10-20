@@ -59,8 +59,8 @@ describe('AssistantErrorQuickFix', () => {
 	it('sends Fix and Explain to a new chat', async () => {
 		const user = userEvent.setup();
 		renderQuickFix();
-		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
-		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to explain in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to explain in new chat' }));
 
 		expect(ask.mock.calls).toEqual([
 			['fix', errorContext, { continueChat: false }],
@@ -85,7 +85,7 @@ describe('AssistantErrorQuickFix', () => {
 		let error = 'stale location';
 		renderQuickFix({}, { getErrorContext: () => ({ ...errorContext, error }) });
 		error = 'fresh location';
-		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
 
 		expect(ask.mock.calls[0][1].error).toBe('fresh location');
 	});
@@ -98,13 +98,13 @@ describe('AssistantErrorQuickFix', () => {
 
 		const showContextMenu = vi.mocked(ctx.get(IContextMenuService).showContextMenu);
 		const labels = showContextMenu.mock.calls.map(([delegate]) => (delegate as IContextMenuDelegate).getActions().map(action => action.label));
-		expect(labels).toEqual([['Ask Test Agent to fix in current chat'], ['Ask Test Agent to explain in current chat']]);
+		expect(labels).toEqual([['Ask Test Assistant to fix in current chat'], ['Ask Test Assistant to explain in current chat']]);
 	});
 
 	it('offers no dropdowns when the assistant cannot continue the active chat', () => {
 		renderQuickFix({ supportsChatContinuation: false });
 
-		expect(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'More fix options' })).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'More explain options' })).not.toBeInTheDocument();
 	});

@@ -44,8 +44,8 @@ describe('ConsoleQuickFix', () => {
 		registerAssistant();
 		const user = userEvent.setup();
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
-		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix' }));
-		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to explain' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to explain' }));
 
 		const context = {
 			kind: 'console',

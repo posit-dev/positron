@@ -915,7 +915,7 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Click the "Ask <agent> to fix" button on an error cell.
+	 * Action: Click the "Ask <assistant> to fix" button on an error cell.
 	 * Requires: assistant enabled, a model signed in, and an error visible in a cell.
 	 */
 	async clickFixErrorButton(): Promise<void> {
@@ -925,7 +925,7 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Click the "Ask <agent> to explain" button on an error cell.
+	 * Action: Click the "Ask <assistant> to explain" button on an error cell.
 	 * Requires: assistant enabled, a model signed in, and an error visible in a cell.
 	 */
 	async clickExplainErrorButton(): Promise<void> {

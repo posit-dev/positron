@@ -34,7 +34,6 @@ export class ErrorAssistantService extends Disposable implements IErrorAssistant
 	) {
 		super();
 
-		this._lastActiveAssistant = this._getActiveAssistant();
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(AI_ENABLED_KEY)) {
 				this._fireIfActiveAssistantChanged();
@@ -55,7 +54,7 @@ export class ErrorAssistantService extends Disposable implements IErrorAssistant
 		this._fireIfActiveAssistantChanged();
 		return toDisposable(() => {
 			// Nothing to update once the service itself is disposed.
-			if (!this._store.isDisposed && this._assistantsById.get(assistant.id) === assistant) {
+			if (!this._store.isDisposed) {
 				this._assistantsById.delete(assistant.id);
 				this._fireIfActiveAssistantChanged();
 			}
@@ -84,7 +83,7 @@ export class ErrorAssistantService extends Disposable implements IErrorAssistant
 		} catch (error) {
 			this._logService.error(`Failed to send the error to ${assistant.label}`, error);
 			this._notificationService.error(
-				localize('positron.errorAssistant.runFailed', "Could not send the error to {0}: {1}", assistant.label, toErrorMessage(error))
+				localize('positron.errorAssistant.askFailed', "Could not send the error to {0}: {1}", assistant.label, toErrorMessage(error))
 			);
 		}
 	}

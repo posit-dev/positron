@@ -44,7 +44,7 @@ describe('ErrorAssistantService', () => {
 	}
 
 	function createAssistant(options: Partial<IErrorAssistant> = {}): IErrorAssistant {
-		return { id: 'test-agent', label: 'Test Agent', supportsChatContinuation: true, ask: async () => { }, ...options };
+		return { id: 'test-assistant', label: 'Test Assistant', supportsChatContinuation: true, ask: async () => { }, ...options };
 	}
 
 	it('sends errors to an assistant while it is registered', () => {
@@ -103,7 +103,7 @@ describe('ErrorAssistantService', () => {
 		const assistant = createAssistant();
 		ctx.disposables.add(service.register(assistant));
 
-		expect(() => service.register(createAssistant())).toThrow(`An error assistant with the id 'test-agent' is already registered`);
+		expect(() => service.register(createAssistant())).toThrow(`An error assistant with the id 'test-assistant' is already registered`);
 		expect(service.activeAssistant).toBe(assistant);
 	});
 
@@ -114,7 +114,7 @@ describe('ErrorAssistantService', () => {
 		const ask = vi.fn().mockResolvedValue(undefined);
 		ctx.disposables.add(service.register(createAssistant({ ask })));
 
-		await service.ask('test-agent', 'fix', context, { continueChat: true });
+		await service.ask('test-assistant', 'fix', context, { continueChat: true });
 
 		expect(ask).toHaveBeenCalledWith('fix', context, { continueChat: true });
 		expect(notifyError).not.toHaveBeenCalled();
@@ -125,7 +125,7 @@ describe('ErrorAssistantService', () => {
 		const ask = vi.fn();
 		ctx.disposables.add(service.register(createAssistant({ ask })));
 
-		await service.ask('test-agent', 'fix', { kind: 'console', error: '\u001b[31mNameError\u001b[0m: x' }, {});
+		await service.ask('test-assistant', 'fix', { kind: 'console', error: '\u001b[31mNameError\u001b[0m: x' }, {});
 
 		expect(ask.mock.calls[0][1].error).toBe('NameError: x');
 	});
@@ -135,7 +135,7 @@ describe('ErrorAssistantService', () => {
 		const ask = vi.fn();
 		ctx.disposables.add(service.register(createAssistant({ ask, supportsChatContinuation: false })));
 
-		await service.ask('test-agent', 'fix', context, { continueChat: true });
+		await service.ask('test-assistant', 'fix', context, { continueChat: true });
 
 		expect(ask.mock.calls[0][2]).toEqual({ continueChat: false });
 	});
@@ -158,7 +158,7 @@ describe('ErrorAssistantService', () => {
 		ctx.disposables.add(service.register(createAssistant({ ask })));
 		setAIEnabled(false);
 
-		await service.ask('test-agent', 'fix', context, {});
+		await service.ask('test-assistant', 'fix', context, {});
 
 		expect(ask).not.toHaveBeenCalled();
 	});
@@ -177,9 +177,9 @@ describe('ErrorAssistantService', () => {
 		const error = new Error('command not found');
 		ctx.disposables.add(service.register(createAssistant({ ask: () => Promise.reject(error) })));
 
-		await service.ask('test-agent', 'explain', context, {});
+		await service.ask('test-assistant', 'explain', context, {});
 
-		expect(logError).toHaveBeenCalledWith('Failed to send the error to Test Agent', error);
-		expect(notifyError).toHaveBeenCalledWith('Could not send the error to Test Agent: command not found');
+		expect(logError).toHaveBeenCalledWith('Failed to send the error to Test Assistant', error);
+		expect(notifyError).toHaveBeenCalledWith('Could not send the error to Test Assistant: command not found');
 	});
 });

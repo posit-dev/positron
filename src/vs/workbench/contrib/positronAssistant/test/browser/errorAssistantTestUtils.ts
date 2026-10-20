@@ -23,8 +23,8 @@ interface IErrorAssistantTestContainer {
 export function registerTestErrorAssistant(ctx: IErrorAssistantTestContainer, overrides: Partial<IErrorAssistant> = {}): IDisposable {
 	(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(AI_ENABLED_KEY, true);
 	return ctx.disposables.add(ctx.get(IErrorAssistantService).register({
-		id: 'test-agent',
-		label: 'Test Agent',
+		id: 'test-assistant',
+		label: 'Test Assistant',
 		supportsChatContinuation: true,
 		ask: async () => { },
 		...overrides,

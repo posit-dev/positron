@@ -62,7 +62,7 @@ describe('QuartoOutputQuickFix', () => {
 		const user = userEvent.setup();
 		const uri = URI.file('/report.qmd');
 		renderQuickFix({ uri, languageId: 'python', label: 'setup', code: 'raise RuntimeError("boom")', startLine: 8, endLine: 9 });
-		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
 
 		expect(ask).toHaveBeenCalledWith('fix', {
 			kind: 'quarto',
@@ -74,7 +74,7 @@ describe('QuartoOutputQuickFix', () => {
 	it('strips ANSI escape codes from the error', async () => {
 		const user = userEvent.setup();
 		rtl.render(<QuartoOutputQuickFix errorContent={'\u001b[31mNameError\u001b[0m: x'} />);
-		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
 
 		expect(ask.mock.calls[0][1].error).toBe('NameError: x');
 	});
@@ -82,7 +82,7 @@ describe('QuartoOutputQuickFix', () => {
 	it('sends the error without a cell when it cannot be found', async () => {
 		const user = userEvent.setup();
 		renderQuickFix(undefined);
-		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
 
 		expect(ask).toHaveBeenCalledWith('fix', { kind: 'quarto', error: 'NameError: name "x" is not defined', cell: undefined }, { continueChat: false });
 	});

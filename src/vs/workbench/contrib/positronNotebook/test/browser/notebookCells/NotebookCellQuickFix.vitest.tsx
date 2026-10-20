@@ -52,7 +52,7 @@ describe('NotebookCellQuickFix', () => {
 		setGates();
 		const user = userEvent.setup();
 		rtl.render(<NotebookCellQuickFix errorContent={'\u001b[31mNameError\u001b[0m: name "x" is not defined'} />);
-		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
 
 		expect(ask).toHaveBeenCalledWith('fix', { kind: 'notebook', error: 'NameError: name "x" is not defined' }, { continueChat: false });
 	});
