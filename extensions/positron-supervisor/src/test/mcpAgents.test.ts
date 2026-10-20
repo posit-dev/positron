@@ -55,6 +55,25 @@ suite('mergeAgentConfig', () => {
 			].join('\n'));
 	});
 
+	test('writes OpenCode a nested entry, and takes it out again', () => {
+		const existing = JSON.stringify({ mcp: { servers: { other: { type: 'remote' } } } });
+		const merged = mergeAgentConfig(fileInstall('opencode'), existing, LAUNCH);
+
+		assert.deepStrictEqual(
+			[JSON.parse(merged), JSON.parse(unmergeAgentConfig(fileInstall('opencode'), merged))],
+			[
+				{
+					mcp: {
+						servers: {
+							other: { type: 'remote' },
+							positron: { type: 'local', command: ['/storage/mcp/bin/positron-mcp'] },
+						},
+					},
+				},
+				JSON.parse(existing),
+			]);
+	});
+
 	test('preserves the other servers and settings already in a JSON file', () => {
 		const existing = JSON.stringify({
 			mcpServers: { other: { command: 'other-server' } },
@@ -84,6 +103,8 @@ suite('mergeAgentConfig', () => {
 				['codex', true, 'file'],
 				['gemini', true, 'file'],
 				['kiro', true, 'file'],
+				['opencode', true, 'file'],
+				['copilot', true, 'file'],
 			]);
 	});
 });

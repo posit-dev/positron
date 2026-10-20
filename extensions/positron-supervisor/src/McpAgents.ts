@@ -48,11 +48,16 @@ export interface McpFileInstall {
 	/** The file's format, which decides how an entry is merged into it. */
 	readonly format: 'json' | 'toml';
 
-	/** What the servers live under: `mcpServers`, `mcp_servers`. */
+	/** The dotted path the servers live under: `mcpServers`, `mcp.servers`. */
 	readonly serversKey: string;
 
-	/** Fields the harness needs in the entry beyond the command line. */
-	readonly extraFields?: Readonly<Record<string, unknown>>;
+	/** The server entry, in the harness's own vocabulary. */
+	readonly entry: (launch: McpLaunch) => Record<string, unknown>;
+}
+
+/** The entry most harnesses take: the command, and its arguments apart. */
+function commandAndArgs(launch: McpLaunch): Record<string, unknown> {
+	return { command: launch.command, args: [...launch.args] };
 }
 
 /**
@@ -144,7 +149,10 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 			// Codex hands a server only an allowlist of its environment, so a
 			// Codex started from a Positron terminal has to be told to pass the
 			// endpoint on.
-			extraFields: { env_vars: [MCP_URL_ENV_VAR, MCP_TOKEN_ENV_VAR] },
+			entry: launch => ({
+				...commandAndArgs(launch),
+				env_vars: [MCP_URL_ENV_VAR, MCP_TOKEN_ENV_VAR],
+			}),
 		},
 	},
 	{
@@ -158,6 +166,7 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 			configPath: () => [os.homedir(), '.gemini', 'settings.json'],
 			format: 'json',
 			serversKey: 'mcpServers',
+			entry: commandAndArgs,
 		},
 	},
 	{
@@ -173,6 +182,43 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 			configPath: () => [os.homedir(), '.kiro', 'settings', 'mcp.json'],
 			format: 'json',
 			serversKey: 'mcpServers',
+			entry: commandAndArgs,
+		},
+	},
+	{
+		id: 'opencode',
+		label: 'OpenCode',
+		detect: { executable: 'opencode' },
+		// The global configuration, for the same reason as Gemini. OpenCode's
+		// CLI can add a server but not remove one, so the file is edited
+		// directly.
+		install: {
+			kind: 'file',
+			configPath: () => [
+				process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
+				'opencode',
+				'opencode.json',
+			],
+			format: 'json',
+			serversKey: 'mcp.servers',
+			entry: launch => ({ type: 'local', command: [launch.command, ...launch.args] }),
+		},
+	},
+	{
+		id: 'copilot',
+		label: 'Copilot CLI',
+		clientName: 'github-copilot-developer',
+		detect: { executable: 'copilot' },
+		// The user configuration, for the same reason as Gemini.
+		install: {
+			kind: 'file',
+			configPath: () => [
+				process.env.COPILOT_HOME || path.join(os.homedir(), '.copilot'),
+				'mcp-config.json',
+			],
+			format: 'json',
+			serversKey: 'mcpServers',
+			entry: launch => ({ type: 'local', ...commandAndArgs(launch), tools: ['*'] }),
 		},
 	},
 ];
@@ -185,20 +231,6 @@ export const MCP_AGENTS: readonly McpAgent[] = [
  */
 export function findMcpAgent(id: string): McpAgent | undefined {
 	return MCP_AGENTS.find(agent => agent.id === id);
-}
-
-/**
- * The server entry to write, in the harness's own vocabulary.
- *
- * @param install The file install being written.
- * @param launch The command line that starts the bridge.
- * @returns The fields of the entry, in the order they should be written.
- */
-function mcpServerEntry(
-	install: McpFileInstall,
-	launch: McpLaunch,
-): Record<string, unknown> {
-	return { command: launch.command, args: [...launch.args], ...install.extraFields };
 }
 
 /**
@@ -215,7 +247,7 @@ export function mergeAgentConfig(
 	existing: string | undefined,
 	launch: McpLaunch,
 ): string {
-	const entry = mcpServerEntry(install, launch);
+	const entry = install.entry(launch);
 	return install.format === 'json'
 		? mergeJsonConfig(existing, install.serversKey, entry)
 		: mergeTomlConfig(existing, install.serversKey, entry);
@@ -239,8 +271,8 @@ export function unmergeAgentConfig(install: McpFileInstall, existing: string): s
  * Merge the entry into a JSON configuration.
  *
  * @param existing The current contents, if the file exists.
- * @param serversKey The object the servers live under.
- * @param entry The entry from {@link mcpServerEntry}.
+ * @param serversKey The dotted path to the object the servers live under.
+ * @param entry The entry from {@link McpFileInstall.entry}.
  * @returns The contents to write.
  */
 function mergeJsonConfig(
@@ -249,7 +281,10 @@ function mergeJsonConfig(
 	entry: Record<string, unknown>,
 ): string {
 	const config: Record<string, unknown> = existing ? JSON.parse(existing) : {};
-	const servers = (config[serversKey] ?? (config[serversKey] = {})) as Record<string, unknown>;
+	let servers = config;
+	for (const key of serversKey.split('.')) {
+		servers = (servers[key] ?? (servers[key] = {})) as Record<string, unknown>;
+	}
 	servers[MCP_SERVER_NAME] = entry;
 	return `${JSON.stringify(config, null, 2)}\n`;
 }
@@ -258,12 +293,13 @@ function mergeJsonConfig(
  * Remove our entry from a JSON configuration.
  *
  * @param existing The current contents.
- * @param serversKey The object the servers live under.
+ * @param serversKey The dotted path to the object the servers live under.
  * @returns The contents to write.
  */
 function unmergeJsonConfig(existing: string, serversKey: string): string {
 	const config: Record<string, unknown> = JSON.parse(existing);
-	const servers = config[serversKey] as Record<string, unknown> | undefined;
+	const servers = serversKey.split('.').reduce<Record<string, unknown> | undefined>(
+		(object, key) => object?.[key] as Record<string, unknown> | undefined, config);
 	delete servers?.[MCP_SERVER_NAME];
 	return `${JSON.stringify(config, null, 2)}\n`;
 }
@@ -277,7 +313,7 @@ function unmergeJsonConfig(existing: string, serversKey: string): string {
  *
  * @param existing The current contents, if the file exists.
  * @param serversKey The table the servers live under.
- * @param entry The entry from {@link mcpServerEntry}.
+ * @param entry The entry from {@link McpFileInstall.entry}.
  * @returns The contents to write.
  */
 export function mergeTomlConfig(
