@@ -173,7 +173,26 @@ function isOtherFolderCondaPrefixEnv(interpreter: PythonEnvironment): boolean {
 
 function isUvBase(interpreter: PythonEnvironment, context: RankingContext): boolean {
     // uv venvs live elsewhere; only uv-managed base Pythons are under its install dirs.
-    return context.uvPythonInstallDirs.some((dir) => isUnder(interpreter.path, dir));
+    // A uv Python reached through a link (`~/.local/bin/python3.15`) has the real prefix
+    // as `envPath`/`sysPrefix`; a uv venv's own `sysPrefix` is its folder, not the install dir.
+    return context.uvPythonInstallDirs.some(
+        (dir) =>
+            isUnder(interpreter.path, dir) || isUnder(interpreter.envPath, dir) || isUnder(interpreter.sysPrefix, dir),
+    );
+}
+
+/** Whether the version is an alpha, beta or release candidate. */
+function isPrerelease(interpreter: PythonEnvironment): boolean {
+    const version = interpreter.version;
+    return !!version && (version.prerelease.length > 0 || /\d(?:a|b|rc)\d*$/.test(version.raw));
+}
+
+/**
+ * Whether the ranking puts this interpreter below every stable one. A pre-release is only a
+ * last resort, but not one the user or project named (the tiers up to `PythonVersionFile`).
+ */
+function isDemotedPrerelease(interpreter: PythonEnvironment, tier: Tier | undefined): boolean {
+    return tier !== undefined && tier >= Tier.WorkspaceEnv && isPrerelease(interpreter);
 }
 
 /**
@@ -340,12 +359,14 @@ export function rankInterpreters(interpreters: PythonEnvironment[], context: Ran
             interpreter,
             tier,
             tierKey: tier ?? Number.MAX_SAFE_INTEGER,
+            prerelease: isDemotedPrerelease(interpreter, tier) ? 1 : 0,
             within: tier === undefined ? 0 : orderWithinTier(interpreter, tier, context),
             definition: context.definitionsOnly ? definitionIndex(interpreter, context) : 0,
         };
     });
     keyed.sort(
         (a, b) =>
+            (a.tier === undefined ? 0 : a.prerelease) - (b.tier === undefined ? 0 : b.prerelease) ||
             a.tierKey - b.tierKey ||
             a.within - b.within ||
             compareVersions(a.interpreter.version, b.interpreter.version) ||
