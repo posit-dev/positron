@@ -1512,7 +1512,7 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		const svc = ctx.disposables.add(
 			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
 
-		// Python recomputes its recommendation on every open and opts out; R keeps the default.
+		// One manager opts out; the other keeps the default.
 		const manager = makeManager({ id: 1, owns: [] });
 		manager.recommendWorkspaceRuntimes = async () => [
 			{ metadata: metadata({ languageId: 'python', runtimeId: 'rt-python' }), isProjectDefault: false },
