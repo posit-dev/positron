@@ -23,9 +23,9 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # Claude installs node dependencies only when it needs to run tests, which takes several
-    # minutes; leave it time to work after that.
-    timeout-minutes: 45
+    # Installing node dependencies takes ~15m when the npm cache misses; leave Claude time to
+    # work after that.
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: read
@@ -39,7 +39,7 @@ jobs:
       # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
       # The action only does this by default when allowed_non_write_users is set.
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
-      # Keep an `npm ci` that Claude runs for tests from downloading binaries it cannot use here.
+      # Keep the dependency install from downloading binaries Claude cannot use here.
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
     steps:
@@ -79,6 +79,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
+          # The root package.json installs packages from the ai-lib submodule.
+          submodules: recursive
           token: ${{ steps.generate-token.outputs.token }}
           # claude-code-action sets up its own git auth for pushing
           persist-credentials: false
@@ -131,8 +133,7 @@ jobs:
       - name: Install subprocess isolation dependencies
         run: |
           sudo apt-get update -qq
-          # libkrb5-dev, libxkbfile-dev, pkg-config: native modules built by `npm ci`, in case
-          # Claude installs dependencies to run tests.
+          # libkrb5-dev, libxkbfile-dev, pkg-config: native modules built by the dependency install.
           sudo apt-get install -y --no-install-recommends bubblewrap socat libkrb5-dev libxkbfile-dev pkg-config
           # Ubuntu 24.04+ restricts unprivileged user namespaces via AppArmor.
           if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
@@ -150,6 +151,51 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
+          # The steps below cache the npm download cache for every lockfile, not just the root one.
+          package-manager-cache: false
+
+      # Install dependencies here, not from inside Claude: with CLAUDE_CODE_SUBPROCESS_ENV_SCRUB,
+      # Claude's sandbox makes node_modules/.bin read-only, so `npm ci` fails with EBUSY.
+      # This job has its own cache of npm's download cache, not the shared build caches:
+      # those are saved from the CI container image and are often evicted.
+      - name: Restore npm cache
+        id: npm-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ${{ runner.temp }}/npm-cache
+          key: claude-npm-v1-${{ runner.os }}-${{ hashFiles('.nvmrc') }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            claude-npm-v1-${{ runner.os }}-${{ hashFiles('.nvmrc') }}-
+
+      - name: Install node dependencies
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          # Outside the workspace, so Claude cannot commit it.
+          NPM_CONFIG_CACHE: ${{ runner.temp }}/npm-cache
+          POSITRON_PARALLEL_INSTALL: '0'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+        with:
+          timeout_minutes: 30
+          max_attempts: 2
+          retry_wait_seconds: 5
+          shell: bash
+          command: |
+            set -e
+            npm i --global node-gyp
+            bash scripts/install-npm-parallel.sh
+
+      # Save before Claude runs, so nothing Claude does can change what is cached.
+      - name: Save npm cache
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ${{ runner.temp }}/npm-cache
+          key: ${{ steps.npm-cache.outputs.cache-primary-key }}
 
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
@@ -185,11 +231,10 @@ jobs:
             This replaces the default instruction to provide a link to create the PR manually.
             If PR creation fails, push the branch and include a link to create the PR in your comment.
 
-            Node dependencies are not installed. If you need to run Vitest tests, eslint, or
-            `npm run precommit`, first run `npm --prefix build ci` and then `npm ci`. This takes
-            several minutes, so skip it when you are only researching or answering a question.
-            Electron, the build daemons, and a display are not available, so you cannot run
-            Core Mocha, extension host, or e2e tests.
+            Node dependencies are already installed, so you can run Vitest tests, eslint, and
+            `npm run precommit`. Do not run `npm ci` or `npm install`: the sandbox makes
+            node_modules/.bin read-only, so they fail. Electron, the build daemons, and a display
+            are not available, so you cannot run Core Mocha, extension host, or e2e tests.
 
             If your change is fixing a bug, always write or modify tests that reproduce the bug first.
             Run the new test locally (for example `npx vitest run <file>`) and make sure that it fails
@@ -225,4 +270,4 @@ jobs:
           claude_args: |
             --model opus
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(npm ci:*),Bash(npm --prefix build ci:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
+            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
