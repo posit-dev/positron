@@ -9,10 +9,16 @@
 import type { HeadlessProviders, HeadlessProvidersOptions } from 'ai-provider-bridge/headless';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
+import { Emitter } from '../../../../base/common/event.js';
 import { join } from '../../../../base/common/path.js';
 import { URI } from '../../../../base/common/uri.js';
 import Severity from '../../../../base/common/severity.js';
-import { IExtensionManagementService, ILocalExtension } from '../../../extensionManagement/common/extensionManagement.js';
+import {
+	DidUninstallExtensionEvent,
+	IExtensionManagementService,
+	ILocalExtension,
+	InstallExtensionResult,
+} from '../../../extensionManagement/common/extensionManagement.js';
 import { IProductService } from '../../../product/common/productService.js';
 import { NullLogService } from '../../../log/common/log.js';
 import { IUserDataProfile, IUserDataProfilesService } from '../../../userDataProfile/common/userDataProfile.js';
@@ -80,8 +86,13 @@ describe('headless provider module', () => {
 		});
 	}
 
+	const installs = new Emitter<readonly InstallExtensionResult[]>();
+	const uninstalls = new Emitter<DidUninstallExtensionEvent>();
+
 	function extensionsByProfile(byProfile: Record<string, ILocalExtension[] | Error>): IExtensionManagementService {
 		return stubInterface<IExtensionManagementService>({
+			onDidInstallExtensions: installs.event,
+			onDidUninstallExtension: uninstalls.event,
 			getInstalled: vi.fn(async (_type, resource: URI) => {
 				const name = resource.path.split('/')[2];
 				const result = byProfile[name] ?? [];
@@ -313,6 +324,40 @@ describe('headless provider module', () => {
 			await new Promise(resolve => setTimeout(resolve, 0));
 			expect({ discoveries: vi.mocked(extensions.getInstalled).mock.calls.length, factories: compiledInFactory.mock.calls.length })
 				.toEqual({ discoveries: 1, factories: 1 });
+		});
+
+		it('selects again and keeps the old providers alive when Posit Assistant is installed', async () => {
+			const installed: ILocalExtension[] = [];
+			const module = create(extensionsByProfile({ default: installed }));
+			const reselected = vi.fn();
+			const listener = module.onDidReselect(reselected);
+			const before = await module.get();
+			installed.push(extension(installFolder(GOOD_MODULE), '1.0.0'));
+			installs.fire([stubInterface<InstallExtensionResult>({ identifier: { id: 'Posit.Assistant' } })]);
+			const after = await module.get();
+			expect({ before: before.source.kind, after: after.source.kind, reselects: reselected.mock.calls.length })
+				.toEqual({ before: 'compiled-in', after: 'assistant', reselects: 1 });
+			expect(before.providers.dispose).not.toHaveBeenCalled();
+			listener.dispose();
+			module.dispose();
+		});
+
+		it('selects again when Posit Assistant is uninstalled', async () => {
+			const module = create(extensionsByProfile({}));
+			const before = await module.get();
+			uninstalls.fire(stubInterface<DidUninstallExtensionEvent>({ identifier: { id: 'posit.assistant' } }));
+			expect(await module.get()).not.toBe(before);
+			module.dispose();
+		});
+
+		it('ignores install and uninstall events for other extensions', async () => {
+			const module = create(extensionsByProfile({}));
+			const before = await module.get();
+			installs.fire([stubInterface<InstallExtensionResult>({ identifier: { id: 'posit.other' } })]);
+			uninstalls.fire(stubInterface<DidUninstallExtensionEvent>({ identifier: { id: 'posit.other' } }));
+			expect(await module.get()).toBe(before);
+			expect(before.providers.dispose).not.toHaveBeenCalled();
+			module.dispose();
 		});
 
 		it('rejects get after dispose without creating providers', async () => {

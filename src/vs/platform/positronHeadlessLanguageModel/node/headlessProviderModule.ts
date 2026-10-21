@@ -5,12 +5,13 @@
 
 import type { HeadlessProviders, HeadlessProvidersOptions } from 'ai-provider-bridge/headless';
 import { pathToFileURL } from 'url';
+import { Emitter } from '../../../base/common/event.js';
 import { Disposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { join } from '../../../base/common/path.js';
 import { SelfHealingLazyPromise } from '../../../base/common/positron/async.js';
 import * as semver from '../../../base/common/semver/semver.js';
 import { hasKey } from '../../../base/common/types.js';
-import { ExtensionType } from '../../extensions/common/extensions.js';
+import { ExtensionType, IExtensionIdentifier } from '../../extensions/common/extensions.js';
 import { IExtensionManagementService, ILocalExtension } from '../../extensionManagement/common/extensionManagement.js';
 import { areSameExtensions } from '../../extensionManagement/common/extensionManagementUtil.js';
 import { ILogService } from '../../log/common/log.js';
@@ -106,6 +107,9 @@ export class HeadlessProviderModule extends Disposable {
 	private readonly _selection = new SelfHealingLazyPromise(() => this.select());
 	private _latest: Promise<IProviderSelection> | undefined;
 	private _disposed = false;
+	private readonly _onDidReselect = this._register(new Emitter<void>());
+	/** Fires when Posit Assistant changes and the next {@link get} selects again. */
+	readonly onDidReselect = this._onDidReselect.event;
 
 	constructor(
 		private readonly _extensions: IExtensionManagementService,
@@ -115,6 +119,13 @@ export class HeadlessProviderModule extends Disposable {
 		private readonly _catalog?: HeadlessProvidersOptions['catalog'],
 	) {
 		super();
+		const reselectFor = (ids: IExtensionIdentifier[]) => {
+			if (ids.some(id => areSameExtensions(id, { id: ASSISTANT_ID }))) {
+				this.reselect();
+			}
+		};
+		this._register(_extensions.onDidInstallExtensions(e => reselectFor(e.map(r => r.identifier))));
+		this._register(_extensions.onDidUninstallExtension(e => reselectFor([e.identifier])));
 		this._register(toDisposable(() => {
 			this._disposed = true;
 			this._latest?.then(selection => selection.providers.dispose(), () => { });
@@ -127,6 +138,13 @@ export class HeadlessProviderModule extends Disposable {
 		}
 		this._latest = this._selection.get();
 		return this._latest;
+	}
+
+	/** Keeps the old copy alive so requests already running on it can finish. */
+	private reselect(): void {
+		this._latest = undefined;
+		this._selection.clear();
+		this._onDidReselect.fire();
 	}
 
 	private select(): Promise<IProviderSelection> {

@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import type { HeadlessCatalogChange, HeadlessProviderData, HeadlessProviders } from 'ai-provider-bridge/headless';
 import { DeferredPromise } from '../../../../base/common/async.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
 import { join } from '../../../../base/common/path.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IExtensionManagementService } from '../../../extensionManagement/common/extensionManagement.js';
@@ -17,6 +18,7 @@ import { HeadlessProviderModule } from '../../../positronHeadlessLanguageModel/n
 import { IProductService } from '../../../product/common/productService.js';
 import { IUserDataProfile, IUserDataProfilesService } from '../../../userDataProfile/common/userDataProfile.js';
 import { stubInterface } from '../../../../test/vitest/stubInterface.js';
+import { IProviderCatalogChangeData } from '../../common/aiProviderCatalog.js';
 import { AiProviderCatalog } from '../../node/aiProviderCatalog.js';
 
 describe('AiProviderCatalog', () => {
@@ -38,7 +40,11 @@ describe('AiProviderCatalog', () => {
 	/** A catalog over the compiled-in provider module: no Assistant is installed. */
 	function createCatalog(configPath: string, envVars: Record<string, string> = {}): AiProviderCatalog {
 		module = new HeadlessProviderModule(
-			stubInterface<IExtensionManagementService>({ getInstalled: async () => [] }),
+			stubInterface<IExtensionManagementService>({
+				getInstalled: async () => [],
+				onDidInstallExtensions: Event.None,
+				onDidUninstallExtension: Event.None,
+			}),
 			stubInterface<IUserDataProfilesService>({
 				profiles: [stubInterface<IUserDataProfile>({ extensionsResource: URI.file(join(dir, 'extensions.json')) })],
 			}),
@@ -141,10 +147,29 @@ describe('AiProviderCatalog', () => {
 			return { providers, fire, listeners };
 		}
 
-		function catalogOver(get: HeadlessProviderModule['get']): AiProviderCatalog {
-			catalog = new AiProviderCatalog(stubInterface<HeadlessProviderModule>({ get }));
+		function catalogOver(get: HeadlessProviderModule['get'], onDidReselect: Event<void> = Event.None): AiProviderCatalog {
+			catalog = new AiProviderCatalog(stubInterface<HeadlessProviderModule>({ get, onDidReselect }));
 			return catalog;
 		}
+
+		it('emits one full change with the new catalog after the module selects again', async () => {
+			const reselect = new Emitter<void>();
+			const old = fakeProviders(async () => stale);
+			let current = old;
+			const created = catalogOver(async () => ({ providers: current.providers, source: { kind: 'compiled-in', reason: 'test' } }), reselect.event);
+			await created.getCatalog();
+			const changes: IProviderCatalogChangeData[] = [];
+			created.onDidChangeCatalog(change => changes.push(change));
+			current = fakeProviders(async () => fresh);
+			reselect.fire();
+			await vi.waitFor(() => expect(changes.length).toBe(1));
+			old.fire(stale);
+			expect({ changes, oldListeners: old.listeners.size }).toEqual({
+				changes: [{ catalog: fresh, enabledChanged: true, connectionChanged: true, modelsChanged: true }],
+				oldListeners: 0,
+			});
+			reselect.dispose();
+		});
 
 		it('keeps a change that raced the initial load', async () => {
 			const initial = new DeferredPromise<readonly HeadlessProviderData[]>();

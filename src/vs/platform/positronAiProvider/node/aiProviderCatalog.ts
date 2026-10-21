@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { onUnexpectedError } from '../../../base/common/errors.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable, MutableDisposable } from '../../../base/common/lifecycle.js';
 import { SelfHealingLazyPromise } from '../../../base/common/positron/async.js';
@@ -21,6 +22,17 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 
 	constructor(private readonly _module: HeadlessProviderModule) {
 		super();
+		this._register(_module.onDidReselect(() => {
+			this._subscription.clear();
+			this._catalog = undefined;
+			this._started.clear();
+			this.getCatalog().then(
+				catalog => this._onDidChangeCatalog.fire({
+					catalog, enabledChanged: true, connectionChanged: true, modelsChanged: true,
+				}),
+				onUnexpectedError,
+			);
+		}));
 	}
 
 	async getCatalog(): Promise<readonly IResolvedProviderData[]> {
