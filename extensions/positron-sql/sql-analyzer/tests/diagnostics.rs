@@ -214,7 +214,7 @@ fn a_construct_that_cannot_be_closed_after_a_semicolon_spares_the_statement_abov
         .into_iter()
         .map(|(at, _)| at)
         .collect();
-    assert_eq!(reported, ["SELECT * FROM t WHERE;", "[abc"]);
+    assert_eq!(reported, ["WHERE", "[abc"]);
 }
 
 #[test]
@@ -279,11 +279,11 @@ fn diagnostic_ranges_stay_inside_the_document() {
 }
 
 #[test]
-fn an_error_at_end_of_input_squiggles_the_unfinished_statement() {
+fn an_error_at_end_of_input_squiggles_where_the_statement_stops() {
     assert_eq!(
-        diagnostics("SELECT a FROM t WHERE"),
+        diagnostics("SELECT a\nFROM t\nWHERE\n"),
         [(
-            "SELECT a FROM t WHERE".to_string(),
+            "WHERE".to_string(),
             "Expected: an expression, found: EOF.".to_string()
         )]
     );

@@ -111,7 +111,7 @@ fn only_the_statement_holding_it_is_affected() {
     assert_eq!(
         diagnostics("SELECT x FROM t VISUALISE x DRAW point; SELECT FROM"),
         [(
-            "SELECT FROM".to_string(),
+            "FROM".to_string(),
             "Expected: identifier, found: EOF.".to_string()
         )]
     );

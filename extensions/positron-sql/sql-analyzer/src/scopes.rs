@@ -773,6 +773,11 @@ impl Visitor for Collector<'_> {
             if let Some(source) = &insert.source {
                 self.parents.insert(&**source as *const Query, None);
             }
+            // Its column list names columns of the target, like an UPDATE's SET does, and is held
+            // as names rather than expressions for the same reason.
+            for column in &insert.columns {
+                self.record_assigned(column);
+            }
         }
 
         // A DROP holds its objects in a field the visitor does not treat as a relation, so they

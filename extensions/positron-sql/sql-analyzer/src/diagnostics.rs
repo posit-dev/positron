@@ -205,9 +205,17 @@ fn diagnose(error: &ParserError, statement: &Statement, index: &TextIndex) -> Di
         };
     }
 
+    // The end of input otherwise, which is where the statement stops: its last token is what the
+    // parser wanted something after. Squiggling the whole statement instead would paint every
+    // line of a query the user is still typing, and point the Problems panel at its first line.
+    let (start, end) = statement
+        .tokens
+        .last()
+        .and_then(|token| index.span(token.span))
+        .unwrap_or((statement.start, statement.end));
     Diagnostic {
-        start: statement.start,
-        end: statement.end,
+        start,
+        end,
         message: sentence(strip_location(message)),
     }
 }
@@ -215,8 +223,8 @@ fn diagnose(error: &ParserError, statement: &Statement, index: &TextIndex) -> Di
 /// The extent of the token a message blames, as offsets in the document.
 ///
 /// Returns `None` when the message carries no position, which is how sqlparser reports an error
-/// at end of input: there is no token to point at, and the caller squiggles the whole unfinished
-/// statement instead.
+/// at end of input: there is no token to point at, and the caller squiggles the statement's last
+/// token instead.
 fn locate(message: &str, statement: &Statement, index: &TextIndex) -> Option<(u32, u32)> {
     let at = message.rfind(" at Line: ")?;
     let (line, column) = parse_location(&message[at..])?;

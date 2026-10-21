@@ -445,3 +445,11 @@ fn columns_as(dialect: &str, text: &str) -> Vec<String> {
         .map(|column| column["name"].as_str().unwrap().to_string())
         .collect()
 }
+
+#[test]
+fn an_insert_column_list_names_columns_of_its_target() {
+    assert_eq!(
+        visible("INSERT INTO customers (id, nmae) VALUES (1, 'x')", "nmae"),
+        ["customers"]
+    );
+}
