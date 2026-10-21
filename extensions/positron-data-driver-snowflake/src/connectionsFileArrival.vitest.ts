@@ -36,9 +36,13 @@ describe('watchForFileCreation', () => {
 		const onCreated = vi.fn();
 		const watch = watchForFileCreation(filePath, onCreated, INTERVAL_MS);
 
+		// fs.watchFile reports the missing file at its first poll; that is not a creation.
+		await waitForPolls();
+		expect(onCreated).not.toHaveBeenCalled();
+
 		await fs.promises.mkdir(home);
 		await fs.promises.writeFile(filePath, '[workbench]\n');
-		await vi.waitFor(() => expect(onCreated).toHaveBeenCalled());
+		await vi.waitFor(() => expect(onCreated).toHaveBeenCalled(), { timeout: 5000 });
 		await fs.promises.writeFile(filePath, '[workbench]\naccount = "a"\n');
 		await waitForPolls();
 

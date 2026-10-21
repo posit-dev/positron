@@ -55,6 +55,10 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
+	// Checked before the first read, so a file created between the two is still waited for. If the
+	// file arrives after this check, the wait sees it at once and the reload finds nothing new.
+	const missingAtStart = !existsSync(filePath);
+
 	// What the driver currently offers, to tell a real edit from a file event that changed nothing.
 	let current = read() ?? {};
 
@@ -69,7 +73,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// Workbench writes the file for managed credentials as the session starts, and sometimes after
 	// this extension activates. Only then is a missing file expected to appear, so only then is it
 	// polled for.
-	const waitForCreation = isWorkbenchManaged('SNOWFLAKE_HOME') && !existsSync(filePath);
+	const waitForCreation = isWorkbenchManaged('SNOWFLAKE_HOME') && missingAtStart;
 	context.subscriptions.push(watchConnectionsFile(filePath, waitForCreation, () => {
 		const connections = read();
 		if (connections === undefined) {
