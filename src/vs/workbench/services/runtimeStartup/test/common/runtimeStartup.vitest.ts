@@ -2680,6 +2680,78 @@ describe('RuntimeStartupService - startup sequence', () => {
 				{ runtimeId: pinnedPython.runtimeId, reason: SessionStartReasonId.PinnedRuntime },
 			]);
 		});
+
+		describe('with recommendations', () => {
+			/** Recommends the given runtimes on the first ask, and nothing after discovery. */
+			function recommend(...runtimes: ILanguageRuntimeMetadata[]): IRuntimeManager['recommendWorkspaceRuntimes'] {
+				return async (_disabledLanguageIds, afterDiscovery) => afterDiscovery ? [] :
+					runtimes.map(runtime => ({ metadata: runtime, isProjectDefault: false }));
+			}
+
+			it('starts the recommended pinned R when an R file opens, if it is registered before any other R', async () => {
+				// The runtime session service starts the first registered Implicit
+				// runtime, and asking for recommendations registers the pinned R
+				// before the search registers oldR. When the pinned R registers
+				// after another Implicit R, that other R starts instead.
+				const { started } = await runStartupSequence({
+					languages: [{ ...rLanguage, discovered: [oldR] }],
+					startupBehavior: { default: LanguageStartupBehavior.Auto },
+					manager: { recommendWorkspaceRuntimes: recommend(pinnedR) },
+				});
+				ctx.get(ILanguageService).requestRichLanguageFeatures('r');
+
+				expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.LanguageFileOpened }]);
+			});
+
+			it('starts the pinned Python when a Python file opens, if Python did not start at launch', async () => {
+				// Python's other interpreters start only when picked. R was used
+				// last. Python wasn't used since it last started, so startup does
+				// not start it.
+				const discoveredPython = { ...python, startupBehavior: LanguageRuntimeStartupBehavior.Explicit };
+				const { service, started } = await runStartupSequence({
+					languages: [
+						{ ...rLanguage, affiliated: { metadata: oldR, lastUsed: 3, lastStarted: 1 } },
+						{ ...pythonLanguage, discovered: [discoveredPython], affiliated: { metadata: discoveredPython, lastUsed: 1, lastStarted: 2 } },
+					],
+					startupBehavior: { default: LanguageStartupBehavior.Auto },
+					manager: {
+						pinnedWorkspaceRuntime: async (_extensionId, languageId) => languageId === 'python' ? pinnedPython : undefined,
+					},
+				});
+				// Running Python code with no console starts the preferred runtime.
+				const preferred = service.getPreferredRuntime('python')?.runtimeId;
+				ctx.get(ILanguageService).requestRichLanguageFeatures('python');
+
+				expect({ started, preferred }).toEqual({
+					started: [
+						{ runtimeId: oldR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime },
+						{ runtimeId: pinnedPython.runtimeId, reason: SessionStartReasonId.LanguageFileOpened },
+					],
+					preferred: pinnedPython.runtimeId,
+				});
+			});
+
+			it('under recommended, running code with no console uses the pin, not the old affiliated runtime', async () => {
+				const { service } = await runStartupSequence({
+					languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+					startupBehavior: { default: LanguageStartupBehavior.Recommended },
+					manager: { recommendWorkspaceRuntimes: recommend(pinnedR) },
+				});
+
+				// Running code with no console starts the preferred runtime.
+				expect(service.getPreferredRuntime('r')?.runtimeId).toBe(pinnedR.runtimeId);
+			});
+
+			it('under always for R only, with no affiliated runtime, starts only the pinned R', async () => {
+				const { started } = await runStartupSequence({
+					languages: [{ ...rLanguage, discovered: [oldR] }, { ...pythonLanguage, discovered: [python] }],
+					startupBehavior: { default: LanguageStartupBehavior.Auto, r: LanguageStartupBehavior.Always },
+					manager: { recommendWorkspaceRuntimes: recommend(pinnedR, pinnedPython) },
+				});
+
+				expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.StartupBehaviorAlways }]);
+			});
+		});
 	});
 });
 
