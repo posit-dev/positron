@@ -282,8 +282,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// When an extension activates, check to see if we have any disconnected
 		// sessions owned by that extension. If we do, try to reconnect them.
-		this._register(this._extensionService.onDidChangeExtensionsStatus(async (e) => {
-			const restores: Promise<void>[] = [];
+		this._register(this._extensionService.onDidChangeExtensionsStatus((e) => {
 			for (const extensionId of e) {
 				for (const s of this._disconnectedSessions.values()) {
 					const session = s.session;
@@ -295,7 +294,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					// try to reconnect it again (no matter the outcome below)
 					this._disconnectedSessions.delete(session.sessionId);
 
-					restores.push((async () => {
+					(async () => {
 						try {
 							// Don't reconnect to a kernel that is no longer alive; the
 							// session stays as it is (exited or disconnected), keeping
@@ -331,10 +330,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 								);
 							}
 						}
-					})());
+					})();
 				}
 			}
-			await Promise.all(restores);
 		}
 		));
 
@@ -899,7 +897,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			try {
 				this._languageRuntimeService.registerRuntime(runtimeMetadata);
 			} catch (err) {
-				// Registering a runtime of a disabled language throws, and a restore doesn't need it.
 				// Registration fails when the language is disabled. The
 				// session can still be reconnected without a registry entry.
 				this._logService.info(`[Reconnect ${sessionMetadata.sessionId}]: ` +

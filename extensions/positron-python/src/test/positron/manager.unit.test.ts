@@ -442,7 +442,6 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
     let serviceContainer: TypeMoq.IMock<IServiceContainer>;
     let interpreterService: TypeMoq.IMock<IInterpreterService>;
     let recommendStub: sinon.SinonStub;
-    let definitionsOnlyStub: sinon.SinonStub;
     const originalFolders = Object.getOwnPropertyDescriptor(vscode.workspace, 'workspaceFolders');
 
     setup(() => {
@@ -452,7 +451,6 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
         serviceContainer.setup((s) => s.get(IInterpreterService)).returns(() => interpreterService.object);
         serviceContainer.setup((s) => s.get(IDisposableRegistry)).returns(() => disposableRegistry.object);
         recommendStub = sinon.stub(interpreterRecommendation, 'recommendWorkspaceRuntime');
-        definitionsOnlyStub = sinon.stub(interpreterSettings, 'isDefinitionsOnlyDiscovery').returns(false);
         pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);
     });
 
@@ -485,22 +483,6 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
                 [serviceContainer.object, interpreterService.object, workspaceUri, true],
             ],
         );
-    });
-
-    test('ranks the definitions when discovery is limited to interpreters.definitions', async () => {
-        // Core maps the recommendation to its definition variant, so it can start.
-        definitionsOnlyStub.returns(true);
-        const metadata = { runtimeId: 'rec' } as positron.LanguageRuntimeMetadata;
-        recommendStub.resolves(metadata);
-
-        assert.deepEqual(
-            [
-                await pythonRuntimeManager.recommendedWorkspaceRuntime(),
-                await pythonRuntimeManager.recommendedWorkspaceRuntime(true),
-            ],
-            [metadata, metadata],
-        );
-        sinon.assert.calledTwice(recommendStub);
     });
 });
 

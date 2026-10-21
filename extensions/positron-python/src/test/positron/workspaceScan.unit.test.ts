@@ -125,6 +125,16 @@ suite('workspaceScan', () => {
         ]);
     });
 
+    test('skips nested envs that are excluded, and ignored folders whatever their case', async () => {
+        const excluded = makeEnv(path.join(root, 'a', '.venv'));
+        includeStub.withArgs(excluded).returns(false);
+        makeEnv(path.join(root, 'Node_Modules', 'pkg', '.venv'));
+        makeEnv(path.join(root, '.Tox', '.venv'));
+        makeEnv(path.join(root, 'b', '.venv'));
+
+        assert.deepEqual((await scanWorkspace(root)).nestedEnvDirs, [path.join(root, 'b', '.venv')]);
+    });
+
     test('stops after 1000 child folders', async () => {
         for (let i = 0; i < 1005; i += 1) {
             fs.mkdirSync(path.join(root, `d${String(i).padStart(4, '0')}`));

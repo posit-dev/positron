@@ -72,6 +72,7 @@ const emptyContext: RankingContext = {
     hasPythonSignals: false,
     configuredPaths: [],
     modulePaths: new Set(),
+    condaEnvDirs: [],
     positronDefaultEnvDir: p('/home/u/.virtualenvs/positron'),
     uvPythonInstallDirs: [p('/home/u/.local/share/uv/python')],
     externallyManagedPaths: new Set(),
@@ -271,6 +272,11 @@ suite('interpreterRanking', () => {
         const unnamedNamedEnv = env(p('/home/u/miniforge3/envs/tools/bin/python'), EnvironmentType.Conda, '3.11.0', {
             envName: '',
         });
+        // A named env in a custom envs_dirs folder, reported without its name.
+        const customEnvsDir = env(p('/data/conda-envs/tools/bin/python'), EnvironmentType.Conda, '3.11.0', {
+            envName: '',
+            envPath: p('/data/conda-envs/tools'),
+        });
         assert.deepEqual(
             [
                 tierOf(otherProject, emptyContext),
@@ -279,6 +285,7 @@ suite('interpreterRanking', () => {
                 tierOf(otherProject, { ...emptyContext, configuredPaths: [p('/home/u/code/other')] }),
                 tierOf(thisFolder, emptyContext),
                 tierOf(unnamedNamedEnv, emptyContext),
+                tierOf(customEnvsDir, { ...emptyContext, condaEnvDirs: [p('/data/conda-envs')] }),
             ],
             [
                 undefined,
@@ -286,6 +293,7 @@ suite('interpreterRanking', () => {
                 Tier.Configured,
                 Tier.Configured,
                 Tier.WorkspaceEnv,
+                Tier.NamedEnv,
                 Tier.NamedEnv,
             ],
         );
@@ -333,6 +341,8 @@ suite('interpreterRanking', () => {
             rc.path,
             python.path,
         ]);
+        // A never-recommended interpreter ranks after a demoted pre-release.
+        assert.deepEqual(order([unknown, rc]), [rc.path, unknown.path]);
     });
 
     test('a uv Python reached through ~/.local/bin is uv base, first in GlobalEnv', () => {
@@ -390,7 +400,7 @@ suite('interpreterRanking', () => {
             ],
         );
         launch.verify((a) => a.selectIfLaunchedViaActivatedEnv(TypeMoq.It.isAny()), TypeMoq.Times.never());
-        // The fast path must not wait for module discovery (Performance rule 2).
+        // Building the context must not wait for module discovery.
         sinon.assert.notCalled(moduleWait);
 
         // The folder contains home when it is home or an ancestor of it, not a folder inside home.

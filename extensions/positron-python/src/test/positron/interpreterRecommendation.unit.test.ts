@@ -90,6 +90,7 @@ suite('interpreterRecommendation', () => {
             hasPythonSignals: false,
             configuredPaths: [],
             modulePaths: new Set(),
+            condaEnvDirs: [],
             positronDefaultEnvDir: undefined,
             uvPythonInstallDirs: [],
             externallyManagedPaths: new Set(),
@@ -210,7 +211,7 @@ suite('interpreterRecommendation', () => {
         assert.deepEqual(createStub.firstCall.args[3], { skipModuleWait: true });
     });
 
-    test('before discovery, never scans, lists or waits for discovery (Performance rule 1)', async () => {
+    test('before discovery, never scans, lists or waits for discovery', async () => {
         context.hasPythonSignals = true;
         discovered = [homebrew, pyenv];
         refreshPromise = new Promise(() => undefined);
@@ -433,7 +434,7 @@ suite('interpreterRecommendation', () => {
         );
     });
 
-    test('after discovery, a named path is resolved without a timeout, so a slow resolve still wins', async () => {
+    test('after discovery, a named path is resolved without resolveInterpreterOnce, so its timeout never applies', async () => {
         const resolveOnce = sinon.spy(util, 'resolveInterpreterOnce');
         context.hasPythonSignals = true;
         context.rootProjectEnvs = [{ envDir: p('/proj/.venv'), executable: rootVenv.path }];

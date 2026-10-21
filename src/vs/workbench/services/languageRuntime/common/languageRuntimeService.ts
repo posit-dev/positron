@@ -980,10 +980,6 @@ export function signaturesEqual(
 }
 
 /**
- * ILanguageRuntimeMetadata contains information about a language runtime that is known
- * before the runtime is started.
- */
-/**
  * A runtime an extension recommends for the workspace.
  */
 export interface ILanguageRuntimeRecommendation {
@@ -998,6 +994,10 @@ export interface ILanguageRuntimeRecommendation {
 	readonly isProjectDefault: boolean;
 }
 
+/**
+ * ILanguageRuntimeMetadata contains information about a language runtime that is known
+ * before the runtime is started.
+ */
 export interface ILanguageRuntimeMetadata {
 	/**
 	 * The absolute path to the runtime executable. Always a fully-expanded path

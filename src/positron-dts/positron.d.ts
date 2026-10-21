@@ -1231,8 +1231,10 @@ declare module 'positron' {
 		 * Core asks once during startup, before discovery. If a language has no
 		 * recommendation then, core asks again once discovery has completed,
 		 * with `afterDiscovery` set; that answer is used as the preferred runtime
-		 * and started like a newly registered runtime, but never saved as the
-		 * project default.
+		 * but never saved as the project default. An `Immediate` answer starts
+		 * only when the workspace has no affiliated runtime and no console is
+		 * starting or running; an `Implicit` one starts when a file of its
+		 * language is open.
 		 *
 		 * @param afterDiscovery Whether runtime discovery has completed.
 		 */

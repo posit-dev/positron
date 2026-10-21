@@ -39,8 +39,8 @@ export async function* pythonRuntimeDiscoverer(
         await interpreterService.triggerRefresh().ignoreErrors();
 
         // Nothing here decides what starts. Every runtime is Explicit; the recommendation
-        // (from recommendedWorkspaceRuntime) is the only one that auto-starts, and core
-        // uses it wherever it needs a Python runtime (Core contracts 2-4). The picker
+        // (from recommendWorkspaceRuntime) is the only one that auto-starts, and core
+        // uses it wherever it needs a Python runtime. The picker
         // sorts by `runtimeSourceOrder`, so the yield order doesn't matter either.
         const interpreters = filterInterpreters(interpreterService.getInterpreters());
         traceInfo(`pythonRuntimeDiscoverer: ${interpreters.length} Python interpreters after filtering`);
@@ -54,7 +54,7 @@ export async function* pythonRuntimeDiscoverer(
                     );
                     continue;
                 }
-                // Not the recommendation, so the default `Explicit` (Core contract 2).
+                // Not the recommendation, so the default `Explicit`.
                 const runtime = await createPythonRuntimeMetadata(interpreter, serviceContainer);
                 traceInfo(
                     `pythonRuntimeDiscoverer: registering runtime for interpreter ${interpreter.path} with id ${runtime.runtimeId}`,

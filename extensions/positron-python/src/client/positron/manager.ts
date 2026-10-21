@@ -86,6 +86,18 @@ export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
     triggerInterpreterRefresh(): Promise<void>;
 }
 
+/** Refuses an interpreter that `python.interpreters.exclude` or `override` filters out. */
+function throwIfFilteredOut(pythonPath: string): void {
+    if (!shouldIncludeInterpreter(pythonPath)) {
+        throw new Error(
+            vscode.l10n.t(
+                'Python interpreter {0} is filtered out by the python.interpreters.exclude or python.interpreters.override setting.',
+                pythonPath,
+            ),
+        );
+    }
+}
+
 /**
  * Provides Python language runtime metadata and sessions to Positron;
  * implements positron.LanguageRuntimeManager.
@@ -481,14 +493,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // Exclude and override always win, including for an affiliated runtime or
         // one picked before the settings changed. Running sessions are restored
         // through restoreSession, which is not affected.
-        if (!shouldIncludeInterpreter(extraData.pythonPath)) {
-            throw new Error(
-                vscode.l10n.t(
-                    'Python interpreter {0} is filtered out by the python.interpreters.exclude or python.interpreters.override setting.',
-                    extraData.pythonPath,
-                ),
-            );
-        }
+        throwIfFilteredOut(extraData.pythonPath);
 
         // When the user explicitly picks an externally-managed Python, offer to create a
         // virtual environment instead. Aborting here is invisible to the user: the console
@@ -648,14 +653,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // Exclude and override always win. Refusing here keeps Positron from
         // registering a filtered-out interpreter it was asked to start, such as the
         // workspace's saved default, so it never becomes the preferred runtime.
-        if (!shouldIncludeInterpreter(extraData.pythonPath)) {
-            throw new Error(
-                vscode.l10n.t(
-                    'Python interpreter {0} is filtered out by the python.interpreters.exclude or python.interpreters.override setting.',
-                    extraData.pythonPath,
-                ),
-            );
-        }
+        throwIfFilteredOut(extraData.pythonPath);
 
         // Ensure that the Python interpreter exists
         const exists = await fs.pathExists(extraData.pythonPath);

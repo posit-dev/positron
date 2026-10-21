@@ -112,20 +112,26 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
         if (process.env.VSCODE_CLI !== '1') {
             return undefined;
         }
-        // Same exception as _selectIfLaunchedViaActivatedEnv: with no folder open, the
-        // user's defaultInterpreterPath wins, so the console matches the language server.
-        if (getUserDefaultInterpreter().globalValue && !this.workspaceService.workspaceFolders) {
-            return undefined;
-        }
         // Memoized, so a failed read must not stick: treat it as no activated env
         // for this caller and clear the memo so the next call retries.
         try {
+            if (this.userDefaultWinsWithoutFolder()) {
+                return undefined;
+            }
             return await this.getPrefixOfSelectedActivatedEnv();
         } catch (ex) {
             this.activatedEnvPrefix = undefined;
             traceWarn(`Could not read the activated environment: ${ex}`);
             return undefined;
         }
+    }
+
+    /**
+     * With no folder open, the user's defaultInterpreterPath wins over the activated
+     * env, so the console matches the language server.
+     */
+    private userDefaultWinsWithoutFolder(): boolean {
+        return !!getUserDefaultInterpreter().globalValue && !this.workspaceService.workspaceFolders;
     }
     // --- End Positron ---
 
@@ -146,7 +152,7 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
         this.inMemorySelection = prefix;
         // --- Start Positron ---
         // prefer user setting defaultInterpreterPath (if set) if no workspace is opened
-        if (getUserDefaultInterpreter().globalValue && !this.workspaceService.workspaceFolders) {
+        if (this.userDefaultWinsWithoutFolder()) {
             return undefined;
         }
         // --- End Positron ---

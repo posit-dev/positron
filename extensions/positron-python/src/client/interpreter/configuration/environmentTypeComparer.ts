@@ -421,13 +421,25 @@ function isVirtualEnvName(versionName: string): boolean {
 }
 
 /**
+ * The first version named in the contents of a pyenv version file (`.python-version`,
+ * or pyenv's global `version`), or undefined if it names none.
+ */
+export function parsePythonVersionFile(content: string): string | undefined {
+    return content
+        .replace(/^\uFEFF/, '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line.length > 0);
+}
+
+/**
  * Return the path to the local pyenv version file, or the global pyenv version file if the local version file does not exist.
  * If neither file exists, return undefined.
  */
 export function getPyenvVersion(workspacePath: string | undefined): string | undefined {
     const localPyenvVersion = workspacePath ? path.join(workspacePath, '.python-version') : '';
     if (pathExistsSync(localPyenvVersion)) {
-        return readFileSync(localPyenvVersion).trim();
+        return parsePythonVersionFile(readFileSync(localPyenvVersion));
     }
     // if the local pyenv version file does not exist in the workspace, we need to check parents of the workspace
     if (workspacePath) {
@@ -436,13 +448,13 @@ export function getPyenvVersion(workspacePath: string | undefined): string | und
             maxDepth: 10,
         });
         if (parentPyenvVersion) {
-            return readFileSync(parentPyenvVersion).trim();
+            return parsePythonVersionFile(readFileSync(parentPyenvVersion));
         }
     }
 
     const globalPyenvVersion = path.join(getPyenvDir(), 'version');
     if (pathExistsSync(globalPyenvVersion)) {
-        return readFileSync(globalPyenvVersion).trim();
+        return parsePythonVersionFile(readFileSync(globalPyenvVersion));
     }
     return undefined;
 }

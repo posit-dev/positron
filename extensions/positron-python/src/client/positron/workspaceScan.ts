@@ -13,6 +13,8 @@
 import type { Dirent } from 'fs';
 import * as path from 'path';
 import * as fs from '../common/platform/fs-paths';
+import { parsePythonVersionFile } from '../interpreter/configuration/environmentTypeComparer';
+import { traceWarn } from '../logging';
 import { getInterpreterPathFromDir } from '../pythonEnvironments/common/commonUtils';
 import { arePathsSame } from '../pythonEnvironments/common/externalDependencies';
 import { PythonEnvironment } from '../pythonEnvironments/info';
@@ -21,7 +23,10 @@ import { shouldIncludeInterpreter } from './interpreterSettings';
 /** Env folder names, highest priority first. At the root, `.pixi/envs/*` follows these. */
 const ENV_DIR_NAMES = ['.venv', '.conda', 'venv', '.virtualenv'];
 
-/** Root entries never scanned one level deep. Mirrors PET's `should_search_for_environments_in_path`. */
+/**
+ * Root entries never scanned one level deep, lowercase and matched case-insensitively.
+ * Mirrors PET's `should_search_for_environments_in_path`.
+ */
 const IGNORED_CHILDREN = new Set([
     ...ENV_DIR_NAMES,
     '.pixi',
@@ -43,7 +48,7 @@ const IGNORED_CHILDREN = new Set([
 /** Upper bound on child folders scanned, so opening a huge folder (e.g. home) stays cheap. */
 const MAX_SCANNED_CHILDREN = 1000;
 
-/** Disk reads a scan has in flight at once, so a large folder on a network drive isn't flooded. */
+/** Disk reads each step of a scan has in flight at once, so a large folder on a network drive isn't flooded. */
 const MAX_CONCURRENT_READS = 32;
 
 /** File names that mark a folder as Python, besides `*.py`, `*.ipynb` and requirements files. */
@@ -95,47 +100,72 @@ async function readEntries(dir: string): Promise<Dirent[]> {
     }
 }
 
-/** `fn` over `items` in order, with at most `MAX_CONCURRENT_READS` running at once. */
+/**
+ * `fn` over `items`, results in order, with at most `MAX_CONCURRENT_READS` running at
+ * once. Each finished call starts the next, so one slow read doesn't hold up the rest.
+ */
 async function mapBounded<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
-    const results: R[] = [];
-    for (let i = 0; i < items.length; i += MAX_CONCURRENT_READS) {
-        results.push(...(await Promise.all(items.slice(i, i + MAX_CONCURRENT_READS).map(fn))));
-    }
+    const results = new Array<R>(items.length);
+    let next = 0;
+    const worker = async () => {
+        while (next < items.length) {
+            const i = next;
+            next += 1;
+            results[i] = await fn(items[i]);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENT_READS, items.length) }, worker));
     return results;
+}
+
+/** Names of the folders (or links, which may be folders) in `entries`. */
+function folderNames(entries: Dirent[]): string[] {
+    return entries.filter((entry) => entry.isDirectory() || entry.isSymbolicLink()).map((entry) => entry.name);
 }
 
 /** Child folders in `entries` (read from `root`) worth scanning: sorted, ignored names removed, capped. */
 function childFolders(root: string, entries: Dirent[]): string[] {
-    return entries
-        .filter((entry) => (entry.isDirectory() || entry.isSymbolicLink()) && !IGNORED_CHILDREN.has(entry.name))
-        .map((entry) => entry.name)
+    return folderNames(entries)
+        .filter((name) => !IGNORED_CHILDREN.has(name.toLowerCase()))
         .sort()
         .slice(0, MAX_SCANNED_CHILDREN)
         .map((name) => path.join(root, name));
 }
 
+/** The env folders named in `ENV_DIR_NAMES` that `folders` (read from `dir`) has, in priority order. */
+function envDirsIn(dir: string, folders: Set<string>): string[] {
+    return ENV_DIR_NAMES.filter((name) => folders.has(name)).map((name) => path.join(dir, name));
+}
+
 /** `.pixi/envs/*` folders, `default` first, then alphabetical. */
 async function pixiEnvDirs(root: string): Promise<string[]> {
     const envsDir = path.join(root, '.pixi', 'envs');
-    const names = (await readEntries(envsDir)).map((entry) => entry.name).sort();
-    return names
-        .sort((a, b) => Number(b === 'default') - Number(a === 'default'))
+    return folderNames(await readEntries(envsDir))
+        .sort((a, b) => Number(b === 'default') - Number(a === 'default') || a.localeCompare(b))
         .map((name) => path.join(envsDir, name));
 }
 
 /**
- * The project environments at the root of `root` (`ProjectEnv`), highest priority first.
- * All of them are kept, so when the first can't be recommended (e.g. an unsupported
- * Python version) the next one is. Envs that `python.interpreters.exclude` or `override`
- * filter out are treated as absent.
+ * The env folders in `envDirs` that have a Python, in the given order. Envs that
+ * `python.interpreters.exclude` or `override` filter out are treated as absent.
  */
-async function findRootProjectEnvironments(root: string): Promise<ProjectEnvironment[]> {
-    const envDirs = [...ENV_DIR_NAMES.map((name) => path.join(root, name)), ...(await pixiEnvDirs(root))];
+async function findEnvironments(envDirs: string[]): Promise<ProjectEnvironment[]> {
     const executables = await mapBounded(envDirs, (dir) => getInterpreterPathFromDir(dir));
     return envDirs.flatMap((envDir, i) => {
         const executable = executables[i];
         return executable !== undefined && shouldIncludeInterpreter(executable) ? [{ envDir, executable }] : [];
     });
+}
+
+/**
+ * The project environments at the root of `root` (`ProjectEnv`), highest priority first.
+ * All of them are kept, so when the first can't be recommended (e.g. an unsupported
+ * Python version) the next one is. Only env folders in `rootEntries` are checked.
+ */
+async function findRootProjectEnvironments(root: string, rootEntries: Dirent[]): Promise<ProjectEnvironment[]> {
+    const folders = new Set(folderNames(rootEntries));
+    const pixi = folders.has('.pixi') ? await pixiEnvDirs(root) : [];
+    return findEnvironments([...envDirsIn(root, folders), ...pixi]);
 }
 
 /**
@@ -151,16 +181,14 @@ async function scanChildFolders(
 ): Promise<{ nestedEnvDirs: string[]; hasPythonSignals: boolean }> {
     const children = await mapBounded(childFolders(root, rootEntries), async (child) => {
         const entries = await readEntries(child);
-        const folders = new Set(entries.filter((e) => e.isDirectory() || e.isSymbolicLink()).map((e) => e.name));
         return {
             hasPythonSignals: hasSignalFile(entries),
-            envDirs: ENV_DIR_NAMES.filter((name) => folders.has(name)).map((name) => path.join(child, name)),
+            envDirs: envDirsIn(child, new Set(folderNames(entries))),
         };
     });
-    const candidates = children.flatMap((child) => child.envDirs);
-    const executables = await mapBounded(candidates, (dir) => getInterpreterPathFromDir(dir));
+    const nestedEnvs = await findEnvironments(children.flatMap((child) => child.envDirs));
     return {
-        nestedEnvDirs: candidates.filter((_, i) => executables[i] !== undefined),
+        nestedEnvDirs: nestedEnvs.map((env) => env.envDir),
         hasPythonSignals: children.some((child) => child.hasPythonSignals),
     };
 }
@@ -168,12 +196,7 @@ async function scanChildFolders(
 /** The first version named in `<root>/.python-version`, if any. Parent folders are not read. */
 async function readPythonVersionFile(root: string): Promise<string | undefined> {
     try {
-        const content = await fs.readFile(path.join(root, '.python-version'), 'utf-8');
-        return content
-            .replace(/^\uFEFF/, '')
-            .split(/\r?\n/)
-            .map((line) => line.trim())
-            .find((line) => line.length > 0);
+        return parsePythonVersionFile(await fs.readFile(path.join(root, '.python-version'), 'utf-8'));
     } catch {
         return undefined;
     }
@@ -188,11 +211,19 @@ const latestScans = new Map<string, Promise<WorkspaceScan>>();
  * `rescan` reads the folder again and makes that the latest.
  */
 export function scanWorkspace(root: string, rescan = false): Promise<WorkspaceScan> {
-    let scan = latestScans.get(root);
-    if (!scan || rescan) {
-        scan = readWorkspace(root);
-        latestScans.set(root, scan);
+    const latest = latestScans.get(root);
+    if (latest && !rescan) {
+        return latest;
     }
+    // A failed scan finds nothing and isn't kept, so the next caller reads the folder again.
+    const scan: Promise<WorkspaceScan> = readWorkspace(root).catch((error) => {
+        traceWarn(`Could not scan ${root}: ${error}`);
+        if (latestScans.get(root) === scan) {
+            latestScans.delete(root);
+        }
+        return { rootProjectEnvs: [], nestedEnvDirs: [], hasPythonSignals: false, pythonVersion: undefined };
+    });
+    latestScans.set(root, scan);
     return scan;
 }
 
@@ -200,7 +231,7 @@ export function scanWorkspace(root: string, rescan = false): Promise<WorkspaceSc
 async function readWorkspace(root: string): Promise<WorkspaceScan> {
     const rootEntries = await readEntries(root);
     const [rootProjectEnvs, children, pythonVersion] = await Promise.all([
-        findRootProjectEnvironments(root),
+        findRootProjectEnvironments(root, rootEntries),
         scanChildFolders(root, rootEntries),
         readPythonVersionFile(root),
     ]);

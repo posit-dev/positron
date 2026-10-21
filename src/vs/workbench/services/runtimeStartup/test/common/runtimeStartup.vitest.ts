@@ -1816,6 +1816,35 @@ describe('RuntimeStartupService - start reasons', () => {
 		expect(startedRuntimeIds()).toEqual(['rt-rec']);
 	});
 
+	it('starts only one language when every language is set to always start', async () => {
+		createService(LanguageStartupBehavior.Always);
+		const python = metadata({ runtimeId: 'rt-py', runtimePath: '/venv/bin/python' });
+		const r = metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R', extensionId: 'ms.r' });
+		const manager = makeManager({ id: 1, owns: [] });
+		manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) =>
+			afterDiscovery ? [python, r].map(runtime => ({ metadata: runtime, isProjectDefault: false })) : [];
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+
+		await (svc as unknown as { recommendAfterDiscovery: () => Promise<void> }).recommendAfterDiscovery();
+
+		expect(startedRuntimeIds()).toEqual(['rt-py']);
+	});
+
+	it.each([
+		{ name: 'starts', affiliated: false, started: ['rt-rec'] },
+		{ name: 'does not start', affiliated: true, started: [] },
+	])('$name an Immediate recommendation made after discovery when affiliated with another language: $affiliated', async ({ affiliated, started }) => {
+		createService(LanguageStartupBehavior.Auto);
+		if (affiliated) {
+			affiliate(metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R', extensionId: 'ms.r' }));
+		}
+		recommendAfterDiscovery({ ...metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }), startupBehavior: LanguageRuntimeStartupBehavior.Immediate });
+
+		await (svc as unknown as { recommendAfterDiscovery: () => Promise<void> }).recommendAfterDiscovery();
+
+		expect(startedRuntimeIds()).toEqual(started);
+	});
+
 	it('maps the recommendation made after discovery to its defined variant when discovery is limited to definitions', async () => {
 		const definition = { language: 'python', path: '/venv/bin/python', label: 'Python (GPU)' };
 		createService(LanguageStartupBehavior.Always, { settings: await defineInterpreters(definition) });

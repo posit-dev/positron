@@ -26,7 +26,7 @@ import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo, traceWarn } from '../logging';
 import { getInterpreterPathFromDir } from '../pythonEnvironments/common/commonUtils';
-import { pathExists } from '../pythonEnvironments/common/externalDependencies';
+import { normCasePath, pathExists } from '../pythonEnvironments/common/externalDependencies';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import {
     buildRankingContext,
@@ -68,7 +68,7 @@ async function skipReason(
     if (!shouldIncludeInterpreter(interpreter.path)) {
         return { skip: 'excluded by python.interpreters.exclude or override' };
     }
-    if (interpreter.version?.major === 2 || !isVersionSupported(interpreter.version)) {
+    if (!isVersionSupported(interpreter.version)) {
         return { skip: 'unsupported Python version' };
     }
     if (isProblematicCondaEnvironment(interpreter)) {
@@ -85,7 +85,7 @@ async function skipReason(
 /**
  * Whether an interpreter in this tier can be an environment-module Python. A module
  * Python needs its module metadata to start, and waiting for that covers PET's whole
- * activation scan, so only these tiers wait for it (Performance rule 1).
+ * activation scan, so only these tiers wait for it.
  */
 function canBeModulePython(tier: Tier): boolean {
     return ![Tier.ActivatedEnv, Tier.ProjectEnv, Tier.PythonVersionFile, Tier.WorkspaceEnv].includes(tier);
@@ -171,11 +171,11 @@ async function resolveNamedInterpreters(
             return undefined;
         }
     };
+    // The same path is often named more than once (e.g. defaultInterpreterPath is the root
+    // `.venv`); resolve it once.
+    const unique = [...new Set(named.filter((namedPath): namedPath is string => !!namedPath))];
     const results = await Promise.all(
-        named.map(async (namedPath) => {
-            if (!namedPath) {
-                return 'absent' as const;
-            }
+        unique.map(async (namedPath) => {
             if (!(await pathExists(namedPath))) {
                 traceWarn(
                     `Interpreter ranking: ${namedPath} is named by the settings or the folder but does not exist...ignoring`,
@@ -225,12 +225,12 @@ async function firstEligible(
         if (tier === undefined) {
             return undefined;
         }
-        let eligibility: Awaited<ReturnType<typeof skipReason>>;
+        let eligibility: Eligibility;
         try {
             eligibility = await skipReason(serviceContainer, interpreter, tier, context, workspaceUri);
         } catch (err) {
             traceInfo(
-                `Interpreter ranking: skipped ${interpreter.path} (${Tier[tier]}): ipykernel check failed: ${err}`,
+                `Interpreter ranking: skipped ${interpreter.path} (${Tier[tier]}): eligibility check failed: ${err}`,
             );
             continue;
         }
@@ -317,10 +317,11 @@ async function fromRememberedAnswer(
 function dedupeByPath(interpreters: PythonEnvironment[]): PythonEnvironment[] {
     const seen = new Set<string>();
     return interpreters.filter((i) => {
-        if (seen.has(i.path)) {
+        const key = normCasePath(i.path);
+        if (seen.has(key)) {
             return false;
         }
-        seen.add(i.path);
+        seen.add(key);
         return true;
     });
 }
@@ -334,14 +335,13 @@ function dedupeByPath(interpreters: PythonEnvironment[]): PythonEnvironment[] {
  * defaultInterpreterPath is recommended in milliseconds. Outside `definitionsOnly` those
  * are tiers 0-3, which have no other members, so when every named path resolved, pass 1's
  * pick is the full ranking's pick. If any named path didn't resolve, pass 1 waits for the
- * ask after discovery: a slow or failed resolve must not let a lower tier win on timing
- * (Stability rule 1). In `definitionsOnly` mode the definitions are every candidate, so
+ * ask after discovery: a slow or failed resolve must not let a lower tier win on timing. In `definitionsOnly` mode the definitions are every candidate, so
  * pass 1 is the whole ranking and there is no pass 2.
  *
  * Pass 2 ranks everything discovery found. It runs only when core asks after discovery
  * (`afterDiscovery`). Core asks first during startup and waits for every language's
  * answer before discovery starts, so the first ask must never wait for PET or module
- * discovery (Performance rule 1); it answers undefined instead, and core asks again.
+ * discovery; it answers undefined instead, and core asks again.
  * Pass 2 ranks only a finished discovery: if discovery failed, what it found depends on
  * when it failed, so nothing is recommended.
  *

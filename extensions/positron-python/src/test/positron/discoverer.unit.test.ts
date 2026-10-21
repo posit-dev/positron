@@ -56,10 +56,10 @@ suite('pythonRuntimeDiscoverer', () => {
         // default. Core uses the remembered recommendation, and the picker sorts by
         // `runtimeSourceOrder`, so yield order decides nothing.
         assert.deepEqual(
-            create.getCalls().map((call) => [call.args[0].path, call.args.length]),
+            create.getCalls().map((call) => [call.args[0].path, call.args[2]]),
             [
-                [system.path, 2],
-                [venv.path, 2],
+                [system.path, undefined],
+                [venv.path, undefined],
             ],
         );
     });
