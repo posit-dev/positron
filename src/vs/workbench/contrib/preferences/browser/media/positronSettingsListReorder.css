@@ -32,7 +32,15 @@
 	cursor: grab;
 }
 
-/* Room for the move up/down actions; matches upstream's selector so it outranks its 40px. */
+/* Rows never have sibling text; upstream's empty sibling would otherwise take 40% of the row. */
+.settings-editor > .settings-body .settings-tree-container .setting-item.setting-item-list .setting-list-reorderable .setting-list-sibling {
+	display: none;
+}
+
+/* Fill the row beside the drag handle (upstream's `flex: none` overflows it). */
+/* 48px = two 22px move buttons plus a 4px gap; matches upstream's selector so it outranks its 40px. */
 .settings-editor > .settings-body .settings-tree-container .setting-item.setting-item-list .setting-list-reorderable .setting-list-value {
-	padding-right: 70px;
+	flex: 1;
+	min-width: 0;
+	padding-right: 48px;
 }

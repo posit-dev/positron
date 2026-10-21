@@ -5,6 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
+// eslint-disable-next-line local/code-import-patterns -- Semantic DOM queries for a non-React widget.
+import { within } from '@testing-library/dom';
 import { IReorderListItem, PositronReorderListWidget } from '../../browser/positronReorderListWidget.js';
 import { SettingListEvent } from '../../browser/settingsWidgets.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -22,20 +24,18 @@ describe('PositronReorderListWidget', () => {
 		const events: SettingListEvent<IReorderListItem>[] = [];
 		ctx.disposables.add(widget.onDidChangeList(e => events.push(e)));
 		widget.setValue(toItems(values), options);
-		// eslint-disable-next-line no-restricted-syntax -- upstream widget has no roles or test ids on its rows
-		const rows = () => Array.from(container.querySelectorAll<HTMLElement>('.setting-list-row'));
+		const rows = () => within(container).getAllByRole('listitem');
 		return { widget, container, events, rows, list: widget.domNode };
 	}
 
-	// eslint-disable-next-line no-restricted-syntax -- upstream widget has no roles or test ids on its rows
+	// eslint-disable-next-line no-restricted-syntax -- the row's accessible name wraps the label in "List item"
 	const rowLabels = (rows: () => HTMLElement[]) => rows().map(r => r.querySelector('.setting-list-value')?.textContent);
 
-	function findAction(row: HTMLElement, label: string) {
-		// eslint-disable-next-line no-restricted-syntax -- action bar items have no roles or test ids
-		return row.querySelector<HTMLElement>(`.action-label[aria-label="${label}"]`);
+	function findAction(row: HTMLElement, label: 'Move Up' | 'Move Down') {
+		return within(row).queryByRole('button', { name: new RegExp(`^${label}\\b`) });
 	}
 
-	function clickAction(row: HTMLElement, label: string) {
+	function clickAction(row: HTMLElement, label: 'Move Up' | 'Move Down') {
 		const button = findAction(row, label);
 		expect(button).not.toBeNull();
 		button!.click();
@@ -140,19 +140,19 @@ describe('PositronReorderListWidget', () => {
 		expect(findAction(rows()[1], 'Move Down')).toHaveClass('disabled');
 	});
 
-	it('shows only the move buttons, and none when there is one row', () => {
+	it('shows only the move buttons, named with their shortcut, and none when there is one row', () => {
 		const { rows } = createWidget(['a', 'b']);
-		// eslint-disable-next-line no-restricted-syntax -- action bar items have no roles or test ids
-		const labels = Array.from(rows()[0].querySelectorAll('.action-label')).map(el => el.getAttribute('aria-label'));
-		expect(labels).toEqual(['Move Up', 'Move Down']);
+		const buttons = within(rows()[0]).getAllByRole('button');
+		expect(buttons).toHaveLength(2);
+		expect(buttons[0]).toHaveAccessibleName(/^Move Up \(.+\)$/);
+		expect(buttons[1]).toHaveAccessibleName(/^Move Down \(.+\)$/);
 		expect(findAction(createWidget(['a']).rows()[0], 'Move Up')).toBeNull();
 	});
 
 	it('offers no way to move rows when the value is read-only', () => {
 		const { rows } = createWidget(['a', 'b'], { isReadOnly: true });
 		for (const row of rows()) {
-			// eslint-disable-next-line no-restricted-syntax -- action bar items have no roles or test ids
-			expect(row.querySelectorAll('.action-label')).toHaveLength(0);
+			expect(within(row).queryAllByRole('button')).toEqual([]);
 			expect(row).not.toHaveAttribute('draggable', 'true');
 		}
 	});

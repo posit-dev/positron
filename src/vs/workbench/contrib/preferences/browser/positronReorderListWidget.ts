@@ -9,11 +9,14 @@ import { applyDragImage } from '../../../../base/browser/ui/dnd/dnd.js';
 import { IAction } from '../../../../base/common/actions.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { decodeKeybinding } from '../../../../base/common/keybindings.js';
+import { OS } from '../../../../base/common/platform.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextViewService } from '../../../../platform/contextview/browser/contextView.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IListDataItem, ListSettingWidget } from './settingsWidgets.js';
 import './media/positronSettingsListReorder.css';
@@ -39,6 +42,7 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 		@IContextViewService contextViewService: IContextViewService,
 		@IHoverService hoverService: IHoverService,
 		@IConfigurationService configurationService: IConfigurationService,
+		@IKeybindingService private readonly keybindingService: IKeybindingService,
 	) {
 		super(container, themeService, contextViewService, hoverService, configurationService);
 		this.domNode.classList.add('setting-list-reorderable');
@@ -119,17 +123,23 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 				class: ThemeIcon.asClassName(Codicon.arrowUp),
 				enabled: idx > 0,
 				id: 'workbench.action.moveListItemUp',
-				tooltip: localize('positron.moveListItemUp', "Move Up"),
+				tooltip: this.withShortcut(localize('positron.moveListItemUp', "Move Up"), KeyMod.Alt | KeyCode.UpArrow),
 				run: () => this.moveItem(idx, idx - 1)
 			},
 			{
 				class: ThemeIcon.asClassName(Codicon.arrowDown),
 				enabled: idx < count - 1,
 				id: 'workbench.action.moveListItemDown',
-				tooltip: localize('positron.moveListItemDown', "Move Down"),
+				tooltip: this.withShortcut(localize('positron.moveListItemDown', "Move Down"), KeyMod.Alt | KeyCode.DownArrow),
 				run: () => this.moveItem(idx, idx + 1)
 			}
 		] as IAction[];
+	}
+
+	/** The keys are handled here rather than registered, so Keyboard Shortcuts can't list them. */
+	private withShortcut(label: string, keybinding: number): string {
+		const shortcut = this.keybindingService.resolveKeybinding(decodeKeybinding(keybinding, OS)!)[0]?.getLabel();
+		return shortcut ? `${label} (${shortcut})` : label;
 	}
 
 	// Rows can't be edited; this also covers double-click.
