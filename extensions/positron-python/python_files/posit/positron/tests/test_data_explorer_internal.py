@@ -384,3 +384,49 @@ def test_histogram_integer_precision_loss():
     # Should handle precision edge cases
     _assert_histogram_valid(close_values, bin_counts, bin_edges)
     assert len(bin_counts) == 10
+
+
+@pytest.mark.parametrize("method", ["fd", "sturges", "scott"])
+@pytest.mark.parametrize("outlier", [1e10, 1e12, -1e12])
+def test_histogram_numpy_outlier_caps_bins_before_allocating(monkeypatch, method, outlier):
+    """A single huge outlier must not make np.histogram allocate billions of bins."""
+    np = pytest.importorskip("numpy")
+    num_bins = 20
+    real_histogram = np.histogram
+
+    # Fail fast instead of letting a regression allocate gigabytes of bin edges
+    def guarded_histogram(a, bins=10, **kwargs):
+        assert isinstance(bins, int)
+        assert bins <= num_bins
+        return real_histogram(a, bins=bins, **kwargs)
+
+    monkeypatch.setattr(np, "histogram", guarded_histogram)
+
+    data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, outlier])
+    bin_counts, bin_edges = _get_histogram_numpy(data, num_bins, method=method)
+
+    _assert_histogram_valid(data, bin_counts, bin_edges)
+    assert len(bin_counts) <= num_bins
+
+
+@pytest.mark.parametrize("method", ["fd", "sturges", "scott"])
+@pytest.mark.parametrize(
+    "values",
+    [
+        [1.0, 2.0, 2.5, 3.0, 4.0, 4.5, 8.0, 9.0],
+        [1, 1, 1, 2, 3, 5, 8, 13],
+        [0.0, 0.0, 0.0, 0.0, 1.0],
+        [-5.0, float("inf"), 3.0, 4.0],
+    ],
+)
+def test_histogram_numpy_matches_numpy_bin_estimator(method, values):
+    """Bin counts below the cap match what np.histogram picks for the method."""
+    np = pytest.importorskip("numpy")
+    data = np.array(values)
+    finite = data[np.isfinite(data)]
+    expected_counts, expected_edges = np.histogram(finite, bins=method)
+
+    bin_counts, bin_edges = _get_histogram_numpy(data, 1000, method=method)
+
+    assert bin_counts == expected_counts.tolist()
+    assert bin_edges == pytest.approx(expected_edges.tolist())

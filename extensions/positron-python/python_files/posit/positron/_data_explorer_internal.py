@@ -67,6 +67,41 @@ def _get_histogram_method(method):
     }[method]
 
 
+def _get_numpy_bin_count(np, data, num_bins, method):
+    """
+    Compute the bin count NumPy would pick for `method`, capped at `num_bins`.
+
+    Passing the method name to np.histogram lets a single outlier produce
+    billions of bins (and a multi-GiB edge array) before we can cap it, so
+    we mirror NumPy's bin width estimators and cap first.
+    """
+    if method == "fixed":
+        return num_bins
+
+    first_edge, last_edge = data.min(), data.max()
+    if not (np.isfinite(first_edge) and np.isfinite(last_edge)):
+        # Same error np.histogram raises, so callers can filter and retry
+        raise ValueError("autodetected range is not finite")
+    delta = float(last_edge) - float(first_edge)
+
+    if method == "fd":
+        iqr = np.subtract(*np.percentile(data, [75, 25]))
+        width = 2.0 * iqr * data.size ** (-1.0 / 3.0)
+    elif method == "sturges":
+        width = delta / (np.log2(data.size) + 1.0)
+    elif method == "scott":
+        width = (24.0 * np.pi**0.5 / data.size) ** (1.0 / 3.0) * np.std(data)
+    else:
+        raise ValueError(f"Unknown binning method: {method}")
+
+    if not width:
+        # Width can be zero, e.g. FD when the IQR is zero
+        return 1
+    if issubclass(data.dtype.type, np.integer) and width < 1:
+        width = 1
+    return max(1, min(math.ceil(delta / width), num_bins))
+
+
 def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
     """
     Compute histogram using NumPy.
@@ -91,7 +126,6 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
         data = data.to_numpy()
 
     assert num_bins is not None
-    hist_params = {"bins": num_bins} if method == "fixed" else {"bins": method}
 
     if data.dtype == object:
         # For decimals, we convert to float which is lossy but works for now
@@ -111,6 +145,7 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
     # finer-grained histogram than the maximum number of bins that we
     # want to render, as indicated by the num_bins argument
     try:
+        hist_params = {"bins": _get_numpy_bin_count(np, data, num_bins, method)}
         bin_counts, bin_edges = np.histogram(data, **hist_params)
     except ValueError:
         if issubclass(data.dtype.type, np.integer):
@@ -129,6 +164,7 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
         # Check if filtering removed all data
         if len(data) == 0:
             return _EMPTY_HISTOGRAM
+        hist_params = {"bins": _get_numpy_bin_count(np, data, num_bins, method)}
         bin_counts, bin_edges = np.histogram(data, **hist_params)
 
     need_recompute = False
