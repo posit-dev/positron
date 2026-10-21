@@ -11,6 +11,8 @@ import { usePositronConfiguration, useContextKey } from '../../../../../base/bro
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { AssistantErrorQuickFix } from './AssistantErrorQuickFix.js';
+import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { useOptionalCell } from './CellProvider.js';
 
 /**
  * Props for the NotebookCellQuickFix component.
@@ -36,8 +38,26 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	const notebookAiEnabled = useContextKey<boolean>(NotebookContextKeys.aiEnabled);
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
 	const assistant = useActiveErrorAssistant();
+	const instance = useNotebookInstance();
+	const cell = useOptionalCell();
 
-	const getErrorContext = (): IErrorAssistantContext => ({ kind: 'notebook', error: errorContent });
+	// Resolved on click, so the cell's index and code reflect any edits since
+	// the error. A cell's index is -1 once it's removed from the notebook.
+	const getErrorContext = (): IErrorAssistantContext => {
+		const sessionId = instance.runtimeSession.get()?.sessionId;
+		if (!cell || cell.index < 0) {
+			return { kind: 'notebook', error: errorContent, uri: instance.uri, sessionId };
+		}
+		return {
+			kind: 'notebook',
+			error: errorContent,
+			uri: instance.uri,
+			cellIndex: cell.index,
+			code: cell.getContent(),
+			languageId: cell.model.language,
+			sessionId,
+		};
+	};
 
 	// Only show buttons if notebook AI is enabled, notebook mode is enabled, and
 	// an assistant can take errors.

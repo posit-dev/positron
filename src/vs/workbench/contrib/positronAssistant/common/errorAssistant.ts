@@ -23,11 +23,29 @@ interface IErrorContextBase {
 /** An error raised by code run in a console session. */
 interface IConsoleErrorContext extends IErrorContextBase {
 	readonly kind: 'console';
+	/** ID of the console's runtime session. */
+	readonly sessionId: string;
+	/** Name of the console's session, e.g. "Python 3.12.1 (Venv: .venv)". */
+	readonly sessionName: string;
+	/** Language ID of the session, e.g. "python". */
+	readonly languageId: string;
+	/** The code that raised the error. Undefined when the console no longer has it. */
+	readonly code?: string;
 }
 
 /** An error raised by a notebook cell. */
 interface INotebookErrorContext extends IErrorContextBase {
 	readonly kind: 'notebook';
+	/** The notebook. */
+	readonly uri: URI;
+	/** 0-based index of the cell. Undefined when the cell is no longer in the notebook. */
+	readonly cellIndex?: number;
+	/** The cell's code, including unsaved edits. Undefined when the cell is no longer in the notebook. */
+	readonly code?: string;
+	/** Language ID of the cell, e.g. "python". Undefined when the cell is no longer in the notebook. */
+	readonly languageId?: string;
+	/** ID of the notebook's runtime session. Undefined when it has none. */
+	readonly sessionId?: string;
 }
 
 /** An error raised by a Quarto code cell. */
@@ -35,6 +53,8 @@ interface IQuartoErrorContext extends IErrorContextBase {
 	readonly kind: 'quarto';
 	/** The cell whose code raised the error. Undefined when it can't be found. */
 	readonly cell?: IQuartoErroredCell;
+	/** ID of the document's runtime session. Undefined when it has none. */
+	readonly sessionId?: string;
 }
 
 /** A Quarto code cell, as it was when it raised an error. */
@@ -78,12 +98,15 @@ export interface IErrorAssistantInfo {
 
 /**
  * An AI assistant's handling of the error Fix and Explain actions, e.g. Posit
- * Assistant's. Register it only while it can take errors.
+ * Assistant's. Register it while it exists, e.g. while its extension is
+ * installed, not only while it can take errors.
  */
 export interface IErrorAssistant extends IErrorAssistantInfo {
 	/**
-	 * Ask the assistant to take the action on the error. Reject on failure;
-	 * the service reports it to the user.
+	 * Ask the assistant to take the action on the error. When it can't because
+	 * of a problem the user can fix (e.g. a missing CLI or a setting), tell the
+	 * user why, with a way to fix it, and resolve. Reject only on unexpected
+	 * failures; the service reports them to the user.
 	 */
 	ask(action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions): Promise<void>;
 }

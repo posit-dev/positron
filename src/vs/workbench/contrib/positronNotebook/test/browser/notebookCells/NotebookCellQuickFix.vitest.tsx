@@ -13,6 +13,14 @@ import { IContextKeyService } from '../../../../../../platform/contextkey/common
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { IDisposable } from '../../../../../../base/common/lifecycle.js';
+import { constObservable } from '../../../../../../base/common/observable.js';
+import { URI } from '../../../../../../base/common/uri.js';
+import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
+import { ILanguageRuntimeSession } from '../../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
+import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
+import { IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
 import { registerTestErrorAssistant } from '../../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
@@ -42,19 +50,61 @@ describe('NotebookCellQuickFix', () => {
 		}
 	}
 
-	function renderQuickFix() {
-		return rtl.render(<NotebookCellQuickFix errorContent='NameError: name "x" is not defined' />);
+	const instance = stubInterface<IPositronNotebookInstance>({
+		uri: URI.file('/work/analysis.ipynb'),
+		runtimeSession: constObservable(stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-5678' })),
+	});
+
+	/** A cell at an index; -1 means it was removed from the notebook. */
+	function createCell(index = 2) {
+		return stubInterface<IPositronNotebookCell>({
+			index,
+			getContent: () => 'x + 1',
+			model: stubInterface<IPositronNotebookCell['model']>({ language: 'python' }),
+		});
+	}
+
+	function renderQuickFix(cell = createCell()) {
+		return rtl.render(
+			<NotebookInstanceProvider instance={instance}>
+				<CellProvider cell={cell}>
+					<NotebookCellQuickFix errorContent='NameError: name "x" is not defined' />
+				</CellProvider>
+			</NotebookInstanceProvider>
+		);
 	}
 
 	const quickFixGroup = { name: 'Cell output quick fix actions' };
 
-	it('sends the error as a notebook error', async () => {
+	it('sends the error with the notebook, cell, and session', async () => {
 		setGates();
 		const user = userEvent.setup();
 		renderQuickFix();
 		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
 
-		expect(ask).toHaveBeenCalledWith('fix', { kind: 'notebook', error: 'NameError: name "x" is not defined' }, { continueChat: false });
+		expect(ask).toHaveBeenCalledWith('fix', {
+			kind: 'notebook',
+			error: 'NameError: name "x" is not defined',
+			uri: instance.uri,
+			cellIndex: 2,
+			code: 'x + 1',
+			languageId: 'python',
+			sessionId: 'python-5678',
+		}, { continueChat: false });
+	});
+
+	it('sends only the notebook and session once the cell is removed', async () => {
+		setGates();
+		const user = userEvent.setup();
+		renderQuickFix(createCell(-1));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
+
+		expect(ask.mock.calls[0][1]).toEqual({
+			kind: 'notebook',
+			error: 'NameError: name "x" is not defined',
+			uri: instance.uri,
+			sessionId: 'python-5678',
+		});
 	});
 
 	it('shows the buttons before the notebook AI context key is bound', () => {

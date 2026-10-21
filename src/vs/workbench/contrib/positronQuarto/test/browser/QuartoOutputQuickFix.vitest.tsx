@@ -14,10 +14,15 @@ import { URI } from '../../../../../base/common/uri.js';
 import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
 import { IQuartoErroredCell } from '../../../positronAssistant/common/errorAssistant.js';
+import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 
 describe('QuartoOutputQuickFix', () => {
+	const getSessionForDocument = vi.fn((_uri: URI) => stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-1234' }));
 	const ctx = createTestContainer()
 		.withReactServices()
+		.stub(IQuartoKernelManager, { getSessionForDocument })
 		.build();
 
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
@@ -58,7 +63,7 @@ describe('QuartoOutputQuickFix', () => {
 		expect(onLayout).toHaveBeenCalled();
 	});
 
-	it('sends the error with the cell that raised it', async () => {
+	it('sends the error with the cell that raised it and its document\'s session', async () => {
 		const user = userEvent.setup();
 		const uri = URI.file('/report.qmd');
 		renderQuickFix({ uri, languageId: 'python', label: 'setup', code: 'raise RuntimeError("boom")', startLine: 8, endLine: 9 });
@@ -68,7 +73,9 @@ describe('QuartoOutputQuickFix', () => {
 			kind: 'quarto',
 			error: 'NameError: name "x" is not defined',
 			cell: { uri, languageId: 'python', label: 'setup', code: 'raise RuntimeError("boom")', startLine: 8, endLine: 9 },
+			sessionId: 'python-1234',
 		}, { continueChat: false });
+		expect(getSessionForDocument).toHaveBeenCalledWith(uri);
 	});
 
 	it('sends the error without a cell when it cannot be found', async () => {

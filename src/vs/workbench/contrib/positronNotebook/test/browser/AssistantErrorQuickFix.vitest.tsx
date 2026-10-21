@@ -13,6 +13,7 @@ import { IContextMenuDelegate } from '../../../../../base/browser/contextmenu.js
 import { IAction } from '../../../../../base/common/actions.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { IErrorAssistant, IErrorAssistantContext, IErrorAssistantService } from '../../../positronAssistant/common/errorAssistant.js';
 import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 import { AssistantErrorQuickFix } from '../../browser/notebookCells/AssistantErrorQuickFix.js';
@@ -33,6 +34,7 @@ describe('AssistantErrorQuickFix', () => {
 	const errorContext: IErrorAssistantContext = {
 		kind: 'notebook',
 		error: 'NameError: name "x" is not defined',
+		uri: URI.file('/analysis.ipynb'),
 	};
 
 	/** Register an assistant errors are sent to, and render the quick fix for it. */

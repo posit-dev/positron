@@ -11,6 +11,8 @@ import { localize } from '../../../../nls.js';
 import { IErrorAssistantContext, IQuartoErroredCell } from '../../positronAssistant/common/errorAssistant.js';
 import { useActiveErrorAssistant } from '../../positronAssistant/browser/useActiveErrorAssistant.js';
 import { AssistantErrorQuickFix } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { IQuartoKernelManager } from './quartoKernelManager.js';
 
 interface QuartoOutputQuickFixProps {
 	/** The error output content from the Quarto cell execution. */
@@ -35,6 +37,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	// change re-renders this component and runs the layout effect below,
 	// re-measuring the host view zone when the buttons appear or disappear.
 	const assistant = useActiveErrorAssistant();
+	const services = usePositronReactServicesContext();
 
 	const { errorContent, cell, onLayout } = props;
 
@@ -45,7 +48,12 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		onLayout?.();
 	});
 
-	const getErrorContext = (): IErrorAssistantContext => ({ kind: 'quarto', error: errorContent, cell });
+	const getErrorContext = (): IErrorAssistantContext => ({
+		kind: 'quarto',
+		error: errorContent,
+		cell,
+		sessionId: cell && services.get(IQuartoKernelManager).getSessionForDocument(cell.uri)?.sessionId,
+	});
 
 	if (!assistant) {
 		return null;

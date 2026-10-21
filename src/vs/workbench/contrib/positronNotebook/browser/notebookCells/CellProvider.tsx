@@ -35,6 +35,15 @@ export function useCell(): IPositronNotebookCell {
 }
 
 /**
+ * Hook to consume the current cell from React context, if there is one.
+ *
+ * @returns The current cell, or undefined outside a {@link CellProvider}.
+ */
+export function useOptionalCell(): IPositronNotebookCell | undefined {
+	return React.useContext(CellContext);
+}
+
+/**
  * Hook to consume the current cell narrowed to a code cell.
  *
  * @returns The current code cell. Throws if the cell is not a code cell.

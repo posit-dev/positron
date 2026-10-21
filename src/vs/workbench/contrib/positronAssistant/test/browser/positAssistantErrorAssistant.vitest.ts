@@ -117,7 +117,7 @@ describe('getPositAssistantChatOptions', () => {
 	}
 
 	it('sends console errors verbatim, and constrains Explain', () => {
-		const context: IErrorAssistantContext = { kind: 'console', error: '  Error: boom\n' };
+		const context: IErrorAssistantContext = { kind: 'console', error: '  Error: boom\n', sessionId: 'python-1', sessionName: 'Python 3.12.1', languageId: 'python' };
 		expect([getOptions('fix', context, { continueChat: true }), getOptions('explain', context, { continueChat: true })]).toEqual([
 			{ prompt: 'Fix this console error.', target: 'auto', behavior: 'submit', files: [{ name: 'Console Error', content: '  Error: boom\n' }] },
 			{ prompt: `Explain this console error. ${constraint}`, target: 'auto', behavior: 'submit', files: [{ name: 'Console Error', content: '  Error: boom\n' }] },
@@ -125,7 +125,7 @@ describe('getPositAssistantChatOptions', () => {
 	});
 
 	it('trims whitespace from notebook errors, and constrains Explain', () => {
-		const context: IErrorAssistantContext = { kind: 'notebook', error: '\n ValueError: boom\n' };
+		const context: IErrorAssistantContext = { kind: 'notebook', error: '\n ValueError: boom\n', uri: URI.file('/analysis.ipynb') };
 		expect([getOptions('fix', context), getOptions('explain', context)]).toEqual([
 			{ prompt: 'Fix this notebook cell error.', target: 'new', behavior: 'submit', files: [{ name: 'Notebook Cell Error', content: 'ValueError: boom' }] },
 			{ prompt: `Explain this notebook cell error. ${constraint}`, target: 'new', behavior: 'submit', files: [{ name: 'Notebook Cell Error', content: 'ValueError: boom' }] },
@@ -163,8 +163,8 @@ describe('getPositAssistantChatOptions', () => {
 
 	it('omits the attachment when the error is blank', () => {
 		expect([
-			getOptions('fix', { kind: 'console', error: '' }).files,
-			getOptions('fix', { kind: 'notebook', error: ' \n' }).files,
+			getOptions('fix', { kind: 'console', error: '', sessionId: 'python-1', sessionName: 'Python 3.12.1', languageId: 'python' }).files,
+			getOptions('fix', { kind: 'notebook', error: ' \n', uri: URI.file('/analysis.ipynb') }).files,
 		]).toEqual([undefined, undefined]);
 	});
 });
