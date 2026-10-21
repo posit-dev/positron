@@ -35,19 +35,25 @@ jobs:
       jupyter_tag_found: ${{ steps.pr-tags.outputs.jupyter_tag_found }}
       remote_ssh_tag_found: ${{ steps.pr-tags.outputs.remote_ssh_tag_found }}
       connect_tag_found: ${{ steps.pr-tags.outputs.connect_tag_found }}
+      # Per-lane shard plans from the test-count listing (see pr-tags-parse.sh).
+      linux_shards: ${{ steps.pr-tags.outputs.linux_shards }}
+      linux_matrix: ${{ steps.pr-tags.outputs.linux_matrix }}
+      linux_max_failures: ${{ steps.pr-tags.outputs.linux_max_failures }}
+      win_shards: ${{ steps.pr-tags.outputs.win_shards }}
+      win_matrix: ${{ steps.pr-tags.outputs.win_matrix }}
+      win_max_failures: ${{ steps.pr-tags.outputs.win_max_failures }}
+      web_shards: ${{ steps.pr-tags.outputs.web_shards }}
+      web_matrix: ${{ steps.pr-tags.outputs.web_matrix }}
+      web_max_failures: ${{ steps.pr-tags.outputs.web_max_failures }}
 
     steps:
       - uses: actions/checkout@v7
-      # Install just enough for derive-test-change-tags.mjs's
-      # `playwright test --list` call. Gated to PRs that touch e2e test files.
-      # Shared with pr-e2e-comment.yml so the two derivation environments can't
-      # drift -- see the composite action for the full rationale.
+      # Install just enough for `playwright test --list`: pr-tags-parse.sh counts
+      # each lane's tests to pick a shard count, and derive-test-change-tags.mjs
+      # discovers e2e test tags. Shared with pr-e2e-comment.yml so the two
+      # derivation environments can't drift -- see the composite action.
       - name: Set up e2e tag listing
         uses: ./.github/actions/e2e-tag-listing-setup
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          github-repository: ${{ github.repository }}
-          pull-request-number: ${{ github.event.pull_request.number }}
       # Guardrail for the tag-derivation scripts; fail fast before relying on them below.
       - name: Unit test the tag-derivation helpers
         run: bash scripts/test/pr-tags-lib-test.sh
@@ -85,6 +91,9 @@ jobs:
       install_license: false
       upload_logs: false
       workers: 2
+      shards: ${{ fromJson(needs.pr-tags.outputs.linux_shards) }}
+      matrix: ${{ needs.pr-tags.outputs.linux_matrix }}
+      max_failures: ${{ fromJson(needs.pr-tags.outputs.linux_max_failures) }}
     secrets: inherit
 
   e2e-windows-electron:
@@ -97,6 +106,9 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron-win"
       upload_logs: false
+      shards: ${{ fromJson(needs.pr-tags.outputs.win_shards) }}
+      matrix: ${{ needs.pr-tags.outputs.win_matrix }}
+      max_failures: ${{ fromJson(needs.pr-tags.outputs.win_max_failures) }}
     secrets: inherit
 
   e2e-ubuntu-browser:
@@ -111,6 +123,9 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
+      shards: ${{ fromJson(needs.pr-tags.outputs.web_shards) }}
+      matrix: ${{ needs.pr-tags.outputs.web_matrix }}
+      max_failures: ${{ fromJson(needs.pr-tags.outputs.web_max_failures) }}
     secrets: inherit
 
   e2e-rocky-electron:

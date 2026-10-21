@@ -525,3 +525,113 @@ More on [automatic tags from changed files](https://github.com/posit-dev/positro
 </details>
 EOF
 }
+
+# pw_tags_regex <project> <csv tags>
+# Echoes the Playwright --grep regex a CI lane runs for a comma-separated tag
+# list: the project's platform lookahead (@:win / @:web, none for Linux) joined
+# with an OR of the remaining tags. Platform tags are stripped from the OR so
+# "@:win" alone does not match every Windows test. Empty tags echo just the
+# platform lookahead (or nothing for Linux), which Playwright reads as "all".
+# Returns 1 for an unknown project. pr-tags-transform.sh and the shard-count
+# listing in pr-tags-parse.sh must agree, so both go through here.
+pw_tags_regex() {
+	local project="$1" tags="$2" prefix tags_regex
+	case "$project" in
+		e2e-windows|e2e-macOS-ci)
+			prefix="(?=.*@:win)"
+			tags="$(printf '%s' "$tags" | tr ',' '\n' | grep -v '@:win' | grep -v '@:web' | sort -u | paste -sd, -)"
+			;;
+		e2e-chromium|e2e-firefox|e2e-webkit|e2e-edge)
+			prefix="(?=.*@:web)"
+			tags="$(printf '%s' "$tags" | tr ',' '\n' | grep -v '@:web' | grep -v '@:win' | sort -u | paste -sd, -)"
+			;;
+		e2e-electron)
+			prefix=""
+			tags="$(printf '%s' "$tags" | tr ',' '\n' | grep -v '@:web' | grep -v '@:win' | sort -u | paste -sd, -)"
+			;;
+		inspect-ai)
+			prefix="(?=.*@:inspect-ai)"
+			tags="$(printf '%s' "$tags" | tr ',' '\n' | sort -u | paste -sd, -)"
+			;;
+		*)
+			echo "Unknown PROJECT: $project" >&2
+			return 1
+			;;
+	esac
+	if [[ -n "$tags" ]]; then
+		tags_regex="$(printf '%s' "$tags" | tr ',' '|' | sed 's/^/(?=.*(/;s/$/))/' | sed 's/|)/)/')"
+		printf '%s%s' "$prefix" "$tags_regex"
+	else
+		printf '%s' "$prefix"
+	fi
+}
+
+# parse_list_total <playwright --list output>
+# Echoes the test count from the list reporter's trailing "Total: N tests in M
+# files" line, or nothing when the line is absent (listing failed).
+parse_list_total() {
+	printf '%s\n' "$1" | sed -n -E 's/^Total: ([0-9]+) tests? in .*/\1/p' | tail -1
+}
+
+# Tests per CI shard. Sized from the October 2026 PR lanes: Linux ran 246 tests
+# in 77 min and Windows 180 in 53 min at 2 workers, so 200 tests keeps a shard
+# near an hour of test time under the 120 / 150 min job caps once setup is added.
+E2E_TESTS_PER_SHARD="${E2E_TESTS_PER_SHARD:-200}"
+
+# shard_count <test count>
+# Echoes ceil(count / E2E_TESTS_PER_SHARD), never below 1. A non-numeric or
+# empty count (listing unavailable) echoes 1 so the lane still runs unsharded.
+shard_count() {
+	local count="$1"
+	if ! [[ "$count" =~ ^[0-9]+$ ]] || [[ "$count" -eq 0 ]]; then
+		echo 1
+		return 0
+	fi
+	echo $(( (count + E2E_TESTS_PER_SHARD - 1) / E2E_TESTS_PER_SHARD ))
+}
+
+# shard_matrix <shards>
+# Echoes the strategy matrix JSON the e2e run workflows take, e.g. {"shard":[1,2]}.
+shard_matrix() {
+	local n="$1" i list=""
+	for ((i = 1; i <= n; i++)); do
+		list+="${list:+,}$i"
+	done
+	printf '{"shard":[%s]}' "$list"
+}
+
+# per_shard_max_failures <lane total> <shards>
+# Echoes ceil(total / shards): the run workflows abort a shard after this many
+# failures, so the lane as a whole still stops near the unsharded limit.
+per_shard_max_failures() {
+	local total="$1" shards="$2"
+	echo $(( (total + shards - 1) / shards ))
+}
+
+# render_lane_summary <encoded>
+# Renders the PR comment's test-count line from "linux=246/2,win=180/1,..."
+# (lane=tests/shards). Echoes nothing for empty input. Lanes with one shard
+# show just the count; the comment reads "246 tests across 2 shards" otherwise.
+render_lane_summary() {
+	local encoded="$1" entry lane rest tests shards label parts=""
+	[[ -z "$encoded" ]] && return 0
+	while IFS= read -r entry; do
+		[[ -z "$entry" ]] && continue
+		lane="${entry%%=*}"
+		rest="${entry#*=}"
+		tests="${rest%%/*}"
+		shards="${rest##*/}"
+		case "$lane" in
+			linux) label="Linux" ;;
+			win)   label="Windows" ;;
+			web)   label="Web" ;;
+			*)     label="$lane" ;;
+		esac
+		if [[ "$shards" -gt 1 ]]; then
+			parts+="${parts:+, }${label}: ${tests} tests across ${shards} shards"
+		else
+			parts+="${parts:+, }${label}: ${tests} tests"
+		fi
+	done < <(printf '%s\n' "${encoded//,/$'\n'}")
+	[[ -n "$parts" ]] && printf 'Test count: %s.' "$parts"
+}

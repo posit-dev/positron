@@ -1264,5 +1264,52 @@ assert_eq "platform-only touched test already covered: nothing added to stdout" 
 
 rm -rf "$DERIVE_DIR"
 
+# --- pw_tags_regex ---
+# Locks in the lane grep the old pr-tags-transform.sh produced, since the
+# shard-count listing now has to select exactly what the lane runs.
+assert_eq "regex: linux ORs the sorted tags with no platform lookahead" "(?=.*(@:console|@:critical))" \
+	"$(pw_tags_regex e2e-electron "@:critical,@:console")"
+assert_eq "regex: linux strips @:win and @:web" "(?=.*(@:ark|@:critical))" \
+	"$(pw_tags_regex e2e-electron "@:critical,@:ark,@:win,@:web")"
+assert_eq "regex: windows prefixes the @:win lookahead" "(?=.*@:win)(?=.*(@:ark|@:critical))" \
+	"$(pw_tags_regex e2e-windows "@:critical,@:ark,@:win,@:web")"
+assert_eq "regex: chromium prefixes the @:web lookahead" "(?=.*@:web)(?=.*(@:ark|@:critical))" \
+	"$(pw_tags_regex e2e-chromium "@:critical,@:ark,@:win,@:web")"
+assert_eq "regex: duplicate tags collapse" "(?=.*(@:console))" \
+	"$(pw_tags_regex e2e-electron "@:console,@:console")"
+assert_eq "regex: @:all (empty) on linux is empty" "" \
+	"$(pw_tags_regex e2e-electron "")"
+assert_eq "regex: @:all (empty) on windows is the bare lookahead" "(?=.*@:win)" \
+	"$(pw_tags_regex e2e-windows "")"
+assert_eq "regex: unknown project fails" "1" \
+	"$(pw_tags_regex e2e-nope "@:critical" 2>/dev/null; echo $?)"
+
+# --- parse_list_total ---
+assert_eq "list total: plural line" "246" \
+	"$(parse_list_total "$(printf 'Listing tests:\n  a.test.ts:1:1 > x\nTotal: 246 tests in 105 files')")"
+assert_eq "list total: singular line" "1" \
+	"$(parse_list_total "Total: 1 test in 1 file")"
+assert_eq "list total: missing line yields nothing" "" \
+	"$(parse_list_total "Error: config not found")"
+
+# --- shard_count / shard_matrix / per_shard_max_failures ---
+assert_eq "shards: at the budget stays one" "1" "$(E2E_TESTS_PER_SHARD=200 shard_count 200)"
+assert_eq "shards: one over the budget splits" "2" "$(E2E_TESTS_PER_SHARD=200 shard_count 201)"
+assert_eq "shards: ark plus features on linux" "3" "$(E2E_TESTS_PER_SHARD=200 shard_count 467)"
+assert_eq "shards: zero tests still runs one shard" "1" "$(shard_count 0)"
+assert_eq "shards: unknown count falls back to one" "1" "$(shard_count "")"
+assert_eq "matrix: single shard" '{"shard":[1]}' "$(shard_matrix 1)"
+assert_eq "matrix: three shards" '{"shard":[1,2,3]}' "$(shard_matrix 3)"
+assert_eq "max failures: unsharded keeps the base" "10" "$(per_shard_max_failures 10 1)"
+assert_eq "max failures: rounds up per shard" "4" "$(per_shard_max_failures 10 3)"
+
+# --- render_lane_summary ---
+assert_eq "lane summary: empty yields nothing" "" "$(render_lane_summary "")"
+assert_eq "lane summary: single-shard lanes show only the count" \
+	"Test count: Linux: 62 tests." "$(render_lane_summary "linux=62/1")"
+assert_eq "lane summary: sharded lanes show the split" \
+	"Test count: Linux: 467 tests across 3 shards, Windows: 379 tests across 2 shards, Web: 202 tests across 2 shards." \
+	"$(render_lane_summary "linux=467/3,win=379/2,web=202/2")"
+
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail
