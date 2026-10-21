@@ -111,7 +111,7 @@ export function createAuthorizationRequest(
 	const verifier = base64url(randomBytes(32));
 	const challenge = base64url(crypto.createHash('sha256').update(verifier).digest());
 	const state = base64url(randomBytes(16));
-	const query = Object.entries({
+	const query = new URLSearchParams({
 		response_type: 'code',
 		client_id: OAUTH_CLIENT_ID,
 		redirect_uri: redirectUri,
@@ -119,7 +119,7 @@ export function createAuthorizationRequest(
 		state,
 		code_challenge: challenge,
 		code_challenge_method: 'S256',
-	}).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+	}).toString();
 	const separator = authorizationEndpoint.includes('?') ? '&' : '?';
 	return { url: `${authorizationEndpoint}${separator}${query}`, state, verifier };
 }
@@ -171,14 +171,27 @@ export interface OAuthTokens {
 	expiresAt?: number;
 }
 
+/** The `exp` claim of a JWT access token as epoch milliseconds, or undefined if it has none. */
+export function jwtExpiry(token: string): number | undefined {
+	const payload = token.split('.')[1];
+	if (!payload) {
+		return undefined;
+	}
+	try {
+		const { exp } = JSON.parse(Buffer.from(payload, 'base64').toString('utf8'));
+		return typeof exp === 'number' ? exp * 1000 : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 async function requestTokens(
 	tokenEndpoint: string,
 	params: Record<string, string>,
 	request: HttpRequest,
 	now: () => number
 ): Promise<OAuthTokens> {
-	const body = Object.entries({ client_id: OAUTH_CLIENT_ID, ...params })
-		.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+	const body = new URLSearchParams({ client_id: OAUTH_CLIENT_ID, ...params }).toString();
 	const response = await request(tokenEndpoint, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
@@ -199,7 +212,7 @@ async function requestTokens(
 	return {
 		accessToken: payload.access_token,
 		refreshToken: typeof payload.refresh_token === 'string' ? payload.refresh_token : undefined,
-		expiresAt: typeof payload.expires_in === 'number' ? now() + payload.expires_in * 1000 : undefined,
+		expiresAt: typeof payload.expires_in === 'number' ? now() + payload.expires_in * 1000 : jwtExpiry(payload.access_token),
 	};
 }
 

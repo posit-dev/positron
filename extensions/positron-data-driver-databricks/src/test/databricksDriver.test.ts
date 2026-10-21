@@ -678,8 +678,10 @@ suite('Databricks Client', () => {
 
 		assert.strictEqual(pat.token, 'dapi-test-token');
 		assert.strictEqual(pat.authType, undefined);
-		// Positron runs the U2M sign-in itself and hands the SDK the session's token provider.
+		// Positron runs the U2M sign-in itself and hands the SDK the session's token provider; with
+		// no session (Azure Government) the SDK runs its own flow.
 		assert.deepStrictEqual({ authType: u2m.authType, getToken: u2m.getToken }, { authType: 'external-token', getToken });
+		assert.strictEqual(connectionOptions({ ...TEST_CONFIG, authType: 'u2m', token: undefined }).authType, 'databricks-oauth');
 		assert.deepStrictEqual(
 			{ authType: m2m.authType, id: m2m.oauthClientId, secret: m2m.oauthClientSecret },
 			{ authType: 'databricks-oauth', id: 'cid', secret: 'secret' });

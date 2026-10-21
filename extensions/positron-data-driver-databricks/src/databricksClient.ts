@@ -48,7 +48,7 @@ export interface DatabricksConnectionOptions {
 	 * managed credentials). Takes precedence over `token`. Handed to the SDK as its `external-token`
 	 * callback, which the SDK calls again whenever the cached token nears its JWT expiry, so a live
 	 * session picks up the rotated token instead of failing once the first one expires. Used with the
-	 * `pat` auth type, and required by `u2m`, whose sign-in session supplies it.
+	 * `pat` auth type, and by `u2m`, whose sign-in session supplies it.
 	 */
 	tokenProvider?: () => Promise<string>;
 	/** The service principal's client id (M2M auth). */
@@ -164,7 +164,13 @@ export function connectionOptions(options: DatabricksConnectionOptions): Record<
 		case 'u2m':
 			// Positron ran the authorization-code flow itself (the SDK's own flow cannot reach the
 			// user's browser from a remote extension host); the signed-in session supplies the token.
-			return { ...base, authType: 'external-token', getToken: options.tokenProvider };
+			// Without a session (Azure Government, where Databricks OAuth is unsupported) the SDK
+			// runs its own Entra flow, which works where the browser and the extension host share
+			// a machine.
+			if (options.tokenProvider) {
+				return { ...base, authType: 'external-token', getToken: options.tokenProvider };
+			}
+			return { ...base, authType: 'databricks-oauth' };
 		case 'm2m':
 			// Supplying a client id and secret switches the same OAuth path to the client-credentials
 			// grant, with no browser interaction.

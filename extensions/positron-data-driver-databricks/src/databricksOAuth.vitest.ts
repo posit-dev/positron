@@ -12,6 +12,7 @@ import {
 	discoverEndpoints,
 	exchangeAuthorizationCode,
 	HttpRequest,
+	jwtExpiry,
 	listenForCallback,
 	OAUTH_REDIRECT_URI,
 	parseCallbackUrl,
@@ -129,6 +130,16 @@ describe('token requests', () => {
 			tokens: { accessToken: 'at2', refreshToken: undefined, expiresAt: undefined },
 			body: 'client_id=databricks-sql-connector&grant_type=refresh_token&refresh_token=rt',
 		});
+	});
+
+	it('falls back to the JWT exp claim when the response has no expires_in', async () => {
+		const jwt = `h.${Buffer.from(JSON.stringify({ exp: 1_700_000_000 })).toString('base64url')}.s`;
+		const { request } = fakeHttp({ status: 200, body: { access_token: jwt } });
+
+		const tokens = await refreshAccessToken(TOKEN_ENDPOINT, 'rt', request);
+
+		expect({ expiresAt: tokens.expiresAt, plain: jwtExpiry('not-a-jwt'), noExp: jwtExpiry('h.e30.s') })
+			.toEqual({ expiresAt: 1_700_000_000_000, plain: undefined, noExp: undefined });
 	});
 
 	it('surfaces the server error description, or the status when there is none', async () => {

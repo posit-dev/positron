@@ -370,15 +370,30 @@ async function workbenchConnectionConfig(params: positron.DataConnectionParamete
 	};
 }
 
+/** Whether a workspace host is on Azure Government, where Databricks' own OAuth is unsupported. */
+export function isAzureGovernmentHost(host: string): boolean {
+	return host.toLowerCase().endsWith('.databricks.azure.us');
+}
+
 /**
  * Builds the normalized connection options for the U2M mechanism: signs the user in through the
  * browser first, then pairs the options with the session's token provider so the SDK, and every
- * reconnect, reuses that one sign-in.
+ * reconnect, reuses that one sign-in. Azure Government workspaces are left to the SDK's Entra flow.
  */
 async function u2mConnectionConfig(params: positron.DataConnectionParameterValues, logger?: positron.DataConnectionLogger): Promise<DatabricksConnectionOptions> {
 	const base = connectionConfig(OAUTH_U2M_MECHANISM_ID, params);
+	if (isAzureGovernmentHost(base.host)) {
+		return base;
+	}
 	const session = await signInToDatabricks(base.host, logger);
-	return { ...base, tokenProvider: () => session.getAccessToken() };
+	const tokenProvider = async () => {
+		try {
+			return await session.getAccessToken();
+		} catch (err) {
+			throw new Error(vscode.l10n.t('The Databricks sign-in has expired ({0}). Connect again to sign in.', err instanceof Error ? err.message : String(err)));
+		}
+	};
+	return { ...base, tokenProvider };
 }
 
 /** Builds the normalized connection options for a mechanism's parameter values. */

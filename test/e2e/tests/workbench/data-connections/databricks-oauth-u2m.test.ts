@@ -34,64 +34,66 @@ test.describe('Data Connections - Databricks OAuth U2M', {
 		const page = app.code.driver.currentPage;
 		const connectionName = `databricks-u2m-${Date.now()}`;
 		dataConnections.actionTimeout = 120_000;
+		try {
+			await dataConnections.openDataConnectionsView();
+			await dataConnections.clickAddConnection();
+			await dataConnections.selectProvider('Databricks');
+			await dataConnections.selectConnectionMechanism('OAuth User-to-Machine (U2M)');
+			await dataConnections.fillConnectionInputs({
+				'Connection Name': connectionName,
+				'Server Hostname': host,
+				'HTTP Path': httpPath,
+			});
+			await dataConnections.save();
+			await dataConnections.expectConnectionInTree(connectionName);
 
-		await dataConnections.openDataConnectionsView();
-		await dataConnections.clickAddConnection();
-		await dataConnections.selectProvider('Databricks');
-		await dataConnections.selectConnectionMechanism('OAuth User-to-Machine (U2M)');
-		await dataConnections.fillConnectionInputs({
-			'Connection Name': connectionName,
-			'Server Hostname': host,
-			'HTTP Path': httpPath,
-		});
-		await dataConnections.save();
-		await dataConnections.expectConnectionInTree(connectionName);
+			// Expanding the entry connects, which opens the sign-in popup. The twisty is clicked
+			// directly: expandConnection would wait for children that only load after the sign-in.
+			const popupPromise = page.context().waitForEvent('page', { timeout: 60_000 });
+			const row = page.locator('.positron-tree-row').filter({ has: page.locator('.data-connection-entry-row').filter({ hasText: connectionName }) });
+			await row.locator('.positron-tree-twisty-collapsed').first().dispatchEvent('click');
+			const popup = await popupPromise;
 
-		// Expanding the entry connects, which opens the sign-in popup. The twisty is clicked
-		// directly: expandConnection would wait for children that only load after the sign-in.
-		const popupPromise = page.context().waitForEvent('page', { timeout: 60_000 });
-		const row = page.locator('.positron-tree-row').filter({ has: page.locator('.data-connection-entry-row').filter({ hasText: connectionName }) });
-		await row.locator('.positron-tree-twisty-collapsed').first().dispatchEvent('click');
-		const popup = await popupPromise;
+			// Nothing on this machine serves the redirect; capture its URL from the request itself,
+			// which is reported even though the connection is refused. The authorize URL is kept too,
+			// so a failed first navigation can be retried against the real address.
+			let authorizeUrl = popup.url();
+			const callbackUrl = new Promise<string>(resolve => popup.on('request', request => {
+				if (request.isNavigationRequest() && request.url().includes('/oidc/v1/authorize')) {
+					authorizeUrl = request.url();
+				}
+				if (request.url().startsWith('http://localhost:8030')) {
+					console.log(`[u2m] callback: ${request.url().replace(/code=[^&]+/, 'code=...')}`);
+					resolve(request.url());
+				}
+			}));
+			popup.on('requestfailed', request => {
+				if (request.isNavigationRequest()) {
+					console.log(`[u2m] navigation failed: ${request.failure()?.errorText} at ${request.url().split('?')[0]}`);
+				}
+			});
 
-		// Nothing on this machine serves the redirect; capture its URL from the request itself,
-		// which is reported even though the connection is refused. The authorize URL is kept too,
-		// so a failed first navigation can be retried against the real address.
-		let authorizeUrl = popup.url();
-		const callbackUrl = new Promise<string>(resolve => popup.on('request', request => {
-			if (request.isNavigationRequest() && request.url().includes('/oidc/v1/authorize')) {
-				authorizeUrl = request.url();
+			await signInWithSso(popup, () => authorizeUrl, callbackUrl, { email: email!, password: password!, otpSecret: otpSecret! }, app.code.logger);
+			const callback = await Promise.race([
+				callbackUrl,
+				popup.waitForTimeout(90_000).then(() => { throw new Error('No redirect to the callback within 90s'); }),
+			]);
+			await popup.close();
+			const error = new URL(callback).searchParams.get('error');
+			if (error) {
+				throw new Error(`Databricks answered the authorize request with ${error}: ${new URL(callback).searchParams.get('error_description')}`);
 			}
-			if (request.url().startsWith('http://localhost:8030')) {
-				console.log(`[u2m] callback: ${request.url().replace(/code=[^&]+/, 'code=...')}`);
-				resolve(request.url());
-			}
-		}));
-		popup.on('requestfailed', request => {
-			if (request.isNavigationRequest()) {
-				console.log(`[u2m] navigation failed: ${request.failure()?.errorText} at ${request.url().split('?')[0]}`);
-			}
-		});
 
-		await signInWithSso(popup, () => authorizeUrl, callbackUrl, { email: email!, password: password!, otpSecret: otpSecret! }, app.code.logger);
-		const callback = await Promise.race([
-			callbackUrl,
-			popup.waitForTimeout(90_000).then(() => { throw new Error('No redirect to the callback within 90s'); }),
-		]);
-		await popup.close();
-		const error = new URL(callback).searchParams.get('error');
-		if (error) {
-			throw new Error(`Databricks answered the authorize request with ${error}: ${new URL(callback).searchParams.get('error_description')}`);
+			await quickInput.waitForQuickInputOpened({ timeout: 15_000 });
+			await quickInput.expectTitleBarToHaveText('Sign in to Databricks');
+			await quickInput.type(callback);
+			await quickInput.submitInputBox();
+
+			await expect(page.locator('.positron-tree-row').filter({ hasText: 'Catalogs' }).first()).toBeVisible({ timeout: 120_000 });
+			await dataConnections.collapseConnection(connectionName);
+		} finally {
+			dataConnections.actionTimeout = undefined;
 		}
-
-		await quickInput.waitForQuickInputOpened({ timeout: 15_000 });
-		await quickInput.expectTitleBarToHaveText('Sign in to Databricks');
-		await quickInput.type(callback);
-		await quickInput.submitInputBox();
-
-		await expect(page.locator('.positron-tree-row').filter({ hasText: 'Catalogs' }).first()).toBeVisible({ timeout: 120_000 });
-		await dataConnections.collapseConnection(connectionName);
-		dataConnections.actionTimeout = undefined;
 	});
 });
 
