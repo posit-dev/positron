@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import * as semver from 'semver';
-import { chooseStartupR, compareRInstallations, createSharedSearch, RFullSearchTriggers, RStartupCandidate, RStartupInputs, ReusableSearch, rVersionsMayListR } from './startup-choice';
+import { choosePinnedR, chooseStartupR, compareRInstallations, createSharedSearch, PinnedRBuild, PinnedRInputs, RFullSearchTriggers, RStartupCandidate, RStartupInputs, ReusableSearch, rVersionsEntryForR, rVersionsMayListR } from './startup-choice';
 
 interface FakeR extends RStartupCandidate {
 	readonly name: string;
@@ -148,6 +148,131 @@ describe('rVersionsMayListR', () => {
 		{ name: 'no entries', entries: [], expected: false },
 	])('is $expected for $name', ({ entries, expected }) => {
 		expect(rVersionsMayListR(entries, current)).toBe(expected);
+	});
+});
+
+describe('rVersionsEntryForR', () => {
+	const pinned = '/opt/R/4.4/bin/R';
+	const links: Record<string, string> = { '/opt/R/current/bin/R': pinned };
+	const isSameFile = (path1: string, path2: string) => (links[path1] ?? path1) === (links[path2] ?? path2);
+
+	interface Entry {
+		readonly path?: string;
+		readonly module?: string;
+		readonly label?: string;
+	}
+
+	it.each<{ name: string; entries: Entry[]; expected: Entry | undefined }>([
+		{ name: 'the entry whose Path is the R\'s home', entries: [{ path: '/opt/R/4.3' }, { path: '/opt/R/4.4', label: 'R 4.4' }], expected: { path: '/opt/R/4.4', label: 'R 4.4' } },
+		{ name: 'an entry whose Path links to the R\'s home', entries: [{ path: '/opt/R/current', label: 'Current R' }], expected: { path: '/opt/R/current', label: 'Current R' } },
+		{ name: 'nothing for an entry with only a module', entries: [{ module: 'R/4.4' }], expected: undefined },
+		{ name: 'nothing for an entry for another R', entries: [{ path: '/opt/R/4.3' }], expected: undefined },
+	])('finds $name', ({ entries, expected }) => {
+		expect(rVersionsEntryForR(entries, pinned, isSameFile)).toEqual(expected);
+	});
+});
+
+describe('choosePinnedR', () => {
+	/** Where the packager metadata came from. */
+	interface FakePackager {
+		readonly from: 'pixi' | 'r-versions';
+	}
+
+	/** The build, plus whether the R installed from it is usable. */
+	interface FakePinnedR extends PinnedRBuild<FakePackager> {
+		readonly usable: boolean;
+	}
+
+	/**
+	 * Inputs for a pin at `/opt/R/4.4/bin/R` that exists, isn't the current R,
+	 * and is usable. `/usr/local/bin/R` is a link to the current R.
+	 */
+	function pinnedInputs(overrides: Partial<PinnedRInputs<FakePinnedR, FakePackager>> & { usable?: boolean } = {}): PinnedRInputs<FakePinnedR, FakePackager> {
+		const { usable = true, ...rest } = overrides;
+		const links: Record<string, string> = { '/usr/local/bin/R': '/Library/Frameworks/R.framework/Versions/4.5/Resources/bin/R' };
+		return {
+			definitionsOnly: false,
+			pinnedPath: '/opt/R/4.4/bin/R',
+			isDefined: () => false,
+			exists: () => true,
+			currentRPath: async () => '/Library/Frameworks/R.framework/Versions/4.5/Resources/bin/R',
+			isSameFile: (path1, path2) => (links[path1] ?? path1) === (links[path2] ?? path2),
+			packagerMetadataForPath: path => path.includes('/.pixi/') ? { from: 'pixi' } : undefined,
+			rVersionsMetadataForPath: async () => undefined,
+			install: build => ({ ...build, usable }),
+			...rest,
+		};
+	}
+
+	it('builds the pinned R from its own path', async () => {
+		expect(await choosePinnedR(pinnedInputs())).toEqual({
+			binpath: '/opt/R/4.4/bin/R',
+			current: false,
+			packagerMetadata: undefined,
+			usable: true,
+		});
+	});
+
+	it('builds a pin that links to the current R from the current R\'s path', async () => {
+		expect(await choosePinnedR(pinnedInputs({ pinnedPath: '/usr/local/bin/R' }))).toEqual({
+			binpath: '/Library/Frameworks/R.framework/Versions/4.5/Resources/bin/R',
+			current: true,
+			packagerMetadata: undefined,
+			usable: true,
+		});
+	});
+
+	it('keeps a pixi path\'s packager metadata, without reading the r-versions file', async () => {
+		const rVersionsMetadataForPath = vi.fn(async (): Promise<FakePackager | undefined> => ({ from: 'r-versions' }));
+		const pinnedPath = '/work/project/.pixi/envs/default/bin/R';
+		expect({
+			packagerMetadata: (await choosePinnedR(pinnedInputs({ pinnedPath, rVersionsMetadataForPath })))?.packagerMetadata,
+			rVersionsRead: rVersionsMetadataForPath.mock.calls.length,
+		}).toEqual({ packagerMetadata: { from: 'pixi' }, rVersionsRead: 0 });
+	});
+
+	it('keeps the setup of the r-versions entry that lists the pinned R', async () => {
+		const rVersionsMetadataForPath = async (path: string): Promise<FakePackager | undefined> =>
+			path === '/opt/R/4.4/bin/R' ? { from: 'r-versions' } : undefined;
+		expect((await choosePinnedR(pinnedInputs({ rVersionsMetadataForPath })))?.packagerMetadata).toEqual({ from: 'r-versions' });
+	});
+
+	it('returns nothing without looking for R when no pin is set', async () => {
+		const exists = vi.fn(() => true);
+		expect(await choosePinnedR(pinnedInputs({ pinnedPath: undefined, exists }))).toBeUndefined();
+		expect(exists).not.toHaveBeenCalled();
+	});
+
+	it('returns nothing when the pinned path does not exist', async () => {
+		expect(await choosePinnedR(pinnedInputs({ exists: () => false }))).toBeUndefined();
+	});
+
+	it('returns nothing when the pinned R is not usable', async () => {
+		expect(await choosePinnedR(pinnedInputs({ usable: false }))).toBeUndefined();
+	});
+
+	describe('when discovery is limited to interpreters.definitions', () => {
+		it('returns nothing when the pinned path is not one of the definitions', async () => {
+			expect(await choosePinnedR(pinnedInputs({ definitionsOnly: true }))).toBeUndefined();
+		});
+
+		it('returns the pinned R when the pinned path is one of the definitions', async () => {
+			expect(await choosePinnedR(pinnedInputs({ definitionsOnly: true, isDefined: path => path === '/opt/R/4.4/bin/R' }))).toEqual({
+				binpath: '/opt/R/4.4/bin/R',
+				current: false,
+				packagerMetadata: undefined,
+				usable: true,
+			});
+		});
+
+		it('keeps a defined pin\'s path as written when it links to the current R, since definitions match on the exact path', async () => {
+			expect(await choosePinnedR(pinnedInputs({ definitionsOnly: true, pinnedPath: '/usr/local/bin/R', isDefined: path => path === '/usr/local/bin/R' }))).toEqual({
+				binpath: '/usr/local/bin/R',
+				current: true,
+				packagerMetadata: undefined,
+				usable: true,
+			});
+		});
 	});
 });
 
