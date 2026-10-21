@@ -120,7 +120,7 @@ main{padding:56px 24px 96px}
 h1,h2{font-family:'Source Serif 4',Georgia,serif;margin:0}
 h1{font-size:46px;line-height:1.1;font-weight:500;letter-spacing:-0.01em}
 h2{font-size:24px;line-height:1.3;font-weight:600}
-.green{color:#3B7D4F;font-weight:600}.muted{color:#6B6862;font-weight:400}
+.green{color:#3B7D4F;font-weight:600}
 .label,.bracket b,.cols{font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase}
 header{display:flex;flex-direction:column}
 .top{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:13px;color:#6B6862;margin-bottom:16px}
@@ -144,7 +144,7 @@ header{display:flex;flex-direction:column}
 .custom{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:6px 8px;padding:8px 10px 6px;font-size:13px;color:#5A5751}
 .custom input{min-height:32px;padding:0 8px;border:1px solid #D6D2C8;border-radius:6px;background:#F5F4F0;color:#2B2A27;font:13px 'IBM Plex Sans',sans-serif}
 .lede{display:flex;flex-direction:column;gap:8px;max-width:760px}
-.headline{margin:0;font-size:22px;line-height:1.4;font-weight:500}
+.headline{margin:0;font-size:22px;line-height:1.4;font-weight:400}.headline .metric{font-weight:600}
 section{display:flex;flex-direction:column;gap:16px}
 .all{display:grid;column-gap:3px;row-gap:8px}
 .brackets,.bar.big{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}
@@ -164,7 +164,7 @@ section{display:flex;flex-direction:column;gap:16px}
 .seg-detail{position:absolute;top:0;left:0;right:0;z-index:1;min-height:48px;background:#F5F4F0;display:flex;align-items:center;gap:20px;min-width:0}
 .hero{flex:0 0 auto;font-family:'Source Serif 4',Georgia,serif;font-size:44px;font-weight:600;line-height:1}
 .seg-detail>div{display:flex;flex-direction:column;gap:2px;min-width:0}
-.what{font-size:15px}.what span{color:#6B6862}
+.what{font-size:15px;font-weight:600;color:#2B2A27}
 .def{font-size:14px;color:#3A3833}
 .foot{margin:12px 0 0;font-size:13px;color:#7A766F}
 .accordion{display:flex;flex-direction:column;border-top:1px solid #E4E1D9}

@@ -15,6 +15,7 @@ import { URI } from '../../../base/common/uri.js';
 import { toErrorMessage } from '../../../base/common/errorMessage.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../utils/path.js';
 import { checkCanCreateFolderIn } from '../utils/createFolder.js';
+import { resolveGitCloneParentPath } from '../utils/newFolderParentPath.js';
 import { folderNameFromGitRepoUrl } from './newFolderFromGitFolderName.js';
 import { checkGitStatus, getGitStatusNow, GitStatus } from './newFolderFromGitStatus.js';
 import { CommandsRegistry } from '../../../platform/commands/common/commands.js';
@@ -449,7 +450,7 @@ export const showNewFolderFromGitModalDialog = async (): Promise<void> => {
 					}
 				}
 			}}
-			parentFolder={await renderer.services.fileDialogService.defaultFolderPath()}
+			parentFolder={await resolveGitCloneParentPath(renderer.services)}
 			renderer={renderer}
 		/>
 	);

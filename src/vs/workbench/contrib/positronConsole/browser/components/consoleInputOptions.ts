@@ -51,7 +51,8 @@ export function createConsoleInputEditorOptions(configurationService: IConfigura
 			wordWrapColumn: 2048,
 			scrollbar: {
 				vertical: 'hidden',
-				useShadows: false
+				useShadows: false,
+				alwaysConsumeMouseWheel: false
 			},
 			overviewRulerLanes: 0,
 			// This appears to disable the ruler.

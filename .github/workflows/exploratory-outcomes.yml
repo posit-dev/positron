@@ -6,7 +6,8 @@ name: "Exploratory: Outcome Pages"
 # publish, so only the rest cost model calls. See "What happened to a run's findings" in the exploratory-test
 # skill's CONTRIBUTING.md.
 # The triage job rebuilds the Triage outcomes page, where each filed issue
-# stands today, into EXPLORE_TRIAGE_CONNECT_GUID. It makes no model calls.
+# stands today, into EXPLORE_TRIAGE_CONNECT_GUID. It makes no model calls. It
+# runs after publish, even a failed one, to read the rows it published.
 on:
   schedule:
     - cron: "0 6 * * *"
@@ -73,7 +74,8 @@ jobs:
 
   triage:
     name: triage
-    if: vars.EXPLORE_TRIAGE_CONNECT_GUID != ''
+    needs: publish
+    if: ${{ !cancelled() && vars.EXPLORE_TRIAGE_CONNECT_GUID != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -90,13 +92,25 @@ jobs:
           npm ci --no-audit --no-fund --prefix .claude/skills/exploratory-test/renderer
           npm ci --no-audit --no-fund --prefix .github/actions/pr-exploratory-test
 
+      # For the issues filed by hand that the Shipping impact rows matched to a finding.
+      - name: Fetch the Shipping impact rows
+        working-directory: .github/actions/pr-exploratory-test
+        env:
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          CONNECT_CONTENT_GUID: ${{ vars.EXPLORE_OUTCOMES_CONNECT_GUID }}
+        run: |
+          node outcomes-publish.mjs previous > "$RUNNER_TEMP/outcomes.jsonl" || {
+            echo "::warning::Couldn't fetch the Shipping impact rows, so matched issues are left out"
+            : > "$RUNNER_TEMP/outcomes.jsonl"
+          }
+
       - name: Read where the issues stand
         working-directory: .github/actions/pr-exploratory-test
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$RUNNER_TEMP/triage"
-          node triage.mjs --out "$RUNNER_TEMP/triage/triage.json"
+          node triage.mjs --outcomes "$RUNNER_TEMP/outcomes.jsonl" --out "$RUNNER_TEMP/triage/triage.json"
 
       - name: Build and publish the page
         working-directory: .github/actions/pr-exploratory-test

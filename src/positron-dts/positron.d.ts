@@ -4178,6 +4178,17 @@ declare module 'positron' {
 		 * @param datasetId The identifier of the dataset that was closed.
 		 */
 		closeDataset?(datasetId: string): void;
+
+		/**
+		 * Rebuilds a dataset's view so that it reflects the current contents of its
+		 * source, e.g. after the underlying table changed outside Positron. The
+		 * rebuilt view starts with no sort keys or row filters; Positron re-applies
+		 * the user's sort and filters afterwards. Reject on failure, leaving the
+		 * existing view intact. Optional: the Data Explorer offers Refresh only for
+		 * providers that implement it.
+		 * @param datasetId The identifier of the dataset to refresh.
+		 */
+		refreshDataset?(datasetId: string): Thenable<void>;
 	}
 
 	/**

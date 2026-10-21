@@ -446,7 +446,7 @@ jobs:
           rig ls
 
       - name: Cache Graphviz
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}\graphviz
           key: graphviz-win64-${{ env.GRAPHVIZ_VERSION }}

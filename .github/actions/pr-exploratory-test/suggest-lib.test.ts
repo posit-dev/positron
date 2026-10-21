@@ -121,7 +121,7 @@ test('renderSuggestComment is the marker then a tip callout', () => {
 		'> [!TIP]',
 		'> This PR changes how plots resize.',
 		'>',
-		'> Comment `/explore` to run an exploratory test. Results will be posted in this thread.',
+		'> Comment `/explore` to run an exploratory test. Results will be posted as a comment on this PR.',
 		'',
 	].join('\n'));
 });

@@ -372,3 +372,62 @@ jobs:
     secrets: inherit
     with:
       pull_request: true
+
+  # Single always-reported check for every test job in this workflow, meant to
+  # be the one required check in the branch ruleset (in place of test / unit,
+  # test / ext-host and e2e / electron).
+  #
+  # The tag-driven lanes can't be required directly: when a lane's tag is
+  # absent its job is skipped at the caller level, so its "e2e / <lane>" check
+  # is never created and a required check would wait forever. Here a skipped
+  # job counts as passing, so any job can be skipped with a caller-level `if:`
+  # (a tag that's absent, or a docs-only PR) without blocking the merge. A
+  # failed or cancelled job, or a failed pr-tags, fails the gate. It needs
+  # `if: always()`: without it, a failed dependency would skip the gate, and a
+  # skipped gate reads as passing.
+  #
+  # The build-* jobs are listed too: when a build fails, the e2e lane behind
+  # it is skipped rather than failed, so without them the gate would pass.
+  # Keep this list in sync when adding a test job above.
+  required-tests:
+    name: required-tests
+    if: ${{ always() }}
+    needs:
+      [
+        pr-tags,
+        unit-tests,
+        ext-host-tests,
+        e2e-ubuntu-electron,
+        e2e-windows-electron,
+        e2e-ubuntu-browser,
+        e2e-rocky-electron,
+        e2e-rocky-chromium,
+        e2e-suse-electron,
+        e2e-suse-chromium,
+        e2e-sles-electron,
+        e2e-sles-chromium,
+        e2e-debian-electron,
+        e2e-debian-chromium,
+        e2e-pyrefly,
+        build-workbench,
+        e2e-workbench,
+        e2e-workbench-rocky,
+        e2e-workbench-suse,
+        e2e-workbench-stable,
+        build-jupyter,
+        e2e-jupyter,
+        build-remote-ssh,
+        e2e-remote-ssh,
+        build-connect,
+        e2e-connect,
+      ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any test job failed
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          echo "One or more test jobs failed or were cancelled:"
+          echo "$NEEDS_JSON" | jq -r 'to_entries[] | "  \(.key): \(.value.result)"'
+          exit 1

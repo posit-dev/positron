@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// The pure half of triage.mjs: one row per ai-discovered issue, from the issue,
-// its report and the run's stats.
+// The pure half of triage.mjs: one row per issue from a report finding, from the
+// issue, its report and the run's stats.
 
 const SEVERITIES = ['major', 'moderate', 'minor'];
 
@@ -12,6 +12,21 @@ const SEVERITIES = ['major', 'moderate', 'minor'];
 export function reportLink(body) {
 	const m = String(body ?? '').match(/Reported by \[exploratory test\]\((https:\/\/[^)\s]+?)\/index\.html#f(\d+)\)/);
 	return m ? { base: m[1], finding: Number(m[2]) } : null;
+}
+
+/**
+ * Issues the outcomes job matched to a finding that also mention its PR, as `{ number, link }`, leaving out those
+ * already linked from their body. The model match alone isn't enough: someone could find the same bug on their own.
+ */
+export function matchedLinks(outcomeRows, linked) {
+	const byIssue = new Map();
+	for (const r of outcomeRows) {
+		const number = Number(r.issue?.number);
+		if (r.issue?.mentionsPr === true && !r.dupOf && number && !linked.has(number) && !byIssue.has(number)) {
+			byIssue.set(number, { base: String(r.reportUrl).replace(/\/index\.html$/, ''), finding: Number(r.finding) });
+		}
+	}
+	return [...byIssue].map(([number, link]) => ({ number, link }));
 }
 
 /** Where the issue stands, in this order: closed as completed, closed another way, no milestone, Future, any other milestone. */
@@ -32,8 +47,11 @@ export function milestonedAt(events = [], title) {
 	return events.filter(e => e.event === 'milestoned' && e.milestone?.title === title).map(e => e.created_at).sort().at(-1) ?? null;
 }
 
-/** One row for the page. `report` is the run's report (or null), `stats` its stats.json (or null), `events` the issue's events. */
-export function issueRow(issue, link, { report, stats, events } = {}) {
+/**
+ * One row for the page. `report` is the run's report (or null), `stats` its stats.json (or null), `events` the issue's
+ * events, `via` 'linked' for a body link to the finding or 'matched' for one the outcomes job matched.
+ */
+export function issueRow(issue, link, { report, stats, events, via = 'linked' } = {}) {
 	const out = outcomeOf(issue);
 	const finding = report?.findings?.find(f => Number(f.n) === link.finding);
 	return {
@@ -51,5 +69,6 @@ export function issueRow(issue, link, { report, stats, events } = {}) {
 		areas: areasOf(issue.labels),
 		source: link.base.includes('-local-') ? 'local' : 'pr',
 		skillVersion: stats?.version ?? null,
+		via,
 	};
 }

@@ -51,8 +51,8 @@ test('summarize counts fixed, counted and not counted yet, after dropping duplic
 test('the headline counts findings fixed before merging out of those with a known outcome, then the rate unless it is all of them', () => {
 	const html = render(today);
 	assert.match(text(html), /Does \/explore change what ships\? Developers fixed 8 of 12 findings \(67%\) before merging\./);
-	assert.match(html, /<span class="green">8<\/span> of 12 findings<span class="muted"> \(67%\)<\/span> before merging\./);
-	assert.match(render([row('fixed-in-pr'), row('fixed-in-pr'), row('pending')]), /Developers fixed <span class="green">all 2<\/span> findings before merging\./);
+	assert.match(html, /Developers fixed <span class="metric">8 of 12 findings \(67%\)<\/span> before merging\./);
+	assert.match(render([row('fixed-in-pr'), row('fixed-in-pr'), row('pending')]), /Developers fixed <span class="metric">all 2 findings<\/span> before merging\./);
 	assert.match(text(render([row('fixed-in-pr')])), /Developers fixed all 1 finding before merging\./);
 	assert.match(text(render([row('fixed-later')])), /Developers fixed 0 of 1 finding \(0%\) before merging\./);
 	assert.match(text(render([row('pending')])), /No PRs with findings have merged yet\./);
@@ -91,7 +91,7 @@ test('the bar has one linked segment per outcome present, in palette order', () 
 	assert.doesNotMatch(bar, /width:/);
 	assert.match(bar, /data-key="fixed-later"[^>]*>1<span>Fixed later<\/span>/);
 	assert.doesNotMatch(bar, /title=/);
-	assert.match(text(section(html, 'all-h')), /Findings by outcome Outcome known ~ 3 No outcome yet ~ 1/);
+	assert.match(text(section(html, 'all-h')), /Findings by outcome Outcome known 3 No outcome yet 1/);
 });
 
 test('there is no legend under the bar: the row holds only the hover details', () => {
@@ -113,18 +113,18 @@ test('the brackets and the bar share one grid, a column per segment sized by its
 test('with no known outcome the Outcome known bracket is left out', () => {
 	const html = render([row('pending'), row('unclear')]);
 	assert.doesNotMatch(markup(html), /class="bracket counted"/);
-	assert.match(text(html), /No outcome yet ~ 2/);
+	assert.match(text(html), /No outcome yet 2/);
 });
 
-test('each bar segment has a detail to show on hover: share of known outcomes, or a bare count with none', () => {
+test('each bar segment has a detail to show on hover: share of known outcomes, or a bare count with none, then the label alone', () => {
 	const html = render([row('pending'), row('fixed-in-pr'), row('fixed-in-pr'), row('fixed-in-pr'), row('not-fixed')]);
 	const detail = html.match(/<div class="seg-detail" data-for="fixed-in-pr" hidden>[\s\S]*?<\/div><\/div>/)[0];
 	assert.match(detail, /<span class="hero" style="color:#3B7D4F">75%<\/span>/);
-	assert.match(text(detail), /Fixed in the PR ~ 3 of 4 findings with a known outcome A commit pushed to the PR after the run fixed it\./);
+	assert.match(text(detail), /75% Fixed in the PR A commit pushed to the PR after the run fixed it\./);
 	const open = html.match(/<div class="seg-detail" data-for="pending" hidden>[\s\S]*?<\/div><\/div>/)[0];
 	assert.match(open, /<span class="hero" style="color:#2B2A27">1<\/span>/);
-	assert.match(text(open), /PR still open ~ finding, no outcome yet/);
-	assert.match(text(render([row('pending'), row('pending')])), /PR still open ~ findings, no outcome yet/);
+	assert.match(text(open), /1 PR still open The PR hasn't merged yet/);
+	assert.doesNotMatch(text(open), /no outcome yet|known outcome/);
 	assert.match(render([row('not-fixed')]), /<span class="hero" style="color:#7D7568">100%/);
 });
 
@@ -223,9 +223,9 @@ test('filed as issue sits between fixed later and not fixed, counted but not fix
 	assert.match(bar, /data-filter="filed" data-key="filed-issue"/);
 	const detail = html.match(/<div class="seg-detail" data-for="filed-issue" hidden>[\s\S]*?<\/div><\/div>/)[0];
 	assert.match(detail, /<span class="hero" style="color:#2B2A27">25%<\/span>/);
-	assert.match(text(detail), /Filed as issue ~ 1 of 4 findings with a known outcome/);
+	assert.match(text(detail), /25% Filed as issue An issue matching/);
 	assert.match(text(html), /Developers fixed 1 of 4 findings \(25%\) before merging\./);
-	assert.match(text(html), /Fixed later ~ 1 of 4 findings with a known outcome Fixed on main after the merge, or its issue was closed as completed\./);
+	assert.match(text(html), /25% Fixed later Fixed on main after the merge, or its issue was closed as completed\./);
 });
 
 test('a finding with an issue shows it as a linked chip with its state, else the issue from its evidence', () => {

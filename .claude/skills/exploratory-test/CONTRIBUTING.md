@@ -77,7 +77,9 @@ why in the PR. An automatic run posts nothing until the check passes, so a
 decline leaves the PR untouched.
 
 So a PR gets at most one tip or one automatic run, ever. Commenting
-`/explore` runs it again after new pushes.
+`/explore` runs it again after new pushes. A plain `/explore` while a plain
+run on the PR's current commit is still queued or going, automatic or not, is
+skipped with a reply linking to that run; one with a focus runs alongside it.
 
 ### The auto-run list
 
@@ -147,7 +149,10 @@ every `ai-discovered` issue whose body links to a report finding and records
 where it stands today: completed, in a release or backlog milestone, in
 Future, closed another way, or awaiting triage (no milestone). Severity comes
 from the report and the skill version from the run's `stats.json`. Issues
-with no report link are left out. It makes no model calls.
+with no report link are left out, unless `--outcomes rows.jsonl` (the
+Shipping impact rows) matched one to a finding and it mentions the PR the
+report ran on; those are marked matched. The model match alone isn't enough,
+since someone could find the same bug on their own. It makes no model calls.
 
 `node .github/actions/pr-exploratory-test/triage-page.mjs triage.json > triage.html`
 turns that into the Triage outcomes page: a bar of every outcome, the same
@@ -157,7 +162,8 @@ counts, and every issue. Selecting a bar segment lists those issues, and
 
 The two pages share a top row (a switch between them and the date picker)
 and a footer, from `explore-pages.mjs`. The same nightly workflow builds
-both, in separate jobs. The triage job runs only once the
+both, in separate jobs; triage runs after publish so it reads that night's
+rows. The triage job runs only once the
 `EXPLORE_TRIAGE_CONNECT_GUID` repo variable is set, from
 `CONNECT_API_KEY=<your key> node outcomes-publish.mjs create triage`.
 

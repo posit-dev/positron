@@ -94,6 +94,8 @@ describe('TableDataDataGridInstance', () => {
 	let instance: TableDataDataGridInstance;
 	let backendStateEmitter: Emitter<BackendState>;
 	let getBackendState: ReturnType<typeof vi.fn>;
+	let setRowFilters: ReturnType<typeof vi.fn>;
+	let updateBackendState: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
 		// TableDataDataGridInstance reads PositronReactServices.services (static singleton) in its
@@ -103,6 +105,8 @@ describe('TableDataDataGridInstance', () => {
 
 		backendStateEmitter = new Emitter<BackendState>();
 		getBackendState = vi.fn().mockResolvedValue(backendState());
+		setRowFilters = vi.fn().mockResolvedValue({ selected_num_rows: 100 });
+		updateBackendState = vi.fn().mockResolvedValue(backendState());
 
 		const client: Partial<DataExplorerClientInstance> = {
 			cachedBackendState: backendState(),
@@ -120,6 +124,8 @@ describe('TableDataDataGridInstance', () => {
 				columns: columns.map(() => ['1'])
 			})),
 			getSupportedFeatures: vi.fn().mockReturnValue(backendState().supported_features),
+			setRowFilters: setRowFilters as DataExplorerClientInstance['setRowFilters'],
+			updateBackendState: updateBackendState as DataExplorerClientInstance['updateBackendState'],
 		};
 
 		// The real cache is used so that the column width calculators are exercised end to end.
@@ -288,5 +294,27 @@ describe('TableDataDataGridInstance', () => {
 
 		await vi.waitFor(() => expect(calculateColumnWidths).toHaveBeenCalled());
 		expect(instance.firstColumn?.width).toBe(CALCULATED_COLUMN_WIDTH);
+	});
+
+	it('resynchronizes the filters and reports why when the backend does not apply them', async () => {
+		const errorSpy = vi.spyOn(ctx.reactServices.notificationService, 'error');
+		setRowFilters.mockRejectedValue(new Error('connection refused'));
+		let setRowFiltersEvents = 0;
+		const listener = instance.onDidSetRowFilters(() => setRowFiltersEvents++);
+
+		// The row filter bar shows the filters it asked for until the backend state, which it
+		// re-reads its filters from, is synchronized.
+		await instance.setRowFilters([]);
+		listener.dispose();
+
+		expect({
+			synchronized: updateBackendState.mock.calls.length,
+			notified: errorSpy.mock.calls.map(([message]) => String(message)),
+			setRowFiltersEvents,
+		}).toEqual({
+			synchronized: 1,
+			notified: ['Unable to apply the filters: connection refused'],
+			setRowFiltersEvents: 0,
+		});
 	});
 });

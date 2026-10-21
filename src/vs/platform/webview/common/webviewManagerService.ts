@@ -50,6 +50,13 @@ export function isSameWebviewFrame(a: WebviewFrameId, b: WebviewFrameId): boolea
 }
 
 /**
+ * How the error from `executeJavaScript` starts when the frame is gone. It's
+ * thrown before the script runs, so a caller can find the frame again and
+ * retry without running the script twice.
+ */
+export const WEBVIEW_FRAME_NOT_FOUND_MESSAGE = 'No frame found';
+
+/**
  * An event fired when a frame navigates to a new URL.
  */
 export interface FrameNavigationEvent {
@@ -147,5 +154,16 @@ export interface IWebviewManagerService {
 	 * @returns The frame's URL, or undefined if the frame is gone.
 	 */
 	getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined>;
+
+	/**
+	 * Gets the ID of a webview's host frame, the one running the webview's own
+	 * index.html. Content set with `setHtml` is written into a frame inside it,
+	 * which has no ID of its own that Positron knows.
+	 *
+	 * @param webviewId The webview's ID.
+	 *
+	 * @returns The frame's ID, or undefined if the webview has no frame.
+	 */
+	getWebviewHostFrameId(webviewId: string): Promise<WebviewFrameId | undefined>;
 	// --- End Positron ---
 }

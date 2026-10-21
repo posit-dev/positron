@@ -18,12 +18,14 @@ import { getPrefixCondaEnvPath, hasPrefixCondaEnv } from '../common/commonUtils'
 import { OSType, getEnvironmentVariable, getOSType } from '../../../common/utils/platform';
 import { deleteCondaEnvironment } from './condaDeleteUtils';
 
-const RECOMMENDED_CONDA_PYTHON = '3.11';
-
 // --- Start Positron ---
+// Recommend the release before the latest supported version.
+// const RECOMMENDED_CONDA_PYTHON = '3.11';
+const RECOMMENDED_CONDA_PYTHON = '3.14';
+
 // The first element is the recommended version. It is the first element so it gets displayed first in
 // UI that consumes this list.
-const SUPPORTED_CONDA_PYTHON_VERSIONS = [RECOMMENDED_CONDA_PYTHON, '3.12', '3.10', '3.9'];
+const SUPPORTED_CONDA_PYTHON_VERSIONS = [RECOMMENDED_CONDA_PYTHON, '3.15', '3.13', '3.12', '3.11', '3.10', '3.9'];
 // --- End Positron ---
 
 export async function getCondaBaseEnv(): Promise<string | undefined> {
