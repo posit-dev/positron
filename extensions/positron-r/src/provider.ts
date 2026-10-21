@@ -1365,6 +1365,12 @@ export function rFullSearchTriggers(): RFullSearchTriggers {
 const NON_PROJECT_FOLDERS = ['node_modules', '.venv', 'venv', '.virtualenv', '.conda', '.pixi'];
 
 /**
+ * What the check for an empty folder skips. Only node_modules, so a folder
+ * holding only a .venv doesn't count as empty.
+ */
+const EMPTY_FOLDER_EXCLUDE = '**/node_modules/**';
+
+/**
  * Whether the open folder looks like an R project: it has R files at any
  * depth, or it's empty and you've used RStudio in the last 30 days.
  * @param folder A folder to search instead of the open folder, for tests.
@@ -1386,10 +1392,8 @@ export async function looksLikeRProject(folder?: vscode.Uri): Promise<boolean> {
 		return true;
 	}
 
-	// Check if the workspace is empty and the user is an RStudio user. Only
-	// node_modules is skipped here, so a folder holding only a .venv doesn't
-	// count as empty.
-	if (!(await hasFiles('**/*', '**/node_modules/**', folder)) && isRStudioUser()) {
+	// Check if the workspace is empty and the user is an RStudio user.
+	if (!(await hasFiles('**/*', EMPTY_FOLDER_EXCLUDE, folder)) && isRStudioUser()) {
 		return true;
 	}
 
