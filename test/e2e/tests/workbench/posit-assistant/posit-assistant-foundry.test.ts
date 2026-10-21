@@ -17,6 +17,9 @@ test.describe('Posit Assistant - Microsoft Foundry (Azure managed credentials)',
 	tag: [tags.WORKBENCH_AZURE, tags.ASSISTANT],
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
+		// The fixture just reloaded the window, and a check run before Posit Assistant starts is dropped.
+		await app.workbench.positAssistant.open();
+		await app.workbench.positAssistant.waitForReady();
 		// This shard skips the startup-messaging gate (see app-workbench.fixtures.ts),
 		// so the update must not wait on it either.
 		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess, { waitForReady: false, writeSetting: false });
