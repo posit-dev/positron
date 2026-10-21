@@ -119,6 +119,18 @@ suite('resolveReferences', () => {
 		assert.deepStrictEqual(references.filter(each => each.startsWith('column')), ['column total: resolved']);
 	});
 
+	test('what a statement does to a table holds only for the statements after it', () => {
+		assert.deepStrictEqual(
+			judge('SELECT totl FROM orders;\nALTER TABLE orders ADD COLUMN extra int;\nSELECT extra FROM orders;', SCHEMA)
+				.filter(each => each.startsWith('column')),
+			['column totl: unknown'],
+		);
+		assert.deepStrictEqual(
+			judge('SELECT a FROM later;\nCREATE TABLE later (a int);', SCHEMA),
+			['table later: unknown'],
+		);
+	});
+
 	test('a renamed table is known by its new name', () => {
 		assert.deepStrictEqual(
 			judge('ALTER TABLE customers RENAME TO clients;\nSELECT name FROM clients;', SCHEMA)

@@ -93,13 +93,23 @@ interface ResolvedScope {
 	readonly aliases: Map<string, Renamed>;
 }
 
-/** What the whole document says about tables, whichever statement says it. */
+/**
+ * What the document does to tables, by folded name, and where it first does it. A statement only
+ * sees what the statements before it did: a table read above the CREATE that makes it is still
+ * missing when that read runs.
+ */
 interface DocumentFacts {
-	/** Tables a CREATE, or a rename, in the document brings into being. */
-	readonly defined: Set<string>;
+	/** Tables a CREATE, or a rename, brings into being. */
+	readonly defined: Map<string, number>;
 
-	/** Tables whose columns the document changes: altered, or defined over an existing one. */
-	readonly changed: Set<string>;
+	/** Tables whose columns are changed: altered, or defined over an existing one. */
+	readonly changed: Map<string, number>;
+}
+
+/** Whether a fact recorded at some offset already holds at `offset`. */
+function holdsAt(facts: Map<string, number>, name: string, offset: number): boolean {
+	const from = facts.get(fold(name));
+	return from !== undefined && from <= offset;
 }
 
 /** Finds every table and column name in a parsed document and resolves it against the schema. */
@@ -115,7 +125,7 @@ export function resolveReferences(analysis: Analysis, schema: SchemaIndex): Refe
 			continue;
 		}
 		const { matches, judgeable } = lookUp(schema, table);
-		if (matches.length === 0 && (!judgeable || facts.defined.has(fold(table.name)))) {
+		if (matches.length === 0 && (!judgeable || holdsAt(facts.defined, table.name, table.start))) {
 			// Either something the schema cannot speak for -- a namespace it does not list, the
 			// engine's own catalog -- or a table an earlier statement in this file creates. A
 			// script that creates a table and then reads it is correct before it has run.
@@ -263,15 +273,19 @@ function lookUp(schema: SchemaIndex, table: TableRef): { matches: readonly SqlTa
 }
 
 function documentFacts(analysis: Analysis): DocumentFacts {
-	const defined = new Set<string>();
-	const changed = new Set<string>();
+	const defined = new Map<string, number>();
+	const changed = new Map<string, number>();
+	const record = (facts: Map<string, number>, name: string, at: number) => {
+		const folded = fold(name);
+		facts.set(folded, Math.min(facts.get(folded) ?? at, at));
+	};
 	for (const table of analysis.tables) {
 		if (table.definition) {
-			defined.add(fold(table.name));
-			changed.add(fold(table.name));
+			record(defined, table.name, table.start);
+			record(changed, table.name, table.start);
 		}
 		if (table.altered) {
-			changed.add(fold(table.name));
+			record(changed, table.name, table.start);
 		}
 	}
 	return { defined, changed };
@@ -323,7 +337,7 @@ function resolveScope(index: number, analysis: Analysis, schema: SchemaIndex, fa
 		// as: `o.` after `FROM orders o` means the columns of orders, whatever else is called `o`.
 		resolved.byName.set(name, matches[0]);
 		resolved.tables.push(matches[0]);
-		if (table.altered || facts.changed.has(fold(table.name))) {
+		if (table.altered || holdsAt(facts.changed, table.name, table.start)) {
 			resolved.changed.add(name);
 		}
 	}
