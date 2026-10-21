@@ -43,9 +43,8 @@ function escapePowerShellArg(arg: string): string {
  * resolved by the shell that runs the command inside the container.
  */
 function containerEnvToShell(command: string): string {
-	return command
-		.replace(/\$\{containerEnv:(?<name>[A-Za-z_]\w*)\}/g, '$${$<name>}')
-		.replace(/\$\{containerEnv:(?<name>[A-Za-z_]\w*):(?<fallback>[^}]*)\}/g, '$${$<name>-$<fallback>}');
+	return command.replace(/\$\{containerEnv:(?<name>[^}:]*)(?::(?<fallback>[^}:]*))?[^}]*\}/g, (_match, name: string, fallback = '') =>
+		/^[A-Za-z_]\w*$/.test(name) ? `\${${name}-${fallback}}` : fallback);
 }
 
 /**
@@ -206,7 +205,8 @@ export class TerminalBuilder {
 			let script = '#!/bin/sh\nset -e\n\n';
 			script += '# Trap failures to keep terminal open so user can see what failed\n';
 			script += '# Write error marker and exit 0 to avoid VS Code toast about exit code\n';
-			script += `trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo ""; echo "==> ERROR: Build failed! Press Enter to close this terminal..."; echo "failed" > "${errorPath}"; read dummy || true; fi; exit 0' EXIT\n\n`;
+			script += `trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo ""; echo "==> ERROR: Build failed! Press Enter to close this terminal..."; echo "failed" > "${errorPath}"; read dummy || true; fi; exit 0' EXIT\n`;
+			script += `trap 'exit 130' INT TERM HUP\n\n`;
 
 			if (rebuild) {
 				script += 'echo "==> Removing existing containers..."\n';
