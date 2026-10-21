@@ -24,7 +24,7 @@ export type NewFolderParentPathServices = Pick<
  * paths must be absolute, as in `AbstractFileDialogService.preferredHome()`.
  * @param services The services to use.
  * @param candidate The configured path.
- * @returns The folder, or undefined when the path is not absolute or does not exist.
+ * @returns The folder, or undefined when the path is not absolute or is not an existing folder.
  */
 async function resolveConfiguredPath(services: NewFolderParentPathServices, candidate: string): Promise<URI | undefined> {
 	const preferLocal = services.pathService.defaultUriScheme === Schemas.file;
@@ -43,8 +43,14 @@ async function resolveConfiguredPath(services: NewFolderParentPathServices, cand
 		);
 	}
 
-	if (!(await services.fileService.exists(folder))) {
-		services.logService.info(`[NewFolderParentPath] Preferred path does not exist: ${folder}`);
+	let isDirectory = false;
+	try {
+		isDirectory = (await services.fileService.stat(folder)).isDirectory;
+	} catch {
+		// The path does not exist.
+	}
+	if (!isDirectory) {
+		services.logService.info(`[NewFolderParentPath] Preferred path is not an existing folder: ${folder}`);
 		return undefined;
 	}
 	return folder;

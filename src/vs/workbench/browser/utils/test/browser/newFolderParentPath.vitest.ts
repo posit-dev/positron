@@ -42,6 +42,8 @@ interface SetupOptions {
 	readonly defaultCloneDirectory?: string | null;
 	/** Paths that do not exist; every other path exists. */
 	readonly missing?: string[];
+	/** Paths that are files; every other existing path is a folder. */
+	readonly files?: string[];
 	/** Whether the user cannot create a folder in the parent of the workspace. */
 	readonly workspaceParentNotWritable?: boolean;
 }
@@ -56,6 +58,7 @@ function setup(options: SetupOptions = {}) {
 		: URI.file(path);
 	const userHome = toUri('/user/home');
 	const missing = new Set((options.missing ?? []).map(path => toUri(path).toString()));
+	const files = new Set((options.files ?? []).map(path => toUri(path).toString()));
 
 	const services = {
 		commandService: stubInterface<ICommandService>({
@@ -67,7 +70,12 @@ function setup(options: SetupOptions = {}) {
 			getValue: vi.fn(() => options.defaultCloneDirectory ?? null) as unknown as IConfigurationService['getValue'],
 		}),
 		fileService: stubInterface<IFileService>({
-			exists: vi.fn(async (uri: URI) => !missing.has(uri.toString())),
+			stat: vi.fn(async (uri: URI) => {
+				if (missing.has(uri.toString())) {
+					throw new Error(`Unable to resolve nonexistent file '${uri}'`);
+				}
+				return { isDirectory: !files.has(uri.toString()) };
+			}) as unknown as IFileService['stat'],
 		}),
 		fileDialogService: stubInterface<IFileDialogService>({
 			defaultFolderPath: vi.fn(async () => workspaceParent),
@@ -112,11 +120,12 @@ describe('resolveNewFolderParentPath', () => {
 		expect(services.commandService.executeCommand).not.toHaveBeenCalled();
 	});
 
-	it.each([
-		['not absolute', 'clones'],
-		['missing', '/clones'],
-	])('logs a preferred path that is %s and uses the parent of the workspace', async (_, preferredPath) => {
-		const { services } = setup({ missing: ['/clones'] });
+	it.each<[string, string, SetupOptions]>([
+		['not absolute', 'clones', {}],
+		['missing', '/clones', { missing: ['/clones'] }],
+		['a file', '/clones', { files: ['/clones'] }],
+	])('logs a preferred path that is %s and uses the parent of the workspace', async (_, preferredPath, options) => {
+		const { services } = setup(options);
 
 		expect(await resolveNewFolderParentPath(services, preferredPath)).toBe(workspaceParent);
 		expect(services.logService.info).toHaveBeenCalledTimes(1);
