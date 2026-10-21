@@ -27,12 +27,16 @@ jobs:
     timeout-minutes: 45
     # Same image as test-unit.yml, so Claude can install dependencies and run Vitest the way CI
     # does. The npm caches are saved from inside this image and are not visible from the bare runner.
-    # seccomp/apparmor=unconfined: bubblewrap (for CLAUDE_CODE_SUBPROCESS_ENV_SCRUB) needs user
-    # namespaces, which Docker's default profiles block. The host is an ephemeral GitHub-hosted VM
-    # where the job already has sudo, so this does not widen access beyond the job itself.
+    # bubblewrap (for CLAUDE_CODE_SUBPROCESS_ENV_SCRUB) needs user namespaces.
+    # SYS_ADMIN: the Ubuntu 24.04 host restricts user namespaces created without CAP_SYS_ADMIN
+    # (apparmor_restrict_unprivileged_userns), and that sysctl cannot be changed from inside the
+    # container. Docker's default seccomp profile allows the namespace syscalls once SYS_ADMIN is
+    # granted. apparmor=unconfined: Docker's default AppArmor profile denies the mounts bwrap makes.
+    # Commands Claude runs are sandboxed by bwrap with no capabilities, which the isolation step
+    # below asserts, so SYS_ADMIN only reaches code this workflow runs directly.
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
-      options: --user 0:0 --init --security-opt seccomp=unconfined --security-opt apparmor=unconfined
+      options: --user 0:0 --init --cap-add SYS_ADMIN --security-opt apparmor=unconfined
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -156,13 +160,15 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends bubblewrap socat
-          # Ubuntu 24.04+ restricts unprivileged user namespaces via AppArmor. /proc/sys is
-          # read-only inside the container, so this may fail; the bwrap check below is what counts.
-          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          # Fail here with a clear error rather than later inside Claude. Also check that the
+          # sandbox drops the container's SYS_ADMIN, so commands Claude runs cannot use it.
+          bwrap --ro-bind / / --unshare-user --unshare-pid --proc /proc --dev /dev \
+            grep -E '^Cap(Inh|Prm|Eff|Bnd|Amb):' /proc/self/status
+          if ! bwrap --ro-bind / / --unshare-user --unshare-pid --proc /proc --dev /dev \
+            grep -qE '^CapEff:[[:space:]]+0+$' /proc/self/status; then
+            echo "::error::bwrap sandbox retains capabilities"
+            exit 1
           fi
-          # Fail here with a clear error rather than later inside Claude.
-          bwrap --ro-bind / / --unshare-user --unshare-pid --proc /proc --dev /dev true
 
       - name: Restore caches
         id: restore-caches
