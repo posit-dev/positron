@@ -23,5 +23,6 @@
 	"assistant.experimentalFeatures": true,
 	"shiny.previewType": "internal",
 	"terminal.integrated.gpuAcceleration": "off",
-	"console.showNotebookConsoleActions": true
+	"console.showNotebookConsoleActions": true,
+	"pyrefly.trace.server": "verbose"
 }
