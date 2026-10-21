@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IPositronPlotMetadata, PlotClientInstance, PlotClientLocation } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { IPositronPlotMetadata, PlotClientInstance, PlotClientLocation, PlotClientState } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind, UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
@@ -527,6 +528,29 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		return this._recentExecutionIds.at(-1);
 	}
 
+	/** Makes a background plot available to capture even if its view is never mounted. */
+	private async renderUnrenderedPlot(plotClient: PlotClientInstance): Promise<void> {
+		if (plotClient.lastRender || plotClient.state !== PlotClientState.Unrendered) {
+			return;
+		}
+		try {
+			const intrinsicSize = await plotClient.getIntrinsicSize();
+			// The visible view or a pre-render may have taken care of the first render while we waited.
+			if (plotClient.lastRender || plotClient.state !== PlotClientState.Unrendered) {
+				return;
+			}
+			const settings = this.getPlotsRenderSettings();
+			const size = plotClient.sizingPolicy instanceof PlotSizingPolicyIntrinsic && !intrinsicSize
+				? settings.size
+				: plotClient.sizingPolicy.getPlotSize(settings.size);
+			await plotClient.render(size, settings.pixel_ratio, settings.format);
+		} catch (err) {
+			if (!isCancellationError(err)) {
+				this._logService.warn(`Failed to render background plot ${plotClient.id}: ${err}`);
+			}
+		}
+	}
+
 	openPlotInNewWindow(): void {
 
 		if (!this._selectedPlotId) {
@@ -897,6 +921,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// Fetch metadata from the backend to populate kind, name, execution_id, and code
 				this.fetchAndUpdateMetadata(commProxy, metadata, plotClient);
 				this.registerPlotClient(plotClient, true);
+
+				if (this._positronConsoleService.shouldPreserveActiveTab(event.message.parent_id)) {
+					void this.renderUnrenderedPlot(plotClient);
+				}
 
 				// Raise the Plots pane so the plot is visible.
 				this._showPlotsPane(event.message.parent_id);

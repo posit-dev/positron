@@ -13,15 +13,15 @@ import { IPositronPlotMetadata, PlotClientInstance } from '../../../../services/
 import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
-import { LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOutputKind, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOutputKind, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICodeLocation } from '../../../../services/positronConsole/common/codeLocation.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
-import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronPlotCommProxy } from '../../../../services/languageRuntime/common/positronPlotCommProxy.js';
-import { IntrinsicSize, PlotUnit } from '../../../../services/languageRuntime/common/positronPlotComm.js';
+import { IntrinsicSize, PlotRenderFormat, PlotUnit } from '../../../../services/languageRuntime/common/positronPlotComm.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/sizingPolicyFill.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -29,6 +29,8 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IViewDescriptorService, ViewContainer, ViewContainerLocation } from '../../../../common/views.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { TestRuntimeClientInstance } from '../../../../services/languageRuntime/test/common/testRuntimeClientInstance.js';
+import { PositronAssistantService } from '../../../positronAssistant/browser/positronAssistantService.js';
 
 describe('Positron - Plots Service', () => {
 
@@ -525,6 +527,64 @@ describe('Positron - Plots Service', () => {
 				session.receiveOutputMessage({ ...staticImageMessage('console-plot-1'), parent_id: 'exec-other' });
 
 				expect(openViewSpy).toHaveBeenCalledWith(POSITRON_PLOTS_VIEW_ID, false);
+			});
+
+			it.each([true, false])('captures a first Python plot without revealing Plots (intrinsic size: %s)', async hasIntrinsicSize => {
+				const openViewSpy = showOtherContainer();
+				const metadata = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+				const runtime = { ...metadata, runtimeId: `${metadata.runtimeId}-python`, languageId: 'python' };
+				ctx.disposables.add(ctx.instantiationService.get(ILanguageRuntimeService).registerRuntime(runtime));
+				const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime });
+				const assistant = ctx.disposables.add(ctx.instantiationService.createInstance(PositronAssistantService));
+				const client = new TestRuntimeClientInstance('python-plot', RuntimeClientType.Plot);
+				const rpc = vi.fn(async (request: { method: string }) => {
+					switch (request.method) {
+						case 'get_metadata':
+							return { data: { result: { name: 'Figure 1', kind: 'Matplotlib', execution_id: 'exec-preserve', code: '' } } };
+						case 'get_intrinsic_size':
+							return { data: { result: hasIntrinsicSize ? { width: 6, height: 4, unit: PlotUnit.Inches, source: 'Matplotlib' } : null } };
+						case 'render':
+							return { data: { result: { mime_type: 'image/png', data: 'dGVzdA==' } } };
+						default:
+							throw new Error(`Unexpected plot RPC: ${request.method}`);
+					}
+				});
+				client.rpcHandler = rpc;
+
+				session.setRuntimeState(RuntimeState.Busy);
+				session.receiveClientCreatedMessage(client, { parent_id: 'exec-preserve' });
+				expect(assistant.getCurrentPlotUri()).toBeUndefined();
+				expect(rpc).not.toHaveBeenCalled();
+
+				session.setRuntimeState(RuntimeState.Idle);
+				await vi.waitFor(() => expect(assistant.getCurrentPlotUri()).toBe('data:image/png;base64,dGVzdA=='));
+				expect(rpc).toHaveBeenCalledWith(expect.objectContaining({
+					method: 'render',
+					params: { size: hasIntrinsicSize ? undefined : { width: 640, height: 400 }, pixel_ratio: 1, format: 'png' },
+				}), expect.any(Number));
+				expect(openViewSpy).not.toHaveBeenCalled();
+			});
+
+			it('captures an existing pre-render without requesting another render', async () => {
+				const openViewSpy = showOtherContainer();
+				const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+				const assistant = ctx.disposables.add(ctx.instantiationService.createInstance(PositronAssistantService));
+				const client = new TestRuntimeClientInstance('pre-rendered-plot', RuntimeClientType.Plot);
+				const rpc = vi.fn(async () => ({ data: { result: { name: 'Figure 1', kind: 'Matplotlib', execution_id: 'exec-preserve', code: '' } } }));
+				client.rpcHandler = rpc;
+				session.receiveClientCreatedMessage(client, {
+					parent_id: 'exec-preserve',
+					data: {
+						pre_render: {
+							mime_type: 'image/png', data: 'dGVzdA==',
+							settings: { size: { width: 640, height: 400 }, pixel_ratio: 1, format: PlotRenderFormat.Png },
+						},
+					},
+				});
+				expect(assistant.getCurrentPlotUri()).toBe('data:image/png;base64,dGVzdA==');
+				await vi.waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+				expect(rpc).toHaveBeenCalledWith(expect.objectContaining({ method: 'get_metadata' }), expect.any(Number));
+				expect(openViewSpy).not.toHaveBeenCalled();
 			});
 
 			// Plot updates carry no parent ID, so they're attributed to the most recent execution.

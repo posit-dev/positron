@@ -77,7 +77,7 @@ const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
 const TRACE_OUTPUT_MAX_LENGTH = 1000;
 
 /**
- * The number of `preserveActiveTab` execution IDs to remember.
+ * The number of completed `preserveActiveTab` execution IDs to remember.
  */
 const MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS = 100;
 
@@ -1313,7 +1313,12 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	private _externalExecutionIds: Set<string> = new Set<string>();
 
 	/**
-	 * The most recent IDs of executions started with `preserveActiveTab`, oldest first.
+	 * Pending and running executions must not compete with the bounded completed history.
+	 */
+	private readonly _pendingPreserveActiveTabExecutionIds = new Set<string>();
+
+	/**
+	 * The most recent completed executions started with `preserveActiveTab`, oldest first.
 	 */
 	private readonly _preserveActiveTabExecutionIds = new Set<string>();
 
@@ -2176,7 +2181,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * @param executionId The execution ID.
 	 */
 	shouldPreserveActiveTab(executionId: string): boolean {
-		return this._preserveActiveTabExecutionIds.has(executionId);
+		return this._pendingPreserveActiveTabExecutionIds.has(executionId) || this._preserveActiveTabExecutionIds.has(executionId);
 	}
 
 	/**
@@ -2490,6 +2495,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// drain code that was queued (e.g. from a racing editor or extension
 			// run) while this check was in flight. Drain it now.
 			if (!dispatched) {
+				if (executionId) {
+					this._pendingPreserveActiveTabExecutionIds.delete(executionId);
+				}
 				this.drainPendingInputIfIdle();
 			}
 		}
@@ -3106,6 +3114,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			}
 			this._externalExecutionIds.delete(id);
 			this._externalExecutionLabels.delete(id);
+			this._pendingPreserveActiveTabExecutionIds.delete(id);
 		}
 		if (discarded.length > 0) {
 			this._onDidChangeRuntimeItemsEmitter.fire();
@@ -3776,6 +3785,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 						// This external execution ID has completed, so we can remove it.
 						this._externalExecutionIds.delete(languageRuntimeMessageState.parent_id);
 						this._externalExecutionLabels.delete(languageRuntimeMessageState.parent_id);
+						this.completePreserveActiveTabExecution(languageRuntimeMessageState.parent_id);
 						// Safeguard: when returning to Ready after a console
 						// execution, ensure all previous items that were marked
 						// as executing are marked as completed so that the
@@ -3980,6 +3990,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// command causes the runtime to crash).
 			this.clearExecutingActivityInputs();
 
+			// Queued code survives reconnects; only retire executions no longer in that queue.
+			const queuedIds = new Set(this._pendingCodeQueue.map(item => item.executionId));
+			for (const id of this._pendingPreserveActiveTabExecutionIds) {
+				if (!queuedIds.has(id)) {
+					this.completePreserveActiveTabExecution(id);
+				}
+			}
+
 			// A dying kernel can flush buffered output after its exit notification.
 			// Clear these IDs so late output is appended at the tail instead of
 			// mutating the old rendered item in console history.
@@ -4090,6 +4108,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 */
 	private clearPendingInput() {
 		// Clear the pending code queue.
+		for (const item of this._pendingCodeQueue) {
+			if (item.executionId) {
+				this._pendingPreserveActiveTabExecutionIds.delete(item.executionId);
+			}
+		}
 		this._pendingCodeQueue = [];
 
 		// If there is a pending input runtime item, remove it.
@@ -4385,6 +4408,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		if (codeFragmentStatus !== RuntimeCodeFragmentStatus.Complete) {
 			// Remove the item from the queue.
 			this._pendingCodeQueue.shift();
+			if (pendingItem.executionId) {
+				this._pendingPreserveActiveTabExecutionIds.delete(pendingItem.executionId);
+			}
 
 			// Remove the pending input visual item if it exists.
 			if (this._runtimeItemPendingInput) {
@@ -4471,7 +4497,10 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			pendingItem.errorBehavior,
 			pendingItem.attribution,
 			pendingItem.executionMetadata,
-		)).catch((err) => this._logService.error(`Console execution ${id} failed: ${err}`));
+		)).catch((err) => {
+			this._pendingPreserveActiveTabExecutionIds.delete(id);
+			this._logService.error(`Console execution ${id} failed: ${err}`);
+		});
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {
@@ -4488,11 +4517,18 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	}
 
 	/**
-	 * Remembers an execution started with `preserveActiveTab`, forgetting the oldest
-	 * once there are more than `MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS`.
+	 * Remembers an execution until it completes or is discarded.
 	 * @param executionId The execution ID.
 	 */
 	private rememberPreserveActiveTabExecution(executionId: string) {
+		this._pendingPreserveActiveTabExecutionIds.add(executionId);
+	}
+
+	/** Retains a bounded history for plot messages arriving after an execution completes. */
+	private completePreserveActiveTabExecution(executionId: string): void {
+		if (!this._pendingPreserveActiveTabExecutionIds.delete(executionId)) {
+			return;
+		}
 		this._preserveActiveTabExecutionIds.add(executionId);
 		if (this._preserveActiveTabExecutionIds.size > MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS) {
 			const oldest = this._preserveActiveTabExecutionIds.values().next().value;
@@ -4539,6 +4575,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		const id = executionId || this.generateExecutionId(code);
 
 		if (!this._session) {
+			this._pendingPreserveActiveTabExecutionIds.delete(id);
 			return CodeSubmissionResult.Cancelled;
 		}
 		const session = this._session;
@@ -4621,6 +4658,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				// Nothing was echoed to the console, so there is nothing to roll
 				// back. Clear the pending-busy tracking on any failure.
 				this.clearPendingBusy();
+				this._pendingPreserveActiveTabExecutionIds.delete(id);
 				const name = (err as { name?: string } | undefined)?.name;
 				if (name === RUNTIME_CODE_INCOMPLETE_ERROR) {
 					return CodeSubmissionResult.Incomplete;
@@ -4664,7 +4702,10 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			errorBehavior,
 			attribution,
 			executionMetadata,
-		)).catch((err) => this._logService.error(`Console execution ${id} failed: ${err}`));
+		)).catch((err) => {
+			this._pendingPreserveActiveTabExecutionIds.delete(id);
+			this._logService.error(`Console execution ${id} failed: ${err}`);
+		});
 
 		fireExecutedEvent();
 		return CodeSubmissionResult.Executed;

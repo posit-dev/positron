@@ -531,6 +531,11 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		return this._lastRender;
 	}
 
+	/** The current rendering state. */
+	get state(): PlotClientState {
+		return this._state;
+	}
+
 	/**
 	 * Returns the plot's unique ID.
 	 */
