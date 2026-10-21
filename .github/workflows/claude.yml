@@ -163,6 +163,12 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends bubblewrap socat
+          # bwrap keeps all capabilities in the sandbox when the caller is root, which this job is,
+          # and Claude Code does not pass --cap-drop. Wrap bwrap so the sandbox never gets the
+          # container's SYS_ADMIN, which would let a command undo the sandbox's mounts.
+          sudo dpkg-divert --quiet --divert /usr/bin/bwrap.real --rename /usr/bin/bwrap
+          printf '#!/bin/sh\nexec /usr/bin/bwrap.real --cap-drop ALL "$@"\n' | sudo tee /usr/bin/bwrap > /dev/null
+          sudo chmod 0755 /usr/bin/bwrap
           # Fail here with a clear error rather than later inside Claude. Also check that the
           # sandbox drops the container's SYS_ADMIN, so commands Claude runs cannot use it.
           bwrap --ro-bind / / --unshare-user --unshare-pid --proc /proc --dev /dev \
