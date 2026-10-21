@@ -47,6 +47,8 @@ interface INotebookErrorContext extends IErrorContextBase {
 /** An error raised by a Quarto code cell. */
 interface IQuartoErrorContext extends IErrorContextBase {
 	readonly kind: 'quarto';
+	/** The Quarto document. */
+	readonly uri: URI;
 	/** The cell whose code raised the error. Undefined when it can't be found. */
 	readonly cell?: IQuartoErroredCell;
 	/** ID of the document's runtime session. Undefined when it has none. */

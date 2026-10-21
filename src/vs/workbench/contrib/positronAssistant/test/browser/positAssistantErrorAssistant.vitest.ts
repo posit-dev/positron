@@ -95,7 +95,7 @@ describe('PositAssistantErrorAssistantContribution', () => {
 		createContribution();
 		const cell = { uri: URI.file('/report.qmd'), languageId: 'python', code: 'x', startLine: 1, endLine: 1 };
 
-		await errorAssistantService.ask('posit-assistant', 'fix', { kind: 'quarto', error: 'boom', cell }, { continueChat: true });
+		await errorAssistantService.ask('posit-assistant', 'fix', { kind: 'quarto', error: 'boom', uri: cell.uri, cell }, { continueChat: true });
 
 		expect(executeCommand).toHaveBeenCalledWith(POSIT_NEW_CHAT_COMMAND, expect.objectContaining({
 			prompt: 'Fix the error from the python code chunk at lines 1-1 of report.qmd. The failing code and its error output are attached; fix only this error.',
@@ -136,6 +136,7 @@ describe('getPositAssistantChatOptions', () => {
 		const context: IErrorAssistantContext = {
 			kind: 'quarto',
 			error: 'ValueError: boom\n',
+			uri: URI.file('/report.qmd'),
 			cell: { uri: URI.file('/report.qmd'), languageId: 'python', label: 'setup', code: 'raise ValueError("boom")', startLine: 8, endLine: 8 },
 		};
 		const content = [
@@ -154,7 +155,7 @@ describe('getPositAssistantChatOptions', () => {
 	});
 
 	it('attaches only the error when the Quarto cell is not known', () => {
-		const context: IErrorAssistantContext = { kind: 'quarto', error: 'NameError: x' };
+		const context: IErrorAssistantContext = { kind: 'quarto', error: 'NameError: x', uri: URI.file('/report.qmd') };
 		expect([getOptions('fix', context, { continueChat: true }), getOptions('explain', context, { continueChat: true })]).toEqual([
 			{ prompt: 'Fix this Quarto inline output error.', target: 'auto', behavior: 'submit', files: [{ name: 'Quarto Output Error', content: 'NameError: x' }] },
 			{ prompt: `Explain this Quarto inline output error. ${constraint}`, target: 'auto', behavior: 'submit', files: [{ name: 'Quarto Output Error', content: 'NameError: x' }] },

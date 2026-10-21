@@ -13,10 +13,13 @@ import { useActiveErrorAssistant } from '../../positronAssistant/browser/useActi
 import { AssistantErrorQuickFix } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
+import { URI } from '../../../../base/common/uri.js';
 
 interface QuartoOutputQuickFixProps {
 	/** The error output content from the Quarto cell execution. */
 	errorContent: string;
+	/** The Quarto document the error was raised in. */
+	documentUri: URI;
 	/** The cell that raised the error, as it was when the output arrived. */
 	cell?: IQuartoErroredCell;
 	/**
@@ -39,7 +42,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	const assistant = useActiveErrorAssistant();
 	const services = usePositronReactServicesContext();
 
-	const { errorContent, cell, onLayout } = props;
+	const { errorContent, documentUri, cell, onLayout } = props;
 
 	// Notify the host after every commit (declared before the early return so it
 	// runs whether or not the buttons render). Layout effects fire once the DOM
@@ -51,8 +54,9 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	const getErrorContext = (): IErrorAssistantContext => ({
 		kind: 'quarto',
 		error: errorContent,
+		uri: documentUri,
 		cell,
-		sessionId: cell && services.get(IQuartoKernelManager).getSessionForDocument(cell.uri)?.sessionId,
+		sessionId: services.get(IQuartoKernelManager).getSessionForDocument(documentUri)?.sessionId,
 	});
 
 	if (!assistant) {

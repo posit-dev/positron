@@ -2687,7 +2687,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Mount Fix/Explain quick-fix buttons for current-session errors.
 		// QuartoOutputQuickFix renders nothing while there is no active error
 		// assistant to send the error to.
-		if (this._quickFixEnabled) {
+		if (this._quickFixEnabled && this._documentUri) {
 			const quickFixContainer = document.createElement('div');
 			quickFixContainer.setAttribute('aria-live', 'off');
 			container.appendChild(quickFixContainer);
@@ -2697,6 +2697,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._quickFixRenderer.render(
 				React.createElement(QuartoOutputQuickFix, {
 					errorContent: errorText,
+					documentUri: this._documentUri,
 					cell: this._erroredCell,
 					// The buttons mount asynchronously; re-measure once they are in
 					// the DOM so the zone reserves room for them. Relying on the
