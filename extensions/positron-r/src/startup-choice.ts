@@ -78,6 +78,91 @@ export interface RStartupInputs<T extends RStartupCandidate> {
 }
 
 /**
+ * How to build the R installation that `positron.r.interpreters.default`
+ * names.
+ */
+export interface PinnedRBuild<P> {
+	/**
+	 * The path to build from. When the pin is the current R, this is the
+	 * current R's path, so the runtime ID matches the search's entry and the
+	 * interpreter picker doesn't list it twice. Under `definitionsOnly`, it is
+	 * always the pinned path, as `interpreters.definitions` names it.
+	 */
+	readonly binpath: string;
+	readonly current: boolean;
+	/**
+	 * The conda or pixi environment the pinned path is in, or its r-versions
+	 * entry's setup, so R starts the same way as the copy discovery finds.
+	 */
+	readonly packagerMetadata: P | undefined;
+}
+
+/**
+ * What turning `positron.r.interpreters.default` into an R installation needs
+ * to know. Each lookup runs only when the decision needs it.
+ */
+export interface PinnedRInputs<T extends { readonly usable: boolean }, P> {
+	/** `interpreters.discovery` is `definitionsOnly` for R. */
+	readonly definitionsOnly: boolean;
+	/** The pinned path, already resolved, or undefined if the setting isn't set. */
+	readonly pinnedPath: string | undefined;
+	/** Whether a path is an R entry in `interpreters.definitions`. */
+	isDefined(path: string): boolean;
+	exists(path: string): boolean;
+	/** The current R's path, with symlinks followed, or undefined if there is none. */
+	currentRPath(): Promise<string | undefined>;
+	/** Whether two paths name the same file once symlinks are followed. */
+	isSameFile(path1: string, path2: string): boolean;
+	/** The conda or pixi environment that a path is in. */
+	packagerMetadataForPath(path: string): P | undefined;
+	/** The setup from the r-versions entry that leads to the R at a path. */
+	rVersionsMetadataForPath(path: string): Promise<P | undefined>;
+	install(build: PinnedRBuild<P>): T;
+}
+
+/**
+ * Picks the R that `positron.r.interpreters.default` names, or undefined if
+ * no pin is set, the path doesn't exist, the R there isn't usable (too old,
+ * not a real install, or blocked by `exclude` or `override`), or discovery is
+ * limited to `interpreters.definitions` and the path isn't one of them.
+ * Never searches for R.
+ */
+export async function choosePinnedR<T extends { readonly usable: boolean }, P>(inputs: PinnedRInputs<T, P>): Promise<T | undefined> {
+	const pinnedPath = inputs.pinnedPath;
+	if (!pinnedPath || !inputs.exists(pinnedPath) ||
+		(inputs.definitionsOnly && !inputs.isDefined(pinnedPath))) {
+		return undefined;
+	}
+	const currentPath = await inputs.currentRPath();
+	const current = currentPath !== undefined && inputs.isSameFile(currentPath, pinnedPath);
+	const installation = inputs.install({
+		// Definitions match on the exact path, so a defined pin keeps its own.
+		binpath: current && !inputs.definitionsOnly ? currentPath : pinnedPath,
+		current,
+		// Conda and pixi metadata win over r-versions metadata, as in discovery.
+		packagerMetadata: inputs.packagerMetadataForPath(pinnedPath) ?? await inputs.rVersionsMetadataForPath(pinnedPath),
+	});
+	return installation.usable ? installation : undefined;
+}
+
+/**
+ * The r-versions entry whose Path is the home of the R at `binpath`, if any.
+ * Entries with only a Module are skipped, since finding their R means loading
+ * the module.
+ *
+ * @param entries The r-versions entries
+ * @param binpath The path to the R binary
+ * @param isSameFile Whether two paths name the same file once symlinks are followed
+ */
+export function rVersionsEntryForR<E extends { readonly path?: string }>(
+	entries: readonly E[],
+	binpath: string,
+	isSameFile: (path1: string, path2: string) => boolean
+): E | undefined {
+	return entries.find(entry => entry.path !== undefined && isSameFile(path.join(entry.path, 'bin', 'R'), binpath));
+}
+
+/**
  * Picks the R that R's recommendation returns for the open folder, and when it
  * starts.
  *

@@ -1318,6 +1318,21 @@ export function rCurrentSymlinks(hqDirs: readonly string[]): string[] {
 	return hqDirs.map(dir => path.join(dir, name));
 }
 
+/**
+ * The R binary that discovery lists for the R at `binpath`. On Windows, CRAN's
+ * installer puts R at both `bin\R.exe` and `bin\x64\R.exe`, and discovery
+ * lists the one `binFragments()` prefers. Elsewhere, `binpath` itself.
+ *
+ * @param binpath The path to an R binary
+ */
+export function listedRBinary(binpath: string): string {
+	if (process.platform !== 'win32') {
+		return binpath;
+	}
+	const home = getRHomePath(binpath);
+	return (home && firstExisting(home, binFragments())) || binpath;
+}
+
 function firstExisting(base: string, fragments: string[]): string {
 	const potentialPaths = fragments.map(f => path.join(base, f));
 	const existingPath = potentialPaths.find(p => fs.existsSync(p));
