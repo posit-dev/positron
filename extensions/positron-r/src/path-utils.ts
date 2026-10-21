@@ -38,6 +38,24 @@ export function arePathsSame(path1: string, path2: string): boolean {
 }
 
 /**
+ * Whether two paths name the same file once symlinks are followed. A path
+ * that can't be resolved, for example because it doesn't exist, is compared
+ * as given.
+ * @param path1 The first path
+ * @param path2 The second path
+ */
+export function arePathsSameFile(path1: string, path2: string): boolean {
+	const resolve = (filePath: string) => {
+		try {
+			return fs.realpathSync(filePath);
+		} catch {
+			return filePath;
+		}
+	};
+	return arePathsSame(path1, path2) || arePathsSame(resolve(path1), resolve(path2));
+}
+
+/**
  * Copied from the function of the same name in extensions/positron-python/src/client/common/helpers.ts.
  * NOTE: We do not export this since in all known cases, normalizeUserPath()
  * is the better choice.
