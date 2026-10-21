@@ -260,20 +260,19 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		props.renderer.dispose();
 	}, [props.renderer]);
 
-	// Whether a save is in progress, so a second click on Save while the driver is validating the
-	// parameters does not save the profile twice.
+	// Whether a save is waiting on the driver to validate the parameters. The state makes Save busy,
+	// so it ignores presses and shows a spinner; the ref catches a second press that lands before
+	// the busy state renders, so the profile is not saved twice.
+	const [saving, setSaving] = useState(false);
 	const savingRef = useRef(false);
-
-	// Set when Save is clicked while an earlier save is still waiting on the driver's validation.
-	// If the user changed the form in the meantime, the earlier save is abandoned, and this click is
-	// then replayed against the current form rather than dropped.
-	const saveRequestedRef = useRef(false);
-
-	// The latest save handler, so a replayed click runs against the current form.
-	const saveHandlerRef = useRef<() => Promise<void>>(undefined);
 
 	// Save handler.
 	const saveHandler = useCallback(async () => {
+		// If a save is already waiting on the driver's validation, let it finish.
+		if (savingRef.current) {
+			return;
+		}
+
 		// A value which indicates whether any validation errors are present in the form. If true,
 		// the form will not be submitted and error indicators will be shown.
 		let hasErrors = false;
@@ -316,13 +315,6 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			return;
 		}
 
-		// If a save is already waiting on the driver's validation, let it finish. If it is abandoned
-		// because the form changed, it replays this click.
-		if (savingRef.current) {
-			saveRequestedRef.current = true;
-			return;
-		}
-
 		// Build the parameter values.
 		const parameterValues: DataConnectionParameterValues = {};
 		for (const [id, { value }] of Object.entries(updatedParameterFieldStates)) {
@@ -334,7 +326,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		// Have the driver validate and normalize the parameter values (e.g. check that a database
 		// file exists and resolve it to an absolute path).
 		savingRef.current = true;
-		saveRequestedRef.current = false;
+		setSaving(true);
 		const editCount = editCountRef.current;
 		let validation: IDataConnectionParameterValidation | undefined;
 		try {
@@ -345,17 +337,13 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			logService.warn(`[DataConnections] Could not validate the ${props.driver.metadata.name} connection parameters; saving them as entered.`, err);
 		} finally {
 			savingRef.current = false;
+			setSaving(false);
 		}
 
 		// If the dialog closed, or the user changed the form, while the driver was validating, the
-		// result describes values that are no longer the ones to save. Abandon this save. If Save was
-		// clicked again meanwhile, replay that click against the current form; otherwise the next
-		// click validates the current values.
+		// result describes values that are no longer the ones to save. Abandon this save; the next
+		// click on Save validates the current values.
 		if (unmountedRef.current || editCountRef.current !== editCount) {
-			if (!unmountedRef.current && saveRequestedRef.current) {
-				saveRequestedRef.current = false;
-				void saveHandlerRef.current?.();
-			}
 			return;
 		}
 
@@ -404,11 +392,6 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			discoveredFromId: props.profile?.discoveredFromId,
 		});
 	}, [connectionName, logService, parameterFieldStates, props, storedSecretIds, workspaceLabel, workspaceOnly]);
-
-	// Keep the latest save handler for a replayed click.
-	useEffect(() => {
-		saveHandlerRef.current = saveHandler;
-	}, [saveHandler]);
 
 	// Render.
 	return (
@@ -481,6 +464,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 				props.onBack
 					? <ThreeButtonFooter
 						leftButtonTitle={localize('positron.configureDataConnection.back', "Back")}
+						primaryButtonBusy={saving}
 						primaryButtonTitle={localize('positron.configureDataConnection.save', "Save")}
 						secondaryButtonTitle={localize('positron.configureDataConnection.cancel', "Cancel")}
 						topBorder={true}
@@ -489,6 +473,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 						onSecondaryButton={cancelHandler}
 					/>
 					: <TwoButtonFooter
+						primaryButtonBusy={saving}
 						primaryButtonTitle={localize('positron.configureDataConnection.save', "Save")}
 						secondaryButtonTitle={localize('positron.configureDataConnection.cancel', "Cancel")}
 						topBorder={true}

@@ -272,23 +272,16 @@ describe('ConfigureDataConnection', () => {
 			expect(onSave).not.toHaveBeenCalled();
 		});
 
-		it('replays a Save clicked during validation once the form changed, against the current form', async () => {
+		it('makes Save busy while the driver is validating', async () => {
 			const validation = pendingValidation();
-			const { user, onSave } = await renderValidatingDialog();
+			const { user } = await renderValidatingDialog();
+			const save = screen.getByRole('button', { name: 'Save' });
 
-			await user.click(screen.getByRole('button', { name: 'Save' }));
-			await user.type(screen.getByLabelText('Database File'), '2');
-			await user.click(screen.getByRole('button', { name: 'Save' }));
-			validateParameters.mockResolvedValueOnce({});
+			await user.click(save);
+			const busyWhileValidating = save.getAttribute('aria-disabled');
 			await validation.resolve({});
 
-			await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
-				parameterValues: { databasePath: 'data.duckdb2' },
-			})));
-			expect({ validated: validateParameters.mock.calls.map(([, values]) => values), saves: onSave.mock.calls.length }).toEqual({
-				validated: [{ databasePath: 'data.duckdb' }, { databasePath: 'data.duckdb2' }],
-				saves: 1,
-			});
+			expect({ busyWhileValidating, busyAfter: save.getAttribute('aria-disabled') }).toEqual({ busyWhileValidating: 'true', busyAfter: null });
 		});
 
 		it('ignores a second Save while the driver is validating', async () => {

@@ -17,6 +17,8 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 interface TwoButtonFooterProps {
 	primaryButtonTitle: string;
 	primaryButtonDisabled?: boolean;
+	/** Whether the primary button's action is in progress, which makes it ignore presses and show a spinner. */
+	primaryButtonBusy?: boolean;
 	secondaryButtonTitle: string;
 	topBorder?: boolean;
 	onPrimaryButton: () => void;
@@ -31,7 +33,7 @@ interface TwoButtonFooterProps {
 export const TwoButtonFooter = (props: TwoButtonFooterProps) => {
 	// Primary button.
 	const primaryButton = (
-		<FooterButton default disabled={props.primaryButtonDisabled} type='submit' onPressed={props.onPrimaryButton}>
+		<FooterButton default busy={props.primaryButtonBusy} disabled={props.primaryButtonDisabled} type='submit' onPressed={props.onPrimaryButton}>
 			{props.primaryButtonTitle}
 		</FooterButton>
 	);

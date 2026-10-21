@@ -7,17 +7,29 @@
 import './footerButton.css';
 
 // React.
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
+ * How long a busy button waits before showing its spinner, so a quick operation completes without
+ * the spinner flashing on and off.
+ */
+const BUSY_SPINNER_DELAY_MS = 250;
+
+/**
  * FooterButtonProps interface.
  */
 interface FooterButtonProps {
 	autoFocus?: boolean;
+	/**
+	 * Whether the button's action is in progress. A busy button ignores presses at once, staying
+	 * focusable so a keyboard user keeps their place, and shows a spinner if the action is still in
+	 * progress after a short delay.
+	 */
+	busy?: boolean;
 	default?: boolean;
 	/**
 	 * Whether this button performs a destructive action, which fills it with the destructive red.
@@ -36,8 +48,22 @@ interface FooterButtonProps {
  * @returns The rendered component.
  */
 export const FooterButton = (props: PropsWithChildren<FooterButtonProps>) => {
+	// Whether the busy spinner is showing.
+	const [showSpinner, setShowSpinner] = useState(false);
+
+	// Show the spinner once the button has been busy for the delay; hide it as soon as it isn't.
+	useEffect(() => {
+		if (!props.busy) {
+			setShowSpinner(false);
+			return;
+		}
+		const timeout = setTimeout(() => setShowSpinner(true), BUSY_SPINNER_DELAY_MS);
+		return () => clearTimeout(timeout);
+	}, [props.busy]);
+
 	return (
 		<Button
+			ariaDisabled={props.busy}
 			autoFocus={props.autoFocus}
 			className={positronClassNames(
 				'dialog-button',
@@ -49,6 +75,7 @@ export const FooterButton = (props: PropsWithChildren<FooterButtonProps>) => {
 			type={props.type}
 			onPressed={props.onPressed}
 		>
+			{showSpinner && <span aria-hidden='true' className='codicon codicon-loading codicon-modifier-spin' />}
 			{props.children}
 		</Button>
 	);
