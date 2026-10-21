@@ -51,8 +51,12 @@ ENV QT_XCB_GL_INTEGRATION=none
 
 # Enable EPEL and CRB repositories. CRB (CodeReady Builder) is EL9's rename of
 # EL8's PowerTools; it carries the -devel packages EPEL builds against.
+# Pin [epel] to the primary mirror: the metalink round-robin keeps landing
+# on mirrors with bad checksums or TLS, which fails rig's dnf call.
 RUN dnf install -y epel-release && \
     dnf config-manager --set-enabled crb && \
+    dnf config-manager --set-disabled epel-cisco-openh264 && \
+    sed -i '/^\[epel\]$/,/^\[/{s|^metalink=|#metalink=|;s|^#baseurl=.*|baseurl=https://dl.fedoraproject.org/pub/epel/$releasever/Everything/$basearch/|}' /etc/yum.repos.d/epel.repo && \
     dnf clean all
 
 # Install system dependencies, VNC server, and window manager.
