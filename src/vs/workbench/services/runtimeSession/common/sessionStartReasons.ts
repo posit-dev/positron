@@ -52,6 +52,7 @@ const extensionRecommendedRuntimeLabel = (args: ISessionStartReasonLabelArgs) =>
 const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStartReasonLabelArgs) => ILocalizedString> = {
 	[SessionStartReasonId.AffiliatedRuntime]: () => localize2('positron.sessionStartReason.affiliatedRuntime', "Positron started the last interpreter used in this workspace"),
 	[SessionStartReasonId.AffiliatedRuntimeAtRegistration]: () => localize2('positron.sessionStartReason.affiliatedRuntimeAtRegistration', "Positron found the last interpreter used in this workspace and started it"),
+	[SessionStartReasonId.PinnedRuntime]: args => localize2('positron.sessionStartReason.pinnedRuntime', "Positron started the default {0} interpreter set in the {1} extension's settings", args.languageName, args.extensionName),
 	[SessionStartReasonId.ExtensionRequestedImmediateStart]: extensionRecommendedRuntimeLabel,
 	[SessionStartReasonId.ExtensionRequestedStartAtRegistration]: args => localize2('positron.sessionStartReason.extensionRequestedStartAtRegistration', "The {0} extension found this interpreter and recommended it for this workspace", args.extensionName),
 	[SessionStartReasonId.ExtensionRecommendedRuntime]: extensionRecommendedRuntimeLabel,

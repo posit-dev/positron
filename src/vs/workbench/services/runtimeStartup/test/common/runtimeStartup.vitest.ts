@@ -2202,7 +2202,7 @@ describe('RuntimeStartupService - startup sequence', () => {
 	 * even where the session service would refuse it (for example, for a
 	 * language whose startup behavior is `manual`).
 	 */
-	async function runStartupSequence(options: IStartupSequenceOptions): Promise<{ service: RuntimeStartupService; started: IStartedRuntime[]; cache: RuntimeDiscoveryCache }> {
+	async function runStartupSequence(options: IStartupSequenceOptions): Promise<{ service: RuntimeStartupService; started: IStartedRuntime[]; announced: string[]; cache: RuntimeDiscoveryCache }> {
 		// Services the container already built, such as the language runtime
 		// service, keep the configuration service they were given.
 		const builtConfigurationService = ctx.get(IConfigurationService) as TestConfigurationService;
@@ -2280,6 +2280,13 @@ describe('RuntimeStartupService - startup sequence', () => {
 			consoleLanguageIds.size > 0 ? stubInterface<ILanguageRuntimeSession>() : undefined);
 
 		const service = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		// The runtime IDs the Console pane shows as starting, in order.
+		const announced: string[] = [];
+		ctx.disposables.add(service.onWillAutoStartRuntime(event => {
+			if (event.activate) {
+				announced.push(event.runtime.runtimeId);
+			}
+		}));
 		const discovered = options.languages.flatMap(language => language.discovered ?? []);
 		const manager: IRuntimeManager = {
 			...makeManager({
@@ -2325,7 +2332,7 @@ describe('RuntimeStartupService - startup sequence', () => {
 		await Promise.all(answersAfterDiscovery);
 		await timeout(0);
 
-		return { service, started, cache };
+		return { service, started, announced, cache };
 	}
 
 	/** The affiliated runtime saved in workspace storage for the language. */
@@ -2409,9 +2416,46 @@ describe('RuntimeStartupService - startup sequence', () => {
 			});
 
 			expect({ started, affiliated: storedAffiliation('r')?.runtimeId }).toEqual({
-				started: [{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
+				started: [{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.PinnedRuntime }],
 				affiliated: pinnedR.runtimeId,
 			});
+		});
+
+		it('says the runtime started because it is pinned when the pin already is the affiliated runtime', async () => {
+			const { started } = await runStartupSequence({
+				languages: [{ ...rLanguage, discovered: [pinnedR], affiliated: { metadata: pinnedR, lastUsed: 2, lastStarted: 1 } }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: { pinnedWorkspaceRuntime: pinR() },
+			});
+
+			expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.PinnedRuntime }]);
+		});
+
+		it('gives the pinned reason only to the language that is pinned', async () => {
+			const { started } = await runStartupSequence({
+				languages: [
+					{ ...rLanguage, affiliated: { metadata: oldR, lastUsed: 3, lastStarted: 1 } },
+					{ ...pythonLanguage, affiliated: { metadata: python, lastUsed: 2, lastStarted: 1 } },
+				],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: { pinnedWorkspaceRuntime: pinR() },
+			});
+
+			expect(started).toEqual([
+				{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.PinnedRuntime },
+				{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime },
+			]);
+		});
+
+		it('names the pinned runtime in the Console pane once the check has run', async () => {
+			// Startup announces the affiliated runtime before it activates the extension.
+			const { announced } = await runStartupSequence({
+				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: { pinnedWorkspaceRuntime: pinR() },
+			});
+
+			expect(announced).toEqual([oldR.runtimeId, pinnedR.runtimeId]);
 		});
 
 		it('keeps the saved setup of an affiliated runtime that is the pinned runtime', async () => {
@@ -2532,7 +2576,7 @@ describe('RuntimeStartupService - startup sequence', () => {
 					cached: [oldR],
 				});
 
-				expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
+				expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.PinnedRuntime }]);
 			});
 
 			it('starts the pinned runtime before the cache loads, if it already is the affiliated runtime', async () => {
@@ -2543,7 +2587,7 @@ describe('RuntimeStartupService - startup sequence', () => {
 					cached: [pinnedR],
 				});
 
-				expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
+				expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.PinnedRuntime }]);
 			});
 		});
 
@@ -2561,7 +2605,7 @@ describe('RuntimeStartupService - startup sequence', () => {
 
 				const gpu = createInterpreterVariant(pinnedR, definition('R 4.4 (GPU)'));
 				expect({ started, affiliated: storedAffiliation('r')?.runtimeId }).toEqual({
-					started: [{ runtimeId: gpu.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
+					started: [{ runtimeId: gpu.runtimeId, reason: SessionStartReasonId.PinnedRuntime }],
 					affiliated: gpu.runtimeId,
 				});
 			});
@@ -2575,7 +2619,7 @@ describe('RuntimeStartupService - startup sequence', () => {
 				});
 
 				expect({ started, affiliated: storedAffiliation('r')?.runtimeId }).toEqual({
-					started: [{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
+					started: [{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.PinnedRuntime }],
 					affiliated: pinnedR.runtimeId,
 				});
 			});
@@ -2650,8 +2694,8 @@ describe('RuntimeStartupService - startup sequence', () => {
 			});
 
 			expect(started).toEqual([
-				{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime },
-				{ runtimeId: pinnedPython.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime },
+				{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.PinnedRuntime },
+				{ runtimeId: pinnedPython.runtimeId, reason: SessionStartReasonId.PinnedRuntime },
 			]);
 		});
 	});
