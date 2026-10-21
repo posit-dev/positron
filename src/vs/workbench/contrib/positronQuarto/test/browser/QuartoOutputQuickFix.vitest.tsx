@@ -11,7 +11,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { registerTestErrorActionHandler } from '../../../positronAssistant/test/browser/errorActionTestUtils.js';
+import { chooseHiddenErrorActionHandler, registerTestErrorActionHandler } from '../../../positronAssistant/test/browser/errorActionTestUtils.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
 import { IQuartoErroredCell } from '../../../positronAssistant/common/errorAction.js';
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
@@ -52,12 +52,14 @@ describe('QuartoOutputQuickFix', () => {
 
 	it('does not render the buttons when no handler can take errors', () => {
 		registration.dispose();
+		chooseHiddenErrorActionHandler(ctx);
 		renderQuickFix();
 		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
 	});
 
 	it('notifies the host to re-measure when a handler registers after the first render', () => {
 		registration.dispose();
+		chooseHiddenErrorActionHandler(ctx);
 		const onLayout = vi.fn();
 		rtl.render(<QuartoOutputQuickFix documentUri={documentUri} errorContent='NameError: name "x" is not defined' onLayout={onLayout} />);
 		onLayout.mockClear();

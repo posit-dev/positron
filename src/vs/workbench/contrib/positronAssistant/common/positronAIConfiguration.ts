@@ -7,18 +7,43 @@ import { localize } from '../../../../nls.js';
 import {
 	ConfigurationScope,
 	Extensions,
+	IConfigurationNode,
+	IConfigurationPropertySchema,
 	IConfigurationRegistry,
 } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY, MCP_ENABLED_KEY, MCP_STATUS_BAR_KEY } from './positronAIConfigurationKeys.js';
+import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY, DEFAULT_ERROR_ACTION_HANDLER_ID, ERROR_ACTIONS_AGENT_KEY, MCP_ENABLED_KEY, MCP_STATUS_BAR_KEY } from './positronAIConfigurationKeys.js';
 
 // Re-exported so existing importers do not have to move. New callers outside
 // the workbench (e.g. the extension host) should import the keys module
 // directly to avoid this file's registerConfiguration side effect.
 export { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY };
 
+/** The name of the default error action handler in the setting's choices. */
+const DEFAULT_ERROR_ACTION_HANDLER_LABEL = localize('positron.ai.errorActions.agent.positAssistant', "Posit Assistant");
+
+/**
+ * The schema of {@link ERROR_ACTIONS_AGENT_KEY}. Its choices are set by
+ * {@link setErrorActionHandlerChoices}.
+ */
+const errorActionHandlerSchema: IConfigurationPropertySchema = {
+	type: 'string',
+	default: DEFAULT_ERROR_ACTION_HANDLER_ID,
+	// The default is listed even before it registers, so the setting's own
+	// default is always a valid choice.
+	enum: [DEFAULT_ERROR_ACTION_HANDLER_ID],
+	enumItemLabels: [DEFAULT_ERROR_ACTION_HANDLER_LABEL],
+	description: localize(
+		'positron.ai.errorActions.agent',
+		"Controls which coding agent handles Fix and Explain on console, notebook, and Quarto errors."
+	),
+	scope: ConfigurationScope.WINDOW,
+	// An untrusted workspace can't choose where errors are sent.
+	restricted: true,
+};
+
 const configurationRegistry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
-configurationRegistry.registerConfiguration({
+const aiConfigurationNode: IConfigurationNode = {
 	id: 'ai',
 	order: 5,
 	title: localize('positron.ai.title', "AI"),
@@ -33,6 +58,7 @@ configurationRegistry.registerConfiguration({
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
+		[ERROR_ACTIONS_AGENT_KEY]: errorActionHandlerSchema,
 		[MCP_ENABLED_KEY]: {
 			type: 'boolean',
 			default: false,
@@ -67,4 +93,19 @@ configurationRegistry.registerConfiguration({
 			order: 3,
 		}
 	}
-});
+};
+configurationRegistry.registerConfiguration(aiConfigurationNode);
+
+/**
+ * Set the choices the Settings editor lists for {@link ERROR_ACTIONS_AGENT_KEY}:
+ * the default handler, always first and listed once, then the others. A
+ * value that isn't one of them, e.g. an uninstalled assistant's, is kept and
+ * flagged by the Settings editor.
+ * @param assistants The registered assistants, in the order to list them.
+ */
+export function setErrorActionHandlerChoices(assistants: readonly { readonly id: string; readonly label: string }[]): void {
+	const others = assistants.filter(assistant => assistant.id !== DEFAULT_ERROR_ACTION_HANDLER_ID);
+	errorActionHandlerSchema.enum = [DEFAULT_ERROR_ACTION_HANDLER_ID, ...others.map(assistant => assistant.id)];
+	errorActionHandlerSchema.enumItemLabels = [DEFAULT_ERROR_ACTION_HANDLER_LABEL, ...others.map(assistant => assistant.label)];
+	configurationRegistry.notifyConfigurationSchemaUpdated(aiConfigurationNode);
+}
