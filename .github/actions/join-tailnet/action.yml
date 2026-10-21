@@ -51,6 +51,20 @@ runs:
           sudo rm -f /etc/sudoers.d/zz-positron-local-bin
         fi
 
+    # Without a hostname input the action names the node github-<hostname> by
+    # running the `hostname` binary, which the SLES and openSUSE images lack.
+    # Pick that same name without it.
+    - name: Pick the node name
+      id: node
+      shell: bash
+      run: |
+        if [ -r /proc/sys/kernel/hostname ]; then
+          name=$(cat /proc/sys/kernel/hostname)
+        else
+          name=$(hostname)
+        fi
+        echo "name=github-${name}" >> "$GITHUB_OUTPUT"
+
     # A short timeout and few retries (about 2 minutes at worst): the action's
     # defaults (2m, 5 retries) can hold a job for over 10 minutes during a
     # tailnet outage, on the critical path, before a best-effort join gives up.
@@ -62,6 +76,7 @@ runs:
         oauth-client-id: ${{ inputs.oauth-client-id }}
         oauth-secret: ${{ inputs.oauth-secret }}
         tags: tag:positron-gha
+        hostname: ${{ steps.node.outputs.name }}
         timeout: 30s
         retry: 3
 
