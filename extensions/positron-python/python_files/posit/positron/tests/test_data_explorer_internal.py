@@ -430,3 +430,34 @@ def test_histogram_numpy_matches_numpy_bin_estimator(method, values):
 
     assert bin_counts == expected_counts.tolist()
     assert bin_edges == pytest.approx(expected_edges.tolist())
+
+
+def test_histogram_numpy_tiny_bin_width_caps_bins():
+    """A near-zero but nonzero bin width must cap at num_bins, not overflow."""
+    np = pytest.importorskip("numpy")
+    data = np.array([0.0, 0.0, 1e-300, 2e-300, 3e-300, 1e10])
+
+    bin_counts, bin_edges = _get_histogram_numpy(data, 20, method="fd")
+
+    _assert_histogram_valid(data, bin_counts, bin_edges)
+    assert len(bin_counts) == 20
+
+
+@pytest.mark.parametrize("method", ["fixed", "fd"])
+def test_histogram_numpy_capped_runs_once(monkeypatch, method):
+    """Hitting the num_bins cap must not recompute the same histogram."""
+    np = pytest.importorskip("numpy")
+    real_histogram = np.histogram
+    calls = []
+
+    def counting_histogram(*args, **kwargs):
+        calls.append(kwargs.get("bins"))
+        return real_histogram(*args, **kwargs)
+
+    monkeypatch.setattr(np, "histogram", counting_histogram)
+
+    data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 1e10])
+    bin_counts, _ = _get_histogram_numpy(data, 5, method=method)
+
+    assert len(bin_counts) == 5
+    assert calls == [5]

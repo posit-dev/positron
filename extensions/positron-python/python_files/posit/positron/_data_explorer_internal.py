@@ -99,7 +99,11 @@ def _get_numpy_bin_count(np, data, num_bins, method):
         return 1
     if issubclass(data.dtype.type, np.integer) and width < 1:
         width = 1
-    return max(1, min(math.ceil(delta / width), num_bins))
+    # Cap before ceil: a tiny width or overflowing range gives inf/nan
+    n_bins = delta / width
+    if not np.isfinite(n_bins) or n_bins > num_bins:
+        return num_bins
+    return max(1, math.ceil(n_bins))
 
 
 def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
@@ -171,7 +175,7 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
 
     # If the method returns more bins than what the front-end requested,
     # we re-define the bin edges.
-    if len(bin_edges) > num_bins:
+    if len(bin_counts) > num_bins:
         hist_params = {"bins": num_bins}
         need_recompute = True
 
