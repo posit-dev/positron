@@ -23,26 +23,9 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # A cold npm install takes ~15m; leave Claude time to work after it.
+    # Claude installs node dependencies only when it needs to run tests, which takes several
+    # minutes; leave it time to work after that.
     timeout-minutes: 45
-    # Same image as test-unit.yml, so Claude can install dependencies and run Vitest the way CI
-    # does. The npm caches are saved from inside this image and are not visible from the bare runner.
-    # bubblewrap (for CLAUDE_CODE_SUBPROCESS_ENV_SCRUB) needs user namespaces.
-    # SYS_ADMIN: the Ubuntu 24.04 host restricts user namespaces created without CAP_SYS_ADMIN
-    # (apparmor_restrict_unprivileged_userns), and that sysctl cannot be changed from inside the
-    # container. seccomp=unconfined: Docker's default seccomp profile blocks pivot_root, even with
-    # SYS_ADMIN. apparmor=unconfined: Docker's default AppArmor profile denies the mounts bwrap makes.
-    # systempaths=unconfined: Docker masks paths under /proc, and the kernel refuses to mount a fresh
-    # proc for bwrap's PID namespace while those masks are in place.
-    # Together these leave the container little isolation from the host. That matches running on
-    # the bare runner, where every step already has passwordless sudo. What matters is that commands
-    # Claude runs are sandboxed by bwrap with no capabilities, which the isolation step below asserts.
-    container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
-      options: --user 0:0 --init --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
-      credentials:
-        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
-        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     permissions:
       contents: read
       packages: read
@@ -56,24 +39,10 @@ jobs:
       # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
       # The action only does this by default when allowed_non_write_users is set.
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
-      HOME: /root
-      # Avoid the Docker client reading the root-owned config file in the container.
-      DOCKER_CONFIG: /tmp/.docker
-    # Container steps default to sh; the scripts below use bash syntax.
-    defaults:
-      run:
-        shell: bash
+      # Keep an `npm ci` that Claude runs for tests from downloading binaries it cannot use here.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
     steps:
-      # The positron-ubuntu24 image ships no GitHub CLI. The permission check below needs it, and
-      # so do the gh commands Claude is allowed to run.
-      - name: Install the GitHub CLI
-        env:
-          GH_CLI_VERSION: 2.97.0
-        run: |
-          curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz" | tar -xz -C /tmp
-          install -m 0755 "/tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh
-          gh --version
-
       - name: Check actor has write permission
         env:
           GH_TOKEN: ${{ github.token }}
@@ -162,57 +131,25 @@ jobs:
       - name: Install subprocess isolation dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends bubblewrap socat
-          # bwrap keeps all capabilities in the sandbox when the caller is root, which this job is,
-          # and Claude Code does not pass --cap-drop. Wrap bwrap so the sandbox never gets the
-          # container's SYS_ADMIN, which would let a command undo the sandbox's mounts.
-          sudo dpkg-divert --quiet --divert /usr/bin/bwrap.real --rename /usr/bin/bwrap
-          printf '#!/bin/sh\nexec /usr/bin/bwrap.real --cap-drop ALL "$@"\n' | sudo tee /usr/bin/bwrap > /dev/null
-          sudo chmod 0755 /usr/bin/bwrap
-          # Fail here with a clear error rather than later inside Claude. Also check that the
-          # sandbox drops the container's SYS_ADMIN, so commands Claude runs cannot use it.
-          bwrap --ro-bind / / --unshare-user --unshare-pid --proc /proc --dev /dev \
-            grep -E '^Cap(Inh|Prm|Eff|Bnd|Amb):' /proc/self/status
+          # libkrb5-dev, libxkbfile-dev, pkg-config: native modules built by `npm ci`, in case
+          # Claude installs dependencies to run tests.
+          sudo apt-get install -y --no-install-recommends bubblewrap socat libkrb5-dev libxkbfile-dev pkg-config
+          # Ubuntu 24.04+ restricts unprivileged user namespaces via AppArmor.
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          # Fail here with a clear error rather than later inside Claude. Also check that commands
+          # Claude runs get no capabilities in the sandbox.
           if ! bwrap --ro-bind / / --unshare-user --unshare-pid --proc /proc --dev /dev \
             grep -qE '^CapEff:[[:space:]]+0+$' /proc/self/status; then
             echo "::error::bwrap sandbox retains capabilities"
             exit 1
           fi
 
-      - name: Restore caches
-        id: restore-caches
-        uses: ./.github/actions/restore-build-caches
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          restore-builtins: 'false'
-          restore-playwright: 'false'
-
-      # Same install as test-unit.yml, so Claude can run Vitest, eslint, and the precommit checks.
-      - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
-            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
-            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
-        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          GITHUB_TOKEN: ${{ github.token }}
-          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
-          POSITRON_PARALLEL_INSTALL: '0'
-          POSITRON_NPM_CONCURRENCY: '10'
-          NPM_CONFIG_AUDIT: 'false'
-          NPM_CONFIG_FUND: 'false'
-          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
-          NPM_CONFIG_DEVDIR: '.node-gyp-cache'
-          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
-        with:
-          timeout_minutes: 30
-          max_attempts: 3
-          retry_wait_seconds: 5
-          shell: bash
-          command: |
-            set -e
-            npm i --global node-gyp
-            bash scripts/install-npm-parallel.sh
+          node-version-file: .nvmrc
 
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
@@ -248,9 +185,11 @@ jobs:
             This replaces the default instruction to provide a link to create the PR manually.
             If PR creation fails, push the branch and include a link to create the PR in your comment.
 
-            Node dependencies are already installed, so you can run Vitest tests, eslint, and
-            `npm run precommit`. Electron, the build daemons, and a display are not available, so
-            you cannot run Core Mocha, extension host, or e2e tests.
+            Node dependencies are not installed. If you need to run Vitest tests, eslint, or
+            `npm run precommit`, first run `npm --prefix build ci` and then `npm ci`. This takes
+            several minutes, so skip it when you are only researching or answering a question.
+            Electron, the build daemons, and a display are not available, so you cannot run
+            Core Mocha, extension host, or e2e tests.
 
             If your change is fixing a bug, always write or modify tests that reproduce the bug first.
             Run the new test locally (for example `npx vitest run <file>`) and make sure that it fails
@@ -284,4 +223,4 @@ jobs:
           claude_args: |
             --model opus
             --fallback-model sonnet
-            --allowedTools "WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(npm ci:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
+            --allowedTools "WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(npm ci:*),Bash(npm --prefix build ci:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
