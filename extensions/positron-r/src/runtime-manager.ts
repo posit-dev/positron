@@ -6,7 +6,8 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { currentRBinary, currentRInstallation, discoverRInstallationsForRecommendation, getRDiscoveryRootSignature, looksLikeRProject, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rPixiRuntimeDiscoverer, rRuntimeDiscoverer } from './provider';
+import * as path from 'path';
+import { RBinary, currentRBinary, currentRInstallation, discoverRInstallationsForRecommendation, getRDiscoveryRootSignature, looksLikeRProject, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rPixiRuntimeDiscoverer, rRuntimeDiscoverer } from './provider';
 import { PackagerMetadata, RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata, isRVersionsMetadata } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
@@ -19,6 +20,19 @@ import { setupArkJupyterKernel } from './kernel';
 import { getRTerminalEnvironmentMutations, isROnPath } from './r-process-environment';
 import { RSessionManager } from './session-manager';
 import { chooseStartupR } from './startup-choice.js';
+import { arePathsSameFile } from './path-utils.js';
+
+/**
+ * Whether the R binary at a path is the current R. The current R's path has
+ * its symlinks followed, and a path from a setting often doesn't, such as
+ * `/usr/local/bin/R` from CRAN's installer, so compare the files.
+ *
+ * @param curBin The current R binary, if there is one.
+ * @param binpath The path to the R binary.
+ */
+function isCurrentR(curBin: RBinary | undefined, binpath: string): boolean {
+	return curBin !== undefined && arePathsSameFile(curBin.path, binpath);
+}
 
 /**
  * Extract the list of environment modules to load from an R installation's
@@ -430,7 +444,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			curBin.reasons.unshift(ReasonDiscovered.affiliated);
 			inst = new RInstallation(curBin.path, true, curBin.reasons, metadataExtra.packagerMetadata);
 		} else {
-			inst = new RInstallation(metadataExtra.binpath, curBin?.path === metadataExtra.binpath, [ReasonDiscovered.affiliated], metadataExtra.packagerMetadata);
+			inst = new RInstallation(metadataExtra.binpath, isCurrentR(curBin, metadataExtra.binpath), [ReasonDiscovered.affiliated], metadataExtra.packagerMetadata);
 		}
 
 		// Check the installation for validity
@@ -460,15 +474,22 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 */
 	async registerRuntimeFromPath(binpath: string): Promise<positron.LanguageRuntimeMetadata> {
 		const curBin = await currentRBinary();
-		const inst = new RInstallation(binpath, curBin?.path === binpath, [ReasonDiscovered.userSetting],
+		// A link to the current R, such as `/usr/local/bin/R`, registers at the
+		// current R's own path, as discovery lists it, so the picker doesn't
+		// show that R twice.
+		const currentPath = isCurrentR(curBin, binpath) ? curBin?.path : undefined;
+		const inst = new RInstallation(currentPath ?? binpath, currentPath !== undefined, [ReasonDiscovered.userSetting],
 			packagerMetadataForPath(binpath));
 		if (!inst.usable) {
 			throw new Error(`R installation at ${binpath} is not usable. Reason: ${friendlyReason(inst.reasonRejected)}`);
 		}
+		// Save the path as given, so a link keeps leading to the R it points
+		// to after an upgrade. Discovery follows the link.
+		const savedPath = path.normalize(binpath);
 		const config = vscode.workspace.getConfiguration('positron.r');
 		const binaries = config.inspect<string[]>('customBinaries')?.globalValue ?? [];
-		if (!binaries.includes(inst.binpath)) {
-			await config.update('customBinaries', [...binaries, inst.binpath], vscode.ConfigurationTarget.Global);
+		if (!binaries.includes(savedPath)) {
+			await config.update('customBinaries', [...binaries, savedPath], vscode.ConfigurationTarget.Global);
 		}
 		return makeMetadata(inst);
 	}
