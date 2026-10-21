@@ -180,7 +180,9 @@ jobs:
           NPM_CONFIG_FUND: 'false'
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'
         with:
-          timeout_minutes: 30
+          # A cold install takes ~16m. Network failures tend to fail fast, so two 20m attempts
+          # still leave Claude at least 20m of the job.
+          timeout_minutes: 20
           max_attempts: 2
           retry_wait_seconds: 5
           shell: bash
@@ -233,8 +235,11 @@ jobs:
 
             Node dependencies are already installed, so you can run Vitest tests, eslint, and
             `npm run precommit`. Do not run `npm ci` or `npm install`: the sandbox makes
-            node_modules/.bin read-only, so they fail. Electron, the build daemons, and a display
-            are not available, so you cannot run Core Mocha, extension host, or e2e tests.
+            node_modules/.bin read-only, so they fail. Pass `--reporter=default` to Vitest: its
+            default GitHub Actions reporter tries to write the job summary, which the sandbox makes
+            read-only, and prints an EROFS stack trace that does not mean a test failed.
+            Electron, the build daemons, and a display are not available, so you cannot run
+            Core Mocha, extension host, or e2e tests.
 
             If your change is fixing a bug, always write or modify tests that reproduce the bug first.
             Run the new test locally (for example `npx vitest run <file>`) and make sure that it fails
