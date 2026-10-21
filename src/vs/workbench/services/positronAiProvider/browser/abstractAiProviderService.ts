@@ -60,6 +60,10 @@ export abstract class AbstractAiProviderService extends Disposable implements IA
 			// Don't let the stale initial load overwrite a change that raced it.
 			if (this._changeCount === changesBefore) {
 				this.setSnapshot(initial);
+				// Listeners saw an empty list after the failure; tell them it recovered.
+				if (attempt > 0) {
+					this._onDidChangeProviders.fire({ catalog: initial, enabledChanged: true, connectionChanged: true, modelsChanged: true });
+				}
 			}
 			this._status = 'ready';
 		} catch (error) {

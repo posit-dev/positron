@@ -166,6 +166,19 @@ describe('AiProviderService', () => {
 				.toEqual({ status: 'ready', providers: [provider('anthropic', true)] });
 		});
 
+		it('notifies listeners when a retry recovers the catalog', async () => {
+			const service = createService(failOnce([provider('anthropic', true)]).catalog);
+			const changes: IProviderCatalogChangeData[] = [];
+			ctx.disposables.add(service.onDidChangeProviders(c => changes.push(c)));
+			await service.whenInitialized;
+
+			await vi.advanceTimersByTimeAsync(60_000);
+
+			expect(changes).toEqual([{
+				catalog: [provider('anthropic', true)], enabledChanged: true, connectionChanged: true, modelsChanged: true,
+			}]);
+		});
+
 		it('fires each catalog change once after retrying', async () => {
 			const fake = failOnce([provider('anthropic', true)]);
 			const service = createService(fake.catalog);
