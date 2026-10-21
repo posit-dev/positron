@@ -90,17 +90,9 @@ export class PortForwardingManager {
 					if command -v bash >/dev/null 2>&1; then
 						exec bash -c '{ exec 3<>/dev/tcp/::1/${remotePort}; } 2>/dev/null || exec 3<>/dev/tcp/127.0.0.1/${remotePort} || exit 1; cat <&3 & cat >&3; kill %1'
 					elif command -v nc >/dev/null 2>&1; then
-						if nc -z ::1 ${remotePort} >/dev/null 2>&1; then
-							exec nc ::1 ${remotePort}
-						else
-							exec nc 127.0.0.1 ${remotePort}
-						fi
+						nc ::1 ${remotePort} 2>/dev/null || exec nc 127.0.0.1 ${remotePort}
 					elif command -v socat >/dev/null 2>&1; then
-						if socat -u /dev/null TCP6:[::1]:${remotePort} >/dev/null 2>&1; then
-							exec socat - TCP6:[::1]:${remotePort}
-						else
-							exec socat - TCP4:127.0.0.1:${remotePort}
-						fi
+						socat - TCP6:[::1]:${remotePort} 2>/dev/null || exec socat - TCP4:127.0.0.1:${remotePort}
 					else
 						echo "ERROR: No suitable tool found for port forwarding (need bash, nc, or socat)" >&2
 						exit 1
