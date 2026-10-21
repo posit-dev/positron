@@ -1098,10 +1098,8 @@ def _pandas_summarize_number(
         values = col.to_numpy()
         non_null_values = values[~np.isnan(values)]
         if len(non_null_values) > 0:
-            # Same float64-limit overflow as the real branch below
-            with np.errstate(over="ignore", invalid="ignore"):
-                median_val = float_format(np.median(non_null_values))
-                mean_val = float_format(np.mean(non_null_values))
+            median_val = float_format(np.median(non_null_values))
+            mean_val = float_format(np.mean(non_null_values))
     else:
         non_null_values = col[col.notna()].to_numpy()  # type: ignore
 
@@ -1111,12 +1109,10 @@ def _pandas_summarize_number(
 
             if not math_helper.isinf(min_val) and not math_helper.isinf(max_val):
                 # These stats are not defined when there is an
-                # inf/-inf in the data. Ranges near the float64 limits
-                # overflow to inf; don't print RuntimeWarnings for it
-                with np.errstate(over="ignore", invalid="ignore"):
-                    mean_val = float_format(non_null_values.mean())
-                    median_val = float_format(np.median(non_null_values))
-                    std_val = float_format(non_null_values.std(ddof=1))
+                # inf/-inf in the data
+                mean_val = float_format(non_null_values.mean())
+                median_val = float_format(np.median(non_null_values))
+                std_val = float_format(non_null_values.std(ddof=1))
 
             if display_type == ColumnDisplayType.Floating:
                 min_val = float_format(min_val)

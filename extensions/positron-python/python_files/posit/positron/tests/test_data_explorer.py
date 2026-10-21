@@ -38,7 +38,6 @@ from ..data_explorer import (
     DataExplorerState,
     PandasView,
     _get_float_formatter,
-    _pandas_summarize_number,
 )
 from ..data_explorer_comm import (
     ColumnDisplayType,
@@ -4461,17 +4460,3 @@ def test_histogram_edge_cases_empty_and_single_row(dxf: DataExplorerFixture):
             histogram_result = results[0]["small_histogram"]
             assert histogram_result["bin_counts"] == [1]
             assert histogram_result["bin_edges"] == ["42.50", "42.50"]
-
-
-def test_pandas_summarize_number_range_overflowing_float64():
-    """Summary stats over a -1e308..1e308 column don't print RuntimeWarnings."""
-    import warnings
-
-    col = pd.Series([-1e308, 0.0, 1.0, 1e308])
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", RuntimeWarning)
-        stats = _pandas_summarize_number(col, DEFAULT_FORMAT)
-
-    assert stats.number_stats is not None
-    assert stats.number_stats.min_value == _get_float_formatter(DEFAULT_FORMAT)(-1e308)

@@ -94,9 +94,6 @@ def _get_numpy_bin_count(np, data, num_bins, method):
     else:
         raise ValueError(f"Unknown binning method: {method}")
 
-    if not np.isfinite(width):
-        # Width math overflowed, e.g. the std of 0..DBL_MAX
-        return num_bins
     if not width:
         # Width can be zero, e.g. FD when the IQR is zero
         return 1
@@ -107,22 +104,6 @@ def _get_numpy_bin_count(np, data, num_bins, method):
     if not np.isfinite(n_bins) or n_bins > num_bins:
         return num_bins
     return max(1, math.ceil(n_bins))
-
-
-def _numpy_histogram(np, data, bins):
-    """np.histogram that also handles ranges wider than float64 can span."""
-    if issubclass(data.dtype.type, np.floating):
-        first_edge, last_edge = data.min(), data.max()
-        # Checked up front: older NumPy returns nan edges here instead of raising
-        if (
-            np.isfinite(first_edge)
-            and np.isfinite(last_edge)
-            and not np.isfinite(float(last_edge) - float(first_edge))
-        ):
-            # e.g. -1e308..1e308; halving is exact, so bin on half and scale back
-            bin_counts, bin_edges = np.histogram(data / 2, bins=bins)
-            return bin_counts, bin_edges * 2
-    return np.histogram(data, bins=bins)
 
 
 def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
@@ -145,13 +126,6 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
         )
         raise e
 
-    # Extreme ranges overflow intermediate float math; don't print
-    # RuntimeWarnings into the user's console for it
-    with np.errstate(over="ignore", invalid="ignore"):
-        return _get_histogram_numpy_impl(np, data, num_bins, method, to_numpy=to_numpy)
-
-
-def _get_histogram_numpy_impl(np, data, num_bins, method, *, to_numpy):
     if to_numpy:
         data = data.to_numpy()
 
@@ -160,10 +134,6 @@ def _get_histogram_numpy_impl(np, data, num_bins, method, *, to_numpy):
     if data.dtype == object:
         # For decimals, we convert to float which is lossy but works for now
         return _get_histogram_numpy(data.astype(float), num_bins, method=method)
-
-    if issubclass(data.dtype.type, np.floating) and data.dtype.itemsize < 8:
-        # Bin edge math near the float16/float32 limits overflows to inf
-        data = data.astype(np.float64)
 
     # Handle empty data case - return empty histogram consistent with Polars implementation
     if len(data) == 0:
@@ -178,7 +148,7 @@ def _get_histogram_numpy_impl(np, data, num_bins, method, *, to_numpy):
     # only pay the cost of filtering out inf/-inf if that fails
     try:
         bins = _get_numpy_bin_count(np, data, num_bins, method)
-        bin_counts, bin_edges = _numpy_histogram(np, data, bins)
+        bin_counts, bin_edges = np.histogram(data, bins=bins)
     except (ValueError, IndexError):
         if issubclass(data.dtype.type, np.integer):
             # Issue #5176. There is a class of error for integers where np.histogram
@@ -198,7 +168,7 @@ def _get_histogram_numpy_impl(np, data, num_bins, method, *, to_numpy):
         if len(data) == 0:
             return _EMPTY_HISTOGRAM
         bins = _get_numpy_bin_count(np, data, num_bins, method)
-        bin_counts, bin_edges = _numpy_histogram(np, data, bins)
+        bin_counts, bin_edges = np.histogram(data, bins=bins)
 
     # For integers, we want to make sure the number of bins is smaller
     # then than `data.max() - data.min()`, so we don't endup with more bins
@@ -209,7 +179,7 @@ def _get_histogram_numpy_impl(np, data, num_bins, method, *, to_numpy):
         if len(bin_edges) > width and width > 0:
             bins = min(width + 1, num_bins)
             if bins != len(bin_counts):
-                bin_counts, bin_edges = _numpy_histogram(np, data, bins)
+                bin_counts, bin_edges = np.histogram(data, bins=bins)
 
     # Special case: if we have a single bin, check if all values are the same
     # If so, override the bin edges to be the same value instead of value +/- 0.5
@@ -274,12 +244,8 @@ def _get_histogram_polars(
         # Return empty histogram for empty data
         return _EMPTY_HISTOGRAM
 
-    if data.dtype == pl.Float32:
-        # Bin index math near the Float32 limits overflows to inf
-        data = data.cast(pl.Float64)
-
     # Filter out infinite values
-    if data.dtype == pl.Float64:
+    if data.dtype in [pl.Float32, pl.Float64]:
         data = data.filter(data.is_finite())
         if len(data) == 0:
             return _EMPTY_HISTOGRAM
@@ -301,10 +267,6 @@ def _get_histogram_polars(
     n = len(data)
     # Cast to float to prevent overflow with large integer ranges
     data_range = float(max_val) - float(min_val)  # type: ignore[arg-type]
-    if not math.isfinite(data_range):
-        # e.g. -1e308..1e308; halving is exact, so bin on half and scale back
-        bin_counts, bin_edges = _get_histogram_polars(data / 2, num_bins, method)
-        return bin_counts, [edge * 2 for edge in bin_edges]
 
     if method == "fixed":
         n_bins = num_bins
@@ -324,16 +286,11 @@ def _get_histogram_polars(
         else:
             raise ValueError(f"Unknown binning method: {method}")
 
-        # Calculate number of bins from bin width, capping before ceil so a
-        # tiny width can't overflow
-        if not math.isfinite(bin_width):
-            # Width math overflowed, e.g. the std of -5e307..5e307
-            n_bins = num_bins
-        elif bin_width > 0:
-            n_bins = data_range / bin_width
-            n_bins = num_bins if n_bins > num_bins else math.ceil(n_bins)
-        else:
-            n_bins = 1
+        # Calculate number of bins from bin width
+        n_bins = math.ceil(data_range / bin_width) if bin_width > 0 else 1
+
+    # Limit to maximum number of bins
+    n_bins = min(n_bins, num_bins)
 
     # For integer data, ensure bins don't exceed the integer range
     if data.dtype.is_integer():
