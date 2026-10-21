@@ -51,8 +51,11 @@ fi
 # Fetch existing comments on the PR
 COMMENTS=$(gh api repos/${REPO}/issues/${PR_NUMBER}/comments --header "Authorization: token $GITHUB_TOKEN")
 
-# Check if a comment with the marker already exists
-COMMENT_ID=$(echo "$COMMENTS" | jq -r ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id")
+# Check if a comment with the marker already exists. Update the first; any
+# others are duplicates from an older race between runs and get deleted below.
+MARKER_IDS=$(echo "$COMMENTS" | jq -r ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id")
+COMMENT_ID=$(echo "$MARKER_IDS" | head -n 1)
+DUPLICATE_IDS=$(echo "$MARKER_IDS" | tail -n +2)
 
 # Format the tags with individual backticks, or use default
 if [ -z "$TAGS" ]; then
@@ -128,3 +131,10 @@ else
     -F body="$NEW_COMMENT" \
     --header "Authorization: token $GITHUB_TOKEN"
 fi
+
+for id in $DUPLICATE_IDS; do
+  echo "Deleting duplicate comment (ID: $id)..."
+  gh api repos/${REPO}/issues/comments/$id \
+    -X DELETE \
+    --header "Authorization: token $GITHUB_TOKEN" || echo "Could not delete comment $id"
+done

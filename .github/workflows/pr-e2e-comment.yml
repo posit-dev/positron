@@ -7,6 +7,12 @@ on:
       - synchronize
       - edited
 
+# Opening a PR and editing its body right after starts two runs; without this,
+# both see no comment yet and each creates one.
+concurrency:
+  group: pr-e2e-comment-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   e2e-tags:
     runs-on: ubuntu-latest
