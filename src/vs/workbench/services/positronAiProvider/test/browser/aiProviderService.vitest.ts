@@ -140,6 +140,58 @@ describe('AiProviderService', () => {
 		expect(service.getProviders()).toEqual([]);
 	});
 
+	describe('after a failed fetch', () => {
+		beforeEach(() => vi.useFakeTimers());
+		afterEach(() => vi.useRealTimers());
+
+		function failOnce(catalog: readonly IResolvedProviderData[]) {
+			let calls = 0;
+			return fakeCatalog({
+				getCatalog: async () => {
+					if (calls++ === 0) {
+						throw new Error('channel down');
+					}
+					return catalog;
+				},
+			});
+		}
+
+		it('retries until the catalog loads', async () => {
+			const service = createService(failOnce([provider('anthropic', true)]).catalog);
+			await service.whenInitialized;
+
+			await vi.advanceTimersByTimeAsync(60_000);
+
+			expect({ status: service.status, providers: service.getProviders() })
+				.toEqual({ status: 'ready', providers: [provider('anthropic', true)] });
+		});
+
+		it('fires each catalog change once after retrying', async () => {
+			const fake = failOnce([provider('anthropic', true)]);
+			const service = createService(fake.catalog);
+			await service.whenInitialized;
+			await vi.advanceTimersByTimeAsync(60_000);
+			const changes: IProviderCatalogChangeData[] = [];
+			ctx.disposables.add(service.onDidChangeProviders(c => changes.push(c)));
+
+			const next = change([provider('openai', true)]);
+			fake.onDidChangeCatalog.fire(next);
+
+			expect(changes).toEqual([next]);
+		});
+
+		it('stops retrying once disposed', async () => {
+			const fake = fakeCatalog({ getCatalog: async () => { throw new Error('channel down'); } });
+			const service = createService(fake.catalog);
+			await service.whenInitialized;
+			service.dispose();
+
+			await vi.advanceTimersByTimeAsync(600_000);
+
+			expect(fake.getCatalog).toHaveBeenCalledTimes(1);
+		});
+	});
+
 	it('a catalog change event replaces the prior snapshot in place', async () => {
 		const fake = fakeCatalog({ catalog: [provider('anthropic', true)] });
 		const service = createService(fake.catalog);
