@@ -86,6 +86,12 @@ suite('SqlCompletionItemProvider', () => {
 		assert.deepStrictEqual(starred.labels, ['id', 'name']);
 	});
 
+	test('a CTE name followed by a dot offers its columns before the FROM that reads it is typed', async () => {
+		const { labels } = await complete('WITH recent AS (SELECT id, total AS amount FROM orders)\nSELECT recent.|');
+
+		assert.deepStrictEqual(labels, ['id', 'amount']);
+	});
+
 	test('a derived table\'s alias followed by a dot offers what its select list produces', async () => {
 		const { labels } = await complete('SELECT s.| FROM (SELECT id AS k, name FROM customers) s');
 
