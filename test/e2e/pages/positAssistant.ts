@@ -909,21 +909,26 @@ export class PositAssistant {
 		await quickaccess.runCommand('posit-assistant.checkForDevBuildUpdate');
 
 		const toasts = new Toasts(this.code);
+		const updateAvailable = /newer Posit Assistant dev build is available/i;
+		// Assistant answers the check with exactly one of these.
+		const checkResult = /newer Posit Assistant dev build is available|Posit Assistant is up to date|Posit Assistant dev build update check failed/i;
 
-		// 3. Wait for the "newer dev build available" toast. If it doesn't appear
-		//    (already up to date or update server unreachable), treat as a no-op.
-		let updateAvailable = true;
+		// 3. Wait for the check's result. Anything but "newer dev build available"
+		//    (up to date, check failed, or no answer) is a no-op; log which one it was.
 		try {
-			await toasts.waitForAppear(/newer Posit Assistant dev build is available/i, { timeout: toastTimeout });
+			await toasts.waitForAppear(checkResult, { timeout: toastTimeout });
 		} catch {
-			updateAvailable = false;
-		}
-
-		if (!updateAvailable) {
+			console.log(`[checkForDevBuildUpdate] No result from the update check within ${toastTimeout}ms; keeping the installed Posit Assistant.`);
 			return;
 		}
 
-		await toasts.clickButton('Update Now', { notificationFilter: /newer Posit Assistant dev build is available/i });
+		const message = await this.readNotification(checkResult);
+		console.log(`[checkForDevBuildUpdate] ${message}`);
+		if (!updateAvailable.test(message)) {
+			return;
+		}
+
+		await toasts.clickButton('Update Now', { notificationFilter: updateAvailable });
 
 		// 4. Wait for the follow-up "reload to apply changes" toast and click "Reload".
 		//    A visible .monaco-workbench is not enough afterwards: the provider modal
@@ -933,6 +938,23 @@ export class PositAssistant {
 			() => toasts.clickButton('Reload', { notificationFilter: /Posit Assistant has been updated\. You must reload Positron/i }),
 			waitForReady,
 		);
+		const commit = message.match(/commit (?<commit>[0-9a-f]+)/i)?.groups?.commit ?? 'unknown';
+		console.log(`[checkForDevBuildUpdate] Installed Posit Assistant dev build ${commit} and reloaded.`);
+	}
+
+	/**
+	 * Returns the text of the first notification matching `filter`, read from the
+	 * notification center so it works whether or not toasts are shown.
+	 */
+	private async readNotification(filter: RegExp): Promise<string> {
+		const toasts = new Toasts(this.code);
+		await toasts.openNotificationCenter();
+		try {
+			const message = toasts.notificationsCenter.locator('.notification-list-item-message').filter({ hasText: filter }).first();
+			return (await message.textContent({ timeout: 5000 }))?.trim() ?? '';
+		} finally {
+			await toasts.closeNotificationCenter().catch(() => { });
+		}
 	}
 
 }
