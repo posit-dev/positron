@@ -31,7 +31,7 @@ const ODBC_PREFIX = 'odbc-';
 /**
  * Databases that hold no tables and answer no SQL.
  *
- * A Posit Connect pin is a stored R or Python object -- a data frame, a model, a plot. The
+ * A Posit Connect pin is a stored R or Python object -- a data frame, a model, a plot. The Data
  * Connections pane browses them because they are data the user has, not because they can be
  * selected from, so a SQL file must not be written against one and must not complete from one.
  */
@@ -68,6 +68,27 @@ const DIALECTS = new Map([
 	// The generic ODBC driver connects to whatever the user's driver manager offers, which is not
 	// known from the id.
 	['odbc', ''],
+]);
+
+/**
+ * The schema each engine reads an unqualified name from when the session has not been told
+ * otherwise. A fact of the engine rather than of the user's database, which is why it can be
+ * listed: PostgreSQL's `search_path` starts at `public`, DuckDB's at `main`.
+ *
+ * Absent for an engine whose default is the database the connection happens to be using -- MySQL,
+ * whose schema is its database -- or that reports no schemas at all, like SQLite. A user who has
+ * changed the default in their session is not seen here; the cost is a completion qualified with
+ * a schema it did not need, which still runs.
+ */
+const DEFAULT_SCHEMAS = new Map([
+	['duckdb', 'main'],
+	['postgres', 'public'],
+	['redshift', 'public'],
+	['snowflake', 'PUBLIC'],
+	['tsql', 'dbo'],
+	['databricks', 'default'],
+	['hive', 'default'],
+	['spark', 'default'],
 ]);
 
 /**
@@ -139,4 +160,9 @@ function databaseOf(driverId: string): string {
 	return withoutPrefix.startsWith(ODBC_PREFIX) && withoutPrefix !== ODBC_PREFIX
 		? withoutPrefix.slice(ODBC_PREFIX.length)
 		: withoutPrefix;
+}
+
+/** The schema an unqualified name is read from on an engine with this dialect, if it has one. */
+export function defaultSchemaOf(dialect: string): string | undefined {
+	return DEFAULT_SCHEMAS.get(dialect);
 }

@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Analysis, Renamed, Scope } from './analyzer';
+import { Analysis, Renamed, Scope, TableRef } from './analyzer';
 import { SqlTable } from './schema';
-import { qualifiedName, SchemaIndex } from './schemaIndex';
+import { displayName, SchemaIndex } from './schemaIndex';
 
 /**
  * Matching the names a document contains against the tables the user is connected to.
@@ -22,6 +22,21 @@ import { qualifiedName, SchemaIndex } from './schemaIndex';
  * correct, so a name it stays quiet about costs a little coverage, while a name it wrongly flags
  * costs the feature its credibility.
  */
+
+/**
+ * Prefixes the engines reserve for their own catalog tables, which a connection does not list as
+ * the user's: `pg_class`, `sqlite_master`. A name with one is the engine's, not a typo.
+ */
+const SYSTEM_TABLE_PREFIXES = ['pg_', 'sqlite_'];
+
+/**
+ * Columns every row of a table has without the table declaring them, which a connection therefore
+ * does not report: SQLite's and DuckDB's `rowid`, PostgreSQL's `ctid` and its transaction
+ * columns, Oracle's `rownum`. Fixed by each engine rather than by the user's schema.
+ */
+const SYSTEM_COLUMNS = new Set([
+	'rowid', '_rowid_', 'oid', 'ctid', 'xmin', 'xmax', 'cmin', 'cmax', 'tableoid', 'rownum',
+]);
 
 export interface Reference {
 	readonly kind: 'table' | 'column';
@@ -67,14 +82,31 @@ interface ResolvedScope {
 	/** The names that resolve to nothing lookupable, so a column qualified by one is left alone. */
 	readonly unresolvable: Set<string>;
 
+	/**
+	 * The names, as the statement reads them, of tables whose columns the document itself changes
+	 * or defines -- an ALTER TABLE, a CREATE that replaces one. A column of one of these resolves
+	 * when the schema has it, and is never flagged when it does not.
+	 */
+	readonly changed: Set<string>;
+
 	/** The select-list aliases in scope that rename a column, and the column each renames. */
 	readonly aliases: Map<string, Renamed>;
+}
+
+/** What the whole document says about tables, whichever statement says it. */
+interface DocumentFacts {
+	/** Tables a CREATE, or a rename, in the document brings into being. */
+	readonly defined: Set<string>;
+
+	/** Tables whose columns the document changes: altered, or defined over an existing one. */
+	readonly changed: Set<string>;
 }
 
 /** Finds every table and column name in a parsed document and resolves it against the schema. */
 export function resolveReferences(analysis: Analysis, schema: SchemaIndex): Reference[] {
 	const references: Reference[] = [];
-	const scopes = analysis.scopes.map((_, index) => resolveScope(index, analysis, schema));
+	const facts = documentFacts(analysis);
+	const scopes = analysis.scopes.map((_, index) => resolveScope(index, analysis, schema, facts));
 
 	for (const table of analysis.tables) {
 		// A CTE, or the object a CREATE is defining. Both are correct SQL that names nothing in
@@ -82,7 +114,13 @@ export function resolveReferences(analysis: Analysis, schema: SchemaIndex): Refe
 		if (table.local || table.definition) {
 			continue;
 		}
-		const matches = schema.resolve(table.name, table.schema, table.catalog);
+		const { matches, judgeable } = lookUp(schema, table);
+		if (matches.length === 0 && (!judgeable || facts.defined.has(fold(table.name)))) {
+			// Either something the schema cannot speak for -- a namespace it does not list, the
+			// engine's own catalog -- or a table an earlier statement in this file creates. A
+			// script that creates a table and then reads it is correct before it has run.
+			continue;
+		}
 		references.push({
 			kind: 'table',
 			name: table.name,
@@ -95,87 +133,176 @@ export function resolveReferences(analysis: Analysis, schema: SchemaIndex): Refe
 	}
 
 	for (const column of analysis.columns) {
-		const scope = scopes[column.scope];
-		if (!scope) {
-			continue;
+		const reference = resolveColumn(column, analysis, scopes);
+		if (reference) {
+			references.push(reference);
 		}
-
-		let candidates: SqlTable[];
-		if (column.qualifier !== undefined) {
-			if (scope.unresolvable.has(fold(column.qualifier))) {
-				// The qualifier names something this cannot see into, or a table the schema does
-				// not have. Either way the column below it is not a second mistake, and a second
-				// squiggle would be one mistake reported twice.
-				continue;
-			}
-			const table = scope.byName.get(fold(column.qualifier));
-			if (!table) {
-				continue;
-			}
-			candidates = [table];
-		} else if (scope.aliases.has(fold(column.name))) {
-			// `uis` in `WHERE uis = 10` after `SELECT UnitsInStock AS uis`: the column it renames,
-			// found where that column would be. Only ever resolved, never flagged -- the alias is
-			// correct SQL whether or not the column behind it can be found.
-			const reference = resolveAlias(column, scope);
-			if (reference) {
-				references.push(reference);
-			}
-			continue;
-		} else if (scope.unresolvable.has(fold(column.name))) {
-			// A name the statement made up rather than read from a table: the alias of a select
-			// item that an `ORDER BY` refers back to, or a CTE. Looking one up in the schema finds
-			// nothing, and saying so would flag `SELECT total AS t FROM orders ORDER BY t`, which
-			// is ordinary SQL.
-			continue;
-		} else if (scope.opaque || scope.tables.length === 0) {
-			continue;
-		} else {
-			candidates = scope.tables;
-		}
-
-		const owner = candidates.find(table =>
-			table.columns.some(item => fold(item.name) === fold(column.name)));
-		references.push({
-			kind: 'column',
-			name: column.name,
-			start: column.start,
-			end: column.end,
-			status: owner ? 'resolved' : 'unknown',
-			table: owner,
-			searched: owner ? [] : candidates.map(qualifiedName),
-		});
 	}
 
 	references.sort((left, right) => left.start - right.start);
 	return references;
 }
 
-function resolveScope(index: number, analysis: Analysis, schema: SchemaIndex): ResolvedScope {
+function resolveColumn(
+	column: Analysis['columns'][number],
+	analysis: Analysis,
+	scopes: readonly ResolvedScope[],
+): Reference | undefined {
+	const scope = scopes[column.scope];
+	if (!scope) {
+		return undefined;
+	}
+	// The scopes a column can reach, its own first. A subquery may name the columns of the query
+	// it sits in -- `WHERE EXISTS (SELECT 1 FROM b WHERE b.x = total)` -- and those are found
+	// further out.
+	const reachable = [scope, ...enclosing(column.scope, analysis, scopes)];
+
+	let candidates: SqlTable[];
+	let lenient: boolean;
+	if (column.qualifier !== undefined) {
+		const qualifier = fold(column.qualifier);
+		// The nearest scope that knows the qualifier decides. One that cannot see into it -- a
+		// derived table, a table the schema does not have -- means the column below it is not a
+		// second mistake, and a second squiggle would be one mistake reported twice.
+		const owner = reachable.find(each => each.unresolvable.has(qualifier) || each.byName.has(qualifier));
+		const table = owner?.byName.get(qualifier);
+		if (!owner || !table) {
+			return undefined;
+		}
+		candidates = [table];
+		lenient = owner.changed.has(qualifier);
+	} else if (scope.aliases.has(fold(column.name))) {
+		// `uis` in `WHERE uis = 10` after `SELECT UnitsInStock AS uis`: the column it renames,
+		// found where that column would be. Only ever resolved, never flagged -- the alias is
+		// correct SQL whether or not the column behind it can be found.
+		return resolveAlias(column, scope);
+	} else if (scope.unresolvable.has(fold(column.name))) {
+		// A name the statement made up rather than read from a table: the alias of a select
+		// item that an `ORDER BY` refers back to, or a CTE. Looking one up in the schema finds
+		// nothing, and saying so would flag `SELECT total AS t FROM orders ORDER BY t`, which
+		// is ordinary SQL.
+		return undefined;
+	} else if (scope.opaque || scope.tables.length === 0) {
+		return undefined;
+	} else {
+		candidates = scope.tables;
+		lenient = scope.changed.size > 0;
+	}
+
+	let owner = findOwner(candidates, column.name);
+	let searched = candidates;
+	if (!owner && column.qualifier === undefined) {
+		// Not in the column's own tables, so possibly a correlated reference to an enclosing
+		// query's. Judged only if every scope on the way out can be seen into.
+		const outer = reachable.slice(1);
+		const further = outer.flatMap(each => each.tables);
+		owner = findOwner(further, column.name);
+		searched = [...candidates, ...further.filter(table => !candidates.includes(table))];
+		lenient ||= outer.some(each => each.opaque || each.changed.size > 0);
+	}
+
+	if (!owner && (lenient || SYSTEM_COLUMNS.has(fold(column.name)))) {
+		return undefined;
+	}
+	return {
+		kind: 'column',
+		name: column.name,
+		start: column.start,
+		end: column.end,
+		status: owner ? 'resolved' : 'unknown',
+		table: owner,
+		searched: owner ? [] : searched.map(displayName),
+	};
+}
+
+/** The resolved scopes enclosing a scope, nearest first. */
+function enclosing(index: number, analysis: Analysis, scopes: readonly ResolvedScope[]): ResolvedScope[] {
+	const found: ResolvedScope[] = [];
+	// Bounded by the number of scopes: a parent always has a lower index, but this runs on the
+	// user's keystrokes and a loop is the one failure that cannot be recovered from.
+	let at = analysis.scopes[index]?.parent;
+	for (let step = 0; at !== undefined && step < analysis.scopes.length; step++) {
+		const resolved = scopes[at];
+		if (resolved) {
+			found.push(resolved);
+		}
+		at = analysis.scopes[at]?.parent;
+	}
+	return found;
+}
+
+function findOwner(tables: readonly SqlTable[], name: string): SqlTable | undefined {
+	const folded = fold(name);
+	return tables.find(table => table.columns.some(column => fold(column.name) === folded));
+}
+
+/**
+ * Looks a table reference up, and says whether a miss would mean anything.
+ *
+ * A qualifier the schema does not list cannot be judged: it is a database attached to the session
+ * (`other.orders` in DuckDB), the engine's own catalog (`information_schema.tables`), or a level
+ * the connection does not report (`main.orders` in SQLite, `mydb.public.orders` in PostgreSQL).
+ * The parts that are known still narrow the search, and a schema that reports no namespaces at all
+ * is searched by name, so the last two cases still resolve.
+ */
+function lookUp(schema: SchemaIndex, table: TableRef): { matches: readonly SqlTable[]; judgeable: boolean } {
+	const known = (part: string | undefined) => part !== undefined && schema.isNamespace(part);
+	const schemaPart = known(table.schema) ? table.schema : undefined;
+	const catalogPart = known(table.catalog) ? table.catalog : undefined;
+	const qualified = table.schema !== undefined || table.catalog !== undefined;
+	const allKnown = schemaPart === table.schema && catalogPart === table.catalog;
+	const system = !qualified && SYSTEM_TABLE_PREFIXES.some(prefix => fold(table.name).startsWith(prefix));
+
+	if (allKnown) {
+		return { matches: schema.resolve(table.name, schemaPart, catalogPart), judgeable: !system };
+	}
+	if (schemaPart !== undefined || catalogPart !== undefined || !schema.hasNamespaces) {
+		return { matches: schema.resolve(table.name, schemaPart, catalogPart), judgeable: false };
+	}
+	return { matches: [], judgeable: false };
+}
+
+function documentFacts(analysis: Analysis): DocumentFacts {
+	const defined = new Set<string>();
+	const changed = new Set<string>();
+	for (const table of analysis.tables) {
+		if (table.definition) {
+			defined.add(fold(table.name));
+			changed.add(fold(table.name));
+		}
+		if (table.altered) {
+			changed.add(fold(table.name));
+		}
+	}
+	return { defined, changed };
+}
+
+function resolveScope(index: number, analysis: Analysis, schema: SchemaIndex, facts: DocumentFacts): ResolvedScope {
 	const scope = analysis.scopes[index];
 	const resolved: ResolvedScope = {
 		byName: new Map(),
 		tables: [],
 		opaque: scope.opaque,
 		unresolvable: new Set(),
+		changed: new Set(),
 		aliases: new Map(),
 	};
 
 	// Names the statement defines for itself, at this level and every level enclosing it. A CTE
 	// declared at the top of a statement is in scope for a subquery six levels down.
 	for (let at: number | undefined = index; at !== undefined;) {
-		const enclosing: Scope | undefined = analysis.scopes[at];
-		if (!enclosing) {
+		const enclosingScope: Scope | undefined = analysis.scopes[at];
+		if (!enclosingScope) {
 			break;
 		}
-		for (const local of enclosing.locals) {
+		for (const local of enclosingScope.locals) {
 			resolved.unresolvable.add(fold(local.name));
 			// Nearest first, so an inner select's alias is not shadowed by an outer one's.
 			if (local.kind === 'output' && local.column && !resolved.aliases.has(fold(local.name))) {
 				resolved.aliases.set(fold(local.name), local.column);
 			}
 		}
-		at = enclosing.parent;
+		at = enclosingScope.parent;
 	}
 
 	for (const index of scope.tables) {
@@ -183,18 +310,22 @@ function resolveScope(index: number, analysis: Analysis, schema: SchemaIndex): R
 		if (!table) {
 			continue;
 		}
-		const name = table.alias ?? table.name;
-		const matches = schema.resolve(table.name, table.schema, table.catalog);
+		const name = fold(table.alias ?? table.name);
+		const { matches } = lookUp(schema, table);
 		if (matches.length === 0) {
-			// Reported as an unknown table in its own right; its columns could be anything.
+			// Reported as an unknown table in its own right, or not judged at all; either way its
+			// columns could be anything.
 			resolved.opaque = true;
-			resolved.unresolvable.add(fold(name));
+			resolved.unresolvable.add(name);
 			continue;
 		}
 		// An alias is what the statement calls the table, and is what a qualifier will be written
 		// as: `o.` after `FROM orders o` means the columns of orders, whatever else is called `o`.
-		resolved.byName.set(fold(name), matches[0]);
+		resolved.byName.set(name, matches[0]);
 		resolved.tables.push(matches[0]);
+		if (table.altered || facts.changed.has(fold(table.name))) {
+			resolved.changed.add(name);
+		}
 	}
 
 	return resolved;
@@ -214,8 +345,7 @@ function resolveAlias(
 		const table = scope.byName.get(fold(renamed.qualifier));
 		candidates = table ? [table] : [];
 	}
-	const owner = candidates.find(table =>
-		table.columns.some(item => fold(item.name) === fold(renamed.name)));
+	const owner = findOwner(candidates, renamed.name);
 	if (!owner) {
 		return undefined;
 	}
