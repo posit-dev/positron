@@ -4470,7 +4470,7 @@ def test_pandas_summarize_number_range_overflowing_float64():
     col = pd.Series([-1e308, 0.0, 1.0, 1e308])
 
     with warnings.catch_warnings():
-        warnings.simplefilter("error")
+        warnings.simplefilter("error", RuntimeWarning)
         stats = _pandas_summarize_number(col, DEFAULT_FORMAT)
 
     assert stats.number_stats is not None

@@ -472,7 +472,7 @@ def test_histogram_numpy_range_overflowing_float64(method):
     data = np.array([-1e308, 0.0, 1.0, 1e308])
 
     with warnings.catch_warnings():
-        warnings.simplefilter("error")
+        warnings.simplefilter("error", RuntimeWarning)
         bin_counts, bin_edges = _get_histogram_numpy(data, 20, method=method)
 
     _assert_histogram_valid(data, bin_counts, bin_edges)
@@ -502,3 +502,63 @@ def test_histogram_polars_tiny_bin_width_caps_bins():
 
     _assert_histogram_valid(data, bin_counts, bin_edges)
     assert len(bin_counts) == 20
+
+
+def test_histogram_numpy_infinite_bin_width_caps_bins():
+    """A width that overflows to inf (std of a huge range) caps at num_bins."""
+    np = pytest.importorskip("numpy")
+    data = np.append(np.arange(1000.0), np.finfo(np.float64).max)
+
+    bin_counts, bin_edges = _get_histogram_numpy(data, 80, method="scott")
+
+    _assert_histogram_valid(data, bin_counts, bin_edges)
+    assert len(bin_counts) == 80
+
+
+@pytest.mark.parametrize(
+    ("values", "method", "num_bins"),
+    [
+        (list(range(81)), "fd", 80),
+        (list(range(6)), "fixed", 5),
+    ],
+)
+def test_histogram_numpy_integer_bins_capped(values, method, num_bins):
+    """The integer-range adjustment must not exceed num_bins."""
+    np = pytest.importorskip("numpy")
+    data = np.array(values)
+
+    bin_counts, bin_edges = _get_histogram_numpy(data, num_bins, method=method)
+
+    _assert_histogram_valid(data, bin_counts, bin_edges)
+    assert len(bin_counts) <= num_bins
+
+
+def test_histogram_numpy_too_many_bins_not_retried(monkeypatch):
+    """Only a range float64 can't span is retried on halved data."""
+    np = pytest.importorskip("numpy")
+    real_histogram = np.histogram
+    calls = []
+
+    def counting_histogram(*args, **kwargs):
+        calls.append(kwargs.get("bins"))
+        return real_histogram(*args, **kwargs)
+
+    monkeypatch.setattr(np, "histogram", counting_histogram)
+
+    # A range only a few ulps wide is too narrow for 80 bins; halving can't help
+    data = np.array([1.0, 1.0 + 2**-52, 1.0 + 2**-51])
+    with pytest.raises(ValueError, match="Too many bins"):
+        _get_histogram_numpy(data, 80, method="fixed")
+
+    # Once for the data, once after the non-finite filter retry
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("method", ["fixed", "fd", "sturges", "scott"])
+def test_histogram_polars_float32_near_limits(method):
+    """Float32 data spanning most of its range must not overflow bin indices."""
+    data = [-3e38, 0.0, 1.0, 3e38]
+    bin_counts, bin_edges = _get_test_histogram(data, num_bins=20, method=method, dtype=pl.Float32)
+
+    _assert_histogram_valid(data, bin_counts, bin_edges)
+    assert len(bin_counts) > 1

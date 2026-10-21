@@ -1098,8 +1098,10 @@ def _pandas_summarize_number(
         values = col.to_numpy()
         non_null_values = values[~np.isnan(values)]
         if len(non_null_values) > 0:
-            median_val = float_format(np.median(non_null_values))
-            mean_val = float_format(np.mean(non_null_values))
+            # Same float64-limit overflow as the real branch below
+            with np.errstate(over="ignore", invalid="ignore"):
+                median_val = float_format(np.median(non_null_values))
+                mean_val = float_format(np.mean(non_null_values))
     else:
         non_null_values = col[col.notna()].to_numpy()  # type: ignore
 
