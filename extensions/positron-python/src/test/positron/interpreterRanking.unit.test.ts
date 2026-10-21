@@ -312,6 +312,45 @@ suite('interpreterRanking', () => {
         );
     });
 
+    test('a pre-release ranks below every stable Python, unless the user or project named it', () => {
+        const stable = (v: string) => env(p(`/home/u/.pyenv/versions/${v}/bin/python`), EnvironmentType.Pyenv, v);
+        const rc = env(p('/home/u/.pyenv/versions/3.14.0rc3/bin/python'), EnvironmentType.Pyenv, '3.14.0', {
+            version: { major: 3, minor: 14, patch: 0, raw: '3.14.0', build: [], prerelease: ['candidate', '3'] },
+        });
+        const order = (list: PythonEnvironment[], context: RankingContext = emptyContext) =>
+            rankInterpreters(list, context).map((r) => r.interpreter.path);
+        // Same tier: the stable ones first, newest first, then the pre-release.
+        assert.deepEqual(order([rc, stable('3.14.6'), stable('3.15.0')]), [
+            stable('3.15.0').path,
+            stable('3.14.6').path,
+            rc.path,
+        ]);
+        // A pre-release in a better tier still loses to a stable Python in a lower tier.
+        const python = env(p('/usr/local/python3.12/bin/python'), EnvironmentType.Global, '3.12.1');
+        assert.deepEqual(order([rc, python]), [python.path, rc.path]);
+        // A pre-release the user named is not demoted.
+        assert.deepEqual(order([python, rc], { ...emptyContext, defaultInterpreterPath: rc.path }), [
+            rc.path,
+            python.path,
+        ]);
+    });
+
+    test('a uv Python reached through ~/.local/bin is uv base, first in GlobalEnv', () => {
+        const uvDir = p('/home/u/.local/share/uv/python/cpython-3.15.0-linux-x86_64-gnu');
+        const linked = env(p('/home/u/.local/bin/python3.15'), EnvironmentType.Unknown, '3.15.0', {
+            envType: EnvironmentType.Global,
+            envPath: undefined,
+            sysPrefix: uvDir,
+        });
+        const linkedByEnvPath = { ...linked, path: p('/home/u/.local/bin/python3.14'), envPath: uvDir, sysPrefix: '' };
+        const pyenvNewer = env(p('/home/u/.pyenv/versions/3.16.0/bin/python'), EnvironmentType.Pyenv, '3.16.0');
+        assert.deepEqual(
+            [tierOf(linked, emptyContext), tierOf(linkedByEnvPath, emptyContext)],
+            [Tier.GlobalEnv, Tier.GlobalEnv],
+        );
+        assert.equal(rankInterpreters([pyenvNewer, linked], emptyContext)[0].interpreter, linked);
+    });
+
     test('buildRankingContext reads defaultInterpreterPath with get(), never selects, and scans the folder', async () => {
         let value: string | undefined;
         sinon.stub(workspaceApis, 'getConfiguration').returns({
@@ -430,7 +469,7 @@ suite('interpreterRanking', () => {
         });
         const rawB = env(p('/home/u/.pyenv/versions/d/bin/python'), EnvironmentType.Pyenv, '3.12.0');
         const rawA = env(p('/home/u/.pyenv/versions/c/bin/python'), EnvironmentType.Pyenv, '3.12.0');
-        rawB.version = { ...rawB.version!, raw: '3.12.0rc1' };
+        rawB.version = { ...rawB.version!, raw: '3.12.0 (custom build)' };
         const paths = (list: PythonEnvironment[]) =>
             rankInterpreters(list, emptyContext).map((r) => r.interpreter.path);
 
