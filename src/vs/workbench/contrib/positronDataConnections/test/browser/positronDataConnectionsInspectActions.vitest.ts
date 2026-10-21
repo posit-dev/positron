@@ -17,15 +17,17 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IDataConnectionsDriverManager } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionsDriverManager.js';
-import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionLineageResult, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { GET_CONNECTIONS_COMMAND_ID, GET_CONNECTION_CODE_COMMAND_ID, GET_SCHEMA_COMMAND_ID } from '../../browser/positronDataConnectionsCommands.js';
-import { ShowDataConnectionCodeAction, ShowDataConnectionSchemaAction, ShowDataConnectionsAction } from '../../browser/positronDataConnectionsInspectActions.js';
+import { GET_CONNECTIONS_COMMAND_ID, GET_CONNECTION_CODE_COMMAND_ID, GET_LINEAGE_COMMAND_ID, GET_SCHEMA_COMMAND_ID } from '../../browser/positronDataConnectionsCommands.js';
+import { ShowDataConnectionCodeAction, ShowDataConnectionLineageAction, ShowDataConnectionSchemaAction, ShowDataConnectionsAction } from '../../browser/positronDataConnectionsInspectActions.js';
 
-// The field the picker's items carry, as much of it as answering the picker needs.
+// The fields the pickers' items carry, as much of them as answering a picker needs: a connection
+// picker's items carry a profileId, and the lineage action's direction and domain pickers a value.
 interface IPickAnswer {
-	profileId: string;
+	profileId?: string;
+	value?: string;
 }
 
 // A saved profile, named after its id so a test can tell which one the picker answered with.
@@ -56,8 +58,8 @@ function createDriver(): IDataConnectionDriver {
 	});
 }
 
-// A live connection whose schema is a single table, named after the profile so a test can tell
-// which connection was summarized.
+// A live connection whose schema is a single table, and whose lineage is a single edge into
+// DB.S.ORDERS, both named after the profile so a test can tell which connection was read.
 function createInstance(profileId: string, handle: number): IDataConnectionInstance {
 	return stubInterface<IDataConnectionInstance>({
 		profileId,
@@ -72,6 +74,15 @@ function createInstance(profileId: string, handle: number): IDataConnectionInsta
 				hasPreview: false,
 				hasDetails: false,
 			}]),
+			getLineage: vi.fn(async (): Promise<IDataConnectionLineageResult> => ({
+				available: true,
+				edges: [{
+					source: { database: 'DB', schema: 'S', name: `${profileId}-source`, domain: 'table' },
+					target: { database: 'DB', schema: 'S', name: 'ORDERS', domain: 'table' },
+					distance: 1,
+				}],
+				truncated: false,
+			})),
 		}),
 	});
 }
@@ -80,6 +91,7 @@ describe('data connections inspect actions', () => {
 	const ctx = createTestContainer().build();
 
 	let pick: ReturnType<typeof vi.fn<(items: readonly IPickAnswer[]) => Promise<IPickAnswer | undefined>>>;
+	let input: ReturnType<typeof vi.fn<IQuickInputService['input']>>;
 	let openEditor: ReturnType<typeof vi.fn<(input: IUntitledTextResourceEditorInput) => Promise<undefined>>>;
 	let info: ReturnType<typeof vi.fn<INotificationService['info']>>;
 
@@ -112,6 +124,7 @@ describe('data connections inspect actions', () => {
 		// these mocks already are, the way notebookCommandsQuickPick.vitest.ts stubs createQuickPick.
 		ctx.instantiationService.stub(IQuickInputService, stubInterface<IQuickInputService>({
 			pick: pick as unknown as IQuickInputService['pick'],
+			input,
 		}));
 		ctx.instantiationService.stub(IEditorService, stubInterface<IEditorService>({
 			openEditor: openEditor as unknown as IEditorService['openEditor'],
@@ -121,12 +134,13 @@ describe('data connections inspect actions', () => {
 
 	beforeEach(() => {
 		pick = vi.fn<(items: readonly IPickAnswer[]) => Promise<IPickAnswer | undefined>>();
+		input = vi.fn<IQuickInputService['input']>();
 		openEditor = vi.fn<(input: IUntitledTextResourceEditorInput) => Promise<undefined>>();
 		info = vi.fn<INotificationService['info']>();
 		stubServices([createInstance('conn-a', 1)]);
 	});
 
-	function run(action: ShowDataConnectionsAction | ShowDataConnectionCodeAction | ShowDataConnectionSchemaAction) {
+	function run(action: ShowDataConnectionsAction | ShowDataConnectionCodeAction | ShowDataConnectionSchemaAction | ShowDataConnectionLineageAction) {
 		return ctx.instantiationService.invokeFunction(accessor => action.run(accessor));
 	}
 
@@ -254,6 +268,96 @@ describe('data connections inspect actions', () => {
 		expect(openEditor).not.toHaveBeenCalled();
 	});
 
+	// Answers the lineage action's direction and domain pickers, and the connection picker when it is
+	// asked, with the given choices.
+	function answerLineagePickers(answers: { profileId?: string; direction: string; domain: string }) {
+		pick.mockImplementation(async items =>
+			items.find(item => item.profileId !== undefined && item.profileId === answers.profileId)
+			?? items.find(item => item.value === answers.direction || item.value === answers.domain));
+	}
+
+	it('shows the only live connection\'s lineage for the object asked about, without asking which connection', async () => {
+		input.mockResolvedValue('DB.S.ORDERS');
+		answerLineagePickers({ direction: 'upstream', domain: 'table' });
+
+		await run(new ShowDataConnectionLineageAction());
+
+		expect(openEditor).toHaveBeenCalledWith({
+			resource: undefined,
+			contents: JSON.stringify({
+				profileId: 'conn-a',
+				objectName: 'DB.S.ORDERS',
+				domain: 'table',
+				direction: 'upstream',
+				depth: 2,
+				lines: ['1 DB.S.conn-a-source -> DB.S.ORDERS'],
+				truncated: false,
+			}, null, 2),
+			languageId: 'json',
+			options: { pinned: true },
+		});
+		// Direction and domain, but no connection picker.
+		expect(pick).toHaveBeenCalledTimes(2);
+	});
+
+	it('reads lineage from the connection chosen from the picker, asking for the direction and domain chosen', async () => {
+		const instances = [createInstance('conn-a', 1), createInstance('conn-b', 2)];
+		stubServices(instances);
+		input.mockResolvedValue('DB.S.ORDERS.ID');
+		answerLineagePickers({ profileId: 'conn-b', direction: 'downstream', domain: 'column' });
+
+		await run(new ShowDataConnectionLineageAction());
+
+		expect(instances[1].connectionHandle.getLineage).toHaveBeenCalledWith(expect.objectContaining({
+			path: ['DB', 'S', 'ORDERS', 'ID'],
+			direction: 'downstream',
+			domain: 'column',
+		}));
+		expect(openEditor).toHaveBeenCalledWith(expect.objectContaining({
+			contents: expect.stringContaining('conn-b-source'),
+		}));
+	});
+
+	it.each([
+		['the object name is dismissed', undefined, { direction: 'upstream', domain: 'table' }],
+		['the object name is left blank', '  ', { direction: 'upstream', domain: 'table' }],
+		['the direction picker is dismissed', 'DB.S.ORDERS', { direction: 'none', domain: 'table' }],
+		['the domain picker is dismissed', 'DB.S.ORDERS', { direction: 'upstream', domain: 'none' }],
+	])('opens nothing when %s', async (_description, objectName, answers) => {
+		input.mockResolvedValue(objectName);
+		answerLineagePickers(answers);
+
+		await run(new ShowDataConnectionLineageAction());
+
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
+	// As with Show Schema: the service stub has no connect(), so this fails loudly if the action ever
+	// lets getLineage's auto-connect fire after the chosen connection closed during the prompts.
+	it('does not reconnect a connection that closed while it was asking', async () => {
+		const instances = [createInstance('conn-a', 1)];
+		stubServices(instances);
+		input.mockImplementation(async () => {
+			instances.splice(0, 1);
+			return 'DB.S.ORDERS';
+		});
+		answerLineagePickers({ direction: 'upstream', domain: 'table' });
+
+		await run(new ShowDataConnectionLineageAction());
+
+		expect(info).toHaveBeenCalledWith('The selected data connection is no longer active. Connect to it from the Data Connections panel first.');
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
+	it('says how to connect, rather than asking for an object, when no connection is live', async () => {
+		stubServices([]);
+
+		await run(new ShowDataConnectionLineageAction());
+
+		expect(info).toHaveBeenCalledWith('No active data connections. Connect to one from the Data Connections panel first.');
+		expect(input).not.toHaveBeenCalled();
+	});
+
 	// The property Assistant depends on: executing a payload command hands the JSON back to the
 	// caller and leaves the workbench alone. Opening an editor is what the two actions above are for,
 	// and wiring one into a payload command's handler by mistake would put a file in the user's face
@@ -274,6 +378,11 @@ describe('data connections inspect actions', () => {
 			args: { profileId: 'conn-missing' },
 			expected: { connected: false, reason: 'not-found' },
 		},
+		{
+			id: GET_LINEAGE_COMMAND_ID,
+			args: { profileId: 'conn-missing', objectName: 'DB.S.ORDERS', direction: 'upstream' },
+			expected: { available: false, reason: 'not-found' },
+		},
 	])('$id returns its payload to a programmatic caller without opening an editor', async ({ id, args, expected }) => {
 		// The registry types every handler as returning void; these two return their payload, which is
 		// what executeCommand passes back to the caller.
@@ -290,7 +399,7 @@ describe('data connections inspect actions', () => {
 	// agentCompatible -- an agent wants the payload commands, which return the payload instead of
 	// opening an editor.
 	it('keeps every palette entry gated on the feature flag', () => {
-		const descriptors = [new ShowDataConnectionsAction(), new ShowDataConnectionCodeAction(), new ShowDataConnectionSchemaAction()]
+		const descriptors = [new ShowDataConnectionsAction(), new ShowDataConnectionCodeAction(), new ShowDataConnectionSchemaAction(), new ShowDataConnectionLineageAction()]
 			.map(({ desc }) => ({
 				id: desc.id,
 				f1: desc.f1,
@@ -318,6 +427,12 @@ describe('data connections inspect actions', () => {
 			    "id": "positronDataConnections.showSchema",
 			    "precondition": "config.dataConnections.enabled",
 			  },
+			  {
+			    "agentCompatible": undefined,
+			    "f1": true,
+			    "id": "positronDataConnections.showLineage",
+			    "precondition": "config.dataConnections.enabled",
+			  },
 			]
 		`);
 	});
@@ -328,7 +443,7 @@ describe('data connections inspect actions', () => {
 // would just stop advertising the command, or start telling the model an argument is required.
 describe('data connections payload commands', () => {
 	it('advertises every payload command to the agent path', () => {
-		const descriptors = [GET_CONNECTIONS_COMMAND_ID, GET_CONNECTION_CODE_COMMAND_ID, GET_SCHEMA_COMMAND_ID].map(id => {
+		const descriptors = [GET_CONNECTIONS_COMMAND_ID, GET_CONNECTION_CODE_COMMAND_ID, GET_SCHEMA_COMMAND_ID, GET_LINEAGE_COMMAND_ID].map(id => {
 			const metadata = CommandsRegistry.getCommand(id)?.metadata;
 			return {
 				id,
@@ -357,6 +472,13 @@ describe('data connections payload commands', () => {
 			      true,
 			    ],
 			    "id": "positronDataConnections.getSchema",
+			  },
+			  {
+			    "agentCompatible": true,
+			    "argsOptional": [
+			      undefined,
+			    ],
+			    "id": "positronDataConnections.getLineage",
 			  },
 			]
 		`);

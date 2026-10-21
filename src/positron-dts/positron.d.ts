@@ -2943,7 +2943,109 @@ declare module 'positron' {
 		 * Test whether the connection is still connected.
 		 */
 		isConnected(): Thenable<boolean>;
+
+		/**
+		 * Reads the lineage of an object: the objects its data flows from (upstream) or into
+		 * (downstream). Optional; implemented only by drivers whose data source tracks lineage.
+		 *
+		 * Resolves to `{ available: false, message }` when the data source declines the request --
+		 * the object does not exist or is not accessible, does not support lineage, or the account
+		 * lacks the feature -- and rejects when the connection itself fails.
+		 *
+		 * @param request Which object, which direction, and how far to follow it.
+		 */
+		getLineage?(request: DataConnectionLineageRequest): Thenable<DataConnectionLineage>;
 	}
+
+	/**
+	 * A request for an object's lineage. See {@link DataConnection.getLineage}.
+	 */
+	export interface DataConnectionLineageRequest {
+		/**
+		 * The object's path from the top of the data source, one exact name per level: e.g.
+		 * `[database, schema, table]` for a table, view or other table-like object, and
+		 * `[database, schema, table, column]` for a column. Each name is as the data source spells
+		 * it, case and all; a driver quotes them as its data source requires.
+		 */
+		path: string[];
+
+		/**
+		 * Whether the object is a table (including views and other table-like objects) or a column.
+		 */
+		domain: 'table' | 'column';
+
+		/**
+		 * Whether to follow the objects the data comes from (`upstream`) or the objects it flows
+		 * into (`downstream`).
+		 */
+		direction: 'upstream' | 'downstream';
+
+		/**
+		 * How many hops to follow, from 1 up to the data source's own limit.
+		 */
+		depth: number;
+
+		/**
+		 * The most edges to return. A driver returns the nearest edges first and sets `truncated`
+		 * when it left any out.
+		 */
+		maxEdges: number;
+	}
+
+	/**
+	 * One end of a lineage edge.
+	 */
+	export interface DataConnectionLineageObject {
+		/** The database holding the object. Absent for an object outside the data source. */
+		database?: string;
+
+		/** The schema holding the object. Absent for an object outside the data source. */
+		schema?: string;
+
+		/** The object's unqualified name. Absent when the object is masked. */
+		name?: string;
+
+		/** The column, when the edge is between columns. */
+		column?: string;
+
+		/** The kind of object, in the data source's own terms, e.g. `table` or `stage`. */
+		domain: string;
+
+		/** Set when the caller is not allowed to see the object, so its name is withheld. */
+		masked?: boolean;
+	}
+
+	/**
+	 * One edge in an object's lineage: data flows from `source` to `target`.
+	 */
+	export interface DataConnectionLineageEdge {
+		source: DataConnectionLineageObject;
+		target: DataConnectionLineageObject;
+
+		/** How many hops from the requested object this edge is. A direct relationship is 1. */
+		distance: number;
+	}
+
+	/**
+	 * An object's lineage, or the data source's reason for not providing it. See
+	 * {@link DataConnection.getLineage}.
+	 */
+	export type DataConnectionLineage =
+		| {
+			available: true;
+
+			/** The edges, nearest first. Empty when the object has no lineage in this direction. */
+			edges: DataConnectionLineageEdge[];
+
+			/** Whether `maxEdges` left edges out. */
+			truncated: boolean;
+		}
+		| {
+			available: false;
+
+			/** The data source's explanation, suitable for showing to the user. */
+			message: string;
+		};
 
 	/**
 	 * A summary of a registered data connection driver, returned by getDrivers().

@@ -123,6 +123,45 @@ export interface IDataConnectionNodeDetailsDTO {
 }
 
 /**
+ * Serializable lineage request. Mirrors positron.DataConnectionLineageRequest.
+ */
+export interface IDataConnectionLineageRequestDTO {
+	path: string[];
+	domain: 'table' | 'column';
+	direction: 'upstream' | 'downstream';
+	depth: number;
+	maxEdges: number;
+}
+
+/**
+ * Serializable end of a lineage edge. Mirrors positron.DataConnectionLineageObject.
+ */
+export interface IDataConnectionLineageObjectDTO {
+	database?: string;
+	schema?: string;
+	name?: string;
+	column?: string;
+	domain: string;
+	masked?: boolean;
+}
+
+/**
+ * Serializable lineage edge. Mirrors positron.DataConnectionLineageEdge.
+ */
+export interface IDataConnectionLineageEdgeDTO {
+	source: IDataConnectionLineageObjectDTO;
+	target: IDataConnectionLineageObjectDTO;
+	distance: number;
+}
+
+/**
+ * Serializable lineage result. Mirrors positron.DataConnectionLineage.
+ */
+export type IDataConnectionLineageDTO =
+	| { available: true; edges: IDataConnectionLineageEdgeDTO[]; truncated: boolean }
+	| { available: false; message: string };
+
+/**
  * Serializable form of a single named connection code variant (e.g. Python `sqlite3` vs
  * `SQLAlchemy`). A generateConnectionCode call returns an ordered list of these; an empty list
  * means code cannot be generated from the given parameters.

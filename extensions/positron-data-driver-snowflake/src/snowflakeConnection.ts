@@ -12,6 +12,7 @@ import * as positron from 'positron';
 import { SnowflakeClient, SnowflakeConnectionOptions } from './snowflakeClient.js';
 import { createDatabasesGroupNode, ISnowflakePreviewHost } from './snowflakeNodes.js';
 import { ISnowflakeDataExplorerHost, SNOWFLAKE_DATA_EXPLORER_PROVIDER_ID } from './snowflakeDataExplorerRpcHandler.js';
+import { getSnowflakeLineage } from './snowflakeLineage.js';
 
 /** Monotonically increasing id so each connection's previewed datasets get a unique key. */
 let nextConnectionId = 1;
@@ -86,6 +87,14 @@ export class SnowflakeConnection implements positron.DataConnection, ISnowflakeP
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();
 		return [createDatabasesGroupNode(this._client!, this)];
+	}
+
+	/**
+	 * Reads an object's lineage with SNOWFLAKE.CORE.GET_LINEAGE. See getSnowflakeLineage.
+	 */
+	async getLineage(request: positron.DataConnectionLineageRequest): Promise<positron.DataConnectionLineage> {
+		this._ensureConnected();
+		return getSnowflakeLineage(this._client!, request);
 	}
 
 	/**

@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverSummaryDTO, IDataConnectionLineageDTO, IDataConnectionLineageEdgeDTO, IDataConnectionLineageObjectDTO, IDataConnectionLineageRequestDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../extHostTypes.js';
 
@@ -95,6 +95,51 @@ function detailsToDTO(details: positron.DataConnectionNodeDetails): IDataConnect
 		sections: detailsSectionsToDTO(details.sections),
 		tabs: details.tabs?.map(tab => ({ title: detailsText(tab.title), sections: detailsSectionsToDTO(tab.sections) })),
 	};
+}
+
+/**
+ * Converts one end of a driver's lineage edge into a DTO, coercing every value to the type the wire
+ * promises. Returns undefined for an end that identifies nothing -- no name and not masked -- since
+ * an edge to an unnamed, unmasked object says nothing a caller can use.
+ */
+function lineageObjectToDTO(object: positron.DataConnectionLineageObject | undefined): IDataConnectionLineageObjectDTO | undefined {
+	if (!object) {
+		return undefined;
+	}
+	const name = optionalDetailsText(object.name);
+	const masked = object.masked === true;
+	if (!name && !masked) {
+		return undefined;
+	}
+	return {
+		database: optionalDetailsText(object.database),
+		schema: optionalDetailsText(object.schema),
+		name,
+		column: optionalDetailsText(object.column),
+		domain: detailsText(object.domain),
+		masked: masked || undefined,
+	};
+}
+
+/**
+ * Converts a driver's lineage into a DTO. Edges are kept in the driver's order (nearest first); an
+ * edge with an end that identifies nothing, or a distance that isn't a positive number, is dropped
+ * rather than put on the wire for the main thread to trip over.
+ */
+function lineageToDTO(lineage: positron.DataConnectionLineage): IDataConnectionLineageDTO {
+	if (lineage.available === false) {
+		return { available: false, message: detailsText(lineage.message) };
+	}
+	const edges: IDataConnectionLineageEdgeDTO[] = [];
+	for (const edge of Array.isArray(lineage.edges) ? lineage.edges : []) {
+		const source = lineageObjectToDTO(edge?.source);
+		const target = lineageObjectToDTO(edge?.target);
+		const distance = Number(edge?.distance);
+		if (source && target && Number.isFinite(distance) && distance > 0) {
+			edges.push({ source, target, distance });
+		}
+	}
+	return { available: true, edges, truncated: lineage.truncated === true };
 }
 
 /**
@@ -412,6 +457,22 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 			return false;
 		}
 		return connection.isConnected();
+	}
+
+	/**
+	 * Reads an object's lineage from the connection. Resolves to undefined when the connection does
+	 * not implement getLineage -- most drivers don't -- so the main thread can tell "not supported"
+	 * from a failure without tracking which drivers opted in. A failure in the driver propagates.
+	 */
+	async $connectionGetLineage(connectionHandle: number, request: IDataConnectionLineageRequestDTO): Promise<IDataConnectionLineageDTO | undefined> {
+		const connection = this._connections.get(connectionHandle);
+		if (!connection) {
+			throw new Error(`Connection handle ${connectionHandle} not found`);
+		}
+		if (!connection.getLineage) {
+			return undefined;
+		}
+		return lineageToDTO(await connection.getLineage(request));
 	}
 
 	/** Expands a node in the tree by calling its getChildren method. */

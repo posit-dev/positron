@@ -14,12 +14,12 @@ import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from './positronDataConnections
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { IDataConnectionInstance } from '../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { getDataConnectionCode, getDataConnectionSchema, getDataConnections } from './positronDataConnectionsCommands.js';
+import { getDataConnectionCode, getDataConnectionLineage, getDataConnectionSchema, getDataConnections } from './positronDataConnectionsCommands.js';
 
 // The Command Palette category these actions appear under.
 const CATEGORY = localize2('positron.dataConnections.category', 'Data Connections');
 
-// Both actions are gated on the data connections feature flag alone. Not on ai.enabled: they show
+// Every action is gated on the data connections feature flag alone. Not on ai.enabled: they show
 // the user their own connection configuration, and turning AI off shouldn't take that away. See
 // isDataConnectionsCommandEnabled.
 const PRECONDITION = ContextKeyExpr.equals(`config.${POSITRON_DATA_CONNECTIONS_ENABLED_KEY}`, true);
@@ -183,21 +183,11 @@ export class ShowDataConnectionSchemaAction extends Action2 {
 		const notificationService = accessor.get(INotificationService);
 		const dataConnectionsService = accessor.get(IPositronDataConnectionsService);
 
-		const instances = dataConnectionsService.getInstances();
-		if (instances.length === 0) {
-			notificationService.info(localize(
-				'positron.dataConnections.showSchema.noInstances',
-				"No active data connections. Connect to one from the Data Connections panel first."
-			));
-			return;
-		}
-
-		const profileId = instances.length === 1
-			? instances[0].profileId
-			: await pickProfileId(
-				quickInputService,
-				this._toPicks(dataConnectionsService, instances),
-				localize('positron.dataConnections.showSchema.pickInstance', "Select a data connection to summarize"));
+		const profileId = await pickLiveProfileId(
+			dataConnectionsService,
+			quickInputService,
+			notificationService,
+			localize('positron.dataConnections.showSchema.pickInstance', "Select a data connection to summarize"));
 		if (profileId === undefined) {
 			return;
 		}
@@ -221,25 +211,143 @@ export class ShowDataConnectionSchemaAction extends Action2 {
 
 		await showPayload(editorService, summary);
 	}
+}
 
-	/**
-	 * Labels the live connections for the picker, falling back to the profile id when the profile it
-	 * came from is gone.
-	 * @param dataConnectionsService The data connections service.
-	 * @param instances The live connections to choose from.
-	 */
-	private _toPicks(
-		dataConnectionsService: IPositronDataConnectionsService,
-		instances: IDataConnectionInstance[],
-	): IDataConnectionProfilePickItem[] {
-		return instances.map(candidate => ({
+/**
+ * Chooses a live connection for the actions that only offer live ones: the only one when exactly
+ * one is live, otherwise the one picked from them, labelled by profile name (falling back to the
+ * profile id when the profile it came from is gone). Returns undefined -- after saying how to
+ * connect -- when nothing is live, and undefined when the picker is dismissed.
+ * @param dataConnectionsService The data connections service.
+ * @param quickInputService The quick input service.
+ * @param notificationService The notification service.
+ * @param placeHolder The picker's placeholder text.
+ */
+async function pickLiveProfileId(
+	dataConnectionsService: IPositronDataConnectionsService,
+	quickInputService: IQuickInputService,
+	notificationService: INotificationService,
+	placeHolder: string,
+): Promise<string | undefined> {
+	const instances: IDataConnectionInstance[] = dataConnectionsService.getInstances();
+	if (instances.length === 0) {
+		notificationService.info(localize(
+			'positron.dataConnections.showSchema.noInstances',
+			"No active data connections. Connect to one from the Data Connections panel first."
+		));
+		return undefined;
+	}
+	if (instances.length === 1) {
+		return instances[0].profileId;
+	}
+	return pickProfileId(
+		quickInputService,
+		instances.map(candidate => ({
 			label: dataConnectionsService.getProfile(candidate.profileId)?.connectionName ?? candidate.profileId,
 			description: candidate.driverName,
 			profileId: candidate.profileId,
-		}));
+		})),
+		placeHolder);
+}
+
+interface IChoicePickItem<T extends string> extends IQuickPickItem {
+	value: T;
+}
+
+/**
+ * Command Palette entry that shows the positronDataConnections.getLineage payload for an object in
+ * a live connection in an untitled editor. Asks which connection (when several are live), the
+ * object's name, the direction to follow, and whether the name is a table's or a column's. Like
+ * Show Schema, only live connections are offered, and this action never opens a connection of its
+ * own.
+ *
+ * Exported so tests can construct it and call run() directly.
+ */
+export class ShowDataConnectionLineageAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronDataConnections.showLineage',
+			title: localize2('positron.dataConnections.showLineage', 'Show Lineage as JSON'),
+			category: CATEGORY,
+			f1: true,
+			precondition: PRECONDITION,
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		// Every service this flow needs is resolved up front: the accessor stops being valid at the
+		// first await. See ShowDataConnectionSchemaAction.
+		const instantiationService = accessor.get(IInstantiationService);
+		const editorService = accessor.get(IEditorService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+		const dataConnectionsService = accessor.get(IPositronDataConnectionsService);
+
+		const profileId = await pickLiveProfileId(
+			dataConnectionsService,
+			quickInputService,
+			notificationService,
+			localize('positron.dataConnections.showLineage.pickInstance', "Select a data connection to read lineage from"));
+		if (profileId === undefined) {
+			return;
+		}
+
+		const objectName = await quickInputService.input({
+			prompt: localize('positron.dataConnections.showLineage.objectName', "The fully qualified name of a table, view or column"),
+			placeHolder: localize('positron.dataConnections.showLineage.objectNamePlaceholder', "database.schema.table or database.schema.table.column"),
+		});
+		if (!objectName?.trim()) {
+			return;
+		}
+
+		const direction = await quickInputService.pick<IChoicePickItem<'upstream' | 'downstream'>>([
+			{
+				label: localize('positron.dataConnections.showLineage.upstream', "Upstream"),
+				description: localize('positron.dataConnections.showLineage.upstreamDescription', "Where the data comes from"),
+				value: 'upstream',
+			},
+			{
+				label: localize('positron.dataConnections.showLineage.downstream', "Downstream"),
+				description: localize('positron.dataConnections.showLineage.downstreamDescription', "What is built from it"),
+				value: 'downstream',
+			},
+		], { placeHolder: localize('positron.dataConnections.showLineage.pickDirection', "Select the direction to follow") });
+		if (!direction) {
+			return;
+		}
+
+		const domain = await quickInputService.pick<IChoicePickItem<'table' | 'column'>>([
+			{ label: localize('positron.dataConnections.showLineage.table', "Table or View"), value: 'table' },
+			{ label: localize('positron.dataConnections.showLineage.column', "Column"), value: 'column' },
+		], { placeHolder: localize('positron.dataConnections.showLineage.pickDomain', "Select what the name refers to") });
+		if (!domain) {
+			return;
+		}
+
+		// The prompts were awaited, so the chosen connection may have closed in the meantime -- and
+		// getLineage would then silently reconnect it. Re-checking here, with no await before the
+		// getLineage call below, keeps this action from ever opening a connection.
+		if (dataConnectionsService.getInstanceForProfile(profileId) === undefined) {
+			notificationService.info(localize(
+				'positron.dataConnections.showLineage.instanceClosed',
+				"The selected data connection is no longer active. Connect to it from the Data Connections panel first."
+			));
+			return;
+		}
+
+		const lineage = await instantiationService.invokeFunction(
+			lineageAccessor => getDataConnectionLineage(lineageAccessor, {
+				profileId,
+				objectName,
+				direction: direction.value,
+				domain: domain.value,
+			}));
+
+		await showPayload(editorService, lineage);
 	}
 }
 
 registerAction2(ShowDataConnectionsAction);
 registerAction2(ShowDataConnectionCodeAction);
 registerAction2(ShowDataConnectionSchemaAction);
+registerAction2(ShowDataConnectionLineageAction);

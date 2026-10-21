@@ -60,3 +60,63 @@ export function quoteCompactToken(text: string, unsafeCharacters: string): strin
 	}
 	return text;
 }
+
+// The characters a bare (unquoted) path segment never contains: a double quote, and every delimiter
+// the schema and lineage summaries quote a name for -- their sets combined, less the `.` that
+// separates segments.
+const BARE_UNSAFE_CHARACTERS = '",:()[]<> ';
+
+/**
+ * Splits a dot-joined path in the compact format -- the path a schema summary or lineage line
+ * starts with, e.g. `SALES.PUBLIC."Order Details"` -- back into the exact names it was built from:
+ * the inverse of joining {@link quoteCompactToken} results with `.`. A segment is either a JSON
+ * string literal (a quoted name, which may contain dots, spaces, or anything else) or a bare run
+ * of characters up to the next dot.
+ *
+ * Returns undefined for text that isn't such a path -- an empty segment, a bare segment containing
+ * a character the summaries always quote (a space, a bracket, a comma...), an unterminated or
+ * malformed quoted segment, or a quoted segment not followed by a dot -- so a caller can report a
+ * malformed name rather than act on a guess at what was meant. That catches a whole summary line
+ * pasted in place of its path, e.g. `SALES.RAW.ORDERS_LOAD [stage]`.
+ * @param text The path to split.
+ */
+export function parseCompactPath(text: string): string[] | undefined {
+	const segments: string[] = [];
+	let index = 0;
+	while (true) {
+		if (text[index] === '"') {
+			// Find the closing quote, skipping escaped characters.
+			let end = index + 1;
+			while (end < text.length && text[end] !== '"') {
+				end += text[end] === '\\' ? 2 : 1;
+			}
+			if (end >= text.length) {
+				return undefined;
+			}
+			try {
+				segments.push(JSON.parse(text.slice(index, end + 1)));
+			} catch {
+				return undefined;
+			}
+			index = end + 1;
+		} else {
+			const dot = text.indexOf('.', index);
+			const end = dot < 0 ? text.length : dot;
+			const segment = text.slice(index, end);
+			if (segment.length === 0 || [...segment].some(character => BARE_UNSAFE_CHARACTERS.includes(character) || character < ' ')) {
+				return undefined;
+			}
+			segments.push(segment);
+			index = end;
+		}
+
+		if (index === text.length) {
+			return segments;
+		}
+		// A segment must be followed by a dot and another segment.
+		if (text[index] !== '.' || index + 1 === text.length) {
+			return undefined;
+		}
+		index++;
+	}
+}
