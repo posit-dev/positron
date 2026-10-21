@@ -187,11 +187,12 @@ df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
 const emptyFieldsScript = `import numpy as np
 import pandas as pd
 
+# object dtype keeps None and NaN distinct; pandas 3 infers str and merges them
 data = {
 		'A': [1, 2, np.nan, 4, 5],
-		'B': ['foo', np.nan, 'bar', 'baz', None],
+		'B': pd.Series(['foo', np.nan, 'bar', 'baz', None], dtype=object),
 		'C': [np.nan, 2.5, 3.1, None, 4.8],
 		'D': [np.nan, pd.NaT, pd.Timestamp('2023-01-01'), pd.NaT, pd.Timestamp('2023-02-01')],
-		'E': [None, 'text', 'more text', np.nan, 'even more text']
+		'E': pd.Series([None, 'text', 'more text', np.nan, 'even more text'], dtype=object)
 }
 emptyFields = pd.DataFrame(data)`;
