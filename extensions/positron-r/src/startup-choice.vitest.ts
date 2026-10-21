@@ -46,6 +46,7 @@ function inputs(overrides: Partial<RStartupInputs<FakeR>> & { triggers?: Partial
 	const { triggers, current, installs = [], ...rest } = overrides;
 	return {
 		pinned: undefined,
+		manualStartup: false,
 		looksLikeRProject: async () => true,
 		currentR: async () => current,
 		fullSearchTriggers: () => ({ overrideListSet: false, rVersionsFileExists: false, modulesConfiguredForR: false, ...triggers }),
@@ -93,6 +94,18 @@ describe('chooseStartupR', () => {
 		expect(await choose(inputs({ current, pinned, looksLikeRProject })))
 			.toEqual({ name: 'pinned', startupBehavior: 'implicit' });
 		expect(looksLikeRProject).not.toHaveBeenCalled();
+	});
+
+	it('returns nothing under manual, without checking the folder', async () => {
+		const looksLikeRProject = vi.fn(async () => true);
+		expect(await choose(inputs({ current, manualStartup: true, looksLikeRProject }))).toBeUndefined();
+		expect(looksLikeRProject).not.toHaveBeenCalled();
+	});
+
+	it('returns the pinned R as implicit under manual', async () => {
+		const pinned = r('4.3.0', { name: 'pinned' });
+		expect(await choose(inputs({ current, pinned, manualStartup: true })))
+			.toEqual({ name: 'pinned', startupBehavior: 'implicit' });
 	});
 
 	// The full search here finds 4.5.1 and not the current R, so the result shows whether it ran.

@@ -65,6 +65,8 @@ export interface RFullSearchTriggers {
 export interface RStartupInputs<T extends RStartupCandidate> {
 	/** The R from `positron.r.interpreters.default`, if that path exists. */
 	readonly pinned: T | undefined;
+	/** Whether R's `interpreters.startupBehavior` is `manual`. */
+	readonly manualStartup: boolean;
 	/** Whether the open folder has R files, or is empty and you use RStudio. */
 	looksLikeRProject(): Promise<boolean>;
 	/** The current R, built the way the search builds it, or undefined if there is none. */
@@ -79,6 +81,8 @@ export interface RStartupInputs<T extends RStartupCandidate> {
  * starts.
  *
  * - A pinned R is returned as `implicit`.
+ * - Otherwise, under `manual`, nothing is returned. Positron won't start R on
+ *   its own, so the folder isn't checked.
  * - Otherwise, in a folder that looks like an R project, the R the search
  *   lists first is returned as `immediate`.
  * - Otherwise nothing is returned.
@@ -86,6 +90,9 @@ export interface RStartupInputs<T extends RStartupCandidate> {
 export async function chooseStartupR<T extends RStartupCandidate>(inputs: RStartupInputs<T>): Promise<RStartupChoice<T> | undefined> {
 	if (inputs.pinned) {
 		return { installation: inputs.pinned, startupBehavior: 'implicit' };
+	}
+	if (inputs.manualStartup) {
+		return undefined;
 	}
 	if (!(await inputs.looksLikeRProject())) {
 		return undefined;

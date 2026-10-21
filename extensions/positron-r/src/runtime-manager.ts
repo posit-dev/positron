@@ -173,6 +173,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		try {
 			const choice = await chooseStartupR({
 				pinned,
+				manualStartup: vscode.workspace.getConfiguration('interpreters', { languageId: 'r' }).get<string>('startupBehavior') === 'manual',
 				looksLikeRProject,
 				currentR: currentRInstallation,
 				fullSearchTriggers: rFullSearchTriggers,
