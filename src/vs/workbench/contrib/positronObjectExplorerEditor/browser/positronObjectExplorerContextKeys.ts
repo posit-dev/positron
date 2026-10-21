@@ -37,3 +37,11 @@ export const POSITRON_OBJECT_EXPLORER_SELECTED_KIND = new RawContextKey<string>(
 	'positronObjectExplorerSelectedKind',
 	''
 );
+
+/**
+ * True when the selected node has an accessor.
+ */
+export const POSITRON_OBJECT_EXPLORER_SELECTED_HAS_ACCESSOR = new RawContextKey<boolean>(
+	'positronObjectExplorerSelectedHasAccessor',
+	false
+);

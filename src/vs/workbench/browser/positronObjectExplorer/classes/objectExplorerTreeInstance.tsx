@@ -330,12 +330,13 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 	}
 
 	/**
-	 * Gets the accessor of the node at a row, if it has one.
+	 * Gets the accessor of the node at a row, if it has one. Backends may send
+	 * null for nodes without one.
 	 * @param rowIndex The row index.
 	 */
 	accessorAt(rowIndex: number): string | undefined {
 		const data = this.visibleNodes[rowIndex]?.node.data;
-		return data?.type === 'node' ? data.node.accessor : undefined;
+		return data?.type === 'node' ? data.node.accessor ?? undefined : undefined;
 	}
 
 	/**
@@ -444,14 +445,14 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 			}),
 			new CustomContextMenuItem({
 				label: localize('positron.objectExplorer.copyAccessor', "Copy Accessor"),
-				disabled: node.accessor === undefined,
+				disabled: !node.accessor,
 				onSelected: () => this.copyAccessor(row())
 			}),
 			new CustomContextMenuSeparator(),
 			new CustomContextMenuItem({
 				icon: 'insert',
 				label: localize('positron.objectExplorer.sendAccessorToConsole', "Send Accessor to Console"),
-				disabled: !this._sendToConsole || node.accessor === undefined,
+				disabled: !this._sendToConsole || !node.accessor,
 				onSelected: () => this.sendAccessorToConsole(row())
 			}),
 		];
