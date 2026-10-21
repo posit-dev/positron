@@ -260,8 +260,18 @@ export async function walkDataConnectionSchema(
 
 	const state: IWalkState = { totalNodes: 0, truncated: false };
 
-	const fetchChildren = (dto: IDataConnectionNodeDTO): Promise<IDataConnectionNodeDTO[]> =>
-		dto.hasGetChildren ? handle.nodeGetChildren(dto.nodeHandle) : Promise.resolve([]);
+	// Every node handle the walk is given, so they can be freed when it is done. The walk shares the
+	// connection's handle space with the Data Connections pane; see the root fetch below.
+	const collected: number[] = [];
+	const collect = (dtos: IDataConnectionNodeDTO[]): IDataConnectionNodeDTO[] => {
+		for (const dto of dtos) {
+			collected.push(dto.nodeHandle);
+		}
+		return dtos;
+	};
+
+	const fetchChildren = async (dto: IDataConnectionNodeDTO): Promise<IDataConnectionNodeDTO[]> =>
+		dto.hasGetChildren ? collect(await handle.nodeGetChildren(dto.nodeHandle)) : [];
 
 	// Expands container-only kinds (e.g. "Tables", "Columns" group nodes) in place, replacing each
 	// with its own children -- recursively, in case a driver nests containers -- so the caller sees
@@ -334,9 +344,15 @@ export async function walkDataConnectionSchema(
 		return { nodes, omitted };
 	}
 
-	const { nodes, omitted } = await summarizeSiblings(await handle.getChildren(), 1);
-
-	return { nodes, omitted, truncated: state.truncated };
+	// Fetched without freeing the handles already handed out: an ordinary top-level fetch is a
+	// refresh that does, and would leave the Data Connections pane's rows -- an expanded "Tables",
+	// a reveal walking down to a table -- pointing at handles that no longer exist.
+	try {
+		const { nodes, omitted } = await summarizeSiblings(collect(await handle.getChildren({ retainNodes: true })), 1);
+		return { nodes, omitted, truncated: state.truncated };
+	} finally {
+		handle.releaseNodes(collected);
+	}
 }
 
 /**

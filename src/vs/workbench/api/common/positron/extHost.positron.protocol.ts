@@ -412,7 +412,8 @@ export interface ExtHostDataConnectionsShape {
 	$validateParameters(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionParameterValidationDTO>;
 	$discoverConnections(driverId: string): Promise<IDiscoveredDataConnectionDTO[]>;
 	$connectionIsReadOnly(connectionHandle: number): Promise<boolean>;
-	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
+	$connectionGetChildren(connectionHandle: number, retainNodes?: boolean): Promise<IDataConnectionNodeDTO[]>;
+	$releaseNodes(connectionHandle: number, nodeHandles: number[]): void;
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
 	$connectionIsConnected(connectionHandle: number): Promise<boolean>;
 	/**
