@@ -32,11 +32,14 @@ jobs:
     # (apparmor_restrict_unprivileged_userns), and that sysctl cannot be changed from inside the
     # container. seccomp=unconfined: Docker's default seccomp profile blocks pivot_root, even with
     # SYS_ADMIN. apparmor=unconfined: Docker's default AppArmor profile denies the mounts bwrap makes.
-    # Commands Claude runs are sandboxed by bwrap with no capabilities, which the isolation step
-    # below asserts, so SYS_ADMIN only reaches code this workflow runs directly.
+    # systempaths=unconfined: Docker masks paths under /proc, and the kernel refuses to mount a fresh
+    # proc for bwrap's PID namespace while those masks are in place.
+    # Together these leave the container little isolation from the host. That matches running on
+    # the bare runner, where every step already has passwordless sudo. What matters is that commands
+    # Claude runs are sandboxed by bwrap with no capabilities, which the isolation step below asserts.
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
-      options: --user 0:0 --init --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined
+      options: --user 0:0 --init --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
