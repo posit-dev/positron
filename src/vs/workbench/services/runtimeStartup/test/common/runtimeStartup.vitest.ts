@@ -5,14 +5,15 @@
 
 /// <reference types="vitest/globals" />
 
+import { Barrier, timeout } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { isWeb } from '../../../../../base/common/platform.js';
 import { arch as systemArch } from '../../../../../base/common/process.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IConfigurationOverrides, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
-import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
 import { IFileService, IFileStatWithPartialMetadata } from '../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService, IPromptChoice, IPromptOptions, Severity } from '../../../../../platform/notification/common/notification.js';
@@ -21,6 +22,7 @@ import { IProgressService } from '../../../../../platform/progress/common/progre
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IWorkbenchEnvironmentService } from '../../../environment/common/environmentService.js';
+import { ExtensionMessageCollector, ExtensionsRegistry } from '../../../extensions/common/extensionsRegistry.js';
 import {
 	IHostedLanguageContribution,
 	ILanguageRuntimeMetadata,
@@ -266,6 +268,24 @@ function makeBucket(opts: {
 		lastFullDiscovery: opts.lastFullDiscovery ?? 0,
 		discoveryRootSignature: opts.signature,
 	};
+}
+
+/**
+ * The real discovery cache, over a file service where every interpreter path
+ * exists and never changes.
+ */
+function makeRealCache(storageService: IStorageService, configurationService: IConfigurationService): RuntimeDiscoveryCache {
+	const fileService = stubInterface<IFileService>({
+		realpath: async () => undefined,
+		stat: async () => stubInterface<IFileStatWithPartialMetadata>({ isFile: true, isDirectory: false, size: 1, mtime: 1, ctime: 1 }),
+	});
+	return new RuntimeDiscoveryCache(
+		storageService,
+		configurationService,
+		fileService,
+		new NullLogService(),
+		stubInterface<IPathService>(),
+	);
 }
 
 const sig = (entries: Array<[string, boolean, number]>, opaque?: string): IRuntimeRootSignature => ({
@@ -991,20 +1011,6 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 	describe('expired cache entries', () => {
 		// Uses the real cache. The fake's `upsert` always sets `firstSeen` to
 		// now, so its entries never stay expired.
-		function makeRealCache(): RuntimeDiscoveryCache {
-			const fileService = stubInterface<IFileService>({
-				realpath: async () => undefined,
-				stat: async () => stubInterface<IFileStatWithPartialMetadata>({ isFile: true, isDirectory: false, size: 1, mtime: 1, ctime: 1 }),
-			});
-			return new RuntimeDiscoveryCache(
-				ctx.get(IStorageService),
-				config,
-				fileService,
-				new NullLogService(),
-				stubInterface<IPathService>(),
-			);
-		}
-
 		it('uses the cache again on the launch after expired entries trigger a full discovery', async () => {
 			const md = metadata();
 			const contribution = { extensionId: 'ms.python', languageId: 'python', alwaysRediscover: false };
@@ -1014,7 +1020,7 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 				const store = new DisposableStore();
 				try {
 					// A new cache, so it loads what the previous launch saved.
-					const realCache = store.add(makeRealCache());
+					const realCache = store.add(makeRealCache(ctx.get(IStorageService), config));
 					ctx.instantiationService.stub(IRuntimeDiscoveryCache, realCache);
 					const svc = store.add(ctx.instantiationService.createInstance(RuntimeStartupService));
 					store.add(svc.registerRuntimeManager(makeManager({ id: 1, owns: [md], contributions: [contribution] })));
@@ -2102,6 +2108,214 @@ describe('RuntimeStartupService - start reasons', () => {
 			const saved = setItem.mock.calls.at(-1)?.[1] as SerializedSessionMetadata[] | undefined;
 			expect(saved?.map(session => session.metadata.startReasonId)).toEqual([SessionStartReasonId.CodeExecutedWithoutSession]);
 		});
+	});
+});
+
+/** `interpreters.startupBehavior` for all languages, with optional per-language values. */
+interface IStartupBehaviors {
+	default: LanguageStartupBehavior;
+	[languageId: string]: LanguageStartupBehavior;
+}
+
+/**
+ * `TestConfigurationService` ignores `overrideIdentifier`, so it can't hold a
+ * per-language `interpreters.startupBehavior`. This one can.
+ */
+class StartupBehaviorConfigurationService extends TestConfigurationService {
+	constructor(private readonly _startupBehavior: IStartupBehaviors) {
+		super();
+		this.setOverrideIdentifiers('interpreters.startupBehavior',
+			Object.keys(_startupBehavior).filter(key => key !== 'default'));
+	}
+
+	override getValue<T>(arg1?: string | IConfigurationOverrides, arg2?: IConfigurationOverrides): T | undefined {
+		if (arg1 === 'interpreters.startupBehavior') {
+			const languageId = arg2?.overrideIdentifier;
+			return ((languageId && this._startupBehavior[languageId]) || this._startupBehavior.default) as T;
+		}
+		return super.getValue(arg1, arg2);
+	}
+}
+
+/**
+ * Runs the whole startup sequence: reconnect running consoles, start
+ * the affiliated runtimes, start recommendations, search for
+ * interpreters, then start a runtime once the search ends.
+ */
+describe('RuntimeStartupService - startup sequence', () => {
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem: () => Promise.resolve(),
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: Event.None,
+			onWillShutdown: Event.None,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, new TestNotificationService())
+		.build();
+
+	/** A language that an extension provides interpreters for. */
+	interface IStartupLanguage {
+		languageId: string;
+		extensionId: string;
+		/** The interpreters the extension's interpreter search finds. */
+		discovered?: ILanguageRuntimeMetadata[];
+		/** The affiliated runtime saved for this folder, if any. */
+		affiliated?: { metadata: ILanguageRuntimeMetadata; lastUsed: number; lastStarted: number };
+	}
+
+	interface IStartupSequenceOptions {
+		languages: IStartupLanguage[];
+		startupBehavior: IStartupBehaviors;
+		/** Replaces methods on the extension host's runtime manager. */
+		manager?: Partial<IRuntimeManager>;
+		/** The interpreter picked in the New Folder flow, when that flow just created this folder. */
+		newFolderRuntime?: ILanguageRuntimeMetadata;
+	}
+
+	interface IStartedRuntime {
+		runtimeId: string;
+		reason: SessionStartReasonId;
+	}
+
+	/**
+	 * Opens the folder: runs the startup sequence the way the service does
+	 * when the extensions that declare `languageRuntimes` load, and waits for
+	 * it to finish. Interpreters aren't really started; each request to start
+	 * one is recorded instead, and counts as a starting console from then on.
+	 * The first one also counts as the console in front.
+	 * The session service's own checks don't run, so a request is recorded
+	 * even where the session service would refuse it (for example, for a
+	 * language whose startup behavior is `manual`).
+	 */
+	async function runStartupSequence(options: IStartupSequenceOptions): Promise<{ service: RuntimeStartupService; started: IStartedRuntime[] }> {
+		const configurationService = new StartupBehaviorConfigurationService(options.startupBehavior);
+		ctx.instantiationService.stub(IConfigurationService, configurationService);
+		ctx.instantiationService.stub(IRuntimeDiscoveryCache, ctx.disposables.add(makeRealCache(ctx.get(IStorageService), configurationService)));
+		ctx.instantiationService.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: Event.None,
+			startupPhase: NewFolderStartupPhase.Complete,
+			initTasksComplete: stubInterface<Barrier>({
+				isOpen: () => options.newFolderRuntime === undefined,
+				wait: async () => true,
+			}),
+			newFolderRuntimeMetadata: options.newFolderRuntime,
+		});
+
+		for (const { affiliated } of options.languages) {
+			if (affiliated) {
+				ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v2.${affiliated.metadata.languageId}`,
+					JSON.stringify(affiliated), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			}
+		}
+
+		const started: Array<IStartedRuntime & { languageId: string }> = [];
+		const runtimeSessionService = ctx.get(IRuntimeSessionService);
+		const languageRuntimeService = ctx.get(ILanguageRuntimeService);
+		vi.spyOn(runtimeSessionService, 'autoStartRuntime').mockImplementation(async (metadata, startReason) => {
+			started.push({ runtimeId: metadata.runtimeId, languageId: metadata.languageId, reason: startReason.id });
+			return '';
+		});
+		vi.spyOn(runtimeSessionService, 'startNewRuntimeSession').mockImplementation(async (runtimeId, _name, _mode, _notebookUri, startReason) => {
+			const languageId = languageRuntimeService.getRegisteredRuntime(runtimeId)?.languageId ?? '';
+			started.push({ runtimeId, languageId, reason: startReason.id });
+			return '';
+		});
+		vi.spyOn(runtimeSessionService, 'hasStartingOrRunningConsole').mockImplementation(languageId =>
+			started.some(start => languageId === undefined || start.languageId === languageId));
+		// The first console that starts comes to the front.
+		vi.spyOn(runtimeSessionService, 'foregroundSession', 'get').mockImplementation(() =>
+			started.length > 0 ? stubInterface<ILanguageRuntimeSession>() : undefined);
+
+		const service = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const discovered = options.languages.flatMap(language => language.discovered ?? []);
+		const manager: IRuntimeManager = {
+			...makeManager({
+				id: 1,
+				owns: discovered,
+				contributions: options.languages.map(({ extensionId, languageId }) => ({ extensionId, languageId, alwaysRediscover: false })),
+			}),
+			// The cache starts empty, so startup runs the interpreter search.
+			discoverAllRuntimes: async () => {
+				for (const runtime of discovered) {
+					service.registerDiscoveredRuntime(runtime);
+				}
+				service.completeDiscovery(1);
+			},
+			...options.manager,
+		};
+		// After the search, startup asks for recommendations again without waiting for the answers.
+		const answersAfterDiscovery: Promise<unknown>[] = [];
+		const recommend = manager.recommendWorkspaceRuntimes;
+		manager.recommendWorkspaceRuntimes = (disabledLanguageIds, afterDiscovery) => {
+			const answer = recommend(disabledLanguageIds, afterDiscovery);
+			if (afterDiscovery) {
+				answersAfterDiscovery.push(answer);
+			}
+			return answer;
+		};
+		ctx.disposables.add(service.registerRuntimeManager(manager));
+
+		const complete = Event.toPromise(Event.filter(languageRuntimeService.onDidChangeRuntimeStartupPhase,
+			phase => phase === RuntimeStartupPhase.Complete));
+		const extensionPoint = ExtensionsRegistry.getExtensionPoints().find(point => point.name === 'languageRuntimes')!;
+		extensionPoint.acceptUsers(options.languages.map(({ extensionId, languageId }) => ({
+			description: stubInterface<IExtensionDescription>({ identifier: new ExtensionIdentifier(extensionId) }),
+			value: [{ languageId }],
+			collector: stubInterface<ExtensionMessageCollector>(),
+		})));
+		// The extension point outlives the service; leave it empty for the next test.
+		ctx.disposables.add(toDisposable(() => extensionPoint.acceptUsers([])));
+		await complete;
+		// Wait for the recommendations asked for after the search. Then let
+		// startup finish acting on them, and finish starting the other
+		// affiliated runtimes in the background.
+		await Promise.all(answersAfterDiscovery);
+		await timeout(0);
+
+		return { service, started: started.map(({ runtimeId, reason }) => ({ runtimeId, reason })) };
+	}
+
+	const python = metadata({ extensionId: 'ms-python.python', languageId: 'python', runtimeId: 'python-3.12' });
+	const r = metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimeId: 'r-4.5' });
+	const pythonLanguage = { languageId: 'python', extensionId: 'ms-python.python' };
+	const rLanguage = { languageId: 'r', extensionId: 'positron.positron-r' };
+
+	it('starts the affiliated runtime before asking for a recommendation', async () => {
+		const { started } = await runStartupSequence({
+			languages: [{ ...pythonLanguage, discovered: [python], affiliated: { metadata: python, lastUsed: 2, lastStarted: 1 } }],
+			startupBehavior: { default: LanguageStartupBehavior.Auto },
+		});
+
+		expect(started).toEqual([{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
+	});
+
+	it('starts a recommendation marked to start right away when no runtime is affiliated', async () => {
+		const { started } = await runStartupSequence({
+			languages: [{ ...rLanguage, discovered: [r] }],
+			startupBehavior: { default: LanguageStartupBehavior.Auto },
+			manager: {
+				recommendWorkspaceRuntimes: async (_disabledLanguageIds, afterDiscovery) => afterDiscovery ? [] :
+					[{ metadata: { ...r, startupBehavior: LanguageRuntimeStartupBehavior.Immediate }, isProjectDefault: true }],
+			},
+		});
+
+		expect(started).toEqual([{ runtimeId: r.runtimeId, reason: SessionStartReasonId.ExtensionRecommendedRuntime }]);
+	});
+
+	it('starts the interpreter picked in the New Folder flow as the affiliated runtime', async () => {
+		const { started } = await runStartupSequence({
+			languages: [{ ...pythonLanguage, discovered: [python] }],
+			startupBehavior: { default: LanguageStartupBehavior.Auto },
+			newFolderRuntime: python,
+		});
+
+		expect(started).toEqual([{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
 	});
 });
 
