@@ -51,8 +51,11 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 		this._register(DOM.addStandardDisposableListener(this.domNode, 'keydown', (e: StandardKeyboardEvent) => {
 			const delta = e.equals(KeyMod.Alt | KeyCode.UpArrow) ? -1 : e.equals(KeyMod.Alt | KeyCode.DownArrow) ? 1 : 0;
 			const idx = this.model.getSelected();
-			if (delta && idx !== null && !this.readOnly) {
-				this.moveItem(idx, idx + delta);
+			if (delta && idx !== null) {
+				// Swallow the key even when read-only, or the Settings tree takes it and moves focus.
+				if (!this.readOnly) {
+					this.moveItem(idx, idx + delta);
+				}
 				e.preventDefault();
 				e.stopPropagation();
 			}

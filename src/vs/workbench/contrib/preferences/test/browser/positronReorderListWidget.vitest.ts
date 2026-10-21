@@ -157,14 +157,15 @@ describe('PositronReorderListWidget', () => {
 		}
 	});
 
-	it('ignores Alt+Down and drags when the value is read-only', () => {
+	it('ignores Alt+Down and drags when the value is read-only, but still swallows the key', () => {
 		const { list, rows, events } = createWidget(['a', 'b'], { isReadOnly: true });
 		pointerDown(rows()[0]);
-		pressKey(list, 'ArrowDown', true);
+		const event = pressKey(list, 'ArrowDown', true);
 		rows()[0].dispatchEvent(new Event('dragstart', { bubbles: true }));
 		rows()[1].dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
 		expect(events).toEqual([]);
 		expect(rowLabels(rows)).toEqual(['A', 'B']);
+		expect(event.defaultPrevented).toBe(true);
 	});
 
 	it('clicking Move Down twice on the same item moves it twice', () => {
