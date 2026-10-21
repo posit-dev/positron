@@ -373,22 +373,31 @@ jobs:
     with:
       pull_request: true
 
-  # Single stable check for the tag-driven e2e lanes, so it can be marked
-  # required in the branch ruleset. The lanes themselves can't be required
-  # directly: when a lane's tag is absent its job is skipped at the caller
-  # level, so its "e2e / <lane>" check is never created and a required check
-  # would wait forever. Skipped lanes count as passing here; a failed or
-  # cancelled lane (or a failed pr-tags) fails the gate.
+  # Single always-reported check for every test job in this workflow, meant to
+  # be the one required check in the branch ruleset (in place of test / unit,
+  # test / ext-host and e2e / electron).
+  #
+  # The tag-driven lanes can't be required directly: when a lane's tag is
+  # absent its job is skipped at the caller level, so its "e2e / <lane>" check
+  # is never created and a required check would wait forever. Here a skipped
+  # job counts as passing, so any job can be skipped with a caller-level `if:`
+  # (a tag that's absent, or a docs-only PR) without blocking the merge. A
+  # failed or cancelled job, or a failed pr-tags, fails the gate. It needs
+  # `if: always()`: without it, a failed dependency would skip the gate, and a
+  # skipped gate reads as passing.
   #
   # The build-* jobs are listed too: when a build fails, the e2e lane behind
   # it is skipped rather than failed, so without them the gate would pass.
-  # Keep this list in sync when adding a tag-driven lane above.
-  e2e-tagged-gate:
-    name: e2e-tagged-gate
+  # Keep this list in sync when adding a test job above.
+  required-tests:
+    name: required-tests
     if: ${{ always() }}
     needs:
       [
         pr-tags,
+        unit-tests,
+        ext-host-tests,
+        e2e-ubuntu-electron,
         e2e-windows-electron,
         e2e-ubuntu-browser,
         e2e-rocky-electron,
@@ -414,11 +423,11 @@ jobs:
       ]
     runs-on: ubuntu-latest
     steps:
-      - name: Fail if any tagged lane failed
+      - name: Fail if any test job failed
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: |
-          echo "One or more tag-driven e2e lanes failed or were cancelled:"
+          echo "One or more test jobs failed or were cancelled:"
           echo "$NEEDS_JSON" | jq -r 'to_entries[] | "  \(.key): \(.value.result)"'
           exit 1
