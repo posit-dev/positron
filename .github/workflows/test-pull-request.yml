@@ -379,6 +379,10 @@ jobs:
   # level, so its "e2e / <lane>" check is never created and a required check
   # would wait forever. Skipped lanes count as passing here; a failed or
   # cancelled lane (or a failed pr-tags) fails the gate.
+  #
+  # The build-* jobs are listed too: when a build fails, the e2e lane behind
+  # it is skipped rather than failed, so without them the gate would pass.
+  # Keep this list in sync when adding a tag-driven lane above.
   e2e-tagged-gate:
     name: e2e-tagged-gate
     if: ${{ always() }}
@@ -395,6 +399,18 @@ jobs:
         e2e-sles-chromium,
         e2e-debian-electron,
         e2e-debian-chromium,
+        e2e-pyrefly,
+        build-workbench,
+        e2e-workbench,
+        e2e-workbench-rocky,
+        e2e-workbench-suse,
+        e2e-workbench-stable,
+        build-jupyter,
+        e2e-jupyter,
+        build-remote-ssh,
+        e2e-remote-ssh,
+        build-connect,
+        e2e-connect,
       ]
     runs-on: ubuntu-latest
     steps:
