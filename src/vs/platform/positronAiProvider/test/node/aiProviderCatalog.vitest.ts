@@ -171,6 +171,26 @@ describe('AiProviderCatalog', () => {
 			reselect.dispose();
 		});
 
+		it('keeps the new copy when the old selection resolves after the module selects again', async () => {
+			const reselect = new Emitter<void>();
+			const old = fakeProviders(async () => stale);
+			const next = fakeProviders(async () => fresh);
+			const oldSelection = new DeferredPromise<Awaited<ReturnType<HeadlessProviderModule['get']>>>();
+			const get = vi.fn<HeadlessProviderModule['get']>()
+				.mockReturnValueOnce(oldSelection.p)
+				.mockResolvedValue({ providers: next.providers, source: { kind: 'compiled-in', reason: 'test' } });
+			const created = catalogOver(get, reselect.event);
+			const firstLoad = created.getCatalog();
+			reselect.fire();
+			await vi.waitFor(() => expect(next.listeners.size).toBe(1));
+			oldSelection.complete({ providers: old.providers, source: { kind: 'compiled-in', reason: 'test' } });
+			await firstLoad;
+			old.fire(stale);
+			expect({ catalog: await created.getCatalog(), oldListeners: old.listeners.size, newListeners: next.listeners.size })
+				.toEqual({ catalog: fresh, oldListeners: 0, newListeners: 1 });
+			reselect.dispose();
+		});
+
 		it('keeps a change that raced the initial load', async () => {
 			const initial = new DeferredPromise<readonly HeadlessProviderData[]>();
 			const fake = fakeProviders(() => initial.p);

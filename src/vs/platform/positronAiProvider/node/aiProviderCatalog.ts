@@ -19,10 +19,12 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 	private readonly _subscription = this._register(new MutableDisposable());
 	private readonly _started = new SelfHealingLazyPromise(() => this.startCatalog());
 	private _catalog: readonly IResolvedProviderData[] | undefined;
+	private _selection = 0;
 
 	constructor(private readonly _module: HeadlessProviderModule) {
 		super();
 		this._register(_module.onDidReselect(() => {
+			this._selection++;
 			this._subscription.clear();
 			this._catalog = undefined;
 			this._started.clear();
@@ -41,12 +43,20 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 	}
 
 	private async startCatalog(): Promise<void> {
+		// A load that outlives a re-selection must not touch the new copy's state.
+		const selection = this._selection;
 		const { providers } = await this._module.get();
+		if (selection !== this._selection) {
+			return;
+		}
 		this._subscription.value = providers.onDidChangeCatalog(change => {
 			this._catalog = change.catalog;
 			this._onDidChangeCatalog.fire(change);
 		});
 		const catalog = await providers.getCatalog();
+		if (selection !== this._selection) {
+			return;
+		}
 		// Don't let the stale initial load overwrite a change that raced it.
 		this._catalog ??= catalog;
 	}
