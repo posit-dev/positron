@@ -57,9 +57,14 @@ pub enum Position {
     SelectStart,
     /// After a complete item in the select list.
     SelectItem,
-    /// Where a table or column *name* belongs, and so almost no keyword does. The slot that
-    /// previously offered all 1110.
+    /// Where the name of a table being read belongs, after `FROM` or `JOIN`, and so almost no
+    /// keyword does. The slot that previously offered all 1110.
     Name,
+    /// Where the name of the object a DDL statement acts on belongs: `DROP TABLE |`.
+    ObjectName,
+    /// Where a name and nothing else belongs: an alias after `AS`, a column list, the column a
+    /// `SET` assigns, the table an `INSERT INTO` or an `UPDATE` writes.
+    Identifier,
     /// After a complete table reference in a `FROM`.
     TableItem,
     /// After a table reference that followed a `JOIN`, which additionally takes `ON`/`USING`.
@@ -124,6 +129,8 @@ pub const POSITIONS: &[Position] = &[
     Position::SelectStart,
     Position::SelectItem,
     Position::Name,
+    Position::ObjectName,
+    Position::Identifier,
     Position::TableItem,
     Position::JoinedItem,
     Position::UpdateItem,
@@ -154,6 +161,8 @@ impl Position {
             Position::SelectStart => "selectStart",
             Position::SelectItem => "selectItem",
             Position::Name => "name",
+            Position::ObjectName => "objectName",
+            Position::Identifier => "identifier",
             Position::TableItem => "tableItem",
             Position::JoinedItem => "joinedItem",
             Position::UpdateItem => "updateItem",
@@ -194,6 +203,8 @@ impl Position {
             ]
             .concat(),
             Position::Name => NAME.to_vec(),
+            Position::ObjectName => ["IF EXISTS", "IF NOT EXISTS"].to_vec(),
+            Position::Identifier => Vec::new(),
             Position::TableItem => [TABLE_TAIL, TABLE_TAIL_CLAUSES, JOINS, &["RETURNING"]].concat(),
             Position::JoinedItem => {
                 [TABLE_TAIL, TABLE_TAIL_CLAUSES, JOINS, &["ON", "USING"]].concat()
@@ -360,8 +371,8 @@ const JOINS: &[&str] = &[
     "RIGHT OUTER JOIN",
 ];
 
-/// The few words that belong where a name does.
-const NAME: &[&str] = &["IF EXISTS", "IF NOT EXISTS", "LATERAL", "TABLE", "UNNEST"];
+/// The few words that belong where a table being read is named.
+const NAME: &[&str] = &["LATERAL", "TABLE", "UNNEST"];
 
 /// The modifiers a `GROUP BY` list takes.
 const GROUPING_MODIFIERS: &[&str] = &["CUBE", "GROUPING SETS", "ROLLUP"];
@@ -714,6 +725,16 @@ fn obligatory(keyword: Keyword) -> Option<Position> {
     }
 }
 
+/// Which name a word that introduces one introduces: a table to read, the object of a DDL
+/// statement, or a plain name.
+fn name_after(keyword: Keyword, verb: Option<Keyword>) -> Position {
+    match keyword {
+        Keyword::FROM | Keyword::JOIN => Position::Name,
+        Keyword::TABLE if verb.is_some_and(is_ddl_verb) => Position::ObjectName,
+        _ => Position::Identifier,
+    }
+}
+
 /// Whether a word introduces a name rather than continuing the grammar.
 fn introduces_name(keyword: Keyword) -> bool {
     matches!(
@@ -773,7 +794,7 @@ fn decide(
         return match group {
             Group::Window => Position::WindowSpec,
             Group::Definition => Position::ColumnDefinition,
-            Group::Columns => Position::Name,
+            Group::Columns => Position::Identifier,
             Group::Row => Position::Value,
             Group::Cast | Group::Other => Position::Subquery,
             Group::None => Position::StatementStart,
@@ -806,7 +827,7 @@ fn decide(
                     // The `AS` of a cast, and of a column definition, take a type rather than a
                     // name.
                     Group::Cast | Group::Definition => Position::ColumnDefinition,
-                    _ => Position::Name,
+                    _ => name_after(previous_word.keyword, verb),
                 };
             }
             // Checked before the `DISTINCT` of a select below: `UNION DISTINCT` is the set
@@ -840,7 +861,7 @@ fn decide(
             }
             // What a `SET` assigns to is a column, not a value.
             if previous_word.keyword == Keyword::SET {
-                return Position::Name;
+                return Position::Identifier;
             }
             // A count, which `starts_value` below would otherwise call a value -- and a value
             // is where columns are offered.
@@ -865,11 +886,10 @@ fn decide(
     match &previous.token {
         Token::Comma => {
             return match (group, clause) {
-                (Group::Definition, _) | (Group::Columns, _) => Position::Name,
-                (Group::None, Some(Keyword::SET)) => Position::Name,
-                (_, Some(Keyword::FROM | Keyword::JOIN | Keyword::INTO | Keyword::UPDATE)) => {
-                    Position::Name
-                }
+                (Group::Definition, _) | (Group::Columns, _) => Position::Identifier,
+                (Group::None, Some(Keyword::SET)) => Position::Identifier,
+                (_, Some(Keyword::FROM | Keyword::JOIN)) => Position::Name,
+                (_, Some(Keyword::INTO | Keyword::UPDATE)) => Position::Identifier,
                 // MySQL's `LIMIT offset, count`.
                 (Group::None, Some(Keyword::LIMIT)) => Position::RowCount,
                 _ => Position::Value,

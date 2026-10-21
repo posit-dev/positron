@@ -815,7 +815,10 @@ fn every_offset_of_a_mangled_statement_is_answered() {
                     Ok((keywords, position, sources)) => {
                         // A row count offers nothing on purpose: a number belongs there, and the one
                         // keyword that could, `ALL`, is PostgreSQL's alone. See `Position::RowCount`.
-                        if keywords.is_empty() && position != "rowCount" {
+                        // Nor does a plain name -- an alias, a column list -- where any keyword
+                        // would be a syntax error. See `Position::Identifier`.
+                        if keywords.is_empty() && position != "rowCount" && position != "identifier"
+                        {
                             failures.add(
                                 format!("no keywords ({position})"),
                                 format!("seed {seed} at {offset}: {variant:?}"),

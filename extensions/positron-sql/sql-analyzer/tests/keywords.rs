@@ -133,8 +133,9 @@ const POSITIONS: &[(&str, &str)] = &[
     ("SELECT DISTINCT |", "selectStart"),
     ("SELECT total |", "selectItem"),
     ("SELECT * FROM |", "name"),
-    ("SELECT a AS |", "name"),
-    ("INSERT INTO orders (|", "name"),
+    ("SELECT a AS |", "identifier"),
+    ("INSERT INTO orders (|", "identifier"),
+    ("DROP TABLE |", "objectName"),
     ("SELECT * FROM orders |", "tableItem"),
     ("SELECT * FROM a JOIN b |", "joinedItem"),
     ("UPDATE orders |", "updateItem"),
@@ -334,8 +335,10 @@ fn no_position_is_answered_with_nothing() {
     // extension being broken, and it silently removes a completion that used to work.
     // Except where nothing is the answer: a row count is a number, and the one keyword that could
     // stand there, `ALL`, is PostgreSQL's alone. See `a_row_count_offers_no_keyword_in_any_dialect`.
+    // Nor does a plain name -- an alias, a column list, a `SET` target -- where any keyword is a
+    // syntax error.
     for (marked, name) in POSITIONS {
-        if *name == "rowCount" {
+        if *name == "rowCount" || *name == "identifier" {
             continue;
         }
         assert!(!offered(marked).is_empty(), "nothing offered at {marked:?}");
@@ -365,10 +368,14 @@ fn no_position_offers_punctuation_or_repeats_itself() {
 fn a_name_slot_offers_almost_nothing() {
     // The whole point of the exercise. This position used to offer all 1110 keywords, in a slot
     // where what belongs is the name of a table.
-    assert_eq!(
-        offered("SELECT * FROM |"),
-        ["IF EXISTS", "IF NOT EXISTS", "LATERAL", "TABLE", "UNNEST"]
-    );
+    assert_eq!(offered("SELECT * FROM |"), ["LATERAL", "TABLE", "UNNEST"]);
+}
+
+#[test]
+fn only_a_ddl_object_name_is_offered_its_existence_check() {
+    assert_eq!(offered("DROP TABLE |"), ["IF EXISTS", "IF NOT EXISTS"]);
+    assert!(offered("SELECT a AS |").is_empty());
+    assert!(offered("INSERT INTO |").is_empty());
 }
 
 #[test]
@@ -475,8 +482,8 @@ fn a_set_operator_is_followed_by_the_next_query() {
 
 #[test]
 fn an_update_assigns_to_columns_and_is_then_filtered() {
-    assert_eq!(position("UPDATE orders SET |"), "name");
-    assert_eq!(position("UPDATE orders SET a = 1, |"), "name");
+    assert_eq!(position("UPDATE orders SET |"), "identifier");
+    assert_eq!(position("UPDATE orders SET a = 1, |"), "identifier");
     assert_eq!(position("UPDATE orders SET a = |"), "value");
     expect(
         "UPDATE orders SET a = 1 |",
