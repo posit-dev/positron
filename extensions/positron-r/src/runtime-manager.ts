@@ -84,6 +84,13 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 */
 	private readonly _pinnedRLookup = new InFlightLookup<string | undefined, RInstallation | undefined>();
 
+	/**
+	 * Positron uses the recommendation when it needs an R runtime, but must
+	 * not save it as the workspace's default: whether R starts right away is
+	 * decided again in the open folder every time it opens.
+	 */
+	readonly recommendationIsProjectDefault = false;
+
 	constructor(private readonly _context: vscode.ExtensionContext) {
 		this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
 		this.onDidCompleteDiscovery = this._onDidCompleteDiscoveryEmitter.event;
