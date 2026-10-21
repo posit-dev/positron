@@ -57,7 +57,7 @@ suite('R startup recommendation', () => {
 	});
 
 	// This suite opens no folder, so the test points looksLikeRProject() at a temp folder.
-	test('looksLikeRProject skips R files in folders of installed packages and environments', async () => {
+	test('looksLikeRProject skips R files in package and Python environment folders', async () => {
 		await testKit.withDisposables(async disposables => {
 			const [folder, folderDisposable] = testKit.makeTempDir('r-project-check');
 			disposables.push(folderDisposable);
@@ -70,10 +70,10 @@ suite('R startup recommendation', () => {
 			// The README means the folder isn't empty, so whether you use RStudio doesn't matter.
 			write('README.md');
 			const results: Record<string, boolean> = {};
-			for (const skipped of ['node_modules', '.venv', 'venv', '.virtualenv', '.conda', '.pixi']) {
-				write(`${skipped}/lib/example.R`);
-				results[skipped] = await looksLikeRProject(vscode.Uri.file(folder));
-				fs.rmSync(path.join(folder, skipped), { recursive: true, force: true });
+			for (const envFolder of ['node_modules', '.venv', 'venv', '.virtualenv', '.conda', '.pixi']) {
+				write(`${envFolder}/lib/example.R`);
+				results[envFolder] = await looksLikeRProject(vscode.Uri.file(folder));
+				fs.rmSync(path.join(folder, envFolder), { recursive: true, force: true });
 			}
 			write('scripts/analysis.R');
 			results.scripts = await looksLikeRProject(vscode.Uri.file(folder));
@@ -82,8 +82,8 @@ suite('R startup recommendation', () => {
 				'.venv': false,
 				'venv': false,
 				'.virtualenv': false,
-				'.conda': false,
-				'.pixi': false,
+				'.conda': true,
+				'.pixi': true,
 				'scripts': true,
 			});
 		});

@@ -1359,10 +1359,12 @@ export function rFullSearchTriggers(): RFullSearchTriggers {
 }
 
 /**
- * Folders that hold installed packages and environments rather than your own
- * code. The search for R files skips them to stay fast.
+ * Folders that hold installed packages and Python environments rather than
+ * your own code. The search for R files skips them to stay fast. Conda and
+ * pixi environments are searched, as they always have been, so a project with
+ * R installed in one counts as an R project.
  */
-const NON_PROJECT_FOLDERS = ['node_modules', '.venv', 'venv', '.virtualenv', '.conda', '.pixi'];
+const NON_PROJECT_FOLDERS = ['node_modules', '.venv', 'venv', '.virtualenv'];
 
 /**
  * What the check for an empty folder skips. Only node_modules, so a folder
