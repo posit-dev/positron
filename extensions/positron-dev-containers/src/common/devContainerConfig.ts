@@ -7,14 +7,15 @@ import * as fs from 'fs';
 import * as jsonc from 'jsonc-parser';
 import { URI } from 'vscode-uri';
 import { substitute, beforeContainerSubstitute } from '../spec/spec-common/variableSubstitution';
+import { DEV_CONTAINER_LABELS } from '../container/containerLabels';
 
 /**
  * Labels identifying a dev container; also the inputs to ${devcontainerId}.
  */
 export function devContainerIdLabels(workspaceFolder: string, configFile: string): Record<string, string> {
 	return {
-		'devcontainer.local_folder': workspaceFolder,
-		'devcontainer.config_file': configFile,
+		[DEV_CONTAINER_LABELS.LOCAL_FOLDER]: workspaceFolder,
+		[DEV_CONTAINER_LABELS.CONFIG_FILE]: configFile,
 	};
 }
 
@@ -24,6 +25,9 @@ export function devContainerIdLabels(workspaceFolder: string, configFile: string
  */
 export function readDevContainerConfig(configFile: string, workspaceFolder: string, containerWorkspaceFolder?: string): any {
 	const config = jsonc.parse(fs.readFileSync(configFile, 'utf8'));
+	if (!config || typeof config !== 'object' || Array.isArray(config)) {
+		throw new Error(`Dev container config (${configFile}) must contain a JSON object literal.`);
+	}
 	return beforeContainerSubstitute(devContainerIdLabels(workspaceFolder, configFile), substitute({
 		platform: process.platform,
 		configFile: URI.file(configFile),
