@@ -10,9 +10,23 @@
 //! problem in a statement and stops, so a statement yields at most one syntax diagnostic -- which
 //! is also what is wanted: past the first, errors in one statement are cascades of it, and every
 //! extra squiggle is one the user has to read past to find the real problem.
+//!
+//! # Which statements are checked
+//!
+//! Only queries and the statements that change rows: `SELECT`, `WITH`, `INSERT`, `UPDATE`,
+//! `DELETE`, `VALUES`, and the forms of them some dialects add. These are what sqlparser models in
+//! depth for every dialect. Everything else -- DDL, `PRAGMA`, `VACUUM`, `COPY`, `ATTACH`, a
+//! warehouse's administrative commands, a statement form the parser has never heard of -- it covers
+//! unevenly per dialect, and an error it reports there is far more often a gap in the parser than a
+//! mistake in the SQL. A squiggle under correct SQL costs the user's trust in every other squiggle,
+//! so those statements are still parsed for their names but their errors are not reported.
+//! Unterminated strings and comments are reported wherever they are: those are the tokenizer's,
+//! and are never a matter of dialect coverage.
 
 use sqlparser::dialect::Dialect;
+use sqlparser::keywords::Keyword;
 use sqlparser::parser::{Parser, ParserError};
+use sqlparser::tokenizer::Token;
 
 use crate::scopes::{self, Analysis};
 use crate::statements::{Statement, Tokenized};
@@ -99,7 +113,8 @@ pub fn parse(tokenized: &Tokenized, dialect: &dyn Dialect, index: &TextIndex) ->
             // and the parser is now reading a delimiter the author never wrote, so whatever it
             // objects to is an artefact of the repair rather than something to show anyone.
             Err(_) if statement.repaired => {}
-            Err(diagnostic) => diagnostics.push(diagnostic),
+            Err(diagnostic) if checks_syntax(statement) => diagnostics.push(diagnostic),
+            Err(_) => {}
         }
     }
 
@@ -110,6 +125,26 @@ pub fn parse(tokenized: &Tokenized, dialect: &dyn Dialect, index: &TextIndex) ->
     Parsed {
         diagnostics,
         analysis,
+    }
+}
+
+/// Whether a statement is one whose syntax errors are reported; see the module comment.
+fn checks_syntax(statement: &Statement) -> bool {
+    match statement.tokens.first().map(|token| &token.token) {
+        // A parenthesized query, `(SELECT ...) UNION (SELECT ...)`.
+        Some(Token::LParen) => true,
+        Some(Token::Word(word)) => matches!(
+            word.keyword,
+            Keyword::SELECT
+                | Keyword::WITH
+                | Keyword::INSERT
+                | Keyword::UPDATE
+                | Keyword::DELETE
+                | Keyword::VALUES
+                // DuckDB's FROM-first query, `FROM orders SELECT id`.
+                | Keyword::FROM
+        ),
+        _ => false,
     }
 }
 

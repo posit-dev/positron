@@ -193,3 +193,40 @@ fn offsets_are_counted_in_utf16_units() {
         ]
     );
 }
+
+#[test]
+fn a_trigger_body_is_not_split_at_its_own_semicolons() {
+    let text = "CREATE TRIGGER t AFTER INSERT ON a BEGIN UPDATE b SET n = 1; DELETE FROM c; END;\nSELECT 1;";
+    assert_eq!(
+        split(text),
+        [
+            (
+                "CREATE TRIGGER t AFTER INSERT ON a BEGIN UPDATE b SET n = 1; DELETE FROM c; END;"
+                    .into(),
+                true
+            ),
+            ("SELECT 1;".into(), true)
+        ]
+    );
+}
+
+#[test]
+fn a_case_and_an_end_if_inside_a_routine_body_do_not_end_it_early() {
+    let text = "CREATE PROCEDURE p() BEGIN IF x THEN SELECT CASE WHEN a THEN 1 END; END IF; END;\nSELECT 2;";
+    assert_eq!(split(text).len(), 2);
+    assert_eq!(split(text)[1], ("SELECT 2;".into(), true));
+}
+
+#[test]
+fn a_transaction_begin_is_still_its_own_statement() {
+    assert_eq!(
+        split("BEGIN; SELECT 1; COMMIT;"),
+        [
+            ("BEGIN;".into(), true),
+            ("SELECT 1;".into(), true),
+            ("COMMIT;".into(), true)
+        ]
+    );
+    // A column called `begin` in a CREATE TABLE is a name, not a block.
+    assert_eq!(split("CREATE TABLE t (begin INT); SELECT 1;").len(), 2);
+}

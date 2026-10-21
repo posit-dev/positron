@@ -29,6 +29,7 @@
 use std::borrow::Cow;
 
 use sqlparser::dialect::Dialect;
+use sqlparser::keywords::Keyword;
 use sqlparser::tokenizer::{Location, Token, TokenWithSpan, Tokenizer};
 
 use crate::text::TextIndex;
@@ -97,8 +98,9 @@ pub fn split(text: &str, dialect: &dyn Dialect, index: &TextIndex) -> Tokenized 
     // sent along with it to the console.
     let mut last_end: u32 = 0;
 
-    for token in tokens {
-        if matches!(token.token, Token::SemiColon) {
+    let inside = routine_bodies(&tokens);
+    for (at, token) in tokens.into_iter().enumerate() {
+        if matches!(token.token, Token::SemiColon) && !inside[at] {
             let end = index
                 .span(token.span)
                 .map(|(_, end)| end)
@@ -125,6 +127,74 @@ pub fn split(text: &str, dialect: &dyn Dialect, index: &TextIndex) -> Tokenized 
     }
 
     Tokenized { statements, errors }
+}
+
+/// Which tokens sit inside the body of a routine a statement is creating, by index.
+///
+/// A trigger, procedure or function written in SQL rather than in a quoted body holds statements
+/// of its own between `BEGIN` and `END` -- `CREATE TRIGGER t AFTER INSERT ON a BEGIN UPDATE b SET
+/// n = 1; END;` -- and the semicolons that end those do not end the `CREATE`. Splitting there
+/// would hand the parser half a trigger, report it as broken, and run half of it from the editor.
+///
+/// Only in a `CREATE` that has named a `TRIGGER`, `PROCEDURE` or `FUNCTION`: elsewhere `BEGIN` is a
+/// transaction, which a semicolon does end, or a name. A `CASE` inside the body has an `END` of
+/// its own and is counted with it. An `END IF`, `END LOOP` and their kind close a construct that
+/// was never counted, so they are passed over.
+fn routine_bodies(tokens: &[TokenWithSpan]) -> Vec<bool> {
+    let mut inside = vec![false; tokens.len()];
+    let mut first = true;
+    let mut creating = false;
+    let mut routine = false;
+    let mut depth = 0usize;
+
+    for (at, token) in tokens.iter().enumerate() {
+        match &token.token {
+            Token::SemiColon => {
+                inside[at] = depth > 0;
+                if depth == 0 {
+                    first = true;
+                    creating = false;
+                    routine = false;
+                }
+            }
+            Token::Word(word) if word.quote_style.is_none() => {
+                if first {
+                    creating = word.keyword == Keyword::CREATE;
+                    first = false;
+                }
+                inside[at] = depth > 0;
+                match word.keyword {
+                    Keyword::TRIGGER | Keyword::PROCEDURE | Keyword::FUNCTION if creating => {
+                        routine = true;
+                    }
+                    Keyword::BEGIN if routine => depth += 1,
+                    Keyword::CASE if depth > 0 => depth += 1,
+                    Keyword::END if depth > 0 => {
+                        let closes_other = tokens[at + 1..]
+                            .iter()
+                            .find(|next| is_significant(&next.token))
+                            .is_some_and(|next| {
+                                // By spelling: not every one of these is a keyword sqlparser
+                                // knows.
+                                matches!(&next.token, Token::Word(word) if ["IF", "LOOP", "WHILE", "REPEAT", "FOR"]
+                                    .iter()
+                                    .any(|closer| word.value.eq_ignore_ascii_case(closer)))
+                            });
+                        if !closes_other {
+                            depth -= 1;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            other if is_significant(other) => {
+                first = false;
+                inside[at] = depth > 0;
+            }
+            _ => inside[at] = depth > 0,
+        }
+    }
+    inside
 }
 
 /// Tokenizes a document, closing anything that never closed, until it tokenizes or cannot be

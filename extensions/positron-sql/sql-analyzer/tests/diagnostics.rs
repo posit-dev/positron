@@ -332,3 +332,40 @@ fn an_unrecognized_dialect_says_so() {
     assert_eq!(analyze_as("postgres", "SELECT 1")["unknownDialect"], false);
     assert_eq!(analyze_as("", "SELECT 1")["unknownDialect"], false);
 }
+
+#[test]
+fn only_queries_and_row_changes_have_their_syntax_checked() {
+    // Forms sqlparser covers unevenly per dialect: an error there is a gap in the parser far more
+    // often than a mistake, so none is reported.
+    for (dialect, text) in [
+        ("duckdb", "PIVOT orders ON id USING sum(total)"),
+        ("duckdb", "SUMMARIZE orders"),
+        ("postgres", "DO $$ BEGIN RAISE NOTICE 'x'; END $$"),
+        ("postgres", "VACUUM ANALYZE t"),
+        ("sqlite", "PRAGMA table_info(t)"),
+        ("databricks", "CREATE TABLE t (a INT) USING DELTA"),
+        (
+            "sqlite",
+            "CREATE TRIGGER tr AFTER INSERT ON t BEGIN UPDATE t SET a = 1; END;",
+        ),
+    ] {
+        assert!(
+            diagnostics_of(&analyze_as(dialect, text), text).is_empty(),
+            "{text:?} should not be reported"
+        );
+    }
+    // A query still is, wherever it sits.
+    for text in [
+        "SELECT * FRM t",
+        "WITH x AS (SELECT 1) SELEC * FROM x",
+        "(SELECT 1) UNON SELECT 2",
+    ] {
+        assert_eq!(diagnostics(text).len(), 1, "{text:?} should be reported");
+    }
+}
+
+#[test]
+fn an_unterminated_string_is_reported_in_any_statement() {
+    let text = "PRAGMA foo('oops\n";
+    assert_eq!(diagnostics(text).len(), 1);
+}
