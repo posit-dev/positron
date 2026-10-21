@@ -228,9 +228,13 @@ class SqlSession implements vscode.Disposable {
 
 			vscode.workspace.onDidOpenTextDocument(document => {
 				if (document.languageId === 'sql') {
-					// A buffer just saved as this file, or this same buffer reopened in a new
-					// language, carries its choice over.
-					this._selection.adopt(document.uri, document.getText());
+					// This same buffer reopened in a new language keeps its choice, and a buffer just
+					// saved as this file hands its choice over.
+					if (this._selection.reopen(document.uri, document.getText())) {
+						this._log.debug(`Kept the connection of ${document.uri.toString(true)} as it reopened.`);
+					} else {
+						this._adopt(document);
+					}
 				}
 				this._refresh(document);
 				// A file that says which database it is written against says what to open, so the
@@ -240,19 +244,32 @@ class SqlSession implements vscode.Disposable {
 				// does not change the active editor, so the item is not otherwise told.
 				this._updateStatusBar();
 			}),
-			vscode.workspace.onDidChangeTextDocument(event => this._schedule(event.document)),
+			vscode.workspace.onDidChangeTextDocument(event => {
+				// A file saved from an untitled buffer opens empty and receives the buffer's text
+				// as its first change, so that is when it can be matched to the buffer's choice.
+				// Only then: later edits are the user's, not the save's.
+				if (event.document.version <= 2) {
+					this._adopt(event.document);
+				}
+				this._schedule(event.document);
+			}),
+			vscode.workspace.onDidSaveTextDocument(document => this._adopt(document)),
 			vscode.workspace.onDidCloseTextDocument(document => {
 				// Diagnostics outlive the document unless they are cleared, so a closed file would
 				// keep its errors in the Problems panel with no editor to fix them in.
 				this._cancel(document);
 				this._diagnostics.delete(document.uri);
+				const chosen = this._selection.get(document.uri);
 				this._selection.forgetIfTransient(document.uri, document.getText());
-				// The file a buffer is saved as may already be open by the time the buffer closes.
-				for (const open of vscode.workspace.textDocuments) {
-					if (open !== document && open.languageId === 'sql' && !open.isClosed
-						&& this._selection.adopt(open.uri, open.getText())) {
-						this._refresh(open);
-						this._relink();
+				if (chosen && document.uri.scheme === 'untitled') {
+					this._log.debug(`${document.uri.toString(true)} closed; its connection, ${chosen.name},`
+						+ ' is kept for a document that replaces it.');
+					// The file a buffer is saved as may already hold its text by the time the
+					// buffer closes.
+					for (const open of vscode.workspace.textDocuments) {
+						if (open !== document && !open.isClosed) {
+							this._adopt(open);
+						}
 					}
 				}
 				this._updateStatusBar();
@@ -422,7 +439,30 @@ class SqlSession implements vscode.Disposable {
 		);
 	}
 
-	/** Asks which connection the active SQL file is written against, and applies the answer. */
+	/**
+	 * Gives a document the choice of a buffer just closed with the same text, if it has none of its
+	 * own, and brings everything that depends on the choice along with it.
+	 */
+	private _adopt(document: vscode.TextDocument): void {
+		if (document.languageId !== 'sql' || !this._selection.hasTransient) {
+			return;
+		}
+		const donors = vscode.workspace.textDocuments
+			.filter(open => open !== document && !open.isClosed && open.uri.scheme === 'untitled'
+				&& this._selection.get(open.uri) !== undefined)
+			.map(open => ({ uri: open.uri, text: open.getText() }));
+		if (!this._selection.adopt(document.uri, document.getText(), donors)) {
+			return;
+		}
+		this._log.debug(`${document.uri.toString(true)} took over the connection`
+			+ ` ${this._selection.get(document.uri)?.name} of the buffer it was saved from.`);
+		this._relink();
+		this._refresh(document);
+		this._updateStatusBar();
+		void this._openConnectionFor(document);
+	}
+
+		/** Asks which connection the active SQL file is written against, and applies the answer. */
 	private async _selectConnection(): Promise<void> {
 		const document = activeSqlDocument();
 		if (!document) {

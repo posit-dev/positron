@@ -83,13 +83,22 @@ const STORAGE_KEY = 'connectionByDocument';
 const MAX_REMEMBERED = 200;
 
 /**
- * How long a closed buffer's choice waits for the document that replaces it.
+ * How long a closed buffer's choice is kept for the document that replaces it.
  *
  * Saving an untitled buffer closes it and opens the file it was saved as, and changing a buffer's
- * language closes and reopens it; both happen within a moment of each other, so a choice that has
- * not been claimed by then never will be.
+ * language closes it and reopens it -- perhaps minutes later, if the user switches to plain text
+ * and back. Long enough for either; bounded so that closed buffers do not pile up.
  */
-const HANDOFF_MS = 5000;
+const CLOSED_KEPT_MS = 10 * 60 * 1000;
+
+/** How many closed buffers' choices to keep at once. */
+const MAX_CLOSED = 50;
+
+/** An open document that may hand its choice to another: what saving an untitled buffer leaves. */
+export interface Donor {
+	readonly uri: vscode.Uri;
+	readonly text: string;
+}
 
 /**
  * The connection each SQL file has been scoped to, kept across restarts.
@@ -102,8 +111,11 @@ export class ConnectionSelection {
 
 	private readonly _byFile: Map<string, ConnectionRef>;
 
-	/** Choices of transient buffers just closed, waiting for the document that replaces them. */
-	private _released: { text: string; connection: ConnectionRef; at: number }[] = [];
+	/**
+	 * Choices of transient buffers that have closed, by URI, with the text they closed with: what
+	 * a document that replaces one is matched against.
+	 */
+	private readonly _closed = new Map<string, { text: string; connection: ConnectionRef; at: number }>();
 
 	constructor(private readonly _store: SelectionStore) {
 		this._byFile = new Map(storedSelections(_store));
@@ -135,33 +147,87 @@ export class ConnectionSelection {
 			return;
 		}
 		const connection = this._byFile.get(file.toString());
+		if (!connection) {
+			return;
+		}
 		this._byFile.delete(file.toString());
-		// Held for a moment rather than dropped: if this buffer is being saved, or having its
-		// language changed, the document about to open is the same SQL and should keep the choice.
-		if (connection && text.trim().length > 0) {
-			this._released.push({ text, connection, at: Date.now() });
+		// Kept aside rather than dropped: if this buffer is being saved, or having its language
+		// changed, the document that replaces it holds the same SQL and should keep the choice. A
+		// new buffer given the same URI starts empty, and so does not match.
+		if (text.trim().length > 0) {
+			this._closed.set(file.toString(), { text, connection, at: Date.now() });
+			this._prune();
 		}
 	}
 
 	/**
-	 * Gives a document that has no choice of its own the choice of a buffer just closed with the
+	 * Restores the choice of a transient buffer that closed and has opened again with the same
+	 * text, which is what changing its language looks like from here. A different buffer that was
+	 * handed the same URI is not given it.
+	 *
+	 * @returns Whether a choice was restored.
+	 */
+	public reopen(file: vscode.Uri, text: string): boolean {
+		const closed = this._closed.get(file.toString());
+		if (!closed) {
+			return false;
+		}
+		this._closed.delete(file.toString());
+		if (closed.text !== text || this._byFile.has(file.toString())) {
+			return false;
+		}
+		this.set(file, closed.connection);
+		return true;
+	}
+
+	/**
+	 * Gives a document that has no choice of its own the choice of a transient buffer holding the
 	 * same text, which is what saving an untitled buffer looks like from here.
 	 *
+	 * The buffer may still be open when the file it was saved as receives its text, or may already
+	 * have closed, depending on the order the editor reports the two in, so both are looked at.
+	 *
+	 * @param donors The transient buffers still open, with their text.
 	 * @returns Whether a choice was taken over.
 	 */
-	public adopt(file: vscode.Uri, text: string): boolean {
+	public adopt(file: vscode.Uri, text: string, donors: readonly Donor[] = []): boolean {
+		if (this._byFile.has(file.toString()) || text.trim().length === 0) {
+			return false;
+		}
+		const donor = donors.find(candidate =>
+			candidate.text === text && this._byFile.has(candidate.uri.toString()));
+		if (donor) {
+			this.set(file, this._byFile.get(donor.uri.toString())!);
+			return true;
+		}
+		this._prune();
+		for (const [uri, closed] of this._closed) {
+			if (closed.text === text) {
+				this._closed.delete(uri);
+				this.set(file, closed.connection);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Whether a transient buffer that could hand its choice over is open or recently closed. */
+	public get hasTransient(): boolean {
+		return this._closed.size > 0
+			|| [...this._byFile.keys()].some(file => !isPersistable(vscode.Uri.parse(file)));
+	}
+
+	private _prune(): void {
 		const now = Date.now();
-		this._released = this._released.filter(released => now - released.at < HANDOFF_MS);
-		if (this._byFile.has(file.toString())) {
-			return false;
+		for (const [uri, closed] of this._closed) {
+			if (now - closed.at > CLOSED_KEPT_MS) {
+				this._closed.delete(uri);
+			}
 		}
-		const at = this._released.findIndex(released => released.text === text);
-		if (at < 0) {
-			return false;
+		// Oldest first, since a map iterates in insertion order.
+		while (this._closed.size > MAX_CLOSED) {
+			this._closed.delete(this._closed.keys().next().value!);
 		}
-		const [released] = this._released.splice(at, 1);
-		this.set(file, released.connection);
-		return true;
 	}
 
 	/**

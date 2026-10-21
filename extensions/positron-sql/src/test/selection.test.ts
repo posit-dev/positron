@@ -156,6 +156,50 @@ suite('ConnectionSelection', () => {
 		assert.deepStrictEqual([adopted, selection.get(REPORT)], [true, WAREHOUSE]);
 	});
 
+	test('a file that opens empty and then receives the buffer\'s text still takes its choice', () => {
+		// What Save As does: the file opens with no text, and the buffer's text arrives as its
+		// first change.
+		const selection = new ConnectionSelection(store());
+		selection.set(SCRATCH, WAREHOUSE);
+		selection.forgetIfTransient(SCRATCH, 'SELECT * FROM orders');
+
+		const onOpen = selection.adopt(REPORT, '');
+		const onFirstChange = selection.adopt(REPORT, 'SELECT * FROM orders');
+
+		assert.deepStrictEqual([onOpen, onFirstChange, selection.get(REPORT)], [false, true, WAREHOUSE]);
+	});
+
+	test('a buffer still open hands its choice to the file it was saved as', () => {
+		// The editor may report the file's text before it reports the buffer closing.
+		const selection = new ConnectionSelection(store());
+		selection.set(SCRATCH, WAREHOUSE);
+
+		const adopted = selection.adopt(REPORT, 'SELECT 1', [{ uri: SCRATCH, text: 'SELECT 1' }]);
+		const unrelated = selection.adopt(MIGRATION, 'SELECT 2', [{ uri: SCRATCH, text: 'SELECT 1' }]);
+
+		assert.deepStrictEqual([adopted, unrelated, selection.get(REPORT)], [true, false, WAREHOUSE]);
+	});
+
+	test('a buffer reopened with its text, after changing language, keeps its choice', () => {
+		const selection = new ConnectionSelection(store());
+		selection.set(SCRATCH, WAREHOUSE);
+
+		selection.forgetIfTransient(SCRATCH, 'SELECT 1');
+		const reopened = selection.reopen(SCRATCH, 'SELECT 1');
+
+		assert.deepStrictEqual([reopened, selection.get(SCRATCH)], [true, WAREHOUSE]);
+	});
+
+	test('a new buffer handed a closed buffer\'s URI does not inherit its choice', () => {
+		const selection = new ConnectionSelection(store());
+		selection.set(SCRATCH, WAREHOUSE);
+
+		selection.forgetIfTransient(SCRATCH, 'SELECT 1');
+		const reopened = selection.reopen(SCRATCH, '');
+
+		assert.deepStrictEqual([reopened, selection.get(SCRATCH)], [false, undefined]);
+	});
+
 	test('a choice is handed over only to the same text, and only once', () => {
 		const selection = new ConnectionSelection(store());
 		selection.set(SCRATCH, WAREHOUSE);
