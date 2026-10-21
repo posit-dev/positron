@@ -8,6 +8,7 @@ import { CancellationToken, CancellationTokenSource } from '../../../../base/com
 // --- Start Positron ---
 // import { onUnexpectedExternalError } from '../../../../base/common/errors.js';
 import { isCancellationError, onUnexpectedExternalError } from '../../../../base/common/errors.js';
+import { timeout } from '../../../../base/common/async.js';
 // --- End Positron ---
 import { Iterable } from '../../../../base/common/iterator.js';
 import { LRUCache } from '../../../../base/common/map.js';
@@ -194,6 +195,15 @@ export class OutlineGroup extends TreeElement {
 	}
 }
 
+// --- Start Positron ---
+/**
+ * Milliseconds to wait before each new request when a provider cancels a
+ * request the caller did not cancel: once right away, then with a backoff,
+ * about four seconds in all.
+ */
+const PROVIDER_CANCELLED_RETRY_DELAYS: readonly number[] = [0, 250, 1000, 3000];
+// --- End Positron ---
+
 export class OutlineModel extends TreeElement {
 
 	static create(registry: LanguageFeatureRegistry<DocumentSymbolProvider>, textModel: ITextModel, token: CancellationToken): Promise<OutlineModel> {
@@ -210,21 +220,28 @@ export class OutlineModel extends TreeElement {
 			// A language server can cancel a request this caller did not cancel, e.g.
 			// Pyrefly when a configuration change arrives behind it while a reloaded
 			// window settles. Treating that as "no symbols" left the Outline empty
-			// until the next edit. Ask once more, and if the provider cancels again,
-			// mark the model so OutlineModelService does not cache it.
-			const ask = (retry: boolean): Promise<DocumentSymbol[] | null | undefined> =>
-				Promise.resolve(provider.provideDocumentSymbols(textModel, cts.token)).catch(err => {
-					if (isCancellationError(err) && !cts.token.isCancellationRequested) {
-						if (retry) {
-							return ask(false);
-						}
-						result._providerCancelled = true;
+			// until the next edit, since the Outline only asks again on an edit. Ask
+			// again with a backoff, because the changes can arrive in a burst, and if
+			// the provider still cancels, mark the model so OutlineModelService does
+			// not cache it.
+			const ask = async (attempt: number): Promise<DocumentSymbol[] | null | undefined> => {
+				try {
+					return await provider.provideDocumentSymbols(textModel, cts.token);
+				} catch (err) {
+					if (!isCancellationError(err) || cts.token.isCancellationRequested) {
+						throw err;
 					}
+					if (attempt < PROVIDER_CANCELLED_RETRY_DELAYS.length) {
+						await timeout(PROVIDER_CANCELLED_RETRY_DELAYS[attempt], cts.token);
+						return ask(attempt + 1);
+					}
+					result._providerCancelled = true;
 					throw err;
-				});
+				}
+			};
 
 			// return Promise.resolve(provider.provideDocumentSymbols(textModel, cts.token)).then(result => {
-			return ask(true).then(result => {
+			return ask(0).then(result => {
 				// --- End Positron ---
 				for (const info of result || []) {
 					OutlineModel._makeOutlineElement(info, group);
