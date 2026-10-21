@@ -309,7 +309,17 @@ export interface IDiscoveredDataConnection {
 export interface IDataConnectionHandle {
 	readonly handle: number;
 	isReadOnly(): Promise<boolean>;
-	getChildren(): Promise<IDataConnectionNodeDTO[]>;
+	/**
+	 * Fetches the connection's top-level nodes.
+	 *
+	 * A top-level fetch is a refresh of the whole tree, so by default it frees every node handle
+	 * handed out before it. A caller walking the tree beside the Data Connections pane -- the schema
+	 * summary -- passes `retainNodes` so the pane's handles stay valid, and frees its own with
+	 * {@link releaseNodes} when it is done.
+	 */
+	getChildren(options?: { retainNodes?: boolean }): Promise<IDataConnectionNodeDTO[]>;
+	/** Frees node handles a `retainNodes` walk collected, once nothing will call back into them. */
+	releaseNodes(nodeHandles: readonly number[]): void;
 	disconnect(): Promise<void>;
 	isConnected(): Promise<boolean>;
 	nodeGetChildren(nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;

@@ -73,7 +73,7 @@ describe('MainThreadDataConnections', () => {
 	function instance(profileId: string, handle: Partial<IDataConnectionHandle>): IDataConnectionInstance {
 		return stubInterface<IDataConnectionInstance>({
 			profileId,
-			connectionHandle: stubInterface<IDataConnectionHandle>({ handle: 1, ...handle }),
+			connectionHandle: stubInterface<IDataConnectionHandle>({ handle: 1, releaseNodes: () => { }, ...handle }),
 		});
 	}
 

@@ -27,7 +27,12 @@ interface IFakeSchemaNode {
 // `expanded`, when supplied, collects the name of every node the walk asked to expand. Expanding a
 // node is a round-trip to the driver, so a test can assert that a node was summarized without its
 // children being listed at all.
-function createFakeHandle(roots: IFakeSchemaNode[], connectionHandle = 1, expanded: string[] = []): IDataConnectionHandle {
+function createFakeHandle(
+	roots: IFakeSchemaNode[],
+	connectionHandle = 1,
+	expanded: string[] = [],
+	calls: { retained: (boolean | undefined)[]; released: number[] } = { retained: [], released: [] },
+): IDataConnectionHandle {
 	let nextNodeHandle = 1;
 	const childrenByNodeHandle = new Map<number, IFakeSchemaNode[]>();
 	const nameByNodeHandle = new Map<number, string>();
@@ -52,7 +57,11 @@ function createFakeHandle(roots: IFakeSchemaNode[], connectionHandle = 1, expand
 
 	return stubInterface<IDataConnectionHandle>({
 		handle: connectionHandle,
-		getChildren: async () => roots.map(toDto),
+		getChildren: async options => {
+			calls.retained.push(options?.retainNodes);
+			return roots.map(toDto);
+		},
+		releaseNodes: nodeHandles => { calls.released.push(...nodeHandles); },
 		nodeGetChildren: async (nodeHandle: number) => {
 			expanded.push(nameByNodeHandle.get(nodeHandle) ?? `#${nodeHandle}`);
 			return (childrenByNodeHandle.get(nodeHandle) ?? []).map(toDto);
@@ -72,6 +81,20 @@ function createChain(depth: number, kind = 'database'): IFakeSchemaNode {
 }
 
 describe('summarizeDataConnectionSchema', () => {
+	it('leaves the handles the Data Connections pane holds alone, and frees every one of its own', async () => {
+		// The walk shares the connection's node handles with the pane. An ordinary top-level fetch
+		// frees them all, which left an expanded "Tables" row unable to expand again.
+		const calls = { retained: [] as (boolean | undefined)[], released: [] as number[] };
+		const handle = createFakeHandle([
+			{ name: 'Tables', kind: 'groupTables', children: [{ name: 'orders', kind: 'table', children: [{ name: 'id', kind: 'field' }] }] },
+		], 1, [], calls);
+
+		await summarizeDataConnectionSchema(handle);
+
+		expect({ retained: calls.retained, released: [...calls.released].sort((a, b) => a - b) })
+			.toEqual({ retained: [true], released: [1, 2, 3] });
+	});
+
 	it('returns an empty summary for a connection with no schema', async () => {
 		const handle = createFakeHandle([], 42);
 

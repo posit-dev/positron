@@ -200,3 +200,33 @@ describe('ExtHostDataConnections node details', () => {
 		await expect(extHost.$nodeGetDetails(connectionHandle, dtos[0].nodeHandle)).rejects.toThrow('does not support getDetails');
 	});
 });
+
+describe('ExtHostDataConnections node handles', () => {
+	const group = (): positron.DataConnectionNode => ({
+		name: 'Tables',
+		kind: 'group-tables' as positron.DataConnectionNodeKind,
+		getChildren: async () => [{ name: 'orders', kind: 'table' as positron.DataConnectionNodeKind }],
+	});
+
+	it('frees every node handle on an ordinary top-level fetch, which is a refresh', async () => {
+		const { extHost, connectionHandle, dtos } = await connectWithNodes([group()]);
+
+		await extHost.$connectionGetChildren(connectionHandle);
+
+		await expect(extHost.$nodeGetChildren(connectionHandle, dtos[0].nodeHandle))
+			.rejects.toThrow('does not support getChildren');
+	});
+
+	it('keeps the handles already handed out when a walk beside the tree fetches the top level', async () => {
+		// The schema summary walks the tree while the Data Connections pane holds handles into it.
+		const { extHost, connectionHandle, dtos } = await connectWithNodes([group()]);
+
+		const walked = await extHost.$connectionGetChildren(connectionHandle, true);
+		const children = await extHost.$nodeGetChildren(connectionHandle, dtos[0].nodeHandle);
+		extHost.$releaseNodes(connectionHandle, walked.map(dto => dto.nodeHandle));
+
+		expect(children.map(child => child.name)).toEqual(['orders']);
+		await expect(extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle))
+			.rejects.toThrow('does not support getChildren');
+	});
+});

@@ -114,7 +114,9 @@ function detailsToDTO(details: positron.DataConnectionNodeDetails): IDataConnect
  *   or when the driver is unregistered.
  * - Node handles are created each time getChildren returns and are stored per-connection.
  *   They are bulk-cleared when $connectionGetChildren is called (top-level refresh) or
- *   when $releaseConnection frees the entire connection.
+ *   when $releaseConnection frees the entire connection. A walk that runs beside the pane --
+ *   the schema summary -- fetches the top level with `retainNodes`, which leaves the pane's
+ *   handles alone, and frees exactly its own with $releaseNodes.
  */
 export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnectionsShape {
 
@@ -372,19 +374,31 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 	/**
 	 * Gets the top-level children of a connection. Clears any previously cached node handles for
-	 * this connection since a top-level call implies a full tree refresh.
+	 * this connection since a top-level call implies a full tree refresh -- unless `retainNodes`
+	 * says the caller is walking beside the tree rather than refreshing it, whose handles must
+	 * survive.
 	 */
-	async $connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]> {
+	async $connectionGetChildren(connectionHandle: number, retainNodes = false): Promise<IDataConnectionNodeDTO[]> {
 		const connection = this._connections.get(connectionHandle);
 		if (!connection) {
 			throw new Error(`Connection handle ${connectionHandle} not found`);
 		}
 
 		// Clear existing node handles to prevent unbounded growth on refresh.
-		this._nodes.set(connectionHandle, new Map());
+		if (!retainNodes || !this._nodes.has(connectionHandle)) {
+			this._nodes.set(connectionHandle, new Map());
+		}
 
 		const children = await connection.getChildren();
 		return this._serializeNodes(connectionHandle, children);
+	}
+
+	/** Frees the node handles a `retainNodes` walk collected. Unknown handles are ignored. */
+	$releaseNodes(connectionHandle: number, nodeHandles: number[]): void {
+		const nodeMap = this._nodes.get(connectionHandle);
+		for (const nodeHandle of nodeHandles) {
+			nodeMap?.delete(nodeHandle);
+		}
 	}
 
 	/** Disconnects but does not release the handle (the UI may still reference it). */

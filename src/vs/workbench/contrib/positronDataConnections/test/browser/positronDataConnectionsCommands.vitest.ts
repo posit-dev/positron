@@ -506,6 +506,7 @@ function createInstance(profileId: string, handle: number, tableNames: string[])
 		profileId,
 		connectionHandle: stubInterface<IDataConnectionHandle>({
 			handle,
+			releaseNodes: () => { },
 			getChildren: vi.fn(async () => tableNames.map((name, index) => ({
 				nodeHandle: index + 1,
 				name,

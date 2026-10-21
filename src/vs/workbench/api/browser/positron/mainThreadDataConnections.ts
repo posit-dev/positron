@@ -435,8 +435,17 @@ class MainThreadDataConnectionHandleAdapter implements IDataConnectionHandle {
 	/**
 	 * Fetches top-level children (databases, schemas, etc.) from the ext host.
 	 */
-	async getChildren(): Promise<IDataConnectionNodeDTO[]> {
-		return this._proxy.$connectionGetChildren(this.handle);
+	async getChildren(options?: { retainNodes?: boolean }): Promise<IDataConnectionNodeDTO[]> {
+		return this._proxy.$connectionGetChildren(this.handle, options?.retainNodes);
+	}
+
+	/**
+	 * Frees node handles a `retainNodes` walk collected.
+	 */
+	releaseNodes(nodeHandles: readonly number[]): void {
+		if (nodeHandles.length > 0) {
+			this._proxy.$releaseNodes(this.handle, [...nodeHandles]);
+		}
 	}
 
 	/**
