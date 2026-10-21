@@ -1373,11 +1373,19 @@ const NON_PROJECT_FOLDERS = ['node_modules', '.venv', 'venv', '.virtualenv'];
 const EMPTY_FOLDER_EXCLUDE = '**/node_modules/**';
 
 /**
- * Whether the open folder looks like an R project: it has R files at any
- * depth, or it's empty and you've used RStudio in the last 30 days.
- * @param folder A folder to search instead of the open folder, for tests.
+ * How long each folder search may run. Every language's first console waits
+ * for R's recommendation, so a slow disk can't hold them up for longer.
  */
-export async function looksLikeRProject(folder?: vscode.Uri): Promise<boolean> {
+const FOLDER_SEARCH_TIMEOUT_MS = 2000;
+
+/**
+ * Whether the open folder looks like an R project: it has R files at any
+ * depth, or it's empty and you've used RStudio in the last 30 days. A search
+ * that runs out of time counts as no R files, and as not empty.
+ * @param folder A folder to search instead of the open folder, for tests.
+ * @param timeoutMs How long each search may run, for tests.
+ */
+export async function looksLikeRProject(folder?: vscode.Uri, timeoutMs = FOLDER_SEARCH_TIMEOUT_MS): Promise<boolean> {
 	// Check if the workspace contains R-related files.
 	const globs = [
 		'**/*.R',
@@ -1390,22 +1398,44 @@ export async function looksLikeRProject(folder?: vscode.Uri): Promise<boolean> {
 	];
 	// Convert to the glob format used by vscode.workspace.findFiles.
 	const glob = `{${globs.join(',')}}`;
-	if (await hasFiles(glob, `**/{${NON_PROJECT_FOLDERS.join(',')}}/**`, folder)) {
+	const hasRFiles = await hasFiles(glob, `**/{${NON_PROJECT_FOLDERS.join(',')}}/**`, timeoutMs, folder);
+	if (hasRFiles) {
 		return true;
+	}
+	if (hasRFiles === undefined) {
+		LOGGER.info(`Stopped searching the folder for R files after ${timeoutMs} ms, so R won't start on its own. Running R code starts it.`);
+		return false;
 	}
 
 	// Check if the workspace is empty and the user is an RStudio user.
-	if (!(await hasFiles('**/*', EMPTY_FOLDER_EXCLUDE, folder)) && isRStudioUser()) {
+	if ((await hasFiles('**/*', EMPTY_FOLDER_EXCLUDE, timeoutMs, folder)) === false && isRStudioUser()) {
 		return true;
 	}
 
 	return false;
 }
 
-// Check if the current workspace, or the given folder, contains files matching a glob pattern.
-async function hasFiles(glob: string, exclude: string, folder?: vscode.Uri): Promise<boolean> {
+/**
+ * Whether the current workspace, or the given folder, contains files matching
+ * a glob pattern.
+ * @returns undefined if the search ran out of time.
+ */
+async function hasFiles(glob: string, exclude: string, timeoutMs: number, folder?: vscode.Uri): Promise<boolean | undefined> {
 	const include = folder ? new vscode.RelativePattern(folder, glob) : glob;
-	return (await vscode.workspace.findFiles(include, exclude, 1)).length > 0;
+	const cts = new vscode.CancellationTokenSource();
+	const timer = setTimeout(() => cts.cancel(), timeoutMs);
+	try {
+		const files = await vscode.workspace.findFiles(include, exclude, 1, cts.token);
+		return cts.token.isCancellationRequested ? undefined : files.length > 0;
+	} catch (err) {
+		if (cts.token.isCancellationRequested) {
+			return undefined;
+		}
+		throw err;
+	} finally {
+		clearTimeout(timer);
+		cts.dispose();
+	}
 }
 
 /**

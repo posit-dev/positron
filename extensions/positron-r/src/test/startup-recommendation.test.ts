@@ -89,6 +89,19 @@ suite('R startup recommendation', () => {
 		});
 	});
 
+	test('looksLikeRProject treats a search that runs out of time as no R files', async () => {
+		await testKit.withDisposables(async disposables => {
+			const [folder, folderDisposable] = testKit.makeTempDir('r-project-timeout');
+			disposables.push(folderDisposable);
+			fs.writeFileSync(path.join(folder, 'analysis.R'), '');
+
+			// 1 ms is shorter than any search takes, so the R file is never found.
+			assert.deepStrictEqual(
+				[await looksLikeRProject(vscode.Uri.file(folder), 1), await looksLikeRProject(vscode.Uri.file(folder))],
+				[false, true]);
+		});
+	});
+
 	// The r-versions file trigger reads a system file, so only the settings are checked here.
 	suite('full search triggers', () => {
 		const rConfig = () => vscode.workspace.getConfiguration('positron.r');
