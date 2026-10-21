@@ -32,8 +32,7 @@ class PositronReorderListRenderer extends AbstractSettingRenderer implements ITr
 
 		// Placed as upstream's list renderer does, so a hand-edited value shows the same error.
 		const validationErrorMessageElement = $('.setting-item-validation-message');
-		// eslint-disable-next-line no-restricted-syntax
-		common.containerElement.querySelector('.setting-item-description')!.after(validationErrorMessageElement);
+		common.descriptionElement.after(validationErrorMessageElement);
 
 		const template: IReorderListTemplate = { ...common, listWidget, validationErrorMessageElement };
 		this.addSettingElementFocusHandler(template);
