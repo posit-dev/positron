@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import { Reference, resolveReferences } from '../references';
 import { SchemaIndex } from '../schemaIndex';
-import { schemaOf, testAnalyzer } from './support';
+import { payloadOf, schemaOf, testAnalyzer } from './support';
 
 /**
  * The references a document produces against a schema, as `kind name: status`.
@@ -40,8 +40,116 @@ suite('resolveReferences', () => {
 		assert.deepStrictEqual(judge('SELECT * FROM invoices', SCHEMA), ['table invoices: unknown']);
 	});
 
-	test('a table in the wrong schema is unknown', () => {
-		assert.deepStrictEqual(judge('SELECT * FROM archive.orders', SCHEMA), ['table orders: unknown']);
+	test('a table in a schema the connection has, but not in that schema, is unknown', () => {
+		const schema = schemaOf('sales.orders: id', 'archive.invoices: id');
+
+		assert.deepStrictEqual(judge('SELECT * FROM archive.orders', schema), ['table orders: unknown']);
+	});
+
+	test('a table under a namespace the connection does not list is not judged', () => {
+		// An attached database, the engine's own catalog, a level the driver does not report: the
+		// schema cannot speak for any of them.
+		assert.deepStrictEqual(judge('SELECT * FROM other_db.orders', SCHEMA), []);
+		assert.deepStrictEqual(judge('SELECT table_name FROM information_schema.tables', SCHEMA), []);
+	});
+
+	test('a namespace the connection does not report still finds the table by name', () => {
+		// SQLite reports its tables at the root, and `main.` is how a statement names its database.
+		const flat = schemaOf('customers: id, name');
+
+		assert.deepStrictEqual(judge('SELECT name FROM main.customers', flat), ['column name: resolved', 'table customers: resolved']);
+		// And a known schema under an unreported database: `mydb.sales.orders` in PostgreSQL.
+		assert.deepStrictEqual(judge('SELECT total FROM mydb.sales.orders', SCHEMA), ['column total: resolved', 'table orders: resolved']);
+	});
+
+	test('the engine\'s own catalog tables are not judged', () => {
+		assert.deepStrictEqual(judge('SELECT relname FROM pg_class', SCHEMA), []);
+		assert.deepStrictEqual(judge('SELECT name FROM sqlite_master', SCHEMA), []);
+	});
+
+	test('a column every row has without declaring it is not unknown', () => {
+		assert.deepStrictEqual(
+			judge('SELECT rowid, ctid, total FROM orders', SCHEMA),
+			['column total: resolved', 'table orders: resolved'],
+		);
+	});
+
+	test('a correlated subquery resolves a column of the query around it', () => {
+		assert.deepStrictEqual(
+			judge('SELECT id FROM orders WHERE EXISTS (SELECT 1 FROM customers WHERE name = total)', SCHEMA),
+			[
+				'column id: resolved',
+				'table orders: resolved',
+				'table customers: resolved',
+				'column name: resolved',
+				'column total: resolved',
+			],
+		);
+		assert.deepStrictEqual(
+			judge('SELECT id FROM orders WHERE EXISTS (SELECT 1 FROM customers WHERE nonsense = 1)', SCHEMA)
+				.filter(each => each.includes('nonsense')),
+			['column nonsense: unknown'],
+		);
+	});
+
+	test('a correlated column qualified by the outer alias resolves', () => {
+		assert.deepStrictEqual(
+			judge('SELECT 1 FROM orders o WHERE EXISTS (SELECT 1 FROM customers c WHERE c.id = o.customer_id)', SCHEMA)
+				.filter(each => each.startsWith('column')),
+			['column id: resolved', 'column customer_id: resolved'],
+		);
+	});
+
+	test('a table this file creates is not unknown when it is read later', () => {
+		assert.deepStrictEqual(
+			judge('CREATE TEMP TABLE recent AS SELECT id FROM orders;\nSELECT id, extra FROM recent;', SCHEMA),
+			['column id: resolved', 'table orders: resolved'],
+		);
+		assert.deepStrictEqual(judge('CREATE VIEW v AS SELECT 1 AS a;\nSELECT a FROM v;', SCHEMA), []);
+	});
+
+	test('a table dropped if it exists is not judged', () => {
+		assert.deepStrictEqual(judge('DROP TABLE IF EXISTS staging', SCHEMA), []);
+		assert.deepStrictEqual(judge('DROP TABLE staging', SCHEMA), ['table staging: unknown']);
+	});
+
+	test('the columns of a table this file alters are not judged against the schema', () => {
+		const references = judge('ALTER TABLE orders ADD COLUMN shipped date;\nSELECT shipped, total FROM orders;', SCHEMA);
+
+		assert.deepStrictEqual(references.filter(each => each.startsWith('column')), ['column total: resolved']);
+	});
+
+	test('a renamed table is known by its new name', () => {
+		assert.deepStrictEqual(
+			judge('ALTER TABLE customers RENAME TO clients;\nSELECT name FROM clients;', SCHEMA)
+				.filter(each => each.includes('clients')),
+			[],
+		);
+	});
+
+	test('a lambda parameter is not a column', () => {
+		const analysis = testAnalyzer().analyze('SELECT list_transform([1, 2], x -> x + total) FROM orders', 'duckdb');
+
+		assert.deepStrictEqual(
+			resolveReferences(analysis, SCHEMA).map(describe),
+			['column total: resolved', 'table orders: resolved'],
+		);
+	});
+
+	test('an unqualified name several schemas have reads the default schema', () => {
+		const schema = new SchemaIndex(payloadOf('main.orders: id, total', 'sales.orders: id, region'), 'main');
+
+		assert.deepStrictEqual(
+			judge('SELECT region FROM orders', schema),
+			['column region: unknown', 'table orders: resolved'],
+		);
+	});
+
+	test('a misspelled column in an INSERT column list is unknown', () => {
+		assert.deepStrictEqual(
+			judge('INSERT INTO orders (id, totl) VALUES (1, 2)', SCHEMA),
+			['table orders: resolved', 'column id: resolved', 'column totl: unknown'],
+		);
 	});
 
 	test('a known column resolves against the table in scope', () => {

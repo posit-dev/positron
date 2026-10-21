@@ -31,10 +31,12 @@ suite('collectDiagnostics', () => {
 		assert.deepStrictEqual(await report('SELECT total FROM orders'), []);
 	});
 
-	test('a syntax error is an error on the offending token', async () => {
+	test('a syntax error is a warning on the offending token', async () => {
+		// A warning: sqlparser is not the engine's own grammar, and rejects some correct SQL in
+		// every dialect.
 		assert.deepStrictEqual(
 			await report('SELECT * FRM orders'),
-			['error "FRM": Expected: end of statement, found: FRM.'],
+			['warning "FRM": Expected: end of statement, found: FRM.'],
 		);
 	});
 
@@ -59,12 +61,21 @@ suite('collectDiagnostics', () => {
 		);
 	});
 
-	test('a syntax error stays an error even with a schema to check against', async () => {
+	test('a syntax error is still reported with a schema to check against', async () => {
 		// The two kinds are independent: an unparseable statement still reports its syntax.
-		const reported = await report('SELECT * FRM invoices');
+		assert.deepStrictEqual(
+			await report('SELECT * FRM invoices'),
+			['warning "FRM": Expected: end of statement, found: FRM.'],
+		);
+	});
 
-		assert.strictEqual(reported.length, 1);
-		assert.ok(reported[0].startsWith('error '));
+	test('a column of a table whose name needs quoting is named with its quotes', async () => {
+		const schema = schemaOf('main.Order Items: sku');
+
+		assert.deepStrictEqual(
+			await report('SELECT price FROM "Order Items"', schema),
+			[`warning "price": No column named 'price' in main."Order Items".`],
+		);
 	});
 
 	test('nothing is reported without a schema', async () => {

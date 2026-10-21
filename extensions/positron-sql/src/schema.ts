@@ -229,7 +229,7 @@ export function explainEmptySchema(
 	nonSqlCount = 0,
 ): string {
 	if (nonSqlCount > 0) {
-		// Open, and in the Connections pane where the user can see it, which makes "none are open"
+		// Open, and in the Data Connections pane where the user can see it, which makes "none are open"
 		// read as a bug in the extension rather than as the answer.
 		return `The ${nonSqlCount} open data connection(s) are not SQL databases, so completions`
 			+ ' cover SQL keywords only. A Posit Connect pin holds a stored R or Python object'

@@ -25,7 +25,17 @@ export class SchemaIndex {
 	 */
 	private readonly _namespaces = new Map<string, string>();
 
-	constructor(private readonly _schema: SqlSchema = EMPTY_SCHEMA) {
+	/**
+	 * @param _schema What the connection reported.
+	 * @param _defaultSchema The schema the engine reads an unqualified name from -- `main` in
+	 *   DuckDB, `public` in PostgreSQL -- if it has a fixed one. Decides which table an unqualified
+	 *   name means when several schemas have one by that name, and which tables a completion has to
+	 *   qualify.
+	 */
+	constructor(
+		private readonly _schema: SqlSchema = EMPTY_SCHEMA,
+		private readonly _defaultSchema?: string,
+	) {
 		for (const table of _schema.tables) {
 			const key = fold(table.name);
 			const existing = this._byName.get(key);
@@ -75,6 +85,21 @@ export class SchemaIndex {
 		return !this.isEmpty && this._schema.incompleteProfiles.length === 0;
 	}
 
+	/** Whether any table was reported under a catalog or a schema, rather than at the root. */
+	public get hasNamespaces(): boolean {
+		return this._namespaces.size > 0;
+	}
+
+	/**
+	 * Whether an unqualified name reads this table: it is in the engine's default schema, or the
+	 * engine has none this knows of, or it has no schema at all.
+	 */
+	public isDefault(table: SqlTable): boolean {
+		return this._defaultSchema === undefined
+			|| table.schema === undefined
+			|| fold(table.schema) === fold(this._defaultSchema);
+	}
+
 	/** Whether a name is the catalog or schema of some known table. */
 	public isNamespace(name: string): boolean {
 		return this._namespaces.has(fold(name));
@@ -90,10 +115,17 @@ export class SchemaIndex {
 	 *
 	 * A reference that omits a namespace part matches tables regardless of that part, so
 	 * `FROM orders` finds `sales.orders`. A reference that names one only matches tables that
-	 * agree on it.
+	 * agree on it. An unqualified name that several schemas have reads the one in the default
+	 * schema, as the engine would, when one of them is there.
 	 */
 	public resolve(name: string, schema?: string, catalog?: string): readonly SqlTable[] {
 		let matches = this.tablesNamed(name);
+		if (schema === undefined && catalog === undefined && matches.length > 1) {
+			const preferred = matches.filter(table => this.isDefault(table));
+			if (preferred.length > 0) {
+				matches = preferred;
+			}
+		}
 		if (schema !== undefined) {
 			// Either level, because a two-part name is `schema.table` on most engines and
 			// `catalog.table` on the ones with no schema level at all.
@@ -116,6 +148,17 @@ export class SchemaIndex {
 /** The dotted name of a table, using whichever namespace parts the connection reported. */
 export function qualifiedName(table: SqlTable): string {
 	return [table.catalog, table.schema, table.name].filter(part => part).join('.');
+}
+
+/**
+ * The dotted name of a table as a message should show it: a part that is not a plain identifier
+ * quoted, so `main."Order Items"` reads as two parts rather than as a sentence.
+ */
+export function displayName(table: SqlTable): string {
+	return [table.catalog, table.schema, table.name]
+		.filter((part): part is string => !!part)
+		.map(part => /^[A-Za-z_][A-Za-z0-9_]*$/.test(part) ? part : `"${part.replace(/"/g, '""')}"`)
+		.join('.');
 }
 
 function fold(name: string): string {

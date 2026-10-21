@@ -11,10 +11,15 @@ import { SchemaIndex } from './schemaIndex';
 /**
  * Diagnostics for a SQL document: two kinds, from two sources.
  *
- * Syntax errors come from the parser and are reported whatever else is known. Unknown table and
+ * Syntax problems come from the parser and are reported whatever else is known. Unknown table and
  * column names come from matching the document against the schema the user's connections
  * reported, and are reported only when that schema is a complete enough picture to judge a name
  * by -- see {@link SchemaIndex.isComplete}.
+ *
+ * Both are warnings. The parser is sqlparser, which is not any engine's own grammar: it rejects
+ * some correct SQL in every dialect -- SQLite's `GLOB`, DuckDB's `LIMIT 10%` -- and the database
+ * the statement runs on is the only real judge. The analyzer already confines syntax checking to
+ * the queries sqlparser models well; a warning is the right weight for what is left.
  */
 
 /** The diagnostic source, shown in the Problems panel beside each entry. */
@@ -38,7 +43,7 @@ export function collectDiagnostics(
 		const reported = new vscode.Diagnostic(
 			rangeOf(document, diagnostic.start, diagnostic.end),
 			diagnostic.message,
-			vscode.DiagnosticSeverity.Error,
+			vscode.DiagnosticSeverity.Warning,
 		);
 		reported.source = SOURCE;
 		return reported;
