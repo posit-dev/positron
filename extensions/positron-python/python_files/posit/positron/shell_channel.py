@@ -19,9 +19,10 @@ from __future__ import annotations
 from threading import current_thread
 from typing import TYPE_CHECKING, Any
 
-from ipykernel.shellchannel import ShellChannelThread
-from ipykernel.subshell_manager import SubshellManager
-from ipykernel.thread import SHELL_CHANNEL_THREAD_NAME
+# These modules only exist in ipykernel 7; the type check job installs the bundled 6.x.
+from ipykernel.shellchannel import ShellChannelThread  # pyright: ignore[reportMissingImports]
+from ipykernel.subshell_manager import SubshellManager  # pyright: ignore[reportMissingImports]
+from ipykernel.thread import SHELL_CHANNEL_THREAD_NAME  # pyright: ignore[reportMissingImports]
 
 if TYPE_CHECKING:
     import zmq

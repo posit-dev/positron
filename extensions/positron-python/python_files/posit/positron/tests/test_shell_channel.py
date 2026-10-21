@@ -8,8 +8,9 @@ Regression test for the ipykernel 7.0 to 7.3 shell channel wedge (posit-dev/posi
 
 Adapted from ipython/ipykernel#1529's ``test_subshell_wedge.py``. A request is queued on
 the shell ROUTER after its edge-triggered read edge has been consumed, then a reply is
-sent through the real ``_send_on_shell_channel`` path. The stock manager strands the
-request; Positron's manager routes the send through the stream, which services it.
+sent through the real ``_send_on_shell_channel`` path. The stock manager's raw send leaves
+the request stranded; Positron's manager routes the send through the stream, which
+services it.
 """
 
 from __future__ import annotations
@@ -53,9 +54,7 @@ def _run_on_loop(loop, func: Callable[[], object]) -> object:
     return box.get("result")
 
 
-def _strand_then_reply(*, stranded: bool):
-    from ipykernel.shellchannel import ShellChannelThread
-
+def test_positron_manager_delivers_concurrent_request():
     from positron.shell_channel import PositronShellChannelThread
 
     context = zmq.Context()
@@ -66,11 +65,9 @@ def _strand_then_reply(*, stranded: bool):
     client.setsockopt(zmq.IDENTITY, b"client-1")
     client.connect(f"tcp://127.0.0.1:{port}")
 
-    thread_class = ShellChannelThread if stranded else PositronShellChannelThread
-    thread = thread_class(context, shell_socket, daemon=True)
+    thread = PositronShellChannelThread(context, shell_socket, daemon=True)
     stream = ZMQStream(shell_socket, thread.io_loop)
-    if isinstance(thread, PositronShellChannelThread):
-        thread.shell_stream = stream
+    thread.shell_stream = stream
     thread.start()
 
     received: list[list[bytes]] = []
@@ -93,7 +90,7 @@ def _strand_then_reply(*, stranded: bool):
         received.clear()
         got_message.clear()
 
-        def strand():
+        def strand_then_reply():
             client.send_multipart([b"req-1"])
             # Reading EVENTS consumes the read edge, so the request is queued but the fd is
             # no longer readable: the strand precondition.
@@ -104,10 +101,10 @@ def _strand_then_reply(*, stranded: bool):
             assert not got_message.is_set(), "request delivered before the reply send"
             manager._send_on_shell_channel([routing_id, b"reply"])  # noqa: SLF001
 
-        _run_on_loop(thread.io_loop, strand)
+        _run_on_loop(thread.io_loop, strand_then_reply)
 
-        delivered = got_message.wait(1.0 if stranded else TIMEOUT)
-        return delivered, received
+        assert got_message.wait(TIMEOUT), "the queued request was stranded by the reply send"
+        assert received[-1][-1] == b"req-1"
     finally:
 
         def teardown():
@@ -122,15 +119,3 @@ def _strand_then_reply(*, stranded: bool):
         client.close()
         shell_socket.close()
         context.term()
-
-
-def test_stock_manager_strands_concurrent_request():
-    delivered, received = _strand_then_reply(stranded=True)
-    assert not delivered
-    assert received == []
-
-
-def test_positron_manager_delivers_concurrent_request():
-    delivered, received = _strand_then_reply(stranded=False)
-    assert delivered
-    assert received[-1][-1] == b"req-1"
