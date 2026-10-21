@@ -195,8 +195,9 @@ export async function checkIpykernel(
 }
 
 /**
- * @param startupBehavior The startup behavior, used as given. Only the recommendation passes one;
- *   every other runtime is `Explicit`.
+ * @param startupBehavior The startup behavior, used as given. Only the recommendation and the
+ *   pinned interpreter (`python.defaultInterpreterPath`) pass one, so opening a Python file starts
+ *   them; every other runtime is `Explicit`.
  */
 export async function createPythonRuntimeMetadata(
     interpreter: PythonEnvironment,
