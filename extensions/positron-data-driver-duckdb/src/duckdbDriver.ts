@@ -10,6 +10,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
 import { DuckDBConnection } from './duckdbConnection.js';
+import { checkDatabaseFile, IDatabaseFileSignature, IDatabasePathEnvironment, resolveDatabasePath } from './databasePath.js';
 
 /**
  * Type guard for a non-empty string.
@@ -19,23 +20,60 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 /**
- * Resolves a user-entered database path to an absolute path.
+ * The machine database paths are resolved on: the extension host's, which is also where the
+ * database file is opened.
  */
-function resolveDatabasePath(filePath: string): string {
-	// A leading `~/` is the home directory. `~` is a Unix shell convention with no native meaning on
-	// Windows, so this only applies on macOS and Linux. The result is absolute, so return it directly.
-	if (process.platform !== 'win32' && filePath.startsWith('~/')) {
-		return path.join(os.homedir(), filePath.slice(2));
+function databasePathEnvironment(): IDatabasePathEnvironment {
+	return {
+		pathLib: path,
+		homedir: os.homedir(),
+		workspaceFolderPaths: (vscode.workspace.workspaceFolders ?? []).map(folder => folder.uri.fsPath),
+		exists: existsSync,
+	};
+}
+
+/**
+ * The magic bytes in a DuckDB database file's header, which follow an 8-byte checksum. DuckDB does
+ * not open an empty file, so an empty file is rejected.
+ */
+const DUCKDB_SIGNATURE: IDatabaseFileSignature = {
+	magic: Buffer.from('DUCK', 'latin1'),
+	offset: 8,
+	allowEmpty: false,
+};
+
+/**
+ * Checks the database path the user entered in the configuration dialog, and resolves it to the
+ * absolute path that is saved with the connection, so the connection keeps working when Positron is
+ * opened on a different folder.
+ * @param filePath The path as entered.
+ * @returns The absolute path to save, or an error message to show beneath the field.
+ */
+async function validateDatabasePath(filePath: string): Promise<positron.DataConnectionParameterValidation> {
+	// Reports an error with the database path.
+	const error = (message: string) => ({ errors: { databasePath: message } });
+
+	// The path must not be blank, and a relative path can only be resolved against a workspace
+	// folder.
+	const databasePath = resolveDatabasePath(filePath, databasePathEnvironment());
+	if (!databasePath) {
+		return error(vscode.l10n.t("Enter the path to a database file."));
+	}
+	if (!path.isAbsolute(databasePath)) {
+		return error(vscode.l10n.t("Enter an absolute path, or open a folder to resolve a relative path against."));
 	}
 
-	// Absolute paths are used as-is.
-	if (path.isAbsolute(filePath)) {
-		return filePath;
+	// The path must name an existing DuckDB database file.
+	switch (await checkDatabaseFile(databasePath, DUCKDB_SIGNATURE)) {
+		case 'missing':
+			return error(vscode.l10n.t("'{0}' does not exist.", databasePath));
+		case 'notFile':
+			return error(vscode.l10n.t("'{0}' is not a file.", databasePath));
+		case 'wrongKind':
+			return error(vscode.l10n.t("'{0}' is not a DuckDB database.", databasePath));
+		case 'valid':
+			return { normalizedValues: { databasePath } };
 	}
-
-	// Resolve a relative path against the workspace folders.
-	const candidatePaths = (vscode.workspace.workspaceFolders ?? []).map(folder => path.join(folder.uri.fsPath, filePath));
-	return candidatePaths.find(candidate => existsSync(candidate)) ?? candidatePaths[0] ?? filePath;
 }
 
 /**
@@ -130,7 +168,7 @@ export function createDuckDBDriver(
 					}
 
 					// Resolve `~` and workspace-relative paths to an absolute path before opening the file.
-					const databasePath = resolveDatabasePath(rawDatabasePath);
+					const databasePath = resolveDatabasePath(rawDatabasePath, databasePathEnvironment());
 
 					// Create the connection and establish it.
 					const connection = new DuckDBConnection({
@@ -148,6 +186,16 @@ export function createDuckDBDriver(
 					throw new Error(vscode.l10n.t("Unknown connection mechanism '{0}'.", mechanismId));
 			}
 		},
+		async validateParameters(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnectionParameterValidation> {
+			// Only the file mechanism has parameters to validate, and the dialog has already checked
+			// that the required database path is present.
+			if (mechanismId !== FILE_MECHANISM_ID || !isNonEmptyString(params.databasePath)) {
+				return {};
+			}
+
+			// Validate the database path, saving it as an absolute path.
+			return validateDatabasePath(params.databasePath);
+		},
 		async generateConnectionCode(_mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
 			// Extract parameters.
 			const databasePath = params.databasePath;
@@ -161,7 +209,7 @@ export function createDuckDBDriver(
 			// Resolve `~` and workspace-relative paths so the generated code references a concrete,
 			// absolute path (Python and R do not expand `~`, and the console's working directory may
 			// differ from the workspace folder).
-			const escapedPath = escapeDoubleQuoted(resolveDatabasePath(databasePath));
+			const escapedPath = escapeDoubleQuoted(resolveDatabasePath(databasePath, databasePathEnvironment()));
 
 			// Generate code variants for supported languages. Return an empty array for
 			// unsupported languages or when code cannot be generated.
@@ -203,7 +251,7 @@ export function createDuckDBDriver(
 					// ggsql connects via an `@connect` directive comment rather than executable code.
 					// Forward slashes keep the path portion a valid URI on Windows, where the resolved
 					// path uses backslashes.
-					const uriPath = resolveDatabasePath(databasePath).replace(/\\/g, '/');
+					const uriPath = resolveDatabasePath(databasePath, databasePathEnvironment()).replace(/\\/g, '/');
 					return [
 						{
 							id: 'ggsql',
