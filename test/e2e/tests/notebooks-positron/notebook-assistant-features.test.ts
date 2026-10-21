@@ -15,6 +15,11 @@ test.use({
 // for the "visible" cases; the echo test provider is gone.
 const PROVIDER = 'anthropic';
 
+// The bundled Assistant can lag behind the provider manager these tests drive.
+test.beforeAll(async function ({ app, settings }) {
+	await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+});
+
 test.describe('Notebook Assistant: Feature Toggle', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WIN]
 }, () => {
