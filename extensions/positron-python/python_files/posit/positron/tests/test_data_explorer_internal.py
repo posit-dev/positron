@@ -5,6 +5,8 @@ Tests the Polars-based histogram implementation and verifies consistency
 with NumPy implementation across various data types and edge cases.
 """
 
+import random
+
 import polars as pl
 import pytest
 
@@ -409,6 +411,10 @@ def test_histogram_numpy_outlier_caps_bins_before_allocating(monkeypatch, method
     assert len(bin_counts) <= num_bins
 
 
+_rng = random.Random(0)
+_SEEDED_NORMAL_1000 = [_rng.gauss(0, 1) for _ in range(1000)]
+
+
 @pytest.mark.parametrize("method", ["fd", "sturges", "scott"])
 @pytest.mark.parametrize(
     "values",
@@ -417,6 +423,8 @@ def test_histogram_numpy_outlier_caps_bins_before_allocating(monkeypatch, method
         [1, 1, 1, 2, 3, 5, 8, 13],
         [0.0, 0.0, 0.0, 0.0, 1.0],
         [-5.0, float("inf"), 3.0, 4.0],
+        # Enough bins that an off-by-10% width estimator changes the count
+        _SEEDED_NORMAL_1000,
     ],
 )
 def test_histogram_numpy_matches_numpy_bin_estimator(method, values):
@@ -443,8 +451,16 @@ def test_histogram_numpy_tiny_bin_width_caps_bins():
     assert len(bin_counts) == 20
 
 
-@pytest.mark.parametrize("method", ["fixed", "fd"])
-def test_histogram_numpy_capped_runs_once(monkeypatch, method):
+@pytest.mark.parametrize(
+    ("values", "method"),
+    [
+        ([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 1e10], "fixed"),
+        ([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 1e10], "fd"),
+        # Integer range of 5 asks for 6 bins, which the cap brings back to 5
+        (list(range(6)), "fixed"),
+    ],
+)
+def test_histogram_numpy_capped_runs_once(monkeypatch, values, method):
     """Hitting the num_bins cap must not recompute the same histogram."""
     np = pytest.importorskip("numpy")
     real_histogram = np.histogram
@@ -456,7 +472,7 @@ def test_histogram_numpy_capped_runs_once(monkeypatch, method):
 
     monkeypatch.setattr(np, "histogram", counting_histogram)
 
-    data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 1e10])
+    data = np.array(values)
     bin_counts, _ = _get_histogram_numpy(data, 5, method=method)
 
     assert len(bin_counts) == 5
