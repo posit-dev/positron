@@ -1699,11 +1699,22 @@ describe('RuntimeStartupService - start reasons', () => {
 		await vi.waitFor(() => expect(startedRuntimeIds()).toEqual(['rt-rec']));
 	});
 
-	it('starts the defined variant of the recommendation without saving an affiliation', async () => {
+	/** Sets interpreters.definitions, and definitionsOnly discovery unless told otherwise. */
+	async function defineInterpreters(definition: { language: string; path: string; label: string }, definitionsOnly = true) {
+		const settings: Record<string, unknown> = { 'interpreters.definitions': [definition] };
+		if (definitionsOnly) {
+			settings['interpreters.discovery'] = 'definitionsOnly';
+		}
+		// The language runtime service reads these too, to register variants.
+		for (const [key, value] of Object.entries(settings)) {
+			await (ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(key, value);
+		}
+		return settings;
+	}
+
+	it('starts the defined variant of the recommendation without saving an affiliation when discovery is limited to definitions', async () => {
 		const definition = { language: 'python', path: '/venv/bin/python', label: 'Python (GPU)' };
-		// The language runtime service reads the definitions to register variants.
-		await (ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('interpreters.definitions', [definition]);
-		createService(LanguageStartupBehavior.Auto, { settings: { 'interpreters.definitions': [definition] } });
+		createService(LanguageStartupBehavior.Auto, { settings: await defineInterpreters(definition) });
 		const recommended = { ...metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }), startupBehavior: LanguageRuntimeStartupBehavior.Immediate };
 		const manager = makeManager({ id: 1, owns: [] });
 		manager.recommendWorkspaceRuntimes = async () => [{ metadata: recommended, isProjectDefault: false }];
@@ -1725,10 +1736,30 @@ describe('RuntimeStartupService - start reasons', () => {
 		});
 	});
 
+	it('starts the plain recommendation when a definition matches it but discovery is not limited to definitions', async () => {
+		const definition = { language: 'python', path: '/venv/bin/python', label: 'Python (GPU)' };
+		createService(LanguageStartupBehavior.Auto, { settings: await defineInterpreters(definition, false) });
+		const recommended = { ...metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }), startupBehavior: LanguageRuntimeStartupBehavior.Immediate };
+		const manager = makeManager({ id: 1, owns: [] });
+		manager.recommendWorkspaceRuntimes = async () => [{ metadata: recommended, isProjectDefault: false }];
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+
+		await (svc as unknown as {
+			startRecommendedLanguageRuntimes(disabledLanguageIds: string[], enabledLanguageIds: string[]): Promise<void>;
+		}).startRecommendedLanguageRuntimes([], []);
+
+		expect({
+			started: startedRuntimeIds(),
+			preferred: svc.getPreferredRuntime('python')?.runtimeId,
+		}).toEqual({
+			started: ['rt-rec'],
+			preferred: 'rt-rec',
+		});
+	});
+
 	it('saves the base recommendation, not its defined variant, as the project default', async () => {
 		const definition = { language: 'python', path: '/venv/bin/python', label: 'Python (GPU)' };
-		await (ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('interpreters.definitions', [definition]);
-		createService(LanguageStartupBehavior.Auto, { settings: { 'interpreters.definitions': [definition] } });
+		createService(LanguageStartupBehavior.Auto, { settings: await defineInterpreters(definition) });
 		const recommended = { ...metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }), startupBehavior: LanguageRuntimeStartupBehavior.Explicit };
 		const manager = makeManager({ id: 1, owns: [] });
 		manager.recommendWorkspaceRuntimes = async () => [{ metadata: recommended, isProjectDefault: true }];
@@ -1785,11 +1816,9 @@ describe('RuntimeStartupService - start reasons', () => {
 		expect(startedRuntimeIds()).toEqual(['rt-rec']);
 	});
 
-	it('maps the recommendation made after discovery to its defined variant', async () => {
+	it('maps the recommendation made after discovery to its defined variant when discovery is limited to definitions', async () => {
 		const definition = { language: 'python', path: '/venv/bin/python', label: 'Python (GPU)' };
-		// The language runtime service reads the definitions to register variants.
-		await (ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('interpreters.definitions', [definition]);
-		createService(LanguageStartupBehavior.Always, { settings: { 'interpreters.definitions': [definition] } });
+		createService(LanguageStartupBehavior.Always, { settings: await defineInterpreters(definition) });
 		const recommended = metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' });
 		recommendAfterDiscovery(recommended);
 		completeDiscovery();

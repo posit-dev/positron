@@ -1712,12 +1712,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * that the defined variant is what starts. Otherwise, the runtime itself.
 	 */
 	private definitionVariantFor(runtime: ILanguageRuntimeMetadata): ILanguageRuntimeMetadata {
+		// Only when discovery is limited to definitions: otherwise the plain
+		// interpreter is recommended and started, and a definition for the
+		// same path is a separate entry the user picks.
+		if (this._configurationService.getValue<string>(INTERPRETER_DISCOVERY_KEY, { overrideIdentifier: runtime.languageId }) !== 'definitionsOnly') {
+			return runtime;
+		}
 		const definitions = this._configurationService.getValue<IInterpreterDefinition[]>(INTERPRETER_DEFINITIONS_KEY);
 		const definition = getMatchingDefinitions(definitions, runtime)[0];
 		if (!definition) {
-			if (this._configurationService.getValue<string>(INTERPRETER_DISCOVERY_KEY, { overrideIdentifier: runtime.languageId }) === 'definitionsOnly') {
-				this._logService.debug(`[Runtime startup] The recommendation ${formatLanguageRuntimeMetadata(runtime)} has no matching interpreter definition and will be hidden.`);
-			}
+			this._logService.debug(`[Runtime startup] The recommendation ${formatLanguageRuntimeMetadata(runtime)} has no matching interpreter definition and will be hidden.`);
 			return runtime;
 		}
 		const variant = createInterpreterVariant(runtime, definition);
