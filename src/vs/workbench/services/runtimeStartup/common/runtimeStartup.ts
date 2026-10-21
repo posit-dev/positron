@@ -13,7 +13,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
@@ -1720,7 +1720,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param disabledLanguageIds The language IDs that are disabled.
 	 * @returns An array of recommended runtimes.
 	 */
-	private async getRecommendedRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
+	private async getRecommendedRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeRecommendation[]> {
 
 		// Ask each extension to recommend runtimes for this workspace.
 		const metadata = await Promise.all(
@@ -1849,7 +1849,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		// Start the recommended runtimes.
-		const promises = runtimes.map(async (runtime, idx) => {
+		const promises = runtimes.map(async ({ metadata: runtime, isProjectDefault }, idx) => {
 			// Ensure that the runtime isn't disabled; we try to avoid getting these
 			// in the first place by not querying for them, but technically any
 			// runtime manager could return a disabled runtime.
@@ -1868,10 +1868,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// Start the runtime immediately if it has Immediate startup
 				// behavior.
 				await this.autoStartRuntime(runtime, { id: SessionStartReasonId.ExtensionRecommendedRuntime }, idx === 0);
-			} else {
+			} else if (isProjectDefault) {
 				// For other startup behaviors, we just save the runtime as the
 				// default (unless the workspace already has an affiliated
-				// runtime for this language).
+				// runtime for this language). A manager that recomputes its
+				// recommendation on every open opts out of this, so the
+				// recommendation never starts on a later open as the "last
+				// used" runtime.
 				const oldAffiliation = this.getAffiliatedRuntime(runtime.languageId);
 				if (!oldAffiliation) {
 					const affiliated: IAffiliatedRuntimeMetadata = {
@@ -1905,7 +1908,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const metadata = await Promise.all(this._runtimeManagers.map(manager =>
 			manager.recommendWorkspaceRuntimes(skipLanguageIds, true)));
 
-		for (const runtime of metadata.flat()) {
+		for (const { metadata: runtime } of metadata.flat()) {
 			if (skipLanguageIds.includes(runtime.languageId)) {
 				continue;
 			}

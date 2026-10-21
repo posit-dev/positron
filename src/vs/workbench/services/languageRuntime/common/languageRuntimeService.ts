@@ -983,6 +983,21 @@ export function signaturesEqual(
  * ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
  */
+/**
+ * A runtime an extension recommends for the workspace.
+ */
+export interface ILanguageRuntimeRecommendation {
+	/** The recommended runtime. */
+	readonly metadata: ILanguageRuntimeMetadata;
+
+	/**
+	 * Whether a recommendation that is not started right away may be saved as
+	 * the project default. False when the runtime manager sets
+	 * `recommendationIsProjectDefault` to false.
+	 */
+	readonly isProjectDefault: boolean;
+}
+
 export interface ILanguageRuntimeMetadata {
 	/**
 	 * The absolute path to the runtime executable. Always a fully-expanded path
@@ -1141,7 +1156,7 @@ export interface IRuntimeManager {
 	 * core asks again after discovery.
 	 * @returns A list of recommended runtimes, asynchronously.
 	 */
-	recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeMetadata[]>;
+	recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeRecommendation[]>;
 
 	/**
 	 * Whether this manager is responsible for the given runtime. Used by the

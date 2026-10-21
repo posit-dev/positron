@@ -1470,7 +1470,7 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		const manager = makeManager({ id: 1, owns: [] });
 		manager.recommendWorkspaceRuntimes = async (disabledLanguageIds, afterDiscovery) => {
 			asks.push([disabledLanguageIds, afterDiscovery]);
-			return afterDiscovery ? [recommended] : [];
+			return afterDiscovery ? [{ metadata: recommended, isProjectDefault: false }] : [];
 		};
 		ctx.disposables.add(svc.registerRuntimeManager(manager));
 
@@ -1482,6 +1482,33 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		}).toEqual({
 			asks: [[[], true]],
 			preferred: 'rt-conda',
+		});
+	});
+
+	it('saves a recommendation that does not start as the project default only if its manager allows it', async () => {
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+
+		// Python recomputes its recommendation on every open and opts out; R keeps the default.
+		const manager = makeManager({ id: 1, owns: [] });
+		manager.recommendWorkspaceRuntimes = async () => [
+			{ metadata: metadata({ languageId: 'python', runtimeId: 'rt-python' }), isProjectDefault: false },
+			{ metadata: metadata({ languageId: 'r', runtimeId: 'rt-r' }), isProjectDefault: true },
+		];
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+
+		await (svc as unknown as {
+			startRecommendedLanguageRuntimes(disabledLanguageIds: string[], enabledLanguageIds: string[]): Promise<void>;
+		}).startRecommendedLanguageRuntimes([], []);
+
+		expect({
+			pythonAffiliation: svc.getAffiliatedRuntimeMetadata('python')?.runtimeId,
+			rAffiliation: svc.getAffiliatedRuntimeMetadata('r')?.runtimeId,
+			pythonPreferred: svc.getPreferredRuntime('python')?.runtimeId,
+		}).toEqual({
+			pythonAffiliation: undefined,
+			rAffiliation: 'rt-r',
+			pythonPreferred: 'rt-python',
 		});
 	});
 });
@@ -1669,7 +1696,7 @@ describe('RuntimeStartupService - start reasons', () => {
 		const manager = makeManager({ id: 1, owns: [] });
 		manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) => {
 			asked = !!afterDiscovery;
-			return afterDiscovery ? [metadata()] : [];
+			return afterDiscovery ? [{ metadata: metadata(), isProjectDefault: false }] : [];
 		};
 		ctx.disposables.add(svc.registerRuntimeManager(manager));
 		completeDiscovery();

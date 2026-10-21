@@ -1239,6 +1239,16 @@ declare module 'positron' {
 		recommendedWorkspaceRuntime(afterDiscovery?: boolean): Thenable<LanguageRuntimeMetadata | undefined>;
 
 		/**
+		 * Whether a recommendation that is not started right away is saved as
+		 * the project default (an affiliation that has never been started or
+		 * used). Defaults to `true`. Set to `false` when the manager decides its
+		 * recommendation afresh every time the folder opens: core then uses the
+		 * recommendation for this window only and never saves it, so it can't
+		 * start on a later open as "the last interpreter used".
+		 */
+		readonly recommendationIsProjectDefault?: boolean;
+
+		/**
 		 * An optional snapshot of the directories this manager scans for
 		 * interpreters. Called on every warm start to detect newly-installed
 		 * interpreters before deciding whether to skip full discovery.
