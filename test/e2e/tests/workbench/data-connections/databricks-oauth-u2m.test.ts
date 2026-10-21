@@ -63,6 +63,7 @@ test.describe('Data Connections - Databricks OAuth U2M', {
 				authorizeUrl = request.url();
 			}
 			if (request.url().startsWith('http://localhost:8030')) {
+				console.log(`[u2m] callback: ${request.url().replace(/code=[^&]+/, 'code=...')}`);
 				resolve(request.url());
 			}
 		}));
@@ -72,13 +73,16 @@ test.describe('Data Connections - Databricks OAuth U2M', {
 			}
 		});
 
-		await signInWithSso(popup, () => authorizeUrl, { email: email!, password: password!, otpSecret: otpSecret! }, app.code.logger);
+		await signInWithSso(popup, () => authorizeUrl, callbackUrl, { email: email!, password: password!, otpSecret: otpSecret! }, app.code.logger);
 		const callback = await Promise.race([
 			callbackUrl,
 			popup.waitForTimeout(90_000).then(() => { throw new Error('No redirect to the callback within 90s'); }),
 		]);
-		app.code.logger.log(`[u2m] callback: ${callback.replace(/code=[^&]+/, 'code=...')}`);
 		await popup.close();
+		const error = new URL(callback).searchParams.get('error');
+		if (error) {
+			throw new Error(`Databricks answered the authorize request with ${error}: ${new URL(callback).searchParams.get('error_description')}`);
+		}
 
 		await quickInput.waitForQuickInputOpened({ timeout: 15_000 });
 		await quickInput.expectTitleBarToHaveText('Sign in to Databricks');
@@ -95,12 +99,23 @@ test.describe('Data Connections - Databricks OAuth U2M', {
  * Signs in on the Databricks login page through "Continue with SSO", which federates to
  * posit.okta.com: password, then a TOTP code. Mirrors the Workbench auth page's Azure flow.
  */
-async function signInWithSso(popup: Page, authorizeUrl: () => string, account: { email: string; password: string; otpSecret: string }, logger: { log(message: string): void }): Promise<void> {
+async function signInWithSso(popup: Page, authorizeUrl: () => string, callbackUrl: Promise<string>, account: { email: string; password: string; otpSecret: string }, logger: { log(message: string): void }): Promise<void> {
 	const step = (name: string) => logger.log(`[u2m] ${name}: ${popup.url().split('?')[0]}`);
-	// On CI the popup's first navigation to the authorize URL sometimes never completes, while a
-	// fresh navigation does; re-navigate rather than wait on a request that will not finish.
+	// Databricks may answer the authorize request by redirecting to the callback at once (an
+	// OAuth error, or a session it already trusts); the caller reads that callback, so stop here.
+	const callbackArrived = callbackUrl.then(() => 'callback' as const);
 	const sso = popup.getByText('Continue with SSO');
-	for (let attempt = 1; !(await sso.waitFor({ timeout: 30_000 }).then(() => true, () => false)); attempt++) {
+	for (let attempt = 1; ; attempt++) {
+		const outcome = await Promise.race([
+			sso.waitFor({ timeout: 30_000 }).then(() => 'sso' as const, () => 'timeout' as const),
+			callbackArrived,
+		]);
+		if (outcome === 'callback') {
+			return;
+		}
+		if (outcome === 'sso') {
+			break;
+		}
 		console.log(`[u2m] login page not shown after 30s (attempt ${attempt}) at ${popup.url().split('?')[0]}; re-navigating`);
 		if (attempt === 3) {
 			throw new Error('The Databricks login page did not load');
