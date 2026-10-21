@@ -50,7 +50,23 @@ jobs:
       # The action only does this by default when allowed_non_write_users is set.
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
       HOME: /root
+      # Avoid the Docker client reading the root-owned config file in the container.
+      DOCKER_CONFIG: /tmp/.docker
+    # Container steps default to sh; the scripts below use bash syntax.
+    defaults:
+      run:
+        shell: bash
     steps:
+      # The positron-ubuntu24 image ships no GitHub CLI. The permission check below needs it, and
+      # so do the gh commands Claude is allowed to run.
+      - name: Install the GitHub CLI
+        env:
+          GH_CLI_VERSION: 2.97.0
+        run: |
+          curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz" | tar -xz -C /tmp
+          install -m 0755 "/tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh
+          gh --version
+
       - name: Check actor has write permission
         env:
           GH_TOKEN: ${{ github.token }}
@@ -172,7 +188,6 @@ jobs:
           NPM_CONFIG_FUND: 'false'
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'
           NPM_CONFIG_DEVDIR: '.node-gyp-cache'
-          DOCKER_CONFIG: /tmp/.docker
           POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
         with:
           timeout_minutes: 30
