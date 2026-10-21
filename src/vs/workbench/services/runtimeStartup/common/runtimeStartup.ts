@@ -17,7 +17,7 @@ import { IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMeta
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
-import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY } from '../../languageRuntime/common/interpreterDefinitions.js';
+import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../languageRuntime/common/interpreterDefinitions.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILifecycleService, ShutdownReason } from '../../lifecycle/common/lifecycle.js';
@@ -130,6 +130,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// The runtime each language's extension recommended for this workspace,
 	// from the ask at startup or the ask after discovery. Keyed by languageId.
 	private readonly _recommendedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
+
+	// The languages whose recommendation came from a manager that opted out
+	// of being the project default (`isProjectDefault === false`).
+	private readonly _optedOutLanguageIds = new Set<string>();
+
+	// Whether the post-discovery start for languages set to Always has run.
+	private _alwaysStartRan = false;
+
+	// Set while the recommendation code registers a runtime, so registration
+	// does not auto-start it before the recommendation chooses what to start.
+	private _suppressRegistrationAutoStart = false;
 
 	// A map of each extension host and its runtime discovery completion state.
 	// This is keyed by the the extension host's mainThreadLanguageRuntime's id
@@ -390,6 +401,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// When a runtime is registered, check to see if we need to auto-start it.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
+			if (this._suppressRegistrationAutoStart) {
+				return;
+			}
+
 			// Automatically start the language runtime under the following conditions:
 			// - The language runtime wants to start immediately.
 			// - No other runtime is currently running.
@@ -1700,6 +1715,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const definitions = this._configurationService.getValue<IInterpreterDefinition[]>(INTERPRETER_DEFINITIONS_KEY);
 		const definition = getMatchingDefinitions(definitions, runtime)[0];
 		if (!definition) {
+			if (this._configurationService.getValue<string>(INTERPRETER_DISCOVERY_KEY, { overrideIdentifier: runtime.languageId }) === 'definitionsOnly') {
+				this._logService.debug(`[Runtime startup] The recommendation ${formatLanguageRuntimeMetadata(runtime)} has no matching interpreter definition and will be hidden.`);
+			}
 			return runtime;
 		}
 		const variant = createInterpreterVariant(runtime, definition);
@@ -1859,6 +1877,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Prefer and start the runtime's defined variant, if any.
 			const runtime = this.definitionVariantFor(recommended);
 			this._recommendedRuntimesByLanguageId.set(runtime.languageId, runtime);
+			if (isProjectDefault === false) {
+				this._optedOutLanguageIds.add(runtime.languageId);
+			}
 
 			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
 				// Start the runtime immediately if it has Immediate startup
@@ -1871,10 +1892,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// recommendation on every open opts out of this, so the
 				// recommendation never starts on a later open as the "last
 				// used" runtime.
-				const oldAffiliation = this.getAffiliatedRuntime(runtime.languageId);
+				const oldAffiliation = this.getAffiliatedRuntime(recommended.languageId);
 				if (!oldAffiliation) {
 					const affiliated: IAffiliatedRuntimeMetadata = {
-						metadata: runtime,
+						// Save the base recommendation, not its definition variant.
+						metadata: recommended,
 						// Marking lastUsed = lastStarted = 0 will prevent
 						// auto-startup.
 						lastUsed: 0,
@@ -1904,13 +1926,23 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const metadata = await Promise.all(this._runtimeManagers.map(manager =>
 			manager.recommendWorkspaceRuntimes(skipLanguageIds, true)));
 
-		for (const { metadata: recommended } of metadata.flat()) {
+		for (const { metadata: recommended, isProjectDefault } of metadata.flat()) {
 			if (skipLanguageIds.includes(recommended.languageId)) {
 				continue;
 			}
-			this._register(this._languageRuntimeService.registerRuntime(recommended));
+			// Register the base (its variants register with it) without
+			// auto-starting it, then choose the variant to start.
+			this._suppressRegistrationAutoStart = true;
+			try {
+				this._register(this._languageRuntimeService.registerRuntime(recommended));
+			} finally {
+				this._suppressRegistrationAutoStart = false;
+			}
 			const runtime = this.definitionVariantFor(recommended);
 			this._recommendedRuntimesByLanguageId.set(runtime.languageId, runtime);
+			if (isProjectDefault === false) {
+				this._optedOutLanguageIds.add(runtime.languageId);
+			}
 			this._logService.debug(`[Runtime startup] Recommended after discovery: ${formatLanguageRuntimeMetadata(runtime)}`);
 
 			if (this._runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId)) {
@@ -1929,12 +1961,34 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// A language whose startup behavior is Always starts its affiliated
 		// runtime; without one, it starts its recommendation, whatever the
-		// recommended runtime's own startup behavior.
-		for (const [languageId, runtime] of this._recommendedRuntimesByLanguageId) {
+		// recommended runtime's own startup behavior. This runs once per
+		// window, so a later rediscovery doesn't restart a closed console.
+		if (this._alwaysStartRan) {
+			return;
+		}
+		this._alwaysStartRan = true;
+		const languageIds = new Set([
+			...this._languagePacks.keys(),
+			...this._recommendedRuntimesByLanguageId.keys(),
+			...this._languageRuntimeService.registeredRuntimes.map(metadata => metadata.languageId),
+		]);
+		for (const languageId of languageIds) {
 			if (this.getStartupBehavior(languageId) !== LanguageStartupBehavior.Always ||
-				this.getAffiliatedRuntimeMetadata(languageId) ||
-				this._runtimeSessionService.hasStartingOrRunningConsole(languageId) ||
-				!this._languageRuntimeService.getRegisteredRuntime(runtime.runtimeId)) {
+				this._runtimeSessionService.hasStartingOrRunningConsole(languageId)) {
+				continue;
+			}
+			// A saved default that was never started or used doesn't count.
+			const affiliation = this.getAffiliatedRuntime(languageId);
+			if (affiliation && (affiliation.lastStarted !== 0 || affiliation.lastUsed !== 0)) {
+				continue;
+			}
+			// A language whose manager opted out never falls back to "first
+			// registered"; only its own recommendation can start.
+			let runtime = this._recommendedRuntimesByLanguageId.get(languageId);
+			if (!runtime && !this._optedOutLanguageIds.has(languageId)) {
+				runtime = this.getPreferredRuntime(languageId);
+			}
+			if (!runtime || !this._languageRuntimeService.getRegisteredRuntime(runtime.runtimeId)) {
 				continue;
 			}
 			// Language-specific values win over values for all languages, so

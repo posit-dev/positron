@@ -283,36 +283,37 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// When an extension activates, check to see if we have any disconnected
 		// sessions owned by that extension. If we do, try to reconnect them.
 		this._register(this._extensionService.onDidChangeExtensionsStatus(async (e) => {
+			const restores: Promise<void>[] = [];
 			for (const extensionId of e) {
 				for (const s of this._disconnectedSessions.values()) {
 					const session = s.session;
-					if (session.runtimeMetadata.extensionId.value === extensionId.value) {
-						// Remove the session from the disconnected sessions so we don't
-						// try to reconnect it again (no matter the outcome below)
-						this._disconnectedSessions.delete(session.sessionId);
+					if (session.runtimeMetadata.extensionId.value !== extensionId.value) {
+						continue;
+					}
 
-						// Don't reconnect to a kernel that is no longer alive; the
-						// session stays exited. Remove it, as a reload would.
-						const valid = await this.validateRuntimeSession(session.runtimeMetadata, session.sessionId)
-							.catch(err => {
-								this._logService.error(`Error validating session ${session.sessionId}: ${err}`);
-								return false;
-							});
-						if (!valid) {
-							this._logService.info(`Extension ${extensionId.value} has been reloaded, ` +
-								`but session ${session.sessionId} is no longer valid; not reconnecting`);
-							try {
-								await this.deleteSession(session.sessionId);
-							} catch (err) {
-								this._logService.debug(`Could not remove session ${session.sessionId}: ${err}`);
-							}
-							continue;
-						}
+					// Remove the session from the disconnected sessions so we don't
+					// try to reconnect it again (no matter the outcome below)
+					this._disconnectedSessions.delete(session.sessionId);
 
-						// Attempt to reconnect the session.
-						this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
-							`attempting to reconnect session ${session.sessionId}`);
+					restores.push((async () => {
 						try {
+							// Don't reconnect to a kernel that is no longer alive; the
+							// session stays as it is (exited or disconnected), keeping
+							// its console and scrollback.
+							const valid = await this.validateRuntimeSession(session.runtimeMetadata, session.sessionId)
+								.catch(err => {
+									this._logService.error(`Error validating session ${session.sessionId}: ${err}`);
+									return false;
+								});
+							if (!valid) {
+								this._logService.info(`Extension ${extensionId.value} has been reloaded, ` +
+									`but session ${session.sessionId} was not reconnected because the kernel is no longer running`);
+								return;
+							}
+
+							// Attempt to reconnect the session.
+							this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
+								`attempting to reconnect session ${session.sessionId}`);
 							await this.restoreRuntimeSession(session.runtimeMetadata,
 								session.metadata,
 								session.dynState.sessionName,
@@ -330,9 +331,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 								);
 							}
 						}
-					}
+					})());
 				}
 			}
+			await Promise.all(restores);
 		}
 		));
 
@@ -897,6 +899,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			try {
 				this._languageRuntimeService.registerRuntime(runtimeMetadata);
 			} catch (err) {
+				// Registering a runtime of a disabled language throws, and a restore doesn't need it.
 				// Registration fails when the language is disabled. The
 				// session can still be reconnected without a registry entry.
 				this._logService.info(`[Reconnect ${sessionMetadata.sessionId}]: ` +

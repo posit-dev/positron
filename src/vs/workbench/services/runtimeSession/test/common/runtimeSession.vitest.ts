@@ -1923,20 +1923,27 @@ describe('Positron - RuntimeSessionService', () => {
 				ctx.disposables.add(reconnected as TestLanguageRuntimeSession);
 			});
 
-			it('does not reconnect a session whose kernel is gone, and removes it', async () => {
+			it('does not reconnect a session whose kernel is gone, and does not delete it', async () => {
 				const { service, session, extensionCameBack } = await disconnectedSession();
 				const validateSession = vi.spyOn(manager, 'validateSession').mockResolvedValue(false);
 				const restoreSession = vi.spyOn(manager, 'restoreSession');
+				const deleted: string[] = [];
+				ctx.disposables.add(service.onDidDeleteRuntimeSession(id => deleted.push(id)));
 
 				extensionCameBack();
 
-				await vi.waitFor(() => expect(service.getSession(session.sessionId)).toBeUndefined());
+				await vi.waitFor(() => expect(validateSession).toHaveBeenCalled());
+				await Promise.resolve();
 				expect({
 					validated: validateSession.mock.calls.map(([, sessionId]) => sessionId),
 					restored: restoreSession.mock.calls.length,
+					deleted,
+					kept: service.getSession(session.sessionId) === session,
 				}).toEqual({
 					validated: [session.sessionId],
 					restored: 0,
+					deleted: [],
+					kept: true,
 				});
 			});
 		});
