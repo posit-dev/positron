@@ -1897,6 +1897,16 @@ export class MainThreadLanguageRuntime
 	}
 
 	/**
+	 * Ask the extension for the interpreter its pin setting names for this
+	 * workspace.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 */
+	async pinnedWorkspaceRuntime(extensionId: string, languageId: string): Promise<ILanguageRuntimeMetadata | undefined> {
+		return this._proxy.$pinnedWorkspaceRuntime(extensionId, languageId);
+	}
+
+	/**
 	 * (part of implementation of IRuntimeManager)
 	 */
 	async registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined> {

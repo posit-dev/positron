@@ -239,6 +239,82 @@ describe('ExtHostLanguageRuntime - discovery completion', function () {
 	});
 });
 
+/** A manager whose `pinnedWorkspaceRuntime` runs the given function. */
+class PinnedManager extends mock<positron.LanguageRuntimeManager>() {
+	constructor(private readonly _pinned: () => Promise<positron.LanguageRuntimeMetadata | undefined>) { super(); }
+	override pinnedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		return this._pinned();
+	}
+}
+
+function fakeExtensionWithId(id: string): IExtensionDescription {
+	return { ...fakeExtension, identifier: new ExtensionIdentifier(id) };
+}
+
+/** Metadata as an extension returns it: without the `extensionId` core adds. */
+function pinnedMetadata(runtimeId: string, overrides: Partial<ILanguageRuntimeMetadata> = {}): positron.LanguageRuntimeMetadata {
+	const { extensionId: _extensionId, ...metadata } = fakeMetadata({ runtimeId, languageId: 'python', ...overrides });
+	return metadata as unknown as positron.LanguageRuntimeMetadata;
+}
+
+describe('ExtHostLanguageRuntime - $pinnedWorkspaceRuntime', function () {
+
+	const disposables = ensureNoLeakedDisposables();
+
+	let runtime: ExtHostLanguageRuntime;
+
+	beforeEach(() => {
+		runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(createMockShape()), new NullLogService());
+	});
+
+	function registerManager(extensionId: string, languageId: string, manager: positron.LanguageRuntimeManager): void {
+		disposables.add(runtime.registerLanguageRuntimeManager(fakeExtensionWithId(extensionId), languageId, manager));
+	}
+
+	it('asks the manager with the matching extension ID when two register the same language', async () => {
+		// Reticulate registers first, so matching on the language alone would pick it.
+		registerManager('positron.positron-reticulate', 'python', new PinnedManager(async () => pinnedMetadata('reticulate-python')));
+		registerManager('ms-python.python', 'python', new PinnedManager(async () => pinnedMetadata('pinned-python')));
+
+		const pinned = await runtime.$pinnedWorkspaceRuntime('ms-python.python', 'python');
+
+		expect({ runtimeId: pinned?.runtimeId, extensionId: pinned?.extensionId.value }).toEqual({
+			runtimeId: 'pinned-python',
+			extensionId: 'ms-python.python',
+		});
+	});
+
+	it('changes the pinned interpreter from Immediate to Implicit', async () => {
+		registerManager('ms-python.python', 'python', new PinnedManager(async () =>
+			pinnedMetadata('pinned-python', { startupBehavior: LanguageRuntimeStartupBehavior.Immediate })));
+
+		const pinned = await runtime.$pinnedWorkspaceRuntime('ms-python.python', 'python');
+
+		expect(pinned?.startupBehavior).toBe(LanguageRuntimeStartupBehavior.Implicit);
+	});
+
+	it('returns undefined without asking when no manager matches the extension ID and language', async () => {
+		const pinned = vi.fn(async () => pinnedMetadata('pinned-python'));
+		registerManager('ms-python.python', 'python', new PinnedManager(pinned));
+
+		expect(await runtime.$pinnedWorkspaceRuntime('positron.positron-r', 'python')).toBeUndefined();
+		expect(await runtime.$pinnedWorkspaceRuntime('ms-python.python', 'r')).toBeUndefined();
+		expect(pinned).not.toHaveBeenCalled();
+	});
+
+	it('returns undefined when the manager does not implement the method', async () => {
+		registerManager('ms-python.python', 'python', new (mock<positron.LanguageRuntimeManager>())());
+
+		expect(await runtime.$pinnedWorkspaceRuntime('ms-python.python', 'python')).toBeUndefined();
+	});
+
+	it('returns undefined when the manager throws', async () => {
+		registerManager('ms-python.python', 'python', new PinnedManager(async () => { throw new Error('boom'); }));
+
+		expect(await runtime.$pinnedWorkspaceRuntime('ms-python.python', 'python')).toBeUndefined();
+	});
+});
+
 /** The internal and positron-API enums share string values — the bridge is structural. */
 const positronSessionMode = LanguageRuntimeSessionMode.Console as unknown as positron.LanguageRuntimeSessionMode;
 const positronMessageType = {
