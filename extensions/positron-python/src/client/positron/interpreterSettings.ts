@@ -490,6 +490,21 @@ export function resolveDefaultInterpreterPath(value: string | undefined, descrip
 }
 
 /**
+ * Get the pinned Python: the `python.defaultInterpreterPath` value VS Code
+ * resolves for a folder (the folder's value, then the `.code-workspace` value,
+ * then the user value, with admin-enforced values on top), with
+ * `${workspaceFolder}` and `~` resolved.
+ * @param scope The folder to read the setting for
+ * @returns The absolute path, or undefined if the setting is unset, is the default `python`, or is ignored
+ */
+export function getPinnedInterpreterPath(scope?: Resource): string | undefined {
+    return resolveDefaultInterpreterPath(
+        getConfiguration('python', scope)?.get<string>('defaultInterpreterPath'),
+        '[getPinnedInterpreterPath]: interpreter path',
+    );
+}
+
+/**
  * Retrieves the user's default Python interpreter path from VS Code settings
  *
  * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths
