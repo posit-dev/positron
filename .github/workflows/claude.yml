@@ -85,6 +85,12 @@ jobs:
           # claude-code-action sets up its own git auth for pushing
           persist-credentials: false
 
+      # positron-r's install script names the Ark prebuild to download with `git describe` in the
+      # ark submodule. In a shallow clone that fails, and the script builds Ark from source (~7m).
+      - name: Fetch ark submodule history
+        working-directory: extensions/positron-r/ark
+        run: git fetch --quiet --unshallow --tags origin
+
       - name: Checkout Simple English plugin
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -174,6 +180,7 @@ jobs:
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
           # Outside the workspace, so Claude cannot commit it.
           NPM_CONFIG_CACHE: ${{ runner.temp }}/npm-cache
+          NPM_CONFIG_PREFER_OFFLINE: 'true'
           POSITRON_PARALLEL_INSTALL: '0'
           POSITRON_NPM_CONCURRENCY: '10'
           NPM_CONFIG_AUDIT: 'false'
@@ -186,10 +193,13 @@ jobs:
           max_attempts: 2
           retry_wait_seconds: 5
           shell: bash
+          # Not scripts/install-npm-parallel.sh: it also installs remote/, which the root
+          # postinstall installs again, and test/e2e/, which Claude cannot run.
           command: |
             set -e
             npm i --global node-gyp
-            bash scripts/install-npm-parallel.sh
+            npm --prefix build ci
+            npm ci
 
       # Save before Claude runs, so nothing Claude does can change what is cached.
       - name: Save npm cache
