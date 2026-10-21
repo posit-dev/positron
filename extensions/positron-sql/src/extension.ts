@@ -703,7 +703,9 @@ class SqlSession implements vscode.Disposable {
 	private async _connectionToRunAgainst(
 		document: vscode.TextDocument,
 	): Promise<ConnectionRef | undefined> {
-		const selection = resolveSelection(this._selection.get(document.uri), this._payload.connections);
+		// Resolved as everything else is, so a connection the user has since removed is asked
+		// about again rather than run against.
+		const selection = this._resolve(document);
 		if (selection.kind !== 'none') {
 			return selection.connection;
 		}
