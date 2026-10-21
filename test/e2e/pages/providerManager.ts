@@ -6,6 +6,7 @@
 import { expect, FrameLocator, test } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Toasts } from './dialog-toasts.js';
+import { QuickAccess } from './quickaccess.js';
 import {
 	ModelProvider,
 	LoginModelProviderOptions,
@@ -45,20 +46,33 @@ const CONFIRM_VIEW = 'div.space-y-4:has(> div > h2)';
  * Keeps the `loginModelProvider` / `logoutModelProvider` signatures of the old core provider modal.
  */
 export class ProviderManager {
-	constructor(private code: Code, private toasts: Toasts) { }
+	constructor(private code: Code, private toasts: Toasts, private quickaccess: QuickAccess) { }
 
 	/**
 	 * Opens the panel and returns its frame. Editor webviews are overlays that sit outside the editor DOM,
 	 * so the panel can't be told apart from the chat sidebar by position; find the one holding the provider list.
 	 */
 	async open(timeout = 45000): Promise<FrameLocator> {
-		// Run by id, since the palette hides it until Assistant sees AI turn on. Retry until Assistant registers it.
+		// The palette hides the command until Assistant sees AI turn on, so retry until it's registered and shown.
 		let frame: FrameLocator | undefined;
 		await expect(async () => {
-			await this.code.driver.executeCommand(CONFIGURE_PROVIDERS_COMMAND);
+			await this.runConfigureProvidersCommand();
 			frame = await this.frame(10000);
 		}).toPass({ timeout });
 		return frame!;
+	}
+
+	/**
+	 * Runs the configure providers command by id when the test driver is there, and through the
+	 * command palette otherwise: Workbench builds don't include the driver (`window.driver`).
+	 */
+	private async runConfigureProvidersCommand(): Promise<void> {
+		const hasDriver = await this.code.driver.currentPage.evaluate(() => Reflect.has(window, 'driver'));
+		if (hasDriver) {
+			await this.code.driver.executeCommand(CONFIGURE_PROVIDERS_COMMAND);
+		} else {
+			await this.quickaccess.runCommand(CONFIGURE_PROVIDERS_COMMAND);
+		}
 	}
 
 	async frame(timeout = 15000): Promise<FrameLocator> {
