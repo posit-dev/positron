@@ -102,17 +102,11 @@ if [ "$(is_infra_only "$CHANGED_FILES")" != "true" ]; then
   fi
 fi
 
-# Test-count line (empty when the listing was unavailable). Same newline
-# handling as the collapse below.
-COUNT_LINE="$(render_lane_summary "$LANE_SUMMARY")"
-if [ -n "$COUNT_LINE" ]; then
-  COUNT_LINE=$'\n'"$COUNT_LINE"
-fi
-
-# "Why these tags?" collapse (empty when there's nothing to explain). Prefix two
-# newlines only when present so it separates cleanly from the tags line and
-# collapses to nothing otherwise. Real newlines -> rendered with %s below.
-WHY_BLOCK="$(render_why_these_tags "$TAG_REASONS")"
+# "Why these tags?" collapse: tag provenance plus the per-lane test counts
+# (empty when there's nothing to explain). Prefix two newlines only when
+# present so it separates cleanly from the tags line and collapses to nothing
+# otherwise. Real newlines -> rendered with %s below.
+WHY_BLOCK="$(render_why_these_tags "$TAG_REASONS" "$LANE_SUMMARY")"
 if [ -n "$WHY_BLOCK" ]; then
   WHY_BLOCK=$'\n\n'"$WHY_BLOCK"
 fi
@@ -120,7 +114,7 @@ fi
 # Build the new comment body with proper newlines (%s = tags, %b = warnings).
 # Layout: tags -> advisory block (if any) -> footer links last, so the links
 # always sit at the bottom rather than wedged between the tags and the note.
-NEW_COMMENT=$(printf "${COMMENT_MARKER}\n${RED_ALERT_NOTE}\n\n**E2E Tests** 🚀\nThis PR will run tests tagged with: %s%s%s%b\n\n<sup>[readme](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags)</sup>&nbsp;&nbsp;<sup>[valid tags](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts)</sup>" "$FORMATTED_TAGS" "$COUNT_LINE" "$WHY_BLOCK" "$WARN_FMT")
+NEW_COMMENT=$(printf "${COMMENT_MARKER}\n${RED_ALERT_NOTE}\n\n**E2E Tests** 🚀\nThis PR will run tests tagged with: %s%s%b\n\n<sup>[readme](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags)</sup>&nbsp;&nbsp;<sup>[valid tags](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts)</sup>" "$FORMATTED_TAGS" "$WHY_BLOCK" "$WARN_FMT")
 
 if [ -n "$COMMENT_ID" ]; then
   # Update the existing comment

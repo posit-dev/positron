@@ -485,45 +485,55 @@ build_tag_reasons() {
 	printf '%s\n' "${out[@]}" | paste -sd, -
 }
 
-# render_why_these_tags <encoded>
-# <encoded>: build_tag_reasons output (or the literal "@:all|body"). Echoes a
-# collapsed "Why these tags?" <details> block annotating each tag with a human
-# label, or NOTHING when there's nothing to explain (empty input, or the sole
-# entry is the always-injected @:critical). Pure presentation: maps the source
-# codes to labels. The README link that used to live in the comment footer now
-# lives here.
+# render_why_these_tags <encoded> [<lane_summary>]
+# <encoded>: build_tag_reasons output (or the literal "@:all|body").
+# <lane_summary>: render_lane_summary input ("linux=246/2,..."), optional.
+# Echoes a collapsed "Why these tags?" <details> block annotating each tag with
+# a human label and ending with the per-lane test counts, or NOTHING when there
+# is nothing to show (no counts, and the sole tag is the always-injected
+# @:critical). Pure presentation: maps the source codes to labels. The README
+# link that used to live in the comment footer now lives here.
 render_why_these_tags() {
-	local encoded="$1"
-	[[ -z "$encoded" ]] && return 0
-	# Not informative when the only entry is the required @:critical floor.
-	[[ "$encoded" == "@:critical|required" ]] && return 0
-	local pair tag code label rows=""
-	while IFS= read -r pair; do
-		[[ -z "$pair" ]] && continue
-		tag="${pair%%|*}"
-		code="${pair##*|}"
-		case "$code" in
-			required) label="Always runs (required)" ;;
-			body)     label="PR description" ;;
-			files)    label="Changed files" ;;
-			ark)      label="Ark submodule bump" ;;
-			test-win) label="New test (tags.WIN)" ;;
-			test-web) label="New test (tags.WEB)" ;;
-			test-changed) label="Touched test file" ;;
-			*)        label="Auto-selected" ;;
-		esac
-		rows="${rows}| \`${tag}\` | ${label} |"$'\n'
-	done < <(printf '%s\n' "${encoded//,/$'\n'}")
-	cat <<EOF
-<details>
-<summary>Why these tags?</summary>
-
-| Tag | Source |
-| --- | --- |
-${rows}
-More on [automatic tags from changed files](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#automatic-tags-from-changed-files).
-</details>
-EOF
+	local encoded="$1" lane_summary="${2:-}"
+	local pair tag code label rows="" count_line
+	# The tag table is not informative when the only entry is the required
+	# @:critical floor, so it is omitted; the collapse still renders if there
+	# is a test count to show.
+	if [[ -n "$encoded" && "$encoded" != "@:critical|required" ]]; then
+		while IFS= read -r pair; do
+			[[ -z "$pair" ]] && continue
+			tag="${pair%%|*}"
+			code="${pair##*|}"
+			case "$code" in
+				required) label="Always runs (required)" ;;
+				body)     label="PR description" ;;
+				files)    label="Changed files" ;;
+				ark)      label="Ark submodule bump" ;;
+				test-win) label="New test (tags.WIN)" ;;
+				test-web) label="New test (tags.WEB)" ;;
+				test-changed) label="Touched test file" ;;
+				*)        label="Auto-selected" ;;
+			esac
+			rows="${rows}| \`${tag}\` | ${label} |"$'\n'
+		done < <(printf '%s\n' "${encoded//,/$'\n'}")
+	fi
+	count_line="$(render_lane_summary "$lane_summary")"
+	[[ -z "$rows" && -z "$count_line" ]] && return 0
+	echo "<details>"
+	echo "<summary>Why these tags?</summary>"
+	echo
+	if [[ -n "$rows" ]]; then
+		echo "| Tag | Source |"
+		echo "| --- | --- |"
+		printf '%s' "$rows"
+		echo
+		echo "More on [automatic tags from changed files](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#automatic-tags-from-changed-files)."
+	fi
+	if [[ -n "$count_line" ]]; then
+		[[ -n "$rows" ]] && echo
+		echo "$count_line"
+	fi
+	echo "</details>"
 }
 
 # pw_tags_regex <project> <csv tags>

@@ -983,6 +983,28 @@ if printf '%s' "$WEB_OUT" | grep -qF '| `@:web` | New test (tags.WEB) |'; then
 else
 	echo "FAIL: render should label @:web as New test (tags.WEB)"; fail=1
 fi
+# Lane test counts live inside the collapse (reviewer request on #16782), so
+# a critical-only PR with a count still renders it, and a count never appears
+# outside <details>.
+COUNT_ONLY_OUT="$(render_why_these_tags "@:critical|required" "linux=62/1")"
+if printf '%s' "$COUNT_ONLY_OUT" | grep -qF "<summary>Why these tags?</summary>" \
+	&& printf '%s' "$COUNT_ONLY_OUT" | grep -qF "Test count: Linux: 62 tests." \
+	&& ! printf '%s' "$COUNT_ONLY_OUT" | grep -qF "| Tag | Source |"; then
+	echo "PASS: render critical-only with a count shows the count without the table"
+else
+	echo "FAIL: render critical-only with a count should show only the count inside the collapse"; fail=1
+fi
+assert_eq "render: critical-only with no count stays empty" "" \
+	"$(render_why_these_tags "@:critical|required" "")"
+BOTH_OUT="$(render_why_these_tags "@:critical|required,@:ark|ark" "linux=246/2,win=180/1")"
+if printf '%s' "$BOTH_OUT" | grep -qF '| `@:ark` | Ark submodule bump |' \
+	&& printf '%s' "$BOTH_OUT" | grep -qF "Test count: Linux: 246 tests across 2 shards, Windows: 180 tests." \
+	&& [[ "$(printf '%s' "$BOTH_OUT" | tail -1)" == "</details>" ]]; then
+	echo "PASS: render puts the table and the count inside one collapse"
+else
+	echo "FAIL: render should put the table and the count inside one collapse"; fail=1
+fi
+
 TESTCHANGE_OUT="$(render_why_these_tags "@:critical|required,@:viewer|test-changed")"
 if printf '%s' "$TESTCHANGE_OUT" | grep -qF '| `@:viewer` | Touched test file |'; then
 	echo "PASS: render labels the test-changed arm"
