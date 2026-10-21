@@ -170,6 +170,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	// The languages whose default interpreter, set in the language's
 	// settings, was saved as the affiliated runtime on this launch.
+	// startAffiliatedRuntime() gives these the pinned start reason.
 	private readonly _pinnedLanguageIds = new Set<string>();
 
 	// The current startup phase
@@ -2458,7 +2459,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		affiliatedRuntime.lastStarted = Date.now();
 		this.saveAffiliatedRuntime(affiliatedRuntime);
 
-		await this.autoStartRuntime(affiliatedRuntimeMetadata, { id: SessionStartReasonId.AffiliatedRuntime }, activate);
+		const reason = this._pinnedLanguageIds.has(affiliatedRuntimeMetadata.languageId) ?
+			SessionStartReasonId.PinnedRuntime :
+			SessionStartReasonId.AffiliatedRuntime;
+		// autoStartRuntime() announces the runtime again, so the Console pane
+		// shows the pinned runtime and not the one announced before activation.
+		await this.autoStartRuntime(affiliatedRuntimeMetadata, { id: reason }, activate);
 	}
 
 	/**
