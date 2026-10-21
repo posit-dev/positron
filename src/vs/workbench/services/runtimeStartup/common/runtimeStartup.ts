@@ -163,6 +163,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// extension activation.
 	private readonly _activatedExtensions = new Set<string>();
 
+	// The pinned check for each language, keyed by language ID, or its time
+	// limit if that ends first. The check runs once per language per window,
+	// the first time the language's extensions are activated.
+	private readonly _pinnedChecks = new Map<string, Promise<void>>();
+
+	// The languages whose default interpreter, set in the language's
+	// settings, was saved as the affiliated runtime on this launch.
+	private readonly _pinnedLanguageIds = new Set<string>();
+
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
 
@@ -1047,8 +1056,25 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return true;
 		});
 
-		// Activate all extensions that contribute language runtimes.
+		// Activate all extensions that contribute language runtimes. Where an
+		// affiliated runtime can still start as it registers, wait for the
+		// language's pinned check too, so the pinned interpreter starts in
+		// place of the old one.
 		await this.activateExtensionsForLanguages(enabledLanguages);
+		const waitingLanguageIds = enabledLanguages.filter(languageId =>
+			this.canStartAffiliationAtRegistration(languageId));
+		await this.waitForPinnedChecks(waitingLanguageIds);
+
+		// The pinned check registered each pin before the cache or the search
+		// could, so registering it again starts nothing. Start the pins here,
+		// where the affiliated runtime would have started as it registered.
+		for (const languageId of waitingLanguageIds) {
+			const affiliation = this.getAffiliatedRuntime(languageId);
+			if (affiliation && this._pinnedLanguageIds.has(languageId) &&
+				this.canStartAffiliationAtRegistration(languageId)) {
+				this.startAffiliatedRuntime(affiliation, true);
+			}
+		}
 
 		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated: [${enabledLanguages.join(', ')}]`);
 
@@ -2158,16 +2184,158 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			activate: true
 		});
 		await this.activateExtensionsForLanguages([primary.metadata.languageId]);
-		await this.startAffiliatedRuntime(primary, true);
+		await this.startAffiliatedRuntime(await this.pinnedAffiliation(primary), true);
 
 		// Start the remaining affiliated runtimes in the background; they
 		// do not need to block the startup sequence.
 		for (let i = 1; i < affiliations.length; i++) {
 			const affiliation = affiliations[i];
-			this.activateExtensionsForLanguages([affiliation.metadata.languageId]).then(() => {
-				this.startAffiliatedRuntime(affiliation, false);
+			this.activateExtensionsForLanguages([affiliation.metadata.languageId]).then(async () => {
+				this.startAffiliatedRuntime(await this.pinnedAffiliation(affiliation), false);
 			});
 		}
+	}
+
+	/**
+	 * Waits for the language's pinned check, then reads its affiliated
+	 * runtime again, since the check may have written the pinned interpreter
+	 * over the copy read before the extension was activated.
+	 *
+	 * @param affiliation The affiliated runtime as read before activation.
+	 */
+	private async pinnedAffiliation(affiliation: IAffiliatedRuntimeMetadata): Promise<IAffiliatedRuntimeMetadata> {
+		const languageId = affiliation.metadata.languageId;
+		await this.waitForPinnedChecks([languageId]);
+		return this.getAffiliatedRuntime(languageId) ?? affiliation;
+	}
+
+	/**
+	 * Starts the language's pinned check, once per window, without waiting
+	 * for it. The check can write the pinned interpreter over the language's
+	 * affiliated runtime. Callers that need the result use
+	 * waitForPinnedChecks().
+	 *
+	 * @param languageId The language ID.
+	 */
+	private startPinnedCheck(languageId: string): void {
+		if (this._pinnedChecks.has(languageId)) {
+			return;
+		}
+		const check = this.checkPinnedRuntime(languageId).catch(err => {
+			this._logService.error(`[Runtime startup] Error checking the pinned runtime for language ID '${languageId}': ${err}`);
+		});
+		this._pinnedChecks.set(languageId, raceTimeout(check, RuntimeStartupService.PINNED_CHECK_TIMEOUT_MS, () =>
+			this._logService.warn(`[Runtime startup] The pinned check for language ID '${languageId}' ` +
+				`took more than ${RuntimeStartupService.PINNED_CHECK_TIMEOUT_MS} ms; ` +
+				`starting the affiliated runtime as saved`)));
+	}
+
+	/**
+	 * Waits for the pinned checks of the given languages that have started,
+	 * for at most PINNED_CHECK_TIMEOUT_MS after each one started.
+	 *
+	 * @param languageIds The language IDs whose checks to wait for.
+	 */
+	private async waitForPinnedChecks(languageIds: string[]): Promise<void> {
+		await Promise.all(languageIds.map(languageId => this._pinnedChecks.get(languageId)));
+	}
+
+	/**
+	 * How long startup waits for a language's pinned check. It's longer than
+	 * the extensions' own lookup limits (Python gives up after 15 seconds), so
+	 * it only stops a check that never answers. A check that takes longer
+	 * keeps running, so a late answer is still saved as the affiliated
+	 * runtime and starts on the next launch.
+	 */
+	private static readonly PINNED_CHECK_TIMEOUT_MS = 20_000;
+
+	/**
+	 * Whether onDidRegisterRuntime() can still start the language's
+	 * affiliated runtime when the cache or the search registers it: no
+	 * console is in front, the language has no console, it has an affiliated
+	 * runtime, and it starts automatically.
+	 *
+	 * @param languageId The language ID.
+	 */
+	private canStartAffiliationAtRegistration(languageId: string): boolean {
+		const startupBehavior = this.getStartupBehavior(languageId);
+		return !this._runtimeSessionService.foregroundSession &&
+			!this._runtimeSessionService.hasStartingOrRunningConsole(languageId) &&
+			this.getAffiliatedRuntime(languageId) !== undefined &&
+			(startupBehavior === LanguageStartupBehavior.Auto || startupBehavior === LanguageStartupBehavior.Always);
+	}
+
+	/**
+	 * Asks the language's extensions for the interpreter the language's pin
+	 * setting names, and writes it over the language's affiliated runtime.
+	 * The old last-started and last-used times are kept, so
+	 * startAffiliatedLanguageRuntimes() starts or skips the pinned
+	 * interpreter the same way it would have the old one.
+	 *
+	 * Skipped when there's nothing to write over (the recommendation handles
+	 * the pin then), when the New Folder flow just picked the interpreter (it
+	 * starts on this launch; the pin applies from the next one), and under
+	 * `recommended` (the recommendation handles the pin).
+	 *
+	 * @param languageId The language ID to check.
+	 */
+	private async checkPinnedRuntime(languageId: string): Promise<void> {
+		if (!this.getAffiliatedRuntime(languageId) ||
+			languageId === this._newFolderService.newFolderRuntimeMetadata?.languageId ||
+			this.getStartupBehavior(languageId) === LanguageStartupBehavior.Recommended) {
+			return;
+		}
+
+		const pinned = await this.getPinnedRuntime(languageId);
+		if (!pinned) {
+			return;
+		}
+
+		// Register the pinned interpreter, which also registers its variants.
+		// Registered runtimes skip validation when they start, and
+		// registering doesn't write to the discovery cache.
+		this._register(this._languageRuntimeService.registerRuntime(pinned));
+
+		// Write the `interpreters.definitions` entry a recommendation of the
+		// pinned path would start, if any.
+		const runtime = this.definitionVariantFor(pinned);
+
+		// Read the affiliation again, so the write keeps the newest
+		// last-started and last-used times. They can change while the
+		// extension looks up the pin, for example when a reconnected console
+		// comes to the front.
+		const affiliated = this.getAffiliatedRuntime(languageId);
+		if (!affiliated) {
+			return;
+		}
+		if (affiliated.metadata.runtimeId !== runtime.runtimeId) {
+			this._logService.debug(`[Runtime startup] Pinned runtime ` +
+				`${formatLanguageRuntimeMetadata(runtime)} replaces affiliated runtime ` +
+				`${formatLanguageRuntimeMetadata(affiliated.metadata)}`);
+		}
+		this.saveAffiliatedRuntime({ ...affiliated, metadata: runtime });
+		this._pinnedLanguageIds.add(languageId);
+	}
+
+	/**
+	 * Gets the interpreter the language's pin setting names, from the first
+	 * extension providing the language that reports one.
+	 *
+	 * Asks every extension host, since core doesn't know which one runs the
+	 * extension. A host with no matching runtime manager answers right away.
+	 *
+	 * @param languageId The language ID.
+	 */
+	private async getPinnedRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined> {
+		for (const extension of this._languagePacks.get(languageId) ?? []) {
+			const answers = await Promise.all(this._runtimeManagers.map(
+				manager => manager.pinnedWorkspaceRuntime(extension.value, languageId)));
+			const pinned = answers.find(answer => answer !== undefined);
+			if (pinned) {
+				return pinned;
+			}
+		}
+		return undefined;
 	}
 
 	/**
@@ -2235,7 +2403,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/**
 	 * Activates the extensions that provide language runtimes for the given
-	 * language IDs.
+	 * language IDs. After a language's extensions activate, this also starts
+	 * the language's pinned check (see startPinnedCheck()).
 	 *
 	 * @param languageIds The language IDs for which to activate the extensions.
 	 */
@@ -2245,6 +2414,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				for (const extension of this._languagePacks.get(languageId) || []) {
 					await this.activateExtension(extension, languageId);
 				}
+
+				this.startPinnedCheck(languageId);
 			});
 		await Promise.all(activationPromises);
 	}

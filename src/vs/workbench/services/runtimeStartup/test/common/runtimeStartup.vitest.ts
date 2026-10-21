@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { Barrier, timeout } from '../../../../../base/common/async.js';
+import { Barrier, DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { isWeb } from '../../../../../base/common/platform.js';
@@ -31,9 +31,11 @@ import {
 	IRuntimeRootSignature,
 	LanguageRuntimeArchitecture,
 	LanguageRuntimeSessionLocation,
+	LanguageRuntimeSessionMode,
 	LanguageRuntimeStartupBehavior,
 	LanguageStartupBehavior,
 	RuntimeStartupPhase,
+	RuntimeState,
 } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
 import { IPathService } from '../../../path/common/pathService.js';
@@ -2122,8 +2124,8 @@ interface IStartupBehaviors {
  * per-language `interpreters.startupBehavior`. This one can.
  */
 class StartupBehaviorConfigurationService extends TestConfigurationService {
-	constructor(private readonly _startupBehavior: IStartupBehaviors) {
-		super();
+	constructor(private readonly _startupBehavior: IStartupBehaviors, settings: Record<string, unknown> = {}) {
+		super(settings);
 		this.setOverrideIdentifiers('interpreters.startupBehavior',
 			Object.keys(_startupBehavior).filter(key => key !== 'default'));
 	}
@@ -2176,6 +2178,12 @@ describe('RuntimeStartupService - startup sequence', () => {
 		manager?: Partial<IRuntimeManager>;
 		/** The interpreter picked in the New Folder flow, when that flow just created this folder. */
 		newFolderRuntime?: ILanguageRuntimeMetadata;
+		/** Settings other than `interpreters.startupBehavior`. */
+		settings?: Record<string, unknown>;
+		/** Interpreters a recent search saved in the discovery cache. Their languages skip the search. */
+		cached?: ILanguageRuntimeMetadata[];
+		/** Consoles still running from the last time the folder was open, which startup reconnects before it starts anything. */
+		reconnected?: ILanguageRuntimeMetadata[];
 	}
 
 	interface IStartedRuntime {
@@ -2188,15 +2196,48 @@ describe('RuntimeStartupService - startup sequence', () => {
 	 * when the extensions that declare `languageRuntimes` load, and waits for
 	 * it to finish. Interpreters aren't really started; each request to start
 	 * one is recorded instead, and counts as a starting console from then on.
-	 * The first one also counts as the console in front.
+	 * The first console, started or reconnected, also counts as the console in
+	 * front.
 	 * The session service's own checks don't run, so a request is recorded
 	 * even where the session service would refuse it (for example, for a
 	 * language whose startup behavior is `manual`).
 	 */
-	async function runStartupSequence(options: IStartupSequenceOptions): Promise<{ service: RuntimeStartupService; started: IStartedRuntime[] }> {
-		const configurationService = new StartupBehaviorConfigurationService(options.startupBehavior);
+	async function runStartupSequence(options: IStartupSequenceOptions): Promise<{ service: RuntimeStartupService; started: IStartedRuntime[]; cache: RuntimeDiscoveryCache }> {
+		// Services the container already built, such as the language runtime
+		// service, keep the configuration service they were given.
+		const builtConfigurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		for (const [key, value] of Object.entries(options.settings ?? {})) {
+			await builtConfigurationService.setUserConfiguration(key, value);
+		}
+		const configurationService = new StartupBehaviorConfigurationService(options.startupBehavior, options.settings);
 		ctx.instantiationService.stub(IConfigurationService, configurationService);
-		ctx.instantiationService.stub(IRuntimeDiscoveryCache, ctx.disposables.add(makeRealCache(ctx.get(IStorageService), configurationService)));
+		const cache = ctx.disposables.add(makeRealCache(ctx.get(IStorageService), configurationService));
+		for (const runtime of options.cached ?? []) {
+			await cache.upsert(runtime);
+			cache.setLastFullDiscovery(runtime.extensionId.value, runtime.languageId, Date.now());
+		}
+		ctx.instantiationService.stub(IRuntimeDiscoveryCache, cache);
+		const reconnectedSessions: SerializedSessionMetadata[] = (options.reconnected ?? []).map((runtime, i) => ({
+			sessionName: runtime.runtimeName,
+			metadata: {
+				sessionId: `session-${i}`,
+				sessionMode: LanguageRuntimeSessionMode.Console,
+				notebookUri: undefined,
+				createdTimestamp: 0,
+				startReason: 'test',
+				owner: 'user',
+			},
+			sessionState: RuntimeState.Idle,
+			lastUsed: 0,
+			runtimeMetadata: runtime,
+			workingDirectory: '/',
+			hasConsole: true,
+			localWindowId: 'window-1',
+		}));
+		ctx.instantiationService.stub(IEphemeralStateService, {
+			getItem: async () => reconnectedSessions,
+			setItem: async () => { },
+		});
 		ctx.instantiationService.stub(IPositronNewFolderService, {
 			onDidChangeNewFolderStartupPhase: Event.None,
 			startupPhase: NewFolderStartupPhase.Complete,
@@ -2214,23 +2255,29 @@ describe('RuntimeStartupService - startup sequence', () => {
 			}
 		}
 
-		const started: Array<IStartedRuntime & { languageId: string }> = [];
+		const started: IStartedRuntime[] = [];
+		const consoleLanguageIds = new Set<string>();
 		const runtimeSessionService = ctx.get(IRuntimeSessionService);
 		const languageRuntimeService = ctx.get(ILanguageRuntimeService);
 		vi.spyOn(runtimeSessionService, 'autoStartRuntime').mockImplementation(async (metadata, startReason) => {
-			started.push({ runtimeId: metadata.runtimeId, languageId: metadata.languageId, reason: startReason.id });
+			started.push({ runtimeId: metadata.runtimeId, reason: startReason.id });
+			consoleLanguageIds.add(metadata.languageId);
 			return '';
 		});
 		vi.spyOn(runtimeSessionService, 'startNewRuntimeSession').mockImplementation(async (runtimeId, _name, _mode, _notebookUri, startReason) => {
-			const languageId = languageRuntimeService.getRegisteredRuntime(runtimeId)?.languageId ?? '';
-			started.push({ runtimeId, languageId, reason: startReason.id });
+			started.push({ runtimeId, reason: startReason.id });
+			consoleLanguageIds.add(languageRuntimeService.getRegisteredRuntime(runtimeId)?.languageId ?? '');
 			return '';
 		});
+		vi.spyOn(runtimeSessionService, 'validateRuntimeSession').mockResolvedValue(true);
+		vi.spyOn(runtimeSessionService, 'restoreRuntimeSession').mockImplementation(async metadata => {
+			consoleLanguageIds.add(metadata.languageId);
+		});
 		vi.spyOn(runtimeSessionService, 'hasStartingOrRunningConsole').mockImplementation(languageId =>
-			started.some(start => languageId === undefined || start.languageId === languageId));
-		// The first console that starts comes to the front.
+			languageId === undefined ? consoleLanguageIds.size > 0 : consoleLanguageIds.has(languageId));
+		// The first console that starts or reconnects comes to the front.
 		vi.spyOn(runtimeSessionService, 'foregroundSession', 'get').mockImplementation(() =>
-			started.length > 0 ? stubInterface<ILanguageRuntimeSession>() : undefined);
+			consoleLanguageIds.size > 0 ? stubInterface<ILanguageRuntimeSession>() : undefined);
 
 		const service = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
 		const discovered = options.languages.flatMap(language => language.discovered ?? []);
@@ -2278,7 +2325,17 @@ describe('RuntimeStartupService - startup sequence', () => {
 		await Promise.all(answersAfterDiscovery);
 		await timeout(0);
 
-		return { service, started: started.map(({ runtimeId, reason }) => ({ runtimeId, reason })) };
+		return { service, started, cache };
+	}
+
+	/** The affiliated runtime saved in workspace storage for the language. */
+	function storedAffiliation(languageId: string): { runtimeId: string; lastUsed: number; lastStarted: number } | undefined {
+		const stored = ctx.get(IStorageService).get(`positron.affiliatedRuntimeMetadata.v2.${languageId}`, StorageScope.WORKSPACE);
+		if (!stored) {
+			return undefined;
+		}
+		const { metadata, lastUsed, lastStarted } = JSON.parse(stored) as { metadata: ILanguageRuntimeMetadata; lastUsed: number; lastStarted: number };
+		return { runtimeId: metadata.runtimeId, lastUsed, lastStarted };
 	}
 
 	const python = metadata({ extensionId: 'ms-python.python', languageId: 'python', runtimeId: 'python-3.12' });
@@ -2316,6 +2373,269 @@ describe('RuntimeStartupService - startup sequence', () => {
 		});
 
 		expect(started).toEqual([{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
+	});
+
+	describe('pinned check', () => {
+		const oldR = metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimeId: 'r-4.3', runtimePath: '/opt/R/4.3/bin/R' });
+		const pinnedR = metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimeId: 'r-4.4', runtimePath: '/opt/R/4.4/bin/R' });
+		const pinnedPython = metadata({ extensionId: 'ms-python.python', languageId: 'python', runtimeId: 'python-3.13', runtimePath: '/opt/python/3.13/bin/python' });
+		const affiliatedR = { metadata: oldR, lastUsed: 2, lastStarted: 1 };
+
+		/** A runtime manager answer that pins R to `pinnedR`. */
+		function pinR() {
+			return vi.fn(async (_extensionId: string, languageId: string) => languageId === 'r' ? pinnedR : undefined);
+		}
+
+		/**
+		 * Runs the startup sequence on a fake clock and moves the clock on by
+		 * `ms`, so a pinned check that never answers can reach its time limit.
+		 */
+		async function runStartupSequenceWithClock(ms: number, options: IStartupSequenceOptions) {
+			vi.useFakeTimers();
+			try {
+				const sequence = runStartupSequence(options);
+				await vi.advanceTimersByTimeAsync(ms);
+				return await sequence;
+			} finally {
+				vi.useRealTimers();
+			}
+		}
+
+		it('starts the pinned runtime instead of the affiliated runtime', async () => {
+			const { started } = await runStartupSequence({
+				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: { pinnedWorkspaceRuntime: pinR() },
+			});
+
+			expect({ started, affiliated: storedAffiliation('r')?.runtimeId }).toEqual({
+				started: [{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
+				affiliated: pinnedR.runtimeId,
+			});
+		});
+
+		it('starts the affiliated runtime unchanged when no pin is set', async () => {
+			const { started } = await runStartupSequence({
+				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+			});
+
+			expect({ started, affiliated: storedAffiliation('r')?.runtimeId }).toEqual({
+				started: [{ runtimeId: oldR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
+				affiliated: oldR.runtimeId,
+			});
+		});
+
+		it('does not ask for the pin when the language has no affiliated runtime', async () => {
+			const pinnedWorkspaceRuntime = pinR();
+			await runStartupSequence({
+				languages: [{ ...rLanguage, discovered: [oldR] }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: { pinnedWorkspaceRuntime },
+			});
+
+			expect(pinnedWorkspaceRuntime).not.toHaveBeenCalled();
+		});
+
+		it('does not ask for the pin on the launch the New Folder flow picked the interpreter', async () => {
+			const pinnedWorkspaceRuntime = pinR();
+			const { started } = await runStartupSequence({
+				languages: [{ ...rLanguage, discovered: [oldR] }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: { pinnedWorkspaceRuntime },
+				newFolderRuntime: oldR,
+			});
+
+			expect(pinnedWorkspaceRuntime).not.toHaveBeenCalled();
+			expect(started).toEqual([{ runtimeId: oldR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
+		});
+
+		it('does not ask for the pin under recommended', async () => {
+			const pinnedWorkspaceRuntime = pinR();
+			await runStartupSequence({
+				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+				startupBehavior: { default: LanguageStartupBehavior.Recommended },
+				manager: { pinnedWorkspaceRuntime },
+			});
+
+			expect(pinnedWorkspaceRuntime).not.toHaveBeenCalled();
+		});
+
+		it('writes the pin over a manual language\'s affiliated runtime, keeping its times, and starts nothing', async () => {
+			// R is manual, so startup does not start its affiliated runtime.
+			// Asking for recommendations activates the R extension, which runs
+			// the check.
+			const pinnedWorkspaceRuntime = pinR();
+			const { started } = await runStartupSequence({
+				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto, r: LanguageStartupBehavior.Manual },
+				manager: { pinnedWorkspaceRuntime },
+			});
+
+			expect({ started, affiliated: storedAffiliation('r') }).toEqual({
+				started: [],
+				affiliated: { runtimeId: pinnedR.runtimeId, lastUsed: 2, lastStarted: 1 },
+			});
+			// Asking for recommendations and the interpreter search both activate
+			// the extension, but it is asked once.
+			expect(pinnedWorkspaceRuntime).toHaveBeenCalledTimes(1);
+		});
+
+		it('keeps a reconnected console running, and writes the pin over the affiliated runtime', async () => {
+			const { started } = await runStartupSequence({
+				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: { pinnedWorkspaceRuntime: pinR() },
+				reconnected: [oldR],
+			});
+
+			expect({ started, affiliated: storedAffiliation('r')?.runtimeId }).toEqual({
+				started: [],
+				affiliated: pinnedR.runtimeId,
+			});
+		});
+
+		describe('when nothing started before the search', () => {
+			// Neither language was used since it last started, so nothing starts
+			// before the interpreter search. An affiliated runtime can then start
+			// as the cache loads it.
+			function skippedAffiliations(r: ILanguageRuntimeMetadata): IStartupLanguage[] {
+				return [
+					{ ...rLanguage, affiliated: { metadata: r, lastUsed: 1, lastStarted: 2 } },
+					{ ...pythonLanguage, affiliated: { metadata: python, lastUsed: 1, lastStarted: 2 } },
+				];
+			}
+
+			it('starts the pinned runtime instead of the old one before the cache loads', async () => {
+				const { started } = await runStartupSequence({
+					languages: skippedAffiliations(oldR),
+					startupBehavior: { default: LanguageStartupBehavior.Auto },
+					manager: { pinnedWorkspaceRuntime: pinR() },
+					cached: [oldR],
+				});
+
+				expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
+			});
+
+			it('starts the pinned runtime before the cache loads, if it already is the affiliated runtime', async () => {
+				const { started } = await runStartupSequence({
+					languages: skippedAffiliations(pinnedR),
+					startupBehavior: { default: LanguageStartupBehavior.Auto },
+					manager: { pinnedWorkspaceRuntime: pinR() },
+					cached: [pinnedR],
+				});
+
+				expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
+			});
+		});
+
+		describe('interpreters.definitions entries for the pinned path', () => {
+			const definition = (label: string) => ({ language: 'r', path: pinnedR.runtimePath, label });
+			const definitions = [definition('R 4.4 (GPU)'), definition('R 4.4 (CPU)')];
+
+			it('writes the first entry when discovery is limited to definitions', async () => {
+				const { started } = await runStartupSequence({
+					languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+					startupBehavior: { default: LanguageStartupBehavior.Auto },
+					manager: { pinnedWorkspaceRuntime: pinR() },
+					settings: { 'interpreters.definitions': definitions, 'interpreters.discovery': 'definitionsOnly' },
+				});
+
+				const gpu = createInterpreterVariant(pinnedR, definition('R 4.4 (GPU)'));
+				expect({ started, affiliated: storedAffiliation('r')?.runtimeId }).toEqual({
+					started: [{ runtimeId: gpu.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
+					affiliated: gpu.runtimeId,
+				});
+			});
+
+			it('writes the pinned interpreter itself otherwise, as the recommendation does', async () => {
+				const { started } = await runStartupSequence({
+					languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+					startupBehavior: { default: LanguageStartupBehavior.Auto },
+					manager: { pinnedWorkspaceRuntime: pinR() },
+					settings: { 'interpreters.definitions': definitions },
+				});
+
+				expect({ started, affiliated: storedAffiliation('r')?.runtimeId }).toEqual({
+					started: [{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
+					affiliated: pinnedR.runtimeId,
+				});
+			});
+		});
+
+		it('never writes the pinned runtime to the discovery cache', async () => {
+			const { cache } = await runStartupSequence({
+				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: { pinnedWorkspaceRuntime: pinR() },
+			});
+
+			expect(cache.getEntries(rLanguage.extensionId, 'r').map(entry => entry.metadata.runtimePath)).toEqual([oldR.runtimePath]);
+		});
+
+		it('starts the affiliated runtime when the pin takes over 20 seconds, then saves the late pin without starting it', async () => {
+			const lateAnswer = new DeferredPromise<ILanguageRuntimeMetadata | undefined>();
+			const { started } = await runStartupSequenceWithClock(21_000, {
+				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: { pinnedWorkspaceRuntime: () => lateAnswer.p },
+			});
+			const affiliatedBeforeAnswer = storedAffiliation('r')?.runtimeId;
+
+			// The check keeps running, so the next launch starts the pin.
+			await lateAnswer.complete(pinnedR);
+			await timeout(0);
+
+			expect({ started, affiliatedBeforeAnswer, affiliatedAfterAnswer: storedAffiliation('r')?.runtimeId }).toEqual({
+				started: [{ runtimeId: oldR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
+				affiliatedBeforeAnswer: oldR.runtimeId,
+				affiliatedAfterAnswer: pinnedR.runtimeId,
+			});
+		});
+
+		it('loads the cache without waiting for the pin check of a language whose console reconnected', async () => {
+			// Startup can't start Python's affiliated runtime while its console
+			// runs, so the cache loads without waiting for Python's check. The
+			// clock moves on by less than the check's time limit.
+			await runStartupSequenceWithClock(1_000, {
+				languages: [rLanguage, { ...pythonLanguage, affiliated: { metadata: python, lastUsed: 2, lastStarted: 1 } }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: {
+					pinnedWorkspaceRuntime: (_extensionId, languageId) =>
+						languageId === 'python' ? new Promise<never>(() => { }) : Promise.resolve(undefined),
+				},
+				cached: [oldR],
+				reconnected: [python],
+			});
+
+			expect(ctx.get(ILanguageRuntimeService).getRegisteredRuntime(oldR.runtimeId)?.runtimeId).toBe(oldR.runtimeId);
+		});
+
+		it('starts the R console without waiting for Python\'s pin check', async () => {
+			const autoStartRuntime = () => vi.mocked(ctx.get(IRuntimeSessionService).autoStartRuntime);
+			const { started } = await runStartupSequence({
+				languages: [
+					{ ...rLanguage, affiliated: { metadata: oldR, lastUsed: 3, lastStarted: 1 } },
+					{ ...pythonLanguage, affiliated: { metadata: python, lastUsed: 2, lastStarted: 1 } },
+				],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: {
+					pinnedWorkspaceRuntime: async (_extensionId, languageId) => {
+						if (languageId === 'r') {
+							return pinnedR;
+						}
+						// Python answers only once the R console has started.
+						await vi.waitFor(() => expect(autoStartRuntime()).toHaveBeenCalled());
+						return pinnedPython;
+					},
+				},
+			});
+
+			expect(started).toEqual([
+				{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime },
+				{ runtimeId: pinnedPython.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime },
+			]);
+		});
 	});
 });
 
