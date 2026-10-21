@@ -38,6 +38,7 @@ import { IPathService } from '../../../path/common/pathService.js';
 import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
+import { createInterpreterVariant } from '../../../languageRuntime/common/interpreterDefinitions.js';
 import { RuntimeStartupService } from '../../common/runtimeStartup.js';
 import { RuntimeDiscoveryCache } from '../../common/runtimeDiscoveryCache.js';
 import { SerializedSessionMetadata } from '../../common/runtimeStartupService.js';
@@ -1626,15 +1627,33 @@ describe('RuntimeStartupService - start reasons', () => {
 	 * Creates the service with the given startup behavior, and returns the
 	 * IDs of the start reasons it auto-starts runtimes with.
 	 */
-	function createService(startupBehavior: LanguageStartupBehavior, options?: { overrideIdentifiers?: string[] }) {
-		const configurationService = new TestConfigurationService({ 'interpreters.startupBehavior': startupBehavior });
+	function createService(startupBehavior: LanguageStartupBehavior, options?: { overrideIdentifiers?: string[]; settings?: Record<string, unknown> }) {
+		const configurationService = new TestConfigurationService({ 'interpreters.startupBehavior': startupBehavior, ...options?.settings });
 		if (options?.overrideIdentifiers) {
 			configurationService.setOverrideIdentifiers('interpreters.startupBehavior', options.overrideIdentifiers);
 		}
 		ctx.instantiationService.stub(IConfigurationService, configurationService);
 		const autoStartRuntime = vi.spyOn(ctx.get(IRuntimeSessionService), 'autoStartRuntime').mockResolvedValue('');
-		ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+		svc = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		startedRuntimeIds = () => autoStartRuntime.mock.calls.map(([runtime]) => runtime.runtimeId);
 		return () => autoStartRuntime.mock.calls.map(([, startReason]) => startReason.id);
+	}
+	let svc: RuntimeStartupService;
+	let startedRuntimeIds: () => string[];
+
+	/** Has the service's manager recommend the given runtime after discovery. */
+	function recommendAfterDiscovery(recommended: ILanguageRuntimeMetadata) {
+		const manager = makeManager({ id: 1, owns: [] });
+		manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) =>
+			afterDiscovery ? [{ metadata: recommended, isProjectDefault: false }] : [];
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+	}
+
+	/** Saves an affiliation for the runtime, as if it was used in this folder. */
+	function affiliate(runtime: ILanguageRuntimeMetadata) {
+		ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v2.${runtime.languageId}`,
+			JSON.stringify({ metadata: runtime, lastUsed: 1, lastStarted: 1 }),
+			StorageScope.WORKSPACE, StorageTarget.MACHINE);
 	}
 
 	function registerRuntime(startupBehavior: LanguageRuntimeStartupBehavior) {
@@ -1658,12 +1677,86 @@ describe('RuntimeStartupService - start reasons', () => {
 		{ overrideIdentifiers: undefined, id: SessionStartReasonId.StartupBehaviorAlwaysAllLanguages },
 		// A value set for another language doesn't apply to Python.
 		{ overrideIdentifiers: ['r'], id: SessionStartReasonId.StartupBehaviorAlwaysAllLanguages },
-	])('starts a runtime set to always start when discovery finishes (language-specific values: $overrideIdentifiers)', ({ overrideIdentifiers, id }) => {
+	])('starts the recommendation, not the first registered runtime, when set to always start (language-specific values: $overrideIdentifiers)', async ({ overrideIdentifiers, id }) => {
 		const startReasonIds = createService(LanguageStartupBehavior.Always, { overrideIdentifiers });
 		registerRuntime(LanguageRuntimeStartupBehavior.Implicit);
+		// The recommendation registers Explicit, like every discovered Python.
+		const recommended = { ...metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }), startupBehavior: LanguageRuntimeStartupBehavior.Explicit };
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(recommended));
+		recommendAfterDiscovery(recommended);
 		completeDiscovery();
 
-		expect(startReasonIds()).toEqual([id]);
+		await vi.waitFor(() => expect(startReasonIds()).toEqual([id]));
+		expect(startedRuntimeIds()).toEqual(['rt-rec']);
+	});
+
+	it('starts the recommendation when set to always start even if another language has an affiliation', async () => {
+		createService(LanguageStartupBehavior.Always, { overrideIdentifiers: ['python'] });
+		affiliate(metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R', extensionId: 'ms.r' }));
+		recommendAfterDiscovery(metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }));
+		completeDiscovery();
+
+		await vi.waitFor(() => expect(startedRuntimeIds()).toEqual(['rt-rec']));
+	});
+
+	it('starts the defined variant of the recommendation without saving an affiliation', async () => {
+		const definition = { language: 'python', path: '/venv/bin/python', label: 'Python (GPU)' };
+		// The language runtime service reads the definitions to register variants.
+		await (ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('interpreters.definitions', [definition]);
+		createService(LanguageStartupBehavior.Auto, { settings: { 'interpreters.definitions': [definition] } });
+		const recommended = { ...metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }), startupBehavior: LanguageRuntimeStartupBehavior.Immediate };
+		const manager = makeManager({ id: 1, owns: [] });
+		manager.recommendWorkspaceRuntimes = async () => [{ metadata: recommended, isProjectDefault: false }];
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+
+		await (svc as unknown as {
+			startRecommendedLanguageRuntimes(disabledLanguageIds: string[], enabledLanguageIds: string[]): Promise<void>;
+		}).startRecommendedLanguageRuntimes([], []);
+
+		const variantId = createInterpreterVariant(recommended, definition).runtimeId;
+		expect({
+			started: startedRuntimeIds(),
+			preferred: svc.getPreferredRuntime('python')?.runtimeId,
+			affiliation: svc.getAffiliatedRuntimeMetadata('python')?.runtimeId,
+		}).toEqual({
+			started: [variantId],
+			preferred: variantId,
+			affiliation: undefined,
+		});
+	});
+
+	it('maps the recommendation made after discovery to its defined variant', async () => {
+		const definition = { language: 'python', path: '/venv/bin/python', label: 'Python (GPU)' };
+		// The language runtime service reads the definitions to register variants.
+		await (ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('interpreters.definitions', [definition]);
+		createService(LanguageStartupBehavior.Always, { settings: { 'interpreters.definitions': [definition] } });
+		const recommended = metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' });
+		recommendAfterDiscovery(recommended);
+		completeDiscovery();
+
+		const variantId = createInterpreterVariant(recommended, definition).runtimeId;
+		await vi.waitFor(() => expect(startedRuntimeIds()).toEqual([variantId]));
+		expect(svc.getPreferredRuntime('python')?.runtimeId).toBe(variantId);
+	});
+
+	it('does not start the affiliated runtime when set to start the recommendation', async () => {
+		createService(LanguageStartupBehavior.Recommended);
+		const startNewRuntimeSession = vi.spyOn(ctx.get(IRuntimeSessionService), 'startNewRuntimeSession').mockResolvedValue('');
+		const affiliated = metadata({ runtimeId: 'rt-aff', runtimePath: '/old/bin/python' });
+		affiliate(affiliated);
+		(svc as unknown as { _startupPhase: RuntimeStartupPhase })._startupPhase = RuntimeStartupPhase.Discovering;
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(affiliated));
+
+		recommendAfterDiscovery(metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }));
+		await (svc as unknown as { recommendAfterDiscovery: () => Promise<void> }).recommendAfterDiscovery();
+
+		expect({
+			startedAtRegistration: startNewRuntimeSession.mock.calls.length,
+			preferred: svc.getPreferredRuntime('python')?.runtimeId,
+		}).toEqual({
+			startedAtRegistration: 0,
+			preferred: 'rt-rec',
+		});
 	});
 
 	it('starts a runtime marked to start immediately when it registers after discovery', () => {
