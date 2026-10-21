@@ -50,12 +50,12 @@ export abstract class AbstractAiProviderService extends Disposable implements IA
 	}
 
 	private async fetchCatalog(attempt: number): Promise<void> {
+		const changesBefore = this._changeCount;
 		try {
 			const client = this.getClient();
 			if (!client) {
 				throw new Error('No AI provider catalog channel available');
 			}
-			const changesBefore = this._changeCount;
 			const initial = await client.getCatalog();
 			// Don't let the stale initial load overwrite a change that raced it.
 			if (this._changeCount === changesBefore) {
@@ -67,6 +67,10 @@ export abstract class AbstractAiProviderService extends Disposable implements IA
 			}
 			this._status = 'ready';
 		} catch (error) {
+			// A change that arrived during the request already installed a newer catalog.
+			if (this._changeCount !== changesBefore) {
+				return;
+			}
 			this._status = 'error';
 			this._lastError = error instanceof Error ? error : new Error(String(error));
 			if (attempt === 0) {
