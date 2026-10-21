@@ -410,3 +410,31 @@ describe('PositronConsoleInstance.enqueueCode (statement range provenance)', () 
 		expect(completeSpy).not.toHaveBeenCalled();
 	});
 });
+
+describe('PositronConsoleInstance.enqueueCode (preserveActiveTab)', () => {
+	const disposables = new DisposableStore();
+
+	afterEach(() => {
+		disposables.clear();
+	});
+
+	it('preserves the active tab for every statement the code is split into', async () => {
+		const { instance, languageFeaturesService, session } = createInstance(disposables);
+		registerBoundaryProvider(disposables, languageFeaturesService, [
+			{ range: { start: 0, end: 1 }, kind: 'complete' },
+			{ range: { start: 1, end: 2 }, kind: 'complete' },
+		]);
+
+		const executionIds: string[] = [];
+		disposables.add(instance.onDidExecuteCode(e => executionIds.push(e.executionId)));
+
+		await instance.enqueueCode('x <- 1\ny <- 2', { source: CodeAttributionSource.Extension },
+			false, RuntimeCodeExecutionMode.Interactive, undefined, 'exec-1', undefined, true);
+		session.setRuntimeState(RuntimeState.Busy);
+		session.setRuntimeState(RuntimeState.Idle);
+		await waitFor(() => executionIds.length === 2);
+
+		expect(executionIds[0]).toBe('exec-1');
+		expect(executionIds.map(id => instance.shouldPreserveActiveTab(id))).toEqual([true, true]);
+	});
+});

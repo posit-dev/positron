@@ -470,11 +470,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 */
 	private _consoleWidthDebounceTimer: Timeout | undefined;
 
-	/**
-	 * The most recent IDs of executions started with `preserveActiveTab`, oldest first.
-	 */
-	private readonly _preserveActiveTabExecutionIds = new Set<string>();
-
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -835,9 +830,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		preserveActiveTab?: boolean): Promise<string> {
 		// When code is executed in the console service, open the console view. This opens
 		// the relevant pane composite if needed.
-		if (preserveActiveTab && !focus) {
+		preserveActiveTab = preserveActiveTab && !focus;
+		if (preserveActiveTab) {
 			executionId ??= generateUuid();
-			this.rememberPreserveActiveTabExecution(executionId);
 			await openViewPreservingActiveTab(POSITRON_CONSOLE_VIEW_ID, this._viewsService, this._viewDescriptorService);
 		} else {
 			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
@@ -946,12 +941,13 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}
 
 		// Enqueue the code in the Positron console instance.
-		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId, executionMetadata);
+		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId, executionMetadata, preserveActiveTab);
 		return Promise.resolve(positronConsoleInstance.sessionId);
 	}
 
 	shouldPreserveActiveTab(executionId: string): boolean {
-		return this._preserveActiveTabExecutionIds.has(executionId);
+		return Array.from(this._positronConsoleInstancesBySessionId.values())
+			.some(instance => instance.shouldPreserveActiveTab(executionId));
 	}
 
 	/**
@@ -1214,21 +1210,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	}
 
 	/**
-	 * Remembers an execution started with `preserveActiveTab`, forgetting the oldest
-	 * once there are more than `MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS`.
-	 * @param executionId The execution ID.
-	 */
-	private rememberPreserveActiveTabExecution(executionId: string) {
-		this._preserveActiveTabExecutionIds.add(executionId);
-		if (this._preserveActiveTabExecutionIds.size > MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS) {
-			const oldest = this._preserveActiveTabExecutionIds.values().next().value;
-			if (oldest !== undefined) {
-				this._preserveActiveTabExecutionIds.delete(oldest);
-			}
-		}
-	}
-
-	/**
 	 * Sets the active Positron console instance.
 	 * @param positronConsoleInstance
 	 */
@@ -1330,6 +1311,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * in the console.
 	 */
 	private _externalExecutionIds: Set<string> = new Set<string>();
+
+	/**
+	 * The most recent IDs of executions started with `preserveActiveTab`, oldest first.
+	 */
+	private readonly _preserveActiveTabExecutionIds = new Set<string>();
 
 	/**
 	 * Labels naming who ran an external execution, keyed by execution ID. Set
@@ -2186,6 +2172,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	}
 
 	/**
+	 * Whether an execution was started with `preserveActiveTab`.
+	 * @param executionId The execution ID.
+	 */
+	shouldPreserveActiveTab(executionId: string): boolean {
+		return this._preserveActiveTabExecutionIds.has(executionId);
+	}
+
+	/**
 	 * Enqueues code.
 	 * @param code The code to enqueue.
 	 * @param attribution Attribution naming the origin of the code.
@@ -2195,6 +2189,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID that can be used to identify the execution
 	 *   (e.g. for tracking execution history). If not provided, one will be assigned.
+	 * @param executionMetadata Optional metadata to pass to the language runtime.
+	 * @param preserveActiveTab Whether plots from this execution, including from each
+	 *   statement it's split into, should avoid switching the active tab. Requires `executionId`.
 	 */
 	async enqueueCode(code: string,
 		attribution: IConsoleCodeAttribution,
@@ -2202,7 +2199,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string,
-		executionMetadata?: Record<string, unknown>) {
+		executionMetadata?: Record<string, unknown>,
+		preserveActiveTab?: boolean) {
 		// Normalize line endings so the boundary provider's line-by-line parse
 		// (and the local split) see clean LF input, not a CRLF editor's carriage
 		// returns. The runtime's parser normalizes source the same way.
@@ -2212,6 +2210,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// external execution IDs.
 		if (executionId) {
 			this._externalExecutionIds.add(executionId);
+			if (preserveActiveTab) {
+				this.rememberPreserveActiveTabExecution(executionId);
+			}
 		}
 
 		// Whether the code's completeness has already been verified by the caller
@@ -2386,7 +2387,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 							effectiveMode,
 							errorBehavior ?? RuntimeErrorBehavior.Continue,
 							pendingExecutionId,
-							executionMetadata
+							executionMetadata,
+							preserveActiveTab
 						);
 						return true;
 					}
@@ -2896,6 +2898,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * @param errorBehavior The error behavior.
 	 * @param executionId The execution ID for the first fragment, if any.
 	 * @param executionMetadata Metadata to associate with the executions.
+	 * @param preserveActiveTab Whether the fragments' executions preserve the active tab.
 	 */
 	private executeVerifiedFragments(
 		fragments: IInputBoundaryFragment[],
@@ -2903,7 +2906,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior,
 		executionId: string | undefined,
-		executionMetadata: Record<string, unknown> | undefined
+		executionMetadata: Record<string, unknown> | undefined,
+		preserveActiveTab?: boolean
 	): void {
 		const [first, ...rest] = fragments;
 		void this.doExecuteCode(
@@ -2915,10 +2919,15 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			executionMetadata
 		);
 		for (const fragment of rest) {
+			let fragmentExecutionId: string | undefined;
+			if (preserveActiveTab) {
+				fragmentExecutionId = `${POSITRON_CONSOLE_EXEC_PREFIX}-${generateUuid()}`;
+				this.rememberPreserveActiveTabExecution(fragmentExecutionId);
+			}
 			this.addPendingInput(
 				fragment.code,
 				this.attributeFragment(attribution, fragment),
-				undefined,
+				fragmentExecutionId,
 				mode,
 				errorBehavior,
 				executionMetadata,
@@ -4476,6 +4485,21 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			runtimeName: this._session.runtimeMetadata.runtimeName,
 		};
 		this._onDidExecuteCodeEmitter.fire(event);
+	}
+
+	/**
+	 * Remembers an execution started with `preserveActiveTab`, forgetting the oldest
+	 * once there are more than `MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS`.
+	 * @param executionId The execution ID.
+	 */
+	private rememberPreserveActiveTabExecution(executionId: string) {
+		this._preserveActiveTabExecutionIds.add(executionId);
+		if (this._preserveActiveTabExecutionIds.size > MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS) {
+			const oldest = this._preserveActiveTabExecutionIds.values().next().value;
+			if (oldest !== undefined) {
+				this._preserveActiveTabExecutionIds.delete(oldest);
+			}
+		}
 	}
 
 	/**

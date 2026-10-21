@@ -3508,8 +3508,6 @@ declare module 'positron' {
 		 * @param preserveActiveTab Whether to avoid switching the active tab when
 		 *  revealing the Console and Plots. If another tab is showing where the
 		 *  Console or Plots live, it stays showing. Ignored when `focus` is true.
-		 *  Interactive-mode code split into several statements runs the later
-		 *  statements under new execution IDs, so their plots may still reveal Plots.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
