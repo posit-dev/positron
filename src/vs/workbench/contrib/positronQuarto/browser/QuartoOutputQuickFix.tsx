@@ -51,13 +51,23 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		onLayout?.();
 	});
 
-	const getErrorContext = (): IErrorAssistantContext => ({
-		kind: 'quarto',
-		error: errorContent,
-		uri: documentUri,
-		cell,
-		sessionId: services.get(IQuartoKernelManager).getSessionForDocument(documentUri)?.sessionId,
-	});
+	const getErrorContext = (): IErrorAssistantContext => {
+		// A chunk whose language isn't the document's runs in that language's
+		// console, not the document's kernel (quartoExecutionManager's
+		// _executeRangeViaConsole), so the kernel is the wrong session for it.
+		// Send the kernel only when its language matches the chunk's. When the
+		// chunk can't be resolved there is nothing to compare, so the kernel is
+		// sent as the best guess.
+		const session = services.get(IQuartoKernelManager).getSessionForDocument(documentUri);
+		const sessionRanCell = !cell || session?.runtimeMetadata.languageId === cell.languageId;
+		return {
+			kind: 'quarto',
+			error: errorContent,
+			uri: documentUri,
+			cell,
+			sessionId: sessionRanCell ? session?.sessionId : undefined,
+		};
+	};
 
 	if (!assistant) {
 		return null;

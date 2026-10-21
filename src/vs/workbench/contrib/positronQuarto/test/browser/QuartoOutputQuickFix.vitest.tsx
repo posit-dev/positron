@@ -17,12 +17,13 @@ import { IQuartoErroredCell } from '../../../positronAssistant/common/errorAssis
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 describe('QuartoOutputQuickFix', () => {
 	const documentUri = URI.file('/report.qmd');
 	// Only the document has a session, so a lookup by any other URI sends none.
 	const getSessionForDocument = vi.fn((uri: URI) => uri.toString() === documentUri.toString()
-		? stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-1234' })
+		? stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-1234', runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' }) })
 		: undefined);
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -79,6 +80,23 @@ describe('QuartoOutputQuickFix', () => {
 			cell: { uri: documentUri, languageId: 'python', label: 'setup', code: 'raise RuntimeError("boom")', startLine: 8, endLine: 9 },
 			sessionId: 'python-1234',
 		}, { continueChat: false });
+	});
+
+	it('sends no session for a cell in a different language from the document\'s kernel', async () => {
+		// An {r} chunk in a Python document runs in the R console, not the
+		// document's Python kernel, so the kernel isn't the session that raised
+		// the error.
+		const user = userEvent.setup();
+		renderQuickFix({ uri: documentUri, languageId: 'r', code: 'stop("boom")', startLine: 8, endLine: 8 });
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
+
+		expect(ask.mock.calls[0][1]).toEqual({
+			kind: 'quarto',
+			error: 'NameError: name "x" is not defined',
+			uri: documentUri,
+			cell: { uri: documentUri, languageId: 'r', code: 'stop("boom")', startLine: 8, endLine: 8 },
+			sessionId: undefined,
+		});
 	});
 
 	it('sends the document and its session when the cell cannot be found', async () => {
