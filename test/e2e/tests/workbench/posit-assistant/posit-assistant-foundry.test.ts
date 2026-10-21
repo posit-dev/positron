@@ -7,6 +7,8 @@ import { expect, test, tags } from '../../_test.setup';
 
 test.use({
 	suiteId: __filename,
+	// The settings fixture can't write to the container, so checkForDevBuildUpdate can't turn this on itself.
+	extraSettings: { 'assistant.autoDevBuildUpdateCheck': true },
 	managedCredentials: 'azure',
 	enableFoundryAssistant: true,
 });
@@ -17,7 +19,7 @@ test.describe('Posit Assistant - Microsoft Foundry (Azure managed credentials)',
 	test.beforeAll(async function ({ app, settings }) {
 		// This shard skips the startup-messaging gate (see app-workbench.fixtures.ts),
 		// so the update must not wait on it either.
-		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess, { waitForReady: false });
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess, { waitForReady: false, writeSetting: false });
 	});
 
 	test('Foundry shows as managed by Posit Workbench in the provider manager', async function ({ app }) {

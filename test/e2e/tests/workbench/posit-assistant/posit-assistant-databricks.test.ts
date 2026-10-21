@@ -18,6 +18,8 @@ import { expect, test, tags } from '../../_test.setup';
 
 test.use({
 	suiteId: __filename,
+	// The settings fixture can't write to the container, so checkForDevBuildUpdate can't turn this on itself.
+	extraSettings: { 'assistant.autoDevBuildUpdateCheck': true },
 	managedCredentials: 'databricks',
 });
 
@@ -30,7 +32,7 @@ test.describe('Posit Assistant - Databricks (Workbench managed credentials)', {
 	tag: [tags.WORKBENCH_DATABRICKS, tags.ASSISTANT],
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess, { writeSetting: false });
 	});
 
 	test('Databricks model responds when authenticated via Workbench managed credentials', async function ({ app }) {

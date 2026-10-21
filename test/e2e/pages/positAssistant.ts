@@ -877,6 +877,9 @@ export class PositAssistant {
 	 * @param options.waitForReady Wait for runtime startup messaging to clear after
 	 *   writing the setting and after the reload (default: true). Pass false where
 	 *   interpreter discovery never settles and the suite uses no runtime.
+	 * @param options.writeSetting Write the setting through the settings fixture
+	 *   (default: true). Pass false on Workbench, where the fixture can't reach the
+	 *   container's settings file; set it with `extraSettings` instead.
 	 */
 	async checkForDevBuildUpdate(
 		settings: {
@@ -888,9 +891,9 @@ export class PositAssistant {
 		quickaccess: {
 			runCommand: (command: string, options?: { exactLabelMatch?: boolean }) => Promise<any>;
 		},
-		options: { toastTimeout?: number; waitForReady?: boolean } = {},
+		options: { toastTimeout?: number; waitForReady?: boolean; writeSetting?: boolean } = {},
 	): Promise<void> {
-		const { toastTimeout = 30000, waitForReady = true } = options;
+		const { toastTimeout = 30000, waitForReady = true, writeSetting = true } = options;
 
 		// A local Assistant checkout is the build under test; don't replace it with a dev build.
 		if (process.env.POSITRON_E2E_ASSISTANT_PATH) {
@@ -898,7 +901,9 @@ export class PositAssistant {
 		}
 
 		// 1. Enable the auto dev-build update check setting.
-		await settings.set({ 'assistant.autoDevBuildUpdateCheck': true }, { waitForReady });
+		if (writeSetting) {
+			await settings.set({ 'assistant.autoDevBuildUpdateCheck': true }, { waitForReady });
+		}
 
 		// 2. Trigger the dev-build update check command.
 		await quickaccess.runCommand('posit-assistant.checkForDevBuildUpdate');

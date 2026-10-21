@@ -24,6 +24,8 @@ import { ModelProvider } from '../../../pages/modelProviderShared';
 
 test.use({
 	suiteId: __filename,
+	// The settings fixture can't write to the container, so checkForDevBuildUpdate can't turn this on itself.
+	extraSettings: { 'assistant.autoDevBuildUpdateCheck': true },
 	// On Workbench the authentication extension disables Posit AI on first
 	// activation so admins control AI access, and the catalog file it writes ranks
 	// above any setting -- so the Posit AI row is absent from the panel entirely
@@ -48,7 +50,7 @@ test.describe('Posit Assistant Sign-in - Workbench', {
 	test.beforeAll(async function ({ app, settings }) {
 		// Runs before the first sign-in, so no provider is mid-validation when the
 		// update's reload restarts the extension host.
-		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess, { writeSetting: false });
 	});
 
 	for (const provider of SIGNIN_PROVIDERS) {
