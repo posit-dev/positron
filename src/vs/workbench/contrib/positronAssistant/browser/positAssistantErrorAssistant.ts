@@ -120,7 +120,7 @@ export function getPositAssistantChatOptions(
 				break;
 			}
 			const { languageId, startLine, endLine, label } = cell;
-			const path = pathLabel(cell.uri);
+			const path = pathLabel(context.uri);
 			fixPrompt = localize('positronQuartoAssistantFixPromptWithContext', "Fix the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached; fix only this error.", languageId, startLine, endLine, path);
 			explainPrompt = localize('positronQuartoAssistantExplainPromptWithContext', "Explain the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached.", languageId, startLine, endLine, path);
 			const header = label

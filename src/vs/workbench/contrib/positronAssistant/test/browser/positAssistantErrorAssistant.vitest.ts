@@ -93,9 +93,9 @@ describe('PositAssistantErrorAssistantContribution', () => {
 	it('opens a Posit Assistant chat, naming documents relative to the workspace', async () => {
 		contextKeyService.createKey(POSIT_HAS_CHAT_MODELS_KEY, true);
 		createContribution();
-		const cell = { uri: URI.file('/report.qmd'), languageId: 'python', code: 'x', startLine: 1, endLine: 1 };
+		const cell = { languageId: 'python', code: 'x', startLine: 1, endLine: 1 };
 
-		await errorAssistantService.ask('posit-assistant', 'fix', { kind: 'quarto', error: 'boom', uri: cell.uri, cell }, { continueChat: true });
+		await errorAssistantService.ask('posit-assistant', 'fix', { kind: 'quarto', error: 'boom', uri: URI.file('/report.qmd'), cell }, { continueChat: true });
 
 		expect(executeCommand).toHaveBeenCalledWith(POSIT_NEW_CHAT_COMMAND, expect.objectContaining({
 			prompt: 'Fix the error from the python code chunk at lines 1-1 of report.qmd. The failing code and its error output are attached; fix only this error.',
@@ -137,7 +137,7 @@ describe('getPositAssistantChatOptions', () => {
 			kind: 'quarto',
 			error: 'ValueError: boom\n',
 			uri: URI.file('/report.qmd'),
-			cell: { uri: URI.file('/report.qmd'), languageId: 'python', label: 'setup', code: 'raise ValueError("boom")', startLine: 8, endLine: 8 },
+			cell: { languageId: 'python', label: 'setup', code: 'raise ValueError("boom")', startLine: 8, endLine: 8 },
 		};
 		const content = [
 			'Error from the python code chunk in report.qmd, lines 8-8 (label: setup):',

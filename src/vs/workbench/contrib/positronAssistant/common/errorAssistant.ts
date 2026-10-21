@@ -65,8 +65,6 @@ interface INotebookErroredCell {
 
 /** A Quarto code cell, as it was when it raised an error. */
 export interface IQuartoErroredCell {
-	/** The Quarto document. */
-	readonly uri: URI;
 	/** Language ID of the cell, e.g. "python". */
 	readonly languageId: string;
 	/** The cell's label, e.g. from `#| label: fig-plot`. Undefined when it has none. */
