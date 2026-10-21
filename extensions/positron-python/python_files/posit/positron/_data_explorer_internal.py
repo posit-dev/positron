@@ -99,9 +99,9 @@ def _get_numpy_bin_count(np, data, num_bins, method):
         return 1
     if issubclass(data.dtype.type, np.integer) and width < 1:
         width = 1
-    # Cap before ceil: a tiny width or overflowing range gives inf/nan
+    # Cap before ceil: a near-zero width makes this inf
     n_bins = delta / width
-    if not np.isfinite(n_bins) or n_bins > num_bins:
+    if n_bins > num_bins:
         return num_bins
     return max(1, math.ceil(n_bins))
 
