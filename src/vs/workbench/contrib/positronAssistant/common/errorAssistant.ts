@@ -18,12 +18,14 @@ export type ErrorAssistantAction = 'fix' | 'explain';
 interface IErrorContextBase {
 	/** The error output. The service strips ANSI escape codes before an assistant sees it. */
 	readonly error: string;
+	/** ID of the runtime session the code ran in. Undefined when none is known. */
+	readonly sessionId?: string;
 }
 
 /** An error raised by code run in a console session. */
 interface IConsoleErrorContext extends IErrorContextBase {
 	readonly kind: 'console';
-	/** ID of the console's runtime session. */
+	/** ID of the console's runtime session, which a console always has. */
 	readonly sessionId: string;
 	/** Name of the console's session, e.g. "Python 3.12.1 (Venv: .venv)". */
 	readonly sessionName: string;
@@ -40,8 +42,6 @@ interface INotebookErrorContext extends IErrorContextBase {
 	readonly uri: URI;
 	/** The cell that raised the error. Undefined when it's no longer in the notebook. */
 	readonly cell?: INotebookErroredCell;
-	/** ID of the notebook's runtime session. Undefined when it has none. */
-	readonly sessionId?: string;
 }
 
 /** An error raised by a Quarto code cell. */
@@ -51,12 +51,10 @@ interface IQuartoErrorContext extends IErrorContextBase {
 	readonly uri: URI;
 	/** The cell whose code raised the error. Undefined when it can't be found. */
 	readonly cell?: IQuartoErroredCell;
-	/** ID of the document's runtime session. Undefined when it has none. */
-	readonly sessionId?: string;
 }
 
 /** A notebook cell that raised an error, as it is when the action is taken. */
-export interface INotebookErroredCell {
+interface INotebookErroredCell {
 	/** 0-based index of the cell. */
 	readonly index: number;
 	/** The cell's code, including unsaved edits. */

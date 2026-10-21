@@ -55,23 +55,31 @@ describe('NotebookCellQuickFix', () => {
 		runtimeSession: constObservable(stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-5678' })),
 	});
 
-	/** A cell at an index; -1 means it was removed from the notebook. */
-	function createCell(index = 2) {
-		return stubInterface<IPositronNotebookCell>({
-			index,
-			getContent: () => 'x + 1',
+	/**
+	 * A cell whose index and content the test can change after rendering, the
+	 * way edits and deletions change a real cell. An index of -1 means the cell
+	 * was removed from the notebook.
+	 */
+	function createCell() {
+		const state = { index: 2, content: 'x + 1' };
+		const cell = stubInterface<IPositronNotebookCell>({
+			get index() { return state.index; },
+			getContent: () => state.content,
 			model: stubInterface<IPositronNotebookCell['model']>({ language: 'python' }),
 		});
+		return { cell, state };
 	}
 
-	function renderQuickFix(cell = createCell()) {
-		return rtl.render(
+	function renderQuickFix() {
+		const { cell, state } = createCell();
+		rtl.render(
 			<NotebookInstanceProvider instance={instance}>
 				<CellProvider cell={cell}>
 					<NotebookCellQuickFix errorContent='NameError: name "x" is not defined' />
 				</CellProvider>
 			</NotebookInstanceProvider>
 		);
+		return state;
 	}
 
 	const quickFixGroup = { name: 'Cell output quick fix actions' };
@@ -91,10 +99,23 @@ describe('NotebookCellQuickFix', () => {
 		}, { continueChat: false });
 	});
 
+	it('reads the cell\'s index and code when the button is clicked, not when it renders', async () => {
+		setGates();
+		const user = userEvent.setup();
+		const cell = renderQuickFix();
+		// Edit the cell and insert one above it after the error.
+		cell.content = 'x = 1\nx + 1';
+		cell.index = 3;
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
+
+		expect(ask.mock.calls[0][1]).toMatchObject({ cell: { index: 3, code: 'x = 1\nx + 1', languageId: 'python' } });
+	});
+
 	it('sends only the notebook and session once the cell is removed', async () => {
 		setGates();
 		const user = userEvent.setup();
-		renderQuickFix(createCell(-1));
+		const cell = renderQuickFix();
+		cell.index = -1;
 		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
 
 		expect(ask.mock.calls[0][1]).toEqual({
