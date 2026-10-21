@@ -25,13 +25,21 @@ test('closingRefs reads the keywords for the work a PR does, for this repo only'
 	assert.deepEqual(closingRefs(body).sort((a, b) => a - b), [12, 13, 14, 20, 30, 70, 71]);
 });
 
-test('formatSearch lists issues with their state, quotes titles, and says when nothing matched', () => {
+test('formatSearch lists issues and PRs with their state, quotes titles, and says when nothing matched', () => {
 	const items = [
 		{ number: 12, state: 'closed', title: 'Console "hangs"' },
 		{ number: 13, state: 'open', title: 'Plot pane', pull_request: {} },
 		{ number: 14, state: 'open', title: 'Viewer' },
+		{ number: 16, state: 'closed', title: 'Fix viewer', pull_request: { merged_at: '2026-10-01T00:00:00Z' } },
+		{ number: 17, state: 'closed', title: 'Abandoned', pull_request: { merged_at: null } },
 	];
-	assert.equal(formatSearch(items), '#12 (closed): "Console \\"hangs\\""\n#14 (open): "Viewer"');
+	assert.equal(formatSearch(items), [
+		'#12 (closed): "Console \\"hangs\\""',
+		'#13 (open PR): "Plot pane"',
+		'#14 (open): "Viewer"',
+		'#16 (merged PR): "Fix viewer"',
+		'#17 (closed PR): "Abandoned"',
+	].join('\n'));
 	assert.equal(formatSearch([{ number: 15, state: 'closed', state_reason: 'not_planned', title: 'By design' }]), '#15 (closed as not planned): "By design"');
 	assert.equal(formatSearch([]), 'no matches');
 });

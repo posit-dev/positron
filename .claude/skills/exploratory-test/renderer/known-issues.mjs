@@ -13,8 +13,8 @@
 //     is linked. Best effort: on any failure it writes an empty list and
 //     exits 0, since a run without the list is still a run.
 //   node known-issues.mjs --search "<terms>" [--repo posit-dev/positron]
-//     prints open and closed issues matching the terms, one per line, or
-//     `no matches`. For the verifier, local and CI alike: with no token (CI)
+//     prints open and closed issues and PRs matching the terms, one per line,
+//     or `no matches`. For the verifier, local and CI alike: with no token (CI)
 //     it searches unauthenticated, which allows 10 searches a minute. A
 //     failed search exits 1, so it cannot pass for no matches.
 
@@ -421,19 +421,23 @@ export async function loadIssueRefs(dir, markdown, knownIssues, { fetch = fetchR
 	return refs;
 }
 
-/** Open and closed issues matching `terms`. Throws on a failed request, a rate limit included. */
+/**
+ * Open and closed issues and PRs matching `terms`. PRs are included so an open
+ * fix for a finding is found too. Throws on a failed request, a rate limit included.
+ */
 export async function searchIssues(terms, repo = DEFAULT_REPO, { auth = token() } = {}) {
-	const q = encodeURIComponent(`repo:${repo} is:issue ${terms}`);
+	const q = encodeURIComponent(`repo:${repo} ${terms}`);
 	return (await github(`/search/issues?q=${q}&per_page=10`, auth)).items ?? [];
 }
 
-/** A search's results as `#12 (closed): "title"` lines, or `no matches`. Titles are quoted as data. */
+/** A search's results as `#12 (closed): "title"` or `#13 (open PR): "title"` lines, or `no matches`. Titles are quoted as data. */
 export function formatSearch(items) {
-	const issues = (items ?? []).filter(i => !i.pull_request);
 	// Not planned is the verifier's cue that the behavior was judged intended.
-	const state = i => i.state !== 'closed' ? 'open' : i.state_reason === 'not_planned' ? 'closed as not planned' : 'closed';
-	return issues.length
-		? issues.map(i => `#${i.number} (${state(i)}): ${JSON.stringify(i.title ?? '')}`).join('\n')
+	const issueState = i => i.state !== 'closed' ? 'open' : i.state_reason === 'not_planned' ? 'closed as not planned' : 'closed';
+	const prState = i => i.state !== 'closed' ? 'open PR' : i.pull_request.merged_at ? 'merged PR' : 'closed PR';
+	const state = i => i.pull_request ? prState(i) : issueState(i);
+	return items?.length
+		? items.map(i => `#${i.number} (${state(i)}): ${JSON.stringify(i.title ?? '')}`).join('\n')
 		: 'no matches';
 }
 
