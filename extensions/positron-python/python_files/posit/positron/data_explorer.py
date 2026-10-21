@@ -1109,10 +1109,12 @@ def _pandas_summarize_number(
 
             if not math_helper.isinf(min_val) and not math_helper.isinf(max_val):
                 # These stats are not defined when there is an
-                # inf/-inf in the data
-                mean_val = float_format(non_null_values.mean())
-                median_val = float_format(np.median(non_null_values))
-                std_val = float_format(non_null_values.std(ddof=1))
+                # inf/-inf in the data. Ranges near the float64 limits
+                # overflow to inf; don't print RuntimeWarnings for it
+                with np.errstate(over="ignore", invalid="ignore"):
+                    mean_val = float_format(non_null_values.mean())
+                    median_val = float_format(np.median(non_null_values))
+                    std_val = float_format(non_null_values.std(ddof=1))
 
             if display_type == ColumnDisplayType.Floating:
                 min_val = float_format(min_val)

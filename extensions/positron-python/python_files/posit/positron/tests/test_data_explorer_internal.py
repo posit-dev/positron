@@ -5,6 +5,8 @@ Tests the Polars-based histogram implementation and verifies consistency
 with NumPy implementation across various data types and edge cases.
 """
 
+import warnings
+
 import polars as pl
 import pytest
 
@@ -461,3 +463,42 @@ def test_histogram_numpy_capped_runs_once(monkeypatch, method):
 
     assert len(bin_counts) == 5
     assert calls == [5]
+
+
+@pytest.mark.parametrize("method", ["fixed", "fd", "sturges", "scott"])
+def test_histogram_numpy_range_overflowing_float64(method):
+    """A range wider than float64 can span still gets a histogram, silently."""
+    np = pytest.importorskip("numpy")
+    data = np.array([-1e308, 0.0, 1.0, 1e308])
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        bin_counts, bin_edges = _get_histogram_numpy(data, 20, method=method)
+
+    _assert_histogram_valid(data, bin_counts, bin_edges)
+    assert bin_edges[0] == -1e308
+    assert bin_edges[-1] == 1e308
+    assert bin_counts[0] == 1
+    assert bin_counts[-1] == 1
+
+
+@pytest.mark.parametrize("method", ["fixed", "fd", "sturges", "scott"])
+def test_histogram_polars_range_overflowing_float64(method):
+    """Polars matches NumPy for a range wider than float64 can span."""
+    data = [-1e308, 0.0, 1.0, 1e308]
+    bin_counts, bin_edges = _get_test_histogram(data, num_bins=20, method=method)
+
+    _assert_histogram_valid(data, bin_counts, bin_edges)
+    assert bin_edges[0] == -1e308
+    assert bin_edges[-1] == 1e308
+    assert bin_counts[0] == 1
+    assert bin_counts[-1] == 1
+
+
+def test_histogram_polars_tiny_bin_width_caps_bins():
+    """A near-zero but nonzero bin width must cap at num_bins, not overflow."""
+    data = [0.0, 0.0, 1e-300, 2e-300, 3e-300, 1e10]
+    bin_counts, bin_edges = _get_test_histogram(data, num_bins=20, method="fd")
+
+    _assert_histogram_valid(data, bin_counts, bin_edges)
+    assert len(bin_counts) == 20
