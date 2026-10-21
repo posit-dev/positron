@@ -559,3 +559,19 @@ def test_histogram_polars_float32_near_limits(method):
 
     _assert_histogram_valid(data, bin_counts, bin_edges)
     assert len(bin_counts) > 1
+
+
+@pytest.mark.parametrize("dtype", ["float16", "float32"])
+def test_histogram_numpy_narrow_float_near_limits(dtype):
+    """Narrow float data spanning most of its range must not overflow bin edges."""
+    np = pytest.importorskip("numpy")
+    finfo = np.finfo(dtype)
+    data = np.array([finfo.min, 0.0, 1.0, finfo.max], dtype=dtype)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        bin_counts, bin_edges = _get_histogram_numpy(data, 20, method="fixed")
+
+    _assert_histogram_valid(data, bin_counts, bin_edges)
+    assert bin_counts[0] == 1
+    assert bin_counts[-1] == 1

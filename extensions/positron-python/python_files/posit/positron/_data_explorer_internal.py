@@ -161,6 +161,10 @@ def _get_histogram_numpy_impl(np, data, num_bins, method, *, to_numpy):
         # For decimals, we convert to float which is lossy but works for now
         return _get_histogram_numpy(data.astype(float), num_bins, method=method)
 
+    if issubclass(data.dtype.type, np.floating) and data.dtype.itemsize < 8:
+        # Bin edge math near the float16/float32 limits overflows to inf
+        data = data.astype(np.float64)
+
     # Handle empty data case - return empty histogram consistent with Polars implementation
     if len(data) == 0:
         return _EMPTY_HISTOGRAM
