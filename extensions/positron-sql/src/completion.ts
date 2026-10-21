@@ -185,7 +185,7 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		const opening = cursor.quoted ? text[cursor.replaceStart] : undefined;
 
 		const quote = this._quoter(analyzer, schema, dialect);
-		const { tables: scope, names, relations } = inScope(analyzer, schema, dialect, text, cursor, offset);
+		const { tables: scope, names, relations, ctes } = inScope(analyzer, schema, dialect, text, cursor, offset);
 
 		const qualifier = cursor.qualifiers.length > 0
 			? cursor.qualifiers[cursor.qualifiers.length - 1]
@@ -198,7 +198,7 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		let keywordSource: string | undefined;
 
 		if (qualifier !== undefined) {
-			const qualified = qualifiedItems(qualifier, scope, relations, schema, quote, replace);
+			const qualified = qualifiedItems(qualifier, scope, [...relations, ...ctes], schema, quote, replace);
 			items = qualified.items;
 			if (items.length === 0) {
 				log.trace(explainEmptyQualifier(qualifier, qualified.tables));
@@ -516,6 +516,13 @@ interface InScope {
 
 	/** The CTEs and derived tables the statement reads, under the names it reads them by. */
 	readonly relations: readonly Relation[];
+
+	/**
+	 * The CTEs the statement declares, whether or not it reads them yet. Only a qualifier looks
+	 * here: `recent.` is typed before the `FROM recent` that reads it, and means its columns then
+	 * too, but a bare column of a CTE nothing reads is not one the statement can name.
+	 */
+	readonly ctes: readonly Relation[];
 }
 
 /** A relation the statement defines and reads, and the columns it produces. */
@@ -551,6 +558,7 @@ function inScope(
 	const tables: ScopeEntry[] = [];
 	const names: InScopeName[] = [];
 	const relations: Relation[] = [];
+	const ctes: Relation[] = [];
 	for (const source of sources) {
 		for (const table of resolveSource(schema, source)) {
 			tables.push({ alias: source.alias, table });
@@ -563,13 +571,15 @@ function inScope(
 	for (const local of locals) {
 		if (local.kind === 'relation' && local.produces) {
 			relations.push({ name: local.name, produces: local.produces });
+		} else if (local.kind === 'cte' && local.produces) {
+			ctes.push({ name: local.name, produces: local.produces });
 		}
 		const of = local.column
 			? [local.column.qualifier, local.column.name].filter(part => part).join('.')
 			: undefined;
 		names.push({ name: local.name, kind: local.kind, of });
 	}
-	return { tables, names, relations };
+	return { tables, names, relations, ctes };
 }
 
 /**
