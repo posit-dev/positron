@@ -284,7 +284,7 @@ function changeWords(report, f, base) {
 
 const changeTip = ({ title, text }) => `<span class="chg-tip" aria-hidden="true"><b>${title}</b><span>${text}</span></span>`;
 
-function renderFindingsList(report, ki = null, changeBase = null) {
+function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 	const rows = report.findings.map((f, i) => {
 		const word = statusWord(f);
 		const verdict = word === 'confirmed'
@@ -293,18 +293,19 @@ function renderFindingsList(report, ki = null, changeBase = null) {
 				? `<span class="status muted">${capitalize(word)}</span>`
 				: '<span class="status muted"></span>';
 		// Plain numbers, not links: the whole row is already a link to the card. They still preview on hover.
-		const nums = issues => issues.map(i => `<span class="ki-num-t"${kiData(i, ki)}>#${i.number}</span>`).join(', ');
-		const failed = ki?.fixFailed.get(f.n);
-		const back = ki?.cameBack.get(f.n);
-		const similar = ki?.similar.get(f.n);
+		const nums = numbers => numbers.map(n => `<span class="ki-num-t"${kiData(refs?.byNumber.get(n), refs)}>#${Number(n)}</span>`).join(', ');
+		const failed = ki?.fixFailed.get(f.n)?.map(i => i.number);
+		const back = ki?.cameBack.get(f.n)?.map(i => i.number);
+		// Every match the card calls Dupe?, linked to the PR or found by search.
+		const dupes = possiblyKnown(f, ki);
 		// A verdict other than Confirmed takes the label's place, so the table
 		// never says a fix failed when verify rejected the finding.
 		const label = failed ? 'Fix didn&rsquo;t hold' : back ? 'Regressed' : '';
 		const top = label && (!word || word === 'confirmed') ? `<span class="ki-reg">${ICON.x}${label}</span>` : verdict;
-		// One issue per cell: the finding's own wins over a match.
+		// One issue per line: the finding's own, then its matches below it.
 		const first = list => `${nums(list.slice(0, 1))}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
-		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : similar ? `Dupe? ${first(similar)}` : '';
-		const below = issueLine ? [`<span class="ki-state">${issueLine}</span>`] : [];
+		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : '';
+		const below = [issueLine, dupes.length ? `Dupe? ${first(dupes)}` : ''].filter(Boolean).map(line => `<span class="ki-state">${line}</span>`);
 		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
 		return `<a href="#f${f.n}" class="row findings-grid">`
 			+ `<span>${pill(f.severity)}</span>`
@@ -1041,7 +1042,7 @@ ${report.leadHtml ? `<p class="lead">${linkIssues(report.leadHtml, options.refs)
 
 ${renderTiles(report)}
 
-${renderFindingsList(report, ki, options.changeBase)}
+${renderFindingsList(report, ki, options.refs, options.changeBase)}
 
 ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
