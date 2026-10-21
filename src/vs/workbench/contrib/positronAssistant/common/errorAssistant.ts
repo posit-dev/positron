@@ -38,12 +38,8 @@ interface INotebookErrorContext extends IErrorContextBase {
 	readonly kind: 'notebook';
 	/** The notebook. */
 	readonly uri: URI;
-	/** 0-based index of the cell. Undefined when the cell is no longer in the notebook. */
-	readonly cellIndex?: number;
-	/** The cell's code, including unsaved edits. Undefined when the cell is no longer in the notebook. */
-	readonly code?: string;
-	/** Language ID of the cell, e.g. "python". Undefined when the cell is no longer in the notebook. */
-	readonly languageId?: string;
+	/** The cell that raised the error. Undefined when it's no longer in the notebook. */
+	readonly cell?: INotebookErroredCell;
 	/** ID of the notebook's runtime session. Undefined when it has none. */
 	readonly sessionId?: string;
 }
@@ -55,6 +51,16 @@ interface IQuartoErrorContext extends IErrorContextBase {
 	readonly cell?: IQuartoErroredCell;
 	/** ID of the document's runtime session. Undefined when it has none. */
 	readonly sessionId?: string;
+}
+
+/** A notebook cell that raised an error, as it is when the action is taken. */
+export interface INotebookErroredCell {
+	/** 0-based index of the cell. */
+	readonly index: number;
+	/** The cell's code, including unsaved edits. */
+	readonly code: string;
+	/** Language ID of the cell, e.g. "python". */
+	readonly languageId: string;
 }
 
 /** A Quarto code cell, as it was when it raised an error. */

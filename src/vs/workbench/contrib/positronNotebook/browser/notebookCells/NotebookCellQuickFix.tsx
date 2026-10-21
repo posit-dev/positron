@@ -44,18 +44,14 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	// Resolved on click, so the cell's index and code reflect any edits since
 	// the error. A cell's index is -1 once it's removed from the notebook.
 	const getErrorContext = (): IErrorAssistantContext => {
-		const sessionId = instance.runtimeSession.get()?.sessionId;
-		if (!cell || cell.index < 0) {
-			return { kind: 'notebook', error: errorContent, uri: instance.uri, sessionId };
-		}
 		return {
 			kind: 'notebook',
 			error: errorContent,
 			uri: instance.uri,
-			cellIndex: cell.index,
-			code: cell.getContent(),
-			languageId: cell.model.language,
-			sessionId,
+			cell: cell && cell.index >= 0
+				? { index: cell.index, code: cell.getContent(), languageId: cell.model.language }
+				: undefined,
+			sessionId: instance.runtimeSession.get()?.sessionId,
 		};
 	};
 

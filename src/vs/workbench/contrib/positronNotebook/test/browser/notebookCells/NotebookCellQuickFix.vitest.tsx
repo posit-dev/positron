@@ -86,9 +86,7 @@ describe('NotebookCellQuickFix', () => {
 			kind: 'notebook',
 			error: 'NameError: name "x" is not defined',
 			uri: instance.uri,
-			cellIndex: 2,
-			code: 'x + 1',
-			languageId: 'python',
+			cell: { index: 2, code: 'x + 1', languageId: 'python' },
 			sessionId: 'python-5678',
 		}, { continueChat: false });
 	});
@@ -103,6 +101,7 @@ describe('NotebookCellQuickFix', () => {
 			kind: 'notebook',
 			error: 'NameError: name "x" is not defined',
 			uri: instance.uri,
+			cell: undefined,
 			sessionId: 'python-5678',
 		});
 	});
