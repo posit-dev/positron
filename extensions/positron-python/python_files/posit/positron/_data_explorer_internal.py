@@ -111,17 +111,18 @@ def _get_numpy_bin_count(np, data, num_bins, method):
 
 def _numpy_histogram(np, data, bins):
     """np.histogram that also handles ranges wider than float64 can span."""
-    try:
-        return np.histogram(data, bins=bins)
-    except ValueError:
-        if not issubclass(data.dtype.type, np.floating) or not np.isfinite(data).all():
-            raise
-        if np.isfinite(float(data.max()) - float(data.min())):
-            # Some other failure, e.g. too many bins for a range a few ulps wide
-            raise
-        # e.g. -1e308..1e308; halving is exact, so bin on half and scale back
-        bin_counts, bin_edges = np.histogram(data / 2, bins=bins)
-        return bin_counts, bin_edges * 2
+    if issubclass(data.dtype.type, np.floating):
+        first_edge, last_edge = data.min(), data.max()
+        # Checked up front: older NumPy returns nan edges here instead of raising
+        if (
+            np.isfinite(first_edge)
+            and np.isfinite(last_edge)
+            and not np.isfinite(float(last_edge) - float(first_edge))
+        ):
+            # e.g. -1e308..1e308; halving is exact, so bin on half and scale back
+            bin_counts, bin_edges = np.histogram(data / 2, bins=bins)
+            return bin_counts, bin_edges * 2
+    return np.histogram(data, bins=bins)
 
 
 def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
@@ -174,10 +175,11 @@ def _get_histogram_numpy_impl(np, data, num_bins, method, *, to_numpy):
     try:
         bins = _get_numpy_bin_count(np, data, num_bins, method)
         bin_counts, bin_edges = _numpy_histogram(np, data, bins)
-    except ValueError:
+    except (ValueError, IndexError):
         if issubclass(data.dtype.type, np.integer):
             # Issue #5176. There is a class of error for integers where np.histogram
-            # will fail on Windows (platform int issue), e.g. this array fails with Numpy 2.1.1
+            # will fail on Windows (platform int issue, raised as ValueError or
+            # IndexError), e.g. this array fails with Numpy 2.1.1
             # array([ -428566661,  1901704889,   957355142,  -401364305, -1978594834,
             #         519144975,  1384373326,  1974689646,   194821408, -1564699930],
             #         dtype=int32)

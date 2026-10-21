@@ -533,22 +533,19 @@ def test_histogram_numpy_integer_bins_capped(values, method, num_bins):
     assert len(bin_counts) <= num_bins
 
 
-def test_histogram_numpy_too_many_bins_not_retried(monkeypatch):
-    """Only a range float64 can't span is retried on halved data."""
+def test_histogram_numpy_value_error_not_retried(monkeypatch):
+    """Only a range float64 can't span is binned on halved data."""
     np = pytest.importorskip("numpy")
-    real_histogram = np.histogram
     calls = []
 
-    def counting_histogram(*args, **kwargs):
-        calls.append(kwargs.get("bins"))
-        return real_histogram(*args, **kwargs)
+    def failing_histogram(*_args, bins=10, **_kwargs):
+        calls.append(bins)
+        raise ValueError("Too many bins for data range")
 
-    monkeypatch.setattr(np, "histogram", counting_histogram)
+    monkeypatch.setattr(np, "histogram", failing_histogram)
 
-    # A range only a few ulps wide is too narrow for 80 bins; halving can't help
-    data = np.array([1.0, 1.0 + 2**-52, 1.0 + 2**-51])
     with pytest.raises(ValueError, match="Too many bins"):
-        _get_histogram_numpy(data, 80, method="fixed")
+        _get_histogram_numpy(np.array([1.0, 2.0, 3.0]), 80, method="fixed")
 
     # Once for the data, once after the non-finite filter retry
     assert len(calls) == 2
