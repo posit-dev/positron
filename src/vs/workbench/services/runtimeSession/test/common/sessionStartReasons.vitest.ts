@@ -71,6 +71,7 @@ describe('getSessionStartReasonLabel', () => {
 			  "notebookKernelRestart": "Restart Kernel was used in analysis.ipynb with no kernel running",
 			  "notebookKernelSelected": "The R 4.4.1 kernel was selected for analysis.ipynb",
 			  "notebookKernelSelectionDeferred": "The R 4.4.1 kernel was selected for analysis.ipynb and started once Positron found it",
+			  "pinnedRuntime": "Positron started the default R interpreter set in the Positron R extension's settings",
 			  "quartoInlineOutput": "analysis.ipynb needed a kernel for inline output",
 			  "restartUninitializedSession": "A restart was requested before this interpreter had started",
 			  "startupBehaviorAlways": "Startup Behavior is set to "Always" for R",

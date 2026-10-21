@@ -93,6 +93,9 @@ export enum SessionStartReasonId {
 	/** Interpreter discovery found the runtime this workspace used last, and it had not been started yet. */
 	AffiliatedRuntimeAtRegistration = 'affiliatedRuntimeAtRegistration',
 
+	/** At startup, the default interpreter set in the language's settings was started. */
+	PinnedRuntime = 'pinnedRuntime',
+
 	/** When discovery finished with no saved runtime and no console, a runtime marked to start immediately was started. */
 	ExtensionRequestedImmediateStart = 'extensionRequestedImmediateStart',
 
