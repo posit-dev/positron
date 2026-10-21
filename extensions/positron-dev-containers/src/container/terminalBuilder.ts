@@ -208,9 +208,9 @@ export class TerminalBuilder {
 
 		const generateShellScript = () => {
 			let script = '#!/bin/sh\nset -e\n\n';
-			script += '# Trap errors to keep terminal open so user can see what failed\n';
+			script += '# Trap failures to keep terminal open so user can see what failed\n';
 			script += '# Write error marker and exit 0 to avoid VS Code toast about exit code\n';
-			script += `trap 'echo ""; echo "==> ERROR: Build failed! Press Enter to close this terminal..."; echo "failed" > "${errorPath}"; read dummy; exit 0' ERR\n\n`;
+			script += `trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo ""; echo "==> ERROR: Build failed! Press Enter to close this terminal..."; echo "failed" > "${errorPath}"; read dummy || true; fi; exit 0' EXIT\n\n`;
 
 			if (rebuild) {
 				script += 'echo "==> Removing existing containers..."\n';
@@ -429,7 +429,7 @@ export class TerminalBuilder {
 
 			scriptContent += 'echo "==> Container ready!"\n';
 			scriptContent += `echo "done" > "${markerPath}"\n`;
-			scriptContent += 'trap - ERR\n';
+			scriptContent += 'trap - EXIT\n';
 			scriptContent += 'exit 0\n';
 		}
 
