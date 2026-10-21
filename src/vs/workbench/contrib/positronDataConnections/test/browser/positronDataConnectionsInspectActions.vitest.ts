@@ -448,6 +448,8 @@ describe('data connections payload commands', () => {
 			return {
 				id,
 				agentCompatible: metadata?.agentCompatible,
+				// Read-only is what lets Assistant run these without asking the user each time.
+				readOnly: metadata?.readOnly,
 				argsOptional: metadata?.args?.map(arg => arg.isOptional),
 			};
 		});
@@ -458,6 +460,7 @@ describe('data connections payload commands', () => {
 			    "agentCompatible": true,
 			    "argsOptional": undefined,
 			    "id": "positronDataConnections.getConnections",
+			    "readOnly": true,
 			  },
 			  {
 			    "agentCompatible": true,
@@ -465,6 +468,7 @@ describe('data connections payload commands', () => {
 			      undefined,
 			    ],
 			    "id": "positronDataConnections.getConnectionCode",
+			    "readOnly": true,
 			  },
 			  {
 			    "agentCompatible": true,
@@ -472,6 +476,7 @@ describe('data connections payload commands', () => {
 			      true,
 			    ],
 			    "id": "positronDataConnections.getSchema",
+			    "readOnly": true,
 			  },
 			  {
 			    "agentCompatible": true,
@@ -479,6 +484,7 @@ describe('data connections payload commands', () => {
 			      undefined,
 			    ],
 			    "id": "positronDataConnections.getLineage",
+			    "readOnly": true,
 			  },
 			]
 		`);

@@ -952,6 +952,12 @@ export const REVEAL_NODE_COMMAND_ID = 'positronDataConnections.revealNode';
 // programmatic caller. The Command Palette entries that display these payloads live in
 // positronDataConnectionsInspectActions.ts.
 //
+// All four payload commands are marked readOnly, so Assistant runs them without asking the user each
+// time: they report the user's connections, connection code, schema and lineage and change nothing.
+// getConnectionCode returns code but doesn't run it. getSchema and getLineage may open a connection
+// that isn't live yet, and run a metadata query on it -- a change to what the pane shows, which
+// readOnly allows, rather than to the user's work or data.
+//
 // That also means none has a precondition -- registerAction2 only records one in MenuRegistry when
 // f1 is set, and MenuRegistry is the only place the agent path reads preconditions from. This is the
 // always-registered pattern these payloads want: Assistant discovers them once, and learns the
@@ -967,6 +973,8 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		// Read-only, so an agent may run it without asking; see the note above the registrations.
+		readOnly: true,
 		returns: 'An array of connection profiles -- the user\'s saved connections first, then connections detected on this machine (e.g. ODBC data sources) -- without connection code (ask positronDataConnections.getConnectionCode for that, once you know which profile you want). Each entry has profileId, connected, and a one-line summary of the rest: name=<name> | driver=<id> | mechanism=<id>[ | discovered=true][ | description=<one line on where a detected connection points>] | languages=<languageId>, ... | parameters=<key>=<value>, ... -- the driver\'s own parameters all nest inside the single parameters= field (split it at its first = only), with every value the driver can redact shown in that redacted form and a secret it cannot redact left out. discovered=true marks a detected connection; its profileId works with getConnectionCode and getSchema just like a saved one, but it is ephemeral -- it stops resolving when the user saves that connection (the saved profile gets a fresh profileId) or the driver stops reporting it -- so re-read this catalog rather than reusing a stored one. `languages` is absent when the driver\'s extension is not installed or has not activated, and present but empty when the driver generates no code. Empty when no connection is configured or detected, or when the dataConnections.enabled setting is off.',
 	},
 });
@@ -981,6 +989,8 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		// Read-only, so an agent may run it without asking; see the note above the registrations.
+		readOnly: true,
 		args: [{
 			name: 'args',
 			description: 'Which connection to generate code for, and for which language.',
@@ -1053,6 +1063,8 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		// Read-only, so an agent may run it without asking; see the note above the registrations.
+		readOnly: true,
 		args: [{
 			name: 'args',
 			description: 'Which connection to summarize, and how far to walk its schema.',
@@ -1096,6 +1108,8 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		// Read-only, so an agent may run it without asking; see the note above the registrations.
+		readOnly: true,
 		args: [{
 			name: 'args',
 			description: 'Which object to trace, in which direction, and how far.',
