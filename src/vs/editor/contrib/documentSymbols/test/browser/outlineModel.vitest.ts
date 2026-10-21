@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { CancellationError, transformErrorForSerialization, transformErrorFromSerialization } from '../../../../../base/common/errors.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { DocumentSymbol, SymbolKind } from '../../../../common/languages.js';
@@ -119,5 +120,61 @@ describe('OutlineModelService', () => {
 		await service.getOrCreate(script, CancellationToken.None);
 
 		expect(asked).toBe(1);
+	});
+
+	/**
+	 * A script whose provider fails its first `cancellations` requests the way a
+	 * language server's own cancellation reaches this layer: the extension throws
+	 * a CancellationError, and the extension host RPC rejects with it rebuilt as a
+	 * plain Error named 'Canceled'.
+	 */
+	function scriptCancelledByProvider(cancellations: number) {
+		const languageFeatures = new LanguageFeaturesService();
+		const script = ctx.disposables.add(createTextModel('x = 1', undefined, undefined, URI.file('/test/script.py')));
+		let asked = 0;
+		ctx.disposables.add(languageFeatures.documentSymbolProvider.register({ pattern: '**/script.py' }, {
+			provideDocumentSymbols: async () => {
+				asked++;
+				if (asked <= cancellations) {
+					throw transformErrorFromSerialization(transformErrorForSerialization(new CancellationError()));
+				}
+				return [{
+					name: 'x', detail: '', kind: SymbolKind.Variable, tags: [],
+					range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 6 },
+					selectionRange: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2 },
+				}];
+			},
+		}));
+		return { languageFeatures, script };
+	}
+
+	it('asks again when the provider cancels a request the caller did not cancel', async () => {
+		// Pyrefly cancels an in-flight documentSymbol request when a configuration
+		// change arrives behind it, which happens while a reloaded window settles.
+		// Answering that cancellation with no symbols left the Outline empty.
+		const { languageFeatures, script } = scriptCancelledByProvider(1);
+		const service = createService(languageFeatures);
+
+		const model = await service.getOrCreate(script, CancellationToken.None);
+
+		expect(model.getTopLevelSymbols().map(s => s.name)).toEqual(['x']);
+	});
+
+	it('does not keep an answer the provider cancelled, so the next request asks again', async () => {
+		// The cache is keyed on the document version, so a cached empty answer
+		// would last until the next edit even though the provider can now answer.
+		const { languageFeatures, script } = scriptCancelledByProvider(2);
+		const service = createService(languageFeatures);
+
+		const first = await service.getOrCreate(script, CancellationToken.None);
+		const second = await service.getOrCreate(script, CancellationToken.None);
+
+		expect({
+			first: first.getTopLevelSymbols().map(s => s.name),
+			second: second.getTopLevelSymbols().map(s => s.name),
+		}).toEqual({
+			first: [],
+			second: ['x'],
+		});
 	});
 });
