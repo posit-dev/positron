@@ -60,12 +60,12 @@ export interface RFullSearchTriggers {
 
 /**
  * What R's recommendation needs to know. Each lookup runs only when the
- * decision needs it, so a pinned R never searches for R files, and the full
- * search runs only when the quick path can't answer.
+ * decision needs it, so the full search runs only when the quick path can't
+ * answer.
  */
 export interface RStartupInputs<T extends RStartupCandidate> {
-	/** The R from `positron.r.interpreters.default`, if that path exists. */
-	readonly pinned: T | undefined;
+	/** Looks up the R from `positron.r.interpreters.default`, if that R can start here. */
+	pinnedR(): Promise<T | undefined>;
 	/** Whether R's `interpreters.startupBehavior` is `manual`. */
 	readonly manualStartup: boolean;
 	/** Whether the open folder has R files, or is empty and you use RStudio. */
@@ -166,21 +166,25 @@ export function rVersionsEntryForR<E extends { readonly path?: string }>(
  * Picks the R that R's recommendation returns for the open folder, and when it
  * starts.
  *
- * - A pinned R is returned as `implicit`.
- * - Otherwise, under `manual`, nothing is returned. Positron won't start R on
- *   its own, so the folder isn't checked.
+ * - Under `manual`, Positron won't start R on its own, so the folder isn't
+ *   checked. A pinned R is returned to start when R is needed, and otherwise
+ *   nothing is returned.
+ * - A pinned R starts right away in a folder that looks like an R project, and
+ *   otherwise when R is needed.
  * - Otherwise, in a folder that looks like an R project, the R the search
- *   lists first is returned as `immediate`.
+ *   lists first starts right away.
  * - Otherwise nothing is returned.
  */
 export async function chooseStartupR<T extends RStartupCandidate>(inputs: RStartupInputs<T>): Promise<RStartupChoice<T> | undefined> {
-	if (inputs.pinned) {
-		return { installation: inputs.pinned, startupBehavior: 'implicit' };
+	// Look up the pin while the folder is searched for R files.
+	const [pinned, rProject] = await Promise.all([
+		inputs.pinnedR(),
+		inputs.manualStartup ? Promise.resolve(false) : inputs.looksLikeRProject(),
+	]);
+	if (pinned) {
+		return { installation: pinned, startupBehavior: rProject ? 'immediate' : 'implicit' };
 	}
-	if (inputs.manualStartup) {
-		return undefined;
-	}
-	if (!(await inputs.looksLikeRProject())) {
+	if (!rProject) {
 		return undefined;
 	}
 	const installation = await pickStartupR(inputs);
@@ -206,9 +210,15 @@ export async function pickStartupR<T extends RStartupCandidate>(
 		return current;
 	}
 	const installs = await inputs.fullSearch();
-	return installs
-		?.filter(inst => inst.usable)
-		.sort(compareRInstallations)[0];
+	return installs ? firstListedR(installs) : undefined;
+}
+
+/**
+ * The R the search lists first among the given Rs: the current R, otherwise
+ * the highest version. Only usable Rs count.
+ */
+export function firstListedR<T extends RStartupCandidate>(installs: readonly T[]): T | undefined {
+	return installs.filter(inst => inst.usable).sort(compareRInstallations)[0];
 }
 
 /**
@@ -227,6 +237,35 @@ export function rVersionsMayListR(
 	return entries.some(entry => entry.path
 		? path.join(entry.path, 'bin', 'R') === binpath
 		: entry.module !== undefined);
+}
+
+/**
+ * Shares one run of a lookup between callers that ask for the same key while
+ * it runs. Once the run finishes it is dropped, so a result is never reused,
+ * and a changed setting is always looked up again.
+ */
+export class InFlightLookup<K, V> {
+	private _running: { readonly key: K; readonly result: Promise<V> } | undefined;
+
+	/**
+	 * @param key What the lookup is for, such as the setting's value.
+	 * @param lookUp Runs the lookup, unless one for the same key is running.
+	 * @returns The running lookup's result.
+	 */
+	run(key: K, lookUp: () => Promise<V>): Promise<V> {
+		// Check for a running lookup first: an unset key, such as no pin, is
+		// undefined too.
+		if (this._running && this._running.key === key) {
+			return this._running.result;
+		}
+		const result: Promise<V> = lookUp().finally(() => {
+			if (this._running?.result === result) {
+				this._running = undefined;
+			}
+		});
+		this._running = { key, result };
+		return result;
+	}
 }
 
 /**
