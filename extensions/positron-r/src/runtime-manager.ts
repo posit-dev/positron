@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { RBinary, currentRBinary, currentRInstallation, discoverRInstallationsForRecommendation, getRDiscoveryRootSignature, looksLikeRProject, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rPixiRuntimeDiscoverer, rRuntimeDiscoverer } from './provider';
+import { RBinary, currentRBinary, currentRInstallation, discoverRInstallationsForRecommendation, getRDiscoveryRootSignature, listedRBinary, looksLikeRProject, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rPixiRuntimeDiscoverer, rRuntimeDiscoverer } from './provider';
 import { PackagerMetadata, RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata, isRVersionsMetadata } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
@@ -16,10 +16,11 @@ import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 import { getDefaultInterpreterPath, isDefinitionsOnlyDiscovery } from './interpreter-settings.js';
 import { getEnvironmentModulesApi } from './provider-module.js';
 import { packagerMetadataForPath } from './packager-detection.js';
+import { rVersionsMetadataForPath } from './provider-rversions.js';
 import { setupArkJupyterKernel } from './kernel';
 import { getRTerminalEnvironmentMutations, isROnPath } from './r-process-environment';
 import { RSessionManager } from './session-manager';
-import { chooseStartupR } from './startup-choice.js';
+import { choosePinnedR, chooseStartupR } from './startup-choice.js';
 import { arePathsSameFile } from './path-utils.js';
 
 /**
@@ -230,6 +231,50 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			LOGGER.error(`[recommendedWorkspaceRuntime] Failed to recommend an R runtime: ${err}`);
 			return undefined;
 		}
+	}
+
+	/**
+	 * The R that `positron.r.interpreters.default` names, with `implicit`
+	 * startup behavior. Positron writes it over the workspace's affiliated R.
+	 */
+	async pinnedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		const inst = await this.pinnedRInstallation();
+		if (!inst) {
+			return undefined;
+		}
+		LOGGER.info(`[pinnedWorkspaceRuntime] R ${inst.version} at ${inst.binpath} is pinned by '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}'`);
+		return makeMetadata(inst);
+	}
+
+	/**
+	 * The R installation that `positron.r.interpreters.default` names, if that
+	 * R can start here. See `choosePinnedR()`.
+	 */
+	private async pinnedRInstallation(): Promise<RInstallation | undefined> {
+		const pinnedPath = getDefaultInterpreterPath();
+		return choosePinnedR<RInstallation, PackagerMetadata>({
+			definitionsOnly: isDefinitionsOnlyDiscovery(),
+			// On Windows, a pin at `bin\R.exe` would otherwise be a second copy of the R at `bin\x64\R.exe`.
+			pinnedPath: pinnedPath && listedRBinary(pinnedPath),
+			exists: binpath => {
+				const found = fs.existsSync(binpath);
+				if (!found) {
+					LOGGER.warn(`[pinnedRInstallation] Path from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' does not exist: ${binpath}`);
+				}
+				return found;
+			},
+			currentRPath: async () => (await currentRBinary())?.path,
+			isSameFile: arePathsSameFile,
+			packagerMetadataForPath,
+			rVersionsMetadataForPath,
+			install: ({ binpath, current, packagerMetadata }) => {
+				const inst = new RInstallation(binpath, current, [ReasonDiscovered.userSetting], packagerMetadata);
+				if (!inst.usable) {
+					LOGGER.info(`[pinnedWorkspaceRuntime] R at ${binpath} from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' is not usable. Reason: ${friendlyReason(inst.reasonRejected)}`);
+				}
+				return inst;
+			},
+		});
 	}
 
 	async createSession(
