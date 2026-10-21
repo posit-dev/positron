@@ -47,7 +47,7 @@ jobs:
       actions: read
       issues: read
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0-py3.14.7-r4.6.1
       options: --user 0:0 --init
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}

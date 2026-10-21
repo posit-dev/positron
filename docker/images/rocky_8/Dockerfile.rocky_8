@@ -194,8 +194,8 @@ RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda init bash"
 
 # Rig and R
 RUN curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-${RIG_ARCH}-latest.tar.gz | tar xz -C /usr/local
-RUN rig add 4.5.2
-RUN rig add 4.4.2 && rig default 4.5.2
+RUN rig add 4.6.1
+RUN rig add 4.4.2 && rig default 4.6.1
 
 # --- Install TeX (architecture-specific) ---
 # ARM64: Use system TeX Live (TinyTeX binaries require GLIBC 2.29, Rocky 8 has 2.28)
@@ -246,8 +246,8 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 # Add uv to PATH before first use
 ENV PATH="/root/.local/bin:${PATH}"
 
-# Create a uv-managed Python 3.10.12 venv and bootstrap pip
-RUN uv venv --python=3.10.12 /root/.venv && \
+# Create a uv-managed Python 3.14.7 venv and bootstrap pip
+RUN uv venv --python=3.14.7 /root/.venv && \
     curl -sS https://bootstrap.pypa.io/get-pip.py | /root/.venv/bin/python
 
 # Install the e2e test-content Python deps into that Python 3.10 env
@@ -300,21 +300,21 @@ RUN mkdir -p "$R_LIBS_SITE" && chmod -R 755 "$R_LIBS_SITE"
 # Ensure rig's R is on PATH at runtime
 ENV PATH="/root/.rig/bin:${PATH}"
 
-# Pin R 4.5.2
-RUN rig add 4.5.2 && rig default 4.5.2
+# Pin R 4.6.1
+RUN rig add 4.6.1 && rig default 4.6.1
 
 # Configure R to use GCC 13 from gcc-toolset-13 (Arrow needs C++20 support)
-RUN echo 'CC=/opt/rh/gcc-toolset-13/root/usr/bin/gcc' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
-    echo 'CXX=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
-    echo 'CXX11=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
-    echo 'CXX14=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
-    echo 'CXX17=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
-    echo 'CXX20=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
-    echo 'CXX20STD=-std=gnu++20' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
-    echo 'CXX20FLAGS=-fPIC' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
-    echo 'FC=/opt/rh/gcc-toolset-13/root/usr/bin/gfortran' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
-    echo 'CFLAGS=-fPIC' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
-    echo 'CXXFLAGS=-fPIC' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+RUN echo 'CC=/opt/rh/gcc-toolset-13/root/usr/bin/gcc' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX11=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX14=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX17=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX20=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX20STD=-std=gnu++20' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX20FLAGS=-fPIC' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'FC=/opt/rh/gcc-toolset-13/root/usr/bin/gfortran' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CFLAGS=-fPIC' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXXFLAGS=-fPIC' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CC=/opt/rh/gcc-toolset-13/root/usr/bin/gcc' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
     echo 'CXX=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
     echo 'CXX11=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \

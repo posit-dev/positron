@@ -1,7 +1,7 @@
 # Positron CI dev container (ubuntu24-arm64)
 
 Develop, debug, and run Positron **inside the actual CI image**
-(`ghcr.io/posit-dev/positron-ubuntu24:24.18.0`) so CI failures reproduce locally. You edit code in VS Code on your host; the build, tests, and Positron itself run in the container.
+(`ghcr.io/posit-dev/positron-ubuntu24:24.18.0-py3.14.7-r4.6.1`) so CI failures reproduce locally. You edit code in VS Code on your host; the build, tests, and Positron itself run in the container.
 
 > Validated on **arm64** (Apple Silicon) only. The base image is a multi-arch
 > manifest, so Docker resolves the host arch automatically; `POSITRON_CI_IMAGE_ARCH`

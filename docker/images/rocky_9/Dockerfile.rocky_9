@@ -138,8 +138,8 @@ RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda init bash"
 
 # Rig and R
 RUN curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-${RIG_ARCH}-latest.tar.gz | tar xz -C /usr/local
-RUN rig add 4.5.2
-RUN rig add 4.4.2 && rig default 4.5.2
+RUN rig add 4.6.1
+RUN rig add 4.4.2 && rig default 4.6.1
 
 # Install TinyTeX. EL9's glibc 2.34 clears the 2.29 floor the TinyTeX binaries
 # need, so unlike the Rocky 8 image this is arch-agnostic (no system TeX Live
@@ -175,8 +175,8 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 # Add uv to PATH before first use
 ENV PATH="/root/.local/bin:${PATH}"
 
-# Create a uv-managed Python 3.10.12 venv and bootstrap pip
-RUN uv venv --python=3.10.12 /root/.venv && \
+# Create a uv-managed Python 3.14.7 venv and bootstrap pip
+RUN uv venv --python=3.14.7 /root/.venv && \
     curl -sS https://bootstrap.pypa.io/get-pip.py | /root/.venv/bin/python
 
 # Install the e2e test-content Python deps into that Python 3.10 env
@@ -220,8 +220,8 @@ RUN mkdir -p "$R_LIBS_SITE" && chmod -R 755 "$R_LIBS_SITE"
 # Ensure rig's R is on PATH at runtime
 ENV PATH="/root/.rig/bin:${PATH}"
 
-# Pin R 4.5.2
-RUN rig add 4.5.2 && rig default 4.5.2
+# Pin R 4.6.1
+RUN rig add 4.6.1 && rig default 4.6.1
 
 # Install pak into the site library (RSPM first, r-lib as fallback)
 RUN set -eux; \
