@@ -51,7 +51,11 @@ export function createConsoleInputEditorOptions(configurationService: IConfigura
 			wordWrapColumn: 2048,
 			scrollbar: {
 				vertical: 'hidden',
-				useShadows: false
+				useShadows: false,
+				// The console input grows to fit its content and never scrolls
+				// itself, so let wheel events reach the console to scroll it.
+				// https://github.com/posit-dev/positron/issues/8738
+				alwaysConsumeMouseWheel: false
 			},
 			overviewRulerLanes: 0,
 			// This appears to disable the ruler.
