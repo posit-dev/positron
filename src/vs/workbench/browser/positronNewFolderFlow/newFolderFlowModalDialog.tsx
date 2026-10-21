@@ -20,6 +20,7 @@ import { localize } from '../../../nls.js';
 import { isCancellationError } from '../../../base/common/errors.js';
 import { toErrorMessage } from '../../../base/common/errorMessage.js';
 import { createFolderErrorMessage } from '../utils/createFolder.js';
+import { resolveNewFolderParentPath } from '../utils/newFolderParentPath.js';
 
 /**
  * Shows the NewFolderFlowModalDialog.
@@ -32,7 +33,7 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 	renderer.render(
 		<NewFolderFlowContextProvider
 			initialStep={NewFolderFlowStep.FolderTemplateSelection}
-			parentFolder={await renderer.services.fileDialogService.defaultFolderPath()}
+			parentFolder={await resolveNewFolderParentPath(renderer.services)}
 		>
 			<NewFolderFlowModalDialog
 				createFolder={async result => {
