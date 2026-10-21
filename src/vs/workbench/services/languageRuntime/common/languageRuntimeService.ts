@@ -1185,6 +1185,18 @@ export interface IRuntimeManager {
 	getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
 
 	/**
+	 * Ask the manager registered by `extensionId` for `languageId` for the
+	 * interpreter that the language's pin setting names for this workspace.
+	 *
+	 * Disambiguates by `extensionId` for the same reason as
+	 * `getDiscoveryRootSignature`. Returns `undefined` right away when no
+	 * manager here matches, so core can ask every extension host. Also
+	 * returns `undefined` when no pin is set, the manager doesn't implement
+	 * the method, or the manager throws.
+	 */
+	pinnedWorkspaceRuntime(extensionId: string, languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
+
+	/**
 	 * Register the interpreter at a path with this extension host's manager
 	 * for the language. Returns `undefined` when no manager here can do so;
 	 * throws when the manager rejects the interpreter.
