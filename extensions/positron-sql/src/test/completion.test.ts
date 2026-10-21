@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { explainEmptyQualifier, SqlCompletionItemProvider } from '../completion';
 import { SqlTable } from '../schema';
 import { SchemaIndex } from '../schemaIndex';
-import { schemaOf, sqlDocument, testAnalyzer, testLog } from './support';
+import { payloadOf, schemaOf, sqlDocument, testAnalyzer, testLog } from './support';
 
 const SCHEMA = schemaOf('sales.orders: id, total, Order Total', 'customers: id, name');
 
@@ -64,7 +64,82 @@ function ofKind(list: vscode.CompletionList, kind: vscode.CompletionItemKind): s
 		.map(item => (typeof item.label === 'string' ? item.label : item.label.label));
 }
 
+/** What the item with a given label inserts. */
+function inserted(list: vscode.CompletionList, wanted: string): string | undefined {
+	const item = list.items.find(each => (typeof each.label === 'string' ? each.label : each.label.label) === wanted);
+	return (item?.textEdit as vscode.TextEdit | undefined)?.newText;
+}
+
 suite('SqlCompletionItemProvider', () => {
+
+	test('the select after a WITH is offered the CTE\'s own columns', async () => {
+		const { list } = await complete('WITH recent AS (SELECT id, total AS amount FROM orders) SELECT | FROM recent');
+
+		assert.deepStrictEqual(ofKind(list, vscode.CompletionItemKind.Field), ['id', 'amount']);
+	});
+
+	test('a CTE name followed by a dot offers its columns, a star read through the schema', async () => {
+		const named = await complete('WITH r AS (SELECT id, total AS amount FROM orders) SELECT r.| FROM r');
+		const starred = await complete('WITH r AS (SELECT * FROM customers) SELECT x.| FROM r x');
+
+		assert.deepStrictEqual(named.labels, ['id', 'amount']);
+		assert.deepStrictEqual(starred.labels, ['id', 'name']);
+	});
+
+	test('a derived table\'s alias followed by a dot offers what its select list produces', async () => {
+		const { labels } = await complete('SELECT s.| FROM (SELECT id AS k, name FROM customers) s');
+
+		assert.deepStrictEqual(labels, ['k', 'name']);
+	});
+
+	test('a name several schemas have completes the default schema\'s table', async () => {
+		const schema = new SchemaIndex(payloadOf('main.orders: id, total', 'sales.orders: order_no, region'), 'main');
+		const { list } = await complete('SELECT o.| FROM orders o', { schema });
+
+		assert.deepStrictEqual(ofKind(list, vscode.CompletionItemKind.Field), ['id', 'total']);
+	});
+
+	test('a table outside the default schema is inserted with its schema', async () => {
+		const schema = new SchemaIndex(payloadOf('main.orders: id', 'sales.targets: goal'), 'main');
+		const { list } = await complete('SELECT * FROM |', { schema });
+
+		assert.deepStrictEqual([inserted(list, 'orders'), inserted(list, 'targets')], ['orders', 'sales.targets']);
+	});
+
+	test('a name that is a reserved word is quoted when inserted', async () => {
+		const schema = schemaOf('orders: id, order, group, status');
+		const { list } = await complete('SELECT | FROM orders', { schema, dialect: 'duckdb' });
+
+		assert.deepStrictEqual(
+			['id', 'order', 'group', 'status'].map(name => inserted(list, name)),
+			['id', '"order"', '"group"', 'status'],
+		);
+	});
+
+	test('a mixed case name is quoted where the engine folds case', async () => {
+		const schema = schemaOf('Customers: CustomerID, name');
+		const postgres = await complete('SELECT * FROM Cus|', { schema, dialect: 'postgres' });
+		const duckdb = await complete('SELECT * FROM Cus|', { schema, dialect: 'duckdb' });
+		const snowflake = await complete('SELECT * FROM |', { schema: schemaOf('ORDERS: id'), dialect: 'snowflake' });
+
+		assert.deepStrictEqual(
+			[inserted(postgres.list, 'Customers'), inserted(duckdb.list, 'Customers'), inserted(snowflake.list, 'ORDERS')],
+			['"Customers"', 'Customers', 'ORDERS'],
+		);
+	});
+
+	test('BigQuery quotes a name with backticks, a double quote being a string there', async () => {
+		const { list } = await complete('SELECT * FROM |', { dialect: 'bigquery', schema: schemaOf('order items: id') });
+
+		assert.strictEqual(inserted(list, 'order items'), '`order items`');
+	});
+
+	test('a prefix matches the start of any word in a name', async () => {
+		const schema = schemaOf('orders: user_id, CustomerID, total');
+		const { labels } = await complete('SELECT id| FROM orders', { schema });
+
+		assert.deepStrictEqual(labels, ['user_id', 'CustomerID']);
+	});
 
 	test('an alias qualifier offers that table\'s columns', async () => {
 		const { list } = await complete('SELECT o.| FROM orders o');
@@ -331,7 +406,7 @@ suite('SqlCompletionItemProvider', () => {
 		const table = await complete('SELECT * FROM |', { schema: new SchemaIndex() });
 		const selectList = await complete('SELECT |', { schema: new SchemaIndex() });
 
-		assert.deepStrictEqual(table.labels, ['IF EXISTS', 'IF NOT EXISTS', 'LATERAL', 'TABLE', 'UNNEST']);
+		assert.deepStrictEqual(table.labels, ['LATERAL', 'TABLE', 'UNNEST']);
 		assert.ok(selectList.labels.includes('DISTINCT'), selectList.labels.join(', '));
 		assert.ok(!selectList.labels.includes('UNNEST'), selectList.labels.join(', '));
 	});

@@ -60,8 +60,8 @@ export interface Cursor {
 	readonly qualifiers: readonly string[];
 
 	/**
-	 * Set when the cursor is somewhere no identifier belongs -- inside a string literal or a line
-	 * comment -- and the request should produce nothing at all.
+	 * Set when the cursor is somewhere no identifier belongs -- inside a string literal, a comment
+	 * or a dollar quoted body -- and the request should produce nothing at all.
 	 */
 	readonly suppressed: boolean;
 
@@ -70,53 +70,80 @@ export interface Cursor {
 }
 
 /**
- * Finds the quote or comment the cursor sits inside, if one was opened on the cursor's line.
+ * Finds the quote or comment the cursor sits inside, if any.
  *
  * Returns the opening delimiter and the offset just past it, or undefined when the cursor is in
- * ordinary code. Only the cursor's own line is scanned: an unterminated literal is by definition
- * something the tokenizer cannot get past, so there is no token stream to consult, and a
- * delimiter opened on an earlier line is far rarer than the case this exists for -- a user part
- * way through typing `"Order Total"`.
+ * ordinary code. Scanned from the start of the document, because a string literal, a block
+ * comment and a dollar quoted body can all span lines, and what one of them opened three lines up
+ * is still open at the cursor.
+ *
+ * What never closes is closed the way the analyzer's tokenizer closes it, so the two agree about
+ * what is code: a quote that closes nowhere in the rest of the document ends at its own line --
+ * far more likely a typo than an intent to quote everything below it -- while an unclosed block
+ * comment or dollar quote runs to the end. A quoted identifier never spans lines, which is what
+ * makes `"Order T` the half typed name it looks like rather than the start of one that swallows
+ * the rest of the file.
  */
 function openQuoteAt(text: string, offset: number): { delimiter: string; contentStart: number } | undefined {
-	let position = text.lastIndexOf('\n', Math.max(0, offset - 1)) + 1;
-	if (offset === 0) {
-		position = 0;
-	}
+	let position = 0;
 
 	while (position < offset) {
 		const char = text[position];
 
 		if (char === '-' && text.startsWith('--', position)) {
-			return { delimiter: '--', contentStart: position + 2 };
+			const end = lineEnd(text, position);
+			if (end >= offset) {
+				return { delimiter: '--', contentStart: position + 2 };
+			}
+			position = end;
+			continue;
+		}
+
+		if (char === '/' && text.startsWith('/*', position)) {
+			const close = text.indexOf('*/', position + 2);
+			if (close < 0 || close + 2 > offset) {
+				return { delimiter: '/*', contentStart: position + 2 };
+			}
+			position = close + 2;
+			continue;
 		}
 
 		if (char === '\'') {
-			position += 1;
-			let closed = false;
-			while (position < offset) {
-				if (text[position] === '\'') {
-					// A doubled quote is an escaped one and does not close the literal.
-					if (text.startsWith('\'\'', position)) {
-						position += 2;
-						continue;
-					}
-					closed = true;
-					break;
-				}
-				position += 1;
+			const close = closingQuote(text, position);
+			// Closed nowhere in the document: a typo, taken to end with its line.
+			const end = close < 0 ? lineEnd(text, position) : close + 1;
+			if (end > offset || (close < 0 && end >= offset)) {
+				return { delimiter: '\'', contentStart: position + 1 };
 			}
-			if (!closed) {
-				return { delimiter: '\'', contentStart: position };
-			}
-			position += 1;
+			position = end;
 			continue;
+		}
+
+		if (char === '$') {
+			const tag = dollarTag(text, position);
+			if (tag) {
+				const close = text.indexOf(tag, position + tag.length);
+				if (close < 0 || close + tag.length > offset) {
+					return { delimiter: tag, contentStart: position + tag.length };
+				}
+				position = close + tag.length;
+				continue;
+			}
 		}
 
 		const closing = IDENTIFIER_QUOTES.get(char);
 		if (closing !== undefined) {
 			const end = text.indexOf(closing, position + 1);
-			if (end < 0 || end >= offset) {
+			const lineStop = lineEnd(text, position);
+			if (end < 0 || end > lineStop) {
+				// Never closed on its line, so it ends there.
+				if (lineStop >= offset) {
+					return { delimiter: char, contentStart: position + 1 };
+				}
+				position = lineStop;
+				continue;
+			}
+			if (end >= offset) {
 				return { delimiter: char, contentStart: position + 1 };
 			}
 			position = end + 1;
@@ -127,6 +154,44 @@ function openQuoteAt(text: string, offset: number): { delimiter: string; content
 	}
 
 	return undefined;
+}
+
+/** The offset of the line break ending the line `offset` is on, or the end of the text. */
+function lineEnd(text: string, offset: number): number {
+	const end = text.indexOf('\n', offset);
+	return end < 0 ? text.length : end;
+}
+
+/** The offset of the quote closing the string literal opened at `open`, or -1 if none does. */
+function closingQuote(text: string, open: number): number {
+	let position = open + 1;
+	while (position < text.length) {
+		const close = text.indexOf('\'', position);
+		if (close < 0) {
+			return -1;
+		}
+		// A doubled quote is an escaped one and does not close the literal.
+		if (text[close + 1] === '\'') {
+			position = close + 2;
+			continue;
+		}
+		return close;
+	}
+	return -1;
+}
+
+/**
+ * The delimiter of a dollar quoted body opening at `offset` -- `$$` or `$tag$` -- or undefined.
+ *
+ * Not a parameter (`$1`), whose tag would start with a digit, and not a `$` inside a name, which
+ * PostgreSQL allows after its first character.
+ */
+function dollarTag(text: string, offset: number): string | undefined {
+	if (offset > 0 && IDENTIFIER_CHAR.test(text[offset - 1])) {
+		return undefined;
+	}
+	const match = /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/.exec(text.slice(offset, offset + 64));
+	return match?.[0];
 }
 
 /**
@@ -159,7 +224,7 @@ function readIdentifierBackwards(text: string, end: number): { name: string; sta
 /** Reads the partial identifier at the cursor and any dotted qualifiers in front of it. */
 export function readCursor(text: string, offset: number): Cursor {
 	const openQuote = openQuoteAt(text, offset);
-	if (openQuote && (openQuote.delimiter === '\'' || openQuote.delimiter === '--')) {
+	if (openQuote && !IDENTIFIER_QUOTES.has(openQuote.delimiter)) {
 		return {
 			prefix: '',
 			prefixStart: offset,

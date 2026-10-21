@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { LocalKind, SourceRef, SqlAnalyzer } from './analyzer';
+import { LocalKind, Produced, SourceRef, SqlAnalyzer } from './analyzer';
 import { probeText, readCursor } from './cursor';
 import { SqlLog } from './log';
 import { SqlColumn, SqlTable } from './schema';
@@ -44,8 +44,23 @@ const SORT_COLUMN = '1';
 const SORT_TABLE = '2';
 const SORT_KEYWORD = '3';
 
-/** An identifier that needs no quoting when inserted. */
-const BARE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_$]*$/;
+/**
+ * An identifier every dialect reads bare, keywords aside. The analyzer's own test, so the two
+ * cannot disagree about which names it has to be asked about.
+ */
+const BARE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * Dialects whose engine folds an unquoted name to lower case, so that `Customers` written bare
+ * reads `customers` -- a different table, if the real one was created with quotes.
+ */
+const FOLDS_TO_LOWER = new Set(['postgres', 'redshift']);
+
+/** Dialects whose engine folds an unquoted name to upper case, the other way round. */
+const FOLDS_TO_UPPER = new Set(['snowflake', 'oracle']);
+
+/** How many names' quoting to remember before starting over; bounds a long session's memory. */
+const MAX_REMEMBERED_QUOTING = 50000;
 
 /**
  * The quote character each dialect writes an identifier with, when it is not the standard one.
@@ -56,6 +71,8 @@ const BARE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_$]*$/;
  * find the quoting keyed by the other.
  */
 const DIALECT_QUOTES = new Map([
+	// A double quote opens a string in BigQuery, so a name written in one would be a literal.
+	['bigquery', '`'],
 	['mysql', '`'],
 	['mariadb', '`'],
 	['hive', '`'],
@@ -112,6 +129,16 @@ export interface CompletionContext {
 export class SqlCompletionItemProvider implements vscode.CompletionItemProvider {
 
 	/**
+	 * Which names need quoting, by dialect and name. The analyzer's answer is fixed for a pair, and
+	 * asking costs a parse or three per keyword, so each is asked once -- a schema's worth at a
+	 * time, the first time the schema is completed from.
+	 */
+	private readonly _quoting = new Map<string, Map<string, boolean>>();
+
+	/** The schemas whose names have been asked about already, so a schema is primed once. */
+	private readonly _primed = new WeakSet<SchemaIndex>();
+
+	/**
 	 * @param _context The world as it stands for one document. Per document, not per window: which
 	 *   tables are known depends on the connection that file is written against.
 	 */
@@ -157,7 +184,8 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		);
 		const opening = cursor.quoted ? text[cursor.replaceStart] : undefined;
 
-		const { tables: scope, names } = inScope(analyzer, schema, dialect, text, cursor, offset);
+		const quote = this._quoter(analyzer, schema, dialect);
+		const { tables: scope, names, relations } = inScope(analyzer, schema, dialect, text, cursor, offset);
 
 		const qualifier = cursor.qualifiers.length > 0
 			? cursor.qualifiers[cursor.qualifiers.length - 1]
@@ -170,7 +198,7 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		let keywordSource: string | undefined;
 
 		if (qualifier !== undefined) {
-			const qualified = qualifiedItems(qualifier, scope, schema, dialect, replace);
+			const qualified = qualifiedItems(qualifier, scope, relations, schema, quote, replace);
 			items = qualified.items;
 			if (items.length === 0) {
 				log.trace(explainEmptyQualifier(qualifier, qualified.tables));
@@ -182,23 +210,30 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 			// run, so the keywords that belong are all there is to offer.
 			const namesBelong = !NAMELESS_POSITIONS.has(contextual.position ?? '');
 			items = [
-				...(namesBelong ? columnItems(scope, dialect, replace) : []),
-				...(namesBelong ? nameItems(names, dialect, replace) : []),
-				...(namesBelong ? schema.tables.map(table => tableItem(table, dialect, replace)) : []),
+				...(namesBelong ? columnItems(scope, quote, replace) : []),
+				...(namesBelong ? relations.flatMap(relation => producedItems(relation, schema, quote, replace)) : []),
+				...(namesBelong ? nameItems(names, quote, replace) : []),
+				...(namesBelong
+					// Qualified when the engine would not find it unqualified: `sales.targets`,
+					// where `targets` alone reads the default schema and fails.
+					? schema.tables.map(table => tableItem(table, quote, replace, !schema.isDefault(table)))
+					: []),
 				...contextual.keywords.map(keyword => keywordItem(keyword, replace)),
 			];
 		}
 
 		const prefix = cursor.prefix.toLowerCase();
 		if (prefix) {
-			const matching = items.filter(item => label(item).toLowerCase().startsWith(prefix));
+			const matching = items.filter(item => reaches(label(item), prefix));
 			if (matching.length === 0 && qualifier === undefined && !cursor.quoted) {
 				// Nothing offered matched, so the likeliest thing to have been wrong is the position
 				// the keywords were chosen for, and the full vocabulary goes in rather than leaving
 				// the user with an empty list. Conditioned on no item at all matching, so a prefix
 				// that names a table does not drag a thousand keywords in behind it.
+				// Held to the prefix itself, at the start of a word: the whole vocabulary is a
+				// thousand entries, and letters scattered through them match far too many.
 				items = keywords
-					.filter(keyword => keyword.toLowerCase().startsWith(prefix))
+					.filter(keyword => reaches(keyword, prefix, false))
 					.map(keyword => keywordItem(keyword, replace));
 				keywordSource = 'the full keyword list, nothing at the cursor having matched';
 			} else {
@@ -234,6 +269,119 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 
 		return new vscode.CompletionList(items, isIncomplete);
 	}
+
+	/**
+	 * How to write a name in this dialect: as it is, or quoted.
+	 *
+	 * Quoted when the analyzer says a keyword would not read back as the name, or when the engine
+	 * folds unquoted names to a case the name is not in. Erring towards quoting is safe: the name
+	 * is inserted exactly as the connection reported it, so a quoted one always names the right
+	 * object.
+	 */
+	private _quoter(analyzer: SqlAnalyzer, schema: SchemaIndex, dialect: string): Quote {
+		let known = this._quoting.get(dialect);
+		if (!known) {
+			known = new Map();
+			this._quoting.set(dialect, known);
+		}
+		if (known.size > MAX_REMEMBERED_QUOTING) {
+			known.clear();
+			this._primed.delete(schema);
+		}
+		const answers = known;
+		const ask = (names: readonly string[]) => {
+			const asked = names.filter(name => BARE_IDENTIFIER.test(name) && !answers.has(name));
+			if (asked.length === 0) {
+				return;
+			}
+			const quoted = analyzer.quoting(asked, dialect);
+			asked.forEach((name, at) => answers.set(name, quoted[at] ?? true));
+		};
+		if (!this._primed.has(schema)) {
+			// Every name the schema could insert, in one request rather than one per item.
+			this._primed.add(schema);
+			ask(schemaNames(schema));
+		}
+		const open = DIALECT_QUOTES.get(dialect) ?? '"';
+		return name => {
+			if (BARE_IDENTIFIER.test(name)) {
+				if (!answers.has(name)) {
+					ask([name]);
+				}
+				const folds = (FOLDS_TO_LOWER.has(dialect) && name !== name.toLowerCase())
+					|| (FOLDS_TO_UPPER.has(dialect) && name !== name.toUpperCase());
+				if (!folds && answers.get(name) === false) {
+					return name;
+				}
+			}
+			if (open === '[') {
+				// T-SQL brackets escape a closing bracket by doubling it, and have no opening escape.
+				return `[${name.replace(/]/g, ']]')}]`;
+			}
+			return `${open}${name.split(open).join(open + open)}${open}`;
+		};
+	}
+}
+
+/** Writes a name the way a completion should insert it; see `_quoter`. */
+type Quote = (name: string) => string;
+
+/** Every name a schema could have a completion insert. */
+function schemaNames(schema: SchemaIndex): string[] {
+	const names = new Set<string>();
+	for (const table of schema.tables) {
+		names.add(table.name);
+		for (const part of [table.schema, table.catalog]) {
+			if (part) {
+				names.add(part);
+			}
+		}
+		for (const column of table.columns) {
+			names.add(column.name);
+		}
+	}
+	return [...names];
+}
+
+/**
+ * Whether a typed prefix could be what the user means by a label: its first letter starts the
+ * label or one of its words -- after an underscore, a space, or a change from lower to upper case
+ * -- and the rest follow in order. So `id` reaches `user_id` and `CustomerID`, and `uid` reaches
+ * `user_id`, the way the editor's own filter would, while `d` does not reach every name with a
+ * `d` somewhere in it.
+ *
+ * @param scattered Whether the letters after the first may be spread through the rest of the
+ *   label, rather than following the first in one piece.
+ */
+export function reaches(label: string, prefix: string, scattered = true): boolean {
+	if (prefix.length === 0) {
+		return true;
+	}
+	const folded = label.toLowerCase();
+	for (let at = 0; at < label.length; at++) {
+		const before = label[at - 1];
+		const here = label[at];
+		const boundary = at === 0 || before === '_' || before === ' '
+			|| (before >= 'a' && before <= 'z' && here >= 'A' && here <= 'Z');
+		const rest = scattered ? follows(folded, at + 1, prefix, 1) : folded.startsWith(prefix, at);
+		if (boundary && folded[at] === prefix[0] && rest) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/** Whether `prefix` from `from` appears in order, not necessarily together, in `text` from `start`. */
+function follows(text: string, start: number, prefix: string, from: number): boolean {
+	let at = start;
+	for (let index = from; index < prefix.length; index++) {
+		at = text.indexOf(prefix[index], at);
+		if (at < 0) {
+			return false;
+		}
+		at += 1;
+	}
+	return true;
 }
 
 /**
@@ -285,27 +433,39 @@ interface QualifiedCompletions {
 function qualifiedItems(
 	qualifier: string,
 	scope: readonly ScopeEntry[],
+	relations: readonly Relation[],
 	schema: SchemaIndex,
-	dialect: string,
+	quote: Quote,
 	replace: vscode.Range,
 ): QualifiedCompletions {
 	const folded = qualifier.toLowerCase();
 
 	// A qualifier is an alias or a table name first: `o.` after `FROM orders o` means the columns
 	// of orders, even if some schema is also called `o`.
-	let qualified = scope.filter(entry => (entry.alias ?? entry.table.name).toLowerCase() === folded);
-	if (qualified.length === 0) {
-		qualified = schema.tablesNamed(qualifier).map(table => ({ alias: undefined, table }));
-	}
+	const qualified = scope.filter(entry => (entry.alias ?? entry.table.name).toLowerCase() === folded);
 	if (qualified.length > 0) {
 		return {
-			items: columnItems(qualified, dialect, replace),
+			items: columnItems(qualified, quote, replace),
 			tables: qualified.map(entry => entry.table),
+		};
+	}
+	// Then a CTE or derived table the statement reads under that name, whose columns are what its
+	// own select list produced. Before the schema's tables: `WITH orders AS (...)` hides the real
+	// one from the statement that declares it.
+	const relation = relations.find(candidate => candidate.name.toLowerCase() === folded);
+	if (relation) {
+		return { items: producedItems(relation, schema, quote, replace), tables: [] };
+	}
+	const named = schema.resolve(qualifier).map(table => ({ alias: undefined, table }));
+	if (named.length > 0) {
+		return {
+			items: columnItems(named, quote, replace),
+			tables: named.map(entry => entry.table),
 		};
 	}
 	if (schema.isNamespace(qualifier)) {
 		const tables = schema.tablesInNamespace(qualifier);
-		return { items: tables.map(table => tableItem(table, dialect, replace)), tables };
+		return { items: tables.map(table => tableItem(table, quote, replace, false)), tables };
 	}
 	// The qualifier names nothing known. No keywords here: one is never valid immediately after a
 	// dot, and offering the whole list would bury the point that the qualifier was not recognized.
@@ -353,6 +513,15 @@ interface InScope {
 	 * locals. Independent of the schema, since the statement is what defines them.
 	 */
 	readonly names: readonly InScopeName[];
+
+	/** The CTEs and derived tables the statement reads, under the names it reads them by. */
+	readonly relations: readonly Relation[];
+}
+
+/** A relation the statement defines and reads, and the columns it produces. */
+interface Relation {
+	readonly name: string;
+	readonly produces: Produced;
 }
 
 /** A name the statement defines, and what it stands for. */
@@ -381,6 +550,7 @@ function inScope(
 
 	const tables: ScopeEntry[] = [];
 	const names: InScopeName[] = [];
+	const relations: Relation[] = [];
 	for (const source of sources) {
 		for (const table of resolveSource(schema, source)) {
 			tables.push({ alias: source.alias, table });
@@ -391,12 +561,52 @@ function inScope(
 		}
 	}
 	for (const local of locals) {
+		if (local.kind === 'relation' && local.produces) {
+			relations.push({ name: local.name, produces: local.produces });
+		}
 		const of = local.column
 			? [local.column.qualifier, local.column.name].filter(part => part).join('.')
 			: undefined;
 		names.push({ name: local.name, kind: local.kind, of });
 	}
-	return { tables, names };
+	return { tables, names, relations };
+}
+
+/**
+ * The columns a CTE or derived table produces, as completions: the names its select list gives,
+ * and the schema's columns for each real table it passes through with a `*`.
+ */
+function producedItems(
+	relation: Relation,
+	schema: SchemaIndex,
+	quote: Quote,
+	replace: vscode.Range,
+): vscode.CompletionItem[] {
+	const items: vscode.CompletionItem[] = [];
+	const seen = new Set<string>();
+	const add = (item: vscode.CompletionItem) => {
+		const folded = label(item).toLowerCase();
+		if (!seen.has(folded)) {
+			seen.add(folded);
+			items.push(item);
+		}
+	};
+	for (const name of relation.produces.columns) {
+		const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Field);
+		item.detail = vscode.l10n.t('column');
+		item.documentation = vscode.l10n.t('Column of {0}', relation.name);
+		item.sortText = SORT_COLUMN + name.toLowerCase();
+		item.textEdit = new vscode.TextEdit(replace, quote(name));
+		add(item);
+	}
+	for (const star of relation.produces.stars ?? []) {
+		for (const table of resolveSource(schema, star)) {
+			for (const column of table.columns) {
+				add(columnItem(column, table, quote, replace));
+			}
+		}
+	}
+	return items;
 }
 
 /**
@@ -409,7 +619,7 @@ function inScope(
  */
 function nameItems(
 	names: readonly InScopeName[],
-	dialect: string,
+	quote: Quote,
 	replace: vscode.Range,
 ): vscode.CompletionItem[] {
 	const items: vscode.CompletionItem[] = [];
@@ -447,7 +657,7 @@ function nameItems(
 				break;
 		}
 		item.sortText = (cte ? SORT_TABLE : SORT_COLUMN) + folded;
-		item.textEdit = new vscode.TextEdit(replace, insertText(name, dialect));
+		item.textEdit = new vscode.TextEdit(replace, quote(name));
 		items.push(item);
 	}
 	return items;
@@ -459,13 +669,13 @@ function resolveSource(schema: SchemaIndex, source: SourceRef): readonly SqlTabl
 
 function columnItems(
 	scope: readonly ScopeEntry[],
-	dialect: string,
+	quote: Quote,
 	replace: vscode.Range,
 ): vscode.CompletionItem[] {
 	const items: vscode.CompletionItem[] = [];
 	for (const { table } of scope) {
 		for (const column of table.columns) {
-			items.push(columnItem(column, table, dialect, replace));
+			items.push(columnItem(column, table, quote, replace));
 		}
 	}
 	return items;
@@ -474,7 +684,7 @@ function columnItems(
 function columnItem(
 	column: SqlColumn,
 	table: SqlTable,
-	dialect: string,
+	quote: Quote,
 	replace: vscode.Range,
 ): vscode.CompletionItem {
 	const item = new vscode.CompletionItem(column.name, vscode.CompletionItemKind.Field);
@@ -483,18 +693,23 @@ function columnItem(
 		: column.dataType ?? 'column';
 	item.documentation = vscode.l10n.t('Column of {0}', qualifiedName(table));
 	item.sortText = SORT_COLUMN + column.name.toLowerCase();
-	item.textEdit = new vscode.TextEdit(replace, insertText(column.name, dialect));
+	item.textEdit = new vscode.TextEdit(replace, quote(column.name));
 	return item;
 }
 
-function tableItem(table: SqlTable, dialect: string, replace: vscode.Range): vscode.CompletionItem {
+/**
+ * @param qualify Whether to insert the table's schema in front of it, for a table an unqualified
+ *   name would not find.
+ */
+function tableItem(table: SqlTable, quote: Quote, replace: vscode.Range, qualify: boolean): vscode.CompletionItem {
 	const item = new vscode.CompletionItem(table.name, vscode.CompletionItemKind.Class);
 	item.detail = table.kind;
 	item.documentation = table.connection
 		? `${qualifiedName(table)} (${table.connection})`
 		: qualifiedName(table);
 	item.sortText = SORT_TABLE + table.name.toLowerCase();
-	item.textEdit = new vscode.TextEdit(replace, insertText(table.name, dialect));
+	const name = qualify && table.schema ? `${quote(table.schema)}.${quote(table.name)}` : quote(table.name);
+	item.textEdit = new vscode.TextEdit(replace, name);
 	return item;
 }
 
@@ -504,19 +719,6 @@ function keywordItem(keyword: string, replace: vscode.Range): vscode.CompletionI
 	item.sortText = SORT_KEYWORD + keyword;
 	item.textEdit = new vscode.TextEdit(replace, keyword);
 	return item;
-}
-
-/** The text to insert for an identifier, quoted the way the dialect writes one if it has to be. */
-function insertText(name: string, dialect: string): string {
-	if (BARE_IDENTIFIER.test(name)) {
-		return name;
-	}
-	const open = DIALECT_QUOTES.get(dialect) ?? '"';
-	if (open === '[') {
-		// T-SQL brackets escape a closing bracket by doubling it, and have no opening escape.
-		return `[${name.replace(/]/g, ']]')}]`;
-	}
-	return `${open}${name.split(open).join(open + open)}${open}`;
 }
 
 /** A position as the editor shows it, so a log line points at a place the user can see. */
