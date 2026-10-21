@@ -9,13 +9,13 @@ import * as vscode from 'vscode';
 import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer } from './analyzer';
 import { QUOTE_TRIGGERS, SqlCompletionItemProvider } from './completion';
 import { collectDiagnostics } from './diagnostics';
-import { dialectOfDriver } from './dialects';
+import { defaultSchemaOf, dialectOfDriver } from './dialects';
 import { hoverFor } from './hover';
 import { collectLinks } from './links';
 import { SqlLog } from './log';
 import { ConnectionRef, EMPTY_SCHEMA, readConnectionSchema, schemaOfProfile, SqlSchema } from './schema';
 import { SchemaIndex } from './schemaIndex';
-import { ConnectionSelection, resolveSelection } from './selection';
+import { ConnectionSelection, EffectiveSelection, resolveSelection } from './selection';
 import { SqlStatementRangeProvider } from './statementRange';
 import { ConnectionStatusBar, describeSelection, DialectInUse, pickConnection } from './statusBar';
 
@@ -117,6 +117,21 @@ class SqlSession implements vscode.Disposable {
 	private _payload: SqlSchema = EMPTY_SCHEMA;
 
 	/**
+	 * Whether {@link _payload} has been read at least once. Before then the connections the user
+	 * has configured are not known, and a file's choice cannot be told apart from one since removed.
+	 */
+	private _read = false;
+
+	/**
+	 * Counts schema reads, so that one overtaken by a later read is dropped when it finishes.
+	 *
+	 * Reads are started by connection changes and can overlap: one begun while a connection was
+	 * open can finish after one begun once it closed, and would otherwise put the closed
+	 * connection's tables back.
+	 */
+	private _generation = 0;
+
+	/**
 	 * Indices over one connection each, built the first time a file scoped to it asks.
 	 *
 	 * Lazily, and thrown away whole on every read: a window usually has one connection open and a
@@ -212,10 +227,18 @@ class SqlSession implements vscode.Disposable {
 			vscode.window.onDidChangeActiveTextEditor(() => this._updateStatusBar()),
 
 			vscode.workspace.onDidOpenTextDocument(document => {
+				if (document.languageId === 'sql') {
+					// A buffer just saved as this file, or this same buffer reopened in a new
+					// language, carries its choice over.
+					this._selection.adopt(document.uri, document.getText());
+				}
 				this._refresh(document);
 				// A file that says which database it is written against says what to open, so the
 				// user does not have to open it by hand before the file works.
 				void this._openConnectionFor(document);
+				// Changing a buffer's language closes and reopens it under the same editor, which
+				// does not change the active editor, so the item is not otherwise told.
+				this._updateStatusBar();
 			}),
 			vscode.workspace.onDidChangeTextDocument(event => this._schedule(event.document)),
 			vscode.workspace.onDidCloseTextDocument(document => {
@@ -223,7 +246,23 @@ class SqlSession implements vscode.Disposable {
 				// keep its errors in the Problems panel with no editor to fix them in.
 				this._cancel(document);
 				this._diagnostics.delete(document.uri);
-				this._selection.forgetIfTransient(document.uri);
+				this._selection.forgetIfTransient(document.uri, document.getText());
+				// The file a buffer is saved as may already be open by the time the buffer closes.
+				for (const open of vscode.workspace.textDocuments) {
+					if (open !== document && open.languageId === 'sql' && !open.isClosed
+						&& this._selection.adopt(open.uri, open.getText())) {
+						this._refresh(open);
+						this._relink();
+					}
+				}
+				this._updateStatusBar();
+			}),
+
+			// A choice is kept by file, so it moves when the file does.
+			vscode.workspace.onDidRenameFiles(event => {
+				for (const { oldUri, newUri } of event.files) {
+					this._selection.rename(oldUri, newUri);
+				}
 			}),
 
 			vscode.workspace.onDidChangeConfiguration(event => {
@@ -320,20 +359,23 @@ class SqlSession implements vscode.Disposable {
 
 	/** Re-reads the user's data connections and re-analyzes every open document. */
 	public async refreshSchema(): Promise<void> {
+		const generation = ++this._generation;
 		let payload: SqlSchema;
 		try {
 			payload = await readConnectionSchema(this._log);
 		} catch (error) {
 			// Completions still work without metadata: keywords are always available, and the
 			// alternative to keeping the old schema is dropping tables the user can still see in
-			// the Connections pane.
+			// the Data Connections pane.
 			this._log.warn(`Could not read the database schema: ${error}`);
 			return;
 		}
-		if (this._disposed) {
+		if (this._disposed || generation !== this._generation) {
+			// Switched off, or overtaken by a read that began after this one and knows better.
 			return;
 		}
 		this._payload = payload;
+		this._read = true;
 		this._scoped.clear();
 		// The schema decides which names are unknown, so every open document's diagnostics are
 		// stale, and which names are tables, so its links are. The status bar is stale too: a
@@ -352,17 +394,32 @@ class SqlSession implements vscode.Disposable {
 	 * that do.
 	 */
 	private _schemaFor(document: vscode.TextDocument): SchemaIndex {
-		const selection = resolveSelection(this._selection.get(document.uri), this._payload.connections);
+		const selection = this._resolve(document);
 		if (selection.kind === 'none') {
 			return NO_SCHEMA;
 		}
-		const profileId = selection.connection.profileId;
+		const { profileId, driverId } = selection.connection;
 		let index = this._scoped.get(profileId);
 		if (!index) {
-			index = new SchemaIndex(schemaOfProfile(this._payload, profileId));
+			// The engine's default schema, from the driver rather than from the dialect setting:
+			// which schema an unqualified name reads is the database's behaviour, whatever the file
+			// is being parsed as.
+			index = new SchemaIndex(
+				schemaOfProfile(this._payload, profileId),
+				defaultSchemaOf(dialectOfDriver(driverId)),
+			);
 			this._scoped.set(profileId, index);
 		}
 		return index;
+	}
+
+	/** What a document's choice comes to, given what is open and what is configured. */
+	private _resolve(document: vscode.TextDocument): EffectiveSelection {
+		return resolveSelection(
+			this._selection.get(document.uri),
+			this._payload.connections,
+			this._read ? this._payload.configured : undefined,
+		);
 	}
 
 	/** Asks which connection the active SQL file is written against, and applies the answer. */
@@ -399,7 +456,7 @@ class SqlSession implements vscode.Disposable {
 	private _updateStatusBar(): void {
 		const document = activeSqlDocument();
 		this._statusBar.update(document && describeSelection(
-			resolveSelection(this._selection.get(document.uri), this._payload.connections),
+			this._resolve(document),
 			this._payload.configured,
 			this._dialectInUse(document),
 		));
@@ -421,7 +478,7 @@ class SqlSession implements vscode.Disposable {
 		if (configured) {
 			return { dialect: configured, fromSetting: true };
 		}
-		const selection = resolveSelection(this._selection.get(document.uri), this._payload.connections);
+		const selection = this._resolve(document);
 		// Including a connection that is closed: the file is still written against that database,
 		// and its syntax did not change when the connection did.
 		const dialect = selection.kind === 'none'

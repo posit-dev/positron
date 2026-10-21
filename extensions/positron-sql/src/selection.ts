@@ -42,20 +42,29 @@ export type EffectiveSelection =
  * and a window full of SQL, working without a click per file. With several open there is no
  * default worth having, so the file completes keywords only until the user says which one.
  *
+ * A choice of a connection the user has since removed is no choice at all: nothing can open it,
+ * and a file pointing at it is a file that has to be scoped again.
+ *
  * @param chosen What the file was scoped to, if anything.
  * @param open The connections the schema was last read from.
+ * @param configured Every connection the user has set up, when that is known. Undefined before
+ *   the first read, when a choice cannot yet be told apart from one that was removed.
  */
 export function resolveSelection(
 	chosen: ConnectionRef | undefined,
 	open: readonly ConnectionRef[],
+	configured?: readonly ConnectionRef[],
 ): EffectiveSelection {
-	if (!chosen) {
+	const removed = chosen !== undefined && configured !== undefined
+		&& !configured.some(connection => connection.profileId === chosen.profileId);
+	const choice = removed ? undefined : chosen;
+	if (!choice) {
 		return open.length === 1 ? { kind: 'connection', connection: open[0] } : { kind: 'none' };
 	}
 	// Matched by id and reported under the name it is open as, so a connection the user has since
-	// renamed is still the one they chose, and is named the way the Connections pane names it.
-	const live = open.find(connection => connection.profileId === chosen.profileId);
-	return live ? { kind: 'connection', connection: live } : { kind: 'closed', connection: chosen };
+	// renamed is still the one they chose, and is named the way the Data Connections pane names it.
+	const live = open.find(connection => connection.profileId === choice.profileId);
+	return live ? { kind: 'connection', connection: live } : { kind: 'closed', connection: choice };
 }
 
 /** Where the choices are kept between sessions; the workspace memento in production. */
@@ -74,6 +83,15 @@ const STORAGE_KEY = 'connectionByDocument';
 const MAX_REMEMBERED = 200;
 
 /**
+ * How long a closed buffer's choice waits for the document that replaces it.
+ *
+ * Saving an untitled buffer closes it and opens the file it was saved as, and changing a buffer's
+ * language closes and reopens it; both happen within a moment of each other, so a choice that has
+ * not been claimed by then never will be.
+ */
+const HANDOFF_MS = 5000;
+
+/**
  * The connection each SQL file has been scoped to, kept across restarts.
  *
  * In the workspace's memento rather than in the file or in settings: which database a file is
@@ -83,6 +101,9 @@ const MAX_REMEMBERED = 200;
 export class ConnectionSelection {
 
 	private readonly _byFile: Map<string, ConnectionRef>;
+
+	/** Choices of transient buffers just closed, waiting for the document that replaces them. */
+	private _released: { text: string; connection: ConnectionRef; at: number }[] = [];
 
 	constructor(private readonly _store: SelectionStore) {
 		this._byFile = new Map(storedSelections(_store));
@@ -109,9 +130,61 @@ export class ConnectionSelection {
 	 * file does not change which database it was written against, and remembering that across a
 	 * restart is the point of storing it at all.
 	 */
-	public forgetIfTransient(file: vscode.Uri): void {
-		if (!isPersistable(file)) {
-			this._byFile.delete(file.toString());
+	public forgetIfTransient(file: vscode.Uri, text: string): void {
+		if (isPersistable(file)) {
+			return;
+		}
+		const connection = this._byFile.get(file.toString());
+		this._byFile.delete(file.toString());
+		// Held for a moment rather than dropped: if this buffer is being saved, or having its
+		// language changed, the document about to open is the same SQL and should keep the choice.
+		if (connection && text.trim().length > 0) {
+			this._released.push({ text, connection, at: Date.now() });
+		}
+	}
+
+	/**
+	 * Gives a document that has no choice of its own the choice of a buffer just closed with the
+	 * same text, which is what saving an untitled buffer looks like from here.
+	 *
+	 * @returns Whether a choice was taken over.
+	 */
+	public adopt(file: vscode.Uri, text: string): boolean {
+		const now = Date.now();
+		this._released = this._released.filter(released => now - released.at < HANDOFF_MS);
+		if (this._byFile.has(file.toString())) {
+			return false;
+		}
+		const at = this._released.findIndex(released => released.text === text);
+		if (at < 0) {
+			return false;
+		}
+		const [released] = this._released.splice(at, 1);
+		this.set(file, released.connection);
+		return true;
+	}
+
+	/**
+	 * Moves choices along with a renamed or moved file, or with every file under a renamed folder.
+	 */
+	public rename(from: vscode.Uri, to: vscode.Uri): void {
+		const old = from.toString();
+		const folder = old.endsWith('/') ? old : `${old}/`;
+		let moved = false;
+		for (const [file, connection] of [...this._byFile]) {
+			const target = file === old
+				? to.toString()
+				: file.startsWith(folder)
+					? to.toString().replace(/\/?$/, '/') + file.slice(folder.length)
+					: undefined;
+			if (target !== undefined) {
+				this._byFile.delete(file);
+				this._byFile.set(target, connection);
+				moved = true;
+			}
+		}
+		if (moved) {
+			this._save();
 		}
 	}
 

@@ -93,7 +93,7 @@ export function describeSelection(
 				text: `$(alert) ${selection.connection.name}`,
 				tooltip: hover(
 					vscode.l10n.t("{0} is not open", selection.connection.name),
-					vscode.l10n.t("Only SQL keywords are completed. Open it in the Connections pane, or click to choose a different data connection."),
+					vscode.l10n.t("Only SQL keywords are completed. Click to open it, or to choose a different data connection."),
 					dialect,
 				),
 				warning: true,
@@ -187,18 +187,19 @@ export class ConnectionStatusBar implements vscode.Disposable {
 /**
  * Asks which data connection a file is written against.
  *
- * Offers only connections that are open, and only one of them can be chosen: those are the ones
- * there is a schema to complete from, and a statement runs against one database. A closed
- * connection has nothing to offer until it is opened, and the Connections pane is where that is
- * done.
+ * Offers every SQL connection the user has set up, open or not, and only one of them can be
+ * chosen: a statement runs against one database. A closed one is marked as such, and choosing it
+ * opens it -- a connection just added in the Data Connections pane is closed, and is the one the
+ * user is most likely looking for.
  *
- * When nothing is open it says so in a notification and returns undefined straight away, without
+ * When none is set up it says so in a notification and returns undefined straight away, without
  * waiting for the user to answer it. A notification's answer only arrives when the user clicks it
  * or clears it from the notification center -- not when the toast hides itself -- and a caller may
  * be holding a guard while it awaits this, as running a statement does. Waiting would leave every
  * later run doing nothing until the user went looking for a notification they had stopped seeing.
  *
- * @param open The connections the schema was last read from.
+ * @param configured Every SQL connection the user has set up, which is what is offered.
+ * @param open The connections the schema was last read from, so a closed one can be marked.
  * @param current What the file is scoped to now, shown as picked.
  * @returns The connection chosen, or undefined if the user dismissed the picker or there was
  *   nothing to pick.
