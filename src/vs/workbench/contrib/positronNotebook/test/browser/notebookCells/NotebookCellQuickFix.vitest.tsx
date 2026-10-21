@@ -21,7 +21,7 @@ import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookIns
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
-import { registerTestErrorActionHandler } from '../../../../positronAssistant/test/browser/errorActionTestUtils.js';
+import { chooseHiddenErrorActionHandler, registerTestErrorActionHandler } from '../../../../positronAssistant/test/browser/errorActionTestUtils.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { NotebookCellQuickFix } from '../../../browser/notebookCells/NotebookCellQuickFix.js';
@@ -141,6 +141,7 @@ describe('NotebookCellQuickFix', () => {
 
 	it('hides the buttons when no handler can take errors', () => {
 		registration.dispose();
+		chooseHiddenErrorActionHandler(ctx);
 		setGates();
 		renderQuickFix();
 		expect(screen.queryByRole('group', quickFixGroup)).not.toBeInTheDocument();

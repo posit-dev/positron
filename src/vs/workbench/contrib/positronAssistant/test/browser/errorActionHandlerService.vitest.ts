@@ -5,39 +5,49 @@
 
 /// <reference types="vitest/globals" />
 
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
-import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { Extensions, IConfigurationRegistry } from '../../../../../platform/configuration/common/configurationRegistry.js';
+import { INotificationService, Severity } from '../../../../../platform/notification/common/notification.js';
+import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ErrorActionHandlerService } from '../../browser/errorActionHandlerService.js';
 import { IErrorActionHandler, IErrorActionContext, IErrorActionHandlerService } from '../../common/errorAction.js';
 import { AI_ENABLED_KEY } from '../../common/positronAIConfiguration.js';
+import { DEFAULT_ERROR_ACTION_HANDLER_ID, ERROR_ACTIONS_AGENT_KEY } from '../../common/positronAIConfigurationKeys.js';
 import { registerTestErrorActionHandler } from './errorActionTestUtils.js';
 
 describe('ErrorActionHandlerService', () => {
 	const logError = vi.fn();
 	const logWarn = vi.fn();
 	const notifyError = vi.fn();
-	const notifyWarn = vi.fn();
+	const notifyPrompt = vi.fn();
+	const executeCommand = vi.fn();
 	const ctx = createTestContainer()
 		.stub(ILogService, { error: logError, warn: logWarn })
-		.stub(INotificationService, { error: notifyError, warn: notifyWarn })
+		.stub(INotificationService, { error: notifyError, prompt: notifyPrompt })
+		.stub(ICommandService, { executeCommand })
 		.build();
 
 	let configurationService: TestConfigurationService;
 
 	beforeEach(() => {
-		configurationService = new TestConfigurationService({ [AI_ENABLED_KEY]: true });
+		configurationService = new TestConfigurationService({ [AI_ENABLED_KEY]: true, [ERROR_ACTIONS_AGENT_KEY]: 'test-handler' });
 		ctx.instantiationService.stub(IConfigurationService, configurationService);
 	});
 
-	function setAIEnabled(enabled: boolean): void {
-		configurationService.setUserConfiguration(AI_ENABLED_KEY, enabled);
+	function setConfiguration(key: string, value: unknown): void {
+		configurationService.setUserConfiguration(key, value);
 		configurationService.onDidChangeConfigurationEmitter.fire(
-			stubInterface<IConfigurationChangeEvent>({ affectsConfiguration: (key: string) => key === AI_ENABLED_KEY })
+			stubInterface<IConfigurationChangeEvent>({ affectsConfiguration: (changed: string) => changed === key })
 		);
+	}
+
+	function setAIEnabled(enabled: boolean): void {
+		setConfiguration(AI_ENABLED_KEY, enabled);
 	}
 
 	function createService(): ErrorActionHandlerService {
@@ -48,31 +58,76 @@ describe('ErrorActionHandlerService', () => {
 		return { id: 'test-handler', label: 'Test Assistant', supportsChatContinuation: true, ask: async () => { }, ...options };
 	}
 
-	it('makes a handler active while it is registered', () => {
+	/** The ids and labels the setting lists. */
+	function getChoices() {
+		const schema = Registry.as<IConfigurationRegistry>(Extensions.Configuration).getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY];
+		return { ids: schema.enum, labels: schema.enumItemLabels };
+	}
+
+	it('makes the chosen handler active, and names it by its id while it is not registered', () => {
 		const service = createService();
 		const onDidChangeActiveHandler = vi.fn();
 		ctx.disposables.add(service.onDidChangeActiveHandler(onDidChangeActiveHandler));
 		const handler = createHandler();
+		const unavailable = { id: 'test-handler', label: 'test-handler', supportsChatContinuation: false };
+		expect(service.activeHandler).toEqual(unavailable);
 
 		const registration = service.register(handler);
 		expect(service.activeHandler).toBe(handler);
 
 		registration.dispose();
-		expect(service.activeHandler).toBeUndefined();
-		expect(onDidChangeActiveHandler.mock.calls).toEqual([[handler], [undefined]]);
+		expect(service.activeHandler).toEqual(unavailable);
+		expect(onDidChangeActiveHandler.mock.calls).toEqual([[handler], [unavailable]]);
 	});
 
-	it('makes the first registered handler active', () => {
+	it('never makes a handler active that the user did not choose', () => {
+		const service = createService();
+		ctx.disposables.add(service.register(createHandler({ id: 'other' })));
+
+		expect(service.activeHandler?.id).toBe('test-handler');
+	});
+
+	it('follows the setting', () => {
 		const service = createService();
 		const first = createHandler({ id: 'first' });
+		const second = createHandler({ id: 'second' });
+		ctx.disposables.add(service.register(first));
+		ctx.disposables.add(service.register(second));
 		const onDidChangeActiveHandler = vi.fn();
 		ctx.disposables.add(service.onDidChangeActiveHandler(onDidChangeActiveHandler));
 
-		ctx.disposables.add(service.register(first));
-		ctx.disposables.add(service.register(createHandler({ id: 'second' })));
-
+		setConfiguration(ERROR_ACTIONS_AGENT_KEY, 'first');
 		expect(service.activeHandler).toBe(first);
-		expect(onDidChangeActiveHandler).toHaveBeenCalledTimes(1);
+
+		setConfiguration(ERROR_ACTIONS_AGENT_KEY, 'second');
+		expect(service.activeHandler).toBe(second);
+		expect(onDidChangeActiveHandler.mock.calls).toEqual([[first], [second]]);
+	});
+
+	it('makes the default handler active only while it is ready', () => {
+		configurationService = new TestConfigurationService({ [AI_ENABLED_KEY]: true });
+		ctx.instantiationService.stub(IConfigurationService, configurationService);
+		const service = createService();
+		const defaultHandler = createHandler({ id: DEFAULT_ERROR_ACTION_HANDLER_ID });
+		ctx.disposables.add(service.register(defaultHandler));
+		expect(service.activeHandler).toBeUndefined();
+
+		service.setDefaultAssistantReady(true);
+		expect(service.activeHandler).toBe(defaultHandler);
+
+		service.setDefaultAssistantReady(false);
+		expect(service.activeHandler).toBeUndefined();
+	});
+
+	it('lists the default handler first and once, then the registered handlers', () => {
+		const service = createService();
+		const registration = service.register(createHandler({ id: 'second', label: 'Second' }));
+		ctx.disposables.add(service.register(createHandler({ id: DEFAULT_ERROR_ACTION_HANDLER_ID, label: 'Posit Assistant' })));
+		ctx.disposables.add(service.register(createHandler({ id: 'third', label: 'Third' })));
+		expect(getChoices()).toEqual({ ids: ['posit-assistant', 'second', 'third'], labels: ['Posit Assistant', 'Second', 'Third'] });
+
+		registration.dispose();
+		expect(getChoices()).toEqual({ ids: ['posit-assistant', 'third'], labels: ['Posit Assistant', 'Third'] });
 	});
 
 	it('has no active handler while AI is disabled', () => {
@@ -91,7 +146,7 @@ describe('ErrorActionHandlerService', () => {
 	});
 
 	it('has no active handler while ai.enabled is unset', () => {
-		configurationService = new TestConfigurationService();
+		configurationService = new TestConfigurationService({ [ERROR_ACTIONS_AGENT_KEY]: 'test-handler' });
 		ctx.instantiationService.stub(IConfigurationService, configurationService);
 		const service = createService();
 		ctx.disposables.add(service.register(createHandler()));
@@ -164,13 +219,31 @@ describe('ErrorActionHandlerService', () => {
 		expect(ask).not.toHaveBeenCalled();
 	});
 
-	it('logs and warns the user when no handler has the id', async () => {
+	it('sends nothing and offers to select another handler when the handler is not available', async () => {
 		const service = createService();
 
-		await service.ask('removed', 'fix', context, {});
+		await service.ask('claude-code', 'fix', context, {});
 
-		expect(logWarn).toHaveBeenCalledWith(`No error action handler with the id 'removed' is registered`);
-		expect(notifyWarn).toHaveBeenCalledWith('Could not send the error: the coding agent is no longer available.');
+		expect(logWarn).toHaveBeenCalledWith(`No error action handler with the id 'claude-code' is registered`);
+		const [severity, message, [choice]] = notifyPrompt.mock.calls[0];
+		expect({ severity, message, choice: choice.label }).toEqual({
+			severity: Severity.Warning,
+			message: `The coding agent 'claude-code' isn't available, so the error wasn't sent. It may have been uninstalled or disabled.`,
+			choice: 'Select Another Coding Agent',
+		});
+
+		choice.run();
+		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', '@id:ai.errorActions.agent');
+	});
+
+	it('sends nothing to the default handler while it is not ready', async () => {
+		const service = createService();
+		const ask = vi.fn();
+		ctx.disposables.add(service.register(createHandler({ id: DEFAULT_ERROR_ACTION_HANDLER_ID, ask })));
+
+		await service.ask(DEFAULT_ERROR_ACTION_HANDLER_ID, 'fix', context, {});
+
+		expect(ask).not.toHaveBeenCalled();
 	});
 
 	it('logs and notifies, rather than throws, when the handler fails', async () => {

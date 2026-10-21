@@ -114,14 +114,18 @@ export interface IErrorActionHandler extends IErrorActionHandlerInfo {
 
 export const IErrorActionHandlerService = createDecorator<IErrorActionHandlerService>('errorActionHandlerService');
 
-/** Sends errors to the active handler when the user presses Fix or Explain. */
+/** Sends errors to the chosen handler when the user presses Fix or Explain. */
 export interface IErrorActionHandlerService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * The handler errors are sent to: the first registered handler, while
-	 * `ai.enabled` is true. Undefined otherwise. A handler that unregisters
-	 * and registers again goes behind any others.
+	 * The handler errors are sent to: the one the `ai.errorActions.agent` setting
+	 * names, while `ai.enabled` is true. Never another one. The default
+	 * handler, currently Posit Assistant, is active only while it's ready (see
+	 * {@link setDefaultAssistantReady}). Any other chosen handler is active even
+	 * while it isn't registered, named by its id, so its buttons show and a
+	 * click says it isn't available. Undefined while there is nowhere to send
+	 * errors.
 	 */
 	readonly activeHandler: IErrorActionHandlerInfo | undefined;
 
@@ -129,16 +133,24 @@ export interface IErrorActionHandlerService {
 	readonly onDidChangeActiveHandler: Event<IErrorActionHandlerInfo | undefined>;
 
 	/**
-	 * Register a handler. Throws if one with the same id is already
-	 * registered.
+	 * Register a handler, which lists it in the `ai.errorActions.agent`
+	 * setting. Throws if one with the same id is already registered.
 	 * @returns A disposable that unregisters the handler.
 	 */
 	register(handler: IErrorActionHandler): IDisposable;
 
 	/**
+	 * Set whether the default handler is ready to take errors. Everyone gets
+	 * the default without choosing it, so while it's chosen and not ready, its
+	 * Fix and Explain buttons hide and errors aren't sent to it; other
+	 * handlers' always show, since choosing one is the opt-in.
+	 */
+	setDefaultAssistantReady(ready: boolean): void;
+
+	/**
 	 * Ask a handler to take an action on an error. Does nothing while
-	 * `ai.enabled` is off. Logs and notifies the user when no handler has
-	 * the id or the handler fails; never rejects.
+	 * `ai.enabled` is off. Tells the user when the handler isn't available
+	 * or fails; never rejects.
 	 * @param handlerId The id of the handler the user saw named.
 	 */
 	ask(handlerId: string, action: ErrorAction, context: IErrorActionContext, options: IErrorActionOptions): Promise<void>;

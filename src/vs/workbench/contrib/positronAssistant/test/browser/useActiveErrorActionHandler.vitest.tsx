@@ -37,20 +37,18 @@ describe('useActiveErrorActionHandler', () => {
 
 	const label = () => screen.getByTestId('label');
 
-	it('follows the active handler as handlers register and unregister', () => {
-		const first = registerTestErrorActionHandler(ctx, createHandler('first'));
+	it('follows the chosen handler as it is chosen, registers, and unregisters', () => {
+		registerTestErrorActionHandler(ctx, createHandler('first'));
 		rtl.render(<ActiveHandlerLabel />);
 		expect(label()).toHaveTextContent('first');
 
 		let second!: IDisposable;
-		act(() => { second = ctx.get(IErrorActionHandlerService).register(createHandler('second')); });
-		expect(label()).toHaveTextContent('first');
+		act(() => { second = registerTestErrorActionHandler(ctx, { ...createHandler('second'), label: 'Second' }); });
+		expect(label()).toHaveTextContent('Second');
 
-		act(() => first.dispose());
-		expect(label()).toHaveTextContent('second');
-
+		// Named by its id once it's gone.
 		act(() => second.dispose());
-		expect(label()).toHaveTextContent('none');
+		expect(label()).toHaveTextContent('second');
 	});
 
 	it('renders once on mount and once per change of the active handler', () => {
