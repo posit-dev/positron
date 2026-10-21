@@ -52,9 +52,6 @@ export function createConsoleInputEditorOptions(configurationService: IConfigura
 			scrollbar: {
 				vertical: 'hidden',
 				useShadows: false,
-				// The console input grows to fit its content and never scrolls
-				// itself, so let wheel events reach the console to scroll it.
-				// https://github.com/posit-dev/positron/issues/8738
 				alwaysConsumeMouseWheel: false
 			},
 			overviewRulerLanes: 0,
