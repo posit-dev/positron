@@ -82,6 +82,31 @@ suite('readCursor', () => {
 		assert.strictEqual(at('SELECT \'a\'\nFROM cus|').suppressed, false);
 	});
 
+	test('nothing is completed inside a block comment, even one opened lines above', () => {
+		assert.strictEqual(at('SELECT /* ord| */ 1').suppressed, true);
+		assert.strictEqual(at('/* a note\nthat goes on ord|\n*/ SELECT 1').suppressed, true);
+		assert.strictEqual(at('/* it\'s fine */ SELECT ord|').suppressed, false);
+	});
+
+	test('a string literal spanning lines is tracked across them', () => {
+		assert.strictEqual(at('SELECT \'a\nb| \' FROM t').suppressed, true);
+		assert.strictEqual(at('SELECT \'a\nb\' AS x, ord| FROM t').suppressed, false);
+	});
+
+	test('a string that never closes ends with its line', () => {
+		// The analyzer closes it there too, so the two agree that the next line is code.
+		assert.strictEqual(at('SELECT \'oops\nSELECT ord|').suppressed, false);
+		assert.strictEqual(at('SELECT \'oops ord|').suppressed, true);
+	});
+
+	test('nothing is completed inside a dollar quoted body', () => {
+		assert.strictEqual(at('CREATE FUNCTION f() AS $$ SELECT ord| $$').suppressed, true);
+		assert.strictEqual(at('DO $body$ BEGIN ord| END $body$').suppressed, true);
+		assert.strictEqual(at('SELECT $$x$$, ord|').suppressed, false);
+		// A parameter is not a dollar quote.
+		assert.strictEqual(at('SELECT $1, ord|').suppressed, false);
+	});
+
 	test('an empty document is a cursor with nothing around it', () => {
 		const cursor = readCursor('', 0);
 
