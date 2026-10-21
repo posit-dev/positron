@@ -7,15 +7,13 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import * as jsonc from 'jsonc-parser';
-import { URI } from 'vscode-uri';
 import { getLogger } from '../common/logger';
 import { Configuration } from '../common/configuration';
 import { generateDockerBuildCommand, generateDockerCreateCommand } from '../spec/spec-node/devContainersSpecCLI';
 import { formatCommandWithEcho, formatCommandForShell, escapeShellArg } from '../spec/spec-node/commandGeneration';
 import { prepareFeaturesInstallation, generateFeatureInstallScript, cleanupFeaturesDir } from './featuresInstaller';
 import { Mount } from '../spec/spec-configuration/containerFeaturesConfiguration';
-import { substitute, beforeContainerSubstitute } from '../spec/spec-common/variableSubstitution';
+import { devContainerIdLabels, readDevContainerConfig } from '../common/devContainerConfig';
 
 /**
  * Result from terminal build
@@ -38,6 +36,16 @@ function escapePowerShellArg(arg: string): string {
 		return `'${arg.replace(/'/g, "''")}'`;
 	}
 	return arg;
+}
+
+/**
+ * Rewrites ${containerEnv:NAME[:default]} as a shell parameter expansion, to be
+ * resolved by the shell that runs the command inside the container.
+ */
+function containerEnvToShell(command: string): string {
+	return command
+		.replace(/\$\{containerEnv:(?<name>[A-Za-z_]\w*)\}/g, '$${$<name>}')
+		.replace(/\$\{containerEnv:(?<name>[A-Za-z_]\w*):(?<fallback>[^}]*)\}/g, '$${$<name>-$<fallback>}');
 }
 
 /**
@@ -88,9 +96,11 @@ function generateLifecycleHooksScript(
 			continue;
 		}
 
+		shellCommand = containerEnvToShell(shellCommand);
+
 		// Escape the command for the shell
 		const escapedCommand = isWindows
-			? shellCommand.replace(/"/g, '`"')
+			? shellCommand.replace(/"/g, '`"').replace(/\$/g, '`$$')
 			: shellCommand.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
 
 		// Add to script
@@ -138,21 +148,7 @@ export class TerminalBuilder {
 		const folderName = path.basename(workspaceFolder);
 		const remoteWorkspaceFolder = `/workspaces/${folderName}`;
 
-		// Labels identifying this dev container, and the inputs to ${devcontainerId}
-		const idLabels = {
-			'devcontainer.local_folder': workspaceFolder,
-			'devcontainer.config_file': devcontainerPath,
-		};
-
-		// Read and parse the devcontainer.json (supports comments via JSONC), then
-		// expand variables (e.g. localEnv) per the dev container spec.
-		const devContainerConfig = beforeContainerSubstitute(idLabels, substitute({
-			platform: process.platform,
-			configFile: URI.file(devcontainerPath),
-			localWorkspaceFolder: workspaceFolder,
-			containerWorkspaceFolder: remoteWorkspaceFolder,
-			env: process.env,
-		}, jsonc.parse(fs.readFileSync(devcontainerPath, 'utf8'))));
+		const devContainerConfig = readDevContainerConfig(devcontainerPath, workspaceFolder, remoteWorkspaceFolder);
 
 		// Determine the Dockerfile or image
 		const devcontainerDir = path.dirname(devcontainerPath);
@@ -328,7 +324,7 @@ export class TerminalBuilder {
 			containerUser: devContainerConfig.remoteUser,
 			env: devContainerConfig.containerEnv,
 			mounts,
-			labels: idLabels,
+			labels: devContainerIdLabels(workspaceFolder, devcontainerPath),
 			runArgs: devContainerConfig.runArgs,
 		});
 
