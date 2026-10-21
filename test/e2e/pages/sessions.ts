@@ -1550,6 +1550,8 @@ export type SessionMetaData = {
 	state: SessionState;
 	source: string;
 	path: string;
+	/** Why the session was started. Only read through the smoke-test command, so absent on external servers. */
+	startReasonId?: string;
 };
 
 export type SessionState = 'active' | 'idle' | 'disconnected' | 'exited';
