@@ -4512,7 +4512,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// await in Flow 2 resolves. In that case the real input has already
 			// arrived, so a provisional one here would duplicate it.
 			const existing = this._runtimeItemActivities.get(id);
-			if (existing?.activityItems.some(item => item instanceof ActivityItemInput)) {
+			if (existing?.input) {
 				return;
 			}
 			const activityItemInput = new ActivityItemInput(

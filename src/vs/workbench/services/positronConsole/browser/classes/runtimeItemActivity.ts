@@ -72,6 +72,15 @@ export class RuntimeItemActivity extends RuntimeItem {
 	}
 
 	/**
+	 * Gets the first input in the activity: the code that started it.
+	 * Undefined when it has none, e.g. a silent execution, or one trimmed
+	 * from the scrollback.
+	 */
+	public get input(): ActivityItemInput | undefined {
+		return this._activityItems.find(activityItem => activityItem instanceof ActivityItemInput);
+	}
+
+	/**
 	 * Gets the current mutation version. See `_version`.
 	 */
 	public get version() {

@@ -141,10 +141,9 @@ export const RuntimeActivity = memo((props: RuntimeActivityProps) => {
 
 /**
  * Get the code an activity ran, for errors sent to an assistant.
- * @returns The code, or undefined when the activity has no input (e.g. a
- *   silent execution, or one trimmed from the scrollback) or it is blank.
+ * @returns The code, or undefined when the activity has no input or it is blank.
  */
 function getInputCode(runtimeItemActivity: RuntimeItemActivity): string | undefined {
-	const input = runtimeItemActivity.activityItems.find(activityItem => activityItem instanceof ActivityItemInput);
-	return input?.code.trim() ? input.code : undefined;
+	const code = runtimeItemActivity.input?.code;
+	return code?.trim() ? code : undefined;
 }
