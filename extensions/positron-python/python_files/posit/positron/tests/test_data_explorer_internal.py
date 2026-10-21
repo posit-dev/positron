@@ -466,7 +466,8 @@ def test_histogram_numpy_capped_runs_once(monkeypatch, method):
 @pytest.mark.parametrize(
     ("values", "method", "num_bins"),
     [
-        (list(range(81)), "fd", 80),
+        # Dense 0/1 values shrink the FD width below 1, so bins hit the integer range
+        ([0] * 500 + [1] * 500 + list(range(81)), "fd", 80),
         (list(range(6)), "fixed", 5),
     ],
 )
