@@ -240,15 +240,17 @@ window.addEventListener('resize',function(){if(cur){place(cur);}});})();`;
 // touch the first tap previews and a second opens GitHub. A number inside a
 // Findings row is a span, so it previews on mouse hover and the row click stands. Built with
 // textContent from data attributes, which hold GitHub's text.
-export const KI_SCRIPT = `(function(){var ICON={open:'<svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none"/></svg>',
+export const KI_SCRIPT = `(function(){var ICON={pr:'<svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="3.5" r="1.6"/><circle cx="4" cy="12.5" r="1.6"/><circle cx="12" cy="12.5" r="1.6"/><path d="M4 5.1v5.8M12 10.9V7a2.5 2.5 0 0 0-2.5-2.5H7"/><path d="M8.6 2.8L7 4.5l1.6 1.7"/></svg>',
+merged:'<svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="3.5" r="1.6"/><circle cx="4" cy="12.5" r="1.6"/><circle cx="12" cy="8" r="1.6"/><path d="M4 5.1v5.8M4 5.5c0 2.5 2.5 2.5 6.4 2.5"/></svg>',
+open:'<svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none"/></svg>',
 closed:'<svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8.2l1.8 1.8 3.2-3.6"/></svg>'};
 var card=document.createElement('div');card.className='ki-card';card.id='ki-card';card.setAttribute('role','tooltip');document.body.appendChild(card);
 var cur=null,tapped=null,pointer='mouse',SEL='a.ki-num[data-title],.ki-num-t[data-title]';
 function el(tag,cls,text){var e=document.createElement(tag);if(cls){e.className=cls;}if(text!=null){e.textContent=text;}return e;}
 function find(t){return t&&t.closest?t.closest(SEL):null;}
 function build(a){var d=a.dataset,st=d.state==='merged'?'merged':d.state==='closed'?'closed':'open',pr=d.kind==='pr';card.textContent='';
-var top=el('div','ki-card-top'),s=el('span','ki-s is-'+st);
-s.innerHTML=ICON[st==='open'?'open':'closed'];s.appendChild(document.createTextNode(' '+{open:'Open',closed:'Closed',merged:'Merged'}[st]+(pr?' PR':'')));
+var top=el('div','ki-card-top'),s=el('span','ki-s '+(st==='open'?'is-open':'is-closed'));
+s.innerHTML=pr?ICON[st==='merged'?'merged':'pr']:ICON[st==='open'?'open':'closed'];s.appendChild(document.createTextNode(' '+(pr?'Pull request \\u00b7 ':'')+{open:'Open',closed:'Closed',merged:'Merged'}[st]));
 top.appendChild(s);top.appendChild(el('span','ki-n',a.textContent));if(d.opened){top.appendChild(el('span','ki-d',d.opened));}
 card.appendChild(top);card.appendChild(el('div','ki-card-t',d.title||''));
 if(d.summary){card.appendChild(el('div','ki-card-x',d.summary));}

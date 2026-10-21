@@ -59,15 +59,23 @@ function fittingPrefix(items: unknown[], overhead: number): unknown[] {
 }
 
 /**
+ * Whether a result is a `positron.ai.AgentCommandImage`, which the supervisor
+ * hands to agents as an image rather than as JSON.
+ */
+function isImage(result: unknown): boolean {
+	return isRecord(result) && result.kind === 'image' && typeof result.data === 'string';
+}
+
+/**
  * Shrinks a command result to {@link COMMAND_RESULT_BUDGET_BYTES}, shedding
  * elements from its largest array rather than cutting the JSON mid-string, so
- * what comes back still parses.
+ * what comes back still parses. Images are exempt.
  *
  * @param result The command's return value.
  * @returns The result, or a shortened stand-in carrying a `truncated` field.
  */
 export function budgetCommandResult(result: unknown): unknown {
-	if (sizeOf(result) <= COMMAND_RESULT_BUDGET_BYTES) {
+	if (isImage(result) || sizeOf(result) <= COMMAND_RESULT_BUDGET_BYTES) {
 		return result;
 	}
 

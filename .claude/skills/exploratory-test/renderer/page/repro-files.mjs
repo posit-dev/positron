@@ -239,10 +239,19 @@ export function linkFilePaths(html, files) {
 		return skip ? part : part.replace(FILES_PATH, (whole, path) => {
 			const f = findFile(files, path);
 			return f && f.kind !== 'missing'
-				? `<a class="fn-view" href="${escapeHtml(f.path)}" data-file="${f.id}">view ${escapeHtml(f.name)}</a>`
+				? `<a class="fn-view" href="${escapeHtml(f.path)}" data-file="${f.id}">view ${escapeHtml(shownName(f))}</a>`
 				: whole;
 		});
 	}).join('');
+}
+
+/**
+ * The name a file is shown by: its name, or from its hidden folder on when it
+ * sits in one such as `.vscode/`, which is where the file has to go to work.
+ */
+export function shownName(f) {
+	const hidden = /(?:^|\/)(\.[^/]+\/.*)$/.exec(f.rel ?? '');
+	return hidden ? hidden[1] : f.name;
 }
 
 /**
@@ -251,7 +260,7 @@ export function linkFilePaths(html, files) {
  * for a list where the reader has to know where each file goes.
  */
 function fileChip(f, { path = false } = {}) {
-	const label = escapeHtml(path ? f.rel : f.name);
+	const label = escapeHtml(path ? f.rel : shownName(f));
 	if (f.kind === 'missing') {
 		return `<code>${label}</code>`;
 	}
@@ -387,7 +396,7 @@ export function renderTestFilesPart(files) {
  */
 export function promptFilesSection(files, markdown, where, fence) {
 	return filesNamedIn(files, markdown).filter(f => f.kind !== 'missing').map(f => {
-		const at = `${f.name}: ${where(f.path)}`;
+		const at = `${shownName(f)}: ${where(f.path)}`;
 		if (f.notebook) {
 			const script = notebookScript(f.notebook);
 			return script.split('\n').length <= PREVIEW_LINES

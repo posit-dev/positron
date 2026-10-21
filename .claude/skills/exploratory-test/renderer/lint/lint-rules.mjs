@@ -46,6 +46,9 @@ export const LINT_RULES = {
 	'precondition-the-runs': 'error',
 	'precondition-scratch-path': 'error',
 	'precondition-step-reference': 'warning',
+	'precondition-ui-action': 'warning',
+	'precondition-setting-form': 'warning',
+	'precondition-setting-file': 'warning',
 	'precondition-needs-name': 'warning',
 	'precondition-name-length': 'warning',
 	// a finding's title, Observed and Expected, and the Result

@@ -93,6 +93,25 @@ export function issueOf(i) {
 	return { number: i.number, url: i.html_url, state: i.state === 'closed' ? `closed${reason}` : 'open' };
 }
 
+/**
+ * The title search's issues plus any that mention the PR (timeline cross-references), which catches one filed by
+ * hand in other words. This repo's issues filed after `postedAt`, each once, with `mentionsPr` set for the latter.
+ */
+export function candidateIssues({ found, timeline, postedAt, repo }) {
+	const referenced = (timeline ?? [])
+		.filter(e => e.event === 'cross-referenced' && e.source?.issue?.repository?.full_name === repo)
+		.map(e => e.source.issue);
+	const mentions = new Set(referenced.map(i => i.number));
+	const seen = new Set();
+	return [...(found ?? []), ...referenced].filter(i => {
+		if (i.pull_request || !(i.created_at > postedAt) || seen.has(i.number)) {
+			return false;
+		}
+		seen.add(i.number);
+		return true;
+	}).map(i => ({ ...i, mentionsPr: mentions.has(i.number) }));
+}
+
 /** One finding's outcome from its checks. `Check` is `{ answer, reason, source }`. */
 export function decideOutcome({ prState, hasPaths, prCheck, laterChecks }) {
 	if (prCheck?.answer === 'yes') {
@@ -199,6 +218,16 @@ export function parsePageFindings(html) {
 		expected: section(text, 'Expected'),
 		cause: section(text, 'Likely cause'),
 	}));
+}
+
+/** The run's report.json; runs before 2026-10-13 published only the page, so read the findings from it. */
+export async function fetchReport(base, get = fetch) {
+	const json = await get(`${base}/report.json`);
+	if (json.ok) {
+		return json.json();
+	}
+	const page = await get(`${base}/index.html`);
+	return page.ok ? { findings: parsePageFindings(await page.text()), fromPage: true } : null;
 }
 
 /** The PR's own commits after `testedSha`, from the PR commits API list; null when the tested commit is not in it. */

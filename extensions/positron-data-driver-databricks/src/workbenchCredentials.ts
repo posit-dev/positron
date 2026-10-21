@@ -22,6 +22,11 @@ export interface ManagedCredential {
 	readonly accessToken: string;
 	/** The Snowflake account identifier, or the Databricks workspace host (possibly with a scheme). */
 	readonly locator: string;
+	/**
+	 * The host to connect to instead of the one the locator implies, when Workbench names one (the
+	 * Snowflake account's `$SNOWFLAKE_HOST` inside Snowpark Container Services).
+	 */
+	readonly host?: string;
 }
 
 /**
@@ -78,7 +83,7 @@ export async function getManagedCredential(authProviderId: string, displayName: 
 }
 
 /**
- * Reads the Workbench-managed credential to learn its locator, and pairs that with a token provider
+ * Reads the Workbench-managed credential to learn its locator and host, and pairs them with a token provider
  * for the connection to call on every connect and reconnect. The provider re-reads the credential so
  * a rotated token is picked up, and refuses a token Workbench has since issued for a different
  * locator rather than sending it to the connection's original account or workspace.
@@ -91,8 +96,9 @@ export async function resolveManagedCredential(
 	authProviderId: string,
 	displayName: string,
 	normalizeLocator: (locator: string) => string
-): Promise<{ locator: string; tokenProvider: () => Promise<string> }> {
-	const locator = normalizeLocator((await getManagedCredential(authProviderId, displayName)).locator);
+): Promise<{ locator: string; host?: string; tokenProvider: () => Promise<string> }> {
+	const initial = await getManagedCredential(authProviderId, displayName);
+	const locator = normalizeLocator(initial.locator);
 	const tokenProvider = async () => {
 		const credential = await getManagedCredential(authProviderId, displayName);
 		if (normalizeLocator(credential.locator) !== locator) {
@@ -100,5 +106,5 @@ export async function resolveManagedCredential(
 		}
 		return credential.accessToken;
 	};
-	return { locator, tokenProvider };
+	return { locator, host: initial.host, tokenProvider };
 }

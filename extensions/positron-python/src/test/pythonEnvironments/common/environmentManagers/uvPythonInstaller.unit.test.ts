@@ -690,21 +690,21 @@ suite('UV Python Installer Tests', () => {
             assert.strictEqual(result[0].version, '3.13');
         });
 
-        test('Filters out versions at or above MAXIMUM_PYTHON_VERSION_EXCLUSIVE (3.15)', async () => {
+        test('Filters out versions at or above MAXIMUM_PYTHON_VERSION_EXCLUSIVE (3.16)', async () => {
             execStub.resolves({
                 stdout: [
+                    'cpython-3.17.0-macos-aarch64-none    <download available>',
                     'cpython-3.16.0-macos-aarch64-none    <download available>',
                     'cpython-3.15.0-macos-aarch64-none    <download available>',
                     'cpython-3.14.1-macos-aarch64-none    <download available>',
-                    'cpython-3.13.1-macos-aarch64-none    <download available>',
                 ].join('\n'),
             });
 
             const result = await getAvailablePythonVersions();
 
             assert.strictEqual(result.length, 2);
-            assert.strictEqual(result[0].version, '3.14');
-            assert.strictEqual(result[1].version, '3.13');
+            assert.strictEqual(result[0].version, '3.15');
+            assert.strictEqual(result[1].version, '3.14');
         });
     });
 

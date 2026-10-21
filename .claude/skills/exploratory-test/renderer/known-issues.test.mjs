@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, readIssueRefs, referencedNumbers } from './known-issues.mjs';
+import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, rateLimitWait, readIssueRefs, referencedNumbers } from './known-issues.mjs';
 import { parseLedger } from './shared/ledger.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
 
@@ -25,13 +25,21 @@ test('closingRefs reads the keywords for the work a PR does, for this repo only'
 	assert.deepEqual(closingRefs(body).sort((a, b) => a - b), [12, 13, 14, 20, 30, 70, 71]);
 });
 
-test('formatSearch lists issues with their state, quotes titles, and says when nothing matched', () => {
+test('formatSearch lists issues and PRs with their state, quotes titles, and says when nothing matched', () => {
 	const items = [
 		{ number: 12, state: 'closed', title: 'Console "hangs"' },
 		{ number: 13, state: 'open', title: 'Plot pane', pull_request: {} },
 		{ number: 14, state: 'open', title: 'Viewer' },
+		{ number: 16, state: 'closed', title: 'Fix viewer', pull_request: { merged_at: '2026-10-01T00:00:00Z' } },
+		{ number: 17, state: 'closed', title: 'Abandoned', pull_request: { merged_at: null } },
 	];
-	assert.equal(formatSearch(items), '#12 (closed): "Console \\"hangs\\""\n#14 (open): "Viewer"');
+	assert.equal(formatSearch(items), [
+		'#12 (closed): "Console \\"hangs\\""',
+		'#13 (open PR): "Plot pane"',
+		'#14 (open): "Viewer"',
+		'#16 (merged PR): "Fix viewer"',
+		'#17 (closed PR): "Abandoned"',
+	].join('\n'));
 	assert.equal(formatSearch([{ number: 15, state: 'closed', state_reason: 'not_planned', title: 'By design' }]), '#15 (closed as not planned): "By design"');
 	assert.equal(formatSearch([]), 'no matches');
 });
@@ -179,3 +187,15 @@ test('loadIssueRefs fetches only the numbers it has no preview for, and saves th
 	assert.deepEqual(readIssueRefs(dir).map(r => r.number), [5, 7]);
 	assert.deepEqual((await loadIssueRefs(dir, '#11', null, { fetch, offline: true })).map(r => r.number), [5, 7]);
 }));
+
+test('rateLimitWait waits for a rate limit\'s reset or a minute for a secondary limit, and not for other 403s or a far-off reset', () => {
+	const res = (status, headers) => ({ status, headers: new Headers(headers) });
+	const now = 1_000_000_000_000;
+	assert.equal(rateLimitWait(res(403, { 'retry-after': '20' }), '', now), 20_000);
+	assert.equal(rateLimitWait(res(403, { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(now / 1000 + 30) }), '', now), 31_000);
+	assert.equal(rateLimitWait(res(429, { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(now / 1000 - 5) }), '', now), 0);
+	assert.equal(rateLimitWait(res(403, { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(now / 1000 + 3600) }), '', now), null);
+	assert.equal(rateLimitWait(res(403, { 'x-ratelimit-remaining': '12' }), '{"message":"You have exceeded a secondary rate limit."}', now), 60_000);
+	assert.equal(rateLimitWait(res(403, {}), '{"message":"Resource not accessible by integration"}', now), null);
+	assert.equal(rateLimitWait(res(404, { 'retry-after': '20' }), '', now), null);
+});

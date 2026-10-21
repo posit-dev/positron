@@ -341,9 +341,10 @@ export class McpFrontendChannel implements vscode.Disposable {
 		const started = Date.now();
 		try {
 			if (request.command_id === CURRENT_PLOT_COMMAND) {
-				// A data URI, which would not survive the command result budget.
-				const uri = await positron.ai.getCurrentPlotUri();
-				this.send({ kind: 'command_reply', id: request.id, ok: true, result: uri ?? null });
+				const match = (await positron.ai.getCurrentPlotUri())?.match(/^data:([^;]+);base64,(.*)$/s);
+				const image: positron.ai.AgentCommandImage | null =
+					match ? { kind: 'image', mimeType: match[1], data: match[2] } : null;
+				this.send({ kind: 'command_reply', id: request.id, ok: true, result: image });
 				return;
 			}
 			// A command that is not in the catalog is left for the call below

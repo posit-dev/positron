@@ -15,8 +15,7 @@ import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
-import { usePositronConfiguration, useContextKeyFromString, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
-import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
+import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -35,18 +34,9 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	// State hooks.
 	const [showTraceback, setShowTraceback] = useState(false);
 
-	// Configuration hooks.
-	// Main switch for Positron's AI features.
-	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
-	const enableAssistantActions = usePositronConfiguration<boolean>('console.assistantActions.enabled');
-	const positAssistantInstalled = usePositronExtensionInstalled('posit.assistant');
-	// Set by the Posit Assistant extension when it has at least one usable model
-	// (a configured cloud provider, a local provider, or a vscode.lm model such
-	// as Copilot). This is the authoritative, assistant-agnostic signal. The key
-	// string is mirrored in the Posit Assistant extension (the two repositories
-	// cannot share a module).
-	const hasChatModels = useContextKeyFromString<boolean>('posit-assistant.hasChatModels');
-	const showAssistantActions = aiEnabled && enableAssistantActions && positAssistantInstalled && !!hasChatModels;
+	// Configuration hooks. The quick fix itself hides while no assistant can
+	// take errors, e.g. while AI is disabled.
+	const showAssistantActions = usePositronConfiguration<boolean>('console.assistantActions.enabled');
 
 	// Traceback useEffect.
 	useEffect(() => {

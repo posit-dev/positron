@@ -172,6 +172,36 @@ describe('TableDataCache', () => {
 		});
 	});
 
+	it('keeps a queued invalidation when a later update replaces it in the queue', async () => {
+		ensureNoLeakedDisposables();
+
+		// Seed rows 0 and 1 with "old"; every later fetch returns "new".
+		getDataValues
+			.mockResolvedValueOnce({ columns: [['old', 'old'], ['old', 'old']] })
+			.mockResolvedValue({ columns: [['new', 'new'], ['new', 'new']] });
+		await cache.update({ invalidateCache: InvalidateCacheFlags.Data, columnIndices: [0, 1], rowIndices: [0, 1] });
+
+		// Park a scroll update on its backend-state fetch.
+		let releaseInFlight!: () => void;
+		const inFlightGate = new Promise<void>(resolve => { releaseInFlight = resolve; });
+		getBackendState.mockImplementationOnce(async () => {
+			await inFlightGate;
+			return backendState(true);
+		});
+		const inFlight = cache.update({ invalidateCache: InvalidateCacheFlags.None, columnIndices: [0, 1], rowIndices: [2, 3] });
+
+		// While it is in flight, a schema update queues an invalidation of everything, and then a
+		// scroll queues behind it and takes its place.
+		void cache.update({ invalidateCache: InvalidateCacheFlags.All, columnIndices: [0, 1], rowIndices: [0, 1] });
+		void cache.update({ invalidateCache: InvalidateCacheFlags.None, columnIndices: [0, 1], rowIndices: [0, 1] });
+
+		releaseInFlight();
+		await inFlight;
+
+		// The rows cached before the invalidation are fetched again.
+		expect(cache.getDataCell(0, 0)?.formatted).toBe('new');
+	});
+
 	it('survives the column width calculators being cleared mid-calculation', async () => {
 		ensureNoLeakedDisposables();
 

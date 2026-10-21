@@ -87,9 +87,11 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	// What opens on top counts as a change too: a dialog, a menu, a quick pick.
 	// A notification toast is a dialog by role but not an overlay: it is reported
 	// on its own, by its name ("Info: Plot copied, notification").
-	const overlays = () => page.locator(lib.css.overlay.any).filter({ visible: true }).and(page.locator(lib.css.overlay.notInToasts)).count();
-	const overlaysBefore = await overlays();
+	// Only an overlay that was not on screen before counts (lib.markOverlays marks
+	// those): a menu item that opens a quick pick closes its menu, so the number
+	// of overlays stays the same ("Start Another..." in Quick Launch Session).
 	await lib.markOverlays();
+	const fresh = () => page.locator(lib.css.overlay.any).filter({ visible: true }).and(page.locator(`${lib.css.overlay.notInToasts}:not([data-dp-seen])`)).count();
 	const toastsBefore = await lib.toasts();
 	const acted = Date.now();
 	let checked: Record<string, unknown> = {};
@@ -130,8 +132,8 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	}
 	// Wait for the view to change and settle: its tree, something opening on
 	// top, or the view closing (a dialog's Save).
-	const settled = await lib.settle(watched, before, a.wait, async () => await overlays() > overlaysBefore);
-	const opened = await overlays() > overlaysBefore;
+	const settled = await lib.settle(watched, before, a.wait, async () => await fresh() > 0);
+	const opened = await fresh() > 0;
 	const closed = settled.closed && !opened;
 	// Which kind opened, and the one command that reads it.
 	const openedText = async () => {

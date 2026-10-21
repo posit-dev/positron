@@ -26,6 +26,8 @@ import { UNSUPPORTED_NOTEBOOK_EDITOR_MESSAGE } from '../../../../contrib/positro
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../../contrib/positronNotebook/common/positronNotebookCommon.js';
 import { NOTEBOOK_EDITOR_ID } from '../../../../contrib/notebook/common/notebookCommon.js';
 import { MainThreadNotebookFeatures } from '../../../browser/positron/mainThreadNotebookFeatures.js';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { QuartoNotebook, QuartoNotebooks } from '../../../../contrib/positronQuarto/browser/quartoNotebook.js';
 
 const { mockRasterizeSvgToPng } = vi.hoisted(() => ({ mockRasterizeSvgToPng: vi.fn() }));
 vi.mock('../../../../contrib/positronNotebook/browser/svgToPng.js', () => ({
@@ -35,6 +37,20 @@ vi.mock('../../../../contrib/positronNotebook/browser/svgToPng.js', () => ({
 const NOTEBOOK_URI = 'file:///test/notebook.ipynb';
 const SVG_TEXT = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><circle r="50" /></svg>';
 const PNG_BASE64 = 'bW9jay1wbmctZGF0YQ==';
+
+/**
+ * An instantiation service that supplies the Quarto documents usable as
+ * notebooks: the given ones, with the first one active if `active` is set.
+ */
+function quartoInstantiationService(quartoNotebooks: QuartoNotebook[] = [], active = false): IInstantiationService {
+	const notebooks = stubInterface<QuartoNotebooks>({
+		get: (uri: URI) => quartoNotebooks.find(notebook => isEqual(notebook.uri, uri)),
+		getActive: () => active ? quartoNotebooks[0] : undefined,
+	});
+	return stubInterface<IInstantiationService>({
+		createInstance: (() => notebooks) as IInstantiationService['createInstance'],
+	});
+}
 
 /**
  * Builds a MainThreadNotebookFeatures whose single notebook has one code cell
@@ -63,6 +79,7 @@ function createFeatures(outputItems: { mime: string; data: VSBuffer }[]): MainTh
 		stubInterface<ILogService>({ warn: vi.fn() }),
 		stubInterface<IConfigurationService>(),
 		stubInterface<IRuntimeSessionService>(),
+		quartoInstantiationService(),
 	);
 }
 
@@ -164,6 +181,8 @@ describe('MainThreadNotebookFeatures $getActiveNotebookContext', () => {
 		mruEditors: EditorInput[];
 		instances: IPositronNotebookInstance[];
 		foregroundSession?: ILanguageRuntimeSession;
+		quartoNotebooks?: QuartoNotebook[];
+		activeQuartoNotebook?: boolean;
 	}): MainThreadNotebookFeatures {
 		const editorService = stubInterface<IEditorService>({
 			activeEditorPane: options.activeEditorPane,
@@ -186,8 +205,66 @@ describe('MainThreadNotebookFeatures $getActiveNotebookContext', () => {
 				getNotebookSessionForNotebookUri: () => undefined,
 				foregroundSession: options.foregroundSession,
 			}),
+			quartoInstantiationService(options.quartoNotebooks, options.activeQuartoNotebook),
 		);
 	}
+
+	/** A Quarto notebook stub whose context reports only its URI. */
+	function createQuartoNotebook(uriString: string): QuartoNotebook {
+		return stubInterface<QuartoNotebook>({
+			uri: URI.parse(uriString),
+			getContext: () => ({ uri: uriString, cellCount: 0, selectedCells: [] }),
+			getCells: () => [],
+		});
+	}
+
+	it('resolves the Quarto document in the active editor pane', async () => {
+		const quartoUri = 'file:///test/report.qmd';
+		const notebookUri = 'file:///test/notebook.ipynb';
+		const features = createContextFeatures({
+			activeEditorPane: stubInterface<IVisibleEditorPane>({ getId: () => TEXT_FILE_EDITOR_PANE_ID }),
+			mruEditors: [createEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, notebookUri)],
+			instances: [createNotebookInstance(notebookUri)],
+			foregroundSession: createForegroundNotebookSession(notebookUri),
+			quartoNotebooks: [createQuartoNotebook(quartoUri)],
+			activeQuartoNotebook: true,
+		});
+
+		expect((await features.$getActiveNotebookContext())?.uri).toBe(quartoUri);
+		features.dispose();
+	});
+
+	it('prefers the foreground session\'s Quarto document over a more recently active notebook editor', async () => {
+		const quartoUri = 'file:///test/report.qmd';
+		const notebookUri = 'file:///test/notebook.ipynb';
+		const features = createContextFeatures({
+			activeEditorPane: stubInterface<IVisibleEditorPane>({ getId: () => TEXT_FILE_EDITOR_PANE_ID }),
+			mruEditors: [createEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, notebookUri)],
+			instances: [createNotebookInstance(notebookUri)],
+			foregroundSession: createForegroundNotebookSession(quartoUri),
+			quartoNotebooks: [createQuartoNotebook(quartoUri)],
+		});
+
+		expect((await features.$getActiveNotebookContext())?.uri).toBe(quartoUri);
+		features.dispose();
+	});
+
+	it('routes operations on a Quarto document\'s URI to the Quarto document', async () => {
+		const quartoUri = 'file:///test/report.qmd';
+		const quartoNotebook = createQuartoNotebook(quartoUri);
+		const getCells = vi.spyOn(quartoNotebook, 'getCells');
+		const features = createContextFeatures({
+			activeEditorPane: undefined,
+			mruEditors: [],
+			instances: [],
+			quartoNotebooks: [quartoNotebook],
+		});
+
+		await features.$getCells(quartoUri);
+
+		expect(getCells).toHaveBeenCalled();
+		features.dispose();
+	});
 
 	it('resolves an open Positron notebook when it is not the active editor pane (#14762)', async () => {
 		const notebookUri = 'file:///test/notebook.ipynb';

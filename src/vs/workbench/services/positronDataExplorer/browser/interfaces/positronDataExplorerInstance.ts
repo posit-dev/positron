@@ -170,6 +170,28 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	toggleFileHasHeaderRow(): Promise<void>;
 
 	/**
+	 * Gets whether this Data Explorer's backend can rebuild its view from its source on request.
+	 */
+	readonly supportsRefresh: boolean;
+
+	/**
+	 * Gets whether a refresh is in progress.
+	 */
+	readonly isRefreshing: boolean;
+
+	/**
+	 * The onDidChangeRefreshing event, fired with the new value of isRefreshing.
+	 */
+	readonly onDidChangeRefreshing: Event<boolean>;
+
+	/**
+	 * Rebuilds the view from its source and reloads the data, keeping the current sort and
+	 * filters. A call made while a refresh is in progress joins it. A failure is reported to the
+	 * user and leaves the existing data in place.
+	 */
+	refresh(): Promise<void>;
+
+	/**
 	 * Whether this Data Explorer is backed by a file on disk (the DuckDB extension backend)
 	 * rather than a kernel object. File-backed explorers offer Import Data; kernel-backed
 	 * explorers offer Convert to Code.

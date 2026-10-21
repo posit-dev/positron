@@ -77,3 +77,20 @@ export const POSITRON_DATA_EXPLORER_IS_FILE_BACKED = new RawContextKey<boolean>(
 	'positronDataExplorerIsFileBacked',
 	false
 );
+
+/**
+ * Context key for whether the Data Explorer's backend can rebuild its view from its source on
+ * request. True for tables opened from a data connection whose driver implements refresh.
+ */
+export const POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH = new RawContextKey<boolean>(
+	'positronDataExplorerSupportsRefresh',
+	false
+);
+
+/**
+ * Context key for whether the Data Explorer is refreshing.
+ */
+export const POSITRON_DATA_EXPLORER_IS_REFRESHING = new RawContextKey<boolean>(
+	'positronDataExplorerIsRefreshing',
+	false
+);

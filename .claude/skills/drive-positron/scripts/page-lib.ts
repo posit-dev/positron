@@ -120,12 +120,15 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			if (special[key]) {
 				return (await special[key].count()) ? { loc: special[key], name: key } : { error: `no ${key} is open` };
 			}
-			// A view: the pane whose header heading is the name.
-			const pane = visible(page.locator(s.view.pane)).filter({ has: page.getByRole('heading', { name, exact: true }) });
+			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			// A view: the pane whose header heading is the name, as its accessible name
+			// or its text. The Explorer's folder pane labels its heading "Explorer
+			// Section: ws" while it reads "ws", the text the views list below gives.
+			const heading = page.getByRole('heading', { name, exact: true }).or(page.getByRole('heading').filter({ hasText: new RegExp('^\\s*' + esc + '\\s*$') }));
+			const pane = visible(page.locator(s.view.pane)).filter({ has: heading });
 			if (await pane.count() === 1) { return { loc: pane, name }; }
 			// A container with one view shows no pane header: the part's own title is
 			// the name, or the part's selected tab is (Viewer, Help, Console, Terminal).
-			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 			const tabName = new RegExp('^\\s*' + esc + '(\\s*\\(.*\\))?\\s*$', 'i');
 			// A tab with a badge ("Problems 4") has a longer accessible name; its label is the name alone.
 			const labelled = page.locator('[role=tab][aria-selected=true]').filter({ has: page.locator(s.workbench.tabLabel, { hasText: new RegExp('^\\s*' + esc + '\\s*$', 'i') }) });
@@ -446,11 +449,14 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		/**
 		 * Marks the overlays and lists on screen now, so lib.opened can tell what
 		 * an action opens from what was there; with home, an element the action
-		 * starts from, also marks the overlay it is in.
+		 * starts from, also marks the overlay it is in. Both look inside open
+		 * shadow roots, as Playwright's locators do: a drop-down that draws its
+		 * menu as its own child puts it in one (the Settings editor's More Actions).
 		 */
 		markOverlays: (home?: ElementHandle<Element> | null) => page.evaluate(({ sel, dialog, h }) => {
-			for (const a of ['data-dp-seen', 'data-dp-home', 'data-dp-list']) { document.querySelectorAll(`[${a}]`).forEach(e => e.removeAttribute(a)); }
-			document.querySelectorAll(sel).forEach(e => { if (e.getClientRects().length) { e.setAttribute('data-dp-seen', ''); } });
+			const all = (q: string, root: ParentNode = document): Element[] => [...root.querySelectorAll(q), ...[...root.querySelectorAll('*')].flatMap(e => e.shadowRoot ? all(q, e.shadowRoot) : [])];
+			for (const a of ['data-dp-seen', 'data-dp-home', 'data-dp-list']) { all(`[${a}]`).forEach(e => e.removeAttribute(a)); }
+			all(sel).forEach(e => { if (e.getClientRects().length) { e.setAttribute('data-dp-seen', ''); } });
 			h?.closest(dialog)?.setAttribute('data-dp-home', '');
 		}, { sel: `${s.overlay.menu}, ${s.overlay.dialog}, ${s.quickInput.widget}, [role=grid], [role=listbox], [role=tree]`, dialog: s.overlay.dialog, h: home ?? null }),
 		/**
@@ -463,9 +469,10 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 */
 		opened: async (inline: boolean): Promise<(List & { kind: string }) | null> => {
 			const kind = await page.evaluate(({ menu, dialog, quick, toast, inline }) => {
-				document.querySelectorAll('[data-dp-list]').forEach(e => e.removeAttribute('data-dp-list'));
-				const fresh = (sel: string, root: ParentNode = document) => [...root.querySelectorAll(sel)].filter(e => !e.hasAttribute('data-dp-seen') && e.getClientRects().length > 0 && e.matches(toast));
-				const home = document.querySelector('[data-dp-home]');
+				const all = (q: string, root: ParentNode = document): Element[] => [...root.querySelectorAll(q), ...[...root.querySelectorAll('*')].flatMap(e => e.shadowRoot ? all(q, e.shadowRoot) : [])];
+				all('[data-dp-list]').forEach(e => e.removeAttribute('data-dp-list'));
+				const fresh = (sel: string, root: ParentNode = document) => all(sel, root).filter(e => !e.hasAttribute('data-dp-seen') && e.getClientRects().length > 0 && e.matches(toast));
+				const home = all('[data-dp-home]')[0];
 				const found: [Element | undefined, string][] = [
 					[fresh(menu).pop(), 'menu'], [fresh(quick).pop(), 'quickpick'], [fresh(dialog).pop(), 'dialog'],
 					[inline && home ? fresh('[role=grid], [role=listbox], [role=tree]', home).pop() : undefined, 'list'],
@@ -580,6 +587,14 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * they are read from the page and matched to the line numbers by height.
 		 */
 		editor: async (range?: { from: number; to: number }) => {
+			// VS Code gives a modal editor (settings.json) no status bar items of its
+			// own, so its cursor cannot be read, and the status bar can still show the
+			// cursor of the editor behind it, where keys would not go.
+			const modal = page.locator(s.editorGroup.modal).filter({ visible: true }).last();
+			if (await modal.count()) {
+				const name = await modal.locator(s.label.icon).first().getAttribute('aria-label', { timeout: 500 }).catch(() => null) ?? '';
+				return { ok: false as const, tab: name, error: `a modal editor is in front${name ? ` (${name})` : ''}: the status bar shows no cursor position for it, so it cannot be read or edited here. Move it to the main window with ui.sh click button '${ui.names.editor.moveModalToMain}' --in dialog, then run this again` };
+			}
 			const cursor = ui.names.editor.cursorStatusPattern;
 			const status = page.getByRole('button', { name: new RegExp('^' + cursor) }).first();
 			const label = await status.getAttribute('aria-label', { timeout: 1000 }).catch(() => null) ?? await status.textContent({ timeout: 1000 }).catch(() => null);

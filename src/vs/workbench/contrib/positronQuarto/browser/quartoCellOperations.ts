@@ -10,7 +10,7 @@ import { QuartoCodeCell } from '../common/quartoTypes.js';
 
 /**
  * Pure helpers that compute the text edits for Quarto cell manipulation
- * (delete, join). These are separated from the toolbar controller so they can
+ * (insert, delete, join, replace). These are separated from the toolbar controller so they can
  * be unit-tested directly against a text model without an editor instance.
  */
 
@@ -101,7 +101,7 @@ export function computeJoinCellsEdit(textModel: ITextModel, firstCell: QuartoCod
 
 /**
  * The result of computing a cell insertion: the edits to apply and the 1-based
- * line number where the cursor should land (the new cell's empty code line).
+ * line number where the cursor should land (the new cell's first code line).
  */
 export interface InsertCellEdit {
 	readonly edits: ISingleEditOperation[];
@@ -109,10 +109,10 @@ export interface InsertCellEdit {
 }
 
 /**
- * Compute the edit that inserts a new, empty code cell at the start of the
- * given line (1-based), guaranteeing at least one blank buffer line between the
+ * Compute the edit that inserts a new code cell at the start of the given line
+ * (1-based), empty unless `code` is given, guaranteeing at least one blank buffer line between the
  * new cell and its neighbors on both sides (except at the very top/bottom of
- * the document). The returned `cursorLine` is the new cell's empty code line.
+ * the document). The returned `cursorLine` is the new cell's first code line.
  *
  * Computed as a direct edit (rather than delegating to the Quarto extension's
  * insert command) so the cell always lands exactly where the user asked,
@@ -122,13 +122,14 @@ export interface InsertCellEdit {
  * @param language The cell language (e.g. `python`, `r`); falls back to `python` when empty.
  * @param insertLine The 1-based line at whose start to insert. A value past the
  * last line appends to the end of the document.
- * @returns The edit operations and the resulting cursor line.
+ * @param code The new cell's code.
+ * @returns The edit operations and the resulting cursor line (the new cell's first code line).
  */
-export function computeInsertCellEdit(textModel: ITextModel, language: string, insertLine: number): InsertCellEdit {
+export function computeInsertCellEdit(textModel: ITextModel, language: string, insertLine: number, code = ''): InsertCellEdit {
 	const lineCount = textModel.getLineCount();
 	const fence = '```{' + (language || 'python') + '}';
-	// Opening fence, an empty code line (where the cursor lands), closing fence.
-	const cellBlock = fence + '\n\n```';
+	// Opening fence, the code (where the cursor lands), closing fence.
+	const cellBlock = fence + '\n' + code + '\n```';
 
 	if (insertLine > lineCount) {
 		// Appending past the last line (e.g. inserting below a cell whose
@@ -153,9 +154,22 @@ export function computeInsertCellEdit(textModel: ITextModel, language: string, i
 	const text = prefix + cellBlock + suffix;
 	return {
 		edits: [{ range: new Range(insertLine, 1, insertLine, 1), text }],
-		// The empty code line sits one line below the opening fence.
+		// The first code line sits one line below the opening fence.
 		cursorLine: insertLine + (prefix ? 1 : 0) + 1,
 	};
+}
+
+/**
+ * Compute the edit that replaces a cell's code (the lines between its fences).
+ *
+ * @param textModel The document's text model.
+ * @param cell The cell whose code to replace.
+ * @param code The new code; empty leaves the cell with no code lines.
+ * @returns A single replace edit operation.
+ */
+export function computeReplaceCellCodeEdit(textModel: ITextModel, cell: QuartoCodeCell, code: string): ISingleEditOperation[] {
+	const range = new Range(cell.codeStartLine, 1, cell.endLine, 1);
+	return [EditOperation.replace(range, code ? code + '\n' : '')];
 }
 
 /**

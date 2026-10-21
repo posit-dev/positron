@@ -543,6 +543,24 @@ class AskForPasswordParams(BaseModel):
     )
 
 
+class SelectFileParams(BaseModel):
+    """
+    Ask the user to select a file
+    """
+
+    title: StrictStr = Field(
+        description="The title of the file dialog",
+    )
+
+    existing: StrictBool = Field(
+        description="Whether the file must already exist. If false, the user may also enter the name of a new file.",
+    )
+
+    default_dir: Optional[StrictStr] = Field(
+        description="The directory the file dialog starts in. If omitted, defaults to the session's working directory.",
+    )
+
+
 class PromptStateParams(BaseModel):
     """
     New state of the primary and secondary prompts
@@ -758,6 +776,8 @@ ShowDialogParams.update_forward_refs()
 ShowPromptParams.update_forward_refs()
 
 AskForPasswordParams.update_forward_refs()
+
+SelectFileParams.update_forward_refs()
 
 PromptStateParams.update_forward_refs()
 

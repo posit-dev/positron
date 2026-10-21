@@ -1,0 +1,13 @@
+diff --git a/extensions/positron-python/python_files/posit/positron/_vendor/typing_extensions.py b/extensions/positron-python/python_files/posit/positron/_vendor/typing_extensions.py
+--- a/extensions/positron-python/python_files/posit/positron/_vendor/typing_extensions.py
++++ b/extensions/positron-python/python_files/posit/positron/_vendor/typing_extensions.py
+@@ -3224,4 +3224,8 @@
+ ValuesView = typing.ValuesView
+ cast = typing.cast
+ no_type_check = typing.no_type_check
+-no_type_check_decorator = typing.no_type_check_decorator
++# Python 3.15 removed typing.no_type_check_decorator.
++if hasattr(typing, "no_type_check_decorator"):
++    no_type_check_decorator = typing.no_type_check_decorator
++else:
++    __all__.remove("no_type_check_decorator")

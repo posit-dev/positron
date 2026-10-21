@@ -265,6 +265,25 @@ describe('ObjectExplorerTreeInstance', () => {
 		expect(tree.getSelectedNode()?.id).toBe(objectNodeId(['a']));
 	});
 
+	it('disables the accessor actions for nodes without an accessor', async () => {
+		const getChildren = JsonObjectExplorerBackend.prototype.getChildren;
+		vi.spyOn(JsonObjectExplorerBackend.prototype, 'getChildren').mockImplementation(async function (this: JsonObjectExplorerBackend, ...args) {
+			const result = await getChildren.apply(this, args);
+			// Backends send null rather than omitting the accessor.
+			return { ...result, children: result.children.map(child => ({ ...child, accessor: null as unknown as undefined })) };
+		});
+		const { tree, clipboardService } = await createTree({ a: 1 });
+
+		await tree.showCellContextMenu(0, 1, document.body, { clientX: 0, clientY: 0 });
+		await tree.copyAccessor(1);
+
+		const { entries, onClose } = mockShowCustomContextMenu.mock.calls[0][0];
+		onClose();
+		const copyAccessor = entries.find((entry: { options?: { label: string } }) => entry.options?.label === 'Copy Accessor');
+		expect(copyAccessor.options.disabled).toBe(true);
+		expect(clipboardService.writeText).not.toHaveBeenCalled();
+	});
+
 	it('offers Open Text in Editor in the context menu for text', async () => {
 		const { tree } = await createTree({ s: 'text' });
 

@@ -423,7 +423,7 @@ export interface ExtHostDataConnectionsShape {
  * in the Data Explorer.
  */
 export interface MainThreadDataExplorerShape extends IDisposable {
-	$registerRpcHandler(providerId: string): void;
+	$registerRpcHandler(providerId: string, supportsRefresh: boolean): void;
 	$unregisterRpcHandler(providerId: string): void;
 	$sendUiEvent(event: IDataExplorerUiEventDto): void;
 	$open(providerId: string, datasetId: string, displayName: string): Promise<void>;
@@ -439,6 +439,7 @@ export interface MainThreadDataExplorerShape extends IDisposable {
 export interface ExtHostDataExplorerShape {
 	$handleRpc(providerId: string, rpc: IDataExplorerRpcDto): Promise<IDataExplorerResponseDto>;
 	$disposeBackend(providerId: string, datasetId: string): void;
+	$refreshDataset(providerId: string, datasetId: string): Promise<void>;
 	$generateImportCode(handle: number, request: IDataImportRequestDto): Promise<IDataImportResult | undefined>;
 }
 
@@ -581,6 +582,7 @@ export type PreviewHandle = string;
 export interface ExtHostPreviewPanelShape {
 	$onDidChangePreviewPanelViewStates(newState: PreviewPanelViewStateData): void;
 	$onDidDisposePreviewPanel(handle: PreviewHandle): Promise<void>;
+	$onDidRequestStop(handle: PreviewHandle): void;
 }
 
 /**
@@ -624,6 +626,7 @@ export interface MainThreadPreviewPanelShape extends IDisposable {
 	$disposePreview(handle: PreviewHandle): void;
 	$reveal(handle: PreviewHandle, preserveFocus: boolean): void;
 	$setTitle(handle: PreviewHandle, value: string): void;
+	$setStoppable(handle: PreviewHandle, stoppable: boolean): void;
 }
 
 export interface MainThreadLifecycleShape extends IDisposable {
