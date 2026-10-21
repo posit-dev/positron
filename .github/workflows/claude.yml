@@ -197,6 +197,9 @@ jobs:
             failing output in the PR body. CI does not run on your branch until the PR exists, so do
             not wait for CI to confirm the failure. If you are modifying existing code, check if there
             are existing tests and update them or put new tests alongside the old ones.
+            Choose the test level from the table in CLAUDE.md, and use the author-vitest-tests skill
+            when you write new Vitest tests. Run `npm run precommit -- <files>` on the files you
+            changed before each commit.
 
             For any task involving real build/test work, commit and push progress to your branch
             after each logical, verified increment (for example, once backend tests pass, and again
@@ -204,13 +207,12 @@ jobs:
             commit. A commit that only exists locally is equivalent to no commit at all once this job's
             runner is torn down - only what is pushed survives a timeout or cancellation.
 
-            Before your first commit, write a short status document (e.g. `PROGRESS.md` at the repo
-            root) noting your plan and which steps remain. Commit it alongside your first change, and
-            update it - checking off completed steps and noting what's left - with each subsequent
-            commit. This lets a resumed run, or a human picking up the branch after a timeout, see
-            what's done and where to continue. When the task is complete, delete this file in your
-            final commit. This applies whether that final commit precedes creating a new pull request
-            or is a push to an existing branch - the file must not appear in a finished PR's diff.
+            The repository is a shallow clone. When you need history for `git log` or `git blame`,
+            run `git fetch --deepen=<n>` (or `git fetch --unshallow` if you need all of it).
+
+            You may review pull requests with the pending review tools, but submit reviews as
+            comments only. Never approve or request changes. This replaces the default instruction
+            that you cannot submit formal reviews.
 
             If the triggering user (${{ github.triggering_actor }}) is not a bot, after creating a PR, add a reviewer and assignee.
             add them with: gh pr edit <PR_NUMBER> --add-reviewer ${{ github.triggering_actor }} --add-assignee ${{ steps.assignee.outputs.value }}
