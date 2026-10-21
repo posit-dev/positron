@@ -1,0 +1,47 @@
+name: 'Join Tailnet'
+description: 'Join the Posit tailnet as tag:positron-gha, so the job can reach private hosts such as connect.posit.it.'
+
+# Use this just before the first step that needs the tailnet, not at the start
+# of the job: joining early has caused flakes.
+#
+# The composite actions that call connect.posit.it (notify-e2e-insights,
+# e2e-failure-analyzer) join with tailscale/github-action directly instead:
+# positron-builds runs them from its positron submodule, where a local
+# ./.github/actions/join-tailnet path would not resolve.
+
+inputs:
+  oauth-client-id:
+    description: 'Tailscale OAuth client ID (secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID).'
+    required: true
+  oauth-secret:
+    description: 'Tailscale OAuth client secret (secrets.POSITRON_TAILSCALE_OAUTH_SECRET).'
+    required: true
+  required:
+    description: >-
+      'true' fails the job when the join fails. Leave 'false' when the tailnet
+      only serves best-effort reporting, so a failed join costs the reporting,
+      not the run.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    # A short timeout and few retries (about 2 minutes at worst): the action's
+    # defaults (2m, 5 retries) can hold a job for over 10 minutes during a
+    # tailnet outage, on the critical path, before a best-effort join gives up.
+    - name: Tailscale
+      id: join
+      continue-on-error: ${{ inputs.required != 'true' }}
+      uses: tailscale/github-action@v4
+      with:
+        oauth-client-id: ${{ inputs.oauth-client-id }}
+        oauth-secret: ${{ inputs.oauth-secret }}
+        tags: tag:positron-gha
+        timeout: 30s
+        retry: 3
+
+    - name: Warn on failed join
+      if: ${{ steps.join.outcome == 'failure' }}
+      shell: bash
+      run: echo "::warning::Could not join the tailnet, so calls to connect.posit.it from this job will fail."

@@ -45,7 +45,11 @@ runs:
   steps:
     # connect.posit.it is reachable only from the tailnet. Best-effort, like the
     # webhook itself: a failed join must not fail the calling job.
+    # Mirrors .github/actions/join-tailnet, which this action can't use: callers
+    # sparse-check-out only this action, and positron-builds runs it from its
+    # positron submodule, where that local path would not resolve.
     - name: Tailscale
+      id: tailscale
       if: ${{ inputs.tailscale_oauth_client_id != '' }}
       continue-on-error: true
       uses: tailscale/github-action@v4
@@ -53,6 +57,13 @@ runs:
         oauth-client-id: ${{ inputs.tailscale_oauth_client_id }}
         oauth-secret: ${{ inputs.tailscale_oauth_secret }}
         tags: tag:positron-gha
+        timeout: 30s
+        retry: 3
+
+    - name: Warn on failed tailnet join
+      if: ${{ steps.tailscale.outcome == 'failure' }}
+      shell: bash
+      run: echo "::warning::Could not join the tailnet, so the E2E Test Insights webhook will fail."
 
     - name: Send webhook
       shell: bash

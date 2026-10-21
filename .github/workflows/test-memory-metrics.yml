@@ -232,15 +232,11 @@ jobs:
         run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Memory footprint'
 
       # Publishing goes to connect.posit.it, which is reachable only from the tailnet.
-      # Joined just before it rather than at the start of the job: joining early has
-      # caused flakes. Best-effort: a failed join should cost only the publish.
-      - name: Tailscale
-        continue-on-error: true
-        uses: tailscale/github-action@v4
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
         with:
           oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
-          tags: tag:positron-gha
 
       # Separate from the launches so a failure to render cannot lose the
       # measurements, which are the expensive part.
@@ -455,14 +451,12 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # The budget check below queries connect.posit.it, which is reachable only
-      # from the tailnet. Best-effort, like the alert itself.
-      - name: Tailscale
-        continue-on-error: true
-        uses: tailscale/github-action@v4
+      # from the tailnet.
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
         with:
           oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
-          tags: tag:positron-gha
 
       # Non-fatal by design: a budget alert must never fail the memory run.
       # Only main publishes to the production dataset, so a branch dispatch

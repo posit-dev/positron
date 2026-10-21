@@ -224,7 +224,11 @@ runs:
     # uses the same host), not earlier: joining at the start of a job has caused
     # flakes in other workflows. Best-effort, like both of those calls: without
     # the tailnet the analysis still runs, just without history.
+    # Mirrors .github/actions/join-tailnet, which this action can't use:
+    # positron-builds runs it from its positron submodule, where that local
+    # path would not resolve.
     - name: Tailscale
+      id: tailscale
       if: ${{ inputs.e2e-insights-api-key != '' && inputs.tailscale-oauth-client-id != '' }}
       continue-on-error: true
       uses: tailscale/github-action@v4
@@ -232,6 +236,13 @@ runs:
         oauth-client-id: ${{ inputs.tailscale-oauth-client-id }}
         oauth-secret: ${{ inputs.tailscale-oauth-secret }}
         tags: tag:positron-gha
+        timeout: 30s
+        retry: 3
+
+    - name: Warn on failed tailnet join
+      if: ${{ steps.tailscale.outcome == 'failure' }}
+      shell: bash
+      run: echo "::warning::Could not join the tailnet, so the history query and Slack post to connect.posit.it will fail."
 
     - name: Query historical test health
       if: ${{ inputs.e2e-insights-api-key != '' }}
