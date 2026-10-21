@@ -38,6 +38,7 @@ from ..data_explorer import (
     DataExplorerState,
     PandasView,
     _get_float_formatter,
+    _pandas_summarize_datetime,
 )
 from ..data_explorer_comm import (
     ColumnDisplayType,
@@ -2939,6 +2940,24 @@ def _assert_date_stats_equal(expected, actual):
 def _assert_datetime_stats_equal(expected, actual):
     _assert_date_stats_equal(expected, actual)
     assert expected["timezone"] == actual["timezone"]
+
+
+@pytest.mark.parametrize("unit", ["s", "ms", "us", "ns"])
+def test_pandas_summarize_datetime_nat_median(unit):
+    # With NaT in the majority the median is NaT; every time unit must
+    # still produce stats instead of raising from strftime
+    col = pd.Series(
+        [pd.NaT, pd.NaT, pd.Timestamp("2023-01-01"), pd.NaT, pd.Timestamp("2023-02-01")]
+    ).astype(f"datetime64[{unit}]")
+
+    result = _pandas_summarize_datetime(col, DEFAULT_FORMAT).datetime_stats
+
+    assert result is not None
+    assert (result.min_date, result.median_date, result.max_date) == (
+        "2023-01-01 00:00:00",
+        "NaT",
+        "2023-02-01 00:00:00",
+    )
 
 
 def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
