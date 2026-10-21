@@ -104,11 +104,17 @@ function connectionStringParam(): positron.DataConnectionParameter {
 }
 
 /** The authentication-mode parameter, for a database whose drivers accept one. */
-function authenticationParam(modes: readonly string[]): positron.DataConnectionParameter {
+function authenticationParam(authentication: NonNullable<OdbcDatabaseProfile['authentication']>): positron.DataConnectionParameter {
+	const modes = process.platform === 'win32'
+		? authentication.modes
+		: authentication.modes.filter(mode => !authentication.windowsOnlyModes?.includes(mode));
 	return {
 		id: 'authentication',
 		label: vscode.l10n.t('Authentication'),
-		description: vscode.l10n.t('Leave as Default to sign in with the user and password.'),
+		description: vscode.l10n.t(
+			'Leave as Default to sign in with the user and password. Other modes need {0} or later.',
+			authentication.requiredDriver
+		),
 		type: positron.DataConnectionParameterType.Option,
 		options: [DEFAULT_AUTHENTICATION, ...modes],
 		defaultValue: DEFAULT_AUTHENTICATION,
@@ -122,7 +128,10 @@ function authenticationParam(modes: readonly string[]): positron.DataConnectionP
  * OdbcDatabaseProfile.attributeKeys) -- ODBC never standardized these, so `Server` for one driver
  * is `Servername` or `Host` for another.
  */
-function endpointParams(profile: OdbcDatabaseProfile | undefined): positron.DataConnectionParameter[] {
+function endpointParams(
+	profile: OdbcDatabaseProfile | undefined,
+	odbcDrivers: readonly OdbcDriverEntry[]
+): positron.DataConnectionParameter[] {
 	const params: positron.DataConnectionParameter[] = [
 		{
 			id: 'server',
@@ -150,8 +159,12 @@ function endpointParams(profile: OdbcDatabaseProfile | undefined): positron.Data
 		});
 	}
 
-	if (profile?.authentication !== undefined) {
-		params.push(authenticationParam(profile.authentication.modes));
+	// Offered when any installed driver accepts the attribute, not when all do: on Windows the
+	// legacy "SQL Server" driver is always present beside Microsoft's current one.
+	const authentication = profile?.authentication;
+	if (authentication !== undefined && odbcDrivers.some(driver =>
+		authentication.driverNamePatterns.some(pattern => pattern.test(driver.name)))) {
+		params.push(authenticationParam(authentication));
 	}
 
 	return [...params, userParam(), passwordParam()];
@@ -377,7 +390,7 @@ function createDriver(
 			description: options.profile
 				? vscode.l10n.t('Connect to a server by supplying its address and your credentials.')
 				: vscode.l10n.t('Connect using an installed ODBC driver by supplying the connection details.'),
-			parameters: [...parameters, ...endpointParams(options.profile)],
+			parameters: [...parameters, ...endpointParams(options.profile, options.odbcDrivers)],
 		});
 	}
 

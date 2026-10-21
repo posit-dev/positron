@@ -260,6 +260,7 @@ suite('createOdbcDrivers', () => {
 		const authentication = sqlServer.mechanisms
 			.find(mechanism => mechanism.id === 'driver')!
 			.parameters.find(parameter => parameter.id === 'authentication')!;
+		const options = authentication.type === 'option' ? authentication.options : [];
 		const connectionString = async (params: Record<string, string>) => {
 			const [variant] = await sqlServer.generateConnectionCode!('driver', 'ggsql', { server: 'myhost,1433', database: 'tbird_dw', ...params });
 			return variant.code;
@@ -270,7 +271,9 @@ suite('createOdbcDrivers', () => {
 				type: authentication.type,
 				required: authentication.required,
 				defaultValue: authentication.type === 'option' ? authentication.defaultValue : undefined,
-				firstOptions: authentication.type === 'option' ? authentication.options.slice(0, 3) : [],
+				options: options.filter(option => option !== 'ActiveDirectoryInteractive'),
+				// Microsoft implements interactive sign-in in the Windows driver only.
+				offersInteractive: options.includes('ActiveDirectoryInteractive'),
 				integrated: await connectionString({ authentication: 'ActiveDirectoryIntegrated' }),
 				default: await connectionString({ authentication: 'Default', user: 'brian' }),
 				unset: await connectionString({}),
@@ -279,10 +282,39 @@ suite('createOdbcDrivers', () => {
 				type: 'option',
 				required: undefined,
 				defaultValue: 'Default',
-				firstOptions: ['Default', 'SqlPassword', 'ActiveDirectoryPassword'],
+				options: ['Default', 'SqlPassword', 'ActiveDirectoryIntegrated', 'ActiveDirectoryMsi', 'ActiveDirectoryServicePrincipal'],
+				offersInteractive: process.platform === 'win32',
 				integrated: '-- @connect: odbc://Driver={ODBC Driver 18 for SQL Server};Server={myhost,1433};Database=tbird_dw;Authentication=ActiveDirectoryIntegrated',
 				default: '-- @connect: odbc://Driver={ODBC Driver 18 for SQL Server};Server={myhost,1433};Database=tbird_dw;UID=brian',
 				unset: '-- @connect: odbc://Driver={ODBC Driver 18 for SQL Server};Server={myhost,1433};Database=tbird_dw',
+			}
+		);
+	});
+
+	test('offers Authentication only where an installed driver accepts the keyword', async () => {
+		// Windows always has the legacy "SQL Server" driver, so one accepting driver is enough; a
+		// machine with only legacy or Posit (Simba) drivers gets no field. The generic ODBC entry
+		// never gets one: its form is built before the user picks a driver.
+		const parameterIds = (drivers: string[], driverId: string) => createOdbcDrivers(
+			testContext(),
+			{ drivers: drivers.map(driverEntry), dsns: [], skippedDsns: [], sources: [] },
+			noopHost
+		)
+			.find(driver => driver.id === driverId)!
+			.mechanisms.find(mechanism => mechanism.id === 'driver')!
+			.parameters.map(parameter => parameter.id);
+		const sqlServerId = `${GENERIC_ODBC_DRIVER_ID}-sqlserver`;
+
+		assert.deepStrictEqual(
+			{
+				legacyOnly: parameterIds(['SQL Server', 'SQL Server Native Client 11.0', 'SQLServer'], sqlServerId),
+				legacyAndCurrent: parameterIds(['SQL Server', 'ODBC Driver 17 for SQL Server'], sqlServerId),
+				generic: parameterIds(['ODBC Driver 18 for SQL Server'], GENERIC_ODBC_DRIVER_ID),
+			},
+			{
+				legacyOnly: ['odbcDriver', 'server', 'database', 'user', 'password'],
+				legacyAndCurrent: ['odbcDriver', 'server', 'database', 'authentication', 'user', 'password'],
+				generic: ['server', 'port', 'database', 'user', 'password'],
 			}
 		);
 	});
