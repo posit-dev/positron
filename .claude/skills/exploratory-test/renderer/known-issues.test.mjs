@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, readIssueRefs, referencedNumbers } from './known-issues.mjs';
+import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, rateLimitWait, readIssueRefs, referencedNumbers } from './known-issues.mjs';
 import { parseLedger } from './shared/ledger.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
 
@@ -187,3 +187,15 @@ test('loadIssueRefs fetches only the numbers it has no preview for, and saves th
 	assert.deepEqual(readIssueRefs(dir).map(r => r.number), [5, 7]);
 	assert.deepEqual((await loadIssueRefs(dir, '#11', null, { fetch, offline: true })).map(r => r.number), [5, 7]);
 }));
+
+test('rateLimitWait waits for a rate limit\'s reset or a minute for a secondary limit, and not for other 403s or a far-off reset', () => {
+	const res = (status, headers) => ({ status, headers: new Headers(headers) });
+	const now = 1_000_000_000_000;
+	assert.equal(rateLimitWait(res(403, { 'retry-after': '20' }), '', now), 20_000);
+	assert.equal(rateLimitWait(res(403, { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(now / 1000 + 30) }), '', now), 31_000);
+	assert.equal(rateLimitWait(res(429, { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(now / 1000 - 5) }), '', now), 0);
+	assert.equal(rateLimitWait(res(403, { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(now / 1000 + 3600) }), '', now), null);
+	assert.equal(rateLimitWait(res(403, { 'x-ratelimit-remaining': '12' }), '{"message":"You have exceeded a secondary rate limit."}', now), 60_000);
+	assert.equal(rateLimitWait(res(403, {}), '{"message":"Resource not accessible by integration"}', now), null);
+	assert.equal(rateLimitWait(res(404, { 'retry-after': '20' }), '', now), null);
+});
