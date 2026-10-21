@@ -13,6 +13,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides whether this PR changes only docs or tooling (see
+  # scripts/lib/pr-docs-only-lib.sh). If so, the unit, ext-host, and
+  # e2e / electron jobs are skipped with a caller-level `if:`. That doesn't
+  # block the merge: required-tests (below) is the one required check, and it
+  # counts a skipped job as passing. `paths-ignore` won't do, because then
+  # required-tests wouldn't report at all.
+  #
+  # Fails open: the jobs below run even if this job fails (`!cancelled()`), and
+  # an empty output means "not docs-only", so the tests run.
+  docs-only:
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.docs-only.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check for a docs-only change
+        id: docs-only
+        run: bash scripts/pr-docs-only.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+
   pr-tags:
     runs-on: ubuntu-latest
     outputs:
@@ -57,6 +80,8 @@ jobs:
       # Guardrail for the tag-derivation scripts; fail fast before relying on them below.
       - name: Unit test the tag-derivation helpers
         run: bash scripts/test/pr-tags-lib-test.sh
+      - name: Unit test the docs-only helpers
+        run: bash scripts/test/pr-docs-only-lib-test.sh
       - name: Validate test-tag-paths-map.json tags against test-tags.ts
         run: bash scripts/check-test-tag-map.sh --tags-only
       - name: Parse Tags from PR Body
@@ -83,7 +108,8 @@ jobs:
   e2e-ubuntu-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-ubuntu.yml
-    needs: pr-tags
+    needs: [pr-tags, docs-only]
+    if: ${{ !cancelled() && needs.pr-tags.result == 'success' && needs.docs-only.outputs.docs_only != 'true' }}
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron"
@@ -376,6 +402,8 @@ jobs:
 
   unit-tests:
     name: test
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
     with:
@@ -383,6 +411,8 @@ jobs:
 
   ext-host-tests:
     name: test
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-ext-host.yml
     secrets: inherit
     with:
