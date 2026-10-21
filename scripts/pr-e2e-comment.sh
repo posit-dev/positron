@@ -51,8 +51,10 @@ fi
 # Fetch existing comments on the PR
 COMMENTS=$(gh api repos/${REPO}/issues/${PR_NUMBER}/comments --header "Authorization: token $GITHUB_TOKEN")
 
-# Check if a comment with the marker already exists
-COMMENT_ID=$(echo "$COMMENTS" | jq -r ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id")
+# Check if a comment with the marker already exists. Take only the first: a
+# duplicate (e.g. from an older race between runs) would otherwise pass two IDs
+# to `gh api` and fail every later run.
+COMMENT_ID=$(echo "$COMMENTS" | jq -r ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id" | head -n 1)
 
 # Format the tags with individual backticks, or use default
 if [ -z "$TAGS" ]; then
