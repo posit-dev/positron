@@ -31,6 +31,7 @@ export interface IReorderListItem extends IListDataItem {
  */
 export class PositronReorderListWidget extends ListSettingWidget<IReorderListItem> {
 	private dragSourceIndex: number | undefined;
+	private readOnly = false;
 
 	constructor(
 		container: HTMLElement,
@@ -46,7 +47,7 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 		this._register(DOM.addStandardDisposableListener(this.domNode, 'keydown', (e: StandardKeyboardEvent) => {
 			const delta = e.equals(KeyMod.Alt | KeyCode.UpArrow) ? -1 : e.equals(KeyMod.Alt | KeyCode.DownArrow) ? 1 : 0;
 			const idx = this.model.getSelected();
-			if (delta && idx !== null) {
+			if (delta && idx !== null && !this.readOnly) {
 				this.moveItem(idx, idx + delta);
 				e.preventDefault();
 				e.stopPropagation();
@@ -71,13 +72,15 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 		}));
 	}
 
-	override setValue(listData: IReorderListItem[]): void {
+	/** `isReadOnly` is for a value the user can't change here, such as one an admin enforces. */
+	override setValue(listData: IReorderListItem[], options?: { isReadOnly?: boolean }): void {
+		this.readOnly = !!options?.isReadOnly;
 		// Keep the selection on the same language when the order changes underneath it, as after Reset Setting.
 		const selected = this.model.getSelected();
 		const selectedValue = selected === null ? undefined : this.model.items[selected]?.value.data;
 		const idx = listData.findIndex(item => item.value.data === selectedValue);
 		this.model.select(idx === -1 ? null : idx);
-		super.setValue(listData, { showAddButton: false });
+		super.setValue(listData, { showAddButton: false, isReadOnly: this.readOnly });
 	}
 
 	/** Reorders locally before firing, so a second move before the setting re-renders uses fresh indexes. */
@@ -108,7 +111,7 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 
 	protected override getActionsForItem(_item: IReorderListItem, idx: number): IAction[] {
 		const count = this.model.items.length;
-		if (count < 2) {
+		if (count < 2 || this.readOnly) {
 			return [];
 		}
 		return [
@@ -134,7 +137,9 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 
 	protected override renderItem(item: IReorderListItem, idx: number) {
 		const group = super.renderItem(item, idx);
-		group.rowElement.prepend($('.setting-list-drag-handle' + ThemeIcon.asCSSSelector(Codicon.gripper)));
+		if (!this.readOnly) {
+			group.rowElement.prepend($('.setting-list-drag-handle' + ThemeIcon.asCSSSelector(Codicon.gripper)));
+		}
 		group.keyElement.textContent = item.label;
 
 		// The base list cancels pointerdown, which also cancels the native drag. Select here instead.
@@ -161,6 +166,9 @@ export class PositronReorderListWidget extends ListSettingWidget<IReorderListIte
 	}
 
 	protected override addDragAndDrop(rowElement: HTMLElement, item: IReorderListItem, idx: number): void {
+		if (this.readOnly) {
+			return;
+		}
 		rowElement.draggable = true;
 		rowElement.classList.add('draggable');
 		let counter = 0;

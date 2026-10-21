@@ -14,14 +14,14 @@ describe('PositronReorderListWidget', () => {
 
 	const toItems = (values: string[]): IReorderListItem[] => values.map(data => ({ value: { type: 'string', data }, label: data.toUpperCase() }));
 
-	function createWidget(values: string[]) {
+	function createWidget(values: string[], options?: { isReadOnly?: boolean }) {
 		const container = document.createElement('div');
 		document.body.appendChild(container);
 		ctx.disposables.add({ dispose: () => container.remove() });
 		const widget = ctx.disposables.add(ctx.instantiationService.createInstance(PositronReorderListWidget, container));
 		const events: SettingListEvent<IReorderListItem>[] = [];
 		ctx.disposables.add(widget.onDidChangeList(e => events.push(e)));
-		widget.setValue(toItems(values));
+		widget.setValue(toItems(values), options);
 		// eslint-disable-next-line no-restricted-syntax -- upstream widget has no roles or test ids on its rows
 		const rows = () => Array.from(container.querySelectorAll<HTMLElement>('.setting-list-row'));
 		return { widget, container, events, rows, list: widget.domNode };
@@ -146,6 +146,25 @@ describe('PositronReorderListWidget', () => {
 		const labels = Array.from(rows()[0].querySelectorAll('.action-label')).map(el => el.getAttribute('aria-label'));
 		expect(labels).toEqual(['Move Up', 'Move Down']);
 		expect(findAction(createWidget(['a']).rows()[0], 'Move Up')).toBeNull();
+	});
+
+	it('offers no way to move rows when the value is read-only', () => {
+		const { rows } = createWidget(['a', 'b'], { isReadOnly: true });
+		for (const row of rows()) {
+			// eslint-disable-next-line no-restricted-syntax -- action bar items have no roles or test ids
+			expect(row.querySelectorAll('.action-label')).toHaveLength(0);
+			expect(row).not.toHaveAttribute('draggable', 'true');
+		}
+	});
+
+	it('ignores Alt+Down and drags when the value is read-only', () => {
+		const { list, rows, events } = createWidget(['a', 'b'], { isReadOnly: true });
+		pointerDown(rows()[0]);
+		pressKey(list, 'ArrowDown', true);
+		rows()[0].dispatchEvent(new Event('dragstart', { bubbles: true }));
+		rows()[1].dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+		expect(events).toEqual([]);
+		expect(rowLabels(rows)).toEqual(['A', 'B']);
 	});
 
 	it('clicking Move Down twice on the same item moves it twice', () => {

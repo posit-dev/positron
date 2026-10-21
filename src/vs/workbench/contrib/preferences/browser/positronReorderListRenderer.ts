@@ -17,7 +17,7 @@ const POSITRON_REORDER_LIST_TEMPLATE_ID = 'settings.positronReorderList.template
 interface IReorderListTemplate extends ISettingItemTemplate<string[]> {
 	listWidget: PositronReorderListWidget;
 	validationErrorMessageElement: HTMLElement;
-		/** The setting element the list rows were last built for. */
+	/** The setting element the list rows were last built for. */
 	renderedElement?: SettingsTreeSettingElement;
 }
 
@@ -64,7 +64,7 @@ class PositronReorderListRenderer extends AbstractSettingRenderer implements ITr
 		template.listWidget.setValue(reorderRows(reorderListChoices(dataElement.setting.key), saved).map(row => ({
 			value: { type: 'string', data: row.value },
 			label: row.label,
-		})));
+		})), { isReadOnly: dataElement.hasPolicyValue || dataElement.isAgentsWindowReadOnly });
 		template.context = dataElement;
 		template.onChange = onChange;
 	}
