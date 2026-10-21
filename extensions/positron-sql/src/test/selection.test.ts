@@ -68,6 +68,20 @@ suite('resolveSelection', () => {
 			{ kind: 'closed', connection: WAREHOUSE },
 		);
 	});
+
+	test('a choice of a connection since removed is no choice at all', () => {
+		// Nothing can open it, so pointing the user at it would be a dead end.
+		assert.deepStrictEqual(resolveSelection(WAREHOUSE, [], [LOCAL]), { kind: 'none' });
+		assert.deepStrictEqual(
+			resolveSelection(WAREHOUSE, [LOCAL], [LOCAL]),
+			{ kind: 'connection', connection: LOCAL },
+		);
+		// Before the first read nothing is known to be removed, and the choice stands.
+		assert.deepStrictEqual(
+			resolveSelection(WAREHOUSE, [], undefined),
+			{ kind: 'closed', connection: WAREHOUSE },
+		);
+	});
 });
 
 suite('ConnectionSelection', () => {
@@ -126,16 +140,70 @@ suite('ConnectionSelection', () => {
 		const selection = new ConnectionSelection(store());
 		selection.set(SCRATCH, WAREHOUSE);
 
-		selection.forgetIfTransient(SCRATCH);
+		selection.forgetIfTransient(SCRATCH, 'SELECT 1');
 
 		assert.strictEqual(selection.get(SCRATCH), undefined);
+	});
+
+	test('an untitled buffer saved as a file hands its choice to the file', () => {
+		const selection = new ConnectionSelection(store());
+		selection.set(SCRATCH, WAREHOUSE);
+
+		// Saving closes the buffer and opens the file, with the same text.
+		selection.forgetIfTransient(SCRATCH, 'SELECT * FROM orders');
+		const adopted = selection.adopt(REPORT, 'SELECT * FROM orders');
+
+		assert.deepStrictEqual([adopted, selection.get(REPORT)], [true, WAREHOUSE]);
+	});
+
+	test('a choice is handed over only to the same text, and only once', () => {
+		const selection = new ConnectionSelection(store());
+		selection.set(SCRATCH, WAREHOUSE);
+		selection.forgetIfTransient(SCRATCH, 'SELECT * FROM orders');
+
+		const other = selection.adopt(MIGRATION, 'SELECT 1');
+		const first = selection.adopt(REPORT, 'SELECT * FROM orders');
+		const second = selection.adopt(vscode.Uri.file('/elsewhere.sql'), 'SELECT * FROM orders');
+
+		assert.deepStrictEqual([other, first, second], [false, true, false]);
+	});
+
+	test('an empty buffer hands nothing over, since every new file is empty too', () => {
+		const selection = new ConnectionSelection(store());
+		selection.set(SCRATCH, WAREHOUSE);
+		selection.forgetIfTransient(SCRATCH, '');
+
+		assert.strictEqual(selection.adopt(REPORT, ''), false);
+	});
+
+	test('a renamed file, or a file in a renamed folder, keeps its choice', () => {
+		const kept = store();
+		const selection = new ConnectionSelection(kept);
+		selection.set(REPORT, WAREHOUSE);
+		selection.set(MIGRATION, LOCAL);
+
+		selection.rename(REPORT, vscode.Uri.file('/reports/quarterly.sql'));
+		selection.rename(vscode.Uri.file('/db'), vscode.Uri.file('/database'));
+
+		assert.deepStrictEqual(
+			[
+				selection.get(vscode.Uri.file('/reports/quarterly.sql')),
+				selection.get(vscode.Uri.file('/database/001-init.sql')),
+				selection.get(REPORT),
+			],
+			[WAREHOUSE, LOCAL, undefined],
+		);
+		assert.deepStrictEqual(
+			Object.keys(kept.written).sort(),
+			[vscode.Uri.file('/database/001-init.sql').toString(), vscode.Uri.file('/reports/quarterly.sql').toString()],
+		);
 	});
 
 	test('a closed file on disk does keep its choice, which is the point of storing it', () => {
 		const selection = new ConnectionSelection(store());
 		selection.set(REPORT, WAREHOUSE);
 
-		selection.forgetIfTransient(REPORT);
+		selection.forgetIfTransient(REPORT, 'SELECT 1');
 
 		assert.deepStrictEqual(selection.get(REPORT), WAREHOUSE);
 	});
