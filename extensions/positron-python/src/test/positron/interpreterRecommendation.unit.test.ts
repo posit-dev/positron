@@ -189,6 +189,18 @@ suite('interpreterRecommendation', () => {
         );
     });
 
+    test('in definitionsOnly mode, ranks only the definitions and keeps the path as written', async () => {
+        // Positron matches definitions on the exact path, so the recommendation must
+        // carry the definition's path, not the one PET resolved it to.
+        const written = p('/opt/defined/bin/python');
+        context.definitionsOnly = true;
+        context.definitionPaths = [written];
+        resolvable.set(written, env(p('/opt/defined/bin/python3.12'), EnvironmentType.Venv));
+        discovered = [rootVenv];
+
+        assert.deepEqual([(await recommend(false))?.path, (await recommend(true))?.path], [written, written]);
+    });
+
     test('starts a root project env immediately, before discovery, without waiting for module discovery', async () => {
         context.rootProjectEnvs = [{ envDir: p('/proj/.venv'), executable: rootVenv.path }];
         resolvable.set(rootVenv.path, rootVenv);

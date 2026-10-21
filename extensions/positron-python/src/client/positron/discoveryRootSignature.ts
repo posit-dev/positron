@@ -279,6 +279,12 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
 }
 
 /**
+ * Bump when the startup flags of discovered runtimes change, so cached runtimes
+ * from an older build are rediscovered once.
+ */
+export const DISCOVERY_POLICY_VERSION = 2;
+
+/**
  * Digest of every Python setting that gates discovery but doesn't move an
  * on-disk root. Folded into the signature's opaque blob so a settings change
  * flips the signature even though no scan-root mtime moved -- without this
@@ -296,6 +302,9 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
  *   - Positron's `interpreters.discovery`: switching to or from
  *     `definitionsOnly` changes which interpreters exist at all.
  *
+ * It also covers `DISCOVERY_POLICY_VERSION`, so a build that changes what
+ * discovery registers rediscovers instead of serving an older build's cache.
+ *
  * `interpreters.include`, `.exclude`, and `.override` are hashed after replacing
  * `${workspaceFolder}`, so two workspaces with the same setting text don't
  * share a cache entry.
@@ -304,6 +313,7 @@ function getFilterSettingsDigest(): string {
     const config = vscode.workspace.getConfiguration('python');
     const filterPaths = getResolvedFilterSettingPaths();
     const payload = {
+        policyVersion: DISCOVERY_POLICY_VERSION,
         include: filterPaths.include,
         exclude: filterPaths.exclude,
         override: filterPaths.override,

@@ -114,8 +114,8 @@ interface NamedInterpreters {
 }
 
 /**
- * Interpreters named by path in the context (every candidate for tiers 0-3), resolved
- * in parallel without a full scan.
+ * Interpreters named by path in the context (every candidate for tiers 0-3, or every
+ * definition in `definitionsOnly` mode), resolved in parallel without a full scan.
  *
  * A named path that doesn't exist is absent: it is logged as a warning and skipped, as
  * if it had never been named, since discovery can't find it either. That covers a stale
@@ -127,9 +127,10 @@ interface NamedInterpreters {
  * discovery there is no timeout: a resolve that is slow but succeeds must not let a
  * lower tier win, so the answer never depends on timing.
  *
- * The interpreter keeps the path PET resolved, which is the path discovery registers,
- * so the runtime ID matches the discovered runtime; `defaultInterpreterPath` in the
- * returned context is updated to match.
+ * In `definitionsOnly` mode the path is kept as written, since Positron matches
+ * definitions on the exact path. Otherwise the interpreter keeps the path PET resolved,
+ * which is the path discovery registers, so the runtime ID matches the discovered
+ * runtime; `defaultInterpreterPath` in the returned context is updated to match.
  */
 async function resolveNamedInterpreters(
     interpreterService: IInterpreterService,
@@ -137,23 +138,28 @@ async function resolveNamedInterpreters(
     workspaceUri: vscode.Uri | undefined,
     afterDiscovery: boolean,
 ): Promise<NamedInterpreters> {
-    const activatedExecutable = context.activatedEnvPrefix
-        ? await getInterpreterPathFromDir(context.activatedEnvPrefix)
-        : undefined;
-    if (context.activatedEnvPrefix && !activatedExecutable) {
-        traceWarn(
-            `Interpreter ranking: no Python found in the launch shell's env ${context.activatedEnvPrefix}...ignoring`,
-        );
+    let named: (string | undefined)[];
+    if (context.definitionsOnly) {
+        named = context.definitionPaths;
+    } else {
+        const activatedExecutable = context.activatedEnvPrefix
+            ? await getInterpreterPathFromDir(context.activatedEnvPrefix)
+            : undefined;
+        if (context.activatedEnvPrefix && !activatedExecutable) {
+            traceWarn(
+                `Interpreter ranking: no Python found in the launch shell's env ${context.activatedEnvPrefix}...ignoring`,
+            );
+        }
+        named = [
+            activatedExecutable,
+            context.defaultInterpreterPath,
+            ...context.rootProjectEnvs.map((projectEnv) => projectEnv.executable),
+            // pyenv links each virtualenv into its versions folder, so this covers both
+            // a named virtualenv (ProjectEnv) and a named version (PythonVersionFile).
+            // A name pyenv doesn't have is not an error: the file may name something else.
+            context.pythonVersionDir ? await getInterpreterPathFromDir(context.pythonVersionDir) : undefined,
+        ];
     }
-    const named = [
-        activatedExecutable,
-        context.defaultInterpreterPath,
-        ...context.rootProjectEnvs.map((projectEnv) => projectEnv.executable),
-        // pyenv links each virtualenv into its versions folder, so this covers both
-        // a named virtualenv (ProjectEnv) and a named version (PythonVersionFile).
-        // A name pyenv doesn't have is not an error: the file may name something else.
-        context.pythonVersionDir ? await getInterpreterPathFromDir(context.pythonVersionDir) : undefined,
-    ];
     const resolve = async (namedPath: string): Promise<PythonEnvironment | undefined> => {
         if (!afterDiscovery) {
             return resolveInterpreterOnce(interpreterService, namedPath, workspaceUri);
@@ -183,7 +189,10 @@ async function resolveNamedInterpreters(
                 );
                 return 'unresolved' as const;
             }
-            return { named: namedPath, interpreter };
+            return {
+                named: namedPath,
+                interpreter: context.definitionsOnly ? { ...interpreter, path: namedPath } : interpreter,
+            };
         }),
     );
     const found = results.filter(
@@ -322,11 +331,12 @@ function dedupeByPath(interpreters: PythonEnvironment[]): PythonEnvironment[] {
  * the settings and the interpreters on disk, never on how long anything takes.
  *
  * Pass 1 ranks the interpreters named by path without a scan, so a project env or a set
- * defaultInterpreterPath is recommended in milliseconds. Those are tiers 0-3, which have
- * no other members, so when every named path resolved, pass 1's pick is the full
- * ranking's pick. If any named path didn't resolve, pass 1 waits for the ask after
- * discovery: a slow or failed resolve must not let a lower tier win on timing
- * (Stability rule 1).
+ * defaultInterpreterPath is recommended in milliseconds. Outside `definitionsOnly` those
+ * are tiers 0-3, which have no other members, so when every named path resolved, pass 1's
+ * pick is the full ranking's pick. If any named path didn't resolve, pass 1 waits for the
+ * ask after discovery: a slow or failed resolve must not let a lower tier win on timing
+ * (Stability rule 1). In `definitionsOnly` mode the definitions are every candidate, so
+ * pass 1 is the whole ranking and there is no pass 2.
  *
  * Pass 2 ranks everything discovery found. It runs only when core asks after discovery
  * (`afterDiscovery`). Core asks first during startup and waits for every language's
@@ -353,14 +363,17 @@ export async function recommendWorkspaceRuntime(
         context,
     } = await resolveNamedInterpreters(interpreterService, baseContext, workspaceUri, afterDiscovery);
 
-    if (unresolved === 0) {
+    if (unresolved === 0 || (context.definitionsOnly && afterDiscovery)) {
         // A `.python-version` that names neither a pyenv virtualenv nor an exact pyenv
         // version resolves to something below tier 3; leave that to pass 2.
-        const pass1 = named.filter((i) => (tierOf(i, context) ?? Number.MAX_SAFE_INTEGER) <= Tier.PythonVersionFile);
+        const pass1 = context.definitionsOnly
+            ? named
+            : named.filter((i) => (tierOf(i, context) ?? Number.MAX_SAFE_INTEGER) <= Tier.PythonVersionFile);
         const fromNamed = await firstEligible(serviceContainer, pass1, context, workspaceUri);
         traceInfo(`Interpreter ranking: pass 1 took ${Date.now() - started} ms`);
-        if (fromNamed) {
-            return fromNamed.metadata;
+        // In `definitionsOnly` mode the definitions are every candidate, so there is no pass 2.
+        if (fromNamed || context.definitionsOnly) {
+            return fromNamed?.metadata;
         }
     }
     // The inputs are read from the context before any path is resolved, so both asks

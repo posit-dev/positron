@@ -487,20 +487,20 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
         );
     });
 
-    test('recommends nothing when discovery is limited to interpreters.definitions', async () => {
-        // Core registers a recommendation that isn't a definition variant as hidden in
-        // this mode, so it could never start.
+    test('ranks the definitions when discovery is limited to interpreters.definitions', async () => {
+        // Core maps the recommendation to its definition variant, so it can start.
         definitionsOnlyStub.returns(true);
-        recommendStub.resolves({ runtimeId: 'rec' } as positron.LanguageRuntimeMetadata);
+        const metadata = { runtimeId: 'rec' } as positron.LanguageRuntimeMetadata;
+        recommendStub.resolves(metadata);
 
         assert.deepEqual(
             [
                 await pythonRuntimeManager.recommendedWorkspaceRuntime(),
                 await pythonRuntimeManager.recommendedWorkspaceRuntime(true),
             ],
-            [undefined, undefined],
+            [metadata, metadata],
         );
-        sinon.assert.notCalled(recommendStub);
+        sinon.assert.calledTwice(recommendStub);
     });
 });
 
