@@ -30,13 +30,13 @@ jobs:
     # bubblewrap (for CLAUDE_CODE_SUBPROCESS_ENV_SCRUB) needs user namespaces.
     # SYS_ADMIN: the Ubuntu 24.04 host restricts user namespaces created without CAP_SYS_ADMIN
     # (apparmor_restrict_unprivileged_userns), and that sysctl cannot be changed from inside the
-    # container. Docker's default seccomp profile allows the namespace syscalls once SYS_ADMIN is
-    # granted. apparmor=unconfined: Docker's default AppArmor profile denies the mounts bwrap makes.
+    # container. seccomp=unconfined: Docker's default seccomp profile blocks pivot_root, even with
+    # SYS_ADMIN. apparmor=unconfined: Docker's default AppArmor profile denies the mounts bwrap makes.
     # Commands Claude runs are sandboxed by bwrap with no capabilities, which the isolation step
     # below asserts, so SYS_ADMIN only reaches code this workflow runs directly.
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
-      options: --user 0:0 --init --cap-add SYS_ADMIN --security-opt apparmor=unconfined
+      options: --user 0:0 --init --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
