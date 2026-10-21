@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import enum
+import importlib.metadata
 import importlib.util
 import logging
 import os
@@ -71,6 +72,19 @@ class _CommTarget(str, enum.Enum):
 
 
 logger = logging.getLogger(__name__)
+
+
+def _ipykernel_sends_shell_reply_raw() -> bool:
+    """
+    Whether this ipykernel sends shell replies raw on the shell socket.
+
+    ipykernel 7.0 to 7.3 do, which can leave a concurrently queued request unread and
+    wedge the kernel; 7.4.0 (ipython/ipykernel#1529) sends through the stream instead.
+    See https://github.com/posit-dev/positron/issues/15060.
+    """
+    version = importlib.metadata.version("ipykernel")
+    major, minor = (int(part) for part in version.split(".")[:2])
+    return (7, 0) <= (major, minor) < (7, 4)
 
 
 class PositronIPythonInspector(oinspect.Inspector):
@@ -868,7 +882,21 @@ class PositronIPKernelApp(IPKernelApp):
         self.control_thread.run = with_logging(self.control_thread.run)
         self.control_thread.stop = with_logging(self.control_thread.stop)
         self.control_thread.join = with_logging(self.control_thread.join)
+
+        if _ipykernel_sends_shell_reply_raw():
+            from .shell_channel import PositronShellChannelThread
+
+            # Swap the thread before init_kernel starts it; the stock one stays unused.
+            self.shell_channel_thread.io_loop.close()
+            self.shell_channel_thread = PositronShellChannelThread(
+                context, self.shell_socket, daemon=True
+            )
         return result
+
+    def init_kernel(self):
+        super().init_kernel()
+        if _ipykernel_sends_shell_reply_raw():
+            self.shell_channel_thread.shell_stream = self.kernel.shell_stream
 
     def init_gui_pylab(self):
         # Enable the Positron matplotlib backend that matches the session mode.
