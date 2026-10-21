@@ -2331,7 +2331,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// If an error occurs, fire an event to clean up provisional copies
 				const error: ISessionRestoreFailedEvent = {
 					sessionId: session.metadata.sessionId,
-					error: new Error(`Could not reconnect: ${JSON.stringify(err)}`)
+					error: new Error(`Could not reconnect: ${err instanceof Error ? err.message : String(err)}`)
 				};
 				this._onSessionRestoreFailure.fire(error);
 			}

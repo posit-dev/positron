@@ -282,7 +282,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// When an extension activates, check to see if we have any disconnected
 		// sessions owned by that extension. If we do, try to reconnect them.
-		this._register(this._extensionService.onDidChangeExtensionsStatus((e) => {
+		this._register(this._extensionService.onDidChangeExtensionsStatus(async (e) => {
 			for (const extensionId of e) {
 				for (const s of this._disconnectedSessions.values()) {
 					const session = s.session;
@@ -291,11 +291,29 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						// try to reconnect it again (no matter the outcome below)
 						this._disconnectedSessions.delete(session.sessionId);
 
+						// Don't reconnect to a kernel that is no longer alive; the
+						// session stays exited. Remove it, as a reload would.
+						const valid = await this.validateRuntimeSession(session.runtimeMetadata, session.sessionId)
+							.catch(err => {
+								this._logService.error(`Error validating session ${session.sessionId}: ${err}`);
+								return false;
+							});
+						if (!valid) {
+							this._logService.info(`Extension ${extensionId.value} has been reloaded, ` +
+								`but session ${session.sessionId} is no longer valid; not reconnecting`);
+							try {
+								await this.deleteSession(session.sessionId);
+							} catch (err) {
+								this._logService.debug(`Could not remove session ${session.sessionId}: ${err}`);
+							}
+							continue;
+						}
+
 						// Attempt to reconnect the session.
 						this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
 							`attempting to reconnect session ${session.sessionId}`);
 						try {
-							this.restoreRuntimeSession(session.runtimeMetadata,
+							await this.restoreRuntimeSession(session.runtimeMetadata,
 								session.metadata,
 								session.dynState.sessionName,
 								s.hasConsole,
@@ -876,7 +894,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		if (!languageRuntime) {
 			this._logService.debug(`[Reconnect ${sessionMetadata.sessionId}]: ` +
 				`Registering runtime ${runtimeMetadata.runtimeName}`);
-			this._languageRuntimeService.registerRuntime(runtimeMetadata);
+			try {
+				this._languageRuntimeService.registerRuntime(runtimeMetadata);
+			} catch (err) {
+				// Registration fails when the language is disabled. The
+				// session can still be reconnected without a registry entry.
+				this._logService.info(`[Reconnect ${sessionMetadata.sessionId}]: ` +
+					`Could not register runtime ${runtimeMetadata.runtimeName}; ` +
+					`reconnecting anyway: ${err instanceof Error ? err.message : String(err)}`);
+			}
 		}
 
 		const runningSessionId = this.validateRuntimeSessionStart(

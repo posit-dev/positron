@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { timeout } from '../../../../../base/common/async.js';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -16,12 +16,13 @@ import { IWorkspaceTrustManagementService } from '../../../../../platform/worksp
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, reviveRuntimeSessionMetadata, RuntimeClientType, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../common/runtimeSessionService.js';
-import { FORCE_QUIT_GRACE_MS, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
+import { FORCE_QUIT_GRACE_MS, RuntimeSessionService, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { createInterpreterVariant, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../../languageRuntime/common/interpreterDefinitions.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
-import { TestLifecycleService, TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { TestExtensionService, TestLifecycleService, TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { IExtensionService } from '../../../extensions/common/extensions.js';
 import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
 import { NotebookSetting } from '../../../../contrib/notebook/common/notebookCommon.js';
@@ -1887,6 +1888,59 @@ describe('Positron - RuntimeSessionService', () => {
 			).toBe(reconnected);
 		});
 
+		describe('when the extension comes back', () => {
+			/**
+			 * Creates a separate service that listens to an extension status
+			 * emitter, starts a console in it, and disconnects it.
+			 */
+			async function disconnectedSession() {
+				const onDidChangeExtensionsStatus = ctx.disposables.add(new Emitter<ExtensionIdentifier[]>());
+				const extensionService = new TestExtensionService();
+				Object.assign(extensionService, { onDidChangeExtensionsStatus: onDidChangeExtensionsStatus.event });
+				ctx.instantiationService.stub(IExtensionService, extensionService);
+				const service = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeSessionService));
+				ctx.disposables.add(service.registerSessionManager(manager));
+				const workspaceRuntime = createTestLanguageRuntimeMetadata(
+					ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Workspace);
+				const sessionId = await service.startNewRuntimeSession(workspaceRuntime.runtimeId, sessionName,
+					LanguageRuntimeSessionMode.Console, undefined, startSource, RuntimeStartMode.Starting, true);
+				const session = service.getSession(sessionId) as TestLanguageRuntimeSession;
+				ctx.disposables.add(session);
+				await waitForRuntimeState(session, RuntimeState.Ready);
+				await disconnectViaExtensionHost(session);
+				const extensionCameBack = () => onDidChangeExtensionsStatus.fire([workspaceRuntime.extensionId]);
+				return { service, session, extensionCameBack };
+			}
+
+			it('reconnects a session whose kernel is still alive', async () => {
+				const { service, session, extensionCameBack } = await disconnectedSession();
+
+				extensionCameBack();
+
+				await vi.waitFor(() => expect(service.getSession(session.sessionId)).not.toBe(session));
+				const reconnected = service.getSession(session.sessionId);
+				expect(reconnected).toBeDefined();
+				ctx.disposables.add(reconnected as TestLanguageRuntimeSession);
+			});
+
+			it('does not reconnect a session whose kernel is gone, and removes it', async () => {
+				const { service, session, extensionCameBack } = await disconnectedSession();
+				const validateSession = vi.spyOn(manager, 'validateSession').mockResolvedValue(false);
+				const restoreSession = vi.spyOn(manager, 'restoreSession');
+
+				extensionCameBack();
+
+				await vi.waitFor(() => expect(service.getSession(session.sessionId)).toBeUndefined());
+				expect({
+					validated: validateSession.mock.calls.map(([, sessionId]) => sessionId),
+					restored: restoreSession.mock.calls.length,
+				}).toEqual({
+					validated: [session.sessionId],
+					restored: 0,
+				});
+			});
+		});
+
 		it('returns the reconnected session from getLastActiveConsoleSession', async () => {
 			const { reconnected } = await disconnectAndReconnect();
 
@@ -1894,6 +1948,21 @@ describe('Positron - RuntimeSessionService', () => {
 				runtimeSessionService.getLastActiveConsoleSession(),
 				'Expected the last active console session to be the reconnected session, not the replaced one'
 			).toBe(reconnected);
+		});
+	});
+
+	it('reconnects a session whose language is disabled', async () => {
+		configService.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Disabled);
+		const disabledRuntime = { ...runtime, runtimeId: 'unregistered-disabled-runtime' };
+
+		const session = await restoreConsole(disabledRuntime);
+
+		expect({
+			restored: session.runtimeMetadata.runtimeId,
+			registered: languageRuntimeService.getRegisteredRuntime(disabledRuntime.runtimeId),
+		}).toEqual({
+			restored: disabledRuntime.runtimeId,
+			registered: undefined,
 		});
 	});
 
