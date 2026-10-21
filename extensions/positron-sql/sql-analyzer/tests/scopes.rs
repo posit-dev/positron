@@ -393,3 +393,55 @@ fn a_statement_that_does_not_parse_contributes_nothing_but_does_not_stop_the_oth
         [("orders".to_string(), None)]
     );
 }
+
+#[test]
+fn a_lambda_parameter_is_not_a_column() {
+    let found = columns_as(
+        "duckdb",
+        "SELECT list_transform(tags, x -> x.label || x) FROM posts",
+    );
+    assert_eq!(found, ["tags"]);
+}
+
+#[test]
+fn a_table_dropped_if_it_exists_is_not_a_reference() {
+    assert!(tables("DROP TABLE IF EXISTS staging").is_empty());
+    assert_eq!(
+        tables("DROP TABLE staging"),
+        [("staging".to_string(), None)]
+    );
+}
+
+#[test]
+fn an_altered_table_is_marked_and_its_new_name_is_a_definition() {
+    let response = analyze("ALTER TABLE orders RENAME TO orders_old");
+    let mut found: Vec<(String, bool, bool)> = response["tables"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|table| {
+            (
+                table["name"].as_str().unwrap().to_string(),
+                table["altered"].as_bool().unwrap(),
+                table["definition"].as_bool().unwrap(),
+            )
+        })
+        .collect();
+    found.sort();
+    assert_eq!(
+        found,
+        [
+            ("orders".to_string(), true, false),
+            ("orders_old".to_string(), false, true)
+        ]
+    );
+}
+
+fn columns_as(dialect: &str, text: &str) -> Vec<String> {
+    support::analyze_as(dialect, text)["columns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|column| column["name"].as_str().unwrap().to_string())
+        .collect()
+}

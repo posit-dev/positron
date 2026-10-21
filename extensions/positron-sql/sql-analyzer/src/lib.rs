@@ -30,6 +30,7 @@ pub mod cursor;
 pub mod diagnostics;
 pub mod dialects;
 pub mod keywords;
+pub mod quoting;
 pub mod scopes;
 pub mod sources;
 pub mod statements;

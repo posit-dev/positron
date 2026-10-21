@@ -61,12 +61,14 @@ suite('SqlAnalyzer', () => {
 
 	test('scopes the tables to where the cursor is', () => {
 		// What reading the tokens flat could not do: the outer select reads from the CTE, so the
-		// table inside the CTE is not one of its columns' to be completed from.
+		// table inside the CTE is not one of its columns' to be completed from -- what the CTE
+		// produces is.
+		const produces = { columns: ['id'] };
 		assert.deepStrictEqual(
 			testAnalyzer().sources('WITH recent AS (SELECT id FROM orders) SELECT  FROM recent', '', 46),
 			{
 				sources: [],
-				locals: [{ name: 'recent', kind: 'relation' }, { name: 'recent', kind: 'cte' }],
+				locals: [{ name: 'recent', kind: 'relation', produces }, { name: 'recent', kind: 'cte', produces }],
 				opaque: true,
 				origin: 'parsed',
 			},
@@ -96,6 +98,13 @@ suite('SqlAnalyzer', () => {
 		assert.strictEqual(position, 'tableItem');
 		assert.ok(keywords.includes('WHERE'));
 		assert.ok(!keywords.includes('SELECT'), 'a statement verb does not belong after a table');
+	});
+
+	test('says which names need quoting', () => {
+		assert.deepStrictEqual(
+			testAnalyzer().quoting(['orders', 'order', 'Order Date', 'user'], 'postgres'),
+			[false, true, true, true],
+		);
 	});
 
 	test('a dialect renamed since the setting was written still resolves', () => {

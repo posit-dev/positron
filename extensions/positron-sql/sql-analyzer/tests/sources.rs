@@ -434,3 +434,106 @@ fn the_query_an_insert_reads_from_does_not_see_the_table_it_writes_to() {
         ["orders"]
     );
 }
+
+/// What each relation local at the cursor produces, as `name: columns + *stars`.
+fn produced_at_cursor(marked: &str) -> Vec<String> {
+    let (text, offset) = cursor(marked);
+    ask(&text, offset as usize)["locals"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|local| local["kind"] == "relation")
+        .map(|local| {
+            let produces = &local["produces"];
+            let mut parts: Vec<String> = produces["columns"]
+                .as_array()
+                .map(|columns| {
+                    columns
+                        .iter()
+                        .map(|column| column.as_str().unwrap().to_string())
+                        .collect()
+                })
+                .unwrap_or_default();
+            for star in produces["stars"].as_array().into_iter().flatten() {
+                parts.push(format!("*{}", star["name"].as_str().unwrap()));
+            }
+            format!(
+                "{}: {}",
+                local["name"].as_str().unwrap(),
+                if produces.is_null() {
+                    "?".to_string()
+                } else {
+                    parts.join(", ")
+                }
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn a_cte_read_by_the_cursor_carries_the_columns_it_produces() {
+    assert_eq!(
+        produced_at_cursor("WITH r AS (SELECT id, total AS t FROM orders) SELECT | FROM r"),
+        ["r: id, t"]
+    );
+}
+
+#[test]
+fn a_cte_read_under_an_alias_carries_its_columns_under_the_alias() {
+    assert_eq!(
+        produced_at_cursor("WITH r AS (SELECT id FROM orders) SELECT x.| FROM r x"),
+        ["x: id"]
+    );
+}
+
+#[test]
+fn a_star_in_a_cte_names_the_tables_it_passes_through() {
+    assert_eq!(
+        produced_at_cursor(
+            "WITH r AS (SELECT *, 1 AS one FROM orders o JOIN users) SELECT | FROM r"
+        ),
+        ["r: one, *orders, *users"]
+    );
+    assert_eq!(
+        produced_at_cursor("WITH r AS (SELECT o.* FROM orders o JOIN users u) SELECT | FROM r"),
+        ["r: *orders"]
+    );
+}
+
+#[test]
+fn a_cte_built_on_another_takes_its_columns() {
+    assert_eq!(
+        produced_at_cursor(
+            "WITH a AS (SELECT id FROM orders), b AS (SELECT *, 2 AS two FROM a) SELECT | FROM b"
+        ),
+        ["b: id, two"]
+    );
+}
+
+#[test]
+fn a_column_list_on_the_cte_names_its_columns() {
+    assert_eq!(
+        produced_at_cursor("WITH r(a, b) AS (SELECT id, total FROM orders) SELECT | FROM r"),
+        ["r: a, b"]
+    );
+}
+
+#[test]
+fn a_derived_table_carries_the_columns_it_produces() {
+    assert_eq!(
+        produced_at_cursor("SELECT s.| FROM (SELECT id, name AS n FROM users) s"),
+        ["s: id, n"]
+    );
+    assert_eq!(
+        produced_at_cursor("SELECT s.| FROM (SELECT 1 UNION SELECT 2) AS s(k)"),
+        ["s: k"]
+    );
+}
+
+#[test]
+fn a_relation_with_nothing_to_read_produces_nothing() {
+    assert_eq!(
+        produced_at_cursor("SELECT v.| FROM (VALUES (1)) v"),
+        ["v: ?"]
+    );
+}

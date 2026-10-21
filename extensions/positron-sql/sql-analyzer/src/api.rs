@@ -16,7 +16,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cursor, diagnostics, dialects, keywords, scopes, sources, statements, text::TextIndex,
+    cursor, diagnostics, dialects, keywords, quoting, scopes, sources, statements, text::TextIndex,
 };
 
 #[derive(Deserialize)]
@@ -51,6 +51,12 @@ pub enum Request {
         #[serde(default)]
         dialect: String,
         offset: u32,
+    },
+    /// Which of a list of names have to be quoted to be read as a name rather than as a keyword.
+    Quoting {
+        #[serde(default)]
+        dialect: String,
+        names: Vec<String>,
     },
 }
 
@@ -87,6 +93,8 @@ pub struct TableRef {
     pub local: bool,
     /// The object a `CREATE` is defining, which does not exist in the schema yet by construction.
     pub definition: bool,
+    /// The table an `ALTER TABLE` changes, whose columns the schema no longer describes.
+    pub altered: bool,
 }
 
 #[derive(Serialize)]
@@ -123,6 +131,20 @@ pub struct Local {
     /// For an `output`, the column it renames when the select item is nothing but a column.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub column: Option<Renamed>,
+    /// For a `cte` or a `relation`, the columns it produces as far as the statement says. Not
+    /// necessarily all of them: for offering names, not for judging one missing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub produces: Option<Produced>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Produced {
+    /// The names its select list gives its results.
+    pub columns: Vec<String>,
+    /// The real tables whose every column it passes through, by `*` or `t.*`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub stars: Vec<SourceRef>,
 }
 
 #[derive(Serialize)]
@@ -204,6 +226,10 @@ pub enum Response {
         /// fired.
         position: String,
     },
+    /// One answer per name asked about, in the same order.
+    Quoting {
+        quoted: Vec<bool>,
+    },
     /// The request itself could not be understood. Never the user's SQL being wrong -- that is a
     /// diagnostic -- so it means the two sides have drifted apart.
     Error {
@@ -239,6 +265,16 @@ pub fn handle(request: &str) -> Response {
             Response::KeywordsAt {
                 keywords: keywords::offered(position),
                 position: position.name().to_string(),
+            }
+        }
+
+        Request::Quoting { dialect, names } => {
+            let (dialect, _) = dialects::resolve(&dialect);
+            Response::Quoting {
+                quoted: names
+                    .iter()
+                    .map(|name| quoting::needs_quotes(name, dialect.as_ref()))
+                    .collect(),
             }
         }
 
@@ -374,6 +410,19 @@ fn to_local(local: scopes::Local) -> Local {
             name: column.name,
             qualifier: column.qualifier,
         }),
+        produces: local.produces.map(|produces| Produced {
+            columns: produces.columns,
+            stars: produces
+                .stars
+                .into_iter()
+                .map(|star| SourceRef {
+                    name: star.name,
+                    schema: star.schema,
+                    catalog: star.catalog,
+                    alias: None,
+                })
+                .collect(),
+        }),
     }
 }
 
@@ -388,5 +437,6 @@ fn to_table(table: scopes::TableRef) -> TableRef {
         scope: table.scope,
         local: table.local,
         definition: table.definition,
+        altered: table.altered,
     }
 }

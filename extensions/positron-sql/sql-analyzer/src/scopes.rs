@@ -20,8 +20,10 @@ use std::collections::{HashMap, HashSet};
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    AssignmentTarget, Expr, Ident, ObjectName, ObjectNamePart, ObjectType, Query, Select,
-    SelectItem, Statement, TableFactor, TableWithJoins, Visit, Visitor,
+    AlterTableOperation, AssignmentTarget, Cte, Expr, Ident, ObjectName, ObjectNamePart,
+    ObjectType, OneOrManyWithParens, Query, RenameTableNameKind, Select, SelectItem,
+    SelectItemQualifiedWildcardKind, SetExpr, Statement, TableAlias, TableFactor, TableWithJoins,
+    Visit, Visitor,
 };
 
 use crate::text::TextIndex;
@@ -43,8 +45,13 @@ pub struct TableRef {
     /// Referring to one is correct SQL and must never be reported as unknown.
     pub local: bool,
     /// Whether this is the object a `CREATE` statement is defining, which by definition does not
-    /// exist in the schema yet and must not be reported as missing.
+    /// exist in the schema yet and must not be reported as missing. Also the new name an
+    /// `ALTER TABLE ... RENAME TO` gives a table, which is a definition of the same kind.
     pub definition: bool,
+    /// Whether this is the table an `ALTER TABLE` changes. Its columns after the statement are not
+    /// the ones the schema reported -- one may have been added, dropped or renamed -- so a caller
+    /// must not judge a column of it against the schema.
+    pub altered: bool,
 }
 
 /// One column named by the statement.
@@ -80,6 +87,31 @@ pub struct Local {
     /// column: `UnitsInStock` in `SELECT UnitsInStock AS uis`. A name read through the alias is
     /// then that column, and can be resolved like one.
     pub column: Option<Renamed>,
+    /// For a [`LocalKind::Cte`] or a [`LocalKind::Relation`], the columns it produces, as far as
+    /// the statement says. `None` when it says nothing usable -- a VALUES list, a table function.
+    pub produces: Option<Produced>,
+}
+
+/// The columns a relation the statement defines produces: a CTE, or a derived table.
+///
+/// Read off its select list, which is all the statement says about it. Not necessarily every
+/// column: an expression with no alias gets a name each engine invents differently, and is left
+/// out rather than guessed at. Good for offering names, not for judging one missing.
+#[derive(Clone, Default)]
+pub struct Produced {
+    /// The names the select list gives its results, in order.
+    pub columns: Vec<String>,
+    /// The real tables whose every column the select list passes through, by `*` or `t.*`. Their
+    /// columns are in the user's schema rather than in the statement, so the caller fills them in.
+    pub stars: Vec<Star>,
+}
+
+/// A real table a select list takes every column of.
+#[derive(Clone)]
+pub struct Star {
+    pub name: String,
+    pub schema: Option<String>,
+    pub catalog: Option<String>,
 }
 
 /// The column a select item renames, as it was written.
@@ -112,6 +144,14 @@ impl Local {
             name,
             kind,
             column: None,
+            produces: None,
+        }
+    }
+
+    fn producing(name: String, kind: LocalKind, produces: Option<Produced>) -> Self {
+        Self {
+            produces,
+            ..Self::new(name, kind)
         }
     }
 }
@@ -145,6 +185,11 @@ struct Collector<'a> {
     seen: HashSet<(u32, u32)>,
     /// Spans of the objects a CREATE statement defines.
     definitions: HashSet<(u32, u32)>,
+    /// Spans of the tables an ALTER TABLE changes.
+    altered: HashSet<(u32, u32)>,
+    /// The parameters of the lambdas the traversal is inside, innermost last. `x` in
+    /// `list_transform(l, x -> x + 1)` is the lambda's own name, not a column of anything.
+    lambdas: Vec<Vec<String>>,
     /// Queries whose parent scope is decided by where they sit rather than by the traversal: a
     /// CTE body, and a derived table. Keyed by address, since the traversal reaches each one by
     /// reference into the same tree, and claimed when it does.
@@ -161,6 +206,8 @@ impl<'a> Collector<'a> {
             stack: Vec::new(),
             seen: HashSet::new(),
             definitions: HashSet::new(),
+            altered: HashSet::new(),
+            lambdas: Vec::new(),
             parents: HashMap::new(),
             pushed: Vec::new(),
         }
@@ -212,6 +259,24 @@ impl<'a> Collector<'a> {
         false
     }
 
+    /// The CTEs visible from a scope and what each produces, outermost first, so that a lookup
+    /// from the end finds the nearest declaration of a name.
+    fn visible_ctes(&self, from: Option<u32>) -> Vec<(String, Option<Produced>)> {
+        let mut found = Vec::new();
+        let mut scope = from;
+        while let Some(id) = scope {
+            let entry = &self.analysis.scopes[id as usize];
+            for local in entry.locals.iter().rev() {
+                if local.kind == LocalKind::Cte {
+                    found.push((fold(&local.name), local.produces.clone()));
+                }
+            }
+            scope = entry.parent;
+        }
+        found.reverse();
+        found
+    }
+
     /// Records a real table reference, and returns its index when it is one worth resolving.
     fn record_table(&mut self, name: &ObjectName, alias: Option<String>) -> Option<u32> {
         let parts: Vec<&Ident> = name.0.iter().filter_map(|part| part.as_ident()).collect();
@@ -235,6 +300,7 @@ impl<'a> Collector<'a> {
             scope: self.current(),
             local: parts.len() == 1 && self.is_cte(&last.value),
             definition: self.definitions.contains(&(start, end)),
+            altered: self.altered.contains(&(start, end)),
         };
         let index = self.analysis.tables.len() as u32;
         self.analysis.tables.push(table);
@@ -267,22 +333,34 @@ impl<'a> Collector<'a> {
                 self.mark_seen(name);
                 self.mark_opaque(alias.as_ref().map(|alias| alias.name.value.clone()));
             }
-            TableFactor::Table { name, alias, .. } => {
-                let alias = alias.as_ref().map(|alias| alias.name.value.clone());
+            TableFactor::Table {
+                name,
+                alias: table_alias,
+                ..
+            } => {
+                let alias = table_alias.as_ref().map(|alias| alias.name.value.clone());
                 if let Some(index) = self.record_table(name, alias) {
                     let scope = self.current();
                     if self.analysis.tables[index as usize].local {
-                        // A CTE read by name: its columns are whatever its own
-                        // select list produced, which this cannot see. The name it is read under
-                        // is recorded so a column qualified by it is left alone too.
+                        // A CTE read by name: its columns are whatever its own select list
+                        // produced, which is not the schema's to judge, so the scope is not
+                        // judged. The name it is read under is recorded so a column qualified by it
+                        // is left alone too -- carrying what the CTE produces, which is what a
+                        // completion after that name offers.
                         self.analysis.scopes[scope as usize].opaque = true;
-                        let local = self.analysis.tables[index as usize]
-                            .alias
-                            .clone()
-                            .unwrap_or_else(|| self.analysis.tables[index as usize].name.clone());
+                        let table = &self.analysis.tables[index as usize];
+                        let local = table.alias.clone().unwrap_or_else(|| table.name.clone());
+                        let cte = fold(&table.name);
+                        let produces = renamed_columns(table_alias.as_ref()).or_else(|| {
+                            self.visible_ctes(Some(scope))
+                                .into_iter()
+                                .rev()
+                                .find(|(name, _)| *name == cte)
+                                .and_then(|(_, produces)| produces)
+                        });
                         self.analysis.scopes[scope as usize]
                             .locals
-                            .push(Local::new(local, LocalKind::Relation));
+                            .push(Local::producing(local, LocalKind::Relation, produces));
                     } else {
                         self.analysis.scopes[scope as usize].tables.push(index);
                     }
@@ -298,13 +376,13 @@ impl<'a> Collector<'a> {
                 }
                 self.scan_from(std::slice::from_ref(table_with_joins));
             }
-            other => {
-                if let TableFactor::Derived {
-                    lateral: false,
-                    subquery,
-                    ..
-                } = other
-                {
+            TableFactor::Derived {
+                lateral,
+                subquery,
+                alias,
+                ..
+            } => {
+                if !lateral {
                     // A derived table cannot see the other tables of the select it sits in --
                     // that is what LATERAL is for -- so it hangs from the scope around that
                     // select's query, past the tables the select will lift into it. What it can
@@ -314,6 +392,21 @@ impl<'a> Collector<'a> {
                         query.and_then(|query| self.analysis.scopes[query as usize].parent);
                     self.parents.insert(&**subquery as *const Query, outside);
                 }
+                // Opaque to judging like any relation the schema does not describe, but what its
+                // select list produces is known, and is what completing after its alias offers.
+                let scope = self.current();
+                self.analysis.scopes[scope as usize].opaque = true;
+                if let Some(alias) = alias {
+                    let produces = renamed_columns(Some(alias))
+                        .or_else(|| produced_by_query(subquery, &self.visible_ctes(Some(scope))));
+                    self.add_local(Local::producing(
+                        alias.name.value.clone(),
+                        LocalKind::Relation,
+                        produces,
+                    ));
+                }
+            }
+            other => {
                 if let Some(name) = function_name(other) {
                     self.mark_seen(name);
                 }
@@ -434,6 +527,170 @@ fn renamed(expr: &Expr) -> Option<Renamed> {
     }
 }
 
+/// The CTEs a query can read and what each produces, outermost first; see
+/// [`Collector::visible_ctes`].
+type Ctes = [(String, Option<Produced>)];
+
+/// The columns an alias's own column list names, `x(a, b)`, which override whatever the relation
+/// behind it would have called them.
+fn renamed_columns(alias: Option<&TableAlias>) -> Option<Produced> {
+    let alias = alias.filter(|alias| !alias.columns.is_empty())?;
+    Some(Produced {
+        columns: alias
+            .columns
+            .iter()
+            .map(|column| column.name.value.clone())
+            .collect(),
+        stars: Vec::new(),
+    })
+}
+
+fn produced_by_cte(cte: &Cte, ctes: &Ctes) -> Option<Produced> {
+    renamed_columns(Some(&cte.alias)).or_else(|| produced_by_query(&cte.query, ctes))
+}
+
+/// What a query produces, reading through the CTEs of its own WITH clause.
+fn produced_by_query(query: &Query, ctes: &Ctes) -> Option<Produced> {
+    let mut visible = ctes.to_vec();
+    for cte in query.with.iter().flat_map(|with| with.cte_tables.iter()) {
+        let produces = produced_by_cte(cte, &visible);
+        visible.push((fold(&cte.alias.name.value), produces));
+    }
+    produced_by_body(&query.body, &visible)
+}
+
+fn produced_by_body(body: &SetExpr, ctes: &Ctes) -> Option<Produced> {
+    match body {
+        SetExpr::Select(select) => Some(produced_by_select(select, ctes)),
+        SetExpr::Query(query) => produced_by_query(query, ctes),
+        // A set operation's columns are named by its first operand, on every engine.
+        SetExpr::SetOperation { left, .. } => produced_by_body(left, ctes),
+        _ => None,
+    }
+}
+
+fn produced_by_select(select: &Select, ctes: &Ctes) -> Produced {
+    let mut produced = Produced::default();
+    for item in &select.projection {
+        match item {
+            SelectItem::UnnamedExpr(expr) => produced.columns.extend(output_name(expr)),
+            SelectItem::ExprWithAlias { alias, .. } => produced.columns.push(alias.value.clone()),
+            SelectItem::ExprWithAliases { aliases, .. } => produced
+                .columns
+                .extend(aliases.iter().map(|alias| alias.value.clone())),
+            SelectItem::Wildcard(_) => {
+                for factor in factors(&select.from) {
+                    expand(factor, ctes, &mut produced);
+                }
+            }
+            SelectItem::QualifiedWildcard(SelectItemQualifiedWildcardKind::ObjectName(name), _) => {
+                let Some(wanted) = last_ident(name).map(|ident| fold(&ident.value)) else {
+                    continue;
+                };
+                for factor in factors(&select.from) {
+                    if factor_name(factor).is_some_and(|name| fold(&name) == wanted) {
+                        expand(factor, ctes, &mut produced);
+                    }
+                }
+            }
+            SelectItem::QualifiedWildcard(SelectItemQualifiedWildcardKind::Expr(_), _) => {}
+        }
+    }
+    produced
+}
+
+/// The name a select item with no alias is given, when every engine agrees on it: the column it
+/// reads. Anything else is named by each engine its own way, and is left out.
+fn output_name(expr: &Expr) -> Option<String> {
+    match expr {
+        Expr::Identifier(ident) => Some(ident.value.clone()),
+        Expr::CompoundIdentifier(parts) => parts.last().map(|part| part.value.clone()),
+        Expr::Nested(inner) => output_name(inner),
+        _ => None,
+    }
+}
+
+/// Every relation a FROM clause reads, joins and nested joins included.
+fn factors(from: &[TableWithJoins]) -> Vec<&TableFactor> {
+    let mut found = Vec::new();
+    for entry in from {
+        for factor in
+            std::iter::once(&entry.relation).chain(entry.joins.iter().map(|join| &join.relation))
+        {
+            match factor {
+                TableFactor::NestedJoin {
+                    table_with_joins, ..
+                } => found.extend(factors(std::slice::from_ref(table_with_joins))),
+                other => found.push(other),
+            }
+        }
+    }
+    found
+}
+
+/// The name a relation is read under in its select: its alias, or a table's own name.
+fn factor_name(factor: &TableFactor) -> Option<String> {
+    match factor {
+        TableFactor::Table {
+            alias: Some(alias), ..
+        } => Some(alias.name.value.clone()),
+        TableFactor::Table { name, .. } => last_ident(name).map(|ident| ident.value.clone()),
+        other => alias_of(other),
+    }
+}
+
+/// Adds what a `*` over one relation passes through.
+fn expand(factor: &TableFactor, ctes: &Ctes, produced: &mut Produced) {
+    let (columns, stars) = match factor {
+        TableFactor::Table {
+            name,
+            alias,
+            args: None,
+            ..
+        } => {
+            if let Some(renamed) = renamed_columns(alias.as_ref()) {
+                (renamed.columns, renamed.stars)
+            } else {
+                let parts: Vec<String> = name
+                    .0
+                    .iter()
+                    .filter_map(ObjectNamePart::as_ident)
+                    .map(|part| part.value.clone())
+                    .collect();
+                let cte = (parts.len() == 1)
+                    .then(|| fold(&parts[0]))
+                    .and_then(|wanted| ctes.iter().rev().find(|(name, _)| *name == wanted));
+                match cte {
+                    Some((_, Some(produces))) => (produces.columns.clone(), produces.stars.clone()),
+                    Some((_, None)) => return,
+                    None => {
+                        let Some((name, schema, catalog)) = qualified(&parts) else {
+                            return;
+                        };
+                        (
+                            Vec::new(),
+                            vec![Star {
+                                name,
+                                schema,
+                                catalog,
+                            }],
+                        )
+                    }
+                }
+            }
+        }
+        TableFactor::Derived {
+            subquery, alias, ..
+        } => match renamed_columns(alias.as_ref()).or_else(|| produced_by_query(subquery, ctes)) {
+            Some(inner) => (inner.columns, inner.stars),
+            None => return,
+        },
+        _ => return,
+    };
+    produced.columns.extend(columns);
+    produced.stars.extend(stars);
+}
+
 /// The alias a table factor was given, for the forms that only ever produce local names.
 fn alias_of(factor: &TableFactor) -> Option<String> {
     let alias = match factor {
@@ -519,17 +776,46 @@ impl Visitor for Collector<'_> {
         }
 
         // A DROP holds its objects in a field the visitor does not treat as a relation, so they
-        // are picked up here instead. Unlike a CREATE's target, they have to exist.
+        // are picked up here instead. Unlike a CREATE's target, they have to exist -- unless the
+        // statement says IF EXISTS, which is the author saying they may well not, and a script
+        // that starts by clearing out what a previous run left behind is exactly that.
         if let Statement::Drop {
-            object_type, names, ..
+            object_type,
+            names,
+            if_exists,
+            ..
         } = statement
         {
             if matches!(object_type, ObjectType::Table | ObjectType::View) {
                 for name in names {
-                    if let Some(at) = self.record_table(name, None) {
+                    if *if_exists {
+                        self.mark_seen(name);
+                    } else if let Some(at) = self.record_table(name, None) {
                         let scope = self.current();
                         self.analysis.scopes[scope as usize].tables.push(at);
                     }
+                }
+            }
+        }
+
+        // An ALTER TABLE changes what the schema says about its table, so the table is marked for
+        // the caller to stop judging its columns by the schema. A rename also brings a new table
+        // name into being, which later statements read like one a CREATE made.
+        if let Statement::AlterTable(alter) = statement {
+            if let Some(span) = last_ident(&alter.name).and_then(|last| self.index.span(last.span))
+            {
+                self.altered.insert(span);
+            }
+            for operation in &alter.operations {
+                if let AlterTableOperation::RenameTable {
+                    table_name: RenameTableNameKind::To(name) | RenameTableNameKind::As(name),
+                } = operation
+                {
+                    if let Some(span) = last_ident(name).and_then(|last| self.index.span(last.span))
+                    {
+                        self.definitions.insert(span);
+                    }
+                    let _ = self.record_table(name, None);
                 }
             }
         }
@@ -558,10 +844,19 @@ impl Visitor for Collector<'_> {
         // scope of its own, which the CTE bodies hang from. The query's scope sits below it,
         // because the select's tables are lifted into that one (see `lift`) and a CTE body
         // cannot see the tables of the select that reads from it.
-        let locals = ctes
-            .iter()
-            .map(|cte| Local::new(cte.alias.name.value.clone(), LocalKind::Cte))
-            .collect();
+        // What each CTE produces is worked out in declaration order, so that one built on an
+        // earlier one -- `b AS (SELECT * FROM a)` -- takes the earlier one's columns.
+        let mut visible = self.visible_ctes(parent);
+        let mut locals = Vec::with_capacity(ctes.len());
+        for cte in &ctes {
+            let produces = produced_by_cte(cte, &visible);
+            visible.push((fold(&cte.alias.name.value), produces.clone()));
+            locals.push(Local::producing(
+                cte.alias.name.value.clone(),
+                LocalKind::Cte,
+                produces,
+            ));
+        }
         let with = self.push(parent, locals);
         for cte in &ctes {
             self.parents.insert(&*cte.query as *const Query, Some(with));
@@ -610,6 +905,16 @@ impl Visitor for Collector<'_> {
 
     fn pre_visit_expr(&mut self, expr: &Expr) -> ControlFlow<()> {
         let (qualifier, ident) = match expr {
+            Expr::Lambda(lambda) => {
+                let params = match &lambda.params {
+                    OneOrManyWithParens::One(param) => vec![fold(&param.name.value)],
+                    OneOrManyWithParens::Many(params) => {
+                        params.iter().map(|param| fold(&param.name.value)).collect()
+                    }
+                };
+                self.lambdas.push(params);
+                return ControlFlow::Continue(());
+            }
             Expr::Identifier(ident) => (None, ident),
             Expr::CompoundIdentifier(parts) => match parts.as_slice() {
                 [.., qualifier, ident] => (Some(qualifier.value.clone()), ident),
@@ -617,6 +922,17 @@ impl Visitor for Collector<'_> {
             },
             _ => return ControlFlow::Continue(()),
         };
+
+        // A lambda's parameter, or a field of one: `x` and `x.price` in `x -> x.price * 2`. The
+        // first part is what decides it, since that is the name the lambda introduced.
+        let head = match expr {
+            Expr::CompoundIdentifier(parts) => parts.first().unwrap_or(ident),
+            _ => ident,
+        };
+        let head = fold(&head.value);
+        if self.lambdas.iter().flatten().any(|param| *param == head) {
+            return ControlFlow::Continue(());
+        }
 
         if let Some((start, end)) = self.index.span(ident.span) {
             self.analysis.columns.push(ColumnRef {
@@ -626,6 +942,13 @@ impl Visitor for Collector<'_> {
                 end,
                 scope: self.current(),
             });
+        }
+        ControlFlow::Continue(())
+    }
+
+    fn post_visit_expr(&mut self, expr: &Expr) -> ControlFlow<()> {
+        if matches!(expr, Expr::Lambda(_)) {
+            self.lambdas.pop();
         }
         ControlFlow::Continue(())
     }

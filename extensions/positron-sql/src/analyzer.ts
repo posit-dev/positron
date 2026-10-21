@@ -60,8 +60,17 @@ export interface TableRef {
 	 */
 	readonly local: boolean;
 
-	/** Whether this is the object a `CREATE` defines, which does not exist in the schema yet. */
+	/**
+	 * Whether this is the object a `CREATE` defines, which does not exist in the schema yet. Also
+	 * the new name an `ALTER TABLE ... RENAME TO` gives a table.
+	 */
 	readonly definition: boolean;
+
+	/**
+	 * Whether this is the table an `ALTER TABLE` changes. Its columns are no longer the ones the
+	 * schema reported, so they must not be judged against it.
+	 */
+	readonly altered: boolean;
 }
 
 /** A column the document names. */
@@ -119,6 +128,22 @@ export interface Local {
 	 * `UnitsInStock` in `SELECT UnitsInStock AS uis`. A name read through the alias is that column.
 	 */
 	readonly column?: Renamed;
+
+	/**
+	 * For a `cte` or a `relation`, the columns it produces as far as the statement says: what
+	 * completing after its name offers. Not necessarily all of them -- an unaliased expression is
+	 * left out -- so never a reason to judge a column missing.
+	 */
+	readonly produces?: Produced;
+}
+
+/** The columns a CTE or a derived table produces. */
+export interface Produced {
+	/** The names its select list gives its results. */
+	readonly columns: readonly string[];
+
+	/** The real tables whose every column it passes through, by `*` or `t.*`. */
+	readonly stars?: readonly SourceRef[];
 }
 
 /** The column a select item renames, as it was written. */
@@ -296,6 +321,22 @@ export class SqlAnalyzer {
 	public keywordsAt(text: string, dialect: string, offset: number): KeywordsAt {
 		return this._request<KeywordsAt>({ op: 'keywordsAt', text, dialect, offset })
 			?? EMPTY_KEYWORDS_AT;
+	}
+
+	/**
+	 * Which of a list of names have to be quoted to be read as names in a dialect: one answer per
+	 * name, in the same order. A name that is not a plain identifier always does; a keyword does
+	 * when the dialect reserves it or reads it as something else, `user` in PostgreSQL say. Case is
+	 * not considered -- whether `Customers` survives being written bare depends on how the engine
+	 * folds case, which the caller decides from the dialect.
+	 *
+	 * Fixed for a given name and dialect, so callers cache the answers.
+	 */
+	public quoting(names: readonly string[], dialect: string): readonly boolean[] {
+		return this._request<{ quoted: boolean[] }>({ op: 'quoting', names, dialect })?.quoted
+			// Unanswerable only when the module is broken, which has been reported; quoting every
+			// name keeps whatever is inserted correct.
+			?? names.map(() => true);
 	}
 
 	private _request<T>(request: object): T | undefined {
