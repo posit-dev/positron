@@ -352,21 +352,24 @@ export class PositAssistant {
 
 	/**
 	 * Waits for an already-submitted response to complete, clicking "Allow for
-	 * this session" whenever a tool confirmation dialog appears. Use this when
-	 * something other than the chat input sent the message (e.g. a notebook's
-	 * Fix button) and the model may call tools before it is done.
+	 * this session" whenever a tool confirmation dialog appears, or "Allow once"
+	 * when the dialog offers nothing else. Use this when something other than
+	 * the chat input sent the message (e.g. a notebook's Fix button) and the
+	 * model may call tools before it is done.
 	 * @param timeout Maximum time to wait in milliseconds (default: 90000)
 	 */
 	async waitForResponseCompleteAllowingTools(timeout: number = 90000): Promise<void> {
 		const stopButton = this.frame.locator(STOP_BUTTON);
 		const trigger = this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER);
+		// Shown alone when a request has a danger warning or a single allowed scope.
+		const allowOnce = this.frame.getByRole('button', { name: 'Allow once', exact: true });
 		const deadline = Date.now() + timeout;
 
 		// Wait for streaming to start
 		await stopButton.waitFor({ state: 'visible', timeout });
 
-		// Loop while streaming: click "Allow for this session" whenever the
-		// tool confirmation dropdown appears, then wait for it to clear.
+		// Loop while streaming: approve each tool confirmation that appears,
+		// then wait for it to clear.
 		while (await stopButton.isVisible()) {
 			if (Date.now() > deadline) {
 				throw new Error(`Response did not complete within ${timeout}ms`);
@@ -374,6 +377,8 @@ export class PositAssistant {
 			if (await trigger.isVisible().catch(() => false)) {
 				await trigger.click();
 				await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+			} else if (await allowOnce.isVisible().catch(() => false)) {
+				await allowOnce.click();
 			} else {
 				await this.code.driver.currentPage.waitForTimeout(200);
 			}
