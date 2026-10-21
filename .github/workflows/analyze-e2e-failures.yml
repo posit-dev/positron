@@ -81,4 +81,7 @@ jobs:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
           e2e-insights-api-key: ${{ env.E2E_INSIGHTS_KEY }}
           webhook-secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
+          # The action joins the tailnet just before it calls connect.posit.it.
+          tailscale-oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          tailscale-oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
           model: ${{ inputs.model }}

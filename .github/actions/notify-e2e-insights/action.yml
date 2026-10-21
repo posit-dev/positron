@@ -31,10 +31,29 @@ inputs:
   notify_on:
     description: 'Override the dashboard repo config notify_on rule: always | failures_only | flaky_or_failures'
     required: false
+  tailscale_oauth_client_id:
+    description: 'Tailscale OAuth client ID. connect.posit.it is reachable only from the tailnet, so the webhook needs this to join it. Leave empty to skip joining.'
+    required: false
+    default: ''
+  tailscale_oauth_secret:
+    description: 'Tailscale OAuth client secret, paired with tailscale_oauth_client_id.'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
   steps:
+    # connect.posit.it is reachable only from the tailnet. Best-effort, like the
+    # webhook itself: a failed join must not fail the calling job.
+    - name: Tailscale
+      if: ${{ inputs.tailscale_oauth_client_id != '' }}
+      continue-on-error: true
+      uses: tailscale/github-action@v4
+      with:
+        oauth-client-id: ${{ inputs.tailscale_oauth_client_id }}
+        oauth-secret: ${{ inputs.tailscale_oauth_secret }}
+        tags: tag:positron-gha
+
     - name: Send webhook
       shell: bash
       env:

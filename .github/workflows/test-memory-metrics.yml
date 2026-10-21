@@ -103,7 +103,9 @@ jobs:
       # --user 0:0 also matters here beyond convention: reading
       # /proc/<pid>/smaps_rollup for another process requires matching uid or
       # CAP_SYS_PTRACE.
-      options: --user 0:0 --init
+      # --device/--cap-add give the container a TUN device so the Tailscale step can bring up
+      # kernel-mode networking (transparent routing to the tailnet, needed to reach Connect).
+      options: --user 0:0 --init --device /dev/net/tun --cap-add=NET_ADMIN
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -228,6 +230,17 @@ jobs:
           BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 2
         run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Memory footprint'
+
+      # Publishing goes to connect.posit.it, which is reachable only from the tailnet.
+      # Joined just before it rather than at the start of the job: joining early has
+      # caused flakes. Best-effort: a failed join should cost only the publish.
+      - name: Tailscale
+        continue-on-error: true
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+          tags: tag:positron-gha
 
       # Separate from the launches so a failure to render cannot lose the
       # measurements, which are the expensive part.
@@ -440,6 +453,16 @@ jobs:
               fi
             done
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # The budget check below queries connect.posit.it, which is reachable only
+      # from the tailnet. Best-effort, like the alert itself.
+      - name: Tailscale
+        continue-on-error: true
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+          tags: tag:positron-gha
 
       # Non-fatal by design: a budget alert must never fail the memory run.
       # Only main publishes to the production dataset, so a branch dispatch

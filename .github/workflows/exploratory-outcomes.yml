@@ -49,6 +49,15 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
 
+      # connect.posit.it, which this job reads from and publishes to, is
+      # reachable only from the tailnet.
+      - name: Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+          tags: tag:positron-gha
+
       - name: Fetch the last published rows
         working-directory: .github/actions/pr-exploratory-test
         env:
@@ -91,6 +100,15 @@ jobs:
         run: |
           npm ci --no-audit --no-fund --prefix .claude/skills/exploratory-test/renderer
           npm ci --no-audit --no-fund --prefix .github/actions/pr-exploratory-test
+
+      # connect.posit.it, which this job reads from and publishes to, is
+      # reachable only from the tailnet.
+      - name: Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+          tags: tag:positron-gha
 
       # For the issues filed by hand that the Shipping impact rows matched to a finding.
       - name: Fetch the Shipping impact rows

@@ -179,6 +179,18 @@ jobs:
         with:
           identifier: e2e-connect
 
+      # The e2e-test-insights reporter publishes results to connect.posit.it, which is
+      # reachable only from the tailnet. Joined just before the tests rather than at the
+      # start of the job: joining early has caused flakes. Best-effort: a failed join should
+      # cost only the reporting, not the test run.
+      - name: Tailscale
+        continue-on-error: true
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+          tags: tag:positron-gha
+
       - name: 🧪 Run Playwright Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: "3.10.12"

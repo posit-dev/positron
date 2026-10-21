@@ -31,6 +31,14 @@ inputs:
     description: "e2e-test-insights webhook secret (X-Webhook-Secret). When set together with e2e-insights-api-key, the analyzer appends a link to its report into the analyzed run's Slack thread. Leave empty to skip the Slack post."
     required: false
     default: ""
+  tailscale-oauth-client-id:
+    description: "Tailscale OAuth client ID. connect.posit.it (the e2e-test-insights API) is reachable only from the tailnet, so the history query and Slack post need this to join it. Leave empty to skip joining."
+    required: false
+    default: ""
+  tailscale-oauth-secret:
+    description: "Tailscale OAuth client secret, paired with tailscale-oauth-client-id."
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -210,6 +218,20 @@ runs:
             }
           echo "::endgroup::"
         done <<< "$E2E_JOBS"
+
+    # connect.posit.it is reachable only from the tailnet. Join it just before
+    # the first Connect call (the history query below; the Slack post after it
+    # uses the same host), not earlier: joining at the start of a job has caused
+    # flakes in other workflows. Best-effort, like both of those calls: without
+    # the tailnet the analysis still runs, just without history.
+    - name: Tailscale
+      if: ${{ inputs.e2e-insights-api-key != '' && inputs.tailscale-oauth-client-id != '' }}
+      continue-on-error: true
+      uses: tailscale/github-action@v4
+      with:
+        oauth-client-id: ${{ inputs.tailscale-oauth-client-id }}
+        oauth-secret: ${{ inputs.tailscale-oauth-secret }}
+        tags: tag:positron-gha
 
     - name: Query historical test health
       if: ${{ inputs.e2e-insights-api-key != '' }}
