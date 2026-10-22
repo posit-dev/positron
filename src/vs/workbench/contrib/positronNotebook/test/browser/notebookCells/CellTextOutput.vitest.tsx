@@ -19,7 +19,8 @@ import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
-import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
+import { IPositronNotebookCell, ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { registerTestErrorAssistant } from '../../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 
@@ -63,13 +64,17 @@ describe('CellTextOutput', () => {
 			}),
 		});
 
+		// Error outputs render the quick fix, which reads its cell only when a
+		// button is clicked, so an empty stub is enough here.
 		return rtl.render(
 			<NotebookInstanceProvider instance={instance}>
-				<CellTextOutput
-					{...props}
-					outputScrolling={layoutConfig.outputScrolling ?? false}
-					onShowFullOutput={onShowFullOutput}
-				/>
+				<CellProvider cell={stubInterface<IPositronNotebookCell>({})}>
+					<CellTextOutput
+						{...props}
+						outputScrolling={layoutConfig.outputScrolling ?? false}
+						onShowFullOutput={onShowFullOutput}
+					/>
+				</CellProvider>
 			</NotebookInstanceProvider>
 		);
 	}

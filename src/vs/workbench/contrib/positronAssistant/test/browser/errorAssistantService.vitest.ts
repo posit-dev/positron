@@ -108,7 +108,7 @@ describe('ErrorAssistantService', () => {
 		expect(service.activeAssistant).toBe(assistant);
 	});
 
-	const context: IErrorAssistantContext = { kind: 'console', error: 'boom' };
+	const context: IErrorAssistantContext = { kind: 'console', error: 'boom', sessionId: 'python-1', sessionName: 'Python 3.12.1', languageId: 'python' };
 
 	it('asks the assistant to take the action', async () => {
 		const service = createService();
@@ -126,7 +126,7 @@ describe('ErrorAssistantService', () => {
 		const ask = vi.fn();
 		ctx.disposables.add(service.register(createAssistant({ ask })));
 
-		await service.ask('test-assistant', 'fix', { kind: 'console', error: '\u001b[31mNameError\u001b[0m: x' }, {});
+		await service.ask('test-assistant', 'fix', { ...context, error: '\u001b[31mNameError\u001b[0m: x' }, {});
 
 		expect(ask.mock.calls[0][1].error).toBe('NameError: x');
 	});

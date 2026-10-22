@@ -117,6 +117,15 @@ export interface IRuntimeStartupService {
 	hasLanguageRuntimeProvider(languageId: string): boolean;
 
 	/**
+	 * The language IDs that have a runtime provider: every `languageRuntimes`
+	 * contribution plus any language with a registered runtime.
+	 */
+	readonly languageIds: readonly string[];
+
+	/** Fires when `languageIds` changes. */
+	readonly onDidChangeLanguageIds: Event<void>;
+
+	/**
 	 * Whether the workspace has affiliated runtimes.
 	 */
 	hasAffiliatedRuntime(): boolean;

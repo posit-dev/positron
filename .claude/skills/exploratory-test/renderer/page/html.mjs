@@ -191,6 +191,24 @@ function kiData(issue, refs) {
 		: '';
 }
 
+/**
+ * A finding's matches split by what GitHub says each one is, issues first,
+ * each kind with its own label. A PR closed without merging is neither a
+ * duplicate nor a fix, so it is left out; a number the run did not fetch
+ * counts as an issue.
+ */
+function matchesByKind(numbers, refs) {
+	const kind = n => {
+		const ref = refs?.byNumber.get(n);
+		return ref?.kind !== 'pr' ? 'issue' : ref.state === 'merged' ? 'merged' : ref.state === 'open' ? 'open' : null;
+	};
+	return [
+		{ numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `Dupe? ${nums}` },
+		{ numbers: numbers.filter(n => kind(n) === 'open'), label: nums => `Fix in PR? ${nums}` },
+		{ numbers: numbers.filter(n => kind(n) === 'merged'), label: nums => `Fixed in ${nums}?` },
+	].filter(m => m.numbers.length);
+}
+
 /** Links the fetched issue and PR numbers in rendered text, leaving tags and existing links alone. */
 function linkIssues(html, refs) {
 	if (!refs?.byNumber.size) {
@@ -296,8 +314,8 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 		const nums = numbers => numbers.map(n => `<span class="ki-num-t"${kiData(refs?.byNumber.get(n), refs)}>#${Number(n)}</span>`).join(', ');
 		const failed = ki?.fixFailed.get(f.n)?.map(i => i.number);
 		const back = ki?.cameBack.get(f.n)?.map(i => i.number);
-		// Every match the card calls Dupe?, linked to the PR or found by search.
-		const dupes = possiblyKnown(f, ki);
+		// Every match the card shows, linked to the PR or found by search, one line per kind.
+		const matches = matchesByKind(possiblyKnown(f, ki), refs);
 		// A verdict other than Confirmed takes the label's place, so the table
 		// never says a fix failed when verify rejected the finding.
 		const label = failed ? 'Fix didn&rsquo;t hold' : back ? 'Regressed' : '';
@@ -305,7 +323,7 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 		// One issue per line: the finding's own, then its matches below it.
 		const first = list => `${nums(list.slice(0, 1))}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
 		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : '';
-		const below = [issueLine, dupes.length ? `Dupe? ${first(dupes)}` : ''].filter(Boolean).map(line => `<span class="ki-state">${line}</span>`);
+		const below = [issueLine, ...matches.map(m => m.label(first(m.numbers)))].filter(Boolean).map(line => `<span class="ki-state">${line}</span>`);
 		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
 		return `<a href="#f${f.n}" class="row findings-grid">`
 			+ `<span>${pill(f.severity)}</span>`
@@ -638,23 +656,26 @@ function renderCardDetails(f, report, options = {}) {
 
 /**
  * The card's linked-issue status, as items for the end of its meta line: a fix
- * that did not hold or an issue that came back, then any likely duplicates.
+ * that did not hold or an issue that came back, then its matches by kind.
  * When verify rejected the finding, its issue line stands in without the claim.
  */
 function cardIssueItems(f, word, ki, refs) {
 	const rejected = word && word !== 'confirmed';
 	const failed = ki?.fixFailed.get(f.n) ?? [];
 	const back = ki?.cameBack.get(f.n) ?? [];
-	const item = (label, numbers) => `<span class="f-ki">${label} ${numbers.map(n => kiNum(n, refs)).join(' ')}</span>`;
+	// A label is a prefix, or a function of the numbers when they sit mid-label (`Fixed in #N?`).
+	const item = (label, numbers) => {
+		const nums = numbers.map(n => kiNum(n, refs)).join(' ');
+		return `<span class="f-ki">${typeof label === 'function' ? label(nums) : `${label} ${nums}`}</span>`;
+	};
 	const items = [];
 	if (failed.length) {
 		items.push(item(rejected ? 'Fixes' : 'Fix didn&rsquo;t hold', failed.map(i => i.number)));
 	} else if (back.length) {
 		items.push(item(rejected ? 'Closed &middot;' : 'Regressed', back.map(i => i.number)));
 	}
-	const known = possiblyKnown(f, ki);
-	if (known.length) {
-		items.push(item('Dupe?', known));
+	for (const m of matchesByKind(possiblyKnown(f, ki), refs)) {
+		items.push(item(m.label, m.numbers));
 	}
 	if (f.intended?.length) {
 		items.push(item('Intended?', f.intended));

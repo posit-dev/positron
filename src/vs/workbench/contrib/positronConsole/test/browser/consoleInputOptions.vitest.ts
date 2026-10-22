@@ -58,6 +58,12 @@ describe('consoleInputOptions', () => {
 				}
 			`);
 		});
+
+		it('does not consume mouse wheel events so they scroll the console', () => {
+			// https://github.com/posit-dev/positron/issues/8738
+			const options = createConsoleInputEditorOptions(configurationService);
+			expect(options.scrollbar?.alwaysConsumeMouseWheel).toBe(false);
+		});
 	});
 
 	describe('createConsoleInputLineNumbersOptions', () => {

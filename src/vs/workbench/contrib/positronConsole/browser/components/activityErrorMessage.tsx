@@ -16,10 +16,15 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
 import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
 	activityItemErrorMessage: ActivityItemErrorMessage;
+	/** The code that raised the error, when the console still has it. */
+	code?: string;
+	/** The console the error was raised in. */
+	positronConsoleInstance: IPositronConsoleInstance;
 }
 
 /**
@@ -78,7 +83,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 								</Button>
 							}
 							{showAssistantActions &&
-								<ConsoleQuickFix outputLines={props.activityItemErrorMessage.messageOutputLines} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
+								<ConsoleQuickFix code={props.code} outputLines={props.activityItemErrorMessage.messageOutputLines} positronConsoleInstance={props.positronConsoleInstance} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
 							}
 						</div>
 						{showTraceback &&

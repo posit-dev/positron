@@ -1182,7 +1182,11 @@ class ColumnProfileEvaluator {
 		const fieldName = columnSchema.column_name;
 		const getStat = (statType: string) => stats.get(statColumnName(fieldName, statType));
 
-		const formatNumber = (value: number) => {
+		const formatNumber = (value: number | bigint) => {
+			// Integer MIN/MAX arrive as bigint; Number() would round them past 2^53
+			if (typeof value === 'bigint') {
+				return value.toString();
+			}
 			value = Number(value);
 
 			if (value - Math.floor(value) === 0) {

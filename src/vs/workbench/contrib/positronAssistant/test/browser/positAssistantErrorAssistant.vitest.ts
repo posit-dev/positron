@@ -93,9 +93,9 @@ describe('PositAssistantErrorAssistantContribution', () => {
 	it('opens a Posit Assistant chat, naming documents relative to the workspace', async () => {
 		contextKeyService.createKey(POSIT_HAS_CHAT_MODELS_KEY, true);
 		createContribution();
-		const cell = { uri: URI.file('/report.qmd'), languageId: 'python', code: 'x', startLine: 1, endLine: 1 };
+		const cell = { languageId: 'python', code: 'x', startLine: 1, endLine: 1 };
 
-		await errorAssistantService.ask('posit-assistant', 'fix', { kind: 'quarto', error: 'boom', cell }, { continueChat: true });
+		await errorAssistantService.ask('posit-assistant', 'fix', { kind: 'quarto', error: 'boom', uri: URI.file('/report.qmd'), cell }, { continueChat: true });
 
 		expect(executeCommand).toHaveBeenCalledWith(POSIT_NEW_CHAT_COMMAND, expect.objectContaining({
 			prompt: 'Fix the error from the python code chunk at lines 1-1 of report.qmd. The failing code and its error output are attached; fix only this error.',
@@ -117,7 +117,7 @@ describe('getPositAssistantChatOptions', () => {
 	}
 
 	it('sends console errors verbatim, and constrains Explain', () => {
-		const context: IErrorAssistantContext = { kind: 'console', error: '  Error: boom\n' };
+		const context: IErrorAssistantContext = { kind: 'console', error: '  Error: boom\n', sessionId: 'python-1', sessionName: 'Python 3.12.1', languageId: 'python' };
 		expect([getOptions('fix', context, { continueChat: true }), getOptions('explain', context, { continueChat: true })]).toEqual([
 			{ prompt: 'Fix this console error.', target: 'auto', behavior: 'submit', files: [{ name: 'Console Error', content: '  Error: boom\n' }] },
 			{ prompt: `Explain this console error. ${constraint}`, target: 'auto', behavior: 'submit', files: [{ name: 'Console Error', content: '  Error: boom\n' }] },
@@ -125,7 +125,7 @@ describe('getPositAssistantChatOptions', () => {
 	});
 
 	it('trims whitespace from notebook errors, and constrains Explain', () => {
-		const context: IErrorAssistantContext = { kind: 'notebook', error: '\n ValueError: boom\n' };
+		const context: IErrorAssistantContext = { kind: 'notebook', error: '\n ValueError: boom\n', uri: URI.file('/analysis.ipynb') };
 		expect([getOptions('fix', context), getOptions('explain', context)]).toEqual([
 			{ prompt: 'Fix this notebook cell error.', target: 'new', behavior: 'submit', files: [{ name: 'Notebook Cell Error', content: 'ValueError: boom' }] },
 			{ prompt: `Explain this notebook cell error. ${constraint}`, target: 'new', behavior: 'submit', files: [{ name: 'Notebook Cell Error', content: 'ValueError: boom' }] },
@@ -136,7 +136,8 @@ describe('getPositAssistantChatOptions', () => {
 		const context: IErrorAssistantContext = {
 			kind: 'quarto',
 			error: 'ValueError: boom\n',
-			cell: { uri: URI.file('/report.qmd'), languageId: 'python', label: 'setup', code: 'raise ValueError("boom")', startLine: 8, endLine: 8 },
+			uri: URI.file('/report.qmd'),
+			cell: { languageId: 'python', label: 'setup', code: 'raise ValueError("boom")', startLine: 8, endLine: 8 },
 		};
 		const content = [
 			'Error from the python code chunk in report.qmd, lines 8-8 (label: setup):',
@@ -154,7 +155,7 @@ describe('getPositAssistantChatOptions', () => {
 	});
 
 	it('attaches only the error when the Quarto cell is not known', () => {
-		const context: IErrorAssistantContext = { kind: 'quarto', error: 'NameError: x' };
+		const context: IErrorAssistantContext = { kind: 'quarto', error: 'NameError: x', uri: URI.file('/report.qmd') };
 		expect([getOptions('fix', context, { continueChat: true }), getOptions('explain', context, { continueChat: true })]).toEqual([
 			{ prompt: 'Fix this Quarto inline output error.', target: 'auto', behavior: 'submit', files: [{ name: 'Quarto Output Error', content: 'NameError: x' }] },
 			{ prompt: `Explain this Quarto inline output error. ${constraint}`, target: 'auto', behavior: 'submit', files: [{ name: 'Quarto Output Error', content: 'NameError: x' }] },
@@ -163,8 +164,8 @@ describe('getPositAssistantChatOptions', () => {
 
 	it('omits the attachment when the error is blank', () => {
 		expect([
-			getOptions('fix', { kind: 'console', error: '' }).files,
-			getOptions('fix', { kind: 'notebook', error: ' \n' }).files,
+			getOptions('fix', { kind: 'console', error: '', sessionId: 'python-1', sessionName: 'Python 3.12.1', languageId: 'python' }).files,
+			getOptions('fix', { kind: 'notebook', error: ' \n', uri: URI.file('/analysis.ipynb') }).files,
 		]).toEqual([undefined, undefined]);
 	});
 });

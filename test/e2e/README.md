@@ -271,6 +271,10 @@ By default, only Linux E2E tests run. If you need to include additional environm
 - Add `@:win` to your PR description to run tests on Windows. (Note: Windows tests take longer to complete.)
 - Add `@:web` to run browser-based tests.
 
+### Shards
+
+The `pr-tags` job counts the tests that each lane will run. If a lane has more than 200 tests, the job splits the lane into shards of up to 200 tests. For example, an Ark bump with feature tags runs the Linux lane as the jobs `electron-1`, `electron-2`, and `electron-3`. A job named `electron` then merges the shard reports into one report and sets the pass or fail result. The E2E Tests comment shows the test count and the shard count for each lane. Most PRs run only `@:critical` and use one shard.
+
 ## Running Tests in Github Actions
 
 New tests are not complete until they run successfully across operating systems (Mac, Windows, & Ubuntu) and in [Github Actions](https://github.com/posit-dev/positron/actions/workflows/test-full-suite.yml). In Github Actions we use an Ubuntu instance to run the tests, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system. Also, you can easily run your new tests against a branch to verify them before merge. Simply pick the branch after you click on "Run Workflow". Note that you can also temporarily modify the workflow itself to get your new tests executed more quickly. To do this, skip the runs of the unit and integration tests.

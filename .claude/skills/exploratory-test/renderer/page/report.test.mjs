@@ -1195,6 +1195,13 @@ const SCENES = {
 	'a confirmed regression says Regressed with a red x': () => findingRow(render(kiWith(2, { verified: 'confirmed' }), { ledger: KI_LEDGER, knownIssues: KI_ISSUES }), 2),
 	'with no issue list, a finding row shows its matches as Dupe? without previews': () => findingRow(kiHtml(KI_REPORT, { knownIssues: { ...KI_ISSUES, issues: [] } }), 1),
 	'one dupe shows no count': () => findingRow(kiHtml(kiWith(3, { known: [25] })), 3),
+	'matches split by kind: issues say Dupe?, an open PR Fix in PR?, a merged PR Fixed in #N?, and a closed PR is left out': () => {
+		const refs = [...ISSUE_REFS,
+			{ number: 8200, kind: 'pr', state: 'open', title: 'Keep zoom', createdAt: '2026-08-20T00:00:00Z', summary: 'Keeps the zoom level.' },
+			{ number: 8300, kind: 'pr', state: 'closed', title: 'Abandoned zoom', createdAt: '2026-08-20T00:00:00Z', summary: '' }];
+		const html = fullHtml(fullWith(1, { known: [8200, 2330, 8126, 8300, 3698] }), { issueRefs: refs });
+		return [between(card(html, 1), '<div class="meta">', '</div>'), findingRow(html, 1)].join('\n--\n');
+	},
 	'a finding\'s own issue keeps its line, and a dupe goes below it': () => {
 		const html = render({ ...kiWith(1, { known: [11, 25] }), verification: KI_VERIFICATION }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES });
 		return [findingRow(html, 1), between(card(html, 1), '<div class="meta">', '</div>')].join('\n--\n');

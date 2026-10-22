@@ -92,6 +92,8 @@ jobs:
         with:
           webhook_secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
           connect_api_key: ${{ secrets.CONNECT_API_KEY }}
+          tailscale_oauth_client_id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          tailscale_oauth_secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
           repo_id: "positron"
           title: "E2E Cross Browser Tests"
           filter_jobs: "(e2e / ([^0-9]*))$"

@@ -2112,7 +2112,9 @@ def _parse_iso8601_like(x, tz=None):
 # polars Data Explorer RPC implementations
 
 
-def _polars_summarize_number(col: pl.Series, options: FormatOptions):
+def _polars_summarize_number(
+    col: pl.Series, options: FormatOptions, display_type=ColumnDisplayType.Floating
+):
     float_format = _get_float_formatter(options)
     min_val = max_val = median_val = mean_val = std_val = None
 
@@ -2129,8 +2131,12 @@ def _polars_summarize_number(col: pl.Series, options: FormatOptions):
             median_val = float_format(col.median())
             std_val = float_format(col.std())
 
-        min_val = float_format(min_val)
-        max_val = float_format(max_val)
+        if display_type == ColumnDisplayType.Integer:
+            min_val = str(min_val)
+            max_val = str(max_val)
+        else:
+            min_val = float_format(min_val)
+            max_val = float_format(max_val)
 
     return _box_number_stats(
         min_val,
@@ -2138,7 +2144,12 @@ def _polars_summarize_number(col: pl.Series, options: FormatOptions):
         mean_val,
         median_val,
         std_val,
+        display_type=display_type,
     )
+
+
+def _polars_summarize_integer(col: pl.Series, options: FormatOptions):
+    return _polars_summarize_number(col, options, display_type=ColumnDisplayType.Integer)
 
 
 def _polars_summarize_string(col: pl.Series, _):
@@ -2715,7 +2726,7 @@ class PolarsView(DataExplorerTableView):
         {
             ColumnDisplayType.Boolean: _polars_summarize_boolean,
             ColumnDisplayType.Floating: _polars_summarize_number,
-            ColumnDisplayType.Integer: _polars_summarize_number,
+            ColumnDisplayType.Integer: _polars_summarize_integer,
             ColumnDisplayType.Decimal: _polars_summarize_number,
             ColumnDisplayType.String: _polars_summarize_string,
             ColumnDisplayType.Object: _polars_summarize_object,

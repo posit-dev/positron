@@ -13,6 +13,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides whether this PR changes only docs or tooling (see
+  # scripts/lib/pr-docs-only-lib.sh). If so, the unit, ext-host, and
+  # e2e / electron jobs are skipped with a caller-level `if:`. That doesn't
+  # block the merge: required-tests (below) is the one required check, and it
+  # counts a skipped job as passing. `paths-ignore` won't do, because then
+  # required-tests wouldn't report at all.
+  #
+  # Fails open: the jobs below run even if this job fails (`!cancelled()`), and
+  # an empty output means "not docs-only", so the tests run.
+  docs-only:
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.docs-only.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check for a docs-only change
+        id: docs-only
+        run: bash scripts/pr-docs-only.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+
   pr-tags:
     runs-on: ubuntu-latest
     outputs:
@@ -35,22 +58,30 @@ jobs:
       jupyter_tag_found: ${{ steps.pr-tags.outputs.jupyter_tag_found }}
       remote_ssh_tag_found: ${{ steps.pr-tags.outputs.remote_ssh_tag_found }}
       connect_tag_found: ${{ steps.pr-tags.outputs.connect_tag_found }}
+      # Per-lane shard plans from the test-count listing (see pr-tags-parse.sh).
+      linux_shards: ${{ steps.pr-tags.outputs.linux_shards }}
+      linux_matrix: ${{ steps.pr-tags.outputs.linux_matrix }}
+      linux_max_failures: ${{ steps.pr-tags.outputs.linux_max_failures }}
+      win_shards: ${{ steps.pr-tags.outputs.win_shards }}
+      win_matrix: ${{ steps.pr-tags.outputs.win_matrix }}
+      win_max_failures: ${{ steps.pr-tags.outputs.win_max_failures }}
+      web_shards: ${{ steps.pr-tags.outputs.web_shards }}
+      web_matrix: ${{ steps.pr-tags.outputs.web_matrix }}
+      web_max_failures: ${{ steps.pr-tags.outputs.web_max_failures }}
 
     steps:
       - uses: actions/checkout@v7
-      # Install just enough for derive-test-change-tags.mjs's
-      # `playwright test --list` call. Gated to PRs that touch e2e test files.
-      # Shared with pr-e2e-comment.yml so the two derivation environments can't
-      # drift -- see the composite action for the full rationale.
+      # Install just enough for `playwright test --list`: pr-tags-parse.sh counts
+      # each lane's tests to pick a shard count, and derive-test-change-tags.mjs
+      # discovers e2e test tags. Shared with pr-e2e-comment.yml so the two
+      # derivation environments can't drift -- see the composite action.
       - name: Set up e2e tag listing
         uses: ./.github/actions/e2e-tag-listing-setup
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          github-repository: ${{ github.repository }}
-          pull-request-number: ${{ github.event.pull_request.number }}
       # Guardrail for the tag-derivation scripts; fail fast before relying on them below.
       - name: Unit test the tag-derivation helpers
         run: bash scripts/test/pr-tags-lib-test.sh
+      - name: Unit test the docs-only helpers
+        run: bash scripts/test/pr-docs-only-lib-test.sh
       - name: Validate test-tag-paths-map.json tags against test-tags.ts
         run: bash scripts/check-test-tag-map.sh --tags-only
       - name: Parse Tags from PR Body
@@ -77,7 +108,8 @@ jobs:
   e2e-ubuntu-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-ubuntu.yml
-    needs: pr-tags
+    needs: [pr-tags, docs-only]
+    if: ${{ !cancelled() && needs.pr-tags.result == 'success' && needs.docs-only.outputs.docs_only != 'true' }}
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron"
@@ -85,6 +117,9 @@ jobs:
       install_license: false
       upload_logs: false
       workers: 2
+      shards: ${{ fromJson(needs.pr-tags.outputs.linux_shards) }}
+      matrix: ${{ needs.pr-tags.outputs.linux_matrix }}
+      max_failures: ${{ fromJson(needs.pr-tags.outputs.linux_max_failures) }}
     secrets: inherit
 
   e2e-windows-electron:
@@ -97,6 +132,9 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron-win"
       upload_logs: false
+      shards: ${{ fromJson(needs.pr-tags.outputs.win_shards) }}
+      matrix: ${{ needs.pr-tags.outputs.win_matrix }}
+      max_failures: ${{ fromJson(needs.pr-tags.outputs.win_max_failures) }}
     secrets: inherit
 
   e2e-ubuntu-browser:
@@ -111,6 +149,9 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
+      shards: ${{ fromJson(needs.pr-tags.outputs.web_shards) }}
+      matrix: ${{ needs.pr-tags.outputs.web_matrix }}
+      max_failures: ${{ fromJson(needs.pr-tags.outputs.web_max_failures) }}
     secrets: inherit
 
   e2e-rocky-electron:
@@ -361,6 +402,8 @@ jobs:
 
   unit-tests:
     name: test
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
     with:
@@ -368,7 +411,68 @@ jobs:
 
   ext-host-tests:
     name: test
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-ext-host.yml
     secrets: inherit
     with:
       pull_request: true
+
+  # Single always-reported check for every test job in this workflow, meant to
+  # be the one required check in the branch ruleset (in place of test / unit,
+  # test / ext-host and e2e / electron).
+  #
+  # The tag-driven lanes can't be required directly: when a lane's tag is
+  # absent its job is skipped at the caller level, so its "e2e / <lane>" check
+  # is never created and a required check would wait forever. Here a skipped
+  # job counts as passing, so any job can be skipped with a caller-level `if:`
+  # (a tag that's absent, or a docs-only PR) without blocking the merge. A
+  # failed or cancelled job, or a failed pr-tags, fails the gate. It needs
+  # `if: always()`: without it, a failed dependency would skip the gate, and a
+  # skipped gate reads as passing.
+  #
+  # The build-* jobs are listed too: when a build fails, the e2e lane behind
+  # it is skipped rather than failed, so without them the gate would pass.
+  # Keep this list in sync when adding a test job above.
+  required-tests:
+    name: required-tests
+    if: ${{ always() }}
+    needs:
+      [
+        pr-tags,
+        unit-tests,
+        ext-host-tests,
+        e2e-ubuntu-electron,
+        e2e-windows-electron,
+        e2e-ubuntu-browser,
+        e2e-rocky-electron,
+        e2e-rocky-chromium,
+        e2e-suse-electron,
+        e2e-suse-chromium,
+        e2e-sles-electron,
+        e2e-sles-chromium,
+        e2e-debian-electron,
+        e2e-debian-chromium,
+        e2e-pyrefly,
+        build-workbench,
+        e2e-workbench,
+        e2e-workbench-rocky,
+        e2e-workbench-suse,
+        e2e-workbench-stable,
+        build-jupyter,
+        e2e-jupyter,
+        build-remote-ssh,
+        e2e-remote-ssh,
+        build-connect,
+        e2e-connect,
+      ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any test job failed
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          echo "One or more test jobs failed or were cancelled:"
+          echo "$NEEDS_JSON" | jq -r 'to_entries[] | "  \(.key): \(.value.result)"'
+          exit 1

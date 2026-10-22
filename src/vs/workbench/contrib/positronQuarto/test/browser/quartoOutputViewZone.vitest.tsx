@@ -7,6 +7,7 @@
 
 import { act } from '@testing-library/react';
 import { Event } from '../../../../../base/common/event.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { BareFontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { EditorOption } from '../../../../../editor/common/config/editorOptions.js';
@@ -232,7 +233,7 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		});
 		return new QuartoOutputViewZone(
 			editor, 'cell-1', 1,
-			undefined, undefined, 40, undefined, undefined, undefined, undefined, undefined,
+			undefined, undefined, 40, undefined, URI.file('/report.qmd'), undefined, undefined, undefined,
 			measureOffsetHeight,
 		);
 	}

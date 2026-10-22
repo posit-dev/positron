@@ -1,0 +1,95 @@
+name: 'Join Tailnet'
+description: 'Join the Posit tailnet as tag:positron-gha, so the job can reach private hosts such as connect.posit.it.'
+
+# Use this just before the first step that needs the tailnet, not at the start
+# of the job: joining early has caused flakes.
+#
+# The composite actions that call connect.posit.it (notify-e2e-insights,
+# e2e-failure-analyzer) join with tailscale/github-action directly instead:
+# positron-builds runs them from its positron submodule, where a local
+# ./.github/actions/join-tailnet path would not resolve.
+
+inputs:
+  oauth-client-id:
+    description: 'Tailscale OAuth client ID (secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID).'
+    required: true
+  oauth-secret:
+    description: 'Tailscale OAuth client secret (secrets.POSITRON_TAILSCALE_OAUTH_SECRET).'
+    required: true
+  required:
+    description: >-
+      'true' fails the job when the join fails. Leave 'false' when the tailnet
+      only serves best-effort reporting, so a failed join costs the reporting,
+      not the run.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    # The Tailscale action installs to /usr/local/bin and starts the daemon with
+    # `sudo -E tailscaled`, but sudo resets PATH to secure_path, which on SLES and
+    # openSUSE leaves out /usr/local/bin. The daemon then never starts ("sudo:
+    # tailscaled: command not found"). Add /usr/local/bin to secure_path where it
+    # is missing; elsewhere, including the hosted runners, this does nothing.
+    - name: Let sudo find /usr/local/bin
+      if: ${{ runner.os == 'Linux' }}
+      shell: bash
+      run: |
+        if ! command -v sudo > /dev/null; then
+          exit 0
+        fi
+        if sudo sh -c 'echo "$PATH"' | tr ':' '\n' | grep -qx /usr/local/bin; then
+          exit 0
+        fi
+        echo "sudo's secure_path lacks /usr/local/bin; adding it."
+        echo 'Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"' \
+          | sudo tee /etc/sudoers.d/zz-positron-local-bin > /dev/null
+        sudo chmod 0440 /etc/sudoers.d/zz-positron-local-bin
+        if ! sudo visudo -c -f /etc/sudoers.d/zz-positron-local-bin; then
+          echo "::warning::Could not add /usr/local/bin to sudo's secure_path; removing the drop-in."
+          sudo rm -f /etc/sudoers.d/zz-positron-local-bin
+        fi
+
+    # Without a hostname input the action names the node github-<hostname> by
+    # running the `hostname` binary, which the SLES and openSUSE images lack.
+    # Pick that same name without it.
+    - name: Pick the node name
+      id: node
+      shell: bash
+      run: |
+        if [ -r /proc/sys/kernel/hostname ]; then
+          name=$(cat /proc/sys/kernel/hostname)
+        else
+          name=$(hostname)
+        fi
+        echo "name=github-${name}" >> "$GITHUB_OUTPUT"
+
+    # A short timeout and few retries (about 2 minutes at worst): the action's
+    # defaults (2m, 5 retries) can hold a job for over 10 minutes during a
+    # tailnet outage, on the critical path, before a best-effort join gives up.
+    - name: Tailscale
+      id: join
+      continue-on-error: ${{ inputs.required != 'true' }}
+      uses: tailscale/github-action@v4
+      with:
+        oauth-client-id: ${{ inputs.oauth-client-id }}
+        oauth-secret: ${{ inputs.oauth-secret }}
+        tags: tag:positron-gha
+        hostname: ${{ steps.node.outputs.name }}
+        timeout: 30s
+        retry: 3
+
+    # Runs for a required join too, so its failure shows the daemon's own error.
+    # The action sends tailscaled's stderr to ~/tailscaled.log, which nothing
+    # else surfaces; without it the job log shows only a readiness timeout.
+    - name: Report failed join
+      if: ${{ !cancelled() && steps.join.outcome == 'failure' }}
+      shell: bash
+      run: |
+        echo "::warning::Could not join the tailnet, so calls to connect.posit.it from this job will fail."
+        if [ -s "$HOME/tailscaled.log" ]; then
+          echo "::group::tailscaled.log"
+          tail -n 100 "$HOME/tailscaled.log"
+          echo "::endgroup::"
+        fi
