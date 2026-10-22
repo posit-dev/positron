@@ -141,7 +141,7 @@ suite('MotherDuck Connection', () => {
 			{ token: TOKEN, database: undefined, readOnly: false }, handler, logger, () => client);
 		await conn.connect();
 		const [databases] = await conn.getChildren();
-		await assert.rejects(databases.getChildren!(), { message: 'Request failed for token <redacted>' });
+		await assert.rejects(async () => databases.getChildren!(), { message: 'Request failed for token <redacted>' });
 	});
 
 	test('other failure gives a generic message', async () => {
