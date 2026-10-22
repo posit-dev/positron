@@ -1950,95 +1950,107 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * never saved as an affiliation.
 	 */
 	private async recommendAfterDiscovery(): Promise<void> {
-		const skipLanguageIds = Array.from(this._languagePacks.keys()).filter(languageId =>
-			this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled ||
-			this._recommendedRuntimesByLanguageId.has(languageId));
-		const metadata = await Promise.all(this._runtimeManagers.map(manager =>
-			manager.recommendWorkspaceRuntimes(skipLanguageIds, true)));
+		// Languages in runtime registration order, so a runtime recommended at
+		// startup (registered before discovery) goes first for Always.
+		const languageIds = Array.from(new Set([
+			...this._languageRuntimeService.registeredRuntimes.map(metadata => metadata.languageId),
+			...this._recommendedRuntimesByLanguageId.keys(),
+			...this._languagePacks.keys(),
+		]));
 
-		for (const { metadata: recommended, isProjectDefault } of metadata.flat()) {
-			if (skipLanguageIds.includes(recommended.languageId)) {
-				continue;
+		// Ask for each language on its own, so a language whose extension is
+		// slow to recommend doesn't hold up the others or their Always start.
+		const recommendLanguage = async (languageId: string) => {
+			if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled ||
+				this._recommendedRuntimesByLanguageId.has(languageId)) {
+				return;
 			}
-			// Register the base (its variants register with it) without
-			// auto-starting it.
-			this._suppressRegistrationAutoStart = true;
-			let runtime: ILanguageRuntimeMetadata;
-			try {
-				runtime = this.rememberRecommendation(recommended, isProjectDefault);
-			} finally {
-				this._suppressRegistrationAutoStart = false;
-			}
-			this._logService.debug(`[Runtime startup] Recommended after discovery: ${formatLanguageRuntimeMetadata(runtime)}`);
+			const otherLanguageIds = languageIds.filter(id => id !== languageId);
+			const metadata = await Promise.all(this._runtimeManagers.map(manager =>
+				manager.recommendWorkspaceRuntimes(otherLanguageIds, true)));
 
-			if (this._runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId)) {
-				continue;
-			}
-			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
-				if (!this.hasAffiliatedRuntime() &&
-					!this._runtimeSessionService.hasStartingOrRunningConsole()) {
-					await this.autoStartRuntime(runtime, { id: SessionStartReasonId.ExtensionRecommendedRuntime }, true);
+			for (const { metadata: recommended, isProjectDefault } of metadata.flat()) {
+				if (recommended.languageId !== languageId) {
+					continue;
 				}
-			} else if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
-				this._encounteredLanguagesByLanguageId.has(runtime.languageId) &&
-				!this.affiliationFor(runtime.languageId) &&
-				!this._runtimeSessionService.implicitStartupSuppressed) {
-				await this.autoStartRuntime(runtime, { id: SessionStartReasonId.LanguageFileOpenedAtRegistration }, true);
+				// Register the base (its variants register with it) without
+				// auto-starting it.
+				this._suppressRegistrationAutoStart = true;
+				let runtime: ILanguageRuntimeMetadata;
+				try {
+					runtime = this.rememberRecommendation(recommended, isProjectDefault);
+				} finally {
+					this._suppressRegistrationAutoStart = false;
+				}
+				this._logService.debug(`[Runtime startup] Recommended after discovery: ${formatLanguageRuntimeMetadata(runtime)}`);
+
+				if (this._runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId)) {
+					continue;
+				}
+				if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
+					if (!this.hasAffiliatedRuntime() &&
+						!this._runtimeSessionService.hasStartingOrRunningConsole()) {
+						await this.autoStartRuntime(runtime, { id: SessionStartReasonId.ExtensionRecommendedRuntime }, true);
+					}
+				} else if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
+					this._encounteredLanguagesByLanguageId.has(runtime.languageId) &&
+					!this.affiliationFor(runtime.languageId) &&
+					!this._runtimeSessionService.implicitStartupSuppressed) {
+					await this.autoStartRuntime(runtime, { id: SessionStartReasonId.LanguageFileOpenedAtRegistration }, true);
+				}
 			}
-		}
+		};
+		const recommendations = new Map(languageIds.map(languageId => [languageId,
+			recommendLanguage(languageId).catch(err =>
+				this._logService.error(`[Runtime startup] Error recommending a runtime for '${languageId}' after discovery: ${err}`))]));
 
 		// A language whose startup behavior is Always starts its affiliated
 		// runtime; without one, it starts its recommendation, whatever the
 		// recommended runtime's own startup behavior. This runs once per
 		// window, so a later rediscovery doesn't restart a closed console.
-		if (this._alwaysStartRan) {
-			return;
-		}
-		this._alwaysStartRan = true;
-		// Languages are tried in runtime registration order, so a runtime
-		// recommended at startup (registered before discovery) goes first.
-		const languageIds = new Set([
-			...this._languageRuntimeService.registeredRuntimes.map(metadata => metadata.languageId),
-			...this._recommendedRuntimesByLanguageId.keys(),
-			...this._languagePacks.keys(),
-		]);
 		// Only one language can be auto-started: the first one set to Always
 		// that has a runtime to start, and only when no console is starting
-		// or running.
-		for (const languageId of languageIds) {
-			if (this._runtimeSessionService.hasStartingOrRunningConsole()) {
-				return;
+		// or running. Each waits only for its own recommendation and for the
+		// Always languages before it.
+		if (!this._alwaysStartRan) {
+			this._alwaysStartRan = true;
+			for (const languageId of languageIds) {
+				if (this.getStartupBehavior(languageId) !== LanguageStartupBehavior.Always) {
+					continue;
+				}
+				await recommendations.get(languageId);
+				if (this._runtimeSessionService.hasStartingOrRunningConsole()) {
+					break;
+				}
+				// A saved default that was never started or used doesn't count.
+				const affiliation = this.getAffiliatedRuntime(languageId);
+				if (affiliation && (affiliation.lastStarted !== 0 || affiliation.lastUsed !== 0)) {
+					continue;
+				}
+				// A language whose manager opted out never falls back to "first
+				// registered"; only its own recommendation can start.
+				let runtime = this._recommendedRuntimesByLanguageId.get(languageId);
+				if (!runtime && !this._optedOutLanguageIds.has(languageId)) {
+					runtime = this.getPreferredRuntime(languageId);
+				}
+				if (!runtime || !this._languageRuntimeService.getRegisteredRuntime(runtime.runtimeId)) {
+					continue;
+				}
+				// Language-specific values win over values for all languages, so
+				// a language-specific value is the one that applies whenever one
+				// is set.
+				const languageSpecific = this._configurationService.inspect(
+					'interpreters.startupBehavior', { overrideIdentifier: languageId })
+					.overrideIdentifiers?.includes(languageId);
+				await this.autoStartRuntime(runtime, {
+					id: languageSpecific ?
+						SessionStartReasonId.StartupBehaviorAlways :
+						SessionStartReasonId.StartupBehaviorAlwaysAllLanguages
+				}, true);
+				break;
 			}
-			if (this.getStartupBehavior(languageId) !== LanguageStartupBehavior.Always) {
-				continue;
-			}
-			// A saved default that was never started or used doesn't count.
-			const affiliation = this.getAffiliatedRuntime(languageId);
-			if (affiliation && (affiliation.lastStarted !== 0 || affiliation.lastUsed !== 0)) {
-				continue;
-			}
-			// A language whose manager opted out never falls back to "first
-			// registered"; only its own recommendation can start.
-			let runtime = this._recommendedRuntimesByLanguageId.get(languageId);
-			if (!runtime && !this._optedOutLanguageIds.has(languageId)) {
-				runtime = this.getPreferredRuntime(languageId);
-			}
-			if (!runtime || !this._languageRuntimeService.getRegisteredRuntime(runtime.runtimeId)) {
-				continue;
-			}
-			// Language-specific values win over values for all languages, so
-			// a language-specific value is the one that applies whenever one
-			// is set.
-			const languageSpecific = this._configurationService.inspect(
-				'interpreters.startupBehavior', { overrideIdentifier: languageId })
-				.overrideIdentifiers?.includes(languageId);
-			await this.autoStartRuntime(runtime, {
-				id: languageSpecific ?
-					SessionStartReasonId.StartupBehaviorAlways :
-					SessionStartReasonId.StartupBehaviorAlwaysAllLanguages
-			}, true);
-			return;
 		}
+		await Promise.all(recommendations.values());
 	}
 
 	/**

@@ -1648,6 +1648,10 @@ describe('RuntimeStartupService - start reasons', () => {
 		ctx.instantiationService.stub(IConfigurationService, configurationService);
 		const autoStartRuntime = vi.spyOn(ctx.get(IRuntimeSessionService), 'autoStartRuntime').mockResolvedValue('');
 		svc = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		// Python's language pack comes first, as it does in the product.
+		const languagePacks = (svc as unknown as { _languagePacks: Map<string, ExtensionIdentifier[]> })._languagePacks;
+		languagePacks.set('python', [new ExtensionIdentifier('ms-python.python')]);
+		languagePacks.set('r', [new ExtensionIdentifier('ms.r')]);
 		startedRuntimeIds = () => autoStartRuntime.mock.calls.map(([runtime]) => runtime.runtimeId);
 		return () => autoStartRuntime.mock.calls.map(([, startReason]) => startReason.id);
 	}
@@ -1843,12 +1847,26 @@ describe('RuntimeStartupService - start reasons', () => {
 		expect(startedRuntimeIds()).toEqual(['rt-py']);
 	});
 
+	it.each([
+		{ name: 'never answers', answer: () => new Promise<never>(() => { }) },
+		{ name: 'fails', answer: () => Promise.reject(new Error('ranking failed')) },
+	])('starts R when set to always start while the Python recommendation after discovery $name', async ({ answer }) => {
+		createService(LanguageStartupBehavior.Always);
+		const r = metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R', extensionId: 'ms.r' });
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime({ ...r, startupBehavior: LanguageRuntimeStartupBehavior.Explicit }));
+		const manager = makeManager({ id: 1, owns: [] });
+		// Python and R share an extension host, so each language is asked on its own.
+		manager.recommendWorkspaceRuntimes = async (disabledLanguageIds, afterDiscovery) =>
+			afterDiscovery && !disabledLanguageIds.includes('python') ? answer() : [];
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+
+		completeDiscovery();
+
+		await vi.waitFor(() => expect(startedRuntimeIds()).toEqual(['rt-r']));
+	});
+
 	it('starts the language recommended at startup first when every language is set to always start', async () => {
 		createService(LanguageStartupBehavior.Always);
-		// Python's language pack comes first, as it does in the product.
-		const languagePacks = (svc as unknown as { _languagePacks: Map<string, ExtensionIdentifier[]> })._languagePacks;
-		languagePacks.set('python', [new ExtensionIdentifier('ms-python.python')]);
-		languagePacks.set('r', [new ExtensionIdentifier('ms.r')]);
 		// R is recommended at startup, e.g. from its default interpreter setting.
 		const r = { ...metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R', extensionId: 'ms.r' }), startupBehavior: LanguageRuntimeStartupBehavior.Explicit };
 		const manager = makeManager({ id: 1, owns: [] });
