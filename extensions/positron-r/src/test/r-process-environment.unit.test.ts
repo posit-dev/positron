@@ -16,7 +16,6 @@ function makeMetadataExtra(overrides: Partial<RMetadataExtra> = {}): RMetadataEx
 		binpath: '/opt/R/4.4.0/bin/R',
 		scriptpath: '/opt/R/4.4.0/bin/Rscript',
 		current: false,
-		default: false,
 		reasonDiscovered: null,
 		...overrides,
 	};
