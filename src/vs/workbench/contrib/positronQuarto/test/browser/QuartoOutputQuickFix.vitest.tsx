@@ -14,10 +14,20 @@ import { URI } from '../../../../../base/common/uri.js';
 import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
 import { IQuartoErroredCell } from '../../../positronAssistant/common/errorAssistant.js';
+import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 describe('QuartoOutputQuickFix', () => {
+	const documentUri = URI.file('/report.qmd');
+	// Only the document has a session, so a lookup by any other URI sends none.
+	const getSessionForDocument = vi.fn((uri: URI) => uri.toString() === documentUri.toString()
+		? stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-1234', runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' }) })
+		: undefined);
 	const ctx = createTestContainer()
 		.withReactServices()
+		.stub(IQuartoKernelManager, { getSessionForDocument })
 		.build();
 
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
@@ -32,7 +42,7 @@ describe('QuartoOutputQuickFix', () => {
 	});
 
 	function renderQuickFix(cell?: IQuartoErroredCell) {
-		return rtl.render(<QuartoOutputQuickFix cell={cell} errorContent='NameError: name "x" is not defined' />);
+		return rtl.render(<QuartoOutputQuickFix cell={cell} documentUri={documentUri} errorContent='NameError: name "x" is not defined' />);
 	}
 
 	it('renders Fix/Explain buttons when an assistant can take errors', () => {
@@ -49,7 +59,7 @@ describe('QuartoOutputQuickFix', () => {
 	it('notifies the host to re-measure when an assistant registers after the first render', () => {
 		registration.dispose();
 		const onLayout = vi.fn();
-		rtl.render(<QuartoOutputQuickFix errorContent='NameError: name "x" is not defined' onLayout={onLayout} />);
+		rtl.render(<QuartoOutputQuickFix documentUri={documentUri} errorContent='NameError: name "x" is not defined' onLayout={onLayout} />);
 		onLayout.mockClear();
 
 		act(() => { registerTestErrorAssistant(ctx, { ask }); });
@@ -58,24 +68,48 @@ describe('QuartoOutputQuickFix', () => {
 		expect(onLayout).toHaveBeenCalled();
 	});
 
-	it('sends the error with the cell that raised it', async () => {
+	it('sends the error with its document, the cell that raised it, and the document\'s session', async () => {
 		const user = userEvent.setup();
-		const uri = URI.file('/report.qmd');
-		renderQuickFix({ uri, languageId: 'python', label: 'setup', code: 'raise RuntimeError("boom")', startLine: 8, endLine: 9 });
+		renderQuickFix({ languageId: 'python', label: 'setup', code: 'raise RuntimeError("boom")', startLine: 8, endLine: 9 });
 		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
 
 		expect(ask).toHaveBeenCalledWith('fix', {
 			kind: 'quarto',
 			error: 'NameError: name "x" is not defined',
-			cell: { uri, languageId: 'python', label: 'setup', code: 'raise RuntimeError("boom")', startLine: 8, endLine: 9 },
+			uri: documentUri,
+			cell: { languageId: 'python', label: 'setup', code: 'raise RuntimeError("boom")', startLine: 8, endLine: 9 },
+			sessionId: 'python-1234',
 		}, { continueChat: false });
 	});
 
-	it('sends the error without a cell when it cannot be found', async () => {
+	it('sends no session for a cell in a different language from the document\'s kernel', async () => {
+		// An {r} chunk in a Python document runs in the R console, not the
+		// document's Python kernel, so the kernel isn't the session that raised
+		// the error.
+		const user = userEvent.setup();
+		renderQuickFix({ languageId: 'r', code: 'stop("boom")', startLine: 8, endLine: 8 });
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
+
+		expect(ask.mock.calls[0][1]).toEqual({
+			kind: 'quarto',
+			error: 'NameError: name "x" is not defined',
+			uri: documentUri,
+			cell: { languageId: 'r', code: 'stop("boom")', startLine: 8, endLine: 8 },
+			sessionId: undefined,
+		});
+	});
+
+	it('sends the document and its session when the cell cannot be found', async () => {
 		const user = userEvent.setup();
 		renderQuickFix(undefined);
 		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
 
-		expect(ask).toHaveBeenCalledWith('fix', { kind: 'quarto', error: 'NameError: name "x" is not defined', cell: undefined }, { continueChat: false });
+		expect(ask.mock.calls[0][1]).toEqual({
+			kind: 'quarto',
+			error: 'NameError: name "x" is not defined',
+			uri: documentUri,
+			cell: undefined,
+			sessionId: 'python-1234',
+		});
 	});
 });

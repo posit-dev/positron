@@ -14,10 +14,15 @@ import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ErrorAssistantAction, IErrorAssistantService } from '../../../positronAssistant/common/errorAssistant.js';
 import { useActiveErrorAssistant } from '../../../positronAssistant/browser/useActiveErrorAssistant.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 interface ConsoleQuickFixProps {
 	outputLines: ANSIOutputLine[];
 	tracebackLines: ANSIOutputLine[];
+	/** The code that raised the error, when the console still has it. */
+	code?: string;
+	/** The console the error was raised in. */
+	positronConsoleInstance: IPositronConsoleInstance;
 }
 
 const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputLine[]) => {
@@ -45,6 +50,10 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const ask = (action: ErrorAssistantAction) => services.get(IErrorAssistantService).ask(assistant.id, action, {
 		kind: 'console',
 		error: formatOutput(props.outputLines, props.tracebackLines),
+		sessionId: props.positronConsoleInstance.sessionId,
+		sessionName: props.positronConsoleInstance.sessionName,
+		languageId: props.positronConsoleInstance.runtimeMetadata.languageId,
+		code: props.code,
 	}, { continueChat: true });
 
 	const pressedFixHandler = () => ask('fix');

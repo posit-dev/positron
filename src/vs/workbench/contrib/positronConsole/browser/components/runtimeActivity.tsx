@@ -109,6 +109,8 @@ export const RuntimeActivity = memo((props: RuntimeActivityProps) => {
 						<ActivityErrorMessage
 							key={activityItem.id}
 							activityItemErrorMessage={activityItem}
+							code={getInputCode(props.runtimeItemActivity)}
+							positronConsoleInstance={props.positronConsoleInstance}
 						/>
 					);
 				} else if (activityItem instanceof ActivityItemErrorSuggestion) {
@@ -136,3 +138,21 @@ export const RuntimeActivity = memo((props: RuntimeActivityProps) => {
 	prev.fontInfo === next.fontInfo &&
 	prev.positronConsoleInstance === next.positronConsoleInstance
 );
+
+/**
+ * Get the code an activity ran, for errors sent to an assistant.
+ *
+ * The first input is the right one even if the activity holds more than one.
+ * An activity is one execution: the console keys it by the execution's id,
+ * and every item it receives carries that id as its parent. When the runtime
+ * echoes the input, `RuntimeItemActivity.addActivityItem` swaps the echo in
+ * for the provisional input it replaces, so a second input item is only ever
+ * a repeat echo of the same submission, never different code.
+ *
+ * @returns The code, or undefined when the activity has no input (e.g. a
+ *   silent execution, or one trimmed from the scrollback) or it is blank.
+ */
+function getInputCode(runtimeItemActivity: RuntimeItemActivity): string | undefined {
+	const input = runtimeItemActivity.activityItems.find(activityItem => activityItem instanceof ActivityItemInput);
+	return input?.code.trim() ? input.code : undefined;
+}

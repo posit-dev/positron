@@ -18,29 +18,53 @@ export type ErrorAssistantAction = 'fix' | 'explain';
 interface IErrorContextBase {
 	/** The error output. The service strips ANSI escape codes before an assistant sees it. */
 	readonly error: string;
+	/** ID of the runtime session the code ran in. Undefined when none is known. */
+	readonly sessionId?: string;
 }
 
 /** An error raised by code run in a console session. */
 interface IConsoleErrorContext extends IErrorContextBase {
 	readonly kind: 'console';
+	/** ID of the console's runtime session, which a console always has. */
+	readonly sessionId: string;
+	/** Name of the console's session, e.g. "Python 3.12.1 (Venv: .venv)". */
+	readonly sessionName: string;
+	/** Language ID of the session, e.g. "python". */
+	readonly languageId: string;
+	/** The code that raised the error. Undefined when the console no longer has it. */
+	readonly code?: string;
 }
 
 /** An error raised by a notebook cell. */
 interface INotebookErrorContext extends IErrorContextBase {
 	readonly kind: 'notebook';
+	/** The notebook. */
+	readonly uri: URI;
+	/** The cell that raised the error. Undefined when it's no longer in the notebook. */
+	readonly cell?: INotebookErroredCell;
 }
 
 /** An error raised by a Quarto code cell. */
 interface IQuartoErrorContext extends IErrorContextBase {
 	readonly kind: 'quarto';
+	/** The Quarto document. */
+	readonly uri: URI;
 	/** The cell whose code raised the error. Undefined when it can't be found. */
 	readonly cell?: IQuartoErroredCell;
 }
 
+/** A notebook cell that raised an error, as it is when the action is taken. */
+interface INotebookErroredCell {
+	/** 0-based index of the cell. */
+	readonly index: number;
+	/** The cell's code, including unsaved edits. */
+	readonly code: string;
+	/** Language ID of the cell, e.g. "python". */
+	readonly languageId: string;
+}
+
 /** A Quarto code cell, as it was when it raised an error. */
 export interface IQuartoErroredCell {
-	/** The Quarto document. */
-	readonly uri: URI;
 	/** Language ID of the cell, e.g. "python". */
 	readonly languageId: string;
 	/** The cell's label, e.g. from `#| label: fig-plot`. Undefined when it has none. */
@@ -78,12 +102,15 @@ export interface IErrorAssistantInfo {
 
 /**
  * An AI assistant's handling of the error Fix and Explain actions, e.g. Posit
- * Assistant's. Register it only while it can take errors.
+ * Assistant's. Register it while it exists, e.g. while its extension is
+ * installed, not only while it can take errors.
  */
 export interface IErrorAssistant extends IErrorAssistantInfo {
 	/**
-	 * Ask the assistant to take the action on the error. Reject on failure;
-	 * the service reports it to the user.
+	 * Ask the assistant to take the action on the error. When it can't because
+	 * of a problem the user can fix (e.g. a missing CLI or a setting), tell the
+	 * user why, with a way to fix it, and resolve. Reject only on unexpected
+	 * failures; the service reports them to the user.
 	 */
 	ask(action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions): Promise<void>;
 }
