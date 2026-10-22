@@ -67,7 +67,7 @@ async function configureCodex(app: Application): Promise<{ command: string; args
 	let config = '';
 	await expect(async () => {
 		config = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
-		expect(config).toContain('mcp-stdio');
+		expect(config).toContain('positron-mcp');
 	}, 'Codex configured').toPass({ timeout: 15000 });
 
 	// The values are written as JSON strings and arrays, which TOML shares.
@@ -200,8 +200,10 @@ test.describe('MCP Server', {
 	});
 });
 
+// Runs on Windows too, where the launcher is a batch file run by cmd.exe
+// rather than a shell script run by /bin/sh.
 test.describe('MCP Server over stdio', {
-	tag: [tags.MCP, tags.CONSOLE, tags.SESSIONS]
+	tag: [tags.MCP, tags.CONSOLE, tags.SESSIONS, tags.WIN]
 }, () => {
 	test('Python - An agent Positron configured runs code over stdio', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		// Wait for the workspace to be registered, which is what writes the
@@ -209,11 +211,16 @@ test.describe('MCP Server over stdio', {
 		await connectAgent(app);
 		const { command, args } = await configureCodex(app);
 
+		// The launcher, handed to its shell, is all an agent needs to be told to start.
+		expect(path.parse(args[args.length - 1]).name).toBe('positron-mcp');
+
 		// Without the variables a Positron terminal exports, the bridge has
-		// to find the workspace from the directory the agent runs in.
+		// to find the workspace from the directory the agent runs in, and
+		// the connections directory from the launcher's arguments.
 		const env = { ...process.env };
 		delete env.POSITRON_MCP_URL;
 		delete env.POSITRON_MCP_TOKEN;
+		delete env.POSITRON_MCP_CONNECTIONS;
 		const agent = new McpStdioClient(command, args, app.workspacePathOrFolder, env, 'codex');
 		try {
 			await agent.initialize();
