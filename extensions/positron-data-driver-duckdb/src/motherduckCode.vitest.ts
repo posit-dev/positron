@@ -19,7 +19,7 @@ describe('generateMotherDuckCode', () => {
 
 	test('python read-only with token', () => {
 		expect(generateMotherDuckCode('python', { token: TOKEN, database: DB, readOnly: true })).toEqual([
-			{ id: 'duckdb', label: 'DuckDB', code: 'import duckdb\n\nconn = duckdb.connect("md:sample_data", read_only=True, config={"motherduck_token": "aaa.bbb.ccc"})\n' },
+			{ id: 'duckdb', label: 'duckdb', code: 'import duckdb\n\nconn = duckdb.connect("md:sample_data", read_only=True, config={"motherduck_token": "aaa.bbb.ccc"})\n' },
 			{ id: 'sqlalchemy', label: 'SQLAlchemy', code: 'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:sample_data", connect_args={"read_only": True, "config": {"motherduck_token": "aaa.bbb.ccc"}})\n' },
 		]);
 	});

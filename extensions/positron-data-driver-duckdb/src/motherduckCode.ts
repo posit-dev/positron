@@ -82,7 +82,7 @@ export function generateMotherDuckCode(languageId: string, params: MotherDuckCod
 			return [
 				{
 					id: 'duckdb',
-					label: 'DuckDB',
+					label: 'duckdb',
 					code: `import duckdb\n\nconn = duckdb.connect(${duckdbArgs.join(', ')})\n`,
 				},
 				{
