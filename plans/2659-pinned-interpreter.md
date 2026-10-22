@@ -69,6 +69,11 @@ The discovery cache can't be the only source of metadata. It has no entry for th
 
 The existing settings: `positron.r.interpreters.default` for R, and `python.defaultInterpreterPath` for Python. No new setting is added.
 
+We looked at a new core setting that lists interpreter paths. With it, core reads the paths without activating any extension. We kept the existing settings for two reasons:
+
+- **The existing settings cannot go away.** `python.defaultInterpreterPath` comes from upstream VS Code, and `positron.r.interpreters.default` belongs to the R extension. A core setting sits next to them. Example: you set `python.defaultInterpreterPath` to Python 3.11 and the core setting to Python 3.12. We then need a rule for which one wins. Either rule surprises someone, because the losing setting still shows its value in the Settings editor.
+- **A core setting still needs the extension.** Core cannot start an interpreter from a path alone. The language's extension turns the path into runtime metadata (the version, name, and other details core needs to start it). The extension also starts the console. So core waits for that extension either way. Q14 asks each extension right after core activates it, so no extension activates early.
+
 `${workspaceFolder}/blah/R` is only an example path for the docs.
 
 ### Q2. Does a pinned interpreter replace the affiliated runtime, at every setting level?
