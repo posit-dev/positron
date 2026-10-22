@@ -60,12 +60,12 @@ export interface RFullSearchTriggers {
 
 /**
  * What R's recommendation needs to know. Each lookup runs only when the
- * decision needs it, so a pinned R never searches for R files, and the full
+ * decision needs it, so a configured R never searches for R files, and the full
  * search runs only when the quick path can't answer.
  */
 export interface RStartupInputs<T extends RStartupCandidate> {
 	/** The R from `positron.r.interpreters.default`, if that path exists. */
-	readonly pinned: T | undefined;
+	readonly configured: T | undefined;
 	/** Whether R's `interpreters.startupBehavior` is `manual`. */
 	readonly manualStartup: boolean;
 	/** Whether the open folder has R files, or is empty and you use RStudio. */
@@ -81,7 +81,7 @@ export interface RStartupInputs<T extends RStartupCandidate> {
  * Picks the R that R's recommendation returns for the open folder, and when it
  * starts.
  *
- * - A pinned R is returned as `implicit`.
+ * - A configured R is returned as `implicit`.
  * - Otherwise, under `manual`, nothing is returned. Positron won't start R on
  *   its own, so the folder isn't checked.
  * - Otherwise, in a folder that looks like an R project, the R the search
@@ -89,8 +89,8 @@ export interface RStartupInputs<T extends RStartupCandidate> {
  * - Otherwise nothing is returned.
  */
 export async function chooseStartupR<T extends RStartupCandidate>(inputs: RStartupInputs<T>): Promise<RStartupChoice<T> | undefined> {
-	if (inputs.pinned) {
-		return { installation: inputs.pinned, startupBehavior: 'implicit' };
+	if (inputs.configured) {
+		return { installation: inputs.configured, startupBehavior: 'implicit' };
 	}
 	if (inputs.manualStartup) {
 		return undefined;

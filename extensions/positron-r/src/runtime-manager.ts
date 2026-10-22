@@ -177,12 +177,12 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 		// If the default interpreter path is set and the path exists on the filesystem,
 		// recommend it with implicit startup behavior.
-		let pinned: RInstallation | undefined;
+		let configured: RInstallation | undefined;
 		const defaultInterpreterPath = getDefaultInterpreterPath();
 		if (defaultInterpreterPath) {
 			if (fs.existsSync(defaultInterpreterPath)) {
 				LOGGER.info(`[recommendedWorkspaceRuntime] Recommending R runtime from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting: ${defaultInterpreterPath}`);
-				pinned = new RInstallation(defaultInterpreterPath, undefined, [ReasonDiscovered.userSetting]);
+				configured = new RInstallation(defaultInterpreterPath, undefined, [ReasonDiscovered.userSetting]);
 			} else {
 				LOGGER.info(`[recommendedWorkspaceRuntime] Path from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting does not exist: ${defaultInterpreterPath}`);
 			}
@@ -196,7 +196,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// search's records are cached and shared by every folder.
 		try {
 			const choice = await chooseStartupR({
-				pinned,
+				configured,
 				manualStartup: vscode.workspace.getConfiguration('interpreters', { languageId: 'r' }).get<string>('startupBehavior') === 'manual',
 				looksLikeRProject,
 				currentR: currentRInstallation,
@@ -206,7 +206,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			if (!choice) {
 				return undefined;
 			}
-			if (!pinned) {
+			if (!configured) {
 				LOGGER.info(`[recommendedWorkspaceRuntime] Recommending R ${choice.installation.version} at ${choice.installation.binpath} to start right away, because the folder looks like an R project`);
 			}
 			return await makeMetadata(choice.installation, choice.startupBehavior as positron.LanguageRuntimeStartupBehavior);

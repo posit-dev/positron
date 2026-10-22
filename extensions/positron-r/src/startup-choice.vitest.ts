@@ -41,11 +41,11 @@ describe('compareRInstallations', () => {
 	});
 });
 
-/** Inputs for a folder with R files, no pin, and nothing that forces the full search. */
+/** Inputs for a folder with R files, no configured R, and nothing that forces the full search. */
 function inputs(overrides: Partial<RStartupInputs<FakeR>> & { triggers?: Partial<RFullSearchTriggers>; current?: FakeR; installs?: FakeR[] } = {}): RStartupInputs<FakeR> {
 	const { triggers, current, installs = [], ...rest } = overrides;
 	return {
-		pinned: undefined,
+		configured: undefined,
 		manualStartup: false,
 		looksLikeRProject: async () => true,
 		currentR: async () => current,
@@ -88,11 +88,11 @@ describe('chooseStartupR', () => {
 		expect(await choose(inputs({ current: { ...current, usable: false }, installs: [unusable] }))).toBeUndefined();
 	});
 
-	it('returns the pinned R as implicit, even outside an R project', async () => {
+	it('returns the configured R as implicit, even outside an R project', async () => {
 		const looksLikeRProject = vi.fn(async () => false);
-		const pinned = r('4.3.0', { name: 'pinned' });
-		expect(await choose(inputs({ current, pinned, looksLikeRProject })))
-			.toEqual({ name: 'pinned', startupBehavior: 'implicit' });
+		const configured = r('4.3.0', { name: 'configured' });
+		expect(await choose(inputs({ current, configured, looksLikeRProject })))
+			.toEqual({ name: 'configured', startupBehavior: 'implicit' });
 		expect(looksLikeRProject).not.toHaveBeenCalled();
 	});
 
@@ -102,10 +102,10 @@ describe('chooseStartupR', () => {
 		expect(looksLikeRProject).not.toHaveBeenCalled();
 	});
 
-	it('returns the pinned R as implicit under manual', async () => {
-		const pinned = r('4.3.0', { name: 'pinned' });
-		expect(await choose(inputs({ current, pinned, manualStartup: true })))
-			.toEqual({ name: 'pinned', startupBehavior: 'implicit' });
+	it('returns the configured R as implicit under manual', async () => {
+		const configured = r('4.3.0', { name: 'configured' });
+		expect(await choose(inputs({ current, configured, manualStartup: true })))
+			.toEqual({ name: 'configured', startupBehavior: 'implicit' });
 	});
 
 	// The full search here finds 4.5.1 and not the current R, so the result shows whether it ran.
