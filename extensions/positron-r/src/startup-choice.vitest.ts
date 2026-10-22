@@ -134,17 +134,16 @@ describe('chooseStartupR', () => {
 });
 
 describe('rVersionsMayListR', () => {
-	// Each R home has its binary at <home>/bin/R; /opt/R/4.4 is also known by its resolved path.
-	const binariesForHome = (home: string) => home === '/opt/R/4.4' ? ['/opt/R/4.4/bin/R', '/real/R/4.4/bin/R'] : [`${home}/bin/R`];
-	const current = '/real/R/4.4/bin/R';
+	const current = '/opt/R/4.4/bin/R';
 
 	it.each([
 		{ name: 'an entry for another R', entries: [{ path: '/opt/R/4.3' }], expected: false },
 		{ name: 'an entry for the current R', entries: [{ path: '/opt/R/4.3' }, { path: '/opt/R/4.4' }], expected: true },
+		{ name: 'an entry for the current R through a symlink', entries: [{ path: '/opt/R/current' }], expected: false },
 		{ name: 'an entry with only a module', entries: [{ module: 'R/4.4' }], expected: true },
 		{ name: 'no entries', entries: [], expected: false },
 	])('is $expected for $name', ({ entries, expected }) => {
-		expect(rVersionsMayListR(entries, current, binariesForHome)).toBe(expected);
+		expect(rVersionsMayListR(entries, current)).toBe(expected);
 	});
 });
 

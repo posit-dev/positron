@@ -1396,15 +1396,7 @@ function rVersionsMayListCurrentR(binpath: string): boolean {
 		// The full search skips an unreadable file too.
 		return false;
 	}
-	// The search matches binaries by path, and the current R's path is
-	// resolved through symlinks, so compare against both forms.
-	return rVersionsMayListR(parseRVersionsFile(content), binpath, home => {
-		const binary = path.join(home, 'bin', 'R');
-		if (!fs.existsSync(binary)) {
-			return [];
-		}
-		return [binary, fs.realpathSync(binary)];
-	});
+	return rVersionsMayListR(parseRVersionsFile(content), binpath);
 }
 
 /**

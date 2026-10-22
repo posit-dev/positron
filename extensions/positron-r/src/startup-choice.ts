@@ -5,6 +5,7 @@
 
 // No `vscode` import here, so these functions can be unit tested with Vitest.
 
+import * as path from 'path';
 import * as semver from 'semver';
 
 /**
@@ -129,16 +130,16 @@ export async function pickStartupR<T extends RStartupCandidate>(
  * Path is that R's home, or an entry with only a Module, whose R can't be
  * known without running module commands.
  *
- * @param binariesForHome The paths the R binary in an R home folder can be
- *   known by, or none if it has no R binary.
+ * Paths must match as written, because that's how the full search decides two
+ * R binaries are the same. An entry for /opt/R/current, a symlink to
+ * /opt/R/4.5.2, doesn't match /opt/R/4.5.2/bin/R.
  */
 export function rVersionsMayListR(
 	entries: readonly { readonly path?: string; readonly module?: string }[],
-	binpath: string,
-	binariesForHome: (home: string) => readonly string[]
+	binpath: string
 ): boolean {
 	return entries.some(entry => entry.path
-		? binariesForHome(entry.path).includes(binpath)
+		? path.join(entry.path, 'bin', 'R') === binpath
 		: entry.module !== undefined);
 }
 
