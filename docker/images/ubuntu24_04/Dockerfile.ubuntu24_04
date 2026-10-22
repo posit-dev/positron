@@ -219,7 +219,9 @@ RUN export PATH="$HOME/.pyenv/bin:$PATH" && \
     eval "$(pyenv virtualenv-init -)" && \
     pyenv install 3.13.0 && \
     pyenv global 3.13.0 && \
-    python -m pip install --upgrade pip ipykernel && \
+    # same e2e deps as the venv: reticulate sessions run here while 3.14 is unsupported
+    curl -sSO https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/requirements.txt && \
+    python -m pip install --upgrade pip ipykernel -r requirements.txt && \
     pyenv global system
 
 # Hidden Python
