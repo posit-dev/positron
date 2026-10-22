@@ -5,6 +5,9 @@
 
 import * as cp from 'child_process';
 import * as net from 'net';
+// --- Start PWB: Bounded socket drain during cleanup ---
+import { raceTimeout } from '../../base/common/async.js';
+// --- End PWB ---
 import { VSBuffer } from '../../base/common/buffer.js';
 import { Emitter, Event } from '../../base/common/event.js';
 import { Disposable, DisposableStore, toDisposable } from '../../base/common/lifecycle.js';
@@ -22,6 +25,12 @@ import { getNLSConfiguration } from './remoteLanguagePacks.js';
 import { IServerEnvironmentService } from './serverEnvironmentService.js';
 import { IPCExtHostConnection, SocketExtHostConnection, writeExtHostConnection } from '../../workbench/services/extensions/common/extensionHostEnv.js';
 import { IExtHostReadyMessage, IExtHostReduceGraceTimeMessage, IExtHostSocketMessage } from '../../workbench/services/extensions/common/extensionHostProtocol.js';
+// --- Start PWB: Support client reconnection in pipe mode ---
+// eslint-disable-next-line no-duplicate-imports
+import { MutableDisposable } from '../../base/common/lifecycle.js';
+// eslint-disable-next-line no-duplicate-imports
+import { IExtHostPipeReconnectMessage } from '../../workbench/services/extensions/common/extensionHostProtocol.js';
+// --- End PWB ---
 
 export async function buildUserEnvironment(startParamsEnv: { [key: string]: string | null } = {}, withUserShellEnvironment: boolean, language: string, environmentService: IServerEnvironmentService, logService: ILogService, configurationService: IConfigurationService): Promise<IProcessEnvironment> {
 	const nlsConfig = await getNLSConfiguration(language, environmentService.userDataPath);
@@ -78,6 +87,12 @@ class ConnectionData {
 		return this.socket.drain();
 	}
 
+	// --- Start PWB: Expose the underlying net.Socket so callers can check its state ---
+	public get netSocket(): net.Socket {
+		return this.socket instanceof NodeSocket ? this.socket.socket : this.socket.socket.socket;
+	}
+	// --- End PWB ---
+
 	public toIExtHostSocketMessage(): IExtHostSocketMessage {
 
 		let skipWebSocketFrames: boolean;
@@ -117,6 +132,13 @@ export class ExtensionHostConnection extends Disposable {
 	private _connectionData: ConnectionData | null;
 	// --- Start PWB: Track whether extension host has sent VSCODE_EXTHOST_IPC_READY ---
 	private _extHostIsReady: boolean;
+	// --- End PWB ---
+	// --- Start PWB: Support client reconnection in pipe mode ---
+	// Logic to keep the named pipe server alive even after the client disconnects
+	// so we can support the reconnect grace interval with SSL.
+	private _extHostNamedPipeServer: net.Server | null = null;
+	private _awaitingPipeConnection = false;
+	private readonly _pipeConnection = new MutableDisposable<DisposableStore>();
 	// --- End PWB ---
 
 	constructor(
@@ -171,7 +193,10 @@ export class ExtensionHostConnection extends Disposable {
 		this._logService.error(`${this._logPrefix}${_str}`);
 	}
 
-	private async _pipeSockets(extHostSocket: net.Socket, connectionData: ConnectionData): Promise<void> {
+	// --- Start PWB: Return the store so a reconnection can update the socket ---
+	// private async _pipeSockets(extHostSocket: net.Socket, connectionData: ConnectionData): Promise<void> {
+	private _pipeSockets(extHostSocket: net.Socket, connectionData: ConnectionData): DisposableStore {
+		// --- End PWB ---
 
 		const disposables = new DisposableStore();
 		disposables.add(connectionData.socket);
@@ -200,6 +225,9 @@ export class ExtensionHostConnection extends Disposable {
 		if (connectionData.initialDataChunk.byteLength > 0) {
 			extHostSocket.write(connectionData.initialDataChunk.buffer);
 		}
+		// --- Start PWB: Return the pairing's disposables so a reconnection can replace it ---
+		return disposables;
+		// --- End PWB ---
 	}
 
 	private async _sendSocketToExtensionHost(extensionHostProcess: cp.ChildProcess, connectionData: ConnectionData): Promise<void> {
@@ -242,6 +270,11 @@ export class ExtensionHostConnection extends Disposable {
 		if (!this._extensionHostProcess) {
 			return;
 		}
+		// --- Start PWB: Don't send to an extension host that has exited (ERR_IPC_CHANNEL_CLOSED) ---
+		if (!this._isExtensionHostAlive()) {
+			return;
+		}
+		// --- End PWB ---
 		const msg: IExtHostReduceGraceTimeMessage = {
 			type: 'VSCODE_EXTHOST_IPC_REDUCE_GRACE_TIME'
 		};
@@ -251,6 +284,19 @@ export class ExtensionHostConnection extends Disposable {
 	public acceptReconnection(remoteAddress: string, _socket: NodeSocket | WebSocketNodeSocket, initialDataChunk: VSBuffer): void {
 		this._remoteAddress = remoteAddress;
 		this._log(`The client has reconnected.`);
+		// --- Start PWB: Don't attach a reconnecting client to a dead extension host ---
+		// Closing the socket and cleaning up removes this connection, so the client's
+		// next attempt is rejected as an unknown reconnection token and it starts a
+		// fresh extension host instead of staying attached to a dead one.
+		if (this._disposed || (this._extensionHostProcess && !this._isExtensionHostAlive())) {
+			this._log(`The extension host is no longer running, closing the reconnected socket.`);
+			_socket.dispose();
+			this._cleanResources().catch((error) => {
+				this._logError('Error during async cleanup after reconnection to exited extension host: ' + error.toString());
+			});
+			return;
+		}
+		// --- End PWB ---
 		if (!this._canSendSocket && _socket instanceof WebSocketNodeSocket) {
 			_socket.setRecordInflateBytes(false);
 		}
@@ -271,36 +317,82 @@ export class ExtensionHostConnection extends Disposable {
 		}
 		// --- End PWB ---
 
+		// --- Start PWB: Re-attach a reconnected client in pipe mode ---
+		// In pipe mode (used when the server terminates TLS) the client socket can't be
+		// handed to the extension host. Instead, ask the extension host to connect a new
+		// pipe and join it to the reconnected client socket.
+		if (!this._canSendSocket) {
+			this._reconnectExtensionHostPipe(this._extensionHostProcess, connectionData);
+			return;
+		}
+		// --- End PWB ---
+
 		this._sendSocketToExtensionHost(this._extensionHostProcess, connectionData);
 	}
 
 	// --- Start PWB ---
-	// Need to make this async to flush the socket before closing
-	private async _cleanResources(): Promise<void> {
-		// --- End PWB ---
+	private _reconnectExtensionHostPipe(extensionHostProcess: cp.ChildProcess, connectionData: ConnectionData): void {
+		// Tear down the previous pairing, which also closes the extension host's end of the old pipe
+		this._pipeConnection.clear();
 
+		if (this._awaitingPipeConnection) {
+			// The extension host hasn't connected for a previous reconnection yet, so just
+			// replace the client socket that its pipe will be joined to
+			this._connectionData?.socket.dispose();
+			this._connectionData = connectionData;
+			return;
+		}
+
+		this._connectionData = connectionData;
+		this._awaitingPipeConnection = true;
+		const msg: IExtHostPipeReconnectMessage = {
+			type: 'VSCODE_EXTHOST_IPC_PIPE_RECONNECT'
+		};
+		try {
+			extensionHostProcess.send(msg);
+		} catch (error) {
+			this._logError('Error occurred while asking the extension host to reconnect its pipe: ' + error.toString());
+		}
+	}
+
+	private _isExtensionHostAlive(): boolean {
+		const extensionHostProcess = this._extensionHostProcess;
+		return !!extensionHostProcess && extensionHostProcess.connected && extensionHostProcess.exitCode === null && extensionHostProcess.signalCode === null;
+	}
+
+	// Need to make this async to flush the socket before closing. Everything except the
+	// drain happens synchronously, and _onClose fires before awaiting, so that the
+	// connection is always removed from the server (and dispose() can't dispose the
+	// emitter first) even if the drain stalls. The drain is skipped for destroyed sockets
+	// and bounded by a timeout, since it may never settle after the socket has closed.
+	private async _cleanResources(): Promise<void> {
 		if (this._disposed) {
 			// already called
 			return;
 		}
 		this._disposed = true;
-		if (this._connectionData) {
-			// --- Start PWB ---
-			try {
-				await this._connectionData.socketDrain();
-			} catch (error) {
-				this._logError('Failed to drain socket during cleanup: ' + error.toString());
-			}
-			// --- End PWB ---
-			this._connectionData.socket.end();
-			this._connectionData = null;
-		}
-		if (this._extensionHostProcess) {
-			this._extensionHostProcess.kill();
-			this._extensionHostProcess = null;
-		}
+		const connectionData = this._connectionData;
+		this._connectionData = null;
+		const extensionHostProcess = this._extensionHostProcess;
+		this._extensionHostProcess = null;
+		this._extHostNamedPipeServer?.close();
+		this._extHostNamedPipeServer = null;
 		this._onClose.fire(undefined);
+
+		if (connectionData) {
+			if (!connectionData.netSocket.destroyed) {
+				try {
+					await raceTimeout(connectionData.socketDrain(), 1000, () => this._log('Timed out draining socket during cleanup.'));
+				} catch (error) {
+					this._logError('Failed to drain socket during cleanup: ' + error.toString());
+				}
+			}
+			connectionData.socket.end();
+		}
+		extensionHostProcess?.kill();
+		this._pipeConnection.dispose();
 	}
+	// --- End PWB ---
 
 	public async start(startParams: IRemoteExtensionHostStartParams): Promise<void> {
 		try {
@@ -380,13 +472,24 @@ export class ExtensionHostConnection extends Disposable {
 			});
 
 			if (extHostNamedPipeServer) {
+				// --- Start PWB: Keep the pipe server open so the extension host can reconnect ---
+				// extHostNamedPipeServer.on('connection', (socket) => {
+				// 	extHostNamedPipeServer.close();
+				// 	this._pipeSockets(socket, this._connectionData!);
+				// });
+				this._extHostNamedPipeServer = extHostNamedPipeServer;
+				this._awaitingPipeConnection = true;
 				extHostNamedPipeServer.on('connection', (socket) => {
-					extHostNamedPipeServer.close();
-					// --- Start PWB: Mark host ready when pipe connection is established ---
+					if (this._disposed || !this._awaitingPipeConnection || !this._connectionData) {
+						// Only accept pipe connections that we've asked the extension host to make
+						socket.destroy();
+						return;
+					}
+					this._awaitingPipeConnection = false;
 					this._extHostIsReady = true;
-					// --- End PWB ---
-					this._pipeSockets(socket, this._connectionData!);
+					this._pipeConnection.value = this._pipeSockets(socket, this._connectionData);
 				});
+				// --- End PWB ---
 			} else {
 				const messageListener = (msg: IExtHostReadyMessage) => {
 					if (msg.type === 'VSCODE_EXTHOST_IPC_READY') {

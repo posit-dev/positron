@@ -150,6 +150,13 @@ const terminalConfiguration: IStringDictionary<IConfigurationPropertySchema> = {
 		type: 'boolean',
 		default: false
 	},
+	// --- Start PWB: Terminal program clipboard setting ---
+	[TerminalSettingId.AllowProgramsToCopyToClipboard]: {
+		description: localize('terminal.integrated.allowProgramsToCopyToClipboard', "Controls whether programs running in the terminal, such as tmux, Vim, or Claude Code, can copy text to your system clipboard (OSC 52). When disabled in a browser, text copied by these programs can only be pasted within the editor."),
+		type: 'boolean',
+		default: true
+	},
+	// --- End PWB ---
 	[TerminalSettingId.AltClickMovesCursor]: {
 		markdownDescription: localize('terminal.integrated.altClickMovesCursor', "If enabled, alt/option + click will reposition the prompt cursor to underneath the mouse when {0} is set to {1} (the default value). This may not work reliably depending on your shell.", '`#editor.multiCursorModifier#`', '`\'alt\'`'),
 		type: 'boolean',
