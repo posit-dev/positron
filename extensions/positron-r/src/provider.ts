@@ -264,12 +264,13 @@ export async function discoverRInstallations(): Promise<RInstallation[]> {
 /**
  * The full R search that R's recommendation runs when it can't use the current
  * R. When the discovery cache is out of date, Positron runs R's interpreter
- * search right after asking for the recommendation, and that search reuses
- * this one, so conda, pixi, and module commands only run once per launch. A
- * search more than a minute old isn't from this launch's startup, so a later
- * refresh searches again.
+ * search once the recommended console has started, and that search reuses
+ * this one, so conda, pixi, and module commands only run once per launch.
+ * When the cache is up to date, nothing reuses it, so it's dropped 15 seconds
+ * after it finishes and a later refresh, such as R's interpreter picker,
+ * searches again.
  */
-const sharedSearch = createSharedSearch(discoverRInstallations, 60_000);
+const sharedSearch = createSharedSearch(discoverRInstallations, 15_000);
 
 /**
  * Same as `discoverRInstallations()`, and holds the result for the
