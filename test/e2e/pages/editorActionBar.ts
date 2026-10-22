@@ -20,6 +20,7 @@ type EditorActionBarButton =
 	| 'Convert to Code'
 	| 'Import Data'
 	| 'Clear Column Sorting'
+	| 'Refresh'
 	| 'Save';
 
 

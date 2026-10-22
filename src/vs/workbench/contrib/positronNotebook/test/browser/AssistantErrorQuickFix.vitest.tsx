@@ -7,121 +7,107 @@
 
 import { ComponentProps } from 'react';
 import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { userEvent } from '@testing-library/user-event';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { IContextMenuDelegate } from '../../../../../base/browser/contextmenu.js';
 import { IAction } from '../../../../../base/common/actions.js';
-import { decodeBase64 } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { POSIT_NEW_CHAT_COMMAND, NewChatOptions } from '../../../positronAssistant/browser/positAssistantChat.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { IErrorAssistant, IErrorAssistantContext, IErrorAssistantService } from '../../../positronAssistant/common/errorAssistant.js';
+import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 import { AssistantErrorQuickFix } from '../../browser/notebookCells/AssistantErrorQuickFix.js';
 
 describe('AssistantErrorQuickFix', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
 		.stub(IContextMenuService, { showContextMenu: vi.fn() })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	const defaultPayload = {
-		fixPrompt: 'Fix this test error.',
-		explainPrompt: 'Explain this test error.',
-		attachmentContent: 'NameError: name "x" is not defined',
-	};
+	const ask = vi.fn();
 
-	const defaultProps = {
-		getPayload: () => defaultPayload,
-		attachmentName: 'test-error.txt',
-		groupAriaLabel: 'Error quick fix actions',
-	};
-
-	function renderQuickFix(overrides: Partial<ComponentProps<typeof AssistantErrorQuickFix>> = {}) {
-		return rtl.render(<AssistantErrorQuickFix {...defaultProps} {...overrides} />);
-	}
-
-	/** The newChat payload from the most recent executeCommand call. */
-	function lastNewChatOptions(): NewChatOptions {
-		const executeCommand = vi.mocked(ctx.get(ICommandService).executeCommand);
-		const lastCall = executeCommand.mock.calls.at(-1);
-		expect(lastCall?.[0]).toBe(POSIT_NEW_CHAT_COMMAND);
-		return lastCall?.[1] as NewChatOptions;
-	}
-
-	function decodeAttachment(uri: string): string {
-		return decodeBase64(uri.replace('data:text/plain;base64,', '')).toString();
-	}
-
-	it('sends the fix prompt and error attachment to a new chat', async () => {
-		const user = userEvent.setup();
-		renderQuickFix();
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
-
-		const options = lastNewChatOptions();
-		expect({
-			...options,
-			files: options.files?.map(file => ({ name: file.name, content: decodeAttachment(file.uri) })),
-		}).toEqual({
-			prompt: 'Fix this test error.',
-			target: 'new',
-			behavior: 'submit',
-			files: [{ name: 'test-error.txt', content: 'NameError: name "x" is not defined' }],
-		});
+	beforeEach(() => {
+		ask.mockReset().mockResolvedValue(undefined);
 	});
 
-	it('appends the explain-only constraint to the explain prompt', async () => {
-		const user = userEvent.setup();
-		renderQuickFix();
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to explain in new chat' }));
+	const errorContext: IErrorAssistantContext = {
+		kind: 'notebook',
+		error: 'NameError: name "x" is not defined',
+		uri: URI.file('/analysis.ipynb'),
+	};
 
-		expect(lastNewChatOptions().prompt).toBe(
-			'Explain this test error. Do not make changes or edit any files; just explain the error.'
+	/** Register an assistant errors are sent to, and render the quick fix for it. */
+	function renderQuickFix(options: Partial<IErrorAssistant> = {}, overrides: Partial<ComponentProps<typeof AssistantErrorQuickFix>> = {}) {
+		registerTestErrorAssistant(ctx, { ask, ...options });
+		return rtl.render(
+			<AssistantErrorQuickFix
+				assistant={ctx.get(IErrorAssistantService).activeAssistant!}
+				getErrorContext={() => errorContext}
+				groupAriaLabel='Error quick fix actions'
+				{...overrides}
+			/>
 		);
-	});
+	}
 
-	it('strips ANSI escape codes from the attachment', async () => {
+	/** Run the first action in the dropdown opened by the given button. */
+	async function runDropdownAction(user: ReturnType<typeof userEvent.setup>, buttonName: string) {
+		await user.click(screen.getByRole('button', { name: buttonName }));
+		const showContextMenu = vi.mocked(ctx.get(IContextMenuService).showContextMenu);
+		const delegate = showContextMenu.mock.calls.at(-1)?.[0] as IContextMenuDelegate;
+		await (delegate.getActions() as IAction[])[0].run();
+	}
+
+	it('sends Fix and Explain to a new chat', async () => {
 		const user = userEvent.setup();
-		renderQuickFix({ getPayload: () => ({ ...defaultPayload, attachmentContent: '\u001b[31mboom\u001b[0m' }) });
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+		renderQuickFix();
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to explain in new chat' }));
 
-		const files = lastNewChatOptions().files;
-		expect(files && decodeAttachment(files[0].uri)).toBe('boom');
+		expect(ask.mock.calls).toEqual([
+			['fix', errorContext, { continueChat: false }],
+			['explain', errorContext, { continueChat: false }],
+		]);
 	});
 
-	it('omits the attachment when the error content is blank', async () => {
+	it('continues the active chat from the dropdowns', async () => {
 		const user = userEvent.setup();
-		renderQuickFix({ getPayload: () => ({ ...defaultPayload, attachmentContent: '   ' }) });
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+		renderQuickFix();
+		await runDropdownAction(user, 'More fix options');
+		await runDropdownAction(user, 'More explain options');
 
-		expect(lastNewChatOptions().files).toBeUndefined();
+		expect(ask.mock.calls).toEqual([
+			['fix', errorContext, { continueChat: true }],
+			['explain', errorContext, { continueChat: true }],
+		]);
 	});
 
-	it('resolves the payload at click time, not render time', async () => {
+	it('resolves the error context at click time, not render time', async () => {
 		const user = userEvent.setup();
-		let attachmentContent = 'stale location';
-		renderQuickFix({ getPayload: () => ({ ...defaultPayload, attachmentContent }) });
-		attachmentContent = 'fresh location';
-		await user.click(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' }));
+		let error = 'stale location';
+		renderQuickFix({}, { getErrorContext: () => ({ ...errorContext, error }) });
+		error = 'fresh location';
+		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' }));
 
-		const files = lastNewChatOptions().files;
-		expect(files && decodeAttachment(files[0].uri)).toBe('fresh location');
+		expect(ask.mock.calls[0][1].error).toBe('fresh location');
 	});
 
-	it('continues in the current chat via the fix dropdown action', async () => {
+	it('names the assistant in the dropdown actions', async () => {
 		const user = userEvent.setup();
 		renderQuickFix();
 		await user.click(screen.getByRole('button', { name: 'More fix options' }));
+		await user.click(screen.getByRole('button', { name: 'More explain options' }));
 
 		const showContextMenu = vi.mocked(ctx.get(IContextMenuService).showContextMenu);
-		const delegate = showContextMenu.mock.calls.at(-1)?.[0] as IContextMenuDelegate;
-		const actions = delegate.getActions() as IAction[];
-		await actions[0].run();
-
-		const options = lastNewChatOptions();
-		expect(options.target).toBe('auto');
-		expect(options.prompt).toBe('Fix this test error.');
+		const labels = showContextMenu.mock.calls.map(([delegate]) => (delegate as IContextMenuDelegate).getActions().map(action => action.label));
+		expect(labels).toEqual([['Ask Test Assistant to fix in current chat'], ['Ask Test Assistant to explain in current chat']]);
 	});
 
+	it('offers no dropdowns when the assistant cannot continue the active chat', () => {
+		renderQuickFix({ supportsChatContinuation: false });
+
+		expect(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'More fix options' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'More explain options' })).not.toBeInTheDocument();
+	});
 });

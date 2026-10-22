@@ -104,6 +104,7 @@ suite('Ipykernel', () => {
         { minor: 12, cpxDirectory: 'cp312-abi3' },
         { minor: 13, cpxDirectory: 'cp312-abi3' },
         { minor: 14, cpxDirectory: 'cp312-abi3' },
+        { minor: 15, cpxDirectory: 'cp312-abi3' },
     ].forEach(({ minor, cpxDirectory }) => {
         test(`should use the ${cpxDirectory} cpx bundle for Python 3.${minor}`, async () => {
             sinon.stub(interpreter, 'version').get(() => mock<PythonVersion>({ major: 3, minor }));

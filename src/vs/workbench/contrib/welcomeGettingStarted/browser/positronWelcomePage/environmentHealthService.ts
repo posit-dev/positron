@@ -10,6 +10,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { compareLanguages, getLanguageOrder, LANGUAGE_ORDER_KEY } from '../../../../services/languageRuntime/common/languageOrder.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY } from '../../common/positronWelcomePageConfiguration.js';
 import { GettingStartedInput } from '../gettingStartedInput.js';
@@ -155,6 +156,9 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 			if (e.affectsConfiguration(WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY)) {
 				this._applyEnabledLanguagesSetting();
 			}
+			if (e.affectsConfiguration(LANGUAGE_ORDER_KEY)) {
+				this._fireOnDidChange();
+			}
 		}));
 
 		// Trusting a workspace turns on extensions that do not run in an untrusted
@@ -198,11 +202,17 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		// A new array every call, on purpose. React decides whether to repaint by
 		// comparing the old value with the new one by identity, so a cached array
 		// would look unchanged and the card would not update.
-		return this._languageExtensionSources.map(source => ({
-			language: source.language,
-			label: source.label,
-			state: this._states.get(source.language) ?? { kind: 'loading' },
-		}));
+		const order = getLanguageOrder(this._configurationService);
+		return [...this._languageExtensionSources]
+			.sort((a, b) => compareLanguages(
+				{ languageId: a.language, languageName: a.label },
+				{ languageId: b.language, languageName: b.label },
+				order))
+			.map(source => ({
+				language: source.language,
+				label: source.label,
+				state: this._states.get(source.language) ?? { kind: 'loading' },
+			}));
 	}
 
 	isBusy(language: EnvironmentHealthLanguage): boolean {

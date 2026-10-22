@@ -13,3 +13,9 @@
 	min-width: 80px;
 	padding: 0 12px;
 }
+
+/* The busy spinner takes the button's text color and sits just before the title. */
+.positron-dynamic-modal-dialog-box .footer-button .codicon {
+	color: inherit;
+	margin-right: 6px;
+}

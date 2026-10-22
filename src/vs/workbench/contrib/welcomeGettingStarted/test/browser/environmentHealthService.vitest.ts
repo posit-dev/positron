@@ -11,6 +11,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { LANGUAGE_ORDER_KEY } from '../../../../services/languageRuntime/common/languageOrder.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { GettingStartedInput } from '../../browser/gettingStartedInput.js';
@@ -87,6 +88,33 @@ describe('EnvironmentHealthService', () => {
 		service.rerunChecksForPage(page);
 		return service;
 	};
+
+	/** Answers the order setting separately from the environment checks setting. */
+	function setConfig({ enabled = ['python', 'r'], order }: { enabled?: string[]; order: unknown }) {
+		getValue.mockImplementation((key: string) => key === LANGUAGE_ORDER_KEY ? order : enabled);
+	}
+
+	it('keeps the default order when the order is unset', () => {
+		setConfig({ order: [] });
+		const service = ctx.disposables.add(build());
+		expect(service.state.map(s => s.language)).toEqual(['python', 'r']);
+	});
+
+	it('orders languages by interpreters.languageOrder', () => {
+		setConfig({ order: ['r'] });
+		const service = ctx.disposables.add(build());
+		expect(service.state.map(s => s.language)).toEqual(['r', 'python']);
+	});
+
+	it('fires onDidChange with the new order when the setting changes', () => {
+		setConfig({ order: [] });
+		const service = ctx.disposables.add(build());
+		const changed = vi.fn();
+		ctx.disposables.add(service.onDidChange(changed));
+		setConfig({ order: ['r'] });
+		onDidChangeConfiguration.fire({ affectsConfiguration: key => key === LANGUAGE_ORDER_KEY });
+		expect(changed.mock.lastCall?.[0].map((s: { language: string }) => s.language)).toEqual(['r', 'python']);
+	});
 
 	it('checks nothing until a welcome page opens', async () => {
 		// Building the service must not activate the Python and R extensions.
@@ -341,7 +369,7 @@ describe('EnvironmentHealthService', () => {
 		expect(environmentHealthService.isBusy('python')).toBe(true);
 
 		// The user hides python while its check is still running.
-		getValue.mockReturnValue(['r']);
+		setConfig({ enabled: ['r'], order: [] });
 		onDidChangeConfiguration.fire({ affectsConfiguration: () => true });
 		expect(environmentHealthService.state[0].state.kind).toBe('hidden');
 

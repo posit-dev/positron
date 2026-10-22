@@ -48,6 +48,21 @@ on:
         description: "Whether to skip the bootstrap extensions test."
         type: boolean
         default: false
+      shards:
+        required: false
+        description: "Total number of shards; pair with a matching matrix."
+        default: 1
+        type: number
+      matrix:
+        required: false
+        description: "Strategy matrix JSON listing the shard numbers, e.g. {\"shard\":[1,2]}."
+        default: '{"shard":[1]}'
+        type: string
+      max_failures:
+        required: false
+        description: "Failures that abort one shard; callers divide the lane's budget by the shard count."
+        type: number
+        default: 10
 
   workflow_dispatch:
     inputs:
@@ -87,12 +102,17 @@ permissions:
 
 jobs:
   e2e-linux:
-    name: ${{ inputs.display_name || 'e2e-linux' }}
+    name: ${{ inputs.display_name || 'e2e-linux' }}-${{ matrix.shard }}
     timeout-minutes: 120
     runs-on: ubuntu-latest-amd64-8-core
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(inputs.matrix || '{"shard":[1]}') }}
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
-      options: --user 0:0 --init
+      # --device/--cap-add give the container a TUN device so the Tailscale step can bring up
+      # kernel-mode networking (transparent routing to the tailnet, needed to reach Connect).
+      options: --user 0:0 --init --device /dev/net/tun --cap-add=NET_ADMIN
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
@@ -248,13 +268,25 @@ jobs:
         if: ${{ inputs.project == 'e2e-chromium' }}
         run: npm run gulp node
 
-      - name: Send Results to GH Summary
+      - name: Set Report URL
         uses: ./.github/actions/gen-report-dir
         with:
           identifier: ${{ inputs.project }}
+          skip-summary: true
 
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # The e2e-test-insights reporter publishes results to connect.posit.it, which is
+      # reachable only from the tailnet. Required when sharded: the duration-based shard
+      # split also comes from Connect, and a shard that cannot reach it falls back to
+      # Playwright's own split, so shards disagree and specs run twice or not at all.
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
+        with:
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+          required: ${{ inputs.shards > 1 }}
 
       - name: 🧪 Run Playwright Tests
         shell: bash
@@ -270,8 +302,8 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
-          PW_JSON_FILE: test-results/ubuntu.json
-          GH_SUMMARY_REPORT: true
+          PW_PROJECT_NAME: ${{ inputs.project }}
+          GH_SUMMARY_REPORT: false # the merge-reports job posts the summary for the whole lane
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${{ env.PW_TAGS }}" ]; then
@@ -293,38 +325,58 @@ jobs:
             SKIP_CLONE_ARG=""
           fi
 
-          # Run the Playwright test command directly using eval
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          # Shards are duration-balanced by the reporter's preprocess hook
+          # (see playwright.config.ts); falls back to the native split on error.
+          CMD="npx playwright test \
+            --shard=${{ matrix.shard }}/${{ inputs.shards || 1 }} \
+            --project ${{ inputs.project }} \
+            --workers ${{ inputs.workers }} \
+            $GREP_ARG \
+            --repeat-each ${{ inputs.repeat_each }} \
+            --max-failures ${{ inputs.max_failures || 10 }}"
 
-          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          echo "Running: $CMD"
 
-      - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
-        continue-on-error: true
-        uses: ./.github/actions/upload-report-to-s3
+          # Don't fail the shard on test failures - let all shards complete and upload results
+          # The merge-reports job will determine pass/fail based on the complete test results
+          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG $CMD || true
+
+      - name: Upload Blob Report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
         with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
+          name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
+          path: blob-report
+          retention-days: 1
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.project }}-ubuntu-logs
+          name: ${{ inputs.project }}-ubuntu-logs-${{ matrix.shard }}
           path: test-logs
-          if-no-files-found: ignore
-
-      - name: Upload Test Results File
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ inputs.project }}-ubuntu-json-results
-          path: test-results/ubuntu.json
           if-no-files-found: ignore
 
       - name: Upload inspect-ai JSON Responses
         if: ${{ always() && inputs.project == 'inspect-ai' }}
         uses: actions/upload-artifact@v7
         with:
-          name: inspect-ai-responses
+          name: inspect-ai-responses-${{ matrix.shard }}
           path: test/assistant-inspect-ai/*.json
+
+  merge-reports:
+    name: ${{ inputs.display_name || 'e2e-linux' }}
+    if: ${{ !cancelled() }}
+    needs: [e2e-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/merge-e2e-blob-reports
+        with:
+          project: ${{ inputs.project }}
+          shards: ${{ inputs.shards || 1 }}
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          report-upload-role: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          github-token: ${{ github.token }}

@@ -107,7 +107,9 @@ function gitEmail() {
 }
 
 // Every issue or PR the report names gets its preview card. Not under test, which must not reach GitHub.
-const issueRefs = await loadIssueRefs(dir, JSON.stringify(json), knownIssues, { offline: Boolean(process.env.NODE_TEST_CONTEXT) });
+// Matches are bare numbers in report.json, so they are named here: their kind sets their label.
+const matches = (json.findings ?? []).flatMap(f => [...(f.known ?? []), ...(f.intended ?? [])]).map(n => `#${n}`).join(' ');
+const issueRefs = await loadIssueRefs(dir, `${JSON.stringify(json)} ${matches}`, knownIssues, { offline: Boolean(process.env.NODE_TEST_CONTEXT) });
 
 const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
 await writeRunPage(out, parsed, {

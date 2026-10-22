@@ -109,6 +109,9 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 			);
 
 			this.logger.info(`Authority resolved: ${connection.host}:${connection.port}`);
+
+			// Enable the Ports view and port forwarding
+			vscode.commands.executeCommand('setContext', 'forwardedPortsViewEnabled', true);
 			this.logger.debug(`Extension host env: ${JSON.stringify(connection.extensionHostEnv, null, 2)}`);
 
 			// Add workspace folder metadata to help VS Code display the correct path

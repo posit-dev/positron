@@ -1,0 +1,148 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// In this file, "assistant" is a role: any AI assistant that can take errors.
+// The product is always named in full, "Posit Assistant" or positAssistant*.
+
+import { Event } from '../../../../base/common/event.js';
+import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { URI } from '../../../../base/common/uri.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+
+/** An action the user can take on an error. */
+export type ErrorAssistantAction = 'fix' | 'explain';
+
+/** What every error an action is taken on has, wherever it was raised. */
+interface IErrorContextBase {
+	/** The error output. The service strips ANSI escape codes before an assistant sees it. */
+	readonly error: string;
+	/** ID of the runtime session the code ran in. Undefined when none is known. */
+	readonly sessionId?: string;
+}
+
+/** An error raised by code run in a console session. */
+interface IConsoleErrorContext extends IErrorContextBase {
+	readonly kind: 'console';
+	/** ID of the console's runtime session, which a console always has. */
+	readonly sessionId: string;
+	/** Name of the console's session, e.g. "Python 3.12.1 (Venv: .venv)". */
+	readonly sessionName: string;
+	/** Language ID of the session, e.g. "python". */
+	readonly languageId: string;
+	/** The code that raised the error. Undefined when the console no longer has it. */
+	readonly code?: string;
+}
+
+/** An error raised by a notebook cell. */
+interface INotebookErrorContext extends IErrorContextBase {
+	readonly kind: 'notebook';
+	/** The notebook. */
+	readonly uri: URI;
+	/** The cell that raised the error. Undefined when it's no longer in the notebook. */
+	readonly cell?: INotebookErroredCell;
+}
+
+/** An error raised by a Quarto code cell. */
+interface IQuartoErrorContext extends IErrorContextBase {
+	readonly kind: 'quarto';
+	/** The Quarto document. */
+	readonly uri: URI;
+	/** The cell whose code raised the error. Undefined when it can't be found. */
+	readonly cell?: IQuartoErroredCell;
+}
+
+/** A notebook cell that raised an error, as it is when the action is taken. */
+interface INotebookErroredCell {
+	/** 0-based index of the cell. */
+	readonly index: number;
+	/** The cell's code, including unsaved edits. */
+	readonly code: string;
+	/** Language ID of the cell, e.g. "python". */
+	readonly languageId: string;
+}
+
+/** A Quarto code cell, as it was when it raised an error. */
+export interface IQuartoErroredCell {
+	/** Language ID of the cell, e.g. "python". */
+	readonly languageId: string;
+	/** The cell's label, e.g. from `#| label: fig-plot`. Undefined when it has none. */
+	readonly label?: string;
+	/** The cell's code. */
+	readonly code: string;
+	/** 1-based first line of the cell's code. */
+	readonly startLine: number;
+	/** 1-based last line of the cell's code, inclusive. */
+	readonly endLine: number;
+}
+
+/** The error an action is taken on, tagged by where it was raised. */
+export type IErrorAssistantContext = IConsoleErrorContext | INotebookErrorContext | IQuartoErrorContext;
+
+/** How to send an error to an assistant. */
+export interface IErrorAssistantOptions {
+	/**
+	 * Send the error to the user's active chat, or to a new chat if none is
+	 * open, instead of always starting a new chat. The service ignores it
+	 * unless the assistant {@link IErrorAssistantInfo.supportsChatContinuation supports it}.
+	 */
+	readonly continueChat?: boolean;
+}
+
+/** The read-only view of an assistant that callers see. */
+export interface IErrorAssistantInfo {
+	/** Unique identifier of the assistant. */
+	readonly id: string;
+	/** Name shown in the actions' tooltips and menus, e.g. "Posit Assistant". */
+	readonly label: string;
+	/** Whether the assistant can continue the user's active chat. */
+	readonly supportsChatContinuation: boolean;
+}
+
+/**
+ * An AI assistant's handling of the error Fix and Explain actions, e.g. Posit
+ * Assistant's. Register it while it exists, e.g. while its extension is
+ * installed, not only while it can take errors.
+ */
+export interface IErrorAssistant extends IErrorAssistantInfo {
+	/**
+	 * Ask the assistant to take the action on the error. When it can't because
+	 * of a problem the user can fix (e.g. a missing CLI or a setting), tell the
+	 * user why, with a way to fix it, and resolve. Reject only on unexpected
+	 * failures; the service reports them to the user.
+	 */
+	ask(action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions): Promise<void>;
+}
+
+export const IErrorAssistantService = createDecorator<IErrorAssistantService>('errorAssistantService');
+
+/** Sends errors to the active assistant when the user presses Fix or Explain. */
+export interface IErrorAssistantService {
+	readonly _serviceBrand: undefined;
+
+	/**
+	 * The assistant errors are sent to: the first registered assistant, while
+	 * `ai.enabled` is true. Undefined otherwise. An assistant that unregisters
+	 * and registers again goes behind any others.
+	 */
+	readonly activeAssistant: IErrorAssistantInfo | undefined;
+
+	/** Fires with the new active assistant when it changes. */
+	readonly onDidChangeActiveAssistant: Event<IErrorAssistantInfo | undefined>;
+
+	/**
+	 * Register an assistant. Throws if one with the same id is already
+	 * registered.
+	 * @returns A disposable that unregisters the assistant.
+	 */
+	register(assistant: IErrorAssistant): IDisposable;
+
+	/**
+	 * Ask an assistant to take an action on an error. Does nothing while
+	 * `ai.enabled` is off. Logs and notifies the user when no assistant has
+	 * the id or the assistant fails; never rejects.
+	 * @param assistantId The id of the assistant the user saw named.
+	 */
+	ask(assistantId: string, action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions): Promise<void>;
+}

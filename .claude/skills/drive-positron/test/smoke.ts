@@ -104,6 +104,10 @@ const cases: Case[] = [
 	{ name: 'start-session bad language', run: ['start-session.sh', '--language', 'julia'], fail: true },
 	{ name: 'start-session --name no row matches lists the language rows', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'matches no Python interpreter the picker could pick') || (!o.json!.shown?.length && 'no rows shown') || (o.json!.shown.some((x: string) => !x.startsWith('Python ')) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) },
 	{ name: 'start-session several interpreters match names --name and lists them all', run: ['start-session.sh', '--language', 'python', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'Python interpreters match; pass words from one of the rows in "shown" as --name') || (o.json!.shown?.some((x: string) => !x.startsWith('Python ')) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (o.json!.shown?.length !== Number(o.json!.error!.split(' ')[0]) && `${o.json!.shown?.length} rows shown for: ${o.json!.error}`) },
+	// A menu item that opens a quick pick closes its menu: the click still names the quick pick as what opened.
+	{ name: 'ui click Quick Launch Session (opens its menu)', run: ['ui.sh', 'click', 'button', 'Quick Launch Session...'], check: o => includes(o.json!.opened, 'a menu: read it with ui.sh read menu') },
+	{ name: 'ui click Start Another... in the menu names the quick pick it opens', run: ['ui.sh', 'click', 'menuitem', 'Start Another...', '--in', 'menu'], check: o => includes(o.json!.opened, 'a quick pick: read it with ui.sh read quickpick') },
+	{ name: 'palette-run dry run closes the session quick pick', run: ['palette-run.sh', '--dry-run', 'Interpreter: Start New Console Session'], check: o => o.json?.chosen !== 'Interpreter: Start New Console Session' && 'wrong row chosen' },
 	// Switching the active console without running code: by language, name or id, never two.
 	{ name: 'panel console python (two match)', run: ['panel.sh', 'console', 'python'], fail: true, check: o => includes(o.json!.error, '2 consoles match') || logged('panel.sh -s=net1: FAILED console python: 2 consoles match') },
 	{ name: 'panel console r', quick: true, run: ['panel.sh', 'console', 'r'], check: o => (o.json!.id !== found.r && `id ${o.json!.id}`) || (!o.json!.already && !o.json!.was && 'neither already nor was') },
@@ -161,6 +165,12 @@ const cases: Case[] = [
 	{ name: 'editor definition R', run: ['editor.sh', 'definition', '--at', '7:16'], check: o => (o.json!.line !== 3 && `landed at ${o.json!.tab} ${o.json!.line}`) || includes(o.json!.text, 'double_it <- function') },
 	{ name: 'editor definition R, none', run: ['editor.sh', 'definition', '--at', '2:14'], check: o => (o.json!.found !== false && 'found one') || includes(o.json!.message, "No definition found for '3'") },
 	{ name: 'editor hover --timeout abc is a usage error', run: ['editor.sh', 'hover', '--at', '1:1', '--timeout', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--timeout must be a positive number of seconds') },
+	// settings.json opens in a modal editor, which gets no cursor in the status bar; the status bar can still show analysis.R's behind it.
+	{ name: 'palette-run Open User Settings (JSON) in a modal editor', run: ['palette-run.sh', 'Preferences: Open User Settings (JSON)'] },
+	{ name: 'ui read dialog names the modal editor', run: ['ui.sh', 'read', 'dialog'], check: o => includes(o.json!.tree, 'settings.json') },
+	{ name: 'editor cursor with a modal editor in front says so', run: ['editor.sh', 'cursor'], fail: true, check: o => includes(o.json!.error, 'a modal editor is in front (') || includes(o.json!.error, "ui.sh click button 'Open Modal Editor in Main Window' --in dialog") },
+	{ name: 'ui close the modal editor', run: ['ui.sh', 'click', 'button', 'Close Modal Editor (Escape)', '--in', 'dialog'], check: o => includes(o.json!.note, 'the dialog closed') },
+	{ name: 'editor cursor back in analysis.R after the modal closed', run: ['editor.sh', 'cursor'], check: o => o.json!.tab !== 'analysis.R' && `tab ${o.json!.tab}` },
 	{ name: 'debug break analysis.R 4', quick: true, run: ['debug.sh', 'break', 'analysis.R', '4'], check: o => includes(o.json!.breakpoints, 'analysis.R 4') },
 	{ name: 'debug state (breakpoint listed)', run: ['debug.sh', 'state'], check: o => includes(o.json!.trees?.Breakpoints, 'analysis.R 4') },
 	// A line breakpoint by the label the view shows; the click renames its row.
@@ -399,6 +409,12 @@ const cases: Case[] = [
 	{ name: 'settings set workspace, second key', run: ['settings.sh', 'set', 'smoke.text', 'hello'], check: o => includes(readFileSync(String(o.json!.file), 'utf8'), '"smoke.number": 42') || includes(readFileSync(String(o.json!.file), 'utf8'), '"smoke.text": "hello"') },
 	{ name: 'settings set --user', run: ['settings.sh', 'set', 'smoke.flag', 'true', '--user'], check: o => (o.json!.scope !== 'user' && `scope ${o.json!.scope}`) || includes(readFileSync(String(o.json!.file), 'utf8'), 'quarto.inlineOutput.enabled') },
 	{ name: 'settings set without a value', run: ['settings.sh', 'set', 'smoke.number'], fail: true },
+	// The Settings editor's More Actions draws its menu inside a shadow root: choose must count it as what opened.
+	{ name: 'settings set editor.fontSize --user (for the Settings editor)', run: ['settings.sh', 'set', 'editor.fontSize', '16', '--user'] },
+	{ name: 'palette-run Open Settings (UI)', run: ['palette-run.sh', 'Preferences: Open Settings (UI)'] },
+	{ name: 'ui type editor.fontSize in the Settings dialog', run: ['ui.sh', 'type', 'editor.fontSize', '--in', 'dialog'], check: o => includes(o.json!.diff, 'Editor Font Size. Modified.') },
+	{ name: 'ui choose Reset Setting from a menu drawn in a shadow root', run: ['ui.sh', 'choose', 'button', 'More Actions... (Shift+F9)', 'Reset Setting', '--in', 'dialog', '--nth', '1'], check: o => (o.json!.chose !== 'Reset Setting' && `chose ${o.json!.chose}`) || includes(o.json!.diff, '+ - treeitem "Editor Font Size. Controls the font size in pixels."') },
+	{ name: 'ui click Close Modal Editor (Settings)', run: ['ui.sh', 'click', 'button', 'Close Modal Editor', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
 
 	// ---- Notifications, screenshots, run-app
 	{ name: 'notifications list', quick: true, run: ['notifications.sh'], check: o => !Array.isArray(o.json!.notifications) && 'no notifications array' },

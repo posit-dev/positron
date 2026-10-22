@@ -365,7 +365,7 @@ h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line
 .fb .fb-act:hover,.fb .fb-act:focus-visible{color:var(--link);border-bottom-color:currentColor;outline:none}
 @media (prefers-reduced-motion:reduce){.fb a,.fb-done{transition:none}}
 
-/* One tooltip style for the whole page: tiles, back to top. */
+/* One tooltip style for the whole page: tiles, back to top, a precondition's P. */
 .tip{position:relative}
 .tip::after{content:attr(data-tip);position:absolute;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;letter-spacing:0;text-transform:none;pointer-events:none;opacity:0;transition:opacity .15s ease;z-index:3}
 .tip:hover::after,.tip:focus-visible::after{opacity:1}
@@ -438,6 +438,11 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .chg-tip b{font-weight:600;color:var(--tip-text)}
 .chg:hover .chg-tip,a.row:focus-visible .chg-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
 .chg-up .chg-tip{top:auto;bottom:calc(100% + 8px)}
+/* After a card's title: larger to hold its own beside the 24px title, in the
+   sans so it's the table's glyph, and focusable since the title is no link. */
+.chg-card{margin-left:10px;font-family:var(--sans);font-size:18px;vertical-align:baseline}
+.chg-card:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:3px}
+.chg-card:focus-visible .chg-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
 @media (prefers-reduced-motion:reduce){.chg-tip{transition:none}}
 .rate{text-align:right;font-family:var(--mono);font-size:13px;color:var(--body)}
 .status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
@@ -483,7 +488,6 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .ki-card-top .ki-s{font-weight:500}
 .ki-card-top .ki-s.is-open{color:var(--success)}
 .ki-card-top .ki-s.is-closed{color:var(--ki-closed)}
-.ki-card-top .ki-s.is-merged{color:var(--ki-closed)}
 .ki-card-top .ki-n{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
 .ki-card-top .ki-d{margin-left:auto;color:var(--faint)}
 .ki-card-t{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.35}
@@ -551,7 +555,7 @@ article.card:target{animation:ln-ring 2.4s ease-out 1}
 .code-cp{position:absolute;top:7px;right:7px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;padding:0;border-radius:6px;background:transparent;color:var(--faint);cursor:pointer;opacity:0;transition:opacity .15s ease,color .15s ease,background-color .15s ease}
 .code-blk:hover .code-cp,.code-blk:focus-within .code-cp,.code-cp.is-copied{opacity:1}
 .code-cp:hover{color:var(--ink);background:var(--code-cp-hover-bg)}
-/* Inline code in Reproduce: click to copy. The ordinary pointer, not the copy
+/* Inline code in Steps to Reproduce: click to copy. The ordinary pointer, not the copy
    cursor, and a tooltip above the chip that turns green once it has copied. */
 code.cc{position:relative;cursor:pointer;transition:background-color .15s ease}
 code.cc:hover{background:var(--code-chip-hover-bg)}
@@ -589,7 +593,7 @@ article.card .card-details{max-width:720px}
 @media (max-width:640px){.f-cmp{grid-template-columns:1fr}}
 
 
-/* Reproduce answers "how do I make this happen?", so it is text only and one
+/* Steps to Reproduce answers "how do I make this happen?", so it is text only and one
    column. Screenshots all live under Evidence, which answers "show me that it
    happened"; a featured shot here meant the same image appeared twice. */
 /* What must be true first, then what to do. Setup is Coverage's P row, so
@@ -742,7 +746,8 @@ span.rt-file{color:var(--body)}
 /* On a finding card the row sits over the steps: its text on the step text, its P over the digits. */
 .f-pl{list-style:none;margin:0 0 10px 20px;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:1.6;color:var(--body)}
 .f-pl li{position:relative}
-.f-pl-p{position:absolute;right:calc(100% + 8px);top:0;font-size:13px;color:var(--faint)}
+.f-pl-p{position:absolute;right:calc(100% + 8px);top:0;font-size:13px;color:var(--faint);cursor:help}
+.f-pl-p::after{left:-4px;top:calc(100% + 3px)}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
 /* The screenshot icon supports the check: faint at rest, ink on hover or focus */
 .st-ev{color:var(--st-ev);white-space:nowrap;padding:2px 3px;margin-left:3px;border-radius:4px;cursor:zoom-in;transition:color .15s ease}

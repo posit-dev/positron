@@ -921,6 +921,19 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 		});
 	});
 
+	describe('languageIds', () => {
+		it('includes a language registered only through the runtime API, and fires once', () => {
+			const svc = makeService();
+			const fired = vi.fn();
+			ctx.disposables.add(svc.onDidChangeLanguageIds(fired));
+			const runtimeService = ctx.get(ILanguageRuntimeService);
+			ctx.disposables.add(runtimeService.registerRuntime(metadata({ runtimeId: 'zig-1', languageId: 'zig' })));
+			ctx.disposables.add(runtimeService.registerRuntime(metadata({ runtimeId: 'zig-2', languageId: 'zig' })));
+			expect(svc.languageIds).toContain('zig');
+			expect(fired).toHaveBeenCalledTimes(1);
+		});
+	});
+
 	describe('registerDiscoveredRuntime', () => {
 		it('caches a runtime that was already registered before discovery', async () => {
 			const svc = makeService();

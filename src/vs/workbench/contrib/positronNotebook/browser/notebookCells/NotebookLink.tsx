@@ -11,6 +11,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { dirname } from '../../../../../base/common/resources.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
+import { expandHomePath } from '../../../../services/path/common/positronPathUtils.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
@@ -23,6 +24,8 @@ const SCHEME_REGEX = /^[\w\-]+:/;
  * Mirrors upstream `_handleResourceOpening` in
  * src/vs/workbench/contrib/notebook/browser/view/renderers/backLayerWebView.ts
  * (which is private, so we port the logic locally per upstream-compat policy).
+ * Unlike upstream, `~` expands only when it is alone or before a separator, so
+ * `~name` resolves against the notebook's location.
  *
  * Returns undefined for hrefs with a scheme (http, mailto, command, file, etc.)
  * so the caller can pass them through to the opener service unchanged.
@@ -53,20 +56,18 @@ export async function resolveNotebookLinkTarget(
 				authority: folders[0].uri.authority,
 			});
 		}
-	} else if (href.startsWith('~')) {
-		const userHome = await pathService.userHome();
-		if (userHome) {
-			target = URI.joinPath(userHome, href.substring(2));
-		}
 	} else {
-		if (notebookUri.scheme === Schemas.untitled) {
-			const folders = workspaceContextService.getWorkspace().folders;
-			if (!folders.length) {
-				return undefined;
+		target = await expandHomePath(href, pathService);
+		if (!target) {
+			if (notebookUri.scheme === Schemas.untitled) {
+				const folders = workspaceContextService.getWorkspace().folders;
+				if (!folders.length) {
+					return undefined;
+				}
+				target = URI.joinPath(folders[0].uri, href);
+			} else {
+				target = URI.joinPath(dirname(notebookUri), href);
 			}
-			target = URI.joinPath(folders[0].uri, href);
-		} else {
-			target = URI.joinPath(dirname(notebookUri), href);
 		}
 	}
 

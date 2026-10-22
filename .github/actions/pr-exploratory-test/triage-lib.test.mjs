@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { areasOf, issueRow, milestonedAt, outcomeOf, reportLink } from './triage-lib.mjs';
+import { areasOf, issueRow, matchedLinks, milestonedAt, outcomeOf, reportLink } from './triage-lib.mjs';
 
 const BASE = 'https://connect.posit.it/explore/pr-16500-run-9';
 const issue = extra => ({
@@ -52,7 +52,7 @@ test('issueRow takes severity from the report and the version from stats', () =>
 		num: 7, title: 'A bug', filed: '2026-10-01', closed: null,
 		reportUrl: `${BASE}/index.html`, findingUrl: `${BASE}/index.html#f3`,
 		sev: 'major', out: 'future', milestone: 'Future', futureSince: '2026-10-08',
-		type: 'Bug', areas: ['plots'], source: 'pr', skillVersion: '1.58',
+		type: 'Bug', areas: ['plots'], source: 'pr', skillVersion: '1.58', via: 'linked',
 	});
 });
 
@@ -64,4 +64,17 @@ test('issueRow leaves out what it cannot read', () => {
 	assert.equal(row.futureSince, null);
 	assert.equal(row.closed, '2026-10-09');
 	assert.equal(row.source, 'local');
+});
+
+test('matchedLinks keeps matched issues that mention the PR, once each, and not ones already linked', () => {
+	const r = (number, extra = {}) => ({ reportUrl: `${BASE}/index.html`, finding: 2, issue: { number, mentionsPr: true }, ...extra });
+	const rows = [
+		r(10),
+		r(10, { finding: 5 }),
+		r(11, { issue: { number: 11, mentionsPr: false } }),
+		r(12, { dupOf: 'x' }),
+		r(13),
+		{ reportUrl: `${BASE}/index.html`, finding: 1 },
+	];
+	assert.deepEqual(matchedLinks(rows, new Set([13])), [{ number: 10, link: { base: BASE, finding: 2 } }]);
 });

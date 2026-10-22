@@ -1,280 +1,333 @@
 ---
 name: positron-intake-rotation
 disable-model-invocation: true
-description: This skill should be used when handling issue intake rotation duties for the Positron repository. It provides workflows for reviewing and organizing new issues, responding to discussions, handling support tickets, and searching for related content. Use this skill when on intake rotation duty, when helping someone with intake tasks, or when learning the intake rotation process.
+description: Work Positron intake rotation duty - triage the no-status issue queue, discussions nobody at Posit has replied to, and Positron Escalations (PSTRNESC) Jira tickets that sit with engineering. Produces a ranked daily worklist, then drills into one item end to end (research, duplicate and upstream checks, optional repro, drafted response, and the label/status/comment writes on approval).
 ---
 
-# Positron Intake Rotation
+# Positron intake rotation
 
-## Overview
+Get incoming issues, discussions, and support tickets ready for the weekly triage
+meeting. Intake's job is not to prioritize or schedule -- it is to make sure nothing is
+dropped, and that whatever reaches triage is actionable.
 
-This skill provides comprehensive guidance for handling issue intake rotation for the Positron IDE repository. Intake rotation is a weekly assignment (Monday-Friday) where team members review and respond to new issues, discussion posts, and support tickets to ensure timely responses and actionable issue tracking.
+The team process lives on the wiki's
+[Intake Rotation](https://connect.posit.it/positron-wiki/intake-rotation.html) page.
+This skill is the operational version of it. If the two disagree, the wiki wins -- open
+a PR here to bring the skill back in line.
 
-The goal is to respond to new items within approximately one business day and ensure all issues have the details required to be actionable.
+## Usage
 
-## 🚨 CRITICAL: Manual Action Protocol
-
-**This skill assists with intake rotation but NEVER executes GitHub actions directly.**
-
-All GitHub interactions must be performed manually by the user:
-- ✅ Draft responses for review before posting
-- ✅ Suggest labels and categorization
-- ✅ Prepare commands for user to execute
-- ✅ Search and analyze issues/discussions
-- ❌ NEVER post comments or responses directly
-- ❌ NEVER edit issues, add labels, or change status
-- ❌ NEVER close issues or create new ones
-- ❌ NEVER execute `gh` commands that modify GitHub state
-
-**Workflow:** Analyze → Recommend → Draft → User executes manually
-
-## When to Use This Skill
-
-Use this skill when:
-- Currently on intake rotation duty
-- Helping another team member with intake tasks
-- Learning the intake rotation process
-- Reviewing backlog items without status
-- Responding to GitHub discussions
-- Handling customer support tickets
-- Searching for duplicate or related issues
-
-## Quick Start
-
-### Essential Scripts
-
-Four shell scripts are provided to streamline intake tasks:
-
-1. **`scripts/fetch_intake_issues.sh`** - List open issues without status (the intake queue)
-2. **`scripts/fetch_discussions.sh`** - List recent open discussions needing attention
-3. **`scripts/fetch_labels.sh`** - Show all available repository labels for categorization
-4. **`scripts/search_related.sh <query>`** - Search for related issues and discussions
-
-All scripts support `--json` flag for programmatic use. Run scripts from the skill directory.
-
-### Essential References
-
-Two comprehensive reference documents provide detailed workflows:
-
-1. **`references/intake_workflow.md`** - Complete workflows for handling issues, discussions, and support tickets
-2. **`references/response_examples.md`** - Response patterns and examples from experienced team members
-
-Load these references when drafting responses or handling complex scenarios.
-
-## Core Workflow
-
-### Daily Intake Process
-
-Follow this process each day during rotation:
-
-1. **Check for new items**
-   - Run `scripts/fetch_intake_issues.sh` to see issues without status
-   - Run `scripts/fetch_discussions.sh` to see recent discussions
-   - Check [Support Tickets in Jira](https://positpbc.atlassian.net/jira/core/projects/IDEESC/board/UtafxcH?filter=labels%20%3D%20%22Positron%22&groupBy=status)
-
-2. **Review each item systematically**
-   - Read the full description and context
-   - Assess completeness (are system details, reproduction steps, etc. provided?)
-   - Determine item type (bug, feature request, question, duplicate)
-
-3. **Search for related content**
-   - Use `scripts/search_related.sh "<keywords>"` to find similar issues
-   - Check documentation at https://positron.posit.co/welcome.html
-   - Look for existing discussions on the topic
-
-4. **Recommend categorization and organization**
-   - Run `scripts/fetch_labels.sh` to see available labels
-   - **Suggest** appropriate labels (area, type, priority) for user to apply
-   - **Recommend** setting status to "Triage" once organized
-   - **Suggest** adding to "Positron Backlog" project if applicable
-   - **Prepare** `gh` commands for user to execute manually
-
-5. **Draft response for user review**
-   - Consult `references/response_examples.md` for patterns
-   - Draft welcoming message thanking the contributor
-   - Include clarifying questions if information is missing
-   - Suggest workarounds or links to related content when available
-   - Set realistic expectations about next steps
-   - **Present draft to user for review before posting**
-
-6. **Recommend follow-through actions**
-   - **Suggest** tagging relevant team members if specialized knowledge is needed
-   - **Draft** duplicate closure message with reference to canonical issue
-   - **Recommend** converting discussions to issues when appropriate
-   - **Advise** continuing follow-up even after rotation ends, or explicit handoff
-
-### Using GitHub CLI
-
-Prefer using GitHub CLI (`gh`) over other methods for consistency. **All commands below are for the USER to execute manually.**
-
-**Read-only commands** (can be executed to gather information):
-```bash
-# View issue with all comments
-gh issue view <number> --repo posit-dev/positron --comments
-
-# Search issues
-gh issue list --repo posit-dev/positron --search "<query>" --state all
-
-# View discussion
-gh api graphql -f query='...' # (see scripts for examples)
+```
+/positron-intake-rotation                    # sweep: ranked worklist across all three sources
+/positron-intake-rotation --fast             # quick re-check later in the day
+/positron-intake-rotation 15693              # drill into one issue
+/positron-intake-rotation d15526             # drill into a discussion (d-prefix)
+/positron-intake-rotation PSTRNESC-15        # drill into a support ticket
 ```
 
-**Modification commands** (prepare for user, NEVER execute directly):
-```bash
-# Add labels - DRAFT THIS COMMAND for user to run
-gh issue edit <number> --repo posit-dev/positron --add-label "area: console,Bug"
+## Prerequisites
 
-# Close as duplicate - DRAFT THIS COMMAND for user to run
-gh issue close <number> --repo posit-dev/positron --comment "Closing as duplicate of #<canonical-number>"
-```
+- `gh`, authenticated with access to `posit-dev`. Everything GitHub-side runs through it.
+- The Atlassian connector (MCP), for support tickets. Without it, say so once, point the
+  person at the [Positron Escalations board](https://positpbc.atlassian.net/jira/core/projects/PSTRNESC/board),
+  and carry on with the GitHub side.
+- Optional: read access to the private `posit-dev/assistant` repo, for AI-related
+  duplicate searches. See `references/upstream-and-assistant.md` for the fallback.
 
-**Important:** Present modification commands to the user in a code block with clear instructions to review and execute manually.
+## Approval model -- read this before doing anything
 
-## Handling Different Scenarios
+**Nothing user-visible goes out without showing the exact text and getting an explicit
+go-ahead.** Not a summary of the comment. The comment.
 
-### Bug Reports
+Requires approval, per item, full text shown first:
 
-For bug reports, assess completeness:
+- comments on issues and discussions
+- closing an issue, including as duplicate
+- creating an issue from a discussion or a support ticket
+- retitling an issue
+- Jira comments, Zendesk-tab replies to Support, status moves like `With Support`
 
-**Complete bug report:**
-- System details (Positron version, OS, commit hash)
-- Clear reproduction steps
-- Expected vs. actual behavior
-- Error messages or screenshots
+Requires approval but batchable ("apply the metadata you proposed"):
 
-If complete:
-1. Search for duplicates using `scripts/search_related.sh`
-2. **Suggest** labels (area, "Bug" type) for user to apply
-3. **Recommend** setting status to "Triage"
-4. **Draft** response thanking reporter and acknowledging the issue
+- labels, issue type, project `Status` -> `Triage`
 
-If incomplete:
-1. **Draft** message thanking the reporter
-2. **Include** specific questions about missing information
-3. **Suggest** referencing the bug report template if helpful
-4. **Advise** keeping issue open until information is provided
+No approval needed: all reads. The queue, issue bodies, comments, duplicate searches,
+upstream searches, assistant-repo searches, Jira ticket details.
 
-**Refer to `references/intake_workflow.md` for detailed bug handling workflows.**
+Also gated: **reproduction**, because it launches an app on the person's machine.
+Propose the recipe, let the person choose.
 
-### Feature Requests
+Do not batch a write across items the person only approved for one item. When unsure
+whether something counts as user-visible, treat it as if it does. If the person says
+they will post something themselves, hand over the draft and stop -- do not also post it.
 
-For feature requests:
-1. **Draft** message thanking the user for the suggestion
-2. Search for existing related feature requests
-3. If duplicate, **draft** message linking to existing issue (user closes manually)
-4. If new, **suggest** labels and recommend adding to backlog
-5. **Draft** message setting realistic expectations about prioritization
+### How to render a draft so it survives copy-paste
 
-### Discussions
+Drafts get copied into the GitHub comment box by hand often enough that the rendering
+matters. Two things silently destroy the markdown on the way:
 
-For discussions:
-1. Determine discussion type (question, idea, bug report, announcement)
-2. **Draft** appropriate response:
-   - **Questions:** Provide answer or link to docs
-   - **Ideas:** Acknowledge and link to related issues
-   - **Bug reports:** Ask user to create formal issue
-   - **Off-topic:** Politely redirect
+- **Blockquote prefixes travel.** Wrapping a draft in `> ` to set it off visually means
+  every line carries a `> ` when it is copied, so GitHub renders the whole comment as a
+  quotation, and any `##` headings inside it stop being headings.
+- **Copying rendered chat loses the source characters.** The chat surface renders
+  markdown, so a selection taken from it yields the display form: `**bold**` arrives as
+  `bold`, `` `code` `` loses its backticks, tables lose their pipes.
 
-**Recommend converting discussions to issues** when they contain clear, actionable bug reports or feature requests (user performs conversion manually).
+So: **put every drafted comment in a fenced code block tagged `markdown`, using a
+four-backtick fence.**
 
-### Support Tickets
+````
+````markdown
+Comment text goes here, with its **bold**, `backticks`, ## headings,
+tables, and any ```json fenced blocks of its own, all intact.
+````
+````
 
-Support tickets require special handling:
+Four backticks, not three, because drafts routinely contain their own three-backtick
+blocks (a `settings.json` snippet, a command to run). A three-backtick outer fence gets
+closed early by the first inner one and the rest of the draft escapes as prose. This is
+verified behavior on GitHub's own renderer, not a precaution.
 
-⚠️ **CRITICAL:** Never mention customer names in public issues or discussions
+Do not put the draft in a blockquote, and do not add commentary inside the fence. Notes
+about the draft go outside it, in normal prose.
 
-1. Review ticket context in Jira
-2. Search for related public issues
-3. **Draft** response in Jira (not publicly) for user to post
-4. **Recommend** creating sanitized public issue if needed
-5. **Suggest** linking between ticket and issue
+The higher-fidelity path, when the draft is long or the person wants to edit before
+posting: write it to a temporary file (outside the repo), verify it is ASCII, tell the
+person where it is so they can open and edit it, and post with
+`gh issue comment --body-file`. That file is the exact bytes that get posted, so nothing
+is lost in transit. Prefer this for the two-comment split, where there are two distinct
+blocks to keep straight.
 
-### Security Issues
+## 1. Sweep
 
-If an issue describes a security vulnerability:
-1. **Do NOT discuss details publicly**
-2. **Draft** message asking reporter to email security@posit.co
-3. **Recommend** closing public issue with note about private reporting (user closes manually)
-4. **Advise** alerting team privately
-
-## Response Guidelines
-
-### Tone and Style
-
-**Be welcoming:** Thank contributors for their time and effort
-
-**Be clear:** Use simple language, explain technical terms, provide examples
-
-**Be helpful:** Offer workarounds, link to resources, provide next steps
-
-**Be realistic:** Don't overpromise timelines or solutions
-
-**Be professional:** Remain calm and constructive, even with frustrated reporters
-
-### Learning from Examples
-
-To see examples from experienced team members:
+From the repo root:
 
 ```bash
-# Find issues commented on by key team members
-gh search issues --repo posit-dev/positron --commenter juliasilge --limit 20
-gh search issues --repo posit-dev/positron --commenter jmcphers --limit 20
-
-# View specific issue with comments
-gh issue view <number> --repo posit-dev/positron --comments
+node .claude/skills/positron-intake-rotation/scripts/sweep.ts
 ```
 
-Pay special attention to responses by `juliasilge` and `jmcphers` for tone and approach guidance.
+About a minute for a complete scan of all open issues and discussions (the two page
+through GitHub in parallel). It emits a verdict line, then the issue queue bucketed by
+what each item is waiting on, then discussions needing a reply. If a queued issue
+cannot be loaded, the report lists it as such rather than failing; check it by hand.
 
-**Load `references/response_examples.md` for detailed response patterns and anti-patterns.**
+Flags: `--fast`, `--json`, `--no-discussions`, `--discussion-days N`,
+`--stale-days N`, `--fast-clean-pages N`.
 
-## Important Reminders
+### What counts as a discussion needing attention
 
-### Team Collaboration
+**No Posit reply anywhere in the thread.** Not "the user had the last word" -- those
+are very different sets (21 vs 186 repo-wide as of Aug 2026), and a thread where we
+answered and the reporter wrote back has already been handled.
 
-**Don't try to solve everything alone.** Reach out to team members when:
-- The issue requires specialized domain knowledge
-- You're unsure how to categorize or prioritize
-- The issue describes complex technical problems
-- You need help understanding the user's concern
+Two details that are easy to get wrong:
 
-### Handoff Protocol
+- **Check nested replies, not just top-level comments.** Team answers often land as
+  replies inside a thread. Missing them inflated the count by a third on its own.
+- **A community-accepted answer counts as resolved** even with no Posit reply, so
+  `isAnswered` threads are excluded.
 
-If handling an item extends beyond your rotation week:
-- **Typically:** Continue following up yourself to get to triage
-- **If not possible:** Explicitly communicate handoff to next person on rotation
-- **Don't drop items** without clear handoff
+Because the team always has someone on rotation, the recent end is normally empty and
+the real list is a couple of items at most. The sweep splits them: anything from the
+last 30 days is the work; the older never-answered tail is shown separately and is
+mostly stale feature wishes nobody is waiting on. Do not treat a 500-day-old unanswered
+Feedback post as urgent because it appears on the list.
 
-### Documentation
+### `--fast`: the re-check mode
 
-If recurring issues or common questions emerge:
-- Consider creating FAQ entries
-- Suggest documentation improvements
-- Note patterns for team discussion
+**About 10 seconds instead of a minute.** The intended pattern is one complete sweep to
+open the session, then `--fast` for every re-check after that.
 
-## Quick Reference Links
+That is not just a speed preference, it is why the mode is sound: new issues get the
+newest numbers and new discussion activity sorts to the top, so **anything that arrives
+after your full sweep lands exactly where `--fast` looks.** The full sweep already ruled
+out an old untriaged straggler, so the one risk `--fast` carries is retired for the day.
 
-- [Issue Intake Board](https://github.com/orgs/posit-dev/projects/2/views/33) - Issues without status
-- [Discussions](https://github.com/posit-dev/positron/discussions) - Community discussions
-- [Support Tickets](https://positpbc.atlassian.net/jira/core/projects/IDEESC/board/UtafxcH?filter=labels%20%3D%20%22Positron%22&groupBy=status) - Customer support (Jira)
-- [Rotation Schedule](https://docs.google.com/spreadsheets/d/1JtE6NpwCx7x9ni-I_KYwCba63wo6LeJ6Z2CyYx_3Qss/edit?usp=sharing) - Google Sheet
-- [Documentation](https://positron.posit.co/welcome.html) - Official Positron docs
-- [Positron Assistant](https://connect.posit.it/positron-wiki/dev-notes/gh-issues-positron-assistant.html) - GitHub issue assistant
+Two different mechanisms, and only one is a heuristic:
 
-## Workflow Summary
+- **Issues -- heuristic.** Pages newest-first, stops after 3 consecutive pages (300
+  issues) with nothing unstatused, since untriaged issues cluster at the new end. It is
+  a partial scan and says so, including how far back it reached. Tune with
+  `--fast-clean-pages N`.
+- **Discussions -- exact.** Results come back ordered by last update, and `updatedAt` is
+  always at least the last comment date, so once a page falls outside the window every
+  remaining discussion does too. Stopping there loses nothing. Only the older backlog
+  age-band counts go uncomputed.
+
+What `--fast` deliberately is **not**: a filter on `updatedAt`. A recency window on
+"last touched" would exclude the `gone-quiet` bucket by construction, since those are
+precisely the items nobody has touched recently.
+
+Residual gap worth knowing: if someone *clears* the Status on an old issue mid-day,
+pushing it back into the queue, `--fast` will not reach it. Rare, and a full scan next
+session catches it.
+
+Run the complete scan at least once per session before treating the queue as whole.
+
+The buckets are the point. An empty `Status` field means very different things:
+
+| Bucket | Meaning | Action |
+|---|---|---|
+| `user-replied` | the reporter has the last word after we engaged or set `info needed` | re-assess; drop `info needed` if set |
+| `untouched` | nobody from the team has commented | full triage |
+| `needs-status` | team engaged and has the last word, no `info needed`, `Status` still empty | probably just needs `Triage` |
+| `waiting-on-user` | `info needed` set, the reporter has not answered | **no action** -- tracking only |
+| `gone-quiet` | `info needed`, silent past the threshold | propose closing |
+
+"The reporter" means the issue's author. A +1 or a bot comment from someone else does
+not count as an answer, so it leaves the issue where it was. Silence for `gone-quiet` is
+measured from our last comment, or from the last activity if `info needed` was set
+without one.
+
+`waiting-on-user` is not work. A queue that is entirely `waiting-on-user` is a quiet
+day; say so rather than walking the person through six items they cannot act on.
+
+### Then add Jira
+
+The script cannot reach Jira (MCP is not available to subprocesses). Query it directly:
 
 ```
-Daily Intake (Assistant Mode - Draft & Recommend):
-1. Fetch new items (scripts/fetch_intake_issues.sh, scripts/fetch_discussions.sh)
-2. Review and assess each item
-3. Search for related content (scripts/search_related.sh)
-4. SUGGEST labels and categorization (scripts/fetch_labels.sh)
-5. DRAFT response (references/response_examples.md) for user review
-6. PREPARE gh commands for user to execute
-7. RECOMMEND setting status to "Triage" (user executes)
-8. ADVISE on follow-through or handoff
-
-Remember: The goal is to ASSIST the user with timely response and actionable
-organization. NEVER execute GitHub modification commands directly - always
-present drafts and recommendations for the user to review and execute manually.
+project = PSTRNESC AND statusCategory != Done ORDER BY updated DESC
 ```
+
+`PSTRNESC` is the **Positron Escalations** board. Positron tickets used to live in the
+shared `IDEESC` project behind a `Positron` label; by early Oct 2026 they had all moved to
+`PSTRNESC` (new keys, same workflow), so querying `IDEESC` now returns nothing and
+looks like a quiet day. The wiki's Intake Rotation page is the source of truth for where
+tickets live; if this query ever returns zero, check the board link there before
+believing it.
+
+Then one straggler check, since a ticket escalated to the shared board without the
+`Positron` label never moves over:
+
+```
+project = IDEESC AND statusCategory != Done AND summary ~ "Positron" ORDER BY updated DESC
+```
+
+Anything it finds is not ours to work in place. Report it in one line so Support can
+move it to `PSTRNESC`.
+
+Use `cloudId: positpbc.atlassian.net`. **Request narrow `fields` and do not request
+`description`** -- these tickets carry enormous Zendesk-relay descriptions, thousands of
+tokens each. `summary`, `status`, `priority`, `labels`, `created`, `updated`, `assignee`
+is enough for the worklist. Pull the description only on drill-in.
+
+### Bucket Jira by status, not by priority
+
+**Status decides whose problem it is. Priority only orders within that.** A High
+ticket sitting in `With Support` is not work; ranking it above an actionable item is
+the same mistake as treating a `waiting-on-user` issue as work.
+
+The `PSTRNESC` workflow has exactly four non-closed statuses (verified Oct 2026, the
+same set `IDEESC` used):
+
+| Status | Category | Whose | Treatment |
+|---|---|---|---|
+| `With Engineering` | In Progress | **ours** | **The state that matters.** Actionable, rank by priority. |
+| `Open` | To Do | ours | Newly arrived, not yet routed. Actionable. |
+| `With Support` | In Progress | Support's | **Tracking only.** They move it back when we need to act. |
+| `Hold` | In Progress | blocked | Paused on a dependency or missing info. Tracking only. |
+
+So the actionable set is `status IN ("With Engineering", "Open")`. Do not flag a
+`With Support` ticket as needing attention, even if it is High priority, recently
+updated, or assigned to the person on rotation -- the ball is genuinely not in our
+court, and Support will transition it back.
+
+Report the `With Support` and `Hold` counts as one line of context, not as worklist
+entries.
+
+Useful when drilling in: the transition that replies to Support is named
+**`Notify Zendesk Support`**, and it lands the ticket back in `With Support`.
+
+### Rank and present
+
+One ranked list, not three. Order:
+
+1. Jira tickets in `With Engineering` or `Open`, highest priority first
+2. `user-replied` issues (someone is waiting on us right now)
+3. recent discussions with no Posit reply at all
+4. `untouched` issues, oldest first
+5. `needs-status` issues
+6. `gone-quiet` issues
+7. off-board issues, if the scan found any
+
+Everything waiting on somebody else -- `waiting-on-user` issues, `With Support` and
+`Hold` tickets -- is summarized in a single line, not ranked. If nothing lands in the
+list above, say the day is quiet instead of padding it with items that cannot move.
+
+Keep it to one line of context per item plus a proposed disposition. The worklist is
+for deciding what to work, not for reading everything.
+
+## 2. Drill in
+
+For one item:
+
+1. **Read it fully** -- body and all comments. For Jira, pull the description now, and
+   check the Zendesk link for context that never made it to the ticket. Also read the
+   ticket's thread in `#positron-support-escalations`: the team keeps ticket discussion
+   there, and every ticket update gets posted there too. Point the person at Connect Bot
+   in Slack for a summary of the full customer conversation (it reads Jira and Zendesk;
+   you cannot reach it from here).
+2. **Run the decision tree** in `references/decision-tree.md`. First match wins, and it
+   leads with security/spam so those never get a public reply.
+3. **Research**, in cheapest-first order:
+   - duplicate search across open and closed issues plus discussions
+   - already-fixed search: merged PRs and recently closed issues in that area
+   - upstream VS Code, when the area is upstream-owned -- the search recipe in
+     `references/upstream-and-assistant.md` matters, naive multi-word search there
+     silently returns nothing
+   - all three assistant repos, for anything AI-related
+4. **Repro** if it is a candidate: propose the recipe from `references/repro.md`, get a
+   yes, then run it. Be precise about which build tier the result came from.
+5. **Draft the response** using `references/voice.md`. Explain the mechanism, ask
+   numbered specific questions, put workarounds under their own heading. When the
+   drill-in produced a real mechanism -- a root cause, a file and line, a regression
+   window -- draft **two** comments: one for the reporter, one for triage, prefaced
+   as the team's analysis. `voice.md` has the split and the exact preface.
+6. **Propose the writes** as a concrete list, then execute the approved ones. When
+   picking area labels, check the real names with
+   `gh label list --repo posit-dev/positron --limit 500` rather than guessing.
+
+Report what actually happened, including the parts that did not work. If a repro was
+inconclusive, the comment says so.
+
+## Hard rules
+
+- **Never name a customer or their employer in a public issue or discussion.** Ticket
+  summaries carry company names in parentheses; strip them.
+- **Never transfer Posit Assistant items.** Label `area: assistant`, prep for triage.
+  That call gets made later, by triage.
+- **Security, spam, or Code of Conduct problems get no public reply.** Raise them in
+  `#positron-dev`.
+- **Do not set Milestone, Priority, or assignees.** Intake's output is
+  `Status = Triage`. Prioritizing is the triage meeting's job.
+- **Do not promise a release, a milestone, or a date.**
+- Files a reporter will not post publicly go to `positron-support@posit.co`.
+- ASCII only in every drafted response. No em-dashes, no smart quotes, no emoji.
+
+## When to ask a human instead
+
+Intake is allowed to not know. Reach out in `#positron-dev` (or
+`#posit-assistant-dev` for AI) rather than guessing when the issue needs domain
+knowledge you do not have, when it might be a security problem, or when the right
+disposition is genuinely unclear. Say so in the worklist rather than inventing a
+confident-sounding disposition.
+
+## Handoff
+
+Rotation is Mon-Fri. If an item bleeds into the following week, the convention is to
+keep following it yourself until it reaches triage. If that is not possible, hand it off
+explicitly to the next person -- do not just leave it in the queue.
+
+State is derived from GitHub on every run: labels, comment authors, and timestamps are
+the source of truth. There is no local state file to go stale. That also means anything
+that lives only outside GitHub (a Slack ping, a promise made on a call) is invisible to
+the sweep -- mention it explicitly when handing off.
+
+## References
+
+- `references/decision-tree.md` -- branch order, field vocabulary, what "done" means
+- `references/voice.md` -- response patterns, all distilled from real repo comments
+- `references/upstream-and-assistant.md` -- the search recipes that actually work
+- `references/repro.md` -- build tiers and what each result proves
+- `scripts/sweep.ts` -- the queue and discussion scan behind step 1

@@ -9,19 +9,33 @@
 
 import type { IViewerActOutcome, IViewerBridge, IViewerIdleOptions, IViewerIdleResult, IViewerSnapshotOptions, IViewerViewport, ViewerAction, ViewerBridgeSnapshot } from '../common/positronViewerAgent.js';
 
-/** Caches the bridge in the app's window on Desktop, where each call is a separate script. */
-const BRIDGE_GLOBAL = '__positronViewerBridge1';
+/**
+ * Caches the bridge in the app's window on Desktop, where each call is a
+ * separate script, with the document it was made for.
+ */
+const BRIDGE_GLOBAL = '__positronViewerBridge2';
 
 /**
  * Returns a script that runs one bridge method in the app's frame and resolves
  * to `{ ok: true, value }` or `{ ok: false, error }`. `args` must be
  * JSON-serializable. Used on Desktop, where the app's frame is cross-origin
  * and can only be reached through the main process.
+ *
+ * @param fromHost Whether the script runs in the webview's host frame rather
+ *   than the app's, and has to find the app's window from there.
  */
-export function viewerBridgeScript(method: keyof IViewerBridge, args: readonly unknown[]): string {
+export function viewerBridgeScript(method: keyof IViewerBridge, args: readonly unknown[], fromHost = false): string {
+	const target = fromHost ? `(${findViewerContentWindow})(window, false)` : 'window';
+	const cache = `target[${JSON.stringify(BRIDGE_GLOBAL)}]`;
+	// A frame keeps its window when its first page replaces the initial blank
+	// one, so a bridge cached there can be for a document that's gone.
 	return `(async () => {
 	try {
-		const bridge = window[${JSON.stringify(BRIDGE_GLOBAL)}] ??= (${createViewerBridge})(window);
+		const target = ${target};
+		if (${cache}?.document !== target.document) {
+			${cache} = { document: target.document, bridge: (${createViewerBridge})(target) };
+		}
+		const bridge = ${cache}.bridge;
 		const args = JSON.parse(${JSON.stringify(JSON.stringify(args))});
 		return { ok: true, value: await bridge[${JSON.stringify(method)}](...args) };
 	} catch (e) {
@@ -30,6 +44,35 @@ export function viewerBridgeScript(method: keyof IViewerBridge, args: readonly u
 })()
 //# sourceURL=positronViewerBridge.js
 `;
+}
+
+/**
+ * Finds the window of the content a webview shows, starting from its host
+ * frame, the one running the webview's own index.html. The content is the
+ * page in the #preview-iframe that the Viewer loads URIs and HTML strings in,
+ * or else the #active-frame itself, where notebook renderers draw output.
+ *
+ * This function MUST be self-contained, like `createViewerBridge`: on Desktop
+ * it's serialized into the script that runs in the host frame.
+ *
+ * @param requirePreviewFrame Whether the content must be in a #preview-iframe,
+ *   as for a URI: without one, the URI's page hasn't loaded yet.
+ */
+export function findViewerContentWindow(host: Window, requirePreviewFrame: boolean): Window & typeof globalThis {
+	const active = host.document.querySelector<HTMLIFrameElement>('#active-frame');
+	if (!active?.contentDocument) {
+		throw new Error('The Viewer\'s content hasn\'t loaded yet.');
+	}
+	// Only the Viewer's own frame, not one that output happens to give the same ID.
+	const app = active.contentDocument.body?.querySelector<HTMLIFrameElement>(':scope > #preview-iframe');
+	if (!app && requirePreviewFrame) {
+		throw new Error('The Viewer\'s content hasn\'t loaded yet.');
+	}
+	const appWindow = app ? app.contentWindow : active.contentWindow;
+	if (!appWindow || (app && !app.contentDocument)) {
+		throw new Error('Positron can\'t read the Viewer\'s content, because the page is served from a different origin than Positron.');
+	}
+	return appWindow as Window & typeof globalThis;
 }
 
 /**

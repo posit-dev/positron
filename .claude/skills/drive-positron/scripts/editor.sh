@@ -91,6 +91,10 @@
 # output_logging_*), Python Language Server. Developer: Set Log Level...
 # raises a channel's level.
 #
+# A modal editor (settings.json opens in one) shows no cursor position in the
+# status bar, so every command refuses while one is in front, naming it: its
+# Open Modal Editor in Main Window button (ui.sh ... --in dialog) moves it.
+#
 # Stdout: one JSON line, e.g. {"ok":true,"tab":"dbg.R","dirty":false,"line":9,"column":1,"text":"f(5)",...}
 # Exit code: 0 when it did what was asked, 1 when not (focus elsewhere, no
 # text editor, the cursor or text not where asked, no list or hover, Go to
