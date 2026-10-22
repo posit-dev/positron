@@ -1995,10 +1995,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 		this._alwaysStartRan = true;
+		// Languages are tried in runtime registration order, so a runtime
+		// recommended at startup (registered before discovery) goes first.
 		const languageIds = new Set([
-			...this._languagePacks.keys(),
-			...this._recommendedRuntimesByLanguageId.keys(),
 			...this._languageRuntimeService.registeredRuntimes.map(metadata => metadata.languageId),
+			...this._recommendedRuntimesByLanguageId.keys(),
+			...this._languagePacks.keys(),
 		]);
 		// Only one language can be auto-started: the first one set to Always
 		// that has a runtime to start, and only when no console is starting

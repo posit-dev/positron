@@ -1843,6 +1843,28 @@ describe('RuntimeStartupService - start reasons', () => {
 		expect(startedRuntimeIds()).toEqual(['rt-py']);
 	});
 
+	it('starts the language recommended at startup first when every language is set to always start', async () => {
+		createService(LanguageStartupBehavior.Always);
+		// Python's language pack comes first, as it does in the product.
+		const languagePacks = (svc as unknown as { _languagePacks: Map<string, ExtensionIdentifier[]> })._languagePacks;
+		languagePacks.set('python', [new ExtensionIdentifier('ms-python.python')]);
+		languagePacks.set('r', [new ExtensionIdentifier('ms.r')]);
+		// R is recommended at startup, e.g. from its default interpreter setting.
+		const r = { ...metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R', extensionId: 'ms.r' }), startupBehavior: LanguageRuntimeStartupBehavior.Explicit };
+		const manager = makeManager({ id: 1, owns: [] });
+		manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) => afterDiscovery ?
+			[{ metadata: metadata({ runtimeId: 'rt-py', runtimePath: '/venv/bin/python' }), isProjectDefault: false }] :
+			[{ metadata: r, isProjectDefault: true }];
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+
+		await (svc as unknown as {
+			startRecommendedLanguageRuntimes(disabledLanguageIds: string[], enabledLanguageIds: string[]): Promise<void>;
+		}).startRecommendedLanguageRuntimes([], []);
+		await (svc as unknown as { recommendAfterDiscovery: () => Promise<void> }).recommendAfterDiscovery();
+
+		expect(startedRuntimeIds()).toEqual(['rt-r']);
+	});
+
 	it.each([
 		{ name: 'starts', affiliated: false, started: ['rt-rec'] },
 		{ name: 'does not start', affiliated: true, started: [] },
