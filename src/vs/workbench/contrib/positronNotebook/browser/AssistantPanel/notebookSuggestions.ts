@@ -11,29 +11,15 @@ import { INotebookCellDTO, INotebookContextDTO, NotebookCellType } from '../../.
 import { IHeadlessLanguageModelService, IStreamTextRequest, intentFromSetting } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 
 /**
- * The notebook-suggestions consumer. The headless LM service does not own
- * prompts, context, or parsing; this module builds the prompt and context from
- * the notebook DTO the assistant panel already loaded, drives the service's
- * stream, and parses the XML response into the action suggestions the panel
- * renders.
+ * The assistant-panel suggestions consumer. The headless LM service does not
+ * own prompts, context, or parsing; this module builds the prompt and context
+ * from the notebook DTO the assistant panel already loaded (other document
+ * kinds supply their own request), drives the service's stream, and parses the
+ * XML response into the action suggestions the panel renders.
  */
 
-/** System prompt preserved from the existing notebook-suggestions feature. */
-export const NOTEBOOK_SUGGESTIONS_SYSTEM_PROMPT = `You are an AI assistant for Jupyter notebooks in Positron. Your task is to analyze the provided notebook context and suggest 3-5 specific, actionable tasks that the user might want to perform with their notebook.
-
-## Guidelines
-
-1. **Be Contextual**: Base suggestions on the actual state of the notebook (execution status, errors, outputs, cell content, etc.)
-2. **Be Specific**: Suggestions should reference specific aspects of the notebook (e.g., "Debug the error in cell 5" not just "Debug errors")
-3. **Be Actionable**: Each suggestion should be something the assistant can help with immediately
-4. **Vary Modes**: Use appropriate modes:
-- \`ask\`: For questions, explanations, or information requests
-- \`edit\`: For code modifications, refactoring, or adding content
-- \`agent\`: For complex tasks that may require multiple steps or tool usage
-5. **Prioritize Issues**: If there are errors or failed cells, prioritize debugging suggestions
-6. **Consider Workflow**: Suggest next logical steps based on what has been executed
-
-## Output Format
+/** Output format section shared by every suggestions system prompt. */
+export const SUGGESTIONS_OUTPUT_FORMAT = `## Output Format
 
 You MUST return only valid XML in the output, and nothing else. Format the response using the following structure:
 
@@ -54,7 +40,27 @@ You MUST return only valid XML in the output, and nothing else. Format the respo
 </suggestions>
 \`\`\`
 
-Valid values for mode are: \`ask\`, \`edit\`, or \`agent\`
+Valid values for mode are: \`ask\`, \`edit\`, or \`agent\``;
+
+/** Closing reminder shared by every suggestions system prompt. */
+export const SUGGESTIONS_REMINDER = `Remember: Return ONLY valid XML. Do not include any explanatory text, markdown formatting, or additional commentary.`;
+
+/** System prompt preserved from the existing notebook-suggestions feature. */
+export const NOTEBOOK_SUGGESTIONS_SYSTEM_PROMPT = `You are an AI assistant for Jupyter notebooks in Positron. Your task is to analyze the provided notebook context and suggest 3-5 specific, actionable tasks that the user might want to perform with their notebook.
+
+## Guidelines
+
+1. **Be Contextual**: Base suggestions on the actual state of the notebook (execution status, errors, outputs, cell content, etc.)
+2. **Be Specific**: Suggestions should reference specific aspects of the notebook (e.g., "Debug the error in cell 5" not just "Debug errors")
+3. **Be Actionable**: Each suggestion should be something the assistant can help with immediately
+4. **Vary Modes**: Use appropriate modes:
+- \`ask\`: For questions, explanations, or information requests
+- \`edit\`: For code modifications, refactoring, or adding content
+- \`agent\`: For complex tasks that may require multiple steps or tool usage
+5. **Prioritize Issues**: If there are errors or failed cells, prioritize debugging suggestions
+6. **Consider Workflow**: Suggest next logical steps based on what has been executed
+
+${SUGGESTIONS_OUTPUT_FORMAT}
 
 ## Examples
 
@@ -139,7 +145,7 @@ Context: Notebook has 15 cells, all executed successfully, last cell shows a mat
 </suggestions>
 \`\`\`
 
-Remember: Return ONLY valid XML. Do not include any explanatory text, markdown formatting, or additional commentary.`;
+${SUGGESTIONS_REMINDER}`;
 
 /** A single notebook action suggestion, rendered as a button in the panel. */
 export interface INotebookSuggestion {
@@ -220,25 +226,44 @@ function formatCell(cell: INotebookCellDTO): string {
 	].join('\n');
 }
 
+/** The prompt pair sent to the model to generate suggestions. */
+export interface ISuggestionsRequest {
+	/** System prompt describing the document kind and output format. */
+	readonly systemPrompt: string;
+	/** User message describing the document's current state. */
+	readonly context: string;
+}
+
 /**
- * Generate notebook action suggestions through the headless LM service. Builds
- * the request, streams the response, and parses the suggestions, reporting the
- * running list via `onProgress` as each one arrives.
+ * Build the suggestions request for a notebook from the notebook DTO the
+ * assistant panel already holds.
+ */
+export function buildNotebookSuggestionsRequest(context: INotebookContextDTO): ISuggestionsRequest {
+	return {
+		systemPrompt: NOTEBOOK_SUGGESTIONS_SYSTEM_PROMPT,
+		context: buildSuggestionsContext(context),
+	};
+}
+
+/**
+ * Generate action suggestions through the headless LM service. Streams the
+ * response and parses the suggestions, reporting the running list via
+ * `onProgress` as each one arrives.
  *
  * Returns the parsed suggestions (an empty array is a valid "nothing useful"
  * result). Throws if the service cannot proceed (no providers, sign-in needed,
  * etc.) or the stream fails -- the caller shows a single error notification.
  */
-export async function generateNotebookSuggestions(
+export async function generateSuggestions(
 	service: IHeadlessLanguageModelService,
-	context: INotebookContextDTO,
+	suggestionsRequest: ISuggestionsRequest,
 	modelSetting: readonly string[] | undefined,
 	token: CancellationToken,
 	onProgress: (suggestions: INotebookSuggestion[]) => void,
 ): Promise<INotebookSuggestion[]> {
 	const request: IStreamTextRequest = {
-		systemPrompt: NOTEBOOK_SUGGESTIONS_SYSTEM_PROMPT,
-		messages: [{ role: 'user', content: buildSuggestionsContext(context) }],
+		systemPrompt: suggestionsRequest.systemPrompt,
+		messages: [{ role: 'user', content: suggestionsRequest.context }],
 		model: intentFromSetting(modelSetting),
 		cancellationToken: token,
 	};
@@ -260,7 +285,7 @@ export async function generateNotebookSuggestions(
  * state (tolerating malformed XML). Text outside a recognized field is dropped.
  *
  * @internal Exported for focused testing; callers should use
- * {@link generateNotebookSuggestions}.
+ * {@link generateSuggestions}.
  */
 export async function parseNotebookSuggestions(
 	text: AsyncIterable<string>,

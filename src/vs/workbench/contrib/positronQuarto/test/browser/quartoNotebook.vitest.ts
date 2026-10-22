@@ -6,6 +6,10 @@
 /// <reference types="vitest/globals" />
 
 import { URI } from '../../../../../base/common/uri.js';
+import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { EditorType } from '../../../../../editor/common/editorCommon.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
@@ -22,6 +26,7 @@ import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
 import { QuartoNotebook } from '../../browser/quartoNotebook.js';
 import { IQuartoOutputManager } from '../../browser/quartoOutputManager.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../positronNotebook/common/positronNotebookConfig.js';
 import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
 
 const DOCUMENT = `---
@@ -48,11 +53,14 @@ describe('QuartoNotebook', () => {
 	let outputs: ICellOutput[] = [];
 	let foregroundSession: ILanguageRuntimeSession | undefined;
 	let affiliatedRuntimes: ILanguageRuntimeMetadata[] = [];
+	let activeEditor: ICodeEditor | undefined;
+	const configurationService = new TestConfigurationService();
 
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
 		.stub(ICodeEditorService, { listCodeEditors: () => [] })
-		.stub(IEditorService, { activeTextEditorControl: undefined })
+		.stub(IConfigurationService, configurationService)
+		.stub(IEditorService, { get activeTextEditorControl() { return activeEditor; } })
 		.stub(IQuartoExecutionManager, {
 			executeCell,
 			getExecutionState: () => CellExecutionState.Idle,
@@ -68,6 +76,8 @@ describe('QuartoNotebook', () => {
 		outputs = [];
 		foregroundSession = undefined;
 		affiliatedRuntimes = [];
+		activeEditor = undefined;
+		configurationService.setUserConfiguration(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, true);
 	});
 
 	function createNotebook(content: string) {
@@ -157,5 +167,23 @@ describe('QuartoNotebook', () => {
 			{ mimeType: 'application/vnd.code.notebook.stdout', data: '[1] 2' },
 			{ mimeType: 'image/png', data: 'iVBORw0K' },
 		]);
+	});
+
+	it('reveals the cells the assistant edits or runs, unless auto-follow is off', async () => {
+		const { notebook, textModel } = createNotebook(DOCUMENT);
+		const reveal = vi.fn();
+		activeEditor = stubInterface<ICodeEditor>({
+			getEditorType: () => EditorType.ICodeEditor,
+			getModel: () => textModel,
+			revealLinesInCenterIfOutsideViewport: reveal,
+		});
+
+		await notebook.runCells([1]);
+		notebook.updateCellContent(0, 'x <- 2');
+		expect(reveal.mock.calls.map(([start]) => start)).toEqual([13, 7]);
+
+		configurationService.setUserConfiguration(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, false);
+		notebook.addCell(NotebookCellType.Code, 0, 'y');
+		expect(reveal).toHaveBeenCalledTimes(2);
 	});
 });

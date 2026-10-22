@@ -59,6 +59,9 @@ import './quartoEmbeddedFormatting.js';
 // Import editor action bar menu wiring to ensure it's registered
 import './quartoEditorActionBar.js';
 
+// Import the Ask Assistant action to ensure it's registered
+import './QuartoAskAssistantAction.js';
+
 // Import CSS styles
 import './media/quartoExecutionDecorations.css';
 import './media/quartoOutputViewZone.css';
