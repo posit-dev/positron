@@ -177,6 +177,9 @@ RUN curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/t
 # Ensure uv-managed Python is default
 ENV PATH="/root/.venv/bin:/root/.local/bin:$PATH"
 
+# reticulate must bind this venv: its own discovery picks the newest uv Python
+ENV RETICULATE_PYTHON=/root/.venv/bin/python
+
 # Configure R for root user
 RUN echo 'options(\n  repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/noble/latest"),\n  HTTPUserAgent = sprintf("R/%s (ubuntu-2404)", getRversion())\n)' > ~/.Rprofile
 

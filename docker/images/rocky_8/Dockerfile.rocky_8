@@ -267,6 +267,9 @@ RUN curl -fsSL https://raw.githubusercontent.com/posit-dev/positron/main/test/e2
 # Ensure uv-managed Python is default
 ENV PATH="/root/.venv/bin:${PATH}"
 
+# reticulate must bind this venv: its own discovery picks the newest uv Python
+ENV RETICULATE_PYTHON=/root/.venv/bin/python
+
 # =========================
 # R + pak configuration
 # =========================
