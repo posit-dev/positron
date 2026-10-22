@@ -114,13 +114,13 @@ suite('R startup recommendation', () => {
 		});
 
 		test('the override list is set when it lists a path', async () => {
-			const before = rFullSearchTriggers().overrideListSet;
+			const before = rFullSearchTriggers(undefined).overrideListSet;
 			await rConfig().update('interpreters.override', ['/opt/R/4.4.1/bin/R'], vscode.ConfigurationTarget.Global);
-			assert.deepStrictEqual([before, rFullSearchTriggers().overrideListSet], [false, true]);
+			assert.deepStrictEqual([before, rFullSearchTriggers(undefined).overrideListSet], [false, true]);
 		});
 
 		test('modules are set up for R only on Linux, with modules on and an environment that lists R', async () => {
-			const onPlatform = (platform: NodeJS.Platform) => testKit.withPlatform(platform, () => rFullSearchTriggers().modulesConfiguredForR);
+			const onPlatform = (platform: NodeJS.Platform) => testKit.withPlatform(platform, () => rFullSearchTriggers(undefined).modulesConfiguredForR);
 			const results: Record<string, boolean> = {};
 			await modulesConfig().update('environments', { py: { languages: ['python'], modules: ['python/3.12'] } }, vscode.ConfigurationTarget.Global);
 			results.noREnvironment = onPlatform('linux');

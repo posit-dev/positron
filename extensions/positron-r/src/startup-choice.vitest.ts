@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import * as semver from 'semver';
-import { chooseStartupR, compareRInstallations, createSharedSearch, RFullSearchTriggers, RStartupCandidate, RStartupInputs, ReusableSearch } from './startup-choice';
+import { chooseStartupR, compareRInstallations, createSharedSearch, RFullSearchTriggers, RStartupCandidate, RStartupInputs, ReusableSearch, rVersionsMayListR } from './startup-choice';
 
 interface FakeR extends RStartupCandidate {
 	readonly name: string;
@@ -49,7 +49,7 @@ function inputs(overrides: Partial<RStartupInputs<FakeR>> & { triggers?: Partial
 		manualStartup: false,
 		looksLikeRProject: async () => true,
 		currentR: async () => current,
-		fullSearchTriggers: () => ({ overrideListSet: false, rVersionsFileExists: false, modulesConfiguredForR: false, ...triggers }),
+		fullSearchTriggers: () => ({ overrideListSet: false, rVersionsListsCurrentR: false, modulesConfiguredForR: false, ...triggers }),
 		fullSearch: async () => installs,
 		...rest,
 	};
@@ -127,9 +127,24 @@ describe('chooseStartupR', () => {
 			expect(await choose(inputs({ current: unusableCurrent, installs: [unusableCurrent, r('4.5.1')] }))).toEqual(searched);
 		});
 
-		it.each<keyof RFullSearchTriggers>(['overrideListSet', 'rVersionsFileExists', 'modulesConfiguredForR'])('runs when %s', async (trigger) => {
+		it.each<keyof RFullSearchTriggers>(['overrideListSet', 'rVersionsListsCurrentR', 'modulesConfiguredForR'])('runs when %s', async (trigger) => {
 			expect(await choose(inputs({ current, triggers: { [trigger]: true }, installs: [r('4.5.1')] }))).toEqual(searched);
 		});
+	});
+});
+
+describe('rVersionsMayListR', () => {
+	// Each R home has its binary at <home>/bin/R; /opt/R/4.4 is also known by its resolved path.
+	const binariesForHome = (home: string) => home === '/opt/R/4.4' ? ['/opt/R/4.4/bin/R', '/real/R/4.4/bin/R'] : [`${home}/bin/R`];
+	const current = '/real/R/4.4/bin/R';
+
+	it.each([
+		{ name: 'an entry for another R', entries: [{ path: '/opt/R/4.3' }], expected: false },
+		{ name: 'an entry for the current R', entries: [{ path: '/opt/R/4.3' }, { path: '/opt/R/4.4' }], expected: true },
+		{ name: 'an entry with only a module', entries: [{ module: 'R/4.4' }], expected: true },
+		{ name: 'no entries', entries: [], expected: false },
+	])('is $expected for $name', ({ entries, expected }) => {
+		expect(rVersionsMayListR(entries, current, binariesForHome)).toBe(expected);
 	});
 });
 

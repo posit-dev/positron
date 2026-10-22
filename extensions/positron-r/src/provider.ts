@@ -20,9 +20,9 @@ import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
 import { discoverModuleBinaries, getEnvironmentModulesApi, moduleEnvironmentsConfiguredForR } from './provider-module.js';
-import { discoverRVersionsBinaries, findRVersionsFile } from './provider-rversions.js';
+import { discoverRVersionsBinaries, findRVersionsFile, parseRVersionsFile } from './provider-rversions.js';
 import { packagerMetadataForPath } from './packager-detection.js';
-import { compareRInstallations, createSharedSearch, RFullSearchTriggers } from './startup-choice.js';
+import { compareRInstallations, createSharedSearch, RFullSearchTriggers, rVersionsMayListR } from './startup-choice.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -1350,12 +1350,39 @@ export async function currentRInstallation(): Promise<RInstallation | undefined>
  * different R than the current R. Each mirrors how `getBinaries()` decides
  * whether to consult that source.
  */
-export function rFullSearchTriggers(): RFullSearchTriggers {
+export function rFullSearchTriggers(current: RInstallation | undefined): RFullSearchTriggers {
 	return {
 		overrideListSet: getInterpreterOverridePaths().length > 0,
-		rVersionsFileExists: process.platform !== 'win32' && findRVersionsFile() !== undefined,
+		rVersionsListsCurrentR: current !== undefined && rVersionsMayListCurrentR(current.binpath),
 		modulesConfiguredForR: moduleEnvironmentsConfiguredForR(),
 	};
+}
+
+/**
+ * Whether the r-versions file may describe the current R. Reading and parsing
+ * the file is cheap, unlike the module commands the full search runs.
+ */
+function rVersionsMayListCurrentR(binpath: string): boolean {
+	const rVersionsPath = process.platform !== 'win32' ? findRVersionsFile() : undefined;
+	if (!rVersionsPath) {
+		return false;
+	}
+	let content: string;
+	try {
+		content = fs.readFileSync(rVersionsPath, 'utf-8');
+	} catch {
+		// The full search skips an unreadable file too.
+		return false;
+	}
+	// The search matches binaries by path, and the current R's path is
+	// resolved through symlinks, so compare against both forms.
+	return rVersionsMayListR(parseRVersionsFile(content), binpath, home => {
+		const binary = path.join(home, 'bin', 'R');
+		if (!fs.existsSync(binary)) {
+			return [];
+		}
+		return [binary, fs.realpathSync(binary)];
+	});
 }
 
 /**

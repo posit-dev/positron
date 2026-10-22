@@ -51,8 +51,8 @@ export interface RStartupChoice<T> {
 export interface RFullSearchTriggers {
 	/** `positron.r.interpreters.override` lists paths, so the search ignores the current R. */
 	readonly overrideListSet: boolean;
-	/** An r-versions file exists. It can change how the current R starts. */
-	readonly rVersionsFileExists: boolean;
+	/** An r-versions entry may describe the current R. It can add a label, env vars, or a module to it. */
+	readonly rVersionsListsCurrentR: boolean;
 	/** Environment modules are set up for R. Those Rs are only found by running module commands. */
 	readonly modulesConfiguredForR: boolean;
 }
@@ -71,7 +71,7 @@ export interface RStartupInputs<T extends RStartupCandidate> {
 	looksLikeRProject(): Promise<boolean>;
 	/** The current R, built the way the search builds it, or undefined if there is none. */
 	currentR(): Promise<T | undefined>;
-	fullSearchTriggers(): RFullSearchTriggers;
+	fullSearchTriggers(current: T | undefined): RFullSearchTriggers;
 	/** Every R the full search finds, usable or not. */
 	fullSearch(): Promise<T[]>;
 }
@@ -113,17 +113,33 @@ export async function chooseStartupR<T extends RStartupCandidate>(inputs: RStart
 export async function pickStartupR<T extends RStartupCandidate>(
 	inputs: Pick<RStartupInputs<T>, 'currentR' | 'fullSearchTriggers' | 'fullSearch'>
 ): Promise<T | undefined> {
-	const triggers = inputs.fullSearchTriggers();
-	if (!triggers.overrideListSet && !triggers.rVersionsFileExists && !triggers.modulesConfiguredForR) {
-		const current = await inputs.currentR();
-		if (current?.usable) {
-			return current;
-		}
+	const current = await inputs.currentR();
+	const triggers = inputs.fullSearchTriggers(current);
+	if (current?.usable && !triggers.overrideListSet && !triggers.rVersionsListsCurrentR && !triggers.modulesConfiguredForR) {
+		return current;
 	}
 	const installs = (await inputs.fullSearch())
 		.filter(inst => inst.usable)
 		.sort(compareRInstallations);
 	return installs[0];
+}
+
+/**
+ * Whether an r-versions entry may describe the R at `binpath`: an entry whose
+ * Path is that R's home, or an entry with only a Module, whose R can't be
+ * known without running module commands.
+ *
+ * @param binariesForHome The paths the R binary in an R home folder can be
+ *   known by, or none if it has no R binary.
+ */
+export function rVersionsMayListR(
+	entries: readonly { readonly path?: string; readonly module?: string }[],
+	binpath: string,
+	binariesForHome: (home: string) => readonly string[]
+): boolean {
+	return entries.some(entry => entry.path
+		? binariesForHome(entry.path).includes(binpath)
+		: entry.module !== undefined);
 }
 
 /**
