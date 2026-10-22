@@ -67,7 +67,13 @@ function ofKind(list: vscode.CompletionList, kind: vscode.CompletionItemKind): s
 /** What the item with a given label inserts. */
 function inserted(list: vscode.CompletionList, wanted: string): string | undefined {
 	const item = list.items.find(each => (typeof each.label === 'string' ? each.label : each.label.label) === wanted);
-	return (item?.textEdit as vscode.TextEdit | undefined)?.newText;
+	return item?.insertText as string | undefined;
+}
+
+/** The text an item replaces in the editor's insert mode, and in its replace mode. */
+function extents(document: vscode.TextDocument, item: vscode.CompletionItem): [string, string] {
+	const range = item.range as { inserting: vscode.Range; replacing: vscode.Range };
+	return [document.getText(range.inserting), document.getText(range.replacing)];
 }
 
 suite('SqlCompletionItemProvider', () => {
@@ -302,14 +308,14 @@ suite('SqlCompletionItemProvider', () => {
 	test('the completion replaces the partial identifier', async () => {
 		const { list, document } = await complete('SELECT * FROM cust|');
 
-		assert.strictEqual(document.getText(list.items[0].textEdit!.range), 'cust');
+		assert.deepStrictEqual(extents(document, list.items[0]), ['cust', 'cust']);
 	});
 
 	test('an identifier needing quotes inserts quoted', async () => {
 		const { list } = await complete('SELECT o.Order| FROM orders o');
 
 		assert.strictEqual(list.items[0].label, 'Order Total');
-		assert.strictEqual(list.items[0].textEdit!.newText, '"Order Total"');
+		assert.strictEqual(list.items[0].insertText, '"Order Total"');
 	});
 
 	test('the quote style follows the dialect', async () => {
@@ -318,8 +324,8 @@ suite('SqlCompletionItemProvider', () => {
 		const backticks = await complete('SELECT o.Order| FROM orders o', { dialect: 'mysql' });
 		const brackets = await complete('SELECT o.Order| FROM orders o', { dialect: 'tsql' });
 
-		assert.strictEqual(backticks.list.items[0].textEdit!.newText, '`Order Total`');
-		assert.strictEqual(brackets.list.items[0].textEdit!.newText, '[Order Total]');
+		assert.strictEqual(backticks.list.items[0].insertText, '`Order Total`');
+		assert.strictEqual(brackets.list.items[0].insertText, '[Order Total]');
 	});
 
 	test('completing inside a half typed quoted identifier replaces the quote too', async () => {
@@ -328,8 +334,8 @@ suite('SqlCompletionItemProvider', () => {
 		const { list, document } = await complete('SELECT o."Order T| FROM orders o');
 
 		assert.strictEqual(list.items[0].label, 'Order Total');
-		assert.strictEqual(document.getText(list.items[0].textEdit!.range), '"Order T');
-		assert.strictEqual(list.items[0].textEdit!.newText, '"Order Total"');
+		assert.deepStrictEqual(extents(document, list.items[0]), ['"Order T', '"Order T']);
+		assert.strictEqual(list.items[0].insertText, '"Order Total"');
 	});
 
 	test('an item inside a quoted identifier is filtered by what was typed, quote included', async () => {
@@ -348,8 +354,8 @@ suite('SqlCompletionItemProvider', () => {
 		// there would otherwise be left dangling after it.
 		const { list, document } = await complete('SELECT o."Order T|" FROM orders o');
 
-		assert.strictEqual(document.getText(list.items[0].textEdit!.range), '"Order T"');
-		assert.strictEqual(list.items[0].textEdit!.newText, '"Order Total"');
+		assert.deepStrictEqual(extents(document, list.items[0]), ['"Order T"', '"Order T"']);
+		assert.strictEqual(list.items[0].insertText, '"Order Total"');
 	});
 
 	test('a quote that opens an identifier asks for completions, and one that closes it does not', async () => {
@@ -446,6 +452,122 @@ suite('SqlCompletionItemProvider', () => {
 		assert.strictEqual(list.items.length, 5000);
 		assert.strictEqual(list.isIncomplete, true);
 	});
+	test('only tables are offered where a table is read', async () => {
+		const { list } = await complete('SELECT * FROM orders o JOIN |');
+
+		assert.deepStrictEqual(
+			[ofKind(list, vscode.CompletionItemKind.Field), ofKind(list, vscode.CompletionItemKind.Variable)],
+			[[], []],
+		);
+		assert.deepStrictEqual(ofKind(list, vscode.CompletionItemKind.Class), ['orders', 'customers']);
+	});
+
+	test('only the target\'s columns are offered in an INSERT column list or an UPDATE SET', async () => {
+		const insert = await complete('INSERT INTO orders (|)');
+		const update = await complete('UPDATE customers SET |');
+
+		assert.deepStrictEqual(
+			[insert, update].map(({ list }) => [
+				ofKind(list, vscode.CompletionItemKind.Field),
+				ofKind(list, vscode.CompletionItemKind.Class),
+			]),
+			[[['id', 'total', 'Order Total'], []], [['id', 'name'], []]],
+		);
+	});
+
+	test('the table an INSERT writes is offered tables, not columns', async () => {
+		const { list } = await complete('INSERT INTO |');
+
+		assert.deepStrictEqual(
+			[ofKind(list, vscode.CompletionItemKind.Field), ofKind(list, vscode.CompletionItemKind.Class)],
+			[[], ['orders', 'customers']],
+		);
+	});
+
+	test('the VISUALISE part is offered the query\'s columns and no tables', async () => {
+		const plain = await complete('SELECT * FROM orders VISUALISE |');
+		const aliased = await complete('SELECT total AS amount FROM orders VISUALISE amount AS y DRAW |');
+
+		assert.deepStrictEqual(
+			[plain, aliased].map(({ list }) => [
+				ofKind(list, vscode.CompletionItemKind.Field),
+				ofKind(list, vscode.CompletionItemKind.Variable),
+				ofKind(list, vscode.CompletionItemKind.Class),
+			]),
+			[[['id', 'total', 'Order Total'], [], []], [['id', 'total', 'Order Total'], ['amount'], []]],
+		);
+	});
+
+	test('a column says which of the statement\'s tables it is of', async () => {
+		const { list } = await complete('SELECT | FROM orders o JOIN customers ON true');
+
+		assert.deepStrictEqual(
+			list.items
+				.filter(item => typeof item.label !== 'string' && item.label.label === 'id')
+				.map(item => (item.label as vscode.CompletionItemLabel).description),
+			['o', 'customers'],
+		);
+	});
+
+	test('replacing in the middle of a word takes in the rest of it', async () => {
+		const { list, document } = await complete('SELECT o.to|tal FROM orders o');
+
+		assert.deepStrictEqual(extents(document, list.items[0]), ['to', 'total']);
+	});
+
+	test('completing in the middle of a quoted name replaces the whole name', async () => {
+		const { list, document } = await complete('SELECT o."Ord|er Total" FROM orders o');
+
+		assert.deepStrictEqual(
+			[list.items[0].label, ...extents(document, list.items[0]), list.items[0].insertText],
+			['Order Total', '"Order Total"', '"Order Total"', '"Order Total"'],
+		);
+	});
+
+	test('a double quote typed into a BigQuery string asks for nothing', async () => {
+		// It opens a string there, and accepting a column would replace the string with a name.
+		const { labels } = await complete('SELECT * FROM orders WHERE name = "|"', { dialect: 'bigquery', trigger: '"' });
+
+		assert.deepStrictEqual(labels, []);
+	});
+
+	test('a string with a backslash escaped quote ends where the dialect says', async () => {
+		const mysql = await complete('SELECT * FROM orders o WHERE name = \'O\\\'Brien\' AND o.|', { dialect: 'mysql' });
+		const postgres = await complete('SELECT * FROM orders o WHERE name = E\'O\\\'Brien\' AND o.|', { dialect: 'postgres' });
+
+		assert.deepStrictEqual([mysql.labels, postgres.labels], [['id', 'total', 'Order Total'], ['id', 'total', 'Order Total']]);
+	});
+
+	test('nothing is completed in a MySQL hash comment', async () => {
+		const { labels } = await complete('SELECT 1 # see o.|', { dialect: 'mysql' });
+
+		assert.deepStrictEqual(labels, []);
+	});
+
+	test('a schema\'s names are asked about once in each dialect, not once per item', async () => {
+		const real = testAnalyzer();
+		let calls = 0;
+		const counting = Object.create(real) as typeof real;
+		counting.quoting = (names, dialect) => {
+			calls++;
+			return real.quoting(names, dialect);
+		};
+		const { log } = testLog();
+		let dialect = 'duckdb';
+		const provider = new SqlCompletionItemProvider(() => ({
+			analyzer: counting, schema: SCHEMA, dialect, keywords: real.keywords(), log,
+		}));
+		const document = await sqlDocument('SELECT  FROM orders');
+		const position = document.positionAt(7);
+
+		provider.provideCompletionItems(document, position);
+		dialect = 'postgres';
+		calls = 0;
+		provider.provideCompletionItems(document, position);
+
+		assert.strictEqual(calls, 1);
+	});
+
 });
 
 /**

@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { LocalKind, Produced, SourceRef, SqlAnalyzer } from './analyzer';
-import { probeText, readCursor } from './cursor';
+import { Cursor, identifierQuote, probeText, readCursor } from './cursor';
 import { SqlLog } from './log';
 import { SqlColumn, SqlTable } from './schema';
 import { qualifiedName, SchemaIndex } from './schemaIndex';
@@ -63,28 +63,6 @@ const FOLDS_TO_UPPER = new Set(['snowflake', 'oracle']);
 const MAX_REMEMBERED_QUOTING = 50000;
 
 /**
- * The quote character each dialect writes an identifier with, when it is not the standard one.
- *
- * Keyed by the names the `sql.dialect` setting offers and the connection drivers infer, since
- * those are the only names that reach here. sqlparser's own spellings are listed alongside them:
- * the parser accepts both (see `dialects.rs`), and a reader who knows it by one name should not
- * find the quoting keyed by the other.
- */
-const DIALECT_QUOTES = new Map([
-	// A double quote opens a string in BigQuery, so a name written in one would be a literal.
-	['bigquery', '`'],
-	['mysql', '`'],
-	['mariadb', '`'],
-	['hive', '`'],
-	['databricks', '`'],
-	['spark', '`'],
-	['spark2', '`'],
-	['sparksql', '`'],
-	['tsql', '['],
-	['mssql', '['],
-]);
-
-/**
  * The characters that open a quoted identifier, as completion triggers.
  *
  * The grammar scopes a quoted identifier as a string, where the editor does not suggest as the user
@@ -98,6 +76,26 @@ export const QUOTE_TRIGGERS: readonly string[] = ['"', '`'];
  * `LIMIT`, `OFFSET`, `TOP` or `FETCH FIRST`.
  */
 const NAMELESS_POSITIONS = new Set(['rowCount']);
+
+/**
+ * The analyzer positions where only the name of a table belongs: after `FROM` or `JOIN`, and the
+ * object a DDL statement acts on. A column or an alias there is a query that fails when run.
+ */
+const TABLE_POSITIONS = new Set(['name', 'objectName']);
+
+/**
+ * The analyzer position where a name and nothing else belongs. It covers both the table an
+ * `INSERT INTO` or `UPDATE` writes and the column list or `SET` that follows it, which the
+ * statement's tables tell apart: none yet means the target is being named, and one means its
+ * columns are.
+ */
+const IDENTIFIER_POSITION = 'identifier';
+
+/** The analyzer position inside a statement's ggsql `VISUALISE` part. */
+const VISUALISE_POSITION = 'visualise';
+
+/** The keyword that begins a statement's ggsql part, in either spelling. */
+const VISUALISE_KEYWORD = /\bVISUALI[SZ]E\b/i;
 
 /** What a completion request needs to know about the world, gathered by the caller. */
 export interface CompletionContext {
@@ -135,8 +133,12 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 	 */
 	private readonly _quoting = new Map<string, Map<string, boolean>>();
 
-	/** The schemas whose names have been asked about already, so a schema is primed once. */
-	private readonly _primed = new WeakSet<SchemaIndex>();
+	/**
+	 * The dialects each schema's names have been asked about in already, so a schema is primed
+	 * once per dialect. By dialect as well because the answers are: a file switched to another
+	 * dialect would otherwise ask about its names one item at a time.
+	 */
+	private readonly _primed = new WeakMap<SchemaIndex, Set<string>>();
 
 	/**
 	 * @param _context The world as it stands for one document. Per document, not per window: which
@@ -160,7 +162,7 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		const text = document.getText();
 		const offset = document.offsetAt(position);
 
-		const cursor = readCursor(text, offset);
+		const cursor = readCursor(text, offset, dialect);
 		if (cursor.suppressed) {
 			// Inside a string literal or a line comment, where no identifier belongs.
 			log.trace(`Nothing is completed at ${at(position)}: the cursor is inside a string literal`
@@ -178,14 +180,16 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		// The extent a completion replaces. An explicit edit rather than letting the editor
 		// decide: its own idea of the word under the cursor stops at a quote or a dot, which
 		// would leave the opening quote of `"Order T` behind and insert a second one after it.
-		const replace = new vscode.Range(
-			document.positionAt(cursor.replaceStart),
-			document.positionAt(cursor.replaceEnd),
-		);
+		// Two extents, for the editor's insert and replace modes: the second also takes in the rest
+		// of a word the cursor is in the middle of.
+		const replace: Edit = {
+			inserting: new vscode.Range(document.positionAt(cursor.replaceStart), document.positionAt(cursor.replaceEnd)),
+			replacing: new vscode.Range(document.positionAt(cursor.replaceStart), document.positionAt(cursor.wordEnd)),
+		};
 		const opening = cursor.quoted ? text[cursor.replaceStart] : undefined;
 
 		const quote = this._quoter(analyzer, schema, dialect);
-		const { tables: scope, names, relations, ctes } = inScope(analyzer, schema, dialect, text, cursor, offset);
+		const { tables: scope, names, relations, ctes, readsAny } = inScope(analyzer, schema, dialect, text, cursor, offset);
 
 		const qualifier = cursor.qualifiers.length > 0
 			? cursor.qualifiers[cursor.qualifiers.length - 1]
@@ -206,20 +210,33 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		} else {
 			const contextual = contextualKeywords(analyzer, cursor, text, dialect, offset);
 			keywordSource = contextual.source;
-			// A row count is a number: a column, table or alias there is a query that fails when
-			// run, so the keywords that belong are all there is to offer.
-			const namesBelong = !NAMELESS_POSITIONS.has(contextual.position ?? '');
-			items = [
-				...(namesBelong ? columnItems(scope, quote, replace) : []),
-				...(namesBelong ? relations.flatMap(relation => producedItems(relation, schema, quote, replace)) : []),
-				...(namesBelong ? nameItems(names, quote, replace) : []),
-				...(namesBelong
-					// Qualified when the engine would not find it unqualified: `sales.targets`,
-					// where `targets` alone reads the default schema and fails.
-					? schema.tables.map(table => tableItem(table, quote, replace, !schema.isDefault(table)))
-					: []),
-				...contextual.keywords.map(keyword => keywordItem(keyword, replace)),
-			];
+			const position = contextual.position ?? '';
+			// Which kinds of name belong is the position's to say. A row count is a number, so
+			// none does; after `FROM` only a table does; and in an `INSERT` column list or an
+			// `SET`, only the target's columns. Anywhere else -- an expression, or a position
+			// the analyzer could not place -- every kind is offered, tables included, since a
+			// table name is how a qualified column starts.
+			const identifier = position === IDENTIFIER_POSITION;
+			const columnsBelong = !NAMELESS_POSITIONS.has(position) && !TABLE_POSITIONS.has(position)
+				&& !(identifier && !readsAny);
+			const tablesBelong = !NAMELESS_POSITIONS.has(position) && !(identifier && readsAny);
+			const aliasesBelong = columnsBelong && !identifier;
+			if (position === VISUALISE_POSITION) {
+				// The ggsql part maps the query's columns onto a plot; a table there is never right.
+				items = visualiseItems(analyzer, schema, dialect, text, offset, quote, replace);
+			} else {
+				items = [
+					...(columnsBelong ? columnItems(scope, quote, replace, true) : []),
+					...(aliasesBelong ? relations.flatMap(relation => producedItems(relation, schema, quote, replace)) : []),
+					...nameItems(names.filter(name => name.kind === 'cte' ? tablesBelong : aliasesBelong), quote, replace),
+					...(tablesBelong
+						// Qualified when the engine would not find it unqualified: `sales.targets`,
+						// where `targets` alone reads the default schema and fails.
+						? schema.tables.map(table => tableItem(table, quote, replace, !schema.isDefault(table)))
+						: []),
+					...contextual.keywords.map(keyword => keywordItem(keyword, replace)),
+				];
+			}
 		}
 
 		const prefix = cursor.prefix.toLowerCase();
@@ -284,9 +301,14 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 			known = new Map();
 			this._quoting.set(dialect, known);
 		}
+		let primed = this._primed.get(schema);
+		if (!primed) {
+			primed = new Set();
+			this._primed.set(schema, primed);
+		}
 		if (known.size > MAX_REMEMBERED_QUOTING) {
 			known.clear();
-			this._primed.delete(schema);
+			primed.delete(dialect);
 		}
 		const answers = known;
 		const ask = (names: readonly string[]) => {
@@ -297,12 +319,12 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 			const quoted = analyzer.quoting(asked, dialect);
 			asked.forEach((name, at) => answers.set(name, quoted[at] ?? true));
 		};
-		if (!this._primed.has(schema)) {
+		if (!primed.has(dialect)) {
 			// Every name the schema could insert, in one request rather than one per item.
-			this._primed.add(schema);
+			primed.add(dialect);
 			ask(schemaNames(schema));
 		}
-		const open = DIALECT_QUOTES.get(dialect) ?? '"';
+		const open = identifierQuote(dialect);
 		return name => {
 			if (BARE_IDENTIFIER.test(name)) {
 				if (!answers.has(name)) {
@@ -325,6 +347,18 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 
 /** Writes a name the way a completion should insert it; see `_quoter`. */
 type Quote = (name: string) => string;
+
+/** The extents a completion replaces in the editor's insert and replace modes. */
+interface Edit {
+	readonly inserting: vscode.Range;
+	readonly replacing: vscode.Range;
+}
+
+/** Makes an item insert `text` over the extent of `edit`. */
+function setEdit(item: vscode.CompletionItem, edit: Edit, text: string): void {
+	item.range = edit;
+	item.insertText = text;
+}
 
 /** Every name a schema could have a completion insert. */
 function schemaNames(schema: SchemaIndex): string[] {
@@ -395,7 +429,7 @@ function follows(text: string, start: number, prefix: string, from: number): boo
  */
 function contextualKeywords(
 	analyzer: SqlAnalyzer,
-	cursor: ReturnType<typeof readCursor>,
+	cursor: Cursor,
 	text: string,
 	dialect: string,
 	offset: number,
@@ -436,7 +470,7 @@ function qualifiedItems(
 	relations: readonly Relation[],
 	schema: SchemaIndex,
 	quote: Quote,
-	replace: vscode.Range,
+	replace: Edit,
 ): QualifiedCompletions {
 	const folded = qualifier.toLowerCase();
 
@@ -523,6 +557,13 @@ interface InScope {
 	 * too, but a bare column of a CTE nothing reads is not one the statement can name.
 	 */
 	readonly ctes: readonly Relation[];
+
+	/**
+	 * Whether the statement reads from any table, known to the schema or not. Not the same as
+	 * {@link tables} being non-empty: an `INSERT INTO` a table the schema has not got still has a
+	 * target, and its column list is no place for table names.
+	 */
+	readonly readsAny: boolean;
 }
 
 /** A relation the statement defines and reads, and the columns it produces. */
@@ -544,16 +585,27 @@ function inScope(
 	schema: SchemaIndex,
 	dialect: string,
 	text: string,
-	cursor: ReturnType<typeof readCursor>,
+	cursor: Cursor,
 	offset: number,
 ): InScope {
 	// The identifier being typed is swapped for a plain one first, so that a half typed quoted
 	// identifier does not cost the statement its tables; see `probeText`.
 	const probe = cursor.quoted ? probeText(text, cursor) : { text, offset };
+	return scopeAt(analyzer, schema, dialect, probe.text, probe.offset);
+}
+
+/** What an offset in a document can see; see {@link inScope}. */
+function scopeAt(
+	analyzer: SqlAnalyzer,
+	schema: SchemaIndex,
+	dialect: string,
+	text: string,
+	offset: number,
+): InScope {
 	// Scoped to where the cursor is rather than to everything the statement mentions: the select
 	// after a `WITH` reads from the CTE, not from the tables the CTE reads from, and offering
 	// those columns there would be offering names that are errors.
-	const { sources, locals } = analyzer.sources(probe.text, dialect, probe.offset);
+	const { sources, locals } = analyzer.sources(text, dialect, offset);
 
 	const tables: ScopeEntry[] = [];
 	const names: InScopeName[] = [];
@@ -579,7 +631,41 @@ function inScope(
 			: undefined;
 		names.push({ name: local.name, kind: local.kind, of });
 	}
-	return { tables, names, relations, ctes };
+	return { tables, names, relations, ctes, readsAny: sources.length > 0 };
+}
+
+/**
+ * What to offer in a statement's ggsql `VISUALISE` part: the columns of the query above it,
+ * which are what its mappings name. Read as the scope at the `VISUALISE` keyword, the end of the
+ * query, so they are the tables the query reads and the names its select list gives -- every
+ * column the query could pass on, which for a `SELECT *` is exactly what it does.
+ */
+function visualiseItems(
+	analyzer: SqlAnalyzer,
+	schema: SchemaIndex,
+	dialect: string,
+	text: string,
+	offset: number,
+	quote: Quote,
+	replace: Edit,
+): vscode.CompletionItem[] {
+	// The last statement starting before the cursor, rather than one spanning it: a statement ends
+	// at its last token, and the cursor after `VISUALISE ` is past that.
+	const statement = analyzer.statements(text, dialect)
+		.filter(span => span.start <= offset)
+		.pop();
+	const keyword = statement
+		? VISUALISE_KEYWORD.exec(text.slice(statement.start, offset))
+		: null;
+	if (!statement || !keyword) {
+		return [];
+	}
+	const { tables, names, relations, ctes } = scopeAt(analyzer, schema, dialect, text, statement.start + keyword.index);
+	return [
+		...columnItems(tables, quote, replace, true),
+		...[...relations, ...ctes].flatMap(relation => producedItems(relation, schema, quote, replace)),
+		...nameItems(names.filter(name => name.kind === 'output'), quote, replace),
+	];
 }
 
 /**
@@ -590,7 +676,7 @@ function producedItems(
 	relation: Relation,
 	schema: SchemaIndex,
 	quote: Quote,
-	replace: vscode.Range,
+	replace: Edit,
 ): vscode.CompletionItem[] {
 	const items: vscode.CompletionItem[] = [];
 	const seen = new Set<string>();
@@ -606,7 +692,7 @@ function producedItems(
 		item.detail = vscode.l10n.t('column');
 		item.documentation = vscode.l10n.t('Column of {0}', relation.name);
 		item.sortText = SORT_COLUMN + name.toLowerCase();
-		item.textEdit = new vscode.TextEdit(replace, quote(name));
+		setEdit(item, replace, quote(name));
 		add(item);
 	}
 	for (const star of relation.produces.stars ?? []) {
@@ -630,7 +716,7 @@ function producedItems(
 function nameItems(
 	names: readonly InScopeName[],
 	quote: Quote,
-	replace: vscode.Range,
+	replace: Edit,
 ): vscode.CompletionItem[] {
 	const items: vscode.CompletionItem[] = [];
 	const seen = new Set<string>();
@@ -667,7 +753,7 @@ function nameItems(
 				break;
 		}
 		item.sortText = (cte ? SORT_TABLE : SORT_COLUMN) + folded;
-		item.textEdit = new vscode.TextEdit(replace, quote(name));
+		setEdit(item, replace, quote(name));
 		items.push(item);
 	}
 	return items;
@@ -677,33 +763,43 @@ function resolveSource(schema: SchemaIndex, source: SourceRef): readonly SqlTabl
 	return schema.resolve(source.name, source.schema, source.catalog);
 }
 
+/**
+ * @param owned Whether to show each column's table, or the alias the statement reads it by, beside
+ *   its name: without a qualifier, two tables' `id` columns would otherwise be the same line twice.
+ */
 function columnItems(
 	scope: readonly ScopeEntry[],
 	quote: Quote,
-	replace: vscode.Range,
+	replace: Edit,
+	owned = false,
 ): vscode.CompletionItem[] {
 	const items: vscode.CompletionItem[] = [];
-	for (const { table } of scope) {
+	for (const { alias, table } of scope) {
 		for (const column of table.columns) {
-			items.push(columnItem(column, table, quote, replace));
+			items.push(columnItem(column, table, quote, replace, owned ? alias ?? table.name : undefined));
 		}
 	}
 	return items;
 }
 
+/** @param owner The name to show beside the column's own, saying which table it is of. */
 function columnItem(
 	column: SqlColumn,
 	table: SqlTable,
 	quote: Quote,
-	replace: vscode.Range,
+	replace: Edit,
+	owner?: string,
 ): vscode.CompletionItem {
-	const item = new vscode.CompletionItem(column.name, vscode.CompletionItemKind.Field);
+	const item = new vscode.CompletionItem(
+		owner === undefined ? column.name : { label: column.name, description: owner },
+		vscode.CompletionItemKind.Field,
+	);
 	item.detail = column.isPrimaryKey
 		? vscode.l10n.t('{0} (primary key)', column.dataType ?? 'column')
 		: column.dataType ?? 'column';
 	item.documentation = vscode.l10n.t('Column of {0}', qualifiedName(table));
 	item.sortText = SORT_COLUMN + column.name.toLowerCase();
-	item.textEdit = new vscode.TextEdit(replace, quote(column.name));
+	setEdit(item, replace, quote(column.name));
 	return item;
 }
 
@@ -711,7 +807,7 @@ function columnItem(
  * @param qualify Whether to insert the table's schema in front of it, for a table an unqualified
  *   name would not find.
  */
-function tableItem(table: SqlTable, quote: Quote, replace: vscode.Range, qualify: boolean): vscode.CompletionItem {
+function tableItem(table: SqlTable, quote: Quote, replace: Edit, qualify: boolean): vscode.CompletionItem {
 	const item = new vscode.CompletionItem(table.name, vscode.CompletionItemKind.Class);
 	item.detail = table.kind;
 	item.documentation = table.connection
@@ -719,15 +815,15 @@ function tableItem(table: SqlTable, quote: Quote, replace: vscode.Range, qualify
 		: qualifiedName(table);
 	item.sortText = SORT_TABLE + table.name.toLowerCase();
 	const name = qualify && table.schema ? `${quote(table.schema)}.${quote(table.name)}` : quote(table.name);
-	item.textEdit = new vscode.TextEdit(replace, name);
+	setEdit(item, replace, name);
 	return item;
 }
 
-function keywordItem(keyword: string, replace: vscode.Range): vscode.CompletionItem {
+function keywordItem(keyword: string, replace: Edit): vscode.CompletionItem {
 	const item = new vscode.CompletionItem(keyword, vscode.CompletionItemKind.Keyword);
 	item.detail = 'keyword';
 	item.sortText = SORT_KEYWORD + keyword;
-	item.textEdit = new vscode.TextEdit(replace, keyword);
+	setEdit(item, replace, keyword);
 	return item;
 }
 
