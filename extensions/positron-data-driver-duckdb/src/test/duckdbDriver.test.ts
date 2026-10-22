@@ -10,6 +10,9 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import { DuckDBInstance } from '@duckdb/node-api';
 import { DuckDBConnection, DuckDBConnectionConfig } from '../duckdbConnection.js';
+import * as vscode from 'vscode';
+import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
+import { createDuckDBDriver } from '../duckdbDriver.js';
 
 suite('DuckDB Driver Tests', () => {
 	let tmpDir: string;
@@ -287,5 +290,49 @@ suite('DuckDB Driver Tests', () => {
 		await tables[0].preview!();
 
 		await conn.disconnect();
+	});
+
+	// --- Validating the configuration dialog's parameters ---
+
+	// The driver, created over the no-op Data Explorer host. Validation never previews, so the host
+	// only has to satisfy the parameter's type.
+	function createDriver(): positron.DataConnectionDriver {
+		const extension = vscode.extensions.getExtension('positron.positron-data-driver-duckdb');
+		assert.ok(extension, 'the DuckDB driver extension should be present');
+		// The driver reads only the extension path, to load its icon.
+		const context = { extensionPath: extension.extensionPath } as vscode.ExtensionContext;
+		return createDuckDBDriver(context, dataExplorerHost as unknown as DuckDBDataExplorerRpcHandler);
+	}
+
+	test('validateParameters saves an existing database as a normalized absolute path', async () => {
+		const dbPath = await createTestDb('valid.duckdb');
+		const enteredPath = `${tmpDir}${path.sep}.${path.sep}valid.duckdb`;
+
+		const validation = await createDriver().validateParameters!('file', { databasePath: enteredPath, readOnly: true });
+
+		assert.deepStrictEqual(validation, { normalizedValues: { databasePath: dbPath } });
+	});
+
+	test('validateParameters reports a blank database path', async () => {
+		const validation = await createDriver().validateParameters!('file', { databasePath: '   ' });
+
+		assert.deepStrictEqual(validation, { errors: { databasePath: 'Enter the path to a database file.' } });
+	});
+
+	test('validateParameters reports a database file that does not exist', async () => {
+		const dbPath = path.join(tmpDir, 'missing.db');
+
+		const validation = await createDriver().validateParameters!('file', { databasePath: dbPath });
+
+		assert.deepStrictEqual(validation, { errors: { databasePath: `'${dbPath}' does not exist.` } });
+	});
+
+	test('validateParameters reports a file that is not a DuckDB database', async () => {
+		const dbPath = path.join(tmpDir, 'notes.txt');
+		fs.writeFileSync(dbPath, 'This is not a database, just some notes about one.');
+
+		const validation = await createDriver().validateParameters!('file', { databasePath: dbPath });
+
+		assert.deepStrictEqual(validation, { errors: { databasePath: `'${dbPath}' is not a DuckDB database.` } });
 	});
 });

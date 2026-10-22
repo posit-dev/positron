@@ -60,9 +60,9 @@ below -- a payload `not-found` calls for re-reading the catalog, not for
 concluding the command is missing from this build.
 
 This matters because the whole feature is behind the `dataConnections.enabled`
-setting, which is preview and **off by default** and needs a window reload to
-take effect. With it off, all three commands still exist and still succeed --
-they just report nothing.
+setting. The setting is on by default but can be turned off by the user or an
+administrator. When it is off, all three commands still exist and still succeed,
+but they report nothing.
 
 ## Reading the user's configured connections
 

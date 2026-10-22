@@ -4341,6 +4341,28 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
 
 
+@pytest.mark.parametrize(
+    ("values", "dtype", "ex_min", "ex_max"),
+    [
+        ([1, 500, 1500], pl.Int64, "1", "1500"),
+        ([12345678, 23456789, 34567890], pl.Int64, "12345678", "34567890"),
+        ([0, 1, 2**64 - 1], pl.UInt64, "0", "18446744073709551615"),
+    ],
+)
+def test_polars_profile_summary_stats_integer_min_max(
+    dxf: DataExplorerFixture, values, dtype, ex_min, ex_max
+):
+    # Integer min and max must be exact strings, as for pandas. assert_summary_stats_equal
+    # compares through float(), which would hide rounding and thousands separators.
+    dxf.register_table("df", pl.DataFrame({"n": pl.Series(values, dtype=dtype)}))
+
+    results = dxf.get_column_profiles("df", [_get_summary_stats(0)])
+    stats = results[0]["summary_stats"]
+    assert stats["type_display"] == ColumnDisplayType.Integer
+    assert stats["number_stats"]["min_value"] == ex_min
+    assert stats["number_stats"]["max_value"] == ex_max
+
+
 @pytest.mark.skipif(ibis is None, reason="ibis is not available")
 def test_ibis_supported_features(dxf: DataExplorerFixture):
     dxf.register_table("example", SIMPLE_IBIS_DF)

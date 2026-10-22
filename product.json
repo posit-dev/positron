@@ -256,8 +256,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.138.0",
-			"sha256": "5f2066f86b989ce9b8bbf203076e512d08b7b47adbea74f1a25866dbc9d6403b",
+			"version": "1.139.0",
+			"sha256": "f81a865c511a1c674d020d727b30b0cf499365fe0908ee1edbeb579f116cf22b",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",

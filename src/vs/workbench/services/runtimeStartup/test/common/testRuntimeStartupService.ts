@@ -62,6 +62,10 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	/**
 	 * {@inheritDoc}
 	 */
+	public readonly languageIds: readonly string[] = [];
+
+	public readonly onDidChangeLanguageIds = Event.None;
+
 	public hasLanguageRuntimeProvider(languageId: string): boolean {
 		return this.runtimeProviderLanguageIds.has(languageId);
 	}
