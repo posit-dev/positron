@@ -93,7 +93,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(inputs.matrix) }}
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1
       # --device/--cap-add give the container a TUN device so the Tailscale step can bring up
       # kernel-mode networking (transparent routing to the tailnet, needed by the Redshift test).
       options: --user 0:0 --init --device /dev/net/tun --cap-add=NET_ADMIN
@@ -102,7 +102,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres:24.18.0
+        image: ghcr.io/posit-dev/positron-postgres:24.22.1-py3.14.7-r4.6.1
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -128,7 +128,8 @@ jobs:
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-      RETICULATE_PYTHON: /root/.venv/bin/python
+      # reticulate 1.47 cannot run on Python 3.14 (rstudio/reticulate#1930); bind the 3.13
+      RETICULATE_PYTHON: /root/.pyenv/versions/3.13.0/bin/python
       HOME: /root
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
@@ -286,8 +287,8 @@ jobs:
         shell: bash
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
-          POSITRON_PY_VER_SEL: "3.10.12"
-          POSITRON_R_VER_SEL: 4.5.2
+          POSITRON_PY_VER_SEL: "3.14.7"
+          POSITRON_R_VER_SEL: 4.6.1
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.2
           POSITRON_HIDDEN_PY: "3.12.10 (Conda)"

@@ -16,8 +16,8 @@ both arches on both channels, which keeps the local development loop native.
 ## What this image includes
 
 - Rocky Linux 9 base
-- R 4.5.2 and 4.4.2 (via rig), plus a "hidden" R 4.4.1 under `/root/scratch`
-- Python environments: a uv-managed 3.10.12 venv, pyenv 3.13.0, and a conda
+- R 4.6.1 and 4.4.2 (via rig), plus a "hidden" R 4.4.1 under `/root/scratch`
+- Python environments: a uv-managed 3.14.7 venv, pyenv 3.13.0, and a conda
   3.12.10 env under `/root/scratch`
 - Node.js, Quarto, TinyTeX, AWS CLI
 - The R and Python packages used by the e2e test content (`test/e2e/test-files`)

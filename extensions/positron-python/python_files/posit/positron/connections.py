@@ -1176,7 +1176,10 @@ class SnowflakeConnection(Connection):
         args = ["account", "authenticator", "host", "user", "password", "port"]
         code = "import snowflake.connector\ncon = snowflake.connector.connect(\n"
         for arg in args:
-            val = getattr(self.conn, f"_{arg}")
+            # snowflake-connector-python 5 dropped the private fields, 3 lacks some public ones
+            val = getattr(self.conn, arg, None)
+            if val is None:
+                val = getattr(self.conn, f"_{arg}", None)
             if val is not None:
                 val = repr(val)
                 code += f"    {arg}={val},\n"

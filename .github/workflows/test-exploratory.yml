@@ -525,7 +525,7 @@ jobs:
     timeout-minutes: 90
     runs-on: ubuntu-latest-amd64-8-core
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1
       options: --user 0:0 --init
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
@@ -536,7 +536,7 @@ jobs:
     # unmasked, so it ends up in screenshots redaction cannot reach.
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres:24.18.0
+        image: ghcr.io/posit-dev/positron-postgres:24.22.1-py3.14.7-r4.6.1
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -551,7 +551,8 @@ jobs:
       HOME: /root
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
-      RETICULATE_PYTHON: /root/.venv/bin/python
+      # reticulate 1.47 cannot run on Python 3.14 (rstudio/reticulate#1930); bind the 3.13
+      RETICULATE_PYTHON: /root/.pyenv/versions/3.13.0/bin/python
       E2E_POSTGRES_USER: e2e
       E2E_POSTGRES_PASSWORD: exploratory-test
     steps:

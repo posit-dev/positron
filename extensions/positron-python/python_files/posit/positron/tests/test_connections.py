@@ -60,7 +60,7 @@ except ImportError:
     HAS_REDSHIFT = False
 
 from positron.access_keys import encode_access_key
-from positron.connections import ConnectionsService
+from positron.connections import ConnectionsService, SnowflakeConnection
 
 from .conftest import DummyComm, PositronShell
 from .utils import json_rpc_request, json_rpc_response
@@ -152,6 +152,38 @@ def get_duckdb_connection():
     con = duckdb.connect(":memory:")
     add_default_data(lambda sql: con.execute(sql))
     return con
+
+
+class _FakeSnowflakeConnection:
+    def __init__(self, **attrs):
+        self.__dict__.update(attrs)
+
+
+@pytest.mark.parametrize(
+    "conn",
+    [
+        # snowflake-connector-python 5 exposes only public properties
+        _FakeSnowflakeConnection(
+            account="acct", host="acct.snowflakecomputing.com", user="me", port=443
+        ),
+        # snowflake-connector-python 3 stored private fields
+        _FakeSnowflakeConnection(
+            _account="acct", _host="acct.snowflakecomputing.com", _user="me", _port=443
+        ),
+    ],
+    ids=["public-attrs", "private-attrs"],
+)
+def test_snowflake_make_code_across_connector_versions(conn):
+    code = SnowflakeConnection(conn).code
+
+    assert code == (
+        "import snowflake.connector\ncon = snowflake.connector.connect(\n"
+        "    account='acct',\n"
+        "    host='acct.snowflakecomputing.com',\n"
+        "    user='me',\n"
+        "    port=443,\n"
+        ")\n"
+    )
 
 
 def get_snowflake_connection():
