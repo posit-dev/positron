@@ -7,10 +7,12 @@ import * as assert from 'assert';
 import {
 	DuckDBDataExplorerRpcHandler,
 	DuckDBRow,
+	DuckDBWorkerClient,
 	DuckDBSchemaEntry,
 	DuckDBTableView,
 	IDuckDBReadPlan,
 	duckdbDisplayType,
+	buildDuckDBSchema,
 	makeWhereExpr
 } from 'positron-data-explorer-duckdb';
 import {
@@ -20,6 +22,8 @@ import {
 	DataExplorerBackendRequest,
 	DataExplorerResponse,
 	DataExplorerRpc,
+	TableData,
+	ConvertedCode,
 	FilterComparisonOp,
 	FormatOptions,
 	RowFilter,
@@ -227,7 +231,7 @@ suite('DuckDB Data Explorer Tests', () => {
 			try {
 				// The physical table ('pin_g_cars_5', a synthetic name over a downloaded file) and the
 				// display name ('julia/cars', what the tab should show) deliberately differ.
-				await handler.openTableView('ds1', client, 'main', 'pin_g_cars_5', 'table', { displayName: 'julia/cars' });
+				await handler.openTableView('ds1', client, undefined, 'main', 'pin_g_cars_5', 'table', { displayName: 'julia/cars' });
 				const response = await handler.handleRequest({
 					method: DataExplorerBackendRequest.GetState, uri: 'ds1', params: {},
 				} as DataExplorerRpc) as DataExplorerResponse & { result: BackendState };
@@ -247,7 +251,7 @@ suite('DuckDB Data Explorer Tests', () => {
 			const handler = new DuckDBDataExplorerRpcHandler('test-provider');
 			let closed = false;
 			try {
-				await handler.openTableView('ds1', makeClient(), 'main', 't', 'table', { onClose: () => { closed = true; } });
+				await handler.openTableView('ds1', makeClient(), undefined, 'main', 't', 'table', { onClose: () => { closed = true; } });
 				handler.closeDataset('ds1');
 				assert.strictEqual(closed, true);
 				// The view is gone, so a later RPC for the dataset comes back as an error.
@@ -266,12 +270,68 @@ suite('DuckDB Data Explorer Tests', () => {
 			const handler = new DuckDBDataExplorerRpcHandler('test-provider');
 			let closed = false;
 			try {
-				await handler.openTableView('ds1', makeClient(), 'main', 't', 'table', { onClose: () => { closed = true; } });
+				await handler.openTableView('ds1', makeClient(), undefined, 'main', 't', 'table', { onClose: () => { closed = true; } });
 				handler.closeTableView('ds1');
 				assert.strictEqual(closed, false);
 			} finally {
 				handler.dispose();
 			}
+		});
+	});
+
+	suite('database-qualified views', () => {
+		const ATTACHED = 'my "db"';
+		let client: DuckDBWorkerClient;
+		let handler: DuckDBDataExplorerRpcHandler;
+
+		setup(async () => {
+			client = new DuckDBWorkerClient({ databasePath: ':memory:', readOnly: false });
+			handler = new DuckDBDataExplorerRpcHandler('test-provider');
+			await client.runQuery(`ATTACH ':memory:' AS "my ""db"""`);
+			await client.runQuery(`CREATE TABLE "my ""db"""."main"."t" AS SELECT 1 AS a, 'x' AS b`);
+			await client.runQuery(`CREATE TABLE main.t AS SELECT 2 AS c`);
+		});
+
+		teardown(() => {
+			handler.dispose();
+			client.dispose();
+		});
+
+		async function convertToCode(): Promise<string[]> {
+			const response = await handler.handleRequest({
+				method: DataExplorerBackendRequest.ConvertToCode, uri: 'ds',
+				params: { column_filters: [], row_filters: [], sort_keys: [], code_syntax_name: { code_syntax_name: 'SQL' } },
+			} as DataExplorerRpc) as DataExplorerResponse & { result: ConvertedCode };
+			return response.result.converted_code;
+		}
+
+		test('openTableView reads a table in another attached database', async () => {
+			await handler.openTableView('ds', client, ATTACHED, 'main', 't', 'table');
+			const response = await handler.handleRequest({
+				method: DataExplorerBackendRequest.GetDataValues, uri: 'ds',
+				params: {
+					columns: [0, 1].map(column_index => ({ column_index, spec: { first_index: 0, last_index: 0 } })),
+					format_options: FORMAT,
+				},
+			} as DataExplorerRpc) as DataExplorerResponse & { result: TableData };
+			assert.deepStrictEqual(response.result.columns, [['1'], ['x']]);
+		});
+
+		test('buildDuckDBSchema filters on the given database', async () => {
+			const schema = await buildDuckDBSchema(client, ATTACHED, 'main', 't');
+			assert.deepStrictEqual(schema.map(c => c.column_name), ['a', 'b']);
+		});
+
+		test('convert to code uses a three-part reference', async () => {
+			await handler.openTableView('ds', client, ATTACHED, 'main', 't', 'table');
+			assert.strictEqual((await convertToCode())[1], 'FROM "my ""db"""."main"."t"');
+		});
+
+		test('undefined database keeps two-part references', async () => {
+			await handler.openTableView('ds', client, undefined, 'main', 't', 'table');
+			assert.strictEqual((await convertToCode())[1], 'FROM "main"."t"');
+			const schema = await buildDuckDBSchema(client, undefined, 'main', 't');
+			assert.deepStrictEqual(schema.map(c => c.column_name), ['c']);
 		});
 	});
 });

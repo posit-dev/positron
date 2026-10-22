@@ -12,27 +12,71 @@ import { IDuckDBQueryClient } from 'positron-data-explorer-duckdb';
  */
 export interface IDuckDBPreviewHost {
 	/** Opens the given table or view in the Data Explorer, returning its dataset id. */
-	previewObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string>;
+	previewObject(database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string>;
 	/** Opens a single column of the given table or view in the Data Explorer, returning its dataset id. */
-	previewColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string>;
+	previewColumn(database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string>;
 }
 
 /**
- * Creates the root "Schemas" group node. Lists every non-system schema in the current database
- * (catalog) as a child schema node.
+ * Returns the SQL expression that names the catalog a tree query targets, plus the parameters to
+ * bind. A named database is bound as `$database`; `undefined` targets the current database. No
+ * query string is built from a database name.
  */
-export function createSchemasGroupNode(client: IDuckDBQueryClient, host: IDuckDBPreviewHost): positron.DataConnectionNode {
+function catalogFilter(database: string | undefined): { expr: string; params: Record<string, string> } {
+	return database === undefined
+		? { expr: 'current_database()', params: {} }
+		: { expr: '$database', params: { database } };
+}
+
+/**
+ * Creates the "Databases" group node. Lists every attached, non-internal database; each expands to
+ * its own "Schemas" group. MotherDuck's `md_information_schema` metadata database is skipped.
+ */
+export function createDatabasesGroupNode(client: IDuckDBQueryClient, host: IDuckDBPreviewHost): positron.DataConnectionNode {
+	return {
+		name: 'Databases',
+		kind: positron.DataConnectionNodeKind.GroupDatabases,
+		async getChildren() {
+			const rows = await client.runQuery(
+				`SELECT database_name FROM duckdb_databases() ` +
+				`WHERE NOT internal AND type <> 'motherduck_info' ORDER BY database_name`
+			);
+			return rows.map(row => {
+				const name = String(row.database_name);
+				return {
+					name,
+					kind: positron.DataConnectionNodeKind.Database,
+					async getChildren() {
+						return [createSchemasGroupNode(client, host, name)];
+					},
+				};
+			});
+		},
+	};
+}
+
+/**
+ * Creates the "Schemas" group node. Lists every non-system schema in the given database (catalog),
+ * or the current database when `database` is undefined, as a child schema node.
+ */
+export function createSchemasGroupNode(
+	client: IDuckDBQueryClient,
+	host: IDuckDBPreviewHost,
+	database: string | undefined
+): positron.DataConnectionNode {
 	return {
 		name: 'Schemas',
 		kind: positron.DataConnectionNodeKind.GroupSchemas,
 		async getChildren() {
+			const catalog = catalogFilter(database);
 			const rows = await client.runQuery(
 				`SELECT schema_name FROM information_schema.schemata ` +
-				`WHERE catalog_name = current_database() ` +
+				`WHERE catalog_name = ${catalog.expr} ` +
 				`AND schema_name NOT IN ('information_schema', 'pg_catalog') ` +
-				`ORDER BY schema_name`
+				`ORDER BY schema_name`,
+				catalog.params
 			);
-			return rows.map(row => createSchemaNode(client, host, String(row.schema_name)));
+			return rows.map(row => createSchemaNode(client, host, database, String(row.schema_name)));
 		},
 	};
 }
@@ -44,6 +88,7 @@ export function createSchemasGroupNode(client: IDuckDBQueryClient, host: IDuckDB
 export function createSchemaNode(
 	client: IDuckDBQueryClient,
 	host: IDuckDBPreviewHost,
+	database: string | undefined,
 	schemaName: string
 ): positron.DataConnectionNode {
 	return {
@@ -51,8 +96,8 @@ export function createSchemaNode(
 		kind: positron.DataConnectionNodeKind.Schema,
 		async getChildren() {
 			return [
-				createTablesGroupNode(client, host, schemaName),
-				createViewsGroupNode(client, host, schemaName),
+				createTablesGroupNode(client, host, database, schemaName),
+				createViewsGroupNode(client, host, database, schemaName),
 			];
 		},
 	};
@@ -64,19 +109,21 @@ export function createSchemaNode(
 function createTablesGroupNode(
 	client: IDuckDBQueryClient,
 	host: IDuckDBPreviewHost,
+	database: string | undefined,
 	schemaName: string
 ): positron.DataConnectionNode {
 	return {
 		name: 'Tables',
 		kind: positron.DataConnectionNodeKind.GroupTables,
 		async getChildren() {
+			const catalog = catalogFilter(database);
 			const rows = await client.runQuery(
 				`SELECT table_name FROM information_schema.tables ` +
-				`WHERE table_catalog = current_database() AND table_schema = $schema ` +
+				`WHERE table_catalog = ${catalog.expr} AND table_schema = $schema ` +
 				`AND table_type = 'BASE TABLE' ORDER BY table_name`,
-				{ schema: schemaName }
+				{ ...catalog.params, schema: schemaName }
 			);
-			return rows.map(row => createTableNode(client, host, schemaName, String(row.table_name)));
+			return rows.map(row => createTableNode(client, host, database, schemaName, String(row.table_name)));
 		},
 	};
 }
@@ -87,19 +134,21 @@ function createTablesGroupNode(
 function createViewsGroupNode(
 	client: IDuckDBQueryClient,
 	host: IDuckDBPreviewHost,
+	database: string | undefined,
 	schemaName: string
 ): positron.DataConnectionNode {
 	return {
 		name: 'Views',
 		kind: positron.DataConnectionNodeKind.GroupViews,
 		async getChildren() {
+			const catalog = catalogFilter(database);
 			const rows = await client.runQuery(
 				`SELECT table_name FROM information_schema.tables ` +
-				`WHERE table_catalog = current_database() AND table_schema = $schema ` +
+				`WHERE table_catalog = ${catalog.expr} AND table_schema = $schema ` +
 				`AND table_type = 'VIEW' ORDER BY table_name`,
-				{ schema: schemaName }
+				{ ...catalog.params, schema: schemaName }
 			);
-			return rows.map(row => createViewNode(client, host, schemaName, String(row.table_name)));
+			return rows.map(row => createViewNode(client, host, database, schemaName, String(row.table_name)));
 		},
 	};
 }
@@ -110,6 +159,7 @@ function createViewsGroupNode(
 function createTableNode(
 	client: IDuckDBQueryClient,
 	host: IDuckDBPreviewHost,
+	database: string | undefined,
 	schemaName: string,
 	tableName: string
 ): positron.DataConnectionNode {
@@ -118,12 +168,12 @@ function createTableNode(
 		kind: positron.DataConnectionNodeKind.Table,
 		async getChildren() {
 			return [
-				createColumnsGroupNode(client, host, schemaName, tableName, 'table'),
-				createIndexesGroupNode(client, schemaName, tableName),
+				createColumnsGroupNode(client, host, database, schemaName, tableName, 'table'),
+				createIndexesGroupNode(client, database, schemaName, tableName),
 			];
 		},
 		preview() {
-			return host.previewObject(schemaName, tableName, 'table');
+			return host.previewObject(database, schemaName, tableName, 'table');
 		},
 	};
 }
@@ -135,6 +185,7 @@ function createTableNode(
 function createViewNode(
 	client: IDuckDBQueryClient,
 	host: IDuckDBPreviewHost,
+	database: string | undefined,
 	schemaName: string,
 	viewName: string
 ): positron.DataConnectionNode {
@@ -142,10 +193,10 @@ function createViewNode(
 		name: viewName,
 		kind: positron.DataConnectionNodeKind.View,
 		async getChildren() {
-			return [createColumnsGroupNode(client, host, schemaName, viewName, 'view')];
+			return [createColumnsGroupNode(client, host, database, schemaName, viewName, 'view')];
 		},
 		preview() {
-			return host.previewObject(schemaName, viewName, 'view');
+			return host.previewObject(database, schemaName, viewName, 'view');
 		},
 	};
 }
@@ -157,6 +208,7 @@ function createViewNode(
 function createColumnsGroupNode(
 	client: IDuckDBQueryClient,
 	host: IDuckDBPreviewHost,
+	database: string | undefined,
 	schemaName: string,
 	relationName: string,
 	kind: 'table' | 'view'
@@ -165,7 +217,7 @@ function createColumnsGroupNode(
 		name: 'Columns',
 		kind: positron.DataConnectionNodeKind.GroupColumns,
 		getChildren() {
-			return getFieldNodes(client, host, schemaName, relationName, kind);
+			return getFieldNodes(client, host, database, schemaName, relationName, kind);
 		},
 	};
 }
@@ -175,6 +227,7 @@ function createColumnsGroupNode(
  */
 function createIndexesGroupNode(
 	client: IDuckDBQueryClient,
+	database: string | undefined,
 	schemaName: string,
 	tableName: string
 ): positron.DataConnectionNode {
@@ -182,11 +235,12 @@ function createIndexesGroupNode(
 		name: 'Indexes',
 		kind: positron.DataConnectionNodeKind.GroupIndexes,
 		async getChildren() {
+			const catalog = catalogFilter(database);
 			const rows = await client.runQuery(
 				`SELECT index_name FROM duckdb_indexes() ` +
-				`WHERE database_name = current_database() AND schema_name = $schema ` +
+				`WHERE database_name = ${catalog.expr} AND schema_name = $schema ` +
 				`AND table_name = $table ORDER BY index_name`,
-				{ schema: schemaName, table: tableName }
+				{ ...catalog.params, schema: schemaName, table: tableName }
 			);
 			return rows.map(row => ({
 				name: String(row.index_name),
@@ -203,20 +257,22 @@ function createIndexesGroupNode(
 async function getFieldNodes(
 	client: IDuckDBQueryClient,
 	host: IDuckDBPreviewHost,
+	database: string | undefined,
 	schemaName: string,
 	relationName: string,
 	kind: 'table' | 'view'
 ): Promise<positron.DataConnectionNode[]> {
 	// Primary-key columns (tables only; views have no primary key).
 	const primaryKeyColumns = kind === 'table'
-		? await getPrimaryKeyColumns(client, schemaName, relationName)
+		? await getPrimaryKeyColumns(client, database, schemaName, relationName)
 		: new Set<string>();
 
+	const catalog = catalogFilter(database);
 	const rows = await client.runQuery(
 		`SELECT column_name, data_type FROM information_schema.columns ` +
-		`WHERE table_catalog = current_database() AND table_schema = $schema ` +
+		`WHERE table_catalog = ${catalog.expr} AND table_schema = $schema ` +
 		`AND table_name = $relation ORDER BY ordinal_position`,
-		{ schema: schemaName, relation: relationName }
+		{ ...catalog.params, schema: schemaName, relation: relationName }
 	);
 	return rows.map(row => {
 		const columnName = String(row.column_name);
@@ -226,7 +282,7 @@ async function getFieldNodes(
 			dataType: String(row.data_type),
 			isPrimaryKey: primaryKeyColumns.has(columnName),
 			preview() {
-				return host.previewColumn(schemaName, relationName, kind, columnName);
+				return host.previewColumn(database, schemaName, relationName, kind, columnName);
 			},
 		};
 	});
@@ -236,12 +292,13 @@ async function getFieldNodes(
  * Returns the set of column names that make up a table's primary key, read from duckdb_constraints().
  * The constraint's column names come back as a list, which is flattened into the returned set.
  */
-async function getPrimaryKeyColumns(client: IDuckDBQueryClient, schemaName: string, tableName: string): Promise<Set<string>> {
+async function getPrimaryKeyColumns(client: IDuckDBQueryClient, database: string | undefined, schemaName: string, tableName: string): Promise<Set<string>> {
+	const catalog = catalogFilter(database);
 	const rows = await client.runQuery(
 		`SELECT constraint_column_names FROM duckdb_constraints() ` +
-		`WHERE database_name = current_database() AND schema_name = $schema ` +
+		`WHERE database_name = ${catalog.expr} AND schema_name = $schema ` +
 		`AND table_name = $table AND constraint_type = 'PRIMARY KEY'`,
-		{ schema: schemaName, table: tableName }
+		{ ...catalog.params, schema: schemaName, table: tableName }
 	);
 	const columnNames = new Set<string>();
 	for (const row of rows) {

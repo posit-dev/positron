@@ -119,7 +119,7 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	 */
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();
-		return [createSchemasGroupNode(this._lease!.client, this)];
+		return [createSchemasGroupNode(this._lease!.client, this, undefined)];
 	}
 
 	/**
@@ -128,10 +128,10 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	 * explorer backed by this extension's provider. Returns the dataset id it was opened under, which
 	 * Positron uses to tell that this connection has a Data Explorer open on it.
 	 */
-	async previewObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string> {
+	async previewObject(database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string> {
 		this._ensureConnected();
 		const datasetId = `duckdbconn:${this._connectionId}:${kind}:${schemaName}.${tableName}`;
-		await this._dataExplorerHandler.openTableView(datasetId, this._lease!.client, schemaName, tableName, kind);
+		await this._dataExplorerHandler.openTableView(datasetId, this._lease!.client, database, schemaName, tableName, kind);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
 			providerId: DUCKDB_DATA_EXPLORER_PROVIDER_ID,
@@ -146,10 +146,10 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	 * Uses a dataset id distinct from the table's so both can be open at once. Returns the dataset id
 	 * it was opened under.
 	 */
-	async previewColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string> {
+	async previewColumn(database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string> {
 		this._ensureConnected();
 		const datasetId = `duckdbconn:${this._connectionId}:column:${schemaName}.${tableName}.${columnName}`;
-		await this._dataExplorerHandler.openColumnView(datasetId, this._lease!.client, schemaName, tableName, kind, columnName);
+		await this._dataExplorerHandler.openColumnView(datasetId, this._lease!.client, database, schemaName, tableName, kind, columnName);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
 			providerId: DUCKDB_DATA_EXPLORER_PROVIDER_ID,
