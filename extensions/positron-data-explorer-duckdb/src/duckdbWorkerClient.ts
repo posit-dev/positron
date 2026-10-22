@@ -79,15 +79,15 @@ export class DuckDBWorkerClient implements IDuckDBQueryClient {
 		const { motherduckToken, ...argvConfig } = this._config;
 		const env = createWorkerEnv();
 		delete env[MOTHERDUCK_TOKEN_ENV];
-		if (motherduckToken) {
-			// Drop any token exported in the user's shell so it cannot compete with this connection's
-			// token. Case-insensitive because Windows env names are. Workers without a token keep
-			// their environment unchanged.
-			for (const key of Object.keys(env)) {
-				if (/^motherduck_token$/i.test(key)) {
-					delete env[key];
-				}
+		// Drop any token exported in the user's shell: a MotherDuck worker gets only this
+		// connection's token, and other workers need none. Case-insensitive because Windows env
+		// names are.
+		for (const key of Object.keys(env)) {
+			if (/^motherduck_token$/i.test(key)) {
+				delete env[key];
 			}
+		}
+		if (motherduckToken) {
 			env[MOTHERDUCK_TOKEN_ENV] = motherduckToken;
 		}
 		const worker = fork(

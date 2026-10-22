@@ -112,9 +112,9 @@ suite('DuckDB worker isolation', () => {
 		assert.deepStrictEqual({ lower: result.lower, upper: result.upper, env: result.env }, { lower: undefined, upper: undefined, env: 'tok.en.123' });
 	});
 
-	test('without a token, an inherited plain motherduck_token reaches the worker unchanged', async () => {
+	test('without a token, inherited plain motherduck_token variables are scrubbed', async () => {
 		const result = await withPlainTokenEnv(() => echoFromWorker({ databasePath: ':memory:', readOnly: false }));
-		assert.strictEqual(result.lower, 'inherited-motherduck_token');
+		assert.deepStrictEqual({ lower: result.lower, upper: result.upper, env: result.env }, { lower: undefined, upper: undefined, env: undefined });
 	});
 
 	test('md: path without a token fails fast without opening', async function () {
