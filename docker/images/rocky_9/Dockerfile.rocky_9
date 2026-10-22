@@ -193,8 +193,10 @@ RUN curl -fsSL https://raw.githubusercontent.com/posit-dev/positron/main/test/e2
 # Ensure uv-managed Python is default
 ENV PATH="/root/.venv/bin:${PATH}"
 
-# reticulate must bind this venv: its own discovery picks the newest uv Python
-ENV RETICULATE_PYTHON=/root/.venv/bin/python
+# reticulate 1.47 pops __main__.__annotations__, which Python 3.14 no longer
+# sets, so it must bind a 3.13 (rstudio/reticulate#1930); return to the venv
+# once a released reticulate carries that fix
+ENV RETICULATE_PYTHON=/root/.pyenv/versions/3.13.0/bin/python
 
 # =========================
 # R + pak configuration

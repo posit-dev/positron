@@ -237,8 +237,10 @@ RUN curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/t
 # Ensure uv-managed Python is default
 ENV PATH="/root/.venv/bin:/root/.local/bin:$PATH"
 
-# reticulate must bind this venv: its own discovery picks the newest uv Python
-ENV RETICULATE_PYTHON=/root/.venv/bin/python
+# reticulate 1.47 pops __main__.__annotations__, which Python 3.14 no longer
+# sets, so it must bind a 3.13 (rstudio/reticulate#1930); return to the venv
+# once a released reticulate carries that fix
+ENV RETICULATE_PYTHON=/root/.pyenv/versions/3.13.0/bin/python
 
 # Configure R for root user - using openSUSE repository
 RUN echo -e 'options(\n  repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/opensuse156/latest"),\n  HTTPUserAgent = sprintf("R/%s (opensuse-leap-156)", getRversion())\n)' > ~/.Rprofile
