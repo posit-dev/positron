@@ -240,8 +240,81 @@ suite('createOdbcDrivers', () => {
 				mysql: parameterIds(`${GENERIC_ODBC_DRIVER_ID}-mysql`),
 			},
 			{
-				sqlServer: ['server', 'database', 'user', 'password'],
+				sqlServer: ['server', 'database', 'authentication', 'user', 'password'],
 				mysql: ['server', 'port', 'database', 'user', 'password'],
+			}
+		);
+	});
+
+	test('writes the chosen SQL Server authentication mode, and nothing for the default', async () => {
+		// The default must leave the attribute out: the legacy "SQL Server" and Native Client
+		// drivers, which the same profile matches, reject the keyword.
+		const config: OdbcConfiguration = {
+			drivers: [driverEntry('ODBC Driver 18 for SQL Server')],
+			dsns: [],
+			skippedDsns: [],
+			sources: [],
+		};
+		const sqlServer = createOdbcDrivers(testContext(), config, noopHost)
+			.find(driver => driver.id === `${GENERIC_ODBC_DRIVER_ID}-sqlserver`)!;
+		const authentication = sqlServer.mechanisms
+			.find(mechanism => mechanism.id === 'driver')!
+			.parameters.find(parameter => parameter.id === 'authentication')!;
+		const options = authentication.type === 'option' ? authentication.options : [];
+		const connectionString = async (params: Record<string, string>) => {
+			const [variant] = await sqlServer.generateConnectionCode!('driver', 'ggsql', { server: 'myhost,1433', database: 'tbird_dw', ...params });
+			return variant.code;
+		};
+
+		assert.deepStrictEqual(
+			{
+				type: authentication.type,
+				required: authentication.required,
+				defaultValue: authentication.type === 'option' ? authentication.defaultValue : undefined,
+				options: options.filter(option => option !== 'ActiveDirectoryInteractive'),
+				// Microsoft implements interactive sign-in in the Windows driver only.
+				offersInteractive: options.includes('ActiveDirectoryInteractive'),
+				integrated: await connectionString({ authentication: 'ActiveDirectoryIntegrated' }),
+				default: await connectionString({ authentication: 'Default', user: 'brian' }),
+				unset: await connectionString({}),
+			},
+			{
+				type: 'option',
+				required: undefined,
+				defaultValue: 'Default',
+				options: ['Default', 'SqlPassword', 'ActiveDirectoryIntegrated', 'ActiveDirectoryMsi', 'ActiveDirectoryServicePrincipal'],
+				offersInteractive: process.platform === 'win32',
+				integrated: '-- @connect: odbc://Driver={ODBC Driver 18 for SQL Server};Server={myhost,1433};Database=tbird_dw;Authentication=ActiveDirectoryIntegrated',
+				default: '-- @connect: odbc://Driver={ODBC Driver 18 for SQL Server};Server={myhost,1433};Database=tbird_dw;UID=brian',
+				unset: '-- @connect: odbc://Driver={ODBC Driver 18 for SQL Server};Server={myhost,1433};Database=tbird_dw',
+			}
+		);
+	});
+
+	test('offers Authentication only where an installed driver accepts the keyword', async () => {
+		// Windows always has the legacy "SQL Server" driver, so one accepting driver is enough; a
+		// machine with only legacy or Posit (Simba) drivers gets no field. The generic ODBC entry
+		// never gets one: its form is built before the user picks a driver.
+		const parameterIds = (drivers: string[], driverId: string) => createOdbcDrivers(
+			testContext(),
+			{ drivers: drivers.map(driverEntry), dsns: [], skippedDsns: [], sources: [] },
+			noopHost
+		)
+			.find(driver => driver.id === driverId)!
+			.mechanisms.find(mechanism => mechanism.id === 'driver')!
+			.parameters.map(parameter => parameter.id);
+		const sqlServerId = `${GENERIC_ODBC_DRIVER_ID}-sqlserver`;
+
+		assert.deepStrictEqual(
+			{
+				legacyOnly: parameterIds(['SQL Server', 'SQL Server Native Client 11.0', 'SQLServer'], sqlServerId),
+				legacyAndCurrent: parameterIds(['SQL Server', 'ODBC Driver 17 for SQL Server'], sqlServerId),
+				generic: parameterIds(['ODBC Driver 18 for SQL Server'], GENERIC_ODBC_DRIVER_ID),
+			},
+			{
+				legacyOnly: ['odbcDriver', 'server', 'database', 'user', 'password'],
+				legacyAndCurrent: ['odbcDriver', 'server', 'database', 'authentication', 'user', 'password'],
+				generic: ['server', 'port', 'database', 'user', 'password'],
 			}
 		);
 	});

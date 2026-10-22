@@ -43,6 +43,12 @@ const DRIVER_MECHANISM_ID = 'driver';
  */
 const CONNECTION_STRING_MECHANISM_ID = 'connectionString';
 
+/**
+ * The Authentication option's "none" entry: user and password alone, no attribute written. A
+ * select always shows a selection, and a driver that predates the attribute rejects it.
+ */
+const DEFAULT_AUTHENTICATION = 'Default';
+
 /** Type guard for a non-empty string. */
 function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && value.length > 0;
@@ -97,6 +103,24 @@ function connectionStringParam(): positron.DataConnectionParameter {
 	};
 }
 
+/** The authentication-mode parameter, for a database whose drivers accept one. */
+function authenticationParam(authentication: NonNullable<OdbcDatabaseProfile['authentication']>): positron.DataConnectionParameter {
+	const modes = process.platform === 'win32'
+		? authentication.modes
+		: authentication.modes.filter(mode => !authentication.windowsOnlyModes?.includes(mode));
+	return {
+		id: 'authentication',
+		label: vscode.l10n.t('Authentication'),
+		description: vscode.l10n.t(
+			'Leave as Default to sign in with the user and password. Other modes need {0} or later.',
+			authentication.requiredDriver
+		),
+		type: positron.DataConnectionParameterType.Option,
+		options: [DEFAULT_AUTHENTICATION, ...modes],
+		defaultValue: DEFAULT_AUTHENTICATION,
+	};
+}
+
 /**
  * Builds the endpoint parameters for the driver mechanism. The parameter *ids* are fixed so the
  * connect and code-generation paths can read them, but each is written into the connection string
@@ -104,7 +128,10 @@ function connectionStringParam(): positron.DataConnectionParameter {
  * OdbcDatabaseProfile.attributeKeys) -- ODBC never standardized these, so `Server` for one driver
  * is `Servername` or `Host` for another.
  */
-function endpointParams(profile: OdbcDatabaseProfile | undefined): positron.DataConnectionParameter[] {
+function endpointParams(
+	profile: OdbcDatabaseProfile | undefined,
+	odbcDrivers: readonly OdbcDriverEntry[]
+): positron.DataConnectionParameter[] {
 	const params: positron.DataConnectionParameter[] = [
 		{
 			id: 'server',
@@ -130,6 +157,14 @@ function endpointParams(profile: OdbcDatabaseProfile | undefined): positron.Data
 			label: vscode.l10n.t('Database'),
 			type: positron.DataConnectionParameterType.String,
 		});
+	}
+
+	// Offered when any installed driver accepts the attribute, not when all do: on Windows the
+	// legacy "SQL Server" driver is always present beside Microsoft's current one.
+	const authentication = profile?.authentication;
+	if (authentication !== undefined && odbcDrivers.some(driver =>
+		authentication.driverNamePatterns.some(pattern => pattern.test(driver.name)))) {
+		params.push(authenticationParam(authentication));
 	}
 
 	return [...params, userParam(), passwordParam()];
@@ -176,6 +211,7 @@ function buildDriverConnectionString(
 		...(keys.database ? [[keys.database, asString(params.database)] as const] : []),
 		[keys.user, asString(params.user)],
 		[keys.password, asString(params.password)],
+		...(profile?.authentication ? [[profile.authentication.key, asAuthenticationMode(params.authentication)] as const] : []),
 	]);
 }
 
@@ -185,6 +221,10 @@ function asString(value: unknown): string | undefined {
 
 function asNumber(value: unknown): number | undefined {
 	return typeof value === 'number' ? value : undefined;
+}
+
+function asAuthenticationMode(value: unknown): string | undefined {
+	return value === DEFAULT_AUTHENTICATION ? undefined : asString(value);
 }
 
 /**
@@ -350,7 +390,7 @@ function createDriver(
 			description: options.profile
 				? vscode.l10n.t('Connect to a server by supplying its address and your credentials.')
 				: vscode.l10n.t('Connect using an installed ODBC driver by supplying the connection details.'),
-			parameters: [...parameters, ...endpointParams(options.profile)],
+			parameters: [...parameters, ...endpointParams(options.profile, options.odbcDrivers)],
 		});
 	}
 

@@ -71,6 +71,30 @@ export interface OdbcDatabaseProfile {
 	};
 
 	/**
+	 * The authentication-mode attribute some of this database's ODBC drivers accept, offered as an
+	 * Authentication choice in the Server form. Absent where no driver has one.
+	 */
+	readonly authentication?: {
+		/** The connection-string attribute the mode is written under, e.g. `Authentication`. */
+		readonly key: string;
+
+		/** The accepted values, written into the connection string verbatim. */
+		readonly modes: readonly string[];
+
+		/** Modes the driver implements on Windows only; left out of the choice elsewhere. */
+		readonly windowsOnlyModes?: readonly string[];
+
+		/**
+		 * Patterns matched case-insensitively against the driver name, for the drivers that accept
+		 * the attribute. The choice is offered only when one of them is installed.
+		 */
+		readonly driverNamePatterns: readonly RegExp[];
+
+		/** The oldest driver that accepts the attribute, named in the field's help text. */
+		readonly requiredDriver: string;
+	};
+
+	/**
 	 * Whether to register a per-database Positron driver for this database when its ODBC driver is
 	 * installed. False where Positron already ships a native driver (PostgreSQL, Snowflake,
 	 * Databricks, Redshift, SQLite): a second entry with the same name in the New Connection list
@@ -118,6 +142,22 @@ export const ODBC_DATABASE_PROFILES: readonly OdbcDatabaseProfile[] = [
 		// would emit an attribute the driver ignores, failing the connection with nothing in the
 		// form to explain why.
 		attributeKeys: { server: 'Server', database: 'Database', user: 'UID', password: 'PWD' },
+		// Microsoft's `Authentication` keyword. The legacy "SQL Server" and Native Client drivers
+		// and Posit's Simba-based "SQLServer" driver, which this profile also matches, reject it.
+		// ActiveDirectoryPassword is omitted: Microsoft deprecated it as incompatible with MFA.
+		authentication: {
+			key: 'Authentication',
+			modes: [
+				'SqlPassword',
+				'ActiveDirectoryIntegrated',
+				'ActiveDirectoryInteractive',
+				'ActiveDirectoryMsi',
+				'ActiveDirectoryServicePrincipal',
+			],
+			windowsOnlyModes: ['ActiveDirectoryInteractive'],
+			driverNamePatterns: [/ODBC Driver 1[3-9] for SQL Server/i, /msodbcsql1[3-9]/i],
+			requiredDriver: 'Microsoft ODBC Driver 13.1 for SQL Server',
+		},
 		registerDriver: true,
 	},
 	{
