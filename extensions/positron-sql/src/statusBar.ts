@@ -70,16 +70,34 @@ export interface StatusBarState {
  *
  * Pure and exported: an empty completion list is nearly always explained by one of these four
  * states, so what each one says is the feature, and it is worth reading in a test.
+ *
+ * @param configured Every connection the user has set up, or undefined while the first schema
+ *   read is still in flight. Until it lands nothing is known to be open, so every other state
+ *   would be a false alarm: a chosen connection would read as closed, and a window with
+ *   connections set up would read as having none.
  */
 export function describeSelection(
 	selection: EffectiveSelection,
-	configured: readonly ConnectionRef[],
+	configured: readonly ConnectionRef[] | undefined,
 	dialect: DialectInUse,
 ): StatusBarState {
+	if (configured === undefined) {
+		return {
+			text: selection.kind === 'none'
+				? `$(loading~spin) ${vscode.l10n.t("Data Connection")}`
+				: `$(loading~spin) ${escapeIcons(selection.connection.name)}`,
+			tooltip: hover(
+				vscode.l10n.t("Reading data connections"),
+				vscode.l10n.t("Completions and name checks start once the schema is read."),
+				dialect,
+			),
+			warning: false,
+		};
+	}
 	switch (selection.kind) {
 		case 'connection':
 			return {
-				text: `$(database) ${selection.connection.name}`,
+				text: `$(database) ${escapeIcons(selection.connection.name)}`,
 				tooltip: hover(
 					selection.connection.name,
 					vscode.l10n.t("Completions and name checks come from this data connection. Click to choose a different one."),
@@ -90,7 +108,7 @@ export function describeSelection(
 
 		case 'closed':
 			return {
-				text: `$(alert) ${selection.connection.name}`,
+				text: `$(alert) ${escapeIcons(selection.connection.name)}`,
 				tooltip: hover(
 					vscode.l10n.t("{0} is not open", selection.connection.name),
 					vscode.l10n.t("Only SQL keywords are completed. Click to open it, or to choose a different data connection."),
@@ -138,10 +156,25 @@ function hover(heading: string, detail: string, dialect: DialectInUse): vscode.M
 		: vscode.l10n.t("Generic, which accepts a superset of most dialects");
 
 	return new vscode.MarkdownString([
-		`**${heading}**`,
+		// Escaped: the heading can be a connection's name, which is the user's to choose and may
+		// well hold an underscore, an asterisk or brackets.
+		`**${escapeMarkdown(heading)}**`,
 		detail,
 		vscode.l10n.t("SQL dialect: {0}", shown),
 	].join('\n\n'));
+}
+
+/** Text to show as typed inside markdown, with every character markdown gives a meaning escaped. */
+function escapeMarkdown(text: string): string {
+	return text.replace(/[\\`*_{}[\]()#+\-.!|<>~]/g, '\\$&');
+}
+
+/**
+ * A connection's name as status bar text, which reads `$(name)` as an icon. Escaped so that a name
+ * holding one is shown as typed.
+ */
+function escapeIcons(name: string): string {
+	return name.replace(/\$\(/g, '\\$(');
 }
 
 /** The status bar item itself, shown only while a SQL file is in front of the user. */
