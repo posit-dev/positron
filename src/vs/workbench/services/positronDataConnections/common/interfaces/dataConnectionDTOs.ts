@@ -51,6 +51,10 @@ export interface IDataConnectionDriverMetadataDTO {
 	iconSvg: string;
 	mechanisms: IDataConnectionMechanismDTO[];
 	supportedLanguageIds: string[];
+
+	// Whether the driver implements validateParameters. When it doesn't, the main thread skips the
+	// round trip to the extension host.
+	validatesParameters?: boolean;
 }
 
 /**
@@ -132,6 +136,17 @@ export interface IDataConnectionCodeVariantDTO {
 
 	// The generated connection code for this variant.
 	code: string;
+}
+
+/**
+ * Serializable result of a validateParameters call.
+ */
+export interface IDataConnectionParameterValidationDTO {
+	// Replacement values, keyed by parameter id, for parameters the driver normalized.
+	normalizedValues?: DataConnectionParameterValuesDTO;
+
+	// Error messages, keyed by parameter id.
+	errors?: Record<string, string>;
 }
 
 /**

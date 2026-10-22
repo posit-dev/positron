@@ -10,6 +10,8 @@
 import { screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
@@ -18,6 +20,9 @@ import { ActivityErrorMessage } from '../../browser/components/activityErrorMess
 
 // The component only reads the two output-line arrays off the error message.
 const errorMessage = { messageOutputLines: [], tracebackOutputLines: [] } as unknown as ActivityItemErrorMessage;
+
+// The console is only read when an action is taken.
+const positronConsoleInstance = stubInterface<IPositronConsoleInstance>({});
 
 describe('ActivityErrorMessage assistant actions gate', () => {
 	const ctx = createTestContainer()
@@ -38,14 +43,14 @@ describe('ActivityErrorMessage assistant actions gate', () => {
 
 	it('shows Fix and Explain when the setting is enabled', () => {
 		setup({ actionsEnabled: true });
-		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} positronConsoleInstance={positronConsoleInstance} />);
 		expect(screen.getByText('Fix')).toBeInTheDocument();
 		expect(screen.getByText('Explain')).toBeInTheDocument();
 	});
 
 	it('hides the actions when the setting is disabled', () => {
 		setup({ actionsEnabled: false });
-		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} positronConsoleInstance={positronConsoleInstance} />);
 		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
 	});
 });

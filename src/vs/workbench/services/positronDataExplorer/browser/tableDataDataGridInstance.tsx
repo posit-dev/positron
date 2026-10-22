@@ -861,7 +861,20 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		this.clearPinnedRows();
 
 		// Set the row filters.
-		await this._dataExplorerClientInstance.setRowFilters(filters);
+		try {
+			await this._dataExplorerClientInstance.setRowFilters(filters);
+		} catch (error) {
+			// The backend did not apply the filters, but the row filter bar already shows them.
+			// Synchronize the backend state, which the bar re-reads its filters from, so that it shows
+			// the filters the data is actually filtered by, and tell the user why.
+			await this._dataExplorerClientInstance.updateBackendState().catch(() => undefined);
+			this._services.notificationService.error(localize(
+				'positron.dataExplorer.setRowFiltersFailed',
+				"Unable to apply the filters: {0}",
+				error instanceof Error ? error.message : String(error)
+			));
+			return;
+		}
 
 		// Synchronize the backend state.
 		await this._dataExplorerClientInstance.updateBackendState();

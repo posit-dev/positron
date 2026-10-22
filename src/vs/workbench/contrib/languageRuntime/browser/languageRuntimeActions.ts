@@ -9,9 +9,11 @@ import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
+import { compareLanguages, getLanguageOrder } from '../../../services/languageRuntime/common/languageOrder.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -181,9 +183,10 @@ export function summarizeActiveSession(session: ILanguageRuntimeSession, foregro
  * @param accessor The service accessor.
  * @returns The selected language quickpick item, or undefined, if the user canceled the operation.
  */
-async function selectLanguage(accessor: ServicesAccessor) {
+export async function selectLanguage(accessor: ServicesAccessor) {
 	const quickInputService = accessor.get(IQuickInputService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+	const order = getLanguageOrder(accessor.get(IConfigurationService));
 
 	// TODO: Handle untrusted workspace - maybe error?
 
@@ -197,7 +200,8 @@ async function selectLanguage(accessor: ServicesAccessor) {
 					id: runtimeMetadata.languageId,
 					label: runtimeMetadata.languageName,
 				});
-				const sortedPicks = Array.from(picks.values()).sort((a, b) => a.label.localeCompare(b.label));
+				const sortedPicks = Array.from(picks.values()).sort((a, b) =>
+					compareLanguages({ languageId: a.id!, languageName: a.label }, { languageId: b.id!, languageName: b.label }, order));
 				input.items = sortedPicks;
 			}
 		};
@@ -515,7 +519,8 @@ interface IInterpreterGroup {
  */
 const createInterpreterGroups = (
 	languageRuntimeService: ILanguageRuntimeService,
-	runtimeAffiliationService: IRuntimeStartupService
+	runtimeAffiliationService: IRuntimeStartupService,
+	order: readonly string[]
 ) => {
 	const preferredRuntimeByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 	const languageRuntimeGroups = new Map<string, IInterpreterGroup>();
@@ -549,16 +554,9 @@ const createInterpreterGroups = (
 		}
 	}
 
-	// Sort the runtimes by language name.
-	return Array.from(languageRuntimeGroups.values()).sort((a, b) => {
-		if (a.primaryRuntime.languageName < b.primaryRuntime.languageName) {
-			return -1;
-		} else if (a.primaryRuntime.languageName > b.primaryRuntime.languageName) {
-			return 1;
-		} else {
-			return 0;
-		}
-	});
+	// Sort the runtimes by the preferred language order, then by language name.
+	return Array.from(languageRuntimeGroups.values()).sort((a, b) =>
+		compareLanguages(a.primaryRuntime, b.primaryRuntime, order));
 };
 
 /**
@@ -589,6 +587,7 @@ export const selectNewLanguageRuntime = async (
 	const quickInputService = accessor.get(IQuickInputService);
 	const runtimeStartupService = accessor.get(IRuntimeStartupService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+	const configurationService = accessor.get(IConfigurationService);
 
 	// Map to track which contribution owns which item
 	const contributedItemMap = new Map<string, { contribution: IRuntimePickerContribution; originalId: string }>();
@@ -624,7 +623,7 @@ export const selectNewLanguageRuntime = async (
 
 		// Group runtimes by language. Re-evaluated on each rebuild so newly
 		// registered runtimes show up. Restricted to options.languageId when set.
-		const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService)
+		const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService, getLanguageOrder(configurationService))
 			.filter(group => !options?.languageId || group.primaryRuntime.languageId === options.languageId);
 
 		// Add separator for suggested runtimes

@@ -71,6 +71,9 @@ import { SettingsTarget } from './preferencesWidgets.js';
 import { ISettingOverrideClickEvent, SettingsTreeIndicatorsLabel, getIndicatorsLabelAriaLabel } from './settingsEditorSettingIndicators.js';
 import { ITOCEntry, ITOCFilter } from './settingsLayout.js';
 import { ISettingsEditorViewState, SettingsTreeElement, SettingsTreeGroupChild, SettingsTreeGroupElement, SettingsTreeNewExtensionsElement, SettingsTreeSettingElement, inspectSetting, objectSettingSupportsRemoveDefaultValue, settingKeyToDisplayFormat } from './settingsTreeModels.js';
+// --- Start Positron ---
+import { positronSettingRenderers } from './positronSettingRenderers.js';
+// --- End Positron ---
 import { ExcludeSettingWidget, IBoolObjectDataItem, IIncludeExcludeDataItem, IListDataItem, IObjectDataItem, IObjectEnumOption, IObjectKeySuggester, IObjectValueSuggester, IncludeSettingWidget, ListSettingWidget, ObjectSettingCheckboxWidget, ObjectSettingDropdownWidget, ObjectValue, SettingListEvent } from './settingsWidgets.js';
 
 const $ = DOM.$;
@@ -718,7 +721,11 @@ interface IDisposableTemplate {
 	readonly toDispose: DisposableStore;
 }
 
-interface ISettingItemTemplate<T = any> extends IDisposableTemplate {
+// --- Start Positron ---
+// Exported for Positron setting renderers.
+// interface ISettingItemTemplate<T = any> extends IDisposableTemplate {
+export interface ISettingItemTemplate<T = any> extends IDisposableTemplate {
+	// --- End Positron ---
 	onChange?: (value: T) => void;
 
 	context?: SettingsTreeSettingElement;
@@ -2272,6 +2279,9 @@ export class SettingTreeRenderers extends Disposable {
 			this._instantiationService.createInstance(SettingEnumRenderer, this.settingActions, actionFactory),
 			this._instantiationService.createInstance(SettingObjectRenderer, this.settingActions, actionFactory),
 			this._instantiationService.createInstance(SettingBoolObjectRenderer, this.settingActions, actionFactory),
+			// --- Start Positron ---
+			...positronSettingRenderers.map(r => r.create(this._instantiationService, this.settingActions, actionFactory)),
+			// --- End Positron ---
 			extensionRenderer
 		];
 
@@ -2577,6 +2587,13 @@ class SettingsTreeDelegate extends CachedListVirtualDelegate<SettingsTreeGroupCh
 			if (element.valueType === SettingValueType.Enum) {
 				return SETTINGS_ENUM_TEMPLATE_ID;
 			}
+
+			// --- Start Positron ---
+			const positronRenderer = positronSettingRenderers.find(r => r.matches(element));
+			if (positronRenderer) {
+				return positronRenderer.templateId;
+			}
+			// --- End Positron ---
 
 			if (element.valueType === SettingValueType.Array) {
 				return SETTINGS_ARRAY_TEMPLATE_ID;

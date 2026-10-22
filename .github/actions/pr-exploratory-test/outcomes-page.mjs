@@ -98,10 +98,10 @@ function triggers(rows) {
 
 function header(s) {
 	const inPr = s.counts['fixed-in-pr'];
-	const of = inPr === s.counted ? `<span class="green">all ${inPr}</span>` : `<span class="green">${inPr}</span> of ${s.counted}`;
-	const rate = inPr === s.counted ? '' : `<span class="muted"> (${pct(inPr, s.counted)})</span>`;
+	const noun = s.counted === 1 ? 'finding' : 'findings';
+	const metric = inPr === s.counted ? `all ${inPr} ${noun}` : `${inPr} of ${s.counted} ${noun} (${pct(inPr, s.counted)})`;
 	const headline = !s.total ? 'No /explore findings in this date range.'
-		: s.counted ? `Developers fixed ${of} ${s.counted === 1 ? 'finding' : 'findings'}${rate} before merging.` : 'No PRs with findings have merged yet.';
+		: s.counted ? `Developers fixed <span class="metric">${metric}</span> before merging.` : 'No PRs with findings have merged yet.';
 	return `<div class="lede"><h1>Does /explore change what ships?</h1><p class="headline">${headline}</p></div>`;
 }
 
@@ -111,16 +111,15 @@ function allBar(s) {
 	const columns = present.map(o => `minmax(0, ${s.counts[o.key]}fr)`).join(' ');
 	const k = present.filter(o => o.group !== 'open').length;
 	const brackets = [
-		k ? `<div class="bracket counted" style="grid-column:1 / span ${k}"><b>Outcome known</b><span>${SEP}${s.counted}</span></div>` : '',
-		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>No outcome yet</b><span>${SEP}${s.notCounted}</span></div>` : '',
+		k ? `<div class="bracket counted" style="grid-column:1 / span ${k}"><b>Outcome known</b><span>${s.counted}</span></div>` : '',
+		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>No outcome yet</b><span>${s.notCounted}</span></div>` : '',
 	].join('');
 	// A share of the known outcomes, or a bare count for the rest so denominators don't mix.
 	const details = present.map(o => {
 		const n = s.counts[o.key];
 		const counted = o.group !== 'open';
-		const [hero, of] = counted ? [pct(n, s.counted), `${n} of ${s.counted} findings with a known outcome`] : [n, `${n === 1 ? 'finding' : 'findings'}, no outcome yet`];
-		return `<div class="seg-detail" data-for="${o.key}" hidden><span class="hero" style="color:${HERO_COLOR[o.key] ?? INK}">${hero}</span>`
-			+ `<div><div class="what"><b>${o.label}</b><span>${SEP}${of}</span></div><div class="def">${escapeHtml(o.def)}</div></div></div>`;
+		return `<div class="seg-detail" data-for="${o.key}" hidden><span class="hero" style="color:${HERO_COLOR[o.key] ?? INK}">${counted ? pct(n, s.counted) : n}</span>`
+			+ `<div><div class="what">${o.label}</div><div class="def">${escapeHtml(o.def)}</div></div></div>`;
 	}).join('');
 	return `<section aria-labelledby="all-h">
 <h2 id="all-h">Findings by outcome</h2>
@@ -238,8 +237,8 @@ export const VIEW_SOURCE = [
 const CSS = `
 .small{font-size:13px;color:#5A5751}
 .bracket.not-counted{justify-content:flex-end}
-.bracket.counted{border-bottom:2px solid #2B2A27}
-.bracket.not-counted{border-bottom:2px solid #B5B1A7}.bracket.not-counted b{color:#5A5751}
+.bracket.counted{border-bottom:1px solid #5A5751}
+.bracket.not-counted{border-bottom:1px solid #C9C5BB}.bracket.not-counted b{color:#5A5751}
 .bar.mid{height:24px;gap:8px}
 .part{display:flex;gap:2px;min-width:0}.part .seg{min-width:0}
 .o-fixed-in-pr{background:#3B7D4F;color:#FFF}

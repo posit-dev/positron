@@ -446,7 +446,7 @@ jobs:
           rig ls
 
       - name: Cache Graphviz
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}\graphviz
           key: graphviz-win64-${{ env.GRAPHVIZ_VERSION }}
@@ -638,134 +638,11 @@ jobs:
         if: ${{ inputs.commit != '' }}
         run: git checkout ${{ inputs.commit }}
 
-      - uses: actions/setup-node@v7.1.0
+      - uses: ./.github/actions/merge-e2e-blob-reports
         with:
-          node-version: 20
-
-      - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          project: ${{ inputs.project }}
+          shards: ${{ inputs.shards }}
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
-          # Session must outlast the full build + sharded test run so the Bedrock
-          # sign-in e2e test doesn't hit an expired STS token (must be <= role
-          # MaxSessionDuration).
-          role-duration-seconds: 21600
-
-      - name: Install Playwright
-        shell: bash
-        run: |
-          # Create clean directory for merge dependencies
-          mkdir -p playwright-merge
-          cd playwright-merge
-          npm init -y
-          npm install @playwright/test @midleman/github-actions-reporter
-
-      - name: Generate Report Directory
-        uses: ./.github/actions/gen-report-dir
-        with:
-          identifier: ${{ inputs.project }}
-
-      - name: Download all blob reports
-        uses: actions/download-artifact@v8
-        with:
-          path: all-blob-reports
-          pattern: blob-report-${{ inputs.project }}-*
-          merge-multiple: true
-
-      - name: Verify all shard reports received
-        id: verify-reports
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          EXPECTED_SHARDS=${{ inputs.shards }}
-          PROJECT="${{ inputs.project }}"
-          echo "Expected shard count: $EXPECTED_SHARDS"
-
-          # Query GitHub API for artifacts in this run matching our pattern
-          # This is more reliable than counting files since artifact names are deterministic
-          ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts --jq '.artifacts[].name' | grep "^blob-report-${PROJECT}-" || true)
-          ARTIFACT_COUNT=$(echo "$ARTIFACTS" | grep -c . || echo 0)
-
-          echo "Found artifacts:"
-          echo "$ARTIFACTS"
-          echo ""
-          echo "Artifact count: $ARTIFACT_COUNT"
-
-          # Check which shards are missing
-          MISSING_SHARDS=""
-          for i in $(seq 1 $EXPECTED_SHARDS); do
-            if ! echo "$ARTIFACTS" | grep -q "^blob-report-${PROJECT}-${i}$"; then
-              MISSING_SHARDS="$MISSING_SHARDS $i"
-            fi
-          done
-
-          if [ -n "$MISSING_SHARDS" ]; then
-            echo "::warning::Missing blob reports for shards:$MISSING_SHARDS"
-            echo "This typically means these shards crashed before uploading their results."
-            echo "missing_reports=true" >> $GITHUB_OUTPUT
-            echo "missing_shards=$MISSING_SHARDS" >> $GITHUB_OUTPUT
-          else
-            echo "All $EXPECTED_SHARDS shard reports received"
-            echo "missing_reports=false" >> $GITHUB_OUTPUT
-            echo "missing_shards=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Merge Playwright Blob Reports, Generate HTML and JSON Reports
-        shell: bash
-        working-directory: playwright-merge
-        run: |
-          # Create output directory
-          mkdir -p playwright-report
-
-          echo "Merging blob reports from all shards..."
-          # Merge all blob reports and generate HTML report
-          env PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
-            --reporter=@midleman/github-actions-reporter,html \
-            ../all-blob-reports
-
-          # Generate JSON report separately with explicit output path
-          PLAYWRIGHT_JSON_OUTPUT_NAME=playwright-report/results.json npx playwright merge-reports \
-            --reporter=json \
-            ../all-blob-reports
-
-      - name: Upload HTML report to S3
-        if: always()
-        continue-on-error: true
-        uses: ./.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
-          working-directory: playwright-merge
-
-      - name: Check test results
-        if: always()
-        shell: bash
-        run: |
-          JSON_REPORT="playwright-merge/playwright-report/results.json"
-          if [ ! -f "$JSON_REPORT" ]; then
-            echo "⚠ JSON report not found at $JSON_REPORT"
-            echo "Contents of playwright-merge/playwright-report:"
-            ls -la playwright-merge/playwright-report/ || true
-            exit 1
-          fi
-
-          node scripts/check-e2e-failures.js "$JSON_REPORT"
-
-          # Fail if we're missing reports from any shards (even if all available tests passed)
-          if [[ "${{ steps.verify-reports.outputs.missing_reports }}" == "true" ]]; then
-            echo ""
-            echo "::error::Missing shard reports detected!"
-            echo "Missing reports from shards:${{ steps.verify-reports.outputs.missing_shards }}"
-            echo "These shards likely crashed or timed out before uploading results."
-            echo "Check the individual shard jobs above for errors."
-            exit 1
-          fi
-
-      - name: Clean up blob report artifacts
-        if: success()
-        uses: geekyeggo/delete-artifact@v6
-        with:
-          name: blob-report-${{ inputs.project }}-*
-          failOnError: false
+          report-upload-role: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          github-token: ${{ github.token }}

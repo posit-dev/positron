@@ -302,6 +302,8 @@ export interface IWebview extends IDisposable {
 	getContentFrameId(): WebviewFrameId | undefined;
 	// The URL of a frame as the browser has it (Electron only).
 	getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined>;
+	// The frame running the webview's own index.html (Electron only), for executeJavaScript.
+	getHostFrameId(): Promise<WebviewFrameId | undefined>;
 	onDidNavigate: Event<URI>;
 	onDidLoad: Event<string>;
 	// --- End Positron

@@ -93,10 +93,13 @@ suite('Redshift IAM Credentials - Serverless', () => {
 
 		const before = Date.now();
 		const credentials = await getServerlessCredentials(SERVERLESS, send);
+		const after = Date.now();
 
-		// Roughly an hour out, without asserting an exact instant.
-		const seconds = (credentials.expiresAt.getTime() - before) / 1000;
-		assert.ok(seconds > 3500 && seconds <= 3600, `expected ~3600s, got ${seconds}`);
+		const expiresAt = credentials.expiresAt.getTime();
+		assert.ok(
+			expiresAt >= before + 3600_000 && expiresAt <= after + 3600_000,
+			`expected expiry an hour after a call made between ${before} and ${after}, got ${expiresAt}`
+		);
 	});
 
 	test('throws when the response carries no password', async () => {

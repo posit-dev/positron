@@ -8,9 +8,15 @@ import { CancellationTokenSource, Uri } from 'vscode';
 import * as windowApis from '../../../../client/common/vscodeApis/windowApis';
 import {
     ExistingCondaAction,
+    // --- Start Positron ---
+    getCondaPythonVersions,
+    // --- End Positron ---
     pickExistingCondaAction,
     pickPythonVersion,
 } from '../../../../client/pythonEnvironments/creation/provider/condaUtils';
+// --- Start Positron ---
+import { MAXIMUM_PYTHON_VERSION_EXCLUSIVE, MINIMUM_PYTHON_VERSION } from '../../../../client/common/constants';
+// --- End Positron ---
 import * as commonUtils from '../../../../client/pythonEnvironments/creation/common/commonUtils';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../../constants';
 import { CreateEnv } from '../../../../client/common/utils/localize';
@@ -50,6 +56,19 @@ suite('Conda Utils test', () => {
         const actual = await pickPythonVersion(source.token);
         assert.isUndefined(actual);
     });
+
+    // --- Start Positron ---
+    test('Offers every supported Python version, recommended first', () => {
+        const { preferred, versions } = getCondaPythonVersions();
+        const expected: string[] = [];
+        for (let minor = MINIMUM_PYTHON_VERSION.minor; minor < MAXIMUM_PYTHON_VERSION_EXCLUSIVE.minor; minor += 1) {
+            expected.push(`3.${minor}`);
+        }
+
+        assert.equal(versions[0], preferred);
+        assert.sameMembers(versions, expected);
+    });
+    // --- End Positron ---
 });
 
 suite('Existing .conda env test', () => {

@@ -54,6 +54,9 @@ describe('MainThreadDataConnections', () => {
 	// The ext host end of the change notification, so a test can see that one was sent.
 	const $onDidChangeDataConnections = vi.fn<() => void>();
 
+	// The ext host end of $validateParameters, so a test can see whether the round trip was made.
+	const $validateParameters = vi.fn(async () => ({ normalizedValues: { databasePath: '/ws/db.duckdb' } }));
+
 	// The service's own connect, which openConnection goes through. A test sets what it does; by
 	// default it opens the profile it was asked for.
 	const connect = vi.fn<(profileId: string) => Promise<IDataConnectionInstance>>();
@@ -113,6 +116,7 @@ describe('MainThreadDataConnections', () => {
 			getProxy: (<T>() => stubInterface<ExtHostDataConnectionsShape>({
 				$discoverConnections,
 				$onDidChangeDataConnections,
+				$validateParameters,
 			}) as T) as IExtHostContext['getProxy'],
 		});
 		mainThread = disposables.add(
@@ -154,6 +158,22 @@ describe('MainThreadDataConnections', () => {
 			  },
 			]
 		`);
+	});
+
+	it('validates parameters through the ext host only for a driver that implements validation', async () => {
+		mainThread.$registerDataConnectionDriver('duckdb', metadataDto);
+		mainThread.$registerDataConnectionDriver('validating', { ...metadataDto, id: 'validating', validatesParameters: true });
+		const [plain, validating] = registeredDrivers;
+
+		const results = [
+			await plain.validateParameters('file', { databasePath: 'db.duckdb' }),
+			await validating.validateParameters('file', { databasePath: 'db.duckdb' }),
+		];
+
+		expect({ results, calls: $validateParameters.mock.calls }).toEqual({
+			results: [{}, { normalizedValues: { databasePath: '/ws/db.duckdb' } }],
+			calls: [['validating', 'file', { databasePath: 'db.duckdb' }]],
+		});
 	});
 
 	it('round-trips driver mechanisms back to the wire shape in driver summaries', async () => {

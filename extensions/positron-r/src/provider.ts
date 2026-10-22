@@ -382,6 +382,28 @@ export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<stri
 }
 
 /**
+ * Yields metadata for the R installations in the Pixi environments of the
+ * open workspace folders, without the rest of R discovery.
+ *
+ * Pixi runtimes are never cached, so on a warm start, when Positron serves R
+ * from its discovery cache and skips `rRuntimeDiscoverer()`, this is the only
+ * way they are found. Runtime IDs depend only on the binary path and version,
+ * so a runtime found by both this and full discovery is registered once.
+ */
+export async function* rPixiRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+	const binaries = deduplicateRBinaries(await discoverPixiBinaries());
+	for (const rbin of binaries) {
+		const rInst = new RInstallation(rbin.path, false, rbin.reasons, rbin.packagerMetadata);
+		if (!rInst.usable) {
+			LOGGER.info(`Filtering out ${rInst.binpath}, reason: ${friendlyReason(rInst.reasonRejected)}.`);
+			continue;
+		}
+		const metadata = await makeMetadata(rInst);
+		yield metadata;
+	}
+}
+
+/**
  * Register a module runtime with the environment-modules API for tracking.
  */
 export async function registerModuleRuntimeWithApi(

@@ -191,6 +191,24 @@ function kiData(issue, refs) {
 		: '';
 }
 
+/**
+ * A finding's matches split by what GitHub says each one is, issues first,
+ * each kind with its own label. A PR closed without merging is neither a
+ * duplicate nor a fix, so it is left out; a number the run did not fetch
+ * counts as an issue.
+ */
+function matchesByKind(numbers, refs) {
+	const kind = n => {
+		const ref = refs?.byNumber.get(n);
+		return ref?.kind !== 'pr' ? 'issue' : ref.state === 'merged' ? 'merged' : ref.state === 'open' ? 'open' : null;
+	};
+	return [
+		{ numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `Dupe? ${nums}` },
+		{ numbers: numbers.filter(n => kind(n) === 'open'), label: nums => `Fix in PR? ${nums}` },
+		{ numbers: numbers.filter(n => kind(n) === 'merged'), label: nums => `Fixed in ${nums}?` },
+	].filter(m => m.numbers.length);
+}
+
 /** Links the fetched issue and PR numbers in rendered text, leaving tags and existing links alone. */
 function linkIssues(html, refs) {
 	if (!refs?.byNumber.size) {
@@ -250,17 +268,41 @@ const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" ari
  * instead; the last row's tooltip opens upward, away from the panel's edge.
  */
 function changeMark(report, f, base, last) {
-	if (base?.usable !== true || !report.verification?.change?.has(f.n) || statusWord(f) !== 'confirmed') {
+	const words = changeWords(report, f, base);
+	if (!words) {
 		return '';
 	}
-	const title = `Likely related to this ${report.pr ? 'PR' : 'branch'}`;
-	const text = `Based on code changes. Not verified against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`;
 	return `<span class="chg${last ? ' chg-up' : ''}"><span aria-hidden="true">&Delta;</span>`
-		+ `<span class="chg-sr">${title}. ${text}</span>`
-		+ `<span class="chg-tip" aria-hidden="true"><b>${title}</b><span>${text}</span></span></span>`;
+		+ `<span class="chg-sr">${words.title}. ${words.text}</span>`
+		+ changeTip(words) + '</span>';
 }
 
-function renderFindingsList(report, ki = null, changeBase = null) {
+/**
+ * The same mark after a card's title. The title is not a link, so the mark
+ * takes focus itself and its label carries the text.
+ */
+function cardChangeMark(report, f, base) {
+	const words = changeWords(report, f, base);
+	if (!words) {
+		return '';
+	}
+	return `<span class="chg chg-card" tabindex="0" role="img" aria-label="${words.title}. ${words.text}"><span aria-hidden="true">&Delta;</span>`
+		+ changeTip(words) + '</span>';
+}
+
+function changeWords(report, f, base) {
+	if (base?.usable !== true || !report.verification?.change?.has(f.n) || statusWord(f) !== 'confirmed') {
+		return null;
+	}
+	return {
+		title: `Likely related to this ${report.pr ? 'PR' : 'branch'}`,
+		text: `Based on code changes. Not verified against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`,
+	};
+}
+
+const changeTip = ({ title, text }) => `<span class="chg-tip" aria-hidden="true"><b>${title}</b><span>${text}</span></span>`;
+
+function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 	const rows = report.findings.map((f, i) => {
 		const word = statusWord(f);
 		const verdict = word === 'confirmed'
@@ -269,18 +311,19 @@ function renderFindingsList(report, ki = null, changeBase = null) {
 				? `<span class="status muted">${capitalize(word)}</span>`
 				: '<span class="status muted"></span>';
 		// Plain numbers, not links: the whole row is already a link to the card. They still preview on hover.
-		const nums = issues => issues.map(i => `<span class="ki-num-t"${kiData(i, ki)}>#${i.number}</span>`).join(', ');
-		const failed = ki?.fixFailed.get(f.n);
-		const back = ki?.cameBack.get(f.n);
-		const similar = ki?.similar.get(f.n);
+		const nums = numbers => numbers.map(n => `<span class="ki-num-t"${kiData(refs?.byNumber.get(n), refs)}>#${Number(n)}</span>`).join(', ');
+		const failed = ki?.fixFailed.get(f.n)?.map(i => i.number);
+		const back = ki?.cameBack.get(f.n)?.map(i => i.number);
+		// Every match the card shows, linked to the PR or found by search, one line per kind.
+		const matches = matchesByKind(possiblyKnown(f, ki), refs);
 		// A verdict other than Confirmed takes the label's place, so the table
 		// never says a fix failed when verify rejected the finding.
 		const label = failed ? 'Fix didn&rsquo;t hold' : back ? 'Regressed' : '';
 		const top = label && (!word || word === 'confirmed') ? `<span class="ki-reg">${ICON.x}${label}</span>` : verdict;
-		// One issue per cell: the finding's own wins over a match.
+		// One issue per line: the finding's own, then its matches below it.
 		const first = list => `${nums(list.slice(0, 1))}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
-		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : similar ? `Dupe? ${first(similar)}` : '';
-		const below = issueLine ? [`<span class="ki-state">${issueLine}</span>`] : [];
+		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : '';
+		const below = [issueLine, ...matches.map(m => m.label(first(m.numbers)))].filter(Boolean).map(line => `<span class="ki-state">${line}</span>`);
 		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
 		return `<a href="#f${f.n}" class="row findings-grid">`
 			+ `<span>${pill(f.severity)}</span>`
@@ -613,23 +656,26 @@ function renderCardDetails(f, report, options = {}) {
 
 /**
  * The card's linked-issue status, as items for the end of its meta line: a fix
- * that did not hold or an issue that came back, then any likely duplicates.
+ * that did not hold or an issue that came back, then its matches by kind.
  * When verify rejected the finding, its issue line stands in without the claim.
  */
 function cardIssueItems(f, word, ki, refs) {
 	const rejected = word && word !== 'confirmed';
 	const failed = ki?.fixFailed.get(f.n) ?? [];
 	const back = ki?.cameBack.get(f.n) ?? [];
-	const item = (label, numbers) => `<span class="f-ki">${label} ${numbers.map(n => kiNum(n, refs)).join(' ')}</span>`;
+	// A label is a prefix, or a function of the numbers when they sit mid-label (`Fixed in #N?`).
+	const item = (label, numbers) => {
+		const nums = numbers.map(n => kiNum(n, refs)).join(' ');
+		return `<span class="f-ki">${typeof label === 'function' ? label(nums) : `${label} ${nums}`}</span>`;
+	};
 	const items = [];
 	if (failed.length) {
 		items.push(item(rejected ? 'Fixes' : 'Fix didn&rsquo;t hold', failed.map(i => i.number)));
 	} else if (back.length) {
 		items.push(item(rejected ? 'Closed &middot;' : 'Regressed', back.map(i => i.number)));
 	}
-	const known = possiblyKnown(f, ki);
-	if (known.length) {
-		items.push(item('Dupe?', known));
+	for (const m of matchesByKind(possiblyKnown(f, ki), refs)) {
+		items.push(item(m.label, m.numbers));
 	}
 	if (f.intended?.length) {
 		items.push(item('Intended?', f.intended));
@@ -664,7 +710,7 @@ function renderFindingCard(f, report, options) {
 		+ '</div>';
 
 	const head = `<header>${meta}`
-		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
+		+ `<h2 class="card-title">${escapeHtml(f.title)}${cardChangeMark(report, f, options.changeBase)}</h2>`
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);
@@ -1017,7 +1063,7 @@ ${report.leadHtml ? `<p class="lead">${linkIssues(report.leadHtml, options.refs)
 
 ${renderTiles(report)}
 
-${renderFindingsList(report, ki, options.changeBase)}
+${renderFindingsList(report, ki, options.refs, options.changeBase)}
 
 ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 

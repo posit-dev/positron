@@ -1075,7 +1075,7 @@ const SCENES = {
 		const html = richHtml(richWith(1, { verified: 'unresolved' }));
 		return [between(card(html, 1), '<details class="lc regtest">', '</summary>'), promptText(html, 1)].join('\n--\n');
 	},
-	'a finding the verifier matched to an issue says Dupe? on its card and prompt only': () => [card(fullHtml(KNOWN), 1), findingRow(fullHtml(KNOWN), 1), promptText(fullHtml(KNOWN), 1)].join('\n--\n'),
+	'a finding the verifier matched to an issue says Dupe? on its card, row and prompt': () => [card(fullHtml(KNOWN), 1), findingRow(fullHtml(KNOWN), 1), promptText(fullHtml(KNOWN), 1)].join('\n--\n'),
 	'a finding matched to a not-planned issue says Intended?': () => [card(fullHtml(fullWith(2, { intended: [14210] })), 2), promptText(fullHtml(fullWith(2, { intended: [14210] })), 2)].join('\n--\n'),
 	'a cause the verifier revised says so on the card, prompt and issue, and a revised observed does not': () => {
 		const html = render(rep({ findings: [fnd(1, { verified: 'confirmed', observed: 'The tab shows `Pytho...`.', cause: 'A width gate skips the dot.', corrected: ['cause', 'observed'], explorer: { cause: 'The CSS squeezes the dot.', observed: 'The tab shows its full name.' } })] }));
@@ -1138,12 +1138,17 @@ const SCENES = {
 		const json = { ...fullWith(1, { expected: 'it should have stopped, as #2330 says, since #8126.' }), verification: { failed: false, text: 'A second agent.\n\nSearches returned only #3698 (open).' } };
 		return [between(card(fullHtml(json, { issueRefs: ISSUE_REFS }), 1), '<div class="f-cmp', '</div></div>'), between(fullHtml(json, { issueRefs: ISSUE_REFS }), 'Searches returned', '</p>'), between(card(fullHtml(json), 1), '<div class="f-cmp', '</div></div>')].join('\n--\n');
 	},
-	'the change mark: a confirmed related finding on a run with a usable base, in the table only, opening upward on the last row': () => findingsOf(fullHtml(CHANGED, { changeBase: USABLE })),
+	'the change mark: a confirmed related finding on a run with a usable base, opening upward on the last row': () => findingsOf(fullHtml(CHANGED, { changeBase: USABLE })),
 	'no change mark on a disputed finding, without a usable base, or with no base recorded': () => [
 		findingRow(fullHtml({ ...CHANGED, findings: [CHANGED.findings[0], { ...CHANGED.findings[1], verified: 'disputed' }] }, { changeBase: USABLE }), 2),
 		findingRow(fullHtml(CHANGED, { changeBase: { usable: false, name: 'main' } }), 1),
 		findingRow(fullHtml(CHANGED), 1),
 	].join('\n--\n'),
+	'a card with the change mark shows it after its title, focusable with the tooltip text as its label; other cards do not': () => {
+		const title = (html, n) => between(card(html, n), '<h2 class="card-title">', '</h2>');
+		const html = fullHtml({ ...CHANGED, findings: [CHANGED.findings[0], { ...CHANGED.findings[1], verified: 'disputed' }] }, { changeBase: USABLE });
+		return [title(html, 1), title(html, 2), title(fullHtml(CHANGED), 1)].join('\n--\n');
+	},
 	'a PR run\'s change mark says PR, and a base with no name says the base branch': () => findingRow(fullHtml({ ...CHANGED, header: { ...CHANGED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: { usable: true, name: null } }), 1),
 
 	// Coverage.
@@ -1188,9 +1193,16 @@ const SCENES = {
 	'no Linked issues row when a failed fix is a finding and an unexercised one is in Coverage': () => between(findingsOf(kiHtml(KI_REPORT, { knownIssues: { pr: 100, issues: KI_ISSUES.issues.filter(i => [11, 12].includes(i.number)) } })), '<div class="ki-grp">', '</div></div>') || '(none)',
 	'an issue no scenario reached is listed as not observed': () => between(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace(/^Issue: #22 observed\n/m, '') }), 'id="ki-list-no"', '</div></div>'),
 	'a confirmed regression says Regressed with a red x': () => findingRow(render(kiWith(2, { verified: 'confirmed' }), { ledger: KI_LEDGER, knownIssues: KI_ISSUES }), 2),
-	'with no issue list, a finding row is a plain link': () => findingRow(kiHtml(KI_REPORT, { knownIssues: { ...KI_ISSUES, issues: [] } }), 1),
-	'one dupe shows no count': () => findingRow(kiHtml(KI_REPORT, { knownIssues: { ...KI_ISSUES, issues: KI_ISSUES.issues.filter(i => i.number !== 20) } }), 3),
-	'a finding\'s own issue wins the row, and a dupe stays on the card': () => {
+	'with no issue list, a finding row shows its matches as Dupe? without previews': () => findingRow(kiHtml(KI_REPORT, { knownIssues: { ...KI_ISSUES, issues: [] } }), 1),
+	'one dupe shows no count': () => findingRow(kiHtml(kiWith(3, { known: [25] })), 3),
+	'matches split by kind: issues say Dupe?, an open PR Fix in PR?, a merged PR Fixed in #N?, and a closed PR is left out': () => {
+		const refs = [...ISSUE_REFS,
+			{ number: 8200, kind: 'pr', state: 'open', title: 'Keep zoom', createdAt: '2026-08-20T00:00:00Z', summary: 'Keeps the zoom level.' },
+			{ number: 8300, kind: 'pr', state: 'closed', title: 'Abandoned zoom', createdAt: '2026-08-20T00:00:00Z', summary: '' }];
+		const html = fullHtml(fullWith(1, { known: [8200, 2330, 8126, 8300, 3698] }), { issueRefs: refs });
+		return [between(card(html, 1), '<div class="meta">', '</div>'), findingRow(html, 1)].join('\n--\n');
+	},
+	'a finding\'s own issue keeps its line, and a dupe goes below it': () => {
 		const html = render({ ...kiWith(1, { known: [11, 25] }), verification: KI_VERIFICATION }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES });
 		return [findingRow(html, 1), between(card(html, 1), '<div class="meta">', '</div>')].join('\n--\n');
 	},

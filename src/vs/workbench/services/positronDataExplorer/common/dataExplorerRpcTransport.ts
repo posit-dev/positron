@@ -57,4 +57,20 @@ export interface IDataExplorerRpcTransport {
 	 * @param datasetId The dataset identifier (the RPC `uri`) that was closed.
 	 */
 	disposeBackend(providerId: string, datasetId: string): void;
+
+	/**
+	 * Returns whether the provider can rebuild a dataset's view on request (it implements
+	 * `refreshDataset`). False when no extension host has registered the provider.
+	 * @param providerId The provider the dataset belongs to (e.g. 'positron-duckdb').
+	 */
+	supportsRefresh(providerId: string): boolean;
+
+	/**
+	 * Asks the providing extension to rebuild a dataset's view from its source. Rejects if the
+	 * provider is not registered, does not support refresh, or fails to rebuild; in that case the
+	 * existing view is left intact. Does not activate a dormant provider.
+	 * @param providerId The provider the dataset belongs to (e.g. 'positron-duckdb').
+	 * @param datasetId The dataset identifier (the RPC `uri`) to refresh.
+	 */
+	refreshDataset(providerId: string, datasetId: string): Promise<void>;
 }

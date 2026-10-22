@@ -87,7 +87,9 @@ jobs:
     runs-on: ubuntu-latest-amd64-8-core
     container:
       image: ghcr.io/posit-dev/positron-debian13:24.18.0
-      options: --user 0:0 --init
+      # --device/--cap-add give the container a TUN device so the Tailscale step can bring up
+      # kernel-mode networking (transparent routing to the tailnet, needed to reach Connect).
+      options: --user 0:0 --init --device /dev/net/tun --cap-add=NET_ADMIN
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
@@ -186,6 +188,14 @@ jobs:
         uses: ./.github/actions/gen-report-dir
         with:
           identifier: ${{ inputs.project }}
+
+      # The e2e-test-insights reporter publishes results to connect.posit.it, which is
+      # reachable only from the tailnet.
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
+        with:
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
 
       - name: 🧪 Run Playwright Tests
         shell: bash

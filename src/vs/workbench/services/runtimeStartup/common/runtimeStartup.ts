@@ -119,6 +119,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// The language packs; a map of language ID to a list of extensions that provide the language.
 	private readonly _languagePacks: Map<string, Array<ExtensionIdentifier>> = new Map();
 
+	private readonly _onDidChangeLanguageIds = this._register(new Emitter<void>());
+	readonly onDidChangeLanguageIds = this._onDidChangeLanguageIds.event;
+
+	// Languages of registered runtimes, including ones with no `languageRuntimes` contribution.
+	private readonly _runtimeLanguageIds = new Set<string>();
+
+	get languageIds(): readonly string[] {
+		return [...new Set([...this._languagePacks.keys(), ...this._runtimeLanguageIds])];
+	}
+
 	// The set of encountered languages.
 	private readonly _encounteredLanguagesByLanguageId = new Set<string>();
 
@@ -398,6 +408,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// When a runtime is registered, check to see if we need to auto-start it.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
+			if (!this._runtimeLanguageIds.has(runtime.languageId)) {
+				this._runtimeLanguageIds.add(runtime.languageId);
+				if (!this._languagePacks.has(runtime.languageId)) {
+					this._onDidChangeLanguageIds.fire();
+				}
+			}
+
 			// Automatically start the language runtime under the following conditions:
 			// - The language runtime wants to start immediately.
 			// - No other runtime is currently running.
@@ -463,6 +480,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// phase, move on to the startup phase.
 				this.startupAfterTrust();
 			}
+
+			this._onDidChangeLanguageIds.fire();
 		}));
 
 		// This handler is required so session names persist
