@@ -551,7 +551,8 @@ jobs:
       HOME: /root
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
-      RETICULATE_PYTHON: /root/.venv/bin/python
+      # reticulate 1.47 cannot run on Python 3.14 (rstudio/reticulate#1930); bind the 3.13
+      RETICULATE_PYTHON: /root/.pyenv/versions/3.13.0/bin/python
       E2E_POSTGRES_USER: e2e
       E2E_POSTGRES_PASSWORD: exploratory-test
     steps:

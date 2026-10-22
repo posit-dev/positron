@@ -52,7 +52,8 @@ jobs:
       DOCKER_CONFIG: /tmp/.docker
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
-      RETICULATE_PYTHON: /root/.venv/bin/python
+      # reticulate 1.47 cannot run on Python 3.14 (rstudio/reticulate#1930); bind the 3.13
+      RETICULATE_PYTHON: /root/.pyenv/versions/3.13.0/bin/python
       # The agent host e2e tests spawn the bundled Claude CLI, which refuses the
       # `--allow-dangerously-skip-permissions` flag the agent host always passes
       # when it runs as root -- and this container runs as root (`--user 0:0`).
