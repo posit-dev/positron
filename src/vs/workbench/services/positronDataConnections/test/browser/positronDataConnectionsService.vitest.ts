@@ -943,7 +943,7 @@ describe('PositronDataConnectionsService', () => {
 		});
 
 		it('leaves out a secret the driver reports nothing to redact in, rather than passing it through', async () => {
-			registerRedactingDriver([{ id: 'pwd', label: 'Password', type: 'password' }]);
+			registerRedactingDriver([{ id: 'pwd', label: 'Password', type: 'password', secret: true }]);
 			service.addUpdateProfile({
 				...createProfile('conn-1'),
 				parameterValues: { dsn: 'Pagila', pwd: 'hunter2' },
@@ -963,7 +963,7 @@ describe('PositronDataConnectionsService', () => {
 						id: 'test-mechanism',
 						label: 'Test Mechanism',
 						description: '',
-						parameters: [{ id: 'pwd', label: 'Password', type: 'password' }],
+						parameters: [{ id: 'pwd', label: 'Password', type: 'password', secret: true }],
 					}],
 				},
 				redactParameterValue: async (_mechanismId: string, _parameterId: string, value: string) =>
