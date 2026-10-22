@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import { describe as describeReference, hoverFor } from '../hover';
 import { resolveReferences } from '../references';
 import { SchemaIndex } from '../schemaIndex';
-import { partialPayloadOf, schemaOf, sqlDocument, testAnalyzer } from './support';
+import { partialPayloadOf, payloadOf, schemaOf, sqlDocument, testAnalyzer } from './support';
 
 const SCHEMA = schemaOf(
 	'sales.orders: id: integer pk, total: numeric, placed_at: timestamp',
@@ -119,7 +119,7 @@ suite('hoverFor', () => {
 				'| --- | --- |',
 				'| id (key) | integer |',
 				'| total | numeric |',
-				'| placed_at | timestamp |',
+				'| placed\\_at | timestamp |',
 			].join('\n'),
 		);
 	});
@@ -152,6 +152,33 @@ suite('hoverFor', () => {
 		const shown = await hover('SELECT * FROM orders', 'orders', partial);
 
 		assert.ok(shown?.includes('there may be more'), shown);
+	});
+
+	test('a name the database chose is shown as written, whatever markdown it contains', async () => {
+		const payload = payloadOf('placeholder');
+		const odd = new SchemaIndex({
+			...payload,
+			tables: [{
+				...payload.tables[0],
+				name: 'a`b',
+				columns: [{ name: '*x*', dataType: 'text' }, { name: '[y](z)', dataType: 'a|b' }],
+			}],
+		});
+		const table = await hover('SELECT * FROM "a`b"', '"a`b"', odd);
+		const column = await hover('SELECT "*x*" FROM "a`b"', '"*x*"', odd);
+
+		assert.ok(table?.includes('| \\*x\\* | text |'), table);
+		assert.ok(table?.includes('| \\[y\\](z) | a\\|b |'), table);
+		assert.ok(column?.includes('Column of ``a`b``'), column);
+	});
+
+	test('a table whose own columns were read in full is not called short', async () => {
+		// The schema is missing tables, but not this table's columns.
+		const payload = partialPayloadOf('orders: id: integer');
+		const partial = new SchemaIndex({ ...payload, tables: payload.tables.map(table => ({ ...table, columnsComplete: true })) });
+		const shown = await hover('SELECT * FROM orders', 'orders', partial);
+
+		assert.ok(!shown?.includes('there may be more'), shown);
 	});
 
 	test('a name the connection does not have has no hover', async () => {

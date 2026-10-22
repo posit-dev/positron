@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import { Reference, resolveReferences } from '../references';
 import { SchemaIndex } from '../schemaIndex';
-import { payloadOf, schemaOf, testAnalyzer } from './support';
+import { partialPayloadOf, payloadOf, schemaOf, testAnalyzer } from './support';
 
 /**
  * The references a document produces against a schema, as `kind name: status`.
@@ -65,12 +65,18 @@ suite('resolveReferences', () => {
 	test('the engine\'s own catalog tables are not judged', () => {
 		assert.deepStrictEqual(judge('SELECT relname FROM pg_class', SCHEMA), []);
 		assert.deepStrictEqual(judge('SELECT name FROM sqlite_master', SCHEMA), []);
+		assert.deepStrictEqual(judge('SELECT table_name FROM duckdb_tables', SCHEMA), []);
 	});
 
 	test('a column every row has without declaring it is not unknown', () => {
 		assert.deepStrictEqual(
 			judge('SELECT rowid, ctid, total FROM orders', SCHEMA),
 			['column total: resolved', 'table orders: resolved'],
+		);
+		// BigQuery's partition and wildcard pseudo-columns, Databricks' file metadata.
+		assert.deepStrictEqual(
+			judge('SELECT _PARTITIONTIME, _PARTITIONDATE, _TABLE_SUFFIX, _FILE_NAME, _metadata FROM orders', SCHEMA),
+			['table orders: resolved'],
 		);
 	});
 
@@ -148,13 +154,79 @@ suite('resolveReferences', () => {
 		);
 	});
 
-	test('an unqualified name several schemas have reads the default schema', () => {
+	test('an unqualified name several schemas have resolves to the default schema, but is not judged', () => {
+		// Which one the engine reads depends on its search path, which can put `sales` first. A
+		// column of the default schema's table still resolves, for a hover; a column it lacks is
+		// not a mistake anyone can be sure of.
 		const schema = new SchemaIndex(payloadOf('main.orders: id, total', 'sales.orders: id, region'), 'main');
 
 		assert.deepStrictEqual(
-			judge('SELECT region FROM orders', schema),
+			judge('SELECT total, region FROM orders', schema),
+			['column total: resolved', 'table orders: resolved'],
+		);
+		assert.deepStrictEqual(
+			judge('SELECT o.region FROM orders o', schema),
+			['table orders: resolved'],
+		);
+		// Named in full, it is one table, and judged.
+		assert.deepStrictEqual(
+			judge('SELECT region FROM main.orders', schema),
 			['column region: unknown', 'table orders: resolved'],
 		);
+	});
+
+	test('tables whose names differ only in case are not judged by either', () => {
+		const payload = payloadOf('Customers: id, vip', 'customers: id, name');
+		const schema = new SchemaIndex(payload);
+
+		// Each statement names a column only the other table has, so whichever one the name is
+		// matched to, it must not be called a mistake.
+		const unknown = (text: string) => judge(text, schema).filter(each => each.endsWith('unknown'));
+		assert.deepStrictEqual(unknown('SELECT vip FROM "Customers"'), []);
+		assert.deepStrictEqual(unknown('SELECT name FROM customers'), []);
+	});
+
+	test('a table written where a value goes is the whole row, not a column', () => {
+		assert.deepStrictEqual(
+			judge('SELECT row_to_json(c) FROM customers c', SCHEMA),
+			['table customers: resolved'],
+		);
+		assert.deepStrictEqual(judge('SELECT c FROM customers c', SCHEMA), ['table customers: resolved']);
+		assert.deepStrictEqual(judge('SELECT customers FROM customers', SCHEMA), ['table customers: resolved']);
+		// From a subquery too, naming the row of the query around it.
+		assert.deepStrictEqual(
+			judge('SELECT id FROM customers c WHERE EXISTS (SELECT 1 FROM orders WHERE f(c))', SCHEMA),
+			['column id: resolved', 'table customers: resolved', 'table orders: resolved'],
+		);
+	});
+
+	test('a table under an alias is not the whole row by its own name', () => {
+		// `customers` is not visible once the statement calls it `c`.
+		assert.deepStrictEqual(
+			judge('SELECT customers FROM customers c', SCHEMA),
+			['column customers: unknown', 'table customers: resolved'],
+		);
+	});
+
+	test('the columns of a table read only in part are not judged', () => {
+		const payload = payloadOf('orders: id', 'customers: id, name');
+		const schema = new SchemaIndex({
+			...payload,
+			tables: payload.tables.map(table => ({ ...table, columnsComplete: table.name !== 'orders' })),
+		});
+
+		assert.deepStrictEqual(judge('SELECT total FROM orders', schema), ['table orders: resolved']);
+		assert.deepStrictEqual(judge('SELECT o.total FROM orders o', schema), ['table orders: resolved']);
+		assert.deepStrictEqual(judge('SELECT nme FROM customers', schema), ['column nme: unknown', 'table customers: resolved']);
+	});
+
+	test('in a schema read only in part, a lone match outside the default schema is not judged', () => {
+		// The table the engine reads may be the default schema's, in the part that was not read.
+		const payload = partialPayloadOf('sales.orders: id', 'main.customers: id');
+		const schema = new SchemaIndex({ ...payload, tables: payload.tables.map(table => ({ ...table, columnsComplete: true })) }, 'main');
+
+		assert.deepStrictEqual(judge('SELECT total FROM orders', schema), ['table orders: resolved']);
+		assert.deepStrictEqual(judge('SELECT nme FROM customers', schema), ['column nme: unknown', 'table customers: resolved']);
 	});
 
 	test('a misspelled column in an INSERT column list is unknown', () => {
