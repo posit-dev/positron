@@ -7,10 +7,11 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
 import { createDuckDBDriver } from './duckdbDriver.js';
+import { createMotherDuckDriver } from './motherduckDriver.js';
 import { DUCKDB_DATA_EXPLORER_PROVIDER_ID } from './duckdbConnection.js';
 
 /**
- * Activates the extension by registering the DuckDB data connection driver.
+ * Activates the extension by registering the DuckDB and MotherDuck data connection drivers.
  * @param context The extension context.
  */
 export function activate(context: vscode.ExtensionContext) {
@@ -27,6 +28,13 @@ export function activate(context: vscode.ExtensionContext) {
 	// Create and register the driver and its cleanup.
 	const driver = createDuckDBDriver(context, dataExplorerHandler, logger);
 	context.subscriptions.push(positron.dataConnections.registerDriver(driver));
+
+	// The MotherDuck driver shares the Data Explorer handler and logs to its own channel, created
+	// on first use like the DuckDB one.
+	const motherduckLogger = positron.dataConnections.createDriverLogger('MotherDuck');
+	context.subscriptions.push(motherduckLogger);
+	const motherduckDriver = createMotherDuckDriver(context, dataExplorerHandler, motherduckLogger);
+	context.subscriptions.push(positron.dataConnections.registerDriver(motherduckDriver));
 }
 
 /** Deactivation is handled by disposing context subscriptions. */
