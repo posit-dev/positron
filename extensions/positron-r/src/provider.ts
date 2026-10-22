@@ -273,11 +273,24 @@ export async function discoverRInstallations(): Promise<RInstallation[]> {
 const sharedSearch = createSharedSearch(discoverRInstallations, 15_000);
 
 /**
+ * How long R's recommendation waits for the full R search. Every language's
+ * first console waits for R's recommendation, so slow module or conda
+ * commands can't hold them up for longer.
+ */
+const FULL_SEARCH_TIMEOUT_MS = 3000;
+
+/**
  * Same as `discoverRInstallations()`, and holds the result for the
  * interpreter search that follows (see `sharedSearch`).
+ * @returns undefined if the search ran out of time. It keeps running, so the
+ *   interpreter search can still reuse it.
  */
-export function discoverRInstallationsForRecommendation(): Promise<RInstallation[]> {
-	return sharedSearch.forRecommendation();
+export async function discoverRInstallationsForRecommendation(): Promise<RInstallation[] | undefined> {
+	const installs = await sharedSearch.forRecommendation(FULL_SEARCH_TIMEOUT_MS);
+	if (!installs) {
+		LOGGER.info(`Stopped waiting for the search for R installations after ${FULL_SEARCH_TIMEOUT_MS} ms, so R won't start on its own. Running R code starts it.`);
+	}
+	return installs;
 }
 
 /**

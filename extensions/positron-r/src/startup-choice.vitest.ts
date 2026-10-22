@@ -130,6 +130,10 @@ describe('chooseStartupR', () => {
 		it.each<keyof RFullSearchTriggers>(['overrideListSet', 'rVersionsListsCurrentR', 'modulesConfiguredForR'])('runs when %s', async (trigger) => {
 			expect(await choose(inputs({ current, triggers: { [trigger]: true }, installs: [r('4.5.1')] }))).toEqual(searched);
 		});
+
+		it('returns nothing when it runs out of time', async () => {
+			expect(await choose(inputs({ current: undefined, fullSearch: async () => undefined }))).toBeUndefined();
+		});
 	});
 });
 
@@ -193,6 +197,12 @@ describe('ReusableSearch', () => {
 });
 
 describe('createSharedSearch', () => {
+	const timeoutMs = 3000;
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	/** A shared search whose search returns how many times it has run. */
 	function countingSharedSearch() {
 		let runs = 0;
@@ -202,14 +212,14 @@ describe('createSharedSearch', () => {
 
 	it('lets the interpreter search reuse the recommendation\'s search', async () => {
 		const { shared, runs } = countingSharedSearch();
-		const recommendation = await shared.forRecommendation();
+		const recommendation = await shared.forRecommendation(timeoutMs);
 		const discovery = await shared.forDiscovery();
 		expect({ recommendation, discovery, runs: runs() }).toEqual({ recommendation: 1, discovery: 1, runs: 1 });
 	});
 
 	it('searches again for a second interpreter search', async () => {
 		const { shared, runs } = countingSharedSearch();
-		await shared.forRecommendation();
+		await shared.forRecommendation(timeoutMs);
 		await shared.forDiscovery();
 		const second = await shared.forDiscovery();
 		expect({ second, runs: runs() }).toEqual({ second: 2, runs: 2 });
@@ -219,5 +229,20 @@ describe('createSharedSearch', () => {
 		const { shared, runs } = countingSharedSearch();
 		const discovery = await shared.forDiscovery();
 		expect({ discovery, runs: runs() }).toEqual({ discovery: 1, runs: 1 });
+	});
+
+	it('stops waiting for the recommendation\'s search after the timeout, and the interpreter search still reuses it', async () => {
+		vi.useFakeTimers();
+		let finish!: (value: string) => void;
+		const search = vi.fn(() => new Promise<string>(resolve => finish = resolve));
+		const shared = createSharedSearch(search, 60_000);
+
+		const recommendation = shared.forRecommendation(timeoutMs);
+		await vi.advanceTimersByTimeAsync(timeoutMs);
+		const discovery = shared.forDiscovery();
+		finish('found');
+
+		expect({ recommendation: await recommendation, discovery: await discovery, runs: search.mock.calls.length })
+			.toEqual({ recommendation: undefined, discovery: 'found', runs: 1 });
 	});
 });

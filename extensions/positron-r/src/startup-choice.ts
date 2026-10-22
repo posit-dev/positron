@@ -73,8 +73,8 @@ export interface RStartupInputs<T extends RStartupCandidate> {
 	/** The current R, built the way the search builds it, or undefined if there is none. */
 	currentR(): Promise<T | undefined>;
 	fullSearchTriggers(current: T | undefined): RFullSearchTriggers;
-	/** Every R the full search finds, usable or not. */
-	fullSearch(): Promise<T[]>;
+	/** Every R the full search finds, usable or not, or undefined if the search ran out of time. */
+	fullSearch(): Promise<T[] | undefined>;
 }
 
 /**
@@ -110,6 +110,7 @@ export async function chooseStartupR<T extends RStartupCandidate>(inputs: RStart
  * full search can't change the answer, and is skipped. Listing conda and pixi
  * environments doesn't matter for the same reason. The full search still runs
  * when one of `fullSearchTriggers()` is set, or when there's no usable current R.
+ * If the full search runs out of time, nothing is picked.
  */
 export async function pickStartupR<T extends RStartupCandidate>(
 	inputs: Pick<RStartupInputs<T>, 'currentR' | 'fullSearchTriggers' | 'fullSearch'>
@@ -119,10 +120,10 @@ export async function pickStartupR<T extends RStartupCandidate>(
 	if (current?.usable && !triggers.overrideListSet && !triggers.rVersionsListsCurrentR && !triggers.modulesConfiguredForR) {
 		return current;
 	}
-	const installs = (await inputs.fullSearch())
-		.filter(inst => inst.usable)
-		.sort(compareRInstallations);
-	return installs[0];
+	const installs = await inputs.fullSearch();
+	return installs
+		?.filter(inst => inst.usable)
+		.sort(compareRInstallations)[0];
 }
 
 /**
@@ -196,14 +197,35 @@ export class ReusableSearch<T> {
  * @param maxAgeMs How long after it finishes a held search can be reused.
  */
 export function createSharedSearch<T>(search: () => Promise<T>, maxAgeMs: number): {
-	/** Runs the search, and holds its result for the next `forDiscovery()`. */
-	forRecommendation(): Promise<T>;
+	/**
+	 * Runs the search, and holds its result for the next `forDiscovery()`.
+	 * @param timeoutMs How long to wait for the result. The search keeps
+	 *   running after that, so `forDiscovery()` can still reuse it.
+	 * @returns The result, or undefined if the search ran out of time.
+	 */
+	forRecommendation(timeoutMs: number): Promise<T | undefined>;
 	/** Reuses the held search if it's fresh, and otherwise runs the search. */
 	forDiscovery(): Promise<T>;
 } {
 	const reusable = new ReusableSearch<T>(maxAgeMs);
 	return {
-		forRecommendation: () => reusable.hold(search()),
+		forRecommendation: timeoutMs => waitUpTo(reusable.hold(search()), timeoutMs),
 		forDiscovery: () => reusable.take() ?? search(),
 	};
+}
+
+/**
+ * Waits up to `timeoutMs` for a promise, without stopping the work behind it.
+ * @returns The promise's result, or undefined if it ran out of time.
+ */
+async function waitUpTo<T>(promise: Promise<T>, timeoutMs: number): Promise<T | undefined> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timedOut = new Promise<undefined>(resolve => {
+		timer = setTimeout(() => resolve(undefined), timeoutMs);
+	});
+	try {
+		return await Promise.race([promise, timedOut]);
+	} finally {
+		clearTimeout(timer);
+	}
 }
