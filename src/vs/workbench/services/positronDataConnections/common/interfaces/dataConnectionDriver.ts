@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { FileFilter } from '../../../../../platform/dialogs/common/dialogs.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from './dataConnectionDTOs.js';
 
 // --- Service-level interfaces ---
@@ -351,4 +352,20 @@ export interface IDataConnectionHandle {
 	 */
 	nodeGetDetails(nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO>;
 	release(): void;
+}
+
+/**
+ * Disconnects and then releases a connection handle. A failed disconnect is logged and the handle is
+ * released anyway, since the caller has nothing left to retry it from.
+ * @param handle The connection handle to close.
+ * @param logService Where to log a failed disconnect.
+ * @param description What the handle belongs to, for the log.
+ */
+export async function closeDataConnectionHandle(handle: IDataConnectionHandle, logService: ILogService, description: string): Promise<void> {
+	try {
+		await handle.disconnect();
+	} catch (err) {
+		logService.error(`[DataConnections] disconnect() threw for ${description}: ${err}`);
+	}
+	handle.release();
 }
