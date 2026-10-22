@@ -78,7 +78,12 @@ Verify each version that changes exists before you burn build minutes:
 
 - **Node:** `curl -sfI https://nodejs.org/dist/v<node>/node-v<node>-linux-x64.tar.xz`
   and `...-linux-arm64.tar.xz`. If either 404s, **stop** and tell the user.
-- **Python:** `uv python list --all-versions | grep cpython-<python>-`. The
+- **Python:** `uv python list --all-versions  The primary must also differ from every other
+  Python in the image: pyenv alt (3.13.0), the hidden conda env (3.12.10) and
+  conda base, which the Dockerfiles pin with `conda install -n base python=`.
+  Two interpreters with one version label make the kernel picker choose the
+  wrong one, and uv reuses a matching system interpreter instead of
+  downloading a managed build.| grep cpython-<python>-`. The
   Dockerfiles install the newest uv at build time, so any version in uv's
   list is installable. Pick a patch whose string is not a prefix of another
   installed version: the e2e selectors match by substring, so `3.13.1` would

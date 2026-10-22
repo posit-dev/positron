@@ -106,6 +106,9 @@ RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/lat
     bash Miniforge3.sh -b -p "/opt/conda" && rm Miniforge3.sh && \
     echo "source \"/opt/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
 
+# Pin base Python so its label never matches the primary or alt selectors
+RUN /opt/conda/bin/conda install -y -n base python=3.13.16 && /opt/conda/bin/conda clean -afy
+
 RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda init bash"
 
 # Rig and R
