@@ -203,7 +203,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * it in the plot view.
 	 */
 	private readonly _recentExecutions = new Map<string, string>();
-	private readonly _recentExecutionIds = new Array<string>();
+
+	/** The IDs of each session's recent executions, oldest first. */
+	private readonly _recentExecutionIds = new Map<string, string[]>();
 
 	/**
 	 * A map of plot id to the runtime message (and its session) that produced a
@@ -265,6 +267,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				}
 				this._renderQueues.delete(sessionId);
 			}
+			for (const id of this._recentExecutionIds.get(sessionId) ?? []) {
+				this._recentExecutions.delete(id);
+			}
+			this._recentExecutionIds.delete(sessionId);
 		}));
 
 		// Register for UI comm events
@@ -522,10 +528,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
-	 * Gets the ID of the most recent execution, for plot events that don't carry one.
+	 * Gets the ID of a session's most recent execution, for plot events that don't carry one.
 	 */
-	private mostRecentExecutionId(): string | undefined {
-		return this._recentExecutionIds.at(-1);
+	private mostRecentExecutionId(sessionId: string): string | undefined {
+		return this._recentExecutionIds.get(sessionId)?.at(-1);
 	}
 
 	/** Makes a background plot available to capture even if its view is never mounted. */
@@ -875,9 +881,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._register(session.onDidReceiveRuntimeMessageInput((message) => {
 			// Add this code to the recent executions map. If the map is
 			// already at the maximum size, remove the oldest entry.
-			this._recentExecutionIds.push(message.parent_id);
-			if (this._recentExecutionIds.length > MaxRecentExecutions) {
-				const id = this._recentExecutionIds.shift();
+			let recentExecutionIds = this._recentExecutionIds.get(session.sessionId);
+			if (!recentExecutionIds) {
+				recentExecutionIds = [];
+				this._recentExecutionIds.set(session.sessionId, recentExecutionIds);
+			}
+			recentExecutionIds.push(message.parent_id);
+			if (recentExecutionIds.length > MaxRecentExecutions) {
+				const id = recentExecutionIds.shift();
 				if (id) {
 					this._recentExecutions.delete(id);
 				}
@@ -1178,7 +1189,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		const selectPlot = () => {
 			// Raise the Plots pane so the user can see the updated plot
-			this._showPlotsPane(this.mostRecentExecutionId());
+			this._showPlotsPane(plotClient.lastEventExecutionId ?? this.mostRecentExecutionId(plotClient.metadata.session_id));
 
 			// Select the plot to bring it into view within the history; it's
 			// possible that it is not the most recently created plot
@@ -1572,8 +1583,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Look up the session
 		const session = this._runtimeSessionService.getSession(sessionId);
 
-		// Get the most recent execution ID and code, if available.
-		const executionId = this.mostRecentExecutionId();
+		// Get the ID and code of the execution that showed the plot, if available.
+		const executionId = event.executionId ?? this.mostRecentExecutionId(sessionId);
 		const code = executionId ? this._recentExecutions.get(executionId) : undefined;
 
 		// Create the plot client.

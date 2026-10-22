@@ -169,6 +169,7 @@ describe('Positron - Plots Service', () => {
 			onDidRenderUpdate: () => ({ dispose: () => { } }),
 			onDidShowPlot: () => ({ dispose: () => { } }),
 			onDidSetIntrinsicSize: () => ({ dispose: () => { } }),
+			eventParentId: undefined,
 			render: vi.fn(),
 			getIntrinsicSize: vi.fn(),
 			dispose: vi.fn(),
@@ -587,13 +588,27 @@ describe('Positron - Plots Service', () => {
 				expect(openViewSpy).not.toHaveBeenCalled();
 			});
 
-			// Plot updates carry no parent ID, so they're attributed to the most recent execution.
 			it('updates a dynamic plot without switching tabs', async () => {
 				const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
 				const client = await session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
 				const openViewSpy = showOtherContainer();
 
+				session.receiveInputMessage({ parent_id: 'exec-other', code: 'plot(1)' });
+				client.receiveData({ data: { method: 'show', params: {} }, parent_id: 'exec-preserve' });
+
+				expect(plotsService.selectedPlotId).toBe('plot1');
+				expect(openViewSpy).not.toHaveBeenCalled();
+			});
+
+			// Ark doesn't parent plot events yet, so fall back to the plot's session's latest execution.
+			it('attributes an update without a parent ID to its own session', async () => {
+				const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+				const client = await session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+				const otherSession = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+				const openViewSpy = showOtherContainer();
+
 				session.receiveInputMessage({ parent_id: 'exec-preserve', code: 'abline(h = 0)' });
+				otherSession.receiveInputMessage({ parent_id: 'exec-other', code: '1 + 1' });
 				client.receiveData({ data: { method: 'show', params: {} } });
 
 				expect(plotsService.selectedPlotId).toBe('plot1');

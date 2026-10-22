@@ -1626,11 +1626,11 @@ class ExtHostRuntimeClientInstance<Input, Output>
 				this.deletePendingRpc(message.parent_id);
 			} else {
 				// This is a regular message or event; emit it to the client as-is
-				this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers });
+				this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers, parent_id: message.parent_id });
 			}
 		} else {
 			// This is a regular message; emit it to the client as an event.
-			this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers });
+			this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers, parent_id: message.parent_id });
 		}
 	}
 

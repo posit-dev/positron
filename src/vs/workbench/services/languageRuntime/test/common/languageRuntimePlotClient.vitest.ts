@@ -40,6 +40,7 @@ describe('Positron - PlotClientInstance', () => {
 			onDidRenderUpdate: renderUpdateEmitter.event,
 			onDidShowPlot: showPlotEmitter.event,
 			onDidSetIntrinsicSize: intrinsicSizeEmitter.event,
+			eventParentId: undefined,
 			render: renderSpy,
 		});
 		const fullMetadata: IPositronPlotMetadata = {
