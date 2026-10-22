@@ -10,7 +10,7 @@ import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../../contrib/positron
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk, walkDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter, IDataConnectionParameterValidation, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { closeDataConnectionHandle, DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter, IDataConnectionParameterValidation, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
@@ -228,11 +228,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	}
 
 	/**
-	 * Called by the ext host when a driver is unregistered (its Disposable was disposed).
-	 *
-	 * The ext host leaves the driver's connections open, so they are closed from here. Removing
-	 * the driver has the service close the user's connections; the ones an extension opened through
-	 * this API are closed below.
+	 * Called by the ext host when a driver is unregistered. Closes the driver's API-opened connections; the service closes the user's.
 	 * @param driverId The unique identifier for the driver to remove.
 	 */
 	$removeDataConnectionDriver(driverId: string): void {
@@ -241,22 +237,9 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		for (const [connectionHandle, entry] of this._connectionHandles) {
 			if (entry.driverId === driverId) {
 				this._connectionHandles.delete(connectionHandle);
-				void this._closeConnectionHandle(entry.handle);
+				void closeDataConnectionHandle(entry.handle, this._logService, `connection handle ${connectionHandle}`);
 			}
 		}
-	}
-
-	/**
-	 * Disconnects and then releases a connection handle. A disconnect that fails is logged and the
-	 * handle is released anyway: there is nothing left to retry it from.
-	 */
-	private async _closeConnectionHandle(handle: IDataConnectionHandle): Promise<void> {
-		try {
-			await handle.disconnect();
-		} catch (err) {
-			this._logService.error(`[DataConnections] disconnect() threw for connection handle ${handle.handle}: ${err}`);
-		}
-		handle.release();
 	}
 
 	/**
@@ -279,17 +262,15 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * round trip.
 	 */
 	async $connectToDataConnectionDriver(driverId: string, mechanismId: string, params: DataConnectionParameterValues): Promise<number> {
-		const drivers = this._dataConnectionsService.driverManager.getDrivers();
-		const driver = drivers.find(d => d.id === driverId);
+		const driver = this._dataConnectionsService.driverManager.getDriver(driverId);
 		if (!driver) {
 			throw new Error(`Data connection driver '${driverId}' not found`);
 		}
 		const handle = await driver.connect(mechanismId, params);
 
-		// The driver was removed while connecting, so $removeDataConnectionDriver has already run and
-		// nothing would close this one later.
+		// Removed while connecting, so nothing else would close this one (checked by id: a re-register keeps it).
 		if (!this._dataConnectionsService.driverManager.getDriver(driverId)) {
-			await this._closeConnectionHandle(handle);
+			await closeDataConnectionHandle(handle, this._logService, `connection handle ${handle.handle}`);
 			throw new Error(`Data connection driver '${driverId}' was removed while connecting`);
 		}
 
@@ -318,11 +299,10 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		return this._getHandle(connectionHandle).isReadOnly();
 	}
 
-	/**
-	 * Checks connection status through the main thread handle.
-	 */
+	/** Checks connection status through the main thread handle. Returns false for unknown handles rather than throwing. */
 	async $connectionIsConnectedViaService(connectionHandle: number): Promise<boolean> {
-		return this._getHandle(connectionHandle).isConnected();
+		const entry = this._connectionHandles.get(connectionHandle);
+		return entry ? entry.handle.isConnected() : false;
 	}
 
 	/**

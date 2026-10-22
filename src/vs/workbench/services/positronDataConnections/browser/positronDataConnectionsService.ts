@@ -21,7 +21,7 @@ import { IDataConnectionNodeOpener, IDataConnectionRevealOptions, IDataConnectio
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
+import { closeDataConnectionHandle, DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../common/interfaces/dataConnectionsDriverManager.js';
 
 // Storage key prefix for persisted data connection profiles. Each data connection profile gets
@@ -761,11 +761,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// Open the connection. driver.connect throws on failure; let it propagate.
 		const handle = await driver.connect(mechanism?.id ?? profile.mechanismId, profile.parameterValues);
 
-		// The driver was removed while connecting. Its other connections were closed when it went,
-		// and this one would otherwise be left open under a driver that no longer exists. A driver
-		// re-registered under the same id in the meantime still counts: the connection is live.
+		// Checked by id, not identity: a driver re-registered meanwhile still owns this live connection.
 		if (!this.driverManager.getDriver(driver.id)) {
-			await this._closeConnectionHandle(handle, `profile ${profileId} after its driver was removed`);
+			await closeDataConnectionHandle(handle, this._logService, `profile ${profileId} after its driver was removed`);
 			throw new Error(`Data connection driver '${driver.id}' was removed while connecting`);
 		}
 
@@ -828,7 +826,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			}
 		}
 
-		await this._closeConnectionHandle(instance.connectionHandle, `instance ${instance.id}`);
+		await closeDataConnectionHandle(instance.connectionHandle, this._logService, `instance ${instance.id}`);
 
 		this._logService.trace(`[DataConnections] Disconnected instance ${instance.id} (profile ${profileId})`);
 		this._onDidChangeInstancesEmitter.fire([...this._instances]);
@@ -928,23 +926,6 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	//#endregion IPositronDataConnectionsService Implementation
 
 	//#region Private Methods
-
-	/**
-	 * Disconnects and then releases a connection handle. A disconnect that fails is logged and the
-	 * handle is released anyway: by the time a handle is closed it is already out of _instances (or
-	 * never made it in), so the caller can't recover from the failure and a handle kept here would
-	 * leak.
-	 * @param handle The connection handle to close.
-	 * @param description What the handle belongs to, for the log.
-	 */
-	private async _closeConnectionHandle(handle: IDataConnectionHandle, description: string): Promise<void> {
-		try {
-			await handle.disconnect();
-		} catch (err) {
-			this._logService.error(`[DataConnections] disconnect() threw for ${description}: ${err}`);
-		}
-		handle.release();
-	}
 
 	/**
 	 * Asks a driver for the redacted form of one parameter value. A driver that throws is treated
@@ -1069,14 +1050,8 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
-	 * Closes any live connection whose driver is no longer registered -- an extension unregistered
-	 * it, or re-registers it to pick up a configuration change (the ODBC driver does this when
-	 * odbc.ini changes).
-	 *
-	 * Unregistering a driver is what closes its connections; the extension host leaves them open for
-	 * this to do. Closing them here, through disconnect, is what keeps the pane from showing a
-	 * connection as live once it is gone. A driver updated in place under the same id is still
-	 * registered, so its connections stay open.
+	 * Closes the live connections of any driver that is no longer registered; the extension host
+	 * leaves them open for the service to close.
 	 */
 	private _disconnectUnregisteredDrivers(): void {
 		const orphaned = this._instances.filter(instance => !this.driverManager.getDriver(instance.driverId));

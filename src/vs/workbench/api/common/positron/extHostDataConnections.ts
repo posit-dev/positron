@@ -224,11 +224,14 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 		return new Disposable(() => {
 			changeListener?.dispose();
+
+			// A stale registration must not remove a replacement registered under the same id.
+			if (this._drivers.get(driver.id) !== driver) {
+				return;
+			}
 			this._drivers.delete(driver.id);
 
-			// The driver's connections are left open here for the main thread to disconnect and
-			// release (closing the Data Explorers previewed from the user's connections first), so
-			// that what the Data Connections pane shows stays in step with what is actually open.
+			// Connections are left open; the main thread closes them so the pane stays accurate.
 			this._proxy.$removeDataConnectionDriver(driver.id);
 		});
 	}

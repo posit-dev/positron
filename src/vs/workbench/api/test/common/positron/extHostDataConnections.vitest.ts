@@ -312,4 +312,41 @@ describe('ExtHostDataConnections unregistering a driver', () => {
 			afterRelease: `Connection handle ${connectionHandle} not found`,
 		});
 	});
+
+	it('leaves a replacement registered under the same id in place when the old registration is disposed', async () => {
+		const removeDriver = vi.fn();
+		const extHost = createExtHost({
+			$registerDataConnectionDriver: () => { },
+			$removeDataConnectionDriver: removeDriver,
+		});
+		const driver = (name: string): positron.DataConnectionDriver => ({
+			id: 'test-driver',
+			name,
+			description: '',
+			iconSvg: '<svg/>',
+			mechanisms: [],
+			supportedLanguageIds: [],
+			connect: async () => stubInterface<positron.DataConnection>({}),
+			generateConnectionCode: async () => [{ id: name, label: name, code: '' }],
+		});
+		const stale = extHost.registerDriver(driver('old'));
+		const current = extHost.registerDriver(driver('new'));
+
+		// The stale registration goes after its replacement: nothing is removed, and the replacement
+		// still answers. Disposing the replacement then removes the driver as usual.
+		stale.dispose();
+		const codeAfterStaleDispose = await extHost.$generateConnectionCode('test-driver', 'default', 'python', {});
+		const removalsAfterStaleDispose = removeDriver.mock.calls.length;
+		current.dispose();
+
+		expect({
+			removalsAfterStaleDispose,
+			answeredBy: codeAfterStaleDispose.map(variant => variant.id),
+			removalsAfterCurrentDispose: removeDriver.mock.calls,
+		}).toEqual({
+			removalsAfterStaleDispose: 0,
+			answeredBy: ['new'],
+			removalsAfterCurrentDispose: [['test-driver']],
+		});
+	});
 });

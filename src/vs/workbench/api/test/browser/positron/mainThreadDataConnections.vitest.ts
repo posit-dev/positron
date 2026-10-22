@@ -453,7 +453,7 @@ describe('MainThreadDataConnections', () => {
 			}).toEqual({
 				removedDisconnects: 1,
 				removedReleases: 1,
-				removedIsConnected: 'Connection handle 1 not found on the main thread',
+				removedIsConnected: 'false',
 				keptDisconnects: 0,
 				keptReleases: 0,
 				keptIsConnected: 'true',
