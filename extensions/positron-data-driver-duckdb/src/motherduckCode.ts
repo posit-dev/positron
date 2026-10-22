@@ -32,8 +32,8 @@ export function motherduckPath(database: string | undefined): string {
 }
 
 /**
- * The R duckdb package never downloads extensions while opening a database, so the
- * MotherDuck extension is installed through a throwaway connection first.
+ * The R duckdb package does not auto-install the MotherDuck extension when it opens `md:`,
+ * so the snippet installs it through a throwaway connection first.
  */
 const R_INSTALL_EXTENSION = [
 	'library(DBI)',
