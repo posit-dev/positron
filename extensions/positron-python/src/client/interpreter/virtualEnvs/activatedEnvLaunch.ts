@@ -93,6 +93,46 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
         await this.selectIfLaunchedViaActivatedEnv(true);
         await this.selectionWritten?.catch(() => undefined);
     }
+
+    private activatedEnvPrefix: Promise<string | undefined> | undefined;
+
+    /**
+     * The env prefix the window was launched with, read-only. Unlike
+     * `selectIfLaunchedViaActivatedEnv`, it never writes the selection, and it gives
+     * the same answer before and after upstream's own selection has run. Read once per
+     * window: the launch environment can't change, and for a conda env it resolves the
+     * interpreter through PET, which the ranking would otherwise repeat on every ask.
+     */
+    public getActivatedEnvPrefix(): Promise<string | undefined> {
+        this.activatedEnvPrefix ??= this.readActivatedEnvPrefix();
+        return this.activatedEnvPrefix;
+    }
+
+    private async readActivatedEnvPrefix(): Promise<string | undefined> {
+        if (process.env.VSCODE_CLI !== '1') {
+            return undefined;
+        }
+        // Memoized, so a failed read must not stick: treat it as no activated env
+        // for this caller and clear the memo so the next call retries.
+        try {
+            if (this.userDefaultWinsWithoutFolder()) {
+                return undefined;
+            }
+            return await this.getPrefixOfSelectedActivatedEnv();
+        } catch (ex) {
+            this.activatedEnvPrefix = undefined;
+            traceWarn(`Could not read the activated environment: ${ex}`);
+            return undefined;
+        }
+    }
+
+    /**
+     * With no folder open, the user's defaultInterpreterPath wins over the activated
+     * env, so the console matches the language server.
+     */
+    private userDefaultWinsWithoutFolder(): boolean {
+        return !!getUserDefaultInterpreter().globalValue && !this.workspaceService.workspaceFolders;
+    }
     // --- End Positron ---
 
     @cache(-1, true)
@@ -112,7 +152,7 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
         this.inMemorySelection = prefix;
         // --- Start Positron ---
         // prefer user setting defaultInterpreterPath (if set) if no workspace is opened
-        if (getUserDefaultInterpreter().globalValue && !this.workspaceService.workspaceFolders) {
+        if (this.userDefaultWinsWithoutFolder()) {
             return undefined;
         }
         // --- End Positron ---
