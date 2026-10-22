@@ -81,6 +81,13 @@ export interface SqlTable {
 	readonly profileId?: string;
 
 	readonly columns: SqlColumn[];
+
+	/**
+	 * Whether {@link columns} is every column the table has. False when the schema read's caps cut
+	 * the list short; left out when nothing says either way, which counts as complete only if the
+	 * connection's read was.
+	 */
+	readonly columnsComplete?: boolean;
 }
 
 /** A connection the tables were read from, by id and by the name the user gave it. */
@@ -184,6 +191,11 @@ export function flattenSchemaNodes(
 						dataType: child.dataType,
 						isPrimaryKey: child.isPrimaryKey,
 					})),
+				// A count of children left out is all the read says about what it missed. It
+				// counts every kind of child, an index as well as a column, so a table missing
+				// only an index is called short too -- the side that costs a missed warning
+				// rather than a false one.
+				columnsComplete: node.truncatedChildCount === undefined,
 			});
 			return;
 		}
@@ -251,15 +263,17 @@ export function explainEmptySchema(
  *
  * Each connection is asked for by id rather than letting Positron pick: a SQL file may well be
  * written against any of them, and with more than one live there is nothing to pick on. A
- * connection that fails is logged and left out, so one unreachable database does not cost the
- * completions from the others.
+ * connection that fails, or takes longer than {@link SCHEMA_READ_TIMEOUT_MS}, is logged and left
+ * out, so one unreachable database does not cost the completions from the others.
  *
  * @param log Where to report what was read, and anything that went wrong.
  * @param api The data connections API; overridden in tests.
+ * @param timeoutMs How long one connection's read may take; shortened in tests.
  */
 export async function readConnectionSchema(
 	log: SqlLog,
 	api: DataConnectionsApi = positron.dataConnections,
+	timeoutMs = SCHEMA_READ_TIMEOUT_MS,
 ): Promise<SqlSchema> {
 	let connections: positron.DataConnectionSummary[];
 	try {
@@ -299,43 +313,97 @@ export async function readConnectionSchema(
 
 	log.debug(`Reading the schema of ${live.length} live data connection(s): ${names(live)}.`);
 
+	// Read side by side, and each one given a deadline: one warehouse still resuming, or a host
+	// that never answers, must not hold up the tables of every other connection -- nor leave the
+	// file scoped to a healthy one with nothing at all.
+	const outcomes = await Promise.all(live.map(connection => readOne(connection, log, api, timeoutMs)));
+
 	const tables: SqlTable[] = [];
 	const read: ConnectionRef[] = [];
 	const incompleteProfiles: string[] = [];
-	for (const connection of live) {
-		const started = Date.now();
-		try {
-			const schema = await api.getSchema(connection.profileId, SCHEMA_BOUNDS);
-			if (!schema) {
-				// Disconnected between the two calls, which a user can do at any moment.
-				log.info(`No schema for ${connection.name}: it is no longer connected.`);
-				continue;
-			}
-			if (schema.truncated) {
-				incompleteProfiles.push(connection.profileId);
-				log.info(`The schema of ${connection.name} is larger than the completion limit;`
-					+ ' some tables or columns will be missing from completions, and names will not'
-					+ ' be reported as unknown.');
-			}
-			const found = flattenSchemaNodes(schema.nodes, connection.name, connection.profileId);
-			log.debug(`${connection.name} (${connection.driverName}): ${describeTables(found)}`
-				+ ` in ${Date.now() - started}ms.`);
-			tables.push(...found);
-			read.push(refOf(connection));
-		} catch (error) {
-			// A connection that could not be read is a hole in the schema, same as one cut short by
-			// the caps, and a name that lives in the hole must not be reported as unknown. It is
-			// still listed as open: a file can be scoped to it, and it will fill in when it reads.
-			incompleteProfiles.push(connection.profileId);
-			read.push(refOf(connection));
-			log.warn(`Could not read the schema of ${connection.name}: ${error}`);
+	live.forEach((connection, index) => {
+		const outcome = outcomes[index];
+		if (outcome === 'disconnected') {
+			return;
 		}
-	}
+		read.push(refOf(connection));
+		if (outcome === 'failed') {
+			// A connection that could not be read is a hole in the schema, same as one cut short
+			// by the caps, and a name that lives in the hole must not be reported as unknown. It
+			// is still listed as open: a file can be scoped to it, and it will fill in when it
+			// reads.
+			incompleteProfiles.push(connection.profileId);
+			return;
+		}
+		if (outcome.truncated) {
+			incompleteProfiles.push(connection.profileId);
+		}
+		tables.push(...outcome.tables);
+	});
 
 	// At info, not debug: this is the line that answers "why am I not getting table completions",
 	// and it has to be readable without the user first raising the log level.
 	log.info(`Read ${tables.length} table(s) from ${live.length} live data connection(s).`);
 	return { tables, connections: read, configured, incompleteProfiles };
+}
+
+/**
+ * How long one connection's schema read may take before it is given up on.
+ *
+ * Generous, because a warehouse that has to resume before it answers can take most of this, and
+ * a read given up on costs that connection's completions until the schema is next read. Bounded,
+ * because the reads are awaited together and a connection that never answers would otherwise
+ * leave every file without tables.
+ */
+const SCHEMA_READ_TIMEOUT_MS = 30_000;
+
+/** What reading one connection came to. */
+type ReadOutcome =
+	| { readonly tables: SqlTable[]; readonly truncated: boolean }
+	| 'disconnected'
+	| 'failed';
+
+/** Reads one connection's schema, within a deadline, logging how it went. */
+async function readOne(
+	connection: positron.DataConnectionSummary,
+	log: SqlLog,
+	api: DataConnectionsApi,
+	timeoutMs: number,
+): Promise<ReadOutcome> {
+	const started = Date.now();
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const deadline = new Promise<'timeout'>(resolve => {
+		timer = setTimeout(() => resolve('timeout'), timeoutMs);
+	});
+	try {
+		// The read itself is not cancelled, only no longer waited for. What it answers late is
+		// dropped by the race, and a late rejection is already handled by it.
+		const schema = await Promise.race([api.getSchema(connection.profileId, SCHEMA_BOUNDS), deadline]);
+		if (schema === 'timeout') {
+			log.warn(`Gave up reading the schema of ${connection.name} after`
+				+ ` ${timeoutMs / 1000}s; run "SQL: Refresh Database Schema" to try again.`);
+			return 'failed';
+		}
+		if (!schema) {
+			// Disconnected between the two calls, which a user can do at any moment.
+			log.info(`No schema for ${connection.name}: it is no longer connected.`);
+			return 'disconnected';
+		}
+		if (schema.truncated) {
+			log.info(`The schema of ${connection.name} is larger than the completion limit;`
+				+ ' some tables or columns will be missing from completions, and table names will'
+				+ ' not be reported as unknown.');
+		}
+		const tables = flattenSchemaNodes(schema.nodes, connection.name, connection.profileId);
+		log.debug(`${connection.name} (${connection.driverName}): ${describeTables(tables)}`
+			+ ` in ${Date.now() - started}ms.`);
+		return { tables, truncated: schema.truncated };
+	} catch (error) {
+		log.warn(`Could not read the schema of ${connection.name}: ${error}`);
+		return 'failed';
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 /** How a connection is carried once the schema has been read from it. */

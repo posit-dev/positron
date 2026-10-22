@@ -124,7 +124,17 @@ suite('flattenSchemaNodes', () => {
 			connection: undefined,
 			profileId: undefined,
 			columns: [],
+			columnsComplete: false,
 		}]);
+	});
+
+	test('a table says whether the read reached all of its columns', () => {
+		const tables = flattenSchemaNodes([
+			{ name: 'whole', kind: Kind.Table, children: [{ name: 'id', kind: Kind.Field }] },
+			{ name: 'wide', kind: Kind.Table, children: [{ name: 'id', kind: Kind.Field }], truncatedChildCount: 300 },
+		]);
+
+		assert.deepStrictEqual(tables.map(table => [table.name, table.columnsComplete]), [['whole', true], ['wide', false]]);
 	});
 
 	test('an empty tree yields no tables', () => {
@@ -417,5 +427,59 @@ suite('readConnectionSchema', () => {
 		const schema = await readConnectionSchema(log, api);
 
 		assert.deepStrictEqual(schema.tables.map(table => table.name), ['orders']);
+	});
+
+	test('a connection that does not answer is given up on without holding up the others', async () => {
+		// A warehouse still resuming, or a host that never replies. The read that does answer
+		// still fills in, and the one that did not is a hole like a failed read.
+		const { messages, api, log } = harness({
+			getConnections: () => Promise.resolve([
+				connection('hung', 'Hung', true),
+				connection('good', 'Good', true),
+			]),
+			getSchema: (profileId: string) => profileId === 'hung'
+				? new Promise(() => { })
+				: Promise.resolve({ profileId, truncated: false, nodes: [{ name: 'orders', kind: Kind.Table, children: [] }] }),
+		});
+
+		const schema = await readConnectionSchema(log, api, 50);
+
+		assert.deepStrictEqual(schema.tables.map(table => table.name), ['orders']);
+		assert.deepStrictEqual(schema.connections.map(each => each.profileId), ['hung', 'good']);
+		assert.deepStrictEqual(schema.incompleteProfiles, ['hung']);
+		assert.ok(messages.some(message => message.includes('Gave up reading the schema of Hung')), messages.join('\n'));
+	});
+
+	test('connections are read side by side, not one after another', async () => {
+		let reading = 0;
+		let most = 0;
+		const { api, log } = harness({
+			getConnections: () => Promise.resolve([connection('a', 'A', true), connection('b', 'B', true)]),
+			getSchema: async (profileId: string) => {
+				most = Math.max(most, ++reading);
+				await new Promise(resolve => setTimeout(resolve, 10));
+				reading--;
+				return { profileId, truncated: false, nodes: [] };
+			},
+		});
+
+		await readConnectionSchema(log, api);
+
+		assert.strictEqual(most, 2);
+	});
+
+	test('a read that fails after it was given up on is ignored', async () => {
+		let fail: (error: Error) => void = () => { };
+		const { api, log } = harness({
+			getConnections: () => Promise.resolve([connection('slow', 'Slow', true)]),
+			getSchema: () => new Promise((_, reject) => { fail = reject; }),
+		});
+
+		const schema = await readConnectionSchema(log, api, 10);
+		fail(new Error('too late'));
+		// Let the late rejection settle: unhandled, it would fail the run.
+		await new Promise(resolve => setTimeout(resolve, 10));
+
+		assert.deepStrictEqual(schema.incompleteProfiles, ['slow']);
 	});
 });

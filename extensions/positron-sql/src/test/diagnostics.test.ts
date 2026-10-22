@@ -43,7 +43,7 @@ suite('collectDiagnostics', () => {
 	test('an unknown table is a warning on its name, and names where it was looked for', async () => {
 		assert.deepStrictEqual(
 			await report('SELECT * FROM invoices'),
-			[`warning "invoices": No table named 'invoices' in Test Connection.`],
+			[`warning "invoices": No table named 'invoices' in Test Connection. If it is new, run "SQL: Refresh Database Schema".`],
 		);
 	});
 
@@ -89,6 +89,20 @@ suite('collectDiagnostics', () => {
 		assert.deepStrictEqual(await report('SELECT quantity FROM invoices', partial), []);
 	});
 
+	test('a schema read only in part still judges the columns of a table read in full', async () => {
+		// The caps cut tables short far more often than they cut a table's columns, so a missing
+		// table says nothing, but a misspelled column of a table read in full is still a mistake.
+		const payload = partialPayloadOf('orders: id, total', 'wide: id');
+		const partial = new SchemaIndex({
+			...payload,
+			tables: payload.tables.map(table => ({ ...table, columnsComplete: table.name === 'orders' })),
+		});
+
+		assert.deepStrictEqual(await report('SELECT totl FROM orders; SELECT nme FROM wide; SELECT * FROM invoices', partial), [
+			`warning "totl": No column named 'totl' in orders.`,
+		]);
+	});
+
 	test('the setting turns unknown names off without touching syntax errors', async () => {
 		assert.deepStrictEqual(await report('SELECT * FROM invoices', SCHEMA, false), []);
 		assert.strictEqual((await report('SELECT * FRM orders', SCHEMA, false)).length, 1);
@@ -98,8 +112,8 @@ suite('collectDiagnostics', () => {
 		assert.deepStrictEqual(
 			await report('SELECT * FROM invoices;\nSELECT * FROM receipts'),
 			[
-				`warning "invoices": No table named 'invoices' in Test Connection.`,
-				`warning "receipts": No table named 'receipts' in Test Connection.`,
+				`warning "invoices": No table named 'invoices' in Test Connection. If it is new, run "SQL: Refresh Database Schema".`,
+				`warning "receipts": No table named 'receipts' in Test Connection. If it is new, run "SQL: Refresh Database Schema".`,
 			],
 		);
 	});

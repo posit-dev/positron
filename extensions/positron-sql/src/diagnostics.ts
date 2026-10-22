@@ -14,7 +14,8 @@ import { SchemaIndex } from './schemaIndex';
  * Syntax problems come from the parser and are reported whatever else is known. Unknown table and
  * column names come from matching the document against the schema the user's connections
  * reported, and are reported only when that schema is a complete enough picture to judge a name
- * by -- see {@link SchemaIndex.isComplete}.
+ * by: a table name against the whole schema (see {@link SchemaIndex.isComplete}), a column against
+ * the table it was looked for in (see {@link SchemaIndex.columnsComplete}).
  *
  * Both are warnings. The parser is sqlparser, which is not any engine's own grammar: it rejects
  * some correct SQL in every dialect -- SQLite's `GLOB`, DuckDB's `LIMIT 10%` -- and the database
@@ -49,9 +50,12 @@ export function collectDiagnostics(
 		return reported;
 	});
 
-	if (reportUnknownNames && schema.isComplete) {
+	if (reportUnknownNames && !schema.isEmpty) {
 		for (const reference of resolveReferences(analysis, schema)) {
-			if (reference.status !== 'unknown') {
+			// A column the resolver flags was looked for in tables whose columns were all read.
+			// A table is missing from the whole schema, which says nothing if the read stopped
+			// short of some of it.
+			if (reference.status !== 'unknown' || (reference.kind === 'table' && !schema.isComplete)) {
 				continue;
 			}
 			// A warning rather than an error. The schema is a snapshot of connections that can
@@ -76,10 +80,14 @@ function describe(reference: Reference, schema: SchemaIndex): string {
 		// A file is checked against one connection, so there is one to name, and naming it is the
 		// difference between "you are wrong" and "not in this database" -- which is often what the
 		// user needs to hear, the table being real and somewhere else.
+		//
+		// The schema is read when a connection opens, so a table created since -- from a console,
+		// another tool, or this file once it has run -- is missing until it is read again. The
+		// message says how, since otherwise nothing tells the user this is not the table's fault.
 		const [connection] = schema.connections;
 		return connection
-			? vscode.l10n.t("No table named '{0}' in {1}.", reference.name, connection.name)
-			: vscode.l10n.t("No table named '{0}' in the connected data connection.", reference.name);
+			? vscode.l10n.t("No table named '{0}' in {1}. If it is new, run \"SQL: Refresh Database Schema\".", reference.name, connection.name)
+			: vscode.l10n.t("No table named '{0}' in the connected data connection. If it is new, run \"SQL: Refresh Database Schema\".", reference.name);
 	}
 	return vscode.l10n.t(
 		"No column named '{0}' in {1}.",

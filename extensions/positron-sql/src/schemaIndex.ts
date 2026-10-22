@@ -74,7 +74,8 @@ export class SchemaIndex {
 	}
 
 	/**
-	 * Whether the schema is a full picture, and so can be used to judge a name unknown.
+	 * Whether the schema is a full picture, and so can be used to judge a table name unknown. A
+	 * column is judged against its own table instead; see {@link columnsComplete}.
 	 *
 	 * A schema with no tables (nothing connected), or one where any connection it covers was read
 	 * only in part (more tables than the node caps allow, or a read that failed), cannot tell a
@@ -83,6 +84,19 @@ export class SchemaIndex {
 	 */
 	public get isComplete(): boolean {
 		return !this.isEmpty && this._schema.incompleteProfiles.length === 0;
+	}
+
+	/**
+	 * Whether a table's column list is the whole of it, and so can be used to judge a column
+	 * unknown.
+	 *
+	 * Finer than {@link isComplete}: a read cut short by the node caps usually still has every
+	 * column of most of the tables it reached, and what it lacks is tables. A table that does not
+	 * say -- one built by a test, say -- is as complete as its connection's read.
+	 */
+	public columnsComplete(table: SqlTable): boolean {
+		return table.columnsComplete
+			?? (table.profileId === undefined || !this._schema.incompleteProfiles.includes(table.profileId));
 	}
 
 	/** Whether any table was reported under a catalog or a schema, rather than at the root. */

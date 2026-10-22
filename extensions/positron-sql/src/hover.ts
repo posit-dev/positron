@@ -54,7 +54,7 @@ export function hoverFor(
 		return undefined;
 	}
 
-	const contents = describe(reference, reference.table, schema.isComplete);
+	const contents = describe(reference, reference.table, schema.columnsComplete(reference.table));
 	if (!contents) {
 		return undefined;
 	}
@@ -72,9 +72,9 @@ export function hoverFor(
  *
  * @param reference The name under the pointer, already resolved.
  * @param table The table it resolved to, or whose column it is.
- * @param complete Whether the schema was read in full. When it was not, a table's column list may
- *   be missing some, and a hover that showed it as the whole picture would be wrong rather than
- *   merely incomplete.
+ * @param complete Whether the table's columns were read in full. When they were not, its column
+ *   list may be missing some, and a hover that showed it as the whole picture would be wrong rather
+ *   than merely incomplete.
  */
 export function describe(
 	reference: Reference,
@@ -101,14 +101,14 @@ function describeColumn(reference: Reference, table: SqlTable): vscode.MarkdownS
 	const signature = [column.name, column.dataType].filter(part => part).join(' ');
 	const parts = [
 		codeBlock(signature),
-		vscode.l10n.t("Column of `{0}`{1}", qualifiedName(table), inConnection(table)),
+		vscode.l10n.t("Column of {0}{1}", inlineCode(qualifiedName(table)), inConnection(table)),
 	];
 	if (column.isPrimaryKey) {
 		parts.splice(1, 0, vscode.l10n.t("Primary key."));
 	}
 	if (reference.aliasOf !== undefined) {
 		// Said first, since the name under the pointer is not the one in the code block.
-		parts.splice(1, 0, vscode.l10n.t("`{0}` is an alias of this column.", reference.name));
+		parts.splice(1, 0, vscode.l10n.t("{0} is an alias of this column.", inlineCode(reference.name)));
 	}
 	return markdown(parts);
 }
@@ -153,9 +153,9 @@ function describeTable(table: SqlTable, complete: boolean): vscode.MarkdownStrin
 function columnTable(columns: readonly SqlColumn[]): string {
 	const rows = columns.slice(0, MAX_COLUMNS_SHOWN).map(column => {
 		const name = column.isPrimaryKey
-			? vscode.l10n.t("{0} (key)", column.name)
-			: column.name;
-		return `| ${escapeCell(name)} | ${escapeCell(column.dataType ?? '')} |`;
+			? vscode.l10n.t("{0} (key)", escapeMarkdown(column.name))
+			: escapeMarkdown(column.name);
+		return `| ${name} | ${escapeMarkdown(column.dataType ?? '')} |`;
 	});
 	return [
 		`| ${vscode.l10n.t("Column")} | ${vscode.l10n.t("Type")} |`,
@@ -172,21 +172,41 @@ function columnTable(columns: readonly SqlColumn[]): string {
  * them -- but that is exactly the case where the user has several open and needs it.
  */
 function inConnection(table: SqlTable): string {
-	return table.connection ? vscode.l10n.t(" in {0}", table.connection) : '';
+	return table.connection ? vscode.l10n.t(" in {0}", escapeMarkdown(table.connection)) : '';
 }
 
+/*
+ * Everything below puts a name the database or the user chose into markdown. A quoted identifier
+ * can hold any character, so each one is made to read as text: a backtick would end a code span
+ * early, a pipe a table cell, and a bracket or an asterisk would turn the rest into a link or
+ * emphasis.
+ */
+
 function codeBlock(text: string): string {
-	return ['```sql', text, '```'].join('\n');
+	const fence = '`'.repeat(Math.max(3, longestBacktickRun(text) + 1));
+	return [`${fence}sql`, text, fence].join('\n');
+}
+
+/** A code span around any text, its delimiter longer than any run of backticks inside. */
+function inlineCode(text: string): string {
+	const delimiter = '`'.repeat(longestBacktickRun(text) + 1);
+	// Padded with a space where the text starts or ends with a backtick, which would otherwise be
+	// read as part of the delimiter; markdown strips one such space from each side.
+	const padding = text.startsWith('`') || text.endsWith('`') ? ' ' : '';
+	return `${delimiter}${padding}${text}${padding}${delimiter}`;
+}
+
+function longestBacktickRun(text: string): number {
+	return Math.max(0, ...(text.match(/`+/g) ?? []).map(run => run.length));
 }
 
 /**
- * Escapes a cell of the markdown table.
- *
- * A pipe in an identifier would end the cell early and shift every column after it. Rare, and
- * legal in a quoted identifier on every engine here.
+ * Text with every character that means something inside a line of markdown escaped, so it renders
+ * as written. The ones that mean something only at the start of a line -- `#`, `-`, `+` -- never
+ * come first here.
  */
-function escapeCell(text: string): string {
-	return text.replace(/\|/g, '\\|');
+function escapeMarkdown(text: string): string {
+	return text.replace(/[\\`*_[\]<>|~&]/g, '\\$&');
 }
 
 function markdown(parts: readonly string[]): vscode.MarkdownString {

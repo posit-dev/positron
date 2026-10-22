@@ -25,17 +25,21 @@ import { displayName, SchemaIndex } from './schemaIndex';
 
 /**
  * Prefixes the engines reserve for their own catalog tables, which a connection does not list as
- * the user's: `pg_class`, `sqlite_master`. A name with one is the engine's, not a typo.
+ * the user's: `pg_class`, `sqlite_master`, `duckdb_tables`. A name with one is the engine's, not a
+ * typo.
  */
-const SYSTEM_TABLE_PREFIXES = ['pg_', 'sqlite_'];
+const SYSTEM_TABLE_PREFIXES = ['pg_', 'sqlite_', 'duckdb_'];
 
 /**
  * Columns every row of a table has without the table declaring them, which a connection therefore
  * does not report: SQLite's and DuckDB's `rowid`, PostgreSQL's `ctid` and its transaction
- * columns, Oracle's `rownum`. Fixed by each engine rather than by the user's schema.
+ * columns, Oracle's `rownum`, BigQuery's partition and wildcard-table pseudo-columns, Databricks'
+ * file metadata column. Fixed by each engine rather than by the user's schema. Folded, as they
+ * are looked up.
  */
 const SYSTEM_COLUMNS = new Set([
 	'rowid', '_rowid_', 'oid', 'ctid', 'xmin', 'xmax', 'cmin', 'cmax', 'tableoid', 'rownum',
+	'_partitiontime', '_partitiondate', '_table_suffix', '_file_name', '_metadata',
 ]);
 
 export interface Reference {
@@ -91,6 +95,14 @@ interface ResolvedScope {
 
 	/** The select-list aliases in scope that rename a column, and the column each renames. */
 	readonly aliases: Map<string, Renamed>;
+
+	/**
+	 * Tables in scope whose columns resolve when the schema has them but are never flagged when
+	 * it does not: the schema read stopped short of some of their columns, or the name the
+	 * statement reads them by could mean another table -- one in another schema the engine's
+	 * search path may put first, or one the read never reached.
+	 */
+	readonly uncertain: Set<SqlTable>;
 }
 
 /**
@@ -180,7 +192,7 @@ function resolveColumn(
 			return undefined;
 		}
 		candidates = [table];
-		lenient = owner.changed.has(qualifier);
+		lenient = owner.changed.has(qualifier) || owner.uncertain.has(table);
 	} else if (scope.aliases.has(fold(column.name))) {
 		// `uis` in `WHERE uis = 10` after `SELECT UnitsInStock AS uis`: the column it renames,
 		// found where that column would be. Only ever resolved, never flagged -- the alias is
@@ -196,7 +208,7 @@ function resolveColumn(
 		return undefined;
 	} else {
 		candidates = scope.tables;
-		lenient = scope.changed.size > 0;
+		lenient = scope.changed.size > 0 || scope.uncertain.size > 0;
 	}
 
 	let owner = findOwner(candidates, column.name);
@@ -208,9 +220,15 @@ function resolveColumn(
 		const further = outer.flatMap(each => each.tables);
 		owner = findOwner(further, column.name);
 		searched = [...candidates, ...further.filter(table => !candidates.includes(table))];
-		lenient ||= outer.some(each => each.opaque || each.changed.size > 0);
+		lenient ||= outer.some(each => each.opaque || each.changed.size > 0 || each.uncertain.size > 0);
 	}
 
+	if (!owner && column.qualifier === undefined && names(reachable, column.name)) {
+		// A table or its alias written where a value goes: `row_to_json(o)`, `SELECT o FROM
+		// orders o`. PostgreSQL reads it as the whole row, DuckDB as a struct of it -- a value,
+		// and not a column the table should have.
+		return undefined;
+	}
 	if (!owner && (lenient || SYSTEM_COLUMNS.has(fold(column.name)))) {
 		return undefined;
 	}
@@ -223,6 +241,12 @@ function resolveColumn(
 		table: owner,
 		searched: owner ? [] : searched.map(displayName),
 	};
+}
+
+/** Whether any of the scopes reads a table under the name, or defines it for itself. */
+function names(scopes: readonly ResolvedScope[], name: string): boolean {
+	const folded = fold(name);
+	return scopes.some(scope => scope.byName.has(folded) || scope.unresolvable.has(folded));
 }
 
 /** The resolved scopes enclosing a scope, nearest first. */
@@ -300,6 +324,7 @@ function resolveScope(index: number, analysis: Analysis, schema: SchemaIndex, fa
 		unresolvable: new Set(),
 		changed: new Set(),
 		aliases: new Map(),
+		uncertain: new Set(),
 	};
 
 	// Names the statement defines for itself, at this level and every level enclosing it. A CTE
@@ -335,14 +360,35 @@ function resolveScope(index: number, analysis: Analysis, schema: SchemaIndex, fa
 		}
 		// An alias is what the statement calls the table, and is what a qualifier will be written
 		// as: `o.` after `FROM orders o` means the columns of orders, whatever else is called `o`.
-		resolved.byName.set(name, matches[0]);
-		resolved.tables.push(matches[0]);
+		const [match] = matches;
+		resolved.byName.set(name, match);
+		resolved.tables.push(match);
+		if (!schema.columnsComplete(match) || mayMeanAnother(schema, table, match)) {
+			resolved.uncertain.add(match);
+		}
 		if (table.altered || holdsAt(facts.changed, table.name, table.start)) {
 			resolved.changed.add(name);
 		}
 	}
 
 	return resolved;
+}
+
+/**
+ * Whether the table a reference resolved to may not be the one the engine reads.
+ *
+ * Only an unqualified name can: a qualified one names its namespace. When several tables have the
+ * name -- in two schemas, or in one with names that differ only in case -- which one the engine
+ * reads depends on a search path and on quoting this does not model, so the default schema's is a
+ * fine guess for a completion or a hover but not evidence for a warning. Neither is a lone match
+ * outside the default schema in a schema read only in part: the one the engine reads may be in the
+ * part that was not read.
+ */
+function mayMeanAnother(schema: SchemaIndex, table: TableRef, match: SqlTable): boolean {
+	if (table.schema !== undefined || table.catalog !== undefined) {
+		return false;
+	}
+	return schema.tablesNamed(table.name).length > 1 || (!schema.isComplete && !schema.isDefault(match));
 }
 
 /** Resolves a column written as an alias to the column the alias renames, if it can be found. */
