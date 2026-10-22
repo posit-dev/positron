@@ -885,6 +885,7 @@ export class PositAssistant {
 	 * @param options.writeSetting Write the setting through the settings fixture
 	 *   (default: true). Pass false on Workbench, where the fixture can't reach the
 	 *   container's settings file; set it with `extraSettings` instead.
+	 * @returns Whether a dev build was installed and the window reloaded.
 	 */
 	async checkForDevBuildUpdate(
 		settings: {
@@ -897,12 +898,12 @@ export class PositAssistant {
 			runCommand: (command: string, options?: { exactLabelMatch?: boolean }) => Promise<any>;
 		},
 		options: { toastTimeout?: number; waitForReady?: boolean; writeSetting?: boolean } = {},
-	): Promise<void> {
+	): Promise<boolean> {
 		const { toastTimeout = 30000, waitForReady = true, writeSetting = true } = options;
 
 		// A local Assistant checkout is the build under test; don't replace it with a dev build.
 		if (process.env.POSITRON_E2E_ASSISTANT_PATH) {
-			return;
+			return false;
 		}
 
 		// 1. Enable the auto dev-build update check setting.
@@ -924,13 +925,13 @@ export class PositAssistant {
 			await toasts.waitForAppear(checkResult, { timeout: toastTimeout });
 		} catch {
 			console.log(`[checkForDevBuildUpdate] No result from the update check within ${toastTimeout}ms; keeping the installed Posit Assistant.`);
-			return;
+			return false;
 		}
 
 		const message = await this.readNotification(checkResult);
 		console.log(`[checkForDevBuildUpdate] ${message}`);
 		if (!updateAvailable.test(message)) {
-			return;
+			return false;
 		}
 
 		await toasts.clickButton('Update Now', { notificationFilter: updateAvailable });
@@ -945,6 +946,7 @@ export class PositAssistant {
 		);
 		const commit = message.match(/commit (?<commit>[0-9a-f]+)/i)?.groups?.commit ?? 'unknown';
 		console.log(`[checkForDevBuildUpdate] Installed Posit Assistant dev build ${commit} and reloaded.`);
+		return true;
 	}
 
 	/**
