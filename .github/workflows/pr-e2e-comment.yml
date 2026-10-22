@@ -7,6 +7,12 @@ on:
       - synchronize
       - edited
 
+# Opening a PR and editing its body right after starts two runs; without this,
+# both see no comment yet and each creates one.
+concurrency:
+  group: pr-e2e-comment-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   e2e-tags:
     runs-on: ubuntu-latest
@@ -14,16 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Install just enough for derive-test-change-tags.mjs's
-      # `playwright test --list` call, so the comment reflects e2e test-change
-      # tags. Gated to PRs that touch e2e test files. Shared with the pr-tags
-      # job in test-pull-request.yml so the two derivation environments match.
+      # Install just enough for `playwright test --list`, so the comment shows
+      # the e2e test-change tags and each lane's test count. Shared with the
+      # pr-tags job in test-pull-request.yml so the two environments match.
       - name: Set up e2e tag listing
         uses: ./.github/actions/e2e-tag-listing-setup
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          github-repository: ${{ github.repository }}
-          pull-request-number: ${{ github.event.pull_request.number }}
 
       - name: Parse Tags from PR Body
         id: pr-tags
@@ -34,7 +35,7 @@ jobs:
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Update PR Comment with Tags
-        run: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "${{ env.tags }}" "${{ steps.pr-tags.outputs.no_matches }}" "${{ steps.pr-tags.outputs.unmapped_dirs }}" "${{ steps.pr-tags.outputs.invalid_tags }}" "${{ steps.pr-tags.outputs.tag_reasons }}"
+        run: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "${{ env.tags }}" "${{ steps.pr-tags.outputs.no_matches }}" "${{ steps.pr-tags.outputs.unmapped_dirs }}" "${{ steps.pr-tags.outputs.invalid_tags }}" "${{ steps.pr-tags.outputs.tag_reasons }}" "${{ steps.pr-tags.outputs.lane_summary }}"
         env:
           tags: ${{ steps.pr-tags.outputs.tags }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

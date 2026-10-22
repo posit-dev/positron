@@ -566,7 +566,10 @@ export class DevContainerManager {
 	 */
 	private async createDockerParams(): Promise<any> {
 		const config = getConfiguration();
-		const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+		// In a window opened in a container, the workspace folder is remote and
+		// does not exist locally, so it cannot be the cwd for docker
+		const folderUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+		const cwd = folderUri?.scheme === 'file' ? folderUri.fsPath : process.cwd();
 
 		const disposables: (() => Promise<unknown> | undefined)[] = [];
 

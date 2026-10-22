@@ -44,6 +44,8 @@ jobs:
             python: '3.13'
           - os: 'ubuntu-latest'
             python: '3.14'
+          - os: 'ubuntu-latest'
+            python: '3.15'
 
 
     steps:
@@ -104,6 +106,8 @@ jobs:
             python: '3.13'
           - os: 'ubuntu-latest'
             python: '3.14'
+          - os: 'ubuntu-latest'
+            python: '3.15'
 
 
     steps:

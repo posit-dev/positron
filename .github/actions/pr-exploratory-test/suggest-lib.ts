@@ -156,7 +156,7 @@ export function renderSuggestComment(reason) {
 		'> [!TIP]',
 		`> This PR ${reasonClause(reason)}`,
 		'>',
-		'> Comment `/explore` to run an exploratory test. Results will be posted in this thread.',
+		'> Comment `/explore` to run an exploratory test. Results will be posted as a comment on this PR.',
 		'',
 	].join('\n');
 }

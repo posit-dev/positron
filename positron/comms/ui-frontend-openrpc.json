@@ -236,6 +236,42 @@
 			}
 		},
 		{
+			"name": "select_file",
+			"summary": "Ask the user to select a file",
+			"description": "Use this to show a file dialog where the user can select a file",
+			"params": [
+				{
+					"name": "title",
+					"description": "The title of the file dialog",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "existing",
+					"description": "Whether the file must already exist. If false, the user may also enter the name of a new file.",
+					"schema": {
+						"type": "boolean"
+					}
+				},
+				{
+					"name": "default_dir",
+					"description": "The directory the file dialog starts in. If omitted, defaults to the session's working directory.",
+					"required": false,
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"required": false,
+				"schema": {
+					"type": "string",
+					"description": "The path of the selected file, or null if the user cancelled"
+				}
+			}
+		},
+		{
 			"name": "prompt_state",
 			"summary": "New state of the primary and secondary prompts",
 			"description": "Languages like R allow users to change the way their prompts look. This event signals a change in the prompt configuration.",

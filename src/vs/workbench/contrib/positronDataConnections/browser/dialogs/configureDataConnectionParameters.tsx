@@ -67,6 +67,13 @@ const ParameterDescription = ({ text }: { text?: string }): JSX.Element | null =
 	text ? <span className='parameter-description'>{text}</span> : null;
 
 /**
+ * Renders a parameter's validation error message beneath its field. Returns nothing when the
+ * parameter has no error message.
+ */
+const ParameterError = ({ message }: { message?: string }): JSX.Element | null =>
+	message ? <span className='parameter-error' role='alert'>{message}</span> : null;
+
+/**
  * ConfigureDataConnectionParameters component. Renders the per-parameter form fields for the
  * selected driver, dispatching value changes back to the parent via onParameterChanged.
  */
@@ -95,6 +102,7 @@ export const ConfigureDataConnectionParameters = ({
 									onChanged={checked => onParameterChanged(parameter.id, checked)}
 								/>
 								<ParameterDescription text={parameter.description} />
+								<ParameterError message={parameterFieldStates[parameter.id].errorMessage} />
 							</div>
 						);
 					}
@@ -122,6 +130,7 @@ export const ConfigureDataConnectionParameters = ({
 									</Button>
 								</div>
 								<ParameterDescription text={parameter.description} />
+								<ParameterError message={parameterFieldStates[parameter.id].errorMessage} />
 							</div>
 						);
 					}
@@ -152,6 +161,7 @@ export const ConfigureDataConnectionParameters = ({
 									}}
 								/>
 								<ParameterDescription text={parameter.description} />
+								<ParameterError message={parameterFieldStates[parameter.id].errorMessage} />
 							</div>
 						);
 					}
@@ -183,6 +193,7 @@ export const ConfigureDataConnectionParameters = ({
 									</select>
 								</div>
 								<ParameterDescription text={parameter.description} />
+								<ParameterError message={parameterFieldStates[parameter.id].errorMessage} />
 							</div>
 						);
 					}
@@ -210,6 +221,7 @@ export const ConfigureDataConnectionParameters = ({
 									onChange={e => onParameterChanged(parameter.id, e.target.value ?? undefined)}
 								/>
 								<ParameterDescription text={parameter.description} />
+								<ParameterError message={parameterFieldStates[parameter.id].errorMessage} />
 							</div>
 						);
 					}
@@ -246,6 +258,7 @@ export const ConfigureDataConnectionParameters = ({
 									onChange={e => onParameterChanged(parameter.id, e.target.value ?? undefined)}
 								/>
 								<ParameterDescription text={parameter.description} />
+								<ParameterError message={parameterFieldStates[parameter.id].errorMessage} />
 							</div>
 						);
 					}

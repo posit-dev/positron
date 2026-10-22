@@ -7,13 +7,13 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import * as jsonc from 'jsonc-parser';
 import { getLogger } from '../common/logger';
 import { Configuration } from '../common/configuration';
 import { generateDockerBuildCommand, generateDockerCreateCommand } from '../spec/spec-node/devContainersSpecCLI';
 import { formatCommandWithEcho, formatCommandForShell, escapeShellArg } from '../spec/spec-node/commandGeneration';
 import { prepareFeaturesInstallation, generateFeatureInstallScript, cleanupFeaturesDir } from './featuresInstaller';
 import { Mount } from '../spec/spec-configuration/containerFeaturesConfiguration';
+import { devContainerIdLabels, readDevContainerConfig } from '../common/devContainerConfig';
 
 /**
  * Result from terminal build
@@ -36,6 +36,15 @@ function escapePowerShellArg(arg: string): string {
 		return `'${arg.replace(/'/g, "''")}'`;
 	}
 	return arg;
+}
+
+/**
+ * Rewrites ${containerEnv:NAME[:default]} as a shell parameter expansion, to be
+ * resolved by the shell that runs the command inside the container.
+ */
+function containerEnvToShell(command: string): string {
+	return command.replace(/\$\{containerEnv:(?<name>[^}:]*)(?::(?<fallback>[^}:]*))?[^}]*\}/g, (_match, name: string, fallback = '') =>
+		/^[A-Za-z_]\w*$/.test(name) ? `\${${name}-${fallback}}` : fallback);
 }
 
 /**
@@ -86,9 +95,11 @@ function generateLifecycleHooksScript(
 			continue;
 		}
 
+		shellCommand = containerEnvToShell(shellCommand);
+
 		// Escape the command for the shell
 		const escapedCommand = isWindows
-			? shellCommand.replace(/"/g, '`"')
+			? shellCommand.replace(/"/g, '`"').replace(/\$/g, '`$$')
 			: shellCommand.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
 
 		// Add to script
@@ -132,8 +143,11 @@ export class TerminalBuilder {
 			}
 		}
 
-		// Read and parse the devcontainer.json (supports comments via JSONC)
-		const devContainerConfig = jsonc.parse(fs.readFileSync(devcontainerPath, 'utf8'));
+		// Setup folder paths
+		const folderName = path.basename(workspaceFolder);
+		const remoteWorkspaceFolder = `/workspaces/${folderName}`;
+
+		const devContainerConfig = readDevContainerConfig(devcontainerPath, workspaceFolder, remoteWorkspaceFolder);
 
 		// Determine the Dockerfile or image
 		const devcontainerDir = path.dirname(devcontainerPath);
@@ -153,10 +167,6 @@ export class TerminalBuilder {
 				dockerfilePath = defaultDockerfile;
 			}
 		}
-
-		// Setup folder paths
-		const folderName = path.basename(workspaceFolder);
-		const remoteWorkspaceFolder = `/workspaces/${folderName}`;
 
 		// Build the image name
 		let builtImageName: string;
@@ -193,9 +203,10 @@ export class TerminalBuilder {
 
 		const generateShellScript = () => {
 			let script = '#!/bin/sh\nset -e\n\n';
-			script += '# Trap errors to keep terminal open so user can see what failed\n';
+			script += '# Trap failures to keep terminal open so user can see what failed\n';
 			script += '# Write error marker and exit 0 to avoid VS Code toast about exit code\n';
-			script += `trap 'echo ""; echo "==> ERROR: Build failed! Press Enter to close this terminal..."; echo "failed" > "${errorPath}"; read dummy; exit 0' ERR\n\n`;
+			script += `trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo ""; echo "==> ERROR: Build failed! Press Enter to close this terminal..."; echo "failed" > "${errorPath}"; read dummy || true; fi; exit 0' EXIT\n`;
+			script += `trap 'exit 130' INT TERM HUP\n\n`;
 
 			if (rebuild) {
 				script += 'echo "==> Removing existing containers..."\n';
@@ -313,10 +324,7 @@ export class TerminalBuilder {
 			containerUser: devContainerConfig.remoteUser,
 			env: devContainerConfig.containerEnv,
 			mounts,
-			labels: {
-				'devcontainer.local_folder': workspaceFolder,
-				'devcontainer.config_file': devcontainerPath,
-			},
+			labels: devContainerIdLabels(workspaceFolder, devcontainerPath),
 			runArgs: devContainerConfig.runArgs,
 		});
 
@@ -417,7 +425,7 @@ export class TerminalBuilder {
 
 			scriptContent += 'echo "==> Container ready!"\n';
 			scriptContent += `echo "done" > "${markerPath}"\n`;
-			scriptContent += 'trap - ERR\n';
+			scriptContent += 'trap - EXIT\n';
 			scriptContent += 'exit 0\n';
 		}
 

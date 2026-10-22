@@ -51,6 +51,8 @@ export interface IPostgresDataExplorerHost {
  */
 export class PostgresDataExplorerRpcHandler implements vscode.Disposable, IPostgresDataExplorerHost {
 	private readonly _views = new Map<string, PostgresTableView>();
+	/** How each open dataset's view was built, so that refreshDataset can build it again. */
+	private readonly _builders = new Map<string, ViewBuilder>();
 	private readonly _session: positron.DataExplorerRpcSession;
 
 	/**
@@ -65,12 +67,14 @@ export class PostgresDataExplorerRpcHandler implements vscode.Disposable, IPostg
 		this._session = registerRpcHandler(POSTGRESQL_DATA_EXPLORER_PROVIDER_ID, {
 			handleRpc: request => this.handleRequest(request as DataExplorerRpc),
 			closeDataset: datasetId => this.closeTableView(datasetId),
+			refreshDataset: datasetId => this.refreshDataset(datasetId),
 		});
 	}
 
 	dispose(): void {
 		this._session.dispose();
 		this._views.clear();
+		this._builders.clear();
 	}
 
 	/**
@@ -84,8 +88,10 @@ export class PostgresDataExplorerRpcHandler implements vscode.Disposable, IPostg
 		tableName: string,
 		kind: 'table' | 'view',
 	): Promise<void> {
-		const schema = await buildPostgresSchema(client, schemaName, tableName);
-		this._views.set(datasetId, new PostgresTableView(client, tableRef(schemaName, tableName), tableName, kind, schema));
+		await this._openView(datasetId, async () => {
+			const schema = await buildPostgresSchema(client, schemaName, tableName);
+			return new PostgresTableView(client, tableRef(schemaName, tableName), tableName, kind, schema);
+		});
 	}
 
 	/**
@@ -100,17 +106,54 @@ export class PostgresDataExplorerRpcHandler implements vscode.Disposable, IPostg
 		kind: 'table' | 'view',
 		columnName: string,
 	): Promise<void> {
-		const schema = await buildPostgresSchema(client, schemaName, tableName);
-		const column = schema.find(c => c.column_name === columnName);
-		if (!column) {
-			throw new Error(`Column '${columnName}' not found in '${schemaName}.${tableName}'`);
+		await this._openView(datasetId, async () => {
+			const schema = await buildPostgresSchema(client, schemaName, tableName);
+			const column = schema.find(c => c.column_name === columnName);
+			if (!column) {
+				throw new Error(`Column '${columnName}' not found in '${schemaName}.${tableName}'`);
+			}
+			return new PostgresTableView(client, tableRef(schemaName, tableName), tableName, kind, [column]);
+		});
+	}
+
+	/**
+	 * Rebuilds a dataset's view from its table, so that it shows changes made to the table since the
+	 * view was built. The rebuilt view replaces the old one only once it has read its row count, so a
+	 * rebuild that fails -- the table was dropped, the connection is down -- leaves the old view in
+	 * place. The rebuilt view has no sort keys or row filters; Positron re-applies them.
+	 */
+	async refreshDataset(datasetId: string): Promise<void> {
+		const builder = this._builders.get(datasetId);
+		if (!builder) {
+			throw new Error(`No PostgreSQL data explorer is open for ${datasetId}`);
 		}
-		this._views.set(datasetId, new PostgresTableView(client, tableRef(schemaName, tableName), tableName, kind, [column]));
+
+		const generation = ++builder.generation;
+		const view = await builder.build();
+		await validateRebuiltView(view);
+
+		// The dataset may have closed, been reopened, or been refreshed again while this view was
+		// being built. Installing it then would resurrect a closed dataset or replace a newer view.
+		if (this._builders.get(datasetId) !== builder || builder.generation !== generation) {
+			throw new Error(vscode.l10n.t('The data explorer closed or was refreshed again before the refresh finished.'));
+		}
+
+		this._views.set(datasetId, view);
+	}
+
+	/**
+	 * Builds a dataset's view and registers it, replacing any prior view for the same dataset id and
+	 * remembering how it was built so that it can be refreshed.
+	 */
+	private async _openView(datasetId: string, build: () => Promise<PostgresTableView>): Promise<void> {
+		this._views.set(datasetId, await build());
+		this._builders.set(datasetId, { build, generation: 0 });
 	}
 
 	/** Drops a dataset's view when its Data Explorer tab closes or its connection is disconnected. */
 	closeTableView(datasetId: string): void {
 		this._views.delete(datasetId);
+		this._builders.delete(datasetId);
 	}
 
 	async handleRequest(rpc: DataExplorerRpc): Promise<DataExplorerResponse> {
@@ -207,4 +250,22 @@ export async function buildPostgresSchema(
 			type_display: postgresDisplayType(dataType),
 		};
 	});
+}
+
+/** How a dataset's view is built, and how many times it has been rebuilt. */
+interface ViewBuilder {
+	readonly build: () => Promise<PostgresTableView>;
+	generation: number;
+}
+
+/**
+ * Checks that a rebuilt view can be shown before it replaces the old one: that its relation still
+ * has columns (the catalog reports none for a relation that no longer exists) and that its row
+ * count can be read.
+ */
+async function validateRebuiltView(view: PostgresTableView): Promise<void> {
+	const state = await view.getState();
+	if (state.table_unfiltered_shape.num_columns === 0) {
+		throw new Error(vscode.l10n.t("'{0}' has no columns. It may have been dropped or renamed.", state.display_name));
+	}
 }

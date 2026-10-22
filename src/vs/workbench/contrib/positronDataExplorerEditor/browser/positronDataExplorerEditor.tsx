@@ -24,7 +24,7 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
-import { POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
 import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 
@@ -133,6 +133,16 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets the is file backed context key.
 	 */
 	private readonly _isFileBackedContextKey: IContextKey<boolean>;
+
+	/**
+	 * Gets the supports refresh context key.
+	 */
+	private readonly _supportsRefreshContextKey: IContextKey<boolean>;
+
+	/**
+	 * Gets the is refreshing context key.
+	 */
+	private readonly _isRefreshingContextKey: IContextKey<boolean>;
 
 	/**
 	 * The onSizeChanged event emitter.
@@ -289,6 +299,12 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._isFileBackedContextKey = POSITRON_DATA_EXPLORER_IS_FILE_BACKED.bindTo(
 			this._group.scopedContextKeyService
 		);
+		this._supportsRefreshContextKey = POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH.bindTo(
+			this._group.scopedContextKeyService
+		);
+		this._isRefreshingContextKey = POSITRON_DATA_EXPLORER_IS_REFRESHING.bindTo(
+			this._group.scopedContextKeyService
+		);
 
 		// Create a focus tracker that updates the positronDataExplorerFocused context key.
 		const focusTracker = this._register(DOM.trackFocus(this._positronDataExplorerContainer));
@@ -380,6 +396,8 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				});
 
 				this._isFileBackedContextKey.set(positronDataExplorerInstance.isFileBacked);
+				this._supportsRefreshContextKey.set(positronDataExplorerInstance.supportsRefresh);
+				this._isRefreshingContextKey.set(positronDataExplorerInstance.isRefreshing);
 
 				// Set the context keys.
 				this._layoutContextKey.set(
@@ -442,6 +460,13 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					})
 				);
 
+				// Add the onDidChangeRefreshing event handler.
+				this._positronReactRenderer.register(
+					positronDataExplorerInstance.onDidChangeRefreshing(isRefreshing =>
+						this._isRefreshingContextKey.set(isRefreshing)
+					)
+				);
+
 				// Set initial file has header row state and add change handler.
 				this._fileHasHeaderRowContextKey.set(positronDataExplorerInstance.fileHasHeaderRow);
 				this._positronReactRenderer.register(
@@ -457,6 +482,10 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					this._hasMarkedInstanceVisible = true;
 				}
 			} else {
+				// A closed Data Explorer has nothing to refresh.
+				this._supportsRefreshContextKey.reset();
+				this._isRefreshingContextKey.reset();
+
 				this._positronReactRenderer.render(
 					<PositronDataExplorerClosed
 						closedReason={PositronDataExplorerClosedStatus.UNAVAILABLE}

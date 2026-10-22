@@ -2509,6 +2509,22 @@ declare module 'positron' {
 		redactParameterValue?(mechanismId: string, parameterId: string, value: string): vscode.ProviderResult<string>;
 
 		/**
+		 * Validates and normalizes the parameter values the user entered in the configuration dialog
+		 * before the connection is saved -- for example, checking that a database file exists and is
+		 * of the right kind, and resolving a relative path to an absolute one. Runs in the extension
+		 * host, so file checks see the same file system `connect` will. When the result carries any
+		 * errors, the dialog shows them beside their fields and does not save.
+		 *
+		 * Secret parameters the user left blank (to keep a stored value) are absent from `parameters`.
+		 *
+		 * @param mechanismId The id of the mechanism the user selected. One of this driver's
+		 *   `mechanisms`.
+		 * @param parameters The parameter values the user entered.
+		 * @returns The validation result. Return an empty object when the values are valid as entered.
+		 */
+		validateParameters?(mechanismId: string, parameters: DataConnectionParameterValues): Thenable<DataConnectionParameterValidation>;
+
+		/**
 		 * Reports connections this driver already knows about on this machine, without the user
 		 * having configured anything -- ODBC data sources declared in `odbc.ini`, for example.
 		 *
@@ -2531,6 +2547,25 @@ declare module 'positron' {
 		 * re-registering the driver, this leaves the driver's open connections in place.
 		 */
 		onDidChange?: vscode.Event<void>;
+	}
+
+	/**
+	 * The result of {@link DataConnectionDriver.validateParameters}. Both maps are keyed by the ids
+	 * of the selected mechanism's parameters; entries under any other key are ignored.
+	 */
+	export interface DataConnectionParameterValidation {
+		/**
+		 * Replacement values, keyed by parameter id, for parameters the driver normalized (for
+		 * example, a relative path resolved to an absolute one). These are the values saved.
+		 * Parameters not listed keep the value the user entered.
+		 */
+		normalizedValues?: DataConnectionParameterValues;
+
+		/**
+		 * Error messages, keyed by parameter id, shown beside the fields they apply to. When any are
+		 * present, the connection is not saved.
+		 */
+		errors?: Record<string, string>;
 	}
 
 	/**
@@ -4186,6 +4221,17 @@ declare module 'positron' {
 		 * @param datasetId The identifier of the dataset that was closed.
 		 */
 		closeDataset?(datasetId: string): void;
+
+		/**
+		 * Rebuilds a dataset's view so that it reflects the current contents of its
+		 * source, e.g. after the underlying table changed outside Positron. The
+		 * rebuilt view starts with no sort keys or row filters; Positron re-applies
+		 * the user's sort and filters afterwards. Reject on failure, leaving the
+		 * existing view intact. Optional: the Data Explorer offers Refresh only for
+		 * providers that implement it.
+		 * @param datasetId The identifier of the dataset to refresh.
+		 */
+		refreshDataset?(datasetId: string): Thenable<void>;
 	}
 
 	/**

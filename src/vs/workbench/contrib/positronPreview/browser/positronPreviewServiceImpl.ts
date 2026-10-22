@@ -11,7 +11,7 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { PreviewWebview } from './previewWebview.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
-import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
+import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageUpdateOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
@@ -452,7 +452,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			const preview = this.createPreviewWebview(
 				previewId,
 				webview.webview,
-				'notebookRenderer',
+				POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE,
 				session.dynState.sessionName
 			);
 			this._items.set(preview.previewId, preview);
@@ -606,7 +606,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	 * Used for displaying notebook output webviews that have already been created.
 	 */
 	public openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview {
-		const preview = this.createPreviewWebview(previewId, webview, 'notebookRenderer', title);
+		const preview = this.createPreviewWebview(previewId, webview, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, title);
 		this.makeActivePreview(preview);
 		return preview;
 	}

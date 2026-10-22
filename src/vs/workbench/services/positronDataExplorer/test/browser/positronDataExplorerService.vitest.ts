@@ -125,6 +125,8 @@ describe('PositronDataExplorerService extension-backed explorers', () => {
 			disposeBackend: (providerId, datasetId) => {
 				disposedBackends.push({ providerId, datasetId });
 			},
+			supportsRefresh: () => false,
+			refreshDataset: async () => { },
 		};
 		service.registerRpcProvider(CONNECTION_PROVIDER_ID, transport);
 		service.registerRpcProvider(DUCKDB_DATA_EXPLORER_PROVIDER_ID, transport);

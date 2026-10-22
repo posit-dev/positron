@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ServerConfig } from './serverConfig';
+import { escapeShellArg } from '../spec/spec-node/commandGeneration';
 
 /**
  * Options for generating the installation script
@@ -158,9 +159,17 @@ else
 			esac
 		fi
 	elif [ "\${DOWNLOAD_TOOL}" = "curl" ]; then
-		# curl with -v for verbose error information
-		HTTP_CODE=\$(curl -w "%{http_code}" -fsSL "\${DOWNLOAD_URL}" 2>/tmp/curl.err | tee /tmp/download.tar.gz | tar -xz -C "\${INSTALL_DIR}" --strip-components=1 2>&1 || echo "000")
-		if [ "\${HTTP_CODE}" != "200" ] && [ "\${HTTP_CODE}" != "000" ]; then
+		# Download Positron server over HTTP, saving the HTTP code
+		TARBALL="/tmp/positron-server-\$\$.tar.gz"
+		if HTTP_CODE=\$(curl -w "%{http_code}" -fsSL -o "\${TARBALL}" "\${DOWNLOAD_URL}" 2>/tmp/curl.err); then
+			if ! tar -xzf "\${TARBALL}" -C "\${INSTALL_DIR}" --strip-components=1; then
+				rm -f "\${TARBALL}"
+				error "Failed to extract server archive downloaded from \${DOWNLOAD_URL}"
+			fi
+			rm -f "\${TARBALL}"
+		else
+			rm -f "\${TARBALL}"
+			HTTP_CODE=\${HTTP_CODE:-000}
 			case "\${HTTP_CODE}" in
 				404)
 					error "File not found (HTTP 404): \${DOWNLOAD_URL}. This version may not be available yet or the URL may be incorrect."
@@ -295,7 +304,7 @@ function generateServerStartScript(options: InstallScriptOptions, extensionsDir:
 		serverArgs.push(`--socket-path="${actualSocketPath}"`);
 	} else {
 		// Use port 0 if not specified (OS will pick a random available port)
-		serverArgs.push(`--port=${actualPort}`);
+		serverArgs.push('--host=127.0.0.1', `--port=${actualPort}`);
 	}
 
 	// Add extension installation commands
@@ -327,7 +336,7 @@ touch "\${SERVER_LOG}"
 # Start server and capture output to log file
 # The server will print its listening information
 # Set environment variables for the server process
-${Object.entries(extensionHostEnv).map(([key, value]) => `${key}="${value}"`).join(' ')} "\${SERVER_BINARY}" ${serverArgs.join(' ')} > "\${SERVER_LOG}" 2>&1 &
+${Object.entries(extensionHostEnv).map(([key, value]) => `${key}=${escapeShellArg(value)}`).join(' ')} "\${SERVER_BINARY}" ${serverArgs.join(' ')} > "\${SERVER_LOG}" 2>&1 &
 SERVER_PID=$!
 
 log "Server started with PID: \${SERVER_PID}"

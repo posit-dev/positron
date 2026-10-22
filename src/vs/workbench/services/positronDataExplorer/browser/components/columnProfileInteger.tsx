@@ -21,7 +21,7 @@ export const COLUMN_PROFILE_INTEGER_LINE_COUNT = 6;
 /**
  * IntegerStatsValue component for formatting integer values.
  */
-const IntegerStatsValue = ({ stats, value }: { stats?: any; value?: number | string }) => {
+const IntegerStatsValue = ({ stats, value, testId }: { stats?: any; value?: number | string; testId?: string }) => {
 	// Render placeholder.
 	if (stats === undefined) {
 		return (
@@ -36,6 +36,9 @@ const IntegerStatsValue = ({ stats, value }: { stats?: any; value?: number | str
 	} else if (typeof value === 'number') {
 		// Round to nearest integer and format without thousands separator
 		displayValue = Math.round(value).toString();
+	} else if (/^-?\d+$/.test(value)) {
+		// Already an exact integer string; parsing would lose precision beyond 2^53
+		displayValue = value;
 	} else {
 		// Already a string, try to parse and format as integer
 		const num = parseFloat(value);
@@ -44,7 +47,7 @@ const IntegerStatsValue = ({ stats, value }: { stats?: any; value?: number | str
 
 	// Render value.
 	return (
-		<div className='value'>{displayValue}</div>
+		<div className='value' data-testid={testId}>{displayValue}</div>
 	);
 };
 
@@ -88,12 +91,12 @@ export const ColumnProfileInteger = (props: ColumnProfileIntegerProps) => {
 				</div>
 				<div className='values'>
 					<ColumnProfileNullCountValue {...props} />
-					<IntegerStatsValue stats={stats} value={stats?.min_value} />
+					<IntegerStatsValue stats={stats} testId='column-profile-min' value={stats?.min_value} />
 					{/* Use StatsValue for median since it can be a decimal for even-length sequences */}
 					<StatsValue stats={stats} value={stats?.median} />
 					{/* Use StatsValue for mean to handle cases where mean is not an integer */}
 					<StatsValue stats={stats} value={stats?.mean} />
-					<IntegerStatsValue stats={stats} value={stats?.max_value} />
+					<IntegerStatsValue stats={stats} testId='column-profile-max' value={stats?.max_value} />
 					{/* Use StatsValue for stdev to handle cases where stdev is not an integer */}
 					<StatsValue stats={stats} value={stats?.stdev} />
 				</div>

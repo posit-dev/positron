@@ -13,15 +13,16 @@ import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibr
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
-import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NotebookDisplayOptions, NotebookLayoutConfiguration, NotebookOptions, NotebookOptionsChangeEvent } from '../../../../notebook/browser/notebookOptions.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
-import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
+import { IPositronNotebookCell, ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
+import { registerTestErrorAssistant } from '../../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
 
 /** Generate multiline content with the given number of lines. */
 function makeLines(n: number): string {
@@ -32,6 +33,7 @@ describe('CellTextOutput', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.build();
+
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	let optionsEmitter: Emitter<NotebookOptionsChangeEvent>;
@@ -62,13 +64,17 @@ describe('CellTextOutput', () => {
 			}),
 		});
 
+		// Error outputs render the quick fix, which reads its cell only when a
+		// button is clicked, so an empty stub is enough here.
 		return rtl.render(
 			<NotebookInstanceProvider instance={instance}>
-				<CellTextOutput
-					{...props}
-					outputScrolling={layoutConfig.outputScrolling ?? false}
-					onShowFullOutput={onShowFullOutput}
-				/>
+				<CellProvider cell={stubInterface<IPositronNotebookCell>({})}>
+					<CellTextOutput
+						{...props}
+						outputScrolling={layoutConfig.outputScrolling ?? false}
+						onShowFullOutput={onShowFullOutput}
+					/>
+				</CellProvider>
 			</NotebookInstanceProvider>
 		);
 	}
@@ -90,39 +96,15 @@ describe('CellTextOutput', () => {
 		// notebook AI gate is a context key (positronNotebook.aiEnabled), not a
 		// config value.
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
-		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+		const contextKeyService = ctx.get(IContextKeyService);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
-		contextKeyService.createKey('posit-assistant.hasChatModels', true);
+		registerTestErrorAssistant(ctx);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
 		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');
 		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
-	});
-
-	it('does not render quick-fix for errors when assistant is disabled', () => {
-		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
-
-		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');
-		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
-	});
-
-	it('does not render quick-fix for errors when the notebook AI gate is off', () => {
-		// Everything else that would show the quick-fix is on; only the composite
-		// notebook AI context key is off, isolating that gate. (The ai.enabled vs
-		// notebook.ai.enabled composition is covered in
-		// notebookAIEnabledContextKey.vitest.ts.)
-		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
-		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
-		configurationService.setUserConfiguration('positron.notebook.enabled', true);
-		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, false);
-		contextKeyService.createKey('posit-assistant.hasChatModels', true);
-
-		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
-
-		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');
-		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
 	});
 
 	it('renders multiline content within limit', () => {

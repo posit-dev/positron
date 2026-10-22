@@ -119,11 +119,20 @@ export function getPixiRPaths(envPath: string): string[] {
 	return paths;
 }
 
+/** The Pixi scan in progress, if any. */
+let pendingScan: Promise<RBinary[]> | undefined;
+
 /**
  * Discovers R binaries that are installed in Pixi environments within open workspaces.
+ * A call made while a scan is in progress joins that scan rather than starting another.
  * @returns Pixi R binaries.
  */
-export async function discoverPixiBinaries(): Promise<RBinary[]> {
+export function discoverPixiBinaries(): Promise<RBinary[]> {
+	pendingScan ??= scanPixiBinaries().finally(() => pendingScan = undefined);
+	return pendingScan;
+}
+
+async function scanPixiBinaries(): Promise<RBinary[]> {
 	const rBinaries: RBinary[] = [];
 
 	const enabled = vscode.workspace.getConfiguration('positron.r').get<boolean>('interpreters.pixiDiscovery');

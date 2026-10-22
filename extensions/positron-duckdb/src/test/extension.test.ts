@@ -2931,6 +2931,27 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		assert.strictEqual(numberStats.stdev, '0', 'Standard deviation should be 0 for single value');
 	});
 
+	test('ColumnProfileEvaluator.computeSummaryStats - BIGINT min and max beyond 2^53', async () => {
+		const values = ['-9223372036854775808', '1500', '9223372036854775807'];
+		const tableName = await createSummaryStatsTestTable(
+			'big_column',
+			'BIGINT',
+			ColumnDisplayType.Integer,
+			(i) => values[i],
+			values.length
+		);
+
+		const summaryStats = await requestSummaryStats(
+			tableName,
+			0, // column index
+			'test-bigint-summary-stats'
+		);
+
+		const numberStats = summaryStats.number_stats!;
+		assert.strictEqual(numberStats.min_value, '-9223372036854775808');
+		assert.strictEqual(numberStats.max_value, '9223372036854775807');
+	});
+
 	test('null count profiles with zero rows should return 0', async () => {
 		// Create an empty table using direct SQL since createTempTable doesn't handle empty arrays
 		const tableName = makeTempTableName();

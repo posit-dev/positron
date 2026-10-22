@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, fetchReport, guarded, issueOf, markDuplicates, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, extractPaths, fetchReport, guarded, issueOf, markDuplicates, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -149,7 +149,7 @@ async function prCheck(finding, paths, pr, prCommits, testedSha) {
 	}
 }
 
-async function laterChecks(finding, paths, pr, postedAt) {
+async function laterChecks(finding, paths, pr, postedAt, timeline) {
 	const main = paths.length && pr.merged_at ? await guarded('main diff', async () => {
 		const diff = pathDiff(pr.merge_commit_sha, 'origin/main', paths);
 		if (!diff) {
@@ -160,11 +160,11 @@ async function laterChecks(finding, paths, pr, postedAt) {
 	}) : [];
 	const issues = await guarded('issue search', async () => {
 		const terms = searchTerms(finding.title);
-		const found = terms ? (await searchIssues(terms, REPO)).filter(i => !i.pull_request && i.created_at > postedAt) : [];
+		const found = terms ? await searchIssues(terms, REPO) : [];
 		const checks = [];
-		for (const issue of found) {
+		for (const issue of candidateIssues({ found, timeline, postedAt, repo: REPO })) {
 			const c = await check(finding, { kind: 'issue', text: `#${issue.number}: ${issue.title}\n\n${String(issue.body ?? '').slice(0, 4000)}` }, `issue #${issue.number}`);
-			checks.push({ ...c, issue: issueOf(issue) });
+			checks.push({ ...c, issue: { ...issueOf(issue), mentionsPr: issue.mentionsPr } });
 		}
 		return checks;
 	});
@@ -178,6 +178,11 @@ async function prRows(number) {
 	git('fetch', '-q', 'origin', `refs/pull/${number}/head`, 'main');
 	const prCommits = await gh(`/repos/${REPO}/pulls/${number}/commits?per_page=100`);
 	const comments = (await gh(`/repos/${REPO}/issues/${number}/comments?per_page=100`)).filter(c => c.user?.login === 'github-actions[bot]');
+	// A failed timeline leaves the title search, rather than skipping the PR.
+	const timeline = prState === 'open' ? [] : await gh(`/repos/${REPO}/issues/${number}/timeline?per_page=100`).catch(err => {
+		console.error(`[outcomes] #${number} timeline failed, issues that mention the PR not checked: ${err}`);
+		return [];
+	});
 	const rows = [];
 	for (const comment of comments) {
 		const parsed = parseResultComment(comment.body);
@@ -203,7 +208,7 @@ async function prRows(number) {
 			// Only the PR's own answer is reused; the checks for a later fix on main or an issue run every time.
 			const saved = prState === 'merged' ? SAVED_PR_CHECKS.get(`${parsed.run}#${finding.n}`) : undefined;
 			const inPr = saved ?? (tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null);
-			const later = prState === 'open' ? [] : await laterChecks(finding, paths, pr, comment.created_at);
+			const later = prState === 'open' ? [] : await laterChecks(finding, paths, pr, comment.created_at, timeline);
 			const decided = tested.sha
 				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later })
 				: { outcome: 'pending', decidedBy: 'sha', evidence: tested.reason };

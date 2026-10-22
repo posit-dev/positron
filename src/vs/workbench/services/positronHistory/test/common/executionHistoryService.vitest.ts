@@ -17,7 +17,7 @@ import { ExecutionHistoryService } from '../../common/executionHistory.js';
 import { IWorkspace, IWorkspaceContextService, IWorkspaceFoldersWillChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { Emitter } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -333,6 +333,9 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 	registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata> {
 		throw new Error('Method not implemented.');
 	}
+
+	languageIds: readonly string[] = [];
+	onDidChangeLanguageIds = Event.None;
 
 	hasLanguageRuntimeProvider(languageId: string): boolean {
 		throw new Error('Method not implemented.');
