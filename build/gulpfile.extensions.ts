@@ -377,7 +377,7 @@ task.task(compileExtensionMediaBuildTask);
 
 // --- Start Positron ---
 
-export const copyExtensionBinariesTask = task.define('copy-extension-binaries', () => { ext.copyExtensionBinaries('.build/extensions'); });
+export const copyExtensionBinariesTask = task.define('copy-extension-binaries', () => ext.copyExtensionBinaries('.build/extensions'));
 task.task(copyExtensionBinariesTask);
 
 // --- End Positron ---
