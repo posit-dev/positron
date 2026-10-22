@@ -89,10 +89,15 @@ export function createMotherDuckDriver(
 					if (!isNonBlankString(token)) {
 						throw new Error(accessTokenRequiredMessage());
 					}
+					// DuckDB reads anything after `?` in an `md:` path as connection options.
+					const database = optionalString(params.database);
+					if (database !== undefined && /[?#]/.test(database)) {
+						throw new Error(vscode.l10n.t("The default database name cannot contain '?' or '#'."));
+					}
 
 					const connection = new MotherDuckConnection({
 						token,
-						database: optionalString(params.database),
+						database,
 						readOnly: isReadOnly(params),
 					}, dataExplorerHandler, logger);
 					await connection.connect();

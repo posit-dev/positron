@@ -15,8 +15,11 @@ import { classifyMotherDuckOpenError, motherduckPath, scrubToken } from './mothe
  */
 export const MOTHERDUCK_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-motherduck';
 
-/** How long connect() waits for MotherDuck to open before giving up. */
-const CONNECT_TIMEOUT_MS = 60_000;
+/**
+ * How long connect() waits for MotherDuck to open before giving up. The first open also downloads
+ * the MotherDuck extension (about 60 MB), so this allows for a slow network.
+ */
+const CONNECT_TIMEOUT_MS = 5 * 60_000;
 
 /** Monotonically increasing id so each connection's previewed datasets get a unique key. */
 let nextConnectionId = 1;

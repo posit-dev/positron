@@ -52,6 +52,16 @@ suite('MotherDuck Driver', () => {
 		assert.ok(Date.now() - start < 2000);
 	});
 
+	test('connect rejects a default database with connection options without opening', async () => {
+		const driver = createDriver();
+		const start = Date.now();
+		for (const database of ['mydb?attach_mode=single', 'a#b']) {
+			await assert.rejects(async () => driver.connect('token', { token: 'aaa.bbb.ccc', database }),
+				/The default database name cannot contain '\?' or '#'\./);
+		}
+		assert.ok(Date.now() - start < 2000);
+	});
+
 	test('generateConnectionCode delegates for ggsql', async () => {
 		const variants = await createDriver().generateConnectionCode!('token', 'ggsql',
 			{ token: 'aaa.bbb.ccc', database: 'sample_data', readOnly: true });
