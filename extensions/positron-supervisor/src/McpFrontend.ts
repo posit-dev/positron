@@ -183,8 +183,8 @@ export class McpFrontend implements vscode.Disposable {
 	 *  rather than cached, since both switches apply without a reload and
 	 *  `ai.enabled` can be enforced by a Workbench administrator at any time.
 	 * @param _onRegistered Called with the launcher's launch once the endpoint
-	 *  is live and the launcher installed, for work that should not point agents at a listener that does not
-	 *  exist yet.
+	 *  is live and the launcher installed, for work that should not point
+	 *  agents at a listener that does not exist yet.
 	 * @param _onDeregistered Called once the endpoint is gone, for work that
 	 *  should not outlive it -- the entries agents were configured with, which
 	 *  name an endpoint that no longer answers.

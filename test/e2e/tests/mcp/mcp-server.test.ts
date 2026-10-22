@@ -216,7 +216,7 @@ test.describe('MCP Server over stdio', {
 
 		// Without the variables a Positron terminal exports, the bridge has
 		// to find the workspace from the directory the agent runs in, and
-		// the connections directory from the launcher.
+		// the connections directory from the launcher's arguments.
 		const env = { ...process.env };
 		delete env.POSITRON_MCP_URL;
 		delete env.POSITRON_MCP_TOKEN;
