@@ -38,6 +38,7 @@ import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
 import { PythonEnvSource } from '../../info/index';
 import { getUvDirs } from '../../../common/environmentManagers/uv';
 import { scanWorkspace } from '../../../../positron/workspaceScan';
+import { isParentPath } from '../../../common/externalDependencies';
 // --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
@@ -666,7 +667,8 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         trackPromiseAndNotifyOnCompletion(
             // --- Start Positron ---
             // this.configure()
-            this.configure(true)
+            // Only a full refresh scans the workspace folders for nested envs.
+            this.configure(!refreshOptions.searchKind && !refreshOptions.searchPaths)
                 // --- End Positron ---
                 .then(() =>
                     // --- Start Positron ---
@@ -792,18 +794,22 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         const workspaceFolders = getWorkspaceFolderPaths();
         // Envs one level below each workspace folder (e.g. <folder>/app/.venv). PET
         // reports a workspace directory that is itself an env and stops there. The
-        // scan runs only for a refresh; resolve() configures reuse the last result,
-        // though one queued behind a refresh's configure waits for its scan. The first
-        // refresh shares the scan the interpreter ranking reads at startup, so the folder
-        // is read once; later refreshes read it again.
+        // scan runs only for a full refresh; other configures reuse the last result
+        // for the folders still open, though one queued behind a refresh's configure
+        // waits for its scan. The first refresh shares the scan the interpreter ranking
+        // reads at startup, so the folder is read once; later refreshes read it again.
+        // A scan that fails finds nothing, so it never stops discovery.
         if (scanNestedEnvs) {
             const rescan = this.scannedWorkspace;
             this.scannedWorkspace = true;
             const scans = await Promise.all(workspaceFolders.map((folder) => scanWorkspace(folder, rescan)));
             this.nestedEnvDirs = scans.flatMap((scan) => scan.nestedEnvDirs);
         }
+        const nestedEnvDirs = this.nestedEnvDirs.filter((dir) =>
+            workspaceFolders.some((folder) => isParentPath(dir, folder)),
+        );
         return {
-            workspaceDirectories: [...workspaceFolders, ...this.nestedEnvDirs],
+            workspaceDirectories: [...workspaceFolders, ...nestedEnvDirs],
             // We do not want to mix this with `search_paths`
             // environmentDirectories: getCustomVirtualEnvDirs(),
             environmentDirectories: await getEnvironmentDirs(),

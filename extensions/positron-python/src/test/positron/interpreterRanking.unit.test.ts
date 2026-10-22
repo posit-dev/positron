@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as sinon from 'sinon';
 import * as TypeMoq from 'typemoq';
 import * as vscode from 'vscode';
+import * as platform from '../../client/common/utils/platform';
 import { Architecture } from '../../client/common/utils/platform';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import { IActivatedEnvironmentLaunch } from '../../client/interpreter/contracts';
@@ -20,8 +21,10 @@ import {
     tierOf,
     withDiscoveredFacts,
 } from '../../client/positron/interpreterRanking';
+import * as externallyManagedEnvironment from '../../client/positron/externallyManagedEnvironment';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import * as workspaceScan from '../../client/positron/workspaceScan';
+import * as externalDependencies from '../../client/pythonEnvironments/common/externalDependencies';
 import { createTypeMoq } from '../mocks/helper';
 import { NativePythonEnvironmentKind } from '../../client/pythonEnvironments/base/locators/common/nativePythonUtils';
 import * as moduleLocator from '../../client/pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
@@ -57,6 +60,7 @@ function env(
 
 const emptyContext: RankingContext = {
     workspacePath: p('/proj'),
+    homeInsideWorkspace: false,
     activatedEnvPrefix: undefined,
     definitionPaths: [],
     definitionsOnly: false,
@@ -68,6 +72,7 @@ const emptyContext: RankingContext = {
     hasPythonSignals: false,
     configuredPaths: [],
     modulePaths: new Set(),
+    condaEnvDirs: [],
     positronDefaultEnvDir: p('/home/u/.virtualenvs/positron'),
     uvPythonInstallDirs: [p('/home/u/.local/share/uv/python')],
     externallyManagedPaths: new Set(),
@@ -222,6 +227,13 @@ suite('interpreterRanking', () => {
         );
     });
 
+    test('a definition located inside the workspace folder is a WorkspaceEnv, not Configured', () => {
+        const inWorkspace = env(p('/proj/tools/env/bin/python'), EnvironmentType.Custom, '3.12.0');
+        const context: RankingContext = { ...emptyContext, definitionPaths: [inWorkspace.path] };
+
+        assert.strictEqual(Tier[tierOf(inWorkspace, context)!], 'WorkspaceEnv');
+    });
+
     test('an interpreter PET cannot classify is ranked only when the user names it', () => {
         const custom = env(p('/opt/python/3.12.4/bin/python3'), EnvironmentType.Unknown, '3.12.4');
         assert.deepEqual(
@@ -235,6 +247,22 @@ suite('interpreterRanking', () => {
         );
     });
 
+    test('with home opened as the folder, only envs one level down are WorkspaceEnv', () => {
+        const nestedVenv = env(p('/home/u/proj/.venv/bin/python'), EnvironmentType.Venv, '3.12.0');
+        const pyenvVersion = env(p('/home/u/.pyenv/versions/3.12.0/bin/python'), EnvironmentType.Pyenv, '3.12.0');
+        const home = { ...emptyContext, workspacePath: p('/home/u'), nestedEnvDirs: [p('/home/u/proj/.venv')] };
+
+        assert.deepEqual(
+            [
+                tierOf(nestedVenv, { ...home, homeInsideWorkspace: true }),
+                tierOf(pyenvVersion, { ...home, homeInsideWorkspace: true }),
+                // Without the flag, everything under the folder is the folder's own.
+                tierOf(pyenvVersion, { ...home, homeInsideWorkspace: false }),
+            ].map((tier) => Tier[tier!]),
+            ['WorkspaceEnv', 'GlobalEnv', 'WorkspaceEnv'],
+        );
+    });
+
     test("another folder's conda --prefix env is never recommended unless a setting names it", () => {
         const otherProject = env(p('/home/u/code/other/.conda/bin/python'), EnvironmentType.Conda, '3.11.0', {
             envName: '',
@@ -244,6 +272,11 @@ suite('interpreterRanking', () => {
         const unnamedNamedEnv = env(p('/home/u/miniforge3/envs/tools/bin/python'), EnvironmentType.Conda, '3.11.0', {
             envName: '',
         });
+        // A named env in a custom envs_dirs folder, reported without its name.
+        const customEnvsDir = env(p('/data/conda-envs/tools/bin/python'), EnvironmentType.Conda, '3.11.0', {
+            envName: '',
+            envPath: p('/data/conda-envs/tools'),
+        });
         assert.deepEqual(
             [
                 tierOf(otherProject, emptyContext),
@@ -252,6 +285,7 @@ suite('interpreterRanking', () => {
                 tierOf(otherProject, { ...emptyContext, configuredPaths: [p('/home/u/code/other')] }),
                 tierOf(thisFolder, emptyContext),
                 tierOf(unnamedNamedEnv, emptyContext),
+                tierOf(customEnvsDir, { ...emptyContext, condaEnvDirs: [p('/data/conda-envs')] }),
             ],
             [
                 undefined,
@@ -259,6 +293,7 @@ suite('interpreterRanking', () => {
                 Tier.Configured,
                 Tier.Configured,
                 Tier.WorkspaceEnv,
+                Tier.NamedEnv,
                 Tier.NamedEnv,
             ],
         );
@@ -306,6 +341,8 @@ suite('interpreterRanking', () => {
             rc.path,
             python.path,
         ]);
+        // A never-recommended interpreter ranks after a demoted pre-release.
+        assert.deepEqual(order([unknown, rc]), [rc.path, unknown.path]);
     });
 
     test('a uv Python reached through ~/.local/bin is uv base, first in GlobalEnv', () => {
@@ -363,8 +400,31 @@ suite('interpreterRanking', () => {
             ],
         );
         launch.verify((a) => a.selectIfLaunchedViaActivatedEnv(TypeMoq.It.isAny()), TypeMoq.Times.never());
-        // The fast path must not wait for module discovery (Performance rule 2).
+        // Building the context must not wait for module discovery.
         sinon.assert.notCalled(moduleWait);
+
+        // The folder contains home when it is home or an ancestor of it, not a folder inside home.
+        const home = sinon.stub(platform, 'getUserHomeDir');
+        const containsHome = async (homeDir: string) => {
+            home.returns(homeDir);
+            return (await buildRankingContext(serviceContainer.object, vscode.Uri.file(p('/proj'))))
+                .homeInsideWorkspace;
+        };
+        assert.deepEqual(
+            [await containsHome(p('/proj')), await containsHome(p('/proj/u')), await containsHome(p('/elsewhere'))],
+            [true, true, false],
+        );
+
+        // A home reached through a symlink (e.g. /home/u -> /export/home/u) still matches
+        // the folder opened by its real path.
+        sinon
+            .stub(externalDependencies, 'canonicalizePath')
+            .callsFake(async (candidate: string) =>
+                candidate === p('/home/u') ? p('/export/home/u') : path.normalize(candidate),
+            );
+        home.returns(p('/home/u'));
+        const realHomeOpened = await buildRankingContext(serviceContainer.object, vscode.Uri.file(p('/export/home/u')));
+        assert.isTrue(realHomeOpened.homeInsideWorkspace);
     });
 
     test('withDiscoveredFacts waits for module discovery, then fills modulePaths', async () => {
@@ -378,6 +438,25 @@ suite('interpreterRanking', () => {
         } finally {
             moduleLocator.moduleMetadataMap.delete(modulePath);
         }
+    });
+
+    test('withDiscoveredFacts fills externallyManagedPaths with the interpreters that are externally managed', async () => {
+        const a = env(p('/usr/lib/a/bin/python'), EnvironmentType.System, '3.12.0');
+        const b = env(p('/usr/lib/b/bin/python'), EnvironmentType.System, '3.12.0');
+        sinon.stub(moduleLocator, 'whenModuleMetadataReady').resolves();
+        sinon
+            .stub(externallyManagedEnvironment, 'isExternallyManagedEnvironment')
+            .callsFake(async (options) => options.interpreterPath === a.path);
+
+        const context = await withDiscoveredFacts(emptyContext, [a, b]);
+
+        assert.deepEqual([...context.externallyManagedPaths], [a.path]);
+    });
+
+    test('conda base stays a global env even when it is externally managed', () => {
+        const context = { ...emptyContext, externallyManagedPaths: new Set([condaBase.path]) };
+
+        assert.strictEqual(tierOf(condaBase, context), Tier.GlobalEnv);
     });
 
     test('within a tier, the higher version wins, then the path', () => {

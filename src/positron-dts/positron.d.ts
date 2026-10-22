@@ -1227,8 +1227,28 @@ declare module 'positron' {
 		 * metadata is respected here; use `Immediately` to start the runtime
 		 * right away, or any other value to save the runtime as the project
 		 * default without starting it.
+		 *
+		 * Core asks once during startup, before discovery. If a language has no
+		 * recommendation then, core asks again once discovery has completed,
+		 * with `afterDiscovery` set; that answer is used as the preferred runtime
+		 * but never saved as the project default. An `Immediate` answer starts
+		 * only when the workspace has no affiliated runtime and no console is
+		 * starting or running; an `Implicit` one starts when a file of its
+		 * language is open.
+		 *
+		 * @param afterDiscovery Whether runtime discovery has completed.
 		 */
-		recommendedWorkspaceRuntime(): Thenable<LanguageRuntimeMetadata | undefined>;
+		recommendedWorkspaceRuntime(afterDiscovery?: boolean): Thenable<LanguageRuntimeMetadata | undefined>;
+
+		/**
+		 * Whether a recommendation that is not started right away is saved as
+		 * the project default (an affiliation that has never been started or
+		 * used). Defaults to `true`. Set to `false` when the manager decides its
+		 * recommendation afresh every time the folder opens: core then uses the
+		 * recommendation for this window only and never saves it, so it can't
+		 * start on a later open as "the last interpreter used".
+		 */
+		readonly recommendationIsProjectDefault?: boolean;
 
 		/**
 		 * An optional snapshot of the directories this manager scans for

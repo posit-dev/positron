@@ -145,6 +145,12 @@ suite('Native Python Finder - configuration failures must not hang discovery', (
             const resolveOptions = await (finder as any).configurationOptions(false);
             assert.deepEqual(resolveOptions.workspaceDirectories, [ws, nested]);
             assert.strictEqual(scanStub.callCount, 1);
+
+            // Once the folder is closed, its nested envs are no longer sent.
+            getWorkspaceFolderPathsStub.returns([]);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const closedOptions = await (finder as any).configurationOptions(false);
+            assert.deepEqual(closedOptions.workspaceDirectories, []);
         } finally {
             finder.dispose();
         }

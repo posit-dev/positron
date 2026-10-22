@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as crypto from 'crypto';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import * as typemoq from 'typemoq';
@@ -11,7 +12,10 @@ import { Uri, WorkspaceConfiguration } from 'vscode';
 import { anything, when } from 'ts-mockito';
 import * as platformApis from '../../client/common/utils/platform';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
-import { getPythonDiscoveryRootSignature } from '../../client/positron/discoveryRootSignature';
+import {
+    DISCOVERY_POLICY_VERSION,
+    getPythonDiscoveryRootSignature,
+} from '../../client/positron/discoveryRootSignature';
 import { mockedVSCodeNamespaces } from '../vscode-mock';
 
 suite('Python discovery root signature', () => {
@@ -86,6 +90,23 @@ suite('Python discovery root signature', () => {
 
         const paths = signature.entries.map((e) => e.path);
         assert.strictEqual(new Set(paths).size, paths.length, `duplicate roots in ${JSON.stringify(paths)}`);
+    });
+
+    test('Gives a different digest when the discovery policy version changes', async () => {
+        // Record what the digest is computed over.
+        const update = sinon.spy(crypto.Hash.prototype, 'update');
+        const sha256 = (data: string) => crypto.createHash('sha256').update(data).digest('hex');
+
+        const { opaque } = await getPythonDiscoveryRootSignature();
+        const hashed = String(update.lastCall.args[0]);
+        update.restore();
+        const input = JSON.parse(hashed);
+        const bumped = JSON.stringify({ ...input, policyVersion: DISCOVERY_POLICY_VERSION + 1 });
+
+        assert.deepStrictEqual(
+            { policyVersion: input.policyVersion, digest: opaque, bumpedDiffers: sha256(bumped) !== opaque },
+            { policyVersion: DISCOVERY_POLICY_VERSION, digest: sha256(hashed), bumpedDiffers: true },
+        );
     });
 
     test('Gives a different digest for the same ${workspaceFolder} text in different folders', async () => {

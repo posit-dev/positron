@@ -5,14 +5,14 @@
 
 /**
  * The single ranking of Python interpreters. The recommended interpreter for a
- * workspace is the first eligible one in this order. See
- * plans/python-startup-policy-design.md.
+ * workspace is the first eligible one in this order.
  *
  * Read `tierOf` top to bottom: the first rule that matches decides the tier.
  */
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { getUserHomeDir } from '../common/utils/platform';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { IActivatedEnvironmentLaunch } from '../interpreter/contracts';
 import {
@@ -23,14 +23,19 @@ import {
     isBaseCondaEnvironment,
 } from '../interpreter/configuration/environmentTypeComparer';
 import { IServiceContainer } from '../ioc/types';
-import { traceWarn } from '../logging';
 import { getCustomVirtualEnvDirs } from '../pythonEnvironments/base/locators/common/nativePythonFinder';
 import { NativePythonEnvironmentKind } from '../pythonEnvironments/base/locators/common/nativePythonUtils';
 import {
     moduleMetadataMap,
     whenModuleMetadataReady,
 } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
-import { arePathsSame, isParentPath } from '../pythonEnvironments/common/externalDependencies';
+import {
+    arePathsSame,
+    canonicalizePath,
+    isParentPath,
+    normCasePath,
+} from '../pythonEnvironments/common/externalDependencies';
+import { getCondaEnvDirs } from '../pythonEnvironments/common/environmentManagers/conda';
 import { getGlobalEnvironmentDir } from '../pythonEnvironments/common/environmentManagers/globalEnvironment';
 import { getPyenvVersionsDir } from '../pythonEnvironments/common/environmentManagers/pyenv';
 import { EnvironmentType, PythonEnvironment } from '../pythonEnvironments/info';
@@ -40,7 +45,7 @@ import {
     getInterpreterDefinitionPaths,
     getResolvedFilterSettingPaths,
     isDefinitionsOnlyDiscovery,
-    resolveSettingPath,
+    resolveDefaultInterpreterPath,
 } from './interpreterSettings';
 import { isProjectEnvironment, ProjectEnvironment, scanWorkspace } from './workspaceScan';
 
@@ -77,6 +82,12 @@ export enum Tier {
  */
 export interface RankingContext {
     workspacePath: string | undefined;
+    /**
+     * Whether the workspace folder is the home folder or one of its ancestors. Then every
+     * env under home (pyenv, conda, uv, per-user python.org installs) is inside the folder,
+     * so only the root project env and envs one level down count as the folder's own.
+     */
+    homeInsideWorkspace: boolean;
     activatedEnvPrefix: string | undefined;
     definitionPaths: string[];
     definitionsOnly: boolean;
@@ -91,8 +102,10 @@ export interface RankingContext {
     hasPythonSignals: boolean;
     /** `include`, then `venvPath`, then `venvFolders`, in setting order. */
     configuredPaths: string[];
-    /** Interpreters with environment-module metadata. */
+    /** Interpreters with environment-module metadata, as `normCasePath` paths. */
     modulePaths: ReadonlySet<string>;
+    /** Where conda keeps its named envs. */
+    condaEnvDirs: string[];
     positronDefaultEnvDir: string | undefined;
     /** Where `uv python install` puts its base Pythons. */
     uvPythonInstallDirs: string[];
@@ -146,6 +159,21 @@ function nestedIndex(interpreter: PythonEnvironment, context: RankingContext): n
     return context.nestedEnvDirs.findIndex((dir) => isUnder(interpreter.path, dir));
 }
 
+/**
+ * Whether an interpreter belongs to the workspace folder (`WorkspaceEnv`): any env inside
+ * the folder, or, when the folder contains the home folder, only an env one level down.
+ * The same test exempts an interpreter from the ipykernel check in the recommendation.
+ */
+export function isWorkspaceEnv(interpreter: PythonEnvironment, context: RankingContext): boolean {
+    if (!context.workspacePath) {
+        return false;
+    }
+    if (context.homeInsideWorkspace) {
+        return nestedIndex(interpreter, context) !== -1;
+    }
+    return getEnvLocationHeuristic(interpreter, context.workspacePath) === EnvLocationHeuristic.Local;
+}
+
 function configuredIndex(interpreter: PythonEnvironment, context: RankingContext): number {
     return context.configuredPaths.findIndex((p) => isUnder(interpreter.path, p) || isUnder(interpreter.envPath, p));
 }
@@ -159,15 +187,17 @@ function isPyenvVirtualenv(interpreter: PythonEnvironment): boolean {
 
 /**
  * Whether this is a conda env created with `--prefix` for some project, reached here
- * only when it isn't this folder's. Such an env has no name; a named env can also
- * have none (when conda's env dirs are unknown), but it lives in an `envs` folder.
+ * only when it isn't this folder's. Such an env has no name and is outside conda's
+ * env dirs; a named env can also have no name, when PET didn't report one.
  */
-function isOtherFolderCondaPrefixEnv(interpreter: PythonEnvironment): boolean {
+function isOtherFolderCondaPrefixEnv(interpreter: PythonEnvironment, context: RankingContext): boolean {
+    const { envPath } = interpreter;
     return (
         interpreter.envType === EnvironmentType.Conda &&
         !interpreter.envName &&
-        !!interpreter.envPath &&
-        path.basename(path.dirname(interpreter.envPath)) !== 'envs'
+        !!envPath &&
+        path.basename(path.dirname(envPath)) !== 'envs' &&
+        !context.condaEnvDirs.some((dir) => isUnder(envPath, dir))
     );
 }
 
@@ -211,10 +241,7 @@ function isNamedByPythonVersion(interpreter: PythonEnvironment, context: Ranking
 }
 
 function isModule(interpreter: PythonEnvironment, context: RankingContext): boolean {
-    return (
-        interpreter.envType === EnvironmentType.Module ||
-        [...context.modulePaths].some((modulePath) => samePath(modulePath, interpreter.path))
-    );
+    return interpreter.envType === EnvironmentType.Module || context.modulePaths.has(normCasePath(interpreter.path));
 }
 
 /**
@@ -258,10 +285,7 @@ export function tierOf(interpreter: PythonEnvironment, context: RankingContext):
     }
     // Envs one level deep are inside the folder too, so this covers them; `orderWithinTier`
     // puts them first.
-    if (
-        context.workspacePath &&
-        getEnvLocationHeuristic(interpreter, context.workspacePath) === EnvLocationHeuristic.Local
-    ) {
+    if (isWorkspaceEnv(interpreter, context)) {
         return Tier.WorkspaceEnv;
     }
     if (
@@ -276,7 +300,7 @@ export function tierOf(interpreter: PythonEnvironment, context: RankingContext):
         return Tier.PositronDefaultEnv;
     }
     // Another folder's project env: never recommended unless a setting names it (above).
-    if (isOtherFolderCondaPrefixEnv(interpreter)) {
+    if (isOtherFolderCondaPrefixEnv(interpreter, context)) {
         return undefined;
     }
     if (
@@ -359,14 +383,15 @@ export function rankInterpreters(interpreters: PythonEnvironment[], context: Ran
             interpreter,
             tier,
             tierKey: tier ?? Number.MAX_SAFE_INTEGER,
-            prerelease: isDemotedPrerelease(interpreter, tier) ? 1 : 0,
+            // Demoted pre-releases sort after every stable interpreter; never-recommended ones after those.
+            prerelease: tier === undefined ? 2 : Number(isDemotedPrerelease(interpreter, tier)),
             within: tier === undefined ? 0 : orderWithinTier(interpreter, tier, context),
             definition: context.definitionsOnly ? definitionIndex(interpreter, context) : 0,
         };
     });
     keyed.sort(
         (a, b) =>
-            (a.tier === undefined ? 0 : a.prerelease) - (b.tier === undefined ? 0 : b.prerelease) ||
+            a.prerelease - b.prerelease ||
             a.tierKey - b.tierKey ||
             a.within - b.within ||
             compareVersions(a.interpreter.version, b.interpreter.version) ||
@@ -379,75 +404,87 @@ export function rankInterpreters(interpreters: PythonEnvironment[], context: Ran
 /** Paths of the interpreters that are externally managed (`ExternallyManaged`), checked on disk. */
 async function findExternallyManaged(interpreters: PythonEnvironment[]): Promise<Set<string>> {
     const flags = await Promise.all(
-        interpreters.map(async (interpreter) => {
-            try {
-                return await isExternallyManagedEnvironment({
-                    interpreterPath: interpreter.path,
-                    nativeKind: interpreter.nativeKind,
-                    environment: interpreter,
-                });
-            } catch (error) {
-                traceWarn(`Could not classify ${interpreter.path}: ${error}`);
-                return false;
-            }
-        }),
+        interpreters.map((interpreter) =>
+            isExternallyManagedEnvironment({
+                interpreterPath: interpreter.path,
+                nativeKind: interpreter.nativeKind,
+                environment: interpreter,
+            }),
+        ),
     );
     return new Set(interpreters.filter((_, i) => flags[i]).map((interpreter) => interpreter.path));
 }
 
 /**
- * `python.defaultInterpreterPath` for the first workspace folder, or undefined.
- * `get()` applies VS Code's precedence (folder > workspace > user) and includes an
- * admin-enforced value (POSITRON_ENFORCED_SETTINGS), so the scope is never inspected:
- * a value from any scope is `DefaultInterpreterPath`. `python` is the setting's
- * default and means unset.
- */
-function readDefaultInterpreterPath(workspaceUri: vscode.Uri | undefined): string | undefined {
-    const value = getConfiguration('python', workspaceUri).get<string>('defaultInterpreterPath');
-    if (!value || value === 'python') {
-        return undefined;
-    }
-    return resolveSettingPath(value, '[buildRankingContext]: python.defaultInterpreterPath');
-}
-
-/**
  * The context with the facts that only discovery can supply, for ranking `interpreters`
  * in full: `modulePaths` (PET reports many environment-module Pythons as plain global
- * Pythons; the module locator knows which they are) and `externallyManagedPaths`. Waits
- * for module discovery, which runs alongside PET's refresh, so call this only after
- * discovery, never on the fast path (Performance rule 2). Tiers 0-3 need neither.
+ * Pythons; the module locator knows which they are), `condaEnvDirs` and
+ * `externallyManagedPaths`. Waits for module discovery, which runs alongside PET's
+ * refresh, so call this only after discovery, never before the first answer. Tiers 0-3
+ * need none of them.
  */
 export async function withDiscoveredFacts(
     context: RankingContext,
     interpreters: PythonEnvironment[],
 ): Promise<RankingContext> {
-    const [externallyManagedPaths] = await Promise.all([
+    const hasConda = interpreters.some((interpreter) => interpreter.envType === EnvironmentType.Conda);
+    const [externallyManagedPaths, condaEnvDirs] = await Promise.all([
         findExternallyManaged(interpreters),
+        // Conda is located only if discovery found a conda env, and then it is already cached.
+        hasConda ? getCondaEnvDirs() : undefined,
         whenModuleMetadataReady(),
     ]);
-    return { ...context, modulePaths: new Set(moduleMetadataMap.keys()), externallyManagedPaths };
+    return {
+        ...context,
+        modulePaths: new Set([...moduleMetadataMap.keys()].map(normCasePath)),
+        condaEnvDirs: condaEnvDirs ?? [],
+        externallyManagedPaths,
+    };
+}
+
+/**
+ * Whether `folder` is the home folder or one of its ancestors. Compared as given and by
+ * real path, so a home reached through a symlink (common for network homes) still matches.
+ */
+async function containsHome(folder: string): Promise<boolean> {
+    const home = getUserHomeDir();
+    if (!home) {
+        return false;
+    }
+    if (isParentPath(home, folder)) {
+        return true;
+    }
+    const [realHome, realFolder] = await Promise.all([canonicalizePath(home), canonicalizePath(folder)]);
+    return isParentPath(realHome, realFolder);
 }
 
 /**
  * Gather the settings, environment and workspace facts the ranking reads. This is
  * the only place they are read; it scans the folder and never selects or writes an
- * interpreter. `modulePaths` and `externallyManagedPaths` start empty;
+ * interpreter. `modulePaths`, `condaEnvDirs` and `externallyManagedPaths` start empty;
  * `withDiscoveredFacts` fills them.
  */
 export async function buildRankingContext(
     serviceContainer: IServiceContainer,
     workspaceUri: vscode.Uri | undefined,
 ): Promise<RankingContext> {
-    const [scan, activatedEnvPrefix] = await Promise.all([
+    const [scan, activatedEnvPrefix, homeInsideWorkspace] = await Promise.all([
         workspaceUri ? scanWorkspace(workspaceUri.fsPath) : undefined,
         serviceContainer.get<IActivatedEnvironmentLaunch>(IActivatedEnvironmentLaunch).getActivatedEnvPrefix(),
+        workspaceUri ? containsHome(workspaceUri.fsPath) : false,
     ]);
     return {
         workspacePath: workspaceUri?.fsPath,
+        homeInsideWorkspace,
         activatedEnvPrefix,
         definitionPaths: getInterpreterDefinitionPaths(),
         definitionsOnly: isDefinitionsOnlyDiscovery(),
-        defaultInterpreterPath: readDefaultInterpreterPath(workspaceUri),
+        // `get()` applies VS Code's precedence (folder > workspace > user) and includes an
+        // admin-enforced value (POSITRON_ENFORCED_SETTINGS), so a value from any scope counts.
+        defaultInterpreterPath: resolveDefaultInterpreterPath(
+            getConfiguration('python', workspaceUri).get<string>('defaultInterpreterPath'),
+            '[buildRankingContext]: python.defaultInterpreterPath',
+        ),
         rootProjectEnvs: scan?.rootProjectEnvs ?? [],
         pythonVersion: scan?.pythonVersion,
         pythonVersionDir: scan?.pythonVersion ? path.join(getPyenvVersionsDir(), scan.pythonVersion) : undefined,
@@ -457,6 +494,7 @@ export async function buildRankingContext(
         // matches exactly what PET searched.
         configuredPaths: [...getResolvedFilterSettingPaths().include, ...getCustomVirtualEnvDirs()],
         modulePaths: new Set(),
+        condaEnvDirs: [],
         positronDefaultEnvDir: getGlobalEnvironmentDir(),
         uvPythonInstallDirs: getUvPythonInstallDirs(),
         externallyManagedPaths: new Set(),
