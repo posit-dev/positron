@@ -21,7 +21,7 @@ const rows = [
 	row(4, 'future', { futureSince: '2026-10-11' }),
 	row(5, 'future', { futureSince: '2026-10-13', sev: null, skillVersion: null, type: null }),
 	row(6, 'awaiting', { sev: 'major', areas: [], filed: '2026-10-12', skillVersion: '1.53' }),
-	row(7, 'closed', { closed: '2026-10-10', filed: '2026-08-01' }),
+	row(7, 'closed', { closed: '2026-10-10', filed: '2026-08-01', via: 'matched' }),
 ];
 const ALL = resolveRange('all', rows.map(r => r.filed).sort(), TODAY);
 const view = (filter, range = ALL) => renderView(rows, { now: TODAY, range, filter });
@@ -35,16 +35,17 @@ test('the bar brackets triaged against awaiting and puts segments in outcome ord
 	assert.match(bar, /style="grid-column:1 \/ span 4"/);
 });
 
-test('the bar detail adds the milestone for Release or backlog and the median days for Future', () => {
+test('the bar detail is the label and what the outcome means, with no counts', () => {
 	const { bar } = view();
-	assert.match(text(bar), /Now: 1 in 2027 Backlog\./);
-	assert.match(text(bar), /3 of 6 triaged issues\. Median 4 days there\./);
+	assert.match(text(bar), /Release or backlog Planned: scheduled for a release or the backlog\. 43% Future Acknowledged, but parked for later with no plan yet\./);
+	assert.doesNotMatch(text(bar), /Now:|Median|of 6 triaged issues|of 7 findings/);
 });
 
 test('the headline counts fixed or planned issues out of the triaged ones', () => {
 	assert.match(text(view().head), /Developers fixed or planned 2 of 6 triaged issues \(33%\) ?\./);
+	assert.match(view().head, /Developers fixed or planned <span class="metric">2 of 6 triaged issues \(33%\)<\/span>\./);
 	const only = (...outs) => renderView(rows.filter(r => outs.includes(r.out)), { now: TODAY, range: ALL }).head;
-	assert.match(text(only('completed', 'awaiting')), /Developers fixed or planned all 1 triaged issue\./);
+	assert.match(text(only('completed', 'awaiting')), /Developers fixed or planned all 1 triaged issue ?\./);
 	assert.match(text(only('awaiting')), /None of these issues have been triaged yet\./);
 });
 
@@ -95,13 +96,19 @@ test('each issue row shows where it stands and for how long', () => {
 	assert.match(t, /10 days in Future/);
 	assert.match(t, /filed 3 days ago/);
 	assert.match(t, /closed Oct 10/);
+	assert.match(t, /#7 ~ plots ~ filed Aug 1 ~ matched ~ report/);
+	assert.doesNotMatch(t, /#1 ~ plots ~ filed Oct 1 ~ matched/);
+});
+
+test('the breakdown counts issues filed from the report apart from matched ones', () => {
+	assert.match(text(section(view().body, 'kind')), /Linked by Filed from the report 6 Matched to its finding 1/);
 });
 
 test('the page has the shared top row and footer, and the counting panel says which issues count', () => {
 	const html = renderTriagePage({ rows }, { now: new Date(`${TODAY}T12:00:00Z`) });
 	assert.match(html, /<nav[^>]*class="switch"[\s\S]*aria-current="page"[^>]*>Triage outcomes/);
 	assert.match(html, /<footer>Updated /);
-	assert.match(text(html), /Only issues labelled ai-discovered that link to an exploratory-test report are counted\./);
+	assert.match(text(html), /issues filed by hand that the Shipping impact page matched to a finding and that mention its PR/);
 	assert.doesNotMatch(text(html), /left out/);
 });
 

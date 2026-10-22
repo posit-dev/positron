@@ -58,6 +58,9 @@ export class Output {
 		// The view focuses its editor only after the channel model loads, so a key sent
 		// before then is dropped and the pane stays pinned to the streaming tail.
 		await expect(this.editTarget).toBeFocused();
+		// A freshly opened channel leaves the cursor on line 1, so cursor-top alone fires no
+		// cursor move, smart scroll never locks, and each appended line snaps back to the tail.
+		await this.code.driver.currentPage.keyboard.press('ArrowDown');
 		await this.pressCursorTop();
 		// Monaco drops this class once scrollTop reaches 0.
 		await expect(this.outputPane.locator('.scroll-decoration')).toHaveCount(0);

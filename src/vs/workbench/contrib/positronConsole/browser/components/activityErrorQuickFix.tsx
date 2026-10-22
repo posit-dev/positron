@@ -7,21 +7,13 @@
 // CSS.
 import './activityErrorQuickFix.css';
 
-// React.
-import { useMemo, useRef } from 'react';
-
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
-import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
-import { NewChatFile, NewChatOptions, openPositAssistantChat } from '../../../positronAssistant/browser/positAssistantChat.js';
-
-const fixPrompt = localize('positronConsoleAssistantFixPrompt', "Fix this console error.");
-const explainPrompt = localize('positronConsoleAssistantExplainPrompt', "Explain this console error.");
-
-const ATTACHMENT_NAME = localize('positronConsoleAssistantErrorAttachmentName', "Console Error");
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { ErrorAssistantAction, IErrorAssistantService } from '../../../positronAssistant/common/errorAssistant.js';
+import { useActiveErrorAssistant } from '../../../positronAssistant/browser/useActiveErrorAssistant.js';
 
 interface ConsoleQuickFixProps {
 	outputLines: ANSIOutputLine[];
@@ -36,53 +28,44 @@ const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputL
 	return traceback ? `${message}\n${traceback}` : message;
 };
 
-const buildAttachment = (text: string): NewChatFile | undefined => {
-	if (!text) {
-		return undefined;
-	}
-	const base64 = encodeBase64(VSBuffer.fromString(text));
-	return { uri: `data:text/plain;base64,${base64}`, name: ATTACHMENT_NAME };
-};
-
 /**
  * Quick fix component.
  * @returns The rendered component.
  */
 export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
-	const buttonRef = useRef<HTMLDivElement>(undefined!);
 	const services = usePositronReactServicesContext();
-	const { commandService, logService, notificationService } = services;
+	const assistant = useActiveErrorAssistant();
 
-	const attachment = useMemo(
-		() => buildAttachment(formatOutput(props.outputLines, props.tracebackLines)),
-		[props.outputLines, props.tracebackLines]
-	);
+	if (!assistant) {
+		return null;
+	}
 
-	const runNewChat = (prompt: string) => {
-		const options: NewChatOptions = {
-			prompt,
-			target: 'auto',
-			behavior: 'submit',
-			...(attachment && { files: [attachment] }),
-		};
-		return openPositAssistantChat(commandService, notificationService, logService, options);
-	};
+	// Continue the active chat when the assistant can, for follow-ups on
+	// earlier console work.
+	const ask = (action: ErrorAssistantAction) => services.get(IErrorAssistantService).ask(assistant.id, action, {
+		kind: 'console',
+		error: formatOutput(props.outputLines, props.tracebackLines),
+	}, { continueChat: true });
 
-	const pressedFixHandler = () => runNewChat(fixPrompt);
+	const pressedFixHandler = () => ask('fix');
 
-	const pressedExplainHandler = () => runNewChat(explainPrompt);
+	const pressedExplainHandler = () => ask('explain');
+
+	// Name the assistant errors are sent to.
+	const fixTooltip = localize('positronConsoleErrorAssistantFixTooltip', "Ask {0} to fix", assistant.label);
+	const explainTooltip = localize('positronConsoleErrorAssistantExplainTooltip', "Ask {0} to explain", assistant.label);
 
 	// Render.
 	return (
 		<div className='quick-fix'>
-			<Button className='assistant-action' onPressed={pressedFixHandler}>
-				<div ref={buttonRef} className='link-text'>
+			<Button ariaLabel={fixTooltip} className='assistant-action' onPressed={pressedFixHandler}>
+				<div className='link-text' title={fixTooltip}>
 					<span className='codicon codicon-sparkle' />
 					{localize('positronConsoleAssistantFix', "Fix")}
 				</div>
 			</Button>
-			<Button className='assistant-action' onPressed={pressedExplainHandler}>
-				<div ref={buttonRef} className='link-text'>
+			<Button ariaLabel={explainTooltip} className='assistant-action' onPressed={pressedExplainHandler}>
+				<div className='link-text' title={explainTooltip}>
 					<span className='codicon codicon-sparkle' />
 					{localize('positronConsoleAssistantExplain', "Explain")}
 				</div>

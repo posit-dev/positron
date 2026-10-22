@@ -15,11 +15,11 @@ import { accordion, day, FONTS, footer, inlineJson, inlineScript, rangeText, res
 
 // In bar order; `triaged` puts it under the Triaged bracket, `rule` is its row in the counting panel.
 const OUT = [
-	{ key: 'completed', label: 'Completed', triaged: true, state: 'Closed', rule: 'Closed as completed, in any milestone', def: 'Closed as completed. GitHub can\'t tell us whether the fix has shipped.', hero: '#3B7D4F' },
-	{ key: 'active', label: 'Release or backlog', triaged: true, state: 'Open', rule: 'In a dated Release or Patch milestone, a yearly Backlog, or an older one like Post-RC', def: 'Open in a dated release, patch or yearly Backlog milestone.', hero: '#2B2A27' },
-	{ key: 'future', label: 'Future', triaged: true, state: 'Open', rule: 'In the Future milestone', def: 'Open in the Future milestone.', hero: '#5A5751' },
-	{ key: 'closed', label: 'Closed without fix', triaged: true, state: 'Closed', rule: 'Closed as not planned, as a duplicate, or any other way', def: 'Closed as not planned, as a duplicate, or another way that isn\'t completed.', hero: '#2B2A27' },
-	{ key: 'awaiting', label: 'Awaiting triage', triaged: false, state: 'Open', rule: 'No milestone yet', def: 'Open with no milestone yet. Reviewed at the weekly triage meeting.', hero: '#2B2A27' },
+	{ key: 'completed', label: 'Completed', triaged: true, state: 'Closed', rule: 'Closed as completed, in any milestone', def: 'Closed as done by the team.', hero: '#3B7D4F' },
+	{ key: 'active', label: 'Release or backlog', triaged: true, state: 'Open', rule: 'In a dated Release or Patch milestone, a yearly Backlog, or an older one like Post-RC', def: 'Planned: scheduled for a release or the backlog.', hero: '#2B2A27' },
+	{ key: 'future', label: 'Future', triaged: true, state: 'Open', rule: 'In the Future milestone', def: 'Acknowledged, but parked for later with no plan yet.', hero: '#5A5751' },
+	{ key: 'closed', label: 'Closed without fix', triaged: true, state: 'Closed', rule: 'Closed as not planned, as a duplicate, or any other way', def: 'Closed as not planned or a duplicate.', hero: '#2B2A27' },
+	{ key: 'awaiting', label: 'Awaiting triage', triaged: false, state: 'Open', rule: 'No milestone yet', def: 'Not reviewed yet. Picked up at weekly triage.', hero: '#2B2A27' },
 ];
 const NO_SEV = 'none';
 const NO_AREA = '(no feature label)';
@@ -33,12 +33,6 @@ const outLabel = key => OUT.find(o => o.key === key).label;
 const sevLabel = key => SEVERITY_LABEL[key] ?? 'No severity';
 const sevPill = key => SEVERITY_LABEL[key] ? `<span class="pill sev-${key}"><span class="dot"></span>${SEVERITY_LABEL[key]}</span>` : '<span class="pill sev-none">No severity</span>';
 const areasOf = r => r.areas.length ? r.areas : [NO_AREA];
-
-function median(values) {
-	const s = [...values].sort((a, b) => a - b);
-	const m = s.length >> 1;
-	return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
-}
 
 /** Newest first, comparing each dotted part as a number, so 1.53 is newer than 1.9. */
 function byVersion(a, b) {
@@ -63,30 +57,15 @@ function matches(r, f) {
 function header(rows) {
 	const triaged = rows.filter(r => r.out !== 'awaiting').length;
 	const done = count(rows, 'completed') + count(rows, 'active');
-	const of = done === triaged ? `<span class="green">all ${done}</span>` : `<span class="green">${done}</span> of ${triaged}`;
-	const rate = done === triaged ? '' : `<span class="muted"> (${pct(done, triaged)})</span>`;
+	const noun = `triaged ${triaged === 1 ? 'issue' : 'issues'}`;
+	const metric = done === triaged ? `all ${done} ${noun}` : `${done} of ${triaged} ${noun} (${pct(done, triaged)})`;
 	const headline = !rows.length ? 'No /explore issues were filed in this date range.'
-		: triaged ? `Developers fixed or planned ${of} triaged ${triaged === 1 ? 'issue' : 'issues'}${rate}.` : 'None of these issues have been triaged yet.';
+		: triaged ? `Developers fixed or planned <span class="metric">${metric}</span>.` : 'None of these issues have been triaged yet.';
 	return `<div class="lede"><h1>Where do /explore's issues end up?</h1><p class="headline">${headline}</p></div>`;
 }
 
-/** Extra words under the bar for Release or backlog and Future. */
-function extra(key, rows, now) {
-	if (key === 'active') {
-		const by = {};
-		rows.filter(r => r.out === 'active').forEach(r => { by[r.milestone] = (by[r.milestone] ?? 0) + 1; });
-		return ` Now: ${Object.entries(by).map(([m, n]) => `${n} in ${escapeHtml(m)}`).join(', ')}.`;
-	}
-	if (key === 'future') {
-		const triaged = rows.filter(r => r.out !== 'awaiting').length;
-		const days = rows.filter(r => r.out === 'future' && r.futureSince).map(r => daysBetween(r.futureSince, now));
-		return ` ${count(rows, 'future')} of ${triaged} triaged issues.${days.length ? ` Median ${plural(median(days), 'day')} there.` : ''}`;
-	}
-	return '';
-}
-
 /** The main bar, with the Triaged and Awaiting brackets over it and a detail row under it; empty when there are no issues. */
-function bar(rows, now) {
+function bar(rows) {
 	const total = rows.length;
 	if (!total) {
 		return '';
@@ -106,7 +85,7 @@ function bar(rows, now) {
 	const details = present.map(o => {
 		const n = count(rows, o.key);
 		return `<div class="seg-detail" data-for="${o.key}" hidden><span class="hero" style="color:${o.hero}">${pct(n, total)}</span>`
-			+ `<div><div class="what"><b>${o.label}</b><span>${SEP}${n} of ${total} findings</span></div><div class="def">${escapeHtml(o.def)}${extra(o.key, rows, now)}</div></div></div>`;
+			+ `<div><div class="what">${o.label}</div><div class="def">${escapeHtml(o.def)}</div></div></div>`;
 	}).join('');
 	return `<div class="all" style="grid-template-columns:${present.map(o => `minmax(0, ${count(rows, o.key)}fr)`).join(' ')}">
 <div class="brackets">${brackets}</div>
@@ -170,6 +149,7 @@ function breakdown(rows) {
 	const body = `<div class="tallies">
 ${tally('Type', rows.map(r => r.type), ['Bug', 'Enhancement'], 'No type')}
 ${tally('Report source', rows.map(r => r.source === 'local' ? 'Local run' : 'PR run'), ['PR run', 'Local run'], '')}
+${tally('Linked by', rows.map(r => r.via === 'matched' ? 'Matched to its finding' : 'Filed from the report'), ['Filed from the report', 'Matched to its finding'], '')}
 ${tally('Skill version', rows.map(r => r.skillVersion), [], 'Not recorded', byVersion)}
 </div>`;
 	return accordion('kind', 'Type, source and skill version', summary, rows.length ? body : NONE);
@@ -188,7 +168,8 @@ function age(r, now) {
 
 function renderIssueRow(r, now) {
 	const links = [safeUrl(r.reportUrl) && `<a href="${escapeHtml(r.reportUrl)}">report</a>`, safeUrl(r.findingUrl) && `<a href="${escapeHtml(r.findingUrl)}">finding</a>`].filter(Boolean);
-	const meta = [`<span class="mono">#${Number(r.num)}</span>`, escapeHtml(r.areas.join(', ') || 'no feature label'), `filed ${day(r.filed)}`, ...links].join(SEP);
+	const matched = r.via === 'matched' ? ['<span title="Filed by hand; the outcomes job matched it to the finding, and it mentions the PR">matched</span>'] : [];
+	const meta = [`<span class="mono">#${Number(r.num)}</span>`, escapeHtml(r.areas.join(', ') || 'no feature label'), `filed ${day(r.filed)}`, ...matched, ...links].join(SEP);
 	return `<div class="issue" id="i${Number(r.num)}"><span class="sev-col">${sevPill(r.sev)}</span>`
 		+ `<span class="main"><a class="issue-title" href="${REPO_URL}/issues/${Number(r.num)}">${escapeHtml(r.title)}</a><span class="meta">${meta}</span></span>`
 		+ `<span class="out"><i class="sw o-${r.out}" aria-hidden="true"></i>${escapeHtml(r.out === 'active' ? r.milestone : outLabel(r.out))}</span>`
@@ -210,13 +191,13 @@ export function renderView(rows, { now, range, filter = {} }) {
 	return {
 		label: rangeText(range),
 		head: header(inRange),
-		bar: bar(inRange, now),
+		bar: bar(inRange),
 		body: `<div class="accordion">\n${[bySeverity(inRange), byFeature(inRange), breakdown(inRange), issueList(inRange, filter, now)].join('\n')}\n</div>`,
 	};
 }
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, count, plural, pct, daysBetween, outLabel, sevLabel, sevPill, areasOf, median, byVersion, matches, header, extra, bar, rowBar, barTable, bySeverity, byFeature, tally, breakdown, age, renderIssueRow, issueList, renderView };
+const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, count, plural, pct, daysBetween, outLabel, sevLabel, sevPill, areasOf, byVersion, matches, header, bar, rowBar, barTable, bySeverity, byFeature, tally, breakdown, age, renderIssueRow, issueList, renderView };
 export const VIEW_SOURCE = [
 	...Object.entries({ ...SHARED_CONSTS, SEVERITY_LABEL, OUT, NO_SEV, NO_AREA, SEP, NONE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
@@ -227,7 +208,7 @@ function howPanel() {
 	const rows = OUT.map(o => `<div class="trow" role="row"><span class="name" role="rowheader"><i class="sw o-${o.key}" aria-hidden="true"></i>${o.label}</span><span class="state" role="cell">${o.state}</span><span role="cell">${o.rule}</span></div>`).join('');
 	return `<div class="how-panel" id="how" hidden><div class="muted-line">Each finding counts once, by where it stands today.</div>
 <div class="how-table" role="table" aria-label="How outcomes are counted"><div class="trow cols" role="row"><span role="columnheader">Outcome</span><span role="columnheader">State</span><span role="columnheader">Which issues</span></div>${rows}</div>
-<div class="notes"><div>Only issues labelled ai-discovered that link to an exploratory-test report are counted.</div></div></div>`;
+<div class="notes"><div>Counted: issues labelled ai-discovered that link to an exploratory-test report, and issues filed by hand that the Shipping impact page matched to a finding and that mention its PR (marked matched).</div></div></div>`;
 }
 
 const CSS = `
@@ -247,7 +228,7 @@ const CSS = `
 .cols{color:#6B6862}
 .bracket span{color:#5A5751}
 .bracket.triaged{border-bottom:1px solid #5A5751}
-.bracket.awaiting{border-bottom:1px solid #C9C5BB}.bracket.awaiting b{color:#5A5751}.bracket.awaiting span{color:#6B6862}
+.bracket.awaiting{border-bottom:1px solid #C9C5BB}.bracket.awaiting b{color:#5A5751}
 .o-completed{background:#3B7D4F;color:#FFF}
 .o-active{background:#DCD8CE;color:#3A3833}
 .o-future{background:repeating-linear-gradient(135deg,#CFC8BB 0 8px,#C5BEB0 8px 10px);color:#2B2A27}

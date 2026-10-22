@@ -12,7 +12,7 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { PositronObjectExplorerEditor } from './positronObjectExplorerEditor.js';
-import { POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED, POSITRON_OBJECT_EXPLORER_IS_FOCUSED, POSITRON_OBJECT_EXPLORER_SELECTED_KIND } from './positronObjectExplorerContextKeys.js';
+import { POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED, POSITRON_OBJECT_EXPLORER_IS_FOCUSED, POSITRON_OBJECT_EXPLORER_SELECTED_HAS_ACCESSOR, POSITRON_OBJECT_EXPLORER_SELECTED_KIND } from './positronObjectExplorerContextKeys.js';
 import { URI } from '../../../../base/common/uri.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { extname } from '../../../../base/common/resources.js';
@@ -177,7 +177,7 @@ class CopyAccessorAction extends Action2 {
 			title: localize2('positron.objectExplorer.copyAccessorAction', "Copy Accessor"),
 			category,
 			f1: true,
-			precondition: OBJECT_EXPLORER_FOCUSED,
+			precondition: ContextKeyExpr.and(OBJECT_EXPLORER_FOCUSED, POSITRON_OBJECT_EXPLORER_SELECTED_HAS_ACCESSOR),
 			keybinding: {
 				// Above the external terminal's binding of the same chord.
 				weight: KeybindingWeight.WorkbenchContrib + 1,
@@ -200,7 +200,7 @@ class SendAccessorToConsoleAction extends Action2 {
 			category,
 			f1: true,
 			icon: Codicon.insert,
-			precondition: ContextKeyExpr.and(OBJECT_EXPLORER_HAS_SELECTION, POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED.negate()),
+			precondition: ContextKeyExpr.and(OBJECT_EXPLORER_HAS_SELECTION, POSITRON_OBJECT_EXPLORER_SELECTED_HAS_ACCESSOR, POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED.negate()),
 			positronActionBarOptions: {
 				controlType: 'button',
 				displayTitle: false

@@ -200,3 +200,68 @@ describe('ExtHostDataConnections node details', () => {
 		await expect(extHost.$nodeGetDetails(connectionHandle, dtos[0].nodeHandle)).rejects.toThrow('does not support getDetails');
 	});
 });
+
+describe('ExtHostDataConnections parameter validation', () => {
+	// Registers a driver built from the given members and returns the ext host.
+	function registerDriver(members: Partial<positron.DataConnectionDriver>) {
+		const extHost = createExtHost({ $registerDataConnectionDriver: () => { } });
+		extHost.registerDriver({
+			id: 'test-driver',
+			name: 'Test',
+			description: 'A test driver',
+			iconSvg: '<svg/>',
+			mechanisms: [],
+			supportedLanguageIds: [],
+			connect: async () => stubInterface<positron.DataConnection>({}),
+			...members,
+		});
+		return extHost;
+	}
+
+	it('returns the driver\'s result to the main thread', async () => {
+		const validateParameters = vi.fn(async () => ({
+			normalizedValues: { databasePath: '/ws/db.sqlite' },
+			errors: { other: 'Not valid.' },
+		}));
+		const extHost = registerDriver({ validateParameters });
+
+		const validation = await extHost.$validateParameters('test-driver', 'file', { databasePath: 'db.sqlite' });
+
+		expect({ validation, calls: validateParameters.mock.calls }).toEqual({
+			validation: { normalizedValues: { databasePath: '/ws/db.sqlite' }, errors: { other: 'Not valid.' } },
+			calls: [['file', { databasePath: 'db.sqlite' }]],
+		});
+	});
+
+	it('tells the main thread whether each driver validates parameters', () => {
+		const $registerDataConnectionDriver = vi.fn<MainThreadDataConnectionsShape['$registerDataConnectionDriver']>();
+		const extHost = createExtHost({ $registerDataConnectionDriver });
+		const driver = (id: string, members: Partial<positron.DataConnectionDriver>): positron.DataConnectionDriver => ({
+			id,
+			name: id,
+			description: '',
+			iconSvg: '<svg/>',
+			mechanisms: [],
+			supportedLanguageIds: [],
+			connect: async () => stubInterface<positron.DataConnection>({}),
+			...members,
+		});
+
+		extHost.registerDriver(driver('plain', {}));
+		extHost.registerDriver(driver('validating', { validateParameters: async () => ({}) }));
+
+		expect($registerDataConnectionDriver.mock.calls.map(([id, metadata]) => [id, metadata.validatesParameters])).toEqual([
+			['plain', false],
+			['validating', true],
+		]);
+	});
+
+	it('accepts the values as entered for a driver that does not validate them, or is gone', async () => {
+		const extHost = registerDriver({});
+
+		expect([
+			await extHost.$validateParameters('test-driver', 'file', { databasePath: 'db.sqlite' }),
+			await extHost.$validateParameters('no-such-driver', 'file', { databasePath: 'db.sqlite' }),
+		]).toEqual([{}, {}]);
+	});
+});

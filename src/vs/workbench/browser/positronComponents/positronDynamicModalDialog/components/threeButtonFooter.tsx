@@ -17,6 +17,8 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 interface ThreeButtonFooterProps {
 	leftButtonTitle: string;
 	primaryButtonTitle: string;
+	/** Whether the primary button's action is in progress, which makes it ignore presses and show a spinner. */
+	primaryButtonBusy?: boolean;
 	secondaryButtonTitle: string;
 	topBorder?: boolean;
 	onLeftButton: () => void;
@@ -41,7 +43,7 @@ export const ThreeButtonFooter = (props: ThreeButtonFooterProps) => {
 
 	// Primary button.
 	const primaryButton = (
-		<FooterButton default type='submit' onPressed={props.onPrimaryButton}>
+		<FooterButton default busy={props.primaryButtonBusy} type='submit' onPressed={props.onPrimaryButton}>
 			{props.primaryButtonTitle}
 		</FooterButton>
 	);

@@ -6,9 +6,12 @@
 // CSS.
 import './customFolderMenuItems.css';
 
+// React.
+import { useEffect, useRef, useState } from 'react';
+
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { URI } from '../../../../../base/common/uri.js';
+import { isEqual } from '../../../../../base/common/resources.js';
 import { CustomFolderMenuItem } from './customFolderMenuItem.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { OpenFolderAction } from '../../../actions/workspaceActions.js';
@@ -22,13 +25,56 @@ import { CommandCenter } from '../../../../../platform/commandCenter/common/comm
 import { EmptyWorkspaceSupportContext, WorkbenchStateContext } from '../../../../common/contextkeys.js';
 import { CommandAction } from '../../../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { IRecentlyOpened, isRecentWorkspace, isRecentFolder } from '../../../../../platform/workspaces/common/workspaces.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
+import { IRecentlyOpened, IRecentFolder, IRecentWorkspace, isRecentWorkspace, isRecentFolder, restoreRecentlyOpened, toStoreData } from '../../../../../platform/workspaces/common/workspaces.js';
 import { PositronNewFolderFromTemplateAction, PositronNewFolderFromGitAction, PositronOpenFolderInNewWindowAction } from '../../../actions/positronActions.js';
 
 /**
  * Constants.
  */
 const kCloseFolder = 'workbench.action.closeFolder';
+const kPinnedFoldersStorageKey = 'positron.customFolderMenu.pinnedFolders';
+
+/**
+ * A recently opened folder or workspace.
+ */
+type RecentFolderOrWorkspace = IRecentFolder | IRecentWorkspace;
+
+/**
+ * Gets the URI of a recently opened folder or workspace.
+ * @param recent The recently opened folder or workspace.
+ * @returns The URI.
+ */
+const recentUri = (recent: RecentFolderOrWorkspace) =>
+	isRecentFolder(recent) ? recent.folderUri : recent.workspace.configPath;
+
+/**
+ * Reads the pinned folders and workspaces.
+ * @param storageService The storage service.
+ * @param logService The log service.
+ * @returns The pinned folders and workspaces.
+ */
+const readPinnedFolders = (storageService: IStorageService, logService: ILogService) =>
+	restoreRecentlyOpened(
+		storageService.getObject(kPinnedFoldersStorageKey, StorageScope.APPLICATION),
+		logService
+	).workspaces;
+
+/**
+ * Stores the pinned folders and workspaces. They are shared by all windows, like the recently
+ * opened list they are picked from.
+ * @param storageService The storage service.
+ * @param pinned The pinned folders and workspaces.
+ */
+const storePinnedFolders = (storageService: IStorageService, pinned: RecentFolderOrWorkspace[]) => {
+	storageService.store(
+		kPinnedFoldersStorageKey,
+		toStoreData({ workspaces: pinned, files: [] }),
+		StorageScope.APPLICATION,
+		StorageTarget.MACHINE
+	);
+};
 
 /**
  * CustomFolderMenuItemsProps interface.
@@ -46,6 +92,52 @@ interface CustomFolderMenuItemsProps {
 export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 	// Context hooks.
 	const services = usePositronReactServicesContext();
+
+	// State hooks.
+	const [pinnedFolders, setPinnedFolders] = useState(() =>
+		readPinnedFolders(services.storageService, services.logService)
+	);
+
+	// Reference hooks.
+	const pinButtonsRef = useRef(new Map<string, HTMLButtonElement>());
+	const pinButtonToFocusRef = useRef<string | undefined>(undefined);
+
+	// Pinning or unpinning moves a folder between the pinned and recent lists, which remounts its
+	// menu item and drops keyboard focus. After the move, focus the pin button of the moved folder.
+	useEffect(() => {
+		if (pinButtonToFocusRef.current) {
+			pinButtonsRef.current.get(pinButtonToFocusRef.current)?.focus();
+			pinButtonToFocusRef.current = undefined;
+		}
+	});
+
+	// The pinned folders and workspaces. A pin stores the entry from when it was pinned, so use the
+	// current recently opened entry, with its current label, while there is one.
+	const pinnedMenuFolders = pinnedFolders.map(pinned =>
+		props.recentlyOpened.workspaces.find(recent => isEqual(recentUri(recent), recentUri(pinned))) ?? pinned
+	);
+
+	// The recently opened folders and workspaces that aren't pinned.
+	const recentFolders = props.recentlyOpened.workspaces
+		.filter(recent => !pinnedFolders.some(pinned => isEqual(recentUri(pinned), recentUri(recent))))
+		.slice(0, 10);
+
+	/**
+	 * Pins or unpins a folder or workspace.
+	 * @param recent The folder or workspace.
+	 */
+	const togglePinned = (recent: RecentFolderOrWorkspace) => {
+		// Start from the stored pins, not this menu's state, so that pins changed in another
+		// window since this menu opened are not overwritten.
+		const uri = recentUri(recent);
+		const storedPinnedFolders = readPinnedFolders(services.storageService, services.logService);
+		const newPinnedFolders = storedPinnedFolders.some(pinned => isEqual(recentUri(pinned), uri)) ?
+			storedPinnedFolders.filter(pinned => !isEqual(recentUri(pinned), uri)) :
+			[...storedPinnedFolders, recent];
+		storePinnedFolders(services.storageService, newPinnedFolders);
+		pinButtonToFocusRef.current = uri.toString();
+		setPinnedFolders(newPinnedFolders);
+	};
 
 	/**
 	 * CommandActionCustomFolderMenuItem component.
@@ -86,61 +178,55 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 	};
 
 	/**
-	 * RecentWorkspacesCustomFolderMenuItems component.
-	 * @returns The rendered component.
+	 * Renders the menu item of a recently opened folder or workspace.
+	 * @param recent The folder or workspace.
+	 * @param pinned Whether the folder or workspace is pinned.
+	 * @returns The rendered menu item.
 	 */
-	const RecentWorkspacesCustomFolderMenuItems = () => {
-		// If there are no recently opened workspaces, return null.
-		if (!props.recentlyOpened.workspaces.length) {
-			return null;
+	const renderRecentMenuItem = (recent: RecentFolderOrWorkspace, pinned: boolean) => {
+		// Setup the handler.
+		const uri = recentUri(recent);
+		const key = uri.toString();
+		let label: string;
+		let openable: IWindowOpenable;
+		if (isRecentWorkspace(recent)) {
+			label = recent.label || services.labelService.getWorkspaceLabel(recent.workspace, { verbose: Verbosity.LONG });
+			openable = { workspaceUri: uri };
+		} else {
+			label = recent.label || services.labelService.getWorkspaceLabel(uri, { verbose: Verbosity.LONG });
+			openable = { folderUri: uri };
 		}
 
 		// Render.
 		return (
-			<>
-				<CustomFolderMenuSeparator />
-				{props.recentlyOpened.workspaces.slice(0, 10).map((recent, index) => {
-					// Setup the handler.
-					let uri: URI;
-					let label: string;
-					let openable: IWindowOpenable;
-					if (isRecentWorkspace(recent)) {
-						uri = recent.workspace.configPath;
-						label = recent.label || services.labelService.getWorkspaceLabel(recent.workspace, { verbose: Verbosity.LONG });
-						openable = { workspaceUri: uri };
-					} else if (isRecentFolder(recent)) {
-						uri = recent.folderUri;
-						label = recent.label || services.labelService.getWorkspaceLabel(uri, { verbose: Verbosity.LONG });
-						openable = { folderUri: uri };
+			<CustomFolderRecentlyUsedMenuItem
+				key={key}
+				enabled={true}
+				label={label}
+				pinButtonRef={pinButton => {
+					if (pinButton) {
+						pinButtonsRef.current.set(key, pinButton);
 					} else {
-						// This can't happen.
-						return null;
+						pinButtonsRef.current.delete(key);
 					}
-
-					// Render.
-					return (
-						<CustomFolderRecentlyUsedMenuItem
-							key={index}
-							enabled={true}
-							label={label}
-							onOpen={e => {
-								props.onMenuItemSelected();
-								services.hostService.openWindow([openable], {
-									forceNewWindow: (!isMacintosh && (e.ctrlKey || e.shiftKey)) || (isMacintosh && (e.metaKey || e.altKey)),
-									remoteAuthority: recent.remoteAuthority || null
-								});
-							}}
-							onOpenInNewWindow={e => {
-								props.onMenuItemSelected();
-								services.hostService.openWindow([openable], {
-									forceNewWindow: true,
-									remoteAuthority: recent.remoteAuthority || null
-								});
-							}}
-						/>
-					);
-				})}
-			</>
+				}}
+				pinned={pinned}
+				onOpen={e => {
+					props.onMenuItemSelected();
+					services.hostService.openWindow([openable], {
+						forceNewWindow: (!isMacintosh && (e.ctrlKey || e.shiftKey)) || (isMacintosh && (e.metaKey || e.altKey)),
+						remoteAuthority: recent.remoteAuthority || null
+					});
+				}}
+				onOpenInNewWindow={e => {
+					props.onMenuItemSelected();
+					services.hostService.openWindow([openable], {
+						forceNewWindow: true,
+						remoteAuthority: recent.remoteAuthority || null
+					});
+				}}
+				onTogglePinned={() => togglePinned(recent)}
+			/>
 		);
 	};
 
@@ -163,7 +249,10 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 					EmptyWorkspaceSupportContext
 				)}
 			/>
-			<RecentWorkspacesCustomFolderMenuItems />
+			{(pinnedMenuFolders.length > 0 || recentFolders.length > 0) && <CustomFolderMenuSeparator />}
+			{pinnedMenuFolders.map(recent => renderRecentMenuItem(recent, true))}
+			{pinnedMenuFolders.length > 0 && recentFolders.length > 0 && <CustomFolderMenuSeparator />}
+			{recentFolders.map(recent => renderRecentMenuItem(recent, false))}
 			<CustomFolderMenuSeparator />
 			<CommandActionCustomFolderMenuItem id={ClearRecentWorkspacesAction.ID} />
 		</div>

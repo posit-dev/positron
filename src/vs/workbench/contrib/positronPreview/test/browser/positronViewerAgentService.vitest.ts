@@ -16,7 +16,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PreviewSourceType } from '../../../../services/languageRuntime/common/positronUiComm.js';
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { IOverlayWebview } from '../../../webview/browser/webview.js';
-import { IPositronPreviewService, POSITRON_PREVIEW_HTML_VIEW_TYPE } from '../../browser/positronPreviewSevice.js';
+import { IPositronPreviewService, POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE } from '../../browser/positronPreviewSevice.js';
 import { PositronViewerAgentService } from '../../browser/positronViewerAgentService.js';
 import { PreviewHtml } from '../../browser/previewHtml.js';
 import { PreviewOverlayWebview, ViewerBridgeResult } from '../../browser/previewOverlayWebview.js';
@@ -66,8 +66,6 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 	hang: keyof IViewerBridge | undefined;
 	/** The address the browser has for the page, if the page has loaded. */
 	pageUrl: string | undefined;
-	/** False to act like Desktop, which can't reach HTML shown as a string. */
-	override canReadHtmlStrings = true;
 
 	constructor(size = { width: 600, height: 400 }, onDidLoad: Event<string> = Event.None) {
 		super(fakeOverlayWebview(size, onDidLoad));
@@ -223,25 +221,33 @@ describe('PositronViewerAgentService', () => {
 		await expect(service.viewerAct({ kind: 'click', ref: 'e1' })).rejects.toThrow(/AI features are turned off/);
 	});
 
-	it('refuses when there\'s nothing it can read: an empty Viewer, or content such as notebook renderer output', async () => {
+	it('refuses when there\'s nothing it can read: an empty Viewer, or a preview an extension made', async () => {
 		const service = createService();
 		await expect(service.getViewerSnapshot()).rejects.toThrow('Nothing is showing in the Viewer.');
 
-		activePreview = ctx.disposables.add(new PreviewWebview('notebookRenderer', 'previewWebview.1', 'Python', new FakePreviewOverlayWebview()));
+		activePreview = ctx.disposables.add(new PreviewWebview('myExtension.preview', 'preview.1', 'Preview', new FakePreviewOverlayWebview()));
 
-		await expect(service.getViewerSnapshot()).rejects.toThrow('Agents can\'t read this kind of Viewer content yet.');
+		expect((await service.getViewerInfo()).kind).toBe('other');
+		await expect(service.getViewerSnapshot()).rejects.toThrow('Agents can\'t read this kind of Viewer content, such as a preview from an extension.');
 	});
 
-	it('reads HTML shown as a string, such as Quarto output, only where it can reach it', async () => {
+	it('reads HTML shown as a string, such as Quarto output, and widget output, without the frame\'s address', async () => {
 		const service = createService();
-		const webview = new FakePreviewOverlayWebview();
-		activePreview = ctx.disposables.add(new PreviewWebview(POSITRON_PREVIEW_HTML_VIEW_TYPE, 'quartoHtmlOutput.1', 'Output - report.qmd', webview));
-		const onWeb = (await service.getViewerInfo()).kind;
-		webview.canReadHtmlStrings = false;
-		const onDesktop = (await service.getViewerInfo()).kind;
+		const read = async (viewType: string, previewId: string, title: string) => {
+			const webview = new FakePreviewOverlayWebview();
+			// The address web builds have for an HTML string's frame.
+			webview.pageUrl = 'about:srcdoc';
+			activePreview = ctx.disposables.add(new PreviewWebview(viewType, previewId, title, webview));
+			return { info: await service.getViewerInfo(), snapshotUrl: (await service.getViewerSnapshot()).url };
+		};
 
-		expect({ onWeb, onDesktop }).toEqual({ onWeb: 'html', onDesktop: 'other' });
-		await expect(service.getViewerSnapshot()).rejects.toThrow('Agents can\'t read this kind of Viewer content yet.');
+		expect([
+			await read(POSITRON_PREVIEW_HTML_VIEW_TYPE, 'quartoHtmlOutput.1', 'Output - report.qmd'),
+			await read(POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, 'quartoWebviewOutput.1', 'Quarto Output'),
+		]).toEqual([
+			{ info: { kind: 'html', title: 'Output - report.qmd', visible: true }, snapshotUrl: '' },
+			{ info: { kind: 'output', title: 'Quarto Output', visible: true }, snapshotUrl: '' },
+		]);
 	});
 
 	it('snapshots once the app has settled', async () => {
@@ -315,9 +321,9 @@ describe('PositronViewerAgentService', () => {
 	it('leaves a hidden Viewer alone when the page can\'t be reached', async () => {
 		const webview = showUrl();
 		viewerVisible = false;
-		webview.bridgeError = new Error('Agents can\'t read this kind of Viewer content yet, or it hasn\'t loaded.');
+		webview.bridgeError = new Error('The Viewer\'s content hasn\'t loaded yet.');
 
-		await expect(createService().getViewerScreenshot()).rejects.toThrow('Agents can\'t read this kind of Viewer content yet');
+		await expect(createService().getViewerScreenshot()).rejects.toThrow('The Viewer\'s content hasn\'t loaded yet.');
 		expect(openView).not.toHaveBeenCalled();
 	});
 

@@ -6,7 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { currentRBinary, currentRInstallation, discoverRInstallationsForRecommendation, getRDiscoveryRootSignature, looksLikeRProject, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rRuntimeDiscoverer } from './provider';
+import { currentRBinary, currentRInstallation, discoverRInstallationsForRecommendation, getRDiscoveryRootSignature, looksLikeRProject, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rPixiRuntimeDiscoverer, rRuntimeDiscoverer } from './provider';
 import { PackagerMetadata, RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata, isRVersionsMetadata } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
@@ -133,6 +133,30 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	registerLanguageRuntime(runtime: positron.LanguageRuntimeMetadata): void {
 		this.onDidDiscoverRuntimeEmitter.fire(runtime);
+	}
+
+	/**
+	 * Register the R installations in the open workspace folders' Pixi
+	 * environments, outside the discovery pass.
+	 *
+	 * Pixi runtimes are workspace-scoped and never cached, so when a warm
+	 * discovery cache lets Positron skip `discoverAllRuntimes()`, nothing else
+	 * registers them. Scanning just the Pixi environments keeps the discovery
+	 * root signature machine-global. When a full pass runs too, registering a
+	 * runtime it already registered is a no-op.
+	 */
+	async registerPixiRuntimes(): Promise<void> {
+		// When discovery is limited to definitions, skip all other discovery.
+		if (isDefinitionsOnlyDiscovery()) {
+			return;
+		}
+		try {
+			for await (const runtime of rPixiRuntimeDiscoverer()) {
+				this.registerLanguageRuntime(runtime);
+			}
+		} catch (err) {
+			LOGGER.error(`Failed to register Pixi R runtimes: ${err}`);
+		}
 	}
 
 	/**

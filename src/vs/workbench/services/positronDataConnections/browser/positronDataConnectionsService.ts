@@ -19,6 +19,7 @@ import { PositronDataExplorerUri } from '../../positronDataExplorer/common/posit
 import { IViewsService } from '../../views/common/viewsService.js';
 import { IDataConnectionNodeOpener, IDataConnectionRevealOptions, IDataConnectionNodeRevealRequest, IDataConnectionRevealRequest, IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../common/interfaces/positronDataConnectionsService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../common/interfaces/dataConnectionsDriverManager.js';
@@ -35,6 +36,18 @@ const profileStorageKey = (profileId: string) =>
 // Builds the secret storage key for a given data connection secret profile/parameter pair.
 const secretKey = (profileId: string, parameterId: string) =>
 	`positron.dataConnections.secret.${profileId}.${parameterId}`;
+
+// The storage scopes data connection profiles are persisted in.
+type ProfileStorageScope = StorageScope.PROFILE | StorageScope.WORKSPACE;
+
+// The storage scope a data connection profile is persisted in: the workspace's for a
+// workspace-scoped profile, the user profile's for a global one.
+const profileStorageScope = (profile: IDataConnectionProfile): ProfileStorageScope =>
+	profile.scope === 'workspace' ? StorageScope.WORKSPACE : StorageScope.PROFILE;
+
+// The storage scope a data connection profile is not persisted in.
+const otherStorageScope = (storageScope: ProfileStorageScope): ProfileStorageScope =>
+	storageScope === StorageScope.PROFILE ? StorageScope.WORKSPACE : StorageScope.PROFILE;
 
 // Marks the one-time read-only correction applied to DuckDB profiles saved before the driver's
 // Read Only parameter defaulted to true. See _migrateDuckDBProfilesToReadOnly.
@@ -161,6 +174,8 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * @param _secretStorageService The secret storage service (secret parameter values).
 	 * @param _storageService The storage service (profile metadata).
 	 * @param _viewsService The views service (used to open the pane when revealing a row).
+	 * @param _workspaceContextService The workspace context service (whether a workspace is open to
+	 *   hold workspace-scoped profiles).
 	 */
 	constructor(
 		@IExtensionService extensionService: IExtensionService,
@@ -169,6 +184,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		@ISecretStorageService private readonly _secretStorageService: ISecretStorageService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IViewsService private readonly _viewsService: IViewsService,
+		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 	) {
 		// Call the base class constructor.
 		super();
@@ -381,6 +397,11 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		const index = this._profiles.findIndex(_ => _.id === profile.id);
 		const parameterValuesChanged = index >= 0 && this._parameterValuesChanged(this._profiles[index], profile);
 
+		// Spell the scope out, so an absent scope (a profile saved from a discovery, say) reads as
+		// 'global' in memory just as it does when loaded. A workspace-scoped profile needs a workspace
+		// to belong to; in a window with no folder open there is none, so it is saved as global.
+		profile = { ...profile, scope: profile.scope === 'workspace' && this._canScopeToWorkspace() ? 'workspace' : 'global' };
+
 		// Sanitize the data connection profile by splitting out secret parameter values into
 		// secret storage.
 		const sanitizedProfile = this._splitAndPersistSecrets(profile);
@@ -400,9 +421,13 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		this._storageService.store(
 			profileStorageKey(sanitizedProfile.profile.id),
 			JSON.stringify({ ...sanitizedProfile, provenanceChecked: true } satisfies IPersistedDataConnectionProfile),
-			StorageScope.PROFILE,
+			profileStorageScope(sanitizedProfile.profile),
 			StorageTarget.USER,
 		);
+
+		// If the edit moved the profile between global and workspace scope, remove the copy left in
+		// the other storage. Its secrets are keyed by profile id alone, so they stay where they are.
+		this._storageService.remove(profileStorageKey(sanitizedProfile.profile.id), otherStorageScope(profileStorageScope(sanitizedProfile.profile)));
 
 		// Log the addition or update.
 		this._logService.trace(`[DataConnections] Added or updated profile: ${sanitizedProfile.profile.id}`);
@@ -1137,16 +1162,34 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * stay in secret storage and are not loaded here; getProfileWithSecrets fetches them on demand.
 	 */
 	private _loadProfiles(): void {
+		// Global profiles are stored with the user's profile. Workspace-scoped profiles are stored
+		// with the workspace, so they load only when it is open.
+		this._loadProfilesFrom(StorageScope.PROFILE);
+		if (this._canScopeToWorkspace()) {
+			this._loadProfilesFrom(StorageScope.WORKSPACE);
+		}
+
+		// Correct the loaded profiles that predate the DuckDB driver's read-only default.
+		this._migrateDuckDBProfilesToReadOnly();
+	}
+
+	/**
+	 * Reads the profiles persisted in one storage scope into memory. Each profile's scope is set from
+	 * the storage it was read from, which is what decides where it is saved back to.
+	 * @param storageScope The storage scope to read: PROFILE for global profiles, WORKSPACE for
+	 *   workspace-scoped ones.
+	 */
+	private _loadProfilesFrom(storageScope: ProfileStorageScope): void {
 		// Find every storage key for a persisted data connection profile by scanning for the
 		// prefix. A bad JSON parse on one entry is logged and skipped; sibling entries still load.
-		const allKeys = this._storageService.keys(StorageScope.PROFILE, StorageTarget.USER);
+		const allKeys = this._storageService.keys(storageScope, StorageTarget.USER);
 		const profileKeys = allKeys.filter(key => key.startsWith(PROFILE_STORAGE_KEY_PREFIX));
 
 		// Seed the in-memory data connection profiles. Secret parameter ids and secret values
 		// stay in storage; we look them up on demand.
 		for (const profileKey of profileKeys) {
 			// Get the raw data connection profile value.
-			const rawProfileValue = this._storageService.get(profileKey, StorageScope.PROFILE);
+			const rawProfileValue = this._storageService.get(profileKey, storageScope);
 			if (!rawProfileValue) {
 				continue;
 			}
@@ -1154,7 +1197,25 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			// Parse the raw profile value and add the data connection profile to the in-memory list.
 			try {
 				const persistedDataConnectionProfile = JSON.parse(rawProfileValue) as IPersistedDataConnectionProfile;
-				this._profiles.push(persistedDataConnectionProfile.profile);
+				const profile: IDataConnectionProfile = {
+					...persistedDataConnectionProfile.profile,
+					scope: storageScope === StorageScope.WORKSPACE ? 'workspace' : 'global',
+				};
+
+				// A profile is stored in one scope at a time, but another window holding a stale
+				// global copy of a profile this workspace has since scoped to itself can write the
+				// global copy back. Within this workspace the workspace copy wins, in the global
+				// copy's place; other windows keep the global one.
+				// The replaced copy's provenance goes with it: the check below re-reads it from the
+				// workspace copy.
+				const index = this._profiles.findIndex(_ => _.id === profile.id);
+				if (index >= 0) {
+					this._logService.trace(`[DataConnections] Profile ${profile.id} is stored both globally and in this workspace; using the workspace copy`);
+					this._profiles[index] = profile;
+					this._profilesPredatingProvenance.delete(profile.id);
+				} else {
+					this._profiles.push(profile);
+				}
 
 				// An older build wrote this one and left no provenance behind: remember it, so the
 				// first discovery that matches it can supply the link it never got.
@@ -1167,9 +1228,6 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 				this._logService.error(`[DataConnections] Failed to parse persisted profile at ${profileKey}: ${error}`);
 			}
 		}
-
-		// Correct the loaded profiles that predate the DuckDB driver's read-only default.
-		this._migrateDuckDBProfilesToReadOnly();
 	}
 
 	/**
@@ -1243,7 +1301,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 				secretParameterIds,
 				provenanceChecked: persisted?.provenanceChecked,
 			} satisfies IPersistedDataConnectionProfile),
-			StorageScope.PROFILE,
+			profileStorageScope(profile),
 			StorageTarget.USER,
 		);
 	}
@@ -1251,11 +1309,26 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	/**
 	 * Reads the persisted form of a single data connection profile from storage, or returns
 	 * undefined if not found or unparseable. Used to look up the secret parameter id list at the points
-	 * where we need it (save / remove / read with secrets).
+	 * where we need it (save / read with secrets).
 	 */
 	private _readPersistedProfile(id: string): IPersistedDataConnectionProfile | undefined {
+		// Read from the storage the in-memory profile is kept in, falling back to the other: a
+		// profile not yet in memory is being saved for the first time, and one stored in both (see
+		// _loadProfilesFrom) must be read from the copy in use.
+		const inMemoryProfile = this._profiles.find(_ => _.id === id);
+		const storageScope = inMemoryProfile ? profileStorageScope(inMemoryProfile) : StorageScope.PROFILE;
+		return this._readPersistedProfileFrom(id, storageScope) ?? this._readPersistedProfileFrom(id, otherStorageScope(storageScope));
+	}
+
+	/**
+	 * Reads the persisted form of a single data connection profile from one storage scope, or
+	 * returns undefined if not found there or unparseable.
+	 * @param id The data connection profile id.
+	 * @param storageScope The storage scope to read.
+	 */
+	private _readPersistedProfileFrom(id: string, storageScope: ProfileStorageScope): IPersistedDataConnectionProfile | undefined {
 		// Get the raw data connection profile value. If not found, return undefined.
-		const rawProfileValue = this._storageService.get(profileStorageKey(id), StorageScope.PROFILE);
+		const rawProfileValue = this._storageService.get(profileStorageKey(id), storageScope);
 		if (!rawProfileValue) {
 			return undefined;
 		}
@@ -1383,14 +1456,28 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
+	 * Whether a workspace is open to hold workspace-scoped profiles. A window with no folder open
+	 * has none.
+	 */
+	private _canScopeToWorkspace(): boolean {
+		return this._workspaceContextService.getWorkbenchState() !== WorkbenchState.EMPTY;
+	}
+
+	/**
 	 * Removes a persisted data connection profile from storage and deletes its associated secrets.
 	 */
 	private _removePersistedProfile(id: string): void {
-		// Obtain the list of secret parameter ids for the data connection profile.
-		const secretParameterIds = this._readPersistedProfile(id)?.secretParameterIds ?? [];
+		// Obtain the secret parameter ids recorded by every stored copy of the data connection
+		// profile. A profile stored both globally and in the workspace (see _loadProfilesFrom) shares
+		// one set of secrets, and either copy may be the one that records a given secret.
+		const secretParameterIds = new Set([
+			...this._readPersistedProfileFrom(id, StorageScope.PROFILE)?.secretParameterIds ?? [],
+			...this._readPersistedProfileFrom(id, StorageScope.WORKSPACE)?.secretParameterIds ?? [],
+		]);
 
-		// Remove the data connection profile.
+		// Remove the data connection profile from whichever storage holds it.
 		this._storageService.remove(profileStorageKey(id), StorageScope.PROFILE);
+		this._storageService.remove(profileStorageKey(id), StorageScope.WORKSPACE);
 
 		// Remove the secret parameters for the data connection profile.
 		for (const secretParamId of secretParameterIds) {

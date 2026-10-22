@@ -1241,6 +1241,8 @@
 		"--positron-data-grid-column-header-sort-index-font-variant-numeric",
 		"--positron-data-grid-column-header-sort-index-font-weight",
 		"--positron-data-grid-column-header-title-font-weight",
+		"--object-explorer-name-width",
+		"--object-explorer-type-width",
 		"--quarto-output-reference-font-size",
 		"--separator-border",
 		"--chat-bar-background",
