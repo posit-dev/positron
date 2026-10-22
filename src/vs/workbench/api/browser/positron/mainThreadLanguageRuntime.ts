@@ -60,6 +60,7 @@ import { IExecutionHistoryService } from '../../../services/positronHistory/comm
 import { getConsoleHistory } from '../../../services/positronHistory/common/helpers/sessionConsoleHistory.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { isWeb } from '../../../../base/common/platform.js';
 import { LanguageRuntimeDynState, RuntimeSessionStartOptions } from 'positron';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
@@ -205,6 +206,33 @@ export async function buildRuntimeOpenEventResource(
 		environmentService.remoteAuthority,
 		pathService.defaultUriScheme,
 	);
+}
+
+/**
+ * Opens a path from a runtime OpenWithSystem event with the "system" opener.
+ * On the desktop that is the OS default application. In the browser there is
+ * no such thing, and a vscode-remote:// URI handed to window.open() goes
+ * nowhere (#10893), so the file is served through the HTML proxy server and
+ * the resulting URL is opened in a new tab.
+ */
+export async function openRuntimeResourceWithSystem(
+	path: string,
+	commandService: ICommandService,
+	openerService: IOpenerService,
+	pathService: IPathService,
+	environmentService: IWorkbenchEnvironmentService,
+	web: boolean = isWeb,
+): Promise<void> {
+	if (web) {
+		const url = await commandService.executeCommand<string>('positronProxy.startHtmlProxyServer', path);
+		if (!url) {
+			throw new Error(`Failed to start HTML proxy server for ${path}`);
+		}
+		await openerService.open(URI.parse(url), { openExternal: true });
+		return;
+	}
+	const uri = await buildRuntimeOpenEventResource(path, pathService, environmentService);
+	await openerService.open(uri, { openExternal: true });
 }
 
 // The maximum number of recent execution code locations to retain per session.
@@ -434,10 +462,11 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 			} else if (ev.name === UiFrontendEvent.OpenWithSystem) {
 				// Open a file or folder with system default application
 				const openWith = ev.data as OpenWithSystemEvent;
-				const uri = await buildRuntimeOpenEventResource(openWith.path, this._pathService, this._environmentService);
-
-				// Use VS Code's opener service with external option
-				await this._openerService.open(uri, { openExternal: true });
+				try {
+					await openRuntimeResourceWithSystem(openWith.path, this._commandService, this._openerService, this._pathService, this._environmentService);
+				} catch (err) {
+					this._logService.error(`Failed to open ${openWith.path} with the system opener: ${err}`);
+				}
 			} else if (ev.name === UiFrontendEvent.WorkingDirectory) {
 				// Update current working directory
 				const dir = ev.data as WorkingDirectoryEvent;
