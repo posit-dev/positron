@@ -589,10 +589,10 @@ describe('DataConnectionsTreeInstance', () => {
 		});
 	});
 
-	it('keeps a Views group when its look-ahead times out, and loads its children on expand', async () => {
+	it('keeps a Views group when its look-ahead times out, and opens it with the same query', async () => {
 		// A metadata query that never answers must not pin the level. Tables needed no look-ahead
-		// of its own, and the Views row stays so the user can open it -- the same as a look-ahead
-		// that failed. The query is left to finish; what it returns is not what the row shows.
+		// of its own, and the Views row stays so the user can open it. Opening awaits the query
+		// that is already running instead of sending it again.
 		vi.useFakeTimers();
 		try {
 			let releaseLookAhead!: (children: IDataConnectionNodeDTO[]) => void;
@@ -603,36 +603,33 @@ describe('DataConnectionsTreeInstance', () => {
 			let viewsQueries = 0;
 			const { tree, nodeGetChildren } = lonePublicSchema(() => {
 				viewsQueries++;
-				if (viewsQueries === 1) {
-					return lookAhead;
-				}
-				return [view];
+				return lookAhead;
 			});
 			await tree.refresh();
 
 			const expanding = tree.expand(ENTRY_ID);
 			// Short of the timeout the Views query is still pending, so the level has not rendered.
-			await vi.advanceTimersByTimeAsync(999);
+			await vi.advanceTimersByTimeAsync(4_999);
 			expect(rows(tree).map(row => row.name)).toEqual(['connection']);
 
 			await vi.advanceTimersByTimeAsync(1);
 			await expanding;
 			const callsBeforeExpanding = nodeGetChildren.mock.calls.length;
 
-			// The timed-out query answers with a different child than the connection holds now.
-			// Opening Views must fetch again and show that result, not the late one.
+			// The in-flight query answers after the row is opened. The expand waits for it and shows
+			// what it returns, and does not send a second query.
+			const opening = tree.expand('dto:1:4');
 			releaseLookAhead([lateView]);
-			await lookAhead;
-			await tree.expand('dto:1:4');
+			await opening;
 
 			expect({
 				rows: rows(tree).map(row => row.name),
 				viewsQueries,
 				callsAfterExpanding: nodeGetChildren.mock.calls.length,
 			}).toEqual({
-				rows: ['connection', 'Tables', 'Views', 'v_orders'],
-				viewsQueries: 2,
-				callsAfterExpanding: callsBeforeExpanding + 1,
+				rows: ['connection', 'Tables', 'Views', 'v_late'],
+				viewsQueries: 1,
+				callsAfterExpanding: callsBeforeExpanding,
 			});
 		} finally {
 			vi.useRealTimers();
