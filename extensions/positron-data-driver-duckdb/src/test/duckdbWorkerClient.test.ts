@@ -7,7 +7,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as assert from 'assert';
-import { DuckDBWorkerClient } from 'positron-data-explorer-duckdb';
+import { DuckDBWorkerClient, duckDBWorkerPool } from 'positron-data-explorer-duckdb';
 
 suite('DuckDB worker isolation', () => {
 	// A stub worker that speaks the IPC protocol, so we can exercise crash
@@ -129,5 +129,11 @@ suite('DuckDB worker isolation', () => {
 				}
 			}
 		}
+	});
+
+	test('the worker pool refuses a MotherDuck config', () => {
+		assert.throws(
+			() => duckDBWorkerPool.acquire({ databasePath: 'md:', readOnly: true, motherduckToken: 'tok.en.123' }),
+			/MotherDuck workers cannot be pooled/);
 	});
 });

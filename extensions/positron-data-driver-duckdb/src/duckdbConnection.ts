@@ -131,7 +131,7 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	async previewObject(database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string> {
 		this._ensureConnected();
 		// The names are JSON-encoded so names that contain dots cannot collide.
-		const datasetId = `duckdbconn:${this._connectionId}:${kind}:${JSON.stringify([schemaName, tableName])}`;
+		const datasetId = `duckdbconn:${this._connectionId}:${kind}:${JSON.stringify([database, schemaName, tableName])}`;
 		await this._dataExplorerHandler.openTableView(datasetId, this._lease!.client, database, schemaName, tableName, kind);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
@@ -149,7 +149,7 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	 */
 	async previewColumn(database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string> {
 		this._ensureConnected();
-		const datasetId = `duckdbconn:${this._connectionId}:column:${JSON.stringify([schemaName, tableName, columnName])}`;
+		const datasetId = `duckdbconn:${this._connectionId}:column:${JSON.stringify([database, schemaName, tableName, columnName])}`;
 		await this._dataExplorerHandler.openColumnView(datasetId, this._lease!.client, database, schemaName, tableName, kind, columnName);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({

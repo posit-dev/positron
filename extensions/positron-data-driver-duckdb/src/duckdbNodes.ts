@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
-import { IDuckDBQueryClient } from 'positron-data-explorer-duckdb';
+import * as vscode from 'vscode';
+import { catalogFilter, IDuckDBQueryClient } from 'positron-data-explorer-duckdb';
 
 /**
  * The capability a table/view/column node needs to open itself in the Data Explorer. Implemented by
@@ -18,23 +19,12 @@ export interface IDuckDBPreviewHost {
 }
 
 /**
- * Returns the SQL expression that names the catalog a tree query targets, plus the parameters to
- * bind. A named database is bound as `$database`; `undefined` targets the current database. No
- * query string is built from a database name.
- */
-function catalogFilter(database: string | undefined): { expr: string; params: Record<string, string> } {
-	return database === undefined
-		? { expr: 'current_database()', params: {} }
-		: { expr: '$database', params: { database } };
-}
-
-/**
  * Creates the "Databases" group node. Lists every attached, non-internal database; each expands to
  * its own "Schemas" group. MotherDuck's `md_information_schema` metadata database is skipped.
  */
 export function createDatabasesGroupNode(client: IDuckDBQueryClient, host: IDuckDBPreviewHost): positron.DataConnectionNode {
 	return {
-		name: 'Databases',
+		name: vscode.l10n.t('Databases'),
 		kind: positron.DataConnectionNodeKind.GroupDatabases,
 		async getChildren() {
 			const rows = await client.runQuery(
@@ -65,7 +55,7 @@ export function createSchemasGroupNode(
 	database: string | undefined
 ): positron.DataConnectionNode {
 	return {
-		name: 'Schemas',
+		name: vscode.l10n.t('Schemas'),
 		kind: positron.DataConnectionNodeKind.GroupSchemas,
 		async getChildren() {
 			const catalog = catalogFilter(database);
@@ -113,7 +103,7 @@ function createTablesGroupNode(
 	schemaName: string
 ): positron.DataConnectionNode {
 	return {
-		name: 'Tables',
+		name: vscode.l10n.t('Tables'),
 		kind: positron.DataConnectionNodeKind.GroupTables,
 		async getChildren() {
 			const catalog = catalogFilter(database);
@@ -138,7 +128,7 @@ function createViewsGroupNode(
 	schemaName: string
 ): positron.DataConnectionNode {
 	return {
-		name: 'Views',
+		name: vscode.l10n.t('Views'),
 		kind: positron.DataConnectionNodeKind.GroupViews,
 		async getChildren() {
 			const catalog = catalogFilter(database);
@@ -214,7 +204,7 @@ function createColumnsGroupNode(
 	kind: 'table' | 'view'
 ): positron.DataConnectionNode {
 	return {
-		name: 'Columns',
+		name: vscode.l10n.t('Columns'),
 		kind: positron.DataConnectionNodeKind.GroupColumns,
 		getChildren() {
 			return getFieldNodes(client, host, database, schemaName, relationName, kind);
@@ -232,7 +222,7 @@ function createIndexesGroupNode(
 	tableName: string
 ): positron.DataConnectionNode {
 	return {
-		name: 'Indexes',
+		name: vscode.l10n.t('Indexes'),
 		kind: positron.DataConnectionNodeKind.GroupIndexes,
 		async getChildren() {
 			const catalog = catalogFilter(database);

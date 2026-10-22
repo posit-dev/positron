@@ -9,6 +9,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { createDuckDBReadPlan } from './duckdbReadPlan.js';
+import { catalogFilter, quoteIdentifier } from './duckdbSql.js';
 import { IDuckDBQueryClient } from './duckdbWorkerClient.js';
 import { DuckDBSchemaEntry, DuckDBTableView, duckdbDisplayType, IDuckDBTableCodeGenerator } from './duckdbTableView.js';
 import {
@@ -258,9 +259,8 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
  * `database` is prepended (e.g. `"db"."main"."t"`).
  */
 function tableRef(database: string | undefined, schemaName: string, tableName: string): string {
-	const quote = (name: string) => '"' + name.replace(/"/g, '""') + '"';
-	const schemaAndTable = `${quote(schemaName)}.${quote(tableName)}`;
-	return database === undefined ? schemaAndTable : `${quote(database)}.${schemaAndTable}`;
+	const schemaAndTable = `${quoteIdentifier(schemaName)}.${quoteIdentifier(tableName)}`;
+	return database === undefined ? schemaAndTable : `${quoteIdentifier(database)}.${schemaAndTable}`;
 }
 
 /**
@@ -273,11 +273,12 @@ export async function buildDuckDBSchema(
 	schemaName: string,
 	relationName: string,
 ): Promise<DuckDBSchemaEntry[]> {
+	const catalog = catalogFilter(database);
 	const rows = await client.runQuery(
 		`SELECT column_name, data_type FROM information_schema.columns ` +
-		`WHERE table_catalog = ${database === undefined ? 'current_database()' : '$database'} ` +
+		`WHERE table_catalog = ${catalog.expr} ` +
 		`AND table_schema = $schema AND table_name = $relation ORDER BY ordinal_position`,
-		{ ...(database === undefined ? {} : { database }), schema: schemaName, relation: relationName }
+		{ ...catalog.params, schema: schemaName, relation: relationName }
 	);
 	return rows.map(row => {
 		const dataType = String(row.data_type);
