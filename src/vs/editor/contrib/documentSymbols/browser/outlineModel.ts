@@ -5,11 +5,7 @@
 
 import { binarySearch, coalesceInPlace, equals } from '../../../../base/common/arrays.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
-// --- Start Positron ---
-// import { onUnexpectedExternalError } from '../../../../base/common/errors.js';
-import { isCancellationError, onUnexpectedExternalError } from '../../../../base/common/errors.js';
-import { timeout } from '../../../../base/common/async.js';
-// --- End Positron ---
+import { onUnexpectedExternalError } from '../../../../base/common/errors.js';
 import { Iterable } from '../../../../base/common/iterator.js';
 import { LRUCache } from '../../../../base/common/map.js';
 import { commonPrefixLength } from '../../../../base/common/strings.js';
@@ -195,15 +191,6 @@ export class OutlineGroup extends TreeElement {
 	}
 }
 
-// --- Start Positron ---
-/**
- * Milliseconds to wait before each new request when a provider cancels a
- * request the caller did not cancel: once right away, then with a backoff,
- * about four seconds in all.
- */
-const PROVIDER_CANCELLED_RETRY_DELAYS: readonly number[] = [0, 250, 1000, 3000];
-// --- End Positron ---
-
 export class OutlineModel extends TreeElement {
 
 	static create(registry: LanguageFeatureRegistry<DocumentSymbolProvider>, textModel: ITextModel, token: CancellationToken): Promise<OutlineModel> {
@@ -216,33 +203,8 @@ export class OutlineModel extends TreeElement {
 			const id = TreeElement.findId(`provider_${index}`, result);
 			const group = new OutlineGroup(id, result, provider.displayName ?? 'Unknown Outline Provider', index);
 
-			// --- Start Positron ---
-			// A language server can cancel a request this caller did not cancel, e.g.
-			// Pyrefly when a configuration change arrives behind it while a reloaded
-			// window settles. Treating that as "no symbols" left the Outline empty
-			// until the next edit, since the Outline only asks again on an edit. Ask
-			// again with a backoff, because the changes can arrive in a burst, and if
-			// the provider still cancels, mark the model so OutlineModelService does
-			// not cache it.
-			const ask = async (attempt: number): Promise<DocumentSymbol[] | null | undefined> => {
-				try {
-					return await provider.provideDocumentSymbols(textModel, cts.token);
-				} catch (err) {
-					if (!isCancellationError(err) || cts.token.isCancellationRequested) {
-						throw err;
-					}
-					if (attempt < PROVIDER_CANCELLED_RETRY_DELAYS.length) {
-						await timeout(PROVIDER_CANCELLED_RETRY_DELAYS[attempt], cts.token);
-						return ask(attempt + 1);
-					}
-					result._providerCancelled = true;
-					throw err;
-				}
-			};
 
-			// return Promise.resolve(provider.provideDocumentSymbols(textModel, cts.token)).then(result => {
-			return ask(0).then(result => {
-				// --- End Positron ---
+			return Promise.resolve(provider.provideDocumentSymbols(textModel, cts.token)).then(result => {
 				for (const info of result || []) {
 					OutlineModel._makeOutlineElement(info, group);
 				}
@@ -305,18 +267,6 @@ export class OutlineModel extends TreeElement {
 
 	protected _groups = new Map<string, OutlineGroup>();
 	children = new Map<string, OutlineGroup | OutlineElement>();
-
-	// --- Start Positron ---
-	private _providerCancelled = false;
-
-	/**
-	 * Whether a provider cancelled its request on its own, so this model may be
-	 * missing symbols the provider can supply on the next request.
-	 */
-	get providerCancelled(): boolean {
-		return this._providerCancelled;
-	}
-	// --- End Positron ---
 
 	protected constructor(readonly uri: URI) {
 		super();
@@ -533,14 +483,6 @@ export class OutlineModelService implements IOutlineModelService {
 			data.promise.then(outlineModel => {
 				data!.model = outlineModel;
 				this._debounceInformation.update(textModel, Date.now() - now);
-				// --- Start Positron ---
-				// Callers waiting on this request still get its answer, but the next
-				// request asks the provider again rather than reusing an answer the
-				// provider cancelled (see OutlineModel.create).
-				if (outlineModel.providerCancelled && this._cache.get(textModel.id) === data) {
-					this._cache.delete(textModel.id);
-				}
-				// --- End Positron ---
 			}).catch(_err => {
 				this._cache.delete(textModel.id);
 			});
