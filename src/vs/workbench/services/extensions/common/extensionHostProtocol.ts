@@ -124,6 +124,12 @@ export interface IExtHostReduceGraceTimeMessage {
 	type: 'VSCODE_EXTHOST_IPC_REDUCE_GRACE_TIME';
 }
 
+// --- Start PWB: Ask a pipe mode extension host to connect a new pipe for a reconnected client ---
+export interface IExtHostPipeReconnectMessage {
+	type: 'VSCODE_EXTHOST_IPC_PIPE_RECONNECT';
+}
+// --- End PWB ---
+
 export const enum MessageType {
 	Initialized,
 	Ready,

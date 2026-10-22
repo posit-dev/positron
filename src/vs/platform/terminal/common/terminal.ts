@@ -52,6 +52,9 @@ export const enum TerminalSettingId {
 	TabsAllowAgentCliTitle = 'terminal.integrated.tabs.allowAgentCliTitle',
 	MacOptionIsMeta = 'terminal.integrated.macOptionIsMeta',
 	MacOptionClickForcesSelection = 'terminal.integrated.macOptionClickForcesSelection',
+	// --- Start PWB: Terminal program clipboard setting ---
+	AllowProgramsToCopyToClipboard = 'terminal.integrated.allowProgramsToCopyToClipboard',
+	// --- End PWB ---
 	AltClickMovesCursor = 'terminal.integrated.altClickMovesCursor',
 	CopyOnSelection = 'terminal.integrated.copyOnSelection',
 	EnableMultiLinePasteWarning = 'terminal.integrated.enableMultiLinePasteWarning',
