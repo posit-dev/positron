@@ -191,9 +191,7 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		const quote = this._quoter(analyzer, schema, dialect);
 		const { tables: scope, names, relations, ctes, readsAny } = inScope(analyzer, schema, dialect, text, cursor, offset);
 
-		const qualifier = cursor.qualifiers.length > 0
-			? cursor.qualifiers[cursor.qualifiers.length - 1]
-			: undefined;
+		const qualified = cursor.qualifiers.length > 0;
 
 		let items: vscode.CompletionItem[];
 
@@ -201,11 +199,11 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		// dot, where the qualifier already accounts for there being none.
 		let keywordSource: string | undefined;
 
-		if (qualifier !== undefined) {
-			const qualified = qualifiedItems(qualifier, scope, [...relations, ...ctes], schema, quote, replace);
-			items = qualified.items;
+		if (qualified) {
+			const completions = qualifiedItems(cursor.qualifiers, scope, [...relations, ...ctes], schema, quote, replace);
+			items = completions.items;
 			if (items.length === 0) {
-				log.trace(explainEmptyQualifier(qualifier, qualified.tables));
+				log.trace(explainEmptyQualifier(cursor.qualifiers.join('.'), completions.tables));
 			}
 		} else {
 			const contextual = contextualKeywords(analyzer, cursor, text, dialect, offset);
@@ -231,8 +229,9 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 					...nameItems(names.filter(name => name.kind === 'cte' ? tablesBelong : aliasesBelong), quote, replace),
 					...(tablesBelong
 						// Qualified when the engine would not find it unqualified: `sales.targets`,
-						// where `targets` alone reads the default schema and fails.
-						? schema.tables.map(table => tableItem(table, quote, replace, !schema.isDefault(table)))
+						// where `targets` alone reads the default schema and fails, or
+						// `lake.main.orders`, where another catalog has a `main.orders` too.
+						? schema.tables.map(table => tableItem(table, quote, replace, schema.namespaceFor(table)))
 						: []),
 					...contextual.keywords.map(keyword => keywordItem(keyword, replace)),
 				];
@@ -242,7 +241,7 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		const prefix = cursor.prefix.toLowerCase();
 		if (prefix) {
 			const matching = items.filter(item => reaches(label(item), prefix));
-			if (matching.length === 0 && qualifier === undefined && !cursor.quoted) {
+			if (matching.length === 0 && !qualified && !cursor.quoted) {
 				// Nothing offered matched, so the likeliest thing to have been wrong is the position
 				// the keywords were chosen for, and the full vocabulary goes in rather than leaving
 				// the user with an empty list. Conditioned on no item at all matching, so a prefix
@@ -278,7 +277,7 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		// scope, and the position the keywords were chosen for. Between them they account for an
 		// empty list, or a surprising one, without having to guess.
 		log.trace(`Completed ${items.length} item(s) at ${at(position)}`
-			+ `${qualifier === undefined ? '' : ` after "${qualifier}."`}`
+			+ `${!qualified ? '' : ` after "${cursor.qualifiers.join('.')}."`}`
 			+ `${cursor.prefix ? ` for prefix "${cursor.prefix}"` : ''}:`
 			+ ` ${scope.length} table(s) in scope, ${schema.tables.length} known`
 			+ `${keywordSource === undefined ? '' : `, ${keywordSource}`}`
@@ -463,43 +462,60 @@ interface QualifiedCompletions {
 	readonly tables: readonly SqlTable[];
 }
 
-/** What to offer after a dot, which is never a keyword. */
+/**
+ * What to offer after a dot, which is never a keyword.
+ *
+ * @param qualifiers The dotted names before the cursor, outermost first. Every one of them counts:
+ *   `warehouse.sales.` is the sales schema of the warehouse catalog, not any schema called sales.
+ */
 function qualifiedItems(
-	qualifier: string,
+	qualifiers: readonly string[],
 	scope: readonly ScopeEntry[],
 	relations: readonly Relation[],
 	schema: SchemaIndex,
 	quote: Quote,
 	replace: Edit,
 ): QualifiedCompletions {
-	const folded = qualifier.toLowerCase();
+	const [qualifier, ...namespace] = [...qualifiers].reverse();
 
-	// A qualifier is an alias or a table name first: `o.` after `FROM orders o` means the columns
-	// of orders, even if some schema is also called `o`.
-	const qualified = scope.filter(entry => (entry.alias ?? entry.table.name).toLowerCase() === folded);
-	if (qualified.length > 0) {
-		return {
-			items: columnItems(qualified, quote, replace),
-			tables: qualified.map(entry => entry.table),
-		};
+	if (namespace.length === 0) {
+		const folded = qualifier.toLowerCase();
+
+		// A qualifier is an alias or a table name first: `o.` after `FROM orders o` means the
+		// columns of orders, even if some schema is also called `o`.
+		const qualified = scope.filter(entry => (entry.alias ?? entry.table.name).toLowerCase() === folded);
+		if (qualified.length > 0) {
+			return {
+				items: columnItems(qualified, quote, replace),
+				tables: qualified.map(entry => entry.table),
+			};
+		}
+		// Then a CTE or derived table the statement reads under that name, whose columns are what
+		// its own select list produced. Before the schema's tables: `WITH orders AS (...)` hides the
+		// real one from the statement that declares it.
+		const relation = relations.find(candidate => candidate.name.toLowerCase() === folded);
+		if (relation) {
+			return { items: producedItems(relation, schema, quote, replace), tables: [] };
+		}
 	}
-	// Then a CTE or derived table the statement reads under that name, whose columns are what its
-	// own select list produced. Before the schema's tables: `WITH orders AS (...)` hides the real
-	// one from the statement that declares it.
-	const relation = relations.find(candidate => candidate.name.toLowerCase() === folded);
-	if (relation) {
-		return { items: producedItems(relation, schema, quote, replace), tables: [] };
+	// A table, named by as much of its namespace as was written: `orders.`, `sales.orders.`, or
+	// `warehouse.sales.orders.`. Nothing in the statement can be named by more than one part, so
+	// past that the schema is the only place to look.
+	if (namespace.length <= 2) {
+		const named = schema.resolve(qualifier, namespace[0], namespace[1]).map(table => ({ alias: undefined, table }));
+		if (named.length > 0) {
+			return {
+				items: columnItems(named, quote, replace),
+				tables: named.map(entry => entry.table),
+			};
+		}
 	}
-	const named = schema.resolve(qualifier).map(table => ({ alias: undefined, table }));
-	if (named.length > 0) {
-		return {
-			items: columnItems(named, quote, replace),
-			tables: named.map(entry => entry.table),
-		};
-	}
-	if (schema.isNamespace(qualifier)) {
-		const tables = schema.tablesInNamespace(qualifier);
-		return { items: tables.map(table => tableItem(table, quote, replace, false)), tables };
+	// A namespace: a schema or catalog on its own, or a schema in the catalog written before it.
+	if (namespace.length <= 1) {
+		const tables = schema.tablesInNamespace(qualifier, namespace[0]);
+		if (tables.length > 0) {
+			return { items: tables.map(table => tableItem(table, quote, replace, [])), tables };
+		}
 	}
 	// The qualifier names nothing known. No keywords here: one is never valid immediately after a
 	// dot, and offering the whole list would bury the point that the qualifier was not recognized.
@@ -804,18 +820,18 @@ function columnItem(
 }
 
 /**
- * @param qualify Whether to insert the table's schema in front of it, for a table an unqualified
- *   name would not find.
+ * @param namespace The catalog and schema to insert in front of the table, outermost first: what
+ *   an unqualified name would not find, or would find in another catalog. Empty after a dot, where
+ *   the user has already written them.
  */
-function tableItem(table: SqlTable, quote: Quote, replace: Edit, qualify: boolean): vscode.CompletionItem {
+function tableItem(table: SqlTable, quote: Quote, replace: Edit, namespace: readonly string[]): vscode.CompletionItem {
 	const item = new vscode.CompletionItem(table.name, vscode.CompletionItemKind.Class);
 	item.detail = table.kind;
 	item.documentation = table.connection
 		? `${qualifiedName(table)} (${table.connection})`
 		: qualifiedName(table);
 	item.sortText = SORT_TABLE + table.name.toLowerCase();
-	const name = qualify && table.schema ? `${quote(table.schema)}.${quote(table.name)}` : quote(table.name);
-	setEdit(item, replace, name);
+	setEdit(item, replace, [...namespace, table.name].map(quote).join('.'));
 	return item;
 }
 

@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import { SchemaIndex } from '../schemaIndex';
-import { partialPayloadOf, schemaOf } from './support';
+import { partialPayloadOf, payloadOf, schemaOf } from './support';
 
 /** The qualified names of a lookup's results, which is what makes one match distinguishable. */
 function names(tables: readonly { name: string; schema?: string; catalog?: string }[]): string[] {
@@ -74,6 +74,35 @@ suite('SchemaIndex', () => {
 		assert.deepStrictEqual(
 			names(schema.tablesInNamespace('warehouse')),
 			['warehouse.sales.orders', 'warehouse.archive.old'],
+		);
+	});
+
+	test('tablesInNamespace given a catalog keeps to that catalog\'s schema', () => {
+		const schema = schemaOf('warehouse.sales.orders: id', 'lake.sales.orders: id', 'warehouse.archive.old: id');
+
+		assert.deepStrictEqual(names(schema.tablesInNamespace('sales', 'lake')), ['lake.sales.orders']);
+	});
+
+	test('namespaceFor names only as much as tells a table apart', () => {
+		const schema = new SchemaIndex(payloadOf(
+			'memory.main.customers: id',
+			'memory.main.orders: id',
+			'lake.main.orders: id',
+			'memory.sales.targets: id',
+			'memory.sales.regions: id',
+			'lake.sales.regions: id',
+		), 'main');
+
+		assert.deepStrictEqual(
+			schema.tables.map(table => [...schema.namespaceFor(table), table.name].join('.')),
+			[
+				'customers',
+				'memory.main.orders',
+				'lake.main.orders',
+				'sales.targets',
+				'memory.sales.regions',
+				'lake.sales.regions',
+			],
 		);
 	});
 
