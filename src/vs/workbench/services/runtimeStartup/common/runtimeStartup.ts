@@ -2014,19 +2014,30 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// runtime; without one, it starts its recommendation, whatever the
 		// recommended runtime's own startup behavior. This runs once per
 		// window, so a later rediscovery doesn't restart a closed console.
-		// Only one language can be auto-started: the first one set to Always
-		// that has a runtime to start, and only when no console is starting
-		// or running. Each waits only for its own recommendation and for the
-		// Always languages before it.
+		// A language set to Always by a language-specific value starts unless
+		// a console of its own language is starting or running. Set by the
+		// value for all languages, it starts only when no console is starting
+		// or running, so at most one such language starts. Each waits only for
+		// its own recommendation and for the Always languages before it.
 		if (!this._alwaysStartRan) {
 			this._alwaysStartRan = true;
+			let startedForAllLanguages = false;
 			for (const languageId of languageIds) {
 				if (this.getStartupBehavior(languageId) !== LanguageStartupBehavior.Always) {
 					continue;
 				}
+				// Language-specific values win over values for all languages, so
+				// a language-specific value is the one that applies whenever one
+				// is set.
+				const languageSpecific = this._configurationService.inspect(
+					'interpreters.startupBehavior', { overrideIdentifier: languageId })
+					.overrideIdentifiers?.includes(languageId);
+				if (!languageSpecific && startedForAllLanguages) {
+					continue;
+				}
 				await recommendations.get(languageId);
-				if (this._runtimeSessionService.hasStartingOrRunningConsole()) {
-					break;
+				if (this._runtimeSessionService.hasStartingOrRunningConsole(languageSpecific ? languageId : undefined)) {
+					continue;
 				}
 				// A saved default that was never started or used doesn't count.
 				const affiliation = this.getAffiliatedRuntime(languageId);
@@ -2042,18 +2053,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				if (!runtime || !this._languageRuntimeService.getRegisteredRuntime(runtime.runtimeId)) {
 					continue;
 				}
-				// Language-specific values win over values for all languages, so
-				// a language-specific value is the one that applies whenever one
-				// is set.
-				const languageSpecific = this._configurationService.inspect(
-					'interpreters.startupBehavior', { overrideIdentifier: languageId })
-					.overrideIdentifiers?.includes(languageId);
+				// A console that is already starting or running stays in front.
 				await this.autoStartRuntime(runtime, {
 					id: languageSpecific ?
 						SessionStartReasonId.StartupBehaviorAlways :
 						SessionStartReasonId.StartupBehaviorAlwaysAllLanguages
-				}, true);
-				break;
+				}, !this._runtimeSessionService.hasStartingOrRunningConsole());
+				startedForAllLanguages ||= !languageSpecific;
 			}
 		}
 		await Promise.all(recommendations.values());

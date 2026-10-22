@@ -1847,6 +1847,66 @@ describe('RuntimeStartupService - start reasons', () => {
 		expect(startedRuntimeIds()).toEqual(['rt-py']);
 	});
 
+	describe('a language set to always start by a language-specific value', () => {
+		const python = metadata({ runtimeId: 'rt-py', runtimePath: '/venv/bin/python' });
+		const r = metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R', extensionId: 'ms.r' });
+
+		/** Recommends both languages after discovery, then runs the ask after discovery. */
+		async function recommendBothAfterDiscovery() {
+			const manager = makeManager({ id: 1, owns: [] });
+			manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) =>
+				afterDiscovery ? [python, r].map(runtime => ({ metadata: runtime, isProjectDefault: false })) : [];
+			ctx.disposables.add(svc.registerRuntimeManager(manager));
+			await (svc as unknown as { recommendAfterDiscovery: () => Promise<void> }).recommendAfterDiscovery();
+		}
+
+		/** Each auto-start as [runtime ID, start reason, whether it was brought to the front]. */
+		function starts() {
+			return vi.mocked(ctx.get(IRuntimeSessionService).autoStartRuntime).mock.calls
+				.map(([runtime, startReason, activate]) => [runtime.runtimeId, startReason.id, activate]);
+		}
+
+		it('starts in the background when another language\'s console is running', async () => {
+			createService(LanguageStartupBehavior.Always, { overrideIdentifiers: ['r'] });
+			// A Python console started first, e.g. from an Immediate recommendation.
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'hasStartingOrRunningConsole')
+				.mockImplementation(languageId => languageId !== 'r');
+
+			await recommendBothAfterDiscovery();
+
+			expect(starts()).toEqual([['rt-r', SessionStartReasonId.StartupBehaviorAlways, false]]);
+		});
+
+		it('does not start when a console of its own language is running', async () => {
+			createService(LanguageStartupBehavior.Always, { overrideIdentifiers: ['r'] });
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'hasStartingOrRunningConsole').mockReturnValue(true);
+
+			await recommendBothAfterDiscovery();
+
+			expect(starts()).toEqual([]);
+		});
+
+		it('starts for every language that has one', async () => {
+			createService(LanguageStartupBehavior.Always, { overrideIdentifiers: ['python', 'r'] });
+
+			await recommendBothAfterDiscovery();
+
+			expect(starts().map(([runtimeId]) => runtimeId)).toEqual(['rt-py', 'rt-r']);
+		});
+
+		it('starts as well as the one language set by the value for all languages', async () => {
+			// Python is set to always start by the value for all languages, R by its own.
+			createService(LanguageStartupBehavior.Always, { overrideIdentifiers: ['r'] });
+
+			await recommendBothAfterDiscovery();
+
+			expect(starts().map(([runtimeId, startReason]) => [runtimeId, startReason])).toEqual([
+				['rt-py', SessionStartReasonId.StartupBehaviorAlwaysAllLanguages],
+				['rt-r', SessionStartReasonId.StartupBehaviorAlways],
+			]);
+		});
+	});
+
 	it.each([
 		{ name: 'never answers', answer: () => new Promise<never>(() => { }) },
 		{ name: 'fails', answer: () => Promise.reject(new Error('ranking failed')) },
