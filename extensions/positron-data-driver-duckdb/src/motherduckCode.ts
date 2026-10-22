@@ -62,6 +62,8 @@ export function generateMotherDuckCode(languageId: string, params: MotherDuckCod
 
 	switch (languageId) {
 		case 'ggsql':
+			// ggsql reads only `motherduck_token` from the query string and never percent-decodes the
+			// URI, so the URI carries no read-only flag and is not encoded. Access tokens are base64url.
 			return [{
 				id: 'ggsql',
 				label: 'ggsql',

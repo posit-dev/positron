@@ -69,6 +69,9 @@ export class MotherDuckConnection implements positron.DataConnection, IDuckDBPre
 	/**
 	 * Opens the database in a dedicated worker. Rejects with a token-free message on failure or
 	 * when the open takes longer than the connect timeout. Does nothing if already connected.
+	 *
+	 * Only the driver calls this, once, before it returns the connection to core, so it cannot
+	 * overlap another connect() or a disconnect().
 	 */
 	async connect(): Promise<void> {
 		if (this._client) {
@@ -166,7 +169,11 @@ export class MotherDuckConnection implements positron.DataConnection, IDuckDBPre
 		this._client = undefined;
 	}
 
-	/** Checks whether the connection is still open and operational. */
+	/**
+	 * Checks whether the worker is alive and answers a query. DuckDB answers `SELECT 1` without
+	 * contacting MotherDuck, which keeps status checks off the network; a lost MotherDuck session
+	 * surfaces as an error on the next tree or preview query.
+	 */
 	async isConnected(): Promise<boolean> {
 		if (!this._client || !this._client.isAlive) {
 			return false;

@@ -139,6 +139,9 @@ const SNAPSHOT_ORDER_COLUMN = '__positron_row_order';
  * spills to `temp_directory`, which defaults to `.tmp` even for an in-memory database, so the
  * failure mode is disk use rather than exhaustion.
  *
+ * For a remote catalog such as MotherDuck, `temp` is still local, so the copy downloads the whole
+ * relation. See https://github.com/posit-dev/positron/issues/16828.
+ *
  * The copy lives in the `temp` catalog, which is private to this connection, so it cannot collide
  * with the user's own objects. It is created even when the database was opened read-only, because
  * `temp` is a separate catalog that stays writable.
