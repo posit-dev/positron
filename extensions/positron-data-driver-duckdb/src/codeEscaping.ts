@@ -6,8 +6,14 @@
 /**
  * Escapes a value for embedding in a double-quoted Python or R string literal. Both languages
  * treat backslash as an escape character in double-quoted strings, so Windows paths such as
- * `C:\db.duckdb` must have their separators doubled.
+ * `C:\db.duckdb` must have their separators doubled. Newlines, carriage returns, and tabs become
+ * `\n`, `\r`, and `\t`, which both languages read back as the same characters.
  */
 export function escapeDoubleQuoted(value: string): string {
-	return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+	return value
+		.replace(/\\/g, '\\\\')
+		.replace(/"/g, '\\"')
+		.replace(/\n/g, '\\n')
+		.replace(/\r/g, '\\r')
+		.replace(/\t/g, '\\t');
 }

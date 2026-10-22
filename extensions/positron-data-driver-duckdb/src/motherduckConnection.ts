@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { DuckDBWorkerClient, IDuckDBDataExplorerHost, WorkerOpenConfig } from 'positron-data-explorer-duckdb';
+import { DuckDBRow, DuckDBWorkerClient, IDuckDBDataExplorerHost, IDuckDBQueryClient, WorkerOpenConfig } from 'positron-data-explorer-duckdb';
 import { createDatabasesGroupNode, IDuckDBPreviewHost } from './duckdbNodes.js';
 import { classifyMotherDuckOpenError, motherduckPath, scrubToken } from './motherduckCode.js';
 
@@ -42,6 +42,9 @@ export interface MotherDuckConnectionConfig {
  */
 export class MotherDuckConnection implements positron.DataConnection, IDuckDBPreviewHost {
 	private _client: DuckDBWorkerClient | undefined;
+
+	// Wraps _client for every tree and preview query, so their errors never carry the token.
+	private _queryClient: IDuckDBQueryClient | undefined;
 
 	private readonly _connectionId = `md-${nextConnectionId++}`;
 
@@ -107,6 +110,7 @@ export class MotherDuckConnection implements positron.DataConnection, IDuckDBPre
 			// The worker reports open errors per-query, so probe here.
 			await Promise.race([client.runQuery('SELECT 1'), timeout]);
 			this._client = client;
+			this._queryClient = new TokenScrubbingClient(client, this._token);
 		} catch (err: unknown) {
 			client.dispose();
 			if (timedOut) {
@@ -115,7 +119,7 @@ export class MotherDuckConnection implements positron.DataConnection, IDuckDBPre
 			}
 			const detail = scrubToken(err instanceof Error ? err.message : String(err), this._token);
 			this._logger?.error(`Failed to open ${path}: ${detail}`);
-			throw new Error(openFailureMessage(detail));
+			throw new Error(openFailureMessage(detail, path));
 		} finally {
 			clearTimeout(timer);
 		}
@@ -170,6 +174,7 @@ export class MotherDuckConnection implements positron.DataConnection, IDuckDBPre
 		this._openedDatasets.clear();
 		this._client?.dispose();
 		this._client = undefined;
+		this._queryClient = undefined;
 	}
 
 	/**
@@ -189,18 +194,37 @@ export class MotherDuckConnection implements positron.DataConnection, IDuckDBPre
 		}
 	}
 
-	// Returns the client, or throws if the connection has been disconnected.
-	private _ensureConnected(): DuckDBWorkerClient {
-		if (!this._client) {
+	// Returns the token-scrubbing client, or throws if the connection has been disconnected.
+	private _ensureConnected(): IDuckDBQueryClient {
+		if (!this._queryClient) {
 			throw new Error(vscode.l10n.t('Database connection is closed'));
 		}
-		return this._client;
+		return this._queryClient;
+	}
+}
+
+/** A query client that removes the access token from the message of every error it rethrows. */
+class TokenScrubbingClient implements IDuckDBQueryClient {
+	constructor(private readonly _client: DuckDBWorkerClient, private readonly _token: string) { }
+
+	get onDidCrash(): vscode.Event<void> {
+		return this._client.onDidCrash;
+	}
+
+	async runQuery(sql: string, params?: Record<string, string>): Promise<DuckDBRow[]> {
+		try {
+			return await this._client.runQuery(sql, params);
+		} catch (err: unknown) {
+			throw new Error(scrubToken(err instanceof Error ? err.message : String(err), this._token));
+		}
 	}
 }
 
 /** Formats an open failure for display; `detail` must already be scrubbed of the token. */
-function openFailureMessage(detail: string): string {
+function openFailureMessage(detail: string, path: string): string {
 	switch (classifyMotherDuckOpenError(detail)) {
+		case 'databaseNotFound':
+			return vscode.l10n.t("MotherDuck has no database named '{0}'. Check the default database name.", path.slice('md:'.length));
 		case 'auth':
 			return vscode.l10n.t('MotherDuck rejected the access token. Check that it is correct and has not expired. {0}', detail);
 		case 'extensionDownload':

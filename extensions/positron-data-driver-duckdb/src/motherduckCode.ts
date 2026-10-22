@@ -61,14 +61,19 @@ export function generateMotherDuckCode(languageId: string, params: MotherDuckCod
 	const escapedToken = token === undefined ? undefined : escapeDoubleQuoted(token);
 
 	switch (languageId) {
-		case 'ggsql':
-			// ggsql reads only `motherduck_token` from the query string and never percent-decodes the
-			// URI, so the URI carries no read-only flag and is not encoded. Access tokens are base64url.
+		case 'ggsql': {
+			// ggsql passes `motherduck_token` and `access_mode` from the query string to DuckDB and never
+			// percent-decodes the URI, so the URI is not encoded. Access tokens are base64url.
+			const query = [
+				...(token === undefined ? [] : [`motherduck_token=${token}`]),
+				...(params.readOnly ? ['access_mode=read_only'] : []),
+			];
 			return [{
 				id: 'ggsql',
 				label: 'ggsql',
-				code: `-- @connect: duckdb://${path}` + (token === undefined ? '' : `?motherduck_token=${token}`),
+				code: `-- @connect: duckdb://${path}` + (query.length > 0 ? `?${query.join('&')}` : ''),
 			}];
+		}
 		case 'python': {
 			const duckdbArgs = [`"${escapedPath}"`];
 			const engineArgs: string[] = [];
@@ -121,12 +126,15 @@ export function scrubToken(text: string, token: string | undefined): string {
 	return text.split(token).join('<redacted>');
 }
 
-export type MotherDuckOpenErrorKind = 'auth' | 'extensionDownload' | 'other';
+export type MotherDuckOpenErrorKind = 'auth' | 'databaseNotFound' | 'extensionDownload' | 'other';
 
 /** Classifies an error message from opening an `md:` database. */
 export function classifyMotherDuckOpenError(detail: string): MotherDuckOpenErrorKind {
 	if (/not authenticated|check your MotherDuck token/i.test(detail)) {
 		return 'auth';
+	}
+	if (/no database\/share named/i.test(detail)) {
+		return 'databaseNotFound';
 	}
 	if (/Failed to download extension "motherduck"/i.test(detail)) {
 		return 'extensionDownload';

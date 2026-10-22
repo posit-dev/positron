@@ -13,7 +13,7 @@ const DB = 'sample_data';
 describe('generateMotherDuckCode', () => {
 	test('ggsql', () => {
 		expect(generateMotherDuckCode('ggsql', { token: TOKEN, database: DB, readOnly: true })).toEqual([
-			{ id: 'ggsql', label: 'ggsql', code: '-- @connect: duckdb://md:sample_data?motherduck_token=aaa.bbb.ccc' },
+			{ id: 'ggsql', label: 'ggsql', code: '-- @connect: duckdb://md:sample_data?motherduck_token=aaa.bbb.ccc&access_mode=read_only' },
 		]);
 	});
 
@@ -30,7 +30,7 @@ describe('generateMotherDuckCode', () => {
 		]);
 	});
 
-	test('readOnly false drops read-only; ggsql unaffected', () => {
+	test('readOnly false drops read-only everywhere', () => {
 		const py = generateMotherDuckCode('python', { token: TOKEN, database: DB, readOnly: false });
 		expect(py.map(v => v.code)).toEqual([
 			'import duckdb\n\nconn = duckdb.connect("md:sample_data", config={"motherduck_token": "aaa.bbb.ccc"})\n',
@@ -44,7 +44,7 @@ describe('generateMotherDuckCode', () => {
 
 	test('undefined token drops the token everywhere', () => {
 		const p = { token: undefined, database: DB, readOnly: true };
-		expect(generateMotherDuckCode('ggsql', p)[0].code).toBe('-- @connect: duckdb://md:sample_data');
+		expect(generateMotherDuckCode('ggsql', p)[0].code).toBe('-- @connect: duckdb://md:sample_data?access_mode=read_only');
 		expect(generateMotherDuckCode('python', p).map(v => v.code)).toEqual([
 			'import duckdb\n\nconn = duckdb.connect("md:sample_data", read_only=True)\n',
 			'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:sample_data", connect_args={"read_only": True})\n',
@@ -83,6 +83,12 @@ describe('generateMotherDuckCode', () => {
 			'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:", connect_args={"config": {"motherduck_token": "a\\"b\\\\c"}})\n',
 		]);
 		expect(generateMotherDuckCode('r', p)[0].code).toContain('config = list(motherduck_token = "a\\"b\\\\c")');
+	});
+
+	test('escapes newlines, carriage returns, and tabs', () => {
+		const p = { token: undefined, database: 'a\nb\rc\td', readOnly: false };
+		expect(generateMotherDuckCode('python', p)[0].code).toContain('"md:a\\nb\\rc\\td"');
+		expect(generateMotherDuckCode('r', p)[0].code).toContain('"md:a\\nb\\rc\\td"');
 	});
 
 	test('unknown language returns no variants', () => {
@@ -131,6 +137,10 @@ describe('classifyMotherDuckOpenError', () => {
 
 	test('extensionDownload', () => {
 		expect(classifyMotherDuckOpenError('IO Error: Failed to download extension "motherduck" at URL "http://127.0.0.1:9/v1.5.5/osx_arm64/motherduck.duckdb_extension.gz"')).toBe('extensionDownload');
+	});
+
+	test('databaseNotFound', () => {
+		expect(classifyMotherDuckOpenError('Invalid Input Error: Initialization function "motherduck_duckdb_cpp_init" from file "/x/motherduck.duckdb_extension" threw an exception: "Failed to attach \'1abc\': no database/share named "1abc" found')).toBe('databaseNotFound');
 	});
 
 	test('other', () => {

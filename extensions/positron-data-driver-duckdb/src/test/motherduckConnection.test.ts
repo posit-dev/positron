@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as assert from 'assert';
 import * as positron from 'positron';
-import { DuckDBWorkerClient, IDuckDBDataExplorerHost, WorkerOpenConfig } from 'positron-data-explorer-duckdb';
+import { DuckDBWorkerClient, IDuckDBDataExplorerHost, IDuckDBQueryClient, WorkerOpenConfig } from 'positron-data-explorer-duckdb';
 import { MotherDuckConnection } from '../motherduckConnection.js';
 
 const TOKEN = 'aaa.bbb.ccc';
@@ -117,6 +117,33 @@ suite('MotherDuck Connection', () => {
 		assert.ok(failing.disposed());
 	});
 
+	test('a missing database gives a clear message', async () => {
+		const failing = failingClient('Invalid Input Error: Initialization function "motherduck_duckdb_cpp_init" threw an exception: "Failed to attach \'nosuchdb\': no database/share named "nosuchdb" found');
+		const conn = new MotherDuckConnection(
+			{ token: TOKEN, database: 'nosuchdb', readOnly: false }, handler, logger, () => failing.client);
+		await assert.rejects(conn.connect(), { message: 'MotherDuck has no database named \'nosuchdb\'. Check the default database name.' });
+	});
+
+	test('errors from tree queries after connect are scrubbed of the token', async () => {
+		let probed = false;
+		const client = {
+			isAlive: true,
+			async runQuery() {
+				if (!probed) {
+					probed = true;
+					return [];
+				}
+				throw new Error(`Request failed for token ${TOKEN}`);
+			},
+			dispose() { },
+		} as unknown as DuckDBWorkerClient;
+		const conn = new MotherDuckConnection(
+			{ token: TOKEN, database: undefined, readOnly: false }, handler, logger, () => client);
+		await conn.connect();
+		const [databases] = await conn.getChildren();
+		await assert.rejects(databases.getChildren!(), { message: 'Request failed for token <redacted>' });
+	});
+
 	test('other failure gives a generic message', async () => {
 		const failing = failingClient('boom');
 		const conn = new MotherDuckConnection(
@@ -173,7 +200,9 @@ suite('MotherDuck Connection', () => {
 		assert.strictEqual(opened.length, 1);
 		const [datasetId, usedClient, ...rest] = opened[0];
 		assert.match(datasetId as string, /^motherduck:[^:]+:table:\["other","main","t"\]$/);
-		assert.strictEqual(usedClient, client);
+		// Previews get the token-scrubbing wrapper, backed by the same worker (the in-memory attach
+		// exists only there).
+		assert.deepStrictEqual(await (usedClient as IDuckDBQueryClient).runQuery('SELECT a FROM other.main.t'), [{ a: 1 }]);
 		assert.deepStrictEqual(rest, ['other', 'main', 't', 'table']);
 
 		await conn.disconnect();

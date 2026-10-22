@@ -66,14 +66,14 @@ suite('MotherDuck Driver', () => {
 		const variants = await createDriver().generateConnectionCode!('token', 'ggsql',
 			{ token: 'aaa.bbb.ccc', database: 'sample_data', readOnly: true });
 		assert.deepStrictEqual(variants, [
-			{ id: 'ggsql', label: 'ggsql', code: '-- @connect: duckdb://md:sample_data?motherduck_token=aaa.bbb.ccc' },
+			{ id: 'ggsql', label: 'ggsql', code: '-- @connect: duckdb://md:sample_data?motherduck_token=aaa.bbb.ccc&access_mode=read_only' },
 		]);
 	});
 
 	test('generateConnectionCode omits the token when secrets are left out', async () => {
 		const variants = await createDriver().generateConnectionCode!('token', 'ggsql',
 			{ database: 'sample_data', readOnly: true });
-		assert.strictEqual(variants[0].code, '-- @connect: duckdb://md:sample_data');
+		assert.strictEqual(variants[0].code, '-- @connect: duckdb://md:sample_data?access_mode=read_only');
 	});
 
 	test('generateConnectionCode returns nothing for an unknown mechanism', async () => {
