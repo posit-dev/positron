@@ -243,6 +243,33 @@ suite('ConnectionSelection', () => {
 		);
 	});
 
+	test('a rename says whether it moved a choice, which is what decides a refresh', () => {
+		const selection = new ConnectionSelection(store());
+		selection.set(REPORT, WAREHOUSE);
+
+		const unrelated = selection.rename(vscode.Uri.file('/notes.txt'), vscode.Uri.file('/notes.md'));
+		const moved = selection.rename(REPORT, vscode.Uri.file('/reports/quarterly.sql'));
+
+		assert.deepStrictEqual([unrelated, moved], [false, true]);
+	});
+
+	test('a file saved as another, from disk rather than untitled, hands its choice over', () => {
+		// Save As leaves the original open beside the new file, holding the same text.
+		const selection = new ConnectionSelection(store());
+		selection.set(REPORT, WAREHOUSE);
+
+		const adopted = selection.adopt(
+			vscode.Uri.file('/reports/quarterly-v2.sql'),
+			'SELECT * FROM orders',
+			[{ uri: REPORT, text: 'SELECT * FROM orders' }],
+		);
+
+		assert.deepStrictEqual(
+			[adopted, selection.get(vscode.Uri.file('/reports/quarterly-v2.sql'))],
+			[true, WAREHOUSE],
+		);
+	});
+
 	test('a closed file on disk does keep its choice, which is the point of storing it', () => {
 		const selection = new ConnectionSelection(store());
 		selection.set(REPORT, WAREHOUSE);
@@ -275,7 +302,7 @@ suite('describeSelection', () => {
 	/** The text and the warning treatment; what the hover says is asserted separately. */
 	function shown(
 		selection: EffectiveSelection,
-		configured: readonly ConnectionRef[],
+		configured: readonly ConnectionRef[] | undefined,
 		dialect: DialectInUse = SNOWFLAKE,
 	) {
 		const state = describeSelection(selection, configured, dialect);
@@ -316,6 +343,27 @@ suite('describeSelection', () => {
 			{ text: '$(alert) No Data Connection', warning: true },
 		);
 	});
+
+	test('before the first read, nothing is reported as missing', () => {
+		// Nothing is known to be open yet, so a chosen connection would read as closed and a
+		// window with connections set up as having none.
+		assert.deepStrictEqual(
+			[shown({ kind: 'closed', connection: WAREHOUSE }, undefined), shown({ kind: 'none' }, undefined)],
+			[
+				{ text: '$(loading~spin) Sales Warehouse', warning: false },
+				{ text: '$(loading~spin) Data Connection', warning: false },
+			],
+		);
+	});
+
+	test('a name that looks like an icon is shown as typed', () => {
+		const named = { ...WAREHOUSE, name: 'Prod $(flame)' };
+
+		assert.deepStrictEqual(
+			shown({ kind: 'connection', connection: named }, [named]),
+			{ text: '$(database) Prod \\$(flame)', warning: false },
+		);
+	});
 });
 
 /**
@@ -324,10 +372,10 @@ suite('describeSelection', () => {
  */
 suite('describeSelection hover', () => {
 
-	function hover(dialect: DialectInUse): string {
+	function hover(dialect: DialectInUse, connection: ConnectionRef = WAREHOUSE): string {
 		return describeSelection(
-			{ kind: 'connection', connection: WAREHOUSE },
-			[WAREHOUSE],
+			{ kind: 'connection', connection },
+			[connection],
 			dialect,
 		).tooltip.value;
 	}
@@ -351,6 +399,15 @@ suite('describeSelection hover', () => {
 		const shown = hover({ dialect: '', fromSetting: false });
 
 		assert.ok(shown.includes('Generic'), shown);
+	});
+
+	test('a connection named like markdown is shown as typed, not formatted', () => {
+		const shown = hover(
+			{ dialect: 'snowflake', fromSetting: false },
+			{ ...WAREHOUSE, name: 'sales_*[eu](https://example.com)*' },
+		);
+
+		assert.ok(shown.startsWith('**sales\\_\\*\\[eu\\]\\(https://example\\.com\\)\\***'), shown);
 	});
 });
 

@@ -104,7 +104,7 @@
         "command": "sql.refreshDatabaseSchema",
         "title": "%command.refreshDatabaseSchema.title%",
         "category": "SQL",
-        "enablement": "config.sql.enabled && editorLangId == sql"
+        "enablement": "config.sql.enabled"
       },
       {
         "command": "sql.selectDataConnection",

@@ -232,8 +232,10 @@ export class ConnectionSelection {
 
 	/**
 	 * Moves choices along with a renamed or moved file, or with every file under a renamed folder.
+	 *
+	 * @returns Whether any choice moved.
 	 */
-	public rename(from: vscode.Uri, to: vscode.Uri): void {
+	public rename(from: vscode.Uri, to: vscode.Uri): boolean {
 		const old = from.toString();
 		const folder = old.endsWith('/') ? old : `${old}/`;
 		let moved = false;
@@ -252,6 +254,7 @@ export class ConnectionSelection {
 		if (moved) {
 			this._save();
 		}
+		return moved;
 	}
 
 	private _save(): void {

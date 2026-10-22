@@ -41,6 +41,14 @@ const NO_SCHEMA = new SchemaIndex();
 const SQL_DOCUMENTS: vscode.DocumentSelector = { language: 'sql' };
 
 /**
+ * Schemes whose documents are another view of a file rather than one to fix: the left side of a
+ * diff, a Live Share guest's copy, a pull request's version. They still get completions and hovers,
+ * but no diagnostics, which would otherwise list every problem in the file a second time under a
+ * document that cannot be edited. The same set the TypeScript extension leaves out.
+ */
+const NO_DIAGNOSTICS_SCHEMES: ReadonlySet<string> = new Set(['git', 'vsls', 'github', 'azurerepos']);
+
+/**
  * How long to wait after a keystroke before re-analyzing a document for diagnostics.
  *
  * Long enough that typing a word does not parse the document once per character, short enough
@@ -121,6 +129,15 @@ class SqlSession implements vscode.Disposable {
 	 * has configured are not known, and a file's choice cannot be told apart from one since removed.
 	 */
 	private _read = false;
+
+	/**
+	 * Whether the first schema read has finished, whether or not it succeeded. Until then the
+	 * status bar says it is reading rather than reporting connections it has not looked for.
+	 */
+	private _settled = false;
+
+	/** The first schema read, which choosing a connection waits for so that it offers them all. */
+	private _firstRead: Promise<void> = Promise.resolve();
 
 	/**
 	 * Counts schema reads, so that one overtaken by a later read is dropped when it finishes.
@@ -277,8 +294,20 @@ class SqlSession implements vscode.Disposable {
 
 			// A choice is kept by file, so it moves when the file does.
 			vscode.workspace.onDidRenameFiles(event => {
+				let moved = false;
 				for (const { oldUri, newUri } of event.files) {
-					this._selection.rename(oldUri, newUri);
+					moved = this._selection.rename(oldUri, newUri) || moved;
+				}
+				if (!moved) {
+					return;
+				}
+				// The editor opens a renamed file under its new name before saying it was renamed, so
+				// by now it has been analyzed, linked and shown on the status bar with no connection.
+				this._relink();
+				this._refreshAll();
+				this._updateStatusBar();
+				for (const document of vscode.workspace.textDocuments) {
+					void this._openConnectionFor(document);
 				}
 			}),
 
@@ -304,10 +333,12 @@ class SqlSession implements vscode.Disposable {
 		this._updateStatusBar();
 		// The files already open are asked about only once the first read has said what is open
 		// already, so a connection that is up is not opened a second time.
-		void this.refreshSchema().then(() => {
+		this._firstRead = this.refreshSchema().finally(() => {
+			this._settled = true;
 			if (this._disposed) {
 				return;
 			}
+			this._updateStatusBar();
 			for (const document of vscode.workspace.textDocuments) {
 				void this._openConnectionFor(document);
 			}
@@ -345,6 +376,11 @@ class SqlSession implements vscode.Disposable {
 		}
 		const chosen = this._selection.get(document.uri);
 		if (!chosen || this._attempted.has(chosen.profileId)) {
+			return;
+		}
+		if (!this._settled) {
+			// Nothing is known to be open yet, so this would open a connection that may well be up
+			// already. The first read asks again for every open file once it lands.
 			return;
 		}
 		if (this._payload.connections.some(open => open.profileId === chosen.profileId)) {
@@ -444,13 +480,20 @@ class SqlSession implements vscode.Disposable {
 	 * own, and brings everything that depends on the choice along with it.
 	 */
 	private _adopt(document: vscode.TextDocument): void {
-		if (document.languageId !== 'sql' || !this._selection.hasTransient) {
+		if (document.languageId !== 'sql' || this._selection.get(document.uri)
+			|| NO_DIAGNOSTICS_SCHEMES.has(document.uri.scheme)) {
+			// Including another view of a file, such as a diff's left side: it holds the same text
+			// as the file, but is not a file saved from it.
 			return;
 		}
+		// Any open document can be the one this was saved from, not only an untitled buffer: Save
+		// As from a file on disk leaves that file open beside the new one, with the same text.
 		const donors = vscode.workspace.textDocuments
-			.filter(open => open !== document && !open.isClosed && open.uri.scheme === 'untitled'
-				&& this._selection.get(open.uri) !== undefined)
+			.filter(open => open !== document && !open.isClosed && this._selection.get(open.uri) !== undefined)
 			.map(open => ({ uri: open.uri, text: open.getText() }));
+		if (donors.length === 0 && !this._selection.hasTransient) {
+			return;
+		}
 		if (!this._selection.adopt(document.uri, document.getText(), donors)) {
 			return;
 		}
@@ -462,11 +505,17 @@ class SqlSession implements vscode.Disposable {
 		void this._openConnectionFor(document);
 	}
 
-		/** Asks which connection the active SQL file is written against, and applies the answer. */
+	/** Asks which connection the active SQL file is written against, and applies the answer. */
 	private async _selectConnection(): Promise<void> {
 		const document = activeSqlDocument();
 		if (!document) {
 			// The command is enabled only for SQL editors, but a keybinding can still reach it.
+			return;
+		}
+		// Before the first read the connections set up are not known, and the picker would say
+		// there are none.
+		await this._firstRead;
+		if (this._disposed) {
 			return;
 		}
 		const chosen = await pickConnection(
@@ -497,7 +546,7 @@ class SqlSession implements vscode.Disposable {
 		const document = activeSqlDocument();
 		this._statusBar.update(document && describeSelection(
 			this._resolve(document),
-			this._payload.configured,
+			this._settled ? this._payload.configured : undefined,
 			this._dialectInUse(document),
 		));
 	}
@@ -615,7 +664,7 @@ class SqlSession implements vscode.Disposable {
 	}
 
 	private _refresh(document: vscode.TextDocument): void {
-		if (document.languageId !== 'sql') {
+		if (document.languageId !== 'sql' || NO_DIAGNOSTICS_SCHEMES.has(document.uri.scheme)) {
 			return;
 		}
 		const configuration = vscode.workspace.getConfiguration(CONFIGURATION_SECTION);
