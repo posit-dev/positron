@@ -1883,21 +1883,6 @@ describe('RuntimeStartupService - start reasons', () => {
 		expect(startedRuntimeIds()).toEqual(['rt-r']);
 	});
 
-	it.each([
-		{ name: 'starts', affiliated: false, started: ['rt-rec'] },
-		{ name: 'does not start', affiliated: true, started: [] },
-	])('$name an Immediate recommendation made after discovery when affiliated with another language: $affiliated', async ({ affiliated, started }) => {
-		createService(LanguageStartupBehavior.Auto);
-		if (affiliated) {
-			affiliate(metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R', extensionId: 'ms.r' }));
-		}
-		recommendAfterDiscovery({ ...metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }), startupBehavior: LanguageRuntimeStartupBehavior.Immediate });
-
-		await (svc as unknown as { recommendAfterDiscovery: () => Promise<void> }).recommendAfterDiscovery();
-
-		expect(startedRuntimeIds()).toEqual(started);
-	});
-
 	it('maps the recommendation made after discovery to its defined variant when discovery is limited to definitions', async () => {
 		const definition = { language: 'python', path: '/venv/bin/python', label: 'Python (GPU)' };
 		createService(LanguageStartupBehavior.Always, { settings: await defineInterpreters(definition) });
@@ -1927,6 +1912,69 @@ describe('RuntimeStartupService - start reasons', () => {
 		}).toEqual({
 			startedAtRegistration: 0,
 			preferred: 'rt-rec',
+		});
+	});
+
+	describe('an Immediate recommendation made after discovery', () => {
+		const immediate = { ...metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }), startupBehavior: LanguageRuntimeStartupBehavior.Immediate };
+		const runRecommendAfterDiscovery = () =>
+			(svc as unknown as { recommendAfterDiscovery: () => Promise<void> }).recommendAfterDiscovery();
+
+		it('starts when no language has an affiliation', async () => {
+			createService(LanguageStartupBehavior.Auto);
+			recommendAfterDiscovery(immediate);
+
+			await runRecommendAfterDiscovery();
+
+			expect(startedRuntimeIds()).toEqual(['rt-rec']);
+		});
+
+		it.each([
+			{ name: 'a default that was never started', lastUsed: 0, lastStarted: 0 },
+			{ name: 'a used affiliation', lastUsed: 1, lastStarted: 1 },
+		])('starts when another language has $name and no console', async ({ lastUsed, lastStarted }) => {
+			createService(LanguageStartupBehavior.Auto);
+			const r = metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R', extensionId: 'ms.r' });
+			ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v2.r`,
+				JSON.stringify({ metadata: r, lastUsed, lastStarted }),
+				StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			recommendAfterDiscovery(immediate);
+
+			await runRecommendAfterDiscovery();
+
+			expect(startedRuntimeIds()).toEqual(['rt-rec']);
+		});
+
+		it('starts when the language has a default that was never started', async () => {
+			createService(LanguageStartupBehavior.Auto);
+			ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v2.python`,
+				JSON.stringify({ metadata: metadata({ runtimeId: 'rt-aff', runtimePath: '/old/bin/python' }), lastUsed: 0, lastStarted: 0 }),
+				StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			recommendAfterDiscovery(immediate);
+
+			await runRecommendAfterDiscovery();
+
+			expect(startedRuntimeIds()).toEqual(['rt-rec']);
+		});
+
+		it('starts when set to start the recommendation, even if the language has a used affiliation', async () => {
+			createService(LanguageStartupBehavior.Recommended);
+			affiliate(metadata({ runtimeId: 'rt-aff', runtimePath: '/old/bin/python' }));
+			recommendAfterDiscovery(immediate);
+
+			await runRecommendAfterDiscovery();
+
+			expect(startedRuntimeIds()).toEqual(['rt-rec']);
+		});
+
+		it('does not start when the language has a used affiliation', async () => {
+			createService(LanguageStartupBehavior.Auto);
+			affiliate(metadata({ runtimeId: 'rt-aff', runtimePath: '/old/bin/python' }));
+			recommendAfterDiscovery(immediate);
+
+			await runRecommendAfterDiscovery();
+
+			expect(startedRuntimeIds()).toEqual([]);
 		});
 	});
 

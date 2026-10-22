@@ -1944,8 +1944,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * Asks again, after discovery, for a recommendation for each language that
 	 * has none yet, e.g. because its extension could only rank its runtimes
 	 * once they were discovered. The answer is remembered for
-	 * `getPreferredRuntime`. An `Immediate` answer starts when the workspace
-	 * has no affiliated runtime and no console is starting or running; an
+	 * `getPreferredRuntime`. An `Immediate` answer starts when no console is
+	 * starting or running and the language has no affiliation that was started
+	 * or used (ignored in `Recommended` mode); an
 	 * `Implicit` one starts if a file of the language is already open. It is
 	 * never saved as an affiliation.
 	 */
@@ -1988,7 +1989,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					continue;
 				}
 				if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
-					if (!this.hasAffiliatedRuntime() &&
+					// Only this language's own affiliation holds it back, and only
+					// one that was started or used. Recommended mode ignores it.
+					const affiliation = this.getStartupBehavior(runtime.languageId) === LanguageStartupBehavior.Recommended ?
+						undefined : this.getAffiliatedRuntime(runtime.languageId);
+					const usedAffiliation = affiliation && (affiliation.lastStarted !== 0 || affiliation.lastUsed !== 0);
+					if (!usedAffiliation &&
 						!this._runtimeSessionService.hasStartingOrRunningConsole()) {
 						await this.autoStartRuntime(runtime, { id: SessionStartReasonId.ExtensionRecommendedRuntime }, true);
 					}
