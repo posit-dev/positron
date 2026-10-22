@@ -197,6 +197,14 @@ jobs:
         with:
           identifier: e2e-remote-ssh
 
+      # The e2e-test-insights reporter publishes results to connect.posit.it, which is
+      # reachable only from the tailnet.
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
+        with:
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+
       - name: Run tests (host → container)
         env:
           POSITRON_PY_VER_SEL: "3.12.6"
