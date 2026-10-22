@@ -124,6 +124,34 @@ suite('MotherDuck Connection', () => {
 		await assert.rejects(conn.connect(), /^Error: Failed to connect to MotherDuck\. boom$/);
 	});
 
+	test('a hung open times out, disposes the client, and leaves the connection closed', async () => {
+		let disposed = false;
+		const hanging = {
+			isAlive: true,
+			runQuery() { return new Promise(() => { }); },
+			dispose() { disposed = true; },
+		} as unknown as DuckDBWorkerClient;
+		const conn = new MotherDuckConnection(
+			{ token: TOKEN, database: undefined, readOnly: false }, handler, logger, () => hanging, 50);
+		await assert.rejects(conn.connect(), (err: Error) => {
+			assert.ok(err.message.startsWith('Timed out connecting to MotherDuck'), err.message);
+			return true;
+		});
+		assert.ok(disposed);
+		assert.strictEqual(await conn.isConnected(), false);
+	});
+
+	test('a second connect reuses the open client', async () => {
+		let created = 0;
+		const conn = new MotherDuckConnection(
+			{ token: TOKEN, database: undefined, readOnly: false }, handler, logger,
+			() => { created++; return localClient(); });
+		await conn.connect();
+		await conn.connect();
+		assert.strictEqual(created, 1);
+		await conn.disconnect();
+	});
+
 	test('tree and preview work across attached databases', async () => {
 		const client = localClient();
 		const conn = new MotherDuckConnection(

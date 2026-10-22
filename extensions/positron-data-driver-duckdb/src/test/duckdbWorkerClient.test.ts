@@ -123,7 +123,7 @@ suite('DuckDB worker isolation', () => {
 			for (const motherduckToken of [undefined, '   ']) {
 				const client = new DuckDBWorkerClient({ databasePath, readOnly: true, motherduckToken });
 				try {
-					await assert.rejects(client.runQuery('SELECT 1'), /MotherDuck access token is required\./);
+					await assert.rejects(client.runQuery('SELECT 1'), /A MotherDuck access token is required\./);
 				} finally {
 					client.dispose();
 				}

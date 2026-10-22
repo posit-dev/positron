@@ -49,7 +49,7 @@ const ready: Promise<void> = (async () => {
 		// Without a token, opening `md:` makes the MotherDuck extension launch a browser sign-in
 		// and block for a minute, so refuse before touching DuckDB.
 		if (isMotherDuckPath(config.databasePath) && !motherduckToken) {
-			throw new Error('MotherDuck access token is required.');
+			throw new Error('A MotherDuck access token is required.');
 		}
 		const options: Record<string, string> = {
 			// The Data Explorer pages with a fresh LIMIT/OFFSET statement per page and states no

@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { classifyMotherDuckOpenError, generateMotherDuckCode, motherduckPath, scrubToken } from './motherduckCode';
+import { classifyMotherDuckOpenError, generateMotherDuckCode, motherduckLanguageIds, motherduckPath, scrubToken } from './motherduckCode';
 
 const TOKEN = 'aaa.bbb.ccc';
 const DB = 'sample_data';
@@ -86,6 +86,20 @@ describe('motherduckPath', () => {
 		expect(motherduckPath(' sample_data ')).toBe('md:sample_data');
 		expect(motherduckPath('')).toBe('md:');
 		expect(motherduckPath(undefined)).toBe('md:');
+	});
+});
+
+describe('motherduckLanguageIds', () => {
+	test('leaves out R on Windows only', () => {
+		expect({
+			win32: motherduckLanguageIds('win32'),
+			darwin: motherduckLanguageIds('darwin'),
+			linux: motherduckLanguageIds('linux'),
+		}).toEqual({
+			win32: ['python', 'ggsql'],
+			darwin: ['python', 'r', 'ggsql'],
+			linux: ['python', 'r', 'ggsql'],
+		});
 	});
 });
 

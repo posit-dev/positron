@@ -34,7 +34,7 @@ suite('MotherDuck Driver', () => {
 			{
 				id: 'positron-data-driver-motherduck',
 				name: 'MotherDuck',
-				languages: ['python', 'r', 'ggsql'],
+				languages: process.platform === 'win32' ? ['python', 'ggsql'] : ['python', 'r', 'ggsql'],
 				mechanisms: ['token'],
 				parameters: ['token', 'database', 'readOnly'],
 				tokenSecret: true,
@@ -47,8 +47,8 @@ suite('MotherDuck Driver', () => {
 	test('connect rejects a blank token without opening', async () => {
 		const driver = createDriver();
 		const start = Date.now();
-		await assert.rejects(async () => driver.connect('token', { token: '  ' }), /Access token is required/);
-		await assert.rejects(async () => driver.connect('token', {}), /Access token is required/);
+		await assert.rejects(async () => driver.connect('token', { token: '  ' }), /A MotherDuck access token is required\./);
+		await assert.rejects(async () => driver.connect('token', {}), /A MotherDuck access token is required\./);
 		assert.ok(Date.now() - start < 2000);
 	});
 

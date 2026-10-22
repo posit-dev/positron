@@ -7,6 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
 import { createDuckDBDriver } from './duckdbDriver.js';
+import { MOTHERDUCK_DATA_EXPLORER_PROVIDER_ID } from './motherduckConnection.js';
 import { createMotherDuckDriver } from './motherduckDriver.js';
 import { DUCKDB_DATA_EXPLORER_PROVIDER_ID } from './duckdbConnection.js';
 
@@ -29,11 +30,13 @@ export function activate(context: vscode.ExtensionContext) {
 	const driver = createDuckDBDriver(context, dataExplorerHandler, logger);
 	context.subscriptions.push(positron.dataConnections.registerDriver(driver));
 
-	// The MotherDuck driver shares the Data Explorer handler and logs to its own channel, created
-	// on first use like the DuckDB one.
+	// The MotherDuck driver logs to its own channel, created on first use like the DuckDB one, and
+	// has its own Data Explorer handler so preview errors land in that channel too.
 	const motherduckLogger = positron.dataConnections.createDriverLogger('MotherDuck');
 	context.subscriptions.push(motherduckLogger);
-	const motherduckDriver = createMotherDuckDriver(context, dataExplorerHandler, motherduckLogger);
+	const motherduckDataExplorerHandler = new DuckDBDataExplorerRpcHandler(MOTHERDUCK_DATA_EXPLORER_PROVIDER_ID, motherduckLogger);
+	context.subscriptions.push(motherduckDataExplorerHandler);
+	const motherduckDriver = createMotherDuckDriver(context, motherduckDataExplorerHandler, motherduckLogger);
 	context.subscriptions.push(positron.dataConnections.registerDriver(motherduckDriver));
 }
 

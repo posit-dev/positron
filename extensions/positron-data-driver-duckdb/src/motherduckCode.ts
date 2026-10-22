@@ -32,6 +32,15 @@ export function motherduckPath(database: string | undefined): string {
 }
 
 /**
+ * The languages MotherDuck connection code can target on the given platform (a Node
+ * `process.platform` value). R is left out on Windows: R duckdb there is a MinGW build, and
+ * MotherDuck publishes no extension for the `windows_amd64_mingw` platform.
+ */
+export function motherduckLanguageIds(platform: string): string[] {
+	return platform === 'win32' ? ['python', 'ggsql'] : ['python', 'r', 'ggsql'];
+}
+
+/**
  * The R duckdb package does not auto-install the MotherDuck extension when it opens `md:`,
  * so the snippet installs it through a throwaway connection first.
  */

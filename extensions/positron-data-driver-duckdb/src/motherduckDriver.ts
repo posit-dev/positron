@@ -8,8 +8,8 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
-import { generateMotherDuckCode } from './motherduckCode.js';
-import { MotherDuckConnection } from './motherduckConnection.js';
+import { generateMotherDuckCode, motherduckLanguageIds } from './motherduckCode.js';
+import { accessTokenRequiredMessage, MotherDuckConnection } from './motherduckConnection.js';
 
 /** The id of the access token mechanism. */
 const TOKEN_MECHANISM_ID = 'token';
@@ -51,7 +51,7 @@ export function createMotherDuckDriver(
 		name: 'MotherDuck',
 		description: vscode.l10n.t('Connect to your MotherDuck account'),
 		iconSvg,
-		supportedLanguageIds: ['python', 'r', 'ggsql'],
+		supportedLanguageIds: motherduckLanguageIds(process.platform),
 		mechanisms: [
 			{
 				id: TOKEN_MECHANISM_ID,
@@ -87,7 +87,7 @@ export function createMotherDuckDriver(
 					// Never open `md:` without a token: MotherDuck would start a browser sign-in and block.
 					const token = params.token;
 					if (!isNonBlankString(token)) {
-						throw new Error(vscode.l10n.t('Access token is required'));
+						throw new Error(accessTokenRequiredMessage());
 					}
 
 					const connection = new MotherDuckConnection({
