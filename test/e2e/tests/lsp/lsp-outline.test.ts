@@ -109,8 +109,13 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 			await verifyOutline(outline);
 		});
 
-		test('Verify outline after reload with R in foreground and Python in background', {
+		// Skipped while Pyrefly 1.4.0 cancels the Outline's first documentSymbol request after a
+		// reload (Oct 2026): a workspace/didChangeConfiguration arrives behind it, and the Outline
+		// keeps the empty answer until the file is edited. This test reloads with the Python file
+		// active, so it hits that every time. Re-enable once a Pyrefly release with the fix ships.
+		test.skip('Verify outline after reload with R in foreground and Python in background', {
 			tag: [tags.ARK, tags.PYTHON],
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/10926' }],
 		}, async function ({ app, hotKeys, sessions }) {
 			const { outline, editor } = app.workbench;
 
