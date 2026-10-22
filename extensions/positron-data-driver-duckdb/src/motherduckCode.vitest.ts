@@ -11,88 +11,72 @@ const TOKEN = 'aaa.bbb.ccc';
 const DB = 'sample_data';
 
 describe('generateMotherDuckCode', () => {
-	test('ggsql', () => {
-		expect(generateMotherDuckCode('ggsql', { token: TOKEN, database: DB, readOnly: true })).toEqual([
-			{ id: 'ggsql', label: 'ggsql', code: '-- @connect: duckdb://md:sample_data?motherduck_token=aaa.bbb.ccc&access_mode=read_only' },
+	const COMMENT = '# MotherDuck reads your access token from the motherduck_token environment variable.\n';
+	const R_INSTALL = 'library(DBI)\n\ninstall_con <- dbConnect(duckdb::duckdb())\ninvisible(dbExecute(install_con, "INSTALL motherduck"))\ndbDisconnect(install_con, shutdown = TRUE)\n\n';
+
+	test('ggsql adds access_mode only when read-only', () => {
+		expect(generateMotherDuckCode('ggsql', { database: DB, readOnly: true })).toEqual([
+			{ id: 'ggsql', label: 'ggsql', code: '-- @connect: duckdb://md:sample_data?access_mode=read_only' },
+		]);
+		expect(generateMotherDuckCode('ggsql', { database: DB, readOnly: false })[0].code)
+			.toBe('-- @connect: duckdb://md:sample_data');
+	});
+
+	test('python read-only', () => {
+		expect(generateMotherDuckCode('python', { database: DB, readOnly: true })).toEqual([
+			{ id: 'duckdb', label: 'duckdb', code: `import duckdb\n\n${COMMENT}conn = duckdb.connect("md:sample_data", read_only=True)\n` },
+			{ id: 'sqlalchemy', label: 'SQLAlchemy', code: `import sqlalchemy as sa\n\n${COMMENT}engine = sa.create_engine("duckdb:///md:sample_data", connect_args={"read_only": True})\n` },
 		]);
 	});
 
-	test('python read-only with token', () => {
-		expect(generateMotherDuckCode('python', { token: TOKEN, database: DB, readOnly: true })).toEqual([
-			{ id: 'duckdb', label: 'duckdb', code: 'import duckdb\n\nconn = duckdb.connect("md:sample_data", read_only=True, config={"motherduck_token": "aaa.bbb.ccc"})\n' },
-			{ id: 'sqlalchemy', label: 'SQLAlchemy', code: 'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:sample_data", connect_args={"read_only": True, "config": {"motherduck_token": "aaa.bbb.ccc"}})\n' },
-		]);
-	});
-
-	test('r read-only with token', () => {
-		expect(generateMotherDuckCode('r', { token: TOKEN, database: DB, readOnly: true })).toEqual([
-			{ id: 'dbi', label: 'DBI', code: 'library(DBI)\n\ninstall_con <- dbConnect(duckdb::duckdb())\ninvisible(dbExecute(install_con, "INSTALL motherduck"))\ndbDisconnect(install_con, shutdown = TRUE)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data", read_only = TRUE, config = list(motherduck_token = "aaa.bbb.ccc"))\n' },
+	test('r read-only', () => {
+		expect(generateMotherDuckCode('r', { database: DB, readOnly: true })).toEqual([
+			{ id: 'dbi', label: 'DBI', code: `${R_INSTALL}${COMMENT}con <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data", read_only = TRUE)\n` },
 		]);
 	});
 
 	test('readOnly false drops read-only everywhere', () => {
-		const py = generateMotherDuckCode('python', { token: TOKEN, database: DB, readOnly: false });
-		expect(py.map(v => v.code)).toEqual([
-			'import duckdb\n\nconn = duckdb.connect("md:sample_data", config={"motherduck_token": "aaa.bbb.ccc"})\n',
-			'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:sample_data", connect_args={"config": {"motherduck_token": "aaa.bbb.ccc"}})\n',
+		expect(generateMotherDuckCode('python', { database: DB, readOnly: false }).map(v => v.code)).toEqual([
+			`import duckdb\n\n${COMMENT}conn = duckdb.connect("md:sample_data")\n`,
+			`import sqlalchemy as sa\n\n${COMMENT}engine = sa.create_engine("duckdb:///md:sample_data")\n`,
 		]);
-		expect(generateMotherDuckCode('r', { token: TOKEN, database: DB, readOnly: false })[0].code)
-			.toBe('library(DBI)\n\ninstall_con <- dbConnect(duckdb::duckdb())\ninvisible(dbExecute(install_con, "INSTALL motherduck"))\ndbDisconnect(install_con, shutdown = TRUE)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data", config = list(motherduck_token = "aaa.bbb.ccc"))\n');
-		expect(generateMotherDuckCode('ggsql', { token: TOKEN, database: DB, readOnly: false })[0].code)
-			.toBe('-- @connect: duckdb://md:sample_data?motherduck_token=aaa.bbb.ccc');
+		expect(generateMotherDuckCode('r', { database: DB, readOnly: false })[0].code)
+			.toBe(`${R_INSTALL}${COMMENT}con <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data")\n`);
 	});
 
-	test('undefined token drops the token everywhere', () => {
-		const p = { token: undefined, database: DB, readOnly: true };
-		expect(generateMotherDuckCode('ggsql', p)[0].code).toBe('-- @connect: duckdb://md:sample_data?access_mode=read_only');
-		expect(generateMotherDuckCode('python', p).map(v => v.code)).toEqual([
-			'import duckdb\n\nconn = duckdb.connect("md:sample_data", read_only=True)\n',
-			'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:sample_data", connect_args={"read_only": True})\n',
-		]);
-		expect(generateMotherDuckCode('r', p)[0].code)
-			.toBe('library(DBI)\n\ninstall_con <- dbConnect(duckdb::duckdb())\ninvisible(dbExecute(install_con, "INSTALL motherduck"))\ndbDisconnect(install_con, shutdown = TRUE)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data", read_only = TRUE)\n');
-	});
-
-	test('undefined token, not read-only, python has no empty config or connect_args', () => {
-		const p = { token: undefined, database: DB, readOnly: false };
-		expect(generateMotherDuckCode('python', p).map(v => v.code)).toEqual([
-			'import duckdb\n\nconn = duckdb.connect("md:sample_data")\n',
-			'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:sample_data")\n',
-		]);
-		expect(generateMotherDuckCode('r', p)[0].code)
-			.toBe('library(DBI)\n\ninstall_con <- dbConnect(duckdb::duckdb())\ninvisible(dbExecute(install_con, "INSTALL motherduck"))\ndbDisconnect(install_con, shutdown = TRUE)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data")\n');
+	test('no variant passes a token', () => {
+		for (const languageId of ['ggsql', 'python', 'r']) {
+			for (const readOnly of [true, false]) {
+				for (const variant of generateMotherDuckCode(languageId, { database: DB, readOnly })) {
+					expect(variant.code).not.toContain('config');
+					expect(variant.code).not.toContain('motherduck_token=');
+					expect(variant.code).not.toContain('"motherduck_token"');
+				}
+			}
+		}
 	});
 
 	test('blank database gives md:', () => {
 		for (const database of [undefined, '  ']) {
-			expect(generateMotherDuckCode('python', { token: undefined, database, readOnly: false })[0].code)
-				.toBe('import duckdb\n\nconn = duckdb.connect("md:")\n');
+			expect(generateMotherDuckCode('python', { database, readOnly: false })[0].code)
+				.toBe(`import duckdb\n\n${COMMENT}conn = duckdb.connect("md:")\n`);
 		}
 	});
 
 	test('escapes quotes in the database name', () => {
-		const p = { token: undefined, database: 'my"db', readOnly: false };
+		const p = { database: 'my"db', readOnly: false };
 		expect(generateMotherDuckCode('python', p)[0].code).toContain('"md:my\\"db"');
 		expect(generateMotherDuckCode('r', p)[0].code).toContain('"md:my\\"db"');
 	});
 
-	test('escapes quotes and backslashes in the token', () => {
-		const p = { token: 'a"b\\c', database: undefined, readOnly: false };
-		expect(generateMotherDuckCode('python', p).map(v => v.code)).toEqual([
-			'import duckdb\n\nconn = duckdb.connect("md:", config={"motherduck_token": "a\\"b\\\\c"})\n',
-			'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:", connect_args={"config": {"motherduck_token": "a\\"b\\\\c"}})\n',
-		]);
-		expect(generateMotherDuckCode('r', p)[0].code).toContain('config = list(motherduck_token = "a\\"b\\\\c")');
-	});
-
 	test('escapes newlines, carriage returns, and tabs', () => {
-		const p = { token: undefined, database: 'a\nb\rc\td', readOnly: false };
+		const p = { database: 'a\nb\rc\td', readOnly: false };
 		expect(generateMotherDuckCode('python', p)[0].code).toContain('"md:a\\nb\\rc\\td"');
 		expect(generateMotherDuckCode('r', p)[0].code).toContain('"md:a\\nb\\rc\\td"');
 	});
 
 	test('unknown language returns no variants', () => {
-		expect(generateMotherDuckCode('julia', { token: TOKEN, database: DB, readOnly: true })).toEqual([]);
+		expect(generateMotherDuckCode('julia', { database: DB, readOnly: true })).toEqual([]);
 	});
 });
 

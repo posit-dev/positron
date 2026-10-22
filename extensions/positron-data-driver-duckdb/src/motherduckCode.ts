@@ -5,10 +5,11 @@
 
 import { escapeDoubleQuoted } from './codeEscaping.js';
 
-/** The parameters needed to generate MotherDuck connection code. */
+/**
+ * The parameters needed to generate MotherDuck connection code. There is no token: generated code
+ * relies on the `motherduck_token` environment variable where it runs.
+ */
 export interface MotherDuckCodeParams {
-	/** The access token, or undefined when the dialog leaves secrets out. */
-	token: string | undefined;
 	database: string | undefined;
 	readOnly: boolean;
 }
@@ -53,64 +54,46 @@ const R_INSTALL_EXTENSION = [
 	'',
 ].join('\n');
 
+/** The comment each Python and R snippet carries above its connect call. */
+const TOKEN_COMMENT = '# MotherDuck reads your access token from the motherduck_token environment variable.\n';
+
 /** Generates connection code for the given language, or no variants for an unknown language. */
 export function generateMotherDuckCode(languageId: string, params: MotherDuckCodeParams): MotherDuckCodeVariant[] {
 	const path = motherduckPath(params.database);
 	const escapedPath = escapeDoubleQuoted(path);
-	const token = nonBlank(params.token);
-	const escapedToken = token === undefined ? undefined : escapeDoubleQuoted(token);
 
 	switch (languageId) {
-		case 'ggsql': {
-			// ggsql passes `motherduck_token` and `access_mode` from the query string to DuckDB and never
-			// percent-decodes the URI, so the URI is not encoded. Access tokens are base64url.
-			const query = [
-				...(token === undefined ? [] : [`motherduck_token=${token}`]),
-				...(params.readOnly ? ['access_mode=read_only'] : []),
-			];
+		case 'ggsql':
+			// ggsql passes `access_mode` from the query string to DuckDB and never percent-decodes the
+			// URI, so the URI is not encoded. No comment: the kernel reads `-- @connect:` only as the
+			// first line and runs any later lines as a query.
 			return [{
 				id: 'ggsql',
 				label: 'ggsql',
-				code: `-- @connect: duckdb://${path}` + (query.length > 0 ? `?${query.join('&')}` : ''),
+				code: `-- @connect: duckdb://${path}` + (params.readOnly ? '?access_mode=read_only' : ''),
 			}];
-		}
 		case 'python': {
-			const duckdbArgs = [`"${escapedPath}"`];
-			const engineArgs: string[] = [];
-			if (params.readOnly) {
-				duckdbArgs.push('read_only=True');
-				engineArgs.push('"read_only": True');
-			}
-			if (escapedToken !== undefined) {
-				duckdbArgs.push(`config={"motherduck_token": "${escapedToken}"}`);
-				engineArgs.push(`"config": {"motherduck_token": "${escapedToken}"}`);
-			}
-			const connectArgs = engineArgs.length > 0 ? `, connect_args={${engineArgs.join(', ')}}` : '';
+			const readOnlyArg = params.readOnly ? ', read_only=True' : '';
+			const connectArgs = params.readOnly ? ', connect_args={"read_only": True}' : '';
 			return [
 				{
 					id: 'duckdb',
 					label: 'duckdb',
-					code: `import duckdb\n\nconn = duckdb.connect(${duckdbArgs.join(', ')})\n`,
+					code: `import duckdb\n\n${TOKEN_COMMENT}conn = duckdb.connect("${escapedPath}"${readOnlyArg})\n`,
 				},
 				{
 					id: 'sqlalchemy',
 					label: 'SQLAlchemy',
-					code: `import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///${escapedPath}"${connectArgs})\n`,
+					code: `import sqlalchemy as sa\n\n${TOKEN_COMMENT}engine = sa.create_engine("duckdb:///${escapedPath}"${connectArgs})\n`,
 				},
 			];
 		}
 		case 'r': {
-			const args = [`duckdb::duckdb()`, `dbdir = "${escapedPath}"`];
-			if (params.readOnly) {
-				args.push('read_only = TRUE');
-			}
-			if (escapedToken !== undefined) {
-				args.push(`config = list(motherduck_token = "${escapedToken}")`);
-			}
+			const readOnlyArg = params.readOnly ? ', read_only = TRUE' : '';
 			return [{
 				id: 'dbi',
 				label: 'DBI',
-				code: `${R_INSTALL_EXTENSION}\ncon <- dbConnect(${args.join(', ')})\n`,
+				code: `${R_INSTALL_EXTENSION}\n${TOKEN_COMMENT}con <- dbConnect(duckdb::duckdb(), dbdir = "${escapedPath}"${readOnlyArg})\n`,
 			}];
 		}
 		default:

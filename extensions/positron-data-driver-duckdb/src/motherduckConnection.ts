@@ -226,7 +226,7 @@ function openFailureMessage(detail: string, path: string): string {
 		case 'databaseNotFound':
 			return vscode.l10n.t("MotherDuck has no database named '{0}'. Check the default database name.", path.slice('md:'.length));
 		case 'auth':
-			return vscode.l10n.t('MotherDuck rejected the access token. Check that it is correct and has not expired. {0}', detail);
+			return vscode.l10n.t('MotherDuck rejected the access token in the motherduck_token environment variable. Check that it is correct and has not expired, then restart Positron and reconnect. {0}', detail);
 		case 'extensionDownload':
 			return vscode.l10n.t('Could not install the MotherDuck extension for DuckDB. Check your network connection and try again. {0}', detail);
 		default:

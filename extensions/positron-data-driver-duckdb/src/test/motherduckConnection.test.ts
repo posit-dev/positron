@@ -96,7 +96,7 @@ suite('MotherDuck Connection', () => {
 			{ token: `  ${TOKEN}\n`, database: undefined, readOnly: false }, handler, logger,
 			config => { configs.push(config); return failing.client; });
 		await assert.rejects(conn.connect(), (err: Error) => {
-			assert.ok(err.message.startsWith('MotherDuck rejected the access token'), err.message);
+			assert.ok(err.message.startsWith('MotherDuck rejected the access token in the motherduck_token environment variable. Check that it is correct and has not expired, then restart Positron and reconnect.'), err.message);
 			assert.ok(!err.message.includes(TOKEN), err.message);
 			return true;
 		});
