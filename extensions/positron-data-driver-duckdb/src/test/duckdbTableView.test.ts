@@ -333,5 +333,11 @@ suite('DuckDB Data Explorer Tests', () => {
 			const schema = await buildDuckDBSchema(client, undefined, 'main', 't');
 			assert.deepStrictEqual(schema.map(c => c.column_name), ['c']);
 		});
+
+		test('a missing column names the database', async () => {
+			await assert.rejects(
+				handler.openColumnView('ds', client, ATTACHED, 'main', 't', 'table', 'nope'),
+				{ message: `Column 'nope' not found in 'my "db".main.t'` });
+		});
 	});
 });

@@ -172,12 +172,27 @@ suite('MotherDuck Connection', () => {
 
 		assert.strictEqual(opened.length, 1);
 		const [datasetId, usedClient, ...rest] = opened[0];
-		assert.match(datasetId as string, /^motherduck:[^:]+:table:other\.main\.t$/);
+		assert.match(datasetId as string, /^motherduck:[^:]+:table:\["other","main","t"\]$/);
 		assert.strictEqual(usedClient, client);
 		assert.deepStrictEqual(rest, ['other', 'main', 't', 'table']);
 
 		await conn.disconnect();
 		assert.deepStrictEqual(closed, [datasetId]);
+	});
+
+	test('dataset ids stay distinct when names contain dots', async () => {
+		const conn = new MotherDuckConnection(
+			{ token: TOKEN, database: undefined, readOnly: false }, handler, logger, () => localClient());
+		await conn.connect();
+		const ids = [
+			await conn.previewObject('db', 'a.b', 'c', 'table'),
+			await conn.previewObject('db', 'a', 'b.c', 'table'),
+			await conn.previewObject('db.a', 'b', 'c', 'table'),
+			await conn.previewColumn('db', 's', 't.u', 'table', 'v'),
+			await conn.previewColumn('db', 's', 't', 'table', 'u.v'),
+		];
+		assert.strictEqual(new Set(ids).size, ids.length, ids.join('\n'));
+		await conn.disconnect();
 	});
 
 	test('disconnect disposes the client and is idempotent', async () => {

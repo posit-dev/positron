@@ -138,7 +138,7 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 		const schema = await buildDuckDBSchema(client, database, schemaName, tableName);
 		const column = schema.find(c => c.column_name === columnName);
 		if (!column) {
-			throw new Error(`Column '${columnName}' not found in '${schemaName}.${tableName}'`);
+			throw new Error(`Column '${columnName}' not found in '${database === undefined ? '' : database + '.'}${schemaName}.${tableName}'`);
 		}
 		// The plan is given every column the relation has, not just the requested one: what it needs to
 		// know is whether the relation emits a column named `rowid`, which the restricted schema hides.

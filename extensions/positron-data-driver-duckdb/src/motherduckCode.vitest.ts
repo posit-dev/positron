@@ -76,6 +76,15 @@ describe('generateMotherDuckCode', () => {
 		expect(generateMotherDuckCode('r', p)[0].code).toContain('"md:my\\"db"');
 	});
 
+	test('escapes quotes and backslashes in the token', () => {
+		const p = { token: 'a"b\\c', database: undefined, readOnly: false };
+		expect(generateMotherDuckCode('python', p).map(v => v.code)).toEqual([
+			'import duckdb\n\nconn = duckdb.connect("md:", config={"motherduck_token": "a\\"b\\\\c"})\n',
+			'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:", connect_args={"config": {"motherduck_token": "a\\"b\\\\c"}})\n',
+		]);
+		expect(generateMotherDuckCode('r', p)[0].code).toContain('config = list(motherduck_token = "a\\"b\\\\c")');
+	});
+
 	test('unknown language returns no variants', () => {
 		expect(generateMotherDuckCode('julia', { token: TOKEN, database: DB, readOnly: true })).toEqual([]);
 	});

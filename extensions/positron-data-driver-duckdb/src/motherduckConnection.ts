@@ -125,7 +125,8 @@ export class MotherDuckConnection implements positron.DataConnection, IDuckDBPre
 	/** Opens the given table or view in the Data Explorer; returns its dataset id. */
 	async previewObject(database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string> {
 		const client = this._ensureConnected();
-		const datasetId = `motherduck:${this._connectionId}:${kind}:${database ?? ''}.${schemaName}.${tableName}`;
+		// The names are JSON-encoded so names that contain dots cannot collide.
+		const datasetId = `motherduck:${this._connectionId}:${kind}:${JSON.stringify([database, schemaName, tableName])}`;
 		await this._dataExplorerHandler.openTableView(datasetId, client, database, schemaName, tableName, kind);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
@@ -139,7 +140,7 @@ export class MotherDuckConnection implements positron.DataConnection, IDuckDBPre
 	/** Opens a single column of the given table or view as a one-column grid; returns its dataset id. */
 	async previewColumn(database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string> {
 		const client = this._ensureConnected();
-		const datasetId = `motherduck:${this._connectionId}:column:${database ?? ''}.${schemaName}.${tableName}.${columnName}`;
+		const datasetId = `motherduck:${this._connectionId}:column:${JSON.stringify([database, schemaName, tableName, columnName])}`;
 		await this._dataExplorerHandler.openColumnView(datasetId, client, database, schemaName, tableName, kind, columnName);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
