@@ -73,6 +73,12 @@ RUN PATH=/usr/bin:/bin:$PATH zypper --non-interactive refresh && \
     PATH=/usr/bin:/bin:$PATH zypper clean -a && \
     rm -f /tmp/zypper_packages.txt
 
+# SUSE's secure_path omits /usr/local/bin, so `sudo <tool>` cannot find anything
+# installed there (tailscaled, quarto, rig)
+RUN echo 'Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"' > /etc/sudoers.d/zz-positron-local-bin && \
+    chmod 0440 /etc/sudoers.d/zz-positron-local-bin && \
+    visudo -c -f /etc/sudoers.d/zz-positron-local-bin
+
 # Install AWS CLI v2
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -o "/tmp/awscliv2.zip" && \
     unzip /tmp/awscliv2.zip -d /tmp && \
