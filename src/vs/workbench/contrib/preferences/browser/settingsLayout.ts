@@ -292,7 +292,7 @@ export const tocData: ITOCEntry<string> = {
 				{
 					id: 'features/ai',
 					label: localize('positron.ai', "AI"),
-					settings: ['ai.*', 'assistant.newProviderModal', 'git.suggestions.*']
+					settings: ['ai.*', 'git.suggestions.*']
 				},
 				// --- End Positron ---
 				{

@@ -34,6 +34,9 @@ import { mcpOAuthClientSecretStorageKey } from '../../contrib/mcp/common/mcpType
 import { IProductService } from '../../../platform/product/common/productService.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { IMcpEnterpriseManagedAuthIdpConfig, mcpEnterpriseManagedAuthIdpSection } from '../../contrib/mcp/common/mcpConfiguration.js';
+// --- Start Positron ---
+import { ExtensionIdentifier } from '../../../platform/extensions/common/extensions.js';
+// --- End Positron ---
 
 export interface AuthenticationInteractiveOptions {
 	detail?: string;
@@ -530,22 +533,6 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 
 			this.authenticationAccessService.updateAllowedExtensions(providerId, session.account.label, [{ id: extensionId, name: extensionName, allowed: true }]);
 
-			// --- Start Positron ---
-			// When the user signs in to GitHub through Positron's language model
-			// provider modal (the positron.authentication extension), also grant the
-			// AI extensions that rely on the GitHub session, so Copilot completions
-			// and chat work after this explicit consent. This replaces the static
-			// product.json trust-list entries that were removed so a GitHub sign-in
-			// for Git alone no longer powers Copilot. positron.authentication (the
-			// calling extension) is already granted just above.
-			if (providerId === 'github' && extensionId === 'positron.authentication') {
-				this.authenticationAccessService.updateAllowedExtensions(providerId, session.account.label, [
-					{ id: 'GitHub.copilot-chat', name: 'GitHub Copilot Chat', allowed: true },
-					{ id: 'posit.assistant', name: 'Posit Assistant', allowed: true },
-				]);
-			}
-			// --- End Positron ---
-
 			this.authenticationExtensionsService.updateNewSessionRequests(providerId, [session]);
 			this.authenticationExtensionsService.updateAccountPreference(extensionId, providerId, session.account);
 			return session;
@@ -576,6 +563,23 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 			this.sendClientIdUsageTelemetry(extensionId, providerId, scopes);
 		}
 		const session = await this.doGetSession(providerId, scopeListOrRequest, extensionId, extensionName, options);
+
+		// --- Start Positron ---
+		// Connecting GitHub Copilot in Posit Assistant's provider panel also gives
+		// Copilot (chat, completions, language models) access to that account.
+		// Covers both new and existing sessions, but only for interactive requests.
+		// Only needed while GitHub.copilot-chat is built in.
+		if (
+			session
+			&& providerId === 'github'
+			&& ExtensionIdentifier.equals(extensionId, 'posit.assistant')
+			&& (options.createIfNone || options.forceNewSession)
+		) {
+			this.authenticationAccessService.updateAllowedExtensions(providerId, session.account.label, [
+				{ id: 'GitHub.copilot-chat', name: 'GitHub Copilot Chat', allowed: true },
+			]);
+		}
+		// --- End Positron ---
 
 		if (session) {
 			this.sendProviderUsageTelemetry(extensionId, providerId);

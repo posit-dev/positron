@@ -18,6 +18,8 @@ import { expect, test, tags } from '../../_test.setup';
 
 test.use({
 	suiteId: __filename,
+	// The settings fixture can't write to the container, so checkForDevBuildUpdate can't turn this on itself.
+	extraSettings: { 'assistant.autoDevBuildUpdateCheck': true },
 	managedCredentials: 'snowflake',
 });
 
@@ -29,6 +31,10 @@ const HELLO_PROMPT = 'Reply with only the word hello.';
 test.describe('Posit Assistant - Snowflake Cortex (Workbench managed credentials)', {
 	tag: [tags.WORKBENCH_SNOWFLAKE, tags.ASSISTANT],
 }, () => {
+	test.beforeAll(async function ({ app, settings }) {
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess, { writeSetting: false });
+	});
+
 	test('Snowflake Cortex model responds when authenticated via Workbench managed credentials', async function ({ app }) {
 		// No interactive sign-in: the Workbench dashboard's Snowflake credential
 		// (set up by the fixture before the session launches) writes a

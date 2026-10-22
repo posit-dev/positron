@@ -309,8 +309,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "1.8.0",
-			"sha256": "fb7ff69ac42953a44cd4f68bd0a3e081d85d980f2a22b952f8a7a610b35e0450",
+			"version": "1.9.0",
+			"sha256": "be8e633e3d95cd75215c02554d2e8597370cd264cca794a7885ded14d39f96a1",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -710,27 +710,27 @@
 		"rstudio"
 	],
 	"trustedExtensionAuthAccess": {
-		"github": [],
+		"github": [
+			"posit.assistant"
+		],
 		"github-enterprise": [
-			"GitHub.copilot-chat"
+			"GitHub.copilot-chat",
+			"posit.assistant"
 		],
 		"posit-workbench": [
-			"positron.authentication"
-		],
-		"anthropic-api": [
-			"positron.authentication",
 			"posit.assistant"
 		],
-		"posit-ai": [
-			"positron.authentication",
-			"positron.next-edit-suggestions",
+		"anthropic": [
 			"posit.assistant"
+		],
+		"positai": [
+			"posit.assistant",
+			"positron.next-edit-suggestions"
 		],
 		"ms-foundry": [
-			"positron.authentication",
 			"posit.assistant"
 		],
-		"amazon-bedrock": [
+		"bedrock": [
 			"positron.authentication",
 			"posit.assistant"
 		],
@@ -738,32 +738,26 @@
 			"positron.authentication",
 			"posit.assistant"
 		],
-		"openai-api": [
-			"positron.authentication",
+		"openai": [
 			"posit.assistant"
 		],
-		"deepseek-api": [
-			"positron.authentication",
+		"deepseek": [
 			"posit.assistant"
 		],
 		"openai-compatible": [
-			"positron.authentication",
 			"posit.assistant"
 		],
-		"google": [
-			"positron.authentication",
+		"gemini": [
 			"posit.assistant"
 		],
-		"google-cloud": [
-			"positron.authentication",
+		"google-vertex": [
 			"posit.assistant"
 		],
 		"databricks": [
 			"positron.authentication",
 			"posit.assistant"
 		],
-		"positron-custom-provider": [
-			"positron.authentication",
+		"custom-providers": [
 			"posit.assistant"
 		],
 		"microsoft": [

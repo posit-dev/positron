@@ -1216,7 +1216,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			// Only auto-set provider during initial setup if there's no current provider
 			if (!currentProvider && event.added && event.added.length > 0 && this._isInitialSetup) {
 				// Set the first available enabled provider as current
-				const firstEnabledProvider = event.added.find(p => this._positronAssistantConfigurationService.isProviderEnabled(p));
+				const firstEnabledProvider = event.added.find(p => this._isVendorEnabled(p));
 				if (firstEnabledProvider) {
 					// Create a proper provider object by looking up the vendor info
 					const vendorInfo = this._vendors.get(firstEnabledProvider);
@@ -1270,13 +1270,13 @@ export class LanguageModelsService implements ILanguageModelsService {
 			this._logService.trace('[LM] Enabled providers changed, updating model cache and current provider');
 
 			// Clear model cache for providers that are no longer enabled
-			const disabledVendors = Array.from(this._vendors.keys()).filter(v => !this._positronAssistantConfigurationService.isProviderEnabled(v));
+			const disabledVendors = Array.from(this._vendors.keys()).filter(v => !this._isVendorEnabled(v));
 			for (const vendor of disabledVendors) {
 				this._clearModelCache(vendor);
 			}
 
 			// If current provider is no longer enabled, switch to next available or undefined
-			if (this._currentProvider && !this._positronAssistantConfigurationService.isProviderEnabled(this._currentProvider.id)) {
+			if (this._currentProvider && !this._isVendorEnabled(this._currentProvider.id)) {
 				this._logService.trace('[LM] Current provider is no longer enabled, switching to next available', this._currentProvider.id);
 				const availableProviders = this.getLanguageModelProviders();
 				this.currentProvider = availableProviders.length > 0 ? availableProviders[0] : undefined;
@@ -1402,7 +1402,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 			// --- Start Positron ---
 			// Filter out disabled providers
-			if (!this._positronAssistantConfigurationService.isProviderEnabled(model.vendor)) {
+			if (!this._isVendorEnabled(model.vendor)) {
 				continue;
 			}
 			// --- End Positron ---
@@ -1449,6 +1449,15 @@ export class LanguageModelsService implements ILanguageModelsService {
 		return this._providerExtensions.get(vendor);
 	}
 
+	/** Whether a vendor is on. The VS Code API test extension's vendors (never shipped) are always on. */
+	private _isVendorEnabled(vendor: string): boolean {
+		const extension = this._providerExtensions.get(vendor);
+		if (extension && ExtensionIdentifier.equals(extension, 'vscode.vscode-api-tests')) {
+			return true;
+		}
+		return this._positronAssistantConfigurationService.isProviderEnabled(vendor);
+	}
+
 	getStoredProviderVendor(): string | undefined {
 		const stored = this._storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);
 		return stored?.id;
@@ -1483,7 +1492,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 	private async _resolveAllLanguageModels(vendorId: string, silent: boolean): Promise<void> {
 		// --- Start Positron ---
 		// Skip resolving models for disabled providers
-		if (!this._positronAssistantConfigurationService.isProviderEnabled(vendorId)) {
+		if (!this._isVendorEnabled(vendorId)) {
 			this._logService.trace(`[LM] Skipping model resolution for disabled provider: ${vendorId}`);
 			return;
 		}
@@ -1745,7 +1754,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 	async selectLanguageModels(selector: ILanguageModelChatSelector): Promise<string[]> {
 		// --- Start Positron ---
 		// Early return if specific vendor requested but disabled
-		if (selector.vendor && !this._positronAssistantConfigurationService.isProviderEnabled(selector.vendor)) {
+		if (selector.vendor && !this._isVendorEnabled(selector.vendor)) {
 			this._logService.trace('[LM] selectLanguageModels: Skipping disabled vendor', selector.vendor);
 			return [];
 		}
@@ -1761,7 +1770,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			*/
 			// Filter out disabled providers before resolving
 			const allVendors = Array.from(this._vendors.keys()).filter(vendor =>
-				this._positronAssistantConfigurationService.isProviderEnabled(vendor)
+				this._isVendorEnabled(vendor)
 			);
 			// Use allSettled so a single vendor cannot prevent
 			// other vendors' models from being returned. See
@@ -1781,7 +1790,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 		for (const [internalModelIdentifier, model] of this._modelCache) {
 			// --- Start Positron ---
 			// Skip models from disabled providers
-			if (!this._positronAssistantConfigurationService.isProviderEnabled(model.vendor)) {
+			if (!this._isVendorEnabled(model.vendor)) {
 				continue;
 			}
 			// --- End Positron ---

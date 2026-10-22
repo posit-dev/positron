@@ -16,14 +16,14 @@ test.use({
 	extraEnv: { DATABRICKS_TOKEN: undefined, DATABRICKS_HOST: undefined },
 });
 
+
 // Databricks is the one provider whose sign-in differs by build, so it gets its own
 // file rather than joining the provider loop in posit-assistant-signin.test.ts:
 //
 //   - Desktop advertises OAuth (authorization code + PKCE against a loopback server
 //     on ports 8020-8040) and API Key.
 //   - Web and remote advertise API Key only -- the loopback redirect cannot reach an
-//     extension host on another machine. See `supportedOptions` in the authentication
-//     extension's providerSources.ts.
+//     extension host on another machine.
 //
 // So the OAuth case is tagged for desktop lanes only, and the API-key case carries WEB
 // so the chromium lane covers the path that build actually offers. Tags cannot be
@@ -35,9 +35,15 @@ test.use({
 // under the e2e driver Positron refuses to show prompts at all (dialogService.ts), so
 // sign-in fails before it starts rather than showing a dialog a test could answer.
 
-test.describe('Posit Assistant - Databricks OAuth', {
+// Posit Assistant's AI Providers panel doesn't offer Databricks OAuth on Positron yet.
+test.describe.fixme('Posit Assistant - Databricks OAuth', {
 	tag: [tags.ASSISTANT],
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/assistant/issues/2740' }]
 }, () => {
+	test.beforeAll(async function ({ app, settings }) {
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+	});
+
 	test('Sign in with OAuth, send hello, sign out', async function ({ app }) {
 		// The Okta credentials are wired per lane, so skip rather than fail where they
 		// are absent (the same convention the Redshift data-connection tests follow).
@@ -49,7 +55,7 @@ test.describe('Posit Assistant - Databricks OAuth', {
 		// 2-minute budget on their own.
 		test.slow();
 
-		await app.workbench.modelProviderModal.loginModelProvider(provider, {
+		await app.workbench.providerManager.loginModelProvider(provider, {
 			authMethod: 'oauth',
 			baseUrl: process.env.DATABRICKS_URL,
 		});
@@ -70,7 +76,7 @@ test.describe('Posit Assistant - Databricks OAuth', {
 			const responseText = await app.workbench.positAssistant.getLastResponseText();
 			test.expect(responseText.length).toBeGreaterThan(0);
 		} finally {
-			await app.workbench.modelProviderModal.logoutModelProvider(provider);
+			await app.workbench.providerManager.logoutModelProvider(provider);
 		}
 	});
 });
@@ -83,6 +89,10 @@ test.describe('Posit Assistant - Databricks OAuth', {
 test.describe('Posit Assistant - Databricks API Key', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
+	test.beforeAll(async function ({ app, settings }) {
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+	});
+
 	test('Sign in with a personal access token, send hello, sign out', async function ({ app }) {
 		test.skip(!process.env.DATABRICKS_PAT || !process.env.DATABRICKS_WORKSPACE,
 			'Databricks API key sign-in requires DATABRICKS_WORKSPACE and DATABRICKS_PAT');
@@ -90,7 +100,7 @@ test.describe('Posit Assistant - Databricks API Key', {
 		// DATABRICKS_PAT / DATABRICKS_WORKSPACE, resolved by the page object from the
 		// provider's env var names. Both are exported by the desktop lanes specifically
 		// for this test.
-		await app.workbench.modelProviderModal.loginModelProvider(provider, {
+		await app.workbench.providerManager.loginModelProvider(provider, {
 			authMethod: 'apiKey',
 		});
 
@@ -106,7 +116,7 @@ test.describe('Posit Assistant - Databricks API Key', {
 			const responseText = await app.workbench.positAssistant.getLastResponseText();
 			test.expect(responseText.length).toBeGreaterThan(0);
 		} finally {
-			await app.workbench.modelProviderModal.logoutModelProvider(provider);
+			await app.workbench.providerManager.logoutModelProvider(provider);
 		}
 	});
 });

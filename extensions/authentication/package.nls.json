@@ -3,7 +3,6 @@
 	"configuration.snowflake.credentials.description": "Variables used to configure Snowflake Cortex provider.\n\nExample: to set the Snowflake account and connections path, add items with keys `SNOWFLAKE_ACCOUNT` and `SNOWFLAKE_HOME`.",
 	"configuration.aiExcludes.description": "A list of [glob patterns](https://aka.ms/vscode-glob-patterns) to exclude from AI features. Files matching these patterns will not have their contents sent to AI providers for inline completions or chat context. Patterns without a `/` will match against the filename only (e.g., `*.py` matches all Python files). Use `**/` prefix for explicit recursive matching.",
 	"configuration.deprecation.providersJson": "This setting is deprecated. Use `~/.posit/ai/providers.json` instead.",
-	"commands.configureProviders.title": "Configure Language Model Providers",
 	"commands.migrateSettingsToProvidersJson.title": "Migrate AI Provider Settings to providers.json",
 	"commands.category": "Authentication"
 }

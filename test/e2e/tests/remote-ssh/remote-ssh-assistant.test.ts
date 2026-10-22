@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect, tags } from '../_test.setup';
-import { connectToRemoteHost, sshKeyscan } from './connect';
+import { connectToRemoteHost, sshKeyscan, waitForRemoteReconnect } from './connect';
 
 test.use({
 	suiteId: __filename,
 	// Launch the client with the auto-sign-in env var unset so Anthropic starts
-	// disconnected and the test genuinely drives the modal's connect flow instead
+	// disconnected and the test genuinely drives the provider manager's connect flow instead
 	// of finding the provider already signed in. This does not starve the test of a
-	// key: the modal types `ANTHROPIC_KEY`, which the lane loads separately (see
+	// key: the provider manager types `ANTHROPIC_KEY`, which the lane loads separately (see
 	// .github/workflows/test-e2e-remote-ssh-ubuntu.yml).
 	extraEnv: { ANTHROPIC_API_KEY: undefined },
 });
@@ -38,14 +38,30 @@ test.describe('Remote SSH: Posit Assistant', {
 	// reach -- when the server was missing the ai-config module the modal offered
 	// only the local providers and the Anthropic tile was absent entirely
 	// (posit-dev/positron#15306).
-	test('Sign in to Anthropic and chat against the remote host', async function ({ app }) {
+	test('Sign in to Anthropic and chat against the remote host', async function ({ app, settings }) {
 		// Opening the SSH connection alone can take most of the default 2 minute
 		// budget, before the sign-in and the model round-trip.
 		test.slow();
 
-		const { sshWorkbench } = await connectToRemoteHost(app);
+		// Turn on the dev-build update check before connecting, so the remote window
+		// starts with it. User settings are shared by both windows.
+		await settings.set({ 'assistant.autoDevBuildUpdateCheck': true });
 
-		await sshWorkbench.modelProviderModal.loginModelProvider('anthropic-api');
+		const { sshWin, sshWorkbench } = await connectToRemoteHost(app);
+
+		// Update the remote host's Posit Assistant to the latest dev build before
+		// sign-in, as the other Assistant suites do. The install lands on the remote
+		// server, and the reload that applies it reconnects the SSH window.
+		const reloaded = await sshWorkbench.positAssistant.checkForDevBuildUpdate(
+			settings,
+			sshWorkbench.quickaccess,
+			{ waitForReady: false, writeSetting: false },
+		);
+		if (reloaded) {
+			await waitForRemoteReconnect(sshWin);
+		}
+
+		await sshWorkbench.providerManager.loginModelProvider('anthropic');
 
 		try {
 			await sshWorkbench.positAssistant.open();
@@ -55,14 +71,14 @@ test.describe('Remote SSH: Posit Assistant', {
 			// Select the just-signed-in provider's model rather than relying on an
 			// auto-selected default, which may belong to another signed-in provider.
 			// `newConversation: false` keeps that selection.
-			await sshWorkbench.positAssistant.selectProviderModel('anthropic-api');
+			await sshWorkbench.positAssistant.selectProviderModel('anthropic');
 			await sshWorkbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
 			await sshWorkbench.positAssistant.expectResponseVisible();
 
 			const responseText = await sshWorkbench.positAssistant.getLastResponseText();
 			expect(responseText.length).toBeGreaterThan(0);
 		} finally {
-			await sshWorkbench.modelProviderModal.logoutModelProvider('anthropic-api');
+			await sshWorkbench.providerManager.logoutModelProvider('anthropic');
 		}
 	});
 });

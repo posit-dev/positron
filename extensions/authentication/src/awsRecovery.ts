@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AuthProviderLogger } from './authProviderLogger';
-import type { RecoverCallback } from './configDialog';
+import type { RecoverCallback } from './authProvider';
 import {
 	classifyAwsChainError,
 	ExpiredSsoError,

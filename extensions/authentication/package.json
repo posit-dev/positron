@@ -10,27 +10,16 @@
 	},
 	"activationEvents": [
 		"onStartupFinished",
-		"onAuthenticationRequest:anthropic-api",
-		"onAuthenticationRequest:posit-ai",
-		"onAuthenticationRequest:ms-foundry",
-		"onAuthenticationRequest:amazon-bedrock",
+		"onAuthenticationRequest:bedrock",
 		"onAuthenticationRequest:snowflake-cortex",
-		"onAuthenticationRequest:openai-api",
-		"onAuthenticationRequest:openai-compatible",
-		"onAuthenticationRequest:google",
-		"onAuthenticationRequest:google-cloud",
-		"onAuthenticationRequest:deepseek-api",
 		"onAuthenticationRequest:databricks",
-		"onAuthenticationRequest:positron-custom-provider",
-		"onCommand:authentication.configureProviders",
 		"onCommand:authentication.migrateSettingsToProvidersJson"
 	],
 	"main": "./out/extension.js",
 	"dependencies": {
 		"@aws-sdk/credential-providers": "^3.734.0",
 		"@aws-sdk/types": "^3.734.0",
-		"ai-config": "file:../../ai-lib/packages/ai-config",
-		"google-auth-library": "^10.9.1"
+		"ai-config": "file:../../ai-lib/packages/ai-config"
 	},
 	"devDependencies": {
 		"@types/node": "22.x"
@@ -38,60 +27,11 @@
 	"contributes": {
 		"authentication": [
 			{
-				"id": "anthropic-api",
-				"label": "Anthropic"
-			},
-			{
-				"id": "posit-ai",
-				"label": "Posit AI Pass"
-			},
-			{
-				"id": "ms-foundry",
-				"label": "Microsoft Foundry"
-			},
-			{
-				"id": "amazon-bedrock",
+				"id": "bedrock",
 				"label": "AWS"
-			},
-			{
-				"id": "snowflake-cortex",
-				"label": "Snowflake Cortex"
-			},
-			{
-				"id": "openai-api",
-				"label": "OpenAI"
-			},
-			{
-				"id": "openai-compatible",
-				"label": "OpenAI Compatible"
-			},
-			{
-				"id": "google",
-				"label": "Google Gemini"
-			},
-			{
-				"id": "google-cloud",
-				"label": "Gemini Enterprise Agent Platform"
-			},
-			{
-				"id": "deepseek-api",
-				"label": "DeepSeek"
-			},
-			{
-				"id": "databricks",
-				"label": "Databricks"
-			},
-			{
-				"id": "positron-custom-provider",
-				"label": "Custom Provider"
 			}
 		],
 		"commands": [
-			{
-				"command": "authentication.configureProviders",
-				"title": "%commands.configureProviders.title%",
-				"category": "%commands.category%"
-			},
 			{
 				"command": "authentication.migrateSettingsToProvidersJson",
 				"title": "%commands.migrateSettingsToProvidersJson.title%",

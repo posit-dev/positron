@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { randomUUID } from 'crypto';
 import { AuthProviderLogger } from './authProviderLogger';
 import { EXPIRY_REFRESH_BUFFER_MS } from './constants';
 import { hasManagedCredentials } from './managedCredentials';
@@ -12,17 +11,6 @@ import { hasManagedCredentials } from './managedCredentials';
 interface StoredAccount {
 	readonly id: string;
 	readonly label: string;
-}
-
-/**
- * Optional Workbench delegation config. When present, `getSessions` checks
- * for a Workbench-managed bearer token before falling back to stored API keys.
- */
-export interface WorkbenchCredentialConfig {
-	readonly authProviderId: string;
-	readonly scopes: string[];
-	/** Additional check beyond IS_RUNNING_ON_PWB (e.g. endpoint configured). */
-	readonly isAvailable: () => boolean;
 }
 
 /** A credential resolved from a chain, with an optional expiration. */
@@ -49,10 +37,16 @@ export interface CredentialChainConfig {
 }
 
 /**
- * Generic AuthenticationProvider supporting three credential strategies:
+ * Attempt to recover from a failed credential resolution -- for example by
+ * re-running an external sign-in. Return true when the failure is worth
+ * retrying once.
+ */
+export type RecoverCallback = (err: unknown) => Promise<boolean>;
+
+/**
+ * Generic AuthenticationProvider supporting two credential strategies:
  * 1. Credential chain -- resolved from environment (e.g. AWS SDK)
- * 2. Workbench delegation -- bearer tokens from Posit Workbench
- * 3. Stored API keys -- user-provided keys in secret storage
+ * 2. Stored API keys -- keys a subclass saves to secret storage via `storeKey`
  */
 export class AuthProvider
 	implements vscode.AuthenticationProvider, vscode.Disposable {
@@ -77,8 +71,8 @@ export class AuthProvider
 		private readonly providerId: string,
 		private readonly displayName: string,
 		protected readonly context: vscode.ExtensionContext,
-		private readonly workbench?: WorkbenchCredentialConfig,
 		private readonly credentialChain?: CredentialChainConfig,
+		private readonly recover?: RecoverCallback,
 	) {
 		this.logger = new AuthProviderLogger(this.displayName);
 	}
@@ -103,8 +97,7 @@ export class AuthProvider
 
 	/**
 	 * Cancel an in-flight interactive sign-in, if the provider supports
-	 * one (e.g. OAuth providers). The config dialog calls this when the
-	 * user cancels.
+	 * one (e.g. OAuth providers).
 	 */
 	cancelSignIn?(): void;
 
@@ -173,15 +166,6 @@ export class AuthProvider
 			}
 		}
 
-		// Workbench-managed credentials
-		if (this.workbench) {
-			const session = await this.getManagedSession();
-			if (session) {
-				this.logger.logSessionChange('retrieved', 'getSessions: returned Workbench-managed session');
-				return [session];
-			}
-		}
-
 		// Stored API keys
 		const accounts = this.getStoredAccounts();
 		const filtered = options?.account
@@ -205,13 +189,33 @@ export class AuthProvider
 	}
 
 	/**
-	 * Accounts menu entry point. For credential chain providers,
-	 * re-resolves from the chain. Otherwise prompts for an API key.
+	 * Accounts menu entry point. Re-resolves from the credential chain;
+	 * providers without one override this.
 	 */
 	async createSession(
 		_scopes: readonly string[],
 		_options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession> {
+		if (this.credentialChain && this.recover) {
+			// Give the provider one chance to recover -- AWS uses this to
+			// re-run `aws sso login` when the SSO session has lapsed. Exactly
+			// one retry: a recovery that succeeds while the chain still fails
+			// (wrong region, missing model permission) must surface that
+			// failure rather than loop.
+			try {
+				return await this.createSessionOnce();
+			} catch (err) {
+				if (!await this.recover(err)) {
+					throw err;
+				}
+				this.logger.info('Recovered credentials; retrying');
+				return this.createSessionOnce();
+			}
+		}
+		return this.createSessionOnce();
+	}
+
+	private async createSessionOnce(): Promise<vscode.AuthenticationSession> {
 		if (this.credentialChain) {
 			let session: vscode.AuthenticationSession | undefined;
 			// Stays undefined when the chain produced nothing without failing,
@@ -250,17 +254,7 @@ export class AuthProvider
 			return session;
 		}
 
-		const raw = await vscode.window.showInputBox({
-			prompt: vscode.l10n.t('Enter your {0} API key', this.displayName),
-			password: true,
-			ignoreFocusOut: true,
-		});
-		const key = raw?.trim();
-		if (!key) {
-			throw new Error(vscode.l10n.t('API key is required'));
-		}
-		this.logger.logSessionChange('created', 'Creating session via Accounts menu');
-		return this.storeKey(randomUUID(), this.displayName, key);
+		throw new Error(vscode.l10n.t('{0} has no credential chain to sign in with.', this.displayName));
 	}
 
 	/**
@@ -365,8 +359,8 @@ export class AuthProvider
 	 * `removeSession` can't do this on its own for API-key providers: stored
 	 * accounts are keyed by a random UUID, so `removeSession(providerId)`
 	 * matches nothing and no-ops. That leaves a provider whose secret is gone
-	 * but whose account entry remains stuck as "configured" (and so stuck in
-	 * the dialog's "Needs Attention" group). Use this to reset such a provider.
+	 * but whose account entry remains stuck as "configured". Use this to reset
+	 * such a provider.
 	 */
 	async clearConfiguration(): Promise<void> {
 		const accounts = this.getStoredAccounts();
@@ -530,28 +524,6 @@ export class AuthProvider
 		if (this._refreshTimer) {
 			clearInterval(this._refreshTimer);
 			this._refreshTimer = undefined;
-		}
-	}
-
-	private async getManagedSession(
-	): Promise<vscode.AuthenticationSession | undefined> {
-		if (!this.workbench!.isAvailable()) {
-			return undefined;
-		}
-
-		try {
-			const session = await vscode.authentication.getSession(
-				this.workbench!.authProviderId,
-				this.workbench!.scopes,
-				{ silent: true }
-			);
-			if (session) {
-				this.logger.logCredentialResolution('resolved', 'Using Workbench-managed credentials');
-			}
-			return session ?? undefined;
-		} catch (err) {
-			this.logger.logCredentialResolution('failed', `Failed to get Workbench session: ${err instanceof Error ? err.message : String(err)}`);
-			return undefined;
 		}
 	}
 }

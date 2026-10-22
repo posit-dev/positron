@@ -14,7 +14,7 @@ test.use({
 	suiteId: __filename,
 });
 
-const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
+const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic'];
 
 // Catches regressions where MCP servers in `.posit/assistant/settings.json`
 // are ignored — see posit-dev/assistant#1289 (fixed in #1293). Uses the `echo`
@@ -49,11 +49,13 @@ test.describe('Posit Assistant MCP', {
 					JSON.stringify({ mcpServers: { everything: { command: [process.execPath, serverEntry] } } }, null, 2),
 				);
 
-				await app.workbench.modelProviderModal.loginModelProvider(provider);
+				// Update before sign-in, as in posit-assistant.test.ts: a reload with
+				// the key already saved can cache the provider with no models.
+				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+				await app.workbench.providerManager.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');
-				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
 			});
 
 			test.afterAll(async function ({ cleanup }) {

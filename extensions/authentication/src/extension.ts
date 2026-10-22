@@ -4,43 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import {
-	ANTHROPIC_AUTH_PROVIDER_ID,
 	AWS_AUTH_PROVIDER_ID,
-	CREDENTIAL_REFRESH_INTERVAL_MS,
-	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
 	DATABRICKS_AUTH_PROVIDER_ID,
-	DEEPSEEK_AUTH_PROVIDER_ID,
-	FOUNDRY_AUTH_PROVIDER_ID,
-	GEMINI_AUTH_PROVIDER_ID,
-	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
-	OPENAI_AUTH_PROVIDER_ID,
-	POSIT_AUTH_PROVIDER_ID,
-	POSITRON_CUSTOM_AUTH_PROVIDER_ID,
 	SNOWFLAKE_AUTH_PROVIDER_ID,
 } from './constants';
 import { AuthProvider } from './authProvider';
-import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
-import { customApiKeyValidator } from './customProviderAuth';
-import { CustomProviderRegistry, isAddCustomProviderRequest, isRemoveCustomProviderRequest } from './customProviderRegistry';
-import { getRegistrableProviderSources, getUserAwsSettings, PROVIDER_METADATA } from './providerSources';
+import { registerAuthProvider, authProviders } from './authProviderRegistry';
+import { PROVIDER_METADATA } from './providerSources';
 import {
-	normalizeToV1Url,
-	validateAnthropicApiKey,
 	validateDatabricksApiKey,
-	validateDeepSeekApiKey,
-	validateFoundryApiKey,
-	validateGeminiApiKey,
-	validateOpenaiApiKey,
-	validateSnowflakeApiKey
 } from './validation';
-import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { hasManagedCredentials } from './managedCredentials';
 import { createManagedCredentialsApi } from './managedCredentialsApi';
 import { createAwsCredentialChain, watchWebIdentityTokenFile } from './credentials/aws';
 import { createAwsSsoRecovery } from './awsRecovery';
-import { resolveGeapCredential } from './credentials/geap';
 import {
 	detectSnowflakeCredentials,
 	getSnowflakeConnectionsTomlPath,
@@ -49,7 +28,6 @@ import {
 	detectDatabricksConfigCredentials,
 	getDatabricksConfigPath,
 } from './credentials/databricks';
-import { PositOAuthProvider } from './positOAuthProvider';
 import { DatabricksAuthProvider } from './databricksAuthProvider';
 import { normalizeHost } from './databricksOAuth';
 import * as fs from 'fs';
@@ -64,13 +42,11 @@ import {
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
 	ProviderCatalogOptions,
-	removeProviderBlock,
-	saveCustomProviderModels,
-	saveAwsSettings,
 	saveDatabricksHost,
-	saveProviderBaseUrl,
 	saveSnowflakeAccount,
 } from './providerCatalog';
+
+const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
 
 /** A settings migration, named so a failure says which one gave up. */
 interface SettingsMigration {
@@ -136,135 +112,25 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	await migrateSettingsAndPrimeCatalog(context);
 
-	// Reports provider state for the core "AI: Create Diagnostic Report" command:
-	// which providers the user is signed in to, and which are turned off in
-	// settings. Returns display names only (no account details). Bridged as a
-	// command for the same reason as the logs above.
-	context.subscriptions.push(
-		vscode.commands.registerCommand('authentication.getProviderDiagnostics', async () => {
-			const authenticated: string[] = [];
-
-			// "Authenticated" means an active session (getSessions().length > 0),
-			// matching how the Accounts UI decides signed-in - not isConfigured(),
-			// which also counts providers set up once but now signed out or expired.
-			await Promise.all([...authProviders.values()].map(async (provider) => {
-				try {
-					if ((await provider.getSessions()).length > 0) {
-						authenticated.push(provider.label);
-					}
-				} catch (e) {
-					log.warn(`getProviderDiagnostics: could not check ${provider.label}: ${e instanceof Error ? e.message : String(e)}`);
-				}
-			}));
-
-			// Copilot rides GitHub's built-in auth, not a registered AuthProvider.
-			try {
-				if (await vscode.authentication.getSession('github', [], { silent: true })) {
-					authenticated.push('GitHub Copilot');
-				}
-			} catch (e) {
-				log.warn(`getProviderDiagnostics: could not check GitHub: ${e instanceof Error ? e.message : String(e)}`);
-			}
-
-			// "Disabled" means the provider's catalog entry isn't enabled.
-			// Enablement now lives in the provider catalog (providers.json), not
-			// the deprecated `*.enable` settings. Match core's rule: enabled only
-			// when `enabled === true`, so a missing or false entry counts as off.
-			const disabled = Object.values(PROVIDER_METADATA)
-				.filter(meta => !meta.catalogId || getCachedProvider(meta.catalogId)?.enabled !== true)
-				.map(meta => meta.displayName);
-
-			return { authenticated: authenticated.sort(), disabled: disabled.sort() };
-		}),
+	// On PWB, Posit AI Pass defaults to off so admins control AI access.
+	applyPwbPositAIDefault(context).catch(err =>
+		log.error(`Failed to apply the Posit Workbench default for Posit AI Pass: ${err}`)
 	);
-
-	await registerAnthropicProvider(context);
-	registerPositAIProvider(context);
-	registerFoundryProvider(context);
 
 	await registerAwsProvider(context);
-	await registerSnowflakeProvider(context);
-
-	await registerOpenaiProvider(context);
-	await registerGeminiProvider(context);
-	await registerGeapProvider(context);
-	await registerDeepSeekProvider(context);
-	await registerDatabricksProvider(context);
-	registerCustomProvider(context);
-
-	// Register providers so the assistant knows about them; enablement is
-	// read from the provider catalog (providers.json), not a settings toggle.
-	// This list is computed once here and reused below, so a change made
-	// after activation (deleting the legacy provider, or configuring it for
-	// the first time) needs a window reload to show up in the modal.
-	const registrableSources = getRegistrableProviderSources();
-	for (const source of registrableSources) {
-		const disposable = positron.ai.registerProvider(source, providerAction);
-		context.subscriptions.push(disposable);
-	}
-
-	// Custom entries are registered from the catalog rather than a fixed list,
-	// and re-reconciled whenever providers.json changes.
-	const customProviders = new CustomProviderRegistry(context);
-	context.subscriptions.push(customProviders);
-	await customProviders.reconcile();
-
-	// Reactive updates: send all auth session changes through updateProvider
-	// so the dialog and other listeners see updated signedIn state immediately.
-	context.subscriptions.push(
-		vscode.authentication.onDidChangeSessions(async (e) => {
-			if (e.provider.id === POSITRON_CUSTOM_AUTH_PROVIDER_ID) {
-				// The event doesn't say which entry moved, and nothing in
-				// `authProviders` answers to the shared id. Refresh each entry
-				// from its own delegate, still keyed by the entry name.
-				for (const id of customProviders.registeredIds) {
-					const entry = authProviders.get(id);
-					if (entry) {
-						await updateProviderFromSessions(id, await entry.getSessions());
-					}
-				}
-				return;
-			}
-			const provider = authProviders.get(e.provider.id);
-			if (provider) {
-				const sessions = await provider.getSessions();
-				await updateProviderFromSessions(e.provider.id, sessions);
-			}
-			// Copilot uses GitHub's built-in auth, not a registered AuthProvider
-			if (e.provider.id === 'github') {
-				const session = await vscode.authentication.getSession('github', [], { silent: true });
-				await updateProviderFromSessions('copilot-auth', session ? [session] : []);
-			}
-		})
-	);
-
-	// Push initial state: credentials resolved during activation (env-var or
-	// chain credentials) fire their session-change event before the listener
-	// above is registered, so sweep current sessions once to reflect them.
-	// Reuses the same list as the registration loop above: a provider that
-	// wasn't registered has nothing to update, and trying anyway just logs
-	// a "Cannot update unknown provider" warning.
-	for (const source of registrableSources) {
-		const provider = authProviders.get(source.provider.id);
-		if (provider) {
-			const sessions = await provider.getSessions();
-			await updateProviderFromSessions(source.provider.id, sessions);
-		}
-	}
-	const githubSession = await vscode.authentication.getSession('github', [], { silent: true });
-	await updateProviderFromSessions('copilot-auth', githubSession ? [githubSession] : []);
+	const snowflake = registerUnlessAssistantOwns(SNOWFLAKE_AUTH_PROVIDER_ID, () => registerSnowflakeProvider(context));
+	context.subscriptions.push(snowflake.disposable);
+	await snowflake.ready;
+	const databricks = registerUnlessAssistantOwns(DATABRICKS_AUTH_PROVIDER_ID, () => registerDatabricksProvider(context));
+	context.subscriptions.push(databricks.disposable);
+	await databricks.ready;
 
 	// React to provider-catalog changes: drop sessions for providers disabled
 	// in the catalog, and re-resolve chain sessions whose connection changed.
 	context.subscriptions.push(
 		onDidChangeProviderCatalog(async (e) => {
-			await customProviders.reconcile(e);
-			for (const metadata of Object.values(PROVIDER_METADATA)) {
-				const { id, catalogId } = metadata;
-				if (!catalogId) {
-					continue;
-				}
-				if (e.disabledIds.includes(catalogId)) {
+			for (const { id } of Object.values(PROVIDER_METADATA)) {
+				if (e.disabledIds.includes(id)) {
 					const provider = authProviders.get(id);
 					if (provider) {
 						for (const session of await provider.getSessions()) {
@@ -272,145 +138,23 @@ export async function activate(context: vscode.ExtensionContext) {
 						}
 					}
 				}
-				if (e.changedConnectionIds.includes(catalogId)) {
+				if (e.changedConnectionIds.includes(id)) {
 					await authProviders.get(id)?.resolveChainCredentials();
 				}
-			}
-
-			// Refresh the profile/region the Bedrock dialog shows the next time
-			// it opens. `registerProvider` sent a one-time snapshot of
-			// `defaults` at startup and nothing updates it afterwards, so
-			// without this the dialog would still show startup values after a
-			// save. A stale box is worse than it looks: an empty one means
-			// "delete this setting" on Connect, so it would wipe the value that
-			// was just saved.
-			//
-			// Covers in-app writes, which reach here through
-			// refreshProviderCatalog. It does NOT cover every hand edit of
-			// providers.json: ai-config's watch only fires when the *resolved*
-			// catalog changed, so a file edit that AWS_PROFILE / AWS_REGION
-			// shadows is invisible to it and the dialog keeps the older value.
-			if (e.changedUserProviderIds.includes(PROVIDER_METADATA.amazonBedrock.catalogId!)) {
-				positron.ai.updateProvider(AWS_AUTH_PROVIDER_ID, {
-					defaults: { aws: getUserAwsSettings() },
-				});
 			}
 		})
 	);
 
 	log.info('Authentication extension activated');
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand(
-			'authentication.configureProviders',
-			async (options?: positron.ai.ShowLanguageModelConfigOptions) => {
-				return positron.ai.showLanguageModelConfig(options);
-			}
-		),
-	);
-
-	// The Add Custom Provider form's write. Here rather than through the modal's
-	// usual provider action, which is keyed on a provider id a new entry doesn't
-	// have yet. Errors travel back to the form, which shows them inline.
-	context.subscriptions.push(
-		vscode.commands.registerCommand(
-			'authentication.addCustomProvider',
-			async (request: unknown) => {
-				if (!isAddCustomProviderRequest(request)) {
-					throw new Error(vscode.l10n.t('A provider name and type are required.'));
-				}
-				await customProviders.create(request);
-			}
-		),
-	);
-	// The Delete Provider action's write, for the same reason as the add above.
-	// Errors travel back to the confirmation screen.
-	context.subscriptions.push(
-		vscode.commands.registerCommand(
-			'authentication.removeCustomProvider',
-			async (request: unknown) => {
-				if (!isRemoveCustomProviderRequest(request)) {
-					throw new Error(vscode.l10n.t('A provider name is required.'));
-				}
-				await customProviders.remove(request.name);
-			}
-		),
-	);
 	registerProvidersJsonMigration(context);
 
 	return {
 		getLogs: () => log.formatEntriesForDiagnostics(),
-		// Lets `next-edit-suggestions` read a resolved connection value without
-		// duplicating the catalog here.
-		getResolvedProviderBaseUrl: (catalogId: string) => getCachedProvider(catalogId)?.connection.baseUrl,
 		// Lets the Snowflake and Databricks data connection drivers offer a "Workbench managed
 		// credentials" mechanism without parsing Workbench's credential files themselves.
 		managedCredentials: createManagedCredentialsApi(),
 	};
-}
-
-async function registerAnthropicProvider(
-	context: vscode.ExtensionContext
-): Promise<void> {
-	const logger = new AuthProviderLogger('Anthropic');
-
-	const provider = new AuthProvider(
-		ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', context,
-		undefined,
-		{
-			resolve: async () => {
-				const apiKey = process.env.ANTHROPIC_API_KEY;
-				if (!apiKey) {
-					throw new Error('ANTHROPIC_API_KEY not set');
-				}
-				const baseUrl = getCachedProvider(PROVIDER_METADATA.anthropic.catalogId!)?.connection.baseUrl;
-				await validateAnthropicApiKey(apiKey, { baseUrl });
-				return apiKey;
-			},
-			preventSignOut: true,
-		}
-	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', provider,
-			{ supportsMultipleAccounts: true }
-		),
-		provider
-	);
-	registerAuthProvider(ANTHROPIC_AUTH_PROVIDER_ID, provider, {
-		validateApiKey: validateAnthropicApiKey,
-		onSave: async (config) => {
-			if (config.baseUrl) {
-				await saveProviderBaseUrl(PROVIDER_METADATA.anthropic.catalogId!, config.baseUrl);
-			}
-		},
-	});
-
-	// Eagerly resolve env var credentials so the session is
-	// available before positron-assistant registers models.
-	await provider.resolveChainCredentials();
-
-	logger.info('Registered auth provider');
-}
-
-function registerPositAIProvider(context: vscode.ExtensionContext): void {
-	const logger = new AuthProviderLogger('Posit AI Pass');
-	const provider = new PositOAuthProvider(context);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			POSIT_AUTH_PROVIDER_ID, 'Posit AI Pass', provider
-		),
-		provider
-	);
-	registerAuthProvider(POSIT_AUTH_PROVIDER_ID, provider);
-	logger.info('Registered auth provider');
-
-	// On PWB, Posit AI Pass defaults to disabled so admins control AI access.
-	// We apply this once on first activation and skip it afterwards so user
-	// or admin choices are never overwritten.
-	applyPwbPositAIDefault(context).catch(err =>
-		logger.logOperationError('apply PWB Posit AI Pass default', err)
-	);
 }
 
 async function registerAwsProvider(
@@ -419,39 +163,20 @@ async function registerAwsProvider(
 	const logger = new AuthProviderLogger('AWS');
 
 	const credentialChain = createAwsCredentialChain(
-		() => getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws,
+		() => getCachedProvider(PROVIDER_METADATA.amazonBedrock.id)?.connection.aws,
 		process.env,
 		fromNodeProviderChain,
 	);
 	const provider = new AuthProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,
-		undefined,
-		credentialChain
-	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			AWS_AUTH_PROVIDER_ID, 'AWS', provider,
-			{ supportsMultipleAccounts: false }
-		),
-		provider
-	);
-	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider, {
-		onSave: async (config) => {
-			// An empty block means the form had nothing editable to submit --
-			// every field it offers is supplied by the environment, which
-			// outranks providers.json. Returning early keeps Connect from
-			// rewriting the config file with identical content.
-			if (!config.aws || Object.keys(config.aws).length === 0) {
-				return;
-			}
-			await saveAwsSettings(config.aws);
-		},
-		recover: createAwsSsoRecovery({
+		credentialChain,
+		createAwsSsoRecovery({
 			getProfile: () => getCachedProvider(
-				PROVIDER_METADATA.amazonBedrock.catalogId!
+				PROVIDER_METADATA.amazonBedrock.id
 			)?.connection.aws?.profile,
-		}),
-	});
+		})
+	);
+	context.subscriptions.push(registerProvider(AWS_AUTH_PROVIDER_ID, 'AWS', provider));
 
 	const tokenWatcher = watchWebIdentityTokenFile(
 		process.env, credentialChain, () => provider.resolveChainCredentials()
@@ -463,73 +188,91 @@ async function registerAwsProvider(
 	logger.info('Registered auth provider');
 }
 
-function registerFoundryProvider(context: vscode.ExtensionContext): void {
-	const logger = new AuthProviderLogger('Microsoft Foundry');
-	const provider = new AuthProvider(
-		FOUNDRY_AUTH_PROVIDER_ID, 'Microsoft Foundry', context,
-		{
-			authProviderId: FOUNDRY_MANAGED_CREDENTIALS.authProvider.id,
-			scopes: FOUNDRY_MANAGED_CREDENTIALS.authProvider.scopes,
-			isAvailable: () => !!hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS),
-		}
-	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			FOUNDRY_AUTH_PROVIDER_ID, 'Microsoft Foundry', provider,
-			{ supportsMultipleAccounts: false }
-		),
-		provider
-	);
-	registerAuthProvider(FOUNDRY_AUTH_PROVIDER_ID, provider, {
-		validateApiKey: validateFoundryApiKey,
-		onSave: async (config) => {
-			if (config.baseUrl) {
-				config.baseUrl = normalizeToV1Url(config.baseUrl);
-				await saveProviderBaseUrl(PROVIDER_METADATA.foundry.catalogId!, config.baseUrl);
+/** An auth provider registration, plus its first look for existing credentials. */
+export interface ProviderRegistration {
+	readonly disposable: vscode.Disposable;
+	readonly ready: Promise<void>;
+}
+
+/**
+ * Registers an auth provider only while Posit Assistant doesn't, since an id can only be registered once.
+ * Re-checks when extensions are installed, enabled or disabled.
+ */
+export function registerUnlessAssistantOwns(
+	authProviderId: string,
+	register: () => ProviderRegistration,
+	isOwnedByAssistant: (authProviderId: string) => boolean = assistantRegisters,
+	onDidChangeExtensions: vscode.Event<void> = vscode.extensions.onDidChange,
+): ProviderRegistration {
+	let current: vscode.Disposable | undefined;
+	const update = (): Promise<void> => {
+		if (isOwnedByAssistant(authProviderId)) {
+			current?.dispose();
+			current = undefined;
+		} else if (!current) {
+			try {
+				const registration = register();
+				current = registration.disposable;
+				return registration.ready;
+			} catch (err) {
+				// Left unregistered, so the next extension change tries again.
+				return Promise.reject(err);
 			}
-		},
+		}
+		return Promise.resolve();
+	};
+
+	const listener = onDidChangeExtensions(() => {
+		update().catch(err => log.error(`Could not update the ${authProviderId} auth provider: ${err}`));
 	});
-	logger.info('Registered auth provider');
+	return {
+		disposable: new vscode.Disposable(() => {
+			listener.dispose();
+			current?.dispose();
+			current = undefined;
+		}),
+		ready: update(),
+	};
+}
 
-	// Forward Workbench session changes so consumers listening for
-	// ms-foundry events are notified when the managed token arrives.
-	context.subscriptions.push(
-		vscode.authentication.onDidChangeSessions((e) => {
-			if (e.provider.id === FOUNDRY_MANAGED_CREDENTIALS.authProvider.id) {
-				provider.fireSessionsChanged({ added: [], removed: [], changed: [] });
-			}
-		})
-	);
+/** Whether Posit Assistant is installed and enabled, and declares this auth provider id. */
+function assistantRegisters(authProviderId: string): boolean {
+	return declaresAuthProvider(vscode.extensions.getExtension(POSIT_ASSISTANT_EXTENSION_ID)?.packageJSON, authProviderId);
+}
 
-	// Seed the Workbench-managed Foundry endpoint into the catalog so the
-	// provider reads it from providers.json like a user-configured base URL.
-	if (hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
-		const endpoint = vscode.workspace
-			.getConfiguration('posit.workbench.foundry')
-			.get<string>('endpoint', '');
-		const catalogId = PROVIDER_METADATA.foundry.catalogId!;
-		if (endpoint) {
-			const normalized = normalizeToV1Url(endpoint);
-			if (getCachedProvider(catalogId)?.connection.baseUrl !== normalized) {
-				saveProviderBaseUrl(catalogId, normalized).then(undefined, err =>
-					logger.logOperationError('sync Foundry endpoint', err)
-				);
-			}
-		}
+/** Whether an extension manifest lists the id in `contributes.authentication`. */
+export function declaresAuthProvider(packageJSON: { contributes?: { authentication?: unknown } } | undefined, authProviderId: string): boolean {
+	const declared = packageJSON?.contributes?.authentication;
+	return Array.isArray(declared) && declared.some(entry => entry?.id === authProviderId);
+}
+
+/** Registers the provider with VS Code and the local registry, disposing it if registration throws. */
+function registerProvider(authProviderId: string, label: string, provider: AuthProvider): vscode.Disposable {
+	try {
+		return vscode.Disposable.from(
+			vscode.authentication.registerAuthenticationProvider(
+				authProviderId, label, provider,
+				{ supportsMultipleAccounts: false }
+			),
+			provider,
+			registerAuthProvider(authProviderId, provider)
+		);
+	} catch (err) {
+		provider.dispose();
+		throw err;
 	}
 }
 
-async function registerSnowflakeProvider(context: vscode.ExtensionContext): Promise<void> {
+function registerSnowflakeProvider(context: vscode.ExtensionContext): ProviderRegistration {
 	const logger = new AuthProviderLogger('Snowflake Cortex');
 	let lastTomlCheck: number | undefined;
 	let pendingMtime: number | undefined;
 
 	const provider = new AuthProvider(
 		SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake Cortex', context,
-		undefined,
 		{
 			resolve: async () => {
-				const snowflake = getCachedProvider(PROVIDER_METADATA.snowflake.catalogId!)?.connection.snowflake;
+				const snowflake = getCachedProvider(PROVIDER_METADATA.snowflake.id)?.connection.snowflake;
 				const credentials = await detectSnowflakeCredentials(snowflake);
 				if (!credentials) {
 					throw new Error('No Snowflake credentials found');
@@ -551,7 +294,7 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 				return credentials.token;
 			},
 			shouldRefresh: async () => {
-				const snowflake = getCachedProvider(PROVIDER_METADATA.snowflake.catalogId!)?.connection.snowflake;
+				const snowflake = getCachedProvider(PROVIDER_METADATA.snowflake.id)?.connection.snowflake;
 				const tomlPath = getSnowflakeConnectionsTomlPath(snowflake);
 				if (!tomlPath) {
 					return false;
@@ -570,190 +313,15 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 			},
 		}
 	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake Cortex', provider,
-			{ supportsMultipleAccounts: false }
-		),
-		provider
-	);
-	registerAuthProvider(SNOWFLAKE_AUTH_PROVIDER_ID, provider, {
-		validateApiKey: validateSnowflakeApiKey,
-		onSave: async (config) => {
-			// baseUrl carries the bare account (#13750); persist it as the
-			// catalog's snowflake account, not as a baseUrl.
-			const account = config.baseUrl?.trim();
-			if (account) {
-				await saveSnowflakeAccount(account);
-			}
-		},
-	});
-	await provider.resolveChainCredentials();
-	logger.info('Registered auth provider');
+	return {
+		disposable: registerProvider(SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake Cortex', provider),
+		ready: provider.resolveChainCredentials().then(() => logger.info('Registered auth provider')),
+	};
 }
 
-async function registerOpenaiProvider(
+function registerDatabricksProvider(
 	context: vscode.ExtensionContext
-): Promise<void> {
-	const provider = new AuthProvider(
-		OPENAI_AUTH_PROVIDER_ID, 'OpenAI', context,
-		undefined,
-		{
-			resolve: async () => {
-				const apiKey = process.env.OPENAI_API_KEY;
-				if (!apiKey) {
-					throw new Error('OPENAI_API_KEY not set');
-				}
-				const baseUrl = getCachedProvider(PROVIDER_METADATA.openai.catalogId!)?.connection.baseUrl;
-				await validateOpenaiApiKey(apiKey, { baseUrl });
-				return apiKey;
-			},
-			preventSignOut: true,
-		}
-	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			OPENAI_AUTH_PROVIDER_ID, 'OpenAI', provider,
-			{ supportsMultipleAccounts: true }
-		),
-		provider
-	);
-	registerAuthProvider(OPENAI_AUTH_PROVIDER_ID, provider, {
-		validateApiKey: validateOpenaiApiKey,
-		onSave: async (config) => {
-			if (config.baseUrl) {
-				await saveProviderBaseUrl(PROVIDER_METADATA.openai.catalogId!, config.baseUrl);
-			}
-		},
-	});
-
-	await provider.resolveChainCredentials();
-
-	log.info(`Registered auth provider: ${OPENAI_AUTH_PROVIDER_ID}`);
-}
-
-async function registerGeminiProvider(
-	context: vscode.ExtensionContext
-): Promise<void> {
-	const provider = new AuthProvider(
-		GEMINI_AUTH_PROVIDER_ID, 'Google Gemini', context,
-		undefined,
-		{
-			resolve: async () => {
-				const apiKey = process.env.GEMINI_API_KEY
-					?? process.env.GOOGLE_API_KEY;
-				if (!apiKey) {
-					throw new Error(
-						'GEMINI_API_KEY or GOOGLE_API_KEY not set'
-					);
-				}
-				const baseUrl = getCachedProvider(PROVIDER_METADATA.google.catalogId!)?.connection.baseUrl;
-				await validateGeminiApiKey(apiKey, { baseUrl });
-				return apiKey;
-			},
-			preventSignOut: true,
-		}
-	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			GEMINI_AUTH_PROVIDER_ID, 'Google Gemini', provider,
-			{ supportsMultipleAccounts: true }
-		),
-		provider
-	);
-	registerAuthProvider(GEMINI_AUTH_PROVIDER_ID, provider, {
-		validateApiKey: validateGeminiApiKey,
-		onSave: async (config) => {
-			if (config.baseUrl) {
-				await saveProviderBaseUrl(PROVIDER_METADATA.google.catalogId!, config.baseUrl);
-			}
-		},
-	});
-
-	await provider.resolveChainCredentials();
-
-	log.info(`Registered auth provider: ${GEMINI_AUTH_PROVIDER_ID}`);
-}
-
-async function registerGeapProvider(
-	context: vscode.ExtensionContext,
-): Promise<void> {
-	const logger = new AuthProviderLogger('Gemini Enterprise Agent Platform');
-
-	const provider = new AuthProvider(
-		GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Gemini Enterprise Agent Platform', context,
-		undefined,
-		{
-			resolve: () => {
-				const googleCloud = getCachedProvider(PROVIDER_METADATA.geap.catalogId!)?.connection.googleCloud;
-				return resolveGeapCredential(googleCloud, logger);
-			},
-			refreshIntervalMs: CREDENTIAL_REFRESH_INTERVAL_MS,
-		}
-	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Gemini Enterprise Agent Platform', provider,
-			{ supportsMultipleAccounts: false }
-		),
-		provider,
-	);
-	registerAuthProvider(GOOGLE_CLOUD_AUTH_PROVIDER_ID, provider, {
-		onSave: async (config) => {
-			if (config.baseUrl) {
-				await saveProviderBaseUrl(PROVIDER_METADATA.geap.catalogId!, config.baseUrl);
-			}
-		},
-	});
-
-	await provider.resolveChainCredentials();
-
-	logger.info(`Registered auth provider: ${GOOGLE_CLOUD_AUTH_PROVIDER_ID}`);
-}
-
-async function registerDeepSeekProvider(
-	context: vscode.ExtensionContext
-): Promise<void> {
-	const provider = new AuthProvider(
-		DEEPSEEK_AUTH_PROVIDER_ID, 'DeepSeek', context,
-		undefined,
-		{
-			resolve: async () => {
-				const apiKey = process.env.DEEPSEEK_API_KEY;
-				if (!apiKey) {
-					throw new Error('DEEPSEEK_API_KEY not set');
-				}
-				const baseUrl = getCachedProvider(PROVIDER_METADATA.deepseek.catalogId!)?.connection.baseUrl;
-				await validateDeepSeekApiKey(apiKey, { baseUrl });
-				return apiKey;
-			},
-			preventSignOut: true,
-		}
-	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			DEEPSEEK_AUTH_PROVIDER_ID, 'DeepSeek', provider,
-			{ supportsMultipleAccounts: true }
-		),
-		provider
-	);
-	registerAuthProvider(DEEPSEEK_AUTH_PROVIDER_ID, provider, {
-		validateApiKey: validateDeepSeekApiKey,
-		onSave: async (config) => {
-			if (config.baseUrl) {
-				await saveProviderBaseUrl(PROVIDER_METADATA.deepseek.catalogId!, config.baseUrl);
-			}
-		},
-	});
-
-	await provider.resolveChainCredentials();
-
-	log.info(`Registered auth provider: ${DEEPSEEK_AUTH_PROVIDER_ID}`);
-}
-
-async function registerDatabricksProvider(
-	context: vscode.ExtensionContext
-): Promise<void> {
+): ProviderRegistration {
 	const logger = new AuthProviderLogger('Databricks');
 	let lastCfgCheck: number | undefined;
 	let pendingMtime: number | undefined;
@@ -770,7 +338,7 @@ async function registerDatabricksProvider(
 				if (!host) {
 					throw new Error(
 						'DATABRICKS_TOKEN is set but no workspace host is configured. ' +
-						'Set DATABRICKS_HOST or enter the workspace URL in the provider dialog.'
+						'Set DATABRICKS_HOST, or add the workspace URL in Posit Assistant\'s AI provider settings.'
 					);
 				}
 				await validateDatabricksApiKey(envToken, { baseUrl: host });
@@ -816,60 +384,8 @@ async function registerDatabricksProvider(
 			}
 		},
 	});
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', provider,
-			{ supportsMultipleAccounts: false }
-		),
-		provider
-	);
-	registerAuthProvider(DATABRICKS_AUTH_PROVIDER_ID, provider, {
-		validateApiKey: validateDatabricksApiKey,
-		onSave: async (config) => {
-			// baseUrl carries the workspace host through the modal; persist it
-			// as the catalog's databricks host, not as a baseUrl.
-			const host = config.baseUrl?.trim();
-			if (host) {
-				await saveDatabricksHost(normalizeHost(host));
-			}
-		},
-	});
-
-	await provider.resolveChainCredentials();
-	logger.info('Registered auth provider');
-}
-
-function registerCustomProvider(
-	context: vscode.ExtensionContext
-): void {
-	const provider = new AuthProvider(
-		CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'OpenAI Compatible', context
-	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'OpenAI Compatible', provider,
-			{ supportsMultipleAccounts: true }
-		),
-		provider
-	);
-	registerAuthProvider(CUSTOM_PROVIDER_AUTH_PROVIDER_ID, provider, {
-		validateApiKey: customApiKeyValidator('openai-compatible'),
-		onSave: async (config) => {
-			const catalogId = PROVIDER_METADATA.customProvider.catalogId!;
-			if (config.baseUrl) {
-				await saveProviderBaseUrl(catalogId, config.baseUrl);
-			}
-			await saveCustomProviderModels(catalogId, config.protocol, config.customModels);
-		},
-		onDelete: async () => {
-			// The custom provider's whole providers.json block is user-created,
-			// so removing the provider drops the block entirely -- otherwise its
-			// base URL, protocol, and custom models linger and pre-fill the next
-			// time someone sets up a custom provider.
-			await removeProviderBlock(PROVIDER_METADATA.customProvider.catalogId!);
-		},
-	});
-	log.info(
-		`Registered auth provider: ${CUSTOM_PROVIDER_AUTH_PROVIDER_ID}`
-	);
+	return {
+		disposable: registerProvider(DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', provider),
+		ready: provider.resolveChainCredentials().then(() => logger.info('Registered auth provider')),
+	};
 }
