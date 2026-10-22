@@ -41,6 +41,14 @@ function isReadOnly(params: positron.DataConnectionParameterValues): boolean {
 }
 
 /**
+ * DuckDB reads anything after `?` in an `md:` path as connection options, so neither the live
+ * connection nor the generated code accepts a default database name with `?` or `#`.
+ */
+function hasConnectionOptions(database: string | undefined): boolean {
+	return database !== undefined && /[?#]/.test(database);
+}
+
+/**
  * Creates the MotherDuck DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
  * @param dataExplorerHandler Hosts table views for previewing tables/views in the Data Explorer.
@@ -93,9 +101,8 @@ export function createMotherDuckDriver(
 					if (!isNonBlankString(token)) {
 						throw new Error(vscode.l10n.t("Set the motherduck_token environment variable to your MotherDuck access token, then restart Positron and reconnect. For example, add export motherduck_token='<token>' to your shell profile, or on Windows, add it to your user environment variables."));
 					}
-					// DuckDB reads anything after `?` in an `md:` path as connection options.
 					const database = optionalString(params.database);
-					if (database !== undefined && /[?#]/.test(database)) {
+					if (hasConnectionOptions(database)) {
 						throw new Error(vscode.l10n.t("The default database name cannot contain '?' or '#'."));
 					}
 
@@ -112,11 +119,12 @@ export function createMotherDuckDriver(
 			}
 		},
 		async generateConnectionCode(mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
-			if (mechanismId !== ENVVAR_MECHANISM_ID) {
+			const database = optionalString(params.database);
+			if (mechanismId !== ENVVAR_MECHANISM_ID || hasConnectionOptions(database)) {
 				return [];
 			}
 			return generateMotherDuckCode(languageId, {
-				database: optionalString(params.database),
+				database,
 				readOnly: isReadOnly(params),
 			});
 		},

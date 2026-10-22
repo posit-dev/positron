@@ -102,6 +102,15 @@ suite('MotherDuck Driver', () => {
 		assert.ok(Date.now() - start < 2000);
 	});
 
+	test('generateConnectionCode returns no code for a default database with connection options', async () => {
+		const driver = createDriver();
+		for (const database of ['mydb?attach_mode=single', 'a#b']) {
+			for (const languageId of ['python', 'r', 'ggsql']) {
+				assert.deepStrictEqual(await driver.generateConnectionCode!('envvar', languageId, { database, readOnly: true }), []);
+			}
+		}
+	});
+
 	test('a profile saved with the old token mechanism fails cleanly', async () => {
 		const driver = createDriver({ env: { motherduck_token: 'aaa.bbb.ccc' } });
 		await assert.rejects(async () => driver.connect('token', { token: 'aaa.bbb.ccc' }),

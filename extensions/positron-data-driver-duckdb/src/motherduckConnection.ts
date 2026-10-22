@@ -235,9 +235,9 @@ function openFailureMessage(detail: string, path: string): string {
 }
 
 /**
- * The message for a missing or blank access token. Shared by the driver and the connection so
- * the user sees the same text whichever one catches it.
+ * The message for a blank access token. The driver catches a missing `motherduck_token` first,
+ * with its own message, so this guards direct callers of the connection.
  */
-export function accessTokenRequiredMessage(): string {
+function accessTokenRequiredMessage(): string {
 	return vscode.l10n.t('A MotherDuck access token is required.');
 }
