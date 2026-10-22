@@ -26,7 +26,7 @@ describe('generateMotherDuckCode', () => {
 
 	test('r read-only with token', () => {
 		expect(generateMotherDuckCode('r', { token: TOKEN, database: DB, readOnly: true })).toEqual([
-			{ id: 'dbi', label: 'DBI', code: 'library(DBI)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data", read_only = TRUE, config = list(motherduck_token = "aaa.bbb.ccc"))\n' },
+			{ id: 'dbi', label: 'DBI', code: 'library(DBI)\n\ninstall_con <- dbConnect(duckdb::duckdb())\ninvisible(dbExecute(install_con, "INSTALL motherduck"))\ndbDisconnect(install_con, shutdown = TRUE)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data", read_only = TRUE, config = list(motherduck_token = "aaa.bbb.ccc"))\n' },
 		]);
 	});
 
@@ -37,7 +37,7 @@ describe('generateMotherDuckCode', () => {
 			'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:sample_data", connect_args={"config": {"motherduck_token": "aaa.bbb.ccc"}})\n',
 		]);
 		expect(generateMotherDuckCode('r', { token: TOKEN, database: DB, readOnly: false })[0].code)
-			.toBe('library(DBI)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data", config = list(motherduck_token = "aaa.bbb.ccc"))\n');
+			.toBe('library(DBI)\n\ninstall_con <- dbConnect(duckdb::duckdb())\ninvisible(dbExecute(install_con, "INSTALL motherduck"))\ndbDisconnect(install_con, shutdown = TRUE)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data", config = list(motherduck_token = "aaa.bbb.ccc"))\n');
 		expect(generateMotherDuckCode('ggsql', { token: TOKEN, database: DB, readOnly: false })[0].code)
 			.toBe('-- @connect: duckdb://md:sample_data?motherduck_token=aaa.bbb.ccc');
 	});
@@ -50,7 +50,7 @@ describe('generateMotherDuckCode', () => {
 			'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:sample_data", connect_args={"read_only": True})\n',
 		]);
 		expect(generateMotherDuckCode('r', p)[0].code)
-			.toBe('library(DBI)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data", read_only = TRUE)\n');
+			.toBe('library(DBI)\n\ninstall_con <- dbConnect(duckdb::duckdb())\ninvisible(dbExecute(install_con, "INSTALL motherduck"))\ndbDisconnect(install_con, shutdown = TRUE)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data", read_only = TRUE)\n');
 	});
 
 	test('undefined token, not read-only, python has no empty config or connect_args', () => {
@@ -60,7 +60,7 @@ describe('generateMotherDuckCode', () => {
 			'import sqlalchemy as sa\n\nengine = sa.create_engine("duckdb:///md:sample_data")\n',
 		]);
 		expect(generateMotherDuckCode('r', p)[0].code)
-			.toBe('library(DBI)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data")\n');
+			.toBe('library(DBI)\n\ninstall_con <- dbConnect(duckdb::duckdb())\ninvisible(dbExecute(install_con, "INSTALL motherduck"))\ndbDisconnect(install_con, shutdown = TRUE)\n\ncon <- dbConnect(duckdb::duckdb(), dbdir = "md:sample_data")\n');
 	});
 
 	test('blank database gives md:', () => {

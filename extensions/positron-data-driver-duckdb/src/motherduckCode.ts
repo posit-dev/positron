@@ -31,6 +31,19 @@ export function motherduckPath(database: string | undefined): string {
 	return 'md:' + (nonBlank(database) ?? '');
 }
 
+/**
+ * The R duckdb package never downloads extensions while opening a database, so the
+ * MotherDuck extension is installed through a throwaway connection first.
+ */
+const R_INSTALL_EXTENSION = [
+	'library(DBI)',
+	'',
+	'install_con <- dbConnect(duckdb::duckdb())',
+	'invisible(dbExecute(install_con, "INSTALL motherduck"))',
+	'dbDisconnect(install_con, shutdown = TRUE)',
+	'',
+].join('\n');
+
 /** Generates connection code for the given language, or no variants for an unknown language. */
 export function generateMotherDuckCode(languageId: string, params: MotherDuckCodeParams): MotherDuckCodeVariant[] {
 	const path = motherduckPath(params.database);
@@ -81,7 +94,7 @@ export function generateMotherDuckCode(languageId: string, params: MotherDuckCod
 			return [{
 				id: 'dbi',
 				label: 'DBI',
-				code: `library(DBI)\n\ncon <- dbConnect(${args.join(', ')})\n`,
+				code: `${R_INSTALL_EXTENSION}\ncon <- dbConnect(${args.join(', ')})\n`,
 			}];
 		}
 		default:
