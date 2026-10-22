@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest-amd64-8-core
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0-py3.14.7-r4.6.1
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1
       options: --user 0:0
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:

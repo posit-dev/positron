@@ -31,7 +31,7 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest-amd64-8-core
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0-py3.14.7-r4.6.1
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1
       # --device/--cap-add give the container a TUN device so the Tailscale step can bring up
       # kernel-mode networking (transparent routing to the tailnet, needed to reach Connect).
       options: --user 0:0 --init --device /dev/net/tun --cap-add=NET_ADMIN

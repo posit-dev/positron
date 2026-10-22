@@ -27,7 +27,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MEMORY_CONTAINER_IMAGE: ghcr.io/posit-dev/positron-ubuntu24:24.18.0-py3.14.7-r4.6.1
+  MEMORY_CONTAINER_IMAGE: ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1
 
 jobs:
   # Resolves the build ONCE for the whole matrix. Without this each of the seven
@@ -97,7 +97,7 @@ jobs:
           - { lane: desktop, scenario: quarto-render }
           - { lane: desktop, scenario: quarto-inline }
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0-py3.14.7-r4.6.1
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1
       # The image is private, so the pull needs credentials. Copied from
       # test-e2e-ubuntu-run.yml; without these the job fails before any step.
       # --user 0:0 also matters here beyond convention: reading

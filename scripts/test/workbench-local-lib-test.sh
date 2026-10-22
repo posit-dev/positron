@@ -104,9 +104,9 @@ assert_eq "feed name rocky9 -> rhel9"   "rhel9" "$(wb_os_feed rocky9)"
 # coincidence is a checked fact rather than a reason to skip wb_os_feed.
 assert_eq "feed name opensuse15 -> opensuse15" "opensuse15" "$(wb_os_feed opensuse15)"
 assert_fails "feed name rejects a feed name fed back in" wb_os_feed noble
-assert_eq "image ubuntu24" "ghcr.io/posit-dev/positron-ubuntu24:24.18.0-py3.14.7-r4.6.1" "$(wb_os_image ubuntu24)"
-assert_eq "image rocky9"   "ghcr.io/posit-dev/positron-rocky9:24.18.0-py3.14.7-r4.6.1"   "$(wb_os_image rocky9)"
-assert_eq "image opensuse15" "ghcr.io/posit-dev/positron-opensuse156:24.18.0-py3.14.7-r4.6.1" "$(wb_os_image opensuse15)"
+assert_eq "image ubuntu24" "ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1" "$(wb_os_image ubuntu24)"
+assert_eq "image rocky9"   "ghcr.io/posit-dev/positron-rocky9:24.22.1-py3.14.7-r4.6.1"   "$(wb_os_image rocky9)"
+assert_eq "image opensuse15" "ghcr.io/posit-dev/positron-opensuse156:24.22.1-py3.14.7-r4.6.1" "$(wb_os_image opensuse15)"
 assert_fails "image rejects an unknown OS" wb_os_image plan9
 
 assert_eq "pkg_ext ubuntu24"  "deb" "$(wb_os_pkg_ext ubuntu24)"

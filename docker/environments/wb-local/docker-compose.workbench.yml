@@ -8,7 +8,7 @@ services:
     # WB_TEST_IMAGE is set by workbench-local.sh from --os (see wb_os_image in
     # workbench-local-lib.sh). The default keeps a bare `docker compose up` and
     # the CI action, which do not set it, on Ubuntu.
-    image: ${WB_TEST_IMAGE:-ghcr.io/posit-dev/positron-ubuntu24:24.18.0-py3.14.7-r4.6.1}
+    image: ${WB_TEST_IMAGE:-ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1}
     # Normally empty, which Compose drops entirely so the multi-arch resolution
     # above still applies. workbench-local.sh sets it (to linux/amd64) only for
     # an OS with no Workbench package for this machine's arch -- openSUSE 15,
@@ -42,7 +42,7 @@ services:
       - connect_tokens:/tokens
 
   postgres:
-    image: ghcr.io/posit-dev/positron-postgres:24.18.0-py3.14.7-r4.6.1
+    image: ghcr.io/posit-dev/positron-postgres:24.22.1-py3.14.7-r4.6.1
     container_name: postgres
     ports:
       - "5432:5432"

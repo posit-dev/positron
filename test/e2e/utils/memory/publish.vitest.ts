@@ -72,8 +72,8 @@ describe('containerImageFromEnv', () => {
 	});
 
 	test('reads MEMORY_CONTAINER_IMAGE when set', () => {
-		process.env.MEMORY_CONTAINER_IMAGE = 'ghcr.io/posit-dev/positron-ubuntu24:24.18.0-py3.14.7-r4.6.1';
-		expect(containerImageFromEnv()).toBe('ghcr.io/posit-dev/positron-ubuntu24:24.18.0-py3.14.7-r4.6.1');
+		process.env.MEMORY_CONTAINER_IMAGE = 'ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1';
+		expect(containerImageFromEnv()).toBe('ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1');
 	});
 });
 

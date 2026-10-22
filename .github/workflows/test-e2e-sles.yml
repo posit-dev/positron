@@ -86,7 +86,7 @@ jobs:
     timeout-minutes: 150
     runs-on: ubuntu-latest-amd64-8-core
     container:
-      image: ghcr.io/posit-dev/positron-sles156:24.18.0-py3.14.7-r4.6.1
+      image: ghcr.io/posit-dev/positron-sles156:24.22.1-py3.14.7-r4.6.1
       # --device/--cap-add give the container a TUN device so the Tailscale step can bring up
       # kernel-mode networking (transparent routing to the tailnet, needed to reach Connect).
       options: --user 0:0 --init --device /dev/net/tun --cap-add=NET_ADMIN
@@ -96,7 +96,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres:24.18.0-py3.14.7-r4.6.1
+        image: ghcr.io/posit-dev/positron-postgres:24.22.1-py3.14.7-r4.6.1
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
