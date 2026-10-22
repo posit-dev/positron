@@ -144,7 +144,7 @@ suite('interpreterRanking', () => {
         pythonVersionDir: p('/home/u/.pyenv/versions/3.10.4'),
         nestedEnvDirs: [p('/proj/a/.venv'), p('/proj/b/.venv')],
         configuredPaths: [p('/srv/venvs')],
-        modulePaths: new Set([moduleByMetadata.path]),
+        modulePaths: new Set([externalDependencies.normCasePath(moduleByMetadata.path)]),
         // uv installs its Pythons with an EXTERNALLY-MANAGED marker; uv base is still GlobalEnv.
         externallyManagedPaths: new Set([homebrew.path, uvBase.path]),
     };
@@ -434,7 +434,7 @@ suite('interpreterRanking', () => {
         });
         try {
             const context = await withDiscoveredFacts(emptyContext, []);
-            assert.deepEqual([...context.modulePaths], [modulePath]);
+            assert.deepEqual([...context.modulePaths], [externalDependencies.normCasePath(modulePath)]);
         } finally {
             moduleLocator.moduleMetadataMap.delete(modulePath);
         }
