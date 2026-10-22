@@ -111,6 +111,16 @@ suite('MotherDuck Driver', () => {
 		}
 	});
 
+	test('validateParameters reports a default database with connection options beside its field', async () => {
+		const driver = createDriver();
+		const results = [];
+		for (const database of ['mydb?attach_mode=single', 'a#b', 'sample_data', '', undefined]) {
+			results.push(await driver.validateParameters!('envvar', { database, readOnly: true }));
+		}
+		const error = { errors: { database: 'The default database name cannot contain \'?\' or \'#\'.' } };
+		assert.deepStrictEqual(results, [error, error, {}, {}, {}]);
+	});
+
 	test('a profile saved with the old token mechanism fails cleanly', async () => {
 		const driver = createDriver({ env: { motherduck_token: 'aaa.bbb.ccc' } });
 		await assert.rejects(async () => driver.connect('token', { token: 'aaa.bbb.ccc' }),

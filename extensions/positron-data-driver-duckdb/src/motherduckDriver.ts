@@ -41,11 +41,16 @@ function isReadOnly(params: positron.DataConnectionParameterValues): boolean {
 }
 
 /**
- * DuckDB reads anything after `?` in an `md:` path as connection options, so neither the live
- * connection nor the generated code accepts a default database name with `?` or `#`.
+ * DuckDB reads anything after `?` in an `md:` path as connection options, so the dialog, the
+ * live connection, and the generated code all refuse a default database name with `?` or `#`.
  */
 function hasConnectionOptions(database: string | undefined): boolean {
 	return database !== undefined && /[?#]/.test(database);
+}
+
+/** The error for a default database name with `?` or `#`, shown by the dialog and by connect(). */
+function connectionOptionsMessage(): string {
+	return vscode.l10n.t("The default database name cannot contain '?' or '#'.");
 }
 
 /**
@@ -103,7 +108,7 @@ export function createMotherDuckDriver(
 					}
 					const database = optionalString(params.database);
 					if (hasConnectionOptions(database)) {
-						throw new Error(vscode.l10n.t("The default database name cannot contain '?' or '#'."));
+						throw new Error(connectionOptionsMessage());
 					}
 
 					const connection = new MotherDuckConnection({
@@ -117,6 +122,12 @@ export function createMotherDuckDriver(
 				default:
 					throw new Error(vscode.l10n.t("Unknown connection mechanism '{0}'.", mechanismId));
 			}
+		},
+		async validateParameters(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnectionParameterValidation> {
+			if (mechanismId !== ENVVAR_MECHANISM_ID || !hasConnectionOptions(optionalString(params.database))) {
+				return {};
+			}
+			return { errors: { database: connectionOptionsMessage() } };
 		},
 		async generateConnectionCode(mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
 			const database = optionalString(params.database);
