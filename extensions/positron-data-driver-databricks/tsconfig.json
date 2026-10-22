@@ -22,6 +22,10 @@
 			"./node_modules/@types"
 		]
 	},
+	"exclude": [
+		"src/**/*.vitest.ts",
+		"src/**/*.vitest.tsx"
+	],
 	"include": [
 		"src/**/*",
 		"../../src/positron-dts/positron.d.ts",
