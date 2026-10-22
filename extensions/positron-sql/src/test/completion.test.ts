@@ -118,6 +118,38 @@ suite('SqlCompletionItemProvider', () => {
 		assert.deepStrictEqual([inserted(list, 'orders'), inserted(list, 'targets')], ['orders', 'sales.targets']);
 	});
 
+	test('a table whose schema and name another catalog shares is inserted with its catalog', async () => {
+		const schema = new SchemaIndex(payloadOf('memory.main.orders: id', 'lake.main.orders: id', 'lake.main.events: id'), 'main');
+		const { list } = await complete('SELECT * FROM |', { schema });
+
+		assert.deepStrictEqual(
+			list.items.filter(item => item.kind === vscode.CompletionItemKind.Class).map(item => item.insertText),
+			['memory.main.orders', 'lake.main.orders', 'events'],
+		);
+	});
+
+	test('a catalog and schema followed by a dot offer that schema\'s tables in that catalog only', async () => {
+		const schema = schemaOf('warehouse.sales.orders: id', 'lake.sales.events: id', 'warehouse.archive.old: id');
+		const { labels } = await complete('SELECT * FROM warehouse.sales.|', { schema });
+
+		assert.deepStrictEqual(labels, ['orders']);
+	});
+
+	test('a three-part table name followed by a dot offers that table\'s columns', async () => {
+		const schema = schemaOf('warehouse.sales.orders: id, total', 'lake.sales.orders: event, at');
+		const lake = await complete('SELECT lake.sales.orders.| FROM lake.sales.orders', { schema });
+		const sales = await complete('SELECT sales.orders.| FROM lake.sales.orders', { schema });
+
+		assert.deepStrictEqual([lake.labels, sales.labels], [['event', 'at'], ['id', 'total', 'event', 'at']]);
+	});
+
+	test('a qualifier chain that names nothing offers nothing, rather than what its last part names', async () => {
+		const schema = schemaOf('warehouse.sales.orders: id', 'lake.archive.orders: id');
+
+		assert.deepStrictEqual((await complete('SELECT * FROM lake.sales.|', { schema })).labels, []);
+		assert.deepStrictEqual((await complete('SELECT nowhere.orders.| FROM orders', { schema })).labels, []);
+	});
+
 	test('a name that is a reserved word is quoted when inserted', async () => {
 		const schema = schemaOf('orders: id, order, group, status');
 		const { list } = await complete('SELECT | FROM orders', { schema, dialect: 'duckdb' });

@@ -152,10 +152,36 @@ export class SchemaIndex {
 		return matches;
 	}
 
-	/** Every known table whose catalog or schema is the given name. */
-	public tablesInNamespace(name: string): readonly SqlTable[] {
+	/**
+	 * Every known table whose catalog or schema is the given name, or, given a catalog as well,
+	 * every table in that schema of that catalog: the `warehouse.sales.` of a three-part name.
+	 */
+	public tablesInNamespace(name: string, catalog?: string): readonly SqlTable[] {
+		if (catalog !== undefined) {
+			return this._schema.tables.filter(table =>
+				fold(table.schema ?? '') === fold(name) && fold(table.catalog ?? '') === fold(catalog));
+		}
 		return this._schema.tables.filter(table =>
 			fold(table.schema ?? '') === fold(name) || fold(table.catalog ?? '') === fold(name));
+	}
+
+	/**
+	 * The fewest leading namespace parts a reference to a table needs to name it and nothing else:
+	 * none for a table an unqualified name reads, its schema for one outside the default schema,
+	 * and its catalog too when another catalog has a table under the same schema and name.
+	 *
+	 * Inserting less than this lets the engine bind the name to a different table than the one the
+	 * user picked.
+	 */
+	public namespaceFor(table: SqlTable): string[] {
+		const reads = (matches: readonly SqlTable[]) => matches.length === 1 && matches[0] === table;
+		if (this.isDefault(table) && reads(this.resolve(table.name))) {
+			return [];
+		}
+		if (table.schema !== undefined && reads(this.resolve(table.name, table.schema))) {
+			return [table.schema];
+		}
+		return [table.catalog, table.schema].filter((part): part is string => !!part);
 	}
 }
 
