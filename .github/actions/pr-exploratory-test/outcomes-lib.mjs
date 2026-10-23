@@ -47,10 +47,13 @@ export function searchTerms(title) {
  * One question for the model: does this diff or issue address the finding? `whole` marks a diff of the whole PR,
  * not only the finding's files; `before` is the PR's own change as tested, when a force-push lost the commits since.
  */
-export function buildCheckPrompt({ finding, kind, text, messages, whole, before }) {
+export function buildCheckPrompt({ finding, kind, text, messages, whole, before, files, unchanged }) {
 	const what = kind === 'diff'
 		? [
 			whole ? 'This is the whole change, not only the files the finding names; most of it may be about other things.' : '',
+			files?.length ? `The diff covers ${files.join(', ')}.` : '',
+			unchanged?.length ? `The finding also names ${unchanged.join(', ')}, which did not change, so ${unchanged.length > 1 ? 'they are' : 'it is'} not in the diff.` : '',
+			[text, before].some(t => CUT.test(t ?? '')) ? 'The diff was cut where its last line says so. Judge from the part shown; answer unclear only if the fix could be in the part that was cut.' : '',
 			before ? 'The PR was force-pushed after the test. <before> is its own change as tested, <diff> its own change as merged. Count it a fix only if what changed between them addresses the behavior.' : '',
 			'Does this diff fix the problem the finding describes? Count it only if the change addresses this behavior, not if it merely touches the same file.',
 			'A change that means the problem can no longer be reached counts as a fix.',
@@ -273,6 +276,13 @@ export function pickPrCheck(named, whole) {
 /** `diff` cut to `max` characters, with a note when it was cut. */
 export function capDiff(diff, max) {
 	return diff.length <= max ? diff : `${diff.slice(0, max)}\n[diff cut at ${max} of ${diff.length} characters]`;
+}
+const CUT = /\n\[diff cut at \d+ of \d+ characters\]$/;
+
+/** A diff of the finding's `paths` for the prompt: cut to `max`, with the files it covers and the named ones it leaves out, read before the cut. */
+export function diffEvidence(diff, paths, max) {
+	const files = [...new Set([...diff.matchAll(/^diff --git a\/.* b\/(.*)$/gm)].map(m => m[1]))];
+	return { kind: 'diff', text: capDiff(diff, max), files, unchanged: paths.filter(p => !files.includes(p)) };
 }
 
 // Lines that are only a reference, like "Fixes #123" or "- Related to https://...".

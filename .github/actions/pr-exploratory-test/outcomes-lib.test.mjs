@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, candidateIssues, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, decideOutcome, diffEvidence, extractPaths, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -232,6 +232,25 @@ test('pickPrCheck: a yes on the whole PR wins, otherwise the check on the named 
 test('capDiff cuts a long diff and says so, so the model does not read a cut diff as the whole change', () => {
 	assert.equal(capDiff('abc', 5), 'abc');
 	assert.equal(capDiff('abcdefgh', 5), 'abcde\n[diff cut at 5 of 8 characters]');
+});
+
+test('diffEvidence names the files in the diff and the named ones that did not change, even past the cut', () => {
+	const diff = 'diff --git a/src/a.ts b/src/a.ts\n+x\n'.padEnd(40, '+') + '\ndiff --git a/src/b.ts b/src/b.ts\n+y\n';
+	const e = diffEvidence(diff, ['src/b.ts', 'ext/r.ts'], 30);
+	assert.deepEqual(e.files, ['src/a.ts', 'src/b.ts']);
+	assert.deepEqual(e.unchanged, ['ext/r.ts']);
+	assert.match(e.text, /\[diff cut at 30 of \d+ characters\]$/);
+});
+
+test('buildCheckPrompt says which files the diff covers, which named ones did not change, and how to read a cut diff', () => {
+	const finding = { title: 'T' };
+	const p = buildCheckPrompt({ finding, kind: 'diff', text: 'D\n[diff cut at 1 of 9 characters]', files: ['src/a.ts'], unchanged: ['ext/r.ts'] });
+	assert.match(p, /covers src\/a\.ts\./);
+	assert.match(p, /also names ext\/r\.ts, which did not change, so it is not in the diff/);
+	assert.match(p, /answer unclear only if the fix could be in the part that was cut/);
+	const plain = buildCheckPrompt({ finding, kind: 'diff', text: 'D' });
+	assert.doesNotMatch(plain, /covers|did not change|was cut/);
+	assert.match(buildCheckPrompt({ finding, kind: 'diff', text: 'D', before: 'B\n[diff cut at 1 of 9 characters]' }), /was cut/);
 });
 
 test('extractPaths finds a bare file name in the repo when exactly one file has it', () => {

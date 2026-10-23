@@ -15,13 +15,12 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, extractPaths, fetchReport, guarded, issueOf, markDuplicates, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, extractPaths, fetchReport, guarded, issueOf, markDuplicates, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
-// A diff past these is cut; the model sees enough to judge and the call stays cheap.
-const MAX_DIFF_CHARS = 20000;
-const MAX_WHOLE_DIFF_CHARS = 60000;
+// A diff past this is cut. Main's diff of a busy file since the merge can run past 30000, and a cut there leaves unclear.
+const MAX_DIFF_CHARS = 60000;
 // The whole PR's change, less lockfiles.
 const WHOLE = ['.', ':(exclude)**/package-lock.json'];
 // PRs opened only to try the harness, whose findings no one meant to act on.
@@ -90,20 +89,20 @@ async function check(finding, evidence, source) {
 	}
 }
 
-/** The diff of `paths` between two commits, or '' when they did not change. */
-function pathDiff(from, to, paths, max = MAX_DIFF_CHARS) {
-	return capDiff(git('diff', '--no-color', `${from}..${to}`, '--', ...paths), max);
+/** The diff of `paths` between two commits, uncut, or '' when they did not change. */
+function pathDiff(from, to, paths) {
+	return git('diff', '--no-color', `${from}..${to}`, '--', ...paths);
 }
 
 /** The PR's own changes to `paths`: one range, or commit by commit to leave out main merged into the branch. */
-function ownDiff(own, paths, max) {
+function ownDiff(own, paths) {
 	if (own.range) {
 		const [from, to] = own.range;
 		const commits = git('log', '--format=%h', `${from}..${to}`, '--', ...paths).split('\n').filter(Boolean);
-		return { diff: pathDiff(from, to, paths, max), commits };
+		return { diff: pathDiff(from, to, paths), commits };
 	}
 	const parts = own.shas.map(sha => ({ sha, diff: git('show', '--no-color', '--format=', sha, '--', ...paths) })).filter(p => p.diff);
-	return { diff: capDiff(parts.map(p => p.diff).join('\n'), max), commits: parts.map(p => p.sha.slice(0, 10)) };
+	return { diff: parts.map(p => p.diff).join('\n'), commits: parts.map(p => p.sha.slice(0, 10)) };
 }
 
 /** A force-pushed PR: its own change as tested against its own change as merged, each measured from its base on main. */
@@ -115,13 +114,13 @@ async function rebasedCheck(finding, paths, pr, prCommits, testedSha) {
 		const own = (sha, p, max) => capDiff(git('diff', '--no-color', `${git('merge-base', sha, pr.base.sha).trim()}..${sha}`, '--', ...p), max);
 		const versions = (p, max) => ({ before: own(testedSha, p, max), text: own(pr.head.sha, p, max) });
 		if (paths.length) {
-			const v = versions(paths, MAX_DIFF_CHARS);
+			const v = versions(paths, MAX_DIFF_CHARS / 2);
 			named = v.before !== v.text ? await check(finding, { kind: 'diff', messages, ...v }, 'pr (rebased)') : null;
 			if (named?.answer === 'yes') {
 				return named;
 			}
 		}
-		const v = versions(WHOLE, MAX_WHOLE_DIFF_CHARS / 2);
+		const v = versions(WHOLE, MAX_DIFF_CHARS / 2);
 		return pickPrCheck(named, v.before !== v.text ? await check(finding, { kind: 'diff', messages, whole: true, ...v }, 'pr (rebased, whole)') : null);
 	} catch (err) {
 		return named ?? { answer: 'unclear', reason: `tested commit is not among the PR's commits and could not be compared: ${String(err).slice(0, 200)}`, source: 'pr' };
@@ -137,13 +136,13 @@ async function prCheck(finding, paths, pr, prCommits, testedSha) {
 	const messages = prOwnMessages(prCommits, testedSha);
 	let named = null;
 	try {
-		const { diff, commits } = paths.length ? ownDiff(own, paths, MAX_DIFF_CHARS) : { diff: '' };
-		named = diff ? await check(finding, { kind: 'diff', text: diff, messages }, `pr ${commits.join(',')}`) : null;
+		const { diff, commits } = paths.length ? ownDiff(own, paths) : { diff: '' };
+		named = diff ? await check(finding, { ...diffEvidence(diff, paths, MAX_DIFF_CHARS), messages }, `pr ${commits.join(',')}`) : null;
 		if (named?.answer === 'yes') {
 			return named;
 		}
-		const whole = ownDiff(own, WHOLE, MAX_WHOLE_DIFF_CHARS);
-		return pickPrCheck(named, whole.diff ? await check(finding, { kind: 'diff', text: whole.diff, messages, whole: true }, `pr (whole) ${whole.commits.join(',')}`) : null);
+		const whole = ownDiff(own, WHOLE);
+		return pickPrCheck(named, whole.diff ? await check(finding, { kind: 'diff', text: capDiff(whole.diff, MAX_DIFF_CHARS), messages, whole: true }, `pr (whole) ${whole.commits.join(',')}`) : null);
 	} catch (err) {
 		return named ?? { answer: 'unclear', reason: `pr diff failed: ${String(err).slice(0, 200)}`, source: 'pr' };
 	}
@@ -156,7 +155,7 @@ async function laterChecks(finding, paths, pr, postedAt, timeline) {
 			return [];
 		}
 		const commits = git('log', '--format=%h', `${pr.merge_commit_sha}..origin/main`, '--', ...paths).split('\n').filter(Boolean);
-		return [await check(finding, { kind: 'diff', text: diff }, `main ${commits.join(',')}`)];
+		return [await check(finding, diffEvidence(diff, paths, MAX_DIFF_CHARS), `main ${commits.join(',')}`)];
 	}) : [];
 	const issues = await guarded('issue search', async () => {
 		const terms = searchTerms(finding.title);
