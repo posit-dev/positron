@@ -202,6 +202,16 @@ test('By PR and Evidence start collapsed behind a heading button, the PR run mos
 	assert.match(text(section(html, 'ev-h')), /> Evidence 4 findings All 4/);
 });
 
+test('a dropped change is its own group, left out of the % fixed', () => {
+	const html = render([row('fixed-in-pr'), row('not-fixed'), row('dropped'), row('pending')]);
+	assert.match(text(section(html, 'all-h')), /Findings by outcome Outcome known 2 Not counted 2/);
+	assert.match(text(section(html, 'ev-h')), /All 4 Fixed 1 Not fixed 1 Change dropped 1 No outcome yet 1 Expand all/);
+	assert.match(html, /<div class="group" data-group="dropped">/);
+	assert.match(html, /\.o-dropped\{/);
+	const bar = html.match(/<div class="bar big">([\s\S]*?)<\/div>/)[1];
+	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'not-fixed', 'dropped', 'pending']);
+});
+
 test('the evidence filters leave out empty groups, and findings are grouped in palette order', () => {
 	const html = render(today);
 	const ev = text(section(html, 'ev-h'));

@@ -138,7 +138,9 @@ final: a matching issue moves it to filed as an issue, and a later fix, or that
 issue closing as completed, moves it to fixed later. For a not-fixed
 finding on a merged PR, the answer to whether the PR fixed it is
 kept too, since that diff can't change; the checks for a later fix on main or
-a matching issue still run every night. An answer read from a diff that
+a matching issue still run every night. A merged PR that no longer changes
+any of the finding's files, though the tested commit did, is change dropped:
+what the run found never shipped, so it is left out of the % fixed. An answer read from a diff that
 was cut for length is never kept, so it is asked again. To check every
 finding again, as after a change to the checks, run the workflow by hand
 with `recheck` on. In

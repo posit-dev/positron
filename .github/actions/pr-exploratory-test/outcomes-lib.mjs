@@ -115,8 +115,16 @@ export function candidateIssues({ found, timeline, postedAt, repo }) {
 	}).map(i => ({ ...i, mentionsPr: mentions.has(i.number) }));
 }
 
-/** One finding's outcome from its checks. `Check` is `{ answer, reason, source, cut? }`; a fix read from a cut diff keeps `cut`. */
-export function decideOutcome({ prState, hasPaths, prCheck, laterChecks }) {
+/** The finding's files the tested change touched that the merged PR no longer changes, or none if the PR still changes any of them. */
+export function droppedPaths({ paths, tested, merged }) {
+	return paths.some(p => merged.includes(p)) ? [] : paths.filter(p => tested.includes(p));
+}
+
+/**
+ * One finding's outcome from its checks. `Check` is `{ answer, reason, source, cut? }`; a fix read from a cut diff keeps `cut`.
+ * `dropped` is `droppedPaths` for a merged PR: the change the finding was about didn't ship.
+ */
+export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped = [] }) {
 	const cutOf = c => c.cut ? { cut: true } : {};
 	if (prCheck?.answer === 'yes') {
 		return { outcome: 'fixed-in-pr', decidedBy: 'diff+model', evidence: evidenceOf(prCheck), ...cutOf(prCheck) };
@@ -136,6 +144,9 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks }) {
 	const filed = yesLater[0];
 	if (filed) {
 		return { outcome: 'filed-issue', decidedBy: 'issue+model', evidence: evidenceOf(filed), ...(filed.issue ? { issue: filed.issue } : {}) };
+	}
+	if (dropped.length) {
+		return { outcome: 'dropped', decidedBy: 'change-dropped', evidence: `the merged PR no longer changes ${dropped.map(p => `\`${p}\``).join(', ')}` };
 	}
 	if (!hasPaths) {
 		return { outcome: 'no-paths', decidedBy: 'none', evidence: 'the cause names no file' };

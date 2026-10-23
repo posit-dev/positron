@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, candidateIssues, decideOutcome, diffEvidence, extractPaths, isCut, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -92,6 +92,23 @@ test('decideOutcome: an issue closed as completed is fixed later; closed as not 
 	assert.equal(done.issue.number, 9);
 	assert.equal(decideOutcome({ ...base, laterChecks: [issue('closed as not planned')] }).outcome, 'filed-issue');
 	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open'), issue('closed as completed')] }).outcome, 'fixed-later');
+});
+
+test('droppedPaths names the tested files the merged PR no longer changes, and none if it still changes any', () => {
+	const paths = ['src/a.ts', 'src/b.ts'];
+	assert.deepEqual(droppedPaths({ paths, tested: ['src/a.ts', 'test/x.test.ts'], merged: ['test/x.test.ts'] }), ['src/a.ts']);
+	assert.deepEqual(droppedPaths({ paths, tested: ['src/a.ts'], merged: ['src/b.ts'] }), []);
+	// A finding about a file the PR never touched is not a dropped change.
+	assert.deepEqual(droppedPaths({ paths, tested: ['src/c.ts'], merged: [] }), []);
+});
+
+test('decideOutcome: a dropped change beats not fixed and unclear, but not a fix or a filed issue', () => {
+	const dropped = ['src/a.ts'];
+	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc'), dropped }),
+		{ outcome: 'dropped', decidedBy: 'change-dropped', evidence: 'the merged PR no longer changes `src/a.ts`' });
+	assert.equal(decideOutcome({ ...base, prCheck: { answer: 'unclear', reason: 'x', source: 'pr' }, dropped }).outcome, 'dropped');
+	assert.equal(decideOutcome({ ...base, laterChecks: [yes('main def')], dropped }).outcome, 'fixed-later');
+	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open')], dropped }).outcome, 'filed-issue');
 });
 
 test('candidateIssues adds issues that mention the PR to the search\'s, each once', () => {

@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, extractPaths, isCut, fetchReport, guarded, issueOf, markDuplicates, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, guarded, issueOf, markDuplicates, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -149,6 +149,18 @@ async function prCheck(finding, paths, pr, prCommits, testedSha) {
 	}
 }
 
+/** The files the tested commit's own change touched, from where it left main; none when that can't be read. */
+function testedFiles(testedSha, pr) {
+	try {
+		git('fetch', '-q', 'origin', testedSha, pr.base.sha);
+		const base = git('merge-base', testedSha, pr.base.sha).trim();
+		return git('diff', '--name-only', `${base}..${testedSha}`).split('\n').filter(Boolean);
+	} catch (err) {
+		console.error(`[outcomes] #${pr.number} tested change ${testedSha.slice(0, 10)} not read, so a dropped change is not detected: ${err}`);
+		return [];
+	}
+}
+
 async function laterChecks(finding, paths, pr, postedAt, timeline) {
 	const main = paths.length && pr.merged_at ? await guarded('main diff', async () => {
 		const diff = pathDiff(pr.merge_commit_sha, 'origin/main', paths);
@@ -183,6 +195,8 @@ async function prRows(number) {
 		console.error(`[outcomes] #${number} timeline failed, issues that mention the PR not checked: ${err}`);
 		return [];
 	});
+	// For a change dropped before the merge.
+	const mergedFiles = prState === 'merged' ? (await gh(`/repos/${REPO}/pulls/${number}/files?per_page=100`)).map(f => f.filename) : [];
 	const rows = [];
 	for (const comment of comments) {
 		const parsed = parseResultComment(comment.body);
@@ -209,8 +223,9 @@ async function prRows(number) {
 			const saved = prState === 'merged' ? SAVED_PR_CHECKS.get(`${parsed.run}#${finding.n}`) : undefined;
 			const inPr = saved ?? (tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null);
 			const later = prState === 'open' ? [] : await laterChecks(finding, paths, pr, comment.created_at, timeline);
+			const dropped = prState === 'merged' && tested.sha ? droppedPaths({ paths, tested: testedFiles(tested.sha, pr), merged: mergedFiles }) : [];
 			const decided = tested.sha
-				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later })
+				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later, dropped })
 				: { outcome: 'pending', decidedBy: 'sha', evidence: tested.reason };
 			rows.push({
 				pr: number, run: parsed.run, trigger: parsed.trigger, postedAt: comment.created_at, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,

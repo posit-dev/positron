@@ -15,18 +15,19 @@ import { accordion, day, FONTS, footer, inlineJson, inlineScript, PAGES, rangeTe
 
 export { resolveRange, runUrl };
 
-// In this order everywhere. `group` is the evidence filter: fixed, filed, not fixed, or no outcome yet;
+// In this order everywhere. `group` is the evidence filter: fixed, filed, not fixed, change dropped, or no outcome yet;
 // `def` explains it under the bar, `brief` under its evidence group.
 const OUTCOMES = [
 	{ key: 'fixed-in-pr', label: 'Fixed in the PR', group: 'fixed', def: 'A commit pushed to the PR after the run fixed it.', brief: 'Fixed by a later commit on the PR.' },
 	{ key: 'fixed-later', label: 'Fixed later', group: 'fixed', def: 'Fixed on main after the merge, or its issue was closed as completed.', brief: 'Fixed on main after merging.' },
 	{ key: 'filed-issue', label: 'Filed as issue', group: 'filed', def: 'An issue matching the finding was opened after the run, and nothing has fixed it yet.', brief: 'Tracked in an issue, not fixed yet.' },
 	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged or closed with no fix. Moves to Filed as issue or Fixed later if that happens afterwards.', brief: 'Merged or closed without a fix.' },
+	{ key: 'dropped', label: 'Change dropped', group: 'dropped', def: 'The PR merged without the change the finding was about, so nothing it found shipped. Not in the % fixed.', brief: 'Merged without the change the finding was about.' },
 	{ key: 'pending', label: 'PR still open', group: 'open', def: 'The PR hasn\'t merged yet. These count once it merges or closes.', brief: 'Waiting for the PR to merge or close.' },
 	{ key: 'unclear', label: 'Unclear', group: 'open', def: 'A check failed or the model couldn\'t say.', brief: 'Couldn\'t tell from the diff.' },
 	{ key: 'no-paths', label: 'No files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.', brief: 'No files named, so main couldn\'t be checked.' },
 ];
-const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['not', 'Not fixed'], ['open', 'No outcome yet']];
+const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['not', 'Not fixed'], ['dropped', 'Change dropped'], ['open', 'No outcome yet']];
 const DECIDED_BY = {
 	'diff+model': 'The diff, read by the model',
 	'issue+model': 'A matching issue, confirmed by the model',
@@ -34,6 +35,7 @@ const DECIDED_BY = {
 	'pr-open': 'PR is still open',
 	'merged-no-fix': 'Merged with no fix found',
 	'closed-unmerged': 'PR closed without merging',
+	'change-dropped': 'The merged PR no longer changes its files',
 	'sha': 'A specific commit',
 };
 const TRIGGER = { auto: 'started automatically', explore: 'started by /explore' };
@@ -47,6 +49,8 @@ const pct = (a, b) => `${Math.round(a / b * 100)}%`;
 const codeSpans = text => escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code>');
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const isFixed = r => r.outcome === 'fixed-in-pr' || r.outcome === 'fixed-later';
+// Outcomes in the % fixed; the rest are counted apart.
+const isCounted = o => o.group !== 'open' && o.group !== 'dropped';
 
 /** Counts for `rows`; rows marked `dupOf` are dropped first. */
 export function summarize(rows) {
@@ -76,11 +80,11 @@ function segments(s) {
 	}).join('');
 }
 
-/** A severity or PR bar: known outcomes, a gap, then the ones with no outcome yet, so the green share of the first part is the % fixed. */
+/** A severity or PR bar: counted outcomes, a gap, then the rest, so the green share of the first part is the % fixed. */
 function splitBar(rows) {
 	const s = summarize(rows);
-	const part = open => {
-		const present = OUTCOMES.filter(o => (o.group === 'open') === open && s.counts[o.key]);
+	const part = rest => {
+		const present = OUTCOMES.filter(o => isCounted(o) !== rest && s.counts[o.key]);
 		const n = present.reduce((sum, o) => sum + s.counts[o.key], 0);
 		return n ? `<span class="part" style="flex:${n} 1 0">${present.map(o => `<span class="seg o-${o.key}" style="flex:${s.counts[o.key]} 1 0" title="${s.counts[o.key]} ${o.label}">${s.counts[o.key]}</span>`).join('')}</span>` : '';
 	};
@@ -109,15 +113,15 @@ function allBar(s) {
 	// Brackets and segments share the grid's columns, one per segment, so the brackets line up with the bar.
 	const present = OUTCOMES.filter(o => s.counts[o.key]);
 	const columns = present.map(o => `minmax(0, ${s.counts[o.key]}fr)`).join(' ');
-	const k = present.filter(o => o.group !== 'open').length;
+	const k = present.filter(isCounted).length;
 	const brackets = [
 		k ? `<div class="bracket counted" style="grid-column:1 / span ${k}"><b>Outcome known</b><span>${s.counted}</span></div>` : '',
-		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>No outcome yet</b><span>${s.notCounted}</span></div>` : '',
+		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>${s.counts.dropped ? 'Not counted' : 'No outcome yet'}</b><span>${s.notCounted}</span></div>` : '',
 	].join('');
 	// A share of the known outcomes, or a bare count for the rest so denominators don't mix.
 	const details = present.map(o => {
 		const n = s.counts[o.key];
-		const counted = o.group !== 'open';
+		const counted = isCounted(o);
 		return `<div class="seg-detail" data-for="${o.key}" hidden><span class="hero" style="color:${HERO_COLOR[o.key] ?? INK}">${counted ? pct(n, s.counted) : n}</span>`
 			+ `<div><div class="what">${o.label}</div><div class="def">${escapeHtml(o.def)}</div></div></div>`;
 	}).join('');
@@ -196,7 +200,7 @@ function evidence(own, s) {
 			+ `<div class="rows">${items.map(r => findingRow(r, ++n)).join('\n')}</div></div>`
 			: '';
 	}).join('\n');
-	const counts = { fixed: s.fixed, filed: s.counts['filed-issue'], not: s.counts['not-fixed'], open: s.notCounted };
+	const counts = { fixed: s.fixed, filed: s.counts['filed-issue'], not: s.counts['not-fixed'], dropped: s.counts.dropped, open: s.notCounted - s.counts.dropped };
 	const filters = [`<button type="button" class="filter" data-filter="all" aria-pressed="true">All ${s.total}</button>`,
 	...FILTERS.filter(([k]) => counts[k]).map(([k, label]) => `<button type="button" class="filter" data-filter="${k}" aria-pressed="false">${label} ${counts[k]}</button>`)].join('');
 	const controls = `<div class="controls"><div role="group" aria-label="Filter by outcome">${filters}</div><button type="button" class="toggle-all">Expand all</button></div>`;
@@ -229,7 +233,7 @@ export function renderView(rows, { range }) {
 const runDates = rows => rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, pct, codeSpans, plural, isFixed, summarize, splitEvidence, segments, splitBar, triggers, header, allBar, severityRows, prRows, findingRow, evidence, renderView, prCard };
+const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, pct, codeSpans, plural, isFixed, isCounted, summarize, splitEvidence, segments, splitBar, triggers, header, allBar, severityRows, prRows, findingRow, evidence, renderView, prCard };
 export const VIEW_SOURCE = [
 	...Object.entries({ ...SHARED_CONSTS, SEVERITY_LABEL, OUTCOMES, FILTERS, DECIDED_BY, TRIGGER, HERO_COLOR, INK, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
@@ -249,6 +253,7 @@ const CSS = `
 .o-pending{background:#F5F4F0;color:#5A5751;border:1.5px dashed #B5B1A7}
 .o-unclear{background:#EEEBE4;color:#3A3833}
 .o-no-paths{background:#E6E2D9;color:#5A5751}
+.o-dropped{background:#FFF;color:#5A5751;border:1.5px solid #B5B1A7}
 i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-sizing:border-box}
 .n{color:#7A766F;font-weight:400}
 .group[hidden],.detail[hidden]{display:none}
