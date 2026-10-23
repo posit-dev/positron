@@ -20,7 +20,7 @@ import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY, DEFAULT_ERROR_ACTION_HANDLE
 export { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY };
 
 /** The name of the default error action handler in the setting's choices. */
-const DEFAULT_ERROR_ACTION_HANDLER_LABEL = localize('positron.ai.errorActions.agent.positAssistant', "Posit Assistant");
+export const DEFAULT_ERROR_ACTION_HANDLER_LABEL = localize('positron.ai.errorActions.agent.positAssistant', "Posit Assistant");
 
 /**
  * The schema of {@link ERROR_ACTIONS_AGENT_KEY}. Its choices are set by

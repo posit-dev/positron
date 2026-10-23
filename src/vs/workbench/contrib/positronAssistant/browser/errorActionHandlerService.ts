@@ -14,7 +14,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { ErrorAction, IErrorActionHandler, IErrorActionContext, IErrorActionHandlerInfo, IErrorActionOptions, IErrorActionHandlerService } from '../common/errorAction.js';
-import { AI_ENABLED_KEY, setErrorActionHandlerChoices } from '../common/positronAIConfiguration.js';
+import { AI_ENABLED_KEY, DEFAULT_ERROR_ACTION_HANDLER_LABEL, setErrorActionHandlerChoices } from '../common/positronAIConfiguration.js';
 import { DEFAULT_ERROR_ACTION_HANDLER_ID, ERROR_ACTIONS_AGENT_KEY } from '../common/positronAIConfigurationKeys.js';
 
 export class ErrorActionHandlerService extends Disposable implements IErrorActionHandlerService {
@@ -25,9 +25,6 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 
 	/** Registered handlers, by id, in registration order. */
 	private readonly _handlersById = new Map<string, IErrorActionHandler>();
-
-	/** Whether the default handler's buttons show while it's chosen. */
-	private _defaultHandlerReady = false;
 
 	/**
 	 * The info naming the chosen handler while it isn't registered, kept so
@@ -79,16 +76,20 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 		});
 	}
 
-	setDefaultAssistantReady(ready: boolean): void {
-		this._defaultHandlerReady = ready;
-		this._fireIfActiveHandlerChanged();
-	}
-
 	async ask(handlerId: string, action: ErrorAction, context: IErrorActionContext, options: IErrorActionOptions): Promise<void> {
 		if (!this._isAIEnabled()) {
 			return;
 		}
 		const handler = this._handlersById.get(handlerId);
+		if (!handler && handlerId === DEFAULT_ERROR_ACTION_HANDLER_ID) {
+			// It stopped being ready between render and click, and its buttons
+			// are about to hide.
+			this._logService.warn(`The default error action handler '${handlerId}' is not ready to take errors`);
+			this._notificationService.warn(
+				localize('positron.errorAction.notReady', "{0} isn't available, so the error wasn't sent.", DEFAULT_ERROR_ACTION_HANDLER_LABEL)
+			);
+			return;
+		}
 		if (!handler) {
 			// The chosen handler was uninstalled or disabled, so its label
 			// is gone with it. Name it by its id.
@@ -100,15 +101,6 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 					label: localize('positron.errorAction.selectAnother', "Select Another Coding Agent"),
 					run: () => this._commandService.executeCommand('workbench.action.openSettings', `@id:${ERROR_ACTIONS_AGENT_KEY}`),
 				}],
-			);
-			return;
-		}
-		if (handler.id === DEFAULT_ERROR_ACTION_HANDLER_ID && !this._defaultHandlerReady) {
-			// It stopped being ready between render and click, and its buttons
-			// are about to hide.
-			this._logService.warn(`The default error action handler '${handler.id}' is not ready to take errors`);
-			this._notificationService.warn(
-				localize('positron.errorAction.notReady', "{0} isn't available, so the error wasn't sent.", handler.label)
 			);
 			return;
 		}
@@ -136,21 +128,21 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 		return typeof id === 'string' && id ? id : DEFAULT_ERROR_ACTION_HANDLER_ID;
 	}
 
-	/** The chosen handler, while AI is enabled and, for the default, it's ready. */
+	/** The chosen handler, while AI is enabled and, for the default, it's registered. */
 	private _getActiveHandler(): IErrorActionHandlerInfo | undefined {
 		if (!this._isAIEnabled()) {
 			return undefined;
 		}
 		const id = this._getChosenHandlerId();
 		const handler = this._handlersById.get(id);
-		if (id === DEFAULT_ERROR_ACTION_HANDLER_ID) {
-			// The default handler is chosen for all users, even those who have
-			// never configured AI providers. Don't return a handler in that
-			// case, so we don't show the buttons.
-			return this._defaultHandlerReady ? handler : undefined;
-		}
 		if (handler) {
 			return handler;
+		}
+		if (id === DEFAULT_ERROR_ACTION_HANDLER_ID) {
+			// The default handler is chosen for all users, even those who have
+			// never configured AI providers. It registers only while it can take
+			// errors, so don't show its buttons until then.
+			return undefined;
 		}
 		if (this._unavailableAssistant?.id !== id) {
 			// A previously chosen handler is no longer available. Return an

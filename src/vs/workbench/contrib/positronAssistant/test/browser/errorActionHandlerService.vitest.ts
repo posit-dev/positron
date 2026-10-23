@@ -105,18 +105,17 @@ describe('ErrorActionHandlerService', () => {
 		expect(onDidChangeActiveHandler.mock.calls).toEqual([[first], [second]]);
 	});
 
-	it('makes the default handler active only while it is ready', () => {
+	it('makes the default handler active only while it is registered', () => {
 		configurationService = new TestConfigurationService({ [AI_ENABLED_KEY]: true });
 		ctx.instantiationService.stub(IConfigurationService, configurationService);
 		const service = createService();
-		const defaultHandler = createHandler({ id: DEFAULT_ERROR_ACTION_HANDLER_ID });
-		ctx.disposables.add(service.register(defaultHandler));
 		expect(service.activeHandler).toBeUndefined();
 
-		service.setDefaultAssistantReady(true);
+		const defaultHandler = createHandler({ id: DEFAULT_ERROR_ACTION_HANDLER_ID });
+		const registration = service.register(defaultHandler);
 		expect(service.activeHandler).toBe(defaultHandler);
 
-		service.setDefaultAssistantReady(false);
+		registration.dispose();
 		expect(service.activeHandler).toBeUndefined();
 	});
 
@@ -246,14 +245,12 @@ describe('ErrorActionHandlerService', () => {
 		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', '@id:ai.errorActions.agent');
 	});
 
-	it('sends nothing to the default handler while it is not ready, and says so', async () => {
+	it('sends nothing to the default handler while it is not registered, and says so', async () => {
 		const service = createService();
-		const ask = vi.fn();
-		ctx.disposables.add(service.register(createHandler({ id: DEFAULT_ERROR_ACTION_HANDLER_ID, label: 'Posit Assistant', ask })));
 
 		await service.ask(DEFAULT_ERROR_ACTION_HANDLER_ID, 'fix', context, {});
 
-		expect(ask).not.toHaveBeenCalled();
+		expect(notifyPrompt).not.toHaveBeenCalled();
 		expect(notifyWarn).toHaveBeenCalledWith(`Posit Assistant isn't available, so the error wasn't sent.`);
 	});
 
