@@ -167,6 +167,37 @@ cmd_escape() {
 	printf '%s' "${1//%/%%}"
 }
 
+# Sets EXTRA_ARGS to the app arguments given, each URI flag joined to its value.
+#
+# Electron on Windows exits with -1, before it logs anything, when an argument
+# that looks like a URL (a scheme and a colon, as file:///C:/ws is) has any
+# other argument after it, short of a `--`: its guard against a URL protocol
+# handler smuggling in switches (CVE-2018-1000006). So `--folder-uri URL --log
+# debug` never opens a window. Pass --folder-uri and --file-uri with their
+# values as one argument, --folder-uri=URL, which the app reads the same way,
+# and on Windows refuse any other URL that has arguments after it.
+# test/launch-args.test.ts runs this function alone.
+join_uri_args() {
+	local args=("$@") arg i
+	EXTRA_ARGS=()
+	for (( i = 0; i < ${#args[@]}; i++ )); do
+		arg="${args[i]}"
+		if [[ "$arg" == --folder-uri || "$arg" == --file-uri ]] && (( i + 1 < ${#args[@]} )); then
+			EXTRA_ARGS+=("$arg=${args[i + 1]}")
+			i=$(( i + 1 ))
+			continue
+		fi
+		if [[ "$IS_WINDOWS" == "1" && "$arg" =~ ^[A-Za-z][^:[:space:]]+: ]] && (( i + 1 < ${#args[@]} )) && [[ "${args[i + 1]}" != -- ]]; then
+			usage_error "$arg looks like a URL to Electron, which exits on Windows when arguments follow one; put it last, or join it to its flag as --flag=URL"
+		fi
+		if [[ "$arg" == -- ]]; then
+			EXTRA_ARGS+=("${args[@]:i}")
+			return
+		fi
+		EXTRA_ARGS+=("$arg")
+	done
+}
+
 # Copy a directory tree, honoring rsync-style exclude patterns.
 #
 # Prefers rsync where it exists so the established macOS and Linux behavior is
@@ -242,29 +273,7 @@ while [[ $# -gt 0 ]]; do
 		*) usage_error "unknown argument $1" ;;
 	esac
 done
-
-# Electron on Windows exits with -1, before it logs anything, when an argument
-# that looks like a URL (a scheme and a colon, as file:///C:/ws is) has any
-# other argument after it, short of a `--`: its guard against a URL protocol
-# handler smuggling in switches (CVE-2018-1000006). So `--folder-uri URL --log
-# debug` never opens a window. Pass --folder-uri and --file-uri with their
-# values as one argument, --folder-uri=URL, which the app reads the same way,
-# and on Windows refuse any other URL that has arguments after it.
-ARGS_IN=(${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"})
-EXTRA_ARGS=()
-for (( i = 0; i < ${#ARGS_IN[@]}; i++ )); do
-	arg="${ARGS_IN[i]}"
-	if [[ "$arg" == --folder-uri || "$arg" == --file-uri ]] && (( i + 1 < ${#ARGS_IN[@]} )); then
-		EXTRA_ARGS+=("$arg=${ARGS_IN[i + 1]}")
-		i=$(( i + 1 ))
-		continue
-	fi
-	if [[ "$IS_WINDOWS" == "1" && "$arg" =~ ^[A-Za-z][^:[:space:]]+: ]] && (( i + 1 < ${#ARGS_IN[@]} )) && [[ "${ARGS_IN[i + 1]}" != -- ]]; then
-		usage_error "$arg looks like a URL to Electron, which exits on Windows when arguments follow one; put it last, or join it to its flag as --flag=URL"
-	fi
-	[[ "$arg" == -- ]] && { EXTRA_ARGS+=("${ARGS_IN[@]:i}"); break; }
-	EXTRA_ARGS+=("$arg")
-done
+join_uri_args ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
 
 if [[ -z "$REPO" ]]; then
 	if [[ -x "$PWD/scripts/code.sh" ]]; then
