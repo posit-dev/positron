@@ -277,6 +277,7 @@ export class ExtHostNotebookController implements ExtHostNotebookShape {
 	}
 
 	$releaseNotebookCellStatusBarItems(cacheId: number): void {
+		this._statusBarCache.get(cacheId, 0)?.dispose();
 		this._statusBarCache.delete(cacheId);
 	}
 
@@ -299,6 +300,7 @@ export class ExtHostNotebookController implements ExtHostNotebookShape {
 			ExtHostNotebookController._convertNotebookRegistrationData(extension, registration)
 		);
 		return toDisposable(() => {
+			this._notebookSerializer.delete(handle);
 			this._notebookProxy.$unregisterNotebookSerializer(handle);
 		});
 	}

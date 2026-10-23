@@ -9,7 +9,7 @@ import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { FuzzyScoreOptions } from '../../../../base/common/filters.js';
 import { DisposableStore, dispose, IDisposable } from '../../../../base/common/lifecycle.js';
-import { autorun } from '../../../../base/common/observable.js';
+import { registerAutorunSelfDisposable } from '../../../../base/common/observable.js';
 import { getLeadingWhitespace, isHighSurrogate, isLowSurrogate } from '../../../../base/common/strings.js';
 import { assertType } from '../../../../base/common/types.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
@@ -524,19 +524,10 @@ export class SuggestModel implements IDisposable {
 			inlineModel.stop('automatic');
 		}, 750, store);
 
-		// --- Start Positron ---
-		// The autorun's initial synchronous run can call triggerAndCleanUp,
-		// which disposes the store before this `store.add(...)` finishes,
-		// causing a "DisposableStore that has already been disposed of" error
-		// and leaking the autorun. Create the autorun first, register it with
-		// the store immediately, and bail out if a synchronous run already
-		// triggered the cleanup path.
-		const autorunDisposable = autorun(reader => {
-			// Reading `inlineController.model` binds the wait to the model's
-			// lifetime: if it is replaced or disposed (e.g. readonly toggled),
-			// clean up without triggering quick suggest.
+		registerAutorunSelfDisposable(store, reader => {
 			const currentInlineModel = inlineController.model.read(reader);
 			if (currentInlineModel !== inlineModel) {
+				reader.dispose();
 				triggerAndCleanUp(false);
 				return;
 			}
@@ -546,14 +537,9 @@ export class SuggestModel implements IDisposable {
 				// Still loading
 				return;
 			}
+			reader.dispose();
 			triggerAndCleanUp(!currentState);
 		});
-		if (disposed) {
-			autorunDisposable.dispose();
-		} else {
-			store.add(autorunDisposable);
-		}
-		// --- End Positron ---
 	}
 
 	private _refilterCompletionItems(): void {

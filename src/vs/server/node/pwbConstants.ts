@@ -24,8 +24,10 @@ function resolveProductLabel(): string {
 	let dir = dirname(fileURLToPath(import.meta.url));
 	for (let i = 0; i < 10; i++) {
 		const candidate = join(dir, 'package.json');
+		// eslint-disable-next-line local/code-no-sync-fs -- Runs once at module load to initialize the exported VSCODE_STATIC_PREFIX constant, which importers read synchronously; this happens before the server accepts requests.
 		if (existsSync(candidate)) {
 			try {
+				// eslint-disable-next-line local/code-no-sync-fs -- See above: one-time module-load initialization of an exported constant.
 				const pkg = JSON.parse(readFileSync(candidate, 'utf8')) as { 'product-label'?: string; name?: string };
 				if (pkg['product-label']) {
 					return pkg['product-label'];

@@ -14,8 +14,29 @@ fi
 
 cd "$ROOT"
 
+# Names the suite that is running, so that a failure that stops the script
+# (set -e) reports which suite failed and with which exit code.
+CURRENT_SUITE=""
+start_suite() {
+	CURRENT_SUITE="$1"
+	echo
+	echo "### $1"
+	echo
+}
+report_failed_suite() {
+	local status=$?
+	if [[ $status -ne 0 && -n "$CURRENT_SUITE" ]]; then
+		echo "Integration tests failed in '$CURRENT_SUITE' with exit code $status." >&2
+		if [[ "$GITHUB_ACTIONS" == "true" ]]; then
+			echo "::error title=Integration tests failed::'$CURRENT_SUITE' exited with code $status"
+		fi
+	fi
+}
+trap report_failed_suite EXIT
+
 # Parse arguments
 EXTRA_ARGS=()
+BUILD_ARGS=()
 RUN_FILE=""
 RUN_GLOB=""
 GREP_PATTERN=""
@@ -27,6 +48,11 @@ while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--help|-h)
 			HELP=true
+			shift
+			;;
+		--build)
+			BUILD_ARGS=(--build)
+			EXTRA_ARGS+=("$1")
 			shift
 			;;
 		--run)
@@ -56,14 +82,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Known suite names (used for help text and validation)
-KNOWN_SUITES="api-folder api-workspace colorize terminal-suggest typescript markdown emmet git git-base ipynb notebook-renderers configuration-editing github-authentication copilot css html"
+KNOWN_SUITES="api-folder api-workspace colorize terminal-suggest typescript markdown emmet git git-base ipynb notebook-renderers configuration-editing github-authentication copilot css html json"
 
 if $HELP; then
 	echo "Usage: $0 [options]"
 	echo ""
 	echo "Runs integration tests. When no filters are given, all integration tests"
 	echo "(node.js integration tests + extension host tests) are run."
-	echo "Agent Host E2E entrypoints run in parallel before the remaining node.js tests."
+	echo "Agent Host E2E suites are not included; run them with scripts/test-agent-host-e2e.sh."
 	echo ""
 	echo "--run and --runGlob select which node.js integration test files to load."
 	echo "Extension host tests are skipped when these options are used."
@@ -76,6 +102,7 @@ if $HELP; then
 	echo "Node.js integration tests are skipped when this option is used."
 	echo ""
 	echo "Options:"
+	echo "  --build                      use the out-build directory for node.js and JSON tests"
 	echo "  --run <file>                  run tests from a specific file (src/ path)"
 	echo "  --runGlob, --glob <pattern>   select test files by path glob (e.g. '**/editor/**/*.integrationTest.js')"
 	echo "  --grep, -g, -f <pattern>      filter test cases by name (matched against test titles)"
@@ -173,16 +200,11 @@ fi
 # Unit tests
 
 if [[ -z "$SUITE_FILTER" ]]; then
-	echo
-	echo "### node.js integration tests"
-	echo
+	start_suite "node.js integration tests"
+	node --input-type=module -e "import { getAgentHostTestProfile } from './src/vs/platform/agentHost/test/node/agentHostTestProfile.ts'; console.log('Agent Host test profile:', getAgentHostTestProfile(), '(' + (process.env.AGENT_HOST_TEST_PROFILE_REASON ?? 'default') + ')');"
 	if [[ -z "$RUN_GLOB" && -z "$RUN_FILE" ]]; then
-		if [[ "$VSCODE_SKIP_AGENT_HOST_E2E" == "1" ]]; then
-			echo "Skipping Agent Host E2E tests because no relevant files changed."
-		else
-			node ./scripts/test-agent-host-e2e.ts "${EXTRA_ARGS[@]}"
-		fi
-		VSCODE_SKIP_PRELAUNCH=1 ./scripts/test.sh --runGlob "**/*.integrationTest.js" --excludeRunGlob "$AGENT_HOST_E2E_GLOB" "${EXTRA_ARGS[@]}"
+		# Agent Host E2E runs separately, in parallel isolated processes: scripts/test-agent-host-e2e.sh
+		./scripts/test.sh --runGlob "**/*.integrationTest.js" --excludeRunGlob "$AGENT_HOST_E2E_GLOB" "${EXTRA_ARGS[@]}"
 	else
 		./scripts/test.sh "${EXTRA_ARGS[@]}"
 	fi
@@ -272,17 +294,13 @@ run_extension_suite() {
 # --- End Positron ---
 
 if should_run_suite api-folder; then
-echo
-echo "### API tests (folder)"
-echo
+start_suite "API tests (folder)"
 run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/vscode-api-tests/testWorkspace --enable-proposed-api=vscode.vscode-api-tests --extensionDevelopmentPath=$ROOT/extensions/vscode-api-tests --extensionTestsPath=$ROOT/extensions/vscode-api-tests/out/singlefolder-tests $API_TESTS_EXTRA_ARGS
 kill_app
 fi
 
 if should_run_suite api-workspace; then
-echo
-echo "### API tests (workspace)"
-echo
+start_suite "API tests (workspace)"
 run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/vscode-api-tests/testworkspace.code-workspace --enable-proposed-api=vscode.vscode-api-tests --extensionDevelopmentPath=$ROOT/extensions/vscode-api-tests --extensionTestsPath=$ROOT/extensions/vscode-api-tests/out/workspace-tests $API_TESTS_EXTRA_ARGS
 kill_app
 fi
@@ -299,89 +317,67 @@ fi
 # --- End Positron ---
 
 if should_run_suite terminal-suggest; then
-echo
-echo "### Terminal Suggest tests"
-echo
+start_suite "Terminal Suggest tests"
 run_extension_suite npm run test-extension -- -l terminal-suggest --enable-proposed-api=vscode.vscode-api-tests "${GREP_ARGS[@]}"
 kill_app
 fi
 
 if should_run_suite typescript; then
-echo
-echo "### TypeScript tests"
-echo
+start_suite "TypeScript tests"
 run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/typescript-language-features/test-workspace --extensionDevelopmentPath=$ROOT/extensions/typescript-language-features --extensionTestsPath=$ROOT/extensions/typescript-language-features/out/test/unit $API_TESTS_EXTRA_ARGS
 kill_app
 fi
 
 if should_run_suite markdown; then
-echo
-echo "### Markdown tests"
-echo
+start_suite "Markdown tests"
 run_extension_suite npm run test-extension -- -l markdown-language-features "${GREP_ARGS[@]}"
 kill_app
 fi
 
 if should_run_suite emmet; then
-echo
-echo "### Emmet tests"
-echo
+start_suite "Emmet tests"
 run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/emmet/test-workspace --extensionDevelopmentPath=$ROOT/extensions/emmet --extensionTestsPath=$ROOT/extensions/emmet/out/test $API_TESTS_EXTRA_ARGS
 kill_app
 fi
 
 if should_run_suite git; then
-echo
-echo "### Git tests"
-echo
+start_suite "Git tests"
 run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" $(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$ROOT/extensions/git --extensionTestsPath=$ROOT/extensions/git/out/test $API_TESTS_EXTRA_ARGS
 kill_app
 fi
 
 if should_run_suite git-base; then
-echo
-echo "### Git Base tests"
-echo
+start_suite "Git Base tests"
 run_extension_suite npm run test-extension -- -l git-base "${GREP_ARGS[@]}"
 kill_app
 fi
 
 if should_run_suite ipynb; then
-echo
-echo "### Ipynb tests"
-echo
+start_suite "Ipynb tests"
 run_extension_suite npm run test-extension -- -l ipynb "${GREP_ARGS[@]}"
 kill_app
 fi
 
 if should_run_suite notebook-renderers; then
-echo
-echo "### Notebook Output tests"
-echo
+start_suite "Notebook Output tests"
 run_extension_suite npm run test-extension -- -l notebook-renderers "${GREP_ARGS[@]}"
 kill_app
 fi
 
 if should_run_suite configuration-editing; then
-echo
-echo "### Configuration editing tests"
-echo
+start_suite "Configuration editing tests"
 run_extension_suite npm run test-extension -- -l configuration-editing "${GREP_ARGS[@]}"
 kill_app
 fi
 
 if should_run_suite github-authentication; then
-echo
-echo "### GitHub Authentication tests"
-echo
+start_suite "GitHub Authentication tests"
 run_extension_suite npm run test-extension -- -l github-authentication "${GREP_ARGS[@]}"
 kill_app
 fi
 
 if should_run_suite copilot; then
-echo
-echo "### Copilot tests"
-echo
+start_suite "Copilot tests"
 run_extension_suite npm run test-extension -- -l copilot "${GREP_ARGS[@]}"
 kill_app
 fi
@@ -389,39 +385,27 @@ fi
 # --- Start Positron ---
 # Positron Extensions
 
-echo
-echo "### Authentication tests"
-echo
+start_suite "Authentication tests"
 run_extension_suite npm run test-extension -- -l authentication
 kill_app
 
-echo
-echo "### Positron Skills tests"
-echo
+start_suite "Positron Skills tests"
 run_extension_suite npm run test-extension -- -l positron-skills
 kill_app
 
-echo
-echo "### Positron Code Cells tests"
-echo
+start_suite "Positron Code Cells tests"
 run_extension_suite npm run test-extension -- -l positron-code-cells
 kill_app
 
-echo
-echo "### Next Edit Suggestions tests"
-echo
+start_suite "Next Edit Suggestions tests"
 run_extension_suite npm run test-extension -- -l next-edit-suggestions
 kill_app
 
-echo
-echo "### Positron R tests"
-echo
+start_suite "Positron R tests"
 run_extension_suite npm run test-extension -- -l positron-r
 kill_app
 
-echo
-echo "### Positron R connections tests"
-echo
+start_suite "Positron R connections tests"
 run_extension_suite npm run test-extension -- -l positron-connections
 kill_app
 
@@ -432,63 +416,43 @@ kill_app
 # npm run test-extension -- -l positron-run-app
 # kill_app
 
-echo
-echo "### Positron DuckDB tests"
-echo
+start_suite "Positron DuckDB tests"
 run_extension_suite npm run test-extension -- -l positron-duckdb
 kill_app
 
-echo
-echo "### Positron DuckDB data connection tests"
-echo
+start_suite "Positron DuckDB data connection tests"
 run_extension_suite npm run test-extension -- -l positron-data-driver-duckdb
 kill_app
 
-echo
-echo "### Positron SQLite data connection tests"
-echo
+start_suite "Positron SQLite data connection tests"
 run_extension_suite npm run test-extension -- -l positron-data-driver-sqlite
 kill_app
 
-echo
-echo "### Positron Databricks data connection tests"
-echo
+start_suite "Positron Databricks data connection tests"
 run_extension_suite npm run test-extension -- -l positron-data-driver-databricks
 kill_app
 
-echo
-echo "### Positron Connect Pins data connection tests"
-echo
+start_suite "Positron Connect Pins data connection tests"
 run_extension_suite npm run test-extension -- -l positron-data-driver-pins
 kill_app
 
-echo
-echo "### Positron ODBC data connection tests"
-echo
+start_suite "Positron ODBC data connection tests"
 run_extension_suite npm run test-extension -- -l positron-data-driver-odbc
 kill_app
 
-echo
-echo "### Positron PostgreSQL data connection tests"
-echo
+start_suite "Positron PostgreSQL data connection tests"
 run_extension_suite npm run test-extension -- -l positron-data-driver-postgresql
 kill_app
 
-echo
-echo "### Positron Redshift data connection tests"
-echo
+start_suite "Positron Redshift data connection tests"
 run_extension_suite npm run test-extension -- -l positron-data-driver-redshift
 kill_app
 
-echo
-echo "### Positron Snowflake data connection tests"
-echo
+start_suite "Positron Snowflake data connection tests"
 run_extension_suite npm run test-extension -- -l positron-data-driver-snowflake
 kill_app
 
-echo
-echo "### Positron Zed tests"
-echo
+start_suite "Positron Zed tests"
 run_extension_suite npm run test-extension -- -l positron-zed
 kill_app
 
@@ -497,17 +461,18 @@ kill_app
 # Tests standalone (CommonJS)
 
 if should_run_suite css; then
-echo
-echo "### CSS tests"
-echo
+start_suite "CSS tests"
 cd "$ROOT/extensions/css-language-features/server" && "$ROOT/scripts/node-electron.sh" test/index.js
 fi
 
 if should_run_suite html; then
-echo
-echo "### HTML tests"
-echo
+start_suite "HTML tests"
 cd "$ROOT/extensions/html-language-features/server" && "$ROOT/scripts/node-electron.sh" test/index.js
+fi
+
+if should_run_suite json; then
+start_suite "JSON tests"
+"$ROOT/scripts/node-electron.sh" "$ROOT/extensions/json-language-features/client/out/test/index.js" "${BUILD_ARGS[@]}"
 fi
 
 

@@ -16,6 +16,7 @@ import { parseExtensionsGalleryEnv } from '../../extensionManagement/common/exte
 
 interface IPackageConfiguration {
 	readonly version: string;
+	readonly copilotRuntimeVersion?: string;
 	readonly dependencies?: Readonly<Record<string, string>>;
 }
 
@@ -75,10 +76,9 @@ else if (globalThis._VSCODE_PRODUCT_JSON && globalThis._VSCODE_PACKAGE_JSON) {
 	// --- End PWB: Custom extensions gallery ---
 
 	if (!product.copilotVersions) {
-		const runtime = getDependencyVersion(packageConfiguration, '@github/copilot');
 		const sdk = getDependencyVersion(packageConfiguration, '@github/copilot-sdk');
-		if (runtime && sdk) {
-			Object.assign(product, { copilotVersions: { runtime, sdk } });
+		if (packageConfiguration.copilotRuntimeVersion && sdk) {
+			Object.assign(product, { copilotVersions: { runtime: packageConfiguration.copilotRuntimeVersion, sdk } });
 		}
 	}
 }
@@ -93,7 +93,7 @@ else {
 	// Running out of sources
 	if (Object.keys(product).length === 0) {
 		Object.assign(product, {
-			version: '1.138.0-dev',
+			version: '1.143.0-dev',
 			// --- Start Positron ---
 			// This only applies to dev builds where it is not possible to read the
 			// product configuration. Release builds replace the product configuration

@@ -22,12 +22,11 @@ import { IPosition } from '../../../editor/common/core/position.js';
 import { Range as EditorRange, IRange } from '../../../editor/common/core/range.js';
 import { ISelection, Selection } from '../../../editor/common/core/selection.js';
 import * as languages from '../../../editor/common/languages.js';
-import { IAutoClosingPairConditional } from '../../../editor/common/languages/languageConfiguration.js';
 import { encodeSemanticTokensDto } from '../../../editor/common/services/semanticTokensDto.js';
 import { localize } from '../../../nls.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../platform/extensions/common/extensions.js';
 import { ILogService } from '../../../platform/log/common/log.js';
-import { isProposedApiEnabled } from '../../services/extensions/common/extensions.js';
+import { checkProposedApiEnabled, isProposedApiEnabled } from '../../services/extensions/common/extensions.js';
 import { Cache } from './cache.js';
 import * as extHostProtocol from './extHost.protocol.js';
 import { IExtHostApiDeprecationService } from './extHostApiDeprecationService.js';
@@ -696,7 +695,7 @@ class DocumentPasteEditProvider {
 			only: context.only ? new DocumentDropOrPasteEditKind(context.only) : undefined,
 			triggerKind: context.triggerKind,
 		}, token);
-		if (!edits || token.isCancellationRequested) {
+		if (!edits?.length || token.isCancellationRequested) {
 			return [];
 		}
 
@@ -820,7 +819,8 @@ class NavigateTypeAdapter {
 	async provideWorkspaceSymbols(search: string, token: CancellationToken): Promise<extHostProtocol.IWorkspaceSymbolsDto> {
 		const value = await this._provider.provideWorkspaceSymbols(search, token);
 
-		if (!isNonEmptyArray(value)) {
+		// Canceled requests cannot release their cache entries, so discard late provider results before caching them.
+		if (!isNonEmptyArray(value) || token.isCancellationRequested) {
 			return { symbols: [] };
 		}
 
@@ -1039,7 +1039,7 @@ class DocumentSemanticTokensAdapter {
 		if (previousResult) {
 			this._previousResults.delete(previousResultId);
 		}
-		if (!value) {
+		if (!value || token.isCancellationRequested) {
 			return null;
 		}
 		value = DocumentSemanticTokensAdapter._fixProvidedSemanticTokens(value);
@@ -1647,7 +1647,7 @@ class SignatureHelpAdapter {
 		const vscodeContext = this.reviveContext(context);
 
 		const value = await this._provider.provideSignatureHelp(doc, pos, token, vscodeContext);
-		if (value) {
+		if (value && !token.isCancellationRequested) {
 			// --- Start Positron ---
 			// Filter out signature help that only contains "Unknown" text (possibly in a markdown code block).
 			// This is because that's the literal message Pyrefly sends when it has no useful info to provide.
@@ -2152,7 +2152,7 @@ class CallHierarchyAdapter {
 		const pos = typeConvert.Position.to(position);
 
 		const items = await this._provider.prepareCallHierarchy(doc, pos, token);
-		if (!items) {
+		if (!items || token.isCancellationRequested) {
 			return undefined;
 		}
 
@@ -2232,7 +2232,7 @@ class TypeHierarchyAdapter {
 		const pos = typeConvert.Position.to(position);
 
 		const items = await this._provider.prepareTypeHierarchy(doc, pos, token);
-		if (!items) {
+		if (!items || token.isCancellationRequested) {
 			return undefined;
 		}
 
@@ -2316,6 +2316,9 @@ class DocumentDropEditAdapter {
 		}
 
 		const editsArray = asArray(edits);
+		if (editsArray.length === 0) {
+			return undefined;
+		}
 		const cacheId = this._cache.add(editsArray);
 
 		return editsArray.map((edit, i): extHostProtocol.IDocumentDropEditDto => ({
@@ -3235,19 +3238,24 @@ export class ExtHostLanguageFeatures extends CoreDisposable implements extHostPr
 		return onEnterRules.map(ExtHostLanguageFeatures._serializeOnEnterRule);
 	}
 
-	private static _serializeAutoClosingPair(autoClosingPair: vscode.AutoClosingPair): IAutoClosingPairConditional {
+	private static _serializeAutoClosingPair(autoClosingPair: vscode.AutoClosingPair): extHostProtocol.IAutoClosingPairDto {
 		return {
 			open: autoClosingPair.open,
 			close: autoClosingPair.close,
 			notIn: autoClosingPair.notIn ? autoClosingPair.notIn.map(v => SyntaxTokenType.toString(v)) : undefined,
+			beforeText: autoClosingPair.beforeText ? ExtHostLanguageFeatures._serializeRegExp(autoClosingPair.beforeText) : undefined,
 		};
 	}
 
-	private static _serializeAutoClosingPairs(autoClosingPairs: vscode.AutoClosingPair[]): IAutoClosingPairConditional[] {
+	private static _serializeAutoClosingPairs(autoClosingPairs: vscode.AutoClosingPair[]): extHostProtocol.IAutoClosingPairDto[] {
 		return autoClosingPairs.map(ExtHostLanguageFeatures._serializeAutoClosingPair);
 	}
 
 	setLanguageConfiguration(extension: IExtensionDescription, languageId: string, configuration: vscode.LanguageConfiguration): vscode.Disposable {
+		if (configuration.autoClosingPairs?.some(pair => pair.beforeText !== undefined)) {
+			checkProposedApiEnabled(extension, 'autoClosingPairBeforeText');
+		}
+
 		const { wordPattern } = configuration;
 
 		// check for a valid word pattern

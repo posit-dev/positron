@@ -1153,6 +1153,7 @@ export class TerminalService extends Disposable implements ITerminalService {
 			xtermColorProvider: options.colorProvider,
 			capabilities,
 			disableOverviewRuler: options.disableOverviewRuler,
+			scrollback: options.scrollback,
 			detached: true,
 		}, undefined);
 

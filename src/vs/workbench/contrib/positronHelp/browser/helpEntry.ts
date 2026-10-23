@@ -925,9 +925,10 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	/**
 	 * handleKeyEvent
 	 * @param type The type (keydown or keyup).
-	 * @param event The key event.
+	 * @param event The key event. The help overlay posts key events directly rather than through
+	 * the webview shell's forwarding path, so there is no shell key-event token.
 	 */
-	private emulateKeyEvent(type: 'keydown' | 'keyup', event: KeyEvent) {
+	private emulateKeyEvent(type: 'keydown' | 'keyup', event: Omit<KeyEvent, 'keyEventToken'>) {
 		// Create an emulated KeyboardEvent from the data provided.
 		const emulatedKeyboardEvent = new KeyboardEvent(type, event);
 

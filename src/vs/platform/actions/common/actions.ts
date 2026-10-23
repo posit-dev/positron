@@ -24,6 +24,7 @@ import { PositronActionBarOptions, positronActionBarStateExpression } from '../.
 
 export interface IMenuItem {
 	command: ICommandAction;
+	/** Alternative command for this menu item. */
 	alt?: ICommandAction;
 	/**
 	 * Menu item is hidden if this expression returns false.
@@ -427,7 +428,7 @@ export interface IMenuService {
 	createMenu(id: MenuId, contextKeyService: IContextKeyService, options?: IMenuCreateOptions): IMenu;
 
 	/**
-	 * Creates a new menu, gets the actions, and then disposes of the menu.
+	 * Gets the actions for the current context without creating a menu.
 	 */
 	getMenuActions(id: MenuId, contextKeyService: IContextKeyService, options?: IMenuActionOptions): [string, Array<MenuItemAction | SubmenuItemAction>][];
 

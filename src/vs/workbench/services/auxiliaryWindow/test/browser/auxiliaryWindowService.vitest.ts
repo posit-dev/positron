@@ -42,7 +42,10 @@ describe('AuxiliaryWindow', () => {
 				onDidShowContextMenu: Event.None,
 				onDidHideContextMenu: Event.None,
 			}),
-			stubInterface<IWorkbenchLayoutService>({ activeContainer: mainWindow.document.body }),
+			stubInterface<IWorkbenchLayoutService>({
+				activeContainer: mainWindow.document.body,
+				getContainer: () => mainWindow.document.createElement('div'),
+			}),
 		));
 	}
 

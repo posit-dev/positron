@@ -269,6 +269,10 @@ means a file didn't emit its `.js`, so the workbench fails to load at runtime
 with `ERR_FILE_NOT_FOUND` / "Failed to fetch dynamically imported module" even
 though every gulp-based check passed.
 
+#### Check the default themes
+
+Theme regressions produce no conflicts, compile errors, or test failures. Upstream turning a redesign on by default (e.g. `workbench.experimental.modernUI` in 1.143), or adding colors to the `light_modern` / `dark_modern` themes that Positron's themes inherit, can quietly break Positron's colored activity bar and editor tabs. Follow `references/themes.md` to find these in the diff, and check both Default Positron themes in the smoke-launched build.
+
 ### Step 5: Test
 
 Run the unit tests and the extension host tests. Investigate and fix any
@@ -415,3 +419,4 @@ See these references for more information:
 - `change-markers.md`: how to interpret, create and use change markers (Start Positron, Start PWB)
 - `package-json.md`: how to handle conflicts in package.json and package-lock.json files
 - `codicons.md`: how to handle conflicts in codicon.ttf and codiconLibrary.ts files
+- `themes.md`: how to catch theme regressions from upstream default-on settings and new inherited colors

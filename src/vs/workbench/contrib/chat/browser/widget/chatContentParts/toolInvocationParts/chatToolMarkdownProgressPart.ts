@@ -56,7 +56,7 @@ export class ChatToolMarkdownProgressPart extends BaseChatToolInvocationSubPart 
 				wordWrap: 'on'
 			}
 		};
-		this.markdownPart = this._register(instantiationService.createInstance(ChatMarkdownContentPart, chatMarkdownContent, context, editorPool, false, codeBlockStartIndex, renderer, /* markdownRenderOptions */ undefined, currentWidthDelegate(), { codeBlockRenderOptions }));
+		this.markdownPart = this._register(instantiationService.createInstance(ChatMarkdownContentPart, chatMarkdownContent, context, editorPool, false, codeBlockStartIndex, renderer, /* markdownRenderOptions */ undefined, currentWidthDelegate, { codeBlockRenderOptions }));
 
 		// Determine icon based on tool invocation state
 		let icon: ThemeIcon;

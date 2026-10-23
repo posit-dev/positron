@@ -5,7 +5,13 @@
 
 .file-icons-enabled .show-file-icons .vscode_getting_started_page-name-file-icon.file-icon::before {
 	content: ' ';
+	background-color: transparent;
+	/* --- Start Positron --- */
+	/* background-image: url('../../../../browser/media/code-icon.svg'); */
 	background-image: url('../../../../browser/media/positron-icon.svg');
+	/* --- End Positron --- */
+	mask: none;
+	-webkit-mask: none;
 }
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer {
@@ -911,6 +917,10 @@
 	gap: 8px;
 }
 
+.monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlide .showOnStartup {
+	padding: var(--vscode-spacing-size40);
+}
+
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlide .getting-started-checkbox {
 	color: inherit !important;
 	height: 18px;
@@ -919,6 +929,11 @@
 	border-radius: 3px;
 	padding: 0;
 	margin-right: 9px;
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlide .getting-started-checkbox:focus-visible {
+	outline: var(--vscode-strokeThickness) solid var(--vscode-focusBorder);
+	outline-offset: 2px;
 }
 
 /* Don't show focus outline on mouse click. Instead only show outline on keyboard focus. */

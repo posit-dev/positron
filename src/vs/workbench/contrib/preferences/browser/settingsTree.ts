@@ -1402,6 +1402,8 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 			}
 
 			if (
+				template.context.settingsTarget !== ConfigurationTarget.WORKSPACE &&
+				!URI.isUri(template.context.settingsTarget) &&
 				template.context.defaultValue &&
 				Array.isArray(template.context.defaultValue) &&
 				template.context.defaultValue.length === newValue.length &&
@@ -1424,7 +1426,8 @@ class SettingArrayRenderer extends AbstractSettingRenderer implements ITreeRende
 		const keySuggester = dataElement.setting.enum ? createArraySuggester(dataElement) : undefined;
 		template.listWidget.setValue(value, {
 			showAddButton: getShowAddButtonList(dataElement, value),
-			keySuggester
+			keySuggester,
+			isReadOnly: dataElement.hasPolicyValue || dataElement.isAgentsWindowReadOnly
 		});
 		template.context = dataElement;
 

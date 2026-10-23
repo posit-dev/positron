@@ -145,6 +145,9 @@ export interface ITerminalConfiguration {
 	altClickMovesCursor: boolean;
 	macOptionIsMeta: boolean;
 	macOptionClickForcesSelection: boolean;
+	// --- Start PWB: Terminal program clipboard setting ---
+	allowProgramsToCopyToClipboard: boolean;
+	// --- End PWB ---
 	gpuAcceleration: 'auto' | 'on' | 'off';
 	rightClickBehavior: 'default' | 'copyPaste' | 'paste' | 'selectWord' | 'nothing';
 	middleClickBehavior: 'default' | 'paste';
@@ -156,6 +159,7 @@ export interface ITerminalConfiguration {
 	drawBoldTextInBrightColors: boolean;
 	fastScrollSensitivity: number;
 	fontFamily: string;
+	fontRendering?: 'inherit' | 'grayscale';
 	fontWeight: FontWeight;
 	fontWeightBold: FontWeight;
 	minimumContrastRatio: number;

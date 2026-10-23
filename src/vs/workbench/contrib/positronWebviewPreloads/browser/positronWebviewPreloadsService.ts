@@ -22,7 +22,9 @@ import { Schemas } from '../../../../base/common/network.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import * as path from '../../../../base/common/path.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { EditorOpenSource, EditorResolution } from '../../../../platform/editor/common/editor.js';
+import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { OpenWithEditorPicker } from '../../../services/editor/browser/openWithEditorPicker.js';
 import { URI } from '../../../../base/common/uri.js';
 
 /**
@@ -88,6 +90,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
 		@ICommandService private _commandService: ICommandService,
 		@IEditorService private _editorService: IEditorService,
+		@IInstantiationService private _instantiationService: IInstantiationService,
 	) {
 		super();
 
@@ -117,6 +120,18 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		return {
 			numberOfMessages: messages.length
 		};
+	}
+
+	/**
+	 * Lets the user pick an editor for a PDF, then opens it with that editor.
+	 * @param resource The PDF to open.
+	 */
+	private async _openPdfWith(resource: URI): Promise<void> {
+		const picker = this._instantiationService.createInstance(OpenWithEditorPicker);
+		const options = await picker.pick({ resource, options: { source: EditorOpenSource.USER } });
+		if (options) {
+			await this._editorService.openEditor({ resource, options });
+		}
 	}
 
 	private _attachSession(session: ILanguageRuntimeSession) {
@@ -530,10 +545,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		disposables.add(webview.webview.onMessage((event) => {
 			const msg = event.message;
 			if (msg?.__vscode_notebook_message && msg.type === 'positron-open-pdf-with' && msg.path) {
-				this._editorService.openEditor({
-					resource: URI.file(msg.path),
-					options: { override: EditorResolution.PICK, source: EditorOpenSource.USER }
-				});
+				void this._openPdfWith(URI.file(msg.path));
 			}
 		}));
 

@@ -29,6 +29,7 @@ vscode.db
 tags
 /cli/target
 /cli/openssl
+/copilot_shim/target
 product.overrides.json
 *.snap.actual
 *.tsbuildinfo
