@@ -44,6 +44,11 @@ export class DuckDBWorkerPool {
 	 * lease for that file + mode. The returned lease must be released exactly once.
 	 */
 	acquire(config: WorkerOpenConfig): IDuckDBWorkerLease {
+		// The pool key is the file + mode only. A MotherDuck worker is signed in to one account, so
+		// sharing it could show one account's data to another connection.
+		if (config.motherduckToken !== undefined) {
+			throw new Error('MotherDuck workers cannot be pooled; create a dedicated DuckDBWorkerClient.');
+		}
 		const key = poolKey(config);
 		let entry = this._entries.get(key);
 		if (!entry) {

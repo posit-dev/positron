@@ -9,6 +9,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
+import { escapeDoubleQuoted } from './codeEscaping.js';
 import { DuckDBConnection } from './duckdbConnection.js';
 import { checkDatabaseFile, IDatabaseFileSignature, IDatabasePathEnvironment, resolveDatabasePath } from './databasePath.js';
 
@@ -74,15 +75,6 @@ async function validateDatabasePath(filePath: string): Promise<positron.DataConn
 		case 'valid':
 			return { normalizedValues: { databasePath } };
 	}
-}
-
-/**
- * Escapes a value for embedding in a double-quoted Python or R string literal. Both languages
- * treat backslash as an escape character in double-quoted strings, so Windows paths such as
- * `C:\db.duckdb` must have their separators doubled.
- */
-function escapeDoubleQuoted(value: string): string {
-	return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 /**

@@ -13,6 +13,7 @@
 
 import { DuckDBConnection, DuckDBInstance } from '@duckdb/node-api';
 import {
+	MOTHERDUCK_TOKEN_ENV,
 	WorkerOpenConfig,
 	WorkerQueryRequest,
 	WorkerQueryResponse
@@ -27,6 +28,16 @@ function send(response: WorkerQueryResponse): void {
 // (JSON encoded), so we can open the database immediately on startup.
 const config: WorkerOpenConfig = JSON.parse(process.argv[2] ?? '{}');
 
+/** Whether a database path targets MotherDuck (`md:` or its `motherduck:` alias, any case). */
+function isMotherDuckPath(databasePath: string): boolean {
+	return /^(md|motherduck):/i.test(databasePath);
+}
+
+// The MotherDuck token arrives in the environment. Read it once and remove it so nothing the
+// worker spawns or loads can inherit it.
+const motherduckToken = process.env[MOTHERDUCK_TOKEN_ENV]?.trim();
+delete process.env[MOTHERDUCK_TOKEN_ENV];
+
 let connection: DuckDBConnection | undefined;
 let initError: Error | undefined;
 
@@ -35,6 +46,11 @@ let initError: Error | undefined;
 // crashing, so the host can surface a clean error from connect().
 const ready: Promise<void> = (async () => {
 	try {
+		// Without a token, opening `md:` makes the MotherDuck extension launch a browser sign-in
+		// and block for a minute, so refuse before touching DuckDB.
+		if (isMotherDuckPath(config.databasePath) && !motherduckToken) {
+			throw new Error('A MotherDuck access token is required.');
+		}
 		const options: Record<string, string> = {
 			// The Data Explorer pages with a fresh LIMIT/OFFSET statement per page and states no
 			// ORDER BY unless the user sorts, so its correctness rests on DuckDB returning a relation
@@ -45,6 +61,9 @@ const ready: Promise<void> = (async () => {
 			// missed 751,752 others. Stating it here makes the dependency explicit and pins it.
 			preserve_insertion_order: 'true',
 		};
+		if (motherduckToken) {
+			options.motherduck_token = motherduckToken;
+		}
 		if (config.readOnly) {
 			options.access_mode = 'READ_ONLY';
 		}

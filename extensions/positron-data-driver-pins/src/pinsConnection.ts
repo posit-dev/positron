@@ -209,7 +209,7 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 			// The active version reads as the latest; only pin an explicit version for the others.
 			version: isActiveVersion ? undefined : bundleId,
 		});
-		await this._dataExplorerHandler.openTableView(datasetId, worker, 'main', tableName, 'table', {
+		await this._dataExplorerHandler.openTableView(datasetId, worker, undefined, 'main', tableName, 'table', {
 			displayName,
 			codeGenerator,
 			// When the user closes this preview's tab, reclaim its memory instead of waiting for the
