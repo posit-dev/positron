@@ -57,7 +57,7 @@ flowchart TD
         Q4{"Can a language still start at registration?"}:::pin
         W4["Wait for those languages' checks, at most 20 s"]:::pin
         L4["Load the discovery cache, then search for interpreters the cache does not cover. The interpreter picker fills in as they register"]:::same
-        D4["When one language's search ends, or the cache covers it, ask that language again. An answer that is not Immediate can start now if a file of the language is open"]:::open
+        D4["When a language's search ends, ask that language for its recommendation right away. If a file of that language is open, start its interpreter now. Do not wait for the other languages' searches"]:::open
         Q4 -- "no (almost every launch)" --> L4
         Q4 -- "yes" --> W4 --> L4
         L4 --> D4
