@@ -636,6 +636,43 @@ describe('DataConnectionsTreeInstance', () => {
 		}
 	});
 
+	it('retries a Views look-ahead that fails after the timeout when the row is opened', async () => {
+		vi.useFakeTimers();
+		try {
+			let failLookAhead!: (error: Error) => void;
+			const lookAhead = new Promise<IDataConnectionNodeDTO[]>((_resolve, reject) => {
+				failLookAhead = reject;
+			});
+			const view = nodeDto({ nodeHandle: 6, name: 'v_retry', kind: 'view', hasGetChildren: false });
+			let viewsQueries = 0;
+			const { tree } = lonePublicSchema(() => {
+				viewsQueries++;
+				return viewsQueries === 1 ? lookAhead : [view];
+			});
+			await tree.refresh();
+
+			const expanding = tree.expand(ENTRY_ID);
+			await vi.advanceTimersByTimeAsync(5_000);
+			await expanding;
+
+			failLookAhead(new Error('late boom'));
+			await vi.advanceTimersByTimeAsync(0);
+			await tree.expand('dto:1:4');
+
+			expect({
+				rows: rows(tree).map(row => row.name),
+				error: tree.getError('dto:1:4'),
+				viewsQueries,
+			}).toEqual({
+				rows: ['connection', 'Tables', 'Views', 'v_retry'],
+				error: undefined,
+				viewsQueries: 2,
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('keeps a Views group it cannot look into, without fetching', async () => {
 		const { tree, nodeGetChildren } = lonePublicSchema(() => [], { hasGetChildren: false });
 		await tree.refresh();

@@ -1031,7 +1031,9 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * the row as it would have been without it. Expanding then runs the call again and surfaces any
 	 * error through the tree's own error state, where the user can retry it. A fetch that does not
 	 * answer within LOOK_AHEAD_TIMEOUT_MS leaves the row too, but the query stays in
-	 * _lookAheadChildren and opening the row awaits it.
+	 * _lookAheadChildren and opening the row awaits it. If that query then fails, it is dropped
+	 * from the map, so opening the row runs the call again. A row opened while the query is still
+	 * in flight shares its outcome, error included.
 	 *
 	 * The query is parked in the map before that wait. A reload clears the map, and the answer is
 	 * not written back when it arrives, so it cannot satisfy an expand under a handle the reload
@@ -1051,19 +1053,21 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		}
 
 		const id = dtoNodeId(handle, dto);
-		let query: Promise<IDataConnectionNodeDTO[]> | undefined;
 		try {
-			query = handle.nodeGetChildren(dto.nodeHandle);
+			const query = handle.nodeGetChildren(dto.nodeHandle);
 			// Parked before the wait so a timeout leaves this query for the expand, and so a
 			// reload's clear() discards it. Settling does not write the result back into the map.
 			this._lookAheadChildren.set(id, query);
+			// A failure is not reused, whether it lands before or after the timeout: opening the row
+			// retries, which is how the user recovers. Only drop the entry if it is still this
+			// query, since a reload may have replaced it.
+			query.catch(() => {
+				if (this._lookAheadChildren.get(id) === query) {
+					this._lookAheadChildren.delete(id);
+				}
+			});
 			return await raceTimeout(query, LOOK_AHEAD_TIMEOUT_MS);
 		} catch {
-			// A failure is not reused: opening the row retries, which is how the user recovers.
-			// Only drop the entry if it is still this query -- a reload may have replaced it.
-			if (query !== undefined && this._lookAheadChildren.get(id) === query) {
-				this._lookAheadChildren.delete(id);
-			}
 			return undefined;
 		}
 	}
