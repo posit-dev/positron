@@ -72,8 +72,13 @@ export const RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT = 1;
  * so a replayed entry from an older scale sorts against a freshly discovered
  * one and both orderings are wrong. Changing an extension's rank values means
  * bumping this version.
+ *
+ * v5: R's discovered runtimes are `Explicit`, so opening an R file starts R's
+ * recommendation. Entries written by older builds are `Implicit`, and a
+ * cache hit replays them as-is. Changing the startup behavior an extension
+ * gives its discovered runtimes means bumping this version.
  */
-export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 4;
+export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 5;
 
 /**
  * Storage key under which all cache state is persisted. Embeds the schema
