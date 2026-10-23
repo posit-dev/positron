@@ -25,10 +25,11 @@ describe('ErrorActionHandlerService', () => {
 	const logWarn = vi.fn();
 	const notifyError = vi.fn();
 	const notifyPrompt = vi.fn();
+	const notifyWarn = vi.fn();
 	const executeCommand = vi.fn();
 	const ctx = createTestContainer()
 		.stub(ILogService, { error: logError, warn: logWarn })
-		.stub(INotificationService, { error: notifyError, prompt: notifyPrompt })
+		.stub(INotificationService, { error: notifyError, prompt: notifyPrompt, warn: notifyWarn })
 		.stub(ICommandService, { executeCommand })
 		.build();
 
@@ -236,14 +237,15 @@ describe('ErrorActionHandlerService', () => {
 		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', '@id:ai.errorActions.agent');
 	});
 
-	it('sends nothing to the default handler while it is not ready', async () => {
+	it('sends nothing to the default handler while it is not ready, and says so', async () => {
 		const service = createService();
 		const ask = vi.fn();
-		ctx.disposables.add(service.register(createHandler({ id: DEFAULT_ERROR_ACTION_HANDLER_ID, ask })));
+		ctx.disposables.add(service.register(createHandler({ id: DEFAULT_ERROR_ACTION_HANDLER_ID, label: 'Posit Assistant', ask })));
 
 		await service.ask(DEFAULT_ERROR_ACTION_HANDLER_ID, 'fix', context, {});
 
 		expect(ask).not.toHaveBeenCalled();
+		expect(notifyWarn).toHaveBeenCalledWith(`Posit Assistant isn't available, so the error wasn't sent.`);
 	});
 
 	it('logs and notifies, rather than throws, when the handler fails', async () => {

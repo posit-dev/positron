@@ -105,6 +105,9 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 			// It stopped being ready between render and click, and its buttons
 			// are about to hide.
 			this._logService.warn(`The default error action handler '${handler.id}' is not ready to take errors`);
+			this._notificationService.warn(
+				localize('positron.errorAction.notReady', "{0} isn't available, so the error wasn't sent.", handler.label)
+			);
 			return;
 		}
 		// Hold every handler to the contract here, rather than in each surface.
