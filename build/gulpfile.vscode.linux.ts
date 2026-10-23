@@ -27,6 +27,7 @@ const require = createRequire(import.meta.url);
 const exec = promisify(cp.exec);
 const root = path.dirname(import.meta.dirname);
 const commit = getVersion(root);
+const linuxDesktopName = product.linuxDesktopName;
 
 const linuxPackageRevision = Math.floor(new Date().getTime() / 1000);
 
@@ -48,14 +49,15 @@ function prepareDebPackage(arch: string) {
 		const dependencies = await getDependencies('deb', binaryDir, product.applicationName, debArch);
 
 		const desktop = gulp.src('resources/linux/code.desktop', { base: '.' })
-			.pipe(rename('usr/share/applications/' + product.applicationName + '.desktop'));
+			.pipe(rename(`usr/share/applications/${linuxDesktopName}.desktop`));
 
 		const desktopUrlHandler = gulp.src('resources/linux/code-url-handler.desktop', { base: '.' })
-			.pipe(rename('usr/share/applications/' + product.applicationName + '-url-handler.desktop'));
+			.pipe(rename(`usr/share/applications/${linuxDesktopName}.UrlHandler.desktop`));
 
 		const desktops = es.merge(desktop, desktopUrlHandler)
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
 			.pipe(replace('@@NAME_SHORT@@', product.nameShort))
+			.pipe(replace('@@DESKTOP_NAME@@', linuxDesktopName))
 			.pipe(replace('@@NAME@@', product.applicationName))
 			.pipe(replace('@@EXEC@@', `/usr/share/${product.applicationName}/${product.applicationName}`))
 			.pipe(replace('@@ICON@@', product.linuxIconName))
@@ -66,9 +68,9 @@ function prepareDebPackage(arch: string) {
 
 		const appdata = gulp.src('resources/linux/positron.appdata.xml', { base: '.' })
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
-			.pipe(replace('@@NAME@@', product.applicationName))
+			.pipe(replace('@@NAME@@', linuxDesktopName))
 			.pipe(replace('@@LICENSE@@', product.licenseName))
-			.pipe(rename('usr/share/appdata/' + product.applicationName + '.appdata.xml'));
+			.pipe(rename(`usr/share/appdata/${linuxDesktopName}.appdata.xml`));
 		// --- End Positron ---
 
 		const workspaceMime = gulp.src('resources/linux/code-workspace.xml', { base: '.' })
@@ -180,14 +182,15 @@ function prepareRpmPackage(arch: string) {
 		const dependencies = await getDependencies('rpm', binaryDir, product.applicationName, rpmArch);
 
 		const desktop = gulp.src('resources/linux/code.desktop', { base: '.' })
-			.pipe(rename('BUILD/usr/share/applications/' + product.applicationName + '.desktop'));
+			.pipe(rename(`BUILD/usr/share/applications/${linuxDesktopName}.desktop`));
 
 		const desktopUrlHandler = gulp.src('resources/linux/code-url-handler.desktop', { base: '.' })
-			.pipe(rename('BUILD/usr/share/applications/' + product.applicationName + '-url-handler.desktop'));
+			.pipe(rename(`BUILD/usr/share/applications/${linuxDesktopName}.UrlHandler.desktop`));
 
 		const desktops = es.merge(desktop, desktopUrlHandler)
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
 			.pipe(replace('@@NAME_SHORT@@', product.nameShort))
+			.pipe(replace('@@DESKTOP_NAME@@', linuxDesktopName))
 			.pipe(replace('@@NAME@@', product.applicationName))
 			.pipe(replace('@@EXEC@@', `/usr/share/${product.applicationName}/${product.applicationName}`))
 			.pipe(replace('@@ICON@@', product.linuxIconName))
@@ -198,9 +201,9 @@ function prepareRpmPackage(arch: string) {
 
 		const appdata = gulp.src('resources/linux/positron.appdata.xml', { base: '.' })
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
-			.pipe(replace('@@NAME@@', product.applicationName))
+			.pipe(replace('@@NAME@@', linuxDesktopName))
 			.pipe(replace('@@LICENSE@@', product.licenseName))
-			.pipe(rename('BUILD/usr/share/appdata/' + product.applicationName + '.appdata.xml'));
+			.pipe(rename(`BUILD/usr/share/appdata/${linuxDesktopName}.appdata.xml`));
 
 		console.log('Updating product.json with RPM package type');
 		gulp.src([binaryDir + '/resources/app/product.json'], { base: '.' })
@@ -235,6 +238,7 @@ function prepareRpmPackage(arch: string) {
 			// --- End Positron ---
 			.pipe(replace('@@NAME@@', product.applicationName))
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
+			.pipe(replace('@@DESKTOP_NAME@@', linuxDesktopName))
 			.pipe(replace('@@ICON@@', product.linuxIconName))
 			// --- Start Positron ---
 			.pipe(replace('@@VERSION@@', product.version))
@@ -293,6 +297,7 @@ function prepareSnapPackage(arch: string) {
 		const desktops = es.merge(desktop, desktopUrlHandler)
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
 			.pipe(replace('@@NAME_SHORT@@', product.nameShort))
+			.pipe(replace('@@DESKTOP_NAME@@', `${product.applicationName}_${product.applicationName}`))
 			.pipe(replace('@@NAME@@', product.applicationName))
 			.pipe(replace('@@EXEC@@', `${product.applicationName} --force-user-env`))
 			.pipe(replace('@@ICON@@', `\${SNAP}/meta/gui/${product.linuxIconName}.png`))
