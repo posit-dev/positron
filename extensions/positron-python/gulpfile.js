@@ -312,14 +312,13 @@ async function vendorPythonKernelRequirements() {
 }
 
 async function bundleIPykernel() {
-    const minimumPythonVersion = '3.9';
+    const minimumPythonVersion = '3.10';
 
     // pyzmq publishes a wheel for each Python version up to 3.11, and one abi3 wheel
     // (cp312-abi3) for Python 3.12 and later. Install the abi3 wheel one time instead of
     // one identical copy for each version.
     // Keep in sync with getIpykernelBundle() in src/client/positron/ipykernel.ts.
     const cpxInstalls = [
-        { directory: 'cp39', pythonVersion: '3.9', abi: 'cp39' },
         { directory: 'cp310', pythonVersion: '3.10', abi: 'cp310' },
         { directory: 'cp311', pythonVersion: '3.11', abi: 'cp311' },
         { directory: 'cp312-abi3', pythonVersion: '3.12', abi: 'abi3' },

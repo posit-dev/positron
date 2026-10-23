@@ -41,22 +41,11 @@ def _distribution_to_modules(name: str) -> list[str]:
 
     PyPI distribution names don't always match the importable module name
     (e.g. "scikit-learn" -> "sklearn", "python-dateutil" -> "dateutil").
-    Returns an empty list on Python < 3.10 (where the stdlib API is missing)
-    or when no installed distribution matches.
+    Returns an empty list when no installed distribution matches.
     """
-    try:
-        # packages_distributions exists on Python >= 3.10; pyright's stubs for
-        # older versions don't know about it, so suppress the import-symbol
-        # check here. ImportError handles the actual runtime absence.
-        from importlib.metadata import (
-            packages_distributions,  # type: ignore[reportGeneralTypeIssues]
-        )
-    except ImportError:
-        return []
-
     canonical = _canonicalize_distribution_name(name)
     modules: list[str] = []
-    for module, distributions in packages_distributions().items():
+    for module, distributions in importlib.metadata.packages_distributions().items():
         if any(_canonicalize_distribution_name(d) == canonical for d in distributions):
             modules.append(module)
     # When a distribution exposes multiple top-level modules (e.g. setuptools
@@ -192,12 +181,7 @@ def _readme(package: str) -> str | None:
     # Broken distribution metadata can raise arbitrary errors; treat it as no README.
     names = [package]
     with contextlib.suppress(Exception):
-        # packages_distributions exists on Python >= 3.10.
-        from importlib.metadata import (
-            packages_distributions,  # type: ignore[reportGeneralTypeIssues]
-        )
-
-        names += packages_distributions().get(package.split(".")[0], [])
+        names += importlib.metadata.packages_distributions().get(package.split(".")[0], [])
 
     for name in names:
         with contextlib.suppress(Exception):

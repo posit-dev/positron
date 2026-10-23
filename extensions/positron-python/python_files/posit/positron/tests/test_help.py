@@ -198,29 +198,10 @@ def test_distribution_to_modules(
 
     from positron.help import _distribution_to_modules
 
-    # `raising=False` -- packages_distributions doesn't exist on Python < 3.10,
-    # but our code imports it lazily; we just need the attribute present for
-    # the test's mocked dispatch.
-    monkeypatch.setattr(
-        importlib.metadata,
-        "packages_distributions",
-        lambda: packages_map,
-        raising=False,
-    )
+    monkeypatch.setattr(importlib.metadata, "packages_distributions", lambda: packages_map)
 
     result = _distribution_to_modules(dist_name)
     assert (result[0] if result else None, set(result)) == (expected_first, expected_set)
-
-
-def test_distribution_to_modules_missing_api(monkeypatch: pytest.MonkeyPatch) -> None:
-    """On Python < 3.10 (no packages_distributions) we gracefully return []."""
-    import importlib.metadata
-
-    from positron.help import _distribution_to_modules
-
-    monkeypatch.delattr(importlib.metadata, "packages_distributions", raising=False)
-
-    assert _distribution_to_modules("scikit-learn") == []
 
 
 def test_show_help_resolves_distribution_name(
@@ -233,12 +214,8 @@ def test_show_help_resolves_distribution_name(
     import importlib.metadata
 
     # numpy is a real module; pretend it's shipped as the dist "fake-dist".
-    # `raising=False` so this works on Python 3.9 where the attribute is absent.
     monkeypatch.setattr(
-        importlib.metadata,
-        "packages_distributions",
-        lambda: {"numpy": ["fake-dist"]},
-        raising=False,
+        importlib.metadata, "packages_distributions", lambda: {"numpy": ["fake-dist"]}
     )
 
     help_service.show_help("fake-dist")
