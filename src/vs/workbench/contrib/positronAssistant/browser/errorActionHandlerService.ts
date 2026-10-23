@@ -26,12 +26,6 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 	/** Registered handlers, by id, in registration order. */
 	private readonly _handlersById = new Map<string, IErrorActionHandler>();
 
-	/**
-	 * The info naming the chosen handler while it isn't registered, kept so
-	 * that {@link activeHandler} returns the same object until it changes.
-	 */
-	private _unavailableAssistant: IErrorActionHandlerInfo | undefined;
-
 	/** The active handler as of the last event, to fire only on changes. */
 	private _lastActiveHandler: IErrorActionHandlerInfo | undefined;
 
@@ -144,13 +138,9 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 			// errors, so don't show its buttons until then.
 			return undefined;
 		}
-		if (this._unavailableAssistant?.id !== id) {
-			// A previously chosen handler is no longer available. Return an
-			// abbreviated version until it becomes available, and cache it
-			// for equality checks before we emit onDidChangeActiveHandler.
-			this._unavailableAssistant = { id, label: id, supportsChatContinuation: false };
-		}
-		return this._unavailableAssistant;
+		// The chosen handler isn't registered, so its label isn't known.
+		// Name it by its id until it registers.
+		return { id, label: id, supportsChatContinuation: false };
 	}
 
 	/** List the registered handlers in the setting. */
@@ -159,8 +149,13 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 	}
 
 	private _fireIfActiveHandlerChanged(): void {
+		// Compare what surfaces show, since an unregistered handler's info is
+		// built afresh on each read.
 		const activeHandler = this._getActiveHandler();
-		if (activeHandler !== this._lastActiveHandler) {
+		const last = this._lastActiveHandler;
+		if (activeHandler?.id !== last?.id
+			|| activeHandler?.label !== last?.label
+			|| activeHandler?.supportsChatContinuation !== last?.supportsChatContinuation) {
 			this._lastActiveHandler = activeHandler;
 			this._onDidChangeActiveHandler.fire(activeHandler);
 		}
