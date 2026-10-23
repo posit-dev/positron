@@ -390,6 +390,9 @@ const _allApiProposals = {
 	portsAttributes: {
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.portsAttributes.d.ts',
 	},
+	positronErrorActions: {
+		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.positronErrorActions.d.ts',
+	},
 	positronResolveSymlinks: {
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.positronResolveSymlinks.d.ts',
 	},

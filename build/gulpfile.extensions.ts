@@ -67,6 +67,7 @@ const compilations = [
 	'extensions/authentication/tsconfig.json',
 	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/next-edit-suggestions/tsconfig.json',
+	'extensions/positron-coding-agents/tsconfig.json',
 	'extensions/positron-code-cells/tsconfig.json',
 	'extensions/positron-connections/tsconfig.json',
 	'extensions/positron-dev-containers/tsconfig.json',

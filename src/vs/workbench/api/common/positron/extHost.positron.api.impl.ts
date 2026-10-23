@@ -48,6 +48,7 @@ import { IExtHostStorage } from '../extHostStorage.js';
 import { ExtHostLifecycle } from './extHostLifecycle.js';
 import { ExtHostFileTransfer } from './extHostFileTransfer.js';
 import { IExtHostDocs } from './extHostDocs.js';
+import { checkProposedApiEnabled } from '../../../services/extensions/common/extensions.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -570,6 +571,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				args?: unknown[],
 			): Thenable<positron.ai.ValidateAndExecuteCommandResult> {
 				return extHostAiFeatures.validateAndExecuteCommand(commandId, args);
+			},
+			registerErrorActionHandler(id: string, label: string, handler: positron.ai.ErrorActionHandler, metadata?: positron.ai.ErrorActionHandlerMetadata): vscode.Disposable {
+				checkProposedApiEnabled(extension, 'positronErrorActions');
+				return extHostAiFeatures.registerErrorActionHandler(id, label, handler, metadata);
 			},
 		};
 
