@@ -877,14 +877,73 @@ describe('act', () => {
 		expect({ message: outcome.message, shown: button.textContent }).toEqual({ message: 'Picked "darkorange" in the combobox "Bar color".', shown: 'darkorange' });
 	});
 
-	it('presses a key in a control', async () => {
+	it('presses a key in a control, and says when the browser won\'t act on it', async () => {
 		const bridge = load('<input id="chat" aria-label="Message">');
 		const keys: string[] = [];
 		byId('chat').addEventListener('keydown', event => keys.push(`${(event as KeyboardEvent).key}/${(event as KeyboardEvent).code}`));
 
-		const outcome = await bridge.act({ kind: 'press', key: 'Enter', ref: 'e1' }, QUICK);
+		const outcome = await bridge.act({ kind: 'press', key: 'Escape', ref: 'e1' }, QUICK);
 
-		expect({ message: outcome.message, keys }).toEqual({ message: 'Pressed Enter in the textbox "Message".', keys: ['Enter/Enter'] });
+		expect({ message: outcome.message, keys }).toEqual({
+			message: 'Pressed Escape in the textbox "Message". The page\'s own key handlers got it, but the browser won\'t do what Escape normally does for a key sent this way. ' +
+				'If the page didn\'t change, use fill to type, select to pick an option, or click to press a button or follow a link.',
+			keys: ['Escape/Escape'],
+		});
+	});
+
+	describe('pressing a key does what the browser would', () => {
+		/** A search form like the one in issue 16743; returns the queries it was submitted with. */
+		function loadSearchForm(): { bridge: IViewerBridge; searches: string[] } {
+			const bridge = load('<form id="form"><label for="q">Query</label> <input id="q" value="moons"> <button type="submit">Go</button></form>');
+			const searches: string[] = [];
+			byId('form').addEventListener('submit', event => {
+				event.preventDefault();
+				searches.push((byId('q') as HTMLInputElement).value);
+			});
+			return { bridge, searches };
+		}
+
+		it('submits a form for Enter in a text box', async () => {
+			const { bridge, searches } = loadSearchForm();
+
+			const outcome = await bridge.act({ kind: 'press', key: 'Enter', ref: 'e1' }, QUICK);
+
+			expect({ message: outcome.message, searches }).toEqual({ message: 'Pressed Enter in the textbox "Query", which submitted its form.', searches: ['moons'] });
+		});
+
+		it('leaves the form alone when the page cancels the keydown', async () => {
+			const { bridge, searches } = loadSearchForm();
+			byId('q').addEventListener('keydown', event => event.preventDefault());
+
+			const outcome = await bridge.act({ kind: 'press', key: 'Enter', ref: 'e1' }, QUICK);
+
+			expect({ message: outcome.message, searches }).toEqual({ message: 'Pressed Enter in the textbox "Query".', searches: [] });
+		});
+
+		it('steps a number box for ArrowUp', async () => {
+			const bridge = load('<label for="n">Count</label><input id="n" type="number" value="5">');
+			const input = byId('n') as HTMLInputElement;
+			const events = recordEvents(input, ['input', 'change']);
+
+			const outcome = await bridge.act({ kind: 'press', key: 'ArrowUp', ref: 'e1' }, QUICK);
+
+			expect({ message: outcome.message, value: input.value, events }).toEqual({
+				message: 'Pressed ArrowUp in the spinbutton "Count", which set it to "6".',
+				value: '6',
+				events: ['input', 'change'],
+			});
+		});
+
+		it('checks a checkbox for Space', async () => {
+			const bridge = load('<label><input id="agree" type="checkbox"> Agree</label>');
+
+			const outcome = await bridge.act({ kind: 'press', key: 'Space', ref: 'e1' }, QUICK);
+
+			expect({ message: outcome.message, checked: (byId('agree') as HTMLInputElement).checked }).toEqual({
+				message: 'Pressed Space in the checkbox "Agree", which checked it.',
+				checked: true,
+			});
+		});
 	});
 
 	it('scrolls a control\'s own scrolling area or the page, never an unrelated one', async () => {

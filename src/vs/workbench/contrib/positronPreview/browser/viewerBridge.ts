@@ -916,12 +916,15 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return allowed;
 	}
 
-	function pressKey(el: Element, key: string): void {
+	// Returns whether the page let the keydown's default action happen. The
+	// browser never runs it for a script's events; press() does it instead.
+	function pressKey(el: Element, key: string): boolean {
 		const view = viewOf(el);
-		const code = /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : /^[0-9]$/.test(key) ? `Digit${key}` : key;
-		for (const type of ['keydown', 'keyup']) {
-			el.dispatchEvent(new view.KeyboardEvent(type, { key, code, bubbles: true, cancelable: true, composed: true }));
-		}
+		const code = /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : /^[0-9]$/.test(key) ? `Digit${key}` : key === ' ' ? 'Space' : key;
+		const send = (type: string) => el.dispatchEvent(new view.KeyboardEvent(type, { key, code, bubbles: true, cancelable: true, composed: true }));
+		const allowed = send('keydown');
+		send('keyup');
+		return allowed;
 	}
 
 	// Sets a value with the native setter from the element's own prototype, so
@@ -1529,17 +1532,127 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		};
 	}
 
+	// Inputs Enter submits a form from (implicit submission).
+	const SUBMITS_ON_ENTER = new Set(['text', 'search', 'url', 'tel', 'email', 'password', 'number', 'date', 'month', 'week', 'time', 'datetime-local']);
+	const inputType = (el: Element) => el.tagName === 'INPUT' ? (el as HTMLInputElement).type : undefined;
+	const isSubmitButton = (el: Element) => el.tagName === 'BUTTON' ? (el as HTMLButtonElement).type === 'submit' : inputType(el) === 'submit' || inputType(el) === 'image';
+	const isButton = (el: Element) => el.tagName === 'BUTTON' || ['button', 'submit', 'reset', 'image'].includes(inputType(el) ?? '');
+	const isLink = (el: Element) => (el.tagName === 'A' || el.tagName === 'AREA') && el.hasAttribute('href');
+
+	/**
+	 * Enter in a text box, as a browser handles it: clicks the form's first
+	 * submit button, or submits a form with one text box and no button.
+	 * Returns how the press message ends, or undefined with no form.
+	 */
+	function submitOnEnter(input: HTMLInputElement): string | undefined {
+		const form = input.form;
+		if (!form) {
+			return undefined;
+		}
+		const fields = Array.from(form.elements);
+		const button = fields.find(isSubmitButton) as HTMLButtonElement | HTMLInputElement | undefined;
+		if (!button && fields.filter(f => SUBMITS_ON_ENTER.has(inputType(f) ?? '')).length > 1) {
+			return ', but that doesn\'t submit its form: the form has no submit button and more than one text box. Click a button to submit it.';
+		}
+		if (button?.disabled) {
+			return `, but its form wasn't submitted: the ${describe(button)} is disabled.`;
+		}
+		let submitted = false;
+		const onSubmit = () => {
+			submitted = true;
+		};
+		form.addEventListener('submit', onSubmit, true);
+		try {
+			if (button) {
+				button.click();
+			} else {
+				form.requestSubmit();
+			}
+		} finally {
+			form.removeEventListener('submit', onSubmit, true);
+		}
+		if (submitted) {
+			return ', which submitted its form.';
+		}
+		if (!form.noValidate && !form.checkValidity()) {
+			return ', but its form wasn\'t submitted: a field in it is empty or invalid.';
+		}
+		return button ? `, which clicked the ${describe(button)}, but the page didn't submit the form.` : ', but its form wasn\'t submitted.';
+	}
+
+	/**
+	 * Does what the browser would for a key in a control, which it doesn't do
+	 * for a script's key events. Returns how the press message ends, or
+	 * undefined for a key it doesn't act on here.
+	 */
+	function keyDefault(el: Element, key: string): string | undefined {
+		const type = inputType(el);
+		if (key === 'Enter' && type !== undefined && SUBMITS_ON_ENTER.has(type)) {
+			return submitOnEnter(el as HTMLInputElement);
+		}
+		if ((key === 'Enter' && (isButton(el) || isLink(el))) || (key === ' ' && isButton(el))) {
+			(el as HTMLElement).click();
+			return ', which clicked it.';
+		}
+		if (key === ' ' && (type === 'checkbox' || type === 'radio')) {
+			const box = el as HTMLInputElement;
+			box.click();
+			return box.checked ? ', which checked it.' : ', which unchecked it.';
+		}
+		if ((key === 'ArrowUp' || key === 'ArrowDown') && type === 'number') {
+			const input = el as HTMLInputElement;
+			if (input.readOnly) {
+				return ', but it\'s read-only.';
+			}
+			const before = input.value;
+			try {
+				if (key === 'ArrowUp') {
+					input.stepUp();
+				} else {
+					input.stepDown();
+				}
+			} catch {
+				// step="any", or a value that isn't a number.
+				return undefined;
+			}
+			if (input.value === before) {
+				return `, but it stayed at ${quote(before)}.`;
+			}
+			const view = viewOf(input);
+			input.dispatchEvent(new view.Event('input', { bubbles: true }));
+			input.dispatchEvent(new view.Event('change', { bubbles: true }));
+			return `, which set it to ${quote(input.value)}.`;
+		}
+		return undefined;
+	}
+
 	function press(key: unknown, ref: unknown): ActStep {
 		if (typeof key !== 'string' || !key) {
 			throw new Error('press needs a key, such as "Enter", "Escape" or "ArrowDown".');
 		}
+		// The key a browser reports for the space bar is ' '.
+		const sent = key === 'Space' || key === 'Spacebar' ? ' ' : key;
+		const name = sent === ' ' ? 'Space' : key;
 		const el = ref === undefined || ref === null ? undefined : resolve(ref);
 		if (el) {
 			checkUsable(el, describe(el));
 			focus(el);
 		}
-		pressKey(el ?? doc.activeElement ?? doc.body ?? doc.documentElement, key);
-		return { done: `Pressed ${key}${el ? ` in the ${describe(el)}` : ''}.` };
+		const target = el ?? doc.activeElement ?? doc.body ?? doc.documentElement;
+		const allowed = pressKey(target, sent);
+		const where = el || (target !== doc.body && target !== doc.documentElement) ? ` in the ${describe(target)}` : '';
+		// The page took the key itself.
+		if (!allowed || !target.isConnected) {
+			return { done: `Pressed ${name}${where}.` };
+		}
+		const result = keyDefault(target, sent);
+		if (result !== undefined) {
+			return { done: `Pressed ${name}${where}${result}` };
+		}
+		return {
+			done: `Pressed ${name}${where}. The page's own key handlers got it, but the browser won't do what ${name} normally does for a key sent this way. ` +
+				'If the page didn\'t change, use fill to type, select to pick an option, or click to press a button or follow a link.',
+		};
 	}
 
 	const canScroll = (el: Element): boolean => {
