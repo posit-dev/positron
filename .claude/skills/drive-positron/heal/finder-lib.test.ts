@@ -7,10 +7,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import type { Finding } from './finding.ts';
 import { isoWeek, knownBugs, pickArea, type Area } from './finder-lib.ts';
 
-const here = dirname(new URL(import.meta.url).pathname);
+const here = dirname(fileURLToPath(import.meta.url));
 const areas = (JSON.parse(readFileSync(join(here, 'areas.json'), 'utf8')) as { areas: Area[] }).areas;
 
 test('every helper is in exactly one area', () => {

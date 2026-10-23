@@ -31,10 +31,12 @@
 import { spawn, spawnSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { playwrightCli } from '../scripts/dp-lib.ts';
 import { launchFixture, stopFixture, type App } from './fixture-app.ts';
 import { firstRow, groupIds, nameWords, flagValue, selectCases, SMOKE_ROOT, SMOKE_SESSION, threwResult, type Group, type SmokeResults } from './smoke-lib.ts';
 
-const test = dirname(new URL(import.meta.url).pathname);
+const test = dirname(fileURLToPath(import.meta.url));
 const scripts = resolve(test, '../scripts');
 const repo = resolve(test, '../../../..');
 const SESSION = SMOKE_SESSION;
@@ -542,7 +544,7 @@ function pickNames(): void {
 		const open = sh([join(scripts, 'palette-run.sh'), '--session', SESSION, 'Interpreter: Start New Console Session']);
 		if (!open.json?.ok) { throw new Error(`could not open the runtime picker: ${open.text.slice(0, 200)}`); }
 		const rows = sh([join(scripts, 'quickpick-enum.sh'), '--session', SESSION, '--json']);
-		spawnSync(join(repo, 'node_modules/.bin/playwright-cli'), [`-s=${SESSION}`, 'press', 'Escape'], { cwd: repo, stdio: 'ignore' });
+		playwrightCli([`-s=${SESSION}`, 'press', 'Escape'], { stdio: 'ignore' });
 		// --json prints the object indented, so sh()'s last-line parse misses it.
 		let picker: Json = {};
 		try { picker = JSON.parse(rows.text); } catch { /* no rows this time */ }

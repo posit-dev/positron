@@ -225,8 +225,9 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		pick: async (m: { exact?: string; words?: string; folder?: string; preferRoot?: boolean; nth?: number; walk?: boolean }) => {
 			const words = lib.hasWords(m.words ?? '');
 			const shownAs = (r: { label: string; description: string }) => r.label + (r.description ? ' (' + r.description + ')' : '');
-			const inFolder = (r: { label: string; description: string }) =>
-				!m.folder || r.description === m.folder || r.description.endsWith('/' + m.folder) || r.description.endsWith(' ' + m.folder);
+			// Quick Open shows a Windows folder as sub\deep: compare with / for both.
+			const inFolder = (r: { label: string; description: string }, d = r.description.replace(/\\/g, '/'), f = (m.folder ?? '').replace(/\\/g, '/')) =>
+				!f || d === f || d.endsWith('/' + f) || d.endsWith(' ' + f);
 			// Quick Open adds search results after recent files: wait for the rows to settle.
 			let all: Awaited<ReturnType<typeof lib.rows>> = [];
 			let prev = '';
