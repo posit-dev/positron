@@ -186,6 +186,20 @@ describe('RuntimeDiscoveryCache', () => {
 	});
 
 	describe('defensive write filter', () => {
+		// The cache is shared by every folder, and whether an interpreter
+		// starts right away depends on the open folder (#16376).
+		it.each([
+			{ given: LanguageRuntimeStartupBehavior.Immediate, stored: LanguageRuntimeStartupBehavior.Implicit },
+			{ given: LanguageRuntimeStartupBehavior.Implicit, stored: LanguageRuntimeStartupBehavior.Implicit },
+			{ given: LanguageRuntimeStartupBehavior.Explicit, stored: LanguageRuntimeStartupBehavior.Explicit },
+		])('stores $given as $stored, so no folder inherits another folder\'s start right away', async ({ given, stored }) => {
+			const cache = makeCache();
+			await cache.upsert({ ...metadata({ runtimePath: PY_PATH }), startupBehavior: given });
+
+			// A reload reads what was persisted.
+			expect(makeCache().getEntries('ms.python', 'python').map(entry => entry.metadata.startupBehavior)).toEqual([stored]);
+		});
+
 		it('rejects metadata that did not opt in to caching', async () => {
 			const cache = makeCache();
 			const entry = await cache.upsert(metadata({ runtimePath: PY_PATH, cacheable: false }));

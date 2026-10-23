@@ -8,6 +8,7 @@ import {
 	ILanguageRuntimeMetadata,
 	IRuntimeRootEntry,
 	IRuntimeRootSignature,
+	LanguageRuntimeStartupBehavior,
 	signaturesEqual,
 } from '../../languageRuntime/common/languageRuntimeService.js';
 
@@ -22,6 +23,20 @@ export type {
 	IRuntimeRootSignature,
 };
 export { signaturesEqual };
+
+/**
+ * The runtime metadata as the cache stores it. Every folder shares the cache,
+ * but whether an interpreter starts right away depends on the open folder, so
+ * `Immediate` is stored as `Implicit` (#16376). The language's recommendation
+ * decides whether to start right away in each folder.
+ *
+ * @param metadata The runtime metadata to cache.
+ */
+export function cachedRuntimeMetadata(metadata: ILanguageRuntimeMetadata): ILanguageRuntimeMetadata {
+	return metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate ?
+		{ ...metadata, startupBehavior: LanguageRuntimeStartupBehavior.Implicit } :
+		metadata;
+}
 
 export const IRuntimeDiscoveryCache =
 	createDecorator<IRuntimeDiscoveryCache>('runtimeDiscoveryCache');
