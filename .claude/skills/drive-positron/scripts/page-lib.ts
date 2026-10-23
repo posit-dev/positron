@@ -3,45 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// The helpers every page function gets as `lib`. makeLib runs in the page
-// (playwright-cli run-code): inPage sends its source text with the function,
-// so it must be self-contained, one unit, using only page and ui; check.ts
-// enforces that. Its members, by section:
-//
-//   registry          css, names: selectors.ts, passed in by inPage
-//   waits and focus   sleep, blur, click
-//   scopes and views  scope, snapshot, byRole, unstack
-//   overlays          quickOpen, closeQuickInput, openQuickInput, rows,
-//                     allRows, hasWords, pick, clickRow
-//   dialogs and menus dialogs, explain, toasts, newToast, listIn, menu,
-//                     closeMenu, choose
-//   opened, on top    markOverlays, opened, onTop, failure
-//   diff and settling settle, diff
-//   editors           editor, focusEditor
-//   consoles          consoles, activateConsole, namedLike, starting,
-//                     consoleText
-//
-// A member may call another through lib (lib.snapshot), since they all exist
-// by the time any runs.
+// The `lib` every page function gets. inPage sends makeLib's source with each
+// page function, so it must use only page and ui (check.ts enforces this).
 
 import type { ElementHandle, Locator, Page } from 'playwright';
 import type { Css, Names } from './selectors.ts';
 
 export type Lib = ReturnType<typeof makeLib>;
 
-/** A list to choose from (lib.listIn): its items and their names; inline when drawn inside the overlay it was opened from. */
+/** A list to choose from; inline when drawn inside the overlay that opened it. */
 interface List { box: Locator; items: Locator; names: string[]; off: boolean[]; inline?: boolean }
 
-/**
- * Helpers the page functions share; runs in run-code, so it is self-contained.
- * ui is selectors.ts's css and names, which inPage passes in as values.
- */
 export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 	const s = ui.css;
 	// The open quick input: closed ones stay in the DOM, hidden.
 	const widget = page.locator(s.quickInput.widget).filter({ visible: true });
 	const lib = {
-		// The registry (selectors.ts), for page functions to read.
 		css: ui.css,
 		names: ui.names,
 
@@ -55,24 +32,13 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			if (wb) { wb.setAttribute('tabindex', '-1'); wb.focus(); }
 		}, s.workbench.root),
 		/**
-		 * Clicks as a person does: press, let the page run the tasks the press
-		 * queued, release. Playwright's own click releases at once, so the click
-		 * handler runs before them, and one that opens a menu loses it: the editor
-		 * title's mousedown (upstream editorGroupView.ts) queues a focus of the
-		 * editor that then takes focus from the editor-type button's menu, which
-		 * closes on blur. A trial click first does Playwright's checks (in view,
-		 * visible, stable, enabled, not covered), so a failure reads as the click's.
-		 * A person's pointer also rests on the target before they press, so the
-		 * page gets a task turn after the move too: a Positron action bar button
-		 * re-renders on mouseenter and remounts its label (ActionBarButton declares
-		 * its face inside its render), and a press on the old label with a release
-		 * on the new one is no click at all (Convert to Code, Import Data).
+		 * Move, press and release with a task turn between each: Playwright's instant click
+		 * loses menus that a queued focus closes, and action bar buttons that remount on hover.
 		 */
 		click: async (el: Locator | ElementHandle, opts: { button?: 'left' | 'right'; timeout?: number } = {}) => {
 			await el.click({ trial: true, button: opts.button, timeout: opts.timeout ?? 3000 });
 			const box = await el.boundingBox();
 			if (!box) { throw new Error('the element went away before the click; nothing was done'); }
-			// One task turn: a setTimeout(0) queued now runs after those the input queued.
 			const turn = () => page.evaluate(() => new Promise<void>(r => setTimeout(r, 0)));
 			await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 			await turn();
@@ -81,13 +47,10 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			await page.mouse.up({ button: opts.button });
 		},
 
-		// ---- Scopes and views: where a command looks, and what it reads there
+		// ---- Scopes and views
 		/**
-		 * Hides from the accessibility tree the instances stacked under the one on
-		 * screen. The Variables and Console views keep one instance per session, all
-		 * laid out, the others at an inline z-index of -1 under the active one and
-		 * none aria-hidden, so a snapshot or getByRole would read every session's
-		 * at once. Marked afresh each call, since the active session changes.
+		 * Hides the per-session instances stacked at z-index -1 under the active one
+		 * (Variables, Console), which are not aria-hidden and would otherwise all be read.
 		 */
 		unstack: () => page.evaluate(stacked => {
 			document.querySelectorAll('[data-dp-stacked]').forEach(e => { e.removeAttribute('aria-hidden'); e.removeAttribute('data-dp-stacked'); });
@@ -96,23 +59,17 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				if (onTop && !e.hasAttribute('aria-hidden')) { e.setAttribute('aria-hidden', 'true'); e.setAttribute('data-dp-stacked', ''); }
 			}
 		}, s.view.stacked),
-		/**
-		 * The area a ui command works in: a view by its heading ("Plots", "Call
-		 * Stack"), a part (sidebar, secondary, panel, editor, statusbar), or what
-		 * is open on top (dialog, quickpick, menu, notifications). Empty: the page.
-		 */
+		/** A view by heading, a part, or an overlay (dialog, quickpick, menu, notifications); empty means the page. */
 		scope: async (name: string) => {
 			await lib.unstack();
 			const visible = (l: ReturnType<typeof page.locator>) => l.filter({ visible: true });
 			const special: Record<string, ReturnType<typeof page.locator>> = {
-				// A notification toast is a dialog too; it is not the dialog meant.
 				dialog: visible(page.locator(s.overlay.dialog).and(page.locator(s.overlay.notInNotifications))).last(),
 				quickpick: visible(page.locator(s.quickInput.widget)),
 				menu: visible(page.locator(s.overlay.menu)).last(),
 				notifications: visible(page.locator(s.overlay.notifications)).first(),
 				sidebar: page.locator(s.part.sidebar), secondary: page.locator(s.part.secondary), panel: page.locator(s.part.panel),
-				// A modal editor (Workspace Trust, Settings) has an active group of its
-				// own, drawn over the main one and later in the DOM.
+				// A modal editor's active group is drawn over the main one, later in the DOM.
 				editor: visible(page.locator(s.editorGroup.active)).last(), statusbar: page.locator(s.part.statusbar),
 			};
 			if (!name) { return { loc: page.locator('body'), name: 'page' }; }
@@ -121,16 +78,12 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				return (await special[key].count()) ? { loc: special[key], name: key } : { error: `no ${key} is open` };
 			}
 			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-			// A view: the pane whose header heading is the name, as its accessible name
-			// or its text. The Explorer's folder pane labels its heading "Explorer
-			// Section: ws" while it reads "ws", the text the views list below gives.
+			// Match the heading's text too: the Explorer's folder heading is labelled "Explorer Section: ws".
 			const heading = page.getByRole('heading', { name, exact: true }).or(page.getByRole('heading').filter({ hasText: new RegExp('^\\s*' + esc + '\\s*$') }));
 			const pane = visible(page.locator(s.view.pane)).filter({ has: heading });
 			if (await pane.count() === 1) { return { loc: pane, name }; }
-			// A container with one view shows no pane header: the part's own title is
-			// the name, or the part's selected tab is (Viewer, Help, Console, Terminal).
+			// A container with one view has no pane header: match the part's title or selected tab.
 			const tabName = new RegExp('^\\s*' + esc + '(\\s*\\(.*\\))?\\s*$', 'i');
-			// A tab with a badge ("Problems 4") has a longer accessible name; its label is the name alone.
 			const labelled = page.locator('[role=tab][aria-selected=true]').filter({ has: page.locator(s.workbench.tabLabel, { hasText: new RegExp('^\\s*' + esc + '\\s*$', 'i') }) });
 			for (const part of [s.part.sidebar, s.part.secondary, s.part.panel]) {
 				const p = visible(page.locator(part)).filter({ has: page.getByRole('heading', { name, exact: true, level: 2 }) });
@@ -141,12 +94,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const views = await visible(page.locator(s.view.paneHeader)).getByRole('heading').allTextContents();
 			return { error: `no view titled "${name}" on screen`, views: [...new Set(views.map(v => v.trim()).filter(Boolean))] };
 		},
-		/** An aria snapshot with icon glyphs and empty text lines taken out, cut at max lines. */
-		/**
-		 * The innermost frame drawn inside loc: a web page (the Viewer, Help) whose
-		 * iframe is laid over the view, often outside the view's own DOM, so found by
-		 * where it is drawn. Null when there is none.
-		 */
+		/** The innermost iframe drawn over loc, found by position since it often lives outside the view's DOM. */
 		frameIn: async (loc: ReturnType<typeof page.locator>) => {
 			const box = await loc.boundingBox();
 			if (!box) { return null; }
@@ -163,6 +111,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			}
 			return best?.f ?? null;
 		},
+		/** An aria snapshot without icon glyphs or empty text lines, cut at max lines. */
 		snapshot: async (loc: ReturnType<typeof page.locator>, max = 150) => {
 			await lib.unstack();
 			const raw = await loc.ariaSnapshot({ timeout: 5000 }).catch(() => '');
@@ -172,14 +121,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return lines.length > max ? lines.slice(0, max).join('\n') + `\n... ${lines.length - max} more lines` : lines.join('\n');
 		},
 		/**
-		 * Elements in scope with this role and name: the whole name first, then the
-		 * name without a trailing keybinding ("Continue (F5)" for Continue), then
-		 * the name before a comma and more (a Breakpoints row "dbg.R 7, Unverified
-		 * Breakpoint" for "dbg.R 7", the label the view shows), then, with
-		 * partial, any name holding it. An icon glyph at either end is ignored, as
-		 * read leaves it out (the Data Explorer's column buttons read " team", an
-		 * icon before the name; a notebook's "Positron Notebook" editor-type
-		 * button ends in a drop-down chevron).
+		 * Tries the exact name, then with a "(keys)" suffix, then before a comma, then (partial)
+		 * any name containing it. Icon glyphs at either end are ignored.
 		 */
 		byRole: async (scope: ReturnType<typeof page.locator>, role: string, name: string, partial: boolean) => {
 			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -193,18 +136,17 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return scope.getByRole(role as Parameters<typeof page.getByRole>[0], { name: tries[0] });
 		},
 
-		// ---- Overlays: the quick input (Command Palette, Quick Open, pickers)
+		// ---- Quick input (Command Palette, Quick Open, pickers)
 		quickOpen: async () => (await widget.count()) > 0,
-		/** Closes a quick input left open; Escape only then, since in a running .qmd it interrupts the kernel. */
+		/** Escape only when one is open: in a running .qmd, Escape interrupts the kernel. */
 		closeQuickInput: async () => { if (await lib.quickOpen()) { await page.keyboard.press('Escape'); } },
-		/** Presses keys and waits for a quick input; then types text into it, as filtering would. */
 		openQuickInput: async (keys: string, text: string) => {
 			await page.keyboard.press(keys);
 			try { await widget.waitFor({ timeout: 3000 }); } catch { return false; }
 			await widget.locator(s.quickInput.filter).fill(text);
 			return true;
 		},
-		/** The quick input's visible rows, without group headings. */
+		/** The drawn rows, without group headings. */
 		rows: () => page.evaluate(({ q, label, list }) => {
 			const clean = (el: Element | null | undefined) => el ? (el.textContent ?? '').replace(/\s+/g, ' ').trim() : '';
 			const w = [...document.querySelectorAll<HTMLElement>(q.widget)].find(x => x.offsetParent !== null);
@@ -218,72 +160,74 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				}))
 				.filter(r => Number.isFinite(r.index) && !r.separator);
 		}, { q: s.quickInput, label: s.label, list: s.list }),
+		/** The focused row's index after the next paint: -1 for none, null when focus is outside the quick input. */
+		focusedIndex: () => page.evaluate(({ q, list }) => new Promise<number | null>(done => requestAnimationFrame(() => requestAnimationFrame(() => {
+			const w = [...document.querySelectorAll<HTMLElement>(q.widget)].find(x => x.offsetParent !== null);
+			const f = w?.contains(document.activeElement) ? w.querySelector(list.focusedRow) : undefined;
+			done(f === undefined ? null : f ? Number(f.getAttribute(list.indexAttr)) : -1);
+		}))), { q: s.quickInput, list: s.list }),
+		/** Whether the virtual list has drawn every row; aria-setsize counts all of them. */
+		allDrawn: () => page.evaluate(q => {
+			const w = [...document.querySelectorAll<HTMLElement>(q.widget)].find(x => x.offsetParent !== null);
+			const drawn = w ? [...w.querySelectorAll<HTMLElement>(q.rows)].filter(r => r.offsetParent !== null) : [];
+			return drawn.length >= Number(drawn[0]?.getAttribute('aria-setsize') ?? 0);
+		}, s.quickInput),
 		/**
-		 * Every row of the open quick input, not only the ones drawn: the list is
-		 * virtual, so this walks it with ArrowDown from the filter, reading the rows
-		 * drawn at each step, until focus comes round to where it started (or stops
-		 * at the end, in a list that does not loop, and is put back). It presses no
-		 * key unless focus is in the quick input; then, or after max steps, it
-		 * returns what it read with complete false.
+		 * Every row, read by walking the virtual list with ArrowDown and putting focus back.
+		 * complete is false when focus left the quick input or max steps ran out.
 		 */
 		allRows: async (max = 100) => {
 			const seen = new Map<number, Awaited<ReturnType<typeof lib.rows>>[number]>();
 			const read = async () => { for (const r of await lib.rows()) { seen.set(r.index, r); } };
-			// The focused row's index once the list has drawn: -1 for none, null when focus is outside the quick input.
-			const at = () => page.evaluate(({ q, list }) => new Promise<number | null>(done => requestAnimationFrame(() => requestAnimationFrame(() => {
-				const w = [...document.querySelectorAll<HTMLElement>(q.widget)].find(x => x.offsetParent !== null);
-				const f = w?.contains(document.activeElement) ? w.querySelector(list.focusedRow) : undefined;
-				done(f === undefined ? null : f ? Number(f.getAttribute(list.indexAttr)) : -1);
-			}))), { q: s.quickInput, list: s.list });
 			await read();
-			let start = await at();
-			// Nothing focused yet: the first ArrowDown focuses the first row.
-			if (start === -1) { await page.keyboard.press('ArrowDown'); start = await at(); await read(); }
+			let start = await lib.focusedIndex();
+			if (start === -1) { await page.keyboard.press('ArrowDown'); start = await lib.focusedIndex(); await read(); }
 			let complete = false;
 			if (start !== null && start >= 0) {
 				let prev = start;
 				for (let i = 0; i < max; i++) {
 					await page.keyboard.press('ArrowDown');
-					const now = await at();
+					const now = await lib.focusedIndex();
 					await read();
 					if (now === null || now < 0) { break; }
 					if (now === start || now === prev) { complete = true; break; }
 					prev = now;
 				}
-				// A list that does not loop ends with focus at its end: walk it back.
+				// A non-looping list leaves focus at its end.
 				for (let i = 0; i < max; i++) {
-					const now = await at();
+					const now = await lib.focusedIndex();
 					if (now === null || now <= start) { break; }
 					await page.keyboard.press('ArrowUp');
 				}
 			}
 			return { rows: [...seen.values()].sort((x, y) => x.index - y.index), complete };
 		},
-		/**
-		 * Whether a row holds all these words, each a whole word ("R" is not the r
-		 * in "positron-python"); a word may end at a dot, so "4.5" matches "4.5.1".
-		 */
+		/** Moves focus toward a row until the list draws it, so clickRow can find it. */
+		scrollToRow: async (index: number, max = 100) => {
+			for (let i = 0; i < max; i++) {
+				if ((await lib.rows()).some(r => r.index === index)) { return true; }
+				const now = await lib.focusedIndex();
+				if (now === null) { return false; }
+				await page.keyboard.press(now < index ? 'ArrowDown' : 'ArrowUp');
+			}
+			return false;
+		},
+		/** Whole-word match, so "R" skips "positron-python" but "4.5" matches "4.5.1". */
 		hasWords: (text: string) => {
 			const words = text.split(/\s+/).filter(Boolean)
 				.map(x => new RegExp('(^|[^\\w.-])' + x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\w-])', 'i'));
 			return (r: { label: string; description: string }) => words.every(x => x.test(r.label + ' ' + r.description));
 		},
 		/**
-		 * The one row a match picks, waiting up to a second for the list to filter.
-		 * Words match as lib.hasWords does. An exact match is the label, or else
-		 * the row as "shown" writes it, "label (description)", so a row copied from
-		 * an error picks it when several rows share the label. nth (1 = first, in
-		 * list order) takes one of several matches. On failure, "shown" holds up
-		 * to 8 rows and "more" says how many it left out.
+		 * The one row matching exact (label, or "label (description)") or words; nth picks among several.
+		 * walk reads undrawn rows too, when the drawn ones can't settle the match.
 		 */
-		pick: async (m: { exact?: string; words?: string; folder?: string; preferRoot?: boolean; nth?: number }) => {
+		pick: async (m: { exact?: string; words?: string; folder?: string; preferRoot?: boolean; nth?: number; walk?: boolean }) => {
 			const words = lib.hasWords(m.words ?? '');
 			const shownAs = (r: { label: string; description: string }) => r.label + (r.description ? ' (' + r.description + ')' : '');
-			// A folder is the whole description, or its end ("rapp" in "apps/rapp").
 			const inFolder = (r: { label: string; description: string }) =>
 				!m.folder || r.description === m.folder || r.description.endsWith('/' + m.folder) || r.description.endsWith(' ' + m.folder);
-			// Quick Open lists recent files first and adds search results a moment
-			// later, so match only once the rows have stopped changing.
+			// Quick Open adds search results after recent files: wait for the rows to settle.
 			let all: Awaited<ReturnType<typeof lib.rows>> = [];
 			let prev = '';
 			for (let i = 0; i < 20; i++) {
@@ -293,31 +237,34 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				prev = now;
 				await lib.sleep(150);
 			}
-			let found = all.filter(r => (m.exact !== undefined ? r.label === m.exact : words(r)) && inFolder(r));
-			// No label is the text: it may be a row as "shown" writes it, with its description.
-			if (!found.length && m.exact !== undefined) { found = all.filter(r => shownAs(r) === m.exact && inFolder(r)); }
-			found.sort((x, y) => x.index - y.index);
+			const match = (rs: typeof all) => {
+				let f = rs.filter(r => (m.exact !== undefined ? r.label === m.exact : words(r)) && inFolder(r));
+				if (!f.length && m.exact !== undefined) { f = rs.filter(r => shownAs(r) === m.exact && inFolder(r)); }
+				return f.sort((x, y) => x.index - y.index);
+			};
+			let found = match(all);
+			// One drawn match may still be ambiguous with an undrawn row.
+			const short = found.length < Math.max(1, m.nth ?? 0) || (!m.nth && found.length === 1);
+			const walked = m.walk && short && !await lib.allDrawn() ? await lib.allRows() : undefined;
+			if (walked) { all = walked.rows; found = match(all); }
 			// A bare file name means the one at the workspace root, which has no folder beside it.
 			if (found.length > 1 && m.preferRoot && found.filter(r => !r.description).length === 1) { found = found.filter(r => !r.description); }
 			const show = (rs: typeof all) => ({ shown: rs.slice(0, 8).map(shownAs), ...(rs.length > 8 ? { more: `${rs.length - 8} more rows not shown` } : {}) });
 			const want = m.exact ?? m.words;
-			if (found.length === 0) { return { ok: false as const, error: `no row matches "${want}"`, ...show(all) }; }
-			if (m.nth && m.nth > found.length) { return { ok: false as const, error: `${found.length} row${found.length === 1 ? '' : 's'} match "${want}", so there is no row ${m.nth}`, ...show(found) }; }
-			// More words narrow a words match; an exact one is the caller's to say how to narrow.
-			if (found.length > 1 && !m.nth) { return { ok: false as const, error: `${found.length} rows match "${want}"${m.exact === undefined ? '; be more specific' : ''}`, ...show(found) }; }
+			const how = walked ? { walked: true, ...(walked.complete ? {} : { partial: true }) } : {};
+			const part = walked && !walked.complete ? ` in the ${all.length} rows read; the list has more, which could not be read` : '';
+			if (found.length === 0) { return { ok: false as const, error: `no row matches "${want}"${part}`, ...how, ...show(all) }; }
+			if (m.nth && m.nth > found.length) { return { ok: false as const, error: `${found.length} row${found.length === 1 ? '' : 's'} match "${want}", so there is no row ${m.nth}`, ...how, ...show(found) }; }
+			if (found.length > 1 && !m.nth) { return { ok: false as const, error: `${found.length} rows match "${want}"${m.exact === undefined ? '; be more specific' : ''}`, ...how, ...show(found) }; }
 			const row = found[(m.nth || 1) - 1];
-			// Which of the rows that look the same as it (label and description) it is, for clickRow.
-			return { ok: true as const, row: { ...row, occurrence: found.slice(0, (m.nth || 1) - 1).filter(r => shownAs(r) === shownAs(row)).length } };
+			if (!walked) { return { ok: true as const, row: { ...row, occurrence: found.slice(0, (m.nth || 1) - 1).filter(r => shownAs(r) === shownAs(row)).length } }; }
+			if (!await lib.scrollToRow(row.index)) { return { ok: false as const, error: `the row "${shownAs(row)}" is in the list but could not be scrolled into view`, walked: true, partial: true }; }
+			// clickRow counts among drawn rows only.
+			return { ok: true as const, walked: true, row: { ...row, occurrence: (await lib.rows()).filter(r => r.index < row.index && shownAs(r) === shownAs(row)).length } };
 		},
-		/**
-		 * A real click, which runs it, on the row with this label (and description),
-		 * found at click time: Quick Open re-sorts its rows as results arrive, so an
-		 * index read earlier can point at another row by now.
-		 */
+		/** Finds the row by label at click time: Quick Open re-sorts as results arrive, so an index goes stale. */
 		clickRow: async (row: { label: string; description: string; occurrence?: number }) => {
-			// Label and description both exact, as rows() reads them: an empty
-			// description is the file at the workspace root, not any row of that name.
-			// Of several rows that look the same, the occurrence-th in list order.
+			// An empty description must match exactly: it means the file at the workspace root.
 			const all = widget.locator(s.list.row);
 			const at = await all.evaluateAll((rs, { r, label, list }) => {
 				const clean = (el: Element | null | undefined) => el ? (el.textContent ?? '').replace(/\s+/g, ' ').trim() : '';
@@ -332,7 +279,6 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		},
 
 		// ---- Dialogs
-		/** Visible modal dialogs, upstream and Positron's own, with their buttons. */
 		dialogs: () => page.evaluate(d => {
 			const clean = (el: Element | null | undefined) => el ? (el.textContent ?? '').replace(/\s+/g, ' ').trim() : '';
 			return [...document.querySelectorAll<HTMLElement>(d.box)].filter(x => x.offsetParent !== null).map(x => ({
@@ -342,12 +288,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				buttons: [...x.querySelectorAll(d.buttons)].map(b => clean(b)).filter(Boolean),
 			}));
 		}, s.dialog),
-		/**
-		 * A failed result with the modal dialog that is open, if any, named in its
-		 * error: a dialog takes the keys and clicks a helper sends, so "the Command
-		 * Palette did not open" really means "a dialog is in the way". inPage runs
-		 * every result through this.
-		 */
+		/** Names an open modal dialog in a failure, since it swallows the keys and clicks that failed. */
 		explain: async (r: { ok: boolean; error?: unknown; dialogs?: unknown; [key: string]: unknown }) => {
 			if (!r || r.ok !== false || r.dialogs) { return r; }
 			const d = await lib.dialogs().catch(() => []);
@@ -355,14 +296,9 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const named = d.map(x => `"${x.message || x.detail || 'untitled'}" (buttons: ${x.buttons.join(', ') || 'none'})`).join('; ');
 			return { ...r, error: `${r.error ?? 'failed'}; a modal dialog is open: ${named}. Answer it with notifications.sh --click BUTTON, or ui.sh ... --in dialog`, dialogs: d };
 		},
-		/** The names of the notification toasts on screen ("Warning: Error rendering plot"). */
 		toasts: () => page.locator(s.notification.toasts).getByRole('dialog').filter({ visible: true })
 			.evaluateAll(es => es.map(e => (e.getAttribute('aria-label') ?? '').replace(/, (source: .*, )?notification\b.*$/, ''))),
-		/**
-		 * Toasts not in before, waiting until `until` (a Date.now() time) for one to
-		 * appear: an action's toast can come a second after it, and close within
-		 * seconds, so a read after the action has returned can miss it.
-		 */
+		/** Polls until `until`: a toast can appear a second after its action and close soon after. */
 		newToasts: async (before: string[], until: number) => {
 			for (; ;) {
 				const now = (await lib.toasts()).filter(t => !before.includes(t));
@@ -371,11 +307,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			}
 		},
 		/**
-		 * The items a list offers, by name: its menu items or options, else its
-		 * buttons (Positron's context menu, a drop-down list's popup and the Data
-		 * Explorer's column picker draw buttons). A name is read without an icon
-		 * glyph or the space around it, and by innerText, so a label and its
-		 * description in separate blocks read "uv Use uv to...", not "uvUse uv".
+		 * Menu items, else buttons (Positron's context menus draw buttons). innerText keeps a
+		 * label and description apart ("uv Use uv", not "uvUse uv").
 		 */
 		listIn: async (box: Locator): Promise<List> => {
 			let items = box.locator(s.menu.items).filter({ visible: true });
@@ -385,23 +318,11 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const off = await items.evaluateAll(es => es.map(e => (e as HTMLButtonElement).disabled || e.getAttribute('aria-disabled') === 'true'));
 			return { box, items, names, off };
 		},
-		/**
-		 * The open menu and its items, by name. A menu is what ui.sh read menu
-		 * reads: a menu of menu items, Positron's context menu (its items are
-		 * buttons) or a drop-down list's popup (a dialog of buttons). Null when
-		 * none is open.
-		 */
 		menu: async (): Promise<List | null> => {
 			const box = page.locator(s.overlay.menu).filter({ visible: true }).last();
 			return await box.count() ? lib.listIn(box) : null;
 		},
-		/**
-		 * Closes the open menu (or the list given, an overlay of its own), if any,
-		 * and says whether none is open after. Escape only while focus is in the
-		 * menu or the overlay under it, which take the key: anywhere else, with a
-		 * .qmd in front and its kernel busy, Escape is Quarto: Interrupt Kernel,
-		 * whatever has focus.
-		 */
+		/** Escape only while focus is in the menu: elsewhere, with a busy .qmd in front, it interrupts the kernel. */
 		closeMenu: async (box?: Locator): Promise<boolean> => {
 			const open = async () => box ? await box.isVisible().catch(() => false) : !!await lib.menu();
 			if (!await open()) { return true; }
@@ -410,14 +331,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return !await open();
 		},
 		/**
-		 * Chooses an item of the open menu, or of the list given (lib.opened), by
-		 * name: the whole name; the name without a "(keys)" suffix; or the name
-		 * with a shortcut run into it (no lowercase after it), as Positron's menus
-		 * draw. Hovers first, since a menu ignores a click that arrives before the
-		 * pointer has rested on the item, then checks the click took: the item
-		 * went away, or, in a list drawn inside the overlay it was opened from,
-		 * that list changed (a click while the menu still draws is lost, so one
-		 * retry is safe). Closes a menu or popup when nothing was chosen.
+		 * Hovers before clicking (menus ignore an unrested click), then checks it took and
+		 * retries once, since a click while the menu is still drawing is lost.
 		 */
 		choose: async (item: string, given?: List) => {
 			const m = given ?? await lib.menu();
@@ -445,28 +360,15 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return { ok: true as const, chose: m.names[pick] };
 		},
 
-		// ---- What an action opened, and what is open on top
-		/**
-		 * Marks the overlays and lists on screen now, so lib.opened can tell what
-		 * an action opens from what was there; with home, an element the action
-		 * starts from, also marks the overlay it is in. Both look inside open
-		 * shadow roots, as Playwright's locators do: a drop-down that draws its
-		 * menu as its own child puts it in one (the Settings editor's More Actions).
-		 */
+		// ---- What an action opened, and what is on top
+		/** Marks what is open now so lib.opened can spot what is new; searches shadow roots too. */
 		markOverlays: (home?: ElementHandle<Element> | null) => page.evaluate(({ sel, dialog, h }) => {
 			const all = (q: string, root: ParentNode = document): Element[] => [...root.querySelectorAll(q), ...[...root.querySelectorAll('*')].flatMap(e => e.shadowRoot ? all(q, e.shadowRoot) : [])];
 			for (const a of ['data-dp-seen', 'data-dp-home', 'data-dp-list']) { all(`[${a}]`).forEach(e => e.removeAttribute(a)); }
 			all(sel).forEach(e => { if (e.getClientRects().length) { e.setAttribute('data-dp-seen', ''); } });
 			h?.closest(dialog)?.setAttribute('data-dp-home', '');
 		}, { sel: `${s.overlay.menu}, ${s.overlay.dialog}, ${s.quickInput.widget}, [role=grid], [role=listbox], [role=tree]`, dialog: s.overlay.dialog, h: home ?? null }),
-		/**
-		 * What opened since lib.markOverlays, innermost first: a menu, then a
-		 * quick pick or a dialog or popup of its own, then (with inline) a grid,
-		 * list box or tree drawn inside the overlay the action started from (the
-		 * Data Explorer's filter popup lists its columns so). It is marked, so
-		 * lib.listIn can read it from page.locator('[data-dp-list]'). Null when
-		 * nothing opened. A notification toast is not counted.
-		 */
+		/** The innermost overlay opened since markOverlays, marked [data-dp-list] for listIn. */
 		opened: async (inline: boolean): Promise<(List & { kind: string }) | null> => {
 			const kind = await page.evaluate(({ menu, dialog, quick, toast, inline }) => {
 				const all = (q: string, root: ParentNode = document): Element[] => [...root.querySelectorAll(q), ...[...root.querySelectorAll('*')].flatMap(e => e.shadowRoot ? all(q, e.shadowRoot) : [])];
@@ -483,11 +385,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			}, { menu: s.overlay.menu, dialog: s.overlay.dialog, quick: s.quickInput.widget, toast: s.overlay.notInNotifications, inline });
 			return kind ? { kind, ...await lib.listIn(page.locator('[data-dp-list]')), inline: kind === 'list' } : null;
 		},
-		/**
-		 * The overlays open on top that are not modal dialogs (lib.dialogs names
-		 * those): menus, popups and the quick pick, each as its kind (the ui.sh
-		 * scope that reads it) and the names of its first items.
-		 */
+		/** Non-modal overlays on top (menus, popups, the quick pick), each with its first items. */
 		onTop: async (): Promise<string[]> => {
 			const out: string[] = [];
 			const quick = page.locator(s.quickInput.widget).filter({ visible: true });
@@ -496,7 +394,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const popups = page.locator(s.overlay.dialog).and(page.locator(s.overlay.notInNotifications)).filter({ visible: true, hasNot: page.locator(s.dialog.box) }).and(page.locator(s.dialog.box.split(',').map(x => `:not(${x.trim()} *)`).join('')));
 			for (const [loc, kind] of [[menus, 'menu'], [popups, 'dialog']] as const) {
 				for (let i = 0; i < await loc.count(); i++) {
-					// A drop-down's popup is a dialog around a menu: it is named once, as the menu.
+					// A drop-down popup wraps a menu: report it once.
 					if (kind === 'dialog' && await loc.nth(i).locator(s.overlay.menu).filter({ visible: true }).count()) { continue; }
 					const l = await lib.listIn(loc.nth(i));
 					const shown = l.names.filter(Boolean).slice(0, 6).map(n => `"${n}"`).join(', ');
@@ -505,13 +403,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			}
 			return out;
 		},
-		/**
-		 * A plain failure from an error thrown in a page function. A Playwright
-		 * timeout becomes one sentence: the action, what it waited for (role and
-		 * name, and the view), why it may not have happened as its call log says,
-		 * and what is open on top that could be covering it. ANSI codes and the
-		 * call log are left out; another error keeps its first line.
-		 */
+		/** Turns a Playwright timeout into one sentence: what, where, why, and what may cover it. */
 		failure: async (e: unknown): Promise<{ ok: false; error: string; cliFailed?: boolean }> => {
 			const msg = String((e as Error)?.message ?? e).replace(/\u001b\[[0-9;]*m/g, '');
 			const first = msg.split('\n')[0].trim();
@@ -521,7 +413,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const css = waiting.match(/^locator\('([^']*)'\)/)?.[1] ?? '';
 			const parts: Record<string, string> = { [s.editorGroup.active]: 'editor', [s.part.editor]: 'editor', [s.part.sidebar]: 'sidebar', [s.part.secondary]: 'secondary', [s.part.panel]: 'panel', [s.part.statusbar]: 'statusbar', [s.overlay.dialog]: 'dialog', [s.overlay.menu]: 'menu', [s.quickInput.widget]: 'quickpick' };
 			const role = waiting.match(/getByRole\('(\w+)'(?:, \{ name: \/(.*?)\/i? \})?/);
-			// The name as lib.byRole wrote it: ^[\s\uE000-\uF8FF]*NAME[\s\uE000-\uF8FF]*$, with a "(keys)" or "," tail, escaped.
+			// Undo lib.byRole's regex to get the plain name back.
 			const name = (role?.[2] ?? '').split('[\\s\\uE000-\\uF8FF]*').join('').split('\\s*').join('').replace(/^\^|\$$/g, '').replace(/(\\\(\.\*\\\)|,)$/, '').replace(/\\(.)/g, '$1');
 			const target = role ? `${role[1]}${name ? ` "${name}"` : ''}` : 'the element';
 			const where = parts[css] ? ` in ${parts[css]}` : css && !/^(body|html)$/.test(css) ? ` in ${css.length > 60 ? 'its view' : css}` : '';
@@ -537,11 +429,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return { ok: false, error: `the ${t[1]} on ${target}${where} did not happen within ${Number(t[2]) / 1000} s: ${why}${open}` };
 		},
 
-		// ---- Diff and settling: what an action changed
-		/**
-		 * Waits up to ms for loc's tree to differ from before and then stop changing
-		 * (two equal reads 300 ms apart), so a diff is not taken mid-update.
-		 */
+		// ---- Diff and settling
+		/** Waits for the tree to change and then hold for 300 ms, so a diff isn't taken mid-update. */
 		settle: async (loc: ReturnType<typeof page.locator>, before: string, ms: number, done?: () => Promise<boolean>) => {
 			const end = Date.now() + ms;
 			let last = before;
@@ -556,13 +445,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			}
 			return { tree: last, closed: false };
 		},
-		/**
-		 * Lines added (+) and removed (-) between two trees, counting repeats, each
-		 * cut to 160 characters. A file R evaluates from a temporary path (Ark's
-		 * eval().R, source().R) is labelled with as much of that path as tells it
-		 * apart from the others (".../session9/8b29.../print().R"), and the label
-		 * changes every step; it is compared by its file name alone.
-		 */
+		/** Added and removed lines. Ark's temp-path labels (".../session9/8b29.../print().R") compare by file name. */
 		diff: (before: string, after: string) => {
 			const norm = (l: string) => l.replace(/(\.\.\.\/)?(session\d+\/)?([0-9a-f]{8,}\/)?(?=[^\s/"]+\(\)\.R\b)/g, '');
 			const count = (t: string) => { const m = new Map<string, number>(); for (const l of t.split('\n')) { m.set(norm(l), (m.get(norm(l)) ?? 0) + 1); } return m; };
@@ -577,19 +460,11 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 
 		// ---- Editors
 		/**
-		 * The active text editor as a person sees it: its tab, unsaved edits, the
-		 * cursor and selection (the status bar's "Ln 9, Col 1 (12 selected)"),
-		 * whether focus is in it, the text of the cursor's line (and of the drawn
-		 * lines in range, when given), the text of an input inside it, such as the
-		 * breakpoint widget, when focus is there, and the lines
-		 * the debugger marks: its top frame and the frame selected in the Call Stack.
-		 * Monaco draws lines and decorations as positioned divs with no roles, so
-		 * they are read from the page and matched to the line numbers by height.
+		 * The active editor's tab, cursor (from the status bar), line text and debug lines.
+		 * Monaco lines have no roles, so they are matched to line numbers by position.
 		 */
 		editor: async (range?: { from: number; to: number }) => {
-			// VS Code gives a modal editor (settings.json) no status bar items of its
-			// own, so its cursor cannot be read, and the status bar can still show the
-			// cursor of the editor behind it, where keys would not go.
+			// A modal editor has no status bar cursor; the one shown belongs to the editor behind it.
 			const modal = page.locator(s.editorGroup.modal).filter({ visible: true }).last();
 			if (await modal.count()) {
 				const name = await modal.locator(s.label.icon).first().getAttribute('aria-label', { timeout: 500 }).catch(() => null) ?? '';
@@ -623,10 +498,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return { ok: true as const, tab, dirty: dom.dirty, focused: dom.focused, line, column: Number(m[2]), ...(m[3] ? { selected: Number(m[3]) } : {}), text: dom.lines[line] ?? null, ...(lines ? { lines } : {}), ...('input' in dom ? { input: dom.input } : {}), ...(dom.debug.topFrameLine || dom.debug.focusedFrameLine ? { debug: dom.debug } : {}) };
 		},
 
-		/**
-		 * Puts focus back in the active editor, where it was: the cursor stays
-		 * where it was. True when focus is in it after.
-		 */
+		/** Refocuses the active editor without moving its cursor. */
 		focusEditor: async () => {
 			const ed = page.locator(`${s.editorGroup.active} ${s.monaco.editor}`).filter({ visible: true }).first();
 			await ed.locator(s.monaco.editContext).first().focus().catch(() => { });
@@ -635,36 +507,25 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 
 		// ---- Consoles
 		/**
-		 * Console sessions: their ids (python-1a2b), names, and which one is active.
-		 * With one session the console shows no tabs; `sessions` then holds that one,
-		 * named by the console's own last status line ("Python 3.14.6 (uv: x)
-		 * started."), else as the title bar's Select Session button names it: that
-		 * button names the foreground session, which can be another (a .qmd's
-		 * kernel, named after the file) or nothing while one starts.
+		 * Console sessions and the active one. With a single session there are no tabs, so
+		 * its name comes from the console's "X started." line before the title bar picker.
 		 */
 		consoles: () => page.evaluate(({ c, n }) => {
 			const idOf = (el: Element | null | undefined, prefix: string) => (el?.getAttribute('data-testid') ?? '').slice(prefix.length);
 			const activeEl = document.querySelector<HTMLElement>(c.active);
 			const active = idOf(activeEl, c.instanceTestId);
-			// A tab's aria-label is its full session name (the text shown can be cut
-			// short), but a tab with the new-execution dot appends the count to it
-			// ("R 4.5.2, 1 new execution"): drop that, so the name is the session's.
+			// Drop the unread suffix ("R 4.5.2, 1 new execution") from the tab's label.
 			const tabName = (t: Element) => { const l = t.getAttribute('aria-label') ?? ''; return t.querySelector(c.unread) ? l.replace(/, \d+ [^,]*$/, '') : l; };
 			const tabs = [...document.querySelectorAll(`[data-testid^="${c.tabTestId}"]`)].map(t => ({ id: idOf(t, c.tabTestId), name: tabName(t) }));
 			const lines = ((activeEl?.querySelector<HTMLElement>(c.container) ?? activeEl)?.innerText ?? '').split('\n').map(l => l.trim());
 			const status = lines.map(l => l.match(/^(.+) (starting|started|restarting|restarted|reconnecting|reconnected)\.$/)?.[1]).filter(Boolean).pop() ?? '';
 			const picker = (document.querySelector(`[aria-label="${n.selectSession}"]`)?.textContent ?? '').trim();
 			const sessions = tabs.length || !active ? tabs : [{ id: active, name: status || picker }];
-			// With no session the view shows only its empty message, and no instance.
 			return { active, tabs, sessions, inPage: !!document.querySelector(c.instance) || !!document.querySelector<HTMLElement>(c.empty)?.offsetParent };
 		}, { c: s.console, n: ui.names.console }),
 		/**
-		 * Makes a console the active one by clicking its tab, and waits until it
-		 * is active and stays so for half a second, up to 8 s: a session that just
-		 * started takes the foreground a moment later, and can take it back from a
-		 * tab clicked before then. A session tab redraws its live CPU and memory
-		 * readings, so it may never hold still for a normal click; once it is
-		 * visible, it is clicked anyway. Returns the console active after.
+		 * Clicks until the tab stays active for 500 ms: a new session can grab focus back.
+		 * Force-clicks if needed, since live CPU/memory readings keep the tab from holding still.
 		 */
 		activateConsole: async (id: string) => {
 			const c = s.console;
@@ -679,24 +540,17 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			}
 			return active;
 		},
-		/** Whether a session is the one --name means: part of its name, its id (python-1a2b3c4d), or the id's hex alone. */
+		/** --name matches part of the name, the full id, or the id's hex alone. */
 		namedLike: (session: { id: string; name: string }, name: string) => !name || session.name.includes(name) || session.id === name || session.id.endsWith('-' + name),
-		/**
-		 * Console sessions still starting (or restarting): the last status line
-		 * the console printed is "X starting." with no "X started." after it.
-		 */
+		/** Sessions whose last status line is "starting." with no "started." after it. */
 		starting: () => page.evaluate(c => [...document.querySelectorAll<HTMLElement>(c.instance)].filter(inst => {
 			const lines = (inst.querySelector<HTMLElement>(c.container) ?? inst).innerText.split('\n').map(l => l.trim());
 			const last = (re: RegExp) => lines.reduce((at, l, i) => re.test(l) ? i : at, -1);
 			return last(/ (starting|restarting|reconnecting)\.$/) > last(/ (started|restarted|reconnected)\.$/);
 		}).map(inst => (inst.getAttribute('data-testid') ?? '').slice(c.instanceTestId.length)), s.console),
 		/**
-		 * A console's output text (without what is typed in its input, nor code
-		 * submitted from it and still being checked for completeness), its prompt,
-		 * the question of an input() waiting for an answer, and its tab name. The text is its rows as drawn: a line is a block with
-		 * no block inside it, and a <br> between lines is a blank row. innerText
-		 * adds a line break at every block's edge, so its blank rows are wrong
-		 * both ways.
+		 * Output text, prompt and any waiting input() question. Rows are rebuilt from blocks
+		 * and <br>s because innerText gets blank lines wrong.
 		 */
 		consoleText: (id: string) => page.evaluate(({ i, c }) => {
 			const inst = document.querySelector<HTMLElement>(`[data-testid="${c.instanceTestId}${i}"]`);
@@ -721,10 +575,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				return out;
 			};
 			const text = rows(box, []).join('\n');
-			// The prompt the input shows now: R's is Browse[1]> while debugging, + mid-expression.
-			// null when none is drawn: the input is hidden, or has no prompt while code runs.
+			// Null while code runs or the input is hidden.
 			const prompt = (inst.querySelector(c.prompt) ?? inst.querySelector(c.anyPrompt))?.textContent?.trim() || null;
-			// The question of an input() or readline() waiting for an answer, without the field's text; null when none waits.
 			const line = [...inst.querySelectorAll<HTMLElement>(c.waitingPrompt)].filter(e => e.getClientRects().length).pop();
 			const waiting = line ? [...line.childNodes].filter(n => !(n instanceof Element && n.matches(c.waitingField))).map(n => n.textContent ?? '').join('').replace(/\u00A0/g, ' ').trim() : null;
 			const tab = document.querySelector(`[data-testid="${c.tabTestId}${i}"]`);
