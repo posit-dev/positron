@@ -558,6 +558,7 @@ suite('getEnvTypeHeuristic tests', () => {
     });
 });
 
+// --- Start Positron ---
 suite('isProblematicCondaEnvironment tests', () => {
     let pathExistsSyncStub: sinon.SinonStub;
 
@@ -704,3 +705,4 @@ suite('isProblematicCondaEnvironment tests', () => {
         assert.strictEqual(result, false);
     });
 });
+// --- End Positron ---
