@@ -45,13 +45,12 @@ describe('QuartoOutputQuickFix', () => {
 		return rtl.render(<QuartoOutputQuickFix cell={cell} documentUri={documentUri} errorContent='NameError: name "x" is not defined' />);
 	}
 
-	it('renders Fix/Explain buttons when a handler can take errors', () => {
+	it('renders Fix/Explain buttons while there is an active error action handler', () => {
 		renderQuickFix();
 		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
 	});
 
-	it('does not render the buttons when no handler can take errors', () => {
-		registration.dispose();
+	it('does not render the buttons while there is no active error action handler', () => {
 		chooseHiddenErrorActionHandler(ctx);
 		renderQuickFix();
 		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();

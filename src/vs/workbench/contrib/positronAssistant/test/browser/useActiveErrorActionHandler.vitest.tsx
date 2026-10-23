@@ -13,7 +13,8 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { useActiveErrorActionHandler } from '../../browser/useActiveErrorActionHandler.js';
 import { IErrorActionHandler, IErrorActionHandlerInfo, IErrorActionHandlerService } from '../../common/errorAction.js';
-import { registerTestErrorActionHandler } from './errorActionTestUtils.js';
+import { ERROR_ACTIONS_AGENT_KEY } from '../../common/positronAIConfigurationKeys.js';
+import { registerTestErrorActionHandler, setTestConfiguration } from './errorActionTestUtils.js';
 
 function createHandler(id: string): IErrorActionHandler {
 	return { id, label: id, supportsChatContinuation: true, ask: async () => { } };
@@ -46,6 +47,12 @@ describe('useActiveErrorActionHandler', () => {
 		act(() => { second = registerTestErrorActionHandler(ctx, { ...createHandler('second'), label: 'Second' }); });
 		expect(label()).toHaveTextContent('Second');
 
+		act(() => setTestConfiguration(ctx, ERROR_ACTIONS_AGENT_KEY, 'first'));
+		expect(label()).toHaveTextContent('first');
+
+		act(() => setTestConfiguration(ctx, ERROR_ACTIONS_AGENT_KEY, 'second'));
+		expect(label()).toHaveTextContent('Second');
+
 		// Named by its id once it's gone.
 		act(() => second.dispose());
 		expect(label()).toHaveTextContent('second');
@@ -61,6 +68,14 @@ describe('useActiveErrorActionHandler', () => {
 
 		act(() => registration.dispose());
 		expect(renders).toBe(3);
+	});
+
+	it('renders once on mount while the chosen handler is not registered', () => {
+		registerTestErrorActionHandler(ctx, createHandler('first')).dispose();
+		rtl.render(<ActiveHandlerLabel />);
+
+		expect(label()).toHaveTextContent('first');
+		expect(renders).toBe(1);
 	});
 
 	describe('with a controllable service', () => {

@@ -5,13 +5,13 @@
 
 /// <reference types="vitest/globals" />
 
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IConfigurationChangeEvent, IConfigurationService, IConfigurationValue } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { Extensions, IConfigurationRegistry } from '../../../../../platform/configuration/common/configurationRegistry.js';
 import { INotificationService, Severity } from '../../../../../platform/notification/common/notification.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
+import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ErrorActionHandlerService } from '../../browser/errorActionHandlerService.js';
@@ -26,11 +26,12 @@ describe('ErrorActionHandlerService', () => {
 	const notifyError = vi.fn();
 	const notifyPrompt = vi.fn();
 	const notifyWarn = vi.fn();
-	const executeCommand = vi.fn();
+	const openUserSettings = vi.fn();
+	const openWorkspaceSettings = vi.fn();
 	const ctx = createTestContainer()
 		.stub(ILogService, { error: logError, warn: logWarn })
 		.stub(INotificationService, { error: notifyError, prompt: notifyPrompt, warn: notifyWarn })
-		.stub(ICommandService, { executeCommand })
+		.stub(IPreferencesService, { openUserSettings, openWorkspaceSettings })
 		.build();
 
 	let configurationService: TestConfigurationService;
@@ -53,6 +54,20 @@ describe('ErrorActionHandlerService', () => {
 
 	function createService(): ErrorActionHandlerService {
 		return ctx.disposables.add(ctx.instantiationService.createInstance(ErrorActionHandlerService));
+	}
+
+	/** Spy on the service's events. */
+	function watchActiveHandler(service: ErrorActionHandlerService) {
+		const onDidChangeActiveHandler = vi.fn();
+		ctx.disposables.add(service.onDidChangeActiveHandler(onDidChangeActiveHandler));
+		return onDidChangeActiveHandler;
+	}
+
+	/** Make the setting's value come from somewhere other than user settings. */
+	function setSettingSource(source: Partial<IConfigurationValue<string>>): void {
+		vi.spyOn(configurationService, 'inspect').mockImplementation(<T>(key: string) => (key === ERROR_ACTIONS_AGENT_KEY ?
+			{ value: configurationService.getValue(key), ...source } :
+			{ value: configurationService.getValue(key) }) as IConfigurationValue<T>);
 	}
 
 	function createHandler(options: Partial<IErrorActionHandler> = {}): IErrorActionHandler {
@@ -83,9 +98,37 @@ describe('ErrorActionHandlerService', () => {
 
 	it('never makes a handler active that the user did not choose', () => {
 		const service = createService();
+		const onDidChangeActiveHandler = watchActiveHandler(service);
 		ctx.disposables.add(service.register(createHandler({ id: 'other' })));
 
 		expect(service.activeHandler?.id).toBe('test-handler');
+		expect(onDidChangeActiveHandler).not.toHaveBeenCalled();
+	});
+
+	it('returns the same unregistered handler on each read', () => {
+		const service = createService();
+
+		expect(service.activeHandler).toBe(service.activeHandler);
+	});
+
+	it('has no active handler once AI is disabled, even while the chosen handler is not registered', () => {
+		const service = createService();
+		const onDidChangeActiveHandler = watchActiveHandler(service);
+
+		setAIEnabled(false);
+
+		expect(service.activeHandler).toBeUndefined();
+		expect(onDidChangeActiveHandler.mock.calls).toEqual([[undefined]]);
+	});
+
+	it('has no active handler once the user chooses the default while it is not registered', () => {
+		const service = createService();
+		const onDidChangeActiveHandler = watchActiveHandler(service);
+
+		setConfiguration(ERROR_ACTIONS_AGENT_KEY, DEFAULT_ERROR_ACTION_HANDLER_ID);
+
+		expect(service.activeHandler).toBeUndefined();
+		expect(onDidChangeActiveHandler.mock.calls).toEqual([[undefined]]);
 	});
 
 	it('follows the setting', () => {
@@ -111,15 +154,18 @@ describe('ErrorActionHandlerService', () => {
 		const service = createService();
 		expect(service.activeHandler).toBeUndefined();
 
+		const onDidChangeActiveHandler = watchActiveHandler(service);
 		const defaultHandler = createHandler({ id: DEFAULT_ERROR_ACTION_HANDLER_ID });
 		const registration = service.register(defaultHandler);
 		expect(service.activeHandler).toBe(defaultHandler);
 
 		registration.dispose();
 		expect(service.activeHandler).toBeUndefined();
+		expect(onDidChangeActiveHandler.mock.calls).toEqual([[defaultHandler], [undefined]]);
 	});
 
 	it('lists the default handler first and once, then the registered handlers', () => {
+		setConfiguration(ERROR_ACTIONS_AGENT_KEY, DEFAULT_ERROR_ACTION_HANDLER_ID);
 		const service = createService();
 		const registration = service.register(createHandler({ id: 'second', label: 'Second' }));
 		ctx.disposables.add(service.register(createHandler({ id: DEFAULT_ERROR_ACTION_HANDLER_ID, label: 'Posit Assistant' })));
@@ -128,6 +174,44 @@ describe('ErrorActionHandlerService', () => {
 
 		registration.dispose();
 		expect(getChoices()).toEqual({ ids: ['posit-assistant', 'third'], labels: ['Posit Assistant', 'Third'] });
+	});
+
+	it('lists the chosen handler as not available while it is not registered', () => {
+		const service = createService();
+		expect(getChoices()).toEqual({ ids: ['posit-assistant', 'test-handler'], labels: ['Posit Assistant', 'test-handler (not available)'] });
+
+		const registration = service.register(createHandler());
+		expect(getChoices()).toEqual({ ids: ['posit-assistant', 'test-handler'], labels: ['Posit Assistant', 'Test Assistant'] });
+
+		registration.dispose();
+		setConfiguration(ERROR_ACTIONS_AGENT_KEY, DEFAULT_ERROR_ACTION_HANDLER_ID);
+		expect(getChoices()).toEqual({ ids: ['posit-assistant'], labels: ['Posit Assistant'] });
+	});
+
+	it('updates the choices in place, and only when they change', () => {
+		const registry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
+		const ids = registry.getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY].enum;
+		const onDidSchemaChange = vi.fn();
+		ctx.disposables.add(registry.onDidSchemaChange(onDidSchemaChange));
+		const service = createService();
+		onDidSchemaChange.mockClear();
+
+		ctx.disposables.add(service.register(createHandler({ id: 'other', label: 'Other' })));
+		ctx.disposables.add(service.register(createHandler({ id: DEFAULT_ERROR_ACTION_HANDLER_ID })));
+
+		expect(registry.getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY].enum).toBe(ids);
+		expect(onDidSchemaChange).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps its default when an extension contributes another one', () => {
+		const registry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
+		const configurationDefaults = [{ overrides: { [ERROR_ACTIONS_AGENT_KEY]: 'other' }, source: { id: 'some.extension', displayName: 'Some Extension' } }];
+		registry.registerDefaultConfigurations(configurationDefaults);
+		try {
+			expect(registry.getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY].default).toBe(DEFAULT_ERROR_ACTION_HANDLER_ID);
+		} finally {
+			registry.deregisterDefaultConfigurations(configurationDefaults);
+		}
 	});
 
 	it('lists only the default handler once the service is disposed', () => {
@@ -242,7 +326,28 @@ describe('ErrorActionHandlerService', () => {
 		});
 
 		choice.run();
-		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', '@id:ai.errorActions.agent');
+		expect(openUserSettings).toHaveBeenCalledWith({ query: ERROR_ACTIONS_AGENT_KEY, revealSetting: { key: ERROR_ACTIONS_AGENT_KEY } });
+	});
+
+	it('opens the settings the unavailable handler was chosen in', async () => {
+		setSettingSource({ workspaceValue: 'claude-code', workspace: { value: 'claude-code' } });
+		const service = createService();
+
+		await service.ask('claude-code', 'fix', context, {});
+		notifyPrompt.mock.calls[0][2][0].run();
+
+		expect(openWorkspaceSettings).toHaveBeenCalled();
+		expect(openUserSettings).not.toHaveBeenCalled();
+	});
+
+	it('does not offer to select another handler when an administrator chose it', async () => {
+		setSettingSource({ policyValue: 'claude-code' });
+		const service = createService();
+
+		await service.ask('claude-code', 'fix', context, {});
+
+		expect(notifyPrompt).not.toHaveBeenCalled();
+		expect(notifyWarn).toHaveBeenCalledWith(`The coding agent 'claude-code' isn't available, so the error wasn't sent. Your administrator manages which coding agent errors are sent to.`);
 	});
 
 	it('sends nothing to the default handler while it is not registered, and says so', async () => {
