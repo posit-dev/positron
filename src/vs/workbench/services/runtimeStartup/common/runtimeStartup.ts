@@ -15,7 +15,7 @@ import { IEphemeralStateService } from '../../../../platform/ephemeralState/comm
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
-import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
+import { cachedRuntimeMetadata, IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
 import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../languageRuntime/common/interpreterDefinitions.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
@@ -1699,6 +1699,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			if (task.metadata.definitionOnly) {
 				validated = { ...validated, definitionOnly: true };
 			}
+			// A cached record never starts right away, including when it is
+			// registered again below.
+			validated = cachedRuntimeMetadata(validated);
 			this._discoveryCache.sessionCounters.revalidationsSucceeded++;
 			// Registry swap: if the validator returned different metadata,
 			// register it (the registry tolerates re-registration on the same
