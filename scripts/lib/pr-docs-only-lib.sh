@@ -10,35 +10,43 @@
 # PR skips the tests only if every changed path is docs-only. A new or unknown
 # path runs the tests by default.
 
-# ci_reachable_workflows <repo_root> [root_workflow]
-# Echoes, one per line, the repo-relative path of every workflow file that
-# root_workflow (default .github/workflows/test-pull-request.yml) calls,
-# directly or through other called workflows, plus root_workflow itself. A
-# change to any of these can change what the tests do, so none of
-# them is docs-only.
-ci_reachable_workflows() {
+# ci_reachable_paths <repo_root> [root_workflow]
+# Echoes, one per line, the repo-relative path of every workflow file and local
+# action directory that root_workflow (default
+# .github/workflows/test-pull-request.yml) uses, directly or through other
+# called workflows and composite actions, plus root_workflow itself. A change
+# to any of these can change what the tests do, so none of them is docs-only.
+# Actions are reported by their top-level directory (.github/actions/<name>),
+# since an action's files may be shared with a nested action beside it.
+ci_reachable_paths() {
 	local root="$1" start="${2:-.github/workflows/test-pull-request.yml}"
 	local -a queue=("$start")
 	local seen=$'\n'
-	local wf callee
+	local item file callee
 	while ((${#queue[@]} > 0)); do
-		wf="${queue[0]}"
+		item="${queue[0]}"
 		queue=("${queue[@]:1}")
-		[[ "$seen" == *$'\n'"$wf"$'\n'* ]] && continue
-		seen+="$wf"$'\n'
-		echo "$wf"
-		[[ -f "$root/$wf" ]] || continue
+		[[ "$seen" == *$'\n'"$item"$'\n'* ]] && continue
+		seen+="$item"$'\n'
+		echo "$item"
+		case "$item" in
+			.github/actions/*)
+				file="$root/$item/action.yml"
+				[[ -f "$file" ]] || file="$root/$item/action.yaml" ;;
+			*) file="$root/$item" ;;
+		esac
+		[[ -f "$file" ]] || continue
 		while IFS= read -r callee; do
 			queue+=("$callee")
-		done < <(grep -oE 'uses:[[:space:]]*["'\'']?\./\.github/workflows/[^"'\''[:space:]@]+' "$root/$wf" |
-			sed -E 's#^uses:[[:space:]]*["'\'']?\./##')
+		done < <(grep -oE 'uses:[[:space:]]*["'\'']?\./\.github/(workflows|actions)/[^"'\''[:space:]@]+' "$file" |
+			sed -E 's#^uses:[[:space:]]*["'\'']?\./##; s#^(\.github/actions/[^/]+).*#\1#')
 	done
 }
 
-# is_docs_only_path <path> <reachable_workflows>
+# is_docs_only_path <path> <reachable>
 # Echoes "true" iff changing <path> can't change the outcome of the required
-# unit, ext-host, or e2e jobs. <reachable_workflows> is the newline-separated
-# output of ci_reachable_workflows.
+# unit, ext-host, or e2e jobs. <reachable> is the newline-separated
+# output of ci_reachable_paths.
 is_docs_only_path() {
 	local path="$1" reachable="$2"
 	local base="${path##*/}"
@@ -73,6 +81,17 @@ is_docs_only_path() {
 				echo true
 			fi
 			return 0 ;;
+		# Any file in a local action the required jobs don't use. Files directly
+		# in .github/actions/ belong to no action and so still run.
+		.github/actions/*/*)
+			local action="${path#.github/actions/}"
+			action=".github/actions/${action%%/*}"
+			if printf '%s\n' "$reachable" | grep -qxF "$action"; then
+				echo false
+			else
+				echo true
+			fi
+			return 0 ;;
 		# Top-level markdown (README, CONTRIBUTING, ...).
 		*/*) ;;
 		*.md) echo true; return 0 ;;
@@ -88,7 +107,7 @@ is_docs_only_path() {
 	echo false
 }
 
-# all_docs_only <reachable_workflows>
+# all_docs_only <reachable>
 # Reads changed paths on stdin, one per line. Echoes "true" iff there is at
 # least one path and every path is docs-only.
 all_docs_only() {
