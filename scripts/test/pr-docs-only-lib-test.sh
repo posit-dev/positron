@@ -51,7 +51,33 @@ YAML
 cat > "$WF_ROOT/.github/workflows/c.yml" <<'YAML'
 jobs:
   x:
-    runs-on: ubuntu-latest
+    steps:
+      - uses: './.github/actions/nested/inner'
+YAML
+mkdir -p "$WF_ROOT/.github/actions/some-action" "$WF_ROOT/.github/actions/composite-dep" \
+	"$WF_ROOT/.github/actions/nested/inner" "$WF_ROOT/.github/actions/unused"
+# A composite action that calls another, and is called back: no loop.
+cat > "$WF_ROOT/.github/actions/some-action/action.yml" <<'YAML'
+runs:
+  steps:
+    - uses: ./.github/actions/composite-dep/
+YAML
+cat > "$WF_ROOT/.github/actions/composite-dep/action.yaml" <<'YAML'
+runs:
+  steps:
+    - uses: ./.github/actions/some-action
+YAML
+# Only the nested action has an action.yml; its own uses: must be followed.
+mkdir -p "$WF_ROOT/.github/actions/deep-dep"
+cat > "$WF_ROOT/.github/actions/nested/inner/action.yml" <<'YAML'
+runs:
+  steps:
+    - uses: ./.github/actions/deep-dep
+YAML
+cat > "$WF_ROOT/.github/actions/unused/action.yml" <<'YAML'
+runs:
+  steps:
+    - run: true
 YAML
 cat > "$WF_ROOT/.github/workflows/unrelated.yml" <<'YAML'
 jobs:
@@ -59,21 +85,25 @@ jobs:
     runs-on: ubuntu-latest
 YAML
 
-REACH="$(ci_reachable_workflows "$WF_ROOT" .github/workflows/root.yml | sort | tr '\n' ' ')"
-assert_eq "reachable: transitive, deduplicated, quoted uses, no actions" \
-	".github/workflows/a.yml .github/workflows/b.yml .github/workflows/c.yml .github/workflows/root.yml " \
+REACH="$(ci_reachable_paths "$WF_ROOT" .github/workflows/root.yml | sort | tr '\n' ' ')"
+assert_eq "reachable: transitive, deduplicated, quoted uses, composite and nested actions" \
+	".github/actions/composite-dep .github/actions/deep-dep .github/actions/nested .github/actions/some-action .github/workflows/a.yml .github/workflows/b.yml .github/workflows/c.yml .github/workflows/root.yml " \
 	"$REACH"
 
 # The real workflow must reach the reusable workflows behind the required checks.
-REAL_REACH="$(ci_reachable_workflows "$HERE/../..")"
+REAL_REACH="$(ci_reachable_paths "$HERE/../..")"
 for wf in test-pull-request.yml test-unit.yml test-ext-host.yml test-e2e-ubuntu.yml; do
 	assert_eq "real tree reaches $wf" true \
 		"$(printf '%s\n' "$REAL_REACH" | grep -qxF ".github/workflows/$wf" && echo true || echo false)"
 done
+for action in setup-build-env setup-test-env download-binaries; do
+	assert_eq "real tree reaches $action" true \
+		"$(printf '%s\n' "$REAL_REACH" | grep -qxF ".github/actions/$action" && echo true || echo false)"
+done
 
 # --- is_docs_only_path ------------------------------------------------------------
 
-REACHABLE=$'.github/workflows/test-pull-request.yml\n.github/workflows/test-unit.yml'
+REACHABLE=$'.github/workflows/test-pull-request.yml\n.github/workflows/test-unit.yml\n.github/actions/restore-build-caches\n.github/actions/some-action'
 
 check() {
 	assert_eq "$1 -> $2" "$2" "$(is_docs_only_path "$1" "$REACHABLE")"
@@ -107,6 +137,12 @@ check .github/workflows/check-clean-git-state.sh false
 check .github/workflows/sub/nested.yml false
 check .github/actions/restore-build-caches/action.yml false
 check .github/actions/some-action/prompt.md false
+check .github/actions/some-action/lib/helper.mjs false
+check .github/actions/shared.mjs false
+
+# Local actions the required jobs don't use.
+check .github/actions/pr-exploratory-test/outcomes.mjs true
+check .github/actions/restore-build-caches-v2/action.yml true
 
 # Source, scripts, and markdown that is runtime content or a test input.
 check src/vs/workbench/workbench.common.main.ts false
