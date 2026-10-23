@@ -80,14 +80,16 @@ function openFile(session: string, file: string): Json {
 		// The active tab must be this file, by its path when the tab has one (two
 		// tabs can share a name), else by its title: a custom editor (a .parquet
 		// or .csv viewer) may title its tab differently.
-		const want = (p.row.description ? p.row.description.replace(/^.* /, '') + '/' : '') + a.name;
+		const want = ((p.row.description ? p.row.description.replace(/^.* /, '') + '/' : '') + a.name).replace(/\\/g, '/');
 		const read = () => page.evaluate(({ n, group, label }) => {
 			const t = document.querySelector(`${group.active} ${group.activeTab}`);
 			const shown = t?.querySelector(label.name)?.textContent ?? '';
 			const path = (t?.querySelector(label.icon)?.getAttribute('aria-label') ?? '').split(' \u2022 ')[0];
 			const named = [shown, t?.getAttribute('title') ?? '', t?.getAttribute('aria-label') ?? ''].some(x => x === n || x.includes(n));
 			const cfg = (window as unknown as { vscode?: { context?: { configuration?: () => { workspace?: { uri?: { path?: string } } } } } }).vscode?.context?.configuration?.();
-			return { tab: named ? n : shown, path: /^(\/|[A-Za-z]:)/.test(path) ? path : '', root: cfg?.workspace?.uri?.path ?? '' };
+			// One form for both: on Windows the tab says C:\Users\..., the workspace URI /c:/Users/...
+			const norm = (s: string) => s.replace(/\\/g, '/').replace(/^\/?([A-Za-z]):/, (_, d: string) => `${d.toLowerCase()}:`);
+			return { tab: named ? n : shown, path: /^(\/|[A-Za-z]:)/.test(path) ? norm(path) : '', root: norm(cfg?.workspace?.uri?.path ?? '') };
 		}, { n: a.name, group: lib.css.editorGroup, label: lib.css.label });
 		const right = (x: Awaited<ReturnType<typeof read>>) => x.tab === a.name && (!x.path || (x.root && !p.row.description ? x.path === x.root + '/' + a.name : x.path.endsWith('/' + want)));
 		let now = await read();
