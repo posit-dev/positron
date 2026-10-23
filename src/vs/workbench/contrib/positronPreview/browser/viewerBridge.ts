@@ -916,17 +916,15 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return allowed;
 	}
 
-	// Legacy keyCode values, which older page code still reads (jQuery's
-	// `which`). Letters and digits use their upper-case character code.
+	// Legacy keyCode values, which older page code still reads (jQuery's `which`).
 	const KEY_CODES: Record<string, number> = {
 		Backspace: 8, Tab: 9, Enter: 13, Escape: 27, ' ': 32, PageUp: 33, PageDown: 34,
 		End: 35, Home: 36, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40, Delete: 46,
 	};
 
-	// Sends keydown, keypress for Enter and character keys (as a browser does,
-	// unless keydown is cancelled), and keyup. Returns whether the page let
-	// the key's default action happen; Chromium runs Enter's on keypress. The
-	// browser never runs it for a script's events; press() does it instead.
+	// Returns whether the page let the key's default action happen, which the
+	// browser never runs for a script's events (press() does it). Chromium
+	// runs Enter's on keypress.
 	function pressKey(el: Element, key: string): boolean {
 		const view = viewOf(el);
 		const code = /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : /^[0-9]$/.test(key) ? `Digit${key}` : key === ' ' ? 'Space' : key;
@@ -1024,10 +1022,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	}
 
 	/**
-	 * Captures a checkbox's or switch's state (and, with `radio`, a radio
-	 * button's) before an action that should toggle it. Returns the check that
-	 * reports the state after it, starting with `done`, and throws when the
-	 * state didn't change. A radio button that was already selected stays so.
+	 * Returns a check that an action toggled a checkbox or switch (with
+	 * `radio`, also a radio button), which throws if it didn't.
 	 */
 	function toggleCheck(el: Element, done: string, radio = false): () => string {
 		const role = roleOf(el);
@@ -1561,26 +1557,22 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		};
 	}
 
-	// Inputs Enter submits a form from (implicit submission).
+	// Input types where Enter submits the form (implicit submission).
 	const SUBMITS_ON_ENTER = new Set(['text', 'search', 'url', 'tel', 'email', 'password', 'number', 'date', 'month', 'week', 'time', 'datetime-local']);
 	const inputType = (el: Element) => el.tagName === 'INPUT' ? (el as HTMLInputElement).type : undefined;
 	const isSubmitButton = (el: Element) => el.tagName === 'BUTTON' ? (el as HTMLButtonElement).type === 'submit' : inputType(el) === 'submit' || inputType(el) === 'image';
 	const isButton = (el: Element) => el.tagName === 'BUTTON' || ['button', 'submit', 'reset', 'image'].includes(inputType(el) ?? '');
 	const isLink = (el: Element) => (el.tagName === 'A' || el.tagName === 'AREA') && el.hasAttribute('href');
 
-	/**
-	 * A form's default button: its first submit button in tree order. Not
-	 * from form.elements, which leaves out image buttons.
-	 */
+	/** A form's first submit button. form.elements would leave out image buttons. */
 	function defaultButton(form: HTMLFormElement): HTMLButtonElement | HTMLInputElement | undefined {
 		const candidates = (form.getRootNode() as ParentNode).querySelectorAll<HTMLButtonElement | HTMLInputElement>('button, input');
 		return Array.from(candidates).find(el => isSubmitButton(el) && el.form === form);
 	}
 
 	/**
-	 * Enter in a text box, as a browser handles it: clicks the form's default
-	 * button, or submits a form with one text box and no button. Undefined
-	 * when the text box isn't in a form.
+	 * Enter in a text box, as a browser handles it: clicks the form's first
+	 * submit button, or submits a form with one text box and no button.
 	 */
 	function submitOnEnter(input: HTMLInputElement, pressed: string): ActStep | undefined {
 		const form = input.form;
@@ -1595,8 +1587,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		if (button?.matches(':disabled')) {
 			return { done: `${pressed}, but its form wasn't submitted: the ${describe(button)} is disabled.` };
 		}
-		// Submitting validates the form first, which fires invalid at any field
-		// that fails. The event doesn't bubble, so listen in the capture phase.
+		// Submitting fires invalid at fields that fail validation. It doesn't bubble.
 		let submitted = false;
 		let invalid = false;
 		const onSubmit = () => {
@@ -1627,10 +1618,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return { done: button ? `${pressed}, which clicked the ${describe(button)}, but the page didn't submit the form.` : `${pressed}, but its form wasn't submitted.` };
 	}
 
-	/**
-	 * ArrowUp or ArrowDown in a number box, as a browser handles it. Undefined
-	 * when its value can't be stepped.
-	 */
+	/** ArrowUp or ArrowDown in a number box, as a browser handles it. */
 	function stepNumber(input: HTMLInputElement, up: boolean, pressed: string): ActStep | undefined {
 		if (input.readOnly) {
 			return { done: `${pressed}, but it's read-only.` };
@@ -1667,9 +1655,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	}
 
 	/**
-	 * Does what the browser would for a key in a control, which it doesn't do
-	 * for a script's key events. `pressed` starts the message. Undefined for a
-	 * key it doesn't act on here.
+	 * Does what the browser would for a key in a control, since it doesn't for
+	 * a script's key events. Undefined for keys it leaves alone.
 	 */
 	function keyDefault(el: Element, key: string, pressed: string): ActStep | undefined {
 		const type = inputType(el);
