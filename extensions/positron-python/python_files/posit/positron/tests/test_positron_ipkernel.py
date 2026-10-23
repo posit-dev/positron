@@ -420,13 +420,9 @@ def test_pinfo_distribution_name(
 
     # Pretend numpy is shipped as the distribution `fake-dist-xyz`. The import
     # name (`numpy`) differs from the distribution name, mirroring the real
-    # `scikit-learn` / `sklearn` case. `raising=False` so this works on Python
-    # 3.9 where `packages_distributions` is absent.
+    # `scikit-learn` / `sklearn` case.
     monkeypatch.setattr(
-        importlib.metadata,
-        "packages_distributions",
-        lambda: {"numpy": ["fake-dist-xyz"]},
-        raising=False,
+        importlib.metadata, "packages_distributions", lambda: {"numpy": ["fake-dist-xyz"]}
     )
 
     shell.run_cell("?fake-dist-xyz")

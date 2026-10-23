@@ -7,7 +7,7 @@
 import nox
 
 
-@nox.session(venv_backend="uv", python="3.9")
+@nox.session(venv_backend="uv", python="3.10")
 @nox.parametrize(["pandas", "numpy"], [("1.*", "1.*"), ("2.*", "2.*")])
 @nox.parametrize("torch", ["1.*"])
 @nox.parametrize("lightning", ["2.1.*"])

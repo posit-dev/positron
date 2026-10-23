@@ -64,7 +64,7 @@ def new_figure_manager(
         figsize = _requested_figsize(execute_request)
     # `Figure` only accepts the 3-tuple form in matplotlib >= 3.11, but we pass whatever
     # matplotlib handed us straight back to it, so the pair always matches at runtime.
-    # The cast keeps pyright quiet against the older pins (CI type-checks on 3.9).
+    # The cast keeps pyright quiet against the older pins.
     figure = FigureClass(*args, figsize=cast("tuple[float, float] | None", figsize), **kwargs)
 
     # Also provide the execute request to the figure manager.
