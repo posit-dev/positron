@@ -344,10 +344,10 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// Sort the R installations
 	rInstallations.sort(compareRInstallations);
 
-	// Construct and yield the metadata for each R installation. None of them
-	// asks to start right away: the discovery cache shares these records with
-	// every folder, so whether R should start in this folder is decided by
-	// R's recommendation instead (see chooseStartupR).
+	// Construct and yield the metadata for each R installation. Each one
+	// starts only when picked: the discovery cache shares these records with
+	// every folder, so whether R should start in this folder, and which R, is
+	// decided by R's recommendation instead (see chooseStartupR).
 	for (const rInst of rInstallations) {
 		// If there is another R installation with the same version but different architecture,
 		// we need to disambiguate the runtime name by appending the architecture.
@@ -360,7 +360,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 			}
 		}
 
-		const metadata = makeMetadata(rInst, positron.LanguageRuntimeStartupBehavior.Implicit, needsArch);
+		const metadata = makeMetadata(rInst, positron.LanguageRuntimeStartupBehavior.Explicit, needsArch);
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		yield metadata;
@@ -756,9 +756,16 @@ export function classifyRRuntimeSource(
 	return RRuntimeSource.system;
 }
 
+/**
+ * Builds the runtime metadata for an R installation.
+ *
+ * @param startupBehavior `Explicit` unless the R is R's recommendation or the
+ *   pinned R, so opening an R file starts the recommendation rather than
+ *   whichever R registered first.
+ */
 export async function makeMetadata(
 	rInst: RInstallation,
-	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
+	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Explicit,
 	includeArch: boolean = false
 ): Promise<positron.LanguageRuntimeMetadata> {
 	// Is the runtime path within the user's home directory?
