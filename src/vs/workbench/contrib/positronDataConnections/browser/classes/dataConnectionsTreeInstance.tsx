@@ -228,7 +228,9 @@ const REVEAL_ROOTS_TIMEOUT_MS = 10_000;
  * budget: a warehouse query often takes longer than a second, and the shape of the tree -- whether a
  * namespace group is breadcrumbed, whether an empty Views group is hidden -- should not depend on
  * how fast the query was. The wait is per query, and the single-schema path runs its look-aheads
- * one after another, so a hang there costs the timeout three times.
+ * one after another. A hang there costs the timeout once, since a look-ahead that times out ends
+ * the chain, but three slow queries that each answer just inside the timeout can cost nearly
+ * three times it.
  */
 const LOOK_AHEAD_TIMEOUT_MS = 5_000;
 
@@ -1044,9 +1046,12 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * from the map, so opening the row runs the call again. A row opened while the query is still
 	 * in flight shares its outcome, error included.
 	 *
-	 * The query is parked in the map before that wait. A reload clears the map, and the answer is
-	 * not written back when it arrives, so it cannot satisfy an expand under a handle the reload
-	 * has since dropped.
+	 * The query is parked in the map before that wait, and the answer is not written back when it
+	 * arrives. An entry can only ever be read by the row it was fetched for: its id carries the node
+	 * handle, and the extension host mints node handles from a counter that only goes up, so a row
+	 * built after a reload has a different id even for the same node. The clear() calls in reload,
+	 * reloadAll, and _dropClosedEntrySubtrees free entries that nothing can read anymore; they are
+	 * not what keeps a stale answer out of a new row.
 	 *
 	 * @param dto The node to look into.
 	 * @param handle The connection handle the DTO came from.
