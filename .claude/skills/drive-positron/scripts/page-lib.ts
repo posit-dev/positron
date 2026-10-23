@@ -204,7 +204,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		},
 		/** Moves focus toward a row until the list draws it, so clickRow can find it. */
 		scrollToRow: async (index: number, max = 100) => {
-			for (let i = 0; i <= max; i++) {
+			for (let i = 0; i < max; i++) {
 				if ((await lib.rows()).some(r => r.index === index)) { return true; }
 				const now = await lib.focusedIndex();
 				if (now === null) { return false; }
