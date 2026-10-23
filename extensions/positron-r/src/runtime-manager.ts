@@ -14,7 +14,7 @@ import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
 import { LOGGER, supervisorApi } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
-import { getDefaultInterpreterPath, isDefinitionsOnlyDiscovery } from './interpreter-settings.js';
+import { getDefaultInterpreterPath, getInterpreterDefinitionLabels, isDefinitionsOnlyDiscovery } from './interpreter-settings.js';
 import { getEnvironmentModulesApi } from './provider-module.js';
 import { packagerMetadataForPath } from './packager-detection.js';
 import { rVersionsMetadataForPath } from './provider-rversions.js';
@@ -199,8 +199,9 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	}
 
 	async recommendedWorkspaceRuntime(afterDiscovery?: boolean): Promise<positron.LanguageRuntimeMetadata | undefined> {
-		// When discovery is limited to definitions, nothing outside them is recommended.
-		if (isDefinitionsOnlyDiscovery()) {
+		// When discovery is limited to definitions, nothing outside them is
+		// recommended, so R answers only after discovery, from the defined Rs.
+		if (isDefinitionsOnlyDiscovery() && !afterDiscovery) {
 			return undefined;
 		}
 
@@ -243,7 +244,9 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 * does when R has no recommendation yet: either a console had already
 	 * started, so Positron didn't ask before discovery, or R recommended
 	 * nothing then. The answer is the pinned R, or else the R the search lists
-	 * first among the Rs Positron has registered.
+	 * first among the Rs Positron has registered. When discovery is limited
+	 * to definitions, there is no pinned R, and the answer is the first
+	 * defined R.
 	 * Either starts when R is needed. Doesn't search: discovery, or the
 	 * discovery cache, has registered every R by now.
 	 *
@@ -255,8 +258,22 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			LOGGER.info(`[recommendedWorkspaceRuntime] Recommending the pinned R ${pinned.version} at ${pinned.binpath} to start when R is needed`);
 			return makeMetadata(pinned, implicit);
 		}
-		const registered = (await positron.runtime.getRegisteredRuntimes())
-			.filter(runtime => runtime.languageId === 'r' && !runtime.interpreterDefinition)
+		const registeredRs = (await positron.runtime.getRegisteredRuntimes())
+			.filter(runtime => runtime.languageId === 'r');
+		if (isDefinitionsOnlyDiscovery()) {
+			// Positron registers only the Rs created from definitions in this
+			// mode. Take the one the first definition created.
+			const defined = getInterpreterDefinitionLabels()
+				.map(label => registeredRs.find(runtime => runtime.interpreterDefinition === label))
+				.find(runtime => runtime !== undefined);
+			if (!defined) {
+				return undefined;
+			}
+			LOGGER.info(`[recommendedWorkspaceRuntime] Recommending the defined R '${defined.interpreterDefinition}' at ${defined.runtimePath} to start when R is needed`);
+			return { ...defined, startupBehavior: implicit };
+		}
+		const registered = registeredRs
+			.filter(runtime => !runtime.interpreterDefinition)
 			.map(metadata => {
 				const extra = metadata.extraRuntimeData as RMetadataExtra;
 				return {
