@@ -34,7 +34,6 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
                 // the binaries specified in .python-version file in the cwd. We should not be reporting
                 // those binaries as environments.
                 const knownDirs = (await commonPosixBinPaths()).filter((dirname) => !isPyenvShimDir(dirname));
-
                 let pythonBinaries = await getPythonBinFromPosixPaths(knownDirs);
                 traceVerbose(`Found ${pythonBinaries.length} python binaries in posix paths`);
 
