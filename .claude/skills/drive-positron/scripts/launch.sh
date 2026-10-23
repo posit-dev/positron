@@ -175,19 +175,21 @@ cmd_escape() {
 # handler smuggling in switches (CVE-2018-1000006). So `--folder-uri URL --log
 # debug` never opens a window. Pass --folder-uri and --file-uri with their
 # values as one argument, --folder-uri=URL, which the app reads the same way,
-# and on Windows refuse any other URL that has arguments after it.
+# and on Windows refuse any other URL that has arguments after it. A flag in
+# the value's place (--folder-uri --log) is no value: it is left for the app to
+# report. Nothing after a `--` is touched; the app reads it all as file names.
 # test/launch-args.test.ts runs this function alone.
 join_uri_args() {
 	local args=("$@") arg i
 	EXTRA_ARGS=()
 	for (( i = 0; i < ${#args[@]}; i++ )); do
 		arg="${args[i]}"
-		if [[ "$arg" == --folder-uri || "$arg" == --file-uri ]] && (( i + 1 < ${#args[@]} )); then
+		if [[ "$arg" == --folder-uri || "$arg" == --file-uri ]] && (( i + 1 < ${#args[@]} )) && [[ "${args[i + 1]}" != -* ]]; then
 			EXTRA_ARGS+=("$arg=${args[i + 1]}")
 			i=$(( i + 1 ))
 			continue
 		fi
-		if [[ "$IS_WINDOWS" == "1" && "$arg" =~ ^[A-Za-z][^:[:space:]]+: ]] && (( i + 1 < ${#args[@]} )) && [[ "${args[i + 1]}" != -- ]]; then
+		if [[ "$IS_WINDOWS" == "1" && "$arg" =~ ^[A-Za-z][^:[:space:]]+: ]] && (( i + 1 < ${#args[@]} )); then
 			usage_error "$arg looks like a URL to Electron, which exits on Windows when arguments follow one; put it last, or join it to its flag as --flag=URL"
 		fi
 		if [[ "$arg" == -- ]]; then

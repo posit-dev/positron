@@ -12,7 +12,7 @@
 // A function sent to the page is turned into source text, so it may use only
 // its arguments: `page`, `args` and `lib`.
 
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync, type SpawnSyncOptions, type SpawnSyncReturns } from 'child_process';
 import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { basename, dirname, join, resolve } from 'path';
@@ -32,6 +32,10 @@ const repo = resolve(here, '../../../..');
 // start node_modules/.bin/playwright-cli, a shell script there (ENOENT).
 const cliScript = join(repo, 'node_modules/@playwright/cli/playwright-cli.js');
 const [cli, ...cliArgs] = existsSync(cliScript) ? [process.execPath, cliScript] : ['playwright-cli'];
+/** Runs a playwright-cli command the way the helpers do; test/ uses it too. */
+export function playwrightCli(args: string[], options: SpawnSyncOptions = {}): SpawnSyncReturns<string> {
+	return spawnSync(cli, [...cliArgs, ...args], { cwd: repo, encoding: 'utf8', ...options }) as SpawnSyncReturns<string>;
+}
 export const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
 // makeLib's source with the registry as its argument, built once per command.
 const libSource = `(${makeLib.toString()})(page, ${JSON.stringify({ css, names })})`;

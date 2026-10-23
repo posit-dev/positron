@@ -15,13 +15,13 @@
 import { spawnSync } from 'child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { playwrightCli } from '../scripts/dp-lib.ts';
 import { flagValue, unknownArg } from './smoke-lib.ts';
 
 const test = dirname(fileURLToPath(import.meta.url));
 const scripts = resolve(test, '../scripts');
 const repo = resolve(test, '../../../..');
-const cli = join(repo, 'node_modules/.bin/playwright-cli');
 
 export interface App { session: string; root: string; cdpPort: number; runDir: string }
 
@@ -42,13 +42,13 @@ export function launchFixture(opts: { session: string; root: string; appArgs: st
 	cpSync(join(test, 'fixture'), ws, { recursive: true });
 	symlinkSync(join(repo, 'extensions/positron-python/.venv'), join(ws, '.venv'));
 	writeFileSync(join(root, 'seed/User/settings.json'), JSON.stringify({ 'quarto.inlineOutput.enabled': true, 'positron.notebook.enabled': true, 'workbench.startupEditor': 'none' }, null, '\t'));
-	const r = sh(root, [join(scripts, 'launch.sh'), '--source-user-data-dir', join(root, 'seed'), '--no-pyrefly', '--', '--folder-uri', `file://${ws}`, ...appArgs], 600_000);
+	const r = sh(root, [join(scripts, 'launch.sh'), '--source-user-data-dir', join(root, 'seed'), '--no-pyrefly', '--', '--folder-uri', pathToFileURL(ws).href, ...appArgs], 600_000);
 	if (!r.json?.cdpPort) { throw new Error(`launch.sh failed: ${r.stderr.trim().split('\n').slice(-5).join(' | ')}`); }
 	const app: App = { session, root, cdpPort: r.json.cdpPort, runDir: r.json.runDir! };
 	opts.onStarted?.(app);
-	const a = spawnSync(cli, [`-s=${session}`, 'attach', `--cdp=http://127.0.0.1:${app.cdpPort}`], { cwd: repo, encoding: 'utf8' });
+	const a = playwrightCli([`-s=${session}`, 'attach', `--cdp=http://127.0.0.1:${app.cdpPort}`]);
 	if (a.status !== 0) { throw new Error(`attach failed: ${a.stdout}${a.stderr}`); }
-	spawnSync(cli, [`-s=${session}`, 'resize', '1600', '1000'], { cwd: repo, stdio: 'ignore' });
+	playwrightCli([`-s=${session}`, 'resize', '1600', '1000'], { stdio: 'ignore' });
 	// Ready when the palette answers.
 	for (let i = 0; i < 30; i++) {
 		if (sh(root, [join(scripts, 'palette-run.sh'), '--session', session, '--dry-run', 'View: Show Explorer']).json?.ok) { return app; }
@@ -72,7 +72,7 @@ export function readFixtureState(file: string): { cdpPort: number; runDir: strin
 /** True when the instance stopped. */
 export function stopFixture(app: App, opts?: { keep?: boolean }): boolean {
 	if (opts?.keep) { return true; }
-	spawnSync(cli, [`-s=${app.session}`, 'close'], { cwd: repo, stdio: 'ignore' });
+	playwrightCli([`-s=${app.session}`, 'close'], { stdio: 'ignore' });
 	const s = spawnSync('bash', [join(scripts, 'stop.sh'), '--cdp-port', String(app.cdpPort), '--run-dir', app.runDir], { cwd: repo, encoding: 'utf8' });
 	console.log(s.status === 0 ? 'instance stopped' : `stop.sh failed: ${s.stderr.trim().split('\n').pop()}`);
 	rmSync(app.root, { recursive: true, force: true });

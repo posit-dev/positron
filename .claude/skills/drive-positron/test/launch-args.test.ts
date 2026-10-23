@@ -45,12 +45,22 @@ test('on Windows, a URL with arguments after it is a usage error', () => {
 	assert.ok(!Array.isArray(r) && r.usageError.startsWith('vscode://ext/x looks like a URL'), JSON.stringify(r));
 });
 
-test('a URL last, or before a --, is left as it is; elsewhere one is never refused', () => {
+test('a URL last is left as it is; off Windows one is never refused', () => {
 	assert.deepEqual(join_(true, ['--log', 'debug', 'vscode://ext/x']), ['--log', 'debug', 'vscode://ext/x']);
-	assert.deepEqual(join_(true, ['vscode://ext/x', '--', '--folder-uri', 'file:///C:/ws']), ['vscode://ext/x', '--', '--folder-uri', 'file:///C:/ws']);
 	assert.deepEqual(join_(false, ['vscode://ext/x', '--log', 'debug']), ['vscode://ext/x', '--log', 'debug']);
 });
 
-test('a --folder-uri with no value is left for the app to report', () => {
+test('on Windows, a URL before a -- is refused too: the app reads what follows as file names', () => {
+	const r = join_(true, ['vscode://ext/x', '--', 'a.txt']);
+	assert.ok(!Array.isArray(r) && r.usageError.startsWith('vscode://ext/x looks like a URL'), JSON.stringify(r));
+});
+
+test('nothing after a -- is joined', () => {
+	assert.deepEqual(join_(true, ['--log', 'debug', '--', '--folder-uri', 'file:///C:/ws']), ['--log', 'debug', '--', '--folder-uri', 'file:///C:/ws']);
+});
+
+test('a --folder-uri with no value, or a flag in its place, is left for the app to report', () => {
 	assert.deepEqual(join_(true, ['--folder-uri']), ['--folder-uri']);
+	assert.deepEqual(join_(true, ['--folder-uri', '--log', 'debug']), ['--folder-uri', '--log', 'debug']);
+	assert.deepEqual(join_(false, ['--file-uri', '--', 'a.txt']), ['--file-uri', '--', 'a.txt']);
 });
