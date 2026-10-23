@@ -91,34 +91,34 @@ suite('MotherDuck Driver', () => {
 		await connection.disconnect();
 	});
 
-	test('connect rejects a default database with connection options without opening', async () => {
+	test('connect rejects an invalid default database name without opening', async () => {
 		const driver = createDriver({ env: { motherduck_token: 'aaa.bbb.ccc' } });
 		const start = Date.now();
-		for (const database of ['mydb?attach_mode=single', 'a#b']) {
+		for (const database of ['mydb?attach_mode=single', 'a#b', 'a\nSELECT 1', 'a\rb', 'a\0b', 'a\x7fb']) {
 			await assert.rejects(async () => driver.connect('envvar', { database }),
-				/The default database name cannot contain '\?' or '#'\./);
+				{ message: 'The default database name cannot contain \'?\', \'#\', or control characters such as line breaks.' });
 		}
 		assert.deepStrictEqual(configs, []);
 		assert.ok(Date.now() - start < 2000);
 	});
 
-	test('generateConnectionCode returns no code for a default database with connection options', async () => {
+	test('generateConnectionCode returns no code for an invalid default database name', async () => {
 		const driver = createDriver();
-		for (const database of ['mydb?attach_mode=single', 'a#b']) {
+		for (const database of ['mydb?attach_mode=single', 'a#b', 'a\nSELECT 1', 'a\rb', 'a\0b', 'a\x7fb']) {
 			for (const languageId of ['python', 'r', 'ggsql']) {
 				assert.deepStrictEqual(await driver.generateConnectionCode!('envvar', languageId, { database, readOnly: true }), []);
 			}
 		}
 	});
 
-	test('validateParameters reports a default database with connection options beside its field', async () => {
+	test('validateParameters reports an invalid default database name beside its field', async () => {
 		const driver = createDriver();
 		const results = [];
-		for (const database of ['mydb?attach_mode=single', 'a#b', 'sample_data', '', undefined]) {
+		for (const database of ['mydb?attach_mode=single', 'a#b', 'a\nSELECT 1', 'a\tb', 'sample_data', 'my db', '50%', '', undefined]) {
 			results.push(await driver.validateParameters!('envvar', { database, readOnly: true }));
 		}
-		const error = { errors: { database: 'The default database name cannot contain \'?\' or \'#\'.' } };
-		assert.deepStrictEqual(results, [error, error, {}, {}, {}]);
+		const error = { errors: { database: 'The default database name cannot contain \'?\', \'#\', or control characters such as line breaks.' } };
+		assert.deepStrictEqual(results, [error, error, error, error, {}, {}, {}, {}, {}]);
 	});
 
 	test('a profile saved with the old token mechanism fails cleanly', async () => {
@@ -146,5 +146,16 @@ suite('MotherDuck Driver', () => {
 		assert.ok(python.every(v => !v.code.includes('aaa.bbb.ccc')), python.map(v => v.code).join('\n'));
 		const ggsql = await driver.generateConnectionCode!('envvar', 'ggsql', params);
 		assert.strictEqual(ggsql[0].code, '-- @connect: duckdb://md:sample_data?access_mode=read_only');
+	});
+
+	test('generateConnectionCode keeps a space or percent sign in the ggsql database name unencoded', async () => {
+		// ggsql never percent-decodes a `duckdb://` URI, so encoding would change the database name.
+		const driver = createDriver();
+		const codes = [];
+		for (const database of ['my db', '50%25']) {
+			const ggsql = await driver.generateConnectionCode!('envvar', 'ggsql', { database, readOnly: false });
+			codes.push(ggsql[0].code);
+		}
+		assert.deepStrictEqual(codes, ['-- @connect: duckdb://md:my db', '-- @connect: duckdb://md:50%25']);
 	});
 });

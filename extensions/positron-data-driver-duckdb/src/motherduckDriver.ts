@@ -41,16 +41,18 @@ function isReadOnly(params: positron.DataConnectionParameterValues): boolean {
 }
 
 /**
- * DuckDB reads anything after `?` in an `md:` path as connection options, so the dialog, the
- * live connection, and the generated code all refuse a default database name with `?` or `#`.
+ * DuckDB reads anything after `?` in an `md:` path as connection options, and a control
+ * character such as a line break would split the generated ggsql `-- @connect:` line into a
+ * query. So the dialog, the live connection, and the generated code all refuse a default
+ * database name with `?`, `#`, or a control character.
  */
-function hasConnectionOptions(database: string | undefined): boolean {
-	return database !== undefined && /[?#]/.test(database);
+function isInvalidDatabaseName(database: string | undefined): boolean {
+	return database !== undefined && /[?#\x00-\x1f\x7f]/.test(database);
 }
 
-/** The error for a default database name with `?` or `#`, shown by the dialog and by connect(). */
-function connectionOptionsMessage(): string {
-	return vscode.l10n.t("The default database name cannot contain '?' or '#'.");
+/** The error for an invalid default database name, shown by the dialog and by connect(). */
+function invalidDatabaseNameMessage(): string {
+	return vscode.l10n.t("The default database name cannot contain '?', '#', or control characters such as line breaks.");
 }
 
 /**
@@ -107,8 +109,8 @@ export function createMotherDuckDriver(
 						throw new Error(vscode.l10n.t("Set the motherduck_token environment variable to your MotherDuck access token, then restart Positron and reconnect. For example, add export motherduck_token='<token>' to your shell profile, or on Windows, add it to your user environment variables."));
 					}
 					const database = optionalString(params.database);
-					if (hasConnectionOptions(database)) {
-						throw new Error(connectionOptionsMessage());
+					if (isInvalidDatabaseName(database)) {
+						throw new Error(invalidDatabaseNameMessage());
 					}
 
 					const connection = new MotherDuckConnection({
@@ -124,14 +126,14 @@ export function createMotherDuckDriver(
 			}
 		},
 		async validateParameters(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnectionParameterValidation> {
-			if (mechanismId !== ENVVAR_MECHANISM_ID || !hasConnectionOptions(optionalString(params.database))) {
+			if (mechanismId !== ENVVAR_MECHANISM_ID || !isInvalidDatabaseName(optionalString(params.database))) {
 				return {};
 			}
-			return { errors: { database: connectionOptionsMessage() } };
+			return { errors: { database: invalidDatabaseNameMessage() } };
 		},
 		async generateConnectionCode(mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
 			const database = optionalString(params.database);
-			if (mechanismId !== ENVVAR_MECHANISM_ID || hasConnectionOptions(database)) {
+			if (mechanismId !== ENVVAR_MECHANISM_ID || isInvalidDatabaseName(database)) {
 				return [];
 			}
 			return generateMotherDuckCode(languageId, {
