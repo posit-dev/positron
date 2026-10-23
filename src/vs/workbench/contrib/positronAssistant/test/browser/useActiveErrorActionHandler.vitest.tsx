@@ -11,23 +11,23 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { useActiveErrorAssistant } from '../../browser/useActiveErrorAssistant.js';
-import { IErrorAssistant, IErrorAssistantInfo, IErrorAssistantService } from '../../common/errorAssistant.js';
-import { registerTestErrorAssistant } from './errorAssistantTestUtils.js';
+import { useActiveErrorActionHandler } from '../../browser/useActiveErrorActionHandler.js';
+import { IErrorActionHandler, IErrorActionHandlerInfo, IErrorActionHandlerService } from '../../common/errorAction.js';
+import { registerTestErrorActionHandler } from './errorActionTestUtils.js';
 
-function createAssistant(id: string): IErrorAssistant {
+function createHandler(id: string): IErrorActionHandler {
 	return { id, label: id, supportsChatContinuation: true, ask: async () => { } };
 }
 
-/** Renders the active assistant's label, and counts its renders. */
+/** Renders the active handler's label, and counts its renders. */
 let renders = 0;
-const ActiveAssistantLabel = () => {
+const ActiveHandlerLabel = () => {
 	renders++;
-	const assistant = useActiveErrorAssistant();
-	return <span data-testid='label'>{assistant?.label ?? 'none'}</span>;
+	const handler = useActiveErrorActionHandler();
+	return <span data-testid='label'>{handler?.label ?? 'none'}</span>;
 };
 
-describe('useActiveErrorAssistant', () => {
+describe('useActiveErrorActionHandler', () => {
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -37,13 +37,13 @@ describe('useActiveErrorAssistant', () => {
 
 	const label = () => screen.getByTestId('label');
 
-	it('follows the active assistant as assistants register and unregister', () => {
-		const first = registerTestErrorAssistant(ctx, createAssistant('first'));
-		rtl.render(<ActiveAssistantLabel />);
+	it('follows the active handler as handlers register and unregister', () => {
+		const first = registerTestErrorActionHandler(ctx, createHandler('first'));
+		rtl.render(<ActiveHandlerLabel />);
 		expect(label()).toHaveTextContent('first');
 
 		let second!: IDisposable;
-		act(() => { second = ctx.get(IErrorAssistantService).register(createAssistant('second')); });
+		act(() => { second = ctx.get(IErrorActionHandlerService).register(createHandler('second')); });
 		expect(label()).toHaveTextContent('first');
 
 		act(() => first.dispose());
@@ -53,12 +53,12 @@ describe('useActiveErrorAssistant', () => {
 		expect(label()).toHaveTextContent('none');
 	});
 
-	it('renders once on mount and once per change of the active assistant', () => {
-		rtl.render(<ActiveAssistantLabel />);
+	it('renders once on mount and once per change of the active handler', () => {
+		rtl.render(<ActiveHandlerLabel />);
 		expect(renders).toBe(1);
 
 		let registration!: IDisposable;
-		act(() => { registration = registerTestErrorAssistant(ctx, createAssistant('first')); });
+		act(() => { registration = registerTestErrorActionHandler(ctx, createHandler('first')); });
 		expect(renders).toBe(2);
 
 		act(() => registration.dispose());
@@ -66,19 +66,19 @@ describe('useActiveErrorAssistant', () => {
 	});
 
 	describe('with a controllable service', () => {
-		let activeAssistant: IErrorAssistantInfo | undefined;
-		let emitter: Emitter<IErrorAssistantInfo | undefined>;
+		let activeHandler: IErrorActionHandlerInfo | undefined;
+		let emitter: Emitter<IErrorActionHandlerInfo | undefined>;
 		let subscriptions: number;
 		let unsubscriptions: number;
 
 		beforeEach(() => {
-			activeAssistant = undefined;
+			activeHandler = undefined;
 			emitter = ctx.disposables.add(new Emitter());
 			subscriptions = 0;
 			unsubscriptions = 0;
-			ctx.instantiationService.stub(IErrorAssistantService, {
-				get activeAssistant() { return activeAssistant; },
-				onDidChangeActiveAssistant: (listener: (assistant: IErrorAssistantInfo | undefined) => void) => {
+			ctx.instantiationService.stub(IErrorActionHandlerService, {
+				get activeHandler() { return activeHandler; },
+				onDidChangeActiveHandler: (listener: (handler: IErrorActionHandlerInfo | undefined) => void) => {
 					subscriptions++;
 					const disposable = emitter.event(listener);
 					return toDisposable(() => {
@@ -89,37 +89,37 @@ describe('useActiveErrorAssistant', () => {
 			});
 		});
 
-		const setActiveAssistant = (assistant: IErrorAssistantInfo | undefined) => {
-			activeAssistant = assistant;
-			emitter.fire(assistant);
+		const setActiveHandler = (handler: IErrorActionHandlerInfo | undefined) => {
+			activeHandler = handler;
+			emitter.fire(handler);
 		};
 
 		it('picks up a change made after the first render but before subscribing', () => {
-			// The assistant can change between the render that reads it and the
+			// The handler can change between the render that reads it and the
 			// passive effect that subscribes, firing while no one is listening.
 			// A sibling's layout effect runs in exactly that window.
 			const ChangeOnLayout = () => {
-				useLayoutEffect(() => setActiveAssistant(createAssistant('changed')), []);
+				useLayoutEffect(() => setActiveHandler(createHandler('changed')), []);
 				return null;
 			};
-			rtl.render(<><ActiveAssistantLabel /><ChangeOnLayout /></>);
+			rtl.render(<><ActiveHandlerLabel /><ChangeOnLayout /></>);
 			expect(label()).toHaveTextContent('changed');
 		});
 
 		it('subscribes once across re-renders and unsubscribes on unmount', () => {
-			const { rerender, unmount } = rtl.render(<ActiveAssistantLabel />);
-			rerender(<ActiveAssistantLabel />);
-			act(() => setActiveAssistant(createAssistant('first')));
-			rerender(<ActiveAssistantLabel />);
+			const { rerender, unmount } = rtl.render(<ActiveHandlerLabel />);
+			rerender(<ActiveHandlerLabel />);
+			act(() => setActiveHandler(createHandler('first')));
+			rerender(<ActiveHandlerLabel />);
 			expect([subscriptions, unsubscriptions]).toEqual([1, 0]);
 
 			unmount();
 			expect([subscriptions, unsubscriptions]).toEqual([1, 1]);
 		});
 
-		it('shares one value across components when the assistant changes', () => {
-			rtl.render(<><ActiveAssistantLabel /><ActiveAssistantLabel /></>);
-			act(() => setActiveAssistant(createAssistant('first')));
+		it('shares one value across components when the handler changes', () => {
+			rtl.render(<><ActiveHandlerLabel /><ActiveHandlerLabel /></>);
+			act(() => setActiveHandler(createHandler('first')));
 			const [one, two] = screen.getAllByTestId('label');
 			expect(one).toHaveTextContent('first');
 			expect(two).toHaveTextContent('first');

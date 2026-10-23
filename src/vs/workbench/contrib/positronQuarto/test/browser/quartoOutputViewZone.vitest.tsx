@@ -16,7 +16,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputViewZone } from '../../browser/quartoOutputViewZone.js';
-import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
+import { registerTestErrorActionHandler } from '../../../positronAssistant/test/browser/errorActionTestUtils.js';
 
 // The inline-output webview is a fixed-position overlay anchored to a
 // placeholder inside the editor view zone. It must be shown only while its view
@@ -249,8 +249,8 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 	}
 
 	it('grows to fit the async quick-fix buttons on the first run and again on a re-run', async () => {
-		// Register an assistant so the Fix/Explain buttons actually render.
-		registerTestErrorAssistant(ctx);
+		// Register a handler so the Fix/Explain buttons actually render.
+		registerTestErrorActionHandler(ctx);
 		// The view zone renders the buttons through a PositronReactRenderer,
 		// which reads the services singleton; bridge the test container in.
 		PositronReactServices.services = ctx.reactServices;

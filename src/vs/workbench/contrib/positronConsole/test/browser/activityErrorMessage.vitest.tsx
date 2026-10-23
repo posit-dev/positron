@@ -15,7 +15,7 @@ import { IPositronConsoleInstance } from '../../../../services/positronConsole/b
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
-import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
+import { registerTestErrorActionHandler } from '../../../positronAssistant/test/browser/errorActionTestUtils.js';
 import { ActivityErrorMessage } from '../../browser/components/activityErrorMessage.js';
 
 // The component only reads the two output-line arrays off the error message.
@@ -33,7 +33,7 @@ describe('ActivityErrorMessage assistant actions gate', () => {
 
 	// Give errors somewhere to go, so only the console's own gate is tested.
 	beforeEach(() => {
-		registerTestErrorAssistant(ctx);
+		registerTestErrorActionHandler(ctx);
 	});
 
 	function setup(options: { actionsEnabled?: boolean }) {

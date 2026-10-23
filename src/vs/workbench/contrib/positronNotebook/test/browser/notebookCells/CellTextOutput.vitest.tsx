@@ -22,7 +22,7 @@ import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js
 import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
 import { IPositronNotebookCell, ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
-import { registerTestErrorAssistant } from '../../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
+import { registerTestErrorActionHandler } from '../../../../positronAssistant/test/browser/errorActionTestUtils.js';
 
 /** Generate multiline content with the given number of lines. */
 function makeLines(n: number): string {
@@ -99,7 +99,7 @@ describe('CellTextOutput', () => {
 		const contextKeyService = ctx.get(IContextKeyService);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
-		registerTestErrorAssistant(ctx);
+		registerTestErrorActionHandler(ctx);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 

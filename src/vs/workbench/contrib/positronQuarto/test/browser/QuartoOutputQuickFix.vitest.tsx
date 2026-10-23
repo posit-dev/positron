@@ -11,9 +11,9 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
+import { registerTestErrorActionHandler } from '../../../positronAssistant/test/browser/errorActionTestUtils.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
-import { IQuartoErroredCell } from '../../../positronAssistant/common/errorAssistant.js';
+import { IQuartoErroredCell } from '../../../positronAssistant/common/errorAction.js';
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -38,31 +38,31 @@ describe('QuartoOutputQuickFix', () => {
 	let registration: IDisposable;
 	beforeEach(() => {
 		ask.mockReset().mockResolvedValue(undefined);
-		registration = registerTestErrorAssistant(ctx, { ask });
+		registration = registerTestErrorActionHandler(ctx, { ask });
 	});
 
 	function renderQuickFix(cell?: IQuartoErroredCell) {
 		return rtl.render(<QuartoOutputQuickFix cell={cell} documentUri={documentUri} errorContent='NameError: name "x" is not defined' />);
 	}
 
-	it('renders Fix/Explain buttons when an assistant can take errors', () => {
+	it('renders Fix/Explain buttons when a handler can take errors', () => {
 		renderQuickFix();
 		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
 	});
 
-	it('does not render the buttons when no assistant can take errors', () => {
+	it('does not render the buttons when no handler can take errors', () => {
 		registration.dispose();
 		renderQuickFix();
 		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
 	});
 
-	it('notifies the host to re-measure when an assistant registers after the first render', () => {
+	it('notifies the host to re-measure when a handler registers after the first render', () => {
 		registration.dispose();
 		const onLayout = vi.fn();
 		rtl.render(<QuartoOutputQuickFix documentUri={documentUri} errorContent='NameError: name "x" is not defined' onLayout={onLayout} />);
 		onLayout.mockClear();
 
-		act(() => { registerTestErrorAssistant(ctx, { ask }); });
+		act(() => { registerTestErrorActionHandler(ctx, { ask }); });
 
 		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
 		expect(onLayout).toHaveBeenCalled();
