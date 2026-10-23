@@ -166,6 +166,13 @@ export class QuickAccess {
 	}
 
 
+	/**
+	 * Open the command palette, retrying if focus is stolen, and optionally type a filter.
+	 */
+	async openCommandPalette(filter?: string): Promise<void> {
+		await this.openQuickAccessWithRetry(QuickAccessKind.Commands, filter);
+	}
+
 	async runCommand(commandId: string, options?: { keepOpen?: boolean; exactLabelMatch?: boolean }): Promise<void> {
 		const stepWrapper = (label: string, fn: () => Promise<void>) => {
 			try {
