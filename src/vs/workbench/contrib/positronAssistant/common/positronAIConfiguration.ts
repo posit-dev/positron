@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { equals } from '../../../../base/common/arrays.js';
 import { localize } from '../../../../nls.js';
 import {
 	ConfigurationScope,
@@ -22,24 +23,29 @@ export { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY };
 /** The name of the default error action handler, in the setting's choices and on its buttons. */
 export const DEFAULT_ERROR_ACTION_HANDLER_LABEL = localize('positron.ai.errorActions.agent.positAssistant', "Posit Assistant");
 
-/**
- * The schema of {@link ERROR_ACTIONS_AGENT_KEY}. Its choices are set by
- * {@link setErrorActionHandlerChoices}.
- */
+// The choices of ERROR_ACTIONS_AGENT_KEY, set by setErrorActionHandlerChoices. The
+// default is listed even before it registers, so the setting's own default is
+// always a valid choice.
+const errorActionHandlerChoiceIds: string[] = [DEFAULT_ERROR_ACTION_HANDLER_ID];
+const errorActionHandlerChoiceLabels: string[] = [DEFAULT_ERROR_ACTION_HANDLER_LABEL];
+
+/** The schema of {@link ERROR_ACTIONS_AGENT_KEY}. */
 const errorActionHandlerSchema: IConfigurationPropertySchema = {
 	type: 'string',
 	default: DEFAULT_ERROR_ACTION_HANDLER_ID,
-	// The default is listed even before it registers, so the setting's own
-	// default is always a valid choice.
-	enum: [DEFAULT_ERROR_ACTION_HANDLER_ID],
-	enumItemLabels: [DEFAULT_ERROR_ACTION_HANDLER_LABEL],
+	enum: errorActionHandlerChoiceIds,
+	enumItemLabels: errorActionHandlerChoiceLabels,
 	description: localize(
 		'positron.ai.errorActions.agent',
 		"Controls which coding agent handles Fix and Explain on console, notebook, and Quarto errors."
 	),
-	scope: ConfigurationScope.WINDOW,
-	// An untrusted workspace can't choose where errors are sent.
+	// Coding agents are installed per host, so a choice in local user settings
+	// doesn't apply in a remote window. Workspace settings can still choose.
+	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
+	// An untrusted workspace can't choose where errors are sent, and nor can
+	// an extension's configuration defaults.
 	restricted: true,
+	disallowConfigurationDefault: true,
 };
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
@@ -98,14 +104,19 @@ configurationRegistry.registerConfiguration(aiConfigurationNode);
 
 /**
  * Set the choices the Settings editor lists for {@link ERROR_ACTIONS_AGENT_KEY}:
- * the default handler, always first and listed once, then the others. A
- * value that isn't one of them, e.g. an uninstalled assistant's, is kept and
- * flagged by the Settings editor.
- * @param assistants The registered assistants, in the order to list them.
+ * the default handler, always first and listed once, then the others.
+ * @param choices The handlers to list, in order.
  */
-export function setErrorActionHandlerChoices(assistants: readonly { readonly id: string; readonly label: string }[]): void {
-	const others = assistants.filter(assistant => assistant.id !== DEFAULT_ERROR_ACTION_HANDLER_ID);
-	errorActionHandlerSchema.enum = [DEFAULT_ERROR_ACTION_HANDLER_ID, ...others.map(assistant => assistant.id)];
-	errorActionHandlerSchema.enumItemLabels = [DEFAULT_ERROR_ACTION_HANDLER_LABEL, ...others.map(assistant => assistant.label)];
+export function setErrorActionHandlerChoices(choices: readonly { readonly id: string; readonly label: string }[]): void {
+	const others = choices.filter(choice => choice.id !== DEFAULT_ERROR_ACTION_HANDLER_ID);
+	const ids = [DEFAULT_ERROR_ACTION_HANDLER_ID, ...others.map(choice => choice.id)];
+	const labels = [DEFAULT_ERROR_ACTION_HANDLER_LABEL, ...others.map(choice => choice.label)];
+	// A schema update re-renders the Settings editor, so skip it when nothing changed.
+	if (equals(errorActionHandlerChoiceIds, ids) && equals(errorActionHandlerChoiceLabels, labels)) {
+		return;
+	}
+	// Update in place, since the Settings editor caches the schema's arrays.
+	errorActionHandlerChoiceIds.splice(0, errorActionHandlerChoiceIds.length, ...ids);
+	errorActionHandlerChoiceLabels.splice(0, errorActionHandlerChoiceLabels.length, ...labels);
 	configurationRegistry.notifyConfigurationSchemaUpdated(aiConfigurationNode);
 }

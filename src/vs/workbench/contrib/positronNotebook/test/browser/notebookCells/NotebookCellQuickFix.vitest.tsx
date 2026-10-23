@@ -12,7 +12,6 @@ import { TestConfigurationService } from '../../../../../../platform/configurati
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
-import { IDisposable } from '../../../../../../base/common/lifecycle.js';
 import { constObservable } from '../../../../../../base/common/observable.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
@@ -36,10 +35,9 @@ describe('NotebookCellQuickFix', () => {
 	const ask = vi.fn();
 
 	// Give errors somewhere to go, so only the notebook's own gates are tested.
-	let registration: IDisposable;
 	beforeEach(() => {
 		ask.mockReset().mockResolvedValue(undefined);
-		registration = registerTestErrorActionHandler(ctx, { ask });
+		registerTestErrorActionHandler(ctx, { ask });
 	});
 
 	/** Set the quick fix's gates; each defaults to showing the buttons. */
@@ -139,8 +137,7 @@ describe('NotebookCellQuickFix', () => {
 		expect(screen.queryByRole('group', quickFixGroup)).not.toBeInTheDocument();
 	});
 
-	it('hides the buttons when no handler can take errors', () => {
-		registration.dispose();
+	it('hides the buttons while there is no active error action handler', () => {
 		chooseHiddenErrorActionHandler(ctx);
 		setGates();
 		renderQuickFix();
