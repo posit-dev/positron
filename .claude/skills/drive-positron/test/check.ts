@@ -27,7 +27,7 @@
 import { execFile, spawnSync } from 'child_process';
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { dirname, join, resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { header } from '../scripts/dp-lib.ts';
 import { css, names } from '../scripts/selectors.ts';
@@ -39,7 +39,14 @@ const skill = resolve(test, '..');
 const scripts = join(skill, 'scripts');
 const heal = join(skill, 'heal');
 const repo = resolve(skill, '../../..');
-const bin = (name: string) => join(repo, 'node_modules/.bin', name);
+/**
+ * A package's command, as the script its package.json names, to run with Node:
+ * spawnSync cannot start a node_modules/.bin shim on Windows, a shell script there.
+ */
+function bin(pkg: string, name: string): string {
+	const dir = join(repo, 'node_modules', pkg);
+	return join(dir, (JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { bin: Record<string, string> }).bin[name]);
+}
 const ts = (dir: string) => readdirSync(dir).filter(f => f.endsWith('.ts')).map(f => join(dir, f));
 const tsIn = (dir: string) => existsSync(dir) ? ts(dir) : [];
 const sh = readdirSync(scripts).filter(f => f.endsWith('.sh')).sort();
@@ -54,7 +61,7 @@ function run(cmd: string, args: string[]): string[] {
 }
 
 const checks: Record<string, () => string[] | Promise<string[]>> = {
-	types: () => run(bin('tsc'), ['-p', join(skill, 'tsconfig.json')]),
+	types: () => run(process.execPath, [bin('@typescript/native', 'tsc'), '-p', join(skill, 'tsconfig.json')]),
 
 	unit: () => {
 		const files = [...tsIn(test), ...tsIn(heal)].filter(f => f.endsWith('.test.ts'));
@@ -84,7 +91,7 @@ const checks: Record<string, () => string[] | Promise<string[]>> = {
 	lint: () => {
 		const files = [...filesIn(scripts), ...ts(test), ...(existsSync(heal) ? filesIn(heal) : []), ...['SKILL.md', 'CONTRIBUTING.md', 'test/README.md'].map(f => join(skill, f))];
 		const ascii = files.flatMap(f => readFileSync(f, 'utf8').split('\n').flatMap((l, i) => /[^\x00-\x7F]/.test(l) ? [`${f.slice(skill.length + 1)}:${i + 1}: not ASCII: ${l.trim().slice(0, 80)}`] : []));
-		return [...ascii, ...run(bin('eslint'), ['--quiet', ...ts(scripts), ...ts(test), ...tsIn(heal)])];
+		return [...ascii, ...run(process.execPath, [bin('eslint', 'eslint'), '--quiet', ...ts(scripts), ...ts(test), ...tsIn(heal)])];
 	},
 
 	help: async () => {
@@ -109,8 +116,8 @@ const checks: Record<string, () => string[] | Promise<string[]>> = {
 		problems.push(...runs.flat());
 		// The commands dp.ts dispatches: every dp-*.ts exports an xxxCommands table.
 		const commands: string[] = [];
-		for (const file of ts(scripts).filter(f => /\/dp-[\w-]+\.ts$/.test(f))) {
-			const mod = await import(file) as Record<string, unknown>;
+		for (const file of ts(scripts).filter(f => /[\\/]dp-[\w-]+\.ts$/.test(f))) {
+			const mod = await import(pathToFileURL(file).href) as Record<string, unknown>;
 			for (const [k, v] of Object.entries(mod)) { if (k.endsWith('Commands') && v) { commands.push(...Object.keys(v)); } }
 		}
 		const dp = readFileSync(join(scripts, 'dp.ts'), 'utf8');
