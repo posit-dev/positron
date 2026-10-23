@@ -29,8 +29,9 @@ export const AI_ENABLED_KEY = 'ai.enabled';
  * The id of the error action handler that console, notebook, and Quarto errors are sent
  * to when the user presses Fix or Explain, e.g. `'posit-assistant'` or
  * `'claude-code'`. Restricted, so an untrusted workspace can't choose one.
- * Its list of choices is the registered error action handlers, kept current by the
- * error action handler service.
+ * Its choices are the default handler, the registered handlers, and
+ * the chosen one if it isn't registered, kept current by the error action handler
+ * service.
  */
 export const ERROR_ACTIONS_AGENT_KEY = 'ai.errorActions.agent';
 

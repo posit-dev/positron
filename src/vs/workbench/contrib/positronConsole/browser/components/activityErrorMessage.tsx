@@ -39,8 +39,8 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	// State hooks.
 	const [showTraceback, setShowTraceback] = useState(false);
 
-	// Configuration hooks. The quick fix itself hides while no assistant can
-	// take errors, e.g. while AI is disabled.
+	// Configuration hooks. The quick fix itself hides while there is no active
+	// error action handler, e.g. while AI is disabled.
 	const showAssistantActions = usePositronConfiguration<boolean>('console.assistantActions.enabled');
 
 	// Traceback useEffect.
