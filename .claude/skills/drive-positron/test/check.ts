@@ -27,13 +27,14 @@
 import { execFile, spawnSync } from 'child_process';
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { promisify } from 'util';
 import { header } from '../scripts/dp-lib.ts';
 import { css, names } from '../scripts/selectors.ts';
 import { describe, drift } from './drift.ts';
 import { pageFnProblems } from './page-fns.ts';
 
-const test = dirname(new URL(import.meta.url).pathname);
+const test = dirname(fileURLToPath(import.meta.url));
 const skill = resolve(test, '..');
 const scripts = join(skill, 'scripts');
 const heal = join(skill, 'heal');

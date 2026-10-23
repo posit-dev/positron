@@ -18,11 +18,12 @@
 import { spawnSync } from 'child_process';
 import { existsSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { flagValue, readResults } from '../test/smoke-lib.ts';
 import { writeFinding, writeState as saveState, type State } from './finding.ts';
 import { classify, crossSection, lastFailedPerGroup, launchedRuns, smokeFinding, wholesale } from './rerun-lib.ts';
 
-const here = dirname(new URL(import.meta.url).pathname);
+const here = dirname(fileURLToPath(import.meta.url));
 const dash = process.argv.indexOf('--');
 const own = process.argv.slice(2, dash < 0 ? undefined : dash);
 const appArgs = dash < 0 ? [] : process.argv.slice(dash + 1);

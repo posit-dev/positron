@@ -24,9 +24,10 @@
 
 import { readdirSync, readFileSync } from 'fs';
 import { dirname, join, relative, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { css, names } from '../scripts/selectors.ts';
 
-const skill = resolve(dirname(new URL(import.meta.url).pathname), '..');
+const skill = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const scripts = join(skill, 'scripts');
 
 // ---- Tables

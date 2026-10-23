@@ -31,10 +31,11 @@
 import { spawn, spawnSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { launchFixture, stopFixture, type App } from './fixture-app.ts';
 import { firstRow, groupIds, nameWords, flagValue, selectCases, SMOKE_ROOT, SMOKE_SESSION, threwResult, type Group, type SmokeResults } from './smoke-lib.ts';
 
-const test = dirname(new URL(import.meta.url).pathname);
+const test = dirname(fileURLToPath(import.meta.url));
 const scripts = resolve(test, '../scripts');
 const repo = resolve(test, '../../../..');
 const SESSION = SMOKE_SESSION;
