@@ -26,7 +26,8 @@ Users can configure module environments in their settings:
     },
     "python-3.11": {
       "languages": ["python"],
-      "modules": ["gcc/11.2.0", "python/3.11.3"]
+      "modules": ["gcc/11.2.0", "python/3.11.3"],
+      "purge": false
     }
   }
 }
@@ -36,6 +37,7 @@ Each environment specifies:
 - **name** (setting key): Unique identifier for the environment (e.g., `"r-4.3"`, `"python-3.11"`)
 - **languages**: Target languages that should discover this environment (e.g., `"r"`, `"python"`)
 - **modules**: Ordered list of modules to load
+- **purge** (optional, default `true`): Run `module purge` before loading the modules, so modules loaded by shell startup scripts do not remain in the environment. Set to `false` to keep them. Purge runs only on Lmod and Environment Modules.
 
 ## API Usage
 
