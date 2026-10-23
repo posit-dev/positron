@@ -167,6 +167,27 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// Whether the post-discovery start for languages set to Always has run.
 	private _alwaysStartRan = false;
 
+	// The languages each extension host is still discovering on this
+	// discovery pass, keyed by runtime manager ID.
+	private readonly _languagesDiscoveringByManagerId = new Map<number, Set<string>>();
+
+	// Whether every extension host's languages are known on this discovery
+	// pass. If not, no language is asked for its recommendation until every
+	// language finished discovery.
+	private _discoveringLanguagesKnown = false;
+
+	// The languages whose discovery finished on this pass before every
+	// language finished, and that were asked for a recommendation then.
+	private readonly _languagesDiscovered = new Set<string>();
+
+	// The ask after discovery for each language asked on this pass. A
+	// language is asked at most once per pass.
+	private readonly _asksAfterDiscovery = new Map<string, Promise<ILanguageRuntimeMetadata[]>>();
+
+	// For each language asked before every language finished discovery, the
+	// ask and the start of an Implicit answer.
+	private readonly _earlyRecommendationsAfterDiscovery = new Map<string, Promise<void>>();
+
 	// Set while the recommendation code registers a runtime, so registration
 	// does not auto-start it before the recommendation chooses what to start.
 	private _suppressRegistrationAutoStart = false;
@@ -431,8 +452,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// runtimes start only when picked (Explicit), and the registry keeps
 			// the first copy of a runtime it sees, so a recommendation made
 			// after discovery stays registered as Explicit. Leave it to that
-			// service when it has an Implicit runtime to start.
-			if (this._startupPhase === RuntimeStartupPhase.Complete &&
+			// service when it has an Implicit runtime to start. A language
+			// asked once its own discovery finished needn't wait for the rest.
+			if ((this._startupPhase === RuntimeStartupPhase.Complete || this._languagesDiscovered.has(languageId)) &&
 				!this._runtimeSessionService.hasStartingOrRunningConsole(languageId) &&
 				!this._runtimeSessionService.implicitStartupSuppressed &&
 				!this._languageRuntimeService.registeredRuntimes.some(metadata =>
@@ -826,6 +848,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * Signals that an extension host finished discovering one language's
+	 * runtimes. Once no extension host is still discovering the language, it
+	 * is asked for its recommendation, without waiting for the other
+	 * languages.
+	 */
+	public completeLanguageDiscovery(id: number, languageId: string): void {
+		this._languagesDiscoveringByManagerId.get(id)?.delete(languageId);
+		this.recommendAfterLanguageDiscovery(languageId);
+	}
+
+	/**
 	 * Signals that the runtime discovery phase is completed only after all
 	 * extension hosts have completed runtime discovery.
 	 *
@@ -1099,6 +1132,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return true;
 		});
 
+		// Each discovery pass asks every language again.
+		this._languagesDiscoveringByManagerId.clear();
+		this._discoveringLanguagesKnown = false;
+		this._languagesDiscovered.clear();
+		this._asksAfterDiscovery.clear();
+		this._earlyRecommendationsAfterDiscovery.clear();
+
 		// Activate all extensions that contribute language runtimes. Where an
 		// affiliated runtime can still start as it registers, wait for the
 		// language's pinned check too, so the pinned interpreter starts in
@@ -1196,6 +1236,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					this._discoveryCompleteByExtHostId.set(manager.id, true);
 				}
 			}
+
+			// Note which languages each extension host is about to discover,
+			// so each language can be asked for its recommendation as soon as
+			// its own discovery finishes. A plan with no contributions runs
+			// every language its extension host hosts, which isn't known here.
+			this._discoveringLanguagesKnown = plans.every(plan => plan.runContributions.length > 0);
+			for (const plan of plans) {
+				this._languagesDiscoveringByManagerId.set(plan.manager.id, new Set(plan.runContributions
+					.map(contribution => contribution.languageId)
+					.filter(languageId => !disabledLanguages.includes(languageId))));
+			}
 			const reason = options.bypassCache
 				? 'user-triggered'
 				: this._lastFullDiscoveryReason;
@@ -1228,6 +1279,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					}
 				}
 				plan.manager.discoverAllRuntimes(disabledLanguages, plan.skipLanguageIds);
+			}
+
+			// The languages the cache covers on this pass have no discovery
+			// to wait for.
+			for (const languageId of new Set(plans.flatMap(plan => plan.skipLanguageIds))) {
+				this.recommendAfterLanguageDiscovery(languageId);
 			}
 		}
 
@@ -2079,64 +2136,24 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * or used (ignored in `Recommended` mode). Otherwise, if a file of the
 	 * language is already open, what opening it now would start starts (see
 	 * `chosenRuntime`). It is never saved as an affiliation.
+	 *
+	 * A language whose own discovery finished before the others was already
+	 * asked then (see `recommendAfterLanguageDiscovery`); it is not asked
+	 * again.
 	 */
 	private async recommendAfterDiscovery(): Promise<void> {
 		// Languages in runtime registration order, so a runtime recommended at
 		// startup (registered before discovery) goes first for Always.
-		const languageIds = Array.from(new Set([
-			...this._languageRuntimeService.registeredRuntimes.map(metadata => metadata.languageId),
-			...this._recommendedRuntimesByLanguageId.keys(),
-			...this._languagePacks.keys(),
-		]));
+		const languageIds = this.languageIdsToRecommendAfterDiscovery();
 
-		// Ask for each language on its own, so a language whose extension is
-		// slow to recommend doesn't hold up the others or their Always start.
+		// Each language on its own, so a language whose extension is slow to
+		// recommend doesn't hold up the others or their Always start.
 		const recommendLanguage = async (languageId: string) => {
-			if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled ||
-				this._recommendedRuntimesByLanguageId.has(languageId)) {
-				return;
-			}
-			const otherLanguageIds = languageIds.filter(id => id !== languageId);
-			const metadata = await Promise.all(this._runtimeManagers.map(manager =>
-				manager.recommendWorkspaceRuntimes(otherLanguageIds, true)));
-
-			for (const { metadata: recommended, isProjectDefault } of metadata.flat()) {
-				if (recommended.languageId !== languageId) {
-					continue;
-				}
-				// Register the base (its variants register with it) without
-				// auto-starting it.
-				this._suppressRegistrationAutoStart = true;
-				let runtime: ILanguageRuntimeMetadata;
-				try {
-					runtime = this.rememberRecommendation(recommended, isProjectDefault);
-				} finally {
-					this._suppressRegistrationAutoStart = false;
-				}
-				this._logService.debug(`[Runtime startup] Recommended after discovery: ${formatLanguageRuntimeMetadata(runtime)}`);
-
-				if (this._runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId)) {
-					continue;
-				}
-				if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
-					// Only this language's own affiliation holds it back, and only
-					// one that was started or used. Recommended mode ignores it.
-					const affiliation = this.getStartupBehavior(runtime.languageId) === LanguageStartupBehavior.Recommended ?
-						undefined : this.getAffiliatedRuntime(runtime.languageId);
-					const usedAffiliation = affiliation && (affiliation.lastStarted !== 0 || affiliation.lastUsed !== 0);
-					if (!usedAffiliation &&
-						!this._runtimeSessionService.hasStartingOrRunningConsole()) {
-						await this.autoStartRuntime(runtime, { id: SessionStartReasonId.ExtensionRecommendedRuntime }, true);
-					}
-				} else if (this._encounteredLanguagesByLanguageId.has(runtime.languageId) &&
-					!this._runtimeSessionService.implicitStartupSuppressed) {
-					// A file of the language is open: start what opening it now
-					// would start.
-					const forFile = this.chosenRuntime(runtime.languageId, { forOpenFile: true });
-					if (forFile) {
-						await this.autoStartRuntime(forFile, { id: SessionStartReasonId.LanguageFileOpenedAtRegistration }, true);
-					}
-				}
+			// A language asked early may have started its recommendation
+			// already; let that finish first.
+			await this._earlyRecommendationsAfterDiscovery.get(languageId);
+			for (const runtime of await this.askAfterDiscovery(languageId)) {
+				await this.startRecommendationAfterDiscovery(runtime, true);
 			}
 		};
 		const recommendations = new Map(languageIds.map(languageId => [languageId,
@@ -2196,6 +2213,126 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}
 		await Promise.all(recommendations.values());
+	}
+
+	/**
+	 * The languages to ask for a recommendation after discovery, in runtime
+	 * registration order.
+	 */
+	private languageIdsToRecommendAfterDiscovery(): string[] {
+		return Array.from(new Set([
+			...this._languageRuntimeService.registeredRuntimes.map(metadata => metadata.languageId),
+			...this._recommendedRuntimesByLanguageId.keys(),
+			...this._languagePacks.keys(),
+		]));
+	}
+
+	/**
+	 * Asks the language's extensions for a recommendation after discovery,
+	 * unless the language already has one, and remembers the answers. Asks
+	 * at most once per discovery pass.
+	 *
+	 * @returns The remembered runtimes, if the language was asked.
+	 */
+	private askAfterDiscovery(languageId: string): Promise<ILanguageRuntimeMetadata[]> {
+		let ask = this._asksAfterDiscovery.get(languageId);
+		if (!ask) {
+			ask = this.doAskAfterDiscovery(languageId);
+			this._asksAfterDiscovery.set(languageId, ask);
+		}
+		return ask;
+	}
+
+	private async doAskAfterDiscovery(languageId: string): Promise<ILanguageRuntimeMetadata[]> {
+		if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled ||
+			this._recommendedRuntimesByLanguageId.has(languageId)) {
+			return [];
+		}
+		const otherLanguageIds = this.languageIdsToRecommendAfterDiscovery().filter(id => id !== languageId);
+		const metadata = await Promise.all(this._runtimeManagers.map(manager =>
+			manager.recommendWorkspaceRuntimes(otherLanguageIds, true)));
+
+		const remembered: ILanguageRuntimeMetadata[] = [];
+		for (const { metadata: recommended, isProjectDefault } of metadata.flat()) {
+			if (recommended.languageId !== languageId) {
+				continue;
+			}
+			// Register the base (its variants register with it) without
+			// auto-starting it.
+			this._suppressRegistrationAutoStart = true;
+			let runtime: ILanguageRuntimeMetadata;
+			try {
+				runtime = this.rememberRecommendation(recommended, isProjectDefault);
+			} finally {
+				this._suppressRegistrationAutoStart = false;
+			}
+			this._logService.debug(`[Runtime startup] Recommended after discovery: ${formatLanguageRuntimeMetadata(runtime)}`);
+			remembered.push(runtime);
+		}
+		return remembered;
+	}
+
+	/**
+	 * Starts a recommendation made after discovery, if it should start now.
+	 *
+	 * @param runtime The remembered recommendation.
+	 * @param immediate Whether an `Immediate` recommendation can start. Only
+	 *   once every language finished discovery, so it can't start in front of
+	 *   an affiliated runtime that starts as discovery registers it.
+	 */
+	private async startRecommendationAfterDiscovery(runtime: ILanguageRuntimeMetadata, immediate: boolean): Promise<void> {
+		if (this._runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId)) {
+			return;
+		}
+		if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
+			if (!immediate) {
+				return;
+			}
+			// Only this language's own affiliation holds it back, and only
+			// one that was started or used. Recommended mode ignores it.
+			const affiliation = this.getStartupBehavior(runtime.languageId) === LanguageStartupBehavior.Recommended ?
+				undefined : this.getAffiliatedRuntime(runtime.languageId);
+			const usedAffiliation = affiliation && (affiliation.lastStarted !== 0 || affiliation.lastUsed !== 0);
+			if (!usedAffiliation &&
+				!this._runtimeSessionService.hasStartingOrRunningConsole()) {
+				await this.autoStartRuntime(runtime, { id: SessionStartReasonId.ExtensionRecommendedRuntime }, true);
+			}
+		} else if (this._encounteredLanguagesByLanguageId.has(runtime.languageId) &&
+			!this._runtimeSessionService.implicitStartupSuppressed) {
+			// A file of the language is open: start what opening it now would
+			// start.
+			const forFile = this.chosenRuntime(runtime.languageId, { forOpenFile: true });
+			if (forFile) {
+				await this.autoStartRuntime(forFile, { id: SessionStartReasonId.LanguageFileOpenedAtRegistration }, true);
+			}
+		}
+	}
+
+	/**
+	 * Asks a language for its recommendation as soon as its own discovery
+	 * finished, without waiting for the other languages. If a file of the
+	 * language is already open, what opening it now would start starts; an
+	 * `Immediate` answer waits for `recommendAfterDiscovery`, once every
+	 * language finished.
+	 *
+	 * Skipped unless discovery is running, the language is not being
+	 * discovered by any extension host, and every extension host's languages
+	 * are known.
+	 */
+	private recommendAfterLanguageDiscovery(languageId: string): void {
+		if (this._startupPhase !== RuntimeStartupPhase.Discovering ||
+			!this._discoveringLanguagesKnown ||
+			this._languagesDiscovered.has(languageId) ||
+			Array.from(this._languagesDiscoveringByManagerId.values()).some(languageIds => languageIds.has(languageId))) {
+			return;
+		}
+		this._languagesDiscovered.add(languageId);
+		this._earlyRecommendationsAfterDiscovery.set(languageId, (async () => {
+			for (const runtime of await this.askAfterDiscovery(languageId)) {
+				await this.startRecommendationAfterDiscovery(runtime, false);
+			}
+		})().catch(err =>
+			this._logService.error(`[Runtime startup] Error recommending a runtime for '${languageId}' after its discovery: ${err}`)));
 	}
 
 	/**
