@@ -117,7 +117,12 @@ const codeEntryPoints = [
 
 // Web entry points (used in server-web and vscode-web)
 const webEntryPoints = [
-	'vs/workbench/workbench.web.main.internal',
+	// --- Start Positron ---
+	// workbench.web.main.internal is already bundled into workbench.js, which
+	// is all the server serves; as its own entry point it ships a second,
+	// unused copy of the web workbench.
+	// 'vs/workbench/workbench.web.main.internal',
+	// --- End Positron ---
 	'vs/code/browser/workbench/workbench',
 ];
 
@@ -223,7 +228,9 @@ function getCssBundleEntryPointsForTarget(target: BuildTarget): Set<string> {
 			return new Set(); // Server has no UI
 		case 'server-web':
 			return new Set([
-				'vs/workbench/workbench.web.main.internal',
+				// --- Start Positron ---
+				// 'vs/workbench/workbench.web.main.internal',
+				// --- End Positron ---
 				'vs/code/browser/workbench/workbench',
 			]);
 		case 'web':
