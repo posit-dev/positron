@@ -98,9 +98,11 @@ export interface IErrorActionHandlerInfo {
 }
 
 /**
- * A coding agent's handling of the error Fix and Explain actions, e.g. Posit
- * Assistant's. Register it while it exists, e.g. while its extension is
- * installed, not only while it can take errors.
+ * A coding agent's handling of the error Fix and Explain actions. Register it
+ * while it exists, e.g. while its extension is installed, not only while it
+ * can take errors: registering lists it in the `ai.errorActions.agent` setting and
+ * names it on its buttons. Only the default handler registers only while it
+ * can take errors, since everyone gets it without choosing it.
  */
 export interface IErrorActionHandler extends IErrorActionHandlerInfo {
 	/**
@@ -122,11 +124,11 @@ export interface IErrorActionHandlerService {
 	 * The handler errors are sent to: the one the `ai.errorActions.agent` setting
 	 * names, while `ai.enabled` is true. Never another one. Everyone gets the
 	 * default handler, currently Posit Assistant, without choosing it, so it's
-	 * active only while it's registered, and it registers only while it can take
-	 * errors. Any other chosen handler is active even while it isn't
-	 * registered, named by its id, so its buttons show and a click says it isn't
-	 * available, since choosing one is the opt-in. Undefined while there is
-	 * nowhere to send errors.
+	 * active only while it's registered. Any other chosen handler is active
+	 * even while it isn't registered, named by its id, so its buttons show and
+	 * a click says it isn't available, since choosing one is the opt-in.
+	 * Undefined while `ai.enabled` is off, or while the default is chosen and
+	 * not registered. Show the Fix and Explain actions while it's defined.
 	 */
 	readonly activeHandler: IErrorActionHandlerInfo | undefined;
 
