@@ -546,6 +546,27 @@ describe('DataConnectionsTreeInstance', () => {
 		});
 	});
 
+	it('goes back to the source when a collapsed group that kept its look-ahead is refreshed', async () => {
+		// Refreshing a collapsed row keeps its id, so the query parked for it before the refresh
+		// must not answer its next expand. A schema created in between shows up.
+		let schemas = [
+			nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' }),
+			nodeDto({ nodeHandle: 3, name: 'staging', kind: 'schema' }),
+		];
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+			nodeHandle => nodeHandle === 1 ? schemas : []
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		schemas = [...schemas, nodeDto({ nodeHandle: 4, name: 'analytics', kind: 'schema' })];
+		await tree.reload('dto:1:1');
+		await tree.expand('dto:1:1');
+
+		expect(rows(tree).map(row => row.name)).toEqual(['connection', 'Schemas', 'public', 'staging', 'analytics']);
+	});
+
 	it('drops an empty Views group from a lone schema\'s contents', async () => {
 		const { tree } = lonePublicSchema(() => []);
 		await tree.refresh();
@@ -785,6 +806,50 @@ describe('DataConnectionsTreeInstance', () => {
 					{ name: 'public', prefix: undefined, expanded: false },
 				],
 				schemasQueries: 1,
+			});
+		});
+
+		it('breadcrumbs a lone schema whose own look-ahead times out, and opens it with the same query', async () => {
+			// The Schemas group answers at once with one schema, but the schema's contents do not
+			// answer by the deadline, so it cannot be elided. It falls back to "Schemas / public",
+			// which opens on its own and awaits the query that is already running.
+			const lookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
+			let schemaQueries = 0;
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+				nodeHandle => {
+					if (nodeHandle === 1) {
+						return [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })];
+					}
+					if (nodeHandle === 2) {
+						schemaQueries++;
+						return lookAhead.p;
+					}
+					return [];
+				}
+			);
+			await tree.refresh();
+
+			// Not expandThroughDeadline: the expand also opens the breadcrumbed row, which waits
+			// for the query, so it does not settle until the query answers.
+			const expanding = tree.expand(ENTRY_ID);
+			await vi.advanceTimersByTimeAsync(5_000);
+			const atDeadline = rows(tree).map(row => [row.prefix, row.name]);
+			lookAhead.complete([nodeDto({ nodeHandle: 3, name: 'Tables', kind: 'group-tables' })]);
+			await expanding;
+
+			expect({
+				atDeadline,
+				opened: rows(tree),
+				schemaQueries,
+			}).toEqual({
+				atDeadline: [[undefined, 'connection'], ['Schemas', 'public']],
+				opened: [
+					{ name: 'connection', prefix: undefined, expanded: true },
+					{ name: 'public', prefix: 'Schemas', expanded: true },
+					{ name: 'Tables', prefix: undefined, expanded: false },
+				],
+				schemaQueries: 1,
 			});
 		});
 

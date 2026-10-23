@@ -225,9 +225,11 @@ const REVEAL_ROOTS_TIMEOUT_MS = 10_000;
 
 /**
  * How long a level's look-aheads can hold it before it renders. A look-ahead still waiting then
- * keeps its row, so one hung metadata query cannot leave the whole level pending. Generous on
- * purpose, since the tree's shape should not depend on ordinary warehouse latency. The deadline is
- * per level, shared by look-aheads that run one after another, not per query.
+ * keeps its row, so one hung metadata query cannot leave the whole level pending. The deadline is
+ * per level, shared by look-aheads that run one after another, not per query. The cost: when the
+ * level's queries are slow together, a look-ahead can run out of time, and the level renders
+ * without the shape it would otherwise get. A namespace group is not breadcrumbed, a lone schema is
+ * not elided, or an empty Views group is shown.
  */
 const LOOK_AHEAD_TIMEOUT_MS = 5_000;
 
@@ -747,8 +749,9 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * ones, since after a reload they are indistinguishable from rows appearing for the first time.
 	 */
 	override async reload(id: string): Promise<void> {
-		// Only this connection's entries: another connection's parked queries are still good, and
-		// can still be in flight.
+		// The reloaded rows must go back to the source, so their parked queries go, including the one
+		// for a collapsed row that keeps its id. See _parkLookAhead. Only this connection's entries:
+		// another connection's parked queries are still good, and can still be in flight.
 		const data = this.visibleNodes.find(visible => visible.node.id === id)?.node.data;
 		const handle = data?.kind === 'entry' ? data.entry.instance?.connectionHandle : data?.handle;
 		if (handle !== undefined) {
@@ -955,9 +958,13 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		dtos: readonly IDataConnectionNodeDTO[],
 		handle: IDataConnectionHandle
 	): Promise<readonly TreeNode<DataConnectionNode>[]> {
-		// One deadline for the whole level, shared by every look-ahead its siblings run. See
+		// One deadline for the whole level, shared by every look-ahead its siblings run. A timer
+		// rather than clock arithmetic, so a change to the system clock cannot stretch it. See
 		// LOOK_AHEAD_TIMEOUT_MS.
-		const deadline = Date.now() + LOOK_AHEAD_TIMEOUT_MS;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const deadline = new Promise<undefined>(resolve => {
+			timer = setTimeout(() => resolve(undefined), LOOK_AHEAD_TIMEOUT_MS);
+		});
 		const level = await Promise.all(dtos.map(async dto => {
 			if (!BREADCRUMB_GROUP_KINDS.has(dto.kind)) {
 				const row = await this._wrapUnlessEmptyViews(dto, handle, deadline);
@@ -993,6 +1000,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			this._parkLookAhead(dto, handle, lookAhead);
 			return [wrapDto(dto, handle)];
 		}));
+		clearTimeout(timer);
 
 		return level.flat();
 	}
@@ -1028,13 +1036,13 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * @param schema The lone schema DTO.
 	 * @param handle The connection handle the DTO came from.
-	 * @param deadline When the level stops waiting for its look-aheads, from Date.now().
+	 * @param deadline Settles when the level stops waiting for its look-aheads.
 	 * @returns The schema's children as this level's rows, or undefined to fall back.
 	 */
 	private async _elideSingleSchema(
 		schema: IDataConnectionNodeDTO,
 		handle: IDataConnectionHandle,
-		deadline: number
+		deadline: Promise<undefined>
 	): Promise<readonly TreeNode<DataConnectionNode>[] | undefined> {
 		const lookAhead = await this._lookAhead(schema, handle, deadline);
 		const contents = lookAhead?.children ?? [];
@@ -1066,13 +1074,13 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * @param dto The node to look into.
 	 * @param handle The connection handle the DTO came from.
-	 * @param deadline When the level stops waiting for its look-aheads, from Date.now().
+	 * @param deadline Settles when the level stops waiting for its look-aheads.
 	 * @returns What the look-ahead found, or undefined when the node has no children to fetch.
 	 */
 	private async _lookAhead(
 		dto: IDataConnectionNodeDTO,
 		handle: IDataConnectionHandle,
-		deadline: number
+		deadline: Promise<undefined>
 	): Promise<ILookAhead | undefined> {
 		if (!dto.hasGetChildren) {
 			return undefined;
@@ -1080,7 +1088,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 
 		try {
 			const query = handle.nodeGetChildren(dto.nodeHandle);
-			return { children: await raceTimeout(query, Math.max(0, deadline - Date.now())), query };
+			return { children: await Promise.race([query, deadline]), query };
 		} catch {
 			return { children: undefined, query: undefined };
 		}
@@ -1095,11 +1103,12 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * The drop checks that the entry is still this query, since a reload can park a fresh one under
 	 * the same id.
 	 *
-	 * An entry is only read by the row it was fetched for: its id carries the node handle, and
-	 * within one extension host node handles only go up, so a row built after a reload has a
-	 * different id. The clear() calls in reload, reloadAll, and _dropClosedEntrySubtrees free
-	 * entries nothing can read anymore, and cover an extension host restart, which starts the
-	 * handles over.
+	 * The clear() calls in reload and reloadAll are what make a reloaded row go back to the source.
+	 * Refreshing a collapsed row keeps its id, so without the clear its next expand would take the
+	 * answer from before the reload. The clears also free entries that a reload made unreachable:
+	 * within one extension host node handles only go up, so the rows a reload rebuilds get new ids.
+	 * _dropClosedEntrySubtrees clears for a closed connection, which also covers an extension host
+	 * restart, when the handles start over.
 	 *
 	 * @param dto The node whose row was kept.
 	 * @param handle The connection handle the DTO came from.
@@ -1132,14 +1141,14 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * @param dto The DTO to wrap.
 	 * @param handle The connection handle the DTO came from.
-	 * @param deadline When the level stops waiting for its look-aheads, from Date.now().
+	 * @param deadline Settles when the level stops waiting for its look-aheads.
 	 * @param elidedSchema The lone schema the row stands in for, when it was dropped.
 	 * @returns The row, or undefined for a Views group that holds no views.
 	 */
 	private async _wrapUnlessEmptyViews(
 		dto: IDataConnectionNodeDTO,
 		handle: IDataConnectionHandle,
-		deadline: number,
+		deadline: Promise<undefined>,
 		elidedSchema?: string
 	): Promise<TreeNode<DataConnectionNode> | undefined> {
 		const row = wrapDto(dto, handle, undefined, elidedSchema);
