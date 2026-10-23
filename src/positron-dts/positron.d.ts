@@ -3553,6 +3553,9 @@ declare module 'positron' {
 		 *  are merged into `attribution.metadata` on the resulting
 		 *  `CodeExecutionEvent`. Positron retains sole authority over
 		 *  `attribution.source`; callers cannot set it.
+		 * @param preserveActiveTab Whether to avoid switching the active tab when
+		 *  revealing the Console and Plots. If another tab is showing where the
+		 *  Console or Plots live, it stays showing. Ignored when `focus` is true.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
@@ -3566,7 +3569,8 @@ declare module 'positron' {
 			sessionId?: string,
 			documentUri?: vscode.Uri,
 			executionMetadata?: Record<string, any>,
-			attributionMetadata?: Record<string, any>): Thenable<Record<string, any>>;
+			attributionMetadata?: Record<string, any>,
+			preserveActiveTab?: boolean): Thenable<Record<string, any>>;
 
 		/**
 		 * Evaluates code silently in a language runtime, without displaying

@@ -1734,7 +1734,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		sessionId?: string,
 		documentUri?: URI,
 		executionMetadata?: Record<string, unknown>,
-		attributionMetadata?: Record<string, unknown>): Promise<Record<string, unknown>> {
+		attributionMetadata?: Record<string, unknown>,
+		preserveActiveTab?: boolean): Promise<Record<string, unknown>> {
 
 		// Create a UUID and an observer for this execution request
 		const executionId = generateUuid();
@@ -1748,7 +1749,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// more or less fixed since it's part of the public API, but the
 		// internal parameter order can be more logical.
 		this._proxy.$executeCode(
-			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId, documentUri, executionMetadata, attributionMetadata).then(
+			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId, documentUri, executionMetadata, attributionMetadata, undefined, preserveActiveTab).then(
 				(sessionId) => {
 					// Bind the session ID to the observer so we can use it later
 					executionObserver.sessionId = sessionId;

@@ -171,6 +171,9 @@ export interface IPositronConsoleService {
 	 * @param executionId An optional ID to track this execution for observation
 	 * @param documentUri Optional document URI when code is executed from a file. When provided,
 	 *   the backend will be notified that this is the source of code execution.
+	 * @param executionMetadata Optional metadata to pass to the language runtime.
+	 * @param preserveActiveTab Whether to avoid switching the active tab when revealing the
+	 *   Console (and Plots, for plots this execution produces). Ignored when `focus` is true.
 	 * @returns The session ID that was assigned to execute the code.
 	 */
 	executeCode(languageId: string,
@@ -183,7 +186,15 @@ export interface IPositronConsoleService {
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string,
 		documentUri?: URI,
-		executionMetadata?: Record<string, unknown>): Promise<string>;
+		executionMetadata?: Record<string, unknown>,
+		preserveActiveTab?: boolean): Promise<string>;
+
+	/**
+	 * Whether an execution was started with `preserveActiveTab`, so views it
+	 * reveals should not switch the active tab.
+	 * @param executionId The execution ID.
+	 */
+	shouldPreserveActiveTab(executionId: string): boolean;
 
 	/**
 	 * Fires when code is executed in any Positron console instance.

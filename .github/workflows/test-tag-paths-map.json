@@ -4,6 +4,7 @@
   "src/vs/workbench/contrib/positronPlots/": ["@:plots"],
   "src/vs/workbench/contrib/positronPlotsEditor/": ["@:plots"],
   "src/vs/workbench/services/positronPlots/": ["@:plots"],
+  "src/vs/workbench/services/views/": ["@:console", "@:plots"],
   "src/vs/workbench/contrib/positronVariables/": ["@:variables"],
   "src/vs/workbench/services/positronVariables/": ["@:variables"],
   "src/vs/workbench/contrib/positronConnections/": ["@:connections"],

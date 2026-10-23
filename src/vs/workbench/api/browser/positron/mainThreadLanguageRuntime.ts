@@ -1655,11 +1655,11 @@ class ExtHostRuntimeClientInstance<Input, Output>
 				this.deletePendingRpc(message.parent_id);
 			} else {
 				// This is a regular message or event; emit it to the client as-is
-				this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers });
+				this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers, parent_id: message.parent_id });
 			}
 		} else {
 			// This is a regular message; emit it to the client as an event.
-			this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers });
+			this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers, parent_id: message.parent_id });
 		}
 	}
 
@@ -2177,7 +2177,8 @@ export class MainThreadLanguageRuntime
 		documentUri?: URI,
 		executionMetadata?: Record<string, unknown>,
 		attributionMetadata?: Record<string, unknown>,
-		callerSessionId?: string): Promise<string> {
+		callerSessionId?: string,
+		preserveActiveTab?: boolean): Promise<string> {
 
 		// Revive the URI from the serialized form, if provided.
 		const revivedUri = documentUri ? URI.revive(documentUri) : undefined;
@@ -2228,7 +2229,7 @@ export class MainThreadLanguageRuntime
 		}
 
 		return this._positronConsoleService.executeCode(
-			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId, undefined, executionMetadata);
+			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId, undefined, executionMetadata, preserveActiveTab);
 	}
 
 	$executeInlineCells(_extensionId: string, documentUri: URI, ranges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void> {
