@@ -133,6 +133,16 @@ export const reloadKey = (node: DataConnectionNode): string =>
 const namesMatch = (name: string, wanted: string): boolean =>
 	name === wanted || name.toLowerCase() === wanted.toLowerCase();
 
+/**
+ * Formats a group row's count (see DataConnectionsTreeInstance.groupCount) as the row shows it after
+ * the group's name, as "(14)": parenthesized after the name, the way database tools such as pgAdmin
+ * label their groups.
+ *
+ * Exported for tests.
+ */
+export const formatGroupCount = (count: number): string =>
+	localize('positron.dataConnections.groupCount', "({0})", count.toLocaleString());
+
 const wrapEntry = (entry: DataConnectionEntry): TreeNode<DataConnectionNode> => ({
 	id: entryNodeId(entry.profile.id),
 	data: { kind: 'entry', entry },
@@ -170,6 +180,22 @@ const resolveIndentWidth = (configurationService: IConfigurationService): number
 		? viewIndentWidth
 		: configurationService.getValue<number>(TREE_INDENT_KEY);
 };
+
+/**
+ * Whether a node is a notice: a note about a listing, such as that it was cut short, rather than a
+ * row of it. Notices are not counted as a group's children.
+ */
+const isNotice = (dto: IDataConnectionNodeDTO): boolean => dto.kind === DataConnectionNodeKind.Notice;
+
+/**
+ * A group's DTO carrying the count of the children the look-ahead fetched for it, so the group's row
+ * can show how many it holds while still collapsed. The count rides on the row itself rather than
+ * being read from the look-ahead's parked query: that is dropped whenever any row of the connection
+ * reloads (see _parkLookAhead), while the row's DTO lives exactly as long as the row. Fresher than
+ * any count the driver sent with the group, so it replaces that.
+ */
+const withLookAheadCount = (dto: IDataConnectionNodeDTO, children: readonly IDataConnectionNodeDTO[]): IDataConnectionNodeDTO =>
+	({ ...dto, childCount: children.filter(child => !isNotice(child)).length });
 
 const wrapDto = (
 	dto: IDataConnectionNodeDTO,
@@ -998,7 +1024,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			// result is discarded if its node was collapsed while the fetch was in flight. The
 			// entries would outlive the rows they belong to.
 			this._parkLookAhead(dto, handle, lookAhead);
-			return [wrapDto(dto, handle)];
+			return [wrapDto(withLookAheadCount(dto, children), handle)];
 		}));
 		clearTimeout(timer);
 
@@ -1136,8 +1162,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * costs one extra round trip on the level above, paid whether or not the user goes on to open it.
 	 *
 	 * A group that is kept has its look-ahead query parked, the same as a namespace group in
-	 * _breadcrumbNamespaceGroups. A group whose emptiness is unknown, because the look-ahead could
-	 * not run or failed, is kept as an ordinary row. A timed-out look-ahead keeps the row too.
+	 * _breadcrumbNamespaceGroups, and carries the count of what the look-ahead found. A group whose
+	 * emptiness is unknown, because the look-ahead could not run or failed, is kept as an ordinary
+	 * row. A timed-out look-ahead keeps the row too, without a count. A group its driver has already
+	 * counted as empty is dropped without looking.
 	 *
 	 * @param dto The DTO to wrap.
 	 * @param handle The connection handle the DTO came from.
@@ -1151,18 +1179,22 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		deadline: Promise<undefined>,
 		elidedSchema?: string
 	): Promise<TreeNode<DataConnectionNode> | undefined> {
-		const row = wrapDto(dto, handle, undefined, elidedSchema);
 		if (dto.kind !== DataConnectionNodeKind.GroupViews) {
-			return row;
+			return wrapDto(dto, handle, undefined, elidedSchema);
+		}
+
+		if (dto.childCount === 0) {
+			return undefined;
 		}
 
 		const lookAhead = await this._lookAhead(dto, handle, deadline);
-		if (lookAhead?.children?.length === 0) {
+		const children = lookAhead?.children;
+		if (children?.length === 0) {
 			return undefined;
 		}
 
 		this._parkLookAhead(dto, handle, lookAhead);
-		return row;
+		return wrapDto(children === undefined ? dto : withLookAheadCount(dto, children), handle, undefined, elidedSchema);
 	}
 
 	/**
@@ -1247,9 +1279,46 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			case 'entry':
 				// Entries are roots, so no ancestor can be refreshing them out from under the row.
 				return <DataConnectionEntryRow entry={data.entry} hoverManager={this._hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
-			case 'dto':
-				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onOpenDetails={onOpenDetails} onOpeningDataExplorer={onOpeningDataExplorer} onPinDetails={onPinDetails} onRefresh={onRefresh} />;
+			case 'dto': {
+				const count = this.groupCount(context.index);
+				const countLabel = count === undefined ? undefined : formatGroupCount(count);
+				return <DataConnectionNodeRow countLabel={countLabel} dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onOpenDetails={onOpenDetails} onOpeningDataExplorer={onOpeningDataExplorer} onPinDetails={onPinDetails} onRefresh={onRefresh} />;
+			}
 		}
+	}
+
+	/**
+	 * Counts the rows a group row holds. A group row ("Tables", "Columns") labels a list, and on a
+	 * connection with many tables the list alone doesn't say how long it is.
+	 *
+	 * The group's loaded children are counted when there are any: they are what the user sees on
+	 * expanding it, and a group collapsed after being opened keeps them. Before that, the count is
+	 * what is already known without a query of its own: the children the look-ahead fetched for the
+	 * row, or failing that the count the driver sent with it. A group with neither has no count
+	 * until it is opened -- fetching its children just to count them would put a query behind every
+	 * group row on screen. Notices are not rows of the list -- they say something about it, such as
+	 * that it was cut short -- so they are not counted.
+	 *
+	 * Derived on every render rather than kept: every change to the tree repaints the rows, so there
+	 * is nothing to keep in step.
+	 * @param rowIndex The index of the row.
+	 * @returns The count; undefined for a row that isn't a group, or a group whose count isn't known.
+	 */
+	groupCount(rowIndex: number): number | undefined {
+		const visible = this.visibleNodes[rowIndex];
+		if (visible === undefined || visible.node.data.kind !== 'dto' || !CONTAINER_ONLY_KINDS.has(visible.node.data.dto.kind)) {
+			return undefined;
+		}
+		// A group whose listing failed shows its error, not a count the failure leaves unconfirmed.
+		if (this.getError(visible.node.id) !== undefined) {
+			return undefined;
+		}
+
+		// Not loaded: the look-ahead's count, when it ran, was put on the row's DTO (see
+		// withLookAheadCount); otherwise it is the driver's, if it sent one.
+		return this.getLoadedChildren(visible.node.id)
+			?.filter(child => child.data.kind !== 'dto' || !isNotice(child.data.dto)).length
+			?? visible.node.data.dto.childCount;
 	}
 
 	/**

@@ -206,6 +206,10 @@ suite('Redshift Driver Tests', () => {
 
 	test('schema getChildren returns Tables and Views groups', async () => {
 		const mock = createMockClient((sql) => {
+			if (sql.includes('COUNT(*)')) {
+				// COUNT(*) is a BIGINT, which pg hands back as a string.
+				return { rows: [{ kind: 'table', n: '2' }, { kind: 'view', n: '1' }] };
+			}
 			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
 				return {
 					rows: [
@@ -229,6 +233,7 @@ suite('Redshift Driver Tests', () => {
 		assert.strictEqual(groups.length, 2);
 		assert.strictEqual(groups[0].kind, positron.DataConnectionNodeKind.GroupTables);
 		assert.strictEqual(groups[1].kind, positron.DataConnectionNodeKind.GroupViews);
+		assert.deepStrictEqual(groups.map(g => g.childCount), [2, 1]);
 
 		// Tables.
 		const tables = await tablesOf(schemaNode);
@@ -450,6 +455,9 @@ suite('Redshift Cross-Database Detection', () => {
 			if (sql.includes('SVV_ALL_SCHEMAS')) {
 				return { rows: [{ schema_name: 'public' }] };
 			}
+			if (sql.includes('SVV_ALL_TABLES') && sql.includes('COUNT(*)')) {
+				return { rows: [{ kind: 'table', n: '1' }] };
+			}
 			if (sql.includes('SVV_ALL_TABLES') && sql.includes("<> 'VIEW'")) {
 				return { rows: [{ table_name: 'events' }] };
 			}
@@ -470,6 +478,7 @@ suite('Redshift Cross-Database Detection', () => {
 		assert.deepStrictEqual(schemas.map(s => s.name), ['public']);
 
 		const groups = await schemas[0].getChildren!();
+		assert.deepStrictEqual(groups.map(g => g.childCount), [1, 0]);
 		const tables = await groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupTables)!.getChildren!();
 		assert.deepStrictEqual(tables.map(t => t.name), ['events']);
 

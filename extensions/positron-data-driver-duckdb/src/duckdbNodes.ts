@@ -72,8 +72,9 @@ export function createSchemasGroupNode(
 }
 
 /**
- * Creates a schema node that expands to two category groups: Tables and Views. Exported so unit
- * tests can construct a schema node directly without walking through the root Schemas group.
+ * Creates a schema node that expands to two category groups: Tables and Views, with how many each
+ * holds. Exported so unit tests can construct a schema node directly without walking through the
+ * root Schemas group.
  */
 export function createSchemaNode(
 	client: IDuckDBQueryClient,
@@ -85,12 +86,39 @@ export function createSchemaNode(
 		name: schemaName,
 		kind: positron.DataConnectionNodeKind.Schema,
 		async getChildren() {
+			const counts = await countRelations(client, database, schemaName);
 			return [
-				createTablesGroupNode(client, host, database, schemaName),
-				createViewsGroupNode(client, host, database, schemaName),
+				createTablesGroupNode(client, host, database, schemaName, counts?.table),
+				createViewsGroupNode(client, host, database, schemaName, counts?.view),
 			];
 		},
 	};
+}
+
+/**
+ * Counts the base tables and views in a schema, in one query with the same filters as the Tables
+ * and Views listings. The counts only decorate the group rows, so a failure leaves them off rather
+ * than failing the schema's expand.
+ */
+async function countRelations(
+	client: IDuckDBQueryClient,
+	database: string | undefined,
+	schemaName: string
+): Promise<{ table: number; view: number } | undefined> {
+	try {
+		const catalog = catalogFilter(database);
+		const rows = await client.runQuery(
+			`SELECT table_type, count(*) AS n FROM information_schema.tables ` +
+			`WHERE table_catalog = ${catalog.expr} AND table_schema = $schema ` +
+			`AND table_type IN ('BASE TABLE', 'VIEW') GROUP BY table_type`,
+			{ ...catalog.params, schema: schemaName }
+		);
+		// A type with nothing in it has no row at all.
+		const count = (type: string) => Number(rows.find(row => row.table_type === type)?.n ?? 0);
+		return { table: count('BASE TABLE'), view: count('VIEW') };
+	} catch {
+		return undefined;
+	}
 }
 
 /**
@@ -100,11 +128,13 @@ function createTablesGroupNode(
 	client: IDuckDBQueryClient,
 	host: IDuckDBPreviewHost,
 	database: string | undefined,
-	schemaName: string
+	schemaName: string,
+	childCount: number | undefined
 ): positron.DataConnectionNode {
 	return {
 		name: vscode.l10n.t('Tables'),
 		kind: positron.DataConnectionNodeKind.GroupTables,
+		childCount,
 		async getChildren() {
 			const catalog = catalogFilter(database);
 			const rows = await client.runQuery(
@@ -125,11 +155,13 @@ function createViewsGroupNode(
 	client: IDuckDBQueryClient,
 	host: IDuckDBPreviewHost,
 	database: string | undefined,
-	schemaName: string
+	schemaName: string,
+	childCount: number | undefined
 ): positron.DataConnectionNode {
 	return {
 		name: vscode.l10n.t('Views'),
 		kind: positron.DataConnectionNodeKind.GroupViews,
+		childCount,
 		async getChildren() {
 			const catalog = catalogFilter(database);
 			const rows = await client.runQuery(

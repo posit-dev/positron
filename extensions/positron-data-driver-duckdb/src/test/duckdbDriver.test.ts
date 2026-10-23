@@ -131,6 +131,7 @@ suite('DuckDB Driver Tests', () => {
 		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
+		assert.deepStrictEqual((await schema.getChildren!()).map(g => g.childCount), [0, 0]);
 		const tables = await (await getGroup(schema, 'Tables')).getChildren!();
 		const views = await (await getGroup(schema, 'Views')).getChildren!();
 		assert.strictEqual(tables.length, 0);
@@ -151,6 +152,9 @@ suite('DuckDB Driver Tests', () => {
 		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
+
+		// Each group says how many it holds before it is expanded.
+		assert.deepStrictEqual((await schema.getChildren!()).map(g => [g.name, g.childCount]), [['Tables', 2], ['Views', 1]]);
 
 		const tables = await (await getGroup(schema, 'Tables')).getChildren!();
 		const tableNames = tables.map(t => t.name).sort();

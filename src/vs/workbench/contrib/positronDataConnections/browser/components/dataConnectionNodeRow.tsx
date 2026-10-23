@@ -150,6 +150,10 @@ interface DataConnectionNodeRowProps {
 	// profile and driver as "Bike Share / PostgreSQL".
 	labelPrefix?: string;
 
+	// How many rows a group holds, as "(14)". Shown after the node's name. Set by the tree for a group row whose count it knows: from its
+	// loaded children, or before it is opened, from the look-ahead or the driver.
+	countLabel?: string;
+
 	// Reloads this node's subtree. Supplied by the tree, which binds it to this row's node id.
 	onRefresh: () => void;
 
@@ -186,7 +190,7 @@ interface DataConnectionNodeRowProps {
  * on double-click, the way the Explorer treats a file. Nodes other than groups offer "Copy Name",
  * and "Copy Path" when the driver gave them one.
  */
-export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening, onOpenDetails, onOpeningDataExplorer, onPinDetails, onRefresh, stale }: DataConnectionNodeRowProps) => {
+export const DataConnectionNodeRow = ({ countLabel, dto, handle, labelPrefix, onMenuOpening, onOpenDetails, onOpeningDataExplorer, onPinDetails, onRefresh, stale }: DataConnectionNodeRowProps) => {
 	const { clipboardService, notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 	const rowRef = useRef<HTMLDivElement>(null);
 	// A group row labels the rows beneath it rather than naming a thing of its own, and it holds them
@@ -379,6 +383,9 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 					<span className='data-connection-node-prefix'>{labelPrefix}{' · '}</span>
 				)}
 				<span className='data-connection-node-name'>{dto.name}</span>
+				{countLabel !== undefined && (
+					<>{' '}<span className='data-connection-node-count' data-testid='data-connection-node-count'>{countLabel}</span></>
+				)}
 			</div>
 			{dto.dataType && (
 				<div className='data-connection-node-type'>{dto.dataType}</div>
