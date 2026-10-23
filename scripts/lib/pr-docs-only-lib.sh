@@ -17,28 +17,33 @@
 # called workflows and composite actions, plus root_workflow itself. A change
 # to any of these can change what the tests do, so none of them is docs-only.
 # Actions are reported by their top-level directory (.github/actions/<name>),
-# since an action's files may be shared with a nested action beside it.
+# since an action's files may be shared with a nested action beside it. Every
+# action.yml under that directory is followed, so a nested action's own uses:
+# count too.
 ci_reachable_paths() {
 	local root="$1" start="${2:-.github/workflows/test-pull-request.yml}"
-	local -a queue=("$start")
+	local -a queue=("$start") files
 	local seen=$'\n'
-	local item file callee
+	local item callee
 	while ((${#queue[@]} > 0)); do
 		item="${queue[0]}"
 		queue=("${queue[@]:1}")
 		[[ "$seen" == *$'\n'"$item"$'\n'* ]] && continue
 		seen+="$item"$'\n'
 		echo "$item"
+		files=()
 		case "$item" in
 			.github/actions/*)
-				file="$root/$item/action.yml"
-				[[ -f "$file" ]] || file="$root/$item/action.yaml" ;;
-			*) file="$root/$item" ;;
+				[[ -d "$root/$item" ]] || continue
+				while IFS= read -r callee; do
+					files+=("$callee")
+				done < <(find "$root/$item" -type f \( -name action.yml -o -name action.yaml \)) ;;
+			*) [[ -f "$root/$item" ]] && files=("$root/$item") ;;
 		esac
-		[[ -f "$file" ]] || continue
+		((${#files[@]} > 0)) || continue
 		while IFS= read -r callee; do
 			queue+=("$callee")
-		done < <(grep -oE 'uses:[[:space:]]*["'\'']?\./\.github/(workflows|actions)/[^"'\''[:space:]@]+' "$file" |
+		done < <(grep -hoE 'uses:[[:space:]]*["'\'']?\./\.github/(workflows|actions)/[^"'\''[:space:]@]+' "${files[@]}" |
 			sed -E 's#^uses:[[:space:]]*["'\'']?\./##; s#^(\.github/actions/[^/]+).*#\1#')
 	done
 }

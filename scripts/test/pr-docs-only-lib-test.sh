@@ -67,6 +67,13 @@ runs:
   steps:
     - uses: ./.github/actions/some-action
 YAML
+# Only the nested action has an action.yml; its own uses: must be followed.
+mkdir -p "$WF_ROOT/.github/actions/deep-dep"
+cat > "$WF_ROOT/.github/actions/nested/inner/action.yml" <<'YAML'
+runs:
+  steps:
+    - uses: ./.github/actions/deep-dep
+YAML
 cat > "$WF_ROOT/.github/actions/unused/action.yml" <<'YAML'
 runs:
   steps:
@@ -80,7 +87,7 @@ YAML
 
 REACH="$(ci_reachable_paths "$WF_ROOT" .github/workflows/root.yml | sort | tr '\n' ' ')"
 assert_eq "reachable: transitive, deduplicated, quoted uses, composite and nested actions" \
-	".github/actions/composite-dep .github/actions/nested .github/actions/some-action .github/workflows/a.yml .github/workflows/b.yml .github/workflows/c.yml .github/workflows/root.yml " \
+	".github/actions/composite-dep .github/actions/deep-dep .github/actions/nested .github/actions/some-action .github/workflows/a.yml .github/workflows/b.yml .github/workflows/c.yml .github/workflows/root.yml " \
 	"$REACH"
 
 # The real workflow must reach the reusable workflows behind the required checks.
