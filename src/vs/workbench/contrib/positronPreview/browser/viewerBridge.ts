@@ -938,7 +938,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			}
 			return el.dispatchEvent(event);
 		};
-		const keyCode = KEY_CODES[key] ?? (key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0);
+		// Only letters and digits have codes that don't depend on the keyboard layout.
+		const keyCode = KEY_CODES[key] ?? (/^[a-z0-9]$/i.test(key) ? key.toUpperCase().charCodeAt(0) : 0);
 		let allowed = send('keydown', keyCode);
 		if (asBrowser && allowed && (key === 'Enter' || key.length === 1)) {
 			const charCode = key === 'Enter' ? 13 : key.charCodeAt(0);
@@ -1578,10 +1579,12 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	 * Enter in a text box, as a browser handles it: clicks the form's first
 	 * submit button, or submits a form with one text box and no button.
 	 */
-	function submitOnEnter(input: HTMLInputElement, pressed: string): ActStep | undefined {
+	function submitOnEnter(input: HTMLInputElement, pressed: string): ActStep {
 		const form = input.form;
+		// Outside a form the browser does nothing for Enter either, so nothing
+		// was skipped. Data apps' text boxes are rarely in one.
 		if (!form) {
-			return undefined;
+			return { done: `${pressed}.` };
 		}
 		const button = defaultButton(form);
 		if (!button && Array.from(form.elements).filter(f => SUBMITS_ON_ENTER.has(inputType(f) ?? '')).length > 1) {
@@ -1688,7 +1691,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		}
 		// The key a browser reports for the space bar is ' '.
 		const sent = key === 'Space' || key === 'Spacebar' ? ' ' : key;
-		const name = sent === ' ' ? 'Space' : key;
+		const name = sent === ' ' ? 'Space' : sent.length === 1 ? quote(sent) : key;
 		const el = ref === undefined || ref === null ? undefined : resolve(ref);
 		if (el) {
 			checkUsable(el, describe(el));
