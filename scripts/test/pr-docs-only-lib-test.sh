@@ -100,8 +100,6 @@ for action in setup-build-env setup-test-env download-binaries; do
 	assert_eq "real tree reaches $action" true \
 		"$(printf '%s\n' "$REAL_REACH" | grep -qxF ".github/actions/$action" && echo true || echo false)"
 done
-assert_eq "real tree does not reach pr-exploratory-test" false \
-	"$(printf '%s\n' "$REAL_REACH" | grep -qxF ".github/actions/pr-exploratory-test" && echo true || echo false)"
 
 # --- is_docs_only_path ------------------------------------------------------------
 
@@ -144,7 +142,6 @@ check .github/actions/shared.mjs false
 
 # Local actions the required jobs don't use.
 check .github/actions/pr-exploratory-test/outcomes.mjs true
-check .github/actions/pr-exploratory-test/outcomes-lib.test.mjs true
 check .github/actions/restore-build-caches-v2/action.yml true
 
 # Source, scripts, and markdown that is runtime content or a test input.

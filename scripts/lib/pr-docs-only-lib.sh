@@ -11,15 +11,11 @@
 # path runs the tests by default.
 
 # ci_reachable_paths <repo_root> [root_workflow]
-# Echoes, one per line, the repo-relative path of every workflow file and local
-# action directory that root_workflow (default
-# .github/workflows/test-pull-request.yml) uses, directly or through other
-# called workflows and composite actions, plus root_workflow itself. A change
-# to any of these can change what the tests do, so none of them is docs-only.
-# Actions are reported by their top-level directory (.github/actions/<name>),
-# since an action's files may be shared with a nested action beside it. Every
-# action.yml under that directory is followed, so a nested action's own uses:
-# count too.
+# Echoes every workflow file and local action directory that root_workflow
+# (default .github/workflows/test-pull-request.yml) uses, directly or
+# transitively, plus root_workflow itself. None of these is docs-only.
+# Actions are reported as .github/actions/<name>, and every action.yml under
+# that directory is followed, so nested actions count.
 ci_reachable_paths() {
 	local root="$1" start="${2:-.github/workflows/test-pull-request.yml}"
 	local -a queue=("$start") files
