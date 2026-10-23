@@ -920,6 +920,55 @@ describe('act', () => {
 			expect({ message: outcome.message, searches }).toEqual({ message: 'Pressed Enter in the textbox "Query".', searches: [] });
 		});
 
+		it('leaves the form alone when the page cancels the keypress, as older pages do', async () => {
+			const { bridge, searches } = loadSearchForm();
+			const keys: string[] = [];
+			byId('q').addEventListener('keypress', event => {
+				const { type, which, charCode } = event as KeyboardEvent;
+				keys.push(`${type}/${which}/${charCode}`);
+				if (which === 13) {
+					event.preventDefault();
+				}
+			});
+
+			const outcome = await bridge.act({ kind: 'press', key: 'Enter', ref: 'e1' }, QUICK);
+
+			expect({ message: outcome.message, searches, keys }).toEqual({ message: 'Pressed Enter in the textbox "Query".', searches: [], keys: ['keypress/13/13'] });
+		});
+
+		it('clicks the first submit button, even an image button', async () => {
+			const bridge = load('<form id="form"><label for="q">Query</label> <input id="q" value="moons"> <label for="w">Where</label> <input id="w">' +
+				'<input id="search" type="image" alt="Search"> <button type="submit">Go</button></form>');
+			const form = byId('form') as HTMLFormElement;
+			// happy-dom doesn't submit for an image button, as a browser does.
+			byId('search').addEventListener('click', event => form.requestSubmit(event.target as HTMLInputElement));
+			const submitters: string[] = [];
+			form.addEventListener('submit', event => {
+				event.preventDefault();
+				submitters.push((event as SubmitEvent).submitter?.id ?? '');
+			});
+
+			const outcome = await bridge.act({ kind: 'press', key: 'Enter', ref: 'e1' }, QUICK);
+
+			expect({ message: outcome.message, submitters }).toEqual({ message: 'Pressed Enter in the textbox "Query", which submitted its form.', submitters: ['search'] });
+		});
+
+		it('says why Enter didn\'t submit: a disabled button, or a field that fails validation', async () => {
+			// A disabled button rather than a disabled fieldset, which happy-dom doesn't match with :disabled.
+			const disabled = load('<form><label for="q">Query</label> <input id="q"> <button type="submit" disabled>Go</button></form>');
+			const disabledMessage = (await disabled.act({ kind: 'press', key: 'Enter', ref: 'e1' }, QUICK)).message;
+			const invalid = load('<form><label for="q">Query</label> <input id="q" value="moons"> <label for="n">Name</label> <input id="n" required> <button type="submit">Go</button></form>');
+			const invalidEvents = recordEvents(byId('n'), ['invalid']);
+			const invalidMessage = (await invalid.act({ kind: 'press', key: 'Enter', ref: 'e1' }, QUICK)).message;
+
+			expect({ disabledMessage, invalidMessage, invalidEvents }).toEqual({
+				disabledMessage: 'Pressed Enter in the textbox "Query", but its form wasn\'t submitted: the button "Go" is disabled.',
+				invalidMessage: 'Pressed Enter in the textbox "Query", but its form wasn\'t submitted: a field in it is empty or invalid.',
+				// Once, from the submit; the bridge doesn't validate again.
+				invalidEvents: ['invalid'],
+			});
+		});
+
 		it('steps a number box for ArrowUp', async () => {
 			const bridge = load('<label for="n">Count</label><input id="n" type="number" value="5">');
 			const input = byId('n') as HTMLInputElement;
@@ -934,15 +983,31 @@ describe('act', () => {
 			});
 		});
 
+		it('steps a number box with step="any" by 1', async () => {
+			const bridge = load('<label for="n">Count</label><input id="n" type="number" step="any" value="5">');
+
+			const outcome = await bridge.act({ kind: 'press', key: 'ArrowUp', ref: 'e1' }, QUICK);
+
+			expect(outcome.message).toBe('Pressed ArrowUp in the spinbutton "Count", which set it to "6".');
+		});
+
 		it('checks a checkbox for Space', async () => {
 			const bridge = load('<label><input id="agree" type="checkbox"> Agree</label>');
 
 			const outcome = await bridge.act({ kind: 'press', key: 'Space', ref: 'e1' }, QUICK);
 
 			expect({ message: outcome.message, checked: (byId('agree') as HTMLInputElement).checked }).toEqual({
-				message: 'Pressed Space in the checkbox "Agree", which checked it.',
+				message: 'Pressed Space in the checkbox "Agree"; it\'s now checked.',
 				checked: true,
 			});
+		});
+
+		it('says when Space didn\'t toggle a checkbox, or a radio button was already selected', async () => {
+			const bridge = load('<label><input id="locked" type="checkbox"> Locked</label> <label><input type="radio" name="size" checked> Small</label>');
+			byId('locked').addEventListener('click', event => event.preventDefault());
+
+			await expect(bridge.act({ kind: 'press', key: 'Space', ref: 'e1' }, QUICK)).rejects.toThrow('Pressed Space in the checkbox "Locked", but it\'s still unchecked.');
+			expect((await bridge.act({ kind: 'press', key: 'Space', ref: 'e2' }, QUICK)).message).toBe('Pressed Space in the radio "Small"; it was already selected.');
 		});
 	});
 
