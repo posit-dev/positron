@@ -46,6 +46,8 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 	) {
 		super();
 
+		// The choices are global, so put them back when this service goes.
+		this._register(toDisposable(() => setErrorActionHandlerChoices([])));
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(AI_ENABLED_KEY) || e.affectsConfiguration(ERROR_ACTIONS_AGENT_KEY)) {
 				this._fireIfActiveHandlerChanged();

@@ -131,6 +131,15 @@ describe('ErrorActionHandlerService', () => {
 		expect(getChoices()).toEqual({ ids: ['posit-assistant', 'third'], labels: ['Posit Assistant', 'Third'] });
 	});
 
+	it('lists only the default handler once the service is disposed', () => {
+		const service = createService();
+		ctx.disposables.add(service.register(createHandler({ id: 'second', label: 'Second' })));
+
+		service.dispose();
+
+		expect(getChoices()).toEqual({ ids: ['posit-assistant'], labels: ['Posit Assistant'] });
+	});
+
 	it('has no active handler while AI is disabled', () => {
 		const service = createService();
 		const onDidChangeActiveHandler = vi.fn();
