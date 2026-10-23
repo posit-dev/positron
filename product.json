@@ -3,7 +3,7 @@
 	"nameShort": "Positron",
 	"nameLong": "Positron",
 	"version": "",
-	"positronVersion": "2026.10.2",
+	"positronVersion": "2026.10.3",
 	"positronBuildNumber": 0,
 	"positronLlmsDocsUrl": "https://cdn.posit.co/positron/releases/docs",
 	"applicationName": "positron",
