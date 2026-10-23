@@ -182,7 +182,7 @@ function getDefaultInterpreterParent(): string | undefined {
  *   - Windows-known Python install roots (LOCALAPPDATA / ProgramFiles).
  *   - The parent of `python.defaultInterpreterPath`.
  *   - Discovery-gating settings (`python.interpreters.include` / `.exclude` /
- *     `.override`, `python.locator`, `python.useEnvironmentsExtension`)
+ *     `.override`, `python.useEnvironmentsExtension`)
  *     folded into the opaque digest so a settings change flips the signature
  *     and re-runs discovery.
  *
@@ -295,8 +295,6 @@ export const DISCOVERY_POLICY_VERSION = 2;
  *   - `interpreters.include` / `.exclude` / `.override`: post-discovery
  *     filters (`shouldIncludeInterpreter`); a freshly-added exclude would
  *     otherwise leave the now-excluded interpreter registered from cache.
- *   - `locator`: switches between the JS locator and the native locator,
- *     which enumerate different sets of interpreters.
  *   - `useEnvironmentsExtension`: switches discovery to the external Python
  *     Environments extension; the cache must rebuild when this flips.
  *   - Positron's `interpreters.discovery`: switching to or from
@@ -317,7 +315,6 @@ function getFilterSettingsDigest(): string {
         include: filterPaths.include,
         exclude: filterPaths.exclude,
         override: filterPaths.override,
-        locator: config.get<string>('locator') ?? '',
         useEnvironmentsExtension: config.get<boolean>('useEnvironmentsExtension') ?? false,
         // Only included when set, so the digest is unchanged for everyone else.
         ...(isDefinitionsOnlyDiscovery() ? { definitionsOnly: true } : {}),
