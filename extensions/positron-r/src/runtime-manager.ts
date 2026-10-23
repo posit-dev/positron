@@ -285,7 +285,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			return undefined;
 		}
 		LOGGER.info(`[pinnedWorkspaceRuntime] R ${inst.version} at ${inst.binpath} is pinned by '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}'`);
-		return makeMetadata(inst);
+		return makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Implicit);
 	}
 
 	/**
