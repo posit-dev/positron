@@ -890,6 +890,26 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 				.toEqual(['/opt/R/4.6.0/bin/R']);
 		});
 
+		it('registers a drifted entry that the validator marks to start right away as Implicit', async () => {
+			// Like the cache, a cached record never starts right away in a
+			// folder it wasn't recommended for (#16376).
+			const oldMd = metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimePath: '/opt/R/4.6.0/bin/R', runtimeId: 'r-460-old' });
+			const newMd = { ...metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimePath: '/opt/R/4.6.0/bin/R', runtimeId: 'r-460-new' }), startupBehavior: LanguageRuntimeStartupBehavior.Immediate };
+			cache.setBucket(makeBucket({ extensionId: 'positron.positron-r', languageId: 'r', runtimePath: '/opt/R/4.6.0/bin/R', runtimeId: 'r-460-old' }));
+
+			const svc = makeService();
+			ctx.disposables.add(svc.registerRuntimeManager(makeManager({ id: 1, owns: [oldMd], validate: async () => newMd })));
+
+			await revalidateOne(svc, {
+				extensionId: 'positron.positron-r',
+				languageId: 'r',
+				metadata: oldMd,
+				freshFingerprint: { size: 2, mtimeMs: 2, ctimeMs: 2 },
+			});
+
+			expect(ctx.get(ILanguageRuntimeService).getRegisteredRuntime('r-460-new')?.startupBehavior).toBe(LanguageRuntimeStartupBehavior.Implicit);
+		});
+
 		it('does not evict when the entry is revalidated in place (same path)', async () => {
 			// A normal fingerprint refresh (e.g. in-place R upgrade at the same
 			// path) must not trip the eviction branch.

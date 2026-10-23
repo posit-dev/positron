@@ -14,6 +14,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IPathService } from '../../path/common/pathService.js';
 import { ILanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
 import {
+	cachedRuntimeMetadata,
 	ICachedRuntime,
 	IDiscoveryCacheBucket,
 	IDiscoveryCacheSessionCounters,
@@ -272,7 +273,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		}
 		const existing = bucket.entries.get(metadata.runtimePath);
 		const entry: ICachedRuntime = {
-			metadata,
+			metadata: cachedRuntimeMetadata(metadata),
 			fingerprint: probed.fingerprint,
 			resolvedPath: probed.resolvedPath,
 			firstSeen: existing?.firstSeen ?? now,
