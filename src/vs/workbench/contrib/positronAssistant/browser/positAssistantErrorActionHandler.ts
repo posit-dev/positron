@@ -6,7 +6,7 @@
 import { localize } from '../../../../nls.js';
 import { assertNever } from '../../../../base/common/assert.js';
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -22,13 +22,15 @@ import { NewChatOptions, POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } fro
 const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
 
 /**
- * Registers Posit Assistant as an error action handler, installed or not, so the
- * `ai.errorActions.agent` setting always lists the default. Its buttons show while
- * it can take errors: while the extension is installed and enabled and has a
- * usable chat model.
+ * Registers Posit Assistant as an error action handler while it can take errors:
+ * while the extension is installed and enabled and has a usable chat model.
+ * The `ai.errorActions.agent` setting lists it either way, since it's the default.
  */
 export class PositAssistantErrorActionHandlerContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.positAssistantErrorActionHandler';
+
+	/** The handler's registration, set while Posit Assistant can take errors. */
+	private readonly _registration = this._register(new MutableDisposable());
 
 	private readonly _hasChatModelsKeys = new Set([POSIT_HAS_CHAT_MODELS_KEY]);
 
@@ -41,7 +43,32 @@ export class PositAssistantErrorActionHandlerContribution extends Disposable imp
 	) {
 		super();
 
-		this._register(this._errorActionHandlerService.register({
+		this._updateRegistration();
+		this._register(this._extensionService.onDidChangeExtensions(() => this._updateRegistration()));
+		this._register(this._contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(this._hasChatModelsKeys)) {
+				this._updateRegistration();
+			}
+		}));
+	}
+
+	/** Register the handler while Posit Assistant can take errors, and unregister it otherwise. */
+	private _updateRegistration(): void {
+		const installed = this._extensionService.extensions.some(extension =>
+			ExtensionIdentifier.equals(extension.identifier, POSIT_ASSISTANT_EXTENSION_ID));
+		// Set by the Posit Assistant extension when it has at least one usable
+		// model (a configured cloud provider, a local provider, or a vscode.lm
+		// model such as Copilot).
+		const hasChatModels = this._contextKeyService.getContextKeyValue<boolean>(POSIT_HAS_CHAT_MODELS_KEY) === true;
+		if (!installed || !hasChatModels) {
+			this._registration.clear();
+			return;
+		}
+		if (this._registration.value) {
+			return;
+		}
+
+		this._registration.value = this._errorActionHandlerService.register({
 			id: POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID,
 			label: localize('positronAssistantErrorActionHandlerLabel', "Posit Assistant"),
 			supportsChatContinuation: true,
@@ -49,26 +76,7 @@ export class PositAssistantErrorActionHandlerContribution extends Disposable imp
 				const pathLabel = (uri: URI) => this._labelService.getUriLabel(uri, { relative: true });
 				await this._commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, getPositAssistantChatOptions(action, context, options, pathLabel));
 			},
-		}));
-
-		this._updateReady();
-		this._register(this._extensionService.onDidChangeExtensions(() => this._updateReady()));
-		this._register(this._contextKeyService.onDidChangeContext(e => {
-			if (e.affectsSome(this._hasChatModelsKeys)) {
-				this._updateReady();
-			}
-		}));
-	}
-
-	/** Tell the service whether Posit Assistant can take errors. */
-	private _updateReady(): void {
-		const installed = this._extensionService.extensions.some(extension =>
-			ExtensionIdentifier.equals(extension.identifier, POSIT_ASSISTANT_EXTENSION_ID));
-		// Set by the Posit Assistant extension when it has at least one usable
-		// model (a configured cloud provider, a local provider, or a vscode.lm
-		// model such as Copilot).
-		const hasChatModels = this._contextKeyService.getContextKeyValue<boolean>(POSIT_HAS_CHAT_MODELS_KEY) === true;
-		this._errorActionHandlerService.setDefaultAssistantReady(installed && hasChatModels);
+		});
 	}
 }
 

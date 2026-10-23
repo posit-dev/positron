@@ -120,12 +120,13 @@ export interface IErrorActionHandlerService {
 
 	/**
 	 * The handler errors are sent to: the one the `ai.errorActions.agent` setting
-	 * names, while `ai.enabled` is true. Never another one. The default
-	 * handler, currently Posit Assistant, is active only while it's ready (see
-	 * {@link setDefaultAssistantReady}). Any other chosen handler is active even
-	 * while it isn't registered, named by its id, so its buttons show and a
-	 * click says it isn't available. Undefined while there is nowhere to send
-	 * errors.
+	 * names, while `ai.enabled` is true. Never another one. Everyone gets the
+	 * default handler, currently Posit Assistant, without choosing it, so it's
+	 * active only while it's registered, and it registers only while it can take
+	 * errors. Any other chosen handler is active even while it isn't
+	 * registered, named by its id, so its buttons show and a click says it isn't
+	 * available, since choosing one is the opt-in. Undefined while there is
+	 * nowhere to send errors.
 	 */
 	readonly activeHandler: IErrorActionHandlerInfo | undefined;
 
@@ -138,14 +139,6 @@ export interface IErrorActionHandlerService {
 	 * @returns A disposable that unregisters the handler.
 	 */
 	register(handler: IErrorActionHandler): IDisposable;
-
-	/**
-	 * Set whether the default handler is ready to take errors. Everyone gets
-	 * the default without choosing it, so while it's chosen and not ready, its
-	 * Fix and Explain buttons hide and errors aren't sent to it; other
-	 * handlers' always show, since choosing one is the opt-in.
-	 */
-	setDefaultAssistantReady(ready: boolean): void;
 
 	/**
 	 * Ask a handler to take an action on an error. Does nothing while

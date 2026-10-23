@@ -36,8 +36,8 @@ export function registerTestErrorActionHandler(ctx: IErrorActionTestContainer, o
 }
 
 /**
- * Choose the default handler, which is never ready in tests, so that errors have
- * nowhere to go.
+ * Choose the default handler, which is never registered in tests, so that
+ * errors have nowhere to go.
  */
 export function chooseHiddenErrorActionHandler(ctx: IErrorActionTestContainer): void {
 	(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ERROR_ACTIONS_AGENT_KEY, DEFAULT_ERROR_ACTION_HANDLER_ID);
