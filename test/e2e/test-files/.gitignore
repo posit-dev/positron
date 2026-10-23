@@ -15,3 +15,7 @@ __pycache__/
 # CI sets PIP_CACHE_DIR to a relative .pip-cache, so every `pip install` a spec
 # runs in the console lands one here instead of in the runner's cache dir.
 .pip-cache/
+
+# Workspaces the Create Environment palette tests build their environments in.
+create-env-venv-test/
+create-env-conda-test/
