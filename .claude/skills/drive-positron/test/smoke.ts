@@ -89,8 +89,9 @@ const cases: Case[] = [
 	{ name: 'palette-run dry run', quick: true, run: ['palette-run.sh', '--dry-run', 'Interpreter: Start New Console Session'], check: o => o.json?.chosen !== 'Interpreter: Start New Console Session' && 'wrong row chosen' },
 	{ name: 'palette-run unknown command', run: ['palette-run.sh', 'Smoke: No Such Command'], fail: true },
 	{ name: 'palette-run misspelled flag is a usage error', run: ['palette-run.sh', '--dryrun', 'Smoke: No Such Command'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, 'unknown flag --dryrun') },
-	// One session (the workspace's Python) and no console tabs: --name must still match it.
-	{ name: 'console-read the only session', quick: true, run: ['console-read.sh', '--prompt'], check: o => (!/\(python-[0-9a-f]+\)/.test(o.stderr) && `no python session id in ${o.stderr}`) || void (found.first = o.stderr.match(/\(python-([0-9a-f]+)\)/)![1]) },
+	// One Python session (the workspace's .venv) and no console tabs: --name must still match it. The workspace's
+	// analysis.R starts R beside it, and the first recommendation (R, or Python) is the active one, so name the language.
+	{ name: 'console-read the only session', quick: true, run: ['console-read.sh', '--language', 'python', '--prompt'], check: o => (!/\(python-[0-9a-f]+\)/.test(o.stderr) && `no python session id in ${o.stderr}`) || void (found.first = o.stderr.match(/\(python-([0-9a-f]+)\)/)![1]) },
 	{ name: 'console-run only session, wrong --name', run: ['console-run.sh', '--language', 'python', '--name', 'no-such-session', 'x'], fail: true },
 	{ name: 'console-run only session, bare id --name', quick: true, run: () => ['console-run.sh', '--language', 'python', '--name', found.first, '--capture', 'print("only", 6 * 7)'], check: o => includes(o.json!.output, 'only 42') },
 	// The workspace's .R files may have started R already: either way one R session, with its id. --name is the picker's first R, since an image can have several.
@@ -111,6 +112,7 @@ const cases: Case[] = [
 	// Switching the active console without running code: by language, name or id, never two.
 	{ name: 'panel console python (two match)', run: ['panel.sh', 'console', 'python'], fail: true, check: o => includes(o.json!.error, '2 consoles match') || logged('panel.sh -s=net1: FAILED console python: 2 consoles match') },
 	{ name: 'panel console r', quick: true, run: ['panel.sh', 'console', 'r'], check: o => (o.json!.id !== found.r && `id ${o.json!.id}`) || (!o.json!.already && !o.json!.was && 'neither already nor was') },
+	{ name: 'console-read with no flags reads the active console', run: ['console-read.sh', '--prompt'], check: o => includes(o.stderr, `(${found.r})`) },
 	{ name: 'panel console by bare id', run: () => ['panel.sh', 'console', found.first], check: o => (o.json!.id !== `python-${found.first}` && `id ${o.json!.id}`) || logged(`panel.sh -s=net1: console ${found.first} -> active`) },
 	{ name: 'console-run r --capture', run: ['console-run.sh', '--language', 'r', '--capture', 'cat("smoke", 6 * 7, "\\n")'], check: o => keys(o.json, 'sessionId', 'switched', 'busy', 'echoed', 'output') || includes(o.json!.output, 'smoke 42') },
 	{ name: 'console-run python --capture (stdin)', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture'], stdin: 'print("smoke", 6 * 7)\n', check: o => o.json!.sessionId !== found.py ? 'ran in another session' : includes(o.json!.output, 'smoke 42') },
@@ -261,6 +263,10 @@ const cases: Case[] = [
 	{ name: 'console-run python matplotlib plot 2', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'plt.figure(); plt.plot([3, 1], color="red"); plt.show()'] },
 	{ name: 'plots open editor through the split button whose halves share one name', wait: 1500, run: ['plots.sh', 'open', 'editor'], check: o => includes(o.json!.opened, 'editor tab "matplotlib') },
 	{ name: 'palette-run Close All Editors (matplotlib plot tab)', run: ['palette-run.sh', 'View: Close All Editors'], check: o => o.json!.closed !== true && 'the palette did not close' },
+	// View: Open View lists Viewer twice, both below the rows the list draws: pick reads every row, and scrolls to the one it takes.
+	{ name: 'palette-run View: Open View', run: ['palette-run.sh', 'View: Open View'] },
+	{ name: 'ui pick counts the rows below the screen that share a label', run: ['ui.sh', 'pick', 'Viewer'], fail: true, check: o => includes(o.json!.error, '2 rows match "Viewer"') },
+	{ name: 'ui pick --nth 2 takes a row below the screen', run: ['ui.sh', 'pick', 'Viewer', '--nth', '2'], check: o => (o.json!.chose !== 'Viewer' && `chose ${o.json!.chose}`) || (!o.json!.closed && 'the quick pick stayed open') },
 	{ name: 'console-run r html to Viewer', quick: true, run: ['console-run.sh', '--language', 'r', 'print(htmltools::browsable(htmltools::tags$button("smoke-viewer-button")))'] },
 	{ name: 'viewer wait-content', quick: true, run: ['viewer.sh', 'wait-content', '20'], check: o => includes(o.json!.shown, 'smoke-viewer-button') },
 	{ name: 'view-read Viewer', quick: true, run: ['view-read.sh', '--view', 'Viewer'], check: o => includes(o.text, 'button "smoke-viewer-button"') },

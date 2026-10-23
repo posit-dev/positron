@@ -262,7 +262,7 @@ const typeText: PageFn<{ scope: string; text: string; enter: boolean }> = async 
 // runs in run-code
 const pickRow: PageFn<{ text: string; nth: number }> = async (page, a, lib) => {
 	if (!await lib.quickOpen()) { return { ok: false, error: 'no quick pick is open' }; }
-	const p = await lib.pick({ exact: a.text, nth: a.nth });
+	const p = await lib.pick({ exact: a.text, nth: a.nth, walk: true });
 	if (!p.ok) {
 		// Rows that share a label: the row as "shown" writes it tells them apart, unless they look the same.
 		const shown = (p as { shown?: string[] }).shown ?? [];

@@ -224,28 +224,32 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * drawn at each step, until focus comes round to where it started (or stops
 		 * at the end, in a list that does not loop, and is put back). It presses no
 		 * key unless focus is in the quick input; then, or after max steps, it
-		 * returns what it read with complete false.
+		 * returns what it read with complete false. With stopAt, it stops at the
+		 * first step where a drawn row passes stopAt and leaves focus there, so
+		 * that row stays drawn for a click (found true).
 		 */
-		allRows: async (max = 100) => {
+		allRows: async (max = 100, stopAt?: (r: { index: number; label: string; description: string }) => boolean) => {
 			const seen = new Map<number, Awaited<ReturnType<typeof lib.rows>>[number]>();
-			const read = async () => { for (const r of await lib.rows()) { seen.set(r.index, r); } };
+			// Whether a row stopAt wants is drawn now.
+			const read = async () => { const rs = await lib.rows(); for (const r of rs) { seen.set(r.index, r); } return !!stopAt && rs.some(stopAt); };
 			// The focused row's index once the list has drawn: -1 for none, null when focus is outside the quick input.
 			const at = () => page.evaluate(({ q, list }) => new Promise<number | null>(done => requestAnimationFrame(() => requestAnimationFrame(() => {
 				const w = [...document.querySelectorAll<HTMLElement>(q.widget)].find(x => x.offsetParent !== null);
 				const f = w?.contains(document.activeElement) ? w.querySelector(list.focusedRow) : undefined;
 				done(f === undefined ? null : f ? Number(f.getAttribute(list.indexAttr)) : -1);
 			}))), { q: s.quickInput, list: s.list });
-			await read();
+			const done = (complete: boolean, found = false) => ({ rows: [...seen.values()].sort((x, y) => x.index - y.index), complete, found });
+			if (await read()) { return done(false, true); }
 			let start = await at();
 			// Nothing focused yet: the first ArrowDown focuses the first row.
-			if (start === -1) { await page.keyboard.press('ArrowDown'); start = await at(); await read(); }
+			if (start === -1) { await page.keyboard.press('ArrowDown'); start = await at(); if (await read()) { return done(false, true); } }
 			let complete = false;
 			if (start !== null && start >= 0) {
 				let prev = start;
 				for (let i = 0; i < max; i++) {
 					await page.keyboard.press('ArrowDown');
 					const now = await at();
-					await read();
+					if (await read()) { return done(false, true); }
 					if (now === null || now < 0) { break; }
 					if (now === start || now === prev) { complete = true; break; }
 					prev = now;
@@ -257,7 +261,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 					await page.keyboard.press('ArrowUp');
 				}
 			}
-			return { rows: [...seen.values()].sort((x, y) => x.index - y.index), complete };
+			return done(complete);
 		},
 		/**
 		 * Whether a row holds all these words, each a whole word ("R" is not the r
@@ -274,9 +278,12 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * the row as "shown" writes it, "label (description)", so a row copied from
 		 * an error picks it when several rows share the label. nth (1 = first, in
 		 * list order) takes one of several matches. On failure, "shown" holds up
-		 * to 8 rows and "more" says how many it left out.
+		 * to 8 rows and "more" says how many it left out. It reads the rows drawn,
+		 * the ones near the list's scroll position; with walk, when they do not
+		 * hold the match, it reads every row (lib.allRows) and scrolls the one it
+		 * picks into view, for clickRow.
 		 */
-		pick: async (m: { exact?: string; words?: string; folder?: string; preferRoot?: boolean; nth?: number }) => {
+		pick: async (m: { exact?: string; words?: string; folder?: string; preferRoot?: boolean; nth?: number; walk?: boolean }) => {
 			const words = lib.hasWords(m.words ?? '');
 			const shownAs = (r: { label: string; description: string }) => r.label + (r.description ? ' (' + r.description + ')' : '');
 			// A folder is the whole description, or its end ("rapp" in "apps/rapp").
@@ -293,21 +300,33 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				prev = now;
 				await lib.sleep(150);
 			}
-			let found = all.filter(r => (m.exact !== undefined ? r.label === m.exact : words(r)) && inFolder(r));
-			// No label is the text: it may be a row as "shown" writes it, with its description.
-			if (!found.length && m.exact !== undefined) { found = all.filter(r => shownAs(r) === m.exact && inFolder(r)); }
-			found.sort((x, y) => x.index - y.index);
+			const match = (rs: typeof all) => {
+				let f = rs.filter(r => (m.exact !== undefined ? r.label === m.exact : words(r)) && inFolder(r));
+				// No label is the text: it may be a row as "shown" writes it, with its description.
+				if (!f.length && m.exact !== undefined) { f = rs.filter(r => shownAs(r) === m.exact && inFolder(r)); }
+				return f.sort((x, y) => x.index - y.index);
+			};
+			let found = match(all);
+			// The match may be among the rows the list has not drawn: read them all.
+			const walked = m.walk && found.length < Math.max(1, m.nth ?? 0) ? await lib.allRows() : undefined;
+			if (walked) { all = walked.rows; found = match(all); }
 			// A bare file name means the one at the workspace root, which has no folder beside it.
 			if (found.length > 1 && m.preferRoot && found.filter(r => !r.description).length === 1) { found = found.filter(r => !r.description); }
 			const show = (rs: typeof all) => ({ shown: rs.slice(0, 8).map(shownAs), ...(rs.length > 8 ? { more: `${rs.length - 8} more rows not shown` } : {}) });
 			const want = m.exact ?? m.words;
-			if (found.length === 0) { return { ok: false as const, error: `no row matches "${want}"`, ...show(all) }; }
+			// A walk that stopped short (focus was not in the quick input, or over 100 rows) read only part of the list.
+			const part = walked && !walked.complete ? ` in the ${all.length} rows read; the list has more, which could not be read: filter it with ui.sh type TEXT --in quickpick, then pick` : '';
+			if (found.length === 0) { return { ok: false as const, error: `no row matches "${want}"${part}`, ...show(all) }; }
 			if (m.nth && m.nth > found.length) { return { ok: false as const, error: `${found.length} row${found.length === 1 ? '' : 's'} match "${want}", so there is no row ${m.nth}`, ...show(found) }; }
 			// More words narrow a words match; an exact one is the caller's to say how to narrow.
 			if (found.length > 1 && !m.nth) { return { ok: false as const, error: `${found.length} rows match "${want}"${m.exact === undefined ? '; be more specific' : ''}`, ...show(found) }; }
 			const row = found[(m.nth || 1) - 1];
 			// Which of the rows that look the same as it (label and description) it is, for clickRow.
-			return { ok: true as const, row: { ...row, occurrence: found.slice(0, (m.nth || 1) - 1).filter(r => shownAs(r) === shownAs(row)).length } };
+			if (!walked) { return { ok: true as const, row: { ...row, occurrence: found.slice(0, (m.nth || 1) - 1).filter(r => shownAs(r) === shownAs(row)).length } }; }
+			// A row read by the walk may be out of view: move focus down to it, so the list draws it.
+			if (!(await lib.allRows(100, r => r.index === row.index)).found) { return { ok: false as const, error: `the row "${shownAs(row)}" is in the list but could not be scrolled into view; filter it with ui.sh type TEXT --in quickpick, then pick` }; }
+			// clickRow counts the drawn rows only.
+			return { ok: true as const, row: { ...row, occurrence: (await lib.rows()).filter(r => r.index < row.index && shownAs(r) === shownAs(row)).length } };
 		},
 		/**
 		 * A real click, which runs it, on the row with this label (and description),
