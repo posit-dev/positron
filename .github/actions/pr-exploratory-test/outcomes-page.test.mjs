@@ -58,14 +58,13 @@ test('the headline counts findings fixed before merging out of those with a know
 	assert.match(text(render([row('pending')])), /No PRs with findings have merged yet\./);
 });
 
-test('the top row gives the date range, with the year once, and the footer gives triggers only when mixed', () => {
+test('the top row gives the date range, with the year once, and the footer gives only the update time', () => {
 	const one = render([row('fixed-in-pr', { postedAt: '2026-08-18T10:00:00Z' }), row('pending', { postedAt: '2026-10-13T08:00:00Z' })]);
 	assert.match(text(one.match(/<button type="button" class="range-btn"[\s\S]*?<\/button>/)[0]), /^ Aug 18 - Oct 13, 2026 $/);
 	assert.match(one, /<time datetime="2026-08-18">Aug 18<\/time>/);
 	const mixed = text(render([row('fixed-in-pr', { postedAt: '2025-12-20T10:00:00Z' }), row('pending', { trigger: 'auto', postedAt: '2026-01-05T08:00:00Z' })]));
 	assert.match(mixed, /\/explore Shipping impact Triage outcomes Dec 20, 2025 - Jan 5, 2026 Does/);
-	assert.match(mixed, /Updated Oct 14, 12:00 PM ~ 1 started by \/explore ~ 1 started automatically $/);
-	assert.match(one, /<span class="triggers"><\/span><\/footer>/);
+	assert.match(mixed, /Updated Oct 14, 12:00 PM $/);
 });
 
 test('the header ends with the headline: no summary cards', () => {
@@ -188,17 +187,28 @@ test('the last row of each list drops its hairline, so the divider under it is t
 	assert.match(render(today), /\.rows>:last-child\{border-bottom:0\}/);
 });
 
-test('By PR and Evidence start collapsed behind a heading button, PRs with the most findings first and the newest on ties', () => {
-	const html = render([row('fixed-in-pr', { pr: 5 }), row('pending', { pr: 7 }), row('not-fixed', { pr: 7, finding: 2 }), row('not-fixed', { pr: 9 })]);
+test('By PR and Evidence start collapsed behind a heading button, the PR run most recently first and the newest PR on ties', () => {
+	const at = postedAt => ({ postedAt });
+	const html = render([row('fixed-in-pr', { pr: 5, ...at('2026-10-12T00:00:00Z') }), row('pending', { pr: 7, ...at('2026-10-01T00:00:00Z') }), row('not-fixed', { pr: 7, finding: 2, ...at('2026-10-02T00:00:00Z') }), row('not-fixed', { pr: 9, ...at('2026-10-02T00:00:00Z') })]);
 	assert.match(html, /<h2 id="pr-h"><button type="button" class="acc" aria-expanded="false" aria-controls="pr-body">/);
 	assert.match(html, /<div class="acc-body" id="pr-body" hidden>/);
 	assert.match(html, /aria-controls="ev-body">/);
 	assert.match(html, /id="ev-body" hidden>/);
 	const by = section(html, 'pr-h');
 	assert.match(text(by), /By PR 3 PRs ~ 1 with fixes/);
-	assert.match(text(by), /#7 2 findings 1 1 #9 1 finding 1 #5 1 finding 1/);
+	assert.match(text(by), /#5 1 finding 1 #9 1 finding 1 #7 2 findings 1 1/);
 	assert.doesNotMatch(by, /class="end/);
 	assert.match(text(section(html, 'ev-h')), /> Evidence 4 findings All 4/);
+});
+
+test('a dropped change is its own group, left out of the % fixed', () => {
+	const html = render([row('fixed-in-pr'), row('not-fixed'), row('dropped'), row('pending')]);
+	assert.match(text(section(html, 'all-h')), /Findings by outcome Outcome known 2 Not counted 2/);
+	assert.match(text(section(html, 'ev-h')), /All 4 Fixed 1 Not fixed 1 Change dropped 1 No outcome yet 1 Expand all/);
+	assert.match(html, /<div class="group" data-group="dropped">/);
+	assert.match(html, /\.o-dropped\{/);
+	const bar = html.match(/<div class="bar big">([\s\S]*?)<\/div>/)[1];
+	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'not-fixed', 'dropped', 'pending']);
 });
 
 test('the evidence filters leave out empty groups, and findings are grouped in palette order', () => {
@@ -284,7 +294,7 @@ test('the top row has only the page switch and the date range; the footer has th
 	const top = html.slice(html.indexOf('<div class="top">')).split('<div class="head">')[0];
 	assert.match(top, /^<div class="top"><nav class="switch" aria-label="Report"><span class="cmd">\/explore<\/span><span class="pages"><a aria-current="page" href="https:\/\/connect\.posit\.it\/explore-outcomes\/">Shipping impact<\/a><a class="switch-link" href="https:\/\/connect\.posit\.it\/explore-triage\/">Triage outcomes<\/a><\/span><\/nav><span class="range">/);
 	assert.doesNotMatch(top, /Updated|started/);
-	assert.match(html, /<footer>Updated <a class="quiet" href="https:\/\/github\.com\/o\/r\/actions\/runs\/42" title="Open the workflow run that built this report"><time datetime="2026-10-14T12:00:00\.000Z">Oct 14, 12:00 PM<\/time><\/a><span class="triggers"><\/span><\/footer>\s*<\/div><\/main>/);
+	assert.match(html, /<footer>Updated <a class="quiet" href="https:\/\/github\.com\/o\/r\/actions\/runs\/42" title="Open the workflow run that built this report"><time datetime="2026-10-14T12:00:00\.000Z">Oct 14, 12:00 PM<\/time><\/a><\/footer>\s*<\/div><\/main>/);
 	assert.match(renderOutcomesPage([], { now: new Date('2026-10-14T09:05:00Z') }), />Updated <a [^>]*><time datetime="2026-10-14T09:05:00\.000Z">Oct 14, 9:05 AM<\/time>/);
 	assert.match(renderOutcomesPage([], { now: new Date('2026-10-15T00:30:00Z') }), />Oct 15, 12:30 AM<\/time>/);
 	assert.match(html, /\.range\{position:relative;margin-left:auto\}/);

@@ -102,9 +102,9 @@ export function clock(d) {
 	return `<time datetime="${d.toISOString()}">${day(d.toISOString(), false)}, ${h % 12 || 12}:${String(d.getUTCMinutes()).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}</time>`;
 }
 
-/** The quiet line under the last section: when the page was built, linked to the run; `extra` follows it. */
-export function footer(now, run, extra = '') {
-	return `<footer>Updated <a class="quiet" href="${run}" title="Open the workflow run that built this report">${clock(now)}</a>${extra}</footer>`;
+/** The quiet line under the last section: when the page was built, linked to the run. */
+export function footer(now, run) {
+	return `<footer>Updated <a class="quiet" href="${run}" title="Open the workflow run that built this report">${clock(now)}</a></footer>`;
 }
 
 export const FONTS = '<link rel="preconnect" href="https://fonts.googleapis.com">\n'

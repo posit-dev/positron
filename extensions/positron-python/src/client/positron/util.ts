@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { traceInfo, traceVerbose, traceWarn } from '../logging';
+import { traceInfo, traceWarn } from '../logging';
 import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { PythonEnvironment } from '../pythonEnvironments/info';
@@ -54,19 +54,6 @@ export function getActiveInterpreterConfigTarget(workspaceService: IWorkspaceSer
     return { configTarget: vscode.ConfigurationTarget.WorkspaceFolder, folderUri: workspaceFolders[0].uri };
 }
 
-// Check if the current workspace contains files matching any of the passed glob ptaterns
-export async function hasFiles(includes: string[]): Promise<boolean> {
-    // Create a single glob pattern e.g. ['a', 'b'] => '{a,b}'
-    const include = `{${includes.join(',')}}`;
-    traceVerbose(`Searching for _files_ with pattern: ${include}`);
-
-    // Exclude node_modules for performance reasons
-    const files = await vscode.workspace.findFiles(include, '**/node_modules/**', 1);
-    traceVerbose(`Found _files_: ${files.map((file) => file.fsPath)}`);
-
-    return files.length > 0;
-}
-
 /** Time budget for a single PET interpreter resolve request. */
 export const RESOLVE_TIMEOUT_MS = 15_000;
 
@@ -97,7 +84,7 @@ async function raceWithTimeout<T>(promise: Promise<T>, ms: number, onTimeout: ()
 }
 
 /** A single bounded resolve attempt; errors and timeouts count as unresolved. */
-async function resolveInterpreterOnce(
+export async function resolveInterpreterOnce(
     interpreterService: IInterpreterService,
     pythonPath: string,
     resource?: vscode.Uri,

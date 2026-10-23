@@ -37,7 +37,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionServic
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { ExtHostLanguageRuntimeShape, RuntimeSessionCapabilities } from '../../../common/positron/extHost.positron.protocol.js';
-import { buildRuntimeOpenEventResource, ExtHostLanguageRuntimeSessionAdapter, MainThreadLanguageRuntime } from '../../../browser/positron/mainThreadLanguageRuntime.js';
+import { buildRuntimeOpenEventResource, ExtHostLanguageRuntimeSessionAdapter, MainThreadLanguageRuntime, openRuntimeResourceWithSystem } from '../../../browser/positron/mainThreadLanguageRuntime.js';
 
 /**
  * `pathService.fileURI()` is stubbed so these tests run on any host OS;
@@ -99,6 +99,64 @@ describe('buildRuntimeOpenEventResource', () => {
 			remoteAuthority: 'localhost:8080',
 		});
 		expect(uri.toString()).toBe('vscode-remote://localhost:8080/home/jenny/foo.R');
+	});
+});
+
+describe('openRuntimeResourceWithSystem', () => {
+	function createServices(opts: { fileURIResult: URI; defaultUriScheme: string; remoteAuthority: string | undefined; proxyUrl?: string }) {
+		const open = vi.fn().mockResolvedValue(true);
+		const executeCommand = vi.fn().mockResolvedValue(opts.proxyUrl);
+		return {
+			open,
+			executeCommand,
+			commandService: stubInterface<ICommandService>({ executeCommand }),
+			openerService: stubInterface<IOpenerService>({ open }),
+			pathService: stubInterface<IPathService>({
+				fileURI: vi.fn().mockResolvedValue(opts.fileURIResult),
+				defaultUriScheme: opts.defaultUriScheme,
+			}),
+			environmentService: stubInterface<IWorkbenchEnvironmentService>({ remoteAuthority: opts.remoteAuthority }),
+		};
+	}
+
+	it('desktop: opens the file URI externally so the OS default application handles it', async () => {
+		const s = createServices({
+			fileURIResult: URI.from({ scheme: 'file', authority: '', path: '/Users/jenny/report.html' }),
+			defaultUriScheme: 'file',
+			remoteAuthority: undefined,
+		});
+
+		await openRuntimeResourceWithSystem('/Users/jenny/report.html', s.commandService, s.openerService, s.pathService, s.environmentService, false);
+
+		expect(s.executeCommand).not.toHaveBeenCalled();
+		expect(s.open).toHaveBeenCalledWith(URI.parse('file:///Users/jenny/report.html'), { openExternal: true });
+	});
+
+	it('#10893 - web: serves the file through the HTML proxy and opens that URL externally', async () => {
+		const s = createServices({
+			fileURIResult: URI.from({ scheme: 'file', authority: '', path: '/home/jenny/report.html' }),
+			defaultUriScheme: 'vscode-remote',
+			remoteAuthority: 'localhost:8080',
+			proxyUrl: 'http://localhost:43210/ab12cd34/report.html',
+		});
+
+		await openRuntimeResourceWithSystem('/home/jenny/report.html', s.commandService, s.openerService, s.pathService, s.environmentService, true);
+
+		expect(s.executeCommand).toHaveBeenCalledWith('positronProxy.startHtmlProxyServer', '/home/jenny/report.html');
+		expect(s.open).toHaveBeenCalledWith(URI.parse('http://localhost:43210/ab12cd34/report.html'), { openExternal: true });
+	});
+
+	it('web: rejects when the proxy server could not be started', async () => {
+		const s = createServices({
+			fileURIResult: URI.from({ scheme: 'file', authority: '', path: '/home/jenny/missing.html' }),
+			defaultUriScheme: 'vscode-remote',
+			remoteAuthority: 'localhost:8080',
+			proxyUrl: undefined,
+		});
+
+		await expect(openRuntimeResourceWithSystem('/home/jenny/missing.html', s.commandService, s.openerService, s.pathService, s.environmentService, true))
+			.rejects.toThrow('Failed to start HTML proxy server');
+		expect(s.open).not.toHaveBeenCalled();
 	});
 });
 

@@ -47,10 +47,13 @@ export function searchTerms(title) {
  * One question for the model: does this diff or issue address the finding? `whole` marks a diff of the whole PR,
  * not only the finding's files; `before` is the PR's own change as tested, when a force-push lost the commits since.
  */
-export function buildCheckPrompt({ finding, kind, text, messages, whole, before }) {
+export function buildCheckPrompt({ finding, kind, text, messages, whole, before, files, unchanged }) {
 	const what = kind === 'diff'
 		? [
 			whole ? 'This is the whole change, not only the files the finding names; most of it may be about other things.' : '',
+			files?.length ? `The diff covers ${files.join(', ')}.` : '',
+			unchanged?.length ? `The finding also names ${unchanged.join(', ')}, which did not change, so ${unchanged.length > 1 ? 'they are' : 'it is'} not in the diff.` : '',
+			isCut({ text, before }) ? 'The diff was cut where its last line says so. Judge from the part shown; answer unclear only if the fix could be in the part that was cut.' : '',
 			before ? 'The PR was force-pushed after the test. <before> is its own change as tested, <diff> its own change as merged. Count it a fix only if what changed between them addresses the behavior.' : '',
 			'Does this diff fix the problem the finding describes? Count it only if the change addresses this behavior, not if it merely touches the same file.',
 			'A change that means the problem can no longer be reached counts as a fix.',
@@ -112,15 +115,24 @@ export function candidateIssues({ found, timeline, postedAt, repo }) {
 	}).map(i => ({ ...i, mentionsPr: mentions.has(i.number) }));
 }
 
-/** One finding's outcome from its checks. `Check` is `{ answer, reason, source }`. */
-export function decideOutcome({ prState, hasPaths, prCheck, laterChecks }) {
+/** The finding's files the tested change touched that the merged PR no longer changes, or none if the PR still changes any of them. */
+export function droppedPaths({ paths, tested, merged }) {
+	return paths.some(p => merged.includes(p)) ? [] : paths.filter(p => tested.includes(p));
+}
+
+/**
+ * One finding's outcome from its checks. `Check` is `{ answer, reason, source, cut? }`; a fix read from a cut diff keeps `cut`.
+ * `dropped` is `droppedPaths` for a merged PR: the change the finding was about didn't ship.
+ */
+export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped = [] }) {
+	const cutOf = c => c.cut ? { cut: true } : {};
 	if (prCheck?.answer === 'yes') {
-		return { outcome: 'fixed-in-pr', decidedBy: 'diff+model', evidence: evidenceOf(prCheck) };
+		return { outcome: 'fixed-in-pr', decidedBy: 'diff+model', evidence: evidenceOf(prCheck), ...cutOf(prCheck) };
 	}
 	const yesLater = laterChecks.filter(c => c.answer === 'yes');
 	const onMain = yesLater.find(c => !c.source.startsWith('issue'));
 	if (onMain) {
-		return { outcome: 'fixed-later', decidedBy: 'diff+model', evidence: evidenceOf(onMain) };
+		return { outcome: 'fixed-later', decidedBy: 'diff+model', evidence: evidenceOf(onMain), ...cutOf(onMain) };
 	}
 	const done = yesLater.find(c => c.issue?.state === 'closed as completed');
 	if (done) {
@@ -132,6 +144,9 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks }) {
 	const filed = yesLater[0];
 	if (filed) {
 		return { outcome: 'filed-issue', decidedBy: 'issue+model', evidence: evidenceOf(filed), ...(filed.issue ? { issue: filed.issue } : {}) };
+	}
+	if (dropped.length) {
+		return { outcome: 'dropped', decidedBy: 'change-dropped', evidence: `the merged PR no longer changes ${dropped.map(p => `\`${p}\``).join(', ')}` };
 	}
 	if (!hasPaths) {
 		return { outcome: 'no-paths', decidedBy: 'none', evidence: 'the cause names no file' };
@@ -147,14 +162,14 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks }) {
 // Not fixed isn't final: a later fix or a matching issue still moves it to fixed later.
 const SETTLED = new Set(['fixed-in-pr', 'fixed-later']);
 
-/** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. */
+/** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. A fix read from a cut diff is checked again. */
 export function settledRows(rows) {
-	return new Map(rows.filter(r => SETTLED.has(r.outcome)).map(({ dupOf, dupMaybe, ...r }) => [`${r.run}#${r.finding}`, r]));
+	return new Map(rows.filter(r => SETTLED.has(r.outcome) && !r.cut).map(({ dupOf, dupMaybe, ...r }) => [`${r.run}#${r.finding}`, r]));
 }
 
-/** A previous run's "no" from asking whether a merged PR fixed the finding, by `run#finding`; a merged PR's diff can't change. */
+/** A previous run's "no" from asking whether a merged PR fixed the finding, by `run#finding`; a merged PR's diff can't change. One read from a cut diff is asked again. */
 export function savedPrChecks(rows) {
-	return new Map(rows.filter(r => r.prCheck?.answer === 'no').map(r => [`${r.run}#${r.finding}`, r.prCheck]));
+	return new Map(rows.filter(r => r.prCheck?.answer === 'no' && !r.prCheck.cut).map(r => [`${r.run}#${r.finding}`, r.prCheck]));
 }
 
 const words = t => String(t ?? '').toLowerCase().replace(/[`*_]/g, '').match(/[a-z0-9]+/g) ?? [];
@@ -273,6 +288,18 @@ export function pickPrCheck(named, whole) {
 /** `diff` cut to `max` characters, with a note when it was cut. */
 export function capDiff(diff, max) {
 	return diff.length <= max ? diff : `${diff.slice(0, max)}\n[diff cut at ${max} of ${diff.length} characters]`;
+}
+const CUT = /\n\[diff cut at \d+ of \d+ characters\]$/;
+
+/** Whether a check's diff, or its `before`, was cut by `capDiff`. */
+export function isCut({ text, before }) {
+	return [text, before].some(t => CUT.test(t ?? ''));
+}
+
+/** A diff of the finding's `paths` for the prompt: cut to `max`, with the files it covers and the named ones it leaves out, read before the cut. */
+export function diffEvidence(diff, paths, max) {
+	const files = [...new Set([...diff.matchAll(/^diff --git a\/.* b\/(.*)$/gm)].map(m => m[1]))];
+	return { kind: 'diff', text: capDiff(diff, max), files, unchanged: paths.filter(p => !files.includes(p)) };
 }
 
 // Lines that are only a reference, like "Fixes #123" or "- Related to https://...".
