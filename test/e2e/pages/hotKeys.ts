@@ -6,6 +6,7 @@
 import test, { expect } from '@playwright/test';
 import { Code } from '../infra/code.js';
 import { STARTUP_MESSAGING_SELECTOR, STARTUP_MESSAGING_TIMEOUT } from './utils/startupMessaging.js';
+import { QuickInput } from './quickInput.js';
 
 /**
  * How long a single post-reload probe may wait before it is abandoned and retried.
@@ -156,7 +157,16 @@ export class HotKeys {
 	 * cross-browser e2e tests.
 	 */
 	public async openCommandPalette() {
-		await this.pressHotKeys('Cmd+J E', 'Open Command Palette');
+		// Focus can be stolen right after a reload and drop the chord; retry until the palette shows
+		await expect(async () => {
+			await this.pressHotKeys('Cmd+J E', 'Open Command Palette');
+			try {
+				await expect(this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT)).toBeVisible({ timeout: 3000 });
+			} catch (e) {
+				await this.code.driver.currentPage.keyboard.press('Escape');
+				throw e;
+			}
+		}).toPass({ timeout: 15000, intervals: [1000] });
 	}
 
 	// -------------------------
