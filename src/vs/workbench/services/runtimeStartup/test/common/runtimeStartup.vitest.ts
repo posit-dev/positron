@@ -2742,6 +2742,120 @@ describe('RuntimeStartupService - startup sequence', () => {
 				]);
 			});
 
+			describe('asked once its own discovery finishes', () => {
+				/** Recommends the given runtime after discovery, and nothing on the first ask. */
+				function recommendAfterDiscovery(runtime: ILanguageRuntimeMetadata): IRuntimeManager['recommendWorkspaceRuntimes'] {
+					return async (_disabledLanguageIds, afterDiscovery) => afterDiscovery ?
+						[{ metadata: runtime, isProjectDefault: false }] : [];
+				}
+
+				const pythonUsedLast = { ...pythonLanguage, discovered: [python], affiliated: { metadata: python, lastUsed: 2, lastStarted: 1 } };
+
+				/** Waits for R's recommendation after discovery to arrive. */
+				async function waitForRRecommendation(service: RuntimeStartupService) {
+					await vi.waitFor(() => expect(service.getPreferredRuntime('r')?.runtimeId).toBe(pinnedR.runtimeId));
+				}
+
+				it('opening an R file while Python is still being discovered starts the pinned R', async () => {
+					let startedDuringSearch: IStartedRuntime[] = [];
+					const { started } = await runStartupSequence({
+						languages: [{ ...rLanguage, discovered: [oldR, pinnedR].map(startsWhenPicked) }, pythonUsedLast],
+						startupBehavior: { default: LanguageStartupBehavior.Auto },
+						manager: { recommendWorkspaceRuntimes: recommendAfterDiscovery(pinnedR) },
+						discover: async (service, started) => {
+							service.registerDiscoveredRuntime(startsWhenPicked(oldR));
+							service.registerDiscoveredRuntime(startsWhenPicked(pinnedR));
+							service.completeLanguageDiscovery(1, 'r');
+							await waitForRRecommendation(service);
+							ctx.get(ILanguageService).requestRichLanguageFeatures('r');
+							startedDuringSearch = [...started];
+							service.registerDiscoveredRuntime(python);
+							service.completeDiscovery(1);
+						},
+					});
+
+					const expected = [
+						{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime },
+						{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.LanguageFileOpened },
+					];
+					expect({ startedDuringSearch, started }).toEqual({ startedDuringSearch: expected, started: expected });
+				});
+
+				it('an R file that is already open starts the pinned R once R\'s discovery finishes', async () => {
+					let startedDuringSearch: IStartedRuntime[] = [];
+					const { started } = await runStartupSequence({
+						languages: [{ ...rLanguage, discovered: [oldR, pinnedR].map(startsWhenPicked) }, pythonUsedLast],
+						startupBehavior: { default: LanguageStartupBehavior.Auto },
+						manager: { recommendWorkspaceRuntimes: recommendAfterDiscovery(pinnedR) },
+						discover: async (service, started) => {
+							ctx.get(ILanguageService).requestRichLanguageFeatures('r');
+							service.registerDiscoveredRuntime(startsWhenPicked(oldR));
+							service.registerDiscoveredRuntime(startsWhenPicked(pinnedR));
+							service.completeLanguageDiscovery(1, 'r');
+							await vi.waitFor(() => expect(started).toHaveLength(2));
+							startedDuringSearch = [...started];
+							service.registerDiscoveredRuntime(python);
+							service.completeDiscovery(1);
+						},
+					});
+
+					const expected = [
+						{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime },
+						{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.LanguageFileOpenedAtRegistration },
+					];
+					expect({ startedDuringSearch, started }).toEqual({ startedDuringSearch: expected, started: expected });
+				});
+
+				it('a recommendation that starts right away still waits for every language\'s discovery', async () => {
+					// Until Python's search ends, an affiliated Python could still
+					// start as the search registers it, and must not lose its place.
+					const immediateR = { ...pinnedR, startupBehavior: LanguageRuntimeStartupBehavior.Immediate };
+					let startedDuringSearch: IStartedRuntime[] = [];
+					const { started } = await runStartupSequence({
+						languages: [{ ...rLanguage, discovered: [oldR, pinnedR].map(startsWhenPicked) }, { ...pythonLanguage, discovered: [python] }],
+						startupBehavior: { default: LanguageStartupBehavior.Auto },
+						manager: { recommendWorkspaceRuntimes: recommendAfterDiscovery(immediateR) },
+						discover: async (service, started) => {
+							service.registerDiscoveredRuntime(startsWhenPicked(oldR));
+							service.registerDiscoveredRuntime(startsWhenPicked(pinnedR));
+							service.completeLanguageDiscovery(1, 'r');
+							await waitForRRecommendation(service);
+							startedDuringSearch = [...started];
+							service.registerDiscoveredRuntime(python);
+							service.completeDiscovery(1);
+						},
+					});
+
+					expect({ startedDuringSearch, started }).toEqual({
+						startedDuringSearch: [],
+						started: [{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.ExtensionRecommendedRuntime }],
+					});
+				});
+
+				it('a language the cache covers is asked before the other languages finish discovery', async () => {
+					let startedDuringSearch: IStartedRuntime[] = [];
+					const { started } = await runStartupSequence({
+						languages: [rLanguage, pythonUsedLast],
+						startupBehavior: { default: LanguageStartupBehavior.Auto },
+						cached: [oldR, pinnedR].map(startsWhenPicked),
+						manager: { recommendWorkspaceRuntimes: recommendAfterDiscovery(pinnedR) },
+						discover: async (service, started) => {
+							await waitForRRecommendation(service);
+							ctx.get(ILanguageService).requestRichLanguageFeatures('r');
+							startedDuringSearch = [...started];
+							service.registerDiscoveredRuntime(python);
+							service.completeDiscovery(1);
+						},
+					});
+
+					const expected = [
+						{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime },
+						{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.LanguageFileOpened },
+					];
+					expect({ startedDuringSearch, started }).toEqual({ startedDuringSearch: expected, started: expected });
+				});
+			});
+
 			describe('with an affiliated R that step 2 skipped, and Python in front', () => {
 				// Python was used last; R wasn't used since it last started, so
 				// step 2 starts only Python. With Python's console in front, the
