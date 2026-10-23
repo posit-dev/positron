@@ -10,7 +10,7 @@ import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../../contrib/positron
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk, walkDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { closeDataConnectionHandle, DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter, IDataConnectionParameterValidation, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { closeDataConnectionHandle, DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionLineageRequest, IDataConnectionLineageResult, IDataConnectionMechanism, IDataConnectionParameter, IDataConnectionParameterValidation, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
@@ -500,6 +500,14 @@ class MainThreadDataConnectionHandleAdapter implements IDataConnectionHandle {
 	 */
 	async nodeGetDetails(nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO> {
 		return this._proxy.$nodeGetDetails(this.handle, nodeHandle);
+	}
+
+	/**
+	 * Reads an object's lineage from the extension-side connection, resolving to undefined when its
+	 * driver does not support lineage.
+	 */
+	async getLineage(request: IDataConnectionLineageRequest): Promise<IDataConnectionLineageResult | undefined> {
+		return this._proxy.$connectionGetLineage(this.handle, request);
 	}
 
 	/**

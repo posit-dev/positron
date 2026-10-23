@@ -19,7 +19,7 @@ import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, Environmen
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IGenerateAssistantPromptRequest } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionLineageDTO, IDataConnectionLineageRequestDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { IDataImporterMetadata, IDataImportRequestDto, IDataImportResult } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
@@ -410,6 +410,11 @@ export interface ExtHostDataConnectionsShape {
 	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
 	$connectionIsConnected(connectionHandle: number): Promise<boolean>;
+	/**
+	 * Reads an object's lineage from the connection. Resolves to undefined when the connection does
+	 * not implement getLineage.
+	 */
+	$connectionGetLineage(connectionHandle: number, request: IDataConnectionLineageRequestDTO): Promise<IDataConnectionLineageDTO | undefined>;
 	$nodeGetChildren(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$nodePreview(connectionHandle: number, nodeHandle: number): Promise<string | undefined>;
 	$nodeGetDetails(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO>;

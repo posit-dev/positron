@@ -27,11 +27,20 @@ function createExtHost(proxyMethods: Partial<MainThreadDataConnectionsShape>) {
  * DTOs, so a test can call back into a node by its handle.
  */
 async function connectWithNodes(nodes: positron.DataConnectionNode[]) {
+	const { extHost, connectionHandle } = await connectWith(stubInterface<positron.DataConnection>({ getChildren: async () => nodes }));
+	const dtos = await extHost.$connectionGetChildren(connectionHandle);
+	return { extHost, connectionHandle, dtos };
+}
+
+/**
+ * Registers a driver whose one connection is the given one, and connects it the way the main thread
+ * does. Returns the ext host and the connection's handle.
+ */
+async function connectWith(connection: positron.DataConnection) {
 	const extHost = createExtHost({
 		$registerDataConnectionDriver: () => { },
 		$removeDataConnectionDriver: () => { },
 	});
-	const connection = stubInterface<positron.DataConnection>({ getChildren: async () => nodes });
 	// A literal rather than a stub: registration probes the driver's optional members (e.g.
 	// onDidChange), which a minimal driver leaves unset.
 	const driver: positron.DataConnectionDriver = {
@@ -45,9 +54,100 @@ async function connectWithNodes(nodes: positron.DataConnectionNode[]) {
 	};
 	extHost.registerDriver(driver);
 	const connectionHandle = await extHost.$driverConnect('test-driver', 'default', {});
-	const dtos = await extHost.$connectionGetChildren(connectionHandle);
-	return { extHost, connectionHandle, dtos };
+	return { extHost, connectionHandle };
 }
+
+// A connection that only browses: getLineage is left out, the way most drivers leave it. A literal,
+// since the ext host probes for the optional member and a stub throws on an unset read.
+function createConnection(overrides: Partial<positron.DataConnection> = {}): positron.DataConnection {
+	return {
+		isReadOnly: async () => true,
+		getChildren: async () => [],
+		disconnect: async () => { },
+		isConnected: async () => true,
+		...overrides,
+	};
+}
+
+const LINEAGE_REQUEST: positron.DataConnectionLineageRequest = {
+	path: ['SALES', 'PUBLIC', 'ORDERS'],
+	domain: 'table',
+	direction: 'downstream',
+	depth: 2,
+	maxEdges: 200,
+};
+
+describe('ExtHostDataConnections lineage', () => {
+	it('reports a connection without getLineage as not supporting lineage', async () => {
+		const { extHost, connectionHandle } = await connectWith(createConnection());
+
+		expect(await extHost.$connectionGetLineage(connectionHandle, LINEAGE_REQUEST)).toBeUndefined();
+	});
+
+	it('refuses a connection handle it does not know', async () => {
+		const { extHost } = await connectWith(createConnection());
+
+		await expect(extHost.$connectionGetLineage(999, LINEAGE_REQUEST)).rejects.toThrow('Connection handle 999 not found');
+	});
+
+	it('passes the request to the driver and a declined request back as it came', async () => {
+		const getLineage = vi.fn(async (): Promise<positron.DataConnectionLineage> => ({ available: false, message: 'Not authorized.' }));
+		const { extHost, connectionHandle } = await connectWith(createConnection({ getLineage }));
+
+		expect(await extHost.$connectionGetLineage(connectionHandle, LINEAGE_REQUEST))
+			.toEqual({ available: false, message: 'Not authorized.' });
+		expect(getLineage).toHaveBeenCalledWith(LINEAGE_REQUEST);
+	});
+
+	it('lets a driver failure reject, for the main thread to report', async () => {
+		const { extHost, connectionHandle } = await connectWith(createConnection({
+			getLineage: async () => { throw new Error('Snowflake client is closed'); },
+		}));
+
+		await expect(extHost.$connectionGetLineage(connectionHandle, LINEAGE_REQUEST)).rejects.toThrow('Snowflake client is closed');
+	});
+
+	it('sends a driver\'s edges with the types the wire promises, dropping edges that identify nothing', async () => {
+		// Deliberately not the declared shape: a driver mapping query rows can easily hand back
+		// numbers and nulls where strings belong, and extra fields besides.
+		const lineage: unknown = {
+			available: true,
+			truncated: 'yes',
+			edges: [
+				{
+					source: { database: 'SALES', schema: null, name: 42, domain: 'table', extra: 'dropped' },
+					target: { database: 'SALES', schema: 'PUBLIC', name: 'ORDERS', column: null, domain: 'table', masked: false },
+					distance: '1',
+				},
+				// A masked end has no name, and still identifies something.
+				{ source: { masked: true, domain: 'table' }, target: { name: 'ORDERS', domain: 'table' }, distance: 2 },
+				// An end with neither a name nor the masked flag, and a distance that isn't a number.
+				{ source: { domain: 'table' }, target: { name: 'ORDERS', domain: 'table' }, distance: 1 },
+				{ source: { name: 'A', domain: 'table' }, target: { name: 'B', domain: 'table' }, distance: 'far' },
+			],
+		};
+		const { extHost, connectionHandle } = await connectWith(createConnection({
+			getLineage: async () => lineage as positron.DataConnectionLineage,
+		}));
+
+		expect(await extHost.$connectionGetLineage(connectionHandle, LINEAGE_REQUEST)).toStrictEqual({
+			available: true,
+			truncated: false,
+			edges: [
+				{
+					source: { database: 'SALES', schema: undefined, name: '42', column: undefined, domain: 'table', masked: undefined },
+					target: { database: 'SALES', schema: 'PUBLIC', name: 'ORDERS', column: undefined, domain: 'table', masked: undefined },
+					distance: 1,
+				},
+				{
+					source: { database: undefined, schema: undefined, name: undefined, column: undefined, domain: 'table', masked: true },
+					target: { database: undefined, schema: undefined, name: 'ORDERS', column: undefined, domain: 'table', masked: undefined },
+					distance: 2,
+				},
+			],
+		});
+	});
+});
 
 describe('ExtHostDataConnections node details', () => {
 	it('sends a driver\'s details as strings, recursing into groups, items, tables, and tabs', async () => {
