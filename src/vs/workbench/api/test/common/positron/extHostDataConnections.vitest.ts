@@ -173,6 +173,27 @@ describe('ExtHostDataConnections node details', () => {
 		expect(dtos.map(dto => [dto.name, dto.hasDetails])).toEqual([['CHAOS_MODEL', true], ['users', false]]);
 	});
 
+	it('tells the main thread how many children a driver says a node has, dropping anything that is not a count', async () => {
+		const group = (childCount: unknown) => ({ name: 'Tables', kind: 'group-tables' as positron.DataConnectionNodeKind, childCount: childCount as number });
+		const { dtos } = await connectWithNodes([group(14), group(0), group(undefined), group(-1), group(1.5), group(NaN), group('4')]);
+
+		expect(dtos.map(dto => dto.childCount)).toEqual([14, 0, undefined, undefined, undefined, undefined, undefined]);
+	});
+
+	it('gives another extension\'s nodes the child count the main thread sends', async () => {
+		const extHost = createExtHost({
+			$connectToDataConnectionDriver: async () => 7,
+			$connectionGetChildrenViaService: async () => [
+				{ nodeHandle: 1, name: 'Tables', kind: 'group-tables', childCount: 14, hasGetChildren: true, hasPreview: false, hasDetails: false },
+				{ nodeHandle: 2, name: 'Columns', kind: 'group-columns', hasGetChildren: true, hasPreview: false, hasDetails: false },
+			],
+		});
+
+		const connection = await extHost.connect('test-driver', 'default', {});
+
+		expect((await connection.getChildren()).map(node => node.childCount)).toEqual([14, undefined]);
+	});
+
 	it('gives another extension\'s nodes getDetails exactly when the main thread says they have details', async () => {
 		// The reverse direction: an extension browsing a connection through the positron API.
 		const detailsDTO = { description: 'Semantic view in DB.PUBLIC', sections: [] };

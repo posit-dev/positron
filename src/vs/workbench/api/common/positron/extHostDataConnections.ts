@@ -527,6 +527,9 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 				isPrimaryKey: node.isPrimaryKey,
 				path: typeof node.path === 'string' && node.path.length > 0 ? node.path : undefined,
 				defaultAction: node.defaultAction === 'details' || node.defaultAction === 'preview' ? node.defaultAction : undefined,
+				// A count is shown to the user as is, so anything that isn't one is dropped rather than
+				// shown as "NaN" or "-1".
+				childCount: typeof node.childCount === 'number' && Number.isSafeInteger(node.childCount) && node.childCount >= 0 ? node.childCount : undefined,
 				hasGetChildren: !!node.getChildren,
 				hasPreview: !!node.preview,
 				hasDetails: !!node.getDetails,
@@ -642,6 +645,7 @@ class ExtHostDataConnectionProxy implements positron.DataConnection {
 			dataType: dto.dataType,
 			path: dto.path,
 			defaultAction: dto.defaultAction,
+			childCount: dto.childCount,
 		};
 
 		if (dto.hasGetChildren) {

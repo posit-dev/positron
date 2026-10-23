@@ -20,14 +20,16 @@ export interface ISqlitePreviewHost {
 /**
  * Builds the top-level children: two category group nodes (Tables, Views). Indexes are not a
  * top-level concept in SQLite -- each index belongs to a single table -- so they appear nested
- * under their table rather than here. Each group defers its schema query until it is expanded.
+ * under their table rather than here. Each group defers its listing until it is expanded; one
+ * query counts both up front, so their rows can show how many each holds.
  */
-export function createRootNodes(client: ISqliteQueryClient, host: ISqlitePreviewHost): positron.DataConnectionNode[] {
+export async function createRootNodes(client: ISqliteQueryClient, host: ISqlitePreviewHost): Promise<positron.DataConnectionNode[]> {
+	const counts = await countObjects(client);
 	return [
 		createGroupNode('Tables', positron.DataConnectionNodeKind.GroupTables,
-			async () => (await listObjects(client, 'table')).map(name => createTableNode(client, host, name))),
+			async () => (await listObjects(client, 'table')).map(name => createTableNode(client, host, name)), counts?.table),
 		createGroupNode('Views', positron.DataConnectionNodeKind.GroupViews,
-			async () => (await listObjects(client, 'view')).map(name => createViewNode(client, host, name))),
+			async () => (await listObjects(client, 'view')).map(name => createViewNode(client, host, name)), counts?.view),
 	];
 }
 
@@ -35,17 +37,37 @@ export function createRootNodes(client: ISqliteQueryClient, host: ISqlitePreview
  * Creates a category group node. Group nodes are containers that defer fetching their
  * contents until the user expands them -- the schema query for the group's category runs
  * inside getChildren().
+ * @param childCount How many children the group holds, when that is already known.
  */
 export function createGroupNode(
 	name: string,
 	kind: positron.DataConnectionNodeKind,
-	getChildren: () => Promise<positron.DataConnectionNode[]>
+	getChildren: () => Promise<positron.DataConnectionNode[]>,
+	childCount?: number
 ): positron.DataConnectionNode {
 	return {
 		name,
 		kind,
+		childCount,
 		getChildren,
 	};
+}
+
+/**
+ * Counts the tables and views listObjects would list, in one query. The counts only decorate the
+ * group rows, so a failure leaves them off rather than failing the connection's expand.
+ */
+async function countObjects(client: ISqliteQueryClient): Promise<{ table: number; view: number } | undefined> {
+	try {
+		const rows = await client.runQuery(
+			`SELECT type, count(*) AS n FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' GROUP BY type`
+		);
+		// A type with nothing in it has no row at all.
+		const count = (type: string) => Number(rows.find(row => row.type === type)?.n ?? 0);
+		return { table: count('table'), view: count('view') };
+	} catch {
+		return undefined;
+	}
 }
 
 /**

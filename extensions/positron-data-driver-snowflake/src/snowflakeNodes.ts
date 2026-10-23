@@ -783,7 +783,10 @@ function logicalTableMemberGroups(): readonly ILogicalTableMemberGroup[] {
 	];
 }
 
-/** Creates a group of semantic view members. */
+/**
+ * Creates a group of semantic view members. The members are already in hand, from the semantic
+ * view's DESCRIBE, so the group can say how many it holds before it is expanded.
+ */
 function createSemanticViewMemberGroupNode(
 	name: string,
 	kind: positron.DataConnectionNodeKind,
@@ -793,6 +796,7 @@ function createSemanticViewMemberGroupNode(
 	return {
 		name,
 		kind,
+		childCount: members.length,
 		async getChildren() {
 			return members.map(createMemberNode);
 		},

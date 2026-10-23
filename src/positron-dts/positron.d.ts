@@ -2694,6 +2694,18 @@ declare module 'positron' {
 		defaultAction?: 'preview' | 'details';
 
 		/**
+		 * The number of nodes `getChildren` would return, for a node whose driver knows it without
+		 * fetching them -- e.g. a "Tables" group built from a listing the driver already holds, or
+		 * counted by one cheap catalog query. Positron shows it on a group node's row (one of the
+		 * `Group*` kinds) before the node is expanded, as "Tables (14)"; once expanded, the children
+		 * themselves are counted instead. Leave notice nodes (`DataConnectionNodeKind.Notice`) out of
+		 * the count; Positron does not count them as children.
+		 * Leave it unset rather than guess, or run a query per node just to fill it: a "Views" group
+		 * with a count of 0, for one, is left out of the tree without being listed.
+		 */
+		childCount?: number;
+
+		/**
 		 * Retrieve child nodes (e.g., tables in a schema, fields in a table).
 		 */
 		getChildren?(): Thenable<DataConnectionNode[]>;

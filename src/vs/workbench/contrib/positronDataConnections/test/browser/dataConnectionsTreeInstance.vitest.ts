@@ -14,7 +14,7 @@ import { IConfigurationChangeEvent } from '../../../../../platform/configuration
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { DataConnectionNode, DataConnectionsTreeInstance, reloadKey } from '../../browser/classes/dataConnectionsTreeInstance.js';
+import { DataConnectionNode, DataConnectionsTreeInstance, formatGroupCount, reloadKey } from '../../browser/classes/dataConnectionsTreeInstance.js';
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { DataConnectionNodeDetailsEditorInput } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
@@ -148,6 +148,16 @@ describe('dataConnectionsTreeInstance reloadKey', () => {
 		// even for a DTO deliberately named to look like an entry.
 		expect(reloadKey(dtoNode({ kind: 'entry', name: 'conn-1' })))
 			.not.toBe(reloadKey(entryNode(createProfile({ id: 'conn-1' }))));
+	});
+});
+
+describe('dataConnectionsTreeInstance formatGroupCount', () => {
+	it('shows the count in parentheses, including none', () => {
+		expect([formatGroupCount(14), formatGroupCount(0)]).toEqual(['(14)', '(0)']);
+	});
+
+	it('formats the count for the locale', () => {
+		expect(formatGroupCount(12345)).toBe(`(${(12345).toLocaleString()})`);
 	});
 });
 
@@ -735,6 +745,248 @@ describe('DataConnectionsTreeInstance', () => {
 			{ name: 'connection', prefix: undefined, expanded: true },
 			{ name: 'Tables', prefix: undefined, expanded: false },
 		]);
+	});
+
+	describe('group counts', () => {
+		// The node id of the Tables group these tests expand.
+		const TABLES_ID = 'dto:1:1';
+
+		/**
+		 * A connection holding a Tables group of three tables and a notice. `tablesError` makes the
+		 * Tables group fail to load.
+		 */
+		function tablesTree(tablesError?: Error) {
+			return createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+				nodeHandle => {
+					switch (nodeHandle) {
+						case 1:
+							if (tablesError) {
+								throw tablesError;
+							}
+							return [
+								nodeDto({ nodeHandle: 2, name: 'customers', kind: 'table' }),
+								nodeDto({ nodeHandle: 3, name: 'orders', kind: 'table' }),
+								nodeDto({ nodeHandle: 4, name: 'products', kind: 'table' }),
+								nodeDto({ nodeHandle: 5, name: 'Only the first 3 tables were listed', kind: 'notice', hasGetChildren: false }),
+							];
+						default:
+							return [];
+					}
+				}
+			);
+		}
+
+		/** The count of every visible row that has one, by row name. */
+		function counts(tree: DataConnectionsTreeInstance) {
+			return Object.fromEntries(tree.visibleNodes.flatMap((visible, index) => {
+				const count = tree.groupCount(index);
+				return count === undefined || visible.node.data.kind !== 'dto' ? [] : [[visible.node.data.dto.name, count]];
+			}));
+		}
+
+		it('has no count for a group whose children have not been loaded', async () => {
+			const { tree } = tablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+
+			expect(counts(tree)).toEqual({});
+		});
+
+		it('counts the rows of an opened group, leaving out notices', async () => {
+			const { tree } = tablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+
+			expect(counts(tree)).toEqual({ Tables: 3 });
+		});
+
+		it('keeps the count of a group that was opened and closed again', async () => {
+			const { tree } = tablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+			tree.collapse(TABLES_ID);
+
+			expect(counts(tree)).toEqual({ Tables: 3 });
+		});
+
+		it('counts a group that turned out to be empty as holding none', async () => {
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+				() => []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+
+			expect(counts(tree)).toEqual({ Tables: 0 });
+		});
+
+		it('has no count for a group whose children failed to load', async () => {
+			const { tree } = tablesTree(new Error('permission denied'));
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+
+			expect({ error: tree.getError(TABLES_ID) !== undefined, counts: counts(tree) }).toEqual({ error: true, counts: {} });
+		});
+
+		it('counts a group by what its driver says it holds, before it is opened', async () => {
+			const { tree, nodeGetChildren } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables', childCount: 14 })],
+				() => []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+
+			expect({ counts: counts(tree), fetched: nodeGetChildren.mock.calls.length }).toEqual({ counts: { Tables: 14 }, fetched: 0 });
+		});
+
+		it('counts what an opened group holds, whatever its driver said before', async () => {
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables', childCount: 99 })],
+				nodeHandle => nodeHandle === 1
+					? [
+						nodeDto({ nodeHandle: 2, name: 'customers', kind: 'table' }),
+						nodeDto({ nodeHandle: 3, name: 'orders', kind: 'table' }),
+					]
+					: []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			const before = counts(tree);
+			await tree.expand(TABLES_ID);
+
+			// The driver's count can be stale by the time the group is opened; the rows are what is there.
+			expect({ before, after: counts(tree) }).toEqual({ before: { Tables: 99 }, after: { Tables: 2 } });
+		});
+
+		/**
+		 * A connection holding a Schemas group of two schemas and a notice, whose driver sent a count
+		 * the look-ahead will find stale, beside a Tables group of one table.
+		 */
+		function schemasAndTablesTree() {
+			return createTreeOverNodes(
+				[
+					nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas', childCount: 9 }),
+					nodeDto({ nodeHandle: 4, name: 'Tables', kind: 'group-tables' }),
+				],
+				nodeHandle => {
+					switch (nodeHandle) {
+						case 1:
+							return [
+								nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' }),
+								nodeDto({ nodeHandle: 3, name: 'staging', kind: 'schema' }),
+								nodeDto({ nodeHandle: 6, name: 'Only the first 2 schemas were listed', kind: 'notice', hasGetChildren: false }),
+							];
+						case 4:
+							return [nodeDto({ nodeHandle: 5, name: 'flights', kind: 'table' })];
+						default:
+							return [];
+					}
+				}
+			);
+		}
+
+		it('counts a group the look-ahead has already looked into, before it is opened, over its driver\'s count', async () => {
+			const { tree } = schemasAndTablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+
+			expect({ expanded: tree.isExpanded('dto:1:1'), counts: counts(tree) }).toEqual({ expanded: false, counts: { Schemas: 2 } });
+		});
+
+		/** The views the look-ahead finds in the Views groups below: two, and a notice about them. */
+		const twoViewsAndANotice = () => [
+			nodeDto({ nodeHandle: 5, name: 'v_orders', kind: 'view', hasGetChildren: false }),
+			nodeDto({ nodeHandle: 7, name: 'v_customers', kind: 'view', hasGetChildren: false }),
+			nodeDto({ nodeHandle: 8, name: 'Only the first 2 views were listed', kind: 'notice', hasGetChildren: false }),
+		];
+
+		it('counts a Views group by what the look-ahead found in it, before it is opened', async () => {
+			// No childCount from the driver, as on Snowflake: the look-ahead is the only source.
+			const { tree } = createTreeOverNodes(
+				[
+					nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' }),
+					nodeDto({ nodeHandle: 4, name: 'Views', kind: 'group-views' }),
+				],
+				nodeHandle => nodeHandle === 4 ? twoViewsAndANotice() : []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+
+			expect({ expanded: tree.isExpanded('dto:1:4'), counts: counts(tree) }).toEqual({ expanded: false, counts: { Views: 2 } });
+		});
+
+		it('counts a Views group standing in for a dropped lone schema, and keeps it standing in for that schema', async () => {
+			const { tree } = lonePublicSchema(twoViewsAndANotice);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			const views = tree.visibleNodes.find(visible => visible.node.id === 'dto:1:4')?.node.data;
+
+			expect({
+				counts: counts(tree),
+				elidedSchema: views?.kind === 'dto' ? views.elidedSchema : undefined,
+			}).toEqual({ counts: { Views: 2 }, elidedSchema: 'public' });
+		});
+
+		it('shows no count for a group whose listing failed, even one its driver counted', async () => {
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables', childCount: 14 })],
+				() => {
+					throw new Error('permission denied');
+				}
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+
+			expect({ error: tree.getError(TABLES_ID) !== undefined, counts: counts(tree) }).toEqual({ error: true, counts: {} });
+		});
+
+		it('keeps a closed group\'s look-ahead count when some other row is refreshed', async () => {
+			const { tree } = schemasAndTablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand('dto:1:4');
+			await tree.reload('dto:1:4');
+
+			expect(counts(tree)).toEqual({ Schemas: 2, Tables: 1 });
+		});
+
+		it('drops a Views group its driver says is empty, without looking into it', async () => {
+			const { tree, nodeGetChildren } = createTreeOverNodes(
+				[
+					nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables', childCount: 2 }),
+					nodeDto({ nodeHandle: 2, name: 'Views', kind: 'group-views', childCount: 0 }),
+				],
+				() => []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+
+			expect({ rows: rows(tree).map(row => row.name), fetched: nodeGetChildren.mock.calls }).toEqual({ rows: ['connection', 'Tables'], fetched: [] });
+		});
+
+		it('counts what a group holds after a refresh', async () => {
+			let tableCount = 2;
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+				nodeHandle => nodeHandle === 1
+					? Array.from({ length: tableCount }, (_, index) => nodeDto({ nodeHandle: 100 + index, name: `table${index}`, kind: 'table' }))
+					: []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+			const before = counts(tree);
+			tableCount = 5;
+			await tree.reload(ENTRY_ID);
+
+			expect({ before, after: counts(tree) }).toEqual({ before: { Tables: 2 }, after: { Tables: 5 } });
+		});
 	});
 
 	it('inherits the workbench tree indent until its own setting overrides it, and follows both live', async () => {
