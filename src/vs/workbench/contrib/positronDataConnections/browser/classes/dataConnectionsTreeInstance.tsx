@@ -235,7 +235,8 @@ const LOOK_AHEAD_TIMEOUT_MS = 5_000;
 export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> implements IDataConnectionNodeOpener {
 	// The look-ahead query for a namespace group or Views group, parked before the wait so a timeout
 	// can leave it in flight. Opening a row that kept its place awaits this instead of sending the
-	// query again. A row the look-ahead then drops leaves its entry unread. Keyed by the group's
+	// query again. A row the look-ahead then drops (a breadcrumbed group, an elided schema, an
+	// empty Views group) has its entry deleted, since nothing will open it. Keyed by the group's
 	// node id, which carries the node handle the fetch minted, so an entry can only ever be read by
 	// the row it was fetched for. Reload and _dropClosedEntrySubtrees clear the map, and a late
 	// answer is not written back into it. See _breadcrumbNamespaceGroups, _wrapUnlessEmptyViews,
@@ -950,6 +951,8 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			}
 
 			if (children.length === 1) {
+				// The group's row is replaced, so nothing will open it to take its entry.
+				this._lookAheadChildren.delete(dtoNodeId(handle, dto));
 				if (dto.kind === SCHEMAS_GROUP_KIND && !this._showSingleSchema()) {
 					const contents = await this._elideSingleSchema(children[0], handle);
 					if (contents !== undefined) {
@@ -1021,7 +1024,13 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 
 		// A schema whose only content was an empty Views group holds nothing after all, and falls
 		// back for the same reason an empty schema does.
-		return level.length === 0 ? undefined : level;
+		if (level.length === 0) {
+			return undefined;
+		}
+
+		// The schema has no row of its own now, so nothing will open it to take its entry.
+		this._lookAheadChildren.delete(dtoNodeId(handle, schema));
+		return level;
 	}
 
 	/**
@@ -1104,6 +1113,8 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		}
 
 		if (children.length === 0) {
+			// The row is hidden, so nothing will open it to take its entry.
+			this._lookAheadChildren.delete(dtoNodeId(handle, dto));
 			return undefined;
 		}
 
