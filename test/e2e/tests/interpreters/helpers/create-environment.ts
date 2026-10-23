@@ -12,17 +12,20 @@ import { expect, test } from '../../_test.setup.js';
 /**
  * Create an empty workspace for a Create Environment test and open it.
  *
- * Any leftover is removed here rather than after the test: the new environment's
- * session may still be starting when the test ends, and removing the folder then
- * fails the kernel launch.
+ * The workspace sits beside the shared e2e workspace, not inside it. The new
+ * environment is left behind, and Positron discovers environments under any folder
+ * it opens: a leftover venv with the primary Python version inside the shared
+ * workspace outranks the global interpreter in later tests' kernel pickers. It is
+ * removed at the start rather than the end, since its session may still be starting
+ * when the test ends and removing the folder then fails the kernel launch.
  *
  * The folder is opened by its resolved path, not through the `openFolder` fixture.
  * On macOS the temp dir is reached through /var -> /private/var, and a workspace
  * opened under the symlink spelling makes Positron register the new environment
- * once per spelling. CI runners have no such symlink.
+ * once per spelling (#16861). CI runners have no such symlink.
  */
 export async function openEmptyWorkspace(app: Application, name: string) {
-	const workspace = path.join(os.tmpdir(), 'vscsmoke', 'test-files', name);
+	const workspace = path.join(os.tmpdir(), 'vscsmoke', 'create-env', name);
 	await fs.promises.rm(workspace, { recursive: true, force: true });
 	await fs.promises.mkdir(workspace, { recursive: true });
 	const realWorkspace = await fs.promises.realpath(workspace);
