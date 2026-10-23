@@ -7,15 +7,16 @@
 // result comment, and prints a table to read by hand. Run locally from a
 // checkout with origin fetched; the model check uses your own `claude` login,
 // or with --api the Anthropic API and ANTHROPIC_API_KEY (CI). --previous takes
-// an earlier --out and keeps its settled rows instead of checking them again.
-//   node outcomes.mjs [--pr N] [--since YYYY-MM-DD] [--model opus] [--api] [--previous rows.jsonl] [--out rows.jsonl]
+// an earlier --out and keeps its settled rows instead of checking them again;
+// --recheck checks them all again anyway, as after a change to the checks.
+//   node outcomes.mjs [--pr N] [--since YYYY-MM-DD] [--model opus] [--api] [--previous rows.jsonl] [--recheck] [--out rows.jsonl]
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, extractPaths, fetchReport, guarded, issueOf, markDuplicates, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, extractPaths, isCut, fetchReport, guarded, issueOf, markDuplicates, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -25,8 +26,8 @@ const MAX_DIFF_CHARS = 60000;
 const WHOLE = ['.', ':(exclude)**/package-lock.json'];
 // PRs opened only to try the harness, whose findings no one meant to act on.
 const SKIPPED_PRS = new Set([16616]);
-const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, api: { type: 'boolean', default: false }, previous: { type: 'string' }, out: { type: 'string' } } });
-const PREVIOUS = args.previous ? readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
+const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, api: { type: 'boolean', default: false }, previous: { type: 'string' }, recheck: { type: 'boolean', default: false }, out: { type: 'string' } } });
+const PREVIOUS = args.previous && !args.recheck ? readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
 const SETTLED = settledRows(PREVIOUS);
 const SAVED_PR_CHECKS = savedPrChecks(PREVIOUS);
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
@@ -83,7 +84,7 @@ async function ask(prompt) {
 
 async function check(finding, evidence, source) {
 	try {
-		return { ...parseCheck(await ask(buildCheckPrompt({ finding, ...evidence }))), source };
+		return { ...parseCheck(await ask(buildCheckPrompt({ finding, ...evidence }))), source, ...(isCut(evidence) ? { cut: true } : {}) };
 	} catch (err) {
 		return { answer: 'unclear', reason: `model failed: ${String(err).slice(0, 200)}`, source };
 	}

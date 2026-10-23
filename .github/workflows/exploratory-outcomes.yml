@@ -12,6 +12,11 @@ on:
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
+    inputs:
+      recheck:
+        description: "Check every finding again, ignoring the outcomes already published"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -69,8 +74,10 @@ jobs:
         working-directory: .github/actions/pr-exploratory-test
         env:
           GH_TOKEN: ${{ github.token }}
+          RECHECK: ${{ inputs.recheck }}
         run: |
-          node outcomes.mjs --api --model claude-opus-5-5 --previous "$RUNNER_TEMP/previous.jsonl" --out "$RUNNER_TEMP/rows.jsonl" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$RECHECK" = true ]; then set -- --recheck; fi
+          node outcomes.mjs --api --model claude-opus-5-5 --previous "$RUNNER_TEMP/previous.jsonl" "$@" --out "$RUNNER_TEMP/rows.jsonl" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build and publish the page
         working-directory: .github/actions/pr-exploratory-test

@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, candidateIssues, decideOutcome, diffEvidence, extractPaths, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, decideOutcome, diffEvidence, extractPaths, isCut, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -273,6 +273,25 @@ test('decideOutcome keeps the reason a check said no, so a not-fixed row can be 
 	assert.equal(decideOutcome({ ...base, ...checks, prState: 'closed', mergedAt: null }).evidence, 'pr abc: unrelated');
 	assert.equal(decideOutcome({ ...base, prCheck: null, laterChecks: [no('main def')] }).evidence, 'main def: unrelated');
 	assert.equal(decideOutcome({ ...base, prState: 'open', mergedAt: null }).evidence, '');
+});
+
+test('a fix read from a cut diff is marked cut and not kept, so the next run asks again', () => {
+	const cutNote = '\n[diff cut at 1 of 9 characters]';
+	assert.equal(isCut({ text: 'D' + cutNote }), true);
+	assert.equal(isCut({ text: 'D', before: 'B' + cutNote }), true);
+	assert.equal(isCut({ text: 'D' }), false);
+	const yes = (source, cut) => ({ answer: 'yes', reason: 'fixes it', source, ...(cut ? { cut } : {}) });
+	assert.equal(decideOutcome({ ...base, prCheck: yes('pr a', true) }).cut, true);
+	assert.equal(decideOutcome({ ...base, laterChecks: [yes('main b', true)] }).cut, true);
+	assert.equal(decideOutcome({ ...base, laterChecks: [yes('main b')] }).cut, undefined);
+	const prev = [
+		{ run: '10', finding: 1, outcome: 'fixed-later', cut: true },
+		{ run: '10', finding: 2, outcome: 'fixed-in-pr' },
+		{ run: '10', finding: 3, outcome: 'not-fixed', prCheck: { ...no('pr c'), cut: true } },
+		{ run: '10', finding: 4, outcome: 'not-fixed', prCheck: no('pr d') },
+	];
+	assert.deepEqual([...settledRows(prev).keys()], ['10#2']);
+	assert.deepEqual([...savedPrChecks(prev).keys()], ['10#4']);
 });
 
 test('parseCheck says an empty reply is no reply, so a stopped call reads as such', () => {

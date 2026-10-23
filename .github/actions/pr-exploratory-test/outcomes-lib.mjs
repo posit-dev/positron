@@ -53,7 +53,7 @@ export function buildCheckPrompt({ finding, kind, text, messages, whole, before,
 			whole ? 'This is the whole change, not only the files the finding names; most of it may be about other things.' : '',
 			files?.length ? `The diff covers ${files.join(', ')}.` : '',
 			unchanged?.length ? `The finding also names ${unchanged.join(', ')}, which did not change, so ${unchanged.length > 1 ? 'they are' : 'it is'} not in the diff.` : '',
-			[text, before].some(t => CUT.test(t ?? '')) ? 'The diff was cut where its last line says so. Judge from the part shown; answer unclear only if the fix could be in the part that was cut.' : '',
+			isCut({ text, before }) ? 'The diff was cut where its last line says so. Judge from the part shown; answer unclear only if the fix could be in the part that was cut.' : '',
 			before ? 'The PR was force-pushed after the test. <before> is its own change as tested, <diff> its own change as merged. Count it a fix only if what changed between them addresses the behavior.' : '',
 			'Does this diff fix the problem the finding describes? Count it only if the change addresses this behavior, not if it merely touches the same file.',
 			'A change that means the problem can no longer be reached counts as a fix.',
@@ -115,15 +115,16 @@ export function candidateIssues({ found, timeline, postedAt, repo }) {
 	}).map(i => ({ ...i, mentionsPr: mentions.has(i.number) }));
 }
 
-/** One finding's outcome from its checks. `Check` is `{ answer, reason, source }`. */
+/** One finding's outcome from its checks. `Check` is `{ answer, reason, source, cut? }`; a fix read from a cut diff keeps `cut`. */
 export function decideOutcome({ prState, hasPaths, prCheck, laterChecks }) {
+	const cutOf = c => c.cut ? { cut: true } : {};
 	if (prCheck?.answer === 'yes') {
-		return { outcome: 'fixed-in-pr', decidedBy: 'diff+model', evidence: evidenceOf(prCheck) };
+		return { outcome: 'fixed-in-pr', decidedBy: 'diff+model', evidence: evidenceOf(prCheck), ...cutOf(prCheck) };
 	}
 	const yesLater = laterChecks.filter(c => c.answer === 'yes');
 	const onMain = yesLater.find(c => !c.source.startsWith('issue'));
 	if (onMain) {
-		return { outcome: 'fixed-later', decidedBy: 'diff+model', evidence: evidenceOf(onMain) };
+		return { outcome: 'fixed-later', decidedBy: 'diff+model', evidence: evidenceOf(onMain), ...cutOf(onMain) };
 	}
 	const done = yesLater.find(c => c.issue?.state === 'closed as completed');
 	if (done) {
@@ -150,14 +151,14 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks }) {
 // Not fixed isn't final: a later fix or a matching issue still moves it to fixed later.
 const SETTLED = new Set(['fixed-in-pr', 'fixed-later']);
 
-/** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. */
+/** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. A fix read from a cut diff is checked again. */
 export function settledRows(rows) {
-	return new Map(rows.filter(r => SETTLED.has(r.outcome)).map(({ dupOf, dupMaybe, ...r }) => [`${r.run}#${r.finding}`, r]));
+	return new Map(rows.filter(r => SETTLED.has(r.outcome) && !r.cut).map(({ dupOf, dupMaybe, ...r }) => [`${r.run}#${r.finding}`, r]));
 }
 
-/** A previous run's "no" from asking whether a merged PR fixed the finding, by `run#finding`; a merged PR's diff can't change. */
+/** A previous run's "no" from asking whether a merged PR fixed the finding, by `run#finding`; a merged PR's diff can't change. One read from a cut diff is asked again. */
 export function savedPrChecks(rows) {
-	return new Map(rows.filter(r => r.prCheck?.answer === 'no').map(r => [`${r.run}#${r.finding}`, r.prCheck]));
+	return new Map(rows.filter(r => r.prCheck?.answer === 'no' && !r.prCheck.cut).map(r => [`${r.run}#${r.finding}`, r.prCheck]));
 }
 
 const words = t => String(t ?? '').toLowerCase().replace(/[`*_]/g, '').match(/[a-z0-9]+/g) ?? [];
@@ -278,6 +279,11 @@ export function capDiff(diff, max) {
 	return diff.length <= max ? diff : `${diff.slice(0, max)}\n[diff cut at ${max} of ${diff.length} characters]`;
 }
 const CUT = /\n\[diff cut at \d+ of \d+ characters\]$/;
+
+/** Whether a check's diff, or its `before`, was cut by `capDiff`. */
+export function isCut({ text, before }) {
+	return [text, before].some(t => CUT.test(t ?? ''));
+}
 
 /** A diff of the finding's `paths` for the prompt: cut to `max`, with the files it covers and the named ones it leaves out, read before the cut. */
 export function diffEvidence(diff, paths, max) {

@@ -138,7 +138,10 @@ final: a matching issue moves it to filed as an issue, and a later fix, or that
 issue closing as completed, moves it to fixed later. For a not-fixed
 finding on a merged PR, the answer to whether the PR fixed it is
 kept too, since that diff can't change; the checks for a later fix on main or
-a matching issue still run every night. In
+a matching issue still run every night. An answer read from a diff that
+was cut for length is never kept, so it is asked again. To check every
+finding again, as after a change to the checks, run the workflow by hand
+with `recheck` on. In
 CI the model is reached through the API (`--api`), and a call that takes
 more than 10 minutes counts as unclear.
 
