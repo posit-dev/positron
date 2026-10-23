@@ -923,20 +923,24 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	};
 
 	// Returns whether the page let the key's default action happen, which the
-	// browser never runs for a script's events (press() does it). Chromium
-	// runs Enter's on keypress.
-	function pressKey(el: Element, key: string): boolean {
+	// browser never runs for a script's events (press() does it). `asBrowser`
+	// adds keypress, on which Chromium runs Enter's default, and legacy key
+	// codes. The slider and select code leaves it off, so its widgets get the
+	// plain keydown and keyup they were built against.
+	function pressKey(el: Element, key: string, asBrowser = false): boolean {
 		const view = viewOf(el);
 		const code = /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : /^[0-9]$/.test(key) ? `Digit${key}` : key === ' ' ? 'Space' : key;
 		const send = (type: string, legacyCode: number, charCode = 0) => {
 			const event = new view.KeyboardEvent(type, { key, code, bubbles: true, cancelable: true, composed: true });
-			// KeyboardEventInit has no reliable way to set these.
-			Object.defineProperties(event, { keyCode: { value: legacyCode }, which: { value: legacyCode }, charCode: { value: charCode } });
+			if (asBrowser) {
+				// KeyboardEventInit has no reliable way to set these.
+				Object.defineProperties(event, { keyCode: { value: legacyCode }, which: { value: legacyCode }, charCode: { value: charCode } });
+			}
 			return el.dispatchEvent(event);
 		};
 		const keyCode = KEY_CODES[key] ?? (key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0);
 		let allowed = send('keydown', keyCode);
-		if (allowed && (key === 'Enter' || key.length === 1)) {
+		if (asBrowser && allowed && (key === 'Enter' || key.length === 1)) {
 			const charCode = key === 'Enter' ? 13 : key.charCodeAt(0);
 			allowed = send('keypress', charCode, charCode);
 		}
@@ -1691,7 +1695,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			focus(el);
 		}
 		const target = el ?? doc.activeElement ?? doc.body ?? doc.documentElement;
-		const allowed = pressKey(target, sent);
+		const allowed = pressKey(target, sent, true);
 		const where = el || (target !== doc.body && target !== doc.documentElement) ? ` in the ${describe(target)}` : '';
 		const pressed = `Pressed ${name}${where}`;
 		// The page took the key itself.
