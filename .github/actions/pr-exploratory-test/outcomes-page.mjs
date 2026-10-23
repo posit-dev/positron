@@ -91,15 +91,6 @@ function splitBar(rows) {
 	return `<div class="grow bar mid">${part(false)}${part(true)}</div>`;
 }
 
-function triggers(rows) {
-	const counts = {};
-	for (const r of rows) {
-		const t = TRIGGER[r.trigger] ?? 'trigger unknown';
-		counts[t] = (counts[t] ?? 0) + 1;
-	}
-	return Object.keys(counts).length > 1 ? Object.entries(counts).map(([t, n]) => `${SEP}<span>${n} ${t}</span>`).join('') : '';
-}
-
 function header(s) {
 	const inPr = s.counts['fixed-in-pr'];
 	const noun = s.counted === 1 ? 'finding' : 'findings';
@@ -218,7 +209,7 @@ export function prCard(n, p) {
 }
 
 
-/** The parts of the page that change with the date range: the button's dates, mixed triggers, the lede, and the sections. */
+/** The parts of the page that change with the date range: the button's dates, the lede, and the sections. */
 export function renderView(rows, { range }) {
 	const inRange = range.key === 'all' ? rows : rows.filter(r => {
 		const d = r.postedAt?.slice(0, 10);
@@ -227,13 +218,13 @@ export function renderView(rows, { range }) {
 	const own = inRange.filter(r => !r.dupOf);
 	const s = summarize(inRange);
 	const body = s.total ? [allBar(s), `<div class="accordion">\n${severityRows(own)}\n${prRows(own)}\n${evidence(own, s)}\n</div>`] : [];
-	return { label: rangeText(range), triggers: triggers(own), head: header(s), body: body.join('\n') };
+	return { label: rangeText(range), head: header(s), body: body.join('\n') };
 }
 
 const runDates = rows => rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, pct, codeSpans, plural, isFixed, isCounted, summarize, splitEvidence, segments, splitBar, triggers, header, allBar, severityRows, prRows, findingRow, evidence, renderView, prCard };
+const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, pct, codeSpans, plural, isFixed, isCounted, summarize, splitEvidence, segments, splitBar, header, allBar, severityRows, prRows, findingRow, evidence, renderView, prCard };
 export const VIEW_SOURCE = [
 	...Object.entries({ ...SHARED_CONSTS, SEVERITY_LABEL, OUTCOMES, FILTERS, DECIDED_BY, TRIGGER, HERO_COLOR, INK, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
@@ -329,7 +320,6 @@ const apply = (param, write) => {
 	const range = resolveRange(param, dates, data.now);
 	const view = renderView(data.rows, { range });
 	closeCard();
-	$('.triggers').innerHTML = view.triggers;
 	$('.head').innerHTML = view.head;
 	$('.view').innerHTML = view.body;
 	Object.entries(chosen).forEach(([id, open]) => { const b = $('.acc[aria-controls="' + id + '"]'); if (b) { setOpen(b, open); } });
@@ -417,7 +407,7 @@ ${topRow('impact', range, dates, today)}
 <div class="head">${view.head}</div>
 </header>
 <div class="view">${view.body}</div>
-${footer(now, escapeHtml(run), `<span class="triggers">${view.triggers}</span>`)}
+${footer(now, escapeHtml(run))}
 </div></main>
 <div class="pr-card" id="pr-card" role="tooltip" hidden></div>
 <script id="rows" type="application/json">${data}</script>

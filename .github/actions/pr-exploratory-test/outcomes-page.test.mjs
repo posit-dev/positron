@@ -58,14 +58,13 @@ test('the headline counts findings fixed before merging out of those with a know
 	assert.match(text(render([row('pending')])), /No PRs with findings have merged yet\./);
 });
 
-test('the top row gives the date range, with the year once, and the footer gives triggers only when mixed', () => {
+test('the top row gives the date range, with the year once, and the footer gives only the update time', () => {
 	const one = render([row('fixed-in-pr', { postedAt: '2026-08-18T10:00:00Z' }), row('pending', { postedAt: '2026-10-13T08:00:00Z' })]);
 	assert.match(text(one.match(/<button type="button" class="range-btn"[\s\S]*?<\/button>/)[0]), /^ Aug 18 - Oct 13, 2026 $/);
 	assert.match(one, /<time datetime="2026-08-18">Aug 18<\/time>/);
 	const mixed = text(render([row('fixed-in-pr', { postedAt: '2025-12-20T10:00:00Z' }), row('pending', { trigger: 'auto', postedAt: '2026-01-05T08:00:00Z' })]));
 	assert.match(mixed, /\/explore Shipping impact Triage outcomes Dec 20, 2025 - Jan 5, 2026 Does/);
-	assert.match(mixed, /Updated Oct 14, 12:00 PM ~ 1 started by \/explore ~ 1 started automatically $/);
-	assert.match(one, /<span class="triggers"><\/span><\/footer>/);
+	assert.match(mixed, /Updated Oct 14, 12:00 PM $/);
 });
 
 test('the header ends with the headline: no summary cards', () => {
@@ -295,7 +294,7 @@ test('the top row has only the page switch and the date range; the footer has th
 	const top = html.slice(html.indexOf('<div class="top">')).split('<div class="head">')[0];
 	assert.match(top, /^<div class="top"><nav class="switch" aria-label="Report"><span class="cmd">\/explore<\/span><span class="pages"><a aria-current="page" href="https:\/\/connect\.posit\.it\/explore-outcomes\/">Shipping impact<\/a><a class="switch-link" href="https:\/\/connect\.posit\.it\/explore-triage\/">Triage outcomes<\/a><\/span><\/nav><span class="range">/);
 	assert.doesNotMatch(top, /Updated|started/);
-	assert.match(html, /<footer>Updated <a class="quiet" href="https:\/\/github\.com\/o\/r\/actions\/runs\/42" title="Open the workflow run that built this report"><time datetime="2026-10-14T12:00:00\.000Z">Oct 14, 12:00 PM<\/time><\/a><span class="triggers"><\/span><\/footer>\s*<\/div><\/main>/);
+	assert.match(html, /<footer>Updated <a class="quiet" href="https:\/\/github\.com\/o\/r\/actions\/runs\/42" title="Open the workflow run that built this report"><time datetime="2026-10-14T12:00:00\.000Z">Oct 14, 12:00 PM<\/time><\/a><\/footer>\s*<\/div><\/main>/);
 	assert.match(renderOutcomesPage([], { now: new Date('2026-10-14T09:05:00Z') }), />Updated <a [^>]*><time datetime="2026-10-14T09:05:00\.000Z">Oct 14, 9:05 AM<\/time>/);
 	assert.match(renderOutcomesPage([], { now: new Date('2026-10-15T00:30:00Z') }), />Oct 15, 12:30 AM<\/time>/);
 	assert.match(html, /\.range\{position:relative;margin-left:auto\}/);
