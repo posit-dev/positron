@@ -200,7 +200,8 @@ test.describe('Language Model Access Gating', { tag: [tags.ASSISTANT] }, () => {
 	test('Hidden from command palette when AI features are disabled', async function ({ app, settings }) {
 		await settings.set({ 'chat.disableAIFeatures': true }, { reload: true });
 
-		await app.workbench.quickaccess.openCommandPalette(`>${COMMAND_TITLE}`);
+		await app.workbench.hotKeys.openCommandPalette();
+		await app.workbench.quickInput.type(`>${COMMAND_TITLE}`);
 		// With the command gated out, the picker falls back to fuzzy "similar
 		// commands" (e.g. "Configure Language Model Providers"), so we can't rely
 		// on a "No matching commands" message. Wait for the list to render, then
@@ -215,7 +216,8 @@ test.describe('Language Model Access Gating', { tag: [tags.ASSISTANT] }, () => {
 	test('Visible in command palette when AI features are enabled', async function ({ app, settings }) {
 		await settings.set({ 'chat.disableAIFeatures': false }, { reload: true });
 
-		await app.workbench.quickaccess.openCommandPalette(`>${COMMAND_TITLE}`);
+		await app.workbench.hotKeys.openCommandPalette();
+		await app.workbench.quickInput.type(`>${COMMAND_TITLE}`);
 		const firstResult = await app.workbench.quickInput.waitForQuickInputElementText();
 		expect(firstResult).toContain(COMMAND_TITLE);
 		await app.workbench.quickInput.closeQuickInput();
