@@ -2260,6 +2260,30 @@ describe('Positron - RuntimeSessionService', () => {
 		});
 	});
 
+	describe('shutdownSession', () => {
+		it('coalesces concurrent requests into one shutdown that waits for the session to end, and keeps the session', async () => {
+			const session = await startConsole(runtime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+			const shutdown = vi.spyOn(session, 'shutdown');
+
+			await Promise.all([
+				runtimeSessionService.shutdownSession(session.sessionId, RuntimeExitReason.Shutdown, 'test'),
+				runtimeSessionService.shutdownSession(session.sessionId, RuntimeExitReason.Shutdown, 'test'),
+			]);
+
+			expect({
+				shutdownCalls: shutdown.mock.calls.length,
+				state: session.getRuntimeState(),
+				registered: runtimeSessionService.getSession(session.sessionId) === session,
+			}).toEqual({ shutdownCalls: 1, state: RuntimeState.Exited, registered: true });
+		});
+
+		it('rejects for an unknown session', async () => {
+			await expect(runtimeSessionService.shutdownSession('no-such-session', RuntimeExitReason.Shutdown, 'test'))
+				.rejects.toThrow(`No session with ID 'no-such-session' was found.`);
+		});
+	});
+
 	// Only `deleteSession()` force-quits. Other shutdowns time out so
 	// `waitForShutdown()` can offer the user that choice.
 	it('does not force a notebook runtime that does not exit after the shutdown request', async () => {

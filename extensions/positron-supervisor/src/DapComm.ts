@@ -197,9 +197,13 @@ export class DapComm {
 				break;
 			}
 
-			// We use the restart button as a shortcut for restarting the runtime
+			// We use the restart button as a shortcut for restarting the runtime.
+			// Restart through the session `getSession` hands out, which routes
+			// through Positron core (#12589) without offering to interrupt the
+			// session first (it is busy while stopped at a breakpoint).
 			case 'restart': {
-				await this.session.restart();
+				const session = await positron.runtime.getSession(this.session.metadata.sessionId);
+				await (session as positron.LanguageRuntimeSession | undefined)?.restart();
 				break;
 			}
 

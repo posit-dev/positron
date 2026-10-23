@@ -1562,6 +1562,28 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * Shut down a runtime session without deleting it.
+	 *
+	 * @param sessionId The session ID of the runtime to shut down.
+	 * @param exitReason The reason for exiting.
+	 * @param source The source of the request to shutdown the session, for debugging purposes.
+	 * @returns A promise that resolves when the session has exited.
+	 */
+	async shutdownSession(sessionId: string, exitReason: RuntimeExitReason, source: string): Promise<void> {
+		const session = this.getSession(sessionId);
+		if (!session) {
+			throw new Error(`No session with ID '${sessionId}' was found.`);
+		}
+		this._logService.info(
+			`Shutting down session ${formatLanguageRuntimeSession(session)} (Source: ${source})`);
+
+		// Route through the coalescing shutdown so concurrent requests (from the
+		// UI, the API, or a runtime switch) share one shutdown sequence and all
+		// wait for the session to end.
+		await this.shutdownRuntimeSession(session, exitReason);
+	}
+
+	/**
 	 * Shutdown a runtime session if active, and delete it.
 	 * Cleans up the session and removes it from the active sessions list.
 	 *

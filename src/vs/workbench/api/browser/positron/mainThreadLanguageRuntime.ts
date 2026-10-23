@@ -2105,12 +2105,15 @@ export class MainThreadLanguageRuntime
 		return sessionId;
 	}
 
-	// Called by the extension host to restart a running language runtime
-	$restartSession(sessionId: string, requestingExtensionId: string): Promise<boolean> {
+	// Called by the extension host to restart a running language runtime.
+	// `interrupt` offers to interrupt a busy session first; a session's own
+	// `restart()` doesn't, as when the debugger's restart button is used while
+	// stopped at a breakpoint.
+	$restartSession(sessionId: string, requestingExtensionId: string, interrupt: boolean): Promise<boolean> {
 		return this._runtimeSessionService.restartSession(
 			sessionId,
 			'Extension-requested runtime restart via Positron API',
-			true,
+			interrupt,
 			requestingExtensionId);
 	}
 
@@ -2247,12 +2250,12 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(session.execute(code, id, mode, errorBehavior, undefined, executionMetadata));
 	}
 
+	// Called by the extension host to shut down a session. Routes through core
+	// so that concurrent shutdowns are coalesced and core waits for the session
+	// to end; the session stays registered.
 	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void> {
-		const session = this._runtimeSessionService.getSession(sessionId);
-		if (!session) {
-			return Promise.reject(new Error(`No such session: ${sessionId}`));
-		}
-		return Promise.resolve(session.shutdown(exitReason));
+		return this._runtimeSessionService.shutdownSession(
+			sessionId, exitReason, 'Extension-requested runtime shutdown via Positron API');
 	}
 
 	async $evaluateCode(
