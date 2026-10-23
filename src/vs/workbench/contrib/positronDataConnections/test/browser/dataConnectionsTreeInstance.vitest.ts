@@ -574,7 +574,13 @@ describe('DataConnectionsTreeInstance', () => {
 	});
 
 	it('keeps a Views group whose look-ahead fails, and shows the error when it is opened', async () => {
-		const { tree } = lonePublicSchema(() => { throw new Error('boom'); });
+		// The failed look-ahead is not reused: opening the row sends the query again, and that
+		// second failure is the one the row shows.
+		let viewsQueries = 0;
+		const { tree } = lonePublicSchema(() => {
+			viewsQueries++;
+			throw new Error('boom');
+		});
 		await tree.refresh();
 		await tree.expand(ENTRY_ID);
 
@@ -583,9 +589,11 @@ describe('DataConnectionsTreeInstance', () => {
 		expect({
 			rows: rows(tree).map(row => row.name),
 			error: tree.getError('dto:1:4'),
+			viewsQueries,
 		}).toEqual({
 			rows: ['connection', 'Tables', 'Views'],
 			error: new Error('boom'),
+			viewsQueries: 2,
 		});
 	});
 
@@ -667,6 +675,100 @@ describe('DataConnectionsTreeInstance', () => {
 				rows: ['connection', 'Tables', 'Views', 'v_retry'],
 				error: undefined,
 				viewsQueries: 2,
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('does not let a look-ahead from before a reload drop the one after it', async () => {
+		// The first Views query times out and is still running when the connection is reloaded.
+		// The reload sends a fresh query for the same row. When the old query then fails, it must
+		// not remove the fresh one, so opening the row sends no third query.
+		vi.useFakeTimers();
+		try {
+			let failFirstLookAhead!: (error: Error) => void;
+			const firstLookAhead = new Promise<IDataConnectionNodeDTO[]>((_resolve, reject) => {
+				failFirstLookAhead = reject;
+			});
+			let viewsQueries = 0;
+			const { tree } = lonePublicSchema(() => {
+				viewsQueries++;
+				return viewsQueries === 1 ? firstLookAhead : [view];
+			});
+			await tree.refresh();
+
+			const expanding = tree.expand(ENTRY_ID);
+			await vi.advanceTimersByTimeAsync(5_000);
+			await expanding;
+
+			await tree.reload(ENTRY_ID);
+			failFirstLookAhead(new Error('stale boom'));
+			await vi.advanceTimersByTimeAsync(0);
+			await tree.expand('dto:1:4');
+
+			expect({
+				rows: rows(tree).map(row => row.name),
+				error: tree.getError('dto:1:4'),
+				viewsQueries,
+			}).toEqual({
+				rows: ['connection', 'Tables', 'Views', 'v_orders'],
+				error: undefined,
+				viewsQueries: 2,
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('keeps a namespace group as a plain row when its look-ahead times out, and opens it with the same query', async () => {
+		// The group is not breadcrumbed, even though it turns out to hold one schema: the tree
+		// cannot wait for the answer to decide. Opening the group awaits the query that is
+		// already running.
+		vi.useFakeTimers();
+		try {
+			let releaseLookAhead!: (children: IDataConnectionNodeDTO[]) => void;
+			const lookAhead = new Promise<IDataConnectionNodeDTO[]>(resolve => {
+				releaseLookAhead = resolve;
+			});
+			let schemasQueries = 0;
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+				nodeHandle => {
+					if (nodeHandle === 1) {
+						schemasQueries++;
+						return lookAhead;
+					}
+					return [];
+				}
+			);
+			await tree.refresh();
+
+			const expanding = tree.expand(ENTRY_ID);
+			await vi.advanceTimersByTimeAsync(4_999);
+			const beforeTimeout = rows(tree).map(row => row.name);
+			await vi.advanceTimersByTimeAsync(1);
+			await expanding;
+			const afterTimeout = rows(tree).map(row => row.name);
+
+			const opening = tree.expand('dto:1:1');
+			releaseLookAhead([nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]);
+			await opening;
+
+			expect({
+				beforeTimeout,
+				afterTimeout,
+				opened: rows(tree),
+				schemasQueries,
+			}).toEqual({
+				beforeTimeout: ['connection'],
+				afterTimeout: ['connection', 'Schemas'],
+				opened: [
+					{ name: 'connection', prefix: undefined, expanded: true },
+					{ name: 'Schemas', prefix: undefined, expanded: true },
+					{ name: 'public', prefix: undefined, expanded: false },
+				],
+				schemasQueries: 1,
 			});
 		} finally {
 			vi.useRealTimers();
