@@ -289,7 +289,7 @@ export const DISCOVERY_POLICY_VERSION = 2;
  * on-disk root. Folded into the signature's opaque blob so a settings change
  * flips the signature even though no scan-root mtime moved -- without this
  * the cache would keep serving entries that the new setting would now filter
- * or that a different locator implementation wouldn't have found.
+ * or that a different discovery provider wouldn't have found.
  *
  * Settings covered:
  *   - `interpreters.include` / `.exclude` / `.override`: post-discovery

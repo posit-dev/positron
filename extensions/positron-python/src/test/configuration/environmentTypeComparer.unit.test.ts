@@ -582,6 +582,19 @@ suite('isProblematicCondaEnvironment tests', () => {
         assert.strictEqual(result, false);
     });
 
+    test('Conda environment with a bare "python" path should be problematic', () => {
+        // The native locator reports a bare "python" for a conda env with no prefix.
+        pathExistsSyncStub.withArgs('python').returns(true);
+        const environment = {
+            envType: EnvironmentType.Conda,
+            path: 'python',
+            version: { major: 3, minor: 10, patch: 2 },
+        } as PythonEnvironment;
+
+        const result = isProblematicCondaEnvironment(environment);
+        assert.strictEqual(result, true);
+    });
+
     test('Conda environment with existing predicted path should not be problematic', () => {
         const predictedPath = '/path/to/miniforge3/envs/testenvtestenv1234/python';
         pathExistsSyncStub.withArgs(predictedPath).returns(true);

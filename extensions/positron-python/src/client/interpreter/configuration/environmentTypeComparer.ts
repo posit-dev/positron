@@ -255,9 +255,13 @@ export function isProblematicCondaEnvironment(environment: PythonEnvironment): b
     if (environment.envType !== EnvironmentType.Conda) {
         return false;
     }
-    // Check if Python is not installed in the conda environment: the path is a
-    // predicted full path that doesn't exist.
+    // Check if Python is not installed in the conda environment:
+    // - No prefix: the path is just 'python'
+    // - Otherwise: the path is a predicted full path that doesn't exist
     const executablePath = environment.path;
+    if (executablePath === 'python') {
+        return true;
+    }
     // For full paths, check if the file actually exists
     if (executablePath && executablePath !== '' && !pathExistsSync(executablePath)) {
         // If the predicted path doesn't exist, also check the standard conda installation locations
