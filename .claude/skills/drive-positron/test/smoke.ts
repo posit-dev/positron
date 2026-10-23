@@ -91,7 +91,7 @@ const cases: Case[] = [
 	{ name: 'palette-run misspelled flag is a usage error', run: ['palette-run.sh', '--dryrun', 'Smoke: No Such Command'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, 'unknown flag --dryrun') },
 	// One Python session (the workspace's .venv) and no console tabs: --name must still match it. The workspace's
 	// analysis.R starts R beside it, and the first recommendation (R, or Python) is the active one, so name the language.
-	{ name: 'console-read the only session', quick: true, run: ['console-read.sh', '--language', 'python', '--prompt'], check: o => (!/\(python-[0-9a-f]+\)/.test(o.stderr) && `no python session id in ${o.stderr}`) || void (found.first = o.stderr.match(/\(python-([0-9a-f]+)\)/)![1]) },
+	{ name: 'console-read the only Python session', quick: true, run: ['console-read.sh', '--language', 'python', '--prompt'], check: o => (!/\(python-[0-9a-f]+\)/.test(o.stderr) && `no python session id in ${o.stderr}`) || void (found.first = o.stderr.match(/\(python-([0-9a-f]+)\)/)![1]) },
 	{ name: 'console-run only session, wrong --name', run: ['console-run.sh', '--language', 'python', '--name', 'no-such-session', 'x'], fail: true },
 	{ name: 'console-run only session, bare id --name', quick: true, run: () => ['console-run.sh', '--language', 'python', '--name', found.first, '--capture', 'print("only", 6 * 7)'], check: o => includes(o.json!.output, 'only 42') },
 	// The workspace's .R files may have started R already: either way one R session, with its id. --name is the picker's first R, since an image can have several.
@@ -265,8 +265,9 @@ const cases: Case[] = [
 	{ name: 'palette-run Close All Editors (matplotlib plot tab)', run: ['palette-run.sh', 'View: Close All Editors'], check: o => o.json!.closed !== true && 'the palette did not close' },
 	// View: Open View lists Viewer twice, both below the rows the list draws: pick reads every row, and scrolls to the one it takes.
 	{ name: 'palette-run View: Open View', run: ['palette-run.sh', 'View: Open View'] },
-	{ name: 'ui pick counts the rows below the screen that share a label', run: ['ui.sh', 'pick', 'Viewer'], fail: true, check: o => includes(o.json!.error, '2 rows match "Viewer"') },
-	{ name: 'ui pick --nth 2 takes a row below the screen', run: ['ui.sh', 'pick', 'Viewer', '--nth', '2'], check: o => (o.json!.chose !== 'Viewer' && `chose ${o.json!.chose}`) || (!o.json!.closed && 'the quick pick stayed open') },
+	// walked says the rows were read by the walk: without it, a window tall enough to draw them all would pass without testing it.
+	{ name: 'ui pick counts the rows below the screen that share a label', run: ['ui.sh', 'pick', 'Viewer'], fail: true, check: o => (!o.json!.walked && 'not walked; pick a row this window does not draw') || includes(o.json!.error, '2 rows match "Viewer"') },
+	{ name: 'ui pick --nth 2 takes a row below the screen', run: ['ui.sh', 'pick', 'Viewer', '--nth', '2'], check: o => (!o.json!.walked && 'not walked; pick a row this window does not draw') || (o.json!.chose !== 'Viewer' && `chose ${o.json!.chose}`) || (!o.json!.closed && 'the quick pick stayed open') },
 	{ name: 'console-run r html to Viewer', quick: true, run: ['console-run.sh', '--language', 'r', 'print(htmltools::browsable(htmltools::tags$button("smoke-viewer-button")))'] },
 	{ name: 'viewer wait-content', quick: true, run: ['viewer.sh', 'wait-content', '20'], check: o => includes(o.json!.shown, 'smoke-viewer-button') },
 	{ name: 'view-read Viewer', quick: true, run: ['view-read.sh', '--view', 'Viewer'], check: o => includes(o.text, 'button "smoke-viewer-button"') },

@@ -218,50 +218,66 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				}))
 				.filter(r => Number.isFinite(r.index) && !r.separator);
 		}, { q: s.quickInput, label: s.label, list: s.list }),
+		/** The focused row's index once the list has drawn: -1 for none, null when focus is outside the quick input. */
+		focusedIndex: () => page.evaluate(({ q, list }) => new Promise<number | null>(done => requestAnimationFrame(() => requestAnimationFrame(() => {
+			const w = [...document.querySelectorAll<HTMLElement>(q.widget)].find(x => x.offsetParent !== null);
+			const f = w?.contains(document.activeElement) ? w.querySelector(list.focusedRow) : undefined;
+			done(f === undefined ? null : f ? Number(f.getAttribute(list.indexAttr)) : -1);
+		}))), { q: s.quickInput, list: s.list }),
+		/** Whether the virtual list has drawn every row it holds (aria-setsize counts them all, headings too). */
+		allDrawn: () => page.evaluate(q => {
+			const w = [...document.querySelectorAll<HTMLElement>(q.widget)].find(x => x.offsetParent !== null);
+			const drawn = w ? [...w.querySelectorAll<HTMLElement>(q.rows)].filter(r => r.offsetParent !== null) : [];
+			return drawn.length >= Number(drawn[0]?.getAttribute('aria-setsize') ?? 0);
+		}, s.quickInput),
 		/**
 		 * Every row of the open quick input, not only the ones drawn: the list is
 		 * virtual, so this walks it with ArrowDown from the filter, reading the rows
 		 * drawn at each step, until focus comes round to where it started (or stops
 		 * at the end, in a list that does not loop, and is put back). It presses no
 		 * key unless focus is in the quick input; then, or after max steps, it
-		 * returns what it read with complete false. With stopAt, it stops at the
-		 * first step where a drawn row passes stopAt and leaves focus there, so
-		 * that row stays drawn for a click (found true).
+		 * returns what it read with complete false.
 		 */
-		allRows: async (max = 100, stopAt?: (r: { index: number; label: string; description: string }) => boolean) => {
+		allRows: async (max = 100) => {
 			const seen = new Map<number, Awaited<ReturnType<typeof lib.rows>>[number]>();
-			// Whether a row stopAt wants is drawn now.
-			const read = async () => { const rs = await lib.rows(); for (const r of rs) { seen.set(r.index, r); } return !!stopAt && rs.some(stopAt); };
-			// The focused row's index once the list has drawn: -1 for none, null when focus is outside the quick input.
-			const at = () => page.evaluate(({ q, list }) => new Promise<number | null>(done => requestAnimationFrame(() => requestAnimationFrame(() => {
-				const w = [...document.querySelectorAll<HTMLElement>(q.widget)].find(x => x.offsetParent !== null);
-				const f = w?.contains(document.activeElement) ? w.querySelector(list.focusedRow) : undefined;
-				done(f === undefined ? null : f ? Number(f.getAttribute(list.indexAttr)) : -1);
-			}))), { q: s.quickInput, list: s.list });
-			const done = (complete: boolean, found = false) => ({ rows: [...seen.values()].sort((x, y) => x.index - y.index), complete, found });
-			if (await read()) { return done(false, true); }
-			let start = await at();
+			const read = async () => { for (const r of await lib.rows()) { seen.set(r.index, r); } };
+			await read();
+			let start = await lib.focusedIndex();
 			// Nothing focused yet: the first ArrowDown focuses the first row.
-			if (start === -1) { await page.keyboard.press('ArrowDown'); start = await at(); if (await read()) { return done(false, true); } }
+			if (start === -1) { await page.keyboard.press('ArrowDown'); start = await lib.focusedIndex(); await read(); }
 			let complete = false;
 			if (start !== null && start >= 0) {
 				let prev = start;
 				for (let i = 0; i < max; i++) {
 					await page.keyboard.press('ArrowDown');
-					const now = await at();
-					if (await read()) { return done(false, true); }
+					const now = await lib.focusedIndex();
+					await read();
 					if (now === null || now < 0) { break; }
 					if (now === start || now === prev) { complete = true; break; }
 					prev = now;
 				}
 				// A list that does not loop ends with focus at its end: walk it back.
 				for (let i = 0; i < max; i++) {
-					const now = await at();
+					const now = await lib.focusedIndex();
 					if (now === null || now <= start) { break; }
 					await page.keyboard.press('ArrowUp');
 				}
 			}
-			return done(complete);
+			return { rows: [...seen.values()].sort((x, y) => x.index - y.index), complete };
+		},
+		/**
+		 * Moves focus a row at a time towards the row at index until the list draws
+		 * it, for clickRow, and leaves focus there. False when focus is outside the
+		 * quick input or max steps pass first.
+		 */
+		scrollToRow: async (index: number, max = 100) => {
+			for (let i = 0; i <= max; i++) {
+				if ((await lib.rows()).some(r => r.index === index)) { return true; }
+				const now = await lib.focusedIndex();
+				if (now === null) { return false; }
+				await page.keyboard.press(now < index ? 'ArrowDown' : 'ArrowUp');
+			}
+			return false;
 		},
 		/**
 		 * Whether a row holds all these words, each a whole word ("R" is not the r
@@ -279,9 +295,11 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * an error picks it when several rows share the label. nth (1 = first, in
 		 * list order) takes one of several matches. On failure, "shown" holds up
 		 * to 8 rows and "more" says how many it left out. It reads the rows drawn,
-		 * the ones near the list's scroll position; with walk, when they do not
-		 * hold the match, it reads every row (lib.allRows) and scrolls the one it
-		 * picks into view, for clickRow.
+		 * the ones near the list's scroll position. With walk, when the list has
+		 * rows not drawn and the drawn ones hold too few matches (or one, which
+		 * a row below could make ambiguous), it reads every row (lib.allRows) and
+		 * scrolls to the one it picks; the result then has walked true, and
+		 * partial true when the list could not be read or scrolled.
 		 */
 		pick: async (m: { exact?: string; words?: string; folder?: string; preferRoot?: boolean; nth?: number; walk?: boolean }) => {
 			const words = lib.hasWords(m.words ?? '');
@@ -307,26 +325,27 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				return f.sort((x, y) => x.index - y.index);
 			};
 			let found = match(all);
-			// The match may be among the rows the list has not drawn: read them all.
-			const walked = m.walk && found.length < Math.max(1, m.nth ?? 0) ? await lib.allRows() : undefined;
+			// The match, or a second row like it, may be among the rows the list has not drawn: read them all.
+			const short = found.length < Math.max(1, m.nth ?? 0) || (!m.nth && found.length === 1);
+			const walked = m.walk && short && !await lib.allDrawn() ? await lib.allRows() : undefined;
 			if (walked) { all = walked.rows; found = match(all); }
 			// A bare file name means the one at the workspace root, which has no folder beside it.
 			if (found.length > 1 && m.preferRoot && found.filter(r => !r.description).length === 1) { found = found.filter(r => !r.description); }
 			const show = (rs: typeof all) => ({ shown: rs.slice(0, 8).map(shownAs), ...(rs.length > 8 ? { more: `${rs.length - 8} more rows not shown` } : {}) });
 			const want = m.exact ?? m.words;
 			// A walk that stopped short (focus was not in the quick input, or over 100 rows) read only part of the list.
-			const part = walked && !walked.complete ? ` in the ${all.length} rows read; the list has more, which could not be read: filter it with ui.sh type TEXT --in quickpick, then pick` : '';
-			if (found.length === 0) { return { ok: false as const, error: `no row matches "${want}"${part}`, ...show(all) }; }
-			if (m.nth && m.nth > found.length) { return { ok: false as const, error: `${found.length} row${found.length === 1 ? '' : 's'} match "${want}", so there is no row ${m.nth}`, ...show(found) }; }
+			const how = walked ? { walked: true, ...(walked.complete ? {} : { partial: true }) } : {};
+			const part = walked && !walked.complete ? ` in the ${all.length} rows read; the list has more, which could not be read` : '';
+			if (found.length === 0) { return { ok: false as const, error: `no row matches "${want}"${part}`, ...how, ...show(all) }; }
+			if (m.nth && m.nth > found.length) { return { ok: false as const, error: `${found.length} row${found.length === 1 ? '' : 's'} match "${want}", so there is no row ${m.nth}`, ...how, ...show(found) }; }
 			// More words narrow a words match; an exact one is the caller's to say how to narrow.
-			if (found.length > 1 && !m.nth) { return { ok: false as const, error: `${found.length} rows match "${want}"${m.exact === undefined ? '; be more specific' : ''}`, ...show(found) }; }
+			if (found.length > 1 && !m.nth) { return { ok: false as const, error: `${found.length} rows match "${want}"${m.exact === undefined ? '; be more specific' : ''}`, ...how, ...show(found) }; }
 			const row = found[(m.nth || 1) - 1];
 			// Which of the rows that look the same as it (label and description) it is, for clickRow.
 			if (!walked) { return { ok: true as const, row: { ...row, occurrence: found.slice(0, (m.nth || 1) - 1).filter(r => shownAs(r) === shownAs(row)).length } }; }
-			// A row read by the walk may be out of view: move focus down to it, so the list draws it.
-			if (!(await lib.allRows(100, r => r.index === row.index)).found) { return { ok: false as const, error: `the row "${shownAs(row)}" is in the list but could not be scrolled into view; filter it with ui.sh type TEXT --in quickpick, then pick` }; }
+			if (!await lib.scrollToRow(row.index)) { return { ok: false as const, error: `the row "${shownAs(row)}" is in the list but could not be scrolled into view`, walked: true, partial: true }; }
 			// clickRow counts the drawn rows only.
-			return { ok: true as const, row: { ...row, occurrence: (await lib.rows()).filter(r => r.index < row.index && shownAs(r) === shownAs(row)).length } };
+			return { ok: true as const, walked: true, row: { ...row, occurrence: (await lib.rows()).filter(r => r.index < row.index && shownAs(r) === shownAs(row)).length } };
 		},
 		/**
 		 * A real click, which runs it, on the row with this label (and description),
