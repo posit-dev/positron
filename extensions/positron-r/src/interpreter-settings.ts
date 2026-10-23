@@ -105,6 +105,21 @@ export function getInterpreterDefinitionPaths(): string[] {
 }
 
 /**
+ * Labels of the R entries in the `interpreters.definitions` setting, in the
+ * order they are listed.
+ * @returns List of R interpreter definition labels.
+ */
+export function getInterpreterDefinitionLabels(): string[] {
+	const definitions = vscode.workspace.getConfiguration('interpreters').get<unknown>('definitions');
+	if (!Array.isArray(definitions)) {
+		return [];
+	}
+	return definitions
+		.filter(d => d?.language === 'r' && typeof d.label === 'string')
+		.map(d => d.label as string);
+}
+
+/**
  * Whether `interpreters.discovery` is `definitionsOnly` for R, in which case
  * only the R binaries in `interpreters.definitions` are used and no other
  * discovery runs.
