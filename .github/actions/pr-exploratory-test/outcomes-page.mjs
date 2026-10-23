@@ -155,8 +155,9 @@ function prRows(own) {
 	for (const r of own) {
 		byPr.set(r.pr, [...(byPr.get(r.pr) ?? []), r]);
 	}
-	// Most findings first, then the newest PR.
-	const rows = [...byPr].sort(([a, x], [b, y]) => y.length - x.length || b - a).map(([pr, list]) =>
+	// The PR run most recently first, then the newest PR.
+	const latest = list => list.reduce((m, r) => (r.postedAt ?? '') > m ? r.postedAt : m, '');
+	const rows = [...byPr].sort(([a, x], [b, y]) => latest(y).localeCompare(latest(x)) || b - a).map(([pr, list]) =>
 		`<div class="grid-row pr"><a class="name mono" href="${REPO_URL}/pull/${Number(pr)}" data-pr="${Number(pr)}">#${Number(pr)}</a><span class="pct small">${plural(list.length, 'finding')}</span>${splitBar(list)}</div>`).join('\n');
 	const withFix = [...byPr.values()].filter(list => list.some(isFixed)).length;
 	return accordion('pr', 'By PR', `${plural(byPr.size, 'PR')}${SEP}${withFix} with fixes`, `<div class="rows">${rows}</div>`);

@@ -188,15 +188,16 @@ test('the last row of each list drops its hairline, so the divider under it is t
 	assert.match(render(today), /\.rows>:last-child\{border-bottom:0\}/);
 });
 
-test('By PR and Evidence start collapsed behind a heading button, PRs with the most findings first and the newest on ties', () => {
-	const html = render([row('fixed-in-pr', { pr: 5 }), row('pending', { pr: 7 }), row('not-fixed', { pr: 7, finding: 2 }), row('not-fixed', { pr: 9 })]);
+test('By PR and Evidence start collapsed behind a heading button, the PR run most recently first and the newest PR on ties', () => {
+	const at = postedAt => ({ postedAt });
+	const html = render([row('fixed-in-pr', { pr: 5, ...at('2026-10-12T00:00:00Z') }), row('pending', { pr: 7, ...at('2026-10-01T00:00:00Z') }), row('not-fixed', { pr: 7, finding: 2, ...at('2026-10-02T00:00:00Z') }), row('not-fixed', { pr: 9, ...at('2026-10-02T00:00:00Z') })]);
 	assert.match(html, /<h2 id="pr-h"><button type="button" class="acc" aria-expanded="false" aria-controls="pr-body">/);
 	assert.match(html, /<div class="acc-body" id="pr-body" hidden>/);
 	assert.match(html, /aria-controls="ev-body">/);
 	assert.match(html, /id="ev-body" hidden>/);
 	const by = section(html, 'pr-h');
 	assert.match(text(by), /By PR 3 PRs ~ 1 with fixes/);
-	assert.match(text(by), /#7 2 findings 1 1 #9 1 finding 1 #5 1 finding 1/);
+	assert.match(text(by), /#5 1 finding 1 #9 1 finding 1 #7 2 findings 1 1/);
 	assert.doesNotMatch(by, /class="end/);
 	assert.match(text(section(html, 'ev-h')), /> Evidence 4 findings All 4/);
 });
