@@ -461,13 +461,14 @@ export function getPyenvVersion(workspacePath: string | undefined): string | und
 
 /**
  * Check if a version is supported (i.e. >= the minimum supported version and < the maximum).
+ * Support is decided by major and minor version only, so patch, build, and prerelease are ignored.
  * Also returns true if the version could not be determined.
  */
 export function isVersionSupported(version: PythonVersion | undefined): boolean {
-    return (
-        !version ||
-        (comparePythonVersionDescending(MINIMUM_PYTHON_VERSION, version) >= 0 &&
-            comparePythonVersionDescending(MAXIMUM_PYTHON_VERSION_EXCLUSIVE, version) < 0)
-    );
+    if (!version) {
+        return true;
+    }
+    const compareMinor = (other: PythonVersion) => version.major - other.major || version.minor - other.minor;
+    return compareMinor(MINIMUM_PYTHON_VERSION) >= 0 && compareMinor(MAXIMUM_PYTHON_VERSION_EXCLUSIVE) < 0;
 }
 // --- End Positron ---

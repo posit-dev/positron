@@ -117,8 +117,7 @@ def test_histogram_polars_methods():
     import numpy as np
 
     # Generate some normally distributed data
-    np.random.seed(42)  # noqa: NPY002
-    data_values = np.random.randn(1000).tolist()  # noqa: NPY002
+    data_values = [float(x) for x in np.random.default_rng(42).standard_normal(1000)]
 
     methods = ["fixed", "fd", "sturges", "scott"]
 
