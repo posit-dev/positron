@@ -15,6 +15,7 @@ import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { ErrorAction, IErrorActionContext, IErrorActionOptions, IErrorActionHandlerService } from '../common/errorAction.js';
+import { DEFAULT_ERROR_ACTION_HANDLER_LABEL } from '../common/positronAIConfiguration.js';
 import { POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID } from '../common/positronAIConfigurationKeys.js';
 import { NewChatOptions, POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } from './positAssistantChat.js';
 
@@ -70,7 +71,7 @@ export class PositAssistantErrorActionHandlerContribution extends Disposable imp
 
 		this._registration.value = this._errorActionHandlerService.register({
 			id: POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID,
-			label: localize('positronAssistantErrorActionHandlerLabel', "Posit Assistant"),
+			label: DEFAULT_ERROR_ACTION_HANDLER_LABEL,
 			supportsChatContinuation: true,
 			ask: async (action, context, options) => {
 				const pathLabel = (uri: URI) => this._labelService.getUriLabel(uri, { relative: true });
