@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
@@ -452,7 +453,11 @@ describe('DataConnectionsTreeInstance', () => {
 	 * whatever `views` returns at the time it is asked. The lone schema is elided by default, so
 	 * Tables and Views sit directly under the connection.
 	 */
-	function lonePublicSchema(views: () => IDataConnectionNodeDTO[] | Promise<IDataConnectionNodeDTO[]>, viewsGroup: Partial<IDataConnectionNodeDTO> = {}) {
+	function lonePublicSchema(
+		views: () => IDataConnectionNodeDTO[] | Promise<IDataConnectionNodeDTO[]>,
+		viewsGroup: Partial<IDataConnectionNodeDTO> = {},
+		profiles?: IDataConnectionProfile[]
+	) {
 		return createTreeOverNodes(
 			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
 			nodeHandle => nodeHandle === 1
@@ -464,7 +469,8 @@ describe('DataConnectionsTreeInstance', () => {
 					]
 					: nodeHandle === 4
 						? views()
-						: []
+						: [],
+			profiles
 		);
 	}
 
@@ -597,73 +603,75 @@ describe('DataConnectionsTreeInstance', () => {
 		});
 	});
 
-	it('keeps a Views group when its look-ahead times out, and opens it with the same query', async () => {
-		// A metadata query that never answers must not pin the level. Tables needed no look-ahead
-		// of its own, and the Views row stays so the user can open it. Opening awaits the query
-		// that is already running instead of sending it again.
-		vi.useFakeTimers();
-		try {
-			let releaseLookAhead!: (children: IDataConnectionNodeDTO[]) => void;
-			const lookAhead = new Promise<IDataConnectionNodeDTO[]>(resolve => {
-				releaseLookAhead = resolve;
-			});
+	describe('look-ahead deadline', () => {
+		beforeEach(() => {
+			vi.useFakeTimers();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		/**
+		 * Expands a row whose look-aheads are pending, through the level's deadline. Returns the row
+		 * names just short of it, when the level has not rendered yet.
+		 */
+		async function expandThroughDeadline(tree: DataConnectionsTreeInstance, id = ENTRY_ID) {
+			const expanding = tree.expand(id);
+			await vi.advanceTimersByTimeAsync(4_999);
+			const beforeDeadline = rows(tree).map(row => row.name);
+			await vi.advanceTimersByTimeAsync(1);
+			await expanding;
+			return beforeDeadline;
+		}
+
+		it('keeps a Views group when its look-ahead times out, and opens it with the same query', async () => {
+			// A metadata query that never answers must not pin the level. Tables needed no look-ahead
+			// of its own, and the Views row stays so the user can open it. Opening awaits the query
+			// that is already running instead of sending it again.
+			const lookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
 			const lateView = nodeDto({ nodeHandle: 6, name: 'v_late', kind: 'view', hasGetChildren: false });
 			let viewsQueries = 0;
 			const { tree, nodeGetChildren } = lonePublicSchema(() => {
 				viewsQueries++;
-				return lookAhead;
+				return lookAhead.p;
 			});
 			await tree.refresh();
 
-			const expanding = tree.expand(ENTRY_ID);
-			// Short of the timeout the Views query is still pending, so the level has not rendered.
-			await vi.advanceTimersByTimeAsync(4_999);
-			expect(rows(tree).map(row => row.name)).toEqual(['connection']);
-
-			await vi.advanceTimersByTimeAsync(1);
-			await expanding;
+			const beforeDeadline = await expandThroughDeadline(tree);
 			const callsBeforeExpanding = nodeGetChildren.mock.calls.length;
 
 			// The in-flight query answers after the row is opened. The expand waits for it and shows
 			// what it returns, and does not send a second query.
 			const opening = tree.expand('dto:1:4');
-			releaseLookAhead([lateView]);
+			lookAhead.complete([lateView]);
 			await opening;
 
 			expect({
+				beforeDeadline,
 				rows: rows(tree).map(row => row.name),
 				viewsQueries,
 				callsAfterExpanding: nodeGetChildren.mock.calls.length,
 			}).toEqual({
+				beforeDeadline: ['connection'],
 				rows: ['connection', 'Tables', 'Views', 'v_late'],
 				viewsQueries: 1,
 				callsAfterExpanding: callsBeforeExpanding,
 			});
-		} finally {
-			vi.useRealTimers();
-		}
-	});
+		});
 
-	it('retries a Views look-ahead that fails after the timeout when the row is opened', async () => {
-		vi.useFakeTimers();
-		try {
-			let failLookAhead!: (error: Error) => void;
-			const lookAhead = new Promise<IDataConnectionNodeDTO[]>((_resolve, reject) => {
-				failLookAhead = reject;
-			});
-			const view = nodeDto({ nodeHandle: 6, name: 'v_retry', kind: 'view', hasGetChildren: false });
+		it('retries a Views look-ahead that fails after the timeout when the row is opened', async () => {
+			const lookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
+			const retriedView = nodeDto({ nodeHandle: 6, name: 'v_retry', kind: 'view', hasGetChildren: false });
 			let viewsQueries = 0;
 			const { tree } = lonePublicSchema(() => {
 				viewsQueries++;
-				return viewsQueries === 1 ? lookAhead : [view];
+				return viewsQueries === 1 ? lookAhead.p : [retriedView];
 			});
 			await tree.refresh();
+			await expandThroughDeadline(tree);
 
-			const expanding = tree.expand(ENTRY_ID);
-			await vi.advanceTimersByTimeAsync(5_000);
-			await expanding;
-
-			failLookAhead(new Error('late boom'));
+			lookAhead.error(new Error('late boom'));
 			await vi.advanceTimersByTimeAsync(0);
 			await tree.expand('dto:1:4');
 
@@ -676,34 +684,23 @@ describe('DataConnectionsTreeInstance', () => {
 				error: undefined,
 				viewsQueries: 2,
 			});
-		} finally {
-			vi.useRealTimers();
-		}
-	});
+		});
 
-	it('does not let a look-ahead from before a reload drop the one after it', async () => {
-		// The first Views query times out and is still running when the connection is reloaded.
-		// The reload sends a fresh query for the same row. When the old query then fails, it must
-		// not remove the fresh one, so opening the row sends no third query.
-		vi.useFakeTimers();
-		try {
-			let failFirstLookAhead!: (error: Error) => void;
-			const firstLookAhead = new Promise<IDataConnectionNodeDTO[]>((_resolve, reject) => {
-				failFirstLookAhead = reject;
-			});
+		it('does not let a look-ahead from before a reload drop the one after it', async () => {
+			// The first Views query times out and is still running when the connection is reloaded.
+			// The reload sends a fresh query for the same row. When the old query then fails, it must
+			// not remove the fresh one, so opening the row sends no third query.
+			const firstLookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
 			let viewsQueries = 0;
 			const { tree } = lonePublicSchema(() => {
 				viewsQueries++;
-				return viewsQueries === 1 ? firstLookAhead : [view];
+				return viewsQueries === 1 ? firstLookAhead.p : [view];
 			});
 			await tree.refresh();
-
-			const expanding = tree.expand(ENTRY_ID);
-			await vi.advanceTimersByTimeAsync(5_000);
-			await expanding;
+			await expandThroughDeadline(tree);
 
 			await tree.reload(ENTRY_ID);
-			failFirstLookAhead(new Error('stale boom'));
+			firstLookAhead.error(new Error('stale boom'));
 			await vi.advanceTimersByTimeAsync(0);
 			await tree.expand('dto:1:4');
 
@@ -716,53 +713,72 @@ describe('DataConnectionsTreeInstance', () => {
 				error: undefined,
 				viewsQueries: 2,
 			});
-		} finally {
-			vi.useRealTimers();
-		}
-	});
+		});
 
-	it('keeps a namespace group as a plain row when its look-ahead times out, and opens it with the same query', async () => {
-		// The group is not breadcrumbed, even though it turns out to hold one schema: the tree
-		// cannot wait for the answer to decide. Opening the group awaits the query that is
-		// already running.
-		vi.useFakeTimers();
-		try {
-			let releaseLookAhead!: (children: IDataConnectionNodeDTO[]) => void;
-			const lookAhead = new Promise<IDataConnectionNodeDTO[]>(resolve => {
-				releaseLookAhead = resolve;
+		it('keeps another connection\'s in-flight look-ahead when one connection reloads', async () => {
+			// Both connections' Views queries time out and stay in flight. Reloading the first sends
+			// its own query again, but the second's parked query is untouched, so opening its Views
+			// row sends nothing new.
+			const second = createProfile({ id: 'conn-2', connectionName: 'Second Connection' });
+			const lookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
+			let viewsQueries = 0;
+			const { tree } = lonePublicSchema(() => {
+				viewsQueries++;
+				return lookAhead.p;
+			}, {}, [profile, second]);
+			await tree.refresh();
+			await expandThroughDeadline(tree);
+			await expandThroughDeadline(tree, 'entry:conn-2');
+
+			const reloading = tree.reload(ENTRY_ID);
+			await vi.advanceTimersByTimeAsync(5_000);
+			await reloading;
+			const opening = tree.expand('dto:2:4');
+			lookAhead.complete([view]);
+			await opening;
+
+			expect({
+				opened: tree.isExpanded('dto:2:4'),
+				viewsQueries,
+			}).toEqual({
+				opened: true,
+				viewsQueries: 3,
 			});
+		});
+
+		it('keeps a namespace group as a plain row when its look-ahead times out, and opens it with the same query', async () => {
+			// The group is not breadcrumbed, even though it turns out to hold one schema: the tree
+			// cannot wait for the answer to decide. Opening the group awaits the query that is
+			// already running.
+			const lookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
 			let schemasQueries = 0;
 			const { tree } = createTreeOverNodes(
 				[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
 				nodeHandle => {
 					if (nodeHandle === 1) {
 						schemasQueries++;
-						return lookAhead;
+						return lookAhead.p;
 					}
 					return [];
 				}
 			);
 			await tree.refresh();
 
-			const expanding = tree.expand(ENTRY_ID);
-			await vi.advanceTimersByTimeAsync(4_999);
-			const beforeTimeout = rows(tree).map(row => row.name);
-			await vi.advanceTimersByTimeAsync(1);
-			await expanding;
-			const afterTimeout = rows(tree).map(row => row.name);
+			const beforeDeadline = await expandThroughDeadline(tree);
+			const afterDeadline = rows(tree).map(row => row.name);
 
 			const opening = tree.expand('dto:1:1');
-			releaseLookAhead([nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]);
+			lookAhead.complete([nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]);
 			await opening;
 
 			expect({
-				beforeTimeout,
-				afterTimeout,
+				beforeDeadline,
+				afterDeadline,
 				opened: rows(tree),
 				schemasQueries,
 			}).toEqual({
-				beforeTimeout: ['connection'],
-				afterTimeout: ['connection', 'Schemas'],
+				beforeDeadline: ['connection'],
+				afterDeadline: ['connection', 'Schemas'],
 				opened: [
 					{ name: 'connection', prefix: undefined, expanded: true },
 					{ name: 'Schemas', prefix: undefined, expanded: true },
@@ -770,9 +786,37 @@ describe('DataConnectionsTreeInstance', () => {
 				],
 				schemasQueries: 1,
 			});
-		} finally {
-			vi.useRealTimers();
-		}
+		});
+
+		it('holds a level for one timeout in total, however many look-aheads it chains', async () => {
+			// Each query on the single-schema path takes 2s: the Schemas group, then public, then
+			// Views. One after another that is 6s, but the level renders at 5s. The Views look-ahead
+			// runs out of time, so its group is kept even though it turns out to be empty.
+			const slowly = (children: IDataConnectionNodeDTO[]) =>
+				new Promise<IDataConnectionNodeDTO[]>(resolve => setTimeout(() => resolve(children), 2_000));
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+				nodeHandle => nodeHandle === 1
+					? slowly([nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })])
+					: nodeHandle === 2
+						? slowly([
+							nodeDto({ nodeHandle: 3, name: 'Tables', kind: 'group-tables' }),
+							nodeDto({ nodeHandle: 4, name: 'Views', kind: 'group-views' }),
+						])
+						: slowly([])
+			);
+			await tree.refresh();
+
+			const beforeDeadline = await expandThroughDeadline(tree);
+
+			expect({
+				beforeDeadline,
+				atDeadline: rows(tree).map(row => row.name),
+			}).toEqual({
+				beforeDeadline: ['connection'],
+				atDeadline: ['connection', 'Tables', 'Views'],
+			});
+		});
 	});
 
 	it('keeps a Views group it cannot look into, without fetching', async () => {

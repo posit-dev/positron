@@ -100,11 +100,16 @@ const BREADCRUMB_GROUP_KINDS: ReadonlySet<string> = new Set<string>([
 const entryNodeId = (profileId: string): string => `entry:${profileId}`;
 
 /**
+ * The start every DTO node id from one connection shares.
+ */
+const dtoNodeIdPrefix = (handle: IDataConnectionHandle): string => `dto:${handle.handle}:`;
+
+/**
  * Builds the id for a DTO node. Scoped by the originating connection's numeric handle so DTOs
  * from different connections can't collide.
  */
 const dtoNodeId = (handle: IDataConnectionHandle, dto: IDataConnectionNodeDTO): string =>
-	`dto:${handle.handle}:${dto.nodeHandle}`;
+	`${dtoNodeIdPrefix(handle)}${dto.nodeHandle}`;
 
 /**
  * The identity a node keeps across a refresh, used by the tree to re-expand a subtree after
@@ -219,30 +224,28 @@ interface PathLookup {
 const REVEAL_ROOTS_TIMEOUT_MS = 10_000;
 
 /**
- * How long a look-ahead waits for a group's children before keeping the row and moving on.
- *
- * The look-ahead runs before a level can render, so one metadata query that hangs -- common on a
- * cloud warehouse, and paid for Views groups as well as namespace groups -- would otherwise hold
- * every sibling at that level, including rows such as Tables that needed no query of their own,
- * and leave the level pending for good. Five seconds guards against that hang. It is not a latency
- * budget: a warehouse query often takes longer than a second, and the shape of the tree -- whether a
- * namespace group is breadcrumbed, whether an empty Views group is hidden -- should not depend on
- * how fast the query was. The wait is per query, and the single-schema path runs its look-aheads
- * one after another. A hang there costs the timeout once, since a look-ahead that times out ends
- * the chain, but three slow queries that each answer just inside the timeout can cost nearly
- * three times it.
+ * How long a level's look-aheads can hold it before it renders. A look-ahead still waiting then
+ * keeps its row, so one hung metadata query cannot leave the whole level pending. Generous on
+ * purpose, since the tree's shape should not depend on ordinary warehouse latency. The deadline is
+ * per level, shared by look-aheads that run one after another, not per query.
  */
 const LOOK_AHEAD_TIMEOUT_MS = 5_000;
 
+/**
+ * What a look-ahead found out about a node's children.
+ */
+interface ILookAhead {
+	/** The children, or undefined when the fetch failed or did not answer by the deadline. */
+	readonly children: readonly IDataConnectionNodeDTO[] | undefined;
+	/** The fetch, for a kept row's expand to await. Undefined when the fetch failed. */
+	readonly query: Promise<readonly IDataConnectionNodeDTO[]> | undefined;
+}
+
 export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> implements IDataConnectionNodeOpener {
-	// The look-ahead query for a namespace group or Views group, parked before the wait so a timeout
-	// can leave it in flight. Opening a row that kept its place awaits this instead of sending the
-	// query again. A row the look-ahead then drops (a breadcrumbed group, an elided schema, an
-	// empty Views group) has its entry deleted, since nothing will open it. Keyed by the group's
-	// node id, which carries the node handle the fetch minted, so an entry can only ever be read by
-	// the row it was fetched for. Reload and _dropClosedEntrySubtrees clear the map, and a late
-	// answer is not written back into it. See _breadcrumbNamespaceGroups, _wrapUnlessEmptyViews,
-	// and _takeLookAhead.
+	// The look-ahead query for a namespace group or Views group that kept its row, possibly still in
+	// flight. Opening the row awaits this instead of sending the query again. Only kept rows are
+	// parked, so nothing is stored for a row the look-ahead drops. Keyed by the group's node id. See
+	// _parkLookAhead and _takeLookAhead.
 	private readonly _lookAheadChildren = new Map<string, Promise<readonly IDataConnectionNodeDTO[]>>();
 
 	// Rows whose children a path lookup loaded without the row ever being expanded. Having loaded
@@ -744,7 +747,18 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * ones, since after a reload they are indistinguishable from rows appearing for the first time.
 	 */
 	override async reload(id: string): Promise<void> {
-		this._lookAheadChildren.clear();
+		// Only this connection's entries: another connection's parked queries are still good, and
+		// can still be in flight.
+		const data = this.visibleNodes.find(visible => visible.node.id === id)?.node.data;
+		const handle = data?.kind === 'entry' ? data.entry.instance?.connectionHandle : data?.handle;
+		if (handle !== undefined) {
+			const prefix = dtoNodeIdPrefix(handle);
+			for (const lookAheadId of [...this._lookAheadChildren.keys()]) {
+				if (lookAheadId.startsWith(prefix)) {
+					this._lookAheadChildren.delete(lookAheadId);
+				}
+			}
+		}
 		const fetches = this.isExpanded(id) && !this.isRefreshing(id);
 		await super.reload(id);
 		if (fetches) {
@@ -941,22 +955,25 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		dtos: readonly IDataConnectionNodeDTO[],
 		handle: IDataConnectionHandle
 	): Promise<readonly TreeNode<DataConnectionNode>[]> {
+		// One deadline for the whole level, shared by every look-ahead its siblings run. See
+		// LOOK_AHEAD_TIMEOUT_MS.
+		const deadline = Date.now() + LOOK_AHEAD_TIMEOUT_MS;
 		const level = await Promise.all(dtos.map(async dto => {
 			if (!BREADCRUMB_GROUP_KINDS.has(dto.kind)) {
-				const row = await this._wrapUnlessEmptyViews(dto, handle);
+				const row = await this._wrapUnlessEmptyViews(dto, handle, deadline);
 				return row === undefined ? [] : [row];
 			}
 
-			const children = await this._lookAhead(dto, handle);
+			const lookAhead = await this._lookAhead(dto, handle, deadline);
+			const children = lookAhead?.children;
 			if (children === undefined) {
+				this._parkLookAhead(dto, handle, lookAhead);
 				return [wrapDto(dto, handle)];
 			}
 
 			if (children.length === 1) {
-				// The group's row is replaced, so nothing will open it to take its entry.
-				this._lookAheadChildren.delete(dtoNodeId(handle, dto));
 				if (dto.kind === SCHEMAS_GROUP_KIND && !this._showSingleSchema()) {
-					const contents = await this._elideSingleSchema(children[0], handle);
+					const contents = await this._elideSingleSchema(children[0], handle, deadline);
 					if (contents !== undefined) {
 						return contents;
 					}
@@ -965,14 +982,15 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			}
 
 			// The group keeps its row, and the children the look-ahead just fetched are the ones its
-			// expand would ask for. _lookAhead parked that query, so opening the group awaits it
-			// rather than sending it twice. On a warehouse connection that second query is seconds,
-			// at every namespace level, on every reload.
+			// expand would ask for. Parking the query lets opening the group await it rather than
+			// send it twice. On a warehouse connection that second query is seconds, at every
+			// namespace level, on every reload.
 			//
 			// Held to the side rather than handed straight to the tree with setChildren: that writes
 			// into the live children map, and this also runs inside a reload's staged fetch, whose
 			// result is discarded if its node was collapsed while the fetch was in flight. The
 			// entries would outlive the rows they belong to.
+			this._parkLookAhead(dto, handle, lookAhead);
 			return [wrapDto(dto, handle)];
 		}));
 
@@ -1010,28 +1028,27 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * @param schema The lone schema DTO.
 	 * @param handle The connection handle the DTO came from.
+	 * @param deadline When the level stops waiting for its look-aheads, from Date.now().
 	 * @returns The schema's children as this level's rows, or undefined to fall back.
 	 */
 	private async _elideSingleSchema(
 		schema: IDataConnectionNodeDTO,
-		handle: IDataConnectionHandle
+		handle: IDataConnectionHandle,
+		deadline: number
 	): Promise<readonly TreeNode<DataConnectionNode>[] | undefined> {
-		const contents = await this._lookAhead(schema, handle);
-		if (contents === undefined || contents.length === 0) {
-			return undefined;
-		}
-
-		const rows = await Promise.all(contents.map(dto => this._wrapUnlessEmptyViews(dto, handle, schema.name)));
+		const lookAhead = await this._lookAhead(schema, handle, deadline);
+		const contents = lookAhead?.children ?? [];
+		const rows = await Promise.all(contents.map(dto => this._wrapUnlessEmptyViews(dto, handle, deadline, schema.name)));
 		const level = rows.filter(row => row !== undefined);
 
 		// A schema whose only content was an empty Views group holds nothing after all, and falls
-		// back for the same reason an empty schema does.
+		// back for the same reason an empty schema does. The schema then keeps a row, so its
+		// expand gets the query.
 		if (level.length === 0) {
+			this._parkLookAhead(schema, handle, lookAhead);
 			return undefined;
 		}
 
-		// The schema has no row of its own now, so nothing will open it to take its entry.
-		this._lookAheadChildren.delete(dtoNodeId(handle, schema));
 		return level;
 	}
 
@@ -1041,49 +1058,66 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * The look-ahead is an optimization, so a node it cannot look into or a fetch that fails leaves
 	 * the row as it would have been without it. Expanding then runs the call again and surfaces any
 	 * error through the tree's own error state, where the user can retry it. A fetch that does not
-	 * answer within LOOK_AHEAD_TIMEOUT_MS leaves the row too, but the query stays in
-	 * _lookAheadChildren and opening the row awaits it. If that query then fails, it is dropped
-	 * from the map, so opening the row runs the call again. A row opened while the query is still
-	 * in flight shares its outcome, error included.
+	 * answer by the level's deadline leaves the row too, and returns the query still in flight so
+	 * the caller can park it for the expand.
 	 *
-	 * The query is parked in the map before that wait, and the answer is not written back when it
-	 * arrives. An entry can only ever be read by the row it was fetched for: its id carries the node
-	 * handle, and the extension host mints node handles from a counter that only goes up, so a row
-	 * built after a reload has a different id even for the same node. The clear() calls in reload,
-	 * reloadAll, and _dropClosedEntrySubtrees free entries that nothing can read anymore; they are
-	 * not what keeps a stale answer out of a new row.
+	 * Stores nothing itself: only the caller knows whether the row is kept, so it parks the query
+	 * with _parkLookAhead when it is.
 	 *
 	 * @param dto The node to look into.
 	 * @param handle The connection handle the DTO came from.
-	 * @returns The node's children, or undefined when it has none to fetch, the fetch failed, or it
-	 * timed out.
+	 * @param deadline When the level stops waiting for its look-aheads, from Date.now().
+	 * @returns What the look-ahead found, or undefined when the node has no children to fetch.
 	 */
 	private async _lookAhead(
 		dto: IDataConnectionNodeDTO,
-		handle: IDataConnectionHandle
-	): Promise<readonly IDataConnectionNodeDTO[] | undefined> {
+		handle: IDataConnectionHandle,
+		deadline: number
+	): Promise<ILookAhead | undefined> {
 		if (!dto.hasGetChildren) {
 			return undefined;
 		}
 
-		const id = dtoNodeId(handle, dto);
 		try {
 			const query = handle.nodeGetChildren(dto.nodeHandle);
-			// Parked before the wait so a timeout leaves this query for the expand, and so a
-			// reload's clear() discards it. Settling does not write the result back into the map.
-			this._lookAheadChildren.set(id, query);
-			// A failure is not reused, whether it lands before or after the timeout: opening the row
-			// retries, which is how the user recovers. Only drop the entry if it is still this
-			// query, since a reload may have replaced it.
-			query.catch(() => {
-				if (this._lookAheadChildren.get(id) === query) {
-					this._lookAheadChildren.delete(id);
-				}
-			});
-			return await raceTimeout(query, LOOK_AHEAD_TIMEOUT_MS);
+			return { children: await raceTimeout(query, Math.max(0, deadline - Date.now())), query };
 		} catch {
-			return undefined;
+			return { children: undefined, query: undefined };
 		}
+	}
+
+	/**
+	 * Parks a kept row's look-ahead query, so opening the row awaits it rather than sending the
+	 * query again. The query can still be in flight, when the look-ahead ran out of time.
+	 *
+	 * A query that fails later is dropped, so opening the row retries, which is how the user
+	 * recovers. A row opened while the query is still in flight shares its outcome, error included.
+	 * The drop checks that the entry is still this query, since a reload can park a fresh one under
+	 * the same id.
+	 *
+	 * An entry is only read by the row it was fetched for: its id carries the node handle, and
+	 * within one extension host node handles only go up, so a row built after a reload has a
+	 * different id. The clear() calls in reload, reloadAll, and _dropClosedEntrySubtrees free
+	 * entries nothing can read anymore, and cover an extension host restart, which starts the
+	 * handles over.
+	 *
+	 * @param dto The node whose row was kept.
+	 * @param handle The connection handle the DTO came from.
+	 * @param lookAhead What the look-ahead found for the node, if it ran.
+	 */
+	private _parkLookAhead(dto: IDataConnectionNodeDTO, handle: IDataConnectionHandle, lookAhead: ILookAhead | undefined): void {
+		const query = lookAhead?.query;
+		if (query === undefined) {
+			return;
+		}
+
+		const id = dtoNodeId(handle, dto);
+		this._lookAheadChildren.set(id, query);
+		query.catch(() => {
+			if (this._lookAheadChildren.get(id) === query) {
+				this._lookAheadChildren.delete(id);
+			}
+		});
 	}
 
 	/**
@@ -1092,19 +1126,20 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * there is anything to put in it. Deciding that needs the group's children, so a Views group
 	 * costs one extra round trip on the level above, paid whether or not the user goes on to open it.
 	 *
-	 * A group that is kept holds the query the look-ahead parked, the same as a namespace group in
+	 * A group that is kept has its look-ahead query parked, the same as a namespace group in
 	 * _breadcrumbNamespaceGroups. A group whose emptiness is unknown, because the look-ahead could
-	 * not run or failed, is kept as an ordinary row. A timed-out look-ahead keeps the row too, and
-	 * leaves its query parked for the expand.
+	 * not run or failed, is kept as an ordinary row. A timed-out look-ahead keeps the row too.
 	 *
 	 * @param dto The DTO to wrap.
 	 * @param handle The connection handle the DTO came from.
+	 * @param deadline When the level stops waiting for its look-aheads, from Date.now().
 	 * @param elidedSchema The lone schema the row stands in for, when it was dropped.
 	 * @returns The row, or undefined for a Views group that holds no views.
 	 */
 	private async _wrapUnlessEmptyViews(
 		dto: IDataConnectionNodeDTO,
 		handle: IDataConnectionHandle,
+		deadline: number,
 		elidedSchema?: string
 	): Promise<TreeNode<DataConnectionNode> | undefined> {
 		const row = wrapDto(dto, handle, undefined, elidedSchema);
@@ -1112,17 +1147,12 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			return row;
 		}
 
-		const children = await this._lookAhead(dto, handle);
-		if (children === undefined) {
-			return row;
-		}
-
-		if (children.length === 0) {
-			// The row is hidden, so nothing will open it to take its entry.
-			this._lookAheadChildren.delete(dtoNodeId(handle, dto));
+		const lookAhead = await this._lookAhead(dto, handle, deadline);
+		if (lookAhead?.children?.length === 0) {
 			return undefined;
 		}
 
+		this._parkLookAhead(dto, handle, lookAhead);
 		return row;
 	}
 
