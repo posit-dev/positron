@@ -14,10 +14,10 @@ const REPO_ROOT = fs.realpathSync(path.dirname(path.dirname(import.meta.dirname)
  * The ai-lib packages the server (REH) loads at runtime.
  *
  * `ai-config` backs the AI provider catalog and `ai-provider-bridge` backs the
- * headless language model engine; both are registered in `serverServices.ts`
- * and reach their package through a bare dynamic import (`ai-config/node`,
- * `ai-provider-bridge`), so the package has to exist in the server's
- * `node_modules` at runtime.
+ * headless language model engine; both are registered in `serverServices.ts`.
+ * The engine reaches its package through a bare dynamic import
+ * (`ai-provider-bridge/headless`), which in turn loads `ai-config/node`, so both
+ * packages have to exist in the server's `node_modules` at runtime.
  *
  * They are consumed from the ai-lib submodule as `file:` dependencies of the
  * *root* package.json, which is why `getProductionDependencies('remote')` never

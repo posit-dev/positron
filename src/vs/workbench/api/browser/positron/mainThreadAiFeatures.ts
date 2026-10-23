@@ -148,7 +148,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 */
 	async $getProviderBaseUrl(id: string): Promise<string | undefined> {
 		await this._aiProviderService.whenInitialized;
-		return this._aiProviderService.getProvider(id)?.connection.baseUrl;
+		return this._aiProviderService.getProvider(id)?.baseUrl;
 	}
 
 	/**

@@ -276,6 +276,13 @@ ${inputs.enforcedSettings.map(s => `- \`${s.key}\`: ${s.value}`).join('\n')}
 			: '\n\nSome providers did not respond in time, so this list may be incomplete.')
 		: '';
 
+	const providerModule = inputs.modelListing.providerModule;
+	const providerModuleBlock = providerModule === undefined
+		? ''
+		: `Provider module: ${providerModule.kind === 'assistant'
+			? `Posit Assistant (\`${providerModule.folder}\`)`
+			: `compiled-in (${providerModule.reason})`}\n\n`;
+
 	const optionalLine = (label: string, value: string | undefined) => value ? `\n- ${label}: ${value}` : '';
 
 	const featuresBlock = [
@@ -318,7 +325,7 @@ ${providerList(inputs.disabledProviders)}
 
 ### Available Models
 
-Models each provider offers (${totalModels} total).${incompleteNote}
+${providerModuleBlock}Models each provider offers (${totalModels} total).${incompleteNote}
 
 ${modelsBlock}
 

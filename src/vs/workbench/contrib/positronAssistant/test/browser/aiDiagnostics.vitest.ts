@@ -250,6 +250,32 @@ describe('generateAIDiagnosticsReport', () => {
 		expect(report).toContain('**copilot** (0)\n\nQueried, but returned no models.');
 	});
 
+	it('names the Posit Assistant provider module folder under Available Models', () => {
+		const report = generateAIDiagnosticsReport(inputs({
+			modelListing: {
+				providerModule: { kind: 'assistant', folder: '/ext/posit.assistant-2.4.0/dist/provider-module' },
+				queriedProviders: [],
+				models: [],
+			},
+		}));
+		expect(report).toContain('### Available Models\n\nProvider module: Posit Assistant (`/ext/posit.assistant-2.4.0/dist/provider-module`)\n\nModels each provider offers');
+	});
+
+	it('names the compiled-in provider module and why Assistant is not serving', () => {
+		const report = generateAIDiagnosticsReport(inputs({
+			modelListing: {
+				providerModule: { kind: 'compiled-in', reason: 'Posit Assistant is not installed' },
+				queriedProviders: [],
+				models: [],
+			},
+		}));
+		expect(report).toContain('### Available Models\n\nProvider module: compiled-in (Posit Assistant is not installed)\n\nModels each provider offers');
+	});
+
+	it('omits the provider module line when the listing does not report one', () => {
+		expect(generateAIDiagnosticsReport(inputs())).not.toContain('Provider module:');
+	});
+
 	it('lists a model under every provider that offers it, not just the one that wins de-duplication', () => {
 		const report = generateAIDiagnosticsReport(inputs());
 		expect(report.split('`claude-sonnet-4-5`')).toHaveLength(3);
@@ -497,7 +523,7 @@ describe('collectProviderDiagnostics', () => {
 	const session = stubInterface<AuthenticationSession>({ id: 'session' });
 
 	function catalogEntry(id: string, overrides: Partial<IResolvedProviderData> = {}): IResolvedProviderData {
-		return { id, enabled: true, connection: {}, ...overrides };
+		return { id, enabled: true, ...overrides };
 	}
 
 	/** Stubs the catalog and the sign-ins: `signedIn` lists the auth ids with a session. */

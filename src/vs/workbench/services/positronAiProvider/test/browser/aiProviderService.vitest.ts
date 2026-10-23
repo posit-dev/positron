@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -17,7 +18,7 @@ import { AbstractAiProviderService } from '../../browser/abstractAiProviderServi
 import { BrowserAiProviderService } from '../../browser/aiProviderService.js';
 
 function provider(id: string, enabled: boolean): IResolvedProviderData {
-	return { id, enabled, connection: {} };
+	return { id, enabled };
 }
 
 function change(catalog: readonly IResolvedProviderData[]): IProviderCatalogChangeData {
@@ -138,6 +139,85 @@ describe('AiProviderService', () => {
 		expect(service.status).toBe('error');
 		expect(service.lastError?.message).toBe('channel down');
 		expect(service.getProviders()).toEqual([]);
+	});
+
+	it('stays ready when a catalog change arrives before the initial fetch rejects', async () => {
+		const pending = new DeferredPromise<readonly IResolvedProviderData[]>();
+		const fake = fakeCatalog({ getCatalog: () => pending.p });
+		const service = createService(fake.catalog);
+		await vi.waitFor(() => expect(fake.getCatalog).toHaveBeenCalledTimes(1));
+
+		fake.onDidChangeCatalog.fire(change([provider('anthropic', true)]));
+		pending.error(new Error('stale copy failed'));
+		await service.whenInitialized;
+
+		expect({ status: service.status, providers: service.getProviders() })
+			.toEqual({ status: 'ready', providers: [provider('anthropic', true)] });
+	});
+
+	describe('after a failed fetch', () => {
+		beforeEach(() => vi.useFakeTimers());
+		afterEach(() => vi.useRealTimers());
+
+		function failOnce(catalog: readonly IResolvedProviderData[]) {
+			let calls = 0;
+			return fakeCatalog({
+				getCatalog: async () => {
+					if (calls++ === 0) {
+						throw new Error('channel down');
+					}
+					return catalog;
+				},
+			});
+		}
+
+		it('retries until the catalog loads', async () => {
+			const service = createService(failOnce([provider('anthropic', true)]).catalog);
+			await service.whenInitialized;
+
+			await vi.advanceTimersByTimeAsync(60_000);
+
+			expect({ status: service.status, providers: service.getProviders() })
+				.toEqual({ status: 'ready', providers: [provider('anthropic', true)] });
+		});
+
+		it('notifies listeners when a retry recovers the catalog', async () => {
+			const service = createService(failOnce([provider('anthropic', true)]).catalog);
+			const changes: IProviderCatalogChangeData[] = [];
+			ctx.disposables.add(service.onDidChangeProviders(c => changes.push(c)));
+			await service.whenInitialized;
+
+			await vi.advanceTimersByTimeAsync(60_000);
+
+			expect(changes).toEqual([{
+				catalog: [provider('anthropic', true)], enabledChanged: true, connectionChanged: true, modelsChanged: true,
+			}]);
+		});
+
+		it('fires each catalog change once after retrying', async () => {
+			const fake = failOnce([provider('anthropic', true)]);
+			const service = createService(fake.catalog);
+			await service.whenInitialized;
+			await vi.advanceTimersByTimeAsync(60_000);
+			const changes: IProviderCatalogChangeData[] = [];
+			ctx.disposables.add(service.onDidChangeProviders(c => changes.push(c)));
+
+			const next = change([provider('openai', true)]);
+			fake.onDidChangeCatalog.fire(next);
+
+			expect(changes).toEqual([next]);
+		});
+
+		it('stops retrying once disposed', async () => {
+			const fake = fakeCatalog({ getCatalog: async () => { throw new Error('channel down'); } });
+			const service = createService(fake.catalog);
+			await service.whenInitialized;
+			service.dispose();
+
+			await vi.advanceTimersByTimeAsync(600_000);
+
+			expect(fake.getCatalog).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it('a catalog change event replaces the prior snapshot in place', async () => {
