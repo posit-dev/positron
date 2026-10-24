@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as vscode from 'vscode';
+import type * as positron from 'positron';
 
 import { ChatRequestEditorData, Disposable } from '../extHostTypes.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
@@ -13,11 +14,20 @@ import { Emitter } from '../../../../base/common/event.js';
 import { IChatRequestReferenceSession } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtHostWorkspace } from '../extHostWorkspace.js';
 import { getEnabledTools as filterEnabledTools } from './positronToolFilter.js';
+import { URI } from '../../../../base/common/uri.js';
+import { assertNever } from '../../../../base/common/assert.js';
+import { ErrorAction, IErrorActionContext } from '../../../contrib/positronAssistant/common/errorAction.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadAiFeaturesShape;
 	private readonly _disposables: DisposableStore = new DisposableStore();
+
+	/** Registered error action handlers, by the handle the main thread knows them by. */
+	private readonly _errorActionHandlersByHandle = new Map<number, positron.ai.ErrorActionHandler>();
+
+	/** Handle for the next error action handler registration. */
+	private _nextErrorActionHandlerHandle = 0;
 	private readonly _onDidChangeProviderEnablementEmitter = this._disposables.add(new Emitter<{ id: string; enabled: boolean }>());
 	private readonly _onDidChangeAgentSkillRootsEmitter = this._disposables.add(new Emitter<void>());
 
@@ -40,6 +50,27 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): string[] {
 		const isWorkspaceOpen = (this._extHostWorkspace.getWorkspaceFolders()?.length ?? 0) > 0;
 		return filterEnabledTools(request, tools, isWorkspaceOpen);
+	}
+
+	registerErrorActionHandler(id: string, label: string, handler: positron.ai.ErrorActionHandler, metadata?: positron.ai.ErrorActionHandlerMetadata): vscode.Disposable {
+		// The main thread refuses reserved and taken ids, with a logged error;
+		// unregistering a refused handle does nothing.
+		const handle = this._nextErrorActionHandlerHandle++;
+		this._errorActionHandlersByHandle.set(handle, handler);
+		this._proxy.$registerErrorActionHandler(handle, id, label, metadata?.supportsChatContinuation === true);
+		return new Disposable(() => {
+			if (this._errorActionHandlersByHandle.delete(handle)) {
+				this._proxy.$unregisterErrorActionHandler(handle);
+			}
+		});
+	}
+
+	async $askErrorActionHandler(handle: number, action: ErrorAction, context: IErrorActionContext, continueChat: boolean): Promise<void> {
+		const handler = this._errorActionHandlersByHandle.get(handle);
+		if (!handler) {
+			throw new Error(`No error action handler is registered with the handle ${handle}`);
+		}
+		await handler.ask(action, reviveErrorActionContext(context), { continueChat });
 	}
 
 	$onDidChangeProviderEnablement(id: string, enabled: boolean): void {
@@ -123,4 +154,17 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$validateAndExecuteCommand(commandId, args);
 	}
 
+}
+
+/** Convert an error's context from the main thread, reviving its URI. */
+function reviveErrorActionContext(context: IErrorActionContext): positron.ai.ErrorActionContext {
+	switch (context.kind) {
+		case 'console':
+			return context;
+		case 'notebook':
+		case 'quarto':
+			return { ...context, uri: URI.revive(context.uri) };
+		default:
+			assertNever(context);
+	}
 }

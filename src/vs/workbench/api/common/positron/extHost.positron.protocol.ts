@@ -18,6 +18,7 @@ export type { INotebookCellOutputDTO };
 import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeConsoleError, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, RuntimeSessionStartOptions, type notebooks, type dataExplorer } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
+import { ErrorAction, IErrorActionContext } from '../../../contrib/positronAssistant/common/errorAction.js';
 import { IGenerateAssistantPromptRequest } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionLineageDTO, IDataConnectionLineageRequestDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
@@ -505,10 +506,13 @@ export interface MainThreadAiFeaturesShape {
 		commandId: string,
 		args: unknown[] | undefined,
 	): Promise<ISerializedValidateAndExecuteCommandResult>;
+	$registerErrorActionHandler(handle: number, id: string, label: string, supportsChatContinuation: boolean): void;
+	$unregisterErrorActionHandler(handle: number): void;
 }
 
 export interface ExtHostAiFeaturesShape {
 	$onDidChangeProviderEnablement(id: string, enabled: boolean): void;
+	$askErrorActionHandler(handle: number, action: ErrorAction, context: IErrorActionContext, continueChat: boolean): Promise<void>;
 }
 
 export interface MainThreadPlotsServiceShape {

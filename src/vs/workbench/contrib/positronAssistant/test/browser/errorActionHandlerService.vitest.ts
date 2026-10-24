@@ -10,8 +10,12 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { Extensions, IConfigurationRegistry } from '../../../../../platform/configuration/common/configurationRegistry.js';
 import { INotificationService, Severity } from '../../../../../platform/notification/common/notification.js';
+import { IProgressService } from '../../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
+import { Emitter } from '../../../../../base/common/event.js';
+import { IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
+import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ErrorActionHandlerService } from '../../browser/errorActionHandlerService.js';
@@ -28,7 +32,18 @@ describe('ErrorActionHandlerService', () => {
 	const notifyWarn = vi.fn();
 	const openUserSettings = vi.fn();
 	const openWorkspaceSettings = vi.fn();
+	const activateByEvent = vi.fn<IExtensionService['activateByEvent']>();
+	const onDidChangeExtensions = new Emitter<{ readonly added: readonly IExtensionDescription[]; readonly removed: readonly IExtensionDescription[] }>();
+	let extensions: IExtensionDescription[] = [];
+	const withProgress = vi.fn<IProgressService['withProgress']>();
 	const ctx = createTestContainer()
+		.stub(IProgressService, { withProgress })
+		.stub(IExtensionService, {
+			get extensions() { return extensions; },
+			onDidChangeExtensions: onDidChangeExtensions.event,
+			whenInstalledExtensionsRegistered: async () => true,
+			activateByEvent,
+		})
 		.stub(ILogService, { error: logError, warn: logWarn })
 		.stub(INotificationService, { error: notifyError, prompt: notifyPrompt, warn: notifyWarn })
 		.stub(IPreferencesService, { openUserSettings, openWorkspaceSettings })
@@ -37,6 +52,9 @@ describe('ErrorActionHandlerService', () => {
 	let configurationService: TestConfigurationService;
 
 	beforeEach(() => {
+		extensions = [];
+		activateByEvent.mockResolvedValue(undefined);
+		withProgress.mockImplementation((_options, task) => task(stubInterface({})));
 		configurationService = new TestConfigurationService({ [AI_ENABLED_KEY]: true, [ERROR_ACTIONS_AGENT_KEY]: 'test-handler' });
 		ctx.instantiationService.stub(IConfigurationService, configurationService);
 	});
@@ -74,6 +92,15 @@ describe('ErrorActionHandlerService', () => {
 		return { id: 'test-handler', label: 'Test Assistant', supportsChatContinuation: true, ask: async () => { }, ...options };
 	}
 
+	/** Install an extension that contributes the handler. */
+	function installContributingExtension(contribution = { id: 'test-handler', label: 'Contributed Handler' }): void {
+		// The contribution point isn't one of upstream's typed contributions.
+		const contributes: object = { errorActionHandlers: [contribution] };
+		const extension = stubInterface<IExtensionDescription>({ contributes: contributes as IExtensionDescription['contributes'] });
+		extensions = [extension];
+		onDidChangeExtensions.fire({ added: [extension], removed: [] });
+	}
+
 	/** The ids and labels the setting lists. */
 	function getChoices() {
 		const schema = Registry.as<IConfigurationRegistry>(Extensions.Configuration).getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY];
@@ -94,6 +121,18 @@ describe('ErrorActionHandlerService', () => {
 		registration.dispose();
 		expect(service.activeHandler).toEqual(unavailable);
 		expect(onDidChangeActiveHandler.mock.calls).toEqual([[handler], [unavailable]]);
+	});
+
+	it('names the chosen handler as its extension contributes it while it is not registered', () => {
+		const service = createService();
+		const onDidChangeActiveHandler = watchActiveHandler(service);
+
+		installContributingExtension();
+
+		const contributed = { id: 'test-handler', label: 'Contributed Handler', supportsChatContinuation: false };
+		expect(service.activeHandler).toEqual(contributed);
+		expect(onDidChangeActiveHandler.mock.calls).toEqual([[contributed]]);
+		expect(getChoices().labels).toEqual(['Posit Assistant', 'Contributed Handler (not available)']);
 	});
 
 	it('never makes a handler active that the user did not choose', () => {
@@ -327,6 +366,52 @@ describe('ErrorActionHandlerService', () => {
 
 		choice.run();
 		expect(openUserSettings).toHaveBeenCalledWith({ query: ERROR_ACTIONS_AGENT_KEY, revealSetting: { key: ERROR_ACTIONS_AGENT_KEY } });
+	});
+
+	it('activates the extension that contributes the handler and sends once it registers', async () => {
+		installContributingExtension();
+		const service = createService();
+		const ask = vi.fn();
+		activateByEvent.mockImplementation(async () => {
+			ctx.disposables.add(service.register(createHandler({ ask })));
+		});
+
+		await service.ask('test-handler', 'fix', context, {});
+
+		expect(activateByEvent).toHaveBeenCalledWith('onErrorActionHandler:test-handler');
+		expect(withProgress.mock.calls[0][0]).toMatchObject({ title: 'Starting Contributed Handler...', delay: 500 });
+		expect(ask).toHaveBeenCalledOnce();
+		expect(notifyPrompt).not.toHaveBeenCalled();
+	});
+
+	it('says the handler may not be installed when its extension does not register it', async () => {
+		installContributingExtension();
+		const service = createService();
+
+		await service.ask('test-handler', 'fix', context, {});
+
+		expect(notifyPrompt.mock.calls[0][1]).toBe(`The coding agent 'Contributed Handler' isn't available, so the error wasn't sent. It may not be installed.`);
+	});
+
+	it('says the handler is not available, rather than rejects, when its extension fails to activate', async () => {
+		installContributingExtension();
+		const service = createService();
+		const error = new Error('activation failed');
+		activateByEvent.mockRejectedValue(error);
+
+		await expect(service.ask('test-handler', 'fix', context, {})).resolves.toBeUndefined();
+
+		expect(logError).toHaveBeenCalledWith(`Failed to activate the error action handler 'test-handler'`, error);
+		expect(notifyPrompt).toHaveBeenCalledOnce();
+	});
+
+	it('does not activate anything when no extension contributes the handler', async () => {
+		const service = createService();
+
+		await service.ask('test-handler', 'fix', context, {});
+
+		expect(activateByEvent).not.toHaveBeenCalled();
+		expect(notifyPrompt).toHaveBeenCalledOnce();
 	});
 
 	it('opens the settings the unavailable handler was chosen in', async () => {
