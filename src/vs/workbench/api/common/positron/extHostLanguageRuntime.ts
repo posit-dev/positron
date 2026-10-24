@@ -1426,6 +1426,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		interface Discoverer {
 			extension: IExtensionDescription;
 			manager: positron.LanguageRuntimeManager;
+			languageId: string;
 			discoverer: AsyncGenerator<positron.LanguageRuntimeMetadata, void, unknown>;
 		}
 
@@ -1486,6 +1487,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					// from the list of discoverers we're waiting on
 					nextPromises[index] = never;
 					count--;
+
+					// Once every provider for this language is done, tell the
+					// main thread, so it can ask the language for its
+					// recommendation without waiting for the other languages.
+					const languageId = discoverers[index].languageId;
+					if (discoverers.every((other, otherIndex) =>
+						other.languageId !== languageId || nextPromises[otherIndex] === never)) {
+						this._proxy.$completeLanguageRuntimeDiscoveryForLanguage(languageId);
+					}
 				} else if (result.value !== undefined) {
 					// Otherwise, move on to the next runtime from the provider
 					// and register the runtime it returned
