@@ -122,11 +122,11 @@ export function droppedPaths({ paths, tested, merged }) {
 
 /**
  * One finding's outcome from its checks. `Check` is `{ answer, reason, source, cut? }`; a fix read from a cut diff keeps `cut`.
- * `dropped` is `droppedPaths` for a merged PR: the change the finding was about didn't ship.
+ * `dropped` is `droppedPaths` for a merged PR. A closed PR or a dropped change didn't ship, so even a fix in the PR doesn't count.
  */
 export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped = [] }) {
 	const cutOf = c => c.cut ? { cut: true } : {};
-	if (prCheck?.answer === 'yes') {
+	if (prCheck?.answer === 'yes' && prState !== 'closed') {
 		return { outcome: 'fixed-in-pr', decidedBy: 'diff+model', evidence: evidenceOf(prCheck), ...cutOf(prCheck) };
 	}
 	const yesLater = laterChecks.filter(c => c.answer === 'yes');
@@ -145,8 +145,11 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped
 	if (filed) {
 		return { outcome: 'filed-issue', decidedBy: 'issue+model', evidence: evidenceOf(filed), ...(filed.issue ? { issue: filed.issue } : {}) };
 	}
+	if (prState === 'closed') {
+		return { outcome: 'didnt-ship', decidedBy: 'closed-unmerged', evidence: prCheck ? evidenceOf(prCheck) : '' };
+	}
 	if (dropped.length) {
-		return { outcome: 'dropped', decidedBy: 'change-dropped', evidence: `the merged PR no longer changes ${dropped.map(p => `\`${p}\``).join(', ')}` };
+		return { outcome: 'didnt-ship', decidedBy: 'dropped', evidence: `the merged PR no longer changes ${dropped.map(p => `\`${p}\``).join(', ')}` };
 	}
 	if (!hasPaths) {
 		return { outcome: 'no-paths', decidedBy: 'none', evidence: 'the cause names no file' };
@@ -156,7 +159,7 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped
 		return { outcome: 'unclear', decidedBy: decidedByOf(unclear), evidence: evidenceOf(unclear) };
 	}
 	const no = [prCheck, ...laterChecks].find(c => c?.answer === 'no');
-	return { outcome: 'not-fixed', decidedBy: prState === 'closed' ? 'closed-unmerged' : 'merged-no-fix', evidence: no ? evidenceOf(no) : '' };
+	return { outcome: 'not-fixed', decidedBy: 'merged-no-fix', evidence: no ? evidenceOf(no) : '' };
 }
 
 // Not fixed isn't final: a later fix or a matching issue still moves it to fixed later.
