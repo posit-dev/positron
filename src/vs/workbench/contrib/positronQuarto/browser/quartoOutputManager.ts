@@ -29,7 +29,7 @@ import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { QuartoCodeCell } from '../common/quartoTypes.js';
 import { parseCellId } from './quartoDocumentModel.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
-import { IQuartoErroredCell } from '../../positronAssistant/common/errorAssistant.js';
+import { IQuartoErroredCell } from '../../positronAssistant/common/errorAction.js';
 import { ICellAssociation, reconcileCellAssociations } from '../common/quartoCellReconciliation.js';
 import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY, affectsQuartoConfig, getQuartoConfigValue, isQuartoDocument, usingQuartoInlineOutputAutoScroll } from '../common/positronQuartoConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';

@@ -14,23 +14,23 @@ import { ExtensionIdentifier } from '../../../../platform/extensions/common/exte
 import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
-import { ErrorAssistantAction, IErrorAssistantContext, IErrorAssistantOptions, IErrorAssistantService } from '../common/errorAssistant.js';
+import { ErrorAction, IErrorActionContext, IErrorActionOptions, IErrorActionHandlerService } from '../common/errorAction.js';
 import { NewChatOptions, POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } from './positAssistantChat.js';
 
-/** Posit Assistant's error assistant id. */
-const POSIT_ASSISTANT_ERROR_ASSISTANT_ID = 'posit-assistant';
+/** Posit Assistant's error action handler id. */
+const POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID = 'posit-assistant';
 
 /** The Posit Assistant extension's identifier. */
 const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
 
 /**
- * Registers Posit Assistant as the error assistant while it can take errors:
+ * Registers Posit Assistant as the error action handler while it can take errors:
  * while the extension is installed and has a usable chat model.
  */
-export class PositAssistantErrorAssistantContribution extends Disposable implements IWorkbenchContribution {
-	static readonly ID = 'workbench.contrib.positAssistantErrorAssistant';
+export class PositAssistantErrorActionHandlerContribution extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.positAssistantErrorActionHandler';
 
-	/** The assistant's registration, set while Posit Assistant can take errors. */
+	/** The handler's registration, set while Posit Assistant can take errors. */
 	private readonly _registration = this._register(new MutableDisposable());
 
 	private readonly _hasChatModelsKeys = new Set([POSIT_HAS_CHAT_MODELS_KEY]);
@@ -38,7 +38,7 @@ export class PositAssistantErrorAssistantContribution extends Disposable impleme
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@IErrorAssistantService private readonly _errorAssistantService: IErrorAssistantService,
+		@IErrorActionHandlerService private readonly _errorActionHandlerService: IErrorActionHandlerService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILabelService private readonly _labelService: ILabelService,
 	) {
@@ -53,7 +53,7 @@ export class PositAssistantErrorAssistantContribution extends Disposable impleme
 		}));
 	}
 
-	/** Register the assistant while Posit Assistant can take errors, and unregister it otherwise. */
+	/** Register the handler while Posit Assistant can take errors, and unregister it otherwise. */
 	private _updateRegistration(): void {
 		const installed = this._extensionService.extensions.some(extension =>
 			ExtensionIdentifier.equals(extension.identifier, POSIT_ASSISTANT_EXTENSION_ID));
@@ -69,9 +69,9 @@ export class PositAssistantErrorAssistantContribution extends Disposable impleme
 			return;
 		}
 
-		this._registration.value = this._errorAssistantService.register({
-			id: POSIT_ASSISTANT_ERROR_ASSISTANT_ID,
-			label: localize('positronAssistantErrorAssistantLabel', "Posit Assistant"),
+		this._registration.value = this._errorActionHandlerService.register({
+			id: POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID,
+			label: localize('positronAssistantErrorActionHandlerLabel', "Posit Assistant"),
 			supportsChatContinuation: true,
 			ask: async (action, context, options) => {
 				const pathLabel = (uri: URI) => this._labelService.getUriLabel(uri, { relative: true });
@@ -87,9 +87,9 @@ export class PositAssistantErrorAssistantContribution extends Disposable impleme
  * @param pathLabel Formats a document's URI for the prompt.
  */
 export function getPositAssistantChatOptions(
-	action: ErrorAssistantAction,
-	context: IErrorAssistantContext,
-	options: IErrorAssistantOptions,
+	action: ErrorAction,
+	context: IErrorActionContext,
+	options: IErrorActionOptions,
 	pathLabel: (uri: URI) => string,
 ): NewChatOptions {
 	let fixPrompt: string;

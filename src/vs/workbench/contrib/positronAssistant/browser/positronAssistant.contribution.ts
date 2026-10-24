@@ -31,8 +31,8 @@ import { IAiProviderService } from '../../../services/positronAiProvider/common/
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { CreateAIDiagnosticReportAction } from './aiDiagnostics.js';
-import { PositAssistantErrorAssistantContribution } from './positAssistantErrorAssistant.js';
-import './errorAssistantService.js';
+import { PositAssistantErrorActionHandlerContribution } from './positAssistantErrorActionHandler.js';
+import './errorActionHandlerService.js';
 // Importing this module also registers the `ai.enabled` main switch for Positron's AI features.
 import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 import { CONFIGURE_PROVIDERS_ACTION_ID, CONFIGURE_PROVIDERS_COMMAND } from '../common/positronAssistantCommands.js';
@@ -185,7 +185,7 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).regi
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(LegacyCredentialCopyContribution, LifecyclePhase.Eventually);
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantToolsContribution, LifecyclePhase.Restored);
-// The quick fixes follow the active assistant as it changes, and Posit Assistant
+// The quick fixes follow the active handler as it changes, and Posit Assistant
 // only registers once extensions are, so there's no need to block startup.
-registerWorkbenchContribution2(PositAssistantErrorAssistantContribution.ID, PositAssistantErrorAssistantContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(PositAssistantErrorActionHandlerContribution.ID, PositAssistantErrorActionHandlerContribution, WorkbenchPhase.AfterRestored);
 

@@ -19,7 +19,7 @@ import { ActivityItemErrorMessage } from '../../../../services/positronConsole/b
 import { ActivityItemInput, ActivityItemInputState } from '../../../../services/positronConsole/browser/classes/activityItemInput.js';
 import { RuntimeItemActivity } from '../../../../services/positronConsole/browser/classes/runtimeItemActivity.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
+import { registerTestErrorActionHandler } from '../../../positronAssistant/test/browser/errorActionTestUtils.js';
 import { RuntimeActivity } from '../../browser/components/runtimeActivity.js';
 
 // Replace the input renderer: colorizing the input needs the tokenization
@@ -76,7 +76,7 @@ describe('RuntimeActivity error code', () => {
 
 	beforeEach(() => {
 		ask.mockReset().mockResolvedValue(undefined);
-		registerTestErrorAssistant(ctx, { ask });
+		registerTestErrorActionHandler(ctx, { ask });
 		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('console.assistantActions.enabled', true);
 	});
 

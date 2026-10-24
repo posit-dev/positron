@@ -13,8 +13,8 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { IErrorAssistant } from '../../../positronAssistant/common/errorAssistant.js';
-import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
+import { IErrorActionHandler } from '../../../positronAssistant/common/errorAction.js';
+import { registerTestErrorActionHandler } from '../../../positronAssistant/test/browser/errorActionTestUtils.js';
 import { ConsoleQuickFix } from '../../browser/components/activityErrorQuickFix.js';
 
 const line = (id: string, text: string): ANSIOutputLine => ({
@@ -44,13 +44,13 @@ describe('ConsoleQuickFix', () => {
 		ask.mockReset().mockResolvedValue(undefined);
 	});
 
-	/** Register the assistant errors are sent to. */
-	function registerAssistant(options: Partial<IErrorAssistant> = {}) {
-		registerTestErrorAssistant(ctx, { ask, ...options });
+	/** Register the handler errors are sent to. */
+	function registerHandler(options: Partial<IErrorActionHandler> = {}) {
+		registerTestErrorActionHandler(ctx, { ask, ...options });
 	}
 
 	it('sends the message, traceback, session, and code to the active chat', async () => {
-		registerAssistant();
+		registerHandler();
 		const user = userEvent.setup();
 		rtl.render(<ConsoleQuickFix code='print(x)' outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByRole('button', { name: 'Ask Test Assistant to fix' }));
@@ -69,7 +69,7 @@ describe('ConsoleQuickFix', () => {
 	});
 
 	it('sends only the message, untrimmed, when there is no traceback', async () => {
-		registerAssistant();
+		registerHandler();
 		const user = userEvent.setup();
 		rtl.render(<ConsoleQuickFix outputLines={[line('1', '  Error: boom'), line('2', '')]} positronConsoleInstance={positronConsoleInstance} tracebackLines={[]} />);
 		await user.click(screen.getByText('Fix'));
@@ -78,12 +78,12 @@ describe('ConsoleQuickFix', () => {
 	});
 
 	it('offers only Fix and Explain', () => {
-		registerAssistant();
+		registerHandler();
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
 		expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['Fix', 'Explain']);
 	});
 
-	it('renders nothing when there is no active assistant', () => {
+	it('renders nothing when there is no active handler', () => {
 		rtl.render(<ConsoleQuickFix outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
 		expect(screen.queryByRole('button')).not.toBeInTheDocument();
 	});

@@ -1136,7 +1136,7 @@ export class PositronNotebooks extends Notebooks {
 	 * Verify: Fix/Explain error buttons visibility.
 	 * @param visible - Whether the buttons should be visible (true) or hidden (false).
 	 */
-	async expectErrorAssistantButtonsVisible(visible: boolean = true): Promise<void> {
+	async expectErrorActionButtonsVisible(visible: boolean = true): Promise<void> {
 		await test.step(`Expect Fix/Explain error buttons to be ${visible ? 'visible' : 'hidden'}`, async () => {
 			if (visible) {
 				await expect(this.fixErrorButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
