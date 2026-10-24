@@ -15,19 +15,19 @@ import { accordion, day, FONTS, footer, inlineJson, inlineScript, PAGES, rangeTe
 
 export { resolveRange, runUrl };
 
-// In this order everywhere. `group` is the evidence filter: fixed, filed, not fixed, change dropped, or no outcome yet;
+// In this order everywhere. `group` is the evidence filter: fixed, filed, not fixed, didn't ship, or no outcome yet;
 // `def` explains it under the bar, `brief` under its evidence group.
 const OUTCOMES = [
 	{ key: 'fixed-in-pr', label: 'Fixed in the PR', group: 'fixed', def: 'A commit pushed to the PR after the run fixed it.', brief: 'Fixed by a later commit on the PR.' },
 	{ key: 'fixed-later', label: 'Fixed later', group: 'fixed', def: 'Fixed on main after the merge, or its issue was closed as completed.', brief: 'Fixed on main after merging.' },
 	{ key: 'filed-issue', label: 'Filed as issue', group: 'filed', def: 'An issue matching the finding was opened after the run, and nothing has fixed it yet.', brief: 'Tracked in an issue, not fixed yet.' },
-	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged or closed with no fix. Moves to Filed as issue or Fixed later if that happens afterwards.', brief: 'Merged or closed without a fix.' },
-	{ key: 'dropped', label: 'Change dropped', group: 'dropped', def: 'The PR merged without the change the finding was about, so nothing it found shipped. Not in the % fixed.', brief: 'Merged without the change the finding was about.' },
-	{ key: 'pending', label: 'PR still open', group: 'open', def: 'The PR hasn\'t merged yet. These count once it merges or closes.', brief: 'Waiting for the PR to merge or close.' },
+	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged with no fix. Moves to Filed as issue or Fixed later if that happens afterwards.', brief: 'Merged without a fix.' },
+	{ key: 'didnt-ship', label: 'Didn\'t ship', group: 'didnt-ship', def: 'The code this finding was about never shipped: the PR closed, or merged without it.', brief: 'The code it was about never reached main.' },
+	{ key: 'pending', label: 'PR still open', group: 'open', def: 'The PR hasn\'t merged or closed yet.', brief: 'Waiting for the PR to merge or close.' },
 	{ key: 'unclear', label: 'Unclear', group: 'open', def: 'A check failed or the model couldn\'t say.', brief: 'Couldn\'t tell from the diff.' },
 	{ key: 'no-paths', label: 'No files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.', brief: 'No files named, so main couldn\'t be checked.' },
 ];
-const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['not', 'Not fixed'], ['dropped', 'Change dropped'], ['open', 'No outcome yet']];
+const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['not', 'Not fixed'], ['didnt-ship', 'Didn\'t ship'], ['open', 'No outcome yet']];
 const DECIDED_BY = {
 	'diff+model': 'The diff, read by the model',
 	'issue+model': 'A matching issue, confirmed by the model',
@@ -35,9 +35,21 @@ const DECIDED_BY = {
 	'pr-open': 'PR is still open',
 	'merged-no-fix': 'Merged with no fix found',
 	'closed-unmerged': 'PR closed without merging',
-	'change-dropped': 'The merged PR no longer changes its files',
+	'dropped': 'PR merged without the change',
 	'sha': 'A specific commit',
 };
+// Why a finding didn't ship, on its evidence row.
+const SHIP_REASON = { 'closed-unmerged': 'PR closed', 'dropped': 'Change dropped' };
+// The checks each finding goes through, in decideOutcome's order, behind the ? next to the bar's heading.
+const STEPS = [
+	[['pending'], 'Is the PR still open? Then nothing is decided yet. It\'s checked again on the next build.'],
+	[['fixed-in-pr'], 'Did the PR merge with commits pushed after the /explore run? The model reads that diff against the finding and decides whether it fixes it.'],
+	[['fixed-later'], 'After the PR merged or closed, did a commit on main change the files the finding names, and does the model judge it a fix? Or was the finding\'s issue closed as completed?'],
+	[['filed-issue'], 'Was an issue opened after the run that matches the finding (confirmed by the model) and isn\'t fixed yet?'],
+	[['didnt-ship'], 'Did the PR close without merging, or merge without the code the finding is about? Then nothing it found shipped, so it isn\'t counted.'],
+	[['unclear', 'no-paths'], 'A check failed or the model couldn\'t decide: Unclear. The finding names no files, so main can\'t be searched: No files named.'],
+	[['not-fixed'], 'None of the above, and the PR has merged: no fix was found.'],
+];
 const TRIGGER = { auto: 'started automatically', explore: 'started by /explore' };
 const HERO_COLOR = { 'fixed-in-pr': '#3B7D4F', 'not-fixed': '#7D7568' };
 const INK = '#2B2A27';
@@ -50,7 +62,7 @@ const codeSpans = text => escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const isFixed = r => r.outcome === 'fixed-in-pr' || r.outcome === 'fixed-later';
 // Outcomes in the % fixed; the rest are counted apart.
-const isCounted = o => o.group !== 'open' && o.group !== 'dropped';
+const isCounted = o => o.group !== 'open' && o.group !== 'didnt-ship';
 
 /** Counts for `rows`; rows marked `dupOf` are dropped first. */
 export function summarize(rows) {
@@ -107,7 +119,7 @@ function allBar(s) {
 	const k = present.filter(isCounted).length;
 	const brackets = [
 		k ? `<div class="bracket counted" style="grid-column:1 / span ${k}"><b>Outcome known</b><span>${s.counted}</span></div>` : '',
-		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>${s.counts.dropped ? 'Not counted' : 'No outcome yet'}</b><span>${s.notCounted}</span></div>` : '',
+		k < present.length ? `<div class="bracket not-counted" style="grid-column:${k + 1} / span ${present.length - k}"><b>Not counted</b><span>${s.notCounted}</span></div>` : '',
 	].join('');
 	// A share of the known outcomes, or a bare count for the rest so denominators don't mix.
 	const details = present.map(o => {
@@ -117,13 +129,23 @@ function allBar(s) {
 			+ `<div><div class="what">${o.label}</div><div class="def">${escapeHtml(o.def)}</div></div></div>`;
 	}).join('');
 	return `<section aria-labelledby="all-h">
-<h2 id="all-h">Findings by outcome</h2>
+<div class="h2-row"><h2 id="all-h">Findings by outcome</h2><button type="button" class="how" aria-expanded="false" aria-controls="how" aria-label="How outcomes are counted" title="How outcomes are counted">?</button></div>
+${howPanel()}
 <div class="all" style="grid-template-columns:${columns}">
 <div class="brackets">${brackets}</div>
 <div class="bar big">${segments(s)}</div>
 <div class="under" aria-live="polite">${details}</div>
 </div>
 </section>`;
+}
+
+/** How each finding is checked, behind the ? next to the heading. */
+function howPanel() {
+	const label = key => OUTCOMES.find(o => o.key === key).label;
+	const steps = STEPS.map(([keys, q], i) => `<li><span class="step">${i + 1}</span><span class="outs">${keys.map(k => `<span><i class="o-${k}" aria-hidden="true"></i>${label(k)}</span>`).join('')}</span><span>${escapeHtml(q)}</span></li>`).join('');
+	return `<div class="how-panel" id="how" hidden><div class="muted-line">Each time the report is built, every finding is checked against GitHub, in this order. The first check that matches decides its outcome.</div>
+<ol class="how-steps" role="list">${steps}</ol>
+<div class="notes">Outcomes can move later: a Not fixed or Filed as issue finding becomes Fixed later if a fix lands on main or its issue is closed as completed. Each finding's evidence shows which check decided it.</div></div>`;
 }
 
 function severityRows(own) {
@@ -142,7 +164,7 @@ function severityRows(own) {
 <div class="grid-row cols" aria-hidden="true"><span class="name">Severity</span><span class="pct">% fixed</span><span class="grow">Outcomes</span></div>
 ${rows}
 </div>
-<p class="foot">% fixed includes fixes made after merging. Findings with no outcome yet aren't in it.</p>`);
+<p class="foot">% fixed includes fixes made after merging. Findings that aren't counted aren't in it.</p>`);
 }
 
 function prRows(own) {
@@ -177,7 +199,7 @@ function findingRow(r, n) {
 	const triage = r.outcome === 'filed-issue' && issueNum ? `<a href="${PAGES.triage.url}?issue=${issueNum}">See its triage</a>` : '';
 	const links = [report ? `<a href="${escapeHtml(report)}">Open report</a>` : '', `<a href="${REPO_URL}/pull/${pr}" data-pr="${pr}">Open PR</a>`, triage].join('');
 	return `<div class="finding" id="f${n}"><button type="button" class="row" aria-expanded="false" aria-controls="d${n}">`
-		+ `<span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}</span>`
+		+ `<span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}${r.outcome === 'didnt-ship' && SHIP_REASON[r.decidedBy] ? `<span class="why">${SHIP_REASON[r.decidedBy]}</span>` : ''}</span>`
 		+ `<span class="mono link" data-pr="${pr}">#${pr}</span><span class="sev">${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity ?? '')}</span><span class="sign" aria-hidden="true">+</span></button>`
 		+ `<div class="detail" id="d${n}" hidden>${ev.text ? `<p class="ev">${codeSpans(ev.text)}</p>` : ''}<dl>${dl}</dl><div class="links">${links}</div></div></div>`;
 }
@@ -191,7 +213,7 @@ function evidence(own, s) {
 			+ `<div class="rows">${items.map(r => findingRow(r, ++n)).join('\n')}</div></div>`
 			: '';
 	}).join('\n');
-	const counts = { fixed: s.fixed, filed: s.counts['filed-issue'], not: s.counts['not-fixed'], dropped: s.counts.dropped, open: s.notCounted - s.counts.dropped };
+	const counts = { fixed: s.fixed, filed: s.counts['filed-issue'], not: s.counts['not-fixed'], 'didnt-ship': s.counts['didnt-ship'], open: s.notCounted - s.counts['didnt-ship'] };
 	const filters = [`<button type="button" class="filter" data-filter="all" aria-pressed="true">All ${s.total}</button>`,
 	...FILTERS.filter(([k]) => counts[k]).map(([k, label]) => `<button type="button" class="filter" data-filter="${k}" aria-pressed="false">${label} ${counts[k]}</button>`)].join('');
 	const controls = `<div class="controls"><div role="group" aria-label="Filter by outcome">${filters}</div><button type="button" class="toggle-all">Expand all</button></div>`;
@@ -224,9 +246,9 @@ export function renderView(rows, { range }) {
 const runDates = rows => rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, pct, codeSpans, plural, isFixed, isCounted, summarize, splitEvidence, segments, splitBar, header, allBar, severityRows, prRows, findingRow, evidence, renderView, prCard };
+const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, pct, codeSpans, plural, isFixed, isCounted, summarize, splitEvidence, segments, splitBar, header, allBar, howPanel, severityRows, prRows, findingRow, evidence, renderView, prCard };
 export const VIEW_SOURCE = [
-	...Object.entries({ ...SHARED_CONSTS, SEVERITY_LABEL, OUTCOMES, FILTERS, DECIDED_BY, TRIGGER, HERO_COLOR, INK, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
+	...Object.entries({ ...SHARED_CONSTS, SEVERITY_LABEL, OUTCOMES, FILTERS, DECIDED_BY, SHIP_REASON, STEPS, TRIGGER, HERO_COLOR, INK, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
 ].join('\n');
 
@@ -244,7 +266,13 @@ const CSS = `
 .o-pending{background:#F5F4F0;color:#5A5751;border:1.5px dashed #B5B1A7}
 .o-unclear{background:#EEEBE4;color:#3A3833}
 .o-no-paths{background:#E6E2D9;color:#5A5751}
-.o-dropped{background:#FFF;color:#5A5751;border:1.5px solid #B5B1A7}
+.o-didnt-ship{background:#F5F4F0;color:#5A5751;border:1.5px solid #B5B1A7}
+.how-steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;border-top:1px solid #2B2A27}
+.how-steps li{display:grid;grid-template-columns:22px minmax(150px,190px) minmax(0,1fr);gap:14px;align-items:baseline;padding:10px 0;border-bottom:1px solid #E4E1D9;line-height:1.5}
+.how-steps li:last-child{border-bottom:0}
+.how-steps .step{font-variant-numeric:tabular-nums;font-weight:600;color:#7A766F}
+.how-steps .outs{display:flex;flex-direction:column;gap:4px}.how-steps .outs span{display:inline-flex;align-items:center;gap:8px;font-weight:600;color:#2B2A27}
+.how-steps i{flex:0 0 auto;border-width:1px}
 i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-sizing:border-box}
 .n{color:#7A766F;font-weight:400}
 .group[hidden],.detail[hidden]{display:none}
@@ -272,6 +300,7 @@ h3{margin:0;display:flex;align-items:center;gap:8px;font-size:16px;font-weight:6
 .finding{border-bottom:1px solid #E4E1D9}
 .row{width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:12px 0;background:transparent;border:0;color:inherit;text-align:left;cursor:pointer;font:inherit;min-height:52px}
 .title{flex:1 1 380px;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:16px;line-height:1.4;font-weight:500}
+.why{font-size:12px;font-weight:400;color:#6B6862;background:#ECE9E2;padding:2px 8px;border-radius:999px}
 .maybe{font-size:12px;font-weight:400;color:#7A3E00;background:#FDF0E1;padding:2px 8px;border-radius:999px}
 .link{flex:0 0 72px;font-size:12px;color:#6B6862;text-decoration:underline dotted #C9C5BB;text-underline-offset:3px}
 .sev{flex:0 0 72px;font-size:12px;color:#7A766F}
@@ -305,6 +334,7 @@ const findings = () => $$('.finding .row');
 const card = $('#pr-card');
 // Sections the reader opened or closed, kept across range changes; the rest follow each view's default.
 const chosen = {};
+let howOpen = false;
 let anchor = null;
 let openTimer;
 let closeTimer;
@@ -315,6 +345,7 @@ const filter = key => {
 	$$('.filter').forEach(b => b.setAttribute('aria-pressed', b.dataset.filter === key));
 	$$('.group').forEach(g => { g.hidden = key !== 'all' && g.dataset.group !== key; });
 };
+const setHow = open => { howOpen = open; const b = $('.how'); if (b) { b.setAttribute('aria-expanded', open); $('#how').hidden = !open; } };
 const show = key => { $$('.seg-detail').forEach(d => { d.hidden = d.dataset.for !== key; }); };
 const apply = (param, write) => {
 	const range = resolveRange(param, dates, data.now);
@@ -322,6 +353,7 @@ const apply = (param, write) => {
 	closeCard();
 	$('.head').innerHTML = view.head;
 	$('.view').innerHTML = view.body;
+	setHow(howOpen);
 	Object.entries(chosen).forEach(([id, open]) => { const b = $('.acc[aria-controls="' + id + '"]'); if (b) { setOpen(b, open); } });
 	syncPicker(range, write);
 };
@@ -378,7 +410,8 @@ document.addEventListener('click', e => {
 	const acc = t.closest('.acc');
 	const row = t.closest('.finding .row');
 	const f = t.closest('.filter');
-	if (seg(e)) { toggle($('#ev-h .acc'), true); filter(seg(e).dataset.filter); }
+	if (t.closest('.how')) { setHow(!howOpen); }
+	else if (seg(e)) { toggle($('#ev-h .acc'), true); filter(seg(e).dataset.filter); }
 	else if (acc) { toggle(acc, acc.getAttribute('aria-expanded') !== 'true'); }
 	else if (row) { setOpen(row, row.getAttribute('aria-expanded') !== 'true'); sync(); }
 	else if (f) { filter(f.dataset.filter); }
@@ -400,7 +433,7 @@ export function renderOutcomesPage(rows, { now = new Date(), runUrl: run = runUr
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>/explore shipping impact</title>
 ${FONTS}
 <style>${SHELL_CSS}${CSS}</style>
-<noscript><style>.acc-body[hidden]{display:block}#ev-body[hidden]{display:flex;flex-direction:column;gap:32px}.detail[hidden]{display:flex}.controls,.acc svg{display:none}</style></noscript></head>
+<noscript><style>.acc-body[hidden]{display:block}#ev-body[hidden]{display:flex;flex-direction:column;gap:32px}.detail[hidden]{display:flex}.how-panel[hidden]{display:flex}.controls,.how,.acc svg{display:none}</style></noscript></head>
 <body><main><div class="page">
 <header>
 ${topRow('impact', range, dates, today)}

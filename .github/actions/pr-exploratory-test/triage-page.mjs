@@ -213,18 +213,11 @@ function howPanel() {
 
 const CSS = `
 .lede{max-width:760px}
-.now-head{display:flex;align-items:center;gap:10px}
-.how{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border-radius:50%;border:1px solid #C9C5BB;background:transparent;color:#5A5751;font:600 12px 'IBM Plex Sans',sans-serif;cursor:pointer}
-.how:hover,.how[aria-expanded=true]{border-color:#2B2A27}.how[aria-expanded=true]{background:#ECE9E2}
-.how:focus-visible{outline:2px solid #2B2A27;outline-offset:2px}
-.how-panel{padding:16px 20px 14px;background:#FBFAF7;border:1px solid #E4E1D9;border-radius:10px;display:flex;flex-direction:column;gap:12px;font-size:14px;color:#3A3833}
-.how-panel[hidden],.slot:empty{display:none}
-.muted-line{color:#5A5751}
+.slot:empty{display:none}
 .how-table .trow{display:grid;grid-template-columns:minmax(180px,1.1fr) 72px minmax(0,2fr);gap:16px;align-items:center;padding:9px 0;border-bottom:1px solid #E4E1D9}
 .how-table .trow:last-child{border-bottom:0}
 .how-table .cols{padding:0 0 6px;border-bottom:1px solid #2B2A27}
 .how-table .name{display:flex;align-items:center;gap:8px;font-weight:600;color:#2B2A27}.how-table .state{color:#5A5751}
-.notes{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A5751}
 .cols{color:#6B6862}
 .bracket span{color:#5A5751}
 .bracket.triaged{border-bottom:1px solid #5A5751}
@@ -341,7 +334,7 @@ ${topRow('triage', range, dates, today)}
 <div class="head">${view.head}</div>
 </header>
 <section aria-labelledby="now-h">
-<div class="now-head"><h2 id="now-h">Where they stand now</h2><button type="button" class="how" aria-expanded="false" aria-controls="how" aria-label="How outcomes are counted" title="How outcomes are counted">?</button></div>
+<div class="h2-row"><h2 id="now-h">Where they stand now</h2><button type="button" class="how" aria-expanded="false" aria-controls="how" aria-label="How outcomes are counted" title="How outcomes are counted">?</button></div>
 ${howPanel()}
 <div class="slot">${view.bar}</div>
 </section>

@@ -16,7 +16,7 @@ const NOW = new Date('2026-10-14T12:00:00Z');
 const preview = extra => ({ title: 'Plots: <one> name', author: 'someone', state: 'merged', date: '2026-10-03T09:00:00Z', additions: 38, deletions: 12, files: 3, desc: 'Fixes the thing.', ...extra });
 const render = rows => renderOutcomesPage(rows, { now: NOW });
 // Visible text only, with tags dropped and the entities used here undone.
-const text = html => html.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/g, '').replace(/<div class="range-menu"[\s\S]*?<\/div><\/div>/, '').replace(/<[^>]+>/g, ' ')
+const text = html => html.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/g, '').replace(/<div class="how-panel"[\s\S]*?<div class="notes">[\s\S]*?<\/div><\/div>/g, '').replace(/<div class="range-menu"[\s\S]*?<\/div><\/div>/, '').replace(/<[^>]+>/g, ' ')
 	.replace(/&middot;/g, '~').replace(/&ndash;/g, '-').replace(/&divide;/g, '/').replace(/&mdash;/g, '--').replace(/&#39;/g, '\'').replace(/\s+/g, ' ');
 // The markup, without the embedded rows and the script's copy of the view.
 const markup = html => html.replace(/<script[\s\S]*?<\/script>/g, '');
@@ -76,7 +76,7 @@ test('the header ends with the headline: no summary cards', () => {
 
 test('the header leaves out what the handoff removed', () => {
 	const t = text(render(today));
-	assert.doesNotMatch(t, /Outcome report|findings across|resolved|tracked|pending|acted on|scored|can't check yet|30 days|counted/i);
+	assert.doesNotMatch(t, /Outcome report|findings across|resolved|tracked|pending|acted on|scored|can't check yet|30 days|(?<!not |aren't )counted/i);
 	// The card is gone; the PR still open outcome keeps its label.
 	assert.doesNotMatch(t, /Still open/);
 	assert.doesNotMatch(t.slice(0, t.indexOf('Findings by outcome')), /Generated|started by/);
@@ -90,7 +90,7 @@ test('the bar has one linked segment per outcome present, in palette order', () 
 	assert.doesNotMatch(bar, /width:/);
 	assert.match(bar, /data-key="fixed-later"[^>]*>1<span>Fixed later<\/span>/);
 	assert.doesNotMatch(bar, /title=/);
-	assert.match(text(section(html, 'all-h')), /Findings by outcome Outcome known 3 No outcome yet 1/);
+	assert.match(text(section(html, 'all-h')), /Findings by outcome \? Outcome known 3 Not counted 1/);
 });
 
 test('there is no legend under the bar: the row holds only the hover details', () => {
@@ -112,7 +112,7 @@ test('the brackets and the bar share one grid, a column per segment sized by its
 test('with no known outcome the Outcome known bracket is left out', () => {
 	const html = render([row('pending'), row('unclear')]);
 	assert.doesNotMatch(markup(html), /class="bracket counted"/);
-	assert.match(text(html), /No outcome yet 2/);
+	assert.match(text(html), /Not counted 2/);
 });
 
 test('each bar segment has a detail to show on hover: share of known outcomes, or a bare count with none, then the label alone', () => {
@@ -122,7 +122,7 @@ test('each bar segment has a detail to show on hover: share of known outcomes, o
 	assert.match(text(detail), /75% Fixed in the PR A commit pushed to the PR after the run fixed it\./);
 	const open = html.match(/<div class="seg-detail" data-for="pending" hidden>[\s\S]*?<\/div><\/div>/)[0];
 	assert.match(open, /<span class="hero" style="color:#2B2A27">1<\/span>/);
-	assert.match(text(open), /1 PR still open The PR hasn't merged yet/);
+	assert.match(text(open), /1 PR still open The PR hasn't merged or closed yet\./);
 	assert.doesNotMatch(text(open), /no outcome yet|known outcome/);
 	assert.match(render([row('not-fixed')]), /<span class="hero" style="color:#7D7568">100%/);
 });
@@ -145,7 +145,7 @@ test('By severity is the first accordion section, listing Major, Moderate and Mi
 	const sev = section(html, 'sev-h');
 	assert.ok(html.indexOf('<div class="accordion">') < html.indexOf('id="sev-h"'));
 	assert.ok(html.indexOf('id="sev-h"') < html.indexOf('id="pr-h"') && html.indexOf('id="pr-h"') < html.indexOf('id="ev-h"'));
-	assert.match(text(sev), /By severity 8 moderate ~ 8 minor Severity % fixed Outcomes Major - No Major findings in this period Moderate 80% 4 of 5 4 1 3 Minor 71% 5 of 7 4 1 2 1 % fixed includes fixes made after merging\. Findings with no outcome yet aren't in it\./);
+	assert.match(text(sev), /By severity 8 moderate ~ 8 minor Severity % fixed Outcomes Major - No Major findings in this period Moderate 80% 4 of 5 4 1 3 Minor 71% 5 of 7 4 1 2 1 % fixed includes fixes made after merging\. Findings that aren't counted aren't in it\./);
 	assert.match(sev, /<div class="pct"><span class="green">80%<\/span><span class="of">4 of 5<\/span><\/div>/);
 	assert.match(sev, /<span class="grow">Outcomes<\/span><\/div>/);
 	assert.doesNotMatch(sev, /class="end|not counted|class="sub"/);
@@ -201,14 +201,33 @@ test('By PR and Evidence start collapsed behind a heading button, the PR run mos
 	assert.match(text(section(html, 'ev-h')), /> Evidence 4 findings All 4/);
 });
 
-test('a dropped change is its own group, left out of the % fixed', () => {
-	const html = render([row('fixed-in-pr'), row('not-fixed'), row('dropped'), row('pending')]);
-	assert.match(text(section(html, 'all-h')), /Findings by outcome Outcome known 2 Not counted 2/);
-	assert.match(text(section(html, 'ev-h')), /All 4 Fixed 1 Not fixed 1 Change dropped 1 No outcome yet 1 Expand all/);
-	assert.match(html, /<div class="group" data-group="dropped">/);
-	assert.match(html, /\.o-dropped\{/);
+test('didn\'t ship is its own group, first of the not counted, left out of the % fixed', () => {
+	const html = render([row('fixed-in-pr'), row('not-fixed'), row('didnt-ship', { decidedBy: 'dropped' }), row('pending')]);
+	assert.match(text(section(html, 'all-h')), /Findings by outcome \? Outcome known 2 Not counted 2/);
+	assert.match(text(section(html, 'ev-h')), /All 4 Fixed 1 Not fixed 1 Didn't ship 1 No outcome yet 1 Expand all/);
+	assert.match(html, /<div class="group" data-group="didnt-ship">/);
+	assert.match(html, /\.o-didnt-ship\{background:#F5F4F0;color:#5A5751;border:1\.5px solid #B5B1A7\}/);
 	const bar = html.match(/<div class="bar big">([\s\S]*?)<\/div>/)[1];
-	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'not-fixed', 'dropped', 'pending']);
+	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'not-fixed', 'didnt-ship', 'pending']);
+	assert.match(text(html), /1 Didn't ship The code this finding was about never shipped: the PR closed, or merged without it\./);
+});
+
+test('the ? opens how each finding is checked, in decideOutcome\'s order, and is kept across range changes', () => {
+	const html = render(today);
+	assert.match(html, /<h2 id="all-h">Findings by outcome<\/h2><button type="button" class="how" aria-expanded="false" aria-controls="how" aria-label="How outcomes are counted"/);
+	const panel = html.match(/<div class="how-panel" id="how" hidden>[\s\S]*?<div class="notes">[\s\S]*?<\/div><\/div>/)[0];
+	const steps = [...panel.matchAll(/<li><span class="step">(\d)<\/span><span class="outs">(.*?)<\/span><\/span><span>/g)].map(m => `${m[1]} ${m[2].replace(/<[^>]+>/g, ' ').trim().replace(/\s+/g, ' ')}`);
+	assert.deepEqual(steps, ['1 PR still open', '2 Fixed in the PR', '3 Fixed later', '4 Filed as issue', '5 Didn\'t ship', '6 Unclear No files named', '7 Not fixed']);
+	assert.match(panel, /Outcomes can move later/);
+	assert.match(html, /let howOpen = false;/);
+	assert.match(html, /setHow\(howOpen\);/);
+});
+
+test('a didn\'t-ship row says why', () => {
+	const html = render([row('didnt-ship', { pr: 3, decidedBy: 'closed-unmerged' }), row('didnt-ship', { pr: 4, finding: 2, decidedBy: 'dropped' })]);
+	assert.match(text(section(html, 'ev-h')), /Didn't ship 2 The code it was about never reached main\. A finding PR closed #3 .*Decided by PR closed without merging .*A finding Change dropped #4 .*Decided by PR merged without the change/);
+	assert.match(html, /<span class="why">PR closed<\/span>/);
+	assert.match(html, /\.why\{font-size:12px;font-weight:400;color:#6B6862;background:#ECE9E2;padding:2px 8px;border-radius:999px\}/);
 });
 
 test('the evidence filters leave out empty groups, and findings are grouped in palette order', () => {
@@ -216,14 +235,14 @@ test('the evidence filters leave out empty groups, and findings are grouped in p
 	const ev = text(section(html, 'ev-h'));
 	assert.match(ev, /All 16 Fixed 9 Not fixed 3 No outcome yet 4 Expand all/);
 	assert.doesNotMatch(text(section(render([row('fixed-in-pr')]), 'ev-h')), /Not fixed 0|No outcome yet 0/);
-	assert.match(ev, /Fixed in the PR 8 Fixed by a later commit on the PR\. .*Fixed later 1 Fixed on main after merging\. .*Not fixed 3 Merged or closed without a fix\. .*PR still open 4 Waiting for the PR to merge or close\./);
+	assert.match(ev, /Fixed in the PR 8 Fixed by a later commit on the PR\. .*Fixed later 1 Fixed on main after merging\. .*Not fixed 3 Merged without a fix\. .*PR still open 4 Waiting for the PR to merge or close\./);
 	assert.match(text(section(render([row('unclear'), row('no-paths')]), 'ev-h')), /Unclear 1 Couldn't tell from the diff\. .*No files named 1 No files named, so main couldn't be checked\./);
 	assert.match(html, /\.brief\{font-size:13px;color:#7A766F\}/);
 	const filed = render([row('fixed-in-pr'), row('filed-issue'), row('not-fixed'), row('pending')]);
 	assert.match(text(section(filed, 'ev-h')), /All 4 Fixed 1 Filed as issue 1 Not fixed 1 No outcome yet 1 Expand all/);
 	assert.match(filed, /data-filter="filed" aria-pressed="false">Filed as issue 1</);
 	assert.match(filed, /<div class="group" data-group="filed">/);
-	assert.match(text(section(filed, 'ev-h')), /Fixed in the PR 1 .*Filed as issue 1 Tracked in an issue, not fixed yet\. .*Not fixed 1 Merged or closed without a fix\./);
+	assert.match(text(section(filed, 'ev-h')), /Fixed in the PR 1 .*Filed as issue 1 Tracked in an issue, not fixed yet\. .*Not fixed 1 Merged without a fix\./);
 });
 
 test('filed as issue sits between fixed later and not fixed, counted but not fixed, with an ink hero', () => {

@@ -177,6 +177,14 @@ section{display:flex;flex-direction:column;gap:16px}
 .acc-body{margin-bottom:24px}
 footer{margin-top:-24px;font-size:13px;color:#7A766F}
 footer a.quiet{color:inherit;text-decoration:none}footer a.quiet:hover{color:#2F6B55;text-decoration:underline;text-underline-offset:3px}
+.h2-row{display:flex;align-items:center;gap:10px}
+.how{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border-radius:50%;border:1px solid #C9C5BB;background:transparent;color:#5A5751;font:600 12px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.how:hover,.how[aria-expanded=true]{border-color:#2B2A27}.how[aria-expanded=true]{background:#ECE9E2}
+.how:focus-visible{outline:2px solid #2B2A27;outline-offset:2px}
+.how-panel{padding:16px 20px 14px;background:#FBFAF7;border:1px solid #E4E1D9;border-radius:10px;display:flex;flex-direction:column;gap:12px;font-size:14px;color:#3A3833}
+.how-panel[hidden]{display:none}
+.muted-line{color:#5A5751}
+.notes{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A5751}
 `;
 
 // The date range menu and the footer's local time. Runs after the page's VIEW_SOURCE and before its

@@ -62,6 +62,7 @@ test('parseCheck reads yes, no and unclear in any casing or markdown, and anythi
 const yes = source => ({ answer: 'yes', reason: 'fixes it', source });
 const no = source => ({ answer: 'no', reason: 'unrelated', source });
 const base = { prState: 'merged', hasPaths: true, prCheck: null, laterChecks: [] };
+const issue = (state, answer = 'yes') => ({ answer, reason: 'same bug', source: 'issue #9', issue: { number: 9, url: 'https://github.com/o/r/issues/9', state } });
 
 test('decideOutcome: a yes in the PR wins, then a yes later', () => {
 	assert.equal(decideOutcome({ ...base, prCheck: yes('commit abc'), laterChecks: [yes('#1')] }).outcome, 'fixed-in-pr');
@@ -69,13 +70,23 @@ test('decideOutcome: a yes in the PR wins, then a yes later', () => {
 	assert.deepEqual(later, { outcome: 'fixed-later', decidedBy: 'diff+model', evidence: 'main def: fixes it' });
 });
 
-test('decideOutcome: open PRs are pending; merged or closed with no yes is not fixed at once', () => {
+test('decideOutcome: open PRs are pending; merged with no yes is not fixed at once', () => {
 	assert.equal(decideOutcome({ ...base, prState: 'open' }).outcome, 'pending');
 	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc') }), { outcome: 'not-fixed', decidedBy: 'merged-no-fix', evidence: 'commit abc: unrelated' });
-	assert.equal(decideOutcome({ ...base, prState: 'closed', prCheck: no('commit abc') }).decidedBy, 'closed-unmerged');
 });
 
-const issue = (state, answer = 'yes') => ({ answer, reason: 'same bug', source: 'issue #9', issue: { number: 9, url: 'https://github.com/o/r/issues/9', state } });
+test('decideOutcome: a closed PR didn\'t ship, even with a fix in it, unless an issue or main says otherwise', () => {
+	const closed = { ...base, prState: 'closed' };
+	assert.deepEqual(decideOutcome({ ...closed, prCheck: no('commit abc') }), { outcome: 'didnt-ship', decidedBy: 'closed-unmerged', evidence: 'commit abc: unrelated' });
+	assert.deepEqual(decideOutcome({ ...closed, prCheck: yes('commit abc') }), { outcome: 'didnt-ship', decidedBy: 'closed-unmerged', evidence: 'commit abc: fixes it' });
+	assert.equal(decideOutcome({ ...closed, prCheck: yes('commit abc'), laterChecks: [issue('open')] }).outcome, 'filed-issue');
+	assert.equal(decideOutcome({ ...closed, laterChecks: [issue('closed as completed')] }).outcome, 'fixed-later');
+	// A fix that lands on main after the PR closed counts as fixed later.
+	assert.deepEqual(decideOutcome({ ...closed, prCheck: no('commit abc'), laterChecks: [yes('main def')] }), { outcome: 'fixed-later', decidedBy: 'diff+model', evidence: 'main def: fixes it' });
+	// With no tested commit, or no files named, it still didn't ship.
+	assert.equal(decideOutcome({ ...closed, hasPaths: false }).outcome, 'didnt-ship');
+	assert.equal(decideOutcome({ ...closed, prCheck: { answer: 'unclear', reason: 'x', source: 'pr' } }).outcome, 'didnt-ship');
+});
 
 test('decideOutcome: a matching issue is filed as issue, carrying the issue, and a fix wins over it', () => {
 	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc'), laterChecks: [issue('open')] }),
@@ -102,11 +113,11 @@ test('droppedPaths names the tested files the merged PR no longer changes, and n
 	assert.deepEqual(droppedPaths({ paths, tested: ['src/c.ts'], merged: [] }), []);
 });
 
-test('decideOutcome: a dropped change beats not fixed and unclear, but not a fix or a filed issue', () => {
+test('decideOutcome: a dropped change didn\'t ship, beating not fixed and unclear, but not a fix or a filed issue', () => {
 	const dropped = ['src/a.ts'];
 	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc'), dropped }),
-		{ outcome: 'dropped', decidedBy: 'change-dropped', evidence: 'the merged PR no longer changes `src/a.ts`' });
-	assert.equal(decideOutcome({ ...base, prCheck: { answer: 'unclear', reason: 'x', source: 'pr' }, dropped }).outcome, 'dropped');
+		{ outcome: 'didnt-ship', decidedBy: 'dropped', evidence: 'the merged PR no longer changes `src/a.ts`' });
+	assert.equal(decideOutcome({ ...base, prCheck: { answer: 'unclear', reason: 'x', source: 'pr' }, dropped }).outcome, 'didnt-ship');
 	assert.equal(decideOutcome({ ...base, laterChecks: [yes('main def')], dropped }).outcome, 'fixed-later');
 	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open')], dropped }).outcome, 'filed-issue');
 });
