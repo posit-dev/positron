@@ -1244,6 +1244,28 @@ declare module 'positron' {
 		readonly recommendationIsProjectDefault?: boolean;
 
 		/**
+		 * The runtime metadata for the interpreter pinned for this workspace:
+		 * the one that the extension's default interpreter setting names.
+		 * Returns `undefined` if the setting isn't set, the path doesn't lead to
+		 * an interpreter this extension can start, or a filter setting blocks it.
+		 *
+		 * A pinned interpreter starts in place of the one the workspace used
+		 * last. Positron calls this right after it activates the extension, and
+		 * writes the answer over the workspace's affiliated runtime for the
+		 * language. Positron doesn't call it when the language has no affiliated
+		 * runtime, when the New Folder flow just picked the interpreter, or when
+		 * the language's startup behavior is `recommended`, so
+		 * `recommendedWorkspaceRuntime` must return the pinned interpreter too.
+		 *
+		 * Positron waits for this answer before it starts the workspace's
+		 * interpreters, for at most 20 seconds. After that, it starts the
+		 * affiliated runtime as saved. The pin decides which interpreter starts,
+		 * not when, so Positron treats the answer as `Implicit`, whatever its
+		 * `startupBehavior`.
+		 */
+		pinnedWorkspaceRuntime?(): Thenable<LanguageRuntimeMetadata | undefined>;
+
+		/**
 		 * An optional snapshot of the directories this manager scans for
 		 * interpreters. Called on every warm start to detect newly-installed
 		 * interpreters before deciding whether to skip full discovery.
