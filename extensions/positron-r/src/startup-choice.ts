@@ -60,12 +60,12 @@ export interface RFullSearchTriggers {
 
 /**
  * What R's recommendation needs to know. Each lookup runs only when the
- * decision needs it, so a pinned R never searches for R files, and the full
- * search runs only when the quick path can't answer.
+ * decision needs it, so the full search runs only when the quick path can't
+ * answer.
  */
 export interface RStartupInputs<T extends RStartupCandidate> {
-	/** The R from `positron.r.interpreters.default`, if that path exists. */
-	readonly pinned: T | undefined;
+	/** Looks up the R from `positron.r.interpreters.default`, if that R can start here. */
+	pinnedR(): Promise<T | undefined>;
 	/** Whether R's `interpreters.startupBehavior` is `manual`. */
 	readonly manualStartup: boolean;
 	/** Whether the open folder has R files, or is empty and you use RStudio. */
@@ -78,24 +78,107 @@ export interface RStartupInputs<T extends RStartupCandidate> {
 }
 
 /**
+ * How to build the R installation that `positron.r.interpreters.default`
+ * names.
+ */
+export interface PinnedRBuild<P> {
+	/**
+	 * The path to build from. When the pin is the current R, this is the
+	 * current R's path, so the runtime ID matches the search's entry and the
+	 * interpreter picker doesn't list it twice.
+	 */
+	readonly binpath: string;
+	readonly current: boolean;
+	/**
+	 * The conda or pixi environment the pinned path is in, or its r-versions
+	 * entry's setup, so R starts the same way as the copy discovery finds.
+	 */
+	readonly packagerMetadata: P | undefined;
+}
+
+/**
+ * What turning `positron.r.interpreters.default` into an R installation needs
+ * to know. Each lookup runs only when the decision needs it.
+ */
+export interface PinnedRInputs<T extends { readonly usable: boolean }, P> {
+	/** `interpreters.discovery` is `definitionsOnly` for R. */
+	readonly definitionsOnly: boolean;
+	/** The pinned path, already resolved, or undefined if the setting isn't set. */
+	readonly pinnedPath: string | undefined;
+	exists(path: string): boolean;
+	/** The current R's path, with symlinks followed, or undefined if there is none. */
+	currentRPath(): Promise<string | undefined>;
+	/** Whether two paths name the same file once symlinks are followed. */
+	isSameFile(path1: string, path2: string): boolean;
+	/** The conda or pixi environment that a path is in. */
+	packagerMetadataForPath(path: string): P | undefined;
+	/** The setup from the r-versions entry that leads to the R at a path. */
+	rVersionsMetadataForPath(path: string): Promise<P | undefined>;
+	install(build: PinnedRBuild<P>): T;
+}
+
+/**
+ * Picks the R that `positron.r.interpreters.default` names, or undefined if
+ * no pin is set, the path doesn't exist, the R there isn't usable (too old,
+ * not a real install, or blocked by `exclude` or `override`), or discovery is
+ * limited to `interpreters.definitions`. Never searches for R.
+ */
+export async function choosePinnedR<T extends { readonly usable: boolean }, P>(inputs: PinnedRInputs<T, P>): Promise<T | undefined> {
+	const pinnedPath = inputs.pinnedPath;
+	if (inputs.definitionsOnly || !pinnedPath || !inputs.exists(pinnedPath)) {
+		return undefined;
+	}
+	const currentPath = await inputs.currentRPath();
+	const current = currentPath !== undefined && inputs.isSameFile(currentPath, pinnedPath);
+	const installation = inputs.install({
+		binpath: current ? currentPath : pinnedPath,
+		current,
+		// Conda and pixi metadata win over r-versions metadata, as in discovery.
+		packagerMetadata: inputs.packagerMetadataForPath(pinnedPath) ?? await inputs.rVersionsMetadataForPath(pinnedPath),
+	});
+	return installation.usable ? installation : undefined;
+}
+
+/**
+ * The r-versions entry whose Path is the home of the R at `binpath`, if any.
+ * Entries with only a Module are skipped, since finding their R means loading
+ * the module.
+ *
+ * @param entries The r-versions entries
+ * @param binpath The path to the R binary
+ * @param isSameFile Whether two paths name the same file once symlinks are followed
+ */
+export function rVersionsEntryForR<E extends { readonly path?: string }>(
+	entries: readonly E[],
+	binpath: string,
+	isSameFile: (path1: string, path2: string) => boolean
+): E | undefined {
+	return entries.find(entry => entry.path !== undefined && isSameFile(path.join(entry.path, 'bin', 'R'), binpath));
+}
+
+/**
  * Picks the R that R's recommendation returns for the open folder, and when it
  * starts.
  *
- * - A pinned R is returned as `implicit`.
- * - Otherwise, under `manual`, nothing is returned. Positron won't start R on
- *   its own, so the folder isn't checked.
+ * - Under `manual`, Positron won't start R on its own, so the folder isn't
+ *   checked. A pinned R is returned to start when R is needed, and otherwise
+ *   nothing is returned.
+ * - A pinned R starts right away in a folder that looks like an R project, and
+ *   otherwise when R is needed.
  * - Otherwise, in a folder that looks like an R project, the R the search
- *   lists first is returned as `immediate`.
+ *   lists first starts right away.
  * - Otherwise nothing is returned.
  */
 export async function chooseStartupR<T extends RStartupCandidate>(inputs: RStartupInputs<T>): Promise<RStartupChoice<T> | undefined> {
-	if (inputs.pinned) {
-		return { installation: inputs.pinned, startupBehavior: 'implicit' };
+	// Look up the pin while the folder is searched for R files.
+	const [pinned, rProject] = await Promise.all([
+		inputs.pinnedR(),
+		inputs.manualStartup ? Promise.resolve(false) : inputs.looksLikeRProject(),
+	]);
+	if (pinned) {
+		return { installation: pinned, startupBehavior: rProject ? 'immediate' : 'implicit' };
 	}
-	if (inputs.manualStartup) {
-		return undefined;
-	}
-	if (!(await inputs.looksLikeRProject())) {
+	if (!rProject) {
 		return undefined;
 	}
 	const installation = await pickStartupR(inputs);
@@ -121,9 +204,15 @@ export async function pickStartupR<T extends RStartupCandidate>(
 		return current;
 	}
 	const installs = await inputs.fullSearch();
-	return installs
-		?.filter(inst => inst.usable)
-		.sort(compareRInstallations)[0];
+	return installs ? firstListedR(installs) : undefined;
+}
+
+/**
+ * The R the search lists first among the given Rs: the current R, otherwise
+ * the highest version. Only usable Rs count.
+ */
+export function firstListedR<T extends RStartupCandidate>(installs: readonly T[]): T | undefined {
+	return installs.filter(inst => inst.usable).sort(compareRInstallations)[0];
 }
 
 /**
@@ -142,6 +231,35 @@ export function rVersionsMayListR(
 	return entries.some(entry => entry.path
 		? path.join(entry.path, 'bin', 'R') === binpath
 		: entry.module !== undefined);
+}
+
+/**
+ * Shares one run of a lookup between callers that ask for the same key while
+ * it runs. Once the run finishes it is dropped, so a result is never reused,
+ * and a changed setting is always looked up again.
+ */
+export class InFlightLookup<K, V> {
+	private _running: { readonly key: K; readonly result: Promise<V> } | undefined;
+
+	/**
+	 * @param key What the lookup is for, such as the setting's value.
+	 * @param lookUp Runs the lookup, unless one for the same key is running.
+	 * @returns The running lookup's result.
+	 */
+	run(key: K, lookUp: () => Promise<V>): Promise<V> {
+		// Check for a running lookup first: an unset key, such as no pin, is
+		// undefined too.
+		if (this._running && this._running.key === key) {
+			return this._running.result;
+		}
+		const result: Promise<V> = lookUp().finally(() => {
+			if (this._running?.result === result) {
+				this._running = undefined;
+			}
+		});
+		this._running = { key, result };
+		return result;
+	}
 }
 
 /**

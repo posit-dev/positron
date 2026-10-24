@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import * as semver from 'semver';
-import { chooseStartupR, compareRInstallations, createSharedSearch, RFullSearchTriggers, RStartupCandidate, RStartupInputs, ReusableSearch, rVersionsMayListR } from './startup-choice';
+import { choosePinnedR, chooseStartupR, compareRInstallations, createSharedSearch, firstListedR, PinnedRBuild, PinnedRInputs, RFullSearchTriggers, RStartupCandidate, RStartupInputs, InFlightLookup, ReusableSearch, rVersionsEntryForR, rVersionsMayListR } from './startup-choice';
 
 interface FakeR extends RStartupCandidate {
 	readonly name: string;
@@ -42,10 +42,10 @@ describe('compareRInstallations', () => {
 });
 
 /** Inputs for a folder with R files, no pin, and nothing that forces the full search. */
-function inputs(overrides: Partial<RStartupInputs<FakeR>> & { triggers?: Partial<RFullSearchTriggers>; current?: FakeR; installs?: FakeR[] } = {}): RStartupInputs<FakeR> {
-	const { triggers, current, installs = [], ...rest } = overrides;
+function inputs(overrides: Partial<RStartupInputs<FakeR>> & { triggers?: Partial<RFullSearchTriggers>; current?: FakeR; installs?: FakeR[]; pinned?: FakeR } = {}): RStartupInputs<FakeR> {
+	const { triggers, current, installs = [], pinned, ...rest } = overrides;
 	return {
-		pinned: undefined,
+		pinnedR: async () => pinned,
 		manualStartup: false,
 		looksLikeRProject: async () => true,
 		currentR: async () => current,
@@ -88,12 +88,39 @@ describe('chooseStartupR', () => {
 		expect(await choose(inputs({ current: { ...current, usable: false }, installs: [unusable] }))).toBeUndefined();
 	});
 
-	it('returns the pinned R as implicit, even outside an R project', async () => {
-		const looksLikeRProject = vi.fn(async () => false);
+	describe('a pinned R', () => {
 		const pinned = r('4.3.0', { name: 'pinned' });
-		expect(await choose(inputs({ current, pinned, looksLikeRProject })))
-			.toEqual({ name: 'pinned', startupBehavior: 'implicit' });
-		expect(looksLikeRProject).not.toHaveBeenCalled();
+
+		it('starts right away in an R project, without searching for R', async () => {
+			const currentR = vi.fn(async () => current);
+			const fullSearch = vi.fn(async () => [r('4.5.1')]);
+			expect({
+				choice: await choose(inputs({ pinned, currentR, fullSearch })),
+				searches: [currentR.mock.calls.length, fullSearch.mock.calls.length],
+			}).toEqual({ choice: { name: 'pinned', startupBehavior: 'immediate' }, searches: [0, 0] });
+		});
+
+		it('is looked up while the folder is searched for R files', async () => {
+			// The pin lookup finishes only once the folder search has started.
+			const looksLikeRProject = vi.fn(async () => true);
+			const pinnedR = async () => {
+				await vi.waitFor(() => expect(looksLikeRProject).toHaveBeenCalled());
+				return pinned;
+			};
+			expect(await choose(inputs({ pinnedR, looksLikeRProject })))
+				.toEqual({ name: 'pinned', startupBehavior: 'immediate' });
+		});
+
+		it('passes on a failed lookup, and leaves no failure of the folder search unhandled', async () => {
+			const pinnedR = async (): Promise<FakeR | undefined> => { throw new Error('pin lookup failed'); };
+			const looksLikeRProject = async (): Promise<boolean> => { throw new Error('folder search failed'); };
+			await expect(chooseStartupR(inputs({ pinnedR, looksLikeRProject }))).rejects.toThrow('pin lookup failed');
+		});
+
+		it('starts when R is needed outside an R project', async () => {
+			expect(await choose(inputs({ current, pinned, looksLikeRProject: async () => false })))
+				.toEqual({ name: 'pinned', startupBehavior: 'implicit' });
+		});
 	});
 
 	it('returns nothing under manual, without checking the folder', async () => {
@@ -102,10 +129,12 @@ describe('chooseStartupR', () => {
 		expect(looksLikeRProject).not.toHaveBeenCalled();
 	});
 
-	it('returns the pinned R as implicit under manual', async () => {
+	it('returns the pinned R as implicit under manual, without checking the folder', async () => {
 		const pinned = r('4.3.0', { name: 'pinned' });
-		expect(await choose(inputs({ current, pinned, manualStartup: true })))
+		const looksLikeRProject = vi.fn(async () => true);
+		expect(await choose(inputs({ current, pinned, manualStartup: true, looksLikeRProject })))
 			.toEqual({ name: 'pinned', startupBehavior: 'implicit' });
+		expect(looksLikeRProject).not.toHaveBeenCalled();
 	});
 
 	// The full search here finds 4.5.1 and not the current R, so the result shows whether it ran.
@@ -148,6 +177,184 @@ describe('rVersionsMayListR', () => {
 		{ name: 'no entries', entries: [], expected: false },
 	])('is $expected for $name', ({ entries, expected }) => {
 		expect(rVersionsMayListR(entries, current)).toBe(expected);
+	});
+});
+
+describe('rVersionsEntryForR', () => {
+	const pinned = '/opt/R/4.4/bin/R';
+	const links: Record<string, string> = { '/opt/R/current/bin/R': pinned };
+	const isSameFile = (path1: string, path2: string) => (links[path1] ?? path1) === (links[path2] ?? path2);
+
+	interface Entry {
+		readonly path?: string;
+		readonly module?: string;
+		readonly label?: string;
+	}
+
+	it.each<{ name: string; entries: Entry[]; expected: Entry | undefined }>([
+		{ name: 'the entry whose Path is the R\'s home', entries: [{ path: '/opt/R/4.3' }, { path: '/opt/R/4.4', label: 'R 4.4' }], expected: { path: '/opt/R/4.4', label: 'R 4.4' } },
+		{ name: 'an entry whose Path links to the R\'s home', entries: [{ path: '/opt/R/current', label: 'Current R' }], expected: { path: '/opt/R/current', label: 'Current R' } },
+		{ name: 'nothing for an entry with only a module', entries: [{ module: 'R/4.4' }], expected: undefined },
+		{ name: 'nothing for an entry for another R', entries: [{ path: '/opt/R/4.3' }], expected: undefined },
+	])('finds $name', ({ entries, expected }) => {
+		expect(rVersionsEntryForR(entries, pinned, isSameFile)).toEqual(expected);
+	});
+});
+
+describe('choosePinnedR', () => {
+	/** Where the packager metadata came from. */
+	interface FakePackager {
+		readonly from: 'pixi' | 'r-versions';
+	}
+
+	/** The build, plus whether the R installed from it is usable. */
+	interface FakePinnedR extends PinnedRBuild<FakePackager> {
+		readonly usable: boolean;
+	}
+
+	/**
+	 * Inputs for a pin at `/opt/R/4.4/bin/R` that exists, isn't the current R,
+	 * and is usable. `/usr/local/bin/R` is a link to the current R.
+	 */
+	function pinnedInputs(overrides: Partial<PinnedRInputs<FakePinnedR, FakePackager>> & { usable?: boolean } = {}): PinnedRInputs<FakePinnedR, FakePackager> {
+		const { usable = true, ...rest } = overrides;
+		const links: Record<string, string> = { '/usr/local/bin/R': '/Library/Frameworks/R.framework/Versions/4.5/Resources/bin/R' };
+		return {
+			definitionsOnly: false,
+			pinnedPath: '/opt/R/4.4/bin/R',
+			exists: () => true,
+			currentRPath: async () => '/Library/Frameworks/R.framework/Versions/4.5/Resources/bin/R',
+			isSameFile: (path1, path2) => (links[path1] ?? path1) === (links[path2] ?? path2),
+			packagerMetadataForPath: path => path.includes('/.pixi/') ? { from: 'pixi' } : undefined,
+			rVersionsMetadataForPath: async () => undefined,
+			install: build => ({ ...build, usable }),
+			...rest,
+		};
+	}
+
+	it('builds the pinned R from its own path', async () => {
+		expect(await choosePinnedR(pinnedInputs())).toEqual({
+			binpath: '/opt/R/4.4/bin/R',
+			current: false,
+			packagerMetadata: undefined,
+			usable: true,
+		});
+	});
+
+	it('builds a pin that links to the current R from the current R\'s path', async () => {
+		expect(await choosePinnedR(pinnedInputs({ pinnedPath: '/usr/local/bin/R' }))).toEqual({
+			binpath: '/Library/Frameworks/R.framework/Versions/4.5/Resources/bin/R',
+			current: true,
+			packagerMetadata: undefined,
+			usable: true,
+		});
+	});
+
+	it('keeps a pixi path\'s packager metadata, without reading the r-versions file', async () => {
+		const rVersionsMetadataForPath = vi.fn(async (): Promise<FakePackager | undefined> => ({ from: 'r-versions' }));
+		const pinnedPath = '/work/project/.pixi/envs/default/bin/R';
+		expect({
+			packagerMetadata: (await choosePinnedR(pinnedInputs({ pinnedPath, rVersionsMetadataForPath })))?.packagerMetadata,
+			rVersionsRead: rVersionsMetadataForPath.mock.calls.length,
+		}).toEqual({ packagerMetadata: { from: 'pixi' }, rVersionsRead: 0 });
+	});
+
+	it('keeps the setup of the r-versions entry that lists the pinned R', async () => {
+		const rVersionsMetadataForPath = async (path: string): Promise<FakePackager | undefined> =>
+			path === '/opt/R/4.4/bin/R' ? { from: 'r-versions' } : undefined;
+		expect((await choosePinnedR(pinnedInputs({ rVersionsMetadataForPath })))?.packagerMetadata).toEqual({ from: 'r-versions' });
+	});
+
+	it('returns nothing without looking for R when no pin is set', async () => {
+		const exists = vi.fn(() => true);
+		expect(await choosePinnedR(pinnedInputs({ pinnedPath: undefined, exists }))).toBeUndefined();
+		expect(exists).not.toHaveBeenCalled();
+	});
+
+	it('returns nothing when the pinned path does not exist', async () => {
+		expect(await choosePinnedR(pinnedInputs({ exists: () => false }))).toBeUndefined();
+	});
+
+	it('returns nothing when the pinned R is not usable', async () => {
+		expect(await choosePinnedR(pinnedInputs({ usable: false }))).toBeUndefined();
+	});
+
+	it('returns nothing when discovery is limited to interpreters.definitions', async () => {
+		expect(await choosePinnedR(pinnedInputs({ definitionsOnly: true }))).toBeUndefined();
+	});
+});
+
+describe('firstListedR', () => {
+	it('picks the usable current R, otherwise the highest usable version', () => {
+		const current = r('4.4.1', { name: 'current', current: true });
+		const picked = [
+			firstListedR([r('4.3.0'), r('4.5.1'), current]),
+			firstListedR([r('4.3.0'), r('4.5.1'), { ...current, usable: false }]),
+			firstListedR([r('4.5.1', { usable: false })]),
+		];
+		expect(picked.map(inst => inst?.name)).toEqual(['current', '4.5.1', undefined]);
+	});
+});
+
+describe('InFlightLookup', () => {
+	/** A lookup that counts its runs and finishes when the test says so. */
+	function lookup() {
+		const runs: Array<(value: string) => void> = [];
+		const fails: Array<(err: Error) => void> = [];
+		const run = vi.fn(() => new Promise<string>((resolve, reject) => {
+			runs.push(resolve);
+			fails.push(reject);
+		}));
+		return { run, finish: (i: number, value: string) => runs[i](value), fail: (i: number, err: Error) => fails[i](err) };
+	}
+
+	it('shares one run between callers that ask for the same key while it runs', async () => {
+		const shared = new InFlightLookup<string, string>();
+		const { run, finish } = lookup();
+		const first = shared.run('/opt/R/4.4/bin/R', run);
+		const second = shared.run('/opt/R/4.4/bin/R', run);
+		finish(0, 'R 4.4');
+		expect({ results: await Promise.all([first, second]), runs: run.mock.calls.length }).toEqual({ results: ['R 4.4', 'R 4.4'], runs: 1 });
+	});
+
+	it('runs again once the earlier run finished, so a result is never reused', async () => {
+		const shared = new InFlightLookup<string, string>();
+		const { run, finish } = lookup();
+		const first = shared.run('/opt/R/4.4/bin/R', run);
+		finish(0, 'R 4.4');
+		await first;
+		const second = shared.run('/opt/R/4.4/bin/R', run);
+		finish(1, 'R 4.4 upgraded');
+		expect({ result: await second, runs: run.mock.calls.length }).toEqual({ result: 'R 4.4 upgraded', runs: 2 });
+	});
+
+	it('runs the lookup for an unset key, such as no pin, when nothing is running', async () => {
+		const shared = new InFlightLookup<string | undefined, string | undefined>();
+		const run = vi.fn(async () => undefined);
+		expect({ result: await shared.run(undefined, run), runs: run.mock.calls.length }).toEqual({ result: undefined, runs: 1 });
+	});
+
+	it('runs separately for a different key, such as a changed setting', async () => {
+		const shared = new InFlightLookup<string | undefined, string>();
+		const { run, finish } = lookup();
+		const first = shared.run('/opt/R/4.4/bin/R', run);
+		const second = shared.run('/opt/R/4.5/bin/R', run);
+		finish(0, 'R 4.4');
+		finish(1, 'R 4.5');
+		expect({ results: await Promise.all([first, second]), runs: run.mock.calls.length }).toEqual({ results: ['R 4.4', 'R 4.5'], runs: 2 });
+	});
+
+	it('passes a failed run to every caller, and runs again next time', async () => {
+		const shared = new InFlightLookup<string, string>();
+		const { run, finish, fail } = lookup();
+		const first = shared.run('/opt/R/4.4/bin/R', run);
+		const second = shared.run('/opt/R/4.4/bin/R', run);
+		fail(0, new Error('lookup failed'));
+		await expect(first).rejects.toThrow('lookup failed');
+		await expect(second).rejects.toThrow('lookup failed');
+		const third = shared.run('/opt/R/4.4/bin/R', run);
+		finish(1, 'R 4.4');
+		expect({ result: await third, runs: run.mock.calls.length }).toEqual({ result: 'R 4.4', runs: 2 });
 	});
 });
 

@@ -9,6 +9,8 @@ import { RBinary } from './provider.js';
 import { ReasonDiscovered, RVersionsMetadata } from './r-installation.js';
 import { LOGGER } from './extension.js';
 import { getEnvironmentModulesApi, parseRVersion } from './provider-module.js';
+import { arePathsSameFile } from './path-utils.js';
+import { rVersionsEntryForR } from './startup-choice.js';
 
 /**
  * Represents a single entry parsed from an r-versions file.
@@ -258,21 +260,10 @@ export async function discoverRVersionsBinaries(): Promise<RBinary[]> {
 				LOGGER.info(`Resolved R at ${binPath} from module ${entry.module}`);
 			}
 
-			// Build metadata from r-versions entry fields
-			const metadata: RVersionsMetadata = {
-				type: 'rversions',
-				label: entry.label,
-				script: entry.script,
-				repo: entry.repo,
-				library: entry.library,
-				module: entry.module,
-				moduleStartupCommand: moduleStartupCommand,
-			};
-
 			binaries.push({
 				path: binPath,
 				reasons: [ReasonDiscovered.RVERSIONS],
-				packagerMetadata: metadata,
+				packagerMetadata: rVersionsMetadata(entry, moduleStartupCommand),
 			});
 
 			LOGGER.info(`Found R at ${binPath} from r-versions file (with module: ${entry.module})`);
@@ -297,23 +288,71 @@ export async function discoverRVersionsBinaries(): Promise<RBinary[]> {
 			continue;
 		}
 
-		// Build metadata from r-versions entry fields
-		const metadata: RVersionsMetadata = {
-			type: 'rversions',
-			label: entry.label,
-			script: entry.script,
-			repo: entry.repo,
-			library: entry.library,
-		};
-
 		binaries.push({
 			path: binPath,
 			reasons: [ReasonDiscovered.RVERSIONS],
-			packagerMetadata: metadata,
+			packagerMetadata: rVersionsMetadata(entry, undefined),
 		});
 
 		LOGGER.info(`Found R at ${binPath} from r-versions file`);
 	}
 
 	return binaries;
+}
+
+/**
+ * Builds the metadata that discovery attaches to an r-versions entry's R.
+ *
+ * @param entry The r-versions entry
+ * @param moduleStartupCommand The command that loads the entry's module, if
+ *   it has one and the module system is available
+ */
+function rVersionsMetadata(entry: RVersionEntry, moduleStartupCommand: string | undefined): RVersionsMetadata {
+	const fields = { type: 'rversions', label: entry.label, script: entry.script, repo: entry.repo, library: entry.library } as const;
+	return entry.module ? { ...fields, module: entry.module, moduleStartupCommand } : fields;
+}
+
+/**
+ * The metadata discovery attaches to the R at `binpath` when an r-versions
+ * entry's Path leads to it: its label, script, library, and module. Reads the
+ * r-versions file and, for an entry with a module, checks once that the
+ * module system is available. Entries with a Module and no Path are skipped,
+ * since finding their R means loading the module.
+ *
+ * @param binpath The path to the R binary
+ * @returns The metadata, or undefined if no entry leads to that R
+ */
+export async function rVersionsMetadataForPath(binpath: string): Promise<RVersionsMetadata | undefined> {
+	// r-versions is a Posit Workbench feature, which only runs on Linux
+	if (process.platform === 'win32') {
+		return undefined;
+	}
+
+	const rVersionsPath = findRVersionsFile();
+	if (!rVersionsPath) {
+		return undefined;
+	}
+
+	let content: string;
+	try {
+		content = fs.readFileSync(rVersionsPath, 'utf-8');
+	} catch (error) {
+		LOGGER.warn(`Failed to read r-versions file: ${error}`);
+		return undefined;
+	}
+
+	const entry = rVersionsEntryForR(parseRVersionsFile(content), binpath, arePathsSameFile);
+	if (!entry) {
+		return undefined;
+	}
+
+	// As in discovery, the module is loaded only when the module system is available.
+	let moduleStartupCommand: string | undefined;
+	if (entry.module) {
+		const modulesApi = await getEnvironmentModulesApi();
+		if (modulesApi && await modulesApi.isAvailable()) {
+			moduleStartupCommand = modulesApi.buildStartupCommand([entry.module]);
+		}
+	}
+	return rVersionsMetadata(entry, moduleStartupCommand);
 }
