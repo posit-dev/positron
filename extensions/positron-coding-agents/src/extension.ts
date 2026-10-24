@@ -9,8 +9,8 @@ import { CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, CLAUDE_CODE_LABEL, claudeCodeError
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	// Register Claude Code while it's installed, so the `ai.errorActions.agent`
-	// setting lists it. It stays registered while `ai.enabled` is off, which
-	// Positron already enforces, so the setting keeps listing it.
+	// setting lists it. Once activated, it stays registered while `ai.enabled`
+	// is off, which Positron already enforces, so the setting keeps listing it.
 	let registration: vscode.Disposable | undefined;
 	let isDisposed = false;
 	context.subscriptions.push({

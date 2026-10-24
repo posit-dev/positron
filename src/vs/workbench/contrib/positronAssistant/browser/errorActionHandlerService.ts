@@ -13,6 +13,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 import { openSettingWhereSet } from '../../../services/preferences/common/positronSettingsUtils.js';
@@ -23,9 +24,13 @@ import { getErrorActionHandlerActivationEvent, getErrorActionHandlerContribution
 
 /**
  * How long a click waits for a contributed handler's extension to activate and
- * register it before saying it isn't available.
+ * register it before saying it isn't available. Long enough for a slow start,
+ * since the user is shown that it's starting.
  */
-const ACTIVATION_TIMEOUT = 5_000;
+const ACTIVATION_TIMEOUT = 30_000;
+
+/** How long a click waits before showing that the handler is starting. */
+const ACTIVATION_PROGRESS_DELAY = 500;
 
 export class ErrorActionHandlerService extends Disposable implements IErrorActionHandlerService {
 	declare readonly _serviceBrand: undefined;
@@ -42,15 +47,20 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 	 */
 	private _activeHandler: IErrorActionHandlerInfo | undefined;
 
+	/** Handlers contributed by installed, enabled extensions, by id. */
+	private _contributionsById: Map<string, IErrorActionHandlerContribution>;
+
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IProgressService private readonly _progressService: IProgressService,
 		@IPreferencesService private readonly _preferencesService: IPreferencesService,
 	) {
 		super();
 
+		this._contributionsById = this._readContributions();
 		this._activeHandler = this._getActiveHandler();
 		this._updateChoices();
 		// The choices are global, so put them back when this service goes.
@@ -64,10 +74,12 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 			}
 		}));
 		// Contributions name a chosen handler before it registers.
-		this._register(this._extensionService.onDidChangeExtensions(() => {
-			this._updateChoices();
-			this._updateActiveHandler();
-		}));
+		this._register(this._extensionService.onDidChangeExtensions(() => this._updateContributions()));
+		this._extensionService.whenInstalledExtensionsRegistered().then(() => {
+			if (!this._store.isDisposed) {
+				this._updateContributions();
+			}
+		});
 	}
 
 	get activeHandler(): IErrorActionHandlerInfo | undefined {
@@ -103,9 +115,8 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 		}
 		if (!handler) {
 			this._logService.warn(`No error action handler with the id '${handlerId}' is registered`);
-			// Contributed by an installed extension, but not registered, e.g.
-			// because the coding agent itself isn't installed.
-			const name = this._getContribution(handlerId)?.label ?? handlerId;
+			const contribution = this._contributionsById.get(handlerId);
+			const name = contribution?.label ?? handlerId;
 			if (handlerId === DEFAULT_ERROR_ACTION_HANDLER_ID) {
 				// It unregistered between render and click, and its buttons are
 				// about to hide.
@@ -118,11 +129,15 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 					localize('positron.errorAction.unavailableManaged', "The coding agent '{0}' isn't available, so the error wasn't sent. Your administrator manages which coding agent errors are sent to.", name)
 				);
 			} else {
-				// When the chosen handler's extension was uninstalled or
-				// disabled, its label is gone with it, so it's named by its id.
 				this._notificationService.prompt(
 					Severity.Warning,
-					localize('positron.errorAction.unavailable', "The coding agent '{0}' isn't available, so the error wasn't sent. It may have been uninstalled or disabled.", name),
+					contribution
+						// Its extension is installed but didn't register it,
+						// e.g. because the coding agent itself isn't installed.
+						? localize('positron.errorAction.notInstalled', "The coding agent '{0}' isn't available, so the error wasn't sent. It may not be installed.", name)
+						// Its extension was uninstalled or disabled, so its
+						// label is gone with it, and it's named by its id.
+						: localize('positron.errorAction.unavailable', "The coding agent '{0}' isn't available, so the error wasn't sent. It may have been uninstalled or disabled.", name),
 					[{
 						label: localize('positron.errorAction.selectAnother', "Select Another Coding Agent"),
 						run: () => openSettingWhereSet(this._preferencesService, this._configurationService, ERROR_ACTIONS_AGENT_KEY),
@@ -155,25 +170,42 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 			// It registers only while it can take errors, so don't wait for it.
 			return undefined;
 		}
-		await this._extensionService.whenInstalledExtensionsRegistered();
-		if (!this._getContribution(id)) {
-			return undefined;
+		try {
+			await this._extensionService.whenInstalledExtensionsRegistered();
+			const contribution = this._contributionsById.get(id);
+			if (!contribution) {
+				return undefined;
+			}
+			// The extension registers the handler, if it can, before it
+			// finishes activating.
+			const activation = raceTimeout(this._extensionService.activateByEvent(getErrorActionHandlerActivationEvent(id)), ACTIVATION_TIMEOUT);
+			await this._progressService.withProgress({
+				location: ProgressLocation.Notification,
+				title: localize('positron.errorAction.starting', "Starting {0}...", contribution.label),
+				delay: ACTIVATION_PROGRESS_DELAY,
+			}, () => activation);
+		} catch (error) {
+			// Say it isn't available, as when it doesn't register.
+			this._logService.error(`Failed to activate the error action handler '${id}'`, error);
 		}
-		// The extension registers the handler, if it can, before it finishes
-		// activating.
-		await raceTimeout(this._extensionService.activateByEvent(getErrorActionHandlerActivationEvent(id)), ACTIVATION_TIMEOUT);
 		return this._handlersById.get(id);
 	}
 
-	/** The contribution of a handler by an installed, enabled extension. */
-	private _getContribution(id: string): IErrorActionHandlerContribution | undefined {
+	/** Read the handlers that installed, enabled extensions contribute. */
+	private _readContributions(): Map<string, IErrorActionHandlerContribution> {
+		const contributions = new Map<string, IErrorActionHandlerContribution>();
 		for (const extension of this._extensionService.extensions) {
-			const contribution = getErrorActionHandlerContributions(extension).find(contribution => contribution.id === id);
-			if (contribution) {
-				return contribution;
+			for (const contribution of getErrorActionHandlerContributions(extension)) {
+				contributions.set(contribution.id, contribution);
 			}
 		}
-		return undefined;
+		return contributions;
+	}
+
+	private _updateContributions(): void {
+		this._contributionsById = this._readContributions();
+		this._updateChoices();
+		this._updateActiveHandler();
 	}
 
 	/** Read live, since `ai.enabled` changes without a reload. */
@@ -205,7 +237,7 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 		}
 		// The chosen handler isn't registered. Name it as its extension
 		// contributes it, or by its id when no extension does.
-		return { id, label: this._getContribution(id)?.label ?? id, supportsChatContinuation: false };
+		return { id, label: this._contributionsById.get(id)?.label ?? id, supportsChatContinuation: false };
 	}
 
 	/**
@@ -217,7 +249,7 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 		const choices: { id: string; label: string }[] = [...this._handlersById.values()];
 		const chosenId = this._getChosenHandlerId();
 		if (chosenId !== DEFAULT_ERROR_ACTION_HANDLER_ID && !this._handlersById.has(chosenId)) {
-			const name = this._getContribution(chosenId)?.label ?? chosenId;
+			const name = this._contributionsById.get(chosenId)?.label ?? chosenId;
 			choices.push({ id: chosenId, label: localize('positron.errorAction.unavailableChoice', "{0} (not available)", name) });
 		}
 		setErrorActionHandlerChoices(choices);

@@ -40,7 +40,34 @@ describe('getCommandLaunch', () => {
 
 	it('runs a native executable directly', async () => {
 		const claude = touch('claude');
+		fs.chmodSync(claude, 0o755);
 		expect(await getCommandLaunch('claude', '@anthropic-ai/claude-code/cli.js')).toEqual({ command: claude, args: [] });
+	});
+
+	it('takes the first executable in PATH order', async () => {
+		const otherDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'command-launch-'));
+		try {
+			vi.stubEnv('PATH', [binDirectory, otherDirectory].join(path.delimiter));
+			const first = touch('claude');
+			const second = path.join(otherDirectory, 'claude');
+			fs.writeFileSync(second, '');
+			fs.chmodSync(first, 0o755);
+			fs.chmodSync(second, 0o755);
+			expect((await getCommandLaunch('claude', '@anthropic-ai/claude-code/cli.js'))?.command).toBe(first);
+		} finally {
+			fs.rmSync(otherDirectory, { recursive: true, force: true });
+		}
+	});
+
+	it('is undefined when the file on the PATH can\'t be run', async () => {
+		vi.mocked(os.platform).mockReturnValue('linux');
+		touch('claude');
+		expect(await getCommandLaunch('claude', '@anthropic-ai/claude-code/cli.js')).toBeUndefined();
+	});
+
+	it('is undefined when the PATH has a directory with the executable\'s name', async () => {
+		fs.mkdirSync(path.join(binDirectory, 'claude'));
+		expect(await getCommandLaunch('claude', '@anthropic-ai/claude-code/cli.js')).toBeUndefined();
 	});
 
 	it('is undefined when the executable is not on the PATH', async () => {

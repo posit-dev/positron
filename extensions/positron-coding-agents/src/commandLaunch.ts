@@ -41,8 +41,8 @@ export async function getCommandLaunch(executable: string, npmScript: string): P
 	const directory = path.dirname(executablePath);
 	const script = path.join(directory, 'node_modules', ...npmScript.split('/'));
 	const localNode = path.join(directory, 'node.exe');
-	const node = await exists(localNode) ? localNode : await resolveOnPath('node');
-	if (!node || !await exists(script)) {
+	const node = await isFile(localNode) ? localNode : await resolveOnPath('node');
+	if (!node || !await isFile(script)) {
 		return undefined;
 	}
 	return { command: node, args: [script] };
@@ -58,24 +58,38 @@ async function resolveOnPath(executable: string): Promise<string | undefined> {
 	const names = os.platform() === 'win32'
 		? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';').map(ext => executable + ext)
 		: [executable];
-	for (const directory of directories) {
-		for (const name of names) {
-			const candidate = path.join(directory, name);
-			if (await exists(candidate)) {
-				return candidate;
-			}
-		}
-	}
-	return undefined;
+	// Check every candidate at once, so one slow directory doesn't hold up
+	// the rest, and take the first in PATH order.
+	const candidates = directories.flatMap(directory => names.map(name => path.join(directory, name)));
+	const found = await Promise.all(candidates.map(candidate => isExecutable(candidate)));
+	return candidates.find((_, i) => found[i]);
 }
 
 /**
- * Whether a file exists. Asynchronous so that a slow or hung network mount on
- * the PATH can't block the extension host.
+ * Whether a file exists, and isn't a directory. Asynchronous so that a slow
+ * or hung network mount on the PATH can't block the extension host.
  */
-async function exists(file: string): Promise<boolean> {
+async function isFile(file: string): Promise<boolean> {
 	try {
-		await fs.promises.access(file);
+		return (await fs.promises.stat(file)).isFile();
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Whether a file can be run. Windows has no execute permission; its
+ * executables are found by their PATHEXT extension instead.
+ */
+async function isExecutable(file: string): Promise<boolean> {
+	if (!await isFile(file)) {
+		return false;
+	}
+	if (os.platform() === 'win32') {
+		return true;
+	}
+	try {
+		await fs.promises.access(file, fs.constants.X_OK);
 		return true;
 	} catch {
 		return false;

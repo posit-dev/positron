@@ -43,7 +43,8 @@ export const claudeCodeErrorActionHandler: positron.ai.ErrorActionHandler = {
 		const extension = vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID);
 		// Read on each click, since the user can change it at any time.
 		const useTerminal = vscode.workspace.getConfiguration().get<boolean>(USE_TERMINAL_SETTING) === true;
-		const launch = await getClaudeCodeLaunch();
+		// Only a terminal needs the command, so don't look for it otherwise.
+		const launch = !extension || useTerminal ? await getClaudeCodeLaunch() : undefined;
 		const mode = getClaudeCodeMode({
 			extensionVersion: extension?.packageJSON.version ?? (extension ? '0.0.0' : undefined),
 			useTerminal,

@@ -24,7 +24,7 @@ export interface ClaudeCodeInstallation {
 	readonly extensionVersion: string | undefined;
 	/** The extension's `claudeCode.useTerminal` setting. */
 	readonly useTerminal: boolean;
-	/** Whether the `claude` command is installed. */
+	/** Whether the `claude` command is installed. Only read for a terminal. */
 	readonly hasCommand: boolean;
 }
 
