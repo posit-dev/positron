@@ -26,7 +26,7 @@ import * as createVirtualEnvironmentPrompt from '../../client/positron/createVir
 import { CreateVirtualEnvironmentPromptOutcome } from '../../client/positron/createVirtualEnvironmentPrompt';
 import * as sessionModule from '../../client/positron/session';
 import { IInterpreterService } from '../../client/interpreter/contracts';
-import { PythonEnvironment } from '../../client/pythonEnvironments/info';
+import { EnvironmentType, PythonEnvironment } from '../../client/pythonEnvironments/info';
 import { mockedPositronNamespaces } from '../vscode-mock';
 import { createTypeMoq } from '../mocks/helper';
 
@@ -483,6 +483,183 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
                 [serviceContainer.object, interpreterService.object, workspaceUri, true],
             ],
         );
+    });
+});
+
+suite('Python runtime manager - pinnedWorkspaceRuntime', () => {
+    const folderUri = vscode.Uri.file('/work/project');
+    const pinnedPath = '/opt/python/3.13/bin/python';
+
+    let pythonRuntimeManager: PythonRuntimeManager;
+    let interpreterService: TypeMoq.IMock<IInterpreterService>;
+    let pythonConfig: TypeMoq.IMock<WorkspaceConfiguration>;
+    let interpretersConfig: TypeMoq.IMock<WorkspaceConfiguration>;
+    let pathExistsStub: sinon.SinonStub;
+    let shouldIncludeInterpreterStub: sinon.SinonStub;
+    let createPythonRuntimeMetadataStub: sinon.SinonStub;
+    let pinnedEnvType: EnvironmentType;
+
+    /** Sets `python.defaultInterpreterPath` as `get()` resolves it for the folder. */
+    function pin(value: string | undefined): void {
+        pythonConfig.setup((c) => c.get<string>('defaultInterpreterPath')).returns(() => value);
+    }
+
+    setup(() => {
+        const serviceContainer = createTypeMoq<IServiceContainer>();
+        const disposableRegistry = createTypeMoq<IDisposableRegistry>();
+        interpreterService = createTypeMoq<IInterpreterService>();
+        serviceContainer.setup((s) => s.get(IInterpreterService)).returns(() => interpreterService.object);
+        serviceContainer.setup((s) => s.get(IDisposableRegistry)).returns(() => disposableRegistry.object);
+
+        Object.defineProperty(vscode.workspace, 'workspaceFolders', {
+            value: [{ uri: folderUri, name: 'project', index: 0 }],
+            configurable: true,
+        });
+
+        pythonConfig = createTypeMoq<WorkspaceConfiguration>();
+        interpretersConfig = createTypeMoq<WorkspaceConfiguration>();
+        sinon.stub(workspaceApis, 'getConfiguration').callsFake((section?: string, scope?: any) => {
+            if (section === 'python' && scope?.toString() === folderUri.toString()) {
+                return pythonConfig.object;
+            }
+            if (section === 'interpreters') {
+                return interpretersConfig.object;
+            }
+            return undefined as any;
+        });
+
+        pathExistsStub = sinon.stub(fs, 'pathExists').resolves(true);
+        shouldIncludeInterpreterStub = sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').returns(true);
+
+        pinnedEnvType = EnvironmentType.Unknown;
+        const interpreter = createTypeMoq<PythonEnvironment>();
+        interpreter.setup((i) => i.path).returns(() => pinnedPath);
+        interpreter.setup((i) => i.envType).returns(() => pinnedEnvType);
+        interpreterService
+            .setup((i) => i.getInterpreterDetails(TypeMoq.It.isValue(pinnedPath), TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve(interpreter.object));
+
+        createPythonRuntimeMetadataStub = sinon.stub(runtime, 'createPythonRuntimeMetadata');
+        createPythonRuntimeMetadataStub.callsFake(
+            (found: PythonEnvironment, _serviceContainer, startupBehavior = 'explicit') =>
+                Promise.resolve({
+                    runtimePath: found.path,
+                    startupBehavior,
+                } as positron.LanguageRuntimeMetadata),
+        );
+
+        pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);
+    });
+
+    teardown(() => {
+        sinon.restore();
+    });
+
+    test('returns the pinned interpreter, not set to start right away', async () => {
+        pin(pinnedPath);
+
+        const result = await pythonRuntimeManager.pinnedWorkspaceRuntime();
+
+        assert.deepStrictEqual(
+            { runtimePath: result?.runtimePath, startupBehavior: result?.startupBehavior },
+            { runtimePath: pinnedPath, startupBehavior: 'implicit' },
+        );
+    });
+
+    test('waits for module discovery only when the pinned Python can be a module Python', async () => {
+        pin(pinnedPath);
+        const envTypes = [EnvironmentType.Venv, EnvironmentType.Conda, EnvironmentType.Pyenv, EnvironmentType.Global];
+        for (const envType of envTypes) {
+            pinnedEnvType = envType;
+            await pythonRuntimeManager.pinnedWorkspaceRuntime();
+        }
+
+        assert.deepStrictEqual(
+            createPythonRuntimeMetadataStub.getCalls().map((call) => call.args[3]?.skipModuleWait),
+            [true, true, true, false],
+        );
+    });
+
+    test('reads the value VS Code resolves for the first folder, so the folder value wins', async () => {
+        // inspect() would show every level; get() returns the one that applies.
+        pythonConfig
+            .setup((c) => c.inspect<string>('defaultInterpreterPath'))
+            .returns(() => ({
+                key: 'python.defaultInterpreterPath',
+                globalValue: '/user/python',
+                workspaceValue: '/code-workspace/python',
+                workspaceFolderValue: pinnedPath,
+            }));
+        pin(pinnedPath);
+
+        const result = await pythonRuntimeManager.pinnedWorkspaceRuntime();
+
+        assert.strictEqual(result?.runtimePath, pinnedPath);
+    });
+
+    test('returns nothing when the setting is unset or is the default "python"', async () => {
+        const results = [];
+        for (const value of [undefined, 'python']) {
+            pythonConfig.reset();
+            pin(value);
+            results.push(await pythonRuntimeManager.pinnedWorkspaceRuntime());
+        }
+
+        assert.deepStrictEqual(results, [undefined, undefined]);
+        sinon.assert.notCalled(pathExistsStub);
+    });
+
+    test('returns nothing without a lookup when the pinned path does not exist', async () => {
+        pin(pinnedPath);
+        pathExistsStub.resolves(false);
+
+        const result = await pythonRuntimeManager.pinnedWorkspaceRuntime();
+
+        assert.strictEqual(result, undefined);
+        interpreterService.verify(
+            (i) => i.getInterpreterDetails(TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+            TypeMoq.Times.never(),
+        );
+    });
+
+    test('returns nothing when the interpreter settings exclude the pinned path', async () => {
+        // shouldIncludeInterpreter() applies both exclude and override.
+        pin(pinnedPath);
+        shouldIncludeInterpreterStub.returns(false);
+
+        const result = await pythonRuntimeManager.pinnedWorkspaceRuntime();
+
+        assert.strictEqual(result, undefined);
+        sinon.assert.calledWith(shouldIncludeInterpreterStub, pinnedPath);
+    });
+
+    test('under definitionsOnly, returns nothing unless interpreters.definitions lists the pinned path, kept as written', async () => {
+        // A link that resolves to the interpreter at pinnedPath.
+        const linkPath = '/opt/python/current/bin/python';
+        pin(linkPath);
+        const resolved = createTypeMoq<PythonEnvironment>();
+        resolved.setup((i) => i.path).returns(() => pinnedPath);
+        interpreterService
+            .setup((i) => i.getInterpreterDetails(TypeMoq.It.isValue(linkPath), TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve(resolved.object));
+        interpretersConfig.setup((c) => c.get<string>('discovery')).returns(() => 'definitionsOnly');
+        let definitions = [{ language: 'python', path: '/opt/python/3.12/bin/python', label: 'Python 3.12' }];
+        interpretersConfig.setup((c) => c.get<unknown>('definitions')).returns(() => definitions);
+
+        const notListed = await pythonRuntimeManager.pinnedWorkspaceRuntime();
+        definitions = [{ language: 'python', path: linkPath, label: 'Python 3.13' }];
+        const listed = await pythonRuntimeManager.pinnedWorkspaceRuntime();
+
+        assert.deepStrictEqual([notListed, listed?.runtimePath], [undefined, linkPath]);
+    });
+
+    test('returns nothing, and starts no refresh, when the lookup misses', async () => {
+        pin('/opt/python/missing/bin/python');
+
+        const result = await pythonRuntimeManager.pinnedWorkspaceRuntime();
+
+        assert.strictEqual(result, undefined);
+        interpreterService.verify((i) => i.triggerRefresh(), TypeMoq.Times.never());
     });
 });
 

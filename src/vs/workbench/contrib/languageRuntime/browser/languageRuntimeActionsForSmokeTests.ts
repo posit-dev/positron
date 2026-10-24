@@ -23,6 +23,8 @@ export interface ISessionMetadataResult {
 	readonly state: string;
 	readonly path: string;
 	readonly source: string;
+	/** Why the session was started, which the popup shows as a label. */
+	readonly startReasonId?: string;
 }
 
 /**
@@ -62,6 +64,7 @@ function getSessionMetadata(accessor: ServicesAccessor, sessionId?: string): ISe
 		state: session.getRuntimeState(),
 		path: getRuntimeDisplayPath(session.runtimeMetadata),
 		source: session.runtimeMetadata.runtimeSource,
+		startReasonId: session.metadata.startReasonId,
 	};
 }
 
