@@ -10,6 +10,7 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { Extensions, IConfigurationRegistry } from '../../../../../platform/configuration/common/configurationRegistry.js';
 import { INotificationService, Severity } from '../../../../../platform/notification/common/notification.js';
+import { IProgressService } from '../../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 import { Emitter } from '../../../../../base/common/event.js';
@@ -34,7 +35,9 @@ describe('ErrorActionHandlerService', () => {
 	const activateByEvent = vi.fn<IExtensionService['activateByEvent']>();
 	const onDidChangeExtensions = new Emitter<{ readonly added: readonly IExtensionDescription[]; readonly removed: readonly IExtensionDescription[] }>();
 	let extensions: IExtensionDescription[] = [];
+	const withProgress = vi.fn<IProgressService['withProgress']>();
 	const ctx = createTestContainer()
+		.stub(IProgressService, { withProgress })
 		.stub(IExtensionService, {
 			get extensions() { return extensions; },
 			onDidChangeExtensions: onDidChangeExtensions.event,
@@ -51,6 +54,7 @@ describe('ErrorActionHandlerService', () => {
 	beforeEach(() => {
 		extensions = [];
 		activateByEvent.mockResolvedValue(undefined);
+		withProgress.mockImplementation((_options, task) => task(stubInterface({})));
 		configurationService = new TestConfigurationService({ [AI_ENABLED_KEY]: true, [ERROR_ACTIONS_AGENT_KEY]: 'test-handler' });
 		ctx.instantiationService.stub(IConfigurationService, configurationService);
 	});
@@ -383,17 +387,30 @@ describe('ErrorActionHandlerService', () => {
 		await service.ask('test-handler', 'fix', context, {});
 
 		expect(activateByEvent).toHaveBeenCalledWith('onErrorActionHandler:test-handler');
+		expect(withProgress.mock.calls[0][0]).toMatchObject({ title: 'Starting Contributed Handler...', delay: 500 });
 		expect(ask).toHaveBeenCalledOnce();
 		expect(notifyPrompt).not.toHaveBeenCalled();
 	});
 
-	it('names the handler as its extension contributes it when it does not register', async () => {
+	it('says the handler may not be installed when its extension does not register it', async () => {
 		installContributingExtension();
 		const service = createService();
 
 		await service.ask('test-handler', 'fix', context, {});
 
-		expect(notifyPrompt.mock.calls[0][1]).toBe(`The coding agent 'Contributed Handler' isn't available, so the error wasn't sent. It may have been uninstalled or disabled.`);
+		expect(notifyPrompt.mock.calls[0][1]).toBe(`The coding agent 'Contributed Handler' isn't available, so the error wasn't sent. It may not be installed.`);
+	});
+
+	it('says the handler is not available, rather than rejects, when its extension fails to activate', async () => {
+		installContributingExtension();
+		const service = createService();
+		const error = new Error('activation failed');
+		activateByEvent.mockRejectedValue(error);
+
+		await expect(service.ask('test-handler', 'fix', context, {})).resolves.toBeUndefined();
+
+		expect(logError).toHaveBeenCalledWith(`Failed to activate the error action handler 'test-handler'`, error);
+		expect(notifyPrompt).toHaveBeenCalledOnce();
 	});
 
 	it('does not activate anything when no extension contributes the handler', async () => {
