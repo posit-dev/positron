@@ -7,14 +7,16 @@ import { localize } from '../../../../nls.js';
 import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { Iterable } from '../../../../base/common/iterator.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
+import { openSettingWhereSet } from '../../../services/preferences/common/positronSettingsUtils.js';
 import { ErrorAction, IErrorActionHandler, IErrorActionContext, IErrorActionHandlerInfo, IErrorActionOptions, IErrorActionHandlerService } from '../common/errorAction.js';
-import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
+import { AI_ENABLED_KEY, DEFAULT_ERROR_ACTION_HANDLER_LABEL, setErrorActionHandlerChoices } from '../common/positronAIConfiguration.js';
+import { DEFAULT_ERROR_ACTION_HANDLER_ID, ERROR_ACTIONS_AGENT_KEY } from '../common/positronAIConfigurationKeys.js';
 
 export class ErrorActionHandlerService extends Disposable implements IErrorActionHandlerService {
 	declare readonly _serviceBrand: undefined;
@@ -25,25 +27,36 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 	/** Registered handlers, by id, in registration order. */
 	private readonly _handlersById = new Map<string, IErrorActionHandler>();
 
-	/** The active handler as of the last event, to fire only on changes. */
-	private _lastActiveHandler: IErrorActionHandler | undefined;
+	/**
+	 * The active handler, kept so that reads between changes return the same
+	 * object.
+	 */
+	private _activeHandler: IErrorActionHandlerInfo | undefined;
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IPreferencesService private readonly _preferencesService: IPreferencesService,
 	) {
 		super();
 
+		this._activeHandler = this._getActiveHandler();
+		this._updateChoices();
+		// The choices are global, so put them back when this service goes.
+		this._register(toDisposable(() => setErrorActionHandlerChoices([])));
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(AI_ENABLED_KEY)) {
-				this._fireIfActiveHandlerChanged();
+			if (e.affectsConfiguration(ERROR_ACTIONS_AGENT_KEY)) {
+				this._updateChoices();
+			}
+			if (e.affectsConfiguration(AI_ENABLED_KEY) || e.affectsConfiguration(ERROR_ACTIONS_AGENT_KEY)) {
+				this._updateActiveHandler();
 			}
 		}));
 	}
 
 	get activeHandler(): IErrorActionHandlerInfo | undefined {
-		return this._getActiveHandler();
+		return this._activeHandler;
 	}
 
 	register(handler: IErrorActionHandler): IDisposable {
@@ -52,12 +65,15 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 		}
 
 		this._handlersById.set(handler.id, handler);
-		this._fireIfActiveHandlerChanged();
+		this._updateChoices();
+		this._updateActiveHandler();
 		return toDisposable(() => {
 			// Nothing to update once the service itself is disposed.
 			if (!this._store.isDisposed) {
 				this._handlersById.delete(handler.id);
-				this._fireIfActiveHandlerChanged();
+				// The setting keeps its value, listed as not available.
+				this._updateChoices();
+				this._updateActiveHandler();
 			}
 		});
 	}
@@ -68,12 +84,30 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 		}
 		const handler = this._handlersById.get(handlerId);
 		if (!handler) {
-			// The handler unregistered after the user saw it named, e.g. while
-			// a quick fix's dropdown was open. Its label is gone with it.
 			this._logService.warn(`No error action handler with the id '${handlerId}' is registered`);
-			this._notificationService.warn(
-				localize('positron.errorAction.unavailable', "Could not send the error: the coding agent is no longer available.")
-			);
+			if (handlerId === DEFAULT_ERROR_ACTION_HANDLER_ID) {
+				// It unregistered between render and click, and its buttons are
+				// about to hide.
+				this._notificationService.warn(
+					localize('positron.errorAction.notReady', "{0} isn't available, so the error wasn't sent.", DEFAULT_ERROR_ACTION_HANDLER_LABEL)
+				);
+			} else if (this._configurationService.inspect(ERROR_ACTIONS_AGENT_KEY).policyValue !== undefined) {
+				// The user can't choose another one, so don't offer to.
+				this._notificationService.warn(
+					localize('positron.errorAction.unavailableManaged', "The coding agent '{0}' isn't available, so the error wasn't sent. Your administrator manages which coding agent errors are sent to.", handlerId)
+				);
+			} else {
+				// The chosen handler was uninstalled or disabled, so its label
+				// is gone with it. Name it by its id.
+				this._notificationService.prompt(
+					Severity.Warning,
+					localize('positron.errorAction.unavailable', "The coding agent '{0}' isn't available, so the error wasn't sent. It may have been uninstalled or disabled.", handlerId),
+					[{
+						label: localize('positron.errorAction.selectAnother', "Select Another Coding Agent"),
+						run: () => openSettingWhereSet(this._preferencesService, this._configurationService, ERROR_ACTIONS_AGENT_KEY),
+					}],
+				);
+			}
 			return;
 		}
 		// Hold every handler to the contract here, rather than in each surface.
@@ -94,18 +128,56 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 		return this._configurationService.getValue<boolean>(AI_ENABLED_KEY) === true;
 	}
 
-	/** The first registered handler, while AI is enabled. */
-	private _getActiveHandler(): IErrorActionHandler | undefined {
+	/** The id of the chosen handler, read live. */
+	private _getChosenHandlerId(): string {
+		const id = this._configurationService.getValue<unknown>(ERROR_ACTIONS_AGENT_KEY);
+		return typeof id === 'string' && id ? id : DEFAULT_ERROR_ACTION_HANDLER_ID;
+	}
+
+	/** The chosen handler, while AI is enabled and, for the default, it's registered. */
+	private _getActiveHandler(): IErrorActionHandlerInfo | undefined {
 		if (!this._isAIEnabled()) {
 			return undefined;
 		}
-		return Iterable.first(this._handlersById.values());
+		const id = this._getChosenHandlerId();
+		const handler = this._handlersById.get(id);
+		if (handler) {
+			return handler;
+		}
+		if (id === DEFAULT_ERROR_ACTION_HANDLER_ID) {
+			// The default handler is chosen for all users, even those who have
+			// never configured AI providers, so don't show its buttons until it
+			// registers.
+			return undefined;
+		}
+		// The chosen handler isn't registered, so its label isn't known.
+		// Name it by its id until it registers.
+		return { id, label: id, supportsChatContinuation: false };
 	}
 
-	private _fireIfActiveHandlerChanged(): void {
+	/**
+	 * List the registered handlers in the setting, and the chosen one if it
+	 * isn't registered, so the Settings editor shows it rather than the first
+	 * choice.
+	 */
+	private _updateChoices(): void {
+		const choices: { id: string; label: string }[] = [...this._handlersById.values()];
+		const chosenId = this._getChosenHandlerId();
+		if (chosenId !== DEFAULT_ERROR_ACTION_HANDLER_ID && !this._handlersById.has(chosenId)) {
+			choices.push({ id: chosenId, label: localize('positron.errorAction.unavailableChoice', "{0} (not available)", chosenId) });
+		}
+		setErrorActionHandlerChoices(choices);
+	}
+
+	private _updateActiveHandler(): void {
+		// Compare what surfaces show, since an unregistered handler's info is
+		// built afresh.
 		const activeHandler = this._getActiveHandler();
-		if (activeHandler !== this._lastActiveHandler) {
-			this._lastActiveHandler = activeHandler;
+		const last = this._activeHandler;
+		if (activeHandler?.id !== last?.id
+			|| activeHandler?.label !== last?.label
+			|| activeHandler?.supportsChatContinuation !== last?.supportsChatContinuation) {
+			this._activeHandler = activeHandler;
 			this._onDidChangeActiveHandler.fire(activeHandler);
 		}
 	}

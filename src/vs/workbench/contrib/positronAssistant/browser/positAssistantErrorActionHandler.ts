@@ -15,17 +15,17 @@ import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { ErrorAction, IErrorActionContext, IErrorActionOptions, IErrorActionHandlerService } from '../common/errorAction.js';
+import { DEFAULT_ERROR_ACTION_HANDLER_LABEL } from '../common/positronAIConfiguration.js';
+import { POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID } from '../common/positronAIConfigurationKeys.js';
 import { NewChatOptions, POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } from './positAssistantChat.js';
-
-/** Posit Assistant's error action handler id. */
-const POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID = 'posit-assistant';
 
 /** The Posit Assistant extension's identifier. */
 const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
 
 /**
- * Registers Posit Assistant as the error action handler while it can take errors:
- * while the extension is installed and has a usable chat model.
+ * Registers Posit Assistant as an error action handler while it can take errors:
+ * while the extension is installed and enabled and has a usable chat model.
+ * The `ai.errorActions.agent` setting lists it either way, since it's the default.
  */
 export class PositAssistantErrorActionHandlerContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.positAssistantErrorActionHandler';
@@ -71,7 +71,7 @@ export class PositAssistantErrorActionHandlerContribution extends Disposable imp
 
 		this._registration.value = this._errorActionHandlerService.register({
 			id: POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID,
-			label: localize('positronAssistantErrorActionHandlerLabel', "Posit Assistant"),
+			label: DEFAULT_ERROR_ACTION_HANDLER_LABEL,
 			supportsChatContinuation: true,
 			ask: async (action, context, options) => {
 				const pathLabel = (uri: URI) => this._labelService.getUriLabel(uri, { relative: true });
