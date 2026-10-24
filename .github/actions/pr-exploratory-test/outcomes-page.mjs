@@ -154,7 +154,7 @@ function severityRows(own) {
 		return { label: SEVERITY_LABEL[key], list, s: summarize(list) };
 	});
 	const rows = per.map(({ label, list, s }) => {
-		const rate = s.counted ? `<div class="pct"><span class="green">${pct(s.fixed, s.counted)}</span><span class="of">${s.fixed} of ${s.counted}</span></div>`
+		const rate = s.counted ? `<div class="pct"><span class="rate">${pct(s.fixed, s.counted)}</span><span class="of">${s.fixed} of ${s.counted}</span></div>`
 			: '<div class="pct none" aria-label="No outcome yet">&ndash;</div>';
 		return `<div class="grid-row sev-row"><div class="name">${label}</div>${rate}${s.total ? splitBar(list) : `<div class="grow empty">No ${label} findings in this period</div>`}</div>`;
 	}).join('\n');
@@ -283,7 +283,7 @@ i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-s
 .cols{padding:0 0 8px;color:#6B6862;border-bottom:1px solid #2B2A27}
 .sev-rows{border-top:0}
 .sev-row{min-height:56px}.sev-row .name{font-size:16px;font-weight:600}
-.sev-row .pct{display:flex;align-items:baseline;gap:8px}.sev-row .green{font-size:28px;line-height:1}.of{font-size:13px;color:#6B6862}
+.sev-row .pct{display:flex;align-items:baseline;gap:8px}.sev-row .rate{font-size:18px;font-weight:600;line-height:1;color:#2B2A27;font-variant-numeric:tabular-nums}.of{font-size:13px;color:#6B6862}
 .sev-row .pct.none{font-size:18px;line-height:1;font-weight:400;color:#B5B1A7}
 .empty{font-size:13px;color:#7A766F}
 .pr{min-height:56px}.pr .name{font-size:14px;font-weight:500}

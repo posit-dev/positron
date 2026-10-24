@@ -146,7 +146,7 @@ test('By severity is the first accordion section, listing Major, Moderate and Mi
 	assert.ok(html.indexOf('<div class="accordion">') < html.indexOf('id="sev-h"'));
 	assert.ok(html.indexOf('id="sev-h"') < html.indexOf('id="pr-h"') && html.indexOf('id="pr-h"') < html.indexOf('id="ev-h"'));
 	assert.match(text(sev), /By severity 8 moderate ~ 8 minor Severity % fixed Outcomes Major - No Major findings in this period Moderate 80% 4 of 5 4 1 3 Minor 71% 5 of 7 4 1 2 1 % fixed includes fixes made after merging\. Findings that aren't counted aren't in it\./);
-	assert.match(sev, /<div class="pct"><span class="green">80%<\/span><span class="of">4 of 5<\/span><\/div>/);
+	assert.match(sev, /<div class="pct"><span class="rate">80%<\/span><span class="of">4 of 5<\/span><\/div>/);
 	assert.match(sev, /<span class="grow">Outcomes<\/span><\/div>/);
 	assert.doesNotMatch(sev, /class="end|not counted|class="sub"/);
 	const waiting = render([row('pending', { severity: 'major' }), row('unclear', { severity: 'major' })]);
