@@ -61,6 +61,27 @@ jobs:
           fi
           echo "Actor ${{ github.actor }} authorized with '$PERMISSION' permission"
 
+      # Ack the trigger right away; the action's own progress comment takes a minute or more.
+      # Reviews have no reactions API, so they get no ack.
+      - name: Add eyes reaction
+        id: ack
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          case "$EVENT_NAME" in
+            issue_comment) TARGET="issues/comments/${COMMENT_ID}" ;;
+            pull_request_review_comment) TARGET="pulls/comments/${COMMENT_ID}" ;;
+            issues) TARGET="issues/${ISSUE_NUMBER}" ;;
+            *) exit 0 ;;
+          esac
+          echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
+          REACTION_ID=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions" \
+            -f content=eyes --jq '.id') || echo "Failed to add eyes reaction (non-fatal)"
+          echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
+
       - name: Generate token for GitHub App
         id: generate-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -226,3 +247,19 @@ jobs:
             --model opus
             --fallback-model sonnet
             --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(npm ci:*),Bash(npm --prefix build ci:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
+
+      - name: Replace eyes with result reaction
+        if: always() && steps.ack.outputs.target != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ steps.ack.outputs.target }}
+          REACTION_ID: ${{ steps.ack.outputs.reaction_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ -n "$REACTION_ID" ]; then
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions/${REACTION_ID}" \
+              || echo "Failed to remove eyes reaction (non-fatal)"
+          fi
+          if [ "$JOB_STATUS" = "success" ]; then FINAL=rocket; else FINAL=confused; fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions" \
+            -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
