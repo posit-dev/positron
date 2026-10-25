@@ -21,8 +21,11 @@ import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY, DEFAULT_ERROR_ACTION_HANDLE
 // directly to avoid this file's registerConfiguration side effect.
 export { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY };
 
-/** The name of the default error action handler, in the setting's choices and on its buttons. */
-export const DEFAULT_ERROR_ACTION_HANDLER_LABEL = localize('positron.ai.errorActions.agent.positAssistant', "Posit Assistant");
+/** The error action handler label of Posit Assistant, in the setting's choices and on its buttons. */
+export const POSIT_ASSISTANT_ERROR_ACTION_HANDLER_LABEL = localize('positron.ai.errorActions.agent.positAssistant', "Posit Assistant");
+
+/** The label of the default error action handler, listed even before it registers. */
+export const DEFAULT_ERROR_ACTION_HANDLER_LABEL = POSIT_ASSISTANT_ERROR_ACTION_HANDLER_LABEL;
 
 // The choices of ERROR_ACTIONS_AGENT_KEY, set by setErrorActionHandlerChoices. The
 // default is listed even before it registers, so the setting's own default is
