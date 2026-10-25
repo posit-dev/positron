@@ -163,6 +163,8 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 	private _updateChoices(): void {
 		const choices: Pick<IErrorActionHandlerInfo, 'id' | 'label'>[] = [...this._handlersById.values()];
 		const chosenId = this._getChosenHandlerId();
+		// The chosen handler may not be registered, e.g. if it was uninstalled. The
+		// default is always listed, registered or not.
 		if (chosenId !== DEFAULT_ERROR_ACTION_HANDLER_ID && !this._handlersById.has(chosenId)) {
 			choices.push({ id: chosenId, label: localize('positron.errorAction.unavailableChoice', "{0} (not available)", chosenId) });
 		}
