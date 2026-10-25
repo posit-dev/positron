@@ -120,6 +120,10 @@ suite('Create Environment APIs', () => {
     teardown(() => {
         disposables.forEach((d) => d.dispose());
         sinon.restore();
+        // --- Start Positron ---
+        // A leaked hold would silence the prompt in every later test, so fail where it starts.
+        assert.isFalse(isCreatingEnvironment(), 'a test leaked the creation hold');
+        // --- End Positron ---
     });
 
     [true, false].forEach((selectEnvironment) => {

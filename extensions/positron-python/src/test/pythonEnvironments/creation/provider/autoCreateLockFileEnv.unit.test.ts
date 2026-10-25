@@ -90,6 +90,8 @@ suite('Auto Create Lock File Env', () => {
 
     teardown(() => {
         sinon.restore();
+        // A leaked hold would silence the prompt in every later test, so fail where it starts.
+        assert.isFalse(isCreatingEnvironment(), 'a test leaked the creation hold');
     });
 
     suite('autoSyncUvEnv', () => {
@@ -141,11 +143,14 @@ suite('Auto Create Lock File Env', () => {
 
         test('uv sync fails: the creation flag drops', async () => {
             ensureUvInstalledStub.resolves({ ok: true });
-            recordCreationFlag(1);
+            const recorded = recordCreationFlag(1);
 
             await autoSyncUvEnv(workspace, runtimeManager);
 
-            assert.isFalse(isCreatingEnvironment());
+            assert.deepStrictEqual(
+                { duringCommand: recorded.duringCommand, after: isCreatingEnvironment() },
+                { duringCommand: true, after: false },
+            );
         });
 
         test('uv sync fails: does not select a runtime', async () => {
