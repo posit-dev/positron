@@ -59,7 +59,7 @@ npm run gulp compile-extension:positron-data-explorer-protocol
 npm run gulp compile-extension:positron-duckdb
 ```
 
-The tests also launch Positron, so they need a core build in `out/` (see Build System in the root `CLAUDE.md`).
+These are extension host tests, so they also have the prerequisites the root `CLAUDE.md` gives for those.
 
 ### 2. Testing
 ```bash
