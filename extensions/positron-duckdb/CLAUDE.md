@@ -3,7 +3,6 @@
 This prompt provides context for working with the `positron-duckdb` extension, which provides native DuckDB support for headless data exploration in Positron.
 
 **Related documentation:**
-- **Build system**: `.claude/build-system.md` - For daemon management and compilation
 - **Data Explorer UI**: `.claude/data-explorer.md` - For frontend components that use this extension
 - **Testing**: `.claude/e2e-testing.md` - For E2E tests involving data exploration
 
@@ -58,10 +57,13 @@ extensions/positron-duckdb/
 ## Quick Development Workflow
 
 ### 1. Prerequisites
-Compile the extension (typechecks and emits to `out/`, which the tests run from):
+Compile the extension and the in-repo packages it imports (typechecks and emits to `out/`, which the tests run from):
 ```bash
+npm run gulp compile-extension:positron-data-explorer-protocol
 npm run gulp compile-extension:positron-duckdb
 ```
+
+The tests also launch Positron, so they need a core build in `out/` (see Build System in the root `CLAUDE.md`).
 
 ### 2. Testing
 ```bash

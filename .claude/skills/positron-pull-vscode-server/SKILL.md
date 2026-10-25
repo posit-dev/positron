@@ -99,9 +99,9 @@ npm run gulp compile-extension:<name>              # TypeScript errors in each e
 npm run precommit -- <file1> <file2> ...           # lint and formatting
 ```
 
-Verify the **files you ported** compile clean; ignore pre-existing errors in untouched code.
+Verify the **files you ported** compile clean; ignore pre-existing errors in untouched code. `compile-extension:<name>` does not build in-repo packages the extension imports through their `out/` (e.g. `positron-data-explorer-protocol`), so "Cannot find module" errors for those are build ordering, not your port. Compile the package first with `compile-extension:<package>`.
 
-Fix precommit issues only in lines you touched. Do not fix pre-existing warnings in unrelated parts of the file — those belong in a separate commit. Before committing, run `git status` and exclude any unrelated churn a build daemon may have introduced (e.g. line-ending rewrites in a `package-lock.json` you never opened) — `git checkout -- <file>` to drop it.
+Fix precommit issues only in lines you touched. Do not fix pre-existing warnings in unrelated parts of the file — those belong in a separate commit. Before committing, run `git status` and exclude any unrelated churn a running build daemon may have introduced (e.g. line-ending rewrites in a `package-lock.json` you never opened) — `git checkout -- <file>` to drop it.
 
 Bundle everything into one commit. Keep the message focused on what's being ported and why — do not include QA notes or e2e test tags (those belong in the PR body only):
 ```bash

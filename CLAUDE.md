@@ -4,13 +4,15 @@ Positron is a next-generation data science IDE built on VS Code with first-class
 
 ## Build System
 
-To verify code compiles, typecheck only what you changed. These use the native TypeScript compiler and finish in seconds:
+To verify code compiles, typecheck only what you changed:
 
 - `src/`: `npm run typecheck-client` (no emit; ~6s for the whole project)
 - A built-in extension: `npm run gulp compile-extension:<name>` (e.g. `compile-extension:positron-duckdb`)
+	- It deletes and rebuilds that extension's `out/`, which briefly breaks a running dev Positron or daemons that depend on it
+	- It does not build in-repo packages the extension imports through their `out/` (e.g. `positron-data-explorer-protocol`). If it fails with "Cannot find module" for one of them, compile that package first with `compile-extension:<package>`
 - E2E tests: `npm --prefix test/e2e run compile`
 
-Launching Positron and running Core Mocha or e2e tests need a build in `out/`. Either:
+Launching Positron and running Core Mocha, extension host, or e2e tests need a build in `out/`. Either:
 
 - `npm run compile`: one-shot full build (~20s). It deletes `out/` first, which breaks a running dev Positron or daemons in the same checkout
 - Build daemons: rebuild incrementally on each save, so `out/` stays current while you iterate:
@@ -96,8 +98,8 @@ Positron has three test categories:
 	- `npx vitest --watch src/path/to/<file>.vitest.ts`: watch mode (re-runs on save; press `q` to quit, `h` for keyboard help)
 	- `npx vitest run --coverage --coverage.include='**/myFile.tsx' <test-file>`: scoped coverage
 	- `npx vitest run --update <file>`: update inline snapshots
-- **Core Mocha** (`*.test.ts` / `*.integrationTest.ts` in `src/vs/`, requires build daemons):
-	- Ensure build daemons are running first: `npm run build-start && npm run build-check`
+- **Core Mocha** (`*.test.ts` / `*.integrationTest.ts` in `src/vs/`, requires a build in `out/`):
+	- Build first with `npm run compile`, or ensure build daemons are running: `npm run build-start && npm run build-check`
 	- `npm run test:core` (or `./scripts/test.sh`): run all
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
 	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension)
