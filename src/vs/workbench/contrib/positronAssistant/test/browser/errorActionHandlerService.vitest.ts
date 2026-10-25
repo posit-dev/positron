@@ -188,6 +188,14 @@ describe('ErrorActionHandlerService', () => {
 		expect(getChoices()).toEqual({ ids: ['posit-assistant'], labels: ['Posit Assistant'] });
 	});
 
+	it('lists a handler chosen in another scope as not available while it is not registered', () => {
+		setConfiguration(ERROR_ACTIONS_AGENT_KEY, DEFAULT_ERROR_ACTION_HANDLER_ID);
+		setSettingSource({ userLocalValue: 'claude-code', workspaceValue: DEFAULT_ERROR_ACTION_HANDLER_ID });
+		createService();
+
+		expect(getChoices()).toEqual({ ids: ['posit-assistant', 'claude-code'], labels: ['Posit Assistant', 'claude-code (not available)'] });
+	});
+
 	it('updates the choices in place, and only when they change', () => {
 		const registry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
 		const ids = registry.getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY].enum;

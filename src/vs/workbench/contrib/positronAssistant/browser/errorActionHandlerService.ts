@@ -156,17 +156,21 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 	}
 
 	/**
-	 * List the registered handlers in the setting, and the chosen one if it
+	 * List the registered handlers in the setting, and each chosen one that
 	 * isn't registered, so the Settings editor shows it rather than the first
 	 * choice.
 	 */
 	private _updateChoices(): void {
 		const choices: Pick<IErrorActionHandlerInfo, 'id' | 'label'>[] = [...this._handlersById.values()];
-		const chosenId = this._getChosenHandlerId();
-		// The chosen handler may not be registered, e.g. if it was uninstalled. The
-		// default is always listed, registered or not.
-		if (chosenId !== DEFAULT_ERROR_ACTION_HANDLER_ID && !this._handlersById.has(chosenId)) {
-			choices.push({ id: chosenId, label: localize('positron.errorAction.unavailableChoice', "{0} (not available)", chosenId) });
+		// A chosen handler may not be registered, e.g. if it was uninstalled. The
+		// default is always listed, registered or not. Each Settings editor tab
+		// shows its own scope's value, which may not be the one in effect.
+		const { userLocalValue, userRemoteValue, workspaceValue, policyValue } = this._configurationService.inspect<unknown>(ERROR_ACTIONS_AGENT_KEY);
+		const chosenIds = new Set([this._getChosenHandlerId(), userLocalValue, userRemoteValue, workspaceValue, policyValue]);
+		for (const id of chosenIds) {
+			if (typeof id === 'string' && id && id !== DEFAULT_ERROR_ACTION_HANDLER_ID && !this._handlersById.has(id)) {
+				choices.push({ id, label: localize('positron.errorAction.unavailableChoice', "{0} (not available)", id) });
+			}
 		}
 		setErrorActionHandlerChoices(choices);
 	}
