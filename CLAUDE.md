@@ -8,6 +8,8 @@ To verify code compiles, typecheck only what you changed:
 
 - `src/`: `npm run typecheck-client` (no emit; ~6s for the whole project)
 - A built-in extension: `npm run gulp compile-extension:<name>` (e.g. `compile-extension:positron-duckdb`)
+	- `<name>` is the tsconfig's directory under `extensions/` with `/` replaced by `-` (e.g. `css-language-features-client` for `extensions/css-language-features/client/tsconfig.json`). The list is in `build/gulpfile.extensions.ts`
+	- `extensions/copilot` has no such task. Use `npm --prefix extensions/copilot run typecheck`
 	- It deletes and rebuilds that extension's `out/`, which briefly breaks a running dev Positron or daemons that depend on it
 	- It does not build in-repo packages the extension imports through their `out/` (e.g. `positron-data-explorer-protocol`). If it fails with "Cannot find module" for one of them, compile that package first with `compile-extension:<package>`
 - E2E tests: `npm --prefix test/e2e run compile`

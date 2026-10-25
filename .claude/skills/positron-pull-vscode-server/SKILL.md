@@ -99,6 +99,10 @@ npm run gulp compile-extension:<name>              # TypeScript errors in each e
 npm run precommit -- <file1> <file2> ...           # lint and formatting
 ```
 
+For an extension, `<name>` is its tsconfig's directory under `extensions/` with `/` replaced by `-` (e.g. `css-language-features-client`). `extensions/copilot` has no `compile-extension` task; use `npm --prefix extensions/copilot run typecheck` instead.
+
+If the port adds or changes a `src/vscode-dts/vscode.proposed.*.d.ts` file or an extension point, regenerate the derived files with `npm run gulp compile-api-proposal-names compile-extension-point-names` and commit any changes to them (e.g. `extensionsApiProposals.ts`). `typecheck-client` does not regenerate them.
+
 Verify the **files you ported** compile clean; ignore pre-existing errors in untouched code. `compile-extension:<name>` does not build in-repo packages the extension imports through their `out/` (e.g. `positron-data-explorer-protocol`), so "Cannot find module" errors for those are build ordering, not your port. Compile the package first with `compile-extension:<package>`.
 
 Fix precommit issues only in lines you touched. Do not fix pre-existing warnings in unrelated parts of the file — those belong in a separate commit. Before committing, run `git status` and exclude any unrelated churn a running build daemon may have introduced (e.g. line-ending rewrites in a `package-lock.json` you never opened) — `git checkout -- <file>` to drop it.
