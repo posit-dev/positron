@@ -24,6 +24,7 @@ import {
     showPixiNotInstalledWarning,
 } from '../../../../client/pythonEnvironments/creation/provider/autoCreateLockFileEnv';
 import { IPythonRuntimeManager } from '../../../../client/positron/manager';
+import { isCreatingEnvironment } from '../../../../client/pythonEnvironments/creation/createEnvApi';
 import { Common } from '../../../../client/common/utils/localize';
 
 suite('Auto Create Lock File Env', () => {
@@ -40,20 +41,36 @@ suite('Auto Create Lock File Env', () => {
     let selectLanguageRuntimeFromPathStub: sinon.SinonStub;
     let runtimeManager: IPythonRuntimeManager;
 
-    function stubSuccessfulExec(): void {
+    function execResult(exitCode: number, line: string) {
         const out = new Observable<Output<string>>((subscriber) => {
-            subscriber.next({ source: 'stdout', out: 'ok\n' });
+            subscriber.next({ source: 'stdout', out: line });
             subscriber.complete();
         });
-        execObservableStub.returns({ proc: { exitCode: 0 }, out, dispose: sinon.stub() });
+        return { proc: { exitCode }, out, dispose: sinon.stub() };
+    }
+
+    function stubSuccessfulExec(): void {
+        execObservableStub.returns(execResult(0, 'ok\n'));
     }
 
     function stubFailingExec(): void {
-        const out = new Observable<Output<string>>((subscriber) => {
-            subscriber.next({ source: 'stdout', out: 'boom\n' });
-            subscriber.complete();
+        execObservableStub.returns(execResult(1, 'boom\n'));
+    }
+
+    /**
+     * Records whether the creation flag is up while the command runs and while the runtime is
+     * selected, so a test can check that the new-environment prompt stays quiet throughout.
+     */
+    function recordCreationFlag(exitCode: number): { duringCommand?: boolean; duringSelect?: boolean } {
+        const recorded: { duringCommand?: boolean; duringSelect?: boolean } = {};
+        execObservableStub.callsFake(() => {
+            recorded.duringCommand = isCreatingEnvironment();
+            return execResult(exitCode, exitCode === 0 ? 'ok\n' : 'boom\n');
         });
-        execObservableStub.returns({ proc: { exitCode: 1 }, out, dispose: sinon.stub() });
+        selectLanguageRuntimeFromPathStub.callsFake(async () => {
+            recorded.duringSelect = isCreatingEnvironment();
+        });
+        return recorded;
     }
 
     setup(() => {
@@ -110,6 +127,27 @@ suite('Auto Create Lock File Env', () => {
             );
         });
 
+        test('holds the creation flag while uv sync runs and the console starts', async () => {
+            ensureUvInstalledStub.resolves({ ok: true });
+            const recorded = recordCreationFlag(0);
+
+            await autoSyncUvEnv(workspace, runtimeManager);
+
+            assert.deepStrictEqual(
+                { ...recorded, after: isCreatingEnvironment() },
+                { duringCommand: true, duringSelect: true, after: false },
+            );
+        });
+
+        test('uv sync fails: the creation flag drops', async () => {
+            ensureUvInstalledStub.resolves({ ok: true });
+            recordCreationFlag(1);
+
+            await autoSyncUvEnv(workspace, runtimeManager);
+
+            assert.isFalse(isCreatingEnvironment());
+        });
+
         test('uv sync fails: does not select a runtime', async () => {
             ensureUvInstalledStub.resolves({ ok: true });
             stubFailingExec();
@@ -161,6 +199,23 @@ suite('Auto Create Lock File Env', () => {
                 selectLanguageRuntimeFromPathStub,
                 path.join('/proj/.pixi/envs/default', 'bin', 'python'),
                 true,
+            );
+        });
+
+        test('holds the creation flag while pixi install runs and the console starts', async () => {
+            const pixi = {
+                command: 'pixi',
+                getPixiInfo: sinon.stub().resolves({
+                    environments_info: [{ name: 'default', prefix: '/proj/.pixi/envs/default' }],
+                }),
+            };
+            const recorded = recordCreationFlag(0);
+
+            await autoInstallPixiEnv(workspace, pixi as unknown as pixiModule.Pixi, runtimeManager);
+
+            assert.deepStrictEqual(
+                { ...recorded, after: isCreatingEnvironment() },
+                { duringCommand: true, duringSelect: true, after: false },
             );
         });
 

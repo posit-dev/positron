@@ -20,6 +20,7 @@ import { Pixi } from '../../common/environmentManagers/pixi';
 import { execObservableLocatedUv } from '../../common/environmentManagers/uv';
 import { isWindows } from '../../../common/utils/platform';
 import { IPythonRuntimeManager } from '../../../positron/manager';
+import { holdCreatingEnvironment } from '../createEnvironment';
 
 const PIXI_INSTALL_DOCS_URL = 'https://pixi.sh/latest/installation/';
 
@@ -86,8 +87,12 @@ export async function syncUvEnv(
         async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
             progress.report({ message: CreateEnv.Venv.creating });
             try {
-                await runUvCommand(['sync'], workspace.uri.fsPath, token);
-                await pythonRuntimeManager.selectLanguageRuntimeFromPath(getVenvExecutable(workspace), true);
+                // Hold the creation flag until the console has started, so the new-environment
+                // prompt does not offer a second console for this environment (#16584).
+                await holdCreatingEnvironment(async () => {
+                    await runUvCommand(['sync'], workspace.uri.fsPath, token);
+                    await pythonRuntimeManager.selectLanguageRuntimeFromPath(getVenvExecutable(workspace), true);
+                });
                 return true;
             } catch (error) {
                 traceError('CreateEnv Trigger - Error running uv sync: ', error);
@@ -152,11 +157,17 @@ export async function autoInstallPixiEnv(
         async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
             progress.report({ message: CreateEnv.Venv.creating });
             try {
-                await runToolCommand(pixi.command, ['install'], workspace.uri.fsPath, token);
-                const pythonPath = await resolvePixiPythonPath(pixi, workspace.uri.fsPath);
-                if (pythonPath) {
-                    await pythonRuntimeManager.selectLanguageRuntimeFromPath(pythonPath, true);
-                } else {
+                // Hold the creation flag until the console has started, so the new-environment
+                // prompt does not offer a second console for this environment (#16584).
+                const pythonPath = await holdCreatingEnvironment(async () => {
+                    await runToolCommand(pixi.command, ['install'], workspace.uri.fsPath, token);
+                    const resolved = await resolvePixiPythonPath(pixi, workspace.uri.fsPath);
+                    if (resolved) {
+                        await pythonRuntimeManager.selectLanguageRuntimeFromPath(resolved, true);
+                    }
+                    return resolved;
+                });
+                if (!pythonPath) {
                     traceError('CreateEnv Trigger - Could not resolve the pixi environment after install');
                     await showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
                 }

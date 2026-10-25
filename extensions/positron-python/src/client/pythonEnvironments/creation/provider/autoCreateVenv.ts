@@ -156,8 +156,9 @@ export async function uvInstallDeps(
  * Auto-create a venv and install dependencies for a workspace.
  *
  * Routes through the existing Create Environment command so that creation
- * events fire (suppressing the "new venv" notification), the runtime is
- * auto-selected, and dependencies are installed.
+ * events fire, the runtime is auto-selected, and dependencies are installed.
+ * Both that command and the `uv sync` shortcut hold the creation flag until
+ * the console has started, which suppresses the "new venv" notification.
  *
  * When the caller already knows which provider to use, it passes
  * `providerOptions` and those are used as-is. Otherwise:
