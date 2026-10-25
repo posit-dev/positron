@@ -98,7 +98,8 @@ export interface IErrorActionHandlerInfo {
 }
 
 /**
- * A coding agent's handling of the error Fix and Explain actions. Register it
+ * A coding agent's handling of the error Fix and Explain actions. Users see
+ * handlers as coding agents, e.g. in the setting and its messages. Register it
  * while it exists, e.g. while its extension is installed, not only while it
  * can take errors: registering lists it in the `ai.errorActions.agent` setting and
  * names it on its buttons. Only the default handler registers only while it

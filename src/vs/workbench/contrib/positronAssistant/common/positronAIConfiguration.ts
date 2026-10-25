@@ -13,6 +13,7 @@ import {
 	IConfigurationRegistry,
 } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { IErrorActionHandlerInfo } from './errorAction.js';
 import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY, DEFAULT_ERROR_ACTION_HANDLER_ID, ERROR_ACTIONS_AGENT_KEY, MCP_ENABLED_KEY, MCP_STATUS_BAR_KEY } from './positronAIConfigurationKeys.js';
 
 // Re-exported so existing importers do not have to move. New callers outside
@@ -42,9 +43,9 @@ const errorActionHandlerSchema: IConfigurationPropertySchema = {
 	// Coding agents are installed per host, so a choice in local user settings
 	// doesn't apply in a remote window. Workspace settings can still choose.
 	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
-	// An untrusted workspace can't choose where errors are sent, and nor can
-	// an extension's configuration defaults.
+	// An untrusted workspace can't choose where errors are sent.
 	restricted: true,
+	// Nor can an extension, through its configuration defaults.
 	disallowConfigurationDefault: true,
 };
 
@@ -107,7 +108,7 @@ configurationRegistry.registerConfiguration(aiConfigurationNode);
  * the default handler, always first and listed once, then the others.
  * @param choices The handlers to list, in order.
  */
-export function setErrorActionHandlerChoices(choices: readonly { readonly id: string; readonly label: string }[]): void {
+export function setErrorActionHandlerChoices(choices: readonly Pick<IErrorActionHandlerInfo, 'id' | 'label'>[]): void {
 	const others = choices.filter(choice => choice.id !== DEFAULT_ERROR_ACTION_HANDLER_ID);
 	const ids = [DEFAULT_ERROR_ACTION_HANDLER_ID, ...others.map(choice => choice.id)];
 	const labels = [DEFAULT_ERROR_ACTION_HANDLER_LABEL, ...others.map(choice => choice.label)];
