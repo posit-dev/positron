@@ -334,8 +334,19 @@ suite('Create Environment APIs', () => {
             pythonRuntimeManager.verifyAll();
         });
 
-        test('holds the creation flag until the console has started', async () => {
-            sinon.stub(createEnvironment, 'handleCreateEnvironmentCommand').resolves({ path: venvPython });
+        test('holds the creation flag from ranking the providers until the console has started', async () => {
+            // Ranking the providers checks for uv, so record the flag there too.
+            let busyWhileRanking = false;
+            isUvInstalledStub.callsFake(async () => {
+                busyWhileRanking = isCreatingEnvironment();
+                return false;
+            });
+            // The stub bypasses the provider's own busy counter, so this records only the hold.
+            let busyWhileCreating = false;
+            sinon.stub(createEnvironment, 'handleCreateEnvironmentCommand').callsFake(async () => {
+                busyWhileCreating = isCreatingEnvironment();
+                return { path: venvPython };
+            });
             let busyDuringSelect = false;
             pythonRuntimeManager
                 .setup((m) => m.selectLanguageRuntimeFromPath(venvPython, true))
@@ -347,8 +358,8 @@ suite('Create Environment APIs', () => {
             await runCommand();
 
             assert.deepStrictEqual(
-                { busyDuringSelect, busyAfter: isCreatingEnvironment() },
-                { busyDuringSelect: true, busyAfter: false },
+                { busyWhileRanking, busyWhileCreating, busyDuringSelect, busyAfter: isCreatingEnvironment() },
+                { busyWhileRanking: true, busyWhileCreating: true, busyDuringSelect: true, busyAfter: false },
             );
         });
 

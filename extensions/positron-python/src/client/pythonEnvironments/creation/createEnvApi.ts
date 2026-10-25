@@ -336,10 +336,10 @@ export async function registerCreateEnvironmentFeatures(
                 } else {
                     // --- Start Positron ---
                     // const providers = _createEnvironmentProviders.getAll();
-                    const providers = await getRankedProviders();
                     // Hold the creation flag until the console has started, so the new-environment
                     // prompt does not offer a second console for this environment (#16584).
                     return holdCreatingEnvironment(async () => {
+                        const providers = await getRankedProviders();
                         // register new path
                         const env = await handleCreateEnvironmentCommand(providers, options);
                         if (env?.path) {
