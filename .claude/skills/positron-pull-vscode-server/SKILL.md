@@ -94,14 +94,12 @@ git show <upstream-SHA>   # read the diff
 ### Step 4: Verify and commit
 
 ```bash
-npm run build-ps                                   # check daemon status; if watch-client is stopped, run build-start first
-npm run build-check                                # TypeScript errors
+npm run typecheck-client                           # TypeScript errors in src/
+npm run gulp compile-extension:<name>              # TypeScript errors in each extension you ported into
 npm run precommit -- <file1> <file2> ...           # lint and formatting
 ```
 
-The TypeScript-checking daemon (`watch-client`) is often stopped; `build-check` only reports the latest cycle, so start the daemons with `npm run build-start` before relying on its output.
-
-`build-check` reports errors across the whole project, including pre-existing failures in extensions you didn't touch (e.g. `positron-data-driver-duckdb` "Cannot find module" errors from build ordering). Verify the **files you ported** compile clean; ignore pre-existing errors in untouched code.
+Verify the **files you ported** compile clean; ignore pre-existing errors in untouched code.
 
 Fix precommit issues only in lines you touched. Do not fix pre-existing warnings in unrelated parts of the file — those belong in a separate commit. Before committing, run `git status` and exclude any unrelated churn a build daemon may have introduced (e.g. line-ending rewrites in a `package-lock.json` you never opened) — `git checkout -- <file>` to drop it.
 

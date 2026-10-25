@@ -58,14 +58,9 @@ extensions/positron-duckdb/
 ## Quick Development Workflow
 
 ### 1. Prerequisites
-Ensure build daemons are running (see `.claude/build-system.md`):
+Compile the extension (typechecks and emits to `out/`, which the tests run from):
 ```bash
-# Check daemon status first
-ps aux | grep -E "npm.*watch-extensionsd" | grep -v grep
-
-# Start if not running
-npm run watch-extensionsd &
-sleep 30  # Wait for compilation
+npm run gulp compile-extension:positron-duckdb
 ```
 
 ### 2. Testing
@@ -81,7 +76,7 @@ npm run test-extension -- -l positron-duckdb --grep "filter"
 
 ### 3. Development Cycle
 1. Edit code in `extensions/positron-duckdb/src/`
-2. Watch for compilation completion in daemon output
+2. Recompile with `npm run gulp compile-extension:positron-duckdb`
 3. Run tests to verify changes
 4. Debug using test data in `extensions/positron-duckdb/src/test/data/`
 

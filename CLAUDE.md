@@ -4,20 +4,28 @@ Positron is a next-generation data science IDE built on VS Code with first-class
 
 ## Build System
 
-**NEVER run direct TypeScript compilation on the main project** (`npx tsc`, `tsc --noEmit`, etc. against `src/tsconfig.json`). This project is too large and it will fail or hang. The background daemons handle all compilation. If you need to verify code compiles:
+To verify code compiles, typecheck only what you changed. These use the native TypeScript compiler and finish in seconds:
 
-1. Check daemon status first: `npm run build-ps`
-2. Start missing daemons in the background if needed: `npm run build-start`
-3. Complete your task while the daemons compile in the background (30-60 seconds initial startup)
-4. Check errors from the latest TypeScript compilation cycle: `npm run build-check`
-	- Blocks until all daemons finish their current compilation cycle - do not `sleep` before it
-	- Prints the errors for the last compilation cycle - call once and read the full output
+- `src/`: `npm run typecheck-client` (no emit; ~6s for the whole project)
+- A built-in extension: `npm run gulp compile-extension:<name>` (e.g. `compile-extension:positron-duckdb`)
+- E2E tests: `npm --prefix test/e2e run compile`
+
+Launching Positron and running Core Mocha or e2e tests need a build in `out/`. Either:
+
+- `npm run compile`: one-shot full build (~20s). It deletes `out/` first, which breaks a running dev Positron or daemons in the same checkout
+- Build daemons: rebuild incrementally on each save, so `out/` stays current while you iterate:
+	1. Check daemon status first: `npm run build-ps`
+	2. Start missing daemons in the background if needed: `npm run build-start`
+	3. Complete your task while the daemons compile in the background (30-60 seconds initial startup)
+	4. Check errors from the latest TypeScript compilation cycle: `npm run build-check`
+		- Blocks until all daemons finish their current compilation cycle - do not `sleep` before it
+		- Prints the errors for the last compilation cycle - call once and read the full output
 
 Edge cases:
 
 - Restart build daemons to fix missing package errors after `npm install`: `npm run build-stop && npm run build-start && npm run build-check`
 
-**Exception for vitest test files:** `npm run build-check` excludes `*.vitest.ts` files, so it won't surface type errors in tests. To check those, run `npm run test:positron:check-ts` (wraps `tsc --noEmit -p ./vitest.tsconfig.json --skipLibCheck`). It is scoped to vitest files + their ambient declarations and completes in seconds. The output matches what the VS Code Problems pane shows for `.vitest.{ts,tsx}` files. Filter to a specific file with: `npm run test:positron:check-ts 2>&1 | grep '<file>.vitest.ts'`.
+**Exception for vitest test files:** neither `npm run typecheck-client` nor `npm run build-check` covers `*.vitest.ts` files, so they won't surface type errors in tests. To check those, run `npm run test:positron:check-ts` (wraps `tsc --noEmit -p ./vitest.tsconfig.json --skipLibCheck`). It is scoped to vitest files + their ambient declarations and completes in seconds. The output matches what the VS Code Problems pane shows for `.vitest.{ts,tsx}` files. Filter to a specific file with: `npm run test:positron:check-ts 2>&1 | grep '<file>.vitest.ts'`.
 
 ### Reproducing CI Failures Locally (Posit-internal)
 
