@@ -64,7 +64,8 @@ import {
 } from '../../positron/createEnvApi';
 import { traceError, traceLog } from '../../logging';
 import { getConfiguration, getWorkspaceFolders } from '../../common/vscodeApis/workspaceApis';
-import { InterpreterQuickPickList } from '../../common/utils/localize';
+import { InterpreterQuickPickList, Interpreters } from '../../common/utils/localize';
+import { showPositronErrorMessageWithLogs } from './common/commonUtils';
 import { isNewEnvironment } from './reusedEnvironment';
 // --- End Positron ---
 
@@ -345,7 +346,17 @@ export async function registerCreateEnvironmentFeatures(
                         if (env?.path) {
                             // Recreate the runtime, which shuts down its sessions, only when the flow
                             // built the environment; "Use Existing" leaves it and its sessions as they are.
-                            await pythonRuntimeManager.selectLanguageRuntimeFromPath(env.path, isNewEnvironment(env));
+                            const runtimeId = await pythonRuntimeManager.selectLanguageRuntimeFromPath(
+                                env.path,
+                                isNewEnvironment(env),
+                            );
+                            if (!runtimeId) {
+                                // The hold dropped the new-environment prompt, so say why no console started.
+                                // Not awaited: the open message must not keep the hold up.
+                                void showPositronErrorMessageWithLogs(
+                                    Interpreters.environmentSessionStartFailed(env.path),
+                                );
+                            }
                         }
                         return env;
                     });

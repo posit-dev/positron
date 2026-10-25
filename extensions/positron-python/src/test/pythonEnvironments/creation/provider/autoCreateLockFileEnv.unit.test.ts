@@ -20,12 +20,13 @@ import { Output } from '../../../../client/common/process/types';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../../constants';
 import {
     autoSyncUvEnv,
+    syncUvEnv,
     autoInstallPixiEnv,
     showPixiNotInstalledWarning,
 } from '../../../../client/pythonEnvironments/creation/provider/autoCreateLockFileEnv';
 import { IPythonRuntimeManager } from '../../../../client/positron/manager';
 import { isCreatingEnvironment } from '../../../../client/pythonEnvironments/creation/createEnvApi';
-import { Common } from '../../../../client/common/utils/localize';
+import { Common, Interpreters } from '../../../../client/common/utils/localize';
 
 suite('Auto Create Lock File Env', () => {
     const workspace = {
@@ -153,6 +154,20 @@ suite('Auto Create Lock File Env', () => {
             );
         });
 
+        test('uv sync: shows an error when the new venv cannot be selected, and still reports success', async () => {
+            stubSuccessfulExec();
+            selectLanguageRuntimeFromPathStub.resolves(undefined);
+            const showErrorStub = sinon.stub(commonUtils, 'showPositronErrorMessageWithLogs').resolves();
+            const venvPython = commonUtils.getVenvExecutable(workspace);
+
+            const succeeded = await syncUvEnv(workspace, runtimeManager);
+
+            assert.deepStrictEqual(
+                { succeeded, errors: showErrorStub.args },
+                { succeeded: true, errors: [[Interpreters.environmentSessionStartFailed(venvPython)]] },
+            );
+        });
+
         test('uv sync fails: does not select a runtime', async () => {
             ensureUvInstalledStub.resolves({ ok: true });
             stubFailingExec();
@@ -222,6 +237,25 @@ suite('Auto Create Lock File Env', () => {
                 { ...recorded, after: isCreatingEnvironment() },
                 { duringCommand: true, duringSelect: true, after: false },
             );
+        });
+
+        test('pixi install: shows an error when the new environment cannot be selected', async () => {
+            sinon.stub(platformApis, 'isWindows').returns(false);
+            const pixi = {
+                command: 'pixi',
+                getPixiInfo: sinon.stub().resolves({
+                    environments_info: [{ name: 'default', prefix: '/proj/.pixi/envs/default' }],
+                }),
+            };
+            stubSuccessfulExec();
+            selectLanguageRuntimeFromPathStub.resolves(undefined);
+            const showErrorStub = sinon.stub(commonUtils, 'showPositronErrorMessageWithLogs').resolves();
+
+            await autoInstallPixiEnv(workspace, pixi as unknown as pixiModule.Pixi, runtimeManager);
+
+            assert.deepStrictEqual(showErrorStub.args, [
+                [Interpreters.environmentSessionStartFailed(path.join('/proj/.pixi/envs/default', 'bin', 'python'))],
+            ]);
         });
 
         test('pixi install fails: does not select a runtime', async () => {

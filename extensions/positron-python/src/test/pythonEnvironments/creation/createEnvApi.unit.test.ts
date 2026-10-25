@@ -53,6 +53,8 @@ import { CONDA_PROVIDER_ID } from '../../../client/pythonEnvironments/creation/p
 import { CreateEnvironmentOptionsInternal } from '../../../client/pythonEnvironments/creation/types';
 import * as createEnvironment from '../../../client/pythonEnvironments/creation/createEnvironment';
 import { reusedEnvironmentResult } from '../../../client/pythonEnvironments/creation/reusedEnvironment';
+import * as commonUtils from '../../../client/pythonEnvironments/creation/common/commonUtils';
+import { Interpreters } from '../../../client/common/utils/localize';
 // --- End Positron ---
 
 chaiUse(chaiAsPromised.default);
@@ -364,6 +366,21 @@ suite('Create Environment APIs', () => {
             assert.deepStrictEqual(
                 { busyWhileRanking, busyWhileCreating, busyDuringSelect, busyAfter: isCreatingEnvironment() },
                 { busyWhileRanking: true, busyWhileCreating: true, busyDuringSelect: true, busyAfter: false },
+            );
+        });
+
+        test('shows an error when the new environment cannot be selected', async () => {
+            sinon.stub(createEnvironment, 'handleCreateEnvironmentCommand').resolves({ path: venvPython });
+            const showErrorStub = sinon.stub(commonUtils, 'showPositronErrorMessageWithLogs').resolves();
+            pythonRuntimeManager
+                .setup((m) => m.selectLanguageRuntimeFromPath(venvPython, true))
+                .returns(() => Promise.resolve(undefined));
+
+            const result = await runCommand();
+
+            assert.deepStrictEqual(
+                { path: result?.path, errors: showErrorStub.args },
+                { path: venvPython, errors: [[Interpreters.environmentSessionStartFailed(venvPython)]] },
             );
         });
 
