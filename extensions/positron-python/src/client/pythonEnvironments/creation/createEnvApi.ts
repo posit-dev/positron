@@ -10,7 +10,10 @@ import { Commands } from '../../common/constants';
 import { IDisposableRegistry, IPathUtils } from '../../common/types';
 import { executeCommand, registerCommand } from '../../common/vscodeApis/commandApis';
 import { IInterpreterQuickPick, IPythonPathUpdaterServiceManager } from '../../interpreter/configuration/types';
-import { getCreationEvents, handleCreateEnvironmentCommand } from './createEnvironment';
+// --- Start Positron ---
+// import { getCreationEvents, handleCreateEnvironmentCommand } from './createEnvironment';
+import { getCreationEvents, handleCreateEnvironmentCommand, holdCreatingEnvironment } from './createEnvironment';
+// --- End Positron ---
 import { condaCreationProvider } from './provider/condaCreationProvider';
 import { VenvCreationProvider, VenvCreationProviderId } from './provider/venvCreationProvider';
 import { showInformationMessage } from '../../common/vscodeApis/windowApis';
@@ -334,14 +337,18 @@ export async function registerCreateEnvironmentFeatures(
                     // --- Start Positron ---
                     // const providers = _createEnvironmentProviders.getAll();
                     const providers = await getRankedProviders();
-                    // register new path
-                    const env = await handleCreateEnvironmentCommand(providers, options);
-                    if (env?.path) {
-                        // Recreate the runtime, which shuts down its sessions, only when the flow
-                        // built the environment; "Use Existing" leaves it and its sessions as they are.
-                        await pythonRuntimeManager.selectLanguageRuntimeFromPath(env.path, isNewEnvironment(env));
-                    }
-                    return env;
+                    // Hold the creation flag until the console has started, so the new-environment
+                    // prompt does not offer a second console for this environment (#16584).
+                    return holdCreatingEnvironment(async () => {
+                        // register new path
+                        const env = await handleCreateEnvironmentCommand(providers, options);
+                        if (env?.path) {
+                            // Recreate the runtime, which shuts down its sessions, only when the flow
+                            // built the environment; "Use Existing" leaves it and its sessions as they are.
+                            await pythonRuntimeManager.selectLanguageRuntimeFromPath(env.path, isNewEnvironment(env));
+                        }
+                        return env;
+                    });
                     // --- End Positron ---
                 }
                 return undefined;

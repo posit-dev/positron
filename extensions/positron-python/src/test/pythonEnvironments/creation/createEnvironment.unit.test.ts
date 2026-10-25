@@ -7,13 +7,20 @@ import * as sinon from 'sinon';
 import * as typemoq from 'typemoq';
 import { assert, use as chaiUse } from 'chai';
 import * as windowApis from '../../../client/common/vscodeApis/windowApis';
-import { handleCreateEnvironmentCommand } from '../../../client/pythonEnvironments/creation/createEnvironment';
+// --- Start Positron ---
+// import { handleCreateEnvironmentCommand } from '../../../client/pythonEnvironments/creation/createEnvironment';
+import {
+    handleCreateEnvironmentCommand,
+    holdCreatingEnvironment,
+} from '../../../client/pythonEnvironments/creation/createEnvironment';
+// --- End Positron ---
 import { IDisposableRegistry } from '../../../client/common/types';
 // --- Start Positron ---
 // import { onCreateEnvironmentStarted } from '../../../client/pythonEnvironments/creation/createEnvApi';
 // import { CreateEnvironmentProvider } from '../../../client/pythonEnvironments/creation/proposed.createEnvApis';
 import { Uri } from 'vscode';
 import {
+    isCreatingEnvironment,
     onCreateEnvironmentExited,
     onCreateEnvironmentStarted,
 } from '../../../client/pythonEnvironments/creation/createEnvApi';
@@ -315,6 +322,38 @@ suite('Create Environments Tests', () => {
                 resultHasMarker: result !== undefined && 'reused' in result,
             },
             { eventHasMarker: false, path: '/project/.venv/bin/python', resultHasMarker: true },
+        );
+    });
+
+    test('holdCreatingEnvironment keeps the creation flag up while its task runs', async () => {
+        let busyDuringTask = false;
+        await holdCreatingEnvironment(async () => {
+            busyDuringTask = isCreatingEnvironment();
+        });
+        assert.deepStrictEqual(
+            { busyDuringTask, busyAfter: isCreatingEnvironment() },
+            { busyDuringTask: true, busyAfter: false },
+        );
+    });
+
+    test('holdCreatingEnvironment drops the creation flag when the task throws', async () => {
+        await assert.isRejected(
+            holdCreatingEnvironment(async () => {
+                throw new Error('boom');
+            }),
+        );
+        assert.isFalse(isCreatingEnvironment());
+    });
+
+    test('nested holds keep the flag up until the outer one ends', async () => {
+        let busyAfterInner = false;
+        await holdCreatingEnvironment(async () => {
+            await holdCreatingEnvironment(async () => undefined);
+            busyAfterInner = isCreatingEnvironment();
+        });
+        assert.deepStrictEqual(
+            { busyAfterInner, busyAfter: isCreatingEnvironment() },
+            { busyAfterInner: true, busyAfter: false },
         );
     });
     // --- End Positron ---

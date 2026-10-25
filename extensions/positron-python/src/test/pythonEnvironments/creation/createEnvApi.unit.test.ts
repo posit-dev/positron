@@ -18,7 +18,13 @@ import {
     IInterpreterQuickPick,
     IPythonPathUpdaterServiceManager,
 } from '../../../client/interpreter/configuration/types';
-import { registerCreateEnvironmentFeatures } from '../../../client/pythonEnvironments/creation/createEnvApi';
+// --- Start Positron ---
+// import { registerCreateEnvironmentFeatures } from '../../../client/pythonEnvironments/creation/createEnvApi';
+import {
+    isCreatingEnvironment,
+    registerCreateEnvironmentFeatures,
+} from '../../../client/pythonEnvironments/creation/createEnvApi';
+// --- End Positron ---
 import * as windowApis from '../../../client/common/vscodeApis/windowApis';
 import { handleCreateEnvironmentCommand } from '../../../client/pythonEnvironments/creation/createEnvironment';
 import {
@@ -326,6 +332,24 @@ suite('Create Environment APIs', () => {
             await runCommand();
 
             pythonRuntimeManager.verifyAll();
+        });
+
+        test('holds the creation flag until the console has started', async () => {
+            sinon.stub(createEnvironment, 'handleCreateEnvironmentCommand').resolves({ path: venvPython });
+            let busyDuringSelect = false;
+            pythonRuntimeManager
+                .setup((m) => m.selectLanguageRuntimeFromPath(venvPython, true))
+                .returns(async () => {
+                    busyDuringSelect = isCreatingEnvironment();
+                    return 'runtime-id';
+                });
+
+            await runCommand();
+
+            assert.deepStrictEqual(
+                { busyDuringSelect, busyAfter: isCreatingEnvironment() },
+                { busyDuringSelect: true, busyAfter: false },
+            );
         });
 
         test('Selects an existing environment it reused without recreating its runtime', async () => {
