@@ -157,6 +157,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	async $getAgentAllowedCommands(options?: { includeDisabled?: boolean }): Promise<ISerializedAgentCommand[]> {
 		return this._agentAllowedCommandsService.getAgentAllowedCommands({ enabledOnly: !options?.includeDisabled }).map(cmd => ({
 			id: cmd.id,
+			title: cmd.title,
 			description: cmd.description,
 			args: cmd.args?.map(a => ({
 				name: a.name,

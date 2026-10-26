@@ -9,7 +9,8 @@ import { ContextKeyExpression } from '../../../../platform/contextkey/common/con
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IJSONSchema } from '../../../../base/common/jsonSchema.js';
-import { ICommandActionSource, ILocalizedString } from '../../../../platform/action/common/action.js';
+import { ICommandAction, ICommandActionSource, ILocalizedString } from '../../../../platform/action/common/action.js';
+import { CommandCenter } from '../../../../platform/commandCenter/common/commandCenter.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -43,6 +44,11 @@ export interface IAgentCommandSource {
  */
 export interface IAgentCommandDescriptor {
 	readonly id: string;
+	/**
+	 * The command's display name, for an agent to show the user in place of
+	 * the id. See `positron.ai.AgentCommand.title`.
+	 */
+	readonly title?: string;
 	readonly description?: string;
 	readonly args?: readonly IAgentCommandArg[];
 	readonly returns?: string;
@@ -184,16 +190,22 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 	 * come from either the CommandsRegistry entry or the MenuRegistry
 	 * `ICommandAction`; `source` and `precondition` always come from MenuRegistry
 	 * (undefined for core commands with no menu entry).
+	 *
+	 * The title is the metadata's own, then the menu entry's (palette commands
+	 * and `contributes.commands`), then the one `registerAction2` records in
+	 * the CommandCenter for every action, including those not in the palette.
 	 */
 	private _toDebugDescriptor(
 		id: string,
 		meta: ICommandMetadata,
-		source: ICommandActionSource | undefined,
-		precondition: ContextKeyExpression | undefined,
+		menuCommand: ICommandAction | undefined,
 		paletteIds: ReadonlySet<string>,
 	): IAgentCommandDebugDescriptor {
+		const source = menuCommand?.source;
+		const precondition = menuCommand?.precondition;
 		return {
 			id,
+			title: toDescription(meta.title) ?? toDescription(menuCommand?.title) ?? CommandCenter.title(id),
 			description: toDescription(meta.description),
 			args: meta.args?.map(a => ({
 				name: a.name,
@@ -255,7 +267,7 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 			if (!this._isTrustedCommandSource(menuCmd?.source)) {
 				continue;
 			}
-			result.push(this._toDebugDescriptor(id, command.metadata, menuCmd?.source, menuCmd?.precondition, paletteIds));
+			result.push(this._toDebugDescriptor(id, command.metadata, menuCmd, paletteIds));
 			seenIds.add(id);
 		}
 
@@ -269,7 +281,7 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 			if (!this._isTrustedCommandSource(menuCmd.source)) {
 				continue;
 			}
-			result.push(this._toDebugDescriptor(id, menuCmd.metadata, menuCmd.source, menuCmd.precondition, paletteIds));
+			result.push(this._toDebugDescriptor(id, menuCmd.metadata, menuCmd, paletteIds));
 		}
 		return result;
 	}

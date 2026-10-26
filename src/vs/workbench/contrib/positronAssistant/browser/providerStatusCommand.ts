@@ -133,6 +133,7 @@ CommandsRegistry.registerCommand({
 	id: ASSISTANT_GET_PROVIDER_STATUS_COMMAND_ID,
 	handler: getProviderStatus,
 	metadata: {
+		title: localize('positron.assistant.getProviderStatus.title', "Get AI Provider Status"),
 		description: localize(
 			'positron.assistant.getProviderStatus.description',
 			"Report the AI language model providers this Positron knows: which are enabled in the provider catalog, and whose connection settings have been customized. Does not report sign-in state. Changes nothing and shows the user nothing. Reads live state, not any file, so it is correct on desktop, on the web, over a remote connection, and on Posit Workbench."

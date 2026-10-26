@@ -4877,6 +4877,12 @@ declare module 'positron' {
 		export interface AgentCommand {
 			/** Unique command identifier (e.g. `workbench.action.files.save`). */
 			id: string;
+			/**
+			 * Short, localized display name (e.g. `Save`), for an agent to show
+			 * the user when it runs the command, in place of the id. Absent when
+			 * the command has no title; show the id then.
+			 */
+			title?: string;
 			/** Model-facing description of what the command does. */
 			description?: string;
 			/** Ordered list of positional arguments the command accepts. */

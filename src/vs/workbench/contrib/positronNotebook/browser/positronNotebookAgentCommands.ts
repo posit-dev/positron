@@ -283,6 +283,7 @@ CommandsRegistry.registerCommand({
 	id: NOTEBOOK_CREATE_COMMAND_ID,
 	handler: createNotebook,
 	metadata: {
+		title: localize('positron.notebook.create.title', "Create Notebook"),
 		description: localize(
 			'positron.notebook.create.description',
 			"Create a new Jupyter notebook (.ipynb file) with the given kernel language and open it in the Positron notebook editor. The notebook starts empty -- use positronNotebook.insertCell to add cells."
@@ -308,6 +309,7 @@ CommandsRegistry.registerCommand({
 	id: NOTEBOOK_GET_CELLS_COMMAND_ID,
 	handler: getNotebookCells,
 	metadata: {
+		title: localize('positron.notebook.getCells.title', "Read Notebook Cells"),
 		description: localize(
 			'positron.notebook.getCells.description',
 			"Read the cells of a Jupyter notebook open in the Positron notebook editor: each cell's index, type, content, and execution status."
@@ -335,6 +337,7 @@ CommandsRegistry.registerCommand({
 	id: NOTEBOOK_INSERT_CELL_COMMAND_ID,
 	handler: insertNotebookCell,
 	metadata: {
+		title: localize('positron.notebook.insertCell.title', "Insert Notebook Cell"),
 		description: localize(
 			'positron.notebook.insertCell.description',
 			"Insert a new cell into a Jupyter notebook open in the Positron notebook editor, optionally running it immediately if it's a code cell."
@@ -363,6 +366,7 @@ CommandsRegistry.registerCommand({
 	id: NOTEBOOK_UPDATE_CELL_CONTENT_COMMAND_ID,
 	handler: updateNotebookCell,
 	metadata: {
+		title: localize('positron.notebook.updateCellContent.title', "Update Notebook Cell"),
 		description: localize(
 			'positron.notebook.updateCellContent.description',
 			"Replace the content of a cell in a Jupyter notebook open in the Positron notebook editor, preserving its type and other properties."
@@ -389,6 +393,7 @@ CommandsRegistry.registerCommand({
 	id: NOTEBOOK_DELETE_CELLS_COMMAND_ID,
 	handler: deleteNotebookCellsCommand,
 	metadata: {
+		title: localize('positron.notebook.deleteCells.title', "Delete Notebook Cells"),
 		description: localize(
 			'positron.notebook.deleteCells.description',
 			"Delete one or more cells from a Jupyter notebook open in the Positron notebook editor."
@@ -414,6 +419,7 @@ CommandsRegistry.registerCommand({
 	id: NOTEBOOK_RUN_CELLS_COMMAND_ID,
 	handler: runNotebookCellsCommand,
 	metadata: {
+		title: localize('positron.notebook.runCells.title', "Run Notebook Cells"),
 		description: localize(
 			'positron.notebook.runCells.description',
 			"Run one or more cells in a Jupyter notebook open in the Positron notebook editor and return their outputs."

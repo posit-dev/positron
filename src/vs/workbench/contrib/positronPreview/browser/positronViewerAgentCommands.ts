@@ -197,14 +197,16 @@ const ACTION_RETURNS = 'A <viewer_action> node, then a fresh outline as from pos
  * Registers an action command. The id is spelled out, so the skills' drift
  * test can find it in the source.
  *
+ * @param title The name an agent shows the user when it runs the command.
  * @param required The action's fields the agent must give.
  */
-function registerActionCommand(id: string, kind: ViewerAction['kind'], description: string, readOnly: boolean,
+function registerActionCommand(id: string, kind: ViewerAction['kind'], title: string, description: string, readOnly: boolean,
 	properties: Record<string, IJSONSchema>, required: string[] = []): void {
 	CommandsRegistry.registerCommand({
 		id,
 		handler: (accessor, options?: ActionOptions) => act(accessor, kind, options),
 		metadata: {
+			title,
 			description,
 			agentCompatible: true,
 			readOnly,
@@ -222,6 +224,7 @@ CommandsRegistry.registerCommand({
 	id: 'positronViewer.read',
 	handler: read,
 	metadata: {
+		title: localize('positron.viewer.read.title', "Read Viewer"),
 		description: localize('positron.viewer.read.description', "Read the page in the Viewer pane, such as a running Shiny, Streamlit or Dash app, an htmlwidget, or widget or Quarto output, as a text outline of its elements, including controls and their values, each with a ref for the positronViewer action commands. Changes nothing."),
 		agentCompatible: true,
 		readOnly: true,
@@ -234,6 +237,7 @@ CommandsRegistry.registerCommand({
 	id: 'positronViewer.screenshot',
 	handler: screenshot,
 	metadata: {
+		title: localize('positron.viewer.screenshot.title', "Take Viewer Screenshot"),
 		description: localize('positron.viewer.screenshot.description', "Take a screenshot of the Viewer pane, revealing the Viewer first if it's hidden. It costs far more than an outline, so use it only to see the layout or a plot."),
 		agentCompatible: true,
 		readOnly: true,
@@ -241,19 +245,19 @@ CommandsRegistry.registerCommand({
 	},
 });
 
-registerActionCommand('positronViewer.click', 'click', localize('positron.viewer.click.description', "Click a control in the Viewer pane, by its ref, as a user would."), false,
+registerActionCommand('positronViewer.click', 'click', localize('positron.viewer.click.title', "Click in Viewer"), localize('positron.viewer.click.description', "Click a control in the Viewer pane, by its ref, as a user would."), false,
 	{ ref: REF_PROPERTY }, ['ref']);
 // Not read-only: an app can run server code on hover, such as a Shiny plot's
 // hover input or a Dash hoverData callback.
-registerActionCommand('positronViewer.hover', 'hover', localize('positron.viewer.hover.description', "Move the pointer over a control in the Viewer pane, by its ref, as a user would."), false,
+registerActionCommand('positronViewer.hover', 'hover', localize('positron.viewer.hover.title', "Hover in Viewer"), localize('positron.viewer.hover.description', "Move the pointer over a control in the Viewer pane, by its ref, as a user would."), false,
 	{ ref: REF_PROPERTY }, ['ref']);
-registerActionCommand('positronViewer.fill', 'fill', localize('positron.viewer.fill.description', "Type into a text or number box in the Viewer pane, or move a slider, by its ref. Dropdowns are handed on to positronViewer.select."), false,
+registerActionCommand('positronViewer.fill', 'fill', localize('positron.viewer.fill.title', "Fill in Viewer"), localize('positron.viewer.fill.description', "Type into a text or number box in the Viewer pane, or move a slider, by its ref. Dropdowns are handed on to positronViewer.select."), false,
 	{ ref: REF_PROPERTY, value: { type: 'string', description: 'The text or number.' } }, ['ref', 'value']);
-registerActionCommand('positronViewer.select', 'select', localize('positron.viewer.select.description', "Pick options in a dropdown in the Viewer pane, by its ref and the options' text or value. In one where several can be picked, the values given replace what was picked. To pick an option in a list of options (radio items, checklists), click it."), false,
+registerActionCommand('positronViewer.select', 'select', localize('positron.viewer.select.title', "Select in Viewer"), localize('positron.viewer.select.description', "Pick options in a dropdown in the Viewer pane, by its ref and the options' text or value. In one where several can be picked, the values given replace what was picked. To pick an option in a list of options (radio items, checklists), click it."), false,
 	{ ref: REF_PROPERTY, value: { type: ['string', 'array'], items: { type: 'string' }, description: 'An option, or several.' } }, ['ref', 'value']);
-registerActionCommand('positronViewer.press', 'press', localize('positron.viewer.press.description', "Press a key in a control in the Viewer pane, by its ref. Without a ref, the key goes to the page itself, not to the control last acted on. The page's own key handlers get it, but the browser only does what the key normally does for Enter in a text box (submits its form), Enter or Space on a button, Enter on a link, Space on a checkbox or radio button, and ArrowUp or ArrowDown in a number box. To type, use positronViewer.fill; to pick an option, positronViewer.select."), false,
+registerActionCommand('positronViewer.press', 'press', localize('positron.viewer.press.title', "Press Key in Viewer"), localize('positron.viewer.press.description', "Press a key in a control in the Viewer pane, by its ref. Without a ref, the key goes to the page itself, not to the control last acted on. The page's own key handlers get it, but the browser only does what the key normally does for Enter in a text box (submits its form), Enter or Space on a button, Enter on a link, Space on a checkbox or radio button, and ArrowUp or ArrowDown in a number box. To type, use positronViewer.fill; to pick an option, positronViewer.select."), false,
 	{ key: { type: 'string', description: 'The key, such as Enter, Escape, Space or ArrowDown.' }, ref: REF_PROPERTY }, ['key']);
-registerActionCommand('positronViewer.scroll', 'scroll', localize('positron.viewer.scroll.description', "Scroll a control in the Viewer pane into view, or scroll by dx and dy pixels (the control's scrolling area, or the page's). With neither, scrolls the page down most of a screenful. Doesn't change what the user entered."), true,
+registerActionCommand('positronViewer.scroll', 'scroll', localize('positron.viewer.scroll.title', "Scroll Viewer"), localize('positron.viewer.scroll.description', "Scroll a control in the Viewer pane into view, or scroll by dx and dy pixels (the control's scrolling area, or the page's). With neither, scrolls the page down most of a screenful. Doesn't change what the user entered."), true,
 	{ ref: REF_PROPERTY, dx: { type: 'number', description: 'Pixels right.' }, dy: { type: 'number', description: 'Pixels down.' } });
-registerActionCommand('positronViewer.wait', 'wait', localize('positron.viewer.wait.description', "Wait for the app in the Viewer pane to settle, or for text to show up on the page. Doesn't change what the user entered."), true,
+registerActionCommand('positronViewer.wait', 'wait', localize('positron.viewer.wait.title', "Wait for Viewer"), localize('positron.viewer.wait.description', "Wait for the app in the Viewer pane to settle, or for text to show up on the page. Doesn't change what the user entered."), true,
 	{ text: { type: 'string', description: 'The text to wait for. Without it, waits for the app to settle.' }, timeoutMs: { type: 'number', description: 'The longest to wait, at most 15000.' } });

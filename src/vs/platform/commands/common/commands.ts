@@ -66,6 +66,14 @@ export interface ICommandMetadata {
 	 * screen, such as revealing a pane.
 	 */
 	readonly readOnly?: boolean;
+
+	/**
+	 * A short, title-case name for the command that an agent can show the user
+	 * when it runs the command, such as "Read Configured Settings". Only needed
+	 * by commands with no title of their own, i.e. those registered through
+	 * `CommandsRegistry` rather than `registerAction2` or `contributes.commands`.
+	 */
+	readonly title?: ILocalizedString | string;
 	// --- End Positron ---
 }
 

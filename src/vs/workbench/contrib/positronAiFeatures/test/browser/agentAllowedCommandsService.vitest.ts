@@ -7,7 +7,7 @@
 
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { MenuId, MenuRegistry } from '../../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr, IContextKeyService, ContextKeyExpression, ContextKeyValue } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ContextKeyService } from '../../../../../platform/contextkey/browser/contextKeyService.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -165,6 +165,37 @@ describe('AgentAllowedCommandsService', () => {
 				.filter(c => c.id.startsWith('test.agent.')).map(c => [c.id, c.readOnly]));
 
 			expect(readOnly).toEqual({ 'test.agent.reads': true, 'test.agent.writes': undefined });
+		});
+
+		it('names each command by its own title, else its menu entry\'s, else its action\'s', () => {
+			store.add(CommandsRegistry.registerCommand({
+				id: 'test.agent.title.metadata',
+				handler: () => { },
+				metadata: { description: 'desc', title: 'Metadata Title', agentCompatible: true },
+			}));
+			registerPaletteCommand('test.agent.title.menu', { agentCompatible: true, description: 'Menu Title' });
+			// Not in the palette, so only registerAction2's CommandCenter entry has the title.
+			store.add(registerAction2(class extends Action2 {
+				constructor() {
+					super({ id: 'test.agent.title.action', title: 'Action Title', metadata: { description: 'desc', agentCompatible: true } });
+				}
+				run() { }
+			}));
+			store.add(CommandsRegistry.registerCommand({
+				id: 'test.agent.title.none',
+				handler: () => { },
+				metadata: { description: 'desc', agentCompatible: true },
+			}));
+
+			const titles = Object.fromEntries(makeService().getAgentAllowedCommands()
+				.filter(c => c.id.startsWith('test.agent.title.')).map(c => [c.id, c.title]));
+
+			expect(titles).toEqual({
+				'test.agent.title.metadata': 'Metadata Title',
+				'test.agent.title.menu': 'Menu Title',
+				'test.agent.title.action': 'Action Title',
+				'test.agent.title.none': undefined,
+			});
 		});
 
 		it('drops commands whose precondition does not currently hold', () => {

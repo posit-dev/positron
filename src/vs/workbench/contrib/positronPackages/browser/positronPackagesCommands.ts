@@ -664,6 +664,7 @@ CommandsRegistry.registerCommand({
 	id: PACKAGES_GET_ALL_PACKAGES_COMMAND_ID,
 	handler: getAllPackages,
 	metadata: {
+		title: localize('positron.packages.getAllPackages.title', "Get Installed Packages"),
 		description: localize(
 			'positron.packages.getAllPackages.description',
 			"Read the packages installed in the running interpreter session, each with its version and whether a newer version is available. A compact list built to fit a whole environment at once: descriptions are shortened and security vulnerabilities and per-package detail (license, author, source repository, publication date) are left out. To get those, or the full description, call positronPackages.getPackages with the package names. Changes nothing and shows the user nothing: unlike Refresh Packages, it can be called at any time, including before the Packages pane has ever been opened."
@@ -678,6 +679,7 @@ CommandsRegistry.registerCommand({
 	id: PACKAGES_GET_PACKAGES_COMMAND_ID,
 	handler: getPackages,
 	metadata: {
+		title: localize('positron.packages.getPackages.title', "Get Package Details"),
 		description: localize(
 			'positron.packages.getPackages.description',
 			"Read full detail on specific packages in the running interpreter session: the version, whether a newer version is available, the full description, the detail fields (license, author, source repository, publication date), and any known security vulnerabilities affecting the installed version. Use this to look a package up by name -- including to check whether it is installed at all -- rather than reading the whole environment with positronPackages.getAllPackages. Changes nothing and shows the user nothing."
