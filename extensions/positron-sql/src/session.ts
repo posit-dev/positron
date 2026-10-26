@@ -167,6 +167,12 @@ export class SqlSession implements vscode.Disposable {
 	/** The dialect setting already reported as unrecognized, so it is said once and not per parse. */
 	private _reportedDialect: string | undefined;
 
+	/**
+	 * The SQL documents most recently in front of the user, newest last: the one Save As was run
+	 * from is one of these while the file it saved opens.
+	 */
+	private _recentlyActive: string[] = [];
+
 	/** Reads the schema, walking only the connections that have something new to find. */
 	private readonly _reader: SchemaReader;
 
@@ -244,7 +250,10 @@ export class SqlSession implements vscode.Disposable {
 			vscode.commands.registerCommand(SELECT_CONNECTION_COMMAND, () => this._selectConnection()),
 
 			// The item speaks for the file in front of the user, so it changes with the editor.
-			vscode.window.onDidChangeActiveTextEditor(() => this._updateStatusBar()),
+			vscode.window.onDidChangeActiveTextEditor(() => {
+				this._noteActive();
+				this._updateStatusBar();
+			}),
 
 			vscode.workspace.onDidOpenTextDocument(document => {
 				if (document.languageId === 'sql') {
@@ -273,7 +282,6 @@ export class SqlSession implements vscode.Disposable {
 				}
 				this._schedule(event.document);
 			}),
-			vscode.workspace.onDidSaveTextDocument(document => this._adopt(document)),
 			vscode.workspace.onDidCloseTextDocument(document => {
 				// Diagnostics outlive the document unless they are cleared, so a closed file would
 				// keep its errors in the Problems panel with no editor to fix them in.
@@ -337,6 +345,7 @@ export class SqlSession implements vscode.Disposable {
 			}),
 		);
 
+		this._noteActive();
 		this._relink();
 		this._refreshAll();
 		this._updateStatusBar();
@@ -525,10 +534,13 @@ export class SqlSession implements vscode.Disposable {
 			// as the file, but is not a file saved from it.
 			return;
 		}
-		// Any open document can be the one this was saved from, not only an untitled buffer: Save
-		// As from a file on disk leaves that file open beside the new one, with the same text.
+		// An open file on disk can be the one this was saved from, not only an untitled buffer: Save
+		// As from a file leaves it open beside the new one, with the same text. But only the file
+		// the user was just looking at, which is where Save As is run from. Any file open with the
+		// same text would hand an unrelated one its connection -- and open that connection.
 		const donors = vscode.workspace.textDocuments
-			.filter(open => open !== document && !open.isClosed && this._selection.get(open.uri) !== undefined)
+			.filter(open => open !== document && !open.isClosed && this._selection.get(open.uri) !== undefined
+				&& (open.uri.scheme === 'untitled' || this._recentlyActive.includes(open.uri.toString())))
 			.map(open => ({ uri: open.uri, text: open.getText() }));
 		if (donors.length === 0 && !this._selection.hasTransient) {
 			return;
@@ -542,6 +554,14 @@ export class SqlSession implements vscode.Disposable {
 		this._refresh(document);
 		this._updateStatusBar();
 		void this._openConnectionFor(document);
+	}
+
+	/** Remembers the SQL document now in front of the user, if it is one; see {@link _recentlyActive}. */
+	private _noteActive(): void {
+		const active = activeSqlDocument()?.uri.toString();
+		if (active && this._recentlyActive.at(-1) !== active) {
+			this._recentlyActive = [...this._recentlyActive.filter(uri => uri !== active), active].slice(-2);
+		}
 	}
 
 	/** Asks which connection the active SQL file is written against, and applies the answer. */

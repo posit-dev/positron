@@ -251,10 +251,55 @@ suite('SqlSession', () => {
 		await until(() => vscode.languages.getDiagnostics(after).length > 0, 'the renamed file to be reported');
 
 		const renamed = vscode.workspace.textDocuments.find(document => document.uri.toString() === after.toString())!;
-		const selection = session.selectionFor(renamed);
-		assert.deepStrictEqual(
-			selection.kind === 'none' ? selection : { kind: selection.kind, profileId: selection.connection.profileId },
-			{ kind: 'connection', profileId: 'a' },
-		);
+		assert.strictEqual(resolved(session, renamed), 'connection:a');
+	});
+
+	/** Which open connection a document resolves to, by profile, or the kind of nothing it has. */
+	function resolved(session: SqlSession, document: vscode.TextDocument): string {
+		const selection = session.selectionFor(document);
+		return selection.kind === 'none' ? 'none' : `${selection.kind}:${selection.connection.profileId}`;
+	}
+
+	test('a file saved from the file in front of the user takes over its connection', async () => {
+		// What Save As from a file on disk looks like: the new file opens holding the same text,
+		// while the file it was saved from is still the active editor.
+		const text = 'SELECT * FROM orders;';
+		const original = sqlFile('original.sql', text);
+		const copy = sqlFile('copy.sql', text);
+		const api = new FakeConnections();
+		api.connections = [summary('a', true), summary('b', true)];
+		const session = startSession(api, memento({ connectionByDocument: { [original.toString()]: ref('a') } }));
+		await session.whenRead();
+		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(original));
+
+		const saved = await vscode.workspace.openTextDocument(copy);
+
+		assert.strictEqual(resolved(session, saved), 'connection:a');
+	});
+
+	test('a file that only holds the same text as another does not take its connection', async () => {
+		// Two copies of a query, one written against a database: opening the other must not
+		// connect it to that database.
+		const text = 'SELECT * FROM orders;';
+		const bound = sqlFile('bound.sql', text);
+		const unrelated = sqlFile('unrelated.sql', text);
+		const api = new FakeConnections();
+		api.connections = [summary('a', true), summary('b', true)];
+		const session = startSession(api, memento({ connectionByDocument: { [bound.toString()]: ref('a') } }));
+		await session.whenRead();
+		await vscode.workspace.openTextDocument(bound);
+
+		const opened = await vscode.workspace.openTextDocument(unrelated);
+		await vscode.window.showTextDocument(opened);
+		// Edited and put back, so it is saved holding the same text as the other.
+		const insert = new vscode.WorkspaceEdit();
+		insert.insert(opened.uri, new vscode.Position(0, 0), ' ');
+		await vscode.workspace.applyEdit(insert);
+		const undo = new vscode.WorkspaceEdit();
+		undo.delete(opened.uri, new vscode.Range(0, 0, 0, 1));
+		await vscode.workspace.applyEdit(undo);
+		await opened.save();
+
+		assert.strictEqual(resolved(session, opened), 'none');
 	});
 });
