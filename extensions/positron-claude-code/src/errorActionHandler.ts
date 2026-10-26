@@ -71,6 +71,7 @@ export const claudeCodeErrorActionHandler: positron.ai.ErrorActionHandler = {
 	},
 };
 
+/** Open the Settings editor at Claude Code's setting for opening conversations in a terminal. */
 function openUseTerminalSetting(): Thenable<unknown> {
 	return vscode.commands.executeCommand('workbench.action.openSettings', USE_TERMINAL_SETTING);
 }
