@@ -64,6 +64,9 @@ const compilations = [
 	// Shared DuckDB-backed Data Explorer backend consumed by the DuckDB (and later pins) data
 	// driver extensions. Depends on the two packages above; compiled before its consumers.
 	'extensions/positron-data-explorer-duckdb/tsconfig.json',
+	// Shared helpers consumed by the coding agent integrations, e.g. positron-claude-code.
+	// Compiled before its consumers.
+	'extensions/positron-coding-agent-common/tsconfig.json',
 	'extensions/authentication/tsconfig.json',
 	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/next-edit-suggestions/tsconfig.json',
@@ -338,6 +341,7 @@ const orderedPrerequisites = [
 	'extensions/positron-data-explorer-formatting/tsconfig.json',
 	'extensions/positron-data-explorer-window/tsconfig.json',
 	'extensions/positron-data-explorer-duckdb/tsconfig.json',
+	'extensions/positron-coding-agent-common/tsconfig.json',
 ]
 	.map(tsconfig => compilations.indexOf(tsconfig))
 	.filter(index => index >= 0);

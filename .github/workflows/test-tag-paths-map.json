@@ -52,6 +52,7 @@
   "extensions/positron-duckdb/": ["@:duck-db"],
   "extensions/positron-skills/": [],
   "extensions/positron-claude-code/": [],
+  "extensions/positron-coding-agent-common/": [],
 
   "src/vs/workbench/contrib/positronTelemetry/": [],
   "src/vs/workbench/contrib/positronIdleReporter/": [],

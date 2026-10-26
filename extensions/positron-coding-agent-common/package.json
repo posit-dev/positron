@@ -1,0 +1,22 @@
+{
+  "name": "positron-coding-agent-common",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared helpers for Positron's built-in coding agent integrations, such as positron-claude-code. Build-time-only: bundled into each integration by esbuild, not packaged or activated as an extension.",
+  "main": "./out/index.js",
+  "types": "./out/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./out/index.d.ts",
+      "default": "./out/index.js"
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p tsconfig.json",
+    "watch": "tsc -w -p tsconfig.json",
+    "prepare": "npm run compile"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

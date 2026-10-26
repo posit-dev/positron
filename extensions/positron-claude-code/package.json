@@ -36,6 +36,9 @@
 		]
 	},
 	"main": "./out/extension.js",
+	"devDependencies": {
+		"positron-coding-agent-common": "file:../positron-coding-agent-common"
+	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
