@@ -106,13 +106,22 @@ export class SqlSession implements vscode.Disposable {
 	private _read = false;
 
 	/**
-	 * Whether the first schema read has finished, whether or not it succeeded. Until then the
-	 * status bar says it is reading rather than reporting connections it has not looked for.
+	 * Whether a schema read has finished without being overtaken, whether or not it succeeded.
+	 * Until then the status bar says it is reading rather than reporting connections it has not
+	 * looked for.
 	 */
 	private _settled = false;
 
-	/** The first schema read, which choosing a connection waits for so that it offers them all. */
-	private _firstRead: Promise<void> = Promise.resolve();
+	/**
+	 * Settles with {@link _settled}, which choosing a connection waits for so that it offers them
+	 * all.
+	 *
+	 * Not the first read itself: a read overtaken by a later one -- a connection opening while the
+	 * first is in flight -- finishes without setting anything, and whoever waited on it would take
+	 * the empty schema for the answer.
+	 */
+	private readonly _firstRead: Promise<void>;
+	private _resolveFirstRead!: () => void;
 
 	/**
 	 * Counts schema reads, so that one overtaken by a later read is dropped when it finishes.
@@ -174,6 +183,7 @@ export class SqlSession implements vscode.Disposable {
 		this._selection = new ConnectionSelection(_context.workspaceState);
 		this._statusBar = new ConnectionStatusBar(SELECT_CONNECTION_COMMAND);
 		this._disposables.push(this._diagnostics, this._statusBar);
+		this._firstRead = new Promise(resolve => { this._resolveFirstRead = resolve; });
 	}
 
 	public start(): void {
@@ -307,22 +317,28 @@ export class SqlSession implements vscode.Disposable {
 		this._relink();
 		this._refreshAll();
 		this._updateStatusBar();
-		// The files already open are asked about only once the first read has said what is open
-		// already, so a connection that is up is not opened a second time.
-		this._firstRead = this.refreshSchema().finally(() => {
-			this._settled = true;
-			if (this._disposed) {
-				return;
-			}
-			this._updateStatusBar();
-			for (const document of vscode.workspace.textDocuments) {
-				void this._openConnectionFor(document);
-			}
-		});
+		void this.refreshSchema();
+	}
+
+	/** Settles once a schema read has said what is known about the user's connections. */
+	public whenRead(): Promise<void> {
+		return this._firstRead;
+	}
+
+	/** What a document's choice comes to, given what is open and what is configured. */
+	public selectionFor(document: vscode.TextDocument): EffectiveSelection {
+		return this._resolve(document);
+	}
+
+	/** Everything the last schema read found. */
+	public get schema(): SqlSchema {
+		return this._payload;
 	}
 
 	public dispose(): void {
 		this._disposed = true;
+		// Nothing more will be read, and a pick waiting on the first read gives up on seeing it.
+		this._resolveFirstRead();
 		for (const pending of this._pending.values()) {
 			clearTimeout(pending);
 		}
@@ -354,7 +370,7 @@ export class SqlSession implements vscode.Disposable {
 		if (!chosen || this._attempted.has(chosen.profileId)) {
 			return;
 		}
-		if (!this._settled) {
+		if (!this._read) {
 			// Nothing is known to be open yet, so this would open a connection that may well be up
 			// already. The first read asks again for every open file once it lands.
 			return;
@@ -397,6 +413,9 @@ export class SqlSession implements vscode.Disposable {
 			// alternative to keeping the old schema is dropping tables the user can still see in
 			// the Data Connections pane.
 			this._log.warn(`Could not read the database schema: ${error}`);
+			if (!this._disposed && generation === this._generation) {
+				this._settle();
+			}
 			return;
 		}
 		if (this._disposed || generation !== this._generation) {
@@ -412,6 +431,22 @@ export class SqlSession implements vscode.Disposable {
 		this._relink();
 		this._refreshAll();
 		this._updateStatusBar();
+		this._settle();
+	}
+
+	/** Marks the first schema read that was not overtaken as done, the first time one is. */
+	private _settle(): void {
+		if (this._settled) {
+			return;
+		}
+		this._settled = true;
+		this._resolveFirstRead();
+		this._updateStatusBar();
+		// The files already open are asked about only once a read has said what is open already,
+		// so a connection that is up is not opened a second time.
+		for (const document of vscode.workspace.textDocuments) {
+			void this._openConnectionFor(document);
+		}
 	}
 
 	/**
