@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as semver from 'semver';
-import { RBinary, currentRBinary, currentRInstallation, discoverRInstallationsForRecommendation, getRDiscoveryRootSignature, listedRBinary, looksLikeRProject, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rPixiRuntimeDiscoverer, rRuntimeDiscoverer } from './provider';
+import { RBinary, currentRBinary, currentRInstallation, discoverModuleRs, discoverRInstallationsForRecommendation, getRDiscoveryRootSignature, listedRBinary, looksLikeRProject, makeMetadata, modulesMayProvideR, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rPixiRuntimeDiscoverer, rRuntimeDiscoverer } from './provider';
 import { PackagerMetadata, RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata, isRVersionsMetadata } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
@@ -346,6 +346,11 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			packagerMetadataForPath,
 			listedRBinary,
 			rVersionsMetadataForPath,
+			modulesMayProvideR,
+			moduleRs: async () => {
+				LOGGER.info(`[pinnedRInstallation] Environment modules may provide R, so waiting for the search for R to find the modules for: ${pinnedPath}`);
+				return discoverModuleRs();
+			},
 			install: ({ binpath, current, packagerMetadata }) => {
 				const inst = new RInstallation(binpath, current, [ReasonDiscovered.userSetting], packagerMetadata);
 				if (!inst.usable) {

@@ -97,8 +97,9 @@ export interface PinnedRBuild<P> {
 	readonly binpath: string;
 	readonly current: boolean;
 	/**
-	 * The conda or pixi environment the pinned path is in, or its r-versions
-	 * entry's setup, so R starts the same way as the copy discovery finds.
+	 * The conda or pixi environment the pinned path is in, its r-versions
+	 * entry's setup, or the modules that provide it, so R starts the same way
+	 * as the copy discovery finds.
 	 */
 	readonly packagerMetadata: P | undefined;
 }
@@ -156,6 +157,15 @@ export function listedRPath<P>(userPath: string, currentPath: string | undefined
 }
 
 /**
+ * An R that the full R search found by loading environment modules, with the
+ * setup that loads them.
+ */
+export interface ModuleR<P> {
+	readonly binpath: string;
+	readonly packagerMetadata: P;
+}
+
+/**
  * What turning `positron.r.interpreters.default` into an R installation needs
  * to know. Each lookup runs only when the decision needs it.
  */
@@ -171,6 +181,18 @@ export interface PinnedRInputs<T extends { readonly usable: boolean }, P> extend
 	currentRPath(): Promise<string | undefined>;
 	/** The setup from the r-versions entry that leads to the R at a path. */
 	rVersionsMetadataForPath(path: string): Promise<P | undefined>;
+	/**
+	 * Whether environment modules may provide R here: environments in
+	 * `positron.environmentModules.environments` list R, or an r-versions entry
+	 * has a Module and no Path. Reads settings and files only.
+	 */
+	modulesMayProvideR(): boolean;
+	/**
+	 * The Rs the full R search found by loading modules, or undefined if the
+	 * search ran out of time. Runs the search that R's recommendation and
+	 * discovery share, or joins it if it's running.
+	 */
+	moduleRs(): Promise<readonly ModuleR<P>[] | undefined>;
 	install(build: PinnedRBuild<P>): T;
 }
 
@@ -179,7 +201,11 @@ export interface PinnedRInputs<T extends { readonly usable: boolean }, P> extend
  * no pin is set, the path doesn't exist, the R there isn't usable (too old,
  * not a real install, or blocked by `exclude` or `override`), or discovery is
  * limited to `interpreters.definitions` and the path isn't one of them.
- * Never searches for R.
+ *
+ * Searches for R only when modules may provide R and nothing else gives the
+ * pin a setup, since only the search can tell which module provides an R. If
+ * the search runs out of time, returns undefined rather than an R that would
+ * start without its module.
  */
 export async function choosePinnedR<T extends { readonly usable: boolean }, P>(inputs: PinnedRInputs<T, P>): Promise<T | undefined> {
 	const pinnedPath = inputs.pinnedPath;
@@ -190,19 +216,33 @@ export async function choosePinnedR<T extends { readonly usable: boolean }, P>(i
 	const currentPath = await inputs.currentRPath();
 	// Build from the path discovery lists. Definitions match on the exact
 	// path, so a defined pin keeps its own.
-	const { binpath, current, condaOrPixi } = inputs.definitionsOnly ?
+	const listed = inputs.definitionsOnly ?
 		{
 			binpath: pinnedPath,
 			current: currentPath !== undefined && inputs.isSameFile(currentPath, pinnedPath),
 			condaOrPixi: inputs.packagerMetadataForPath(pinnedPath),
 		} :
 		listedRPath(pinnedPath, currentPath, inputs);
-	const installation = inputs.install({
-		binpath,
-		current,
-		// Conda and pixi metadata win over r-versions metadata, as in discovery.
-		packagerMetadata: condaOrPixi ?? await inputs.rVersionsMetadataForPath(pinnedPath),
-	});
+	const { current, condaOrPixi } = listed;
+	let binpath = listed.binpath;
+	// Conda and pixi metadata win over r-versions metadata, as in discovery.
+	let packagerMetadata: P | undefined = condaOrPixi ?? await inputs.rVersionsMetadataForPath(pinnedPath);
+	if (packagerMetadata === undefined && inputs.modulesMayProvideR()) {
+		const moduleRs = await inputs.moduleRs();
+		if (!moduleRs) {
+			return undefined;
+		}
+		const moduleR = moduleRs.find(r => inputs.definitionsOnly ?
+			r.binpath === pinnedPath :
+			inputs.isSameFile(r.binpath, pinnedPath));
+		if (moduleR) {
+			packagerMetadata = moduleR.packagerMetadata;
+			if (!inputs.definitionsOnly) {
+				binpath = moduleR.binpath;
+			}
+		}
+	}
+	const installation = inputs.install({ binpath, current, packagerMetadata });
 	return installation.usable ? installation : undefined;
 }
 
@@ -376,8 +416,17 @@ export class ReusableSearch<T> {
 	 * @returns Its result, or undefined if there's nothing fresh to reuse.
 	 */
 	take(): Promise<T> | undefined {
-		const held = this._held;
+		const result = this.peek();
 		this._held = undefined;
+		return result;
+	}
+
+	/**
+	 * Returns the held search, if it's still running or finished recently,
+	 * and keeps holding it.
+	 */
+	peek(): Promise<T> | undefined {
+		const held = this._held;
 		if (!held || (held.finishedAt !== undefined && this._now() - held.finishedAt > this._maxAgeMs)) {
 			return undefined;
 		}
@@ -386,16 +435,18 @@ export class ReusableSearch<T> {
 }
 
 /**
- * One search shared by R's recommendation and R's interpreter search. The
- * recommendation's search is held, and the interpreter search that follows
- * reuses it instead of running again (see `ReusableSearch`).
+ * One search shared by R's recommendation, the pinned R's lookup, and R's
+ * interpreter search. The first search is held. The recommendation and the
+ * pin lookup join it, and the interpreter search that follows reuses it
+ * instead of running again (see `ReusableSearch`).
  *
  * @param search Runs the search.
  * @param maxAgeMs How long after it finishes a held search can be reused.
  */
 export function createSharedSearch<T>(search: () => Promise<T>, maxAgeMs: number): {
 	/**
-	 * Runs the search, and holds its result for the next `forDiscovery()`.
+	 * Runs the search, or joins the held one, and holds its result for the
+	 * next `forDiscovery()`.
 	 * @param timeoutMs How long to wait for the result. The search keeps
 	 *   running after that, so `forDiscovery()` can still reuse it.
 	 * @returns The result, or undefined if the search ran out of time.
@@ -406,7 +457,7 @@ export function createSharedSearch<T>(search: () => Promise<T>, maxAgeMs: number
 } {
 	const reusable = new ReusableSearch<T>(maxAgeMs);
 	return {
-		forRecommendation: timeoutMs => waitUpTo(reusable.hold(search()), timeoutMs),
+		forRecommendation: timeoutMs => waitUpTo(reusable.peek() ?? reusable.hold(search()), timeoutMs),
 		forDiscovery: () => reusable.take() ?? search(),
 	};
 }

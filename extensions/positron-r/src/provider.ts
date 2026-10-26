@@ -22,7 +22,7 @@ import { discoverPixiBinaries } from './provider-pixi.js';
 import { discoverModuleBinaries, getEnvironmentModulesApi, moduleEnvironmentsConfiguredForR } from './provider-module.js';
 import { discoverRVersionsBinaries, findRVersionsFile, parseRVersionsFile } from './provider-rversions.js';
 import { packagerMetadataForPath } from './packager-detection.js';
-import { compareRInstallations, createSharedSearch, RFullSearchTriggers, rVersionsMayListR } from './startup-choice.js';
+import { compareRInstallations, createSharedSearch, ModuleR, RFullSearchTriggers, rVersionsMayListR } from './startup-choice.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -291,6 +291,32 @@ export async function discoverRInstallationsForRecommendation(): Promise<RInstal
 		LOGGER.info(`Stopped waiting for the search for R installations after ${FULL_SEARCH_TIMEOUT_MS} ms, so R won't start on its own. Running R code starts it.`);
 	}
 	return installs;
+}
+
+/**
+ * How long the pinned R's lookup waits for the full R search when only the
+ * search can tell which module provides the pin. Positron's startup gives up
+ * on the lookup after 20 seconds, and Python's lookup waits up to 15.
+ */
+const PINNED_MODULE_SEARCH_TIMEOUT_MS = 15_000;
+
+/**
+ * The Rs the full R search found by loading environment modules, from
+ * `positron.environmentModules.environments` or r-versions Module entries.
+ * Runs or joins the search R's recommendation and discovery share.
+ * @returns undefined if the search ran out of time. It keeps running, so the
+ *   interpreter search can still reuse it.
+ */
+export async function discoverModuleRs(): Promise<ModuleR<PackagerMetadata>[] | undefined> {
+	const installs = await sharedSearch.forRecommendation(PINNED_MODULE_SEARCH_TIMEOUT_MS);
+	if (!installs) {
+		LOGGER.info(`Stopped waiting for the search for R installations after ${PINNED_MODULE_SEARCH_TIMEOUT_MS} ms, so the pinned R can't be matched to its modules.`);
+		return undefined;
+	}
+	return installs.flatMap(({ binpath, packagerMetadata }) =>
+		packagerMetadata && (isModuleMetadata(packagerMetadata) ||
+			(isRVersionsMetadata(packagerMetadata) && packagerMetadata.moduleStartupCommand !== undefined)) ?
+			[{ binpath, packagerMetadata }] : []);
 }
 
 /**
@@ -1414,6 +1440,35 @@ export function rFullSearchTriggers(current: RInstallation | undefined): RFullSe
 		rVersionsListsCurrentR: current !== undefined && rVersionsMayListCurrentR(current.binpath),
 		modulesConfiguredForR: moduleEnvironmentsConfiguredForR(),
 	};
+}
+
+/**
+ * Whether environment modules may provide R here: environments in
+ * `positron.environmentModules.environments` list R, or an r-versions entry
+ * has a Module and no Path. Reads settings and the r-versions file only, so
+ * it never starts a shell.
+ */
+export function modulesMayProvideR(): boolean {
+	if (moduleEnvironmentsConfiguredForR()) {
+		return true;
+	}
+	// Module systems are only supported on Linux
+	if (process.platform === 'win32' || process.platform === 'darwin' ||
+		!vscode.workspace.getConfiguration('positron.environmentModules').get<boolean>('enabled', true)) {
+		return false;
+	}
+	const rVersionsPath = findRVersionsFile();
+	if (!rVersionsPath) {
+		return false;
+	}
+	let content: string;
+	try {
+		content = fs.readFileSync(rVersionsPath, 'utf-8');
+	} catch {
+		// The full search skips an unreadable file too.
+		return false;
+	}
+	return parseRVersionsFile(content).some(entry => entry.module !== undefined && !entry.path);
 }
 
 /**
