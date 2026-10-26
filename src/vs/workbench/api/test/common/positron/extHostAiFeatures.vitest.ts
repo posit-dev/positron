@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { IExtensionDescription } from '../../../../../../platform/extensions/common/extensions.js';
+import { IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { IExtHostWorkspace } from '../../../common/extHostWorkspace.js';
@@ -75,7 +75,7 @@ describe('ExtHostAiFeatures error action handlers', () => {
 		features.registerErrorActionHandler(extension, 'agent', handler);
 		features.registerErrorActionHandler(extension, 'chat-agent', handler);
 
-		expect(proxy.$registerErrorActionHandler.mock.calls).toEqual([
+		expect(vi.mocked(proxy.$registerErrorActionHandler).mock.calls).toEqual([
 			[0, 'agent', 'Agent', false],
 			[1, 'chat-agent', 'Chat Agent', true],
 		]);
