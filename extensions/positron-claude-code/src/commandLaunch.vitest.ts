@@ -21,6 +21,9 @@ describe('getCommandLaunch', () => {
 	beforeEach(() => {
 		binDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'command-launch-'));
 		vi.stubEnv('PATH', binDirectory);
+		// Look up executables as on Linux, whatever the host, unless a test
+		// says otherwise.
+		vi.mocked(os.platform).mockReturnValue('linux');
 	});
 
 	afterEach(() => {
@@ -58,8 +61,8 @@ describe('getCommandLaunch', () => {
 		}
 	});
 
-	it('is undefined when the file on the PATH can\'t be run', async () => {
-		vi.mocked(os.platform).mockReturnValue('linux');
+	// Windows has no execute permission to take away.
+	it.skipIf(process.platform === 'win32')('is undefined when the file on the PATH can\'t be run', async () => {
 		touch('claude');
 		expect(await getCommandLaunch('claude', '@anthropic-ai/claude-code/cli.js')).toBeUndefined();
 	});
