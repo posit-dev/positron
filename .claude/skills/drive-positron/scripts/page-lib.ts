@@ -278,18 +278,20 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			if (at < 0) { throw new Error(`the row "${row.label}"${row.description ? ` (${row.description})` : ''} is no longer listed`); }
 			// The pointer resting on another row (where the last click left it) shows that row's
 			// tooltip, which can cover this row's middle. Find a point of this row nothing covers,
-			// move the pointer there so no other row's tooltip opens, and click there.
+			// move the pointer there so no other row's tooltip opens, and click there. Not on the
+			// row's own buttons (the palette's gear, Quick Open's remove), which do something else.
 			const el = all.nth(at);
-			const free = () => el.evaluate(r => {
+			const free = () => el.evaluate((r, actions) => {
 				const b = r.getBoundingClientRect();
 				const y = b.y + b.height / 2;
 				for (let i = 0; i < 20; i++) {
 					for (const x of [b.x + b.width * (0.5 + i / 40), b.x + b.width * (0.5 - i / 40)]) {
-						if (r.contains(document.elementFromPoint(x, y))) { return { x: x - b.x, y: b.height / 2 }; }
+						const hit = document.elementFromPoint(x, y);
+						if (r.contains(hit) && !hit?.closest(actions)) { return { x: x - b.x, y: b.height / 2 }; }
 					}
 				}
 				return null;
-			});
+			}, s.list.rowActions);
 			let point = await free();
 			const box = point && await el.boundingBox();
 			if (point && box) { await page.mouse.move(box.x + point.x, box.y + point.y); point = await free() ?? point; }

@@ -95,6 +95,7 @@ export const css = {
 		row: '.monaco-list-row', // a row's index and state are not in the tree
 		indexAttr: 'data-index', // the row's place in the whole list, not in the rows drawn
 		focusedRow: '.monaco-list-row.focused',
+		rowActions: '.monaco-action-bar', // a row's own buttons (the palette's gear, Quick Open's remove)
 		selected: '.selected',
 	},
 	label: {
