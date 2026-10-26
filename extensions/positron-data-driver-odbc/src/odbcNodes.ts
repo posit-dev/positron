@@ -95,6 +95,7 @@ export function createRootNodes(
 		return [{
 			name: 'Catalogs',
 			kind: positron.DataConnectionNodeKind.GroupCatalogs,
+			childCount: catalogs.length,
 			getChildren: async () => catalogs.map(catalog => ({
 				name: catalog ?? '(default)',
 				kind: positron.DataConnectionNodeKind.Catalog,
@@ -122,6 +123,7 @@ function createSchemaLevel(
 		return [{
 			name: 'Schemas',
 			kind: positron.DataConnectionNodeKind.GroupSchemas,
+			childCount: schemas.length,
 			getChildren: async () => schemas.map(schema => ({
 				name: schema ?? '(default)',
 				kind: positron.DataConnectionNodeKind.Schema,
@@ -151,6 +153,7 @@ function createObjectGroups(
 		groups.push({
 			name: 'Tables',
 			kind: positron.DataConnectionNodeKind.GroupTables,
+			childCount: baseTables.length,
 			getChildren: async () => baseTables.map(table => createTableNode(table, client, host)),
 		});
 	}
@@ -160,6 +163,7 @@ function createObjectGroups(
 		groups.push({
 			name: 'Views',
 			kind: positron.DataConnectionNodeKind.GroupViews,
+			childCount: views.length,
 			getChildren: async () => views.map(view => createTableNode(view, client, host)),
 		});
 	}
