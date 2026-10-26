@@ -529,6 +529,12 @@ fn closer(rest: &str) -> Option<(String, bool)> {
         let tag = format!("${tag}$");
         return rest.starts_with(&tag).then_some((tag, false));
     }
+    // A bracketed identifier, in the dialects that write them: T-SQL, SQLite and Access. Checked
+    // before the quotes, since `[it's` holds one within the characters looked at below, and
+    // closing that would close nothing.
+    if rest.starts_with('[') {
+        return Some(("]".to_string(), true));
+    }
     // A literal may carry a prefix -- `N'`, `E'`, `X'`, `U&'` -- so the delimiter is the first
     // quote character rather than the first character. Only the first few are looked at: the
     // construct starts at its own delimiter, so a quote further along than that is a different

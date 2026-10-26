@@ -376,3 +376,17 @@ fn a_block_left_open_costs_only_its_own_statement() {
         ["CREATE PROCEDURE p() BEGIN SELECT 1;", "CREATE PROCEDURE q() BEGIN SELECT 2; END;", "SELECT 3;"]
     );
 }
+
+#[test]
+fn an_unterminated_bracketed_identifier_does_not_swallow_the_statements_below_it() {
+    // Closed at the end of its line, like a quote, so what is below it is SQL again.
+    let text = "SELECT [order date\nFROM t;\nSELECT 2;\nSELECT 3;";
+    let expected = ["SELECT [order date\nFROM t;", "SELECT 2;", "SELECT 3;"];
+    assert_eq!(texts_in("tsql", text), expected);
+    assert_eq!(texts_in("sqlite", text), expected);
+    // Not mistaken for a quote it holds, which would close nothing.
+    assert_eq!(
+        texts_in("tsql", "SELECT [it's\nFROM t;\nSELECT 2;"),
+        ["SELECT [it's\nFROM t;", "SELECT 2;"]
+    );
+}
