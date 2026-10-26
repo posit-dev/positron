@@ -8,14 +8,40 @@ on:
       - "release/**"
 
 jobs:
+  # Decides whether this push to main changes only docs or tooling (see
+  # scripts/lib/pr-docs-only-lib.sh), checking against the workflows this file
+  # calls. If so, the test jobs below are skipped. Release and prerelease
+  # branches always run the tests.
+  #
+  # Fails open: the jobs below run even if this job fails or is skipped
+  # (`!cancelled()`), and an empty output means "not docs-only".
+  docs-only:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.docs-only.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check for a docs-only change
+        id: docs-only
+        run: bash scripts/pr-docs-only.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CI_WORKFLOW: .github/workflows/test-merge.yml
+
   setup:
     name: setup
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
 
   e2e-electron:
     name: e2e
     needs: [setup]
+    if: ${{ !cancelled() && needs.setup.result == 'success' }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
@@ -32,6 +58,8 @@ jobs:
 
   e2e-windows:
     name: e2e
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-e2e-windows-run.yml
     secrets: inherit
     with:
@@ -47,6 +75,7 @@ jobs:
   e2e-ubuntu-chromium:
     name: e2e
     needs: [setup]
+    if: ${{ !cancelled() && needs.setup.result == 'success' }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
@@ -63,6 +92,8 @@ jobs:
 
   unit-tests:
     name: test
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
     with:
@@ -70,6 +101,8 @@ jobs:
 
   ext-host-tests:
     name: test
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-ext-host.yml
     secrets: inherit
     with:
@@ -77,13 +110,17 @@ jobs:
 
   ext-host-tests-windows:
     name: test
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-ext-host-windows.yml
     secrets: inherit
 
   slack-notify:
-    if: always()
+    # Nothing to report when a docs-only push skipped every test job.
+    if: ${{ always() && needs.docs-only.outputs.docs_only != 'true' }}
     needs:
       [
+        docs-only,
         setup,
         unit-tests,
         ext-host-tests,
