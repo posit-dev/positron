@@ -56,7 +56,8 @@ const WINDOWS_EXTENSIONS = ['.exe', '.cmd', '.bat'];
 
 /**
  * Find an executable on the PATH, including Windows launchers like
- * `claude.cmd`.
+ * `claude.cmd`. Adapted from positron-supervisor's lookup for its MCP agents
+ * (`resolveOnPath` in `McpAgentConfig.ts`).
  * @returns Every match, in PATH order.
  */
 async function* findOnPath(executable: string): AsyncGenerator<string> {

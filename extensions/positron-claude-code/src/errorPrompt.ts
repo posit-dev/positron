@@ -196,10 +196,12 @@ function truncateMiddle(text: string, maxLength: number): { readonly text: strin
 	return { text: text.slice(0, headEnd) + marker(omitted) + text.slice(tailStart), isShortened: true };
 }
 
+/** Whether a UTF-16 code unit starts a surrogate pair. As in `vs/base/common/strings.ts`, which extensions can't import. */
 function isHighSurrogate(code: number): boolean {
 	return code >= 0xD800 && code <= 0xDBFF;
 }
 
+/** Whether a UTF-16 code unit ends a surrogate pair. As in `vs/base/common/strings.ts`, which extensions can't import. */
 function isLowSurrogate(code: number): boolean {
 	return code >= 0xDC00 && code <= 0xDFFF;
 }
