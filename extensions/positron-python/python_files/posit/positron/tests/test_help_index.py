@@ -277,6 +277,43 @@ class DiscoveryTests(unittest.TestCase):
         assert results[0].name == "plot"
         assert self.scan().suggest(" ") == ()
 
+    def test_namespace_without_modules_is_not_a_topic(self):
+        self.write("pkg/__init__.py")
+        self.write("pkg/static/js/lib/index.js")
+        self.write("space/data/readme.txt")
+        self.write("space/nested/tool.py")
+        assert self.names(self.scan()) == ["pkg", "space", "space.nested", "space.nested.tool"]
+
+    def test_working_directory_lists_modules_and_packages_but_not_namespaces(self):
+        self.write("analysis.py")
+        self.write("project/__init__.py")
+        self.write("project/model.py")
+        self.write("Documents/notes/draft.py")
+        with patch.object(Path, "cwd", return_value=self.root):
+            names = self.names(self.scan())
+        assert names == ["analysis", "project", "project.model"]
+
+    def test_suggestions_rank_public_and_shallow_modules_first(self):
+        for name in [
+            "pkg/__init__.py",
+            "pkg/_core/__init__.py",
+            "pkg/_core/tools.py",
+            "pkg/linalg/__init__.py",
+            "pkg/linalg/lapack.py",
+            "pkg/random.py",
+            "_pkg_private.py",
+        ]:
+            self.write(name)
+        assert [t.name for t in self.scan().suggest("pkg")] == [
+            "pkg",
+            "pkg.linalg",
+            "pkg.random",
+            "pkg.linalg.lapack",
+            "pkg._core",
+            "pkg._core.tools",
+            "_pkg_private",
+        ]
+
     def test_builtin_summary_gap_is_real(self):
         matches = []
         with patch.object(sys, "path", []), patch.object(sys, "builtin_module_names", ("sys",)):
@@ -579,6 +616,39 @@ def test_cache_detects_added_updated_and_removed_sources(tmp_path, monkeypatch):
     assert cache.get().suggest("fresh_module") == ()
 
 
+def test_rebuild_reads_only_changed_directories_and_sources(tmp_path, monkeypatch):
+    from positron.help_index import LoadedSnapshot
+
+    for name in ("alpha", "beta"):
+        (tmp_path / f"{name}.py").write_text(f'"""{name.title()} summary."""\n')
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "__init__.py").write_text('"""Package summary."""\n')
+    monkeypatch.setattr(sys, "path", [str(tmp_path)])
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules", lambda: LoadedSnapshot((), ())
+    )
+    cache = HelpIndex()
+    cache.get()
+
+    reads = []
+    read_summary = Discovery.read_summary
+    monkeypatch.setattr(
+        Discovery,
+        "read_summary",
+        lambda self, loc, filename: reads.append(filename) or read_summary(self, loc, filename),
+    )
+    (tmp_path / "gamma.py").write_text('"""Gamma summary."""\n')
+    index = cache.get()
+
+    assert reads == ["gamma.py"]
+    assert {t.name: t.summary for t in index.topics if t.kind != "builtin"} == {
+        "alpha": "Alpha summary.",
+        "beta": "Beta summary.",
+        "gamma": "Gamma summary.",
+        "pkg": "Package summary.",
+    }
+
+
 def test_snapshot_does_not_inspect_nonmodule_attributes():
     class Trap:
         def __getattribute__(self, _name):
@@ -596,7 +666,10 @@ def test_cache_reuses_partial_index(tmp_path, monkeypatch, caplog):
     monkeypatch.setattr(
         "positron.help_index.snapshot_loaded_modules", lambda: LoadedSnapshot((), ())
     )
-    with patch("positron.help_index.Discovery", side_effect=lambda: Discovery(max_locations=1)):
+    with patch(
+        "positron.help_index.Discovery",
+        side_effect=lambda **kwargs: Discovery(max_locations=1, **kwargs),
+    ):
         cache = HelpIndex()
         first = cache.get()
         assert cache.get() is first

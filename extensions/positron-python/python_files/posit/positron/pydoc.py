@@ -15,6 +15,7 @@ import pkgutil
 import pydoc
 import re
 import sys
+import urllib.parse
 import warnings
 from dataclasses import dataclass
 from functools import partial
@@ -588,9 +589,13 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
     def html_search(self, key):
         """Search results page."""
+        # --- Start Positron ---
+        # Search an import-free index instead of pydoc.ModuleScanner, which imports
+        # every installed package into the user's session.
         if self._help_index is None:
             self._help_index = HelpIndex()
         search_result = self._help_index.get().search(key)
+        # --- End Positron ---
 
         # format page
         def bltinlink(name):
@@ -600,12 +605,15 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         heading = self.heading(
             '<strong class="title">Search Results</strong>',
         )
+        # --- Start Positron ---
+        # Escape the query and summaries, which can contain HTML.
         for topic in search_result:
             description = " - " + self.escape(topic.summary) if topic.summary else ""
             results.append(bltinlink(topic.name) + description)
         contents = heading + self.bigsection(
             f"key = {self.escape(key)}", "index", "<br>".join(results)
         )
+        # --- End Positron ---
         return "Search Results", contents
 
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
@@ -713,7 +721,10 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             elif "=" in url:
                 op, _, url = url.partition("=")
                 if op == "search?key":
-                    title, content = self.html_search(url)
+                    # --- Start Positron ---
+                    # Decode the query, so that "linear+algebra" searches for "linear algebra".
+                    title, content = self.html_search(urllib.parse.unquote_plus(url))
+                    # --- End Positron ---
                 elif op == "topic?key":
                     # try topics first, then objects.
                     try:

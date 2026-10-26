@@ -404,6 +404,27 @@ def test_search_page_does_not_import_packages(
     assert "unloaded_help_fixture" not in sys.modules
 
 
+@pytest.mark.parametrize("query", ["Quasar summary", "café crème"])
+def test_search_page_decodes_the_query(
+    running_help_service, help_comm, tmp_path, monkeypatch, query: str
+) -> None:
+    from positron.help_index import LoadedSnapshot
+
+    package = tmp_path / "decoded_help_fixture"
+    package.mkdir()
+    (package / "__init__.py").write_text(f'"""{query} fixture."""\n', encoding="utf-8")
+    monkeypatch.setattr(sys, "path", [str(tmp_path)])
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules", lambda: LoadedSnapshot((), ())
+    )
+    assert running_help_service.search_help(query, "decoded-search")
+    url = help_comm.messages[-1]["data"]["params"]["content"]
+    with urlopen(url) as response:
+        html = response.read().decode("utf-8")
+    assert "decoded_help_fixture.html" in html
+    assert f"key = {query}" in html
+
+
 @pytest.mark.parametrize(
     ("topic", "package", "expected_topic", "expected_package"),
     [

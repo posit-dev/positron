@@ -18,7 +18,7 @@ import tokenize
 import warnings
 import zipfile
 from bisect import bisect_left
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib.machinery import BYTECODE_SUFFIXES, EXTENSION_SUFFIXES, SOURCE_SUFFIXES
 from pathlib import Path
 from threading import RLock
@@ -106,9 +106,13 @@ class Index:
             return ()
         matches = (t for t in self.topics if key in t.name.lower())
 
+        # Exact, prefix, then substring matches. Within each group, public modules
+        # come before private ones (any part starts with "_"), and shallow before deep.
         def rank(topic):
             name = topic.name.lower()
-            return (0 if name == key else 1 if name.startswith(key) else 2, name)
+            match = 0 if name == key else 1 if name.startswith(key) else 2
+            private = any(part.startswith("_") for part in name.split("."))
+            return (match, private, name.count("."), name)
 
         return tuple(sorted(matches, key=rank)[: max(0, min(limit, 50))])
 
@@ -138,12 +142,20 @@ class Location:
     path: Path
     archive: zipfile.ZipFile | None = None
     prefix: str = ""
-    ancestors: frozenset[str] = frozenset()
+    # Identities (device, inode) of the directories above this one, to detect cycles.
+    ancestors: frozenset[tuple] = frozenset()
+    # Whether directories without `__init__` count as namespace packages here.
+    namespaces: bool = True
 
-    def child(self, name: str) -> Location:
+    def child(self, name: str, identity: tuple | None) -> Location:
+        """Locate a subdirectory. `identity` is the identity of this directory."""
         if self.archive:
             return Location(self.path, self.archive, self.prefix + name + "/")
-        return Location(self.path / name, ancestors=self.ancestors | {str(self.path.resolve())})
+        return Location(
+            self.path / name,
+            ancestors=self.ancestors | {identity} if identity else self.ancestors,
+            namespaces=self.namespaces,
+        )
 
     def origin(self, filename: str) -> str:
         if self.archive:
@@ -151,10 +163,34 @@ class Location:
         return str(self.path / filename)
 
 
+@dataclass
+class DiscoveryCache:
+    """Directory listings and source summaries from earlier builds.
+
+    Each value is stored with the fingerprint of its path when it was read, and
+    is reused only while that fingerprint is unchanged. A rebuild then reads only
+    the directories and files that changed.
+    """
+
+    listings: dict[Path, tuple[tuple, dict[str, bool]]] = field(default_factory=dict)
+    summaries: dict[Path, tuple[tuple, str | None]] = field(default_factory=dict)
+
+    def retain(self, paths) -> None:
+        """Forget the paths that the latest build did not read."""
+        self.listings = {p: v for p, v in self.listings.items() if p in paths}
+        self.summaries = {p: v for p, v in self.summaries.items() if p in paths}
+
+
 class Discovery:
-    def __init__(self, max_locations: int = 100_000, max_source_bytes: int = 1_048_576):
+    def __init__(
+        self,
+        max_locations: int = 100_000,
+        max_source_bytes: int = 1_048_576,
+        cache: DiscoveryCache | None = None,
+    ):
         self.max_locations = max_locations
         self.max_source_bytes = max_source_bytes
+        self.cache = DiscoveryCache() if cache is None else cache
         self.diagnostics: list[str] = []
         self.visited = 0
         self.budget_exhausted = False
@@ -174,6 +210,7 @@ class Discovery:
         try:
             roots = [loc for path in paths if (loc := self.root(path)) is not None]
             self.walk(roots, "", topics, 0)
+            self.cache.retain(self.fingerprints)
             if loaded is not None:
                 self.enrich(topics, loaded)
             return Index(tuple(topics[n] for n in sorted(topics)), tuple(self.diagnostics))
@@ -203,7 +240,10 @@ class Discovery:
         path = Path(value or Path.cwd()).absolute()
         self.track(path)
         if path.is_dir():
-            return Location(path)
+            # The working directory can be any folder, even the home directory.
+            # As in pkgutil, list its modules and packages but not its other
+            # directories, so discovery does not walk an arbitrary tree.
+            return Location(path, namespaces=path != Path.cwd())
         # Supports sys.path entries such as /path/library.zip/subdirectory.
         for candidate in (path, *path.parents):
             if candidate.is_file():
@@ -242,16 +282,23 @@ class Discovery:
         self.visited += 1
         if loc.archive:
             return self.zip_children[loc.path].get(loc.prefix, {})
-        if str(loc.path.resolve()) in loc.ancestors:
+        self.track(loc.path)
+        fingerprint = self.fingerprints[loc.path]
+        if fingerprint is not None and _identity(fingerprint) in loc.ancestors:
             self.diagnostics.append(f"Skipped directory cycle: {loc.path}")
             return {}
-        self.track(loc.path)
+        cached = self.cache.listings.get(loc.path)
+        if fingerprint is not None and cached is not None and cached[0] == fingerprint:
+            return cached[1]
         try:
             with os.scandir(loc.path) as entries:
-                return {e.name: e.is_dir() for e in entries}
+                listing = {e.name: e.is_dir() for e in entries}
         except OSError as exc:
             self.diagnostics.append(f"Cannot enumerate {loc.path}: {type(exc).__name__}")
             return {}
+        if fingerprint is not None:
+            self.cache.listings[loc.path] = (fingerprint, listing)
+        return listing
 
     def suffixes(self, loc):
         # ZIP import supports source/bytecode, but not extension binaries.
@@ -280,6 +327,8 @@ class Discovery:
                 locations_complete = False
                 break
             files = self.module_files(entries, loc)
+            fingerprint = self.fingerprints.get(loc.path)
+            identity = _identity(fingerprint) if fingerprint else None
             directories = {
                 n
                 for n, directory in entries.items()
@@ -288,7 +337,7 @@ class Discovery:
             for name in sorted(directories | files.keys()):
                 if name in concrete or prefix + name in topics:
                     continue
-                child = loc.child(name) if name in directories else None
+                child = loc.child(name, identity) if name in directories else None
                 child_entries = self.entries(child) if child else {}
                 if child_entries is None:
                     locations_complete = False
@@ -307,7 +356,7 @@ class Discovery:
                     concrete[name] = (child, init, True)
                 elif name in files:
                     concrete[name] = (loc, files[name], False)
-                elif child:
+                elif child and child.namespaces:
                     namespaces.setdefault(name, []).append(child)
         for name, (loc, filename, package) in sorted(concrete.items()):
             full = prefix + name
@@ -327,17 +376,33 @@ class Discovery:
         for name, portions in sorted(namespaces.items()):
             if name not in concrete and prefix + name not in topics:
                 full = prefix + name
-                topics[full] = Topic(
-                    full, "namespace", ";".join(p.origin("") for p in portions), None
-                )
-                self.package_paths[full] = tuple(str(p.path / p.prefix) for p in portions)
+                count = len(topics)
                 self.walk(portions, full + ".", topics, depth + 1)
+                # A directory with nothing importable under it (such as a data
+                # directory) is not a topic. Keep it if the walk was cut short.
+                if len(topics) > count or self.budget_exhausted:
+                    topics[full] = Topic(
+                        full, "namespace", ";".join(p.origin("") for p in portions), None
+                    )
+                    self.package_paths[full] = tuple(str(p.path / p.prefix) for p in portions)
 
     def summary(self, loc, filename):
         if not any(filename.endswith(s) for s in SOURCE_SUFFIXES):
             return None
-        if not loc.archive:
-            self.track(loc.path / filename)
+        if loc.archive:
+            return self.read_summary(loc, filename)
+        path = loc.path / filename
+        self.track(path)
+        fingerprint = self.fingerprints[path]
+        cached = self.cache.summaries.get(path)
+        if fingerprint is not None and cached is not None and cached[0] == fingerprint:
+            return cached[1]
+        summary = self.read_summary(loc, filename)
+        if fingerprint is not None:
+            self.cache.summaries[path] = (fingerprint, summary)
+        return summary
+
+    def read_summary(self, loc, filename):
         try:
             with (
                 loc.archive.open(loc.prefix + filename)
@@ -400,9 +465,21 @@ def _source_summary(source: str) -> str | None:
 def _fingerprint(path: Path) -> tuple | None:
     try:
         info = path.stat()
-        return (info.st_mtime_ns, info.st_ctime_ns, info.st_size, info.st_mode)
+        return (
+            info.st_mtime_ns,
+            info.st_ctime_ns,
+            info.st_size,
+            info.st_mode,
+            info.st_dev,
+            info.st_ino,
+        )
     except OSError:
         return None
+
+
+def _identity(fingerprint: tuple) -> tuple:
+    """The (device, inode) identity of a path, which is the same for every link to it."""
+    return fingerprint[4:]
 
 
 class HelpIndex:
@@ -421,6 +498,7 @@ class HelpIndex:
         self._fingerprints: dict[Path, tuple | None] = {}
         self._package_paths: dict[str, tuple[str, ...]] = {}
         self._package_indexes: dict[tuple[str, ...], tuple[Index, dict]] = {}
+        self._cache = DiscoveryCache()
         self._context: tuple = ()
         self.update_context()
 
@@ -443,7 +521,7 @@ class HelpIndex:
         with self._lock:
             paths, loaded = self._context
             if self._filesystem is None or self._changed(self._fingerprints):
-                discovery = Discovery()
+                discovery = Discovery(cache=self._cache)
                 self._filesystem = discovery.build(paths)
                 self._fingerprints = discovery.fingerprints
                 self._package_paths = discovery.package_paths
