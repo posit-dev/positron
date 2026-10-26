@@ -276,7 +276,26 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				return same[r.occurrence ?? 0]?.i ?? -1;
 			}, { r: row, label: s.label, list: s.list });
 			if (at < 0) { throw new Error(`the row "${row.label}"${row.description ? ` (${row.description})` : ''} is no longer listed`); }
-			return all.nth(at).click({ timeout: 3000 });
+			// The pointer resting on another row (where the last click left it) shows that row's
+			// tooltip, which can cover this row's middle. Find a point of this row nothing covers,
+			// move the pointer there so no other row's tooltip opens, and click there. Not on the
+			// row's own buttons (the palette's gear, Quick Open's remove), which do something else.
+			const el = all.nth(at);
+			const free = () => el.evaluate((r, actions) => {
+				const b = r.getBoundingClientRect();
+				const y = b.y + b.height / 2;
+				for (let i = 0; i < 20; i++) {
+					for (const x of [b.x + b.width * (0.5 + i / 40), b.x + b.width * (0.5 - i / 40)]) {
+						const hit = document.elementFromPoint(x, y);
+						if (r.contains(hit) && !hit?.closest(actions)) { return { x: x - b.x, y: b.height / 2 }; }
+					}
+				}
+				return null;
+			}, s.list.rowActions);
+			let point = await free();
+			const box = point && await el.boundingBox();
+			if (point && box) { await page.mouse.move(box.x + point.x, box.y + point.y); point = await free() ?? point; }
+			return el.click({ timeout: 3000, ...(point ? { position: point } : {}) });
 		},
 
 		// ---- Dialogs
@@ -344,6 +363,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				m.names.findIndex(x => x.toLowerCase() === want),
 				m.names.findIndex(x => x.toLowerCase().replace(/\s*\(.*\)\s*$/, '') === want),
 				m.names.findIndex(x => x.toLowerCase().startsWith(want) && !/[a-z]/.test(x.slice(want.length))),
+				// A select box option is named "value. description" ("afterDelay. An editor with ...").
+				m.names.findIndex(x => x.toLowerCase().startsWith(`${want}. `)),
 			].find(i => i >= 0) ?? -1;
 			if (pick < 0) { await close(); return { ok: false as const, error: `no item "${item}" in the ${m.inline ? 'list that opened' : 'menu or popup'}`, items: m.names }; }
 			if (m.off[pick]) { await close(); return { ok: false as const, error: `the item "${m.names[pick]}" is disabled; nothing was chosen`, items: m.names }; }
@@ -362,19 +383,28 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		},
 
 		// ---- What an action opened, and what is on top
-		/** Marks what is open now so lib.opened can spot what is new; searches shadow roots too. */
+		/**
+		 * Marks what is open now so lib.opened can spot what is new; searches shadow roots too.
+		 * Each call marks with a new value, kept on <html> and returned: an element detached
+		 * while marked keeps its mark out of reach of the clean-up, and a select box draws its
+		 * drop-down with the same element every time it opens.
+		 */
 		markOverlays: (home?: ElementHandle<Element> | null) => page.evaluate(({ sel, dialog, h }) => {
 			const all = (q: string, root: ParentNode = document): Element[] => [...root.querySelectorAll(q), ...[...root.querySelectorAll('*')].flatMap(e => e.shadowRoot ? all(q, e.shadowRoot) : [])];
 			for (const a of ['data-dp-seen', 'data-dp-home', 'data-dp-list']) { all(`[${a}]`).forEach(e => e.removeAttribute(a)); }
-			all(sel).forEach(e => { if (e.getClientRects().length) { e.setAttribute('data-dp-seen', ''); } });
+			const mark = String(Date.now());
+			document.documentElement.setAttribute('data-dp-mark', mark);
+			all(sel).forEach(e => { if (e.getClientRects().length) { e.setAttribute('data-dp-seen', mark); } });
 			h?.closest(dialog)?.setAttribute('data-dp-home', '');
+			return mark;
 		}, { sel: `${s.overlay.menu}, ${s.overlay.dialog}, ${s.quickInput.widget}, [role=grid], [role=listbox], [role=tree]`, dialog: s.overlay.dialog, h: home ?? null }),
 		/** The innermost overlay opened since markOverlays, marked [data-dp-list] for listIn. */
 		opened: async (inline: boolean): Promise<(List & { kind: string }) | null> => {
 			const kind = await page.evaluate(({ menu, dialog, quick, toast, inline }) => {
 				const all = (q: string, root: ParentNode = document): Element[] => [...root.querySelectorAll(q), ...[...root.querySelectorAll('*')].flatMap(e => e.shadowRoot ? all(q, e.shadowRoot) : [])];
 				all('[data-dp-list]').forEach(e => e.removeAttribute('data-dp-list'));
-				const fresh = (sel: string, root: ParentNode = document) => all(sel, root).filter(e => !e.hasAttribute('data-dp-seen') && e.getClientRects().length > 0 && e.matches(toast));
+				const mark = document.documentElement.getAttribute('data-dp-mark');
+				const fresh = (sel: string, root: ParentNode = document) => all(sel, root).filter(e => e.getAttribute('data-dp-seen') !== mark && e.getClientRects().length > 0 && e.matches(toast));
 				const home = all('[data-dp-home]')[0];
 				const found: [Element | undefined, string][] = [
 					[fresh(menu).pop(), 'menu'], [fresh(quick).pop(), 'quickpick'], [fresh(dialog).pop(), 'dialog'],

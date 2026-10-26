@@ -90,8 +90,8 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	// Only an overlay that was not on screen before counts (lib.markOverlays marks
 	// those): a menu item that opens a quick pick closes its menu, so the number
 	// of overlays stays the same ("Start Another..." in Quick Launch Session).
-	await lib.markOverlays();
-	const fresh = () => page.locator(lib.css.overlay.any).filter({ visible: true }).and(page.locator(`${lib.css.overlay.notInToasts}:not([data-dp-seen])`)).count();
+	const mark = await lib.markOverlays();
+	const fresh = () => page.locator(lib.css.overlay.any).filter({ visible: true }).and(page.locator(`${lib.css.overlay.notInToasts}:not([data-dp-seen="${mark}"])`)).count();
 	const toastsBefore = await lib.toasts();
 	const acted = Date.now();
 	let checked: Record<string, unknown> = {};
