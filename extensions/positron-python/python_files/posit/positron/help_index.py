@@ -15,6 +15,7 @@ import sys
 import tokenize
 from pathlib import Path
 from types import ModuleType
+from typing import TypeGuard
 
 # The latest listing of `sys.path`, and the key that it is valid for.
 _listing: tuple[tuple, dict[str, pkgutil.ModuleInfo]] | None = None
@@ -175,7 +176,7 @@ def _first_line(text: str) -> str | None:
     return text.strip().split("\n")[0].strip() or None
 
 
-def _is_module(value: object) -> bool:
+def _is_module(value: object) -> TypeGuard[ModuleType]:
     # Check the real type: some objects in `sys.modules` (such as cffi's `Lib`)
     # report ModuleType as their `__class__` without being modules.
     return issubclass(type(value), ModuleType)
