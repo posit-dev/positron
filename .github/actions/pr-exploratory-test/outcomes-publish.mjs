@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Publishes the Shipping impact page (with its rows beside it, so the next run
+// Publishes the PR outcomes page (with its rows beside it, so the next run
 // can start from them) or the Triage outcomes page to Posit Connect. The content is made once, by hand, and belongs
 // to whoever made it; CI only deploys to its GUID, so its key's user must own
 // the content or be a collaborator on it.
@@ -20,7 +20,7 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const CONTENT = {
-	outcomes: { name: 'explore-outcomes', title: '/explore shipping impact', vanity: '/explore-outcomes/' },
+	outcomes: { name: 'explore-outcomes', title: '/explore PR outcomes', vanity: '/explore-outcomes/' },
 	triage: { name: 'explore-triage', title: '/explore triage outcomes', vanity: '/explore-triage/' },
 };
 

@@ -108,7 +108,7 @@ test('the page has the shared top row and footer, and the counting panel says wh
 	const html = renderTriagePage({ rows }, { now: new Date(`${TODAY}T12:00:00Z`) });
 	assert.match(html, /<nav[^>]*class="switch"[\s\S]*aria-current="page"[^>]*>Triage outcomes/);
 	assert.match(html, /<footer>Updated /);
-	assert.match(text(html), /issues filed by hand that the Shipping impact page matched to a finding and that mention its PR/);
+	assert.match(text(html), /issues filed by hand that the PR outcomes page matched to a finding and that mention its PR/);
 	assert.doesNotMatch(text(html), /left out/);
 });
 

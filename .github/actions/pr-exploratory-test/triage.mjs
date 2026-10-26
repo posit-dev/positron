@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Where each ai-discovered issue that links to an exploratory-test report
-// stands today, for triage-page.mjs. With --outcomes, the Shipping impact
+// stands today, for triage-page.mjs. With --outcomes, the PR outcomes
 // rows, it adds the issues filed by hand that they matched to a finding and
 // that mention its PR. No model calls.
 //   node triage.mjs [--outcomes rows.jsonl] --out triage.json

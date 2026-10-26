@@ -1,6 +1,6 @@
 name: "Exploratory: Outcome Pages"
 
-# Rebuilds the Shipping impact page, what happened to /explore's findings, and deploys it to
+# Rebuilds the PR outcomes page, what happened to /explore's findings, and deploys it to
 # the Posit Connect content whose GUID is in the EXPLORE_OUTCOMES_CONNECT_GUID
 # repo variable. Findings already fixed are carried over from the last
 # publish, so only the rest cost model calls. See "What happened to a run's findings" in the exploratory-test
