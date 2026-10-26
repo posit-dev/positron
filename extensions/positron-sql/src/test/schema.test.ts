@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import * as positron from 'positron';
-import { DataConnectionsApi, explainEmptySchema, flattenSchemaNodes, readConnectionSchema, schemaOfProfile, SqlSchema, SqlTable } from '../schema';
+import { DataConnectionsApi, explainEmptySchema, flattenSchemaNodes, readConnectionSchema, SchemaReader, schemaOfProfile, SqlSchema, SqlTable } from '../schema';
 import { SchemaIndex } from '../schemaIndex';
 import { testLog } from './support';
 
@@ -481,5 +481,115 @@ suite('readConnectionSchema', () => {
 		await new Promise(resolve => setTimeout(resolve, 10));
 
 		assert.deepStrictEqual(schema.incompleteProfiles, ['slow']);
+	});
+
+	suite('read after read', () => {
+		/** A reader over connections the test edits, counting which ones it walks. */
+		function reader(timeoutMs?: number, getSchema?: DataConnectionsApi['getSchema']) {
+			const state = { connections: [] as positron.DataConnectionSummary[], walked: [] as string[] };
+			const { api, log } = harness({
+				getConnections: () => Promise.resolve(state.connections.map(each => ({ ...each }))),
+				getSchema: getSchema ?? ((profileId: string) => {
+					state.walked.push(profileId);
+					return Promise.resolve({
+						profileId,
+						truncated: false,
+						nodes: [{ name: `${profileId}_table`, kind: Kind.Table, children: [] }],
+					});
+				}),
+			});
+			return { state, reader: new SchemaReader(log, api, timeoutMs) };
+		}
+
+		test('only a connection that just opened is walked; one that stayed open keeps its tables', async () => {
+			const { state, reader: schemas } = reader();
+			state.connections = [connection('a', 'A', true)];
+			await schemas.read();
+			state.connections = [connection('a', 'A', true), connection('b', 'B', true)];
+
+			const schema = await schemas.read();
+
+			assert.deepStrictEqual(
+				{ walked: state.walked, tables: schema.tables.map(table => table.name) },
+				{ walked: ['a', 'b'], tables: ['a_table', 'b_table'] },
+			);
+		});
+
+		test('a renamed connection is named anew without being walked again', async () => {
+			const { state, reader: schemas } = reader();
+			state.connections = [connection('a', 'Old', true)];
+			await schemas.read();
+			state.connections = [connection('a', 'New', true)];
+
+			const schema = await schemas.read();
+
+			assert.deepStrictEqual(
+				{ walked: state.walked, connection: schema.tables[0].connection, open: schema.connections[0].name },
+				{ walked: ['a'], connection: 'New', open: 'New' },
+			);
+		});
+
+		test('a connection that closed and opened again is walked again', async () => {
+			const { state, reader: schemas } = reader();
+			state.connections = [connection('a', 'A', true)];
+			await schemas.read();
+			state.connections = [connection('a', 'A', false)];
+			await schemas.read();
+			state.connections = [connection('a', 'A', true)];
+
+			await schemas.read();
+
+			assert.deepStrictEqual(state.walked, ['a', 'a']);
+		});
+
+		test('a fresh read walks every open connection', async () => {
+			// What "SQL: Refresh Database Schema" asks for: a table can be added without the
+			// connection closing.
+			const { state, reader: schemas } = reader();
+			state.connections = [connection('a', 'A', true)];
+			await schemas.read();
+
+			await schemas.read(true);
+
+			assert.deepStrictEqual(state.walked, ['a', 'a']);
+		});
+
+		test('a walk given up on is waited on again, not started a second time beside itself', async () => {
+			let walks = 0;
+			let finish: (schema: positron.DataConnectionSchema) => void = () => { };
+			const { state, reader: schemas } = reader(10, profileId => {
+				walks++;
+				return new Promise(resolve => {
+					finish = resolve;
+				}).then(() => ({ profileId, truncated: false, nodes: [{ name: 'late', kind: Kind.Table, children: [] }] }));
+			});
+			state.connections = [connection('slow', 'Slow', true)];
+			const first = await schemas.read();
+			const second = schemas.read();
+			finish({ profileId: 'slow', truncated: false, nodes: [] });
+
+			assert.deepStrictEqual(
+				{ first: first.incompleteProfiles, second: (await second).tables.map(table => table.name), walks },
+				{ first: ['slow'], second: ['late'], walks: 1 },
+			);
+		});
+
+		test('a connection that could not be read is walked again on the next read', async () => {
+			let fail = true;
+			const walked: string[] = [];
+			const { state, reader: schemas } = reader(undefined, profileId => {
+				walked.push(profileId);
+				return fail
+					? Promise.reject(new Error('connection reset'))
+					: Promise.resolve({ profileId, truncated: false, nodes: [] });
+			});
+			state.connections = [connection('a', 'A', true)];
+			await schemas.read();
+			fail = false;
+
+			const schema = await schemas.read();
+
+			assert.deepStrictEqual({ walked, incomplete: schema.incompleteProfiles }, { walked: ['a', 'a'], incomplete: [] });
+		});
 	});
 });

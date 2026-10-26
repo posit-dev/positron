@@ -140,6 +140,7 @@ suite('SqlSession', () => {
 			{ extensionPath: extension.extensionPath, workspaceState: store },
 			testLog().log,
 			api,
+			0,
 		);
 		sessions.push(session);
 		session.start();
@@ -190,6 +191,26 @@ suite('SqlSession', () => {
 		api.held[1]();
 		await session.whenRead();
 		assert.deepStrictEqual(session.schema.connections.map(connection => connection.profileId), ['a']);
+	});
+
+	test('a burst of connection changes is read once', async () => {
+		const api = new FakeConnections();
+		const session = startSession(api);
+		await session.whenRead();
+		let reads = 0;
+		const getConnections = api.getConnections.bind(api);
+		api.getConnections = () => {
+			reads++;
+			return getConnections();
+		};
+
+		api.fire();
+		api.fire();
+		api.fire();
+		await until(() => reads > 0, 'the read the changes asked for');
+		await new Promise(resolve => setTimeout(resolve, 20));
+
+		assert.strictEqual(reads, 1);
 	});
 
 	test('a file\'s connection is opened for it once a session, not every time it is asked for', async () => {

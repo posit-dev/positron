@@ -13,7 +13,7 @@ import { defaultSchemaOf, dialectOfDriver } from './dialects';
 import { hoverFor } from './hover';
 import { collectLinks } from './links';
 import { SqlLog } from './log';
-import { ConnectionRef, DataConnectionsApi, EMPTY_SCHEMA, readConnectionSchema, schemaOfProfile, SqlSchema } from './schema';
+import { ConnectionRef, DataConnectionsApi, EMPTY_SCHEMA, SchemaReader, schemaOfProfile, SqlSchema } from './schema';
 import { SchemaIndex } from './schemaIndex';
 import { ConnectionSelection, EffectiveSelection, resolveSelection } from './selection';
 import { SqlStatementRangeProvider } from './statementRange';
@@ -55,6 +55,14 @@ const NO_DIAGNOSTICS_SCHEMES: ReadonlySet<string> = new Set(['git', 'vsls', 'git
  * that a squiggle appears while the user is still looking at what caused it.
  */
 const DIAGNOSTIC_DELAY_MS = 300;
+
+/**
+ * How long to wait after Positron says the connections changed before reading them.
+ *
+ * Opening one connection can be several changes in a row -- the instance, then its state -- and
+ * each would otherwise start a read of its own.
+ */
+const CONNECTION_CHANGE_DELAY_MS = 250;
 
 /**
  * The part of `positron.dataConnections` a session uses: the reads, plus what it is told when
@@ -159,6 +167,12 @@ export class SqlSession implements vscode.Disposable {
 	/** The dialect setting already reported as unrecognized, so it is said once and not per parse. */
 	private _reportedDialect: string | undefined;
 
+	/** Reads the schema, walking only the connections that have something new to find. */
+	private readonly _reader: SchemaReader;
+
+	/** A read asked for by a connection change, waiting out {@link CONNECTION_CHANGE_DELAY_MS}. */
+	private _pendingRead: NodeJS.Timeout | undefined;
+
 	/** Pending re-analyses, one per document, so that typing does not parse on every keystroke. */
 	private readonly _pending = new Map<string, NodeJS.Timeout>();
 
@@ -178,7 +192,9 @@ export class SqlSession implements vscode.Disposable {
 		private readonly _context: SessionContext,
 		private readonly _log: SqlLog,
 		private readonly _api: SessionApi = positron.dataConnections,
+		private readonly _changeDelayMs = CONNECTION_CHANGE_DELAY_MS,
 	) {
+		this._reader = new SchemaReader(_log, _api);
 		this._diagnostics = vscode.languages.createDiagnosticCollection('sql');
 		this._selection = new ConnectionSelection(_context.workspaceState);
 		this._statusBar = new ConnectionStatusBar(SELECT_CONNECTION_COMMAND);
@@ -220,9 +236,10 @@ export class SqlSession implements vscode.Disposable {
 			}),
 
 			vscode.commands.registerCommand(REFRESH_SCHEMA_COMMAND, () => {
-				// Asked for by hand, so a connection that failed to open is worth trying again.
+				// Asked for by hand, so a connection that failed to open is worth trying again, and
+				// one that stayed open may have new tables in it.
 				this._attempted.clear();
-				return this.refreshSchema();
+				return this.refreshSchema(true);
 			}),
 			vscode.commands.registerCommand(SELECT_CONNECTION_COMMAND, () => this._selectConnection()),
 
@@ -311,7 +328,13 @@ export class SqlSession implements vscode.Disposable {
 
 			// The user connecting to or disconnecting from a database is what changes the answer,
 			// and Positron says when that happens, so there is nothing to poll for.
-			this._api.onDidChangeConnections(() => void this.refreshSchema()),
+			this._api.onDidChangeConnections(() => {
+				clearTimeout(this._pendingRead);
+				this._pendingRead = setTimeout(() => {
+					this._pendingRead = undefined;
+					void this.refreshSchema();
+				}, this._changeDelayMs);
+			}),
 		);
 
 		this._relink();
@@ -339,6 +362,7 @@ export class SqlSession implements vscode.Disposable {
 		this._disposed = true;
 		// Nothing more will be read, and a pick waiting on the first read gives up on seeing it.
 		this._resolveFirstRead();
+		clearTimeout(this._pendingRead);
 		for (const pending of this._pending.values()) {
 			clearTimeout(pending);
 		}
@@ -402,12 +426,16 @@ export class SqlSession implements vscode.Disposable {
 		}
 	}
 
-	/** Re-reads the user's data connections and re-analyzes every open document. */
-	public async refreshSchema(): Promise<void> {
+	/**
+	 * Re-reads the user's data connections and re-analyzes every open document.
+	 *
+	 * @param fresh Walk every open connection again, rather than only those that just opened.
+	 */
+	public async refreshSchema(fresh = false): Promise<void> {
 		const generation = ++this._generation;
 		let payload: SqlSchema;
 		try {
-			payload = await readConnectionSchema(this._log, this._api);
+			payload = await this._reader.read(fresh);
 		} catch (error) {
 			// Completions still work without metadata: keywords are always available, and the
 			// alternative to keeping the old schema is dropping tables the user can still see in

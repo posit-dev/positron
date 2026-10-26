@@ -259,92 +259,18 @@ export function explainEmptySchema(
 }
 
 /**
- * Reads every live data connection and returns their tables and columns.
- *
- * Each connection is asked for by id rather than letting Positron pick: a SQL file may well be
- * written against any of them, and with more than one live there is nothing to pick on. A
- * connection that fails, or takes longer than {@link SCHEMA_READ_TIMEOUT_MS}, is logged and left
- * out, so one unreachable database does not cost the completions from the others.
+ * Reads every live data connection and returns their tables and columns, in one go.
  *
  * @param log Where to report what was read, and anything that went wrong.
  * @param api The data connections API; overridden in tests.
  * @param timeoutMs How long one connection's read may take; shortened in tests.
  */
-export async function readConnectionSchema(
+export function readConnectionSchema(
 	log: SqlLog,
 	api: DataConnectionsApi = positron.dataConnections,
 	timeoutMs = SCHEMA_READ_TIMEOUT_MS,
 ): Promise<SqlSchema> {
-	let connections: positron.DataConnectionSummary[];
-	try {
-		connections = await api.getConnections();
-	} catch (error) {
-		// Not an error condition for a SQL file, which still gets keywords and diagnostics. This is
-		// also where a Data Connections feature the user switched off ends up: the API rejects
-		// rather than answering with no connections, and its error names the setting.
-		log.info(`Data connections are unavailable, so completions cover SQL keywords only: ${error}`);
-		return EMPTY_SCHEMA;
-	}
-
-	const open = connections.filter(connection => connection.connected);
-	const configured = connections.filter(connection => supportsSql(connection.driverId)).map(refOf);
-
-	// Which connections were considered and which were passed over. At debug, not info: a schema
-	// read happens when the user connects or disconnects rather than as they type, but naming
-	// every profile on every read would still crowd out the headline below.
-	const closed = connections.filter(connection => !connection.connected);
-	if (closed.length > 0) {
-		log.debug(`Skipped ${closed.length} data connection(s) that are not open: ${names(closed)}.`);
-	}
-
-	// A connection to something that is not a SQL database has no tables to offer and cannot be
-	// written against, so it is left out of the schema and out of the picker with it.
-	const nonSql = open.filter(connection => !supportsSql(connection.driverId));
-	if (nonSql.length > 0) {
-		log.debug(`Skipped ${nonSql.length} open data connection(s) that are not SQL databases:`
-			+ ` ${names(nonSql)}.`);
-	}
-	const live = open.filter(connection => supportsSql(connection.driverId));
-
-	if (live.length === 0) {
-		log.info(explainEmptySchema(connections.length, nonSql.length));
-		return { ...EMPTY_SCHEMA, configured };
-	}
-
-	log.debug(`Reading the schema of ${live.length} live data connection(s): ${names(live)}.`);
-
-	// Read side by side, and each one given a deadline: one warehouse still resuming, or a host
-	// that never answers, must not hold up the tables of every other connection -- nor leave the
-	// file scoped to a healthy one with nothing at all.
-	const outcomes = await Promise.all(live.map(connection => readOne(connection, log, api, timeoutMs)));
-
-	const tables: SqlTable[] = [];
-	const read: ConnectionRef[] = [];
-	const incompleteProfiles: string[] = [];
-	live.forEach((connection, index) => {
-		const outcome = outcomes[index];
-		if (outcome === 'disconnected') {
-			return;
-		}
-		read.push(refOf(connection));
-		if (outcome === 'failed') {
-			// A connection that could not be read is a hole in the schema, same as one cut short
-			// by the caps, and a name that lives in the hole must not be reported as unknown. It
-			// is still listed as open: a file can be scoped to it, and it will fill in when it
-			// reads.
-			incompleteProfiles.push(connection.profileId);
-			return;
-		}
-		if (outcome.truncated) {
-			incompleteProfiles.push(connection.profileId);
-		}
-		tables.push(...outcome.tables);
-	});
-
-	// At info, not debug: this is the line that answers "why am I not getting table completions",
-	// and it has to be readable without the user first raising the log level.
-	log.info(`Read ${tables.length} table(s) from ${live.length} live data connection(s).`);
-	return { tables, connections: read, configured, incompleteProfiles };
+	return new SchemaReader(log, api, timeoutMs).read();
 }
 
 /**
@@ -363,47 +289,210 @@ type ReadOutcome =
 	| 'disconnected'
 	| 'failed';
 
-/** Reads one connection's schema, within a deadline, logging how it went. */
-async function readOne(
-	connection: positron.DataConnectionSummary,
-	log: SqlLog,
-	api: DataConnectionsApi,
-	timeoutMs: number,
-): Promise<ReadOutcome> {
-	const started = Date.now();
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	const deadline = new Promise<'timeout'>(resolve => {
-		timer = setTimeout(() => resolve('timeout'), timeoutMs);
-	});
-	try {
-		// The read itself is not cancelled, only no longer waited for. What it answers late is
-		// dropped by the race, and a late rejection is already handled by it.
-		const schema = await Promise.race([api.getSchema(connection.profileId, SCHEMA_BOUNDS), deadline]);
-		if (schema === 'timeout') {
-			log.warn(`Gave up reading the schema of ${connection.name} after`
-				+ ` ${timeoutMs / 1000}s; run "SQL: Refresh Database Schema" to try again.`);
-			return 'failed';
+/**
+ * Reads the tables and columns of the user's live data connections, again each time they change,
+ * walking a connection only when there is something new to find in it.
+ *
+ * Each connection is asked for by id rather than letting Positron pick: a SQL file may well be
+ * written against any of them, and with more than one live there is nothing to pick on. A
+ * connection that fails, or takes longer than the deadline, is logged and left out, so one
+ * unreachable database does not cost the completions from the others.
+ *
+ * A walk costs a round trip to the database per node with children, up to thousands of them, and
+ * a read is asked for whenever any connection opens or closes and any profile is added, renamed or
+ * removed. So a connection that stayed open keeps the schema it was last read with, and only one
+ * that has just opened -- or could not be read last time -- is walked.
+ */
+export class SchemaReader {
+
+	/**
+	 * Each open connection's schema as last read, by profile. Kept as read rather than flattened,
+	 * so a connection the user renames is named by its new name without being walked again.
+	 */
+	private readonly _schemas = new Map<string, positron.DataConnectionSchema>();
+
+	/**
+	 * Walks in flight, by profile.
+	 *
+	 * A walk given up on at the deadline is not cancelled -- the API has no way to -- and goes on
+	 * querying the database. A read asked for meanwhile waits on that walk rather than starting a
+	 * second one beside it.
+	 */
+	private readonly _walks = new Map<string, Promise<positron.DataConnectionSchema | undefined>>();
+
+	/**
+	 * @param _log Where to report what was read, and anything that went wrong.
+	 * @param _api The data connections API; overridden in tests.
+	 * @param _timeoutMs How long one connection's read may take; shortened in tests.
+	 */
+	constructor(
+		private readonly _log: SqlLog,
+		private readonly _api: DataConnectionsApi = positron.dataConnections,
+		private readonly _timeoutMs = SCHEMA_READ_TIMEOUT_MS,
+	) { }
+
+	/**
+	 * Reads what is open now.
+	 *
+	 * @param fresh Walk every open connection again, rather than only those not read yet. For the
+	 *   user asking: a database's tables can change without the connection to it closing.
+	 */
+	public async read(fresh = false): Promise<SqlSchema> {
+		let connections: positron.DataConnectionSummary[];
+		try {
+			connections = await this._api.getConnections();
+		} catch (error) {
+			// Not an error condition for a SQL file, which still gets keywords and diagnostics. This
+			// is also where a Data Connections feature the user switched off ends up: the API
+			// rejects rather than answering with no connections, and its error names the setting.
+			this._log.info(`Data connections are unavailable, so completions cover SQL keywords only: ${error}`);
+			return EMPTY_SCHEMA;
 		}
-		if (!schema) {
-			// Disconnected between the two calls, which a user can do at any moment.
-			log.info(`No schema for ${connection.name}: it is no longer connected.`);
-			return 'disconnected';
+
+		const open = connections.filter(connection => connection.connected);
+		const configured = connections.filter(connection => supportsSql(connection.driverId)).map(refOf);
+
+		// Which connections were considered and which were passed over. At debug, not info: a schema
+		// read happens when the user connects or disconnects rather than as they type, but naming
+		// every profile on every read would still crowd out the headline below.
+		const closed = connections.filter(connection => !connection.connected);
+		if (closed.length > 0) {
+			this._log.debug(`Skipped ${closed.length} data connection(s) that are not open: ${names(closed)}.`);
 		}
-		if (schema.truncated) {
-			log.info(`The schema of ${connection.name} is larger than the completion limit;`
-				+ ' some tables or columns will be missing from completions, and table names will'
-				+ ' not be reported as unknown.');
+
+		// A connection to something that is not a SQL database has no tables to offer and cannot be
+		// written against, so it is left out of the schema and out of the picker with it.
+		const nonSql = open.filter(connection => !supportsSql(connection.driverId));
+		if (nonSql.length > 0) {
+			this._log.debug(`Skipped ${nonSql.length} open data connection(s) that are not SQL databases:`
+				+ ` ${names(nonSql)}.`);
 		}
-		const tables = flattenSchemaNodes(schema.nodes, connection.name, connection.profileId);
-		log.debug(`${connection.name} (${connection.driverName}): ${describeTables(tables)}`
-			+ ` in ${Date.now() - started}ms.`);
-		return { tables, truncated: schema.truncated };
-	} catch (error) {
-		log.warn(`Could not read the schema of ${connection.name}: ${error}`);
-		return 'failed';
-	} finally {
-		clearTimeout(timer);
+		const live = open.filter(connection => supportsSql(connection.driverId));
+
+		// A connection that closed is walked again when it reopens: what is in it may have changed
+		// in between.
+		const liveIds = new Set(live.map(connection => connection.profileId));
+		for (const profileId of [...this._schemas.keys()]) {
+			if (!liveIds.has(profileId)) {
+				this._schemas.delete(profileId);
+			}
+		}
+
+		if (live.length === 0) {
+			this._log.info(explainEmptySchema(connections.length, nonSql.length));
+			return { ...EMPTY_SCHEMA, configured };
+		}
+
+		const kept = fresh ? [] : live.filter(connection => this._schemas.has(connection.profileId));
+		const walked = live.filter(connection => !kept.includes(connection));
+		if (walked.length > 0) {
+			this._log.debug(`Reading the schema of ${walked.length} live data connection(s): ${names(walked)}.`);
+		}
+		if (kept.length > 0) {
+			this._log.debug(`Keeping the schema already read from ${kept.length} data connection(s): ${names(kept)}.`);
+		}
+
+		// Read side by side, and each one given a deadline: one warehouse still resuming, or a host
+		// that never answers, must not hold up the tables of every other connection -- nor leave the
+		// file scoped to a healthy one with nothing at all.
+		const outcomes = await Promise.all(live.map(connection => {
+			const schema = kept.includes(connection) ? this._schemas.get(connection.profileId) : undefined;
+			return schema ? outcomeOf(connection, schema) : this._readOne(connection);
+		}));
+
+		const tables: SqlTable[] = [];
+		const read: ConnectionRef[] = [];
+		const incompleteProfiles: string[] = [];
+		live.forEach((connection, index) => {
+			const outcome = outcomes[index];
+			if (outcome === 'disconnected') {
+				return;
+			}
+			read.push(refOf(connection));
+			if (outcome === 'failed') {
+				// A connection that could not be read is a hole in the schema, same as one cut short
+				// by the caps, and a name that lives in the hole must not be reported as unknown. It
+				// is still listed as open: a file can be scoped to it, and it will fill in when it
+				// reads.
+				incompleteProfiles.push(connection.profileId);
+				return;
+			}
+			if (outcome.truncated) {
+				incompleteProfiles.push(connection.profileId);
+			}
+			tables.push(...outcome.tables);
+		});
+
+		// At info, not debug: this is the line that answers "why am I not getting table completions",
+		// and it has to be readable without the user first raising the log level.
+		this._log.info(`Read ${tables.length} table(s) from ${live.length} live data connection(s).`);
+		return { tables, connections: read, configured, incompleteProfiles };
 	}
+
+	/** Reads one connection's schema, within a deadline, logging how it went. */
+	private async _readOne(connection: positron.DataConnectionSummary): Promise<ReadOutcome> {
+		const started = Date.now();
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const deadline = new Promise<'timeout'>(resolve => {
+			timer = setTimeout(() => resolve('timeout'), this._timeoutMs);
+		});
+		try {
+			// The walk itself is not cancelled, only no longer waited for. What it answers late is
+			// dropped by the race, and a late rejection is already handled by it.
+			const schema = await Promise.race([this._walk(connection.profileId), deadline]);
+			if (schema === 'timeout') {
+				this._log.warn(`Gave up reading the schema of ${connection.name} after`
+					+ ` ${this._timeoutMs / 1000}s; run "SQL: Refresh Database Schema" to try again.`);
+				return 'failed';
+			}
+			if (!schema) {
+				// Disconnected between the two calls, which a user can do at any moment.
+				this._log.info(`No schema for ${connection.name}: it is no longer connected.`);
+				return 'disconnected';
+			}
+			this._schemas.set(connection.profileId, schema);
+			if (schema.truncated) {
+				this._log.info(`The schema of ${connection.name} is larger than the completion limit;`
+					+ ' some tables or columns will be missing from completions, and table names will'
+					+ ' not be reported as unknown.');
+			}
+			const outcome = outcomeOf(connection, schema);
+			this._log.debug(`${connection.name} (${connection.driverName}): ${describeTables(outcome.tables)}`
+				+ ` in ${Date.now() - started}ms.`);
+			return outcome;
+		} catch (error) {
+			this._log.warn(`Could not read the schema of ${connection.name}: ${error}`);
+			return 'failed';
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
+	/** Walks a connection's schema, joining a walk of it already in flight rather than starting another. */
+	private _walk(profileId: string): Promise<positron.DataConnectionSchema | undefined> {
+		const inFlight = this._walks.get(profileId);
+		if (inFlight) {
+			return inFlight;
+		}
+		const walk = Promise.resolve(this._api.getSchema(profileId, SCHEMA_BOUNDS));
+		const done = () => {
+			this._walks.delete(profileId);
+		};
+		walk.then(done, done);
+		this._walks.set(profileId, walk);
+		return walk;
+	}
+}
+
+/** The tables one connection's schema holds, and whether that is all of them. */
+function outcomeOf(
+	connection: positron.DataConnectionSummary,
+	schema: positron.DataConnectionSchema,
+): { readonly tables: SqlTable[]; readonly truncated: boolean } {
+	return {
+		tables: flattenSchemaNodes(schema.nodes, connection.name, connection.profileId),
+		truncated: schema.truncated,
+	};
 }
 
 /** How a connection is carried once the schema has been read from it. */
