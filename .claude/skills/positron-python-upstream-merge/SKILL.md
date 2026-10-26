@@ -93,7 +93,9 @@ Compare `git diff refs/vscode-python/START refs/vscode-python/END -- .github/` w
 
 - **PET:** compare `positron.externalDependencies.pet` in `package.json` with `gh release list --repo posit-dev/positron-pet-builds` and the newest `release/*` branch of `microsoft/python-environment-tools`. If upstream has a newer release without a Positron build, tell the user. Do not trigger the positron-builds workflow yourself.
 - In `extensions/positron-python`: `(cd python_files/posit && uv lock --upgrade)`, `uv run scripts/pip-compile-ipykernel.py`, and the command in `python_files/positron_requirements/requirements.in`. Leave `python_files/jedilsp_requirements` alone; it is an upstream file.
-- From the repo root: `uv run $S/req_diff.py <commit-before-step-7>`. For each `MAJOR` row, read the package changelog, run the `python_files/posit` tests, and add it to the PR's validation list. If a requirements header still names a Python version Positron dropped, that is why this round's bump is large.
+- Use the exact command written in `requirements.in` (it redirects with `>`), so the generated header only changes where the Python version changes.
+- From the repo root: `uv run $S/req_diff.py <commit-before-step-7>`. Only the `ipykernel_requirements` and `positron_requirements` rows ship to users; `uv.lock` is the test environment. For each shipped `MAJOR` row, read the package changelog, check how `python_files/posit` uses the package, and add it to the PR's validation list. Also check that Positron code doesn't import a package that left the bundle.
+- Run the kernel tests the way the `positron-ipykernel-tests` CI job does: `uv run scripts/vendor.py` once (concurrent runs race on `_vendor/`), then for each Python version, `uv sync --active --inexact --frozen --project python_files/posit` and `pytest python_files/posit`. Include the oldest supported Python: its lock resolves closest to the bundled versions. If a requirements header still names a Python version Positron dropped, that is why this round's bump is large.
 
 ### 8. PR
 
