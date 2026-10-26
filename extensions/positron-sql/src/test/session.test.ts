@@ -322,4 +322,46 @@ suite('SqlSession', () => {
 			await configuration.update('enabled', undefined, vscode.ConfigurationTarget.Global);
 		}
 	});
+
+	test('a session switched off lets go of everything, and the next one starts afresh', async () => {
+		const sqlCommands = async () => (await vscode.commands.getCommands(true))
+			.filter(command => command === 'sql.refreshDatabaseSchema' || command === 'sql.selectDataConnection');
+		const api = new FakeConnections();
+		const first = startSession(api);
+		await first.whenRead();
+
+		first.dispose();
+		const released = { listeners: api.listeners, commands: await sqlCommands() };
+		// Registering the commands again throws if the first session still holds them.
+		const second = startSession(api);
+		await second.whenRead();
+		await vscode.commands.executeCommand('sql.refreshDatabaseSchema');
+
+		assert.deepStrictEqual(
+			{ released, restarted: { listeners: api.listeners, commands: (await sqlCommands()).sort() } },
+			{
+				released: { listeners: 0, commands: [] },
+				restarted: { listeners: 1, commands: ['sql.refreshDatabaseSchema', 'sql.selectDataConnection'] },
+			},
+		);
+	});
+
+	test('sql.enabled switched off and on again tears the session down and starts another', async () => {
+		const sqlCommands = async () => (await vscode.commands.getCommands(true))
+			.filter(command => command === 'sql.refreshDatabaseSchema').length;
+		await vscode.extensions.getExtension('positron.positron-sql')!.activate();
+		const configuration = vscode.workspace.getConfiguration('sql');
+		try {
+			await configuration.update('enabled', true, vscode.ConfigurationTarget.Global);
+			const on = await sqlCommands();
+			await configuration.update('enabled', false, vscode.ConfigurationTarget.Global);
+			const off = await sqlCommands();
+			await configuration.update('enabled', true, vscode.ConfigurationTarget.Global);
+			const again = await sqlCommands();
+
+			assert.deepStrictEqual({ on, off, again }, { on: 1, off: 0, again: 1 });
+		} finally {
+			await configuration.update('enabled', undefined, vscode.ConfigurationTarget.Global);
+		}
+	});
 });
