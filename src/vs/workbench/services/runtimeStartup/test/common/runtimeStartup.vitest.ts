@@ -2458,22 +2458,27 @@ describe('RuntimeStartupService - startup sequence', () => {
 			expect(announced).toEqual([oldR.runtimeId, pinnedR.runtimeId]);
 		});
 
-		it('keeps the saved setup of an affiliated runtime that is the pinned runtime', async () => {
+		it('keeps the saved setup of an affiliated runtime that is the pinned runtime, and takes the rest from the pin', async () => {
 			// The saved copy holds what the extension recorded when it started, such as an
-			// environment module's startup command. The pin's answer can lack it.
-			const savedSetup = { packagerMetadata: { type: 'module', startupCommand: 'module load R/4.4' } };
+			// environment module's startup command. The pin's answer can lack it, and it
+			// can say so with an undefined value. Where the answer has a value, it is newer.
+			const moduleSetup = { type: 'module', startupCommand: 'module load R/4.4' };
+			const saved = { binpath: '/opt/R/4.4/bin/R', current: true, packagerMetadata: moduleSetup };
+			const answer = { binpath: '/opt/R/4.4/bin/R', current: false, packagerMetadata: undefined };
 			const { started } = await runStartupSequence({
-				languages: [{ ...rLanguage, affiliated: { metadata: { ...pinnedR, extraRuntimeData: savedSetup }, lastUsed: 2, lastStarted: 1 } }],
+				languages: [{ ...rLanguage, affiliated: { metadata: { ...pinnedR, extraRuntimeData: saved }, lastUsed: 2, lastStarted: 1 } }],
 				startupBehavior: { default: LanguageStartupBehavior.Auto },
-				manager: { pinnedWorkspaceRuntime: pinR() },
+				manager: { pinnedWorkspaceRuntime: async () => ({ ...pinnedR, extraRuntimeData: answer }) },
 			});
 
+			const merged = { binpath: '/opt/R/4.4/bin/R', current: false, packagerMetadata: moduleSetup };
 			const startedWith = vi.mocked(ctx.get(IRuntimeSessionService).autoStartRuntime).mock.calls.map(([runtime]) => runtime.extraRuntimeData);
 			expect({
 				started: started.map(start => start.runtimeId),
 				startedWith,
 				registeredWith: ctx.get(ILanguageRuntimeService).getRegisteredRuntime(pinnedR.runtimeId)?.extraRuntimeData,
-			}).toEqual({ started: [pinnedR.runtimeId], startedWith: [savedSetup], registeredWith: savedSetup });
+				savedWith: JSON.parse(ctx.get(IStorageService).get('positron.affiliatedRuntimeMetadata.v2.r', StorageScope.WORKSPACE) ?? '{}').metadata?.extraRuntimeData,
+			}).toEqual({ started: [pinnedR.runtimeId], startedWith: [merged], registeredWith: merged, savedWith: merged });
 		});
 
 		it('starts the affiliated runtime unchanged when no pin is set', async () => {
