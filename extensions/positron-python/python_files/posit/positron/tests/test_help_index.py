@@ -3,7 +3,10 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import os
+import pkgutil
 import sys
+import time
 from pathlib import Path
 from types import ModuleType
 
@@ -67,6 +70,25 @@ def test_does_not_list_the_home_directory(library, tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     assert fixture_names(find_modules()) == []
+
+
+def test_reuses_the_listing_until_a_search_path_entry_changes(library, tmp_path, monkeypatch):
+    library("fxmod.py")
+    assert fixture_names(find_modules()) == ["fxmod"]
+
+    listings = []
+    iter_modules = pkgutil.iter_modules
+    monkeypatch.setattr(
+        pkgutil, "iter_modules", lambda path=None: listings.append(path) or iter_modules(path)
+    )
+    assert fixture_names(find_modules()) == ["fxmod"]
+    assert listings == []
+
+    library("fxnew.py")
+    # Some filesystems record modification times only to the second.
+    os.utime(tmp_path, ns=(time.time_ns(), time.time_ns() + 2_000_000_000))
+    assert fixture_names(find_modules()) == ["fxmod", "fxnew"]
+    assert listings
 
 
 def test_lists_imported_modules(library, monkeypatch):

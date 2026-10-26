@@ -16,6 +16,9 @@ import tokenize
 from pathlib import Path
 from types import ModuleType
 
+# The latest listing of `sys.path`, and the key that it is valid for.
+_listing: tuple[tuple, dict[str, pkgutil.ModuleInfo]] | None = None
+
 
 def find_modules() -> dict[str, pkgutil.ModuleInfo | None]:
     """Map module names to where they were found on `sys.path`.
@@ -24,12 +27,8 @@ def find_modules() -> dict[str, pkgutil.ModuleInfo | None]:
     not found on `sys.path`. Listing reads directories, but imports nothing.
     """
     modules: dict[str, pkgutil.ModuleInfo | None] = dict.fromkeys(sys.builtin_module_names)
-    for info in pkgutil.iter_modules(_search_path()):
-        modules.setdefault(info.name, info)
-        directory = _package_directory(info)
-        if directory is not None:
-            for submodule in pkgutil.iter_modules([directory]):
-                modules.setdefault(f"{info.name}.{submodule.name}", submodule)
+    for name, info in _list_search_path().items():
+        modules.setdefault(name, info)
     for name, module in sys.modules.copy().items():
         if _is_module(module) and _is_module_name(name):
             modules.setdefault(name, None)
@@ -69,6 +68,38 @@ def search(query: str) -> list[tuple[str, str | None]]:
         if key in name.lower() or (summary is not None and key in summary.lower()):
             results.append((name, summary))
     return results
+
+
+def _list_search_path() -> dict[str, pkgutil.ModuleInfo]:
+    """List the modules on `sys.path`, with one level of submodules.
+
+    Listing reads every package directory, which can take seconds on a network
+    filesystem, so the listing is reused while each `sys.path` entry is unchanged.
+    Installing or removing a package changes the entry that contains it. A
+    submodule added to an existing package is listed after its entry changes.
+    """
+    global _listing
+    path = _search_path()
+    key = (tuple(path), tuple(_fingerprint(entry) for entry in path))
+    if _listing is not None and _listing[0] == key:
+        return _listing[1]
+    modules: dict[str, pkgutil.ModuleInfo] = {}
+    for info in pkgutil.iter_modules(path):
+        modules.setdefault(info.name, info)
+        directory = _package_directory(info)
+        if directory is not None:
+            for submodule in pkgutil.iter_modules([directory]):
+                modules.setdefault(f"{info.name}.{submodule.name}", submodule)
+    _listing = (key, modules)
+    return modules
+
+
+def _fingerprint(entry: str) -> tuple | None:
+    try:
+        info = Path(entry).stat()
+    except OSError:
+        return None
+    return (info.st_mtime_ns, info.st_ctime_ns, info.st_ino)
 
 
 def _search_path() -> list[str]:
