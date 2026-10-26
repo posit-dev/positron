@@ -43,8 +43,10 @@ export interface IConfigurePythonEnvToolArguments extends IResourceReference {
     pythonPath?: string;
 }
 
-export class ConfigurePythonEnvTool extends BaseTool<IConfigurePythonEnvToolArguments>
-    implements LanguageModelTool<IConfigurePythonEnvToolArguments> {
+export class ConfigurePythonEnvTool
+    extends BaseTool<IConfigurePythonEnvToolArguments>
+    implements LanguageModelTool<IConfigurePythonEnvToolArguments>
+{
     private readonly terminalExecutionService: TerminalCodeExecutionProvider;
     private readonly terminalHelper: ITerminalHelper;
     private readonly recommendedEnvService: IRecommendedEnvironmentService;

@@ -30,7 +30,7 @@ suite('Testing - utils', () => {
 
     suite('writeTestIdToClipboard', () => {
         async function copiedText(id: string): Promise<string> {
-            await utils.writeTestIdToClipboard(({ id } as unknown) as TestItem);
+            await utils.writeTestIdToClipboard({ id } as unknown as TestItem);
             return env.clipboard.readText();
         }
 
@@ -85,7 +85,7 @@ suite('Testing - utils', () => {
         });
 
         test('nothing is copied when there is no test item', async () => {
-            await utils.writeTestIdToClipboard((undefined as unknown) as TestItem);
+            await utils.writeTestIdToClipboard(undefined as unknown as TestItem);
 
             expect(await env.clipboard.readText()).to.equal('');
         });

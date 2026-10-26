@@ -373,7 +373,7 @@ suite('PythonTestController', () => {
 
     suite('environment change self-heal', () => {
         const workspaceUri: Uri = vscode.Uri.file('/workspace/root');
-        const workspaceFolder = ({ uri: workspaceUri, name: 'root', index: 0 } as unknown) as vscode.WorkspaceFolder;
+        const workspaceFolder = { uri: workspaceUri, name: 'root', index: 0 } as unknown as vscode.WorkspaceFolder;
 
         function setupController(hasProjects: boolean) {
             const controller = createController();

@@ -44,12 +44,12 @@ suite('Python Environments extension discovery adapter', () => {
         environmentChanges = new EventEmitter<DidChangeEnvironmentsEventArgs>();
         activeEnvironmentChanges = new EventEmitter<DidChangeEnvironmentEventArgs>();
         disposables = [];
-        envExtApi = ({
+        envExtApi = {
             onDidChangeEnvironments: environmentChanges.event,
             onDidChangeEnvironment: activeEnvironmentChanges.event,
             refreshEnvironments: sinon.stub().resolves(),
             resolveEnvironment: sinon.stub().resolves(undefined),
-        } as unknown) as PythonEnvironmentApi;
+        } as unknown as PythonEnvironmentApi;
         sinon.stub(apiInternal, 'getEnvExtApi').resolves(envExtApi);
     });
 
@@ -109,10 +109,10 @@ suite('Python Environments extension discovery adapter', () => {
 
         expect(() =>
             environmentChanges.fire([
-                ({
+                {
                     kind: EnvironmentChangeKind.remove,
                     environment: undefined,
-                } as unknown) as DidChangeEnvironmentsEventArgs[number],
+                } as unknown as DidChangeEnvironmentsEventArgs[number],
                 { kind: EnvironmentChangeKind.add, environment: valid },
             ]),
         ).not.to.throw();

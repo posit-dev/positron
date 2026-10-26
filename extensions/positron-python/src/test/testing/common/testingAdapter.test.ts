@@ -311,7 +311,7 @@ suite('End to End Tests: test adapters', () => {
             // 3. Confirm tests are found
             assert.ok(actualData.tests, 'Expected tests to be present');
             // 4. Confirm that the cwd returned is the symlink path and the test's path is also using the symlink as the root
-            const expandedTests = (expandCompactDiscoveryPayload(actualData as any).tests as unknown) as {
+            const expandedTests = expandCompactDiscoveryPayload(actualData as any).tests as unknown as {
                 children: { path: string }[];
             };
             if (process.platform === 'win32') {
@@ -389,7 +389,7 @@ suite('End to End Tests: test adapters', () => {
             // 3. Confirm tests are found
             assert.ok(actualData.tests, 'Expected tests to be present');
             // 4. Confirm that the cwd returned is the symlink path and the test's path is also using the symlink as the root
-            const expandedTests = (expandCompactDiscoveryPayload(actualData as any).tests as unknown) as {
+            const expandedTests = expandCompactDiscoveryPayload(actualData as any).tests as unknown as {
                 children: { path: string }[];
             };
             if (process.platform === 'win32') {

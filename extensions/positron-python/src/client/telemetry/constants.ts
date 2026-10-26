@@ -112,7 +112,7 @@ export const UNITTEST_RUN_FAILURE_CATEGORIES = [
     'unknown',
 ] as const;
 
-export type UnitTestRunFailureCategory = typeof UNITTEST_RUN_FAILURE_CATEGORIES[number];
+export type UnitTestRunFailureCategory = (typeof UNITTEST_RUN_FAILURE_CATEGORIES)[number];
 
 export enum PlatformErrors {
     FailedToParseVersion = 'FailedToParseVersion',

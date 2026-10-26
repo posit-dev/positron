@@ -26,13 +26,13 @@ import { mockedVSCodeNamespaces } from '../vscode-mock';
 
 suite('Chat fast-path environment setup', () => {
     const pythonPath = '/usr/bin/python3';
-    const environment = ({
+    const environment = {
         id: 'python-env',
         path: pythonPath,
         executable: { uri: Uri.file(pythonPath), bitness: 64, sysPrefix: '/usr' },
         version: { major: 3, minor: 13, micro: 0, release: { level: 'final', serial: 0 }, sysVersion: '3.13.0' },
         environment: { type: 'Venv' },
-    } as unknown) as ResolvedEnvironment;
+    } as unknown as ResolvedEnvironment;
     let tokenSource: CancellationTokenSource;
 
     function getToolResultText(content: readonly unknown[]): string {
@@ -58,7 +58,7 @@ suite('Chat fast-path environment setup', () => {
 
     suite('waitForActiveEnvironmentChange()', () => {
         function makeApi(emitter: EventEmitter<ActiveEnvironmentPathChangeEvent>) {
-            return ({ onDidChangeActiveEnvironmentPath: emitter.event } as unknown) as PythonExtension['environments'];
+            return { onDidChangeActiveEnvironmentPath: emitter.event } as unknown as PythonExtension['environments'];
         }
 
         test('resolves when an event matches the requested path', async () => {
@@ -180,7 +180,7 @@ suite('Chat fast-path environment setup', () => {
             const calls: string[] = [];
             let listenerAttached = false;
             let activePath = { path: '/old/python', id: 'old-env' };
-            const api = ({
+            const api = {
                 onDidChangeActiveEnvironmentPath: (handler: (event: ActiveEnvironmentPathChangeEvent) => void) => {
                     listenerAttached = true;
                     return emitter.event(handler);
@@ -196,7 +196,7 @@ suite('Chat fast-path environment setup', () => {
                     calls.push(`resolve:${typeof value === 'string' ? value : value.path}`);
                     return environment;
                 },
-            } as unknown) as PythonExtension['environments'];
+            } as unknown as PythonExtension['environments'];
 
             const result = await setEnvironmentDirectlyByPath(pythonPath, api, undefined, tokenSource.token);
 
@@ -206,12 +206,12 @@ suite('Chat fast-path environment setup', () => {
 
         test('does not update settings when the path cannot be resolved', async () => {
             const update = sinon.stub().resolves();
-            const api = ({
+            const api = {
                 onDidChangeActiveEnvironmentPath: new EventEmitter<ActiveEnvironmentPathChangeEvent>().event,
                 updateActiveEnvironmentPath: update,
                 getActiveEnvironmentPath: () => ({ path: '/old/python', id: 'old-env' }),
                 resolveEnvironment: sinon.stub().resolves(undefined),
-            } as unknown) as PythonExtension['environments'];
+            } as unknown as PythonExtension['environments'];
 
             const result = await setEnvironmentDirectlyByPath('/invalid/python', api, undefined, tokenSource.token);
 
@@ -221,11 +221,11 @@ suite('Chat fast-path environment setup', () => {
 
         test('does not update settings when the requested environment is already active', async () => {
             const update = sinon.stub().resolves();
-            const api = ({
+            const api = {
                 updateActiveEnvironmentPath: update,
                 getActiveEnvironmentPath: () => ({ path: pythonPath, id: 'python-env' }),
                 resolveEnvironment: sinon.stub().resolves(environment),
-            } as unknown) as PythonExtension['environments'];
+            } as unknown as PythonExtension['environments'];
 
             const result = await setEnvironmentDirectlyByPath(pythonPath, api, undefined, tokenSource.token);
 
@@ -237,14 +237,14 @@ suite('Chat fast-path environment setup', () => {
             const emitter = new EventEmitter<ActiveEnvironmentPathChangeEvent>();
             const resolveEnvironment = sinon.stub();
             resolveEnvironment.onFirstCall().resolves(environment);
-            const api = ({
+            const api = {
                 onDidChangeActiveEnvironmentPath: emitter.event,
                 updateActiveEnvironmentPath: async () => {
                     setImmediate(() => emitter.fire({ path: '/new/python', id: 'new-env', resource: undefined }));
                 },
                 getActiveEnvironmentPath: () => ({ path: '/old/python', id: 'old-env' }),
                 resolveEnvironment,
-            } as unknown) as PythonExtension['environments'];
+            } as unknown as PythonExtension['environments'];
 
             const result = await setEnvironmentDirectlyByPath('/new/python', api, undefined, tokenSource.token);
 
@@ -254,7 +254,7 @@ suite('Chat fast-path environment setup', () => {
 
         test('rejects immediately when already cancelled', async () => {
             const resolveEnvironment = sinon.stub().resolves(environment);
-            const api = ({ resolveEnvironment } as unknown) as PythonExtension['environments'];
+            const api = { resolveEnvironment } as unknown as PythonExtension['environments'];
             tokenSource.cancel();
 
             let error: unknown;
@@ -287,12 +287,12 @@ suite('Chat fast-path environment setup', () => {
             instance(terminalExecutionService),
         );
         when(serviceContainer.get<ITerminalHelper>(ITerminalHelper)).thenReturn(instance(terminalHelper));
-        when(serviceContainer.get<IRecommendedEnvironmentService>(IRecommendedEnvironmentService)).thenReturn(({
+        when(serviceContainer.get<IRecommendedEnvironmentService>(IRecommendedEnvironmentService)).thenReturn({
             getRecommededEnvironment: getRecommendedEnvironment,
-        } as unknown) as IRecommendedEnvironmentService);
+        } as unknown as IRecommendedEnvironmentService);
         const emitter = new EventEmitter<ActiveEnvironmentPathChangeEvent>();
         let activePath = { path: '/old/python', id: 'old-env' };
-        const api = ({
+        const api = {
             onDidChangeActiveEnvironmentPath: emitter.event,
             updateActiveEnvironmentPath: async (path: string) => {
                 activePath = { path, id: 'python-env' };
@@ -300,12 +300,12 @@ suite('Chat fast-path environment setup', () => {
             },
             getActiveEnvironmentPath: () => activePath,
             resolveEnvironment: sinon.stub().resolves(environment),
-        } as unknown) as PythonExtension['environments'];
-        const createVenvTool = ({ shouldCreateNewVirtualEnv } as unknown) as CreateVirtualEnvTool;
+        } as unknown as PythonExtension['environments'];
+        const createVenvTool = { shouldCreateNewVirtualEnv } as unknown as CreateVirtualEnvTool;
         const tool = new ConfigurePythonEnvTool(api, instance(serviceContainer), createVenvTool);
-        const options = ({
+        const options = {
             input: { pythonPath },
-        } as unknown) as LanguageModelToolInvocationOptions<IConfigurePythonEnvToolArguments>;
+        } as unknown as LanguageModelToolInvocationOptions<IConfigurePythonEnvToolArguments>;
 
         const result = await tool.invokeImpl(options, resource, tokenSource.token);
 

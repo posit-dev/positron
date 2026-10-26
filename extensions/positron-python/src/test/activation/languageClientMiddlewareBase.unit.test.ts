@@ -17,7 +17,7 @@ suite('LanguageClientMiddlewareBase', () => {
     test('uses exact interpreter lookup only for Python file configuration scopes', async () => {
         const getActiveInterpreter = sinon.stub().resolves({ path: '/env/python' });
         const getEnvironmentVariables = sinon.stub().resolves({});
-        const serviceContainer = ({
+        const serviceContainer = {
             get: (service: symbol) => {
                 if (service === IInterpreterService) {
                     return { getActiveInterpreter };
@@ -27,7 +27,7 @@ suite('LanguageClientMiddlewareBase', () => {
                 }
                 throw new Error(`Unexpected service: ${service.toString()}`);
             },
-        } as unknown) as IServiceContainer;
+        } as unknown as IServiceContainer;
         const middleware = new LanguageClientMiddlewareBase(serviceContainer, LanguageServerType.Node, sinon.stub());
         const next = sinon.stub().resolves([{}, {}]) as ConfigurationRequest.HandlerSignature;
         const script = Uri.file('/workspace/script.py');

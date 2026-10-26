@@ -205,8 +205,7 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
             // --- End Positron ---
             const provider = new CustomTerminalLinkProvider();
             const context: TerminalLinkContext = {
-                line:
-                    'Some random string with Cmd click to launch VS Code Native REPL (https://aka.ms/python-native-repl)',
+                line: 'Some random string with Cmd click to launch VS Code Native REPL (https://aka.ms/python-native-repl)',
                 terminal: {} as Terminal,
             };
             const token: CancellationToken = {
@@ -251,8 +250,7 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
             // --- End Positron ---
             const provider = new CustomTerminalLinkProvider();
             const context: TerminalLinkContext = {
-                line:
-                    'Some random string with Ctrl click to launch VS Code Native REPL (https://aka.ms/python-native-repl)',
+                line: 'Some random string with Ctrl click to launch VS Code Native REPL (https://aka.ms/python-native-repl)',
                 terminal: {} as Terminal,
             };
             const token: CancellationToken = {

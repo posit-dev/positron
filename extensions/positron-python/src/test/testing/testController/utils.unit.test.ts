@@ -839,7 +839,7 @@ suite('startRunResultNamedPipe drain-on-cancel tests', () => {
             error: '',
             ...payload,
         };
-        return ({ jsonrpc: '2.0', params: full } as unknown) as Message;
+        return { jsonrpc: '2.0', params: full } as unknown as Message;
     }
 
     test('cancellation alone does NOT resolve deferredTillServerClose and does NOT detach the listener (drain not interrupted)', async () => {

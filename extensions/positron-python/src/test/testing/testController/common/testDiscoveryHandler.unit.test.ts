@@ -217,12 +217,12 @@ suite('TestDiscoveryHandler', () => {
 
             const populateTestTreeStub = sinon.stub(utils, 'populateTestTree');
             const createErrorNodeSpy = sinon.spy(discoveryHandler, 'createErrorNode');
-            const mockErrorItem = ({
+            const mockErrorItem = {
                 id: 'error_id',
                 error: null,
                 canResolveChildren: false,
                 tags: [],
-            } as unknown) as TestItem;
+            } as unknown as TestItem;
             testControllerMock
                 .setup((t) => t.createTestItem(typemoq.It.isAny(), typemoq.It.isAny()))
                 .returns(() => mockErrorItem);
