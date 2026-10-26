@@ -1,0 +1,4 @@
+line-length = 100
+
+[lint.isort]
+known-first-party = ["req_diff"]
