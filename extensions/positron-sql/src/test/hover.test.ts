@@ -168,7 +168,7 @@ suite('hoverFor', () => {
 		const column = await hover('SELECT "*x*" FROM "a`b"', '"*x*"', odd);
 
 		assert.ok(table?.includes('| \\*x\\* | text |'), table);
-		assert.ok(table?.includes('| \\[y\\](z) | a\\|b |'), table);
+		assert.ok(table?.includes('| \\[y\\]\\(z\\) | a\\|b |'), table);
 		assert.ok(column?.includes('Column of ``a`b``'), column);
 	});
 

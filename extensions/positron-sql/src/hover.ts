@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Analysis } from './analyzer';
+import { escapeMarkdown } from './markdown';
 import { Reference, resolveReferences } from './references';
 import { SqlColumn, SqlTable } from './schema';
 import { qualifiedName, SchemaIndex } from './schemaIndex';
@@ -198,15 +199,6 @@ function inlineCode(text: string): string {
 
 function longestBacktickRun(text: string): number {
 	return Math.max(0, ...(text.match(/`+/g) ?? []).map(run => run.length));
-}
-
-/**
- * Text with every character that means something inside a line of markdown escaped, so it renders
- * as written. The ones that mean something only at the start of a line -- `#`, `-`, `+` -- never
- * come first here.
- */
-function escapeMarkdown(text: string): string {
-	return text.replace(/[\\`*_[\]<>|~&]/g, '\\$&');
 }
 
 function markdown(parts: readonly string[]): vscode.MarkdownString {

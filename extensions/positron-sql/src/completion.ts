@@ -137,8 +137,14 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 	 * The dialects each schema's names have been asked about in already, so a schema is primed
 	 * once per dialect. By dialect as well because the answers are: a file switched to another
 	 * dialect would otherwise ask about its names one item at a time.
+	 *
+	 * Recorded with the {@link _quotingEpoch} the answers were asked in, so that clearing a
+	 * dialect's answers un-primes every schema at once, not only the one being completed from.
 	 */
-	private readonly _primed = new WeakMap<SchemaIndex, Set<string>>();
+	private readonly _primed = new WeakMap<SchemaIndex, Map<string, number>>();
+
+	/** Bumped for a dialect each time its answers in {@link _quoting} are thrown away. */
+	private readonly _quotingEpoch = new Map<string, number>();
 
 	/**
 	 * @param _context The world as it stands for one document. Per document, not per window: which
@@ -302,13 +308,14 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		}
 		let primed = this._primed.get(schema);
 		if (!primed) {
-			primed = new Set();
+			primed = new Map();
 			this._primed.set(schema, primed);
 		}
 		if (known.size > MAX_REMEMBERED_QUOTING) {
 			known.clear();
-			primed.delete(dialect);
+			this._quotingEpoch.set(dialect, (this._quotingEpoch.get(dialect) ?? 0) + 1);
 		}
+		const epoch = this._quotingEpoch.get(dialect) ?? 0;
 		const answers = known;
 		const ask = (names: readonly string[]) => {
 			const asked = names.filter(name => BARE_IDENTIFIER.test(name) && !answers.has(name));
@@ -318,9 +325,9 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 			const quoted = analyzer.quoting(asked, dialect);
 			asked.forEach((name, at) => answers.set(name, quoted[at] ?? true));
 		};
-		if (!primed.has(dialect)) {
+		if (primed.get(dialect) !== epoch) {
 			// Every name the schema could insert, in one request rather than one per item.
-			primed.add(dialect);
+			primed.set(dialect, epoch);
 			ask(schemaNames(schema));
 		}
 		const open = identifierQuote(dialect);

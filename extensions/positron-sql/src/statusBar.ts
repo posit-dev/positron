@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { dialectName } from './dialects';
+import { escapeMarkdown } from './markdown';
 import { ConnectionRef } from './schema';
 import { EffectiveSelection } from './selection';
 
@@ -176,11 +177,6 @@ function hover(heading: string, detail: string, dialect: DialectInUse): vscode.M
 		detail,
 		vscode.l10n.t("SQL dialect: {0}", shown),
 	].join('\n\n'));
-}
-
-/** Text to show as typed inside markdown, with every character markdown gives a meaning escaped. */
-function escapeMarkdown(text: string): string {
-	return text.replace(/[\\`*_{}[\]()#+\-.!|<>~]/g, '\\$&');
 }
 
 /**
