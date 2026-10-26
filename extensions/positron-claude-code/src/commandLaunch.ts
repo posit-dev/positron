@@ -24,45 +24,48 @@ export interface CommandLaunch {
  * @param executable The CLI's name, e.g. "claude".
  * @param npmScript The CLI's script within `node_modules`, e.g.
  *   "@anthropic-ai/claude-code/cli.js".
- * @returns The launch, or undefined when the CLI is not on the PATH or is
- *   behind a batch launcher that is not npm's.
+ * @returns The launch, or undefined when the CLI is not on the PATH, or is
+ *   only behind batch launchers that are not npm's.
  */
 export async function getCommandLaunch(executable: string, npmScript: string): Promise<CommandLaunch | undefined> {
-	const executablePath = await resolveOnPath(executable);
-	if (!executablePath) {
-		return undefined;
-	}
-	if (!/\.(cmd|bat)$/i.test(executablePath)) {
-		return { command: executablePath, args: [] };
-	}
+	// Skip a batch launcher that isn't npm's (e.g. pnpm's, or one left behind
+	// by an uninstall) rather than give up, since a later one may run.
+	for (const executablePath of await findOnPath(executable)) {
+		if (!/\.(cmd|bat)$/i.test(executablePath)) {
+			return { command: executablePath, args: [] };
+		}
 
-	// npm puts the package next to its launcher, and the launcher prefers a
-	// node.exe beside it over the one on the PATH.
-	const directory = path.dirname(executablePath);
-	const script = path.join(directory, 'node_modules', ...npmScript.split('/'));
-	const localNode = path.join(directory, 'node.exe');
-	const node = await isFile(localNode) ? localNode : await resolveOnPath('node');
-	if (!node || !await isFile(script)) {
-		return undefined;
+		// npm puts the package next to its launcher, and the launcher prefers a
+		// node.exe beside it over the one on the PATH.
+		const directory = path.dirname(executablePath);
+		const script = path.join(directory, 'node_modules', ...npmScript.split('/'));
+		if (!await isFile(script)) {
+			continue;
+		}
+		const localNode = path.join(directory, 'node.exe');
+		const node = await isFile(localNode) ? localNode : (await findOnPath('node'))[0];
+		if (node) {
+			return { command: node, args: [script] };
+		}
 	}
-	return { command: node, args: [script] };
+	return undefined;
 }
 
 /**
  * Find an executable on the PATH, including Windows launchers like
  * `claude.cmd`. Mirrors positron-supervisor's lookup for its MCP agents.
- * @returns The executable's path, or undefined when it is not on the PATH.
+ * @returns Every match, in PATH order.
  */
-async function resolveOnPath(executable: string): Promise<string | undefined> {
+async function findOnPath(executable: string): Promise<string[]> {
 	const directories = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
 	const names = os.platform() === 'win32'
 		? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';').map(ext => executable + ext)
 		: [executable];
 	// Check every candidate at once, so one slow directory doesn't hold up
-	// the rest, and take the first in PATH order.
+	// the rest, and keep them in PATH order.
 	const candidates = directories.flatMap(directory => names.map(name => path.join(directory, name)));
 	const found = await Promise.all(candidates.map(candidate => isExecutable(candidate)));
-	return candidates.find((_, i) => found[i]);
+	return candidates.filter((_, i) => found[i]);
 }
 
 /**

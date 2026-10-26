@@ -82,6 +82,20 @@ describe('getCommandLaunch', () => {
 		expect(await getCommandLaunch('claude', '@anthropic-ai/claude-code/cli.js')).toEqual({ command: node, args: [script] });
 	});
 
+	it('skips a Windows launcher whose script is not where npm puts it', async () => {
+		const otherDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'command-launch-'));
+		try {
+			vi.mocked(os.platform).mockReturnValue('win32');
+			vi.stubEnv('PATH', [binDirectory, otherDirectory].join(path.delimiter));
+			touch('claude.cmd');
+			const claude = path.join(otherDirectory, 'claude.EXE');
+			fs.writeFileSync(claude, '');
+			expect(await getCommandLaunch('claude', '@anthropic-ai/claude-code/cli.js')).toEqual({ command: claude, args: [] });
+		} finally {
+			fs.rmSync(otherDirectory, { recursive: true, force: true });
+		}
+	});
+
 	it('is undefined for a Windows launcher whose script is not where npm puts it', async () => {
 		vi.mocked(os.platform).mockReturnValue('win32');
 		touch('claude.cmd');
