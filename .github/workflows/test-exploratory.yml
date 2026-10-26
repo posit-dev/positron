@@ -284,6 +284,15 @@ jobs:
             });
           '
 
+  # The run page names its PR now, not when explore ends. Its own job, like
+  # ack's summary on the comment path, so nothing downstream waits for it.
+  dispatch-summary:
+    name: dispatch-summary
+    needs: [dispatch-ref]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
       - name: Check out the harness
         continue-on-error: true
         uses: actions/checkout@v7
@@ -296,14 +305,13 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      # The run page names its PR now, not when explore ends.
       - name: Summarize the target
         continue-on-error: true
         uses: ./.harness/.github/actions/pr-exploratory-test
         with:
           mode: summary
           branch: ${{ inputs.ref }}
-          pr-number: ${{ steps.pr.outputs.number }}
+          pr-number: ${{ needs.dispatch-ref.outputs.pr_number }}
           focus: ${{ inputs.focus }}
           time-limit: ${{ inputs.time_limit }}
 

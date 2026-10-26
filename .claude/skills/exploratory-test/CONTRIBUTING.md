@@ -87,8 +87,9 @@ skipped with a reply linking to that run; one with a focus runs alongside it.
 variables > Actions > Variables): GitHub logins separated by commas. Edit it
 to add or remove someone; empty it to end the experiment. No PR needed.
 
-An automatic run is named `Exploratory auto-run #<PR>`, and the suggest
-workflow skips a PR that already has a run by that name. If starting the run
+An automatic run's name starts with `Exploratory auto-run #<PR>`, followed by
+the branch, and the suggest workflow skips a PR that already has a run with
+that prefix. If starting the run
 fails, it posts the tip instead.
 
 Its PR comment says it was started automatically and, once there is a

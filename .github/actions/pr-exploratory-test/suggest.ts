@@ -15,7 +15,7 @@
 
 import { appendFileSync } from 'node:fs';
 import { postOrEditComment } from './comment.mjs';
-import { autoRunName, buildSuggestPrompt, isAutoRunTitle, findPriorUse, isAutoRunAuthor, parseVerdict, renderSuggestComment, skipReason } from './suggest-lib.ts';
+import { autoRunName, buildSuggestPrompt, findPriorUse, isAutoRunAuthor, isAutoRunTitle, parseVerdict, renderSuggestComment, skipReason } from './suggest-lib.ts';
 
 const API = 'https://api.github.com';
 const REPO = mustEnv('GITHUB_REPOSITORY');
