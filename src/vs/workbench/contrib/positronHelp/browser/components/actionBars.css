@@ -85,13 +85,26 @@
 	justify-content: space-between;
 }
 
-.help-search-suggestions > button:hover,
+.help-search-suggestions > button:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
 .help-search-suggestions > button.active {
 	color: var(--vscode-editorSuggestWidget-selectedForeground);
 	background: var(--vscode-editorSuggestWidget-selectedBackground);
+	outline: 1px dashed var(--vscode-contrastActiveBorder);
+	outline-offset: -1px;
+}
+
+.help-search-suggestions .label {
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }
 
 .help-search-suggestions .detail {
+	flex-shrink: 0;
 	margin-left: 8px;
 	opacity: 0.7;
 }

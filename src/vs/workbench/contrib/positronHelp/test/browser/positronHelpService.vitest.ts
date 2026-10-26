@@ -121,6 +121,7 @@ describe('PositronHelpService', () => {
 	describe('foreground help requests', () => {
 		let session: ILanguageRuntimeSession;
 		let foregroundSession: ILanguageRuntimeSession | undefined;
+		let state: RuntimeState;
 		let service: PositronHelpService;
 		const showHelpTopic = vi.fn<HelpClientInstance['showHelpTopic']>();
 		const searchHelp = vi.fn<HelpClientInstance['searchHelp']>();
@@ -128,10 +129,11 @@ describe('PositronHelpService', () => {
 		beforeEach(() => {
 			session = stubInterface<ILanguageRuntimeSession>({
 				sessionId: 'r-session',
-				getRuntimeState: () => RuntimeState.Idle,
+				getRuntimeState: () => state,
 				onDidChangeRuntimeState: Event.None,
 			});
 			foregroundSession = session;
+			state = RuntimeState.Idle;
 			ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 				get foregroundSession() { return foregroundSession; },
 				onDidChangeForegroundSession: Event.None,
@@ -171,8 +173,11 @@ describe('PositronHelpService', () => {
 				expect(showHelpTopic).toHaveBeenCalledExactlyOnceWith(':=', 'data.table');
 			});
 
-			it('returns unavailable when the foreground session has no help client', async () => {
+			it('returns unavailable when the foreground session has ended', async () => {
+				attachClient();
+				state = RuntimeState.Exited;
 				await expect(service.showHelpTopicForForegroundSession('plot', undefined, CancellationToken.None)).resolves.toBe(HelpTopicResult.Unavailable);
+				expect(showHelpTopic).not.toHaveBeenCalled();
 			});
 
 			it('returns unavailable without a foreground session even when another client is attached', async () => {
@@ -195,8 +200,11 @@ describe('PositronHelpService', () => {
 		});
 
 		describe('search', () => {
-			it('returns false when the foreground session has no help client', async () => {
+			it('returns false when the foreground session has ended', async () => {
+				attachClient();
+				state = RuntimeState.Exited;
 				await expect(service.searchHelp('linear model', CancellationToken.None)).resolves.toBe(false);
+				expect(searchHelp).not.toHaveBeenCalled();
 			});
 
 			it('returns false without a foreground session even when another client is attached', async () => {

@@ -42,6 +42,7 @@ const tooltipHelpHistory = localize('positronHelpHistory', "Help history");
 const clearHelpSearch = localize('positronHelpSearch.clear', "Clear help search");
 const noHelpSearchRuntime = localize('positronHelpSearch.noRuntime', "Start an interpreter to search help");
 const noHelpSearch = localize('positronHelpSearch.unavailable', "Help search is unavailable for the active interpreter.");
+const helpTopics = localize('positronHelpSearch.topics', "Help topics");
 
 const kMaximumSuggestions = 50;
 const kSuggestionDelayMs = 200;
@@ -62,6 +63,7 @@ const HelpSearch = () => {
 	// Cancels the pending search or topic request.
 	const searchCts = useRef<CancellationTokenSource | undefined>(undefined);
 	const suggestionsRef = useRef<HTMLDivElement>(null);
+	const inputRef = useRef<HTMLInputElement>(null);
 	const listId = useId();
 
 	useEffect(() => {
@@ -96,7 +98,12 @@ const HelpSearch = () => {
 			}
 		};
 		// Suggestions are optional. Search still works if they fail.
-		requestTopics().catch(() => { });
+		requestTopics().catch(() => {
+			if (!cts.token.isCancellationRequested) {
+				setTopics([]);
+				setActiveIndex(-1);
+			}
+		});
 		return () => cts.dispose(true);
 	}, [focused, foregroundSession, query, helpService, services.runtimeSessionService]);
 
@@ -181,6 +188,7 @@ const HelpSearch = () => {
 		<form className='help-search' onSubmit={onSubmit}>
 			<span className={ThemeIcon.asClassName(ThemeIcon.fromId('search'))} />
 			<input
+				ref={inputRef}
 				aria-activedescendant={suggestionsVisible && activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
 				aria-autocomplete='list'
 				aria-controls={suggestionsVisible ? listId : undefined}
@@ -200,10 +208,11 @@ const HelpSearch = () => {
 			<span className='help-search-status' role='status'>
 				{searching ? localize('positronHelpSearch.searching', "Searching...") : ''}
 			</span>
-			{query && <button aria-label={clearHelpSearch} type='button' onClick={() => { cancelSearch(); setQuery(''); setActiveIndex(-1); setFocused(false); }}>
+			{/* Clearing removes this button, so focus returns to the input. */}
+			{query && <button aria-label={clearHelpSearch} type='button' onClick={() => { cancelSearch(); setQuery(''); setActiveIndex(-1); setFocused(false); inputRef.current?.focus(); }}>
 				<span className={ThemeIcon.asClassName(ThemeIcon.fromId('close'))} />
 			</button>}
-			{suggestionsVisible && <div ref={suggestionsRef} aria-label={placeholder} className='help-search-suggestions' id={listId} role='listbox'>
+			{suggestionsVisible && <div ref={suggestionsRef} aria-label={helpTopics} className='help-search-suggestions' id={listId} role='listbox'>
 				{topics.map((suggestion, index) => <button
 					key={JSON.stringify([suggestion.package, suggestion.topic])}
 					aria-selected={index === activeIndex}
@@ -215,7 +224,7 @@ const HelpSearch = () => {
 					onClick={() => void runSearch(suggestion)}
 					onMouseDown={event => event.preventDefault()}
 				>
-					<span>{suggestion.label}</span>
+					<span className='label'>{suggestion.label}</span>
 					{suggestion.detail && <span className='detail'>{suggestion.detail}</span>}
 				</button>)}
 			</div>}

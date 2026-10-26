@@ -260,6 +260,15 @@ describe('Help ActionBars', () => {
 			expect(notifications()).toEqual({ info: [], warn: [] });
 		});
 
+		it('returns focus to the input after Clear', async () => {
+			const { user, input } = renderSearch();
+			await user.type(input, 'plot');
+			await user.tab();
+			await user.keyboard('{Enter}');
+			expect(input).toHaveValue('');
+			expect(input).toHaveFocus();
+		});
+
 		it('cancels the previous request when a new one starts, and reports only the latest', async () => {
 			const first = new DeferredPromise<boolean>();
 			const second = new DeferredPromise<boolean>();
@@ -330,7 +339,7 @@ describe('Help ActionBars', () => {
 
 		it('points ARIA references only at the mounted list and the active option', async () => {
 			const { user, input } = await renderSuggestions();
-			const listbox = screen.getByRole('listbox', { name: 'Search R Help' });
+			const listbox = screen.getByRole('listbox', { name: 'Help topics' });
 			expect(input).toHaveAttribute('aria-expanded', 'true');
 			expect(input).toHaveAttribute('aria-controls', listbox.id);
 			expect(input).not.toHaveAttribute('aria-activedescendant');

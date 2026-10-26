@@ -8,6 +8,9 @@ import { Event } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 import { HelpTopicSuggestion, PositronHelpComm, ShowHelpEvent } from './positronHelpComm.js';
 
+/**
+ * How long to wait for help search results and topic suggestions from the interpreter.
+ */
 export const HELP_SEARCH_TIMEOUT_MS = 30_000;
 
 /**
@@ -52,10 +55,22 @@ export class HelpClientInstance extends Disposable {
 		return this._comm.showHelpTopic(topic, packageName);
 	}
 
+	/**
+	 * Searches the interpreter's help and shows the results page.
+	 * @param query The search query.
+	 * @param searchId Identifies the search. The interpreter tags the results page with it.
+	 * @returns Whether the interpreter will show a results page.
+	 */
 	searchHelp(query: string, searchId: string): Promise<boolean> {
 		return this._comm.searchHelp(query, searchId);
 	}
 
+	/**
+	 * Gets help topics that match a query, for autocomplete.
+	 * @param query The text to match.
+	 * @param limit The maximum number of topics, from 1 to 50.
+	 * @returns The matching topics, best matches first.
+	 */
 	getHelpTopics(query: string, limit: number): Promise<HelpTopicSuggestion[]> {
 		return this._comm.getHelpTopics(query, limit);
 	}

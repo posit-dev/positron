@@ -61,6 +61,14 @@ class FakeModule:
         return ModuleType
 
 
+def test_does_not_list_the_home_directory(library, tmp_path, monkeypatch):
+    # Listing the home directory would open folders such as Documents.
+    library("fxmod.py")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    assert fixture_names(find_modules()) == []
+
+
 def test_lists_imported_modules(library, monkeypatch):
     library("fxpkg/__init__.py")
     monkeypatch.setitem(sys.modules, "fxpkg.inner.deep", ModuleType("fxpkg.inner.deep"))

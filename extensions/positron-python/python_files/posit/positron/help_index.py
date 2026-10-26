@@ -24,7 +24,7 @@ def find_modules() -> dict[str, pkgutil.ModuleInfo | None]:
     not found on `sys.path`. Listing reads directories, but imports nothing.
     """
     modules: dict[str, pkgutil.ModuleInfo | None] = dict.fromkeys(sys.builtin_module_names)
-    for info in pkgutil.iter_modules():
+    for info in pkgutil.iter_modules(_search_path()):
         modules.setdefault(info.name, info)
         directory = _package_directory(info)
         if directory is not None:
@@ -69,6 +69,17 @@ def search(query: str) -> list[tuple[str, str | None]]:
         if key in name.lower() or (summary is not None and key in summary.lower()):
             results.append((name, summary))
     return results
+
+
+def _search_path() -> list[str]:
+    """The `sys.path` entries to list, without the home directory.
+
+    The working directory is often the home directory, and listing it opens every
+    folder in it, such as Documents and Desktop. On macOS that asks the user for
+    permission to read those folders.
+    """
+    home = Path("~").expanduser().resolve()
+    return [entry for entry in sys.path if isinstance(entry, str) and Path(entry).resolve() != home]
 
 
 def _summary(name: str, info: pkgutil.ModuleInfo | None) -> str | None:

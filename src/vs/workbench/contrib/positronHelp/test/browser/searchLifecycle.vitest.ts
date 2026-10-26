@@ -30,9 +30,12 @@ describe('Help search lifecycle', () => {
 	let stateEvents: Emitter<RuntimeState>;
 	let foregroundEvents: Emitter<ILanguageRuntimeSession | undefined>;
 	let helpEvents: Emitter<ShowHelpEvent>;
+	let closeEvents: Emitter<void>;
 	let session: ILanguageRuntimeSession;
 	let service: PositronHelpService;
 	const search = vi.fn<HelpClientInstance['searchHelp']>();
+	const getHelpTopics = vi.fn<HelpClientInstance['getHelpTopics']>();
+	const showHelpTopic = vi.fn<HelpClientInstance['showHelpTopic']>();
 	const open = vi.fn().mockResolvedValue(true);
 	const openView = vi.fn().mockResolvedValue(undefined);
 	const ctx = createTestContainer().withRuntimeServices()
@@ -50,6 +53,7 @@ describe('Help search lifecycle', () => {
 		stateEvents = ctx.disposables.add(new Emitter<RuntimeState>());
 		foregroundEvents = ctx.disposables.add(new Emitter<ILanguageRuntimeSession | undefined>());
 		helpEvents = ctx.disposables.add(new Emitter<ShowHelpEvent>());
+		closeEvents = ctx.disposables.add(new Emitter<void>());
 		session = stubInterface<ILanguageRuntimeSession>({
 			sessionId: 'r-session',
 			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'r', languageName: 'R' }),
@@ -63,14 +67,20 @@ describe('Help search lifecycle', () => {
 		}));
 		service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronHelpService));
 		search.mockReset().mockResolvedValue(true);
+		getHelpTopics.mockReset().mockResolvedValue([]);
+		showHelpTopic.mockReset().mockResolvedValue(true);
 		open.mockClear();
 		openView.mockReset().mockResolvedValue(undefined);
-		service.attachClientInstance(session, stubInterface<HelpClientInstance>({
-			searchHelp: search,
-			onDidEmitHelpContent: helpEvents.event,
-			onDidClose: Event.None,
-			dispose: () => { },
-		}));
+		service.attachClientInstance(session, makeClient());
+	});
+
+	const makeClient = (searchHelp = search) => stubInterface<HelpClientInstance>({
+		searchHelp,
+		getHelpTopics,
+		showHelpTopic,
+		onDidEmitHelpContent: helpEvents.event,
+		onDidClose: closeEvents.event,
+		dispose: () => { },
 	});
 
 	afterEach(() => {
@@ -174,15 +184,65 @@ describe('Help search lifecycle', () => {
 		expect(open).toHaveBeenCalledOnce();
 	});
 
-	it.each([
-		{ change: 'the foreground session changes', act: () => foregroundEvents.fire(undefined) },
-		{ change: 'the session exits', act: () => setState(RuntimeState.Exited) },
-	])('cancels the search when $change', async ({ act }) => {
+	it('while waiting, cancels the search when the foreground session changes', async () => {
 		state = RuntimeState.Busy;
 		const pending = startSearch().catch(error => error);
-		act();
+		foregroundEvents.fire(undefined);
 		expect(await pending).toBeInstanceOf(CancellationError);
 		expect(search).not.toHaveBeenCalled();
+	});
+
+	it('while waiting, returns false when the session exits', async () => {
+		state = RuntimeState.Busy;
+		const pending = startSearch();
+		setState(RuntimeState.Exited);
+		expect(await pending).toBe(false);
+		expect(search).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		{ change: 'the foreground session changes', act: () => foregroundEvents.fire(undefined) },
+		{ change: 'the help client is replaced', act: () => service.attachClientInstance(session, makeClient()) },
+		{ change: 'the help client closes', act: () => closeEvents.fire() },
+		{ change: 'the service is disposed', act: () => service.dispose() },
+	])('after the request is sent, cancels the search when $change', async ({ act }) => {
+		search.mockReturnValue(new Promise(() => { }));
+		const pending = startSearch().catch(error => error);
+		await searchId();
+		act();
+		expect(await pending).toBeInstanceOf(CancellationError);
+	});
+
+	it('waits for the help client to attach while the interpreter starts', async () => {
+		closeEvents.fire();
+		state = RuntimeState.Starting;
+		const pending = startSearch();
+		const searchWithNewClient = vi.fn<HelpClientInstance['searchHelp']>().mockResolvedValue(false);
+		await Promise.resolve();
+		expect(search).not.toHaveBeenCalled();
+		state = RuntimeState.Ready;
+		service.attachClientInstance(session, makeClient(searchWithNewClient));
+		expect(await pending).toBe(false);
+		expect(searchWithNewClient).toHaveBeenCalledExactlyOnceWith('linear model', expect.any(String));
+	});
+
+	it('cancels a waiting topic request when the foreground session changes', async () => {
+		state = RuntimeState.Busy;
+		const pending = service.showHelpTopicForForegroundSession('plot', undefined, cts.token).catch(error => error);
+		foregroundEvents.fire(undefined);
+		expect(await pending).toBeInstanceOf(CancellationError);
+		setState(RuntimeState.Idle);
+		expect(showHelpTopic).not.toHaveBeenCalled();
+	});
+
+	it('requests suggestions only once the interpreter is idle', async () => {
+		state = RuntimeState.Busy;
+		const pending = service.getHelpTopics('plot', 50, cts.token);
+		await Promise.resolve();
+		expect(getHelpTopics).not.toHaveBeenCalled();
+		setState(RuntimeState.Idle);
+		await pending;
+		expect(getHelpTopics).toHaveBeenCalledExactlyOnceWith('plot', 50);
 	});
 
 	it('drops a page that becomes stale while the Help view opens', async () => {
