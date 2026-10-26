@@ -9,8 +9,8 @@ it in.
 
 Anything a second integration (e.g. a `positron-codex`) would need to do the
 same job: building the prompt for an error action, finding and launching the
-agent's command-line tool, keeping the agent registered while it's
-installed, opening its terminal, and explaining problems the user can fix.
+agent's command-line tool, opening its terminal, and explaining problems the
+user can fix.
 
 What's specific to one agent stays in its integration: how it decides between
 its chat and a terminal, how it opens its chat, its settings, and its

@@ -12,5 +12,4 @@ export { getCommandLaunch, CommandLaunch } from './commandLaunch';
 export { getErrorActionPrompt, PromptWorkspace } from './errorActionPrompt';
 export { escapedLength, getErrorPrompt, truncateMiddle, ErrorPromptAction, ErrorPromptSource, PromptDocument, PromptL10n } from './errorPrompt';
 export { showProblem, ProblemAction } from './problems';
-export { registerWhileInstalled, Disposable, InstalledRegistration } from './registration';
 export { openPromptTerminal, PromptTerminalOptions } from './terminal';
