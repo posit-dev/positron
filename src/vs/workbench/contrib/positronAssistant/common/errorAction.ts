@@ -125,17 +125,18 @@ export function getErrorActionHandlerContributions(extension: IExtensionDescript
 }
 
 /**
- * A coding agent's handling of the error Fix and Explain actions. Register it
- * while the agent is installed, not only while it can take errors, so the
- * `ai.errorActions.agent` setting lists it and its buttons name it. Only the
- * default handler registers only while it can take errors.
+ * A coding agent's handling of the error Fix and Explain actions. An extension
+ * registers it on activation, whether or not the agent itself is installed,
+ * and says what's missing when asked. Only the default handler registers only
+ * while it can take errors.
  */
 export interface IErrorActionHandler extends IErrorActionHandlerInfo {
 	/**
 	 * Ask the handler to take the action on the error. When it can't because
-	 * of a problem the user can fix (e.g. a missing CLI or a setting), tell the
-	 * user why, with a way to fix it, and resolve. Reject only on unexpected
-	 * failures; the service reports them to the user.
+	 * of a problem the user can fix (e.g. the agent or its CLI isn't installed,
+	 * or a setting), tell the user why, with a way to fix it where there is
+	 * one, and resolve. Reject only on unexpected failures; the service reports
+	 * them to the user.
 	 */
 	ask(action: ErrorAction, context: IErrorActionContext, options: IErrorActionOptions): Promise<void>;
 }

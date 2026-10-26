@@ -5,56 +5,10 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { isClaudeCodeInstalled } from './claudeCode';
 import { CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, claudeCodeErrorActionHandler } from './errorActionHandler';
 
-/**
- * Activates on `onAiEnabled` rather than on a click, since the
- * `ai.errorActions.agent` setting lists only registered agents, and Claude
- * Code registers only while it's installed.
- */
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
-	let errorActionHandler: vscode.Disposable | undefined;
-	let isDisposed = false;
-	context.subscriptions.push({
-		dispose: () => {
-			isDisposed = true;
-			errorActionHandler?.dispose();
-		}
-	});
-
-	// Checks run one at a time, so the registration follows the latest
-	// result; a check requested during another runs once that one finishes.
-	let isChecking = false;
-	let isCheckRequested = false;
-	const updateRegistration = async () => {
-		if (isChecking) {
-			isCheckRequested = true;
-			return;
-		}
-		isChecking = true;
-		try {
-			do {
-				isCheckRequested = false;
-				const isInstalled = await isClaudeCodeInstalled();
-				if (isDisposed) {
-					return;
-				}
-				if (isInstalled && !errorActionHandler) {
-					errorActionHandler = positron.ai.registerErrorActionHandler(CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, claudeCodeErrorActionHandler);
-				} else if (!isInstalled && errorActionHandler) {
-					errorActionHandler.dispose();
-					errorActionHandler = undefined;
-				}
-			} while (isCheckRequested);
-		} finally {
-			isChecking = false;
-		}
-	};
-
-	// The command-line tool is looked for here and on extension changes only:
-	// nothing announces one being installed or removed.
-	context.subscriptions.push(vscode.extensions.onDidChange(() => updateRegistration()));
-	// Register during activation, as with commands and tools.
-	await updateRegistration();
+export function activate(context: vscode.ExtensionContext): void {
+	// Register during activation, as with commands and tools. The handler says
+	// what's missing when Claude Code isn't installed.
+	context.subscriptions.push(positron.ai.registerErrorActionHandler(CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, claudeCodeErrorActionHandler));
 }

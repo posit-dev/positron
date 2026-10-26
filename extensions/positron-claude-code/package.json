@@ -24,9 +24,6 @@
 	"enabledApiProposals": [
 		"positronErrorActions"
 	],
-	"activationEvents": [
-		"onAiEnabled"
-	],
 	"contributes": {
 		"errorActionHandlers": [
 			{

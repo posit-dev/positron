@@ -24,12 +24,6 @@ export const USE_TERMINAL_SETTING = 'claudeCode.useTerminal';
 /** How long the launching notification shows, as in Claude Code's own terminals. */
 const LAUNCHING_NOTIFICATION_DURATION = 2000;
 
-/** Whether Claude Code is installed, as its extension or its command-line tool. */
-export async function isClaudeCodeInstalled(): Promise<boolean> {
-	return vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID) !== undefined ||
-		await getClaudeCodeLaunch() !== undefined;
-}
-
 /** How to run `claude` without a shell, or undefined when it isn't installed. */
 export function getClaudeCodeLaunch() {
 	return getCommandLaunch(CLAUDE_CODE_COMMAND, CLAUDE_CODE_NPM_SCRIPT);

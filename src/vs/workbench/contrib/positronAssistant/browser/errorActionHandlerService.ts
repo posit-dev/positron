@@ -132,9 +132,11 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 				this._notificationService.prompt(
 					Severity.Warning,
 					contribution
-						// Its extension is installed but didn't register it,
-						// e.g. because the coding agent itself isn't installed.
-						? localize('positron.errorAction.notInstalled', "The coding agent '{0}' isn't available, so the error wasn't sent. It may not be installed.", name)
+						// Its extension is installed but didn't register it:
+						// activation failed or timed out, or the extension has
+						// a bug. A handler that's missing something says so
+						// itself once registered.
+						? localize('positron.errorAction.notStarted', "The coding agent '{0}' couldn't start, so the error wasn't sent.", name)
 						// Its extension was uninstalled or disabled, so its
 						// label is gone with it, and it's named by its id.
 						: localize('positron.errorAction.unavailable', "The coding agent '{0}' isn't available, so the error wasn't sent. It may have been uninstalled or disabled.", name),
@@ -191,12 +193,17 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 		return this._handlersById.get(id);
 	}
 
-	/** Read the handlers that installed, enabled extensions contribute. */
+	/**
+	 * Read the handlers that installed, enabled extensions contribute, except
+	 * the default, whose id is reserved for Positron.
+	 */
 	private _readContributions(): Map<string, IErrorActionHandlerContribution> {
 		const contributions = new Map<string, IErrorActionHandlerContribution>();
 		for (const extension of this._extensionService.extensions) {
 			for (const contribution of getErrorActionHandlerContributions(extension)) {
-				contributions.set(contribution.id, contribution);
+				if (contribution.id !== DEFAULT_ERROR_ACTION_HANDLER_ID) {
+					contributions.set(contribution.id, contribution);
+				}
 			}
 		}
 		return contributions;
@@ -242,21 +249,30 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 	}
 
 	/**
-	 * List the registered handlers in the setting, and each chosen one that
-	 * isn't registered, so the Settings editor shows it rather than the first
-	 * choice.
+	 * List the handlers that are registered or that installed extensions
+	 * contribute, by label, as `editor.defaultFormatter` lists every installed
+	 * formatter. A contributed handler's extension registers it on activation,
+	 * and the handler itself says, when asked, what it's missing. Also list each
+	 * chosen handler that's neither, so the Settings editor shows it rather than
+	 * the first choice.
 	 */
 	private _updateChoices(): void {
-		const choices: Pick<IErrorActionHandlerInfo, 'id' | 'label'>[] = [...this._handlersById.values()];
-		// A chosen handler may not be registered, e.g. if it was uninstalled. The
-		// default is always listed, registered or not. Each Settings editor tab
-		// shows its own scope's value, which may not be the one in effect.
+		const choicesById = new Map<string, Pick<IErrorActionHandlerInfo, 'id' | 'label'>>();
+		for (const contribution of this._contributionsById.values()) {
+			choicesById.set(contribution.id, contribution);
+		}
+		for (const handler of this._handlersById.values()) {
+			choicesById.set(handler.id, handler);
+		}
+		const choices = [...choicesById.values()].sort((a, b) => a.label.localeCompare(b.label));
+		// A chosen handler may be neither, e.g. if its extension was uninstalled.
+		// The default is always listed, registered or not. Each Settings editor
+		// tab shows its own scope's value, which may not be the one in effect.
 		const { userLocalValue, userRemoteValue, workspaceValue, policyValue } = this._configurationService.inspect<unknown>(ERROR_ACTIONS_AGENT_KEY);
 		const chosenIds = new Set([this._getChosenHandlerId(), userLocalValue, userRemoteValue, workspaceValue, policyValue]);
 		for (const id of chosenIds) {
-			if (typeof id === 'string' && id && id !== DEFAULT_ERROR_ACTION_HANDLER_ID && !this._handlersById.has(id)) {
-				const name = this._contributionsById.get(id)?.label ?? id;
-				choices.push({ id, label: localize('positron.errorAction.unavailableChoice', "{0} (not available)", name) });
+			if (typeof id === 'string' && id && id !== DEFAULT_ERROR_ACTION_HANDLER_ID && !choicesById.has(id)) {
+				choices.push({ id, label: localize('positron.errorAction.unavailableChoice', "{0} (not available)", id) });
 			}
 		}
 		setErrorActionHandlerChoices(choices);

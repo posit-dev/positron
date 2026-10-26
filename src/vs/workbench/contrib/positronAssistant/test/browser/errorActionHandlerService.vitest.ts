@@ -92,10 +92,10 @@ describe('ErrorActionHandlerService', () => {
 		return { id: 'test-handler', label: 'Test Assistant', supportsChatContinuation: true, ask: async () => { }, ...options };
 	}
 
-	/** Install an extension that contributes the handler. */
-	function installContributingExtension(contribution: object = { id: 'test-handler', label: 'Contributed Handler' }): void {
+	/** Install an extension that contributes the handlers, by default the test handler. */
+	function installContributingExtension(...contributions: object[]): void {
 		// The contribution point isn't one of upstream's typed contributions.
-		const contributes: object = { errorActionHandlers: [contribution] };
+		const contributes: object = { errorActionHandlers: contributions.length ? contributions : [{ id: 'test-handler', label: 'Contributed Handler' }] };
 		const extension = stubInterface<IExtensionDescription>({ contributes: contributes as IExtensionDescription['contributes'] });
 		extensions = [extension];
 		onDidChangeExtensions.fire({ added: [extension], removed: [] });
@@ -123,7 +123,7 @@ describe('ErrorActionHandlerService', () => {
 		expect(onDidChangeActiveHandler.mock.calls).toEqual([[handler], [unavailable]]);
 	});
 
-	it('names the chosen handler as its extension contributes it while it is not registered', () => {
+	it('names and lists the chosen handler as its extension contributes it while it is not registered', () => {
 		const service = createService();
 		const onDidChangeActiveHandler = watchActiveHandler(service);
 
@@ -132,7 +132,23 @@ describe('ErrorActionHandlerService', () => {
 		const contributed = { id: 'test-handler', label: 'Contributed Handler', supportsChatContinuation: false };
 		expect(service.activeHandler).toEqual(contributed);
 		expect(onDidChangeActiveHandler.mock.calls).toEqual([[contributed]]);
-		expect(getChoices().labels).toEqual(['Posit Assistant', 'Contributed Handler (not available)']);
+		expect(getChoices().labels).toEqual(['Posit Assistant', 'Contributed Handler']);
+	});
+
+	it('lists every contributed handler by label, registered or not, except one claiming the reserved id', () => {
+		setConfiguration(ERROR_ACTIONS_AGENT_KEY, DEFAULT_ERROR_ACTION_HANDLER_ID);
+		const service = createService();
+		installContributingExtension(
+			{ id: 'zed', label: 'Zed Agent' },
+			{ id: 'alpha', label: 'Alpha Agent' },
+			{ id: DEFAULT_ERROR_ACTION_HANDLER_ID, label: 'Imposter' },
+		);
+		ctx.disposables.add(service.register(createHandler({ id: 'middle', label: 'Middle Agent' })));
+
+		expect(getChoices()).toEqual({
+			ids: ['posit-assistant', 'alpha', 'middle', 'zed'],
+			labels: ['Posit Assistant', 'Alpha Agent', 'Middle Agent', 'Zed Agent'],
+		});
 	});
 
 	it('offers to continue the chat while the chosen handler is not registered, if its extension declares it can', () => {
@@ -400,13 +416,13 @@ describe('ErrorActionHandlerService', () => {
 		expect(notifyPrompt).not.toHaveBeenCalled();
 	});
 
-	it('says the handler may not be installed when its extension does not register it', async () => {
+	it('says the handler could not start when its extension does not register it', async () => {
 		installContributingExtension();
 		const service = createService();
 
 		await service.ask('test-handler', 'fix', context, {});
 
-		expect(notifyPrompt.mock.calls[0][1]).toBe(`The coding agent 'Contributed Handler' isn't available, so the error wasn't sent. It may not be installed.`);
+		expect(notifyPrompt.mock.calls[0][1]).toBe(`The coding agent 'Contributed Handler' couldn't start, so the error wasn't sent.`);
 	});
 
 	it('says the handler is not available, rather than rejects, when its extension fails to activate', async () => {

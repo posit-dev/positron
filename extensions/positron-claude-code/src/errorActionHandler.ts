@@ -25,6 +25,13 @@ export const claudeCodeErrorActionHandler: positron.ai.ErrorActionHandler = {
 		// extension, only the command can be installed.
 		if (!extension || useTerminal) {
 			const launch = await getClaudeCodeLaunch();
+			if (!launch && !extension) {
+				void showProblem(
+					vscode.l10n.t('Claude Code is not installed, or the claude command is not on the PATH, so the error was not sent.'),
+					[],
+				);
+				return;
+			}
 			if (!launch) {
 				void showProblem(
 					vscode.l10n.t('Claude Code is set to open in a terminal, but the claude command was not found, so the error was not sent. Install the Claude Code command-line tool, or turn off Claude Code: Use Terminal.'),
@@ -61,7 +68,7 @@ interface ProblemAction {
 	run(): Thenable<unknown>;
 }
 
-/** Explain why the error wasn't sent, with buttons that lead to the fix. Not awaited, since nothing waits on the user's answer. */
+/** Explain why the error wasn't sent, with any buttons that lead to the fix. Not awaited, since nothing waits on the user's answer. */
 async function showProblem(message: string, actions: readonly ProblemAction[]): Promise<void> {
 	const choice = await vscode.window.showWarningMessage(message, ...actions.map(action => action.title));
 	await actions.find(action => action.title === choice)?.run();

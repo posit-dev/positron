@@ -15,11 +15,12 @@ declare module 'positron' {
 		 *
 		 * Declare the handler in `contributes.errorActionHandlers` in package.json,
 		 * with its name and whether it can continue the user's active chat.
-		 * Registered handlers are listed as options in the `ai.errorActions.agent` setting.
+		 * Declared handlers are listed as options in the `ai.errorActions.agent` setting.
 		 *
-		 * Register during activation, as with commands and tools: an error sent
-		 * to a declared handler before it's registered activates its extension,
-		 * and waits for that.
+		 * Register during activation, as with commands and tools, whether or not
+		 * the agent itself is installed: an error sent to a declared handler
+		 * before it's registered activates its extension, and waits for that.
+		 * The handler says what's missing when it's asked.
 		 *
 		 * Throws if the id isn't declared by this extension, is reserved, or is
 		 * already registered in this extension host. An id already registered in
@@ -39,8 +40,9 @@ declare module 'positron' {
 			 * while `ai.enabled` is off.
 			 *
 			 * When the handler can't take the error because of a problem the
-			 * user can fix (e.g. a missing command or a setting), tell the user
-			 * why, with a way to fix it, and resolve. Reject only on unexpected
+			 * user can fix (e.g. the agent or its command isn't installed, or a
+			 * setting), tell the user why, with a way to fix it where there is
+			 * one, and resolve. Reject only on unexpected
 			 * failures; Positron reports them to the user.
 			 */
 			ask(action: ErrorAction, context: ErrorActionContext, options: ErrorActionOptions): Thenable<void>;

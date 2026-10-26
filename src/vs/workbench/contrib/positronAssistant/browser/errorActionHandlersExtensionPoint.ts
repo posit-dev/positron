@@ -14,9 +14,9 @@ export function getErrorActionHandlerActivationEvent(id: string): string {
 
 /**
  * The `errorActionHandlers` contribution point. An extension declares each
- * handler it registers, which names it before the extension activates, and
- * lets Positron activate the extension when the handler is asked to take an
- * error before it has registered.
+ * handler it registers, which lists it in the `ai.errorActions.agent` setting
+ * before the extension activates, and lets Positron activate the extension
+ * when the handler is asked to take an error.
  */
 ExtensionsRegistry.registerExtensionPoint<IErrorActionHandlerContribution[]>({
 	extensionPoint: 'errorActionHandlers',
