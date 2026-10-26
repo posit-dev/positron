@@ -1265,6 +1265,59 @@ describe('DataConnectionsTreeInstance', () => {
 			expect({ rows: rows(tree).map(row => row.name), fetched: nodeGetChildren.mock.calls }).toEqual({ rows: ['connection', 'Tables'], fetched: [] });
 		});
 
+		/**
+		 * A Tables group whose driver counted two tables when the connection was opened, and whose
+		 * listing returns however many tables `tables.count` says at the time.
+		 */
+		function growingTablesTree() {
+			const tables = { count: 2 };
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables', childCount: 2 })],
+				nodeHandle => nodeHandle === 1
+					? Array.from({ length: tables.count }, (_, index) => nodeDto({ nodeHandle: 100 + index, name: `table${index}`, kind: 'table' }))
+					: []
+			);
+			return { tree, tables };
+		}
+
+		it('shows no count for a group refreshed while collapsed after being opened, until it is opened again', async () => {
+			const { tree, tables } = growingTablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+			tables.count = 5;
+			await tree.reload(TABLES_ID);
+			tree.collapse(TABLES_ID);
+			const collapsed = counts(tree);
+			await tree.reload(TABLES_ID);
+			// The refresh fetched nothing, and the driver's count is from before it.
+			const refreshedWhileCollapsed = counts(tree);
+			await tree.expand(TABLES_ID);
+
+			expect({ collapsed, refreshedWhileCollapsed, reopened: counts(tree) }).toEqual({
+				collapsed: { Tables: 5 },
+				refreshedWhileCollapsed: {},
+				reopened: { Tables: 5 },
+			});
+		});
+
+		it('shows no count for a group never opened once it is refreshed, until it is opened', async () => {
+			const { tree, tables } = growingTablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			const fromDriver = counts(tree);
+			tables.count = 3;
+			await tree.reload(TABLES_ID);
+			const refreshed = counts(tree);
+			await tree.expand(TABLES_ID);
+
+			expect({ fromDriver, refreshed, opened: counts(tree) }).toEqual({
+				fromDriver: { Tables: 2 },
+				refreshed: {},
+				opened: { Tables: 3 },
+			});
+		});
+
 		it('counts what a group holds after a refresh', async () => {
 			let tableCount = 2;
 			const { tree } = createTreeOverNodes(

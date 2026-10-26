@@ -282,6 +282,14 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	// leaves the set when it is expanded or its children are dropped.
 	private readonly _loadedUnopened = new Set<string>();
 
+	// Collapsed rows refreshed since their children were last loaded. Refreshing a collapsed row
+	// drops its children without fetching them again, so a group row among these has no count it can
+	// trust -- the one its DTO carries came from its parent's last fetch, before the refresh -- and
+	// shows none until its children load. Keyed by node id: a refresh keeps the row's id, and anything
+	// that rebuilds the row gives it a new one, with a fresh count. A row leaves the set when it is
+	// expanded, or when its connection closes. See groupCount.
+	private readonly _countsAwaitingLoad = new Set<string>();
+
 	// The opens in Data Explorer in flight for each profile, and whether the connection was already
 	// open when the first of them started, so only the last to finish gives up a connection that
 	// was opened for them. See openInDataExplorer.
@@ -756,6 +764,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		}
 		const fetches = !this.isExpanded(id) && !this.hasLoadedChildren(id);
 		this._loadedUnopened.delete(id);
+		this._countsAwaitingLoad.delete(id);
 		await super.expand(id);
 		if (fetches) {
 			this._notifyIfFailed(id);
@@ -787,6 +796,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 					this._lookAheadChildren.delete(lookAheadId);
 				}
 			}
+		}
+		// A collapsed row's refresh fetches nothing, so its count waits for its next load.
+		if (!this.isExpanded(id)) {
+			this._countsAwaitingLoad.add(id);
 		}
 		const fetches = this.isExpanded(id) && !this.isRefreshing(id);
 		await super.reload(id);
@@ -873,6 +886,19 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		for (const entry of entries) {
 			const id = entryNodeId(entry.profile.id);
 			if (entry.instance === undefined && this.hasLoadedChildren(id)) {
+				// Node ids carry the connection handle, and a restarted extension host issues handles
+				// from the start again, so a closed connection's refreshed rows are forgotten before a
+				// fresh row could come back under one of their ids. The loaded rows still hold the
+				// handle that has gone.
+				const loadedRow = this.getLoadedChildren(id)?.find(child => child.data.kind === 'dto')?.data;
+				if (loadedRow?.kind === 'dto') {
+					const prefix = dtoNodeIdPrefix(loadedRow.handle);
+					for (const countId of [...this._countsAwaitingLoad]) {
+						if (countId.startsWith(prefix)) {
+							this._countsAwaitingLoad.delete(countId);
+						}
+					}
+				}
 				super.collapse(id);
 				this.dropLoadedChildren(id);
 
@@ -1314,11 +1340,20 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			return undefined;
 		}
 
+		const loaded = this.getLoadedChildren(visible.node.id);
+		if (loaded !== undefined) {
+			return loaded.filter(child => child.data.kind !== 'dto' || !isNotice(child.data.dto)).length;
+		}
+
+		// Refreshed while collapsed, so the count on the row's DTO is from before the refresh the user
+		// asked for. See _countsAwaitingLoad.
+		if (this._countsAwaitingLoad.has(visible.node.id)) {
+			return undefined;
+		}
+
 		// Not loaded: the look-ahead's count, when it ran, was put on the row's DTO (see
 		// withLookAheadCount); otherwise it is the driver's, if it sent one.
-		return this.getLoadedChildren(visible.node.id)
-			?.filter(child => child.data.kind !== 'dto' || !isNotice(child.data.dto)).length
-			?? visible.node.data.dto.childCount;
+		return visible.node.data.dto.childCount;
 	}
 
 	/**
