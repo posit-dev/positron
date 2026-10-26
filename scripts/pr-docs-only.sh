@@ -60,11 +60,6 @@ pr_changed_files() {
 
 # Echoes the files changed between BEFORE_SHA and HEAD, or fails.
 push_changed_files() {
-	if [[ -z "${CI_WORKFLOW:-}" ]]; then
-		echo "CI_WORKFLOW is not set; running the tests." >&2
-		return 1
-	fi
-
 	# All zeros: the push created the branch, so there is nothing to diff against.
 	if [[ "$BEFORE_SHA" =~ ^0+$ ]]; then
 		echo "The push created the branch; running the tests." >&2
@@ -83,15 +78,20 @@ push_changed_files() {
 }
 
 if [[ -n "${PR_NUMBER:-}" ]]; then
+	CI_WORKFLOW="${CI_WORKFLOW:-.github/workflows/test-pull-request.yml}"
 	CHANGED=$(pr_changed_files) || emit false
 elif [[ -n "${BEFORE_SHA:-}" ]]; then
+	# No default: the PR workflow's list would miss merge-only workflows.
+	if [[ -z "${CI_WORKFLOW:-}" ]]; then
+		echo "CI_WORKFLOW is not set; running the tests."
+		emit false
+	fi
 	CHANGED=$(push_changed_files) || emit false
 else
 	echo "Not a pull request or a push; running the tests."
 	emit false
 fi
 
-CI_WORKFLOW="${CI_WORKFLOW:-.github/workflows/test-pull-request.yml}"
 REACHABLE=$(ci_reachable_paths "$ROOT" "$CI_WORKFLOW")
 
 echo "Workflows and actions $CI_WORKFLOW uses (never docs-only):"

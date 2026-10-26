@@ -11,8 +11,9 @@ jobs:
   # Decides whether this push to main changes only docs or tooling (see
   # scripts/lib/pr-docs-only-lib.sh), checking against the workflows this file
   # calls. If so, the test jobs below are skipped, except unit-tests, which
-  # saves the caches PRs restore from. Release and prerelease branches always
-  # run the tests.
+  # keeps saving the Ubuntu caches PRs restore from. (e2e-windows saves the
+  # Windows caches, so those can go stale over a run of docs-only pushes.)
+  # Release and prerelease branches always run the tests.
   #
   # Fails open: the jobs below run even if this job fails or is skipped
   # (`!cancelled()`), and an empty output means "not docs-only".
@@ -118,8 +119,7 @@ jobs:
     secrets: inherit
 
   slack-notify:
-    # Nothing to report when a docs-only push skipped every test job.
-    if: ${{ always() && needs.docs-only.outputs.docs_only != 'true' }}
+    if: always()
     needs:
       [
         docs-only,
@@ -148,6 +148,8 @@ jobs:
           tailscale_oauth_client_id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
           tailscale_oauth_secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
           repo_id: "positron"
+          # A docs-only push runs only unit-tests; leave out the skipped jobs.
+          hide_skipped: ${{ needs.docs-only.outputs.docs_only == 'true' }}
           filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host(-win)?)$"
 
   analyze-e2e-failures:
