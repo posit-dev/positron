@@ -10,7 +10,6 @@ It deliberately does not run custom import hooks or package initialization.
 from __future__ import annotations
 
 import ast
-import io
 import logging
 import os
 import sys
@@ -185,11 +184,9 @@ class Discovery:
     def __init__(
         self,
         max_locations: int = 100_000,
-        max_source_bytes: int = 1_048_576,
         cache: DiscoveryCache | None = None,
     ):
         self.max_locations = max_locations
-        self.max_source_bytes = max_source_bytes
         self.cache = DiscoveryCache() if cache is None else cache
         self.diagnostics: list[str] = []
         self.visited = 0
@@ -199,7 +196,7 @@ class Discovery:
         self.fingerprints: dict[Path, tuple | None] = {}
         self.package_paths: dict[str, tuple[str, ...]] = {}
 
-    def build(self, paths, builtins=None, loaded: LoadedSnapshot | None = None) -> Index:
+    def build(self, paths, builtins=None) -> Index:
         self.diagnostics = []
         self.visited = 0
         self.budget_exhausted = False
@@ -211,30 +208,12 @@ class Discovery:
             roots = [loc for path in paths if (loc := self.root(path)) is not None]
             self.walk(roots, "", topics, 0)
             self.cache.retain(self.fingerprints)
-            if loaded is not None:
-                self.enrich(topics, loaded)
             return Index(tuple(topics[n] for n in sorted(topics)), tuple(self.diagnostics))
         finally:
             for archive in self.archives.values():
                 archive.close()
             self.archives.clear()
             self.zip_children.clear()
-
-    def enrich(self, topics, loaded):
-        self.diagnostics.extend(loaded.diagnostics)
-        # Runtime package locations supersede disk-only guesses. Parents first,
-        # so a loaded child can then replace its own subtree independently.
-        for module in sorted(loaded.modules, key=lambda m: (m.name.count("."), m.name)):
-            if module.is_package and module.paths is None:
-                continue
-            prefix = module.name + "."
-            for name in tuple(topics):
-                if name.startswith(prefix):
-                    del topics[name]
-            if module.is_package:
-                roots = [loc for path in module.paths if (loc := self.root(path)) is not None]
-                self.walk(roots, prefix, topics, module.name.count(".") + 1)
-        _overlay_metadata(topics, loaded)
 
     def root(self, value) -> Location | None:
         path = Path(value or Path.cwd()).absolute()
@@ -409,17 +388,11 @@ class Discovery:
                 if loc.archive
                 else (loc.path / filename).open("rb")
             ) as stream:
-                data = stream.read(self.max_source_bytes + 1)
-            if len(data) > self.max_source_bytes:
-                self.diagnostics.append(
-                    f"Source summary exceeds size limit: {loc.origin(filename)}"
-                )
-                return None
-            encoding, _ = tokenize.detect_encoding(io.BytesIO(data).readline)
-            return _source_summary(data.decode(encoding))
+                return _source_summary(stream.readline)
         except (
             OSError,
             SyntaxError,
+            tokenize.TokenError,
             UnicodeError,
             ValueError,
             zipfile.BadZipFile,
@@ -434,18 +407,33 @@ class Discovery:
         self.fingerprints[path] = _fingerprint(path)
 
 
-def _source_summary(source: str) -> str | None:
-    """Read the first string expression without executing or parsing the module body."""
+def _source_summary(readline) -> str | None:
+    """Read the first line of a module's docstring without executing the module.
+
+    `readline` reads the source as bytes. Each line is decoded with the source's
+    encoding cookie, and tokenizing stops at the first statement, so only the start
+    of the file is read. Errors in reading or decoding the source are raised to the
+    caller. (`tokenize.tokenize` would replace undecodable bytes on some versions.)
+    """
+    encoding, first_lines = tokenize.detect_encoding(readline)
+    lines = iter(first_lines)
+
+    def read_text() -> str:
+        line = next(lines, None)
+        return (readline() if line is None else line).decode(encoding)
+
     parts = []
-    try:
-        for token in tokenize.generate_tokens(io.StringIO(source).readline):
-            if token.type == tokenize.STRING or (
-                token.type == tokenize.OP and token.string in ("(", ")")
-            ):
-                parts.append(token.string)
-            elif token.type == tokenize.NEWLINE:
-                # Reading installed documentation must not emit compiler warnings
-                # into the user's console. Older Python versions use DeprecationWarning.
+    for token in tokenize.generate_tokens(read_text):
+        if token.type == tokenize.STRING or (
+            token.type == tokenize.OP and token.string in ("(", ")")
+        ):
+            parts.append(token.string)
+        elif token.type == tokenize.NEWLINE:
+            # Reading installed documentation must not emit compiler warnings
+            # into the user's console. Older Python versions use DeprecationWarning.
+            # Only the interpreter thread builds the index, because these filters
+            # are process-wide.
+            try:
                 with warnings.catch_warnings():
                     warnings.filterwarnings(
                         "ignore", message=".*invalid escape sequence", category=SyntaxWarning
@@ -454,11 +442,11 @@ def _source_summary(source: str) -> str | None:
                         "ignore", message=".*invalid escape sequence", category=DeprecationWarning
                     )
                     value = ast.literal_eval("".join(parts))
-                return value.strip().split("\n")[0].strip() if isinstance(value, str) else None
-            elif token.type not in (tokenize.COMMENT, tokenize.NL):
+            except (SyntaxError, ValueError):
                 return None
-    except (tokenize.TokenError, SyntaxError, ValueError):
-        return None
+            return value.strip().split("\n")[0].strip() if isinstance(value, str) else None
+        elif token.type not in (tokenize.COMMENT, tokenize.NL):
+            return None
     return None
 
 
@@ -494,6 +482,7 @@ class HelpIndex:
     def __init__(self):
         self._lock = RLock()
         self._index: Index | None = None
+        self._latest = Index((), ())
         self._filesystem: Index | None = None
         self._fingerprints: dict[Path, tuple | None] = {}
         self._package_paths: dict[str, tuple[str, ...]] = {}
@@ -526,6 +515,8 @@ class HelpIndex:
                 self._fingerprints = discovery.fingerprints
                 self._package_paths = discovery.package_paths
                 self._index = None
+                for diagnostic in self._filesystem.diagnostics:
+                    logger.debug("Help index: %s", diagnostic)
             # Only runtime paths absent from the static tree need discovery. Cache
             # these separately: importing a package with its ordinary __path__
             # must not walk that package again, nor invalidate the main index.
@@ -553,7 +544,17 @@ class HelpIndex:
                     self._index = None
             if self._index is None:
                 self._index = self._overlay(loaded)
+                self._latest = self._index
             return self._index
+
+    def current(self) -> Index:
+        """Return the latest index without building it.
+
+        The pydoc server thread uses this, so that only the interpreter thread
+        builds the index. Building changes process-wide warning filters.
+        """
+        with self._lock:
+            return self._latest
 
     def _overlay(self, loaded: LoadedSnapshot) -> Index:
         """Apply immutable runtime metadata without walking or reading sources."""

@@ -592,9 +592,12 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # --- Start Positron ---
         # Search an import-free index instead of pydoc.ModuleScanner, which imports
         # every installed package into the user's session.
+        # The interpreter thread builds the shared index before it shows this page.
+        # Building here, on the server thread, would change process-wide warning filters.
         if self._help_index is None:
             self._help_index = HelpIndex()
-        search_result = self._help_index.get().search(key)
+            self._help_index.get()
+        search_result = self._help_index.current().search(key)
         # --- End Positron ---
 
         # format page

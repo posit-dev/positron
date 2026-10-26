@@ -17,6 +17,8 @@ from pathlib import Path
 from types import ModuleType
 from unittest.mock import patch
 
+import pytest
+
 from positron.help_index import Discovery, HelpIndex, snapshot_loaded_modules
 
 
@@ -37,6 +39,20 @@ class DiscoveryTests(unittest.TestCase):
 
     def names(self, index):
         return [t.name for t in index.topics]
+
+    def loaded_index(self, roots, modules, builtins=(), discovery=Discovery):
+        """Build the index as HelpIndex does in a session that has `modules` loaded."""
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch.object(sys, "path", [str(root) for root in roots]))
+            stack.enter_context(patch.object(sys, "builtin_module_names", builtins))
+            stack.enter_context(
+                patch(
+                    "positron.help_index.snapshot_loaded_modules",
+                    return_value=snapshot_loaded_modules(modules),
+                )
+            )
+            stack.enter_context(patch("positron.help_index.Discovery", side_effect=discovery))
+            return HelpIndex().get()
 
     def legacy(self, key=""):
         found = []
@@ -170,12 +186,17 @@ class DiscoveryTests(unittest.TestCase):
         assert [(t.name, t.summary) for t in index.topics] == [("unreadable", None)]
         assert any("PermissionError" in d for d in index.diagnostics)
 
-    def test_invalid_encoding_and_large_source_are_reported(self):
-        p = self.write("broken.py")
-        p.write_bytes(b'# coding: utf-8\n"""\xff"""\n')
-        self.write("large.py", '"""Summary."""\n' + "#" * 100)
-        index = Discovery(max_source_bytes=40).build([self.root], builtins=())
-        assert len(index.diagnostics) == 2
+    def test_invalid_encoding_is_reported_and_large_source_is_summarized(self):
+        self.write("broken.py").write_bytes(b'# coding: utf-8\n"""\xff"""\n')
+        self.write("large.py", '"""Large summary."""\n' + "#" * 2_000_000 + "\n")
+        index = Discovery().build([self.root], builtins=())
+        assert {t.name: t.summary for t in index.topics} == {
+            "broken": None,
+            "large": "Large summary.",
+        }
+        assert [d.split(": ")[0] for d in index.diagnostics] == [
+            "Cannot read summary " + str(self.root / "broken.py")
+        ]
 
     def test_location_budget_keeps_discovered_topics_and_reports_once(self):
         self.write("a.py")
@@ -223,15 +244,14 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_zero_location_budget_retains_builtins_and_loaded_modules(self):
         runtime = ModuleType("runtime_only", "Runtime summary.")
-        discovery = Discovery(max_locations=0)
         with self.assertLogs("positron.help_index", level="WARNING"):
-            index = discovery.build(
+            index = self.loaded_index(
                 [self.root],
+                {"runtime_only": runtime},
                 builtins=("sys",),
-                loaded=snapshot_loaded_modules({"runtime_only": runtime}),
+                discovery=lambda **kwargs: Discovery(max_locations=0, **kwargs),
             )
         assert self.names(index) == ["runtime_only", "sys"]
-        assert discovery.visited == 0
 
     def test_exact_location_budget_does_not_report_incomplete_index(self):
         self.write("a.py")
@@ -334,8 +354,7 @@ class DiscoveryTests(unittest.TestCase):
             assert [n for n, d in self.legacy()] == ["stage2_dynamic", "stage2_dynamic.extension"]
 
     def test_loaded_builtin_summary_is_recovered(self):
-        loaded = snapshot_loaded_modules({"sys": sys})
-        index = Discovery().build([], builtins=("sys",), loaded=loaded)
+        index = self.loaded_index([], {"sys": sys}, builtins=("sys",))
         assert [t.name for t in index.search("provides access")] == ["sys"]
 
     def test_loaded_dynamic_package_paths_recover_extra_modules(self):
@@ -344,8 +363,7 @@ class DiscoveryTests(unittest.TestCase):
         self.write("extra/extension.py")
         module = ModuleType("pkg", "Loaded package synopsis.")
         module.__path__ = [str(self.root / "disk/pkg"), str(self.root / "extra")]
-        loaded = snapshot_loaded_modules({"pkg": module})
-        index = Discovery().build([self.root / "disk"], builtins=(), loaded=loaded)
+        index = self.loaded_index([self.root / "disk"], {"pkg": module})
         assert self.names(index) == ["pkg", "pkg.extension", "pkg.normal"]
 
     def test_snapshot_does_not_invoke_module_or_path_hooks(self):
@@ -383,9 +401,7 @@ class DiscoveryTests(unittest.TestCase):
         self.write("actual/right.py")
         module = ModuleType("pkg", "Actual loaded package.")
         module.__path__ = [str(self.root / "actual")]
-        index = Discovery().build(
-            [self.root / "disk"], builtins=(), loaded=snapshot_loaded_modules({"pkg": module})
-        )
+        index = self.loaded_index([self.root / "disk"], {"pkg": module})
         assert self.names(index) == ["pkg", "pkg.right"]
 
     def test_loaded_only_module_and_empty_package_path(self):
@@ -394,11 +410,7 @@ class DiscoveryTests(unittest.TestCase):
         pkg = ModuleType("pkg")
         pkg.__path__ = []
         runtime = ModuleType("pkg.runtime_only", "Runtime-only summary.")
-        index = Discovery().build(
-            [self.root],
-            builtins=(),
-            loaded=snapshot_loaded_modules({"pkg": pkg, "pkg.runtime_only": runtime}),
-        )
+        index = self.loaded_index([self.root], {"pkg": pkg, "pkg.runtime_only": runtime})
         assert self.names(index) == ["pkg", "pkg.runtime_only"]
         assert [t.name for t in index.search("runtime-only summary")] == ["pkg.runtime_only"]
 
@@ -406,9 +418,7 @@ class DiscoveryTests(unittest.TestCase):
         file = self.write("example.py", '"""Source synopsis."""\n')
         module = ModuleType("example", "Runtime replacement.")
         module.__file__ = str(file)
-        index = Discovery().build(
-            [self.root], builtins=(), loaded=snapshot_loaded_modules({"example": module})
-        )
+        index = self.loaded_index([self.root], {"example": module})
         assert index.topics[0].summary == "Source synopsis."
 
 
@@ -535,7 +545,7 @@ def test_cache_loaded_module_blocks_static_package_children(tmp_path, monkeypatc
     assert cache.get().suggest("pkg.child")
 
 
-def test_cache_nested_loaded_paths_match_discovery(tmp_path, monkeypatch):
+def test_cache_nested_loaded_package_paths(tmp_path, monkeypatch):
     for name in [
         "disk/pkg/__init__.py",
         "disk/pkg/sub/__init__.py",
@@ -558,13 +568,16 @@ def test_cache_nested_loaded_paths_match_discovery(tmp_path, monkeypatch):
         "positron.help_index.snapshot_loaded_modules", lambda: snapshot_loaded_modules(registry)
     )
     cache = HelpIndex()
-    for paths in [[str(tmp_path / "disk/pkg/sub")], [str(tmp_path / "child")], []]:
+    # The loaded parent's path replaces its disk subtree with `extra`. The loaded
+    # child's path then decides the child's subtree.
+    for paths, expected in [
+        ([str(tmp_path / "disk/pkg/sub")], ["pkg", "pkg.sub", "pkg.sub.old"]),
+        ([str(tmp_path / "child")], ["pkg", "pkg.sub", "pkg.sub.new"]),
+        ([], ["pkg", "pkg.sub"]),
+    ]:
         child.__path__ = paths
         cache.update_context()
-        expected = Discovery().build(
-            sys.path, builtins=(), loaded=snapshot_loaded_modules(registry)
-        )
-        assert cache.get() == expected
+        assert [t.name for t in cache.get().topics] == expected
 
 
 def test_cache_zip_source_changes_and_loaded_path_reuse(tmp_path, monkeypatch):
@@ -647,6 +660,25 @@ def test_rebuild_reads_only_changed_directories_and_sources(tmp_path, monkeypatc
         "gamma": "Gamma summary.",
         "pkg": "Package summary.",
     }
+
+
+def test_search_page_uses_the_latest_index_without_building(tmp_path, monkeypatch):
+    from positron.help_index import LoadedSnapshot
+    from positron.pydoc import _PositronHTMLDoc
+
+    (tmp_path / "fixture_module.py").write_text('"""Quasar summary."""\n')
+    monkeypatch.setattr(sys, "path", [str(tmp_path)])
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules", lambda: LoadedSnapshot((), ())
+    )
+    index = HelpIndex()
+    index.get()
+    # Building changes process-wide warning filters, so the server thread must not build.
+    monkeypatch.setattr(Discovery, "build", lambda *_args, **_kwargs: pytest.fail("built"))
+    (tmp_path / "later_module.py").write_text('"""Quasar later."""\n')
+    _title, contents = _PositronHTMLDoc(index).html_search("Quasar")
+    assert "fixture_module.html" in contents
+    assert "later_module.html" not in contents
 
 
 def test_snapshot_does_not_inspect_nonmodule_attributes():

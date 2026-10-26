@@ -270,7 +270,7 @@ class HelpService:
             if self._comm is not None:
                 self._comm.send_result(
                     data=[
-                        topic.dict()
+                        topic.dict(exclude_none=True)
                         for topic in self.get_help_topics(
                             request.params.query, request.params.limit
                         )
