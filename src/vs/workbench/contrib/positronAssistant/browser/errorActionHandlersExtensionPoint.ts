@@ -41,7 +41,7 @@ ExtensionsRegistry.registerExtensionPoint<IErrorActionHandlerContribution[]>({
 					type: 'string',
 				},
 				label: {
-					description: localize('positron.errorActionHandlerLabel', "Name of the coding agent, e.g. \"Claude Code\"."),
+					description: localize('positron.errorActionHandlerLabel', "Name of the coding agent, shown to users."),
 					type: 'string',
 				},
 			},

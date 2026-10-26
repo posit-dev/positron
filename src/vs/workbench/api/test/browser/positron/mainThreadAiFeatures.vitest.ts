@@ -165,10 +165,10 @@ describe('MainThreadAiFeatures', () => {
 			const mainThread = await createMainThread([]);
 			const context = { kind: 'notebook' as const, error: 'boom', uri: URI.file('/a.ipynb') };
 
-			mainThread.$registerErrorActionHandler(7, 'claude-code', 'Claude Code', false);
-			const handler = errorActionHandlers.get('claude-code')!;
+			mainThread.$registerErrorActionHandler(7, 'test-agent', 'Test Agent', false);
+			const handler = errorActionHandlers.get('test-agent')!;
 			expect({ id: handler.id, label: handler.label, supportsChatContinuation: handler.supportsChatContinuation })
-				.toEqual({ id: 'claude-code', label: 'Claude Code', supportsChatContinuation: false });
+				.toEqual({ id: 'test-agent', label: 'Test Agent', supportsChatContinuation: false });
 
 			await handler.ask('explain', context, {});
 			expect(askErrorActionHandler).toHaveBeenCalledWith(7, 'explain', context, false);
@@ -179,14 +179,14 @@ describe('MainThreadAiFeatures', () => {
 
 		it('refuses Posit Assistant\'s reserved id and taken ids, with a logged error', async () => {
 			const mainThread = await createMainThread([]);
-			mainThread.$registerErrorActionHandler(1, 'claude-code', 'Claude Code', false);
+			mainThread.$registerErrorActionHandler(1, 'test-agent', 'Test Agent', false);
 
 			mainThread.$registerErrorActionHandler(2, 'posit-assistant', 'Imposter', true);
-			mainThread.$registerErrorActionHandler(3, 'claude-code', 'Again', false);
+			mainThread.$registerErrorActionHandler(3, 'test-agent', 'Again', false);
 			// Unregistering a refused handle leaves the others alone.
 			mainThread.$unregisterErrorActionHandler(3);
 
-			expect([...errorActionHandlers.keys()]).toEqual(['claude-code']);
+			expect([...errorActionHandlers.keys()]).toEqual(['test-agent']);
 			expect(logError).toHaveBeenCalledTimes(2);
 		});
 	});
