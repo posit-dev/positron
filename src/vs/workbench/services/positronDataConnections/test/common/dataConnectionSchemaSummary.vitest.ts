@@ -19,6 +19,8 @@ interface IFakeSchemaNode {
 	dataType?: string;
 	isPrimaryKey?: boolean;
 	children?: IFakeSchemaNode[];
+	// Set to make listing this node's children fail, as a driver losing its connection would.
+	failsWith?: string;
 }
 
 // Builds a fake IDataConnectionHandle backed by an in-memory tree, assigning each node a
@@ -31,15 +33,20 @@ function createFakeHandle(
 	roots: IFakeSchemaNode[],
 	connectionHandle = 1,
 	expanded: string[] = [],
-	calls: { retained: (boolean | undefined)[]; released: number[] } = { retained: [], released: [] },
+	calls: { retained: (boolean | undefined)[]; released: number[]; handedOut?: number[] } = { retained: [], released: [] },
 ): IDataConnectionHandle {
 	let nextNodeHandle = 1;
 	const childrenByNodeHandle = new Map<number, IFakeSchemaNode[]>();
 	const nameByNodeHandle = new Map<number, string>();
+	const failureByNodeHandle = new Map<number, string>();
 
 	const toDto = (node: IFakeSchemaNode): IDataConnectionNodeDTO => {
 		const nodeHandle = nextNodeHandle++;
+		calls.handedOut?.push(nodeHandle);
 		nameByNodeHandle.set(nodeHandle, node.name);
+		if (node.failsWith) {
+			failureByNodeHandle.set(nodeHandle, node.failsWith);
+		}
 		if (node.children) {
 			childrenByNodeHandle.set(nodeHandle, node.children);
 		}
@@ -64,6 +71,10 @@ function createFakeHandle(
 		releaseNodes: nodeHandles => { calls.released.push(...nodeHandles); },
 		nodeGetChildren: async (nodeHandle: number) => {
 			expanded.push(nameByNodeHandle.get(nodeHandle) ?? `#${nodeHandle}`);
+			const failure = failureByNodeHandle.get(nodeHandle);
+			if (failure) {
+				throw new Error(failure);
+			}
 			return (childrenByNodeHandle.get(nodeHandle) ?? []).map(toDto);
 		},
 	});
@@ -93,6 +104,20 @@ describe('summarizeDataConnectionSchema', () => {
 
 		expect({ retained: calls.retained, released: [...calls.released].sort((a, b) => a - b) })
 			.toEqual({ retained: [true], released: [1, 2, 3] });
+	});
+
+	it('frees every handle it was given when a fetch fails partway through the walk', async () => {
+		// A walk that throws is still holding handles the ext host keeps through the pane's
+		// refreshes; left unreleased, they would stay until the connection closes.
+		const calls = { retained: [] as (boolean | undefined)[], released: [] as number[], handedOut: [] as number[] };
+		const handle = createFakeHandle([
+			{ name: 'Tables', kind: 'groupTables', children: [{ name: 'orders', kind: 'table', children: [{ name: 'id', kind: 'field' }] }] },
+			{ name: 'Views', kind: 'groupViews', children: [], failsWith: 'connection lost' },
+		], 1, [], calls);
+
+		await expect(summarizeDataConnectionSchema(handle)).rejects.toThrow('connection lost');
+
+		expect([...calls.released].sort((a, b) => a - b)).toEqual(calls.handedOut);
 	});
 
 	it('returns an empty summary for a connection with no schema', async () => {
