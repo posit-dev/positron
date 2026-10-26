@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
+import { SqlLog } from './log';
 
 /**
  * The SQL parser, as a WebAssembly module loaded into the extension host.
@@ -245,15 +246,55 @@ interface AnalyzerExports {
 /** Bytes of length prefix on a response buffer. */
 const HEADER = 4;
 
+/**
+ * How much memory the module may keep, and how much text it is given.
+ *
+ * Both exist because a module's memory can grow but never shrink: whatever the largest request
+ * needed stays reserved for as long as the instance lives. At its peak, tokenizing takes around
+ * ninety bytes per character of SQL -- every token of the document is held at once, at 88 bytes
+ * each, in a list that grows by doubling -- so one large document would otherwise pin a hundred
+ * megabytes or more in the extension host for the rest of the session.
+ */
+export interface AnalyzerLimits {
+	/**
+	 * The memory, in bytes, past which the instance is replaced after a request. The analysis keeps
+	 * nothing between requests, so a fresh instance answers the same, and starting one costs a
+	 * fraction of a millisecond: the module itself is compiled once and kept.
+	 */
+	readonly memory: number;
+
+	/**
+	 * The longest document, in UTF-16 units, that is analyzed. Replacing the instance only gives
+	 * back what a request took once it is over, so this is what bounds the peak. A longer document
+	 * gets the answer a broken module would give, which for the statement range provider means the
+	 * Console runs the line under the cursor instead.
+	 */
+	readonly documentLength: number;
+}
+
+/**
+ * A megabyte of text peaks at around ninety megabytes. A SQL file a person edits is far below
+ * that; what is above it is generated -- a database dump -- and run whole rather than a statement
+ * at a time.
+ */
+const DEFAULT_LIMITS: AnalyzerLimits = {
+	memory: 64 * 1024 * 1024,
+	documentLength: 1024 * 1024,
+};
+
 export class SqlAnalyzer {
 
 	private readonly _encoder = new TextEncoder();
 	private readonly _decoder = new TextDecoder();
 	private _instance: WebAssembly.Instance;
 
+	/** Set once a document has been declined for its length, so that is said once, not per request. */
+	private _declineReported = false;
+
 	private constructor(
 		private readonly _module: WebAssembly.Module,
-		private readonly _onError: (message: string) => void,
+		private readonly _log: Pick<SqlLog, 'warn' | 'error'>,
+		private readonly _limits: AnalyzerLimits,
 	) {
 		this._instance = new WebAssembly.Instance(this._module, {});
 	}
@@ -263,14 +304,29 @@ export class SqlAnalyzer {
 	 * callers do it once and keep the result.
 	 *
 	 * @param path The `.wasm` file, which ships in the extension's `resources` directory.
-	 * @param onError Where to report a request the module could not answer.
+	 * @param log Where to report a request the module could not answer, or a document too long to
+	 * give it.
+	 * @param limits What the module may use. The defaults suit the extension; a test passes smaller
+	 * ones.
 	 */
-	public static load(path: string, onError: (message: string) => void): SqlAnalyzer {
-		return new SqlAnalyzer(new WebAssembly.Module(fs.readFileSync(path)), onError);
+	public static load(
+		path: string,
+		log: Pick<SqlLog, 'warn' | 'error'>,
+		limits: AnalyzerLimits = DEFAULT_LIMITS,
+	): SqlAnalyzer {
+		return new SqlAnalyzer(new WebAssembly.Module(fs.readFileSync(path)), log, limits);
+	}
+
+	/** The bytes of memory the module holds right now, which is the most any request has needed. */
+	public get memory(): number {
+		return (this._instance.exports as unknown as AnalyzerExports).memory.buffer.byteLength;
 	}
 
 	/** Splits a document into the statements it contains. */
 	public statements(text: string, dialect: string): readonly StatementSpan[] {
+		if (!this._accepts(text)) {
+			return [];
+		}
 		return this._request<{ statements: StatementSpan[] }>(
 			{ op: 'statements', text, dialect },
 		)?.statements ?? [];
@@ -278,6 +334,9 @@ export class SqlAnalyzer {
 
 	/** Parses a document: its syntax errors, and every name it refers to. */
 	public analyze(text: string, dialect: string): Analysis {
+		if (!this._accepts(text)) {
+			return EMPTY_ANALYSIS;
+		}
 		return this._request<Analysis>({ op: 'analyze', text, dialect }) ?? EMPTY_ANALYSIS;
 	}
 
@@ -294,6 +353,9 @@ export class SqlAnalyzer {
 	 * which {@link Sources.origin} reports.
 	 */
 	public sources(text: string, dialect: string, offset: number): Sources {
+		if (!this._accepts(text)) {
+			return EMPTY_SOURCES;
+		}
 		return this._request<Sources>({ op: 'sources', text, dialect, offset }) ?? EMPTY_SOURCES;
 	}
 
@@ -319,6 +381,9 @@ export class SqlAnalyzer {
 	 * surprising one is otherwise indistinguishable from a broken one.
 	 */
 	public keywordsAt(text: string, dialect: string, offset: number): KeywordsAt {
+		if (!this._accepts(text)) {
+			return EMPTY_KEYWORDS_AT;
+		}
 		return this._request<KeywordsAt>({ op: 'keywordsAt', text, dialect, offset })
 			?? EMPTY_KEYWORDS_AT;
 	}
@@ -339,6 +404,20 @@ export class SqlAnalyzer {
 			?? names.map(() => true);
 	}
 
+	/** Whether a document is short enough to analyze; see {@link AnalyzerLimits.documentLength}. */
+	private _accepts(text: string): boolean {
+		if (text.length <= this._limits.documentLength) {
+			return true;
+		}
+		if (!this._declineReported) {
+			this._declineReported = true;
+			this._log.warn(`A SQL document of ${text.length} characters was not analyzed: documents`
+				+ ` longer than ${this._limits.documentLength} are not, so running code from one`
+				+ ` runs the line under the cursor rather than the statement.`);
+		}
+		return false;
+	}
+
 	private _request<T>(request: object): T | undefined {
 		try {
 			return this._call<T>(request);
@@ -346,13 +425,25 @@ export class SqlAnalyzer {
 			// A trap leaves the instance unusable -- the module aborts on panic rather than
 			// unwinding -- so it is replaced before the next request rather than every request
 			// after the first failing too.
-			this._onError(`The SQL analyzer failed to answer a request: ${error}`);
-			try {
-				this._instance = new WebAssembly.Instance(this._module, {});
-			} catch (restartError) {
-				this._onError(`The SQL analyzer could not be restarted: ${restartError}`);
-			}
+			this._log.error(`The SQL analyzer failed to answer a request: ${error}`);
+			this._restart();
 			return undefined;
+		} finally {
+			// The memory a request grew the module to stays reserved after it is over, so an
+			// instance that has grown past the limit is swapped for a fresh one, which hands it
+			// back.
+			if (this.memory > this._limits.memory) {
+				this._restart();
+			}
+		}
+	}
+
+	/** Replaces the instance with a fresh one from the compiled module. */
+	private _restart(): void {
+		try {
+			this._instance = new WebAssembly.Instance(this._module, {});
+		} catch (error) {
+			this._log.error(`The SQL analyzer could not be restarted: ${error}`);
 		}
 	}
 

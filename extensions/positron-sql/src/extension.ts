@@ -120,7 +120,7 @@ class SqlSession implements vscode.Disposable {
 			throw new Error(`The SQL analyzer at ${module} could not be loaded.`);
 		}
 		try {
-			this._analyzer = SqlAnalyzer.load(module, message => this._log.error(message));
+			this._analyzer = SqlAnalyzer.load(module, this._log);
 		} catch (error) {
 			// Once: the module is read from disk at a fixed path, so a second attempt would fail
 			// the same way and say so again on every keystroke.

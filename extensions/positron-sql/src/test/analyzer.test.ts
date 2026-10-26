@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { testAnalyzer } from './support';
+import { loadAnalyzer, STRICT_LOG, testAnalyzer } from './support';
 
 /**
  * The WebAssembly module, driven through its TypeScript wrapper.
@@ -130,5 +130,38 @@ suite('SqlAnalyzer', () => {
 			assert.strictEqual(testAnalyzer().analyze(text, '').diagnostics.length, 0);
 		}
 		assert.strictEqual(testAnalyzer().statements(text, '').length, 500);
+	});
+
+	test('an instance grown past its memory limit is replaced', () => {
+		// About a quarter of a megabyte of SQL, which grows the module by tens of megabytes while
+		// it is tokenized. Kept, that memory would stay reserved for the life of the instance.
+		const text = 'SELECT id, name FROM customers WHERE id > 1;\n'.repeat(5000);
+		const megabyte = 1024 * 1024;
+		const keeping = loadAnalyzer(STRICT_LOG, { memory: 1024 * megabyte, documentLength: text.length });
+		const replacing = loadAnalyzer(STRICT_LOG, { memory: 4 * megabyte, documentLength: text.length });
+
+		assert.strictEqual(keeping.statements(text, '').length, 5000);
+		assert.strictEqual(replacing.statements(text, '').length, 5000);
+
+		assert.ok(keeping.memory > 4 * megabyte, `grew to ${keeping.memory} bytes`);
+		assert.ok(replacing.memory <= 4 * megabyte, `kept ${replacing.memory} bytes`);
+		// A fresh instance answers as the old one did.
+		assert.strictEqual(replacing.statements('SELECT 1; SELECT 2', '').length, 2);
+	});
+
+	test('a document over the length limit is not analyzed, and that is said once', () => {
+		const warnings: string[] = [];
+		const analyzer = loadAnalyzer(
+			{ warn: message => warnings.push(message), error: message => { throw new Error(String(message)); } },
+			{ memory: 1024 * 1024 * 1024, documentLength: 10 },
+		);
+
+		// The answer of a module that could not read it, which the statement range provider turns
+		// into running the line under the cursor.
+		assert.deepStrictEqual(analyzer.statements('SELECT 1; SELECT 2', ''), []);
+		assert.deepStrictEqual(analyzer.analyze('SELECT * FRM customers', '').diagnostics, []);
+		assert.strictEqual(warnings.length, 1);
+
+		assert.strictEqual(analyzer.statements('SELECT 1', '').length, 1, 'a short one still is');
 	});
 });
