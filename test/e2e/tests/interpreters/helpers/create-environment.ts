@@ -45,7 +45,18 @@ export async function openEmptyWorkspace(app: Application, name: string) {
 export async function runCreateEnvironment(app: Application, provider: 'Venv' | 'Conda') {
 	await test.step(`Run Python: Create Environment and pick ${provider}`, async () => {
 		await app.workbench.quickaccess.runCommand('python.createEnvironment', { keepOpen: true });
-		await app.workbench.quickInput.selectQuickInputElementContaining(provider, { timeout: 30000 });
+
+		// The environment-type picker reuses the Command Palette's widget, so a row
+		// picked before it has replaced the palette's rows can be one that is going
+		// away, and the click selects nothing. Wait for this picker, click without
+		// force so the click retries if its row is replaced, and make sure the flow
+		// moved on.
+		const typePicker = app.code.driver.currentPage.locator(
+			'.quick-input-widget .quick-input-box input[placeholder="Select an environment type"]',
+		);
+		await expect(typePicker).toBeVisible({ timeout: 30000 });
+		await app.workbench.quickInput.rowByAriaLabelPrefix(provider).first().click();
+		await expect(typePicker).not.toBeVisible({ timeout: 15000 });
 	});
 }
 
