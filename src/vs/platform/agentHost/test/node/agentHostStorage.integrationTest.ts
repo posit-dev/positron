@@ -198,7 +198,15 @@ esac`,
 		});
 	});
 
-	(isLinux ? test : test.skip)('real Linux fuser identifies holders with the diagnostic mount argument form', () => {
+	// --- Start Positron ---
+	// Positron's Linux CI image does not install psmisc, so fuser may be absent;
+	// skip rather than fail on ENOENT. A function expression gives us this.skip().
+	// (isLinux ? test : test.skip)('real Linux fuser identifies holders with the diagnostic mount argument form', () => {
+	(isLinux ? test : test.skip)('real Linux fuser identifies holders with the diagnostic mount argument form', function () {
+		if (spawnSync('fuser', ['-V']).error) {
+			this.skip();
+		}
+		// --- End Positron ---
 		const root = fileURLToPath(new URL('../../../../../../', import.meta.url));
 		const directory = mkdtempSync(join(root, '.build', 'agent-host-storage-fuser-'));
 		store.add(toDisposable(() => rmSync(directory, { recursive: true, force: true })));

@@ -345,6 +345,18 @@ license issuer at `../positron-license/pdol/target/debug/` next to the checkout
 (link `/positron-license` from the image and put the lab's `license.txt` there as
 `pdol_rsa`). Check `unshare -U true` fails there before trusting the result.
 
+The same container also breaks new upstream node `*.integrationTest.ts` files that pass on macOS and in upstream's CI. Two kinds showed up in 1.143:
+
+- **A child Electron process run as root.** The container runs as root, and Electron then exits with `FATAL: Running as root without --no-sandbox is not supported`. The test runner gets `--no-sandbox` from `LINUX_EXTRA_ARGS` in `scripts/test-integration.sh`, but a test that starts its own Electron child (e.g. `gpuProcess.integrationTest.ts` runs its fixture through `VSCODE_TEST_ELECTRON_PATH`) doesn't. Add `--no-sandbox` to that child's args only when `process.getuid?.() === 0`, inside a Positron marker.
+- **A Linux tool the CI image doesn't install.** Upstream's runners have tools Positron's image lacks (e.g. `fuser` from `psmisc`), so the test fails with `spawnSync <tool> ENOENT`. If the test covers upstream-only infrastructure (like the agent-host e2e storage wrapper), skip it when the tool is missing. Adding the package to the image is an option, but that's a separate repo (`positron-ci-images`).
+
+To find candidates before CI does, list the new integration tests that spawn processes:
+
+```bash
+git diff --diff-filter=A --name-only <pre-merge-commit> HEAD -- '*.integrationTest.ts' \
+  | xargs grep -lE "execFile|spawn|VSCODE_TEST_ELECTRON_PATH"
+```
+
 Read this job's failure carefully: it has a signature that looks green. Every
 suite can report `N passing` and `Extension host test runner exit code: 0` while
 the job still ends in `##[error]Process completed with exit code 1`. When that
@@ -368,6 +380,16 @@ last `exited with code: 0` and the final exit code.
 
 Next, install all e2e test dependencies and run the test suite. Investigate any
 failures and fix them if they are caused by the merge.
+
+#### Triage e2e failures by shared stack frame
+
+A merge rarely breaks dozens of features at once. When a Full Suite run shows many e2e failures across unrelated areas, look for one page-object helper they all go through before debugging tests one by one. In 1.143, all 75 failures on three platforms (connections, apps, autocomplete, data explorer, and more) were one race in `QuickInput.selectQuickInputElement`.
+
+- The shard jobs (`e2e / electron-1` ... `-4`) report success even when tests fail. Only the merge job (`e2e / electron`, `e2e / chromium`, `e2e / electron-win`) goes red. Its "Check test results" step lists the failing tests.
+- The merge job's log prints `REPORT_URL`. Its directory also serves `results.json`. Group the failures in that file by the top non-`node_modules` stack frame, and by the deepest failing `test.step` title (e.g. `Run command: workbench.action.clearEditorHistory`). One frame for every failure means one helper fix.
+- `results.json` attachment paths point into the runner's blob-report directory and can't be downloaded. For the trace and error-context of a single test, decode the base64 zip embedded in the report's `index.html`. Its per-file JSON maps each attachment to `data/<sha>.<ext>` under the report URL. Then read the click/expect call logs from `trace.trace` inside the trace zip.
+
+**Watch for upstream UI motion.** Upstream is adding open/close animations (e.g. 1.143's quick input close animation under `modern-ui.monaco-enable-motion`). A widget that's closing still counts as visible for its animation. A helper that checks `isVisible()` right after an action and then retries (re-clicks) it will hit an element that's fading out. Playwright retries "element is not visible" with no timeout of its own, so the helper's `toPass` budget expires. Fix the helper to wait for the expected state first and to give every retry action its own `timeout`. Don't add sleeps or turn off motion.
 
 ### Step 6: Check the test tag map
 

@@ -32,6 +32,12 @@ const execFileAsync = promisify(execFile);
 					fixture,
 					`--gpu-test-user-data=${userData}`,
 					`--gpu-test-mode=${mode}`,
+					// --- Start Positron ---
+					// Positron's Linux CI container runs as root, where Electron refuses
+					// to start without --no-sandbox (the test runner itself already
+					// gets it from scripts/test-integration.sh).
+					...(process.getuid?.() === 0 ? ['--no-sandbox'] : []),
+					// --- End Positron ---
 				], {
 					env: { ...process.env, ELECTRON_RUN_AS_NODE: undefined, NODE_OPTIONS: undefined },
 					timeout: 75_000,
