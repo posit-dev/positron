@@ -2294,10 +2294,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// An affiliated runtime that already is the pinned interpreter keeps
 		// the extra data saved with it, such as an environment module's
-		// startup command, which the extension's answer can lack.
+		// startup command, where the extension's answer has no value. Where
+		// the answer has a value, such as whether R is the current R, the
+		// answer's is newer.
 		const saved = this.getAffiliatedRuntime(languageId)?.metadata;
 		const pinned = saved?.runtimeId === answer.runtimeId ?
-			{ ...answer, extraRuntimeData: saved.extraRuntimeData } :
+			{
+				...answer,
+				extraRuntimeData: {
+					...saved.extraRuntimeData,
+					...Object.fromEntries(Object.entries(answer.extraRuntimeData ?? {}).filter(([, value]) => value !== undefined)),
+				},
+			} :
 			answer;
 
 		// Register the pinned interpreter, which also registers its variants.
