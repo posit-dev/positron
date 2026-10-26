@@ -106,7 +106,7 @@ function splitBar(rows) {
 function header(s) {
 	const inPr = s.counts['fixed-in-pr'];
 	const noun = s.counted === 1 ? 'finding' : 'findings';
-	const metric = s.fixed === s.counted ? `all ${s.counted} ${noun}` : `${s.fixed} of ${s.counted} ${noun}`;
+	const metric = s.fixed === s.counted ? `all ${s.counted} ${noun}` : `${s.fixed} of ${s.counted} ${noun} (${pct(s.fixed, s.counted)})`;
 	// "all" only reads right when more than one finding was fixed.
 	const all = s.fixed === 1 ? '' : 'all ';
 	const when = inPr === s.fixed ? `${all}before merging` : inPr ? `${inPr} of them before merging` : `${all}after merging`;

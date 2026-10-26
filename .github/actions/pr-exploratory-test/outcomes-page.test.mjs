@@ -48,16 +48,15 @@ test('summarize counts fixed, counted and not counted yet, after dropping duplic
 	assert.equal(filed.notCounted, 1);
 });
 
-test('the headline counts findings fixed out of those with a known outcome, then how many were fixed before merging', () => {
+test('the headline counts findings fixed out of those with a known outcome, with the rate unless it is all or none, then how many were fixed before merging', () => {
 	const html = render(today);
-	assert.match(text(html), /Does \/explore change what lands on main\? Developers fixed 9 of 12 findings ?, 8 of them before merging\./);
-	assert.match(html, /Developers fixed <span class="metric">9 of 12 findings<\/span>, 8 of them before merging\./);
-	assert.doesNotMatch(html.match(/<p class="headline">.*?<\/p>/)[0], /%/);
-	assert.match(render([row('fixed-in-pr'), row('fixed-in-pr'), row('not-fixed')]), /Developers fixed <span class="metric">2 of 3 findings<\/span>, all before merging\./);
-	assert.match(render([row('fixed-later'), row('fixed-later'), row('not-fixed')]), /Developers fixed <span class="metric">2 of 3 findings<\/span>, all after merging\./);
+	assert.match(text(html), /Does \/explore change what lands on main\? Developers fixed 9 of 12 findings \(75%\) ?, 8 of them before merging\./);
+	assert.match(html, /Developers fixed <span class="metric">9 of 12 findings \(75%\)<\/span>, 8 of them before merging\./);
+	assert.match(render([row('fixed-in-pr'), row('fixed-in-pr'), row('not-fixed')]), /Developers fixed <span class="metric">2 of 3 findings \(67%\)<\/span>, all before merging\./);
+	assert.match(render([row('fixed-later'), row('fixed-later'), row('not-fixed')]), /Developers fixed <span class="metric">2 of 3 findings \(67%\)<\/span>, all after merging\./);
 	assert.match(render([row('fixed-in-pr'), row('fixed-in-pr'), row('pending')]), /Developers fixed <span class="metric">all 2 findings<\/span>, all before merging\./);
 	assert.match(text(render([row('fixed-in-pr')])), /Developers fixed all 1 finding ?, before merging\./);
-	assert.match(text(render([row('fixed-later'), row('not-fixed')])), /Developers fixed 1 of 2 findings ?, after merging\./);
+	assert.match(text(render([row('fixed-later'), row('not-fixed')])), /Developers fixed 1 of 2 findings \(50%\) ?, after merging\./);
 	assert.match(render([row('not-fixed'), row('filed-issue')]), /Developers haven't fixed any of the <span class="metric">2 findings<\/span> yet\./);
 	assert.match(text(render([row('pending')])), /No PRs with findings have merged yet\./);
 });
@@ -257,7 +256,7 @@ test('filed as issue sits between fixed later and not fixed, counted but not fix
 	const detail = html.match(/<div class="seg-detail" data-for="filed-issue" hidden>[\s\S]*?<\/div><\/div>/)[0];
 	assert.match(detail, /<span class="hero" style="color:#2B2A27">25%<\/span>/);
 	assert.match(text(detail), /25% Filed as issue An issue matching/);
-	assert.match(text(html), /Developers fixed 2 of 4 findings ?, 1 of them before merging\./);
+	assert.match(text(html), /Developers fixed 2 of 4 findings \(50%\) ?, 1 of them before merging\./);
 	assert.match(text(html), /25% Fixed later Fixed on main after the merge, or its issue was closed as completed\./);
 });
 
@@ -365,7 +364,7 @@ test('resolveRange: presets end on the generated date, all time spans the runs, 
 test('the range filters findings by run date and everything recalculates', () => {
 	const view = renderView(spread, { now: '2026-10-14', range: resolveRange('30d', [], '2026-10-14') });
 	const t = text(view.head + view.body);
-	assert.match(t, /Developers fixed 1 of 2 findings ?, before merging\./);
+	assert.match(t, /Developers fixed 1 of 2 findings \(50%\) ?, before merging\./);
 	assert.match(t, /All 2 Fixed 1 Not fixed 1 Expand all/);
 	assert.doesNotMatch(t, /PR still open \d|Fixed later \d/);
 	assert.match(text(view.label), /^ ?Sep 15 - Oct 14, 2026 ?$/);
