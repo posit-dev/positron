@@ -9,9 +9,6 @@ import { registerWhileInstalled } from 'positron-coding-agent-common';
 import { CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, CLAUDE_CODE_LABEL, claudeCodeErrorActionHandler, isClaudeCodeInstalled } from './claudeCode';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-	// Register Claude Code while it's installed, so the `ai.errorActions.agent`
-	// setting lists it. Once activated, it stays registered while `ai.enabled`
-	// is off, which Positron already enforces, so the setting keeps listing it.
 	const registration = registerWhileInstalled(
 		isClaudeCodeInstalled,
 		() => positron.ai.registerErrorActionHandler(
@@ -27,7 +24,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// The command-line tool is looked for here and on extension changes only:
 	// nothing announces one being installed or removed.
 	context.subscriptions.push(vscode.extensions.onDidChange(() => registration.update()));
-	// Finish activating once registered, since a click that arrives before
-	// then activates this extension and waits for it.
+	// Finish activating only once registered; see the README's Activation.
 	await registration.update();
 }
