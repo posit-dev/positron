@@ -25,7 +25,7 @@ from .help_comm import (
     ShowHelpParams,
     ShowHelpTopicRequest,
 )
-from .help_index import HelpIndex
+from .help_index import suggest
 from .positron_comm import CommMessage, PositronComm
 from .pydoc import member_summaries, render_markdown, start_server
 from .utils import JsonData, JsonRecord, get_module_name, get_qualname
@@ -246,7 +246,6 @@ class HelpService:
     def __init__(self):
         self._comm: PositronComm | None = None
         self._pydoc_thread = None
-        self._help_index = HelpIndex()
 
     def on_comm_open(self, comm: BaseComm, _msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
@@ -292,8 +291,7 @@ class HelpService:
                 self._comm.close()
 
     def start(self):
-        self._help_index.update_context()
-        self._pydoc_thread = start_server(help_index=self._help_index)
+        self._pydoc_thread = start_server()
 
     def show_help(self, request: str | Any | None) -> None:
         if self._pydoc_thread is None or not self._pydoc_thread.serving:
@@ -331,13 +329,11 @@ class HelpService:
             )
 
     def search_help(self, query: str, search_id: str) -> bool:
-        """Show native pydoc results using the import-free discovery index."""
+        """Show pydoc's search results page for `query`."""
         if self._pydoc_thread is None or not self._pydoc_thread.serving or self._comm is None:
             logger.warning("Ignoring help search, the pydoc server or comm is not available")
             return False
 
-        self._help_index.update_context()
-        self._help_index.get()
         url = f"{self._pydoc_thread.url}search?key={quote_plus(query)}"
         event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True, search_id=search_id)
         self._comm.send_event(
@@ -346,13 +342,7 @@ class HelpService:
         return True
 
     def get_help_topics(self, query: str, limit: int) -> list[HelpTopicSuggestion]:
-        """Return bounded module-name suggestions without importing packages."""
+        """Return module names that match `query`, without importing any modules."""
         if not 1 <= limit <= 50:
             raise ValueError("Help suggestion limit must be between 1 and 50")
-        if not query.strip():
-            return []
-        self._help_index.update_context()
-        return [
-            HelpTopicSuggestion(label=topic.name, topic=topic.name)
-            for topic in self._help_index.get().suggest(query, limit)
-        ]
+        return [HelpTopicSuggestion(label=name, topic=name) for name in suggest(query, limit)]

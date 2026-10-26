@@ -344,27 +344,22 @@ def test_handle_search_help(help_comm, mock_pydoc_thread) -> None:
     ]
 
 
-def test_handle_get_help_topics(help_comm, help_service, monkeypatch) -> None:
-    from positron.help_index import Index, Topic
-
-    index = Index(
-        (
-            Topic("example", "package", "fixture", "Example package"),
-            Topic("example.tools", "module", "fixture", "Example tools"),
-        ),
-        (),
-    )
-    monkeypatch.setattr(help_service._help_index, "get", lambda: index)  # noqa: SLF001
+def test_handle_get_help_topics(help_comm, tmp_path, monkeypatch) -> None:
+    package = tmp_path / "help_topics_fixture"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    (package / "tools.py").write_text("")
+    monkeypatch.setattr(sys, "path", [str(tmp_path)])
     msg = json_rpc_request(
         HelpBackendRequest.GetHelpTopics,
-        {"query": "example", "limit": 1},
+        {"query": "help_topics_fixture", "limit": 1},
         comm_id="dummy_comm_id",
     )
     help_comm.handle_msg(msg)
     assert help_comm.messages == [
         json_rpc_response(
             result=[
-                {"label": "example", "topic": "example"},
+                {"label": "help_topics_fixture", "topic": "help_topics_fixture"},
             ]
         )
     ]
@@ -380,17 +375,12 @@ def test_search_page_does_not_import_packages(
 ):
     import sys
 
-    from positron.help_index import LoadedSnapshot
-
     package = tmp_path / "unloaded_help_fixture"
     package.mkdir()
     (package / "__init__.py").write_text(
         '"""Quasar <script>summary</script>."""\nraise RuntimeError("must not import")\n'
     )
     monkeypatch.setattr(sys, "path", [str(tmp_path)])
-    monkeypatch.setattr(
-        "positron.help_index.snapshot_loaded_modules", lambda: LoadedSnapshot((), ())
-    )
     assert (
         running_help_service.get_help_topics("unloaded_help_fixture", 1)[0].topic
         == "unloaded_help_fixture"
@@ -408,15 +398,10 @@ def test_search_page_does_not_import_packages(
 def test_search_page_decodes_the_query(
     running_help_service, help_comm, tmp_path, monkeypatch, query: str
 ) -> None:
-    from positron.help_index import LoadedSnapshot
-
     package = tmp_path / "decoded_help_fixture"
     package.mkdir()
     (package / "__init__.py").write_text(f'"""{query} fixture."""\n', encoding="utf-8")
     monkeypatch.setattr(sys, "path", [str(tmp_path)])
-    monkeypatch.setattr(
-        "positron.help_index.snapshot_loaded_modules", lambda: LoadedSnapshot((), ())
-    )
     assert running_help_service.search_help(query, "decoded-search")
     url = help_comm.messages[-1]["data"]["params"]["content"]
     with urlopen(url) as response:
