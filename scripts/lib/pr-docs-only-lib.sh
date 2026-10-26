@@ -7,7 +7,7 @@
 # Source this file; do not execute it.
 #
 # This is an allowlist: a path is docs-only only if a rule below says so, and a
-# PR skips the tests only if every changed path is docs-only. A new or unknown
+# PR or push skips the tests only if every changed path is docs-only. A new or unknown
 # path runs the tests by default.
 
 # ci_reachable_paths <repo_root> [root_workflow]
@@ -45,8 +45,8 @@ ci_reachable_paths() {
 }
 
 # is_docs_only_path <path> <reachable>
-# Echoes "true" iff changing <path> can't change the outcome of the required
-# unit, ext-host, or e2e jobs. <reachable> is the newline-separated
+# Echoes "true" iff changing <path> can't change the outcome of the calling
+# workflow's unit, ext-host, or e2e jobs. <reachable> is the newline-separated
 # output of ci_reachable_paths.
 is_docs_only_path() {
 	local path="$1" reachable="$2"
@@ -73,7 +73,7 @@ is_docs_only_path() {
 		# these two rules to files directly in their directory.
 		.github/*.md)
 			[[ "$path" == */*/* ]] || { echo true; return 0; } ;;
-		# A workflow the required jobs don't call. Scripts, JSON maps, and the
+		# A workflow the test jobs don't call. Scripts, JSON maps, and the
 		# like under .github/workflows/ are not matched here and so still run.
 		.github/workflows/*.yml|.github/workflows/*.yaml)
 			if [[ "$path" == */*/*/* ]] || printf '%s\n' "$reachable" | grep -qxF "$path"; then
@@ -82,7 +82,7 @@ is_docs_only_path() {
 				echo true
 			fi
 			return 0 ;;
-		# Any file in a local action the required jobs don't use. Files directly
+		# Any file in a local action the test jobs don't use. Files directly
 		# in .github/actions/ belong to no action and so still run.
 		.github/actions/*/*)
 			local action="${path#.github/actions/}"

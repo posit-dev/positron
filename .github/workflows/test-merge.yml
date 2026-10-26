@@ -8,27 +8,36 @@ on:
       - "release/**"
 
 jobs:
-  # Decides whether this push to main changes only docs or tooling (see
-  # scripts/lib/pr-docs-only-lib.sh), checking against the workflows this file
-  # calls. If so, the test jobs below are skipped. Release and prerelease
-  # branches always run the tests.
+  # Decides whether main changed only docs or tooling since its last
+  # successful run of this workflow (see scripts/lib/pr-docs-only-lib.sh),
+  # checking against the workflows this file calls. If so, the test jobs below
+  # are skipped, except unit-tests, which saves the caches PRs restore from.
+  # Release and prerelease branches always run the tests.
   #
   # Fails open: the jobs below run even if this job fails or is skipped
   # (`!cancelled()`), and an empty output means "not docs-only".
   docs-only:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      actions: read  # Find the last successful run of this workflow.
+      contents: read
     outputs:
       docs_only: ${{ steps.docs-only.outputs.docs_only }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github
+            scripts
+          filter: blob:none
       - name: Check for a docs-only change
         id: docs-only
         run: bash scripts/pr-docs-only.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          BEFORE_SHA: ${{ github.event.before }}
+          PUSH_BRANCH: main
           CI_WORKFLOW: .github/workflows/test-merge.yml
 
   setup:
@@ -92,8 +101,6 @@ jobs:
 
   unit-tests:
     name: test
-    needs: docs-only
-    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
     with:

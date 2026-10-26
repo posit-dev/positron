@@ -82,6 +82,8 @@ jobs:
         run: bash scripts/test/pr-tags-lib-test.sh
       - name: Unit test the docs-only helpers
         run: bash scripts/test/pr-docs-only-lib-test.sh
+      - name: Test the docs-only push mode
+        run: bash scripts/test/pr-docs-only-push-test.sh
       - name: Validate test-tag-paths-map.json tags against test-tags.ts
         run: bash scripts/check-test-tag-map.sh --tags-only
       - name: Parse Tags from PR Body
