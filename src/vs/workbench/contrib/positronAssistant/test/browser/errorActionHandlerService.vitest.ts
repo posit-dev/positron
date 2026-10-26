@@ -190,10 +190,10 @@ describe('ErrorActionHandlerService', () => {
 
 	it('lists a handler chosen in another scope as not available while it is not registered', () => {
 		setConfiguration(ERROR_ACTIONS_AGENT_KEY, DEFAULT_ERROR_ACTION_HANDLER_ID);
-		setSettingSource({ userLocalValue: 'claude-code', workspaceValue: DEFAULT_ERROR_ACTION_HANDLER_ID });
+		setSettingSource({ userLocalValue: 'some-agent', workspaceValue: DEFAULT_ERROR_ACTION_HANDLER_ID });
 		createService();
 
-		expect(getChoices()).toEqual({ ids: ['posit-assistant', 'claude-code'], labels: ['Posit Assistant', 'claude-code (not available)'] });
+		expect(getChoices()).toEqual({ ids: ['posit-assistant', 'some-agent'], labels: ['Posit Assistant', 'some-agent (not available)'] });
 	});
 
 	it('updates the choices in place, and only when they change', () => {
@@ -323,13 +323,13 @@ describe('ErrorActionHandlerService', () => {
 	it('sends nothing and offers to select another handler when the handler is not available', async () => {
 		const service = createService();
 
-		await service.ask('claude-code', 'fix', context, {});
+		await service.ask('some-agent', 'fix', context, {});
 
-		expect(logWarn).toHaveBeenCalledWith(`No error action handler with the id 'claude-code' is registered`);
+		expect(logWarn).toHaveBeenCalledWith(`No error action handler with the id 'some-agent' is registered`);
 		const [severity, message, [choice]] = notifyPrompt.mock.calls[0];
 		expect({ severity, message, choice: choice.label }).toEqual({
 			severity: Severity.Warning,
-			message: `The coding agent 'claude-code' isn't available, so the error wasn't sent. It may have been uninstalled or disabled.`,
+			message: `The coding agent 'some-agent' isn't available, so the error wasn't sent. It may have been uninstalled or disabled.`,
 			choice: 'Select Another Coding Agent',
 		});
 
@@ -338,10 +338,10 @@ describe('ErrorActionHandlerService', () => {
 	});
 
 	it('opens the settings the unavailable handler was chosen in', async () => {
-		setSettingSource({ workspaceValue: 'claude-code', workspace: { value: 'claude-code' } });
+		setSettingSource({ workspaceValue: 'some-agent', workspace: { value: 'some-agent' } });
 		const service = createService();
 
-		await service.ask('claude-code', 'fix', context, {});
+		await service.ask('some-agent', 'fix', context, {});
 		notifyPrompt.mock.calls[0][2][0].run();
 
 		expect(openWorkspaceSettings).toHaveBeenCalled();
@@ -349,13 +349,13 @@ describe('ErrorActionHandlerService', () => {
 	});
 
 	it('does not offer to select another handler when an administrator chose it', async () => {
-		setSettingSource({ policyValue: 'claude-code' });
+		setSettingSource({ policyValue: 'some-agent' });
 		const service = createService();
 
-		await service.ask('claude-code', 'fix', context, {});
+		await service.ask('some-agent', 'fix', context, {});
 
 		expect(notifyPrompt).not.toHaveBeenCalled();
-		expect(notifyWarn).toHaveBeenCalledWith(`The coding agent 'claude-code' isn't available, so the error wasn't sent. Your administrator manages which coding agent errors are sent to.`);
+		expect(notifyWarn).toHaveBeenCalledWith(`The coding agent 'some-agent' isn't available, so the error wasn't sent. Your administrator manages which coding agent errors are sent to.`);
 	});
 
 	it('sends nothing to the default handler while it is not registered, and says so', async () => {
