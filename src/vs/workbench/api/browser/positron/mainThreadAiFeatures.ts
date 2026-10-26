@@ -70,6 +70,8 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	/**
 	 * Register an error action handler implemented in the extension host. Refuses,
 	 * with a logged error, Posit Assistant's reserved id and ids already taken.
+	 * The extension host throws for those it knows about first, so this catches
+	 * ids taken in another extension host.
 	 */
 	$registerErrorActionHandler(handle: number, id: string, label: string, supportsChatContinuation: boolean): void {
 		if (id === POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID) {

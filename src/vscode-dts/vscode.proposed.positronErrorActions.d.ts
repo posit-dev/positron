@@ -20,19 +20,22 @@ declare module 'positron' {
 		 * user chooses it there. Register it while it exists, e.g. while its tool
 		 * is installed, not only while it can take errors.
 		 *
-		 * Registering `'posit-assistant'`, which Positron reserves, or an id that
-		 * is already registered logs an error and returns a disposable that does
-		 * nothing.
+		 * Throws if the id is reserved by Positron or is already registered in
+		 * this extension host. An id already registered in another extension
+		 * host is refused with a logged error.
 		 *
-		 * @param id A unique identifier, stored as the setting's value, e.g. `'claude-code'`.
-		 * @param label The name shown in the setting and the actions' tooltips, e.g. "Claude Code".
+		 * @param id A unique identifier, stored as the setting's value.
+		 * @param label The name shown in the setting and the actions' tooltips.
 		 * @param handler The handler.
-		 * @param metadata What the handler supports.
+		 * @param metadata Optional {@link ErrorActionHandlerMetadata metadata} about the handler.
 		 * @returns A disposable that unregisters the handler.
 		 */
 		export function registerErrorActionHandler(id: string, label: string, handler: ErrorActionHandler, metadata?: ErrorActionHandlerMetadata): vscode.Disposable;
 
-		/** What an {@link ErrorActionHandler} supports, fixed at registration. */
+		/**
+		 * Metadata about an {@link ErrorActionHandler}, given when it's registered.
+		 * To change it, dispose the registration and register again.
+		 */
 		export interface ErrorActionHandlerMetadata {
 			/**
 			 * Whether the handler can continue the user's active chat, which

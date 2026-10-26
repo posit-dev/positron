@@ -17,14 +17,15 @@ import { getEnabledTools as filterEnabledTools } from './positronToolFilter.js';
 import { URI } from '../../../../base/common/uri.js';
 import { assertNever } from '../../../../base/common/assert.js';
 import { ErrorAction, IErrorActionContext } from '../../../contrib/positronAssistant/common/errorAction.js';
+import { POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID } from '../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadAiFeaturesShape;
 	private readonly _disposables: DisposableStore = new DisposableStore();
 
-	/** Registered error action handlers, by the handle the main thread knows them by. */
-	private readonly _errorActionHandlersByHandle = new Map<number, positron.ai.ErrorActionHandler>();
+	/** Registered error action handlers and their ids, by the handle the main thread knows them by. */
+	private readonly _errorActionHandlersByHandle = new Map<number, { readonly id: string; readonly handler: positron.ai.ErrorActionHandler }>();
 
 	/** Handle for the next error action handler registration. */
 	private _nextErrorActionHandlerHandle = 0;
@@ -53,10 +54,19 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	}
 
 	registerErrorActionHandler(id: string, label: string, handler: positron.ai.ErrorActionHandler, metadata?: positron.ai.ErrorActionHandlerMetadata): vscode.Disposable {
-		// The main thread refuses reserved and taken ids, with a logged error;
-		// unregistering a refused handle does nothing.
+		// Refuse what this extension host knows about, as `registerCommand` does.
+		// The main thread also refuses ids taken in another extension host, with
+		// a logged error; unregistering a refused handle does nothing.
+		if (id === POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID) {
+			throw new Error(`The error action handler id '${id}' is reserved for Positron`);
+		}
+		for (const registration of this._errorActionHandlersByHandle.values()) {
+			if (registration.id === id) {
+				throw new Error(`An error action handler with the id '${id}' is already registered`);
+			}
+		}
 		const handle = this._nextErrorActionHandlerHandle++;
-		this._errorActionHandlersByHandle.set(handle, handler);
+		this._errorActionHandlersByHandle.set(handle, { id, handler });
 		this._proxy.$registerErrorActionHandler(handle, id, label, metadata?.supportsChatContinuation === true);
 		return new Disposable(() => {
 			if (this._errorActionHandlersByHandle.delete(handle)) {
@@ -66,11 +76,11 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	}
 
 	async $askErrorActionHandler(handle: number, action: ErrorAction, context: IErrorActionContext, continueChat: boolean): Promise<void> {
-		const handler = this._errorActionHandlersByHandle.get(handle);
-		if (!handler) {
+		const registration = this._errorActionHandlersByHandle.get(handle);
+		if (!registration) {
 			throw new Error(`No error action handler is registered with the handle ${handle}`);
 		}
-		await handler.ask(action, reviveErrorActionContext(context), { continueChat });
+		await registration.handler.ask(action, reviveErrorActionContext(context), { continueChat });
 	}
 
 	$onDidChangeProviderEnablement(id: string, enabled: boolean): void {
