@@ -17,7 +17,7 @@ import { ConnectionRef, DataConnectionsApi, EMPTY_SCHEMA, SchemaReader, schemaOf
 import { SchemaIndex } from './schemaIndex';
 import { ConnectionSelection, EffectiveSelection, resolveSelection } from './selection';
 import { SqlStatementRangeProvider } from './statementRange';
-import { ConnectionStatusBar, describeSelection, DialectInUse, pickConnection } from './statusBar';
+import { AUTOMATIC, ConnectionStatusBar, describeSelection, DialectInUse, pickConnection } from './statusBar';
 
 /** The configuration section every setting this extension reads lives under. */
 export const CONFIGURATION_SECTION = 'sql';
@@ -572,8 +572,14 @@ export class SqlSession implements vscode.Disposable {
 			return;
 		}
 		// Before the first read the connections set up are not known, and the picker would say
-		// there are none.
-		await this._firstRead;
+		// there are none. Shown as waiting, since a slow database can hold that up for a while and
+		// the click would otherwise seem to do nothing.
+		if (!this._settled) {
+			await vscode.window.withProgress({
+				location: vscode.ProgressLocation.Window,
+				title: vscode.l10n.t("Reading data connections"),
+			}, () => this._firstRead);
+		}
 		if (this._disposed) {
 			return;
 		}
@@ -583,6 +589,15 @@ export class SqlSession implements vscode.Disposable {
 			this._selection.get(document.uri),
 		);
 		if (!chosen || this._disposed) {
+			return;
+		}
+		if (chosen === AUTOMATIC) {
+			if (this._selection.unset(document.uri)) {
+				this._log.info(`${document.uri.toString(true)} follows the only open data connection again.`);
+				this._relink();
+				this._refresh(document);
+				this._updateStatusBar();
+			}
 			return;
 		}
 		this._selection.set(document.uri, chosen);

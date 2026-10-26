@@ -231,17 +231,20 @@ export class ConnectionStatusBar implements vscode.Disposable {
  * be holding a guard while it awaits this, as running a statement does. Waiting would leave every
  * later run doing nothing until the user went looking for a notification they had stopped seeing.
  *
+ * Above them is the way back to having chosen nothing, where the file follows the only open
+ * connection: without it, a file once scoped could only be unscoped by deleting the connection.
+ *
  * @param configured Every SQL connection the user has set up, which is what is offered.
  * @param open The connections the schema was last read from, so a closed one can be marked.
  * @param current What the file is scoped to now, shown as picked.
- * @returns The connection chosen, or undefined if the user dismissed the picker or there was
- *   nothing to pick.
+ * @returns The connection chosen, {@link AUTOMATIC} to drop the file's choice, or undefined if
+ *   the user dismissed the picker or there was nothing to pick.
  */
 export async function pickConnection(
 	configured: readonly ConnectionRef[],
 	open: readonly ConnectionRef[],
 	current: ConnectionRef | undefined,
-): Promise<ConnectionRef | undefined> {
+): Promise<ConnectionRef | typeof AUTOMATIC | undefined> {
 	if (configured.length === 0) {
 		// Nothing to choose between. Offering an empty list would leave the user to work out that
 		// the answer is somewhere else entirely. Worded for both callers: this is reached when
@@ -277,13 +280,32 @@ export async function pickConnection(
 		};
 	});
 
-	const picked = await vscode.window.showQuickPick(items, {
+	const automatic: ConnectionItem = {
+		label: vscode.l10n.t("Automatic"),
+		description: [
+			current ? undefined : vscode.l10n.t("Current"),
+			open.length === 1
+				? vscode.l10n.t("The only open data connection, {0}", open[0].name)
+				: vscode.l10n.t("The only open data connection, when one is open"),
+		].filter(Boolean).join(', '),
+		picked: !current,
+		connection: AUTOMATIC,
+	};
+
+	const picked = await vscode.window.showQuickPick<ConnectionItem>([
+		automatic,
+		{ label: '', kind: vscode.QuickPickItemKind.Separator, connection: AUTOMATIC },
+		...items,
+	], {
 		title: vscode.l10n.t("Select Data Connection"),
 		placeHolder: vscode.l10n.t("Which database is this file written against?"),
 	});
 	return picked?.connection;
 }
 
+/** What the picker returns for its first item, which drops the file's choice. */
+export const AUTOMATIC = 'automatic';
+
 interface ConnectionItem extends vscode.QuickPickItem {
-	readonly connection: ConnectionRef;
+	readonly connection: ConnectionRef | typeof AUTOMATIC;
 }

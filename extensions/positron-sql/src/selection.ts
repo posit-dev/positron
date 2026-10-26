@@ -135,6 +135,20 @@ export class ConnectionSelection {
 	}
 
 	/**
+	 * Drops a file's choice, so it follows the only open connection again.
+	 *
+	 * @returns Whether it had one.
+	 */
+	public unset(file: vscode.Uri): boolean {
+		this._closed.delete(file.toString());
+		if (!this._byFile.delete(file.toString())) {
+			return false;
+		}
+		this._save();
+		return true;
+	}
+
+	/**
 	 * Drops a closed file's choice, if that file's URI is one that gets handed out again.
 	 *
 	 * An untitled buffer's URI is reused for the next one, so a choice left behind would be

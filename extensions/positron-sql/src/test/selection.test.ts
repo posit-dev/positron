@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { ConnectionRef } from '../schema';
 import { ConnectionSelection, EffectiveSelection, resolveSelection, SelectionStore } from '../selection';
-import { describeSelection, DialectInUse, pickConnection } from '../statusBar';
+import { AUTOMATIC, describeSelection, DialectInUse, pickConnection } from '../statusBar';
 
 const WAREHOUSE: ConnectionRef = {
 	profileId: 'warehouse',
@@ -115,6 +115,23 @@ suite('ConnectionSelection', () => {
 		assert.deepStrictEqual(
 			[selection.get(REPORT), selection.get(MIGRATION)],
 			[WAREHOUSE, LOCAL],
+		);
+	});
+
+	test('a file whose choice is dropped follows the only open connection again, in the next window too', () => {
+		const kept = store();
+		const selection = new ConnectionSelection(kept);
+		selection.set(REPORT, WAREHOUSE);
+
+		assert.strictEqual(selection.unset(REPORT), true);
+		const reopened = new ConnectionSelection(store(kept.written));
+
+		assert.deepStrictEqual(
+			[
+				resolveSelection(selection.get(REPORT), [LOCAL], [WAREHOUSE, LOCAL]),
+				reopened.get(REPORT),
+			],
+			[{ kind: 'connection', connection: LOCAL }, undefined],
 		);
 	});
 
@@ -456,7 +473,7 @@ suite('pickConnection', () => {
 		let offered: readonly vscode.QuickPickItem[] = [];
 		(vscode.window as { showQuickPick: unknown }).showQuickPick = async (items: readonly vscode.QuickPickItem[]) => {
 			offered = items;
-			return items[1];
+			return items[3];
 		};
 		try {
 			const result = await pickConnection([WAREHOUSE, LOCAL], [WAREHOUSE], WAREHOUSE);
@@ -469,11 +486,23 @@ suite('pickConnection', () => {
 				{
 					result: LOCAL,
 					offered: [
+						{ label: 'Automatic', description: `The only open data connection, ${WAREHOUSE.name}` },
+						{ label: '', description: undefined },
 						{ label: WAREHOUSE.name, description: 'Current' },
 						{ label: LOCAL.name, description: 'Not connected' },
 					],
 				},
 			);
+		} finally {
+			(vscode.window as { showQuickPick: unknown }).showQuickPick = showQuickPick;
+		}
+	});
+
+	test('a file can go back to following the only open connection', async () => {
+		const showQuickPick = vscode.window.showQuickPick;
+		(vscode.window as { showQuickPick: unknown }).showQuickPick = async (items: readonly vscode.QuickPickItem[]) => items[0];
+		try {
+			assert.strictEqual(await pickConnection([WAREHOUSE, LOCAL], [WAREHOUSE, LOCAL], LOCAL), AUTOMATIC);
 		} finally {
 			(vscode.window as { showQuickPick: unknown }).showQuickPick = showQuickPick;
 		}
