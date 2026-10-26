@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Tests for the push mode of scripts/pr-docs-only.sh: the diff from the last
-# successful run, and every way it falls back to running the tests.
-# A local file:// remote stands in for GitHub and a fake `gh` returns the last
-# successful run's commit, so this needs no network.
+# Tests for the push mode of scripts/pr-docs-only.sh: the diff from the
+# previous push, and every way it falls back to running the tests.
+# A local file:// remote stands in for GitHub, so this needs no network.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SRC="$(cd "$HERE/.." && pwd)"
@@ -22,15 +21,6 @@ assert_eq() {
 		fail=1
 	fi
 }
-
-# The fake gh prints $FAKE_BASE, or fails when FAKE_GH_FAIL is set.
-mkdir -p "$TMP/bin"
-cat > "$TMP/bin/gh" <<'SH'
-#!/usr/bin/env bash
-[[ -n "${FAKE_GH_FAIL:-}" ]] && exit 1
-echo "${FAKE_BASE:-}"
-SH
-chmod +x "$TMP/bin/gh"
 
 ORIGIN="$TMP/origin"
 git init -q -b main "$ORIGIN"
@@ -68,42 +58,40 @@ run() {
 	git -C "$clone" remote add origin "file://$ORIGIN"
 	git -C "$clone" fetch -q --depth=1 origin "$head"
 	git -C "$clone" checkout -q FETCH_HEAD
-	env PATH="$TMP/bin:$PATH" GITHUB_REPOSITORY=o/r PUSH_BRANCH=main \
-		CI_WORKFLOW=.github/workflows/test-merge.yml GITHUB_OUTPUT= "$@" \
+	env CI_WORKFLOW=.github/workflows/test-merge.yml GITHUB_OUTPUT= "$@" \
 		bash "$clone/scripts/pr-docs-only.sh" 2>/dev/null | sed -n 's/^docs_only=//p'
 }
 
 printf 'y\n' >> "$ORIGIN/README.md"
 DOCS=$(commit "docs only")
-assert_eq "docs-only since the last success -> true" true "$(run "$DOCS" FAKE_BASE="$BASE")"
+assert_eq "docs-only push -> true" true "$(run "$DOCS" BEFORE_SHA="$BASE")"
 
 printf 'y\n' >> "$ORIGIN/.github/workflows/unrelated.yml"
 UNRELATED=$(commit "workflow the merge run doesn't call")
-assert_eq "uncalled workflow -> true" true "$(run "$UNRELATED" FAKE_BASE="$DOCS")"
+assert_eq "uncalled workflow -> true" true "$(run "$UNRELATED" BEFORE_SHA="$DOCS")"
 
 printf 'y\n' >> "$ORIGIN/.github/workflows/test-unit.yml"
 CALLED=$(commit "workflow the merge run calls")
-assert_eq "called workflow -> false" false "$(run "$CALLED" FAKE_BASE="$UNRELATED")"
+assert_eq "called workflow -> false" false "$(run "$CALLED" BEFORE_SHA="$UNRELATED")"
 
-# Code lands, its run fails, then a docs-only push follows. Diffing from the
-# last success still sees the code.
+# A push is judged on its own commits: a docs-only push after a code push
+# skips, but one push carrying both runs the tests.
 printf 'y\n' >> "$ORIGIN/src/a.ts"
 CODE=$(commit "code")
 printf 'z\n' >> "$ORIGIN/README.md"
-DOCS_AFTER_CODE=$(commit "docs after untested code")
-assert_eq "docs push after a failed code run -> false" false "$(run "$DOCS_AFTER_CODE" FAKE_BASE="$CALLED")"
-assert_eq "docs push after a green code run -> true" true "$(run "$DOCS_AFTER_CODE" FAKE_BASE="$CODE")"
+DOCS_AFTER_CODE=$(commit "docs after code")
+assert_eq "docs-only push after a code push -> true" true "$(run "$DOCS_AFTER_CODE" BEFORE_SHA="$CODE")"
+assert_eq "one push with code and docs commits -> false" false "$(run "$DOCS_AFTER_CODE" BEFORE_SHA="$CALLED")"
 
 # A rename lists the old name too, so moving source into docs is not docs-only.
 git -C "$ORIGIN" mv src/a.ts NOTES.md
 RENAME=$(commit "move source to docs")
-assert_eq "rename from source into docs -> false" false "$(run "$RENAME" FAKE_BASE="$DOCS_AFTER_CODE")"
+assert_eq "rename from source into docs -> false" false "$(run "$RENAME" BEFORE_SHA="$DOCS_AFTER_CODE")"
 
 # Every failure runs the tests.
-assert_eq "no CI_WORKFLOW -> false" false "$(run "$DOCS" FAKE_BASE="$BASE" CI_WORKFLOW=)"
-assert_eq "API failure -> false" false "$(run "$DOCS" FAKE_GH_FAIL=1)"
-assert_eq "no successful run -> false" false "$(run "$DOCS" FAKE_BASE=)"
-assert_eq "unfetchable base -> false" false "$(run "$DOCS" FAKE_BASE=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef)"
-assert_eq "base is HEAD (no changes) -> false" false "$(run "$DOCS" FAKE_BASE="$DOCS")"
+assert_eq "no CI_WORKFLOW -> false" false "$(run "$DOCS" BEFORE_SHA="$BASE" CI_WORKFLOW=)"
+assert_eq "branch creation (zero SHA) -> false" false "$(run "$DOCS" BEFORE_SHA=0000000000000000000000000000000000000000)"
+assert_eq "unfetchable base -> false" false "$(run "$DOCS" BEFORE_SHA=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef)"
+assert_eq "base is HEAD (no changes) -> false" false "$(run "$DOCS" BEFORE_SHA="$DOCS")"
 
 exit "$fail"
