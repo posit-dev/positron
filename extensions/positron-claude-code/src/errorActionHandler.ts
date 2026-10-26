@@ -22,18 +22,23 @@ export const claudeCodeErrorActionHandler: positron.ai.ErrorActionHandler = {
 		// extension, only the command can be installed.
 		if (!extension || useTerminal) {
 			const launch = await getClaudeCodeLaunch();
+			// Say why nothing was sent, without waiting for the user to answer.
 			if (!launch && !extension) {
-				void showProblem(
+				void vscode.window.showWarningMessage(
 					vscode.l10n.t('Claude Code is not installed, or the claude command is not on the PATH, so the error was not sent.'),
-					[],
 				);
 				return;
 			}
 			if (!launch) {
-				void showProblem(
+				const openSettings = vscode.l10n.t('Open Settings');
+				void vscode.window.showWarningMessage(
 					vscode.l10n.t('Claude Code is set to open in a terminal, but the claude command was not found, so the error was not sent. Install the Claude Code command-line tool, or turn off Claude Code: Use Terminal.'),
-					[openUseTerminalSetting()],
-				);
+					openSettings,
+				).then(choice => {
+					if (choice === openSettings) {
+						void openUseTerminalSetting();
+					}
+				});
 				return;
 			}
 			openTerminal(launch, getPrompt(action, context), extension);
@@ -42,13 +47,19 @@ export const claudeCodeErrorActionHandler: positron.ai.ErrorActionHandler = {
 
 		const version = String(extension.packageJSON.version ?? '');
 		if (!chatTakesPrompt(version)) {
-			void showProblem(
+			const showExtension = vscode.l10n.t('Show Extension');
+			const openSettings = vscode.l10n.t('Open Settings');
+			void vscode.window.showWarningMessage(
 				vscode.l10n.t('Claude Code {0} is too old to receive errors in its chat, so the error was not sent. Update it, or turn on Claude Code: Use Terminal.', version),
-				[
-					{ title: vscode.l10n.t('Show Extension'), run: () => vscode.commands.executeCommand('extension.open', CLAUDE_CODE_EXTENSION_ID) },
-					openUseTerminalSetting(),
-				],
-			);
+				showExtension,
+				openSettings,
+			).then(choice => {
+				if (choice === showExtension) {
+					void vscode.commands.executeCommand('extension.open', CLAUDE_CODE_EXTENSION_ID);
+				} else if (choice === openSettings) {
+					void openUseTerminalSetting();
+				}
+			});
 			return;
 		}
 		await openChat(getPrompt(action, context));
@@ -59,23 +70,8 @@ function getPrompt(action: positron.ai.ErrorAction, context: positron.ai.ErrorAc
 	return getErrorPrompt(action, getPromptSource(context), context.error, vscode.l10n);
 }
 
-/** A button on a problem's notification. */
-interface ProblemAction {
-	readonly title: string;
-	run(): Thenable<unknown>;
-}
-
-/** Explain why the error wasn't sent, with any buttons that lead to the fix. Not awaited, since nothing waits on the user's answer. */
-async function showProblem(message: string, actions: readonly ProblemAction[]): Promise<void> {
-	const choice = await vscode.window.showWarningMessage(message, ...actions.map(action => action.title));
-	await actions.find(action => action.title === choice)?.run();
-}
-
-function openUseTerminalSetting(): ProblemAction {
-	return {
-		title: vscode.l10n.t('Open Settings'),
-		run: () => vscode.commands.executeCommand('workbench.action.openSettings', USE_TERMINAL_SETTING),
-	};
+function openUseTerminalSetting(): Thenable<unknown> {
+	return vscode.commands.executeCommand('workbench.action.openSettings', USE_TERMINAL_SETTING);
 }
 
 /** Name where the error came from, resolving the document's state now. */
