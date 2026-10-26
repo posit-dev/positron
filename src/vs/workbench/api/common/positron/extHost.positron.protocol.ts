@@ -389,7 +389,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * Resolves to `undefined` when the profile has no live connection. Rejects when the feature is
 	 * disabled.
 	 */
-	$getDataConnectionSchema(profileId: string, options: IDataConnectionSchemaSummaryOptions): Promise<IDataConnectionSchemaWalk | undefined>;
+	$getDataConnectionSchema(profileId: string, options: IDataConnectionSchemaSummaryOptions, token: CancellationToken): Promise<IDataConnectionSchemaWalk | undefined>;
 }
 
 /**

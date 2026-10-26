@@ -6,7 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { summarizeDataConnectionSchema } from '../../common/dataConnectionSchemaSummary.js';
+import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { summarizeDataConnectionSchema, walkDataConnectionSchema } from '../../common/dataConnectionSchemaSummary.js';
 import { IDataConnectionNodeDTO } from '../../common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionHandle } from '../../common/interfaces/dataConnectionDriver.js';
 
@@ -118,6 +119,31 @@ describe('summarizeDataConnectionSchema', () => {
 		await expect(summarizeDataConnectionSchema(handle)).rejects.toThrow('connection lost');
 
 		expect([...calls.released].sort((a, b) => a - b)).toEqual(calls.handedOut);
+	});
+
+	it('stops at its next fetch once cancelled, and frees what it was given', async () => {
+		const calls = { retained: [] as (boolean | undefined)[], released: [] as number[], handedOut: [] as number[] };
+		const expanded: string[] = [];
+		const fake = createFakeHandle([
+			{ name: 'Tables', kind: 'groupTables', children: [{ name: 'orders', kind: 'table', children: [] }] },
+		], 1, expanded, calls);
+		const cancellation = new CancellationTokenSource();
+		// Cancelled between the top level and the first level below it.
+		const handle = stubInterface<IDataConnectionHandle>({
+			handle: 1,
+			getChildren: async options => {
+				const children = await fake.getChildren(options);
+				cancellation.cancel();
+				return children;
+			},
+			nodeGetChildren: nodeHandle => fake.nodeGetChildren(nodeHandle),
+			releaseNodes: nodeHandles => fake.releaseNodes(nodeHandles),
+		});
+
+		await expect(walkDataConnectionSchema(handle, undefined, cancellation.token)).rejects.toThrow('Canceled');
+
+		expect({ expanded, released: calls.released }).toEqual({ expanded: [], released: calls.handedOut });
+		cancellation.dispose();
 	});
 
 	it('returns an empty summary for a connection with no schema', async () => {

@@ -6,6 +6,7 @@
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverSummaryDTO, IDataConnectionLineageDTO, IDataConnectionLineageEdgeDTO, IDataConnectionLineageObjectDTO, IDataConnectionLineageRequestDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../extHostTypes.js';
 
@@ -232,12 +233,15 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	 *
 	 * One call rather than a tree to walk, because walking costs a round trip per node. Resolves
 	 * to `undefined` when the profile has no live connection.
+	 *
+	 * @param token Cancelling it cancels the call, which stops the walk on the main thread.
 	 */
 	public async getSchema(
 		profileId: string,
 		options: positron.DataConnectionSchemaOptions = {},
+		token: CancellationToken = CancellationToken.None,
 	): Promise<positron.DataConnectionSchema | undefined> {
-		const walk = await this._proxy.$getDataConnectionSchema(profileId, options);
+		const walk = await this._proxy.$getDataConnectionSchema(profileId, options, token);
 		if (!walk) {
 			return undefined;
 		}

@@ -5,6 +5,7 @@
 
 import * as assert from 'assert';
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { DataConnectionsApi, explainEmptySchema, flattenSchemaNodes, readConnectionSchema, SchemaReader, schemaOfProfile, SqlSchema, SqlTable } from '../schema';
 import { SchemaIndex } from '../schemaIndex';
 import { testLog } from './support';
@@ -568,24 +569,59 @@ suite('readConnectionSchema', () => {
 			assert.deepStrictEqual(state.walked, ['a', 'a']);
 		});
 
-		test('a walk given up on is waited on again, not started a second time beside itself', async () => {
-			let walks = 0;
-			let finish: (schema: positron.DataConnectionSchema) => void = () => { };
-			const { state, reader: schemas } = reader(10, profileId => {
-				walks++;
-				return new Promise(resolve => {
-					finish = resolve;
-				}).then(() => ({ profileId, truncated: false, nodes: [{ name: 'late', kind: Kind.Table, children: [] }] }));
+		test('a walk given up on is cancelled, and the next read starts one of its own', async () => {
+			// Not left querying the database for an answer nobody is waiting for.
+			const tokens: vscode.CancellationToken[] = [];
+			const { state, reader: schemas } = reader(10, (_profileId, _options, token) => {
+				tokens.push(token!);
+				return new Promise(() => { });
 			});
 			state.connections = [connection('slow', 'Slow', true)];
-			const first = await schemas.read();
+
+			await schemas.read();
+			await schemas.read();
+
+			assert.deepStrictEqual(tokens.map(token => token.isCancellationRequested), [true, true]);
+		});
+
+		test('a walk another read is still waiting on is not cancelled when the first gives up', async () => {
+			let walks = 0;
+			let token: vscode.CancellationToken | undefined;
+			let finish: () => void = () => { };
+			const { state, reader: schemas } = reader(40, (profileId, _options, given) => {
+				walks++;
+				token = given;
+				return new Promise<void>(resolve => { finish = resolve; })
+					.then(() => ({ profileId, truncated: false, nodes: [{ name: 'late', kind: Kind.Table, children: [] }] }));
+			});
+			state.connections = [connection('slow', 'Slow', true)];
+
+			const first = schemas.read();
+			await new Promise(resolve => setTimeout(resolve, 20));
 			const second = schemas.read();
-			finish({ profileId: 'slow', truncated: false, nodes: [] });
+			const given = (await first).incompleteProfiles;
+			const cancelled = token!.isCancellationRequested;
+			finish();
 
 			assert.deepStrictEqual(
-				{ first: first.incompleteProfiles, second: (await second).tables.map(table => table.name), walks },
-				{ first: ['slow'], second: ['late'], walks: 1 },
+				{ given, cancelled, second: (await second).tables.map(table => table.name), walks },
+				{ given: ['slow'], cancelled: false, second: ['late'], walks: 1 },
 			);
+		});
+
+		test('disposing the reader cancels every walk in flight', async () => {
+			let token: vscode.CancellationToken | undefined;
+			const { state, reader: schemas } = reader(undefined, (_profileId, _options, given) => {
+				token = given;
+				return new Promise(() => { });
+			});
+			state.connections = [connection('slow', 'Slow', true)];
+			void schemas.read();
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			schemas.dispose();
+
+			assert.strictEqual(token?.isCancellationRequested, true);
 		});
 
 		test('a connection that could not be read is walked again on the next read', async () => {

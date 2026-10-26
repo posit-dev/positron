@@ -222,7 +222,8 @@ export class SqlSession implements vscode.Disposable {
 		this._diagnostics = vscode.languages.createDiagnosticCollection('sql');
 		this._selection = new ConnectionSelection(_context.workspaceState);
 		this._statusBar = new ConnectionStatusBar(SELECT_CONNECTION_COMMAND);
-		this._disposables.push(this._diagnostics, this._statusBar);
+		// The reader too, so that switching SQL off stops any schema walk still querying a database.
+		this._disposables.push(this._diagnostics, this._statusBar, this._reader);
 		this._firstRead = new Promise(resolve => { this._resolveFirstRead = resolve; });
 	}
 

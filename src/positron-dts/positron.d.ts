@@ -4252,10 +4252,13 @@ declare module 'positron' {
 		 *
 		 * @param profileId The connection to read, from {@link DataConnectionSummary.profileId}.
 		 * @param options Bounds for the walk. Defaults are sized for a summary, not a full schema.
+		 * @param token Stops the walk. Without it, a caller that stops waiting leaves the walk
+		 *   querying the database until it is done.
 		 * @returns The schema, or `undefined` if the connection is not currently connected. Rejects
-		 *   when the `dataConnections.enabled` setting is off.
+		 *   when the `dataConnections.enabled` setting is off, and with a cancellation error once
+		 *   `token` is cancelled.
 		 */
-		export function getSchema(profileId: string, options?: DataConnectionSchemaOptions): Thenable<DataConnectionSchema | undefined>;
+		export function getSchema(profileId: string, options?: DataConnectionSchemaOptions, token?: vscode.CancellationToken): Thenable<DataConnectionSchema | undefined>;
 
 		/**
 		 * Fires when a connection is opened or closed, or a profile is added, renamed or removed.

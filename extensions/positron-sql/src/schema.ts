@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { supportsSql } from './dialects';
 import { SqlLog } from './log';
 
@@ -59,6 +60,7 @@ export interface DataConnectionsApi {
 	getSchema(
 		profileId: string,
 		options?: positron.DataConnectionSchemaOptions,
+		token?: vscode.CancellationToken,
 	): Thenable<positron.DataConnectionSchema | undefined>;
 }
 
@@ -309,7 +311,7 @@ type ReadOutcome =
  * removed. So a connection that stayed open keeps the schema it was last read with, and only one
  * that has just opened -- or could not be read last time -- is walked.
  */
-export class SchemaReader {
+export class SchemaReader implements vscode.Disposable {
 
 	/**
 	 * Each open connection's schema as last read, by profile. Kept as read rather than flattened,
@@ -318,13 +320,13 @@ export class SchemaReader {
 	private readonly _schemas = new Map<string, positron.DataConnectionSchema>();
 
 	/**
-	 * Walks in flight, by profile.
+	 * Walks in flight, by profile, and how many reads are waiting on each.
 	 *
-	 * A walk given up on at the deadline is not cancelled -- the API has no way to -- and goes on
-	 * querying the database. A read asked for meanwhile waits on that walk rather than starting a
-	 * second one beside it.
+	 * A read asked for while a connection is being walked waits on that walk rather than starting
+	 * a second one beside it. A walk every read has given up on is cancelled, since it would
+	 * otherwise go on querying the database for an answer nobody takes.
 	 */
-	private readonly _walks = new Map<string, Promise<positron.DataConnectionSchema | undefined>>();
+	private readonly _walks = new Map<string, Walk>();
 
 	/**
 	 * @param _log Where to report what was read, and anything that went wrong.
@@ -453,10 +455,11 @@ export class SchemaReader {
 			timer = setTimeout(() => resolve('timeout'), this._timeoutMs);
 		});
 		try {
-			// The walk itself is not cancelled, only no longer waited for. What it answers late is
-			// dropped by the race, and a late rejection is already handled by it.
-			const schema = await Promise.race([this._walk(connection.profileId), deadline]);
+			// A late answer, or the rejection of a walk cancelled below, is dropped by the race.
+			const walk = this._join(connection.profileId);
+			const schema = await Promise.race([walk.schema, deadline]);
 			if (schema === 'timeout') {
+				this._leave(connection.profileId, walk);
 				this._log.warn(`Gave up reading the schema of ${connection.name} after`
 					+ ` ${this._timeoutMs / 1000}s; run "SQL: Refresh Database Schema" to try again.`);
 				return 'failed';
@@ -484,20 +487,61 @@ export class SchemaReader {
 		}
 	}
 
-	/** Walks a connection's schema, joining a walk of it already in flight rather than starting another. */
-	private _walk(profileId: string): Promise<positron.DataConnectionSchema | undefined> {
-		const inFlight = this._walks.get(profileId);
-		if (inFlight) {
-			return inFlight;
+	/** Waits on a walk of a connection's schema, joining one already in flight rather than starting another. */
+	private _join(profileId: string): Walk {
+		let walk = this._walks.get(profileId);
+		if (!walk) {
+			const cancellation = new vscode.CancellationTokenSource();
+			const started: Walk = {
+				schema: Promise.resolve(this._api.getSchema(profileId, SCHEMA_BOUNDS, cancellation.token)),
+				cancellation,
+				waiting: 0,
+			};
+			const done = () => {
+				if (this._walks.get(profileId) === started) {
+					this._walks.delete(profileId);
+				}
+				cancellation.dispose();
+			};
+			started.schema.then(done, done);
+			this._walks.set(profileId, started);
+			walk = started;
 		}
-		const walk = Promise.resolve(this._api.getSchema(profileId, SCHEMA_BOUNDS));
-		const done = () => {
-			this._walks.delete(profileId);
-		};
-		walk.then(done, done);
-		this._walks.set(profileId, walk);
+		walk.waiting++;
 		return walk;
 	}
+
+	/**
+	 * Stops waiting on a walk, cancelling it if nothing else is waiting on it.
+	 *
+	 * Dropped from the walks in flight at once rather than when it settles: a cancelled walk stops
+	 * only at its next fetch, and the next read should start one of its own rather than join it.
+	 */
+	private _leave(profileId: string, walk: Walk): void {
+		if (--walk.waiting > 0) {
+			return;
+		}
+		walk.cancellation.cancel();
+		if (this._walks.get(profileId) === walk) {
+			this._walks.delete(profileId);
+		}
+	}
+
+	/** Cancels every walk in flight: nothing will read what they find. */
+	public dispose(): void {
+		for (const walk of this._walks.values()) {
+			walk.cancellation.cancel();
+		}
+		this._walks.clear();
+	}
+}
+
+/** A walk of one connection's schema; see {@link SchemaReader._walks}. */
+interface Walk {
+	readonly schema: Promise<positron.DataConnectionSchema | undefined>;
+	readonly cancellation: vscode.CancellationTokenSource;
+	/** Reads still waiting on it. */
+	waiting: number;
 }
 
 /** The tables one connection's schema holds, and whether that is all of them. */

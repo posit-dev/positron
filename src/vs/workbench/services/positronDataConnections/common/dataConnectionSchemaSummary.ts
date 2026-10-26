@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../base/common/errors.js';
 import { quoteCompactToken } from './dataConnectionCompactFormat.js';
 import { IDataConnectionNodeDTO } from './interfaces/dataConnectionDTOs.js';
 import { DataConnectionNodeKind, IDataConnectionHandle } from './interfaces/dataConnectionDriver.js';
@@ -249,10 +251,13 @@ export interface IDataConnectionSchemaWalk {
  * resolving a table to its columns -- and would have to parse the lines back into a tree.
  * @param handle The live data connection handle to walk.
  * @param options Bounds for the walk; see {@link IDataConnectionSchemaSummaryOptions}.
+ * @param token Stops the walk before its next fetch, which then rejects with a CancellationError.
+ *   A caller that has stopped waiting would otherwise leave it querying the database to the end.
  */
 export async function walkDataConnectionSchema(
 	handle: IDataConnectionHandle,
 	options?: IDataConnectionSchemaSummaryOptions,
+	token: CancellationToken = CancellationToken.None,
 ): Promise<IDataConnectionSchemaWalk> {
 	const maxDepth = options?.maxDepth ?? DEFAULT_MAX_DEPTH;
 	const maxNodesPerLevel = options?.maxNodesPerLevel ?? DEFAULT_MAX_NODES_PER_LEVEL;
@@ -270,8 +275,16 @@ export async function walkDataConnectionSchema(
 		return dtos;
 	};
 
-	const fetchChildren = async (dto: IDataConnectionNodeDTO): Promise<IDataConnectionNodeDTO[]> =>
-		dto.hasGetChildren ? collect(await handle.nodeGetChildren(dto.nodeHandle)) : [];
+	const fetchChildren = async (dto: IDataConnectionNodeDTO): Promise<IDataConnectionNodeDTO[]> => {
+		if (!dto.hasGetChildren) {
+			return [];
+		}
+		// Checked before each fetch, as each one is a query against the database.
+		if (token.isCancellationRequested) {
+			throw new CancellationError();
+		}
+		return collect(await handle.nodeGetChildren(dto.nodeHandle));
+	};
 
 	// Expands container-only kinds (e.g. "Tables", "Columns" group nodes) in place, replacing each
 	// with its own children -- recursively, in case a driver nests containers -- so the caller sees
@@ -347,6 +360,9 @@ export async function walkDataConnectionSchema(
 	// Fetched without freeing the handles already handed out: an ordinary top-level fetch is a
 	// refresh that does, and would leave the Data Connections pane's rows -- an expanded "Tables",
 	// a reveal walking down to a table -- pointing at handles that no longer exist.
+	if (token.isCancellationRequested) {
+		throw new CancellationError();
+	}
 	try {
 		const { nodes, omitted } = await summarizeSiblings(collect(await handle.getChildren({ retainNodes: true })), 1);
 		return { nodes, omitted, truncated: state.truncated };
