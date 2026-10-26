@@ -228,7 +228,7 @@ describe('rVersionsEntryForR', () => {
 describe('choosePinnedR', () => {
 	/** Where the packager metadata came from. */
 	interface FakePackager {
-		readonly from: 'pixi' | 'r-versions';
+		readonly from: 'pixi' | 'r-versions' | 'module';
 	}
 
 	/** The build, plus whether the R installed from it is usable. */
@@ -260,6 +260,8 @@ describe('choosePinnedR', () => {
 			packagerMetadataForPath: path => path.includes('/.pixi/') ? { from: 'pixi' } : undefined,
 			listedRBinary: path => path,
 			rVersionsMetadataForPath: async () => undefined,
+			modulesMayProvideR: () => false,
+			moduleRs: async () => [],
 			install: build => ({ ...build, usable }),
 			...rest,
 		};
@@ -344,6 +346,74 @@ describe('choosePinnedR', () => {
 
 	it('returns nothing when the pinned R is not usable', async () => {
 		expect(await choosePinnedR(pinnedInputs({ usable: false }))).toBeUndefined();
+	});
+
+	describe('when environment modules may provide R', () => {
+		const moduleR = { binpath: '/opt/R/4.4/bin/R', packagerMetadata: { from: 'module' } } as const;
+
+		it('takes the setup of the module R the search found, built from the path discovery lists', async () => {
+			expect(await choosePinnedR(pinnedInputs({
+				pinnedPath: '/usr/local/bin/R-4.4',
+				modulesMayProvideR: () => true,
+				moduleRs: async () => [moduleR],
+			}))).toEqual({
+				binpath: '/opt/R/4.4/bin/R',
+				current: false,
+				packagerMetadata: { from: 'module' },
+				usable: true,
+			});
+		});
+
+		it('builds the pin without a module setup when no module provides it', async () => {
+			expect((await choosePinnedR(pinnedInputs({
+				modulesMayProvideR: () => true,
+				moduleRs: async () => [{ binpath: '/opt/R/4.3/bin/R', packagerMetadata: { from: 'module' } }],
+			})))?.packagerMetadata).toBeUndefined();
+		});
+
+		it('returns nothing when the search runs out of time, rather than an R without its module', async () => {
+			expect(await choosePinnedR(pinnedInputs({
+				modulesMayProvideR: () => true,
+				moduleRs: async () => undefined,
+			}))).toBeUndefined();
+		});
+
+		it('does not search when the pin\'s r-versions entry gives its setup', async () => {
+			const moduleRs = vi.fn(async () => [moduleR]);
+			expect({
+				packagerMetadata: (await choosePinnedR(pinnedInputs({
+					modulesMayProvideR: () => true,
+					moduleRs,
+					rVersionsMetadataForPath: async () => ({ from: 'r-versions' }),
+				})))?.packagerMetadata,
+				searched: moduleRs.mock.calls.length,
+			}).toEqual({ packagerMetadata: { from: 'r-versions' }, searched: 0 });
+		});
+
+		it('does not search when modules are not set up for R', async () => {
+			const moduleRs = vi.fn(async () => [moduleR]);
+			expect({
+				packagerMetadata: (await choosePinnedR(pinnedInputs({ moduleRs })))?.packagerMetadata,
+				searched: moduleRs.mock.calls.length,
+			}).toEqual({ packagerMetadata: undefined, searched: 0 });
+		});
+
+		it('matches a defined pin on its exact path, as definitions do', async () => {
+			const inputs = (pinnedPath: string) => pinnedInputs({
+				definitionsOnly: true,
+				pinnedPath,
+				isDefined: () => true,
+				modulesMayProvideR: () => true,
+				moduleRs: async () => [moduleR],
+			});
+			expect({
+				exact: await choosePinnedR(inputs('/opt/R/4.4/bin/R')),
+				link: await choosePinnedR(inputs('/usr/local/bin/R-4.4')),
+			}).toEqual({
+				exact: { binpath: '/opt/R/4.4/bin/R', current: false, packagerMetadata: { from: 'module' }, usable: true },
+				link: { binpath: '/usr/local/bin/R-4.4', current: false, packagerMetadata: undefined, usable: true },
+			});
+		});
 	});
 
 	describe('when discovery is limited to interpreters.definitions', () => {
@@ -518,6 +588,11 @@ describe('ReusableSearch', () => {
 		expect(await taken).toBe('found');
 	});
 
+	it('keeps holding a search that is peeked at', async () => {
+		search.hold(Promise.resolve('found'));
+		expect({ peeked: await search.peek(), taken: await search.take() }).toEqual({ peeked: 'found', taken: 'found' });
+	});
+
 	it('does not hand out a result that finished too long ago', async () => {
 		await search.hold(Promise.resolve('found'));
 		now = 60_001;
@@ -558,6 +633,13 @@ describe('createSharedSearch', () => {
 		const recommendation = await shared.forRecommendation(timeoutMs);
 		const discovery = await shared.forDiscovery();
 		expect({ recommendation, discovery, runs: runs() }).toEqual({ recommendation: 1, discovery: 1, runs: 1 });
+	});
+
+	it('lets the pinned R\'s lookup join the recommendation\'s search', async () => {
+		const { shared, runs } = countingSharedSearch();
+		const [recommendation, pin] = await Promise.all([shared.forRecommendation(timeoutMs), shared.forRecommendation(15_000)]);
+		const discovery = await shared.forDiscovery();
+		expect({ recommendation, pin, discovery, runs: runs() }).toEqual({ recommendation: 1, pin: 1, discovery: 1, runs: 1 });
 	});
 
 	it('searches again for a second interpreter search', async () => {
