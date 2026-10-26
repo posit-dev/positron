@@ -17,7 +17,7 @@ import { ConnectionRef, DataConnectionsApi, EMPTY_SCHEMA, SchemaReader, schemaOf
 import { SchemaIndex } from './schemaIndex';
 import { ConnectionSelection, EffectiveSelection, resolveSelection } from './selection';
 import { SqlStatementRangeProvider } from './statementRange';
-import { AUTOMATIC, ConnectionStatusBar, describeSelection, DialectInUse, pickConnection } from './statusBar';
+import { AUTOMATIC, ConnectionStatusBar, describeSelection, DialectInUse, explainDataConnectionsOff, pickConnection } from './statusBar';
 
 /** The configuration section every setting this extension reads lives under. */
 export const CONFIGURATION_SECTION = 'sql';
@@ -27,6 +27,9 @@ export const ENABLED_SETTING = 'enabled';
 
 /** The command that re-reads the tables and columns of the user's data connections. */
 const REFRESH_SCHEMA_COMMAND = 'sql.refreshDatabaseSchema';
+
+/** The setting that switches Data Connections, and so every connection this reads, on and off. */
+const DATA_CONNECTIONS_ENABLED_SETTING = 'dataConnections.enabled';
 
 /** The command behind the status bar item, which scopes a file to one data connection. */
 const SELECT_CONNECTION_COMMAND = 'sql.selectDataConnection';
@@ -200,7 +203,8 @@ export class SqlSession implements vscode.Disposable {
 		private readonly _api: SessionApi = positron.dataConnections,
 		private readonly _changeDelayMs = CONNECTION_CHANGE_DELAY_MS,
 	) {
-		this._reader = new SchemaReader(_log, _api);
+		this._reader = new SchemaReader(_log, _api, undefined, () =>
+			vscode.workspace.getConfiguration().get<boolean>(DATA_CONNECTIONS_ENABLED_SETTING) !== false);
 		this._diagnostics = vscode.languages.createDiagnosticCollection('sql');
 		this._selection = new ConnectionSelection(_context.workspaceState);
 		this._statusBar = new ConnectionStatusBar(SELECT_CONNECTION_COMMAND);
@@ -323,6 +327,11 @@ export class SqlSession implements vscode.Disposable {
 			}),
 
 			vscode.workspace.onDidChangeConfiguration(event => {
+				// Positron does not say the connections changed when the feature is switched on or
+				// off, and every connection appears or disappears with it.
+				if (event.affectsConfiguration(DATA_CONNECTIONS_ENABLED_SETTING)) {
+					void this.refreshSchema(true);
+				}
 				if (event.affectsConfiguration(CONFIGURATION_SECTION)) {
 					// Both settings that matter here -- the dialect and whether unknown names
 					// count -- decide what a diagnostic is, and every open document was analyzed
@@ -403,9 +412,10 @@ export class SqlSession implements vscode.Disposable {
 		if (!chosen || this._attempted.has(chosen.profileId)) {
 			return;
 		}
-		if (!this._read) {
+		if (!this._read || this._payload.dataConnectionsOff) {
 			// Nothing is known to be open yet, so this would open a connection that may well be up
-			// already. The first read asks again for every open file once it lands.
+			// already. The first read asks again for every open file once it lands. Or nothing can
+			// be opened, until the user switches Data Connections back on.
 			return;
 		}
 		if (this._payload.connections.some(open => open.profileId === chosen.profileId)) {
@@ -519,7 +529,9 @@ export class SqlSession implements vscode.Disposable {
 		return resolveSelection(
 			this._selection.get(document.uri),
 			this._payload.connections,
-			this._read ? this._payload.configured : undefined,
+			// With Data Connections off nothing is configured, but a file's choice is not one the
+			// user removed and is kept for when it is back on.
+			this._read && !this._payload.dataConnectionsOff ? this._payload.configured : undefined,
 		);
 	}
 
@@ -583,6 +595,10 @@ export class SqlSession implements vscode.Disposable {
 		if (this._disposed) {
 			return;
 		}
+		if (this._payload.dataConnectionsOff) {
+			explainDataConnectionsOff();
+			return;
+		}
 		const chosen = await pickConnection(
 			this._payload.configured,
 			this._payload.connections,
@@ -622,6 +638,7 @@ export class SqlSession implements vscode.Disposable {
 			this._resolve(document),
 			this._settled ? this._payload.configured : undefined,
 			this._dialectInUse(document),
+			this._payload.dataConnectionsOff,
 		));
 	}
 

@@ -501,6 +501,20 @@ suite('readConnectionSchema', () => {
 			return { state, reader: new SchemaReader(log, api, timeoutMs) };
 		}
 
+		test('Data Connections switched off is said, without asking the API', async () => {
+			let asked = false;
+			const { api, log } = harness({
+				getConnections: () => {
+					asked = true;
+					return Promise.resolve([]);
+				},
+			});
+
+			const schema = await new SchemaReader(log, api, undefined, () => false).read();
+
+			assert.deepStrictEqual({ asked, off: schema.dataConnectionsOff }, { asked: false, off: true });
+		});
+
 		test('only a connection that just opened is walked; one that stayed open keeps its tables', async () => {
 			const { state, reader: schemas } = reader();
 			state.connections = [connection('a', 'A', true)];

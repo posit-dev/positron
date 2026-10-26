@@ -302,4 +302,24 @@ suite('SqlSession', () => {
 
 		assert.strictEqual(resolved(session, opened), 'none');
 	});
+
+	test('switching Data Connections back on reads the connections again', async () => {
+		// Positron does not say the connections changed when the feature is switched.
+		const configuration = vscode.workspace.getConfiguration('dataConnections');
+		await configuration.update('enabled', false, vscode.ConfigurationTarget.Global);
+		try {
+			const api = new FakeConnections();
+			api.connections = [summary('a', true)];
+			const session = startSession(api);
+			await session.whenRead();
+			assert.strictEqual(session.schema.dataConnectionsOff, true);
+
+			await configuration.update('enabled', undefined, vscode.ConfigurationTarget.Global);
+			await until(() => session.schema.connections.length === 1, 'the connections to be read');
+
+			assert.strictEqual(session.schema.dataConnectionsOff, undefined);
+		} finally {
+			await configuration.update('enabled', undefined, vscode.ConfigurationTarget.Global);
+		}
+	});
 });

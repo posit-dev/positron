@@ -326,6 +326,23 @@ suite('describeSelection', () => {
 		return { text: state.text, warning: state.warning };
 	}
 
+	test('Data Connections switched off is said, without alarm, whatever the file chose', () => {
+		// Nothing to set up and nothing to choose: a warning would ask for something the user
+		// cannot do without first turning the feature back on.
+		const off = (selection: EffectiveSelection) => {
+			const state = describeSelection(selection, [], SNOWFLAKE, true);
+			return { text: state.text, warning: state.warning };
+		};
+
+		assert.deepStrictEqual(
+			[off({ kind: 'none' }), off({ kind: 'closed', connection: WAREHOUSE })],
+			[
+				{ text: '$(circle-slash) Data Connections Off', warning: false },
+				{ text: '$(circle-slash) Data Connections Off', warning: false },
+			],
+		);
+	});
+
 	test('a scoped file names its connection, without alarm', () => {
 		assert.deepStrictEqual(
 			shown({ kind: 'connection', connection: WAREHOUSE }, [WAREHOUSE]),

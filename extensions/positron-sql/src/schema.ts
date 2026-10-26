@@ -131,6 +131,12 @@ export interface SqlSchema {
 	 * short was far more likely dropped by a cap than misspelled by the user.
 	 */
 	readonly incompleteProfiles: readonly string[];
+
+	/**
+	 * Set when the user has switched Data Connections off. Then there is nothing to set up or
+	 * choose, and the status bar and picker say so instead of asking for a connection.
+	 */
+	readonly dataConnectionsOff?: boolean;
 }
 
 /** What a user with nothing connected has, and what every failed read falls back to. */
@@ -324,11 +330,13 @@ export class SchemaReader {
 	 * @param _log Where to report what was read, and anything that went wrong.
 	 * @param _api The data connections API; overridden in tests.
 	 * @param _timeoutMs How long one connection's read may take; shortened in tests.
+	 * @param _isEnabled Whether the user has Data Connections switched on.
 	 */
 	constructor(
 		private readonly _log: SqlLog,
 		private readonly _api: DataConnectionsApi = positron.dataConnections,
 		private readonly _timeoutMs = SCHEMA_READ_TIMEOUT_MS,
+		private readonly _isEnabled: () => boolean = () => true,
 	) { }
 
 	/**
@@ -338,6 +346,14 @@ export class SchemaReader {
 	 *   user asking: a database's tables can change without the connection to it closing.
 	 */
 	public async read(fresh = false): Promise<SqlSchema> {
+		if (!this._isEnabled()) {
+			// Not asked: the API would reject, and the answer is already known.
+			this._schemas.clear();
+			this._log.info('Data Connections is turned off, so completions cover SQL keywords only.'
+				+ ' Turn on the dataConnections.enabled setting to complete against a database.');
+			return { ...EMPTY_SCHEMA, dataConnectionsOff: true };
+		}
+
 		let connections: positron.DataConnectionSummary[];
 		try {
 			connections = await this._api.getConnections();
