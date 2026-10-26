@@ -76,6 +76,14 @@ const CONNECTION_CHANGE_DELAY_MS = 250;
 const MAX_CACHED_ANALYSES = 32;
 
 /**
+ * How recently a file must have been written to be one Save As just wrote.
+ *
+ * Save As writes the file and then opens it, so this is generous; a file the user merely opens was
+ * written whenever it was last saved.
+ */
+const JUST_WRITTEN_MS = 10_000;
+
+/**
  * The part of `positron.dataConnections` a session uses: the reads, plus what it is told when
  * connections change and how it opens one. Injected so a session can be tested without a live
  * database behind it.
@@ -281,7 +289,7 @@ export class SqlSession implements vscode.Disposable {
 					if (this._selection.reopen(document.uri, document.getText())) {
 						this._log.debug(`Kept the connection of ${document.uri.toString(true)} as it reopened.`);
 					} else {
-						this._adopt(document);
+						void this._adopt(document);
 					}
 				}
 				this._refresh(document);
@@ -297,7 +305,7 @@ export class SqlSession implements vscode.Disposable {
 				// as its first change, so that is when it can be matched to the buffer's choice.
 				// Only then: later edits are the user's, not the save's.
 				if (event.document.version <= 2) {
-					this._adopt(event.document);
+					void this._adopt(event.document);
 				}
 				this._schedule(event.document);
 			}),
@@ -316,7 +324,7 @@ export class SqlSession implements vscode.Disposable {
 					// buffer closes.
 					for (const open of vscode.workspace.textDocuments) {
 						if (open !== document && !open.isClosed) {
-							this._adopt(open);
+							void this._adopt(open);
 						}
 					}
 				}
@@ -576,25 +584,17 @@ export class SqlSession implements vscode.Disposable {
 	 * Gives a document the choice of a buffer just closed with the same text, if it has none of its
 	 * own, and brings everything that depends on the choice along with it.
 	 */
-	private _adopt(document: vscode.TextDocument): void {
-		if (document.languageId !== 'sql' || this._selection.get(document.uri)
-			|| NO_DIAGNOSTICS_SCHEMES.has(document.uri.scheme)) {
-			// Including another view of a file, such as a diff's left side: it holds the same text
-			// as the file, but is not a file saved from it.
+	private async _adopt(document: vscode.TextDocument): Promise<void> {
+		if (!this._mayAdopt(document) || this._donorsFor(document).length === 0 && !this._selection.hasTransient) {
 			return;
 		}
-		// An open file on disk can be the one this was saved from, not only an untitled buffer: Save
-		// As from a file leaves it open beside the new one, with the same text. But only the file
-		// the user was just looking at, which is where Save As is run from. Any file open with the
-		// same text would hand an unrelated one its connection -- and open that connection.
-		const donors = vscode.workspace.textDocuments
-			.filter(open => open !== document && !open.isClosed && this._selection.get(open.uri) !== undefined
-				&& (open.uri.scheme === 'untitled' || this._recentlyActive.includes(open.uri.toString())))
-			.map(open => ({ uri: open.uri, text: open.getText() }));
-		if (donors.length === 0 && !this._selection.hasTransient) {
+		// Only a file Save As has just written. Otherwise opening a file that holds the same text as
+		// the one in front of the user -- a copy of a query -- would look exactly like Save As, and
+		// would hand it a connection it was never written against, and open that connection.
+		if (!await this._justWritten(document.uri) || this._disposed || !this._mayAdopt(document)) {
 			return;
 		}
-		if (!this._selection.adopt(document.uri, document.getText(), donors)) {
+		if (!this._selection.adopt(document.uri, document.getText(), this._donorsFor(document))) {
 			return;
 		}
 		this._log.debug(`${document.uri.toString(true)} took over the connection`
@@ -603,6 +603,39 @@ export class SqlSession implements vscode.Disposable {
 		this._refresh(document);
 		this._updateStatusBar();
 		void this._openConnectionFor(document);
+	}
+
+	/** Whether a document could take over another's choice at all. */
+	private _mayAdopt(document: vscode.TextDocument): boolean {
+		// Not another view of a file, such as a diff's left side: it holds the same text as the
+		// file, but is not a file saved from it.
+		return document.languageId === 'sql' && !document.isClosed && !this._selection.get(document.uri)
+			&& !NO_DIAGNOSTICS_SCHEMES.has(document.uri.scheme);
+	}
+
+	/**
+	 * The open documents a document may have been saved from, with their text.
+	 *
+	 * An open file on disk can be the one, not only an untitled buffer: Save As from a file leaves it
+	 * open beside the new one, with the same text. But only the file the user was just looking at,
+	 * which is where Save As is run from.
+	 */
+	private _donorsFor(document: vscode.TextDocument): { uri: vscode.Uri; text: string }[] {
+		return vscode.workspace.textDocuments
+			.filter(open => open !== document && !open.isClosed && this._selection.get(open.uri) !== undefined
+				&& (open.uri.scheme === 'untitled' || this._recentlyActive.includes(open.uri.toString())))
+			.map(open => ({ uri: open.uri, text: open.getText() }));
+	}
+
+	/** Whether a file was written in the last {@link JUST_WRITTEN_MS}, as one Save As wrote is. */
+	private async _justWritten(uri: vscode.Uri): Promise<boolean> {
+		try {
+			const { mtime } = await vscode.workspace.fs.stat(uri);
+			return Date.now() - mtime < JUST_WRITTEN_MS;
+		} catch {
+			// Not a file, or gone: nothing was saved as it.
+			return false;
+		}
 	}
 
 	/** Remembers the SQL document now in front of the user, if it is one; see {@link _recentlyActive}. */

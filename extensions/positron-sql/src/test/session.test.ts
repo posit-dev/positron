@@ -274,7 +274,28 @@ suite('SqlSession', () => {
 
 		const saved = await vscode.workspace.openTextDocument(copy);
 
-		assert.strictEqual(resolved(session, saved), 'connection:a');
+		await until(() => resolved(session, saved) === 'connection:a', 'the saved file to take over the connection');
+	});
+
+	test('a file with the same text, opened while the other is in front, does not take its connection', async () => {
+		// The same moment as Save As, but the file was written long before: a copy of a query the
+		// user opens while looking at the original.
+		const text = 'SELECT * FROM orders;';
+		const bound = sqlFile('bound.sql', text);
+		const copy = sqlFile('copy.sql', text);
+		const anHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+		fs.utimesSync(copy.fsPath, anHourAgo, anHourAgo);
+		const api = new FakeConnections();
+		api.connections = [summary('a', true), summary('b', true)];
+		const session = startSession(api, memento({ connectionByDocument: { [bound.toString()]: ref('a') } }));
+		await session.whenRead();
+		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(bound));
+
+		const opened = await vscode.workspace.openTextDocument(copy);
+		// Long enough for the file's age to have been looked up.
+		await new Promise(resolve => setTimeout(resolve, 200));
+
+		assert.strictEqual(resolved(session, opened), 'none');
 	});
 
 	test('a file that only holds the same text as another does not take its connection', async () => {
