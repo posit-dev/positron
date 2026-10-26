@@ -11,10 +11,22 @@
 # Usage:
 #   stop.sh --cdp-port <port> [--run-dir <dir>] [--timeout <seconds>]
 #
+# It signals the process that owns the CDP port, waits for the port to stop
+# answering, forces the stop if it does not, then removes --run-dir. Without
+# --run-dir it stops the instance and deletes nothing (reseed.sh relies on
+# that). Pass only the runDir launch.sh printed: a path without a
+# positron-dev-launch component is refused. Each stop adds a line to
+# instances.log. Do not signal the Electron helper processes yourself: the app
+# reads that as a window crash, respawns them, and then ignores the stop.
+#
 # Exits non-zero when the instance is still reachable after the timeout, or when
 # --run-dir does not look like a launch.sh run directory.
 
 set -euo pipefail
+DIR="$(dirname "${BASH_SOURCE[0]}")"
+# A usage error: the error on stderr, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error --text "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 
 CDP_PORT=""
 RUN_DIR=""
@@ -22,17 +34,16 @@ TIMEOUT=15
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--cdp-port) CDP_PORT="$2"; shift 2 ;;
-		--run-dir) RUN_DIR="$2"; shift 2 ;;
-		--timeout) TIMEOUT="$2"; shift 2 ;;
-		*) echo "Unknown arg: $1" >&2; exit 2 ;;
+		--cdp-port=*|--run-dir=*|--timeout=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
+		--cdp-port) CDP_PORT="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--run-dir) RUN_DIR="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--timeout) TIMEOUT="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
+		*) usage_error "unknown argument $1" ;;
 	esac
 done
 
-if [[ -z "$CDP_PORT" ]]; then
-	echo "Usage: stop.sh --cdp-port <port> [--run-dir <dir>] [--timeout <seconds>]" >&2
-	exit 2
-fi
+[[ -n "$CDP_PORT" ]] || usage_error "give --cdp-port <port> [--run-dir <dir>] [--timeout <seconds>]"
 
 case "$(uname -s)" in
 	MINGW*|MSYS*|CYGWIN*) IS_WINDOWS=1 ;;

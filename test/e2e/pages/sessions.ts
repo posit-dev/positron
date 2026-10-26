@@ -559,17 +559,14 @@ export class Sessions {
 						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
 					});
 				} catch (e) {
-					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
-					// can be missing from the quick pick on the first attempt -- notably
-					// on remote hosts, where interpreter registration can lag the
-					// discovery-complete signal. Force a fresh cross-host rescan so the
-					// next retry of this `toPass` iteration sees it. (The former
-					// `python.refreshInterpreters` command does not exist, so this
-					// recovery was silently a no-op.)
-					if (language === 'Python') {
-						await this.quickinput.closeQuickInput().catch(() => { });
-						await this.quickaccess.runCommand('workbench.action.language.runtime.discoverAllRuntimes').catch(() => { });
-					}
+					// The interpreter can be missing from the quick pick on the first attempt:
+					// on remote hosts registration can lag the discovery-complete signal, and
+					// after a reload the startup service may serve the cached runtime list when
+					// the extension misses its 500ms discovery-root signature budget, skipping
+					// roots added via settings such as positron.r.customRootFolders (#16455).
+					// Force a full rescan so the next retry of this `toPass` iteration sees it.
+					await this.quickinput.closeQuickInput().catch(() => { });
+					await this.quickaccess.runCommand('workbench.action.language.runtime.discoverAllRuntimes').catch(() => { });
 					throw e;
 				}
 				await this.quickinput.waitForQuickInputClosed();
@@ -667,6 +664,20 @@ export class Sessions {
 	}
 
 	/**
+	 * Helper: Wait for this launch's interpreter discovery to finish. Unlike
+	 * expectNoStartUpMessaging, this also works while a console is running: the
+	 * Start New Interpreter Session picker says "Discovering interpreters..."
+	 * until startup is complete.
+	 */
+	async expectDiscoveryToComplete() {
+		await test.step('Wait for interpreter discovery to complete', async () => {
+			await this.quickPick.openSessionQuickPickMenu(true);
+			await this.quickinput.waitForInterpreterDiscoveryToComplete({ timeout: STARTUP_MESSAGING_TIMEOUT });
+			await this.quickPick.closeSessionQuickPickMenu();
+		});
+	}
+
+	/**
 	 * Helper: Get all session IDs for sessions in the console
 	 *
 	 * @returns the list of session IDs
@@ -701,20 +712,21 @@ export class Sessions {
 				const { id, name } = await this.getMetadata();
 				return [{ id, name }];
 			} else {
-				// multiple sessions, iterate through session tabs
-				const allSessions = await this.sessionTabs.all();
+				// multiple sessions, read every tab in one snapshot: a tab removed
+				// mid-iteration (e.g. a session shutting down) would leave a dangling nth() locator
+				const allSessions = await this.sessionTabs.evaluateAll(tabs =>
+					tabs.map(tab => ({ testId: tab.getAttribute('data-testid'), ariaLabel: tab.getAttribute('aria-label') }))
+				);
 				const allSessionsData: { id: string; name: string }[] = [];
 
-				for (const session of allSessions) {
+				for (const { testId, ariaLabel } of allSessions) {
 					// extract session ID from data-testid attribute
-					const testId = await session.getAttribute('data-testid');
 					// The `-notebook` segment matters: without it a notebook
 					// session's id is captured truncated, as just `python-notebook`.
 					const match = testId?.match(/console-tab-((python|r)(-notebook)?-[a-zA-Z0-9]+)/);
 					const id = match ? match[1] : null;
 
 					// extract session name from aria-label attribute
-					const ariaLabel = await session.getAttribute('aria-label');
 					const name = ariaLabel ? ariaLabel.trim() : null;
 
 					if (!id || !name) {
@@ -908,10 +920,10 @@ export class Sessions {
 	 * Note: Sessions that are disconnected are filtered out
 	 */
 	async getActiveSessions(): Promise<QuickPickSessionInfo[]> {
-		const allSessionTabs = await this.sessionTabs.all();
+		const sessionTabCount = await this.sessionTabs.count();
 		const metadataButtonExists = await this.metadataButton.isVisible();
 
-		if (allSessionTabs.length === 0) {
+		if (sessionTabCount === 0) {
 			// No active sessions
 			if (!metadataButtonExists) { return []; }
 
@@ -920,22 +932,19 @@ export class Sessions {
 			return state === 'disconnected' || state === 'exited' ? [] : [{ path, name }];
 		}
 
-		// Multiple sessions are present
-		const activeSessions = (
-			await Promise.all(
-				allSessionTabs.map(async session => {
-					const isDisconnected = await session.locator('.codicon-positron-runtime-status-disconnected').isVisible();
-					if (isDisconnected) { return null; }
-
-					// Extract session ID from data-testid attribute
-					const testId = await session.getAttribute('data-testid');
-					const match = testId?.match(/console-tab-(\S+)/);
-					const sessionId = match ? match[1] : null;
-
-					return sessionId ? { sessionId, session } : null;
-				})
-			)
-		).filter(session => session !== null) as { sessionId: string; session: Locator }[];
+		// Multiple sessions are present; read every tab in one snapshot so a tab
+		// removed mid-iteration can't leave a dangling nth() locator
+		const tabs = await this.sessionTabs.evaluateAll(els =>
+			els.map(el => ({
+				testId: el.getAttribute('data-testid'),
+				isDisconnected: el.querySelector('.codicon-positron-runtime-status-disconnected') !== null,
+			}))
+		);
+		const activeSessions = tabs
+			.filter(tab => !tab.isDisconnected)
+			// Extract session ID from data-testid attribute
+			.map(tab => ({ sessionId: tab.testId?.match(/console-tab-(\S+)/)?.[1] ?? null }))
+			.filter((session): session is { sessionId: string } => session.sessionId !== null);
 
 
 		const activeSessionInfo: QuickPickSessionInfo[] = [];

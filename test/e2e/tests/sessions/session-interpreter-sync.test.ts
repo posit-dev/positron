@@ -17,7 +17,7 @@ test.use({
 });
 
 test.describe('Sessions: Interpreter Sync', {
-	tag: [tags.WIN, tags.WEB, tags.SESSIONS, tags.CONSOLE]
+	tag: [tags.WIN, tags.WEB, tags.SESSIONS, tags.CONSOLE, tags.PYTHON]
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys }) {

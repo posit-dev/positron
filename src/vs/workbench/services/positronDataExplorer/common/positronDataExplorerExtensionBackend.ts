@@ -69,8 +69,9 @@ export class PositronDataExplorerExtensionBackend extends Disposable implements 
 	 */
 	readonly datasetUri: string;
 
-	// Events for the IDataExplorerBackendClient interface.
-	private readonly _onDidCloseEmitter = this._register(new Emitter<void>);
+	// Events for the IDataExplorerBackendClient interface. The close emitter is disposed in `dispose`,
+	// after the base class's dispose, so that it can fire while this backend is being disposed.
+	private readonly _onDidCloseEmitter = new Emitter<void>;
 	private readonly _onDidSchemaUpdateEmitter = this._register(new Emitter<SchemaUpdateEvent>);
 	private readonly _onDidDataUpdateEmitter = this._register(new Emitter<DataUpdateEvent>);
 	private readonly _onDidReturnColumnProfilesEmitter = this._register(
@@ -101,10 +102,22 @@ export class PositronDataExplorerExtensionBackend extends Disposable implements 
 		this.datasetUri = datasetUri;
 		this.clientId = clientId;
 
-		// When this backend is disposed (the Data Explorer editor tab closed), tell the providing
-		// extension so it can release the dataset's resources -- e.g. the DuckDB provider shuts its
-		// worker down once its last dataset closes. Runs once, only if not already disposed.
+		// When this backend is disposed (the Data Explorer editor tab closed), report that it closed,
+		// so the Data Explorer service forgets this dataset's instance and the next open of the
+		// dataset builds a fresh backend. Runs once, only if not already disposed.
+		this._register(toDisposable(() => this._onDidCloseEmitter.fire()));
+
+		// Then tell the providing extension so it can release the dataset's resources -- e.g. the
+		// DuckDB provider shuts its worker down once its last dataset closes.
 		this._register(toDisposable(() => this._transport.disposeBackend(this._providerId, this.datasetUri)));
+	}
+
+	override dispose(): void {
+		// Call the base class's dispose method.
+		super.dispose();
+
+		// Dispose of the close emitter, now that it has fired.
+		this._onDidCloseEmitter.dispose();
 	}
 
 	/**
@@ -129,6 +142,22 @@ export class PositronDataExplorerExtensionBackend extends Disposable implements 
 			return Promise.reject(new Error(response.error_message));
 		}
 		return response.result as Type;
+	}
+
+	/**
+	 * Gets whether the providing extension can rebuild this dataset's view on request.
+	 */
+	get supportsRefresh(): boolean {
+		return this._transport.supportsRefresh(this._providerId);
+	}
+
+	/**
+	 * Asks the providing extension to rebuild this dataset's view from its source. The rebuilt view
+	 * has no sort keys or row filters; the caller re-applies them.
+	 */
+	async refresh(): Promise<void> {
+		await this.initialSetup;
+		await this._transport.refreshDataset(this._providerId, this.datasetUri);
 	}
 
 	async getState(): Promise<BackendState> {

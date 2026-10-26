@@ -52,6 +52,7 @@ export enum RuntimeClientType {
 	Lsp = 'positron.lsp',
 	Plot = 'positron.plot',
 	DataExplorer = 'positron.dataExplorer',
+	ObjectExplorer = 'positron.objectExplorer',
 	Ui = 'positron.ui',
 	Help = 'positron.help',
 	Connection = 'positron.connection',
@@ -68,6 +69,8 @@ export enum RuntimeClientType {
 export interface IRuntimeClientOutput<T> {
 	data: T;
 	buffers?: Array<VSBuffer>;
+	/** The ID of the request that caused the runtime to send this output, if any. */
+	parent_id?: string;
 }
 
 /**

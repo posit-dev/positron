@@ -107,7 +107,7 @@ jobs:
 
       - name: Start Docker Container
         run: |
-          docker run -d --name test -p 3456:22 ghcr.io/posit-dev/positron-ubuntu24:24.18.0 \
+          docker run -d --name test -p 3456:22 ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1 \
             /bin/bash -c 'while true; do sleep 3600; done'
 
       - name: Setup SSH install script
@@ -197,14 +197,22 @@ jobs:
         with:
           identifier: e2e-remote-ssh
 
+      # The e2e-test-insights reporter publishes results to connect.posit.it, which is
+      # reachable only from the tailnet.
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
+        with:
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+
       - name: Run tests (host → container)
         env:
           POSITRON_PY_VER_SEL: "3.12.6"
           POSITRON_R_VER_SEL: 4.5.2
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.2
-          POSITRON_PY_REMOTE_VER_SEL: 3.10.12
-          POSITRON_R_REMOTE_VER_SEL: 4.5.2
+          POSITRON_PY_REMOTE_VER_SEL: 3.14.7
+          POSITRON_R_REMOTE_VER_SEL: 4.6.1
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           REPORTER_REPO_NAME: positron
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}

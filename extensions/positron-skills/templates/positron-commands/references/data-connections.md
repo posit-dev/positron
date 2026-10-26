@@ -1,8 +1,9 @@
 # Positron data connection commands
 
 Reading the data connections the user has configured, fetching the code that
-opens one, and walking the schema -- the tables and columns -- of a connection,
-which is connected automatically when it is not live yet. See
+opens one, walking the schema -- the tables and columns -- of a connection, and
+tracing an object's lineage. A connection is connected automatically when it is
+not live yet. See
 [SKILL.md]({{skill_dir}}/SKILL.md) for how to call these commands.
 
 The **Arguments** and **Returns** entries below are generated from the running
@@ -43,10 +44,10 @@ final query.
 
 ## How these commands report trouble
 
-All three commands are always callable: none has a precondition, so none ever
+All four commands are always callable: none has a precondition, so none ever
 fails the *call* the way [SKILL.md]({{skill_dir}}/SKILL.md) describes -- you will
 not see its command-level `disabled` (command gated off) or `not-found` (command
-absent from this build) outcomes for these three. **They report trouble inside
+absent from this build) outcomes for these four. **They report trouble inside
 the payload instead** -- an empty array, or an object with `connected: false` or
 `available: false` and a `reason`. So a successful call tells you nothing on its
 own; read the payload before concluding anything, and never read an empty result
@@ -60,9 +61,9 @@ below -- a payload `not-found` calls for re-reading the catalog, not for
 concluding the command is missing from this build.
 
 This matters because the whole feature is behind the `dataConnections.enabled`
-setting, which is preview and **off by default** and needs a window reload to
-take effect. With it off, all three commands still exist and still succeed --
-they just report nothing.
+setting. The setting is on by default but can be turned off by the user or an
+administrator. When it is off, all four commands still exist and still succeed,
+but they report nothing.
 
 ## Reading the user's configured connections
 
@@ -236,6 +237,81 @@ summary doesn't carry that.
   from context.
 
 {{command:positronDataConnections.getSchema}}
+
+## Tracing lineage
+
+### `positronDataConnections.getLineage`
+
+Reads an object's lineage from the data source: the objects its data comes
+from, or the objects built from it. Use it for "where does this table's data
+come from?" (`direction: 'upstream'`) and "what breaks if I change this
+column?" (`direction: 'downstream'`, `domain: 'column'`). Answer from the
+lineage, not from table names that merely look related.
+
+**Only some data sources track lineage.** Today that is Snowflake, and only
+on Enterprise Edition or higher. Any other connection reports
+`unsupported-driver`; say lineage isn't available for that kind of connection
+rather than guessing at it from the schema.
+
+**Naming the object.** Pass the fully qualified name: `database.schema.table`
+for a table or view, `database.schema.table.column` (with `domain: 'column'`)
+for a column. Copy it from the start of a `positronDataConnections.getSchema`
+line (or a `getLineage` line) exactly, rather than typing it from the user's
+description: each part is matched exactly, case and all, so
+`SALES.PUBLIC.orders` is a table called lowercase `orders` and not `ORDERS`.
+Keep a JSON-quoted part as it is -- `SALES.PUBLIC."Order Details"` is one table
+whose name contains a space. Like getSchema, the command connects the target profile
+automatically when it isn't live, and takes `profileId` on the same terms.
+
+**Reading a line.** Each entry in `lines` is
+`<distance> <source> -> <target>`. Data always flows left to right, whichever
+direction you asked for, and distance 1 is a direct relationship. So, upstream
+of `SALES.PUBLIC.ORDERS_DAILY`,
+
+```
+1 SALES.PUBLIC.ORDERS -> SALES.PUBLIC.ORDERS_DAILY
+2 SALES.RAW.ORDERS_LOAD [stage] -> SALES.PUBLIC.ORDERS
+```
+
+means `ORDERS_DAILY` is built from `ORDERS`, which is loaded from a stage. An
+end that isn't a table or column carries its kind in brackets. On a column
+edge, the bracket names the kind of object that holds the column:
+`SALES.PUBLIC.ORDERS_V.TOTAL [view]` is the `TOTAL` column of the view
+`ORDERS_V`. `<masked>` is an
+object the user's role isn't allowed to see: say that something upstream is
+hidden from them, and don't guess what it is. An empty `lines` means there is
+no lineage in that direction -- for an upstream request, that the object is a
+source rather than derived from anything Snowflake has recorded.
+
+**Depth and `truncated`.** `depth` defaults to 2 hops and goes up to 5.
+Start with the default, and go deeper only when the question needs the full
+chain (the original source of a value, everything affected by a change).
+`truncated: true` means `maxEdges` cut the farthest edges off; narrow the
+question (a column rather than its table, a smaller depth) before raising it.
+
+**What each `reason` means when `available: false`:**
+
+- **`disabled`**, **`not-found`**, **`no-driver`**, **`connect-failed`**,
+  **`no-connections`**, **`ambiguous`** -- the same as for
+  `positronDataConnections.getSchema`, and handled the same way.
+- **`invalid-arguments`** -- an argument is malformed: `objectName` is missing
+  or isn't a dot-joined name (an empty part, an unterminated quote), `direction`
+  or `domain` isn't one of the allowed values, `depth` or `maxEdges` isn't a
+  number, or `profileId` isn't a string. Fix the call; don't retry as-is.
+- **`unsupported-driver`** -- the connection's data source doesn't provide
+  lineage. Report it.
+- **`lineage-unavailable`** -- the data source declined: the object doesn't
+  exist or the role can't access it, it doesn't support lineage (Snowflake has
+  none for shared databases, the `SNOWFLAKE` database, or `INFORMATION_SCHEMA`),
+  or the account isn't Enterprise Edition. `message` is the data source's own
+  explanation; relay it. If the name might be wrong, check it against
+  `positronDataConnections.getSchema` before telling the user lineage is
+  unavailable.
+- **`query-failed`** -- the connection failed while reading the lineage. Retry
+  once; if it fails again, send the user to the Data Connections pane to check
+  the connection.
+
+{{command:positronDataConnections.getLineage}}
 
 ## Worked flow -- an empty `getConnections` is ambiguous
 

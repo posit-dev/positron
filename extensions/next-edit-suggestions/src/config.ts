@@ -5,14 +5,13 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { log } from './extension.js';
 import minimatch from 'minimatch';
 
 const DEFAULT_BASE_URL = 'https://gateway.posit.ai';
 
-function matchesGlobPattern(fileName: string, pattern: string): boolean {
-	const baseName = fileName.substring(fileName.lastIndexOf('/') + 1);
-
+function matchesGlobPattern(baseName: string, pattern: string): boolean {
 	if (pattern.startsWith('*.')) {
 		const extension = pattern.substring(1);
 		return baseName.toLowerCase().endsWith(extension.toLowerCase());
@@ -21,11 +20,9 @@ function matchesGlobPattern(fileName: string, pattern: string): boolean {
 	return baseName === pattern;
 }
 
-/** Reads the resolved `positai` base URL via `authentication`'s provider catalog. */
-export function getGatewayBaseUrl(): string {
-	const exports = vscode.extensions.getExtension('positron.authentication')?.exports as
-		{ getResolvedProviderBaseUrl?(catalogId: string): string | undefined } | undefined;
-	return exports?.getResolvedProviderBaseUrl?.('positai') ?? DEFAULT_BASE_URL;
+/** Reads the resolved `positai` base URL from Positron's provider catalog. */
+export async function getGatewayBaseUrl(): Promise<string> {
+	return await positron.ai.getProviderBaseUrl('positai') ?? DEFAULT_BASE_URL;
 }
 
 export function getSelectedCompletionModelId(): string {
@@ -75,9 +72,10 @@ export function isCompletionEnabledForFileType(document: vscode.TextDocument): b
 		return enableConfig[languageId];
 	}
 
-	const fileName = document.fileName;
+	// From the URI path, not `document.fileName`, which uses backslashes on Windows.
+	const baseName = path.posix.basename(document.uri.path);
 	for (const key of Object.keys(enableConfig)) {
-		if (key !== '*' && matchesGlobPattern(fileName, key)) {
+		if (key !== '*' && matchesGlobPattern(baseName, key)) {
 			return enableConfig[key];
 		}
 	}

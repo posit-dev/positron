@@ -1,0 +1,9 @@
+{
+	"name": "object_explorer",
+	"initiator": "frontend",
+	"initial_data": {
+		"schema": {
+			"type": "null"
+		}
+	}
+}

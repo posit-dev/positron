@@ -14,3 +14,4 @@ export { DuckDBDataExplorerRpcHandler, IDuckDBDataExplorerHost, OpenTableViewOpt
 export { DuckDBWorkerClient, IDuckDBQueryClient, DuckDBRow } from './duckdbWorkerClient.js';
 export { DuckDBWorkerPool, duckDBWorkerPool, IDuckDBWorkerLease } from './duckdbWorkerPool.js';
 export { WorkerOpenConfig } from './duckdbWorkerProtocol.js';
+export { catalogFilter } from './duckdbSql.js';

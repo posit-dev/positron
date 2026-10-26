@@ -4,10 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../../contrib/positronDataConnections/browser/positronDataConnectionsConfiguration.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
+import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk, walkDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
-import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { closeDataConnectionHandle, DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionLineageRequest, IDataConnectionLineageResult, IDataConnectionMechanism, IDataConnectionParameter, IDataConnectionParameterValidation, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**
@@ -88,6 +92,7 @@ function dtoToServiceMetadata(dto: IDataConnectionDriverMetadataDTO): IDataConne
 		iconSvg: dto.iconSvg,
 		mechanisms: dto.mechanisms.map(dtoToServiceMechanism),
 		supportedLanguageIds: dto.supportedLanguageIds,
+		validatesParameters: dto.validatesParameters,
 	};
 }
 
@@ -109,8 +114,9 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	// The disposable store.
 	private readonly _disposableStore = new DisposableStore();
 
-	// Connection handles created via $connectToDataConnectionDriver, keyed by handle number.
-	private readonly _connectionHandles = new Map<number, IDataConnectionHandle>();
+	// Connection handles created via $connectToDataConnectionDriver, keyed by handle number, with the
+	// id of the driver each was opened through.
+	private readonly _connectionHandles = new Map<number, { readonly driverId: string; readonly handle: IDataConnectionHandle }>();
 
 	/**
 	 * Constructor.
@@ -119,10 +125,94 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 */
 	constructor(
 		extHostContext: IExtHostContext,
-		@IPositronDataConnectionsService private readonly _dataConnectionsService: IPositronDataConnectionsService
+		@IPositronDataConnectionsService private readonly _dataConnectionsService: IPositronDataConnectionsService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		// Get the ext host proxy so adapters can call back for connect/getChildren/etc.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostDataConnections);
+
+		// Both events, because either can change what getConnections would answer: instances are
+		// the connections that are live, profiles are the connections that exist at all.
+		const notify = () => this._proxy.$onDidChangeDataConnections();
+		this._disposableStore.add(this._dataConnectionsService.onDidChangeInstances(notify));
+		this._disposableStore.add(this._dataConnectionsService.onDidChangeProfiles(notify));
+	}
+
+	/**
+	 * Returns the connections the user has configured, live or not.
+	 */
+	async $getDataConnections(): Promise<IDataConnectionSummaryDTO[]> {
+		this._throwIfDisabled();
+		const live = new Set(
+			this._dataConnectionsService.getInstances().map(instance => instance.profileId),
+		);
+		return this._dataConnectionsService.getProfiles().map(profile => ({
+			profileId: profile.id,
+			name: profile.connectionName,
+			driverId: profile.driverMetadata.id,
+			driverName: profile.driverMetadata.name,
+			connected: live.has(profile.id),
+		}));
+	}
+
+	/**
+	 * Opens the user's connection for a profile, if it is not already open.
+	 *
+	 * The service's connect is idempotent, so a profile that is already connected costs a lookup
+	 * rather than a reconnect, and one still connecting is waited on rather than opened twice. The instance it returns is deliberately dropped: this exists so an
+	 * extension can ask for a connection to be opened, not so it can hold one.
+	 */
+	async $openDataConnection(profileId: string): Promise<boolean> {
+		this._throwIfDisabled();
+		if (!this._dataConnectionsService.getProfile(profileId)) {
+			// Nothing to open. A stale id is ordinary -- a caller may have recorded a profile the
+			// user has since removed -- so this is not an error, just a no.
+			this._logService.warn(`[DataConnections] openConnection: no profile ${profileId}.`);
+			return false;
+		}
+		await this._dataConnectionsService.connect(profileId);
+		return true;
+	}
+
+	/**
+	 * Reads one live connection's schema tree.
+	 *
+	 * The walk rather than the rendered summary: an extension navigates the schema (a SQL editor
+	 * resolving a table to its columns), so it wants the tree. The compact lines are for Assistant.
+	 *
+	 * The instance's own handle is used without being registered in `_connectionHandles`: that map
+	 * is what `$releaseConnectionViaService` frees, and this connection belongs to the user rather
+	 * than to the calling extension.
+	 */
+	async $getDataConnectionSchema(
+		profileId: string,
+		options: IDataConnectionSchemaSummaryOptions,
+	): Promise<IDataConnectionSchemaWalk | undefined> {
+		this._throwIfDisabled();
+		const instance = this._dataConnectionsService.getInstanceForProfile(profileId);
+		if (!instance) {
+			this._logService.warn(`[DataConnections] getSchema: profile ${profileId} has no live connection.`);
+			return undefined;
+		}
+		const walk = await walkDataConnectionSchema(instance.connectionHandle, options);
+		if (walk.truncated) {
+			this._logService.trace(`[DataConnections] getSchema: profile ${profileId} was truncated by the caller's bounds.`);
+		}
+		return walk;
+	}
+
+	/**
+	 * Rejects a call about the user's connections when the Data Connections feature is off.
+	 *
+	 * A rejection rather than an empty answer, so that a caller can tell "the user has none" from
+	 * "the user turned this off" -- the same choice positron.runtime.getConsoleHistory makes for
+	 * its own setting. Read on every call, since the setting changes without a reload.
+	 */
+	private _throwIfDisabled(): void {
+		if (this._configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== true) {
+			throw new Error(`Data connections are unavailable because the "${POSITRON_DATA_CONNECTIONS_ENABLED_KEY}" setting is disabled.`);
+		}
 	}
 
 	/**
@@ -138,11 +228,18 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	}
 
 	/**
-	 * Called by the ext host when a driver is unregistered (its Disposable was disposed).
+	 * Called by the ext host when a driver is unregistered. Closes the driver's API-opened connections; the service closes the user's.
 	 * @param driverId The unique identifier for the driver to remove.
 	 */
 	$removeDataConnectionDriver(driverId: string): void {
 		this._dataConnectionsService.driverManager.removeDriver(driverId);
+
+		for (const [connectionHandle, entry] of this._connectionHandles) {
+			if (entry.driverId === driverId) {
+				this._connectionHandles.delete(connectionHandle);
+				void closeDataConnectionHandle(entry.handle, this._logService, `connection handle ${connectionHandle}`);
+			}
+		}
 	}
 
 	/**
@@ -165,13 +262,19 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * round trip.
 	 */
 	async $connectToDataConnectionDriver(driverId: string, mechanismId: string, params: DataConnectionParameterValues): Promise<number> {
-		const drivers = this._dataConnectionsService.driverManager.getDrivers();
-		const driver = drivers.find(d => d.id === driverId);
+		const driver = this._dataConnectionsService.driverManager.getDriver(driverId);
 		if (!driver) {
 			throw new Error(`Data connection driver '${driverId}' not found`);
 		}
 		const handle = await driver.connect(mechanismId, params);
-		this._connectionHandles.set(handle.handle, handle);
+
+		// Removed while connecting, so nothing else would close this one (checked by id: a re-register keeps it).
+		if (!this._dataConnectionsService.driverManager.getDriver(driverId)) {
+			await closeDataConnectionHandle(handle, this._logService, `connection handle ${handle.handle}`);
+			throw new Error(`Data connection driver '${driverId}' was removed while connecting`);
+		}
+
+		this._connectionHandles.set(handle.handle, { driverId, handle });
 		return handle.handle;
 	}
 
@@ -196,11 +299,10 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		return this._getHandle(connectionHandle).isReadOnly();
 	}
 
-	/**
-	 * Checks connection status through the main thread handle.
-	 */
+	/** Checks connection status through the main thread handle. Returns false for unknown handles rather than throwing. */
 	async $connectionIsConnectedViaService(connectionHandle: number): Promise<boolean> {
-		return this._getHandle(connectionHandle).isConnected();
+		const entry = this._connectionHandles.get(connectionHandle);
+		return entry ? entry.handle.isConnected() : false;
 	}
 
 	/**
@@ -230,19 +332,19 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * Releases a connection handle through the main thread handle.
 	 */
 	$releaseConnectionViaService(connectionHandle: number): void {
-		const handle = this._connectionHandles.get(connectionHandle);
-		if (handle) {
-			handle.release();
+		const entry = this._connectionHandles.get(connectionHandle);
+		if (entry) {
+			entry.handle.release();
 			this._connectionHandles.delete(connectionHandle);
 		}
 	}
 
 	private _getHandle(connectionHandle: number): IDataConnectionHandle {
-		const handle = this._connectionHandles.get(connectionHandle);
-		if (!handle) {
+		const entry = this._connectionHandles.get(connectionHandle);
+		if (!entry) {
 			throw new Error(`Connection handle ${connectionHandle} not found on the main thread`);
 		}
-		return handle;
+		return entry.handle;
 	}
 
 	// Called by the extension host manager when the extension host disconnects.
@@ -303,6 +405,19 @@ class MainThreadDataConnectionDriverAdapter implements IDataConnectionDriver {
 	 */
 	async redactParameterValue(mechanismId: string, parameterId: string, value: string): Promise<string | undefined> {
 		return this._proxy.$redactParameterValue(this.id, mechanismId, parameterId, value);
+	}
+
+	/**
+	 * Asks the ext host to run driver.validateParameters() via RPC. Resolves to an empty result,
+	 * without the round trip, when the driver does not implement validation.
+	 * @param mechanismId The id of the mechanism the user selected.
+	 * @param params The parameter values the user entered.
+	 */
+	async validateParameters(mechanismId: string, params: DataConnectionParameterValues): Promise<IDataConnectionParameterValidation> {
+		if (this.metadata.validatesParameters !== true) {
+			return {};
+		}
+		return this._proxy.$validateParameters(this.id, mechanismId, params);
 	}
 
 	/**
@@ -385,6 +500,14 @@ class MainThreadDataConnectionHandleAdapter implements IDataConnectionHandle {
 	 */
 	async nodeGetDetails(nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO> {
 		return this._proxy.$nodeGetDetails(this.handle, nodeHandle);
+	}
+
+	/**
+	 * Reads an object's lineage from the extension-side connection, resolving to undefined when its
+	 * driver does not support lineage.
+	 */
+	async getLineage(request: IDataConnectionLineageRequest): Promise<IDataConnectionLineageResult | undefined> {
+		return this._proxy.$connectionGetLineage(this.handle, request);
 	}
 
 	/**

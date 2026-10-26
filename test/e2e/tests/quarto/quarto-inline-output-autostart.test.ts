@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Quarto - Inline Output: Kernel Auto-Start on Open', {
-	tag: [tags.QUARTO]
+	tag: [tags.QUARTO, tags.PYTHON]
 }, () => {
 
 	test.afterEach(async function ({ hotKeys }) {

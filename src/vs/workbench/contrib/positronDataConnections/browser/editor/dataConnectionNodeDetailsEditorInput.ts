@@ -41,6 +41,9 @@ export interface IDataConnectionNodeDetailsTarget {
 	// other node the length of the nodePath prefix that ends at it. A breadcrumb reveals its node
 	// with that prefix.
 	readonly breadcrumbNodePathLengths: readonly number[];
+
+	// Whether the node can be opened in the Data Explorer, so the page offers a button for it.
+	readonly canPreview: boolean;
 }
 
 /**

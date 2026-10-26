@@ -12,13 +12,14 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../../browser/positronDataConnectionsConfiguration.js';
 import { DataConnectionNodeDetailsPage } from '../../browser/editor/dataConnectionNodeDetailsPage.js';
-import { DataConnectionNodeDetailsEditorInput } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
+import { DataConnectionNodeDetailsEditorInput, IDataConnectionNodeDetailsTarget } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 
-const TARGET = {
+const TARGET: IDataConnectionNodeDetailsTarget = {
 	key: '["entry:conn-1","[\\"semantic-view\\",\\"CHAOS_MODEL\\"]"]',
 	name: 'CHAOS_MODEL',
 	icon: 'type-hierarchy',
@@ -31,6 +32,7 @@ const TARGET = {
 		'["group-semantic-views","Semantic Views"]', '["semantic-view","CHAOS_MODEL"]',
 	],
 	breadcrumbNodePathLengths: [0, 2, 4, 6],
+	canPreview: false,
 };
 
 // A semantic view's details, shaped the way the Snowflake driver builds them: an Overview holding a
@@ -97,11 +99,17 @@ describe('DataConnectionNodeDetailsPage', () => {
 	// A breadcrumb opens the pane and asks the service to reveal its node.
 	const openView = vi.fn(async () => undefined);
 	const revealConnection = vi.fn();
+	// The Open in Data Explorer button has the pane's tree find and open the node, opening the pane
+	// first only when it has no tree.
+	const hasNodeOpener = vi.fn(() => true);
+	const openNodeInDataExplorer = vi.fn(async (_profileId: string, _nodePath: readonly string[], _name: string) => true);
+	const notifyError = vi.fn();
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IConfigurationService, new TestConfigurationService({ editor: {} }))
 		.stub(IViewsService, { openView })
-		.stub(IPositronDataConnectionsService, { revealConnection })
+		.stub(IPositronDataConnectionsService, { revealConnection, hasNodeOpener, openNodeInDataExplorer })
+		.stub(INotificationService, { error: notifyError })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -111,8 +119,8 @@ describe('DataConnectionNodeDetailsPage', () => {
 		return screen.getAllByRole('listitem').filter(item => !breadcrumbs.contains(item));
 	}
 
-	function renderPage(details: IDataConnectionNodeDetailsDTO) {
-		const input = ctx.disposables.add(new DataConnectionNodeDetailsEditorInput(TARGET, details));
+	function renderPage(details: IDataConnectionNodeDetailsDTO, target: IDataConnectionNodeDetailsTarget = TARGET) {
+		const input = ctx.disposables.add(new DataConnectionNodeDetailsEditorInput(target, details));
 		rtl.render(<DataConnectionNodeDetailsPage input={input} />);
 		return input;
 	}
@@ -177,6 +185,96 @@ describe('DataConnectionNodeDetailsPage', () => {
 			await user.click(screen.getByRole('button', { name: 'TestData' }));
 
 			expect(revealConnection).toHaveBeenLastCalledWith('conn-1', { nodePath: [], openDetails: false, preserveFocus: true });
+		});
+
+		it('opens a previewable node in the Data Explorer through the pane\'s tree, leaving the pane closed', async () => {
+			renderPage({ sections: [] }, { ...TARGET, canPreview: true });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Open in Data Explorer' }));
+
+			await vi.waitFor(() => expect(openNodeInDataExplorer).toHaveBeenCalledWith('conn-1', TARGET.nodePath, 'CHAOS_MODEL'));
+			expect(openView).not.toHaveBeenCalled();
+		});
+
+		it('opens the pane first when it has no tree to find the node', async () => {
+			hasNodeOpener.mockReturnValueOnce(false);
+			renderPage({ sections: [] }, { ...TARGET, canPreview: true });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Open in Data Explorer' }));
+
+			await vi.waitFor(() => expect(openNodeInDataExplorer).toHaveBeenCalled());
+			expect(openView).toHaveBeenCalledWith(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
+		});
+
+		it('says so when no tree arrived to open the node', async () => {
+			openNodeInDataExplorer.mockResolvedValueOnce(false);
+			renderPage({ sections: [] }, { ...TARGET, canPreview: true });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Open in Data Explorer' }));
+
+			await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith(
+				`Could not open 'CHAOS_MODEL' in the Data Explorer: the Data Connections pane is not available.`));
+		});
+
+		it('shows the button busy while the node opens', async () => {
+			let releaseOpen!: () => void;
+			openNodeInDataExplorer.mockImplementationOnce(() => new Promise<boolean>(resolve => { releaseOpen = () => resolve(true); }));
+			renderPage({ sections: [] }, { ...TARGET, canPreview: true });
+			const user = userEvent.setup();
+			const button = screen.getByRole('button', { name: 'Open in Data Explorer' });
+
+			await user.click(button);
+			expect(button).toHaveAttribute('aria-disabled', 'true');
+
+			await act(async () => releaseOpen());
+			expect(button).not.toHaveAttribute('aria-disabled');
+		});
+
+		it('gives the press back when the open doesn\'t settle, rather than leaving the button dead', async () => {
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			try {
+				// An open that never settles, as one stuck on a connection whose extension host has gone.
+				openNodeInDataExplorer.mockImplementation(() => new Promise<boolean>(() => { }));
+				renderPage({ sections: [] }, { ...TARGET, canPreview: true });
+				const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+				const button = screen.getByRole('button', { name: 'Open in Data Explorer' });
+
+				await user.click(button);
+				expect(button).toHaveAttribute('aria-disabled', 'true');
+
+				// Well past the button's wait.
+				await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+				expect(button).not.toHaveAttribute('aria-disabled');
+
+				await user.click(button);
+				expect(openNodeInDataExplorer).toHaveBeenCalledTimes(2);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it('ignores a press while the node is still opening', async () => {
+			// The first open doesn't settle until released, as with a connection still connecting.
+			let releaseOpen!: () => void;
+			openNodeInDataExplorer.mockImplementationOnce(() => new Promise<boolean>(resolve => { releaseOpen = () => resolve(true); }));
+			renderPage({ sections: [] }, { ...TARGET, canPreview: true });
+			const user = userEvent.setup();
+			const button = screen.getByRole('button', { name: 'Open in Data Explorer' });
+
+			await user.click(button);
+			await user.click(button);
+			await act(async () => releaseOpen());
+
+			expect(openNodeInDataExplorer).toHaveBeenCalledTimes(1);
+		});
+
+		it('offers no Data Explorer button for a node that can\'t preview', () => {
+			renderPage({ sections: [] });
+
+			expect(screen.queryByRole('button', { name: 'Open in Data Explorer' })).not.toBeInTheDocument();
 		});
 
 		it('says so when the node has no details', () => {

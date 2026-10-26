@@ -46,8 +46,7 @@ describe('AiProviderCatalog', () => {
 	});
 
 	// Every mirrored connection field must be copied by the production mapper.
-	// `protocol` and `endpoints` are deliberately not mirrored (no renderer reads them).
-	type MirroredConnectionKeys = Exclude<keyof ResolvedConnection, 'protocol' | 'endpoints'>;
+	type MirroredConnectionKeys = Exclude<keyof ResolvedConnection, 'protocol' | 'endpoints' | 'keyType' | 'apiKeyHelper'>;
 	const mirroredKeys: Record<MirroredConnectionKeys, true> = {
 		baseUrl: true, endpoint: true, customHeaders: true, aws: true, azure: true,
 		googleCloud: true, snowflake: true, databricks: true, positaiLogin: true,

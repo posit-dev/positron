@@ -16,7 +16,8 @@ import {
 	IDatabricksSession,
 } from '../databricksClient.js';
 import { DBSQLClient } from '@databricks/sql';
-import { createCatalogNode, createSchemaNode, formatFileSize } from '../databricksNodes.js';
+import { createCatalogNode, createSchemaNode } from '../databricksNodes.js';
+import { formatFileSize } from '../fileSize.js';
 import { databricksDisplayType, parseDescribeRows } from '../databricksSql.js';
 import { generateConnectionCode, parseDatabricksHost, parseDatabricksHttpPath, validateRequired } from '../databricksDriver.js';
 
@@ -671,13 +672,16 @@ suite('Databricks Client', () => {
 
 	test('maps each mechanism onto the SDK auth options', () => {
 		const pat = connectionOptions({ ...TEST_CONFIG });
-		const u2m = connectionOptions({ ...TEST_CONFIG, authType: 'u2m', token: undefined });
+		const getToken = async () => 'oauth-token';
+		const u2m = connectionOptions({ ...TEST_CONFIG, authType: 'u2m', token: undefined, tokenProvider: getToken });
 		const m2m = connectionOptions({ ...TEST_CONFIG, authType: 'm2m', token: undefined, clientId: 'cid', clientSecret: 'secret' });
 
 		assert.strictEqual(pat.token, 'dapi-test-token');
 		assert.strictEqual(pat.authType, undefined);
-		assert.strictEqual(u2m.authType, 'databricks-oauth');
-		assert.strictEqual(u2m.oauthClientId, undefined);
+		// Positron runs the U2M sign-in itself and hands the SDK the session's token provider; with
+		// no session (Azure Government) the SDK runs its own flow.
+		assert.deepStrictEqual({ authType: u2m.authType, getToken: u2m.getToken }, { authType: 'external-token', getToken });
+		assert.strictEqual(connectionOptions({ ...TEST_CONFIG, authType: 'u2m', token: undefined }).authType, 'databricks-oauth');
 		assert.deepStrictEqual(
 			{ authType: m2m.authType, id: m2m.oauthClientId, secret: m2m.oauthClientSecret },
 			{ authType: 'databricks-oauth', id: 'cid', secret: 'secret' });

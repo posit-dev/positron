@@ -1,0 +1,619 @@
+==== a report written to the format is clean
+(none)
+
+==== without a ledger, the ledger checks are skipped
+(none)
+
+==== a missing or overlong impact
+report: Finding 1 has no impact; say in one or two sentences who runs into it, what it costs them, and whether they would notice
+report: Finding 1 impact is 51 words; keep it to two sentences of 50 words or fewer
+report: Finding 1 impact has 3 sentences; keep it to two sentences of 50 words or fewer
+
+==== a two-sentence impact within the limit is clean
+(none)
+
+==== the schema names a missing Feature, notExercised or rate, and a step shot outside shots/
+report.findings[0].feature is missing
+report.header.notExercised is missing
+report.findings[0].steps[1].shots[0] "$U/a.png" does not match ^shots/
+report.findings[0].steps[1].shots[0] "https://cdn.example/run/shots/a.png" does not match ^shots/
+
+==== a severity outside the allowed words and a missing rate
+report: Finding 1 severity must be major, moderate or minor, got "High"
+report: Finding 1 reproduced must be { "n": N, "m": M } with N no more than M, got ""
+
+==== a Feature in code, not as a user sees the area
+PositronDynamicModalDialog
+  -> report: Finding 1 feature "PositronDynamicModalDialog" is a code or file name; name the area as a user sees it, such as "data explorer" or "new folder flow"
+columnProfileInteger.tsx
+  -> report: Finding 1 feature "columnProfileInteger.tsx" is a code or file name; name the area as a user sees it, such as "data explorer" or "new folder flow"
+`dataExplorer`
+  -> report: Finding 1 feature "`dataExplorer`" is a code or file name; name the area as a user sees it, such as "data explorer" or "new folder flow"
+new folder flow
+  -> (none)
+
+==== a question-shaped Result
+report: header.result answers a question; state what the change does instead
+
+==== a long Result, and a Cause whose first sentence runs on
+report: header.result is 61 words; keep it to 60 or fewer: what works in a phrase, then in bold what is broken
+report: Finding 1 cause opens with a 41-word sentence; name the suspect in 40 words or fewer, then give the detail
+
+==== a pointer to another finding, an absolute citation and a compiled frame
+report: Finding 1 points at another finding ("Set up as Finding 2."); write its steps in full
+report: map compiled frames to source paths: "out/vs/a.js:1"
+report: cite files relative to the run directory, not /tmp/run/r.log
+
+==== a workspace path in Run details is not a citation
+(none)
+
+==== a cited shot not on disk
+report: Finding 1 cites shots/a.png, which is not in the run directory
+ledger: S01 cites Evidence: p.png, which is not in shots/
+ledger: S02 cites Evidence: a.png, which is not in shots/
+ledger: S01 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+ledger: S02 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+
+==== the verifier's reply is skipped, but a finding pointing at another is not
+report: Finding 1 points at another finding ("Same as Finding 1: click Retry."); write its steps in full
+
+==== a test file not in the repository, but not one marked new
+report: Finding 1 names test file src/c.test.ts, which is not in the repository; fix the path, mark it (new file), or drop it
+
+==== a precondition about a file that does not exist does not ask for it to be saved
+`missing.sqlite` does not exist in the workspace
+  -> (none)
+`missing.sqlite` in the workspace
+  -> missing.sqlite is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+
+==== a title that starts lowercase or names code, but not a lowercase package name
+a package installed from the console is missing
+  -> report: Finding 1 title starts with a lowercase letter; start it with a capital
+R doubles are formatted by Rust f64::to_string
+  -> report: Finding 1 title names code; say what a user sees and what triggers it, and leave the mechanism to cause
+polars integer Min/Max shows only the leading digits
+  -> (none)
+Attached state stays stale after `library()` until Refresh
+  -> (none)
+Help for `dplyr::filter` lands on the stats page
+  -> (none)
+
+==== a hedged title
+Retry seems to do nothing
+  -> report: Finding 1 title hedges with "seems"; state what the run saw as a fact
+Retry may leave the panel empty
+  -> report: Finding 1 title hedges with "may"; state what the run saw as a fact
+Retry does nothing
+  -> (none)
+
+==== a possessive, a parenthetical and a code name in a title
+Paused columns' tooltip is wrong
+  -> report: Finding 1 title uses the possessive "columns'"; say "the <thing> of <owner>" or name the thing on screen
+Retry does nothing (after a reload)
+  -> report: Finding 1 title has a parenthetical; fold it into the sentence or move it to observed
+TableSummaryCache never clears
+  -> report: Finding 1 title names TableSummaryCache, a code name a user never sees; say what is on screen, and leave code to cause
+The quartoNotebookUri is lost on reload
+  -> report: Finding 1 title names quartoNotebookUri, a code name a user never sees; say what is on screen, and leave code to cause
+Plots on macOS lose `TableSummaryCache` on GitHub "Users' (1)" reload
+  -> (none)
+
+==== an Observed or Expected that runs past its sentences
+The panel is empty. Retry shows the same. After a reload it loads. | The panel loads. Retry reloads it.
+  -> (none)
+One. Two. Three. Four. | One. Two. Three.
+  -> report: Finding 1 observed is 4 sentences; keep it to 1-2, plus one for a fact such as no error shown or a workaround you saw work, and move the rest to the steps or evidence
+  -> report: Finding 1 expected is 3 sentences; keep it to 1-2, and move the rest to the steps or evidence
+
+==== an editorial Observed
+report: Finding 1 observed says "incorrectly"; say what happened in plain words and let the difference speak
+
+==== an Observed written as notes, with the reference in it, or a number written two ways
+The `n` column, whose largest value is 1,500, shows Max 1. | `n` shows Max 1,500, as pandas shows for the same data.
+  -> (none)
+Max 1 for 1,500; Min 1 for 1,234,567. | Max 1,500.
+  -> report: Finding 1 observed joins notes with a semicolon; write it as sentences
+`n` shows Max 1. pandas shows Max 1,500. | Max 1,500.
+  -> report: Finding 1 observed names pandas, which the title does not; the reference that shows the right answer goes in expected ("as pandas shows for the same data")
+`n` shows Max 1, where R also gives 1,500. | Max 1,500.
+  -> report: Finding 1 observed names R, which the title does not; the reference that shows the right answer goes in expected ("as R shows for the same data")
+`pop` shows Min 1. | Min 1,234,567, as pandas shows 1234567.
+  -> report: Finding 1 writes 1234567 both with and without digit grouping; write each number one way (1,234,567), except a value quoted exactly as the UI shows it
+`pop` shows Max 12300000. | Max 12,345,678.
+  -> (none)
+Running `a; b` shows Max 1. | Max 1,500.
+  -> (none)
+
+==== a backend named as what was tested is not a reference
+Typing `Frameworks` hides the R 4.5.1 session and leaves only `New Console Session...`. | The R 4.5.1 session stays listed.
+  -> (none)
+The mouse wheel stops at the R row of the setup card. | The page scrolls to its end.
+  -> (none)
+After the R language section expands, scrolling stops where the page used to end. | The page scrolls to its end.
+  -> (none)
+
+==== prose names no scenario ID, but code and an Evidence caption may
+report: Finding 1 expected names S05, S06; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs
+report: Finding 1 observed names N01; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs
+report: Finding 1 title names S03; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs
+
+==== a moderate or major finding tried once
+moderate | 1 | 1
+  -> report: Finding 1 is moderate and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up
+major | 1 | 1
+  -> report: Finding 1 is major and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up
+minor | 1 | 1
+  -> (none)
+moderate | 1 | 2
+  -> (none)
+
+==== a precondition done in the app, in the report
+`app.R` started with its Run Shiny App button
+  -> app.R is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+  -> report: Finding 1 precondition "app running" is done in the app ("Run Shiny App"); do it as a step, and keep the precondition to the state before step 1
+`flask_app.py` running, then opened in an editor tab
+  -> flask_app.py is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+  -> report: Finding 1 precondition "app running" is done in the app ("then opened"); do it as a step, and keep the precondition to the state before step 1
+A Shiny console in which Run Shiny App started `shiny_app.R`
+  -> shiny_app.R is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+  -> report: Finding 1 precondition "app running" is done in the app ("Run Shiny App"); do it as a step, and keep the precondition to the state before step 1
+A Python 3.12 console, which Positron starts on launch
+  -> (none)
+a Python with polars is selected
+  -> (none)
+`slow.py` loaded
+  -> slow.py is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+`p1_setup.py` run in the first Python session
+  -> p1_setup.py is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+  -> report: Finding 1 precondition "app running" says a file was run in the first Python session; name the state it left instead (the variables it defined, in which session), or, if the failing scenario ran it, make it that scenario's first step
+A Python 3.12 venv to run in
+  -> (none)
+`notes` open in the Data Explorer, then dropped from the R console
+  -> report: Finding 1 precondition "app running" is done in the app ("then dropped"); do it as a step, and keep the precondition to the state before step 1
+`orders` open in the Data Explorer, then a row inserted from the console
+  -> report: Finding 1 precondition "app running" is done in the app ("then a row inserted"); do it as a step, and keep the precondition to the state before step 1
+`race.sh`, which clicks Run, then presses Enter at once
+  -> race.sh is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+
+==== a precondition done in the app, in the ledger, where the third field may say how a scenario made it
+Variables loaded | S01 | `setup.py` run in the first Python session
+  -> setup.py is named by S02 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+app running | `app.R` started with Run Shiny App
+  -> app.R is named by S02 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+  -> ledger: S02 precondition "app running" is done in the app ("Run Shiny App"); do it as a step, and keep the precondition to the state before step 1
+`pd_ints` in the session | S01 | Defined in the Python console by S01 (files/ints.py)
+  -> ledger: files/ints.py is named but not listed in ## Files
+  -> ledger: S02 precondition "`pd_ints` in the session" is done in the app ("in the session"); do it as a step, and keep the precondition to the state before step 1
+R console | S03 | The R console started in S03
+  -> ledger: S02 precondition "R console" is done in the app ("started in S03"); do it as a step, and keep the precondition to the state before step 1
+expired cache | S02 | S02's profile after Positron quit, every firstSeen moved back 40 days by `files/backdate.py`
+  -> ledger: files/backdate.py is named but not listed in ## Files
+
+==== a precondition that is a scratch path, a running app, "the run's" or state shown in the app
+the workspace `/private/tmp/et-viewer-mwIP` with `app.R`
+  -> app.R is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+  -> report: Finding 1 precondition "State" names the path /private/tmp/et-viewer-mwIP; name the workspace by what it holds ("A workspace with `app.R`"), and keep scratch paths in Run details
+a workspace with `files/ws/app.R`
+  -> ledger: files/ws/app.R is named but not listed in ## Files
+the app from `shiny_app.R` serving on port 56934 in an R Shiny console
+  -> shiny_app.R is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+  -> report: Finding 1 precondition "State" is a running app ("serving"); start it in the steps, with a check that it runs
+Python 3.12.11 in the run's venv with shiny 1.8.0 installed
+  -> report: Finding 1 precondition "State" says "the run's", which the reader does not have; name the interpreter and package ("Python 3.12 with shiny 1.9.1")
+Python 3.12 with shiny 1.8.0
+  -> (none)
+`app.py` that calls `app.run(port=5057)`
+  -> app.py is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+any URL shown in the Viewer, here the R Shiny app
+  -> report: Finding 1 precondition "State" is done in the app ("shown in the"); do it as a step, and keep the precondition to the state before step 1
+the R Shiny app running in its Shiny console
+  -> report: Finding 1 precondition "State" is a running app ("running in its Shiny console"); start it in the steps, with a check that it runs
+
+==== a precondition that says how an earlier scenario made its state, in a user's words
+An R 4.5.1 console, started with Start New Console Session
+  -> (none)
+A Python 3.12 console, launched from the session picker
+  -> (none)
+A `Shop` SQLite connection saved from the Add Data Connection dialog
+  -> (none)
+A `conn` in the Python console, made by Connect With Python
+  -> (none)
+`orders` open in the Data Explorer, opened in S02
+  -> report: Finding 1 precondition "Made earlier" is done in the app ("opened in S02"); do it as a step, and keep the precondition to the state before step 1
+
+==== a precondition that points at a step
+Python 3.12 with the polars version installed in step 2
+  -> report: Finding 1 precondition "polars" points at step 2; write the name or value itself, so the precondition reads on its own
+Python 3.12 with polars 1.9.0
+  -> (none)
+
+==== a precondition that opens a view or types into it
+The Settings editor open (`Preferences: Open Settings (UI)`) with `interpreters.languageOrder` typed into its search box
+  -> report: Finding 1 precondition "Settings open" is done in the app ("editor open"); open or type it in step 1, and keep the precondition to the state before it
+The Command Palette open
+  -> report: Finding 1 precondition "Settings open" is done in the app ("Palette open"); open or type it in step 1, and keep the precondition to the state before it
+A JSON file open
+  -> (none)
+`interpreters.languageOrder` setting at its default
+  -> (none)
+
+==== a setting precondition that says how to reset it or what it shows
+`interpreters.languageOrder` not set in user settings.json (Reset Setting from the setting's gear menu), so the list reads JavaScript, Python, R, Zed
+  -> report: Finding 1 precondition "languageOrder default" says more than the setting ("not set in"); write `key` setting at its default, or save a changed value in `files/.vscode/settings.json`, and check what it shows in a step
+`interpreters.languageOrder` setting at its default, so the list reads JavaScript, Python, R, Zed
+  -> report: Finding 1 precondition "languageOrder default" says more than the setting ("so the"); write `key` setting at its default, or save a changed value in `files/.vscode/settings.json`, and check what it shows in a step
+`interpreters.languageOrder` at its default
+  -> report: Finding 1 precondition "languageOrder default" does not say its key is a setting; write `key` setting at its default
+`interpreters.languageOrder` setting at its default
+  -> (none)
+
+==== a changed setting written out rather than saved in a settings file
+`interpreters.languageOrder`: true
+  -> report: Finding 1 precondition "languageOrder set" writes a changed setting out; save it in `files/.vscode/settings.json` (or `files/settings.json` for one that only works in user settings) and name that path, which the page links
+`positron.notebook.enabled: true` in `.vscode/settings.json`
+  -> report: Finding 1 precondition "languageOrder set" writes a changed setting out; save it in `files/.vscode/settings.json` (or `files/settings.json` for one that only works in user settings) and name that path, which the page links
+`interpreters.languageOrder` set to `["r", "python"]`
+  -> report: Finding 1 precondition "languageOrder set" writes a changed setting out; save it in `files/.vscode/settings.json` (or `files/settings.json` for one that only works in user settings) and name that path, which the page links
+A workspace with `files/.vscode/settings.json`, which sets `interpreters.languageOrder` to R first
+  -> ledger: files/.vscode/settings.json is named but not listed in ## Files
+`interpreters.languageOrder` from `files/settings.json` copied into user settings
+  -> ledger: files/settings.json is named but not listed in ## Files
+`slow.py`, which builds slow tables
+  -> slow.py is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+`pd.DataFrame` with 3 columns
+  -> (none)
+`app.py` set to listen on port 8000
+  -> app.py is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+  -> report: Finding 1 precondition "languageOrder set" is a running app ("on port 8000"); start it in the steps, with a check that it runs
+
+==== a precondition that runs a command
+`slow.py` loaded with `%run -i slow.py`
+  -> slow.py is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+  -> report: Finding 1 precondition "`slow.py` loaded" runs `%run -i slow.py`; run it as a step, and keep the precondition to the file or package
+`debug.R` sourced with `source("debug.R")`
+  -> debug.R is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+  -> report: Finding 1 precondition "`slow.py` loaded" runs `source("debug.R")`; run it as a step, and keep the precondition to the file or package
+`debug_demo.R`, which defines `outer_fn()`
+  -> debug_demo.R is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+`py.qmd` whose cell prints `tick 0` to `tick 4`
+  -> py.qmd is named by Finding 1 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger
+
+==== a step that only waits, or waits a fixed time without saying why
+Wait for the Python console to start.
+  -> report: Finding 1 step 1 only waits; merge the wait into the action it waits on, or, when the app does it on its own, make it a precondition: "A Python console, which Positron starts on launch"
+Run `x` and wait for the plot to appear.
+  -> (none)
+Run `Interpreter: Discover All Interpreters` and wait 30 seconds.
+  -> report: Finding 1 step 1 waits a fixed time ("wait 30 seconds"); wait for what the app shows when it is done ("wait for the console prompt"), or say why the time matters ("wait 10 s, past the 5 s timeout")
+Click Start Session and wait for it to be ready.
+  -> (none)
+Wait about 40 s, well past the 8 s the cell takes.
+  -> (none)
+Wait 9 s without answering the toast.
+  -> (none)
+Press Cmd+Shift+0 and wait 10 s for `R 4.5.1 restarted.`.
+  -> (none)
+(a VERIFY) after waiting 5s the panel loads
+  -> report: Finding 1 step 2 waits a fixed time ("waiting 5s"); wait for what the app shows when it is done ("wait for the console prompt"), or say why the time matters ("wait 10 s, past the 5 s timeout")
+
+==== a report step joined by "and" or a semicolon, done to several targets, naming a scratch path or carrying a run note
+Run `Interpreter: Start New Console Session` and pick R 4.5.1.
+  -> report: Finding 1 step 1 is two actions ("and pick"); write each as its own step
+Type `x`, and press Enter.
+  -> report: Finding 1 step 1 is two actions (", and press"); write each as its own step
+Open the file; close it.
+  -> report: Finding 1 step 1 is two actions ("; close"); write each as its own step
+Click the expand chevron on each of the four columns.
+  -> report: Finding 1 step 1 repeats an action ("each of"); a step is one action, so write each one as its own step
+Run `a; b` in the console, and wait for the prompt.
+  -> (none)
+Click Rows and Columns.
+  -> (none)
+Open `/private/tmp/et-ws/app.R`.
+  -> report: Finding 1 step 1 names the path /private/tmp/et-ws/app.R, which the reader does not have; name the file by its files/ path or what it holds
+Open `files/ws/app.R`.
+  -> ledger: files/ws/app.R is named but not listed in ## Files
+Click Retry (S05 ran this together with two other values).
+  -> report: Finding 1 step "Click Retry (S05 ran this together with two other " names S05; steps are instructions for the reader, so leave run notes out
+Run `S05 = 1`.
+  -> (none)
+Click Retry twice.
+  -> report: Finding 1 step 1 repeats an action ("twice"); a step is one action, so write each one as its own step
+
+==== a ledger step is one action, with no repeat count, second action, assumed state, session ID or scenario name
+Click Step Over in the debug toolbar.
+  -> (none)
+Run `print("x"); print("y")` in the Python console and wait for it to finish.
+  -> (none)
+Click More cell actions on cell 2, then Insert Cell Above.
+  -> (none)
+Run `for (i in 1:3) print("3 times")` in the R console.
+  -> (none)
+Click Step Over three times.
+  -> ledger: S01 step 1 repeats an action ("three times"); a step is one action, so write each one as its own step
+Press Cmd+Enter twice.
+  -> ledger: S01 step 1 repeats an action ("twice"); a step is one action, so write each one as its own step
+Run `View: Close Editor`, then open `a.qmd` again.
+  -> ledger: S01 step 1 is two actions ("then open"); write each as its own step
+With the console open, run `x`.
+  -> ledger: S01 step 1 starts "With ..."; make what it assumes a precondition, or do it as a step of its own
+Click the python-4cddf9ca tab.
+  -> ledger: S01 step 1 names python-4cddf9ca, which changes every launch; write a placeholder such as <Python session ID>
+Press Enter to close the quick pick S05 left open.
+  -> ledger: S02 step 1 names S05; the step is copied into the finding, whose reader has no scenarios, so say what is open instead
+Copy `files/settings.S08.json` to the user settings.
+  -> ledger: files/settings.S08.json is named but not listed in ## Files
+(a VERIFY) it loads, then shows twice
+  -> (none)
+
+==== a Command Palette row picked with no step that opens the palette
+Click the `Workspaces: New Folder from Template...` row in the Command Palette.
+  -> report: Finding 1 step 1 picks a Command Palette row, but no step before it opens the palette and types the command
+Open the Command Palette and type `New Folder`. | Click the `Workspaces: New Folder from Template...` row in the Command Palette.
+  -> report: Finding 1 step 1 is two actions ("and type"); write each as its own step
+
+==== steps that start from an earlier scenario's state: only checks, or an Escape first
+1. VERIFY it loads
+  -> ledger: S02 has only VERIFY steps; write the actions that get the app to what they check
+1. Press Escape.
+2. Click Retry.
+3. VERIFY it loads
+  -> ledger: S02 step 1 presses Escape first, closing what an earlier scenario left open; start from the preconditions
+1. Click Retry.
+2. Press Escape.
+3. VERIFY it loads
+  -> (none)
+
+==== a check repeated after the same actions, but not a recovery or a check after a new action
+1. Click Retry.
+2. VERIFY it loads -> FAIL - Finding 1
+3. Click Retry.
+4. VERIFY it loads -> FAIL - Finding 1
+  -> ledger: S02 step 4 repeats step 2's check after the same actions; write the steps once and count the retry in the rate
+  -> ledger: S02 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+  -> ledger: S02 step 2 FAIL is missing Observed:, Log:
+1. Click Retry.
+2. VERIFY it loads -> FAIL - Finding 1
+3. Reconnect the network.
+4. Click Retry.
+5. VERIFY it loads -> PASS
+  -> ledger: S02 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+  -> ledger: S02 step 2 FAIL is missing Observed:, Log:
+1. Click Retry.
+2. VERIFY it loads -> FAIL - Finding 1
+3. Reload the window.
+4. VERIFY it loads -> FAIL - Finding 1
+  -> ledger: S02 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+  -> ledger: S02 step 2 FAIL is missing Observed:, Log:
+
+==== a VERIFY is only the check, with the actions before it as steps of their own
+the `n` profile shows Min 5; Max 1500
+  -> (none)
+Enter creates the folder (Create is enabled)
+  -> (none)
+focus moves to a footer button
+  -> (none)
+The dialog closes, focus is back in the editor
+  -> (none)
+the namespace holds only In, Out, exit, help, open and quit
+  -> (none)
+the plot still shows the status line (check mark, run time) from its last run
+  -> (none)
+Tables lists blobs, customers, select and wide
+  -> (none)
+`n` shows `n`, type int, with no chevron
+  -> (none)
+the console prints `small big`, then `45`, and returns to a `>>>` prompt
+  -> (none)
+the kernel is running
+  -> (none)
+In the summary panel, type `n` in the column filter and expand the `n` profile; it shows Min 5
+  -> ledger: S01 step 2 VERIFY does something ("type"); make it a step of its own before the check, and keep the VERIFY to what you expect to see
+Typing `n` in the summary column filter and expanding `n` shows Min 5
+  -> ledger: S01 step 2 VERIFY does something ("Typing"); make it a step of its own before the check, and keep the VERIFY to what you expect to see
+after running `del df["num"]`, all 10 rows show
+  -> ledger: S01 step 2 VERIFY does something ("running"); make it a step of its own before the check, and keep the VERIFY to what you expect to see
+clicking Console Information shows "Start Reason"
+  -> ledger: S01 step 2 VERIFY does something ("clicking"); make it a step of its own before the check, and keep the VERIFY to what you expect to see
+the console prints `[1] 2`, and hovering the breakpoint shows "Unverified Breakpoint"
+  -> ledger: S01 step 2 VERIFY does something ("hovering"); make it a step of its own before the check, and keep the VERIFY to what you expect to see
+the pane shows a plot after clicking Show Next Plot
+  -> ledger: S01 step 2 VERIFY does something ("clicking"); make it a step of its own before the check, and keep the VERIFY to what you expect to see
+(the report) clicking Retry loads the panel
+  -> report: Finding 1 step 2 VERIFY does something ("clicking"); make it a step of its own before the check, and keep the VERIFY to what you expect to see
+
+==== a failed step whose finding is not the one its Status names
+ledger: S01 Result: of a failed scenario is its rate only, "Fails N/M"; the finding says what broke
+ledger: S01 step 2 fails Finding 2 but the scenario's Status names Finding 1; give Finding 2's check a scenario of its own
+ledger: S01 has only VERIFY steps; write the actions that get the app to what they check
+ledger: no ## Environment section
+ledger: header.notExercised names surfaces, so ## Not run needs an N line for each
+
+==== a ledger Result longer than one short sentence, and a failed scenario's Result that is not its rate
+The panel loads with every row.
+  -> (none)
+The panel loads. Restart went ahead without an answer.
+  -> ledger: S01 Result: is 2 sentences; keep it to one short sentence, and give anything you did not expect its own VERIFY step
+The panel loads and keeps going and keeps going and keeps going and keeps going and keeps going and keeps going and keeps going and keeps going and keeps going and keeps going to the end
+  -> ledger: S01 Result: is 186 characters; keep it to one short sentence, and give anything you did not expect its own VERIFY step
+Fails 2/2
+  -> (none)
+Retry leaves the panel empty
+  -> ledger: S02 Result: of a failed scenario is its rate only, "Fails N/M"; the finding says what broke
+
+==== a FAIL without Log:, a pass without a screenshot and a bad Status
+ledger: S01 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+ledger: S02 Status: must be "pass" or "fail - Finding N", got "failed"
+ledger: S02 step 2 fails Finding 1 but the scenario's Status names Finding undefined; give Finding 1's check a scenario of its own
+ledger: S02 step 2 FAIL is missing Log:
+
+==== a Status naming a finding the report does not have, and a Not exercised with no Not run
+ledger: S02 names Finding 3, which the report does not have
+ledger: S02 step 2 fails Finding 1 but the scenario's Status names Finding 3; give Finding 1's check a scenario of its own
+ledger: header.notExercised names surfaces, so ## Not run needs an N line for each
+
+==== the ledger alone is checked mid-run
+ledger: S02 step 2 FAIL is missing Log:
+
+==== a repro is one scenario's steps, and that scenario failed for the finding
+report.json: Finding 1 step 2 is not a step of S02: "Verify the Python panel loads"
+report.json: Finding 1 step 1 is pass, but S02 recorded fail
+
+==== the rate is the repro scenario's, plus retries the run logged as scenarios of their own
+report.json: Finding 1's rate is 2/2, but S02, whose steps the repro shows, fails 1/1; give that rate
+report.json: Finding 1's rate is 3/3, but S02, whose steps the repro shows, fails 1/1 and the scenarios that failed for it fail 2/2 in all; give a rate between the two, counting only tries of the same steps
+
+==== every VERIFY needs its own screenshot
+ledger: S01 step 3 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+ledger: a.png is Evidence for S01 step 2 and S02 step 2; take a screenshot for each check
+
+==== Evidence: counts only a file in shots/
+ledger: S01 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+ledger: S02 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+ledger: S01 cites Evidence: made-up.png, which is not in shots/
+ledger: S01 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+
+==== a saved output or an actions.log reading sits beside a check's screenshot, never in place of it
+ledger: files/saved.ipynb is named but not listed in ## Files
+ledger: S01 cites Evidence: logs/missing.txt, which is not in the run directory
+ledger: S01 has only VERIFY steps; write the actions that get the app to what they check
+ledger: S01 step 4 repeats step 2's check after the same actions; write the steps once and count the retry in the rate
+ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+ledger: S01 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+ledger: no ## Environment section
+ledger: header.notExercised names surfaces, so ## Not run needs an N line for each
+ledger: S01 has only VERIFY steps; write the actions that get the app to what they check
+ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+ledger: S01 step 3 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+ledger: no ## Environment section
+
+==== a file under a mirrored folder is found by its bare name, and a long extension is kept
+ledger: S01 has only VERIFY steps; write the actions that get the app to what they check
+ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it
+ledger: no ## Environment section
+ledger: header.notExercised names surfaces, so ## Not run needs an N line for each
+
+==== one screenshot may serve failed checks of two different findings, and nothing else
+1
+  -> ledger: S02 step 1 cites S01-01.png, a shot named for S01; IDs are never renumbered, so give the scenario back the ID its shots were taken under
+  -> ledger: S01 has only VERIFY steps; write the actions that get the app to what they check
+  -> ledger: S02 has only VERIFY steps; write the actions that get the app to what they check
+  -> ledger: S01-01.png is Evidence for S01 step 1 and S02 step 1; take a screenshot for each check
+  -> ledger: no ## Environment section
+  -> ledger: header.notExercised names surfaces, so ## Not run needs an N line for each
+2
+  -> ledger: S02 step 1 cites S01-01.png, a shot named for S01; IDs are never renumbered, so give the scenario back the ID its shots were taken under
+  -> ledger: S01 has only VERIFY steps; write the actions that get the app to what they check
+  -> ledger: S02 names Finding 2, which the report does not have
+  -> ledger: S02 has only VERIFY steps; write the actions that get the app to what they check
+  -> ledger: no ## Environment section
+  -> ledger: header.notExercised names surfaces, so ## Not run needs an N line for each
+
+==== a log line credited to another process than the one whose log file it is in
+ledger, supervisor log as the extension host
+  -> ledger: S02 step 2 Log: credits logs/34353-supervisor.log:515 to Extension host, but that file is the kernel supervisor's log; name the process that wrote it
+ledger, renderer log as the renderer
+  -> (none)
+report, exthost log as the main process
+  -> report: Finding 1 evidence credits logs/1-exthost.log:5 to Main process, but that file is the extension host's log; name the process that wrote it
+report, a log whose name says nothing
+  -> (none)
+
+==== Evidence holds Positron log lines only: no notes, no agent files
+report: Finding 1 evidence has a note ("so nothing resolved the new path"); evidence is log lines only, so state it in observed or cause
+report: Finding 1 evidence cites actions.log:12, which the run wrote, not Positron; cite the Positron log line, or state what happened in observed
+report: Finding 1 evidence cites logs/S03-later.txt, which the run wrote, not Positron; cite the Positron log line, or state what happened in observed
+
+==== a finding screenshot that names no step on the card
+2
+  -> (none)
+3
+  -> report: Finding 1 screenshot a.png names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step
+none
+  -> report: Finding 1 screenshot a.png names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step
+
+==== a step with more than two screenshots, or a second that repeats the first
+report: Finding 1 step 2's second screenshot b.png repeats the first one's caption; caption it under evidence with what it shows that the first does not
+report: Finding 1 step 2 has 3 screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out
+
+==== a caption may name the scenario that took the shot instead of a step
+S02
+  -> (none)
+S01
+  -> report: Finding 1 screenshot a.png is captioned S01, but S01 never cites it as Evidence; name the scenario that took it
+S09
+  -> report: Finding 1 screenshot a.png is captioned S09, which the ledger does not have; name the scenario that took it
+S02, with no failing step on the card
+  -> report: Finding 1 screenshot a.png names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step
+
+==== a cited screenshot actions.log never took by that name
+ledger: S01-04.png is cited as Evidence but actions.log never takes a shot by that name; keep the name a shot was taken with, or log the rename
+
+==== a cited shot is the one taken at its check: taken once, and in step order
+S01-01.png | S01-02.png | S02-01.png
+  -> (none)
+S02-01.png | S01-01.png | S01-02.png
+  -> (none)
+S01-02.png | S01-01.png | S02-01.png
+  -> ledger: S01 step 3 cites S01-02.png, which actions.log took before S01-01.png (step 1); cite the shot taken at each check
+S01-01.png | S01-02.png | S01-01.png | S02-01.png
+  -> ledger: S01-01.png was taken 2 times in actions.log, so the file is only the last capture; give each capture its own name and cite the one taken at the check
+  -> ledger: S01 step 3 cites S01-02.png, which actions.log took before S01-01.png (step 1); cite the shot taken at each check
+
+==== a shot taken twice: a warning when its last capture falls at its check, an error when not
+S01-01.png | S01-02.png | S01-02.png | S01-03.png
+  -> ledger: S01-02.png was taken 2 times in actions.log; the file is the last capture, taken before S01 step 2's check and after the one before it, so check that it shows step 2
+S01-01.png | S01-02.png | S01-03.png | S01-02.png
+  -> ledger: S01-02.png was taken 2 times in actions.log, so the file is only the last capture; give each capture its own name and cite the one taken at the check
+  -> ledger: S01 step 3 cites S01-03.png, which actions.log took before S01-02.png (step 2); cite the shot taken at each check
+
+==== a shot named for another scenario means the scenarios were renumbered
+ledger: S05 step 2 cites S06-01.png, a shot named for S06; IDs are never renumbered, so give the scenario back the ID its shots were taken under
+ledger: no ## Environment section
+
+==== actions.log is append-only: every line stamped as the helpers stamp it, in time order
+in order, with a blank line
+  -> (none)
+two helpers a second apart
+  -> (none)
+a missed Escape backdated below later lines
+  -> actions.log: line 3 (2026-10-05T03:58:25Z) is earlier than line 2 above it (2026-10-05T03:59:24Z); the log is append-only, so log a missed action as a note when you notice it, and never backdate or move a line
+several lines out of order
+  -> actions.log: lines 2, 3, 4 and 1 more are earlier than a line above them, first line 2 (2026-10-05T03:59:01Z) is earlier than line 1 above it (2026-10-05T03:59:50Z); the log is append-only, so log a missed action as a note when you notice it, and never backdate or move a line
+22:39:56 rec.sh start
+  -> actions.log: line 2 does not start with the UTC time the helpers write ("2026-01-02T03:04:05Z "), such as "22:39:56 rec.sh start"; log what no helper logged with `dp.ts log`, and never write or rewrite a line yourself
+2026-10-04 21:08:55 shell: made a venv
+  -> actions.log: line 2 does not start with the UTC time the helpers write ("2026-01-02T03:04:05Z "), such as "2026-10-04 21:08:55 shell: made a venv"; log what no helper logged with `dp.ts log`, and never write or rewrite a line yourself
+2026-10-04T17:46:26 shell: copied files
+  -> actions.log: line 2 does not start with the UTC time the helpers write ("2026-01-02T03:04:05Z "), such as "2026-10-04T17:46:26 shell: copied files"; log what no helper logged with `dp.ts log`, and never write or rewrite a line yourself
+  at frame (x.js:1)
+  -> actions.log: line 2 does not start with the UTC time the helpers write ("2026-01-02T03:04:05Z "), such as "at frame (x.js:1)"; log what no helper logged with `dp.ts log`, and never write or rewrite a line yourself
+
+==== a ledger that accounts for every linked issue is clean
+(none)
+
+==== Issue lines that do not match the list
+ledger: S01 "Issue: #10 held" must read "Issue: #<N> observed", "#<N> came back", "#<N> fix held" or "#<N> fix did not hold"
+ledger: S01 names #99, which is not in known-issues.json; only issues linked to the PR get an Issue: line
+ledger: S01 #20 is an open linked issue, not one the PR fixes; record "observed" only if the scenario ran into it, otherwise leave the Issue: line out
+ledger: S02 #10 is a fix the PR claims; record "fix held" or "fix did not hold", not "observed"
+
+==== a linked issue gets no "fix held"
+ledger: S01 #21 is a closed linked issue, not one the PR fixes; record "came back" only if it showed up again, otherwise leave the Issue: line out
+ledger: S01 #20 is an open linked issue, not one the PR fixes; record "observed" only if the scenario ran into it, otherwise leave the Issue: line out
+
+==== a fix that did not hold on a passing scenario, and a fix the ledger never mentions
+ledger: S01 says the fix for #10 did not hold, so it needs a finding and Status: FAIL
+ledger: the PR fixes #11; record "Issue: #11 fix held" or "fix did not hold" under a scenario, or a Not run row "Fix for #11 not exercised: <reason>"
+
+==== a closed issue recorded as observed, an open one that came back, and a regression on a passing scenario
+ledger: S01 #20 is still open; record "observed", not "came back"
+ledger: S01 says #21 came back, so it needs a finding and Status: FAIL
+ledger: S02 #21 is closed, so seeing it again is a finding; record "came back" with Status: FAIL
+ledger: S02 #10 is a fix the PR claims; record "fix held" or "fix did not hold", not "came back"
+
+==== a Not run row that names the wrong kind of issue
+ledger: Not run N02 #10: use "Fix for #N not exercised" for a fix, "Already filed as #N" for a linked issue
+
+==== Issue lines are not checked without a known-issues list
+(none)

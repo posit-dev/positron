@@ -12,20 +12,30 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguage, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAgentSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IUntitledTextResourceEditorInput } from '../../../../common/editor.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
-import { IRuntimeSessionService, ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService, ILanguageRuntimeSession, RuntimeStartMode, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ActiveRuntimeSession } from '../../../../services/runtimeSession/common/activeRuntimeSession.js';
 import { UiClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { EvalResult } from '../../../../services/languageRuntime/common/positronUiComm.js';
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../../positronNotebook/common/positronNotebookCommon.js';
+import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { LANGUAGE_ORDER_KEY } from '../../../../services/languageRuntime/common/languageOrder.js';
+import { AGENT_SESSIONS_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfigurationKeys.js';
+
+function setLanguageOrder(configurationService: IConfigurationService, order: string[]): void {
+	(configurationService as TestConfigurationService).setUserConfiguration(LANGUAGE_ORDER_KEY, order);
+}
 
 function makeRuntime(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
 	const languageId = overrides.languageId ?? 'python';
@@ -55,7 +65,7 @@ describe('summarizeRegisteredRuntime', () => {
 			runtimeDisplayPath: '~/venvs/proj/bin/python',
 			base64EncodedIconSvg: 'PHN2Zz4uLi48L3N2Zz4=',
 			extraRuntimeData: { pythonPath: '/secret' },
-		}));
+		}), true);
 
 		expect(summary).toEqual({
 			runtimeId: 'python-abc',
@@ -69,11 +79,12 @@ describe('summarizeRegisteredRuntime', () => {
 			runtimePath: '~/venvs/proj/bin/python',
 			startupBehavior: 'implicit',
 			extensionId: 'test-extension',
+			affiliated: true,
 		});
 	});
 
 	test('falls back to the raw path when there is no display path', () => {
-		const summary = summarizeRegisteredRuntime(makeRuntime({ runtimePath: '/usr/bin/python3' }));
+		const summary = summarizeRegisteredRuntime(makeRuntime({ runtimePath: '/usr/bin/python3' }), false);
 		expect(summary.runtimePath).toBe('/usr/bin/python3');
 	});
 });
@@ -90,6 +101,7 @@ describe('summarizeActiveSession', () => {
 				notebookUri: undefined,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 			getRuntimeState: () => RuntimeState.Idle,
 		});
@@ -296,6 +308,36 @@ describe('selectNewLanguageRuntime', () => {
 	});
 
 	describe('item structure', () => {
+		beforeEach(() => {
+			setLanguageOrder(ctx.get(IConfigurationService), []);
+		});
+
+		/** The R and Python runtime labels, in picker order. */
+		function runtimeLabels(): string[] {
+			return pick.items.filter(item => item.type !== 'separator').map(item => item.label).filter(label => label === 'R 4.4' || label === 'Python 3.12');
+		}
+
+		it('lists languages in the configured order', async () => {
+			setLanguageOrder(ctx.get(IConfigurationService), ['r']);
+			await registerRuntime(makeRuntime({ runtimeId: 'py', languageId: 'python', languageName: 'Python', runtimeName: 'Python 3.12' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'r', languageId: 'r', languageName: 'R', runtimeName: 'R 4.4' }));
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(runtimeLabels()).toEqual(['R 4.4', 'Python 3.12']);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('keeps alphabetical order when the setting is unset', async () => {
+			await registerRuntime(makeRuntime({ runtimeId: 'r', languageId: 'r', languageName: 'R', runtimeName: 'R 4.4' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py', languageId: 'python', languageName: 'Python', runtimeName: 'Python 3.12' }));
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(runtimeLabels()).toEqual(['Python 3.12', 'R 4.4']);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
 		it('groups Suggested + per-environment-type runtimes with separators', async () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-system', runtimeSource: 'System', runtimeName: 'Python (System)' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeName: 'Python (Conda)' }));
@@ -760,6 +802,87 @@ describe('selectNewLanguageRuntime', () => {
 	});
 });
 
+describe('selectLanguage', () => {
+	let pick: TestQuickPick<IQuickPickItem>;
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IQuickInputService, stubInterface<IQuickInputService>({
+			createQuickPick: (() => pick.asQuickPick()) as IQuickInputService['createQuickPick'],
+		}))
+		.build();
+
+	beforeEach(() => {
+		pick = ctx.disposables.add(new TestQuickPick<IQuickPickItem>());
+		const runtimeService = ctx.get(ILanguageRuntimeService);
+		// R first, so the default order only comes out alphabetical if it is sorted.
+		ctx.disposables.add(runtimeService.registerRuntime(makeRuntime({ runtimeId: 'r', languageId: 'r', languageName: 'R' })));
+		ctx.disposables.add(runtimeService.registerRuntime(makeRuntime({ runtimeId: 'py', languageId: 'python', languageName: 'Python' })));
+	});
+
+	async function promptLabels(): Promise<string[]> {
+		const promise = ctx.instantiationService.invokeFunction(accessor => selectLanguage(accessor));
+		await vi.waitFor(() => expect(pick.show).toHaveBeenCalled());
+		const labels = pick.items.map(item => item.label ?? '');
+		pick.cancel(QuickInputHideReason.Gesture);
+		await promise;
+		return labels;
+	}
+
+	it('lists languages alphabetically by default', async () => {
+		setLanguageOrder(ctx.get(IConfigurationService), []);
+		expect(await promptLabels()).toEqual(['Python', 'R']);
+	});
+
+	it('lists languages in the configured order', async () => {
+		setLanguageOrder(ctx.get(IConfigurationService), ['r']);
+		expect(await promptLabels()).toEqual(['R', 'Python']);
+	});
+});
+
+describe('selectLanguageRuntimeSession - agent session icon', () => {
+	let pickItems: QuickPickItem[] = [];
+	const pickFn = vi.fn(async (items: QuickPickItem[]): Promise<QuickPickItem | undefined> => {
+		pickItems = items;
+		return undefined;
+	});
+
+	const agentSession = stubInterface<ILanguageRuntimeSession>({
+		sessionId: 'agent-session-1',
+		metadata: {
+			sessionId: 'agent-session-1',
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			notebookUri: undefined,
+			createdTimestamp: 0,
+			startReason: 'test',
+			owner: 'agent',
+		},
+		runtimeMetadata: makeRuntime(),
+		dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'Python (Agent)' }),
+		getRuntimeState: () => RuntimeState.Idle,
+	});
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+			foregroundSession: undefined,
+			activeSessions: [agentSession],
+		}))
+		.stub(IModelService, { getModel: () => null })
+		.stub(IQuickInputService, stubInterface<IQuickInputService>({
+			pick: pickFn as IQuickInputService['pick'],
+		}))
+		.build();
+
+	// The setting gates starting agent sessions, not how existing ones look.
+	it('marks an agent session even while the ai.agentSessions.enabled setting is off', async () => {
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(AGENT_SESSIONS_ENABLED_KEY, false);
+		await ctx.instantiationService.invokeFunction(accessor => selectLanguageRuntimeSession(accessor));
+		const item = pickItems.find((item): item is IQuickPickItem =>
+			item.type !== 'separator' && item.id === agentSession.sessionId);
+		expect(item?.iconClasses).toContain('agent-session-icon');
+	});
+});
+
 describe('selectLanguageRuntimeSession - change notebook session', () => {
 	const changeNotebookSessionLabel = 'Change Notebook Session...';
 
@@ -804,6 +927,7 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 				notebookUri: uri,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -817,6 +941,7 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 				notebookUri: undefined,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -934,6 +1059,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 				notebookUri: undefined,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -951,6 +1077,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 				notebookUri: URI.file('/path/to/notebook.ipynb'),
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -971,7 +1098,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 			'My Python Session',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			'Duplicated session: My Python Session',
+			{ id: SessionStartReasonId.DuplicatedConsoleSession },
 			RuntimeStartMode.Starting,
 			true
 		);
@@ -987,7 +1114,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 			'Python 3.12',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			'Started console session from notebook session: My Notebook Session',
+			{ id: SessionStartReasonId.DuplicatedNotebookSession },
 			RuntimeStartMode.Starting,
 			true
 		);
@@ -1047,7 +1174,7 @@ describe('StartNewConsoleSessionAction', () => {
 			'Python 3.12 (System)',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			'Runtime id supplied to startNewConsoleSession command',
+			{ id: SessionStartReasonId.NewConsoleCommand },
 			RuntimeStartMode.Starting,
 			true,
 			{ userSelected: false }
@@ -1079,7 +1206,7 @@ describe('StartNewConsoleSessionAction', () => {
 			'R 4.4.1',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			'User selected runtime',
+			{ id: SessionStartReasonId.UserSelectedRuntime },
 			RuntimeStartMode.Starting,
 			true,
 			{ userSelected: true }
@@ -1111,6 +1238,50 @@ describe('StartNewConsoleSessionAction', () => {
 
 		await expect(promise).resolves.toMatchObject({ started: false });
 		expect(startNewRuntimeSession).not.toHaveBeenCalled();
+	});
+});
+
+describe('startNewAgentSession', () => {
+	const ctx = createTestContainer().withRuntimeServices().build();
+
+	async function startAgentSessionBesideUserSession() {
+		const runtimeSessionService = ctx.get(IRuntimeSessionService);
+		const userSession = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		await waitForRuntimeState(userSession, RuntimeState.Ready);
+		expect(runtimeSessionService.foregroundSession).toBe(userSession);
+
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const sessionId = await startNewAgentSession(runtimeSessionService, runtime);
+		const session = runtimeSessionService.getSession(sessionId)!;
+		ctx.disposables.add(session);
+		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		return {
+			runtime,
+			userSessionId: userSession.sessionId,
+			sessionId,
+			summary: {
+				runtimeId: session.runtimeMetadata.runtimeId,
+				sessionName: session.dynState.sessionName,
+				sessionMode: session.metadata.sessionMode,
+				owner: session.metadata.owner,
+				startReasonId: session.metadata.startReasonId,
+				foregroundSessionId: runtimeSessionService.foregroundSession?.sessionId,
+			},
+		};
+	}
+
+	it('starts the runtime as an agent-owned console session that takes the foreground', async () => {
+		const { runtime, sessionId, summary } = await startAgentSessionBesideUserSession();
+
+		expect(summary).toEqual({
+			runtimeId: runtime.runtimeId,
+			sessionName: runtime.runtimeName,
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			owner: 'agent',
+			startReasonId: SessionStartReasonId.UserStartedAgentSession,
+			foregroundSessionId: sessionId,
+		});
 	});
 });
 
@@ -1166,6 +1337,7 @@ describe('SelectSessionAction', () => {
 				notebookUri,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 			runtimeMetadata: makeRuntime(),
 			dynState: {

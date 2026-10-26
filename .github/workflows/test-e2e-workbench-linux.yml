@@ -153,6 +153,7 @@ jobs:
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
           DATABRICKS_URL: "op://Positron/Databricks-WB-Auto/url"
           DATABRICKS_CLIENT_ID: "op://Positron/Databricks-WB-Auto/client-id"
+          DATABRICKS_HTTP_PATH: "op://Positron/Databricks-WB-Auto/http-path"
           IDE_SERVICE_ACCOUNT_EMAIL: "op://Positron/RStudioIDE_Service_Account/service-account-email"
           IDE_SERVICE_ACCOUNT_PASSWORD: "op://Positron/RStudioIDE_Service_Account/service-account-password"
           IDE_SERVICE_ACCOUNT_OTP_SECRET: "op://Positron/RStudioIDE_Service_Account/service-account-otp-secret"
@@ -184,7 +185,7 @@ jobs:
           echo "$CONNECT_LICENSE" > /tmp/connect.lic
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: 20
 
@@ -234,8 +235,8 @@ jobs:
         shell: bash
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
-          POSITRON_PY_VER_SEL: "3.10.12"
-          POSITRON_R_VER_SEL: 4.5.2
+          POSITRON_PY_VER_SEL: "3.14.7"
+          POSITRON_R_VER_SEL: 4.6.1
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.2
           POSITRON_HIDDEN_PY: "3.12.10 Module"

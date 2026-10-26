@@ -25,4 +25,8 @@
 		"../../src/vscode-dts/vscode.proposed.terminalShellIntegration.d.ts",
 		"../../src/positron-dts/positron.d.ts",
 	],
+	"exclude": [
+		"src/**/*.vitest.ts",
+		"src/**/*.vitest.tsx"
+	],
 }

@@ -391,7 +391,13 @@ export class TableDataCache extends Disposable {
 		// so that only the last one gets processed. (For example, this happens when a user drags a
 		// scrollbar rapidly.)
 		if (this._updating) {
-			this._pendingUpdateDescriptor = updateDescriptor;
+			// The replaced update's cache invalidation still has to happen: a schema or data update
+			// queued behind a scroll must not be dropped by the next scroll that queues behind it.
+			this._pendingUpdateDescriptor = {
+				...updateDescriptor,
+				invalidateCache: updateDescriptor.invalidateCache |
+					(this._pendingUpdateDescriptor?.invalidateCache ?? InvalidateCacheFlags.None)
+			};
 			return;
 		}
 

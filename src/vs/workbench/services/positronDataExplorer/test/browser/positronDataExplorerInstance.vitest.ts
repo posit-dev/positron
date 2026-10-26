@@ -13,7 +13,7 @@ import { PositronDataExplorerDuckDBBackend } from '../../common/positronDataExpl
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { BackendState, ColumnDisplayType, DatasetImportOptions, RowFilterCondition, RowFilterType, SchemaUpdateEvent, SetDatasetImportOptionsResult, SupportedFeatures, SupportStatus } from '../../../languageRuntime/common/positronDataExplorerComm.js';
+import { BackendState, ColumnDisplayType, DatasetImportOptions, ExportFormat, RowFilterCondition, RowFilterType, SchemaUpdateEvent, SetDatasetImportOptionsResult, SupportedFeatures, SupportStatus } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
@@ -182,6 +182,36 @@ describe('PositronDataExplorerInstance file options', () => {
 		expect(mockClient.getBackendState).toHaveBeenCalledWith(true);
 	});
 
+	it('getViewContext describes the cursor and a small row selection with its values', async () => {
+		mockClient.exportDataSelection = vi.fn().mockResolvedValue({ data: 'a\tb', format: ExportFormat.Tsv });
+		instance.tableDataDataGridInstance.setCursorPosition(1, 0);
+		instance.tableDataDataGridInstance.selectRow(1);
+
+		const context = await instance.getViewContext();
+
+		// Column names and row labels fall back to indexes when they aren't cached.
+		expect(context).toEqual({
+			displayName: 'book.xlsx',
+			shape: { rows: 2, columns: 2 },
+			unfilteredShape: { rows: 2, columns: 2 },
+			rowFilters: [],
+			sortKeys: [],
+			cursor: { column: '1', row: '0' },
+			selection: { kind: 'rows', columnCount: 2, rowCount: 1, columns: ['0', '1'], rows: ['1'], values: 'a\tb' },
+		});
+	});
+
+	it('getViewContext omits the values and rows of a large column selection', async () => {
+		backendState.table_shape = { num_rows: 1000, num_columns: 2 };
+		mockClient.exportDataSelection = vi.fn();
+		instance.tableDataDataGridInstance.selectColumn(0);
+
+		const context = await instance.getViewContext();
+
+		expect(context.selection).toEqual({ kind: 'columns', columnCount: 1, rowCount: 1000, columns: ['0'], rows: undefined, values: undefined });
+		expect(mockClient.exportDataSelection).not.toHaveBeenCalled();
+	});
+
 	it('isFileBacked is true for a duckdb-backed instance', () => {
 		expect(instance.isFileBacked).toBe(true);
 	});
@@ -201,5 +231,106 @@ describe('PositronDataExplorerInstance file options', () => {
 		const kernelInstance = new PositronDataExplorerInstance('Python', kernelClient as DataExplorerClientInstance);
 		expect(kernelInstance.isFileBacked).toBe(false);
 		kernelInstance.dispose();
+	});
+});
+
+describe('PositronDataExplorerInstance refresh', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IConfigurationService, new TestConfigurationService())
+		.build();
+
+	const backendState: BackendState = {
+		display_name: 'people',
+		table_shape: { num_rows: 2, num_columns: 2 },
+		table_unfiltered_shape: { num_rows: 2, num_columns: 2 },
+		has_row_labels: false,
+		column_filters: [],
+		row_filters: [],
+		sort_keys: [],
+		supported_features: NO_FEATURES,
+	};
+
+	let instance: PositronDataExplorerInstance;
+	let refresh: ReturnType<typeof vi.fn<() => Promise<void>>>;
+	let disposables: DisposableStore;
+
+	beforeEach(() => {
+		PositronReactServices.services = ctx.reactServices;
+		refresh = vi.fn<() => Promise<void>>();
+		const client: Partial<DataExplorerClientInstance> = {
+			backendClient: stubInterface<PositronDataExplorerDuckDBBackend>({ clientId: 'duckdbconn:1:table:main.people' }),
+			get cachedBackendState() { return backendState; },
+			supportsRefresh: true,
+			refresh,
+			onDidClose: new Emitter<void>().event,
+			onDidSchemaUpdate: new Emitter<SchemaUpdateEvent>().event,
+			onDidDataUpdate: new Emitter<void>().event,
+			onDidUpdateBackendState: new Emitter<BackendState>().event,
+			getBackendState: vi.fn().mockResolvedValue(backendState),
+			getSupportedFeatures: vi.fn().mockReturnValue(backendState.supported_features),
+			dispose: vi.fn(),
+		};
+		instance = new PositronDataExplorerInstance('people', client as DataExplorerClientInstance);
+		disposables = new DisposableStore();
+	});
+
+	afterEach(() => {
+		disposables.dispose();
+		instance.dispose();
+	});
+
+	afterAll(() => {
+		PositronReactServices.services = undefined!;
+	});
+
+	it('joins a refresh that is already in progress, and reports progress while it runs', async () => {
+		let finishRefresh!: () => void;
+		refresh.mockReturnValue(new Promise<void>(resolve => finishRefresh = resolve));
+		const refreshing: boolean[] = [];
+		disposables.add(instance.onDidChangeRefreshing(isRefreshing => refreshing.push(isRefreshing)));
+
+		const first = instance.refresh();
+		const second = instance.refresh();
+		const isRefreshingWhileRunning = instance.isRefreshing;
+		finishRefresh();
+		await Promise.all([first, second]);
+
+		expect({
+			refreshCalls: refresh.mock.calls.length,
+			isRefreshingWhileRunning,
+			isRefreshingAfter: instance.isRefreshing,
+			refreshing,
+		}).toEqual({ refreshCalls: 1, isRefreshingWhileRunning: true, isRefreshingAfter: false, refreshing: [true, false] });
+	});
+
+	it('reports a failed refresh to the user and can refresh again', async () => {
+		const errorSpy = vi.spyOn(ctx.reactServices.notificationService, 'error');
+		refresh.mockRejectedValueOnce(new Error('table was dropped'));
+
+		await instance.refresh();
+		refresh.mockResolvedValueOnce();
+		await instance.refresh();
+
+		expect({
+			notified: errorSpy.mock.calls.map(([message]) => String(message)),
+			refreshCalls: refresh.mock.calls.length,
+		}).toEqual({
+			notified: ['Unable to refresh the data: table was dropped'],
+			refreshCalls: 2,
+		});
+	});
+
+	it('does not report a refresh that fails after the explorer closed', async () => {
+		const errorSpy = vi.spyOn(ctx.reactServices.notificationService, 'error');
+		let failRefresh!: (error: Error) => void;
+		refresh.mockReturnValue(new Promise<void>((_resolve, reject) => failRefresh = reject));
+
+		const refreshed = instance.refresh();
+		instance.dispose();
+		failRefresh(new Error('The data explorer backend was closed.'));
+		await refreshed;
+
+		expect(errorSpy).not.toHaveBeenCalled();
 	});
 });

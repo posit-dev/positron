@@ -218,6 +218,10 @@ export function makeWhereExpr(rowFilter: RowFilter): string {
 export class SqliteTableView {
 	private sortKeys: Array<ColumnSortKey> = [];
 	private rowFilters: Array<RowFilter> = [];
+	/** Numbers setRowFilters calls in the order they were made. */
+	private _rowFiltersRequest = 0;
+	/** The number of the setRowFilters call whose filters the view has. */
+	private _rowFiltersApplied = 0;
 
 	private _whereClause: string = '';
 	private _sortClause: string = '';
@@ -439,15 +443,77 @@ export class SqliteTableView {
 	}
 
 	async setRowFilters(params: SetRowFiltersParams): Promise<FilterResult> {
-		this.rowFilters = params.filters;
-		if (this.rowFilters.length === 0) {
-			this._whereClause = '';
-			this._filteredRows = this._unfilteredRows;
-		} else {
-			this._whereClause = `\nWHERE ${this.rowFilters.map(makeWhereExpr).join(' AND ')}`;
-			this._filteredRows = this._countRows(this._whereClause);
+		// The frontend does not send back the validity this view reported for a filter, so every
+		// filter is checked on every call. One on a column the view does not have -- e.g. one removed
+		// from the table since the filter was made -- is kept, so the filter bar still shows it, but
+		// is marked invalid and not applied, as is one that arrives already marked invalid.
+		const columnNames = new Set(this.schema.map(column => column.column_name));
+		const rowFilters = params.filters.map((rowFilter): RowFilter =>
+			columnNames.has(rowFilter.column_schema.column_name) ?
+				rowFilter :
+				{ ...rowFilter, is_valid: false, error_message: 'Column was removed' }
+		);
+
+		const request = ++this._rowFiltersRequest;
+		try {
+			return await this._applyRowFilters(request, rowFilters);
+		} catch (error) {
+			// Find the filters that cannot be evaluated -- e.g. one whose column changed type -- by
+			// checking each on its own, as the Python backend evaluates filters one at a time, and apply
+			// the rest. Each check is planned but reads no rows: the database resolves the filter's
+			// columns, functions, and types, and the constant-false predicate skips the scan. So a check
+			// costs nothing on a large table, and a failure the combined count met by reading rows -- a
+			// timeout, say -- is not pinned on a filter that is fine.
+			try {
+				await this._countRows('\nWHERE 1 = 0');
+			} catch {
+				// The relation cannot be read at all, which says nothing about any one filter.
+				throw error;
+			}
+			let foundInvalid = false;
+			const checkedFilters: RowFilter[] = [];
+			for (const rowFilter of rowFilters) {
+				if (rowFilter.is_valid === false) {
+					checkedFilters.push(rowFilter);
+					continue;
+				}
+				try {
+					await this._countRows(`\nWHERE 1 = 0 AND (${makeWhereExpr(rowFilter)})`);
+					checkedFilters.push(rowFilter);
+				} catch (filterError) {
+					foundInvalid = true;
+					const message = filterError instanceof Error ? filterError.message : String(filterError);
+					checkedFilters.push({ ...rowFilter, is_valid: false, error_message: message });
+				}
+			}
+			if (!foundInvalid) {
+				// No one filter is at fault, so report the failure and leave the view's filters as they
+				// were.
+				throw error;
+			}
+			return { ...await this._applyRowFilters(request, checkedFilters), had_errors: true };
 		}
-		return { selected_num_rows: await this._filteredRows };
+	}
+
+	/**
+	 * Counts the rows that the valid filters select, then makes the filters the view's own, unless the
+	 * view already has those of a later setRowFilters call. A count that fails leaves the view's
+	 * filters as they were, so a filter that cannot be evaluated never leaves the view unreadable.
+	 */
+	private async _applyRowFilters(request: number, rowFilters: Array<RowFilter>): Promise<FilterResult> {
+		const appliedFilters = rowFilters.filter(rowFilter => rowFilter.is_valid !== false);
+		const whereClause = appliedFilters.length === 0 ?
+			'' :
+			`\nWHERE ${appliedFilters.map(makeWhereExpr).join(' AND ')}`;
+		const filteredRows = whereClause ? this._countRows(whereClause) : this._unfilteredRows;
+		const selectedRows = await filteredRows;
+		if (request > this._rowFiltersApplied) {
+			this._rowFiltersApplied = request;
+			this.rowFilters = rowFilters;
+			this._whereClause = whereClause;
+			this._filteredRows = filteredRows;
+		}
+		return { selected_num_rows: selectedRows };
 	}
 
 	async setSortColumns(params: SetSortColumnsParams): Promise<void> {

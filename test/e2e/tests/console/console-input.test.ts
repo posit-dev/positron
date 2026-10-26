@@ -18,7 +18,7 @@ test.describe('Console Input', {
 	});
 
 
-	test('Python - Can get input string via console', async function ({ app, python }) {
+	test('Python - Can get input string via console', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const inputCode = `val = input("Enter your name: "); print(f'Hello {val}!');`;
 
 		await app.workbench.console.pasteCodeToConsole(inputCode);
@@ -72,7 +72,7 @@ cat(sprintf('Hello %s!\n', val))`;
 		await app.workbench.console.waitForConsoleContents('[1] 1');
 	});
 
-	test('Python - Clicking output while scrolled up focuses input without yanking the viewport', async function ({ app, page, python }) {
+	test('Python - Clicking output while scrolled up focuses input without yanking the viewport', { tag: [tags.PYTHON] }, async function ({ app, page, python }) {
 		// Regression test for https://github.com/posit-dev/positron/issues/11772 and
 		// https://github.com/posit-dev/positron/issues/13991: clicking the console while
 		// scrolled up should focus the input without scrolling the viewport to the bottom,
@@ -111,7 +111,7 @@ cat(sprintf('Hello %s!\n', val))`;
 		});
 	});
 
-	test('Python - Clicking back into a scrolled-up console refocuses the input and buffers typing', async function ({ app, page, python }) {
+	test('Python - Clicking back into a scrolled-up console refocuses the input and buffers typing', { tag: [tags.PYTHON] }, async function ({ app, page, python }) {
 		// Regression test for the prior "skip focus when scrolled up" approach, which left the
 		// input unfocused when clicking a scrolled-up console (#11772). Clicking back in should
 		// refocus the input without yanking the viewport, and typing should buffer correctly.
@@ -180,6 +180,7 @@ cat(sprintf('Hello %s!\n', val))`;
 	});
 
 	test('Python - Home / End / Ctrl+U act on the console input, not the output scroll', {
+		tag: [tags.PYTHON],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7380' }]
 	}, async function ({ app, page, python }) {
 		// Regression test for the keybinding migration. Home / End must move the

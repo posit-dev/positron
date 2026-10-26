@@ -58,7 +58,7 @@ const appTests: AppTestConfig[] = [
 ];
 
 test.describe('Python Applications', {
-	tag: [tags.CRITICAL, tags.APPS, tags.VIEWER, tags.EDITOR, tags.WEB]
+	tag: [tags.CRITICAL, tags.APPS, tags.VIEWER, tags.EDITOR, tags.WEB, tags.PYTHON]
 }, () => {
 
 	test.afterEach(async function ({ app, hotKeys }) {

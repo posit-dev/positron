@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { FileFilter } from '../../../../../platform/dialogs/common/dialogs.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from './dataConnectionDTOs.js';
 
 // --- Service-level interfaces ---
@@ -18,6 +19,83 @@ import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from './dataCon
  * a distinct service-level alias so the in-process representation can evolve independently.
  */
 export type DataConnectionParameterValues = Record<string, boolean | number | string>;
+
+/**
+ * The result of validating the parameter values entered in the configuration dialog.
+ */
+export interface IDataConnectionParameterValidation {
+	// Replacement values, keyed by parameter id, for parameters the driver normalized (e.g. a
+	// relative path resolved to an absolute one). Parameters not listed keep the entered value.
+	normalizedValues?: DataConnectionParameterValues;
+
+	// Error messages, keyed by parameter id. When any are present, the connection is not saved.
+	errors?: Record<string, string>;
+}
+
+/**
+ * The kinds of node a driver reports in a connection's tree. Mirrors DataConnectionNodeKind in
+ * positron.d.ts, and is the implementation the extension API hands out (see
+ * extHostTypes.positron.ts), so the two cannot drift apart.
+ *
+ * A node DTO still carries its kind as a plain string: the value comes from a driver, and nothing
+ * on the wire stops one reporting a kind that is not listed here. Compare against these members
+ * rather than narrowing a DTO's kind to this type.
+ */
+export enum DataConnectionNodeKind {
+	Database = 'database',
+	// A catalog: the level above a schema in a three-part namespace, e.g. a Unity Catalog catalog
+	// (positron-data-driver-databricks).
+	Catalog = 'catalog',
+	Schema = 'schema',
+	Table = 'table',
+	View = 'view',
+	Field = 'field',
+	GroupDatabases = 'group-databases',
+	GroupCatalogs = 'group-catalogs',
+	GroupSchemas = 'group-schemas',
+	GroupTables = 'group-tables',
+	GroupViews = 'group-views',
+	GroupColumns = 'group-columns',
+	GroupIndexes = 'group-indexes',
+	GroupStages = 'group-stages',
+	GroupVolumes = 'group-volumes',
+	Index = 'index',
+	// A Snowflake stage: a named location for staging files (positron-data-driver-snowflake).
+	Stage = 'stage',
+	// A Unity Catalog volume: a governed location for non-tabular files
+	// (positron-data-driver-databricks).
+	Volume = 'volume',
+	// A directory inside a volume or stage, and a file inside one.
+	Directory = 'directory',
+	File = 'file',
+	// A note in the tree rather than an object, e.g. that a long listing was cut short.
+	Notice = 'notice',
+	// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
+	Owner = 'owner',
+	// A pin on a Posit Connect server (positron-data-driver-pins).
+	Pin = 'pin',
+	// A version (bundle) of a pin on a Posit Connect server (positron-data-driver-pins).
+	Version = 'version',
+	// A Snowflake semantic view (positron-data-driver-snowflake).
+	GroupSemanticViews = 'group-semantic-views',
+	SemanticView = 'semantic-view',
+	// The members of a semantic view, and the groups that hold them.
+	GroupLogicalTables = 'group-logical-tables',
+	GroupRelationships = 'group-relationships',
+	GroupFacts = 'group-facts',
+	GroupDimensions = 'group-dimensions',
+	GroupTimeDimensions = 'group-time-dimensions',
+	GroupNamedFilters = 'group-named-filters',
+	GroupMetrics = 'group-metrics',
+	GroupDerivedMetrics = 'group-derived-metrics',
+	LogicalTable = 'logical-table',
+	Relationship = 'relationship',
+	Fact = 'fact',
+	Dimension = 'dimension',
+	TimeDimension = 'time-dimension',
+	NamedFilter = 'named-filter',
+	Metric = 'metric',
+}
 
 /**
  * A data connection profile. A profile has its persistence metadata (id, createdAt, lastUsedAt)
@@ -46,6 +124,10 @@ export interface IDataConnectionProfile {
 
 	// The parameter values for this connection.
 	parameterValues: DataConnectionParameterValues;
+
+	// Where the connection is available: in every workspace ('global', the default when absent), or
+	// only in the workspace it was saved in ('workspace'). Determines where the profile is stored.
+	scope?: 'global' | 'workspace';
 
 	// The user's preferred connection code variant per language (languageId -> variant id), from
 	// the driver's generateConnectionCode results. Optional: existing profiles predate this field,
@@ -132,6 +214,9 @@ export interface IDataConnectionDriverMetadata {
 	iconSvg: string;
 	mechanisms: IDataConnectionMechanism[];
 	supportedLanguageIds: string[];
+
+	// Whether the driver implements validateParameters.
+	validatesParameters?: boolean;
 }
 
 /**
@@ -208,6 +293,15 @@ export interface IDataConnectionDriver {
 	redactParameterValue(mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;
 
 	/**
+	 * Validates and normalizes the parameter values entered in the configuration dialog before the
+	 * connection is saved (e.g. checking that a database file exists and resolving it to an absolute
+	 * path). Resolves to an empty result when the driver does not implement validation.
+	 * @param mechanismId The id of the mechanism the user selected.
+	 * @param params The parameter values the user entered.
+	 */
+	validateParameters(mechanismId: string, params: DataConnectionParameterValues): Promise<IDataConnectionParameterValidation>;
+
+	/**
 	 * Lists the connections this driver found already configured on the machine (e.g. ODBC data
 	 * sources). Resolves to an empty array for the drivers that do not implement discovery, which is
 	 * most of them.
@@ -238,6 +332,55 @@ export interface IDiscoveredDataConnection {
 }
 
 /**
+ * Service-level lineage request. Same shape as IDataConnectionLineageRequestDTO; kept distinct so
+ * the in-process representation can evolve independently of the wire contract.
+ */
+export interface IDataConnectionLineageRequest {
+	// The object's path, one exact name per level: [database, schema, table], or
+	// [database, schema, table, column].
+	path: string[];
+	domain: 'table' | 'column';
+	direction: 'upstream' | 'downstream';
+	// How many hops to follow.
+	depth: number;
+	// The most edges the driver should return, nearest first.
+	maxEdges: number;
+}
+
+/**
+ * Service-level end of a lineage edge. Every field but `domain` is optional: an object outside the
+ * data source has no database or schema, and a masked one has no name.
+ */
+export interface IDataConnectionLineageObject {
+	database?: string;
+	schema?: string;
+	name?: string;
+	column?: string;
+	// The kind of object in the data source's own terms (e.g. 'table', 'stage').
+	domain: string;
+	// Set when the caller may not see the object, so its name is withheld.
+	masked?: boolean;
+}
+
+/**
+ * Service-level lineage edge: data flows from `source` to `target`, `distance` hops from the
+ * requested object.
+ */
+export interface IDataConnectionLineageEdge {
+	source: IDataConnectionLineageObject;
+	target: IDataConnectionLineageObject;
+	distance: number;
+}
+
+/**
+ * Service-level lineage result: the edges, nearest first, or the data source's reason for not
+ * providing them.
+ */
+export type IDataConnectionLineageResult =
+	| { available: true; edges: IDataConnectionLineageEdge[]; truncated: boolean }
+	| { available: false; message: string };
+
+/**
  * A live connection handle. Wraps proxy calls back to the ext host for
  * tree browsing, disconnect, etc.
  */
@@ -257,5 +400,26 @@ export interface IDataConnectionHandle {
 	 * Gets a node's details, for the details editor.
 	 */
 	nodeGetDetails(nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO>;
+	/**
+	 * Reads an object's lineage. Resolves to undefined when the connection's driver does not
+	 * support lineage, and rejects when the connection fails.
+	 */
+	getLineage(request: IDataConnectionLineageRequest): Promise<IDataConnectionLineageResult | undefined>;
 	release(): void;
+}
+
+/**
+ * Disconnects and then releases a connection handle. A failed disconnect is logged and the handle is
+ * released anyway, since the caller has nothing left to retry it from.
+ * @param handle The connection handle to close.
+ * @param logService Where to log a failed disconnect.
+ * @param description What the handle belongs to, for the log.
+ */
+export async function closeDataConnectionHandle(handle: IDataConnectionHandle, logService: ILogService, description: string): Promise<void> {
+	try {
+		await handle.disconnect();
+	} catch (err) {
+		logService.error(`[DataConnections] disconnect() threw for ${description}: ${err}`);
+	}
+	handle.release();
 }

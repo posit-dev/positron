@@ -14,14 +14,12 @@ import { IFileService } from '../../files/common/files.js';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { Rectangle, webFrameMain, Menu, MenuItem } from 'electron';
+// eslint-disable-next-line no-duplicate-imports
+import { DisposableMap, IDisposable } from '../../../base/common/lifecycle.js';
+// eslint-disable-next-line no-duplicate-imports
+import { WebviewMenuShortcutsTarget, WebviewFrameId, FrameNavigationEvent, WEBVIEW_FRAME_NOT_FOUND_MESSAGE } from '../common/webviewManagerService.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
 import { Schemas } from '../../../base/common/network.js';
-
-// eslint-disable-next-line no-duplicate-imports
-import { IDisposable } from '../../../base/common/lifecycle.js';
-
-// eslint-disable-next-line no-duplicate-imports
-import { WebviewFrameId, FrameNavigationEvent } from '../common/webviewManagerService.js';
 import { DeferredPromise } from '../../../base/common/async.js';
 // --- End Positron ---
 
@@ -32,6 +30,12 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	private readonly _onFoundInFrame = this._register(new Emitter<FoundInFrameResult>());
 	public readonly onFoundInFrame = this._onFoundInFrame.event;
 
+	// --- Start Positron ---
+	// Key by the resolved contents, not the request object or numeric window ID:
+	// both target forms share ownership, and replacement windows cannot inherit it.
+	private readonly _menuShortcutOwners = this._register(new DisposableMap<WebContents, { webviewId: string; dispose(): void }>());
+	// --- End Positron ---
+
 	constructor(
 		@IFileService fileService: IFileService,
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
@@ -40,7 +44,10 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		this._register(new WebviewProtocolProvider(fileService));
 	}
 
-	public async setIgnoreMenuShortcuts(id: WebviewWebContentsId | WebviewWindowId, enabled: boolean): Promise<void> {
+	// --- Start Positron ---
+	// public async setIgnoreMenuShortcuts(id: WebviewWebContentsId | WebviewWindowId, enabled: boolean): Promise<void> {
+	public async setIgnoreMenuShortcuts(id: WebviewMenuShortcutsTarget, enabled: boolean): Promise<void> {
+		// --- End Positron ---
 		let contents: WebContents | undefined;
 
 		if (typeof (id as WebviewWindowId).windowId === 'number') {
@@ -59,9 +66,62 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		}
 
 		if (!contents.isDestroyed()) {
+			// --- Start Positron ---
+			const owner = this._menuShortcutOwners.get(contents);
+			if (enabled) {
+				if (owner) {
+					// Retain only the latest focus, not a set of stale focused webviews.
+					owner.webviewId = id.webviewId;
+				} else {
+					const target = contents;
+					const onDestroyed = () => this._menuShortcutOwners.deleteAndDispose(target);
+					// A renderer crash or reload drops the owning webview, possibly
+					// without its release, and no new webview can match the old owner.
+					const onReset = () => {
+						this._menuShortcutOwners.deleteAndDispose(target);
+						if (!target.isDestroyed()) {
+							target.setIgnoreMenuShortcuts(false);
+						}
+					};
+					// Webviews are subframes, so only main-frame navigations reset.
+					const onNavigate = (event: { isMainFrame: boolean; isSameDocument: boolean }) => {
+						if (event.isMainFrame && !event.isSameDocument) {
+							onReset();
+						}
+					};
+					target.once('destroyed', onDestroyed);
+					target.once('render-process-gone', onReset);
+					target.on('did-start-navigation', onNavigate);
+					this._menuShortcutOwners.set(target, {
+						webviewId: id.webviewId,
+						dispose: () => {
+							target.removeListener('destroyed', onDestroyed);
+							target.removeListener('render-process-gone', onReset);
+							target.removeListener('did-start-navigation', onNavigate);
+						},
+					});
+				}
+			} else if (owner?.webviewId === id.webviewId) {
+				this._menuShortcutOwners.deleteAndDispose(contents);
+			} else {
+				// A late release from a webview that no longer owns the target.
+				return;
+			}
+			// --- End Positron ---
 			contents.setIgnoreMenuShortcuts(enabled);
 		}
 	}
+
+	// --- Start Positron ---
+	public override dispose(): void {
+		for (const contents of this._menuShortcutOwners.keys()) {
+			if (!contents.isDestroyed()) {
+				contents.setIgnoreMenuShortcuts(false);
+			}
+		}
+		super.dispose();
+	}
+	// --- End Positron ---
 
 	public async findInFrame(windowId: WebviewWindowId, frameName: string, text: string, options: { findNext?: boolean; forward?: boolean }): Promise<void> {
 		const initialFrame = this.getFrameByName(windowId, frameName);
@@ -216,7 +276,7 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	public async executeJavaScript(frameId: WebviewFrameId, script: string): Promise<any> {
 		const frame = this.findFrame(frameId);
 		if (!frame) {
-			throw new Error(`No frame found with frameId: ${JSON.stringify(frameId)}`);
+			throw new Error(`${WEBVIEW_FRAME_NOT_FOUND_MESSAGE} with frameId: ${JSON.stringify(frameId)}`);
 		}
 		return frame.executeJavaScript(script);
 	}
@@ -229,6 +289,28 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	 */
 	public async getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined> {
 		return this.findFrame(frameId)?.url;
+	}
+
+	/**
+	 * Gets the ID of a webview's host frame, the one running the webview's own
+	 * index.html. The webview's content is written into a frame inside it.
+	 * Unlike `getFrameByName`, it searches every window (a Viewer can be in an
+	 * auxiliary one), returns undefined rather than throwing, and skips frames
+	 * inside a webview that take the same name.
+	 *
+	 * @param webviewId The webview's ID, which names its frame.
+	 * @returns The frame's ID, or undefined if the webview has no frame.
+	 */
+	public async getWebviewHostFrameId(webviewId: string): Promise<WebviewFrameId | undefined> {
+		const webviewPrefix = `${Schemas.vscodeWebview}://`;
+		for (const contents of webContents.getAllWebContents()) {
+			const frame = contents.mainFrame.framesInSubtree.find(f =>
+				f.name === webviewId && f.url.startsWith(webviewPrefix) && !f.parent?.url.startsWith(webviewPrefix));
+			if (frame) {
+				return { processId: frame.processId, routingId: frame.routingId, frameTreeNodeId: frame.frameTreeNodeId };
+			}
+		}
+		return undefined;
 	}
 
 	/**

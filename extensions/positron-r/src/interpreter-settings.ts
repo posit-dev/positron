@@ -89,6 +89,31 @@ export function userRBinaries(): string[] {
 }
 
 /**
+ * R binaries named by entries in the `interpreters.definitions` setting.
+ * Paths must be absolute; other entries are ignored.
+ * @returns List of R binary paths from interpreter definitions.
+ */
+export function getInterpreterDefinitionPaths(): string[] {
+	const definitions = vscode.workspace.getConfiguration('interpreters').get<unknown>('definitions');
+	if (!Array.isArray(definitions)) {
+		return [];
+	}
+	const paths = definitions
+		.filter(d => d?.language === 'r' && typeof d.path === 'string' && path.isAbsolute(d.path))
+		.map(d => d.path as string);
+	return Array.from(new Set(paths));
+}
+
+/**
+ * Whether `interpreters.discovery` is `definitionsOnly` for R, in which case
+ * only the R binaries in `interpreters.definitions` are used and no other
+ * discovery runs.
+ */
+export function isDefinitionsOnlyDiscovery(): boolean {
+	return vscode.workspace.getConfiguration('interpreters', { languageId: 'r' }).get<string>('discovery') === 'definitionsOnly';
+}
+
+/**
  * Gets the list of R installations excluded via settings.
  * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are ignored.
  * @returns List of installation paths to exclude.
@@ -172,18 +197,14 @@ export function getDefaultInterpreterPath(): string | undefined {
 }
 
 /**
- * Get the resolved `interpreters.exclude` and `interpreters.default` paths without logging,
- * for the discovery cache key. The key uses resolved paths because the same setting text,
- * e.g. `${workspaceFolder}/env/bin/R`, names a different binary in each workspace.
- * @returns The resolved paths. `default` is an empty string if unset or ignored.
+ * Get the resolved `interpreters.exclude` paths without logging, for the discovery cache key.
+ * The key uses resolved paths because the same setting text, e.g. `${workspaceFolder}/env/bin/R`,
+ * names a different binary in each workspace.
+ * @returns The resolved paths.
  */
-export function getResolvedFilterSettingPaths(): { exclude: string[]; default: string } {
+export function getResolvedExcludePaths(): string[] {
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const defaultSetting = config.get<string>('interpreters.default');
-	return {
-		exclude: resolveSettingPaths(config.get<string[]>('interpreters.exclude') ?? []),
-		default: (defaultSetting && resolveSettingPath(defaultSetting)) || '',
-	};
+	return resolveSettingPaths(config.get<string[]>('interpreters.exclude') ?? []);
 }
 
 /**

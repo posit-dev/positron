@@ -144,7 +144,7 @@
     "positron.positron-supervisor"
   ],
   "dependencies": {
-    "toml": "^4.2.0"
+    "toml": "^5.0.1"
   },
   "devDependencies": {
     "@types/glob": "^7.2.0",

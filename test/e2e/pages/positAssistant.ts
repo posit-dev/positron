@@ -17,11 +17,13 @@ const ACTIVITY_BAR_BUTTON = 'a.action-label[aria-label="Posit Assistant"]';
 
 // Header buttons.
 // The new-chat button is scoped to the top bar because the conversation tab
-// strip and the vertical tab rail contribute their own `lucide-plus` buttons
+// strip and the vertical tab rail contribute their own new-conversation buttons
 // (`aria-label="New conversation tab"` and `aria-label="New conversation"`).
 // An unscoped selector goes strict-mode ambiguous as soon as that tab chrome
 // renders in the Positron panel.
-const NEW_CHAT_BUTTON = '[data-slot="topbar"] button:has(svg.lucide-plus)';
+// Match on the aria-label, not the icon: assistant#2751 swapped the top bar's
+// lucide `Plus` for a custom speech-bubble icon that has no `lucide-plus` class.
+const NEW_CHAT_BUTTON = '[data-slot="topbar"] button[aria-label="New conversation"]';
 const HISTORY_BUTTON = 'button:has(svg.lucide-history)';
 const MORE_BUTTON = 'button:has(svg.lucide-ellipsis):has(.sr-only:text("More"))';
 const SETTINGS_BUTTON = 'button:has(svg.lucide-settings):has(.sr-only:text("Settings"))';
@@ -54,11 +56,8 @@ const CHAT_FORM_OVERFLOW_BUTTON = '.chat-form button[aria-haspopup="menu"]:has(s
 // group containers when collapsed into the overflow (...) menu.
 const MODEL_RADIO_GROUP = '[data-slot="dropdown-menu-radio-group"]';
 const MODEL_MENU_GROUP = '[data-slot="dropdown-menu-group"]';
-// The inline model-picker trigger. ModeSelector (left) uses plain buttons and
-// the only other status-bar dropdown trigger with a chevron (the persona
-// selector) precedes the model selector in the DOM, so the model trigger is the
-// last chevron dropdown trigger in the chat form.
-const INLINE_MODEL_TRIGGER = '[data-slot="dropdown-menu-trigger"]:has(svg.lucide-chevron-down)';
+// The inline model-picker trigger.
+const INLINE_MODEL_TRIGGER = '[data-testid="model-selector"]';
 
 /**
  * Maps an e2e provider id to the provider's display name as shown in the model
@@ -66,12 +65,12 @@ const INLINE_MODEL_TRIGGER = '[data-slot="dropdown-menu-trigger"]:has(svg.lucide
  * (packages/core/src/platform/provider-registry.ts).
  */
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-	'anthropic-api': 'Anthropic',
-	'amazon-bedrock': 'AWS Bedrock',
+	'anthropic': 'Anthropic',
+	'bedrock': 'AWS Bedrock',
 	'databricks': 'Databricks',
-	'openai-api': 'OpenAI',
+	'openai': 'OpenAI',
 	'ms-foundry': 'Microsoft Foundry',
-	'posit-ai': 'Posit AI Pass',
+	'positai': 'Posit AI Pass',
 	'snowflake-cortex': 'Snowflake Cortex',
 };
 
@@ -91,7 +90,10 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 const PROVIDER_DISPLAY_NAME_ALIASES: Record<string, string[]> = {
 	// Renamed to "Posit AI Pass" in the assistant's provider registry after the
 	// bootstrapped 1.2.0 release; mirrored here in #15858.
-	'posit-ai': ['Posit AI'],
+	'positai': ['Posit AI'],
+	// Renamed from "AWS Bedrock" in the assistant's provider registry after the
+	// bootstrapped 1.9.0 release (posit-dev/assistant#2842).
+	'bedrock': ['Amazon Bedrock'],
 };
 
 /**
@@ -348,16 +350,29 @@ export class PositAssistant {
 		}
 		await this.enterMessage(message);
 		await this.clickSend();
+		await this.waitForResponseCompleteAllowingTools(timeout);
+	}
 
+	/**
+	 * Waits for an already-submitted response to complete, clicking "Allow for
+	 * this session" whenever a tool confirmation dialog appears, or "Allow once"
+	 * when the dialog offers nothing else. Use this when something other than
+	 * the chat input sent the message (e.g. a notebook's Fix button) and the
+	 * model may call tools before it is done.
+	 * @param timeout Maximum time to wait in milliseconds (default: 90000)
+	 */
+	async waitForResponseCompleteAllowingTools(timeout: number = 90000): Promise<void> {
 		const stopButton = this.frame.locator(STOP_BUTTON);
 		const trigger = this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER);
+		// Shown alone when a request has a danger warning or a single allowed scope.
+		const allowOnce = this.frame.getByRole('button', { name: 'Allow once', exact: true });
 		const deadline = Date.now() + timeout;
 
 		// Wait for streaming to start
 		await stopButton.waitFor({ state: 'visible', timeout });
 
-		// Loop while streaming: click "Allow for this session" whenever the
-		// tool confirmation dropdown appears, then wait for it to clear.
+		// Loop while streaming: approve each tool confirmation that appears,
+		// then wait for it to clear.
 		while (await stopButton.isVisible()) {
 			if (Date.now() > deadline) {
 				throw new Error(`Response did not complete within ${timeout}ms`);
@@ -365,6 +380,8 @@ export class PositAssistant {
 			if (await trigger.isVisible().catch(() => false)) {
 				await trigger.click();
 				await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+			} else if (await allowOnce.isVisible().catch(() => false)) {
+				await allowOnce.click();
 			} else {
 				await this.code.driver.currentPage.waitForTimeout(200);
 			}
@@ -471,7 +488,7 @@ export class PositAssistant {
 	 *  - inline mode (wide status bar, e.g. a maximized sidebar): the model
 	 *    trigger opens a flat radio group whose provider headers are sibling divs.
 	 *
-	 * @param provider e2e provider id (e.g. 'anthropic-api', 'amazon-bedrock').
+	 * @param provider e2e provider id (e.g. 'anthropic', 'bedrock').
 	 */
 	async selectProviderModel(provider: string): Promise<void> {
 		const providerName = PROVIDER_DISPLAY_NAMES[provider];
@@ -578,7 +595,7 @@ export class PositAssistant {
 	 *    explicitly with Escape afterwards, or the overlay blocks the chat input.
 	 */
 	private async selectProviderModelInlineMode(providerNames: string[]): Promise<void> {
-		const trigger = this.frame.locator(INLINE_MODEL_TRIGGER).last();
+		const trigger = this.frame.locator(INLINE_MODEL_TRIGGER);
 		const radioGroup = this.frame.locator(MODEL_RADIO_GROUP);
 		// Each alias needs its own full selector: a trailing combinator binds to the
 		// last item of a selector list, so it cannot be appended to the list as a
@@ -644,6 +661,14 @@ export class PositAssistant {
 	 */
 	async expectUserMessageVisible(): Promise<void> {
 		await expect(this.frame.locator(CHAT_MESSAGE_USER)).toBeVisible();
+	}
+
+	/**
+	 * Verifies the most recent user message contains the given text, including
+	 * the name of any attachment it carries.
+	 */
+	async expectUserMessageToContainText(text: string): Promise<void> {
+		await expect(this.frame.locator(CHAT_MESSAGE_USER).last()).toContainText(text);
 	}
 
 	// --- Inline plots ---
@@ -857,6 +882,13 @@ export class PositAssistant {
 	 * @param settings The settings fixture used to write the user setting.
 	 * @param quickaccess The quickaccess page object used to run the command.
 	 * @param options.toastTimeout Maximum time to wait for each toast (default: 30000).
+	 * @param options.waitForReady Wait for runtime startup messaging to clear after
+	 *   writing the setting and after the reload (default: true). Pass false where
+	 *   interpreter discovery never settles and the suite uses no runtime.
+	 * @param options.writeSetting Write the setting through the settings fixture
+	 *   (default: true). Pass false on Workbench, where the fixture can't reach the
+	 *   container's settings file; set it with `extraSettings` instead.
+	 * @returns Whether a dev build was installed and the window reloaded.
 	 */
 	async checkForDevBuildUpdate(
 		settings: {
@@ -868,32 +900,44 @@ export class PositAssistant {
 		quickaccess: {
 			runCommand: (command: string, options?: { exactLabelMatch?: boolean }) => Promise<any>;
 		},
-		options: { toastTimeout?: number } = {},
-	): Promise<void> {
-		const { toastTimeout = 30000 } = options;
+		options: { toastTimeout?: number; waitForReady?: boolean; writeSetting?: boolean } = {},
+	): Promise<boolean> {
+		const { toastTimeout = 30000, waitForReady = true, writeSetting = true } = options;
+
+		// A local Assistant checkout is the build under test; don't replace it with a dev build.
+		if (process.env.POSITRON_E2E_ASSISTANT_PATH) {
+			return false;
+		}
 
 		// 1. Enable the auto dev-build update check setting.
-		await settings.set({ 'assistant.autoDevBuildUpdateCheck': true });
+		if (writeSetting) {
+			await settings.set({ 'assistant.autoDevBuildUpdateCheck': true }, { waitForReady });
+		}
 
 		// 2. Trigger the dev-build update check command.
 		await quickaccess.runCommand('posit-assistant.checkForDevBuildUpdate');
 
 		const toasts = new Toasts(this.code);
+		const updateAvailable = /newer Posit Assistant dev build is available/i;
+		// Assistant answers the check with exactly one of these.
+		const checkResult = /newer Posit Assistant dev build is available|Posit Assistant is up to date|Posit Assistant dev build update check failed/i;
 
-		// 3. Wait for the "newer dev build available" toast. If it doesn't appear
-		//    (already up to date or update server unreachable), treat as a no-op.
-		let updateAvailable = true;
+		// 3. Wait for the check's result. Anything but "newer dev build available"
+		//    (up to date, check failed, or no answer) is a no-op; log which one it was.
 		try {
-			await toasts.waitForAppear(/newer Posit Assistant dev build is available/i, { timeout: toastTimeout });
+			await toasts.waitForAppear(checkResult, { timeout: toastTimeout });
 		} catch {
-			updateAvailable = false;
+			console.log(`[checkForDevBuildUpdate] No result from the update check within ${toastTimeout}ms; keeping the installed Posit Assistant.`);
+			return false;
 		}
 
-		if (!updateAvailable) {
-			return;
+		const message = await this.readNotification(checkResult);
+		console.log(`[checkForDevBuildUpdate] ${message}`);
+		if (!updateAvailable.test(message)) {
+			return false;
 		}
 
-		await toasts.clickButton('Update Now', { notificationFilter: /newer Posit Assistant dev build is available/i });
+		await toasts.clickButton('Update Now', { notificationFilter: updateAvailable });
 
 		// 4. Wait for the follow-up "reload to apply changes" toast and click "Reload".
 		//    A visible .monaco-workbench is not enough afterwards: the provider modal
@@ -901,8 +945,26 @@ export class PositAssistant {
 		await toasts.waitForAppear(/Posit Assistant has been updated\. You must reload Positron/i, { timeout: toastTimeout });
 		await new HotKeys(this.code).reloadWindowWith(
 			() => toasts.clickButton('Reload', { notificationFilter: /Posit Assistant has been updated\. You must reload Positron/i }),
-			true,
+			waitForReady,
 		);
+		const commit = message.match(/commit (?<commit>[0-9a-f]+)/i)?.groups?.commit ?? 'unknown';
+		console.log(`[checkForDevBuildUpdate] Installed Posit Assistant dev build ${commit} and reloaded.`);
+		return true;
+	}
+
+	/**
+	 * Returns the text of the first notification matching `filter`, read from the
+	 * notification center so it works whether or not toasts are shown.
+	 */
+	private async readNotification(filter: RegExp): Promise<string> {
+		const toasts = new Toasts(this.code);
+		await toasts.openNotificationCenter();
+		try {
+			const message = toasts.notificationsCenter.locator('.notification-list-item-message').filter({ hasText: filter }).first();
+			return (await message.textContent({ timeout: 5000 }))?.trim() ?? '';
+		} finally {
+			await toasts.closeNotificationCenter().catch(() => { });
+		}
 	}
 
 }

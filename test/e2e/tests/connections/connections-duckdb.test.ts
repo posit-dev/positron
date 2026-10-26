@@ -4,9 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 
 test.use({
 	suiteId: __filename,
@@ -16,40 +13,15 @@ test.use({
 
 const randomText = Math.random().toString(36).substring(7);
 
-function configurePasswordStore() {
-	const home = os.homedir();            // likely /root in your container
-	// Adjust folder name to your product; for VS Code it's ".vscode"
-	const argvDir = path.join(home, '.vscode-oss-dev');
-	fs.mkdirSync(argvDir, { recursive: true });
-
-	const argvPath = path.join(argvDir, 'argv.json');
-	const argv = {
-		// use basic Chromium text encryption – fine for throwaway CI machines
-		'password-store': 'basic'
-	};
-
-	fs.writeFileSync(argvPath, JSON.stringify(argv, null, 2));
-}
-
-
 test.describe('DuckDB Connection', {
 	tag: [tags.WEB, tags.CONNECTIONS, tags.WIN]
 }, () => {
 
-	test.beforeAll(async function ({ app }) {
-		configurePasswordStore();
-	});
-
-	test('Python - Can establish a DuckDB connection', async function ({ python, app }) {
+	test('Python - Can establish a DuckDB connection', { tag: [tags.PYTHON] }, async function ({ python, app }) {
 
 		await app.workbench.console.pasteCodeToConsole(connectionCode, true);
+		await app.workbench.console.waitForExecutionComplete();
 
-		// Deterministically reveal the Connections pane instead of relying on the
-		// kernel's best-effort Focus comm event. viewConnection() then opens the
-		// connection from the list, or no-ops when the pane already landed in the
-		// connection's detail view -- so the test doesn't depend on the connect
-		// icon being present in a specific render state (flaky 30s timeout seen on
-		// macOS CI, where the comm-driven reveal raced and lost).
 		await app.workbench.connections.openConnectionPane();
 		await app.workbench.connections.viewConnection('DuckDB');
 

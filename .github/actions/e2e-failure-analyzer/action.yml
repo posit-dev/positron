@@ -31,13 +31,23 @@ inputs:
     description: "e2e-test-insights webhook secret (X-Webhook-Secret). When set together with e2e-insights-api-key, the analyzer appends a link to its report into the analyzed run's Slack thread. Leave empty to skip the Slack post."
     required: false
     default: ""
+  tailscale-oauth-client-id:
+    description: "Tailscale OAuth client ID. connect.posit.it (the e2e-test-insights API) is reachable only from the tailnet, so the history query and Slack post need this to join it. Leave empty to skip joining."
+    required: false
+    default: ""
+  tailscale-oauth-secret:
+    description: "Tailscale OAuth client secret, paired with tailscale-oauth-client-id."
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
     - name: Set up Node
       uses: actions/setup-node@v6
       with:
-        node-version: "20"
+        # Must satisfy the latest @anthropic-ai/claude-code's `engines.node`
+        # (>=22 as of 2.1.294); see the --engine-strict install below.
+        node-version: "24"
 
     - name: Install action dependencies
       shell: bash
@@ -49,9 +59,17 @@ runs:
       # before the glibc one on Linux runners (claude-agent-sdk-typescript#296).
       # Installing @anthropic-ai/claude-code globally and pointing the SDK at
       # it via pathToClaudeCodeExecutable bypasses the buggy resolver.
+      #
+      # It also keeps the model current: the CLI resolves the `opus` alias, so
+      # installing the latest CLI on every run picks up new Opus releases
+      # without a lockfile bump. Keep the explicit @latest and --engine-strict:
+      # an untagged install quietly picks the newest CLI that supports the
+      # running Node, which left the alias on an old model (Node 20 held this
+      # at CLI 2.1.197 / Opus 4.8 for months). With both, a CLI that needs a
+      # newer Node fails this step instead of downgrading.
       shell: bash
       run: |
-        npm install -g @anthropic-ai/claude-code
+        npm install -g --engine-strict @anthropic-ai/claude-code@latest
         echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
         claude --version
 
@@ -201,6 +219,31 @@ runs:
           echo "::endgroup::"
         done <<< "$E2E_JOBS"
 
+    # connect.posit.it is reachable only from the tailnet. Join it just before
+    # the first Connect call (the history query below; the Slack post after it
+    # uses the same host), not earlier: joining at the start of a job has caused
+    # flakes in other workflows. Best-effort, like both of those calls: without
+    # the tailnet the analysis still runs, just without history.
+    # Mirrors .github/actions/join-tailnet, which this action can't use:
+    # positron-builds runs it from its positron submodule, where that local
+    # path would not resolve.
+    - name: Tailscale
+      id: tailscale
+      if: ${{ inputs.e2e-insights-api-key != '' && inputs.tailscale-oauth-client-id != '' }}
+      continue-on-error: true
+      uses: tailscale/github-action@v4
+      with:
+        oauth-client-id: ${{ inputs.tailscale-oauth-client-id }}
+        oauth-secret: ${{ inputs.tailscale-oauth-secret }}
+        tags: tag:positron-gha
+        timeout: 30s
+        retry: 3
+
+    - name: Warn on failed tailnet join
+      if: ${{ steps.tailscale.outcome == 'failure' }}
+      shell: bash
+      run: echo "::warning::Could not join the tailnet, so the history query and Slack post to connect.posit.it will fail."
+
     - name: Query historical test health
       if: ${{ inputs.e2e-insights-api-key != '' }}
       shell: bash
@@ -306,10 +349,18 @@ runs:
           LINK="$RUN_URL"
         fi
 
+        # analyze.mjs writes a one-line issue breakdown (counts by root-cause
+        # bucket, built from the report's Summary table). Plain counts and fixed
+        # words, so it needs no Slack mrkdwn escaping. Omitted if absent.
+        TEXT="E2E failure analysis complete: <${LINK}|View report>"
+        if [ -s "$WORK_DIR/slack-summary.txt" ]; then
+          TEXT="E2E failure analysis complete. $(cat "$WORK_DIR/slack-summary.txt") <${LINK}|View report>"
+        fi
+
         payload=$(jq -n \
           --arg repo_id "$REPO_ID" \
           --arg run_id "$WORKFLOW_RUN_ID" \
-          --arg text "E2E failure analysis complete: <${LINK}|View report>" \
+          --arg text "$TEXT" \
           '{repo_id: $repo_id, workflow_run_id: $run_id, text: $text}')
 
         response=$(curl -s -w "\n%{http_code}" -X POST \

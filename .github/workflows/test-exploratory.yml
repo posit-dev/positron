@@ -1,5 +1,9 @@
 name: "Test: Exploratory"
 
+# test-exploratory-suggest.yml looks for this name to start one auto-run per
+# PR. Whitespace everywhere else, which GitHub documents as keeping its default.
+run-name: "${{ inputs.auto_run_pr && format('Exploratory auto-run #{0}', inputs.auto_run_pr) || ' ' }}"
+
 on:
   workflow_dispatch:
     inputs:
@@ -45,6 +49,14 @@ on:
         required: false
         default: true
         type: boolean
+      # Set by test-exploratory-suggest.yml for the auto-run experiment
+      # (#16610). The run then posts to this PR like a `/explore`, but only
+      # once the worthiness check passes it: a decline stays off the PR.
+      auto_run_pr:
+        description: "Auto-run: PR to post results on"
+        required: false
+        default: ""
+        type: string
   # `/explore` (or `/test`, `/exploratory-test`) on a PR. Runs from main's copy of this
   # file with full secrets, and the explore job builds and executes the PR's
   # code, so the membership job is the entire defence. See its comment.
@@ -83,9 +95,12 @@ jobs:
     # No write access on the one job that runs for every matching comment,
     # which is also why a blocked caller gets silence rather than a rejection.
     permissions:
+      # To find a run already going on the PR.
+      actions: read
       pull-requests: read
     outputs:
       ok: ${{ steps.check.outputs.ok }}
+      busy: ${{ steps.check.outputs.busy }}
       head_sha: ${{ steps.check.outputs.head_sha }}
       head_ref: ${{ steps.check.outputs.head_ref }}
       base_ref: ${{ steps.check.outputs.base_ref }}
@@ -148,6 +163,24 @@ jobs:
             [ "$state" = "active" ]
           }
 
+          # The URL of a run still queued or going on this PR's head ($1), or
+          # nothing. Each run's comment names its run and short SHA; an auto-run
+          # yet to comment is found by its run-name. A focused run is no repeat.
+          busy_run() {
+            local seen status
+            seen=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+              --jq '[.[] | select(.user.type == "Bot") | .body
+                | select(contains("<!-- exploratory-test -->") and (contains("\nFocus: ") | not))
+                | {run: (capture("actions/runs/(?<r>[0-9]+)").r | tonumber), sha: capture("Exploratory testing\\*\\* (?<s>[0-9a-f]{7})").s}]' \
+              | jq -sc 'add // []')
+            for status in queued in_progress; do
+              gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/test-exploratory.yml/runs?status=${status}&per_page=100" \
+                | jq -r --argjson seen "$seen" --arg head "${1:0:7}" --arg title "Exploratory auto-run #${PR_NUMBER}" \
+                  '.workflow_runs[] | .id as $id | ($seen | map(select(.run == $id))) as $mine
+                  | select(if $mine == [] then .display_title == $title else any($mine[]; .sha == $head) end) | .html_url'
+            done | head -n 1
+          }
+
           if ! is_member "$COMMENTER" || ! is_member "$PR_AUTHOR"; then
             echo "Membership gate: blocked (commenter=$COMMENTER, author=$PR_AUTHOR)"
             exit 0
@@ -166,6 +199,17 @@ jobs:
           if [ "$state" != "open" ] || [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
             echo "Membership gate: blocked (state=$state, head repo=$head_repo)"
             exit 0
+          fi
+
+          # A plain /explore while a run on the same head is going is a repeat. Fails
+          # open: a missed repeat costs a run, a wrong block costs theirs.
+          if [ -z "$focus" ]; then
+            busy=$(GH_TOKEN="$REPO_TOKEN" busy_run "$(jq -r '.head.sha' <<<"$pr")" 2>/dev/null)
+            if [ -n "$busy" ]; then
+              echo "busy=$busy" >> "$GITHUB_OUTPUT"
+              echo "Already running on this PR: $busy"
+              exit 0
+            fi
           fi
           {
             echo "head_sha=$(jq -r '.head.sha' <<<"$pr")"
@@ -272,13 +316,6 @@ jobs:
           BASE=$(git merge-base "origin/$BASE_REF" HEAD)
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          {
-            echo "diff_stat<<DIFFEOF"
-            # Full paths: the default width elides the src/ or test/ prefix
-            # the gate most needs to see.
-            git --no-pager diff "$BASE"...HEAD --stat=1000
-            echo "DIFFEOF"
-          } >> "$GITHUB_OUTPUT"
 
       # A blocker such as an unmerged companion PR is often named only in the
       # description. Best effort: no PR, or a failed lookup, writes no file and
@@ -316,7 +353,6 @@ jobs:
         with:
           mode: gate
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          diff-stat: ${{ steps.base.outputs.diff_stat }}
           pr-body-file: ${{ steps.pr-body.outputs.file }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
@@ -338,6 +374,25 @@ jobs:
             printf '%s\n' "${REASON:-No reason recorded.}"
             printf '\n_gate: $%s_\n' "${COST:-?}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Answers a /explore that membership turned away as a repeat, so it does not
+  # read as ignored.
+  busy:
+    name: busy
+    needs: [membership]
+    if: needs.membership.outputs.busy != ''
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Point to the run already going
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          RUN_URL: ${{ needs.membership.outputs.busy }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="An exploratory test is already running on this PR ([view run](${RUN_URL})), so this \`/explore\` was skipped. Comment \`/explore\` again once it finishes, or \`/explore <focus>\` to test something specific alongside it." > /dev/null
 
   # The write half of a /test, split from explore so the job that runs PR code
   # never holds a write token. Runs alongside explore, so the commenter sees
@@ -391,6 +446,46 @@ jobs:
           github-token: ${{ github.token }}
           head-sha: ${{ needs.membership.outputs.head_sha }}
 
+  # ack's counterpart for an auto-run, after the gate rather than alongside
+  # it: nobody asked for this run, so a declined one says nothing on the PR.
+  # No reaction, since there is no comment to react to.
+  ack-auto:
+    name: ack-auto
+    needs: [dispatch-ref, worthiness]
+    if: >-
+      ${{ always() && inputs.auto_run_pr != '' &&
+      needs.dispatch-ref.outputs.sha != '' && needs.worthiness.outputs.testable != 'false' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      comment_id: ${{ steps.running.outputs.comment-id }}
+    steps:
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-test
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Post running comment
+        id: running
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: comment
+          comment-state: running
+          auto-run: "true"
+          pr-number: ${{ inputs.auto_run_pr }}
+          github-token: ${{ github.token }}
+          head-sha: ${{ needs.dispatch-ref.outputs.sha }}
+
   explore:
     name: explore (${{ matrix.model }})
     needs: [worthiness, membership, dispatch-ref]
@@ -413,6 +508,7 @@ jobs:
       packages: read
     outputs:
       outcome: ${{ steps.explore.outputs.outcome }}
+      outdated: ${{ steps.helpers.outputs.reason }}
     strategy:
       # One model failing should not cancel the other; a partial comparison is
       # still worth reading.
@@ -429,7 +525,7 @@ jobs:
     timeout-minutes: 90
     runs-on: ubuntu-latest-amd64-8-core
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1
       options: --user 0:0 --init
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
@@ -440,7 +536,7 @@ jobs:
     # unmasked, so it ends up in screenshots redaction cannot reach.
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres:24.18.0
+        image: ghcr.io/posit-dev/positron-postgres:24.22.1-py3.14.7-r4.6.1
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -455,7 +551,8 @@ jobs:
       HOME: /root
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
-      RETICULATE_PYTHON: /root/.venv/bin/python
+      # reticulate 1.47 cannot run on Python 3.14 (rstudio/reticulate#1930); bind the 3.13
+      RETICULATE_PYTHON: /root/.pyenv/versions/3.13.0/bin/python
       E2E_POSTGRES_USER: e2e
       E2E_POSTGRES_PASSWORD: exploratory-test
     steps:
@@ -468,13 +565,7 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      # The checkout above is the branch under test, and it is the code this job
-      # builds and drives. It is not where the job's own tooling comes from.
-      # `./.github/actions/...` resolves against the workspace root, so every
-      # local action would be whichever version that branch happens to carry:
-      # missing entirely for one this branch adds, and stale for one it changes.
-      # Take the actions and the skill from the ref the workflow was dispatched
-      # from, so a run is driven by this version whatever it is pointed at.
+      # The tooling comes from the dispatching ref, as in the worthiness job.
       - name: Check out the harness
         uses: actions/checkout@v7
         with:
@@ -485,6 +576,21 @@ jobs:
             .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
+
+      # The explorer's instructions come from the harness, the helpers from the
+      # branch under test. A branch older than the helper rewrite lacks the
+      # helpers they name, so stop before the build with what to do about it.
+      - name: Check the branch has the current helpers
+        id: helpers
+        shell: bash
+        run: |
+          if [[ ! -f .claude/skills/drive-positron/scripts/dp.ts ]]; then
+            # The result comment shows this reason, so the author need not open the run.
+            REASON="this branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and comment /explore again."
+            echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+            echo "::error::${REASON^}"
+            exit 1
+          fi
 
       - name: Resolve diff base
         id: base
@@ -503,12 +609,8 @@ jobs:
           BASE=$(git merge-base "origin/$BASE_REF" HEAD)
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "ref=$BASE_REF" >> "$GITHUB_OUTPUT"
           echo "Diff base: $BASE (origin/$BASE_REF)"
-          {
-            echo "diff_stat<<DIFFEOF"
-            git --no-pager diff "$BASE"...HEAD --stat=1000
-            echo "DIFFEOF"
-          } >> "$GITHUB_OUTPUT"
 
       # A dispatched run has no PR in its event. Find the ref's open PR so the
       # summary and report can link it; none found just means no link.
@@ -543,8 +645,11 @@ jobs:
         env:
           PR: ${{ github.event.issue.number || steps.pr.outputs.number }}
         run: |
+          RENDERER=.harness/.claude/skills/exploratory-test/renderer
+          # Explore installs these later, but known-issues.mjs imports them now.
+          npm --prefix "$RENDERER" ci --no-audit --no-fund
           OUT="$RUNNER_TEMP/known-issues.json"
-          node .harness/.claude/skills/exploratory-test/renderer/known-issues.mjs --pr "$PR" --out "$OUT" --repo "$GITHUB_REPOSITORY"
+          node "$RENDERER/known-issues.mjs" --pr "$PR" --out "$OUT" --repo "$GITHUB_REPOSITORY"
           echo "file=$OUT" >> "$GITHUB_OUTPUT"
 
       - name: Restore caches
@@ -757,8 +862,8 @@ jobs:
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
           branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
-          diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
+          base-ref: ${{ steps.base.outputs.ref }}
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
@@ -917,10 +1022,13 @@ jobs:
   # Replaces this run's "running" comment with the result and swaps the reaction. A separate job
   # for the same reason as ack. always(): a failed build must still replace
   # "running" with the truth.
+  # A /explore's result, or an auto-run's once ack-auto has said it is running.
   report:
     name: report
-    needs: [membership, worthiness, ack, explore, publish]
-    if: always() && needs.membership.outputs.ok == 'true'
+    needs: [membership, dispatch-ref, worthiness, ack, ack-auto, explore, publish]
+    if: >-
+      ${{ always() && (needs.membership.outputs.ok == 'true' ||
+      (inputs.auto_run_pr != '' && needs.ack-auto.result == 'success')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -942,7 +1050,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v7
         with:
-          name: exploratory-run-${{ needs.membership.outputs.model }}
+          name: exploratory-run-${{ needs.membership.outputs.model || 'opus' }}
           path: /tmp/run-artifact
 
       # The artifact root is the common parent of what matched, so the run dir
@@ -965,16 +1073,18 @@ jobs:
           mode: comment
           comment-state: result
           focus: ${{ needs.membership.outputs.focus }}
+          auto-run: ${{ inputs.auto_run_pr != '' }}
           # Empty when ack could not post; comment mode then posts a new one.
-          comment-id: ${{ needs.ack.outputs.comment_id }}
-          # A declined run never reaches explore; say so rather than "failed".
-          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outcome }}
-          decline-reason: ${{ needs.worthiness.outputs.reason }}
+          comment-id: ${{ needs.ack.outputs.comment_id || needs.ack-auto.outputs.comment_id }}
+          # A declined run never reaches explore, and an outdated branch stops
+          # before the build; say which rather than "failed".
+          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outdated != '' && 'outdated' || needs.explore.outputs.outcome }}
+          decline-reason: ${{ needs.worthiness.outputs.reason || needs.explore.outputs.outdated }}
           work-dir: ${{ env.WORK_DIR }}
           report-base-url: ${{ needs.publish.outputs.report_base_url }}
-          pr-number: ${{ github.event.issue.number }}
+          pr-number: ${{ github.event.issue.number || inputs.auto_run_pr }}
           github-token: ${{ github.token }}
-          head-sha: ${{ needs.membership.outputs.head_sha }}
+          head-sha: ${{ needs.membership.outputs.head_sha || needs.dispatch-ref.outputs.sha }}
 
       # rocket only when the agent finished on its own, +1 when the gate
       # declined. A partial run (turn cap) and a hard failure both get confused.
@@ -984,7 +1094,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
           REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
-          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outcome }}
+          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outdated != '' && 'outdated' || needs.explore.outputs.outcome }}
         run: |
           gh api --method DELETE \
             "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \

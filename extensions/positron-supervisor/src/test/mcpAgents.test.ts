@@ -7,8 +7,8 @@ import * as assert from 'assert';
 import {
 	MCP_AGENTS,
 	McpFileInstall,
+	McpLaunch,
 	findMcpAgent,
-	mcpLaunch,
 	mergeAgentConfig,
 	mergeTomlConfig,
 	unmergeAgentConfig,
@@ -16,7 +16,7 @@ import {
 } from '../McpAgents';
 
 /** The command line that starts the bridge, as a registration would build it. */
-const LAUNCH = mcpLaunch('/opt/positron/kcserver', '/storage/mcp');
+const LAUNCH: McpLaunch = { command: '/bin/sh', args: ['/storage/mcp/bin/positron-mcp'] };
 
 /** The file install of the row under test, which the table is required to have. */
 function fileInstall(id: string): McpFileInstall {
@@ -33,8 +33,8 @@ suite('mergeAgentConfig', () => {
 			{
 				mcpServers: {
 					positron: {
-						command: '/opt/positron/kcserver',
-						args: ['mcp-stdio', '--connections', '/storage/mcp'],
+						command: '/bin/sh',
+						args: ['/storage/mcp/bin/positron-mcp'],
 					},
 				},
 			});
@@ -48,11 +48,28 @@ suite('mergeAgentConfig', () => {
 			mergeAgentConfig(fileInstall('codex'), undefined, LAUNCH),
 			[
 				'[mcp_servers.positron]',
-				'command = "/opt/positron/kcserver"',
-				'args = ["mcp-stdio", "--connections", "/storage/mcp"]',
+				'command = "/bin/sh"',
+				'args = ["/storage/mcp/bin/positron-mcp"]',
 				'env_vars = ["POSITRON_MCP_URL", "POSITRON_MCP_TOKEN"]',
 				'',
 			].join('\n'));
+	});
+
+	test('writes OpenCode an entry under mcp, and takes it out again', () => {
+		const existing = JSON.stringify({ mcp: { other: { type: 'remote' } } });
+		const merged = mergeAgentConfig(fileInstall('opencode'), existing, LAUNCH);
+
+		assert.deepStrictEqual(
+			[JSON.parse(merged), JSON.parse(unmergeAgentConfig(fileInstall('opencode'), merged))],
+			[
+				{
+					mcp: {
+						other: { type: 'remote' },
+						positron: { type: 'local', command: ['/bin/sh', '/storage/mcp/bin/positron-mcp'] },
+					},
+				},
+				JSON.parse(existing),
+			]);
 	});
 
 	test('preserves the other servers and settings already in a JSON file', () => {
@@ -83,6 +100,9 @@ suite('mergeAgentConfig', () => {
 				['claude-code', true, 'cli'],
 				['codex', true, 'file'],
 				['gemini', true, 'file'],
+				['kiro', true, 'file'],
+				['opencode', true, 'file'],
+				['copilot', true, 'file'],
 			]);
 	});
 });

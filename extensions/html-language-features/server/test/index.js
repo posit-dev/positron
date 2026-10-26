@@ -11,7 +11,16 @@ import { PassThrough } from 'node:stream';
 import glob from 'glob';
 
 const testRoot = import.meta.dirname;
-const files = glob.sync(path.posix.join(testRoot, '../out/test/**/*.test.js'));
+// --- Start Positron ---
+// Glob relative to testRoot: on Windows testRoot has backslashes, which glob
+// reads as escapes, so joining it into the pattern matched no files and the
+// suite passed with 0 tests.
+// const files = glob.sync(path.posix.join(testRoot, '../out/test/**/*.test.js'));
+const files = glob.sync('../out/test/**/*.test.js', { cwd: testRoot }).map(file => path.join(testRoot, file));
+if (files.length === 0) {
+	throw new Error(`No test files matched under ${testRoot}`);
+}
+// --- End Positron ---
 
 const stream = run({
 	files,

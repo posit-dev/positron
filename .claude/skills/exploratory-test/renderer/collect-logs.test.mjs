@@ -13,14 +13,14 @@ import { fileURLToPath } from 'node:url';
 
 const script = fileURLToPath(new URL('./collect-logs.sh', import.meta.url));
 
-function fixture({ logsPath = true, consoles = ['Python 3.12.1 Console.log'] } = {}) {
+function fixture({ logsPath = true, kernels = ['Python 3.12.1 Kernel.log'] } = {}) {
 	const dir = mkdtempSync(join(tmpdir(), 'collect-logs-'));
 	const tree = join(dir, 'state/20260924T100000');
 	const sup = join(tree, 'window1/exthost/positron.positron-supervisor');
 	mkdirSync(sup, { recursive: true });
 	writeFileSync(join(tree, 'window1/renderer.log'), '[info] a\n[error] b\n[error] c\n');
 	writeFileSync(join(tree, 'window1/exthost/exthost.log'), '[info] ok\n');
-	for (const c of consoles) { writeFileSync(join(sup, c), `${c}\n`); }
+	for (const k of kernels) { writeFileSync(join(sup, k), `${k}\n`); }
 	const logFile = join(dir, 'code.log');
 	writeFileSync(logFile, logsPath ? `[info] start\n  logsPath: '${tree}',\n` : '[info] start\n');
 	const cli = join(dir, 'cli');
@@ -36,19 +36,19 @@ test('copies the tree and each log, and counts errors in each', () => {
 	assert.equal(r.status, 0, r.stderr);
 	assert.ok(existsSync(join(logs, 'all/9222/window1/renderer.log')));
 	assert.equal(readFileSync(join(logs, '9222-console.log'), 'utf8'), '[ERROR] uncaught -s=s1\n');
-	assert.ok(existsSync(join(logs, '9222-python-console.log')));
+	assert.ok(existsSync(join(logs, '9222-python-kernel.log')));
 	assert.match(r.stdout, /^logs\/9222-renderer\.log \| 2 \[error\] lines$/m);
 	assert.match(r.stdout, /^logs\/9222-exthost\.log \| 0 \[error\] lines$/m);
 	assert.match(r.stdout, /^logs\/9222-console\.log \| 1 \[error\] lines$/m);
 	assert.match(r.stdout, /^logs\/all\/9222\/ \| full tree$/m);
 });
 
-test('two consoles for one language keep their versions', () => {
-	const { r, logs } = fixture({ consoles: ['R 4.4.1 Console.log', 'R 4.5.0 Console.log', 'Python 3.12.1 Console.log'] });
+test('two kernels for one language keep their versions', () => {
+	const { r, logs } = fixture({ kernels: ['R 4.4.1 Kernel.log', 'R 4.5.0 Kernel.log', 'Python 3.12.1 Kernel.log'] });
 	assert.equal(r.status, 0, r.stderr);
-	assert.ok(existsSync(join(logs, '9222-r-4.4.1-console.log')));
-	assert.ok(existsSync(join(logs, '9222-r-4.5.0-console.log')));
-	assert.ok(existsSync(join(logs, '9222-python-console.log')));
+	assert.ok(existsSync(join(logs, '9222-r-4.4.1-kernel.log')));
+	assert.ok(existsSync(join(logs, '9222-r-4.5.0-kernel.log')));
+	assert.ok(existsSync(join(logs, '9222-python-kernel.log')));
 });
 
 test('fails loudly without a logsPath: line', () => {

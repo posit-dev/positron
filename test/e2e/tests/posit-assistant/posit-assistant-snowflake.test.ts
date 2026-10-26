@@ -11,6 +11,7 @@ test.use({
 	suiteId: __filename,
 });
 
+
 // Snowflake Cortex advertises a single sign-in method everywhere -- an API key (a
 // Snowflake programmatic access token) plus the bare account identifier, from which the
 // extension derives the Cortex URL (#13750). So there is no auth-method radio group to
@@ -25,10 +26,9 @@ test.use({
 
 // Pins the reply to a single known word so the response assertion can check for it,
 // matching the Workbench Snowflake test. This matters more here than for the other
-// desktop providers: Snowflake has no lightweight key-validation endpoint, so
-// validateSnowflakeApiKey only checks the account's *format* and Connect succeeds even
-// with a bad token. The first real credential check is this message, and a length-only
-// assertion would pass on the error text that a rejected token renders.
+// desktop providers: Snowflake has no lightweight key-validation endpoint, so Connect
+// can succeed even with a bad token. The first real credential check is this message,
+// and a length-only assertion would pass on the error text that a rejected token renders.
 const HELLO_PROMPT = 'Reply with only the word hello.';
 
 // WIN covers the Windows lane and, because the e2e-macOS-ci project greps /@:win/, the
@@ -38,6 +38,10 @@ const HELLO_PROMPT = 'Reply with only the word hello.';
 test.describe('Posit Assistant - Snowflake Cortex API Key', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
+	test.beforeAll(async function ({ app, settings }) {
+		await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+	});
+
 	test('Sign in with an API key, send hello, sign out', async function ({ app }) {
 		test.skip(!process.env.SNOWFLAKE_API_KEY || !process.env.SNOWFLAKE_ACCOUNT,
 			'Snowflake Cortex sign-in requires SNOWFLAKE_ACCOUNT and SNOWFLAKE_API_KEY');
@@ -46,7 +50,7 @@ test.describe('Posit Assistant - Snowflake Cortex API Key', {
 		// provider's env var names. SNOWFLAKE_ACCOUNT is already present on the Linux
 		// lanes for the data-connections Snowflake suite; both are exported on the
 		// Windows and macOS lanes for this test.
-		await app.workbench.modelProviderModal.loginModelProvider(provider);
+		await app.workbench.providerManager.loginModelProvider(provider);
 
 		try {
 			await app.workbench.positAssistant.open();
@@ -64,7 +68,7 @@ test.describe('Posit Assistant - Snowflake Cortex API Key', {
 			const responseText = await app.workbench.positAssistant.getLastResponseText();
 			test.expect(responseText).toMatch(/hello/i);
 		} finally {
-			await app.workbench.modelProviderModal.logoutModelProvider(provider);
+			await app.workbench.providerManager.logoutModelProvider(provider);
 		}
 	});
 });

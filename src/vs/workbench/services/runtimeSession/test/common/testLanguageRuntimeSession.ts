@@ -8,7 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, LanguageRuntimeSessionChannel, RuntimeClientType } from '../../common/runtimeSessionService.js';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, ILanguageRuntimeResourceUsage, ILanguageRuntimeSessionState, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, ILanguageRuntimeResourceUsage, ILanguageRuntimeSessionState, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeClientEvent } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { TestRuntimeClientInstance } from '../../../languageRuntime/test/common/testRuntimeClientInstance.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
@@ -125,6 +125,13 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		this.dynState.sessionName = sessionName;
 	}
 
+	/** The URIs passed to each `updateNotebookUri` call, in order. */
+	readonly notebookUriUpdates: { notebookUri: string; quartoNotebookUri: string | undefined }[] = [];
+
+	updateNotebookUri(notebookUri: URI, quartoNotebookUri: URI | undefined): void {
+		this.notebookUriUpdates.push({ notebookUri: notebookUri.toString(), quartoNotebookUri: quartoNotebookUri?.toString() });
+	}
+
 	getRuntimeState(): RuntimeState {
 		return this._currentState;
 	}
@@ -205,6 +212,16 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		if (type === RuntimeClientType.Ui) {
 			this._uiClient = client as TestUiClientInstance;
 		}
+		this.receiveClientCreatedMessage(client, {
+			data: params as Record<string, unknown>,
+			metadata: metadata as Record<string, unknown> | undefined,
+			buffers: buffers ?? [],
+		});
+		return client;
+	}
+
+	/** Announces a client whose RPC handler and originating execution can be set before listeners run. */
+	receiveClientCreatedMessage(client: TestRuntimeClientInstance, message: Partial<ILanguageRuntimeMessageCommOpen> = {}): void {
 		this._register(client);
 		this._clients.set(client.getClientId(), client);
 		this._onDidCreateClientInstance.fire(
@@ -213,18 +230,17 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 				message: {
 					id: generateUuid(),
 					comm_id: client.getClientId(),
-					target_name: type,
-					data: params as Record<string, unknown>,
-					metadata: metadata as Record<string, unknown> | undefined,
+					target_name: client.getClientType(),
+					data: {},
 					event_clock: 0,
 					parent_id: '',
 					type: LanguageRuntimeMessageType.CommOpen,
 					when: new Date().toISOString(),
-					buffers: buffers ?? [],
+					buffers: [],
+					...message,
 				}
 			}
 		);
-		return client;
 	}
 
 	async listClients(type?: RuntimeClientType): Promise<Array<TestRuntimeClientInstance>> {

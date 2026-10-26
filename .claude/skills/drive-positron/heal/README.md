@@ -1,0 +1,47 @@
+# heal/: the nightly self-heal
+
+`.github/workflows/drive-positron-nightly.yml` runs these, in order, sharing one build:
+
+1. `test/smoke.ts --results` (the full suite)
+2. `rerun.ts`: reruns smoke once per group with a failure, `--until` its last failed case; a case
+   that failed both times becomes a finding in `findings/`. One that passed is replayed once more
+   with `--from-start`: failing there makes it a finding that needs earlier sections' state,
+   passing makes it a flake
+3. `recent.ts`: fetches the past week's findings into `recent/<run id>/`, for the finder's area pick
+   and the earlier verdicts in each fixer brief (and the earlier nights that fixed a finding that
+   came back, `fixedBefore`)
+4. `leads.ts`: reads the helper failures from the past week's exploratory runs (`test-exploratory.yml`
+   artifacts' `actions.log`) into `leads.json`, grouped by helper and error, with what the agent
+   did next. Those runs reach the features PRs change, which smoke and the areas do not
+5. `finder.ts`: one agent session reproduces the top leads and writes findings. It runs only when
+   there are leads, so it goes quiet as the helpers stop failing real runs. Exploring one area
+   (`areas.json`) as well is opt-in (the `explore` input of a manual run), for a new helper; a
+   finding from it may fix a helper but not add a flag or command
+6. `fix-loop.ts`: one fixer session per finding (at most 5). A fix that changes a helper must add a
+   smoke case; a read-only reviewer (`reviewer.md`, Sonnet) checks the diff and may send it back
+   to the fixer once. Each fix is then committed, then `check.ts`
+   and smoke decide whether it stays: only the sections whose cases run a helper the change can
+   reach (`affected.ts`), each on its own launch, or the full suite when the change is shared
+   (`dp-lib.ts`, `selectors.ts`, `test/`, ...; a `selectors.ts` change that only adds entries
+   reaches the scripts that use them) or the sections would take as long. A fix also
+   resolves the findings it cascades to. A regression in a section the check skipped shows up in
+   the next night's full run. `check.ts` runs once before the first session, and a fix is
+   rejected only for a check that passed then. No session starts once `--budget-minutes` (what
+   the job timeout leaves) are spent. A fix that changes `test/` or `heal/` leads the report
+   under "Checks changed"
+7. `report.ts`: the step summary, the PR body and the Slack message. Each leads with a headline and
+   a "To do" line, then one block per finding: the fixer's plain `broke`, `cause` and `change`
+   (falling back to the helper's error), what was checked, and the evidence folded away
+
+The workflow's `publish` job updates one rolling PR and requests review from `REVIEWERS` when it
+opens it (live, the default), or pushes a candidate branch per night (burn-in); nothing is ever
+merged. The rolling PR keeps the fixes earlier nights put in it until it is merged, even when a
+night does not find those bugs again: a rebuild onto main (when no one has touched the PR) carries
+its diff over, and keeps the branch as it is if that diff no longer applies.
+`vars.DRIVE_POSITRON_HEAL_PHASE` overrides the phase. The Slack DM goes to
+`vars.DRIVE_POSITRON_SLACK_CHANNEL` either way.
+
+Each stage reads and writes JSON in one directory (`--dir`, `/tmp/heal` by default), so any stage can
+be run alone from the repo root against a copy of a night's artifact. The agent stages need
+`ANTHROPIC_API_KEY` and `--runner .github/actions/pr-exploratory-test/session-cli.mjs` (run
+`npm ci` in that directory first).

@@ -543,6 +543,24 @@ class AskForPasswordParams(BaseModel):
     )
 
 
+class SelectFileParams(BaseModel):
+    """
+    Ask the user to select a file
+    """
+
+    title: StrictStr = Field(
+        description="The title of the file dialog",
+    )
+
+    existing: StrictBool = Field(
+        description="Whether the file must already exist. If false, the user may also enter the name of a new file.",
+    )
+
+    default_dir: Optional[StrictStr] = Field(
+        description="The directory the file dialog starts in. If omitted, defaults to the session's working directory.",
+    )
+
+
 class PromptStateParams(BaseModel):
     """
     New state of the primary and secondary prompts
@@ -657,6 +675,16 @@ class ModifyEditorSelectionsParams(BaseModel):
     )
 
 
+class LastActiveEditorContextParams(BaseModel):
+    """
+    Context metadata for the last editor
+    """
+
+    allow_console: Optional[StrictBool] = Field(
+        description="Whether the calling session's console input may be returned when it was the last editor focused. Set to false to return only editors in the editor area. If omitted, defaults to true.",
+    )
+
+
 class ShowUrlParams(BaseModel):
     """
     Show a URL in Positron's Viewer pane
@@ -749,6 +777,8 @@ ShowPromptParams.update_forward_refs()
 
 AskForPasswordParams.update_forward_refs()
 
+SelectFileParams.update_forward_refs()
+
 PromptStateParams.update_forward_refs()
 
 WorkingDirectoryParams.update_forward_refs()
@@ -766,6 +796,8 @@ OpenWorkspaceParams.update_forward_refs()
 SetEditorSelectionsParams.update_forward_refs()
 
 ModifyEditorSelectionsParams.update_forward_refs()
+
+LastActiveEditorContextParams.update_forward_refs()
 
 ShowUrlParams.update_forward_refs()
 

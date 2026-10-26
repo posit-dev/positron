@@ -73,6 +73,12 @@ RUN PATH=/usr/bin:/bin:$PATH zypper --non-interactive refresh && \
     PATH=/usr/bin:/bin:$PATH zypper clean -a && \
     rm -f /tmp/zypper_packages.txt
 
+# SUSE's secure_path omits /usr/local/bin, so `sudo <tool>` cannot find anything
+# installed there (tailscaled, quarto, rig)
+RUN echo 'Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"' > /etc/sudoers.d/zz-positron-local-bin && \
+    chmod 0440 /etc/sudoers.d/zz-positron-local-bin && \
+    visudo -c -f /etc/sudoers.d/zz-positron-local-bin
+
 # Install AWS CLI v2
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -o "/tmp/awscliv2.zip" && \
     unzip /tmp/awscliv2.zip -d /tmp && \
@@ -139,6 +145,9 @@ RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/lat
     bash Miniforge3.sh -b -p "/opt/conda" && rm Miniforge3.sh && \
     echo "source \"/opt/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
 
+# Pin base Python so its label never matches the primary or alt selectors
+RUN /opt/conda/bin/conda install -y -n base python=3.13.16 && /opt/conda/bin/conda clean -afy
+
 RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda init bash"
 
 # Rig and R
@@ -146,9 +155,9 @@ RUN curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-${R
 
 # Install R directly from Posit's openSUSE repository (zypper is broken in container)
 # Use rpm directly to avoid zypper/repo2solv issues
-RUN curl -o /tmp/R-4.5.2.rpm https://cdn.posit.co/r/opensuse-156/pkgs/R-4.5.2-1-1.${CPU_ARCH}.rpm && \
-    rpm -ivh /tmp/R-4.5.2.rpm && \
-    rm /tmp/R-4.5.2.rpm
+RUN curl -o /tmp/R-4.6.1.rpm https://cdn.posit.co/r/opensuse-156/pkgs/R-4.6.1-1-1.${CPU_ARCH}.rpm && \
+    rpm -ivh /tmp/R-4.6.1.rpm && \
+    rm /tmp/R-4.6.1.rpm
 
 RUN curl -o /tmp/R-4.4.3.rpm https://cdn.posit.co/r/opensuse-156/pkgs/R-4.4.3-1-1.${CPU_ARCH}.rpm && \
     rpm -ivh /tmp/R-4.4.3.rpm && \
@@ -156,7 +165,7 @@ RUN curl -o /tmp/R-4.4.3.rpm https://cdn.posit.co/r/opensuse-156/pkgs/R-4.4.3-1-
 
 # Set rig default and add pak
 RUN rig system make-links && \
-    rig default 4.5.2 && \
+    rig default 4.6.1 && \
     rig system add-pak
 
 # Configure R to use GCC 13 (Arrow needs modern C++ compiler with C++20 support)
@@ -216,17 +225,22 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 # Add uv to PATH before first use
 ENV PATH="/root/.local/bin:$PATH"
 
-# Create a uv-managed Python 3.10.12 venv and bootstrap pip
-RUN uv venv --python=3.10.12 /root/.venv && \
+# Create a uv-managed Python 3.14.7 venv and bootstrap pip
+RUN uv venv --python=3.14.7 /root/.venv && \
     curl -sS https://bootstrap.pypa.io/get-pip.py | /root/.venv/bin/python
 
-# Install the e2e test-content Python deps into that Python 3.10.12 env
+# Install the e2e test-content Python deps into that Python 3.14.7 env
 RUN curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/requirements.txt && \
     uv pip install --python /root/.venv/bin/python --break-system-packages -r requirements.txt && \
     /root/.venv/bin/python -m pip list
 
 # Ensure uv-managed Python is default
 ENV PATH="/root/.venv/bin:/root/.local/bin:$PATH"
+
+# reticulate 1.47 pops __main__.__annotations__, which Python 3.14 no longer
+# sets, so it must bind a 3.13 (rstudio/reticulate#1930); return to the venv
+# once a released reticulate carries that fix
+ENV RETICULATE_PYTHON=/root/.pyenv/versions/3.13.0/bin/python
 
 # Configure R for root user - using openSUSE repository
 RUN echo -e 'options(\n  repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/opensuse156/latest"),\n  HTTPUserAgent = sprintf("R/%s (opensuse-leap-156)", getRversion())\n)' > ~/.Rprofile
@@ -253,8 +267,8 @@ RUN mkdir -p "$R_LIBS_SITE" && chmod -R 755 "$R_LIBS_SITE"
 # Ensure rig's R is on PATH at runtime
 ENV PATH="/root/.rig/bin:${PATH}"
 
-# Pin R 4.5.2 and install pak to the site library
-RUN rig default 4.5.2 && \
+# Pin R 4.6.1 and install pak to the site library
+RUN rig default 4.6.1 && \
     Rscript -e "install.packages('pak', repos=Sys.getenv('RSPM'), lib=Sys.getenv('R_LIBS_SITE'))"
 
 # Install the project dev deps to the same site library
@@ -281,7 +295,9 @@ RUN export PATH="$HOME/.pyenv/bin:$PATH" && \
     eval "$(pyenv virtualenv-init -)" && \
     pyenv install 3.13.0 && \
     pyenv global 3.13.0 && \
-    python -m pip install --upgrade pip ipykernel && \
+    # same e2e deps as the venv: reticulate sessions run here while 3.14 is unsupported
+    curl -sSO https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/requirements.txt && \
+    python -m pip install --upgrade pip ipykernel -r requirements.txt && \
     pyenv global system
 
 # Hidden Python

@@ -304,12 +304,27 @@ export async function hideDebugStatusBar(page: Page): Promise<void> {
 }
 
 /**
+ * Hide the "Hello" status bar item from the `vscode-api-tests` extension.
+ * Builds from source load every folder under `extensions/`, including this
+ * upstream API-test fixture; release builds exclude it. Hiding it keeps
+ * local and `build_from_source` captures identical to release-build ones.
+ */
+export async function hideApiTestsStatusBar(page: Page): Promise<void> {
+	const items = page.locator('.statusbar-item').filter({ has: page.locator('[aria-label="Hello World"]') });
+	const count = await items.count();
+	for (let i = 0; i < count; i++) {
+		await items.nth(i).evaluate((el: HTMLElement) => { el.style.display = 'none'; });
+	}
+}
+
+/**
  * Standard pre-screenshot cleanup. Composes the smaller helpers in the order
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
  *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
  *   3. Hide text-insertion caret (blinking cursor causes pixel noise)
  *   4. Hide debug launch-config status bar item (activated by Python sessions)
+ *      and the API-test "Hello" item (present only in builds from source)
  *   5. Unhover (no spurious hover states)
  *   6. Wait for layout to settle (and any in-flight progress bars to clear)
  *   7. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
@@ -325,6 +340,7 @@ export async function prepareForScreenshot(app: Application, page: Page): Promis
 	await hideNotificationBadges(page);
 	await hideCaret(page);
 	await hideDebugStatusBar(page);
+	await hideApiTestsStatusBar(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
 	await overrideRuntimeLabel(page);

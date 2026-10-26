@@ -44,9 +44,12 @@ function getExpectedGlobalEnvPython(): string {
 suite('UV Python Installer Tests', () => {
     let execStub: sinon.SinonStub;
     let traceErrorStub: sinon.SinonStub;
+    let allowUvPythonInstall: boolean | undefined;
 
     setup(() => {
         execStub = sinon.stub(fileUtils, 'exec');
+        allowUvPythonInstall = undefined;
+        sinon.stub(workspaceApis, 'getConfiguration').returns({ get: () => allowUvPythonInstall } as any);
         traceErrorStub = sinon.stub(logging, 'traceError');
         sinon.stub(logging, 'traceVerbose');
     });
@@ -128,6 +131,17 @@ suite('UV Python Installer Tests', () => {
             verify(
                 mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
             ).never();
+        });
+
+        test('Does not install uv when python.allowUvPythonInstall is off, even with consent', async () => {
+            isUvInstalledStub.resolves(false);
+            allowUvPythonInstall = false;
+
+            assert.deepStrictEqual(await ensureUvInstalled(undefined, { consented: true }), {
+                ok: false,
+                error: InterpreterQuickPickList.UvInstall.uvInstallDisabled,
+            });
+            assert.strictEqual(execStub.called, false);
         });
 
         test('Declining the consent prompt exits without an error', async () => {
@@ -660,37 +674,39 @@ suite('UV Python Installer Tests', () => {
             assert.strictEqual(result[1].version, '3.12');
         });
 
-        test('Filters out versions below MINIMUM_PYTHON_VERSION (3.9)', async () => {
+        test('Filters out versions below MINIMUM_PYTHON_VERSION (3.10)', async () => {
             execStub.resolves({
                 stdout: [
                     'cpython-3.13.1-macos-aarch64-none    <download available>',
+                    'cpython-3.10.16-macos-aarch64-none    <download available>',
+                    'cpython-3.9.21-macos-aarch64-none    <download available>',
                     'cpython-3.8.20-macos-aarch64-none    <download available>',
-                    'cpython-3.7.17-macos-aarch64-none    <download available>',
                     'cpython-2.7.18-macos-aarch64-none    <download available>',
                 ].join('\n'),
             });
 
             const result = await getAvailablePythonVersions();
 
-            assert.strictEqual(result.length, 1);
+            assert.strictEqual(result.length, 2);
             assert.strictEqual(result[0].version, '3.13');
+            assert.strictEqual(result[1].version, '3.10');
         });
 
-        test('Filters out versions at or above MAXIMUM_PYTHON_VERSION_EXCLUSIVE (3.15)', async () => {
+        test('Filters out versions at or above MAXIMUM_PYTHON_VERSION_EXCLUSIVE (3.16)', async () => {
             execStub.resolves({
                 stdout: [
+                    'cpython-3.17.0-macos-aarch64-none    <download available>',
                     'cpython-3.16.0-macos-aarch64-none    <download available>',
                     'cpython-3.15.0-macos-aarch64-none    <download available>',
                     'cpython-3.14.1-macos-aarch64-none    <download available>',
-                    'cpython-3.13.1-macos-aarch64-none    <download available>',
                 ].join('\n'),
             });
 
             const result = await getAvailablePythonVersions();
 
             assert.strictEqual(result.length, 2);
-            assert.strictEqual(result[0].version, '3.14');
-            assert.strictEqual(result[1].version, '3.13');
+            assert.strictEqual(result[0].version, '3.15');
+            assert.strictEqual(result[1].version, '3.14');
         });
     });
 

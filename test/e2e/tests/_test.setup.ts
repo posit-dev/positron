@@ -8,7 +8,7 @@ import * as playwright from '@playwright/test';
 const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
-import { join } from 'path';
+import { basename, join } from 'path';
 import * as fs from 'fs';
 
 // Local imports
@@ -69,7 +69,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	// Extra user settings written before the app starts, so no window reload is
 	// needed for them to take effect. Opt in with
-	// `test.use({ extraSettings: { 'assistant.newProviderModal': false } })`.
+	// `test.use({ extraSettings: { 'ai.enabled': false } })`.
 	// Applies to the Docker apps too: they read settings from inside the container,
 	// so a suite cannot set these at runtime (see dockerSettingsOverrides).
 	extraSettings: [{}, { scope: 'worker', option: true }],
@@ -304,6 +304,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			await quickInput.waitForQuickInputOpened();
 			await quickInput.type(filePath);
 			await quickInput.clickOkButton();
+			// The save outlives the dialog; wait for the editor to show the new file.
+			await app.workbench.editors.waitForActiveTab(basename(filePath));
 		});
 	},
 

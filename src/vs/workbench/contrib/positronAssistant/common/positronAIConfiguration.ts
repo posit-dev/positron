@@ -10,12 +10,12 @@ import {
 	IConfigurationRegistry,
 } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { AI_ENABLED_KEY, MCP_ENABLED_KEY, MCP_STATUS_BAR_KEY, NEW_PROVIDER_MODAL_KEY } from './positronAIConfigurationKeys.js';
+import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY, MCP_ENABLED_KEY, MCP_STATUS_BAR_KEY } from './positronAIConfigurationKeys.js';
 
 // Re-exported so existing importers do not have to move. New callers outside
 // the workbench (e.g. the extension host) should import the keys module
 // directly to avoid this file's registerConfiguration side effect.
-export { AI_ENABLED_KEY };
+export { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY };
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
 configurationRegistry.registerConfiguration({
@@ -33,15 +33,6 @@ configurationRegistry.registerConfiguration({
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
-		[NEW_PROVIDER_MODAL_KEY]: {
-			type: 'boolean',
-			default: true,
-			markdownDescription: localize(
-				'positron.assistant.newProviderModal',
-				"Use the Configure LLM Providers modal to connect to language model providers. It groups providers by connection state, so you can see which are connected and which need attention without selecting each one. When disabled, the _Configure Language Model Providers_ command opens the previous dialog."
-			),
-			scope: ConfigurationScope.WINDOW,
-		},
 		[MCP_ENABLED_KEY]: {
 			type: 'boolean',
 			default: false,
@@ -51,6 +42,7 @@ configurationRegistry.registerConfiguration({
 			),
 			scope: ConfigurationScope.WINDOW,
 			tags: ['experimental'],
+			order: 1,
 		},
 		[MCP_STATUS_BAR_KEY]: {
 			type: 'boolean',
@@ -61,6 +53,18 @@ configurationRegistry.registerConfiguration({
 			),
 			scope: ConfigurationScope.WINDOW,
 			tags: ['experimental'],
+			order: 2,
+		},
+		[AGENT_SESSIONS_ENABLED_KEY]: {
+			type: 'boolean',
+			default: false,
+			markdownDescription: localize(
+				'positron.ai.agentSessions.enabled',
+				"Let AI agents work in console sessions of their own. Under active development."
+			),
+			scope: ConfigurationScope.WINDOW,
+			tags: ['experimental'],
+			order: 3,
 		}
 	}
 });

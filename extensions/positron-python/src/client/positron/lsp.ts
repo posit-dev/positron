@@ -116,6 +116,14 @@ export class PythonLsp implements vscode.Disposable {
     /** Disposable for per-activation items */
     private activationDisposables: vscode.Disposable[] = [];
 
+    /**
+     * Listener on the current client's state. Not in `activationDisposables`
+     * because it must see the client's final `Stopped`, which can arrive after
+     * `deactivate()` returns. Disposed when the next activation starts, or by
+     * `dispose()`.
+     */
+    private clientStateListener?: vscode.Disposable;
+
     public constructor(
         private readonly serviceContainer: IServiceContainer,
         private readonly _version: string,
@@ -172,6 +180,23 @@ export class PythonLsp implements vscode.Disposable {
         this.activationDisposables.push(waiting);
     }
 
+    /** Dispose of the registrations made by the current activation. */
+    private disposeActivation(): void {
+        this.activationDisposables.forEach((d) => d.dispose());
+        this.activationDisposables = [];
+    }
+
+    /**
+     * Stop answering for this activation: drop its registrations and give this
+     * session's Quarto cells back to the console client.
+     */
+    private stopServing(): void {
+        this.disposeActivation();
+        if (this._quartoCellsUri) {
+            releaseQuartoCells(quartoCellsKey(this._quartoCellsUri), this._metadata.sessionId);
+        }
+    }
+
     /**
      * Activate the language server; returns a promise that resolves when the LSP is
      * activated.
@@ -184,8 +209,9 @@ export class PythonLsp implements vscode.Disposable {
      */
     public async activate(port: number, host: string): Promise<void> {
         // Clean up disposables from any previous activation
-        this.activationDisposables.forEach((d) => d.dispose());
-        this.activationDisposables = [];
+        this.disposeActivation();
+        this.clientStateListener?.dispose();
+        this.clientStateListener = undefined;
 
         // Define server options for the language server. Connects to `host:port`.
         const serverOptions = async (): Promise<StreamInfo> => {
@@ -329,10 +355,14 @@ export class PythonLsp implements vscode.Disposable {
         // Also set the priorities for completion items and hovers based on Positron LSP server extensions.
         this._clientOptions.middleware = {
             handleDiagnostics(uri, diagnostics, next) {
-                // Only check file URIs because vdocs are files on disk
+                // Only check file URIs because vdocs are files on disk.
+                // Publish an empty set rather than dropping the publish:
+                // the Quarto extension waits for a diagnostics change on
+                // the vdoc and logs a timeout warning if none arrives.
                 if (uri.scheme === 'file') {
                     const baseName = path.basename(uri.fsPath);
                     if (VDOC_PATTERN.test(baseName)) {
+                        next(uri, []);
                         return;
                     }
                 }
@@ -405,12 +435,12 @@ export class PythonLsp implements vscode.Disposable {
         traceInfo(message);
         this._outputChannel.appendLine(message);
 
-        this._client = new LanguageClient(
+        const client = (this._client = new LanguageClient(
             PYTHON_LANGUAGE,
             `Python Language Server (${this._version})`,
             serverOptions,
             this._clientOptions,
-        );
+        ));
 
         // Patch protocol converter to preserve `data` on Hover responses.
         // The Positron LSP server uses data.priority for cross-provider
@@ -441,7 +471,7 @@ export class PythonLsp implements vscode.Disposable {
                         (candidate) => quartoCellsKey(candidate.uri) === quartoCellsUri,
                     );
                     for (const cell of notebook?.getCells() ?? []) {
-                        this._client?.diagnostics?.delete(cell.document.uri);
+                        client.diagnostics?.delete(cell.document.uri);
                     }
                 }),
             );
@@ -450,52 +480,49 @@ export class PythonLsp implements vscode.Disposable {
         const out = new PromiseHandles<void>();
         this._initializing = out.promise;
 
-        this.activationDisposables.push(
-            this._client.onDidChangeState((event) => {
-                const oldState = this._state;
-                // Convert the state to our own enum
-                switch (event.newState) {
-                    case State.Starting:
-                        this._state = LspState.starting;
-                        break;
-                    case State.Running:
-                        if (this._initializing) {
-                            traceInfo(`Python (${this._version}) language client init successful`);
-                            this._initializing = undefined;
-                            out.resolve();
-                        }
-                        if (this._client) {
-                            // Register Positron-specific LSP extension methods
-                            this.registerPositronLspExtensions(this._client);
-                        }
-                        // Claimed at Running, not at construction, so the console keeps
-                        // answering while this server still has no cells.
-                        this._claimOwnQuartoCells();
-                        this._state = LspState.running;
-                        break;
-                    case State.Stopped:
-                        if (this._initializing) {
-                            traceInfo(`Python (${this._version}) language client init failed`);
-                            out.reject('Python LSP client stopped before initialization');
-                        }
-                        // A stopped client cannot serve anything, so the console
-                        // takes the cells back until this client runs again.
-                        if (this._quartoCellsUri) {
-                            releaseQuartoCells(quartoCellsKey(this._quartoCellsUri), this._metadata.sessionId);
-                        }
-                        this._state = LspState.stopped;
-                        break;
-                    default:
-                        traceError(`Unexpected language client state: ${event.newState}`);
-                        out.reject('Unexpected language client state');
-                }
-                traceInfo(`Python (${this._version}) language client state changed ${oldState} => ${this._state}`);
-            }),
-        );
+        this.clientStateListener = client.onDidChangeState((event) => {
+            const oldState = this._state;
+            // Convert the state to our own enum
+            switch (event.newState) {
+                case State.Starting:
+                    this._state = LspState.starting;
+                    break;
+                case State.Running:
+                    // `this._initializing` belongs to this client, because this
+                    // listener lives for exactly one activation.
+                    if (this._initializing) {
+                        traceInfo(`Python (${this._version}) language client init successful`);
+                        this._initializing = undefined;
+                        out.resolve();
+                    }
+                    // Register Positron-specific LSP extension methods
+                    this.registerPositronLspExtensions(client);
+                    // Claimed at Running, not at construction, so the console keeps
+                    // answering while this server still has no cells.
+                    this._claimOwnQuartoCells();
+                    this._state = LspState.running;
+                    break;
+                case State.Stopped:
+                    if (this._initializing) {
+                        traceInfo(`Python (${this._version}) language client init failed`);
+                        out.reject('Python LSP client stopped before initialization');
+                    }
+                    // A stopped client cannot serve anything: the console takes the
+                    // cells back, and this activation's providers stop answering,
+                    // until the next `activate()` creates a new client.
+                    this.stopServing();
+                    this._state = LspState.stopped;
+                    break;
+                default:
+                    traceError(`Unexpected language client state: ${event.newState}`);
+                    out.reject('Unexpected language client state');
+            }
+            traceInfo(`Python (${this._version}) language client state changed ${oldState} => ${this._state}`);
+        });
 
-        this.activationDisposables.push(new ProgressReporting(this._client));
+        this.activationDisposables.push(new ProgressReporting(client));
 
-        this._client.start();
+        client.start();
         await out.promise;
     }
 
@@ -505,6 +532,10 @@ export class PythonLsp implements vscode.Disposable {
      * @returns A promise that resolves when the client has been stopped.
      */
     public async deactivate(): Promise<void> {
+        // Stop answering for this activation now, not when the client finally
+        // reaches `Stopped` (which does the same).
+        this.stopServing();
+
         if (!this._client) {
             // No client to stop, so just resolve
             this._outputChannel.appendLine('No client to stop');
@@ -521,7 +552,15 @@ export class PythonLsp implements vscode.Disposable {
         // `stop()` should not be called on a
         // partially initialized client.
         this._outputChannel.appendLine('Waiting for client to initialize before stopping');
-        await this._initializing;
+        try {
+            await this._initializing;
+        } finally {
+            // A client that reached `Running` while we waited registered a fresh
+            // set of providers and claimed its cells; drop those too. This runs
+            // after the state listener has finished, because the await resumes
+            // in a later microtask.
+            this.stopServing();
+        }
 
         // Suppress the "Connection to server got closed" toast that
         // vscode-languageclient force-shows when the connection close races
@@ -616,11 +655,12 @@ export class PythonLsp implements vscode.Disposable {
      * Dispose of the client instance.
      */
     async dispose(): Promise<void> {
-        if (this._quartoCellsUri) {
-            releaseQuartoCells(quartoCellsKey(this._quartoCellsUri), this._metadata.sessionId);
+        try {
+            await this.deactivate();
+        } finally {
+            this.clientStateListener?.dispose();
+            this.clientStateListener = undefined;
         }
-        this.activationDisposables.forEach((d) => d.dispose());
-        await this.deactivate();
     }
 
     /**

@@ -18,6 +18,8 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IObservable, ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { IViewsService } from '../../views/common/viewsService.js';
+import { IViewDescriptorService } from '../../../common/views.js';
+import { openViewPreservingActiveTab } from '../../views/browser/positronViews.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -47,14 +49,14 @@ import { ActivityItemInput, ActivityItemInputState } from './classes/activityIte
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
 import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR, RUNTIME_EXECUTION_CANCELLED_ERROR, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionStartReason, RuntimeStartMode, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, isCompletenessVerified } from '../common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, isCompletenessVerified, isUserInitiated } from '../common/positronConsoleCodeExecution.js';
 import { fragmentCodeLocation, ICodeLocation } from '../common/codeLocation.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/fontInfo.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -73,6 +75,11 @@ const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
  * The trace output max length.
  */
 const TRACE_OUTPUT_MAX_LENGTH = 1000;
+
+/**
+ * The number of completed `preserveActiveTab` execution IDs to remember.
+ */
+const MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS = 100;
 
 /**
  * The prefix for execution IDs affiliated with the Positron Console
@@ -107,6 +114,37 @@ const describeExecutionAttribution = (
 		return agentName;
 	}
 	return localize('positron.console.externalAgent', "External agent");
+};
+
+/**
+ * Gets why a console is being started to run code when no console for the
+ * code's language is running.
+ *
+ * @param attribution Where the code came from.
+ * @returns The start reason.
+ */
+const getCodeStartReason = (attribution: IConsoleCodeAttribution): IRuntimeSessionStartReason => {
+	// Code from an extension carries the extension's ID. Code a kernel sent
+	// through an extension also carries the kernel's session ID, and the
+	// extension only relayed it.
+	const extensionId = attribution.metadata?.callerSessionId === undefined ?
+		attribution.metadata?.extensionId : undefined;
+	if (typeof extensionId === 'string') {
+		return { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: extensionId };
+	}
+	switch (attribution.source) {
+		case CodeAttributionSource.Interactive:
+		case CodeAttributionSource.Script:
+			return { id: SessionStartReasonId.UserRanCodeWithoutSession };
+		case CodeAttributionSource.Assistant:
+			// Chat code the user chose to run, such as with a code block's Run in
+			// Console button, was run by the user, not by AI chat.
+			return isUserInitiated(attribution) ?
+				{ id: SessionStartReasonId.UserRanCodeWithoutSession } :
+				{ id: SessionStartReasonId.AiChatCodeExecutedWithoutSession };
+		default:
+			return { id: SessionStartReasonId.CodeExecutedWithoutSession };
+	}
 };
 
 /**
@@ -447,6 +485,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param _storageService The storage service.
 	 * @param _viewsService The views service.
 	 * @param _notificationService The notification service.
+	 * @param _viewDescriptorService The view descriptor service.
 	 */
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -457,7 +496,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IViewsService private readonly _viewsService: IViewsService,
-		@INotificationService private readonly _notificationService: INotificationService
+		@INotificationService private readonly _notificationService: INotificationService,
+		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService
 	) {
 		// Call the disposable constructor.
 		super();
@@ -771,6 +811,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID that can be used to identify the execution
 	 *   (e.g. for tracking execution history). If not provided, one will be assigned.
+	 * @param executionMetadata Optional metadata to pass to the language runtime.
+	 * @param preserveActiveTab Whether to avoid switching the active tab when revealing the
+	 *   Console (and Plots, for plots this execution produces). Ignored when `focus` is true.
 	 * @returns The session ID that will be used to execute the code.
 	 */
 	async executeCode(languageId: string,
@@ -783,10 +826,17 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string,
 		_documentUri?: URI,
-		executionMetadata?: Record<string, unknown>): Promise<string> {
+		executionMetadata?: Record<string, unknown>,
+		preserveActiveTab?: boolean): Promise<string> {
 		// When code is executed in the console service, open the console view. This opens
 		// the relevant pane composite if needed.
-		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+		preserveActiveTab = preserveActiveTab && !focus;
+		if (preserveActiveTab) {
+			executionId ??= generateUuid();
+			await openViewPreservingActiveTab(POSITRON_CONSOLE_VIEW_ID, this._viewsService, this._viewDescriptorService);
+		} else {
+			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+		}
 
 		let positronConsoleInstance: PositronConsoleInstance | undefined;
 
@@ -855,8 +905,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					languageRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // No notebook URI (console sesion)
-					`User executed code in language ${languageId}, and no running runtime session was found ` +
-					`for the language.`,
+					getCodeStartReason(attribution),
 					RuntimeStartMode.Starting,
 					true
 				);
@@ -892,8 +941,13 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}
 
 		// Enqueue the code in the Positron console instance.
-		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId, executionMetadata);
+		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId, executionMetadata, preserveActiveTab);
 		return Promise.resolve(positronConsoleInstance.sessionId);
+	}
+
+	shouldPreserveActiveTab(executionId: string): boolean {
+		return Array.from(this._positronConsoleInstancesBySessionId.values())
+			.some(instance => instance.shouldPreserveActiveTab(executionId));
 	}
 
 	/**
@@ -1257,6 +1311,16 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * in the console.
 	 */
 	private _externalExecutionIds: Set<string> = new Set<string>();
+
+	/**
+	 * Pending and running executions must not compete with the bounded completed history.
+	 */
+	private readonly _pendingPreserveActiveTabExecutionIds = new Set<string>();
+
+	/**
+	 * The most recent completed executions started with `preserveActiveTab`, oldest first.
+	 */
+	private readonly _preserveActiveTabExecutionIds = new Set<string>();
 
 	/**
 	 * Labels naming who ran an external execution, keyed by execution ID. Set
@@ -2113,6 +2177,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	}
 
 	/**
+	 * Whether an execution was started with `preserveActiveTab`.
+	 * @param executionId The execution ID.
+	 */
+	shouldPreserveActiveTab(executionId: string): boolean {
+		return this._pendingPreserveActiveTabExecutionIds.has(executionId) || this._preserveActiveTabExecutionIds.has(executionId);
+	}
+
+	/**
 	 * Enqueues code.
 	 * @param code The code to enqueue.
 	 * @param attribution Attribution naming the origin of the code.
@@ -2122,6 +2194,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID that can be used to identify the execution
 	 *   (e.g. for tracking execution history). If not provided, one will be assigned.
+	 * @param executionMetadata Optional metadata to pass to the language runtime.
+	 * @param preserveActiveTab Whether plots from this execution, including from each
+	 *   statement it's split into, should avoid switching the active tab. Requires `executionId`.
 	 */
 	async enqueueCode(code: string,
 		attribution: IConsoleCodeAttribution,
@@ -2129,7 +2204,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string,
-		executionMetadata?: Record<string, unknown>) {
+		executionMetadata?: Record<string, unknown>,
+		preserveActiveTab?: boolean) {
 		// Normalize line endings so the boundary provider's line-by-line parse
 		// (and the local split) see clean LF input, not a CRLF editor's carriage
 		// returns. The runtime's parser normalizes source the same way.
@@ -2139,6 +2215,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// external execution IDs.
 		if (executionId) {
 			this._externalExecutionIds.add(executionId);
+			if (preserveActiveTab) {
+				this.rememberPreserveActiveTabExecution(executionId);
+			}
 		}
 
 		// Whether the code's completeness has already been verified by the caller
@@ -2313,7 +2392,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 							effectiveMode,
 							errorBehavior ?? RuntimeErrorBehavior.Continue,
 							pendingExecutionId,
-							executionMetadata
+							executionMetadata,
+							preserveActiveTab
 						);
 						return true;
 					}
@@ -2415,6 +2495,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// drain code that was queued (e.g. from a racing editor or extension
 			// run) while this check was in flight. Drain it now.
 			if (!dispatched) {
+				if (executionId) {
+					this._pendingPreserveActiveTabExecutionIds.delete(executionId);
+				}
 				this.drainPendingInputIfIdle();
 			}
 		}
@@ -2823,6 +2906,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * @param errorBehavior The error behavior.
 	 * @param executionId The execution ID for the first fragment, if any.
 	 * @param executionMetadata Metadata to associate with the executions.
+	 * @param preserveActiveTab Whether the fragments' executions preserve the active tab.
 	 */
 	private executeVerifiedFragments(
 		fragments: IInputBoundaryFragment[],
@@ -2830,7 +2914,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior,
 		executionId: string | undefined,
-		executionMetadata: Record<string, unknown> | undefined
+		executionMetadata: Record<string, unknown> | undefined,
+		preserveActiveTab?: boolean
 	): void {
 		const [first, ...rest] = fragments;
 		void this.doExecuteCode(
@@ -2842,10 +2927,15 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			executionMetadata
 		);
 		for (const fragment of rest) {
+			let fragmentExecutionId: string | undefined;
+			if (preserveActiveTab) {
+				fragmentExecutionId = `${POSITRON_CONSOLE_EXEC_PREFIX}-${generateUuid()}`;
+				this.rememberPreserveActiveTabExecution(fragmentExecutionId);
+			}
 			this.addPendingInput(
 				fragment.code,
 				this.attributeFragment(attribution, fragment),
-				undefined,
+				fragmentExecutionId,
 				mode,
 				errorBehavior,
 				executionMetadata,
@@ -3024,6 +3114,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			}
 			this._externalExecutionIds.delete(id);
 			this._externalExecutionLabels.delete(id);
+			this._pendingPreserveActiveTabExecutionIds.delete(id);
 		}
 		if (discarded.length > 0) {
 			this._onDidChangeRuntimeItemsEmitter.fire();
@@ -3694,6 +3785,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 						// This external execution ID has completed, so we can remove it.
 						this._externalExecutionIds.delete(languageRuntimeMessageState.parent_id);
 						this._externalExecutionLabels.delete(languageRuntimeMessageState.parent_id);
+						this.completePreserveActiveTabExecution(languageRuntimeMessageState.parent_id);
 						// Safeguard: when returning to Ready after a console
 						// execution, ensure all previous items that were marked
 						// as executing are marked as completed so that the
@@ -3898,6 +3990,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// command causes the runtime to crash).
 			this.clearExecutingActivityInputs();
 
+			// Queued code survives reconnects; only retire executions no longer in that queue.
+			const queuedIds = new Set(this._pendingCodeQueue.map(item => item.executionId));
+			for (const id of this._pendingPreserveActiveTabExecutionIds) {
+				if (!queuedIds.has(id)) {
+					this.completePreserveActiveTabExecution(id);
+				}
+			}
+
 			// A dying kernel can flush buffered output after its exit notification.
 			// Clear these IDs so late output is appended at the tail instead of
 			// mutating the old rendered item in console history.
@@ -4008,6 +4108,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 */
 	private clearPendingInput() {
 		// Clear the pending code queue.
+		for (const item of this._pendingCodeQueue) {
+			if (item.executionId) {
+				this._pendingPreserveActiveTabExecutionIds.delete(item.executionId);
+			}
+		}
 		this._pendingCodeQueue = [];
 
 		// If there is a pending input runtime item, remove it.
@@ -4303,6 +4408,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		if (codeFragmentStatus !== RuntimeCodeFragmentStatus.Complete) {
 			// Remove the item from the queue.
 			this._pendingCodeQueue.shift();
+			if (pendingItem.executionId) {
+				this._pendingPreserveActiveTabExecutionIds.delete(pendingItem.executionId);
+			}
 
 			// Remove the pending input visual item if it exists.
 			if (this._runtimeItemPendingInput) {
@@ -4389,7 +4497,10 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			pendingItem.errorBehavior,
 			pendingItem.attribution,
 			pendingItem.executionMetadata,
-		)).catch((err) => this._logService.error(`Console execution ${id} failed: ${err}`));
+		)).catch((err) => {
+			this._pendingPreserveActiveTabExecutionIds.delete(id);
+			this._logService.error(`Console execution ${id} failed: ${err}`);
+		});
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {
@@ -4403,6 +4514,28 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			runtimeName: this._session.runtimeMetadata.runtimeName,
 		};
 		this._onDidExecuteCodeEmitter.fire(event);
+	}
+
+	/**
+	 * Remembers an execution until it completes or is discarded.
+	 * @param executionId The execution ID.
+	 */
+	private rememberPreserveActiveTabExecution(executionId: string) {
+		this._pendingPreserveActiveTabExecutionIds.add(executionId);
+	}
+
+	/** Retains a bounded history for plot messages arriving after an execution completes. */
+	private completePreserveActiveTabExecution(executionId: string): void {
+		if (!this._pendingPreserveActiveTabExecutionIds.delete(executionId)) {
+			return;
+		}
+		this._preserveActiveTabExecutionIds.add(executionId);
+		if (this._preserveActiveTabExecutionIds.size > MAX_PRESERVE_ACTIVE_TAB_EXECUTIONS) {
+			const oldest = this._preserveActiveTabExecutionIds.values().next().value;
+			if (oldest !== undefined) {
+				this._preserveActiveTabExecutionIds.delete(oldest);
+			}
+		}
 	}
 
 	/**
@@ -4442,6 +4575,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		const id = executionId || this.generateExecutionId(code);
 
 		if (!this._session) {
+			this._pendingPreserveActiveTabExecutionIds.delete(id);
 			return CodeSubmissionResult.Cancelled;
 		}
 		const session = this._session;
@@ -4524,6 +4658,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				// Nothing was echoed to the console, so there is nothing to roll
 				// back. Clear the pending-busy tracking on any failure.
 				this.clearPendingBusy();
+				this._pendingPreserveActiveTabExecutionIds.delete(id);
 				const name = (err as { name?: string } | undefined)?.name;
 				if (name === RUNTIME_CODE_INCOMPLETE_ERROR) {
 					return CodeSubmissionResult.Incomplete;
@@ -4567,7 +4702,10 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			errorBehavior,
 			attribution,
 			executionMetadata,
-		)).catch((err) => this._logService.error(`Console execution ${id} failed: ${err}`));
+		)).catch((err) => {
+			this._pendingPreserveActiveTabExecutionIds.delete(id);
+			this._logService.error(`Console execution ${id} failed: ${err}`);
+		});
 
 		fireExecutedEvent();
 		return CodeSubmissionResult.Executed;

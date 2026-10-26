@@ -49,7 +49,7 @@ export class ExtHostDataExplorer implements extHostProtocol.ExtHostDataExplorerS
 	 */
 	registerRpcHandler(providerId: string, handler: positron.DataExplorerRpcHandler): positron.DataExplorerRpcSession {
 		this._handlers.set(providerId, handler);
-		this._proxy.$registerRpcHandler(providerId);
+		this._proxy.$registerRpcHandler(providerId, typeof handler.refreshDataset === 'function');
 
 		// Unblock any RPCs that arrived before this provider registered.
 		const waiters = this._pendingRegistrations.get(providerId);
@@ -99,6 +99,13 @@ export class ExtHostDataExplorer implements extHostProtocol.ExtHostDataExplorerS
 		});
 	}
 
+	/**
+	 * Gets a description of the Data Explorer in the active editor.
+	 */
+	getContext(): Promise<positron.dataExplorer.DataExplorerContext | undefined> {
+		return this._proxy.$getActiveDataExplorerContext();
+	}
+
 	// --- ExtHostDataExplorerShape (called by the main thread) ---
 
 	async $handleRpc(providerId: string, rpc: IDataExplorerRpcDto): Promise<IDataExplorerResponseDto> {
@@ -110,6 +117,16 @@ export class ExtHostDataExplorer implements extHostProtocol.ExtHostDataExplorerS
 		// Only notify a provider that has already registered. A closed dataset must never
 		// activate a dormant extension: there is nothing for it to release.
 		this._handlers.get(providerId)?.closeDataset?.(datasetId);
+	}
+
+	async $refreshDataset(providerId: string, datasetId: string): Promise<void> {
+		// Like $disposeBackend, never activates a provider: a dataset can only be refreshed while its
+		// explorer is open, and its provider registered before opening it.
+		const handler = this._handlers.get(providerId);
+		if (!handler?.refreshDataset) {
+			throw new Error(`Data explorer provider '${providerId}' does not support refresh`);
+		}
+		await handler.refreshDataset(datasetId);
 	}
 
 	async $generateImportCode(handle: number, request: IDataImportRequestDto): Promise<IDataImportResult | undefined> {

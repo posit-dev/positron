@@ -61,12 +61,6 @@ export interface IExtensionHostInitData {
 	uiKind: UIKind;
 	messagePorts?: ReadonlyMap<string, MessagePortLike>;
 	handle?: string;
-	/**
-	 * The value of the `extensionEnabledApiProposalsFallback`-experiment: a comma-separated list of
-	 * `publisher.extension:proposalName` entries that are granted proposed API access even when the
-	 * extension has not declared the proposal. Only set on `stable` builds.
-	 */
-	enabledApiProposalsFallback?: string;
 }
 
 export interface IEnvironment {
@@ -129,6 +123,12 @@ export interface IExtHostSocketMessage {
 export interface IExtHostReduceGraceTimeMessage {
 	type: 'VSCODE_EXTHOST_IPC_REDUCE_GRACE_TIME';
 }
+
+// --- Start PWB: Ask a pipe mode extension host to connect a new pipe for a reconnected client ---
+export interface IExtHostPipeReconnectMessage {
+	type: 'VSCODE_EXTHOST_IPC_PIPE_RECONNECT';
+}
+// --- End PWB ---
 
 export const enum MessageType {
 	Initialized,

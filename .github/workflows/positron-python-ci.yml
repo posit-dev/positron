@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           cache: 'npm'
           node-version: ${{ env.NODE_VERSION }}
@@ -54,7 +54,7 @@ jobs:
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           enable-cache: true
           activate-environment: true
 
@@ -92,7 +92,7 @@ jobs:
       fail-fast: false
       matrix:
         # Run pyright on the oldest and most recent versions of Python.
-        python: ['3.9', '3.14']
+        python: ['3.10', '3.15']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -120,6 +120,13 @@ jobs:
           uv pip install --upgrade -r build/test-requirements.txt
           uv sync --active --inexact --frozen --project python_files/posit
 
+      # Some optional packages aren't installed on 3.15 yet (see posit/pyproject.toml),
+      # so report their imports as warnings there. Other versions still fail on missing imports.
+      - name: Allow missing imports on Python 3.15
+        if: matrix.python == '3.15'
+        run: sed -i '/^\[tool.pyright\]/a reportMissingImports = "warning"' pyproject.toml
+        working-directory: ${{ env.PYTHON_SRC_DIR }}
+
       - name: Run Pyright
         uses: jakebailey/pyright-action@8ec14b5cfe41f26e5f41686a31eb6012758217ef # v3.0.2
         with:
@@ -138,7 +145,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Run the tests on the oldest and most recent versions of Python.
-        python: ['3.9', '3.14']
+        python: ['3.10', '3.15']
 
     steps:
       - name: Checkout
@@ -180,10 +187,8 @@ jobs:
       matrix:
         include:
           - os: 'macos-latest'
-            python: '3.9'
-          - os: 'windows-latest'
             python: '3.10'
-          - os: 'ubuntu-latest'
+          - os: 'windows-latest'
             python: '3.11'
           - os: 'ubuntu-latest'
             python: '3.12'
@@ -191,6 +196,8 @@ jobs:
             python: '3.13'
           - os: 'ubuntu-latest'
             python: '3.14'
+          - os: 'ubuntu-latest'
+            python: '3.15'
     env:
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -227,7 +234,7 @@ jobs:
         include:
           # currently only running on oldest supported Python version
           - os: 'ubuntu-latest'
-            python: '3.9'
+            python: '3.10'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -286,7 +293,7 @@ jobs:
           path: ${{ env.special-working-directory-relative }}
 
       - name: Install Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'

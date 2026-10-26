@@ -736,6 +736,61 @@ describe('PositronTreeInstance', () => {
 		});
 	});
 
+	it('loadChildren loads a node\'s children without expanding it, sharing a load in flight', async () => {
+		let fetches = 0;
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
+			getRoots: async () => [branch('r0')],
+			getChildren: async node => {
+				fetches++;
+				return [leaf(`${node.id}.0`)];
+			},
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+
+		const [first, second] = await Promise.all([instance.loadChildren('r0'), instance.loadChildren('r0')]);
+		const again = await instance.loadChildren('r0');
+
+		expect({
+			children: first?.map(child => child.id),
+			shared: second === first && again === first,
+			fetches,
+			expanded: instance.isExpanded('r0'),
+			rows: instance.rows,
+		}).toEqual({ children: ['r0.0'], shared: true, fetches: 1, expanded: false, rows: 1 });
+	});
+
+	it('loadChildren leaves a failed load in the error state, and tries again next time', async () => {
+		let fail = true;
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
+			getRoots: async () => [branch('r0')],
+			getChildren: async node => {
+				if (fail) {
+					throw new Error('connection refused');
+				}
+				return [leaf(`${node.id}.0`)];
+			},
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+		// The tree logs a failed fetch; keep that out of the test output.
+		vi.spyOn(console, 'error').mockImplementation(() => { });
+
+		const failed = await instance.loadChildren('r0');
+		const error = instance.getError('r0');
+		fail = false;
+		const retried = await instance.loadChildren('r0');
+
+		expect({ failed, error: (error as Error).message, retried: retried?.map(child => child.id), errorAfter: instance.getError('r0') })
+			.toEqual({ failed: undefined, error: 'connection refused', retried: ['r0.0'], errorAfter: undefined });
+	});
+
 	it('setChildren pushes loaded children without invoking getChildren', async () => {
 		const tree = await newTree(2, 0); // getChildren would yield nothing; push explicitly instead
 		tree.setChildren('r0', [leaf('pushed-a'), leaf('pushed-b')]);
@@ -745,6 +800,20 @@ describe('PositronTreeInstance', () => {
 			rows: tree.rows,
 			focusedId: tree.focusedId, // cursor still on r0
 		}).toEqual({ rows: 4, focusedId: 'r0' });
+	});
+
+	it('keeps a node\'s row height as rows above it come and go', async () => {
+		const tree = await newTree(3, 2);
+		tree.setNodeHeight('r1', 100);
+		await tree.expand('r0');
+		const expanded = [tree.rowTop(3), tree.rowTop(4)];
+
+		tree.setNodeHeight('r1', undefined);
+
+		expect({ expanded, restored: tree.rowTop(4) }).toEqual({
+			expanded: [3 * ROW_HEIGHT, 3 * ROW_HEIGHT + 100],
+			restored: 4 * ROW_HEIGHT,
+		});
 	});
 });
 
@@ -1047,5 +1116,66 @@ describe('PositronTree rendering and loading states', () => {
 		const twisty = await screen.findByRole('button', { name: 'Expand' });
 		expect(twisty).toHaveClass('positron-tree-twisty-error');
 		expect(twisty).toHaveAttribute('title', 'boom');
+	});
+});
+
+describe('PositronTree sticky scroll', () => {
+	const ctx = createTestContainer().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	let store: DisposableStore;
+	let restoreLayout: () => void;
+	beforeEach(() => {
+		store = new DisposableStore();
+		// Room for four rows.
+		restoreLayout = stubGridLayoutWithSize(VIEWPORT_WIDTH, ROW_HEIGHT * 4);
+	});
+	afterEach(() => {
+		store.dispose();
+		vi.unstubAllGlobals();
+		restoreLayout();
+	});
+
+	/**
+	 * Renders a root with ten leaf children, expanded and scrolled so the root is out of view.
+	 */
+	async function renderScrolledTree(stickyScroll: boolean) {
+		const instance = store.add(new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
+			stickyScroll,
+			getRoots: async () => [branch('root')],
+			getChildren: async () => Array.from({ length: 10 }, (_, i) => leaf(`child${i}`)),
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		}));
+		await instance.refresh();
+		await instance.expand('root');
+		rtl.render(<PositronTree instance={instance} />);
+		await instance.setVerticalScrollOffset(ROW_HEIGHT * 3);
+		return instance;
+	}
+
+	it('sticks the expanded ancestor of the rows at the top', async () => {
+		await renderScrolledTree(true);
+
+		const band = await screen.findByTestId('data-grid-sticky-rows');
+		expect(band).toHaveTextContent('root');
+	});
+
+	it('does not stick rows by default', async () => {
+		await renderScrolledTree(false);
+
+		expect(await screen.findByText('child4')).toBeInTheDocument();
+		expect(screen.queryByTestId('data-grid-sticky-rows')).not.toBeInTheDocument();
+	});
+
+	it('reveals the cursor row below the band', async () => {
+		const instance = await renderScrolledTree(true);
+
+		// child2 is the fourth row, under the band at the top of the viewport.
+		instance.setCursorRow(3);
+		await instance.scrollToCursor();
+
+		expect(instance.verticalScrollOffset).toBe(ROW_HEIGHT * 2);
 	});
 });

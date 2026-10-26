@@ -980,6 +980,21 @@ export function signaturesEqual(
 }
 
 /**
+ * A runtime an extension recommends for the workspace.
+ */
+export interface ILanguageRuntimeRecommendation {
+	/** The recommended runtime. */
+	readonly metadata: ILanguageRuntimeMetadata;
+
+	/**
+	 * Whether a recommendation that is not started right away may be saved as
+	 * the project default. False when the runtime manager sets
+	 * `recommendationIsProjectDefault` to false.
+	 */
+	readonly isProjectDefault: boolean;
+}
+
+/**
  * ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
  */
@@ -1066,6 +1081,18 @@ export interface ILanguageRuntimeMetadata {
 	 * (e.g. a venv, renv library, or pyenv/asdf shim).
 	 */
 	readonly cacheable?: boolean;
+
+	/**
+	 * When set, this runtime is a variant of another runtime, created from the
+	 * `interpreters.definitions` entry with this label.
+	 */
+	readonly interpreterDefinition?: string;
+
+	/**
+	 * When true, this runtime was found only because an `interpreters.definitions`
+	 * entry points at it. It is not shown; only its variants are.
+	 */
+	readonly definitionOnly?: boolean;
 }
 
 /**
@@ -1125,9 +1152,11 @@ export interface IRuntimeManager {
 	 *
 	 * @param disabledLanguageIds Languages for which no recommendations should
 	 * be made.
+	 * @param afterDiscovery Whether runtime discovery has completed; set when
+	 * core asks again after discovery.
 	 * @returns A list of recommended runtimes, asynchronously.
 	 */
-	recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
+	recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeRecommendation[]>;
 
 	/**
 	 * Whether this manager is responsible for the given runtime. Used by the
@@ -1154,6 +1183,13 @@ export interface IRuntimeManager {
 	 * and never spuriously triggers via this path.
 	 */
 	getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
+
+	/**
+	 * Register the interpreter at a path with this extension host's manager
+	 * for the language. Returns `undefined` when no manager here can do so;
+	 * throws when the manager rejects the interpreter.
+	 */
+	registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined>;
 
 	/**
 	 * Return one entry per `LanguageRuntimeManager` registered in this

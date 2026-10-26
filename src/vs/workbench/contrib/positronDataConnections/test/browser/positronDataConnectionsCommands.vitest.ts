@@ -11,10 +11,10 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
-import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionLineageResult, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionsDriverManager.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { IDataConnectionCodeCommandArgs, IDataConnectionSchemaCommandArgs, getDataConnectionCode, getDataConnectionSchema, getDataConnections } from '../../browser/positronDataConnectionsCommands.js';
+import { IDataConnectionCodeCommandArgs, IDataConnectionSchemaCommandArgs, getDataConnectionCode, getDataConnectionLineage, getDataConnectionSchema, getDataConnections, revealDataConnectionNode } from '../../browser/positronDataConnectionsCommands.js';
 
 function createProfile(overrides: Partial<IDataConnectionProfile> = {}): IDataConnectionProfile {
 	return {
@@ -762,3 +762,251 @@ describe('getDataConnectionSchema', () => {
 	});
 });
 
+// A live connection whose driver answers lineage requests with `getLineage`. Only getLineage is set
+// on the handle, so a command that reaches for anything else (walking the schema, say) throws.
+function createLineageInstance(
+	profileId: string,
+	getLineage: IDataConnectionHandle['getLineage'],
+): IDataConnectionInstance {
+	return stubInterface<IDataConnectionInstance>({
+		profileId,
+		connectionHandle: stubInterface<IDataConnectionHandle>({ handle: 1, getLineage: vi.fn(getLineage) }),
+	});
+}
+
+// A one-edge lineage from ORDERS to ORDERS_DAILY, as a driver reports it.
+const ORDERS_LINEAGE: IDataConnectionLineageResult = {
+	available: true,
+	edges: [{
+		source: { database: 'SALES', schema: 'PUBLIC', name: 'ORDERS', domain: 'table' },
+		target: { database: 'SALES', schema: 'PUBLIC', name: 'ORDERS_DAILY', domain: 'table' },
+		distance: 1,
+	}],
+	truncated: false,
+};
+
+describe('getDataConnectionLineage', () => {
+	const ctx = createTestContainer().build();
+
+	function run(dataConnectionsService: IPositronDataConnectionsService, args?: unknown, enabled: boolean = true) {
+		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
+			'dataConnections.enabled': enabled,
+		}));
+		ctx.instantiationService.stub(ILogService, new NullLogService());
+		ctx.instantiationService.stub(IPositronDataConnectionsService, dataConnectionsService);
+		return getDataConnectionLineage(ctx.instantiationService, args);
+	}
+
+	const upstreamOfOrdersDaily = { objectName: 'SALES.PUBLIC.ORDERS_DAILY', direction: 'upstream' };
+
+	it('reports the feature flag being off, without touching the service', async () => {
+		const getInstances = vi.fn(() => []);
+		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getInstances });
+
+		expect(await run(dataConnectionsService, upstreamOfOrdersDaily, false))
+			.toEqual({ available: false, reason: 'disabled' });
+		expect(getInstances).not.toHaveBeenCalled();
+	});
+
+	it('renders the live connection\'s lineage, reporting the request as carried out', async () => {
+		const getLineage = vi.fn(async () => ORDERS_LINEAGE);
+		const dataConnectionsService = createInstancesService([createLineageInstance('conn-a', getLineage)]);
+
+		expect(await run(dataConnectionsService, upstreamOfOrdersDaily)).toEqual({
+			profileId: 'conn-a',
+			objectName: 'SALES.PUBLIC.ORDERS_DAILY',
+			domain: 'table',
+			direction: 'upstream',
+			depth: 2,
+			lines: ['1 SALES.PUBLIC.ORDERS -> SALES.PUBLIC.ORDERS_DAILY'],
+			truncated: false,
+		});
+		// The defaults the driver is asked to apply.
+		expect(getLineage).toHaveBeenCalledWith({
+			path: ['SALES', 'PUBLIC', 'ORDERS_DAILY'],
+			domain: 'table',
+			direction: 'upstream',
+			depth: 2,
+			maxEdges: 200,
+		});
+	});
+
+	// An agent is as likely to send Snowflake's own spelling, and a bound outside the data source's
+	// range is better clamped than refused -- the result says what depth was actually used.
+	it('accepts any letter case and clamps out-of-range bounds', async () => {
+		const getLineage = vi.fn(async () => ORDERS_LINEAGE);
+		const dataConnectionsService = createInstancesService([createLineageInstance('conn-a', getLineage)]);
+
+		const result = await run(dataConnectionsService, {
+			objectName: ' SALES.PUBLIC.ORDERS.ID ',
+			direction: 'DOWNSTREAM',
+			domain: 'Column',
+			depth: 9,
+			maxEdges: 0,
+		});
+
+		expect(getLineage).toHaveBeenCalledWith({
+			path: ['SALES', 'PUBLIC', 'ORDERS', 'ID'],
+			domain: 'column',
+			direction: 'downstream',
+			depth: 5,
+			maxEdges: 1,
+		});
+		expect(result).toMatchObject({ depth: 5, domain: 'column', direction: 'downstream' });
+	});
+
+	it.each([
+		['no arguments', undefined],
+		['a missing objectName', { direction: 'upstream' }],
+		['an empty objectName', { objectName: '  ', direction: 'upstream' }],
+		['an objectName with an empty part', { objectName: 'A..C', direction: 'upstream' }],
+		['an objectName with an unterminated quoted part', { objectName: 'A.B."C', direction: 'upstream' }],
+		['a missing direction', { objectName: 'A.B.C' }],
+		['an unknown direction', { objectName: 'A.B.C', direction: 'sideways' }],
+		['an unknown domain', { objectName: 'A.B.C', direction: 'upstream', domain: 'stage' }],
+		['a depth that is not a number', { objectName: 'A.B.C', direction: 'upstream', depth: '3' }],
+		['a profileId that is not a string', { objectName: 'A.B.C', direction: 'upstream', profileId: 7 }],
+	])('reports %s as invalid arguments, without reading lineage', async (_description, args) => {
+		const getLineage = vi.fn(async () => ORDERS_LINEAGE);
+		const dataConnectionsService = createInstancesService([createLineageInstance('conn-a', getLineage)]);
+
+		expect(await run(dataConnectionsService, args)).toEqual({ available: false, reason: 'invalid-arguments' });
+		expect(getLineage).not.toHaveBeenCalled();
+	});
+
+	// The name arrives the way getSchema prints it, and is split back into the exact names it was
+	// built from: case is kept, so a table created as "orders" (pandas does this by default) is not
+	// confused with ORDERS, and a quoted part keeps its dots and spaces.
+	it('splits objectName into exact names, keeping their case and any quoted parts', async () => {
+		const getLineage = vi.fn(async () => ORDERS_LINEAGE);
+		const dataConnectionsService = createInstancesService([createLineageInstance('conn-a', getLineage)]);
+
+		const result = await run(dataConnectionsService, { objectName: 'Sales.public."Order Details"."unit.price"', direction: 'upstream', domain: 'column' });
+
+		expect(getLineage).toHaveBeenCalledWith(expect.objectContaining({ path: ['Sales', 'public', 'Order Details', 'unit.price'] }));
+		// The result echoes the name as the caller wrote it.
+		expect(result).toMatchObject({ objectName: 'Sales.public."Order Details"."unit.price"' });
+	});
+
+	// Tool-calling models often fill every field of a schema, sending null for the ones they mean to
+	// leave out; those take their defaults rather than failing the call.
+	it('treats an optional argument sent as null as left out', async () => {
+		const getLineage = vi.fn(async () => ORDERS_LINEAGE);
+		const dataConnectionsService = createInstancesService([createLineageInstance('conn-a', getLineage)]);
+
+		await run(dataConnectionsService, { ...upstreamOfOrdersDaily, profileId: null, domain: null, depth: null, maxEdges: null });
+
+		expect(getLineage).toHaveBeenCalledWith(expect.objectContaining({ domain: 'table', depth: 2, maxEdges: 200 }));
+	});
+
+	// The target is resolved exactly as getSchema's is; these pin that the shared resolver's reasons
+	// come back under getLineage's own result shape.
+	it('connects the named profile when it is not live, then reads its lineage', async () => {
+		const connect = vi.fn(async (profileId: string) => createLineageInstance(profileId, async () => ORDERS_LINEAGE));
+		const dataConnectionsService = createInstancesService([], {
+			profiles: [createProfile({ id: 'conn-cold' })],
+			connect,
+		});
+
+		expect(await run(dataConnectionsService, { ...upstreamOfOrdersDaily, profileId: 'conn-cold' }))
+			.toMatchObject({ profileId: 'conn-cold', lines: ['1 SALES.PUBLIC.ORDERS -> SALES.PUBLIC.ORDERS_DAILY'] });
+		expect(connect).toHaveBeenCalledWith('conn-cold');
+	});
+
+	it('reports an ambiguous target, naming the live profiles to choose from', async () => {
+		const dataConnectionsService = createInstancesService([
+			createLineageInstance('conn-a', async () => ORDERS_LINEAGE),
+			createLineageInstance('conn-b', async () => ORDERS_LINEAGE),
+		]);
+
+		expect(await run(dataConnectionsService, upstreamOfOrdersDaily)).toEqual({
+			available: false,
+			reason: 'ambiguous',
+			candidateProfileIds: ['conn-a', 'conn-b'],
+		});
+	});
+
+	it.each<[string, { profileId?: string }, CreateInstancesServiceOptions]>([
+		['not-found', { profileId: 'conn-missing' }, {}],
+		['no-driver', { profileId: 'conn-cold' }, {
+			profiles: [createProfile({ id: 'conn-cold', driverMetadata: { ...createProfile().driverMetadata, id: 'absent-driver' } })],
+		}],
+		['connect-failed', { profileId: 'conn-cold' }, { profiles: [createProfile({ id: 'conn-cold' })] }],
+		['no-connections', {}, {}],
+	])('reports %s when there is no connection to read from', async (reason, target, options) => {
+		const dataConnectionsService = createInstancesService([], options);
+
+		expect(await run(dataConnectionsService, { ...upstreamOfOrdersDaily, ...target }))
+			.toEqual({ available: false, reason });
+	});
+
+	// Most drivers don't provide lineage; the handle says so by resolving to undefined.
+	it('reports a driver that does not provide lineage', async () => {
+		const dataConnectionsService = createInstancesService([createLineageInstance('conn-a', async () => undefined)]);
+
+		expect(await run(dataConnectionsService, upstreamOfOrdersDaily))
+			.toEqual({ available: false, reason: 'unsupported-driver' });
+	});
+
+	// The data source declining the request is an answer, and its explanation is what lets Assistant
+	// tell the user why -- no Enterprise Edition, no such table, no access.
+	it('reports the data source declining the request, with its explanation', async () => {
+		const message = 'Object \'SALES.PUBLIC.NOPE\' does not exist or not authorized.';
+		const dataConnectionsService = createInstancesService([
+			createLineageInstance('conn-a', async () => ({ available: false, message })),
+		]);
+
+		expect(await run(dataConnectionsService, upstreamOfOrdersDaily))
+			.toEqual({ available: false, reason: 'lineage-unavailable', message });
+	});
+
+	// A connection failure mid-call comes back as a reason rather than a rejected command, the same
+	// promise every other outcome keeps.
+	it('reports the connection failing while reading lineage', async () => {
+		const dataConnectionsService = createInstancesService([
+			createLineageInstance('conn-a', async () => { throw new Error('Snowflake client is closed'); }),
+		]);
+
+		expect(await run(dataConnectionsService, upstreamOfOrdersDaily))
+			.toEqual({ available: false, reason: 'query-failed' });
+	});
+
+	it('reports an object with no lineage as an empty list of lines', async () => {
+		const dataConnectionsService = createInstancesService([
+			createLineageInstance('conn-a', async () => ({ available: true, edges: [], truncated: false })),
+		]);
+
+		expect(await run(dataConnectionsService, upstreamOfOrdersDaily))
+			.toMatchObject({ lines: [], truncated: false });
+	});
+});
+
+
+describe('revealDataConnectionNode', () => {
+	const ctx = createTestContainer().build();
+
+	function run(args: unknown) {
+		const revealNode = vi.fn(async () => { });
+		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
+			'dataConnections.enabled': true,
+		}));
+		ctx.instantiationService.stub(ILogService, new NullLogService());
+		ctx.instantiationService.stub(IPositronDataConnectionsService, stubInterface<IPositronDataConnectionsService>({ revealNode }));
+		return { revealNode, done: ctx.instantiationService.invokeFunction(accessor => revealDataConnectionNode(accessor, args)) };
+	}
+
+	it('passes on a kind the enum does not know, since a path carries whatever kind the driver reported', async () => {
+		const path = [{ kind: 'hypertable', name: 'metrics' }];
+		const { revealNode, done } = run({ profileId: 'conn-1', path });
+		await done;
+
+		expect(revealNode).toHaveBeenCalledWith({ profileId: 'conn-1', path });
+	});
+
+	it('rejects a step with an empty kind', async () => {
+		const { revealNode, done } = run({ profileId: 'conn-1', path: [{ kind: '', name: 'metrics' }] });
+		await done;
+
+		expect(revealNode).not.toHaveBeenCalled();
+	});
+});

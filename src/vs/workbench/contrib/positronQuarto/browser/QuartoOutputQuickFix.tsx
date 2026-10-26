@@ -4,26 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { useCallback, useLayoutEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { usePositronConfiguration, useContextKeyFromString } from '../../../../base/browser/positronReactHooks.js';
-import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { POSIT_HAS_CHAT_MODELS_KEY } from '../../positronAssistant/browser/positAssistantChat.js';
-import { AssistantErrorQuickFix, AssistantErrorPayload } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
-import { QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
-
-const fixPrompt = localize('positronQuartoAssistantFixPrompt', "Fix this Quarto inline output error.");
-const explainPrompt = localize('positronQuartoAssistantExplainPrompt', "Explain this Quarto inline output error.");
-
-const ATTACHMENT_NAME = localize('positronQuartoAssistantErrorAttachmentName', "Quarto Output Error");
+import { IErrorActionContext, IQuartoErroredCell } from '../../positronAssistant/common/errorAction.js';
+import { useActiveErrorActionHandler } from '../../positronAssistant/browser/useActiveErrorActionHandler.js';
+import { AssistantErrorQuickFix } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { IQuartoKernelManager } from './quartoKernelManager.js';
+import { URI } from '../../../../base/common/uri.js';
 
 interface QuartoOutputQuickFixProps {
 	/** The error output content from the Quarto cell execution. */
 	errorContent: string;
-	/** Cell context resolved at render time. */
-	cellContext?: QuartoCellErrorContext;
+	/** The Quarto document the error was raised in. */
+	documentUri: URI;
+	/** The cell that raised the error, as it was when the output arrived. */
+	cell?: IQuartoErroredCell;
 	/**
 	 * Called after each render commits to the DOM. The buttons mount
 	 * asynchronously, so the host view zone uses this to re-measure its height
@@ -34,14 +32,17 @@ interface QuartoOutputQuickFixProps {
 }
 
 /**
- * Quick fix buttons for Quarto inline output errors. Gated on ai.enabled +
- * posit-assistant.hasChatModels; renders nothing when either is off.
+ * Quick fix buttons for Quarto inline output errors, hidden while no handler
+ * can take errors.
  */
 export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
-	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
-	const hasChatModels = useContextKeyFromString<boolean>(POSIT_HAS_CHAT_MODELS_KEY);
+	// Read here rather than in AssistantErrorQuickFix so that a handler
+	// change re-renders this component and runs the layout effect below,
+	// re-measuring the host view zone when the buttons appear or disappear.
+	const handler = useActiveErrorActionHandler();
+	const services = usePositronReactServicesContext();
 
-	const { errorContent, cellContext, onLayout } = props;
+	const { errorContent, documentUri, cell, onLayout } = props;
 
 	// Notify the host after every commit (declared before the early return so it
 	// runs whether or not the buttons render). Layout effects fire once the DOM
@@ -50,30 +51,32 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		onLayout?.();
 	});
 
-	const buildPayload = useCallback((): AssistantErrorPayload => {
-		if (!cellContext) {
-			return { fixPrompt, explainPrompt, attachmentContent: errorContent };
-		}
-		const header = cellContext.label
-			? localize('positronQuartoErrorContextHeaderLabeled', "Error from the {0} code chunk in {1}, lines {2}-{3} (label: {4}):", cellContext.language, cellContext.path, cellContext.codeStartLine, cellContext.codeEndLine, cellContext.label)
-			: localize('positronQuartoErrorContextHeader', "Error from the {0} code chunk in {1}, lines {2}-{3}:", cellContext.language, cellContext.path, cellContext.codeStartLine, cellContext.codeEndLine);
-		const codeHeader = localize('positronQuartoErrorContextCodeHeader', "--- Failing code ---");
-		const errorHeader = localize('positronQuartoErrorContextErrorHeader', "--- Error output ---");
+	const getErrorContext = (): IErrorActionContext => {
+		// A chunk whose language isn't the document's runs in that language's
+		// console, not the document's kernel (quartoExecutionManager's
+		// _executeRangeViaConsole), so the kernel is the wrong session for it.
+		// Send the kernel only when its language matches the chunk's. When the
+		// chunk can't be resolved there is nothing to compare, so the kernel is
+		// sent as the best guess.
+		const session = services.get(IQuartoKernelManager).getSessionForDocument(documentUri);
+		const sessionRanCell = !cell || session?.runtimeMetadata.languageId === cell.languageId;
 		return {
-			fixPrompt: localize('positronQuartoAssistantFixPromptWithContext', "Fix the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached; fix only this error.", cellContext.language, cellContext.codeStartLine, cellContext.codeEndLine, cellContext.path),
-			explainPrompt: localize('positronQuartoAssistantExplainPromptWithContext', "Explain the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached.", cellContext.language, cellContext.codeStartLine, cellContext.codeEndLine, cellContext.path),
-			attachmentContent: `${header}\n\n${codeHeader}\n${cellContext.code}\n\n${errorHeader}\n${errorContent}`,
+			kind: 'quarto',
+			error: errorContent,
+			uri: documentUri,
+			cell,
+			sessionId: sessionRanCell ? session?.sessionId : undefined,
 		};
-	}, [cellContext, errorContent]);
+	};
 
-	if (aiEnabled === false || !hasChatModels) {
+	if (!handler) {
 		return null;
 	}
 
 	return (
 		<AssistantErrorQuickFix
-			attachmentName={ATTACHMENT_NAME}
-			getPayload={buildPayload}
+			handler={handler}
+			getErrorContext={getErrorContext}
 			groupAriaLabel={localize('positron.quarto.quickFixGroup', "Output quick fix actions")}
 		/>
 	);

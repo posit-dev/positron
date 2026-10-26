@@ -15,12 +15,14 @@ import * as crypto from 'crypto';
 import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata, isRVersionsMetadata, ModuleMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
-import { getInterpreterOverridePaths, getResolvedFilterSettingPaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
+import { getInterpreterOverridePaths, getResolvedExcludePaths, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
-import { discoverModuleBinaries, getEnvironmentModulesApi } from './provider-module.js';
-import { discoverRVersionsBinaries } from './provider-rversions.js';
+import { discoverModuleBinaries, getEnvironmentModulesApi, moduleEnvironmentsConfiguredForR } from './provider-module.js';
+import { discoverRVersionsBinaries, findRVersionsFile, parseRVersionsFile } from './provider-rversions.js';
+import { packagerMetadataForPath } from './packager-detection.js';
+import { compareRInstallations, createSharedSearch, RFullSearchTriggers, rVersionsMayListR } from './startup-choice.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -167,7 +169,7 @@ export function computeRootSignatureEntries(candidates: readonly string[]): RRoo
  *   - Hard-coded server-installation roots (POSIX only).
  *   - Hard-coded ad-hoc binary paths.
  *   - Discovery-gating settings (`positron.r.interpreters.exclude` /
- *     `.default` / `.condaDiscovery` / `.pixiDiscovery` / `.pathDiscoveryMode`)
+ *     `.condaDiscovery` / `.pixiDiscovery` / `.pathDiscoveryMode`)
  *     folded into the opaque digest so a settings change flips the signature
  *     and re-runs discovery.
  *
@@ -194,6 +196,7 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
 	addAll(rCurrentSymlinks(userRHeadquarters()));
 	addAll(userRBinaries());
 	addAll(getInterpreterOverridePaths());
+	addAll(getInterpreterDefinitionPaths());
 	if (process.platform !== 'win32') {
 		addAll(R_SERVER_ROOTS_POSIX);
 	}
@@ -210,9 +213,6 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
  * Settings covered:
  *   - `interpreters.exclude`: post-discovery filter; without this an
  *     excluded R would outlive the setting via the cache.
- *   - `interpreters.default`: stamped onto cached metadata as `default: true`
- *     by `RInstallation`; flipping the default would otherwise leave the
- *     wrong installation flagged as default until the periodic refresh.
  *   - `interpreters.condaDiscovery` / `.pixiDiscovery`: per-provider toggles;
  *     enabling either should produce a discovery run that picks up envs
  *     these providers find (their results are non-cacheable, so the only
@@ -220,22 +220,28 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
  *   - `interpreters.pathDiscoveryMode`: `'on'`/`'off'`/`'auto'` toggle for
  *     PATH-based current-binary lookup; affects which binary discovery
  *     marks as "current".
+ *   - Positron's `interpreters.discovery`: switching to or from
+ *     `definitionsOnly` changes which installations exist at all.
  *
  * `interpreters.override` contributes as path entries above, not here.
  *
- * `interpreters.exclude` and `interpreters.default` are hashed after replacing
- * `${workspaceFolder}`, so two workspaces with the same setting text don't
- * share a cache entry.
+ * `interpreters.default` is left out: discovery doesn't depend on it, and
+ * hashing it would make every switch between projects with different defaults
+ * re-run discovery.
+ *
+ * `interpreters.exclude` is hashed after replacing `${workspaceFolder}`, so
+ * two workspaces with the same setting text don't share a cache entry.
  */
 function getRFilterSettingsDigest(): string {
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const filterPaths = getResolvedFilterSettingPaths();
+	// Adding or removing a key changes every user's digest, which clears R's cached runtimes on their next launch.
 	const payload = {
-		exclude: filterPaths.exclude,
-		default: filterPaths.default,
+		exclude: getResolvedExcludePaths(),
 		condaDiscovery: config.get<boolean>('interpreters.condaDiscovery') ?? false,
 		pixiDiscovery: config.get<boolean>('interpreters.pixiDiscovery') ?? false,
 		pathDiscoveryMode: config.get<string>('interpreters.pathDiscoveryMode') ?? '',
+		// Only included when set, so the digest is unchanged for everyone else.
+		...(isDefinitionsOnlyDiscovery() ? { definitionsOnly: true } : {}),
 	};
 	return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
@@ -256,13 +262,46 @@ export async function discoverRInstallations(): Promise<RInstallation[]> {
 }
 
 /**
+ * The full R search that R's recommendation runs when it can't use the current
+ * R. When the discovery cache is out of date, Positron runs R's interpreter
+ * search once the recommended console has started, and that search reuses
+ * this one, so conda, pixi, and module commands only run once per launch.
+ * When the cache is up to date, nothing reuses it, so it's dropped 15 seconds
+ * after it finishes and a later refresh, such as R's interpreter picker,
+ * searches again.
+ */
+const sharedSearch = createSharedSearch(discoverRInstallations, 15_000);
+
+/**
+ * How long R's recommendation waits for the full R search. Every language's
+ * first console waits for R's recommendation, so slow module or conda
+ * commands can't hold them up for longer.
+ */
+const FULL_SEARCH_TIMEOUT_MS = 3000;
+
+/**
+ * Same as `discoverRInstallations()`, and holds the result for the
+ * interpreter search that follows (see `sharedSearch`).
+ * @returns undefined if the search ran out of time. It keeps running, so the
+ *   interpreter search can still reuse it.
+ */
+export async function discoverRInstallationsForRecommendation(): Promise<RInstallation[] | undefined> {
+	const installs = await sharedSearch.forRecommendation(FULL_SEARCH_TIMEOUT_MS);
+	if (!installs) {
+		LOGGER.info(`Stopped waiting for the search for R installations after ${FULL_SEARCH_TIMEOUT_MS} ms, so R won't start on its own. Running R code starts it.`);
+	}
+	return installs;
+}
+
+/**
  * Discovers R language runtimes for Positron; implements positron.LanguageRuntimeDiscoverer.
  *
  * @param context The extension context.
  */
 export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
-	// Discover R binaries on the system and promote them to R installations
-	const rAll = await discoverRInstallations();
+	// Discover R binaries on the system and promote them to R installations,
+	// reusing the search R's recommendation just ran, if any
+	const rAll = await sharedSearch.forDiscovery();
 
 	// If no R binaries are found, log to output and end discovery.
 	if (rAll.length === 0) {
@@ -303,33 +342,13 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	}
 
 	// Sort the R installations
-	rInstallations.sort((a, b) => {
-		if (a.current || b.current) {
-			// always put the current R version first
-			return Number(b.current) - Number(a.current);
-		}
-		// otherwise, sort by version number, descending
-		// break ties by architecture
-		// (currently taking advantage of the fact that 'aarch64' > 'x86_64')
-		return semver.compare(b.semVersion, a.semVersion) || a.arch.localeCompare(b.arch);
-	});
+	rInstallations.sort(compareRInstallations);
 
-	// For now, we recommend an R runtime for the workspace based on a set of
-	// non-runtime-specific heuristics.
-	// In the future, we will use more sophisticated heuristics, such as
-	// checking an renv lockfile for a match against a system version of R.
-	let recommendedForWorkspace = await shouldRecommendForWorkspace();
-
-	// Construct and yield the metadata for each R installation
+	// Construct and yield the metadata for each R installation. None of them
+	// asks to start right away: the discovery cache shares these records with
+	// every folder, so whether R should start in this folder is decided by
+	// R's recommendation instead (see chooseStartupR).
 	for (const rInst of rInstallations) {
-		// If we're recommending an R runtime, request immediate startup.
-		const startupBehavior = recommendedForWorkspace ?
-			positron.LanguageRuntimeStartupBehavior.Immediate :
-			positron.LanguageRuntimeStartupBehavior.Implicit;
-		// But immediate startup only applies to, at most, one R installation -- specifically, the
-		// first element of rInstallations.
-		recommendedForWorkspace = false;
-
 		// If there is another R installation with the same version but different architecture,
 		// we need to disambiguate the runtime name by appending the architecture.
 		// For example, if x86_64 and arm64 versions of R 4.4.0 exist simultaneously.
@@ -341,9 +360,58 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 			}
 		}
 
-		const metadata = makeMetadata(rInst, startupBehavior, needsArch);
+		const metadata = makeMetadata(rInst, positron.LanguageRuntimeStartupBehavior.Implicit, needsArch);
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
+		yield metadata;
+	}
+}
+
+/**
+ * Yields metadata for R binaries named in `interpreters.definitions` that
+ * discovery did not find. Positron hides these and shows only the variants
+ * created from the definitions. The binary path is used as given (not
+ * resolved through symlinks) so it matches the definition's path exactly.
+ *
+ * @param discoveredPaths Runtime paths already yielded by discovery.
+ */
+export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<string>): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+	for (const binpath of getInterpreterDefinitionPaths()) {
+		if (discoveredPaths.has(binpath)) {
+			continue;
+		}
+		if (!fs.existsSync(binpath)) {
+			LOGGER.warn(`Ignoring R binary ${binpath} from interpreters.definitions because it does not exist.`);
+			continue;
+		}
+		const rInst = new RInstallation(binpath, false, [ReasonDiscovered.userSetting]);
+		if (!rInst.usable) {
+			LOGGER.warn(`Ignoring R binary ${binpath} from interpreters.definitions, reason: ${friendlyReason(rInst.reasonRejected)}.`);
+			continue;
+		}
+		const metadata = await makeMetadata(rInst);
+		yield { ...metadata, definitionOnly: true };
+	}
+}
+
+/**
+ * Yields metadata for the R installations in the Pixi environments of the
+ * open workspace folders, without the rest of R discovery.
+ *
+ * Pixi runtimes are never cached, so on a warm start, when Positron serves R
+ * from its discovery cache and skips `rRuntimeDiscoverer()`, this is the only
+ * way they are found. Runtime IDs depend only on the binary path and version,
+ * so a runtime found by both this and full discovery is registered once.
+ */
+export async function* rPixiRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+	const binaries = deduplicateRBinaries(await discoverPixiBinaries());
+	for (const rbin of binaries) {
+		const rInst = new RInstallation(rbin.path, false, rbin.reasons, rbin.packagerMetadata);
+		if (!rInst.usable) {
+			LOGGER.info(`Filtering out ${rInst.binpath}, reason: ${friendlyReason(rInst.reasonRejected)}.`);
+			continue;
+		}
+		const metadata = await makeMetadata(rInst);
 		yield metadata;
 	}
 }
@@ -755,7 +823,6 @@ export async function makeMetadata(
 		scriptpath: scriptPath,
 		arch: rInst.arch || undefined,
 		current: rInst.current,
-		default: rInst.default,
 		reasonDiscovered: rInst.reasonDiscovered,
 		packagerMetadata: rInst.packagerMetadata,
 	};
@@ -1114,7 +1181,11 @@ function discoverUserSpecifiedBinaries(): RBinary[] {
 	const userMoreBinaries = discoverAdHocBinaries(userRBinaries());
 	const userBinaries = userHqBinaries.concat(userMoreBinaries);
 	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.userSetting
-	return userBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.userSetting] }));
+	return userBinaries.map(b => ({
+		path: b.path,
+		reasons: [ReasonDiscovered.userSetting],
+		packagerMetadata: packagerMetadataForPath(b.path),
+	}));
 }
 
 /**
@@ -1296,8 +1367,80 @@ function generateVersions(): string[] {
 }
 
 
-// Should we recommend an R runtime for the workspace?
-async function shouldRecommendForWorkspace(): Promise<boolean> {
+/**
+ * The current R, built the same way the search builds it, so its record gets
+ * the same runtime ID. Undefined if there is no current R.
+ */
+export async function currentRInstallation(): Promise<RInstallation | undefined> {
+	const current = (await currentRBinaryCandidates())[0];
+	if (!current) {
+		return undefined;
+	}
+	// A file check tells whether the current R lives in a conda or pixi
+	// environment, without listing every environment.
+	return new RInstallation(current.path, true, current.reasons, packagerMetadataForPath(current.path));
+}
+
+/**
+ * Which settings and files are set that can make the full search pick a
+ * different R than the current R. Each mirrors how `getBinaries()` decides
+ * whether to consult that source.
+ */
+export function rFullSearchTriggers(current: RInstallation | undefined): RFullSearchTriggers {
+	return {
+		overrideListSet: getInterpreterOverridePaths().length > 0,
+		rVersionsListsCurrentR: current !== undefined && rVersionsMayListCurrentR(current.binpath),
+		modulesConfiguredForR: moduleEnvironmentsConfiguredForR(),
+	};
+}
+
+/**
+ * Whether the r-versions file may describe the current R. Reading and parsing
+ * the file is cheap, unlike the module commands the full search runs.
+ */
+function rVersionsMayListCurrentR(binpath: string): boolean {
+	const rVersionsPath = process.platform !== 'win32' ? findRVersionsFile() : undefined;
+	if (!rVersionsPath) {
+		return false;
+	}
+	let content: string;
+	try {
+		content = fs.readFileSync(rVersionsPath, 'utf-8');
+	} catch {
+		// The full search skips an unreadable file too.
+		return false;
+	}
+	return rVersionsMayListR(parseRVersionsFile(content), binpath);
+}
+
+/**
+ * Folders that hold installed packages and Python environments rather than
+ * your own code. The search for R files skips them to stay fast. Conda and
+ * pixi environments are searched, as they always have been, so a project with
+ * R installed in one counts as an R project.
+ */
+const NON_PROJECT_FOLDERS = ['node_modules', '.venv', 'venv', '.virtualenv'];
+
+/**
+ * What the check for an empty folder skips. Only node_modules, so a folder
+ * holding only a .venv doesn't count as empty.
+ */
+const EMPTY_FOLDER_EXCLUDE = '**/node_modules/**';
+
+/**
+ * How long each folder search may run. Every language's first console waits
+ * for R's recommendation, so a slow disk can't hold them up for longer.
+ */
+const FOLDER_SEARCH_TIMEOUT_MS = 2000;
+
+/**
+ * Whether the open folder looks like an R project: it has R files at any
+ * depth, or it's empty and you've used RStudio in the last 30 days. A search
+ * that runs out of time counts as no R files, and as not empty.
+ * @param folder A folder to search instead of the open folder, for tests.
+ * @param timeoutMs How long each search may run, for tests.
+ */
+export async function looksLikeRProject(folder?: vscode.Uri, timeoutMs = FOLDER_SEARCH_TIMEOUT_MS): Promise<boolean> {
 	// Check if the workspace contains R-related files.
 	const globs = [
 		'**/*.R',
@@ -1310,22 +1453,50 @@ async function shouldRecommendForWorkspace(): Promise<boolean> {
 	];
 	// Convert to the glob format used by vscode.workspace.findFiles.
 	const glob = `{${globs.join(',')}}`;
-	if (await hasFiles(glob)) {
+	const hasRFiles = await hasFiles(glob, `**/{${NON_PROJECT_FOLDERS.join(',')}}/**`, timeoutMs, folder);
+	if (hasRFiles) {
 		return true;
 	}
+	if (hasRFiles === undefined) {
+		LOGGER.info(`Stopped searching the folder for R files after ${timeoutMs} ms, so R won't start on its own. Running R code starts it.`);
+		return false;
+	}
 
-	// Check if the workspace is empty and the user is an RStudio user.
-	if (!(await hasFiles('**/*')) && isRStudioUser()) {
+	// Check if the user is an RStudio user and the workspace is empty.
+	if (isRStudioUser() && (await hasFiles('**/*', EMPTY_FOLDER_EXCLUDE, timeoutMs, folder)) === false) {
 		return true;
 	}
 
 	return false;
 }
 
-// Check if the current workspace contains files matching a glob pattern.
-async function hasFiles(glob: string): Promise<boolean> {
-	// Exclude node_modules for performance reasons
-	return (await vscode.workspace.findFiles(glob, '**/node_modules/**', 1)).length > 0;
+/**
+ * Whether the current workspace, or the given folder, contains files matching
+ * a glob pattern.
+ * @returns undefined if the search ran out of time without finding a match.
+ */
+async function hasFiles(glob: string, exclude: string, timeoutMs: number, folder?: vscode.Uri): Promise<boolean | undefined> {
+	const include = folder ? new vscode.RelativePattern(folder, glob) : glob;
+	const cts = new vscode.CancellationTokenSource();
+	const timer = setTimeout(() => cts.cancel(), timeoutMs);
+	try {
+		const files = await vscode.workspace.findFiles(include, exclude, 1, cts.token);
+		if (files.length > 0) {
+			return true;
+		}
+		if (cts.token.isCancellationRequested) {
+			return undefined;
+		}
+		return false;
+	} catch (err) {
+		if (cts.token.isCancellationRequested) {
+			return undefined;
+		}
+		throw err;
+	} finally {
+		clearTimeout(timer);
+		cts.dispose();
+	}
 }
 
 /**

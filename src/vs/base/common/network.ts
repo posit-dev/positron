@@ -147,6 +147,11 @@ export namespace Schemas {
 	 */
 	export const positronDataExplorer = 'positron-data-explorer';
 	export const positronNotebook = 'positron-notebook';
+
+	/**
+	 * Scheme used for the Positron object explorer.
+	 */
+	export const positronObjectExplorer = 'positron-object-explorer';
 	export const positronPlotsEditor = 'positron-plots-editor';
 	export const positronPlotsGallery = 'positron-plots-gallery';
 	export const positronPreviewEditor = 'positron-preview-editor';
@@ -302,6 +307,7 @@ export const nodeModulesPath: AppResourcePath = 'vs/../../node_modules';
 export const nodeModulesAsarPath: AppResourcePath = 'vs/../../node_modules.asar';
 export const nodeModulesAsarUnpackedPath: AppResourcePath = 'vs/../../node_modules.asar.unpacked';
 
+export const AGENTS_AUTHORITY = 'agents';
 export const VSCODE_AUTHORITY = 'vscode-app';
 
 class FileAccessImpl {

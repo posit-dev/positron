@@ -72,3 +72,24 @@ export async function connectToRemoteHost(app: Application): Promise<{ sshWin: P
 
 	return { sshWin, sshWorkbench };
 }
+
+/**
+ * Waits for a reloaded remote window to reconnect to the docker SSH host,
+ * answering the password prompt if the reconnect asks for it again.
+ *
+ * The remote indicator reads "Opening Remote..." while it connects and the
+ * host label ("SSH: remote") once the connection resolves.
+ */
+export async function waitForRemoteReconnect(sshWin: Page): Promise<void> {
+	await test.step('Reconnect to docker image after reload', async () => {
+		const passwordPrompt = sshWin.getByText('Enter password');
+		const remoteIndicator = sshWin.locator('[id="status.host"]');
+		await expect(async () => {
+			if (await passwordPrompt.isVisible()) {
+				await sshWin.keyboard.type('root');
+				await sshWin.keyboard.press('Enter');
+			}
+			await expect(remoteIndicator).toHaveText(/SSH: /, { timeout: 2_000 });
+		}).toPass({ timeout: 60_000 });
+	});
+}

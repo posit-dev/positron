@@ -5,7 +5,7 @@
 
 import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
-import { IHostedLanguageContribution, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, IRuntimeRootSignature, LanguageRuntimeSessionMode, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, IRuntimeRootSignature, LanguageRuntimeSessionMode, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -13,7 +13,7 @@ import { Disposable, LanguageRuntimeMessageType } from '../extHostTypes.js';
 import { RuntimeClientState, RuntimeClientType } from './extHostTypes.positron.js';
 import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
-import { isUriComponents, URI } from '../../../../base/common/uri.js';
+import { isUriComponents, URI, UriComponents } from '../../../../base/common/uri.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { IPackageRepositoryRequest, IPackageRepositoryResponse, IRuntimeSessionMetadata, reviveRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -1076,6 +1076,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._runtimeSessions[handle].updateSessionName(sessionName);
 	}
 
+	$updateNotebookUriLanguageRuntime(handle: number, notebookUri: UriComponents, quartoNotebookUri: UriComponents | undefined): void {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot update notebook URI for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		session.updateNotebookUri?.(URI.revive(notebookUri), quartoNotebookUri ? URI.revive(quartoNotebookUri) : undefined)
+			?.then(undefined, err => this._logService.error(`Failed to update notebook URI for session ${session.metadata.sessionId}: ${err}`));
+	}
+
 	$showProfileLanguageRuntime(handle: number): Thenable<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot show profile for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
@@ -1220,7 +1229,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return m.manager.getDiscoveryRootSignature();
 	}
 
-	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
+	public async $registerLanguageRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined> {
+		const m = this._runtimeManagers.find(m =>
+			m.languageId === languageId && m.manager.registerRuntimeFromPath);
+		if (!m) {
+			return undefined;
+		}
+		const runtime = await m.manager.registerRuntimeFromPath!(path);
+		this.registerLanguageRuntime(m.extension, m.manager, runtime);
+		return { extensionId: m.extension.identifier, ...runtime };
+	}
+
+	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeRecommendation[]> {
 		// Get the recommended runtimes from each provider
 		const metadata = await Promise.all(
 			this._runtimeManagers.filter(m => {
@@ -1229,19 +1249,22 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			}
 			).map(async m => {
 				// Get the recommended runtime from the provider, if any
-				const recommended = await m.manager.recommendedWorkspaceRuntime();
+				const recommended = await m.manager.recommendedWorkspaceRuntime(afterDiscovery);
 				if (recommended) {
 					return {
-						extensionId: m.extension.identifier,
-						...recommended
+						metadata: {
+							extensionId: m.extension.identifier,
+							...recommended
+						},
+						isProjectDefault: m.manager.recommendationIsProjectDefault !== false,
 					};
 				}
 				return undefined;
 			})
 		);
 
-		// Return all the metadata from the providers
-		return metadata.filter(metadata => metadata !== undefined) as ILanguageRuntimeMetadata[];
+		// Return all the recommendations from the providers
+		return metadata.filter(metadata => metadata !== undefined) as ILanguageRuntimeRecommendation[];
 	}
 
 	/**
@@ -1711,7 +1734,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		sessionId?: string,
 		documentUri?: URI,
 		executionMetadata?: Record<string, unknown>,
-		attributionMetadata?: Record<string, unknown>): Promise<Record<string, unknown>> {
+		attributionMetadata?: Record<string, unknown>,
+		preserveActiveTab?: boolean): Promise<Record<string, unknown>> {
 
 		// Create a UUID and an observer for this execution request
 		const executionId = generateUuid();
@@ -1725,7 +1749,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// more or less fixed since it's part of the public API, but the
 		// internal parameter order can be more logical.
 		this._proxy.$executeCode(
-			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId, documentUri, executionMetadata, attributionMetadata).then(
+			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId, documentUri, executionMetadata, attributionMetadata, undefined, preserveActiveTab).then(
 				(sessionId) => {
 					// Bind the session ID to the observer so we can use it later
 					executionObserver.sessionId = sessionId;
@@ -1773,9 +1797,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * in the same session that requested it, so waiting for completion (as
 	 * `executeCode` does) would deadlock that session, which stays busy until the
 	 * request returns.
+	 *
+	 * `callerSessionId` identifies the kernel session that sent the code, if
+	 * any, so the code is not credited to the extension that relayed it.
 	 */
-	public async queueCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean): Promise<void> {
-		await this._proxy.$executeCode(languageId, extensionId, undefined, code, focus, allowIncomplete);
+	public async queueCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean, callerSessionId?: string): Promise<void> {
+		await this._proxy.$executeCode(languageId, extensionId, undefined, code, focus, allowIncomplete,
+			undefined, undefined, undefined, undefined, undefined, undefined, callerSessionId);
 	}
 
 	/**
@@ -1783,6 +1811,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @param languageId The language ID to evaluate in
 	 * @param code The code to evaluate
+	 * @param extensionId The ID of the extension that requested the evaluation
 	 * @param token An optional cancellation token
 	 * @param sessionId An optional session ID to target
 	 * @returns A promise that resolves with the evaluation result
@@ -1790,13 +1819,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public evaluateCode(
 		languageId: string,
 		code: string,
+		extensionId: string,
 		token?: CancellationToken,
 		sessionId?: string,
 		whenBusy?: RuntimeBusyBehavior
 	): Promise<EvalResult> {
 		const evaluationId = generateUuid();
 
-		const promise = this._proxy.$evaluateCode(languageId, sessionId, code, evaluationId, whenBusy);
+		const promise = this._proxy.$evaluateCode(languageId, extensionId, sessionId, code, evaluationId, whenBusy);
 
 		// If a cancellation token is provided, register a listener to cancel
 		// the evaluation when the token fires
@@ -1842,9 +1872,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Selects and starts a language runtime.
 	 *
 	 * @param runtimeId The runtime ID to select and start.
+	 * @param requestingExtensionId The ID of the extension making the request.
 	 */
-	public selectLanguageRuntime(runtimeId: string): Promise<void> {
-		return this._proxy.$selectLanguageRuntime(runtimeId);
+	public selectLanguageRuntime(runtimeId: string, requestingExtensionId: string): Promise<void> {
+		return this._proxy.$selectLanguageRuntime(runtimeId, requestingExtensionId);
 	}
 
 	/**
@@ -1854,6 +1885,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param sessionName A human-readable name for the new session.
 	 * @param sessionMode The mode in which the session is to be run.
 	 * @param notebookUri The URI of the notebook document, if in notebook mode.
+	 * @param requestingExtensionId The ID of the extension making the request.
 	 *
 	 * Returns a Thenable that resolves with the newly created session, or
 	 * rejects with an error.
@@ -1861,11 +1893,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public async startLanguageRuntime(runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
-		notebookUri: URI | undefined): Promise<positron.LanguageRuntimeSession> {
+		notebookUri: URI | undefined,
+		requestingExtensionId: string,
+		options?: positron.RuntimeSessionStartOptions): Promise<positron.LanguageRuntimeSession> {
 
 		// Start the runtime and get the session ID
 		const sessionId =
-			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri);
+			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri, requestingExtensionId, options);
 
 		// The process of starting a session in Positron should have caused the
 		// runtime to be registered with the extension host, so we should be able
@@ -1882,9 +1916,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Restarts an active session.
 	 *
 	 * @param sessionId The session ID to restart.
+	 * @param requestingExtensionId The ID of the extension that requested the restart.
 	 */
-	public restartSession(sessionId: string): Promise<boolean> {
-		return this._proxy.$restartSession(sessionId);
+	public restartSession(sessionId: string, requestingExtensionId: string): Promise<boolean> {
+		return this._proxy.$restartSession(sessionId, requestingExtensionId);
 	}
 
 	/**

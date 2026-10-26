@@ -754,7 +754,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 		// An empty result means that the initialization went fine.
 		if (init_err !== '') {
-			throw new Error(vscode.l10n.t(`Reticulate initialization failed: ${init_err}`));
+			throw new Error(vscode.l10n.t('Reticulate initialization failed: {0}', init_err));
 		}
 
 		this.progress.report({ increment: 10, message: vscode.l10n.t('Connecting to the Reticulate session') });
@@ -946,6 +946,10 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 	public updateSessionName(sessionName: string): void {
 		this.pythonSession.updateSessionName(sessionName);
+	}
+
+	public async updateNotebookUri(notebookUri: vscode.Uri, quartoNotebookUri: vscode.Uri | undefined): Promise<void> {
+		await this.pythonSession.updateNotebookUri?.(notebookUri, quartoNotebookUri);
 	}
 
 	public getPackageManager(): positron.LanguageRuntimePackageManager {

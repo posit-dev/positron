@@ -4,12 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as positron from 'positron';
+import { Readable } from 'stream';
 import * as vscode from 'vscode';
 import { SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
-import { defaultConnectionFactory, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
-import { createDatabaseNode, createSchemaNode, parseSemanticViewDescription } from '../snowflakeNodes.js';
-import { parseSnowflakeAccount } from '../snowflakeDriver.js';
+import { defaultConnectionFactory, isStatementError, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
+import { createDatabaseNode, createSchemaNode, parseSemanticViewDescription, stageFilePath } from '../snowflakeNodes.js';
+import { connectionOptionsFromToml, connectionsFileOptions, parseSnowflakeAccount } from '../snowflakeDriver.js';
 import { isWorkbenchManaged } from '../workbenchCredentials.js';
 
 // Default config for tests -- not used to connect, just to construct.
@@ -37,6 +41,11 @@ function createMockClient(queryHandler?: (sql: string, binds?: any[]) => { rows:
 	return {
 		connect: async () => { },
 		query: async (sql: string, binds?: any[]) => handler(sql, binds),
+		// Answered from the same handler, cut to the cap the way the real client's streamed read is.
+		queryCapped: async (sql: string, limit: number) => {
+			const { rows } = handler(sql);
+			return { rows: rows.slice(0, limit), total: rows.length };
+		},
 		end: async () => { },
 	};
 }
@@ -165,9 +174,9 @@ suite('Snowflake Driver Tests', () => {
 		await conn.disconnect();
 	});
 
-	test('Databases group expands to sorted database nodes via SHOW TERSE DATABASES', async () => {
+	test('Databases group expands to sorted database nodes via SHOW DATABASES', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('SHOW TERSE DATABASES')) {
+			if (sql.includes('SHOW DATABASES')) {
 				return { rows: [{ name: 'SALES' }, { name: 'ANALYTICS' }] };
 			}
 			return { rows: [] };
@@ -183,9 +192,9 @@ suite('Snowflake Driver Tests', () => {
 
 	// --- Schema browsing ---
 
-	test('database node expands to schema nodes via SHOW TERSE SCHEMAS', async () => {
+	test('database node expands to schema nodes via SHOW SCHEMAS', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('SHOW TERSE SCHEMAS')) {
+			if (sql.includes('SHOW SCHEMAS')) {
 				return { rows: [{ name: 'PUBLIC' }, { name: 'STAGING' }] };
 			}
 			return { rows: [] };
@@ -204,10 +213,10 @@ suite('Snowflake Driver Tests', () => {
 
 	test('schema getChildren returns Tables and Views groups', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('SHOW TERSE TABLES')) {
+			if (sql.includes('SHOW TABLES')) {
 				return { rows: [{ name: 'USERS' }, { name: 'ORDERS' }] };
 			}
-			if (sql.includes('SHOW TERSE VIEWS')) {
+			if (sql.includes('SHOW VIEWS')) {
 				return { rows: [{ name: 'USER_ORDERS' }] };
 			}
 			return { rows: [] };
@@ -241,7 +250,7 @@ suite('Snowflake Driver Tests', () => {
 
 	// --- Stages within a schema ---
 
-	test('Stages group lists stage nodes as leaves via SHOW STAGES', async () => {
+	test('Stages group lists stage nodes via SHOW STAGES', async () => {
 		const mock = createMockClient((sql) => {
 			if (sql.includes('SHOW STAGES')) {
 				return { rows: [{ name: 'RAW_LOAD' }, { name: 'EXPORTS' }] };
@@ -255,10 +264,339 @@ suite('Snowflake Driver Tests', () => {
 		assert.deepStrictEqual(stages.map(s => s.name), ['EXPORTS', 'RAW_LOAD']);
 		stages.forEach(s => {
 			assert.strictEqual(s.kind, positron.DataConnectionNodeKind.Stage);
-			// Stages hold files, not rows: leaf nodes with no children and no preview.
-			assert.strictEqual(s.getChildren, undefined);
+			// Stages hold files, not rows: they expand to their files, but have no preview.
+			assert.ok(s.getChildren, `${s.name} should have getChildren`);
 			assert.strictEqual(s.preview, undefined);
 		});
+	});
+
+	test('stage expands to folders and files from LIST, each folder listing its own prefix', async () => {
+		const listed: string[] = [];
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'RAW_LOAD', type: 'INTERNAL' }] };
+			}
+			if (sql.startsWith('LIST ')) {
+				listed.push(sql);
+				// An internal stage's LIST names each file by the stage's (lowercased) name and its path.
+				const files = [
+					{ name: 'raw_load/readme.txt', size: 12 },
+					{ name: 'raw_load/2024/orders.csv', size: 2048 },
+					{ name: 'raw_load/2024/q1/returns.csv', size: 10 },
+					{ name: 'raw_load/2024x/other.csv', size: 1 },
+				];
+				// LIST lists everything under the location it's given.
+				const location = /"RAW_LOAD"\/(?<prefix>[^']*)'/.exec(sql)?.groups?.prefix ?? '';
+				return { rows: files.filter(file => file.name.startsWith(`raw_load/${location}`)) };
+			}
+			throw new Error(`Unexpected query: ${sql}`);
+		});
+
+		const schemaNode = createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC');
+		const [stage] = await stagesOf(schemaNode);
+		assert.strictEqual(stage.path, '@"ANALYTICS"."PUBLIC"."RAW_LOAD"');
+
+		const top = await stage.getChildren!();
+		assert.deepStrictEqual(top.map(node => [node.kind, node.name, node.dataType, node.path]), [
+			[positron.DataConnectionNodeKind.Directory, '2024', undefined, '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/'],
+			[positron.DataConnectionNodeKind.Directory, '2024x', undefined, '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024x/'],
+			[positron.DataConnectionNodeKind.File, 'readme.txt', '12 B', '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/readme.txt'],
+		]);
+
+		// The folder lists its own prefix when expanded, so it shows what is there now.
+		const inFolder = await top[0].getChildren!();
+		assert.deepStrictEqual(inFolder.map(node => [node.kind, node.name, node.dataType, node.path]), [
+			[positron.DataConnectionNodeKind.Directory, 'q1', undefined, '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/q1/'],
+			[positron.DataConnectionNodeKind.File, 'orders.csv', '2.0 KB', '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/orders.csv'],
+		]);
+		assert.deepStrictEqual(listed, [
+			`LIST '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/'`,
+			`LIST '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/'`,
+		]);
+	});
+
+	test('stageFilePath strips the stage name or URL from a LIST name, however either is spelled', () => {
+		assert.deepStrictEqual([
+			stageFilePath('raw_load/2024/orders.csv', undefined, 'RAW_LOAD'),
+			// A quoted stage name can hold a slash.
+			stageFilePath('raw/load/2024/orders.csv', undefined, 'raw/load'),
+			stageFilePath('s3://bucket/exports/2024/orders.csv', 's3://bucket/exports/', 'EXPORTS'),
+			// The URL SHOW STAGES reports can differ from LIST's names in case and trailing slash.
+			stageFilePath('s3://Bucket/Exports/2024/orders.csv', 's3://bucket/exports', 'EXPORTS'),
+			stageFilePath('azure://acct.blob.core.windows.net/data/raw/orders.csv', 'azure://acct.blob.core.windows.net/data/', 'EXPORTS'),
+			// A folder marker keeps its trailing slash.
+			stageFilePath('raw_load/2024/', undefined, 'RAW_LOAD'),
+		], ['2024/orders.csv', '2024/orders.csv', '2024/orders.csv', '2024/orders.csv', 'raw/orders.csv', '2024/']);
+	});
+
+	test('stage listing says when it was cut short, counting the files below each level', async () => {
+		// 10,001 files, all in one folder: more than one listing reads, at the stage and in the folder.
+		const many = Array.from({ length: 10001 }, (_, index) => ({ name: `big/sub/f${String(index).padStart(5, '0')}.csv`, size: 1 }));
+		const listed: string[] = [];
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'BIG' }] };
+			}
+			listed.push(sql);
+			// LIST lists everything under the location it's given.
+			const location = /"BIG"\/(?<prefix>[^']*)'/.exec(sql)?.groups?.prefix ?? '';
+			return { rows: many.filter(file => file.name.startsWith(`big/${location}`)) };
+		});
+
+		const [big] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		const atStage = await big.getChildren!();
+		const inFolder = await atStage[1].getChildren!();
+		assert.deepStrictEqual({
+			atStage: atStage.map(node => [node.kind, node.name]),
+			inFolder: [inFolder.length, inFolder[0].kind, inFolder[0].name],
+			listed,
+		}, {
+			atStage: [
+				[positron.DataConnectionNodeKind.Notice, 'Only the first 10,000 of the 10,001 files in this stage were listed'],
+				[positron.DataConnectionNodeKind.Directory, 'sub'],
+			],
+			inFolder: [10001, positron.DataConnectionNodeKind.Notice, 'Only the first 10,000 of the 10,001 files in this folder and its subfolders were listed'],
+			listed: [`LIST '@"ANALYTICS"."PUBLIC"."BIG"/'`, `LIST '@"ANALYTICS"."PUBLIC"."BIG"/sub/'`],
+		});
+	});
+
+	test('stage listing says why it is empty when the role can\'t list it, and fails when the connection does', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'GONE' }, { name: 'LOCKED' }] };
+			}
+			if (sql.includes('"LOCKED"')) {
+				// Snowflake reports a statement's own failure with a SQL state.
+				throw Object.assign(new Error('Insufficient privileges to operate on stage'), { sqlState: '42501' });
+			}
+			throw new Error('Snowflake client is closed');
+		});
+
+		const [gone, locked] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		assert.deepStrictEqual((await locked.getChildren!()).map(node => [node.kind, node.name]), [
+			[positron.DataConnectionNodeKind.Notice, 'Could not list the files: Insufficient privileges to operate on stage'],
+		]);
+		// A connection problem is the tree's to report, not the stage's.
+		await assert.rejects(async () => gone.getChildren!(), /Snowflake client is closed/);
+	});
+
+	test('stage details show its SHOW row and its DESCRIBE STAGE properties, grouped', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'EXPORTS', type: 'EXTERNAL', url: '["s3://bucket/exports/"]', cloud: 'AWS', directory_enabled: 'N', owner: 'SYSADMIN', comment: '' }] };
+			}
+			if (sql.startsWith('DESCRIBE STAGE')) {
+				return {
+					rows: [
+						{ parent_property: 'STAGE_FILE_FORMAT', property: 'TYPE', property_value: 'CSV', property_default: 'CSV' },
+						{ parent_property: 'STAGE_COPY_OPTIONS', property: 'ON_ERROR', property_value: 'ABORT_STATEMENT', property_default: 'ABORT_STATEMENT' },
+					]
+				};
+			}
+			throw new Error(`Unexpected query: ${sql}`);
+		});
+
+		const [stage] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		const details = await stage.getDetails!();
+		assert.deepStrictEqual(details.description, 'External stage');
+		assert.deepStrictEqual(details.tabs, [
+			{
+				title: 'Overview', sections: [{
+					kind: 'properties', properties: [
+						{ name: 'Path', value: '@"ANALYTICS"."PUBLIC"."EXPORTS"' },
+						{ name: 'Type', value: 'EXTERNAL' },
+						// The URL's list form is unwrapped.
+						{ name: 'URL', value: 's3://bucket/exports/' },
+						{ name: 'Cloud', value: 'AWS' },
+						{ name: 'Directory Table', value: 'No' },
+						{ name: 'Owner', value: 'SYSADMIN' },
+					]
+				}]
+			},
+			{
+				title: 'Properties', sections: [
+					{ kind: 'table', title: 'File Format', columns: ['Property', 'Value', 'Default'], rows: [['TYPE', 'CSV', 'CSV']] },
+					{ kind: 'table', title: 'Copy Options', columns: ['Property', 'Value', 'Default'], rows: [['ON_ERROR', 'ABORT_STATEMENT', 'ABORT_STATEMENT']] },
+				]
+			},
+		]);
+	});
+
+	test('a stage file\'s details show its LIST row, its modification time in the local format', async () => {
+		const modified = 'Thu, 3 Oct 2024 16:09:00 GMT';
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'RAW' }] };
+			}
+			return { rows: [{ name: 'raw/model.yaml', size: 7066, md5: '5648cc8f8d7c35fda4ca7f310ff2db67', last_modified: modified }] };
+		});
+
+		const [stage] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		const [file] = await stage.getChildren!();
+		assert.deepStrictEqual(await file.getDetails!(), {
+			description: 'File',
+			sections: [{
+				kind: 'properties', properties: [
+					{ name: 'Path', value: '@"ANALYTICS"."PUBLIC"."RAW"/model.yaml' },
+					{ name: 'Size', value: '6.9 KB' },
+					// LIST reports the time as text; it is shown like every other date in the details.
+					{ name: 'Last Modified', value: new Date(modified).toLocaleString() },
+					{ name: 'MD5', value: '5648cc8f8d7c35fda4ca7f310ff2db67' },
+				]
+			}],
+		});
+	});
+
+	test('stage folder markers add their folders but no file', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'RAW' }] };
+			}
+			return { rows: [{ name: 'raw/empty/', size: 0 }, { name: 'raw/a.csv', size: 1 }] };
+		});
+
+		const [stage] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		assert.deepStrictEqual((await stage.getChildren!()).map(node => [node.kind, node.name]), [
+			[positron.DataConnectionNodeKind.Directory, 'empty'],
+			[positron.DataConnectionNodeKind.File, 'a.csv'],
+		]);
+	});
+
+	// --- Details for databases, schemas, tables, and views ---
+
+	test('database and schema details show their SHOW rows, leaving out empty values', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW DATABASES')) {
+				return { rows: [{ name: 'ANALYTICS', kind: 'STANDARD', owner: 'SYSADMIN', origin: '', retention_time: '1', comment: null }] };
+			}
+			if (sql.includes('SHOW SCHEMAS')) {
+				return { rows: [{ name: 'PUBLIC', owner: 'SYSADMIN', options: 'MANAGED ACCESS', retention_time: '1', comment: 'Main' }] };
+			}
+			return { rows: [] };
+		});
+
+		const [database] = await databasesOf(createTestConnection(mock));
+		const [schema] = await schemasOf(database);
+		assert.deepStrictEqual([database.path, await database.getDetails!(), schema.path, await schema.getDetails!()], [
+			'"ANALYTICS"',
+			{
+				description: 'Database', sections: [{
+					kind: 'properties', properties: [
+						{ name: 'Path', value: '"ANALYTICS"' },
+						{ name: 'Kind', value: 'STANDARD' },
+						{ name: 'Owner', value: 'SYSADMIN' },
+						{ name: 'Retention Time (Days)', value: '1' },
+					]
+				}]
+			},
+			'"ANALYTICS"."PUBLIC"',
+			{
+				description: 'Schema', sections: [{
+					kind: 'properties', properties: [
+						{ name: 'Path', value: '"ANALYTICS"."PUBLIC"' },
+						{ name: 'Owner', value: 'SYSADMIN' },
+						{ name: 'Options', value: 'MANAGED ACCESS' },
+						{ name: 'Retention Time (Days)', value: '1' },
+						{ name: 'Comment', value: 'Main' },
+					]
+				}]
+			},
+		]);
+	});
+
+	test('table details show its SHOW row and its columns, naming a special kind of table', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW TABLES')) {
+				return {
+					rows: [{
+						name: 'ORDERS', kind: 'TABLE', owner: 'SYSADMIN', rows: 1234567, bytes: 1536, cluster_by: 'LINEAR(D)',
+						automatic_clustering: 'ON', change_tracking: 'OFF', retention_time: '1', is_dynamic: 'Y', comment: 'Orders',
+					}]
+				};
+			}
+			if (sql.startsWith('DESCRIBE TABLE')) {
+				return { rows: [{ name: 'ID', type: 'NUMBER(38,0)', comment: 'the id' }] };
+			}
+			throw new Error(`Unexpected query: ${sql}`);
+		});
+
+		const [table] = await tablesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		assert.deepStrictEqual(await table.getDetails!(), {
+			description: 'Dynamic table',
+			sections: [],
+			tabs: [
+				{
+					title: 'Overview', sections: [{
+						kind: 'properties', properties: [
+							{ name: 'Path', value: '"ANALYTICS"."PUBLIC"."ORDERS"' },
+							{ name: 'Kind', value: 'TABLE' },
+							{ name: 'Owner', value: 'SYSADMIN' },
+							{ name: 'Rows', value: (1234567).toLocaleString() },
+							{ name: 'Size', value: '1.5 KB' },
+							{ name: 'Clustering Key', value: 'LINEAR(D)' },
+							{ name: 'Automatic Clustering', value: 'Yes' },
+							{ name: 'Change Tracking', value: 'No' },
+							{ name: 'Retention Time (Days)', value: '1' },
+							{ name: 'Comment', value: 'Orders' },
+						]
+					}]
+				},
+				{
+					title: 'Columns', sections: [{
+						kind: 'items',
+						items: [{ name: 'ID', kind: positron.DataConnectionNodeKind.Field, dataType: 'NUMBER(38,0)', description: 'the id' }],
+						emptyText: 'No columns',
+					}]
+				},
+			],
+		});
+	});
+
+	test('view details show its definition, or say it is unavailable for a secure view', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW VIEWS')) {
+				return {
+					rows: [
+						{ name: 'OPEN_V', is_secure: 'false', is_materialized: 'true', text: 'create view OPEN_V as select 1' },
+						{ name: 'SECURE_V', is_secure: 'true', is_materialized: 'false', text: '' },
+					]
+				};
+			}
+			if (sql.startsWith('DESCRIBE VIEW')) {
+				return { rows: [] };
+			}
+			throw new Error(`Unexpected query: ${sql}`);
+		});
+
+		const views = await viewsOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		const details = await Promise.all(views.map(view => view.getDetails!()));
+		assert.deepStrictEqual(details.map(detail => [detail.description, detail.tabs![2].sections]), [
+			['Materialized view', [{ kind: 'code', languageId: 'sql', code: 'create view OPEN_V as select 1' }]],
+			['View', [{ kind: 'properties', properties: [{ name: 'Unavailable', value: 'The definition is not available to the current role.' }] }]],
+		]);
+	});
+
+	test('a table\'s details share one DESCRIBE across clicks until the table is refreshed', async () => {
+		let describes = 0;
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW TABLES')) {
+				return { rows: [{ name: 'ORDERS' }] };
+			}
+			if (sql.startsWith('DESCRIBE TABLE')) {
+				describes++;
+				return { rows: [{ name: 'ID', type: 'NUMBER(38,0)' }] };
+			}
+			throw new Error(`Unexpected query: ${sql}`);
+		});
+
+		const [table] = await tablesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		await table.getDetails!();
+		await table.getDetails!();
+		const afterClicks = describes;
+		// Refreshing the table re-runs its getChildren, which drops the shared DESCRIBE.
+		await table.getChildren!();
+		await table.getDetails!();
+		assert.deepStrictEqual([afterClicks, describes], [1, 2]);
 	});
 
 	// --- Field nodes (under each table's Columns group) ---
@@ -276,7 +614,7 @@ suite('Snowflake Driver Tests', () => {
 					]
 				};
 			}
-			if (sql.includes('SHOW TERSE TABLES')) {
+			if (sql.includes('SHOW TABLES')) {
 				return { rows: [{ name: 'PRODUCTS' }] };
 			}
 			return { rows: [] };
@@ -315,7 +653,7 @@ suite('Snowflake Driver Tests', () => {
 
 	test('table getChildren returns only a Columns group', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('SHOW TERSE TABLES')) {
+			if (sql.includes('SHOW TABLES')) {
 				return { rows: [{ name: 'PRODUCTS' }] };
 			}
 			return { rows: [] };
@@ -346,7 +684,7 @@ suite('Snowflake Driver Tests', () => {
 
 	test('table node preview opens the table in the Data Explorer with its full identity', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('SHOW TERSE TABLES')) {
+			if (sql.includes('SHOW TABLES')) {
 				return { rows: [{ name: 'T' }] };
 			}
 			return { rows: [] };
@@ -386,6 +724,216 @@ suite('Snowflake Driver Tests', () => {
 
 		assert.strictEqual(new Set(captured).size, 4, 'each object should get a distinct dataset id');
 		await conn.disconnect();
+	});
+});
+
+suite('Snowflake Lineage', () => {
+	const request: positron.DataConnectionLineageRequest = {
+		path: ['SALES', 'PUBLIC', 'ORDERS_DAILY'],
+		domain: 'table',
+		direction: 'upstream',
+		depth: 2,
+		maxEdges: 2,
+	};
+
+	// A GET_LINEAGE row, as snowflake-sdk delivers it: uppercase column names, NULLs where an end has
+	// no database, schema or column.
+	function lineageRow(source: string, target: string, distance: number, overrides: Record<string, unknown> = {}) {
+		return {
+			DISTANCE: distance,
+			SOURCE_OBJECT_DATABASE: 'SALES', SOURCE_OBJECT_SCHEMA: 'PUBLIC', SOURCE_OBJECT_NAME: source,
+			SOURCE_OBJECT_DOMAIN: 'TABLE', SOURCE_COLUMN_NAME: null, SOURCE_STATUS: 'ACTIVE',
+			TARGET_OBJECT_DATABASE: 'SALES', TARGET_OBJECT_SCHEMA: 'PUBLIC', TARGET_OBJECT_NAME: target,
+			TARGET_OBJECT_DOMAIN: 'TABLE', TARGET_COLUMN_NAME: null, TARGET_STATUS: 'ACTIVE',
+			...overrides,
+		};
+	}
+
+	test('reads lineage with GET_LINEAGE, binding the request and bounding the result', async () => {
+		const queries: { sql: string; binds?: unknown[] }[] = [];
+		const conn = createTestConnection(createMockClient((sql, binds) => {
+			queries.push({ sql, binds });
+			return { rows: [] };
+		}));
+
+		await conn.getLineage(request);
+
+		// The first query is GET_LINEAGE; an empty result is then checked against SHOW DATABASES.
+		const [{ sql, binds }] = queries;
+		assert.match(sql, /^SELECT DISTANCE, SOURCE_OBJECT_DATABASE, .* FROM TABLE\(SNOWFLAKE\.CORE\.GET_LINEAGE\(\?, \?, \?, \?\)\) /);
+		// Nearest first, then by name, so a cut at maxEdges keeps the same edges every time; and one
+		// row past maxEdges, so a full page can be told from a truncated one.
+		assert.match(sql, / ORDER BY DISTANCE, SOURCE_OBJECT_DATABASE, SOURCE_OBJECT_SCHEMA, SOURCE_OBJECT_NAME, .* LIMIT 3$/);
+		assert.deepStrictEqual(binds, ['"SALES"."PUBLIC"."ORDERS_DAILY"', 'TABLE', 'UPSTREAM', 2]);
+	});
+
+	// The way the rest of the driver names objects: each part quoted, so a lowercase or mixed-case
+	// name (pandas write_pandas creates these by default) is not uppercased into a different object.
+	test('names the object exactly, quoting each part of its path', async () => {
+		const binds: unknown[][] = [];
+		const conn = createTestConnection(createMockClient((_sql, queryBinds) => {
+			binds.push(queryBinds!);
+			return { rows: [] };
+		}));
+
+		await conn.getLineage({ ...request, path: ['Sales', 'public', 'orders', 'say "hi"'], domain: 'column' });
+
+		assert.strictEqual(binds[0][0], '"Sales"."public"."orders"."say ""hi"""');
+		assert.strictEqual(binds[0][1], 'COLUMN');
+	});
+
+	test('declines a path that is not a Snowflake object\'s, without querying', async () => {
+		const conn = createTestConnection(createMockClient(() => {
+			throw new Error('should not query');
+		}));
+
+		assert.deepStrictEqual(await conn.getLineage({ ...request, path: ['PUBLIC', 'ORDERS'] }), {
+			available: false,
+			message: 'Snowflake names a table or view as database.schema.table.',
+		});
+		assert.deepStrictEqual(await conn.getLineage({ ...request, domain: 'column' }), {
+			available: false,
+			message: 'Snowflake names a column as database.schema.table.column.',
+		});
+	});
+
+	// GET_LINEAGE answers for these with an empty result, which would read as "no lineage"; what
+	// they are can be told from the path, so no query is needed to decline them.
+	test('declines INFORMATION_SCHEMA and SNOWFLAKE database objects, without querying', async () => {
+		const conn = createTestConnection(createMockClient(() => {
+			throw new Error('should not query');
+		}));
+
+		assert.deepStrictEqual(await conn.getLineage({ ...request, path: ['SALES', 'INFORMATION_SCHEMA', 'TABLES'] }), {
+			available: false,
+			message: 'Snowflake does not track lineage for objects in INFORMATION_SCHEMA.',
+		});
+		assert.deepStrictEqual(await conn.getLineage({ ...request, path: ['SNOWFLAKE', 'ACCOUNT_USAGE', 'QUERY_HISTORY'] }), {
+			available: false,
+			message: 'Snowflake does not track lineage for objects in the SNOWFLAKE database.',
+		});
+	});
+
+	// A shared (imported) database's objects also come back empty. That takes a query to tell, so it
+	// is asked only once the result is empty, and only the exact name counts: SHOW DATABASES LIKE
+	// matches case-insensitively and with wildcards.
+	test('declines an empty result from a shared database, and reports one from any other database', async () => {
+		const queries: string[] = [];
+		const databases = [
+			{ name: 'AIR_QUALITY', kind: 'IMPORTED DATABASE' },
+			{ name: 'air_quality', kind: 'STANDARD' },
+			{ name: 'SALES', kind: 'STANDARD' },
+		];
+		const conn = createTestConnection(createMockClient(sql => {
+			queries.push(sql);
+			return { rows: sql.startsWith('SHOW DATABASES') ? databases : [] };
+		}));
+
+		assert.deepStrictEqual(await conn.getLineage({ ...request, path: ['AIR_QUALITY', 'PUBLIC', 'READINGS'] }), {
+			available: false,
+			message: 'Snowflake does not track lineage for objects in a shared database (AIR_QUALITY).',
+		});
+		assert.strictEqual(queries[1], 'SHOW DATABASES LIKE \'AIR_QUALITY\'');
+		assert.deepStrictEqual(await conn.getLineage({ ...request, path: ['air_quality', 'PUBLIC', 'READINGS'] }), {
+			available: true, edges: [], truncated: false,
+		});
+		assert.deepStrictEqual(await conn.getLineage(request), { available: true, edges: [], truncated: false });
+	});
+
+	test('leaves an empty result standing when the role cannot show the database', async () => {
+		const conn = createTestConnection(createMockClient(sql => {
+			if (sql.startsWith('SHOW DATABASES')) {
+				throw Object.assign(new Error('Insufficient privileges'), { sqlState: '42501' });
+			}
+			return { rows: [] };
+		}));
+
+		assert.deepStrictEqual(await conn.getLineage(request), { available: true, edges: [], truncated: false });
+	});
+
+	// Measured against a real account: a masked end comes back with `***` in its database, schema,
+	// name and column, which are placeholders, not names.
+	test('drops Snowflake\'s placeholders for a masked end', async () => {
+		const conn = createTestConnection(createMockClient(() => ({
+			rows: [lineageRow('***', 'REF_ENTITIES', 1, {
+				SOURCE_OBJECT_DATABASE: '***', SOURCE_OBJECT_SCHEMA: '***', SOURCE_COLUMN_NAME: '***', SOURCE_OBJECT_DOMAIN: 'VIEW', SOURCE_STATUS: 'MASKED',
+			})],
+		})));
+
+		const lineage = await conn.getLineage(request);
+
+		assert.ok(lineage.available);
+		assert.deepStrictEqual(lineage.edges[0].source, { domain: 'view', masked: true });
+	});
+
+	test('maps each row to an edge, keeping masked, external and column ends as they are', async () => {
+		const conn = createTestConnection(createMockClient(() => ({
+			rows: [
+				lineageRow('ORDERS', 'ORDERS_DAILY', 1, { SOURCE_COLUMN_NAME: 'TOTAL', TARGET_COLUMN_NAME: 'REVENUE', SOURCE_OBJECT_DOMAIN: 'COLUMN', TARGET_OBJECT_DOMAIN: 'COLUMN' }),
+				lineageRow(null as unknown as string, 'ORDERS', 2, {
+					SOURCE_OBJECT_DATABASE: null, SOURCE_OBJECT_SCHEMA: null, SOURCE_OBJECT_DOMAIN: 'EXTERNAL', SOURCE_STATUS: 'MASKED',
+				}),
+			],
+		})));
+
+		assert.deepStrictEqual(await conn.getLineage({ ...request, maxEdges: 200 }), {
+			available: true,
+			edges: [
+				{
+					source: { database: 'SALES', schema: 'PUBLIC', name: 'ORDERS', column: 'TOTAL', domain: 'column' },
+					target: { database: 'SALES', schema: 'PUBLIC', name: 'ORDERS_DAILY', column: 'REVENUE', domain: 'column' },
+					distance: 1,
+				},
+				{
+					source: { domain: 'external', masked: true },
+					target: { database: 'SALES', schema: 'PUBLIC', name: 'ORDERS', column: undefined, domain: 'table' },
+					distance: 2,
+				},
+			],
+			truncated: false,
+		});
+	});
+
+	test('keeps the nearest maxEdges edges and says when it left any out', async () => {
+		const conn = createTestConnection(createMockClient(() => ({
+			rows: [lineageRow('A', 'B', 1), lineageRow('B', 'C', 1), lineageRow('C', 'D', 2)],
+		})));
+
+		const lineage = await conn.getLineage(request);
+
+		assert.ok(lineage.available);
+		assert.deepStrictEqual(lineage.edges.map(edge => [edge.source.name, edge.target.name]), [['A', 'B'], ['B', 'C']]);
+		assert.strictEqual(lineage.truncated, true);
+	});
+
+	// Snowflake reports a missing object, a wrong domain, an object without lineage support, or an
+	// account without Enterprise Edition by failing the statement, with a SQL state. That is an
+	// answer, and the message is what lets the user tell which.
+	test('reports Snowflake declining the request as unavailable, with its message', async () => {
+		const conn = createTestConnection(createMockClient(() => {
+			throw Object.assign(new Error('Object \'SALES.PUBLIC.NOPE\' does not exist or not authorized.'), { sqlState: '02000' });
+		}));
+
+		assert.deepStrictEqual(await conn.getLineage(request), {
+			available: false,
+			message: 'Object \'SALES.PUBLIC.NOPE\' does not exist or not authorized.',
+		});
+	});
+
+	// A connection problem is the caller's to report, not an answer about the object.
+	test('rejects when the connection fails', async () => {
+		const conn = createTestConnection(createMockClient(() => {
+			throw new Error('Snowflake client is closed');
+		}));
+
+		await assert.rejects(() => conn.getLineage(request), /Snowflake client is closed/);
+	});
+
+	test('rejects after disconnect', async () => {
+		const conn = createTestConnection(createMockClient());
+		await conn.disconnect();
+
+		await assert.rejects(() => conn.getLineage(request), /closed/);
 	});
 });
 
@@ -641,6 +1189,118 @@ suite('Snowflake Reconnecting Client', () => {
 	});
 });
 
+suite('Snowflake Capped Query', () => {
+
+	const OPTIONS: SnowflakeConnectionOptions = {
+		account: 'myorg-myacct',
+		username: 'testuser',
+		password: 'testpass',
+	};
+
+	// How a fake connection answers a streamed statement: the rows of its result, or the failure it
+	// reports instead -- as the statement runs, as its result is read, or as its stream fails.
+	interface IStreamedAnswer {
+		rows?: Record<string, unknown>[];
+		executeError?: Error;
+		readThrows?: Error;
+		streamError?: Error;
+	}
+
+	// A fake sdk connection that answers a streamed statement the way snowflake-sdk does: `complete`
+	// gets the statement but no rows, which are read from it with getNumRows and an inclusive
+	// streamRows range. Records each range read.
+	function streamingConnection(answer: IStreamedAnswer) {
+		const ranges: { start: number; end: number }[] = [];
+		const conn = {
+			connect: (cb: (err: unknown, conn: unknown) => void) => cb(undefined, conn),
+			destroy: (cb: (err: unknown, conn: unknown) => void) => cb(undefined, conn),
+			execute: (opts: { streamResult?: boolean; complete: (err: unknown, stmt: unknown, rows: unknown) => void }) => {
+				assert.strictEqual(opts.streamResult, true, 'a capped query streams its result');
+				if (answer.executeError) {
+					opts.complete(answer.executeError, undefined, undefined);
+					return;
+				}
+				const rows = answer.rows ?? [];
+				opts.complete(undefined, {
+					getNumRows: () => {
+						if (answer.readThrows) {
+							throw answer.readThrows;
+						}
+						return rows.length;
+					},
+					streamRows: (range: { start: number; end: number }) => {
+						ranges.push(range);
+						const streamError = answer.streamError;
+						return streamError
+							? new Readable({ objectMode: true, read() { this.destroy(streamError); } })
+							: Readable.from(rows.slice(range.start, range.end + 1));
+					},
+				}, undefined);
+			},
+		};
+		return { conn, ranges };
+	}
+
+	// Builds a client over the given fake connections, the nth backing the nth connection built.
+	function clientOver(...conns: unknown[]): { client: SnowflakeClient; built: () => number } {
+		let n = 0;
+		// eslint-disable-next-line local/code-no-any-casts
+		const factory: SnowflakeConnectionFactory = async () => conns[n++] as any;
+		return { client: new SnowflakeClient(OPTIONS, factory), built: () => n };
+	}
+
+	test('reads only the first rows of a result, and says how many it had', async () => {
+		const { conn, ranges } = streamingConnection({ rows: [{ n: 1 }, { n: 2 }, { n: 3 }, { n: 4 }, { n: 5 }] });
+		const { client } = clientOver(conn);
+		await client.connect();
+
+		const result = await client.queryCapped('LIST @s', 3);
+
+		assert.deepStrictEqual([result, ranges], [{ rows: [{ n: 1 }, { n: 2 }, { n: 3 }], total: 5 }, [{ start: 0, end: 2 }]]);
+	});
+
+	test('reads nothing from an empty result', async () => {
+		const { conn, ranges } = streamingConnection({ rows: [] });
+		const { client } = clientOver(conn);
+		await client.connect();
+
+		const result = await client.queryCapped('LIST @s', 3);
+
+		assert.deepStrictEqual([result, ranges], [{ rows: [], total: 0 }, []]);
+	});
+
+	test('rejects when reading the result throws, or its stream fails', async () => {
+		const reading = clientOver(streamingConnection({ rows: [{ n: 1 }], readThrows: new Error('cannot read the result') }).conn).client;
+		const streaming = clientOver(streamingConnection({ rows: [{ n: 1 }], streamError: new Error('the stream broke') }).conn).client;
+		await reading.connect();
+		await streaming.connect();
+
+		await assert.rejects(reading.queryCapped('LIST @s', 3), /cannot read the result/);
+		await assert.rejects(streaming.queryCapped('LIST @s', 3), /the stream broke/);
+	});
+
+	test('reconnects once and retries when the session is dead', async () => {
+		const { client, built } = clientOver(
+			streamingConnection({ executeError: new Error('Connection terminated unexpectedly') }).conn,
+			streamingConnection({ rows: [{ n: 1 }] }).conn,
+		);
+		await client.connect();
+
+		const result = await client.queryCapped('LIST @s', 3);
+
+		assert.deepStrictEqual([result, built()], [{ rows: [{ n: 1 }], total: 1 }, 2]);
+	});
+
+	test('tells a statement\'s own failure from a connection\'s', () => {
+		assert.deepStrictEqual([
+			isStatementError(Object.assign(new Error('Insufficient privileges'), { sqlState: '42501' })),
+			isStatementError(Object.assign(new Error('Connection does not exist'), { sqlState: '08003' })),
+			isStatementError(new Error('Snowflake client is closed')),
+			isStatementError(Object.assign(new Error('Network error'), { sqlState: '42501' })),
+		], [true, false, false, false]);
+	});
+});
+
 suite('Snowflake Account Parsing', () => {
 	test('bare account identifier is unchanged', () => {
 		assert.strictEqual(parseSnowflakeAccount('myorg-myacct'), 'myorg-myacct');
@@ -696,6 +1356,64 @@ suite('Workbench Managed Credentials Detection', () => {
 			notWorkbench: false,
 			userHome: false,
 			unset: false,
+		});
+	});
+});
+
+suite('Snowflake Connections File Options', () => {
+	test('an OAuth entry passes its token as the token and connects through its host', () => {
+		// The entry Posit Workbench writes; the host is the account's $SNOWFLAKE_HOST.
+		const options = connectionOptionsFromToml('workbench', {
+			account: 'myorg-myacct',
+			host: 'myorg-myacct.internal.snowflakecomputing.com',
+			token: 'oauth-token',
+			authenticator: 'oauth',
+		});
+		assert.deepStrictEqual(
+			{ host: options.host, authenticator: options.authenticator, token: options.token, password: options.password },
+			{ host: 'myorg-myacct.internal.snowflakecomputing.com', authenticator: 'OAUTH', token: 'oauth-token', password: undefined });
+	});
+
+	test('a token with no authenticator is a PAT supplied as the password', () => {
+		const options = connectionOptionsFromToml('pat', { account: 'myorg-myacct', user: 'testuser', token: 'pat-token' });
+		assert.deepStrictEqual(
+			{ host: options.host, authenticator: options.authenticator, token: options.token, password: options.password },
+			{ host: undefined, authenticator: undefined, token: undefined, password: 'pat-token' });
+	});
+
+	suite('re-reading the file on reconnect', () => {
+		let dir: string;
+		let filePath: string;
+		const writeEntry = (fields: string) => fs.writeFileSync(filePath, `[workbench]\n${fields}\n`);
+
+		setup(() => {
+			dir = fs.mkdtempSync(path.join(os.tmpdir(), 'snowflake-connections-'));
+			filePath = path.join(dir, 'connections.toml');
+		});
+
+		teardown(() => {
+			fs.rmSync(dir, { recursive: true, force: true });
+		});
+
+		test('an OAuth entry supplies the token the file holds at each connect', async () => {
+			// Workbench rewrites the file when it rotates the token; a reconnect must not reuse the old one.
+			writeEntry('account = "myorg-myacct"\nauthenticator = "oauth"\ntoken = "token-1"');
+			const options = connectionsFileOptions(filePath, 'workbench');
+			writeEntry('account = "myorg-myacct"\nauthenticator = "oauth"\ntoken = "token-2"');
+			assert.strictEqual(await options.tokenProvider!(), 'token-2');
+		});
+
+		test('an OAuth entry since written for a different account is refused', async () => {
+			writeEntry('account = "myorg-myacct"\nauthenticator = "oauth"\ntoken = "token-1"');
+			const options = connectionsFileOptions(filePath, 'workbench');
+			writeEntry('account = "otherorg-otheracct"\nauthenticator = "oauth"\ntoken = "token-2"');
+			await assert.rejects(options.tokenProvider!(), /different account/);
+		});
+
+		test('a PAT entry is read once, with no token provider', () => {
+			writeEntry('account = "myorg-myacct"\nuser = "testuser"\ntoken = "pat-token"');
+			const options = connectionsFileOptions(filePath, 'workbench');
+			assert.deepStrictEqual({ password: options.password, tokenProvider: options.tokenProvider }, { password: 'pat-token', tokenProvider: undefined });
 		});
 	});
 });

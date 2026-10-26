@@ -5,6 +5,7 @@
 
 import assert from 'assert';
 import { URI } from '../../../../../../base/common/uri.js';
+import { posix } from '../../../../../../base/common/path.js';
 import { IPathService } from '../../../../../services/path/common/pathService.js';
 import { IWorkspaceContextService, IWorkspaceFolder } from '../../../../../../platform/workspace/common/workspace.js';
 import { resolveNotebookLinkTarget } from '../../../browser/notebookCells/NotebookLink.js';
@@ -16,6 +17,7 @@ import { resolveNotebookLinkTarget } from '../../../browser/notebookCells/Notebo
  */
 function makePathService(opts: { userHome?: URI } = {}): IPathService {
 	const stub = {
+		path: Promise.resolve(posix),
 		fileURI: async (path: string) => URI.from({ scheme: 'file', path }),
 		userHome: async () => opts.userHome ?? URI.from({ scheme: 'file', path: '/home/test' }),
 	};
@@ -183,6 +185,17 @@ suite('Positron Notebook - resolveNotebookLinkTarget', () => {
 			makeWorkspaceContextService(),
 		);
 		assert.strictEqual(result?.toString(), 'file:///home/test');
+	});
+
+	test('~name resolves against the notebook dir, not userHome', async () => {
+		const nb = URI.parse('file:///a/b/nb.ipynb');
+		const result = await resolveNotebookLinkTarget(
+			'~file.py',
+			nb,
+			makePathService({ userHome: URI.parse('file:///home/test') }),
+			makeWorkspaceContextService(),
+		);
+		assert.strictEqual(result?.toString(), 'file:///a/b/~file.py');
 	});
 
 	test('untitled notebook with workspace folder resolves against the folder', async () => {

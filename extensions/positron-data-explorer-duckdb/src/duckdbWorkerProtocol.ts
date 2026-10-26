@@ -8,8 +8,15 @@
 // (V8 structured clone) serialization, so values may include bigint and Date.
 
 /**
+ * Name of the environment variable that carries the MotherDuck access token to the worker. Fork
+ * argv is readable by any local user (for example with `ps`), so the token never goes there.
+ */
+export const MOTHERDUCK_TOKEN_ENV = 'POSITRON_DUCKDB_MOTHERDUCK_TOKEN';
+
+/**
  * Worker open configuration. Passed to the child process via fork argv (JSON
- * encoded) so the worker can open the database the moment it starts.
+ * encoded) so the worker can open the database the moment it starts. The one
+ * exception is `motherduckToken`, which travels in the worker's environment.
  */
 export interface WorkerOpenConfig {
 	/** Absolute path to the database file. */
@@ -17,6 +24,12 @@ export interface WorkerOpenConfig {
 
 	/** Whether to open the database in read-only mode. */
 	readOnly: boolean;
+
+	/**
+	 * MotherDuck access token, required to open an `md:` path. Never serialized into argv; the
+	 * host passes it through `MOTHERDUCK_TOKEN_ENV` instead.
+	 */
+	motherduckToken?: string;
 }
 
 /** Host -> worker: run a SQL query identified by `id`, with optional named parameters. */

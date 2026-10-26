@@ -9,7 +9,7 @@ import { test } from './_test.setup.js';
 test.use({ suiteId: __filename });
 
 test.describe('Positron Notebooks: ipywidgets', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.PYTHON]
 }, () => {
 
 	test.beforeEach(async ({ app }) => {

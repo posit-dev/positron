@@ -75,6 +75,11 @@ jobs:
     with:
       pull_request: false
 
+  ext-host-tests-windows:
+    name: test
+    uses: ./.github/workflows/test-ext-host-windows.yml
+    secrets: inherit
+
   slack-notify:
     if: always()
     needs:
@@ -82,6 +87,7 @@ jobs:
         setup,
         unit-tests,
         ext-host-tests,
+        ext-host-tests-windows,
         e2e-electron,
         e2e-windows,
         e2e-ubuntu-chromium,
@@ -100,23 +106,10 @@ jobs:
         with:
           webhook_secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
           connect_api_key: ${{ secrets.CONNECT_API_KEY }}
+          tailscale_oauth_client_id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          tailscale_oauth_secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
           repo_id: "positron"
-          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host)$"
-
-  slack-notify-win-extensions:
-    if: ${{ needs.e2e-windows-electron.outputs.extensions_failed == 'true' }}
-    needs:
-      - e2e-windows
-    runs-on: ubuntu-latest
-    steps:
-      - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.3
-        with:
-          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#positron-rstats-test-results"
-          filter_jobs: "windows"
-          notify_on: "always"
+          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host(-win)?)$"
 
   analyze-e2e-failures:
     if: ${{ always() && contains(needs.*.result, 'failure') }}

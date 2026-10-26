@@ -8,7 +8,7 @@
 import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionStartReason, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryService, ExecutionEntryType, IExecutionHistoryEntry, projectExecutionEntriesToConsoleHistory, DEFAULT_CONSOLE_HISTORY_ENTRY_COUNT, CONSOLE_HISTORY_API_ENABLED_KEY } from '../../common/executionHistoryService.js';
 import { getConsoleHistory } from '../../common/helpers/sessionConsoleHistory.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
@@ -17,7 +17,7 @@ import { ExecutionHistoryService } from '../../common/executionHistory.js';
 import { IWorkspace, IWorkspaceContextService, IWorkspaceFoldersWillChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { Emitter } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -190,7 +190,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	startNewRuntimeSession(_runtimeId: string, _sessionName: string, _sessionMode: any, _notebookUri: any, _source: string, _startMode: RuntimeStartMode, _activate: boolean): Promise<string> {
+	startNewRuntimeSession(_runtimeId: string, _sessionName: string, _sessionMode: any, _notebookUri: any, _startReason: IRuntimeSessionStartReason, _startMode: RuntimeStartMode, _activate: boolean): Promise<string> {
 		throw new Error('Method not implemented.');
 	}
 
@@ -202,11 +202,11 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	autoStartRuntime(_metadata: any, _source: string, _activate: boolean): Promise<string> {
+	autoStartRuntime(_metadata: any, _startReason: IRuntimeSessionStartReason, _activate: boolean): Promise<string> {
 		throw new Error('Method not implemented.');
 	}
 
-	selectRuntime(_runtimeId: string, _source: string, _notebookUri?: any): Promise<void> {
+	selectRuntime(_runtimeId: string, _startReason: IRuntimeSessionStartReason, _notebookUri?: any): Promise<void> {
 		throw new Error('Method not implemented.');
 	}
 
@@ -330,6 +330,13 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 		throw new Error('Method not implemented.');
 	}
 
+	registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata> {
+		throw new Error('Method not implemented.');
+	}
+
+	languageIds: readonly string[] = [];
+	onDidChangeLanguageIds = Event.None;
+
 	hasLanguageRuntimeProvider(languageId: string): boolean {
 		throw new Error('Method not implemented.');
 	}
@@ -421,7 +428,8 @@ function createSessionMetadata(sessionId: string): IRuntimeSessionMetadata {
 		createdTimestamp: 0,
 		sessionMode: LanguageRuntimeSessionMode.Console,
 		notebookUri: undefined,
-		startReason: 'Unit Test'
+		startReason: 'Unit Test',
+		owner: 'user',
 	};
 }
 

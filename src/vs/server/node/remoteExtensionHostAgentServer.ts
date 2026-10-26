@@ -56,6 +56,7 @@ import { IPositronIdleTrackingService } from '../../platform/positronIdleTrackin
 
 // --- Start PWB: Server proxy support ---
 import { kProxyRegex, VSCODE_STATIC_PREFIX } from './pwbConstants.js';
+import { resolveReconnectionInfo } from './reconnectionHandshake.js';
 // --- End PWB ---
 
 function parseRequestUrl(requestUrl: string): URL | undefined {
@@ -66,6 +67,13 @@ function parseRequestUrl(requestUrl: string): URL | undefined {
 	} catch {
 		return undefined;
 	}
+}
+
+function getRemoteResourceResponseHeaders(): Record<string, string> {
+	return {
+		'Content-Security-Policy': `default-src 'none'; sandbox`,
+		'X-Content-Type-Options': 'nosniff',
+	};
 }
 
 declare namespace vsda {
@@ -226,7 +234,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				return serveError(req, res, 400, `Bad request.`);
 			}
 
-			const responseHeaders: Record<string, string> = Object.create(null);
+			const responseHeaders = getRemoteResourceResponseHeaders();
 			if (this._environmentService.isBuilt) {
 				if (isEqualOrParent(filePath, this._environmentService.builtinExtensionsPath, !platform.isLinux)
 					|| isEqualOrParent(filePath, this._environmentService.extensionsPath, !platform.isLinux)
@@ -348,7 +356,10 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 	 */
 	private _handleWebSocketConnection(socket: NodeSocket | WebSocketNodeSocket, isReconnection: boolean, reconnectionToken: string): void {
 		const remoteAddress = this._getRemoteAddress(socket);
-		const logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+		// --- Start PWB: Reassigned when the auth message carries the reconnection token ---
+		// const logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+		let logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+		// --- End PWB ---
 		const protocol = new PersistentProtocol({ socket });
 
 		const validator = this._vsdaMod ? new this._vsdaMod.validator() : null;
@@ -379,6 +390,13 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				if (msg1.type !== 'auth') {
 					return rejectWebSocketConnection(`Invalid first message`);
 				}
+
+				// --- Start PWB: Proxies that drop the query string leave the token in the auth message only ---
+				const reconnection = resolveReconnectionInfo(msg1, { reconnectionToken, isReconnection });
+				reconnectionToken = reconnection.reconnectionToken;
+				isReconnection = reconnection.isReconnection;
+				logPrefix = `[${remoteAddress}][${reconnectionToken.substr(0, 8)}]`;
+				// --- End PWB ---
 
 				if (this._connectionToken.type === ServerConnectionTokenType.Mandatory && !this._connectionToken.validate(msg1.auth)) {
 					return rejectWebSocketConnection(`Unauthorized client refused: auth mismatch`);
@@ -698,7 +716,7 @@ export interface IServerAPI {
 	// --- End Positron ---
 }
 
-export async function createServer(address: string | net.AddressInfo | null, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string): Promise<IServerAPI> {
+export async function createServer(address: string | net.AddressInfo | null, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, agentHostBridgeConnectionToken: string | undefined): Promise<IServerAPI> {
 
 	const connectionToken = await determineServerConnectionToken(args);
 	if (connectionToken instanceof ServerConnectionTokenParseError) {
@@ -783,7 +801,7 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	if (licenseValidationResult?.kind === 'sagemaker') {
 		markSageMakerSession();
 	}
-	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables, positronLicenseeInfo, licenseValidationResult?.licenseHash);
+	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, agentHostBridgeConnectionToken, disposables, positronLicenseeInfo, licenseValidationResult?.licenseHash);
 	// --- End Positron ---
 
 	// --- Start Positron ---

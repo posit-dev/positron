@@ -114,6 +114,47 @@ suite('Restored session environment', () => {
 		}
 	});
 
+	test('restart of a restored session undoes what the interpreter definition set at launch', async () => {
+		// The startup script used to set FOO and prepend /old to PATH; it now
+		// only prepends /new. The launch environment still has the old changes,
+		// so they must be undone rather than replayed.
+		const basePath = process.env.PATH!;
+		const session = newSession(/* isNew */ false);
+		session.restore(activeSession({
+			FOO: '1',
+			PATH: `/old:${basePath}`,
+			POSITRON_INTERPRETER_DEFINITION_ENV: JSON.stringify({
+				FOO: { type: 'replace', value: '1' },
+				PATH: { type: 'prepend', value: '/old:' },
+			}),
+		}));
+		session.definitionEnvResolver = async () => ({ PATH: `/new:${basePath}` });
+		try {
+			const actions = await session.buildEnvVarActions(true);
+
+			// Other extensions may also contribute to PATH; only the last two
+			// PATH actions come from the launch environment and the definition.
+			assert.deepStrictEqual({
+				foo: actions.filter(a => a.name === 'FOO'),
+				path: actions.filter(a => a.name === 'PATH').slice(-2),
+				record: actions.filter(a => a.name === 'POSITRON_INTERPRETER_DEFINITION_ENV'),
+			}, {
+				foo: [],
+				path: [
+					{ action: VarActionType.Replace, name: 'PATH', value: basePath },
+					{ action: VarActionType.Prepend, name: 'PATH', value: '/new:' },
+				],
+				record: [{
+					action: VarActionType.Replace,
+					name: 'POSITRON_INTERPRETER_DEFINITION_ENV',
+					value: JSON.stringify({ PATH: { type: 'prepend', value: '/new:' } }),
+				}],
+			});
+		} finally {
+			session.dispose();
+		}
+	});
+
 	test('the original kernel spec takes precedence over the recorded launch environment', async () => {
 		// A freshly created session holds its kernel spec. Even if server data
 		// with a different environment is also present, the spec must win --

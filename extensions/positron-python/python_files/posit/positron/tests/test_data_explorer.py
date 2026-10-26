@@ -38,6 +38,7 @@ from ..data_explorer import (
     DataExplorerState,
     PandasView,
     _get_float_formatter,
+    _pandas_summarize_datetime,
 )
 from ..data_explorer_comm import (
     ColumnDisplayType,
@@ -2941,6 +2942,24 @@ def _assert_datetime_stats_equal(expected, actual):
     assert expected["timezone"] == actual["timezone"]
 
 
+@pytest.mark.parametrize("unit", ["s", "ms", "us", "ns"])
+def test_pandas_summarize_datetime_nat_median(unit):
+    # With NaT in the majority the median is NaT; every time unit must
+    # still produce stats instead of raising from strftime
+    col = pd.Series(
+        [pd.NaT, pd.NaT, pd.Timestamp("2023-01-01"), pd.NaT, pd.Timestamp("2023-02-01")]
+    ).astype(f"datetime64[{unit}]")
+
+    result = _pandas_summarize_datetime(col, DEFAULT_FORMAT).datetime_stats
+
+    assert result is not None
+    assert (result.min_date, result.median_date, result.max_date) == (
+        "2023-01-01 00:00:00",
+        "NaT",
+        "2023-02-01 00:00:00",
+    )
+
+
 def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
     rng = np.random.default_rng()
     arr = rng.standard_normal(100)
@@ -4339,6 +4358,28 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
 
         stats = results[0]["summary_stats"]
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
+
+
+@pytest.mark.parametrize(
+    ("values", "dtype", "ex_min", "ex_max"),
+    [
+        ([1, 500, 1500], pl.Int64, "1", "1500"),
+        ([12345678, 23456789, 34567890], pl.Int64, "12345678", "34567890"),
+        ([0, 1, 2**64 - 1], pl.UInt64, "0", "18446744073709551615"),
+    ],
+)
+def test_polars_profile_summary_stats_integer_min_max(
+    dxf: DataExplorerFixture, values, dtype, ex_min, ex_max
+):
+    # Integer min and max must be exact strings, as for pandas. assert_summary_stats_equal
+    # compares through float(), which would hide rounding and thousands separators.
+    dxf.register_table("df", pl.DataFrame({"n": pl.Series(values, dtype=dtype)}))
+
+    results = dxf.get_column_profiles("df", [_get_summary_stats(0)])
+    stats = results[0]["summary_stats"]
+    assert stats["type_display"] == ColumnDisplayType.Integer
+    assert stats["number_stats"]["min_value"] == ex_min
+    assert stats["number_stats"]["max_value"] == ex_max
 
 
 @pytest.mark.skipif(ibis is None, reason="ibis is not available")

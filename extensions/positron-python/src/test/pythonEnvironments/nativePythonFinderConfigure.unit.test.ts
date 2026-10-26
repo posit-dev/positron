@@ -22,6 +22,7 @@ import {
 } from '../../client/pythonEnvironments/base/locators/common/nativePythonFinder';
 import * as windowsApis from '../../client/common/vscodeApis/windowApis';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
+import * as workspaceScan from '../../client/positron/workspaceScan';
 import { MockOutputChannel } from '../mockClasses';
 
 suite('Native Python Finder - configuration failures must not hang discovery', () => {
@@ -109,6 +110,47 @@ suite('Native Python Finder - configuration failures must not hang discovery', (
             // The refresh request must not go out against a stale configuration; if
             // it did, its success would clear the error and hide the failure.
             assert.match(finder.lastDiscoveryError ?? '', /workspace folders unavailable/);
+        } finally {
+            finder.dispose();
+        }
+    });
+
+    test('configure sends nested project env dirs as workspace directories', async () => {
+        const ws = path.join(path.parse(process.cwd()).root, 'positron-nested-ws-does-not-exist');
+        const nested = path.join(ws, 'app', '.venv');
+        getWorkspaceFolderPathsStub.returns([ws]);
+        const scanStub = sinon.stub(workspaceScan, 'scanWorkspace').resolves({
+            rootProjectEnvs: [],
+            nestedEnvDirs: [nested],
+            hasPythonSignals: false,
+            pythonVersion: undefined,
+        });
+
+        const finder = createNativePythonFinder();
+        try {
+            // Drain the first refresh before disposing: a configure still queued when the
+            // finder is disposed would respawn PET and keep the test process alive.
+            // The refresh scans for nested envs once. The first refresh reuses the scan
+            // the interpreter ranking shares at startup instead of reading the folder again.
+            await refreshWithin(finder, 60_000);
+            assert.deepEqual(
+                scanStub.getCalls().map((call) => call.args),
+                [[ws, false]],
+            );
+
+            // A resolve-path configure reuses the list the refresh found instead of
+            // rescanning. Read the options directly: `lastConfiguration` is reset whenever
+            // PET shuts down, which this suite's zero idle timeout makes likely.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const resolveOptions = await (finder as any).configurationOptions(false);
+            assert.deepEqual(resolveOptions.workspaceDirectories, [ws, nested]);
+            assert.strictEqual(scanStub.callCount, 1);
+
+            // Once the folder is closed, its nested envs are no longer sent.
+            getWorkspaceFolderPathsStub.returns([]);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const closedOptions = await (finder as any).configurationOptions(false);
+            assert.deepEqual(closedOptions.workspaceDirectories, []);
         } finally {
             finder.dispose();
         }

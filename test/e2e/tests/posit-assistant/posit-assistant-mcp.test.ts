@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { mkdirSync, writeFileSync } from 'fs';
+import { execSync } from 'child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { test, tags } from '../_test.setup';
 import { ModelProvider } from '../../pages/modelProviderShared';
@@ -12,7 +14,7 @@ test.use({
 	suiteId: __filename,
 });
 
-const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
+const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic'];
 
 // Catches regressions where MCP servers in `.posit/assistant/settings.json`
 // are ignored — see posit-dev/assistant#1289 (fixed in #1293). Uses the `echo`
@@ -23,26 +25,37 @@ test.describe('Posit Assistant MCP', {
 
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {
 		test.describe(provider, () => {
+			let serverDir: string;
+
 			test.beforeAll(async function ({ app, settings }) {
+				// Install the server here and launch it with node rather than `npx`:
+				// the first npx spawned from the extension host on a Windows runner
+				// takes 19-26s, past the assistant's 10s MCP connect timeout, and a
+				// runner-side npx pre-warm does not shorten it.
+				serverDir = mkdtempSync(join(tmpdir(), 'mcp-everything-'));
+				execSync('npm install --no-audit --no-fund @modelcontextprotocol/server-everything', {
+					cwd: serverDir,
+					stdio: 'ignore',
+					timeout: 180000,
+				});
+				const serverEntry = join(serverDir, 'node_modules', '@modelcontextprotocol', 'server-everything', 'dist', 'index.js');
+
 				// Write the settings file before activating the assistant so we
 				// don't rely on the file watcher for the first MCP startup.
 				const configDir = join(app.workspacePathOrFolder, '.posit', 'assistant');
 				mkdirSync(configDir, { recursive: true });
-				// On Windows `npx` is a .cmd shim; wrap with `cmd /c` so the
-				// assistant's stdio launcher can spawn it.
-				const command = process.platform === 'win32'
-					? ['cmd', '/c', 'npx', '-y', '@modelcontextprotocol/server-everything']
-					: ['npx', '-y', '@modelcontextprotocol/server-everything'];
 				writeFileSync(
 					join(configDir, 'settings.json'),
-					JSON.stringify({ mcpServers: { everything: { command } } }, null, 2),
+					JSON.stringify({ mcpServers: { everything: { command: [process.execPath, serverEntry] } } }, null, 2),
 				);
 
-				await app.workbench.modelProviderModal.loginModelProvider(provider);
+				// Update before sign-in, as in posit-assistant.test.ts: a reload with
+				// the key already saved can cache the provider with no models.
+				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+				await app.workbench.providerManager.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');
-				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
 			});
 
 			test.afterAll(async function ({ cleanup }) {
@@ -50,6 +63,7 @@ test.describe('Posit Assistant MCP', {
 				// after this spec finishes, so signing out adds no isolation - it
 				// only adds flake surface.
 				await cleanup.removeTestFolder('.posit/assistant');
+				rmSync(serverDir, { recursive: true, force: true });
 			});
 
 			test(`${provider} - Use echo tool from MCP server configured in .posit/assistant/settings.json`, async function ({ app }) {

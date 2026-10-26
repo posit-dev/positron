@@ -44,7 +44,6 @@ import { ILanguageModelsProviderGroup, ILanguageModelsConfigurationService } fro
 
 // --- Start Positron ---
 import { IPositronAssistantConfigurationService } from '../../positronAssistant/common/interfaces/positronAssistantService.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 // --- End Positron ---
 
 /**
@@ -256,6 +255,8 @@ export interface ILanguageModelConfigurationSchema extends IJSONSchema {
 			group?: string;
 			/** Labels for enum values. If provided, these are shown instead of the raw enum values. */
 			enumItemLabels?: string[];
+			/** When `true`, the property is displayed but cannot be modified by the user. */
+			readOnly?: boolean;
 		};
 	};
 }
@@ -344,16 +345,24 @@ export interface ILanguageModelChatMetadata {
 	 */
 	readonly warningText?: IStringDictionary<string>;
 	/**
+	 * Optional informational text to display in the model picker hover as an info banner.
+	 * The keys are info categories (e.g. "model_relocated") and the values are markdown strings.
+	 * Unlike {@link warningText}, these are neutral notices and never signal a problem with the model.
+	 */
+	readonly infoText?: IStringDictionary<string>;
+	/**
 	 * Optional promotional information for this model. A positive `discountPercent`
 	 * surfaces the full promotional UI; `0` is a message-only promo that features the
 	 * model without a price change; a negative value is malformed and is ignored.
 	 * `endsAt` is optional — open-ended promos omit it and render no end date.
+	 * `showBanner` is optional — the promo is banner-eligible unless it is `false`.
 	 */
 	readonly promo?: {
 		readonly id: string;
 		readonly discountPercent: number;
 		readonly endsAt?: string;
 		readonly message: string;
+		readonly showBanner?: boolean;
 	};
 }
 
@@ -381,6 +390,14 @@ export namespace ILanguageModelChatMetadata {
 	/** Whether the model has a promo message to surface, including message-only (0%) promos. */
 	export function hasPromoMessage(metadata: ILanguageModelChatMetadata): metadata is ILanguageModelChatMetadata & { readonly promo: NonNullable<ILanguageModelChatMetadata['promo']> } {
 		return !!metadata.promo && metadata.promo.discountPercent >= 0 && !!metadata.promo.message;
+	}
+
+	/**
+	 * Whether the model's promo may also be surfaced as a banner above the chat input.
+	 * Promos are banner-eligible by default; `showBanner: false` keeps them in the model picker only.
+	 */
+	export function hasPromoBanner(metadata: ILanguageModelChatMetadata): metadata is ILanguageModelChatMetadata & { readonly promo: NonNullable<ILanguageModelChatMetadata['promo']> } {
+		return hasPromoMessage(metadata) && metadata.promo.showBanner !== false;
 	}
 
 	/** The localized "Ends {date}." sentence, or `undefined` for a missing or unparsable end date. */
@@ -543,6 +560,15 @@ export interface ILanguageModelsGroup {
 		readonly message: string;
 		readonly severity: Severity;
 	};
+}
+
+/** Read/write access to model-specific configuration, globally or within one conversation. */
+export interface IModelConfigurationAccess {
+	getModelConfiguration(modelId: string): IStringDictionary<unknown> | undefined;
+	setModelConfiguration(modelId: string, values: IStringDictionary<unknown>): Promise<void>;
+	getModelConfigurationActions(modelId: string): IAction[];
+	/** Configuration changes within this scope; global access uses `onDidChangeLanguageModels`. */
+	readonly onDidChange?: Event<string>;
 }
 
 export interface ILanguageModelsService {
@@ -718,6 +744,7 @@ export interface ILanguageModelsService {
 
 	/**
 	 * Hide or show multiple exact model identifiers in the chat model picker.
+	 * Models with no row in the Manage Language Models editor cannot be hidden.
 	 */
 	setModelsHidden(modelIdentifiers: readonly string[], hidden: boolean): void;
 
@@ -727,7 +754,8 @@ export interface ILanguageModelsService {
 	setGroupHidden(vendor: string, groupName: string, hidden: boolean): void;
 
 	/**
-	 * Returns the persisted per-model hidden identifiers.
+	 * Returns the persisted per-model hidden identifiers. May include models that
+	 * cannot be hidden — use {@link isModelHidden} to test a single model.
 	 */
 	getHiddenModelIds(): string[];
 
@@ -788,6 +816,12 @@ export function getLanguageModelDisplayNameWithProvider(model: ILanguageModelCha
 export interface IModelControlEntry {
 	readonly label: string;
 	readonly featured?: boolean;
+	/**
+	 * Keeps the model out of the shortlist the picker leads with, even when it is the
+	 * newest of its line. For a line that has been replaced by another rather than by a
+	 * newer version of itself, which no rule can work out on its own.
+	 */
+	readonly demoted?: boolean;
 	readonly minVSCodeVersion?: string;
 	readonly exists: boolean;
 }
@@ -922,8 +956,29 @@ const CHAT_MODEL_VISIBILITY_STORAGE_KEY = 'chatModelVisibility';
  */
 const AUTO_MODEL_IDENTIFIER = 'copilot/auto';
 
+/** The provider-agnostic model id of the Auto meta-model. */
+export const AUTO_RAW_MODEL_ID = 'auto';
+
 export function isAutoLanguageModel(model: ILanguageModelChatMetadataAndIdentifier | undefined): boolean {
-	return model?.metadata.id === 'auto' || model?.identifier === AUTO_MODEL_IDENTIFIER;
+	return model?.metadata.id === AUTO_RAW_MODEL_ID || model?.identifier === AUTO_MODEL_IDENTIFIER;
+}
+
+/**
+ * Whether a model can be hidden from the picker. The default provider's `Auto` and
+ * agent-host BYOK copies have no row in Manage Language Models, so hiding them would
+ * be permanent. `metadata` is undefined before models resolve, hence the id check.
+ */
+export function canHideModel(identifier: string, metadata: ILanguageModelChatMetadata | undefined): boolean {
+	if (identifier === AUTO_MODEL_IDENTIFIER) {
+		return false;
+	}
+	if (!metadata) {
+		return true;
+	}
+	if (metadata.vendor === COPILOT_VENDOR_ID && metadata.id === AUTO_RAW_MODEL_ID) {
+		return false;
+	}
+	return ILanguageModelChatMetadata.getAgentHostByokManageModelsIdentifier(metadata) === undefined;
 }
 
 const CHAT_PARTICIPANT_NAME_REGISTRY_STORAGE_KEY = 'chat.participantNameRegistry';
@@ -1055,7 +1110,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 	constructor(
 		// --- Start Positron ---
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IPositronAssistantConfigurationService private readonly _positronAssistantConfigurationService: IPositronAssistantConfigurationService,
 		// --- End Positron ---
 		@IExtensionService private readonly _extensionService: IExtensionService,
@@ -1162,7 +1216,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			// Only auto-set provider during initial setup if there's no current provider
 			if (!currentProvider && event.added && event.added.length > 0 && this._isInitialSetup) {
 				// Set the first available enabled provider as current
-				const firstEnabledProvider = event.added.find(p => this._positronAssistantConfigurationService.isProviderEnabled(p));
+				const firstEnabledProvider = event.added.find(p => this._isVendorEnabled(p));
 				if (firstEnabledProvider) {
 					// Create a proper provider object by looking up the vendor info
 					const vendorInfo = this._vendors.get(firstEnabledProvider);
@@ -1211,27 +1265,18 @@ export class LanguageModelsService implements ILanguageModelsService {
 		// hasn't been opened yet (which is where provider-model sync normally happens).
 		this._pendingModelSync = this._storageService.get('chat.currentLanguageModel.panel', StorageScope.APPLICATION);
 
-		// Listen for changes to model configuration. The initial filtering and configuration
-		// is done in the Positron Assistant extension when models are resolved.
-		this._store.add(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('positron.assistant.models.overrides')) {
-				this._logService.trace('[LM] Model overrides configuration changed, re-resolving language models');
-				this._reResolveLanguageModels();
-			}
-		}));
-
 		// Listen for changes to enabled providers and update model cache/current provider accordingly
 		this._store.add(this._positronAssistantConfigurationService.onChangeEnabledProviders(() => {
 			this._logService.trace('[LM] Enabled providers changed, updating model cache and current provider');
 
 			// Clear model cache for providers that are no longer enabled
-			const disabledVendors = Array.from(this._vendors.keys()).filter(v => !this._positronAssistantConfigurationService.isProviderEnabled(v));
+			const disabledVendors = Array.from(this._vendors.keys()).filter(v => !this._isVendorEnabled(v));
 			for (const vendor of disabledVendors) {
 				this._clearModelCache(vendor);
 			}
 
 			// If current provider is no longer enabled, switch to next available or undefined
-			if (this._currentProvider && !this._positronAssistantConfigurationService.isProviderEnabled(this._currentProvider.id)) {
+			if (this._currentProvider && !this._isVendorEnabled(this._currentProvider.id)) {
 				this._logService.trace('[LM] Current provider is no longer enabled, switching to next available', this._currentProvider.id);
 				const availableProviders = this.getLanguageModelProviders();
 				this.currentProvider = availableProviders.length > 0 ? availableProviders[0] : undefined;
@@ -1334,31 +1379,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 	}
 
 	// --- Start Positron ---
-	private _reResolveLanguageModels(): void {
-		// Re-resolve all registered providers to apply new configuration
-		const allVendors = Array.from(this._vendors.keys());
-		if (allVendors.length === 0) {
-			return;
-		}
-		const vendorPromises = allVendors.map(
-			vendor => this._resolveAllLanguageModels(vendor, true));
-
-		// After all are resolved, check if the current provider is still valid
-		Promise.all(vendorPromises).then(() => {
-			// if the current provider is no longer available, switch to another available provider
-			const currentProvider = this._currentProvider;
-			const availableProviders = this.getLanguageModelProviders();
-			if (currentProvider && !availableProviders.some(p => p.id === currentProvider.id)) {
-				this._logService.trace('[LM] Current provider is no longer available, switching to next available', currentProvider.id);
-				if (availableProviders.length > 0) {
-					this.currentProvider = availableProviders[0];
-				} else {
-					this.currentProvider = undefined;
-				}
-			}
-		});
-	}
-
 	private getSelectedProviderStorageKey(): string {
 		return `chat.currentLanguageProvider`;
 	}
@@ -1382,7 +1402,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 			// --- Start Positron ---
 			// Filter out disabled providers
-			if (!this._positronAssistantConfigurationService.isProviderEnabled(model.vendor)) {
+			if (!this._isVendorEnabled(model.vendor)) {
 				continue;
 			}
 			// --- End Positron ---
@@ -1429,6 +1449,15 @@ export class LanguageModelsService implements ILanguageModelsService {
 		return this._providerExtensions.get(vendor);
 	}
 
+	/** Whether a vendor is on. The VS Code API test extension's vendors (never shipped) are always on. */
+	private _isVendorEnabled(vendor: string): boolean {
+		const extension = this._providerExtensions.get(vendor);
+		if (extension && ExtensionIdentifier.equals(extension, 'vscode.vscode-api-tests')) {
+			return true;
+		}
+		return this._positronAssistantConfigurationService.isProviderEnabled(vendor);
+	}
+
 	getStoredProviderVendor(): string | undefined {
 		const stored = this._storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);
 		return stored?.id;
@@ -1463,7 +1492,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 	private async _resolveAllLanguageModels(vendorId: string, silent: boolean): Promise<void> {
 		// --- Start Positron ---
 		// Skip resolving models for disabled providers
-		if (!this._positronAssistantConfigurationService.isProviderEnabled(vendorId)) {
+		if (!this._isVendorEnabled(vendorId)) {
 			this._logService.trace(`[LM] Skipping model resolution for disabled provider: ${vendorId}`);
 			return;
 		}
@@ -1649,8 +1678,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 				this._onLanguageModelChange.fire(vendorId);
 				// --- Start Positron ---
 				// Keep currentProvider in sync after model changes from sign-in
-				// or sign-out. This mirrors the logic in _reResolveLanguageModels
-				// but runs on individual provider onDidChange events too.
+				// or sign-out.
 				const availableProviders = this.getLanguageModelProviders();
 				if (!this._currentProvider) {
 					// Auto-set current provider when models become available
@@ -1726,7 +1754,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 	async selectLanguageModels(selector: ILanguageModelChatSelector): Promise<string[]> {
 		// --- Start Positron ---
 		// Early return if specific vendor requested but disabled
-		if (selector.vendor && !this._positronAssistantConfigurationService.isProviderEnabled(selector.vendor)) {
+		if (selector.vendor && !this._isVendorEnabled(selector.vendor)) {
 			this._logService.trace('[LM] selectLanguageModels: Skipping disabled vendor', selector.vendor);
 			return [];
 		}
@@ -1742,7 +1770,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			*/
 			// Filter out disabled providers before resolving
 			const allVendors = Array.from(this._vendors.keys()).filter(vendor =>
-				this._positronAssistantConfigurationService.isProviderEnabled(vendor)
+				this._isVendorEnabled(vendor)
 			);
 			// Use allSettled so a single vendor cannot prevent
 			// other vendors' models from being returned. See
@@ -1762,7 +1790,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 		for (const [internalModelIdentifier, model] of this._modelCache) {
 			// --- Start Positron ---
 			// Skip models from disabled providers
-			if (!this._positronAssistantConfigurationService.isProviderEnabled(model.vendor)) {
+			if (!this._isVendorEnabled(model.vendor)) {
 				continue;
 			}
 			// --- End Positron ---
@@ -2785,15 +2813,8 @@ export class LanguageModelsService implements ILanguageModelsService {
 			const name = g.group?.name ?? fallbackName;
 			if (name === groupName) {
 				for (const id of g.modelIdentifiers) {
-					// Exclude agent-host BYOK copies. They are not shown as rows in this
-					// group (they surface under their real provider), so group-level
-					// visibility toggles (`isGroupHidden` / `setGroupHidden`) must not
-					// touch them — otherwise hiding the agent-host group would flip the
-					// hidden state of these copies in the underlying model set even though
-					// the UI never lists them here. Their visibility is owned by the real
-					// provider row and honoured in the picker via the reconstructed id.
-					const metadata = this._modelCache.get(id);
-					if (metadata && ILanguageModelChatMetadata.getAgentHostByokManageModelsIdentifier(metadata) !== undefined) {
+					// Group toggles only own the models that have a row of their own.
+					if (!canHideModel(id, this._modelCache.get(id))) {
 						continue;
 					}
 					result.push(id);
@@ -2823,7 +2844,11 @@ export class LanguageModelsService implements ILanguageModelsService {
 	}
 
 	isModelHidden(modelIdentifier: string): boolean {
-		return this._hiddenModelIds.has(modelIdentifier);
+		if (!this._hiddenModelIds.has(modelIdentifier)) {
+			return false;
+		}
+		// Ignore entries an older version persisted for models that have no toggle.
+		return canHideModel(modelIdentifier, this._modelCache.get(modelIdentifier));
 	}
 
 	setGroupHidden(vendor: string, groupName: string, hidden: boolean): void {
@@ -2838,6 +2863,10 @@ export class LanguageModelsService implements ILanguageModelsService {
 		let changed = false;
 		for (const id of modelIdentifiers) {
 			if (hidden) {
+				// Showing is always allowed so stale state can still be cleared.
+				if (!canHideModel(id, this._modelCache.get(id))) {
+					continue;
+				}
 				if (!this._hiddenModelIds.has(id)) {
 					this._hiddenModelIds.add(id);
 					changed = true;
@@ -2880,7 +2909,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 				if (!entry || !isObject(entry)) {
 					continue;
 				}
-				free[entry.id] = { label: entry.label, featured: entry.featured, exists: this._modelCache.has(`copilot/${entry.id}`) };
+				free[entry.id] = { label: entry.label, featured: entry.featured, demoted: entry.demoted, exists: this._modelCache.has(`copilot/${entry.id}`) };
 			}
 		}
 
@@ -2890,7 +2919,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 				if (!entry || !isObject(entry)) {
 					continue;
 				}
-				paid[entry.id] = { label: entry.label, featured: entry.featured, minVSCodeVersion: entry.minVSCodeVersion, exists: this._modelCache.has(`copilot/${entry.id}`) };
+				paid[entry.id] = { label: entry.label, featured: entry.featured, demoted: entry.demoted, minVSCodeVersion: entry.minVSCodeVersion, exists: this._modelCache.has(`copilot/${entry.id}`) };
 			}
 		}
 

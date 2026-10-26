@@ -100,21 +100,20 @@ jobs:
       AWS_S3_BUCKET: positron-test-reports
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
-      # Account identifier for the posit-assistant Snowflake Cortex test, which types it
-      # into the modal alongside SNOWFLAKE_API_KEY (loaded from 1Password below). The
+      # Account identifier for the posit-assistant Snowflake Cortex test, which signs in
+      # with it and SNOWFLAKE_API_KEY (loaded from 1Password below). The
       # Linux lanes set this from the same secret for the data-connections suite.
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
       # Username/password sign-in for connections-snowflake.test.ts's Snowflake Connection
       # suite. Same secrets the Linux lanes export.
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-      # Consumed by the Postgres e2e tests (connections-postgres / data-connections postgres).
-      # The Linux Ubuntu job sets these from the same secrets; mirror them here so the
-      # connection inputs match the user/password baked into the postgres container.
-      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
-      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
-    outputs:
-      extensions_failed: ${{ steps.extensions.outputs.exit_code != '0' }}
+      # Pinned because the graphviz plot tests compare against a master
+      # screenshot (graphviz-win32) rendered with this version. Bump the
+      # version, the hash, and the screenshot together. The hash is the one
+      # Graphviz publishes next to the zip (append .sha256 to its URL).
+      GRAPHVIZ_VERSION: '16.1.0'
+      GRAPHVIZ_SHA256: '733e49626c492242eb8dca30ea627b6ead20710e207998c7933b4909d92d6abc'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -164,7 +163,7 @@ jobs:
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
 
       - name: Setup Node
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
 
@@ -446,12 +445,20 @@ jobs:
           rig add ${{ steps.r-versions.outputs.r_alt_version }}
           rig ls
 
-      # `choco install` can exit 0 while installing nothing: when the community
-      # feed returns a 5xx, choco prints "Unable to find package 'Graphviz'" and
-      # "Chocolatey installed 0/0 packages" but still succeeds, so the step goes
-      # green and the graphviz plot tests fail half an hour later as a confusing
-      # screenshot diff. Retry the transient feed failures, then prove `dot` runs
-      # before moving on.
+      - name: Cache Graphviz
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}\graphviz
+          key: graphviz-win64-${{ env.GRAPHVIZ_VERSION }}
+
+      # Graphviz comes from the cache, else the official zip on the Graphviz
+      # GitLab package registry, else Chocolatey. The Chocolatey community feed
+      # alone was not reliable enough: it has returned 503/504 for every retry
+      # in a run, and `choco install` exits 0 when that happens ("Chocolatey
+      # installed 0/0 packages"), so the step went green and the graphviz plot
+      # tests failed half an hour later as a confusing screenshot diff. Both
+      # sources install the same pinned version, and the step proves `dot`
+      # runs before moving on.
       - name: Setup Graphviz
         uses: nick-fields/retry@v4
         with:
@@ -461,16 +468,44 @@ jobs:
           shell: pwsh
           command: |
             $ErrorActionPreference = 'Stop'
-            choco install graphviz -y --no-progress
-            # The graphviz installer puts its bin dir on the machine PATH, which
-            # the already-running runner process does not pick up. Re-read it so
-            # `dot` resolves here, then publish it for the later test steps.
-            $env:PATH = "$([Environment]::GetEnvironmentVariable('Path', 'Machine'));$env:PATH"
-            $dot = Get-Command dot -ErrorAction SilentlyContinue
-            if (-not $dot) {
-              throw 'choco reported success but dot is not installed (see the choco output above)'
+            $ProgressPreference = 'SilentlyContinue'
+            $ver = $env:GRAPHVIZ_VERSION
+            $gvRoot = Join-Path $env:RUNNER_TEMP 'graphviz'
+            $bin = Join-Path $gvRoot "Graphviz-$ver-win64\bin"
+
+            if (-not (Test-Path (Join-Path $bin 'dot.exe'))) {
+              try {
+                $url = "https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/$ver/windows_10_cmake_Release_Graphviz-$ver-win64.zip"
+                $zip = Join-Path $env:RUNNER_TEMP "graphviz-$ver.zip"
+                Invoke-WebRequest $url -OutFile $zip -MaximumRetryCount 2 -RetryIntervalSec 5
+                $hash = (Get-FileHash $zip -Algorithm SHA256).Hash
+                if ($hash -ne $env:GRAPHVIZ_SHA256) {
+                  throw "SHA256 mismatch: expected $env:GRAPHVIZ_SHA256, got $hash"
+                }
+                Expand-Archive $zip -DestinationPath $gvRoot -Force
+              } catch {
+                Write-Warning "Graphviz zip install failed, falling back to Chocolatey: $_"
+                # Don't leave a partial extraction behind for the next attempt
+                # (or the cache) to mistake for a good install.
+                Remove-Item $gvRoot -Recurse -Force -ErrorAction SilentlyContinue
+              }
             }
-            $bin = Split-Path $dot.Source -Parent
+
+            if (-not (Test-Path (Join-Path $bin 'dot.exe'))) {
+              choco install graphviz --version $ver -y --no-progress
+              # The graphviz installer puts its bin dir on the machine PATH, which
+              # the already-running runner process does not pick up. Re-read it so
+              # `dot` resolves here.
+              $env:PATH = "$([Environment]::GetEnvironmentVariable('Path', 'Machine'));$env:PATH"
+              $dot = Get-Command dot -ErrorAction SilentlyContinue
+              if (-not $dot) {
+                throw 'Graphviz is not installed from the zip or Chocolatey (see the output above)'
+              }
+              $bin = Split-Path $dot.Source -Parent
+            }
+
+            # Use it here, then publish it for the later test steps.
+            $env:PATH = "$bin;$env:PATH"
             if ((Get-Content $env:GITHUB_PATH -ErrorAction SilentlyContinue) -notcontains $bin) {
               Add-Content -Path $env:GITHUB_PATH -Value $bin
             }
@@ -500,112 +535,11 @@ jobs:
           # MaxSessionDuration).
           role-duration-seconds: 21600
 
-      - name: 🧪 Run Extensions Tests
-        if: ${{ matrix.shard == 1 }}
-        id: extensions
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          mkdir -p extensions-tests-logs
-          npm run test-extension -- -l positron-r 2>&1 | tee extensions-tests-logs/runner.log
-          EXIT_CODE=${PIPESTATUS[0]}
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-          exit 0
-
-      - name: Save Extensions Tests Logs
-        if: ${{ matrix.shard == 1 && steps.extensions.outputs.exit_code != '0' }}
-        shell: bash
-        run: |
-          # Save all VSCode integration test logs including output channels
-          if [ -d ".build/logs/integration-tests" ]; then
-            echo "Uploading VSCode integration test logs"
-            mkdir -p extensions-tests-logs
-            cp -r .build/logs/integration-tests/* extensions-tests-logs/ || true
-          else
-            echo "No VSCode logs directory found at .build/logs/integration-tests"
-          fi
-          exit 0
-
       - name: Set Report URL
         uses: ./.github/actions/gen-report-dir
         with:
           identifier: ${{ inputs.project }}
           skip-summary: true
-
-      # ---------------------------------------------------------------------
-      # Postgres for the data-connection / connections e2e tests.
-      #
-      # GitHub Actions `services:` containers only work on Linux runners, and
-      # positron-postgres is a Linux image, so a service block can't be
-      # used here. Windows Server 2025 (the windows-latest image) ships WSL2,
-      # which can run Linux containers. We install docker inside a WSL2 Ubuntu
-      # distro and run the SAME image the Ubuntu job uses, keeping the
-      # periodic/dvdrental seed data a single source of truth. WSL2 forwards
-      # published ports to the Windows host's loopback, so the container's 5432
-      # is reachable from Windows at 127.0.0.1:5432. The tests connect to host
-      # "postgres", so a hosts-file entry maps that name to 127.0.0.1 (WSL2
-      # forwarding only works over 127.0.0.1, not arbitrary hostnames).
-      #
-      # These steps run on every shard: predictive sharding can place the
-      # postgres tests on any shard, so each runner needs its own container.
-      # ---------------------------------------------------------------------
-      - name: Set up WSL2 and Docker (for Postgres)
-        shell: bash
-        run: |
-          set -e
-          # Install Ubuntu without launching the interactive first-run setup.
-          wsl --install Ubuntu --no-launch
-          wsl --set-default-version 2
-          # Start the distro and keep it running for the rest of the job so the
-          # docker daemon and container survive across subsequent steps. Running
-          # as root avoids the interactive first-run user setup (OOBE).
-          wsl -d Ubuntu -u root --exec dbus-launch true
-          # Install docker-ce inside WSL2 via the official convenience script.
-          wsl -d Ubuntu -u root -- bash -c "curl -fsSL https://get.docker.com | sh"
-          wsl -d Ubuntu -u root -- service docker start
-
-      - name: Start Postgres container in WSL2
-        shell: bash
-        env:
-          GHCR_USER: ${{ secrets.POSITRON_GITHUB_RO_USER }}
-          GHCR_PAT: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
-        run: |
-          set -e
-          # Pass secrets/config into WSL via WSLENV rather than embedding them in
-          # the command line (keeps them out of process args / logs).
-          export WSLENV=GHCR_USER:GHCR_PAT:E2E_POSTGRES_USER:E2E_POSTGRES_PASSWORD
-          # Each command passed to WSL is kept on a single physical line: a
-          # multi-line string crossing Git-bash -> wsl.exe -> WSL bash gets its
-          # newlines mangled (CR injection) and breaks the inner shell parse.
-          wsl -d Ubuntu -u root -- bash -c 'echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USER" --password-stdin'
-          # POSTGRES_DB stays "postgres": the image's init scripts create the
-          # "periodic" and "dvdrental" databases (and the "e2e" user) themselves.
-          wsl -d Ubuntu -u root -- bash -c 'docker run -d --name postgres -p 5432:5432 -e POSTGRES_USER="$E2E_POSTGRES_USER" -e POSTGRES_PASSWORD="$E2E_POSTGRES_PASSWORD" -e POSTGRES_DB=postgres ghcr.io/posit-dev/positron-postgres:24.18.0'
-          # Wait for the seeded "periodic" database to accept connections. Run
-          # the loop in this step's bash and let each `wsl -- <cmd> <args>` pass
-          # straight through to Linux: a complex program (loops, $(), ;) sent via
-          # `wsl bash -c '...'` gets mangled crossing the Git-bash/wsl.exe boundary.
-          ready=0
-          for i in $(seq 1 30); do
-            if wsl -d Ubuntu -u root -- docker exec postgres pg_isready -U "$E2E_POSTGRES_USER" -d periodic; then
-              ready=1
-              break
-            fi
-            sleep 2
-          done
-          if [ "$ready" != "1" ]; then
-            echo "Postgres did not become ready"
-            wsl -d Ubuntu -u root -- docker logs postgres
-            exit 1
-          fi
-
-      - name: Map "postgres" host to loopback
-        shell: pwsh
-        run: |
-          # The tests connect to host "postgres"; point it at the WSL2-forwarded
-          # loopback address (forwarding only works over 127.0.0.1).
-          Add-Content -Path "$env:windir\System32\drivers\etc\hosts" -Value "127.0.0.1 postgres"
 
       - name: 🧪 Run Bootstrap Extensions Test
         if: ${{ inputs.skip_extension_tests != true }}
@@ -671,14 +605,6 @@ jobs:
           path: blob-report
           retention-days: 1
 
-      - name: Upload Extensions Test Logs If Failed
-        if: ${{ always() && matrix.shard == 1 && steps.extensions.outputs.exit_code != '0' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: extensions-tests-logs
-          path: extensions-tests-logs/
-          if-no-files-found: ignore
-
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v7
@@ -712,134 +638,11 @@ jobs:
         if: ${{ inputs.commit != '' }}
         run: git checkout ${{ inputs.commit }}
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: ./.github/actions/merge-e2e-blob-reports
         with:
-          node-version: 20
-
-      - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          project: ${{ inputs.project }}
+          shards: ${{ inputs.shards }}
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
-          # Session must outlast the full build + sharded test run so the Bedrock
-          # sign-in e2e test doesn't hit an expired STS token (must be <= role
-          # MaxSessionDuration).
-          role-duration-seconds: 21600
-
-      - name: Install Playwright
-        shell: bash
-        run: |
-          # Create clean directory for merge dependencies
-          mkdir -p playwright-merge
-          cd playwright-merge
-          npm init -y
-          npm install @playwright/test @midleman/github-actions-reporter
-
-      - name: Generate Report Directory
-        uses: ./.github/actions/gen-report-dir
-        with:
-          identifier: ${{ inputs.project }}
-
-      - name: Download all blob reports
-        uses: actions/download-artifact@v8
-        with:
-          path: all-blob-reports
-          pattern: blob-report-${{ inputs.project }}-*
-          merge-multiple: true
-
-      - name: Verify all shard reports received
-        id: verify-reports
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          EXPECTED_SHARDS=${{ inputs.shards }}
-          PROJECT="${{ inputs.project }}"
-          echo "Expected shard count: $EXPECTED_SHARDS"
-
-          # Query GitHub API for artifacts in this run matching our pattern
-          # This is more reliable than counting files since artifact names are deterministic
-          ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts --jq '.artifacts[].name' | grep "^blob-report-${PROJECT}-" || true)
-          ARTIFACT_COUNT=$(echo "$ARTIFACTS" | grep -c . || echo 0)
-
-          echo "Found artifacts:"
-          echo "$ARTIFACTS"
-          echo ""
-          echo "Artifact count: $ARTIFACT_COUNT"
-
-          # Check which shards are missing
-          MISSING_SHARDS=""
-          for i in $(seq 1 $EXPECTED_SHARDS); do
-            if ! echo "$ARTIFACTS" | grep -q "^blob-report-${PROJECT}-${i}$"; then
-              MISSING_SHARDS="$MISSING_SHARDS $i"
-            fi
-          done
-
-          if [ -n "$MISSING_SHARDS" ]; then
-            echo "::warning::Missing blob reports for shards:$MISSING_SHARDS"
-            echo "This typically means these shards crashed before uploading their results."
-            echo "missing_reports=true" >> $GITHUB_OUTPUT
-            echo "missing_shards=$MISSING_SHARDS" >> $GITHUB_OUTPUT
-          else
-            echo "All $EXPECTED_SHARDS shard reports received"
-            echo "missing_reports=false" >> $GITHUB_OUTPUT
-            echo "missing_shards=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Merge Playwright Blob Reports, Generate HTML and JSON Reports
-        shell: bash
-        working-directory: playwright-merge
-        run: |
-          # Create output directory
-          mkdir -p playwright-report
-
-          echo "Merging blob reports from all shards..."
-          # Merge all blob reports and generate HTML report
-          env PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
-            --reporter=@midleman/github-actions-reporter,html \
-            ../all-blob-reports
-
-          # Generate JSON report separately with explicit output path
-          PLAYWRIGHT_JSON_OUTPUT_NAME=playwright-report/results.json npx playwright merge-reports \
-            --reporter=json \
-            ../all-blob-reports
-
-      - name: Upload HTML report to S3
-        if: always()
-        continue-on-error: true
-        uses: ./.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
-          working-directory: playwright-merge
-
-      - name: Check test results
-        if: always()
-        shell: bash
-        run: |
-          JSON_REPORT="playwright-merge/playwright-report/results.json"
-          if [ ! -f "$JSON_REPORT" ]; then
-            echo "⚠ JSON report not found at $JSON_REPORT"
-            echo "Contents of playwright-merge/playwright-report:"
-            ls -la playwright-merge/playwright-report/ || true
-            exit 1
-          fi
-
-          node scripts/check-e2e-failures.js "$JSON_REPORT"
-
-          # Fail if we're missing reports from any shards (even if all available tests passed)
-          if [[ "${{ steps.verify-reports.outputs.missing_reports }}" == "true" ]]; then
-            echo ""
-            echo "::error::Missing shard reports detected!"
-            echo "Missing reports from shards:${{ steps.verify-reports.outputs.missing_shards }}"
-            echo "These shards likely crashed or timed out before uploading results."
-            echo "Check the individual shard jobs above for errors."
-            exit 1
-          fi
-
-      - name: Clean up blob report artifacts
-        if: success()
-        uses: geekyeggo/delete-artifact@v6
-        with:
-          name: blob-report-${{ inputs.project }}-*
-          failOnError: false
+          report-upload-role: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          github-token: ${{ github.token }}

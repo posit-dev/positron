@@ -10,6 +10,7 @@ import { ExtHostDocuments } from '../extHostDocuments.js';
 import { ExtHostWorkspace } from '../extHostWorkspace.js';
 import { ExtHostQuickOpen } from '../extHostQuickOpen.js';
 import { ExtHostCommands } from '..//extHostCommands.js';
+import { ExtHostDialogs } from '../extHostDialogs.js';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs.js';
 import { ExtHostContextKeyService } from '../positron/extHostContextKeyService.js';
 import { ExtHostConsoleService } from '../positron/extHostConsoleService.js';
@@ -18,6 +19,7 @@ import { UiFrontendRequest, EditorContext, Range as UIRange } from '../../../ser
 import { JsonRpcErrorCode } from '../../../services/languageRuntime/common/positronBaseComm.js';
 import { Range } from '../extHostTypes.js';
 import { EndOfLine, TextEditorOpenOptions } from '../extHostTypeConverters.js';
+import { URI } from '../../../../base/common/uri.js';
 
 type JsonRpcResponse = JsonRpcResult | JsonRpcError;
 
@@ -50,7 +52,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		private readonly quickOpen: ExtHostQuickOpen,
 		private readonly commands: ExtHostCommands,
 		private readonly contextKeys: ExtHostContextKeyService,
-		private readonly consoleService: ExtHostConsoleService
+		private readonly consoleService: ExtHostConsoleService,
+		private readonly fileDialogs: ExtHostDialogs
 	) {
 	}
 
@@ -78,10 +81,11 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			let result;
 			switch (method) {
 				case UiFrontendRequest.LastActiveEditorContext: {
-					if (params && Object.keys(params).length > 0) {
+					if (params && Object.keys(params).some(key => key !== 'allow_console')) {
 						return newInvalidParamsError(method);
 					}
-					result = await this.lastActiveEditorContext(callerSessionId);
+					// `allow_console` is optional; a missing or null value means true
+					result = await this.lastActiveEditorContext(callerSessionId, params?.allow_console !== false);
 					break;
 				}
 				case UiFrontendRequest.ModifyEditorSelections: {
@@ -164,6 +168,17 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					result = await this.askForPassword(params.prompt as string);
 					break;
 				}
+				case UiFrontendRequest.SelectFile: {
+					if (!params ||
+						!Object.keys(params).includes('title') ||
+						!Object.keys(params).includes('existing')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.selectFile(params.title as string,
+						params.existing as boolean, params.default_dir as string | undefined,
+						callerSessionId);
+					break;
+				}
 				case UiFrontendRequest.ExecuteCode: {
 					if (!params ||
 						!Object.keys(params).includes('language_id') ||
@@ -176,7 +191,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						params.code as string,
 						extensionId,
 						params.focus as boolean,
-						params.allow_incomplete as boolean);
+						params.allow_incomplete as boolean,
+						callerSessionId);
 					break;
 				}
 				case UiFrontendRequest.EvaluateWhenClause: {
@@ -206,8 +222,13 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		}
 	}
 
-	async lastActiveEditorContext(callerSessionId?: string): Promise<EditorContext | null> {
-		const consoleEditor = await this.activeConsoleEditorForCaller(callerSessionId);
+	/**
+	 * Returns the context of the last active editor. When `allowConsole` is false, the caller's
+	 * console input is never returned, even if it was focused last. This backs
+	 * `rstudioapi::getSourceEditorContext()`, which reports only source documents.
+	 */
+	async lastActiveEditorContext(callerSessionId?: string, allowConsole = true): Promise<EditorContext | null> {
+		const consoleEditor = allowConsole ? await this.activeConsoleEditorForCaller(callerSessionId) : undefined;
 		const editor = consoleEditor ?? this.editors.getActiveTextEditor();
 		if (!editor) {
 			return null;
@@ -386,13 +407,22 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		return result;
 	}
 
-	async executeCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean): Promise<Record<string, any>> {
+	async selectFile(title: string, existing: boolean, defaultDir?: string, callerSessionId?: string): Promise<string | null> {
+		defaultDir ??= await this.runtime.getSessionWorkingDirectory(callerSessionId);
+		const defaultUri = defaultDir ? URI.file(defaultDir) : undefined;
+		const uri = existing ?
+			(await this.fileDialogs.showOpenDialog({ title, defaultUri, canSelectFiles: true, canSelectFolders: false, canSelectMany: false }))?.[0] :
+			await this.fileDialogs.showSaveDialog({ title, defaultUri });
+		return uri?.fsPath ?? null;
+	}
+
+	async executeCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean, callerSessionId?: string): Promise<Record<string, any>> {
 		// This is the frontend method behind `sendToConsole`. Queue the code and
 		// return once it has been accepted; don't wait for it to finish running,
 		// since it runs in the same session that requested it and that session
 		// stays busy until this call returns. Errors from queuing (e.g. the
 		// interpreter failed to start) still propagate back to the caller.
-		await this.runtime.queueCode(languageId, code, extensionId, focus, allowIncomplete);
+		await this.runtime.queueCode(languageId, code, extensionId, focus, allowIncomplete, callerSessionId);
 		return {};
 	}
 

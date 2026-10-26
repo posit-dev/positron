@@ -4,16 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 // The report and ledger formats live twice: as templates in explorer.md, which
-// is what the agent copies, and as the parser and lint here. Nothing else ties
-// the two, so this fills explorer.md's own templates in and checks that they
-// parse and lint clean. Edit a template the parser cannot read, or change the
-// parser so a template no longer passes, and this fails.
+// is what the agent copies, and as the schema, parser and lint here. Nothing
+// else ties the two, so this fills explorer.md's own templates in and checks
+// that they pass. Edit a template the schema cannot take, or change the schema
+// so a template no longer passes, and this fails.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { lintReport } from './lint.mjs';
-import { parseLedger, parseReport } from './report-parse.mjs';
+import { schemaProblems } from './lint-json.mjs';
+import { reportFromJson } from './page/report-json.mjs';
+import { parseLedger } from './shared/ledger.mjs';
 
 const EXPLORER = readFileSync(new URL('../explorer.md', import.meta.url), 'utf8');
 
@@ -37,23 +38,23 @@ function fencedBlocks(markdown) {
 	return blocks;
 }
 
-function template(firstLine) {
-	const block = fencedBlocks(EXPLORER).find(b => firstLine.test(b.split('\n')[0]));
+function template(firstLine, second = /^/) {
+	const block = fencedBlocks(EXPLORER).find(b => firstLine.test(b.split('\n')[0]) && second.test(b.split('\n')[1] ?? ''));
 	assert.ok(block, `explorer.md has no template starting ${firstLine}; update this test if it moved`);
 	return block;
 }
 
-const REPORT = template(/^# Exploratory test:/);
-const TABLE = template(/^\| # \| Finding \|/);
-const FINDING = template(/^### Finding N:/);
+const REPORT = template(/^\{$/, /"header"/);
+const FINDING = template(/^\{$/, /"n": 1/);
 const LEDGER = template(/^# Test ledger/);
-const GRAMMAR = template(/^N\. <action text>$/);
 
 // Placeholders whose value the parser or lint reads. Every other placeholder
 // is prose to them and gets filler text. An array is used up in order.
 const VALUES = {
-	'<version>': ['2026.10.0', '1.105.0', '22.04', '3.12.3'],
+	'<version>': ['2026.10.0', '1.105.0', '22.04', '0.1.252', '0.1.71', '3.12.3'],
 	'<n>': '12',
+	'<why it is worse than the title suggests, in one sentence; leave the line out when nothing is>': 'Nothing on screen says the view is unfinished.',
+	'<M>': '3',
 	'<dev build | release build>': 'dev build',
 	'<OS>': 'Ubuntu',
 	'<platform>': 'Linux',
@@ -70,7 +71,7 @@ const VALUES = {
 	'<how to set it up, with the files/ path of any file it needs>': 'Open `data.csv`.',
 	'<what exists before step 1, naming each test file in backticks>': '`data.csv` open in an editor',
 	'<surfaces the change touches that you did not reach, or `none`>': 'the web build',
-	'<Renderer, Console, or Extension host>': 'Renderer',
+	'<Renderer process, Extension host, Main process, Python kernel or R kernel>': 'Renderer process',
 	'<Unit, Extension, or E2E>': 'Unit',
 	'<exists, covers ... | new file>': 'new file',
 	'<repo-relative test file, or leave out when unsure>': 'src/vs/example/test/example.vitest.ts',
@@ -113,43 +114,45 @@ function fill(text, shots) {
 				assert.ok(v.length, `ran out of values for ${p}`);
 				return v.shift();
 			}
-			return v ?? `filler ${++filler}`;
+			return v ?? `Filler ${++filler}`;
 		});
 }
 
+/** A JSON template with its placeholders filled: shots in order, the rest filler. */
+function fillJson(text, shots) {
+	const names = [...shots];
+	let filler = 0;
+	return JSON.parse(text
+		.replace(/shots\/<file>/g, () => `shots/${names.length > 1 ? names.shift() : names[0]}`)
+		.replace(/<[^<>"]+>/g, () => `Filler ${++filler}`));
+}
+
 function filledReport() {
-	// The report template leaves its Findings section as a description.
-	const findings = `${TABLE}\n\n${FINDING.replace(/Finding N\b/g, 'Finding 1')}`;
-	return fill(REPORT.replace(/^<the table, then one .*>$/m, findings), ['F1-02.png', 'F1-04.png']);
+	const report = fillJson(REPORT, []);
+	return { ...report, findings: [fillJson(FINDING, ['F1-02.png', 'F1-04.png', 'S06-04.png'])] };
 }
 
 const report = filledReport();
 const ledger = fill(LEDGER, ['S01-02.png', 'S02-02.png']);
 
-test('explorer.md report and ledger templates lint clean when filled in', () => {
-	const problems = lintReport(report, ledger, {
-		fileExists: () => true,
-		listFiles: () => ['files/data.csv'],
-	});
-	assert.deepEqual(problems, [], `filled templates:\n\n${report}\n\n${ledger}`);
+test('explorer.md report and finding templates match the schema when filled in', () => {
+	assert.deepEqual(schemaProblems(report), [], JSON.stringify(report, null, 2));
 });
 
-test('explorer.md finding template parses into one finding with its steps and evidence', () => {
-	const { findings } = parseReport(report, { ledger });
+test('explorer.md finding template builds one finding with its steps and evidence', () => {
+	const { findings } = reportFromJson(report, { ledger });
 	assert.equal(findings.length, 1);
 	const [f] = findings;
 	assert.equal(f.n, 1);
-	// A step the parser does not read as a check comes back as an action, and
-	// lint does not flag that, so the step kinds are checked here.
 	assert.deepEqual(f.steps.map(s => [s.kind, s.result, s.finding, s.evidence.map(e => e.file)]), [
 		['action', null, null, []],
 		['verify', 'pass', null, ['F1-02.png']],
 		['action', null, null, []],
 		['verify', 'fail', 1, ['F1-04.png']],
 	]);
-	assert.ok(f.steps[3].observed, 'the failing check keeps its Observed line');
-	assert.ok(f.feature, 'the Feature line is read');
-	assert.ok(f.evidence.some(e => e.kind === 'shot' && e.step), 'a captioned screenshot');
+	assert.ok(f.steps[3].observed, 'the failing check keeps its observed');
+	assert.ok(f.feature, 'the feature is read');
+	assert.ok(f.evidence.some(e => e.kind === 'shot' && e.step), 'a screenshot tied to its step');
 });
 
 test('explorer.md ledger template parses into its scenarios, files and not-run list', () => {
@@ -162,23 +165,4 @@ test('explorer.md ledger template parses into its scenarios, files and not-run l
 	]);
 	assert.deepEqual(parsed.files.map(f => f.path), ['files/data.csv']);
 	assert.equal(parsed.notExercised.length, 2, 'a Not run entry and an already-filed skip');
-});
-
-/** A step line's shape: placeholders, optional parts and numbers made uniform. */
-function shape(line) {
-	return line
-		.replace(/\[[^\]\n]*<[^\]\n]*\](?!\()/g, '')
-		.replace(/<[^<>]+>/g, '<>')
-		.replace(/^\d+\./, 'N.')
-		.replace(/Finding (\d+|[NK])\b/g, 'Finding X')
-		.trimEnd();
-}
-
-test('explorer.md step grammar matches the steps its ledger template writes', () => {
-	// The grammar block is a third copy of the step lines; it is not filled in
-	// and parsed like the templates, so it is held to the ledger's shape instead.
-	const ledgerLines = new Set(LEDGER.split('\n').map(shape));
-	for (const line of GRAMMAR.split('\n').filter(l => l.trim())) {
-		assert.ok(ledgerLines.has(shape(line)), `the grammar's "${line.trim()}" has no line of the same shape in the ledger template`);
-	}
 });

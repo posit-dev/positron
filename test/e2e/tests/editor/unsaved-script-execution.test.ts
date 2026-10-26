@@ -39,7 +39,7 @@ const languageConfigs: LanguageConfig[] = [
 		code: 'print("SCRATCH" + "_PY_RAN")',
 		marker: 'SCRATCH_PY_RAN',
 		relativePath: /"\.positron-untitled-\d+\.py"/,
-		tags: [],
+		tags: [tags.PYTHON],
 	},
 ];
 

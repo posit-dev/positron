@@ -45,12 +45,11 @@ const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
 
 // The cells of every Quarto virtual notebook, for the console client.
 //
-// When Ark does not declare `notebookDocumentSync`, the client syncs these
-// cells as ordinary text documents and the document selector is the only
-// gate. When it does, `notebookCellFilter` gates sync and this selector only
-// routes requests. Matching the notebook's type keeps real notebooks' (.ipynb)
-// cells out, since no other notebook carries this type. A Quarto session names
-// its own document's notebook instead; see `ArkLsp._quartoCellsUri`.
+// Ark declares `notebookDocumentSync`, so `notebookCellFilter` gates sync and
+// this selector only routes requests. Matching the notebook's type keeps real
+// notebooks' (.ipynb) cells out, since no other notebook carries this type. A
+// Quarto session names its own document's notebook instead; see
+// `ArkLsp._quartoCellsUri`.
 const QUARTO_CELL_SELECTOR = {
 	notebook: { notebookType: QUARTO_CELLS_NOTEBOOK_TYPE },
 	language: 'r',
@@ -84,7 +83,7 @@ function isOwnedQuartoCellUri(uri: vscode.Uri): boolean {
 }
 
 /**
- * Selects notebook cells to sync with Ark when it declares `notebookDocumentSync`.
+ * Selects notebook cells to sync with Ark.
  *
  * For a dedicated session client, this filter accepts only its own notebook.
  * For Quarto, that is the hidden notebook representing the document's chunks.
@@ -154,6 +153,14 @@ export class ArkLsp implements vscode.Disposable {
 	/** Disposable for per-activation items */
 	private activationDisposables: vscode.Disposable[] = [];
 
+	/**
+	 * Listener on the current client's state. Not in `activationDisposables`
+	 * because it must see the client's final `Stopped`, which can arrive after
+	 * `deactivate()` returns. Disposed when the next activation starts, or by
+	 * `dispose()`.
+	 */
+	private clientStateListener?: vscode.Disposable;
+
 	private languageClientName: string;
 
 	public constructor(
@@ -210,6 +217,23 @@ export class ArkLsp implements vscode.Disposable {
 		this.activationDisposables.push(waiting);
 	}
 
+	/** Dispose of the registrations made by the current activation. */
+	private disposeActivation(): void {
+		this.activationDisposables.forEach(d => d.dispose());
+		this.activationDisposables = [];
+	}
+
+	/**
+	 * Stop answering for this activation: drop its registrations and give this
+	 * session's Quarto cells back to the console client.
+	 */
+	private stopServing(): void {
+		this.disposeActivation();
+		if (this._quartoCellsUri) {
+			releaseQuartoCells(quartoCellsKey(this._quartoCellsUri), this._metadata.sessionId);
+		}
+	}
+
 	private setState(state: ArkLspState) {
 		const old = this._state;
 		this._state = state;
@@ -229,8 +253,9 @@ export class ArkLsp implements vscode.Disposable {
 	public async activate(port: number, host: string): Promise<void> {
 
 		// Clean up disposables from any previous activation
-		this.activationDisposables.forEach(d => d.dispose());
-		this.activationDisposables = [];
+		this.disposeActivation();
+		this.clientStateListener?.dispose();
+		this.clientStateListener = undefined;
 
 		// Define server options for the language server. Connects to `host:port`.
 		const serverOptions = async (): Promise<StreamInfo> => {
@@ -344,11 +369,14 @@ export class ArkLsp implements vscode.Disposable {
 					}
 					// Disable diagnostics for Quarto virtual documents:
 					// https://github.com/quarto-dev/quarto/issues/855
-					// Only check file URIs because vdocs are files on disk
+					// Only check file URIs because vdocs are files on disk.
+					// Publish an empty set rather than dropping the publish:
+					// the Quarto extension waits for a diagnostics change on
+					// the vdoc and logs a timeout warning if none arrives.
 					if (uri.scheme === 'file') {
 						const baseName = path.basename(uri.fsPath);
 						if (VDOC_PATTERN.test(baseName)) {
-							return undefined;
+							return next(uri, []);
 						}
 					}
 					// A cell with a session of its own gets its squiggles from that
@@ -395,7 +423,7 @@ export class ArkLsp implements vscode.Disposable {
 		LOGGER.info(message);
 		getLspOutputChannel().appendLine(message);
 
-		this.client = new LanguageClient(id, this.languageClientName, serverOptions, clientOptions);
+		const client = this.client = new LanguageClient(id, this.languageClientName, serverOptions, clientOptions);
 
 		if (!notebookUri) {
 			// When a session claims a document's cells, drop the squiggles this
@@ -410,7 +438,7 @@ export class ArkLsp implements vscode.Disposable {
 				const notebook = vscode.workspace.notebookDocuments.find(
 					candidate => quartoCellsKey(candidate.uri) === quartoCellsUri);
 				for (const cell of notebook?.getCells() ?? []) {
-					this.client?.diagnostics?.delete(cell.document.uri);
+					client.diagnostics?.delete(cell.document.uri);
 				}
 			}));
 		}
@@ -418,7 +446,7 @@ export class ArkLsp implements vscode.Disposable {
 		const out = new PromiseHandles<void>();
 		this._initializing = out.promise;
 
-		this.activationDisposables.push(this.client.onDidChangeState(event => {
+		this.clientStateListener = client.onDidChangeState(event => {
 			const oldState = this._state;
 			// Convert the state to our own enum
 			switch (event.newState) {
@@ -426,13 +454,13 @@ export class ArkLsp implements vscode.Disposable {
 					this.setState(ArkLspState.Starting);
 					break;
 				case State.Running:
+					// `this._initializing` belongs to this client, because this
+					// listener lives for exactly one activation.
 					if (this._initializing) {
 						LOGGER.info(`${this.languageClientName} init successful`);
 						this._initializing = undefined;
-						if (this.client) {
-							// Register Positron-specific LSP extension methods
-							this.registerPositronLspExtensions(this.client);
-						}
+						// Register Positron-specific LSP extension methods
+						this.registerPositronLspExtensions(client);
 						out.resolve();
 					}
 					// Claimed at Running, not at construction, so the console keeps
@@ -445,18 +473,17 @@ export class ArkLsp implements vscode.Disposable {
 						LOGGER.info(`${this.languageClientName} init failed`);
 						out.reject('Ark LSP client stopped before initialization');
 					}
-					// A stopped client cannot serve anything, so the console
-					// takes the cells back until this client runs again.
-					if (this._quartoCellsUri) {
-						releaseQuartoCells(quartoCellsKey(this._quartoCellsUri), this._metadata.sessionId);
-					}
+					// A stopped client cannot serve anything: the console takes the
+					// cells back, and this activation's providers stop answering,
+					// until the next `activate()` creates a new client.
+					this.stopServing();
 					this.setState(ArkLspState.Stopped);
 					break;
 			}
 			LOGGER.info(`${this.languageClientName} state changed ${oldState} => ${this._state}`);
-		}));
+		});
 
-		this.client.start();
+		client.start();
 		await out.promise;
 	}
 
@@ -466,6 +493,10 @@ export class ArkLsp implements vscode.Disposable {
 	 * @returns A promise that resolves when the client has been stopped.
 	 */
 	public async deactivate() {
+		// Stop answering for this activation now, not when the client finally
+		// reaches `Stopped` (which does the same).
+		this.stopServing();
+
 		if (!this.client) {
 			// No client to stop, so just resolve
 			return;
@@ -481,7 +512,15 @@ export class ArkLsp implements vscode.Disposable {
 		// First wait for initialization to complete.
 		// `stop()` should not be called on a
 		// partially initialized client.
-		await this._initializing;
+		try {
+			await this._initializing;
+		} finally {
+			// A client that reached `Running` while we waited registered a fresh
+			// set of providers and claimed its cells; drop those too. This runs
+			// after the state listener has finished, because the await resumes
+			// in a later microtask.
+			this.stopServing();
+		}
 
 		// Suppress the "Connection to server got closed" toast that
 		// vscode-languageclient force-shows when the connection close races
@@ -524,6 +563,26 @@ export class ArkLsp implements vscode.Disposable {
 	 */
 	get state(): ArkLspState {
 		return this._state;
+	}
+
+	/**
+	 * The number of entries held for the current activation. For tests only.
+	 *
+	 * Counts entries, not live registrations: a listener that disposed itself
+	 * stays in the list until the activation is dropped.
+	 */
+	get activationDisposableCount(): number {
+		return this.activationDisposables.length;
+	}
+
+	/**
+	 * Stop the client directly, without going through `deactivate()`, so a test
+	 * can stop it the way a server crash or kernel exit does. For tests only.
+	 *
+	 * Does not return the `stop()` promise, which can hang; wait on `state`.
+	 */
+	stopClientForTesting(): void {
+		void this.client?.stop();
 	}
 
 	/**
@@ -627,11 +686,12 @@ export class ArkLsp implements vscode.Disposable {
 	 * Dispose of the client instance.
 	 */
 	async dispose() {
-		if (this._quartoCellsUri) {
-			releaseQuartoCells(quartoCellsKey(this._quartoCellsUri), this._metadata.sessionId);
+		try {
+			await this.deactivate();
+		} finally {
+			this.clientStateListener?.dispose();
+			this.clientStateListener = undefined;
 		}
-		this.activationDisposables.forEach(d => d.dispose());
-		await this.deactivate();
 	}
 
 	public showOutput() {

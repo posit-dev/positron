@@ -26,17 +26,6 @@
 export const AI_ENABLED_KEY = 'ai.enabled';
 
 /**
- * Chooses which dialog the Configure Providers command opens. On, it opens the
- * Configure LLM Providers modal. Off, it opens the older Configure Language
- * Model Providers dialog.
- *
- * Defaults to on. The older dialog stays available as a way back: if something
- * in the current modal does not work for a user, they can turn this off and
- * carry on.
- */
-export const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';
-
-/**
  * Whether this window offers its live sessions and its agent-compatible
  * commands to external coding agents (Claude Code, Codex, any MCP client)
  * through the kernel supervisor's Model Context Protocol server.
@@ -53,3 +42,12 @@ export const MCP_ENABLED_KEY = 'ai.mcp.enabled';
  * supervisor's Quick Pick.
  */
 export const MCP_STATUS_BAR_KEY = 'ai.mcp.statusBar';
+
+/**
+ * Whether AI agents can work in console sessions of their own. Gates only the
+ * ways to start one: the Start Agent Console Session command here, while an
+ * agent is expected to read it before starting a session of its own. Existing
+ * agent sessions are recorded and shown as such either way. The command also
+ * requires {@link AI_ENABLED_KEY}.
+ */
+export const AGENT_SESSIONS_ENABLED_KEY = 'ai.agentSessions.enabled';

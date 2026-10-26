@@ -67,7 +67,7 @@ async function configureCodex(app: Application): Promise<{ command: string; args
 	let config = '';
 	await expect(async () => {
 		config = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
-		expect(config).toContain('mcp-stdio');
+		expect(config).toContain('positron-mcp');
 	}, 'Codex configured').toPass({ timeout: 15000 });
 
 	// The values are written as JSON strings and arrays, which TOML shares.
@@ -80,7 +80,7 @@ async function configureCodex(app: Application): Promise<{ command: string; args
 test.describe('MCP Server', {
 	tag: [tags.WEB, tags.MCP, tags.CONSOLE, tags.SESSIONS]
 }, () => {
-	test('Python - Agent code runs in the session and is attributed in the console', async function ({ app, python }) {
+	test('Python - Agent code runs in the session and is attributed in the console', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 
 		expect(await agent.listTools()).toEqual(expect.arrayContaining([
@@ -110,7 +110,7 @@ test.describe('MCP Server', {
 			.toContainText('Claude Code');
 	});
 
-	test('Python - The console is busy while agent code runs, and the agent can interrupt it', async function ({ app, python }) {
+	test('Python - The console is busy while agent code runs, and the agent can interrupt it', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 
 		const running = agent.callTool('execute_code', {
@@ -127,7 +127,7 @@ test.describe('MCP Server', {
 		await app.workbench.console.waitForExecutionComplete();
 	});
 
-	test('Python - An agent can look at the current plot', async function ({ app, python }) {
+	test('Python - An agent can look at the current plot', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 
 		const drawn = await agent.callTool('execute_code', {
@@ -141,7 +141,7 @@ test.describe('MCP Server', {
 		expect(plot.content.find(block => block.type === 'image')?.mimeType).toMatch(/^image\//);
 	});
 
-	test('Python - Silent evaluation returns a value to the agent', async function ({ app, python }) {
+	test('Python - Silent evaluation returns a value to the agent', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 
 		const result = await agent.callTool('evaluate_code', { code: '6 * 7' });
@@ -169,7 +169,7 @@ test.describe('MCP Server', {
 		await app.workbench.console.waitForConsoleContents('hello from R', { exact: true });
 	});
 
-	test('Positron commands are searchable and runnable', async function ({ app, python }) {
+	test('Positron commands are searchable and runnable', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 
 		const commands = await agent.callTool('list_positron_commands', { query: 'plots' });
@@ -184,7 +184,7 @@ test.describe('MCP Server', {
 			.toBeVisible();
 	});
 
-	test('A request without a valid token is refused', async function ({ app, python }) {
+	test('A request without a valid token is refused', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 		// Reach the same endpoint the real client is using, with a token that
 		// was never issued.
@@ -200,20 +200,27 @@ test.describe('MCP Server', {
 	});
 });
 
+// Runs on Windows too, where the launcher is a batch file run by cmd.exe
+// rather than a shell script run by /bin/sh.
 test.describe('MCP Server over stdio', {
-	tag: [tags.MCP, tags.CONSOLE, tags.SESSIONS]
+	tag: [tags.MCP, tags.CONSOLE, tags.SESSIONS, tags.WIN]
 }, () => {
-	test('Python - An agent Positron configured runs code over stdio', async function ({ app, python }) {
+	test('Python - An agent Positron configured runs code over stdio', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		// Wait for the workspace to be registered, which is what writes the
 		// files the bridge finds it by.
 		await connectAgent(app);
 		const { command, args } = await configureCodex(app);
 
+		// The launcher, handed to its shell, is all an agent needs to be told to start.
+		expect(path.parse(args[args.length - 1]).name).toBe('positron-mcp');
+
 		// Without the variables a Positron terminal exports, the bridge has
-		// to find the workspace from the directory the agent runs in.
+		// to find the workspace from the directory the agent runs in, and
+		// the connections directory from the launcher's arguments.
 		const env = { ...process.env };
 		delete env.POSITRON_MCP_URL;
 		delete env.POSITRON_MCP_TOKEN;
+		delete env.POSITRON_MCP_CONNECTIONS;
 		const agent = new McpStdioClient(command, args, app.workspacePathOrFolder, env, 'codex');
 		try {
 			await agent.initialize();

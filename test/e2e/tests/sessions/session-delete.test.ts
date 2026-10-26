@@ -13,7 +13,7 @@ test.describe('Sessions: Delete', {
 	tag: [tags.WEB, tags.WIN, tags.SESSIONS]
 }, () => {
 
-	test('Python - Validate can delete a single session', async function ({ sessions }) {
+	test('Python - Validate can delete a single session', { tag: [tags.PYTHON] }, async function ({ sessions }) {
 		await sessions.start(['python']);
 		await sessions.expectSessionCountToBe(1);
 		await sessions.deleteAll();
@@ -30,7 +30,7 @@ test.describe('Sessions: Delete', {
 	});
 
 	test('Validate session picker and variables after delete', {
-		tag: [tags.VARIABLES]
+		tag: [tags.VARIABLES, tags.PYTHON, tags.ARK]
 	}, async function ({ app, sessions }) {
 		const { console, variables } = app.workbench;
 		await sessions.deleteAll();
@@ -67,7 +67,7 @@ test.describe('Sessions: Delete', {
 		await variables.expectVariableToNotExist('y');
 	});
 
-	test('Python & R - Validate can delete multiple sessions', async function ({ sessions }) {
+	test('Python & R - Validate can delete multiple sessions', { tag: [tags.PYTHON, tags.ARK] }, async function ({ sessions }) {
 		await sessions.start(['python', 'r', 'python', 'pythonAlt', 'pythonAlt', 'r', 'rAlt', 'rAlt']);
 		await sessions.expectSessionCountToBe(8);
 		await sessions.deleteAll();

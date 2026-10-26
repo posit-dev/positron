@@ -40,7 +40,10 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# A usage error: the error on stderr, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error --text "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 
 RUN_DIR=""
 SEED=""
@@ -51,23 +54,19 @@ EXTRA=()
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--run-dir) RUN_DIR="$2"; shift 2 ;;
-		--seed) SEED="$2"; shift 2 ;;
-		--cdp-port) CDP_PORT="$2"; shift 2 ;;
+		--run-dir=*|--seed=*|--cdp-port=*|--include=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
+		--run-dir) RUN_DIR="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--seed) SEED="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--cdp-port) CDP_PORT="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		--keep-running) KEEP_RUNNING=1; shift ;;
-		--include) EXTRA+=("$2"); shift 2 ;;
+		--include) EXTRA+=("${2-}"); shift 2 || usage_error "$1 needs a value" ;;
 		--list-keys) LIST_KEYS=1; shift ;;
-		-h|--help)
-			sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//'
-			exit 0 ;;
-		*) echo "reseed.sh: unknown arg $1" >&2; exit 2 ;;
+		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
+		*) usage_error "unknown argument $1" ;;
 	esac
 done
 
-if [[ -z "$RUN_DIR" || -z "$SEED" ]]; then
-	echo "Usage: reseed.sh --run-dir <dir> --seed <dir> [--cdp-port <port>] [--keep-running]" >&2
-	exit 2
-fi
+[[ -n "$RUN_DIR" && -n "$SEED" ]] || usage_error "give --run-dir <dir> --seed <dir> [--cdp-port <port>] [--keep-running]"
 
 PROFILE="$RUN_DIR/user-data"
 if [[ ! -d "$PROFILE" ]]; then
@@ -79,10 +78,9 @@ if [[ -n "$CDP_PORT" && "$KEEP_RUNNING" != "1" ]]; then
 	# No --run-dir here on purpose: that argument is what makes stop.sh delete
 	# the directory we are about to read.
 	echo "[reseed.sh] stopping the instance on CDP port $CDP_PORT, keeping $RUN_DIR" >&2
-	"$SCRIPT_DIR/stop.sh" --cdp-port "$CDP_PORT"
+	"$DIR/stop.sh" --cdp-port "$CDP_PORT"
 elif [[ "$KEEP_RUNNING" != "1" ]]; then
-	echo "reseed.sh: pass --cdp-port to stop the instance, or --keep-running if it has already exited" >&2
-	exit 2
+	usage_error "pass --cdp-port to stop the instance, or --keep-running if it has already exited"
 fi
 
 # A live CDP port means the app is still writing to the database.

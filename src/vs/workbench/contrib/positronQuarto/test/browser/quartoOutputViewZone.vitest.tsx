@@ -7,19 +7,16 @@
 
 import { act } from '@testing-library/react';
 import { Event } from '../../../../../base/common/event.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { BareFontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { EditorOption } from '../../../../../editor/common/config/editorOptions.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputViewZone } from '../../browser/quartoOutputViewZone.js';
+import { registerTestErrorActionHandler } from '../../../positronAssistant/test/browser/errorActionTestUtils.js';
 
 // The inline-output webview is a fixed-position overlay anchored to a
 // placeholder inside the editor view zone. It must be shown only while its view
@@ -195,7 +192,6 @@ describe('QuartoOutputViewZone collapse across a re-execution', () => {
 describe('QuartoOutputViewZone error quick-fix height', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
 		.build();
 
 	// jsdom performs no layout, so offsetHeight is always 0. Inject a measurer
@@ -237,7 +233,7 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		});
 		return new QuartoOutputViewZone(
 			editor, 'cell-1', 1,
-			undefined, undefined, 40, undefined, undefined, undefined, undefined, undefined,
+			undefined, undefined, 40, undefined, URI.file('/report.qmd'), undefined, undefined, undefined,
 			measureOffsetHeight,
 		);
 	}
@@ -253,9 +249,8 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 	}
 
 	it('grows to fit the async quick-fix buttons on the first run and again on a re-run', async () => {
-		// Gate the assistant on so the Fix/Explain buttons actually render.
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('ai.enabled', true);
-		(ctx.get(IContextKeyService) as MockContextKeyService).createKey('posit-assistant.hasChatModels', true);
+		// Register a handler so the Fix/Explain buttons actually render.
+		registerTestErrorActionHandler(ctx);
 		// The view zone renders the buttons through a PositronReactRenderer,
 		// which reads the services singleton; bridge the test container in.
 		PositronReactServices.services = ctx.reactServices;
@@ -266,7 +261,7 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		await act(async () => {
 			zone.addOutput(errorOutput('err-1'));
 		});
-		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 13);
+		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 5);
 
 		// Re-run: the same error is produced. A ResizeObserver would see no net
 		// change and stay silent, so the zone's own re-measure is what keeps the
@@ -275,8 +270,30 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		await act(async () => {
 			zone.addOutput(errorOutput('err-2'));
 		});
-		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 13);
+		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 5);
 
 		zone.dispose();
+	});
+
+	it('includes the styled container vertical margins in the zone height, rounded up', async () => {
+		const zone = createViewZone();
+		// Computed styles are empty for detached elements.
+		document.body.appendChild(zone.domNode);
+		// jsdom loads no stylesheets, so set the (normally em-based) margins
+		// inline to stand in for their computed values.
+		// eslint-disable-next-line no-restricted-syntax -- reach the styled container to simulate its stylesheet margins
+		const styled = zone.domNode.querySelector<HTMLElement>('.quarto-inline-output')!;
+		// Fractional, as calc(4em / 14) is at a 13px font.
+		styled.style.marginTop = '3.714px';
+		styled.style.marginBottom = '3.714px';
+
+		await act(async () => {
+			zone.addOutput({ outputId: 'out-1', items: [{ mime: 'text/plain', data: 'hello' }] });
+		});
+		// Rounded up to a whole pixel: 40 + 7.428 + 5 = 52.428.
+		expect(zone.heightInPx).toBe(53);
+
+		zone.dispose();
+		zone.domNode.remove();
 	});
 });

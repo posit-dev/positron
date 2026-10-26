@@ -24,7 +24,7 @@
 export type DatabricksAuthType =
 	/** Personal access token, supplied as a bearer token. */
 	| 'pat'
-	/** OAuth user-to-machine: the SDK opens the system browser to complete sign-in. */
+	/** OAuth user-to-machine: Positron signs the user in through the browser (databricksSignIn.ts). */
 	| 'u2m'
 	/** OAuth machine-to-machine: a service principal's client id and secret. */
 	| 'm2m';
@@ -48,7 +48,7 @@ export interface DatabricksConnectionOptions {
 	 * managed credentials). Takes precedence over `token`. Handed to the SDK as its `external-token`
 	 * callback, which the SDK calls again whenever the cached token nears its JWT expiry, so a live
 	 * session picks up the rotated token instead of failing once the first one expires. Used with the
-	 * `pat` auth type.
+	 * `pat` auth type, and by `u2m`, whose sign-in session supplies it.
 	 */
 	tokenProvider?: () => Promise<string>;
 	/** The service principal's client id (M2M auth). */
@@ -162,8 +162,14 @@ export function connectionOptions(options: DatabricksConnectionOptions): Record<
 			// A pre-issued OAuth access token is sent the same way as a personal access token.
 			return { ...base, token: options.token };
 		case 'u2m':
-			// The SDK runs the OAuth authorization-code flow: it opens the system browser and listens
-			// on a loopback redirect for the result.
+			// Positron ran the authorization-code flow itself (the SDK's own flow cannot reach the
+			// user's browser from a remote extension host); the signed-in session supplies the token.
+			// Without a session (Azure Government, where Databricks OAuth is unsupported) the SDK
+			// runs its own Entra flow, which works where the browser and the extension host share
+			// a machine.
+			if (options.tokenProvider) {
+				return { ...base, authType: 'external-token', getToken: options.tokenProvider };
+			}
 			return { ...base, authType: 'databricks-oauth' };
 		case 'm2m':
 			// Supplying a client id and secret switches the same OAuth path to the client-credentials

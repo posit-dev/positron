@@ -77,7 +77,10 @@ export class ElectronWebviewElement extends WebviewElement {
 			// --- End Positron ---
 		);
 
-		this._webviewKeyboardHandler = new WindowIgnoreMenuShortcutsManager(configurationService, mainProcessService, _nativeHostService);
+		// --- Start Positron ---
+		// this._webviewKeyboardHandler = new WindowIgnoreMenuShortcutsManager(configurationService, mainProcessService, _nativeHostService);
+		this._webviewKeyboardHandler = new WindowIgnoreMenuShortcutsManager(this.id, configurationService, mainProcessService, _nativeHostService);
+		// --- End Positron ---
 
 		this._webviewMainService = ProxyChannel.toService<IWebviewManagerService>(mainProcessService.getChannel('webview'));
 
@@ -192,6 +195,10 @@ export class ElectronWebviewElement extends WebviewElement {
 
 	public override getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined> {
 		return this._webviewMainService.getFrameUrl(frameId);
+	}
+
+	public override getHostFrameId(): Promise<WebviewFrameId | undefined> {
+		return this._webviewMainService.getWebviewHostFrameId(this.id);
 	}
 	// --- End Positron ---
 

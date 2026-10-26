@@ -16,7 +16,7 @@ import { Severity } from '../../../../platform/notification/common/notification.
 import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
+import { IDataExplorerViewContext, IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { buildDataImportView } from '../common/positronDataImportView.js';
 import { IDataImportView } from '../common/positronDataImporterRegistry.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
@@ -27,6 +27,8 @@ import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardR
  * Constants.
  */
 const MAX_CLIPBOARD_CELLS = 10_000;
+const MAX_CONTEXT_CELLS = 100;
+const MAX_CONTEXT_NAMES = 50;
 
 /**
  * PositronDataExplorerInstance class.
@@ -120,6 +122,16 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * The onDidChangeFileHasHeaderRow event emitter.
 	 */
 	private readonly _onDidChangeFileHasHeaderRowEmitter = this._register(new Emitter<boolean>());
+
+	/**
+	 * The onDidChangeRefreshing event emitter.
+	 */
+	private readonly _onDidChangeRefreshingEmitter = this._register(new Emitter<boolean>());
+
+	/**
+	 * The refresh in progress, if any.
+	 */
+	private _refreshPromise: Promise<void> | undefined;
 
 	/**
 	 * Tracks the current "has header row" state for delimited text files and
@@ -487,6 +499,56 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Describes the current view, cursor, and selection. See the interface JSDoc.
+	 */
+	async getViewContext(): Promise<IDataExplorerViewContext> {
+		const state = await this._dataExplorerClientInstance.getBackendState();
+		const view = await buildDataImportView(
+			state,
+			columnIndices => this._dataExplorerClientInstance.getSchema(columnIndices)
+		);
+		const columnName = (index: number) => this._tableDataCache.getColumnSchema(index)?.column_name ?? `${index}`;
+		const rowLabel = (index: number) => this._tableDataCache.getRowLabel(index) ?? `${index}`;
+		const grid = this._tableDataDataGridInstance;
+
+		const context: IDataExplorerViewContext = {
+			displayName: state.display_name,
+			shape: { rows: state.table_shape.num_rows, columns: state.table_shape.num_columns },
+			unfilteredShape: { rows: state.table_unfiltered_shape.num_rows, columns: state.table_unfiltered_shape.num_columns },
+			rowFilters: view?.rowFilters.map(filter => JSON.stringify(filter)) ?? [],
+			sortKeys: view?.sortKeys.map(key => ({ column: key.columnName, ascending: key.ascending })) ?? [],
+		};
+
+		if (grid.cursorColumnIndex >= 0 && grid.cursorRowIndex >= 0) {
+			context.cursor = { column: columnName(grid.cursorColumnIndex), row: rowLabel(grid.cursorRowIndex) };
+		}
+
+		const selection = grid.getSelection();
+		if (selection) {
+			// Whole rows span every column and whole columns span every row.
+			const columnIndexes = selection instanceof ClipboardRowIndexes ?
+				Array.from({ length: state.table_shape.num_columns }, (_, index) => index) :
+				selection instanceof ClipboardColumnIndexes ? selection.indexes : selection.columnIndexes;
+			const rowIndexes = selection instanceof ClipboardRowIndexes ? selection.indexes :
+				selection instanceof ClipboardCellIndexes ? selection.rowIndexes : undefined;
+			const rowCount = rowIndexes?.length ?? state.table_shape.num_rows;
+
+			context.selection = {
+				kind: selection instanceof ClipboardColumnIndexes ? 'columns' :
+					selection instanceof ClipboardRowIndexes ? 'rows' : 'cells',
+				columnCount: columnIndexes.length,
+				rowCount,
+				columns: columnIndexes.length <= MAX_CONTEXT_NAMES ? columnIndexes.map(columnName) : undefined,
+				rows: rowIndexes && rowIndexes.length <= MAX_CONTEXT_NAMES ? rowIndexes.map(rowLabel) : undefined,
+				values: columnIndexes.length * rowCount <= MAX_CONTEXT_CELLS ?
+					await grid.copyClipboardData(selection) : undefined,
+			};
+		}
+
+		return context;
+	}
+
+	/**
 	 * Applies file import options (header row and, for Excel workbooks, the
 	 * worksheet to read) and reloads the data. Only applicable for files opened
 	 * with the DuckDB backend. Options are sent together because the backend
@@ -554,6 +616,35 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			hasHeaderRow: !this._fileHasHeaderRow,
 			sheetName: this.fileSelectedSheet
 		});
+	}
+
+	/**
+	 * Gets whether this Data Explorer's backend can rebuild its view from its source on request.
+	 */
+	get supportsRefresh(): boolean {
+		return this._dataExplorerClientInstance.supportsRefresh;
+	}
+
+	/**
+	 * Gets whether a refresh is in progress.
+	 */
+	get isRefreshing(): boolean {
+		return this._refreshPromise !== undefined;
+	}
+
+	/**
+	 * Rebuilds the view from its source and reloads the data, keeping the current sort and
+	 * filters. A call made while a refresh is in progress joins it.
+	 */
+	refresh(): Promise<void> {
+		if (!this._refreshPromise) {
+			this._refreshPromise = this.doRefresh().finally(() => {
+				this._refreshPromise = undefined;
+				this._onDidChangeRefreshingEmitter.fire(false);
+			});
+			this._onDidChangeRefreshingEmitter.fire(true);
+		}
+		return this._refreshPromise;
 	}
 
 	/**
@@ -667,5 +758,35 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	readonly onDidChangeFileHasHeaderRow = this._onDidChangeFileHasHeaderRowEmitter.event;
 
+	/**
+	 * The onDidChangeRefreshing event.
+	 */
+	readonly onDidChangeRefreshing = this._onDidChangeRefreshingEmitter.event;
+
 	//#endregion IPositronDataExplorerInstance Implementation
+
+	//#region Private Methods
+
+	/**
+	 * Refreshes the data explorer client instance, reporting a failure to the user.
+	 */
+	private async doRefresh(): Promise<void> {
+		try {
+			await this._dataExplorerClientInstance.refresh();
+		} catch (error) {
+			// A Data Explorer closed while it refreshed has no one left to tell.
+			if (this._store.isDisposed) {
+				return;
+			}
+			this._services.notificationService.error(
+				localize(
+					'positron.dataExplorer.refresh.failed',
+					"Unable to refresh the data: {0}",
+					error instanceof Error ? error.message : String(error)
+				)
+			);
+		}
+	}
+
+	//#endregion Private Methods
 }

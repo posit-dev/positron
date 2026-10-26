@@ -62,6 +62,7 @@ describe('ActionBar', () => {
 			notebookUri: undefined,
 			createdTimestamp: 0,
 			startReason: 'test',
+			owner: 'user',
 		};
 		const runtimeMetadata = stubInterface<ILanguageRuntimeMetadata>({
 			languageName: 'Python',
@@ -97,6 +98,7 @@ describe('ActionBar', () => {
 			notebookUri: undefined,
 			createdTimestamp: 0,
 			startReason: 'test',
+			owner: 'user',
 		};
 		const runtimeMetadata = stubInterface<ILanguageRuntimeMetadata>({
 			languageName: 'Python',

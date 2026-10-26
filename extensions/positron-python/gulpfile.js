@@ -312,14 +312,13 @@ async function vendorPythonKernelRequirements() {
 }
 
 async function bundleIPykernel() {
-    const minimumPythonVersion = '3.9';
+    const minimumPythonVersion = '3.10';
 
     // pyzmq publishes a wheel for each Python version up to 3.11, and one abi3 wheel
     // (cp312-abi3) for Python 3.12 and later. Install the abi3 wheel one time instead of
     // one identical copy for each version.
     // Keep in sync with getIpykernelBundle() in src/client/positron/ipykernel.ts.
     const cpxInstalls = [
-        { directory: 'cp39', pythonVersion: '3.9', abi: 'cp39' },
         { directory: 'cp310', pythonVersion: '3.10', abi: 'cp310' },
         { directory: 'cp311', pythonVersion: '3.11', abi: 'cp311' },
         { directory: 'cp312-abi3', pythonVersion: '3.12', abi: 'abi3' },
@@ -338,6 +337,8 @@ async function bundleIPykernel() {
         '-r',
         './python_files/ipykernel_requirements/py3-requirements.txt',
     ]);
+
+    await removeJedi();
 
     // On macOS, different packages have different wheel availability:
     // - cp3-requirements (psutil, tornado): Only have arch-specific abi3 wheels (no universal2)
@@ -568,6 +569,19 @@ async function removeTornadoTestFolder(arch) {
         fancyLog.error('Error removing tornado test folder from', ansiColors.cyan(tornadoTestPath), ':', error);
         // Don't fail the build if we can't remove the test folder
     }
+}
+
+/**
+ * IPython requires jedi (which requires parso), but only IPython's completer
+ * uses it, and only for a Jupyter `complete_request`. Positron never sends one:
+ * completions come from the language server. Without jedi, IPython falls back
+ * to its other matchers. Jedi and its typeshed stubs are about 1,900 files.
+ * See https://github.com/posit-dev/positron/issues/16025.
+ */
+async function removeJedi() {
+    const py3Path = path.join(__dirname, 'python_files/lib/ipykernel/py3');
+    fancyLog('Removing jedi and parso from:', ansiColors.cyan(py3Path));
+    await del(['jedi', 'jedi-*.dist-info', 'parso', 'parso-*.dist-info'], { cwd: py3Path });
 }
 // --- End Positron ---
 

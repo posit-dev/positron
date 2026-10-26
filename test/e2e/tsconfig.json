@@ -19,7 +19,11 @@
 			"dom"
 		],
 		"paths": {
+			// Prefer the playwright-core nested under @playwright/test so CDP types
+			// match the driver's CDPSession; the root playwright-core is pinned by
+			// upstream merges. Falls back to the hoisted copy in flat installs.
 			"playwright-core/types/protocol": [
+				"../../node_modules/playwright/node_modules/playwright-core/types/protocol.d.ts",
 				"../../node_modules/playwright-core/types/protocol.d.ts"
 			]
 		}

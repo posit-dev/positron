@@ -88,7 +88,7 @@ export async function getIpykernelBundle(
     // Check if ipykernel is bundled for the interpreter version.
     // (defined in scripts/pip-compile-ipykernel.py).
     const { version } = embeddedInterpreter ?? interpreter;
-    if (version?.major !== 3 || ![9, 10, 11, 12, 13, 14].includes(version?.minor)) {
+    if (version?.major !== 3 || ![10, 11, 12, 13, 14, 15].includes(version?.minor)) {
         const rawVersion = embeddedInterpreter
             ? `${embeddedInterpreter.version.major}.${embeddedInterpreter.version.minor}`
             : interpreter.version?.raw;

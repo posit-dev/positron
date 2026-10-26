@@ -316,6 +316,10 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 					maxHeight: `calc(100% - ${kGutter * 2}px)`,
 				}}
 				tabIndex={-1}
+				// On web, BrowserWindow (window.ts) calls preventDefault() on every wheel event that
+				// reaches the workbench container, which cancels native scrolling in the content
+				// area. Stopping propagation here keeps the event from reaching that listener.
+				onWheel={e => e.stopPropagation()}
 			>
 				<TitleBar title={props.title} titleDescription={props.titleDescription} titleId={titleId} onClose={props.onCancel} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
 				{/*

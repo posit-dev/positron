@@ -51,6 +51,10 @@ export interface IDataConnectionDriverMetadataDTO {
 	iconSvg: string;
 	mechanisms: IDataConnectionMechanismDTO[];
 	supportedLanguageIds: string[];
+
+	// Whether the driver implements validateParameters. When it doesn't, the main thread skips the
+	// round trip to the extension host.
+	validatesParameters?: boolean;
 }
 
 /**
@@ -67,9 +71,13 @@ export type DataConnectionParameterValuesDTO = Record<string, string | number | 
 export interface IDataConnectionNodeDTO {
 	nodeHandle: number;
 	name: string;
-	kind: string; // DataConnectionNodeKind value
+	// Normally a DataConnectionNodeKind value (dataConnectionDriver.ts), but typed as the string a
+	// driver actually sent: nothing on the wire stops one reporting a kind the enum does not list.
+	kind: string;
 	dataType?: string;
 	isPrimaryKey?: boolean;
+	path?: string;
+	defaultAction?: 'preview' | 'details';
 	hasGetChildren: boolean;
 	hasPreview: boolean;
 	hasDetails: boolean;
@@ -115,6 +123,45 @@ export interface IDataConnectionNodeDetailsDTO {
 }
 
 /**
+ * Serializable lineage request. Mirrors positron.DataConnectionLineageRequest.
+ */
+export interface IDataConnectionLineageRequestDTO {
+	path: string[];
+	domain: 'table' | 'column';
+	direction: 'upstream' | 'downstream';
+	depth: number;
+	maxEdges: number;
+}
+
+/**
+ * Serializable end of a lineage edge. Mirrors positron.DataConnectionLineageObject.
+ */
+export interface IDataConnectionLineageObjectDTO {
+	database?: string;
+	schema?: string;
+	name?: string;
+	column?: string;
+	domain: string;
+	masked?: boolean;
+}
+
+/**
+ * Serializable lineage edge. Mirrors positron.DataConnectionLineageEdge.
+ */
+export interface IDataConnectionLineageEdgeDTO {
+	source: IDataConnectionLineageObjectDTO;
+	target: IDataConnectionLineageObjectDTO;
+	distance: number;
+}
+
+/**
+ * Serializable lineage result. Mirrors positron.DataConnectionLineage.
+ */
+export type IDataConnectionLineageDTO =
+	| { available: true; edges: IDataConnectionLineageEdgeDTO[]; truncated: boolean }
+	| { available: false; message: string };
+
+/**
  * Serializable form of a single named connection code variant (e.g. Python `sqlite3` vs
  * `SQLAlchemy`). A generateConnectionCode call returns an ordered list of these; an empty list
  * means code cannot be generated from the given parameters.
@@ -128,6 +175,17 @@ export interface IDataConnectionCodeVariantDTO {
 
 	// The generated connection code for this variant.
 	code: string;
+}
+
+/**
+ * Serializable result of a validateParameters call.
+ */
+export interface IDataConnectionParameterValidationDTO {
+	// Replacement values, keyed by parameter id, for parameters the driver normalized.
+	normalizedValues?: DataConnectionParameterValuesDTO;
+
+	// Error messages, keyed by parameter id.
+	errors?: Record<string, string>;
 }
 
 /**
@@ -163,4 +221,26 @@ export interface IDataConnectionDriverSummaryDTO {
 	description: string;
 	mechanisms: IDataConnectionMechanismDTO[];
 	supportedLanguageIds: string[];
+}
+
+/**
+ * A connection the user has configured, as reported to an extension by
+ * `positron.dataConnections.getConnections`.
+ *
+ * Deliberately holds no parameter values, redacted or otherwise. An extension asks for this to
+ * find out what the user is connected to, not how they connected, and a payload that carries a
+ * host name or an account identifier is one every consumer then has to be careful with.
+ */
+export interface IDataConnectionSummaryDTO {
+	/** Stable identifier for the connection, and the key for every other call about it. */
+	readonly profileId: string;
+
+	/** The user-chosen name for the connection. */
+	readonly name: string;
+
+	readonly driverId: string;
+	readonly driverName: string;
+
+	/** Whether the connection is live right now. Only a live one has a schema to read. */
+	readonly connected: boolean;
 }

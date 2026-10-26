@@ -22,7 +22,8 @@ export function agentLabel(client: Pick<McpClient, 'name'>): string {
 	if (!name) {
 		return vscode.l10n.t("Unknown agent");
 	}
-	const known = MCP_AGENTS.find(agent => name === agent.id || name.startsWith(`${agent.id}-`));
+	const known = MCP_AGENTS.find(agent =>
+		name === agent.clientName || name === agent.id || name.startsWith(`${agent.id}-`));
 	return known?.label ?? name;
 }
 

@@ -33,7 +33,7 @@ export function FileOperationsFixture(app: Application) {
 				const folderNames = folderPath.split('/');
 
 				for (const folderName of folderNames) {
-					const quickInputOption = app.workbench.quickInput.quickInputResult.getByText(folderName);
+					const quickInputOption = app.workbench.quickInput.quickInputList.getByRole('option', { name: folderName, exact: true });
 
 					// Ensure we are ready to select the next folder
 					const timeoutMs = 30000;

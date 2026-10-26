@@ -9,8 +9,7 @@ import * as fs from 'fs';
 import { extractValue, readLines, isExecutable, removeSurroundingQuotes } from './util';
 import { LOGGER } from './extension';
 import { MINIMUM_R_VERSION } from './constants';
-import { arePathsSame } from './path-utils';
-import { getDefaultInterpreterPath, isExcludedInstallation } from './interpreter-settings.js';
+import { isExcludedInstallation } from './interpreter-settings.js';
 import { normalizeWindowsArch, sniffMachOBinaryArchitecture, sniffWindowsBinaryArchitecture } from './kernel.js';
 
 /**
@@ -34,11 +33,6 @@ export interface RMetadataExtra {
 	 * https://github.com/posit-dev/positron/issues/2659
 	 */
 	readonly current: boolean;
-
-	/**
-	 * Is this specified as the default R interpreter in user settings?
-	 */
-	readonly default: boolean;
 
 	/**
 	 * How did we discover this R binary?
@@ -238,7 +232,6 @@ export class RInstallation {
 	public readonly arch: string = '';
 	public readonly current: boolean = false;
 	public readonly orthogonal: boolean = false;
-	public readonly default: boolean = false;
 	public readonly packagerMetadata: PackagerMetadata | undefined = undefined;
 
 	/**
@@ -264,12 +257,6 @@ export class RInstallation {
 		this.current = current;
 		this.reasonDiscovered = reasonDiscovered;
 		this.packagerMetadata = packagerMetadata;
-
-		// Check if the installation is the default R interpreter for Positron
-		const defaultInterpreterPath = getDefaultInterpreterPath();
-		this.default = defaultInterpreterPath
-			? arePathsSame(pth, defaultInterpreterPath)
-			: false;
 
 		const rHomePath = getRHomePath(pth);
 		if (!rHomePath) {

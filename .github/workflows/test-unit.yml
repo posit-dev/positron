@@ -45,10 +45,10 @@ jobs:
     # still capping a genuinely hung run.
     timeout-minutes: 75
     # Run inside the shared CI image, which bakes in the system dependencies,
-    # Node (matching .nvmrc), and R 4.5.2 + test-files deps that this
+    # Node (matching .nvmrc), and R 4.6.1 + test-files deps that this
     # job used to install at runtime. Built from docker/images/ubuntu24_04.
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1
       # --shm-size: the Electron unit runner loads each test file's full module
       # graph over file://. A wide graph (>~256 parallel fetches) exhausts the
       # container's default 64MB /dev/shm and fails with "Failed to fetch
@@ -68,7 +68,8 @@ jobs:
       DOCKER_CONFIG: /tmp/.docker
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
-      RETICULATE_PYTHON: /root/.venv/bin/python
+      # reticulate 1.47 cannot run on Python 3.14 (rstudio/reticulate#1930); bind the 3.13
+      RETICULATE_PYTHON: /root/.pyenv/versions/3.13.0/bin/python
     steps:
       - uses: actions/checkout@v7
         with:
@@ -185,7 +186,7 @@ jobs:
           github-token: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      # R 4.5.2 and the test-files deps are baked into the container image. One
+      # R 4.6.1 and the test-files deps are baked into the container image. One
       # unit test ("Can list tables and fields from R connections") reads a
       # DESCRIPTION file from the repo root, so stage that from test-files.
       - name: Stage R DESCRIPTION file

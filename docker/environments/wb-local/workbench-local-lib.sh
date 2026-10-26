@@ -63,11 +63,11 @@ wb_os_feed() {
 # failure disagree for no visible reason.
 wb_os_image() {
 	case "${1:-}" in
-		ubuntu24)   printf 'ghcr.io/posit-dev/positron-ubuntu24:24.18.0' ;;
-		rocky9)     printf 'ghcr.io/posit-dev/positron-rocky9:24.18.0' ;;
+		ubuntu24)   printf 'ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1' ;;
+		rocky9)     printf 'ghcr.io/posit-dev/positron-rocky9:24.22.1-py3.14.7-r4.6.1' ;;
 		# The same image test-e2e-suse.yml runs, so the Workbench lane and the
 		# electron SUSE lane share one openSUSE definition.
-		opensuse15) printf 'ghcr.io/posit-dev/positron-opensuse156:24.18.0' ;;
+		opensuse15) printf 'ghcr.io/posit-dev/positron-opensuse156:24.22.1-py3.14.7-r4.6.1' ;;
 		*) return 1 ;;
 	esac
 }

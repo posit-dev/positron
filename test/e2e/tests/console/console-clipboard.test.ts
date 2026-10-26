@@ -16,7 +16,7 @@ const testCases = [
 		testLine: 'a = 1',
 		prompt: '>>>',
 		restartRegex: /Python .+ restarted\./,
-		extraTags: [] as TestTags[],
+		extraTags: [tags.PYTHON] as TestTags[],
 	},
 	{
 		language: 'r',

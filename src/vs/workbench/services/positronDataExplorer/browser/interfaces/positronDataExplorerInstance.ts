@@ -13,6 +13,27 @@ import { CodeSyntaxName } from '../../../languageRuntime/common/positronDataExpl
 import { IDataImportView } from '../../common/positronDataImporterRegistry.js';
 
 /**
+ * Describes what a Data Explorer is showing, where its cursor is, and what is selected. Rows are
+ * identified by their labels and columns by their names.
+ */
+export interface IDataExplorerViewContext {
+	displayName: string;
+	shape: { rows: number; columns: number };
+	unfilteredShape: { rows: number; columns: number };
+	rowFilters: string[];
+	sortKeys: Array<{ column: string; ascending: boolean }>;
+	cursor?: { column: string; row: string };
+	selection?: {
+		kind: 'columns' | 'rows' | 'cells';
+		columnCount: number;
+		rowCount: number;
+		columns?: string[];
+		rows?: string[];
+		values?: string;
+	};
+}
+
+/**
  * IPositronDataExplorerInstance interface.
  */
 export interface IPositronDataExplorerInstance extends IDisposable {
@@ -149,6 +170,28 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	toggleFileHasHeaderRow(): Promise<void>;
 
 	/**
+	 * Gets whether this Data Explorer's backend can rebuild its view from its source on request.
+	 */
+	readonly supportsRefresh: boolean;
+
+	/**
+	 * Gets whether a refresh is in progress.
+	 */
+	readonly isRefreshing: boolean;
+
+	/**
+	 * The onDidChangeRefreshing event, fired with the new value of isRefreshing.
+	 */
+	readonly onDidChangeRefreshing: Event<boolean>;
+
+	/**
+	 * Rebuilds the view from its source and reloads the data, keeping the current sort and
+	 * filters. A call made while a refresh is in progress joins it. A failure is reported to the
+	 * user and leaves the existing data in place.
+	 */
+	refresh(): Promise<void>;
+
+	/**
 	 * Whether this Data Explorer is backed by a file on disk (the DuckDB extension backend)
 	 * rather than a kernel object. File-backed explorers offer Import Data; kernel-backed
 	 * explorers offer Convert to Code.
@@ -161,6 +204,12 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * file) or the backend state has not arrived yet.
 	 */
 	getImportView(): Promise<IDataImportView | undefined>;
+
+	/**
+	 * Describes the current view, cursor, and selection, for providing context to the assistant.
+	 * Selected values are included only when the selection is small.
+	 */
+	getViewContext(): Promise<IDataExplorerViewContext>;
 
 	/**
 	 * Gets the current "has header row" state for delimited text files and Excel

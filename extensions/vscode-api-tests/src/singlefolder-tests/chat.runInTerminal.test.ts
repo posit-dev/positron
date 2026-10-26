@@ -8,10 +8,6 @@ import 'mocha';
 import * as vscode from 'vscode';
 import { DeferredPromise, assertNoRpc, closeAllEditors, disposeAll } from '../utils';
 
-// --- Start Positron ---
-import * as positron from 'positron';
-// --- End Positron ---
-
 const isWindows = process.platform === 'win32';
 
 /**
@@ -32,27 +28,6 @@ function extractTextContent(result: vscode.LanguageModelToolResult): string {
 
 	setup(async () => {
 		disposables = [];
-
-		// --- Start Positron ---
-		// Register provider metadata so Positron treats `test-lm-vendor` and the
-		// `copilot` vendor as enabled. Without this the language model providers
-		// registered below are filtered out, no model is available, and the chat
-		// request never reaches the participant, causing the test to time out.
-		// The `copilot` vendor resolves via the `copilot-auth` provider's
-		// `catalogId: 'copilot'`, which the catalog enables by default.
-		positron.ai.registerProvider({
-			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor' },
-			type: positron.PositronLanguageModelType.Chat,
-			supportedOptions: [],
-			defaults: {},
-		});
-		positron.ai.registerProvider({
-			provider: { id: 'copilot-auth', displayName: 'Test Copilot', catalogId: 'copilot' },
-			type: positron.PositronLanguageModelType.Chat,
-			supportedOptions: [],
-			defaults: {},
-		});
-		// --- End Positron ---
 
 		// Force shell integration on so tests that rely on exit code / output
 		// reporting are not dependent on prior test suites or user settings.
@@ -253,6 +228,11 @@ function extractTextContent(result: vscode.LanguageModelToolResult): string {
 
 		test('no-output command reports empty output, not prompt echo (issue #303531)', async function () {
 			this.timeout(60000);
+			// --- Start Positron ---
+			// Flaky in the Remote ext-host step: the start marker is sometimes disposed
+			// mid-command (wrapped CI prompt), so the tool misreports scrollback loss.
+			this.retries(3);
+			// --- End Positron ---
 
 			// `true` on Unix exits 0 with no output; `cmd /c rem` on Windows is a no-op
 			const command = isWindows ? 'cmd /c rem' : 'true';

@@ -55,6 +55,7 @@ async function launchBrowser(options: LaunchOptions, serverUrl: string) {
 			// Prevent duplicate tracing start calls
 			context.tracing.start = async (...args) => {
 				logger.log('Tracing is already managed, skipping default tracing start.');
+				return { dispose: async () => { }, [Symbol.asyncDispose]: async () => { } };
 			};
 		} catch (error) {
 			logger.log(`Playwright (External Server): Failed to start playwright tracing (${error})`);

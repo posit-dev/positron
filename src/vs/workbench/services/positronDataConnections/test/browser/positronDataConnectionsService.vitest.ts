@@ -19,8 +19,10 @@ import { IEditorService } from '../../../editor/common/editorService.js';
 import { PositronDataExplorerUri } from '../../../positronDataExplorer/common/positronDataExplorerUri.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
-import { IPositronDataConnectionsService } from '../../common/interfaces/positronDataConnectionsService.js';
+import { IViewsService } from '../../../views/common/viewsService.js';
+import { IWorkspaceContextService, WorkbenchState } from '../../../../../platform/workspace/common/workspace.js';
+import { DataConnectionNodeKind, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
+import { IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../../common/interfaces/positronDataConnectionsService.js';
 import { PositronDataConnectionsService } from '../../browser/positronDataConnectionsService.js';
 
 function createProfile(id: string): IDataConnectionProfile {
@@ -70,9 +72,24 @@ describe('PositronDataConnectionsService', () => {
 		datasetId => PositronDataExplorerUri.generate(datasetId).toString() === resource.toString()
 	);
 
+	// Records the views revealNode asked to open, so a test can tell an opened pane from a silent
+	// refusal.
+	const openedViews: string[] = [];
+
+	// Whether the window has a folder open, which is what lets a profile be scoped to the
+	// workspace. A test sets EMPTY to model a window with no folder open.
+	let workbenchState = WorkbenchState.FOLDER;
+
 	const ctx = createTestContainer()
+		.stub(IWorkspaceContextService, { getWorkbenchState: () => workbenchState })
 		.stub(IExtensionService, new NullExtensionService())
 		.stub(ILogService, new NullLogService())
+		.stub(IViewsService, {
+			openView: async (id: string) => {
+				openedViews.push(id);
+				return null;
+			},
+		})
 		.stub(IEditorService, {
 			onDidCloseEditor: onDidCloseEditor.event,
 			findEditors: (resource: URI) => datasetIdForResource(resource) !== undefined
@@ -95,6 +112,8 @@ describe('PositronDataConnectionsService', () => {
 
 	beforeEach(() => {
 		openDatasetIds.clear();
+		openedViews.length = 0;
+		workbenchState = WorkbenchState.FOLDER;
 		storageService = new TestStorageService();
 		ctx.disposables.add(storageService);
 		ctx.instantiationService.stub(IStorageService, storageService);
@@ -235,6 +254,48 @@ describe('PositronDataConnectionsService', () => {
 		});
 	});
 
+	describe('connect', () => {
+		// Registers a driver whose connect() is counted, failing the first `failures` calls.
+		const registerDriver = (failures = 0) => {
+			const driverConnect = vi.fn(async () => {
+				if (driverConnect.mock.calls.length <= failures) {
+					throw new Error('connection refused');
+				}
+				return stubInterface<IDataConnectionHandle>({ handle: 1 });
+			});
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: createDriverMetadata(),
+				connect: driverConnect,
+			}));
+			service.addUpdateProfile(createProfile('conn-1'));
+			return driverConnect;
+		};
+
+		it('opens one connection for overlapping connects to the same profile', async () => {
+			// An extension opening the connection while the user expands the same entry: both ask
+			// before either has registered an instance.
+			const driverConnect = registerDriver();
+
+			const [first, second] = await Promise.all([service.connect('conn-1'), service.connect('conn-1')]);
+
+			expect({
+				driverConnects: driverConnect.mock.calls.length,
+				sameInstance: first === second,
+				instances: service.getInstances().length,
+			}).toEqual({ driverConnects: 1, sameInstance: true, instances: 1 });
+		});
+
+		it('tries again after a connect that failed', async () => {
+			const driverConnect = registerDriver(1);
+
+			await expect(service.connect('conn-1')).rejects.toThrow('connection refused');
+			await service.connect('conn-1');
+
+			expect(driverConnect.mock.calls.length).toBe(2);
+		});
+	});
+
 	describe('editing a connected profile', () => {
 		// Saves 'conn-1' with the given parameter values and connects it. `parameters` declares the
 		// mechanism's schema, which is what tells the service which values are secret.
@@ -315,12 +376,27 @@ describe('PositronDataConnectionsService', () => {
 
 			expect(service.getInstanceForProfile('conn-1')).toBeDefined();
 		});
+
+		it('keeps the connection, and its stored secrets, when only the scope changes', async () => {
+			await connectProfile({ host: 'db.example.com', apiKey: 'sekret' }, [
+				{ id: 'apiKey', label: 'API Key', type: 'password', secret: true },
+			]);
+
+			// The edit dialog leaves an untouched secret field blank, so the secret is absent here.
+			service.addUpdateProfile({ ...createProfile('conn-1'), parameterValues: { host: 'db.example.com' }, scope: 'workspace' });
+
+			expect({
+				connected: service.getInstanceForProfile('conn-1') !== undefined,
+				parameterValues: (await service.getProfileWithSecrets('conn-1'))?.parameterValues,
+			}).toEqual({ connected: true, parameterValues: { host: 'db.example.com', apiKey: 'sekret' } });
+		});
 	});
 
 	describe('open Data Explorers', () => {
-		// How many times the driver's connection handle has been torn down, so a test can tell a
-		// single teardown from a double one. Reset by connectProfile.
+		// How many times the driver's connection handle has been torn down and released, so a test
+		// can tell a single teardown from a double one. Reset by connectProfile.
 		let handleDisconnects = 0;
+		let handleReleases = 0;
 
 		/**
 		 * Connects 'conn-1' through a driver that opens a Data Explorer per preview, the way a real
@@ -330,6 +406,7 @@ describe('PositronDataConnectionsService', () => {
 		async function connectProfile(datasetIds: readonly (string | undefined)[]) {
 			const remainingDatasetIds = [...datasetIds];
 			handleDisconnects = 0;
+			handleReleases = 0;
 			const handle = stubInterface<IDataConnectionHandle>({
 				handle: 1,
 				nodePreview: async () => {
@@ -340,7 +417,7 @@ describe('PositronDataConnectionsService', () => {
 					return datasetId;
 				},
 				disconnect: async () => { handleDisconnects++; },
-				release: () => { },
+				release: () => { handleReleases++; },
 			});
 			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
 				id: 'test-driver',
@@ -549,6 +626,139 @@ describe('PositronDataConnectionsService', () => {
 				expect(() => service.removeProfile('missing')).not.toThrow();
 			});
 		});
+
+		describe('a driver going away', () => {
+			/** Connects 'conn-2' through a second driver, returning a count of its teardowns. */
+			async function connectOtherDriver() {
+				const otherHandle = stubInterface<IDataConnectionHandle>({
+					handle: 2,
+					disconnect: vi.fn(async () => { }),
+					release: () => { },
+				});
+				service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'other-driver',
+					metadata: { ...createDriverMetadata(), id: 'other-driver' },
+					connect: async () => otherHandle,
+				}));
+				const profile = createProfile('conn-2');
+				service.addUpdateProfile({ ...profile, driverMetadata: { ...profile.driverMetadata, id: 'other-driver' } });
+				await service.connect('conn-2');
+				return otherHandle;
+			}
+
+			// The ODBC driver re-registers when odbc.ini changes, which unregisters it first. The
+			// extension host leaves its connections open for the service to close, so the pane can't
+			// go on showing one as connected after it is gone.
+			it('closes the connection and its Data Explorers, and only that driver\'s', async () => {
+				const instance = await connectProfile(['sqlite:conn-1:table:flights']);
+				await service.previewNode(instance.connectionHandle, 7);
+				const otherHandle = await connectOtherDriver();
+				const instancesEvents: string[][] = [];
+				ctx.disposables.add(service.onDidChangeInstances(instances =>
+					instancesEvents.push(instances.map(i => i.profileId))));
+
+				service.driverManager.removeDriver('test-driver');
+
+				await vi.waitFor(() => {
+					expect(handleReleases).toBe(1);
+				});
+				expect({
+					handleDisconnects,
+					handleReleases,
+					openDataExplorers: openDatasetIds.size,
+					connectedProfiles: service.getInstances().map(i => i.profileId),
+					instancesEvents,
+					otherDriverDisconnects: vi.mocked(otherHandle.disconnect).mock.calls.length,
+				}).toMatchInlineSnapshot(`
+					{
+					  "connectedProfiles": [
+					    "conn-2",
+					  ],
+					  "handleDisconnects": 1,
+					  "handleReleases": 1,
+					  "instancesEvents": [
+					    [
+					      "conn-2",
+					    ],
+					  ],
+					  "openDataExplorers": 0,
+					  "otherDriverDisconnects": 0,
+					}
+				`);
+			});
+
+			// Snowflake updates its driver in place (onDidChange) rather than re-registering; its
+			// connections are meant to survive that.
+			it('keeps the connection when the driver is replaced under the same id', async () => {
+				await connectProfile([]);
+
+				service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+				}));
+
+				expect({
+					connected: service.getInstanceForProfile('conn-1') !== undefined,
+					handleDisconnects,
+				}).toEqual({ connected: true, handleDisconnects: 0 });
+			});
+
+			it('closes a connection that finishes opening after its driver was removed', async () => {
+				let finishConnecting!: (handle: IDataConnectionHandle) => void;
+				const driverConnect = vi.fn(() => new Promise<IDataConnectionHandle>(resolve => { finishConnecting = resolve; }));
+				service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+					connect: driverConnect,
+				}));
+				service.addUpdateProfile(createProfile('conn-1'));
+				const disconnect = vi.fn(async () => { });
+				const release = vi.fn();
+
+				const connecting = service.connect('conn-1');
+				await vi.waitFor(() => {
+					expect(driverConnect).toHaveBeenCalled();
+				});
+				service.driverManager.removeDriver('test-driver');
+				finishConnecting(stubInterface<IDataConnectionHandle>({ handle: 1, disconnect, release }));
+
+				await expect(connecting).rejects.toThrow('was removed while connecting');
+				expect({
+					connected: service.getInstanceForProfile('conn-1') !== undefined,
+					disconnects: disconnect.mock.calls.length,
+					releases: release.mock.calls.length,
+				}).toEqual({ connected: false, disconnects: 1, releases: 1 });
+			});
+
+			// The ODBC driver unregisters and re-registers back to back. The connection itself is
+			// live, so one that lands after the driver is back keeps going.
+			it('keeps a connection that finishes opening after its driver was re-registered', async () => {
+				let finishConnecting!: (handle: IDataConnectionHandle) => void;
+				const driverConnect = vi.fn(() => new Promise<IDataConnectionHandle>(resolve => { finishConnecting = resolve; }));
+				const driver = stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+					connect: driverConnect,
+				});
+				service.driverManager.registerDriver(driver);
+				service.addUpdateProfile(createProfile('conn-1'));
+				const disconnect = vi.fn(async () => { });
+
+				const connecting = service.connect('conn-1');
+				await vi.waitFor(() => {
+					expect(driverConnect).toHaveBeenCalled();
+				});
+				service.driverManager.removeDriver('test-driver');
+				service.driverManager.registerDriver(driver);
+				finishConnecting(stubInterface<IDataConnectionHandle>({ handle: 1, disconnect }));
+
+				await connecting;
+				expect({
+					connected: service.getInstanceForProfile('conn-1') !== undefined,
+					disconnects: disconnect.mock.calls.length,
+				}).toEqual({ connected: true, disconnects: 0 });
+			});
+		});
 	});
 
 	describe('discovered connections', () => {
@@ -685,6 +895,33 @@ describe('PositronDataConnectionsService', () => {
 				expect(reloaded.getDiscoveredProfiles()).toEqual([]);
 			});
 
+			// A stale global copy can be an unmarked one. When this workspace's copy, which this build
+			// wrote and marked, is the one in use, there is nothing to backfill.
+			it('leaves a profile alone when the copy in use is a marked workspace copy', async () => {
+				storageService.store(
+					'positron.dataConnections.profile.saved-1',
+					JSON.stringify({
+						profile: { ...createProfile('saved-1'), connectionName: 'Pagila (prod)', parameterValues: { dsn: 'Pagila' } },
+						secretParameterIds: [],
+						provenanceChecked: true,
+					}),
+					StorageScope.WORKSPACE,
+					StorageTarget.USER,
+				);
+				const reloaded = persistLegacyProfile({
+					...createProfile('saved-1'),
+					connectionName: 'Pagila (prod)',
+					parameterValues: { dsn: 'Pagila' },
+				});
+				registerPagilaDriver(reloaded);
+
+				await vi.waitFor(() => {
+					expect(reloaded.getDiscoveredProfiles().map(profile => profile.connectionName))
+						.toEqual(['Pagila']);
+				});
+				expect(reloaded.getProfile('saved-1')?.discoveredFromId).toBeUndefined();
+			});
+
 			// The backfill exists for profiles an older build left unmarked. A profile saved by this
 			// build already says where it came from -- including by saying nothing, for one the user
 			// typed in -- so a same-shaped discovery under another name stays a row of its own.
@@ -731,6 +968,8 @@ describe('PositronDataConnectionsService', () => {
 				connectionName: 'Pagila',
 				mechanismId: 'test-mechanism',
 				parameterValues: { dsn: 'Pagila' },
+				// Saved as a global connection, like any profile saved without a scope.
+				scope: 'global',
 				// What it was saved from, which is what suppresses that discovery's own row.
 				discoveredFromId: 'discovered:test-driver:odbc-dsn:Pagila',
 			});
@@ -839,7 +1078,7 @@ describe('PositronDataConnectionsService', () => {
 		});
 
 		it('leaves out a secret the driver reports nothing to redact in, rather than passing it through', async () => {
-			registerRedactingDriver([{ id: 'pwd', label: 'Password', type: 'password' }]);
+			registerRedactingDriver([{ id: 'pwd', label: 'Password', type: 'password', secret: true }]);
 			service.addUpdateProfile({
 				...createProfile('conn-1'),
 				parameterValues: { dsn: 'Pagila', pwd: 'hunter2' },
@@ -859,7 +1098,7 @@ describe('PositronDataConnectionsService', () => {
 						id: 'test-mechanism',
 						label: 'Test Mechanism',
 						description: '',
-						parameters: [{ id: 'pwd', label: 'Password', type: 'password' }],
+						parameters: [{ id: 'pwd', label: 'Password', type: 'password', secret: true }],
 					}],
 				},
 				redactParameterValue: async (_mechanismId: string, _parameterId: string, value: string) =>
@@ -930,6 +1169,257 @@ describe('PositronDataConnectionsService', () => {
 			service.revealConnection('conn-1');
 
 			expect(takenWhileFiring).toBe('conn-1');
+		});
+	});
+	describe('revealNode', () => {
+		const PATH = [{ kind: DataConnectionNodeKind.Table, name: 'flights' }];
+
+		/** Connects 'conn-1' through a minimal driver, so it has a live instance to reveal into. */
+		async function connectProfile() {
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: createDriverMetadata(),
+				connect: async () => stubInterface<IDataConnectionHandle>({
+					handle: 1,
+					disconnect: async () => { },
+					release: () => { },
+				}),
+			}));
+			service.addUpdateProfile(createProfile('conn-1'));
+			return service.connect('conn-1');
+		}
+
+		it('opens the pane and raises the request for a live connection', async () => {
+			await connectProfile();
+			const raised: unknown[] = [];
+			ctx.disposables.add(service.onDidRequestReveal(request => raised.push(request)));
+
+			await service.revealNode({ profileId: 'conn-1', path: PATH });
+
+			expect({ openedViews, raised }).toEqual({
+				openedViews: [POSITRON_DATA_CONNECTIONS_VIEW_ID],
+				raised: [{ profileId: 'conn-1', path: PATH }],
+			});
+		});
+
+		it('refuses a profile with no live connection', async () => {
+			// Walking to a row fetches each level from the driver, so revealing into a closed
+			// connection would open it -- which a click on a link in an editor must not do.
+			service.addUpdateProfile(createProfile('conn-1'));
+			const raised: unknown[] = [];
+			ctx.disposables.add(service.onDidRequestReveal(request => raised.push(request)));
+
+			await service.revealNode({ profileId: 'conn-1', path: PATH });
+
+			expect({ openedViews, raised }).toEqual({ openedViews: [], raised: [] });
+		});
+
+		it('holds the request for a pane that was not listening yet', async () => {
+			// The pane is rendered by the openView above, so it misses the event; the request waits
+			// for it to claim on mount.
+			await connectProfile();
+
+			await service.revealNode({ profileId: 'conn-1', path: PATH });
+
+			expect(service.takePendingReveal()).toEqual({ profileId: 'conn-1', path: PATH });
+			// Claimed once only, so a later mount does not jump the tree to a stale row.
+			expect(service.takePendingReveal()).toBeUndefined();
+		});
+
+		it('holds nothing when the reveal was refused', async () => {
+			service.addUpdateProfile(createProfile('conn-1'));
+
+			await service.revealNode({ profileId: 'conn-1', path: PATH });
+
+			expect(service.takePendingReveal()).toBeUndefined();
+		});
+	});
+
+	describe('opening a node in the Data Explorer by its path', () => {
+		const nodePath = [JSON.stringify(['group-tables', 'Tables']), JSON.stringify(['table', 'flights'])];
+
+		it('has the registered tree open the node, until the tree goes', async () => {
+			const opener = { openInDataExplorer: vi.fn(async (_profileId: string, _nodePath: readonly string[], _name: string) => { }) };
+			const registration = service.registerNodeOpener(opener);
+
+			const opened = await service.openNodeInDataExplorer('conn-1', nodePath, 'flights');
+			const hadOpener = service.hasNodeOpener();
+			registration.dispose();
+
+			expect({ opened, hadOpener, hasOpener: service.hasNodeOpener(), calls: opener.openInDataExplorer.mock.calls })
+				.toEqual({ opened: true, hadOpener: true, hasOpener: false, calls: [['conn-1', nodePath, 'flights']] });
+		});
+
+		it('waits for a tree that registers a moment later, as a pane opened just now builds its own', async () => {
+			const opener = { openInDataExplorer: vi.fn(async (_profileId: string, _nodePath: readonly string[], _name: string) => { }) };
+
+			const opening = service.openNodeInDataExplorer('conn-1', nodePath, 'flights');
+			ctx.disposables.add(service.registerNodeOpener(opener));
+
+			expect({ opened: await opening, calls: opener.openInDataExplorer.mock.calls.length }).toEqual({ opened: true, calls: 1 });
+		});
+
+		it('gives up when no tree arrives, leaving nothing behind for a tree built later', async () => {
+			vi.useFakeTimers();
+			try {
+				const opening = service.openNodeInDataExplorer('conn-1', nodePath, 'flights');
+				await vi.runAllTimersAsync();
+				const opened = await opening;
+
+				const opener = { openInDataExplorer: vi.fn(async (_profileId: string, _nodePath: readonly string[], _name: string) => { }) };
+				ctx.disposables.add(service.registerNodeOpener(opener));
+
+				expect({ opened, calls: opener.openInDataExplorer.mock.calls.length }).toEqual({ opened: false, calls: 0 });
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+	});
+
+	describe('profile scope', () => {
+		// Where a profile is persisted: which of the two storages holds its key.
+		const storedIn = (id: string) => ({
+			profile: storageService.get(`positron.dataConnections.profile.${id}`, StorageScope.PROFILE) !== undefined,
+			workspace: storageService.get(`positron.dataConnections.profile.${id}`, StorageScope.WORKSPACE) !== undefined,
+		});
+
+		// Starts a service against the current storage, as a window start would.
+		const startService = () => {
+			const started = ctx.instantiationService.createInstance(PositronDataConnectionsService);
+			ctx.disposables.add(started);
+			return started;
+		};
+
+		it('stores a workspace-scoped profile with the workspace, and a global one with the user profile', () => {
+			service.addUpdateProfile({ ...createProfile('workspace-1'), scope: 'workspace' });
+			service.addUpdateProfile({ ...createProfile('global-1'), scope: 'global' });
+			service.addUpdateProfile(createProfile('legacy-1'));
+
+			expect({
+				workspace: storedIn('workspace-1'),
+				global: storedIn('global-1'),
+				legacy: storedIn('legacy-1'),
+			}).toEqual({
+				workspace: { profile: false, workspace: true },
+				global: { profile: true, workspace: false },
+				legacy: { profile: true, workspace: false },
+			});
+		});
+
+		it('spells out the global scope of a profile saved without one', () => {
+			service.addUpdateProfile(createProfile('conn-1'));
+
+			expect(service.getProfile('conn-1')?.scope).toBe('global');
+		});
+
+		it('moves a profile between storages when its scope changes', () => {
+			service.addUpdateProfile({ ...createProfile('conn-1'), scope: 'global' });
+			service.addUpdateProfile({ ...createProfile('conn-1'), scope: 'workspace' });
+			const afterToWorkspace = storedIn('conn-1');
+			service.addUpdateProfile({ ...createProfile('conn-1'), scope: 'global' });
+
+			expect({ afterToWorkspace, afterToGlobal: storedIn('conn-1') }).toEqual({
+				afterToWorkspace: { profile: false, workspace: true },
+				afterToGlobal: { profile: true, workspace: false },
+			});
+		});
+
+		it('loads both kinds on the next start, each with its scope', () => {
+			service.addUpdateProfile({ ...createProfile('workspace-1'), scope: 'workspace' });
+			service.addUpdateProfile(createProfile('global-1'));
+
+			const scopes = Object.fromEntries(startService().getProfiles().map(profile => [profile.id, profile.scope]));
+
+			expect(scopes).toEqual({ 'workspace-1': 'workspace', 'global-1': 'global' });
+		});
+
+		it('does not load workspace-scoped profiles in a window with no folder open', () => {
+			service.addUpdateProfile({ ...createProfile('workspace-1'), scope: 'workspace' });
+			service.addUpdateProfile(createProfile('global-1'));
+			workbenchState = WorkbenchState.EMPTY;
+
+			expect(startService().getProfiles().map(profile => profile.id)).toEqual(['global-1']);
+		});
+
+		it('saves a workspace-scoped profile as global in a window with no folder open', () => {
+			workbenchState = WorkbenchState.EMPTY;
+
+			service.addUpdateProfile({ ...createProfile('conn-1'), scope: 'workspace' });
+
+			expect({ scope: service.getProfile('conn-1')?.scope, storedIn: storedIn('conn-1') }).toEqual({
+				scope: 'global',
+				storedIn: { profile: true, workspace: false },
+			});
+		});
+
+		it('loads a profile stored both globally and in the workspace once, as the workspace copy in the global copy\'s place', () => {
+			// Another window, holding a stale global copy of conn-2 after this workspace scoped it to
+			// itself, wrote the global copy back.
+			service.addUpdateProfile(createProfile('conn-1'));
+			service.addUpdateProfile({ ...createProfile('conn-2'), connectionName: 'Global copy' });
+			service.addUpdateProfile(createProfile('conn-3'));
+			storageService.store(
+				'positron.dataConnections.profile.conn-2',
+				JSON.stringify({ profile: { ...createProfile('conn-2'), connectionName: 'Workspace copy' }, secretParameterIds: [] }),
+				StorageScope.WORKSPACE,
+				StorageTarget.USER,
+			);
+
+			const profiles = startService().getProfiles().map(({ id, connectionName, scope }) => ({ id, connectionName, scope }));
+
+			expect(profiles).toEqual([
+				{ id: 'conn-1', connectionName: 'Connection conn-1', scope: 'global' },
+				{ id: 'conn-2', connectionName: 'Workspace copy', scope: 'workspace' },
+				{ id: 'conn-3', connectionName: 'Connection conn-3', scope: 'global' },
+			]);
+		});
+
+		it('reads the secrets of a profile stored in both from the workspace copy in use', async () => {
+			// The workspace copy records a secret that the stale global copy predates.
+			const secretStorage = new TestSecretStorageService();
+			ctx.instantiationService.stub(ISecretStorageService, secretStorage);
+			await secretStorage.set('positron.dataConnections.secret.conn-1.apiKey', 'sekret');
+			const persist = (storageScope: StorageScope, secretParameterIds: string[]) => storageService.store(
+				'positron.dataConnections.profile.conn-1',
+				JSON.stringify({ profile: { ...createProfile('conn-1'), parameterValues: { host: 'db.example.com' } }, secretParameterIds }),
+				storageScope,
+				StorageTarget.USER,
+			);
+			persist(StorageScope.PROFILE, []);
+			persist(StorageScope.WORKSPACE, ['apiKey']);
+
+			const profile = await startService().getProfileWithSecrets('conn-1');
+
+			expect(profile?.parameterValues).toEqual({ host: 'db.example.com', apiKey: 'sekret' });
+		});
+
+		it('deletes the secrets either copy records when removing a profile stored in both', async () => {
+			// The workspace copy records the secret. The stale global copy, written back by a window
+			// that never saw the secret recorded, does not.
+			const secretStorage = new TestSecretStorageService();
+			ctx.instantiationService.stub(ISecretStorageService, secretStorage);
+			await secretStorage.set('positron.dataConnections.secret.conn-1.apiKey', 'sekret');
+			const persist = (storageScope: StorageScope, secretParameterIds: string[]) => storageService.store(
+				'positron.dataConnections.profile.conn-1',
+				JSON.stringify({ profile: createProfile('conn-1'), secretParameterIds }),
+				storageScope,
+				StorageTarget.USER,
+			);
+			persist(StorageScope.PROFILE, []);
+			persist(StorageScope.WORKSPACE, ['apiKey']);
+
+			startService().removeProfile('conn-1');
+
+			expect({ secret: await secretStorage.get('positron.dataConnections.secret.conn-1.apiKey'), storedIn: storedIn('conn-1') })
+				.toEqual({ secret: undefined, storedIn: { profile: false, workspace: false } });
+		});
+
+		it('removes a workspace-scoped profile from workspace storage', () => {
+			service.addUpdateProfile({ ...createProfile('conn-1'), scope: 'workspace' });
+
+			service.removeProfile('conn-1');
+
+			expect(storedIn('conn-1')).toEqual({ profile: false, workspace: false });
 		});
 	});
 });

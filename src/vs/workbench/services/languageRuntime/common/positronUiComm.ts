@@ -410,6 +410,28 @@ export interface AskForPasswordParams {
 }
 
 /**
+ * Parameters for the SelectFile method.
+ */
+export interface SelectFileParams {
+	/**
+	 * The title of the file dialog
+	 */
+	title: string;
+
+	/**
+	 * Whether the file must already exist. If false, the user may also enter
+	 * the name of a new file.
+	 */
+	existing: boolean;
+
+	/**
+	 * The directory the file dialog starts in. If omitted, defaults to the
+	 * session's working directory.
+	 */
+	default_dir?: string;
+}
+
+/**
  * Parameters for the PromptState method.
  */
 export interface PromptStateParams {
@@ -527,6 +549,18 @@ export interface ModifyEditorSelectionsParams {
 	 * The text values to insert at the selections
 	 */
 	values: Array<string>;
+}
+
+/**
+ * Parameters for the LastActiveEditorContext method.
+ */
+export interface LastActiveEditorContextParams {
+	/**
+	 * Whether the calling session's console input may be returned when it
+	 * was the last editor focused. Set to false to return only editors in
+	 * the editor area. If omitted, defaults to true.
+	 */
+	allow_console?: boolean;
 }
 
 /**
@@ -870,6 +904,31 @@ export interface AskForPasswordRequest {
 }
 
 /**
+ * Request: Ask the user to select a file
+ *
+ * Use this to show a file dialog where the user can select a file
+ */
+export interface SelectFileRequest {
+	/**
+	 * The title of the file dialog
+	 */
+	title: string;
+
+	/**
+	 * Whether the file must already exist. If false, the user may also enter
+	 * the name of a new file.
+	 */
+	existing: boolean;
+
+	/**
+	 * The directory the file dialog starts in. If omitted, defaults to the
+	 * session's working directory.
+	 */
+	default_dir: string;
+
+}
+
+/**
  * Request: Sleep for n seconds
  *
  * Useful for testing in the backend a long running frontend method
@@ -971,6 +1030,13 @@ export interface ModifyEditorSelectionsRequest {
  * user. The result may be undefined if there are no active editors.
  */
 export interface LastActiveEditorContextRequest {
+	/**
+	 * Whether the calling session's console input may be returned when it
+	 * was the last editor focused. Set to false to return only editors in
+	 * the editor area. If omitted, defaults to true.
+	 */
+	allow_console: boolean;
+
 }
 
 export enum UiFrontendEvent {
@@ -994,6 +1060,7 @@ export enum UiFrontendRequest {
 	ShowDialog = 'show_dialog',
 	ShowPrompt = 'show_prompt',
 	AskForPassword = 'ask_for_password',
+	SelectFile = 'select_file',
 	DebugSleep = 'debug_sleep',
 	ExecuteCommand = 'execute_command',
 	EvaluateWhenClause = 'evaluate_when_clause',

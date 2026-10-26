@@ -10,7 +10,7 @@ import { WebviewExtensionDescription } from '../../common/extHost.protocol.js';
 import { ExtensionKeyedWebviewOriginStore } from '../../../contrib/webview/browser/webview.js';
 import { IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import * as extHostProtocol from '../../common/positron/extHost.positron.protocol.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from '../../../contrib/positronPreview/browser/positronPreviewSevice.js';
 import { PreviewWebview } from '../../../contrib/positronPreview/browser/previewWebview.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -62,6 +62,9 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 	private readonly webviewOriginStore: ExtensionKeyedWebviewOriginStore;
 
 	private readonly _previews = new PreviewWebviewStore();
+
+	/** Event listeners for each preview, keyed by handle. */
+	private readonly _previewListeners = this._register(new DisposableMap<string, DisposableStore>());
 
 	private readonly _proxy: extHostProtocol.ExtHostPreviewPanelShape;
 
@@ -149,8 +152,20 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 			this._proxy.$onDidChangePreviewPanelViewStates(viewStates);
 		};
 
-		preview.onDidChangeActiveState(updateState);
-		preview.onDidChangeVisibleState(updateState);
+		const listeners = new DisposableStore();
+		this._previewListeners.set(handle, listeners);
+		listeners.add(preview.onDidChangeActiveState(updateState));
+		listeners.add(preview.onDidChangeVisibleState(updateState));
+
+		// Forward stop requests from the Viewer's stop button.
+		listeners.add(preview.onDidRequestStop(() => this._proxy.$onDidRequestStop(handle)));
+
+		listeners.add(preview.webview.onDidDispose(() => {
+			this._previewListeners.deleteAndDispose(handle);
+			this._proxy.$onDidDisposePreviewPanel(handle).finally(() => {
+				this._previews.delete(handle);
+			});
+		}));
 	}
 
 	$disposePreview(handle: string): void {
@@ -184,6 +199,15 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 		preview.webview.setTitle(value);
 	}
 
+	$setStoppable(handle: string, stoppable: boolean): void {
+		const preview = this._previews.getPreviewForHandle(handle);
+		if (!preview || preview.isDisposed()) {
+			return;
+		}
+
+		preview.stoppable = stoppable;
+	}
+
 	override dispose(): void {
 		super.dispose();
 	}
@@ -196,11 +220,5 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 				// 1.57.0 and above (see `shouldSerializeBuffersForPostMessage`).
 				serializeBuffersForPostMessage: true
 			});
-
-		preview.webview.onDidDispose(() => {
-			this._proxy.$onDidDisposePreviewPanel(handle).finally(() => {
-				this._previews.delete(handle);
-			});
-		});
 	}
 }

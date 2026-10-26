@@ -45,6 +45,8 @@ import * as uv from '../../../client/pythonEnvironments/common/environmentManage
 import { UV_PROVIDER_ID } from '../../../client/pythonEnvironments/creation/provider/uvCreationProvider';
 import { CONDA_PROVIDER_ID } from '../../../client/pythonEnvironments/creation/provider/condaCreationProvider';
 import { CreateEnvironmentOptionsInternal } from '../../../client/pythonEnvironments/creation/types';
+import * as createEnvironment from '../../../client/pythonEnvironments/creation/createEnvironment';
+import { reusedEnvironmentResult } from '../../../client/pythonEnvironments/creation/reusedEnvironment';
 // --- End Positron ---
 
 chaiUse(chaiAsPromised.default);
@@ -266,6 +268,23 @@ suite('Create Environment APIs', () => {
             assert.strictEqual(ids[0], UV_PROVIDER_ID);
         });
 
+        test('uv is not listed when it is not installed and python.allowUvPythonInstall is off', async () => {
+            workspaceConfig.setup((c) => c.get<boolean>('allowUvPythonInstall')).returns(() => false);
+
+            const ids = await getProviderIds();
+
+            assert.ok(!ids.includes(UV_PROVIDER_ID));
+        });
+
+        test('uv is still listed first when it is installed and python.allowUvPythonInstall is off', async () => {
+            isUvInstalledStub.resolves(true);
+            workspaceConfig.setup((c) => c.get<boolean>('allowUvPythonInstall')).returns(() => false);
+
+            const ids = await getProviderIds();
+
+            assert.strictEqual(ids[0], UV_PROVIDER_ID);
+        });
+
         test('uv installed after activation is listed first in the Create Environment quick pick', async () => {
             isUvInstalledStub.resolves(true);
             sinon
@@ -279,6 +298,49 @@ suite('Create Environment APIs', () => {
 
             const [items] = showQuickPickStub.firstCall.args;
             assert.strictEqual(items[0].id, UV_PROVIDER_ID);
+        });
+    });
+
+    suite('Create Environment in a folder', () => {
+        const venvPython = '/project/.venv/bin/python';
+
+        function runCommand(): Promise<CreateEnvironmentResult | undefined> {
+            const call = registerCommandStub.getCalls().find((c) => c.args[0] === Commands.Create_Environment);
+            assert.ok(call, 'python.createEnvironment was not registered');
+            return call!.args[1]();
+        }
+
+        const folder = { uri: Uri.file('/project'), name: 'project', index: 0 };
+
+        setup(() => {
+            sinon.stub(workspaceApis, 'getWorkspaceFolders').returns([folder]);
+        });
+
+        test('Recreates the runtime of an environment it built', async () => {
+            sinon.stub(createEnvironment, 'handleCreateEnvironmentCommand').resolves({ path: venvPython });
+            pythonRuntimeManager
+                .setup((m) => m.selectLanguageRuntimeFromPath(venvPython, true))
+                .returns(() => Promise.resolve('runtime-id'))
+                .verifiable(typemoq.Times.once());
+
+            await runCommand();
+
+            pythonRuntimeManager.verifyAll();
+        });
+
+        test('Selects an existing environment it reused without recreating its runtime', async () => {
+            // "Use Existing" leaves the environment as it is, so its sessions must keep running.
+            sinon
+                .stub(createEnvironment, 'handleCreateEnvironmentCommand')
+                .resolves(reusedEnvironmentResult(venvPython, folder));
+            pythonRuntimeManager
+                .setup((m) => m.selectLanguageRuntimeFromPath(venvPython, false))
+                .returns(() => Promise.resolve('runtime-id'))
+                .verifiable(typemoq.Times.once());
+
+            await runCommand();
+
+            pythonRuntimeManager.verifyAll();
         });
     });
 

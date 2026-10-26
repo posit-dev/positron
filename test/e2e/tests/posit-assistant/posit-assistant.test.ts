@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename,
 });
 
-const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
+const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic'];
 
 test.describe('Posit Assistant', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN, tags.PLOTS],
@@ -31,7 +31,7 @@ test.describe('Posit Assistant', {
 				// the reload is a credentials change on a running host, which
 				// forces a fresh model listing.
 				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
-				await app.workbench.modelProviderModal.loginModelProvider(provider);
+				await app.workbench.providerManager.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');
@@ -65,7 +65,7 @@ test.describe('Posit Assistant', {
 				test.expect(responseText.length).toBeGreaterThan(0);
 			});
 
-			test(`${provider} - Execute Python code via Posit Assistant`, async function ({ app, sessions }) {
+			test(`${provider} - Execute Python code via Posit Assistant`, { tag: [tags.PYTHON] }, async function ({ app, sessions }) {
 				const session = await sessions.start('python', { reuse: false });
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
@@ -80,7 +80,7 @@ test.describe('Posit Assistant', {
 				await sessions.delete(session.id);
 			});
 
-			test(`${provider} - Execute R code via Posit Assistant`, async function ({ app, sessions }) {
+			test(`${provider} - Execute R code via Posit Assistant`, { tag: [tags.ARK] }, async function ({ app, sessions }) {
 				const session = await sessions.start('r', { reuse: false });
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
@@ -95,7 +95,7 @@ test.describe('Posit Assistant', {
 				await sessions.delete(session.id);
 			});
 
-			test(`${provider} - Allow once prompts again on next tool call`, async function ({ app, sessions }) {
+			test(`${provider} - Allow once prompts again on next tool call`, { tag: [tags.PYTHON] }, async function ({ app, sessions }) {
 				const session = await sessions.start('python', { reuse: false });
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
@@ -117,7 +117,7 @@ test.describe('Posit Assistant', {
 				await sessions.delete(session.id);
 			});
 
-			test(`${provider} - Allow for session does not prompt again on next tool call`, async function ({ app, sessions }) {
+			test(`${provider} - Allow for session does not prompt again on next tool call`, { tag: [tags.PYTHON] }, async function ({ app, sessions }) {
 				const session = await sessions.start('python', { reuse: false });
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
@@ -136,7 +136,7 @@ test.describe('Posit Assistant', {
 				await sessions.delete(session.id);
 			});
 
-			test(`${provider} - Create data visualization via Posit Assistant`, async function ({ app, sessions }) {
+			test(`${provider} - Create data visualization via Posit Assistant`, { tag: [tags.ARK] }, async function ({ app, sessions }) {
 				const session = await sessions.start('r', { reuse: false });
 				await app.workbench.plots.clearPlots();
 				await app.workbench.positAssistant.open();
@@ -158,7 +158,7 @@ test.describe('Posit Assistant', {
 				await sessions.delete(session.id);
 			});
 
-			test(`${provider} - Create data visualization via Posit Assistant (Python)`, async function ({ app, sessions }) {
+			test(`${provider} - Create data visualization via Posit Assistant (Python)`, { tag: [tags.PYTHON] }, async function ({ app, sessions }) {
 				const session = await sessions.start('python', { reuse: false });
 				await app.workbench.plots.clearPlots();
 				await app.workbench.positAssistant.open();

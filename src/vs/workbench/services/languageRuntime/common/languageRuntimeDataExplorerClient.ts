@@ -9,6 +9,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { localize } from '../../../../nls.js';
 import { ArraySelection, BackendState, CodeSyntaxName, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection, ConvertedCode, SearchSchemaSortOrder, SearchSchemaResult, ColumnFilterType, TextSearchType } from './positronDataExplorerComm.js';
 
 /**
@@ -103,6 +104,17 @@ export interface IDataExplorerBackendClient extends Disposable {
 	setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void>;
 	getColumnProfiles(callbackId: string, profiles: Array<ColumnProfileRequest>, formatOptions: FormatOptions): Promise<void>;
 	openDataExplorer(): Promise<void>;
+
+	/**
+	 * Whether this backend can rebuild its view from its source on request. Absent means no.
+	 */
+	readonly supportsRefresh?: boolean;
+
+	/**
+	 * Rebuilds the backend's view from its source. The rebuilt view has no sort keys or row
+	 * filters. Rejects on failure, leaving the existing view intact.
+	 */
+	refresh?(): Promise<void>;
 }
 
 export const DATA_EXPLORER_DISCONNECTED_STATE: BackendState = {
@@ -309,6 +321,14 @@ export class DataExplorerClientInstance extends Disposable {
 	}
 
 	override dispose(): void {
+		// Disposing the backend fires its close event, and a close listener may dispose this client
+		// again (e.g. by disposing the Data Explorer instance that owns it). Only the outer call does
+		// the work: disposing the close emitter from the inner call, while it is still firing, would
+		// stop the event from reaching the remaining listeners.
+		if (this._store.isDisposed) {
+			return;
+		}
+
 		// Call the base class's dispose method.
 		super.dispose();
 
@@ -717,9 +737,153 @@ export class DataExplorerClientInstance extends Disposable {
 		return this._backendClient.openDataExplorer();
 	}
 
+	/**
+	 * Gets whether the backend can rebuild its view from its source on request.
+	 */
+	get supportsRefresh(): boolean {
+		return this._backendClient.supportsRefresh === true;
+	}
+
+	/**
+	 * Rebuilds the backend's view from its source, re-applies the current sort keys and row filters
+	 * to the rebuilt view, and reloads every consumer through the schema update path.
+	 *
+	 * Sort keys and filters are matched to the rebuilt schema by column name, as the Python and R
+	 * backends do when a data frame changes: a sort key whose column is gone is dropped, and a
+	 * filter whose column is gone is kept but marked invalid, so it shows in the filter bar without
+	 * being applied. Rejects, with the existing view intact, if the backend cannot rebuild it.
+	 */
+	async refresh(): Promise<void> {
+		if (!this._backendClient.refresh) {
+			throw new Error('The data explorer backend does not support refresh.');
+		}
+
+		// Capture the sort keys and row filters to carry over, from a fresh state rather than the
+		// cached one, which may predate the last sort or filter the user applied. Sort keys hold only
+		// a column index, so their column names are captured too.
+		const state = await this.getFreshBackendState();
+		const sortColumnNames = new Map(
+			(await this.getSchema(state.sort_keys.map(sortKey => sortKey.column_index))).columns.map(
+				column => [column.column_index, column.column_name]
+			)
+		);
+
+		// Rebuild the view. If this fails, nothing has changed and there is nothing to reload.
+		await this.runBackendTask(
+			() => this._backendClient.refresh!(),
+			() => { throw new Error('The data explorer backend was closed.'); }
+		);
+
+		try {
+			await this.reapplyViewState(state.sort_keys, sortColumnNames, state.row_filters);
+		} finally {
+			// The view was rebuilt, so reload even if re-applying its state failed.
+			await this.reloadAfterRefresh();
+		}
+	}
+
 	//#endregion Public Methods
 
 	//#region Private Methods
+
+	/**
+	 * Gets the backend state from the backend, without updating the cached state or notifying
+	 * state listeners.
+	 */
+	private async getFreshBackendState(): Promise<BackendState> {
+		return this.runBackendTask(
+			() => this._backendClient.getState(),
+			() => DATA_EXPLORER_DISCONNECTED_STATE
+		);
+	}
+
+	/**
+	 * Re-applies sort keys and row filters to a rebuilt view, matching their columns by name.
+	 * @param sortKeys The sort keys from before the rebuild.
+	 * @param sortColumnNames The column names of those sort keys, keyed by their old column index.
+	 * @param rowFilters The row filters from before the rebuild.
+	 */
+	private async reapplyViewState(
+		sortKeys: Array<ColumnSortKey>,
+		sortColumnNames: Map<number, string>,
+		rowFilters: Array<RowFilter>
+	): Promise<void> {
+		if (sortKeys.length === 0 && rowFilters.length === 0) {
+			return;
+		}
+
+		// Get the rebuilt schema. The rebuilt view has no filters, so its shape is the unfiltered one.
+		const rebuiltState = await this.getFreshBackendState();
+		const rebuiltSchema = await this.getSchema(
+			[...Array(rebuiltState.table_unfiltered_shape.num_columns).keys()]
+		);
+		const columnsByName = new Map(rebuiltSchema.columns.map(column => [column.column_name, column]));
+
+		// Re-apply the sort keys whose columns still exist.
+		const rebuiltSortKeys = sortKeys.flatMap(sortKey => {
+			const columnName = sortColumnNames.get(sortKey.column_index);
+			const column = columnName === undefined ? undefined : columnsByName.get(columnName);
+			return column ? [{ column_index: column.column_index, ascending: sortKey.ascending }] : [];
+		});
+		if (rebuiltSortKeys.length > 0) {
+			await this.setSortColumns(rebuiltSortKeys);
+		}
+
+		// Re-apply the row filters, pointing each at its column in the rebuilt schema. A filter
+		// whose column is gone is marked invalid, so it shows in the filter bar without being applied.
+		if (rowFilters.length === 0) {
+			return;
+		}
+		const rebuiltRowFilters = rowFilters.map(rowFilter => {
+			const column = columnsByName.get(rowFilter.column_schema.column_name);
+			if (!column) {
+				return {
+					...rowFilter,
+					is_valid: false,
+					error_message: localize('positron.dataExplorer.refresh.columnRemoved', "Column was removed")
+				};
+			}
+
+			// The column exists, so the filter applies again, even if an earlier refresh found its
+			// column missing.
+			const rebuiltRowFilter: RowFilter = { ...rowFilter, column_schema: column };
+			delete rebuiltRowFilter.is_valid;
+			delete rebuiltRowFilter.error_message;
+			return rebuiltRowFilter;
+		});
+		try {
+			await this.setRowFilters(rebuiltRowFilters);
+		} catch (error) {
+			// A filter that no longer applies -- e.g. its column changed type -- fails the whole set.
+			// Keep them all, marked invalid with the reason, so the view is left unfiltered rather
+			// than stuck on a filter it cannot evaluate.
+			const message = error instanceof Error ? error.message : String(error);
+			try {
+				await this.setRowFilters(rebuiltRowFilters.map(rowFilter => ({
+					...rowFilter,
+					is_valid: false,
+					error_message: rowFilter.is_valid === false ? rowFilter.error_message : message
+				})));
+			} catch {
+				await this.setRowFilters([]);
+			}
+		}
+	}
+
+	/**
+	 * Reloads every consumer after a refresh, the same way a backend-initiated schema update does.
+	 */
+	private async reloadAfterRefresh(): Promise<void> {
+		// A state request sent before the view was rebuilt could describe the old view, and
+		// updateBackendState returns a request that is already in flight rather than sending a new
+		// one. Wait out any such request so the reload reads the rebuilt view's state.
+		while (this._backendPromise) {
+			await this._backendPromise.catch(() => undefined);
+		}
+
+		await this.updateBackendState();
+		this._onDidSchemaUpdateEmitter.fire({});
+	}
 
 	/**
 	 * Checks if the convert to code feature is supported by the backend.

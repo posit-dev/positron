@@ -3,18 +3,17 @@ name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes,
   clearing the console, opening a file or data file in the right editor,
-  showing or reading an HTML file, URL or app in the Viewer,
-  discovering interpreters,
-  listing, switching, starting, restarting or interrupting sessions, setting
-  up Python, reading, installing or updating a session's packages, running or
-  debugging a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio,
-  marimo), reading the Data Connections pane, including a live connection's
-  tables and columns, and creating, editing, or running Jupyter notebook
-  cells. Use when the user wants Positron itself to act, or to know what is
-  installed, rather than to run R or Python code. Triggers: "show the
-  variables pane", "open data.csv", "show this HTML in the Viewer", "switch
-  to my R session", "my session is stuck", "is pandas installed?", "set up a
-  Python environment", "run my shiny app", "what tables are in my
+  showing or reading an HTML file, URL or app in the Viewer, finding or adding
+  interpreters, listing, switching, starting, restarting or interrupting
+  sessions, setting up Python, reading, installing or updating a session's
+  packages, starting, listing, stopping or debugging a web app (Shiny, Flask,
+  Dash, Streamlit, FastAPI, Gradio, marimo), reading Data Connections and
+  their tables and columns, creating, editing or running notebook cells, and
+  reading help. Use when the user wants Positron itself to act or to
+  know what is installed, not to run R or Python code. Triggers: "show the
+  variables pane", "open data.csv", "show this HTML in the Viewer", "switch to
+  my R session", "my session is stuck", "is pandas installed?", "set up a
+  Python environment", "run or stop my shiny app", "what tables are in my
   warehouse", "add a cell to this notebook".
 ---
 
@@ -74,10 +73,11 @@ Explorer's column summary panel.
 
 **Opening files** -- [references/files.md]({{skill_dir}}/references/files.md)
 Read when the user wants a file open in Positron: "open data.csv", "show me
-that file", "let's look at this CSV/Parquet/Excel file", or anything that should
-land in the Data Explorer. Read it **before** opening anything -- it documents
-the one command that opens a known path, and names the similar-looking ids that
-open a file picker instead and hand the task back to the user.
+that file", "let's look at this CSV/Parquet/Excel file", "browse this JSON
+file", or anything that should land in the Data Explorer or Object Explorer.
+Read it **before** opening anything -- it documents the commands that open a
+known path, and names the similar-looking ids that open a file picker instead
+and hand the task back to the user.
 
 **Viewer** -- [references/viewer.md]({{skill_dir}}/references/viewer.md)
 Read when the user wants to see HTML you have written -- a page, chart, report,
@@ -89,10 +89,10 @@ HTML or can't see the Viewer: it documents the commands that show a file or URL
 in the Viewer pane, and those that read and use the page there.
 
 **Registered interpreters** -- [references/interpreters.md]({{skill_dir}}/references/interpreters.md)
-Read when the user asks what interpreters are available, wants the registered
-interpreters listed (Python, R, or another language), or needs Positron to
-rescan for newly installed environments. Also the place to find a base
-interpreter before creating an environment.
+Read when the user asks what interpreters are available or which one the
+project uses, wants to install one, says an installed interpreter isn't showing
+up, or wants a specific interpreter made available. Also the place to find a
+base interpreter before creating an environment.
 
 **Sessions** -- [references/sessions.md]({{skill_dir}}/references/sessions.md)
 Read when the user asks about: which sessions are running, switching to a
@@ -102,7 +102,9 @@ selected.
 
 **Stuck sessions and help** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
 Read when the user asks about a session that is stuck, needs interrupting, or
-needs restarting. Also covers looking up a help topic for a function or symbol.
+needs restarting. Also covers showing a help topic to the user, and reading
+installed help and vignettes yourself -- read them before explaining how to use
+a function or package, its arguments, or an error it raises.
 
 **Packages** -- [references/packages.md]({{skill_dir}}/references/packages.md)
 Read when the user asks about: what is installed in a session and at which
@@ -118,8 +120,10 @@ they have none, creating a project environment (venv, Conda, or uv), or finding
 out which interpreter is currently active.
 
 **Interactive web apps** -- [references/interactive-apps.md]({{skill_dir}}/references/interactive-apps.md)
-Read when the user wants a web app running or debugged: "run my app", "start
-the shiny/flask/dash/streamlit/marimo app", "preview my dashboard". Read it
+Read when the user wants a web app running, stopped or debugged, or asks about
+one that is running: "run my app", "start the shiny/flask/dash/streamlit/marimo
+app", "preview my dashboard", "is my app up?", "what's my app's URL?", "stop
+the app". Read it
 **before** starting any app server yourself -- app servers must not be started by
 running code in a session or a raw terminal command for supported app frameworks. The
 commands it documents manage the terminal, detect the app URL, set up any
@@ -130,7 +134,8 @@ Viewer by default, or wherever the user's preview mode setting points.
 **Data connections and schemas** -- [references/data-connections.md]({{skill_dir}}/references/data-connections.md)
 Read when the user asks about: the database or warehouse connections they have
 configured, which of them are connected, the tables and columns a live
-connection exposes, or writing a query against one of their connections.
+connection exposes, where a table's or column's data comes from or what is
+built from it (lineage), or writing a query against one of their connections.
 
 **Notebooks** -- [references/notebooks.md]({{skill_dir}}/references/notebooks.md)
 Read when the user wants to create a Jupyter notebook, or read, insert, edit,

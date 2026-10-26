@@ -203,6 +203,13 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 	}
 
 	/**
+	 * Whether an execution was started with `preserveActiveTab`.
+	 */
+	shouldPreserveActiveTab(_executionId: string): boolean {
+		return false;
+	}
+
+	/**
 	 * Adds a test console instance to the service.
 	 * @param instance The instance to add.
 	 */

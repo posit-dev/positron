@@ -22,7 +22,7 @@ let connectUserPassword: string;
 // network.
 let connectServer!: string;
 
-test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.CONNECT, tags.PUBLISHER] }, () => {
+test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.CONNECT, tags.PUBLISHER, tags.PYTHON] }, () => {
 
 	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand, hotKeys }) {
 
@@ -93,7 +93,8 @@ test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.CONNECT, tags.PU
 		});
 
 		await test.step('Enter title for application through quick-input', async () => {
-			await app.workbench.quickInput.waitForQuickInputOpened();
+			// Publisher inspects the project before it shows the title picker
+			await app.workbench.quickInput.waitForQuickInputOpened({ timeout: 30000 });
 			await app.workbench.quickInput.type('shiny-py-example');
 			await page.keyboard.press('Enter');
 		});

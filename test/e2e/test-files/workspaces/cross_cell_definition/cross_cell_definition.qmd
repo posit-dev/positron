@@ -1,0 +1,13 @@
+---
+title: "Cross-chunk Go to Definition"
+---
+
+```{r}
+my_r_helper <- function(x) {
+  x * 2
+}
+```
+
+```{r}
+my_r_helper(21)
+```

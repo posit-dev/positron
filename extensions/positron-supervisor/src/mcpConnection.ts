@@ -16,6 +16,24 @@ export const MCP_URL_ENV_VAR = 'POSITRON_MCP_URL';
 /** Environment variable carrying the MCP bearer token. */
 export const MCP_TOKEN_ENV_VAR = 'POSITRON_MCP_TOKEN';
 
+/** Environment variable naming the connections directory the bridge reads. */
+export const MCP_CONNECTIONS_ENV_VAR = 'POSITRON_MCP_CONNECTIONS';
+
+/** Environment variable naming the launcher, once it is in place. */
+export const MCP_LAUNCHER_ENV_VAR = 'POSITRON_MCP_PATH';
+
+/** Environment variable naming the supervisor binary, which is also the bridge. */
+export const SUPERVISOR_PATH_ENV_VAR = 'POSITRON_SUPERVISOR_PATH';
+
+/** Every environment variable a registration publishes. */
+export const MCP_ENV_VARS: readonly string[] = [
+	MCP_URL_ENV_VAR,
+	MCP_TOKEN_ENV_VAR,
+	MCP_CONNECTIONS_ENV_VAR,
+	MCP_LAUNCHER_ENV_VAR,
+	SUPERVISOR_PATH_ENV_VAR,
+];
+
 /** The version stamped into the files below, so a reader can tell the shape. */
 const MCP_DESCRIPTOR_VERSION = 1;
 

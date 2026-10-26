@@ -33,7 +33,7 @@ import threading
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Callable, Generator, NamedTuple, Optional
+from typing import TYPE_CHECKING, Any, Callable, Generator, NamedTuple
 
 from ._vendor import attrs, cattrs
 from ._vendor.lsprotocol import types
@@ -327,7 +327,7 @@ class HelpTopicRequest:
 class PositronInitializationOptions:
     """Positron-specific language server initialization options."""
 
-    working_directory: Optional[str] = attrs.field(default=None)  # noqa: UP045 because cattrs can't deal with | None in 3.9
+    working_directory: str | None = attrs.field(default=None)
 
 
 def _safe_resolve_expression(namespace: dict[str, Any], expr: str) -> Any | None:

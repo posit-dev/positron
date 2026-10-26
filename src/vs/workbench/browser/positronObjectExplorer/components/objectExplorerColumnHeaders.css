@@ -1,0 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.object-explorer-column-headers {
+	display: grid;
+	align-items: center;
+	min-width: 0;
+	background-color: var(--vscode-positronDataGrid-contrastBackground);
+	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
+}
+
+.object-explorer-column-headers .object-explorer-column-header {
+	min-width: 0;
+	padding-right: 8px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-weight: 600;
+}

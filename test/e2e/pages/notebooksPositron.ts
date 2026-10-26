@@ -98,8 +98,8 @@ export class PositronNotebooks extends Notebooks {
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
 	private askAssistantButton = this.editorActionBar.getByRole('button', { name: 'Ask Assistant', exact: true });
-	private fixErrorButton = this.code.driver.currentPage.getByRole('button', { name: /Ask assistant to fix/i });
-	private explainErrorButton = this.code.driver.currentPage.getByRole('button', { name: /Ask assistant to explain/i });
+	private fixErrorButton = this.code.driver.currentPage.getByRole('button', { name: /^Ask .+ to fix in new chat$/i });
+	private explainErrorButton = this.code.driver.currentPage.getByRole('button', { name: /^Ask .+ to explain in new chat$/i });
 
 	// Search Widget
 	private searchWidget = this.code.driver.currentPage.locator('.positron-find-widget');
@@ -915,7 +915,7 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Click the "Ask assistant to fix" button on an error cell.
+	 * Action: Click the "Ask <assistant> to fix" button on an error cell.
 	 * Requires: assistant enabled, a model signed in, and an error visible in a cell.
 	 */
 	async clickFixErrorButton(): Promise<void> {
@@ -925,7 +925,7 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Click the "Ask assistant to explain" button on an error cell.
+	 * Action: Click the "Ask <assistant> to explain" button on an error cell.
 	 * Requires: assistant enabled, a model signed in, and an error visible in a cell.
 	 */
 	async clickExplainErrorButton(): Promise<void> {
@@ -1136,7 +1136,7 @@ export class PositronNotebooks extends Notebooks {
 	 * Verify: Fix/Explain error buttons visibility.
 	 * @param visible - Whether the buttons should be visible (true) or hidden (false).
 	 */
-	async expectErrorAssistantButtonsVisible(visible: boolean = true): Promise<void> {
+	async expectErrorActionButtonsVisible(visible: boolean = true): Promise<void> {
 		await test.step(`Expect Fix/Explain error buttons to be ${visible ? 'visible' : 'hidden'}`, async () => {
 			if (visible) {
 				await expect(this.fixErrorButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
@@ -2089,7 +2089,8 @@ export class Kernel extends KernelBase {
 				return;
 			}
 
-			// select the kernel
+			// Park the mouse so a lingering toolbar hover cannot cover the picker
+			await this.code.driver.currentPage.mouse.move(0, 0);
 			await this.hotKeys.selectNotebookKernel();
 			await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
 			await this.quickinput.type(desiredKernel);

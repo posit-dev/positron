@@ -150,4 +150,10 @@ export type WorkspacePythonPath = {
 export const IActivatedEnvironmentLaunch = Symbol('IActivatedEnvironmentLaunch');
 export interface IActivatedEnvironmentLaunch {
     selectIfLaunchedViaActivatedEnv(doNotBlockOnSelection?: boolean): Promise<string | undefined>;
+    // --- Start Positron ---
+    /** Resolves once any activated-environment selection has been written to the interpreter setting. */
+    waitForSelection(): Promise<void>;
+    /** The launch shell's env prefix, by the same rules as `selectIfLaunchedViaActivatedEnv`, without selecting it. */
+    getActivatedEnvPrefix(): Promise<string | undefined>;
+    // --- End Positron ---
 }

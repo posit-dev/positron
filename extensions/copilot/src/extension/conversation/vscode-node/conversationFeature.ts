@@ -144,6 +144,15 @@ export class ConversationFeature implements IExtensionContribution {
 			}
 		}));
 
+		// --- Start Positron ---
+		// With no GitHub session the event above never fires, so settle after the first token attempt.
+		authenticationService.getCopilotToken().catch(() => undefined).then(() => {
+			if (!activationBlockerDeferred.isSettled) {
+				activationBlockerDeferred.complete();
+			}
+		});
+		// --- End Positron ---
+
 		reevaluate();
 	}
 

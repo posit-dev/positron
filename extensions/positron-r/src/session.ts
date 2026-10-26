@@ -588,6 +588,35 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
+	 * Follow the notebook (or Quarto document) to its new URI.
+	 *
+	 * The LSP picks and claims the cells it serves from this session's metadata
+	 * when it activates, so a running LSP is restarted. It must stop before the
+	 * metadata changes, because stopping releases the claim on whatever URI the
+	 * metadata holds. Doing it all in one queue task keeps anything else from
+	 * starting or stopping the LSP in between. The DAP stays connected.
+	 *
+	 * A notebook session's LSP runs regardless of the foreground session, so
+	 * restarting it here does not compete with the session manager.
+	 */
+	async updateNotebookUri(notebookUri: vscode.Uri, quartoNotebookUri: vscode.Uri | undefined): Promise<void> {
+		return this._servicesQueue.add(async () => {
+			const wasRunning = this._lsp.state === ArkLspState.Running;
+			if (wasRunning) {
+				await this._deactivateLsp();
+			}
+
+			const metadata = this.metadata as { -readonly [K in keyof positron.RuntimeSessionMetadata]: positron.RuntimeSessionMetadata[K] };
+			metadata.notebookUri = notebookUri;
+			metadata.quartoNotebookUri = quartoNotebookUri;
+
+			if (wasRunning) {
+				await this._activateLsp();
+			}
+		});
+	}
+
+	/**
 	 * Get the LANG env var and all categories of the locale, in R's Sys.getlocale() sense, from
 	 * the R session.
 	 */

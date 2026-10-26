@@ -777,6 +777,19 @@ declare module 'positron' {
 		 * (i.e. not a venv, renv library, pyenv/asdf shim, or proxy/remote runtime).
 		 */
 		cacheable?: boolean;
+
+		/**
+		 * When set, this runtime is a variant of another runtime, created from the
+		 * `interpreters.definitions` entry with this label.
+		 */
+		interpreterDefinition?: string;
+
+		/**
+		 * When true, this runtime was found only because an
+		 * `interpreters.definitions` entry points at it. It is not shown; only
+		 * its variants are.
+		 */
+		definitionOnly?: boolean;
 	}
 
 	/**
@@ -842,6 +855,32 @@ declare module 'positron' {
 		 * automatic, restored, duplicated, and programmatic starts.
 		 */
 		readonly userSelected?: boolean;
+
+		/**
+		 * Who the session belongs to. `user` for sessions the user starts;
+		 * `agent` for sessions an AI agent starts for itself. When absent, the
+		 * session belongs to the user.
+		 */
+		readonly owner?: RuntimeSessionOwner;
+	}
+
+	/**
+	 * Who a session belongs to. `user` for sessions the user starts;
+	 * `agent` for sessions an AI agent starts for itself.
+	 */
+	export type RuntimeSessionOwner = 'user' | 'agent';
+
+	/** Options for {@link runtime.startLanguageRuntime}. */
+	export interface RuntimeSessionStartOptions {
+		/** Who the session belongs to. Defaults to `user`. */
+		readonly owner?: RuntimeSessionOwner;
+
+		/**
+		 * Whether the session becomes the foreground session once started.
+		 * Defaults to `true`. Pass `false` to start it in the background and
+		 * leave the user's selected session in place.
+		 */
+		readonly activate?: boolean;
 	}
 
 	/**
@@ -942,6 +981,7 @@ declare module 'positron' {
 		Lsp = 'positron.lsp',
 		Plot = 'positron.plot',
 		DataExplorer = 'positron.dataExplorer',
+		ObjectExplorer = 'positron.objectExplorer',
 		Ui = 'positron.ui',
 		Help = 'positron.help',
 		Connection = 'positron.connection',
@@ -1033,14 +1073,6 @@ declare module 'positron' {
 		 */
 		column_profiles: Array<string>;
 
-	}
-
-	/**
-	 * The possible types of language model that can be used with the Positron Assistant.
-	 */
-	export enum PositronLanguageModelType {
-		Chat = 'chat',
-		Completion = 'completion',
 	}
 
 	/**
@@ -1187,8 +1219,29 @@ declare module 'positron' {
 		 * metadata is respected here; use `Immediately` to start the runtime
 		 * right away, or any other value to save the runtime as the project
 		 * default without starting it.
+		 *
+		 * Core asks once during startup, before discovery. If a language has no
+		 * recommendation then, core asks again once discovery has completed,
+		 * with `afterDiscovery` set; that answer is used as the preferred runtime
+		 * but never saved as the project default. An `Immediate` answer starts
+		 * only when no console is starting or running and the language has no
+		 * affiliated runtime that was started or used (in `Recommended` mode,
+		 * its affiliation is ignored); an `Implicit` one starts when a file of its
+		 * language is open.
+		 *
+		 * @param afterDiscovery Whether runtime discovery has completed.
 		 */
-		recommendedWorkspaceRuntime(): Thenable<LanguageRuntimeMetadata | undefined>;
+		recommendedWorkspaceRuntime(afterDiscovery?: boolean): Thenable<LanguageRuntimeMetadata | undefined>;
+
+		/**
+		 * Whether a recommendation that is not started right away is saved as
+		 * the project default (an affiliation that has never been started or
+		 * used). Defaults to `true`. Set to `false` when the manager decides its
+		 * recommendation afresh every time the folder opens: core then uses the
+		 * recommendation for this window only and never saves it, so it can't
+		 * start on a later open as "the last interpreter used".
+		 */
+		readonly recommendationIsProjectDefault?: boolean;
 
 		/**
 		 * An optional snapshot of the directories this manager scans for
@@ -1260,6 +1313,18 @@ declare module 'positron' {
 		 */
 		validateMetadata?(metadata: LanguageRuntimeMetadata):
 			Thenable<LanguageRuntimeMetadata>;
+
+		/**
+		 * An optional function that makes the interpreter at the given path
+		 * available, e.g. one that discovery did not find. Positron registers
+		 * the returned runtime. Implementations should remember the path (for
+		 * example, in a setting) so future discovery finds it too.
+		 *
+		 * @param path The path to the interpreter.
+		 * @returns A Thenable that resolves with the runtime's metadata, or
+		 *   rejects with an error explaining why the interpreter can't be used.
+		 */
+		registerRuntimeFromPath?(path: string): Thenable<LanguageRuntimeMetadata>;
 
 		/**
 		 * An optional session validation function. If provided, Positron will
@@ -1795,6 +1860,19 @@ declare module 'positron' {
 		updateSessionName(sessionName: string): void;
 
 		/**
+		 * Update the URI of the notebook this session belongs to, for example
+		 * after an untitled notebook or Quarto document is saved to a file.
+		 *
+		 * A session whose language client selects cells by notebook URI should
+		 * implement this and select them again.
+		 *
+		 * @param notebookUri The notebook's new URI
+		 * @param quartoNotebookUri For a Quarto session, the URI of the hidden
+		 *   notebook that holds the document's cells at its new URI
+		 */
+		updateNotebookUri?(notebookUri: vscode.Uri, quartoNotebookUri: vscode.Uri | undefined): Thenable<void>;
+
+		/**
 		 * Returns the kernel launch parameters used to start this session,
 		 * if available.
 		 */
@@ -1982,6 +2060,30 @@ declare module 'positron' {
 		 * Trying to use the panel after it has been disposed throws an exception.
 		 */
 		readonly onDidDispose: vscode.Event<void>;
+
+		/**
+		 * Whether the Viewer shows a stop button for this preview. Set this to
+		 * `true` while the process that serves the preview's content is
+		 * running, and to `false` when it stops. When the user clicks the
+		 * button, the Viewer sets this to `false` and fires
+		 * {@link onDidRequestStop}. Defaults to `false`.
+		 *
+		 * Applies only to panels from {@link window.createPreviewPanel}.
+		 * Panels from {@link window.previewUrl} get a stop button from their
+		 * `source` instead.
+		 */
+		stoppable: boolean;
+
+		/**
+		 * Fired when the user clicks the Viewer's stop button. The extension
+		 * stops its process, and disposes the panel if it wants to close the
+		 * preview; clicking stop does not close the preview.
+		 *
+		 * The user can also close the preview with the Viewer's clear button,
+		 * which fires {@link onDidDispose} but not this event. Stop the process
+		 * in an `onDidDispose` handler too if it should not outlive the preview.
+		 */
+		readonly onDidRequestStop: vscode.Event<void>;
 
 		/**
 		 * Show the preview panel
@@ -2420,6 +2522,22 @@ declare module 'positron' {
 		redactParameterValue?(mechanismId: string, parameterId: string, value: string): vscode.ProviderResult<string>;
 
 		/**
+		 * Validates and normalizes the parameter values the user entered in the configuration dialog
+		 * before the connection is saved -- for example, checking that a database file exists and is
+		 * of the right kind, and resolving a relative path to an absolute one. Runs in the extension
+		 * host, so file checks see the same file system `connect` will. When the result carries any
+		 * errors, the dialog shows them beside their fields and does not save.
+		 *
+		 * Secret parameters the user left blank (to keep a stored value) are absent from `parameters`.
+		 *
+		 * @param mechanismId The id of the mechanism the user selected. One of this driver's
+		 *   `mechanisms`.
+		 * @param parameters The parameter values the user entered.
+		 * @returns The validation result. Return an empty object when the values are valid as entered.
+		 */
+		validateParameters?(mechanismId: string, parameters: DataConnectionParameterValues): Thenable<DataConnectionParameterValidation>;
+
+		/**
 		 * Reports connections this driver already knows about on this machine, without the user
 		 * having configured anything -- ODBC data sources declared in `odbc.ini`, for example.
 		 *
@@ -2442,6 +2560,25 @@ declare module 'positron' {
 		 * re-registering the driver, this leaves the driver's open connections in place.
 		 */
 		onDidChange?: vscode.Event<void>;
+	}
+
+	/**
+	 * The result of {@link DataConnectionDriver.validateParameters}. Both maps are keyed by the ids
+	 * of the selected mechanism's parameters; entries under any other key are ignored.
+	 */
+	export interface DataConnectionParameterValidation {
+		/**
+		 * Replacement values, keyed by parameter id, for parameters the driver normalized (for
+		 * example, a relative path resolved to an absolute one). These are the values saved.
+		 * Parameters not listed keep the value the user entered.
+		 */
+		normalizedValues?: DataConnectionParameterValues;
+
+		/**
+		 * Error messages, keyed by parameter id, shown beside the fields they apply to. When any are
+		 * present, the connection is not saved.
+		 */
+		errors?: Record<string, string>;
 	}
 
 	/**
@@ -2497,10 +2634,13 @@ declare module 'positron' {
 		// A Unity Catalog volume: a governed location for non-tabular files
 		// (positron-data-driver-databricks).
 		Volume = 'volume',
-		// A directory inside a volume, and a file inside one. Both hold files rather than rows, so they
-		// are browsable but not previewable in the Data Explorer.
+		// A directory inside a volume or stage, and a file inside one. Both hold files rather than rows,
+		// so they are browsable but not previewable in the Data Explorer.
 		Directory = 'directory',
 		File = 'file',
+		// A note in the tree rather than an object, e.g. that a long listing was cut short. Give it no
+		// children, preview, details, or path.
+		Notice = 'notice',
 		// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
 		Owner = 'owner',
 		// A pin on a Posit Connect server (positron-data-driver-pins).
@@ -2556,6 +2696,23 @@ declare module 'positron' {
 		 * Columns under views are not part of a primary key, so this is left unset for them.
 		 */
 		isPrimaryKey?: boolean;
+
+		/**
+		 * The node's full path, in the form the source itself accepts, for copying: e.g. a table's
+		 * quoted three-part name (`"DB"."PUBLIC"."ORDERS"`) or a file's location
+		 * (`@"DB"."PUBLIC"."STAGE"/2024/orders.csv`). Positron offers "Copy Path" for nodes that set
+		 * it. Leave it unset for nodes that have no path of their own, such as groups.
+		 */
+		path?: string;
+
+		/**
+		 * What double-clicking the node opens, for a node that has both a preview and details.
+		 * Defaults to `'preview'`: a table's data is what users reach for. Set `'details'` for a node
+		 * whose details are what it holds, and whose preview opens something else's data -- e.g. a
+		 * semantic view's logical table, which previews its base table. Either way a single click
+		 * shows the details, and the context menu offers both.
+		 */
+		defaultAction?: 'preview' | 'details';
 
 		/**
 		 * Retrieve child nodes (e.g., tables in a schema, fields in a table).
@@ -2807,7 +2964,109 @@ declare module 'positron' {
 		 * Test whether the connection is still connected.
 		 */
 		isConnected(): Thenable<boolean>;
+
+		/**
+		 * Reads the lineage of an object: the objects its data flows from (upstream) or into
+		 * (downstream). Optional; implemented only by drivers whose data source tracks lineage.
+		 *
+		 * Resolves to `{ available: false, message }` when the data source declines the request --
+		 * the object does not exist or is not accessible, does not support lineage, or the account
+		 * lacks the feature -- and rejects when the connection itself fails.
+		 *
+		 * @param request Which object, which direction, and how far to follow it.
+		 */
+		getLineage?(request: DataConnectionLineageRequest): Thenable<DataConnectionLineage>;
 	}
+
+	/**
+	 * A request for an object's lineage. See {@link DataConnection.getLineage}.
+	 */
+	export interface DataConnectionLineageRequest {
+		/**
+		 * The object's path from the top of the data source, one exact name per level: e.g.
+		 * `[database, schema, table]` for a table, view or other table-like object, and
+		 * `[database, schema, table, column]` for a column. Each name is as the data source spells
+		 * it, case and all; a driver quotes them as its data source requires.
+		 */
+		path: string[];
+
+		/**
+		 * Whether the object is a table (including views and other table-like objects) or a column.
+		 */
+		domain: 'table' | 'column';
+
+		/**
+		 * Whether to follow the objects the data comes from (`upstream`) or the objects it flows
+		 * into (`downstream`).
+		 */
+		direction: 'upstream' | 'downstream';
+
+		/**
+		 * How many hops to follow, from 1 up to the data source's own limit.
+		 */
+		depth: number;
+
+		/**
+		 * The most edges to return. A driver returns the nearest edges first and sets `truncated`
+		 * when it left any out.
+		 */
+		maxEdges: number;
+	}
+
+	/**
+	 * One end of a lineage edge.
+	 */
+	export interface DataConnectionLineageObject {
+		/** The database holding the object. Absent for an object outside the data source. */
+		database?: string;
+
+		/** The schema holding the object. Absent for an object outside the data source. */
+		schema?: string;
+
+		/** The object's unqualified name. Absent when the object is masked. */
+		name?: string;
+
+		/** The column, when the edge is between columns. */
+		column?: string;
+
+		/** The kind of object, in the data source's own terms, e.g. `table` or `stage`. */
+		domain: string;
+
+		/** Set when the caller is not allowed to see the object, so its name is withheld. */
+		masked?: boolean;
+	}
+
+	/**
+	 * One edge in an object's lineage: data flows from `source` to `target`.
+	 */
+	export interface DataConnectionLineageEdge {
+		source: DataConnectionLineageObject;
+		target: DataConnectionLineageObject;
+
+		/** How many hops from the requested object this edge is. A direct relationship is 1. */
+		distance: number;
+	}
+
+	/**
+	 * An object's lineage, or the data source's reason for not providing it. See
+	 * {@link DataConnection.getLineage}.
+	 */
+	export type DataConnectionLineage =
+		| {
+			available: true;
+
+			/** The edges, nearest first. Empty when the object has no lineage in this direction. */
+			edges: DataConnectionLineageEdge[];
+
+			/** Whether `maxEdges` left edges out. */
+			truncated: boolean;
+		}
+		| {
+			available: false;
+
+			/** The data source's explanation, suitable for showing to the user. */
+			message: string;
+		};
 
 	/**
 	 * A summary of a registered data connection driver, returned by getDrivers().
@@ -3396,6 +3655,9 @@ declare module 'positron' {
 		 *  are merged into `attribution.metadata` on the resulting
 		 *  `CodeExecutionEvent`. Positron retains sole authority over
 		 *  `attribution.source`; callers cannot set it.
+		 * @param preserveActiveTab Whether to avoid switching the active tab when
+		 *  revealing the Console and Plots. If another tab is showing where the
+		 *  Console or Plots live, it stays showing. Ignored when `focus` is true.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
@@ -3409,7 +3671,8 @@ declare module 'positron' {
 			sessionId?: string,
 			documentUri?: vscode.Uri,
 			executionMetadata?: Record<string, any>,
-			attributionMetadata?: Record<string, any>): Thenable<Record<string, any>>;
+			attributionMetadata?: Record<string, any>,
+			preserveActiveTab?: boolean): Thenable<Record<string, any>>;
 
 		/**
 		 * Evaluates code silently in a language runtime, without displaying
@@ -3512,12 +3775,14 @@ declare module 'positron' {
 		 * @param sessionName A human-readable name for the new session.
 		 * @param notebookUri If the session is associated with a notebook,
 		 *   the notebook URI.
+		 * @param options Options for the new session.
 		 *
 		 * Returns a Thenable that resolves with the newly created session.
 		 */
 		export function startLanguageRuntime(runtimeId: string,
 			sessionName: string,
-			notebookUri?: vscode.Uri): Thenable<LanguageRuntimeSession>;
+			notebookUri?: vscode.Uri,
+			options?: RuntimeSessionStartOptions): Thenable<LanguageRuntimeSession>;
 
 		/**
 		 * Interrupt a running session.
@@ -3875,6 +4140,152 @@ declare module 'positron' {
 		 * @returns A data connection.
 		 */
 		export function connect(driverId: string, mechanismId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+
+		/**
+		 * Returns the connections the user has configured, whether or not they are connected.
+		 *
+		 * These are the user's own connections, as shown in the Data Connections pane -- not the
+		 * ones this extension opened with {@link connect}. Use them to offer completions, checks
+		 * or navigation against whatever the user is actually connected to.
+		 *
+		 * Rejects when the `dataConnections.enabled` setting is off, so that a disabled feature
+		 * cannot be mistaken for a user with no connections.
+		 */
+		export function getConnections(): Thenable<DataConnectionSummary[]>;
+
+		/**
+		 * Opens the user's connection for a profile, if it is not already open.
+		 *
+		 * For an extension that knows which of the user's connections it needs -- a SQL file that
+		 * records the database it is written against, say -- rather than waiting for the user to
+		 * open it by hand before anything works. Idempotent: a profile that is already connected
+		 * resolves without reconnecting.
+		 *
+		 * Still no handle: this can open one of the user's connections but cannot disconnect or
+		 * release one, for the same reason {@link getConnections} hands out summaries. Note that
+		 * connecting is not free -- a driver may prompt for credentials, and a warehouse may bill
+		 * for waking up -- so call it because the user asked for something that needs it, not to
+		 * warm connections up in case.
+		 *
+		 * Distinct from {@link connect}, which opens a new connection through a driver this
+		 * extension registered and hands back the connection it owns.
+		 *
+		 * @param profileId The connection to open, from {@link DataConnectionSummary.profileId}.
+		 * @returns Whether the connection is now open. `false` when no such profile exists, which is
+		 *   ordinary: a caller may have recorded a profile the user has since removed. Rejects when
+		 *   the `dataConnections.enabled` setting is off, and with the driver's error when opening
+		 *   was attempted and failed, which a caller should expect: credentials expire and hosts go
+		 *   away.
+		 */
+		export function openConnection(profileId: string): Thenable<boolean>;
+
+		/**
+		 * Reads the tables and columns a live connection exposes.
+		 *
+		 * A single bounded call rather than a tree to walk: browsing costs a round trip per node,
+		 * and a warehouse has thousands of them. Whenever a bound leaves something out, the result
+		 * says so -- see {@link DataConnectionSchema.truncated}, which a caller needs in order to
+		 * tell a name the schema is missing from a name the user got wrong.
+		 *
+		 * @param profileId The connection to read, from {@link DataConnectionSummary.profileId}.
+		 * @param options Bounds for the walk. Defaults are sized for a summary, not a full schema.
+		 * @returns The schema, or `undefined` if the connection is not currently connected. Rejects
+		 *   when the `dataConnections.enabled` setting is off.
+		 */
+		export function getSchema(profileId: string, options?: DataConnectionSchemaOptions): Thenable<DataConnectionSchema | undefined>;
+
+		/**
+		 * Fires when a connection is opened or closed, or a profile is added, renamed or removed.
+		 *
+		 * Carries no payload; call {@link getConnections} to read the new set. Without this an
+		 * extension has no way to know the user connected to something, and has to re-read on a
+		 * guess -- when a relevant editor is focused, say.
+		 */
+		export const onDidChangeConnections: vscode.Event<void>;
+	}
+
+	/**
+	 * A connection the user has configured, returned by
+	 * {@link dataConnections.getConnections}.
+	 *
+	 * Carries no connection parameters, redacted or otherwise: this says what the user is
+	 * connected to, not how they connected, and a payload holding a host name or an account
+	 * identifier is one every consumer then has to be careful with.
+	 */
+	export interface DataConnectionSummary {
+		/** Stable identifier for the connection, and the key for every other call about it. */
+		readonly profileId: string;
+
+		/** The user-chosen name for the connection. */
+		readonly name: string;
+
+		/** The driver the connection was made with, e.g. `postgresql`. */
+		readonly driverId: string;
+
+		/** The driver's display name, e.g. `PostgreSQL`. */
+		readonly driverName: string;
+
+		/** Whether the connection is live right now. Only a live one has a schema to read. */
+		readonly connected: boolean;
+	}
+
+	/**
+	 * Bounds on a schema read. Each one exists because a database can be arbitrarily large and
+	 * every level costs a round trip to the engine.
+	 */
+	export interface DataConnectionSchemaOptions {
+		/**
+		 * How deep to walk. Root-level objects are depth 1. Container levels that name nothing of
+		 * their own are flattened and do not count against this.
+		 */
+		readonly maxDepth?: number;
+
+		/** How many objects to return under any one parent. */
+		readonly maxNodesPerLevel?: number;
+
+		/** How many objects to return in total, across every level. */
+		readonly maxTotalNodes?: number;
+	}
+
+	/** One object in a connection's schema: a catalog, a schema, a table, or a column. */
+	export interface DataConnectionSchemaNode {
+		readonly name: string;
+
+		/** The kind of object. */
+		readonly kind: DataConnectionNodeKind;
+
+		/** The column's data type, for a node of kind `field`. */
+		readonly dataType?: string;
+
+		/** Whether the column is part of the primary key, for a node of kind `field`. */
+		readonly isPrimaryKey?: boolean;
+
+		/** Present only when this object has at least one child in the result. */
+		readonly children?: DataConnectionSchemaNode[];
+
+		/**
+		 * How many of this object's children a bound left out. Present only when some were, so
+		 * that what is missing is visible rather than silently absent.
+		 */
+		readonly truncatedChildCount?: number;
+	}
+
+	/** What a connection exposes, as read by {@link dataConnections.getSchema}. */
+	export interface DataConnectionSchema {
+		/** The connection this was read from. */
+		readonly profileId: string;
+
+		/** The connection's top-level objects. */
+		readonly nodes: DataConnectionSchemaNode[];
+
+		/**
+		 * Whether any bound left part of the schema out.
+		 *
+		 * Worth checking before treating the result as the whole picture. A truncated schema
+		 * cannot tell a name it never saw from a name that is wrong, so a caller that reports
+		 * unknown names should stay quiet when this is set.
+		 */
+		readonly truncated: boolean;
 	}
 
 	/**
@@ -3929,6 +4340,17 @@ declare module 'positron' {
 		 * @param datasetId The identifier of the dataset that was closed.
 		 */
 		closeDataset?(datasetId: string): void;
+
+		/**
+		 * Rebuilds a dataset's view so that it reflects the current contents of its
+		 * source, e.g. after the underlying table changed outside Positron. The
+		 * rebuilt view starts with no sort keys or row filters; Positron re-applies
+		 * the user's sort and filters afterwards. Reject on failure, leaving the
+		 * existing view intact. Optional: the Data Explorer offers Refresh only for
+		 * providers that implement it.
+		 * @param datasetId The identifier of the dataset to refresh.
+		 */
+		refreshDataset?(datasetId: string): Thenable<void>;
 	}
 
 	/**
@@ -4144,6 +4566,70 @@ declare module 'positron' {
 		 * @returns A disposable that unregisters the importer.
 		 */
 		export function registerDataImporter(importer: DataImporter): vscode.Disposable;
+
+		/**
+		 * Where the data shown in a Data Explorer came from. Fields are set when they are known.
+		 */
+		export interface DataExplorerSource {
+			/** The ID of the language runtime session that owns the data, for kernel-backed data. */
+			sessionId?: string;
+			/** The language of the session that owns the data (e.g. 'Python', 'R'). */
+			languageName?: string;
+			/** The URI of the file being viewed, for file-backed data. */
+			fileUri?: string;
+			/** The name of the data connection the data was previewed from. */
+			connectionName?: string;
+			/** The name of the data connection's driver (e.g. 'PostgreSQL'). */
+			connectionDriver?: string;
+		}
+
+		/**
+		 * The selected region of a Data Explorer grid.
+		 */
+		export interface DataExplorerSelection {
+			/** Whether whole columns, whole rows, or a range of cells are selected. */
+			kind: 'columns' | 'rows' | 'cells';
+			/** The number of selected columns. */
+			columnCount: number;
+			/** The number of selected rows. */
+			rowCount: number;
+			/** The names of the selected columns, when few enough to list. */
+			columns?: string[];
+			/** The labels of the selected rows, when few enough to list. Undefined for column selections. */
+			rows?: string[];
+			/** The selected values as TSV, when the selection is small enough. */
+			values?: string;
+		}
+
+		/**
+		 * Describes the Data Explorer in the active editor.
+		 */
+		export interface DataExplorerContext {
+			/** The name of the data, e.g. the variable name, expression, file name, or table name. */
+			displayName: string;
+			/** Where the data came from. */
+			source: DataExplorerSource;
+			/** The number of rows and columns after filtering. */
+			shape: { rows: number; columns: number };
+			/** The number of rows and columns before filtering. */
+			unfilteredShape: { rows: number; columns: number };
+			/** Descriptions of the active row filters. */
+			rowFilters: string[];
+			/** The active sort keys, in priority order. */
+			sortKeys: Array<{ column: string; ascending: boolean }>;
+			/** The cell the cursor is on; the row is identified by its label. */
+			cursor?: { column: string; row: string };
+			/** The selected region, if any. */
+			selection?: DataExplorerSelection;
+		}
+
+		/**
+		 * Gets a description of the Data Explorer in the active editor, including where its data
+		 * came from, the cursor position, and the selection.
+		 *
+		 * @returns The context, or undefined if the active editor is not a Data Explorer.
+		 */
+		export function getContext(): Thenable<DataExplorerContext | undefined>;
 	}
 
 	/**
@@ -4298,273 +4784,9 @@ declare module 'positron' {
 	 */
 	namespace ai {
 		/**
-		 * A language model provider, extends vscode.LanguageModelChatProvider.
-		 */
-		export interface LanguageModelChatProvider<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
-			displayName: string;
-			providerId: string;
-			id: string;
-
-			providerName: string;
-
-			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<any>;
-
-			provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
-
-			provideTokenCount(model: T, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Thenable<number>;
-
-			/**
-			 * Tests the connection to the language model provider.
-			 *
-			 * Returns an error if the connection fails.
-			 */
-			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
-
-			/**
-			 * Retrieves a list of supported models from the provider.
-			 *
-			 * This is used to populate the model selection dropdown in the language model configuration dialog. This
-			 * should be called before registering the chat provider.
-			 * @returns A list of supported model identifiers, or undefined if the provider does not support a model listing.
-			 */
-			resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined>;
-		}
-
-		/**
-		 * Dynamically defined chat agent properties and metadata.
-		 */
-		export interface ChatAgentData {
-			id: string;
-			name: string;
-			fullName?: string;
-			description?: string;
-			isDefault?: boolean;
-			metadata: { isSticky?: boolean };
-			slashCommands: {
-				name: string;
-				description: string;
-				isSticky?: boolean;
-			}[];
-			modes: PositronChatMode[];
-			locations: PositronChatAgentLocation[];
-			disambiguation: { category: string; description: string; examples: string[] }[];
-		}
-
-		/**
-		 * A chat participant, extends vscode.ChatParticipant with additional dynamic metadata.
-		 */
-		export interface ChatParticipant extends vscode.ChatParticipant {
-			agentData: ChatAgentData;
-		}
-
-		/**
-		 * Register a chat agent dynamically, without requiring registration in `package.json`.
-		 * This allows for dynamic chat agent commands in Positron.
-		 */
-		export function registerChatAgent(agentData: ChatAgentData): Thenable<vscode.Disposable>;
-
-		/**
-		 * Metadata about a language model provider used for configuration.
-		 * Registered during extension activation, independent of sign-in state.
-		 */
-		export interface ProviderMetadata {
-			/**
-			 * Unique identifier for this provider (e.g., 'anthropic-api', 'openai-api', 'copilot-auth').
-			 * Used internally to distinguish between provider implementations.
-			 */
-			id: string;
-			/**
-			 * Display name shown in the UI (e.g., 'Anthropic', 'OpenAI', 'GitHub Copilot').
-			 * Appears in settings, model selection dialogs, and provider lists.
-			 */
-			displayName: string;
-			/**
-			 * Provider id in the resolved provider catalog (`~/.posit/ai/providers.json`), used to
-			 * resolve enablement and connection config. When undefined, `id` is used instead, so a
-			 * provider is still subject to the catalog if the catalog knows that id. Providers the
-			 * catalog has never heard of are treated as enabled.
-			 */
-			catalogId?: string;
-			/**
-			 * Maturity status of the provider. Drives how it's presented in the
-			 * configuration modal: stable providers (no status) are listed first,
-			 * then 'preview', then 'experimental'.
-			 */
-			status?: 'preview' | 'experimental';
-			/**
-			 * For a provider that comes from a `providers.custom` entry, the
-			 * entry's type (its client kind, e.g. 'anthropic'). Undefined for
-			 * built-in providers. The configuration modal shows the entry under
-			 * that vendor's icon and marks the row as custom.
-			 */
-			customKind?: string;
-			/**
-			 * Optional data URL for the provider icon shown in the configuration dialog
-			 * (e.g., 'data:image/svg+xml;base64,...'). Falls back to built-in icons
-			 * when not provided.
-			 */
-			logoUrl?: string;
-		}
-
-		/**
-		 * Why a field cannot be set in the configuration form, and what value
-		 * applies instead. Today this is always an environment variable, which
-		 * ai-config ranks above the user's configuration file.
-		 *
-		 * Deliberately not part of `LanguageModelConfig`: that type is
-		 * bidirectional (it arrives as `defaults` and is submitted back on
-		 * save), and this is an inbound-only fact about the environment.
-		 */
-		export interface LanguageModelFieldOverride {
-			/** The value in effect, shown in place of the user's saved value. */
-			readonly value: string;
-			/**
-			 * Name of the environment variable supplying the value, e.g.
-			 * `AWS_REGION`, so the form can say what to change instead. Omit when
-			 * there is no single name to give.
-			 */
-			readonly name?: string;
-		}
-
-		/**
-		 * Which of a provider's form fields are supplied by a higher-precedence
-		 * layer, shaped to mirror `LanguageModelConfig` with each value replaced
-		 * by the reason it cannot be set.
-		 *
-		 * Only the fields something can actually take over appear, rather than
-		 * every config key.
-		 */
-		export interface LanguageModelFieldOverrides {
-			baseUrl?: LanguageModelFieldOverride;
-			apiKey?: LanguageModelFieldOverride;
-			aws?: {
-				profile?: LanguageModelFieldOverride;
-				region?: LanguageModelFieldOverride;
-			};
-		}
-
-		/**
-		 * Positron Language Model source, used for user configuration of language models.
-		 */
-		export interface LanguageModelSource {
-			type: PositronLanguageModelType;
-			provider: ProviderMetadata;
-			supportedOptions: Exclude<{
-				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
-			}[keyof LanguageModelConfig], undefined>[];
-			defaults: LanguageModelConfig;
-			/**
-			 * Fields the user cannot set here because a higher-precedence config
-			 * layer supplies them. Absent when every supported field is editable.
-			 */
-			overrides?: LanguageModelFieldOverrides;
-			signedIn?: boolean;
-			authMethods?: string[];
-			/**
-			 * Provider health. `'ok'` = signed in and healthy; `'error'` = a
-			 * problem worth surfacing, described by `statusMessage`; `null` =
-			 * nothing to report.
-			 */
-			status?: 'ok' | 'error' | null;
-			/**
-			 * Human-readable reason when `status` is `'error'`
-			 * (e.g. "Authentication expired").
-			 */
-			statusMessage?: string;
-		}
-
-		/**
-		 * Positron Language Model configuration options.
-		 */
-		export interface LanguageModelConfig {
-			model?: string;
-			baseUrl?: string;
-			apiKey?: string;
-			oauth?: boolean;
-			toolCalls?: boolean;
-			resourceName?: string;
-			project?: string;
-			location?: string;
-			numCtx?: number;
-			maxInputTokens?: number;
-			maxOutputTokens?: number;
-			completions?: boolean;
-			/**
-			 * Wire protocol (API type) the provider speaks, e.g. 'openai-chat'
-			 * (Chat Completions) or 'openai-responses' (Responses). Routes custom
-			 * / OpenAI-compatible providers to the right API. Omit to let the
-			 * provider decide.
-			 */
-			protocol?: string;
-			/**
-			 * Explicit model list for a custom provider whose endpoint has no
-			 * `/models` listing. Persisted as the provider's custom model
-			 * definitions.
-			 */
-			customModels?: LanguageModelCustomModel[];
-			autoconfigure?: LanguageModelAutoconfigure;
-			/**
-			 * AWS profile and region for a provider authenticating through the
-			 * AWS credential chain. Both are optional; an omitted field falls
-			 * back to the ambient AWS configuration. An empty string means the
-			 * user cleared the field and any saved value should be removed.
-			 */
-			aws?: { profile?: string; region?: string };
-		}
-
-		/**
-		 * A user-declared model for a custom provider, for providers whose
-		 * endpoint does not list its own models.
-		 */
-		export interface LanguageModelCustomModel {
-			id: string;
-			name: string;
-			maxContextLength: number;
-			supportsTools: boolean;
-			supportsImages: boolean;
-			supportsToolResultImages: boolean;
-			supportsWebSearch: boolean;
-		}
-
-		/**
-		 * Types of autoconfiguration support for language models.
-		 */
-		export enum LanguageModelAutoconfigureType {
-			// Autoconfigured using environment variables
-			EnvVariable = 0,
-			// Autoconfigured using a custom function on the language model provider
-			// E.g., for Workbench managed credentials
-			Custom = 1
-		}
-		/**
-		 * Language model autoconfiguration options.
-		 */
-		export type LanguageModelAutoconfigure = (
-			{
-				type: LanguageModelAutoconfigureType.EnvVariable;
-				// Environment variable key used to retrieve API key, if set
-				key: string;
-				signedIn: boolean;
-			} |
-			{
-				type: LanguageModelAutoconfigureType.Custom;
-				// Message to show in the UI if autoconfiguration was successful
-				message: string;
-				signedIn: boolean;
-				// Whether this credential is managed by Posit Workbench
-				isPositWorkbench?: boolean;
-			}
-		);
-
-		/**
 		 * Request the current plot data.
 		 */
 		export function getCurrentPlotUri(): Thenable<string | undefined>;
-
-		/**
-		 * Get Positron global context information to be included with every request.
-		 */
-		export function getPositronChatContext(request: vscode.ChatRequest): Thenable<ChatContext>;
 
 		/**
 		 * Filters a chat request's tools down to those Positron considers enabled
@@ -4588,135 +4810,6 @@ declare module 'positron' {
 		export function generateAssistantPrompt(request: vscode.ChatRequest): Thenable<string>;
 
 		/**
-		 * Send a progress response to the chat response stream.
-		 */
-		export function responseProgress(token: unknown, part: vscode.ChatResponsePart | {
-			// vscode.ChatResponseConfirmationPart
-			title: string;
-			message: string;
-			data: any;
-			buttons?: string[];
-		} | {
-			// vscode.ChatResponseTextEditPart
-			uri: vscode.Uri;
-			edits: vscode.TextEdit[];
-		}): void;
-
-		/**
-		 * Get the chat export as a JSON object (IExportableChatData).
-		 */
-		export function getChatExport(): Thenable<object | undefined>;
-
-		/**
-		 * Options for showing the language model configuration modal.
-		 */
-		export interface ShowLanguageModelConfigOptions {
-			/**
-			 * Optional provider ID to pre-select in the dialog.
-			 * If provided and valid, the modal will open with this provider selected.
-			 */
-			preselectedProviderId?: string;
-		}
-
-		/**
-		 * Show a modal dialog for language model configuration.
-		 * Sources are read from internal state, populated via registerProvider.
-		 */
-		export function showLanguageModelConfig(
-			options?: ShowLanguageModelConfigOptions,
-		): Thenable<void>;
-
-		/**
-		 * Registers a language model provider with Positron.
-		 *
-		 * Call once per provider during extension activation. This registers
-		 * everything static about the provider. Enablement is read from the
-		 * resolved provider catalog (providers.json), not a per-provider setting.
-		 *
-		 * Returns a Disposable. When disposed, the provider is removed
-		 * from the configuration service.
-		 *
-		 * @param source Provider source definition
-		 * @param onAction Optional callback invoked for user actions.
-		 * @returns A Disposable that unregisters the provider when disposed
-		 */
-		export function registerProvider(
-			source: LanguageModelSource,
-			onAction?: (source: LanguageModelSource, config: LanguageModelConfig, action: string) => Thenable<void>,
-		): vscode.Disposable;
-
-		/**
-		 * Updates dynamic state for a previously registered provider.
-		 *
-		 * @param id Provider ID (must match a previously registered provider)
-		 * @param update Partial state to deep-merge
-		 */
-		export function updateProvider(id: string, update: Partial<LanguageModelSource>): void;
-
-		/**
-		 * Returns the sources of all registered, enabled language model
-		 * providers, including their current `signedIn`, `status`, and
-		 * `statusMessage` state.
-		 */
-		export function getRegisteredProviders(): Thenable<LanguageModelSource[]>;
-
-		/**
-		 * Event that fires when a provider's configuration changes via
-		 * registerProvider, unregisterProvider, or updateProvider.
-		 */
-		export const onDidChangeProviderConfig: vscode.Event<LanguageModelSource>;
-
-		/**
-		 * The context in which a chat request is made.
-		 */
-		export interface ChatContext {
-			positronVersion?: string;
-			currentDate?: string;
-			plots?: {
-				hasPlots: boolean;
-			};
-			shell?: string;
-		}
-
-		/**
-		 * A chat language model provider.
-		 */
-		export interface ChatProvider {
-			readonly id: string;
-			readonly displayName: string;
-		}
-
-		/**
-		 * Get the current langauge model provider.
-		 */
-		export function getCurrentProvider(): Thenable<ChatProvider | undefined>;
-
-		/**
-		 * Get the currently selected mode in the chat UI.
-		 */
-		export function getCurrentChatMode(): Thenable<string | undefined>;
-
-		/**
-		 * Get all the available langauge model providers.
-		 */
-		export function getProviders(): Thenable<ChatProvider[]>;
-
-		/**
-		 * Set the current language chat provider.
-		 */
-		export function setCurrentProvider(id: string): Thenable<ChatProvider | undefined>;
-
-		/**
-		 * Gets the list of enabled provider IDs from user configuration.
-		 *
-		 * Reads from individual provider enable settings ('positron.assistant.provider.<name>.enable')
-		 * and the deprecated 'positron.assistant.enabledProviders' array setting for backward compatibility.
-		 *
-		 * @returns A Thenable that resolves to an array of enabled provider IDs
-		 */
-		export function getEnabledProviders(): Thenable<string[]>;
-
-		/**
 		 * Whether the provider with the given CATALOG id (e.g. 'copilot',
 		 * 'anthropic') is enabled in the resolved provider catalog. Unlike
 		 * getEnabledProviders(), ids are catalog ids, not registered auth-provider
@@ -4725,17 +4818,17 @@ declare module 'positron' {
 		 */
 		export function isProviderEnabled(id: string): Thenable<boolean>;
 
+		/**
+		 * The resolved base URL for the provider with the given CATALOG id
+		 * (e.g. 'positai'), after ai-config applies every layer: enforced
+		 * settings, environment variables, providers.json, admin defaults, and
+		 * built-in defaults. Undefined for unknown ids or providers without a
+		 * base URL.
+		 */
+		export function getProviderBaseUrl(id: string): Thenable<string | undefined>;
+
 		/** Fires when a provider's catalog enablement flips. Ids are catalog ids. */
 		export const onDidChangeProviderEnablement: vscode.Event<{ readonly id: string; readonly enabled: boolean }>;
-
-		/**
-		 * Checks if Copilot inline completions are enabled for the given file.
-		 * Scoped to Copilot: gated on the Copilot catalog provider. Posit AI Next Edit
-		 * Suggestions (NES) has its own separate enablement and does not use this.
-		 * @param uri The file URI to check if completions are enabled.
-		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.
-		 */
-		export function areCompletionsEnabled(uri: vscode.Uri): Thenable<boolean>;
 
 		/**
 		 * A positional parameter accepted by an agent-compatible command.
@@ -4912,7 +5005,12 @@ declare module 'positron' {
 	}
 
 	/**
-	 * Namespace for interacting with Positron notebooks
+	 * Namespace for interacting with Positron notebooks.
+	 *
+	 * Quarto and R Markdown documents open in an editor while inline output is
+	 * enabled are also presented as notebooks whose cells are their code
+	 * chunks. Adding markdown cells, and moving and reordering cells, are not
+	 * supported for them.
 	 */
 	export namespace notebooks {
 		/**
@@ -5042,10 +5140,10 @@ declare module 'positron' {
 		/**
 		 * Get context about the active notebook.
 		 *
-		 * When no Positron notebook is the active editor pane (e.g. focus is
-		 * in another editor or view), falls back to the open notebook attached
-		 * to the foreground session, then to the most recently active Positron
-		 * notebook that is still open.
+		 * When no Positron notebook or Quarto document is the active editor
+		 * pane (e.g. focus is in another editor or view), falls back to the
+		 * open notebook or Quarto document attached to the foreground session,
+		 * then to the most recently active Positron notebook that is still open.
 		 *
 		 * Resolves with `undefined` when no notebook is open. Rejects with an
 		 * actionable error when the active editor holds a notebook in an

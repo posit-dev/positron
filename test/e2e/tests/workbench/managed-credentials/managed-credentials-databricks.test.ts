@@ -14,7 +14,7 @@ test.use({
 test.describe('Managed Credentials - Databricks', {
 	tag: [tags.WORKBENCH_DATABRICKS]
 }, () => {
-	test('R - Verify DATABRICKS_HOST environment variable is set', async function ({ app, r }) {
+	test('R - Verify DATABRICKS_HOST environment variable is set', { tag: [tags.ARK] }, async function ({ app, r }) {
 		const workbenchVersion = await WorkbenchVersion.fetchFromContainer();
 
 		// DATABRICKS_HOST is only available in Workbench 2026.04+

@@ -13,14 +13,16 @@
 //     is linked. Best effort: on any failure it writes an empty list and
 //     exits 0, since a run without the list is still a run.
 //   node known-issues.mjs --search "<terms>" [--repo posit-dev/positron]
-//     prints open and closed issues matching the terms, one per line, or
-//     `no matches`. For the verifier, local and CI alike: with no token (CI)
-//     it searches unauthenticated, which allows 10 searches a minute. A
-//     failed search exits 1, so it cannot pass for no matches.
+//     prints open and closed issues and PRs matching the terms, one per line,
+//     or `no matches`. For the verifier, local and CI alike: with no token (CI)
+//     it searches unauthenticated, which allows 10 searches a minute. A rate
+//     limit is waited out and retried; a search that still fails exits 1, so
+//     it cannot pass for no matches.
 
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readJson } from './shared/text.mjs';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -29,6 +31,12 @@ const DEFAULT_REPO = 'posit-dev/positron';
 const MAX_MENTIONS = 20;
 const MAX_REFS = 10;
 const SUMMARY_MAX = 240;
+// Past this many a report is quoting a list, not naming what it relied on.
+const MAX_MENTIONED = 30;
+const REFS_FILE = 'issue-refs.json';
+// Waits for a rate limit's reset and retries, so a burst of searches is not reported as unsearched.
+const RATE_RETRIES = 2;
+const MAX_RATE_WAIT_MS = 90_000;
 
 const SEVERITY_RANK = { major: 0, moderate: 1, minor: 2 };
 
@@ -197,26 +205,6 @@ export function buildKnownIssuesBrief(data, { file } = {}) {
 }
 
 /**
- * The verifier's `LINKED: #5678=moderate; #5301=minor` line, as a Map of
- * issue number to severity. Entries it cannot read are left out, and the
- * issue shows unrated.
- */
-export function parseLinked(text) {
-	const out = new Map();
-	const line = String(text ?? '').split('\n').find(l => /^LINKED:/i.test(l.trim()));
-	if (!line) {
-		return out;
-	}
-	for (const part of line.trim().slice('LINKED:'.length).split(';')) {
-		const m = /^#?(\d+)\s*=\s*(major|moderate|minor)\b/i.exec(part.trim());
-		if (m) {
-			out.set(Number(m[1]), m[2].toLowerCase());
-		}
-	}
-	return out;
-}
-
-/**
  * What the run found about each linked issue, from the ledger's `Issue:` lines
  * (on Coverage rows as `issues`), the verifier's severities, and its KNOWN
  * matches (finding number to issue numbers):
@@ -255,11 +243,7 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 			}
 			// A failed fix or a returned issue is the row's finding.
 			const findingOf = map => {
-				for (const f of new Set([row.finding, ...(row.findings ?? [])].filter(Boolean))) {
-					const list = map.get(f) ?? [];
-					if (!list.includes(issue)) { list.push(issue); }
-					map.set(f, list);
-				}
+				for (const f of new Set([row.finding, ...(row.findings ?? [])].filter(Boolean))) { push(map, f, issue); }
 			};
 			if (issue.relation === 'fixes') {
 				if (kind === 'held') {
@@ -343,17 +327,33 @@ function push(map, key, value) {
 }
 
 function token() {
-	if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) {
-		return process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-	}
 	try {
-		return execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+		return process.env.GH_TOKEN || process.env.GITHUB_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 	} catch {
 		return '';
 	}
 }
 
-async function github(path, auth) {
+/**
+ * How long to wait before retrying a rate-limited response, in ms, or null when
+ * it is not a rate limit or the reset is too far off to wait for. The search
+ * limit resets each minute, so a wait past MAX_RATE_WAIT_MS means another limit.
+ * A secondary limit can come with neither header; GitHub says to wait a minute.
+ */
+export function rateLimitWait(res, body = '', now = Date.now()) {
+	if (res.status !== 403 && res.status !== 429) {
+		return null;
+	}
+	const after = Number(res.headers.get('retry-after'));
+	const reset = Number(res.headers.get('x-ratelimit-reset'));
+	const wait = after > 0 ? after * 1000
+		: res.headers.get('x-ratelimit-remaining') === '0' && reset > 0 ? reset * 1000 - now + 1000
+			: /rate limit/i.test(body) ? 60_000
+				: null;
+	return wait !== null && wait <= MAX_RATE_WAIT_MS ? Math.max(wait, 0) : null;
+}
+
+async function github(path, auth, { retries = RATE_RETRIES } = {}) {
 	const res = await fetch(`https://api.github.com${path}`, {
 		headers: {
 			accept: 'application/vnd.github+json',
@@ -361,6 +361,12 @@ async function github(path, auth) {
 			...(auth ? { authorization: `Bearer ${auth}` } : {}),
 		},
 	});
+	const wait = res.ok ? null : rateLimitWait(res, await res.text());
+	if (wait !== null && retries > 0) {
+		console.warn(`known-issues: rate limited, retrying in ${Math.ceil(wait / 1000)}s`);
+		await new Promise(r => setTimeout(r, wait));
+		return github(path, auth, { retries: retries - 1 });
+	}
 	if (!res.ok) {
 		throw new Error(`GET ${path}: ${res.status} ${res.statusText}`);
 	}
@@ -402,17 +408,65 @@ export async function fetchKnownIssues(pr, repo = DEFAULT_REPO, { auth = token()
 	return { repo, pr, fetchedAt: new Date().toISOString(), issues };
 }
 
-/** Open and closed issues matching `terms`. Throws on a failed request, a rate limit included. */
+/** The `#N` numbers in report text, in order, once each; a `#` after a word, `&` or `/` is not one. */
+export function mentionedNumbers(text) {
+	return [...new Set([...(text ?? '').matchAll(/(?<![\w&#/])#(\d+)\b/g)].map(m => Number(m[1])))];
+}
+
+/** Each number's title, state and summary, as an issue or a PR; a number that fails is left out. */
+export async function fetchRefs(numbers, repo = DEFAULT_REPO, { auth = token() } = {}) {
+	const refs = [];
+	for (const n of numbers) {
+		try {
+			const raw = await github(`/repos/${repo}/issues/${n}`, auth);
+			const issue = { ...toIssue(raw, 'mentioned'), kind: raw.pull_request ? 'pr' : 'issue' };
+			refs.push(raw.pull_request?.merged_at ? { ...issue, state: 'merged' } : issue);
+		} catch (err) {
+			console.warn(`known-issues: no preview for #${n}: ${err.message}`);
+		}
+	}
+	return refs;
+}
+
+/** A run directory's fetched issue and PR previews, or none. */
+export function readIssueRefs(dir) {
+	return readJson(join(dir, REFS_FILE))?.refs ?? [];
+}
+
+/**
+ * The previews for every number the report names, fetching only the ones not
+ * saved beside it or on the PR's list, so a publish renders offline from the
+ * same file. Best effort: a failed fetch leaves that number a plain link.
+ */
+export async function loadIssueRefs(dir, markdown, knownIssues, { fetch = fetchRefs, offline = false } = {}) {
+	const saved = readIssueRefs(dir);
+	const have = new Set([...saved, ...(knownIssues?.issues ?? [])].map(i => i.number));
+	const missing = mentionedNumbers(markdown).filter(n => !have.has(n)).slice(0, MAX_MENTIONED);
+	if (offline || !missing.length) {
+		return saved;
+	}
+	const refs = [...saved, ...await fetch(missing, knownIssues?.repo ?? DEFAULT_REPO)];
+	writeFileSync(join(dir, REFS_FILE), `${JSON.stringify({ refs }, null, '\t')}\n`);
+	return refs;
+}
+
+/**
+ * Open and closed issues and PRs matching `terms`. PRs are included so an open
+ * fix for a finding is found too. Waits out a rate limit; throws on a failed request.
+ */
 export async function searchIssues(terms, repo = DEFAULT_REPO, { auth = token() } = {}) {
-	const q = encodeURIComponent(`repo:${repo} is:issue ${terms}`);
+	const q = encodeURIComponent(`repo:${repo} ${terms}`);
 	return (await github(`/search/issues?q=${q}&per_page=10`, auth)).items ?? [];
 }
 
-/** A search's results as `#12 (closed): "title"` lines, or `no matches`. Titles are quoted as data. */
+/** A search's results as `#12 (closed): "title"` or `#13 (open PR): "title"` lines, or `no matches`. Titles are quoted as data. */
 export function formatSearch(items) {
-	const issues = (items ?? []).filter(i => !i.pull_request);
-	return issues.length
-		? issues.map(i => `#${i.number} (${i.state === 'closed' ? 'closed' : 'open'}): ${JSON.stringify(i.title ?? '')}`).join('\n')
+	// Not planned is the verifier's cue that the behavior was judged intended.
+	const issueState = i => i.state !== 'closed' ? 'open' : i.state_reason === 'not_planned' ? 'closed as not planned' : 'closed';
+	const prState = i => i.state !== 'closed' ? 'open PR' : i.pull_request.merged_at ? 'merged PR' : 'closed PR';
+	const state = i => i.pull_request ? prState(i) : issueState(i);
+	return items?.length
+		? items.map(i => `#${i.number} (${state(i)}): ${JSON.stringify(i.title ?? '')}`).join('\n')
 		: 'no matches';
 }
 

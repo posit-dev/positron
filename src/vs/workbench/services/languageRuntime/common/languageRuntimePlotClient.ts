@@ -137,6 +137,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 */
 	private _state: PlotClientState = PlotClientState.Unrendered;
 
+	private _lastEventExecutionId?: string;
+
 	/**
 	 * The time it took to render the plot the last time it was rendered, in milliseconds.
 	 */
@@ -270,6 +272,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Listen for plot updates
 		this._register(this._commProxy.onDidRenderUpdate(async (evt) => {
+			this._lastEventExecutionId = this._commProxy.eventParentId;
 			const preRender = evt.pre_render;
 
 			// If there's a pre-rendering, check if we can use it for immediate display
@@ -315,6 +318,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Listen for plot show events
 		this._register(this._commProxy.onDidShowPlot(async (evt) => {
+			this._lastEventExecutionId = this._commProxy.eventParentId;
 			const preRender = evt.pre_render;
 
 			// If there's a pre-rendering with new content, use it for immediate display.
@@ -529,6 +533,19 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 */
 	get lastRender(): IRenderedPlot | undefined {
 		return this._lastRender;
+	}
+
+	/** The current rendering state. */
+	get state(): PlotClientState {
+		return this._state;
+	}
+
+	/**
+	 * The ID of the execution that caused the most recent show or update
+	 * event, if the runtime reported one.
+	 */
+	get lastEventExecutionId(): string | undefined {
+		return this._lastEventExecutionId;
 	}
 
 	/**

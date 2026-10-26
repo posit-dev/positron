@@ -76,6 +76,12 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+.configure-data-connection .parameter-error {
+	font-size: 11px;
+	margin-top: 2px;
+	color: var(--vscode-errorForeground);
+}
+
 .configure-data-connection .parameter-optional {
 	margin-left: 4px;
 	opacity: 0.7;

@@ -14,8 +14,12 @@ export const DUCKDB_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-duckdb';
 /** Monotonically increasing id so each connection's previewed datasets get a unique key. */
 let nextConnectionId = 1;
 
-/** Matches the native error DuckDB raises when another process already holds the file's lock. */
-const LOCK_CONFLICT_PATTERN = /could not set lock|conflicting lock/i;
+/**
+ * Matches the native error DuckDB raises when another process already holds the file's lock. On
+ * Windows that is a sharing violation rather than a lock error; the OS text is localized, so match
+ * DuckDB's own "File is already open in <process>" suffix instead.
+ */
+const LOCK_CONFLICT_PATTERN = /could not set lock|conflicting lock|file is already open in/i;
 
 /**
  * Formats an open failure for display. DuckDB takes an OS-level lock on a database file and allows
@@ -115,7 +119,7 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	 */
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();
-		return [createSchemasGroupNode(this._lease!.client, this)];
+		return [createSchemasGroupNode(this._lease!.client, this, undefined)];
 	}
 
 	/**
@@ -124,10 +128,11 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	 * explorer backed by this extension's provider. Returns the dataset id it was opened under, which
 	 * Positron uses to tell that this connection has a Data Explorer open on it.
 	 */
-	async previewObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string> {
+	async previewObject(database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string> {
 		this._ensureConnected();
-		const datasetId = `duckdbconn:${this._connectionId}:${kind}:${schemaName}.${tableName}`;
-		await this._dataExplorerHandler.openTableView(datasetId, this._lease!.client, schemaName, tableName, kind);
+		// The names are JSON-encoded so names that contain dots cannot collide.
+		const datasetId = `duckdbconn:${this._connectionId}:${kind}:${JSON.stringify([database, schemaName, tableName])}`;
+		await this._dataExplorerHandler.openTableView(datasetId, this._lease!.client, database, schemaName, tableName, kind);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
 			providerId: DUCKDB_DATA_EXPLORER_PROVIDER_ID,
@@ -142,10 +147,10 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	 * Uses a dataset id distinct from the table's so both can be open at once. Returns the dataset id
 	 * it was opened under.
 	 */
-	async previewColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string> {
+	async previewColumn(database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string> {
 		this._ensureConnected();
-		const datasetId = `duckdbconn:${this._connectionId}:column:${schemaName}.${tableName}.${columnName}`;
-		await this._dataExplorerHandler.openColumnView(datasetId, this._lease!.client, schemaName, tableName, kind, columnName);
+		const datasetId = `duckdbconn:${this._connectionId}:column:${JSON.stringify([database, schemaName, tableName, columnName])}`;
+		await this._dataExplorerHandler.openColumnView(datasetId, this._lease!.client, database, schemaName, tableName, kind, columnName);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
 			providerId: DUCKDB_DATA_EXPLORER_PROVIDER_ID,

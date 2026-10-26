@@ -8,6 +8,11 @@ import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensi
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerRpcTransport, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { IDataImporter, IDataImporterMetadata, IDataImportRequest, IDataImportResult, IPositronDataImporterRegistry } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
+import type { dataExplorer } from 'positron';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
+import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { ExtHostDataExplorerShape, ExtHostPositronContext, MainPositronContext, MainThreadDataExplorerShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**
@@ -26,10 +31,16 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 	/** Registry registrations for importers contributed by the ext host, keyed by handle. */
 	private readonly _importerRegistrations = new Map<number, IDisposable>();
 
+	/** The providers registered on this host whose handlers implement `refreshDataset`. */
+	private readonly _refreshableProviders = new Set<string>();
+
 	constructor(
 		extHostContext: IExtHostContext,
 		@IPositronDataExplorerService private readonly _dataExplorerService: IPositronDataExplorerService,
-		@IPositronDataImporterRegistry private readonly _dataImporterRegistry: IPositronDataImporterRegistry
+		@IPositronDataImporterRegistry private readonly _dataImporterRegistry: IPositronDataImporterRegistry,
+		@IEditorService private readonly _editorService: IEditorService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IPositronDataConnectionsService private readonly _dataConnectionsService: IPositronDataConnectionsService
 	) {
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostDataExplorer);
 		// Register this host so its provider claims are cleared if the host disconnects.
@@ -48,15 +59,31 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 		this._proxy.$disposeBackend(providerId, datasetId);
 	}
 
+	supportsRefresh(providerId: string): boolean {
+		return this._refreshableProviders.has(providerId);
+	}
+
+	refreshDataset(providerId: string, datasetId: string): Promise<void> {
+		return this._proxy.$refreshDataset(providerId, datasetId);
+	}
+
 	// --- MainThreadDataExplorerShape (called by the ext host) ---
 
-	$registerRpcHandler(providerId: string): void {
+	$registerRpcHandler(providerId: string, supportsRefresh: boolean): void {
+		// A re-registration replaces the handler, so it replaces the capability too.
+		if (supportsRefresh) {
+			this._refreshableProviders.add(providerId);
+		} else {
+			this._refreshableProviders.delete(providerId);
+		}
+
 		// Tells the service this host is the one that can service the provider's RPCs. In web there
 		// are two hosts and only one of them has the extension, so this is what routes correctly.
 		this._dataExplorerService.registerRpcProvider(providerId, this);
 	}
 
 	$unregisterRpcHandler(providerId: string): void {
+		this._refreshableProviders.delete(providerId);
 		this._dataExplorerService.unregisterRpcProvider(providerId, this);
 	}
 
@@ -88,6 +115,28 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 	$unregisterDataImporter(handle: number): void {
 		this._importerRegistrations.get(handle)?.dispose();
 		this._importerRegistrations.delete(handle);
+	}
+
+	async $getActiveDataExplorerContext(): Promise<dataExplorer.DataExplorerContext | undefined> {
+		const resource = this._editorService.activeEditor?.resource;
+		const identifier = resource && PositronDataExplorerUri.parse(resource);
+		const instance = identifier && this._dataExplorerService.getInstance(identifier);
+		if (!instance) {
+			return undefined;
+		}
+
+		const session = this._runtimeSessionService.activeSessions.find(session =>
+			session.clientInstances.some(client => client.getClientId() === identifier));
+		const profile = this._dataConnectionsService.getProfileForDataset(identifier);
+		const source: dataExplorer.DataExplorerSource = {
+			sessionId: session?.sessionId,
+			languageName: session?.runtimeMetadata.languageName,
+			fileUri: PositronDataExplorerUri.backingUri(resource)?.toString(),
+			connectionName: profile?.connectionName,
+			connectionDriver: profile?.driverMetadata.name,
+		};
+
+		return { ...await instance.getViewContext(), source };
 	}
 
 	dispose(): void {

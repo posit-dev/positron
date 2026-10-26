@@ -37,13 +37,19 @@ PR_BODY=$(echo "$PULL_REQUEST_BODY" | tr -d '\r' | tr '\n' ' ' | sed 's/"/\\"/g'
 
 echo "Parsing tags from PR body..."
 
+# Which optional lanes the workflow will launch; drives the shard listing below.
+WIN_LANE="false"
+WEB_LANE="false"
+
 if echo "$PR_BODY" | grep -q "@:win"; then
 	echo "Found win tag in PR body. Setting to run windows tests."
 	echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
+	WIN_LANE=true
 fi
 if echo "$PR_BODY" | grep -q "@:web"; then
 	echo "Found web tag in PR body. Setting to run web tests."
 	echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
+	WEB_LANE=true
 fi
 if echo "$PR_BODY" | grep -q "@:rocky-electron"; then
 	echo "Found Rocky electron tag in PR body. Setting to run Rocky electron tests."
@@ -215,7 +221,9 @@ else
 		ARK_INJECTED="true"
 		TAGS="$(union_csv_tags "$TAGS" "@:ark,@:win,@:web")"
 		echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
+		WIN_LANE=true
 		echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
+		WEB_LANE=true
 	fi
 
 	# Resolve the path to the map (this script lives in scripts/).
@@ -333,11 +341,13 @@ else
 		if [[ "$ADDED_WIN" == "true" ]]; then
 			echo "Newly added e2e test carries tags.WIN. Enabling Windows tests."
 			echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
+			WIN_LANE=true
 			TAGS="$(union_csv_tags "$TAGS" "@:win")"
 		fi
 		if [[ "$ADDED_WEB" == "true" ]]; then
 			echo "Newly added e2e test carries tags.WEB. Enabling web tests."
 			echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
+			WEB_LANE=true
 			TAGS="$(union_csv_tags "$TAGS" "@:web")"
 		fi
 	fi
@@ -389,6 +399,43 @@ echo "unmapped_dirs=$(printf '%s' "$UNMAPPED_DIRS" | paste -sd, -)" >> "$GITHUB_
 # empty list collapses any repeats so neither the --grep nor the PR comment shows
 # a tag twice.
 TAGS="$(union_csv_tags "$TAGS" "")"
+
+# Shard each e2e lane by its real test count, so an Ark bump plus feature tags
+# (#16626) splits across runners instead of hitting the job time limit. The
+# listing needs the deps e2e-tag-listing-setup installs; a lane whose listing
+# fails runs unsharded with a warning rather than failing the job.
+count_lane_tests() {
+	local project="$1" regex listing
+	regex="$(pw_tags_regex "$project" "$TAGS")" || return 0
+	listing="$(cd "$SCRIPT_DIR/.." && npx playwright test --list --project "$project" --reporter=list ${regex:+--grep "$regex"} 2>/dev/null || true)"
+	parse_list_total "$listing"
+}
+
+LANE_MAX_FAILURES=10
+LANE_SUMMARY=""
+for LANE in "linux:e2e-electron:true" "win:e2e-windows:$WIN_LANE" "web:e2e-chromium:$WEB_LANE"; do
+	IFS=: read -r LANE_NAME LANE_PROJECT LANE_ENABLED <<< "$LANE"
+	LANE_TESTS=""
+	if [[ "$LANE_ENABLED" == "true" ]]; then
+		if [[ -x "$SCRIPT_DIR/../node_modules/.bin/playwright" ]]; then
+			LANE_TESTS="$(count_lane_tests "$LANE_PROJECT")"
+		fi
+		if [[ -z "$LANE_TESTS" ]]; then
+			echo "Warning: could not list $LANE_PROJECT tests; the $LANE_NAME lane runs unsharded."
+		fi
+	fi
+	LANE_SHARDS="$(shard_count "$LANE_TESTS")"
+	if [[ "$LANE_ENABLED" == "true" ]]; then
+		echo "$LANE_NAME lane: ${LANE_TESTS:-unknown} tests, $LANE_SHARDS shard(s)"
+		if [[ -n "$LANE_TESTS" ]]; then
+			LANE_SUMMARY="${LANE_SUMMARY:+$LANE_SUMMARY,}$LANE_NAME=$LANE_TESTS/$LANE_SHARDS"
+		fi
+	fi
+	echo "${LANE_NAME}_shards=$LANE_SHARDS" >> "$GITHUB_OUTPUT"
+	echo "${LANE_NAME}_matrix=$(shard_matrix "$LANE_SHARDS")" >> "$GITHUB_OUTPUT"
+	echo "${LANE_NAME}_max_failures=$(per_shard_max_failures "$LANE_MAX_FAILURES" "$LANE_SHARDS")" >> "$GITHUB_OUTPUT"
+done
+echo "lane_summary=$LANE_SUMMARY" >> "$GITHUB_OUTPUT"
 
 # Per-tag provenance for the PR comment's "Why these tags?" collapse. An empty
 # TAGS means the author wrote @:all (run everything) -- label it as a body tag.

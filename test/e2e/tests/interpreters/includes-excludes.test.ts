@@ -22,7 +22,7 @@ test.describe('Interpreter: Includes', {
 		}, { reload: true, waitForReady: true });
 	});
 
-	test('Python - Can Include an Interpreter', async function ({ sessions }) {
+	test('Python - Can Include an Interpreter', { tag: [tags.PYTHON] }, async function ({ sessions }) {
 		const hiddenPython = process.env.POSITRON_HIDDEN_PY;
 
 		hiddenPython
@@ -59,7 +59,7 @@ test.describe('Interpreter: Excludes', {
 		await expectSessionStartToFail(sessions, 'rAlt', excludedRPath);
 	});
 
-	test('Python - Can Exclude an Interpreter', async function ({ sessions }) {
+	test('Python - Can Exclude an Interpreter', { tag: [tags.PYTHON] }, async function ({ sessions }) {
 		await expectSessionStartToFail(sessions, 'pythonAlt', excludedPythonPath);
 	});
 });

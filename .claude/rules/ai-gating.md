@@ -6,11 +6,11 @@
 
 `ai.enabled` is Positron-owned, defaults to `true`, and is `WINDOW`-scoped. It's declared in [positronAIConfiguration.ts](../../src/vs/workbench/contrib/positronAssistant/common/positronAIConfiguration.ts), which exports the key as `AI_ENABLED_KEY`. Import that constant; don't hard-code the `'ai.enabled'` string.
 
-There's no shared helper that wraps the gate, so the key string is the contract. `ai.enabled` sits above each feature's own preconditions, so check it in addition to whatever feature-specific gates already exist (a feature setting, "has chat models", notebook mode, etc.) rather than replacing them. The feature shows only when `ai.enabled` and all its own conditions are true.
+The key string is the contract. `ai.enabled` sits above each feature's own preconditions, so check it in addition to whatever feature-specific gates already exist (a feature setting, "has chat models", notebook mode, etc.) rather than replacing them. The feature shows only when `ai.enabled` and all its own conditions are true.
 
 ## How to read it
 
-Pick the form that matches where the code runs. All three are in use today; copy the closest one.
+Pick the form that matches where the code runs.
 
 **Action `when` clause / precondition** (registering an action or menu item):
 
@@ -20,7 +20,7 @@ import { AI_ENABLED_KEY } from '.../positronAssistant/common/positronAIConfigura
 precondition: ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
 ```
 
-See [AskAssistantAction.tsx](../../src/vs/workbench/contrib/positronNotebook/browser/AskAssistantAction.tsx).
+See [commitMessageAction.ts](../../src/vs/workbench/contrib/positronAssistant/browser/commitMessageAction.ts).
 
 **Service / non-React code**:
 
@@ -28,7 +28,7 @@ See [AskAssistantAction.tsx](../../src/vs/workbench/contrib/positronNotebook/bro
 if (this._configurationService.getValue<boolean>(AI_ENABLED_KEY) === true) { ... }
 ```
 
-See [ghostCell/controller.ts](../../src/vs/workbench/contrib/positronNotebook/browser/contrib/ghostCell/controller.ts).
+See [errorActionHandlerService.ts](../../src/vs/workbench/contrib/positronAssistant/browser/errorActionHandlerService.ts).
 
 **React component**:
 
@@ -36,7 +36,7 @@ See [ghostCell/controller.ts](../../src/vs/workbench/contrib/positronNotebook/br
 const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
 ```
 
-See [NotebookCellQuickFix.tsx](../../src/vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellQuickFix.tsx) and [activityErrorMessage.tsx](../../src/vs/workbench/contrib/positronConsole/browser/components/activityErrorMessage.tsx).
+**Error Fix/Explain actions** (a surface that sends an error to an AI assistant): don't read `ai.enabled` yourself. Show the actions only while the active error action handler is defined, using `useActiveErrorActionHandler()` in React or `IErrorActionHandlerService.activeHandler` elsewhere, and send the error with `IErrorActionHandlerService.ask`. The service applies the `ai.enabled` gate to both. Keep any surface-specific gate (a console setting, notebook mode, etc.) alongside it. See [errorAction.ts](../../src/vs/workbench/contrib/positronAssistant/common/errorAction.ts).
 
 ## Things to get right
 

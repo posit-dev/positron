@@ -13,7 +13,11 @@ import * as vscode from 'vscode';
 import { getPyenvDir } from '../pythonEnvironments/common/environmentManagers/pyenv';
 import { getGlobalEnvironmentParent } from '../pythonEnvironments/common/environmentManagers/globalEnvironment';
 import { getUserHomeDir } from '../common/utils/platform';
-import { getResolvedFilterSettingPaths } from './interpreterSettings';
+import {
+    getInterpreterDefinitionPaths,
+    getResolvedFilterSettingPaths,
+    isDefinitionsOnlyDiscovery,
+} from './interpreterSettings';
 
 /**
  * Hard-coded POSIX bin directories where Python installers commonly drop
@@ -68,7 +72,7 @@ const HOME_RELATIVE_PATHS: readonly string[] = [
  *        as a legacy fallback; uv still honors it when it exists.
  *      - Windows: `%APPDATA%\uv\python` (Roaming, matching uv).
  */
-function getUvPythonInstallDirs(): string[] {
+export function getUvPythonInstallDirs(): string[] {
     const installDirOverride = process.env['UV_PYTHON_INSTALL_DIR'];
     if (installDirOverride) {
         return [installDirOverride];
@@ -237,6 +241,9 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
     // they are the same directory.
     addAll([getGlobalEnvironmentParent(), home ? path.join(home, '.virtualenvs') : undefined]);
 
+    // Interpreters named in interpreters.definitions, so adding one triggers discovery.
+    addAll(getInterpreterDefinitionPaths());
+
     // Dedupe by resolved path -- two settings/defaults may both land at the
     // same physical location (e.g. PYENV_ROOT explicitly set to ~/.pyenv).
     // The first occurrence wins so the signature is stable across runs.
@@ -272,6 +279,12 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
 }
 
 /**
+ * Bump when the startup flags of discovered runtimes change, so cached runtimes
+ * from an older build are rediscovered once.
+ */
+export const DISCOVERY_POLICY_VERSION = 2;
+
+/**
  * Digest of every Python setting that gates discovery but doesn't move an
  * on-disk root. Folded into the signature's opaque blob so a settings change
  * flips the signature even though no scan-root mtime moved -- without this
@@ -286,6 +299,11 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
  *     which enumerate different sets of interpreters.
  *   - `useEnvironmentsExtension`: switches discovery to the external Python
  *     Environments extension; the cache must rebuild when this flips.
+ *   - Positron's `interpreters.discovery`: switching to or from
+ *     `definitionsOnly` changes which interpreters exist at all.
+ *
+ * It also covers `DISCOVERY_POLICY_VERSION`, so a build that changes what
+ * discovery registers rediscovers instead of serving an older build's cache.
  *
  * `interpreters.include`, `.exclude`, and `.override` are hashed after replacing
  * `${workspaceFolder}`, so two workspaces with the same setting text don't
@@ -295,11 +313,14 @@ function getFilterSettingsDigest(): string {
     const config = vscode.workspace.getConfiguration('python');
     const filterPaths = getResolvedFilterSettingPaths();
     const payload = {
+        policyVersion: DISCOVERY_POLICY_VERSION,
         include: filterPaths.include,
         exclude: filterPaths.exclude,
         override: filterPaths.override,
         locator: config.get<string>('locator') ?? '',
         useEnvironmentsExtension: config.get<boolean>('useEnvironmentsExtension') ?? false,
+        // Only included when set, so the digest is unchanged for everyone else.
+        ...(isDefinitionsOnlyDiscovery() ? { definitionsOnly: true } : {}),
     };
     return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }

@@ -9,7 +9,7 @@ source "$HERE/../lib/pr-tags-lib.sh"
 fail=0
 # Clean up every temp resource on exit (including SIGINT/SIGTERM), so an
 # interrupted run doesn't leave files behind. Vars are empty until each mktemp.
-trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" "${LAST_MEMBER_ENUM:-}" "${LAST_MEMBER_MAP:-}" "${EMPTY_TESTS_DIR:-}" "${JSON_MAP:-}" "${EMPTY_JSON_MAP:-}" "${CRUFT_ROOT:-}" "${CRUFT_MAP:-}" "${APPLY_DIR:-}" "${DERIVE_DIR:-}" 2>/dev/null || true' EXIT
+trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" "${LAST_MEMBER_ENUM:-}" "${LAST_MEMBER_MAP:-}" "${EMPTY_TESTS_DIR:-}" "${JSON_MAP:-}" "${EMPTY_JSON_MAP:-}" "${CRUFT_ROOT:-}" "${CRUFT_MAP:-}" "${APPLY_DIR:-}" "${DERIVE_DIR:-}" "${GH_STUB_DIR:-}" 2>/dev/null || true' EXIT
 
 assert_eq() {
 	local desc="$1" expected="$2" actual="$3"
@@ -983,6 +983,28 @@ if printf '%s' "$WEB_OUT" | grep -qF '| `@:web` | New test (tags.WEB) |'; then
 else
 	echo "FAIL: render should label @:web as New test (tags.WEB)"; fail=1
 fi
+# Lane test counts live inside the collapse (reviewer request on #16782), so
+# a critical-only PR with a count still renders it, and a count never appears
+# outside <details>.
+COUNT_ONLY_OUT="$(render_why_these_tags "@:critical|required" "linux=62/1")"
+if printf '%s' "$COUNT_ONLY_OUT" | grep -qF "<summary>Why these tags?</summary>" \
+	&& printf '%s' "$COUNT_ONLY_OUT" | grep -qF "Test count: Linux: 62 tests." \
+	&& ! printf '%s' "$COUNT_ONLY_OUT" | grep -qF "| Tag | Source |"; then
+	echo "PASS: render critical-only with a count shows the count without the table"
+else
+	echo "FAIL: render critical-only with a count should show only the count inside the collapse"; fail=1
+fi
+assert_eq "render: critical-only with no count stays empty" "" \
+	"$(render_why_these_tags "@:critical|required" "")"
+BOTH_OUT="$(render_why_these_tags "@:critical|required,@:ark|ark" "linux=246/2,win=180/1")"
+if printf '%s' "$BOTH_OUT" | grep -qF '| `@:ark` | Ark submodule bump |' \
+	&& printf '%s' "$BOTH_OUT" | grep -qF "Test count: Linux: 246 tests across 2 shards, Windows: 180 tests." \
+	&& [[ "$(printf '%s' "$BOTH_OUT" | tail -1)" == "</details>" ]]; then
+	echo "PASS: render puts the table and the count inside one collapse"
+else
+	echo "FAIL: render should put the table and the count inside one collapse"; fail=1
+fi
+
 TESTCHANGE_OUT="$(render_why_these_tags "@:critical|required,@:viewer|test-changed")"
 if printf '%s' "$TESTCHANGE_OUT" | grep -qF '| `@:viewer` | Touched test file |'; then
 	echo "PASS: render labels the test-changed arm"
@@ -1263,6 +1285,84 @@ NO_WARN_STDOUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt
 assert_eq "platform-only touched test already covered: nothing added to stdout" "" "$NO_WARN_STDOUT"
 
 rm -rf "$DERIVE_DIR"
+
+# --- pw_tags_regex ---
+# Locks in the lane grep the old pr-tags-transform.sh produced, since the
+# shard-count listing now has to select exactly what the lane runs.
+assert_eq "regex: linux ORs the sorted tags with no platform lookahead" "(?=.*(@:console|@:critical))" \
+	"$(pw_tags_regex e2e-electron "@:critical,@:console")"
+assert_eq "regex: linux strips @:win and @:web" "(?=.*(@:ark|@:critical))" \
+	"$(pw_tags_regex e2e-electron "@:critical,@:ark,@:win,@:web")"
+assert_eq "regex: windows prefixes the @:win lookahead" "(?=.*@:win)(?=.*(@:ark|@:critical))" \
+	"$(pw_tags_regex e2e-windows "@:critical,@:ark,@:win,@:web")"
+assert_eq "regex: chromium prefixes the @:web lookahead" "(?=.*@:web)(?=.*(@:ark|@:critical))" \
+	"$(pw_tags_regex e2e-chromium "@:critical,@:ark,@:win,@:web")"
+assert_eq "regex: duplicate tags collapse" "(?=.*(@:console))" \
+	"$(pw_tags_regex e2e-electron "@:console,@:console")"
+assert_eq "regex: @:all (empty) on linux is empty" "" \
+	"$(pw_tags_regex e2e-electron "")"
+assert_eq "regex: @:all (empty) on windows is the bare lookahead" "(?=.*@:win)" \
+	"$(pw_tags_regex e2e-windows "")"
+assert_eq "regex: unknown project fails" "1" \
+	"$(pw_tags_regex e2e-nope "@:critical" 2>/dev/null; echo $?)"
+
+# --- parse_list_total ---
+assert_eq "list total: plural line" "246" \
+	"$(parse_list_total "$(printf 'Listing tests:\n  a.test.ts:1:1 > x\nTotal: 246 tests in 105 files')")"
+assert_eq "list total: singular line" "1" \
+	"$(parse_list_total "Total: 1 test in 1 file")"
+assert_eq "list total: missing line yields nothing" "" \
+	"$(parse_list_total "Error: config not found")"
+
+# --- shard_count / shard_matrix / per_shard_max_failures ---
+assert_eq "shards: at the budget stays one" "1" "$(E2E_TESTS_PER_SHARD=200 shard_count 200)"
+assert_eq "shards: one over the budget splits" "2" "$(E2E_TESTS_PER_SHARD=200 shard_count 201)"
+assert_eq "shards: ark plus features on linux" "3" "$(E2E_TESTS_PER_SHARD=200 shard_count 467)"
+assert_eq "shards: zero tests still runs one shard" "1" "$(shard_count 0)"
+assert_eq "shards: unknown count falls back to one" "1" "$(shard_count "")"
+assert_eq "matrix: single shard" '{"shard":[1]}' "$(shard_matrix 1)"
+assert_eq "matrix: three shards" '{"shard":[1,2,3]}' "$(shard_matrix 3)"
+assert_eq "max failures: unsharded keeps the base" "10" "$(per_shard_max_failures 10 1)"
+assert_eq "max failures: rounds up per shard" "4" "$(per_shard_max_failures 10 3)"
+
+# --- render_lane_summary ---
+assert_eq "lane summary: empty yields nothing" "" "$(render_lane_summary "")"
+assert_eq "lane summary: single-shard lanes show only the count" \
+	"Test count: Linux: 62 tests." "$(render_lane_summary "linux=62/1")"
+assert_eq "lane summary: sharded lanes show the split" \
+	"Test count: Linux: 467 tests across 3 shards, Windows: 379 tests across 2 shards, Web: 202 tests across 2 shards." \
+	"$(render_lane_summary "linux=467/3,win=379/2,web=202/2")"
+
+# --- pr-e2e-comment.sh: finds the tags comment past the first page ---
+# A fake `gh` serves 30 unrelated comments on page 1 and the tags comment (plus
+# a duplicate) on page 2. Without --paginate only page 1 comes back, so the
+# script would post a second tags comment instead of updating the first.
+GH_STUB_DIR="$(mktemp -d)"
+cat > "$GH_STUB_DIR/gh" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >> "$GH_STUB_DIR/calls.log"
+case "$*" in
+	*"-X PATCH"*|*"-X DELETE"*|*"-F body"*) exit 0 ;;
+	*"/pulls/"*"/files"*) exit 0 ;;
+	*"/issues/"*"/comments"*)
+		jq -n '[range(1;31) | {id: ., body: "unrelated"}]'
+		if [[ " $* " == *" --paginate "* ]]; then
+			jq -n '[{id: 999, body: "<!-- PR Tags -->\nold"}, {id: 1000, body: "<!-- PR Tags -->\ndup"}]'
+		fi
+		;;
+esac
+STUB
+chmod +x "$GH_STUB_DIR/gh"
+PATH="$GH_STUB_DIR:$PATH" GH_STUB_DIR="$GH_STUB_DIR" GITHUB_REPOSITORY=o/r \
+	GITHUB_PR_NUMBER=1 GITHUB_TOKEN=t \
+	bash "$HERE/../pr-e2e-comment.sh" "<!-- PR Tags -->" "@:critical" >/dev/null 2>&1
+assert_eq "comment: updates the tags comment on page 2" "1" \
+	"$(grep -c 'issues/comments/999 -X PATCH' "$GH_STUB_DIR/calls.log")"
+assert_eq "comment: does not post a second tags comment" "0" \
+	"$(grep -c 'issues/1/comments -F body' "$GH_STUB_DIR/calls.log")"
+assert_eq "comment: deletes the duplicate on page 2" "1" \
+	"$(grep -c 'issues/comments/1000 -X DELETE' "$GH_STUB_DIR/calls.log")"
+rm -rf "$GH_STUB_DIR"
 
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail

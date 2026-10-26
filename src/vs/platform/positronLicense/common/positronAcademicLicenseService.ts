@@ -24,11 +24,11 @@ export interface IPositronAcademicLicenseService {
 	readonly isAcademic: boolean;
 
 	/**
-	 * A short, stable hash of the license file backing this session, sent to P3M as
-	 * `positron-license-hash` so Posit can count session starts per license it issued.
-	 * Undefined when the session has no license file to hash: desktop, a signed Posit
-	 * Workbench token (per-connection, so hashing it would say nothing), and the AWS
-	 * license manager (no key material). See `hashLicenseContents` in `localLicense.ts`.
+	 * A short, stable hash of the license backing this session (the license file, or
+	 * the AWS license ARN on SageMaker), sent to P3M as `positron-license-hash` so Posit
+	 * can count session starts per license it issued. Undefined when there is no license
+	 * to hash: desktop, and a signed Posit Workbench token (per-connection, so hashing it
+	 * would say nothing). See `hashLicenseContents` in `localLicense.ts`.
 	 */
 	readonly licenseHash: string | undefined;
 }
@@ -59,8 +59,9 @@ export function isLicenseHash(value: unknown): value is string {
  * for injection into the served workbench HTML by `webClientServer.ts`. Each global is
  * emitted only when it has something to say, and the script is empty when neither does:
  * an absent academic global means false, and an absent hash global means no license file.
+ * `nonce` is the per-request CSP script nonce.
  */
-export function licenseMarkerScript(isAcademic: boolean, licenseHash?: string): string {
+export function licenseMarkerScript(nonce: string, isAcademic: boolean, licenseHash?: string): string {
 	const assignments: string[] = [];
 	if (isAcademic) {
 		assignments.push(`globalThis.${POSITRON_IS_ACADEMIC_GLOBAL} = true;`);
@@ -68,5 +69,5 @@ export function licenseMarkerScript(isAcademic: boolean, licenseHash?: string): 
 	if (isLicenseHash(licenseHash)) {
 		assignments.push(`globalThis.${POSITRON_LICENSE_HASH_GLOBAL} = '${licenseHash}';`);
 	}
-	return assignments.length > 0 ? `<script>${assignments.join(' ')}</script>` : '';
+	return assignments.length > 0 ? `<script nonce="${nonce}">${assignments.join(' ')}</script>` : '';
 }

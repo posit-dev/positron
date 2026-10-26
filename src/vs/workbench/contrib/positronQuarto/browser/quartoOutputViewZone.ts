@@ -11,7 +11,9 @@ import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
-import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
+import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, OBJECT_EXPLORER_MIME_TYPE, CellExecutionState } from '../common/quartoExecutionTypes.js';
+import { IQuartoErroredCell } from '../../positronAssistant/common/errorAction.js';
+import { InlineObjectExplorer } from '../../../browser/positronObjectExplorer/inlineObjectExplorer.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
 import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
@@ -34,6 +36,7 @@ import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY, POSITRON_NOTEBOOK_I
 import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
+import { getInlineGridMetrics, REFERENCE_FONT_SIZE } from '../../../services/positronDataExplorer/browser/inlineGridMetrics.js';
 import { ResourceUsageGraph } from '../../positronConsole/browser/components/resourceUsageGraph.js';
 import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
@@ -380,7 +383,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Quick-fix support for error outputs (suppressed by default; the live
 	// execution path calls enableQuickFix() to opt in).
 	private _quickFixEnabled = false;
-	private _cellContext: QuartoCellErrorContext | undefined;
+	private _erroredCell: IQuartoErroredCell | undefined;
 	private _quickFixRenderer: PositronReactRenderer | undefined;
 
 	constructor(
@@ -420,6 +423,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._styledContainer.setAttribute('role', 'region');
 		this._styledContainer.setAttribute('aria-label', localize('quartoOutput', 'Cell output'));
 		this._styledContainer.setAttribute('tabindex', '0');
+		// The em-based spacing in quartoOutputViewZone.css divides by this
+		// value, so it matches the original px design at the platform's
+		// default editor font size, the same reference the inline grid uses.
+		this._styledContainer.style.setProperty('--quarto-output-reference-font-size', `${REFERENCE_FONT_SIZE}`);
 		this.domNode.appendChild(this._styledContainer);
 
 		// Create button container for close and copy buttons
@@ -598,11 +605,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
-	 * Apply the editor's font settings to the output container.
+	 * Apply the editor's font settings to the output container. The styled
+	 * container gets only the font size, so its em-based padding scales with
+	 * the editor font. The collapsed summary inherits that size but keeps the
+	 * workbench font family.
 	 */
 	private _applyEditorFont(): void {
 		const fontInfo = this._editor.getOption(EditorOption.fontInfo);
 		applyFontInfo(this._outputContainer, fontInfo);
+		this._styledContainer.style.fontSize = `${fontInfo.fontSize}px`;
+		this._updateHeight();
 	}
 
 	/**
@@ -1067,9 +1079,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * zone. Only the live execution path calls this; restore paths leave
 	 * the default (suppressed) so stale errors don't show buttons.
 	 */
-	enableQuickFix(context?: QuartoCellErrorContext): void {
+	enableQuickFix(cell?: IQuartoErroredCell): void {
 		this._quickFixEnabled = true;
-		this._cellContext = context;
+		this._erroredCell = cell;
 	}
 
 	/**
@@ -1752,6 +1764,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			return { kind: 'other', text: localize('quartoOutputSummaryDataFrameGeneric', 'Data frame') };
 		}
 
+		// Nested data (inline object explorer)
+		if (output.items.some(item => item.mime === OBJECT_EXPLORER_MIME_TYPE)) {
+			return { kind: 'other', text: localize('quartoOutputSummaryObject', 'Object') };
+		}
+
 		// Interactive output (widget / plotly / viewer)
 		if (output.webviewMetadata?.webviewType) {
 			return { kind: 'other', text: localize('quartoOutputSummaryInteractive', 'Interactive output') };
@@ -2264,8 +2281,14 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			item => item.mime === DATA_EXPLORER_MIME_TYPE
 		);
 
+		const objectExplorerItem = output.items.find(
+			item => item.mime === OBJECT_EXPLORER_MIME_TYPE
+		);
+
 		if (dataExplorerItem && this._isDataExplorerEnabled()) {
 			this._renderDataExplorerOutput(dataExplorerItem, output, outputElement);
+		} else if (objectExplorerItem) {
+			this._renderObjectExplorerOutput(objectExplorerItem, output, outputElement);
 		} else if (output.webviewMetadata?.webviewType && this._webviewService && this._session) {
 			// Check if this output needs webview rendering
 			// Render via webview for interactive/complex outputs
@@ -2289,9 +2312,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			const hasDataExplorer = output.items.some(i => i.mime === DATA_EXPLORER_MIME_TYPE);
 			const shouldExcludePlainText = (hasHtml || hasImage) && !hasDataExplorer;
 
-			// Render items normally, skipping data explorer MIME
+			// Render items normally, skipping the explorer MIME types
 			for (const item of output.items) {
-				if (item.mime === DATA_EXPLORER_MIME_TYPE) {
+				if (item.mime === DATA_EXPLORER_MIME_TYPE || item.mime === OBJECT_EXPLORER_MIME_TYPE) {
 					continue;
 				}
 				if (item.mime === 'text/plain' && shouldExcludePlainText) {
@@ -2382,7 +2405,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const maxHeight = this._configurationService?.getValue<number>(
 			POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
 		) ?? 300;
-		const height = calculateInlineDataExplorerHeight(shape.rows, maxHeight);
+		const height = calculateInlineDataExplorerHeight(
+			shape.rows,
+			maxHeight,
+			getInlineGridMetrics(this._configurationService)
+		);
 
 		// Create a container for the React component
 		const dataExplorerContainer = document.createElement('div');
@@ -2429,6 +2456,52 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				documentUri: this._documentUri ?? URI.parse(''),
 				onFallback: handleFallback,
 				onHeightChange: handleHeightChange,
+			})
+		);
+	}
+
+	/**
+	 * Render an object explorer output using a React component bridge, falling back to the
+	 * output's text when the object explorer is unavailable.
+	 */
+	private _renderObjectExplorerOutput(
+		objectExplorerItem: ICellOutputItem,
+		output: ICellOutput,
+		container: HTMLElement
+	): void {
+		let payload: { comm_id?: string; title?: string };
+		try {
+			payload = JSON.parse(objectExplorerItem.data);
+		} catch {
+			payload = {};
+		}
+		const commId = payload.comm_id;
+		if (!commId) {
+			this._renderDataExplorerFallback(output, container);
+			return;
+		}
+
+		const objectExplorerContainer = document.createElement('div');
+		objectExplorerContainer.className = 'quarto-output-object-explorer';
+		container.appendChild(objectExplorerContainer);
+
+		const renderer = new PositronReactRenderer(objectExplorerContainer);
+		this._reactRenderersByOutputId.set(output.outputId, renderer);
+
+		const handleFallback = () => {
+			renderer.dispose();
+			this._reactRenderersByOutputId.delete(output.outputId);
+			objectExplorerContainer.remove();
+			this._renderDataExplorerFallback(output, container);
+			this._updateHeight();
+		};
+
+		renderer.render(
+			React.createElement(InlineObjectExplorer, {
+				commId,
+				title: payload.title ?? '',
+				onFallback: handleFallback,
+				onDidChangeHeight: () => this._updateHeight(),
 			})
 		);
 	}
@@ -2612,9 +2685,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		container.appendChild(pre);
 
 		// Mount Fix/Explain quick-fix buttons for current-session errors.
-		// QuartoOutputQuickFix self-gates on assistant availability and
-		// renders nothing when the assistant is unavailable.
-		if (this._quickFixEnabled) {
+		// QuartoOutputQuickFix renders nothing while there is no active error
+		// handler to send the error to.
+		if (this._quickFixEnabled && this._documentUri) {
 			const quickFixContainer = document.createElement('div');
 			quickFixContainer.setAttribute('aria-live', 'off');
 			container.appendChild(quickFixContainer);
@@ -2624,7 +2697,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._quickFixRenderer.render(
 				React.createElement(QuartoOutputQuickFix, {
 					errorContent: errorText,
-					cellContext: this._cellContext,
+					documentUri: this._documentUri,
+					cell: this._erroredCell,
 					// The buttons mount asynchronously; re-measure once they are in
 					// the DOM so the zone reserves room for them. Relying on the
 					// ResizeObserver alone misses a re-run that produces an
@@ -3042,8 +3116,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._saveButton.style.display = containerHeight > 100 && this.hasSinglePlot() ? 'block' : 'none';
 		}
 
-		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
-		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);
+		// Add the styled container's vertical margins plus 5px spacing below
+		// the widget. offsetHeight excludes margins, so read them from the
+		// computed style; they are em-based and scale with the editor font.
+		// Round up so the lines below the zone stay on whole pixels.
+		const containerStyle = dom.getComputedStyle(this._styledContainer);
+		const verticalMargins =
+			(parseFloat(containerStyle.marginTop) || 0) +
+			(parseFloat(containerStyle.marginBottom) || 0);
+		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, Math.ceil(styledHeight + verticalMargins + 5));
 
 		if (newHeight !== this.heightInPx && this._zoneId) {
 			this.heightInPx = newHeight;

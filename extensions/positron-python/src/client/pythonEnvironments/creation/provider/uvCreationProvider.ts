@@ -29,10 +29,11 @@ import {
     getAvailablePythonVersions,
     getStablePythonAfterUpdate,
     getUvPythonVersionInfo,
-    isUvInstalled,
 } from '../../common/environmentManagers/uv';
+import { ensureUvInstalledWithProgress } from '../../common/environmentManagers/uvPythonInstaller';
 import { pickPythonVersion } from './uvUtils';
 import { uvInstallDeps } from './autoCreateVenv';
+import { reusedEnvironmentResult } from '../reusedEnvironment';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
 
@@ -87,10 +88,9 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
     public async createEnvironment(
         options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
     ): Promise<CreateEnvironmentResult | undefined> {
-        const uvIsInstalled = await isUvInstalled();
-        if (!uvIsInstalled) {
-            traceError('uv is not installed');
-            showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
+        // Offer to install uv rather than failing, so picking uv works on machines without it.
+        // A failed install shows its own error; a declined one ends quietly.
+        if (!(await ensureUvInstalledWithProgress()).ok) {
             return undefined;
         }
 
@@ -204,7 +204,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                 }
             } else if (existingVenvAction === ExistingVenvAction.UseExisting) {
                 traceInfo(`Using existing virtual environment in ${workspace.uri.fsPath}`);
-                return { path: getVenvExecutable(workspace), workspaceFolder: workspace };
+                return reusedEnvironmentResult(getVenvExecutable(workspace), workspace);
             }
         }
 

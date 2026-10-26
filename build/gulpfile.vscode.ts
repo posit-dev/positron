@@ -126,7 +126,7 @@ const vscodeResourceIncludes = [
 	'out-build/vs/workbench/contrib/welcomeOnboarding/browser/media/*.svg',
 
 	// Chat Pet
-	'out-build/vs/workbench/contrib/chat/browser/widget/media/chatPet/*.{gif,png}',
+	'out-build/vs/workbench/contrib/chat/browser/widget/media/chatPet/**/*.{gif,png}',
 
 	// Sessions
 	'out-build/vs/sessions/contrib/chat/browser/media/*.svg',
@@ -484,6 +484,9 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				// matched here — it is pure JavaScript that the agent host loads via
 				// `import` (ASAR-aware), so it stays in the archive.
 				'**/@github/copilot-{darwin,linux,linuxmusl,win32}-*/**',
+				// The Dev Container CLI is spawned as an external Node process,
+				// so its bundled entrypoint must be available outside the ASAR.
+				'**/@devcontainers/cli/**',
 				'**/@microsoft/mxc-sdk/bin/**',
 				'**/node-pty/build/Release/*',
 				'**/node-pty/build/Release/conpty/*',
@@ -758,6 +761,8 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 			glob('**/rg.exe', { cwd }),
 			glob('**/tgrep.exe', { cwd }),
 			glob('**/*explorer_command*.dll', { cwd }),
+			// TODO@anthonykim1 Remove once @github/copilot ships OneAuthInterop.dll with complete version information.
+			glob('**/OneAuthInterop.dll', { cwd }),
 		])).flatMap(o => o);
 		const packageJson = JSON.parse(await fs.promises.readFile(path.join(cwd, versionedResourcesFolder, 'resources', 'app', 'package.json'), 'utf8'));
 		const product = JSON.parse(await fs.promises.readFile(path.join(cwd, versionedResourcesFolder, 'resources', 'app', 'product.json'), 'utf8'));
@@ -814,15 +819,15 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 // --- Start Positron ---
 /**
  * Fails the build when the packaged tree holds a path that is too long for a
- * Windows per-user install or auto-update, or when an extension ships more files
- * than its budget.
+ * Windows per-user install or auto-update, when an extension ships more files
+ * than its budget, or when the shared DuckDB runtime is incomplete for the target.
  *
  * This task runs for every platform, because the extension dependency trees that
  * own the longest paths and the most files are the same everywhere. The first
  * build of any platform therefore finds a regression, and not the next Windows
  * release. See posit-dev/positron#14702 and posit-dev/positron#16025.
  */
-function checkPackagedTreeTask(platform: string, destinationFolderName: string) {
+function checkPackagedTreeTask(platform: string, arch: string, destinationFolderName: string) {
 	const outputDir = path.join(path.dirname(root), destinationFolderName);
 
 	return async () => {
@@ -833,7 +838,7 @@ function checkPackagedTreeTask(platform: string, destinationFolderName: string) 
 			: path.join(outputDir, util.getVersionedResourcesFolder(platform, commit!));
 		const extensionsDir = platform === 'darwin' ? 'Resources/app/extensions' : 'resources/app/extensions';
 
-		checkPackagedTree(appRoot, extensionsDir, { pathLengths: true });
+		checkPackagedTree(appRoot, extensionsDir, { pathLengths: true, duckdbTarget: { platform, arch } });
 	};
 }
 // --- End Positron ---
@@ -889,7 +894,7 @@ BUILD_TARGETS.forEach(buildTarget => {
 			// --- Start Positron ---
 			// prepareCopilotRipgrepShimTask(platform, arch, destinationFolderName)
 			prepareCopilotRipgrepShimTask(platform, arch, destinationFolderName),
-			checkPackagedTreeTask(platform, destinationFolderName)
+			checkPackagedTreeTask(platform, arch, destinationFolderName)
 			// --- End Positron ---
 		];
 

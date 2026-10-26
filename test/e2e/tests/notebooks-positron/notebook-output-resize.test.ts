@@ -14,7 +14,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Output Resize', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.PYTHON]
 }, () => {
 
 	test('Drag sash resizes scrollable cell output', async function ({ app }) {

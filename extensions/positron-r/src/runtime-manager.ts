@@ -6,17 +6,19 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { currentRBinary, getRDiscoveryRootSignature, makeMetadata, registerModuleRuntimeWithApi, rRuntimeDiscoverer } from './provider';
+import { currentRBinary, currentRInstallation, discoverRInstallationsForRecommendation, getRDiscoveryRootSignature, looksLikeRProject, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rFullSearchTriggers, rPixiRuntimeDiscoverer, rRuntimeDiscoverer } from './provider';
 import { PackagerMetadata, RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata, isRVersionsMetadata } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
 import { LOGGER, supervisorApi } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
-import { getDefaultInterpreterPath } from './interpreter-settings.js';
+import { getDefaultInterpreterPath, isDefinitionsOnlyDiscovery } from './interpreter-settings.js';
 import { getEnvironmentModulesApi } from './provider-module.js';
+import { packagerMetadataForPath } from './packager-detection.js';
 import { setupArkJupyterKernel } from './kernel';
 import { getRTerminalEnvironmentMutations, isROnPath } from './r-process-environment';
 import { RSessionManager } from './session-manager';
+import { chooseStartupR } from './startup-choice.js';
 
 /**
  * Extract the list of environment modules to load from an R installation's
@@ -109,9 +111,17 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	async *discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 		// Wrap the discoverer to track completion
-		const discoverer = rRuntimeDiscoverer();
+		const discoveredPaths = new Set<string>();
 		try {
+			// When discovery is limited to definitions, skip all other discovery.
+			const discoverer = isDefinitionsOnlyDiscovery() ? [] : rRuntimeDiscoverer();
 			for await (const runtime of discoverer) {
+				this._discoveredRuntimeCount++;
+				discoveredPaths.add(runtime.runtimePath);
+				yield runtime;
+			}
+			// Interpreters named in interpreters.definitions that discovery missed
+			for await (const runtime of rDefinitionOnlyRuntimes(discoveredPaths)) {
 				this._discoveredRuntimeCount++;
 				yield runtime;
 			}
@@ -126,6 +136,30 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	}
 
 	/**
+	 * Register the R installations in the open workspace folders' Pixi
+	 * environments, outside the discovery pass.
+	 *
+	 * Pixi runtimes are workspace-scoped and never cached, so when a warm
+	 * discovery cache lets Positron skip `discoverAllRuntimes()`, nothing else
+	 * registers them. Scanning just the Pixi environments keeps the discovery
+	 * root signature machine-global. When a full pass runs too, registering a
+	 * runtime it already registered is a no-op.
+	 */
+	async registerPixiRuntimes(): Promise<void> {
+		// When discovery is limited to definitions, skip all other discovery.
+		if (isDefinitionsOnlyDiscovery()) {
+			return;
+		}
+		try {
+			for await (const runtime of rPixiRuntimeDiscoverer()) {
+				this.registerLanguageRuntime(runtime);
+			}
+		} catch (err) {
+			LOGGER.error(`Failed to register Pixi R runtimes: ${err}`);
+		}
+	}
+
+	/**
 	 * Snapshot the directories this extension scans for R installations. Used
 	 * by Positron to detect newly-installed R interpreters between startups
 	 * without having to rerun a full discovery pass. See
@@ -136,21 +170,52 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	}
 
 	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		// When discovery is limited to definitions, nothing outside them is recommended.
+		if (isDefinitionsOnlyDiscovery()) {
+			return undefined;
+		}
+
 		// If the default interpreter path is set and the path exists on the filesystem,
 		// recommend it with implicit startup behavior.
+		let pinned: RInstallation | undefined;
 		const defaultInterpreterPath = getDefaultInterpreterPath();
 		if (defaultInterpreterPath) {
 			if (fs.existsSync(defaultInterpreterPath)) {
 				LOGGER.info(`[recommendedWorkspaceRuntime] Recommending R runtime from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting: ${defaultInterpreterPath}`);
-				const inst = new RInstallation(defaultInterpreterPath, undefined, [ReasonDiscovered.userSetting]);
-				return makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Implicit);
+				pinned = new RInstallation(defaultInterpreterPath, undefined, [ReasonDiscovered.userSetting]);
 			} else {
-				LOGGER.info(`[recommendedWorkspaceRuntime] Path from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting does not exist: ${defaultInterpreterPath}...cannot recommend R runtime`);
+				LOGGER.info(`[recommendedWorkspaceRuntime] Path from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting does not exist: ${defaultInterpreterPath}`);
 			}
 		} else {
-			LOGGER.debug(`[recommendedWorkspaceRuntime] '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting not set...cannot recommend R runtime`);
+			LOGGER.debug(`[recommendedWorkspaceRuntime] '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting not set`);
 		}
-		return undefined;
+
+		// Otherwise, recommend an R that starts right away when the folder
+		// looks like an R project. This is checked here, in the folder that's
+		// open now, because Positron never caches the recommendation. The
+		// search's records are cached and shared by every folder.
+		try {
+			const choice = await chooseStartupR({
+				pinned,
+				manualStartup: vscode.workspace.getConfiguration('interpreters', { languageId: 'r' }).get<string>('startupBehavior') === 'manual',
+				looksLikeRProject,
+				currentR: currentRInstallation,
+				fullSearchTriggers: rFullSearchTriggers,
+				fullSearch: discoverRInstallationsForRecommendation,
+			});
+			if (!choice) {
+				return undefined;
+			}
+			if (!pinned) {
+				LOGGER.info(`[recommendedWorkspaceRuntime] Recommending R ${choice.installation.version} at ${choice.installation.binpath} to start right away, because the folder looks like an R project`);
+			}
+			return await makeMetadata(choice.installation, choice.startupBehavior as positron.LanguageRuntimeStartupBehavior);
+		} catch (err) {
+			// Positron asks every language at once and waits for all of them,
+			// so a throw here would lose every language's recommendation.
+			LOGGER.error(`[recommendedWorkspaceRuntime] Failed to recommend an R runtime: ${err}`);
+			return undefined;
+		}
 	}
 
 	async createSession(
@@ -380,8 +445,32 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			throw new Error(`R installation at ${metadataExtra.binpath} is not usable. Reason: ${friendlyReason(inst.reasonRejected)}`);
 		}
 
-		// Looks like a valid R installation.
-		return Promise.resolve(makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Immediate));
+		// Looks like a valid R installation. Keep the saved startup behavior:
+		// Positron writes the result back into the discovery cache, which every
+		// folder shares.
+		return makeMetadata(inst, metadata.startupBehavior);
+	}
+
+	/**
+	 * Registers the R installation at a path and adds it to
+	 * `positron.r.customBinaries` so future discovery finds it.
+	 *
+	 * @param binpath The path to the R binary.
+	 * @returns The runtime metadata for the installation.
+	 */
+	async registerRuntimeFromPath(binpath: string): Promise<positron.LanguageRuntimeMetadata> {
+		const curBin = await currentRBinary();
+		const inst = new RInstallation(binpath, curBin?.path === binpath, [ReasonDiscovered.userSetting],
+			packagerMetadataForPath(binpath));
+		if (!inst.usable) {
+			throw new Error(`R installation at ${binpath} is not usable. Reason: ${friendlyReason(inst.reasonRejected)}`);
+		}
+		const config = vscode.workspace.getConfiguration('positron.r');
+		const binaries = config.inspect<string[]>('customBinaries')?.globalValue ?? [];
+		if (!binaries.includes(inst.binpath)) {
+			await config.update('customBinaries', [...binaries, inst.binpath], vscode.ConfigurationTarget.Global);
+		}
+		return makeMetadata(inst);
 	}
 
 	/**

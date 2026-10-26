@@ -80,7 +80,7 @@ export class Editor {
 		await test.step('Press play button', async () => {
 			const page = this.code.driver.currentPage;
 			// For web-app files the framework-specific run button ("Run <name> App in Terminal")
-			// only appears once Positron's async app detection sets the pythonAppFramework context
+			// only appears once Positron's async app detection sets the pythonAppResources context
 			// key. Target that button by name so Playwright waits for detection to finish; clicking
 			// the generic PLAY_BUTTON can race detection and hit "Run Python File in Console", which
 			// runs the file as a plain script and never launches the app (so the toast never shows).

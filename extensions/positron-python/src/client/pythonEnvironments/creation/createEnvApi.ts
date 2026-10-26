@@ -62,6 +62,7 @@ import {
 import { traceError, traceLog } from '../../logging';
 import { getConfiguration, getWorkspaceFolders } from '../../common/vscodeApis/workspaceApis';
 import { InterpreterQuickPickList } from '../../common/utils/localize';
+import { isNewEnvironment } from './reusedEnvironment';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -122,11 +123,16 @@ export const { onCreateEnvironmentStarted, onCreateEnvironmentExited, isCreating
 /**
  * The registered providers, with uv first when it is installed. The registration order is fixed at
  * activation, and uv can be installed after that (the New Folder flow's Install uv button).
+ * uv is left out when it is missing and python.allowUvPythonInstall is off, since picking it could only fail.
  */
 async function getRankedProviders(): Promise<readonly CreateEnvironmentProvider[]> {
     const providers = [..._createEnvironmentProviders.getAll()];
     const uvIndex = providers.findIndex((p) => p.id === UV_PROVIDER_ID);
-    if (uvIndex > 0 && (await isUvInstalled())) {
+    if (uvIndex >= 0 && !(await isUvInstalled())) {
+        if (getConfiguration('python').get<boolean>('allowUvPythonInstall') === false) {
+            providers.splice(uvIndex, 1);
+        }
+    } else if (uvIndex > 0) {
         providers.unshift(...providers.splice(uvIndex, 1));
     }
     return providers;
@@ -331,7 +337,9 @@ export async function registerCreateEnvironmentFeatures(
                     // register new path
                     const env = await handleCreateEnvironmentCommand(providers, options);
                     if (env?.path) {
-                        await pythonRuntimeManager.selectLanguageRuntimeFromPath(env.path, true);
+                        // Recreate the runtime, which shuts down its sessions, only when the flow
+                        // built the environment; "Use Existing" leaves it and its sessions as they are.
+                        await pythonRuntimeManager.selectLanguageRuntimeFromPath(env.path, isNewEnvironment(env));
                     }
                     return env;
                     // --- End Positron ---

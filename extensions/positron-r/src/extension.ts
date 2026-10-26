@@ -13,7 +13,6 @@ import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { RRuntimeManager } from './runtime-manager';
 import { RSessionManager } from './session-manager';
 import { registerUriHandler } from './uri-handler';
-import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
 import { PositronSupervisorApi } from './positron-supervisor';
 import { registerRFilePasteAndDropProvider } from './languageFeatures/rFilePasteAndDropProvider.js';
@@ -41,14 +40,22 @@ export function activate(context: vscode.ExtensionContext) {
 	runtimeManager = new RRuntimeManager(context);
 	positron.runtime.registerLanguageRuntimeManager('r', runtimeManager);
 
+	// Register Pixi R runtimes, which a warm discovery cache would skip, now
+	// and whenever workspace folders are added. Like the Python extension's
+	// eager refresh for workspace venvs, this runs on every activation without
+	// blocking it, and it's a no-op unless `interpreters.pixiDiscovery` is on.
+	void runtimeManager.registerPixiRuntimes();
+	context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(event => {
+		if (event.added.length > 0) {
+			void runtimeManager.registerPixiRuntimes();
+		}
+	}));
+
 	// Set contexts.
 	setContexts(context);
 
 	// Register commands.
 	registerCommands(context, runtimeManager);
-
-	// Register LLM tools.
-	registerRLanguageModelTools(context);
 
 	// Provide tasks.
 	providePackageTasks(context);

@@ -4,8 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as jsonc from 'jsonc-parser';
 import { URI } from 'vscode-uri';
 import { Logger } from '../common/logger';
 import { PortForwardingManager } from './portForwarding';
@@ -16,7 +14,9 @@ import { decodeDevContainerAuthority } from '../common/authorityEncoding';
 import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
 import { getConfiguration } from '../common/configuration';
 import { Workspace } from '../common/workspace';
-import { substitute } from '../spec/spec-common/variableSubstitution';
+import { containerSubstitute } from '../spec/spec-common/variableSubstitution';
+import { envListToObj } from '../spec/spec-node/utils';
+import { readDevContainerConfig } from '../common/devContainerConfig';
 
 /**
  * Connection state
@@ -125,9 +125,11 @@ export class ConnectionManager {
 
 			// Get remote workspace path - but only if Docker is available (not in remote context)
 			// In remote context, Docker won't be available and we don't need to inspect
+			let containerEnv: string[] | undefined;
 			try {
 				const containerManager = getDevContainerManager();
 				const containerDetails = await containerManager.inspectContainerDetails(containerId);
+				containerEnv = containerDetails.Config.Env;
 
 				// Find the workspace mount to determine remote path
 				const workspaceMount = containerDetails.Mounts?.find(mount =>
@@ -170,7 +172,7 @@ export class ConnectionManager {
 
 			// Add remoteEnv from devcontainer.json to the extension host environment
 			if (localWorkspacePath) {
-				const remoteEnv = this.readRemoteEnv(localWorkspacePath);
+				const remoteEnv = this.readRemoteEnv(localWorkspacePath, remoteWorkspacePath, containerEnv);
 				if (remoteEnv) {
 					Object.assign(extensionHostEnv, remoteEnv);
 					this.logger.debug(`Merged remoteEnv from devcontainer.json: ${Object.keys(remoteEnv).join(', ')}`);
@@ -510,7 +512,7 @@ export class ConnectionManager {
 	 * Read remoteEnv from the devcontainer.json for a workspace folder.
 	 * Returns the remoteEnv record, or undefined if the config cannot be read.
 	 */
-	private readRemoteEnv(workspacePath: string): Record<string, string> | undefined {
+	private readRemoteEnv(workspacePath: string, remoteWorkspacePath: string | undefined, containerEnv: string[] | undefined): Record<string, string> | undefined {
 		try {
 			// Use Workspace helper to find the devcontainer.json path
 			const workspaceFolder: vscode.WorkspaceFolder = {
@@ -524,7 +526,7 @@ export class ConnectionManager {
 				return undefined;
 			}
 
-			const config = jsonc.parse(fs.readFileSync(paths.devContainerJsonPath, 'utf8'));
+			const config = readDevContainerConfig(paths.devContainerJsonPath, workspacePath, remoteWorkspacePath);
 			if (config.remoteEnv && typeof config.remoteEnv === 'object') {
 				// Validate that all values are strings
 				const result: Record<string, string> = {};
@@ -536,13 +538,10 @@ export class ConnectionManager {
 					}
 				}
 
-				// Expand variable references like ${localEnv:PATH}
-				return substitute({
-					platform: process.platform,
-					configFile: URI.file(paths.devContainerJsonPath),
-					localWorkspaceFolder: workspacePath,
-					env: process.env,
-				}, result);
+				// Expand variable references like ${containerEnv:PATH}
+				return containerEnv
+					? containerSubstitute('linux', URI.file(paths.devContainerJsonPath), envListToObj(containerEnv), result)
+					: result;
 			}
 			return undefined;
 		} catch (error) {

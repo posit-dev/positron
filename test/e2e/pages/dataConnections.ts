@@ -28,6 +28,7 @@ const CUSTOM_CONTEXT_MENU_ITEMS = '.custom-context-menu-items';
 // button (aria-label "Expand" when collapsed) and a content area holding the node label.
 const TREE_ROW = '.positron-tree-row';
 const TREE_TWISTY_COLLAPSED = '.positron-tree-twisty-collapsed';
+const TREE_TWISTY_EXPANDED = '.positron-tree-twisty-expanded';
 
 // The container that hosts the connection tree, and the virtualized grid inside it. The grid renders
 // only the rows that fit in the viewport (no overscan), so rows below the fold are absent from the
@@ -64,6 +65,7 @@ const DETAILS_PAGE = '.data-connection-node-details-page';
 const DETAILS_NAME = '.data-connection-node-details-name';
 const DETAILS_DESCRIPTION = '.data-connection-node-details-description';
 const DETAILS_CODE = '.data-connection-node-details-code';
+const DETAILS_OPEN = '.data-connection-node-details-open';
 
 /**
  * Reusable Positron Data Connections panel functionality for tests to leverage.
@@ -178,6 +180,22 @@ export class DataConnections {
 				});
 				await field.locator('.parameter-input').fill(value);
 			}
+		});
+	}
+
+	/**
+	 * Picks a value in an Option-type field of the "Configure Database" dialog. Option parameters
+	 * render as a native select rather than a text input, so {@link fillConnectionInputs} cannot set
+	 * them.
+	 * @param label The field label, e.g. 'Connection'.
+	 * @param value The option to select.
+	 */
+	async selectConnectionOption(label: string, value: string): Promise<void> {
+		await test.step(`Select ${label}: ${value}`, async () => {
+			const field = this.dialog.locator(PARAMETER_FIELD).filter({
+				has: this.code.driver.currentPage.getByText(label, { exact: true })
+			});
+			await field.locator('.parameter-select').selectOption(value);
 		});
 	}
 
@@ -324,6 +342,28 @@ export class DataConnections {
 	}
 
 	/**
+	 * Collapses the root connection entry, removing its subtree from the grid. Use when a suite
+	 * drives more than one connection: node labels such as 'Databases' repeat under every expanded
+	 * connection, and the label-based lookups above are strict. No-op if already collapsed.
+	 * @param connectionName The connection name shown in the tree.
+	 */
+	async collapseConnection(connectionName: string): Promise<void> {
+		await test.step(`Collapse connection: ${connectionName}`, async () => {
+			const row = this.code.driver.currentPage.locator(TREE_ROW)
+				.filter({ has: this.connectionEntries.filter({ hasText: connectionName }) });
+			// revealNode can return before the row renders; checking the twisty then would see none
+			// and skip the collapse.
+			await this.revealNode(row);
+			await expect(row).toBeVisible({ timeout: this.actionTimeout });
+			const expandedTwisty = row.locator(TREE_TWISTY_EXPANDED);
+			if (await expandedTwisty.count() > 0) {
+				await expandedTwisty.first().dispatchEvent('click');
+				await expect(row.locator(TREE_TWISTY_COLLAPSED)).toHaveCount(1);
+			}
+		});
+	}
+
+	/**
 	 * Expands a tree node by its label.
 	 * @param label The node label to expand, e.g. 'Schemas', 'public', 'Tables', 'Views'.
 	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
@@ -363,6 +403,43 @@ export class DataConnections {
 			await expect(row).toBeVisible({ timeout: this.actionTimeout });
 			await row.locator('.data-connection-node-row').dispatchEvent('click', { detail: 1 });
 		});
+	}
+
+	/**
+	 * Right-clicks a node and selects an item from its context menu, e.g. 'Copy Path'. Both events are
+	 * dispatched like {@link doubleClickNode}: a row past the grid's clip edge anchors the menu
+	 * outside the viewport, where a coordinate-based click cannot reach it.
+	 * @param label The node label.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
+	 * @param menuItem The menu item's title.
+	 */
+	async selectNodeMenuItem(label: string, kind: DataConnectionNodeKind | undefined, menuItem: string): Promise<void> {
+		await test.step(`Select ${menuItem} on node: ${label}`, async () => {
+			const page = this.code.driver.currentPage;
+			const row = this.treeRow(label, kind);
+			await this.revealNode(row);
+			await expect(row).toBeVisible({ timeout: this.actionTimeout });
+			const node = row.locator('.data-connection-node-row');
+			const box = await node.boundingBox();
+			await node.dispatchEvent('contextmenu', {
+				clientX: box ? box.x + box.width / 2 : 0,
+				clientY: box ? box.y + box.height / 2 : 0,
+			});
+
+			const menu = page.locator(CUSTOM_CONTEXT_MENU_ITEMS);
+			await expect(menu).toBeVisible();
+			await menu.locator('.custom-context-menu-item', {
+				has: page.locator('.title', { hasText: new RegExp(`^${menuItem}$`) })
+			}).dispatchEvent('click');
+			await expect(menu).toBeHidden();
+		});
+	}
+
+	/**
+	 * Presses Open in Data Explorer in the open details editor.
+	 */
+	async clickDetailsOpenInDataExplorer(): Promise<void> {
+		await this.code.driver.currentPage.locator(DETAILS_PAGE).locator(DETAILS_OPEN).click();
 	}
 
 	/**
@@ -445,6 +522,18 @@ export class DataConnections {
 		const row = this.treeRow(label, kind);
 		await this.revealNode(row);
 		await expect(row).toBeVisible({ timeout: this.actionTimeout });
+	}
+
+	/**
+	 * Asserts that a tree node with the given label does not exist in the virtualized tree.
+	 * Scans the tree first (see {@link revealNode}), so a matching row below the fold is not missed.
+	 * @param label The node label.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
+	 */
+	async expectNodeAbsent(label: string, kind?: DataConnectionNodeKind): Promise<void> {
+		const row = this.treeRow(label, kind);
+		await this.revealNode(row);
+		await expect(row, `Expected node "${label}" to be absent`).toHaveCount(0);
 	}
 
 	/**

@@ -3,8 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ChatViewId } from '../chat.js';
-import { CHAT_CATEGORY, CHAT_CONFIG_MENU_ID } from '../actions/chatActions.js';
+import { CHAT_CATEGORY } from '../actions/chatActions.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { PromptFilePickers } from './pickers/promptFilePickers.js';
@@ -12,7 +11,6 @@ import { ServicesAccessor } from '../../../../../editor/browser/editorExtensions
 import { Action2, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
-import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { PromptsType } from '../../common/promptSyntax/promptTypes.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 
@@ -34,13 +32,7 @@ class ManageSkillsAction extends Action2 {
 			// Hide when AI features are disabled.
 			precondition: ChatContextKeys.available,
 			// --- End Positron ---
-			category: CHAT_CATEGORY,
-			menu: {
-				id: CHAT_CONFIG_MENU_ID,
-				when: ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.equals('view', ChatViewId)),
-				order: 9,
-				group: '1_level'
-			}
+			category: CHAT_CATEGORY
 		});
 	}
 

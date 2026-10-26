@@ -16,6 +16,8 @@ import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronCon
  */
 export const DATA_EXPLORER_MIME_TYPE = 'application/vnd.positron.dataExplorer+json';
 
+export { OBJECT_EXPLORER_MIME_TYPE } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
+
 // Service decorators
 export const IQuartoOutputCacheService = createDecorator<IQuartoOutputCacheService>('quartoOutputCacheService');
 
@@ -113,25 +115,6 @@ export interface ICellOutput {
 	readonly webviewMetadata?: ICellOutputWebviewMetadata;
 	/** Optional per-mime output metadata e.g. `{ 'image/png': { width, height } }` */
 	readonly outputMetadata?: Record<string, unknown>;
-}
-
-/**
- * The code chunk that produced an error output, used to point the assistant
- * at the failing code instead of letting it hunt through the whole document.
- */
-export interface QuartoCellErrorContext {
-	/** Workspace-relative path of the Quarto document. */
-	path: string;
-	/** Language of the code chunk (e.g. 'python', 'r'). */
-	language: string;
-	/** Optional chunk label from the chunk options. */
-	label?: string;
-	/** Source code of the chunk (without the fences). */
-	code: string;
-	/** First line of the chunk's code (1-based). */
-	codeStartLine: number;
-	/** Last line of the chunk's code (1-based). */
-	codeEndLine: number;
 }
 
 /**

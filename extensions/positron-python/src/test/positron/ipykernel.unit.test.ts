@@ -33,7 +33,7 @@ suite('Ipykernel', () => {
         interpreter = mock<PythonEnvironment>({
             id: 'pythonEnvironmentId',
             path: '/path/to/python',
-            version: mock<PythonVersion>({ major: 3, minor: 9 }),
+            version: mock<PythonVersion>({ major: 3, minor: 10 }),
             architecture: Architecture.x64,
             implementation: 'cpython',
         });
@@ -90,8 +90,8 @@ suite('Ipykernel', () => {
         // On other platforms, all packages use interpreter architecture
         const cpxPath =
             os.platform() === 'darwin'
-                ? path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'universal2', 'cp39')
-                : path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'x64', 'cp39');
+                ? path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'universal2', 'cp310')
+                : path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'x64', 'cp310');
         assert.deepStrictEqual(ipykernelBundle.paths, [
             cpxPath,
             path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'x64', 'cp3'),
@@ -104,6 +104,7 @@ suite('Ipykernel', () => {
         { minor: 12, cpxDirectory: 'cp312-abi3' },
         { minor: 13, cpxDirectory: 'cp312-abi3' },
         { minor: 14, cpxDirectory: 'cp312-abi3' },
+        { minor: 15, cpxDirectory: 'cp312-abi3' },
     ].forEach(({ minor, cpxDirectory }) => {
         test(`should use the ${cpxDirectory} cpx bundle for Python 3.${minor}`, async () => {
             sinon.stub(interpreter, 'version').get(() => mock<PythonVersion>({ major: 3, minor }));
@@ -132,8 +133,8 @@ suite('Ipykernel', () => {
         // On macOS, cpx packages (pyzmq) use universal2; cp3 packages (psutil) use interpreter architecture
         const cpxPath =
             os.platform() === 'darwin'
-                ? path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'universal2', 'cp39')
-                : path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'arm64', 'cp39');
+                ? path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'universal2', 'cp310')
+                : path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'arm64', 'cp310');
         assert.deepStrictEqual(ipykernelBundle.paths, [
             cpxPath,
             path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'arm64', 'cp3'),
@@ -160,8 +161,8 @@ suite('Ipykernel', () => {
         // On macOS, cpx packages (pyzmq) use universal2; cp3 packages (psutil) use interpreter architecture
         const cpxPath =
             os.platform() === 'darwin'
-                ? path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'universal2', 'cp39')
-                : path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'arm64', 'cp39');
+                ? path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'universal2', 'cp310')
+                : path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'arm64', 'cp310');
         assert.deepStrictEqual(ipykernelBundle.paths, [
             cpxPath,
             path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'arm64', 'cp3'),
@@ -175,10 +176,10 @@ suite('Ipykernel', () => {
         sinon.stub(fs, 'pathExists').resolves(true);
         moduleMetadataMap.set(interpreter.path, {
             type: 'module',
-            environmentName: 'python/3.9',
-            modules: ['python/3.9'],
-            startupCommand: 'source "/opt/init.sh" && module load python/3.9',
-            version: '3.9.0',
+            environmentName: 'python/3.10',
+            modules: ['python/3.10'],
+            startupCommand: 'source "/opt/init.sh" && module load python/3.10',
+            version: '3.10.0',
         });
         const activated = sinon.spy(pythonExecutionFactory, 'createActivatedEnvironment');
         const create = sinon.spy(pythonExecutionFactory, 'create');
@@ -212,8 +213,8 @@ suite('Ipykernel', () => {
         // On macOS, cpx packages use universal2; on other platforms, use system architecture
         const cpxPath =
             os.platform() === 'darwin'
-                ? path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'universal2', 'cp39')
-                : path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', systemArch, 'cp39');
+                ? path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'universal2', 'cp310')
+                : path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', systemArch, 'cp310');
         assert.deepStrictEqual(ipykernelBundle.paths, [
             cpxPath,
             path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', systemArch, 'cp3'),
@@ -234,6 +235,15 @@ suite('Ipykernel', () => {
     test('should not bundle ipykernel if version is incompatible', async () => {
         // Stub the interpreter version to be incompatible.
         sinon.stub(interpreter, 'version').get(() => mock<PythonVersion>({ major: 2, minor: 7 }));
+
+        const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
+
+        assert.strictEqual(ipykernelBundle.paths, undefined);
+        assert.ok(ipykernelBundle.disabledReason);
+    });
+
+    test('should not bundle ipykernel for Python 3.9', async () => {
+        sinon.stub(interpreter, 'version').get(() => mock<PythonVersion>({ major: 3, minor: 9 }));
 
         const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
 

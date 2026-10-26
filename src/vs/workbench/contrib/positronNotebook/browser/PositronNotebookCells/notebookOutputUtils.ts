@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { NotebookCellOutputItem, NotebookCellOutputs } from './IPositronNotebookCell.js';
-import { isDataExplorerMimeType } from '../getOutputContents.js';
+import { isDataExplorerMimeType, isObjectExplorerMimeType } from '../getOutputContents.js';
 import { isComplexHtml } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 
 /**
@@ -13,8 +13,8 @@ import { isComplexHtml } from '../../../../services/positronIPyWidgets/common/we
  * @returns A number representing the priority of the mime type. Lower numbers are higher priority.
  */
 function getMimeTypePriority(mime: string): number | null {
-	// Positron inline data explorer has highest priority
-	if (isDataExplorerMimeType(mime)) {
+	// Positron inline data and object explorers have highest priority
+	if (isDataExplorerMimeType(mime) || isObjectExplorerMimeType(mime)) {
 		return 0;
 	}
 

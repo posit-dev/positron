@@ -27,6 +27,13 @@ interface PlotGalleryThumbnailProps {
 const removePlotTitle = localize('positronRemovePlot', "Remove plot");
 
 /**
+ * Alt text for a plot thumbnail image. Empty for a named plot, since the
+ * thumbnail button's visible label already names it.
+ */
+export const plotThumbnailAlt = (plotClient: IPositronPlotClient) =>
+	plotClient.metadata.name ? '' : 'Plot ' + plotClient.id;
+
+/**
  * PlotGalleryThumbnail component. This component renders a thumbnail of a plot
  * instance as a child component, and is used as a wrapper for all plot thumbnails.
  *
@@ -84,8 +91,9 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 		<div className={'plot-thumbnail' + (props.selected ? ' selected' : '')}>
 			<button
 				ref={plotThumbnailButtonRef}
-				data-plot-id={props.plotClient.id}
+				aria-current={props.selected}
 				className='plot-thumbnail-button'
+				data-plot-id={props.plotClient.id}
 				onClick={selectPlot}
 				onKeyDown={handleKeyDown}
 			>
@@ -100,6 +108,7 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 			</button>
 			<button
 				ref={plotRemoveButtonRef}
+				aria-label={removePlotTitle}
 				className='plot-close codicon codicon-close'
 				tabIndex={props.selected ? 0 : -1}
 				title={removePlotTitle}

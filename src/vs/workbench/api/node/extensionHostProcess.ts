@@ -24,6 +24,10 @@ import { IHostUtils } from '../common/extHostExtensionService.js';
 import { createURITransformer } from '../../../base/common/uriTransformer.js';
 import { ExtHostConnectionType, readExtHostConnection } from '../../services/extensions/common/extensionHostEnv.js';
 import { ExtensionHostExitCode, IExtHostReadyMessage, IExtHostReduceGraceTimeMessage, IExtHostSocketMessage, IExtensionHostInitData, MessageType, createMessageOfType, isMessageOfType } from '../../services/extensions/common/extensionHostProtocol.js';
+// --- Start PWB: Support client reconnection in pipe mode ---
+// eslint-disable-next-line no-duplicate-imports
+import { IExtHostPipeReconnectMessage } from '../../services/extensions/common/extensionHostProtocol.js';
+// --- End PWB ---
 import { IDisposable } from '../../../base/common/lifecycle.js';
 import '../common/extHost.common.services.js';
 import './extHost.node.services.js';
@@ -275,17 +279,64 @@ function _createExtHostProtocol(): Promise<IMessagePassingProtocol> {
 
 		return new Promise<PersistentProtocol>((resolve, reject) => {
 
+			// --- Start PWB: Support client reconnection in pipe mode ---
+			// Needed because the server terminates TLS so we can't use that socket directly.
+			// Adding the 'grace time' for the pipe server here.
+			// On reconnection the server sends VSCODE_EXTHOST_IPC_PIPE_RECONNECT and we connect a new pipe, which the
+			// server joins to the reconnected client socket.
+			let protocol: PersistentProtocol | null = null;
+
+			const reconnectionGraceTime = readReconnectionValue('VSCODE_RECONNECTION_GRACE_TIME', ProtocolConstants.ReconnectionGraceTime);
+			const reconnectionShortGraceTime = reconnectionGraceTime > 0 ? Math.min(ProtocolConstants.ReconnectionShortGraceTime, reconnectionGraceTime) : 0;
+			const disconnectRunner1 = new ProcessTimeRunOnceScheduler(() => onTerminate('renderer disconnected for too long (1)'), reconnectionGraceTime);
+			const disconnectRunner2 = new ProcessTimeRunOnceScheduler(() => onTerminate('renderer disconnected for too long (2)'), reconnectionShortGraceTime);
+
 			const socket = net.createConnection(pipeName, () => {
 				socket.removeListener('error', reject);
-				const protocol = new PersistentProtocol({ socket: new NodeSocket(socket, 'extHost-renderer') });
+				protocol = new PersistentProtocol({ socket: new NodeSocket(socket, 'extHost-renderer') });
 				protocol.sendResume();
+				Event.once(protocol.onDidDispose)(() => onTerminate('renderer disconnected'));
 				resolve(protocol);
+
+				// Wait for rich client to reconnect
+				protocol.onSocketClose(() => {
+					// The socket has closed, let's give the renderer a certain amount of time to reconnect
+					disconnectRunner1.schedule();
+				});
 			});
 			socket.once('error', reject);
 
-			socket.on('close', () => {
-				onTerminate('renderer closed the socket');
+			process.on('message', (msg: IExtHostPipeReconnectMessage | IExtHostReduceGraceTimeMessage) => {
+				if (msg && msg.type === 'VSCODE_EXTHOST_IPC_PIPE_RECONNECT') {
+					const reconnectSocket = net.createConnection(pipeName, () => {
+						if (!protocol) {
+							reconnectSocket.destroy();
+							return;
+						}
+						disconnectRunner1.cancel();
+						disconnectRunner2.cancel();
+						// The server writes the client's initial data chunk into the pipe
+						protocol.beginAcceptReconnection(new NodeSocket(reconnectSocket, 'extHost-renderer'), null);
+						protocol.endAcceptReconnection();
+						protocol.sendResume();
+					});
+					reconnectSocket.once('error', (err) => {
+						// Leave the grace timers running so we terminate if the client can't be re-attached
+						console.error(`Failed to connect to the extension host pipe for reconnection: ${err}`);
+					});
+				}
+				if (msg && msg.type === 'VSCODE_EXTHOST_IPC_REDUCE_GRACE_TIME') {
+					if (disconnectRunner2.isScheduled()) {
+						// we are disconnected and already running the short reconnection timer
+						return;
+					}
+					if (disconnectRunner1.isScheduled()) {
+						// we are disconnected and running the long reconnection timer
+						disconnectRunner2.schedule();
+					}
+				}
 			});
+			// --- End PWB ---
 		});
 	}
 }

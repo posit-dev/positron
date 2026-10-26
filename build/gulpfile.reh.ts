@@ -48,6 +48,7 @@ import { checkPackagedTree } from './lib/positron-check-path-lengths.ts';
 import { compileBuildWithoutManglingTask } from './gulpfile.compile.ts';
 import through2 from 'through2';
 import { gzip } from 'zlib';
+import { createBrowserFetchableTest } from './lib/pwbGzip.ts';
 // --- End PWB ---
 
 const rcedit = promisify(rceditCallback);
@@ -398,12 +399,14 @@ const MIN_SIZE_BYTES = 1024;
 function addCompressedSiblings(): NodeJS.ReadWriteStream {
 	let compressed = 0;
 	let skipped = 0;
+	const webDependencies = Object.keys(JSON.parse(fs.readFileSync(path.join(REMOTE_FOLDER, 'web', 'package.json'), 'utf8')).dependencies ?? {});
+	const isBrowserFetchable = createBrowserFetchableTest(webDependencies);
 
 	return through2.obj(
 		async function (file: File, _enc: BufferEncoding, cb: (err?: Error | null) => void) {
 			this.push(file);
 
-			if (!file.isBuffer() || !COMPRESSIBLE.test(file.path)) { return cb(); }
+			if (!file.isBuffer() || !COMPRESSIBLE.test(file.path) || !isBrowserFetchable(file.relative)) { return cb(); }
 			if ((file.contents as Buffer).length < MIN_SIZE_BYTES) { return cb(); }
 
 			try {
@@ -476,6 +479,15 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			'vscode-test-resolver',
 			'positron-zed',
 			'positron-javascript',
+			// Hidden upstream color themes; keep in sync with build/lib/extensions.ts (#8162)
+			'theme-abyss',
+			'theme-kimbie-dark',
+			'theme-monokai',
+			'theme-monokai-dimmed',
+			'theme-quietlight',
+			'theme-red',
+			'theme-solarized-dark',
+			'theme-solarized-light',
 		];
 		// --- End Positron ---
 		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')
@@ -779,6 +791,8 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 			promisify(glob)('**/*.node', { cwd }),
 			promisify(glob)('**/rg.exe', { cwd }),
 			promisify(glob)('**/tgrep.exe', { cwd }),
+			// TODO@anthonykim1 Remove once @github/copilot ships OneAuthInterop.dll with complete version information.
+			promisify(glob)('**/OneAuthInterop.dll', { cwd }),
 		])).flatMap(o => o);
 		const packageJsonContents = JSON.parse(await fs.promises.readFile(path.join(cwd, 'package.json'), 'utf8'));
 		const productContents = JSON.parse(await fs.promises.readFile(path.join(cwd, 'product.json'), 'utf8'));
@@ -813,11 +827,12 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
  * Fails the build when an extension ships more files than its budget. Posit
  * Workbench runs the server build on network filesystems, where file count
  * matters most. See posit-dev/positron#16025. The Windows MAX_PATH budget
- * models the desktop install directory, so this task does not check it.
+ * models the desktop install directory, so this task does not check it. The
+ * task also checks the shared DuckDB runtime for the target.
  */
-function checkPackagedTreeTaskREH(destinationFolderName: string) {
+function checkPackagedTreeTaskREH(platform: string, arch: string, destinationFolderName: string) {
 	return async () => {
-		checkPackagedTree(path.join(BUILD_ROOT, destinationFolderName), 'extensions', { pathLengths: false });
+		checkPackagedTree(path.join(BUILD_ROOT, destinationFolderName), 'extensions', { pathLengths: false, duckdbTarget: { platform, arch } });
 	};
 }
 // --- End Positron ---
@@ -890,7 +905,7 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 				// --- Start Positron ---
 				// prepareCopilotRipgrepShimTaskREH(platform, arch, destinationFolderName)
 				prepareCopilotRipgrepShimTaskREH(platform, arch, destinationFolderName),
-				checkPackagedTreeTaskREH(destinationFolderName)
+				checkPackagedTreeTaskREH(platform, arch, destinationFolderName)
 				// --- End Positron ---
 			];
 

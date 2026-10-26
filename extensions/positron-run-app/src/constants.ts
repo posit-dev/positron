@@ -31,3 +31,9 @@ export const SHELL_INTEGRATION_TIMEOUT = 5_000;
  * preview armed indefinitely.
  */
 export const LATE_URL_DETECTION_TIMEOUT = 5 * 60_000;
+
+/**
+ * Time to wait for an app to stop after asking it to, before escalating: from
+ * an interrupt (Ctrl+C) to closing its terminal, or from that to giving up.
+ */
+export const STOP_APP_TIMEOUT = 5_000;
