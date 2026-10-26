@@ -16,7 +16,7 @@ const CONFIGURATION_SECTION = 'sql';
 /** The setting, under {@link CONFIGURATION_SECTION}, that turns every feature on. Off by default. */
 const ENABLED_SETTING = 'enabled';
 
-/** The compiled analyzer, built from `sql-analyzer/` and committed; see scripts/build-analyzer.mts. */
+/** The compiled analyzer, built from `sql-analyzer/` and committed through Git LFS; see scripts/build-analyzer.mts. */
 const ANALYZER_MODULE = path.join('resources', 'sql-analyzer.wasm');
 
 /** Documents this extension provides features for: every SQL document, whatever its scheme. */

@@ -320,7 +320,15 @@ export class SqlAnalyzer {
 		log: Pick<SqlLog, 'warn' | 'error'>,
 		limits: AnalyzerLimits = DEFAULT_LIMITS,
 	): SqlAnalyzer {
-		return new SqlAnalyzer(new WebAssembly.Module(fs.readFileSync(path)), log, limits);
+		const bytes = fs.readFileSync(path);
+		// The module is stored in Git LFS, and a checkout made without git-lfs has a short text
+		// pointer in its place until the install fetches it. Compiling that would fail with a
+		// message about a magic number; this one says what to do.
+		if (bytes.length < 1024 && bytes.toString('utf8').startsWith('version https://git-lfs')) {
+			throw new Error(`${path} is a Git LFS pointer rather than the SQL analyzer. Run`
+				+ ' `npm install` at the repository root, or `git lfs pull`, to fetch it.');
+		}
+		return new SqlAnalyzer(new WebAssembly.Module(bytes), log, limits);
 	}
 
 	/** The bytes of memory the module holds right now, which is the most any request has needed. */

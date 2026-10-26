@@ -588,6 +588,19 @@ async function buildAiLib({ force }: { force: boolean }): Promise<void> {
 	await spawnAsync(npm, ['run', 'build:ai-lib'], { cwd: root, shell: true });
 }
 
+/**
+ * Replace the SQL analyzer's Git LFS pointer with the module, when the checkout was made without
+ * git-lfs. A no-op when the module is already there. positron-sql has no npm install of its own to
+ * hang this on, and an extension's postinstall is skipped on a cache hit anyway, so it runs here
+ * on every install, like the steps above. See extensions/positron-sql/scripts/fetch-analyzer.mts.
+ */
+async function fetchSqlAnalyzer(): Promise<void> {
+	const output = await spawnAsync(process.execPath, [path.join(root, 'extensions', 'positron-sql', 'scripts', 'fetch-analyzer.mts')], { cwd: root });
+	if (output.trim()) {
+		log('extensions/positron-sql', output.trim());
+	}
+}
+
 // --- End Positron ---
 
 async function main() {
@@ -623,6 +636,9 @@ async function main() {
 		// at compile time). Nothing changed, so skip the rebuild if they're already
 		// there.
 		await buildAiLib({ force: false });
+		// --- Start Positron ---
+		await fetchSqlAnalyzer();
+		// --- End Positron ---
 		child_process.execSync('git config pull.rebase merges');
 		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
 		return;
@@ -747,6 +763,7 @@ async function main() {
 	// whenever that extension is restored from cache. Deps just changed, so force a
 	// rebuild rather than trusting a possibly-stale dist/.
 	await buildAiLib({ force: true });
+	await fetchSqlAnalyzer();
 	// --- End Positron ---
 
 	child_process.execSync('git config pull.rebase merges');

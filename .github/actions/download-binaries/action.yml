@@ -1,4 +1,4 @@
-name: "Download Binaries (Ark, Kallichore)"
+name: "Download Binaries (Ark, Kallichore, SQL analyzer)"
 description: "Downloads R and Python kernel binaries when using cached node_modules"
 
 inputs:
@@ -31,4 +31,8 @@ runs:
         fi
         echo "Downloading Kallichore binary..."
         cd ../positron-supervisor && npm rebuild --foreground-scripts
+        # The SQL analyzer is stored in Git LFS, and the checkout fetches no LFS objects, so the
+        # file is a pointer until this replaces it. The root postinstall does the same on a miss.
+        echo "Fetching the SQL analyzer..."
+        cd .. && node positron-sql/scripts/fetch-analyzer.mts
         echo "Binaries downloaded successfully"

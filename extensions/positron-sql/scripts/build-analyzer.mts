@@ -12,6 +12,11 @@
  * things a Positron build needs. The cost is that it has to be rebuilt deliberately: run
  * `npm run build-analyzer` after changing anything under `sql-analyzer/`, and commit the result.
  *
+ * It is committed through Git LFS (see `.gitattributes`), so that each rebuild is not added to
+ * the history every clone downloads. Building therefore needs git-lfs installed: without it, git
+ * would commit the module as an ordinary blob. A checkout without git-lfs has a pointer where the
+ * module should be, which `fetch-analyzer.mts` replaces on install.
+ *
  * Alongside the module it writes `sql-analyzer/wasm-fingerprint.txt`: a hash of the inputs the
  * module was built from, and a hash of the module itself. `--check` recomputes both without
  * building, so CI can tell whether the crate changed without a rebuild, or whether the module
@@ -30,12 +35,12 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { extensionDir, git, hasGitLfs, modulePath, moduleRepoPath, parsePointer, readPointer } from './lfs.mts';
 
-const extensionDir = path.dirname(import.meta.dirname);
 const crateDir = path.join(extensionDir, 'sql-analyzer');
 const target = 'wasm32-unknown-unknown';
 const built = path.join(crateDir, 'target', target, 'release', 'positron_sql_analyzer.wasm');
-const committed = path.join(extensionDir, 'resources', 'sql-analyzer.wasm');
+const committed = modulePath;
 const fingerprintFile = path.join(crateDir, 'wasm-fingerprint.txt');
 
 /**
@@ -100,11 +105,29 @@ function hashFile(file: string): string {
 	return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
+/**
+ * The module's SHA-256, read off its LFS pointer when the module itself was never fetched: the
+ * pointer names the object by that same hash, so the check needs no download.
+ */
+function hashModule(): string {
+	return readPointer(committed)?.oid ?? hashFile(committed);
+}
+
 function fingerprint(): string {
-	return `inputs ${hashInputs()}\nwasm ${hashFile(committed)}\n`;
+	return `inputs ${hashInputs()}\nwasm ${hashModule()}\n`;
 }
 
 if (process.argv.includes('--check')) {
+	// What git holds for the module, which is a pointer when it went through LFS. A blob would
+	// mean it was committed from a checkout without git-lfs, and every rebuild after it would go
+	// back into the history.
+	const staged = git(['cat-file', 'blob', `:${moduleRepoPath}`]);
+	if (!staged || !parsePointer(staged)) {
+		fail(`${path.relative(extensionDir, committed)} is committed as an ordinary blob rather than`
+			+ ' through Git LFS. Install git-lfs (https://git-lfs.com), then run'
+			+ ` \`git rm --cached ${moduleRepoPath} && git add ${moduleRepoPath}\`` + ' from the'
+			+ ' repository root and commit.');
+	}
 	const recorded = fs.existsSync(fingerprintFile) ? fs.readFileSync(fingerprintFile, 'utf8') : '';
 	if (recorded !== fingerprint()) {
 		fail(`${path.relative(extensionDir, committed)} is out of date with the crate, or was changed`
@@ -113,6 +136,11 @@ if (process.argv.includes('--check')) {
 	}
 	console.log('The committed SQL analyzer matches the crate.');
 	process.exit(0);
+}
+
+if (!hasGitLfs()) {
+	fail('Building the SQL analyzer needs git-lfs (https://git-lfs.com): the module is committed'
+		+ ' through Git LFS, and without it git would commit the module as an ordinary blob.');
 }
 
 // Added rather than assumed present: it is a one-line no-op once installed, and the error from

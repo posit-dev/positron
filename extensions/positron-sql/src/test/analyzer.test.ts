@@ -4,6 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { SqlAnalyzer } from '../analyzer';
 import { loadAnalyzer, STRICT_LOG, testAnalyzer } from './support';
 
 /**
@@ -163,5 +167,18 @@ suite('SqlAnalyzer', () => {
 		assert.strictEqual(warnings.length, 1);
 
 		assert.strictEqual(analyzer.statements('SELECT 1', '').length, 1, 'a short one still is');
+	});
+
+	test('a Git LFS pointer in place of the module says how to fetch it', () => {
+		// What a checkout made without git-lfs holds until the install fetches the module.
+		const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-sql-'));
+		const pointer = path.join(directory, 'sql-analyzer.wasm');
+		fs.writeFileSync(pointer, 'version https://git-lfs.github.com/spec/v1\n'
+			+ `oid sha256:${'0'.repeat(64)}\nsize 1988114\n`);
+		try {
+			assert.throws(() => SqlAnalyzer.load(pointer, STRICT_LOG), /Git LFS pointer.*npm install/s);
+		} finally {
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
 	});
 });
