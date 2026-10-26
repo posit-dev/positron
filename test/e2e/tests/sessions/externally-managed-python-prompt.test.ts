@@ -51,8 +51,11 @@ test.describe('Sessions: Externally managed Python prompt', {
 		cachedVersion ??= execSync('/usr/bin/python3 -V').toString().trim().replace('Python ', '');
 		return cachedVersion;
 	}
+	// The row's aria-label is "<label>, <path>": a distro Python has no tool to show in
+	// gray. Discovery may list it as /usr/bin/python or python3, so match the prefix;
+	// a pyenv or uv Python of the same version has another path.
 	function systemPythonLabel(): string {
-		return `Python ${systemPythonVersion()} (System)`;
+		return `Python ${systemPythonVersion()}, /usr/bin/python`;
 	}
 
 	async function pickSystemPython(app: Application): Promise<void> {
