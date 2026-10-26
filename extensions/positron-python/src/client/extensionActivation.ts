@@ -91,7 +91,7 @@ export async function activateComponents(
         // More component activations will go here
         // --- Start Positron ---
         pythonEnvironments.activateAndRefreshEnvs(components.pythonEnvs),
-        // --- End Positron
+        // --- End Positron ---
     ];
     return Promise.all([legacyActivationResult, ...promises]);
 }

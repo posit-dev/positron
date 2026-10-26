@@ -148,7 +148,7 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
                     );
                     this.currentlySelectedInterpreterPath = interpreter.path;
                 }
-                // --- Start Positron --
+                // --- Start Positron ---
                 // status bar text should be interpreter path, relative to workspace
                 let text = this.pathUtils.getDisplayName(interpreter.path, workspaceFolder?.fsPath);
                 // --- End Positron ---
