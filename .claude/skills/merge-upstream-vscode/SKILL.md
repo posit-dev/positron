@@ -273,6 +273,24 @@ though every gulp-based check passed.
 
 Theme regressions produce no conflicts, compile errors, or test failures. Upstream turning a redesign on by default (e.g. `workbench.experimental.modernUI` in 1.143), or adding colors to the `light_modern` / `dark_modern` themes that Positron's themes inherit, can quietly break Positron's colored activity bar and editor tabs. Follow `references/themes.md` to find these in the diff, and check both Default Positron themes in the smoke-launched build.
 
+#### Keep Modern UI off
+
+Positron does not currently use upstream's Modern UI Update. Upstream turned `workbench.experimental.modernUI` on by default in 1.143. Positron overrides the default to `false` in `src/vs/workbench/browser/workbench.contribution.ts`, inside a Positron marker, and comments out its `experiment: { mode: 'auto' }` so an upstream rollout can't turn it back on. Users can still enable it.
+
+On every merge, check that the override survived. If upstream rewrites that setting block, the conflict can look like a plain upstream divergence, and taking upstream's side turns Modern UI back on with no compile or unit test failure:
+
+```bash
+grep -n -A10 "\[LayoutSettings.MODERN_UI\]:" src/vs/workbench/browser/workbench.contribution.ts
+```
+
+Modern UI on by default shows up as a scatter of unrelated e2e failures, so suspect it first when you see this pattern. In 1.143 it caused all of these:
+
+- 28px pane headers instead of 22px (Help pane reopened 6px too tall)
+- smaller panes, so plot screenshots stopped matching their baselines and editor lines and Data Explorer summary rows ended up out of view
+- the context menu close animation, which needs the `modern-ui` class
+
+Don't update tests or baselines to match Modern UI. Keep the setting off. Turning Modern UI on is a product decision; raise it with the user rather than changing the default yourself.
+
 ### Step 5: Test
 
 Run the unit tests and the extension host tests. Investigate and fix any

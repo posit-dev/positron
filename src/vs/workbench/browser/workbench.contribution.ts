@@ -853,9 +853,16 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 			},
 			[LayoutSettings.MODERN_UI]: {
 				'type': 'boolean',
-				'default': true,
+				// --- Start Positron ---
+				// Positron doesn't use the Modern UI Update, so keep it off by default and out of
+				// upstream's experiment rollout. Users can still turn it on.
+				// 'default': true,
+				'default': false,
+				// --- End Positron ---
 				'description': localize('modernUI', "Controls whether the Modern UI Update is enabled. When on, the side bars and bottom panel are shown as floating cards with rounded corners and gaps, and a set of refreshed workbench styles is applied, matching the Agents window design."),
-				experiment: { mode: 'auto' },
+				// --- Start Positron ---
+				// experiment: { mode: 'auto' },
+				// --- End Positron ---
 			},
 			[LayoutSettings.MODERN_UI_UPPERCASE_VIEW_HEADERS]: {
 				'type': 'boolean',

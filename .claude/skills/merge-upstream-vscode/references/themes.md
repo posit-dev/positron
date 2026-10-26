@@ -14,7 +14,7 @@ Upstream ships redesigns behind settings and later turns them on by default. Whe
 git diff <merge-base> --cached -- src/vs/workbench/browser/workbench.contribution.ts | grep -n -B4 "'default': true"
 ```
 
-Example: 1.143 turned on `workbench.experimental.modernUI`. With it on, the activity bar drops its left-border indicator for a filled box using `modernActivityBarItem.*`, and editor tabs default to the connected style, which uses `editorGroupHeader.connectedTabsBackground`.
+Example: 1.143 turned on `workbench.experimental.modernUI` (Positron overrides it back off; see "Keep Modern UI off" in `SKILL.md`). With it on, the activity bar drops its left-border indicator for a filled box using `modernActivityBarItem.*`, and editor tabs default to the connected style, which uses `editorGroupHeader.connectedTabsBackground`.
 
 ### New colors in the inherited themes
 
