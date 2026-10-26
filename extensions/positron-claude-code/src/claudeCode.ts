@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { CommandLaunch, getCommandLaunch, openPromptTerminal } from 'positron-coding-agent-common';
+import { CommandLaunch, getCommandLaunch } from './commandLaunch';
 
 /** Claude Code's name, which isn't translated. */
 export const CLAUDE_CODE_LABEL = 'Claude Code';
@@ -59,21 +59,27 @@ export async function openChat(prompt: string): Promise<void> {
 }
 
 /**
- * Start `claude` in a new terminal, which sends the prompt at once. Claude
- * Code's own terminal command types a quoted prompt into a shell instead,
- * which breaks on Windows and with multi-line prompts.
+ * Start `claude` in a new terminal, which sends the prompt at once. `claude`
+ * is the terminal's process, with the prompt as its last argument, so the
+ * prompt needs no shell quoting, keeps its newlines, and stays out of shell
+ * history. Claude Code's own terminal command types a quoted prompt into a
+ * shell instead, which breaks on Windows and with multi-line prompts.
  */
 export function openTerminal(launch: CommandLaunch, prompt: string, extension: vscode.Extension<unknown> | undefined): void {
 	// Match the terminals Claude Code opens itself: a brief notification while
-	// it starts, and its logo.
+	// it starts, then an editor tab beside the active editor, with its logo,
+	// not restored after a reload. The terminal closes when `claude` exits.
 	vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Claude Code launching...') },
 		() => new Promise(resolve => setTimeout(resolve, LAUNCHING_NOTIFICATION_DURATION)),
 	);
-	openPromptTerminal(vscode.window, {
+	const terminal = vscode.window.createTerminal({
 		name: CLAUDE_CODE_LABEL,
-		launch,
-		prompt,
+		shellPath: launch.command,
+		shellArgs: [...launch.args, prompt],
 		iconPath: extension && vscode.Uri.joinPath(extension.extensionUri, 'resources', 'claude-logo.svg'),
+		location: { viewColumn: vscode.ViewColumn.Beside },
+		isTransient: true,
 	});
+	terminal.show();
 }

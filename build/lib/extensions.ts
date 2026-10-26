@@ -613,10 +613,6 @@ const excludedExtensions = [
 	// DuckDB (and later pins) data driver extensions bundle via esbuild. It is not
 	// an extension and must not be packaged or activated at runtime.
 	'positron-data-explorer-duckdb',
-	// Build-time-only package: shared helpers that the coding agent integrations
-	// (e.g. positron-claude-code) bundle via esbuild. It is not an extension and
-	// must not be packaged or activated at runtime.
-	'positron-coding-agent-common',
 	// Upstream color theme extensions whose themes Positron hides from the
 	// theme picker (see positronColorThemeFilter.ts). Shipping them would only
 	// list them under @builtin with no way to select their themes (#8162).
