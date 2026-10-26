@@ -8,12 +8,12 @@ import * as vscode from 'vscode';
 import { CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, CLAUDE_CODE_LABEL, claudeCodeErrorActionHandler, isClaudeCodeInstalled } from './claudeCode';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-	let registration: vscode.Disposable | undefined;
+	let errorActionHandler: vscode.Disposable | undefined;
 	let isDisposed = false;
 	context.subscriptions.push({
 		dispose: () => {
 			isDisposed = true;
-			registration?.dispose();
+			errorActionHandler?.dispose();
 		}
 	});
 
@@ -34,17 +34,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				if (isDisposed) {
 					return;
 				}
-				if (isInstalled && !registration) {
-					registration = positron.ai.registerErrorActionHandler(
+				if (isInstalled && !errorActionHandler) {
+					errorActionHandler = positron.ai.registerErrorActionHandler(
 						CLAUDE_CODE_ERROR_ACTION_HANDLER_ID,
 						CLAUDE_CODE_LABEL,
 						claudeCodeErrorActionHandler,
 						// Its API can't send to an existing conversation.
 						{ supportsChatContinuation: false },
 					);
-				} else if (!isInstalled && registration) {
-					registration.dispose();
-					registration = undefined;
+				} else if (!isInstalled && errorActionHandler) {
+					errorActionHandler.dispose();
+					errorActionHandler = undefined;
 				}
 			} while (isCheckRequested);
 		} finally {
