@@ -120,8 +120,8 @@ export interface IPositronHelpService {
 
 	/**
 	 * Searches help with the foreground session and shows the results page. Waits
-	 * for the interpreter to be idle first. Only one search is pending at a time;
-	 * a new search cancels the previous one.
+	 * until the session has started and is idle. Only one search is pending at a
+	 * time; a new search cancels the previous one.
 	 * @param query The search query.
 	 * @param token Cancels the search. A cancelled search never shows its results.
 	 * @returns Whether the results page was shown.
@@ -129,8 +129,8 @@ export interface IPositronHelpService {
 	searchHelp(query: string, token: CancellationToken): Promise<boolean>;
 
 	/**
-	 * Gets autocomplete topics from the foreground session. Waits for the
-	 * interpreter to be idle first.
+	 * Gets autocomplete topics from the foreground session. Waits until the
+	 * session has started and is idle.
 	 * @param query The text to match.
 	 * @param limit The maximum number of topics, from 1 to 50.
 	 * @param token Cancels the request while it waits.
@@ -139,8 +139,8 @@ export interface IPositronHelpService {
 	getHelpTopics(query: string, limit: number, token: CancellationToken): Promise<HelpTopicSuggestion[]>;
 
 	/**
-	 * Shows an exact topic with the foreground session. Waits for the interpreter
-	 * to be idle first.
+	 * Shows an exact topic with the foreground session. Waits until the session
+	 * has started and is idle.
 	 * @param topic The topic.
 	 * @param packageName The package that contains the topic, if known.
 	 * @param token Cancels the request while it waits.
@@ -916,7 +916,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * @param session The session that sent the content.
 	 * @param showHelpEvent The content to show.
 	 * @param isCurrent Whether the content should still be shown. Checked again
-	 *   after each wait, because the content can become stale while it is shown.
+	 *   after the Help view opens, because the content can become stale meanwhile.
 	 */
 	private async handleShowHelpEvent(
 		session: ILanguageRuntimeSession,
@@ -1000,7 +1000,6 @@ interface PendingSearch {
 	readonly id: string;
 	/** The help client that runs the search, once it is known. */
 	client?: HelpClientInstance;
-	/** Cancels the search. */
 	readonly cts: CancellationTokenSource;
 	/** Completes when the results page has been handled. */
 	readonly shown: DeferredPromise<void>;
