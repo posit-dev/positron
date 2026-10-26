@@ -271,12 +271,43 @@ export class ConnectionSelection {
 		return moved;
 	}
 
-	private _save(): void {
-		const persisted: Record<string, ConnectionRef> = {};
-		for (const [id, connection] of [...this._byFile].slice(-MAX_REMEMBERED)) {
-			if (isPersistable(vscode.Uri.parse(id))) {
-				persisted[id] = connection;
+	/**
+	 * Drops every choice of a connection the user has removed: nothing can open it again, so a
+	 * file pointing at it has to be scoped again whatever happens.
+	 *
+	 * @param profileIds The connections removed.
+	 */
+	public forgetConnections(profileIds: ReadonlySet<string>): void {
+		let forgot = false;
+		for (const [file, connection] of [...this._byFile]) {
+			if (profileIds.has(connection.profileId)) {
+				this._byFile.delete(file);
+				forgot = true;
 			}
+		}
+		for (const [uri, closed] of [...this._closed]) {
+			if (profileIds.has(closed.connection.profileId)) {
+				this._closed.delete(uri);
+			}
+		}
+		if (forgot) {
+			this._save();
+		}
+	}
+
+	private _save(): void {
+		// Untitled buffers are left out before the cap is applied, not after, so that they do not
+		// take places files on disk need. They are bounded on their own: a buffer's choice goes
+		// when it closes.
+		const persistable = [...this._byFile].filter(([id]) => isPersistable(vscode.Uri.parse(id)));
+		const kept = persistable.slice(-MAX_REMEMBERED);
+		// Forgotten here as well as in the store, so the map does not outgrow what is kept of it.
+		for (const [id] of persistable.slice(0, persistable.length - kept.length)) {
+			this._byFile.delete(id);
+		}
+		const persisted: Record<string, ConnectionRef> = {};
+		for (const [id, connection] of kept) {
+			persisted[id] = connection;
 		}
 		// Not awaited: the memento write is a background flush, and nothing here reads it back
 		// before the next window. A failure to write costs the user a re-pick, not correctness.

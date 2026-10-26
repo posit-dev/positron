@@ -68,6 +68,14 @@ const DIAGNOSTIC_DELAY_MS = 300;
 const CONNECTION_CHANGE_DELAY_MS = 250;
 
 /**
+ * How many documents' analyses to keep.
+ *
+ * Enough for every SQL file a person has open at once, so that a schema read -- which asks every
+ * open file for its diagnostics and its links -- parses each once rather than twice.
+ */
+const MAX_CACHED_ANALYSES = 32;
+
+/**
  * The part of `positron.dataConnections` a session uses: the reads, plus what it is told when
  * connections change and how it opens one. Injected so a session can be tested without a live
  * database behind it.
@@ -167,14 +175,20 @@ export class SqlSession implements vscode.Disposable {
 
 	private _keywords: readonly string[] | undefined;
 
-	/** The dialect setting already reported as unrecognized, so it is said once and not per parse. */
-	private _reportedDialect: string | undefined;
+	/** Dialects already reported as unrecognized, so each is said once and not per parse. */
+	private readonly _reportedDialects = new Set<string>();
 
 	/**
 	 * The SQL documents most recently in front of the user, newest last: the one Save As was run
 	 * from is one of these while the file it saved opens.
 	 */
 	private _recentlyActive: string[] = [];
+
+	/**
+	 * The connections configured as of the last read, so that one that has gone since is known to
+	 * have been removed rather than not yet listed.
+	 */
+	private _configuredIds: ReadonlySet<string> | undefined;
 
 	/** Reads the schema, walking only the connections that have something new to find. */
 	private readonly _reader: SchemaReader;
@@ -186,13 +200,13 @@ export class SqlSession implements vscode.Disposable {
 	private readonly _pending = new Map<string, NodeJS.Timeout>();
 
 	/**
-	 * The last document parsed, and what came of it.
+	 * Each open document's latest parse, by URI, least recently used first.
 	 *
-	 * Diagnostics and document links both want the whole document parsed, and the editor asks for
-	 * links on the same version it has just been given diagnostics for. One entry is enough: the
-	 * requests that matter are for the document the user is looking at, and they arrive together.
+	 * Diagnostics, document links and hovers all want the whole document parsed, and the editor
+	 * asks for links on the same version it has just been given diagnostics for. Kept per document
+	 * because a schema read asks that of every open file at once.
 	 */
-	private _cache: { key: string; analysis: Analysis } | undefined;
+	private readonly _cache = new Map<string, { key: string; analysis: Analysis }>();
 
 	/** The document link provider's registration; see {@link _relink}. */
 	private _links: vscode.Disposable | undefined;
@@ -291,6 +305,7 @@ export class SqlSession implements vscode.Disposable {
 				// keep its errors in the Problems panel with no editor to fix them in.
 				this._cancel(document);
 				this._diagnostics.delete(document.uri);
+				this._cache.delete(document.uri.toString());
 				const chosen = this._selection.get(document.uri);
 				this._selection.forgetIfTransient(document.uri, document.getText());
 				if (chosen && document.uri.scheme === 'untitled') {
@@ -332,11 +347,12 @@ export class SqlSession implements vscode.Disposable {
 				if (event.affectsConfiguration(DATA_CONNECTIONS_ENABLED_SETTING)) {
 					void this.refreshSchema(true);
 				}
-				if (event.affectsConfiguration(CONFIGURATION_SECTION)) {
-					// Both settings that matter here -- the dialect and whether unknown names
-					// count -- decide what a diagnostic is, and every open document was analyzed
-					// under the old value. The dialect is on the status bar hover too, and decides
-					// which names parse as tables, so the links.
+				if (event.affectsConfiguration(`${CONFIGURATION_SECTION}.dialect`)
+					|| event.affectsConfiguration(`${CONFIGURATION_SECTION}.diagnostics`)) {
+					// The dialect and the diagnostics settings decide what a diagnostic is, and
+					// every open document was analyzed under the old value. The dialect is on the
+					// status bar hover too, and decides which names parse as tables, so the links.
+					// Not connectOnOpen, which is read when a file opens.
 					this._relink();
 					this._refreshAll();
 					this._updateStatusBar();
@@ -472,6 +488,7 @@ export class SqlSession implements vscode.Disposable {
 		this._payload = payload;
 		this._read = true;
 		this._scoped.clear();
+		this._forgetRemovedConnections(payload);
 		// The schema decides which names are unknown, so every open document's diagnostics are
 		// stale, and which names are tables, so its links are. The status bar is stale too: a
 		// connection this file chose may have just closed.
@@ -479,6 +496,25 @@ export class SqlSession implements vscode.Disposable {
 		this._refreshAll();
 		this._updateStatusBar();
 		this._settle();
+	}
+
+	/**
+	 * Drops the files' choices of connections removed since the last read.
+	 *
+	 * Only ones seen in one read and gone in the next: a listing that comes back empty or short --
+	 * Data Connections switched off, or the API failing -- is not the user removing anything, and
+	 * a choice once dropped cannot be got back.
+	 */
+	private _forgetRemovedConnections(payload: SqlSchema): void {
+		if (payload.dataConnectionsOff || payload.configured.length === 0) {
+			return;
+		}
+		const current = new Set(payload.configured.map(connection => connection.profileId));
+		const removed = new Set([...this._configuredIds ?? []].filter(profileId => !current.has(profileId)));
+		this._configuredIds = current;
+		if (removed.size > 0) {
+			this._selection.forgetConnections(removed);
+		}
 	}
 
 	/** Marks the first schema read that was not overtaken as done, the first time one is. */
@@ -710,27 +746,40 @@ export class SqlSession implements vscode.Disposable {
 			return EMPTY_ANALYSIS;
 		}
 
-		const dialect = this._dialectFor(document);
-		const key = `${document.uri.toString()}@${document.version}:${dialect}`;
-		if (this._cache?.key !== key) {
+		const { dialect, fromSetting } = this._dialectInUse(document);
+		const uri = document.uri.toString();
+		const key = `${document.version}:${dialect}`;
+		let cached = this._cache.get(uri);
+		// Taken out and put back, so the map's order is the order documents were last used in.
+		this._cache.delete(uri);
+		if (cached?.key !== key) {
 			const started = Date.now();
 			const analysis = analyzer.analyze(document.getText(), dialect);
-			this._cache = { key, analysis };
+			cached = { key, analysis };
 			this._log.trace(`Analyzed ${document.uri.toString(true)} v${document.version}`
 				+ ` as ${dialect || 'generic'} in ${Date.now() - started}ms:`
 				+ ` ${analysis.diagnostics.length} diagnostic(s),`
 				+ ` ${analysis.tables.length} table(s), ${analysis.columns.length} column(s).`);
 		}
-
-		if (this._cache.analysis.unknownDialect && this._reportedDialect !== dialect) {
-			// Said once per setting value rather than per parse: a dialect that is not recognized
-			// stays unrecognized for every document, and a line per keystroke would bury it.
-			this._reportedDialect = dialect;
-			this._log.warn(`The SQL dialect "${dialect}" is not one Positron can parse, so SQL files`
-				+ ' are being parsed without a dialect. Pick one from the sql.dialect setting.');
+		this._cache.set(uri, cached);
+		while (this._cache.size > MAX_CACHED_ANALYSES) {
+			this._cache.delete(this._cache.keys().next().value!);
 		}
 
-		return this._cache.analysis;
+		if (cached.analysis.unknownDialect && !this._reportedDialects.has(dialect)) {
+			// Said once per dialect rather than per parse: a dialect that is not recognized stays
+			// unrecognized for every document, and a line per keystroke would bury it. Fixed where
+			// it came from, which is not always the setting.
+			this._reportedDialects.add(dialect);
+			this._log.warn(fromSetting
+				? `The SQL dialect "${dialect}" is not one Positron can parse, so SQL files are being`
+				+ ' parsed without a dialect. Pick one from the sql.dialect setting.'
+				: `The SQL dialect "${dialect}", which a data connection's driver uses, is not one`
+				+ ' Positron can parse, so files written against that connection are being parsed'
+				+ ' without a dialect. Set sql.dialect to read them as another one.');
+		}
+
+		return cached.analysis;
 	}
 
 	private _schedule(document: vscode.TextDocument): void {

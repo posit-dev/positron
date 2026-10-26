@@ -135,6 +135,38 @@ suite('ConnectionSelection', () => {
 		);
 	});
 
+	test('scratch buffers do not take the places files on disk are kept in', () => {
+		const kept = store();
+		const selection = new ConnectionSelection(kept);
+		selection.set(REPORT, WAREHOUSE);
+		for (let index = 0; index < 199; index++) {
+			selection.set(vscode.Uri.file(`/reports/${index}.sql`), LOCAL);
+		}
+
+		for (let index = 0; index < 5; index++) {
+			selection.set(vscode.Uri.parse(`untitled:Untitled-${index}`), LOCAL);
+		}
+
+		assert.deepStrictEqual(
+			{ kept: Object.keys(kept.written).length, report: kept.written[REPORT.toString()] },
+			{ kept: 200, report: WAREHOUSE },
+		);
+	});
+
+	test('choices of a removed connection are dropped, and nothing else', () => {
+		const kept = store();
+		const selection = new ConnectionSelection(kept);
+		selection.set(REPORT, WAREHOUSE);
+		selection.set(MIGRATION, LOCAL);
+
+		selection.forgetConnections(new Set([WAREHOUSE.profileId]));
+
+		assert.deepStrictEqual(
+			{ report: selection.get(REPORT), migration: selection.get(MIGRATION), stored: Object.keys(kept.written) },
+			{ report: undefined, migration: LOCAL, stored: [MIGRATION.toString()] },
+		);
+	});
+
 	test('a saved file keeps its choice for the next window', () => {
 		const kept = store();
 		new ConnectionSelection(kept).set(REPORT, WAREHOUSE);

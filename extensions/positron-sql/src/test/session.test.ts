@@ -134,11 +134,11 @@ suite('SqlSession', () => {
 	const sessions: SqlSession[] = [];
 
 	/** A session over the fake, started, and disposed when the test ends. */
-	function startSession(api: FakeConnections, store = memento()): SqlSession {
+	function startSession(api: FakeConnections, store = memento(), log = testLog().log): SqlSession {
 		const extension = vscode.extensions.getExtension('positron.positron-sql')!;
 		const session = new SqlSession(
 			{ extensionPath: extension.extensionPath, workspaceState: store },
-			testLog().log,
+			log,
 			api,
 			0,
 		);
@@ -362,6 +362,51 @@ suite('SqlSession', () => {
 			assert.deepStrictEqual({ on, off, again }, { on: 1, off: 0, again: 1 });
 		} finally {
 			await configuration.update('enabled', undefined, vscode.ConfigurationTarget.Global);
+		}
+	});
+
+	test('a connection the user removes takes the files\' choices of it along', async () => {
+		const file = sqlFile('removed.sql', 'SELECT 1;');
+		const store = memento({ connectionByDocument: { [file.toString()]: ref('a') } });
+		const api = new FakeConnections();
+		api.connections = [summary('a', false), summary('b', false)];
+		const session = startSession(api, store);
+		await session.whenRead();
+
+		api.connections = [summary('b', false)];
+		await session.refreshSchema();
+
+		assert.deepStrictEqual(store.get('connectionByDocument'), {});
+	});
+
+	test('a connection not listed yet is not taken for one removed', async () => {
+		// The first read has nothing to compare with: a choice it does not list may be a listing
+		// that came back short, and a choice dropped cannot be got back.
+		const file = sqlFile('kept.sql', 'SELECT 1;');
+		const store = memento({ connectionByDocument: { [file.toString()]: ref('a') } });
+		const api = new FakeConnections();
+		api.connections = [summary('b', false)];
+		const session = startSession(api, store);
+		await session.whenRead();
+		await session.refreshSchema();
+
+		assert.deepStrictEqual(Object.keys(store.get<object>('connectionByDocument', {})), [file.toString()]);
+	});
+
+	test('a dialect that cannot be parsed is reported once, not once per file', async () => {
+		const configuration = vscode.workspace.getConfiguration('sql');
+		await configuration.update('dialect', 'klingon', vscode.ConfigurationTarget.Global);
+		try {
+			const { log, messages } = testLog();
+			const session = startSession(new FakeConnections(), memento(), log);
+			await session.whenRead();
+
+			await vscode.workspace.openTextDocument({ language: 'sql', content: 'SELECT 1;' });
+			await vscode.workspace.openTextDocument({ language: 'sql', content: 'SELECT 2;' });
+
+			assert.strictEqual(messages.filter(message => message.includes('"klingon"')).length, 1);
+		} finally {
+			await configuration.update('dialect', undefined, vscode.ConfigurationTarget.Global);
 		}
 	});
 });
