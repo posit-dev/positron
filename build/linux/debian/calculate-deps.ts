@@ -4,7 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { spawnSync } from 'child_process';
-import { constants, statSync } from 'fs';
+// --- Start Positron ---
+// import { constants, statSync } from 'fs';
+import { constants, statSync, writeFileSync } from 'fs';
+// --- End Positron ---
 import { tmpdir } from 'os';
 import path from 'path';
 import manifests from '../../../cgmanifest.json' with { type: 'json' };
@@ -29,16 +32,22 @@ function calculatePackageDeps(binaryPath: string, arch: DebianArchString, chromi
 		console.error('Tried to stat ' + binaryPath + ' but failed.');
 	}
 
-	// Get the Chromium dpkg-shlibdeps file.
-	const chromiumManifest = manifests.registrations.filter(registration => {
-		return registration.component.type === 'git' && registration.component.git!.name === 'chromium';
-	});
-	const dpkgShlibdepsUrl = `https://raw.githubusercontent.com/chromium/chromium/${chromiumManifest[0].version}/third_party/dpkg-shlibdeps/dpkg-shlibdeps.pl`;
-	const dpkgShlibdepsScriptLocation = `${tmpdir()}/dpkg-shlibdeps.pl`;
-	const result = spawnSync('curl', [dpkgShlibdepsUrl, '-o', dpkgShlibdepsScriptLocation]);
-	if (result.status !== 0) {
-		throw new Error('Cannot retrieve dpkg-shlibdeps. Stderr:\n' + result.stderr);
-	}
+	// --- Start Positron ---
+	// The upstream download runs once per binary, is unauthenticated, and
+	// saves HTTP error pages (like a 429 rate limit) as the script. See
+	// getDpkgShlibdepsScript() below.
+	// // Get the Chromium dpkg-shlibdeps file.
+	// const chromiumManifest = manifests.registrations.filter(registration => {
+	// 	return registration.component.type === 'git' && registration.component.git!.name === 'chromium';
+	// });
+	// const dpkgShlibdepsUrl = `https://raw.githubusercontent.com/chromium/chromium/${chromiumManifest[0].version}/third_party/dpkg-shlibdeps/dpkg-shlibdeps.pl`;
+	// const dpkgShlibdepsScriptLocation = `${tmpdir()}/dpkg-shlibdeps.pl`;
+	// const result = spawnSync('curl', [dpkgShlibdepsUrl, '-o', dpkgShlibdepsScriptLocation]);
+	// if (result.status !== 0) {
+	// 	throw new Error('Cannot retrieve dpkg-shlibdeps. Stderr:\n' + result.stderr);
+	// }
+	const dpkgShlibdepsScriptLocation = getDpkgShlibdepsScript();
+	// --- End Positron ---
 	const cmd = [dpkgShlibdepsScriptLocation, '--ignore-weak-undefined', '--ignore-missing-info'];
 	switch (arch) {
 		case 'amd64':
@@ -106,3 +115,58 @@ function calculatePackageDeps(binaryPath: string, arch: DebianArchString, chromi
 	const requires = new Set(filteredDeps);
 	return requires;
 }
+
+// --- Start Positron ---
+// Downloads Chromium's dpkg-shlibdeps script once per build.
+let dpkgShlibdepsScriptPath: string | undefined;
+
+/**
+ * Returns the path to Chromium's dpkg-shlibdeps script, downloading it on the
+ * first call. When GITHUB_TOKEN is set, downloads from the GitHub REST API,
+ * which documents a rate limit for that token. Otherwise downloads from
+ * raw.githubusercontent.com without authentication.
+ */
+function getDpkgShlibdepsScript(): string {
+	if (dpkgShlibdepsScriptPath) {
+		return dpkgShlibdepsScriptPath;
+	}
+
+	const chromiumManifest = manifests.registrations.filter(registration => {
+		return registration.component.type === 'git' && registration.component.git!.name === 'chromium';
+	});
+	const chromiumVersion = chromiumManifest[0].version;
+	const repoFilePath = 'third_party/dpkg-shlibdeps/dpkg-shlibdeps.pl';
+	const dpkgShlibdepsScriptLocation = `${tmpdir()}/dpkg-shlibdeps.pl`;
+
+	// curl reads the headers from stdin so the token stays out of the process
+	// list.
+	const token = process.env.GITHUB_TOKEN;
+	const dpkgShlibdepsUrl = token ?
+		`https://api.github.com/repos/chromium/chromium/contents/${repoFilePath}?ref=${chromiumVersion}` :
+		`https://raw.githubusercontent.com/chromium/chromium/${chromiumVersion}/${repoFilePath}`;
+	const curlConfig = token ?
+		`header = "Accept: application/vnd.github.raw"\nheader = "Authorization: Bearer ${token}"\n` :
+		'';
+
+	console.log(`Downloading dpkg-shlibdeps from ${dpkgShlibdepsUrl}`);
+	// curl prints the response body, then the HTTP status code on its own last
+	// line. The script is only written to disk for a 200, so an error page is
+	// reported instead of being run by perl.
+	const result = spawnSync('curl', ['--silent', '--show-error', '--config', '-', '--write-out', '\n%{http_code}', dpkgShlibdepsUrl], { input: curlConfig });
+	if (result.error) {
+		throw new Error(`Cannot retrieve dpkg-shlibdeps from ${dpkgShlibdepsUrl}. ${result.error.message}`);
+	}
+	if (result.status !== 0) {
+		throw new Error(`Cannot retrieve dpkg-shlibdeps from ${dpkgShlibdepsUrl}. curl exited with code ${result.status}: ${result.stderr.toString().trim()}`);
+	}
+	const statusLineStart = result.stdout.lastIndexOf('\n');
+	const body = result.stdout.subarray(0, statusLineStart);
+	const httpStatus = result.stdout.subarray(statusLineStart + 1).toString();
+	if (httpStatus !== '200') {
+		throw new Error(`Cannot retrieve dpkg-shlibdeps from ${dpkgShlibdepsUrl}. HTTP status ${httpStatus}. Response body:\n${body.toString()}`);
+	}
+	writeFileSync(dpkgShlibdepsScriptLocation, body);
+	dpkgShlibdepsScriptPath = dpkgShlibdepsScriptLocation;
+	return dpkgShlibdepsScriptPath;
+}
+// --- End Positron ---

@@ -27,7 +27,7 @@ import { isStatementError, SnowflakeClient } from './snowflakeClient.js';
 import { formatFileSize } from './fileSize.js';
 
 /** Quotes and escapes an identifier for Snowflake by doubling embedded double-quotes. */
-function quoteIdentifier(name: string): string {
+export function quoteIdentifier(name: string): string {
 	return '"' + name.replace(/"/g, '""') + '"';
 }
 
@@ -1029,7 +1029,7 @@ interface IStageLocation {
 }
 
 /** Quotes a Snowflake string literal, escaping backslashes as well as single quotes. */
-function quoteLiteral(value: string): string {
+export function quoteLiteral(value: string): string {
 	return `'${value.replace(/\\/g, '\\\\').replace(/'/g, '\\\'')}'`;
 }
 

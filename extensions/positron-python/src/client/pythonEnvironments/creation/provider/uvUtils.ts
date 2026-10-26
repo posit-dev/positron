@@ -9,7 +9,7 @@ import { CreateEnv } from '../../../common/utils/localize';
 import { getAvailablePythonVersions } from '../../common/environmentManagers/uv';
 
 // Fallback versions if uv is not installed or fails to fetch versions
-const SUPPORTED_UV_PYTHON_VERSIONS = ['3.15', '3.14', '3.13', '3.12', '3.11', '3.10', '3.9'];
+const SUPPORTED_UV_PYTHON_VERSIONS = ['3.15', '3.14', '3.13', '3.12', '3.11', '3.10'];
 
 /**
  * Gets available Python versions for uv environments.

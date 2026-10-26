@@ -90,8 +90,8 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	// Only an overlay that was not on screen before counts (lib.markOverlays marks
 	// those): a menu item that opens a quick pick closes its menu, so the number
 	// of overlays stays the same ("Start Another..." in Quick Launch Session).
-	await lib.markOverlays();
-	const fresh = () => page.locator(lib.css.overlay.any).filter({ visible: true }).and(page.locator(`${lib.css.overlay.notInToasts}:not([data-dp-seen])`)).count();
+	const mark = await lib.markOverlays();
+	const fresh = () => page.locator(lib.css.overlay.any).filter({ visible: true }).and(page.locator(`${lib.css.overlay.notInToasts}:not([data-dp-seen="${mark}"])`)).count();
 	const toastsBefore = await lib.toasts();
 	const acted = Date.now();
 	let checked: Record<string, unknown> = {};
@@ -262,16 +262,18 @@ const typeText: PageFn<{ scope: string; text: string; enter: boolean }> = async 
 // runs in run-code
 const pickRow: PageFn<{ text: string; nth: number }> = async (page, a, lib) => {
 	if (!await lib.quickOpen()) { return { ok: false, error: 'no quick pick is open' }; }
-	const p = await lib.pick({ exact: a.text, nth: a.nth });
+	const p = await lib.pick({ exact: a.text, nth: a.nth, walk: true });
 	if (!p.ok) {
 		// Rows that share a label: the row as "shown" writes it tells them apart, unless they look the same.
 		const shown = (p as { shown?: string[] }).shown ?? [];
 		const how = new Set(shown).size === shown.length ? 'give the row as "shown" writes it, "label (description)", or pass --nth (1 = first)' : 'pass --nth (1 = first), in list order';
-		return / rows match "[^"]*"$/.test(p.error) ? { ...p, error: `${p.error}; ${how}` } : p;
+		if (/ rows match "[^"]*"$/.test(p.error)) { return { ...p, error: `${p.error}; ${how}` }; }
+		// A list pick could not read or scroll through: a filter shortens it.
+		return (p as { partial?: boolean }).partial ? { ...p, error: `${p.error}; filter it with ui.sh type TEXT --in quickpick, then pick` } : p;
 	}
 	await lib.clickRow(p.row);
 	await lib.sleep(200);
-	return { ok: true, chose: p.row.label, description: p.row.description, closed: !await lib.quickOpen() };
+	return { ok: true, chose: p.row.label, description: p.row.description, ...(p.walked ? { walked: true } : {}), closed: !await lib.quickOpen() };
 };
 
 /**

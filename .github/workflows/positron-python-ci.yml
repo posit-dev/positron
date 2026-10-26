@@ -92,7 +92,7 @@ jobs:
       fail-fast: false
       matrix:
         # Run pyright on the oldest and most recent versions of Python.
-        python: ['3.9', '3.15']
+        python: ['3.10', '3.15']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -121,7 +121,7 @@ jobs:
           uv sync --active --inexact --frozen --project python_files/posit
 
       # Some optional packages aren't installed on 3.15 yet (see posit/pyproject.toml),
-      # so report their imports as warnings there. 3.9 still fails on missing imports.
+      # so report their imports as warnings there. Other versions still fail on missing imports.
       - name: Allow missing imports on Python 3.15
         if: matrix.python == '3.15'
         run: sed -i '/^\[tool.pyright\]/a reportMissingImports = "warning"' pyproject.toml
@@ -145,7 +145,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Run the tests on the oldest and most recent versions of Python.
-        python: ['3.9', '3.15']
+        python: ['3.10', '3.15']
 
     steps:
       - name: Checkout
@@ -187,10 +187,8 @@ jobs:
       matrix:
         include:
           - os: 'macos-latest'
-            python: '3.9'
-          - os: 'windows-latest'
             python: '3.10'
-          - os: 'ubuntu-latest'
+          - os: 'windows-latest'
             python: '3.11'
           - os: 'ubuntu-latest'
             python: '3.12'
@@ -236,7 +234,7 @@ jobs:
         include:
           # currently only running on oldest supported Python version
           - os: 'ubuntu-latest'
-            python: '3.9'
+            python: '3.10'
     steps:
       - name: Checkout
         uses: actions/checkout@v7

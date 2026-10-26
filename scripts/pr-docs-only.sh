@@ -50,9 +50,9 @@ if [[ "$ACTUAL" != "$EXPECTED" ]]; then
 fi
 
 CHANGED=$(printf '%s\n' "$FILES_TSV" | tr '\t' '\n')
-REACHABLE=$(ci_reachable_workflows "$ROOT")
+REACHABLE=$(ci_reachable_paths "$ROOT")
 
-echo "Workflows Test: PR calls (never docs-only):"
+echo "Workflows and actions Test: PR uses (never docs-only):"
 printf '%s\n' "$REACHABLE" | sed 's/^/  /'
 echo "Changed files:"
 while IFS= read -r path; do

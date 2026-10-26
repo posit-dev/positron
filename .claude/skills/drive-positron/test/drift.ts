@@ -23,10 +23,11 @@
 // use them, and exits 1 when any is MISSING. --root checks another tree.
 
 import { readdirSync, readFileSync } from 'fs';
-import { dirname, join, relative, resolve } from 'path';
+import { dirname, join, relative, resolve, sep } from 'path';
+import { fileURLToPath } from 'url';
 import { css, names } from '../scripts/selectors.ts';
 
-const skill = resolve(dirname(new URL(import.meta.url).pathname), '..');
+const skill = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const scripts = join(skill, 'scripts');
 
 // ---- Tables
@@ -86,7 +87,8 @@ function readTree(root: string): File[] {
 			if (e.isDirectory()) {
 				if (!SKIP_DIRS.has(e.name) && !e.name.startsWith('.')) { walk(p); }
 			} else if (/\.(tsx?|css)$/.test(e.name) && !/\.(test|vitest|d)\.tsx?$/.test(e.name) || /^package(\.nls)?\.json$/.test(e.name)) {
-				files.push({ path: relative(root, p), text: readFileSync(p, 'utf8') });
+				// A / path on Windows too, where relative() gives \, so AREA's prefixes match.
+				files.push({ path: relative(root, p).split(sep).join('/'), text: readFileSync(p, 'utf8') });
 			}
 		}
 	};

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -18,13 +19,18 @@ import {
 	saveMcpState,
 } from '../McpFrontend';
 import {
+	MCP_CONNECTIONS_ENV_VAR,
+	MCP_LAUNCHER_ENV_VAR,
 	MCP_TOKEN_ENV_VAR,
 	MCP_URL_ENV_VAR,
 	McpConnectionDescriptor,
 	McpConnectionIndex,
+	SUPERVISOR_PATH_ENV_VAR,
+	mcpConnectionsDirectory,
 	mcpDescriptorPath,
 	mcpIndexPath,
 } from '../mcpConnection';
+import { mcpLauncherLaunch, mcpLauncherPath } from '../mcpLauncher';
 
 /** Records what the frontend publishes into terminals. */
 class FakeEnvironment implements McpTerminalEnvironment {
@@ -122,6 +128,8 @@ interface Harness {
 	processEnv: NodeJS.ProcessEnv;
 	/** Stands in for the extension's global storage. */
 	storageUri: vscode.Uri;
+	/** Stands in for the supervisor binary. */
+	supervisorPath: string;
 	registry: FakeRegistry;
 	memento: FakeMemento;
 	setEnabled(enabled: boolean): void;
@@ -151,6 +159,7 @@ function createHarness(
 		environment,
 		processEnv,
 		storageUri,
+		supervisorPath,
 		registry,
 		memento,
 		registrations: 0,
@@ -163,12 +172,46 @@ function createHarness(
 			() => loadMcpState(memento),
 			state => saveMcpState(memento, state),
 			() => [],
+			() => harness.supervisorPath,
 			() => enabled,
 			() => { harness.registrations++; },
 			() => { harness.deregistrations++; },
 			processEnv),
 	};
 	return harness;
+}
+
+/** The stand-in supervisor every harness runs, made by {@link fakeSupervisor}. */
+let supervisorPath: string;
+
+/**
+ * A stand-in for the supervisor binary, which prints how it was started. Its
+ * path has a space and a quote in it, which the launcher must pass through.
+ */
+function fakeSupervisor(): string {
+	const directory = fs.mkdtempSync(path.join(os.tmpdir(), "mcp supervisor's-"));
+	if (process.platform === 'win32') {
+		const file = path.join(directory, 'kcserver.cmd');
+		fs.writeFileSync(file, '@echo %~f0 %~1 %~2 %~3\r\n');
+		return file;
+	}
+	const file = path.join(directory, 'kcserver');
+	fs.writeFileSync(file, '#!/bin/sh\necho "$0" "$@"\n', { mode: 0o755 });
+	return file;
+}
+
+/**
+ * Start the launcher as an agent does, and return what the supervisor it ran
+ * printed.
+ */
+function runLauncher(harness: Harness): string {
+	const { command, args } = mcpLauncherLaunch(harness.storageUri);
+	return execFileSync(command, args, { encoding: 'utf8' }).trim();
+}
+
+/** What the stand-in supervisor prints when the launcher runs its bridge. */
+function expectedLaunch(harness: Harness): string {
+	return `${harness.supervisorPath} mcp-stdio --connections ${mcpConnectionsDirectory(harness.storageUri)}`;
 }
 
 /** The JSON the frontend has left in a file, if it wrote one. */
@@ -201,11 +244,30 @@ function savedState(harness: Harness): McpFrontendState {
 	return loadMcpState(harness.memento);
 }
 
+/** The variables a harness's first registration publishes. */
+function published(harness: Harness): Record<string, string> {
+	return {
+		[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+		[MCP_TOKEN_ENV_VAR]: 'token-1',
+		[MCP_CONNECTIONS_ENV_VAR]: mcpConnectionsDirectory(harness.storageUri),
+		[SUPERVISOR_PATH_ENV_VAR]: harness.supervisorPath,
+		[MCP_LAUNCHER_ENV_VAR]: mcpLauncherPath(harness.storageUri),
+	};
+}
+
 function lastRegistration(harness: Harness): McpWorkspaceRegistration {
 	return harness.registry.registrations[harness.registry.registrations.length - 1];
 }
 
 suite('McpFrontend', () => {
+	suiteSetup(() => {
+		supervisorPath = fakeSupervisor();
+	});
+
+	suiteTeardown(() => {
+		fs.rmSync(path.dirname(supervisorPath), { recursive: true, force: true });
+	});
+
 	test('registers and publishes the endpoint and token to terminals and extensions', async () => {
 		const harness = createHarness();
 
@@ -231,16 +293,30 @@ suite('McpFrontend', () => {
 					folders: folders(),
 				},
 				saved: { workspaceId: 'workspace-1', port: 39000, token: 'token-1' },
-				variables: {
-					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
-					[MCP_TOKEN_ENV_VAR]: 'token-1',
-				},
+				variables: published(harness),
 				hasDescription: true,
-				processEnv: {
-					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
-					[MCP_TOKEN_ENV_VAR]: 'token-1',
-				},
+				processEnv: published(harness),
 			});
+	});
+
+	test('installs a launcher that runs the bridge of this window\'s supervisor', async () => {
+		const harness = createHarness();
+
+		await harness.frontend.attach(harness.registry);
+
+		assert.strictEqual(runLauncher(harness), expectedLaunch(harness));
+	});
+
+	test('configures no agents when the launcher cannot be installed', async () => {
+		const harness = createHarness();
+		// A file where the launcher's directory belongs.
+		const directory = path.dirname(mcpLauncherPath(harness.storageUri));
+		fs.mkdirSync(path.dirname(directory), { recursive: true });
+		fs.writeFileSync(directory, '');
+
+		await harness.frontend.attach(harness.registry);
+
+		assert.strictEqual(harness.registrations, 0);
 	});
 
 	test('writes a connection descriptor for the stdio bridge', async () => {

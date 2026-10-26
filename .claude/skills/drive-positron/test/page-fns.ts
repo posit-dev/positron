@@ -25,9 +25,11 @@ export function pageFnProblems(files: string[], extra?: { name: string; text: st
 	if (extra) {
 		const read = host.readFile;
 		const getSource = host.getSourceFile;
-		host.fileExists = f => f === extra.name || ts.sys.fileExists(f);
-		host.readFile = f => f === extra.name ? extra.text : read(f);
-		host.getSourceFile = (f, v, ...rest) => f === extra.name ? ts.createSourceFile(f, extra.text, v) : getSource(f, v, ...rest);
+		// The compiler asks for every file with / separators, also on Windows.
+		const planted = (f: string) => f.replace(/\\/g, '/') === extra.name.replace(/\\/g, '/');
+		host.fileExists = f => planted(f) || ts.sys.fileExists(f);
+		host.readFile = f => planted(f) ? extra.text : read(f);
+		host.getSourceFile = (f, v, ...rest) => planted(f) ? ts.createSourceFile(f, extra.text, v) : getSource(f, v, ...rest);
 	}
 	const options: ts.CompilerOptions = { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext, allowImportingTsExtensions: true, noEmit: true, strict: true, skipLibCheck: true, types: ['node'], lib: ['lib.es2023.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts'] };
 	const program = ts.createProgram(extra ? [...files, extra.name] : files, options, host);

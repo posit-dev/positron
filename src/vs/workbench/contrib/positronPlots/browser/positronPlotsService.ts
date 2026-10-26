@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IPositronPlotMetadata, PlotClientInstance, PlotClientLocation } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { IPositronPlotMetadata, PlotClientInstance, PlotClientLocation, PlotClientState } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind, UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
@@ -15,6 +16,9 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { IViewDescriptorService } from '../../../common/views.js';
+import { openViewPreservingActiveTab } from '../../../services/views/browser/positronViews.js';
+import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotSizingPolicyAuto } from '../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicySquare } from '../../../services/positronPlots/common/sizingPolicySquare.js';
@@ -199,7 +203,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * it in the plot view.
 	 */
 	private readonly _recentExecutions = new Map<string, string>();
-	private readonly _recentExecutionIds = new Array<string>();
+
+	/** The IDs of each session's recent executions, oldest first. */
+	private readonly _recentExecutionIds = new Map<string, string[]>();
 
 	/**
 	 * A map of plot id to the runtime message (and its session) that produced a
@@ -230,12 +236,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOpenerService private _openerService: IOpenerService,
+		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IPositronPreviewService private _positronPreviewService: IPositronPreviewService,
 		@IPositronWebviewPreloadService private _positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private _storageService: IStorageService,
+		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService,
 		@IViewsService private _viewsService: IViewsService,
 	) {
 		super();
@@ -259,6 +267,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				}
 				this._renderQueues.delete(sessionId);
 			}
+			for (const id of this._recentExecutionIds.get(sessionId) ?? []) {
+				this._recentExecutions.delete(id);
+			}
+			this._recentExecutionIds.delete(sessionId);
 		}));
 
 		// Register for UI comm events
@@ -284,12 +296,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Listen for plot clients being created by the IPyWidget service and register them with the plots service
 		// so they can be displayed in the plots pane.
 		this._register(this._positronIPyWidgetsService.onDidCreatePlot((plotClient) => {
-			this.registerWebviewPlotClient(plotClient);
+			this.registerWebviewPlotClient(plotClient, true, plotClient.metadata.execution_id);
 		}));
 		// Listen for plot clients from the holoviews service and register them with the plots
 		// service so they can be displayed in the plots pane.
 		this._register(this._positronWebviewPreloadService.onDidCreatePlot((plotClient) => {
-			this.registerWebviewPlotClient(plotClient);
+			this.registerWebviewPlotClient(plotClient, true, plotClient.metadata.execution_id);
 		}));
 
 		// When the storage service is about to save state, store policies and cached plot thumbnail descriptors.
@@ -499,11 +511,49 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this.onDidChangePlotsRenderSettings = Event.fromObservable(this._plotsRenderSettings);
 	}
 
-	private _showPlotsPane() {
+	/**
+	 * Raises the Plots pane.
+	 * @param executionId The ID of the execution that produced the plot, if known.
+	 */
+	private _showPlotsPane(executionId?: string) {
 		// Only open the plots view in the main window if that's where plots are currently displayed.
 		// If plots are in the auxiliary window, don't open the main window view.
 		if (this._displayLocation === PlotsDisplayLocation.MainWindow) {
-			this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+			if (executionId && this._positronConsoleService.shouldPreserveActiveTab(executionId)) {
+				openViewPreservingActiveTab(POSITRON_PLOTS_VIEW_ID, this._viewsService, this._viewDescriptorService);
+			} else {
+				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+			}
+		}
+	}
+
+	/**
+	 * Gets the ID of a session's most recent execution, for plot events that don't carry one.
+	 */
+	private mostRecentExecutionId(sessionId: string): string | undefined {
+		return this._recentExecutionIds.get(sessionId)?.at(-1);
+	}
+
+	/** Makes a background plot available to capture even if its view is never mounted. */
+	private async renderUnrenderedPlot(plotClient: PlotClientInstance): Promise<void> {
+		if (plotClient.lastRender || plotClient.state !== PlotClientState.Unrendered) {
+			return;
+		}
+		try {
+			const intrinsicSize = await plotClient.getIntrinsicSize();
+			// The visible view or a pre-render may have taken care of the first render while we waited.
+			if (plotClient.lastRender || plotClient.state !== PlotClientState.Unrendered) {
+				return;
+			}
+			const settings = this.getPlotsRenderSettings();
+			const size = plotClient.sizingPolicy instanceof PlotSizingPolicyIntrinsic && !intrinsicSize
+				? settings.size
+				: plotClient.sizingPolicy.getPlotSize(settings.size);
+			await plotClient.render(size, settings.pixel_ratio, settings.format);
+		} catch (err) {
+			if (!isCancellationError(err)) {
+				this._logService.warn(`Failed to render background plot ${plotClient.id}: ${err}`);
+			}
 		}
 	}
 
@@ -831,9 +881,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._register(session.onDidReceiveRuntimeMessageInput((message) => {
 			// Add this code to the recent executions map. If the map is
 			// already at the maximum size, remove the oldest entry.
-			this._recentExecutionIds.push(message.parent_id);
-			if (this._recentExecutionIds.length > MaxRecentExecutions) {
-				const id = this._recentExecutionIds.shift();
+			let recentExecutionIds = this._recentExecutionIds.get(session.sessionId);
+			if (!recentExecutionIds) {
+				recentExecutionIds = [];
+				this._recentExecutionIds.set(session.sessionId, recentExecutionIds);
+			}
+			recentExecutionIds.push(message.parent_id);
+			if (recentExecutionIds.length > MaxRecentExecutions) {
+				const id = recentExecutionIds.shift();
 				if (id) {
 					this._recentExecutions.delete(id);
 				}
@@ -878,8 +933,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				this.fetchAndUpdateMetadata(commProxy, metadata, plotClient);
 				this.registerPlotClient(plotClient, true);
 
+				if (this._positronConsoleService.shouldPreserveActiveTab(event.message.parent_id)) {
+					void this.renderUnrenderedPlot(plotClient);
+				}
+
 				// Raise the Plots pane so the plot is visible.
-				this._showPlotsPane();
+				this._showPlotsPane(event.message.parent_id);
 			}
 		}));
 
@@ -939,16 +998,16 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 						// Evict the replaced plot's entry so it doesn't linger as
 						// a stale entry (the replacement was remembered above).
 						this._surfacedPlotMessages.delete(existingPlot.id);
-						this.replacePlot(existingPlot.id, plot, raisePane);
+						this.replacePlot(existingPlot.id, plot, raisePane, message.parent_id);
 						return;
 					}
 				}
 
 				// This is a new plot, register it with the plots service.
 				if (plot instanceof StaticPlotClient) {
-					this.registerNewPlotClient(plot, raisePane);
+					this.registerNewPlotClient(plot, raisePane, message.parent_id);
 				} else if (plot instanceof NotebookOutputPlotClient) {
-					this.registerWebviewPlotClient(plot, raisePane);
+					this.registerWebviewPlotClient(plot, raisePane, message.parent_id);
 				}
 			};
 			this._register(session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
@@ -977,7 +1036,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					// evicted here so it doesn't linger as a stale entry.
 					this._surfacedPlotMessages.delete(existingPlot.id);
 					this.rememberSurfacedPlotMessage(plot.id, message, session);
-					this.replacePlot(existingPlot.id, plot, raisePane);
+					this.replacePlot(existingPlot.id, plot, raisePane, message.parent_id);
 				}
 			}));
 		}
@@ -1130,7 +1189,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		const selectPlot = () => {
 			// Raise the Plots pane so the user can see the updated plot
-			this._showPlotsPane();
+			this._showPlotsPane(plotClient.lastEventExecutionId ?? this.mostRecentExecutionId(plotClient.metadata.session_id));
 
 			// Select the plot to bring it into view within the history; it's
 			// possible that it is not the most recently created plot
@@ -1347,8 +1406,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param newPlot The new plot.
 	 * @param raisePane Whether to raise the Plots pane. Defaults to true; pass
 	 *   false to replace the plot passively (e.g. for notebook consoles).
+	 * @param executionId The ID of the execution that produced the plot, if known.
 	 */
-	private replacePlot(id: string, newPlot: IPositronPlotClient, raisePane: boolean = true) {
+	private replacePlot(id: string, newPlot: IPositronPlotClient, raisePane: boolean = true, executionId?: string) {
 		const index = this._plots.findIndex(plot => plot.id === id);
 		if (index < 0) {
 			throw new Error(`Could not replace unknown plot: ${id}`);
@@ -1366,7 +1426,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidEmitPlot.fire(newPlot);
 		this._onDidSelectPlot.fire(newPlot.id);
 		if (raisePane) {
-			this._showPlotsPane();
+			this._showPlotsPane(executionId);
 		}
 	}
 
@@ -1523,23 +1583,21 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Look up the session
 		const session = this._runtimeSessionService.getSession(sessionId);
 
-		// Get the most recent execution ID and code, if available.
-		const executionId = this._recentExecutionIds.length > 0
-			? this._recentExecutionIds[this._recentExecutionIds.length - 1]
-			: undefined;
+		// Get the ID and code of the execution that showed the plot, if available.
+		const executionId = event.executionId ?? this.mostRecentExecutionId(sessionId);
 		const code = executionId ? this._recentExecutions.get(executionId) : undefined;
 
 		// Create the plot client.
 		const plotClient = new HtmlPlotClient(this._positronPreviewService, this._openerService, session!, event, executionId, code);
 
 		// Register the new plot client
-		this.registerWebviewPlotClient(plotClient);
+		this.registerWebviewPlotClient(plotClient, true, executionId);
 
 		// Raise the Plots pane so the plot is visible.
-		this._showPlotsPane();
+		this._showPlotsPane(executionId);
 	}
 
-	private registerWebviewPlotClient(plotClient: IPositronPlotClient, raisePane: boolean = true) {
+	private registerWebviewPlotClient(plotClient: IPositronPlotClient, raisePane: boolean = true, executionId?: string) {
 		if (plotClient instanceof WebviewPlotClient) {
 			// Ensure that the number of active webview plots does not exceed the maximum.
 			this._register(plotClient.onDidActivate(() => {
@@ -1571,7 +1629,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}));
 		}
 
-		this.registerNewPlotClient(plotClient, raisePane);
+		this.registerNewPlotClient(plotClient, raisePane, executionId);
 	}
 
 	/**
@@ -1581,14 +1639,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param client The plot client to register
 	 * @param raisePane Whether to raise the Plots pane. Defaults to true; pass
 	 *   false to add the plot passively (e.g. for notebook consoles).
+	 * @param executionId The ID of the execution that produced the plot, if known.
 	 */
-	private registerNewPlotClient(client: IPositronPlotClient, raisePane: boolean = true) {
+	private registerNewPlotClient(client: IPositronPlotClient, raisePane: boolean = true, executionId?: string) {
 		this._plots.unshift(client);
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
 		this._register(client);
 		if (raisePane) {
-			this._showPlotsPane();
+			this._showPlotsPane(executionId);
 		}
 	}
 

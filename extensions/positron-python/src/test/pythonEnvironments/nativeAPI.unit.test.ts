@@ -75,6 +75,9 @@ suite('Native Python API', () => {
         executable: { filename: '/usr/bin/python', sysPrefix: '/usr/bin', ctime: -1, mtime: -1 },
         kind: PythonEnvKind.System,
         location: '/usr/bin/python',
+        // --- Start Positron ---
+        nativeKind: NativePythonEnvironmentKind.LinuxGlobal,
+        // --- End Positron ---
         source: [],
         name: 'basic_python',
         type: undefined,
@@ -125,6 +128,9 @@ suite('Native Python API', () => {
             mtime: -1,
         },
         kind: PythonEnvKind.Conda,
+        // --- Start Positron ---
+        nativeKind: NativePythonEnvironmentKind.Conda,
+        // --- End Positron ---
         location: '/home/user/.conda/envs/conda_python',
         source: [],
         name: 'conda_python',
@@ -145,6 +151,9 @@ suite('Native Python API', () => {
             mtime: -1,
         },
         kind: PythonEnvKind.Conda,
+        // --- Start Positron ---
+        nativeKind: NativePythonEnvironmentKind.Conda,
+        // --- End Positron ---
         location: '/home/user/.conda/envs/conda_python',
         source: [],
         name: 'conda_python',
@@ -200,6 +209,35 @@ suite('Native Python API', () => {
         const actual = api.getEnvs();
         assert.deepEqual(actual, [expectedBasicEnv]);
     });
+
+    // --- Start Positron ---
+    test('Keeps the PET kind of a system interpreter', async () => {
+        const homebrew: NativeEnvInfo = {
+            displayName: 'Python 3.13',
+            executable: '/opt/homebrew/bin/python3.13',
+            kind: NativePythonEnvironmentKind.Homebrew,
+            version: '3.13.1',
+            prefix: '/opt/homebrew/opt/python@3.13/Frameworks/Python.framework/Versions/3.13',
+        };
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [homebrew];
+                }
+                return generator();
+            })
+            .verifiable(typemoq.Times.once());
+
+        await api.triggerRefresh();
+        const [env] = api.getEnvs();
+
+        assert.deepEqual(
+            { kind: env.kind, nativeKind: env.nativeKind },
+            { kind: PythonEnvKind.System, nativeKind: NativePythonEnvironmentKind.Homebrew },
+        );
+    });
+    // --- End Positron ---
 
     test('Trigger refresh with resolve', async () => {
         mockFinder
@@ -1301,6 +1339,8 @@ suite('Native Python API', () => {
         let executableExists: boolean;
         // Watchers the API opens for the folders of a removed env.
         let folderWatchers: { folder: string; created: EventEmitter<Uri>; disposed: boolean }[];
+        // The API under test, typed so teardown can dispose it.
+        let nativeApi: ReturnType<typeof nativeAPI.createNativeEnvironmentsApi>;
 
         const workspaceFolder = {
             uri: Uri.file(path.join(path.sep, 'home', 'user', 'project')),
@@ -1328,6 +1368,8 @@ suite('Native Python API', () => {
             sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([]);
             workspaceEnvChanged = new EventEmitter();
             mockWatcher.setup((w) => w.onDidWorkspaceEnvChanged).returns(() => workspaceEnvChanged.event);
+            // Gives the API a real listener disposable, so teardown can dispose it.
+            mockWatcher.setup((w) => w.onDidGlobalEnvChanged).returns(() => new EventEmitter<never>().event);
             workspaceFoldersChanged = new EventEmitter();
             sinon
                 .stub(ws, 'onDidChangeWorkspaceFolders')
@@ -1351,7 +1393,8 @@ suite('Native Python API', () => {
             pathExistsStub.withArgs(venvPython).callsFake(async () => executableExists);
             resolveVenv = () => Promise.resolve(venvEnv);
             mockFinder.setup((f) => f.resolve(venvPython)).returns(() => resolveVenv());
-            api = nativeAPI.createNativeEnvironmentsApi(mockFinder.object);
+            nativeApi = nativeAPI.createNativeEnvironmentsApi(mockFinder.object);
+            api = nativeApi;
 
             await api.resolveEnv(venvPython);
             assert.equal(api.getEnvs().length, 1);
@@ -1360,6 +1403,8 @@ suite('Native Python API', () => {
         });
 
         teardown(() => {
+            // Stops the RecreatedEnvWatcher timers, which would otherwise keep mocha alive.
+            nativeApi.dispose();
             workspaceEnvChanged.dispose();
             workspaceFoldersChanged.dispose();
         });

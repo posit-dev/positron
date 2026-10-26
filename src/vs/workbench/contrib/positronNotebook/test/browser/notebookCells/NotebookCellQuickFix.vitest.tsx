@@ -21,7 +21,7 @@ import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookIns
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
-import { registerTestErrorAssistant } from '../../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
+import { registerTestErrorActionHandler } from '../../../../positronAssistant/test/browser/errorActionTestUtils.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { NotebookCellQuickFix } from '../../../browser/notebookCells/NotebookCellQuickFix.js';
@@ -39,7 +39,7 @@ describe('NotebookCellQuickFix', () => {
 	let registration: IDisposable;
 	beforeEach(() => {
 		ask.mockReset().mockResolvedValue(undefined);
-		registration = registerTestErrorAssistant(ctx, { ask });
+		registration = registerTestErrorActionHandler(ctx, { ask });
 	});
 
 	/** Set the quick fix's gates; each defaults to showing the buttons. */
@@ -139,7 +139,7 @@ describe('NotebookCellQuickFix', () => {
 		expect(screen.queryByRole('group', quickFixGroup)).not.toBeInTheDocument();
 	});
 
-	it('hides the buttons when no assistant can take errors', () => {
+	it('hides the buttons when no handler can take errors', () => {
 		registration.dispose();
 		setGates();
 		renderQuickFix();

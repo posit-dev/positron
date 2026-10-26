@@ -3,13 +3,10 @@ set -euo pipefail
 #
 # bump-ppm-snapshot.sh <new_date>   (date format: YYYY-MM-DD)
 #
-# Updates the PPM_SNAPSHOT build arg in the docker-compose files for the OSes
-# that pin their build-time R dev-deps install to a *rolling* dated PPM snapshot
-# (to dodge the `latest` publish-window 404 race).
-#
-# debian is INTENTIONALLY EXCLUDED: its PPM_SNAPSHOT is frozen for a different
-# reason (bookworm's GDAL can't build terra 1.9), so it must not move with the
-# others. Postgres has no R and no PPM_SNAPSHOT.
+# Updates the PPM_SNAPSHOT build arg in every OS docker-compose file. The
+# build-time R dev-deps install is pinned to a dated PPM snapshot to dodge the
+# `latest` publish-window 404 race. The date must postdate PPM binaries for the
+# primary R minor on every distro. Postgres has no R and no PPM_SNAPSHOT.
 #
 # Fails loudly if any expected file is missing or has no PPM_SNAPSHOT line, so a
 # silent partial update can't happen.
@@ -21,7 +18,6 @@ if ! [[ "$NEW" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
 fi
 ROOT="$(git rev-parse --show-toplevel)"
 
-# Rolling OSes only -- debian is deliberately NOT in this list.
 FILES=(
   docker/images/ubuntu24_04/docker-compose.amd64.yml
   docker/images/ubuntu24_04/docker-compose.arm64.yml
@@ -33,6 +29,8 @@ FILES=(
   docker/images/rocky_8/docker-compose.arm64.yml
   docker/images/rocky_9/docker-compose.amd64.yml
   docker/images/rocky_9/docker-compose.arm64.yml
+  docker/images/debian/docker-compose.amd64.yml
+  docker/images/debian/docker-compose.arm64.yml
 )
 
 changed=0
@@ -47,5 +45,5 @@ for f in "${FILES[@]}"; do
   changed=$((changed + 1))
 done
 
-echo "Updated PPM_SNAPSHOT to ${NEW} in ${changed} files (debian intentionally left frozen):"
+echo "Updated PPM_SNAPSHOT to ${NEW} in ${changed} files:"
 grep -nE '^[[:space:]]*PPM_SNAPSHOT:' "${FILES[@]/#/$ROOT/}"

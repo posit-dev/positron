@@ -107,6 +107,8 @@ export class PositronBaseComm extends Disposable {
 	 */
 	public readonly clientStatus: ISettableObservable<RuntimeClientStatus>;
 
+	private _eventParentId: string | undefined;
+
 	/**
 	 * Create a new Positron com
 	 *
@@ -120,6 +122,7 @@ export class PositronBaseComm extends Disposable {
 		this._register(clientInstance);
 		this._register(clientInstance.onDidReceiveData((event) => {
 			const data = event.data;
+			this._eventParentId = event.parent_id;
 			const emitter = this._emitters.get(data.method);
 			if (emitter) {
 				const payload = data.params;
@@ -163,6 +166,7 @@ export class PositronBaseComm extends Disposable {
 					`on comm ${this.clientInstance.getClientId()}: ` +
 					`${JSON.stringify(data)}`);
 			}
+			this._eventParentId = undefined;
 		}));
 
 		/**
@@ -195,6 +199,14 @@ export class PositronBaseComm extends Disposable {
 	 */
 	get clientId(): string {
 		return this.clientInstance.getClientId();
+	}
+
+	/**
+	 * The parent ID of the backend event being dispatched, if any. Only set
+	 * while event listeners run, so it must be read synchronously.
+	 */
+	get eventParentId(): string | undefined {
+		return this._eventParentId;
 	}
 
 	/**

@@ -393,9 +393,10 @@ describe('PositronDataConnectionsService', () => {
 	});
 
 	describe('open Data Explorers', () => {
-		// How many times the driver's connection handle has been torn down, so a test can tell a
-		// single teardown from a double one. Reset by connectProfile.
+		// How many times the driver's connection handle has been torn down and released, so a test
+		// can tell a single teardown from a double one. Reset by connectProfile.
 		let handleDisconnects = 0;
+		let handleReleases = 0;
 
 		/**
 		 * Connects 'conn-1' through a driver that opens a Data Explorer per preview, the way a real
@@ -405,6 +406,7 @@ describe('PositronDataConnectionsService', () => {
 		async function connectProfile(datasetIds: readonly (string | undefined)[]) {
 			const remainingDatasetIds = [...datasetIds];
 			handleDisconnects = 0;
+			handleReleases = 0;
 			const handle = stubInterface<IDataConnectionHandle>({
 				handle: 1,
 				nodePreview: async () => {
@@ -415,7 +417,7 @@ describe('PositronDataConnectionsService', () => {
 					return datasetId;
 				},
 				disconnect: async () => { handleDisconnects++; },
-				release: () => { },
+				release: () => { handleReleases++; },
 			});
 			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
 				id: 'test-driver',
@@ -622,6 +624,139 @@ describe('PositronDataConnectionsService', () => {
 
 			it('is a no-op for a profile that does not exist', () => {
 				expect(() => service.removeProfile('missing')).not.toThrow();
+			});
+		});
+
+		describe('a driver going away', () => {
+			/** Connects 'conn-2' through a second driver, returning a count of its teardowns. */
+			async function connectOtherDriver() {
+				const otherHandle = stubInterface<IDataConnectionHandle>({
+					handle: 2,
+					disconnect: vi.fn(async () => { }),
+					release: () => { },
+				});
+				service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'other-driver',
+					metadata: { ...createDriverMetadata(), id: 'other-driver' },
+					connect: async () => otherHandle,
+				}));
+				const profile = createProfile('conn-2');
+				service.addUpdateProfile({ ...profile, driverMetadata: { ...profile.driverMetadata, id: 'other-driver' } });
+				await service.connect('conn-2');
+				return otherHandle;
+			}
+
+			// The ODBC driver re-registers when odbc.ini changes, which unregisters it first. The
+			// extension host leaves its connections open for the service to close, so the pane can't
+			// go on showing one as connected after it is gone.
+			it('closes the connection and its Data Explorers, and only that driver\'s', async () => {
+				const instance = await connectProfile(['sqlite:conn-1:table:flights']);
+				await service.previewNode(instance.connectionHandle, 7);
+				const otherHandle = await connectOtherDriver();
+				const instancesEvents: string[][] = [];
+				ctx.disposables.add(service.onDidChangeInstances(instances =>
+					instancesEvents.push(instances.map(i => i.profileId))));
+
+				service.driverManager.removeDriver('test-driver');
+
+				await vi.waitFor(() => {
+					expect(handleReleases).toBe(1);
+				});
+				expect({
+					handleDisconnects,
+					handleReleases,
+					openDataExplorers: openDatasetIds.size,
+					connectedProfiles: service.getInstances().map(i => i.profileId),
+					instancesEvents,
+					otherDriverDisconnects: vi.mocked(otherHandle.disconnect).mock.calls.length,
+				}).toMatchInlineSnapshot(`
+					{
+					  "connectedProfiles": [
+					    "conn-2",
+					  ],
+					  "handleDisconnects": 1,
+					  "handleReleases": 1,
+					  "instancesEvents": [
+					    [
+					      "conn-2",
+					    ],
+					  ],
+					  "openDataExplorers": 0,
+					  "otherDriverDisconnects": 0,
+					}
+				`);
+			});
+
+			// Snowflake updates its driver in place (onDidChange) rather than re-registering; its
+			// connections are meant to survive that.
+			it('keeps the connection when the driver is replaced under the same id', async () => {
+				await connectProfile([]);
+
+				service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+				}));
+
+				expect({
+					connected: service.getInstanceForProfile('conn-1') !== undefined,
+					handleDisconnects,
+				}).toEqual({ connected: true, handleDisconnects: 0 });
+			});
+
+			it('closes a connection that finishes opening after its driver was removed', async () => {
+				let finishConnecting!: (handle: IDataConnectionHandle) => void;
+				const driverConnect = vi.fn(() => new Promise<IDataConnectionHandle>(resolve => { finishConnecting = resolve; }));
+				service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+					connect: driverConnect,
+				}));
+				service.addUpdateProfile(createProfile('conn-1'));
+				const disconnect = vi.fn(async () => { });
+				const release = vi.fn();
+
+				const connecting = service.connect('conn-1');
+				await vi.waitFor(() => {
+					expect(driverConnect).toHaveBeenCalled();
+				});
+				service.driverManager.removeDriver('test-driver');
+				finishConnecting(stubInterface<IDataConnectionHandle>({ handle: 1, disconnect, release }));
+
+				await expect(connecting).rejects.toThrow('was removed while connecting');
+				expect({
+					connected: service.getInstanceForProfile('conn-1') !== undefined,
+					disconnects: disconnect.mock.calls.length,
+					releases: release.mock.calls.length,
+				}).toEqual({ connected: false, disconnects: 1, releases: 1 });
+			});
+
+			// The ODBC driver unregisters and re-registers back to back. The connection itself is
+			// live, so one that lands after the driver is back keeps going.
+			it('keeps a connection that finishes opening after its driver was re-registered', async () => {
+				let finishConnecting!: (handle: IDataConnectionHandle) => void;
+				const driverConnect = vi.fn(() => new Promise<IDataConnectionHandle>(resolve => { finishConnecting = resolve; }));
+				const driver = stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+					connect: driverConnect,
+				});
+				service.driverManager.registerDriver(driver);
+				service.addUpdateProfile(createProfile('conn-1'));
+				const disconnect = vi.fn(async () => { });
+
+				const connecting = service.connect('conn-1');
+				await vi.waitFor(() => {
+					expect(driverConnect).toHaveBeenCalled();
+				});
+				service.driverManager.removeDriver('test-driver');
+				service.driverManager.registerDriver(driver);
+				finishConnecting(stubInterface<IDataConnectionHandle>({ handle: 1, disconnect }));
+
+				await connecting;
+				expect({
+					connected: service.getInstanceForProfile('conn-1') !== undefined,
+					disconnects: disconnect.mock.calls.length,
+				}).toEqual({ connected: true, disconnects: 0 });
 			});
 		});
 	});

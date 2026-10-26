@@ -50,7 +50,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 
 		// Verify assistant buttons are NOT visible
 		await notebooksPositron.expectAssistantButtonsVisible(false);
-		await notebooksPositron.expectErrorAssistantButtonsVisible(false);
+		await notebooksPositron.expectErrorActionButtonsVisible(false);
 	});
 
 	test('Notebook AI features visible when AI enabled', { tag: [tags.ARK] }, async function ({ app, settings }) {
@@ -70,7 +70,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 
 		// Verify assistant buttons ARE visible
 		await notebooksPositron.expectAssistantButtonsVisible(true);
-		await notebooksPositron.expectErrorAssistantButtonsVisible(true);
+		await notebooksPositron.expectErrorActionButtonsVisible(true);
 	});
 });
 

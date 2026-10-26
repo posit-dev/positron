@@ -31,10 +31,12 @@
 import { spawn, spawnSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { playwrightCli } from '../scripts/dp-lib.ts';
 import { launchFixture, stopFixture, type App } from './fixture-app.ts';
 import { firstRow, groupIds, nameWords, flagValue, selectCases, SMOKE_ROOT, SMOKE_SESSION, threwResult, type Group, type SmokeResults } from './smoke-lib.ts';
 
-const test = dirname(new URL(import.meta.url).pathname);
+const test = dirname(fileURLToPath(import.meta.url));
 const scripts = resolve(test, '../scripts');
 const repo = resolve(test, '../../../..');
 const SESSION = SMOKE_SESSION;
@@ -89,8 +91,9 @@ const cases: Case[] = [
 	{ name: 'palette-run dry run', quick: true, run: ['palette-run.sh', '--dry-run', 'Interpreter: Start New Console Session'], check: o => o.json?.chosen !== 'Interpreter: Start New Console Session' && 'wrong row chosen' },
 	{ name: 'palette-run unknown command', run: ['palette-run.sh', 'Smoke: No Such Command'], fail: true },
 	{ name: 'palette-run misspelled flag is a usage error', run: ['palette-run.sh', '--dryrun', 'Smoke: No Such Command'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, 'unknown flag --dryrun') },
-	// One session (the workspace's Python) and no console tabs: --name must still match it.
-	{ name: 'console-read the only session', quick: true, run: ['console-read.sh', '--prompt'], check: o => (!/\(python-[0-9a-f]+\)/.test(o.stderr) && `no python session id in ${o.stderr}`) || void (found.first = o.stderr.match(/\(python-([0-9a-f]+)\)/)![1]) },
+	// One Python session (the workspace's .venv) and no console tabs: --name must still match it. The workspace's
+	// analysis.R starts R beside it, and the first recommendation (R, or Python) is the active one, so name the language.
+	{ name: 'console-read the only Python session', quick: true, run: ['console-read.sh', '--language', 'python', '--prompt'], check: o => (!/\(python-[0-9a-f]+\)/.test(o.stderr) && `no python session id in ${o.stderr}`) || void (found.first = o.stderr.match(/\(python-([0-9a-f]+)\)/)![1]) },
 	{ name: 'console-run only session, wrong --name', run: ['console-run.sh', '--language', 'python', '--name', 'no-such-session', 'x'], fail: true },
 	{ name: 'console-run only session, bare id --name', quick: true, run: () => ['console-run.sh', '--language', 'python', '--name', found.first, '--capture', 'print("only", 6 * 7)'], check: o => includes(o.json!.output, 'only 42') },
 	// The workspace's .R files may have started R already: either way one R session, with its id. --name is the picker's first R, since an image can have several.
@@ -111,6 +114,7 @@ const cases: Case[] = [
 	// Switching the active console without running code: by language, name or id, never two.
 	{ name: 'panel console python (two match)', run: ['panel.sh', 'console', 'python'], fail: true, check: o => includes(o.json!.error, '2 consoles match') || logged('panel.sh -s=net1: FAILED console python: 2 consoles match') },
 	{ name: 'panel console r', quick: true, run: ['panel.sh', 'console', 'r'], check: o => (o.json!.id !== found.r && `id ${o.json!.id}`) || (!o.json!.already && !o.json!.was && 'neither already nor was') },
+	{ name: 'console-read with no flags reads the active console', run: ['console-read.sh', '--prompt'], check: o => includes(o.stderr, `(${found.r})`) },
 	{ name: 'panel console by bare id', run: () => ['panel.sh', 'console', found.first], check: o => (o.json!.id !== `python-${found.first}` && `id ${o.json!.id}`) || logged(`panel.sh -s=net1: console ${found.first} -> active`) },
 	{ name: 'console-run r --capture', run: ['console-run.sh', '--language', 'r', '--capture', 'cat("smoke", 6 * 7, "\\n")'], check: o => keys(o.json, 'sessionId', 'switched', 'busy', 'echoed', 'output') || includes(o.json!.output, 'smoke 42') },
 	{ name: 'console-run python --capture (stdin)', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture'], stdin: 'print("smoke", 6 * 7)\n', check: o => o.json!.sessionId !== found.py ? 'ran in another session' : includes(o.json!.output, 'smoke 42') },
@@ -261,6 +265,15 @@ const cases: Case[] = [
 	{ name: 'console-run python matplotlib plot 2', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'plt.figure(); plt.plot([3, 1], color="red"); plt.show()'] },
 	{ name: 'plots open editor through the split button whose halves share one name', wait: 1500, run: ['plots.sh', 'open', 'editor'], check: o => includes(o.json!.opened, 'editor tab "matplotlib') },
 	{ name: 'palette-run Close All Editors (matplotlib plot tab)', run: ['palette-run.sh', 'View: Close All Editors'], check: o => o.json!.closed !== true && 'the palette did not close' },
+	// View: Open View lists Viewer twice, both below the rows the list draws: pick reads every row, and scrolls to the one it takes.
+	{ name: 'palette-run View: Open View', run: ['palette-run.sh', 'View: Open View'] },
+	// walked says the rows were read by the walk: without it, a window tall enough to draw them all would pass without testing it.
+	{ name: 'ui pick counts the rows below the screen that share a label', run: ['ui.sh', 'pick', 'Viewer'], fail: true, check: o => (!o.json!.walked && 'not walked; pick a row this window does not draw') || includes(o.json!.error, '2 rows match "Viewer"') },
+	{ name: 'ui pick --nth 2 takes a row below the screen', run: ['ui.sh', 'pick', 'Viewer', '--nth', '2'], check: o => (!o.json!.walked && 'not walked; pick a row this window does not draw') || (o.json!.chose !== 'Viewer' && `chose ${o.json!.chose}`) || (!o.json!.closed && 'the quick pick stayed open') },
+	// Python: Create Environment opens under the pointer the palette click left on its first row: after the hover delay, that row's tooltip covers the middle of Venv below it.
+	{ name: 'palette-run Python: Create Environment...', run: ['palette-run.sh', 'Python: Create Environment...'], check: o => o.json!.closed !== false && 'no environment type picker' },
+	{ name: 'ui pick a row the tooltip of the row above covers', wait: 2500, run: ['ui.sh', 'pick', 'Venv'], check: o => o.json!.chose !== 'Venv' && `chose ${o.json!.chose}` },
+	{ name: 'palette-run dry run closes the environment quick pick', run: ['palette-run.sh', '--dry-run', 'View: Show Explorer'], check: o => o.json?.chosen !== 'View: Show Explorer' && 'wrong row chosen' },
 	{ name: 'console-run r html to Viewer', quick: true, run: ['console-run.sh', '--language', 'r', 'print(htmltools::browsable(htmltools::tags$button("smoke-viewer-button")))'] },
 	{ name: 'viewer wait-content', quick: true, run: ['viewer.sh', 'wait-content', '20'], check: o => includes(o.json!.shown, 'smoke-viewer-button') },
 	{ name: 'view-read Viewer', quick: true, run: ['view-read.sh', '--view', 'Viewer'], check: o => includes(o.text, 'button "smoke-viewer-button"') },
@@ -415,6 +428,14 @@ const cases: Case[] = [
 	{ name: 'ui type editor.fontSize in the Settings dialog', run: ['ui.sh', 'type', 'editor.fontSize', '--in', 'dialog'], check: o => includes(o.json!.diff, 'Editor Font Size. Modified.') },
 	{ name: 'ui choose Reset Setting from a menu drawn in a shadow root', run: ['ui.sh', 'choose', 'button', 'More Actions... (Shift+F9)', 'Reset Setting', '--in', 'dialog', '--nth', '1'], check: o => (o.json!.chose !== 'Reset Setting' && `chose ${o.json!.chose}`) || includes(o.json!.diff, '+ - treeitem "Editor Font Size. Controls the font size in pixels."') },
 	{ name: 'ui click Close Modal Editor (Settings)', run: ['ui.sh', 'click', 'button', 'Close Modal Editor', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
+	// An enum setting's select box draws its list in the workbench context view, outside the dialog, and reuses that element each time it opens.
+	{ name: 'palette-run Open Settings (UI) (for a select box)', run: ['palette-run.sh', 'Preferences: Open Settings (UI)'] },
+	{ name: 'ui choose afterDelay from a select box drop-down', run: ['ui.sh', 'choose', 'combobox', 'files.autoSave', 'afterDelay', '--in', 'dialog'], check: o => (!String(o.json!.chose).startsWith('afterDelay. ') && `chose ${o.json!.chose}`) || includes(o.json!.diff, '+ - option "afterDelay" [selected]') },
+	{ name: 'ui click combobox files.autoSave (opens its list)', run: ['ui.sh', 'click', 'combobox', 'files.autoSave', '--in', 'dialog'] },
+	{ name: 'ui read menu shows the select box drop-down', run: ['ui.sh', 'read', 'menu'], check: o => includes(o.json!.tree, 'listbox "files.autoSave"') },
+	{ name: 'ui click combobox files.autoSave (closes its list)', run: ['ui.sh', 'click', 'combobox', 'files.autoSave', '--in', 'dialog'] },
+	{ name: 'ui choose off from a select box closed while marked as seen', run: ['ui.sh', 'choose', 'combobox', 'files.autoSave', 'off', '--in', 'dialog'], check: o => (!String(o.json!.chose).startsWith('off. ') && `chose ${o.json!.chose}`) || includes(o.json!.diff, '+ - option "off" [selected]') },
+	{ name: 'ui click Close Modal Editor (Settings, select box)', run: ['ui.sh', 'click', 'button', 'Close Modal Editor', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
 
 	// ---- Notifications, screenshots, run-app
 	{ name: 'notifications list', quick: true, run: ['notifications.sh'], check: o => !Array.isArray(o.json!.notifications) && 'no notifications array' },
@@ -535,7 +556,7 @@ function pickNames(): void {
 		const open = sh([join(scripts, 'palette-run.sh'), '--session', SESSION, 'Interpreter: Start New Console Session']);
 		if (!open.json?.ok) { throw new Error(`could not open the runtime picker: ${open.text.slice(0, 200)}`); }
 		const rows = sh([join(scripts, 'quickpick-enum.sh'), '--session', SESSION, '--json']);
-		spawnSync(join(repo, 'node_modules/.bin/playwright-cli'), [`-s=${SESSION}`, 'press', 'Escape'], { cwd: repo, stdio: 'ignore' });
+		playwrightCli([`-s=${SESSION}`, 'press', 'Escape'], { stdio: 'ignore' });
 		// --json prints the object indented, so sh()'s last-line parse misses it.
 		let picker: Json = {};
 		try { picker = JSON.parse(rows.text); } catch { /* no rows this time */ }

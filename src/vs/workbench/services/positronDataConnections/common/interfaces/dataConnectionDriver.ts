@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { FileFilter } from '../../../../../platform/dialogs/common/dialogs.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from './dataConnectionDTOs.js';
 
 // --- Service-level interfaces ---
@@ -331,6 +332,55 @@ export interface IDiscoveredDataConnection {
 }
 
 /**
+ * Service-level lineage request. Same shape as IDataConnectionLineageRequestDTO; kept distinct so
+ * the in-process representation can evolve independently of the wire contract.
+ */
+export interface IDataConnectionLineageRequest {
+	// The object's path, one exact name per level: [database, schema, table], or
+	// [database, schema, table, column].
+	path: string[];
+	domain: 'table' | 'column';
+	direction: 'upstream' | 'downstream';
+	// How many hops to follow.
+	depth: number;
+	// The most edges the driver should return, nearest first.
+	maxEdges: number;
+}
+
+/**
+ * Service-level end of a lineage edge. Every field but `domain` is optional: an object outside the
+ * data source has no database or schema, and a masked one has no name.
+ */
+export interface IDataConnectionLineageObject {
+	database?: string;
+	schema?: string;
+	name?: string;
+	column?: string;
+	// The kind of object in the data source's own terms (e.g. 'table', 'stage').
+	domain: string;
+	// Set when the caller may not see the object, so its name is withheld.
+	masked?: boolean;
+}
+
+/**
+ * Service-level lineage edge: data flows from `source` to `target`, `distance` hops from the
+ * requested object.
+ */
+export interface IDataConnectionLineageEdge {
+	source: IDataConnectionLineageObject;
+	target: IDataConnectionLineageObject;
+	distance: number;
+}
+
+/**
+ * Service-level lineage result: the edges, nearest first, or the data source's reason for not
+ * providing them.
+ */
+export type IDataConnectionLineageResult =
+	| { available: true; edges: IDataConnectionLineageEdge[]; truncated: boolean }
+	| { available: false; message: string };
+
+/**
  * A live connection handle. Wraps proxy calls back to the ext host for
  * tree browsing, disconnect, etc.
  */
@@ -350,5 +400,26 @@ export interface IDataConnectionHandle {
 	 * Gets a node's details, for the details editor.
 	 */
 	nodeGetDetails(nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO>;
+	/**
+	 * Reads an object's lineage. Resolves to undefined when the connection's driver does not
+	 * support lineage, and rejects when the connection fails.
+	 */
+	getLineage(request: IDataConnectionLineageRequest): Promise<IDataConnectionLineageResult | undefined>;
 	release(): void;
+}
+
+/**
+ * Disconnects and then releases a connection handle. A failed disconnect is logged and the handle is
+ * released anyway, since the caller has nothing left to retry it from.
+ * @param handle The connection handle to close.
+ * @param logService Where to log a failed disconnect.
+ * @param description What the handle belongs to, for the log.
+ */
+export async function closeDataConnectionHandle(handle: IDataConnectionHandle, logService: ILogService, description: string): Promise<void> {
+	try {
+		await handle.disconnect();
+	} catch (err) {
+		logService.error(`[DataConnections] disconnect() threw for ${description}: ${err}`);
+	}
+	handle.release();
 }

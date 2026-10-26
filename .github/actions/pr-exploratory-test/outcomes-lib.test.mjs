@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, candidateIssues, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -62,6 +62,7 @@ test('parseCheck reads yes, no and unclear in any casing or markdown, and anythi
 const yes = source => ({ answer: 'yes', reason: 'fixes it', source });
 const no = source => ({ answer: 'no', reason: 'unrelated', source });
 const base = { prState: 'merged', hasPaths: true, prCheck: null, laterChecks: [] };
+const issue = (state, answer = 'yes') => ({ answer, reason: 'same bug', source: 'issue #9', issue: { number: 9, url: 'https://github.com/o/r/issues/9', state } });
 
 test('decideOutcome: a yes in the PR wins, then a yes later', () => {
 	assert.equal(decideOutcome({ ...base, prCheck: yes('commit abc'), laterChecks: [yes('#1')] }).outcome, 'fixed-in-pr');
@@ -69,13 +70,23 @@ test('decideOutcome: a yes in the PR wins, then a yes later', () => {
 	assert.deepEqual(later, { outcome: 'fixed-later', decidedBy: 'diff+model', evidence: 'main def: fixes it' });
 });
 
-test('decideOutcome: open PRs are pending; merged or closed with no yes is not fixed at once', () => {
+test('decideOutcome: open PRs are pending; merged with no yes is not fixed at once', () => {
 	assert.equal(decideOutcome({ ...base, prState: 'open' }).outcome, 'pending');
 	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc') }), { outcome: 'not-fixed', decidedBy: 'merged-no-fix', evidence: 'commit abc: unrelated' });
-	assert.equal(decideOutcome({ ...base, prState: 'closed', prCheck: no('commit abc') }).decidedBy, 'closed-unmerged');
 });
 
-const issue = (state, answer = 'yes') => ({ answer, reason: 'same bug', source: 'issue #9', issue: { number: 9, url: 'https://github.com/o/r/issues/9', state } });
+test('decideOutcome: a closed PR didn\'t ship, even with a fix in it, unless an issue or main says otherwise', () => {
+	const closed = { ...base, prState: 'closed' };
+	assert.deepEqual(decideOutcome({ ...closed, prCheck: no('commit abc') }), { outcome: 'didnt-ship', decidedBy: 'closed-unmerged', evidence: 'commit abc: unrelated' });
+	assert.deepEqual(decideOutcome({ ...closed, prCheck: yes('commit abc') }), { outcome: 'didnt-ship', decidedBy: 'closed-unmerged', evidence: 'commit abc: fixes it' });
+	assert.equal(decideOutcome({ ...closed, prCheck: yes('commit abc'), laterChecks: [issue('open')] }).outcome, 'filed-issue');
+	assert.equal(decideOutcome({ ...closed, laterChecks: [issue('closed as completed')] }).outcome, 'fixed-later');
+	// A fix that lands on main after the PR closed counts as fixed later.
+	assert.deepEqual(decideOutcome({ ...closed, prCheck: no('commit abc'), laterChecks: [yes('main def')] }), { outcome: 'fixed-later', decidedBy: 'diff+model', evidence: 'main def: fixes it' });
+	// With no tested commit, or no files named, it still didn't ship.
+	assert.equal(decideOutcome({ ...closed, hasPaths: false }).outcome, 'didnt-ship');
+	assert.equal(decideOutcome({ ...closed, prCheck: { answer: 'unclear', reason: 'x', source: 'pr' } }).outcome, 'didnt-ship');
+});
 
 test('decideOutcome: a matching issue is filed as issue, carrying the issue, and a fix wins over it', () => {
 	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc'), laterChecks: [issue('open')] }),
@@ -92,6 +103,23 @@ test('decideOutcome: an issue closed as completed is fixed later; closed as not 
 	assert.equal(done.issue.number, 9);
 	assert.equal(decideOutcome({ ...base, laterChecks: [issue('closed as not planned')] }).outcome, 'filed-issue');
 	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open'), issue('closed as completed')] }).outcome, 'fixed-later');
+});
+
+test('droppedPaths names the tested files the merged PR no longer changes, and none if it still changes any', () => {
+	const paths = ['src/a.ts', 'src/b.ts'];
+	assert.deepEqual(droppedPaths({ paths, tested: ['src/a.ts', 'test/x.test.ts'], merged: ['test/x.test.ts'] }), ['src/a.ts']);
+	assert.deepEqual(droppedPaths({ paths, tested: ['src/a.ts'], merged: ['src/b.ts'] }), []);
+	// A finding about a file the PR never touched is not a dropped change.
+	assert.deepEqual(droppedPaths({ paths, tested: ['src/c.ts'], merged: [] }), []);
+});
+
+test('decideOutcome: a dropped change didn\'t ship, beating not fixed and unclear, but not a fix or a filed issue', () => {
+	const dropped = ['src/a.ts'];
+	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc'), dropped }),
+		{ outcome: 'didnt-ship', decidedBy: 'dropped', evidence: 'the merged PR no longer changes `src/a.ts`' });
+	assert.equal(decideOutcome({ ...base, prCheck: { answer: 'unclear', reason: 'x', source: 'pr' }, dropped }).outcome, 'didnt-ship');
+	assert.equal(decideOutcome({ ...base, laterChecks: [yes('main def')], dropped }).outcome, 'fixed-later');
+	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open')], dropped }).outcome, 'filed-issue');
 });
 
 test('candidateIssues adds issues that mention the PR to the search\'s, each once', () => {
@@ -234,6 +262,25 @@ test('capDiff cuts a long diff and says so, so the model does not read a cut dif
 	assert.equal(capDiff('abcdefgh', 5), 'abcde\n[diff cut at 5 of 8 characters]');
 });
 
+test('diffEvidence names the files in the diff and the named ones that did not change, even past the cut', () => {
+	const diff = 'diff --git a/src/a.ts b/src/a.ts\n+x\n'.padEnd(40, '+') + '\ndiff --git a/src/b.ts b/src/b.ts\n+y\n';
+	const e = diffEvidence(diff, ['src/b.ts', 'ext/r.ts'], 30);
+	assert.deepEqual(e.files, ['src/a.ts', 'src/b.ts']);
+	assert.deepEqual(e.unchanged, ['ext/r.ts']);
+	assert.match(e.text, /\[diff cut at 30 of \d+ characters\]$/);
+});
+
+test('buildCheckPrompt says which files the diff covers, which named ones did not change, and how to read a cut diff', () => {
+	const finding = { title: 'T' };
+	const p = buildCheckPrompt({ finding, kind: 'diff', text: 'D\n[diff cut at 1 of 9 characters]', files: ['src/a.ts'], unchanged: ['ext/r.ts'] });
+	assert.match(p, /covers src\/a\.ts\./);
+	assert.match(p, /also names ext\/r\.ts, which did not change, so it is not in the diff/);
+	assert.match(p, /answer unclear only if the fix could be in the part that was cut/);
+	const plain = buildCheckPrompt({ finding, kind: 'diff', text: 'D' });
+	assert.doesNotMatch(plain, /covers|did not change|was cut/);
+	assert.match(buildCheckPrompt({ finding, kind: 'diff', text: 'D', before: 'B\n[diff cut at 1 of 9 characters]' }), /was cut/);
+});
+
 test('extractPaths finds a bare file name in the repo when exactly one file has it', () => {
 	const files = ['src/a/runtimeSession.ts', 'src/b/dup.ts', 'src/c/dup.ts'];
 	const finding = { cause: 'Throws at `runtimeSession.ts:684`, also in `dup.ts` and `missing.ts`.' };
@@ -254,6 +301,25 @@ test('decideOutcome keeps the reason a check said no, so a not-fixed row can be 
 	assert.equal(decideOutcome({ ...base, ...checks, prState: 'closed', mergedAt: null }).evidence, 'pr abc: unrelated');
 	assert.equal(decideOutcome({ ...base, prCheck: null, laterChecks: [no('main def')] }).evidence, 'main def: unrelated');
 	assert.equal(decideOutcome({ ...base, prState: 'open', mergedAt: null }).evidence, '');
+});
+
+test('a fix read from a cut diff is marked cut and not kept, so the next run asks again', () => {
+	const cutNote = '\n[diff cut at 1 of 9 characters]';
+	assert.equal(isCut({ text: 'D' + cutNote }), true);
+	assert.equal(isCut({ text: 'D', before: 'B' + cutNote }), true);
+	assert.equal(isCut({ text: 'D' }), false);
+	const yes = (source, cut) => ({ answer: 'yes', reason: 'fixes it', source, ...(cut ? { cut } : {}) });
+	assert.equal(decideOutcome({ ...base, prCheck: yes('pr a', true) }).cut, true);
+	assert.equal(decideOutcome({ ...base, laterChecks: [yes('main b', true)] }).cut, true);
+	assert.equal(decideOutcome({ ...base, laterChecks: [yes('main b')] }).cut, undefined);
+	const prev = [
+		{ run: '10', finding: 1, outcome: 'fixed-later', cut: true },
+		{ run: '10', finding: 2, outcome: 'fixed-in-pr' },
+		{ run: '10', finding: 3, outcome: 'not-fixed', prCheck: { ...no('pr c'), cut: true } },
+		{ run: '10', finding: 4, outcome: 'not-fixed', prCheck: no('pr d') },
+	];
+	assert.deepEqual([...settledRows(prev).keys()], ['10#2']);
+	assert.deepEqual([...savedPrChecks(prev).keys()], ['10#4']);
 });
 
 test('parseCheck says an empty reply is no reply, so a stopped call reads as such', () => {

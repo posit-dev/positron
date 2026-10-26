@@ -96,7 +96,7 @@ test('create makes acl content at the vanity path and returns its GUID', async (
 		'PUT /__api__/v1/content/c1/vanity': {},
 	});
 	assert.equal(await create({ server: SERVER, key: 'k', fetch }), 'c1');
-	assert.deepEqual(JSON.parse(calls[0].body), { name: 'explore-outcomes', title: '/explore shipping impact', access_type: 'acl' });
+	assert.deepEqual(JSON.parse(calls[0].body), { name: 'explore-outcomes', title: '/explore PR outcomes', access_type: 'acl' });
 	assert.deepEqual(JSON.parse(calls[1].body), { path: '/explore-outcomes/' });
 });
 

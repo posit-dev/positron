@@ -48,8 +48,9 @@ export interface IDuckDBReadPlan {
  * Chooses how to read a table or view so that paging it is stable.
  *
  * A table is read in place: every DuckDB base table has a `rowid`, and a scan of it already comes
- * back in insertion order. A view has no `rowid` and no guaranteed order, so it is read through a
- * snapshot.
+ * back in insertion order. The same holds for MotherDuck tables, whose server plans an unordered
+ * `LIMIT`/`OFFSET` as `ORDER BY rowid`. A view has no `rowid` and no guaranteed order, so it is
+ * read through a snapshot.
  *
  * A table that declares its own column named `rowid` is the exception. That column shadows the
  * table's real rowid, and DuckDB has no second spelling to reach past it, so `rowid` as a row order
@@ -138,6 +139,9 @@ const SNAPSHOT_ORDER_COLUMN = '__positron_row_order';
  * the defect this class exists to prevent, or refusing to open it. Under real memory pressure DuckDB
  * spills to `temp_directory`, which defaults to `.tmp` even for an in-memory database, so the
  * failure mode is disk use rather than exhaustion.
+ *
+ * For a remote catalog such as MotherDuck, `temp` is still local, so the copy downloads the whole
+ * relation. See https://github.com/posit-dev/positron/issues/16828.
  *
  * The copy lives in the `temp` catalog, which is private to this connection, so it cannot collide
  * with the user's own objects. It is created even when the database was opened read-only, because

@@ -15,12 +15,7 @@ import { traceInfo } from '../logging';
 import { IInstaller, Product, ProductInstallStatus } from '../common/types';
 import { IApplicationEnvironment, IWorkspaceService } from '../common/application/types';
 import { EXTENSION_ROOT_DIR, IPYKERNEL_VERSION, PYTHON_LANGUAGE } from '../common/constants';
-import {
-    EnvLocationHeuristic,
-    getEnvironmentTypeRank,
-    getEnvLocationHeuristic,
-    isVersionSupported,
-} from '../interpreter/configuration/environmentTypeComparer';
+import { getEnvironmentTypeRank, isVersionSupported } from '../interpreter/configuration/environmentTypeComparer';
 import { EmbeddedPythonInterpreter, getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import {
     ModuleMetadata,
@@ -152,13 +147,64 @@ export function getRuntimeSourceAndShortName(
     return { runtimeSource, runtimeSourceOrder: getEnvironmentTypeRank(runtimeSource), runtimeShortName };
 }
 
+/** Options for `createPythonRuntimeMetadata`. */
+export interface CreateRuntimeMetadataOptions {
+    /** A bundle already computed for this interpreter, so Python is not started a second time. */
+    ipykernelBundle?: IpykernelBundle;
+    /** Skip waiting for module discovery, for an interpreter that can't be a module Python. */
+    skipModuleWait?: boolean;
+}
+
+/**
+ * Whether the interpreter has a compatible ipykernel, either bundled or already
+ * installed, along with the bundle that was computed to decide.
+ */
+export async function checkIpykernel(
+    interpreter: PythonEnvironment,
+    serviceContainer: IServiceContainer,
+    workspaceUri: vscode.Uri | undefined,
+): Promise<{ compatible: boolean; bundle: IpykernelBundle }> {
+    const installer = serviceContainer.get<IInstaller>(IInstaller);
+
+    // Check if we should use the bundled ipykernel.
+    const bundle = await getIpykernelBundle(interpreter, serviceContainer, workspaceUri);
+
+    // Determine if a compatible version of ipykernel is available (either bundled or already installed).
+    let compatible: boolean;
+    if (bundle.disabledReason) {
+        traceInfo(
+            `createPythonRuntime: ipykernel bundling is disabled ` +
+                `(reason: ${bundle.disabledReason}). ` +
+                `Checking if ipykernel is installed`,
+        );
+        const productInstallStatus = await installer.isProductVersionCompatible(
+            Product.ipykernel,
+            IPYKERNEL_VERSION,
+            interpreter,
+        );
+        compatible = productInstallStatus === ProductInstallStatus.Installed;
+        if (compatible) {
+            traceInfo(`createPythonRuntime: ipykernel installed`);
+        } else {
+            traceInfo('createPythonRuntime: ipykernel not installed');
+        }
+    } else {
+        compatible = true;
+    }
+    return { compatible, bundle };
+}
+
+/**
+ * @param startupBehavior The startup behavior, used as given. Only the recommendation passes one;
+ *   every other runtime is `Explicit`.
+ */
 export async function createPythonRuntimeMetadata(
     interpreter: PythonEnvironment,
     serviceContainer: IServiceContainer,
-    recommendedForWorkspace: boolean,
+    startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Explicit,
+    options: CreateRuntimeMetadataOptions = {},
 ): Promise<positron.LanguageRuntimeMetadata> {
     traceInfo('createPythonRuntime: getting service instances');
-    const installer = serviceContainer.get<IInstaller>(IInstaller);
     const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     const applicationEnv = serviceContainer.get<IApplicationEnvironment>(IApplicationEnvironment);
 
@@ -169,51 +215,8 @@ export async function createPythonRuntimeMetadata(
     // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
     traceInfo('createPythonRuntime: getting extension runtime settings');
 
-    // Check if we should use the bundled ipykernel.
-    const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer, workspaceUri);
-
-    // Determine if a compatible version of ipykernel is available (either bundled or already installed).
-    let hasCompatibleKernel: boolean;
-    if (ipykernelBundle.disabledReason) {
-        traceInfo(
-            `createPythonRuntime: ipykernel bundling is disabled ` +
-                `(reason: ${ipykernelBundle.disabledReason}). ` +
-                `Checking if ipykernel is installed`,
-        );
-        const productInstallStatus = await installer.isProductVersionCompatible(
-            Product.ipykernel,
-            IPYKERNEL_VERSION,
-            interpreter,
-        );
-        hasCompatibleKernel = productInstallStatus === ProductInstallStatus.Installed;
-        if (hasCompatibleKernel) {
-            traceInfo(`createPythonRuntime: ipykernel installed`);
-        } else {
-            traceInfo('createPythonRuntime: ipykernel not installed');
-        }
-    } else {
-        hasCompatibleKernel = true;
-    }
-
-    // Define the startup behavior; request immediate startup if this is the
-    // recommended runtime for the workspace. Do not request immediate or implicit startup
-    // if ipykernel (min version 6.19.1) is not installed -- the user should start runtime explicitly.
-    let startupBehavior;
-    if (hasCompatibleKernel) {
-        startupBehavior = recommendedForWorkspace
-            ? positron.LanguageRuntimeStartupBehavior.Immediate
-            : positron.LanguageRuntimeStartupBehavior.Implicit;
-    } else {
-        // Check if this is a local Python interpreter for the workspace (e.g. a local venv or conda env)
-        const workspacePath = workspaceService.workspaceFolders?.[0]?.uri?.fsPath;
-        const isLocal =
-            workspacePath && getEnvLocationHeuristic(interpreter, workspacePath) === EnvLocationHeuristic.Local;
-        startupBehavior =
-            isLocal && recommendedForWorkspace
-                ? positron.LanguageRuntimeStartupBehavior.Immediate
-                : // If ipykernel is not installed and this is not a local Python env, require explicit startup
-                  positron.LanguageRuntimeStartupBehavior.Explicit;
-    }
+    const ipykernelBundle =
+        options.ipykernelBundle ?? (await getIpykernelBundle(interpreter, serviceContainer, workspaceUri));
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
     // Get the Python version from sysVersion since only that includes alpha/beta info (e.g '3.12.0b1')
@@ -226,7 +229,11 @@ export async function createPythonRuntimeMetadata(
     // path-keyed map: this function can run before discovery completes (e.g. via
     // the eager onDidChangeInterpreters registration), and reading the map too
     // early would mislabel a module-managed interpreter as a plain global.
-    await whenModuleMetadataReady();
+    // The first recommendation skips this for envs that can't be module Pythons: the wait
+    // covers PET's whole activation scan.
+    if (!options.skipModuleWait) {
+        await whenModuleMetadataReady();
+    }
     const moduleMetadata = moduleMetadataMap.get(interpreter.path);
 
     // Determine the display source (e.g. 'Venv', 'Module') and short name.

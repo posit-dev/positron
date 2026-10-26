@@ -46,6 +46,7 @@ import { TestNotebookExecutionStateService } from '../../contrib/notebook/test/b
 import { NotebookKernelService } from '../../contrib/notebook/browser/services/notebookKernelServiceImpl.js';
 import { NotebookService } from '../../contrib/notebook/browser/services/notebookServiceImpl.js';
 import { IRuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IViewDescriptorService } from '../../common/views.js';
 import { RuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartup.js';
 import { IPositronNewFolderService } from '../../services/positronNewFolder/common/positronNewFolder.js';
 import { PositronNewFolderService } from '../../services/positronNewFolder/common/positronNewFolderService.js';
@@ -59,8 +60,8 @@ import { INotebookLoggingService } from '../../contrib/notebook/common/notebookL
 import { NotebookLoggingService } from '../../contrib/notebook/browser/services/notebookLoggingServiceImpl.js';
 import { IQuartoExecutionManager } from '../../contrib/positronQuarto/common/quartoExecutionTypes.js';
 import { QuartoExecutionManager } from '../../contrib/positronQuarto/browser/quartoExecutionManager.js';
-import { IErrorAssistantService } from '../../contrib/positronAssistant/common/errorAssistant.js';
-import { ErrorAssistantService } from '../../contrib/positronAssistant/browser/errorAssistantService.js';
+import { IErrorActionHandlerService } from '../../contrib/positronAssistant/common/errorAction.js';
+import { ErrorActionHandlerService } from '../../contrib/positronAssistant/browser/errorActionHandlerService.js';
 import { SyncDescriptor } from '../../../platform/instantiation/common/descriptors.js';
 
 export function positronWorkbenchInstantiationService(
@@ -99,14 +100,16 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
 	instantiationService.stub(IPositronWebviewPreloadService, disposables.add(instantiationService.createInstance(PositronWebviewPreloadService)));
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
-	instantiationService.stub(IPositronPlotsService, disposables.add(instantiationService.createInstance(PositronPlotsService)));
+	// No views are registered here, so no view has a container.
+	instantiationService.stub(IViewDescriptorService, { getViewContainerByViewId: () => null, getViewContainerLocation: () => null });
 	instantiationService.stub(IPositronConsoleService, new TestPositronConsoleService());
+	instantiationService.stub(IPositronPlotsService, disposables.add(instantiationService.createInstance(PositronPlotsService)));
 	instantiationService.stub(IQuartoExecutionManager, disposables.add(instantiationService.createInstance(QuartoExecutionManager)));
 	instantiationService.stub(IPositronVariablesService, disposables.add(instantiationService.createInstance(PositronVariablesService)));
 	// Created on first use, not now, so it gets the configuration, log, and
 	// notification services a test stubs after this preset runs.
-	instantiationService.set<IErrorAssistantService | SyncDescriptor<IErrorAssistantService>>(IErrorAssistantService, new SyncDescriptor(class extends ErrorAssistantService {
-		constructor(...args: ConstructorParameters<typeof ErrorAssistantService>) {
+	instantiationService.set<IErrorActionHandlerService | SyncDescriptor<IErrorActionHandlerService>>(IErrorActionHandlerService, new SyncDescriptor(class extends ErrorActionHandlerService {
+		constructor(...args: ConstructorParameters<typeof ErrorActionHandlerService>) {
 			super(...args);
 			disposables.add(this);
 		}

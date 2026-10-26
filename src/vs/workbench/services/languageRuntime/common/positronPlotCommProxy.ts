@@ -114,6 +114,13 @@ export class PositronPlotCommProxy extends Disposable {
 	}
 
 	/**
+	 * The parent ID of the event being dispatched; see `PositronBaseComm.eventParentId`.
+	 */
+	get eventParentId(): string | undefined {
+		return this._comm.eventParentId;
+	}
+
+	/**
 	 * Returns the intrinsic size of the plot, if known.
 	 */
 	get intrinsicSize(): IntrinsicSize | undefined {

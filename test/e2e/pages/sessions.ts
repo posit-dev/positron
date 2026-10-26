@@ -664,6 +664,20 @@ export class Sessions {
 	}
 
 	/**
+	 * Helper: Wait for this launch's interpreter discovery to finish. Unlike
+	 * expectNoStartUpMessaging, this also works while a console is running: the
+	 * Start New Interpreter Session picker says "Discovering interpreters..."
+	 * until startup is complete.
+	 */
+	async expectDiscoveryToComplete() {
+		await test.step('Wait for interpreter discovery to complete', async () => {
+			await this.quickPick.openSessionQuickPickMenu(true);
+			await this.quickinput.waitForInterpreterDiscoveryToComplete({ timeout: STARTUP_MESSAGING_TIMEOUT });
+			await this.quickPick.closeSessionQuickPickMenu();
+		});
+	}
+
+	/**
 	 * Helper: Get all session IDs for sessions in the console
 	 *
 	 * @returns the list of session IDs

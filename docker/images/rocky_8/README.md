@@ -7,7 +7,7 @@ This directory contains Docker configurations for CI/testing environments based 
 ### Main Image (Dockerfile.rocky_8)
 This image includes:
 - Rocky Linux 8 base
-- R 4.4.0 and 4.4.2 (via rig)
+- R 4.6.1 and 4.4.2 (via rig)
 - Python environments (system Python, pyenv, conda)
 - Node.js
 - TinyTeX

@@ -365,7 +365,7 @@ const CHECKOUT_BINARIES = [
 /**
  * What would make a fresh run explore the wrong code or lose its time to
  * setup, each with its fix: the checkout not at `head`, a build older than the
- * last change to src/, or a native binary missing. `git(args)` returns git's
+ * files last changed in src/, or a native binary missing. `git(args)` returns git's
  * output in the checkout, or '' when it fails; `mtimeMs(path)` a file's time,
  * or null when it is missing; `builtMs` the newest file's time under out/, or
  * null with no build. The watch build rewrites only what changed, so no one
@@ -383,8 +383,20 @@ export function checkoutProblems({ head, git, mtimeMs, builtMs }) {
 	} else if (at !== want) {
 		problems.push(`the checkout is at ${at.slice(0, 10)}, not --head ${want.slice(0, 10)}; check out the head, then build`);
 	}
+	// When src/ last changed on disk: the newest time of the files the last
+	// commit to src/ touched, and of any change not yet committed. A commit made
+	// after the build from the same files is later than the build, so the
+	// commit's own time is the fallback only when none of those files exist.
 	// Unknown when git cannot say; the build's age is then not judged.
-	const changed = Number(git(['log', '-1', '--format=%ct', '--', 'src'])) * 1000 || null;
+	const changedFiles = [
+		git(['log', '-1', '--format=', '--name-only', '--', 'src']),
+		git(['diff', '--name-only', 'HEAD', '--', 'src']),
+		git(['ls-files', '--others', '--exclude-standard', '--', 'src']),
+	].join('\n').split('\n').filter(Boolean);
+	const fileTimes = changedFiles.map(mtimeMs).filter(ms => ms !== null);
+	const changed = fileTimes.length > 0
+		? Math.max(...fileTimes)
+		: Number(git(['log', '-1', '--format=%ct', '--', 'src'])) * 1000 || null;
 	if (builtMs === null) {
 		problems.push('there is no build (out/); build it with npm run build-start, then npm run build-check');
 	} else if (changed !== null && builtMs < changed) {

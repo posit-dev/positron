@@ -7,6 +7,7 @@ import { ChildProcess, fork } from 'child_process';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {
+	MOTHERDUCK_TOKEN_ENV,
 	WorkerOpenConfig,
 	WorkerQueryRequest,
 	WorkerQueryResponse
@@ -73,11 +74,26 @@ export class DuckDBWorkerClient implements IDuckDBQueryClient {
 	private spawnWorker(): void {
 		// "advanced" serialization uses the V8 structured-clone algorithm, which
 		// preserves bigint and Date values returned by DuckDB. The open config is
-		// passed as the first argument so the worker opens the right database.
+		// passed as the first argument so the worker opens the right database. The MotherDuck
+		// token is split out and sent through the environment, since argv is visible to `ps`.
+		const { motherduckToken, ...argvConfig } = this._config;
+		const env = createWorkerEnv();
+		delete env[MOTHERDUCK_TOKEN_ENV];
+		// Drop any token exported in the user's shell: a MotherDuck worker gets only this
+		// connection's token, and other workers need none. Case-insensitive because Windows env
+		// names are.
+		for (const key of Object.keys(env)) {
+			if (/^motherduck_token$/i.test(key)) {
+				delete env[key];
+			}
+		}
+		if (motherduckToken) {
+			env[MOTHERDUCK_TOKEN_ENV] = motherduckToken;
+		}
 		const worker = fork(
 			this._workerPath,
-			[JSON.stringify(this._config)],
-			{ serialization: 'advanced', execArgv: [], env: createWorkerEnv() }
+			[JSON.stringify(argvConfig)],
+			{ serialization: 'advanced', execArgv: [], env }
 		);
 		worker.on('message', (message: unknown) => {
 			const response = message as WorkerQueryResponse;

@@ -67,7 +67,7 @@ suite('Python Runtime Session', () => {
         interpreter = mock<PythonEnvironment>({
             id: 'pythonEnvironmentId',
             path: '/path/to/python',
-            version: mock<PythonVersion>({ major: 3, minor: 9 }),
+            version: mock<PythonVersion>({ major: 3, minor: 10 }),
             architecture: Architecture.x64,
             implementation: 'cpython',
         });

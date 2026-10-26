@@ -5,12 +5,12 @@
 
 // What the two /explore pages on Connect share: the page switch, the date
 // range button and its menu, the accordion, the footer and their styles.
-// Shipping impact is outcomes-page.mjs; Triage outcomes is triage-page.mjs.
+// PR outcomes is outcomes-page.mjs; Triage outcomes is triage-page.mjs.
 
 import { REPO_URL } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
 
 export const PAGES = {
-	impact: { label: 'Shipping impact', url: 'https://connect.posit.it/explore-outcomes/' },
+	impact: { label: 'PR outcomes', url: 'https://connect.posit.it/explore-outcomes/' },
 	triage: { label: 'Triage outcomes', url: 'https://connect.posit.it/explore-triage/' },
 };
 export const PRESETS = [['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['90d', 'Last 90 days', 90], ['all', 'All time']];
@@ -102,9 +102,9 @@ export function clock(d) {
 	return `<time datetime="${d.toISOString()}">${day(d.toISOString(), false)}, ${h % 12 || 12}:${String(d.getUTCMinutes()).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}</time>`;
 }
 
-/** The quiet line under the last section: when the page was built, linked to the run; `extra` follows it. */
-export function footer(now, run, extra = '') {
-	return `<footer>Updated <a class="quiet" href="${run}" title="Open the workflow run that built this report">${clock(now)}</a>${extra}</footer>`;
+/** The quiet line under the last section: when the page was built, linked to the run. */
+export function footer(now, run) {
+	return `<footer>Updated <a class="quiet" href="${run}" title="Open the workflow run that built this report">${clock(now)}</a></footer>`;
 }
 
 export const FONTS = '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
@@ -143,7 +143,7 @@ header{display:flex;flex-direction:column}
 .range-menu .sep{height:1px;background:#E4E1D9;margin:4px 0}
 .custom{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:6px 8px;padding:8px 10px 6px;font-size:13px;color:#5A5751}
 .custom input{min-height:32px;padding:0 8px;border:1px solid #D6D2C8;border-radius:6px;background:#F5F4F0;color:#2B2A27;font:13px 'IBM Plex Sans',sans-serif}
-.lede{display:flex;flex-direction:column;gap:8px;max-width:760px}
+.lede{display:flex;flex-direction:column;gap:8px;max-width:880px}
 .headline{margin:0;font-size:22px;line-height:1.4;font-weight:400}.headline .metric{font-weight:600}
 section{display:flex;flex-direction:column;gap:16px}
 .all{display:grid;column-gap:3px;row-gap:8px}
@@ -177,6 +177,14 @@ section{display:flex;flex-direction:column;gap:16px}
 .acc-body{margin-bottom:24px}
 footer{margin-top:-24px;font-size:13px;color:#7A766F}
 footer a.quiet{color:inherit;text-decoration:none}footer a.quiet:hover{color:#2F6B55;text-decoration:underline;text-underline-offset:3px}
+.h2-row{display:flex;align-items:center;gap:10px}
+.how{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border-radius:50%;border:1px solid #C9C5BB;background:transparent;color:#5A5751;font:600 12px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.how:hover,.how[aria-expanded=true]{border-color:#2B2A27}.how[aria-expanded=true]{background:#ECE9E2}
+.how:focus-visible{outline:2px solid #2B2A27;outline-offset:2px}
+.how-panel{padding:16px 20px 14px;background:#FBFAF7;border:1px solid #E4E1D9;border-radius:10px;display:flex;flex-direction:column;gap:12px;font-size:14px;color:#3A3833}
+.how-panel[hidden]{display:none}
+.muted-line{color:#5A5751}
+.notes{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A5751}
 `;
 
 // The date range menu and the footer's local time. Runs after the page's VIEW_SOURCE and before its

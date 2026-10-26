@@ -1,6 +1,6 @@
 name: "Exploratory: Outcome Pages"
 
-# Rebuilds the Shipping impact page, what happened to /explore's findings, and deploys it to
+# Rebuilds the PR outcomes page, what happened to /explore's findings, and deploys it to
 # the Posit Connect content whose GUID is in the EXPLORE_OUTCOMES_CONNECT_GUID
 # repo variable. Findings already fixed are carried over from the last
 # publish, so only the rest cost model calls. See "What happened to a run's findings" in the exploratory-test
@@ -12,6 +12,11 @@ on:
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
+    inputs:
+      recheck:
+        description: "Check every finding again, ignoring the outcomes already published"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -69,8 +74,10 @@ jobs:
         working-directory: .github/actions/pr-exploratory-test
         env:
           GH_TOKEN: ${{ github.token }}
+          RECHECK: ${{ inputs.recheck }}
         run: |
-          node outcomes.mjs --api --model claude-opus-5-5 --previous "$RUNNER_TEMP/previous.jsonl" --out "$RUNNER_TEMP/rows.jsonl" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$RECHECK" = true ]; then set -- --recheck; fi
+          node outcomes.mjs --api --model claude-opus-5-5 --previous "$RUNNER_TEMP/previous.jsonl" "$@" --out "$RUNNER_TEMP/rows.jsonl" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build and publish the page
         working-directory: .github/actions/pr-exploratory-test
@@ -109,15 +116,15 @@ jobs:
           oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
 
-      # For the issues filed by hand that the Shipping impact rows matched to a finding.
-      - name: Fetch the Shipping impact rows
+      # For the issues filed by hand that the PR outcomes rows matched to a finding.
+      - name: Fetch the PR outcomes rows
         working-directory: .github/actions/pr-exploratory-test
         env:
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           CONNECT_CONTENT_GUID: ${{ vars.EXPLORE_OUTCOMES_CONNECT_GUID }}
         run: |
           node outcomes-publish.mjs previous > "$RUNNER_TEMP/outcomes.jsonl" || {
-            echo "::warning::Couldn't fetch the Shipping impact rows, so matched issues are left out"
+            echo "::warning::Couldn't fetch the PR outcomes rows, so matched issues are left out"
             : > "$RUNNER_TEMP/outcomes.jsonl"
           }
 

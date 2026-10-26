@@ -7,23 +7,23 @@ import { DisposableStore, IDisposable } from '../../../../../base/common/lifecyc
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ServiceIdentifier } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IErrorAssistant, IErrorAssistantService } from '../../common/errorAssistant.js';
+import { IErrorActionHandler, IErrorActionHandlerService } from '../../common/errorAction.js';
 import { AI_ENABLED_KEY } from '../../common/positronAIConfiguration.js';
 
-/** A test container with a TestConfigurationService and an error assistant service. */
-interface IErrorAssistantTestContainer {
+/** A test container with a TestConfigurationService and an error action handler service. */
+interface IErrorActionTestContainer {
 	get: <T>(id: ServiceIdentifier<T>) => T;
 	disposables: Pick<DisposableStore, 'add'>;
 }
 
 /**
- * Turn AI on and register an assistant, so that errors have somewhere to go.
- * @returns The assistant's registration, disposed after the test.
+ * Turn AI on and register a handler, so that errors have somewhere to go.
+ * @returns The handler's registration, disposed after the test.
  */
-export function registerTestErrorAssistant(ctx: IErrorAssistantTestContainer, overrides: Partial<IErrorAssistant> = {}): IDisposable {
+export function registerTestErrorActionHandler(ctx: IErrorActionTestContainer, overrides: Partial<IErrorActionHandler> = {}): IDisposable {
 	(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(AI_ENABLED_KEY, true);
-	return ctx.disposables.add(ctx.get(IErrorAssistantService).register({
-		id: 'test-assistant',
+	return ctx.disposables.add(ctx.get(IErrorActionHandlerService).register({
+		id: 'test-handler',
 		label: 'Test Assistant',
 		supportsChatContinuation: true,
 		ask: async () => { },

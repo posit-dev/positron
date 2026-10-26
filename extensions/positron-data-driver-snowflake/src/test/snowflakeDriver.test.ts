@@ -727,6 +727,216 @@ suite('Snowflake Driver Tests', () => {
 	});
 });
 
+suite('Snowflake Lineage', () => {
+	const request: positron.DataConnectionLineageRequest = {
+		path: ['SALES', 'PUBLIC', 'ORDERS_DAILY'],
+		domain: 'table',
+		direction: 'upstream',
+		depth: 2,
+		maxEdges: 2,
+	};
+
+	// A GET_LINEAGE row, as snowflake-sdk delivers it: uppercase column names, NULLs where an end has
+	// no database, schema or column.
+	function lineageRow(source: string, target: string, distance: number, overrides: Record<string, unknown> = {}) {
+		return {
+			DISTANCE: distance,
+			SOURCE_OBJECT_DATABASE: 'SALES', SOURCE_OBJECT_SCHEMA: 'PUBLIC', SOURCE_OBJECT_NAME: source,
+			SOURCE_OBJECT_DOMAIN: 'TABLE', SOURCE_COLUMN_NAME: null, SOURCE_STATUS: 'ACTIVE',
+			TARGET_OBJECT_DATABASE: 'SALES', TARGET_OBJECT_SCHEMA: 'PUBLIC', TARGET_OBJECT_NAME: target,
+			TARGET_OBJECT_DOMAIN: 'TABLE', TARGET_COLUMN_NAME: null, TARGET_STATUS: 'ACTIVE',
+			...overrides,
+		};
+	}
+
+	test('reads lineage with GET_LINEAGE, binding the request and bounding the result', async () => {
+		const queries: { sql: string; binds?: unknown[] }[] = [];
+		const conn = createTestConnection(createMockClient((sql, binds) => {
+			queries.push({ sql, binds });
+			return { rows: [] };
+		}));
+
+		await conn.getLineage(request);
+
+		// The first query is GET_LINEAGE; an empty result is then checked against SHOW DATABASES.
+		const [{ sql, binds }] = queries;
+		assert.match(sql, /^SELECT DISTANCE, SOURCE_OBJECT_DATABASE, .* FROM TABLE\(SNOWFLAKE\.CORE\.GET_LINEAGE\(\?, \?, \?, \?\)\) /);
+		// Nearest first, then by name, so a cut at maxEdges keeps the same edges every time; and one
+		// row past maxEdges, so a full page can be told from a truncated one.
+		assert.match(sql, / ORDER BY DISTANCE, SOURCE_OBJECT_DATABASE, SOURCE_OBJECT_SCHEMA, SOURCE_OBJECT_NAME, .* LIMIT 3$/);
+		assert.deepStrictEqual(binds, ['"SALES"."PUBLIC"."ORDERS_DAILY"', 'TABLE', 'UPSTREAM', 2]);
+	});
+
+	// The way the rest of the driver names objects: each part quoted, so a lowercase or mixed-case
+	// name (pandas write_pandas creates these by default) is not uppercased into a different object.
+	test('names the object exactly, quoting each part of its path', async () => {
+		const binds: unknown[][] = [];
+		const conn = createTestConnection(createMockClient((_sql, queryBinds) => {
+			binds.push(queryBinds!);
+			return { rows: [] };
+		}));
+
+		await conn.getLineage({ ...request, path: ['Sales', 'public', 'orders', 'say "hi"'], domain: 'column' });
+
+		assert.strictEqual(binds[0][0], '"Sales"."public"."orders"."say ""hi"""');
+		assert.strictEqual(binds[0][1], 'COLUMN');
+	});
+
+	test('declines a path that is not a Snowflake object\'s, without querying', async () => {
+		const conn = createTestConnection(createMockClient(() => {
+			throw new Error('should not query');
+		}));
+
+		assert.deepStrictEqual(await conn.getLineage({ ...request, path: ['PUBLIC', 'ORDERS'] }), {
+			available: false,
+			message: 'Snowflake names a table or view as database.schema.table.',
+		});
+		assert.deepStrictEqual(await conn.getLineage({ ...request, domain: 'column' }), {
+			available: false,
+			message: 'Snowflake names a column as database.schema.table.column.',
+		});
+	});
+
+	// GET_LINEAGE answers for these with an empty result, which would read as "no lineage"; what
+	// they are can be told from the path, so no query is needed to decline them.
+	test('declines INFORMATION_SCHEMA and SNOWFLAKE database objects, without querying', async () => {
+		const conn = createTestConnection(createMockClient(() => {
+			throw new Error('should not query');
+		}));
+
+		assert.deepStrictEqual(await conn.getLineage({ ...request, path: ['SALES', 'INFORMATION_SCHEMA', 'TABLES'] }), {
+			available: false,
+			message: 'Snowflake does not track lineage for objects in INFORMATION_SCHEMA.',
+		});
+		assert.deepStrictEqual(await conn.getLineage({ ...request, path: ['SNOWFLAKE', 'ACCOUNT_USAGE', 'QUERY_HISTORY'] }), {
+			available: false,
+			message: 'Snowflake does not track lineage for objects in the SNOWFLAKE database.',
+		});
+	});
+
+	// A shared (imported) database's objects also come back empty. That takes a query to tell, so it
+	// is asked only once the result is empty, and only the exact name counts: SHOW DATABASES LIKE
+	// matches case-insensitively and with wildcards.
+	test('declines an empty result from a shared database, and reports one from any other database', async () => {
+		const queries: string[] = [];
+		const databases = [
+			{ name: 'AIR_QUALITY', kind: 'IMPORTED DATABASE' },
+			{ name: 'air_quality', kind: 'STANDARD' },
+			{ name: 'SALES', kind: 'STANDARD' },
+		];
+		const conn = createTestConnection(createMockClient(sql => {
+			queries.push(sql);
+			return { rows: sql.startsWith('SHOW DATABASES') ? databases : [] };
+		}));
+
+		assert.deepStrictEqual(await conn.getLineage({ ...request, path: ['AIR_QUALITY', 'PUBLIC', 'READINGS'] }), {
+			available: false,
+			message: 'Snowflake does not track lineage for objects in a shared database (AIR_QUALITY).',
+		});
+		assert.strictEqual(queries[1], 'SHOW DATABASES LIKE \'AIR_QUALITY\'');
+		assert.deepStrictEqual(await conn.getLineage({ ...request, path: ['air_quality', 'PUBLIC', 'READINGS'] }), {
+			available: true, edges: [], truncated: false,
+		});
+		assert.deepStrictEqual(await conn.getLineage(request), { available: true, edges: [], truncated: false });
+	});
+
+	test('leaves an empty result standing when the role cannot show the database', async () => {
+		const conn = createTestConnection(createMockClient(sql => {
+			if (sql.startsWith('SHOW DATABASES')) {
+				throw Object.assign(new Error('Insufficient privileges'), { sqlState: '42501' });
+			}
+			return { rows: [] };
+		}));
+
+		assert.deepStrictEqual(await conn.getLineage(request), { available: true, edges: [], truncated: false });
+	});
+
+	// Measured against a real account: a masked end comes back with `***` in its database, schema,
+	// name and column, which are placeholders, not names.
+	test('drops Snowflake\'s placeholders for a masked end', async () => {
+		const conn = createTestConnection(createMockClient(() => ({
+			rows: [lineageRow('***', 'REF_ENTITIES', 1, {
+				SOURCE_OBJECT_DATABASE: '***', SOURCE_OBJECT_SCHEMA: '***', SOURCE_COLUMN_NAME: '***', SOURCE_OBJECT_DOMAIN: 'VIEW', SOURCE_STATUS: 'MASKED',
+			})],
+		})));
+
+		const lineage = await conn.getLineage(request);
+
+		assert.ok(lineage.available);
+		assert.deepStrictEqual(lineage.edges[0].source, { domain: 'view', masked: true });
+	});
+
+	test('maps each row to an edge, keeping masked, external and column ends as they are', async () => {
+		const conn = createTestConnection(createMockClient(() => ({
+			rows: [
+				lineageRow('ORDERS', 'ORDERS_DAILY', 1, { SOURCE_COLUMN_NAME: 'TOTAL', TARGET_COLUMN_NAME: 'REVENUE', SOURCE_OBJECT_DOMAIN: 'COLUMN', TARGET_OBJECT_DOMAIN: 'COLUMN' }),
+				lineageRow(null as unknown as string, 'ORDERS', 2, {
+					SOURCE_OBJECT_DATABASE: null, SOURCE_OBJECT_SCHEMA: null, SOURCE_OBJECT_DOMAIN: 'EXTERNAL', SOURCE_STATUS: 'MASKED',
+				}),
+			],
+		})));
+
+		assert.deepStrictEqual(await conn.getLineage({ ...request, maxEdges: 200 }), {
+			available: true,
+			edges: [
+				{
+					source: { database: 'SALES', schema: 'PUBLIC', name: 'ORDERS', column: 'TOTAL', domain: 'column' },
+					target: { database: 'SALES', schema: 'PUBLIC', name: 'ORDERS_DAILY', column: 'REVENUE', domain: 'column' },
+					distance: 1,
+				},
+				{
+					source: { domain: 'external', masked: true },
+					target: { database: 'SALES', schema: 'PUBLIC', name: 'ORDERS', column: undefined, domain: 'table' },
+					distance: 2,
+				},
+			],
+			truncated: false,
+		});
+	});
+
+	test('keeps the nearest maxEdges edges and says when it left any out', async () => {
+		const conn = createTestConnection(createMockClient(() => ({
+			rows: [lineageRow('A', 'B', 1), lineageRow('B', 'C', 1), lineageRow('C', 'D', 2)],
+		})));
+
+		const lineage = await conn.getLineage(request);
+
+		assert.ok(lineage.available);
+		assert.deepStrictEqual(lineage.edges.map(edge => [edge.source.name, edge.target.name]), [['A', 'B'], ['B', 'C']]);
+		assert.strictEqual(lineage.truncated, true);
+	});
+
+	// Snowflake reports a missing object, a wrong domain, an object without lineage support, or an
+	// account without Enterprise Edition by failing the statement, with a SQL state. That is an
+	// answer, and the message is what lets the user tell which.
+	test('reports Snowflake declining the request as unavailable, with its message', async () => {
+		const conn = createTestConnection(createMockClient(() => {
+			throw Object.assign(new Error('Object \'SALES.PUBLIC.NOPE\' does not exist or not authorized.'), { sqlState: '02000' });
+		}));
+
+		assert.deepStrictEqual(await conn.getLineage(request), {
+			available: false,
+			message: 'Object \'SALES.PUBLIC.NOPE\' does not exist or not authorized.',
+		});
+	});
+
+	// A connection problem is the caller's to report, not an answer about the object.
+	test('rejects when the connection fails', async () => {
+		const conn = createTestConnection(createMockClient(() => {
+			throw new Error('Snowflake client is closed');
+		}));
+
+		await assert.rejects(() => conn.getLineage(request), /Snowflake client is closed/);
+	});
+
+	test('rejects after disconnect', async () => {
+		const conn = createTestConnection(createMockClient());
+		await conn.disconnect();
+
+		await assert.rejects(() => conn.getLineage(request), /closed/);
+	});
+});
+
 suite('Snowflake Reconnecting Client', () => {
 
 	const OPTIONS: SnowflakeConnectionOptions = {

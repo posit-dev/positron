@@ -9,13 +9,20 @@ import { McpClient, McpWorkspace, McpWorkspaceRegistration, McpStatus } from './
 import { McpFrontendChannel } from './McpFrontendChannel';
 import { describeClient } from './mcpClients';
 import {
+	MCP_CONNECTIONS_ENV_VAR,
+	MCP_ENV_VARS,
+	MCP_LAUNCHER_ENV_VAR,
 	MCP_TOKEN_ENV_VAR,
 	MCP_URL_ENV_VAR,
 	McpConnection,
+	SUPERVISOR_PATH_ENV_VAR,
+	mcpConnectionsDirectory,
 	mcpDescriptorPath,
 	removeConnectionFiles,
 	writeConnectionFiles,
 } from './mcpConnection';
+import { McpLaunch } from './McpAgents';
+import { installMcpLauncher, mcpLauncherPath } from './mcpLauncher';
 import { summarizeError } from './util';
 
 // The `ai.*` settings below are registered by Positron core, in
@@ -131,6 +138,9 @@ export class McpFrontend implements vscode.Disposable {
 	/** The current registration, when the feature is on and the server is up. */
 	private _connection: McpConnection | undefined;
 
+	/** How agents start the launcher, once this registration installed it. */
+	private _launch: McpLaunch | undefined;
+
 	/** Fires when {@link connection} is issued, replaced, or given up. */
 	private readonly _onDidChangeConnection = new vscode.EventEmitter<void>();
 
@@ -168,12 +178,13 @@ export class McpFrontend implements vscode.Disposable {
 	 * @param _sessionIds The sessions this window holds. With the sessions it
 	 *  created, these are the only ones agents attached to the workspace may
 	 *  reach.
+	 * @param _supervisorPath The supervisor binary, which is also the bridge.
 	 * @param _enabled Whether the feature is turned on. Read on every sync
 	 *  rather than cached, since both switches apply without a reload and
 	 *  `ai.enabled` can be enforced by a Workbench administrator at any time.
-	 * @param _onRegistered Called with the registration once the endpoint is
-	 *  live, for work that should not point agents at a listener that does not
-	 *  exist yet.
+	 * @param _onRegistered Called with the launcher's launch once the endpoint
+	 *  is live and the launcher installed, for work that should not point
+	 *  agents at a listener that does not exist yet.
 	 * @param _onDeregistered Called once the endpoint is gone, for work that
 	 *  should not outlive it -- the entries agents were configured with, which
 	 *  name an endpoint that no longer answers.
@@ -189,8 +200,9 @@ export class McpFrontend implements vscode.Disposable {
 		private readonly _loadState: () => McpFrontendState,
 		private readonly _saveState: (state: McpFrontendState) => Thenable<void>,
 		private readonly _sessionIds: () => string[],
+		private readonly _supervisorPath: () => string,
 		private readonly _enabled: () => boolean = mcpFeatureEnabled,
-		private readonly _onRegistered: (connection: McpConnection) => void | Thenable<void> = () => { },
+		private readonly _onRegistered: (launch: McpLaunch) => void | Thenable<void> = () => { },
 		private readonly _onDeregistered: () => void | Thenable<void> = () => { },
 		private readonly _processEnv: NodeJS.ProcessEnv = process.env,
 	) {
@@ -230,6 +242,14 @@ export class McpFrontend implements vscode.Disposable {
 	 */
 	public get clients(): readonly McpClient[] {
 		return this._clients;
+	}
+
+	/**
+	 * The command line agents start the launcher with, or undefined until a
+	 * registration has installed it.
+	 */
+	public get launch(): McpLaunch | undefined {
+		return this._launch;
 	}
 
 	/** Fires whenever {@link clients} changes. */
@@ -402,11 +422,14 @@ export class McpFrontend implements vscode.Disposable {
 		};
 		this.setConnection(connection);
 		await this._saveState({ workspaceId, port, token });
-		await this.publishEnvironment(connection);
+		const launch = await this.publishEnvironment(connection);
 		this._log(`Registered MCP workspace ${workspaceId}; agents can connect at ${url}, ` +
 			`or read ${mcpDescriptorPath(this._storageUri, workspaceId)}`);
 		this.openChannel(workspaceId);
-		this.runHook(() => this._onRegistered(connection));
+		// Agents configured now would be told to start a launcher that is not there.
+		if (launch) {
+			this.runHook(() => this._onRegistered(launch));
+		}
 	}
 
 	/**
@@ -514,24 +537,37 @@ export class McpFrontend implements vscode.Disposable {
 	}
 
 	/**
-	 * Publish the endpoint and token to the environments agents are started
-	 * from: integrated terminals, and the extension host process, whose
-	 * environment is inherited by the processes extensions spawn. The stdio
-	 * bridge agents start reads these first; an agent that inherits neither
+	 * Install the launcher, and publish it, the endpoint and token, and the
+	 * supervisor binary that runs the bridge to the environments agents are
+	 * started from: integrated terminals, and the extension host process,
+	 * whose environment is inherited by the processes extensions spawn. The
+	 * stdio bridge agents start reads these first; an agent that inherits neither
 	 * falls back to the files written alongside, see
 	 * {@link writeConnectionFiles}.
 	 *
 	 * Agents read these at startup, so a terminal or an extension host that
 	 * predates registration has to be restarted to pick them up; the
 	 * description explains that in the terminal's environment hover.
+	 *
+	 * @returns The launcher's launch, if it was installed.
 	 */
-	private async publishEnvironment(connection: McpConnection): Promise<void> {
+	private async publishEnvironment(connection: McpConnection): Promise<McpLaunch | undefined> {
 		this._environment.description = vscode.l10n.t(
 			"Lets coding agents run code in this workspace's Positron sessions. Reopen a terminal to pick up changes.");
-		this._environment.replace(MCP_URL_ENV_VAR, connection.url);
-		this._environment.replace(MCP_TOKEN_ENV_VAR, connection.token);
-		this._processEnv[MCP_URL_ENV_VAR] = connection.url;
-		this._processEnv[MCP_TOKEN_ENV_VAR] = connection.token;
+		this.setVariable(MCP_URL_ENV_VAR, connection.url);
+		this.setVariable(MCP_TOKEN_ENV_VAR, connection.token);
+		this.setVariable(MCP_CONNECTIONS_ENV_VAR, mcpConnectionsDirectory(this._storageUri));
+		let launch: McpLaunch | undefined;
+		try {
+			const supervisorPath = this._supervisorPath();
+			this.setVariable(SUPERVISOR_PATH_ENV_VAR, supervisorPath);
+			// Points the launcher at this window's supervisor, which may be a
+			// different version's than the one that last wrote it.
+			launch = await installMcpLauncher(this._storageUri, supervisorPath, this._log);
+			this.setVariable(MCP_LAUNCHER_ENV_VAR, mcpLauncherPath(this._storageUri));
+		} catch (err) {
+			this._log(`Could not install the MCP launcher: ${summarizeError(err)}`);
+		}
 		try {
 			await writeConnectionFiles(this._storageUri, connection);
 		} catch (err) {
@@ -540,6 +576,14 @@ export class McpFrontend implements vscode.Disposable {
 			// by its folders are affected.
 			this._log(`Could not write the MCP connection files: ${summarizeError(err)}`);
 		}
+		this._launch = launch;
+		return launch;
+	}
+
+	/** Publish a variable to terminals and to the extension host's environment. */
+	private setVariable(name: string, value: string): void {
+		this._environment.replace(name, value);
+		this._processEnv[name] = value;
 	}
 
 	/**
@@ -550,11 +594,12 @@ export class McpFrontend implements vscode.Disposable {
 	private async clearEnvironment(connection: McpConnection | undefined): Promise<void> {
 		// Remove only our own variables; the collection is shared with the
 		// interpreter definition's terminal variables.
-		this._environment.delete(MCP_URL_ENV_VAR);
-		this._environment.delete(MCP_TOKEN_ENV_VAR);
+		for (const name of MCP_ENV_VARS) {
+			this._environment.delete(name);
+			delete this._processEnv[name];
+		}
 		this._environment.description = undefined;
-		delete this._processEnv[MCP_URL_ENV_VAR];
-		delete this._processEnv[MCP_TOKEN_ENV_VAR];
+		this._launch = undefined;
 		if (connection) {
 			try {
 				await removeConnectionFiles(this._storageUri, connection);

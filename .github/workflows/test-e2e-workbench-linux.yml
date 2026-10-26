@@ -235,8 +235,8 @@ jobs:
         shell: bash
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
-          POSITRON_PY_VER_SEL: "3.10.12"
-          POSITRON_R_VER_SEL: 4.5.2
+          POSITRON_PY_VER_SEL: "3.14.7"
+          POSITRON_R_VER_SEL: 4.6.1
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.2
           POSITRON_HIDDEN_PY: "3.12.10 Module"

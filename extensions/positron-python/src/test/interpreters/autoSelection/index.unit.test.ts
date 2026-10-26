@@ -192,7 +192,12 @@ suite('Interpreters - Auto Selection', () => {
             const systemEnv = {
                 envType: EnvironmentType.System,
                 envPath: path.join('/', 'usr', 'bin'),
-                version: { major: 3, minor: 9, patch: 1 },
+                // --- Start Positron ---
+                // Positron puts unsupported Python versions at the end, so the system version must be
+                // supported. Keep it lower than the Pipenv version, like upstream.
+                // version: { major: 3, minor: 9, patch: 1 },
+                version: { major: 3, minor: 10, patch: 1 },
+                // --- End Positron ---
             } as PythonEnvironment;
 
             when(interpreterService.getInterpreters(resource)).thenCall((_) => [
@@ -205,7 +210,10 @@ suite('Interpreters - Auto Selection', () => {
                 {
                     envType: EnvironmentType.Pipenv,
                     envPath: path.join('some', 'pipenv', 'env'),
-                    version: { major: 3, minor: 10, patch: 0 },
+                    // --- Start Positron ---
+                    // version: { major: 3, minor: 10, patch: 0 },
+                    version: { major: 3, minor: 11, patch: 0 },
+                    // --- End Positron ---
                 } as PythonEnvironment,
             ]);
 

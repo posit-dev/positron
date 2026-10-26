@@ -28,7 +28,7 @@ See [commitMessageAction.ts](../../src/vs/workbench/contrib/positronAssistant/br
 if (this._configurationService.getValue<boolean>(AI_ENABLED_KEY) === true) { ... }
 ```
 
-See [errorAssistantService.ts](../../src/vs/workbench/contrib/positronAssistant/browser/errorAssistantService.ts).
+See [errorActionHandlerService.ts](../../src/vs/workbench/contrib/positronAssistant/browser/errorActionHandlerService.ts).
 
 **React component**:
 
@@ -36,7 +36,7 @@ See [errorAssistantService.ts](../../src/vs/workbench/contrib/positronAssistant/
 const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
 ```
 
-**Error Fix/Explain actions** (a surface that sends an error to an AI assistant): don't read `ai.enabled` yourself. Show the actions only while the active error assistant is defined, using `useActiveErrorAssistant()` in React or `IErrorAssistantService.activeAssistant` elsewhere, and send the error with `IErrorAssistantService.ask`. The service applies the `ai.enabled` gate to both. Keep any surface-specific gate (a console setting, notebook mode, etc.) alongside it. See [errorAssistant.ts](../../src/vs/workbench/contrib/positronAssistant/common/errorAssistant.ts).
+**Error Fix/Explain actions** (a surface that sends an error to an AI assistant): don't read `ai.enabled` yourself. Show the actions only while the active error action handler is defined, using `useActiveErrorActionHandler()` in React or `IErrorActionHandlerService.activeHandler` elsewhere, and send the error with `IErrorActionHandlerService.ask`. The service applies the `ai.enabled` gate to both. Keep any surface-specific gate (a console setting, notebook mode, etc.) alongside it. See [errorAction.ts](../../src/vs/workbench/contrib/positronAssistant/common/errorAction.ts).
 
 ## Things to get right
 

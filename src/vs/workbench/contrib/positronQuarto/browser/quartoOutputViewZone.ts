@@ -12,7 +12,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
 import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, OBJECT_EXPLORER_MIME_TYPE, CellExecutionState } from '../common/quartoExecutionTypes.js';
-import { IQuartoErroredCell } from '../../positronAssistant/common/errorAssistant.js';
+import { IQuartoErroredCell } from '../../positronAssistant/common/errorAction.js';
 import { InlineObjectExplorer } from '../../../browser/positronObjectExplorer/inlineObjectExplorer.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
@@ -2686,7 +2686,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Mount Fix/Explain quick-fix buttons for current-session errors.
 		// QuartoOutputQuickFix renders nothing while there is no active error
-		// assistant to send the error to.
+		// handler to send the error to.
 		if (this._quickFixEnabled && this._documentUri) {
 			const quickFixContainer = document.createElement('div');
 			quickFixContainer.setAttribute('aria-live', 'off');

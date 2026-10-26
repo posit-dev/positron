@@ -12,6 +12,7 @@ import * as vscode from 'vscode';
 import { getArkKernelPath, normalizeWindowsArch, sniffMachOBinaryArchitecture, sniffWindowsBinaryArchitecture } from './kernel';
 import { discoverRInstallations } from './provider';
 import { friendlyReason, ReasonRejected, RInstallation } from './r-installation';
+import { compareRInstallations } from './startup-choice';
 
 /** Architecture vocabulary used by the ark binary sniffers. */
 export type ArkArch = 'arm64' | 'x64';
@@ -252,13 +253,7 @@ export function selectTargetInstallation<T extends RInstallationRankable>(
 		}
 	}
 	const usable = all.filter((i) => i.usable);
-	usable.sort((a, b) => {
-		if (a.current || b.current) {
-			return Number(b.current) - Number(a.current);
-		}
-		// Version descending, ties broken by architecture, as in provider.ts.
-		return semver.compare(b.semVersion, a.semVersion) || a.arch.localeCompare(b.arch);
-	});
+	usable.sort(compareRInstallations);
 	return usable[0];
 }
 

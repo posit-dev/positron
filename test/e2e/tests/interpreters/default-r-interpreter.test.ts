@@ -10,64 +10,73 @@ test.use({
 	suiteId: __filename
 });
 
+/** The hidden CI R version, and the path of its R binary. */
+function hiddenR(): { version: string; path: string; escapedVersion: string } {
+	const version = process.env.POSITRON_HIDDEN_R;
+	if (!version) {
+		throw new Error('POSITRON_HIDDEN_R environment variable is not set');
+	}
+	// local debugging sample: '/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/R'
+	return { version, path: `/root/scratch/R-${version}/bin/R`, escapedVersion: version.replace(/\./g, '\\.') };
+}
+
 // electron only for now - windows doesn't have hidden interpreters and for web the deletePositronHistoryFiles is not valid
 test.describe('Default Interpreters - R', {
 	tag: [tags.INTERPRETER, tags.ARK]
 }, () => {
 
-	test.beforeAll(async function ({ settings }) {
+	test.describe('always start for all languages', () => {
 
-		await settings.remove(['interpreters.startupBehavior']);
-		await settings.set({ 'interpreters.startupBehavior': 'always' });
+		test.beforeAll(async function ({ settings }) {
+			await settings.remove(['interpreters.startupBehavior']);
+			await settings.set({ 'interpreters.startupBehavior': 'always' });
 
-		await deletePositronHistoryFiles();
+			await deletePositronHistoryFiles();
 
-		// local debugging sample:
-		// await settings.set({'positron.r.interpreters.default': '/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/R'}, { reload: true });
+			await settings.set({ 'positron.r.interpreters.default': hiddenR().path }, { reload: true });
+		});
 
-		const hiddenRVersion = process.env.POSITRON_HIDDEN_R;
-		if (!hiddenRVersion) {
-			throw new Error('POSITRON_HIDDEN_R environment variable is not set');
-		}
+		test('R - The Python recommendation starts instead of the default R', async function ({ sessions, hotKeys }) {
+			// Set for all languages, `always` starts one language only. The folder has Python
+			// files, so Python's recommendation starts immediately and R does not start.
+			//
+			// The beforeAll set the default interpreter and reloaded in one call. That reload cancels
+			// the in-flight (extension-requested) session creation, so a session may not appear.
+			// Wait for one before reading metadata, and reload once if none does -- but only after
+			// the wait, so we never reload a session mid-start (see #14901).
+			try {
+				await sessions.expectSessionCountToBe(1);
+			} catch {
+				await hotKeys.reloadWindow(true);
+				await sessions.expectSessionCountToBe(1);
+			}
 
-		const rPath = `/root/scratch/R-${hiddenRVersion}/bin/R`;
-
-		await settings.set({ 'positron.r.interpreters.default': rPath }, { reload: true });
-
+			const { name } = await sessions.getMetadata();
+			expect(name).toMatch(/^Python /);
+		});
 	});
 
-	test('R - Add a default interpreter', async function ({ sessions, hotKeys }) {
+	test.describe('always start for R only', () => {
 
-		const hiddenRVersion = process.env.POSITRON_HIDDEN_R;
-		if (!hiddenRVersion) {
-			throw new Error('POSITRON_HIDDEN_R environment variable is not set');
-		}
+		test.beforeAll(async function ({ settings }) {
+			await settings.remove(['interpreters.startupBehavior']);
+			await settings.set({
+				'[r]': { 'interpreters.startupBehavior': 'always' },
+				'positron.r.interpreters.default': hiddenR().path,
+			}, { reload: true });
+		});
 
-		// Escape dots for regex matching
-		const escapedVersion = hiddenRVersion.replace(/\./g, '\\.');
+		test('R - Add a default interpreter', async function ({ sessions }) {
+			// A language-specific `always` starts R even when another language's console is
+			// already running, so R is one of the sessions rather than the only one.
+			const { escapedVersion } = hiddenR();
 
-		// The beforeAll set the default interpreter and reloaded in one call. That reload cancels
-		// the in-flight (extension-requested) session creation, and the affiliated runtime does not
-		// reliably auto-start afterward. Wait for a session to actually appear before reading
-		// metadata rather than racing a still-empty console (which is what surfaced the misleading
-		// "Extract session metadata" timeout). If affiliation never fired, reload once to re-trigger
-		// it -- but only after the wait, so we never reload a session mid-start (a reload cancels
-		// in-flight session creation; see #14901).
-		try {
-			await sessions.expectSessionCountToBe(1);
-		} catch {
-			await hotKeys.reloadWindow(true);
-			await sessions.expectSessionCountToBe(1);
-		}
-
-		const { name, path } = await sessions.getMetadata();
-
-		// Local debugging sample:
-		// expect(name).toContain('R 4.3.3');
-		// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
-
-		// hidden CI interpreter:
-		expect(name).toMatch(new RegExp(`R ${escapedVersion}`));
-		expect(path).toMatch(new RegExp(`R-${escapedVersion}\\/bin\\/R`));
+			// R starts after interpreter discovery; allow as long as `expectSessionCountToBe` does.
+			await expect(async () => {
+				const r = (await sessions.getActiveSessions()).find(session => session.name.startsWith('R '));
+				expect(r?.name).toMatch(new RegExp(`R ${escapedVersion}`));
+				expect(r?.path).toMatch(new RegExp(`R-${escapedVersion}\\/bin\\/R`));
+			}).toPass({ timeout: 45000 });
+		});
 	});
 });
