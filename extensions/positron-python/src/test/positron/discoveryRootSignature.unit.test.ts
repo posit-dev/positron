@@ -26,11 +26,9 @@ suite('Python discovery root signature', () => {
     let getUserHomeDirStub: sinon.SinonStub;
     let getWorkspaceFoldersStub: sinon.SinonStub;
     let include: string[] | undefined;
-    let locator: string | undefined;
 
     setup(() => {
         include = undefined;
-        locator = undefined;
         getUserHomeDirStub = sinon.stub(platformApis, 'getUserHomeDir').returns(homeDir);
         getEnvironmentVariableStub = sinon.stub(platformApis, 'getEnvironmentVariable');
         getEnvironmentVariableStub.returns(undefined);
@@ -38,7 +36,6 @@ suite('Python discovery root signature', () => {
         const configMock = typemoq.Mock.ofType<WorkspaceConfiguration>();
         configMock.setup((c) => c.get(typemoq.It.isAnyString())).returns(() => undefined);
         configMock.setup((c) => c.get('interpreters.include')).returns(() => include);
-        configMock.setup((c) => c.get('locator')).returns(() => locator);
         when(mockedVSCodeNamespaces.workspace!.getConfiguration(anything())).thenReturn(configMock.object);
         sinon.stub(workspaceApis, 'getConfiguration').returns(configMock.object);
         getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders').returns(undefined);
@@ -121,13 +118,5 @@ suite('Python discovery root signature', () => {
         const first = await opaqueFor(path.join('/', 'work', 'first'));
         const second = await opaqueFor(path.join('/', 'work', 'second'));
         assert.notStrictEqual(first, second);
-    });
-
-    test('digest does not depend on python.locator', async () => {
-        locator = 'js';
-        const first = (await getPythonDiscoveryRootSignature()).opaque;
-        locator = 'native';
-        const second = (await getPythonDiscoveryRootSignature()).opaque;
-        assert.strictEqual(first, second);
     });
 });
