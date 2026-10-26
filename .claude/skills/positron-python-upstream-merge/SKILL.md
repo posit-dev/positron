@@ -82,8 +82,8 @@ Put everything after this in separate commits under the user's name.
 In `extensions/positron-python`:
 1. `npm install` to regenerate the lockfile. Check whether each npm `overrides` entry in `package.json` is still needed (`npm ls <pkg>`).
 2. `npx tsc -p ./ --noEmit`, then `npm run lint` and `npm run format-check`. Fix with `npm run format-fix`. Never use the repo-root `scripts/format.mts`, which uses tabs; this extension uses 4 spaces.
-3. `npm run test:unittests` (narrow with `-- --grep` while you iterate, run everything at the end).
-4. Python: `./scripts/check-python-quality.sh`; pytest in `python_files/posit`; pytest in `python_files/tests` if upstream changed `python_files/` adapters.
+3. `npx tsc -p ./` (the unit tests run from `out/`), then `npm run test:unittests`. Narrow it with `-- --grep` while you iterate, and run everything at the end. Only `*.unit.test.ts` files run here; other `*.test.ts` files run in CI's extension-host job.
+4. Python: `./scripts/check-python-quality.sh`; pytest in `python_files/posit`; `python_files/tests/run_all.py` if upstream changed the `python_files/` adapters. For the last one, mirror the `positron-python-ci.yml` job: `requirements.txt` installed with `pip -t python_files/lib/python`, then `build/test-requirements.txt`. Move the old `python_files/lib/python` to the Trash first: `pip -t` without `--upgrade` skips existing package directories and leaves old code next to new metadata.
 
 ### 6. Mirror upstream CI into Positron (commit: "fix ci")
 
