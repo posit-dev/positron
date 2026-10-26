@@ -6,6 +6,7 @@
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
+import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 
 /** An action the user can take on an error. */
@@ -95,6 +96,32 @@ export interface IErrorActionHandlerInfo {
 	readonly label: string;
 	/** Whether the handler can continue the user's active chat. */
 	readonly supportsChatContinuation: boolean;
+}
+
+/**
+ * An error action handler an extension declares in its package.json, under
+ * `contributes.errorActionHandlers`. An extension can only register the
+ * handlers it declares.
+ */
+export interface IErrorActionHandlerContribution {
+	/** The id the extension registers the handler with. */
+	readonly id: string;
+	/** The handler's name, shown in the setting and the actions. */
+	readonly label: string;
+	/** Whether the handler can continue the user's active chat. Defaults to false. */
+	readonly supportsChatContinuation?: boolean;
+}
+
+/** The well-formed handlers an extension contributes. */
+export function getErrorActionHandlerContributions(extension: IExtensionDescription): IErrorActionHandlerContribution[] {
+	const contributions = (extension.contributes as { errorActionHandlers?: unknown } | undefined)?.errorActionHandlers;
+	if (!Array.isArray(contributions)) {
+		return [];
+	}
+	return contributions.filter((contribution): contribution is IErrorActionHandlerContribution =>
+		typeof contribution?.id === 'string'
+		&& typeof contribution?.label === 'string'
+		&& (contribution.supportsChatContinuation === undefined || typeof contribution.supportsChatContinuation === 'boolean'));
 }
 
 /**

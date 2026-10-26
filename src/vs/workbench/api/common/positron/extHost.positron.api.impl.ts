@@ -572,9 +572,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			): Thenable<positron.ai.ValidateAndExecuteCommandResult> {
 				return extHostAiFeatures.validateAndExecuteCommand(commandId, args);
 			},
-			registerErrorActionHandler(id: string, label: string, handler: positron.ai.ErrorActionHandler, metadata?: positron.ai.ErrorActionHandlerMetadata): vscode.Disposable {
+			registerErrorActionHandler(id: string, handler: positron.ai.ErrorActionHandler): vscode.Disposable {
 				checkProposedApiEnabled(extension, 'positronErrorActions');
-				return extHostAiFeatures.registerErrorActionHandler(id, label, handler, metadata);
+				return extHostAiFeatures.registerErrorActionHandler(extension, id, handler);
 			},
 		};
 

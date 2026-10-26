@@ -4,16 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { ExtensionsRegistry } from '../../../services/extensions/common/extensionsRegistry.js';
-
-/** An error action handler an extension declares in its package.json. */
-export interface IErrorActionHandlerContribution {
-	/** The id the extension registers the handler with. */
-	readonly id: string;
-	/** The handler's name, shown until the extension registers it. */
-	readonly label: string;
-}
+import { IErrorActionHandlerContribution } from '../common/errorAction.js';
 
 /** The activation event that starts the extension that contributes a handler. */
 export function getErrorActionHandlerActivationEvent(id: string): string {
@@ -21,9 +13,10 @@ export function getErrorActionHandlerActivationEvent(id: string): string {
 }
 
 /**
- * The `errorActionHandlers` contribution point. Declaring a handler names it
- * before its extension activates, and lets Positron activate the extension
- * when the handler is asked to take an error before it has registered.
+ * The `errorActionHandlers` contribution point. An extension declares each
+ * handler it registers, which names it before the extension activates, and
+ * lets Positron activate the extension when the handler is asked to take an
+ * error before it has registered.
  */
 ExtensionsRegistry.registerExtensionPoint<IErrorActionHandlerContribution[]>({
 	extensionPoint: 'errorActionHandlers',
@@ -44,6 +37,11 @@ ExtensionsRegistry.registerExtensionPoint<IErrorActionHandlerContribution[]>({
 					description: localize('positron.errorActionHandlerLabel', "Name of the coding agent, shown to users."),
 					type: 'string',
 				},
+				supportsChatContinuation: {
+					description: localize('positron.errorActionHandlerSupportsChatContinuation', "Whether the coding agent can continue the user's active chat, which adds an \"in current chat\" choice to Fix and Explain."),
+					type: 'boolean',
+					default: false,
+				},
 			},
 		},
 	},
@@ -53,13 +51,3 @@ ExtensionsRegistry.registerExtensionPoint<IErrorActionHandlerContribution[]>({
 		}
 	},
 });
-
-/** The well-formed handlers an extension contributes. */
-export function getErrorActionHandlerContributions(extension: IExtensionDescription): IErrorActionHandlerContribution[] {
-	const contributions = (extension.contributes as { errorActionHandlers?: unknown } | undefined)?.errorActionHandlers;
-	if (!Array.isArray(contributions)) {
-		return [];
-	}
-	return contributions.filter((contribution): contribution is IErrorActionHandlerContribution =>
-		typeof contribution?.id === 'string' && typeof contribution?.label === 'string');
-}

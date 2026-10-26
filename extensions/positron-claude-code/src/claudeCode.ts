@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { CommandLaunch, getCommandLaunch } from './commandLaunch';
 
 /** Claude Code's name, which isn't translated. */
-export const CLAUDE_CODE_LABEL = 'Claude Code';
+const CLAUDE_CODE_LABEL = 'Claude Code';
 
 /** Identifier of Anthropic's Claude Code extension. */
 export const CLAUDE_CODE_EXTENSION_ID = 'anthropic.claude-code';

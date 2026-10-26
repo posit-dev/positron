@@ -17,10 +17,10 @@ import { IProgressService, ProgressLocation } from '../../../../platform/progres
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 import { openSettingWhereSet } from '../../../services/preferences/common/positronSettingsUtils.js';
-import { ErrorAction, IErrorActionHandler, IErrorActionContext, IErrorActionHandlerInfo, IErrorActionOptions, IErrorActionHandlerService } from '../common/errorAction.js';
+import { ErrorAction, getErrorActionHandlerContributions, IErrorActionHandler, IErrorActionContext, IErrorActionHandlerContribution, IErrorActionHandlerInfo, IErrorActionOptions, IErrorActionHandlerService } from '../common/errorAction.js';
 import { AI_ENABLED_KEY, DEFAULT_ERROR_ACTION_HANDLER_LABEL, setErrorActionHandlerChoices } from '../common/positronAIConfiguration.js';
 import { DEFAULT_ERROR_ACTION_HANDLER_ID, ERROR_ACTIONS_AGENT_KEY } from '../common/positronAIConfigurationKeys.js';
-import { getErrorActionHandlerActivationEvent, getErrorActionHandlerContributions, IErrorActionHandlerContribution } from './errorActionHandlersExtensionPoint.js';
+import { getErrorActionHandlerActivationEvent } from './errorActionHandlersExtensionPoint.js';
 
 /**
  * How long a click waits for a contributed handler's extension to activate and
@@ -235,9 +235,10 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 			// registers.
 			return undefined;
 		}
-		// The chosen handler isn't registered. Name it as its extension
+		// The chosen handler isn't registered. Describe it as its extension
 		// contributes it, or by its id when no extension does.
-		return { id, label: this._contributionsById.get(id)?.label ?? id, supportsChatContinuation: false };
+		const contribution = this._contributionsById.get(id);
+		return { id, label: contribution?.label ?? id, supportsChatContinuation: contribution?.supportsChatContinuation === true };
 	}
 
 	/**

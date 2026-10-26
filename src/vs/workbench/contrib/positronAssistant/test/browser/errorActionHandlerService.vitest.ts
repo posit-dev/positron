@@ -93,7 +93,7 @@ describe('ErrorActionHandlerService', () => {
 	}
 
 	/** Install an extension that contributes the handler. */
-	function installContributingExtension(contribution = { id: 'test-handler', label: 'Contributed Handler' }): void {
+	function installContributingExtension(contribution: object = { id: 'test-handler', label: 'Contributed Handler' }): void {
 		// The contribution point isn't one of upstream's typed contributions.
 		const contributes: object = { errorActionHandlers: [contribution] };
 		const extension = stubInterface<IExtensionDescription>({ contributes: contributes as IExtensionDescription['contributes'] });
@@ -133,6 +133,14 @@ describe('ErrorActionHandlerService', () => {
 		expect(service.activeHandler).toEqual(contributed);
 		expect(onDidChangeActiveHandler.mock.calls).toEqual([[contributed]]);
 		expect(getChoices().labels).toEqual(['Posit Assistant', 'Contributed Handler (not available)']);
+	});
+
+	it('offers to continue the chat while the chosen handler is not registered, if its extension declares it can', () => {
+		const service = createService();
+
+		installContributingExtension({ id: 'test-handler', label: 'Contributed Handler', supportsChatContinuation: true });
+
+		expect(service.activeHandler).toEqual({ id: 'test-handler', label: 'Contributed Handler', supportsChatContinuation: true });
 	});
 
 	it('never makes a handler active that the user did not choose', () => {

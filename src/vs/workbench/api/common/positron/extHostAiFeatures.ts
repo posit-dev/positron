@@ -16,7 +16,8 @@ import { IExtHostWorkspace } from '../extHostWorkspace.js';
 import { getEnabledTools as filterEnabledTools } from './positronToolFilter.js';
 import { URI } from '../../../../base/common/uri.js';
 import { assertNever } from '../../../../base/common/assert.js';
-import { ErrorAction, IErrorActionContext } from '../../../contrib/positronAssistant/common/errorAction.js';
+import { ErrorAction, getErrorActionHandlerContributions, IErrorActionContext } from '../../../contrib/positronAssistant/common/errorAction.js';
+import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID } from '../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
@@ -53,7 +54,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return filterEnabledTools(request, tools, isWorkspaceOpen);
 	}
 
-	registerErrorActionHandler(id: string, label: string, handler: positron.ai.ErrorActionHandler, metadata?: positron.ai.ErrorActionHandlerMetadata): vscode.Disposable {
+	registerErrorActionHandler(extension: IExtensionDescription, id: string, handler: positron.ai.ErrorActionHandler): vscode.Disposable {
 		// Refuse what this extension host knows about, as `registerCommand` does.
 		// The main thread also refuses ids taken in another extension host, with
 		// a logged error; unregistering a refused handle does nothing.
@@ -65,9 +66,14 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 				throw new Error(`An error action handler with the id '${id}' is already registered`);
 			}
 		}
+		// Its name and capabilities are declared, as for language model tools.
+		const contribution = getErrorActionHandlerContributions(extension).find(contribution => contribution.id === id);
+		if (!contribution) {
+			throw new Error(`The error action handler '${id}' must be declared in the extension's contributes.errorActionHandlers`);
+		}
 		const handle = this._nextErrorActionHandlerHandle++;
 		this._errorActionHandlersByHandle.set(handle, { id, handler });
-		this._proxy.$registerErrorActionHandler(handle, id, label, metadata?.supportsChatContinuation === true);
+		this._proxy.$registerErrorActionHandler(handle, id, contribution.label, contribution.supportsChatContinuation === true);
 		return new Disposable(() => {
 			if (this._errorActionHandlersByHandle.delete(handle)) {
 				this._proxy.$unregisterErrorActionHandler(handle);

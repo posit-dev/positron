@@ -13,35 +13,24 @@ declare module 'positron' {
 		/**
 		 * Register a handler that the user can send errors to e.g. Fix and Explain.
 		 *
+		 * Declare the handler in `contributes.errorActionHandlers` in package.json,
+		 * with its name and whether it can continue the user's active chat.
 		 * Registered handlers are listed as options in the `ai.errorActions.agent` setting.
 		 *
 		 * Register during activation, as with commands and tools: an error sent
-		 * to a handler declared in `contributes.errorActionHandlers` before it's
-		 * registered activates its extension, and waits for that.
+		 * to a declared handler before it's registered activates its extension,
+		 * and waits for that.
 		 *
-		 * Throws if the id is reserved or is already registered in this extension host.
-		 * An id already registered in another extension host is refused with a logged error
-		 * and a disposable is returned that does nothing.
+		 * Throws if the id isn't declared by this extension, is reserved, or is
+		 * already registered in this extension host. An id already registered in
+		 * another extension host is refused with a logged error and a disposable
+		 * is returned that does nothing.
 		 *
-		 * @param id A unique identifier.
-		 * @param label The handler's human-readable name, shown in the UI.
+		 * @param id The id the handler is declared with.
 		 * @param handler The handler.
-		 * @param metadata Optional metadata about the handler.
 		 * @returns A disposable that unregisters the handler.
 		 */
-		export function registerErrorActionHandler(id: string, label: string, handler: ErrorActionHandler, metadata?: ErrorActionHandlerMetadata): vscode.Disposable;
-
-		/**
-		 * Metadata about an {@link ErrorActionHandler}, given when it's registered.
-		 * To change it, dispose the registration and register again.
-		 */
-		export interface ErrorActionHandlerMetadata {
-			/**
-			 * Whether the handler can continue the user's active chat, which
-			 * adds an "in current chat" choice to Fix and Explain. Defaults to false.
-			 */
-			readonly supportsChatContinuation?: boolean;
-		}
+		export function registerErrorActionHandler(id: string, handler: ErrorActionHandler): vscode.Disposable;
 
 		/** Handles errors from the error actions such as Fix and Explain. */
 		export interface ErrorActionHandler {
@@ -64,7 +53,7 @@ declare module 'positron' {
 		export interface ErrorActionOptions {
 			/**
 			 * Send the error to the user's active chat instead of a new one.
-			 * Only true for handlers that {@link ErrorActionHandlerMetadata.supportsChatContinuation support it}.
+			 * Only true for handlers declared with `supportsChatContinuation`.
 			 */
 			readonly continueChat: boolean;
 		}

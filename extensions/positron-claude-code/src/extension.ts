@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { CLAUDE_CODE_LABEL, isClaudeCodeInstalled } from './claudeCode';
+import { isClaudeCodeInstalled } from './claudeCode';
 import { CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, claudeCodeErrorActionHandler } from './errorActionHandler';
 
 /**
@@ -41,13 +41,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 					return;
 				}
 				if (isInstalled && !errorActionHandler) {
-					errorActionHandler = positron.ai.registerErrorActionHandler(
-						CLAUDE_CODE_ERROR_ACTION_HANDLER_ID,
-						CLAUDE_CODE_LABEL,
-						claudeCodeErrorActionHandler,
-						// Its API can't send to an existing conversation.
-						{ supportsChatContinuation: false },
-					);
+					errorActionHandler = positron.ai.registerErrorActionHandler(CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, claudeCodeErrorActionHandler);
 				} else if (!isInstalled && errorActionHandler) {
 					errorActionHandler.dispose();
 					errorActionHandler = undefined;

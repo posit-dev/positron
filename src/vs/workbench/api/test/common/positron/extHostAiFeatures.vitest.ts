@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { IExtensionDescription } from '../../../../../../platform/extensions/common/extensions.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { IExtHostWorkspace } from '../../../common/extHostWorkspace.js';
@@ -49,6 +50,13 @@ describe('ExtHostAiFeatures skill roots', () => {
 describe('ExtHostAiFeatures error action handlers', () => {
 	const handler = { ask: async () => { } };
 
+	/** An extension that declares the handlers. */
+	function createExtension(...errorActionHandlers: object[]): IExtensionDescription {
+		// The contribution point isn't one of upstream's typed contributions.
+		const contributes: object = { errorActionHandlers };
+		return stubInterface<IExtensionDescription>({ contributes: contributes as IExtensionDescription['contributes'] });
+	}
+
 	function createFeaturesWithProxy() {
 		const proxy = stubInterface<MainThreadAiFeaturesShape>({
 			$registerErrorActionHandler: vi.fn(),
@@ -57,20 +65,39 @@ describe('ExtHostAiFeatures error action handlers', () => {
 		return { features: createFeatures(proxy), proxy };
 	}
 
-	it('throws for the reserved id and an id already registered, without telling the main thread', () => {
+	it('registers a declared handler with its declared name and chat continuation', () => {
 		const { features, proxy } = createFeaturesWithProxy();
-		features.registerErrorActionHandler('agent', 'Agent', handler);
+		const extension = createExtension(
+			{ id: 'agent', label: 'Agent' },
+			{ id: 'chat-agent', label: 'Chat Agent', supportsChatContinuation: true },
+		);
 
-		expect(() => features.registerErrorActionHandler('posit-assistant', 'Imposter', handler)).toThrow(/reserved/);
-		expect(() => features.registerErrorActionHandler('agent', 'Again', handler)).toThrow(/already registered/);
+		features.registerErrorActionHandler(extension, 'agent', handler);
+		features.registerErrorActionHandler(extension, 'chat-agent', handler);
+
+		expect(proxy.$registerErrorActionHandler.mock.calls).toEqual([
+			[0, 'agent', 'Agent', false],
+			[1, 'chat-agent', 'Chat Agent', true],
+		]);
+	});
+
+	it('throws for an undeclared id, the reserved id, and an id already registered, without telling the main thread', () => {
+		const { features, proxy } = createFeaturesWithProxy();
+		const extension = createExtension({ id: 'agent', label: 'Agent' }, { id: 'posit-assistant', label: 'Imposter' });
+		features.registerErrorActionHandler(extension, 'agent', handler);
+
+		expect(() => features.registerErrorActionHandler(extension, 'undeclared', handler)).toThrow(/must be declared/);
+		expect(() => features.registerErrorActionHandler(extension, 'posit-assistant', handler)).toThrow(/reserved/);
+		expect(() => features.registerErrorActionHandler(extension, 'agent', handler)).toThrow(/already registered/);
 		expect(proxy.$registerErrorActionHandler).toHaveBeenCalledOnce();
 	});
 
 	it('frees the id once its registration is disposed', () => {
 		const { features, proxy } = createFeaturesWithProxy();
+		const extension = createExtension({ id: 'agent', label: 'Agent' });
 
-		features.registerErrorActionHandler('agent', 'Agent', handler).dispose();
-		features.registerErrorActionHandler('agent', 'Agent', handler);
+		features.registerErrorActionHandler(extension, 'agent', handler).dispose();
+		features.registerErrorActionHandler(extension, 'agent', handler);
 
 		expect(proxy.$unregisterErrorActionHandler).toHaveBeenCalledWith(0);
 		expect(proxy.$registerErrorActionHandler).toHaveBeenLastCalledWith(1, 'agent', 'Agent', false);
