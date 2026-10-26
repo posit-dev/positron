@@ -5,12 +5,12 @@
 
 // What the two /explore pages on Connect share: the page switch, the date
 // range button and its menu, the accordion, the footer and their styles.
-// Shipping impact is outcomes-page.mjs; Triage outcomes is triage-page.mjs.
+// PR outcomes is outcomes-page.mjs; Triage outcomes is triage-page.mjs.
 
 import { REPO_URL } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
 
 export const PAGES = {
-	impact: { label: 'Shipping impact', url: 'https://connect.posit.it/explore-outcomes/' },
+	impact: { label: 'PR outcomes', url: 'https://connect.posit.it/explore-outcomes/' },
 	triage: { label: 'Triage outcomes', url: 'https://connect.posit.it/explore-triage/' },
 };
 export const PRESETS = [['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['90d', 'Last 90 days', 90], ['all', 'All time']];
@@ -143,7 +143,7 @@ header{display:flex;flex-direction:column}
 .range-menu .sep{height:1px;background:#E4E1D9;margin:4px 0}
 .custom{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:6px 8px;padding:8px 10px 6px;font-size:13px;color:#5A5751}
 .custom input{min-height:32px;padding:0 8px;border:1px solid #D6D2C8;border-radius:6px;background:#F5F4F0;color:#2B2A27;font:13px 'IBM Plex Sans',sans-serif}
-.lede{display:flex;flex-direction:column;gap:8px;max-width:760px}
+.lede{display:flex;flex-direction:column;gap:8px;max-width:880px}
 .headline{margin:0;font-size:22px;line-height:1.4;font-weight:400}.headline .metric{font-weight:600}
 section{display:flex;flex-direction:column;gap:16px}
 .all{display:grid;column-gap:3px;row-gap:8px}

@@ -15,19 +15,19 @@ import { accordion, day, FONTS, footer, inlineJson, inlineScript, PAGES, rangeTe
 
 export { resolveRange, runUrl };
 
-// In this order everywhere. `group` is the evidence filter: fixed, filed, not fixed, didn't ship, or no outcome yet;
+// In this order everywhere. `group` is the evidence filter: fixed, filed, not fixed, not merged, or no outcome yet;
 // `def` explains it under the bar, `brief` under its evidence group.
 const OUTCOMES = [
 	{ key: 'fixed-in-pr', label: 'Fixed in the PR', group: 'fixed', def: 'A commit pushed to the PR after the run fixed it.', brief: 'Fixed by a later commit on the PR.' },
 	{ key: 'fixed-later', label: 'Fixed later', group: 'fixed', def: 'Fixed on main after the merge, or its issue was closed as completed.', brief: 'Fixed on main after merging.' },
 	{ key: 'filed-issue', label: 'Filed as issue', group: 'filed', def: 'An issue matching the finding was opened after the run, and nothing has fixed it yet.', brief: 'Tracked in an issue, not fixed yet.' },
 	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged with no fix. Moves to Filed as issue or Fixed later if that happens afterwards.', brief: 'Merged without a fix.' },
-	{ key: 'didnt-ship', label: 'Didn\'t ship', group: 'didnt-ship', def: 'The code this finding was about never shipped: the PR closed, or merged without it.', brief: 'The code it was about never reached main.' },
+	{ key: 'didnt-ship', label: 'Not merged', group: 'didnt-ship', def: 'The code this finding was about never reached main: the PR closed, or merged without it.', brief: 'The code it was about never reached main.' },
 	{ key: 'pending', label: 'PR still open', group: 'open', def: 'The PR hasn\'t merged or closed yet.', brief: 'Waiting for the PR to merge or close.' },
 	{ key: 'unclear', label: 'Unclear', group: 'open', def: 'A check failed or the model couldn\'t say.', brief: 'Couldn\'t tell from the diff.' },
 	{ key: 'no-paths', label: 'No files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.', brief: 'No files named, so main couldn\'t be checked.' },
 ];
-const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['not', 'Not fixed'], ['didnt-ship', 'Didn\'t ship'], ['open', 'No outcome yet']];
+const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['not', 'Not fixed'], ['didnt-ship', 'Not merged'], ['open', 'No outcome yet']];
 const DECIDED_BY = {
 	'diff+model': 'The diff, read by the model',
 	'issue+model': 'A matching issue, confirmed by the model',
@@ -38,7 +38,7 @@ const DECIDED_BY = {
 	'dropped': 'PR merged without the change',
 	'sha': 'A specific commit',
 };
-// Why a finding didn't ship, on its evidence row.
+// Why a finding wasn't merged, on its evidence row.
 const SHIP_REASON = { 'closed-unmerged': 'PR closed', 'dropped': 'Change dropped' };
 // The checks each finding goes through, in decideOutcome's order, behind the ? next to the bar's heading.
 const STEPS = [
@@ -46,7 +46,7 @@ const STEPS = [
 	[['fixed-in-pr'], 'Did the PR merge with commits pushed after the /explore run? The model reads that diff against the finding and decides whether it fixes it.'],
 	[['fixed-later'], 'After the PR merged or closed, did a commit on main change the files the finding names, and does the model judge it a fix? Or was the finding\'s issue closed as completed?'],
 	[['filed-issue'], 'Was an issue opened after the run that matches the finding (confirmed by the model) and isn\'t fixed yet?'],
-	[['didnt-ship'], 'Did the PR close without merging, or merge without the code the finding is about? Then nothing it found shipped, so it isn\'t counted.'],
+	[['didnt-ship'], 'Did the PR close without merging, or merge without the code the finding is about? Then it never reached main, so it isn\'t counted.'],
 	[['unclear', 'no-paths'], 'A check failed or the model couldn\'t decide: Unclear. The finding names no files, so main can\'t be searched: No files named.'],
 	[['not-fixed'], 'None of the above, and the PR has merged: no fix was found.'],
 ];
@@ -106,10 +106,15 @@ function splitBar(rows) {
 function header(s) {
 	const inPr = s.counts['fixed-in-pr'];
 	const noun = s.counted === 1 ? 'finding' : 'findings';
-	const metric = inPr === s.counted ? `all ${inPr} ${noun}` : `${inPr} of ${s.counted} ${noun} (${pct(inPr, s.counted)})`;
+	const metric = s.fixed === s.counted ? `all ${s.counted} ${noun}` : `${s.fixed} of ${s.counted} ${noun} (${pct(s.fixed, s.counted)})`;
+	// "all" only reads right when more than one finding was fixed.
+	const all = s.fixed === 1 ? '' : 'all ';
+	const when = inPr === s.fixed ? `${all}before merging` : inPr ? `${inPr} of them before merging` : `${all}after merging`;
 	const headline = !s.total ? 'No /explore findings in this date range.'
-		: s.counted ? `Developers fixed <span class="metric">${metric}</span> before merging.` : 'No PRs with findings have merged yet.';
-	return `<div class="lede"><h1>Does /explore change what ships?</h1><p class="headline">${headline}</p></div>`;
+		: !s.counted ? 'No PRs with findings have merged yet.'
+			: s.fixed ? `Developers fixed <span class="metric">${metric}</span>, ${when}.`
+				: `Developers haven't fixed any of the <span class="metric">${s.counted} ${noun}</span> yet.`;
+	return `<div class="lede"><h1>Does /explore change what lands on main?</h1><p class="headline">${headline}</p></div>`;
 }
 
 function allBar(s) {
@@ -430,7 +435,7 @@ export function renderOutcomesPage(rows, { now = new Date(), runUrl: run = runUr
 	const script = inlineScript(`${VIEW_SOURCE}\n${SHELL_SCRIPT}\n${SCRIPT}`);
 	return `<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>/explore shipping impact</title>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>/explore PR outcomes</title>
 ${FONTS}
 <style>${SHELL_CSS}${CSS}</style>
 <noscript><style>.acc-body[hidden]{display:block}#ev-body[hidden]{display:flex;flex-direction:column;gap:32px}.detail[hidden]{display:flex}.how-panel[hidden]{display:flex}.controls,.how,.acc svg{display:none}</style></noscript></head>

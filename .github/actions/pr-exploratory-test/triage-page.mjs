@@ -208,7 +208,7 @@ function howPanel() {
 	const rows = OUT.map(o => `<div class="trow" role="row"><span class="name" role="rowheader"><i class="sw o-${o.key}" aria-hidden="true"></i>${o.label}</span><span class="state" role="cell">${o.state}</span><span role="cell">${o.rule}</span></div>`).join('');
 	return `<div class="how-panel" id="how" hidden><div class="muted-line">Each finding counts once, by where it stands today.</div>
 <div class="how-table" role="table" aria-label="How outcomes are counted"><div class="trow cols" role="row"><span role="columnheader">Outcome</span><span role="columnheader">State</span><span role="columnheader">Which issues</span></div>${rows}</div>
-<div class="notes"><div>Counted: issues labelled ai-discovered that link to an exploratory-test report, and issues filed by hand that the Shipping impact page matched to a finding and that mention its PR (marked matched).</div></div></div>`;
+<div class="notes"><div>Counted: issues labelled ai-discovered that link to an exploratory-test report, and issues filed by hand that the PR outcomes page matched to a finding and that mention its PR (marked matched).</div></div></div>`;
 }
 
 const CSS = `
@@ -271,7 +271,7 @@ const SCRIPT = `
 const data = JSON.parse($('#rows').textContent);
 const dates = data.rows.map(r => r.filed).sort();
 const params = new URLSearchParams(location.search);
-// ?issue=N, from the Shipping impact page, lists that one issue over all time unless a range is given.
+// ?issue=N, from the PR outcomes page, lists that one issue over all time unless a range is given.
 let filter = Number(params.get('issue')) ? { issue: Number(params.get('issue')) } : {};
 let range;
 // Sections the reader opened or closed, kept across re-renders; the rest follow the default.

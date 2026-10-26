@@ -113,8 +113,8 @@ change addresses it, on your own `claude` login. Older runs published only the p
 read from it. Read every "fixed" row before trusting the numbers.
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
-turns those rows into the Shipping impact page: how many findings developers fixed before
-merging, a bar of every outcome, the fix rate by severity, and collapsible
+turns those rows into the PR outcomes page: how many findings developers fixed, and how many
+before merging, a bar of every outcome, the fix rate by severity, and collapsible
 By PR and Evidence sections. Clicking a bar segment opens the evidence for
 that outcome, with links to each report, PR and fixing commit or issue.
 A date picker narrows everything to findings whose run was posted in the last
@@ -155,7 +155,7 @@ where it stands today: completed, in a release or backlog milestone, in
 Future, closed another way, or awaiting triage (no milestone). Severity comes
 from the report and the skill version from the run's `stats.json`. Issues
 with no report link are left out, unless `--outcomes rows.jsonl` (the
-Shipping impact rows) matched one to a finding and it mentions the PR the
+PR outcomes rows) matched one to a finding and it mentions the PR the
 report ran on; those are marked matched. The model match alone isn't enough,
 since someone could find the same bug on their own. It makes no model calls.
 
@@ -163,7 +163,7 @@ since someone could find the same bug on their own. It makes no model calls.
 turns that into the Triage outcomes page: a bar of every outcome, the same
 outcomes by severity and by feature, the type, source and skill version
 counts, and every issue. Selecting a bar segment lists those issues, and
-`?issue=N` lists one, which is how the Shipping impact page links to it.
+`?issue=N` lists one, which is how the PR outcomes page links to it.
 
 The two pages share a top row (a switch between them and the date picker)
 and a footer, from `explore-pages.mjs`. The same nightly workflow builds
