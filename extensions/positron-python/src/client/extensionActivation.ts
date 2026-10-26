@@ -59,6 +59,7 @@ import {
     triggerCreateEnvironmentCheckNonBlocking,
 } from './pythonEnvironments/creation/createEnvironmentTrigger';
 // --- End Positron ---
+import { registerEnvironmentsExtensionTelemetry } from './envExt/telemetry';
 
 export async function activateComponents(
     // `ext` is passed to any extra activation funcs.
@@ -100,6 +101,7 @@ export async function activateComponents(
 // Changed this function to be async
 export async function activateFeatures(ext: ExtensionState, _components: Components): Promise<void> {
     // --- End Positron ---
+    registerEnvironmentsExtensionTelemetry(ext.disposables);
     const interpreterQuickPick: IInterpreterQuickPick =
         ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(IInterpreterQuickPick);
     const interpreterService: IInterpreterService =

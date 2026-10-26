@@ -28,6 +28,7 @@ import { PythonEnvironment } from '../pythonEnvironments/info';
 import {
     IActivatedEnvironmentLaunch,
     IComponentAdapter,
+    GetActiveInterpreterOptions,
     IInterpreterDisplay,
     IInterpreterService,
     IInterpreterStatusbarVisibilityFilter,
@@ -56,6 +57,18 @@ import { useEnvExtension } from '../envExt/api.internal';
 import { getActiveInterpreterLegacy } from '../envExt/api.legacy';
 
 type StoredPythonEnvironment = PythonEnvironment & { store?: boolean };
+
+// --- Start Positron ---
+// getActiveInterpreter always waits for the real resolution; see getActiveInterpreter.
+// // Upper bound on how long `getActiveInterpreter` may block its caller. Resolving the active
+// // interpreter can wait on a full environment refresh (especially with the environments
+// // extension enabled), which would otherwise delay language server startup.
+// const GET_ACTIVE_INTERPRETER_TIMEOUT_MS = 100;
+// const ACTIVE_INTERPRETER_TIMED_OUT = Symbol('activeInterpreterTimedOut');
+//
+// // Key prefix for the persisted (cross-restart) last-known active interpreter, one entry per workspace.
+// const LAST_KNOWN_ACTIVE_INTERPRETER_KEY_PREFIX = 'lastKnownActiveInterpreter:';
+// --- End Positron ---
 
 @injectable()
 export class InterpreterService implements Disposable, IInterpreterService {
@@ -117,6 +130,26 @@ export class InterpreterService implements Disposable, IInterpreterService {
         string,
         { path: string; workspaceFolder: WorkspaceFolder | undefined }
     >();
+
+    // --- Start Positron ---
+    // Unused because getActiveInterpreter always waits for the real resolution.
+    // // Last successfully resolved active interpreter per workspace, served when a resolution
+    // // doesn't complete within `GET_ACTIVE_INTERPRETER_TIMEOUT_MS`.
+    // private readonly lastKnownActiveInterpreter = new Map<
+    //     string,
+    //     { resource: Uri | undefined; env: StoredPythonEnvironment | undefined }
+    // >();
+    //
+    // // In-flight active interpreter resolutions, de-duplicated per workspace.
+    // private readonly inFlightActiveInterpreter = new Map<string, Promise<StoredPythonEnvironment | undefined>>();
+    //
+    // // Persisted (cross-restart) last-known active interpreter, one persistent-state handle per workspace.
+    // // Lets a warm start serve a real interpreter within the timeout budget before discovery completes.
+    // private readonly persistedActiveInterpreter = new Map<
+    //     string,
+    //     IPersistentState<StoredPythonEnvironment | undefined>
+    // >();
+    // --- End Positron ---
 
     constructor(
         @inject(IServiceContainer) private serviceContainer: IServiceContainer,
@@ -222,6 +255,11 @@ export class InterpreterService implements Disposable, IInterpreterService {
         // Thread the full scope (including startSession / source) through to _onConfigChanged so
         // we can classify storage-update vs. user-intent fires at the emit point.
         disposables.push(this.interpreterPathService.onDidChange((scope) => this._onConfigChanged(scope)));
+        // Upstream also re-runs _onConfigChanged on every python settings change so that a
+        // background auto-selection reaches Pylance. Positron doesn't take it: with no scope,
+        // _onConfigChanged defaults to startSession: true, so any python.* setting change
+        // could start a console session.
+        // disposables.push(this.configService.onDidChange(() => this._onConfigChanged()));
         // --- End Positron ---
     }
 
@@ -243,7 +281,92 @@ export class InterpreterService implements Disposable, IInterpreterService {
         this.didChangeInterpreterInformation.dispose();
     }
 
-    public async getActiveInterpreter(resource?: Uri): Promise<PythonEnvironment | undefined> {
+    public async getActiveInterpreter(
+        resource?: Uri,
+        options?: GetActiveInterpreterOptions,
+    ): Promise<PythonEnvironment | undefined> {
+        if (options?.exactResource && useEnvExtension()) {
+            return getActiveInterpreterLegacy(resource, { reportActiveInterpreterChanged: false }).catch((ex) => {
+                traceError('Failed to get active interpreter', ex);
+                return undefined;
+            });
+        }
+
+        // --- Start Positron ---
+        // Always wait for the real resolution. Upstream returns a last-known or persisted
+        // interpreter when resolution takes more than 100ms, and shares one in-flight
+        // resolution per workspace. Positron starts console sessions from this result
+        // (see onDidChangeInterpreter in positron/manager.ts), so a stale value would start
+        // the wrong interpreter.
+        return this.resolveActiveInterpreter(resource);
+        // const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+        // const key = workspaceService.getWorkspaceFolderIdentifier(resource);
+        //
+        // // De-duplicate concurrent resolutions for the same workspace.
+        // let resolution = this.inFlightActiveInterpreter.get(key);
+        // if (!resolution) {
+        //     resolution = this.resolveActiveInterpreter(resource)
+        //         .then((env) => {
+        //             this.lastKnownActiveInterpreter.set(key, { resource, env });
+        //             if (env) {
+        //                 // Persist the resolved interpreter so a future window/session can serve a
+        //                 // real value within the timeout budget before discovery/refresh completes.
+        //                 this.getPersistedActiveInterpreterState(key)
+        //                     .updateValue(env)
+        //                     .catch((ex) => traceError('Failed to persist active interpreter', ex));
+        //             }
+        //             return env;
+        //         })
+        //         .catch((ex) => {
+        //             traceError('Failed to get active interpreter', ex);
+        //             return undefined;
+        //         })
+        //         .finally(() => {
+        //             this.inFlightActiveInterpreter.delete(key);
+        //         });
+        //     this.inFlightActiveInterpreter.set(key, resolution);
+        // }
+        //
+        // // Don't block callers (notably language server startup) on a potentially slow
+        // // environment discovery/refresh. If resolution doesn't complete promptly, return the
+        // // last-known interpreter (or undefined on a cold start). The resolution promise is not
+        // // abandoned, so listeners are still notified of the real value once it becomes available:
+        // // the env-extension path reports via the environments API (see getActiveInterpreterLegacy),
+        // // and the native path reports via `_onConfigChanged` once auto-selection completes.
+        // const result = await Promise.race([
+        //     resolution,
+        //     sleep(GET_ACTIVE_INTERPRETER_TIMEOUT_MS).then(() => ACTIVE_INTERPRETER_TIMED_OUT),
+        // ]);
+        // if (result !== ACTIVE_INTERPRETER_TIMED_OUT) {
+        //     return result as StoredPythonEnvironment | undefined;
+        // }
+        // // Prefer the value resolved earlier this session; otherwise fall back to the persisted
+        // // value from a previous session so warm restarts still serve a real interpreter quickly.
+        // const cached = this.lastKnownActiveInterpreter.get(key);
+        // if (cached) {
+        //     return cached.env;
+        // }
+        // return this.getPersistedActiveInterpreterState(key).value;
+        // --- End Positron ---
+    }
+
+    // --- Start Positron ---
+    // Unused because getActiveInterpreter doesn't fall back to a persisted interpreter.
+    // private getPersistedActiveInterpreterState(key: string): IPersistentState<StoredPythonEnvironment | undefined> {
+    //     let state = this.persistedActiveInterpreter.get(key);
+    //     if (!state) {
+    //         const factory = this.serviceContainer.get<IPersistentStateFactory>(IPersistentStateFactory);
+    //         state = factory.createWorkspacePersistentState<StoredPythonEnvironment | undefined>(
+    //             `${LAST_KNOWN_ACTIVE_INTERPRETER_KEY_PREFIX}${key}`,
+    //             undefined,
+    //         );
+    //         this.persistedActiveInterpreter.set(key, state);
+    //     }
+    //     return state;
+    // }
+    // --- End Positron ---
+
+    private async resolveActiveInterpreter(resource?: Uri): Promise<StoredPythonEnvironment | undefined> {
         if (useEnvExtension()) {
             return getActiveInterpreterLegacy(resource);
         }

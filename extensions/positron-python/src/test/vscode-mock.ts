@@ -205,6 +205,12 @@ mockedPositron.LanguageRuntimeArchitecture = positronMocks.LanguageRuntimeArchit
 mockedPositron.RuntimeExitReason = positronMocks.RuntimeExitReason;
 mockedPositron.LanguageRuntimeStartupBehavior = positronMocks.LanguageRuntimeStartupBehavior;
 // --- End Positron ---
+(mockedVSCode as any).LanguageModelTextPart = class LanguageModelTextPart {
+    constructor(public value: string) {}
+};
+(mockedVSCode as any).LanguageModelToolResult = class LanguageModelToolResult {
+    constructor(public content: unknown[]) {}
+};
 
 // Mock TestController for vscode.tests namespace
 function createMockTestController(): vscode.TestController {

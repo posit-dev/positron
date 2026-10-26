@@ -149,17 +149,25 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
         globalEnvironmentVariableCollection.verify((c) => c.delete('PYTHONSTARTUP'), TypeMoq.Times.once());
     });
 
-    // --- Start Positron ---
-    // test('PYTHON_BASIC_REPL is set when shell integration is enabled', async () => {
-    test.skip('PYTHON_BASIC_REPL is set when shell integration is enabled', async () => {
-        // --- End Positron ---
+    test('PYTHON_BASIC_REPL is not set when shell integration is enabled', async () => {
         pythonConfig.setup((p) => p.get('terminal.shellIntegration.enabled')).returns(() => true);
+
         await registerPythonStartup(context.object);
+
         globalEnvironmentVariableCollection.verify(
-            (c) => c.replace('PYTHON_BASIC_REPL', '1', TypeMoq.It.isAny()),
-            TypeMoq.Times.once(),
+            (c) => c.replace('PYTHON_BASIC_REPL', TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+            TypeMoq.Times.never(),
         );
     });
+
+    test('PYTHON_BASIC_REPL is deleted when shell integration is disabled', async () => {
+        pythonConfig.setup((p) => p.get('terminal.shellIntegration.enabled')).returns(() => false);
+
+        await registerPythonStartup(context.object);
+
+        globalEnvironmentVariableCollection.verify((c) => c.delete('PYTHON_BASIC_REPL'), TypeMoq.Times.once());
+    });
+
     // --- Start Positron ---
     // We don't use the terminal link provider for the native repl, so we skip this test.
     // test('Ensure registering terminal link calls registerTerminalLinkProvider', async () => {
@@ -197,7 +205,8 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
             // --- End Positron ---
             const provider = new CustomTerminalLinkProvider();
             const context: TerminalLinkContext = {
-                line: 'Some random string with Cmd click to launch VS Code Native REPL',
+                line:
+                    'Some random string with Cmd click to launch VS Code Native REPL (https://aka.ms/python-native-repl)',
                 terminal: {} as Terminal,
             };
             const token: CancellationToken = {
@@ -242,7 +251,8 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
             // --- End Positron ---
             const provider = new CustomTerminalLinkProvider();
             const context: TerminalLinkContext = {
-                line: 'Some random string with Ctrl click to launch VS Code Native REPL',
+                line:
+                    'Some random string with Ctrl click to launch VS Code Native REPL (https://aka.ms/python-native-repl)',
                 terminal: {} as Terminal,
             };
             const token: CancellationToken = {

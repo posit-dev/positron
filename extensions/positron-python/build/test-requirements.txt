@@ -7,16 +7,12 @@ pylint
 pycodestyle
 pydocstyle
 prospector
-# --- Start Positron ---
-# upstream bug; pin for now
-pytest<9.1.0
-# --- End Positron ---
 flask
 fastapi
 uvicorn
 django
-testresources
 testscenarios
+testtools
 
 # Integrated TensorBoard tests
 tensorboard
@@ -46,4 +42,3 @@ pytest-describe
 
 # for pytest-ruff related tests
 pytest-ruff
-pytest-black

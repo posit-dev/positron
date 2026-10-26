@@ -10,12 +10,22 @@ import { IActiveResourceService, IDocumentManager, IWorkspaceService } from '../
 import { PYTHON_LANGUAGE } from '../common/constants';
 import { IFileSystem } from '../common/platform/types';
 import { IDisposable, IInterpreterPathService, Resource } from '../common/types';
+// --- Start Positron ---
+// import { Deferred, sleep } from '../common/utils/async';
 import { Deferred } from '../common/utils/async';
+// --- End Positron ---
 import { StopWatch } from '../common/utils/stopWatch';
 import { IInterpreterAutoSelectionService } from '../interpreter/autoSelection/types';
-import { traceDecoratorError } from '../logging';
+import { traceDecoratorError, traceError } from '../logging';
 import { sendActivationTelemetry } from '../telemetry/envFileTelemetry';
 import { IExtensionActivationManager, IExtensionActivationService, IExtensionSingleActivationService } from './types';
+
+// --- Start Positron ---
+// Positron doesn't wait for auto-selection; see activateWorkspace.
+// // Upper bound on how long workspace activation waits for interpreter auto-selection before
+// // proceeding. Auto-selection still completes in the background after this point.
+// const AUTO_SELECT_INTERPRETER_TIMEOUT_MS = 100;
+// --- End Positron ---
 
 @injectable()
 export class ExtensionActivationManager implements IExtensionActivationManager {
@@ -95,12 +105,22 @@ export class ExtensionActivationManager implements IExtensionActivationManager {
         if (this.workspaceService.isTrusted) {
             // Do not interact with interpreters in a untrusted workspace.
             // --- Start Positron ---
-            // Don't block activation on auto-selection. Positron's runtime
-            // startup uses its own interpreter heuristics and does not depend on
-            // the upstream auto-selection result.
+            // Don't wait for auto-selection at all, not even the short upstream timeout.
+            // Positron's runtime startup uses its own interpreter heuristics and does not
+            // depend on the upstream auto-selection result.
             //
-            // await this.autoSelection.autoSelectInterpreter(resource);
-            this.autoSelection.autoSelectInterpreter(resource).ignoreErrors();
+            // // Don't block activation (and therefore language server startup) on auto-selection.
+            // // On a cold start it can wait for a full environment refresh to complete, which would
+            // // delay starting the language server. Let it finish in the background; the selected
+            // // interpreter is reported to listeners (e.g. Pylance) via the environments API once it
+            // // is ready. We still wait briefly so the common warm-start case is unchanged.
+            // const autoSelection = this.autoSelection
+            //     .autoSelectInterpreter(resource)
+            //     .catch((ex) => traceError('Auto-selection of interpreter failed', ex));
+            // await Promise.race([autoSelection, sleep(AUTO_SELECT_INTERPRETER_TIMEOUT_MS)]);
+            this.autoSelection
+                .autoSelectInterpreter(resource)
+                .catch((ex) => traceError('Auto-selection of interpreter failed', ex));
             // --- End Positron ---
             await this.interpreterPathService.copyOldInterpreterStorageValuesToNew(resource);
         }

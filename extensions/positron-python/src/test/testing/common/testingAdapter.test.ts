@@ -23,6 +23,7 @@ import { PytestTestExecutionAdapter } from '../../../client/testing/testControll
 import { UnittestTestDiscoveryAdapter } from '../../../client/testing/testController/unittest/testDiscoveryAdapter';
 import { UnittestTestExecutionAdapter } from '../../../client/testing/testController/unittest/testExecutionAdapter';
 import { PythonResultResolver } from '../../../client/testing/testController/common/resultResolver';
+import { expandCompactDiscoveryPayload } from '../../../client/testing/testController/common/testDiscoveryHandler';
 import { TestProvider } from '../../../client/testing/types';
 import { PYTEST_PROVIDER, UNITTEST_PROVIDER } from '../../../client/testing/common/constants';
 import { IEnvironmentVariablesProvider } from '../../../client/common/variables/types';
@@ -310,18 +311,15 @@ suite('End to End Tests: test adapters', () => {
             // 3. Confirm tests are found
             assert.ok(actualData.tests, 'Expected tests to be present');
             // 4. Confirm that the cwd returned is the symlink path and the test's path is also using the symlink as the root
+            const expandedTests = (expandCompactDiscoveryPayload(actualData as any).tests as unknown) as {
+                children: { path: string }[];
+            };
             if (process.platform === 'win32') {
                 // covert string to lowercase for windows as the path is case insensitive
                 traceLog('windows machine detected, converting path to lowercase for comparison');
                 const a = actualData.cwd.toLowerCase();
                 const b = filePath.toLowerCase();
-                const testSimpleActual = (
-                    actualData.tests as {
-                        children: {
-                            path: string;
-                        }[];
-                    }
-                ).children[0].path.toLowerCase();
+                const testSimpleActual = expandedTests.children[0].path.toLowerCase();
                 const testSimpleExpected = filePath.toLowerCase();
                 assert.strictEqual(a, b, `Expected cwd to be the symlink path actual: ${a} expected: ${b}`);
                 assert.strictEqual(
@@ -336,13 +334,7 @@ suite('End to End Tests: test adapters', () => {
                     'Expected cwd to be the symlink path, check for non-windows machines',
                 );
                 assert.strictEqual(
-                    (
-                        actualData.tests as {
-                            children: {
-                                path: string;
-                            }[];
-                        }
-                    ).children[0].path,
+                    expandedTests.children[0].path,
                     filePath,
                     'Expected test path to be the symlink path, check for non windows machines',
                 );
@@ -397,18 +389,15 @@ suite('End to End Tests: test adapters', () => {
             // 3. Confirm tests are found
             assert.ok(actualData.tests, 'Expected tests to be present');
             // 4. Confirm that the cwd returned is the symlink path and the test's path is also using the symlink as the root
+            const expandedTests = (expandCompactDiscoveryPayload(actualData as any).tests as unknown) as {
+                children: { path: string }[];
+            };
             if (process.platform === 'win32') {
                 // covert string to lowercase for windows as the path is case insensitive
                 traceLog('windows machine detected, converting path to lowercase for comparison');
                 const a = actualData.cwd.toLowerCase();
                 const b = rootPathDiscoverySymlink.toLowerCase();
-                const testSimpleActual = (
-                    actualData.tests as {
-                        children: {
-                            path: string;
-                        }[];
-                    }
-                ).children[0].path.toLowerCase();
+                const testSimpleActual = expandedTests.children[0].path.toLowerCase();
                 const testSimpleExpected = testSimpleSymlinkPath.toLowerCase();
                 assert.strictEqual(a, b, `Expected cwd to be the symlink path actual: ${a} expected: ${b}`);
                 assert.strictEqual(
@@ -423,13 +412,7 @@ suite('End to End Tests: test adapters', () => {
                     'Expected cwd to be the symlink path, check for non-windows machines',
                 );
                 assert.strictEqual(
-                    (
-                        actualData.tests as {
-                            children: {
-                                path: string;
-                            }[];
-                        }
-                    ).children[0].path,
+                    expandedTests.children[0].path,
                     testSimpleSymlinkPath,
                     'Expected test path to be the symlink path, check for non windows machines',
                 );
