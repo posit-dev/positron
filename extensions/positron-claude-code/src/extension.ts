@@ -5,7 +5,8 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, CLAUDE_CODE_LABEL, claudeCodeErrorActionHandler, isClaudeCodeInstalled } from './claudeCode';
+import { CLAUDE_CODE_LABEL, isClaudeCodeInstalled } from './claudeCode';
+import { CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, claudeCodeErrorActionHandler } from './errorActionHandler';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	let errorActionHandler: vscode.Disposable | undefined;
