@@ -74,6 +74,19 @@ SELECT 2;
 		assertRangeEqual(result.range, 0, 0, 0, 9);
 	});
 
+	test('a trailing comment is read in the dialect', async () => {
+		// `#` comments a line in MySQL, so a cursor in one is still at the statement before it.
+		await setDialect('mysql');
+		try {
+			const result = await getStatementRange('SELECT `a;b` FROM t; # comment ; here\nSELECT 2;\n', new vscode.Position(0, 30));
+
+			assert.ok(result, 'Expected a statement range result');
+			assertRangeEqual(result.range, 0, 0, 0, 20);
+		} finally {
+			await setDialect(undefined);
+		}
+	});
+
 	test('no result past the last statement', async () => {
 		const result = await getStatementRange('SELECT 1;\n\n', new vscode.Position(2, 0));
 
@@ -97,6 +110,11 @@ SELECT 2;
 /** Sets `sql.enabled` for the user, or clears it with `undefined`. */
 async function setEnabled(enabled: boolean | undefined): Promise<void> {
 	await vscode.workspace.getConfiguration('sql').update('enabled', enabled, vscode.ConfigurationTarget.Global);
+}
+
+/** Sets `sql.dialect` for the user, or clears it with `undefined`. */
+async function setDialect(dialect: string | undefined): Promise<void> {
+	await vscode.workspace.getConfiguration('sql').update('dialect', dialect, vscode.ConfigurationTarget.Global);
 }
 
 /**

@@ -390,3 +390,65 @@ fn an_unterminated_bracketed_identifier_does_not_swallow_the_statements_below_it
         ["SELECT [it's\nFROM t;", "SELECT 2;"]
     );
 }
+
+/// Each statement of a document in a dialect, with the rest of its line that still counts as
+/// being at it: the text up to its `trailingEnd`.
+fn trailing_in(dialect: &str, text: &str) -> Vec<String> {
+    let response = request(json!({ "op": "statements", "dialect": dialect, "text": text }));
+    let units: Vec<u16> = text.encode_utf16().collect();
+    response["statements"]
+        .as_array()
+        .expect("statements are an array")
+        .iter()
+        .map(|statement| {
+            let start = statement["start"].as_u64().unwrap() as usize;
+            let end = statement["trailingEnd"].as_u64().unwrap() as usize;
+            String::from_utf16(&units[start..end]).unwrap()
+        })
+        .collect()
+}
+
+#[test]
+fn the_rest_of_a_line_after_a_statement_is_spaces_and_comments_up_to_the_line_break() {
+    assert_eq!(
+        trailing_in("", "SELECT 1; -- note\nSELECT 2;"),
+        ["SELECT 1; -- note", "SELECT 2;"]
+    );
+    assert_eq!(
+        trailing_in("", "SELECT 1; /* a */ -- b\nSELECT 2;"),
+        ["SELECT 1; /* a */ -- b", "SELECT 2;"]
+    );
+    // Up to the next statement on the same line.
+    assert_eq!(
+        trailing_in("", "SELECT 1;  SELECT 2;"),
+        ["SELECT 1;  ", "SELECT 2;"]
+    );
+    // A block comment that runs on to later lines leads up to the next statement instead.
+    assert_eq!(
+        trailing_in("", "SELECT 1; /* a\n b */ SELECT 2;"),
+        ["SELECT 1; ", "SELECT 2;"]
+    );
+    // An unterminated statement has a rest of its line too.
+    assert_eq!(trailing_in("", "SELECT 1 -- note\n"), ["SELECT 1 -- note"]);
+}
+
+#[test]
+fn the_rest_of_a_line_ends_before_a_carriage_return() {
+    // PostgreSQL's tokenizer ends a line comment at the carriage return, the others at the
+    // line feed with the carriage return kept in the comment; neither belongs to the line.
+    for dialect in ["", "postgres"] {
+        assert_eq!(
+            trailing_in(dialect, "SELECT 1; -- note\r\nSELECT 2;"),
+            ["SELECT 1; -- note", "SELECT 2;"],
+            "{dialect}"
+        );
+    }
+}
+
+#[test]
+fn a_hash_comment_is_the_rest_of_the_line_where_the_dialect_comments_with_it() {
+    assert_eq!(
+        trailing_in("mysql", "SELECT `a;b` FROM t; # comment ; here\nSELECT 2;"),
+        ["SELECT `a;b` FROM t; # comment ; here", "SELECT 2;"]
+    );
+}

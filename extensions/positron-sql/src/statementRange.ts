@@ -35,7 +35,7 @@ export class SqlStatementRangeProvider implements positron.StatementRangeProvide
 	): positron.StatementRange | undefined {
 		const text = document.getText();
 		const statements = this._analyzer().statements(text, this._dialect());
-		const statement = statementAt(text, statements, document.offsetAt(position));
+		const statement = statementAt(statements, document.offsetAt(position));
 		if (!statement) {
 			return undefined;
 		}
@@ -59,38 +59,13 @@ export class SqlStatementRangeProvider implements positron.StatementRangeProvide
  * still counts as being in it when that is only spaces, tabs and comments, so a cursor at the end
  * of `SELECT 1; -- note` runs `SELECT 1`. Once the cursor is on the next line, the statement above
  * has been left behind, and there is nothing to run until the next one starts.
+ *
+ * Where that rest of the line ends comes from the analyzer, which reads comments with the
+ * dialect's tokenizer: MySQL's `#` is one, which a scan here for `--` and `/*` would miss.
  */
 export function statementAt(
-	text: string,
 	statements: readonly StatementSpan[],
 	offset: number,
 ): StatementSpan | undefined {
-	return statements.find(statement => offset <= endOfTrailingLine(text, statement.end));
-}
-
-/**
- * Where the spaces, tabs and comments that follow `offset` on its line end. A block comment only
- * counts when it closes on the same line: one that runs on to later lines is treated like those
- * lines, as leading up to the next statement.
- */
-function endOfTrailingLine(text: string, offset: number): number {
-	let at = offset;
-	while (at < text.length) {
-		if (text[at] === ' ' || text[at] === '\t') {
-			at += 1;
-		} else if (text.startsWith('--', at)) {
-			const newline = text.indexOf('\n', at);
-			return newline === -1 ? text.length : newline;
-		} else if (text.startsWith('/*', at)) {
-			const close = text.indexOf('*/', at + 2);
-			const newline = text.indexOf('\n', at);
-			if (close === -1 || (newline !== -1 && newline < close)) {
-				return at;
-			}
-			at = close + 2;
-		} else {
-			return at;
-		}
-	}
-	return at;
+	return statements.find(statement => offset <= statement.trailingEnd);
 }

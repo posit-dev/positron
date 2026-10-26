@@ -30,6 +30,12 @@ export interface StatementSpan {
 
 	/** Whether a semicolon closed it, as opposed to it running to the end of the document. */
 	readonly terminated: boolean;
+
+	/**
+	 * Offset where the rest of its last line ends, when that is only spaces, tabs and comments in
+	 * the dialect's own comment syntax; otherwise {@link end}.
+	 */
+	readonly trailingEnd: number;
 }
 
 /** A syntax problem found in a document. */

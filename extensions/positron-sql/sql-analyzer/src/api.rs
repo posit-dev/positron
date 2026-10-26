@@ -66,6 +66,7 @@ pub struct StatementSpan {
     pub start: u32,
     pub end: u32,
     pub terminated: bool,
+    pub trailing_end: u32,
 }
 
 #[derive(Serialize)]
@@ -290,6 +291,7 @@ pub fn handle(request: &str) -> Response {
                         start: statement.start,
                         end: statement.end,
                         terminated: statement.terminated,
+                        trailing_end: statement.trailing_end,
                     })
                     .collect(),
             }

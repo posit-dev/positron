@@ -30,7 +30,7 @@ use std::borrow::Cow;
 
 use sqlparser::dialect::{Dialect, OracleDialect, SnowflakeDialect};
 use sqlparser::keywords::Keyword;
-use sqlparser::tokenizer::{Location, Token, TokenWithSpan, Tokenizer};
+use sqlparser::tokenizer::{Location, Token, TokenWithSpan, Tokenizer, Whitespace};
 
 use crate::text::TextIndex;
 
@@ -49,6 +49,11 @@ pub struct Statement {
     pub visualise: Option<u32>,
     /// Whether the statement was closed by a semicolon, as opposed to running to end of file.
     pub terminated: bool,
+    /// Offset where the rest of the statement's last line ends, when all that follows the
+    /// statement there is spaces, tabs and comments; otherwise `end`. A cursor up to here is still
+    /// at the statement, so running code from the end of `SELECT 1; -- note` runs `SELECT 1`.
+    /// Read off the tokens, so a comment is whatever the dialect comments with: `#` in MySQL too.
+    pub trailing_end: u32,
     /// Whether the statement holds a construct the tokenizer had to be helped to close. Its tokens
     /// therefore include text the author did not write, so what the parser makes of them is not
     /// something to report.
@@ -98,25 +103,43 @@ pub fn split(text: &str, dialect: &dyn Dialect, index: &TextIndex) -> Tokenized 
     // sent along with it to the console.
     let mut last_end: u32 = 0;
 
+    // The rest of the line after the last significant token, and the terminated statement it
+    // belongs to, while that is still being read: what follows a semicolon is only known once the
+    // tokens after it have been seen.
+    let mut trailing = Trailing::after(0);
+    let mut pending: Option<usize> = None;
+
     let inside = block_bodies(&tokens, dialect);
     for (at, token) in tokens.into_iter().enumerate() {
-        if matches!(token.token, Token::SemiColon) && !inside[at] {
-            let end = index
-                .span(token.span)
-                .map(|(_, end)| end)
-                .unwrap_or(last_end);
-            flush(&mut statements, &mut current, end, true, index);
-            last_end = end;
+        if !is_significant(&token.token) {
+            trailing.extend(&token, index);
             continue;
         }
-        if is_significant(&token.token) {
-            if let Some((_, end)) = index.span(token.span) {
-                last_end = end;
+        if let Some(statement) = pending.take() {
+            statements[statement].trailing_end = trailing.end;
+        }
+        let end = index
+            .span(token.span)
+            .map(|(_, end)| end)
+            .unwrap_or(last_end);
+        trailing = Trailing::after(end);
+        last_end = end;
+        if matches!(token.token, Token::SemiColon) && !inside[at] {
+            if flush(&mut statements, &mut current, end, true, index) {
+                pending = Some(statements.len() - 1);
             }
-            current.push(token);
+            continue;
+        }
+        current.push(token);
+    }
+    if let Some(statement) = pending {
+        statements[statement].trailing_end = trailing.end;
+    }
+    if flush(&mut statements, &mut current, last_end, false, index) {
+        if let Some(statement) = statements.last_mut() {
+            statement.trailing_end = trailing.end;
         }
     }
-    flush(&mut statements, &mut current, last_end, false, index);
 
     // Which statements hold text that was invented for them, which is what stops the parser's
     // opinion of that text being reported as though the author had written it.
@@ -582,15 +605,60 @@ fn line_end(source: &str, byte: usize) -> usize {
     }
 }
 
+/// Where the rest of a line ends, when it holds nothing but spaces, tabs and comments.
+struct Trailing {
+    end: u32,
+    /// Whether the line can still run on: nothing has ended it yet.
+    open: bool,
+}
+
+impl Trailing {
+    /// The rest of the line after a token that ends at `end`, before anything of it is seen.
+    fn after(end: u32) -> Self {
+        Self { end, open: true }
+    }
+
+    /// Takes in the next token that is not SQL. A line comment runs to the end of the line, and a
+    /// block comment that closes on the line is passed over; a line break, or a block comment
+    /// that runs on past one, ends the line where it was.
+    fn extend(&mut self, token: &TokenWithSpan, index: &TextIndex) {
+        if !self.open {
+            return;
+        }
+        let (Token::Whitespace(whitespace), Some((_, end))) =
+            (&token.token, index.span(token.span))
+        else {
+            self.open = false;
+            return;
+        };
+        match whitespace {
+            Whitespace::Space | Whitespace::Tab => self.end = end,
+            Whitespace::SingleLineComment { comment, .. } => {
+                // The tokenizer keeps the line break that ended the comment as part of it.
+                let breaks = comment
+                    .chars()
+                    .rev()
+                    .take_while(|character| matches!(character, '\n' | '\r'))
+                    .count() as u32;
+                self.end = end.saturating_sub(breaks);
+                self.open = false;
+            }
+            Whitespace::MultiLineComment(comment) if !comment.contains('\n') => self.end = end,
+            _ => self.open = false,
+        }
+    }
+}
+
+/// Ends the current statement at `end`, unless it holds no tokens; returns whether it did.
 fn flush(
     statements: &mut Vec<Statement>,
     current: &mut Vec<TokenWithSpan>,
     end: u32,
     terminated: bool,
     index: &TextIndex,
-) {
+) -> bool {
     if current.is_empty() {
-        return;
+        return false;
     }
     let start = current
         .first()
@@ -612,10 +680,13 @@ fn flush(
         end: end.max(start),
         visualise,
         terminated,
+        // Filled in once the tokens after the statement are seen.
+        trailing_end: end.max(start),
         // Filled in once the whole document is split, since a repair is located in the document
         // rather than in the statement it turns out to have landed in.
         repaired: false,
     });
+    true
 }
 
 /// The index of the token that begins a statement's ggsql part, if it has one.
