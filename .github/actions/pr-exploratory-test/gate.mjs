@@ -8,7 +8,7 @@
 // decline should not pay for any of it.
 
 import { appendFileSync, readFileSync } from 'node:fs';
-import { describeChange, ENVIRONMENT, gitIn, isProductPath, mustEnv, parsePosIntEnv, parseGate, renderPrBody } from './lib.mjs';
+import { describeChange, ENVIRONMENT, gitIn, isProductPath, mustEnv, parsePosIntEnv, parseGate, renderGateSummary, renderPrBody } from './lib.mjs';
 import { runSession } from './session.mjs';
 
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -18,13 +18,19 @@ const GATE_MODEL = process.env.GATE_MODEL || 'sonnet';
 const GATE_MAX_TURNS = parsePosIntEnv('GATE_MAX_TURNS', 30, process.env.GATE_MAX_TURNS);
 const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || undefined;
 const GITHUB_OUTPUT = process.env.GITHUB_OUTPUT;
+const GITHUB_STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 const PR_BODY_FILE = process.env.PR_BODY_FILE || '';
 mustEnv('ANTHROPIC_API_KEY');
 
-function emit(testable, reason) {
+// The `reason` output is only a decline's: report shows it as why the run did
+// not happen. The summary says why either way.
+function emit(testable, reason, note = '', cost = undefined) {
 	console.log(`[gate] testable=${testable}${reason ? ` reason=${reason}` : ''}`);
 	if (GITHUB_OUTPUT) {
-		appendFileSync(GITHUB_OUTPUT, `testable=${testable}\nreason=${reason || ''}\n`);
+		appendFileSync(GITHUB_OUTPUT, `testable=${testable}\nreason=${testable === 'false' ? reason : ''}\n`);
+	}
+	if (GITHUB_STEP_SUMMARY) {
+		appendFileSync(GITHUB_STEP_SUMMARY, renderGateSummary(testable === 'true', reason, note, cost));
 	}
 }
 
@@ -52,7 +58,7 @@ async function main() {
 	// Always worth a run, and none of the blockers below can apply to one.
 	if (upstream) {
 		console.log(`[gate] upstream merge ${upstream.from} -> ${upstream.to}: ${upstream.seam} of ${upstream.files} files meet Positron`);
-		emit('true', '');
+		emit('true', '', `An upstream merge (${upstream.from} -> ${upstream.to}) is always worth a run.`);
 		return;
 	}
 
@@ -90,7 +96,7 @@ async function main() {
 		'',
 		'Reply with exactly one line and nothing else:',
 		'',
-		'GATE: TESTABLE',
+		'GATE: TESTABLE - <what a user could see change>',
 		'',
 		'or',
 		'',
@@ -103,21 +109,22 @@ async function main() {
 		prompt, model: GATE_MODEL, cwd: REPO_ROOT, allowedTools: ['Bash', 'Read', 'Glob', 'Grep'], maxTurns: GATE_MAX_TURNS,
 		thinking: { type: 'disabled' }, claudeCodePath: CLAUDE_CODE_PATH, label: 'gate',
 	});
-	if (GITHUB_OUTPUT && typeof cost.total_cost_usd === 'number') {
-		appendFileSync(GITHUB_OUTPUT, `cost=${cost.total_cost_usd.toFixed(2)}\nturns=${cost.num_turns}\n`);
+	const usd = typeof cost.total_cost_usd === 'number' ? cost.total_cost_usd.toFixed(2) : undefined;
+	if (GITHUB_OUTPUT && usd) {
+		appendFileSync(GITHUB_OUTPUT, `cost=${usd}\nturns=${cost.num_turns}\n`);
 	}
 	const gate = parseGate(texts.join('\n'));
 	// Fails open: an unparseable answer, a missing line or a refusal to commit
 	// all mean explore anyway. A gate whose own bugs skip runs is worse than none.
 	if (gate && !gate.testable) {
-		emit('false', gate.reason);
+		emit('false', gate.reason, '', usd);
 		return;
 	}
-	emit('true', '');
+	emit('true', gate?.reason ?? '', gate ? '' : 'The check gave no clear verdict, so the run goes ahead.', usd);
 }
 
 main().catch(err => {
 	console.error(`[gate] failed, letting the run proceed: ${err}`);
-	emit('true', '');
+	emit('true', '', `The check failed (${err}), so the run goes ahead.`);
 });
 

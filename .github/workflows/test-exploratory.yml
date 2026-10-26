@@ -362,6 +362,17 @@ jobs:
           focus: ${{ needs.resolve.outputs.focus }}
           time-limit: ${{ needs.resolve.outputs.time_limit }}
 
+      # worthiness writes its own verdict when it runs. When it does not, say
+      # why here, so the run page never leaves it unexplained.
+      - name: Say why the worthiness check is skipped
+        if: >-
+          needs.resolve.outputs.ok == 'true' &&
+          (needs.resolve.outputs.focus != '' || (github.event_name == 'workflow_dispatch' && !inputs.worthiness_check))
+        env:
+          WHY: ${{ needs.resolve.outputs.focus != '' && 'A test focus was named, and what to test is then the person''s call' || 'It was turned off for this run' }}
+        run: |
+          printf '**Worthiness check skipped**, explore will run.\n\n%s.\n' "$WHY" >> "$GITHUB_STEP_SUMMARY"
+
   # Decides whether the change is worth testing, before anything is built. Not
   # to be confused with `resolve`, which decides who may run this at all.
   # The explore job needs a compile, an Xvfb, a launch and a Playwright attach;
@@ -383,7 +394,6 @@ jobs:
     outputs:
       testable: ${{ steps.gate.outputs.testable }}
       reason: ${{ steps.gate.outputs.reason }}
-      cost: ${{ steps.gate.outputs.cost }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -458,24 +468,6 @@ jobs:
           pr-body-file: ${{ steps.pr-body.outputs.file }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
-
-      # A declined run skips the explore job, which on its own looks like
-      # nothing happened. The gate's whole output is the reason it declined, so
-      # put it where the person who dispatched the run will see it.
-      - name: Say why the run was declined
-        if: ${{ steps.gate.outputs.testable == 'false' }}
-        shell: bash
-        env:
-          REASON: ${{ steps.gate.outputs.reason }}
-          COST: ${{ steps.gate.outputs.cost }}
-        run: |
-          set -euo pipefail
-          {
-            printf '## Exploratory test: not run\n\n'
-            printf 'The pre-flight pass declined this change.\n\n'
-            printf '%s\n' "${REASON:-No reason recorded.}"
-            printf '\n_gate: $%s_\n' "${COST:-?}"
-          } >> "$GITHUB_STEP_SUMMARY"
 
   # announce's running comment for an auto-run, after the gate rather than
   # alongside it: nobody asked for this run, so a declined one says nothing on
