@@ -12,7 +12,7 @@ import { COMMENT_MARKER, ENVIRONMENT, isProductPath, renderPrBody } from './lib.
 /** Labels the suggestion. Not COMMENT_MARKER: a suggestion is not a run. */
 export const SUGGEST_MARKER = '<!-- exploratory-testing:candidate -->';
 
-/** Every name test-exploratory.yml's membership job accepts. */
+/** Every name test-exploratory.yml's resolve job accepts. */
 export const RUN_COMMANDS = ['/explore', '/test', '/exploratory-test'];
 
 /**
@@ -43,7 +43,7 @@ export function isAutoRunAuthor(login, list) {
 export const DIFF_MAX = 40000;
 
 /**
- * Whether a comment invokes a run, by membership's rule: the first word of the
+ * Whether a comment invokes a run, by resolve's rule: the first word of the
  * first non-blank line, so "/testing" and a quoted "> /test" do not count.
  */
 export function isRunCommand(body) {
