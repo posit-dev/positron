@@ -278,6 +278,9 @@ export namespace InterpreterQuickPickList {
     export const clickForInstructions = l10n.t('Click for instructions...');
     export const globalGroupName = l10n.t('Global');
     export const workspaceGroupName = l10n.t('Workspace');
+    export const installPythonViaUvDetail = l10n.t('Download Python with uv');
+    export const createEnvironmentDetail = l10n.t('Make a .venv or .conda environment in this folder');
+    export const createEnvironmentDetailNoFolder = l10n.t('Make a .venv or .conda environment');
     export const enterPath = {
         label: l10n.t('Enter interpreter path...'),
         placeholder: l10n.t('Enter path to a Python interpreter.'),

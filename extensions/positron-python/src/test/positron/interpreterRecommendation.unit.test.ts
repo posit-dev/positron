@@ -19,7 +19,11 @@ import { IServiceContainer } from '../../client/ioc/types';
 import * as logging from '../../client/logging';
 import * as ranking from '../../client/positron/interpreterRanking';
 import type { IpykernelBundle } from '../../client/positron/ipykernel';
-import { recommendWorkspaceRuntime, startupBehaviorFor } from '../../client/positron/interpreterRecommendation';
+import {
+    recommendationReason,
+    recommendWorkspaceRuntime,
+    startupBehaviorFor,
+} from '../../client/positron/interpreterRecommendation';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import * as runtime from '../../client/positron/runtime';
 import * as util from '../../client/positron/util';
@@ -208,6 +212,7 @@ suite('interpreterRecommendation', () => {
 
         assert.deepEqual(await recommend(false), { path: rootVenv.path, startupBehavior: B.Immediate });
         // createPythonRuntimeMetadata's own module wait covers PET's whole activation scan.
+        // No pickerContext: in a multi-root workspace the interpreter's own folder groups it.
         assert.deepEqual(createStub.firstCall.args[3], { skipModuleWait: true });
     });
 
@@ -279,7 +284,10 @@ suite('interpreterRecommendation', () => {
         assert.deepEqual(await recommend(false), { path: pyenv.path, startupBehavior: B.Immediate });
         // The setting can name a module Python, so its metadata waits for module
         // discovery; the ipykernel bundle computed for the check is reused.
-        assert.deepEqual(createStub.firstCall.args[3], { skipModuleWait: false, ipykernelBundle: bundle });
+        assert.deepEqual(createStub.firstCall.args[3], {
+            skipModuleWait: false,
+            ipykernelBundle: bundle,
+        });
     });
 
     test('ranks and recommends the path PET resolved, so the runtime matches the discovered one', async () => {
@@ -490,9 +498,89 @@ suite('interpreterRecommendation', () => {
         );
     });
 
+    test('adds the recommendation reason to the picker info, ranked and remembered', async () => {
+        createStub.callsFake(
+            async (interpreter: PythonEnvironment) =>
+                ({
+                    runtimePath: interpreter.path,
+                    picker: { group: 'Base interpreters', groupOrder: 2, label: 'Python 3.12.0' },
+                } as unknown as positron.LanguageRuntimeMetadata),
+        );
+        context.hasPythonSignals = true;
+        discovered = [homebrew, pyenv];
+        resolvable.set(pyenv.path, pyenv);
+        const reason = async (afterDiscovery: boolean) =>
+            (
+                await recommendWorkspaceRuntime(
+                    serviceContainer.object,
+                    interpreterService.object,
+                    workspaceUri,
+                    afterDiscovery,
+                )
+            )?.picker?.recommendationReason;
+
+        const ranked = await reason(true);
+        // The next open, before discovery, reuses the remembered answer.
+        discovered = [];
+        const remembered = await reason(false);
+
+        assert.deepEqual([ranked, remembered], ['no project environment found', 'no project environment found']);
+    });
+
+    test('returns a recommended runtime without picker info unchanged', async () => {
+        context.rootProjectEnvs = [{ envDir: p('/proj/.venv'), executable: rootVenv.path }];
+        resolvable.set(rootVenv.path, rootVenv);
+
+        const metadata = await recommendWorkspaceRuntime(
+            serviceContainer.object,
+            interpreterService.object,
+            workspaceUri,
+            false,
+        );
+
+        assert.strictEqual(metadata, await createStub.firstCall.returnValue);
+    });
+
     test('recommends nothing when nothing is eligible', async () => {
         discovered = [env(p('/weird/python'), EnvironmentType.Unknown)];
 
         assert.strictEqual(await recommend(), undefined);
+    });
+
+    suite('recommendationReason', () => {
+        test('names the root project env', () => {
+            assert.strictEqual(recommendationReason(rootVenv, ranking.Tier.ProjectEnv, context), 'project environment');
+        });
+
+        test('names .python-version for a pyenv virtualenv outside the workspace', () => {
+            const pyenvVirtualenv = env(p('/home/u/.pyenv/versions/myproj/bin/python'), EnvironmentType.Pyenv, {
+                nativeKind: NativePythonEnvironmentKind.PyenvVirtualEnv,
+            });
+            assert.strictEqual(
+                recommendationReason(pyenvVirtualenv, ranking.Tier.ProjectEnv, context),
+                'named in .python-version',
+            );
+        });
+
+        test('says no project env was found for lower tiers in a Python folder', () => {
+            assert.strictEqual(
+                recommendationReason(homebrew, ranking.Tier.GlobalEnv, { ...context, hasPythonSignals: true }),
+                'no project environment found',
+            );
+        });
+
+        test('falls back to a generic reason in a folder without Python files', () => {
+            assert.strictEqual(
+                recommendationReason(homebrew, ranking.Tier.GlobalEnv, context),
+                'best available Python',
+            );
+        });
+
+        test('falls back to a generic reason with no folder open', () => {
+            assert.strictEqual(
+                recommendationReason(homebrew, ranking.Tier.GlobalEnv, { ...context, workspacePath: undefined }),
+                'best available Python',
+            );
+        });
     });
 });
