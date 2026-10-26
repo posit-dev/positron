@@ -230,6 +230,7 @@ test/unit/reporter.js
 .github/actions/pr-exploratory-test/triage-lib.test.mjs
 .github/actions/pr-exploratory-test/triage-page.mjs
 .github/actions/pr-exploratory-test/triage-page.test.mjs
+.github/actions/pr-exploratory-test/summary.mjs
 .claude/skills/exploratory-test/renderer/page/card-actions.mjs
 .claude/skills/exploratory-test/renderer/page/html.mjs
 .claude/skills/exploratory-test/renderer/shared/ledger.mjs

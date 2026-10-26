@@ -15,7 +15,7 @@
 
 import { appendFileSync } from 'node:fs';
 import { postOrEditComment } from './comment.mjs';
-import { autoRunName, buildSuggestPrompt, findPriorUse, isAutoRunAuthor, parseVerdict, renderSuggestComment, skipReason } from './suggest-lib.ts';
+import { autoRunName, buildSuggestPrompt, isAutoRunTitle, findPriorUse, isAutoRunAuthor, parseVerdict, renderSuggestComment, skipReason } from './suggest-lib.ts';
 
 const API = 'https://api.github.com';
 const REPO = mustEnv('GITHUB_REPOSITORY');
@@ -73,7 +73,7 @@ async function findAutoRun(token, pr) {
 	// The runs list is an object, so ghGet doesn't follow its pages.
 	for (let page = 1; ; page++) {
 		const { workflow_runs: runs } = await ghGet(token, `/repos/${REPO}/actions/workflows/${RUN_WORKFLOW}/runs?event=workflow_dispatch&created=${created}&page=${page}`);
-		const match = runs.find(r => r.display_title === autoRunName(pr.number));
+		const match = runs.find(r => isAutoRunTitle(r.display_title, pr.number));
 		if (match || runs.length < 100) {
 			return match ?? null;
 		}

@@ -1,8 +1,16 @@
 name: "Test: Exploratory"
 
-# test-exploratory-suggest.yml looks for this name to start one auto-run per
-# PR. Whitespace everywhere else, which GitHub documents as keeping its default.
-run-name: "${{ inputs.auto_run_pr && format('Exploratory auto-run #{0}', inputs.auto_run_pr) || ' ' }}"
+# Names what the run tests, before any job starts. test-exploratory-suggest.yml
+# finds an auto-run by its "Exploratory auto-run #N" prefix to start one per PR.
+# A comment that is not a run command keeps the default, as whitespace does.
+run-name: >-
+  ${{ inputs.auto_run_pr && format('Exploratory auto-run #{0} ({1})', inputs.auto_run_pr, inputs.ref)
+  || github.event_name == 'workflow_dispatch' && format('Explore {0}', inputs.ref)
+  || github.event.issue.pull_request && (startsWith(github.event.comment.body, '/explore')
+    || startsWith(github.event.comment.body, '/test')
+    || startsWith(github.event.comment.body, '/exploratory-test'))
+    && format('Explore #{0}: {1}', github.event.issue.number, github.event.issue.title)
+  || ' ' }}
 
 on:
   workflow_dispatch:
@@ -177,7 +185,7 @@ jobs:
               gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/test-exploratory.yml/runs?status=${status}&per_page=100" \
                 | jq -r --argjson seen "$seen" --arg head "${1:0:7}" --arg title "Exploratory auto-run #${PR_NUMBER}" \
                   '.workflow_runs[] | .id as $id | ($seen | map(select(.run == $id))) as $mine
-                  | select(if $mine == [] then .display_title == $title else any($mine[]; .sha == $head) end) | .html_url'
+                  | select(if $mine == [] then (.display_title == $title or (.display_title | startswith($title + " "))) else any($mine[]; .sha == $head) end) | .html_url'
             done | head -n 1
           }
 
@@ -235,6 +243,7 @@ jobs:
       contents: read
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
+      pr_number: ${{ steps.pr.outputs.number }}
     steps:
       - name: Resolve branch
         id: resolve
@@ -252,6 +261,51 @@ jobs:
           fi
           echo "Exploring ${REF} at ${sha}"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      # A dispatched run has no PR in its event. Find the ref's open PR so the
+      # summary and report can link it; none found just means no link.
+      - name: Find the ref's PR
+        id: pr
+        continue-on-error: true
+        shell: bash
+        env:
+          REF: ${{ inputs.ref }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node -e '
+            const [owner] = process.env.GITHUB_REPOSITORY.split("/");
+            const q = new URLSearchParams({ head: `${owner}:${process.env.REF}`, state: "open" });
+            fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/pulls?${q}`, {
+              headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json" },
+            }).then(r => r.json()).then(prs => {
+              const n = Array.isArray(prs) && prs[0]?.number;
+              console.log(n ? `PR #${n}` : "no open PR");
+              if (n) require("fs").appendFileSync(process.env.GITHUB_OUTPUT, `number=${n}\n`);
+            });
+          '
+
+      - name: Check out the harness
+        continue-on-error: true
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-test
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # The run page names its PR now, not when explore ends.
+      - name: Summarize the target
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: summary
+          branch: ${{ inputs.ref }}
+          pr-number: ${{ steps.pr.outputs.number }}
+          focus: ${{ inputs.focus }}
+          time-limit: ${{ inputs.time_limit }}
 
   # Decides whether the change is worth testing, before anything is built. Not
   # to be confused with `membership`, which decides who may run this at all.
@@ -446,6 +500,17 @@ jobs:
           github-token: ${{ github.token }}
           head-sha: ${{ needs.membership.outputs.head_sha }}
 
+      # The run page names its PR now, not when explore ends.
+      - name: Summarize the target
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: summary
+          branch: ${{ needs.membership.outputs.head_ref }}
+          pr-number: ${{ github.event.issue.number }}
+          focus: ${{ needs.membership.outputs.focus }}
+          time-limit: ${{ needs.membership.outputs.time_limit }}
+
   # ack's counterpart for an auto-run, after the gate rather than alongside
   # it: nobody asked for this run, so a declined one says nothing on the PR.
   # No reaction, since there is no comment to react to.
@@ -612,38 +677,16 @@ jobs:
           echo "ref=$BASE_REF" >> "$GITHUB_OUTPUT"
           echo "Diff base: $BASE (origin/$BASE_REF)"
 
-      # A dispatched run has no PR in its event. Find the ref's open PR so the
-      # summary and report can link it; none found just means no link.
-      - name: Find the ref's PR
-        id: pr
-        if: github.event_name == 'workflow_dispatch'
-        continue-on-error: true
-        shell: bash
-        env:
-          REF: ${{ inputs.ref }}
-        run: |
-          node -e '
-            const [owner] = process.env.GITHUB_REPOSITORY.split("/");
-            const q = new URLSearchParams({ head: `${owner}:${process.env.REF}`, state: "open" });
-            fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/pulls?${q}`, {
-              headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json" },
-            }).then(r => r.json()).then(prs => {
-              const n = Array.isArray(prs) && prs[0]?.number;
-              console.log(n ? `PR #${n}` : "no open PR");
-              if (n) require("fs").appendFileSync(process.env.GITHUB_OUTPUT, `number=${n}\n`);
-            });
-          '
-
       # Issues the PR fixes or that mention it, for the explorer's brief. Fetched
       # before the build so the lookup is done by the time the agent starts.
       # Best effort: any failure writes an empty list and the run goes on.
       - name: Fetch issues linked to the PR
         id: known
-        if: github.event.issue.number || steps.pr.outputs.number
+        if: github.event.issue.number || needs.dispatch-ref.outputs.pr_number
         continue-on-error: true
         shell: bash
         env:
-          PR: ${{ github.event.issue.number || steps.pr.outputs.number }}
+          PR: ${{ github.event.issue.number || needs.dispatch-ref.outputs.pr_number }}
         run: |
           RENDERER=.harness/.claude/skills/exploratory-test/renderer
           # Explore installs these later, but known-issues.mjs imports them now.
@@ -870,7 +913,7 @@ jobs:
           focus: ${{ inputs.focus || needs.membership.outputs.focus }}
           time-limit: ${{ inputs.time_limit || needs.membership.outputs.time_limit }}
           # The PR link in the summary and the report header. No PR, no link.
-          pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
+          pr-number: ${{ github.event.issue.number || needs.dispatch-ref.outputs.pr_number }}
           known-issues: ${{ steps.known.outputs.file }}
 
       # The app and the agent both hold these, and everything below is
