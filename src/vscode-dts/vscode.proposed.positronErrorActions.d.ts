@@ -14,9 +14,10 @@ declare module 'positron' {
 
 	export namespace ai {
 		/**
-		 * Register a handler that the Fix and Explain actions on console,
-		 * notebook, and Quarto errors can send errors to. While it's registered,
-		 * the `ai.errorActions.agent` setting lists it, and errors go to it once the
+		 * Register a handler that the user can send errors to from Positron's
+		 * error actions, such as Fix and Explain. See {@link ErrorActionContext}
+		 * for where errors come from. While it's registered, the
+		 * `ai.errorActions.agent` setting lists it, and errors go to it once the
 		 * user chooses it there. Register it while it exists, e.g. while its tool
 		 * is installed, not only while it can take errors.
 		 *
