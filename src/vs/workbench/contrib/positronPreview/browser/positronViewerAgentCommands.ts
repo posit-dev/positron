@@ -224,7 +224,7 @@ CommandsRegistry.registerCommand({
 	id: 'positronViewer.read',
 	handler: read,
 	metadata: {
-		title: localize('positron.viewer.read.title', "Read Viewer"),
+		title: localize('positron.viewer.read.title', "Read Viewer Page"),
 		description: localize('positron.viewer.read.description', "Read the page in the Viewer pane, such as a running Shiny, Streamlit or Dash app, an htmlwidget, or widget or Quarto output, as a text outline of its elements, including controls and their values, each with a ref for the positronViewer action commands. Changes nothing."),
 		agentCompatible: true,
 		readOnly: true,

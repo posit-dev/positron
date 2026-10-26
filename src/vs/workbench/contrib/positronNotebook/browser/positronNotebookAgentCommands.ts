@@ -309,7 +309,7 @@ CommandsRegistry.registerCommand({
 	id: NOTEBOOK_GET_CELLS_COMMAND_ID,
 	handler: getNotebookCells,
 	metadata: {
-		title: localize('positron.notebook.getCells.title', "Read Notebook Cells"),
+		title: localize('positron.notebook.getCells.title', "Get Notebook Cells"),
 		description: localize(
 			'positron.notebook.getCells.description',
 			"Read the cells of a Jupyter notebook open in the Positron notebook editor: each cell's index, type, content, and execution status."

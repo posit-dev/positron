@@ -198,6 +198,30 @@ describe('AgentAllowedCommandsService', () => {
 			});
 		});
 
+		it('prefers its own title to its menu entry\'s, and its menu entry\'s to its action\'s', () => {
+			store.add(CommandsRegistry.registerCommand({
+				id: 'test.agent.precedence.metadata',
+				handler: () => { },
+				metadata: { description: 'desc', title: 'Metadata Title', agentCompatible: true },
+			}));
+			store.add(MenuRegistry.addCommand({ id: 'test.agent.precedence.metadata', title: 'Menu Title' }));
+			store.add(registerAction2(class extends Action2 {
+				constructor() {
+					super({ id: 'test.agent.precedence.menu', title: 'Action Title', metadata: { description: 'desc', agentCompatible: true } });
+				}
+				run() { }
+			}));
+			store.add(MenuRegistry.addCommand({ id: 'test.agent.precedence.menu', title: 'Menu Title' }));
+
+			const titles = Object.fromEntries(makeService().getAgentAllowedCommands()
+				.filter(c => c.id.startsWith('test.agent.precedence.')).map(c => [c.id, c.title]));
+
+			expect(titles).toEqual({
+				'test.agent.precedence.metadata': 'Metadata Title',
+				'test.agent.precedence.menu': 'Menu Title',
+			});
+		});
+
 		it('drops commands whose precondition does not currently hold', () => {
 			const precondition = ContextKeyExpr.equals('foo', 'bar')!;
 			registerPaletteCommand('test.agent.gated', {
