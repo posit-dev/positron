@@ -16,6 +16,20 @@ fn split(text: &str) -> Vec<(String, bool)> {
     statements(&response, text)
 }
 
+/// The statements of a document in a dialect.
+fn split_in(dialect: &str, text: &str) -> Vec<(String, bool)> {
+    let response = request(json!({ "op": "statements", "dialect": dialect, "text": text }));
+    statements(&response, text)
+}
+
+/// The text of each statement of a document in a dialect, without whether it was terminated.
+fn texts_in(dialect: &str, text: &str) -> Vec<String> {
+    split_in(dialect, text)
+        .into_iter()
+        .map(|(text, _)| text)
+        .collect()
+}
+
 fn statements(response: &Value, text: &str) -> Vec<(String, bool)> {
     response["statements"]
         .as_array()
@@ -229,4 +243,136 @@ fn a_transaction_begin_is_still_its_own_statement() {
     );
     // A column called `begin` in a CREATE TABLE is a name, not a block.
     assert_eq!(split("CREATE TABLE t (begin INT); SELECT 1;").len(), 2);
+}
+
+#[test]
+fn a_transaction_inside_a_procedure_does_not_hold_the_procedure_open() {
+    // `BEGIN TRANSACTION` has no `END`. Counting it as a block left the procedure open, and
+    // every statement below it ran with it.
+    let text = "CREATE PROCEDURE reset_balances AS\nBEGIN\n  BEGIN TRANSACTION;\n  UPDATE accounts SET balance = 0;\n  COMMIT TRANSACTION;\nEND;\n\nSELECT 'after' AS marker;\nDELETE FROM accounts;";
+    assert_eq!(
+        texts_in("tsql", text),
+        [
+            "CREATE PROCEDURE reset_balances AS\nBEGIN\n  BEGIN TRANSACTION;\n  UPDATE accounts SET balance = 0;\n  COMMIT TRANSACTION;\nEND;",
+            "SELECT 'after' AS marker;",
+            "DELETE FROM accounts;",
+        ]
+    );
+    assert_eq!(
+        split("CREATE PROCEDURE p() BEGIN BEGIN TRAN; COMMIT; END;\nSELECT 1;").len(),
+        2
+    );
+}
+
+#[test]
+fn an_end_followed_by_an_if_statement_closes_its_block() {
+    // T-SQL has no `END IF`: the `IF` on the line after a block's `END` starts the next
+    // statement of the body.
+    let text = "CREATE PROCEDURE check_flags @a INT, @b INT AS\nBEGIN\n  IF @a = 1\n  BEGIN\n    SELECT 1;\n  END\n  IF @b = 1\n  BEGIN\n    SELECT 2;\n  END\nEND;\n\nSELECT 'after' AS marker;\nDELETE FROM accounts;";
+    let texts = texts_in("tsql", text);
+    assert_eq!(texts.len(), 3, "{texts:?}");
+    assert_eq!(texts[1], "SELECT 'after' AS marker;");
+    // The generic dialect reads it the same way.
+    assert_eq!(texts_in("", text), texts);
+}
+
+#[test]
+fn an_end_loop_with_a_label_still_closes_only_its_loop() {
+    let text =
+        "CREATE PROCEDURE p() BEGIN outer: LOOP LEAVE outer; END LOOP outer; END;\nSELECT 1;";
+    assert_eq!(split(text).len(), 2);
+}
+
+#[test]
+fn an_anonymous_block_is_one_statement() {
+    let text = "BEGIN\n  INSERT INTO log VALUES (1);\n  INSERT INTO log VALUES (2);\nEND;\n\nSELECT * FROM log;";
+    let expected = [
+        "BEGIN\n  INSERT INTO log VALUES (1);\n  INSERT INTO log VALUES (2);\nEND;",
+        "SELECT * FROM log;",
+    ];
+    assert_eq!(texts_in("oracle", text), expected);
+    // T-SQL runs them too, and writes TRY and CATCH as blocks.
+    assert_eq!(texts_in("tsql", text), expected);
+    assert_eq!(
+        texts_in(
+            "tsql",
+            "BEGIN TRY SELECT 1; END TRY BEGIN CATCH SELECT 2; END CATCH;\nSELECT 3;"
+        ),
+        [
+            "BEGIN TRY SELECT 1; END TRY BEGIN CATCH SELECT 2; END CATCH;",
+            "SELECT 3;"
+        ]
+    );
+}
+
+#[test]
+fn a_declare_section_belongs_to_the_block_after_it() {
+    let text = "DECLARE\n  n NUMBER;\nBEGIN\n  n := 1;\nEND;\nSELECT 1 FROM dual;";
+    assert_eq!(
+        texts_in("oracle", text),
+        [
+            "DECLARE\n  n NUMBER;\nBEGIN\n  n := 1;\nEND;",
+            "SELECT 1 FROM dual;"
+        ]
+    );
+    // Elsewhere a DECLARE is a statement of its own.
+    assert_eq!(
+        texts_in("tsql", "DECLARE @n INT;\nSELECT @n;"),
+        ["DECLARE @n INT;", "SELECT @n;"]
+    );
+}
+
+#[test]
+fn a_plsql_routine_keeps_its_declarations() {
+    let text = "CREATE OR REPLACE PROCEDURE p IS\n  n NUMBER;\nBEGIN\n  IF n IS NULL THEN n := 1; END IF;\nEND p;\nSELECT 1 FROM dual;";
+    assert_eq!(texts_in("oracle", text).len(), 2);
+    // A package's routines each have declarations and a body of their own.
+    let text = "CREATE PACKAGE BODY k AS\n  PROCEDURE a IS BEGIN NULL; END a;\n  FUNCTION b RETURN NUMBER IS BEGIN RETURN 1; END b;\nEND k;\nSELECT 1 FROM dual;";
+    assert_eq!(texts_in("oracle", text).len(), 2);
+}
+
+#[test]
+fn an_event_body_is_not_split_at_its_own_semicolons() {
+    let text = "CREATE EVENT nightly\nON SCHEDULE EVERY 1 DAY\nDO\nBEGIN\n  DELETE FROM sessions WHERE expired = 1;\n  UPDATE stats SET runs = runs + 1;\nEND;\n\nSELECT 'after event' AS marker;";
+    assert_eq!(
+        texts_in("mysql", text)[1],
+        "SELECT 'after event' AS marker;"
+    );
+}
+
+#[test]
+fn a_definer_does_not_hide_the_routine_it_defines() {
+    let text =
+        "CREATE DEFINER = CURRENT_USER() PROCEDURE p() BEGIN SELECT 1; SELECT 2; END;\nSELECT 3;";
+    assert_eq!(texts_in("mysql", text).len(), 2);
+}
+
+#[test]
+fn a_column_named_like_a_routine_does_not_make_a_routine() {
+    assert_eq!(
+        split("CREATE TABLE schedule (function TEXT, begin DATE, finish DATE);\nSELECT * FROM schedule;\nSELECT 99;").len(),
+        3
+    );
+}
+
+#[test]
+fn a_block_left_open_costs_only_its_own_statement() {
+    // A procedure still being typed, or one whose blocks were misread: it splits on its
+    // semicolons, and the statements below it are their own again.
+    assert_eq!(
+        texts_in(
+            "mysql",
+            "CREATE PROCEDURE p() BEGIN SELECT 1; SELECT 2;\nSELECT 3;"
+        ),
+        [
+            "CREATE PROCEDURE p() BEGIN SELECT 1;",
+            "SELECT 2;",
+            "SELECT 3;"
+        ]
+    );
+    // A block after it is still read as one.
+    assert_eq!(
+        texts_in("mysql", "CREATE PROCEDURE p() BEGIN SELECT 1;\nCREATE PROCEDURE q() BEGIN SELECT 2; END;\nSELECT 3;"),
+        ["CREATE PROCEDURE p() BEGIN SELECT 1;", "CREATE PROCEDURE q() BEGIN SELECT 2; END;", "SELECT 3;"]
+    );
 }

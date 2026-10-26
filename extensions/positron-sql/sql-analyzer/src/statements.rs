@@ -28,7 +28,7 @@
 
 use std::borrow::Cow;
 
-use sqlparser::dialect::Dialect;
+use sqlparser::dialect::{Dialect, OracleDialect, SnowflakeDialect};
 use sqlparser::keywords::Keyword;
 use sqlparser::tokenizer::{Location, Token, TokenWithSpan, Tokenizer};
 
@@ -98,7 +98,7 @@ pub fn split(text: &str, dialect: &dyn Dialect, index: &TextIndex) -> Tokenized 
     // sent along with it to the console.
     let mut last_end: u32 = 0;
 
-    let inside = routine_bodies(&tokens);
+    let inside = block_bodies(&tokens, dialect);
     for (at, token) in tokens.into_iter().enumerate() {
         if matches!(token.token, Token::SemiColon) && !inside[at] {
             let end = index
@@ -129,72 +129,291 @@ pub fn split(text: &str, dialect: &dyn Dialect, index: &TextIndex) -> Tokenized 
     Tokenized { statements, errors }
 }
 
-/// Which tokens sit inside the body of a routine a statement is creating, by index.
+/// How many times a block is taken to have been misread before the rest of the document is split
+/// on its semicolons alone. See [`block_bodies`].
+const MISREADS: usize = 8;
+
+/// Which tokens sit inside a block of procedural SQL, by index: the semicolons that do not end the
+/// statement they are in.
 ///
 /// A trigger, procedure or function written in SQL rather than in a quoted body holds statements
 /// of its own between `BEGIN` and `END` -- `CREATE TRIGGER t AFTER INSERT ON a BEGIN UPDATE b SET
-/// n = 1; END;` -- and the semicolons that end those do not end the `CREATE`. Splitting there
-/// would hand the parser half a trigger, report it as broken, and run half of it from the editor.
+/// n = 1; END;` -- and the semicolons that end those do not end the `CREATE`. So does an anonymous
+/// block, `BEGIN ... END;` written on its own, as Oracle, T-SQL and Snowflake run them. Splitting
+/// there would hand the parser half a block, report it as broken, and run half of it from the
+/// editor.
 ///
-/// Only in a `CREATE` that has named a `TRIGGER`, `PROCEDURE` or `FUNCTION`: elsewhere `BEGIN` is a
-/// transaction, which a semicolon does end, or a name. A `CASE` inside the body has an `END` of
-/// its own and is counted with it. An `END IF`, `END LOOP` and their kind close a construct that
-/// was never counted, so they are passed over.
-fn routine_bodies(tokens: &[TokenWithSpan]) -> Vec<bool> {
+/// Which `BEGIN`s and `END`s count is read off the keywords around them, by [`Blocks`], and is a
+/// guess: the tokenizer does not know, and no dialect's parser here reads procedural SQL. A wrong
+/// guess almost always leaves a block open at the end of the document -- a `BEGIN` counted that
+/// has no `END`, or an `END` passed over -- and an open block takes every statement below it. So
+/// a block still open at the end is taken to have been misread: the statement that opened it is
+/// split on its semicolons like any other, and the reading starts again after its first one. A
+/// misread then costs that one statement rather than the rest of the file, and a block that is
+/// still being typed splits as it would have before it was a block.
+fn block_bodies(tokens: &[TokenWithSpan], dialect: &dyn Dialect) -> Vec<bool> {
     let mut inside = vec![false; tokens.len()];
-    let mut first = true;
-    let mut creating = false;
-    let mut routine = false;
-    let mut depth = 0usize;
+    let mut from = 0;
+    for _ in 0..MISREADS {
+        let Some(opened) = Blocks::new(tokens, dialect).read(from, &mut inside) else {
+            return inside;
+        };
+        // From the statement that opened the block that never closed, nothing is inside a block
+        // until its first semicolon, which ends it; the reading resumes after that.
+        let Some(semicolon) =
+            (opened..tokens.len()).find(|&at| matches!(tokens[at].token, Token::SemiColon))
+        else {
+            inside[opened..].fill(false);
+            return inside;
+        };
+        inside[opened..=semicolon].fill(false);
+        from = semicolon + 1;
+    }
+    inside[from..].fill(false);
+    inside
+}
 
-    for (at, token) in tokens.iter().enumerate() {
-        match &token.token {
-            Token::SemiColon => {
-                inside[at] = depth > 0;
-                if depth == 0 {
-                    first = true;
-                    creating = false;
-                    routine = false;
-                }
+/// What follows a `BEGIN` that starts a transaction rather than a block, by spelling: `BEGIN;`,
+/// `BEGIN TRANSACTION`, T-SQL's `BEGIN TRAN` and `BEGIN DISTRIBUTED TRANSACTION`, SQLite's
+/// `BEGIN IMMEDIATE`, PostgreSQL's `BEGIN ISOLATION LEVEL ...`, and T-SQL's `BEGIN DIALOG` and
+/// `BEGIN CONVERSATION TIMER`, which are statements too. Anything else -- `BEGIN TRY`, `BEGIN NULL;`,
+/// `BEGIN INSERT ...` -- opens a block.
+const TRANSACTION_STARTS: &[&str] = &[
+    "TRANSACTION",
+    "TRAN",
+    "WORK",
+    "DISTRIBUTED",
+    "DEFERRED",
+    "IMMEDIATE",
+    "EXCLUSIVE",
+    "ISOLATION",
+    "READ",
+    "NOT",
+    "DEFERRABLE",
+    "DIALOG",
+    "CONVERSATION",
+];
+
+/// The kinds of object a `CREATE` or `ALTER` can make whose body is a block. MySQL's `CREATE EVENT
+/// ... DO BEGIN ... END` is one, `PROC` is T-SQL's abbreviation, and an Oracle package holds
+/// routines.
+const ROUTINE_KINDS: &[&str] = &[
+    "TRIGGER",
+    "PROCEDURE",
+    "PROC",
+    "FUNCTION",
+    "EVENT",
+    "PACKAGE",
+];
+
+/// The kinds of object that are not, and hold names a routine keyword could be spelled as: a table
+/// with a column called `function`.
+const OTHER_KINDS: &[&str] = &[
+    "TABLE", "VIEW", "INDEX", "SEQUENCE", "SCHEMA", "DATABASE", "TYPE", "DOMAIN",
+];
+
+/// The words that end an `END` written for something other than a block: `END IF`, `END LOOP`,
+/// `END WHILE`, `END REPEAT`, `END FOR`. Those close a construct that was never counted, so they
+/// are passed over.
+const OTHER_ENDS: &[&str] = &["IF", "LOOP", "WHILE", "REPEAT", "FOR"];
+
+/// A reading of where the blocks of a document begin and end. See [`block_bodies`].
+struct Blocks<'a> {
+    tokens: &'a [TokenWithSpan],
+    /// Whether `DECLARE` opens a block's declarations, as it does in PL/SQL and Snowflake
+    /// Scripting. Elsewhere it is a statement of its own: `DECLARE @n INT;` in T-SQL, a cursor in
+    /// PostgreSQL.
+    declare_opens: bool,
+    /// Whether a routine's `IS` or `AS` opens its declarations, as in PL/SQL:
+    /// `CREATE PROCEDURE p IS n NUMBER; BEGIN ... END;`.
+    is_opens: bool,
+}
+
+impl<'a> Blocks<'a> {
+    fn new(tokens: &'a [TokenWithSpan], dialect: &dyn Dialect) -> Self {
+        let oracle = dialect.is::<OracleDialect>();
+        Self {
+            tokens,
+            declare_opens: oracle || dialect.is::<SnowflakeDialect>(),
+            is_opens: oracle,
+        }
+    }
+
+    /// Marks the tokens from `from` on that sit inside a block, and returns where the statement
+    /// that opened a block left open at the end of the document starts, if one was.
+    fn read(&self, from: usize, inside: &mut [bool]) -> Option<usize> {
+        // The blocks open around the current token, innermost last. A level is `true` while it is
+        // a block's declarations, which the block's own `BEGIN` continues rather than nesting in.
+        let mut levels: Vec<bool> = Vec::new();
+        // Where the current statement's first token is, once it has one.
+        let mut statement: Option<usize> = None;
+        // Whether the current statement makes something whose body is a block, which is what lets
+        // a `BEGIN` in it open one.
+        let mut routine = false;
+        // Whether a PL/SQL routine has been named whose `IS` or `AS` is still to come.
+        let mut header = false;
+        let mut parentheses = 0usize;
+
+        for (at, (token, inside)) in self
+            .tokens
+            .iter()
+            .map(|token| &token.token)
+            .zip(inside.iter_mut())
+            .enumerate()
+            .skip(from)
+        {
+            *inside = !levels.is_empty();
+            if !is_significant(token) {
+                continue;
             }
-            Token::Word(word) if word.quote_style.is_none() => {
-                if first {
-                    creating = word.keyword == Keyword::CREATE;
-                    first = false;
-                }
-                inside[at] = depth > 0;
-                match word.keyword {
-                    Keyword::TRIGGER | Keyword::PROCEDURE | Keyword::FUNCTION if creating => {
-                        routine = true;
+            match token {
+                Token::SemiColon => {
+                    header = false;
+                    if levels.is_empty() {
+                        statement = None;
+                        routine = false;
+                        parentheses = 0;
                     }
-                    Keyword::BEGIN if routine => depth += 1,
-                    Keyword::CASE if depth > 0 => depth += 1,
-                    Keyword::END if depth > 0 => {
-                        let closes_other = tokens[at + 1..]
-                            .iter()
-                            .find(|next| is_significant(&next.token))
-                            .is_some_and(|next| {
-                                // By spelling: not every one of these is a keyword sqlparser
-                                // knows.
-                                matches!(&next.token, Token::Word(word) if ["IF", "LOOP", "WHILE", "REPEAT", "FOR"]
-                                    .iter()
-                                    .any(|closer| word.value.eq_ignore_ascii_case(closer)))
-                            });
-                        if !closes_other {
-                            depth -= 1;
-                        }
+                    continue;
+                }
+                Token::LParen => parentheses += 1,
+                Token::RParen => parentheses = parentheses.saturating_sub(1),
+                _ => {}
+            }
+
+            let starts = statement.is_none();
+            if starts {
+                statement = Some(at);
+            }
+            let Token::Word(word) = token else { continue };
+            if word.quote_style.is_some() {
+                continue;
+            }
+            let spelled = |names: &[&str]| {
+                names
+                    .iter()
+                    .any(|name| word.value.eq_ignore_ascii_case(name))
+            };
+
+            if starts {
+                match word.keyword {
+                    Keyword::CREATE | Keyword::ALTER => routine = self.makes_routine(at),
+                    // An anonymous block, unless it is a transaction.
+                    Keyword::BEGIN if !self.starts_transaction(at) => {
+                        levels.push(false);
+                        routine = true;
+                        continue;
+                    }
+                    Keyword::DECLARE if self.declare_opens => {
+                        levels.push(true);
+                        routine = true;
+                        continue;
                     }
                     _ => {}
                 }
             }
-            other if is_significant(other) => {
-                first = false;
-                inside[at] = depth > 0;
+
+            match word.keyword {
+                _ if routine && self.is_opens && spelled(&["PROCEDURE", "FUNCTION", "PACKAGE"]) => {
+                    header = true;
+                }
+                Keyword::IS | Keyword::AS if header && parentheses == 0 => {
+                    header = false;
+                    levels.push(true);
+                }
+                Keyword::DECLARE if routine && self.declare_opens && levels.is_empty() => {
+                    levels.push(true);
+                }
+                Keyword::BEGIN if routine && !self.starts_transaction(at) => {
+                    match levels.last_mut() {
+                        Some(declarations @ true) => *declarations = false,
+                        _ => levels.push(false),
+                    }
+                }
+                Keyword::CASE if !levels.is_empty() => levels.push(false),
+                Keyword::END if !levels.is_empty() && !self.ends_other(at) => {
+                    levels.pop();
+                }
+                _ => {}
             }
-            _ => inside[at] = depth > 0,
+        }
+
+        if levels.is_empty() {
+            None
+        } else {
+            statement
         }
     }
-    inside
+
+    /// The significant token after the one at `at`, and its index.
+    fn next(&self, at: usize) -> Option<(usize, &'a Token)> {
+        (at + 1..self.tokens.len())
+            .map(|next| (next, &self.tokens[next].token))
+            .find(|(_, token)| is_significant(token))
+    }
+
+    /// Whether the unquoted word at `at`, if it is one, is spelled as one of `names`.
+    fn spelled(&self, at: Option<(usize, &Token)>, names: &[&str]) -> bool {
+        matches!(at, Some((_, Token::Word(word))) if word.quote_style.is_none()
+            && names.iter().any(|name| word.value.eq_ignore_ascii_case(name)))
+    }
+
+    /// Whether the `BEGIN` at `at` starts a transaction. See [`TRANSACTION_STARTS`].
+    fn starts_transaction(&self, at: usize) -> bool {
+        let next = self.next(at);
+        matches!(next, None | Some((_, Token::SemiColon))) || self.spelled(next, TRANSACTION_STARTS)
+    }
+
+    /// Whether the `END` at `at` closes something other than a block: `END IF;`, `END LOOP name;`.
+    ///
+    /// Only when the statement ends there, after at most a label. T-SQL has none of these, and
+    /// writes the statement after a block straight after its `END`, so `END` followed by `IF @b =
+    /// 1` on the next line is a block's end and the start of an `IF`.
+    fn ends_other(&self, at: usize) -> bool {
+        let Some((word, _)) = self
+            .next(at)
+            .filter(|&next| self.spelled(Some(next), OTHER_ENDS))
+        else {
+            return false;
+        };
+        match self.next(word) {
+            None | Some((_, Token::SemiColon)) => true,
+            Some((label, Token::Word(_))) => {
+                matches!(self.next(label), None | Some((_, Token::SemiColon)))
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether the `CREATE` or `ALTER` at `at` makes something whose body is a block.
+    ///
+    /// Decided by the kind of object it names, which comes before anything else the statement
+    /// says: past modifiers such as `OR REPLACE`, `TEMPORARY` and MySQL's `DEFINER = user`, and
+    /// before the object's name and anything in parentheses. A routine keyword further along is a
+    /// name -- `CREATE TABLE schedule (function TEXT, begin DATE)` makes a table.
+    fn makes_routine(&self, at: usize) -> bool {
+        let mut at = at;
+        // A header is a few words long; a statement that has named no kind by here is not one this
+        // knows.
+        for _ in 0..16 {
+            let Some((next, token)) = self.next(at) else {
+                return false;
+            };
+            match token {
+                Token::Word(_) if self.spelled(Some((next, token)), ROUTINE_KINDS) => return true,
+                Token::Word(_) if self.spelled(Some((next, token)), OTHER_KINDS) => return false,
+                Token::Word(word) if word.keyword == Keyword::AS => return false,
+                // `DEFINER = CURRENT_USER()` is the one pair of parentheses a header holds.
+                Token::LParen if !matches!(self.next(next), Some((_, Token::RParen))) => {
+                    return false;
+                }
+                Token::SemiColon => return false,
+                _ => {}
+            }
+            at = next;
+        }
+        false
+    }
 }
 
 /// Tokenizes a document, closing anything that never closed, until it tokenizes or cannot be
