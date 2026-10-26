@@ -8,11 +8,11 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { arePathsSameFile } from './path-utils';
+import { arePathsSameFile, followLink } from './path-utils';
 
 // Creating links on Windows needs Developer Mode or admin rights, and the
 // layout copies CRAN's macOS installer.
-describe.skipIf(process.platform === 'win32')('arePathsSameFile', () => {
+describe.skipIf(process.platform === 'win32')('paths in an R layout with links', () => {
 	let root: string;
 
 	/**
@@ -39,18 +39,36 @@ describe.skipIf(process.platform === 'win32')('arePathsSameFile', () => {
 
 	const versioned = (version: string) => path.join(root, 'R.framework', 'Versions', version, 'Resources', 'bin', 'R');
 
-	it('matches a link chain to the file it leads to', () => {
-		expect(arePathsSameFile(path.join(root, 'bin', 'R'), versioned('4.6'))).toBe(true);
-		expect(arePathsSameFile(path.join(root, 'R.framework', 'Resources', 'bin', 'R'), versioned('4.6'))).toBe(true);
+	describe('arePathsSameFile', () => {
+		it('matches a link chain to the file it leads to', () => {
+			expect(arePathsSameFile(path.join(root, 'bin', 'R'), versioned('4.6'))).toBe(true);
+			expect(arePathsSameFile(path.join(root, 'R.framework', 'Resources', 'bin', 'R'), versioned('4.6'))).toBe(true);
+		});
+
+		it('does not match a different file', () => {
+			expect(arePathsSameFile(path.join(root, 'bin', 'R'), versioned('4.5'))).toBe(false);
+		});
+
+		it('compares a path that does not exist as given', () => {
+			const missing = path.join(root, 'missing', 'R');
+			expect(arePathsSameFile(missing, missing)).toBe(true);
+			expect(arePathsSameFile(missing, versioned('4.6'))).toBe(false);
+		});
 	});
 
-	it('does not match a different file', () => {
-		expect(arePathsSameFile(path.join(root, 'bin', 'R'), versioned('4.5'))).toBe(false);
-	});
+	describe('followLink', () => {
+		it('follows a link chain to the file it leads to', () => {
+			expect(followLink(path.join(root, 'bin', 'R'))).toBe(versioned('4.6'));
+		});
 
-	it('compares a path that does not exist as given', () => {
-		const missing = path.join(root, 'missing', 'R');
-		expect(arePathsSameFile(missing, missing)).toBe(true);
-		expect(arePathsSameFile(missing, versioned('4.6'))).toBe(false);
+		it('keeps a file that is not a link as given, even inside a linked folder', () => {
+			const throughLinkedFolder = path.join(root, 'R.framework', 'Resources', 'bin', 'R');
+			expect(followLink(throughLinkedFolder)).toBe(throughLinkedFolder);
+		});
+
+		it('keeps a path that does not exist as given', () => {
+			const missing = path.join(root, 'missing', 'R');
+			expect(followLink(missing)).toBe(missing);
+		});
 	});
 });

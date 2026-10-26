@@ -56,6 +56,19 @@ export function arePathsSameFile(path1: string, path2: string): boolean {
 }
 
 /**
+ * The file a symlink at a path leads to, with every link on the way followed.
+ * A path that isn't a symlink, or can't be read, is returned as given.
+ * @param filePath The path to follow
+ */
+export function followLink(filePath: string): string {
+	try {
+		return fs.lstatSync(filePath).isSymbolicLink() ? fs.realpathSync(filePath) : filePath;
+	} catch {
+		return filePath;
+	}
+}
+
+/**
  * Copied from the function of the same name in extensions/positron-python/src/client/common/helpers.ts.
  * NOTE: We do not export this since in all known cases, normalizeUserPath()
  * is the better choice.

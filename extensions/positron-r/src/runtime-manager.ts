@@ -22,7 +22,7 @@ import { setupArkJupyterKernel } from './kernel';
 import { getRTerminalEnvironmentMutations, isROnPath } from './r-process-environment';
 import { RSessionManager } from './session-manager';
 import { choosePinnedR, chooseStartupR, firstListedR, InFlightLookup } from './startup-choice.js';
-import { arePathsSameFile } from './path-utils.js';
+import { arePathsSameFile, followLink } from './path-utils.js';
 
 /**
  * Whether the R binary at a path is the current R. The current R's path has
@@ -199,22 +199,23 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	}
 
 	async recommendedWorkspaceRuntime(afterDiscovery?: boolean): Promise<positron.LanguageRuntimeMetadata | undefined> {
-		// When discovery is limited to definitions, nothing outside them is recommended.
-		if (isDefinitionsOnlyDiscovery()) {
-			return undefined;
-		}
+		// When discovery is limited to definitions, nothing outside them is
+		// recommended. A pin is only found when it is one of them.
+		const pinOnly = isDefinitionsOnlyDiscovery();
 
 		// Decide here, in the folder that's open now, whether R starts right
 		// away: Positron never caches the recommendation. The search's records
 		// are cached and shared by every folder.
 		try {
 			if (afterDiscovery) {
-				return await this.recommendationAfterDiscovery(await this.pinnedRInstallation());
+				const pinned = await this.pinnedRInstallation();
+				return pinned || !pinOnly ? await this.recommendationAfterDiscovery(pinned) : undefined;
 			}
 			const pinnedLookup = this.pinnedRInstallation();
 			const choice = await chooseStartupR({
 				pinnedR: () => pinnedLookup,
 				manualStartup: vscode.workspace.getConfiguration('interpreters', { languageId: 'r' }).get<string>('startupBehavior') === 'manual',
+				pinOnly,
 				looksLikeRProject,
 				currentR: currentRInstallation,
 				fullSearchTriggers: rFullSearchTriggers,
@@ -326,6 +327,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			},
 			currentRPath: async () => (await currentRBinary())?.path,
 			isSameFile: arePathsSameFile,
+			followLink,
 			packagerMetadataForPath,
 			rVersionsMetadataForPath,
 			install: ({ binpath, current, packagerMetadata }) => {
@@ -580,12 +582,14 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 */
 	async registerRuntimeFromPath(binpath: string): Promise<positron.LanguageRuntimeMetadata> {
 		const curBin = await currentRBinary();
-		// A link to the current R, such as `/usr/local/bin/R`, registers at the
-		// current R's own path, as discovery lists it, so the picker doesn't
-		// show that R twice.
+		// A link to an R, such as `/usr/local/bin/R`, registers at the path
+		// discovery lists for that R, so the picker doesn't show it twice:
+		// the current R's own path, or else the file the link leads to.
+		// Conda and pixi Rs keep their own paths, as discovery lists them.
 		const currentPath = isCurrentR(curBin, binpath) ? curBin?.path : undefined;
-		const inst = new RInstallation(currentPath ?? binpath, currentPath !== undefined, [ReasonDiscovered.userSetting],
-			packagerMetadataForPath(binpath));
+		const condaOrPixi = packagerMetadataForPath(binpath);
+		const listedPath = currentPath ?? (condaOrPixi ? binpath : followLink(binpath));
+		const inst = new RInstallation(listedPath, currentPath !== undefined, [ReasonDiscovered.userSetting], condaOrPixi);
 		if (!inst.usable) {
 			throw new Error(`R installation at ${binpath} is not usable. Reason: ${friendlyReason(inst.reasonRejected)}`);
 		}

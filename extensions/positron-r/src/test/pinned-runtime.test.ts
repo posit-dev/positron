@@ -15,10 +15,14 @@ import { delay } from '../util';
 // Pins the machine's current R, so these tests need R installed.
 suite('R pinned runtime', () => {
 	const rConfig = () => vscode.workspace.getConfiguration('positron.r');
+	const interpretersConfig = () => vscode.workspace.getConfiguration('interpreters');
+	const rInterpretersConfig = () => vscode.workspace.getConfiguration('interpreters', { languageId: 'r' });
 
 	teardown(async () => {
 		await rConfig().update('interpreters.default', undefined, vscode.ConfigurationTarget.Global);
 		await rConfig().update('interpreters.exclude', undefined, vscode.ConfigurationTarget.Global);
+		await rInterpretersConfig().update('discovery', undefined, vscode.ConfigurationTarget.Global, true);
+		await interpretersConfig().update('definitions', undefined, vscode.ConfigurationTarget.Global);
 	});
 
 	test('returns the pinned R to start implicitly, and nothing once that R is excluded', async function () {
@@ -54,6 +58,37 @@ suite('R pinned runtime', () => {
 		assert.deepStrictEqual(
 			{ path: recommended?.runtimePath, startupBehavior: recommended?.startupBehavior },
 			{ path: current.binpath, startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit },
+		);
+	});
+
+	test('under definitionsOnly, the recommendation when a folder opens returns a pin that is one of the definitions', async function () {
+		const current = await currentRInstallation();
+		if (!current?.usable) {
+			this.skip();
+		}
+		await rConfig().update('interpreters.default', current.binpath, vscode.ConfigurationTarget.Global);
+		await rInterpretersConfig().update('discovery', 'definitionsOnly', vscode.ConfigurationTarget.Global, true);
+		await interpretersConfig().update('definitions', [{ language: 'r', path: current.binpath }], vscode.ConfigurationTarget.Global);
+		const recommended = await runtimeManager.recommendedWorkspaceRuntime();
+
+		// Whether it starts right away depends on the folder, so only the R is checked.
+		assert.strictEqual(recommended?.runtimePath, current.binpath);
+	});
+
+	test('under definitionsOnly, the recommendation after discovery returns a pin that is one of the definitions, and nothing otherwise', async function () {
+		const current = await currentRInstallation();
+		if (!current?.usable) {
+			this.skip();
+		}
+		await rConfig().update('interpreters.default', current.binpath, vscode.ConfigurationTarget.Global);
+		await rInterpretersConfig().update('discovery', 'definitionsOnly', vscode.ConfigurationTarget.Global, true);
+		const notDefined = await runtimeManager.recommendedWorkspaceRuntime(true);
+		await interpretersConfig().update('definitions', [{ language: 'r', path: current.binpath }], vscode.ConfigurationTarget.Global);
+		const defined = await runtimeManager.recommendedWorkspaceRuntime(true);
+
+		assert.deepStrictEqual(
+			{ notDefined, path: defined?.runtimePath, startupBehavior: defined?.startupBehavior },
+			{ notDefined: undefined, path: current.binpath, startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit },
 		);
 	});
 

@@ -68,6 +68,12 @@ export interface RStartupInputs<T extends RStartupCandidate> {
 	pinnedR(): Promise<T | undefined>;
 	/** Whether R's `interpreters.startupBehavior` is `manual`. */
 	readonly manualStartup: boolean;
+	/**
+	 * Whether only a pinned R can be returned. True when `interpreters.discovery`
+	 * is `definitionsOnly` for R, since the search can find Rs outside the
+	 * definitions.
+	 */
+	readonly pinOnly: boolean;
 	/** Whether the open folder has R files, or is empty and you use RStudio. */
 	looksLikeRProject(): Promise<boolean>;
 	/** The current R, built the way the search builds it, or undefined if there is none. */
@@ -83,10 +89,10 @@ export interface RStartupInputs<T extends RStartupCandidate> {
  */
 export interface PinnedRBuild<P> {
 	/**
-	 * The path to build from. When the pin is the current R, this is the
-	 * current R's path, so the runtime ID matches the search's entry and the
-	 * interpreter picker doesn't list it twice. Under `definitionsOnly`, it is
-	 * always the pinned path, as `interpreters.definitions` names it.
+	 * The path to build from: the path discovery lists for this R, so the
+	 * runtime ID matches discovery's entry and the interpreter picker doesn't
+	 * list it twice. Under `definitionsOnly`, it is always the pinned path, as
+	 * `interpreters.definitions` names it.
 	 */
 	readonly binpath: string;
 	readonly current: boolean;
@@ -113,6 +119,8 @@ export interface PinnedRInputs<T extends { readonly usable: boolean }, P> {
 	currentRPath(): Promise<string | undefined>;
 	/** Whether two paths name the same file once symlinks are followed. */
 	isSameFile(path1: string, path2: string): boolean;
+	/** The file a symlink at a path leads to, or the path itself if it isn't a symlink. */
+	followLink(path: string): string;
 	/** The conda or pixi environment that a path is in. */
 	packagerMetadataForPath(path: string): P | undefined;
 	/** The setup from the r-versions entry that leads to the R at a path. */
@@ -135,12 +143,23 @@ export async function choosePinnedR<T extends { readonly usable: boolean }, P>(i
 	}
 	const currentPath = await inputs.currentRPath();
 	const current = currentPath !== undefined && inputs.isSameFile(currentPath, pinnedPath);
+	const condaOrPixi = inputs.packagerMetadataForPath(pinnedPath);
+	// Build from the path discovery lists. Definitions match on the exact
+	// path, so a defined pin keeps its own. Discovery lists conda and pixi Rs
+	// at their own paths, and other Rs at the file a link leads to.
+	let binpath = pinnedPath;
+	if (!inputs.definitionsOnly) {
+		if (current) {
+			binpath = currentPath;
+		} else if (!condaOrPixi) {
+			binpath = inputs.followLink(pinnedPath);
+		}
+	}
 	const installation = inputs.install({
-		// Definitions match on the exact path, so a defined pin keeps its own.
-		binpath: current && !inputs.definitionsOnly ? currentPath : pinnedPath,
+		binpath,
 		current,
 		// Conda and pixi metadata win over r-versions metadata, as in discovery.
-		packagerMetadata: inputs.packagerMetadataForPath(pinnedPath) ?? await inputs.rVersionsMetadataForPath(pinnedPath),
+		packagerMetadata: condaOrPixi ?? await inputs.rVersionsMetadataForPath(pinnedPath),
 	});
 	return installation.usable ? installation : undefined;
 }
@@ -171,6 +190,7 @@ export function rVersionsEntryForR<E extends { readonly path?: string }>(
  *   nothing is returned.
  * - A pinned R starts right away in a folder that looks like an R project, and
  *   otherwise when R is needed.
+ * - Otherwise, when only a pinned R can be returned, nothing is returned.
  * - Otherwise, in a folder that looks like an R project, the R the search
  *   lists first starts right away.
  * - Otherwise nothing is returned.
@@ -184,7 +204,7 @@ export async function chooseStartupR<T extends RStartupCandidate>(inputs: RStart
 	if (pinned) {
 		return { installation: pinned, startupBehavior: rProject ? 'immediate' : 'implicit' };
 	}
-	if (!rProject) {
+	if (!rProject || inputs.pinOnly) {
 		return undefined;
 	}
 	const installation = await pickStartupR(inputs);
