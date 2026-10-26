@@ -3,8 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Free of `vscode` imports so it can be unit tested. Its caller resolves
-// documents and passes in `vscode.l10n`.
+import * as path from 'node:path';
+import type * as positron from 'positron';
+import * as vscode from 'vscode';
 
 /**
  * Longest code and error text, together, in a prompt, measured after the
@@ -16,57 +17,6 @@ const MAX_DETAILS_LENGTH = 30_000;
 /** Code kept when an error alone would fill the prompt. */
 const MIN_CODE_LENGTH = 2_000;
 
-/** An action the user can take on an error. */
-export type ErrorPromptAction = 'fix' | 'explain';
-
-/** Localizes the prompt's text; `vscode.l10n` outside of tests. */
-export interface PromptL10n {
-	t(message: string, ...args: Array<string | number | boolean>): string;
-}
-
-/** A notebook or Quarto document, as the prompt names it. */
-export interface PromptDocument {
-	/** The document's absolute path, or its name when it's untitled. */
-	readonly name: string;
-	/** Whether the document has never been saved to a file. */
-	readonly isUntitled: boolean;
-	/** Whether the document has changes the editor hasn't saved. */
-	readonly isDirty: boolean;
-}
-
-/** Where an error came from, with the code that raised it. */
-export type ErrorPromptSource =
-	| {
-		readonly kind: 'console';
-		/** Name of the console's session, e.g. "Python 3.12.1 (Venv: .venv)". */
-		readonly sessionName: string;
-		readonly languageId: string;
-		/** The console's input for the error, as it is now. */
-		readonly code?: string;
-	}
-	| {
-		readonly kind: 'notebook';
-		readonly document: PromptDocument;
-		/** The cell, as it is now. Undefined when it's no longer in the notebook. */
-		readonly cell?: {
-			/** 0-based index among all of the notebook's cells, markdown included. */
-			readonly index: number;
-			readonly code: string;
-			readonly languageId: string;
-		};
-	}
-	| {
-		readonly kind: 'quarto';
-		readonly document: PromptDocument;
-		/** The chunk, as it was run. Undefined when it can't be found. */
-		readonly cell?: {
-			readonly languageId: string;
-			readonly code: string;
-			readonly startLine: number;
-			readonly endLine: number;
-		};
-	};
-
 /**
  * Build the prompt for a Fix or Explain action, for an agent that can't see
  * Positron: where the error came from and what to do, then the code, then the
@@ -74,82 +24,105 @@ export type ErrorPromptSource =
  * the agent answers in the language it's asked in; the error, code, and paths
  * are left as they are.
  */
-export function getErrorPrompt(action: ErrorPromptAction, source: ErrorPromptSource, error: string, l10n: PromptL10n): string {
-	const fullCode = source.kind === 'console' ? source.code : source.cell?.code;
-	const languageId = source.kind === 'console' ? source.languageId : source.cell?.languageId;
+export function getErrorPrompt(action: positron.ai.ErrorAction, context: positron.ai.ErrorActionContext): string {
+	const fullCode = context.kind === 'console' ? context.code : context.cell?.code;
+	const languageId = context.kind === 'console' ? context.languageId : context.cell?.languageId;
 
 	// The error is kept in preference to the code: the agent can more likely
 	// find the code elsewhere (e.g. in the file) than the error.
 	const code = fullCode
-		? truncateMiddle(fullCode, Math.max(MIN_CODE_LENGTH, MAX_DETAILS_LENGTH - escapedLength(error)), l10n)
+		? truncateMiddle(fullCode, Math.max(MIN_CODE_LENGTH, MAX_DETAILS_LENGTH - escapedLength(context.error)))
 		: undefined;
-	const shortenedError = truncateMiddle(error, MAX_DETAILS_LENGTH - (code ? escapedLength(code.text) : 0), l10n);
+	const shortenedError = truncateMiddle(context.error, MAX_DETAILS_LENGTH - (code ? escapedLength(code.text) : 0));
 
-	const blocks = [getLead(action, source, l10n)];
+	const blocks = [getLead(action, context)];
 	if (code) {
-		blocks.push(getCodeLabel(source.kind, code.isShortened, l10n), fence(code.text, languageId));
+		blocks.push(getCodeLabel(context.kind, code.isShortened), fence(code.text, languageId));
 	}
 	blocks.push(
-		shortenedError.isShortened ? l10n.t('Error (shortened):') : l10n.t('Error:'),
+		shortenedError.isShortened ? vscode.l10n.t('Error (shortened):') : vscode.l10n.t('Error:'),
 		fence(shortenedError.text),
 	);
 	return blocks.join('\n\n');
 }
 
 /** Where the error came from and what to do about it. */
-function getLead(action: ErrorPromptAction, source: ErrorPromptSource, l10n: PromptL10n): string {
+function getLead(action: positron.ai.ErrorAction, context: positron.ai.ErrorActionContext): string {
 	const sentences: string[] = [];
-	switch (source.kind) {
+	let hasUnsavedChanges = false;
+	switch (context.kind) {
 		case 'console':
 			// Without this, the agent has nothing to open and guesses at a file
 			// the error might have come from.
-			sentences.push(l10n.t('Code run in the Positron console session "{0}" raised an error. The code may not be saved in any file.', source.sessionName));
+			sentences.push(vscode.l10n.t('Code run in the Positron console session "{0}" raised an error. The code may not be saved in any file.', context.sessionName));
 			break;
 		case 'notebook': {
-			const { document, cell } = source;
+			const { uri, cell } = context;
+			const name = getDocumentName(uri);
 			// The position counts every cell from the top, as the ipynb does,
 			// not the execution count.
-			if (document.isUntitled) {
+			if (uri.scheme === 'untitled') {
 				sentences.push(cell
-					? l10n.t('Cell {0} of {1}, a notebook that isn\'t saved to a file, raised an error.', cell.index + 1, document.name)
-					: l10n.t('A cell in {0}, a notebook that isn\'t saved to a file, raised an error.', document.name));
+					? vscode.l10n.t('Cell {0} of {1}, a notebook that isn\'t saved to a file, raised an error.', cell.index + 1, name)
+					: vscode.l10n.t('A cell in {0}, a notebook that isn\'t saved to a file, raised an error.', name));
 			} else {
 				sentences.push(cell
-					? l10n.t('Cell {0} of {1} raised an error.', cell.index + 1, document.name)
-					: l10n.t('A cell in {0} raised an error.', document.name));
+					? vscode.l10n.t('Cell {0} of {1} raised an error.', cell.index + 1, name)
+					: vscode.l10n.t('A cell in {0} raised an error.', name));
+				hasUnsavedChanges = isDirty(uri, vscode.workspace.notebookDocuments);
 			}
 			break;
 		}
 		case 'quarto': {
-			const { document, cell } = source;
-			if (document.isUntitled) {
+			const { uri, cell } = context;
+			const name = getDocumentName(uri);
+			if (uri.scheme === 'untitled') {
 				sentences.push(cell
-					? l10n.t('The {0} code chunk at lines {1}-{2} of {3}, a document that isn\'t saved to a file, raised an error.', cell.languageId, cell.startLine, cell.endLine, document.name)
-					: l10n.t('A code chunk in {0}, a document that isn\'t saved to a file, raised an error.', document.name));
+					? vscode.l10n.t('The {0} code chunk at lines {1}-{2} of {3}, a document that isn\'t saved to a file, raised an error.', cell.languageId, cell.startLine, cell.endLine, name)
+					: vscode.l10n.t('A code chunk in {0}, a document that isn\'t saved to a file, raised an error.', name));
 			} else {
 				sentences.push(cell
-					? l10n.t('The {0} code chunk at lines {1}-{2} of {3} raised an error.', cell.languageId, cell.startLine, cell.endLine, document.name)
-					: l10n.t('A code chunk in {0} raised an error.', document.name));
+					? vscode.l10n.t('The {0} code chunk at lines {1}-{2} of {3} raised an error.', cell.languageId, cell.startLine, cell.endLine, name)
+					: vscode.l10n.t('A code chunk in {0} raised an error.', name));
+				hasUnsavedChanges = isDirty(uri, vscode.workspace.textDocuments);
 			}
 			break;
 		}
 	}
 	// An agent edits the file on disk, which would collide with edits the
 	// editor still holds.
-	if (source.kind !== 'console' && !source.document.isUntitled && source.document.isDirty) {
-		sentences.push(l10n.t('The file has unsaved changes in the editor.'));
+	if (hasUnsavedChanges) {
+		sentences.push(vscode.l10n.t('The file has unsaved changes in the editor.'));
 	}
 	if (action === 'fix') {
-		sentences.push(l10n.t('Fix the error.'));
+		sentences.push(vscode.l10n.t('Fix the error.'));
 		// The console's code is not in the project, so a fix there usually
 		// means corrected code to run rather than an edit.
-		if (source.kind === 'console') {
-			sentences.push(l10n.t('Only edit project files if the cause is in one of them.'));
+		if (context.kind === 'console') {
+			sentences.push(vscode.l10n.t('Only edit project files if the cause is in one of them.'));
 		}
 	} else {
-		sentences.push(l10n.t('Explain what caused the error and how to fix it, without making changes or editing any files.'));
+		sentences.push(vscode.l10n.t('Explain what caused the error and how to fix it, without making changes or editing any files.'));
 	}
 	return sentences.join(' ');
+}
+
+/**
+ * Name a notebook or Quarto document by its absolute path, since Positron
+ * doesn't know the agent's working directory, with no `~`, which only shells
+ * expand. An untitled document is named by its title instead.
+ */
+function getDocumentName(uri: vscode.Uri): string {
+	if (uri.scheme === 'untitled') {
+		return path.posix.basename(uri.path);
+	}
+	return uri.scheme === 'file' ? uri.fsPath : uri.toString();
+}
+
+/** Whether the document is open with changes the editor hasn't saved. */
+function isDirty(uri: vscode.Uri, openDocuments: readonly (vscode.TextDocument | vscode.NotebookDocument)[]): boolean {
+	const uriString = uri.toString();
+	return openDocuments.some(document => document.uri.toString() === uriString && document.isDirty);
 }
 
 /**
@@ -157,20 +130,20 @@ function getLead(action: ErrorPromptAction, source: ErrorPromptSource, l10n: Pro
  * read when the action is taken, so it may have been edited since the error;
  * Quarto code is captured when the chunk runs.
  */
-function getCodeLabel(kind: ErrorPromptSource['kind'], isShortened: boolean, l10n: PromptL10n): string {
+function getCodeLabel(kind: positron.ai.ErrorActionContext['kind'], isShortened: boolean): string {
 	switch (kind) {
 		case 'console':
 			return isShortened
-				? l10n.t('Code (the console input as it is now, shortened):')
-				: l10n.t('Code (the console input as it is now):');
+				? vscode.l10n.t('Code (the console input as it is now, shortened):')
+				: vscode.l10n.t('Code (the console input as it is now):');
 		case 'notebook':
 			return isShortened
-				? l10n.t('Code (the cell\'s current content, shortened):')
-				: l10n.t('Code (the cell\'s current content):');
+				? vscode.l10n.t('Code (the cell\'s current content, shortened):')
+				: vscode.l10n.t('Code (the cell\'s current content):');
 		case 'quarto':
 			return isShortened
-				? l10n.t('Code (the chunk as run, shortened):')
-				: l10n.t('Code (the chunk as run):');
+				? vscode.l10n.t('Code (the chunk as run, shortened):')
+				: vscode.l10n.t('Code (the chunk as run):');
 	}
 }
 
@@ -193,13 +166,13 @@ export function escapedLength(text: string): number {
  * keeping its start and end, and mark the cut with a line saying how much was
  * omitted.
  */
-export function truncateMiddle(text: string, maxLength: number, l10n: PromptL10n): { readonly text: string; readonly isShortened: boolean } {
+function truncateMiddle(text: string, maxLength: number): { readonly text: string; readonly isShortened: boolean } {
 	if (escapedLength(text) <= maxLength) {
 		return { text, isShortened: false };
 	}
 	// The marker's count is at most the text's length, so this one is at
 	// least as long as the final marker.
-	const marker = (omitted: number) => `\n${l10n.t('[... {0} characters omitted ...]', omitted)}\n`;
+	const marker = (omitted: number) => `\n${vscode.l10n.t('[... {0} characters omitted ...]', omitted)}\n`;
 	const budget = Math.max(0, maxLength - escapedLength(marker(text.length)));
 
 	let headEnd = 0;

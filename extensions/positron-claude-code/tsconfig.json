@@ -12,7 +12,8 @@
 		"strict": true,
 		"skipLibCheck": true,
 		"types": [
-			"node"
+			"node",
+			"mocha"
 		]
 	},
 	"include": [

@@ -3,11 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'node:path';
 import type * as positron from 'positron';
 import * as vscode from 'vscode';
 import { CLAUDE_CODE_EXTENSION_ID, getClaudeCodeLaunch, openChat, openTerminal, USE_TERMINAL_SETTING } from './claudeCode';
-import { ErrorPromptSource, getErrorPrompt, PromptDocument } from './errorPrompt';
+import { getErrorPrompt } from './errorPrompt';
 import { isAtLeast } from './version';
 
 /**
@@ -47,7 +46,7 @@ export const claudeCodeErrorActionHandler: positron.ai.ErrorActionHandler = {
 				});
 				return;
 			}
-			openTerminal(launch, getPrompt(action, context), extension);
+			openTerminal(launch, getErrorPrompt(action, context), extension);
 			return;
 		}
 
@@ -68,44 +67,10 @@ export const claudeCodeErrorActionHandler: positron.ai.ErrorActionHandler = {
 			});
 			return;
 		}
-		await openChat(getPrompt(action, context));
+		await openChat(getErrorPrompt(action, context));
 	},
 };
 
-function getPrompt(action: positron.ai.ErrorAction, context: positron.ai.ErrorActionContext): string {
-	return getErrorPrompt(action, getPromptSource(context), context.error, vscode.l10n);
-}
-
 function openUseTerminalSetting(): Thenable<unknown> {
 	return vscode.commands.executeCommand('workbench.action.openSettings', USE_TERMINAL_SETTING);
-}
-
-/** Name where the error came from, resolving the document's state now. */
-function getPromptSource(context: positron.ai.ErrorActionContext): ErrorPromptSource {
-	switch (context.kind) {
-		case 'console':
-			return { kind: 'console', sessionName: context.sessionName, languageId: context.languageId, code: context.code };
-		case 'notebook':
-			return { kind: 'notebook', document: getPromptDocument(context.uri, 'notebook'), cell: context.cell };
-		case 'quarto':
-			return { kind: 'quarto', document: getPromptDocument(context.uri, 'text'), cell: context.cell };
-	}
-}
-
-/**
- * Name a notebook or Quarto document by its absolute path, since Positron
- * doesn't know the agent's working directory, with no `~`, which only shells
- * expand. An untitled document is named by its title instead.
- */
-function getPromptDocument(uri: vscode.Uri, kind: 'notebook' | 'text'): PromptDocument {
-	const uriString = uri.toString();
-	const document = kind === 'notebook'
-		? vscode.workspace.notebookDocuments.find(document => document.uri.toString() === uriString)
-		: vscode.workspace.textDocuments.find(document => document.uri.toString() === uriString);
-	const isUntitled = document?.isUntitled ?? uri.scheme === 'untitled';
-	return {
-		name: isUntitled ? path.posix.basename(uri.path) : uri.scheme === 'file' ? uri.fsPath : uri.toString(),
-		isUntitled,
-		isDirty: document?.isDirty === true,
-	};
 }
