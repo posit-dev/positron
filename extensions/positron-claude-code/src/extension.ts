@@ -8,6 +8,11 @@ import * as vscode from 'vscode';
 import { CLAUDE_CODE_LABEL, isClaudeCodeInstalled } from './claudeCode';
 import { CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, claudeCodeErrorActionHandler } from './errorActionHandler';
 
+/**
+ * Activates on `onAiEnabled` rather than on a click, since the
+ * `ai.errorActions.agent` setting lists only registered agents, and Claude
+ * Code registers only while it's installed.
+ */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	let errorActionHandler: vscode.Disposable | undefined;
 	let isDisposed = false;
