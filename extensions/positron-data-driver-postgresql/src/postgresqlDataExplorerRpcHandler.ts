@@ -89,8 +89,11 @@ export class PostgresDataExplorerRpcHandler implements vscode.Disposable, IPostg
 		kind: 'table' | 'view',
 	): Promise<void> {
 		await this._openView(datasetId, async () => {
-			const schema = await buildPostgresSchema(client, schemaName, tableName);
-			return new PostgresTableView(client, tableRef(schemaName, tableName), tableName, kind, schema);
+			const [schema, rowIdentity] = await Promise.all([
+				buildPostgresSchema(client, schemaName, tableName),
+				resolvePostgresRowIdentity(client, schemaName, tableName, kind),
+			]);
+			return new PostgresTableView(client, tableRef(schemaName, tableName), tableName, schema, rowIdentity);
 		});
 	}
 
@@ -107,12 +110,15 @@ export class PostgresDataExplorerRpcHandler implements vscode.Disposable, IPostg
 		columnName: string,
 	): Promise<void> {
 		await this._openView(datasetId, async () => {
-			const schema = await buildPostgresSchema(client, schemaName, tableName);
+			const [schema, rowIdentity] = await Promise.all([
+				buildPostgresSchema(client, schemaName, tableName),
+				resolvePostgresRowIdentity(client, schemaName, tableName, kind),
+			]);
 			const column = schema.find(c => c.column_name === columnName);
 			if (!column) {
 				throw new Error(`Column '${columnName}' not found in '${schemaName}.${tableName}'`);
 			}
-			return new PostgresTableView(client, tableRef(schemaName, tableName), tableName, kind, [column]);
+			return new PostgresTableView(client, tableRef(schemaName, tableName), tableName, [column], rowIdentity);
 		});
 	}
 
@@ -227,6 +233,11 @@ function tableRef(schemaName: string, tableName: string): string {
 	return `${quote(schemaName)}.${quote(tableName)}`;
 }
 
+/** Renders a value as an escaped SQL string literal. */
+function literal(value: string): string {
+	return `'${value.replace(/'/g, '\'\'')}'`;
+}
+
 /**
  * Reads a table or view's column schema via information_schema.columns and resolves each column's
  * display type. Schema and table names are inlined as escaped string literals.
@@ -236,7 +247,6 @@ export async function buildPostgresSchema(
 	schemaName: string,
 	relationName: string,
 ): Promise<PostgresSchemaEntry[]> {
-	const literal = (value: string) => `'${value.replace(/'/g, '\'\'')}'`;
 	const rows = await client.runQuery(
 		`SELECT column_name, data_type FROM information_schema.columns ` +
 		`WHERE table_schema = ${literal(schemaName)} AND table_name = ${literal(relationName)} ` +
@@ -250,6 +260,68 @@ export async function buildPostgresSchema(
 			type_display: postgresDisplayType(dataType),
 		};
 	});
+}
+
+/**
+ * Resolves the columns of an enforced unique key on a table, for paging it in place: a primary key,
+ * or else the narrowest unique index whose columns are all NOT NULL. Returns none for a view, for a
+ * table with no such key, or when the catalog cannot be read, and the table view then reads rows from
+ * a result window instead.
+ *
+ * An index qualifies only if it is valid, plain (no predicate, no expressions), and collates each
+ * column as the column itself does, since ORDER BY uses the column's collation and a different one
+ * could tie values the index keeps apart. A key on a table that other tables inherit from does not
+ * qualify: it covers only the parent's own rows, while a query on the parent also returns its
+ * children's. A partitioned table's unique index does, since it must include the partition key.
+ */
+export async function resolvePostgresRowIdentity(
+	client: IPostgresQueryClient,
+	schemaName: string,
+	relationName: string,
+	kind: 'table' | 'view',
+): Promise<string[]> {
+	if (kind !== 'table') {
+		return [];
+	}
+	let rows: Array<Record<string, unknown>>;
+	try {
+		rows = await client.runQuery(
+			`SELECT i.indexrelid::bigint AS index_id, i.indisprimary AS is_primary, k.ord AS ord, ` +
+			`a.attname AS column_name, a.attnotnull AS not_null, ` +
+			`(i.indcollation::oid[])[k.ord - 1] = a.attcollation AS same_collation ` +
+			`FROM pg_index i ` +
+			`JOIN pg_class c ON c.oid = i.indrelid ` +
+			`JOIN pg_namespace n ON n.oid = c.relnamespace ` +
+			`CROSS JOIN LATERAL unnest(i.indkey::int2[]) WITH ORDINALITY AS k(attnum, ord) ` +
+			`LEFT JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum ` +
+			`WHERE n.nspname = ${literal(schemaName)} AND c.relname = ${literal(relationName)} ` +
+			`AND i.indisunique AND i.indisvalid AND i.indpred IS NULL AND i.indexprs IS NULL ` +
+			`AND k.ord <= i.indnkeyatts ` +
+			`AND (c.relkind = 'p' OR NOT EXISTS (SELECT 1 FROM pg_inherits h WHERE h.inhparent = c.oid)) ` +
+			`ORDER BY i.indexrelid, k.ord`
+		);
+	} catch {
+		return [];
+	}
+
+	// Group the key columns by index, in key order.
+	const indexes = new Map<string, { isPrimary: boolean; columns: string[]; usable: boolean }>();
+	for (const row of rows) {
+		const id = String(row.index_id);
+		let index = indexes.get(id);
+		if (!index) {
+			index = { isPrimary: row.is_primary === true, columns: [], usable: true };
+			indexes.set(id, index);
+		}
+		if (row.column_name === null || row.column_name === undefined || row.not_null !== true || row.same_collation !== true) {
+			index.usable = false;
+		} else {
+			index.columns.push(String(row.column_name));
+		}
+	}
+	const usable = [...indexes.values()].filter(index => index.usable && index.columns.length > 0);
+	usable.sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.columns.length - b.columns.length);
+	return usable[0]?.columns ?? [];
 }
 
 /** How a dataset's view is built, and how many times it has been rebuilt. */

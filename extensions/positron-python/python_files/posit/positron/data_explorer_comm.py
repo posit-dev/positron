@@ -367,6 +367,11 @@ class BackendState(BaseModel):
         description="For Excel workbooks, the names of the worksheets available to read, in workbook order. Absent for non-Excel data sources.",
     )
 
+    total_num_rows: Optional[StrictInt] = Field(
+        default=None,
+        description="Set when the backend serves only the leading rows of a larger result: table_shape.num_rows is then the number of rows served, and this is the number of rows in the full filtered result. Absent when table_shape covers every row.",
+    )
+
 
 class ColumnSchema(BaseModel):
     """

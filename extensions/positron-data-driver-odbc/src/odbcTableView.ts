@@ -18,7 +18,6 @@ import { OdbcTableRef } from './odbcNodes';
 import { IOdbcQueryClient } from './odbcWorkerClient';
 import { OdbcRow } from './odbcWorkerProtocol';
 import {
-	ArraySelection,
 	BackendState,
 	CodeSyntaxName,
 	ColumnDisplayType,
@@ -78,6 +77,15 @@ import {
 	isIntegerLiteral,
 	truncate,
 } from 'positron-data-explorer-formatting';
+import {
+	formatExport,
+	isSelectionRange,
+	ResultWindow,
+	windowDataValues,
+	windowExport,
+	windowRowCounts,
+	windowRowLimit,
+} from 'positron-data-explorer-window';
 
 /** Sentinel codes for special cell values, matching the Data Explorer wire protocol. */
 const SENTINEL_NULL = 0;
@@ -217,8 +225,8 @@ const COMPARISON_OPS = new Map<FilterComparisonOp, string>([
  * composite key, so it decides the order they are appended in.
  *
  * Views have no primary key, and a driver that does not implement SQLPrimaryKeys reports an error
- * rather than an empty set. Both degrade to "no row identity", which the table view handles by
- * falling back to the first column.
+ * rather than an empty set. Both degrade to "no row identity". The table view trusts a key for paging
+ * only where the backend enforces it (see OdbcDialect.enforcesPrimaryKeys).
  */
 export async function resolveOdbcRowIdentity(
 	client: IOdbcQueryClient,
@@ -243,8 +251,16 @@ export async function resolveOdbcRowIdentity(
  * Serves Data Explorer requests for a single table or view reached over ODBC. Translates each
  * protocol method into SQL run through the connection's worker client, in the dialect resolved for
  * the backend.
+ *
+ * A table with an enforced primary key is paged in place, ordered by the key after any user sort, so
+ * every row has one position. Any other relation is read from a result window, one statement per sort
+ * and filter state, because separate paged statements over a relation with no unique order can
+ * repeat or skip rows.
  */
 export class OdbcTableView {
+	private readonly _window = new ResultWindow<OdbcRow>(
+		limit => this._fetchWindow(limit), () => windowRowLimit(this.schema.length));
+
 	private sortKeys: Array<ColumnSortKey> = [];
 	private rowFilters: Array<RowFilter> = [];
 	/** Numbers setRowFilters calls in the order they were made. */
@@ -270,9 +286,9 @@ export class OdbcTableView {
 	 * @param ref The table or view this view serves.
 	 * @param dialect How to write SQL for this backend.
 	 * @param schema The resolved column schema.
-	 * @param rowIdentity Unquoted names of the columns that uniquely identify a row, used as the
-	 * pagination tiebreaker. Empty where none could be resolved -- a view, or a table with no
-	 * primary key -- in which case the first column stands in. See `resolveOdbcRowIdentity`.
+	 * @param rowIdentity Unquoted names of the primary key columns SQLPrimaryKeys reported, or none --
+	 * a view, or a table with no primary key. Where the backend enforces the key, rows are paged in
+	 * place by it; otherwise rows are read from a result window. See `resolveOdbcRowIdentity`.
 	 */
 	constructor(
 		private readonly client: IOdbcQueryClient,
@@ -284,6 +300,15 @@ export class OdbcTableView {
 		this._sortClause = this._buildSortClause([], true);
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
+	}
+
+	/**
+	 * Whether rows are paged in place by a primary key, rather than read from a result window. A
+	 * declared key is trusted only on a backend that enforces it, since elsewhere its columns need not
+	 * be unique.
+	 */
+	private get _keyed(): boolean {
+		return this.rowIdentity.length > 0 && this.dialect.enforcesPrimaryKeys === true;
 	}
 
 	/**
@@ -374,10 +399,10 @@ export class OdbcTableView {
 	/**
 	 * Renders a windowed read in the backend's dialect.
 	 *
-	 * `OFFSET ... FETCH NEXT` (the SQL:2008 form) requires an ORDER BY on SQL Server, and paging
-	 * without one is not reproducible on any backend -- two requests for consecutive pages can
-	 * return overlapping or missing rows. The sort clause always carries an ordering for that
-	 * reason; see _buildSortClause.
+	 * `OFFSET ... FETCH NEXT` (the SQL:2008 form) requires an ORDER BY on SQL Server, so in that
+	 * dialect the sort clause always carries one. Paging by a key appends the key, since consecutive
+	 * pages without a unique order can overlap or miss rows; a result window reads one statement and
+	 * needs no order of its own. See _tiebreakerColumns.
 	 */
 	private _paginate(limit: number, offset: number): string {
 		return this.dialect.pagination === 'limit-offset'
@@ -526,6 +551,12 @@ export class OdbcTableView {
 	}
 
 	async getDataValues(params: GetDataValuesParams): Promise<TableData> {
+		if (!this._keyed) {
+			const { rows } = await this._window.rows();
+			return windowDataValues(params, rows, (row, columnIndex) => this._formatValue(
+				firstValue(row, `c${columnIndex}`), this.schema[columnIndex], params.format_options));
+		}
+
 		const filteredRows = await this._filteredRows;
 		if (filteredRows === 0 || params.columns.length === 0) {
 			return { columns: Array.from({ length: params.columns.length }, () => []) };
@@ -579,6 +610,19 @@ export class OdbcTableView {
 			}
 		}
 		return result;
+	}
+
+	/**
+	 * Fetches the current state's rows for the result window: every column, under the alias of its
+	 * schema index, in the view's sort order.
+	 */
+	private _fetchWindow(limit: number): Promise<OdbcRow[]> {
+		return this._readWithBinaryFallback(this.schema, () => {
+			const selectors = this.schema.map((entry, i) => this._columnSelector(entry, `c${i}`));
+			// A constant keeps the statement valid, and the row count right, for a view with no columns.
+			return `SELECT ${selectors.join(', ') || '1'} FROM ${this._quotedTable}` +
+				`${this._whereClause}${this._sortClause}${this._paginate(limit, 0)}`;
+		});
 	}
 
 	/**
@@ -710,6 +754,7 @@ export class OdbcTableView {
 			this.rowFilters = rowFilters;
 			this._whereClause = whereClause;
 			this._filteredRows = filteredRows;
+			this._window.invalidate();
 		}
 		return { selected_num_rows: selectedRows };
 	}
@@ -717,21 +762,21 @@ export class OdbcTableView {
 	async setSortColumns(params: SetSortColumnsParams): Promise<void> {
 		this.sortKeys = params.sort_keys;
 		this._sortClause = this._buildSortClause(this.sortKeys, true);
+		this._window.invalidate();
 	}
 
 	/**
 	 * Builds an ORDER BY clause for the given sort keys, with a tiebreaker appended so that paging
 	 * is reproducible. The user's sort keys alone are only a partial order: rows tied on them may
 	 * come back in a different arrangement for every page, so a page boundary inside a tie group
-	 * repeats or drops rows. An unsorted view has no order at all, which is worse still, and is
-	 * invalid outright for the `OFFSET ... FETCH` dialects.
+	 * repeats or drops rows. See _tiebreakerColumns.
 	 */
 	private _buildSortClause(sortKeys: Array<ColumnSortKey>, includeTiebreaker: boolean): string {
 		const exprs = sortKeys.map(key =>
 			`${this._quote(this.schema[key.column_index].column_name)}${key.ascending ? '' : ' DESC'}`);
 
 		if (includeTiebreaker) {
-			for (const name of this._tiebreakerColumns()) {
+			for (const name of this._tiebreakerColumns(exprs.length > 0)) {
 				const tiebreaker = this._quote(name);
 				if (!exprs.some(expr => expr.startsWith(tiebreaker))) {
 					exprs.push(tiebreaker);
@@ -746,16 +791,23 @@ export class OdbcTableView {
 	 * The columns to append as a pagination tiebreaker.
 	 *
 	 * ODBC exposes no portable row identity of the kind PostgreSQL's `ctid` or SQLite's `rowid`
-	 * provide, so the primary key stands in: where the backend enforces one it is unique by
-	 * definition, which is exactly what LIMIT/OFFSET paging needs. Backends reached over ODBC that
-	 * treat a declared key as advisory rather than enforcing it (Snowflake, the Hive family) get a
-	 * better order than an arbitrary column but still not a guaranteed one.
+	 * provide, so an enforced primary key stands in: it is unique by definition, which is exactly
+	 * what paging needs.
 	 *
-	 * With no key to be had -- a view, or a table without one -- the first column stands in. That is
-	 * not unique, so rows tied on it can still swap between pages; it is a floor rather than a fix,
-	 * and those cases want a materialized snapshot instead.
+	 * A result window needs no tiebreaker, since it reads every row of a state from one statement.
+	 * But `OFFSET ... FETCH` is invalid without an ORDER BY on SQL Server, so an unsorted window in
+	 * those dialects is ordered only to make the statement valid: by a declared key, enforced or not,
+	 * as the likeliest column to be indexed and sortable, or else by the first column.
+	 *
+	 * @param sorted Whether the user's sort keys already supply an ORDER BY.
 	 */
-	private _tiebreakerColumns(): ReadonlyArray<string> {
+	private _tiebreakerColumns(sorted: boolean): ReadonlyArray<string> {
+		if (this._keyed) {
+			return this.rowIdentity;
+		}
+		if (sorted || this.dialect.pagination !== 'offset-fetch') {
+			return [];
+		}
 		if (this.rowIdentity.length > 0) {
 			return this.rowIdentity;
 		}
@@ -763,12 +815,17 @@ export class OdbcTableView {
 	}
 
 	async getState(): Promise<BackendState> {
-		const [unfilteredRows, filteredRows] = await Promise.all([this._unfilteredRows, this._filteredRows]);
+		const [unfilteredRows, filteredRows, held] = await Promise.all([
+			this._unfilteredRows, this._filteredRows, this._keyed ? undefined : this._window.rows().catch(() => undefined)]);
+		const { num_rows, total_num_rows } = this._keyed ?
+			{ num_rows: filteredRows, total_num_rows: undefined } :
+			windowRowCounts(held, filteredRows, this._window.limit);
 		const numColumns = this.schema.length;
 		return {
 			display_name: this.ref.name,
-			table_shape: { num_rows: filteredRows, num_columns: numColumns },
+			table_shape: { num_rows, num_columns: numColumns },
 			table_unfiltered_shape: { num_rows: unfilteredRows, num_columns: numColumns },
+			total_num_rows,
 			has_row_labels: false,
 			column_filters: [],
 			row_filters: this.rowFilters,
@@ -843,6 +900,12 @@ export class OdbcTableView {
 	}
 
 	async exportDataSelection(params: ExportDataSelectionParams): Promise<ExportedData> {
+		if (!this._keyed) {
+			const { rows } = await this._window.rows();
+			return windowExport(params, rows, this.schema.map(entry => entry.column_name),
+				(row, columnIndex) => this._stringifyExportCell(firstValue(row, `c${columnIndex}`), this.schema[columnIndex]));
+		}
+
 		const kind = params.selection.kind;
 		const order = this._sortClause;
 
@@ -1249,29 +1312,10 @@ function escapeLikePattern(term: string): string {
 	return term.replace(/[%_!]/g, match => `${LIKE_ESCAPE_CHAR}${match}`);
 }
 
-/** Type guard distinguishing a contiguous index range from an explicit index set. */
-function isSelectionRange(spec: ArraySelection): spec is DataSelectionRange {
-	return (spec as DataSelectionRange).first_index !== undefined;
-}
-
 /** Stringifies a raw ODBC value for export, rendering null as 'NULL' and binary compactly. */
 function stringifyExportCell(value: unknown): string {
 	if (value === null || value === undefined) {
 		return 'NULL';
 	}
 	return String(value);
-}
-
-/** Renders an export matrix (header row + data rows) into the requested format. */
-function formatExport(matrix: string[][], format: ExportFormat): string {
-	switch (format) {
-		case ExportFormat.Csv:
-			return matrix.map(row => row.join(',')).join('\n');
-		case ExportFormat.Tsv:
-			return matrix.map(row => row.join('\t')).join('\n');
-		case ExportFormat.Html:
-			return matrix.map(row => `<tr><td>${row.join('</td><td>')}</td></tr>`).join('\n');
-		default:
-			throw new Error(`Unknown export format: ${format}`);
-	}
 }

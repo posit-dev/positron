@@ -605,6 +605,10 @@ const excludedExtensions = [
 	// driver extensions bundle via esbuild. It is not an extension and must not be
 	// packaged or activated at runtime.
 	'positron-data-explorer-formatting',
+	// Build-time-only package: shared Data Explorer result window that the server
+	// data driver extensions bundle via esbuild. It is not an extension and must
+	// not be packaged or activated at runtime.
+	'positron-data-explorer-window',
 	// Build-time-only package: shared DuckDB-backed Data Explorer backend that the
 	// DuckDB (and later pins) data driver extensions bundle via esbuild. It is not
 	// an extension and must not be packaged or activated at runtime.

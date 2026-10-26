@@ -25,6 +25,7 @@
     "@types/mocha": "^9.1.0",
     "positron-data-explorer-formatting": "file:../positron-data-explorer-formatting",
     "positron-data-explorer-protocol": "file:../positron-data-explorer-protocol",
+    "positron-data-explorer-window": "file:../positron-data-explorer-window",
     "@types/node": "14.x",
     "@vscode/test-electron": "^2.1.2",
     "@vscode/vsce": "^3.3.2",

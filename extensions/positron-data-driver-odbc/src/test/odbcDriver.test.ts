@@ -119,12 +119,17 @@ suite('database profiles', () => {
 				mysql: resolveDialect('MySQL ODBC 8.0 Unicode Driver'),
 				sqlserver: resolveDialect('ODBC Driver 18 for SQL Server'),
 				postgres: resolveDialect('PostgreSQL Unicode'),
+				snowflake: resolveDialect('SnowflakeDSIIDriver'),
 				unknown: resolveDialect('Some Unknown Driver'),
 			},
 			{
-				mysql: { identifierQuote: '`', pagination: 'limit-offset' },
+				mysql: { identifierQuote: '`', pagination: 'limit-offset', enforcesPrimaryKeys: true },
+				// Not trusted over ODBC: the same drivers reach Synapse and Fabric, where keys are NOT ENFORCED.
 				sqlserver: { identifierQuote: '"', pagination: 'offset-fetch' },
+				// Not trusted over ODBC: inheritance parents, and Redshift reached through these drivers.
 				postgres: { identifierQuote: '"', pagination: 'limit-offset' },
+				// Snowflake accepts a primary key but does not enforce it.
+				snowflake: { identifierQuote: '"', pagination: 'limit-offset' },
 				unknown: DEFAULT_DIALECT,
 			}
 		);
