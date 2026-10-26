@@ -32,6 +32,7 @@ export const DEFAULT_ERROR_ACTION_HANDLER_LABEL = POSIT_ASSISTANT_ERROR_ACTION_H
 // always a valid choice.
 const errorActionHandlerChoiceIds: string[] = [DEFAULT_ERROR_ACTION_HANDLER_ID];
 const errorActionHandlerChoiceLabels: string[] = [DEFAULT_ERROR_ACTION_HANDLER_LABEL];
+const errorActionHandlerChoiceDescriptions: string[] = [''];
 
 /** The schema of {@link ERROR_ACTIONS_AGENT_KEY}. */
 const errorActionHandlerSchema: IConfigurationPropertySchema = {
@@ -39,6 +40,7 @@ const errorActionHandlerSchema: IConfigurationPropertySchema = {
 	default: DEFAULT_ERROR_ACTION_HANDLER_ID,
 	enum: errorActionHandlerChoiceIds,
 	enumItemLabels: errorActionHandlerChoiceLabels,
+	enumDescriptions: errorActionHandlerChoiceDescriptions,
 	description: localize(
 		'positron.ai.errorActions.agent',
 		"Controls which coding agent handles Fix and Explain on console, notebook, and Quarto errors."
@@ -109,18 +111,21 @@ configurationRegistry.registerConfiguration(aiConfigurationNode);
 /**
  * Set the choices the Settings editor lists for {@link ERROR_ACTIONS_AGENT_KEY}:
  * the default handler, always first and listed once, then the others.
- * @param choices The handlers to list, in order.
+ * @param choices The handlers to list, in order, each with the description the
+ *   Settings editor shows when it's highlighted.
  */
-export function setErrorActionHandlerChoices(choices: readonly Pick<IErrorActionHandlerInfo, 'id' | 'label'>[]): void {
+export function setErrorActionHandlerChoices(choices: readonly (Pick<IErrorActionHandlerInfo, 'id' | 'label'> & { readonly description?: string })[]): void {
 	const others = choices.filter(choice => choice.id !== DEFAULT_ERROR_ACTION_HANDLER_ID);
 	const ids = [DEFAULT_ERROR_ACTION_HANDLER_ID, ...others.map(choice => choice.id)];
 	const labels = [DEFAULT_ERROR_ACTION_HANDLER_LABEL, ...others.map(choice => choice.label)];
+	const descriptions = ['', ...others.map(choice => choice.description ?? '')];
 	// A schema update re-renders the Settings editor, so skip it when nothing changed.
-	if (equals(errorActionHandlerChoiceIds, ids) && equals(errorActionHandlerChoiceLabels, labels)) {
+	if (equals(errorActionHandlerChoiceIds, ids) && equals(errorActionHandlerChoiceLabels, labels) && equals(errorActionHandlerChoiceDescriptions, descriptions)) {
 		return;
 	}
 	// Update in place, since the Settings editor caches the schema's arrays.
 	errorActionHandlerChoiceIds.splice(0, errorActionHandlerChoiceIds.length, ...ids);
 	errorActionHandlerChoiceLabels.splice(0, errorActionHandlerChoiceLabels.length, ...labels);
+	errorActionHandlerChoiceDescriptions.splice(0, errorActionHandlerChoiceDescriptions.length, ...descriptions);
 	configurationRegistry.notifyConfigurationSchemaUpdated(aiConfigurationNode);
 }

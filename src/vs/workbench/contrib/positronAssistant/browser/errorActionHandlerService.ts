@@ -32,6 +32,15 @@ const ACTIVATION_TIMEOUT = 30_000;
 /** How long a click waits before showing that the handler is starting. */
 const ACTIVATION_PROGRESS_DELAY = 500;
 
+/** A handler an installed extension contributes. */
+interface IContributedHandler extends IErrorActionHandlerContribution {
+	/**
+	 * The description of the extension that contributes it, shown in the
+	 * setting, as `editor.defaultFormatter` shows each formatter's.
+	 */
+	readonly description: string | undefined;
+}
+
 export class ErrorActionHandlerService extends Disposable implements IErrorActionHandlerService {
 	declare readonly _serviceBrand: undefined;
 
@@ -48,7 +57,7 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 	private _activeHandler: IErrorActionHandlerInfo | undefined;
 
 	/** Handlers contributed by installed, enabled extensions, by id. */
-	private _contributionsById: Map<string, IErrorActionHandlerContribution>;
+	private _contributionsById: Map<string, IContributedHandler>;
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -197,12 +206,12 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 	 * Read the handlers that installed, enabled extensions contribute, except
 	 * the default, whose id is reserved for Positron.
 	 */
-	private _readContributions(): Map<string, IErrorActionHandlerContribution> {
-		const contributions = new Map<string, IErrorActionHandlerContribution>();
+	private _readContributions(): Map<string, IContributedHandler> {
+		const contributions = new Map<string, IContributedHandler>();
 		for (const extension of this._extensionService.extensions) {
 			for (const contribution of getErrorActionHandlerContributions(extension)) {
 				if (contribution.id !== DEFAULT_ERROR_ACTION_HANDLER_ID) {
-					contributions.set(contribution.id, contribution);
+					contributions.set(contribution.id, { ...contribution, description: extension.description });
 				}
 			}
 		}
@@ -257,12 +266,12 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 	 * the first choice.
 	 */
 	private _updateChoices(): void {
-		const choicesById = new Map<string, Pick<IErrorActionHandlerInfo, 'id' | 'label'>>();
+		const choicesById = new Map<string, Pick<IContributedHandler, 'id' | 'label' | 'description'>>();
 		for (const contribution of this._contributionsById.values()) {
 			choicesById.set(contribution.id, contribution);
 		}
 		for (const handler of this._handlersById.values()) {
-			choicesById.set(handler.id, handler);
+			choicesById.set(handler.id, { id: handler.id, label: handler.label, description: this._contributionsById.get(handler.id)?.description });
 		}
 		const choices = [...choicesById.values()].sort((a, b) => a.label.localeCompare(b.label));
 		// A chosen handler may be neither, e.g. if its extension was uninstalled.
@@ -272,7 +281,7 @@ export class ErrorActionHandlerService extends Disposable implements IErrorActio
 		const chosenIds = new Set([this._getChosenHandlerId(), userLocalValue, userRemoteValue, workspaceValue, policyValue]);
 		for (const id of chosenIds) {
 			if (typeof id === 'string' && id && id !== DEFAULT_ERROR_ACTION_HANDLER_ID && !choicesById.has(id)) {
-				choices.push({ id, label: localize('positron.errorAction.unavailableChoice', "{0} (not available)", id) });
+				choices.push({ id, label: localize('positron.errorAction.unavailableChoice', "{0} (not available)", id), description: undefined });
 			}
 		}
 		setErrorActionHandlerChoices(choices);

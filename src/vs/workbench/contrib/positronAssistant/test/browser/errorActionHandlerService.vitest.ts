@@ -96,9 +96,14 @@ describe('ErrorActionHandlerService', () => {
 	function installContributingExtension(...contributions: object[]): void {
 		// The contribution point isn't one of upstream's typed contributions.
 		const contributes: object = { errorActionHandlers: contributions.length ? contributions : [{ id: 'test-handler', label: 'Contributed Handler' }] };
-		const extension = stubInterface<IExtensionDescription>({ contributes: contributes as IExtensionDescription['contributes'] });
+		const extension = stubInterface<IExtensionDescription>({ description: 'Contributing extension', contributes: contributes as IExtensionDescription['contributes'] });
 		extensions = [extension];
 		onDidChangeExtensions.fire({ added: [extension], removed: [] });
+	}
+
+	/** The descriptions the setting shows for its choices. */
+	function getChoiceDescriptions() {
+		return Registry.as<IConfigurationRegistry>(Extensions.Configuration).getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY].enumDescriptions;
 	}
 
 	/** The ids and labels the setting lists. */
@@ -149,6 +154,8 @@ describe('ErrorActionHandlerService', () => {
 			ids: ['posit-assistant', 'alpha', 'middle', 'zed'],
 			labels: ['Posit Assistant', 'Alpha Agent', 'Middle Agent', 'Zed Agent'],
 		});
+		// Each contributed one is described by its extension's description.
+		expect(getChoiceDescriptions()).toEqual(['', 'Contributing extension', '', 'Contributing extension']);
 	});
 
 	it('offers to continue the chat while the chosen handler is not registered, if its extension declares it can', () => {
