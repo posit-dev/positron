@@ -56,15 +56,11 @@ export async function openChat(prompt: string): Promise<void> {
  * Start `claude` in a new terminal, which sends the prompt at once.
  *
  * Positron opens its own terminal rather than running Claude Code's
- * `claude-vscode.terminal.open` (checked in v2.1.310), since that command:
- * - exists only with the Claude Code extension, and the terminal also serves
- *   users who have only the command-line tool;
- * - starts a shell and types the quoted command line into it once shell
- *   integration is ready, or after 3 seconds, which breaks on Windows and with
- *   multi-line prompts, and leaves the prompt in shell history.
- *
- * Here `claude` is the terminal's process, with the prompt as its last
- * argument, so the prompt needs no quoting and keeps its newlines.
+ * `claude-vscode.terminal.open` (checked in v2.1.310), which starts a shell and
+ * types the quoted command line into it. That breaks on Windows and with long
+ * or multi-line prompts, and leaves the prompt in shell history. Here `claude`
+ * is the terminal's process, with the prompt as its last argument, so the
+ * prompt needs no quoting and keeps its newlines.
  */
 export function openTerminal(launch: CommandLaunch, prompt: string, extension: vscode.Extension<unknown> | undefined): void {
 	// Match the terminals Claude Code opens itself: a brief notification while
