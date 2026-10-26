@@ -21,7 +21,6 @@ describe('getCommandLaunch', () => {
 	beforeEach(() => {
 		binDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'command-launch-'));
 		vi.stubEnv('PATH', binDirectory);
-		vi.stubEnv('PATHEXT', '.EXE;.CMD');
 	});
 
 	afterEach(() => {
@@ -88,7 +87,7 @@ describe('getCommandLaunch', () => {
 			vi.mocked(os.platform).mockReturnValue('win32');
 			vi.stubEnv('PATH', [binDirectory, otherDirectory].join(path.delimiter));
 			touch('claude.cmd');
-			const claude = path.join(otherDirectory, 'claude.EXE');
+			const claude = path.join(otherDirectory, 'claude.exe');
 			fs.writeFileSync(claude, '');
 			expect(await getCommandLaunch('claude', '@anthropic-ai/claude-code/cli.js')).toEqual({ command: claude, args: [] });
 		} finally {

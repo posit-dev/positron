@@ -30,7 +30,7 @@ export interface CommandLaunch {
 export async function getCommandLaunch(executable: string, npmScript: string): Promise<CommandLaunch | undefined> {
 	// Skip a batch launcher that isn't npm's (e.g. pnpm's, or one left behind
 	// by an uninstall) rather than give up, since a later one may run.
-	for (const executablePath of await findOnPath(executable)) {
+	for await (const executablePath of findOnPath(executable)) {
 		if (!/\.(cmd|bat)$/i.test(executablePath)) {
 			return { command: executablePath, args: [] };
 		}
@@ -43,7 +43,7 @@ export async function getCommandLaunch(executable: string, npmScript: string): P
 			continue;
 		}
 		const localNode = path.join(directory, 'node.exe');
-		const node = await isFile(localNode) ? localNode : (await findOnPath('node'))[0];
+		const node = await isFile(localNode) ? localNode : await findFirstOnPath('node');
 		if (node) {
 			return { command: node, args: [script] };
 		}
@@ -51,21 +51,38 @@ export async function getCommandLaunch(executable: string, npmScript: string): P
 	return undefined;
 }
 
+/** The kinds of Windows executable that can be launched. */
+const WINDOWS_EXTENSIONS = ['.exe', '.cmd', '.bat'];
+
 /**
  * Find an executable on the PATH, including Windows launchers like
- * `claude.cmd`. Mirrors positron-supervisor's lookup for its MCP agents.
+ * `claude.cmd`.
  * @returns Every match, in PATH order.
  */
-async function findOnPath(executable: string): Promise<string[]> {
+async function* findOnPath(executable: string): AsyncGenerator<string> {
 	const directories = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+	// Only the kinds that can be launched, not all of PATHEXT, which would
+	// also find scripts like `claude.js` and check several times the files.
 	const names = os.platform() === 'win32'
-		? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';').map(ext => executable + ext)
+		? WINDOWS_EXTENSIONS.map(ext => executable + ext)
 		: [executable];
 	// Check every candidate at once, so one slow directory doesn't hold up
-	// the rest, and keep them in PATH order.
+	// the rest, but yield each match in PATH order as soon as it's known.
 	const candidates = directories.flatMap(directory => names.map(name => path.join(directory, name)));
-	const found = await Promise.all(candidates.map(candidate => isExecutable(candidate)));
-	return candidates.filter((_, i) => found[i]);
+	const checks = candidates.map(candidate => isExecutable(candidate));
+	for (let i = 0; i < candidates.length; i++) {
+		if (await checks[i]) {
+			yield candidates[i];
+		}
+	}
+}
+
+/** The first match for an executable on the PATH, or undefined if none. */
+async function findFirstOnPath(executable: string): Promise<string | undefined> {
+	for await (const executablePath of findOnPath(executable)) {
+		return executablePath;
+	}
+	return undefined;
 }
 
 /**
