@@ -7,11 +7,12 @@
 import './actionBars.css';
 
 // React.
-import { FormEvent, KeyboardEvent, PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, PropsWithChildren, useEffect, useId, useRef, useState } from 'react';
 
 // Other dependencies.
+import { timeout } from '../../../../../base/common/async.js';
+import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
-import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { localize } from '../../../../../nls.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
@@ -40,108 +41,64 @@ const tooltipShowPositronHelp = localize('positronShowPositronHelp', "Show Posit
 const tooltipHelpHistory = localize('positronHelpHistory', "Help history");
 const clearHelpSearch = localize('positronHelpSearch.clear', "Clear help search");
 const noHelpSearchRuntime = localize('positronHelpSearch.noRuntime', "Start an interpreter to search help");
+const noHelpSearch = localize('positronHelpSearch.unavailable', "Help search is unavailable for the active interpreter.");
 
 const kMaximumSuggestions = 50;
+const kSuggestionDelayMs = 200;
 
+/**
+ * The Help pane search box. Typing shows topic suggestions; Enter opens the
+ * active suggestion or searches the foreground interpreter's help.
+ */
 const HelpSearch = () => {
 	const services = usePositronReactServicesContext();
-	const inFlight = useRef<{ sessionId: string; promise: Promise<HelpTopicSuggestion[]> } | undefined>(undefined);
-	const [foregroundSession, setForegroundSession] = useState(services.runtimeSessionService.foregroundSession);
+	const helpService = services.positronHelpService;
+	const [foregroundSession, setForegroundSession] = useState(() => services.runtimeSessionService.foregroundSession);
 	const [query, setQuery] = useState('');
 	const [topics, setTopics] = useState<HelpTopicSuggestion[]>([]);
 	const [focused, setFocused] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(-1);
-	const [submitting, setSubmitting] = useState(false);
-	const submission = useRef(0);
-	const activeSubmission = useRef<{ query: string; topic: string | undefined; package: string | undefined } | undefined>(undefined);
-	const suggestionSessionVersion = useRef(0);
+	const [searching, setSearching] = useState(false);
+	// Cancels the pending search or topic request.
+	const searchCts = useRef<CancellationTokenSource | undefined>(undefined);
 	const suggestionsRef = useRef<HTMLDivElement>(null);
-	const [runtimeState, setRuntimeState] = useState(foregroundSession?.getRuntimeState());
+	const listId = useId();
 
 	useEffect(() => {
 		const disposable = services.runtimeSessionService.onDidChangeForegroundSession(session => {
-			// Invalidate responses synchronously, before React runs effect cleanup.
-			suggestionSessionVersion.current++;
 			setForegroundSession(session);
-			setRuntimeState(session?.getRuntimeState());
-			submission.current++;
-			activeSubmission.current = undefined;
-			setSubmitting(false);
 			setTopics([]);
 			setActiveIndex(-1);
 		});
-		return () => {
-			disposable.dispose();
-			if (activeSubmission.current) {
-				activeSubmission.current = undefined;
-				services.positronHelpService.cancelSearch();
-			}
-		};
-	}, [services.runtimeSessionService, services.positronHelpService]);
+		return () => disposable.dispose();
+	}, [services.runtimeSessionService]);
 
-	useEffect(() => {
-		const listener = foregroundSession?.onDidChangeRuntimeState(setRuntimeState);
-		return () => listener?.dispose();
-	}, [foregroundSession]);
+	// Cancel the pending search when the search box goes away.
+	useEffect(() => () => searchCts.current?.dispose(true), []);
 
+	// Request suggestions for the current query. The current list stays until
+	// the new one arrives, so the list does not flicker while the user types.
 	useEffect(() => {
-		if (!focused || !foregroundSession || !query.trim()) {
+		const value = query.trim();
+		if (!focused || !foregroundSession || !value) {
 			setTopics([]);
 			setActiveIndex(-1);
 			return;
 		}
-		// Keep the current list during the debounce and request. Cleanup prevents
-		// a response for an earlier query or session from replacing it.
-		let cancelled = false;
-		const sessionVersion = suggestionSessionVersion.current;
-		const isCurrent = () => !cancelled && sessionVersion === suggestionSessionVersion.current;
-		let dispatched = false;
-		let timer: number | undefined;
-		const ready = () => [RuntimeState.Idle, RuntimeState.Ready].includes(foregroundSession.getRuntimeState());
-		const requestSuggestions = async () => {
-			if (!isCurrent() || dispatched || !ready()) {
-				return;
-			}
-			if (inFlight.current?.sessionId === foregroundSession.sessionId) {
-				await inFlight.current.promise.catch(() => []);
-			}
-			if (!isCurrent() || dispatched || !ready()) {
-				return;
-			}
-			dispatched = true;
-			const promise = services.positronHelpService.getHelpTopics(query.trim(), kMaximumSuggestions);
-			const request = { sessionId: foregroundSession.sessionId, promise };
-			inFlight.current = request;
-			try {
-				const result = await promise;
-				if (isCurrent()) {
-					setTopics(result);
-					setActiveIndex(-1);
-				}
-			} catch {
-				// Full search remains available when suggestions fail.
-			} finally {
-				if (inFlight.current === request) {
-					inFlight.current = undefined;
-				}
+		const cts = new CancellationTokenSource();
+		const requestTopics = async () => {
+			await timeout(kSuggestionDelayMs, cts.token);
+			const result = await helpService.getHelpTopics(value, kMaximumSuggestions, cts.token);
+			// The foreground session can change before React cancels this request.
+			if (!cts.token.isCancellationRequested && services.runtimeSessionService.foregroundSession === foregroundSession) {
+				setTopics(result);
+				setActiveIndex(-1);
 			}
 		};
-		const schedule = () => {
-			if (!dispatched) {
-				window.clearTimeout(timer);
-				timer = window.setTimeout(() => void requestSuggestions(), 200);
-			}
-		};
-		// Wait for idle if user code is running. Once dispatched, the comm's
-		// own Busy/Idle events must not trigger another identical request.
-		const listener = foregroundSession.onDidChangeRuntimeState(schedule);
-		schedule();
-		return () => {
-			cancelled = true;
-			window.clearTimeout(timer);
-			listener.dispose();
-		};
-	}, [focused, foregroundSession, query, services.positronHelpService]);
+		// Suggestions are optional. Search still works if they fail.
+		requestTopics().catch(() => { });
+		return () => cts.dispose(true);
+	}, [focused, foregroundSession, query, helpService, services.runtimeSessionService]);
 
 	const suggestionsVisible = focused && topics.length > 0;
 
@@ -151,51 +108,44 @@ const HelpSearch = () => {
 		}
 	}, [activeIndex, suggestionsVisible]);
 
-	const cancelSubmission = () => {
-		submission.current++;
-		if (activeSubmission.current) {
-			activeSubmission.current = undefined;
-			services.positronHelpService.cancelSearch();
-		}
-		setSubmitting(false);
+	const cancelSearch = () => {
+		searchCts.current?.dispose(true);
+		searchCts.current = undefined;
+		setSearching(false);
 	};
 
 	const runSearch = async (topic?: HelpTopicSuggestion) => {
 		const value = query.trim();
-		if ((!value && !topic) || !foregroundSession) {
+		if (!value && !topic) {
 			return;
 		}
-		// Ignore repeated Enter/click events for the same pending request.
-		if (activeSubmission.current?.query === value && (!topic || (activeSubmission.current.topic === topic.topic && activeSubmission.current.package === topic.package))) {
-			return;
-		}
-		cancelSubmission();
-		const currentSubmission = ++submission.current;
-		activeSubmission.current = { query: value, topic: topic?.topic, package: topic?.package };
-		setSubmitting(true);
+		cancelSearch();
+		const cts = new CancellationTokenSource();
+		searchCts.current = cts;
+		setSearching(true);
 		setActiveIndex(-1);
 		setFocused(false);
 		try {
-			const result = topic
-				? await services.positronHelpService.showHelpTopicForForegroundSession(topic.topic, topic.package)
-				: await services.positronHelpService.searchHelp(value);
-			if (activeSubmission.current && submission.current === currentSubmission) {
-				if (topic && result === HelpTopicResult.NotFound) {
+			if (topic) {
+				const result = await helpService.showHelpTopicForForegroundSession(topic.topic, topic.package, cts.token);
+				if (!cts.token.isCancellationRequested && result === HelpTopicResult.NotFound) {
 					services.notificationService.info(localize('positronHelpSearch.notFound', "No help found for '{0}'.", topic.topic));
-				} else if (result === HelpTopicResult.Unavailable || result === false) {
-					services.notificationService.info(localize('positronHelpSearch.unavailable', "Help search is unavailable for the active interpreter."));
+				} else if (!cts.token.isCancellationRequested && result === HelpTopicResult.Unavailable) {
+					services.notificationService.info(noHelpSearch);
 				}
+			} else if (!await helpService.searchHelp(value, cts.token) && !cts.token.isCancellationRequested) {
+				services.notificationService.info(noHelpSearch);
 			}
 		} catch (error) {
-			if (isCancellationError(error) || !activeSubmission.current || submission.current !== currentSubmission) {
-				return;
+			if (!cts.token.isCancellationRequested && !isCancellationError(error)) {
+				services.notificationService.warn(localize('positronHelpSearch.error', "An error occurred while searching help: {0}", error.message));
 			}
-			services.notificationService.warn(localize('positronHelpSearch.error', "An error occurred while searching help: {0}", error.message));
 		} finally {
-			if (activeSubmission.current && submission.current === currentSubmission) {
-				activeSubmission.current = undefined;
-				setSubmitting(false);
+			if (searchCts.current === cts) {
+				searchCts.current = undefined;
+				setSearching(false);
 			}
+			cts.dispose();
 		}
 	};
 
@@ -205,14 +155,18 @@ const HelpSearch = () => {
 	};
 
 	const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-		if (event.key === 'ArrowDown' && suggestionsVisible) {
+		if (event.key === 'ArrowDown') {
 			event.preventDefault();
-			setActiveIndex(index => Math.min(index + 1, topics.length - 1));
+			if (suggestionsVisible) {
+				setActiveIndex(index => Math.min(index + 1, topics.length - 1));
+			} else {
+				setFocused(true);
+			}
 		} else if (event.key === 'ArrowUp' && suggestionsVisible) {
 			event.preventDefault();
 			setActiveIndex(index => Math.max(index - 1, -1));
 		} else if (event.key === 'Escape') {
-			cancelSubmission();
+			cancelSearch();
 			setActiveIndex(-1);
 			setFocused(false);
 		}
@@ -222,13 +176,12 @@ const HelpSearch = () => {
 	const placeholder = languageName
 		? localize('positronHelpSearch.placeholder', "Search {0} Help", languageName)
 		: noHelpSearchRuntime;
-	const listId = 'positron-help-search-suggestions';
 
 	return (
 		<form className='help-search' onSubmit={onSubmit}>
 			<span className={ThemeIcon.asClassName(ThemeIcon.fromId('search'))} />
 			<input
-				aria-activedescendant={suggestionsVisible && activeIndex >= 0 && activeIndex < topics.length ? `${listId}-${activeIndex}` : undefined}
+				aria-activedescendant={suggestionsVisible && activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
 				aria-autocomplete='list'
 				aria-controls={suggestionsVisible ? listId : undefined}
 				aria-expanded={suggestionsVisible}
@@ -243,12 +196,11 @@ const HelpSearch = () => {
 				onFocus={() => setFocused(true)}
 				onKeyDown={onKeyDown}
 			/>
-			{submitting && <span role='status'>
-				{runtimeState === RuntimeState.Busy || runtimeState === RuntimeState.Interrupting
-					? localize('positronHelpSearch.waiting', "Waiting for interpreter...")
-					: localize('positronHelpSearch.searching', "Searching...")}
-			</span>}
-			{query && <button aria-label={clearHelpSearch} type='button' onClick={() => { cancelSubmission(); setQuery(''); setActiveIndex(-1); setFocused(false); }}>
+			{/* Always rendered, so screen readers announce the status when it changes. */}
+			<span className='help-search-status' role='status'>
+				{searching ? localize('positronHelpSearch.searching', "Searching...") : ''}
+			</span>
+			{query && <button aria-label={clearHelpSearch} type='button' onClick={() => { cancelSearch(); setQuery(''); setActiveIndex(-1); setFocused(false); }}>
 				<span className={ThemeIcon.asClassName(ThemeIcon.fromId('close'))} />
 			</button>}
 			{suggestionsVisible && <div ref={suggestionsRef} aria-label={placeholder} className='help-search-suggestions' id={listId} role='listbox'>

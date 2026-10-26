@@ -10,6 +10,7 @@ vi.hoisted(() => Object.assign(globalThis, {
 }));
 
 import { DeferredPromise } from '../../../../../base/common/async.js';
+import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
@@ -41,7 +42,10 @@ describe('Help search lifecycle', () => {
 		.stub(IViewsService, { openView })
 		.build();
 
+	let cts: CancellationTokenSource;
+
 	beforeEach(() => {
+		cts = new CancellationTokenSource();
 		state = RuntimeState.Idle;
 		stateEvents = ctx.disposables.add(new Emitter<RuntimeState>());
 		foregroundEvents = ctx.disposables.add(new Emitter<ILanguageRuntimeSession | undefined>());
@@ -69,136 +73,138 @@ describe('Help search lifecycle', () => {
 		}));
 	});
 
-	afterEach(() => vi.useRealTimers());
-
-	const emitResult = (id: string | undefined, content = 'https://example.com/help') =>
-		helpEvents.fire({ content, kind: ShowHelpKind.Url, focus: false, search_id: id });
-
-	it('accepts navigation before its RPC acknowledgement', async () => {
-		const ack = new DeferredPromise<boolean>();
-		search.mockReturnValue(ack.p);
-		const pending = service.searchHelp('linear model');
-		emitResult(search.mock.calls[0][1]);
-		await vi.waitFor(() => expect(open).toHaveBeenCalledOnce());
-		void ack.complete(true);
-		expect(await pending).toBe(true);
+	afterEach(() => {
+		cts.dispose();
+		vi.useRealTimers();
 	});
 
-	it('accepts navigation after its RPC acknowledgement', async () => {
-		const pending = service.searchHelp('linear model');
-		await Promise.resolve();
-		emitResult(search.mock.calls[0][1]);
-		expect(await pending).toBe(true);
-	});
+	const startSearch = (query = 'linear model') => service.searchHelp(query, cts.token);
+	// The search is sent after the idle check settles, one microtask later.
+	const searchId = async (call = 0) => {
+		await vi.waitFor(() => expect(search.mock.calls.length).toBeGreaterThan(call));
+		return search.mock.calls[call][1];
+	};
+	const setState = (newState: RuntimeState) => {
+		state = newState;
+		stateEvents.fire(newState);
+	};
+	const emitPage = (id: string | undefined, content = 'https://example.com/help', kind = ShowHelpKind.Url) =>
+		helpEvents.fire({ content, kind, focus: false, search_id: id });
 
-	it('drops late navigation after timeout but keeps console help', async () => {
-		vi.useFakeTimers();
-		const pending = service.searchHelp('linear model').catch(error => error);
-		const id = search.mock.calls[0][1];
-		await vi.advanceTimersByTimeAsync(HELP_SEARCH_TIMEOUT_MS);
-		expect(await pending).toBeInstanceOf(Error);
-		emitResult(id);
-		expect(open).not.toHaveBeenCalled();
-		emitResult(undefined);
-		expect(open).toHaveBeenCalledOnce();
-	});
-
-	it('waits for the interpreter instead of sending while busy', async () => {
-		state = RuntimeState.Busy;
-		const pending = service.searchHelp('linear model');
-		expect(search).not.toHaveBeenCalled();
-		state = RuntimeState.Idle;
-		stateEvents.fire(state);
-		expect(search).toHaveBeenCalledOnce();
-		emitResult(search.mock.calls[0][1]);
-		expect(await pending).toBe(true);
-	});
-
-	it.each([RuntimeState.Busy, RuntimeState.Interrupting, RuntimeState.Idle])('explicit cancellation while %s prevents dispatch or late navigation', async initialState => {
-		vi.useFakeTimers();
-		state = initialState;
-		const ack = new DeferredPromise<boolean>();
-		search.mockReturnValueOnce(ack.p);
-		const pending = service.searchHelp('old query').catch(error => error);
-		const id = search.mock.calls[0]?.[1];
-		service.cancelSearch();
-		service.cancelSearch();
-		expect(await pending).toBeInstanceOf(CancellationError);
-		state = RuntimeState.Idle;
-		stateEvents.fire(state);
-		await ack.complete(true);
-		if (id) {
-			emitResult(id);
+	it.each(['reply', 'page'])('shows the results page when the %s arrives first', async first => {
+		const reply = new DeferredPromise<boolean>();
+		search.mockReturnValue(reply.p);
+		const pending = startSearch();
+		if (first === 'reply') {
+			await reply.complete(true);
+			emitPage(await searchId());
+		} else {
+			emitPage(await searchId());
+			await reply.complete(true);
 		}
+		expect(await pending).toBe(true);
+		expect(open).toHaveBeenCalledOnce();
+	});
+
+	it('returns false without waiting for a page when the interpreter declines', async () => {
+		search.mockResolvedValue(false);
+		expect(await startSearch()).toBe(false);
+	});
+
+	it.each([RuntimeState.Busy, RuntimeState.Interrupting, RuntimeState.Starting])('waits while %s, then searches once', async initialState => {
+		state = initialState;
+		const pending = startSearch();
+		expect(search).not.toHaveBeenCalled();
+		setState(RuntimeState.Idle);
+		// The search request itself makes the interpreter busy, then idle.
+		setState(RuntimeState.Busy);
+		setState(RuntimeState.Idle);
+		emitPage(await searchId());
+		expect(await pending).toBe(true);
+		expect(search).toHaveBeenCalledExactlyOnceWith('linear model', expect.any(String));
+	});
+
+	it('does not time out while waiting, then times out after dispatch and ignores the late page', async () => {
+		vi.useFakeTimers();
+		state = RuntimeState.Busy;
+		search.mockReturnValue(new Promise(() => { }));
+		const pending = startSearch().catch(error => error);
+		await vi.advanceTimersByTimeAsync(2 * HELP_SEARCH_TIMEOUT_MS);
+		expect(search).not.toHaveBeenCalled();
+		setState(RuntimeState.Idle);
 		await vi.advanceTimersByTimeAsync(HELP_SEARCH_TIMEOUT_MS);
-		expect(search).toHaveBeenCalledTimes(initialState === RuntimeState.Idle ? 1 : 0);
+		expect(await pending).toEqual(new Error('Help search timed out.'));
+		emitPage(await searchId());
+		expect(open).not.toHaveBeenCalled();
+		// Console help has no search ID and is still shown.
+		emitPage(undefined);
+		expect(open).toHaveBeenCalledOnce();
+	});
+
+	it('cancellation before the request is sent prevents the request', async () => {
+		const pending = startSearch().catch(error => error);
+		cts.cancel();
+		expect(await pending).toBeInstanceOf(CancellationError);
+		expect(search).not.toHaveBeenCalled();
+	});
+
+	it('cancellation after the request is sent ignores its late page', async () => {
+		const reply = new DeferredPromise<boolean>();
+		search.mockReturnValue(reply.p);
+		const pending = startSearch().catch(error => error);
+		const id = await searchId();
+		cts.cancel();
+		expect(await pending).toBeInstanceOf(CancellationError);
+		await reply.complete(true);
+		emitPage(id);
 		expect(open).not.toHaveBeenCalled();
 	});
 
-	it('only dispatches the replacement after a busy interpreter becomes idle', async () => {
-		state = RuntimeState.Busy;
-		const oldRequest = service.searchHelp('old query').catch(error => error);
-		const newRequest = service.searchHelp('new query');
-		expect(await oldRequest).toBeInstanceOf(CancellationError);
-		state = RuntimeState.Idle;
-		stateEvents.fire(state);
-		state = RuntimeState.Busy;
-		stateEvents.fire(state);
-		state = RuntimeState.Idle;
-		stateEvents.fire(state);
-		expect(search).toHaveBeenCalledExactlyOnceWith('new query', expect.any(String));
-		emitResult(search.mock.calls[0][1]);
-		expect(await newRequest).toBe(true);
+	it('replaces the pending search and ignores its late page', async () => {
+		const oldReply = new DeferredPromise<boolean>();
+		search.mockReturnValueOnce(oldReply.p);
+		const oldSearch = startSearch('old query').catch(error => error);
+		const oldId = await searchId(0);
+		const newSearch = startSearch('new query');
+		expect(await oldSearch).toBeInstanceOf(CancellationError);
+		emitPage(await searchId(1));
+		expect(await newSearch).toBe(true);
+		await oldReply.complete(true);
+		emitPage(oldId);
 		expect(open).toHaveBeenCalledOnce();
 	});
 
-	it('ignores the replaced search acknowledgement and navigation after the new result', async () => {
-		const oldAck = new DeferredPromise<boolean>();
-		search.mockReturnValueOnce(oldAck.p);
-		const oldRequest = service.searchHelp('old query').catch(error => error);
-		const oldId = search.mock.calls[0][1];
-		const newRequest = service.searchHelp('new query');
-		expect(await oldRequest).toBeInstanceOf(CancellationError);
-		emitResult(search.mock.calls[1][1]);
-		expect(await newRequest).toBe(true);
-		await oldAck.complete(true);
-		emitResult(oldId);
-		expect(open).toHaveBeenCalledOnce();
+	it.each([
+		{ change: 'the foreground session changes', act: () => foregroundEvents.fire(undefined) },
+		{ change: 'the session exits', act: () => setState(RuntimeState.Exited) },
+	])('cancels the search when $change', async ({ act }) => {
+		state = RuntimeState.Busy;
+		const pending = startSearch().catch(error => error);
+		act();
+		expect(await pending).toBeInstanceOf(CancellationError);
+		expect(search).not.toHaveBeenCalled();
 	});
 
-	it('rechecks explicit cancellation after asynchronously opening the Help view', async () => {
+	it('drops a page that becomes stale while the Help view opens', async () => {
 		const view = new DeferredPromise<undefined>();
 		openView.mockReturnValueOnce(view.p);
-		const pending = service.searchHelp('old query').catch(error => error);
-		emitResult(search.mock.calls[0][1], 'http://localhost:12345/search');
-		service.cancelSearch();
+		const pending = startSearch().catch(error => error);
+		emitPage(await searchId(), 'http://localhost:12345/search');
+		cts.cancel();
 		expect(await pending).toBeInstanceOf(CancellationError);
 		await view.complete(undefined);
 		await Promise.resolve();
 		expect(service.helpEntries).toHaveLength(0);
 	});
 
-	it('cancels navigation when the foreground session changes', async () => {
-		const pending = service.searchHelp('linear model').catch(error => error);
-		const id = search.mock.calls[0][1];
-		foregroundEvents.fire(undefined);
-		expect(await pending).toBeInstanceOf(CancellationError);
-		emitResult(id);
-		expect(open).not.toHaveBeenCalled();
-	});
-
-	it('rechecks expiry after asynchronously opening the Help view', async () => {
+	it.each([
+		{ failure: 'the page kind is not supported', emit: async () => emitPage(await searchId(), 'html', ShowHelpKind.Html) },
+		{ failure: 'the page cannot be opened', emit: async () => { open.mockRejectedValueOnce(new Error('no browser')); emitPage(await searchId()); } },
+	])('finishes without a timeout when $failure', async ({ emit }) => {
 		vi.useFakeTimers();
-		const view = new DeferredPromise<undefined>();
-		openView.mockReturnValue(view.p);
-		const pending = service.searchHelp('linear model').catch(error => error);
-		emitResult(search.mock.calls[0][1], 'http://localhost:12345/search');
-		expect(openView).toHaveBeenCalledOnce();
-		await vi.advanceTimersByTimeAsync(HELP_SEARCH_TIMEOUT_MS);
-		expect(await pending).toBeInstanceOf(Error);
-		await view.complete(undefined);
-		await Promise.resolve();
-		expect(service.helpEntries).toHaveLength(0);
+		const pending = startSearch();
+		await emit();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(await pending).toBe(true);
 	});
-
 });

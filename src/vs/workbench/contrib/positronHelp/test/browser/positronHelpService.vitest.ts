@@ -17,6 +17,7 @@ vi.hoisted(() => {
 	});
 });
 
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Event } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
@@ -158,7 +159,7 @@ describe('PositronHelpService', () => {
 				showHelpTopic.mockResolvedValue(found);
 
 				expect({
-					result: await service.showHelpTopicForForegroundSession('plot'),
+					result: await service.showHelpTopicForForegroundSession('plot', undefined, CancellationToken.None),
 					requests: showHelpTopic.mock.calls,
 				}).toEqual({ result, requests: [['plot', undefined]] });
 			});
@@ -166,12 +167,12 @@ describe('PositronHelpService', () => {
 			it('forwards a literal alias and its package unchanged', async () => {
 				attachClient();
 				showHelpTopic.mockResolvedValue(true);
-				expect(await service.showHelpTopicForForegroundSession(':=', 'data.table')).toBe(HelpTopicResult.Found);
+				expect(await service.showHelpTopicForForegroundSession(':=', 'data.table', CancellationToken.None)).toBe(HelpTopicResult.Found);
 				expect(showHelpTopic).toHaveBeenCalledExactlyOnceWith(':=', 'data.table');
 			});
 
 			it('returns unavailable when the foreground session has no help client', async () => {
-				await expect(service.showHelpTopicForForegroundSession('plot')).resolves.toBe(HelpTopicResult.Unavailable);
+				await expect(service.showHelpTopicForForegroundSession('plot', undefined, CancellationToken.None)).resolves.toBe(HelpTopicResult.Unavailable);
 			});
 
 			it('returns unavailable without a foreground session even when another client is attached', async () => {
@@ -179,7 +180,7 @@ describe('PositronHelpService', () => {
 				foregroundSession = undefined;
 
 				expect({
-					result: await service.showHelpTopicForForegroundSession('plot'),
+					result: await service.showHelpTopicForForegroundSession('plot', undefined, CancellationToken.None),
 					requests: showHelpTopic.mock.calls,
 				}).toEqual({ result: HelpTopicResult.Unavailable, requests: [] });
 			});
@@ -189,13 +190,13 @@ describe('PositronHelpService', () => {
 				const error = new Error('Help request failed');
 				showHelpTopic.mockRejectedValue(error);
 
-				await expect(service.showHelpTopicForForegroundSession('plot')).rejects.toBe(error);
+				await expect(service.showHelpTopicForForegroundSession('plot', undefined, CancellationToken.None)).rejects.toBe(error);
 			});
 		});
 
 		describe('search', () => {
 			it('returns false when the foreground session has no help client', async () => {
-				await expect(service.searchHelp('linear model')).resolves.toBe(false);
+				await expect(service.searchHelp('linear model', CancellationToken.None)).resolves.toBe(false);
 			});
 
 			it('returns false without a foreground session even when another client is attached', async () => {
@@ -203,7 +204,7 @@ describe('PositronHelpService', () => {
 				foregroundSession = undefined;
 
 				expect({
-					result: await service.searchHelp('linear model'),
+					result: await service.searchHelp('linear model', CancellationToken.None),
 					requests: searchHelp.mock.calls,
 				}).toEqual({ result: false, requests: [] });
 			});
@@ -212,7 +213,7 @@ describe('PositronHelpService', () => {
 				attachClient();
 
 				expect({
-					result: await service.searchHelp('linear model'),
+					result: await service.searchHelp('linear model', CancellationToken.None),
 					requests: searchHelp.mock.calls,
 				}).toEqual({ result: false, requests: [['linear model', expect.any(String)]] });
 			});
@@ -222,7 +223,7 @@ describe('PositronHelpService', () => {
 				const error = new Error('Help search failed');
 				searchHelp.mockRejectedValue(error);
 
-				await expect(service.searchHelp('linear model')).rejects.toBe(error);
+				await expect(service.searchHelp('linear model', CancellationToken.None)).rejects.toBe(error);
 			});
 		});
 	});

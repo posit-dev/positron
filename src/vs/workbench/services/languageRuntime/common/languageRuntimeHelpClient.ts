@@ -30,7 +30,8 @@ export class HelpClientInstance extends Disposable {
 	) {
 		super();
 		this._comm = new PositronHelpComm(client, {
-			search_help: { timeout: HELP_SEARCH_TIMEOUT_MS },
+			// The Help service times out the search together with the page it shows.
+			search_help: { timeout: undefined },
 			get_help_topics: { timeout: HELP_SEARCH_TIMEOUT_MS },
 		});
 		this._register(this._comm);
