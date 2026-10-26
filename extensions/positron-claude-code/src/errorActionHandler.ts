@@ -7,8 +7,14 @@ import * as path from 'node:path';
 import type * as positron from 'positron';
 import * as vscode from 'vscode';
 import { CLAUDE_CODE_EXTENSION_ID, getClaudeCodeLaunch, openChat, openTerminal, USE_TERMINAL_SETTING } from './claudeCode';
-import { chatTakesPrompt } from './claudeCodeVersion';
 import { ErrorPromptSource, getErrorPrompt, PromptDocument } from './errorPrompt';
+import { isAtLeast } from './version';
+
+/**
+ * First Claude Code extension release whose `claude-vscode.editor.open`
+ * command accepts an initial prompt (2025-11-06). Older releases ignore it.
+ */
+const MIN_CHAT_VERSION = '2.0.35';
 
 /** Claude Code as an error action handler. Each action starts a new conversation. */
 export const claudeCodeErrorActionHandler: positron.ai.ErrorActionHandler = {
@@ -46,7 +52,7 @@ export const claudeCodeErrorActionHandler: positron.ai.ErrorActionHandler = {
 		}
 
 		const version = String(extension.packageJSON.version ?? '');
-		if (!chatTakesPrompt(version)) {
+		if (!isAtLeast(version, MIN_CHAT_VERSION)) {
 			const showExtension = vscode.l10n.t('Show Extension');
 			const openSettings = vscode.l10n.t('Open Settings');
 			void vscode.window.showWarningMessage(
