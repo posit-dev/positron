@@ -15,12 +15,16 @@ declare module 'positron' {
 		 *
 		 * Registered handlers are listed as options in the `ai.errorActions.agent` setting.
 		 *
+		 * Register during activation, as with commands and tools: an error sent
+		 * to a handler declared in `contributes.errorActionHandlers` before it's
+		 * registered activates its extension, and waits for that.
+		 *
 		 * Throws if the id is reserved or is already registered in this extension host.
 		 * An id already registered in another extension host is refused with a logged error
 		 * and a disposable is returned that does nothing.
 		 *
 		 * @param id A unique identifier.
-		 * @param label The handler's humean-radable name, shown in the UI.
+		 * @param label The handler's human-readable name, shown in the UI.
 		 * @param handler The handler.
 		 * @param metadata Optional metadata about the handler.
 		 * @returns A disposable that unregisters the handler.

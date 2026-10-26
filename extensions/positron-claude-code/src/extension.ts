@@ -55,6 +55,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// The command-line tool is looked for here and on extension changes only:
 	// nothing announces one being installed or removed.
 	context.subscriptions.push(vscode.extensions.onDidChange(() => updateRegistration()));
-	// Finish activating only once registered; see the README's Activation.
+	// Register during activation, as with commands and tools.
 	await updateRegistration();
 }

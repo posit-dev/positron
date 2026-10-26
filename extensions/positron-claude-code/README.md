@@ -7,21 +7,8 @@ with `positron.ai.registerErrorActionHandler` (proposed API
 
 ## Activation
 
-The extension activates on two events, for different reasons:
-
-- **`onAiEnabled`**, declared in `package.json`. The setting lists only agents
-  that have registered, and Claude Code registers only while it's installed,
-  which takes running code to find out (looking for its extension, or its
-  command on the PATH). So the extension has to activate before anyone
-  clicks, or the user could never choose Claude Code. `onAiEnabled` is the
-  cheapest point for that: it fires only while `ai.enabled` is on, and late in
-  startup.
-- **`onErrorActionHandler:claude-code`**, generated from
-  `contributes.errorActionHandlers`. A chosen agent's buttons show before
-  `onAiEnabled` fires, so a click in that window activates this extension and
-  waits for Claude Code to register, rather than saying it isn't available.
-
-Activating only on the second event would be lazier, but the setting would
-never list Claude Code. Listing every declared agent instead, installed or
-not, would let the first event go, at the cost of offering an agent the user
-doesn't have.
+The extension registers Claude Code during activation, as VS Code expects of
+commands and tools, so it awaits the check for whether Claude Code is
+installed. It activates on `onAiEnabled`, so Claude Code is registered, and
+listed in the setting, before anyone clicks; the setting lists only installed
+agents.
