@@ -500,4 +500,36 @@ describe('ExtHostDataConnections node handles', () => {
 		await expect(extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle))
 			.rejects.toThrow('does not support getChildren');
 	});
+
+	it('keeps a walk\'s handles when the tree refreshes between two of its levels', async () => {
+		// The Data Connections pane refreshes when a connection is expanded, reloaded or revealed,
+		// whatever a schema read beside it is doing.
+		const { extHost, connectionHandle } = await connectWithNodes([group()]);
+
+		const walked = await extHost.$connectionGetChildren(connectionHandle, true);
+		await extHost.$connectionGetChildren(connectionHandle);
+		const children = await extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle);
+
+		expect(children.map(child => child.name)).toEqual(['orders']);
+	});
+
+	it('frees a walk\'s handles when it releases them after failing partway', async () => {
+		const failing: positron.DataConnectionNode = {
+			name: 'Broken',
+			kind: 'group-tables' as positron.DataConnectionNodeKind,
+			getChildren: async () => { throw new Error('connection lost'); },
+		};
+		const { extHost, connectionHandle } = await connectWithNodes([group(), failing]);
+
+		const walked = await extHost.$connectionGetChildren(connectionHandle, true);
+		const children = await extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle);
+		await expect(extHost.$nodeGetChildren(connectionHandle, walked[1].nodeHandle)).rejects.toThrow('connection lost');
+		const collected = [...walked, ...children].map(dto => dto.nodeHandle);
+		extHost.$releaseNodes(connectionHandle, collected);
+		// A refresh after the release keeps nothing of the walk.
+		await extHost.$connectionGetChildren(connectionHandle);
+
+		await expect(extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle))
+			.rejects.toThrow('does not support getChildren');
+	});
 });
