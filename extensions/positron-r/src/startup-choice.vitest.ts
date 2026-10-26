@@ -47,6 +47,7 @@ function inputs(overrides: Partial<RStartupInputs<FakeR>> & { triggers?: Partial
 	return {
 		pinnedR: async () => pinned,
 		manualStartup: false,
+		pinOnly: false,
 		looksLikeRProject: async () => true,
 		currentR: async () => current,
 		fullSearchTriggers: () => ({ overrideListSet: false, rVersionsListsCurrentR: false, modulesConfiguredForR: false, ...triggers }),
@@ -120,6 +121,29 @@ describe('chooseStartupR', () => {
 		it('starts when R is needed outside an R project', async () => {
 			expect(await choose(inputs({ current, pinned, looksLikeRProject: async () => false })))
 				.toEqual({ name: 'pinned', startupBehavior: 'implicit' });
+		});
+	});
+
+	describe('with definitionsOnly discovery, where only the pinned R can start', () => {
+		const pinned = r('4.3.0', { name: 'pinned' });
+
+		it('starts the pinned R right away in an R project', async () => {
+			expect(await choose(inputs({ current, pinned, pinOnly: true })))
+				.toEqual({ name: 'pinned', startupBehavior: 'immediate' });
+		});
+
+		it('starts the pinned R only when R is needed, in a folder that is not an R project', async () => {
+			expect(await choose(inputs({ current, pinned, pinOnly: true, looksLikeRProject: async () => false })))
+				.toEqual({ name: 'pinned', startupBehavior: 'implicit' });
+		});
+
+		it('starts no R when nothing is pinned, without looking for other Rs', async () => {
+			const currentR = vi.fn(async () => current);
+			const fullSearch = vi.fn(async () => [r('4.5.1')]);
+			expect({
+				choice: await choose(inputs({ pinOnly: true, currentR, fullSearch })),
+				searches: [currentR.mock.calls.length, fullSearch.mock.calls.length],
+			}).toEqual({ choice: undefined, searches: [0, 0] });
 		});
 	});
 
@@ -214,11 +238,15 @@ describe('choosePinnedR', () => {
 
 	/**
 	 * Inputs for a pin at `/opt/R/4.4/bin/R` that exists, isn't the current R,
-	 * and is usable. `/usr/local/bin/R` is a link to the current R.
+	 * and is usable. `/usr/local/bin/R` is a link to the current R, and
+	 * `/usr/local/bin/R-4.4` is a link to `/opt/R/4.4/bin/R`.
 	 */
 	function pinnedInputs(overrides: Partial<PinnedRInputs<FakePinnedR, FakePackager>> & { usable?: boolean } = {}): PinnedRInputs<FakePinnedR, FakePackager> {
 		const { usable = true, ...rest } = overrides;
-		const links: Record<string, string> = { '/usr/local/bin/R': '/Library/Frameworks/R.framework/Versions/4.5/Resources/bin/R' };
+		const links: Record<string, string> = {
+			'/usr/local/bin/R': '/Library/Frameworks/R.framework/Versions/4.5/Resources/bin/R',
+			'/usr/local/bin/R-4.4': '/opt/R/4.4/bin/R',
+		};
 		return {
 			definitionsOnly: false,
 			pinnedPath: '/opt/R/4.4/bin/R',
@@ -226,6 +254,7 @@ describe('choosePinnedR', () => {
 			exists: () => true,
 			currentRPath: async () => '/Library/Frameworks/R.framework/Versions/4.5/Resources/bin/R',
 			isSameFile: (path1, path2) => (links[path1] ?? path1) === (links[path2] ?? path2),
+			followLink: path => links[path] ?? path,
 			packagerMetadataForPath: path => path.includes('/.pixi/') ? { from: 'pixi' } : undefined,
 			rVersionsMetadataForPath: async () => undefined,
 			install: build => ({ ...build, usable }),
@@ -249,6 +278,24 @@ describe('choosePinnedR', () => {
 			packagerMetadata: undefined,
 			usable: true,
 		});
+	});
+
+	it('builds a pin that links to another R from the file the link leads to', async () => {
+		expect(await choosePinnedR(pinnedInputs({ pinnedPath: '/usr/local/bin/R-4.4' }))).toEqual({
+			binpath: '/opt/R/4.4/bin/R',
+			current: false,
+			packagerMetadata: undefined,
+			usable: true,
+		});
+	});
+
+	it('builds a pixi pin from the path as written, since discovery lists pixi Rs that way', async () => {
+		const followLink = vi.fn((path: string) => `/resolved${path}`);
+		const pinnedPath = '/work/project/.pixi/envs/default/bin/R';
+		expect({
+			binpath: (await choosePinnedR(pinnedInputs({ pinnedPath, followLink })))?.binpath,
+			followed: followLink.mock.calls.length,
+		}).toEqual({ binpath: pinnedPath, followed: 0 });
 	});
 
 	it('keeps a pixi path\'s packager metadata, without reading the r-versions file', async () => {
@@ -292,6 +339,11 @@ describe('choosePinnedR', () => {
 				packagerMetadata: undefined,
 				usable: true,
 			});
+		});
+
+		it('keeps a defined pin\'s path as written when it links to another R, since definitions match on the exact path', async () => {
+			expect((await choosePinnedR(pinnedInputs({ definitionsOnly: true, pinnedPath: '/usr/local/bin/R-4.4', isDefined: path => path === '/usr/local/bin/R-4.4' })))?.binpath)
+				.toBe('/usr/local/bin/R-4.4');
 		});
 
 		it('keeps a defined pin\'s path as written when it links to the current R, since definitions match on the exact path', async () => {
