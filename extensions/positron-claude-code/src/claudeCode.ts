@@ -77,6 +77,9 @@ export function openTerminal(launch: CommandLaunch, prompt: string, extension: v
 		iconPath: extension && vscode.Uri.joinPath(extension.extensionUri, 'resources', 'claude-logo.svg'),
 		location: { viewColumn: vscode.ViewColumn.Beside },
 		isTransient: true,
+		// As in Claude Code's own terminals, stop Windows from running
+		// executables that `claude` starts by name from the workspace folder.
+		env: { NoDefaultCurrentDirectoryInExePath: '1' },
 	});
 	terminal.show();
 }
