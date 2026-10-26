@@ -5,30 +5,24 @@
 
 // https://github.com/posit-dev/positron/issues/13603
 
-// Positron's own proposal: it extends the `positron` module rather than
-// `vscode`. Promote it to positron.d.ts once a second coding agent needs it.
-
 declare module 'positron' {
 
 	import * as vscode from 'vscode';
 
 	export namespace ai {
 		/**
-		 * Register a handler that the user can send errors to from Positron's
-		 * error actions, such as Fix and Explain. See {@link ErrorActionContext}
-		 * for where errors come from. While it's registered, the
-		 * `ai.errorActions.agent` setting lists it, and errors go to it once the
-		 * user chooses it there. Register it while it exists, e.g. while its tool
-		 * is installed, not only while it can take errors.
+		 * Register a handler that the user can send errors to e.g. Fix and Explain.
 		 *
-		 * Throws if the id is reserved by Positron or is already registered in
-		 * this extension host. An id already registered in another extension
-		 * host is refused with a logged error.
+		 * Registered handlers are listed as options in the `ai.errorActions.agent` setting.
 		 *
-		 * @param id A unique identifier, stored as the setting's value.
-		 * @param label The name shown in the setting and the actions' tooltips.
+		 * Throws if the id is reserved or is already registered in this extension host.
+		 * An id already registered in another extension host is refused with a logged error
+		 * and a disposable is returned that does nothing.
+		 *
+		 * @param id A unique identifier.
+		 * @param label The handler's humean-radable name, shown in the UI.
 		 * @param handler The handler.
-		 * @param metadata Optional {@link ErrorActionHandlerMetadata metadata} about the handler.
+		 * @param metadata Optional metadata about the handler.
 		 * @returns A disposable that unregisters the handler.
 		 */
 		export function registerErrorActionHandler(id: string, label: string, handler: ErrorActionHandler, metadata?: ErrorActionHandlerMetadata): vscode.Disposable;
@@ -45,7 +39,7 @@ declare module 'positron' {
 			readonly supportsChatContinuation?: boolean;
 		}
 
-		/** A coding agent's handling of errors from the Fix and Explain actions. */
+		/** Handles errors from the error actions such as Fix and Explain. */
 		export interface ErrorActionHandler {
 			/**
 			 * Ask the handler to take the action on the error. Never called
@@ -81,9 +75,9 @@ declare module 'positron' {
 			readonly error: string;
 			/** ID of the console's runtime session. */
 			readonly sessionId: string;
-			/** Name of the console's session, e.g. "Python 3.12.1 (Venv: .venv)". */
+			/** Name of the console's session. */
 			readonly sessionName: string;
-			/** Language ID of the session, e.g. "python". */
+			/** Language ID of the session. */
 			readonly languageId: string;
 			/**
 			 * The code in the console's input for the error, as it is when the
@@ -107,11 +101,11 @@ declare module 'positron' {
 
 		/** A notebook cell that raised an error, as it is when the action is taken. */
 		export interface NotebookErroredCell {
-			/** 0-based index of the cell among all of the notebook's cells, markdown included. */
+			/** 0-based index of the cell among all of the notebook's cells. */
 			readonly index: number;
 			/** The cell's code, including unsaved edits. */
 			readonly code: string;
-			/** Language ID of the cell, e.g. "python". */
+			/** Language ID of the cell. */
 			readonly languageId: string;
 		}
 
@@ -130,7 +124,7 @@ declare module 'positron' {
 
 		/** A Quarto code cell, as it was when it raised an error. */
 		export interface QuartoErroredCell {
-			/** Language ID of the cell, e.g. "python". */
+			/** Language ID of the cell. */
 			readonly languageId: string;
 			/** The cell's label, e.g. from `#| label: fig-plot`. Undefined when it has none. */
 			readonly label?: string;
