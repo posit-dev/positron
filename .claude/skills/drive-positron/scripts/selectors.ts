@@ -66,7 +66,9 @@ export const css = {
 		notInNotifications: ':not(.notifications-toasts *):not(.notifications-center *)', // a toast is a dialog too
 		notInToasts: ':not(.notifications-toasts *)',
 		any: '[role=dialog], [role=menu], .quick-input-widget', // what an action can open (ui.sh "opened")
-		menu: '.context-view .monaco-menu, .custom-context-menu-items, [role=menu], .drop-down-list-box-items',
+		// A select box's drop-down (upstream SelectBoxList, the Settings editor's enum
+		// settings) is a listbox drawn in the workbench context view, outside the dialog.
+		menu: '.context-view .monaco-menu, .custom-context-menu-items, [role=menu], .drop-down-list-box-items, .monaco-select-box-dropdown-container',
 		notifications: '.notifications-toasts, .notifications-center',
 		modal: '.positron-modal-overlay, .context-view', // what holds focus while a Positron menu or popup is open; no role
 	},

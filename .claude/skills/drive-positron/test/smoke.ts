@@ -270,6 +270,10 @@ const cases: Case[] = [
 	// walked says the rows were read by the walk: without it, a window tall enough to draw them all would pass without testing it.
 	{ name: 'ui pick counts the rows below the screen that share a label', run: ['ui.sh', 'pick', 'Viewer'], fail: true, check: o => (!o.json!.walked && 'not walked; pick a row this window does not draw') || includes(o.json!.error, '2 rows match "Viewer"') },
 	{ name: 'ui pick --nth 2 takes a row below the screen', run: ['ui.sh', 'pick', 'Viewer', '--nth', '2'], check: o => (!o.json!.walked && 'not walked; pick a row this window does not draw') || (o.json!.chose !== 'Viewer' && `chose ${o.json!.chose}`) || (!o.json!.closed && 'the quick pick stayed open') },
+	// Python: Create Environment opens under the pointer the palette click left on its first row: after the hover delay, that row's tooltip covers the middle of Venv below it.
+	{ name: 'palette-run Python: Create Environment...', run: ['palette-run.sh', 'Python: Create Environment...'], check: o => o.json!.closed !== false && 'no environment type picker' },
+	{ name: 'ui pick a row the tooltip of the row above covers', wait: 2500, run: ['ui.sh', 'pick', 'Venv'], check: o => o.json!.chose !== 'Venv' && `chose ${o.json!.chose}` },
+	{ name: 'palette-run dry run closes the environment quick pick', run: ['palette-run.sh', '--dry-run', 'View: Show Explorer'], check: o => o.json?.chosen !== 'View: Show Explorer' && 'wrong row chosen' },
 	{ name: 'console-run r html to Viewer', quick: true, run: ['console-run.sh', '--language', 'r', 'print(htmltools::browsable(htmltools::tags$button("smoke-viewer-button")))'] },
 	{ name: 'viewer wait-content', quick: true, run: ['viewer.sh', 'wait-content', '20'], check: o => includes(o.json!.shown, 'smoke-viewer-button') },
 	{ name: 'view-read Viewer', quick: true, run: ['view-read.sh', '--view', 'Viewer'], check: o => includes(o.text, 'button "smoke-viewer-button"') },
@@ -424,6 +428,14 @@ const cases: Case[] = [
 	{ name: 'ui type editor.fontSize in the Settings dialog', run: ['ui.sh', 'type', 'editor.fontSize', '--in', 'dialog'], check: o => includes(o.json!.diff, 'Editor Font Size. Modified.') },
 	{ name: 'ui choose Reset Setting from a menu drawn in a shadow root', run: ['ui.sh', 'choose', 'button', 'More Actions... (Shift+F9)', 'Reset Setting', '--in', 'dialog', '--nth', '1'], check: o => (o.json!.chose !== 'Reset Setting' && `chose ${o.json!.chose}`) || includes(o.json!.diff, '+ - treeitem "Editor Font Size. Controls the font size in pixels."') },
 	{ name: 'ui click Close Modal Editor (Settings)', run: ['ui.sh', 'click', 'button', 'Close Modal Editor', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
+	// An enum setting's select box draws its list in the workbench context view, outside the dialog, and reuses that element each time it opens.
+	{ name: 'palette-run Open Settings (UI) (for a select box)', run: ['palette-run.sh', 'Preferences: Open Settings (UI)'] },
+	{ name: 'ui choose afterDelay from a select box drop-down', run: ['ui.sh', 'choose', 'combobox', 'files.autoSave', 'afterDelay', '--in', 'dialog'], check: o => (!String(o.json!.chose).startsWith('afterDelay. ') && `chose ${o.json!.chose}`) || includes(o.json!.diff, '+ - option "afterDelay" [selected]') },
+	{ name: 'ui click combobox files.autoSave (opens its list)', run: ['ui.sh', 'click', 'combobox', 'files.autoSave', '--in', 'dialog'] },
+	{ name: 'ui read menu shows the select box drop-down', run: ['ui.sh', 'read', 'menu'], check: o => includes(o.json!.tree, 'listbox "files.autoSave"') },
+	{ name: 'ui click combobox files.autoSave (closes its list)', run: ['ui.sh', 'click', 'combobox', 'files.autoSave', '--in', 'dialog'] },
+	{ name: 'ui choose off from a select box closed while marked as seen', run: ['ui.sh', 'choose', 'combobox', 'files.autoSave', 'off', '--in', 'dialog'], check: o => (!String(o.json!.chose).startsWith('off. ') && `chose ${o.json!.chose}`) || includes(o.json!.diff, '+ - option "off" [selected]') },
+	{ name: 'ui click Close Modal Editor (Settings, select box)', run: ['ui.sh', 'click', 'button', 'Close Modal Editor', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
 
 	// ---- Notifications, screenshots, run-app
 	{ name: 'notifications list', quick: true, run: ['notifications.sh'], check: o => !Array.isArray(o.json!.notifications) && 'no notifications array' },
