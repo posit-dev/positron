@@ -10,9 +10,6 @@ import { CLAUDE_CODE_EXTENSION_ID, getClaudeCodeLaunch, openChat, openTerminal, 
 import { chatTakesPrompt } from './claudeCodeVersion';
 import { ErrorPromptSource, getErrorPrompt, PromptDocument } from './errorPrompt';
 
-/** Claude Code's error action handler id. */
-export const CLAUDE_CODE_ERROR_ACTION_HANDLER_ID = 'claude-code';
-
 /** Claude Code as an error action handler. Each action starts a new conversation. */
 export const claudeCodeErrorActionHandler: positron.ai.ErrorActionHandler = {
 	ask: async (action, context) => {

@@ -5,8 +5,8 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, claudeCodeErrorActionHandler } from './errorActionHandler';
+import { claudeCodeErrorActionHandler } from './errorActionHandler';
 
 export function activate(context: vscode.ExtensionContext): void {
-	context.subscriptions.push(positron.ai.registerErrorActionHandler(CLAUDE_CODE_ERROR_ACTION_HANDLER_ID, claudeCodeErrorActionHandler));
+	context.subscriptions.push(positron.ai.registerErrorActionHandler('claude-code', claudeCodeErrorActionHandler));
 }
