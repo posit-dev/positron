@@ -1,4 +1,4 @@
 {
 	"displayName": "Coding Agents",
-	"description": "Sends console, notebook, and Quarto errors to coding agents such as Claude Code from the Fix and Explain actions."
+	"description": "Integrates third-party coding agents with Positron."
 }
