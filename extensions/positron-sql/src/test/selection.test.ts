@@ -354,24 +354,18 @@ suite('describeSelection', () => {
 		configured: readonly ConnectionRef[] | undefined,
 		dialect: DialectInUse = SNOWFLAKE,
 	) {
-		const state = describeSelection(selection, configured, dialect);
+		const state = describeSelection(selection, configured, dialect)!;
 		return { text: state.text, warning: state.warning };
 	}
 
-	test('Data Connections switched off is said, without alarm, whatever the file chose', () => {
-		// Nothing to set up and nothing to choose: a warning would ask for something the user
-		// cannot do without first turning the feature back on.
-		const off = (selection: EffectiveSelection) => {
-			const state = describeSelection(selection, [], SNOWFLAKE, true);
-			return { text: state.text, warning: state.warning };
-		};
-
+	test('with Data Connections switched off the item is hidden, whatever the file chose', () => {
+		// Nothing to name or choose, and the setting may be one an administrator enforces.
 		assert.deepStrictEqual(
-			[off({ kind: 'none' }), off({ kind: 'closed', connection: WAREHOUSE })],
 			[
-				{ text: '$(circle-slash) Data Connections Off', warning: false },
-				{ text: '$(circle-slash) Data Connections Off', warning: false },
+				describeSelection({ kind: 'none' }, [], SNOWFLAKE, true),
+				describeSelection({ kind: 'closed', connection: WAREHOUSE }, [WAREHOUSE], SNOWFLAKE, true),
 			],
+			[undefined, undefined],
 		);
 	});
 
@@ -443,7 +437,7 @@ suite('describeSelection hover', () => {
 			{ kind: 'connection', connection },
 			[connection],
 			dialect,
-		).tooltip.value;
+		)!.tooltip.value;
 	}
 
 	test('the connection and the dialect it implies are both named', () => {

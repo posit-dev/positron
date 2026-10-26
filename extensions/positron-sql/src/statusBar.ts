@@ -76,25 +76,20 @@ export interface StatusBarState {
  *   read is still in flight. Until it lands nothing is known to be open, so every other state
  *   would be a false alarm: a chosen connection would read as closed, and a window with
  *   connections set up would read as having none.
- * @param dataConnectionsOff Whether the user has switched Data Connections off, which leaves
- *   nothing to set up or choose and so is not a warning.
+ * @param dataConnectionsOff Whether Data Connections is switched off, which hides the item.
+ *   There is no connection to name or choose then, and the setting may well be one an
+ *   administrator enforces, so an item saying so would be a permanent pointer at something the
+ *   user cannot change.
+ * @returns What to show, or undefined to hide the item.
  */
 export function describeSelection(
 	selection: EffectiveSelection,
 	configured: readonly ConnectionRef[] | undefined,
 	dialect: DialectInUse,
 	dataConnectionsOff = false,
-): StatusBarState {
+): StatusBarState | undefined {
 	if (dataConnectionsOff) {
-		return {
-			text: `$(circle-slash) ${vscode.l10n.t("Data Connections Off")}`,
-			tooltip: hover(
-				vscode.l10n.t("Data Connections is turned off"),
-				vscode.l10n.t("Only SQL keywords are completed. Turn on the dataConnections.enabled setting to complete against a database."),
-				dialect,
-			),
-			warning: false,
-		};
+		return undefined;
 	}
 	if (configured === undefined) {
 		return {
@@ -315,6 +310,9 @@ export async function pickConnection(
 
 /**
  * Says that Data Connections is off, in place of a picker with nothing in it, and offers the setting.
+ *
+ * The status bar item is hidden then, but the command can still be run from the Command Palette
+ * or a keybinding, and should not do nothing.
  *
  * Not awaited, for the reason {@link pickConnection} gives for its own notification.
  */
