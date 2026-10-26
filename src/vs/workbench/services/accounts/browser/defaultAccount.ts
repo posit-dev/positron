@@ -1664,6 +1664,13 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 		const defaultAccountScopes = this.defaultAccountConfig.authenticationProvider.scopes[0];
 		const scopes = additionalScopes ? distinct([...defaultAccountScopes, ...additionalScopes]) : defaultAccountScopes;
 		const session = await this.authenticationService.createSession(authProvider.id, scopes, sessionOptions);
+		// --- Start Positron ---
+		// This is a Copilot sign-in (status bar, chat setup), so give Copilot access to
+		// the account. Otherwise the consent filter treats the new session as signed out.
+		this.authenticationAccessService.updateAllowedExtensions(authProvider.id, session.account.label, [
+			{ id: this.defaultAccountConfig.aiExtensionId, name: 'GitHub Copilot Chat', allowed: true },
+		]);
+		// --- End Positron ---
 		for (const preferredExtension of this.defaultAccountConfig.preferredExtensions) {
 			this.authenticationExtensionsService.updateAccountPreference(preferredExtension, authProvider.id, session.account);
 		}

@@ -24,8 +24,9 @@ import { IRequestService } from '../../../../../platform/request/common/request.
 import { InMemoryStorageService, IStorageService } from '../../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { NullTelemetryService } from '../../../../../platform/telemetry/common/telemetryUtils.js';
-import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationExtensionsService, IAuthenticationService } from '../../../authentication/common/authentication.js';
 // --- Start Positron ---
+// import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationExtensionsService, IAuthenticationService } from '../../../authentication/common/authentication.js';
+import { AllowedExtension, AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationExtensionsService, IAuthenticationService } from '../../../authentication/common/authentication.js';
 import { IAuthenticationAccessService } from '../../../authentication/browser/authenticationAccessService.js';
 // --- End Positron ---
 import { IWorkbenchEnvironmentService } from '../../../environment/common/environmentService.js';
@@ -1442,6 +1443,10 @@ suite('DefaultAccountProvider sign in scopes', () => {
 		readonly options: Record<string, unknown>;
 	}
 
+	// --- Start Positron ---
+	let grants: { providerId: string; accountName: string; extensions: AllowedExtension[] }[] = [];
+	// --- End Positron ---
+
 	async function signIn(options?: Parameters<DefaultAccountProvider['signIn']>[0]): Promise<ICreateSessionCall[]> {
 		const calls: ICreateSessionCall[] = [];
 		const instantiationService = disposables.add(new TestInstantiationService());
@@ -1478,16 +1483,20 @@ suite('DefaultAccountProvider sign in scopes', () => {
 		instantiationService.stub(INativeManagedSettingsService, new NullNativeManagedSettingsService());
 		instantiationService.stub(IFileManagedSettingsService, new NullFileManagedSettingsService());
 		// --- Start Positron ---
+		grants = [];
 		instantiationService.stub(IAuthenticationAccessService, {
 			onDidChangeExtensionSessionAccess: Event.None,
 			isAccessAllowed: () => true,
+			updateAllowedExtensions: (providerId: string, accountName: string, extensions: AllowedExtension[]) => {
+				grants.push({ providerId, accountName, extensions });
+			},
 		});
 		// --- End Positron ---
 
 		const provider = disposables.add(instantiationService.createInstance(DefaultAccountProvider, {
 			preferredExtensions: [],
 			// --- Start Positron ---
-			aiExtensionId: '',
+			aiExtensionId: 'GitHub.copilot-chat',
 			// --- End Positron ---
 			authenticationProvider: {
 				default: { id: 'github', name: 'GitHub' },
@@ -1515,6 +1524,17 @@ suite('DefaultAccountProvider sign in scopes', () => {
 			additive: [{ scopes: ['read:user', 'user:email', 'repo', 'workflow'], options: { provider: 'google' } }],
 		});
 	});
+
+	// --- Start Positron ---
+	test('gives Copilot access to the signed-in account', async () => {
+		await signIn();
+		assert.deepStrictEqual(grants, [{
+			providerId: 'github',
+			accountName: 'octocat',
+			extensions: [{ id: 'GitHub.copilot-chat', name: 'GitHub Copilot Chat', allowed: true }],
+		}]);
+	});
+	// --- End Positron ---
 });
 
 class TestRequestService implements IRequestService {
