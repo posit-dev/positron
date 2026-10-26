@@ -30,9 +30,15 @@ if [ -n "$(git status --porcelain)" ]; then
 	exit 1
 fi
 
-# git apply exits non-zero when it leaves conflicts; that is the expected outcome here.
+# git apply exits non-zero when it leaves conflicts, which is expected. Any other failure
+# (no conflicted paths left behind) means the patch was not applied.
+apply_status=0
 git diff --binary --no-renames "$start_ref" "$end_ref" |
-	git apply --3way --directory="$subdir" || true
+	git apply --3way --directory="$subdir" || apply_status=$?
+if [ "$apply_status" != 0 ] && [ -z "$(git diff --name-only --diff-filter=U)" ]; then
+	echo "git apply failed (exit $apply_status) without leaving conflicts; see the errors above." >&2
+	exit "$apply_status"
+fi
 
 # Positron uses a different npm version, so keep its lockfile and regenerate it with
 # `npm install` after the merge commit.

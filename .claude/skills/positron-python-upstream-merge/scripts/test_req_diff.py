@@ -4,7 +4,7 @@
 # ///
 import pytest
 
-from req_diff import diff_pins, is_major_bump, parse_requirements, parse_uv_lock
+from req_diff import diff_pins, parse_requirements, parse_uv_lock
 
 HASHED_REQUIREMENTS = """\
 #
@@ -50,16 +50,19 @@ def test_parse_uv_lock_keeps_every_locked_version_and_skips_unversioned():
 @pytest.mark.parametrize(
     ("old", "new", "expected"),
     [
-        ("6.31.0", "7.3.0", True),
-        ("8.18.1", "8.39.0", False),
-        ("0.2.3", "0.3.0", True),
-        ("0.2.3", "0.2.9", False),
-        ("2026.4", "2026.12", False),
-        ("1.0", "1.0.post1", False),
+        ({"6.31.0"}, {"7.3.0"}, True),
+        ({"8.18.1"}, {"8.39.0"}, False),
+        ({"0.2.3"}, {"0.3.0"}, True),
+        ({"0.2.3"}, {"0.2.9"}, False),
+        ({"2026.4"}, {"2026.12"}, False),
+        ({"1.0"}, {"1.0.post1"}, False),
+        ({"6.0.2", "7.0.0"}, {"7.0.0"}, False),
+        ({"6.0.2", "7.0.0"}, {"7.0.1"}, False),
+        ({"8.39.0", "9.14.1"}, {"8.39.0", "10.0.0"}, True),
     ],
 )
-def test_is_major_bump(old, new, expected):
-    assert is_major_bump(old, new) is expected
+def test_major_flag_is_set_only_when_a_new_release_line_appears(old, new, expected):
+    assert diff_pins({"pkg": old}, {"pkg": new})[0][3] is expected
 
 
 def test_diff_pins_reports_changes_additions_and_removals():

@@ -52,14 +52,12 @@ def parse_uv_lock(text: str) -> dict[str, set[str]]:
     return pins
 
 
-def is_major_bump(old: str, new: str) -> bool:
-    """True when the leading release number changes (the minor one for 0.x versions)."""
-    old_parts = re.findall(r"\d+", old)[:2]
-    new_parts = re.findall(r"\d+", new)[:2]
-    if not old_parts or not new_parts:
-        return old != new
-    significant = 2 if old_parts[0] == "0" and new_parts[0] == "0" else 1
-    return old_parts[:significant] != new_parts[:significant]
+def release_line(version: str) -> tuple[str, ...]:
+    """The part of a version that a major bump changes: the first number, or the second for 0.x."""
+    parts = re.findall(r"\d+", version)[:2]
+    if not parts:
+        return (version,)
+    return tuple(parts) if parts[0] == "0" else (parts[0],)
 
 
 def diff_pins(
@@ -71,26 +69,34 @@ def diff_pins(
         before, after = old.get(name, set()), new.get(name, set())
         if before == after:
             continue
-        major = (
-            any(is_major_bump(b, a) for b in before for a in after) if before and after else False
-        )
+        old_lines = {release_line(version) for version in before}
+        major = bool(before) and any(release_line(version) not in old_lines for version in after)
         rows.append(
             (name, ", ".join(sorted(before)) or "-", ", ".join(sorted(after)) or "-", major)
         )
     return rows
 
 
+def git(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+
+
 def read_at_ref(ref: str, path: Path) -> str:
-    result = subprocess.run(
-        ["git", "show", f"{ref}:{path.as_posix()}"], capture_output=True, text=True, check=False
-    )
-    if result.returncode != 0:
+    """Return the file's content at ref, or "" when the file does not exist at ref."""
+    spec = f"{ref}:{path.as_posix()}"
+    if git("cat-file", "-e", spec).returncode != 0:
         return ""
+    result = git("show", spec)
+    if result.returncode != 0:
+        raise RuntimeError(f"git show {spec} failed: {result.stderr.strip()}")
     return result.stdout
 
 
 def main() -> int:
     base = sys.argv[1] if len(sys.argv) > 1 else "HEAD"
+    if git("rev-parse", "--verify", "--quiet", f"{base}^{{commit}}").returncode != 0:
+        print(f"Unknown base ref {base!r}. Pass a commit, branch, or tag.", file=sys.stderr)
+        return 2
     found_major = False
     for rel in [*REQUIREMENTS_FILES, UV_LOCK]:
         path = SUBDIR / rel
