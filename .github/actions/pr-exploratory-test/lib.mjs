@@ -438,9 +438,10 @@ function autoRunNote(hasReport) {
  * `state` is a runOutcome value, `running`, `declined` (the gate said no, and
  * `reason` says why), `outdated` (the branch predates the tooling the run
  * needs, and `reason` says what to do), `cancelled`, or empty when the agent
- * never ran (the build failed first).
+ * never ran (the build failed first). `failure` is failedStep's answer for that
+ * last case, so the comment names the step that broke and links its log.
  */
-export function renderPrComment({ state, report, baseUrl, runUrl, headSha, reason, focus, autoRun = false }) {
+export function renderPrComment({ state, report, baseUrl, runUrl, headSha, reason, focus, autoRun = false, failure = null }) {
 	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
 	const run = `[View run \u2192](${runUrl})`;
 	const focusLine = focus ? `Focus: ${focus}\n\n` : '';
@@ -467,8 +468,20 @@ export function renderPrComment({ state, report, baseUrl, runUrl, headSha, reaso
 	const why = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
 		: state === 'timed-out' ? 'The agent was stopped at its time limit before writing a report.'
 			: state === 'no-report' ? 'The agent finished without writing a report.'
-				: 'The run failed before the agent produced a report.';
-	return comment([why, run]);
+				: failure ? `The run failed at the \`${failure.step}\` step of \`${failure.job}\`, before the agent produced a report.`
+					: 'The run failed before the agent produced a report.';
+	return comment([why, failure ? `[View failed step \u2192](${failure.url})` : run]);
+}
+
+/** The first failed step of the run's jobs (the jobs API list), and a link to its log; null when no step failed. */
+export function failedStep(jobs) {
+	for (const job of jobs ?? []) {
+		const step = job.conclusion === 'failure' && (job.steps ?? []).find(s => s.conclusion === 'failure');
+		if (step) {
+			return { job: job.name, step: step.name, url: `${job.html_url}#step:${step.number}:1` };
+		}
+	}
+	return null;
 }
 
 /**

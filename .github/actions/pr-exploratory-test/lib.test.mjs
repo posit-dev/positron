@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
+import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, failedStep, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
 import { EXPLORE_TIME_UP } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 
 test('buildCostRecord extracts the fields the spec names', () => {
@@ -327,6 +327,32 @@ test('renderPrComment says the run failed when the agent never ran', () => {
 	const body = renderPrComment({ state: '', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.match(body, /failed before/);
 	assert.doesNotMatch(body, /Off exploring, back soon/);
+});
+
+const FAILURE = { job: 'explore (opus)', step: 'Install node dependencies', url: 'https://github.com/o/r/actions/runs/1/job/2#step:9:1' };
+
+test('renderPrComment names the failed step when the agent never ran', () => {
+	const body = renderPrComment({ state: '', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, failure: FAILURE });
+	assert.match(body, /failed at the `Install node dependencies` step of `explore \(opus\)`/);
+	assert.match(body, /\[View failed step \u2192\]\(https:\/\/github\.com\/o\/r\/actions\/runs\/1\/job\/2#step:9:1\)/);
+});
+
+test('failedStep links the first failed step of the first failed job', () => {
+	const jobs = [
+		{ name: 'resolve', conclusion: 'success', html_url: 'https://x/job/1', steps: [{ name: 'Checkout', number: 1, conclusion: 'success' }] },
+		{ name: 'explore (opus)', conclusion: 'failure', html_url: 'https://x/job/2', steps: [
+			{ name: 'Checkout', number: 2, conclusion: 'success' },
+			{ name: 'Install node dependencies', number: 9, conclusion: 'failure' },
+			{ name: 'Launch', number: 10, conclusion: 'skipped' },
+		] },
+		{ name: 'report', conclusion: 'failure', html_url: 'https://x/job/3', steps: [{ name: 'Gate', number: 3, conclusion: 'failure' }] },
+	];
+	assert.deepEqual(failedStep(jobs), { job: 'explore (opus)', step: 'Install node dependencies', url: 'https://x/job/2#step:9:1' });
+});
+
+test('failedStep returns null when no step failed', () => {
+	assert.equal(failedStep([{ name: 'explore', conclusion: 'cancelled', html_url: 'https://x', steps: [{ name: 'a', number: 1, conclusion: 'cancelled' }] }]), null);
+	assert.equal(failedStep(undefined), null);
 });
 
 test('renderPrComment explains a missing report per outcome', () => {
