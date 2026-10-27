@@ -1,0 +1,156 @@
+name: "Setup Build Environment (Windows)"
+description: "Restores build caches, installs the VS 2022 C++ build tools, installs node dependencies, and downloads the Ark and Kallichore binaries on a Windows runner"
+
+# Windows counterpart of setup-build-env, shared by every job that builds
+# Positron from source on Windows (test-e2e-windows-run.yml,
+# test-ext-host-windows.yml, extensions-check-nightly.yml). It stops before
+# compiling so each workflow keeps its compile step, and its timing, as a step
+# of its own.
+#
+# It does not save caches. A caller that owns the Windows cache save passes
+# this action's outputs to save-build-caches.
+
+inputs:
+  skip-cache:
+    description: "Skip restoring caches (use when testing a specific commit)"
+    required: false
+    default: 'false'
+
+outputs:
+  cache-npm-core-hit:
+    description: "Whether npm core cache was restored"
+    value: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
+  cache-npm-extensions-volatile-hit:
+    description: "Whether npm volatile extensions cache (python, assistant, r) was restored"
+    value: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit }}
+  cache-npm-extensions-stable-hit:
+    description: "Whether npm stable extensions cache (all except python, assistant, r) was restored"
+    value: ${{ steps.restore-caches.outputs.cache-npm-extensions-stable-hit }}
+  cache-builtins-hit:
+    description: "Whether builtins cache was restored"
+    value: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+  cache-playwright-hit:
+    description: "Whether Playwright browsers cache was restored"
+    value: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+  extensions-volatile-hash:
+    description: "Generated hash for volatile extensions (python, assistant, r)"
+    value: ${{ steps.restore-caches.outputs.extensions-volatile-hash }}
+  extensions-stable-hash:
+    description: "Generated hash for stable extensions (all except python, assistant, r)"
+    value: ${{ steps.restore-caches.outputs.extensions-stable-hash }}
+  package-locks-hash:
+    description: "Computed hash of all package-lock.json files"
+    value: ${{ steps.restore-caches.outputs.package-locks-hash }}
+  node-version:
+    description: "Detected Node.js version"
+    value: ${{ steps.restore-caches.outputs.node-version }}
+  playwright-version:
+    description: "Detected Playwright version from package.json"
+    value: ${{ steps.restore-caches.outputs.playwright-version }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: 📦 Restore caches
+      if: ${{ inputs.skip-cache != 'true' }}
+      id: restore-caches
+      uses: ./.github/actions/restore-build-caches
+
+    # The windows-latest runner image (win25-vs2026) ships Visual Studio 2026,
+    # whose internal version (18) is not recognized by the node-gyp versions
+    # pinned across our dependency tree (npm-bundled 11.x, build/npm/gyp,
+    # per-extension copies such as copilot's 10.x). Rather than patch each one,
+    # install the VS 2022 C++ build tools (v143 toolset): node-gyp filters out
+    # the unrecognized VS 2026 and falls back to VS 2022, and preinstall.ts's
+    # toolchain check is satisfied too. The Spectre-mitigated runtime libs are
+    # added explicitly because our native modules (e.g. @vscode/native-watchdog,
+    # @vscode/deviceid) build with Spectre mitigation required (MSB8040).
+    # Runs unconditionally rather than only on an npm cache miss: the
+    # "Download binaries" step below runs `npm rebuild` on every run (even on
+    # a cache hit), which re-invokes node-gyp, so the toolchain must always be
+    # present regardless of cache state.
+    # Installed straight from Microsoft's CDN rather than the Chocolatey
+    # community feed: choco's visualstudio2022-workload-vctools package
+    # deterministically fails to resolve its chocolatey-dotnetfx.extension
+    # dependency from community.chocolatey.org. The bootstrapper below is what
+    # that package wraps anyway. Exit code 3010 means "success, reboot required"
+    # and is treated as success. Retry guards against transient CDN/network blips.
+    - name: Install Visual Studio 2022 C++ build tools
+      uses: nick-fields/retry@v4
+      with:
+        timeout_minutes: 30
+        max_attempts: 3
+        retry_wait_seconds: 15
+        shell: pwsh
+        command: |
+          $ErrorActionPreference = 'Stop'
+          $bootstrapper = "$env:TEMP\vs_buildtools.exe"
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile $bootstrapper
+          $p = Start-Process -FilePath $bootstrapper -Wait -PassThru -ArgumentList @(
+            '--quiet','--wait','--norestart','--nocache',
+            '--add','Microsoft.VisualStudio.Workload.VCTools',
+            '--add','Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre',
+            '--includeRecommended'
+          )
+          if ($p.ExitCode -notin 0,3010) { exit $p.ExitCode }
+
+    - name: Install node dependencies
+      if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+          steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+          steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+      uses: nick-fields/retry@v4
+      env:
+        npm_config_arch: x64
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+        ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+        POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+        POSITRON_PARALLEL_INSTALL: '0'         # Disabled on Windows due to native module file locking races
+        NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
+        NPM_CONFIG_FUND: 'false'               # Skip funding messages
+        NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
+        # Extension filter logic:
+        #   volatile=hit, stable=miss  -> filter=stable (install stable only)
+        #   volatile=miss, stable=hit  -> filter=volatile (install volatile only)
+        #   both hit OR both miss      -> filter='' (install all or skip via parent condition)
+        POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+      with:
+        timeout_minutes: 90
+        max_attempts: 3
+        retry_wait_seconds: 5
+        shell: bash
+        # Install strategy:
+        # 1. Pre-install build/ so postinstall can access gulp-merge-json
+        # 2. Run root npm ci, which triggers postinstall (installs all extensions)
+        # 3. Postinstall skips build/ since it's already installed (avoids duplicate work)
+        # See https://github.com/posit-dev/positron/issues/3481 for why retry is needed (windows-process-tree failures)
+        command: |
+          set -e  # Exit immediately if any command fails
+
+          # Pre-install build directory (required by postinstall for gulp-merge-json)
+          npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+
+          # Run root npm ci (triggers postinstall which installs all extensions)
+          npm ci --no-audit --no-fund --fetch-timeout 120000
+
+          echo "npm ci completed successfully"
+
+    # Runs on every run, not only on a cache hit like download-binaries does:
+    # the Windows jobs have always rebuilt here, and the retry covers the
+    # occasional GitHub API timeout.
+    - name: Download binaries (Ark, Kallichore) with retry
+      uses: nick-fields/retry@v4
+      env:
+        POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+      with:
+        timeout_minutes: 20
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          set -e  # Exit immediately if any command fails
+
+          cd extensions
+          echo "Downloading Ark binary..."
+          cd positron-r && npm rebuild --foreground-scripts
+          echo "Downloading Kallichore binary..."
+          cd ../positron-supervisor && npm rebuild --foreground-scripts
