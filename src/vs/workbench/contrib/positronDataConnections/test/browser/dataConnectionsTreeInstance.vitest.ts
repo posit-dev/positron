@@ -7,7 +7,7 @@
 
 import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -163,7 +163,7 @@ describe('dataConnectionsTreeInstance formatGroupCount', () => {
 });
 
 describe('DataConnectionsTreeInstance', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	// The tree's id for the single profile these tests use.
 	const ENTRY_ID = 'entry:conn-1';
@@ -1762,7 +1762,7 @@ describe('DataConnectionsTreeInstance', () => {
 });
 
 describe('DataConnectionsTreeInstance reveal', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	// The tree's id for the single profile these tests use.
 	const ENTRY_ID = 'entry:conn-1';

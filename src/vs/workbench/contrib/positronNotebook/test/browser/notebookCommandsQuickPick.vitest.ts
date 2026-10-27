@@ -12,7 +12,7 @@ import { ContextKeyExpr, ContextKeyExpression, IContext, IContextKeyService } fr
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { ShowNotebookCommandsAction, showNotebookCommandsQuickPick } from '../../browser/contrib/commands/NotebookCommandsAction.js';
@@ -38,7 +38,7 @@ describe('showNotebookCommandsQuickPick', () => {
 		getValue: <T,>(key: string): T | undefined => contextValues.get(key) as T | undefined,
 	};
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({
 			createQuickPick: (() => pick.asQuickPick()) as IQuickInputService['createQuickPick'],
 		}))
@@ -234,7 +234,7 @@ describe('ShowNotebookCommandsAction', () => {
 	const paneOverrides = { getId: () => POSITRON_NOTEBOOK_EDITOR_ID, notebookInstance: notebook } as unknown as Partial<IVisibleEditorPane>;
 	const activeEditorPane = stubInterface<IVisibleEditorPane>(paneOverrides);
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({
 			createQuickPick: (() => pick.asQuickPick()) as IQuickInputService['createQuickPick'],
 		}))

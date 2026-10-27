@@ -12,7 +12,7 @@ import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platf
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { LANGUAGE_ORDER_KEY } from '../../../../services/languageRuntime/common/languageOrder.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { GettingStartedInput } from '../../browser/gettingStartedInput.js';
 import { IEnvironmentHealthSource } from '../../browser/positronWelcomePage/environmentHealth.js';
@@ -59,7 +59,7 @@ describe('EnvironmentHealthService', () => {
 	const warn = vi.fn();
 	const trace = vi.fn();
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(ICommandService, { executeCommand })
 		.stub(IExtensionService, {
 			getExtension,

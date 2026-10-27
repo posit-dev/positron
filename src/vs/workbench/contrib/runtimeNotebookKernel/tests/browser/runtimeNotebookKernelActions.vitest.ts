@@ -9,7 +9,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IRuntimeSessionService, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -22,7 +22,7 @@ describe('RuntimeNotebookKernelRestartAction', () => {
 	const notebookUri = URI.file('/path/to/notebook.ipynb');
 	const ensureSessionStarted = vi.fn<IRuntimeNotebookKernelService['ensureSessionStarted']>();
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IEditorService, stubInterface<IEditorService>({}))
 		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			getNotebookSessionForNotebookUri: () => undefined,

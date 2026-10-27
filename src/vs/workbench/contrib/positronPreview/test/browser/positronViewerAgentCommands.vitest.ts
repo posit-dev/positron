@@ -7,7 +7,7 @@
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import '../../browser/positronViewerAgentCommands.js';
 import { IPositronViewerAgentService, IViewerActResult, IViewerInfo, IViewerSnapshot, IViewerSnapshotOptions, ViewerAction } from '../../common/positronViewerAgent.js';
 
@@ -26,7 +26,7 @@ describe('positronViewer commands', () => {
 		return actResult;
 	});
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IPositronViewerAgentService, {
 			getViewerInfo,
 			getViewerSnapshot,

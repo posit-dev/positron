@@ -8,7 +8,7 @@
 
 import { URI } from '../../../../../base/common/uri.js';
 import { Event } from '../../../../../base/common/event.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
@@ -23,7 +23,7 @@ import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupServi
 import { CellExecutionState } from '../../common/quartoExecutionTypes.js';
 
 describe('QuartoCellToolbar - Position Updates', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 	const logService = new NullLogService();
 	const runtimeStartupService = createTestRuntimeStartupService();
 
@@ -231,7 +231,7 @@ y = 2
 });
 
 describe('QuartoCellToolbar - Execution State DOM', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 	const logService = new NullLogService();
 	const runtimeStartupService = createTestRuntimeStartupService();
 

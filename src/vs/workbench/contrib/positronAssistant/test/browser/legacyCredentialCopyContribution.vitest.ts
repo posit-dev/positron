@@ -9,7 +9,7 @@ import { IExtensionStorageService } from '../../../../../platform/extensionManag
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { ISecretStorageService } from '../../../../../platform/secrets/common/secrets.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
 import { extensionSecretStorageKey as extensionSecretKey } from '../../../../api/common/extensionSecretStorageKey.js';
@@ -23,7 +23,7 @@ describe('LegacyCredentialCopyContribution', () => {
 	let catalogStatus: 'ready' | 'error' = 'ready';
 	let secretsType: ISecretStorageService['type'] = 'persisted';
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(ISecretStorageService, stubInterface<ISecretStorageService>({
 			get: async key => secrets.get(key),
 			set: async (key, value) => { secrets.set(key, value); },

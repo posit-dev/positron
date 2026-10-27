@@ -19,7 +19,7 @@ import { IVariableItem } from '../../../../services/positronVariables/common/int
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { Event } from '../../../../../base/common/event.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { PositronDataExplorerCommandId } from '../../browser/positronDataExplorerActions.js';
 import { PositronDataExplorerClickToViewContribution } from '../../browser/positronDataExplorerClickToViewProvider.js';
 
@@ -73,7 +73,7 @@ describe('PositronDataExplorerClickToViewContribution', () => {
 	let executeCommandStub: ReturnType<typeof vi.fn<(...args: unknown[]) => Promise<unknown>>>;
 	const disposables = new DisposableStore();
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(ICommandService, {
 			executeCommand: (...args: unknown[]) => executeCommandStub(...args),
 		})

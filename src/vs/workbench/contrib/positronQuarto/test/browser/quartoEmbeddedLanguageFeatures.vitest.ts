@@ -37,7 +37,7 @@ import {
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { Constants } from '../../../../../base/common/uint.js';
 import { QUARTO_NATIVE_LANGUAGE_FEATURES_KEY } from '../../common/positronQuartoConfig.js';
@@ -65,7 +65,7 @@ const IN_CELL = new Position(4, 3);
 const IN_PROSE = new Position(1, 1);
 
 describe('QuartoEmbeddedLanguageFeatures', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	let languageFeatures: LanguageFeaturesService;
 	let configurationService: TestConfigurationService;

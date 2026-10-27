@@ -14,7 +14,7 @@ import { IContextKeyService } from '../../../../../../../platform/contextkey/com
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { ILogService, NullLogService } from '../../../../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../../../../platform/notification/common/notification.js';
-import { createTestContainer } from '../../../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
 import { INotebookExecutionStateService } from '../../../../../notebook/common/notebookExecutionStateService.js';
 import { NotebookTextModel } from '../../../../../notebook/common/model/notebookTextModel.js';
@@ -26,7 +26,7 @@ import { GhostCellController } from '../controller.js';
 describe('GhostCellController notebook AI gate', () => {
 	const config = new TestConfigurationService();
 	const contextKeyService = new MockContextKeyService();
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IConfigurationService, config)
 		.stub(IContextKeyService, contextKeyService)
 		.stub(INotebookExecutionStateService, stubInterface<INotebookExecutionStateService>({ onDidChangeExecution: Event.None }))

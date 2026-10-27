@@ -15,12 +15,12 @@ import { IModelService } from '../../../../common/services/model.js';
 import { createModelServices, createTextModel } from '../../../../test/common/testTextModel.js';
 import { IEnvironmentService } from '../../../../../platform/environment/common/environment.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { OutlineModel, OutlineModelService } from '../../browser/outlineModel.js';
 
 describe('OutlineModelService', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	function createService(languageFeatures: LanguageFeaturesService): OutlineModelService {
 		const modelService = createModelServices(ctx.disposables.add(new DisposableStore())).get(IModelService);
