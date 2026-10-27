@@ -50,25 +50,27 @@ export const OutputRunWithLinks = (props: OutputRunWithLinksProps) => {
 
 	// Look for a hyperlink in the text.
 	//
-	const hyperlinkMatch = detectHyperlinks(props.text);
-	if (hyperlinkMatch) {
+	const hyperlinkMatches = detectHyperlinks(props.text);
+	if (hyperlinkMatches.length) {
 		// Create an array of text and hyperlinks for each entry in the match array.
+		// Use the index of each match rather than searching for its text, since
+		// the same URL can appear more than once.
 		const parts = [];
 		let lastIndex = 0;
-		for (const match of hyperlinkMatch) {
+		for (const match of hyperlinkMatches) {
 			// Add the text before the hyperlink.
-			parts.push(props.text.substring(lastIndex, props.text.indexOf(match)));
-			lastIndex = props.text.indexOf(match) + match.length;
+			parts.push(props.text.substring(lastIndex, match.index));
+			lastIndex = match.index + match.text.length;
 
 			// Add the hyperlink.
 			parts.push(
 				<a
-					key={match}
+					key={match.index}
 					className='output-run-hyperlink'
 					href='#'
-					onClick={clickHandler.bind(null, match)}
+					onClick={clickHandler.bind(null, match.text)}
 				>
-					{match}
+					{match.text}
 				</a>
 			);
 		}
