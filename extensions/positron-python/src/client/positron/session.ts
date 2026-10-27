@@ -587,11 +587,13 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
 
         if (
+            this.kernelSpec &&
             this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console &&
             interpreter.version?.raw &&
             !isVersionSupported(interpreter.version)
         ) {
-            // Warn about an unsupported Python version only when a console session actually starts with it.
+            // Warn about an unsupported Python version only when a new console session starts with it,
+            // not when an existing session is restored.
             const diagnosticsService = this.serviceContainer.get<IDiagnosticsService>(
                 IDiagnosticsService,
                 UnsupportedPythonVersionServiceId,
