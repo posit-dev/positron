@@ -500,10 +500,13 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 							condaPythonVersion,
 							uvPythonVersion,
 							envName,
-							// Do not start the environment after creation. We'll install ipykernel
-							// first, then set the environment as the affiliated runtime, which will
-							// be automatically started by the runtimeStartupService.
-							selectEnvironment: false
+							// Do not start the environment after creation. The runtime startup
+							// service starts it as the affiliated runtime once the init tasks
+							// finish (for the Jupyter Notebook template, the notebook connects to
+							// it instead). sessionWillStart keeps the new-environment prompt quiet
+							// until that session starts (#16584).
+							selectEnvironment: false,
+							sessionWillStart: true,
 						}
 					);
 
