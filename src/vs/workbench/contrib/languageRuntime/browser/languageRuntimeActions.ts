@@ -991,6 +991,9 @@ export const selectNewLanguageRuntime = async (
 	quickPick.matchOnDetail = true;
 	// The gray text carries the tool and environment name; make it searchable.
 	quickPick.matchOnDescription = true;
+	// Searching only hides rows. Sorting matches by label would let the shortest
+	// label win a tie and pull rows away from their group headers.
+	quickPick.sortByLabel = false;
 
 	// Reflect discovery state in the picker: a busy spinner while runtimes are
 	// still being discovered, and an explanatory placeholder for an empty list.

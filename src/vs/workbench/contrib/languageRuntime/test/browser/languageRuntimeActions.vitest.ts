@@ -612,6 +612,13 @@ describe('selectNewLanguageRuntime', () => {
 				expect(pick.matchOnDescription).toBe(true);
 			});
 		});
+
+		it('keeps the picker order when searching', async () => {
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await withOpenPicker(async () => {
+				expect(pick.sortByLabel).toBe(false);
+			});
+		});
 	});
 
 	describe('language filters', () => {
