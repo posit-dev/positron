@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { COMMENT_MARKER } from './lib.mjs';
-import { autoRunName, buildSuggestPrompt, findPriorUse, isAutoRunAuthor, isRunCommand, parseVerdict, reasonClause, renderDiff, renderSuggestComment, skipReason, SUGGEST_MARKER } from './suggest-lib.ts';
+import { autoRunName, buildSuggestPrompt, findPriorUse, isAutoRunAuthor, isAutoRunTitle, isRunCommand, parseVerdict, reasonClause, renderDiff, renderSuggestComment, skipReason, SUGGEST_MARKER } from './suggest-lib.ts';
 
 test('isRunCommand accepts every alias as the first word of the first non-blank line', () => {
 	for (const body of ['/explore', '/test', '/exploratory-test', '\r\n\r\n/explore the plots pane\r\n', '  /test 20m']) {
@@ -86,7 +86,15 @@ test('isAutoRunAuthor matches a listed login, ignoring case and separators', () 
 
 test('autoRunName matches the run-name test-exploratory.yml gives an auto-run', () => {
 	assert.equal(autoRunName(123), 'Exploratory auto-run #123');
-	assert.match(readFileSync(new URL('../../workflows/test-exploratory.yml', import.meta.url), 'utf8'), /format\('Exploratory auto-run #\{0\}', inputs\.auto_run_pr\)/);
+	assert.match(readFileSync(new URL('../../workflows/test-exploratory.yml', import.meta.url), 'utf8'), /format\('Exploratory auto-run #\{0\} \(\{1\}\)', inputs\.auto_run_pr, inputs\.ref\)/);
+});
+
+test('isAutoRunTitle matches the PR\'s auto-run, with or without its branch', () => {
+	assert.equal(isAutoRunTitle('Exploratory auto-run #123 (fix/x)', 123), true);
+	assert.equal(isAutoRunTitle('Exploratory auto-run #123', 123), true);
+	assert.equal(isAutoRunTitle('Exploratory auto-run #1234 (fix/x)', 123), false);
+	assert.equal(isAutoRunTitle('Explore #123: Fix x', 123), false);
+	assert.equal(isAutoRunTitle(undefined, 123), false);
 });
 
 test('parseVerdict reads YES with a reason and NO with or without one', () => {

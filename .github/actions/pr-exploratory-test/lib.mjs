@@ -286,7 +286,7 @@ export function renderPrBody(body, max = PR_BODY_MAX) {
 }
 
 /**
- * The step summary's first line: what was tested, so a run is identifiable
+ * The run's target line, in announce's summary: what was tested, so a run is identifiable
  * without opening its report. The PR part is left off when there is none, and
  * the time limit when the run had none.
  */
@@ -297,6 +297,21 @@ export function renderSummaryTarget(branch, repo, number, focus, timeLimit) {
 	if (branch) { parts.push(`\`${branch}\``); }
 	if (timeLimit) { parts.push(`${timeLimit} min`); }
 	return parts.length ? `${parts.join(' · ')}\n\n` : '';
+}
+
+/**
+ * The worthiness check's verdict for its job summary, so the run page says why
+ * explore did or did not start. `reason` is the model's line; `note` stands in
+ * when there is none, as when the check fails open.
+ */
+export function renderGateSummary(testable, reason, note, cost) {
+	const why = String(reason || note || '').trim();
+	const detail = [why, cost ? `_($${cost})_` : ''].filter(Boolean).join(' ');
+	return [
+		testable ? '**Worthiness check passed**, explore will run.' : '**Worthiness check declined**, explore was not started.',
+		...(detail ? ['', detail] : []),
+		'',
+	].join('\n');
 }
 
 /**
