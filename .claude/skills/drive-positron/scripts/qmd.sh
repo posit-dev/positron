@@ -77,10 +77,17 @@
 #                   Interrupt execution then
 #   link N TEXT     click the link or button in cell N's output whose text or
 #                   name holds TEXT (a truncated output's "(open in editor)",
-#                   drawn as a button), after wheeling the editor until it is
-#                   on screen, and report the active editor tab after
-#                   ("activeEditor", "editorTabs", "newTabs"). Fails when the
-#                   click opened or changed nothing within 3 s
+#                   drawn as a button; an error's "Fix" and "Explain"); when
+#                   several hold it, the one whose whole text or name is TEXT
+#                   ("Fix", not "More fix options"). It wheels the editor until
+#                   the link is on screen, clicks, and reports the active editor
+#                   tab after ("activeEditor", "editorTabs", "newTabs"), the
+#                   side bars and panel that now show another view ("views":
+#                   "sidebar: hidden -> Posit Assistant"), and the part focus
+#                   is in when not the editor ("focus"). Fails when the click
+#                   opened or changed no editor tab, view, dialog, menu or
+#                   quick pick within 3 s (a change only inside a view already
+#                   shown, such as a new chat in an open assistant, is not seen)
 #   read            every output on screen and the line it sits under, and the
 #                   lines drawn ("visible"); a note says when the editor is
 #                   scrolled past the end of the file, as it can be after a

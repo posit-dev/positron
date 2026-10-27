@@ -348,6 +348,8 @@ const cases: Case[] = [
 	{ name: 'qmd run 3 (long output)', run: ['qmd.sh', '--file', 'report.qmd', 'run', '3'], check: o => !o.json!.changed && 'nothing changed' },
 	{ name: 'qmd wait 3', run: ['qmd.sh', '--file', 'report.qmd', 'wait', '3', '30'], check: o => includes(o.json!.output?.kinds, 'truncation-header') },
 	{ name: 'qmd link missing', run: ['qmd.sh', '--file', 'report.qmd', 'link', '3', 'no such link'], fail: true },
+	// Quarto inline output is not in the accessibility tree: ui.sh's miss points at qmd.sh link.
+	{ name: 'ui click a button in Quarto inline output points at qmd.sh link', run: ['ui.sh', 'click', 'button', 'Copy output', '--in', 'editor'], fail: true, check: o => includes(o.json!.error, 'click one with qmd.sh --file FILE link N TEXT') },
 	// In a short editor the link is off screen: link wheels the editor to it before the click.
 	{ name: 'panel resize panel tall (short editor)', run: ['panel.sh', 'resize', 'panel', '700'] },
 	{ name: 'qmd link open in editor', run: ['qmd.sh', '--file', 'report.qmd', 'link', '3', 'open in editor'], check: o => (!o.json!.changed && 'nothing changed') || (/report\.qmd/.test(String(o.json!.activeEditor)) && `still ${o.json!.activeEditor}`) || logged('click (open in editor) -> active editor') },
@@ -376,6 +378,13 @@ const cases: Case[] = [
 	{ name: 'open-file report.qmd, the root one, after the picks', run: ['open-file.sh', 'report.qmd'], check: o => !String(o.json!.path).endsWith('/ws/report.qmd') && `path ${o.json!.path}` },
 	// Notebook and Quarto sessions are not consoles: sessions --all lists them.
 	{ name: 'panel sessions --all', run: ['panel.sh', 'sessions', '--all'], check: o => (!o.json!.sessions?.some((x: Json) => x.kind === 'notebook' && x.document === 'notebook.ipynb') && `no notebook session: ${JSON.stringify(o.json!.sessions)}`) || (!o.json!.sessions?.some((x: Json) => x.kind === 'quarto' && x.document === 'report.qmd') && 'no quarto session') || (!o.json!.sessions?.some((x: Json) => x.kind === 'console' && x.id) && 'no console session with its id') },
+	// An error's Fix and Explain open the assistant in the side bar: link takes the button named "Explain" over "More explain options", and a view that opened is a change.
+	{ name: 'open-file errors.qmd', run: ['open-file.sh', 'errors.qmd'] },
+	{ name: 'qmd run the cell that fails', run: ['qmd.sh', '--file', 'errors.qmd', 'run', '1'], check: o => !o.json!.changed && 'nothing changed' },
+	{ name: 'qmd wait for the error', run: ['qmd.sh', '--file', 'errors.qmd', 'wait', '1', '30'], check: o => includes(o.json!.output?.kinds, 'error') },
+	{ name: 'palette-run Close Primary Side Bar (before Explain)', run: ['palette-run.sh', 'View: Close Primary Side Bar'] },
+	{ name: 'qmd link Explain opens the assistant view', run: ['qmd.sh', '--file', 'errors.qmd', 'link', '1', 'Explain'], check: o => (o.json!.clicked !== 'Explain' && `clicked ${o.json!.clicked}`) || includes(o.json!.views, 'sidebar: hidden -> Posit Assistant') },
+	{ name: 'palette-run Show Explorer (after Explain)', run: ['palette-run.sh', 'View: Show Explorer'] },
 
 	// ---- Terminal and panel
 	{ name: 'palette-run new terminal', quick: true, run: ['palette-run.sh', 'Terminal: Create New Terminal'] },
@@ -404,6 +413,8 @@ const cases: Case[] = [
 	{ name: 'open-file broken.json', run: ['open-file.sh', 'broken.json'] },
 	{ name: 'panel tab Problems (badge)', wait: 1500, run: ['panel.sh', 'tab', 'Problems'], retry: 2, retryOn: /not selected/, check: o => o.json!.tab !== 'Problems' && `tab ${o.json!.tab}` },
 	{ name: 'view-read Problems', run: ['view-read.sh', '--view', 'Problems'], check: o => includes(o.text, 'broken.json') },
+	// The palette lists Hide Panel twice (registered twice), same title and id: one command, not an ambiguous title.
+	{ name: 'palette-run dry run Hide Panel (listed twice)', run: ['palette-run.sh', '--dry-run', 'View: Hide Panel'], check: o => o.json?.chosen !== 'View: Hide Panel' && 'wrong row chosen' },
 	// The editor area hidden: its tabs are still listed, and it says so. Close All Editors (matplotlib plot tab) closed analysis.R in a full run: open it again first.
 	{ name: 'open-file analysis.R again, before the editor area is hidden', run: ['open-file.sh', 'analysis.R'], check: o => o.json!.activeTab !== 'analysis.R' && `active tab ${o.json!.activeTab}` },
 	{ name: 'palette-run Toggle Maximized Panel', run: ['palette-run.sh', 'View: Toggle Maximized Panel'] },

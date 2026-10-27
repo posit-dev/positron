@@ -1,0 +1,9 @@
+---
+title: "Smoke errors"
+---
+
+A cell that fails, for the buttons on its error.
+
+```{python}
+[1][5]
+```

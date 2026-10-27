@@ -22,7 +22,7 @@ export function paletteRun(session: string, title: string, opts: { dry?: boolean
 		await lib.closeQuickInput();
 		await lib.blur();
 		if (!await lib.openQuickInput(a.mod + '+Shift+p', '>' + a.title)) { return { ok: false, error: 'the Command Palette did not open' }; }
-		const p = await lib.pick({ exact: a.title });
+		const p = await lib.pick({ exact: a.title, sameIsOne: true });
 		if (!p.ok) {
 			// With no exact match the palette highlights its best guess, under a
 			// "similar commands" heading when the command is hidden: Enter there
@@ -32,24 +32,30 @@ export function paletteRun(session: string, title: string, opts: { dry?: boolean
 			const similar = headings.some(h => h.includes(lib.names.palette.similarCommands));
 			await lib.closeQuickInput();
 			const none = p.error.startsWith('no row');
+			if (!none) {
+				// Several commands share the title; shown has each one's id beside it.
+				return { ...p, error: `${p.error}: different commands share this title; nothing was run`, hint: 'palette-run cannot choose between them: open the palette, type the title with ui.sh type TEXT --in quickpick, and choose the row with ui.sh pick "label (description)" as shown writes it' };
+			}
 			return {
-				...p, ...(none ? { error: `the palette lists no command with the exact title "${a.title}"${similar ? ' (only similar commands)' : ''}; nothing was run` } : {}),
+				...p, error: `the palette lists no command with the exact title "${a.title}"${similar ? ' (only similar commands)' : ''}; nothing was run`,
 				...(similar ? { similar: true } : {}),
 				hint: 'not listed: the command may not exist under that title, or its precondition is false right now (a language\'s commands, such as R: Source R File, are listed only while a file of that language is the active editor)',
 			};
 		}
-		if (a.dry) { await lib.closeQuickInput(); return { ok: true, chosen: p.row.label, description: p.row.description, dry: true }; }
+		// The same command listed twice (registered twice): either row runs it.
+		const twice = p.copies ? { copies: p.copies } : {};
+		if (a.dry) { await lib.closeQuickInput(); return { ok: true, chosen: p.row.label, description: p.row.description, ...twice, dry: true }; }
 		const toastsBefore = a.watch ? await lib.toasts() : [];
 		const dialogsBefore = a.watch ? (await lib.dialogs()).map(d => d.message) : [];
 		const acted = Date.now();
 		await lib.clickRow(p.row);
 		await lib.sleep(200);
 		const closed = !await lib.quickOpen();
-		if (!a.watch) { return { ok: true, chosen: p.row.label, description: p.row.description, closed }; }
+		if (!a.watch) { return { ok: true, chosen: p.row.label, description: p.row.description, ...twice, closed }; }
 		const toasts = await lib.newToasts(toastsBefore, acted + 1000);
 		const dialogs = (await lib.dialogs()).filter(d => !dialogsBefore.includes(d.message));
 		return {
-			ok: true, chosen: p.row.label, description: p.row.description, closed,
+			ok: true, chosen: p.row.label, description: p.row.description, ...twice, closed,
 			...(toasts.length ? { notification: toasts.join(' | ') } : {}),
 			...(dialogs.length ? { dialogs, note: 'the command opened a dialog: answer it with notifications.sh --click BUTTON' } : {}),
 		};
