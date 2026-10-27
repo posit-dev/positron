@@ -25,7 +25,7 @@ import { ActionBarRegion } from '../../../../../platform/positronActionBar/brows
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
-import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { PositronActionBarContextProvider, usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { HelpTopicSuggestion } from '../../../../services/languageRuntime/common/positronHelpComm.js';
 import { HelpTopicResult } from '../positronHelpService.js';
 
@@ -53,6 +53,7 @@ const kSuggestionDelayMs = 200;
  */
 const HelpSearch = () => {
 	const services = usePositronReactServicesContext();
+	const { hoverManager } = usePositronActionBarContext();
 	const helpService = services.positronHelpService;
 	const [foregroundSession, setForegroundSession] = useState(() => services.runtimeSessionService.foregroundSession);
 	const [query, setQuery] = useState('');
@@ -108,6 +109,9 @@ const HelpSearch = () => {
 	}, [focused, foregroundSession, query, helpService, services.runtimeSessionService]);
 
 	const suggestionsVisible = focused && topics.length > 0;
+
+	// The hovered option goes away without a mouse leave event when the list changes.
+	useEffect(() => () => hoverManager?.hideHover(), [hoverManager, suggestionsVisible, topics]);
 
 	useEffect(() => {
 		if (suggestionsVisible && activeIndex >= 0) {
@@ -221,8 +225,16 @@ const HelpSearch = () => {
 					role='option'
 					tabIndex={-1}
 					type='button'
-					onClick={() => void runSearch(suggestion)}
+					onClick={() => { hoverManager?.hideHover(); void runSearch(suggestion); }}
 					onMouseDown={event => event.preventDefault()}
+					onMouseEnter={event => {
+						// Show the full name when the label, the first child, is cut off.
+						const label = event.currentTarget.firstElementChild;
+						if (label && label.scrollWidth > label.clientWidth) {
+							hoverManager?.showHover(event.currentTarget, [suggestion.label, suggestion.detail].filter(Boolean).join(' '));
+						}
+					}}
+					onMouseLeave={() => hoverManager?.hideHover()}
 				>
 					<span className='label'>{suggestion.label}</span>
 					{suggestion.detail && <span className='detail'>{suggestion.detail}</span>}
