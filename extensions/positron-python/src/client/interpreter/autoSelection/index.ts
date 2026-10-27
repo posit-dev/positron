@@ -113,6 +113,10 @@ export class InterpreterAutoSelectionService implements IInterpreterAutoSelectio
     // --- Start Positron ---
     public async setPositronRecommendedInterpreter(resource: Uri, interpreter: PythonEnvironment): Promise<void> {
         this.positronRecommendedWorkspaces.add(this.getWorkspacePathKey(resource));
+        // Core can ask for the recommendation more than once. Don't fire a change when it is the same.
+        if (this.getWorkspaceState(resource)?.value?.path === interpreter.path) {
+            return;
+        }
         await this.storeAutoSelectedInterpreter(resource, interpreter);
         this.didAutoSelectedInterpreterEmitter.fire();
     }
