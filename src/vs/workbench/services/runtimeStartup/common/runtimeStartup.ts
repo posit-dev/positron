@@ -170,7 +170,7 @@ export function choosePreferredRuntime(
 		const preferred = found(sources.recommended, PreferredRuntimeReason.Recommended);
 		return preferred && { ...preferred, recommendationReason: sources.recommended?.picker?.recommendationReason };
 	};
-	return found(sources.activeConsole, PreferredRuntimeReason.ActiveConsole)
+	return found(sources.activeConsole, PreferredRuntimeReason.RunningConsole)
 		?? found(sources.affiliated, PreferredRuntimeReason.WorkspaceAffiliation)
 		?? found(sources.recentlyStarted, PreferredRuntimeReason.RecentlyStarted)
 		?? fromRecommendation()
@@ -1916,9 +1916,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// The active console rule only sees the language's console in front or
 		// last used, so a console that started behind another language's is
 		// missed. The pick stands; only the reason says the console is running.
-		if (preferred && preferred.reason !== PreferredRuntimeReason.ActiveConsole &&
+		if (preferred && preferred.reason !== PreferredRuntimeReason.RunningConsole &&
 			this.hasRunningConsole(preferred.runtime.runtimeId)) {
-			return { runtime: preferred.runtime, reason: PreferredRuntimeReason.ActiveConsole };
+			return { runtime: preferred.runtime, reason: PreferredRuntimeReason.RunningConsole };
 		}
 		return preferred;
 	}

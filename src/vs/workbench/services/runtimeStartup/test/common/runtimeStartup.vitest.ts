@@ -1402,7 +1402,7 @@ describe('choosePreferredRuntime', () => {
 	}
 
 	it.each([
-		{ omitted: [], expected: { runtimeId: 'rt-console', reason: PreferredRuntimeReason.ActiveConsole } },
+		{ omitted: [], expected: { runtimeId: 'rt-console', reason: PreferredRuntimeReason.RunningConsole } },
 		{ omitted: ['activeConsole'], expected: { runtimeId: 'rt-affiliated', reason: PreferredRuntimeReason.WorkspaceAffiliation } },
 		{ omitted: ['activeConsole', 'affiliated'], expected: { runtimeId: 'rt-recent', reason: PreferredRuntimeReason.RecentlyStarted } },
 		{ omitted: ['activeConsole', 'affiliated', 'recentlyStarted'], expected: { runtimeId: 'rt-recommended', reason: PreferredRuntimeReason.Recommended } },
@@ -1526,7 +1526,7 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			return runtime;
 		}
 
-		it('is ActiveConsole when a console session backs the language', async () => {
+		it('is RunningConsole when a console session backs the language', async () => {
 			const svc = createService();
 			const sessionRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 			await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: sessionRuntime });
@@ -1534,11 +1534,11 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			const preferred = svc.getPreferredRuntimeWithReason(sessionRuntime.languageId);
 			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
 				runtimeId: sessionRuntime.runtimeId,
-				reason: PreferredRuntimeReason.ActiveConsole,
+				reason: PreferredRuntimeReason.RunningConsole,
 			});
 		});
 
-		it('is ActiveConsole when the runtime has a running console that is not the language\'s in front', async () => {
+		it('is RunningConsole when the runtime has a running console that is not the language\'s in front', async () => {
 			const svc = createService();
 			const sessionRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 			await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: sessionRuntime });
@@ -1549,7 +1549,7 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			const preferred = svc.getPreferredRuntimeWithReason(sessionRuntime.languageId);
 			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
 				runtimeId: sessionRuntime.runtimeId,
-				reason: PreferredRuntimeReason.ActiveConsole,
+				reason: PreferredRuntimeReason.RunningConsole,
 			});
 		});
 

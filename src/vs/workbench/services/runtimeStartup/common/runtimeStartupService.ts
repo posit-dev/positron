@@ -17,7 +17,8 @@ export const IRuntimeStartupService =
  * Which preference rule picked the preferred runtime for a language.
  */
 export const enum PreferredRuntimeReason {
-	ActiveConsole,
+	/** The runtime has a running console, whether or not it is the one in front. */
+	RunningConsole,
 	WorkspaceAffiliation,
 	RecentlyStarted,
 	Recommended,
