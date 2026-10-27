@@ -28,9 +28,11 @@ That's it. No builder, no services, no setup.
 
 Use the builder to wire test services. Pick the lowest preset that covers your dependencies (see `positronTestContainer.ts` JSDoc); start low and let "missing service" errors guide you up.
 
+If you need no more than the Bare or Runtime preset, import `createLightTestContainer()` from `lightTestContainer.ts`. The full `createTestContainer()` loads the Notebook and Workbench presets, which adds ~7s of import to every test file that imports it, and a guard test fails if you import it without using one of them.
+
 ```ts
 describe('MyService', () => {
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IMyService, { getData: vi.fn() })
 		.build();
@@ -101,7 +103,7 @@ Sharing code across extensions is possible through a local `file:` package, as `
 
 ## The Builder
 
-`createTestContainer()` is the builder -- a chained API (`.withX().stub().build()`) that wires up the DI services your test needs. Pick the lowest preset that covers your dependencies ([full preset hierarchy](../../src/vs/test/vitest/positronTestContainer.ts)). Start low and let errors guide you up:
+`createTestContainer()` is the builder -- a chained API (`.withX().stub().build()`) that wires up the DI services your test needs. Pick the lowest preset that covers your dependencies ([full preset hierarchy](../../src/vs/test/vitest/positronTestContainer.ts)); for Bare or Runtime, use `createLightTestContainer()` (same API, without the heavy presets). Start low and let errors guide you up:
 
 1. Run the test. If it passes, you're done.
 2. "X is not a function" or "Cannot read properties of undefined" -- add `.stub(IMissingService, {})`
@@ -127,7 +129,7 @@ Positron-specific rules not covered by a public lint plugin. The `review-vitest-
 
 - **Avoid `workbenchInstantiationService()`** (upstream VS Code helper) -- use `createTestContainer().withWorkbenchServices().build()`.
 
-- **Avoid `createRuntimeServices()`** -- use `createTestContainer().withRuntimeServices().build()`.
+- **Avoid `createRuntimeServices()`** -- use `createLightTestContainer().withRuntimeServices().build()`.
 
 - **Avoid hand-rolled `as unknown as PositronReactServices` accessor** -- use `createTestContainer().withReactServices().stub(IService, ...).build()` + `setupRTLRenderer(() => ctx.reactServices)`.
 
