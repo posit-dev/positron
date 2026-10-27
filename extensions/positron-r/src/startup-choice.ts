@@ -104,10 +104,62 @@ export interface PinnedRBuild<P> {
 }
 
 /**
+ * The path discovery lists for an R that you name by a path, and the conda or
+ * pixi environment it is in.
+ */
+export interface ListedRPath<P> {
+	readonly binpath: string;
+	readonly current: boolean;
+	readonly condaOrPixi: P | undefined;
+}
+
+/**
+ * What finding the path discovery lists for an R needs to know.
+ */
+export interface ListedRPathInputs<P> {
+	/** Whether two paths name the same file once symlinks are followed. */
+	isSameFile(path1: string, path2: string): boolean;
+	/** The file a symlink at a path leads to, or the path itself if it isn't a symlink. */
+	followLink(path: string): string;
+	/** The conda or pixi environment that a path is in. */
+	packagerMetadataForPath(path: string): P | undefined;
+	/**
+	 * The R binary discovery lists for the R at a path. On Windows, `bin\x64\R.exe`
+	 * in place of `bin\R.exe` where it exists. Elsewhere, the path itself.
+	 */
+	listedRBinary(path: string): string;
+}
+
+/**
+ * Finds the path discovery lists for the R at `userPath`, so an R built from
+ * it gets the same runtime ID as discovery's entry and the interpreter picker
+ * doesn't list it twice. That is the current R's own path for the current R.
+ * Otherwise it is the path itself for an R in a conda or pixi environment, as
+ * discovery lists those, or else the file a link leads to. A link into a conda
+ * or pixi environment keeps that environment.
+ *
+ * Used for the pinned R and for adding an R by path.
+ *
+ * @param userPath A path to an R binary from a setting or from you.
+ * @param currentPath The current R's path, with symlinks followed, or undefined if there is none.
+ */
+export function listedRPath<P>(userPath: string, currentPath: string | undefined, inputs: ListedRPathInputs<P>): ListedRPath<P> {
+	const listed = inputs.listedRBinary(userPath);
+	const ownEnvironment = inputs.packagerMetadataForPath(listed);
+	const followed = ownEnvironment ? listed : inputs.followLink(listed);
+	const current = currentPath !== undefined && inputs.isSameFile(currentPath, listed);
+	return {
+		binpath: current ? currentPath : followed,
+		current,
+		condaOrPixi: ownEnvironment ?? inputs.packagerMetadataForPath(followed),
+	};
+}
+
+/**
  * What turning `positron.r.interpreters.default` into an R installation needs
  * to know. Each lookup runs only when the decision needs it.
  */
-export interface PinnedRInputs<T extends { readonly usable: boolean }, P> {
+export interface PinnedRInputs<T extends { readonly usable: boolean }, P> extends ListedRPathInputs<P> {
 	/** `interpreters.discovery` is `definitionsOnly` for R. */
 	readonly definitionsOnly: boolean;
 	/** The pinned path, already resolved, or undefined if the setting isn't set. */
@@ -117,12 +169,6 @@ export interface PinnedRInputs<T extends { readonly usable: boolean }, P> {
 	exists(path: string): boolean;
 	/** The current R's path, with symlinks followed, or undefined if there is none. */
 	currentRPath(): Promise<string | undefined>;
-	/** Whether two paths name the same file once symlinks are followed. */
-	isSameFile(path1: string, path2: string): boolean;
-	/** The file a symlink at a path leads to, or the path itself if it isn't a symlink. */
-	followLink(path: string): string;
-	/** The conda or pixi environment that a path is in. */
-	packagerMetadataForPath(path: string): P | undefined;
 	/** The setup from the r-versions entry that leads to the R at a path. */
 	rVersionsMetadataForPath(path: string): Promise<P | undefined>;
 	install(build: PinnedRBuild<P>): T;
@@ -142,19 +188,15 @@ export async function choosePinnedR<T extends { readonly usable: boolean }, P>(i
 		return undefined;
 	}
 	const currentPath = await inputs.currentRPath();
-	const current = currentPath !== undefined && inputs.isSameFile(currentPath, pinnedPath);
-	const condaOrPixi = inputs.packagerMetadataForPath(pinnedPath);
 	// Build from the path discovery lists. Definitions match on the exact
-	// path, so a defined pin keeps its own. Discovery lists conda and pixi Rs
-	// at their own paths, and other Rs at the file a link leads to.
-	let binpath = pinnedPath;
-	if (!inputs.definitionsOnly) {
-		if (current) {
-			binpath = currentPath;
-		} else if (!condaOrPixi) {
-			binpath = inputs.followLink(pinnedPath);
-		}
-	}
+	// path, so a defined pin keeps its own.
+	const { binpath, current, condaOrPixi } = inputs.definitionsOnly ?
+		{
+			binpath: pinnedPath,
+			current: currentPath !== undefined && inputs.isSameFile(currentPath, pinnedPath),
+			condaOrPixi: inputs.packagerMetadataForPath(pinnedPath),
+		} :
+		listedRPath(pinnedPath, currentPath, inputs);
 	const installation = inputs.install({
 		binpath,
 		current,

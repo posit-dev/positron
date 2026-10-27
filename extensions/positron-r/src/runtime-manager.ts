@@ -21,7 +21,7 @@ import { rVersionsMetadataForPath } from './provider-rversions.js';
 import { setupArkJupyterKernel } from './kernel';
 import { getRTerminalEnvironmentMutations, isROnPath } from './r-process-environment';
 import { RSessionManager } from './session-manager';
-import { choosePinnedR, chooseStartupR, firstListedR, InFlightLookup } from './startup-choice.js';
+import { choosePinnedR, chooseStartupR, firstListedR, InFlightLookup, listedRPath } from './startup-choice.js';
 import { arePathsSameFile, followLink } from './path-utils.js';
 
 /**
@@ -308,9 +308,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		const definitionsOnly = isDefinitionsOnlyDiscovery();
 		return choosePinnedR<RInstallation, PackagerMetadata>({
 			definitionsOnly,
-			// On Windows, a pin at `bin\R.exe` would otherwise be a second copy of the R at `bin\x64\R.exe`.
-			// Under `definitionsOnly`, the path stays as `interpreters.definitions` names it.
-			pinnedPath: pinnedPath && (definitionsOnly ? pinnedPath : listedRBinary(pinnedPath)),
+			pinnedPath,
 			isDefined: binpath => {
 				const defined = getInterpreterDefinitionPaths().includes(binpath);
 				if (!defined) {
@@ -329,6 +327,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			isSameFile: arePathsSameFile,
 			followLink,
 			packagerMetadataForPath,
+			listedRBinary,
 			rVersionsMetadataForPath,
 			install: ({ binpath, current, packagerMetadata }) => {
 				const inst = new RInstallation(binpath, current, [ReasonDiscovered.userSetting], packagerMetadata);
@@ -581,15 +580,15 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 * @returns The runtime metadata for the installation.
 	 */
 	async registerRuntimeFromPath(binpath: string): Promise<positron.LanguageRuntimeMetadata> {
-		const curBin = await currentRBinary();
-		// A link to an R, such as `/usr/local/bin/R`, registers at the path
-		// discovery lists for that R, so the picker doesn't show it twice:
-		// the current R's own path, or else the file the link leads to.
-		// Conda and pixi Rs keep their own paths, as discovery lists them.
-		const currentPath = isCurrentR(curBin, binpath) ? curBin?.path : undefined;
-		const condaOrPixi = packagerMetadataForPath(binpath);
-		const listedPath = currentPath ?? (condaOrPixi ? binpath : followLink(binpath));
-		const inst = new RInstallation(listedPath, currentPath !== undefined, [ReasonDiscovered.userSetting], condaOrPixi);
+		// Register at the path discovery lists for this R, so the picker
+		// doesn't show it twice. See `listedRPath()`.
+		const listed = listedRPath(binpath, (await currentRBinary())?.path, {
+			isSameFile: arePathsSameFile,
+			followLink,
+			packagerMetadataForPath,
+			listedRBinary,
+		});
+		const inst = new RInstallation(listed.binpath, listed.current, [ReasonDiscovered.userSetting], listed.condaOrPixi);
 		if (!inst.usable) {
 			throw new Error(`R installation at ${binpath} is not usable. Reason: ${friendlyReason(inst.reasonRejected)}`);
 		}

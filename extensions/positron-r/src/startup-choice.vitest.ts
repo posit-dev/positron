@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import * as semver from 'semver';
-import { choosePinnedR, chooseStartupR, compareRInstallations, createSharedSearch, firstListedR, PinnedRBuild, PinnedRInputs, RFullSearchTriggers, RStartupCandidate, RStartupInputs, InFlightLookup, ReusableSearch, rVersionsEntryForR, rVersionsMayListR } from './startup-choice';
+import { choosePinnedR, chooseStartupR, compareRInstallations, createSharedSearch, firstListedR, listedRPath, ListedRPathInputs, PinnedRBuild, PinnedRInputs, RFullSearchTriggers, RStartupCandidate, RStartupInputs, InFlightLookup, ReusableSearch, rVersionsEntryForR, rVersionsMayListR } from './startup-choice';
 
 interface FakeR extends RStartupCandidate {
 	readonly name: string;
@@ -238,14 +238,16 @@ describe('choosePinnedR', () => {
 
 	/**
 	 * Inputs for a pin at `/opt/R/4.4/bin/R` that exists, isn't the current R,
-	 * and is usable. `/usr/local/bin/R` is a link to the current R, and
-	 * `/usr/local/bin/R-4.4` is a link to `/opt/R/4.4/bin/R`.
+	 * and is usable. `/usr/local/bin/R` is a link to the current R,
+	 * `/usr/local/bin/R-4.4` is a link to `/opt/R/4.4/bin/R`, and
+	 * `/usr/local/bin/R-pixi` is a link into a pixi environment.
 	 */
 	function pinnedInputs(overrides: Partial<PinnedRInputs<FakePinnedR, FakePackager>> & { usable?: boolean } = {}): PinnedRInputs<FakePinnedR, FakePackager> {
 		const { usable = true, ...rest } = overrides;
 		const links: Record<string, string> = {
 			'/usr/local/bin/R': '/Library/Frameworks/R.framework/Versions/4.5/Resources/bin/R',
 			'/usr/local/bin/R-4.4': '/opt/R/4.4/bin/R',
+			'/usr/local/bin/R-pixi': '/work/project/.pixi/envs/default/bin/R',
 		};
 		return {
 			definitionsOnly: false,
@@ -256,6 +258,7 @@ describe('choosePinnedR', () => {
 			isSameFile: (path1, path2) => (links[path1] ?? path1) === (links[path2] ?? path2),
 			followLink: path => links[path] ?? path,
 			packagerMetadataForPath: path => path.includes('/.pixi/') ? { from: 'pixi' } : undefined,
+			listedRBinary: path => path,
 			rVersionsMetadataForPath: async () => undefined,
 			install: build => ({ ...build, usable }),
 			...rest,
@@ -307,6 +310,22 @@ describe('choosePinnedR', () => {
 		}).toEqual({ packagerMetadata: { from: 'pixi' }, rVersionsRead: 0 });
 	});
 
+	it('builds a pin that links into a pixi environment from the file the link leads to, with that environment', async () => {
+		expect(await choosePinnedR(pinnedInputs({ pinnedPath: '/usr/local/bin/R-pixi' }))).toEqual({
+			binpath: '/work/project/.pixi/envs/default/bin/R',
+			current: false,
+			packagerMetadata: { from: 'pixi' },
+			usable: true,
+		});
+	});
+
+	it('builds a pin from the R binary discovery lists for it, such as `bin\\x64\\R.exe` on Windows', async () => {
+		expect((await choosePinnedR(pinnedInputs({
+			pinnedPath: 'C:\\R\\R-4.4.1\\bin\\R.exe',
+			listedRBinary: path => path.replace('\\bin\\R.exe', '\\bin\\x64\\R.exe'),
+		})))?.binpath).toBe('C:\\R\\R-4.4.1\\bin\\x64\\R.exe');
+	});
+
 	it('keeps the setup of the r-versions entry that lists the pinned R', async () => {
 		const rVersionsMetadataForPath = async (path: string): Promise<FakePackager | undefined> =>
 			path === '/opt/R/4.4/bin/R' ? { from: 'r-versions' } : undefined;
@@ -354,6 +373,50 @@ describe('choosePinnedR', () => {
 				usable: true,
 			});
 		});
+	});
+});
+
+describe('listedRPath', () => {
+	/** Where the packager metadata came from. */
+	interface FakePackager {
+		readonly from: 'conda';
+	}
+
+	/**
+	 * `/usr/local/bin/R` is a link to the current R, `/usr/local/bin/R-conda`
+	 * is a link into a conda environment, and on Windows `bin\R.exe` is
+	 * listed as `bin\x64\R.exe`.
+	 */
+	const links: Record<string, string> = {
+		'/usr/local/bin/R': '/opt/R/4.5/bin/R',
+		'/usr/local/bin/R-conda': '/home/me/miniconda3/envs/r44/bin/R',
+	};
+	const inputs: ListedRPathInputs<FakePackager> = {
+		isSameFile: (path1, path2) => (links[path1] ?? path1) === (links[path2] ?? path2),
+		followLink: path => links[path] ?? path,
+		packagerMetadataForPath: path => path.includes('/miniconda3/') ? { from: 'conda' } : undefined,
+		listedRBinary: path => path.replace('\\bin\\R.exe', '\\bin\\x64\\R.exe'),
+	};
+
+	it('lists each R that you add by path where discovery lists it', () => {
+		const listed = (userPath: string) => listedRPath(userPath, '/opt/R/4.5/bin/R', inputs);
+		expect({
+			plain: listed('/opt/R/4.4/bin/R'),
+			linkToCurrent: listed('/usr/local/bin/R'),
+			conda: listed('/home/me/miniconda3/envs/r44/bin/R'),
+			linkIntoConda: listed('/usr/local/bin/R-conda'),
+			windows: listed('C:\\R\\R-4.4.1\\bin\\R.exe'),
+		}).toEqual({
+			plain: { binpath: '/opt/R/4.4/bin/R', current: false, condaOrPixi: undefined },
+			linkToCurrent: { binpath: '/opt/R/4.5/bin/R', current: true, condaOrPixi: undefined },
+			conda: { binpath: '/home/me/miniconda3/envs/r44/bin/R', current: false, condaOrPixi: { from: 'conda' } },
+			linkIntoConda: { binpath: '/home/me/miniconda3/envs/r44/bin/R', current: false, condaOrPixi: { from: 'conda' } },
+			windows: { binpath: 'C:\\R\\R-4.4.1\\bin\\x64\\R.exe', current: false, condaOrPixi: undefined },
+		});
+	});
+
+	it('does not treat an R as the current R when there is none', () => {
+		expect(listedRPath('/usr/local/bin/R', undefined, inputs).current).toBe(false);
 	});
 });
 
