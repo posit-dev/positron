@@ -442,7 +442,8 @@
                 "title": "%python.command.python.interpreterPath.title%",
                 "agent": {
                     "description": "Return the path to the Python interpreter currently active in the workspace. Use to find out which Python is selected before running code or creating an environment. Read-only; takes no arguments for the common case. Returns \"python\" when no interpreter is selected.",
-                    "returns": "The interpreter path as a string, shell-quoted for use as a command argument."
+                    "returns": "The interpreter path as a string, shell-quoted for use as a command argument.",
+                    "readOnly": true
                 }
             },
             {

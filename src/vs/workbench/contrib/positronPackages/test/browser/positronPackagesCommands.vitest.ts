@@ -256,10 +256,11 @@ describe('getAllPackages', () => {
 		expect(description).toBe(`${'x'.repeat(256)}...`);
 	});
 
-	it('is registered as an agent-compatible command', async () => {
+	it('is registered as a read-only agent-compatible command', async () => {
 		const command = CommandsRegistry.getCommand(PACKAGES_GET_ALL_PACKAGES_COMMAND_ID);
 
 		expect(command?.metadata?.agentCompatible).toBe(true);
+		expect(command?.metadata?.readOnly).toBe(true);
 	});
 });
 
@@ -422,10 +423,11 @@ describe('getPackages', () => {
 		});
 	});
 
-	it('is registered as an agent-compatible command that takes names', async () => {
+	it('is registered as a read-only agent-compatible command that takes names', async () => {
 		const command = CommandsRegistry.getCommand(PACKAGES_GET_PACKAGES_COMMAND_ID);
 
 		expect(command?.metadata?.agentCompatible).toBe(true);
+		expect(command?.metadata?.readOnly).toBe(true);
 		expect(command?.metadata?.args?.[0].name).toBe('names');
 	});
 });

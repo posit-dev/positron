@@ -315,6 +315,7 @@ CommandsRegistry.registerCommand({
 			"Read the cells of a Jupyter notebook open in the Positron notebook editor: each cell's index, type, content, and execution status."
 		),
 		agentCompatible: true,
+		readOnly: true,
 		args: [{
 			name: 'args',
 			description: 'Which notebook to read, which cells, and whether to include their outputs.',

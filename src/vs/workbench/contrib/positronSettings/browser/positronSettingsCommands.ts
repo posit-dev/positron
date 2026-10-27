@@ -502,6 +502,7 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		readOnly: true,
 		args: [
 			{
 				name: 'filter',
@@ -707,6 +708,7 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		readOnly: true,
 		args: [
 			{
 				name: 'query',

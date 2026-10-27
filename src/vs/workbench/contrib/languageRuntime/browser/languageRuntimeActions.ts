@@ -1172,6 +1172,7 @@ export class SelectSessionAction extends Action2 {
 			metadata: {
 				description: localize('positron.languageRuntime.selectSession.description', "Select the session to make active."),
 				agentCompatible: true,
+				readOnly: true,
 				args: [
 					{
 						name: 'sessionId',
@@ -1649,6 +1650,7 @@ export function registerLanguageRuntimeActions() {
 				metadata: {
 					description: localize('positron.languageRuntime.discoverAllRuntimes.description', "Rediscover all installed interpreters so newly installed environments become available."),
 					agentCompatible: true,
+					readOnly: true,
 				},
 			});
 		}
@@ -1671,6 +1673,7 @@ export function registerLanguageRuntimeActions() {
 				metadata: {
 					description: localize('positron.languageRuntime.getRegisteredRuntimes.description', "List the interpreters registered with Positron, across all languages. Use before creating an environment or starting a session to see what is already available."),
 					agentCompatible: true,
+					readOnly: true,
 					args: [
 						{
 							name: 'languageId',
@@ -1738,6 +1741,7 @@ export function registerLanguageRuntimeActions() {
 				metadata: {
 					description: localize('positron.languageRuntime.getActiveSessions.description', "List the interpreter sessions currently running in Positron. Use before selecting a session to see which sessions exist and which one is active."),
 					agentCompatible: true,
+					readOnly: true,
 					args: [
 						{
 							name: 'languageId',

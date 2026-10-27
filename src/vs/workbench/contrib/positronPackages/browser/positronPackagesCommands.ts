@@ -671,6 +671,7 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		readOnly: true,
 		returns: 'An object with available: true, the session the packages belong to, the installed packages (name, version, latestVersion, outdated, attached, description, url) -- where description is shortened to 256 characters and suffixed with "..." when cut -- and metadataStatus saying how the outdated state was obtained: \'fresh\' (repositories queried now), \'cached\' (as of the last fetch), \'unsupported\' (this runtime reports no outdated state, so no package has it), \'timed-out\' (the list is complete but outdated state may be missing), or \'fetch-failed\' (the repository query errored; the list is complete, outdated state is whatever an earlier fetch cached). This list carries no security vulnerabilities and no per-package detail; call positronPackages.getPackages for those. When there are no packages to report, an object with available: false and a reason of \'disabled\', \'no-session\', \'session-not-ready\', \'unsupported\', or \'failed\' -- the last of which also carries a message.',
 	},
 });
@@ -686,6 +687,7 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		readOnly: true,
 		args: [
 			{ name: 'names', description: 'The package names to look up, as the package repository knows them (for example: dplyr, pandas). Pass an array of names, or a single name. Matching is case-insensitive.', schema: { type: 'array', items: { type: 'string' } } },
 		],
