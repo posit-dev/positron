@@ -18,15 +18,22 @@
  *   pointer and report the file changed, so it is marked `--assume-unchanged`; a checkout that
  *   changes the pointer still overwrites it, and the next install fetches the new module.
  *
+ * A module fetched either way is kept in `.build/sql-analyzer/`, named by its SHA-256, and taken
+ * from there the next time the pointer names it. CI caches that directory, so its jobs do not each
+ * spend the repository's LFS bandwidth on the same object.
+ *
  * Run by the root postinstall on every `npm install`, and by CI when a cached `node_modules`
- * means no install runs. Fails when the module cannot be had, since the extension cannot work
- * without it.
+ * means no install runs. Exits non-zero when the module cannot be had, which the postinstall reports
+ * as a warning, so an install without network access still completes.
  */
 
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { extensionDir, git, hasGitLfs, type LfsPointer, modulePath, moduleRepoPath, readPointer } from './lfs.mts';
+
+/** Where fetched modules are kept, each named by its SHA-256. CI caches it; see the comment above. */
+const CACHE = path.join(extensionDir, '..', '..', '.build', 'sql-analyzer');
 
 /** Where the module is fetched from when git cannot fetch it: this repository's LFS server. */
 const UPSTREAM = 'https://github.com/posit-dev/positron.git';
@@ -94,11 +101,51 @@ async function download(server: string, pointer: LfsPointer): Promise<Buffer> {
 		throw new Error(`downloading the module from ${server} failed with HTTP ${content.status}`);
 	}
 	const bytes = Buffer.from(await content.arrayBuffer());
-	const oid = crypto.createHash('sha256').update(bytes).digest('hex');
-	if (bytes.length !== pointer.size || oid !== pointer.oid) {
+	if (!matches(bytes, pointer)) {
 		throw new Error(`the module downloaded from ${server} is not the one the pointer names`);
 	}
 	return bytes;
+}
+
+/** Whether `bytes` are the object the pointer names. */
+function matches(bytes: Buffer, pointer: LfsPointer): boolean {
+	return bytes.length === pointer.size
+		&& crypto.createHash('sha256').update(bytes).digest('hex') === pointer.oid;
+}
+
+/** The module the pointer names, if an earlier fetch kept it. */
+function cached(pointer: LfsPointer): Buffer | undefined {
+	try {
+		const bytes = fs.readFileSync(path.join(CACHE, pointer.oid));
+		return matches(bytes, pointer) ? bytes : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/** Keeps a fetched module for the next install. Best effort: failing to keep it costs a download. */
+function keep(bytes: Buffer, pointer: LfsPointer): void {
+	try {
+		fs.mkdirSync(CACHE, { recursive: true });
+		fs.writeFileSync(path.join(CACHE, pointer.oid), bytes);
+	} catch {
+		// Fetched again next time.
+	}
+}
+
+/**
+ * Puts the module in place of the pointer. Written beside the pointer and moved over it, so an
+ * interrupted install leaves the pointer rather than half a module. Without git-lfs, git would then
+ * see the module where it expects the pointer, so the file is marked unchanged; with it, git reads
+ * the module as its pointer, and the mark would only hide a rebuilt module from it.
+ */
+function install(bytes: Buffer): void {
+	const partial = `${modulePath}.partial`;
+	fs.writeFileSync(partial, bytes);
+	fs.renameSync(partial, modulePath);
+	if (!hasGitLfs()) {
+		git(['update-index', '--assume-unchanged', '--', path.relative(extensionDir, modulePath)]);
+	}
 }
 
 async function main(): Promise<void> {
@@ -107,9 +154,17 @@ async function main(): Promise<void> {
 		return;
 	}
 
+	const kept = cached(pointer);
+	if (kept) {
+		install(kept);
+		log('Restored the SQL analyzer from .build/sql-analyzer.');
+		return;
+	}
+
 	if (hasGitLfs()) {
 		const root = git(['rev-parse', '--show-toplevel'])?.toString().trim();
 		if (root && git(['-C', root, 'lfs', 'pull', `--include=${moduleRepoPath}`]) && !readPointer(modulePath)) {
+			keep(fs.readFileSync(modulePath), pointer);
 			log('Fetched the SQL analyzer with git-lfs.');
 			return;
 		}
@@ -119,12 +174,8 @@ async function main(): Promise<void> {
 	for (const server of servers()) {
 		try {
 			const bytes = await download(server, pointer);
-			// Written beside the pointer and moved over it, so an interrupted install leaves the
-			// pointer rather than half a module.
-			const partial = `${modulePath}.partial`;
-			fs.writeFileSync(partial, bytes);
-			fs.renameSync(partial, modulePath);
-			git(['update-index', '--assume-unchanged', '--', path.relative(extensionDir, modulePath)]);
+			install(bytes);
+			keep(bytes, pointer);
 			log(`Fetched the SQL analyzer from ${server} (${(bytes.length / 1024).toFixed(0)} KB).`);
 			return;
 		} catch (error) {

@@ -60,6 +60,16 @@ runs:
       with:
         distro: ${{ inputs.distro }}
 
+    # The SQL analyzer is stored in Git LFS, which the checkout does not fetch. The install (or
+    # download-binaries, on a cache hit) fetches it into .build/sql-analyzer, and caching that keeps
+    # each job from spending the repository's LFS bandwidth on it. Keyed on the pointer file,
+    # which names the module's SHA-256.
+    - name: Cache the SQL analyzer
+      uses: actions/cache@v5
+      with:
+        path: .build/sql-analyzer
+        key: sql-analyzer-${{ hashFiles('extensions/positron-sql/resources/sql-analyzer.wasm') }}
+
     - name: Install node dependencies
       if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
           steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||

@@ -595,9 +595,15 @@ async function buildAiLib({ force }: { force: boolean }): Promise<void> {
  * on every install, like the steps above. See extensions/positron-sql/scripts/fetch-analyzer.mts.
  */
 async function fetchSqlAnalyzer(): Promise<void> {
-	const output = await spawnAsync(process.execPath, [path.join(root, 'extensions', 'positron-sql', 'scripts', 'fetch-analyzer.mts')], { cwd: root });
-	if (output.trim()) {
-		log('extensions/positron-sql', output.trim());
+	// A warning rather than a failure: only the SQL extension needs the module, and it says what is
+	// missing when it loads, so an install without network access still completes.
+	try {
+		const output = await spawnAsync(process.execPath, [path.join(root, 'extensions', 'positron-sql', 'scripts', 'fetch-analyzer.mts')], { cwd: root });
+		if (output.trim()) {
+			log('extensions/positron-sql', output.trim());
+		}
+	} catch (error) {
+		console.warn(`[positron-sql] Warning: the SQL analyzer was not fetched. ${error instanceof Error ? error.message : error}`);
 	}
 }
 
