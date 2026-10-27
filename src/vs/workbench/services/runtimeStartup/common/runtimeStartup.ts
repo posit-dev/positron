@@ -1905,13 +1905,35 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *  preferred runtime is available.
 	 */
 	public getPreferredRuntimeWithReason(languageId: string): IPreferredRuntime | undefined {
-		return choosePreferredRuntime({
+		const preferred = choosePreferredRuntime({
 			activeConsole: this._runtimeSessionService.getConsoleSessionForLanguage(languageId)?.runtimeMetadata,
 			affiliated: this.affiliationFor(languageId),
 			recentlyStarted: this._mostRecentlyStartedRuntimesByLanguageId.get(languageId),
 			recommended: this._recommendedRuntimesByLanguageId.get(languageId),
 			fallback: firstInPickerOrder(this._languageRuntimeService.registeredRuntimes.filter(info => info.languageId === languageId)),
 		}, runtimeId => this._languageRuntimeService.getRegisteredRuntime(runtimeId));
+
+		// The active console rule only sees the language's console in front or
+		// last used, so a console that started behind another language's is
+		// missed. The pick stands; only the reason says the console is running.
+		if (preferred && preferred.reason !== PreferredRuntimeReason.ActiveConsole &&
+			this.hasRunningConsole(preferred.runtime.runtimeId)) {
+			return { runtime: preferred.runtime, reason: PreferredRuntimeReason.ActiveConsole };
+		}
+		return preferred;
+	}
+
+	/**
+	 * Whether a console session for the runtime has started and not exited.
+	 */
+	private hasRunningConsole(runtimeId: string): boolean {
+		return this._runtimeSessionService.activeSessions.some(session =>
+			session.runtimeMetadata.runtimeId === runtimeId &&
+			session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
+			session.getRuntimeState() !== RuntimeState.Uninitialized &&
+			session.getRuntimeState() !== RuntimeState.Initializing &&
+			session.getRuntimeState() !== RuntimeState.Exited
+		);
 	}
 
 	public async registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata> {

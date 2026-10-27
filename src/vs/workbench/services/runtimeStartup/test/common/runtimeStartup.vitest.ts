@@ -1538,6 +1538,21 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			});
 		});
 
+		it('is ActiveConsole when the runtime has a running console that is not the language\'s in front', async () => {
+			const svc = createService();
+			const sessionRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: sessionRuntime });
+			// A console that started behind another language's is neither in front
+			// nor the last one used for its language.
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'getConsoleSessionForLanguage').mockReturnValue(undefined);
+
+			const preferred = svc.getPreferredRuntimeWithReason(sessionRuntime.languageId);
+			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
+				runtimeId: sessionRuntime.runtimeId,
+				reason: PreferredRuntimeReason.ActiveConsole,
+			});
+		});
+
 		it('is WorkspaceAffiliation when the workspace has an affiliated runtime', () => {
 			const svc = createService();
 			const affiliated = register(metadata({ runtimeId: 'rt-affiliated' }));
