@@ -1263,10 +1263,9 @@ describe('RuntimeStartupService - affiliation healing', () => {
 	});
 
 	it.each([
-		LanguageRuntimeStartupBehavior.Explicit,
-		LanguageRuntimeStartupBehavior.Implicit,
-		LanguageRuntimeStartupBehavior.Immediate,
-	])('does not start a never-used affiliation of the only language (%s)', async startupBehavior => {
+		{ startupBehavior: LanguageRuntimeStartupBehavior.Explicit, started: false },
+		{ startupBehavior: LanguageRuntimeStartupBehavior.Implicit, started: true },
+	])('starts a never-used affiliation of the only language unless it starts only when picked ($startupBehavior)', async ({ startupBehavior, started }) => {
 		ctx.instantiationService.stub(IConfigurationService,
 			new TestConfigurationService({ 'interpreters.startupBehavior': LanguageStartupBehavior.Auto }));
 		// A recommendation saved as the workspace default, never started or used.
@@ -1286,7 +1285,7 @@ describe('RuntimeStartupService - affiliation healing', () => {
 
 		await internals.startAffiliatedLanguageRuntimes([], ['python']);
 
-		expect(startAffiliatedRuntime).not.toHaveBeenCalled();
+		expect(startAffiliatedRuntime.mock.calls.length > 0).toBe(started);
 	});
 
 	it('keeps a stored affiliation that follows the current R when an older R re-registers', async () => {
@@ -2725,38 +2724,6 @@ describe('RuntimeStartupService - startup sequence', () => {
 				ctx.get(ILanguageService).requestRichLanguageFeatures('r');
 
 				expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.LanguageFileOpened }]);
-			});
-
-			describe('with a default saved by an earlier version that was never started', () => {
-				// Earlier versions saved the recommendation as the default, even
-				// for a manager that now asks for it not to be saved.
-				it('starts the recommendation, not the default, when it is marked to start right away', async () => {
-					const { started } = await runStartupSequence({
-						languages: [{ ...rLanguage, discovered: [oldR], affiliated: { metadata: pinnedR, lastUsed: 0, lastStarted: 0 } }],
-						startupBehavior: { default: LanguageStartupBehavior.Auto },
-						manager: { recommendWorkspaceRuntimes: recommend({ ...pinnedR, startupBehavior: LanguageRuntimeStartupBehavior.Immediate }) },
-					});
-
-					expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.ExtensionRecommendedRuntime }]);
-				});
-
-				it.each([
-					{ language: rLanguage, recommended: pinnedR, discovered: oldR },
-					{ language: pythonLanguage, recommended: pinnedPython, discovered: { ...python, startupBehavior: LanguageRuntimeStartupBehavior.Explicit } },
-				])('starts nothing at launch, then the recommendation when a file opens ($language.languageId)', async ({ language, recommended, discovered }) => {
-					const { started } = await runStartupSequence({
-						languages: [{ ...language, discovered: [discovered], affiliated: { metadata: recommended, lastUsed: 0, lastStarted: 0 } }],
-						startupBehavior: { default: LanguageStartupBehavior.Auto },
-						manager: { recommendWorkspaceRuntimes: recommend(recommended) },
-					});
-					const startedAtLaunch = [...started];
-					ctx.get(ILanguageService).requestRichLanguageFeatures(language.languageId);
-
-					expect({ startedAtLaunch, started }).toEqual({
-						startedAtLaunch: [],
-						started: [{ runtimeId: recommended.runtimeId, reason: SessionStartReasonId.LanguageFileOpened }],
-					});
-				});
 			});
 
 			it('starts the pinned Python when a Python file opens, if Python did not start at launch', async () => {

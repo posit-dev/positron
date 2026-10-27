@@ -2122,15 +2122,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Filter out any affiliations that didn't deserialize properly.
 			return affiliation !== undefined;
 		}).filter(affiliation => {
-			// Runtimes that have never been started or used are not
-			// auto-started; they are just used to set defaults. The
-			// recommendations decide what starts instead.
+			// A recommendation saved as the default without being started or
+			// used, whose runtime starts only when picked, is never started.
 			if (affiliation.lastStarted === 0 &&
-				affiliation.lastUsed === 0) {
+				affiliation.lastUsed === 0 &&
+				affiliation.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Explicit) {
 				this._logService.debug(`[Runtime startup] Affiliated runtime ` +
 					`${formatLanguageRuntimeMetadata(affiliation.metadata)} ` +
-					`not marked for autostart`);
-
+					`starts only when picked; not starting it`);
 				return false;
 			}
 
@@ -2141,6 +2140,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// the workspace. We generally want at least one runtime to start.
 			if (languageIds.length === 1) {
 				return true;
+			}
+
+			// Runtimes that have never been started or used are not
+			// auto-started; they are just used to set defaults.
+			if (affiliation.lastStarted === 0 &&
+				affiliation.lastUsed === 0) {
+				this._logService.debug(`[Runtime startup] Affiliated runtime ` +
+					`${formatLanguageRuntimeMetadata(affiliation.metadata)} ` +
+					`not marked for autostart`);
+
+				return false;
 			}
 
 			// Compare the last used time to the last started time; log if
