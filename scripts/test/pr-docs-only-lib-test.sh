@@ -101,6 +101,14 @@ for action in setup-build-env setup-test-env download-binaries; do
 		"$(printf '%s\n' "$REAL_REACH" | grep -qxF ".github/actions/$action" && echo true || echo false)"
 done
 
+# The merge workflow reaches its own reusable workflows, including ones Test: PR
+# never calls, so a change to them runs the merge tests.
+MERGE_REACH="$(ci_reachable_paths "$HERE/../.." .github/workflows/test-merge.yml)"
+for wf in test-merge.yml test-unit.yml test-ext-host.yml test-ext-host-windows.yml test-e2e-ubuntu-build.yml test-e2e-ubuntu-run.yml test-e2e-windows-run.yml analyze-e2e-failures.yml; do
+	assert_eq "merge workflow reaches $wf" true \
+		"$(printf '%s\n' "$MERGE_REACH" | grep -qxF ".github/workflows/$wf" && echo true || echo false)"
+done
+
 # --- is_docs_only_path ------------------------------------------------------------
 
 REACHABLE=$'.github/workflows/test-pull-request.yml\n.github/workflows/test-unit.yml\n.github/actions/restore-build-caches\n.github/actions/some-action'

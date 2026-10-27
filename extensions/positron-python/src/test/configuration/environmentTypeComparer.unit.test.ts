@@ -558,6 +558,7 @@ suite('getEnvTypeHeuristic tests', () => {
     });
 });
 
+// --- Start Positron ---
 suite('isProblematicCondaEnvironment tests', () => {
     let pathExistsSyncStub: sinon.SinonStub;
 
@@ -582,7 +583,9 @@ suite('isProblematicCondaEnvironment tests', () => {
         assert.strictEqual(result, false);
     });
 
-    test('Conda environment with path "python" should be problematic', () => {
+    test('Conda environment with a bare "python" path should be problematic', () => {
+        // The native locator reports a bare "python" for a conda env with no prefix.
+        pathExistsSyncStub.withArgs('python').returns(true);
         const environment = {
             envType: EnvironmentType.Conda,
             path: 'python',
@@ -702,3 +705,4 @@ suite('isProblematicCondaEnvironment tests', () => {
         assert.strictEqual(result, false);
     });
 });
+// --- End Positron ---

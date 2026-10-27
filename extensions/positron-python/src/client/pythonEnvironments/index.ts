@@ -40,15 +40,16 @@ import { traceError } from '../logging';
 import { ActiveStateLocator } from './base/locators/lowLevel/activeStateLocator';
 import { CustomWorkspaceLocator } from './base/locators/lowLevel/customWorkspaceLocator';
 import { PixiLocator } from './base/locators/lowLevel/pixiLocator';
-import { getConfiguration } from '../common/vscodeApis/workspaceApis';
+// --- Start Positron ---
+// Positron always uses the native locator, so python.locator is not read.
+// import { getConfiguration } from '../common/vscodeApis/workspaceApis';
+// --- End Positron ---
 import { getNativePythonFinder } from './base/locators/common/nativePythonFinder';
 import { createNativeEnvironmentsApi } from './nativeAPI';
 import { useEnvExtension } from '../envExt/api.internal';
 import { createEnvExtApi } from '../envExt/envExtApi';
 
 // --- Start Positron ---
-import { UserSpecifiedEnvironmentLocator } from './base/locators/lowLevel/userSpecifiedEnvLocator';
-import { ModuleEnvironmentLocator } from './base/locators/lowLevel/moduleEnvironmentLocator';
 import { createNativeEnvironmentsApiWithModules } from './nativeAPI';
 import { isEagerDiscoveryDisabled } from '../positron/interpreterSettings';
 // --- End Positron ---
@@ -56,8 +57,12 @@ import { isEagerDiscoveryDisabled } from '../positron/interpreterSettings';
 const PYTHON_ENV_INFO_CACHE_KEY = 'PYTHON_ENV_INFO_CACHEv2';
 
 export function shouldUseNativeLocator(): boolean {
-    const config = getConfiguration('python');
-    return config.get<string>('locator', 'js') === 'native';
+    // --- Start Positron ---
+    // Positron always uses the native locator. The python.locator setting is deprecated.
+    // const config = getConfiguration('python');
+    // return config.get<string>('locator', 'js') === 'native';
+    return true;
+    // --- End Positron ---
 }
 
 /**
@@ -217,9 +222,6 @@ function createNonWorkspaceLocators(ext: ExtensionState): ILocator<BasicEnvInfo>
         new ActiveStateLocator(),
         new GlobalVirtualEnvironmentLocator(),
         new CustomVirtualEnvironmentLocator(),
-        // --- Start Positron ---
-        new UserSpecifiedEnvironmentLocator(),
-        // --- End Positron ---
     );
 
     if (getOSType() === OSType.Windows) {
@@ -233,10 +235,6 @@ function createNonWorkspaceLocators(ext: ExtensionState): ILocator<BasicEnvInfo>
         locators.push(
             // Linux/Mac locators go here.
             new PosixKnownPathsLocator(),
-            // --- Start Positron ---
-            // Module environment locator (only available on Unix-like systems)
-            new ModuleEnvironmentLocator(),
-            // --- End Positron ---
         );
     }
 

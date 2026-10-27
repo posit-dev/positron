@@ -344,7 +344,6 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			['python.interpreters.include', 'Additional discovery paths'],
 			['python.interpreters.exclude', 'Excluded paths'],
 			['python.interpreters.override', 'Override list'],
-			['python.locator', 'Locator implementation'],
 		];
 		for (const [key, _label] of pythonSettings) {
 			const value = this._configurationService.getValue(key);

@@ -12,16 +12,22 @@ import { COMMENT_MARKER, ENVIRONMENT, isProductPath, renderPrBody } from './lib.
 /** Labels the suggestion. Not COMMENT_MARKER: a suggestion is not a run. */
 export const SUGGEST_MARKER = '<!-- exploratory-testing:candidate -->';
 
-/** Every name test-exploratory.yml's membership job accepts. */
+/** Every name test-exploratory.yml's resolve job accepts. */
 export const RUN_COMMANDS = ['/explore', '/test', '/exploratory-test'];
 
 /**
- * The name test-exploratory.yml gives a run the post job starts for an author
- * on the auto-run list (#16610). A declined run leaves nothing on the PR, so
- * this name is how a later event knows it already started one.
+ * How test-exploratory.yml's name starts for a run the post job starts for an
+ * author on the auto-run list (#16610). A declined run leaves nothing on the
+ * PR, so this name is how a later event knows it already started one.
  */
 export function autoRunName(prNumber) {
 	return `Exploratory auto-run #${prNumber}`;
+}
+
+/** Whether a run's title is PR `prNumber`'s auto-run: the name, then the branch or nothing. */
+export function isAutoRunTitle(title, prNumber) {
+	const name = autoRunName(prNumber);
+	return title === name || String(title ?? '').startsWith(`${name} `);
 }
 
 /**
@@ -37,7 +43,7 @@ export function isAutoRunAuthor(login, list) {
 export const DIFF_MAX = 40000;
 
 /**
- * Whether a comment invokes a run, by membership's rule: the first word of the
+ * Whether a comment invokes a run, by resolve's rule: the first word of the
  * first non-blank line, so "/testing" and a quoted "> /test" do not count.
  */
 export function isRunCommand(body) {

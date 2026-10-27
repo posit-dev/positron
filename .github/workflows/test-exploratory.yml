@@ -1,8 +1,29 @@
 name: "Test: Exploratory"
 
-# test-exploratory-suggest.yml looks for this name to start one auto-run per
-# PR. Whitespace everywhere else, which GitHub documents as keeping its default.
-run-name: "${{ inputs.auto_run_pr && format('Exploratory auto-run #{0}', inputs.auto_run_pr) || ' ' }}"
+# Names what the run tests, before any job starts. test-exploratory-suggest.yml
+# finds an auto-run by its "Exploratory auto-run #N" prefix to start one per PR.
+# A comment that is not a run command keeps the default, as whitespace does.
+# The command must be a whole word, as resolve requires, so "/testing" is not
+# named a run. Membership cannot be checked here: a blocked caller's run is
+# still named, and resolve then stops it with nothing done.
+run-name: >-
+  ${{ inputs.auto_run_pr && format('Exploratory auto-run #{0} ({1})', inputs.auto_run_pr, inputs.ref)
+  || github.event_name == 'workflow_dispatch' && format('Explore {0}', inputs.ref)
+  || github.event.issue.pull_request && (
+    github.event.comment.body == '/explore'
+    || startsWith(github.event.comment.body, '/explore ')
+    || startsWith(github.event.comment.body, format('/explore{0}', fromJSON('"\r"')))
+    || startsWith(github.event.comment.body, format('/explore{0}', fromJSON('"\n"')))
+    || github.event.comment.body == '/test'
+    || startsWith(github.event.comment.body, '/test ')
+    || startsWith(github.event.comment.body, format('/test{0}', fromJSON('"\r"')))
+    || startsWith(github.event.comment.body, format('/test{0}', fromJSON('"\n"')))
+    || github.event.comment.body == '/exploratory-test'
+    || startsWith(github.event.comment.body, '/exploratory-test ')
+    || startsWith(github.event.comment.body, format('/exploratory-test{0}', fromJSON('"\r"')))
+    || startsWith(github.event.comment.body, format('/exploratory-test{0}', fromJSON('"\n"'))))
+    && format('Explore #{0}: {1}', github.event.issue.number, github.event.issue.title)
+  || ' ' }}
 
 on:
   workflow_dispatch:
@@ -26,7 +47,8 @@ on:
         required: false
         default: ""
         type: string
-      # The option text is also the value the explore matrix compares.
+      # resolve maps each option to the opus/sonnet/both the explore matrix
+      # compares, so a renamed option needs its case updated there too.
       model:
         description: "Model"
         required: false
@@ -59,7 +81,7 @@ on:
         type: string
   # `/explore` (or `/test`, `/exploratory-test`) on a PR. Runs from main's copy of this
   # file with full secrets, and the explore job builds and executes the PR's
-  # code, so the membership job is the entire defence. See its comment.
+  # code, so the resolve job is the entire defence. See its comment.
   issue_comment:
     types: [created]
 
@@ -71,8 +93,11 @@ permissions:
   packages: read
 
 jobs:
-  # Decides who may run this. Not to be confused with `worthiness`, which
-  # decides whether a change is worth testing.
+  # Decides who may run this, and on what. Not to be confused with
+  # `worthiness`, which decides whether a change is worth testing. Both
+  # triggers end in the same outputs: ok=true, the pinned SHA, whether worthiness
+  # runs, and the PR, base, model, focus and time limit. Every later job reads
+  # only these.
   #
   # issue_comment runs in base-repo context with full secrets, even for fork
   # PRs, and explore compiles and runs the PR head. PETE also mounts the PR
@@ -80,16 +105,20 @@ jobs:
   # the point. So BOTH the commenter and the PR author must be active
   # positron-dev members: an outsider cannot bait a member into commenting
   # `/test` on their PR. Fails closed on any error.
-  membership:
-    name: membership
+  #
+  # Dispatching already takes write access, so there is no team lookup, but
+  # `ref` must be a branch of this repo: refs/pull/N/head and bare SHAs also
+  # reach a fork PR's code, which the comment path refuses.
+  resolve:
+    name: resolve
     # Cheap prefilter so ordinary comments do not start a runner. startsWith,
     # not contains: contains fires on a comment that merely mentions /test.
     if: >-
-      github.event_name == 'issue_comment' &&
-      github.event.issue.pull_request != null &&
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request != null &&
       (startsWith(github.event.comment.body, '/explore') ||
         startsWith(github.event.comment.body, '/test') ||
-        startsWith(github.event.comment.body, '/exploratory-test'))
+        startsWith(github.event.comment.body, '/exploratory-test')))
     runs-on: ubuntu-latest
     # Reads membership with the App token below and the PR with GITHUB_TOKEN.
     # No write access on the one job that runs for every matching comment,
@@ -97,19 +126,24 @@ jobs:
     permissions:
       # To find a run already going on the PR.
       actions: read
+      contents: read
       pull-requests: read
     outputs:
-      ok: ${{ steps.check.outputs.ok }}
-      busy: ${{ steps.check.outputs.busy }}
-      head_sha: ${{ steps.check.outputs.head_sha }}
-      head_ref: ${{ steps.check.outputs.head_ref }}
-      base_ref: ${{ steps.check.outputs.base_ref }}
-      model: ${{ steps.check.outputs.model }}
-      focus: ${{ steps.check.outputs.focus }}
-      time_limit: ${{ steps.check.outputs.time_limit }}
+      ok: ${{ steps.comment.outputs.ok || steps.dispatch.outputs.ok }}
+      busy: ${{ steps.comment.outputs.busy }}
+      sha: ${{ steps.comment.outputs.sha || steps.dispatch.outputs.sha }}
+      ref: ${{ steps.comment.outputs.ref || steps.dispatch.outputs.ref }}
+      base_ref: ${{ steps.comment.outputs.base_ref || steps.dispatch.outputs.base_ref }}
+      pr_number: ${{ steps.comment.outputs.pr_number || steps.dispatch.outputs.pr_number }}
+      model: ${{ steps.comment.outputs.model || steps.dispatch.outputs.model }}
+      focus: ${{ steps.comment.outputs.focus || steps.dispatch.outputs.focus }}
+      time_limit: ${{ steps.comment.outputs.time_limit || steps.dispatch.outputs.time_limit }}
+      # run, focus or off: whether worthiness runs, and if not, why.
+      worthiness: ${{ steps.comment.outputs.worthiness || steps.dispatch.outputs.worthiness }}
     steps:
       - name: Mint org-scoped App token
         id: app-token
+        if: github.event_name == 'issue_comment'
         uses: actions/create-github-app-token@v3
         with:
           client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
@@ -117,7 +151,8 @@ jobs:
           owner: posit-dev
 
       - name: Check command and membership
-        id: check
+        id: comment
+        if: github.event_name == 'issue_comment'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO_TOKEN: ${{ github.token }}
@@ -177,7 +212,7 @@ jobs:
               gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/test-exploratory.yml/runs?status=${status}&per_page=100" \
                 | jq -r --argjson seen "$seen" --arg head "${1:0:7}" --arg title "Exploratory auto-run #${PR_NUMBER}" \
                   '.workflow_runs[] | .id as $id | ($seen | map(select(.run == $id))) as $mine
-                  | select(if $mine == [] then .display_title == $title else any($mine[]; .sha == $head) end) | .html_url'
+                  | select(if $mine == [] then (.display_title == $title or (.display_title | startswith($title + " "))) else any($mine[]; .sha == $head) end) | .html_url'
             done | head -n 1
           }
 
@@ -206,43 +241,54 @@ jobs:
           if [ -z "$focus" ]; then
             busy=$(GH_TOKEN="$REPO_TOKEN" busy_run "$(jq -r '.head.sha' <<<"$pr")" 2>/dev/null)
             if [ -n "$busy" ]; then
-              echo "busy=$busy" >> "$GITHUB_OUTPUT"
+              { echo "busy=$busy"; echo "pr_number=$PR_NUMBER"; } >> "$GITHUB_OUTPUT"
               echo "Already running on this PR: $busy"
               exit 0
             fi
           fi
           {
-            echo "head_sha=$(jq -r '.head.sha' <<<"$pr")"
-            echo "head_ref=$(jq -r '.head.ref' <<<"$pr")"
+            echo "sha=$(jq -r '.head.sha' <<<"$pr")"
+            echo "ref=$(jq -r '.head.ref' <<<"$pr")"
             echo "base_ref=$(jq -r '.base.ref' <<<"$pr")"
+            echo "pr_number=$PR_NUMBER"
             echo "model=opus"
             echo "time_limit=$time_limit"
             echo "focus=$focus"
+            echo "worthiness=$([ -n "$focus" ] && echo focus || echo run)"
             echo "ok=true"
           } >> "$GITHUB_OUTPUT"
           echo "Membership gate: ok (time limit=${time_limit:-none}, focus=${focus:-none})"
 
-  # The dispatch path's counterpart to membership's branch check. Dispatching
-  # already takes write access, so there is no team lookup, but `ref` must be a
-  # branch of this repo: refs/pull/N/head and bare SHAs also reach a fork PR's
-  # code, which the comment path refuses. Pins the SHA, so worthiness and
-  # explore test the same commit whatever is pushed meanwhile.
-  dispatch-ref:
-    name: dispatch-ref
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      sha: ${{ steps.resolve.outputs.sha }}
-    steps:
-      - name: Resolve branch
-        id: resolve
+      - name: Resolve branch and PR
+        id: dispatch
+        if: github.event_name == 'workflow_dispatch'
         env:
           REF: ${{ inputs.ref }}
+          BASE_REF: ${{ inputs.base }}
+          MODEL: ${{ inputs.model }}
+          FOCUS: ${{ inputs.focus }}
+          TIME_LIMIT: ${{ inputs.time_limit }}
+          WORTHINESS_CHECK: ${{ inputs.worthiness_check }}
+          AUTO_RUN_PR: ${{ inputs.auto_run_pr }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # Every value below goes into GITHUB_OUTPUT, where a newline would
+          # start a new key: a second sha= would replace the pinned one. Each
+          # input is held to the shape it needs, or is flattened, before it
+          # is written.
+          if ! [[ "$BASE_REF" =~ ^[A-Za-z0-9._/-]*$ ]]; then
+            echo "::error::'${BASE_REF}' is not a branch name."
+            exit 1
+          fi
+          if ! [[ "$TIME_LIMIT" =~ ^([0-9]+[mM]?)?$ ]]; then
+            echo "::error::Time limit '${TIME_LIMIT}' is not a number of minutes, as 20 or 20m."
+            exit 1
+          fi
+          if ! [[ "$AUTO_RUN_PR" =~ ^[0-9]*$ ]]; then
+            echo "::error::auto_run_pr '${AUTO_RUN_PR}' is not a PR number."
+            exit 1
+          fi
           # Exact name only: git ls-remote patterns match any ref that ends in them.
           sha=$(git ls-remote "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${REF}" \
             | awk -v want="refs/heads/${REF}" '$2 == want { print $1 }')
@@ -251,24 +297,141 @@ jobs:
             exit 1
           fi
           echo "Exploring ${REF} at ${sha}"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          # A dispatch has no PR in its event. An auto-run names its PR; for
+          # any other, find the ref's open PR so the summary and report can
+          # link it. None found just means no link.
+          pr=$AUTO_RUN_PR
+          if [ -z "$pr" ]; then
+            pr=$(gh api -X GET "repos/${GITHUB_REPOSITORY}/pulls" -f head="${GITHUB_REPOSITORY_OWNER}:${REF}" -f state=open \
+              --jq '.[0].number // empty' 2>/dev/null || true)
+          fi
+          if [ -n "$pr" ]; then echo "PR #$pr"; else echo "no open PR"; fi
+          # The choice's label, as the name the explore matrix compares. Any
+          # case, and the bare names, since an API dispatch may send either.
+          case "$(printf '%s' "$MODEL" | tr '[:upper:]' '[:lower:]')" in
+            sonnet) model=sonnet ;;
+            both | "both (opus + sonnet)") model=both ;;
+            *) model=opus ;;
+          esac
+          focus=$(printf '%s' "$FOCUS" | tr '\r\n\t' '   ' | tr -s ' ' | sed 's/^ //; s/ $//')
+          if [ -n "$focus" ]; then worthiness=focus
+          elif [ "$WORTHINESS_CHECK" != "true" ]; then worthiness=off
+          else worthiness=run
+          fi
+          {
+            echo "sha=$sha"
+            echo "ref=$REF"
+            echo "base_ref=$BASE_REF"
+            echo "pr_number=$pr"
+            echo "model=$model"
+            echo "time_limit=$TIME_LIMIT"
+            # On one line, as a comment's focus is.
+            echo "focus=$focus"
+            echo "worthiness=$worthiness"
+            echo "ok=true"
+          } >> "$GITHUB_OUTPUT"
+
+  # The write half of resolve, split off so the job that reads every matching
+  # comment holds no write token. Runs alongside worthiness, so the run page
+  # names its PR and the commenter sees the run was picked up within seconds.
+  # A repeat /explore gets a pointer to the run already going instead.
+  announce:
+    name: announce
+    needs: [resolve]
+    if: needs.resolve.outputs.ok == 'true' || needs.resolve.outputs.busy != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      reaction_id: ${{ steps.react.outputs.reaction_id }}
+      comment_id: ${{ steps.running.outputs.comment-id }}
+    steps:
+      - name: Point to the run already going
+        if: needs.resolve.outputs.busy != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ needs.resolve.outputs.pr_number }}
+          RUN_URL: ${{ needs.resolve.outputs.busy }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="An exploratory test is already running on this PR ([view run](${RUN_URL})), so this \`/explore\` was skipped. Comment \`/explore\` again once it finishes, or \`/explore <focus>\` to test something specific alongside it." > /dev/null
+
+      - name: Acknowledge /explore
+        id: react
+        if: github.event_name == 'issue_comment' && needs.resolve.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          REACTION_ID=$(gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content=eyes --jq '.id' 2>/dev/null) || echo "Failed to add reaction (non-fatal)"
+          echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the harness
+        if: needs.resolve.outputs.ok == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-test
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # One comment per /explore, under the command that asked for it. report
+      # turns it into this run's result; earlier runs' results stay put. An
+      # auto-run's comment waits for the gate, in ack-auto.
+      - name: Post running comment
+        id: running
+        if: github.event_name == 'issue_comment' && needs.resolve.outputs.ok == 'true'
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: comment
+          comment-state: running
+          focus: ${{ needs.resolve.outputs.focus }}
+          pr-number: ${{ needs.resolve.outputs.pr_number }}
+          github-token: ${{ github.token }}
+          head-sha: ${{ needs.resolve.outputs.sha }}
+
+      # The run page names its PR now, not when explore ends.
+      - name: Summarize the target
+        if: needs.resolve.outputs.ok == 'true'
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: summary
+          branch: ${{ needs.resolve.outputs.ref }}
+          pr-number: ${{ needs.resolve.outputs.pr_number }}
+          focus: ${{ needs.resolve.outputs.focus }}
+          time-limit: ${{ needs.resolve.outputs.time_limit }}
+
+      # worthiness writes its own verdict when it runs. When it does not, say
+      # why here, so the run page never leaves it unexplained.
+      - name: Say why the worthiness check is skipped
+        if: needs.resolve.outputs.ok == 'true' && needs.resolve.outputs.worthiness != 'run'
+        env:
+          WHY: ${{ needs.resolve.outputs.worthiness == 'focus' && 'A test focus was named, and what to test is then the person''s call' || 'It was turned off for this run' }}
+        run: |
+          printf '**Worthiness check skipped**, explore will run.\n\n%s.\n' "$WHY" >> "$GITHUB_STEP_SUMMARY"
 
   # Decides whether the change is worth testing, before anything is built. Not
-  # to be confused with `membership`, which decides who may run this at all.
+  # to be confused with `resolve`, which decides who may run this at all.
   # The explore job needs a compile, an Xvfb, a launch and a Playwright attach;
   # a change this pass declines should not pay for twenty minutes of 8-core
   # runner first. One pass serves every matrix leg.
   worthiness:
     name: worthiness
-    needs: [membership, dispatch-ref]
+    needs: [resolve]
     # Runs when no focus is named, on a comment or on a dispatch that leaves it
-    # on: the gate rules on the diff, and a named feature is the person's call. Behind membership on a
-    # comment, because it checks out the PR and gives an agent a shell in it.
-    # always(): membership is skipped on dispatch, and dispatch-ref on a comment.
-    if: >-
-      ${{ always() &&
-      ((github.event_name == 'workflow_dispatch' && needs.dispatch-ref.outputs.sha != '' && inputs.worthiness_check && inputs.focus == '') ||
-        (needs.membership.outputs.ok == 'true' && needs.membership.outputs.focus == '')) }}
+    # on: the gate rules on the diff, and a named feature is the person's call.
+    # resolve decides which, and announce reads the same output to say why
+    # this job was skipped. Behind resolve, because it checks out the PR and
+    # gives an agent a shell in it.
+    if: needs.resolve.outputs.ok == 'true' && needs.resolve.outputs.worthiness == 'run'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -276,11 +439,10 @@ jobs:
     outputs:
       testable: ${{ steps.gate.outputs.testable }}
       reason: ${{ steps.gate.outputs.reason }}
-      cost: ${{ steps.gate.outputs.cost }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.dispatch-ref.outputs.sha || needs.membership.outputs.head_sha }}
+          ref: ${{ needs.resolve.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -306,7 +468,7 @@ jobs:
         id: base
         shell: bash
         env:
-          BASE_REF: ${{ inputs.base || needs.membership.outputs.base_ref || 'main' }}
+          BASE_REF: ${{ needs.resolve.outputs.base_ref || 'main' }}
         run: |
           set -euo pipefail
           if ! git rev-parse --verify --quiet "origin/$BASE_REF" >/dev/null; then
@@ -322,21 +484,16 @@ jobs:
       # the gate rules on the diff alone.
       - name: Fetch the PR description
         id: pr-body
+        if: needs.resolve.outputs.pr_number != ''
         continue-on-error: true
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.issue.number }}
-          REF: ${{ inputs.ref }}
+          PR: ${{ needs.resolve.outputs.pr_number }}
         run: |
           set -euo pipefail
           OUT="$RUNNER_TEMP/pr-body.md"
-          if [ -n "$PR" ]; then
-            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '.body // ""' > "$OUT"
-          else
-            gh api -X GET "repos/${GITHUB_REPOSITORY}/pulls" -f head="${GITHUB_REPOSITORY_OWNER}:${REF}" -f state=open \
-              --jq '.[0].body // ""' > "$OUT"
-          fi
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '.body // ""' > "$OUT"
           echo "file=$OUT" >> "$GITHUB_OUTPUT"
 
       - name: Load secret
@@ -357,104 +514,16 @@ jobs:
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
 
-      # A declined run skips the explore job, which on its own looks like
-      # nothing happened. The gate's whole output is the reason it declined, so
-      # put it where the person who dispatched the run will see it.
-      - name: Say why the run was declined
-        if: ${{ steps.gate.outputs.testable == 'false' }}
-        shell: bash
-        env:
-          REASON: ${{ steps.gate.outputs.reason }}
-          COST: ${{ steps.gate.outputs.cost }}
-        run: |
-          set -euo pipefail
-          {
-            printf '## Exploratory test: not run\n\n'
-            printf 'The pre-flight pass declined this change.\n\n'
-            printf '%s\n' "${REASON:-No reason recorded.}"
-            printf '\n_gate: $%s_\n' "${COST:-?}"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  # Answers a /explore that membership turned away as a repeat, so it does not
-  # read as ignored.
-  busy:
-    name: busy
-    needs: [membership]
-    if: needs.membership.outputs.busy != ''
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
-    steps:
-      - name: Point to the run already going
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-          RUN_URL: ${{ needs.membership.outputs.busy }}
-        run: |
-          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="An exploratory test is already running on this PR ([view run](${RUN_URL})), so this \`/explore\` was skipped. Comment \`/explore\` again once it finishes, or \`/explore <focus>\` to test something specific alongside it." > /dev/null
-
-  # The write half of a /test, split from explore so the job that runs PR code
-  # never holds a write token. Runs alongside explore, so the commenter sees
-  # the run was picked up before the slow build.
-  ack:
-    name: ack
-    needs: [membership]
-    if: needs.membership.outputs.ok == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-      pull-requests: write
-    outputs:
-      reaction_id: ${{ steps.react.outputs.reaction_id }}
-      comment_id: ${{ steps.running.outputs.comment-id }}
-    steps:
-      - name: Acknowledge /test
-        id: react
-        env:
-          GH_TOKEN: ${{ github.token }}
-          COMMENT_ID: ${{ github.event.comment.id }}
-        run: |
-          REACTION_ID=$(gh api --method POST \
-            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
-            -f content=eyes --jq '.id' 2>/dev/null) || echo "Failed to add reaction (non-fatal)"
-          echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
-
-      - name: Check out the harness
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          path: .harness
-          sparse-checkout: |
-            .github/actions
-            .claude/skills/exploratory-test
-          sparse-checkout-cone-mode: false
-          persist-credentials: false
-
-      # One comment per /test, under the command that asked for it. report
-      # turns it into this run's result; earlier runs' results stay put.
-      - name: Post running comment
-        id: running
-        continue-on-error: true
-        uses: ./.harness/.github/actions/pr-exploratory-test
-        with:
-          mode: comment
-          comment-state: running
-          focus: ${{ needs.membership.outputs.focus }}
-          pr-number: ${{ github.event.issue.number }}
-          github-token: ${{ github.token }}
-          head-sha: ${{ needs.membership.outputs.head_sha }}
-
-  # ack's counterpart for an auto-run, after the gate rather than alongside
-  # it: nobody asked for this run, so a declined one says nothing on the PR.
-  # No reaction, since there is no comment to react to.
+  # announce's running comment for an auto-run, after the gate rather than
+  # alongside it: nobody asked for this run, so a declined one says nothing on
+  # the PR. No reaction, since there is no comment to react to.
   ack-auto:
     name: ack-auto
-    needs: [dispatch-ref, worthiness]
+    needs: [resolve, worthiness]
+    # always(): worthiness is skipped when its check is off.
     if: >-
       ${{ always() && inputs.auto_run_pr != '' &&
-      needs.dispatch-ref.outputs.sha != '' && needs.worthiness.outputs.testable != 'false' }}
+      needs.resolve.outputs.ok == 'true' && needs.worthiness.outputs.testable != 'false' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -482,26 +551,23 @@ jobs:
           mode: comment
           comment-state: running
           auto-run: "true"
-          pr-number: ${{ inputs.auto_run_pr }}
+          pr-number: ${{ needs.resolve.outputs.pr_number }}
           github-token: ${{ github.token }}
-          head-sha: ${{ needs.dispatch-ref.outputs.sha }}
+          head-sha: ${{ needs.resolve.outputs.sha }}
 
   explore:
     name: explore (${{ matrix.model }})
-    needs: [worthiness, membership, dispatch-ref]
-    # always(): every need is skipped on some path (worthiness when off,
-    # membership on dispatch, dispatch-ref on a comment), and a skipped need
-    # would otherwise skip this job.
-    # On a comment, only an explicit ok=true from membership runs it, so a
-    # failed or cancelled membership job runs nothing.
+    needs: [resolve, worthiness]
+    # always(): worthiness is skipped when its check is off or a focus is named,
+    # and a skipped need would otherwise skip this job. Only an explicit ok=true
+    # from resolve runs it, so a failed or cancelled resolve runs nothing.
     if: >-
-      ${{ always() &&
-      needs.worthiness.outputs.testable != 'false' &&
-      ((github.event_name == 'workflow_dispatch' && needs.dispatch-ref.outputs.sha != '') || needs.membership.outputs.ok == 'true') }}
+      ${{ always() && needs.resolve.outputs.ok == 'true' &&
+      needs.worthiness.outputs.testable != 'false' }}
     # No concurrency group: two /explore comments on one head, each with its
     # own focus, are meant to run side by side.
     # Read-only on purpose: this job runs PR code and an agent with a shell, and
-    # GITHUB_TOKEN is in their environment. ack and report do the writing, and
+    # GITHUB_TOKEN is in their environment. announce and report do the writing, and
     # publish does the S3 upload, so no id-token either.
     permissions:
       contents: read
@@ -517,10 +583,9 @@ jobs:
         # Every branch is a literal. Building the JSON with format() put a
         # dispatch input inside the document it was about to parse, which only
         # held because `type: choice` happens to constrain the value.
-        # On a comment, membership's model is always opus.
-        # == ignores case, so the dispatch's "Sonnet" matches 'sonnet'.
-        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'Both (Opus + Sonnet)' && fromJSON('["opus","sonnet"]')
-          || (inputs.model || needs.membership.outputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
+        # resolve names it opus, sonnet or both; a comment always runs opus.
+        model: ${{ needs.resolve.outputs.model == 'both' && fromJSON('["opus","sonnet"]')
+          || needs.resolve.outputs.model == 'sonnet' && fromJSON('["sonnet"]')
           || fromJSON('["opus"]') }}
     timeout-minutes: 90
     runs-on: ubuntu-latest-amd64-8-core
@@ -556,11 +621,11 @@ jobs:
       E2E_POSTGRES_USER: e2e
       E2E_POSTGRES_PASSWORD: exploratory-test
     steps:
-      # The SHA membership or dispatch-ref pinned, so a push after the gate is
+      # The SHA resolve pinned, so a push after the gate is
       # not tested.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.dispatch-ref.outputs.sha || needs.membership.outputs.head_sha }}
+          ref: ${{ needs.resolve.outputs.sha }}
           fetch-depth: 0
           submodules: recursive
           persist-credentials: false
@@ -598,7 +663,7 @@ jobs:
         env:
           # The PR's own target, so a PR into a release branch is not diffed
           # against everything main has gained since the branch was cut.
-          BASE_REF: ${{ inputs.base || needs.membership.outputs.base_ref || 'main' }}
+          BASE_REF: ${{ needs.resolve.outputs.base_ref || 'main' }}
         run: |
           set -euo pipefail
           # fetch-depth: 0 fetched all branches, so origin/$BASE_REF is present.
@@ -612,38 +677,16 @@ jobs:
           echo "ref=$BASE_REF" >> "$GITHUB_OUTPUT"
           echo "Diff base: $BASE (origin/$BASE_REF)"
 
-      # A dispatched run has no PR in its event. Find the ref's open PR so the
-      # summary and report can link it; none found just means no link.
-      - name: Find the ref's PR
-        id: pr
-        if: github.event_name == 'workflow_dispatch'
-        continue-on-error: true
-        shell: bash
-        env:
-          REF: ${{ inputs.ref }}
-        run: |
-          node -e '
-            const [owner] = process.env.GITHUB_REPOSITORY.split("/");
-            const q = new URLSearchParams({ head: `${owner}:${process.env.REF}`, state: "open" });
-            fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/pulls?${q}`, {
-              headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json" },
-            }).then(r => r.json()).then(prs => {
-              const n = Array.isArray(prs) && prs[0]?.number;
-              console.log(n ? `PR #${n}` : "no open PR");
-              if (n) require("fs").appendFileSync(process.env.GITHUB_OUTPUT, `number=${n}\n`);
-            });
-          '
-
       # Issues the PR fixes or that mention it, for the explorer's brief. Fetched
       # before the build so the lookup is done by the time the agent starts.
       # Best effort: any failure writes an empty list and the run goes on.
       - name: Fetch issues linked to the PR
         id: known
-        if: github.event.issue.number || steps.pr.outputs.number
+        if: needs.resolve.outputs.pr_number != ''
         continue-on-error: true
         shell: bash
         env:
-          PR: ${{ github.event.issue.number || steps.pr.outputs.number }}
+          PR: ${{ needs.resolve.outputs.pr_number }}
         run: |
           RENDERER=.harness/.claude/skills/exploratory-test/renderer
           # Explore installs these later, but known-issues.mjs imports them now.
@@ -861,16 +904,16 @@ jobs:
           explorer-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/explorer.md
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
-          branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
+          branch: ${{ needs.resolve.outputs.ref }}
           base-sha: ${{ steps.base.outputs.base }}
           base-ref: ${{ steps.base.outputs.ref }}
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
-          focus: ${{ inputs.focus || needs.membership.outputs.focus }}
-          time-limit: ${{ inputs.time_limit || needs.membership.outputs.time_limit }}
+          focus: ${{ needs.resolve.outputs.focus }}
+          time-limit: ${{ needs.resolve.outputs.time_limit }}
           # The PR link in the summary and the report header. No PR, no link.
-          pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
+          pr-number: ${{ needs.resolve.outputs.pr_number }}
           known-issues: ${{ steps.known.outputs.file }}
 
       # The app and the agent both hold these, and everything below is
@@ -936,7 +979,7 @@ jobs:
   # was redacted before upload.
   publish:
     name: publish (${{ matrix.model }})
-    needs: [membership, explore]
+    needs: [resolve, explore]
     if: always() && needs.explore.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
@@ -948,8 +991,8 @@ jobs:
       fail-fast: false
       matrix:
         # Mirrors explore's matrix; keep the two in step.
-        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'Both (Opus + Sonnet)' && fromJSON('["opus","sonnet"]')
-          || (inputs.model || needs.membership.outputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
+        model: ${{ needs.resolve.outputs.model == 'both' && fromJSON('["opus","sonnet"]')
+          || needs.resolve.outputs.model == 'sonnet' && fromJSON('["sonnet"]')
           || fromJSON('["opus"]') }}
     steps:
       - name: Check out the harness
@@ -1020,15 +1063,15 @@ jobs:
           echo "**WARNING: the S3 upload failed. Screenshot links in the report above will 404. The full run directory is still in the workflow artifact.**" >> "$GITHUB_STEP_SUMMARY"
 
   # Replaces this run's "running" comment with the result and swaps the reaction. A separate job
-  # for the same reason as ack. always(): a failed build must still replace
+  # for the same reason as announce. always(): a failed build must still replace
   # "running" with the truth.
   # A /explore's result, or an auto-run's once ack-auto has said it is running.
   report:
     name: report
-    needs: [membership, dispatch-ref, worthiness, ack, ack-auto, explore, publish]
+    needs: [resolve, worthiness, announce, ack-auto, explore, publish]
     if: >-
-      ${{ always() && (needs.membership.outputs.ok == 'true' ||
-      (inputs.auto_run_pr != '' && needs.ack-auto.result == 'success')) }}
+      ${{ always() && needs.resolve.outputs.ok == 'true' &&
+      (github.event_name == 'issue_comment' || (inputs.auto_run_pr != '' && needs.ack-auto.result == 'success')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1050,7 +1093,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v7
         with:
-          name: exploratory-run-${{ needs.membership.outputs.model || 'opus' }}
+          name: exploratory-run-${{ needs.resolve.outputs.model == 'sonnet' && 'sonnet' || 'opus' }}
           path: /tmp/run-artifact
 
       # The artifact root is the common parent of what matched, so the run dir
@@ -1072,28 +1115,28 @@ jobs:
         with:
           mode: comment
           comment-state: result
-          focus: ${{ needs.membership.outputs.focus }}
+          focus: ${{ needs.resolve.outputs.focus }}
           auto-run: ${{ inputs.auto_run_pr != '' }}
-          # Empty when ack could not post; comment mode then posts a new one.
-          comment-id: ${{ needs.ack.outputs.comment_id || needs.ack-auto.outputs.comment_id }}
+          # Empty when announce could not post; comment mode then posts a new one.
+          comment-id: ${{ needs.announce.outputs.comment_id || needs.ack-auto.outputs.comment_id }}
           # A declined run never reaches explore, and an outdated branch stops
           # before the build; say which rather than "failed".
           outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outdated != '' && 'outdated' || needs.explore.outputs.outcome }}
           decline-reason: ${{ needs.worthiness.outputs.reason || needs.explore.outputs.outdated }}
           work-dir: ${{ env.WORK_DIR }}
           report-base-url: ${{ needs.publish.outputs.report_base_url }}
-          pr-number: ${{ github.event.issue.number || inputs.auto_run_pr }}
+          pr-number: ${{ needs.resolve.outputs.pr_number }}
           github-token: ${{ github.token }}
-          head-sha: ${{ needs.membership.outputs.head_sha || needs.dispatch-ref.outputs.sha }}
+          head-sha: ${{ needs.resolve.outputs.sha }}
 
       # rocket only when the agent finished on its own, +1 when the gate
       # declined. A partial run (turn cap) and a hard failure both get confused.
       - name: Finalize reaction
-        if: needs.ack.outputs.reaction_id != ''
+        if: needs.announce.outputs.reaction_id != ''
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
-          REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
+          REACTION_ID: ${{ needs.announce.outputs.reaction_id }}
           OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outdated != '' && 'outdated' || needs.explore.outputs.outcome }}
         run: |
           gh api --method DELETE \

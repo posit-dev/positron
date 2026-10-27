@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
+import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
 import { EXPLORE_TIME_UP } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 
 test('buildCostRecord extracts the fields the spec names', () => {
@@ -105,6 +105,17 @@ test('parseGate reads a pass', () => {
 test('parseGate refuses a bail-out with no stated blocker', () => {
 	assert.equal(parseGate('GATE: NOT TESTABLE'), null);
 	assert.equal(parseGate('GATE: NOT TESTABLE -   '), null);
+});
+
+test('parseGate keeps a pass\'s reason', () => {
+	assert.deepEqual(parseGate('GATE: TESTABLE - the console prompt changes'), { testable: true, reason: 'the console prompt changes' });
+});
+
+test('renderGateSummary says why a run was declined or passed', () => {
+	assert.equal(renderGateSummary(false, 'only CI files change', '', '0.04'),
+		'**Worthiness check declined**, explore was not started.\n\nonly CI files change _($0.04)_\n');
+	assert.equal(renderGateSummary(true, '', 'The check failed (boom), so the run goes ahead.', undefined),
+		'**Worthiness check passed**, explore will run.\n\nThe check failed (boom), so the run goes ahead.\n');
 });
 
 test('parseGate returns null when it cannot tell, so the run proceeds', () => {
