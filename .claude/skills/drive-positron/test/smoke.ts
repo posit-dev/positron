@@ -379,7 +379,6 @@ const cases: Case[] = [
 	// Notebook and Quarto sessions are not consoles: sessions --all lists them.
 	{ name: 'panel sessions --all', run: ['panel.sh', 'sessions', '--all'], check: o => (!o.json!.sessions?.some((x: Json) => x.kind === 'notebook' && x.document === 'notebook.ipynb') && `no notebook session: ${JSON.stringify(o.json!.sessions)}`) || (!o.json!.sessions?.some((x: Json) => x.kind === 'quarto' && x.document === 'report.qmd') && 'no quarto session') || (!o.json!.sessions?.some((x: Json) => x.kind === 'console' && x.id) && 'no console session with its id') },
 	// An error's Fix and Explain open the assistant in the side bar: link takes the button named "Explain" over "More explain options", and a view that opened is a change.
-	// The app has no model credentials (fixture-app.ts), so the chat opens but nothing is sent.
 	{ name: 'open-file errors.qmd', run: ['open-file.sh', 'errors.qmd'] },
 	{ name: 'qmd run the cell that fails', run: ['qmd.sh', '--file', 'errors.qmd', 'run', '1'], check: o => !o.json!.changed && 'nothing changed' },
 	{ name: 'qmd wait for the error', run: ['qmd.sh', '--file', 'errors.qmd', 'wait', '1', '30'], check: o => includes(o.json!.output?.kinds, 'error') },

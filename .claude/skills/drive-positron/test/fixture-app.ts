@@ -25,13 +25,8 @@ const repo = resolve(test, '../../../..');
 
 export interface App { session: string; root: string; cdpPort: number; runDir: string }
 
-// The nightly's agent key (and a dev's own) stays out of the app: a case that
-// clicks an error's Fix or Explain opens the assistant, which must not send it.
-const MODEL_CREDENTIALS = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN'];
-
 function sh(root: string, args: string[], timeout = 120_000) {
-	const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !MODEL_CREDENTIALS.includes(k)));
-	const r = spawnSync('bash', args, { cwd: repo, encoding: 'utf8', input: '', timeout, env: { ...env, DRIVE_POSITRON_SHOTS: join(root, 'shots'), DRIVE_POSITRON_LOG: join(root, 'actions.log') } });
+	const r = spawnSync('bash', args, { cwd: repo, encoding: 'utf8', input: '', timeout, env: { ...process.env, DRIVE_POSITRON_SHOTS: join(root, 'shots'), DRIVE_POSITRON_LOG: join(root, 'actions.log') } });
 	const last = (r.stdout ?? '').trim().split('\n').pop() ?? '';
 	let json: { ok?: boolean; cdpPort?: number; runDir?: string } | null = null;
 	try { const v = JSON.parse(last); json = v && typeof v === 'object' ? v : null; } catch { /* a text answer */ }
