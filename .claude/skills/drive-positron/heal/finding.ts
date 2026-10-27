@@ -43,7 +43,12 @@ export interface Finding {
 	issue?: number;
 	/** The helpers the kept change can reach, or 'all'. */
 	reaches?: string[] | 'all';
+	/** Lines the change touches that earlier commits keep patching; see HOT_SPOT_COMMITS. */
+	hotSpots?: HotSpot[];
 }
+
+/** A helper file's lines a fix changes, and how many earlier commits in the window changed them too. */
+export interface HotSpot { file: string; lines: string; commits: number }
 
 const OUTCOMES = ['fixed', 'product', 'flake', 'resolved'];
 export type Cost = 'gave up' | 'by hand' | 'repeated';

@@ -9,7 +9,7 @@ import { CancellationToken, ProgressLocation, WorkspaceFolder } from 'vscode';
 import { execObservable } from '../../../common/process/rawProcessApis';
 import { ObservableExecutionResult } from '../../../common/process/types';
 import { createDeferred } from '../../../common/utils/async';
-import { Common, CreateEnv } from '../../../common/utils/localize';
+import { Common, CreateEnv, Interpreters } from '../../../common/utils/localize';
 import { traceError, traceLog } from '../../../logging';
 import { CreateEnvironmentProgress } from '../types';
 import { getVenvExecutable, showPositronErrorMessageWithLogs } from '../common/commonUtils';
@@ -20,6 +20,7 @@ import { Pixi } from '../../common/environmentManagers/pixi';
 import { execObservableLocatedUv } from '../../common/environmentManagers/uv';
 import { isWindows } from '../../../common/utils/platform';
 import { IPythonRuntimeManager } from '../../../positron/manager';
+import { holdCreatingEnvironment } from '../createEnvironment';
 
 const PIXI_INSTALL_DOCS_URL = 'https://pixi.sh/latest/installation/';
 
@@ -86,8 +87,18 @@ export async function syncUvEnv(
         async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
             progress.report({ message: CreateEnv.Venv.creating });
             try {
-                await runUvCommand(['sync'], workspace.uri.fsPath, token);
-                await pythonRuntimeManager.selectLanguageRuntimeFromPath(getVenvExecutable(workspace), true);
+                const venvPython = getVenvExecutable(workspace);
+                // Hold the creation flag until the console has started, so the new-environment
+                // prompt does not offer a second console for this environment (#16584).
+                const runtimeId = await holdCreatingEnvironment(async () => {
+                    await runUvCommand(['sync'], workspace.uri.fsPath, token);
+                    return pythonRuntimeManager.selectLanguageRuntimeFromPath(venvPython, true);
+                });
+                if (!runtimeId) {
+                    // The hold dropped the new-environment prompt, so say why no console started. The
+                    // venv exists, so still report success.
+                    await showPositronErrorMessageWithLogs(Interpreters.environmentSessionStartFailed(venvPython));
+                }
                 return true;
             } catch (error) {
                 traceError('CreateEnv Trigger - Error running uv sync: ', error);
@@ -152,13 +163,24 @@ export async function autoInstallPixiEnv(
         async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
             progress.report({ message: CreateEnv.Venv.creating });
             try {
-                await runToolCommand(pixi.command, ['install'], workspace.uri.fsPath, token);
-                const pythonPath = await resolvePixiPythonPath(pixi, workspace.uri.fsPath);
-                if (pythonPath) {
-                    await pythonRuntimeManager.selectLanguageRuntimeFromPath(pythonPath, true);
-                } else {
+                // Hold the creation flag until the console has started, so the new-environment
+                // prompt does not offer a second console for this environment (#16584).
+                const { pythonPath, runtimeId } = await holdCreatingEnvironment(async () => {
+                    await runToolCommand(pixi.command, ['install'], workspace.uri.fsPath, token);
+                    const resolved = await resolvePixiPythonPath(pixi, workspace.uri.fsPath);
+                    return {
+                        pythonPath: resolved,
+                        runtimeId: resolved
+                            ? await pythonRuntimeManager.selectLanguageRuntimeFromPath(resolved, true)
+                            : undefined,
+                    };
+                });
+                if (!pythonPath) {
                     traceError('CreateEnv Trigger - Could not resolve the pixi environment after install');
                     await showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
+                } else if (!runtimeId) {
+                    // The hold dropped the new-environment prompt, so say why no console started.
+                    await showPositronErrorMessageWithLogs(Interpreters.environmentSessionStartFailed(pythonPath));
                 }
             } catch (error) {
                 traceError('CreateEnv Trigger - Error running pixi install: ', error);

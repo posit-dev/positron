@@ -53,6 +53,9 @@ says how a helper is built and checked.
    **Size the fix to the finding.** A sibling joins the fix only when you ran it and it fails the
    same way. An error that did not say what to do gets a better sentence, not a table of the
    words agents might guess; and never a hand-kept copy of a list the code already has.
+   **Do not pile onto patched code.** Where earlier fixes each added an option or branch for one
+   case (`git log -L` on the lines), fit yours into the shape they share, or fold them into one,
+   rather than adding another beside them.
 9. **Valid input keeps working.** A command that worked before with valid input must behave the
    same after your fix. If it cannot (a flag that was silently ignored now errors), the reason says
    which helpers and inputs change, in one line.

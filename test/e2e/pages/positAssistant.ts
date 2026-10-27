@@ -91,6 +91,9 @@ const PROVIDER_DISPLAY_NAME_ALIASES: Record<string, string[]> = {
 	// Renamed to "Posit AI Pass" in the assistant's provider registry after the
 	// bootstrapped 1.2.0 release; mirrored here in #15858.
 	'positai': ['Posit AI'],
+	// Renamed from "AWS Bedrock" in the assistant's provider registry after the
+	// bootstrapped 1.9.0 release (posit-dev/assistant#2842).
+	'bedrock': ['Amazon Bedrock'],
 };
 
 /**

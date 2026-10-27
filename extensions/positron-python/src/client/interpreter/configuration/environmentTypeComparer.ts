@@ -256,8 +256,8 @@ export function isProblematicCondaEnvironment(environment: PythonEnvironment): b
         return false;
     }
     // Check if Python is not installed in the conda environment:
-    // - JS locator case: path is just 'python'
-    // - Native locator case: path is a predicted full path that doesn't exist
+    // - No prefix: the path is just 'python'
+    // - Otherwise: the path is a predicted full path that doesn't exist
     const executablePath = environment.path;
     if (executablePath === 'python') {
         return true;

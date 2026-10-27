@@ -58,27 +58,32 @@ export function createSchemasGroupNode(client: RedshiftClient, host: IRedshiftPr
 }
 
 /**
- * Creates a schema node in the connected database that expands to Tables and Views groups. Exported
- * so unit tests can construct a schema node directly against a mocked client.
+ * Creates a schema node in the connected database that expands to Tables and Views groups, with how
+ * many each holds. Exported so unit tests can construct a schema node directly against a mocked
+ * client.
  */
 export function createSchemaNode(client: RedshiftClient, host: IRedshiftPreviewHost, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: schemaName,
 		kind: positron.DataConnectionNodeKind.Schema,
 		async getChildren() {
+			const counts = await countRelations(client,
+				`SELECT CASE WHEN table_type = 'VIEW' THEN 'view' ELSE 'table' END AS kind, COUNT(*) AS n FROM information_schema.tables WHERE table_schema = $1 AND table_type IN ('BASE TABLE', 'VIEW') GROUP BY 1`,
+				[schemaName]);
 			return [
-				createTablesGroupNode(client, host, schemaName),
-				createViewsGroupNode(client, host, schemaName),
+				createTablesGroupNode(client, host, schemaName, counts?.table),
+				createViewsGroupNode(client, host, schemaName, counts?.view),
 			];
 		},
 	};
 }
 
 /** Creates the "Tables" group inside a connected-database schema. Lists base tables. */
-function createTablesGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, schemaName: string): positron.DataConnectionNode {
+function createTablesGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, schemaName: string, childCount: number | undefined): positron.DataConnectionNode {
 	return {
 		name: 'Tables',
 		kind: positron.DataConnectionNodeKind.GroupTables,
+		childCount,
 		async getChildren() {
 			const result = await client.query(
 				`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE' ORDER BY table_name`,
@@ -90,10 +95,11 @@ function createTablesGroupNode(client: RedshiftClient, host: IRedshiftPreviewHos
 }
 
 /** Creates the "Views" group inside a connected-database schema. Lists views. */
-function createViewsGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, schemaName: string): positron.DataConnectionNode {
+function createViewsGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, schemaName: string, childCount: number | undefined): positron.DataConnectionNode {
 	return {
 		name: 'Views',
 		kind: positron.DataConnectionNodeKind.GroupViews,
+		childCount,
 		async getChildren() {
 			const result = await client.query(
 				`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'VIEW' ORDER BY table_name`,
@@ -152,15 +158,23 @@ function createCrossDatabaseSchemasGroupNode(client: RedshiftClient, host: IReds
 	};
 }
 
-/** Creates a cross-database schema node that expands to Tables and Views groups, via SVV_ALL_TABLES. */
+/**
+ * Creates a cross-database schema node that expands to Tables and Views groups, via SVV_ALL_TABLES,
+ * with how many each holds.
+ */
 function createCrossDatabaseSchemaNode(client: RedshiftClient, host: IRedshiftPreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: schemaName,
 		kind: positron.DataConnectionNodeKind.Schema,
 		async getChildren() {
+			// Split as the listings split: a view is a view, and anything else is a table. A NULL type
+			// matches neither listing's filter, so it isn't counted either.
+			const counts = await countRelations(client,
+				`SELECT CASE WHEN UPPER(table_type) = 'VIEW' THEN 'view' ELSE 'table' END AS kind, COUNT(*) AS n FROM SVV_ALL_TABLES WHERE database_name = $1 AND schema_name = $2 AND table_type IS NOT NULL GROUP BY 1`,
+				[database, schemaName]);
 			return [
-				createCrossDatabaseTablesGroupNode(client, host, database, schemaName),
-				createCrossDatabaseViewsGroupNode(client, host, database, schemaName),
+				createCrossDatabaseTablesGroupNode(client, host, database, schemaName, counts?.table),
+				createCrossDatabaseViewsGroupNode(client, host, database, schemaName, counts?.view),
 			];
 		},
 	};
@@ -171,10 +185,11 @@ function createCrossDatabaseSchemaNode(client: RedshiftClient, host: IRedshiftPr
  * case-insensitively; anything that is not a view is treated as a table so external tables aren't
  * hidden.
  */
-function createCrossDatabaseTablesGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
+function createCrossDatabaseTablesGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, database: string, schemaName: string, childCount: number | undefined): positron.DataConnectionNode {
 	return {
 		name: 'Tables',
 		kind: positron.DataConnectionNodeKind.GroupTables,
+		childCount,
 		async getChildren() {
 			const result = await client.query(
 				`SELECT table_name FROM SVV_ALL_TABLES WHERE database_name = $1 AND schema_name = $2 AND UPPER(table_type) <> 'VIEW' ORDER BY table_name`,
@@ -186,10 +201,11 @@ function createCrossDatabaseTablesGroupNode(client: RedshiftClient, host: IRedsh
 }
 
 /** Creates the "Views" group inside a cross-database schema, via SVV_ALL_TABLES. */
-function createCrossDatabaseViewsGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
+function createCrossDatabaseViewsGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, database: string, schemaName: string, childCount: number | undefined): positron.DataConnectionNode {
 	return {
 		name: 'Views',
 		kind: positron.DataConnectionNodeKind.GroupViews,
+		childCount,
 		async getChildren() {
 			const result = await client.query(
 				`SELECT table_name FROM SVV_ALL_TABLES WHERE database_name = $1 AND schema_name = $2 AND UPPER(table_type) = 'VIEW' ORDER BY table_name`,
@@ -198,6 +214,22 @@ function createCrossDatabaseViewsGroupNode(client: RedshiftClient, host: IRedshi
 			return result.rows.map(row => createRelationNode(client, host, database, schemaName, row.table_name, 'view'));
 		},
 	};
+}
+
+/**
+ * Runs a query that counts a schema's relations as rows of `kind` ('table' or 'view') and `n`, with
+ * the same filters as the schema's Tables and Views listings. The counts only decorate the group
+ * rows, so a failure leaves them off rather than failing the schema's expand.
+ */
+async function countRelations(client: RedshiftClient, sql: string, params: string[]): Promise<{ table: number; view: number } | undefined> {
+	try {
+		const result = await client.query(sql, params);
+		// A kind with nothing in it has no row at all.
+		const count = (kind: string) => Number(result.rows.find(row => row.kind === kind)?.n ?? 0);
+		return { table: count('table'), view: count('view') };
+	} catch {
+		return undefined;
+	}
 }
 
 // --- Shared relation (table/view) and column nodes ---

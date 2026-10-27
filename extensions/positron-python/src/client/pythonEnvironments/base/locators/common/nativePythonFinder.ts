@@ -909,7 +909,6 @@ export async function getAdditionalEnvDirs(): Promise<string[]> {
     const additionalDirs: string[] = [];
 
     // Add additional dirs to search for Python environments on non-Windows platforms.
-    // See JS locator equivalent `getAdditionalPosixBinaries` in extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/posixKnownPathsLocator.ts
     if (!isWindows()) {
         additionalDirs.push(...ADDITIONAL_POSIX_BIN_PATHS);
     }
@@ -919,7 +918,6 @@ export async function getAdditionalEnvDirs(): Promise<string[]> {
     additionalDirs.push(...uvDirs);
 
     // Add user-specified Python search directories.
-    // See JS locator equivalent in extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/userSpecifiedEnvLocator.ts
     const customEnvDirs = getCustomEnvDirs();
     additionalDirs.push(...customEnvDirs);
 
