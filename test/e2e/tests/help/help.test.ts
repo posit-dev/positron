@@ -60,6 +60,50 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 
 	});
 
+	test('Python - Verify help search suggestion opens the topic', { tag: [tags.WIN, tags.PYTHON] }, async function ({ app, python }) {
+		const help = app.workbench.help;
+		await help.selectSearchSuggestion('json', 'json');
+
+		await expect(async () => {
+			const helpFrame = await help.getHelpFrame();
+			await expect(helpFrame.locator('body')).toContainText('JSON (JavaScript Object Notation)');
+		}).toPass();
+	});
+
+	test('R - Verify help search suggestion opens the topic', { tag: [tags.WIN, tags.ARK] }, async function ({ app, r }) {
+		const help = app.workbench.help;
+		await help.selectSearchSuggestion('lm', 'lm', 'stats');
+
+		await expect(async () => {
+			const helpFrame = await help.getHelpFrame();
+			await expect(helpFrame.locator('body')).toContainText('Fitting Linear Models');
+		}).toPass();
+	});
+
+	test('Python - Verify help search shows results for each query', { tag: [tags.WIN, tags.PYTHON] }, async function ({ app, python }) {
+		const help = app.workbench.help;
+
+		for (const query of ['json', 'pathlib']) {
+			await help.search(query);
+			await expect(async () => {
+				const helpFrame = await help.getHelpFrame();
+				await expect(helpFrame.locator('body')).toContainText(`key = ${query}`);
+			}).toPass();
+		}
+	});
+
+	test('R - Verify help search shows results for each query', { tag: [tags.WIN, tags.ARK] }, async function ({ app, r }) {
+		const help = app.workbench.help;
+
+		for (const query of ['glm', 'linear model']) {
+			await help.search(query);
+			await expect(async () => {
+				const helpFrame = await help.getHelpFrame();
+				await expect(helpFrame.locator('body')).toContainText(`The search string was "${query}"`);
+			}).toPass();
+		}
+	});
+
 	test('Verify help panel opens when empty, can be resized smaller, and remembers size height', { tag: [tags.WIN] }, async function ({ app, logger }) {
 		// Not running on windows as the size calculation is off for the resolution in CI
 		const help = app.workbench.help;
