@@ -10,7 +10,7 @@ import {
 	PROD_API_URL,
 	platformOs,
 	platformVersion,
-	positronVersion
+	getRunPositronVersion
 } from '../metrics/metric-base.js';
 import { isMemoryLane, MemoryLane } from './lanes.js';
 import { MemoryScenario } from './scenarios.js';
@@ -252,16 +252,17 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 	// Undefined stays undefined: JSON.stringify drops the key and the API reads a
 	// missing one as NA.
 	const arkVersion = snapshots.find(snapshot => snapshot.arkVersion !== undefined)?.arkVersion;
+	const version = getRunPositronVersion();
 	return {
 		payload_version: 1,
 		timestamp: new Date().toISOString(),
 		run_id: meta.runId,
 		branch: meta.branch,
 		commit_sha: meta.commitSha,
-		app_version: positronVersion?.positronVersion ?? 'unknown',
-		build_number: String(positronVersion?.buildNumber ?? 'unknown'),
-		vscode_version: positronVersion?.vscodeVersion,
-		build_commit: positronVersion?.commit,
+		app_version: version?.positronVersion ?? 'unknown',
+		build_number: String(version?.buildNumber ?? 'unknown'),
+		vscode_version: version?.vscodeVersion,
+		build_commit: version?.commit,
 		platform_os: platformOs,
 		platform_version: platformVersion,
 		container_image: meta.containerImage,
