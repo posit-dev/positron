@@ -11,7 +11,7 @@ import { localize } from '../../../../nls.js';
 import { AppResourcePath, FileAccess } from '../../../../base/common/network.js';
 import { join } from '../../../../base/common/path.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -353,6 +353,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				this._search = undefined;
 			}
 		});
+		const session = this._runtimeSessionService.foregroundSession;
+		let cancelOnEnd: IDisposable | undefined;
 		let deadline: ReturnType<typeof setTimeout> | undefined;
 		let timedOut = false;
 		try {
@@ -361,6 +363,15 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				return false;
 			}
 			search.client = client;
+
+			// Restart interrupts a busy session, so the session can be idle for
+			// a moment before it restarts. A search sent then would show a page
+			// from the help server of the old process.
+			cancelOnEnd = session?.onDidChangeRuntimeState(state => {
+				if (SESSION_ENDED_STATES.includes(state)) {
+					search.cts.cancel();
+				}
+			});
 
 			// One deadline covers the request and the results page it shows. It
 			// starts after the wait, which the user can see and cancel.
@@ -382,6 +393,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			throw error;
 		} finally {
 			clearTimeout(deadline);
+			cancelOnEnd?.dispose();
 			clearOnCancel.dispose();
 			search.cts.dispose();
 			if (this._search === search) {

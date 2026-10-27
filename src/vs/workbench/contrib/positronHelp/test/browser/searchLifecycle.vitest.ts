@@ -213,6 +213,18 @@ describe('Help search lifecycle', () => {
 		expect(await pending).toBeInstanceOf(CancellationError);
 	});
 
+	it('cancels a search sent in the idle state before a restart and ignores its page', async () => {
+		// Restart interrupts a busy session, which is idle for a moment before it restarts.
+		state = RuntimeState.Busy;
+		const pending = startSearch().catch(error => error);
+		setState(RuntimeState.Idle);
+		const id = await searchId();
+		setState(RuntimeState.Restarting);
+		emitPage(id);
+		expect(await pending).toBeInstanceOf(CancellationError);
+		expect(open).not.toHaveBeenCalled();
+	});
+
 	it('waits for the help client to attach while the interpreter starts', async () => {
 		closeEvents.fire();
 		state = RuntimeState.Starting;
