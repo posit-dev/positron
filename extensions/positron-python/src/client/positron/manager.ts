@@ -37,14 +37,13 @@ import {
     isDefinitionsOnlyDiscovery,
 } from './interpreterSettings';
 import { resolveInterpreterOnce, resolveInterpreterWithRetry } from './util';
-import { recommendWorkspaceRuntime } from './interpreterRecommendation';
+import { canBeModuleEnv, recommendWorkspaceRuntime } from './interpreterRecommendation';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import {
     pendingModuleRuntimeRegistrations,
     getEnvironmentModulesApi,
 } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 import { CondaPythonPickerContribution } from './condaPickerContribution';
-import { EnvironmentType, virtualEnvTypes } from '../pythonEnvironments/info';
 import {
     CreateVirtualEnvironmentPromptOutcome,
     promptToCreateVirtualEnvironment,
@@ -86,15 +85,6 @@ export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
     ): Promise<positron.LanguageRuntimeMetadata | undefined>;
     selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<string | undefined>;
     triggerInterpreterRefresh(): Promise<void>;
-}
-
-/**
- * Whether an interpreter of this environment type can be an environment-module Python.
- * Virtual environments and pyenv installs never are, so their runtimes don't need to wait
- * for module discovery, which on Linux waits for PET's whole interpreter scan.
- */
-function canBeModuleEnv(envType: EnvironmentType): boolean {
-    return !virtualEnvTypes.includes(envType) && envType !== EnvironmentType.Pyenv;
 }
 
 /** Refuses an interpreter that `python.interpreters.exclude` or `override` filters out. */
