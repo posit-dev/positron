@@ -16,6 +16,7 @@ export const POSITRON_BLOCKED_EXTENSIONS: readonly string[] = [
 	'mikhail-arkhipov.r',
 	'vscode.r',
 	'jeanp413.open-remote-ssh',
+	'jeanp413.open-remote-wsl',
 	'ms-python.python',
 	'ms-python.vscode-python-envs',
 	'github.copilot-chat'
