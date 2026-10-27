@@ -50,6 +50,11 @@ export interface SerializedSessionMetadata {
 	/// The time at which the session was last used, in milliseconds since the epoch.
 	lastUsed: number;
 
+	/// Whether this was the last console the user focused when the session was
+	/// serialized. When a notebook is in front, this is the console that was in
+	/// front before it. Missing for sessions serialized before this was recorded.
+	isLastActiveConsole?: boolean;
+
 	/// The metadata of the runtime associated with the session.
 	runtimeMetadata: ILanguageRuntimeMetadata;
 

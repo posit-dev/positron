@@ -1122,13 +1122,17 @@ export interface IRuntimeSessionService {
 	 * @param sessionName A human-readable (displayed) name for the session.
 	 * @param createConsole Whether to create a console for the session.
 	 * @param activate Whether to activate/focus the session after it is reconnected.
+	 * @param takeForegroundIfEmpty Whether a console session that isn't
+	 *   activated still becomes the foreground session when there is none.
+	 *   Defaults to true.
 	 */
 	restoreRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
 		sessionName: string,
 		createConsole: boolean,
-		activate: boolean): Promise<void>;
+		activate: boolean,
+		takeForegroundIfEmpty?: boolean): Promise<void>;
 
 	/**
 	 * Automatically starts a runtime.

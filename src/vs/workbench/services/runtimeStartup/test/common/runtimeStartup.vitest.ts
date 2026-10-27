@@ -40,8 +40,10 @@ import {
 import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
 import { IPathService } from '../../../path/common/pathService.js';
 import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
+import { TestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testLanguageRuntimeSession.js';
+import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { createInterpreterVariant } from '../../../languageRuntime/common/interpreterDefinitions.js';
 import { RuntimeStartupService } from '../../common/runtimeStartup.js';
 import { RuntimeDiscoveryCache } from '../../common/runtimeDiscoveryCache.js';
@@ -1392,6 +1394,157 @@ describe('RuntimeStartupService - restored sessions', () => {
 	});
 });
 
+describe('RuntimeStartupService - reconnect after a reload', () => {
+	const ephemeralState = new Map<string, unknown>();
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: async <T>(key: string) => ephemeralState.get(key) as T | undefined,
+			setItem: async (key: string, value: unknown) => { ephemeralState.set(key, value); },
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: Event.None,
+			onWillShutdown: Event.None,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: Event.None,
+			startupPhase: NewFolderStartupPhase.Complete,
+			initTasksComplete: stubInterface<Barrier>({ isOpen: () => true }),
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, new TestNotificationService())
+		.stub(IRuntimeDiscoveryCache, createTestCache())
+		.build();
+
+	beforeEach(() => ephemeralState.clear());
+
+	/** Starts a console that reconnects on reload, last used to run code at `lastUsed`. */
+	async function startConsole(lastUsed: number) {
+		const runtime = createTestLanguageRuntimeMetadata(
+			ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Workspace);
+		const session = await startTestLanguageRuntimeSession(
+			ctx.instantiationService, ctx.disposables, { runtime });
+		vi.spyOn(session, 'lastUsed', 'get').mockReturnValue(lastUsed);
+		// A new console comes to the front again when it is ready.
+		await vi.waitFor(() => expect(session.getRuntimeState()).toBe(RuntimeState.Ready));
+		return session;
+	}
+
+	/**
+	 * Opens the folder in a new service, the way the service starts when the
+	 * extension that provides the test runtimes loads.
+	 */
+	function openFolder() {
+		ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+		const extensionPoint = ExtensionsRegistry.getExtensionPoints().find(point => point.name === 'languageRuntimes')!;
+		extensionPoint.acceptUsers([{
+			description: stubInterface<IExtensionDescription>({ identifier: new ExtensionIdentifier('test-extension') }),
+			value: [{ languageId: 'test' }],
+			collector: stubInterface<ExtensionMessageCollector>(),
+		}]);
+		// The extension point outlives the service; leave it empty for the next test.
+		ctx.disposables.add(toDisposable(() => extensionPoint.acceptUsers([])));
+	}
+
+	/**
+	 * Saves two consoles that a reload left running, the first one focused
+	 * last, the second one with code run more recently. Returns their session
+	 * IDs.
+	 */
+	function saveRunningConsoles(): [focusedLast: string, other: string] {
+		const sessions: SerializedSessionMetadata[] = [true, false].map((isLastActiveConsole, i) => ({
+			sessionName: `console ${i}`,
+			metadata: {
+				sessionId: `session-${i}`,
+				sessionMode: LanguageRuntimeSessionMode.Console,
+				notebookUri: undefined,
+				createdTimestamp: 0,
+				startReason: 'test',
+				owner: 'user',
+			},
+			sessionState: RuntimeState.Idle,
+			lastUsed: i,
+			isLastActiveConsole,
+			runtimeMetadata: createTestLanguageRuntimeMetadata(
+				ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Machine),
+			workingDirectory: '/',
+			hasConsole: true,
+			localWindowId: 'window-1',
+		}));
+		ctx.get(IStorageService).store('positron.workspaceSessionList.v3', JSON.stringify(sessions),
+			StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		return ['session-0', 'session-1'];
+	}
+
+	/** A test session whose start waits until `started` resolves. */
+	class SlowTestLanguageRuntimeSession extends TestLanguageRuntimeSession {
+		constructor(metadata: IRuntimeSessionMetadata, runtimeMetadata: ILanguageRuntimeMetadata, private readonly _started: Promise<void>) {
+			super(metadata, runtimeMetadata);
+		}
+
+		override async start() {
+			await this._started;
+			return super.start();
+		}
+	}
+
+	/** Records the ID of each session that comes to the front. */
+	function recordFrontSessions(): (string | undefined)[] {
+		const fronts: (string | undefined)[] = [];
+		ctx.disposables.add(ctx.get(IRuntimeSessionService).onDidChangeForegroundSession(session => fronts.push(session?.sessionId)));
+		return fronts;
+	}
+
+	it('while consoles reconnect after a reload, brings only the console focused last to the front', async () => {
+		const [focusedLast, other] = saveRunningConsoles();
+		// The console focused last finishes reconnecting after the other one.
+		const focusedLastStarted = new DeferredPromise<void>();
+		vi.spyOn(TestRuntimeSessionManager.instance, 'restoreSession').mockImplementation(async (runtimeMetadata, sessionMetadata) =>
+			ctx.disposables.add(sessionMetadata.sessionId === focusedLast ?
+				new SlowTestLanguageRuntimeSession(sessionMetadata, runtimeMetadata, focusedLastStarted.p) :
+				new TestLanguageRuntimeSession(sessionMetadata, runtimeMetadata)));
+		const fronts = recordFrontSessions();
+		const runtimeSessionService = ctx.get(IRuntimeSessionService);
+
+		openFolder();
+		await vi.waitFor(() => expect(runtimeSessionService.getSession(other)?.getRuntimeState()).toBe(RuntimeState.Ready));
+		focusedLastStarted.complete();
+		await vi.waitFor(() => expect(runtimeSessionService.foregroundSession?.sessionId).toBe(focusedLast));
+
+		expect(fronts).toEqual([focusedLast]);
+	});
+
+	it('brings another reconnected console to the front when the console focused last fails to reconnect', async () => {
+		const [focusedLast, other] = saveRunningConsoles();
+		vi.spyOn(TestRuntimeSessionManager.instance, 'restoreSession').mockImplementation(async (runtimeMetadata, sessionMetadata) => {
+			if (sessionMetadata.sessionId === focusedLast) {
+				throw new Error('The kernel is gone');
+			}
+			return ctx.disposables.add(new TestLanguageRuntimeSession(sessionMetadata, runtimeMetadata));
+		});
+		const fronts = recordFrontSessions();
+
+		openFolder();
+		await vi.waitFor(() => expect(fronts).toEqual([other]));
+	});
+
+	it('saves which console was focused last whenever focus moves to another console', async () => {
+		// The web build can't wait for a save before a reload.
+		ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+		const focusedLast = await startConsole(1);
+		await startConsole(2);
+		ctx.get(IRuntimeSessionService).foregroundSession = focusedLast;
+
+		await vi.waitFor(() => {
+			const saved = [...ephemeralState.values()][0] as SerializedSessionMetadata[];
+			expect(saved.filter(session => session.isLastActiveConsole).map(session => session.metadata.sessionId))
+				.toEqual([focusedLast.sessionId]);
+		});
+	});
+});
+
 describe('RuntimeStartupService - getPreferredRuntime', () => {
 
 	const ctx = createTestContainer()
@@ -2184,6 +2337,14 @@ describe('RuntimeStartupService - startup sequence', () => {
 		cached?: ILanguageRuntimeMetadata[];
 		/** Consoles still running from the last time the folder was open, which startup reconnects before it starts anything. */
 		reconnected?: ILanguageRuntimeMetadata[];
+		/** The reconnected console the user focused last before the reload. */
+		focusedLast?: ILanguageRuntimeMetadata;
+		/** The reconnected console that ran code last before the reload. */
+		ranCodeLast?: ILanguageRuntimeMetadata;
+		/** Fires when a console comes to the front, in place of the session service's own event. */
+		foregroundChanges?: Event<ILanguageRuntimeSession | undefined>;
+		/** Runs when the interpreter search starts, before it finds anything. */
+		beforeSearch?: () => Promise<void>;
 	}
 
 	interface IStartedRuntime {
@@ -2228,7 +2389,8 @@ describe('RuntimeStartupService - startup sequence', () => {
 				owner: 'user',
 			},
 			sessionState: RuntimeState.Idle,
-			lastUsed: 0,
+			lastUsed: runtime === options.ranCodeLast ? 1 : 0,
+			...(options.focusedLast ? { isLastActiveConsole: runtime === options.focusedLast } : {}),
 			runtimeMetadata: runtime,
 			workingDirectory: '/',
 			hasConsole: true,
@@ -2279,6 +2441,11 @@ describe('RuntimeStartupService - startup sequence', () => {
 		vi.spyOn(runtimeSessionService, 'foregroundSession', 'get').mockImplementation(() =>
 			consoleLanguageIds.size > 0 ? stubInterface<ILanguageRuntimeSession>() : undefined);
 
+		if (options.foregroundChanges) {
+			// The container is rebuilt for each test, so this doesn't leak.
+			Object.defineProperty(runtimeSessionService, 'onDidChangeForegroundSession', { value: options.foregroundChanges });
+		}
+
 		const service = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
 		// The runtime IDs the Console pane shows as starting, in order.
 		const announced: string[] = [];
@@ -2296,6 +2463,7 @@ describe('RuntimeStartupService - startup sequence', () => {
 			}),
 			// The cache starts empty, so startup runs the interpreter search.
 			discoverAllRuntimes: async () => {
+				await options.beforeSearch?.();
 				for (const runtime of discovered) {
 					service.registerDiscoveredRuntime(runtime);
 				}
@@ -2391,6 +2559,23 @@ describe('RuntimeStartupService - startup sequence', () => {
 		});
 
 		expect(started).toEqual([{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
+	});
+
+	it('after a reload, brings back the console that was focused last, not the one that ran code last', async () => {
+		const focusedLast = metadata({ extensionId: 'ms-python.python', languageId: 'python', runtimeId: 'python-3.14' });
+		await runStartupSequence({
+			languages: [{ ...pythonLanguage, discovered: [python, focusedLast] }],
+			startupBehavior: { default: LanguageStartupBehavior.Auto },
+			reconnected: [python, focusedLast],
+			focusedLast,
+			ranCodeLast: python,
+		});
+
+		// The console the reconnect brings to the front.
+		const activated = vi.mocked(ctx.get(IRuntimeSessionService).restoreRuntimeSession).mock.calls
+			.filter(([, , , , activate]) => activate)
+			.map(([runtime]) => runtime.runtimeId);
+		expect(activated).toEqual([focusedLast.runtimeId]);
 	});
 
 	describe('pinned check', () => {
@@ -2539,37 +2724,45 @@ describe('RuntimeStartupService - startup sequence', () => {
 			expect(pinnedWorkspaceRuntime).not.toHaveBeenCalled();
 		});
 
-		it('writes the pin over a manual language\'s affiliated runtime, keeping its times, and starts nothing', async () => {
+		it('puts the pin in place of a manual language\'s affiliated runtime without saving it, and starts nothing', async () => {
 			// R is manual, so startup does not start its affiliated runtime.
 			// Asking for recommendations activates the R extension, which runs
 			// the check.
 			const pinnedWorkspaceRuntime = pinR();
-			const { started } = await runStartupSequence({
+			const { service, started } = await runStartupSequence({
 				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
 				startupBehavior: { default: LanguageStartupBehavior.Auto, r: LanguageStartupBehavior.Manual },
 				manager: { pinnedWorkspaceRuntime },
 			});
 
-			expect({ started, affiliated: storedAffiliation('r') }).toEqual({
+			expect({
+				started,
+				affiliated: service.getAffiliatedRuntimeMetadata('r')?.runtimeId,
+				stored: storedAffiliation('r'),
+			}).toEqual({
 				started: [],
-				affiliated: { runtimeId: pinnedR.runtimeId, lastUsed: 2, lastStarted: 1 },
+				affiliated: pinnedR.runtimeId,
+				stored: { runtimeId: oldR.runtimeId, lastUsed: 2, lastStarted: 1 },
 			});
 			// Asking for recommendations and the interpreter search both activate
 			// the extension, but it is asked once.
 			expect(pinnedWorkspaceRuntime).toHaveBeenCalledTimes(1);
 		});
 
-		it('keeps a reconnected console running, and writes the pin over the affiliated runtime', async () => {
+		it('keeps reconnected consoles running, and keeps the console used last as the saved affiliated runtime', async () => {
+			// After a reload, the pinned interpreter's console and the console
+			// used last both reconnect. If the pin were saved here, a later
+			// launch without the pin would start it as the one used last.
 			const { started } = await runStartupSequence({
-				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+				languages: [{ ...rLanguage, discovered: [oldR, pinnedR], affiliated: affiliatedR }],
 				startupBehavior: { default: LanguageStartupBehavior.Auto },
 				manager: { pinnedWorkspaceRuntime: pinR() },
-				reconnected: [oldR],
+				reconnected: [oldR, pinnedR],
 			});
 
-			expect({ started, affiliated: storedAffiliation('r')?.runtimeId }).toEqual({
+			expect({ started, stored: storedAffiliation('r')?.runtimeId }).toEqual({
 				started: [],
-				affiliated: pinnedR.runtimeId,
+				stored: oldR.runtimeId,
 			});
 		});
 
@@ -2651,23 +2844,86 @@ describe('RuntimeStartupService - startup sequence', () => {
 			expect(cache.getEntries(rLanguage.extensionId, 'r').map(entry => entry.metadata.runtimePath)).toEqual([oldR.runtimePath]);
 		});
 
-		it('starts the affiliated runtime when the pin takes over 20 seconds, then saves the late pin without starting it', async () => {
+		it('starts the affiliated runtime when the pin takes over 20 seconds, and ignores the late pin', async () => {
 			const lateAnswer = new DeferredPromise<ILanguageRuntimeMetadata | undefined>();
-			const { started } = await runStartupSequenceWithClock(21_000, {
+			const { service, started } = await runStartupSequenceWithClock(21_000, {
 				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
 				startupBehavior: { default: LanguageStartupBehavior.Auto },
 				manager: { pinnedWorkspaceRuntime: () => lateAnswer.p },
 			});
 			const affiliatedBeforeAnswer = storedAffiliation('r')?.runtimeId;
 
-			// The check keeps running, so the next launch starts the pin.
+			// The check keeps running, but its answer applies only from the
+			// next launch, so the console that started stays the affiliated
+			// runtime.
 			await lateAnswer.complete(pinnedR);
 			await timeout(0);
 
-			expect({ started, affiliatedBeforeAnswer, affiliatedAfterAnswer: storedAffiliation('r')?.runtimeId }).toEqual({
+			expect({
+				started,
+				affiliatedBeforeAnswer,
+				affiliatedAfterAnswer: service.getAffiliatedRuntimeMetadata('r')?.runtimeId,
+				storedAfterAnswer: storedAffiliation('r')?.runtimeId,
+			}).toEqual({
 				started: [{ runtimeId: oldR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
 				affiliatedBeforeAnswer: oldR.runtimeId,
-				affiliatedAfterAnswer: pinnedR.runtimeId,
+				affiliatedAfterAnswer: oldR.runtimeId,
+				storedAfterAnswer: oldR.runtimeId,
+			});
+		});
+
+		it('starts the affiliated runtime as the search finds it when the pin answers after 20 seconds', async () => {
+			// Neither language was used since it last started, so nothing
+			// starts before the search. Startup stops waiting for R's pin
+			// check, and the check answers while the search runs, before the
+			// search finds old R.
+			const lateAnswer = new DeferredPromise<ILanguageRuntimeMetadata | undefined>();
+			const { started } = await runStartupSequenceWithClock(21_000, {
+				languages: [
+					{ ...rLanguage, discovered: [oldR], affiliated: { metadata: oldR, lastUsed: 1, lastStarted: 2 } },
+					{ ...pythonLanguage, affiliated: { metadata: python, lastUsed: 1, lastStarted: 2 } },
+				],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: {
+					pinnedWorkspaceRuntime: (_extensionId, languageId) => languageId === 'r' ? lateAnswer.p : Promise.resolve(undefined),
+				},
+				beforeSearch: async () => {
+					await lateAnswer.complete(pinnedR);
+					await timeout(0);
+				},
+			});
+
+			expect(started).toEqual([{ runtimeId: oldR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntimeAtRegistration }]);
+		});
+
+		it('forgets the pin when the console saved as the affiliated runtime shuts down', async () => {
+			// After a reload, old R's console reconnects and comes to the
+			// front. The pin check answers after that, so old R stays saved.
+			const lateAnswer = new DeferredPromise<ILanguageRuntimeMetadata | undefined>();
+			const foreground = ctx.disposables.add(new Emitter<ILanguageRuntimeSession | undefined>());
+			const runtimeState = ctx.disposables.add(new Emitter<RuntimeState>());
+			const { service } = await runStartupSequence({
+				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: { pinnedWorkspaceRuntime: () => lateAnswer.p },
+				reconnected: [oldR],
+				foregroundChanges: foreground.event,
+			});
+			foreground.fire(stubInterface<ILanguageRuntimeSession>({ runtimeMetadata: oldR, onDidChangeRuntimeState: runtimeState.event }));
+			await lateAnswer.complete(pinnedR);
+			await timeout(0);
+
+			// The user shuts down old R, which removes the saved affiliation.
+			runtimeState.fire(RuntimeState.Exiting);
+
+			expect({
+				affiliated: service.getAffiliatedRuntimeMetadata('r')?.runtimeId,
+				hasAffiliation: service.hasAffiliatedRuntime(),
+				stored: storedAffiliation('r'),
+			}).toEqual({
+				affiliated: undefined,
+				hasAffiliation: false,
+				stored: undefined,
 			});
 		});
 
