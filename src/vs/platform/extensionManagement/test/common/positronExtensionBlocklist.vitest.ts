@@ -5,9 +5,17 @@
 
 /// <reference types="vitest/globals" />
 
-import { isUnsatisfiableDependency, POSITRON_BLOCKED_EXTENSIONS, POSITRON_BLOCKED_EXTENSIONS_WITH_BUILTIN } from '../../common/positronExtensionBlocklist.js';
+import { isBlockedExtension, isUnsatisfiableDependency, POSITRON_BLOCKED_EXTENSIONS, POSITRON_BLOCKED_EXTENSIONS_WITH_BUILTIN } from '../../common/positronExtensionBlocklist.js';
 
 describe('positronExtensionBlocklist', () => {
+
+	it('should block the upstream Open Remote WSL extension that Positron replaces', () => {
+		// The upstream extension does not substitute ${arch-long} in the server
+		// download URL, so first-time WSL connections fail (#11713). Positron
+		// ships its own extensions/open-remote-wsl as positron.open-remote-wsl.
+		expect(isBlockedExtension('jeanp413.open-remote-wsl')).toBe(true);
+		expect(isBlockedExtension('positron.open-remote-wsl')).toBe(false);
+	});
 
 	it('should treat dependencies on blocked extensions Positron ships as built-ins as satisfiable', () => {
 		// ruff 2026.62.0 depends on ms-python.python; Positron provides it in-tree
