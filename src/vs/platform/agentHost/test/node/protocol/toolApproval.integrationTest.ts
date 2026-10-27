@@ -38,7 +38,14 @@ suite('Protocol WebSocket — Permissions & Auto-Approve', function () {
 	suiteTeardown(async function () {
 		this.timeout(getAgentHostE2ETestTimeout(20_000, 50_000));
 		await stopServer(server);
-		rmSync(workspace, { recursive: true, force: true });
+		// --- Start Positron ---
+		// stopServer waits for the server only. A child it ran in the workspace
+		// (e.g. git) can still hold the folder as its cwd for a moment after the
+		// server exits, which Windows reports as EPERM. Retry like
+		// sessionDiffs.integrationTest.ts does.
+		// rmSync(workspace, { recursive: true, force: true });
+		rmSync(workspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+		// --- End Positron ---
 	});
 
 	setup(async function () {
