@@ -21,9 +21,9 @@ import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { readFixtureState, stopFixture } from '../test/fixture-app.ts';
 import { flagValue, readResults, SMOKE_ROOT, SMOKE_SESSION, unknownArg, type SmokeResults } from '../test/smoke-lib.ts';
-import { addFields, readFindings, readState, writeFinding, writeState, type Finding } from './finding.ts';
+import { addFields, readFindings, readState, writeFinding, writeState, type Finding, type HotSpot } from './finding.ts';
 import { addedKeys, affectedHelpers, postSections, readGraph, selectorUsers } from './affected.ts';
-import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, inSections, knownProduct, newCaseProblems, newCheckFailures, otherOpen, parseChecks, placeSections, queue, readOutcome, regressions, readReview, replaceCases, type FixerOutcome, type IssueStates, type Review } from './fix-lib.ts';
+import { addedCases, applyCovers, caseGate, changedRanges, earlierVerdicts, fixedBefore, HOT_SPOT_COMMITS, HOT_SPOT_DAYS, hotSpots, inSections, knownProduct, newCaseProblems, newCheckFailures, otherOpen, parseChecks, placeSections, queue, readOutcome, regressions, readReview, replaceCases, type FixerOutcome, type IssueStates, type Review } from './fix-lib.ts';
 import { checksChanged } from './links.ts';
 import { cascade, mergeResults } from './rerun-lib.ts';
 import { outside, pathsFromStatus, SKILL_PREFIX } from './scope.ts';
@@ -158,13 +158,20 @@ function main(): number {
 		return typeof o === 'string' ? { kind: 'unusable', why: o } : { kind: 'outcome', o, touched };
 	};
 
+	/** The staged change's helper lines that earlier commits keep patching; advisory, so a git error means none. */
+	const stagedHotSpots = (pre: string): HotSpot[] => hotSpots(changedRanges(git('diff', '--cached', '-U0', '--no-color', pre)), (file, rs) => {
+		try { return git('log', `--since=${HOT_SPOT_DAYS}.days`, '--format=commit:%h', ...rs.map(r => `-L${r.start},${r.end}:${file}`), pre); } catch { return ''; }
+	});
+
 	/** A read-only review of the staged change; its verdict, or null when the review itself failed. */
-	const reviewFix = (f: Finding, o: FixerOutcome, pre: string, round: number): Review | null => {
+	const reviewFix = (f: Finding, o: FixerOutcome, pre: string, round: number, hot: HotSpot[]): Review | null => {
 		const brief = join(dir, 'review-brief.md');
 		writeFileSync(brief, [
 			'# Finding', '', '```json', JSON.stringify(f, null, 2), '```', '',
 			'# The fixer\'s account', '', o.reason, '', ...(o.plain.change ? [`Change: ${o.plain.change}`, ''] : []),
 			...(o.untestable ? [`No smoke case, because: ${o.untestable}`, ''] : []),
+			...(hot.length ? ['# Hot spots', '', `Lines this change touches that ${HOT_SPOT_COMMITS} or more earlier commits changed in the past ${HOT_SPOT_DAYS} days:`, '',
+				...hot.map(h => `- ${h.file} lines ${h.lines}: ${h.commits} commits`), ''] : []),
 			'# Staged diff', '', '```diff', git('diff', '--cached', '--no-color', pre), '```',
 		].join('\n'));
 		const out = join(dir, 'cost', `reviewer-${f.id}-${round}.json`);
@@ -228,7 +235,8 @@ function main(): number {
 			console.log(`fix-loop: ${f.id} fix rejected: ${gate}`);
 			continue;
 		}
-		const r1 = reviewFix(f, o, pre, 1);
+		let hot = stagedHotSpots(pre);
+		const r1 = reviewFix(f, o, pre, 1, hot);
 		let notes = r1?.notes ?? [];
 		let reviewVerdict = r1?.verdict;
 		let revised = false;
@@ -258,7 +266,8 @@ function main(): number {
 				continue;
 			}
 			added = added2;
-			const r2 = reviewFix(f, o, pre, 2);
+			hot = stagedHotSpots(pre);
+			const r2 = reviewFix(f, o, pre, 2, hot);
 			notes = r2?.notes ?? [];
 			reviewVerdict = r2?.verdict;
 		}
@@ -310,7 +319,7 @@ function main(): number {
 						: after && added?.length ? newCaseProblems(added, after).join('; ') : '';
 		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, checksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}),
 			...(added?.length ? { newCases: added.map(a => a.name) } : {}), ...(o.untestable ? { untestable: o.untestable } : {}),
-			...(notes.length ? { review: notes } : {}), ...(revised ? { revised } : {}), ...(reviewVerdict ? { reviewVerdict } : {}),
+			...(notes.length ? { review: notes } : {}), ...(revised ? { revised } : {}), ...(reviewVerdict ? { reviewVerdict } : {}), ...(hot.length ? { hotSpots: hot } : {}),
 			reaches: reaches === 'all' ? 'all' : [...reaches].sort(), ...(verdict ? { rejected: verdict } : {}) }));
 		if (verdict) {
 			discard(pre, false);

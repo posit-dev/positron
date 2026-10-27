@@ -221,10 +221,20 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		/**
 		 * The one row matching exact (label, or "label (description)") or words; nth picks among several.
 		 * walk reads undrawn rows too, when the drawn ones can't settle the match.
+		 * settle names the tie-breakers to try, in order, when several rows match and
+		 * no nth is given; the one that settled it is reported in settled.
 		 */
-		pick: async (m: { exact?: string; words?: string; folder?: string; preferRoot?: boolean; nth?: number; walk?: boolean }) => {
+		pick: async (m: { exact?: string; words?: string; folder?: string; nth?: number; walk?: boolean; settle?: ('root' | 'copies')[] }) => {
 			const words = lib.hasWords(m.words ?? '');
 			const shownAs = (r: { label: string; description: string }) => r.label + (r.description ? ' (' + r.description + ')' : '');
+			// Each keeps the rows it prefers; it settles the match when one is left.
+			// Add a case here rather than an option beside them.
+			const tieBreakers: Record<'root' | 'copies', <R extends { label: string; description: string }>(rs: R[]) => R[]> = {
+				// A bare file name means the one at the workspace root, which has no folder beside it.
+				root: rs => rs.filter(r => !r.description),
+				// Rows that read the same are one command registered twice, its id beside each: either runs it.
+				copies: rs => rs.every(r => shownAs(r) === shownAs(rs[0])) ? rs.slice(0, 1) : rs,
+			};
 			// Quick Open shows a Windows folder as sub\deep: compare with / for both.
 			const inFolder = (r: { label: string; description: string }, d = r.description.replace(/\\/g, '/'), f = (m.folder ?? '').replace(/\\/g, '/')) =>
 				!f || d === f || d.endsWith('/' + f) || d.endsWith(' ' + f);
@@ -248,8 +258,12 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const short = found.length < Math.max(1, m.nth ?? 0) || (!m.nth && found.length === 1);
 			const walked = m.walk && short && !await lib.allDrawn() ? await lib.allRows() : undefined;
 			if (walked) { all = walked.rows; found = match(all); }
-			// A bare file name means the one at the workspace root, which has no folder beside it.
-			if (found.length > 1 && m.preferRoot && found.filter(r => !r.description).length === 1) { found = found.filter(r => !r.description); }
+			let settled: { by: 'root' | 'copies'; of: number } | undefined;
+			for (const by of m.nth ? [] : m.settle ?? []) {
+				if (found.length < 2) { break; }
+				const kept = tieBreakers[by](found);
+				if (kept.length === 1) { settled = { by, of: found.length }; found = kept; }
+			}
 			const show = (rs: typeof all) => ({ shown: rs.slice(0, 8).map(shownAs), ...(rs.length > 8 ? { more: `${rs.length - 8} more rows not shown` } : {}) });
 			const want = m.exact ?? m.words;
 			const how = walked ? { walked: true, ...(walked.complete ? {} : { partial: true }) } : {};
@@ -258,10 +272,10 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			if (m.nth && m.nth > found.length) { return { ok: false as const, error: `${found.length} row${found.length === 1 ? '' : 's'} match "${want}", so there is no row ${m.nth}`, ...how, ...show(found) }; }
 			if (found.length > 1 && !m.nth) { return { ok: false as const, error: `${found.length} rows match "${want}"${m.exact === undefined ? '; be more specific' : ''}`, ...how, ...show(found) }; }
 			const row = found[(m.nth || 1) - 1];
-			if (!walked) { return { ok: true as const, row: { ...row, occurrence: found.slice(0, (m.nth || 1) - 1).filter(r => shownAs(r) === shownAs(row)).length } }; }
+			if (!walked) { return { ok: true as const, ...(settled ? { settled } : {}), row: { ...row, occurrence: found.slice(0, (m.nth || 1) - 1).filter(r => shownAs(r) === shownAs(row)).length } }; }
 			if (!await lib.scrollToRow(row.index)) { return { ok: false as const, error: `the row "${shownAs(row)}" is in the list but could not be scrolled into view`, walked: true, partial: true }; }
 			// clickRow counts among drawn rows only.
-			return { ok: true as const, walked: true, row: { ...row, occurrence: (await lib.rows()).filter(r => r.index < row.index && shownAs(r) === shownAs(row)).length } };
+			return { ok: true as const, walked: true, ...(settled ? { settled } : {}), row: { ...row, occurrence: (await lib.rows()).filter(r => r.index < row.index && shownAs(r) === shownAs(row)).length } };
 		},
 		/** Finds the row by label at click time: Quick Open re-sorts as results arrive, so an index goes stale. */
 		clickRow: async (row: { label: string; description: string; occurrence?: number }) => {

@@ -25,6 +25,11 @@ Smoke and `check.ts` run after you, so do not re-run anything. Your job is what 
 8. **Size.** Is the change bigger than the finding? A table of guessed inputs, a hand-kept copy of
    a list the code already has, or edits to sibling helpers the fixer did not show failing the
    same way are each a `revise`.
+9. **Hot spots.** When the brief lists hot spots, those lines keep getting patched one case at a
+   time. A change there that adds one more option, flag or special-case branch beside the others is
+   a `revise`: ask to fold the cases into one shape (a table of cases tried in one loop, say) when
+   that is no bigger than the fix. When it would be, approve, and add a note naming the lines for a
+   person to refactor.
 
 ## Verdict
 

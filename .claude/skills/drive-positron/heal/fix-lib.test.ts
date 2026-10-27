@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding } from './finding.ts';
-import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, knownProduct, newCaseProblems, newCheckFailures, otherOpen, parseChecks, placeSections, queue, readOutcome, readReview, regressions, sameFinding } from './fix-lib.ts';
+import { addedCases, applyCovers, caseGate, changedRanges, earlierVerdicts, fixedBefore, hotSpots, knownProduct, newCaseProblems, newCheckFailures, otherOpen, parseChecks, placeSections, queue, readOutcome, readReview, regressions, sameFinding } from './fix-lib.ts';
 
 const f = (id: string, source: Finding['source'], kase?: string, outcome?: Finding['outcome']): Finding => ({
 	id, source, case: kase, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', outcome,
@@ -246,3 +246,24 @@ test('knownProduct: the newest exact verdict is product with an issue still open
 	assert.equal(got?.run, '9');
 	assert.equal(got?.finding.broke, 'b');
 });
+
+const FIX_DIFF = [
+	`--- a/${P}scripts/page-lib.ts`, `+++ b/${P}scripts/page-lib.ts`,
+	'@@ -221 +221,2 @@', '-a', '+a', '+b',
+	'@@ -250,0 +252 @@', '+c',
+	`--- a/${P}test/smoke.ts`, `+++ b/${P}test/smoke.ts`, '@@ -10,0 +11 @@', '+case',
+	'--- /dev/null', `+++ b/${P}scripts/new.ts`, '@@ -0,0 +1 @@', '+new',
+].join('\n');
+
+test('changedRanges: old-side ranges in scripts/ only; an insertion counts the line it follows', () => {
+	assert.deepEqual(changedRanges(FIX_DIFF), [{ file: `${P}scripts/page-lib.ts`, start: 221, end: 221 }, { file: `${P}scripts/page-lib.ts`, start: 250, end: 250 }]);
+});
+
+test('hotSpots: one log per file; distinct commits at or past the threshold make a hot spot', () => {
+	const logs: Record<string, string> = { [`${P}scripts/a.ts`]: 'commit:aaa\n@@ diff\ncommit:bbb\ncommit:ccc\ncommit:aaa', [`${P}scripts/b.ts`]: 'commit:aaa\ncommit:bbb' };
+	const asked: string[] = [];
+	const got = hotSpots([{ file: `${P}scripts/a.ts`, start: 5, end: 9 }, { file: `${P}scripts/a.ts`, start: 40, end: 41 }, { file: `${P}scripts/b.ts`, start: 1, end: 1 }],
+		(file, rs) => { asked.push(`${file}:${rs.length}`); return logs[file]; });
+	assert.deepEqual({ got, asked }, { got: [{ file: 'scripts/a.ts', lines: '5-41', commits: 3 }], asked: [`${P}scripts/a.ts:2`, `${P}scripts/b.ts:1`] });
+});
+
