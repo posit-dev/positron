@@ -43,6 +43,7 @@ def test_lists_modules_packages_and_one_level_of_submodules(library):
         "fxmod.py",
         "fxpkg/__init__.py",
         "fxpkg/sub.py",
+        "fxpkg/__main__.py",
         "fxpkg/inner/__init__.py",
         "fxpkg/inner/deep.py",
         "fxdata/notes.txt",
@@ -50,7 +51,8 @@ def test_lists_modules_packages_and_one_level_of_submodules(library):
     ]:
         library(name)
     modules = find_modules()
-    # Directories without `__init__.py` are not listed, as in pkgutil.
+    # Directories without `__init__.py` are not listed, as in pkgutil. `__main__`
+    # modules are not listed, because importing one runs a package's command line.
     assert fixture_names(modules) == ["fxmod", "fxpkg", "fxpkg.inner", "fxpkg.sub"]
     assert "builtin_fixture" in modules
     assert "__main__" not in modules

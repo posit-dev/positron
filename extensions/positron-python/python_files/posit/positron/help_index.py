@@ -26,6 +26,8 @@ def find_modules() -> dict[str, pkgutil.ModuleInfo | None]:
 
     The value is None for built-in modules and for imported modules that were
     not found on `sys.path`. Listing reads directories, but imports nothing.
+    `__main__` modules are left out, because importing one runs a package's
+    command line.
     """
     modules: dict[str, pkgutil.ModuleInfo | None] = dict.fromkeys(sys.builtin_module_names)
     for name, info in _list_search_path().items():
@@ -33,8 +35,7 @@ def find_modules() -> dict[str, pkgutil.ModuleInfo | None]:
     for name, module in sys.modules.copy().items():
         if _is_module(module) and _is_module_name(name):
             modules.setdefault(name, None)
-    modules.pop("__main__", None)
-    return modules
+    return {name: info for name, info in modules.items() if name.rpartition(".")[2] != "__main__"}
 
 
 def suggest(query: str, limit: int) -> list[str]:
