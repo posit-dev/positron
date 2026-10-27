@@ -81,7 +81,11 @@ import {
 
 /** The query surface the table view needs. Implemented by the connection over its sdk client. */
 export interface ISnowflakeQueryClient {
-	/** Run a SQL query and return its rows as plain objects keyed by column name. */
+	/**
+	 * Run a SQL query and return its rows as plain objects keyed by column name. NUMBER values arrive
+	 * as exact digit strings and FLOAT values as JS numbers, so every numeric read that does arithmetic
+	 * on a result must coerce it with `Number()`.
+	 */
 	runQuery(sql: string): Promise<Array<Record<string, unknown>>>;
 }
 
@@ -518,11 +522,9 @@ export class SnowflakeTableView {
 		switch (displayType) {
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Decimal: {
-				// `snowflake-sdk` yields a JS number for NUMBER columns, so a wide DECIMAL has already
-				// lost its precision by the time it reaches here and this guard does not fire. Recovering
-				// it means changing how the SDK's results are parsed, which is separable work (see
-				// #15366); the exact-string path is shared with the other drivers so it will simply start
-				// working once the values arrive intact.
+				// A NUMBER arrives as its exact digit string (see `ISnowflakeQueryClient`), which is
+				// formatted textually because a double would round a wide value. A FLOAT arrives as a
+				// JS number.
 				if (displayType === ColumnDisplayType.Decimal && isDecimalLiteral(value)) {
 					return formatDecimal(value, opts);
 				}
@@ -979,8 +981,12 @@ export class SnowflakeTableView {
 				add(aggAlias.n(i), `count(${quotedName})`);
 				add(aggAlias.lo(i), `min(${quotedName})`);
 				add(aggAlias.hi(i), `max(${quotedName})`);
-				add(aggAlias.sum(i), `sum(${quotedName} * 1.0)`);
-				add(aggAlias.sumSq(i), `sum(${quotedName} * 1.0 * ${quotedName})`);
+				// The sums feed the mean and standard deviation, which are computed as doubles, so sum
+				// as doubles too. Fixed-point arithmetic on a wide NUMBER overflows Snowflake's 38 digits
+				// (squaring one always does), and that failure would take every aggregate in this shared
+				// query with it.
+				add(aggAlias.sum(i), `sum(${quotedName}::DOUBLE)`);
+				add(aggAlias.sumSq(i), `sum(${quotedName}::DOUBLE * ${quotedName}::DOUBLE)`);
 				// Exact median folded in as an ordered-set aggregate -- no separate ORDER BY round-trip.
 				add(aggAlias.median(i), `PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ${quotedName})`);
 				break;
@@ -1081,11 +1087,16 @@ export class SnowflakeTableView {
 			// Sample standard deviation from the sums of values and squares.
 			const variance = n > 1 ? Math.max(0, (sumsq - n * mean * mean) / (n - 1)) : 0;
 			const fmt = (v: number) => formatFloat(v, formatOptions);
+			// The range reads like the column's values, as the Python backend reports it: a FLOAT
+			// formatted as its cells are, an integer or exact decimal as its own digits (scale and all).
+			const range = (v: unknown) => v === null || v === undefined
+				? undefined
+				: display === ColumnDisplayType.Floating ? fmt(Number(v)) : String(v);
 			return {
 				type_display: display,
 				number_stats: {
-					min_value: lo === null || lo === undefined ? undefined : String(lo),
-					max_value: hi === null || hi === undefined ? undefined : String(hi),
+					min_value: range(lo),
+					max_value: range(hi),
 					mean: n > 0 ? fmt(mean) : undefined,
 					median: formatNumericStat(medianRaw, display, formatOptions),
 					stdev: n > 1 ? fmt(Math.sqrt(variance)) : undefined,
@@ -1214,7 +1225,9 @@ export class SnowflakeTableView {
 			return bins;
 		}
 		const branches = active.map(plan => {
-			const bucket = `CAST(FLOOR((${plan.quotedName} * 1.0 - ${plan.min}) / ${plan.binWidth}) AS INTEGER)`;
+			// Bucket in doubles: the range and bin width are doubles already, and fixed-point arithmetic
+			// on a wide NUMBER would overflow Snowflake's 38 digits.
+			const bucket = `CAST(FLOOR((${plan.quotedName}::DOUBLE - ${plan.min}) / ${plan.binWidth}) AS INTEGER)`;
 			return `SELECT ${plan.columnIndex} AS ${quoteAlias('h_col')}, ${bucket} AS ${quoteAlias('h_bin')}, count(*) AS ${quoteAlias('h_count')} ` +
 				`FROM ${this._quotedTable}${this._wherePlus(`${plan.quotedName} IS NOT NULL`)} GROUP BY ${bucket}`;
 		});
