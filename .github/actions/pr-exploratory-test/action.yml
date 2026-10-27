@@ -100,7 +100,7 @@ inputs:
     required: false
     default: ""
   github-token:
-    description: "Comment mode: token with issues: write"
+    description: "Comment mode: token with issues: write, and actions: read to name the step a failed run broke at"
     required: false
     default: ""
   comment-id:

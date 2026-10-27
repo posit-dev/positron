@@ -1074,6 +1074,8 @@ jobs:
       (github.event_name == 'issue_comment' || (inputs.auto_run_pr != '' && needs.ack-auto.result == 'success')) }}
     runs-on: ubuntu-latest
     permissions:
+      # actions: read lets the comment name the step a failed run broke at.
+      actions: read
       contents: read
       issues: write
       pull-requests: write
