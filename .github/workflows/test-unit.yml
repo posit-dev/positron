@@ -37,13 +37,12 @@ jobs:
     runs-on: ubuntu-latest-amd64-4-core
     # The three test steps only account for ~5m; almost all of the wall clock is
     # npm install plus the cache save, and both scale with how many npm caches
-    # missed. A warm-ish run lands at ~35m, but a run that misses all three npm
-    # caches (e.g. run 33655268940) pays ~14m of cold install *and* ~30m of
-    # cache save (npm-core 8m, extensions-volatile 4m, extensions-stable 18m),
-    # reaching the Electron tests at ~57m. 60m cancelled that run 3m into the
-    # first test step. 75m covers the fully-cold ~62m path with headroom while
-    # still capping a genuinely hung run.
-    timeout-minutes: 75
+    # missed. A run that misses all three npm caches (e.g. run 33655268940) pays
+    # ~14m of cold install *and* ~30m of cache save (npm-core 8m,
+    # extensions-volatile 4m, extensions-stable 18m). With Vitest moved to its
+    # own job, that fully-cold path is ~52m; 65m leaves headroom while still
+    # capping a genuinely hung run.
+    timeout-minutes: 65
     # Run inside the shared CI image, which bakes in the system dependencies,
     # Node (matching .nvmrc), and R 4.6.1 + test-files deps that this
     # job used to install at runtime. Built from docker/images/ubuntu24_04.
@@ -215,8 +214,9 @@ jobs:
   vitest:
     name: vitest
     runs-on: ubuntu-latest-amd64-4-core
-    # A cold install (~15m) plus Vitest (~11m on the slower runners).
-    timeout-minutes: 45
+    # Container + restore (~6m), a cold install (~15m), and Vitest (~12m), plus
+    # room for one install retry after a hung 30m attempt.
+    timeout-minutes: 70
     container: *container
     env: *env
     steps:
