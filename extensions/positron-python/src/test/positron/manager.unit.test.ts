@@ -576,7 +576,7 @@ suite('Python runtime manager - pinnedWorkspaceRuntime', () => {
 
         assert.deepStrictEqual(
             createPythonRuntimeMetadataStub.getCalls().map((call) => call.args[3]?.skipModuleWait),
-            [true, true, true, false],
+            [true, false, true, false],
         );
     });
 

@@ -27,7 +27,7 @@ import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo, traceWarn } from '../logging';
 import { getInterpreterPathFromDir } from '../pythonEnvironments/common/commonUtils';
 import { normCasePath, pathExists } from '../pythonEnvironments/common/externalDependencies';
-import { PythonEnvironment } from '../pythonEnvironments/info';
+import { EnvironmentType, PythonEnvironment, virtualEnvTypes } from '../pythonEnvironments/info';
 import {
     buildRankingContext,
     RankingContext,
@@ -86,9 +86,27 @@ async function skipReason(
  * Whether an interpreter in this tier can be an environment-module Python. A module
  * Python needs its module metadata to start, and waiting for that covers PET's whole
  * activation scan, so only these tiers wait for it.
+ *
+ * Keep in sync with `canBeModuleEnv`, which answers the same question for a pinned
+ * interpreter, which has no tier.
  */
 function canBeModulePython(tier: Tier): boolean {
     return ![Tier.ActivatedEnv, Tier.ProjectEnv, Tier.PythonVersionFile, Tier.WorkspaceEnv].includes(tier);
+}
+
+/**
+ * Whether an interpreter of this environment type can be an environment-module Python.
+ * Virtual environments other than conda, and pyenv installs, never are, so their runtimes
+ * don't need to wait for module discovery, which on Linux waits for PET's whole interpreter
+ * scan. Conda can come from a module, as with `module load anaconda`.
+ *
+ * Keep in sync with `canBeModulePython`, which answers the same question by tier.
+ */
+export function canBeModuleEnv(envType: EnvironmentType): boolean {
+    if (envType === EnvironmentType.Conda) {
+        return true;
+    }
+    return !virtualEnvTypes.includes(envType) && envType !== EnvironmentType.Pyenv;
 }
 
 /**
