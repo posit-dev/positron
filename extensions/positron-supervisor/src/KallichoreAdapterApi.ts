@@ -18,7 +18,7 @@ import { isAxiosError } from 'axios';
 import { KallichoreServerState } from './ServerState.js';
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreInstances } from './KallichoreInstances.js';
-import { DefinitionTerminalEnvironment, findInterpreterDefinition, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
+import { DefinitionTerminalEnvironment, findInterpreterDefinition, getModuleInitScript, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
@@ -1439,15 +1439,15 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
-	 * Get the environment variables an interpreter definition sets, running its
-	 * startup script to capture the variables the script sets.
+	 * Get the environment variables an interpreter definition sets, loading its
+	 * modules and running its startup script to capture the variables they set.
 	 *
 	 * @param definition The interpreter definition
 	 * @param kernelEnv The environment variables the kernel spec sets, if any
 	 */
 	private async resolveDefinitionEnv(definition: InterpreterDefinition, kernelEnv: NodeJS.ProcessEnv | undefined): Promise<Record<string, string>> {
-		if (definition.startupScript && process.platform === 'win32') {
-			this.log(`Ignoring startupScript for "${definition.label}": startup scripts are not supported on Windows`);
+		if ((definition.startupScript || definition.modules?.length) && process.platform === 'win32') {
+			this.log(`Ignoring startupScript and modules for "${definition.label}": they are not supported on Windows`);
 		}
 		const baseEnv: Record<string, string> = {};
 		for (const [name, value] of Object.entries({ ...process.env, ...kernelEnv })) {
@@ -1457,10 +1457,11 @@ export class KCApi implements PositronSupervisorApi {
 		}
 		let env: Record<string, string>;
 		try {
-			env = await resolveDefinitionEnv(definition, baseEnv, process.platform);
+			const moduleInit = definition.startupScript || definition.modules?.length ? await getModuleInitScript() : undefined;
+			env = await resolveDefinitionEnv(definition, baseEnv, process.platform, moduleInit);
 		} catch (err) {
 			throw new Error(vscode.l10n.t(
-				'The startup script for the interpreter "{0}" failed: {1}',
+				'Setting up the interpreter "{0}" failed: {1}',
 				definition.label, summarizeError(err)));
 		}
 		this.log(`Applying interpreter definition "${definition.label}" (env: ${Object.keys(env).join(', ') || 'none'})`);

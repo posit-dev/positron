@@ -77,6 +77,39 @@ suite('resolveDefinitionEnv', () => {
 		});
 	});
 
+	test('sources the startup script with bash', async function () {
+		if (process.platform === 'win32') {
+			this.skip();
+		}
+		const startupScript = writeScript('bash.sh', 'if [[ -n "$R_LIBS_SITE" ]]; then export FOO=bar; fi');
+		assert.deepStrictEqual(await resolveDefinitionEnv({ ...definition, startupScript }, baseEnv, process.platform), {
+			R_LIBS_SITE: '/xx',
+			FOO: 'bar',
+		});
+	});
+
+	test('loads modules after sourcing the module init script, then sources the startup script', async function () {
+		if (process.platform === 'win32') {
+			this.skip();
+		}
+		// A stand-in for a module system: `module load` exports a variable per module.
+		const init = writeScript('init.sh', [
+			'export MODULES_INIT=1',
+			'module() { shift; for m in "$@"; do export "LOADED_$m=1"; LOADEDMODULES="${LOADEDMODULES:+$LOADEDMODULES:}$m"; done; export LOADEDMODULES; }',
+		].join('\n'));
+		const startupScript = writeScript('setup.sh', 'module load c\nexport SEEN="$LOADEDMODULES"');
+		const modules = ['a', 'b'];
+		assert.deepStrictEqual(await resolveDefinitionEnv({ ...definition, modules, startupScript }, baseEnv, process.platform, init), {
+			R_LIBS_SITE: '/xx',
+			MODULES_INIT: '1',
+			LOADED_a: '1',
+			LOADED_b: '1',
+			LOADED_c: '1',
+			LOADEDMODULES: 'a:b:c',
+			SEEN: 'a:b:c',
+		});
+	});
+
 	test('rejects when the startup script fails', async function () {
 		if (process.platform === 'win32') {
 			this.skip();
@@ -85,9 +118,9 @@ suite('resolveDefinitionEnv', () => {
 		await assert.rejects(resolveDefinitionEnv({ ...definition, startupScript }, baseEnv, process.platform));
 	});
 
-	test('skips the startup script on Windows but still applies env', async () => {
+	test('skips modules and the startup script on Windows but still applies env', async () => {
 		const startupScript = writeScript('setup.sh', 'export FOO=bar');
-		assert.deepStrictEqual(await resolveDefinitionEnv({ ...definition, startupScript }, baseEnv, 'win32'), { R_LIBS_SITE: '/xx' });
+		assert.deepStrictEqual(await resolveDefinitionEnv({ ...definition, modules: ['R'], startupScript }, baseEnv, 'win32'), { R_LIBS_SITE: '/xx' });
 	});
 });
 
@@ -120,6 +153,7 @@ suite('findInterpreterDefinition', () => {
 				{ ...definition, language: 'python' },
 				{ ...definition, path: '/opt/R/4.4.4/bin/R' },
 				{ ...definition, env: ['R_LIBS_SITE=/bad'] },
+				{ ...definition, modules: 'R' },
 				{ ...definition, startupScript: 42 },
 				definition,
 			], 'r', 'XX', '/opt/R/4.4.3/bin/R'),
