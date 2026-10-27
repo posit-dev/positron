@@ -13,7 +13,7 @@ import {
 	platformVersion,
 	MetricResponse,
 	MetricContext,
-	positronVersion,
+	getRunPositronVersion,
 	arkVersion
 } from './metric-base.js';
 import { SPEC_NAME } from '../../fixtures/test-setup/constants.js';
@@ -118,13 +118,14 @@ export function createMetricPayload(
 		spec_name,
 		variant
 	} = metric;
+	const version = getRunPositronVersion();
 
 	return {
 		timestamp: new Date().toISOString(),
 		platform_os: platformOs,
 		platform_version: platformVersion,
-		app_version: positronVersion?.positronVersion ?? 'unknown',
-		build_number: String(positronVersion?.buildNumber ?? 'unknown'),
+		app_version: version?.positronVersion ?? 'unknown',
+		build_number: String(version?.buildNumber ?? 'unknown'),
 		runtime_env: isElectronApp ? 'electron' : 'chromium',
 		run_id: process.env.GITHUB_RUN_ID ?? process.env.RUN_ID ?? 'unknown',
 		feature_area,
