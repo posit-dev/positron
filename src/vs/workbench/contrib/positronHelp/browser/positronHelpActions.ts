@@ -161,9 +161,8 @@ interface ILookupHelpTopicResult {
 	message?: string;
 }
 
-// The help commands an agent can run (LookupHelpTopic, ReadHelpTopic, ListPackageDocs and
-// ReadVignette) are readOnly, so an agent may run them without asking, even though the session
-// may import the package to find its help, as the Help pane does.
+// The agent help commands below are readOnly even though the session may import the package
+// to find its help, as the Help pane does.
 
 export class LookupHelpTopic extends Action2 {
 	constructor() {

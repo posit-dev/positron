@@ -44,10 +44,7 @@ export interface IAgentCommandSource {
  */
 export interface IAgentCommandDescriptor {
 	readonly id: string;
-	/**
-	 * The command's display name, for an agent to show the user in place of
-	 * the id. See `positron.ai.AgentCommand.title`.
-	 */
+	/** See `positron.ai.AgentCommand.title`. */
 	readonly title?: string;
 	readonly description?: string;
 	readonly args?: readonly IAgentCommandArg[];
@@ -191,9 +188,9 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 	 * `ICommandAction`; `source` and `precondition` always come from MenuRegistry
 	 * (undefined for core commands with no menu entry).
 	 *
-	 * The title is the metadata's own, then the menu entry's (palette commands
-	 * and `contributes.commands`), then the one `registerAction2` records in
-	 * the CommandCenter for every action, including those not in the palette.
+	 * Menu entries give titles to palette commands and `contributes.commands`;
+	 * the CommandCenter has the title of every `registerAction2` action,
+	 * including those not in the palette.
 	 */
 	private _toDebugDescriptor(
 		id: string,

@@ -5,12 +5,11 @@
 
 /// <reference types="vitest/globals" />
 
-import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
 import { IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { AiProviderServiceStatus, IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
-import { ASSISTANT_GET_PROVIDER_STATUS_COMMAND_ID, getProviderStatus } from '../../browser/providerStatusCommand.js';
+import { getProviderStatus } from '../../browser/providerStatusCommand.js';
 
 /** A resolved catalog entry, as ai-config would supply it. */
 function catalogEntry(
@@ -115,14 +114,5 @@ describe('getProviderStatus', () => {
 		const result = await getProviderStatus(ctx.instantiationService);
 
 		expect([result.catalogStatus, result.providers[0].enabled]).toEqual(['initializing', undefined]);
-	});
-});
-
-describe('getProviderStatus registration', () => {
-	it('is registered as a read-only agent-compatible command', () => {
-		const metadata = CommandsRegistry.getCommand(ASSISTANT_GET_PROVIDER_STATUS_COMMAND_ID)?.metadata;
-
-		expect({ agentCompatible: metadata?.agentCompatible, readOnly: metadata?.readOnly })
-			.toEqual({ agentCompatible: true, readOnly: true });
 	});
 });

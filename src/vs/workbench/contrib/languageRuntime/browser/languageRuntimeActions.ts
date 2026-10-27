@@ -1160,9 +1160,6 @@ export class StartNewAgentSessionAction extends Action2 {
  * Action that rediscovers all installed interpreters.
  */
 export class DiscoverAllRuntimesAction extends Action2 {
-	/**
-	 * Constructor.
-	 */
 	constructor() {
 		super({
 			id: LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID,
@@ -1178,7 +1175,6 @@ export class DiscoverAllRuntimesAction extends Action2 {
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		// Access service.
 		const runtimeStartupService = accessor.get(IRuntimeStartupService);
 
 		// Wait for discovery to finish, so a caller that lists interpreters

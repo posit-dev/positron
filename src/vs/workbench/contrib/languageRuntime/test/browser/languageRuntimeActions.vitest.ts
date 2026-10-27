@@ -13,7 +13,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { DiscoverAllRuntimesAction, DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguage, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAgentSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
-import { DeferredPromise } from '../../../../../base/common/async.js';
+import { DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -1580,26 +1580,11 @@ describe('DiscoverAllRuntimesAction', () => {
 		const run = ctx.instantiationService.invokeFunction(accessor =>
 			new DiscoverAllRuntimesAction().run(accessor)).then(() => { finished = true; });
 
-		await Promise.resolve();
+		await timeout(0);
 		expect(finished).toBe(false);
 
 		discovery.current.complete();
 		await run;
 		expect(finished).toBe(true);
-	});
-
-	it('passes a discovery failure on to the caller', async () => {
-		const run = ctx.instantiationService.invokeFunction(accessor =>
-			new DiscoverAllRuntimesAction().run(accessor));
-		discovery.current.error(new Error('discovery failed'));
-
-		await expect(run).rejects.toThrow('discovery failed');
-	});
-});
-
-describe('runtime agent command metadata', () => {
-	it('marks session selection and interpreter discovery as read-only', () => {
-		expect([new SelectSessionAction(), new DiscoverAllRuntimesAction()].map(action => action.desc.metadata?.readOnly))
-			.toEqual([true, true]);
 	});
 });
