@@ -4,7 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { mkdtempSync, rmSync } from 'fs';
+// --- Start Positron ---
+// The async rm replaces rmSync in suiteTeardown; see the comment there.
+// import { mkdtempSync, rmSync } from 'fs';
+import { mkdtempSync } from 'fs';
+import { rm } from 'fs/promises';
+// --- End Positron ---
 import { tmpdir } from 'os';
 import { join } from '../../../../../base/common/path.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -40,11 +45,12 @@ suite('Protocol WebSocket — Permissions & Auto-Approve', function () {
 		await stopServer(server);
 		// --- Start Positron ---
 		// stopServer waits for the server only. A child it ran in the workspace
-		// (e.g. git) can still hold the folder as its cwd for a moment after the
-		// server exits, which Windows reports as EPERM. Retry like
-		// sessionDiffs.integrationTest.ts does.
+		// can still hold the folder as its cwd for a moment after the server
+		// exits, which Windows reports as EPERM. Retry the delete like
+		// agentHostDebugLogs.test.ts does. Use the async rm: under Electron's
+		// Node, rmSync ignores maxRetries for this EPERM and throws at once.
 		// rmSync(workspace, { recursive: true, force: true });
-		rmSync(workspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+		await rm(workspace, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 		// --- End Positron ---
 	});
 
