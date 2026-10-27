@@ -29,8 +29,14 @@ function emit(testable, reason, note = '', cost = undefined) {
 	if (GITHUB_OUTPUT) {
 		appendFileSync(GITHUB_OUTPUT, `testable=${testable}\nreason=${testable === 'false' ? reason : ''}\n`);
 	}
+	// After the verdict is written, nothing may throw: main's catch would
+	// emit again, and a second testable=true would overrule a decline.
 	if (GITHUB_STEP_SUMMARY) {
-		appendFileSync(GITHUB_STEP_SUMMARY, renderGateSummary(testable === 'true', reason, note, cost));
+		try {
+			appendFileSync(GITHUB_STEP_SUMMARY, renderGateSummary(testable === 'true', reason, note, cost));
+		} catch (err) {
+			console.error(`[gate] could not write the step summary: ${err}`);
+		}
 	}
 }
 

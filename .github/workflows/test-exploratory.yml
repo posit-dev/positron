@@ -3,12 +3,25 @@ name: "Test: Exploratory"
 # Names what the run tests, before any job starts. test-exploratory-suggest.yml
 # finds an auto-run by its "Exploratory auto-run #N" prefix to start one per PR.
 # A comment that is not a run command keeps the default, as whitespace does.
+# The command must be a whole word, as resolve requires, so "/testing" is not
+# named a run. Membership cannot be checked here: a blocked caller's run is
+# still named, and resolve then stops it with nothing done.
 run-name: >-
   ${{ inputs.auto_run_pr && format('Exploratory auto-run #{0} ({1})', inputs.auto_run_pr, inputs.ref)
   || github.event_name == 'workflow_dispatch' && format('Explore {0}', inputs.ref)
-  || github.event.issue.pull_request && (startsWith(github.event.comment.body, '/explore')
-    || startsWith(github.event.comment.body, '/test')
-    || startsWith(github.event.comment.body, '/exploratory-test'))
+  || github.event.issue.pull_request && (
+    github.event.comment.body == '/explore'
+    || startsWith(github.event.comment.body, '/explore ')
+    || startsWith(github.event.comment.body, format('/explore{0}', fromJSON('"\r"')))
+    || startsWith(github.event.comment.body, format('/explore{0}', fromJSON('"\n"')))
+    || github.event.comment.body == '/test'
+    || startsWith(github.event.comment.body, '/test ')
+    || startsWith(github.event.comment.body, format('/test{0}', fromJSON('"\r"')))
+    || startsWith(github.event.comment.body, format('/test{0}', fromJSON('"\n"')))
+    || github.event.comment.body == '/exploratory-test'
+    || startsWith(github.event.comment.body, '/exploratory-test ')
+    || startsWith(github.event.comment.body, format('/exploratory-test{0}', fromJSON('"\r"')))
+    || startsWith(github.event.comment.body, format('/exploratory-test{0}', fromJSON('"\n"'))))
     && format('Explore #{0}: {1}', github.event.issue.number, github.event.issue.title)
   || ' ' }}
 
@@ -34,7 +47,8 @@ on:
         required: false
         default: ""
         type: string
-      # The option text is also the value the explore matrix compares.
+      # resolve maps each option to the opus/sonnet/both the explore matrix
+      # compares, so a renamed option needs its case updated there too.
       model:
         description: "Model"
         required: false
@@ -81,8 +95,9 @@ permissions:
 jobs:
   # Decides who may run this, and on what. Not to be confused with
   # `worthiness`, which decides whether a change is worth testing. Both
-  # triggers end in the same outputs: ok=true, the pinned SHA, and the PR, base,
-  # model, focus and time limit. Every later job reads only these.
+  # triggers end in the same outputs: ok=true, the pinned SHA, whether worthiness
+  # runs, and the PR, base, model, focus and time limit. Every later job reads
+  # only these.
   #
   # issue_comment runs in base-repo context with full secrets, even for fork
   # PRs, and explore compiles and runs the PR head. PETE also mounts the PR
@@ -123,6 +138,8 @@ jobs:
       model: ${{ steps.comment.outputs.model || steps.dispatch.outputs.model }}
       focus: ${{ steps.comment.outputs.focus || steps.dispatch.outputs.focus }}
       time_limit: ${{ steps.comment.outputs.time_limit || steps.dispatch.outputs.time_limit }}
+      # run, focus or off: whether worthiness runs, and if not, why.
+      worthiness: ${{ steps.comment.outputs.worthiness || steps.dispatch.outputs.worthiness }}
     steps:
       - name: Mint org-scoped App token
         id: app-token
@@ -224,7 +241,7 @@ jobs:
           if [ -z "$focus" ]; then
             busy=$(GH_TOKEN="$REPO_TOKEN" busy_run "$(jq -r '.head.sha' <<<"$pr")" 2>/dev/null)
             if [ -n "$busy" ]; then
-              echo "busy=$busy" >> "$GITHUB_OUTPUT"
+              { echo "busy=$busy"; echo "pr_number=$PR_NUMBER"; } >> "$GITHUB_OUTPUT"
               echo "Already running on this PR: $busy"
               exit 0
             fi
@@ -237,6 +254,7 @@ jobs:
             echo "model=opus"
             echo "time_limit=$time_limit"
             echo "focus=$focus"
+            echo "worthiness=$([ -n "$focus" ] && echo focus || echo run)"
             echo "ok=true"
           } >> "$GITHUB_OUTPUT"
           echo "Membership gate: ok (time limit=${time_limit:-none}, focus=${focus:-none})"
@@ -250,9 +268,27 @@ jobs:
           MODEL: ${{ inputs.model }}
           FOCUS: ${{ inputs.focus }}
           TIME_LIMIT: ${{ inputs.time_limit }}
+          WORTHINESS_CHECK: ${{ inputs.worthiness_check }}
+          AUTO_RUN_PR: ${{ inputs.auto_run_pr }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # Every value below goes into GITHUB_OUTPUT, where a newline would
+          # start a new key: a second sha= would replace the pinned one. Each
+          # input is held to the shape it needs, or is flattened, before it
+          # is written.
+          if ! [[ "$BASE_REF" =~ ^[A-Za-z0-9._/-]*$ ]]; then
+            echo "::error::'${BASE_REF}' is not a branch name."
+            exit 1
+          fi
+          if ! [[ "$TIME_LIMIT" =~ ^([0-9]+[mM]?)?$ ]]; then
+            echo "::error::Time limit '${TIME_LIMIT}' is not a number of minutes, as 20 or 20m."
+            exit 1
+          fi
+          if ! [[ "$AUTO_RUN_PR" =~ ^[0-9]*$ ]]; then
+            echo "::error::auto_run_pr '${AUTO_RUN_PR}' is not a PR number."
+            exit 1
+          fi
           # Exact name only: git ls-remote patterns match any ref that ends in them.
           sha=$(git ls-remote "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${REF}" \
             | awk -v want="refs/heads/${REF}" '$2 == want { print $1 }')
@@ -261,17 +297,27 @@ jobs:
             exit 1
           fi
           echo "Exploring ${REF} at ${sha}"
-          # A dispatch has no PR in its event. Find the ref's open PR so the
-          # summary and report can link it; none found just means no link.
-          pr=$(gh api -X GET "repos/${GITHUB_REPOSITORY}/pulls" -f head="${GITHUB_REPOSITORY_OWNER}:${REF}" -f state=open \
-            --jq '.[0].number // empty' 2>/dev/null || true)
+          # A dispatch has no PR in its event. An auto-run names its PR; for
+          # any other, find the ref's open PR so the summary and report can
+          # link it. None found just means no link.
+          pr=$AUTO_RUN_PR
+          if [ -z "$pr" ]; then
+            pr=$(gh api -X GET "repos/${GITHUB_REPOSITORY}/pulls" -f head="${GITHUB_REPOSITORY_OWNER}:${REF}" -f state=open \
+              --jq '.[0].number // empty' 2>/dev/null || true)
+          fi
           if [ -n "$pr" ]; then echo "PR #$pr"; else echo "no open PR"; fi
-          # The choice's label, as the name the explore matrix compares.
-          case "$MODEL" in
-            Sonnet) model=sonnet ;;
-            "Both (Opus + Sonnet)") model=both ;;
+          # The choice's label, as the name the explore matrix compares. Any
+          # case, and the bare names, since an API dispatch may send either.
+          case "$(printf '%s' "$MODEL" | tr '[:upper:]' '[:lower:]')" in
+            sonnet) model=sonnet ;;
+            both | "both (opus + sonnet)") model=both ;;
             *) model=opus ;;
           esac
+          focus=$(printf '%s' "$FOCUS" | tr '\r\n\t' '   ' | tr -s ' ' | sed 's/^ //; s/ $//')
+          if [ -n "$focus" ]; then worthiness=focus
+          elif [ "$WORTHINESS_CHECK" != "true" ]; then worthiness=off
+          else worthiness=run
+          fi
           {
             echo "sha=$sha"
             echo "ref=$REF"
@@ -280,7 +326,8 @@ jobs:
             echo "model=$model"
             echo "time_limit=$TIME_LIMIT"
             # On one line, as a comment's focus is.
-            echo "focus=$(printf '%s' "$FOCUS" | tr '\r\n\t' '   ' | tr -s ' ' | sed 's/^ //; s/ $//')"
+            echo "focus=$focus"
+            echo "worthiness=$worthiness"
             echo "ok=true"
           } >> "$GITHUB_OUTPUT"
 
@@ -305,7 +352,7 @@ jobs:
         if: needs.resolve.outputs.busy != ''
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ needs.resolve.outputs.pr_number }}
           RUN_URL: ${{ needs.resolve.outputs.busy }}
         run: |
           gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="An exploratory test is already running on this PR ([view run](${RUN_URL})), so this \`/explore\` was skipped. Comment \`/explore\` again once it finishes, or \`/explore <focus>\` to test something specific alongside it." > /dev/null
@@ -365,11 +412,9 @@ jobs:
       # worthiness writes its own verdict when it runs. When it does not, say
       # why here, so the run page never leaves it unexplained.
       - name: Say why the worthiness check is skipped
-        if: >-
-          needs.resolve.outputs.ok == 'true' &&
-          (needs.resolve.outputs.focus != '' || (github.event_name == 'workflow_dispatch' && !inputs.worthiness_check))
+        if: needs.resolve.outputs.ok == 'true' && needs.resolve.outputs.worthiness != 'run'
         env:
-          WHY: ${{ needs.resolve.outputs.focus != '' && 'A test focus was named, and what to test is then the person''s call' || 'It was turned off for this run' }}
+          WHY: ${{ needs.resolve.outputs.worthiness == 'focus' && 'A test focus was named, and what to test is then the person''s call' || 'It was turned off for this run' }}
         run: |
           printf '**Worthiness check skipped**, explore will run.\n\n%s.\n' "$WHY" >> "$GITHUB_STEP_SUMMARY"
 
@@ -383,10 +428,10 @@ jobs:
     needs: [resolve]
     # Runs when no focus is named, on a comment or on a dispatch that leaves it
     # on: the gate rules on the diff, and a named feature is the person's call.
-    # Behind resolve, because it checks out the PR and gives an agent a shell in it.
-    if: >-
-      needs.resolve.outputs.ok == 'true' && needs.resolve.outputs.focus == '' &&
-      (github.event_name != 'workflow_dispatch' || inputs.worthiness_check)
+    # resolve decides which, and announce reads the same output to say why
+    # this job was skipped. Behind resolve, because it checks out the PR and
+    # gives an agent a shell in it.
+    if: needs.resolve.outputs.ok == 'true' && needs.resolve.outputs.worthiness == 'run'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -506,7 +551,7 @@ jobs:
           mode: comment
           comment-state: running
           auto-run: "true"
-          pr-number: ${{ inputs.auto_run_pr }}
+          pr-number: ${{ needs.resolve.outputs.pr_number }}
           github-token: ${{ github.token }}
           head-sha: ${{ needs.resolve.outputs.sha }}
 
@@ -1080,7 +1125,7 @@ jobs:
           decline-reason: ${{ needs.worthiness.outputs.reason || needs.explore.outputs.outdated }}
           work-dir: ${{ env.WORK_DIR }}
           report-base-url: ${{ needs.publish.outputs.report_base_url }}
-          pr-number: ${{ github.event.issue.number || inputs.auto_run_pr }}
+          pr-number: ${{ needs.resolve.outputs.pr_number }}
           github-token: ${{ github.token }}
           head-sha: ${{ needs.resolve.outputs.sha }}
 
