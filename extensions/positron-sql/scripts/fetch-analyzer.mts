@@ -15,8 +15,10 @@
  *   tree stays clean.
  * - Without it, by asking the repository's LFS server for the object directly and checking it
  *   against the SHA-256 the pointer names. Git would then see the module where it expects the
- *   pointer and report the file changed, so it is marked `--assume-unchanged`; a checkout that
- *   changes the pointer still overwrites it, and the next install fetches the new module.
+ *   pointer and report the file changed, and refuse a checkout that changes the pointer, so the
+ *   checkout is given `lfs-clean.mts` as its LFS clean filter, which reads the module as its
+ *   pointer. A checkout that changes the pointer then replaces it, and the next install fetches the
+ *   new module.
  *
  * A module fetched either way is kept in `.build/sql-analyzer/`, named by its SHA-256, and taken
  * from there the next time the pointer names it. CI caches that directory, so its jobs do not each
@@ -136,15 +138,18 @@ function keep(bytes: Buffer, pointer: LfsPointer): void {
 /**
  * Puts the module in place of the pointer. Written beside the pointer and moved over it, so an
  * interrupted install leaves the pointer rather than half a module. Without git-lfs, git would then
- * see the module where it expects the pointer, so the file is marked unchanged; with it, git reads
- * the module as its pointer, and the mark would only hide a rebuilt module from it.
+ * see the module where it expects the pointer, so the checkout's clean filter is set to read it as
+ * the pointer (git runs filters from the top of the working tree, hence the path from there). The
+ * index entry is then refreshed through it: git takes a file whose size differs from the one it
+ * recorded as changed without filtering it, and the size it recorded is the pointer's.
  */
 function install(bytes: Buffer): void {
 	const partial = `${modulePath}.partial`;
 	fs.writeFileSync(partial, bytes);
 	fs.renameSync(partial, modulePath);
 	if (!hasGitLfs()) {
-		git(['update-index', '--assume-unchanged', '--', path.relative(extensionDir, modulePath)]);
+		git(['config', 'filter.lfs.clean', 'node extensions/positron-sql/scripts/lfs-clean.mts']);
+		git(['update-index', '--', path.relative(extensionDir, modulePath)]);
 	}
 }
 
