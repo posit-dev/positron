@@ -44,8 +44,9 @@ inputs:
     required: false
     default: ""
   head-sha:
-    description: "Head SHA"
-    required: true
+    description: "Explore and gate modes: head SHA. Comment mode shows it when given"
+    required: false
+    default: ""
   model:
     description: "Anthropic model identifier (a tier alias like 'opus' always resolves to the latest)"
     required: false
@@ -129,7 +130,7 @@ outputs:
 runs:
   using: composite
   steps:
-    # Comment and summary modes run in the early and report jobs on the
+    # Comment and summary modes run in the announce, ack-auto and report jobs on the
     # runner's own Node and never call the SDK. Those jobs check out only the
     # harness, so there is no .nvmrc for setup-node to read.
     - name: Set up Node
@@ -150,11 +151,12 @@ runs:
       run: npm ci --no-audit --no-fund
 
     # Every mode needs the renderer's parser, comment and summary included, so the
-    # callers' harness checkouts must carry the skill directory.
+    # callers' harness checkouts must carry the skill directory. A job that
+    # calls this action twice, as announce does, installs once.
     - name: Install renderer dependencies
       shell: bash
       working-directory: ${{ github.action_path }}/../../../.claude/skills/exploratory-test/renderer
-      run: npm ci --no-audit --no-fund
+      run: '[ -d node_modules ] || npm ci --no-audit --no-fund'
 
     - name: Install Claude Code CLI
       if: inputs.mode != 'comment' && inputs.mode != 'summary'
