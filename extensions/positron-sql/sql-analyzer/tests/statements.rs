@@ -277,6 +277,20 @@ fn an_end_followed_by_an_if_statement_closes_its_block() {
 }
 
 #[test]
+fn a_block_under_control_flow_outside_a_routine_is_one_statement() {
+    let text = "IF @x = 1 BEGIN SELECT 1; SELECT 2; END ELSE BEGIN SELECT 3; END;\nWHILE @n < 3 BEGIN SET @n = @n + 1; END;\nIF @y = 1 SELECT 4;\nSELECT 5;";
+    assert_eq!(
+        texts_in("tsql", text),
+        [
+            "IF @x = 1 BEGIN SELECT 1; SELECT 2; END ELSE BEGIN SELECT 3; END;",
+            "WHILE @n < 3 BEGIN SET @n = @n + 1; END;",
+            "IF @y = 1 SELECT 4;",
+            "SELECT 5;",
+        ]
+    );
+}
+
+#[test]
 fn an_end_loop_with_a_label_still_closes_only_its_loop() {
     let text =
         "CREATE PROCEDURE p() BEGIN outer: LOOP LEAVE outer; END LOOP outer; END;\nSELECT 1;";
@@ -418,10 +432,15 @@ fn the_rest_of_a_line_after_a_statement_is_spaces_and_comments_up_to_the_line_br
         trailing_in("", "SELECT 1; /* a */ -- b\nSELECT 2;"),
         ["SELECT 1; /* a */ -- b", "SELECT 2;"]
     );
-    // Up to the next statement on the same line.
+    // A statement after it on the same line has the rest of the line, so a cursor at its start
+    // runs it rather than the one before.
     assert_eq!(
         trailing_in("", "SELECT 1;  SELECT 2;"),
-        ["SELECT 1;  ", "SELECT 2;"]
+        ["SELECT 1;", "SELECT 2;"]
+    );
+    assert_eq!(
+        trailing_in("", "SELECT 1; /* a */ SELECT 2;"),
+        ["SELECT 1;", "SELECT 2;"]
     );
     // A block comment that runs on to later lines leads up to the next statement instead.
     assert_eq!(

@@ -74,6 +74,13 @@ SELECT 2;
 		assertRangeEqual(result.range, 0, 0, 0, 9);
 	});
 
+	test('a cursor at a statement on the same line as another selects it', async () => {
+		const result = await getStatementRange('SELECT 1; SELECT 2;\n', new vscode.Position(0, 10));
+
+		assert.ok(result, 'Expected a statement range result');
+		assertRangeEqual(result.range, 0, 10, 0, 19);
+	});
+
 	test('a trailing comment is read in the dialect', async () => {
 		// `#` comments a line in MySQL, so a cursor in one is still at the statement before it.
 		await setDialect('mysql');

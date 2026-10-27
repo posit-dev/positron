@@ -23,7 +23,7 @@ suite('SqlAnalyzer', () => {
 		assert.deepStrictEqual(
 			testAnalyzer().statements('SELECT 1; SELECT 2', ''),
 			[
-				{ start: 0, end: 9, terminated: true, trailingEnd: 10 },
+				{ start: 0, end: 9, terminated: true, trailingEnd: 9 },
 				{ start: 10, end: 18, terminated: false, trailingEnd: 18 },
 			],
 		);

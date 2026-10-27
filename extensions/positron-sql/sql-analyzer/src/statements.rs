@@ -115,8 +115,12 @@ pub fn split(text: &str, dialect: &dyn Dialect, index: &TextIndex) -> Tokenized 
             trailing.extend(&token, index);
             continue;
         }
+        // A statement that starts on the same line has the rest of it, so a cursor at its start
+        // runs it rather than the one before.
         if let Some(statement) = pending.take() {
-            statements[statement].trailing_end = trailing.end;
+            if !trailing.open {
+                statements[statement].trailing_end = trailing.end;
+            }
         }
         let end = index
             .span(token.span)
@@ -270,8 +274,8 @@ impl<'a> Blocks<'a> {
         let mut levels: Vec<bool> = Vec::new();
         // Where the current statement's first token is, once it has one.
         let mut statement: Option<usize> = None;
-        // Whether the current statement makes something whose body is a block, which is what lets
-        // a `BEGIN` in it open one.
+        // Whether the current statement makes something whose body is a block, or is control flow
+        // that takes one, which is what lets a `BEGIN` in it open one.
         let mut routine = false;
         // Whether a PL/SQL routine has been named whose `IS` or `AS` is still to come.
         let mut header = false;
@@ -321,6 +325,8 @@ impl<'a> Blocks<'a> {
             if starts {
                 match word.keyword {
                     Keyword::CREATE | Keyword::ALTER => routine = self.makes_routine(at),
+                    // T-SQL's control flow, whose body is a block: `IF @a = 1 BEGIN ... END`.
+                    Keyword::IF | Keyword::WHILE | Keyword::ELSE => routine = true,
                     // An anonymous block, unless it is a transaction.
                     Keyword::BEGIN if !self.starts_transaction(at) => {
                         levels.push(false);
