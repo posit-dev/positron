@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { ExtensionGalleryManifestService, ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS, POSITRON_GALLERY_PRESET_BASES, deriveGalleryConfig, resolvePositronGalleryConfig, sameGalleryHost } from '../../common/extensionGalleryManifestService.js';
-import { parseExtensionsGalleryEnv } from '../../common/extensionsGalleryEnv.js';
+import { isExtensionsGalleryDisabled, parseExtensionsGalleryEnv } from '../../common/extensionsGalleryEnv.js';
 import { ExtensionGalleryResourceType, getExtensionGalleryManifestResourceUri } from '../../common/extensionGalleryManifest.js';
 import { IProductService } from '../../../product/common/productService.js';
 
@@ -274,6 +274,18 @@ describe('resolvePositronGalleryConfig', () => {
 		expect(resolvePositronGalleryConfig(undefined, 'custom', 'not a url', productGallery)).toBe(productGallery);
 	});
 
+	it('a disabled env gallery wins over gallerySource and leaves no manifest', async () => {
+		// The #16199 regression: Workbench disables the marketplace with an empty
+		// serviceUrl, and an admin-enforced custom gallery must not turn it back on.
+		const envGallery = parseExtensionsGalleryEnv<ExtensionGalleryConfig>('{"serviceUrl": ""}');
+		const resolved = resolvePositronGalleryConfig(envGallery, 'custom', 'https://my-ppm.example.com/vscode', productGallery);
+		expect(resolved).toBe(envGallery);
+
+		const service = new ExtensionGalleryManifestService(createProductService(resolved));
+		expect(await service.getExtensionGalleryManifest()).toBeNull();
+		expect(service.extensionGalleryManifestStatus).toBe('unavailable');
+	});
+
 	it('env gallery still wins even when gallerySource is custom', () => {
 		const envGallery: ExtensionGalleryConfig = { ...productGallery, serviceUrl: 'https://override.example.com/gallery' };
 		expect(resolvePositronGalleryConfig(envGallery, 'custom', 'https://my-ppm.example.com/vscode', productGallery)).toBe(envGallery);
@@ -362,6 +374,26 @@ describe('parseExtensionsGalleryEnv', () => {
 		const typo = JSON.stringify({ serviceUrls: 'https://open-vsx.org/vscode/gallery', itemUrl: '' });
 		expect(parseExtensionsGalleryEnv(typo)).toBeUndefined();
 		expect(warnSpy).toHaveBeenCalledOnce();
+	});
+
+	it('returns undefined and warns when serviceUrl is not a string', () => {
+		expect(parseExtensionsGalleryEnv('{"serviceUrl": null}')).toBeUndefined();
+		expect(parseExtensionsGalleryEnv('{"serviceUrl": 42}')).toBeUndefined();
+		expect(warnSpy).toHaveBeenCalledTimes(2);
+	});
+
+	it('accepts the Posit Workbench sentinel {"serviceUrl": ""} as a disabled gallery', () => {
+		// Workbench injects this exact value when the user cannot write to the
+		// global extensions directory (posit-dev/positron#16199).
+		const parsed = parseExtensionsGalleryEnv<ExtensionGalleryConfig>('{"serviceUrl": ""}');
+		expect(parsed).toEqual({ serviceUrl: '' });
+		expect(isExtensionsGalleryDisabled(parsed!)).toBe(true);
+		expect(warnSpy).not.toHaveBeenCalled();
+	});
+
+	it('does not treat a gallery with a serviceUrl as disabled', () => {
+		const parsed = parseExtensionsGalleryEnv<ExtensionGalleryConfig>(JSON.stringify({ serviceUrl: 'https://open-vsx.org/vscode/gallery' }));
+		expect(isExtensionsGalleryDisabled(parsed!)).toBe(false);
 	});
 
 	it('returns undefined and warns on valid JSON that is not a gallery object', () => {
