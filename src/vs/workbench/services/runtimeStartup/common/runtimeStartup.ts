@@ -115,7 +115,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// Needed for service branding in dependency injector.
 	declare readonly _serviceBrand: undefined;
 
-	private readonly storageKey = 'positron.affiliatedRuntimeMetadata.v2';
+	// v3: earlier versions saved R's and Python's recommendations as the
+	// affiliated runtime, never started. Those languages now choose again on
+	// every open, so the records saved under v2 are dropped.
+	private readonly storageKey = 'positron.affiliatedRuntimeMetadata.v3';
 
 	// The language packs; a map of language ID to a list of extensions that provide the language.
 	private readonly _languagePacks: Map<string, Array<ExtensionIdentifier>> = new Map();
