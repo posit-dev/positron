@@ -45,12 +45,21 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          # Full history, so "Checkout specific commit" can reach a commit
+          # other than the one this run was started on.
+          fetch-depth: 0
           submodules: recursive
 
+      # A commit from before the shared Windows setup actions existed lacks
+      # them, so take those two from the workflow's own commit. The other
+      # local actions stay at the pinned commit, matching its scripts.
       - name: Checkout specific commit
         if: ${{ inputs.commit != '' }}
+        shell: bash
         run: |
+          set -e
           git checkout ${{ inputs.commit }}
+          git checkout ${{ github.sha }} -- .github/actions/setup-build-env-windows .github/actions/setup-r-windows
           git submodule update --init --recursive
 
       - name: Setup Node
