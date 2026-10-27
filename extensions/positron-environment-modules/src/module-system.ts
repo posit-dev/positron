@@ -378,17 +378,33 @@ export async function getModuleSystemVersion(
 }
 
 /**
+ * Check whether a module system supports `module purge`. Both Lmod and
+ * Environment Modules do; we don't purge on unrecognized systems since we
+ * can't be sure the command exists.
+ *
+ * @param type The type of module system
+ * @returns True if a purge can be run before loading modules
+ */
+export function supportsPurge(type: ModuleSystemInfo['type']): boolean {
+	return type === 'lmod' || type === 'environment-modules';
+}
+
+/**
  * Build a shell command that initializes the module system and loads modules.
  *
  * @param modules Array of module names to load
  * @param initScript Optional path to init script
  * @param shell Optional shell config for proper command chaining syntax
+ * @param purge Whether to run `module purge` before loading the modules, so
+ *   that modules loaded earlier (e.g. by shell startup scripts) don't leak
+ *   into the environment
  * @returns Shell command string
  */
 export function buildModuleLoadCommand(
 	modules: string[],
 	initScript?: string,
-	shell?: ShellConfig
+	shell?: ShellConfig,
+	purge?: boolean
 ): string {
 	const effectiveShell = shell || getShellConfig();
 	const parts: string[] = [];
@@ -396,6 +412,11 @@ export function buildModuleLoadCommand(
 	// Add init script sourcing if needed
 	if (initScript) {
 		parts.push(`source "${initScript}"`);
+	}
+
+	// Unload any modules already loaded before loading the requested ones
+	if (purge && modules.length > 0) {
+		parts.push('module purge');
 	}
 
 	// Add module load commands
@@ -412,15 +433,17 @@ export function buildModuleLoadCommand(
  * @param modules Modules to load
  * @param command Command to execute after loading modules
  * @param initScript Optional path to init script
+ * @param purge Whether to run `module purge` before loading the modules
  * @returns Command output
  */
 export async function executeWithModules(
 	modules: string[],
 	command: string,
-	initScript?: string
+	initScript?: string,
+	purge?: boolean
 ): Promise<string> {
 	const shell = getShellConfig();
-	const loadCommand = buildModuleLoadCommand(modules, initScript, shell);
+	const loadCommand = buildModuleLoadCommand(modules, initScript, shell, purge);
 	// Build the inner command with module loading
 	const innerCommand = loadCommand
 		? `${loadCommand} ${shell.chainOperator} ${command}`

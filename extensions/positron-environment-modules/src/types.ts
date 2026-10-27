@@ -11,6 +11,11 @@ export interface ModuleEnvironmentConfig {
 	languages: string[];
 	/** List of modules to load, in order */
 	modules: string[];
+	/**
+	 * Whether to run `module purge` before loading the modules, on module
+	 * systems that support it. Defaults to true.
+	 */
+	purge?: boolean;
 }
 
 /**

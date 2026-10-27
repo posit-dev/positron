@@ -13,7 +13,7 @@ import {
 	ModuleSystemInfo,
 	ResolveInterpreterOptions
 } from './types.js';
-import { detectModuleSystem, buildModuleLoadCommand, captureModuleEnvironment, getModuleSystemVersion } from './module-system.js';
+import { detectModuleSystem, buildModuleLoadCommand, captureModuleEnvironment, getModuleSystemVersion, supportsPurge } from './module-system.js';
 import { resolveModuleInterpreter } from './environment-resolver.js';
 import { manageEnvironmentsCommand } from './manage-environments-command.js';
 import { listAvailableModules } from './module-listing.js';
@@ -117,11 +117,15 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 		const systemInfo = await this.getModuleSystemInfo();
 		const initScript = systemInfo.initPath;
 
+		// Purge before loading unless the environment opts out
+		const purge = envConfig.purge !== false && supportsPurge(systemInfo.type);
+
 		// Resolve the interpreter
 		const resolved = await resolveModuleInterpreter(
 			envConfig,
 			options,
-			initScript
+			initScript,
+			purge
 		);
 
 		if (resolved) {
@@ -376,7 +380,7 @@ async function generateDiagnosticsReport(api: EnvironmentModulesApiImpl): Promis
 	lines.push('## Configured Environments');
 	lines.push('');
 
-	const environments = config.get<Record<string, { languages: string[]; modules: string[] }>>('environments', {});
+	const environments = config.get<Record<string, ModuleEnvironmentConfig>>('environments', {});
 	const envNames = Object.keys(environments);
 
 	if (envNames.length === 0) {
@@ -391,6 +395,7 @@ async function generateDiagnosticsReport(api: EnvironmentModulesApiImpl): Promis
 			lines.push('');
 			lines.push(`**Languages:** ${envConfig.languages.join(', ')}`);
 			lines.push(`**Modules:** ${envConfig.modules.join(', ')}`);
+			lines.push(`**Purge Before Load:** ${envConfig.purge !== false}`);
 			lines.push('');
 
 			// Show discovered interpreters for this environment
