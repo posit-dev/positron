@@ -130,7 +130,7 @@ jobs:
     name: e2e
     uses: ./.github/workflows/test-e2e-windows-run.yml
     with:
-      save_cache: true
+      save_cache: false  # PRs restore from main only; test-merge.yml saves
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron-win"
       upload_logs: false

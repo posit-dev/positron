@@ -3,8 +3,10 @@ name: "Test: E2E (Windows) — Sharded"
 # Cache Save Strategy:
 # This workflow has a save_cache parameter to prevent race conditions when multiple jobs
 # try to save the same cache key simultaneously. Only ONE job per calling workflow should
-# set save_cache: true, and only shard 1 actually saves. Examples:
-# - test-pull-request.yml: windows e2e saves (save_cache: true, shard 1 only)
+# set save_cache: true, and only shard 1 actually saves. PRs never save: a cache
+# saved on a PR ref is readable only by that PR, so it just evicts main's caches
+# from the 10 GB repo limit. Examples:
+# - test-pull-request.yml: only restores (save_cache: false)
 # - test-merge.yml: windows e2e saves (save_cache: true, shard 1 only)
 # - test-full-suite.yml: only restores (save_cache: false or omitted)
 
@@ -341,7 +343,7 @@ jobs:
           uv pip install --system trcli
 
       - name: Save Python packages cache
-        if: ${{ matrix.shard == 1 && steps.cache-python.outputs.cache-hit != 'true' }}
+        if: ${{ inputs.save_cache && matrix.shard == 1 && steps.cache-python.outputs.cache-hit != 'true' }}
         continue-on-error: true
         uses: actions/cache/save@v6
         with:
@@ -427,7 +429,7 @@ jobs:
           Rscript -e "options(repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
 
       - name: Save R packages cache
-        if: ${{ matrix.shard == 1 && steps.cache-r.outputs.cache-hit != 'true' }}
+        if: ${{ inputs.save_cache && matrix.shard == 1 && steps.cache-r.outputs.cache-hit != 'true' }}
         continue-on-error: true
         uses: actions/cache/save@v6
         with:
