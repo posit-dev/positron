@@ -545,7 +545,7 @@ interface IInterpreterGroup {
  */
 function getSuggestedReasonText(preferred: IPreferredRuntime): string | undefined {
 	switch (preferred.reason) {
-		case PreferredRuntimeReason.ActiveConsole:
+		case PreferredRuntimeReason.RunningConsole:
 			return localize('positron.languageRuntime.suggestedReason.running', "running");
 		case PreferredRuntimeReason.WorkspaceAffiliation:
 			return localize('positron.languageRuntime.suggestedReason.workspaceAffiliation', "last used in this workspace");

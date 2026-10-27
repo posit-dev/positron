@@ -539,7 +539,7 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it.each([
-			{ reason: PreferredRuntimeReason.ActiveConsole, text: 'running' },
+			{ reason: PreferredRuntimeReason.RunningConsole, text: 'running' },
 			{ reason: PreferredRuntimeReason.WorkspaceAffiliation, text: 'last used in this workspace' },
 			{ reason: PreferredRuntimeReason.RecentlyStarted, text: 'started recently' },
 		])('shows the reason on the Suggested row ($text)', async ({ reason, text }) => {
@@ -552,7 +552,7 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it('shows the reason alone on a Suggested row with no gray text', async () => {
-			preferredReason = PreferredRuntimeReason.ActiveConsole;
+			preferredReason = PreferredRuntimeReason.RunningConsole;
 			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 
 			await withOpenPicker(async () => {
@@ -699,7 +699,7 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it('keeps the suggested runtime in Suggested, with its reason, when a filter is on', async () => {
-			preferredReason = PreferredRuntimeReason.ActiveConsole;
+			preferredReason = PreferredRuntimeReason.RunningConsole;
 			const projectGroup = { group: 'Project environments', groupOrder: 0 };
 			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-uv', languageVersion: '3.11.0', picker: { ...projectGroup, label: 'Python 3.11.0', description: 'uv: myproject' } }));
 			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-venv', languageVersion: '3.13.0', picker: { ...projectGroup, label: 'Python 3.13.0' } }));
