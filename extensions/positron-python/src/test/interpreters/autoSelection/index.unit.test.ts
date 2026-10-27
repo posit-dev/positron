@@ -23,10 +23,16 @@ import { EnvironmentTypeComparer } from '../../../client/interpreter/configurati
 import { IInterpreterHelper, IInterpreterService, WorkspacePythonPath } from '../../../client/interpreter/contracts';
 import { InterpreterHelper } from '../../../client/interpreter/helpers';
 import { InterpreterService } from '../../../client/interpreter/interpreterService';
-import { PythonEnvType } from '../../../client/pythonEnvironments/base/info';
+// --- Start Positron ---
+// import { PythonEnvType } from '../../../client/pythonEnvironments/base/info';
+// --- End Positron ---
 import { EnvironmentType, PythonEnvironment } from '../../../client/pythonEnvironments/info';
 import * as Telemetry from '../../../client/telemetry';
 import { EventName } from '../../../client/telemetry/constants';
+// --- Start Positron ---
+import { IServiceContainer } from '../../../client/ioc/types';
+import * as interpreterRecommendation from '../../../client/positron/interpreterRecommendation';
+// --- End Positron ---
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -42,6 +48,10 @@ suite('Interpreters - Auto Selection', () => {
     let proxy: IInterpreterAutoSelectionProxyService;
     let interpreterService: IInterpreterService;
     let experimentService: IExperimentService;
+    // --- Start Positron ---
+    let serviceContainer: IServiceContainer;
+    let recommendWorkspaceRuntimeStub: sinon.SinonStub;
+    // --- End Positron ---
     let sendTelemetryEventStub: sinon.SinonStub;
     let telemetryEvents: { eventName: string; properties: Record<string, unknown> }[] = [];
     class InterpreterAutoSelectionServiceTest extends InterpreterAutoSelectionService {
@@ -67,6 +77,12 @@ suite('Interpreters - Auto Selection', () => {
         interpreterService = mock(InterpreterService);
         experimentService = mock<IExperimentService>();
         when(experimentService.inExperimentSync(anything())).thenReturn(false);
+        // --- Start Positron ---
+        serviceContainer = mock<IServiceContainer>();
+        recommendWorkspaceRuntimeStub = sinon
+            .stub(interpreterRecommendation, 'recommendWorkspaceRuntime')
+            .resolves(undefined);
+        // --- End Positron ---
 
         const interpreterComparer = new EnvironmentTypeComparer(instance(helper));
 
@@ -79,6 +95,9 @@ suite('Interpreters - Auto Selection', () => {
             instance(proxy),
             instance(helper),
             instance(experimentService),
+            // --- Start Positron ---
+            instance(serviceContainer),
+            // --- End Positron ---
         );
 
         when(interpreterService.refreshPromise).thenReturn(undefined);
@@ -158,71 +177,103 @@ suite('Interpreters - Auto Selection', () => {
             autoSelectionService.initializeStore = () => Promise.resolve();
         });
 
-        test('If there is a local environment select it', async () => {
-            const localEnv = {
+        // --- Start Positron ---
+        // Auto-selection uses Positron's recommendation, which interpreterRecommendation.unit.test.ts covers.
+        test("Select Positron's recommended interpreter", async () => {
+            const recommendedEnv = {
                 envType: EnvironmentType.Venv,
-                type: PythonEnvType.Virtual,
-                envPath: path.join(workspacePath, '.venv'),
-                version: { major: 3, minor: 10, patch: 0 },
+                path: path.join(workspacePath, '.venv', 'bin', 'python'),
+                version: { major: 3, minor: 12, patch: 0 },
             } as PythonEnvironment;
-
-            when(interpreterService.getInterpreters(resource)).thenCall((_) => [
-                {
-                    envType: EnvironmentType.Conda,
-                    type: PythonEnvType.Conda,
-                    envPath: path.join('some', 'conda', 'env'),
-                    version: { major: 3, minor: 7, patch: 2 },
-                } as PythonEnvironment,
-                {
-                    envType: EnvironmentType.System,
-                    envPath: path.join('/', 'usr', 'bin'),
-                    version: { major: 3, minor: 9, patch: 1 },
-                } as PythonEnvironment,
-                localEnv,
-            ]);
+            recommendWorkspaceRuntimeStub.resolves({ runtimePath: recommendedEnv.path });
+            when(interpreterService.getInterpreterDetails(recommendedEnv.path)).thenResolve(recommendedEnv);
 
             await autoSelectionService.autoSelectInterpreter(resource);
 
             expect(eventFired).to.deep.equal(true, 'event not fired');
-            verify(interpreterService.getInterpreters(resource)).once();
-            verify(state.updateValue(localEnv)).once();
+            sinon.assert.calledOnceWithExactly(
+                recommendWorkspaceRuntimeStub,
+                instance(serviceContainer),
+                instance(interpreterService),
+                sinon.match.has('fsPath', workspacePath),
+                true,
+            );
+            verify(state.updateValue(recommendedEnv)).once();
         });
 
-        test('If there are no local environments, return a globally-installed interpreter', async () => {
-            const systemEnv = {
-                envType: EnvironmentType.System,
-                envPath: path.join('/', 'usr', 'bin'),
-                // --- Start Positron ---
-                // Positron puts unsupported Python versions at the end, so the system version must be
-                // supported. Keep it lower than the Pipenv version, like upstream.
-                // version: { major: 3, minor: 9, patch: 1 },
-                version: { major: 3, minor: 10, patch: 1 },
-                // --- End Positron ---
-            } as PythonEnvironment;
-
-            when(interpreterService.getInterpreters(resource)).thenCall((_) => [
-                {
-                    envType: EnvironmentType.Conda,
-                    envPath: path.join('some', 'conda', 'env'),
-                    version: { major: 3, minor: 7, patch: 2 },
-                } as PythonEnvironment,
-                systemEnv,
-                {
-                    envType: EnvironmentType.Pipenv,
-                    envPath: path.join('some', 'pipenv', 'env'),
-                    // --- Start Positron ---
-                    // version: { major: 3, minor: 10, patch: 0 },
-                    version: { major: 3, minor: 11, patch: 0 },
-                    // --- End Positron ---
-                } as PythonEnvironment,
-            ]);
-
+        test('Keep the auto-selected interpreter when Positron recommends nothing', async () => {
             await autoSelectionService.autoSelectInterpreter(resource);
 
-            expect(eventFired).to.deep.equal(true, 'event not fired');
-            verify(interpreterService.getInterpreters(resource)).once();
-            verify(state.updateValue(systemEnv)).once();
+            expect(eventFired).to.deep.equal(false, 'event fired');
+            verify(state.updateValue(anything())).never();
         });
+
+        // test('If there is a local environment select it', async () => {
+        //     const localEnv = {
+        //         envType: EnvironmentType.Venv,
+        //         type: PythonEnvType.Virtual,
+        //         envPath: path.join(workspacePath, '.venv'),
+        //         version: { major: 3, minor: 10, patch: 0 },
+        //     } as PythonEnvironment;
+        //
+        //     when(interpreterService.getInterpreters(resource)).thenCall((_) => [
+        //         {
+        //             envType: EnvironmentType.Conda,
+        //             type: PythonEnvType.Conda,
+        //             envPath: path.join('some', 'conda', 'env'),
+        //             version: { major: 3, minor: 7, patch: 2 },
+        //         } as PythonEnvironment,
+        //         {
+        //             envType: EnvironmentType.System,
+        //             envPath: path.join('/', 'usr', 'bin'),
+        //             version: { major: 3, minor: 9, patch: 1 },
+        //         } as PythonEnvironment,
+        //         localEnv,
+        //     ]);
+        //
+        //     await autoSelectionService.autoSelectInterpreter(resource);
+        //
+        //     expect(eventFired).to.deep.equal(true, 'event not fired');
+        //     verify(interpreterService.getInterpreters(resource)).once();
+        //     verify(state.updateValue(localEnv)).once();
+        // });
+        //
+        // test('If there are no local environments, return a globally-installed interpreter', async () => {
+        //     const systemEnv = {
+        //         envType: EnvironmentType.System,
+        //         envPath: path.join('/', 'usr', 'bin'),
+        //         // --- Start Positron ---
+        //         // Positron puts unsupported Python versions at the end, so the system version must be
+        //         // supported. Keep it lower than the Pipenv version, like upstream.
+        //         // version: { major: 3, minor: 9, patch: 1 },
+        //         version: { major: 3, minor: 10, patch: 1 },
+        //         // --- End Positron ---
+        //     } as PythonEnvironment;
+        //
+        //     when(interpreterService.getInterpreters(resource)).thenCall((_) => [
+        //         {
+        //             envType: EnvironmentType.Conda,
+        //             envPath: path.join('some', 'conda', 'env'),
+        //             version: { major: 3, minor: 7, patch: 2 },
+        //         } as PythonEnvironment,
+        //         systemEnv,
+        //         {
+        //             envType: EnvironmentType.Pipenv,
+        //             envPath: path.join('some', 'pipenv', 'env'),
+        //             // --- Start Positron ---
+        //             // version: { major: 3, minor: 10, patch: 0 },
+        //             version: { major: 3, minor: 11, patch: 0 },
+        //             // --- End Positron ---
+        //         } as PythonEnvironment,
+        //     ]);
+        //
+        //     await autoSelectionService.autoSelectInterpreter(resource);
+        //
+        //     expect(eventFired).to.deep.equal(true, 'event not fired');
+        //     verify(interpreterService.getInterpreters(resource)).once();
+        //     verify(state.updateValue(systemEnv)).once();
+        // });
+        // --- End Positron ---
 
         test('getInterpreters is called with ignoreCache at true if there is no value set in the workspace persistent state', async () => {
             const interpreterComparer = new EnvironmentTypeComparer(instance(helper));
@@ -262,6 +313,9 @@ suite('Interpreters - Auto Selection', () => {
                 instance(proxy),
                 instance(helper),
                 instance(experimentService),
+                // --- Start Positron ---
+                instance(serviceContainer),
+                // --- End Positron ---
             );
 
             autoSelectionService.initializeStore = () => Promise.resolve();
@@ -302,13 +356,18 @@ suite('Interpreters - Auto Selection', () => {
                 instance(proxy),
                 instance(helper),
                 instance(experimentService),
+                // --- Start Positron ---
+                instance(serviceContainer),
+                // --- End Positron ---
             );
 
             autoSelectionService.initializeStore = () => Promise.resolve();
 
             await autoSelectionService.autoSelectInterpreter(resource);
 
-            verify(interpreterService.getInterpreters(resource)).once();
+            // --- Start Positron ---
+            // verify(interpreterService.getInterpreters(resource)).once();
+            // --- End Positron ---
             verify(interpreterService.triggerRefresh(anything())).never();
         });
 
@@ -337,13 +396,18 @@ suite('Interpreters - Auto Selection', () => {
                 instance(proxy),
                 instance(helper),
                 instance(experimentService),
+                // --- Start Positron ---
+                instance(serviceContainer),
+                // --- End Positron ---
             );
 
             autoSelectionService.initializeStore = () => Promise.resolve();
 
             await autoSelectionService.autoSelectInterpreter(resource);
 
-            verify(interpreterService.getInterpreters(resource)).once();
+            // --- Start Positron ---
+            // verify(interpreterService.getInterpreters(resource)).once();
+            // --- End Positron ---
             sinon.assert.calledOnce(sendTelemetryEventStub);
             expect(telemetryEvents).to.deep.equal(
                 [
@@ -381,6 +445,9 @@ suite('Interpreters - Auto Selection', () => {
                 instance(proxy),
                 instance(helper),
                 instance(experimentService),
+                // --- Start Positron ---
+                instance(serviceContainer),
+                // --- End Positron ---
             );
 
             autoSelectionService.initializeStore = () => Promise.resolve();
@@ -389,7 +456,10 @@ suite('Interpreters - Auto Selection', () => {
 
             await autoSelectionService.autoSelectInterpreter(resource);
 
-            verify(interpreterService.getInterpreters(resource)).once();
+            // --- Start Positron ---
+            // verify(interpreterService.getInterpreters(resource)).once();
+            sinon.assert.calledOnce(recommendWorkspaceRuntimeStub);
+            // --- End Positron ---
             sinon.assert.calledTwice(sendTelemetryEventStub);
             expect(telemetryEvents).to.deep.equal(
                 [
@@ -427,6 +497,11 @@ suite('Interpreters - Auto Selection', () => {
         autoSelectionService.initializeStore = async () => {
             initialize = true;
         };
+        // --- Start Positron ---
+        const recommendedEnv = { path: 'python', version: { major: 3, minor: 12, patch: 0 } } as PythonEnvironment;
+        recommendWorkspaceRuntimeStub.resolves({ runtimePath: recommendedEnv.path });
+        when(interpreterService.getInterpreterDetails(recommendedEnv.path)).thenResolve(recommendedEnv);
+        // --- End Positron ---
 
         await autoSelectionService.autoSelectInterpreter(undefined);
 
