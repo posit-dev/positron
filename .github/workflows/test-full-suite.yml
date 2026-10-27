@@ -556,5 +556,5 @@ jobs:
           tailscale_oauth_secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
           repo_id: "positron"
           title: "E2E Full Suite Tests"
-          filter_jobs: "(e2e / ([^0-9]*)|unit|vitest|ext-host(-win)?)$"
+          filter_jobs: "(e2e / ([^0-9]*)|vscode|vitest|ext-host(-win)?)$"
           notify_on: ${{ inputs.notify_on }}

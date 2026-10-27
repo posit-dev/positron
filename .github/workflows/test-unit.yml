@@ -32,8 +32,8 @@ permissions:
   packages: read
 
 jobs:
-  unit-tests:
-    name: unit
+  vscode-tests:
+    name: vscode
     runs-on: ubuntu-latest-amd64-4-core
     # The three test steps only account for ~5m; almost all of the wall clock is
     # npm install plus the cache save, and both scale with how many npm caches

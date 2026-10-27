@@ -421,7 +421,7 @@ jobs:
       pull_request: true
 
   # Single always-reported check for every test job in this workflow, meant to
-  # be the one required check in the branch ruleset (in place of test / unit,
+  # be the one required check in the branch ruleset (in place of test / vscode,
   # test / ext-host and e2e / electron).
   #
   # The tag-driven lanes can't be required directly: when a lane's tag is
