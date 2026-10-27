@@ -19,7 +19,9 @@
    finding from it may fix a helper but not add a flag or command
 6. `fix-loop.ts`: one fixer session per finding (at most 5). A fix that changes a helper must add a
    smoke case; a read-only reviewer (`reviewer.md`, Sonnet) checks the diff and may send it back
-   to the fixer once. Each fix is then committed, then `check.ts`
+   to the fixer once. A fix to lines that earlier commits keep patching (`git log -L`, 3 or more
+   in 30 days) is a hot spot: the reviewer asks for a fold instead of one more branch, and the
+   report names it for a person to refactor. Each fix is then committed, then `check.ts`
    and smoke decide whether it stays: only the sections whose cases run a helper the change can
    reach (`affected.ts`), each on its own launch, or the full suite when the change is shared
    (`dp-lib.ts`, `selectors.ts`, `test/`, ...; a `selectors.ts` change that only adds entries
