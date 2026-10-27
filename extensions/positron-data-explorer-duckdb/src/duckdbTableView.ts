@@ -430,11 +430,8 @@ export class DuckDBTableView {
 		switch (displayType) {
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Decimal: {
-				// `getRowObjectsJS` yields a JS number for DECIMAL columns, so a wide DECIMAL has already
-				// lost its precision by the time it reaches here and this guard does not fire. Recovering
-				// it means reading those columns as their exact text at the worker boundary, which is
-				// separable work (see #15366); the exact-string path is shared with the other drivers so
-				// it will simply start working once the values arrive intact.
+				// The worker delivers a DECIMAL as its exact digit string (see `materializeRows`), which
+				// is formatted textually because a double would round a wide value.
 				if (displayType === ColumnDisplayType.Decimal && isDecimalLiteral(value)) {
 					return formatDecimal(value, opts);
 				}
