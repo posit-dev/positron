@@ -1226,7 +1226,7 @@ describe('RuntimeStartupService - affiliation healing', () => {
 		const languageId = 'r';
 		const staleRuntimePath = '~/local/lib/R/bin/R';
 		const freshRuntimePath = '/home/positron/local/lib/R/bin/R';
-		const storageKey = `positron.affiliatedRuntimeMetadata.v2.${languageId}`;
+		const storageKey = `positron.affiliatedRuntimeMetadata.v3.${languageId}`;
 		// TestContextService uses TestWorkspace (one folder, no configuration) →
 		// WorkbenchState.FOLDER → affiliationStorageScope() returns WORKSPACE.
 		const scope = StorageScope.WORKSPACE;
@@ -1269,7 +1269,7 @@ describe('RuntimeStartupService - affiliation healing', () => {
 		ctx.instantiationService.stub(IConfigurationService,
 			new TestConfigurationService({ 'interpreters.startupBehavior': LanguageStartupBehavior.Auto }));
 		// A recommendation saved as the workspace default, never started or used.
-		ctx.get(IStorageService).store('positron.affiliatedRuntimeMetadata.v2.python',
+		ctx.get(IStorageService).store('positron.affiliatedRuntimeMetadata.v3.python',
 			JSON.stringify({ metadata: { ...metadata(), startupBehavior }, lastUsed: 0, lastStarted: 0 }),
 			StorageScope.WORKSPACE, StorageTarget.MACHINE);
 
@@ -1296,7 +1296,7 @@ describe('RuntimeStartupService - affiliation healing', () => {
 		const runtimeId = 'r-4.5-current-flag-test';
 		const languageId = 'r';
 		const runtimePath = '/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/bin/R';
-		const storageKey = `positron.affiliatedRuntimeMetadata.v2.${languageId}`;
+		const storageKey = `positron.affiliatedRuntimeMetadata.v3.${languageId}`;
 		const scope = StorageScope.WORKSPACE;
 
 		// Affiliated while R 4.5 was the current R.
@@ -1677,7 +1677,7 @@ describe('RuntimeStartupService - start reasons', () => {
 
 	/** Saves an affiliation for the runtime, as if it was used in this folder. */
 	function affiliate(runtime: ILanguageRuntimeMetadata) {
-		ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v2.${runtime.languageId}`,
+		ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v3.${runtime.languageId}`,
 			JSON.stringify({ metadata: runtime, lastUsed: 1, lastStarted: 1 }),
 			StorageScope.WORKSPACE, StorageTarget.MACHINE);
 	}
@@ -1821,7 +1821,7 @@ describe('RuntimeStartupService - start reasons', () => {
 	it('starts the recommendation when set to always start and the affiliation was never started', async () => {
 		createService(LanguageStartupBehavior.Always);
 		const affiliated = metadata({ runtimeId: 'rt-aff', runtimePath: '/old/bin/python' });
-		ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v2.python`,
+		ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v3.python`,
 			JSON.stringify({ metadata: affiliated, lastUsed: 0, lastStarted: 0 }),
 			StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		recommendAfterDiscovery(metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }));
@@ -2004,7 +2004,7 @@ describe('RuntimeStartupService - start reasons', () => {
 		])('starts when another language has $name and no console', async ({ lastUsed, lastStarted }) => {
 			createService(LanguageStartupBehavior.Auto);
 			const r = metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R', extensionId: 'ms.r' });
-			ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v2.r`,
+			ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v3.r`,
 				JSON.stringify({ metadata: r, lastUsed, lastStarted }),
 				StorageScope.WORKSPACE, StorageTarget.MACHINE);
 			recommendAfterDiscovery(immediate);
@@ -2016,7 +2016,7 @@ describe('RuntimeStartupService - start reasons', () => {
 
 		it('starts when the language has a default that was never started', async () => {
 			createService(LanguageStartupBehavior.Auto);
-			ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v2.python`,
+			ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v3.python`,
 				JSON.stringify({ metadata: metadata({ runtimeId: 'rt-aff', runtimePath: '/old/bin/python' }), lastUsed: 0, lastStarted: 0 }),
 				StorageScope.WORKSPACE, StorageTarget.MACHINE);
 			recommendAfterDiscovery(immediate);
@@ -2250,7 +2250,7 @@ describe('RuntimeStartupService - startup sequence', () => {
 
 		for (const { affiliated } of options.languages) {
 			if (affiliated) {
-				ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v2.${affiliated.metadata.languageId}`,
+				ctx.get(IStorageService).store(`positron.affiliatedRuntimeMetadata.v3.${affiliated.metadata.languageId}`,
 					JSON.stringify(affiliated), StorageScope.WORKSPACE, StorageTarget.MACHINE);
 			}
 		}
@@ -2337,7 +2337,7 @@ describe('RuntimeStartupService - startup sequence', () => {
 
 	/** The affiliated runtime saved in workspace storage for the language. */
 	function storedAffiliation(languageId: string): { runtimeId: string; lastUsed: number; lastStarted: number } | undefined {
-		const stored = ctx.get(IStorageService).get(`positron.affiliatedRuntimeMetadata.v2.${languageId}`, StorageScope.WORKSPACE);
+		const stored = ctx.get(IStorageService).get(`positron.affiliatedRuntimeMetadata.v3.${languageId}`, StorageScope.WORKSPACE);
 		if (!stored) {
 			return undefined;
 		}
@@ -2357,6 +2357,17 @@ describe('RuntimeStartupService - startup sequence', () => {
 		});
 
 		expect(started).toEqual([{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
+	});
+
+	it('ignores an affiliated runtime saved by an earlier version', async () => {
+		ctx.get(IStorageService).store('positron.affiliatedRuntimeMetadata.v2.python',
+			JSON.stringify({ metadata: python, lastUsed: 2, lastStarted: 1 }), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		const { service, started } = await runStartupSequence({
+			languages: [{ ...pythonLanguage, discovered: [python] }],
+			startupBehavior: { default: LanguageStartupBehavior.Auto },
+		});
+
+		expect({ started, affiliated: service.getAffiliatedRuntimes() }).toEqual({ started: [], affiliated: [] });
 	});
 
 	it('starts a recommendation marked to start right away when no runtime is affiliated', async () => {
@@ -2477,7 +2488,7 @@ describe('RuntimeStartupService - startup sequence', () => {
 				started: started.map(start => start.runtimeId),
 				startedWith,
 				registeredWith: ctx.get(ILanguageRuntimeService).getRegisteredRuntime(pinnedR.runtimeId)?.extraRuntimeData,
-				savedWith: JSON.parse(ctx.get(IStorageService).get('positron.affiliatedRuntimeMetadata.v2.r', StorageScope.WORKSPACE) ?? '{}').metadata?.extraRuntimeData,
+				savedWith: JSON.parse(ctx.get(IStorageService).get('positron.affiliatedRuntimeMetadata.v3.r', StorageScope.WORKSPACE) ?? '{}').metadata?.extraRuntimeData,
 			}).toEqual({ started: [pinnedR.runtimeId], startedWith: [merged], registeredWith: merged, savedWith: merged });
 		});
 
