@@ -2438,7 +2438,11 @@ export interface IEventNamePropertyMapping {
        "tensorboard.torch_profiler_import" : { "owner": "donjayamanne" }
      */
     [EventName.TENSORBOARD_TORCH_PROFILER_IMPORT]: never | undefined;
-    [EventName.TENSORBOARD_DETECTED_IN_INTEGRATED_TERMINAL]: never | undefined;
+    // --- Start Positron ---
+    // Upstream declares this key twice. tsc allows that, but tsgo (the Positron build) reports
+    // TS2300 Duplicate identifier. The first declaration is above.
+    // [EventName.TENSORBOARD_DETECTED_IN_INTEGRATED_TERMINAL]: never | undefined;
+    // --- End Positron ---
     /**
      * Telemetry event sent before creating an environment.
      */
