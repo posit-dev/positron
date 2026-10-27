@@ -12,7 +12,8 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguage, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAgentSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
+import { DiscoverAllRuntimesAction, DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguage, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAgentSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
+import { DeferredPromise } from '../../../../../base/common/async.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -1558,5 +1559,47 @@ describe('EvaluateCodeAction', () => {
 		expect(warn).not.toHaveBeenCalled();
 		expect(evaluateCode).not.toHaveBeenCalled();
 		expect(openEditor).not.toHaveBeenCalled();
+	});
+});
+
+describe('DiscoverAllRuntimesAction', () => {
+	const discovery = { current: new DeferredPromise<void>() };
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeStartupService, stubInterface<IRuntimeStartupService>({
+			rediscoverAllRuntimes: () => discovery.current.p,
+		}))
+		.build();
+
+	beforeEach(() => {
+		discovery.current = new DeferredPromise<void>();
+	});
+
+	it('resolves only once discovery has finished', async () => {
+		let finished = false;
+		const run = ctx.instantiationService.invokeFunction(accessor =>
+			new DiscoverAllRuntimesAction().run(accessor)).then(() => { finished = true; });
+
+		await Promise.resolve();
+		expect(finished).toBe(false);
+
+		discovery.current.complete();
+		await run;
+		expect(finished).toBe(true);
+	});
+
+	it('passes a discovery failure on to the caller', async () => {
+		const run = ctx.instantiationService.invokeFunction(accessor =>
+			new DiscoverAllRuntimesAction().run(accessor));
+		discovery.current.error(new Error('discovery failed'));
+
+		await expect(run).rejects.toThrow('discovery failed');
+	});
+});
+
+describe('runtime agent command metadata', () => {
+	it('marks session selection and interpreter discovery as read-only', () => {
+		expect([new SelectSessionAction(), new DiscoverAllRuntimesAction()].map(action => action.desc.metadata?.readOnly))
+			.toEqual([true, true]);
 	});
 });

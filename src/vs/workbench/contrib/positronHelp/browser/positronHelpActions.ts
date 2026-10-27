@@ -161,6 +161,10 @@ interface ILookupHelpTopicResult {
 	message?: string;
 }
 
+// The help commands an agent can run (LookupHelpTopic, ReadHelpTopic, ListPackageDocs and
+// ReadVignette) are readOnly, so an agent may run them without asking, even though the session
+// may import the package to find its help, as the Help pane does.
+
 export class LookupHelpTopic extends Action2 {
 	constructor() {
 		super({
@@ -174,7 +178,6 @@ export class LookupHelpTopic extends Action2 {
 			metadata: {
 				description: localize('positron.help.lookupHelpTopic.description', "Show help for a topic, such as a function name, in the Help pane. Uses the language of the active editor, or of the foreground interpreter session when no editor is open. Requires a running interpreter session for that language."),
 				agentCompatible: true,
-				// Read-only even though the session may import the package to find its help, as the Help pane does.
 				readOnly: true,
 				args: [
 					{ name: 'topic', description: 'Help topic to look up, typically a bare function or symbol name (for example: mean).', schema: { type: 'string' } },
@@ -345,7 +348,6 @@ export class ReadHelpTopic extends Action2 {
 			metadata: {
 				description: localize('positron.help.readHelpTopic.description', "Read the help page for a topic, such as a function, class, or package, from a running interpreter session and return it as Markdown. Does not show anything to the user. Covers any installed package, including private or internal ones."),
 				agentCompatible: true,
-				// Read-only even though the session may import the package to find its help, as the Help pane does.
 				readOnly: true,
 				args: [
 					{ name: 'topic', description: 'Help topic to read: a function, class, or other object name (for example: mean, or pandas.DataFrame.merge).', schema: { type: 'string' } },
@@ -398,7 +400,6 @@ export class ListPackageDocs extends Action2 {
 			metadata: {
 				description: localize('positron.help.listPackageDocs.description', "List the documentation for an installed package from a running interpreter session: its help topics and its vignettes (long-form guides). Read individual pages with positron.help.readHelpTopic and positron.help.readVignette. For Python, topics are the package's public members, and the README is its only vignette."),
 				agentCompatible: true,
-				// Read-only even though the session may import the package to find its help, as the Help pane does.
 				readOnly: true,
 				args: [
 					{ name: 'package', description: 'Name of the package (for example: dplyr or pandas).', schema: { type: 'string' } },
@@ -458,7 +459,6 @@ export class ReadVignette extends Action2 {
 			metadata: {
 				description: localize('positron.help.readVignette.description', "Read a vignette (a long-form guide to a package) from a running interpreter session and return it as Markdown. Does not show anything to the user. Get vignette names from positron.help.listPackageDocs. For Python, the package's README is its only vignette, named README."),
 				agentCompatible: true,
-				// Read-only even though the session may import the package to find its help, as the Help pane does.
 				readOnly: true,
 				args: [
 					{ name: 'package', description: 'Name of the package (for example: dplyr).', schema: { type: 'string' } },

@@ -7,7 +7,7 @@
 
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { ListPackageDocs, ReadHelpTopic, ReadVignette } from '../../browser/positronHelpActions.js';
+import { ListPackageDocs, LookupHelpTopic, ReadHelpTopic, ReadVignette } from '../../browser/positronHelpActions.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
@@ -230,5 +230,18 @@ describe('ReadVignette', () => {
 
 		expect(result).toEqual({ found: false, message: 'Both a package and a vignette name are required.' });
 		expect(rCall).not.toHaveBeenCalled();
+	});
+});
+
+describe('help agent command metadata', () => {
+	it('marks every help command an agent can run as read-only', () => {
+		const actions = [new LookupHelpTopic(), new ReadHelpTopic(), new ListPackageDocs(), new ReadVignette()];
+
+		expect(actions.map(action => ({ id: action.desc.id, readOnly: action.desc.metadata?.readOnly }))).toEqual([
+			{ id: 'positron.help.lookupHelpTopic', readOnly: true },
+			{ id: 'positron.help.readHelpTopic', readOnly: true },
+			{ id: 'positron.help.listPackageDocs', readOnly: true },
+			{ id: 'positron.help.readVignette', readOnly: true },
+		]);
 	});
 });
