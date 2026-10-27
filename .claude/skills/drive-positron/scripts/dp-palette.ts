@@ -22,7 +22,7 @@ export function paletteRun(session: string, title: string, opts: { dry?: boolean
 		await lib.closeQuickInput();
 		await lib.blur();
 		if (!await lib.openQuickInput(a.mod + '+Shift+p', '>' + a.title)) { return { ok: false, error: 'the Command Palette did not open' }; }
-		const p = await lib.pick({ exact: a.title, sameIsOne: true });
+		const p = await lib.pick({ exact: a.title, settle: ['copies'] });
 		if (!p.ok) {
 			// With no exact match the palette highlights its best guess, under a
 			// "similar commands" heading when the command is hidden: Enter there
@@ -43,7 +43,7 @@ export function paletteRun(session: string, title: string, opts: { dry?: boolean
 			};
 		}
 		// The same command listed twice (registered twice): either row runs it.
-		const twice = p.copies ? { copies: p.copies } : {};
+		const twice = p.settled?.by === 'copies' ? { copies: p.settled.of } : {};
 		if (a.dry) { await lib.closeQuickInput(); return { ok: true, chosen: p.row.label, description: p.row.description, ...twice, dry: true }; }
 		const toastsBefore = a.watch ? await lib.toasts() : [];
 		const dialogsBefore = a.watch ? (await lib.dialogs()).map(d => d.message) : [];
@@ -80,7 +80,7 @@ function openFile(session: string, file: string): Json {
 		if (!await lib.openQuickInput(a.mod + '+p', a.file)) { return { ok: false, error: 'Quick Open did not open' }; }
 		// The folder narrows the rows: with b/report.qmd and report.qmd both open,
 		// the name alone matches several.
-		const p = await lib.pick({ exact: a.name, preferRoot: !a.folder, ...(a.folder ? { folder: a.folder } : {}) });
+		const p = await lib.pick({ exact: a.name, ...(a.folder ? { folder: a.folder } : { settle: ['root'] }) });
 		if (!p.ok) { await lib.closeQuickInput(); return { ...p, hint: 'pass the file with its folder, such as rapp/app.R, when several share the name' }; }
 		await lib.clickRow(p.row);
 		// The active tab must be this file, by its path when the tab has one (two
