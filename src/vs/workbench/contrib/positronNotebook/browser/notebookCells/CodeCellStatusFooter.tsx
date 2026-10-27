@@ -13,6 +13,8 @@ import { useEffect, useRef, useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { useObservedValue, useDebouncedObservedValue } from '../../../../../base/browser/useObservedValue.js';
+import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
+import { NotebookSetting } from '../../../notebook/common/notebookCommon.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { ExecutionStatus } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { formatCellDuration, formatTimestamp, getRelativeTime, isMoreThanOneHourAgo } from './cellExecutionUtils.js';
@@ -43,6 +45,8 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	const duration = useDebouncedObservedValue(cell.lastExecutionDuration);
 	const lastRunEndTime = useDebouncedObservedValue(cell.lastRunEndTime);
 	const lastRunSuccess = useDebouncedObservedValue(cell.lastRunSuccess);
+	// Respect the VS Code notebook setting that hides the cell status bar.
+	const executionInfoHidden = usePositronConfiguration<string>(NotebookSetting.showCellStatusBar) === 'hidden';
 
 	/**
 	 * `lastRunEndTime` doesn't change after execution completes, which means the
@@ -85,15 +89,15 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 
 	// Whether the footer shows any execution metadata (icon and/or timing text).
 	// Gates the metadata row so a tag-only footer doesn't render an empty row
-	// above the tags.
-	const hasMetadata = isCurrentlyRunning || isPending || hasTimingInfo;
+	// above the tags. Hidden entirely when the user hides the cell status bar.
+	const hasMetadata = !executionInfoHidden && (isCurrentlyRunning || isPending || hasTimingInfo);
 
 	// Collapse the footer when there's no execution info to display.
 	// This covers cells that have never been run and cells only run in a previous session.
 	// isPending guard keeps the clock icon visible for queued cells.
 	// A visible tag UI (tags or an in-progress add; the cell owns the predicate)
 	// also keeps the footer open, since the tag bar lives here.
-	const isCollapsed = !isPending && !hasCurrentSessionContent && !tagUIVisible;
+	const isCollapsed = !hasMetadata && (executionInfoHidden || !hasCurrentSessionContent) && !tagUIVisible;
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
@@ -195,8 +199,8 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 		<div
 			ref={containerRef}
 			aria-hidden={isCollapsed || undefined}
-			aria-label={isCollapsed ? undefined : getAriaLabel()}
-			aria-live={isCurrentlyRunning ? 'polite' : 'off'}
+			aria-label={isCollapsed || executionInfoHidden ? undefined : getAriaLabel()}
+			aria-live={isCurrentlyRunning && !executionInfoHidden ? 'polite' : 'off'}
 			className={positronClassNames('positron-notebook-code-cell-footer', { 'collapsed': isCollapsed })}
 			data-execution-status={dataExecutionStatus}
 			role='status'
