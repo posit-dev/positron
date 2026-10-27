@@ -319,7 +319,9 @@ def write_output(
 if __name__ == "__main__":
     main(
         requirements=[
-            "ipykernel",
+            # ipykernel 7.0-7.3 can stop reading shell requests (ipython/ipykernel#1554). The
+            # fix is in 7.4, which needs Python 3.11; this bundle must also support 3.10.
+            "ipykernel<7",
             # The bundle is added to the kernel's PYTHONPATH, so it shadows the user's own
             # packages. python-dateutil 3 changes time zone behavior, and common libraries
             # (e.g. botocore) require python-dateutil<3.
