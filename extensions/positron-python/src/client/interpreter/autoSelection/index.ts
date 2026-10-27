@@ -6,28 +6,19 @@
 import { inject, injectable } from 'inversify';
 import { Event, EventEmitter, Uri } from 'vscode';
 import { IWorkspaceService } from '../../common/application/types';
-// --- Start Positron ---
-// Unused since auto-selection uses Positron's recommendation.
-// import { DiscoveryUsingWorkers } from '../../common/experiments/groups';
-// --- End Positron ---
+import { DiscoveryUsingWorkers } from '../../common/experiments/groups';
 import '../../common/extensions';
 import { IFileSystem } from '../../common/platform/types';
 import { IExperimentService, IPersistentState, IPersistentStateFactory, Resource } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import { compareSemVerLikeVersions } from '../../pythonEnvironments/base/info/pythonVersion';
-// --- Start Positron ---
-// import { ProgressReportStage } from '../../pythonEnvironments/base/locator';
-// --- End Positron ---
+import { ProgressReportStage } from '../../pythonEnvironments/base/locator';
 import { PythonEnvironment } from '../../pythonEnvironments/info';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { IInterpreterComparer } from '../configuration/types';
 import { IInterpreterHelper, IInterpreterService } from '../contracts';
 import { IInterpreterAutoSelectionService, IInterpreterAutoSelectionProxyService } from './types';
-// --- Start Positron ---
-import { IServiceContainer } from '../../ioc/types';
-import { recommendWorkspaceRuntime } from '../../positron/interpreterRecommendation';
-// --- End Positron ---
 
 const preferredGlobalInterpreter = 'preferredGlobalPyInterpreter';
 const workspacePathNameForGlobalWorkspaces = '';
@@ -42,6 +33,11 @@ export class InterpreterAutoSelectionService implements IInterpreterAutoSelectio
 
     private globallyPreferredInterpreter!: IPersistentState<PythonEnvironment | undefined>;
 
+    // --- Start Positron ---
+    /** Workspaces whose auto-selected interpreter is Positron's recommendation. */
+    private readonly positronRecommendedWorkspaces = new Set<string>();
+    // --- End Positron ---
+
     constructor(
         @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService,
         @inject(IPersistentStateFactory) private readonly stateFactory: IPersistentStateFactory,
@@ -50,12 +46,8 @@ export class InterpreterAutoSelectionService implements IInterpreterAutoSelectio
         @inject(IInterpreterComparer) private readonly envTypeComparer: IInterpreterComparer,
         @inject(IInterpreterAutoSelectionProxyService) proxy: IInterpreterAutoSelectionProxyService,
         @inject(IInterpreterHelper) private readonly interpreterHelper: IInterpreterHelper,
-        // --- Start Positron ---
-        // @inject(IExperimentService) private readonly experimentService: IExperimentService,
-        @inject(IExperimentService) _experimentService: IExperimentService,
-        @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
-    ) // --- End Positron ---
-    {
+        @inject(IExperimentService) private readonly experimentService: IExperimentService,
+    ) {
         // Initialize persistent state after dependency injection
         this.globallyPreferredInterpreter = this.stateFactory.createGlobalPersistentState<
             PythonEnvironment | undefined
@@ -117,6 +109,14 @@ export class InterpreterAutoSelectionService implements IInterpreterAutoSelectio
     public async setGlobalInterpreter(interpreter: PythonEnvironment): Promise<void> {
         await this.storeAutoSelectedInterpreter(undefined, interpreter);
     }
+
+    // --- Start Positron ---
+    public async setPositronRecommendedInterpreter(resource: Uri, interpreter: PythonEnvironment): Promise<void> {
+        this.positronRecommendedWorkspaces.add(this.getWorkspacePathKey(resource));
+        await this.storeAutoSelectedInterpreter(resource, interpreter);
+        this.didAutoSelectedInterpreterEmitter.fire();
+    }
+    // --- End Positron ---
 
     protected async clearWorkspaceStoreIfInvalid(resource: Resource): Promise<void> {
         const stateStore = this.getWorkspaceState(resource);
@@ -222,56 +222,48 @@ export class InterpreterAutoSelectionService implements IInterpreterAutoSelectio
         }
 
         await this.envTypeComparer.initialize(resource);
-        // --- Start Positron ---
-        // Auto-select Positron's recommendation for the workspace, the interpreter shown as "Suggested",
-        // so the active interpreter used when nothing was chosen matches it.
+        const inExperiment = this.experimentService.inExperimentSync(DiscoveryUsingWorkers.experiment);
         const workspaceUri = this.interpreterHelper.getActiveWorkspaceUri(resource);
-        const recommendedRuntime = await recommendWorkspaceRuntime(
-            this.serviceContainer,
-            this.interpreterService,
-            workspaceUri?.folderUri,
-            true,
-        );
-        const recommendedInterpreter = recommendedRuntime
-            ? await this.interpreterService.getInterpreterDetails(recommendedRuntime.runtimePath)
-            : undefined;
-        // const inExperiment = this.experimentService.inExperimentSync(DiscoveryUsingWorkers.experiment);
-        // const workspaceUri = this.interpreterHelper.getActiveWorkspaceUri(resource);
-        // let recommendedInterpreter: PythonEnvironment | undefined;
-        // if (inExperiment) {
-        //     if (!globalQueriedState.value) {
-        //         // Global interpreters are loaded the first time an extension loads, after which we don't need to
-        //         // wait on global interpreter promise refresh.
-        //         // Do not wait for validation of all interpreters to finish, we only need to validate the recommended interpreter.
-        //         await this.interpreterService.getRefreshPromise({ stage: ProgressReportStage.allPathsDiscovered });
-        //     }
-        //     let interpreters = this.interpreterService.getInterpreters(resource);
-        //
-        //     recommendedInterpreter = this.envTypeComparer.getRecommended(interpreters, workspaceUri?.folderUri);
-        //     const details = recommendedInterpreter
-        //         ? await this.interpreterService.getInterpreterDetails(recommendedInterpreter.path)
-        //         : undefined;
-        //     if (!details || !recommendedInterpreter) {
-        //         await this.interpreterService.refreshPromise; // Interpreter is invalid, wait for all of validation to finish.
-        //         interpreters = this.interpreterService.getInterpreters(resource);
-        //         recommendedInterpreter = this.envTypeComparer.getRecommended(interpreters, workspaceUri?.folderUri);
-        //     }
-        // } else {
-        //     if (!globalQueriedState.value) {
-        //         // Global interpreters are loaded the first time an extension loads, after which we don't need to
-        //         // wait on global interpreter promise refresh.
-        //         await this.interpreterService.refreshPromise;
-        //     }
-        //     const interpreters = this.interpreterService.getInterpreters(resource);
-        //
-        //     recommendedInterpreter = this.envTypeComparer.getRecommended(interpreters, workspaceUri?.folderUri);
-        // }
-        // --- End Positron ---
+        let recommendedInterpreter: PythonEnvironment | undefined;
+        if (inExperiment) {
+            if (!globalQueriedState.value) {
+                // Global interpreters are loaded the first time an extension loads, after which we don't need to
+                // wait on global interpreter promise refresh.
+                // Do not wait for validation of all interpreters to finish, we only need to validate the recommended interpreter.
+                await this.interpreterService.getRefreshPromise({ stage: ProgressReportStage.allPathsDiscovered });
+            }
+            let interpreters = this.interpreterService.getInterpreters(resource);
+
+            recommendedInterpreter = this.envTypeComparer.getRecommended(interpreters, workspaceUri?.folderUri);
+            const details = recommendedInterpreter
+                ? await this.interpreterService.getInterpreterDetails(recommendedInterpreter.path)
+                : undefined;
+            if (!details || !recommendedInterpreter) {
+                await this.interpreterService.refreshPromise; // Interpreter is invalid, wait for all of validation to finish.
+                interpreters = this.interpreterService.getInterpreters(resource);
+                recommendedInterpreter = this.envTypeComparer.getRecommended(interpreters, workspaceUri?.folderUri);
+            }
+        } else {
+            if (!globalQueriedState.value) {
+                // Global interpreters are loaded the first time an extension loads, after which we don't need to
+                // wait on global interpreter promise refresh.
+                await this.interpreterService.refreshPromise;
+            }
+            const interpreters = this.interpreterService.getInterpreters(resource);
+
+            recommendedInterpreter = this.envTypeComparer.getRecommended(interpreters, workspaceUri?.folderUri);
+        }
         if (!recommendedInterpreter) {
             return;
         }
         if (workspaceUri) {
-            this.setWorkspaceInterpreter(workspaceUri.folderUri, recommendedInterpreter);
+            // --- Start Positron ---
+            // Keep Positron's recommendation if it was already auto-selected for the workspace.
+            // this.setWorkspaceInterpreter(workspaceUri.folderUri, recommendedInterpreter);
+            if (!this.positronRecommendedWorkspaces.has(this.getWorkspacePathKey(workspaceUri.folderUri))) {
+                this.setWorkspaceInterpreter(workspaceUri.folderUri, recommendedInterpreter);
+            }
+            // --- End Positron ---
         } else {
             this.setGlobalInterpreter(recommendedInterpreter);
         }
