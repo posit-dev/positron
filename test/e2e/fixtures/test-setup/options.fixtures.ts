@@ -107,7 +107,7 @@ export function OptionsFixture() {
 	};
 }
 
-export function UserDataDirFixture() {
+export function UserDataDirFixture(projectName?: string) {
 	return async (options: ApplicationOptions) => {
 		if (!options.userDataDir) {
 			throw new Error('Cannot create user data dir from undefined userDataDir');
@@ -117,7 +117,7 @@ export function UserDataDirFixture() {
 
 		// Copy keybindings and settings fixtures to the user data directory
 		await copyFixtureFile('keybindings.json', userDir, true);
-		await copyUserSettings(userDir);
+		await copyUserSettings(userDir, projectName);
 
 		// Pre-populate storage to dismiss prompts that would interfere with tests
 		const storageFile = new StorageFile(userDir);
