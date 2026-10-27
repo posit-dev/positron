@@ -93,6 +93,20 @@ const PERSISTENT_WORKSPACE_SESSIONS = 'positron.workspaceSessionList.v3';
  */
 const LAST_DISCOVERY_RUNTIME_COUNT_KEY = 'positron.runtime.lastDiscoveryRuntimeCount';
 
+/**
+ * Orders sessions to restore: the console the user focused last first, then
+ * the rest by last used time, most recent first. Reconnecting brings the first
+ * console to the front, and the console in front is saved as the language's
+ * affiliated runtime, so the order decides which runtime starts next time.
+ * Defaults to 0 so we can restore sessions that didn't persist a last used time.
+ */
+function compareRestoredSessions(a: SerializedSessionMetadata, b: SerializedSessionMetadata): number {
+	if (!!a.isLastActiveConsole !== !!b.isLastActiveConsole) {
+		return a.isLastActiveConsole ? -1 : 1;
+	}
+	return (b.lastUsed ?? 0) - (a.lastUsed ?? 0);
+}
+
 const languageRuntimeExtPoint =
 	ExtensionsRegistry.registerExtensionPoint<ILanguageRuntimeProviderMetadata[]>({
 		extensionPoint: 'languageRuntimes',
@@ -173,10 +187,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// the first time the language's extensions are activated.
 	private readonly _pinnedChecks = new Map<string, Promise<void>>();
 
-	// The languages whose default interpreter, set in the language's
-	// settings, was saved as the affiliated runtime on this launch.
-	// startAffiliatedRuntime() gives these the pinned start reason.
-	private readonly _pinnedLanguageIds = new Set<string>();
+	// The default interpreter set in each language's settings, keyed by
+	// language ID, with the times of the affiliated runtime it stands in for.
+	// getAffiliatedRuntime() returns it in place of the saved affiliation for
+	// the rest of this launch, but it is never saved itself: it is only saved
+	// when it starts, like any other runtime. Saving any affiliation for the
+	// language removes it. startAffiliatedRuntime() gives it the pinned start
+	// reason.
+	private readonly _pinnedAffiliations = new Map<string, IAffiliatedRuntimeMetadata>();
 
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
@@ -522,6 +540,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this.saveWorkspaceSessions();
 		}));
 
+		// Save the workspace sessions whenever a different session comes to
+		// the front. The reconnect after a reload needs to know which console
+		// the user focused last. Saving only before a reload isn't enough in
+		// web builds, which can't finish an async save while the page unloads.
+		this._register(this._runtimeSessionService.onDidChangeForegroundSession(() => {
+			if (!this._shuttingDown) {
+				this.saveWorkspaceSessions();
+			}
+		}));
+
 		// Register a shutdown event handler so that we have a chance to save
 		// state before a reload.
 		this._register(this._lifecycleService.onBeforeShutdown((e) => {
@@ -619,6 +647,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param languageId The language ID of the runtime to clear.
 	 */
 	clearAffiliatedRuntime(languageId: string): void {
+		this._pinnedAffiliations.delete(languageId);
 		this._storageService.remove(`${this.storageKey}.${languageId}`, this.affiliationStorageScope());
 		this._logService.debug(`[Runtime startup] Cleared affiliated runtime for language ID '${languageId}'`);
 	}
@@ -683,9 +712,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				`(data: ${JSON.stringify(storedSessions)})`);
 		}
 
-		// Sort the sessions by last used time, descending, so that the most recently used
-		// sessions are at the top.
-		this._restoredSessions.sort((a, b) => b.lastUsed - a.lastUsed);
+		// Sort the console the user focused last to the top, then the rest by last
+		// used time, descending, so that the most recently used sessions are next.
+		this._restoredSessions.sort(compareRestoredSessions);
 	}
 
 	/**
@@ -784,6 +813,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._logService.debug(`[Runtime startup] Not saving invalid affiliation ${JSON.stringify(affiliated)}.`);
 			return;
 		}
+
+		// The saved affiliation is newer than the pinned interpreter: either
+		// the pinned interpreter is starting, or another runtime was used.
+		this._pinnedAffiliations.delete(affiliated.metadata.languageId);
 
 		this._storageService.store(this.storageKeyForRuntime(affiliated.metadata),
 			JSON.stringify(affiliated),
@@ -1013,6 +1046,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				const affiliatedRuntimeId = affiliated.metadata.runtimeId;
 				if (session.runtimeMetadata.runtimeId === affiliatedRuntimeId) {
 					// Remove the affiliation
+					this._pinnedAffiliations.delete(session.runtimeMetadata.languageId);
 					this._storageService.remove(this.storageKeyForRuntime(session.runtimeMetadata),
 						this.affiliationStorageScope());
 				}
@@ -1078,7 +1112,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// where the affiliated runtime would have started as it registered.
 		for (const languageId of waitingLanguageIds) {
 			const affiliation = this.getAffiliatedRuntime(languageId);
-			if (affiliation && this._pinnedLanguageIds.has(languageId) &&
+			if (affiliation && this._pinnedAffiliations.has(languageId) &&
 				this.canStartAffiliationAtRegistration(languageId)) {
 				this.startAffiliatedRuntime(affiliation, true);
 			}
@@ -1670,13 +1704,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
-		// Get the runtime metadata that is affiliated with this workspace, if any.
-		const affiliatedRuntimeMetadataStr = this._storageService.get(
-			this.storageKeyForRuntime(metadata), this.affiliationStorageScope());
-		if (!affiliatedRuntimeMetadataStr) {
+		// Get the runtime metadata that is affiliated with this workspace, if
+		// any. This is the pinned interpreter, if the pinned check found one.
+		const affiliated = this.getAffiliatedRuntime(metadata.languageId);
+		if (!affiliated) {
 			return;
 		}
-		const affiliated = JSON.parse(affiliatedRuntimeMetadataStr) as IAffiliatedRuntimeMetadata;
 		const affiliatedRuntimeId = affiliated.metadata.runtimeId;
 
 		// If the runtime is affiliated with this workspace, start it.
@@ -1687,11 +1720,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// extraRuntimeData: the extension reads it when validating the
 			// affiliation, and it records facts from when the runtime was chosen
 			// (e.g. R's `current` flag, which makes the affiliation follow the
-			// current R instead of this binary).
-			this.saveAffiliatedRuntime({
-				...affiliated,
-				metadata: { ...metadata, extraRuntimeData: affiliated.metadata.extraRuntimeData },
-			});
+			// current R instead of this binary). The pinned interpreter came
+			// from the extension on this launch, so it has nothing to heal, and
+			// it is saved only if it starts.
+			if (!this._pinnedAffiliations.has(metadata.languageId)) {
+				this.saveAffiliatedRuntime({
+					...affiliated,
+					metadata: { ...metadata, extraRuntimeData: affiliated.metadata.extraRuntimeData },
+				});
+			}
 
 			try {
 
@@ -1842,6 +1879,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	private getAffiliatedRuntime(languageId: string): IAffiliatedRuntimeMetadata | undefined {
+		const pinned = this._pinnedAffiliations.get(languageId);
+		if (pinned) {
+			return pinned;
+		}
 		const stored = this._storageService.get(`${this.storageKey}.${languageId}`,
 			this.affiliationStorageScope());
 		if (!stored) {
@@ -2247,8 +2288,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/**
 	 * Waits for the language's pinned check, then reads its affiliated
-	 * runtime again, since the check may have written the pinned interpreter
-	 * over the copy read before the extension was activated.
+	 * runtime again, since the check may have put the pinned interpreter in
+	 * place of the copy read before the extension was activated.
 	 *
 	 * @param affiliation The affiliated runtime as read before activation.
 	 */
@@ -2260,9 +2301,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/**
 	 * Starts the language's pinned check, once per window, without waiting
-	 * for it. The check can write the pinned interpreter over the language's
-	 * affiliated runtime. Callers that need the result use
-	 * waitForPinnedChecks().
+	 * for it. The check can put the pinned interpreter in place of the
+	 * language's affiliated runtime for this launch. Callers that need the
+	 * result use waitForPinnedChecks().
 	 *
 	 * @param languageId The language ID.
 	 */
@@ -2270,13 +2311,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (this._pinnedChecks.has(languageId)) {
 			return;
 		}
-		const check = this.checkPinnedRuntime(languageId).catch(err => {
+		let timedOut = false;
+		const check = this.checkPinnedRuntime(languageId, () => timedOut).catch(err => {
 			this._logService.error(`[Runtime startup] Error checking the pinned runtime for language ID '${languageId}': ${err}`);
 		});
-		this._pinnedChecks.set(languageId, raceTimeout(check, RuntimeStartupService.PINNED_CHECK_TIMEOUT_MS, () =>
+		this._pinnedChecks.set(languageId, raceTimeout(check, RuntimeStartupService.PINNED_CHECK_TIMEOUT_MS, () => {
+			timedOut = true;
 			this._logService.warn(`[Runtime startup] The pinned check for language ID '${languageId}' ` +
 				`took more than ${RuntimeStartupService.PINNED_CHECK_TIMEOUT_MS} ms; ` +
-				`starting the affiliated runtime as saved`)));
+				`starting the affiliated runtime as saved`);
+		}));
 	}
 
 	/**
@@ -2292,9 +2336,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * How long startup waits for a language's pinned check. It's longer than
 	 * the extensions' own lookup limits (Python gives up after 15 seconds), so
-	 * it only stops a check that never answers. A check that takes longer
-	 * keeps running, so a late answer is still saved as the affiliated
-	 * runtime and starts on the next launch.
+	 * it only stops a check that never answers. Startup then starts the saved
+	 * affiliated runtime, and a later answer is ignored until the next launch
+	 * checks again.
 	 */
 	private static readonly PINNED_CHECK_TIMEOUT_MS = 20_000;
 
@@ -2316,19 +2360,25 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/**
 	 * Asks the language's extensions for the interpreter the language's pin
-	 * setting names, and writes it over the language's affiliated runtime.
-	 * The old last-started and last-used times are kept, so
-	 * startAffiliatedLanguageRuntimes() starts or skips the pinned
-	 * interpreter the same way it would have the old one.
+	 * setting names, and puts it in place of the language's affiliated
+	 * runtime for the rest of this launch. The old last-started and last-used
+	 * times are kept, so startAffiliatedLanguageRuntimes() starts or skips the
+	 * pinned interpreter the same way it would have the old one.
 	 *
-	 * Skipped when there's nothing to write over (the recommendation handles
+	 * The pinned interpreter is saved as the affiliated runtime only if it
+	 * starts. Saving it here would make it the "last used" interpreter even
+	 * when it never runs, for example after a reload that reconnects to other
+	 * consoles, and a later launch without the pin would start it.
+	 *
+	 * Skipped when there's nothing to replace (the recommendation handles
 	 * the pin then), when the New Folder flow just picked the interpreter (it
 	 * starts on this launch; the pin applies from the next one), and under
 	 * `recommended` (the recommendation handles the pin).
 	 *
 	 * @param languageId The language ID to check.
+	 * @param timedOut Whether startup stopped waiting for the check.
 	 */
-	private async checkPinnedRuntime(languageId: string): Promise<void> {
+	private async checkPinnedRuntime(languageId: string, timedOut: () => boolean): Promise<void> {
 		if (!this.getAffiliatedRuntime(languageId) ||
 			languageId === this._newFolderService.newFolderRuntimeMetadata?.languageId ||
 			this.getStartupBehavior(languageId) === LanguageStartupBehavior.Recommended) {
@@ -2365,12 +2415,21 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// pinned path would start, if any.
 		const runtime = this.definitionVariantFor(pinned);
 
-		// Read the affiliation again, so the write keeps the newest
-		// last-started and last-used times. They can change while the
+		// Read the affiliation again, so the pinned interpreter keeps the
+		// newest last-started and last-used times. They can change while the
 		// extension looks up the pin, for example when a reconnected console
 		// comes to the front.
 		const affiliated = this.getAffiliatedRuntime(languageId);
 		if (!affiliated) {
+			return;
+		}
+		// Once startup stops waiting, it starts the saved affiliated runtime,
+		// for example when the interpreter search finds it. The pin would
+		// replace it there, and nothing would start.
+		if (timedOut()) {
+			this._logService.debug(`[Runtime startup] Pinned runtime ` +
+				`${formatLanguageRuntimeMetadata(runtime)} arrived after the time limit; ` +
+				`it applies from the next launch`);
 			return;
 		}
 		if (affiliated.metadata.runtimeId !== runtime.runtimeId) {
@@ -2378,8 +2437,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				`${formatLanguageRuntimeMetadata(runtime)} replaces affiliated runtime ` +
 				`${formatLanguageRuntimeMetadata(affiliated.metadata)}`);
 		}
-		this.saveAffiliatedRuntime({ ...affiliated, metadata: runtime });
-		this._pinnedLanguageIds.add(languageId);
+		this._pinnedAffiliations.set(languageId, { ...affiliated, metadata: runtime });
 	}
 
 	/**
@@ -2511,13 +2569,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
-		// Save the start time of the affiliated runtime.
+		// Read the start reason before saving, since saving removes the
+		// pinned interpreter from _pinnedAffiliations.
+		const pinned = this._pinnedAffiliations.get(affiliatedRuntimeMetadata.languageId);
+		const reason = pinned?.metadata.runtimeId === affiliatedRuntimeMetadata.runtimeId ?
+			SessionStartReasonId.PinnedRuntime :
+			SessionStartReasonId.AffiliatedRuntime;
+
+		// Save the start time of the affiliated runtime. For the pinned
+		// interpreter, this is where it is first saved.
 		affiliatedRuntime.lastStarted = Date.now();
 		this.saveAffiliatedRuntime(affiliatedRuntime);
 
-		const reason = this._pinnedLanguageIds.has(affiliatedRuntimeMetadata.languageId) ?
-			SessionStartReasonId.PinnedRuntime :
-			SessionStartReasonId.AffiliatedRuntime;
 		// autoStartRuntime() announces the runtime again, so the Console pane
 		// shows the pinned runtime and not the one announced before activation.
 		await this.autoStartRuntime(affiliatedRuntimeMetadata, { id: reason }, activate);
@@ -2558,10 +2621,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this.setStartupPhase(RuntimeStartupPhase.Reconnecting);
 
-		// Sort the sessions by last used time, so that we reconnect to the
-		// most recently used sessions first. Default 0 so we can restore
-		// sessions that didn't persist this information.
-		sessions.sort((a, b) => (b.lastUsed ?? 0) - (a.lastUsed ?? 0));
+		// Sort the console the user focused last first, so that it is the one
+		// brought to the front again, then the most recently used sessions.
+		sessions.sort(compareRestoredSessions);
 
 		// Let the UI know we're about to try reconnecting to this session
 		this._onWillAutoStartRuntime.fire({
@@ -2646,9 +2708,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._logService.debug(`Reconnecting to sessions: ` +
 			sessions.map(session => session.sessionName).join(', '));
 
-		// Keep track of whether we are expecting to see the first console
-		// session
-		let firstConsole = true;
+		// Activate (i.e. make foreground) the first console session in the
+		// sorted list. Notebook sessions are never activated as part of
+		// reconnection; the foreground session for a notebook is set by the
+		// editor focus path when the user activates the corresponding editor
+		// (so reconnected sessions for background tabs do not steal
+		// foreground from the active editor).
+		const isConsoleSession = (session: SerializedSessionMetadata) => !session.metadata.notebookUri;
+		const activatedSession = sessions.find(isConsoleSession);
+
+		// The console sessions that reconnect, in the sorted order.
+		const reconnectedConsoleIds = new Set<string>();
 
 		await Promise.all(sessions.map(async (session, idx) => {
 			const marker =
@@ -2664,24 +2734,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._logService.debug(`${marker}: Restoring session for ` +
 				`${session.sessionName}`);
 
-			// Activate (i.e. make foreground) the first console session
-			// we reconnect to. Notebook sessions are never activated as
-			// part of reconnection; the foreground session for a notebook
-			// is set by the editor focus path when the user activates
-			// the corresponding editor (so reconnected sessions for
-			// background tabs do not steal foreground from the active
-			// editor).
-			const isConsoleSession = !session.metadata.notebookUri;
-			const activate = firstConsole && isConsoleSession;
-			if (isConsoleSession) {
-				firstConsole = false;
-			}
-
 			try {
-				// Reconnect to the session; activate it if it is the first console
-				// session
+				// Reconnect to the session. Only the activated console comes
+				// to the front; another console that finishes reconnecting
+				// first must not take the front while it is empty, or the
+				// front would switch consoles once per reconnect.
 				await this._runtimeSessionService.restoreRuntimeSession(
-					session.runtimeMetadata, session.metadata, session.sessionName, session.hasConsole, activate);
+					session.runtimeMetadata, session.metadata, session.sessionName, session.hasConsole,
+					session === activatedSession, false);
+				if (isConsoleSession(session)) {
+					reconnectedConsoleIds.add(session.metadata.sessionId);
+				}
 			} catch (err) {
 				// If an error occurs, fire an event to clean up provisional copies
 				const error: ISessionRestoreFailedEvent = {
@@ -2691,6 +2754,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				this._onSessionRestoreFailure.fire(error);
 			}
 		}));
+
+		// If nothing is in front (e.g. the activated console failed to
+		// reconnect), bring the first console that did reconnect to the front.
+		if (!this._runtimeSessionService.foregroundSession) {
+			const fallback = sessions
+				.filter(session => reconnectedConsoleIds.has(session.metadata.sessionId))
+				.map(session => this._runtimeSessionService.getSession(session.metadata.sessionId))
+				.find(session => session !== undefined);
+			if (fallback) {
+				this._runtimeSessionService.foregroundSession = fallback;
+			}
+		}
 	}
 
 	/**
@@ -2716,6 +2791,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * process.
 	 */
 	private async saveWorkspaceSessions(removeSessionId?: string): Promise<boolean> {
+		// The console the user focused last. When a notebook is in front, this
+		// is the console that was in front before it.
+		const lastActiveConsoleSessionId = this._runtimeSessionService.getLastActiveConsoleSession()?.sessionId;
+
 		// Derive the set of sessions that are currently active
 		const activeSessions = this._runtimeSessionService.activeSessions
 			.filter(session =>
@@ -2735,6 +2814,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					workingDirectory: activeSession?.workingDirectory || '',
 					hasConsole: activeSession?.hasConsole || false,
 					lastUsed: session.lastUsed,
+					isLastActiveConsole: session.sessionId === lastActiveConsoleSessionId,
 					localWindowId: this._localWindowId,
 				};
 
