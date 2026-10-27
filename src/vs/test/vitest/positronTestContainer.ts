@@ -22,6 +22,12 @@ import { TestInstantiationService } from '../../platform/instantiation/test/comm
 import { PositronReactServices } from '../../base/browser/positronReactServices.js';
 import { ensureNoLeakedDisposables } from './vitestUtils.js';
 import { createBareContainer } from './presets/bare.js';
+import { createRuntimeContainer } from './presets/runtime.js';
+import { createNotebookContainer } from './presets/notebook.js';
+import { createWorkbenchContainer } from './presets/workbench.js';
+import { stubReactServices } from './presets/reactServices.js';
+import { stubContributionServices } from './presets/contributionServices.js';
+import { stubNotebookEditorServices } from './presets/notebookEditor.js';
 
 interface TestContainerResult {
 	/** Retrieve a registered service by its identifier. */
@@ -72,11 +78,10 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  *
  * How to add a new preset:
  *   - For a new base: add a file under presets/, a boolean flag, a with*()
- *     method, and a branch in build()'s base-selection block (a dynamic
- *     import, so files that don't use it skip its module graph).
+ *     method, and a branch in build()'s base-selection block.
  *   - For a new layer: add a file under presets/ exporting a stub*() helper,
- *     a boolean flag, a with*() method, and an `if (useX)` line in build()'s
- *     layer block that dynamically imports stubX and pushes it onto layers.
+ *     a boolean flag, a with*() method, and an `if (useX) stubX(svc)` line
+ *     in build()'s layer block.
  *
  * ## Test* classes vs .stub()
  *
@@ -236,43 +241,31 @@ export class PositronTestContainerBuilder {
 		// Mutable slot -- reassigned in beforeEach so each test starts fresh.
 		let _instantiationService: TestInstantiationService;
 
-		// Presets are imported here rather than at the top of the file so bare and
-		// runtime tests skip the workbench module graph (~7s of import per file).
-		// beforeAll, not beforeEach: importing creates module-level singletons
-		// that the leak tracker would otherwise report as leaks.
-		let createBase: (disposables: DisposableStore) => TestInstantiationService = createBareContainer;
-		const layers: ((svc: TestInstantiationService) => void)[] = [];
-		beforeAll(async () => {
+		beforeEach(() => {
 			// 1. Pick the base. Exactly one runs; most-specific wins. React,
 			//    Contribution, and NotebookEditor layers all imply the Workbench base.
 			const needsWorkbench = useWorkbenchServices || useReactServices || useContributionServices || useNotebookEditorServices;
 			if (needsWorkbench) {
-				createBase = (await import('./presets/workbench.js')).createWorkbenchContainer;
+				_instantiationService = createWorkbenchContainer(disposables);
 			} else if (useNotebookServices) {
-				createBase = (await import('./presets/notebook.js')).createNotebookContainer;
+				_instantiationService = createNotebookContainer(disposables);
 			} else if (useRuntimeServices) {
-				createBase = (await import('./presets/runtime.js')).createRuntimeContainer;
+				_instantiationService = createRuntimeContainer(disposables);
+			} else {
+				_instantiationService = createBareContainer(disposables);
 			}
 
 			// 2. Apply layers additively. Any can run; order doesn't matter
 			//    because they stub disjoint services today. If they ever
 			//    overlap, the later-applied layer wins -- document it then.
 			if (useReactServices) {
-				layers.push((await import('./presets/reactServices.js')).stubReactServices);
+				stubReactServices(_instantiationService);
 			}
 			if (useContributionServices) {
-				layers.push((await import('./presets/contributionServices.js')).stubContributionServices);
+				stubContributionServices(_instantiationService);
 			}
 			if (useNotebookEditorServices) {
-				const { stubNotebookEditorServices } = await import('./presets/notebookEditor.js');
-				layers.push(svc => stubNotebookEditorServices(svc, disposables));
-			}
-		});
-
-		beforeEach(() => {
-			_instantiationService = createBase(disposables);
-			for (const layer of layers) {
-				layer(_instantiationService);
+				stubNotebookEditorServices(_instantiationService, disposables);
 			}
 
 			// 3. User stubs last -- they always win over preset defaults.
