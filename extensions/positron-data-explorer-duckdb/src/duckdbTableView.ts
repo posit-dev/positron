@@ -751,10 +751,13 @@ export class DuckDBTableView {
 		const display = entry.type_display;
 		const relation = await this._relation();
 		if (display === ColumnDisplayType.Integer || display === ColumnDisplayType.Floating || display === ColumnDisplayType.Decimal) {
-			// One pass for the moment-based stats; a second query for the median.
+			// One pass for the moment-based stats; a second query for the median. The sums feed the
+			// mean and standard deviation, which are computed as doubles, so sum as doubles too:
+			// DECIMAL arithmetic on a wide value overflows 38 digits (squaring one always does), and
+			// the failed query would leave the column with no statistics at all.
 			const rows = await this.client.runQuery(
 				`SELECT count(${quotedName}) AS n, min(${quotedName}) AS lo, max(${quotedName}) AS hi, ` +
-				`sum(${quotedName} * 1.0) AS s, sum(${quotedName} * 1.0 * ${quotedName}) AS ss ` +
+				`sum(${quotedName}::DOUBLE) AS s, sum(${quotedName}::DOUBLE * ${quotedName}::DOUBLE) AS ss ` +
 				`FROM ${relation}${this._whereClause}`);
 			const n = Number(rows[0]?.n ?? 0);
 			const sum = Number(rows[0]?.s ?? 0);
@@ -930,8 +933,10 @@ export class DuckDBTableView {
 			binWidth = peakToPeak / numBins;
 		}
 
+		// Bucket in doubles: the range and bin width are doubles already, and DECIMAL arithmetic on a
+		// wide value would overflow 38 digits.
 		const binRows = await this.client.runQuery(
-			`SELECT CAST(FLOOR((${quotedName} * 1.0 - ${minValue}) / ${binWidth}) AS INTEGER) AS bin_id, count(*) AS bin_count ` +
+			`SELECT CAST(FLOOR((${quotedName}::DOUBLE - ${minValue}) / ${binWidth}) AS INTEGER) AS bin_id, count(*) AS bin_count ` +
 			`FROM ${await this._relation()}${this._wherePlus(`${quotedName} IS NOT NULL`)} GROUP BY bin_id`);
 		const histEntries = new Map<number, number>(
 			binRows.map(row => [Number(row.bin_id), Number(row.bin_count)]));
