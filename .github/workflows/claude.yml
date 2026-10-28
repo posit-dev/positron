@@ -10,9 +10,11 @@ on:
   pull_request_review:
     types: [submitted]
   pull_request:
-    # Run on PRs that modify this file to test that the changes run
+    # Run on PRs that modify this file or its actions to test that the changes run
     paths:
       - '.github/workflows/claude.yml'
+      - '.github/actions/setup-claude-sandbox/**'
+      - '.github/actions/setup-claude-build-deps/**'
 
 env:
   # Prompt text that the triage and build jobs share.
