@@ -25,11 +25,11 @@ test.describe('New Folder Flow: Jupyter Project', {
 		await settings.set({ 'interpreters.startupBehavior': 'auto' }, { waitMs: 5000 });
 	});
 
-	// No WIN tag: the #16454 fallback below switches the notebook kernel to the
+	// No WIN tag: the #16454 workaround below switches the notebook kernel to the
 	// global interpreter (POSITRON_PY_VER_SEL = System Python 3.10.10 on Windows),
 	// which fails to start as a notebook kernel on the Windows runner ("Starting
 	// Python 3.10.10 (System) interpreter ... failed"), so the kernel never reaches
-	// idle. Restore the WIN tag once #16454 is fixed and the fallback is removed.
+	// idle. Restore the WIN tag once #16454 is fixed and the workaround is removed.
 	test('Jupyter Folder Defaults', {
 		tag: [tags.CRITICAL, tags.INTERPRETER]
 	}, async function ({ app }) {
@@ -47,19 +47,18 @@ test.describe('New Folder Flow: Jupyter Project', {
 		await verifyNotebookEditorVisible(app);
 
 		// The New Folder Flow binds the notebook to the folder runtime after the console
-		// starts, or skips the notebook when no Positron notebook editor is found (#16454).
-		// Match the project runtime name: transitional labels ("Discovering Interpreters...") aren't a binding.
-		const boundBadge = notebooksPositron.kernel.statusBadge.filter({ hasText: `uv: ${folderName}` });
+		// starts, and a kernel pick while that session is still starting fails (#16454).
+		// Wait for the binding to land, or for the flow to report that it skipped the
+		// notebook, before applying the workaround below.
 		await expect(
-			boundBadge.or(app.workbench.toasts.toastNotification.filter({ hasText: 'No notebook editor is open' }))
+			notebooksPositron.kernel.statusBadge.filter({ hasNotText: 'No Kernel Selected' })
+				.or(app.workbench.toasts.toastNotification.filter({ hasText: 'No notebook editor is open' }))
 		).toBeVisible({ timeout: 30000 });
 
-		// Don't re-pick the kernel when bound: that restarts the already-idle session.
-		if (!await boundBadge.isVisible()) {
-			// Workaround for #16454: the flow skipped the notebook, so bind a kernel by hand.
-			await notebooksPositron.kernel.change('Python');
-		}
-		await notebooksPositron.kernel.expectStatusToBe('idle');
+		// Workaround for #16454: the flow's own binding never reaches idle, so re-pick the
+		// kernel. The re-pick cold-starts a kernel, so wait with the kernel boot budget.
+		await notebooksPositron.kernel.change('Python');
+		await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'Python' });
 
 		await verifyNotebookKernelPythonVersion(app);
 		await verifyPyprojectTomlNotCreated(app);
@@ -78,6 +77,6 @@ async function verifyNotebookKernelPythonVersion(app: Application) {
 
 	await sessions.expectSessionPickerToBe(/Untitled-1\.ipynb/);
 	// Concrete version, not just "Python". Folder name not checked: the #16454
-	// fallback binds the global Python, not the project runtime.
+	// workaround rebinds the kernel to the global Python, not the project runtime.
 	await notebooksPositron.kernel.expectBadgeToContain(/Python \d+\.\d+\.\d+/);
 }
