@@ -15,6 +15,9 @@
 	"activationEvents": [
 		"onAiEnabled"
 	],
+	"enabledApiProposals": [
+		"resolvers"
+	],
 	"main": "./out/extension.js",
 	"scripts": {
 		"vscode:prepublish": "npm run compile",

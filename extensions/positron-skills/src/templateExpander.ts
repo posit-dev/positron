@@ -57,6 +57,8 @@ export interface AgentCommand {
 export interface TemplateFlags {
 	/** Positron's UI runs in a browser, so apps are served through a proxy. */
 	readonly web: boolean;
+	/** Positron is connected to a remote host, where the user's files live. */
+	readonly remote: boolean;
 }
 
 export interface ExpandResult {

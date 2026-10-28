@@ -8,8 +8,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { AgentCommand, expandTemplate, TemplateFlags } from '../templateExpander';
 
-const DESKTOP: TemplateFlags = { web: false };
-const WEB: TemplateFlags = { web: true };
+const DESKTOP: TemplateFlags = { web: false, remote: false };
+const REMOTE_SSH: TemplateFlags = { web: false, remote: true };
+const WEB: TemplateFlags = { web: true, remote: true };
 
 /** The templates directory, resolved from this compiled test's location in `out/test`. */
 const TEMPLATES_DIR = path.join(__dirname, '..', '..', 'templates');
@@ -226,7 +227,7 @@ suite('bundled templates', () => {
 		const name = path.relative(TEMPLATES_DIR, file);
 		test(`${name} has well-formed conditional blocks`, () => {
 			const content = fs.readFileSync(file, 'utf8');
-			for (const flags of [DESKTOP, WEB]) {
+			for (const flags of [DESKTOP, REMOTE_SSH, WEB]) {
 				assert.deepStrictEqual(expandTemplate(content, commands(), flags).problems, [], JSON.stringify(flags));
 			}
 		});
@@ -239,11 +240,27 @@ suite('bundled templates', () => {
 			'positron-commands/references/viewer.md',
 		];
 		const forbidden = ['On Posit Workbench', 'in a browser', 'X-Forwarded-Prefix', 'ProxyFix', 'RS_SERVER_URL', 'proxy address'];
-		const leaks = files.flatMap(file => {
-			const text = expandBundled(file, DESKTOP);
-			return forbidden.filter(phrase => text.includes(phrase)).map(phrase => `${file}: ${phrase}`);
-		});
+		const leaks = [DESKTOP, REMOTE_SSH].flatMap(flags => files.flatMap(file => {
+			const text = expandBundled(file, flags);
+			return forbidden.filter(phrase => text.includes(phrase)).map(phrase => `${file} ${JSON.stringify(flags)}: ${phrase}`);
+		}));
 		assert.deepStrictEqual(leaks, []);
+	});
+
+	test('local output never names the remote root', () => {
+		// The generator fills in `{{remote_root}}` with an empty string in a local
+		// window, so outside a remote block it would leave a broken instruction.
+		const leaks = templateFiles(TEMPLATES_DIR)
+			.map(file => path.relative(TEMPLATES_DIR, file))
+			.filter(file => expandBundled(file, DESKTOP).includes('{{remote_root}}'));
+		assert.deepStrictEqual(leaks, []);
+	});
+
+	test('remote output tells the model to open files under the remote root', () => {
+		for (const flags of [REMOTE_SSH, WEB]) {
+			const text = expandBundled('positron-commands/references/files.md', flags);
+			assert.ok(text.includes('`{{remote_root}}/home/me/project/data.csv`'), JSON.stringify(flags));
+		}
 	});
 
 	test('web output keeps the proxy guidance and its Jinja example', () => {
