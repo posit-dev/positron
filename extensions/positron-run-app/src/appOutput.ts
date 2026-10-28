@@ -99,8 +99,11 @@ function unfinishedEscapeStart(text: string): number {
 export interface ReadOptions {
 	/** How many lines, at most. Defaults to `DEFAULT_READ_LINES`, at most `MAX_READ_LINES`. */
 	readonly lines?: number;
-	/** The number of the first line to read, reading forward. Omit for the most recent lines. */
-	readonly offset?: number;
+	/**
+	 * Read the lines before this line number, such as a previous read's
+	 * `firstLine`. Omit for the most recent lines.
+	 */
+	readonly before?: number;
 }
 
 /** Lines read from an app's output. */
@@ -192,7 +195,11 @@ export class AppOutput {
 		}
 	}
 
-	/** Read the most recent lines, or the lines from `offset`, within `budget` characters of JSON string. */
+	/**
+	 * Read the most recent lines, or the most recent before `before`, within
+	 * `budget` characters of JSON string. Lines are added newest first, so a
+	 * page ends where the next newer one starts, whatever the budget allows.
+	 */
 	read(options: ReadOptions, budget: number): OutputLines {
 		const count = Math.min(Math.max(Math.floor(options.lines ?? DEFAULT_READ_LINES), 1), MAX_READ_LINES);
 		const oldest = this._dropped + 1;
@@ -212,26 +219,15 @@ export class AppOutput {
 
 		let firstLine = 0;
 		let lastLine = 0;
-		if (options.offset === undefined) {
-			for (let n = newest; n >= oldest && lines.length < count; n--) {
-				const line = this._line(n);
-				if (!fits(line)) {
-					break;
-				}
-				lines.unshift(line);
-				firstLine = n;
-				lastLine = lastLine || n;
+		const start = options.before === undefined ? newest : Math.min(newest, Math.floor(options.before) - 1);
+		for (let n = start; n >= oldest && lines.length < count; n--) {
+			const line = this._line(n);
+			if (!fits(line)) {
+				break;
 			}
-		} else {
-			for (let n = Math.max(Math.floor(options.offset), oldest); n <= newest && lines.length < count; n++) {
-				const line = this._line(n);
-				if (!fits(line)) {
-					break;
-				}
-				lines.push(line);
-				firstLine = firstLine || n;
-				lastLine = n;
-			}
+			lines.unshift(line);
+			firstLine = n;
+			lastLine = lastLine || n;
 		}
 
 		return {
@@ -240,8 +236,7 @@ export class AppOutput {
 			lastLine,
 			totalLines: newest,
 			droppedLines,
-			// With no lines returned, any kept line counts as older.
-			moreBefore: (firstLine || newest + 1) > oldest,
+			moreBefore: firstLine > oldest,
 		};
 	}
 

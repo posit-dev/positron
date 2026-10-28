@@ -19,9 +19,9 @@ function outputOf(...chunks: string[]): AppOutput {
 	return output;
 }
 
-/** Every line `output` keeps, as text. */
+/** The last 1,000 lines `output` keeps, as text. */
 function text(output: AppOutput): string {
-	return output.read({ lines: 1000, offset: 1 }, NO_BUDGET).text;
+	return output.read({ lines: 1000 }, NO_BUDGET).text;
 }
 
 /** An output with lines `line 1` to `line <count>`. */
@@ -106,8 +106,8 @@ describe('AppOutput', () => {
 			const output = numbered(10_005);
 
 			expect({
-				...position(output, { offset: 1, lines: 1 }),
-				oldest: output.read({ offset: 1, lines: 1 }, NO_BUDGET).text,
+				...position(output, { before: 7, lines: 1 }),
+				oldest: output.read({ before: 7, lines: 1 }, NO_BUDGET).text,
 			}).toEqual({ firstLine: 6, lastLine: 6, totalLines: 10_005, droppedLines: 5, moreBefore: false, oldest: 'line 6' });
 		});
 
@@ -167,12 +167,12 @@ describe('AppOutput', () => {
 		});
 	});
 
-	describe('reading from a line', () => {
-		it('reads forward from that line', () => {
+	describe('reading before a line', () => {
+		it('reads the lines before that line', () => {
 			const output = numbered(10);
-			const { text } = output.read({ offset: 4, lines: 3 }, NO_BUDGET);
+			const { text } = output.read({ before: 7, lines: 3 }, NO_BUDGET);
 
-			expect({ text, ...position(output, { offset: 4, lines: 3 }) }).toEqual({
+			expect({ text, ...position(output, { before: 7, lines: 3 }) }).toEqual({
 				text: 'line 4\nline 5\nline 6',
 				firstLine: 4,
 				lastLine: 6,
@@ -182,46 +182,41 @@ describe('AppOutput', () => {
 			});
 		});
 
-		it('starts at the oldest kept line when the line was dropped', () => {
-			expect(position(numbered(10_010), { offset: 3, lines: 2 })).toEqual({
-				firstLine: 11, lastLine: 12, totalLines: 10_010, droppedLines: 10, moreBefore: false,
-			});
+		it('returns nothing before the oldest kept line', () => {
+			const output = numbered(10_010);
+
+			expect([position(output, { before: 11 }), position(output, { before: 3 })]).toEqual(Array(2).fill({
+				firstLine: 0, lastLine: 0, totalLines: 10_010, droppedLines: 10, moreBefore: false,
+			}));
 		});
 
-		it('returns nothing past the end', () => {
+		it('reads the most recent lines from past the end', () => {
 			const output = numbered(10);
 
-			expect({ text: output.read({ offset: 11 }, NO_BUDGET).text, ...position(output, { offset: 11 }) }).toEqual({
-				text: '', firstLine: 0, lastLine: 0, totalLines: 10, droppedLines: 0, moreBefore: true,
+			expect(position(output, { before: 50, lines: 2 })).toEqual({
+				firstLine: 9, lastLine: 10, totalLines: 10, droppedLines: 0, moreBefore: true,
 			});
 		});
 
 		it('pages back to the oldest kept line with no gaps or repeats while the app keeps printing', () => {
 			const output = numbered(10_100);
 			let printed = 10_100;
-			const lines = 1_000;
 			const pages: string[][] = [];
 
-			let page = output.read({ lines }, NO_BUDGET);
+			let page = output.read({ lines: 1_000 }, NO_BUDGET);
 			pages.unshift(page.text.split('\n'));
 			while (page.moreBefore) {
 				// The app prints more between reads, dropping the oldest lines.
 				for (let i = 0; i < 50; i++) {
 					output.append(`line ${++printed}\n`);
 				}
-				const offset = Math.max(1, page.firstLine - lines);
-				const next = output.read({ offset, lines }, NO_BUDGET);
-				// Stop where the last page started.
-				const keep = next.text.split('\n').slice(0, page.firstLine - next.firstLine);
-				pages.unshift(keep);
-				page = next;
+				page = output.read({ before: page.firstLine, lines: 1_000 }, NO_BUDGET);
+				pages.unshift(page.text.split('\n'));
 			}
 
 			const read = pages.flat();
 			const oldestKept = printed - 10_000 + 1;
-			const firstRead = Number(read[0].split(' ')[1]);
-			expect(firstRead).toBe(oldestKept);
-			expect(read).toEqual(Array.from({ length: 10_100 - firstRead + 1 }, (_, i) => `line ${firstRead + i}`));
+			expect(read).toEqual(Array.from({ length: 10_100 - oldestKept + 1 }, (_, i) => `line ${oldestKept + i}`));
 		});
 	});
 
@@ -242,10 +237,10 @@ describe('AppOutput', () => {
 				.toEqual({ firstLine: 142, lastLine: 200, moreBefore: true, fits: true });
 		});
 
-		it('returns the first lines from an offset that fit', () => {
-			const result = longLines().read({ lines: 1000, offset: 1 }, 30_000);
+		it('returns the newest lines before a line that fit', () => {
+			const result = longLines().read({ lines: 1000, before: 142 }, 30_000);
 
-			expect({ firstLine: result.firstLine, lastLine: result.lastLine }).toEqual({ firstLine: 1, lastLine: 59 });
+			expect({ firstLine: result.firstLine, lastLine: result.lastLine }).toEqual({ firstLine: 83, lastLine: 141 });
 		});
 
 		it('counts characters as they serialize in JSON', () => {

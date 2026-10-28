@@ -383,6 +383,28 @@ describe('reading an app\'s output', () => {
 		});
 	});
 
+	it('pages back through every kept line once when the budget cuts each page short', () => {
+		const output = new AppOutput();
+		for (let n = 1; n <= 3_000; n++) {
+			output.append(`${n} `.padEnd(80, 'x') + '\n');
+		}
+		const { app } = makeApp(streamlit, { output });
+
+		const pages: string[] = [];
+		let page = readOk(app.read({ lines: 1000 }));
+		pages.unshift(page.output);
+		while (page.moreBefore) {
+			page = readOk(app.read({ lines: 1000, before: page.firstLine }));
+			pages.unshift(page.output);
+		}
+
+		const read = pages.join('\n').split('\n').map(line => Number(line.split(' ')[0]));
+		expect({ pages: pages.length > 3, read }).toEqual({
+			pages: true,
+			read: Array.from({ length: 3_000 }, (_, i) => i + 1),
+		});
+	});
+
 	it('stays within the budget with a large error and long lines', () => {
 		const output = new AppOutput();
 		for (let i = 0; i < 2_000; i++) {

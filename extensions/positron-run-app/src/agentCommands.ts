@@ -18,7 +18,7 @@ export function registerAgentCommands(api: PositronRunAppApiImpl): vscode.Dispos
 		vscode.commands.registerCommand('positronRunApp.readOutput', (file: unknown, options?: unknown) =>
 			api.readOutput(toFileUri(file), {
 				lines: toPositiveInt(isObject(options) ? options.lines : undefined),
-				offset: toPositiveInt(isObject(options) ? options.offset : undefined),
+				before: toPositiveInt(isObject(options) ? options.before : undefined),
 			})),
 	);
 }
@@ -43,8 +43,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
 /**
  * A whole number of at least 1 from a command argument, which a model may pass
  * as a numeric string. Undefined when it isn't a number, so the default applies.
- * Below 1 reads as 1, so paging back with `firstLine - lines` past the oldest
- * line starts at the oldest line.
+ * Below 1 reads as 1, so `before` that low returns no lines rather than the
+ * most recent ones.
  */
 function toPositiveInt(value: unknown): number | undefined {
 	const number = typeof value === 'string' && value.trim() ? Number(value) : value;

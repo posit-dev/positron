@@ -118,8 +118,8 @@ By default you get the most recent 100 lines; ask for up to 1000 with
 than you asked for, and a line longer than 1000 characters is cut and ends in
 `[truncated]`. When `moreBefore` is true and the cause starts above what came
 back -- the top of a traceback is missing, say -- read further back by calling
-again with `offset` set to `firstLine` minus `lines`, and repeat while you
-need to. Positron keeps the last 10000 lines of each app; `droppedLines` says
+again with `before` set to `firstLine`, and repeat while you need to. Each
+page ends where the one after it starts. Positron keeps the last 10000 lines of each app; `droppedLines` says
 how many older ones are gone.
 
 For an app run in a console (Shiny for R), `error` is the error that ended its
