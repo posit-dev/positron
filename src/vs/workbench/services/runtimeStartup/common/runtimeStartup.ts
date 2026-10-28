@@ -31,6 +31,8 @@ import { isWeb } from '../../../../base/common/platform.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Barrier, Limiter, raceTimeout, RunOnceScheduler } from '../../../../base/common/async.js';
 import { arch as systemArch } from '../../../../base/common/process.js';
+import { URI } from '../../../../base/common/uri.js';
+import { extUri } from '../../../../base/common/resources.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -2235,13 +2237,27 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (!answer) {
 			return;
 		}
+		const previous = this._recommendedRuntimesByLanguageId.get(languageId);
 		this._suppressRegistrationAutoStart = true;
 		try {
 			const runtime = this.rememberRecommendation(answer.metadata, answer.isProjectDefault);
 			this._logService.debug(`[Runtime startup] Recommended again after the runtimes changed: ${formatLanguageRuntimeMetadata(runtime)}`);
+			// A new env in the folder (e.g. a .venv made after a global Python
+			// ran) beats the runtime started recently in this window.
+			if (runtime.runtimeId !== previous?.runtimeId &&
+				runtime.runtimeId !== this._mostRecentlyStartedRuntimesByLanguageId.get(languageId)?.runtimeId &&
+				this.isInWorkspaceFolder(runtime.runtimePath)) {
+				this._mostRecentlyStartedRuntimesByLanguageId.delete(languageId);
+			}
 		} finally {
 			this._suppressRegistrationAutoStart = false;
 		}
+	}
+
+	/** Whether `runtimePath` is inside one of the workspace folders. */
+	private isInWorkspaceFolder(runtimePath: string): boolean {
+		return this._workspaceContextService.getWorkspace().folders.some(folder =>
+			extUri.isEqualOrParent(folder.uri.with({ path: URI.file(runtimePath).path }), folder.uri));
 	}
 
 	/**

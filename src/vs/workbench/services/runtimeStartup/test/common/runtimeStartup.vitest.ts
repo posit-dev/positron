@@ -10,6 +10,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { isWeb } from '../../../../../base/common/platform.js';
 import { arch as systemArch } from '../../../../../base/common/process.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
@@ -19,6 +20,7 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService, IPromptChoice, IPromptOptions, Severity } from '../../../../../platform/notification/common/notification.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
+import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IWorkbenchEnvironmentService } from '../../../environment/common/environmentService.js';
@@ -1790,6 +1792,53 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			runtime: { runtimeId: 'rt-global' },
 			reason: PreferredRuntimeReason.Recommended,
 		}));
+	});
+
+	describe('when a runtime was started recently', () => {
+		async function setup(newRuntimePath: string) {
+			const svc = ctx.disposables.add(
+				ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+			const internals = svc as unknown as {
+				_mostRecentlyStartedRuntimesByLanguageId: Map<string, ILanguageRuntimeMetadata>;
+				_recommendedRuntimesByLanguageId: Map<string, ILanguageRuntimeMetadata>;
+			};
+			const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+			const created = metadata({ runtimeId: 'rt-new', runtimePath: newRuntimePath });
+			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(global));
+			let answer = global;
+			const manager = makeManager({ id: 1, owns: [] });
+			manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) =>
+				afterDiscovery ? [{ metadata: answer, isProjectDefault: false }] : [];
+			ctx.disposables.add(svc.registerRuntimeManager(manager));
+			ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+			await vi.waitFor(() => expect(internals._recommendedRuntimesByLanguageId.get('python')?.runtimeId).toBe('rt-global'));
+			internals._mostRecentlyStartedRuntimesByLanguageId.set('python', global);
+
+			// A new env appears, and the extension now recommends it.
+			answer = created;
+			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(created));
+			await vi.waitFor(() => expect(internals._recommendedRuntimesByLanguageId.get('python')?.runtimeId).toBe('rt-new'));
+			return svc;
+		}
+
+		it('prefers a new recommendation inside the workspace folder', async () => {
+			const folder = ctx.get(IWorkspaceContextService).getWorkspace().folders[0].uri;
+			const svc = await setup(URI.joinPath(folder, '.venv', 'bin', 'python').fsPath);
+
+			expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+				runtime: { runtimeId: 'rt-new' },
+				reason: PreferredRuntimeReason.Recommended,
+			});
+		});
+
+		it('keeps the recent runtime over a new recommendation outside the workspace folder', async () => {
+			const svc = await setup('/envs/other/bin/python');
+
+			expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+				runtime: { runtimeId: 'rt-global' },
+				reason: PreferredRuntimeReason.RecentlyStarted,
+			});
+		});
 	});
 
 	it('saves a recommendation that does not start as the project default only if its manager allows it', async () => {
