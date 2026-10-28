@@ -40,11 +40,12 @@ suite('R current R check', () => {
 				extraRuntimeData: { ...saved.extraRuntimeData, binpath: link, current: false },
 			});
 
-			// The registered R has the current R's own path, so the picker lists it once.
-			const isCurrent = (metadata: positron.LanguageRuntimeMetadata) => (metadata.extraRuntimeData as RMetadataExtra).current;
+			// Both have the current R's own path, so the picker lists it once.
+			const summary = (metadata: positron.LanguageRuntimeMetadata) =>
+				({ current: (metadata.extraRuntimeData as RMetadataExtra).current, runtimePath: metadata.runtimePath });
 			assert.deepStrictEqual(
-				{ registered: { current: isCurrent(registered), runtimePath: registered.runtimePath }, validated: isCurrent(validated) },
-				{ registered: { current: true, runtimePath: current.binpath }, validated: true },
+				{ registered: summary(registered), validated: summary(validated) },
+				{ registered: { current: true, runtimePath: current.binpath }, validated: { current: true, runtimePath: current.binpath } },
 			);
 		} finally {
 			fs.rmSync(linkDir, { recursive: true, force: true });

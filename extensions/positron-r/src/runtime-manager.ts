@@ -551,8 +551,13 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			// https://github.com/posit-dev/positron/issues/2659
 			curBin.reasons.unshift(ReasonDiscovered.affiliated);
 			inst = new RInstallation(curBin.path, true, curBin.reasons, metadataExtra.packagerMetadata);
+		} else if (curBin && isCurrentR(curBin, metadataExtra.binpath)) {
+			// A saved path that is a link to the current R, such as
+			// `/usr/local/bin/R`, is built at the current R's own path, so its
+			// runtime ID matches discovery's entry for the current R.
+			inst = new RInstallation(curBin.path, true, [ReasonDiscovered.affiliated], metadataExtra.packagerMetadata);
 		} else {
-			inst = new RInstallation(metadataExtra.binpath, isCurrentR(curBin, metadataExtra.binpath), [ReasonDiscovered.affiliated], metadataExtra.packagerMetadata);
+			inst = new RInstallation(metadataExtra.binpath, false, [ReasonDiscovered.affiliated], metadataExtra.packagerMetadata);
 		}
 
 		// Check the installation for validity
