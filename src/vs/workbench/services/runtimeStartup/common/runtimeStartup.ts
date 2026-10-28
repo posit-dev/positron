@@ -205,6 +205,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// (metadata.languageId) of the runtime.
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
+	// Languages recommended a new env in the workspace folder since their last
+	// start, which beats the runtime started recently once its console stops.
+	private readonly _newFolderEnvLanguageIds = new Set<string>();
+
 	// The runtime each language's extension recommended for this workspace,
 	// from the ask at startup or the ask after discovery. Keyed by languageId.
 	private readonly _recommendedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
@@ -358,6 +362,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// runtimes for each language.
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
 
+			this._newFolderEnvLanguageIds.delete(session.runtimeMetadata.languageId);
 			this._mostRecentlyStartedRuntimesByLanguageId.set(session.runtimeMetadata.languageId,
 				session.runtimeMetadata);
 
@@ -1941,7 +1946,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const preferred = choosePreferredRuntime({
 			activeConsole: this._runtimeSessionService.getConsoleSessionForLanguage(languageId)?.runtimeMetadata,
 			affiliated: this.affiliationFor(languageId),
-			recentlyStarted: this._mostRecentlyStartedRuntimesByLanguageId.get(languageId),
+			recentlyStarted: this.recentlyStartedFor(languageId),
 			recommended: this._recommendedRuntimesByLanguageId.get(languageId),
 			fallback: firstInPickerOrder(this._languageRuntimeService.registeredRuntimes.filter(info => info.languageId === languageId)),
 		}, runtimeId => this._languageRuntimeService.getRegisteredRuntime(runtimeId));
@@ -2234,6 +2239,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			manager.recommendWorkspaceRuntimes(otherLanguageIds, true)));
 		const answer = metadata.flat().find(({ metadata: recommended }) => recommended.languageId === languageId);
 		if (!answer) {
+			// Drop a recommendation that went away (e.g. its .venv was deleted),
+			// so the next discovery pass asks for the language again.
+			const recommended = this._recommendedRuntimesByLanguageId.get(languageId);
+			if (recommended && !this._languageRuntimeService.getRegisteredRuntime(recommended.runtimeId)) {
+				this._recommendedRuntimesByLanguageId.delete(languageId);
+				this._newFolderEnvLanguageIds.delete(languageId);
+			}
 			return;
 		}
 		const previous = this._recommendedRuntimesByLanguageId.get(languageId);
@@ -2241,16 +2253,29 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		try {
 			const runtime = this.rememberRecommendation(answer.metadata, answer.isProjectDefault);
 			this._logService.debug(`[Runtime startup] Recommended again after the runtimes changed: ${formatLanguageRuntimeMetadata(runtime)}`);
-			// A new env in the folder (e.g. a .venv made after a global Python
-			// ran) beats the runtime started recently, unless its console still runs.
-			const recent = this._mostRecentlyStartedRuntimesByLanguageId.get(languageId);
-			if (recent && runtime.runtimeId !== previous?.runtimeId && runtime.runtimeId !== recent.runtimeId &&
-				!this.hasRunningConsole(recent.runtimeId) && this.isInWorkspaceFolder(runtime.runtimePath)) {
-				this._mostRecentlyStartedRuntimesByLanguageId.delete(languageId);
+			if (runtime.runtimeId !== previous?.runtimeId) {
+				if (this.isInWorkspaceFolder(runtime.runtimePath)) {
+					this._newFolderEnvLanguageIds.add(languageId);
+				} else {
+					this._newFolderEnvLanguageIds.delete(languageId);
+				}
 			}
 		} finally {
 			this._suppressRegistrationAutoStart = false;
 		}
+	}
+
+	/**
+	 * The runtime started most recently for `languageId`, unless a new env in
+	 * the folder (e.g. a .venv made after a global Python ran) was recommended
+	 * since and the recent runtime's console no longer runs.
+	 */
+	private recentlyStartedFor(languageId: string): ILanguageRuntimeMetadata | undefined {
+		const recent = this._mostRecentlyStartedRuntimesByLanguageId.get(languageId);
+		if (recent && this._newFolderEnvLanguageIds.has(languageId) && !this.hasRunningConsole(recent.runtimeId)) {
+			return undefined;
+		}
+		return recent;
 	}
 
 	/** Whether `runtimePath` is inside one of the workspace folders. */

@@ -242,13 +242,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
     private async handleInterpreterChange(event: PythonEnvironmentsChangedEvent): Promise<void> {
         // An env made or deleted in a workspace folder changes what the ranking finds there.
         // Read the folder again before core hears of it; the next ranking waits for this scan.
-        const folders = new Set(
-            [event.old?.path, event.new?.path].map((p) => p && getWorkspaceFolder(vscode.Uri.file(p))?.uri.fsPath),
-        );
-        for (const folder of folders) {
-            if (folder) {
-                scanWorkspace(folder, true);
-            }
+        const madeOrDeletedPath = !event.old ? event.new?.path : !event.new ? event.old.path : undefined;
+        const folder = madeOrDeletedPath && getWorkspaceFolder(vscode.Uri.file(madeOrDeletedPath))?.uri.fsPath;
+        if (folder) {
+            scanWorkspace(folder, true);
         }
         if (!event.old && event.new) {
             await this.registerLanguageRuntimeFromPath(

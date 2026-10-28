@@ -871,6 +871,16 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         sinon.assert.calledOnceWithExactly(scanStub, vscode.Uri.file('/project').fsPath, true);
     });
 
+    test('an env changed in place does not rescan', async () => {
+        const scanStub = stubProjectFolderScan();
+        sinon.stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath').resolves(undefined);
+
+        onDidChangeInterpretersEmitter.fire(changedInPlace('/project/.venv/bin/python', '3.14.4', '3.14.6'));
+        await new Promise((r) => setTimeout(r, 0));
+
+        sinon.assert.notCalled(scanStub);
+    });
+
     test('an env outside the workspace does not rescan', async () => {
         const scanStub = stubProjectFolderScan();
         sinon.stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath').resolves(undefined);

@@ -35,6 +35,7 @@ import {
 	LanguageRuntimeStartupBehavior,
 	LanguageStartupBehavior,
 	RuntimeStartupPhase,
+	RuntimeState,
 } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
 import { IPathService } from '../../../path/common/pathService.js';
@@ -1732,6 +1733,36 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		}));
 	});
 
+	it('forgets the recommended runtime when it is unregistered and nothing replaces it', async () => {
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const recommended = (svc as unknown as { _recommendedRuntimesByLanguageId: Map<string, ILanguageRuntimeMetadata> })
+			._recommendedRuntimesByLanguageId;
+		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		const venvRegistration = ctx.get(ILanguageRuntimeService).registerRuntime(venv);
+		let asks = 0;
+		let answers = [{ metadata: venv, isProjectDefault: false }];
+		const manager = makeManager({ id: 1, owns: [] });
+		manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) => {
+			if (!afterDiscovery) {
+				return [];
+			}
+			asks++;
+			return answers;
+		};
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+		await vi.waitFor(() => expect(recommended.get('python')?.runtimeId).toBe('rt-venv'));
+
+		// The .venv is deleted, and there is no other Python to recommend. A
+		// dead entry would make the next discovery pass skip the language.
+		answers = [];
+		venvRegistration.dispose();
+
+		await vi.waitFor(() => expect(asks).toBe(2));
+		await vi.waitFor(() => expect(recommended.has('python')).toBe(false));
+	});
+
 	it('asks once for a burst of runtimes registering after the recommendation', async () => {
 		vi.useFakeTimers();
 		try {
@@ -1812,8 +1843,9 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			ctx.disposables.add(svc.registerRuntimeManager(manager));
 			ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
 			await vi.waitFor(() => expect(internals._recommendedRuntimesByLanguageId.get(languageId)?.runtimeId).toBe(recent.runtimeId));
+			let session: Awaited<ReturnType<typeof startTestLanguageRuntimeSession>> | undefined;
 			if (runningConsole) {
-				await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
+				session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
 				// A console that started behind another language's is neither in front
 				// nor the last one used for its language.
 				vi.spyOn(ctx.get(IRuntimeSessionService), 'getConsoleSessionForLanguage').mockReturnValue(undefined);
@@ -1827,7 +1859,7 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			answer = created;
 			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(created));
 			await vi.waitFor(() => expect(internals._recommendedRuntimesByLanguageId.get(languageId)?.runtimeId).toBe('rt-new'));
-			return { preferred: svc.getPreferredRuntimeWithReason(languageId), recent };
+			return { svc, preferred: svc.getPreferredRuntimeWithReason(languageId), recent, session };
 		}
 
 		function inWorkspaceFolder(...segments: string[]) {
@@ -1858,6 +1890,17 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			expect(preferred).toMatchObject({
 				runtime: { runtimeId: recent.runtimeId },
 				reason: PreferredRuntimeReason.RunningConsole,
+			});
+		});
+
+		it('prefers the new recommendation once the recent runtime\'s console exits', async () => {
+			const { svc, recent, session } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'), { runningConsole: true });
+
+			session!.setRuntimeState(RuntimeState.Exited);
+
+			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
+				runtime: { runtimeId: 'rt-new' },
+				reason: PreferredRuntimeReason.Recommended,
 			});
 		});
 	});
