@@ -149,8 +149,10 @@ function isFlag(name: string, flags: TemplateFlags): name is keyof TemplateFlags
  */
 function applyBlocks(template: string, flags: TemplateFlags, problems: string[]): string {
 	const output: string[] = [];
-	// The open block, if any: its flag's value and the line it opened on.
-	let block: { readonly keep: boolean; readonly line: number } | undefined;
+	// The open block, if any: its flag's value, the line it opened on, and how
+	// many nested markers are open inside it. A nested marker's `{{endif}}`
+	// closes the nested marker, not the block, so a dropped block stays dropped.
+	let block: { readonly keep: boolean; readonly line: number; nested: number } | undefined;
 	let skipBlank = false;
 	const lines = template.split('\n');
 	for (let index = 0; index < lines.length; index++) {
@@ -164,6 +166,10 @@ function applyBlocks(template: string, flags: TemplateFlags, problems: string[])
 					problems.push(`line ${lineNumber}: {{endif}} with no open {{if:...}}`);
 					continue;
 				}
+				if (block.nested > 0) {
+					block.nested--;
+					continue;
+				}
 				// A dropped block takes the blank line after it when there is
 				// one before it too, or when it opened the file.
 				const last = output.at(-1);
@@ -173,6 +179,7 @@ function applyBlocks(template: string, flags: TemplateFlags, problems: string[])
 			}
 			if (block) {
 				problems.push(`line ${lineNumber}: {{if:${flag}}} is nested in the block opened on line ${block.line}`);
+				block.nested++;
 				continue;
 			}
 			const name = flag.trim();
@@ -180,7 +187,7 @@ function applyBlocks(template: string, flags: TemplateFlags, problems: string[])
 			if (!known) {
 				problems.push(`line ${lineNumber}: unknown flag '${name}'`);
 			}
-			block = { keep: known && flags[name], line: lineNumber };
+			block = { keep: known && flags[name], line: lineNumber, nested: 0 };
 			continue;
 		}
 		if (skipBlank) {

@@ -61,10 +61,9 @@ On activation (`onAiEnabled`, so it loads only once the `ai.enabled` setting is 
 
 Output is rewritten only when its inputs change: a digest of the Positron build,
 the extension version, the environment flags, the templates, and the command
-metadata is stored
-alongside the output, so an ordinary launch does no writing. The write is staged
-in a sibling directory and swapped in, so the assistant never reads a
-half-written root.
+metadata is stored alongside the output, so an ordinary launch does no writing.
+The write is staged in a sibling directory and swapped in, so the assistant
+never reads a half-written root.
 
 ## Adding or changing a skill
 
@@ -81,5 +80,5 @@ directives for its facts. That is all -- the facts fill themselves in.
   named in a template no longer resolves in the workbench source.
 - A malformed conditional block (an unknown flag, or an unmatched marker) is
   logged as a warning at generation time, and no marker reaches the output.
-- `src/templateExpander.test.ts` covers the expansion itself, and fails on a
+- `src/test/templateExpander.test.ts` covers the expansion itself, and fails on a
   malformed conditional block in any bundled template.

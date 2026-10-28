@@ -191,7 +191,7 @@ export async function generateSkills(
 		);
 	}
 	if (problems.length > 0) {
-		log.warn(`Templates have ${problems.length} malformed conditional block(s): ${problems.join('; ')}`);
+		log.warn(`Templates have ${problems.length} conditional block problem(s): ${problems.join('; ')}`);
 	}
 	log.info(`Generated ${templates.length} skill file(s) at ${skillRoot}.`);
 	return { skillRoot, regenerated: true, unresolved: [...unresolved] };

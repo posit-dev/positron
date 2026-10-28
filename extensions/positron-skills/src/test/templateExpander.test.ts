@@ -134,20 +134,19 @@ suite('expandTemplate blocks', () => {
 	});
 
 	test('a dropped block at the start or end of a file leaves no blank line', () => {
-		assert.strictEqual(
-			expandTemplate('{{if:web}}\nWeb.\n{{endif}}\n\nAfter.\n', commands(), DESKTOP).text,
-			'After.\n',
-		);
-		assert.strictEqual(
-			expandTemplate('Before.\n\n{{if:web}}\nWeb.\n{{endif}}\n', commands(), DESKTOP).text,
-			'Before.\n',
+		const inputs = ['{{if:web}}\nWeb.\n{{endif}}\n\nAfter.\n', 'Before.\n\n{{if:web}}\nWeb.\n{{endif}}\n'];
+		assert.deepStrictEqual(
+			inputs.map(input => expandTemplate(input, commands(), DESKTOP).text),
+			['After.\n', 'Before.\n'],
 		);
 	});
 
 	test('a dropped list item leaves the list contiguous', () => {
 		const list = '- one\n{{if:web}}\n- two\n{{endif}}\n- three';
-		assert.strictEqual(expandTemplate(list, commands(), DESKTOP).text, '- one\n- three');
-		assert.strictEqual(expandTemplate(list, commands(), WEB).text, '- one\n- two\n- three');
+		assert.deepStrictEqual(
+			[DESKTOP, WEB].map(flags => expandTemplate(list, commands(), flags).text),
+			['- one\n- three', '- one\n- two\n- three'],
+		);
 	});
 
 	test('command directives inside a kept block expand', () => {
@@ -186,10 +185,13 @@ suite('expandTemplate blocks', () => {
 				'{{if:web}}\n{{if:web}}\nNested.\n{{endif}}\n{{endif}}',
 				WEB,
 				'Nested.',
-				[
-					'line 2: {{if:web}} is nested in the block opened on line 1',
-					'line 5: {{endif}} with no open {{if:...}}',
-				],
+				['line 2: {{if:web}} is nested in the block opened on line 1'],
+			],
+			[
+				'{{if:web}}\n{{if:web}}\nNested.\n{{endif}}\nStill web.\n{{endif}}\nAfter.',
+				DESKTOP,
+				'After.',
+				['line 2: {{if:web}} is nested in the block opened on line 1'],
 			],
 			['Inline {{if:web}}text{{endif}}.', WEB, 'Inline text.', ['line 1: a block marker must be on a line of its own']],
 		];
@@ -237,17 +239,16 @@ suite('bundled templates', () => {
 			'positron-commands/references/viewer.md',
 		];
 		const forbidden = ['On Posit Workbench', 'in a browser', 'X-Forwarded-Prefix', 'ProxyFix', 'RS_SERVER_URL', 'proxy address'];
-		for (const file of files) {
+		const leaks = files.flatMap(file => {
 			const text = expandBundled(file, DESKTOP);
-			for (const phrase of forbidden) {
-				assert.ok(!text.includes(phrase), `${file} mentions "${phrase}" on desktop`);
-			}
-		}
+			return forbidden.filter(phrase => text.includes(phrase)).map(phrase => `${file}: ${phrase}`);
+		});
+		assert.deepStrictEqual(leaks, []);
 	});
 
 	test('web output keeps the proxy guidance and its Jinja example', () => {
 		const text = expandBundled('positron-commands/references/interactive-apps.md', WEB);
-		assert.ok(text.includes('## Serving apps through a proxy'));
-		assert.ok(text.includes('action="{{ url_for(\'add\') }}"'));
+		const expected = ['## Serving apps through a proxy', 'action="{{ url_for(\'add\') }}"'];
+		assert.deepStrictEqual(expected.filter(phrase => !text.includes(phrase)), []);
 	});
 });
