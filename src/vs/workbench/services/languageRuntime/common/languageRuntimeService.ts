@@ -36,6 +36,30 @@ export const getRuntimeDisplayPath = (metadata: Pick<ILanguageRuntimeMetadata, '
 	metadata.runtimeDisplayPath ?? metadata.runtimePath;
 
 /**
+ * Orders runtimes the way the interpreter picker lists them: picker group,
+ * then rowOrder, then version descending, then label.
+ */
+export function comparePickerRuntimes(a: ILanguageRuntimeMetadata, b: ILanguageRuntimeMetadata): number {
+	const groupOrder = (a.picker?.groupOrder ?? 0) - (b.picker?.groupOrder ?? 0);
+	if (groupOrder !== 0) {
+		return groupOrder;
+	}
+	const rowOrder = (a.picker?.rowOrder ?? 0) - (b.picker?.rowOrder ?? 0);
+	if (rowOrder !== 0) {
+		return rowOrder;
+	}
+	const aVersion = (a.languageVersion ?? '').split('.').map(Number);
+	const bVersion = (b.languageVersion ?? '').split('.').map(Number);
+	for (let i = 0; i < Math.max(aVersion.length, bVersion.length); i++) {
+		const diff = (bVersion[i] || 0) - (aVersion[i] || 0);
+		if (diff !== 0) {
+			return diff;
+		}
+	}
+	return (a.picker?.label ?? a.runtimeName).localeCompare(b.picker?.label ?? b.runtimeName);
+}
+
+/**
  * Formats a language runtime session for logging.
  *
  * @param languageRuntimeSession The language runtime session to format for logging.
@@ -995,6 +1019,27 @@ export interface ILanguageRuntimeRecommendation {
 }
 
 /**
+ * How the interpreter picker groups and labels a runtime.
+ */
+export interface ILanguageRuntimePickerInfo {
+	/** Header of the picker group, e.g. 'Project environments' or 'R'. */
+	readonly group: string;
+	/** Orders groups within a language; lower first. */
+	readonly groupOrder: number;
+	/** Orders rows within a group, before version; lower first. Default 0. */
+	readonly rowOrder?: number;
+	/** Short row label, e.g. 'Python 3.12.4'. */
+	readonly label: string;
+	/** Gray text after the label, e.g. 'uv: myproject'. */
+	readonly description?: string;
+	/**
+	 * Why the runtime is recommended for the workspace, e.g. 'project environment'.
+	 * Set only on the runtime returned as the workspace recommendation.
+	 */
+	readonly recommendationReason?: string;
+}
+
+/**
  * ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
  */
@@ -1053,6 +1098,9 @@ export interface ILanguageRuntimeMetadata {
 	 * so ranking one source and not another mixes them up.
 	 */
 	readonly runtimeSourceOrder?: number;
+
+	/** How the interpreter picker shows this runtime. Runtimes without it use `runtimeSource` and `runtimeName`. */
+	readonly picker?: ILanguageRuntimePickerInfo;
 
 	/** Whether the runtime should start up automatically or wait until explicitly requested */
 	readonly startupBehavior: LanguageRuntimeStartupBehavior;
@@ -1269,7 +1317,10 @@ export interface IRuntimePickerItem {
 	id: string;
 	label: string;
 	detail?: string;
+	/** Puts a divider before this item; the text itself is not shown. */
 	separatorLabel?: string;
+	/** List this item at the top of the Suggested section. */
+	suggested?: boolean;
 }
 
 /**

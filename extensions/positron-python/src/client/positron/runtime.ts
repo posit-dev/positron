@@ -25,6 +25,9 @@ import {
 import { getShortVersionString, parseVersion } from '../pythonEnvironments/base/info/pythonVersion';
 import { EnvironmentType, virtualEnvTypes } from '../pythonEnvironments/info';
 import { isParentPath } from '../pythonEnvironments/common/externalDependencies';
+import { isExternallyManagedEnvironment } from './externallyManagedEnvironment';
+import { buildRankingContext } from './interpreterRanking';
+import { createPythonPickerInfo, PickerGroupContext } from './pickerInfo';
 
 /**
  * Module metadata for Python interpreters discovered via environment modules.
@@ -107,7 +110,8 @@ function isPythonRuntimeCacheable(interpreter: PythonEnvironment, workspaceFolde
  * @param envName The environment name reported by discovery, if any.
  * @param pythonVersion The formatted Python version (e.g. '3.10.17').
  * @param moduleMetadata Module metadata for this interpreter, if module-provided.
- * @returns The runtime source, its rank among sources, and the short display name.
+ * @returns The runtime source, its rank among sources, the short display name, and the
+ *   resolved environment name.
  */
 export function getRuntimeSourceAndShortName(
     interpreterPath: string,
@@ -115,7 +119,7 @@ export function getRuntimeSourceAndShortName(
     envName: string | undefined,
     pythonVersion: string,
     moduleMetadata: ModuleMetadata | undefined,
-): { runtimeSource: EnvironmentType; runtimeSourceOrder: number; runtimeShortName: string } {
+): { runtimeSource: EnvironmentType; runtimeSourceOrder: number; runtimeShortName: string; envName: string } {
     // Get the environment name, using parent directory name for .venv/.conda
     // folders (like uv does). Module environments use their configured name.
     let resolvedEnvName = envName ?? '';
@@ -144,7 +148,12 @@ export function getRuntimeSourceAndShortName(
     }
     runtimeShortName += ')';
 
-    return { runtimeSource, runtimeSourceOrder: getEnvironmentTypeRank(runtimeSource), runtimeShortName };
+    return {
+        runtimeSource,
+        runtimeSourceOrder: getEnvironmentTypeRank(runtimeSource),
+        runtimeShortName,
+        envName: resolvedEnvName,
+    };
 }
 
 /** Options for `createPythonRuntimeMetadata`. */
@@ -153,6 +162,8 @@ export interface CreateRuntimeMetadataOptions {
     ipykernelBundle?: IpykernelBundle;
     /** Skip waiting for module discovery, for an interpreter that can't be a module Python. */
     skipModuleWait?: boolean;
+    /** The context to group the runtime in the picker; built here when not given. */
+    pickerContext?: PickerGroupContext;
 }
 
 /**
@@ -192,6 +203,21 @@ export async function checkIpykernel(
         compatible = true;
     }
     return { compatible, bundle };
+}
+
+/**
+ * The workspace folder whose context groups an interpreter in the picker: the folder
+ * that holds it, so an environment in any folder of a multi-root workspace counts as a
+ * project environment, else the first folder.
+ */
+export function pickerFolderUri(
+    workspaceService: IWorkspaceService,
+    interpreter: PythonEnvironment,
+): vscode.Uri | undefined {
+    return (
+        workspaceService.getWorkspaceFolder(vscode.Uri.file(interpreter.path))?.uri ??
+        workspaceService.workspaceFolders?.[0]?.uri
+    );
 }
 
 /**
@@ -237,7 +263,7 @@ export async function createPythonRuntimeMetadata(
     const moduleMetadata = moduleMetadataMap.get(interpreter.path);
 
     // Determine the display source (e.g. 'Venv', 'Module') and short name.
-    const { runtimeSource, runtimeSourceOrder, runtimeShortName } = getRuntimeSourceAndShortName(
+    const { runtimeSource, runtimeSourceOrder, runtimeShortName, envName } = getRuntimeSourceAndShortName(
         interpreter.path,
         interpreter.envType,
         interpreter.envName,
@@ -245,8 +271,9 @@ export async function createPythonRuntimeMetadata(
         moduleMetadata,
     );
 
+    const supported = isVersionSupported(interpreter.version);
     let supportedFlag = '';
-    if (!isVersionSupported(interpreter.version)) {
+    if (!supported) {
         supportedFlag = `Unsupported: `;
     }
 
@@ -265,7 +292,7 @@ export async function createPythonRuntimeMetadata(
     const extraRuntimeData: PythonRuntimeExtraData = {
         pythonPath: interpreter.path,
         ipykernelBundle,
-        supported: isVersionSupported(interpreter.version),
+        supported,
     };
 
     // Record the module metadata (looked up above) so the session launches with
@@ -288,6 +315,24 @@ export async function createPythonRuntimeMetadata(
     const workspaceFolderPaths = (workspaceService.workspaceFolders ?? []).map((f) => f.uri.fsPath).filter((p) => !!p);
     const cacheable = isPythonRuntimeCacheable(interpreter, workspaceFolderPaths);
 
+    const pickerContext =
+        options.pickerContext ??
+        (await buildRankingContext(serviceContainer, pickerFolderUri(workspaceService, interpreter)));
+    const externallyManaged = await isExternallyManagedEnvironment({
+        interpreterPath: interpreter.path,
+        nativeKind: interpreter.nativeKind,
+        environment: interpreter,
+    });
+    const picker = createPythonPickerInfo({
+        interpreter,
+        runtimeSource,
+        envName,
+        pythonVersion,
+        supported,
+        context: pickerContext,
+        externallyManaged,
+    });
+
     // Create the metadata for the language runtime
     const metadata: positron.LanguageRuntimeMetadata = {
         runtimeId,
@@ -297,6 +342,7 @@ export async function createPythonRuntimeMetadata(
         runtimeVersion: applicationEnv.packageJson.version,
         runtimeSource,
         runtimeSourceOrder,
+        picker,
         languageId: PYTHON_LANGUAGE,
         languageName: 'Python',
         languageVersion: pythonVersion,

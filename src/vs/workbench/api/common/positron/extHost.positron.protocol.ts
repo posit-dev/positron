@@ -82,6 +82,8 @@ export interface IRuntimePickerItem {
 	label: string;
 	detail?: string;
 	separatorLabel?: string;
+	/** List this item at the top of the Suggested section. */
+	suggested?: boolean;
 }
 
 // This is the interface that the main process exposes to the extension host
