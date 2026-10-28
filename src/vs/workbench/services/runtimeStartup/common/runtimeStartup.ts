@@ -117,8 +117,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	// v3: earlier versions saved R's and Python's recommendations as the
 	// affiliated runtime, never started. Those languages now choose again on
-	// every open, so the records saved under v2 are dropped.
+	// every open, so migrateAffiliatedRuntimes() drops those records when it
+	// moves the v2 records to v3.
 	private readonly storageKey = 'positron.affiliatedRuntimeMetadata.v3';
+	private readonly v2StorageKey = 'positron.affiliatedRuntimeMetadata.v2';
 
 	// The language packs; a map of language ID to a list of extensions that provide the language.
 	private readonly _languagePacks: Map<string, Array<ExtensionIdentifier>> = new Map();
@@ -257,6 +259,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._startupPhase = _languageRuntimeService.startupPhase;
 		perf.mark(`code/positron/runtimeStartupPhase/${this._startupPhase}`);
+
+		this.migrateAffiliatedRuntimes();
 
 		this._lastDiscoveryRuntimeCount = this._storageService.getNumber(
 			LAST_DISCOVERY_RUNTIME_COUNT_KEY, StorageScope.APPLICATION, 0);
@@ -1794,6 +1798,48 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Each extension host returns an array; flatten the array of arrays.
 		return metadata.flat();
+	}
+
+	/**
+	 * Moves the affiliated runtimes saved under the v2 key to the v3 key,
+	 * except a recommendation that was saved without being started or used.
+	 * Earlier versions saved R's and Python's recommendations that way, and
+	 * startAffiliatedLanguageRuntimes() starts such a record when it's the
+	 * only one. The v2 records are removed, so the migration runs once and
+	 * can't bring back a v3 record that was removed later.
+	 */
+	private migrateAffiliatedRuntimes(): void {
+		const scope = this.affiliationStorageScope();
+		for (const key of this._storageService.keys(scope, StorageTarget.MACHINE)) {
+			if (!key.startsWith(`${this.v2StorageKey}.`)) {
+				continue;
+			}
+			const stored = this._storageService.get(key, scope);
+			this._storageService.remove(key, scope);
+			if (!stored) {
+				continue;
+			}
+			let affiliated: IAffiliatedRuntimeMetadata;
+			try {
+				affiliated = JSON.parse(stored) as IAffiliatedRuntimeMetadata;
+			} catch (err) {
+				this._logService.error(`Error parsing JSON for ${key}: ${err}`);
+				continue;
+			}
+			if (!affiliated?.metadata) {
+				continue;
+			}
+			if (affiliated.lastStarted === 0 && affiliated.lastUsed === 0) {
+				this._logService.debug(`[Runtime startup] Dropping affiliated runtime ` +
+					`${formatLanguageRuntimeMetadata(affiliated.metadata)} saved by an earlier version, ` +
+					`since it was never started or used`);
+				continue;
+			}
+			const languageId = key.substring(this.v2StorageKey.length + 1);
+			if (!this.getAffiliatedRuntime(languageId)) {
+				this.saveAffiliatedRuntime(affiliated);
+			}
+		}
 	}
 
 	private getAffiliatedRuntime(languageId: string): IAffiliatedRuntimeMetadata | undefined {

@@ -2359,15 +2359,36 @@ describe('RuntimeStartupService - startup sequence', () => {
 		expect(started).toEqual([{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
 	});
 
-	it('ignores an affiliated runtime saved by an earlier version', async () => {
+	it('moves an affiliated runtime saved by an earlier version to the new key and starts it', async () => {
 		ctx.get(IStorageService).store('positron.affiliatedRuntimeMetadata.v2.python',
 			JSON.stringify({ metadata: python, lastUsed: 2, lastStarted: 1 }), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		const { started } = await runStartupSequence({
+			languages: [{ ...pythonLanguage, discovered: [python] }],
+			startupBehavior: { default: LanguageStartupBehavior.Auto },
+		});
+
+		expect({
+			started,
+			v2: ctx.get(IStorageService).get('positron.affiliatedRuntimeMetadata.v2.python', StorageScope.WORKSPACE),
+		}).toEqual({
+			started: [{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
+			v2: undefined,
+		});
+	});
+
+	it('drops an affiliated runtime saved by an earlier version that was never started or used', async () => {
+		ctx.get(IStorageService).store('positron.affiliatedRuntimeMetadata.v2.python',
+			JSON.stringify({ metadata: python, lastUsed: 0, lastStarted: 0 }), StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		const { service, started } = await runStartupSequence({
 			languages: [{ ...pythonLanguage, discovered: [python] }],
 			startupBehavior: { default: LanguageStartupBehavior.Auto },
 		});
 
-		expect({ started, affiliated: service.getAffiliatedRuntimes() }).toEqual({ started: [], affiliated: [] });
+		expect({
+			started,
+			affiliated: service.getAffiliatedRuntimes(),
+			v2: ctx.get(IStorageService).get('positron.affiliatedRuntimeMetadata.v2.python', StorageScope.WORKSPACE),
+		}).toEqual({ started: [], affiliated: [], v2: undefined });
 	});
 
 	it('starts a recommendation marked to start right away when no runtime is affiliated', async () => {
