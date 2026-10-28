@@ -1,0 +1,94 @@
+name: "Setup R (Windows)"
+description: "Installs rig and the current R release, then installs the e2e test-files R packages through a shared package cache, on a Windows runner"
+
+# Shared by test-e2e-windows-run.yml and test-ext-host-windows.yml so both jobs
+# use the same R version, cache key, library path and PPM snapshot. The cache
+# is saved only by the caller that passes save-cache: 'true'; other callers
+# restore the same key.
+
+inputs:
+  save-cache:
+    description: "Save the R package cache after installing on a cache miss (only one job per workflow should save to avoid race conditions)"
+    required: false
+    default: 'false'
+
+outputs:
+  r-version:
+    description: "The R release version that was installed and made the default"
+    value: ${{ steps.r-version.outputs.r_version }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install rig
+      shell: pwsh
+      run: |
+        winget install --id Posit.rig --accept-source-agreements --accept-package-agreements
+
+    # The release version is resolved dynamically from the r-hub rversions
+    # API -- the same service r-lib/actions/setup-r uses -- so it tracks the
+    # current R release instead of being pinned.
+    - name: Install R release
+      id: r-version
+      shell: pwsh
+      run: |
+        $release = (Invoke-RestMethod -Uri 'https://api.r-hub.io/rversions/r-release' -MaximumRetryCount 3 -RetryIntervalSec 5).version
+        Write-Host "Resolved R release=$release"
+        "r_version=$release" >> $env:GITHUB_OUTPUT
+        rig add $release
+        rig default $release
+        # Ask for pak explicitly. A real `rig add` installs pak as a side
+        # effect, but since rig 0.10.0 `rig add` skips the whole install --
+        # pak included -- when the requested version is already present, and
+        # the windows-2025 image ships R 4.6.1, the very version the
+        # r-release lookup resolves. `rig system add-pak` is idempotent, so
+        # it is a no-op when rig did install pak.
+        rig system add-pak
+        rig ls
+
+    # The R package deps come from the e2e test-files DESCRIPTION. One
+    # ext-host test ("Connections pane works for R") also reads it from the
+    # repo root.
+    - name: Stage R DESCRIPTION file
+      id: r-desc
+      shell: pwsh
+      run: |
+        Copy-Item test/e2e/test-files/DESCRIPTION DESCRIPTION
+        $hash = (Get-FileHash DESCRIPTION -Algorithm SHA256).Hash
+        echo "description-hash=$hash" >> $env:GITHUB_OUTPUT
+        echo "R DESCRIPTION hash: $hash"
+
+    - name: Restore R packages cache
+      id: cache-r
+      continue-on-error: true
+      uses: actions/cache/restore@v6
+      with:
+        path: |
+          ~\AppData\Local\R\cache
+          C:\Program Files\R\R-${{ steps.r-version.outputs.r_version }}\library
+        key: ${{ runner.os }}-r-${{ steps.r-version.outputs.r_version }}-${{ steps.r-desc.outputs.description-hash }}
+        restore-keys: |
+          ${{ runner.os }}-r-${{ steps.r-version.outputs.r_version }}-
+
+    - name: Install R packages
+      shell: pwsh
+      env:
+        # Pin to a frozen PPM snapshot instead of `latest`. `latest` is a rolling
+        # target: pak resolves a version from the metadata, but by the time it
+        # downloads the binary PPM may have published a newer release and rotated
+        # the old binary out, yielding intermittent 404s (e.g. performance,
+        # RSQLite). A dated snapshot keeps metadata and binaries consistent.
+        PPM_REPO: https://packagemanager.posit.co/cran/2026-06-30
+      run: |
+        # pak is installed by the `rig system add-pak` above.
+        Rscript -e "options(repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
+
+    - name: Save R packages cache
+      if: ${{ inputs.save-cache == 'true' && steps.cache-r.outputs.cache-hit != 'true' }}
+      continue-on-error: true
+      uses: actions/cache/save@v6
+      with:
+        path: |
+          ~\AppData\Local\R\cache
+          C:\Program Files\R\R-${{ steps.r-version.outputs.r_version }}\library
+        key: ${{ runner.os }}-r-${{ steps.r-version.outputs.r_version }}-${{ steps.r-desc.outputs.description-hash }}

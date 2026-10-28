@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { AiProviderServiceStatus, IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
 import { getProviderStatus } from '../../browser/providerStatusCommand.js';
@@ -20,7 +20,7 @@ function catalogEntry(
 }
 
 describe('getProviderStatus', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	/** Wires the one service the command reads. */
 	function stubCatalog(options: {

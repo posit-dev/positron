@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { LayoutManager } from '../../browser/positronDataGrid/classes/layoutManager.js';
-import { createTestContainer } from '../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../test/vitest/lightTestContainer.js';
 
 /**
  * Tests the LayoutManager class.
@@ -879,5 +879,5 @@ describe('LayoutManager', () => {
 	};
 
 	// Ensure that all disposables are cleaned up.
-	createTestContainer().build();
+	createLightTestContainer().build();
 });

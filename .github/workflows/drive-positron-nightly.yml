@@ -171,10 +171,21 @@ jobs:
           echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
           echo "RUNNER=$PWD/session-cli.mjs" >> "$GITHUB_ENV"
 
+      # Before smoke: the app needs a chat model to show an error's Fix and Explain, which smoke clicks.
+      - name: Load the Anthropic key
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
       # A fresh dir every night: fix-loop refuses to add fields twice to a finding.
       - name: Smoke
         id: smoke
         shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
         run: |
           rm -rf "$HEAL_DIR"; mkdir -p "$HEAL_DIR"
           set +e -uo pipefail
@@ -187,6 +198,8 @@ jobs:
       - name: Rerun failures
         id: rerun
         shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
         run: |
           # shellcheck disable=SC2086
           node .claude/skills/drive-positron/heal/rerun.ts --dir "$HEAL_DIR" -- $APP_ARGS
@@ -203,21 +216,6 @@ jobs:
         run: |
           node .claude/skills/drive-positron/heal/leads.ts --dir "$HEAL_DIR"
           echo "count=$(jq '.leads | length' "$HEAL_DIR/leads.json" 2>/dev/null || echo 0)" >> "$GITHUB_OUTPUT"
-
-      - name: Any findings yet?
-        id: any
-        shell: bash
-        run: echo "findings=$([ -n "$(ls -A "$HEAL_DIR/findings" 2>/dev/null)" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-
-      - name: Load the Anthropic key
-        # hashFiles only sees the workspace, so the findings check is a step output.
-        if: inputs.explore || steps.leads.outputs.count != '0' || steps.any.outputs.findings == 'true'
-        uses: 1password/load-secrets-action@v5
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Finder
         if: inputs.explore || steps.leads.outputs.count != '0'
@@ -262,7 +260,6 @@ jobs:
           echo "git status --porcelain --ignore-submodules=dirty (a non-empty list makes the Fixer exit 2):"
           git status --porcelain --untracked-files=all --ignore-submodules=dirty
 
-      # Not gated on "Any findings yet?": the finder may have written findings after it ran.
       - name: Fixer
         if: ${{ !cancelled() && steps.smoke.outcome == 'success' && steps.rerun.outcome == 'success' }}
         shell: bash
@@ -273,7 +270,7 @@ jobs:
         run: |
           set +e -uo pipefail
           if [ -z "$(ls -A "$HEAL_DIR/findings" 2>/dev/null)" ]; then echo "no findings"; exit 0; fi
-          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then echo "findings but no Anthropic key; the key step did not run"; exit 1; fi
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then echo "findings but no Anthropic key"; exit 1; fi
           # The finder may not edit. A commit would move the patches' base, so fail closed;
           # fix-loop refuses a dirty tree itself.
           if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then echo "::error::HEAD moved from $GITHUB_SHA to $(git rev-parse HEAD) before the fixer ran"; exit 1; fi

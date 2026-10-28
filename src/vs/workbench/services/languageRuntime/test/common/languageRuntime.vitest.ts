@@ -7,7 +7,7 @@
 
 import { raceTimeout } from '../../../../../base/common/async.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { ILogService, NullLogger } from '../../../../../platform/log/common/log.js';
@@ -67,7 +67,7 @@ describe('getRuntimeDisplayPath', () => {
 
 describe('Positron - LanguageRuntimeService', () => {
 	describe('default configuration', () => {
-		const ctx = createTestContainer()
+		const ctx = createLightTestContainer()
 			.withRuntimeServices()
 			.stub(ILogService, new NullLogger())
 			.stub(IConfigurationService, new TestConfigurationService())
@@ -140,7 +140,7 @@ describe('Positron - LanguageRuntimeService', () => {
 
 	describe('interpreter definitions', () => {
 		const configurationService = new TestConfigurationService();
-		const ctx = createTestContainer()
+		const ctx = createLightTestContainer()
 			.withRuntimeServices()
 			.stub(ILogService, new NullLogger())
 			.stub(IConfigurationService, configurationService)
@@ -260,7 +260,7 @@ describe('Positron - LanguageRuntimeService', () => {
 	});
 
 	describe('onDidUnregisterRuntime', () => {
-		const ctx = createTestContainer()
+		const ctx = createLightTestContainer()
 			.withRuntimeServices()
 			.stub(ILogService, new NullLogger())
 			.stub(IConfigurationService, new TestConfigurationService())
@@ -313,7 +313,7 @@ describe('Positron - LanguageRuntimeService', () => {
 			startupBehavior: LanguageStartupBehavior.Disabled,
 		});
 
-		const ctx = createTestContainer()
+		const ctx = createLightTestContainer()
 			.withRuntimeServices()
 			.stub(ILogService, new NullLogger())
 			.stub(IConfigurationService, configService)

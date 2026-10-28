@@ -9,7 +9,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
 import { TestViewsService } from '../../../../test/browser/workbenchTestServices.js';
 import { IViewsService } from '../../../views/common/viewsService.js';
@@ -28,7 +28,7 @@ import { IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance
  * from the old runtime mutate historical activity instead of creating a new item.
  */
 describe('Positron - console activity routing across a detach', () => {
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IRuntimeStartupService, {
 			getRestoredSessions: () => Promise.resolve([]),

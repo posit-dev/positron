@@ -7,7 +7,7 @@
 
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { IVariableItem } from '../../../positronVariables/common/interfaces/variableItem.js';
 import { IPositronDataExplorerInstance } from '../../browser/interfaces/positronDataExplorerInstance.js';
 import { IPositronDataExplorerService } from '../../browser/interfaces/positronDataExplorerService.js';
@@ -64,7 +64,7 @@ const makeExistingInstance = () =>
 /* eslint-enable local/code-no-dangerous-type-assertions */
 
 describe('viewVariableItem', () => {
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	it('focuses existing instance found by variable id', async () => {
 		const existing = makeExistingInstance();
@@ -180,7 +180,7 @@ describe('viewVariableItem', () => {
 });
 
 describe('canViewVariableItem', () => {
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	it.each([
 		{ kind: 'table', hasViewer: true, enabled: undefined, expected: true },

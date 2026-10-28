@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { DATA_EXPLORER_MIME_TYPE, parseOutputData } from '../../browser/getOutputContents.js';
 import { OBJECT_EXPLORER_MIME_TYPE } from '../../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 import { ParsedDataExplorerOutput } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
@@ -18,7 +18,7 @@ function makeOutputItem(mime: string, text: string) {
 }
 
 describe('Notebook Output Utils', () => {
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	describe('parseOutputData', () => {
 		it('parses image/svg+xml into an image with a data URL', () => {

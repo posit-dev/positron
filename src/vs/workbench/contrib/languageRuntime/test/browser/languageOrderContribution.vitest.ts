@@ -15,7 +15,7 @@ import { LANGUAGE_ORDER_KEY } from '../../../../services/languageRuntime/common/
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { getLanguageOrderChoices } from '../../../../services/languageRuntime/common/languageOrderConfiguration.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { LanguageOrderContribution } from '../../browser/languageOrderContribution.js';
 
@@ -24,7 +24,7 @@ describe('LanguageOrderContribution', () => {
 	const onDidChangeLanguageIds = new Emitter<void>();
 	const names: Record<string, string> = { python: 'Python', r: 'R', julia: 'Julia' };
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IRuntimeStartupService, {
 			get languageIds() { return languageIds; },

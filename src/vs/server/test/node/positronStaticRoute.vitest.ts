@@ -5,23 +5,58 @@
 
 /// <reference types="vitest/globals" />
 
-import { shouldUseSessionLessStaticRoute } from '../../node/positronStaticRoute.js';
+import { SessionLessStaticRouteInputs, shouldUseSessionLessStaticRoute } from '../../node/positronStaticRoute.js';
+
+const base: SessionLessStaticRouteInputs = {
+	isWorkbench: true,
+	hasStaticRoute: true,
+	quality: 'dailies',
+	sessionCommit: 'abc123',
+	workbenchSendsPreviewCommit: true,
+	workbenchStaticCommit: undefined
+};
+const decide = (overrides: Partial<SessionLessStaticRouteInputs>) => shouldUseSessionLessStaticRoute({ ...base, ...overrides });
 
 describe('shouldUseSessionLessStaticRoute', () => {
-	it('returns false for a daily build so it uses session-scoped URLs', () => {
-		expect(shouldUseSessionLessStaticRoute(true, true, 'dailies')).toBe(false);
+	describe('Workbench older than 2026.11', () => {
+		it('keeps session-scoped URLs for daily builds', () => {
+			expect(decide({ workbenchSendsPreviewCommit: false })).toBe(false);
+		});
+
+		it('keeps the shared static route for other qualities', () => {
+			expect(decide({ workbenchSendsPreviewCommit: false, quality: 'releases' })).toBe(true);
+			expect(decide({ workbenchSendsPreviewCommit: false, quality: undefined })).toBe(true);
+		});
+
+		it('ignores a stray static commit', () => {
+			expect(decide({ workbenchSendsPreviewCommit: false, workbenchStaticCommit: 'abc123' })).toBe(false);
+		});
 	});
 
-	it('only carves out daily builds: other qualities keep the shared static route', () => {
-		expect(shouldUseSessionLessStaticRoute(true, true, 'releases')).toBe(true);
-		expect(shouldUseSessionLessStaticRoute(true, true, undefined)).toBe(true);
+	describe('Workbench 2026.11+, non-preview session (no static commit)', () => {
+		it('uses the shared static route for daily and release builds alike', () => {
+			expect(decide({})).toBe(true);
+			expect(decide({ quality: 'releases' })).toBe(true);
+		});
 	});
 
-	it('returns false when not running under Workbench, regardless of quality', () => {
-		expect(shouldUseSessionLessStaticRoute(false, true, 'releases')).toBe(false);
+	describe('Workbench 2026.11+, preview session (static commit present)', () => {
+		it('uses the shared static route when the commits match', () => {
+			expect(decide({ workbenchStaticCommit: 'abc123' })).toBe(true);
+		});
+
+		it('uses session-scoped URLs when the commits differ or are unknown', () => {
+			expect(decide({ workbenchStaticCommit: 'def456' })).toBe(false);
+			expect(decide({ workbenchStaticCommit: 'unknown' })).toBe(false);
+			expect(decide({ workbenchStaticCommit: 'def456', sessionCommit: undefined })).toBe(false);
+		});
 	});
 
-	it('returns false when the host lacks the static route, regardless of quality', () => {
-		expect(shouldUseSessionLessStaticRoute(true, false, 'releases')).toBe(false);
+	it('returns false when not running under Workbench, regardless of the rest', () => {
+		expect(decide({ isWorkbench: false, quality: 'releases' })).toBe(false);
+	});
+
+	it('returns false when the host lacks the static route, regardless of the rest', () => {
+		expect(decide({ hasStaticRoute: false, quality: 'releases' })).toBe(false);
 	});
 });

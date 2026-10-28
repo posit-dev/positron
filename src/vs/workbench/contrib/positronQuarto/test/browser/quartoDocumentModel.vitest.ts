@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { URI } from '../../../../../base/common/uri.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel, parseCellId } from '../../browser/quartoDocumentModel.js';
@@ -14,7 +14,7 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
 
 describe('QuartoDocumentModel', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 	const logService = new NullLogService();
 	const runtimeStartupService = createTestRuntimeStartupService();
 

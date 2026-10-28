@@ -11,7 +11,7 @@ import { Schemas } from '../../../../../base/common/network.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { IWorkbenchEnvironmentService } from '../../../environment/common/environmentService.js';
 import { IRemoteAgentService } from '../../../remote/common/remoteAgentService.js';
 import { AbstractAiProviderService } from '../../browser/abstractAiProviderService.js';
@@ -78,7 +78,7 @@ describe('AiProviderService', () => {
 			: Promise.resolve(URI.file('/home/user/providers.json').toJSON()),
 		listen: () => diChangeEmitter.event,
 	};
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(ILogService, new NullLogService())
 		.stub(IRemoteAgentService, { getConnection: () => ({ getChannel: () => diChannel }) })
 		.stub(IWorkbenchEnvironmentService, { remoteAuthority: 'remote-host' })

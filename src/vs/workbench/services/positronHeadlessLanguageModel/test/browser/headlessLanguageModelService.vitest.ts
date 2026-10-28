@@ -11,7 +11,7 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IProviderCatalogChangeData, IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IModelListing, IProviderMapping } from '../../../../../platform/positronHeadlessLanguageModel/common/engine.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { AiProviderServiceStatus, IAiProviderService } from '../../../positronAiProvider/common/aiProviderService.js';
 import { AuthenticationProviderInformation, AuthenticationSession, IAuthenticationService } from '../../../authentication/common/authentication.js';
 import { AbstractHeadlessLanguageModelService } from '../../browser/abstractHeadlessLanguageModelService.js';
@@ -143,7 +143,7 @@ describe('HeadlessLanguageModelService', () => {
 		providerStatus = 'ready';
 	});
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(ILogService, new NullLogService())
 		.stub(IAuthenticationService, {
 			getSessions, createSession, getProviderIds,
