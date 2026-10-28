@@ -20,6 +20,16 @@ describe('PositronDataExplorerUri', () => {
 		expect(roundTripped).toEqual(identifiers);
 	});
 
+	it('accepts backend identifiers with an uppercase scheme', () => {
+		const identifier = 'DuckDB:/tmp/a.csv';
+		expect(PositronDataExplorerUri.parse(PositronDataExplorerUri.generate(identifier))).toBe(identifier);
+	});
+
+	it('returns the backing URI for a duckdb identifier with an uppercase scheme', () => {
+		const resource = PositronDataExplorerUri.generate('DuckDB:file:///tmp/a.csv');
+		expect(PositronDataExplorerUri.backingUri(resource)?.toString()).toBe('file:///tmp/a.csv');
+	});
+
 	it('returns undefined for a non-matching resource', () => {
 		expect(PositronDataExplorerUri.parse(URI.parse('file:///not/a/data/explorer'))).toBeUndefined();
 	});
