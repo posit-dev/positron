@@ -920,7 +920,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					undefined, // No notebook URI (console sesion)
 					getCodeStartReason(attribution),
 					RuntimeStartMode.Starting,
-					true
+					!preserveActiveTab
 				);
 			} else {
 				// There is no registered runtime for the language, so we can't execute code.
