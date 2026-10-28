@@ -125,6 +125,11 @@
         "key": "ctrl+enter",
         "mac": "cmd+enter",
         "when": "config.sql.enabled && editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
+      },
+      {
+        "command": "sql.runStatement",
+        "key": "ctrl+enter",
+        "when": "config.sql.enabled && editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
       }
     ],
     "menus": {
