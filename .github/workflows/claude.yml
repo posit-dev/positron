@@ -13,7 +13,7 @@ on:
     # Run on PRs that modify this file or its actions to test that the changes run
     paths:
       - '.github/workflows/claude.yml'
-      - '.github/actions/setup-claude-sandbox/**'
+      - '.github/actions/setup-claude/**'
       - '.github/actions/setup-claude-build-deps/**'
 
 env:
@@ -143,21 +143,6 @@ jobs:
           # claude-code-action sets up its own git auth for pushing
           persist-credentials: false
 
-      - name: Checkout Simple English plugin
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: AminBlg/SimpleEnglish
-          ref: dfd0ca7615eb6f9297d2261c932f44807a8f4c0b # v1.2.0
-          path: .claude-plugins/simple-english
-          persist-credentials: false
-
-      - name: Load secret
-        id: load_secrets
-        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
-
       # Determine who to assign to issues/PRs created by Claude.
       # If the triggering actor is a human, use them directly.
       # If it's a bot, fall back to the origin issue/PR's assignee or author.
@@ -186,20 +171,17 @@ jobs:
           SLUG=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/-\+/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-40)
           echo "value=claude/${NUMBER}-${SLUG}-" >> "$GITHUB_OUTPUT"
 
-      # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs bubblewrap.
-      - name: Setup Claude sandbox
-        uses: ./.github/actions/setup-claude-sandbox
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - name: Setup Claude
+        id: setup
+        uses: ./.github/actions/setup-claude
         with:
-          node-version-file: .nvmrc
+          op-service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Run Claude Code Action
         id: claude
         uses: anthropics/claude-code-action@e4a6faad497d33dbc7144135c75e41f82f0bf6c0 # v1.0.255
         with:
-          anthropic_api_key: ${{ steps.load_secrets.outputs.ANTHROPIC_KEY }}
+          anthropic_api_key: ${{ steps.setup.outputs.anthropic-key }}
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ steps.branch-prefix.outputs.value }}
           additional_permissions: "actions: read"
@@ -320,28 +302,11 @@ jobs:
           token: ${{ steps.generate-token.outputs.token }}
           persist-credentials: false
 
-      - name: Checkout Simple English plugin
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Claude
+        id: setup
+        uses: ./.github/actions/setup-claude
         with:
-          repository: AminBlg/SimpleEnglish
-          ref: dfd0ca7615eb6f9297d2261c932f44807a8f4c0b # v1.2.0
-          path: .claude-plugins/simple-english
-          persist-credentials: false
-
-      - name: Load secret
-        id: load_secrets
-        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
-
-      - name: Setup Claude sandbox
-        uses: ./.github/actions/setup-claude-sandbox
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
+          op-service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Setup core dependencies
         uses: ./.github/actions/setup-claude-build-deps
@@ -349,7 +314,7 @@ jobs:
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@e4a6faad497d33dbc7144135c75e41f82f0bf6c0 # v1.0.255
         with:
-          anthropic_api_key: ${{ steps.load_secrets.outputs.ANTHROPIC_KEY }}
+          anthropic_api_key: ${{ steps.setup.outputs.anthropic-key }}
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ needs.triage.outputs.branch_prefix }}
           additional_permissions: "actions: read"

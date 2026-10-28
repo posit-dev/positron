@@ -1,0 +1,55 @@
+name: "Setup Claude"
+description: "Shared setup for the @claude jobs: Simple English plugin, Anthropic key, bubblewrap sandbox, and Node.js"
+
+# Run actions/checkout before this action.
+inputs:
+  op-service-account-token:
+    description: "1Password service account token used to load the Anthropic key"
+    required: true
+
+outputs:
+  anthropic-key:
+    description: "Anthropic API key"
+    value: ${{ steps.load_secrets.outputs.ANTHROPIC_KEY }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout Simple English plugin
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: AminBlg/SimpleEnglish
+        ref: dfd0ca7615eb6f9297d2261c932f44807a8f4c0b # v1.2.0
+        path: .claude-plugins/simple-english
+        persist-credentials: false
+
+    - name: Load secret
+      id: load_secrets
+      uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
+      env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ inputs.op-service-account-token }}
+        ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+    # claude-code-action only installs bubblewrap when allowed_non_write_users is set, so the
+    # @claude workflow mirrors its setup here. CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs it.
+    - name: Install subprocess isolation dependencies
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends bubblewrap socat
+        # Ubuntu 24.04+ restricts unprivileged user namespaces via AppArmor.
+        if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+        fi
+        # Fail here with a clear error rather than later inside Claude. Also check that commands
+        # Claude runs get no capabilities in the sandbox.
+        if ! bwrap --ro-bind / / --unshare-user --unshare-pid --proc /proc --dev /dev \
+          grep -qE '^CapEff:[[:space:]]+0+$' /proc/self/status; then
+          echo "::error::bwrap sandbox retains capabilities"
+          exit 1
+        fi
+
+    - name: Setup Node.js
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version-file: .nvmrc
