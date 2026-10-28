@@ -46,8 +46,29 @@ for (const file of fs.existsSync(path.join(ROOT, 'demo-videos')) ? fs.readdirSyn
 	}
 }
 
-const playwright = spawnSync('npx', [
-	'playwright', 'test', specPath,
+// Playwright captures video through its own ffmpeg build, a separate download from the system
+// ffmpeg the post-processing step uses. When the build matching the installed Playwright version
+// is missing (a Playwright bump with no `playwright install` afterwards), page initialization
+// hangs silently until the app fixture times out and no capture is ever written. `install ffmpeg`
+// is a quick no-op when the build is already present.
+const ffmpegInstall = spawnSync(process.execPath, [
+	path.join(ROOT, 'node_modules', 'playwright', 'cli.js'), 'install', 'ffmpeg',
+], { cwd: ROOT, stdio: 'inherit' });
+if (ffmpegInstall.status !== 0) {
+	console.error('\nCould not install the ffmpeg build Playwright needs for video capture.');
+	process.exit(ffmpegInstall.status ?? 1);
+}
+
+// Run the Playwright CLI through the current node binary rather than through `npx`. On Windows
+// `npx` is a `.cmd` shim, which `spawnSync` cannot start without a shell (ENOENT), and going
+// through a shell would mean quoting every pass-through argument. The entry point is the same
+// file the `npx playwright` shim ends up loading.
+const playwrightCli = path.join(ROOT, 'node_modules', '@playwright', 'test', 'cli.js');
+// Playwright treats the file argument as a regex over POSIX-style paths, so a backslash-joined
+// Windows path matches nothing.
+const specFilter = specPath.split(path.sep).join('/');
+const playwright = spawnSync(process.execPath, [
+	playwrightCli, 'test', specFilter,
 	'--project', 'e2e-electron',
 	'--reporter', 'list',
 	'--timeout', '300000',
@@ -64,7 +85,7 @@ if (playwright.status !== 0) {
 	process.exit(playwright.status ?? 1);
 }
 
-const post = spawnSync('node', [
+const post = spawnSync(process.execPath, [
 	'--experimental-strip-types',
 	path.join(DEMO_DIR, 'postprocess-demo-video.ts'),
 	'--name', name,

@@ -17,7 +17,23 @@ Creates polished demo videos of Positron features through a collaborative script
 ## Prerequisites
 
 - Positron must be built (`npm run build-ps` to check)
-- ffmpeg installed (`brew install ffmpeg`) -- required, not optional
+- ffmpeg installed -- required, not optional. macOS: `brew install ffmpeg`. Windows:
+  `scoop install ffmpeg` or `winget install Gyan.FFmpeg`. It must be on `PATH` as a real
+  executable; the scripts spawn it without a shell.
+- Playwright's own ffmpeg build, which it uses for the capture itself. `demo:record` installs it
+  when missing (`npx playwright install ffmpeg`). Without it the app fixture hangs for its full
+  timeout and `demo-videos/` is never created, with no error pointing at ffmpeg.
+
+### Windows
+
+The recording scripts work the same from Git Bash or PowerShell. Two things differ:
+
+- **R demos cannot be recorded from an agent session.** Ark's libzmq aborts when Positron is a
+  descendant of a Claude Code process, so an R console never starts. Python is unaffected. For a
+  demo that needs R, hand the user the `npm run demo:record` command to run in their own terminal
+  and continue from the output they paste back.
+- Write scratch frames for verification to a temp directory that exists in the shell you are
+  using. `/tmp/` resolves only under Git Bash.
 
 ## Workflow
 
@@ -134,8 +150,10 @@ payoff legible.
 >
 > ```bash
 > ffprobe -v error -show_entries format=duration,size -of csv=p=0 demo-videos/<name>.mp4
-> ffmpeg -y -ss <t> -i demo-videos/<name>.mp4 -frames:v 1 /tmp/frame_<t>.jpg
+> ffmpeg -y -ss <t> -i demo-videos/<name>.mp4 -frames:v 1 <scratch-dir>/frame_<t>.jpg
 > ```
+>
+> (`<scratch-dir>` is `/tmp` on macOS or Git Bash and `$env:TEMP` in PowerShell.)
 
 Once the subagent reports back, relay the results to the user:
 - The video file path (for drag-and-drop into a PR or issue)
