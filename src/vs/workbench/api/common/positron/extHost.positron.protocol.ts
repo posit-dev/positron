@@ -474,6 +474,7 @@ export interface ISerializedAgentCommandSource {
 
 export interface ISerializedAgentCommand {
 	id: string;
+	title?: string;
 	description?: string;
 	args?: ISerializedAgentCommandArg[];
 	returns?: string;

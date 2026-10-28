@@ -82,6 +82,17 @@ describe('MainThreadAiFeatures', () => {
 		expect(commands.map(c => [c.id, c.readOnly])).toEqual([['test.reads', true], ['test.writes', undefined]]);
 	});
 
+	it('$getAgentAllowedCommands passes on each command\'s display name', async () => {
+		const mainThread = await createMainThread([], undefined, [
+			{ id: 'test.titled', title: 'Titled Command', source: { type: 'builtin' } },
+			{ id: 'test.untitled', source: { type: 'builtin' } },
+		]);
+
+		const commands = await mainThread.$getAgentAllowedCommands();
+
+		expect(commands.map(c => [c.id, c.title])).toEqual([['test.titled', 'Titled Command'], ['test.untitled', undefined]]);
+	});
+
 	it('$isProviderEnabled waits for initialization then reads the catalog', async () => {
 		const mainThread = await createMainThread([resolvedProvider('copilot', true)]);
 

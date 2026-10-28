@@ -319,12 +319,14 @@ export interface IViewDescriptor {
 	// --- Start Positron ---
 	// Expanded from the upstream single-line type to add the `agentCompatible`
 	// flag, which exposes the auto-registered focus command to AI agents via
-	// `positron.ai.getAgentAllowedCommands()`. See `agentAllowedCommandsService.ts`.
+	// `positron.ai.getAgentAllowedCommands()`, and `readOnly`, which lets an
+	// agent run it without asking. See `agentAllowedCommandsService.ts`.
 	// Upstream: readonly focusCommand?: { id: string; keybindings?: IKeybindings };
 	readonly focusCommand?: {
 		id: string;
 		keybindings?: IKeybindings;
 		agentCompatible?: boolean;
+		readOnly?: boolean;
 	};
 	// --- End Positron ---
 
