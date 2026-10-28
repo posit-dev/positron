@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { DebugAppOptions, RunAppOptions, RunConsoleAppOptions } from '../positron-run-app';
 import { raceTimeout } from '../utils';
 import { PositronRunAppApiImpl } from '../api';
-import { AppSummary, StopAppResult } from '../appRegistry';
+import { AppSummary, ReadOutputResult, StopAppResult } from '../appRegistry';
 import { log } from '../extension.js';
 
 suite('PositronRunApp', () => {
@@ -293,6 +293,10 @@ suite('PositronRunApp', () => {
 		return vscode.commands.executeCommand<StopAppResult>('positronRunApp.stopApp', file.toString());
 	}
 
+	function readOutput(file: vscode.Uri, options?: object): Thenable<ReadOutputResult> {
+		return vscode.commands.executeCommand<ReadOutputResult>('positronRunApp.readOutput', file.toString(), options);
+	}
+
 	suite('listApps and stopApp', () => {
 		// Runs the test app as a server that stays up until it is stopped.
 		const serverOptions: RunAppOptions = {
@@ -324,6 +328,38 @@ suite('PositronRunApp', () => {
 			});
 		});
 
+		test('reads a terminal app\'s output, including what it printed after its URL', async () => {
+			await runAppApi.runApplication({
+				...runAppOptions,
+				getTerminalOptions() {
+					return {
+						command: 'node',
+						args: ['-e', 'console.log("Server started: http://localhost:8000"); setTimeout(() => { console.log("GET / 500"); process.exit(1); }, 500)'],
+					};
+				},
+			});
+			await waitFor(() => runAppApi.listApps().find(app => app.name === runAppOptions.name)?.status === 'exited',
+				'The app was never reported as exited');
+
+			const result = await readOutput(uri, { lines: '10' });
+			assert.ok(result.read, `Expected a read: ${JSON.stringify(result)}`);
+			assert.deepStrictEqual(
+				{ status: result.status, exitCode: result.exitCode, output: result.output },
+				{ status: 'exited', exitCode: 1, output: 'Server started: http://localhost:8000\nGET / 500' },
+			);
+		});
+
+		test('previews an app that prints its URL at once without waiting for the timeout', async () => {
+			const didRun = runAppApi.runApplication({
+				...runAppOptions,
+				// Longer than the test timeout, so the test fails if the run waits it out.
+				urlDetectionTimeout: 120_000,
+			}).then(() => true);
+			assert.ok(await raceTimeout(didRun, 30_000), 'The run should end when the URL is found');
+
+			sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+		});
+
 		test('lists an app that exited on its own, with its exit code', async () => {
 			// Without --keep-running the test app exits right after printing its URL.
 			await runAppApi.runApplication(runAppOptions);
@@ -350,11 +386,13 @@ suite('PositronRunApp', () => {
 
 		let observer: positron.runtime.ExecutionObserver | undefined;
 		let finishExecution: (() => void) | undefined;
+		let failExecution: ((error: unknown) => void) | undefined;
 		let showWarningMessageStub: sinon.SinonStub;
 
 		setup(() => {
 			observer = undefined;
 			finishExecution = undefined;
+			failExecution = undefined;
 
 			// Always start a fresh console session rather than reusing a
 			// persisted one from an earlier test.
@@ -369,8 +407,9 @@ suite('PositronRunApp', () => {
 			sinon.stub(positron.runtime, 'executeCode')
 				.callsFake((..._args) => {
 					observer = _args[6] as positron.runtime.ExecutionObserver;
-					return new Promise<Record<string, any>>(resolve => {
+					return new Promise<Record<string, any>>((resolve, reject) => {
 						finishExecution = () => resolve({});
+						failExecution = reject;
 					});
 				});
 
@@ -505,6 +544,28 @@ suite('PositronRunApp', () => {
 			await new Promise(resolve => setTimeout(resolve, 500));
 
 			sinon.assert.notCalled(previewUrlStub);
+		});
+
+		test('reads a console app\'s output and the error that ended it', async () => {
+			sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+			const runPromise = runAppApi.runApplicationInConsole({ ...consoleAppOptions, preview: 'none' });
+			await waitFor(() => observer !== undefined, 'Timed out waiting for code execution');
+			await runPromise;
+
+			observer!.onOutput!('Loading app\n');
+			observer!.onError!('Warning: in library(missing)\n');
+			// As the extension host rejects with the runtime's error.
+			failExecution!({ name: 'Error', message: 'there is no package called \'missing\'', stack: 'frame 1\nframe 2' });
+			await waitFor(() => runAppApi.listApps().find(app => app.name === consoleAppOptions.name)?.status === 'exited',
+				'The app was never reported as exited');
+
+			const result = await readOutput(uri);
+			assert.ok(result.read, `Expected a read: ${JSON.stringify(result)}`);
+			assert.deepStrictEqual({ status: result.status, output: result.output, error: result.error }, {
+				status: 'exited',
+				output: 'Loading app\nWarning: in library(missing)',
+				error: { name: 'Error', message: 'there is no package called \'missing\'', traceback: ['frame 1', 'frame 2'] },
+			});
 		});
 
 		test('stops the app by interrupting its console session', async () => {

@@ -4,6 +4,7 @@
 	"command.category": "App Launcher",
 	"command.listApps.title": "List Running Apps",
 	"command.stopApp.title": "Stop Running App",
+	"command.readOutput.title": "Read App Output",
 	"configuration.appLauncher.showEnableShellIntegrationMessage": "Show a prompt when shell integration is disabled.",
 	"configuration.appLauncher.showShellIntegrationNotSupportedMessage": "Show a warning when shell integration is not supported by the active terminal.",
 	"configuration.runApp.previewMode": "Where to preview applications by default.",

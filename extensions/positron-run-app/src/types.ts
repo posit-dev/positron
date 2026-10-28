@@ -46,8 +46,6 @@ export type AppPreviewOptions = {
 	terminalPid: number | undefined;
 	proxyInfo?: PositronProxyInfo;
 	urlPath?: string;
-	appReadyMessage?: string;
-	appUrlStrings?: string[];
 	urlDetectionTimeout?: number;
 	app?: RunningApp;
 };
