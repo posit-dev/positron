@@ -10,8 +10,8 @@ import * as path from 'path';
 import * as positron from 'positron';
 import { Readable } from 'stream';
 import * as vscode from 'vscode';
-import { SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
-import { defaultConnectionFactory, isStatementError, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
+import { dataExplorerQueryClient, SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
+import { defaultConnectionFactory, isStatementError, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions, SnowflakeQueryOptions } from '../snowflakeClient.js';
 import { createDatabaseNode, createSchemaNode, parseSemanticViewDescription, stageFilePath } from '../snowflakeNodes.js';
 import { connectionOptionsFromToml, connectionsFileOptions, parseSnowflakeAccount } from '../snowflakeDriver.js';
 import { isWorkbenchManaged } from '../workbenchCredentials.js';
@@ -991,6 +991,70 @@ suite('Snowflake Reconnecting Client', () => {
 
 		await client.end();
 		assert.strictEqual(connections[0].destroyCount, 1);
+	});
+
+	test('exactNumbers fetches NUMBER as text, converting FLOAT back to numbers (infinity included) and NULL back to null', async () => {
+		// The SDK returns every numeric column as text under fetchAsString: ['Number'], FLOAT included,
+		// and a NULL in one as the string 'NULL'. A text column's NULL is a real null either way.
+		const executed: Array<{ fetchAsString?: string[] }> = [];
+		const conn = {
+			connect: (cb: (err: any, c: any) => void) => cb(undefined, conn),
+			connectAsync: (cb?: (err: any, c: any) => void) => { cb?.(undefined, conn); return Promise.resolve(conn); },
+			execute: (opts: { fetchAsString?: string[]; complete: (err: any, stmt: any, rows: any) => void }) => {
+				executed.push({ fetchAsString: opts.fetchAsString });
+				const stmt = {
+					getColumns: () => [
+						{ getName: () => 'DEC', getType: () => 'fixed' },
+						{ getName: () => 'FLT', getType: () => 'real' },
+						{ getName: () => 'S', getType: () => 'text' },
+					],
+				};
+				// Snowflake spells FLOAT infinity 'inf' and '-inf', which Number() alone reads as NaN.
+				opts.complete(undefined, stmt, [
+					{ DEC: '9007199254740993.01', FLT: '1.500000000000000e+00', S: '7' },
+					{ DEC: 'NULL', FLT: 'NULL', S: null },
+					{ DEC: '0', FLT: 'inf', S: 'inf' },
+					{ DEC: '0', FLT: '-inf', S: '-inf' },
+					{ DEC: '0', FLT: 'NaN', S: 'NaN' },
+				]);
+			},
+			destroy: (cb: (err: any, c: any) => void) => cb(undefined, conn),
+		};
+		// eslint-disable-next-line local/code-no-any-casts
+		const client = new SnowflakeClient(OPTIONS, async () => conn as any);
+		await client.connect();
+
+		const exact = await client.query('SELECT 1', undefined, { exactNumbers: true });
+		await client.query('SELECT 1');
+
+		assert.deepStrictEqual(executed, [{ fetchAsString: ['Number'] }, { fetchAsString: undefined }]);
+		// Text columns are left alone, even when their text looks numeric.
+		assert.deepStrictEqual(exact.rows, [
+			{ DEC: '9007199254740993.01', FLT: 1.5, S: '7' },
+			{ DEC: null, FLT: null, S: null },
+			{ DEC: '0', FLT: Infinity, S: 'inf' },
+			{ DEC: '0', FLT: -Infinity, S: '-inf' },
+			{ DEC: '0', FLT: NaN, S: 'NaN' },
+		]);
+		await client.end();
+	});
+
+	test('the Data Explorer query client asks for exact numbers', async () => {
+		// Every Data Explorer read goes through this client, so it is what turns exact numbers on.
+		const calls: Array<{ sql: string; binds?: unknown[]; options?: SnowflakeQueryOptions }> = [];
+		const queryClient = dataExplorerQueryClient({
+			query: async (sql, binds, options) => {
+				calls.push({ sql, binds, options });
+				return { rows: [{ n: '9007199254740993' }] };
+			},
+		});
+
+		const rows = await queryClient.runQuery('SELECT 1');
+
+		assert.deepStrictEqual({ calls, rows }, {
+			calls: [{ sql: 'SELECT 1', binds: undefined, options: { exactNumbers: true } }],
+			rows: [{ n: '9007199254740993' }],
+		});
 	});
 
 	test('reconnects once and retries when the session is dead', async () => {
