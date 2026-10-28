@@ -39,7 +39,7 @@ import { DataExplorerPreviewEnabled } from '../../../services/positronDataExplor
 /**
  * PositronDataExplorerContribution class.
  */
-class PositronDataExplorerContribution extends Disposable {
+export class PositronDataExplorerContribution extends Disposable {
 	/**
 	 * The identifier.
 	 */

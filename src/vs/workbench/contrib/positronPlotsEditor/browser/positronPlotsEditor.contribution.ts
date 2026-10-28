@@ -17,7 +17,7 @@ import { PositronPlotsEditor } from './positronPlotsEditor.js';
 import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 
-class PositronPlotsEditorContribution extends Disposable {
+export class PositronPlotsEditorContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronPlotsEditor';
 
 	constructor(

@@ -30,7 +30,7 @@ import { POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR } from './positronObjectExplo
 /**
  * PositronObjectExplorerContribution class.
  */
-class PositronObjectExplorerContribution extends Disposable {
+export class PositronObjectExplorerContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronObjectExplorer';
 
 	/**

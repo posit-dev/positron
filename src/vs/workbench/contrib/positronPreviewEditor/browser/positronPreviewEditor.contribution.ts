@@ -18,7 +18,7 @@ import { IEditorResolverService, RegisteredEditorPriority } from '../../../servi
 
 export const POSITRON_EDITOR_PREVIEW = 'application.experimental.positronPreviewEditor';
 
-class PositronPreviewEditorContribution extends Disposable {
+export class PositronPreviewEditorContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronPreviewEditor';
 
 	constructor(

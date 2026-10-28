@@ -21,7 +21,7 @@ import { IEditorResolverService, RegisteredEditorPriority } from '../../../servi
 /**
  * Contribution that registers the Positron Plots Gallery editor.
  */
-class PositronPlotsGalleryEditorContribution extends Disposable {
+export class PositronPlotsGalleryEditorContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronPlotsGalleryEditor';
 
 	constructor(
