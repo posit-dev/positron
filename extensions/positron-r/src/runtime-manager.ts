@@ -259,12 +259,13 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		const registered = (await positron.runtime.getRegisteredRuntimes())
 			.filter(runtime => runtime.languageId === 'r' && !runtime.interpreterDefinition)
 			.map(metadata => {
-				const extra = metadata.extraRuntimeData as RMetadataExtra;
+				// Another extension can register an R runtime without R's extra data.
+				const extra = metadata.extraRuntimeData as RMetadataExtra | undefined;
 				return {
 					metadata,
 					usable: true,
-					current: extra.current === true,
-					arch: extra.arch ?? '',
+					current: extra?.current === true,
+					arch: extra?.arch ?? '',
 					semVersion: semver.coerce(metadata.languageVersion) ?? new semver.SemVer('0.0.0'),
 				};
 			});
