@@ -84,6 +84,8 @@ const flat = (what: unknown) => typeof what === 'string' ? what : Array.isArray(
 const includes = (what: unknown, needle: string) => flat(what).includes(needle) ? undefined : `expected ${JSON.stringify(needle)} in ${JSON.stringify(flat(what).slice(0, 300))}`;
 /** The run's action log, where every action and reading leaves a line. */
 const logged = (needle: string) => { const f = join(root, 'actions.log'); return includes(existsSync(f) ? readFileSync(f, 'utf8').split('\n').slice(-20) : '', needle); };
+/** Whether the app gets a chat model for Posit Assistant (it inherits this environment): Fix and Explain show only then. */
+const chatModel = Boolean(process.env.ANTHROPIC_API_KEY);
 const keys = (j: Json | null, ...ks: string[]) => { const miss = ks.filter(k => !(j && k in j)); return miss.length ? `missing keys: ${miss.join(', ')}` : undefined; };
 
 const cases: Case[] = [
@@ -379,11 +381,12 @@ const cases: Case[] = [
 	// Notebook and Quarto sessions are not consoles: sessions --all lists them.
 	{ name: 'panel sessions --all', run: ['panel.sh', 'sessions', '--all'], check: o => (!o.json!.sessions?.some((x: Json) => x.kind === 'notebook' && x.document === 'notebook.ipynb') && `no notebook session: ${JSON.stringify(o.json!.sessions)}`) || (!o.json!.sessions?.some((x: Json) => x.kind === 'quarto' && x.document === 'report.qmd') && 'no quarto session') || (!o.json!.sessions?.some((x: Json) => x.kind === 'console' && x.id) && 'no console session with its id') },
 	// An error's Fix and Explain open the assistant in the side bar: link takes the button named "Explain" over "More explain options", and a view that opened is a change.
+	// Positron shows them only while Posit Assistant has a chat model, which the app gets from ANTHROPIC_API_KEY: the nightly's smoke step runs without it, its fixer with it. Without one, link finds no Explain.
 	{ name: 'open-file errors.qmd', run: ['open-file.sh', 'errors.qmd'] },
 	{ name: 'qmd run the cell that fails', run: ['qmd.sh', '--file', 'errors.qmd', 'run', '1'], check: o => !o.json!.changed && 'nothing changed' },
 	{ name: 'qmd wait for the error', run: ['qmd.sh', '--file', 'errors.qmd', 'wait', '1', '30'], check: o => includes(o.json!.output?.kinds, 'error') },
 	{ name: 'palette-run Close Primary Side Bar (before Explain)', run: ['palette-run.sh', 'View: Close Primary Side Bar'] },
-	{ name: 'qmd link Explain opens the assistant view', run: ['qmd.sh', '--file', 'errors.qmd', 'link', '1', 'Explain'], check: o => (o.json!.clicked !== 'Explain' && `clicked ${o.json!.clicked}`) || includes(o.json!.views, 'sidebar: hidden -> Posit Assistant') },
+	{ name: 'qmd link Explain opens the assistant view', run: ['qmd.sh', '--file', 'errors.qmd', 'link', '1', 'Explain'], fail: !chatModel, check: o => chatModel ? (o.json!.clicked !== 'Explain' && `clicked ${o.json!.clicked}`) || includes(o.json!.views, 'sidebar: hidden -> Posit Assistant') : includes(o.json!.error, 'no link or button in cell 1\'s output holds "Explain"') || includes(o.json!.links, 'Copy output') },
 	{ name: 'palette-run Show Explorer (after Explain)', run: ['palette-run.sh', 'View: Show Explorer'] },
 
 	// ---- Terminal and panel
