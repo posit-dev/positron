@@ -1038,7 +1038,7 @@ export class StartNewConsoleSessionAction extends Action2 {
 	}
 
 	run(accessor: ServicesAccessor, runtimeId?: string): Promise<IStartNewConsoleSessionResult> {
-		return startNewConsoleSession(accessor, runtimeId, 'user');
+		return startNewConsoleSession(accessor, runtimeId, 'user', true);
 	}
 }
 
@@ -1047,11 +1047,13 @@ export class StartNewConsoleSessionAction extends Action2 {
  * id is supplied. The session takes the foreground.
  * @param runtimeId The runtime to start.
  * @param owner Who the session belongs to.
+ * @param focus Whether to move keyboard focus to the console.
  */
 export async function startNewConsoleSession(
 	accessor: ServicesAccessor,
 	runtimeId: string | undefined,
 	owner: RuntimeSessionOwner,
+	focus: boolean,
 ): Promise<IStartNewConsoleSessionResult> {
 	// Access services.
 	const commandService = accessor.get(ICommandService);
@@ -1089,8 +1091,9 @@ export async function startNewConsoleSession(
 		};
 	}
 
-	// Drive focus into the Positron console.
-	commandService.executeCommand('workbench.panel.positronConsole.focus');
+	if (focus) {
+		commandService.executeCommand('workbench.panel.positronConsole.focus');
+	}
 
 	const startReasonId = owner === 'agent' ? SessionStartReasonId.ExtensionStartedAgentSession :
 		suppliedRuntimeId ? SessionStartReasonId.NewConsoleCommand : SessionStartReasonId.UserSelectedRuntime;
@@ -1356,7 +1359,7 @@ export function registerLanguageRuntimeActions() {
 			const configurationService = accessor.get(IConfigurationService);
 			const agentOwned = configurationService.getValue<boolean>(AI_ENABLED_KEY) === true &&
 				configurationService.getValue<boolean>(AGENT_SESSIONS_ENABLED_KEY) === true;
-			return startNewConsoleSession(accessor, runtimeId, agentOwned ? 'agent' : 'user');
+			return startNewConsoleSession(accessor, runtimeId, agentOwned ? 'agent' : 'user', false);
 		},
 		metadata: {
 			description: localize('positron.languageRuntime.startNewAgentConsoleSession.description', "Start a new console session for a language runtime."),

@@ -1181,11 +1181,13 @@ describe('StartNewConsoleSessionAction', () => {
 		);
 	});
 
-	it('starts a session the agent owns when an agent runs it', async () => {
+	it('starts a session the agent owns without taking focus when an agent runs it', async () => {
 		registerRuntime('py-1', 'Python 3.12 (System)');
 
 		await ctx.instantiationService.invokeFunction(accessor =>
-			startNewConsoleSession(accessor, 'py-1', 'agent'));
+			startNewConsoleSession(accessor, 'py-1', 'agent', false));
+
+		expect(executeCommand).not.toHaveBeenCalled();
 
 		expect(startNewRuntimeSession).toHaveBeenCalledWith(
 			'py-1',

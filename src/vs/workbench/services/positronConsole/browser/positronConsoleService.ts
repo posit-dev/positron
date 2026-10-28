@@ -843,11 +843,15 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		if (sessionId) {
 			// A notebook session has no console unless one has been shown for it; start one in
-			// the background so the code runs somewhere the user can see it.
-			const session = this._runtimeSessionService.getSession(sessionId);
-			if (!this._positronConsoleInstancesBySessionId.has(sessionId) &&
-				session?.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-				this.startPositronConsoleInstance(session, SessionAttachMode.Connected, false);
+			// the background so the code runs somewhere the user can see it. The console attaches
+			// as connected, so the session must be ready.
+			if (!this._positronConsoleInstancesBySessionId.has(sessionId)) {
+				const session = this._runtimeSessionService.getSession(sessionId);
+				const state = session?.getRuntimeState();
+				if (session?.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook &&
+					(state === RuntimeState.Ready || state === RuntimeState.Idle || state === RuntimeState.Busy)) {
+					this.startPositronConsoleInstance(session, SessionAttachMode.Connected, false);
+				}
 			}
 
 			const existingInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
@@ -943,9 +947,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 			// Set the foreground session so that other panes (e.g. Variables)
 			// will show the results of the code we're about to evaluate.
-			if (!preserveActiveTab) {
-				this._runtimeSessionService.foregroundSession = positronConsoleInstance.session;
-			}
+			this._runtimeSessionService.foregroundSession = positronConsoleInstance.session;
 		}
 
 		// Focus the Positron console instance, if we're supposed to.
