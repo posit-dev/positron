@@ -246,3 +246,59 @@ jobs:
           if [ "$JOB_STATUS" = "success" ]; then FINAL=rocket; else FINAL=confused; fi
           gh api --method POST "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions" \
             -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
+
+  # SPIKE (revert before merge): run Vitest, eslint, and precommit inside the Claude sandbox
+  # after the core-deps setup.
+  spike-sandbox:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write
+    env:
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: ./.github/actions/setup-claude-sandbox
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - id: deps
+        uses: ./.github/actions/setup-claude-build-deps
+      - name: Load secret
+        id: load_secrets
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+      - name: Run tools inside the Claude sandbox
+        id: claude
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        with:
+          anthropic_api_key: ${{ steps.load_secrets.outputs.ANTHROPIC_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            Run each of these three commands exactly once, in order, from the repository root.
+            Do not try to fix anything and do not run any other command.
+            1. npx vitest run src/vs/workbench/services/positronDataExplorer/test/common/positronDataExplorerUri.vitest.ts
+            2. npx eslint src/vs/workbench/services/positronDataExplorer/test/common/positronDataExplorerUri.vitest.ts
+            3. npm run precommit -- src/vs/workbench/services/positronDataExplorer/test/common/positronDataExplorerUri.vitest.ts
+            Report each exit code, and for any non-zero exit, the last 15 lines of its output.
+          claude_args: |
+            --model sonnet
+            --max-turns 10
+            --allowedTools "Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*)"
+            --json-schema '{"type":"object","properties":{"vitest_exit":{"type":"integer"},"eslint_exit":{"type":"integer"},"precommit_exit":{"type":"integer"},"failure_output":{"type":"string"}},"required":["vitest_exit","eslint_exit","precommit_exit","failure_output"]}'
+      - name: Print results
+        if: always()
+        env:
+          HIT: ${{ steps.deps.outputs.npm-core-hit }}
+          OUT: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          echo "npm-core hit=$HIT"
+          echo "$OUT" | jq .
