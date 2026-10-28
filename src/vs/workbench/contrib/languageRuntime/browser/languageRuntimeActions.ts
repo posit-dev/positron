@@ -33,6 +33,8 @@ import { URI } from '../../../../base/common/uri.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { createCSSRule } from '../../../../base/browser/domStylesheets.js';
+import { asCSSUrl } from '../../../../base/browser/cssValue.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { PositronConsoleInstancesExistContext, PositronConsoleTabFocused } from '../../../common/contextkeys.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
@@ -568,6 +570,9 @@ const PICKER_FILTER_LANGUAGES: ReadonlyMap<string, string> = new Map([
 	['r', 'positron-picker-filter positron-picker-filter-r'],
 ]);
 
+/** The languages whose filter button has a logo rule in the shared stylesheet. */
+const pickerFilterLogoLanguages = new Set<string>();
+
 /**
  * Creates an IInterpreterGroup array representing the available language runtimes.
  * @param languageRuntimeService The ILanguageRuntimeService.
@@ -725,7 +730,7 @@ class PickerLanguageFilter {
 	/** The language the user filtered to, if any. */
 	private _languageId: string | undefined;
 	/** The languages that have a toggle, in order. */
-	private _languages: { languageId: string; languageName: string }[] = [];
+	private _languages: { languageId: string; languageName: string; icon?: string }[] = [];
 	private readonly _buttonLanguages = new Map<IQuickInputButton, string>();
 
 	/** @param _enabled False when the caller already restricted the picker to one language. */
@@ -746,7 +751,7 @@ class PickerLanguageFilter {
 	update(groups: IInterpreterGroup[]): void {
 		const filterable = this._enabled
 			? groups
-				.map(({ primaryRuntime: { languageId, languageName } }) => ({ languageId, languageName }))
+				.map(({ primaryRuntime: { languageId, languageName, base64EncodedIconSvg } }) => ({ languageId, languageName, icon: base64EncodedIconSvg }))
 				.filter(({ languageId }) => PICKER_FILTER_LANGUAGES.has(languageId))
 			: [];
 		const languages = filterable.length > 1 ? filterable : [];
@@ -780,7 +785,15 @@ class PickerLanguageFilter {
 
 	private render(): void {
 		this._buttonLanguages.clear();
-		this._quickPick.buttons = this._languages.map(({ languageId, languageName }) => {
+		this._quickPick.buttons = this._languages.map(({ languageId, languageName, icon }) => {
+			// Draw the button with the same logo as the language's rows.
+			if (icon && !pickerFilterLogoLanguages.has(languageId)) {
+				createCSSRule(
+					`.monaco-custom-toggle.positron-picker-filter-${languageId}`,
+					`background-image: ${asCSSUrl(URI.parse(`data:image/svg+xml;base64,${icon}`))}`
+				);
+				pickerFilterLogoLanguages.add(languageId);
+			}
 			const button: IQuickInputButton = {
 				iconClass: PICKER_FILTER_LANGUAGES.get(languageId),
 				tooltip: localize('positron.languageRuntime.filterToLanguage', "Show only {0}", languageName),

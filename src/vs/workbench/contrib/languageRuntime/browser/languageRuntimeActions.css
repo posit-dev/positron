@@ -9,37 +9,17 @@
 }
 
 /**
- * Interpreter picker filter buttons draw their language as text in the
- * workbench font, at the same size and weight.
- */
-.monaco-custom-toggle.positron-picker-filter::before {
-	display: block;
-	width: 100%;
-	height: 100%;
-	font-size: 11px;
-	font-weight: 600;
-	line-height: 20px;
-	text-align: center;
-	letter-spacing: -0.2px;
-}
-
-.monaco-custom-toggle.positron-picker-filter-python::before {
-	content: "Py";
-}
-
-.monaco-custom-toggle.positron-picker-filter-r::before {
-	content: "R";
-}
-
-/*
- * Text labels need less room than the 20px icon box, so pack them closer while
- * keeping a 2px gap so one button's border never touches the other.
+ * Interpreter picker filter buttons show their language's logo, a little
+ * smaller than the row logos so the toggle's border has room. The image is set
+ * per language from the runtime's icon (see PickerLanguageFilter).
  */
 .quick-input-widget .monaco-action-bar .monaco-custom-toggle.positron-picker-filter {
-	width: 18px;
-	padding: 0;
+	background-size: 14px;
+	background-repeat: no-repeat;
+	background-position: center;
 }
 
+/* Keep a 2px gap so one button's border never touches the other. */
 .monaco-action-bar .action-item:has(> .positron-picker-filter) + .action-item:has(> .positron-picker-filter) {
 	margin-left: 2px;
 }
