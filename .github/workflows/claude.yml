@@ -302,9 +302,3 @@ jobs:
         run: |
           echo "npm-core hit=$HIT"
           echo "$OUT" | jq .
-      - name: Print tool results
-        if: always()
-        env:
-          EXEC: ${{ steps.claude.outputs.execution_file }}
-        run: |
-          jq -r '.[] | select(.type=="user") | .message.content[]? | select(.type=="tool_result") | "---- is_error=\(.is_error)\n" + ((.content|if type=="array" then map(.text? // "")|join("\n") else tostring end) | split("\n") | .[-25:] | join("\n"))' "$EXEC"
