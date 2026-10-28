@@ -6,7 +6,7 @@
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeMetadata, IRuntimeManager, RuntimeStartupPhase } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../common/runtimeStartupService.js';
+import { IPreferredRuntime, IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, PreferredRuntimeReason, SerializedSessionMetadata } from '../../common/runtimeStartupService.js';
 
 /**
  * Test implementation of IRuntimeStartupService for use in tests.
@@ -50,6 +50,14 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	 */
 	public getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata | undefined {
 		return this._preferredRuntimes.get(languageId);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	public getPreferredRuntimeWithReason(languageId: string): IPreferredRuntime | undefined {
+		const runtime = this._preferredRuntimes.get(languageId);
+		return runtime ? { runtime, reason: PreferredRuntimeReason.Fallback } : undefined;
 	}
 
 	/**

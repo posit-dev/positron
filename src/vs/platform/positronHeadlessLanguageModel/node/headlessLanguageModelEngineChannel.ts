@@ -6,7 +6,7 @@
 import { CancellationTokenSource } from '../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { IServerChannel } from '../../../base/parts/ipc/common/ipc.js';
-import { EngineStreamChunk, ICredentials, IEngineChatRequest, IHeadlessLanguageModelEngine } from '../common/engine.js';
+import { EngineStreamChunk, IEngineChatRequest, IHeadlessLanguageModelEngine } from '../common/engine.js';
 
 /**
  * Exposes a {@link IHeadlessLanguageModelEngine} over an IPC channel. Listing is
@@ -26,9 +26,11 @@ export class HeadlessLanguageModelEngineChannel implements IServerChannel {
 			case 'getProviderMappings':
 				return this.engine.getProviderMappings() as Promise<T>;
 			case 'listModels': {
-				const [providerId, credentials] = arg as [string, ICredentials];
-				return this.engine.listModels(providerId, credentials) as Promise<T>;
+				const [providerId, sessionToken] = arg as [string, string | undefined];
+				return this.engine.listModels(providerId, sessionToken) as Promise<T>;
 			}
+			case 'getProviderModuleSource':
+				return this.engine.getProviderModuleSource() as Promise<T>;
 		}
 		throw new Error(`[headless-lm] Unknown channel call: ${command}`);
 	}

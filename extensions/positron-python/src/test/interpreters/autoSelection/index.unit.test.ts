@@ -224,6 +224,57 @@ suite('Interpreters - Auto Selection', () => {
             verify(state.updateValue(systemEnv)).once();
         });
 
+        // --- Start Positron ---
+        test("Store Positron's recommended interpreter", async () => {
+            const recommendedEnv = {
+                envType: EnvironmentType.Venv,
+                path: path.join(workspacePath, '.venv', 'bin', 'python'),
+                envPath: path.join(workspacePath, '.venv'),
+                version: { major: 3, minor: 12, patch: 0 },
+            } as PythonEnvironment;
+
+            await autoSelectionService.setPositronRecommendedInterpreter(resource, recommendedEnv);
+
+            expect(eventFired).to.deep.equal(true, 'event not fired');
+            verify(state.updateValue(recommendedEnv)).once();
+        });
+
+        test("Don't store Positron's recommended interpreter again when it is already auto-selected", async () => {
+            const recommendedEnv = {
+                envType: EnvironmentType.Venv,
+                path: path.join(workspacePath, '.venv', 'bin', 'python'),
+                version: { major: 3, minor: 12, patch: 0 },
+            } as PythonEnvironment;
+            when(state.value).thenReturn(recommendedEnv);
+
+            await autoSelectionService.setPositronRecommendedInterpreter(resource, { ...recommendedEnv });
+
+            expect(eventFired).to.deep.equal(false, 'event fired');
+            verify(state.updateValue(anything())).never();
+        });
+
+        test("Auto-selection does not replace Positron's recommended interpreter", async () => {
+            const recommendedEnv = {
+                envType: EnvironmentType.Venv,
+                path: path.join(workspacePath, '.venv', 'bin', 'python'),
+                envPath: path.join(workspacePath, '.venv'),
+                version: { major: 3, minor: 12, patch: 0 },
+            } as PythonEnvironment;
+            const upstreamEnv = {
+                envType: EnvironmentType.System,
+                envPath: path.join('/', 'usr', 'bin'),
+                version: { major: 3, minor: 13, patch: 0 },
+            } as PythonEnvironment;
+            when(interpreterService.getInterpreters(resource)).thenReturn([upstreamEnv]);
+            await autoSelectionService.setPositronRecommendedInterpreter(resource, recommendedEnv);
+
+            await autoSelectionService.autoSelectInterpreter(resource);
+
+            verify(state.updateValue(recommendedEnv)).once();
+            verify(state.updateValue(upstreamEnv)).never();
+        });
+        // --- End Positron ---
+
         test('getInterpreters is called with ignoreCache at true if there is no value set in the workspace persistent state', async () => {
             const interpreterComparer = new EnvironmentTypeComparer(instance(helper));
 

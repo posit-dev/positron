@@ -6,13 +6,15 @@
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 
+import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
-import { createPythonRuntimeMetadata } from './runtime';
+import { createPythonRuntimeMetadata, pickerFolderUri } from './runtime';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { shouldIncludeInterpreter } from './interpreterSettings';
+import { buildRankingContext, RankingContext } from './interpreterRanking';
 
 /**
  * Provides Python language runtime metadata to Positron; called during the
@@ -45,6 +47,20 @@ export async function* pythonRuntimeDiscoverer(
         const interpreters = filterInterpreters(interpreterService.getInterpreters());
         traceInfo(`pythonRuntimeDiscoverer: ${interpreters.length} Python interpreters after filtering`);
 
+        // Built once per workspace folder here rather than per runtime in createPythonRuntimeMetadata.
+        const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+        const pickerContexts = new Map<string, Promise<RankingContext>>();
+        const pickerContextOf = (interpreter: PythonEnvironment) => {
+            const folderUri = pickerFolderUri(workspaceService, interpreter);
+            const key = folderUri?.toString() ?? '';
+            let context = pickerContexts.get(key);
+            if (!context) {
+                context = buildRankingContext(serviceContainer, folderUri);
+                pickerContexts.set(key, context);
+            }
+            return context;
+        };
+
         for (const interpreter of interpreters) {
             try {
                 // Skip conda environments without Python - they'll be handled by PickerContribution
@@ -55,7 +71,9 @@ export async function* pythonRuntimeDiscoverer(
                     continue;
                 }
                 // Not the recommendation, so the default `Explicit`.
-                const runtime = await createPythonRuntimeMetadata(interpreter, serviceContainer);
+                const runtime = await createPythonRuntimeMetadata(interpreter, serviceContainer, undefined, {
+                    pickerContext: await pickerContextOf(interpreter),
+                });
                 traceInfo(
                     `pythonRuntimeDiscoverer: registering runtime for interpreter ${interpreter.path} with id ${runtime.runtimeId}`,
                 );

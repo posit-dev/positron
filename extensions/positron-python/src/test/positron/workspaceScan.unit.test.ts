@@ -60,8 +60,20 @@ suite('workspaceScan', () => {
             nestedEnvDirs: [],
             hasPythonSignals: false,
             pythonVersion: undefined,
+            isEmpty: true,
         };
         assert.deepEqual([await scanWorkspace(root), await scanWorkspace(path.join(root, 'missing'))], [empty, empty]);
+    });
+
+    test('counts a folder with only dot entries as empty, and one with any other entry as not', async () => {
+        fs.mkdirSync(path.join(root, '.git'));
+        fs.writeFileSync(path.join(root, '.DS_Store'), '');
+        const dotOnly = (await scanWorkspace(root)).isEmpty;
+
+        fs.writeFileSync(path.join(root, 'app.R'), '');
+        const withFile = (await scanWorkspace(root, true)).isEmpty;
+
+        assert.deepEqual([dotOnly, withFile], [true, false]);
     });
 
     test('picks the root env by priority, skipping broken and excluded ones', async () => {

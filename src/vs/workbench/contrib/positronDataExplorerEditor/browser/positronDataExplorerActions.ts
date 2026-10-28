@@ -344,6 +344,7 @@ class PositronDataExplorerCollapseSummaryAction extends Action2 {
 			metadata: {
 				description: localize('positron.dataExplorer.collapseSummary.description', "Collapse the column summary panel in the active Data Explorer."),
 				agentCompatible: true,
+				readOnly: true,
 			},
 		});
 	}
@@ -426,6 +427,7 @@ class PositronDataExplorerExpandSummaryAction extends Action2 {
 			metadata: {
 				description: localize('positron.dataExplorer.expandSummary.description', "Expand the column summary panel in the active Data Explorer."),
 				agentCompatible: true,
+				readOnly: true,
 			},
 		});
 	}

@@ -443,6 +443,21 @@ describe('ExtHostLanguageRuntime', () => {
 		runtime = new ExtHostLanguageRuntime(rpc, new NullLogService());
 	});
 
+	describe('$getRuntimePickerItems', () => {
+		it('passes suggested through to the main thread item', async () => {
+			proxy.$registerRuntimePickerContribution = vi.fn();
+			runtime.registerRuntimePickerContribution({
+				languageId: 'python',
+				getItems: async () => [{ id: 'setup', label: 'Setup', suggested: true }],
+				onDidSelectItem: async () => undefined,
+			});
+
+			const items = await runtime.$getRuntimePickerItems(0);
+
+			expect(items).toEqual([{ id: 'setup', label: 'Setup', suggested: true }]);
+		});
+	});
+
 	describe('$disposeLanguageRuntime', () => {
 		it('disposes the four session listeners wired by attachToSession', async () => {
 			const { session, handle } = await createAttachedSession(runtime);

@@ -553,7 +553,7 @@ async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: n
  *
  * These emit dist/ via tsc, and Positron imports them at COMPILE time (the
  * authentication extension imports `ai-config/node`; core imports
- * `ai-provider-bridge/credential-shaping`), resolved by each package's exports
+ * `ai-provider-bridge/headless`), resolved by each package's exports
  * map to dist/. The build used to be a side effect of the authentication
  * extension's own postinstall, but npm skips that postinstall whenever the
  * extension's node_modules is restored from cache -- so on cache-hit runs (the
@@ -742,7 +742,7 @@ async function main() {
 	// extension host (plain Node, a different ABI than the desktop Electron host).
 	await buildSqliteServerBinding();
 	// Build the ai-lib packages' dist/ (imported by Positron at compile time, and
-	// by the esm package bundling below via ai-provider-bridge/credential-shaping).
+	// by the esm package bundling below via ai-credentials/types).
 	// Kept here rather than in the authentication postinstall, which npm skips
 	// whenever that extension is restored from cache. Deps just changed, so force a
 	// rebuild rather than trusting a possibly-stale dist/.

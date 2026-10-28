@@ -67,6 +67,8 @@ import { getConfiguration, getWorkspaceFolders } from '../../common/vscodeApis/w
 import { InterpreterQuickPickList, Interpreters } from '../../common/utils/localize';
 import { showPositronErrorMessageWithLogs } from './common/commonUtils';
 import { isNewEnvironment } from './reusedEnvironment';
+import { scanWorkspace } from '../../positron/workspaceScan';
+import { isProjectEnvironment } from '../../positron/pickerInfo';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -250,6 +252,28 @@ async function createGlobalEnvironmentFromCommand(uvPythonVersion?: string): Pro
 }
 
 // Changed this function to be async
+/**
+ * Which setup items the interpreter picker suggests: only in an empty or Python
+ * folder with no project environment. An empty window has no folder to set up,
+ * and an R project isn't asking for Python. Installing Python also needs a
+ * Python folder; an empty one isn't asking for it yet.
+ */
+async function setupSuggestions(
+    pythonRuntimes: positron.LanguageRuntimeMetadata[],
+): Promise<{ create: boolean; install: boolean }> {
+    // Read the folder again: files added since startup change what to suggest.
+    const scans = await Promise.all(
+        (getWorkspaceFolders() ?? []).map((folder) => scanWorkspace(folder.uri.fsPath, true)),
+    );
+    // The scan also counts envs on disk that discovery hasn't registered yet.
+    const noProjectEnv =
+        !pythonRuntimes.some(isProjectEnvironment) && scans.every((scan) => scan.rootProjectEnvs.length === 0);
+    return {
+        create: noProjectEnv && scans.some((scan) => scan.isEmpty || scan.hasPythonSignals),
+        install: noProjectEnv && scans.some((scan) => scan.hasPythonSignals),
+    };
+}
+
 export async function registerCreateEnvironmentFeatures(
     // --- End Positron ---
     disposables: IDisposableRegistry,
@@ -447,6 +471,9 @@ export async function registerCreateEnvironmentFeatures(
                 const alwaysShow =
                     getConfiguration('python').get<boolean>('INTERNAL_alwaysShowUvInstallOption') ?? false;
 
+                const hasWorkspaceFolder = (getWorkspaceFolders() ?? []).length > 0;
+                const suggest = await setupSuggestions(pythonRuntimes);
+
                 const items: positron.runtime.RuntimePickerItem[] = [];
 
                 // Show the install option if:
@@ -457,7 +484,9 @@ export async function registerCreateEnvironmentFeatures(
                     items.push({
                         id: 'install-python-uv',
                         label: '$(add) Install Python via uv',
+                        detail: InterpreterQuickPickList.installPythonViaUvDetail,
                         separatorLabel: 'Install Python',
+                        suggested: suggest.install,
                     });
                 }
 
@@ -467,7 +496,11 @@ export async function registerCreateEnvironmentFeatures(
                     items.push({
                         id: 'create-python-env',
                         label: '$(add) Create Python Environment',
+                        detail: hasWorkspaceFolder
+                            ? InterpreterQuickPickList.createEnvironmentDetail
+                            : InterpreterQuickPickList.createEnvironmentDetailNoFolder,
                         separatorLabel: 'Create Environment',
+                        suggested: suggest.create,
                     });
                 }
 

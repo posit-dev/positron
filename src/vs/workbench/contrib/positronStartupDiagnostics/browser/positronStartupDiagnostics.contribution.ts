@@ -66,6 +66,7 @@ registerAction2(class extends Action2 {
 			metadata: {
 				description: localize('positron.startupDiagnostics.show.description', "Open the runtime startup diagnostics editor to inspect interpreter discovery output."),
 				agentCompatible: true,
+				readOnly: true,
 			},
 		});
 	}

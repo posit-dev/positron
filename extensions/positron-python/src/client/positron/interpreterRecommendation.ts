@@ -30,6 +30,7 @@ import { normCasePath, pathExists } from '../pythonEnvironments/common/externalD
 import { EnvironmentType, PythonEnvironment, virtualEnvTypes } from '../pythonEnvironments/info';
 import {
     buildRankingContext,
+    isPyenvVirtualenv,
     RankingContext,
     rankInterpreters,
     isWorkspaceEnv,
@@ -231,6 +232,53 @@ interface Recommendation {
     metadata: positron.LanguageRuntimeMetadata;
 }
 
+/**
+ * Why an interpreter is recommended, shown next to it in the interpreter picker.
+ * Tiers below the Positron default env win only when the folder has no project env.
+ */
+export function recommendationReason(interpreter: PythonEnvironment, tier: Tier, context: RankingContext): string {
+    switch (tier) {
+        case Tier.ActivatedEnv:
+            return vscode.l10n.t('active in your shell');
+        case Tier.DefaultInterpreterPath:
+            return vscode.l10n.t('set as your default interpreter');
+        case Tier.ProjectEnv:
+            return isPyenvVirtualenv(interpreter) && !isWorkspaceEnv(interpreter, context)
+                ? vscode.l10n.t('named in .python-version')
+                : vscode.l10n.t('project environment');
+        case Tier.PythonVersionFile:
+            return vscode.l10n.t('named in .python-version');
+        case Tier.WorkspaceEnv:
+            return vscode.l10n.t('found in this folder');
+        case Tier.Configured:
+            return vscode.l10n.t('from your interpreter settings');
+        case Tier.PositronDefaultEnv:
+            return vscode.l10n.t('Positron default environment');
+        default:
+            // Only a Python folder is missing a project env; for any other folder
+            // (e.g. an R project) that would read as something to fix.
+            return context.workspacePath && context.hasPythonSignals
+                ? vscode.l10n.t('no project environment found')
+                : vscode.l10n.t('best available Python');
+    }
+}
+
+/** Adds the recommendation reason to a recommended runtime's picker info. */
+function withRecommendationReason(
+    metadata: positron.LanguageRuntimeMetadata,
+    interpreter: PythonEnvironment,
+    tier: Tier,
+    context: RankingContext,
+): positron.LanguageRuntimeMetadata {
+    if (!metadata.picker) {
+        return metadata;
+    }
+    return {
+        ...metadata,
+        picker: { ...metadata.picker, recommendationReason: recommendationReason(interpreter, tier, context) },
+    };
+}
+
 /** The first ranked interpreter that isn't skipped, or undefined. */
 async function firstEligible(
     serviceContainer: IServiceContainer,
@@ -258,12 +306,14 @@ async function firstEligible(
         }
         const startupBehavior = startupBehaviorFor(tier, context);
         try {
+            // No pickerContext: `context` is this folder's, but the picker groups an
+            // interpreter by the folder holding it, as discovery does.
             const metadata = await createPythonRuntimeMetadata(interpreter, serviceContainer, startupBehavior, {
                 skipModuleWait: !canBeModulePython(tier),
                 ...(eligibility.ipykernelBundle && { ipykernelBundle: eligibility.ipykernelBundle }),
             });
             traceInfo(`Interpreter ranking: recommended ${interpreter.path} (${Tier[tier]}, ${startupBehavior})`);
-            return { interpreter, tier, metadata };
+            return { interpreter, tier, metadata: withRecommendationReason(metadata, interpreter, tier, context) };
         } catch (err) {
             traceError(`Interpreter ranking: could not create the runtime for ${interpreter.path}: ${err}`);
         }
@@ -329,7 +379,7 @@ async function fromRememberedAnswer(
         `Interpreter ranking: recommended ${interpreter.path} (${Tier[remembered.tier]}, ${startupBehavior}), ` +
             'remembered from the last answer after discovery',
     );
-    return metadata;
+    return withRecommendationReason(metadata, interpreter, remembered.tier, context);
 }
 
 function dedupeByPath(interpreters: PythonEnvironment[]): PythonEnvironment[] {

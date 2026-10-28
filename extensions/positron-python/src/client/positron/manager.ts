@@ -38,6 +38,7 @@ import {
 } from './interpreterSettings';
 import { resolveInterpreterOnce, resolveInterpreterWithRetry } from './util';
 import { canBeModuleEnv, recommendWorkspaceRuntime } from './interpreterRecommendation';
+import { IInterpreterAutoSelectionService } from '../interpreter/autoSelection/types';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import {
     pendingModuleRuntimeRegistrations,
@@ -395,12 +396,17 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // TODO: may need other handling for multiroot workspaces
         const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
         try {
-            return await recommendWorkspaceRuntime(
+            const runtime = await recommendWorkspaceRuntime(
                 this.serviceContainer,
                 this.interpreterService,
                 workspaceUri,
                 !!afterDiscovery,
             );
+            if (runtime && workspaceUri) {
+                // Auto-select the recommendation, so the active interpreter used when nothing was chosen matches it.
+                this.autoSelectRecommendation(workspaceUri, runtime.runtimePath).ignoreErrors();
+            }
+            return runtime;
         } catch (err) {
             traceError(`Failed to recommend a Python runtime for the workspace: ${err}`);
             return undefined;
@@ -449,6 +455,20 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             positron.LanguageRuntimeStartupBehavior.Implicit,
             { skipModuleWait: !canBeModuleEnv(interpreter.envType) },
         );
+    }
+
+    /**
+     * Auto-selects the recommended interpreter for the workspace. This only stores the interpreter;
+     * it does not start a session.
+     */
+    private async autoSelectRecommendation(workspaceUri: vscode.Uri, pythonPath: string): Promise<void> {
+        const interpreter = await this.interpreterService.getInterpreterDetails(pythonPath);
+        if (interpreter) {
+            const autoSelection = this.serviceContainer.get<IInterpreterAutoSelectionService>(
+                IInterpreterAutoSelectionService,
+            );
+            await autoSelection.setPositronRecommendedInterpreter(workspaceUri, interpreter);
+        }
     }
 
     /**

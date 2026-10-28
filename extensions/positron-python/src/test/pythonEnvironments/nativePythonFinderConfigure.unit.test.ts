@@ -124,6 +124,7 @@ suite('Native Python Finder - configuration failures must not hang discovery', (
             nestedEnvDirs: [nested],
             hasPythonSignals: false,
             pythonVersion: undefined,
+            isEmpty: false,
         });
 
         const finder = createNativePythonFinder();
