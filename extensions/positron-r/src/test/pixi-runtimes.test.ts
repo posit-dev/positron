@@ -119,11 +119,17 @@ suite('Pixi R runtimes', () => {
 		// Both searches register the same runtime ID, and the first one
 		// registered is kept.
 		const fromFullDiscovery = new RInstallation(binpath, true, [ReasonDiscovered.PATH, ReasonDiscovered.PIXI], pixiMetadata);
+		// The Pixi reason alone also marks a Pixi R, as for the discovery cache.
+		const pixiReasonOnly = new RInstallation(binpath, true, [ReasonDiscovered.PATH, ReasonDiscovered.PIXI]);
 		const notPixi = new RInstallation(binpath, true, [ReasonDiscovered.PATH]);
 
 		assert.deepStrictEqual(
-			[discoveredStartupBehavior(fromFullDiscovery), discoveredStartupBehavior(notPixi)],
-			[positron.LanguageRuntimeStartupBehavior.Implicit, positron.LanguageRuntimeStartupBehavior.Explicit],
+			[fromFullDiscovery, pixiReasonOnly, notPixi].map(discoveredStartupBehavior),
+			[
+				positron.LanguageRuntimeStartupBehavior.Implicit,
+				positron.LanguageRuntimeStartupBehavior.Implicit,
+				positron.LanguageRuntimeStartupBehavior.Explicit,
+			],
 		);
 	});
 

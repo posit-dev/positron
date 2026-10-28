@@ -759,10 +759,14 @@ export function classifyRRuntimeSource(
  * only when picked: the discovery cache shares their records with every
  * folder, so whether R starts in this folder, and which R, is decided by R's
  * recommendation instead (see chooseStartupR). A Pixi R is never cached and
- * belongs to the project, so it starts when an R file opens, as before.
+ * belongs to the project, so it starts when an R file opens, as before. As
+ * for the cache (see isRRuntimeCacheable), either Pixi metadata or the Pixi
+ * reason marks a Pixi R.
  */
 export function discoveredStartupBehavior(rInst: RInstallation): positron.LanguageRuntimeStartupBehavior {
-	return rInst.packagerMetadata !== undefined && isPixiMetadata(rInst.packagerMetadata) ?
+	const isPixi = (rInst.packagerMetadata !== undefined && isPixiMetadata(rInst.packagerMetadata)) ||
+		rInst.reasonDiscovered?.includes(ReasonDiscovered.PIXI) === true;
+	return isPixi ?
 		positron.LanguageRuntimeStartupBehavior.Implicit :
 		positron.LanguageRuntimeStartupBehavior.Explicit;
 }

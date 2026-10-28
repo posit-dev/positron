@@ -2185,7 +2185,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *
 	 * A language whose own discovery finished before the others was already
 	 * asked then (see `recommendAfterLanguageDiscovery`); it is not asked
-	 * again.
+	 * again, and only an `Immediate` answer is acted on now. A file of the
+	 * language that opened before it was asked starts what opening it now
+	 * would start, also if asking failed.
 	 */
 	private async recommendAfterDiscovery(): Promise<void> {
 		// Languages in runtime registration order, so a runtime recommended at
@@ -2196,12 +2198,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// recommend doesn't hold up the others or their Always start.
 		const recommendLanguage = async (languageId: string) => {
 			// A language asked early may have started its recommendation
-			// already; let that finish first.
-			await this._earlyRecommendationsAfterDiscovery.get(languageId);
-			for (const runtime of await this.askAfterDiscovery(languageId)) {
-				await this.startRecommendationAfterDiscovery(runtime, true);
+			// already; let that finish first. It acted on every answer then,
+			// except an Immediate one, which waited for now.
+			const early = this._earlyRecommendationsAfterDiscovery.get(languageId);
+			await early;
+			try {
+				for (const runtime of await this.askAfterDiscovery(languageId)) {
+					if (early && runtime.startupBehavior !== LanguageRuntimeStartupBehavior.Immediate) {
+						continue;
+					}
+					await this.startRecommendationAfterDiscovery(runtime, true);
+				}
+			} finally {
+				this.startForFileOpenedBeforeAsked(languageId);
 			}
-			this.startForFileOpenedBeforeAsked(languageId);
 		};
 		const recommendations = new Map(languageIds.map(languageId => [languageId,
 			recommendLanguage(languageId).catch(err =>
@@ -2375,10 +2385,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 		this._languagesDiscovered.add(languageId);
 		this._earlyRecommendationsAfterDiscovery.set(languageId, (async () => {
-			for (const runtime of await this.askAfterDiscovery(languageId)) {
-				await this.startRecommendationAfterDiscovery(runtime, false);
+			try {
+				for (const runtime of await this.askAfterDiscovery(languageId)) {
+					await this.startRecommendationAfterDiscovery(runtime, false);
+				}
+			} finally {
+				// Like an Immediate answer, a file opened earlier then waits for
+				// every language, or it would start that answer now.
+				if (this._recommendedRuntimesByLanguageId.get(languageId)?.startupBehavior !== LanguageRuntimeStartupBehavior.Immediate) {
+					this.startForFileOpenedBeforeAsked(languageId);
+				}
 			}
-			this.startForFileOpenedBeforeAsked(languageId);
 		})().catch(err =>
 			this._logService.error(`[Runtime startup] Error recommending a runtime for '${languageId}' after its discovery: ${err}`)));
 	}
