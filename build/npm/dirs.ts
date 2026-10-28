@@ -152,9 +152,10 @@ export const volatileExtensions = [
 	'extensions/positron-r'
 ];
 
-// Usage: Set POSITRON_EXTENSIONS_FILTER=volatile|stable to install subset
+// Usage: Set POSITRON_EXTENSIONS_FILTER=volatile|stable|core to install subset
 //   - volatile: Install only frequently-changed extensions (python, assistant, r)
 //   - stable: Install all other extensions
+//   - core: Install only the root and build/ (used by the @claude workflow)
 //   - unset/empty: Install all extensions (default behavior)
 const POSITRON_EXTENSIONS_FILTER = process.env.POSITRON_EXTENSIONS_FILTER;
 
@@ -195,6 +196,9 @@ if (POSITRON_EXTENSIONS_FILTER) {
 		const stableExtensions = allExtensions.filter(d => !volatileExtensions.includes(d));
 		const baseDirs = dirs.filter(d => !d.startsWith('extensions/') || d === 'extensions');
 		dirs = [...baseDirs, ...stableExtensions];
+	} else if (POSITRON_EXTENSIONS_FILTER === 'core') {
+		console.log('Installing core dependencies only (root and build/)');
+		dirs = dirs.filter(d => d === '' || d === 'build' || d.startsWith('build/'));
 	}
 }
 // --- End Positron ---
