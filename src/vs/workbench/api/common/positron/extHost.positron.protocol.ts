@@ -394,7 +394,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	/**
 	 * The code behind the connection comm a runtime session opened most recently -- for a ggsql
 	 * session, the `-- @connect: <uri>` line for the database it is on. Resolves to `undefined`
-	 * when none has been seen. Rejects when the Data Connections feature or SQL support is off.
+	 * when none has been seen. Rejects when the Data Connections feature is off.
 	 */
 	$getSessionConnectionCode(sessionId: string): Promise<string | undefined>;
 }

@@ -103,7 +103,7 @@ describe('MainThreadDataConnections', () => {
 		onDidChangeProfiles = disposables.add(new Emitter<IDataConnectionProfile[]>());
 		onDidChangeSessionConnectionCode = disposables.add(new Emitter<ISessionConnectionCodeChangeEvent>());
 		sessionConnectionCode = new Map();
-		configurationService = new TestConfigurationService({ dataConnections: { enabled: true }, sql: { enabled: true } });
+		configurationService = new TestConfigurationService({ dataConnections: { enabled: true } });
 		$onDidChangeDataConnections.mockClear();
 		$onDidChangeSessionConnectionCode.mockClear();
 		connect.mockReset();
@@ -544,19 +544,18 @@ describe('MainThreadDataConnections', () => {
 			expect(await mainThread.$getSessionConnectionCode('s1')).toBe(code);
 		});
 
-		it('rejects while SQL support is off, read at the time of the call', async () => {
+		it('rejects while Data Connections is off', async () => {
 			sessionConnectionCode.set('s1', code);
-			configurationService.setUserConfiguration('sql', { enabled: false });
+			configurationService.setUserConfiguration('dataConnections', { enabled: false });
 
-			await expect(mainThread.$getSessionConnectionCode('s1')).rejects.toThrow('"sql.enabled" setting is disabled');
+			await expect(mainThread.$getSessionConnectionCode('s1')).rejects.toThrow();
 		});
 
-		it('passes changes on only while SQL support is on', () => {
+		it('passes changes on to the extension host', () => {
 			onDidChangeSessionConnectionCode.fire({ sessionId: 's1', code });
-			configurationService.setUserConfiguration('sql', { enabled: false });
 			onDidChangeSessionConnectionCode.fire({ sessionId: 's1', code: undefined });
 
-			expect($onDidChangeSessionConnectionCode.mock.calls).toEqual([['s1', code]]);
+			expect($onDidChangeSessionConnectionCode.mock.calls).toEqual([['s1', code], ['s1', undefined]]);
 		});
 	});
 });

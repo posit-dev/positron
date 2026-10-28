@@ -4282,14 +4282,14 @@ declare module 'positron' {
 		 * @returns The code, or `undefined` when it is unknown: the session has reported no
 		 *   connection since it started or restarted, it has exited, or it was reconnected after a
 		 *   window reload (its report went to the previous window). Rejects when the
-		 *   `dataConnections.enabled` or `sql.enabled` setting is off.
+		 *   `dataConnections.enabled` setting is off.
 		 */
 		export function getSessionConnectionCode(sessionId: string): Thenable<string | undefined>;
 
 		/**
 		 * Fires when a session's connection code changes; see {@link getSessionConnectionCode}.
-		 * Including to `undefined`, when the session exits. Does not fire while the `sql.enabled`
-		 * setting is off.
+		 * Including to `undefined`, when the session exits. Does not fire while the
+		 * `dataConnections.enabled` setting is off.
 		 */
 		export const onDidChangeSessionConnectionCode: vscode.Event<SessionConnectionCodeChangeEvent>;
 	}

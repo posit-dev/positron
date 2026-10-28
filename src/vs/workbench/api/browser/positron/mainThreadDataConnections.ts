@@ -17,12 +17,6 @@ import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDat
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**
- * The setting that turns on SQL support. It belongs to the positron-sql extension; the session
- * connection code is read here only on its behalf, so it is unavailable while the setting is off.
- */
-const SQL_ENABLED_KEY = 'sql.enabled';
-
-/**
  * Narrows a wire-format IDataConnectionParameterDTO to the service-level
  * IDataConnectionParameter discriminated union, picking up only the fields each variant carries.
  */
@@ -147,12 +141,10 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		this._disposableStore.add(this._dataConnectionsService.onDidChangeInstances(notify));
 		this._disposableStore.add(this._dataConnectionsService.onDidChangeProfiles(notify));
 
-		// Only while SQL support is on, read at the time of each change: nothing else asks.
-		this._disposableStore.add(this._connectionsService.onDidChangeSessionConnectionCode(e => {
-			if (this._configurationService.getValue<boolean>(SQL_ENABLED_KEY) === true) {
-				this._proxy.$onDidChangeSessionConnectionCode(e.sessionId, e.code);
-			}
-		}));
+		// The service records these only while Data Connections is on, so there is nothing to
+		// gate here.
+		this._disposableStore.add(this._connectionsService.onDidChangeSessionConnectionCode(e =>
+			this._proxy.$onDidChangeSessionConnectionCode(e.sessionId, e.code)));
 	}
 
 	/**
@@ -225,9 +217,6 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 */
 	async $getSessionConnectionCode(sessionId: string): Promise<string | undefined> {
 		this._throwIfDisabled();
-		if (this._configurationService.getValue<boolean>(SQL_ENABLED_KEY) !== true) {
-			throw new Error(`Session connections are unavailable because the "${SQL_ENABLED_KEY}" setting is disabled.`);
-		}
 		return this._connectionsService.getSessionConnectionCode(sessionId);
 	}
 
