@@ -3351,7 +3351,14 @@ describe('RuntimeStartupService - startup sequence', () => {
 						startupBehavior: { default: LanguageStartupBehavior.Auto },
 						runtimeStarts: runtimeStarts.event,
 					});
-					runtimeStarts.fire(stubInterface<ILanguageRuntimeSession>({ runtimeMetadata: manualPython }));
+					runtimeStarts.fire(ctx.disposables.add(new TestLanguageRuntimeSession({
+						sessionId: 'reticulate-session',
+						sessionMode: LanguageRuntimeSessionMode.Console,
+						notebookUri: undefined,
+						createdTimestamp: 0,
+						startReason: 'test',
+						owner: 'user',
+					}, manualPython)));
 					ctx.get(ILanguageService).requestRichLanguageFeatures('python');
 
 					expect(started).toEqual([{ runtimeId: oldR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
@@ -3371,6 +3378,27 @@ describe('RuntimeStartupService - startup sequence', () => {
 
 					expect(started).toEqual([{ runtimeId: oldR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }]);
 				});
+			});
+
+			it('starts the recommended pinned R for an R file that opened before any R was registered', async () => {
+				// The R file opens before R's recommendation registers, so the
+				// runtime session service finds no R to start then. The
+				// recommendation starts when it is picked, not on registration.
+				const { started } = await runStartupSequence({
+					languages: [{ ...rLanguage, discovered: [oldR].map(startsWhenPicked) }],
+					startupBehavior: { default: LanguageStartupBehavior.Auto },
+					manager: {
+						recommendWorkspaceRuntimes: async (_disabledLanguageIds, afterDiscovery) => {
+							if (afterDiscovery) {
+								return [];
+							}
+							ctx.get(ILanguageService).requestRichLanguageFeatures('r');
+							return [{ metadata: pinnedR, isProjectDefault: false }];
+						},
+					},
+				});
+
+				expect(started).toEqual([{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.LanguageFileOpened }]);
 			});
 
 			it('starts the recommended pinned R when an R file opens during Discover All Interpreters', async () => {

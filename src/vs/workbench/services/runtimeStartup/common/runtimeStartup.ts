@@ -2015,11 +2015,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * of a runtime it sees, so a recommendation made after discovery stays
 	 * registered as Explicit. Leave it to that service when it has an Implicit
 	 * runtime to start.
+	 *
+	 * @param options.afterOpen The file opened earlier, so that service
+	 *  already ran its start for the file, and nothing is left to it.
 	 */
-	private startForOpenFile(languageId: string): void {
+	private startForOpenFile(languageId: string, options?: { afterOpen?: boolean }): void {
 		if (this._runtimeSessionService.hasStartingOrRunningConsole(languageId) ||
 			this._runtimeSessionService.implicitStartupSuppressed ||
-			this._languageRuntimeService.registeredRuntimes.some(metadata =>
+			!options?.afterOpen && this._languageRuntimeService.registeredRuntimes.some(metadata =>
 				metadata.languageId === languageId &&
 				metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit)) {
 			return;
@@ -2039,7 +2042,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private startForFileOpenedBeforeAsked(languageId: string): void {
 		if (this._languagesOpenedBeforeAsked.delete(languageId)) {
-			this.startForOpenFile(languageId);
+			this.startForOpenFile(languageId, { afterOpen: true });
 		}
 	}
 
