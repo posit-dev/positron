@@ -1932,6 +1932,22 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			});
 		});
 
+		it('prefers the new recommendation after a start that was requested before it', async () => {
+			const { svc, recent } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
+
+			// e.g. the old recommendation was starting as the new env appeared.
+			const now = vi.spyOn(Date, 'now').mockReturnValue(0);
+			const late = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
+			now.mockRestore();
+			await vi.waitFor(() => expect(late.getRuntimeState()).toBe(RuntimeState.Ready));
+			late.setRuntimeState(RuntimeState.Exited);
+
+			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
+				runtime: { runtimeId: 'rt-new' },
+				reason: PreferredRuntimeReason.Recommended,
+			});
+		});
+
 		it('prefers the recent runtime again when the recommendation moves outside the workspace folder', async () => {
 			const { svc, recent, recommend } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
 

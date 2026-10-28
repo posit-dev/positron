@@ -205,9 +205,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// (metadata.languageId) of the runtime.
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
-	// Languages recommended a new env in the workspace folder since their last
-	// start, which beats the runtime started recently once its console stops.
-	private readonly _newFolderEnvLanguageIds = new Set<string>();
+	// When each language was recommended a new env in the workspace folder,
+	// which beats the runtime started recently once its console stops, until
+	// a session requested after that starts.
+	private readonly _newFolderEnvTimes = new Map<string, number>();
 
 	// The runtime each language's extension recommended for this workspace,
 	// from the ask at startup or the ask after discovery. Keyed by languageId.
@@ -362,7 +363,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// runtimes for each language.
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
 
-			this._newFolderEnvLanguageIds.delete(session.runtimeMetadata.languageId);
+			// A start requested before the new env was recommended (e.g. by the
+			// old recommendation) is not a choice made after it.
+			const languageId = session.runtimeMetadata.languageId;
+			if (session.metadata.createdTimestamp >= (this._newFolderEnvTimes.get(languageId) ?? 0)) {
+				this._newFolderEnvTimes.delete(languageId);
+			}
 			this._mostRecentlyStartedRuntimesByLanguageId.set(session.runtimeMetadata.languageId,
 				session.runtimeMetadata);
 
@@ -2244,7 +2250,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			const recommended = this._recommendedRuntimesByLanguageId.get(languageId);
 			if (recommended && !this._languageRuntimeService.getRegisteredRuntime(recommended.runtimeId)) {
 				this._recommendedRuntimesByLanguageId.delete(languageId);
-				this._newFolderEnvLanguageIds.delete(languageId);
+				this._newFolderEnvTimes.delete(languageId);
 			}
 			return;
 		}
@@ -2255,9 +2261,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._logService.debug(`[Runtime startup] Recommended again after the runtimes changed: ${formatLanguageRuntimeMetadata(runtime)}`);
 			if (runtime.runtimeId !== previous?.runtimeId) {
 				if (this.isInWorkspaceFolder(runtime.runtimePath)) {
-					this._newFolderEnvLanguageIds.add(languageId);
+					this._newFolderEnvTimes.set(languageId, Date.now());
 				} else {
-					this._newFolderEnvLanguageIds.delete(languageId);
+					this._newFolderEnvTimes.delete(languageId);
 				}
 			}
 		} finally {
@@ -2272,7 +2278,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private recentlyStartedFor(languageId: string): ILanguageRuntimeMetadata | undefined {
 		const recent = this._mostRecentlyStartedRuntimesByLanguageId.get(languageId);
-		if (recent && this._newFolderEnvLanguageIds.has(languageId) && !this.hasRunningConsole(recent.runtimeId)) {
+		if (recent && this._newFolderEnvTimes.has(languageId) && !this.hasRunningConsole(recent.runtimeId)) {
 			return undefined;
 		}
 		return recent;
