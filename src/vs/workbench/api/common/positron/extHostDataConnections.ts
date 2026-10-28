@@ -6,7 +6,9 @@
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverSummaryDTO, IDataConnectionLineageDTO, IDataConnectionLineageEdgeDTO, IDataConnectionLineageObjectDTO, IDataConnectionLineageRequestDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { raceCancellationError } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../base/common/errors.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../extHostTypes.js';
 
@@ -241,7 +243,13 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		options: positron.DataConnectionSchemaOptions = {},
 		token: CancellationToken = CancellationToken.None,
 	): Promise<positron.DataConnectionSchema | undefined> {
-		const walk = await this._proxy.$getDataConnectionSchema(profileId, options, token);
+		if (token.isCancellationRequested) {
+			throw new CancellationError();
+		}
+		// Raced rather than awaited: the main thread only looks at the token before each query, so
+		// its reply can come a query later than the cancellation, or carry a schema the caller has
+		// already given up on. It still frees the walk's handles when the walk does stop.
+		const walk = await raceCancellationError(this._proxy.$getDataConnectionSchema(profileId, options, token), token);
 		if (!walk) {
 			return undefined;
 		}

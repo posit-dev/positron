@@ -6,6 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import type * as positron from 'positron';
+import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ExtHostDataConnections } from '../../../common/positron/extHostDataConnections.js';
 import { IMainPositronContext, MainThreadDataConnectionsShape } from '../../../common/positron/extHost.positron.protocol.js';
@@ -531,5 +533,40 @@ describe('ExtHostDataConnections node handles', () => {
 
 		await expect(extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle))
 			.rejects.toThrow('does not support getChildren');
+	});
+});
+
+describe('ExtHostDataConnections getSchema', () => {
+	const schema = { nodes: [], truncated: false };
+
+	it('rejects as soon as the token is cancelled, without waiting for the walk to answer', async () => {
+		// The main thread only looks at the token before each query, so its answer can come late.
+		let answer!: (walk: typeof schema) => void;
+		const extHost = createExtHost({
+			$getDataConnectionSchema: () => new Promise(resolve => answer = resolve),
+		});
+		const source = new CancellationTokenSource();
+
+		const read = extHost.getSchema('p', {}, source.token);
+		source.cancel();
+		answer(schema);
+
+		await expect(read).rejects.toThrow(CancellationError);
+		source.dispose();
+	});
+
+	it('does not start a walk for a token already cancelled', async () => {
+		const walk = vi.fn(async () => schema);
+		const extHost = createExtHost({ $getDataConnectionSchema: walk });
+
+		await expect(extHost.getSchema('p', {}, CancellationToken.Cancelled)).rejects.toThrow(CancellationError);
+		expect(walk).not.toHaveBeenCalled();
+	});
+
+	it('answers with the schema when nothing cancels it', async () => {
+		const extHost = createExtHost({ $getDataConnectionSchema: async () => schema });
+
+		await expect(extHost.getSchema('p', {}, CancellationToken.None))
+			.resolves.toEqual({ profileId: 'p', nodes: [], truncated: false });
 	});
 });
