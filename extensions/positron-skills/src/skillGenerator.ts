@@ -27,15 +27,6 @@ export interface GenerateResult {
 	readonly unresolved: readonly string[];
 }
 
-/** The environment facts the templates' conditional blocks are resolved against. */
-function currentFlags(): TemplateFlags {
-	return {
-		// The same check positron-run-app uses to decide whether to proxy an app.
-		web: vscode.env.uiKind === vscode.UIKind.Web,
-		remote: vscode.env.remoteAuthority !== undefined,
-	};
-}
-
 /**
  * The URI of the remote host's file system root, e.g.
  * `vscode-remote://ssh-remote+myhost`, or undefined in a local window. A bare
@@ -45,6 +36,15 @@ function currentFlags(): TemplateFlags {
 function currentRemoteRoot(): string | undefined {
 	const authority = vscode.env.remoteAuthority;
 	return authority === undefined ? undefined : `vscode-remote://${authority}`;
+}
+
+/** The environment facts the templates' conditional blocks are resolved against. */
+function currentFlags(remoteRoot: string | undefined): TemplateFlags {
+	return {
+		// The same check positron-run-app uses to decide whether to proxy an app.
+		web: vscode.env.uiKind === vscode.UIKind.Web,
+		remote: remoteRoot !== undefined,
+	};
 }
 
 interface TemplateFile {
@@ -143,8 +143,8 @@ export async function generateSkills(
 	// load turns every directive into apparent drift, and this line tells them apart.
 	log.debug(`Loaded ${commandsById.size} agent command(s).`);
 	const extensionVersion = (context.extension.packageJSON as { version?: string }).version ?? '0.0.0';
-	const flags = currentFlags();
 	const remoteRoot = currentRemoteRoot();
+	const flags = currentFlags(remoteRoot);
 	const stamp = computeStamp(templates, commandsById, extensionVersion, flags, remoteRoot);
 
 	const existingStamp = await fs.readFile(stampPath, 'utf8').catch(() => undefined);
@@ -164,12 +164,15 @@ export async function generateSkills(
 			const result = expandTemplate(template.content, commandsById, flags);
 			result.unresolved.forEach(id => unresolved.add(id));
 			result.problems.forEach(problem => problems.push(`${template.relativePath} ${problem}`));
+			if (remoteRoot === undefined && result.text.includes('{{remote_root}}')) {
+				problems.push(`${template.relativePath} has {{remote_root}} outside an {{if:remote}} block`);
+			}
 			// Resolve `{{skill_dir}}` to the skill's final absolute directory so
 			// reference links are absolute. The assistant reads a bare relative link
 			// relative to the user's workspace, where the skill does not live.
 			const skillDir = path.join(skillRoot, template.relativePath.split(path.sep)[0]);
-			// `{{remote_root}}` only appears in `{{if:remote}}` blocks, so it is
-			// never left empty in a local window.
+			// `{{remote_root}}` belongs only in `{{if:remote}}` blocks, so in a
+			// local window there should be none left to empty.
 			const text = result.text
 				.split('{{skill_dir}}').join(skillDir)
 				.split('{{remote_root}}').join(remoteRoot ?? '');
