@@ -206,6 +206,15 @@ export interface IRuntimeStartupService {
 	completeDiscovery(id: number): void;
 
 	/**
+	 * Signal that an extension host finished discovering the runtimes for one
+	 * language, before it finished discovering every language.
+	 *
+	 * @param id the id of the MainThreadLanguageRuntime instance for the extension host
+	 * @param languageId the language whose discovery finished
+	 */
+	completeLanguageDiscovery(id: number, languageId: string): void;
+
+	/**
 	 * Kick off a user-driven refresh of runtime discovery, after the initial discovery.
 	 *
 	 * @param quiet If true, suppress notification toasts about discovery results.
