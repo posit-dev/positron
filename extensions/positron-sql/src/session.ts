@@ -10,7 +10,7 @@ import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer, StatementSpan } from './analyzer
 import { QUOTE_TRIGGERS, SqlCompletionItemProvider } from './completion';
 import { collectDiagnostics } from './diagnostics';
 import { defaultSchemaOf, dialectOfDriver } from './dialects';
-import { ExecutionOutcome, GGSQL_EXTENSION_ID, positronExecutionApi, StatementRunner } from './execution';
+import { errorMessage, ExecutionOutcome, GGSQL_EXTENSION_ID, positronExecutionApi, StatementRunner } from './execution';
 import { hoverFor } from './hover';
 import { collectLinks } from './links';
 import { SqlLog } from './log';
@@ -704,17 +704,40 @@ export class SqlSession implements vscode.Disposable {
 			return;
 		}
 
+		// The statement offsets are for the text as it is now. Starting a session can take seconds,
+		// in which the user may type on or move to another editor.
+		const version = editor.document.version;
 		this._running = true;
 		try {
-			const connection = await this._connectionToRunAgainst(editor.document);
-			if (!connection || this._disposed) {
+			let connection: ConnectionRef;
+			let outcome: ExecutionOutcome;
+			try {
+				const chosen = await this._connectionToRunAgainst(editor.document);
+				if (!chosen || this._disposed) {
+					return;
+				}
+				connection = chosen;
+				outcome = await this._runner.run(editor.document, connection, target.query);
+			} catch (error) {
+				// Not one of the outcomes below: an API call failing outright, such as Data
+				// Connections being switched off mid-run. Said here rather than left to surface as
+				// the command failing, which tells the user nothing. Not once SQL support is off.
+				this._log.error(`Could not run the statement from ${editor.document.uri.toString(true)}:`
+					+ ` ${errorMessage(error)}`);
+				if (!this._disposed) {
+					void vscode.window.showWarningMessage(vscode.l10n.t(
+						"The statement was not run: {0}",
+						errorMessage(error),
+					));
+				}
 				return;
 			}
-			const outcome = await this._runner.run(editor.document, connection, target.query);
 			if (outcome.kind === 'executed') {
 				// Only for a statement the cursor was in. A selection is what the user chose to
-				// run, and moving off it would take their selection away.
-				if (target.advance) {
+				// run, and moving off it would take their selection away. Nor once the text has
+				// changed or the user has moved on: the cursor would land somewhere unrelated.
+				if (target.advance && editor.document.version === version
+					&& vscode.window.activeTextEditor === editor) {
 					advance(editor, target.statements, target.statement);
 				}
 			} else {
@@ -861,14 +884,20 @@ export class SqlSession implements vscode.Disposable {
 
 		// Nothing chosen and nothing to infer. Asked here rather than refused, because the user
 		// pressed a key meaning "run this" and the only thing in the way is one pick -- or, with no
-		// connection to pick from, a notification saying so.
-		await this._selectConnection();
+		// connection to pick from, a notification saying so. For this document even if the user
+		// moves to another while the pick is coming up. A closed connection that is picked is
+		// opened before the statement runs rather than alongside it: ggsql opens the same database,
+		// and two opens at once can race for a file database's lock.
+		await this._selectConnection(document);
 		return this._selection.get(document.uri);
 	}
 
-	/** Asks which connection the active SQL file is written against, and applies the answer. */
-	private async _selectConnection(): Promise<void> {
-		const document = activeSqlDocument();
+	/**
+	 * Asks which connection a SQL file is written against, and applies the answer.
+	 *
+	 * @param document The file, by default the one in front of the user.
+	 */
+	private async _selectConnection(document = activeSqlDocument()): Promise<void> {
 		if (!document) {
 			// The command is enabled only for SQL editors, but a keybinding can still reach it.
 			return;
