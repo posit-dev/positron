@@ -18,7 +18,7 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService, IPromptChoice, IPromptOptions, Severity } from '../../../../../platform/notification/common/notification.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IWorkbenchEnvironmentService } from '../../../environment/common/environmentService.js';
 import {
@@ -277,7 +277,7 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 	let cache: ITestDiscoveryCache = undefined!;
 	let config: TestConfigurationService = undefined!;
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
@@ -1061,7 +1061,7 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 
 	describe('Local sessions', () => {
 		const notificationService = new MockNotificationService();
-		const ctx = createTestContainer()
+		const ctx = createLightTestContainer()
 			.withRuntimeServices()
 			.stub(INotificationService, notificationService)
 			.stub(IEphemeralStateService, {
@@ -1138,7 +1138,7 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 
 	describe('Remote SSH sessions', () => {
 		const notificationService = new MockNotificationService();
-		const ctx = createTestContainer()
+		const ctx = createLightTestContainer()
 			.withRuntimeServices()
 			.stub(INotificationService, notificationService)
 			.stub(IEphemeralStateService, {
@@ -1192,7 +1192,7 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 
 describe('RuntimeStartupService - affiliation healing', () => {
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
@@ -1319,7 +1319,7 @@ describe('RuntimeStartupService - affiliation healing', () => {
 
 describe('RuntimeStartupService - restored sessions', () => {
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
@@ -1385,7 +1385,7 @@ describe('RuntimeStartupService - restored sessions', () => {
 
 describe('RuntimeStartupService - getPreferredRuntime', () => {
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
@@ -1529,7 +1529,7 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 
 describe('RuntimeStartupService - hasLanguageRuntimeProvider', () => {
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
@@ -1567,7 +1567,7 @@ describe('RuntimeStartupService - discovery completion', () => {
 
 	const notificationService = new TestNotificationService();
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
@@ -1617,7 +1617,7 @@ describe('RuntimeStartupService - discovery completion', () => {
 describe('RuntimeStartupService - start reasons', () => {
 	const setItem = vi.fn<IEphemeralStateService['setItem']>(async () => { });
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),

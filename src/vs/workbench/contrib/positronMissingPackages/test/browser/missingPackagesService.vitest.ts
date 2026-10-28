@@ -13,7 +13,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IPositronPackagesService } from '../../../positronPackages/browser/interfaces/positronPackagesService.js';
 import { IPositronPackagesInstance } from '../../../positronPackages/browser/positronPackagesInstance.js';
@@ -134,7 +134,7 @@ describe('MissingPackagesService', () => {
 	// Drives `usingQuartoInlineOutput`; flipped per test.
 	const configService = new TestConfigurationService();
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IRuntimeSessionService, {
 			onWillStartSession: Event.None,
 			onDidChangeForegroundSession: onDidChangeForegroundSession.event,

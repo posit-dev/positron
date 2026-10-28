@@ -16,7 +16,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { HELP_SEARCH_TIMEOUT_MS, HelpClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
 import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -38,7 +38,7 @@ describe('Help search lifecycle', () => {
 	const showHelpTopic = vi.fn<HelpClientInstance['showHelpTopic']>();
 	const open = vi.fn().mockResolvedValue(true);
 	const openView = vi.fn().mockResolvedValue(undefined);
-	const ctx = createTestContainer().withRuntimeServices()
+	const ctx = createLightTestContainer().withRuntimeServices()
 		.stub(IFileService, { readFile: () => Promise.reject(new Error('not needed')) })
 		.stub(IThemeService, { onDidColorThemeChange: Event.None })
 		.stub(IOpenerService, { open })

@@ -16,26 +16,16 @@
 // It is ONLY imported by .vitest.ts files. No Mocha .test.ts or .test.tsx
 // file imports this module. Verified via: grep -rl 'positronTestContainer' --include='*.test.ts' src/vs
 
-import { DisposableStore } from '../../base/common/lifecycle.js';
 import { ServiceIdentifier } from '../../platform/instantiation/common/instantiation.js';
-import { TestInstantiationService } from '../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { PositronReactServices } from '../../base/browser/positronReactServices.js';
-import { ensureNoLeakedDisposables } from './vitestUtils.js';
-import { createBareContainer } from './presets/bare.js';
-import { createRuntimeContainer } from './presets/runtime.js';
+import { ContainerSetup, LightTestContainerBuilder, LightTestContainerResult } from './lightTestContainer.js';
 import { createNotebookContainer } from './presets/notebook.js';
 import { createWorkbenchContainer } from './presets/workbench.js';
 import { stubReactServices } from './presets/reactServices.js';
 import { stubContributionServices } from './presets/contributionServices.js';
 import { stubNotebookEditorServices } from './presets/notebookEditor.js';
 
-interface TestContainerResult {
-	/** Retrieve a registered service by its identifier. */
-	get: <T>(id: ServiceIdentifier<T>) => T;
-	/** The underlying instantiation service (escape hatch for advanced use). */
-	instantiationService: TestInstantiationService;
-	/** Disposable store -- auto-cleaned after each test. Pass to helpers that need it. */
-	disposables: Pick<DisposableStore, 'add'>;
+interface TestContainerResult extends LightTestContainerResult {
 	/**
 	 * Services object for PositronReactServicesContext. Only available with
 	 * `withReactServices()`. Pass to `setupRTLRenderer(() => ctx.reactServices)`.
@@ -44,13 +34,15 @@ interface TestContainerResult {
 	reactServices: PositronReactServices;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- service stubs are inherently untyped
-type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
-
 /**
  * Fluent builder for test containers. Provides presets for common service
  * groupings. Pick the lowest preset that covers your test's dependencies,
  * then use .stub() for anything extra.
+ *
+ * Importing this module loads the Notebook and Workbench presets (~7s per
+ * test file). If your test needs only Bare or Runtime, use
+ * `createLightTestContainer()` from lightTestContainer.ts instead; the
+ * local/code-vitest-light-test-container lint rule enforces this.
  *
  * ## Presets
  *
@@ -78,10 +70,11 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  *
  * How to add a new preset:
  *   - For a new base: add a file under presets/, a boolean flag, a with*()
- *     method, and a branch in build()'s base-selection block.
+ *     method, and a branch in resolveSetup(). A cheap base (one that doesn't
+ *     reach the workbench) belongs in lightTestContainer.ts instead.
  *   - For a new layer: add a file under presets/ exporting a stub*() helper,
  *     a boolean flag, a with*() method, and an `if (useX) stubX(svc)` line
- *     in build()'s layer block.
+ *     in resolveSetup()'s layer block.
  *
  * ## Test* classes vs .stub()
  *
@@ -133,25 +126,16 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  * ## Usage
  *
  * ```typescript
- * const ctx = createTestContainer().withRuntimeServices().build();
- * const session = await startTestLanguageRuntimeSession(
- *     ctx.instantiationService, ctx.disposables);
+ * const ctx = createTestContainer().withReactServices().build();
+ * const rtl = setupRTLRenderer(() => ctx.reactServices);
  * ```
  */
-export class PositronTestContainerBuilder {
-	private _useRuntimeServices = false;
+export class PositronTestContainerBuilder extends LightTestContainerBuilder {
 	private _useNotebookServices = false;
 	private _useWorkbenchServices = false;
 	private _useContributionServices = false;
 	private _useReactServices = false;
 	private _useNotebookEditorServices = false;
-	private _stubs: ServiceStub[] = [];
-
-	/** Add the 18 runtime/language services (ILanguageRuntimeService, IRuntimeSessionService, etc.) */
-	withRuntimeServices(): this {
-		this._useRuntimeServices = true;
-		return this;
-	}
 
 	/** Add runtime services + 8 notebook services (INotebookService, INotebookEditorService, etc.) */
 	withNotebookServices(): this {
@@ -208,92 +192,47 @@ export class PositronTestContainerBuilder {
 		return this;
 	}
 
-	/**
-	 * Stub a specific service. Applied after presets, so it overrides preset defaults.
-	 *
-	 * Pass a partial object with only the methods/properties your test needs.
-	 * No `as Partial<T>` cast required -- the builder handles the type boundary.
-	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	stub(id: ServiceIdentifier<any>, impl: object): this {
-		this._stubs.push({ id, impl });
-		return this;
-	}
-
-	/**
-	 * Build the container. Returns get(), instantiationService, and disposables.
-	 *
-	 * Must be called at describe-level (not inside beforeEach). The builder registers
-	 * its own beforeEach hook to create a fresh instantiation service and apply presets
-	 * each test, so the disposable store created by ensureNoLeakedDisposables()
-	 * is always initialized before service setup runs.
-	 */
-	build(): TestContainerResult {
-		const disposables = ensureNoLeakedDisposables();
-		const stubs = [...this._stubs];
-		const useRuntimeServices = this._useRuntimeServices;
+	protected override resolveSetup(): ContainerSetup {
 		const useNotebookServices = this._useNotebookServices;
-		const useWorkbenchServices = this._useWorkbenchServices;
-		const useContributionServices = this._useContributionServices;
 		const useReactServices = this._useReactServices;
+		const useContributionServices = this._useContributionServices;
 		const useNotebookEditorServices = this._useNotebookEditorServices;
 
-		// Mutable slot -- reassigned in beforeEach so each test starts fresh.
-		let _instantiationService: TestInstantiationService;
+		// 1. Pick the base. Exactly one runs; most-specific wins. React,
+		//    Contribution, and NotebookEditor layers all imply the Workbench base.
+		const needsWorkbench = this._useWorkbenchServices || useReactServices || useContributionServices || useNotebookEditorServices;
+		if (!needsWorkbench) {
+			return useNotebookServices ? createNotebookContainer : super.resolveSetup();
+		}
 
-		beforeEach(() => {
-			// 1. Pick the base. Exactly one runs; most-specific wins. React,
-			//    Contribution, and NotebookEditor layers all imply the Workbench base.
-			const needsWorkbench = useWorkbenchServices || useReactServices || useContributionServices || useNotebookEditorServices;
-			if (needsWorkbench) {
-				_instantiationService = createWorkbenchContainer(disposables);
-			} else if (useNotebookServices) {
-				_instantiationService = createNotebookContainer(disposables);
-			} else if (useRuntimeServices) {
-				_instantiationService = createRuntimeContainer(disposables);
-			} else {
-				_instantiationService = createBareContainer(disposables);
-			}
+		return disposables => {
+			const svc = createWorkbenchContainer(disposables);
 
 			// 2. Apply layers additively. Any can run; order doesn't matter
 			//    because they stub disjoint services today. If they ever
 			//    overlap, the later-applied layer wins -- document it then.
 			if (useReactServices) {
-				stubReactServices(_instantiationService);
+				stubReactServices(svc);
 			}
 			if (useContributionServices) {
-				stubContributionServices(_instantiationService);
+				stubContributionServices(svc);
 			}
 			if (useNotebookEditorServices) {
-				stubNotebookEditorServices(_instantiationService, disposables);
+				stubNotebookEditorServices(svc, disposables);
 			}
-
-			// 3. User stubs last -- they always win over preset defaults.
-			for (const { id, impl } of stubs) {
-				_instantiationService.stub(id, impl);
-			}
-		});
-
-		// Return a result object with lazy getters that delegate to the mutable slot.
-		// Access these inside it()/beforeEach() callbacks, not at describe level.
-		// Destructuring at describe level (const { instantiationService } = ctx)
-		// evaluates the getter immediately, before beforeEach has run.
-		function assertReady(): TestInstantiationService {
-			if (!_instantiationService) {
-				throw new Error(
-					'ctx properties are not available until beforeEach runs. ' +
-					'Do not destructure ctx at describe level -- access ctx properties (e.g. ctx.instantiationService, ctx.get, ctx.reactServices) inside it() callbacks.'
-				);
-			}
-			return _instantiationService;
-		}
-		const result: TestContainerResult = {
-			get instantiationService() { return assertReady(); },
-			get reactServices() { return assertReady().createInstance(PositronReactServices); },
-			get<T>(id: ServiceIdentifier<T>) { return assertReady().get(id); },
-			disposables,
+			return svc;
 		};
-		return result;
+	}
+
+	/** Build the container. Adds `reactServices` to the light builder's result. */
+	override build(): TestContainerResult {
+		const result = super.build();
+		return {
+			get instantiationService() { return result.instantiationService; },
+			get reactServices() { return result.instantiationService.createInstance(PositronReactServices); },
+			get<T>(id: ServiceIdentifier<T>) { return result.get(id); },
+			disposables: result.disposables,
+		};
 	}
 }
 

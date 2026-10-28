@@ -7,7 +7,7 @@
 
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { getCodeSettingsPathNative } from '../../browser/helpers.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { TestPathService } from '../../../../test/browser/workbenchTestServices.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { isLinux, isMacintosh, isWindows, OperatingSystem } from '../../../../../base/common/platform.js';
@@ -20,7 +20,7 @@ describe('Positron - PositronWelcome Contribution Helpers', () => {
 	const testWindows = isWindows ? it : it.skip;
 	// const testWeb = isWeb ? it : it.skip;
 
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	it.each([
 		{ name: 'uses the canonical default', configuration: {}, expected: true },

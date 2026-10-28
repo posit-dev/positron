@@ -17,7 +17,7 @@ import { IEditorCloseEvent, IEditorIdentifier } from '../../../../common/editor.
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IEditorService } from '../../../editor/common/editorService.js';
 import { PositronDataExplorerUri } from '../../../positronDataExplorer/common/positronDataExplorerUri.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IViewsService } from '../../../views/common/viewsService.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../../platform/workspace/common/workspace.js';
@@ -80,7 +80,7 @@ describe('PositronDataConnectionsService', () => {
 	// workspace. A test sets EMPTY to model a window with no folder open.
 	let workbenchState = WorkbenchState.FOLDER;
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IWorkspaceContextService, { getWorkbenchState: () => workbenchState })
 		.stub(IExtensionService, new NullExtensionService())
 		.stub(ILogService, new NullLogService())

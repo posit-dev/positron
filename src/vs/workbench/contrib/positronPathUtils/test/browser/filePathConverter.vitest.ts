@@ -6,13 +6,13 @@
 /// <reference types="vitest/globals" />
 
 import { formatPathForCode, convertClipboardFiles } from '../../common/filePathConverter.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { isWindows } from '../../../../../base/common/platform.js';
 import { URI } from '../../../../../base/common/uri.js';
 
 describe('File Path Converter Tests', () => {
 
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	describe('formatPathForCode', () => {
 

@@ -12,7 +12,7 @@ import { IFileService } from '../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { getDefaultImageFilename, getImageOutputName, openImageOutputInNewTab, saveImageOutput } from '../../common/imageOutputUtils.js';
 
@@ -20,7 +20,7 @@ const notebookUri = URI.file('/home/user/project/notebook.ipynb');
 const pngDataUrl = `data:image/png;base64,${encodeBase64(VSBuffer.fromString('fake-png-bytes'))}`;
 
 describe('imageOutputUtils', () => {
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	const logService = new NullLogService();
 

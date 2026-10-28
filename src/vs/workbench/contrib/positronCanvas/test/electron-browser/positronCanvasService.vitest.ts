@@ -18,7 +18,7 @@ import { ILogService, NullLogService } from '../../../../../platform/log/common/
 import { INativeHostService } from '../../../../../platform/native/common/native.js';
 import { IStorageService, StorageScope } from '../../../../../platform/storage/common/storage.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { EditorsOrder } from '../../../../common/editor.js';
 import { IAuxiliaryWindow, IAuxiliaryWindowService } from '../../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
@@ -40,7 +40,7 @@ const AUX_WINDOW_ID = 1000;
 const DETACHED_WINDOW_ID = 2000;
 
 describe('PositronCanvasService', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	/**
 	 * A group whose editor list the test can rearrange.

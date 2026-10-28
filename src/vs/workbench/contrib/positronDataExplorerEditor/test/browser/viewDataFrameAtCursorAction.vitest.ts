@@ -23,7 +23,7 @@ import { IVariableItem } from '../../../../services/positronVariables/common/int
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { Event } from '../../../../../base/common/event.js';
 import { POSITRON_VARIABLES_VIEW_ID } from '../../../positronVariables/browser/positronVariables.contribution.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import {
 	PositronDataExplorerCommandId,
 	PositronDataExplorerViewDataFrameAtCursorAction,
@@ -92,7 +92,7 @@ const makeVariablesInstance = (
 
 describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 	describe('metadata', () => {
-		createTestContainer().build();
+		createLightTestContainer().build();
 
 		it('registers with the expected id, f1, and editor context menu', () => {
 			const action = new PositronDataExplorerViewDataFrameAtCursorAction();
@@ -116,7 +116,7 @@ describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 		let notificationInfo: ReturnType<typeof vi.fn<(...args: unknown[]) => void>>;
 		let notificationError: ReturnType<typeof vi.fn<(...args: unknown[]) => void>>;
 
-		const ctx = createTestContainer()
+		const ctx = createLightTestContainer()
 			.stub(IEditorService, {
 				get activeTextEditorControl() { return activeEditor; },
 			})
@@ -341,7 +341,7 @@ describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 describe('PositronDataExplorerViewDataFrameByVariableAction', () => {
 	let variablesInstances: IPositronVariablesInstance[];
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IPositronVariablesService, {
 			get positronVariablesInstances() { return variablesInstances; },
 		})

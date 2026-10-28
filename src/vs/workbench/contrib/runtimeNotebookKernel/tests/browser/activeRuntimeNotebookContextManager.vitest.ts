@@ -22,7 +22,7 @@ import { NotebookEditorInput } from '../../../notebook/common/notebookEditorInpu
 import { ActiveRuntimeNotebookContextManager, DebuggerRuntimeSupportedFeature } from '../../common/activeRuntimeNotebookContextManager.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 import { isNotebookLanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSession.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
 /** A TestEditorService that fires the onDidActiveEditorChange event when changing the activeEditor. */
@@ -122,7 +122,7 @@ describe('ActiveRuntimeNotebookContextManager', () => {
 	const notebookUri = URI.file('notebook.ipynb');
 	const notebookUri2 = URI.file('notebook2.ipynb');
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IContextKeyService, new MockContextKeyService())
 		.build();
