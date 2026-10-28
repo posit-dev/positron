@@ -147,7 +147,7 @@ function keepError(error: AppError): KeptError {
  * A kept error as an agent reads it, keeping only `headCount` frames from the
  * start and `tailCount` from the end, and saying how many were left out.
  */
-function toAppError(error: KeptError, headCount = error.head.length, tailCount = error.tail.length): AppError {
+function fromKeptError(error: KeptError, headCount = error.head.length, tailCount = error.tail.length): AppError {
 	const omitted = error.omitted + error.head.length - headCount + error.tail.length - tailCount;
 	return {
 		name: error.name,
@@ -164,7 +164,7 @@ function toAppError(error: KeptError, headCount = error.head.length, tailCount =
 function fitError(error: KeptError, budget: number): AppError {
 	let headCount = error.head.length;
 	let tailCount = error.tail.length;
-	let fitted = toAppError(error);
+	let fitted = fromKeptError(error);
 	while (JSON.stringify(fitted).length > budget && headCount + tailCount > 0) {
 		// Drop from whichever end has more than its share, keeping the
 		// ratio of frames from the start to frames from the end.
@@ -173,7 +173,7 @@ function fitError(error: KeptError, budget: number): AppError {
 		} else {
 			headCount--;
 		}
-		fitted = toAppError(error, headCount, tailCount);
+		fitted = fromKeptError(error, headCount, tailCount);
 	}
 	return fitted;
 }

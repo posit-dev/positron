@@ -158,14 +158,16 @@ export class AppOutput {
 		let text = this._pendingEscape + chunk;
 		this._pendingEscape = '';
 
-		const escapeStart = unfinishedEscapeStart(text);
+		let escapeStart = unfinishedEscapeStart(text);
+		// A longer tail isn't an escape sequence worth waiting for, and
+		// holding it would hold back all later output. Drop only its
+		// introducer, and keep the rest as text.
+		while (escapeStart >= 0 && text.length - escapeStart > MAX_PENDING_ESCAPE) {
+			text = text.slice(0, escapeStart) + text.slice(escapeStart + 2);
+			escapeStart = unfinishedEscapeStart(text);
+		}
 		if (escapeStart >= 0) {
-			const tail = text.slice(escapeStart);
-			// A longer tail isn't an escape sequence worth waiting for, and
-			// holding it would hold back all later output.
-			if (tail.length <= MAX_PENDING_ESCAPE) {
-				this._pendingEscape = tail;
-			}
+			this._pendingEscape = text.slice(escapeStart);
 			text = text.slice(0, escapeStart);
 		}
 

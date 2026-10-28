@@ -59,10 +59,12 @@ function terminalPreviewSource(terminalPid: number | undefined): positron.Previe
 
 /**
  * Read an execution's output from the start, feeding it to `output` (if any)
- * and to `detector` (if any) until the detector finds the URL. Never stops
- * early, so `output` keeps filling after the URL.
+ * and to `detector` (if any) until the detector finds the URL. With an
+ * `output`, keeps reading after the URL, so `output` keeps filling; without
+ * one, stops once the URL is found.
  *
- * @returns Resolves when the stream ends; rejects if reading throws.
+ * @returns Resolves when the stream ends, or when the URL is found with no
+ *   `output`; rejects if reading throws.
  */
 function readExecution(
 	execution: vscode.TerminalShellExecution,
@@ -76,6 +78,10 @@ function readExecution(
 			output?.append(data);
 			if (detector && !found) {
 				found = detector.processOutput(data);
+			}
+			// With no output to keep, there is nothing left to read for.
+			if (found && !output) {
+				break;
 			}
 		}
 	})();
@@ -622,9 +628,10 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				positron.RuntimeErrorBehavior.Continue,
 				observer,
 				sessionId,
-			)).then(() => { }, (error: Error) => {
-				log.error(`Console execution error: ${error.message}`);
-				app.failed(toAppError(error));
+			)).then(() => { }, (error: unknown) => {
+				const appError = toAppError(error);
+				log.error(`Console execution error: ${appError.message}`);
+				app.failed(appError);
 			}).then(() => app.exited());
 
 			switch (preview) {

@@ -97,7 +97,14 @@ describe('AppOutput', () => {
 			const output = outputOf('before\n\x1b]8;;http://x', 'y'.repeat(MAX_PENDING_ESCAPE));
 			output.append('after\n');
 
-			expect(text(output)).toBe('before\nafter');
+			expect(text(output)).toBe(`before\n8;;http://x${'y'.repeat(MAX_PENDING_ESCAPE)}after`);
+		});
+
+		it('keeps the text after an escape sequence that never ends, in a single chunk', () => {
+			const traceback = Array.from({ length: 300 }, (_, i) => `  frame ${i + 1}`);
+			const output = outputOf(`ok\n\x1b]bad\n${traceback.join('\n')}\nError: boom\n`);
+
+			expect(text(output)).toBe(['ok', 'bad', ...traceback, 'Error: boom'].join('\n'));
 		});
 	});
 
