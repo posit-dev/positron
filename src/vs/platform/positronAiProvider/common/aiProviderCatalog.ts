@@ -8,101 +8,29 @@ import { URI } from '../../../base/common/uri.js';
 
 export const POSITRON_AI_PROVIDER_CHANNEL = 'positronAiProviderCatalog';
 
-/**
- * Mirrors ai-config's ResolvedConnection as plain IPC-marshalable data,
- * hand-kept in sync with the pinned ai-lib commit (guarded by the shape-guard
- * test). A deliberate reduced view: fields no consumer reads are omitted.
- */
-export interface IResolvedConnectionData {
-	readonly baseUrl?: string;
-	readonly endpoint?: string;
-	readonly customHeaders?: Record<string, string>;
-	readonly aws?: { readonly region?: string; readonly profile?: string };
-	readonly azure?: { readonly authMode?: 'apikey' | 'entra'; readonly scope?: string; readonly tenantId?: string };
-	readonly googleCloud?: { readonly project?: string; readonly location?: string };
-	readonly snowflake?: { readonly account?: string; readonly host?: string; readonly home?: string };
-	readonly databricks?: { readonly host?: string };
-	readonly positaiLogin?: { readonly host?: string; readonly clientId?: string; readonly scope?: string };
-}
-
-/** Mirrors ai-config's Protocol union. */
-export type IResolvedProtocol =
-	| 'anthropic-messages'
-	| 'openai-chat'
-	| 'openai-responses'
-	| 'mlflow-responses'
-	| 'bedrock-converse'
-	| 'google-generative';
-
-/** Mirrors ai-config's ModelOverride as plain IPC-marshalable data. */
-export interface IResolvedModelOverrideData {
-	readonly name?: string;
-	readonly family?: string;
-	readonly maxContextLength?: number;
-	readonly maxInputTokens?: number;
-	readonly maxOutputTokens?: number;
-	readonly protocol?: IResolvedProtocol;
-	readonly baseUrl?: string;
-	readonly supportsTools?: boolean;
-	readonly supportsImages?: boolean;
-	readonly supportsToolResultImages?: boolean;
-	readonly supportedInputMediaTypes?: string[];
-	readonly supportsWebSearch?: boolean;
-	readonly thinkingEffortLevels?: string[];
-}
-
-/** Mirrors ai-config's CustomModel as plain IPC-marshalable data. */
-export interface IResolvedCustomModelData extends IResolvedModelOverrideData {
-	readonly id: string;
-	readonly name: string;
-	readonly maxContextLength: number;
-	readonly supportsTools: boolean;
-	readonly supportsImages: boolean;
-	readonly supportsToolResultImages: boolean;
-	readonly supportsWebSearch: boolean;
-}
-
-/** Mirrors ai-config's ModelsBlock as plain IPC-marshalable data. */
-export interface IResolvedModelsData {
-	readonly discovery?: 'auto' | 'off';
-	readonly allow?: string[];
-	readonly deny?: string[];
-	readonly overrides?: Record<string, IResolvedModelOverrideData>;
-	readonly custom?: IResolvedCustomModelData[];
-}
-
-/**
- * Mirrors ai-config's ResolvedProvider (id, enabled, connection, model
- * policy), plus two fields computed node-side rather than mirrored: `custom`
- * and `customizedConnection` need ai-config's provider registry and built-in
- * connection defaults, which only the node host can import, while their
- * consumers live in the renderer.
- */
+/** A catalog entry as the provider module's headless entry reports it; connection values stay node-side. */
 export interface IResolvedProviderData {
 	readonly id: string;
 	readonly enabled: boolean;
-	readonly connection: IResolvedConnectionData;
-	readonly models?: IResolvedModelsData;
 
 	/** Present, and true, only for a provider from a custom providers.json entry. */
-	readonly custom?: boolean;
+	readonly custom?: true;
 
-	/** A custom entry's declared `type`, which selects its client implementation; absent for built-ins. */
-	readonly clientKind?: string;
+	/** The resolved `connection.baseUrl`, served by `positron.ai.getProviderBaseUrl`. */
+	readonly baseUrl?: string;
+
+	/** The resolved `connection.positaiLogin.scope`, read by the one-time legacy credential copy. */
+	readonly positaiLoginScope?: string;
 
 	/**
 	 * Dotted names of the connection fields whose resolved value differs from
 	 * ai-config's built-in default for this provider, e.g. 'baseUrl' or
-	 * 'aws.profile'. The resolved connection alone cannot answer "did the user
-	 * customize this": ai-config layers built-in defaults (a stock positai
-	 * entry resolves a baseUrl the user never wrote) under the user/enforced
-	 * config, and only the node side can import those defaults to diff
-	 * against. Omitted when nothing differs, so a stock install reports none.
+	 * 'aws.profile'. Omitted when nothing differs, so a stock install reports none.
 	 */
 	readonly customizedConnection?: readonly string[];
 }
 
-/** Mirrors ai-config's ProviderCatalogChange. */
+/** A catalog change as the headless entry reports it. */
 export interface IProviderCatalogChangeData {
 	readonly catalog: readonly IResolvedProviderData[];
 	readonly enabledChanged: boolean;

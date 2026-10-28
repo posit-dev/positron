@@ -16,7 +16,7 @@ function catalogEntry(
 	id: string,
 	overrides: Partial<IResolvedProviderData> = {}
 ): IResolvedProviderData {
-	return { id, enabled: true, connection: {}, ...overrides };
+	return { id, enabled: true, ...overrides };
 }
 
 describe('getProviderStatus', () => {
@@ -63,7 +63,6 @@ describe('getProviderStatus', () => {
 	it('passes through the catalog\'s customized-field names without ever carrying connection values', async () => {
 		stubCatalog({
 			catalog: [catalogEntry('bedrock', {
-				connection: { aws: { profile: 'secret-profile' } },
 				customizedConnection: ['aws.profile'],
 			})],
 		});

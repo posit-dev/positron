@@ -21,7 +21,7 @@ import { ExtHostAiFeaturesShape } from '../../../common/positron/extHost.positro
 import { MainThreadAiFeatures } from '../../../browser/positron/mainThreadAiFeatures.js';
 
 function resolvedProvider(id: string, enabled: boolean): IResolvedProviderData {
-	return { id, enabled, connection: {} };
+	return { id, enabled };
 }
 
 describe('MainThreadAiFeatures', () => {
@@ -94,7 +94,7 @@ describe('MainThreadAiFeatures', () => {
 		const mainThread = await createMainThread([], initialized.p);
 
 		const baseUrl = mainThread.$getProviderBaseUrl('positai');
-		catalog = [{ ...resolvedProvider('positai', true), connection: { baseUrl: 'https://example.test' } }];
+		catalog = [{ ...resolvedProvider('positai', true), baseUrl: 'https://example.test' }];
 		initialized.complete();
 
 		await expect(baseUrl).resolves.toBe('https://example.test');
