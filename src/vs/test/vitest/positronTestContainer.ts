@@ -41,8 +41,8 @@ interface TestContainerResult extends LightTestContainerResult {
  *
  * Importing this module loads the Notebook and Workbench presets (~7s per
  * test file). If your test needs only Bare or Runtime, use
- * `createLightTestContainer()` from lightTestContainer.ts instead; the test
- * in lightTestContainer.vitest.ts enforces this.
+ * `createLightTestContainer()` from lightTestContainer.ts instead; the
+ * local/code-vitest-light-test-container lint rule enforces this.
  *
  * ## Presets
  *

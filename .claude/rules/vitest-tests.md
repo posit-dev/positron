@@ -28,7 +28,7 @@ That's it. No builder, no services, no setup.
 
 Use the builder to wire test services. Pick the lowest preset that covers your dependencies (see `positronTestContainer.ts` JSDoc); start low and let "missing service" errors guide you up.
 
-If you need no more than the Bare or Runtime preset, import `createLightTestContainer()` from `lightTestContainer.ts`. The full `createTestContainer()` loads the Notebook and Workbench presets, which adds ~7s of import to every test file that imports it, and a guard test fails if you import it without using one of them.
+If you need no more than the Bare or Runtime preset, import `createLightTestContainer()` from `lightTestContainer.ts`. The full `createTestContainer()` loads the Notebook and Workbench presets, which adds ~7s of import to every test file that imports it, and a lint rule flags it if you import it without using one of them.
 
 ```ts
 describe('MyService', () => {

@@ -37,8 +37,8 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  * when a test needs no more than runtime services. That module imports the
  * Notebook and Workbench presets, which load most of the workbench and cost
  * ~7s of import per test file even when the test never uses them.
- * `lightTestContainer.vitest.ts` fails if a test imports the full builder
- * without using one of its heavy presets.
+ * The local/code-vitest-light-test-container lint rule flags a test that
+ * imports the full builder without using one of its heavy presets.
  *
  * See positronTestContainer.ts for the full preset list, incremental-mocking
  * workflow, and test style.
@@ -112,7 +112,7 @@ export class LightTestContainerBuilder {
 			if (!_instantiationService) {
 				throw new Error(
 					'ctx properties are not available until beforeEach runs. ' +
-					'Do not destructure ctx at describe level -- access ctx properties (e.g. ctx.instantiationService, ctx.get, ctx.reactServices) inside it() callbacks.'
+					'Do not destructure ctx at describe level -- access ctx properties (e.g. ctx.instantiationService, ctx.get) inside it() callbacks.'
 				);
 			}
 			return _instantiationService;

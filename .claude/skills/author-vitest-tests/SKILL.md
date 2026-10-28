@@ -113,7 +113,7 @@ Format the plan like this:
 >
 > <One-sentence reasoning grounded in what you observed in the source file -- e.g., "the component takes `contextMenuService` as a prop and neither it nor its child Button uses `usePositronReactServicesContext`". Cite specific evidence (prop shapes, context-hook usage, service dependencies). Do not give generic reasoning like "this is a React component".>
 >
-> **Preset:** `createTestContainer()` + a preset method from `positronTestContainer.ts` (see JSDoc for the current list; pick the lowest that covers your dependencies). For Bare or Runtime only, use `createLightTestContainer()` from `lightTestContainer.ts` instead; a guard test enforces this.
+> **Preset:** `createTestContainer()` + a preset method from `positronTestContainer.ts` (see JSDoc for the current list; pick the lowest that covers your dependencies). For Bare or Runtime only, use `createLightTestContainer()` from `lightTestContainer.ts` instead; a lint rule enforces this.
 >
 > **Stubs:** short list of services you intend to stub, with a one-line reason each
 >
