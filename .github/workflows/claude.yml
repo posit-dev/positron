@@ -366,6 +366,9 @@ jobs:
             `src/`, `npx eslint`, `node scripts/format.mts`, and `npm run precommit`. Vitest tests
             under `extensions/` that import that extension's own dependencies cannot run here.
             Core Mocha, extension host, and e2e tests cannot run here either.
+            The dependencies come from the lockfiles of the default branch. If this is a pull request
+            that changes `package.json` or a lockfile, a "module not found" error can come from that
+            difference. Say so in your comment instead of treating it as a test failure.
             Write each command out in full. Commands that use shell variables are rejected.
             Vitest logs an EROFS error about the step summary after the run. Ignore it; read the
             "Test Files" line for the result.
