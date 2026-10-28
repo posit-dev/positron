@@ -36,7 +36,8 @@ vi.mock('ai-provider-bridge/headless', () => ({ createHeadlessProviders: compile
 // Inside the repo because Vitest's module runner will not import files outside its root.
 const FAKE_INSTALLS = fileURLToPath(new URL('../../../../../../.build/headless-provider-module-tests', import.meta.url));
 
-const GOOD_MODULE = `export function createHeadlessProviders() { return { configPath: 'assistant', dispose() {} }; }\n`;
+const CONTRACT = 'export const HEADLESS_CONTRACT_VERSION = 1;\n';
+const GOOD_MODULE = `${CONTRACT}export function createHeadlessProviders() { return { configPath: 'assistant', dispose() {} }; }\n`;
 
 function fakeProviders(tag: string): HeadlessProviders {
 	return stubInterface<HeadlessProviders>({ configPath: tag, dispose: vi.fn() });
@@ -236,8 +237,20 @@ describe('headless provider module', () => {
 			expect(source).toMatchObject({ kind: 'compiled-in', reason: expect.stringContaining('index.js') });
 		});
 
+		it('falls back when the headless contract version differs', async () => {
+			const root = installFolder(GOOD_MODULE.replace('= 1;', '= 2;'));
+			const { source } = await select(extensionsByProfile({ default: [extension(root, '1.0.0')] }), product());
+			expect(source).toEqual({ kind: 'compiled-in', reason: 'Posit Assistant 1.0.0 has headless contract 2, not 1' });
+		});
+
+		it('falls back when the headless contract version is missing', async () => {
+			const root = installFolder(GOOD_MODULE.replace(CONTRACT, ''));
+			const { source } = await select(extensionsByProfile({ default: [extension(root, '1.0.0')] }), product());
+			expect(source).toEqual({ kind: 'compiled-in', reason: 'Posit Assistant 1.0.0 has headless contract none, not 1' });
+		});
+
 		it('falls back when the factory export is missing', async () => {
-			const root = installFolder('export const other = 1;\n');
+			const root = installFolder(`${CONTRACT}export const other = 1;\n`);
 			const { source } = await select(extensionsByProfile({ default: [extension(root, '1.0.0')] }), product());
 			expect(source).toMatchObject({
 				kind: 'compiled-in',
@@ -246,7 +259,7 @@ describe('headless provider module', () => {
 		});
 
 		it('falls back when the factory throws', async () => {
-			const root = installFolder('export function createHeadlessProviders() { throw new Error("boom"); }\n');
+			const root = installFolder(`${CONTRACT}export function createHeadlessProviders() { throw new Error("boom"); }\n`);
 			const { source } = await select(extensionsByProfile({ default: [extension(root, '1.0.0')] }), product());
 			expect(source).toMatchObject({ kind: 'compiled-in', reason: expect.stringContaining('boom') });
 		});
