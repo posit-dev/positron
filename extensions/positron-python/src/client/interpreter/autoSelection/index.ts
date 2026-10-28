@@ -33,6 +33,11 @@ export class InterpreterAutoSelectionService implements IInterpreterAutoSelectio
 
     private globallyPreferredInterpreter!: IPersistentState<PythonEnvironment | undefined>;
 
+    // --- Start Positron ---
+    /** Workspaces whose auto-selected interpreter is Positron's recommendation. */
+    private readonly positronRecommendedWorkspaces = new Set<string>();
+    // --- End Positron ---
+
     constructor(
         @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService,
         @inject(IPersistentStateFactory) private readonly stateFactory: IPersistentStateFactory,
@@ -104,6 +109,18 @@ export class InterpreterAutoSelectionService implements IInterpreterAutoSelectio
     public async setGlobalInterpreter(interpreter: PythonEnvironment): Promise<void> {
         await this.storeAutoSelectedInterpreter(undefined, interpreter);
     }
+
+    // --- Start Positron ---
+    public async setPositronRecommendedInterpreter(resource: Uri, interpreter: PythonEnvironment): Promise<void> {
+        this.positronRecommendedWorkspaces.add(this.getWorkspacePathKey(resource));
+        // Core can ask for the recommendation more than once. Don't fire a change when it is the same.
+        if (this.getWorkspaceState(resource)?.value?.path === interpreter.path) {
+            return;
+        }
+        await this.storeAutoSelectedInterpreter(resource, interpreter);
+        this.didAutoSelectedInterpreterEmitter.fire();
+    }
+    // --- End Positron ---
 
     protected async clearWorkspaceStoreIfInvalid(resource: Resource): Promise<void> {
         const stateStore = this.getWorkspaceState(resource);
@@ -244,7 +261,13 @@ export class InterpreterAutoSelectionService implements IInterpreterAutoSelectio
             return;
         }
         if (workspaceUri) {
-            this.setWorkspaceInterpreter(workspaceUri.folderUri, recommendedInterpreter);
+            // --- Start Positron ---
+            // Keep Positron's recommendation if it was already auto-selected for the workspace.
+            // this.setWorkspaceInterpreter(workspaceUri.folderUri, recommendedInterpreter);
+            if (!this.positronRecommendedWorkspaces.has(this.getWorkspacePathKey(workspaceUri.folderUri))) {
+                this.setWorkspaceInterpreter(workspaceUri.folderUri, recommendedInterpreter);
+            }
+            // --- End Positron ---
         } else {
             this.setGlobalInterpreter(recommendedInterpreter);
         }

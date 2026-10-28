@@ -4,7 +4,7 @@
 'use strict';
 
 import { injectable } from 'inversify';
-import { Event, EventEmitter } from 'vscode';
+import { Event, EventEmitter, Uri } from 'vscode';
 import { Resource } from '../../client/common/types';
 import {
     IInterpreterAutoSelectionService,
@@ -23,6 +23,11 @@ export class MockAutoSelectionService
 
     // eslint-disable-next-line class-methods-use-this, @typescript-eslint/no-empty-function
     public async setGlobalInterpreter(_interpreter: PythonEnvironment): Promise<void> {}
+
+    // --- Start Positron ---
+    // eslint-disable-next-line class-methods-use-this, @typescript-eslint/no-empty-function
+    public async setPositronRecommendedInterpreter(_resource: Uri, _interpreter: PythonEnvironment): Promise<void> {}
+    // --- End Positron ---
 
     // eslint-disable-next-line class-methods-use-this
     get onDidChangeAutoSelectedInterpreter(): Event<void> {

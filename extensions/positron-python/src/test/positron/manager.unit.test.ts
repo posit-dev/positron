@@ -26,6 +26,7 @@ import * as createVirtualEnvironmentPrompt from '../../client/positron/createVir
 import { CreateVirtualEnvironmentPromptOutcome } from '../../client/positron/createVirtualEnvironmentPrompt';
 import * as sessionModule from '../../client/positron/session';
 import { IInterpreterService } from '../../client/interpreter/contracts';
+import { IInterpreterAutoSelectionService } from '../../client/interpreter/autoSelection/types';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 import { mockedPositronNamespaces } from '../vscode-mock';
 import { createTypeMoq } from '../mocks/helper';
@@ -483,6 +484,34 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
                 [serviceContainer.object, interpreterService.object, workspaceUri, true],
             ],
         );
+    });
+
+    test('auto-selects the recommended interpreter for the workspace without starting a session', async () => {
+        const workspaceUri = vscode.Uri.file('/proj');
+        Object.defineProperty(vscode.workspace, 'workspaceFolders', {
+            value: [{ uri: workspaceUri }],
+            configurable: true,
+        });
+        const pythonPath = '/proj/.venv/bin/python';
+        const interpreter = { path: pythonPath } as PythonEnvironment;
+        recommendStub.resolves({ runtimeId: 'rec', runtimePath: pythonPath } as positron.LanguageRuntimeMetadata);
+        interpreterService
+            .setup((i) => i.getInterpreterDetails(pythonPath))
+            .returns(() => Promise.resolve(interpreter));
+        const autoSelected = new Promise<[vscode.Uri, PythonEnvironment]>((resolve) => {
+            const autoSelection = createTypeMoq<IInterpreterAutoSelectionService>();
+            autoSelection
+                .setup((a) => a.setPositronRecommendedInterpreter(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+                .returns((uri, env) => {
+                    resolve([uri, env]);
+                    return Promise.resolve();
+                });
+            serviceContainer.setup((s) => s.get(IInterpreterAutoSelectionService)).returns(() => autoSelection.object);
+        });
+
+        await pythonRuntimeManager.recommendedWorkspaceRuntime(true);
+
+        assert.deepEqual(await autoSelected, [workspaceUri, interpreter]);
     });
 });
 
