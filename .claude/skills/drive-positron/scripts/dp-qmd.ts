@@ -228,28 +228,50 @@ const cellAction: PageFn<Target> = async (page, a, lib) => {
 		const links = out.locator('a, button, [role=link], [role=button]').filter({ visible: true });
 		const names = await links.evaluateAll(es => es.map(e => [(e.getAttribute('aria-label') ?? ''), (e.textContent ?? '').replace(/\s+/g, ' ').trim()]));
 		const want = a.text.toLowerCase();
-		const hits = names.flatMap((n, i) => n.some(x => x.toLowerCase().includes(want)) ? [i] : []);
+		const holds = names.flatMap((n, i) => n.some(x => x.toLowerCase().includes(want)) ? [i] : []);
+		// The one whose whole name or text is TEXT wins over the ones that only
+		// hold it ("Fix" beside "More fix options"), as ui.sh matches a name.
+		const exact = holds.filter(i => names[i].some(x => x.toLowerCase() === want));
+		const hits = holds.length > 1 && exact.length === 1 ? exact : holds;
 		const listed = names.map(n => n[1] || n[0]).filter(Boolean);
-		if (hits.length !== 1) { return { ok: false, ...base, error: hits.length ? `${hits.length} links or buttons in cell ${cell.n}'s output hold "${a.text}"` : `no link or button in cell ${cell.n}'s output holds "${a.text}"`, links: listed }; }
+		if (hits.length !== 1) { return { ok: false, ...base, error: hits.length ? `${hits.length} links or buttons in cell ${cell.n}'s output hold "${a.text}", and not exactly one is named "${a.text}"; give one's whole text or name` : `no link or button in cell ${cell.n}'s output holds "${a.text}"`, links: listed }; }
 		const link = links.nth(hits[0]);
 		const clicked = listed[hits[0]] ?? a.text;
 		if (!await inView(link)) { return { ok: false, ...base, error: `could not scroll "${clicked}" into the editor's view; nothing was clicked` }; }
-		const editors = () => page.evaluate(g => ({
-			active: (document.querySelector(`${g.active} ${g.activeTab}`)?.getAttribute('aria-label') ?? '').replace(/, Editor Group \d+$/, '') || null,
-			tabs: [...document.querySelectorAll(`${g.group} [role=tab]`)].map(t => (t.getAttribute('aria-label') ?? '').replace(/, Editor Group \d+$/, '')),
-		}), lib.css.editorGroup);
+		// The editor tabs, and the side bars and panel: an output button can open
+		// a view there (Fix and Explain open the assistant's chat), shown by the
+		// view the part now shows ("views": its heading or selected tab, or
+		// hidden). Where focus lands is reported, not counted as a change.
+		const editors = () => page.evaluate(({ g, part, tabLabel }) => {
+			const view = (sel: string) => {
+				const p = document.querySelector(sel);
+				if (!p || !p.getClientRects().length || getComputedStyle(p).display === 'none') { return 'hidden'; }
+				const tab = p.querySelector('[role=tab][aria-selected=true]');
+				return (p.querySelector('h2')?.textContent || tab?.querySelector(tabLabel)?.textContent || tab?.getAttribute('aria-label') || '').trim() || 'shown';
+			};
+			const focus = document.activeElement;
+			return {
+				active: (document.querySelector(`${g.active} ${g.activeTab}`)?.getAttribute('aria-label') ?? '').replace(/, Editor Group \d+$/, '') || null,
+				tabs: [...document.querySelectorAll(`${g.group} [role=tab]`)].map(t => (t.getAttribute('aria-label') ?? '').replace(/, Editor Group \d+$/, '')),
+				views: { sidebar: view(part.sidebar), secondary: view(part.secondary), panel: view(part.panel) } as Record<string, string>,
+				focus: (['sidebar', 'secondary', 'panel', 'editor'] as const).find(k => focus?.closest(part[k])) ?? null,
+			};
+		}, { g: lib.css.editorGroup, part: lib.css.part, tabLabel: lib.css.workbench.tabLabel });
 		const was = await editors();
 		await link.click({ timeout: 3000 });
+		const moved = (x: typeof was) => JSON.stringify([x.active, x.tabs, x.views]) !== JSON.stringify([was.active, was.tabs, was.views]);
 		let is = was;
-		for (let i = 0; i < 20; i++) { await lib.sleep(150); is = await editors(); if (JSON.stringify(is) !== JSON.stringify(was) || await overlays() > overlaysBefore) { break; } }
+		for (let i = 0; i < 20; i++) { await lib.sleep(150); is = await editors(); if (moved(is) || await overlays() > overlaysBefore) { break; } }
 		const opened = await overlays() > overlaysBefore;
 		const tabs = [...is.tabs];
 		for (const t of was.tabs) { const k = tabs.indexOf(t); if (k >= 0) { tabs.splice(k, 1); } }
-		const changed = JSON.stringify(is) !== JSON.stringify(was) || opened;
+		const views = Object.keys(is.views).filter(k => is.views[k] !== was.views[k]).map(k => `${k}: ${was.views[k]} -> ${is.views[k]}`);
+		const changed = moved(is) || opened;
 		return {
 			ok: changed, clicked, ...base, changed, activeEditor: is.active, editorTabs: is.tabs.length,
-			...(tabs.length ? { newTabs: tabs } : {}), ...(opened ? { opened: 'a dialog, menu or quick pick opened' } : {}),
-			...(changed ? {} : { error: `clicking "${clicked}" opened or changed nothing within 3 s` }),
+			...(tabs.length ? { newTabs: tabs } : {}), ...(views.length ? { views } : {}), ...(is.focus && is.focus !== 'editor' ? { focus: `in the ${is.focus}` } : {}),
+			...(opened ? { opened: 'a dialog, menu or quick pick opened' } : {}),
+			...(changed ? {} : { error: `clicking "${clicked}" opened or changed nothing within 3 s (no editor tab, side bar or panel view, dialog, menu or quick pick)` }),
 		};
 	}
 	// The toolbar's run button reads Stop or Cancel while the cell runs or waits.
@@ -382,7 +404,7 @@ export const qmdCommands: Record<string, (argv: string[]) => Json | string> = {
 		const t = out.toolbar as { state: string } | null;
 		const o = out.output as { status: string; text: string } | null;
 		const cellNow = `${t?.state ?? 'no toolbar'}, output ${o ? `${o.status} ${JSON.stringify(o.text)}` : 'none drawn'}`;
-		if (out.clicked && out.ok) { log('qmd.sh', p.session, `${f.name} cell ${cell.n}: click ${out.clicked}`, cmd === 'link' ? `active editor ${out.activeEditor}` : cellNow); }
+		if (out.clicked && out.ok) { log('qmd.sh', p.session, `${f.name} cell ${cell.n}: click ${out.clicked}`, cmd === 'link' ? [`active editor ${out.activeEditor}`, ...((out.views as string[] | undefined) ?? []), ...(out.focus ? [`focus ${out.focus}`] : [])].join('; ') : cellNow); }
 		if (out.chose) { log('qmd.sh', p.session, `${f.name} cell ${cell.n}: More cell actions, ${out.chose}`, cellNow); }
 		// A failed state or wait is logged as a failure, with its error, not as a reading.
 		if ((cmd === 'state' || cmd === 'wait') && out.ok) {

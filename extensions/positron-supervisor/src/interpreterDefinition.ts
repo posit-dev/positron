@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
 import * as os from 'os';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
@@ -20,6 +21,7 @@ export interface InterpreterDefinition {
 	path: string;
 	label: string;
 	env?: Record<string, string>;
+	modules?: string[];
 	startupScript?: string;
 }
 
@@ -42,12 +44,30 @@ export function findInterpreterDefinition(definitions: unknown, languageId: stri
 			candidate.path === runtimePath &&
 			candidate.label === label &&
 			(candidate.env === undefined || isStringRecord(candidate.env)) &&
+			(candidate.modules === undefined || (Array.isArray(candidate.modules) && candidate.modules.every(m => typeof m === 'string'))) &&
 			(candidate.startupScript === undefined || typeof candidate.startupScript === 'string');
 	});
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {
 	return !!value && typeof value === 'object' && !Array.isArray(value) && Object.values(value).every(v => typeof v === 'string');
+}
+
+/** The slice of the environment modules extension's API used here. */
+interface EnvironmentModulesApi {
+	isAvailable(): Promise<boolean>;
+	getModuleSystemInfo(): Promise<{ initPath?: string }>;
+}
+
+/**
+ * Get the init script of the module system (Environment Modules or Lmod), so
+ * that `module` can be used in a shell that has not set it up.
+ *
+ * @returns The init script, or undefined if there is no module system.
+ */
+export async function getModuleInitScript(): Promise<string | undefined> {
+	const api = await vscode.extensions.getExtension<EnvironmentModulesApi>('positron.positron-environment-modules')?.activate();
+	return api && await api.isAvailable() ? (await api.getModuleSystemInfo()).initPath : undefined;
 }
 
 /**
@@ -58,41 +78,48 @@ const SHELL_VARIABLES = new Set(['PWD', 'OLDPWD', 'SHLVL', '_', 'ELECTRON_RUN_AS
 
 /**
  * Get the environment variables an interpreter definition sets: its `env`,
- * plus every variable its startup script sets or changes. The script is
- * sourced once in a POSIX shell, starting from `baseEnv` with the definition's
- * `env` applied, and the resulting environment is compared to that starting
- * point. Variables the script unsets are not reported, since the supervisor
- * can only set variables. Startup scripts need a POSIX shell, so they are
- * skipped on Windows.
+ * plus every variable its modules and startup script set or change. In a bash
+ * shell (or a POSIX shell if bash is missing), starting from `baseEnv` with the
+ * definition's `env` applied, the module system's init script is sourced, the
+ * modules are loaded, and the startup script is sourced; the resulting
+ * environment is compared to the starting point. Variables that are unset are
+ * not reported, since the supervisor can only set variables. Modules and
+ * startup scripts need a POSIX shell, so they are skipped on Windows.
  *
  * @param definition The interpreter definition.
  * @param baseEnv The environment the interpreter would otherwise start with.
  * @param platform The current platform.
+ * @param moduleInit The module system's init script, if there is one.
  * @returns The variables to set, by name.
  */
-export async function resolveDefinitionEnv(definition: InterpreterDefinition, baseEnv: Record<string, string>, platform: NodeJS.Platform): Promise<Record<string, string>> {
+export async function resolveDefinitionEnv(definition: InterpreterDefinition, baseEnv: Record<string, string>, platform: NodeJS.Platform, moduleInit?: string): Promise<Record<string, string>> {
 	const env = { ...definition.env };
-	if (!definition.startupScript || platform === 'win32') {
+	const modules = definition.modules ?? [];
+	if ((!definition.startupScript && !modules.length) || platform === 'win32') {
 		return env;
 	}
 	const before = { ...baseEnv, ...env };
-	const scriptPath = definition.startupScript.replace(/^~(?=$|\/)/, os.homedir());
+	const scriptPath = definition.startupScript?.replace(/^~(?=$|\/)/, os.homedir()) ?? '';
 	// Print the environment with the extension host's own runtime (Electron
 	// run as Node, or Node on a server) so the output is unambiguous JSON.
-	// Clear the positional parameters so the sourced script doesn't see them.
+	// Clear the positional parameters so the sourced scripts don't see them.
 	let stdout: string;
 	try {
-		({ stdout } = await execFileAsync('/bin/sh', [
+		({ stdout } = await execFileAsync(fs.existsSync('/bin/bash') ? '/bin/bash' : '/bin/sh', [
 			'-c',
-			'script="$1"; node="$2"; code="$3"; set --; . "$script" >&2 && exec "$node" -e "$code"',
-			'sh', scriptPath, process.execPath, 'process.stdout.write(JSON.stringify(process.env))',
+			'init="$1"; modules="$2"; script="$3"; node="$4"; code="$5"; set --; ' +
+			'{ [ -z "$init" ] || . "$init"; } >&2 && ' +
+			'{ [ -z "$modules" ] || module load $modules; } >&2 && ' +
+			'{ [ -z "$script" ] || . "$script"; } >&2 && ' +
+			'exec "$node" -e "$code"',
+			'sh', moduleInit ?? '', modules.join(' '), scriptPath, process.execPath, 'process.stdout.write(JSON.stringify(process.env))',
 		], {
 			env: { ...before, ELECTRON_RUN_AS_NODE: '1' },
 			timeout: 30_000,
 			maxBuffer: 10 * 1024 * 1024,
 		}));
 	} catch (err) {
-		// Report the script's own output rather than the wrapper command.
+		// Report the scripts' own output rather than the wrapper command.
 		const { stderr, code, killed } = err as { stderr?: string; code?: number; killed?: boolean };
 		throw new Error(stderr?.trim() || (killed ? 'timed out after 30 seconds' : `exited with code ${code}`));
 	}

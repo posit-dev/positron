@@ -12,7 +12,7 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IProgress, IProgressOptions, IProgressService, IProgressStep, ProgressLocation } from '../../../../../platform/progress/common/progress.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IUntitledTextResourceEditorInput } from '../../../../common/editor.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -62,7 +62,7 @@ const PACKAGES_PAYLOAD = {
 };
 
 describe('packages inspect action', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	let openEditor: ReturnType<typeof vi.fn<(input: IUntitledTextResourceEditorInput) => Promise<undefined>>>;
 	let getPackagesSnapshot: ReturnType<typeof vi.fn<IPositronPackagesInstance['getPackagesSnapshot']>>;

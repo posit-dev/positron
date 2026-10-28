@@ -11,7 +11,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PreviewSourceType } from '../../../../services/languageRuntime/common/positronUiComm.js';
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
@@ -119,7 +119,7 @@ describe('PositronViewerAgentService', () => {
 		return null;
 	});
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IConfigurationService, configurationService)
 		.stub(IPositronPreviewService, {
 			get activePreviewWebview() {

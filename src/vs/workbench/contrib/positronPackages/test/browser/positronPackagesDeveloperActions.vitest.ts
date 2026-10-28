@@ -8,14 +8,14 @@
 import { MenuId, MenuRegistry, isIMenuItem } from '../../../../../platform/actions/common/actions.js';
 import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
 import { ClearPackageMetadataCacheAction } from '../../browser/positronPackagesDeveloperActions.js';
 import { IPositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 
 describe('clear package metadata cache action', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	let info: ReturnType<typeof vi.fn<(message: string) => void>>;
 

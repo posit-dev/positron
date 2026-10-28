@@ -18,14 +18,15 @@ export const INTERPRETER_DISCOVERY_KEY = 'interpreters.discovery';
 
 /**
  * An entry in the `interpreters.definitions` setting: a labeled variant of the
- * discovered interpreter at `path`, launched with extra environment variables
- * and/or a startup script.
+ * discovered interpreter at `path`, launched with extra environment variables,
+ * environment modules, and/or a startup script.
  */
 export interface IInterpreterDefinition {
 	readonly language: string;
 	readonly path: string;
 	readonly label: string;
 	readonly env?: Record<string, string>;
+	readonly modules?: readonly string[];
 	readonly startupScript?: string;
 }
 
@@ -43,7 +44,9 @@ function validDefinitions(definitions: readonly IInterpreterDefinition[] | undef
 		if (!d || !isText(d.language) || !isText(d.path) || !isText(d.label)) {
 			return false;
 		}
-		if ((d.env !== undefined && !isStringRecord(d.env)) || (d.startupScript !== undefined && typeof d.startupScript !== 'string')) {
+		if ((d.env !== undefined && !isStringRecord(d.env)) ||
+			(d.modules !== undefined && !(Array.isArray(d.modules) && d.modules.every((m: unknown) => typeof m === 'string'))) ||
+			(d.startupScript !== undefined && typeof d.startupScript !== 'string')) {
 			return false;
 		}
 		const key = `${d.language}\0${d.label}`;

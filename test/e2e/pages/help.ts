@@ -6,6 +6,7 @@
 
 import { FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { QuickAccess } from './quickaccess';
 
 const OUTER_FRAME = '.webview';
 const MIDDLE_FRAME = '#active-frame';
@@ -13,6 +14,7 @@ const INNER_FRAME = '#help-iframe';
 const HELP_CONTAINER = '.positron-help-container';
 const RESIZE_SASH = '.monaco-sash.horizontal:not(.disabled)';
 const AUX_BAR = '.part.auxiliarybar';
+const HELP_VIEW_FOCUS_COMMAND = 'workbench.panel.positronHelp.focus';
 
 /*
  *  Reuseable Positron Help functionality for tests to leverage.
@@ -21,7 +23,7 @@ export class Help {
 
 	private get auxilaryBar(): Locator { return this.code.driver.currentPage.locator(AUX_BAR); }
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private quickaccess: QuickAccess) { }
 
 	async openHelpPanel(): Promise<void> {
 		await this.code.driver.currentPage.locator('.action-label[aria-label="Help"]').click();
@@ -44,6 +46,49 @@ export class Help {
 		const innerFrame = outerFrame.frameLocator(MIDDLE_FRAME);
 		const innerInnerFrame = innerFrame.frameLocator(INNER_FRAME);
 		return innerInnerFrame;
+	}
+
+	/**
+	 * The Help search box. Its name includes the foreground session's language,
+	 * e.g. "Search R Help".
+	 */
+	getSearchInput(): Locator {
+		return this.code.driver.currentPage.getByRole('combobox', { name: /^Search .+ Help$/ });
+	}
+
+	/**
+	 * A suggestion in the Help search list, matched by its exact label and,
+	 * optionally, its detail (the package name for R topics).
+	 */
+	getSearchSuggestion(label: string, detail?: string): Locator {
+		const page = this.code.driver.currentPage;
+		const exactly = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+		let option = page.getByRole('listbox', { name: 'Help topics' }).getByRole('option')
+			.filter({ has: page.locator('.label', { hasText: exactly(label) }) });
+		if (detail) {
+			option = option.filter({ has: page.locator('.detail', { hasText: exactly(detail) }) });
+		}
+		return option;
+	}
+
+	/**
+	 * Show the Help view and search for `query` with the Help search box.
+	 */
+	async search(query: string): Promise<void> {
+		await this.quickaccess.runCommand(HELP_VIEW_FOCUS_COMMAND);
+		const input = this.getSearchInput();
+		await input.fill(query);
+		await input.press('Enter');
+	}
+
+	/**
+	 * Show the Help view, type `query` in the Help search box, and pick the
+	 * suggestion with the given label and detail.
+	 */
+	async selectSearchSuggestion(query: string, label: string, detail?: string): Promise<void> {
+		await this.quickaccess.runCommand(HELP_VIEW_FOCUS_COMMAND);
+		await this.getSearchInput().fill(query);
+		await this.getSearchSuggestion(label, detail).click();
 	}
 
 	getHelpContainer(): Locator {

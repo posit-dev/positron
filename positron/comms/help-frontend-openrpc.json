@@ -34,6 +34,14 @@
 					"schema": {
 						"type": "boolean"
 					}
+				},
+				{
+					"name": "search_id",
+					"required": false,
+					"description": "Identifier of the UI search that requested this navigation, if any. Omit for console help and other help navigation. The frontend ignores identifiers that are no longer current.",
+					"schema": {
+						"type": "string"
+					}
 				}
 			]
 		}

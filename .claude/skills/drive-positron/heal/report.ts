@@ -15,6 +15,7 @@ import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { flagValue, unknownArg } from '../test/smoke-lib.ts';
 import type { Finding, State } from './finding.ts';
+import { HOT_SPOT_DAYS } from './fix-lib.ts';
 import { SKILL_PREFIX } from './scope.ts';
 
 export interface Night {
@@ -163,6 +164,7 @@ function block(f: Finding, n: Night, h: string): string {
 		...(f.change && f.outcome === 'fixed' ? [`- **Fix:** ${inert(f.change)}`] : []),
 		...(f.untestable && kept(f) ? [`- **No smoke case:** ${inert(f.untestable)}`] : []),
 		...(f.review?.length || f.revised ? [`- **Review:** ${reviewLine(f)}`] : []),
+		...(f.hotSpots?.length && kept(f) ? [`- **Hot spot:** ${f.hotSpots.map(h => `\`${h.file}\` lines ${h.lines} (${h.commits} earlier commits in ${HOT_SPOT_DAYS} days)`).join(', ')}; worth a refactor by a person.`] : []),
 		`- **Checked:** ${inert(checked(f, n))}.`,
 		...(runs.length ? [`- **Seen before:** fixed on ${s(runs.length, 'earlier night')} too (${runs.map(r => `run ${r}`).join(', ')}) and came back, so those fixes never landed.`] : []),
 		'', '<details><summary>Evidence</summary>', '',

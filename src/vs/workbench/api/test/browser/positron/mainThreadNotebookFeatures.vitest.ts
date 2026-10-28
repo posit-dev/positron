@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { constObservable } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -84,7 +84,7 @@ function createFeatures(outputItems: { mime: string; data: VSBuffer }[]): MainTh
 }
 
 describe('MainThreadNotebookFeatures $getCellOutputs SVG handling', () => {
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	it('rasterizes image/svg+xml outputs to a base64 png DTO', async () => {
 		mockRasterizeSvgToPng.mockResolvedValue(PNG_BASE64);
@@ -137,7 +137,7 @@ describe('MainThreadNotebookFeatures $getCellOutputs SVG handling', () => {
 });
 
 describe('MainThreadNotebookFeatures $getActiveNotebookContext', () => {
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	const TEXT_FILE_EDITOR_PANE_ID = 'workbench.editors.files.textFileEditor';
 	const TEXT_FILE_EDITOR_INPUT_ID = 'workbench.editors.files.fileEditorInput';

@@ -380,7 +380,7 @@ configurationRegistry.registerConfiguration({
 			default: [],
 			markdownDescription: nls.localize(
 				'positron.runtime.definitions',
-				"Additional interpreters, each with its own environment variables and startup script. R and Python are fully supported; other languages work to the extent their extension supports definitions. If Positron also finds the interpreter at `path` on its own, that interpreter stays available too; otherwise only the defined interpreter is shown, and a new one appears after Positron restarts. Variables the startup script sets are also applied to terminals while the interpreter is active. `path` must be the absolute runtime path; do not use shortened display paths such as `~`. Can only be set in user or remote settings."),
+				"Additional interpreters, each with its own environment variables, environment modules, and startup script. R and Python are fully supported; other languages work to the extent their extension supports definitions. If Positron also finds the interpreter at `path` on its own, that interpreter stays available too; otherwise only the defined interpreter is shown, and a new one appears after Positron restarts. Variables the modules and startup script set are also applied to terminals while the interpreter is active. `path` must be the absolute runtime path; do not use shortened display paths such as `~`. Can only be set in user or remote settings."),
 			items: {
 				type: 'object',
 				required: ['language', 'path', 'label'],
@@ -404,9 +404,14 @@ configurationRegistry.registerConfiguration({
 						additionalProperties: { type: 'string' },
 						description: nls.localize('positron.runtime.definitions.env', "Environment variables to set for this interpreter.")
 					},
+					modules: {
+						type: 'array',
+						items: { type: 'string' },
+						description: nls.localize('positron.runtime.definitions.modules', "Environment modules to load, in order, before starting this interpreter and before the startup script runs. The environment variables they set are applied to the interpreter and to terminals. Not supported on Windows.")
+					},
 					startupScript: {
 						type: 'string',
-						description: nls.localize('positron.runtime.definitions.startupScript', "Shell script to source before starting this interpreter. The environment variables it sets are applied to the interpreter and to terminals; variables it unsets are not removed. Not supported on Windows.")
+						description: nls.localize('positron.runtime.definitions.startupScript', "Shell script to source with bash before starting this interpreter. If environment modules are installed, the module command is available to it. The environment variables it sets are applied to the interpreter and to terminals; variables it unsets are not removed. Not supported on Windows.")
 					},
 				}
 			},

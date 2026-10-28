@@ -10,6 +10,7 @@
 	"configuration.environments.description": "Named environment configurations. Each key is an environment name, and the value specifies target languages and modules to load.",
 	"configuration.environments.languages.description": "Target languages for this environment (e.g., 'r', 'python')",
 	"configuration.environments.modules.description": "List of modules to load (in order)",
+	"configuration.environments.purge.description": "Run 'module purge' before loading the modules, so that modules loaded by shell startup scripts do not remain in the environment. Set to false to keep those modules loaded. Applies only to Lmod and Environment Modules.",
 	"command.refreshEnvironments.title": "Refresh Module Environments",
 	"command.diagnosticsReport.title": "Generate Diagnostics Report",
 	"command.manageEnvironments.title": "Manage Module Environments"

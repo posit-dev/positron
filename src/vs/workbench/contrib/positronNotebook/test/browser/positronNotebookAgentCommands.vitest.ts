@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { constObservable } from '../../../../../base/common/observable.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -59,7 +59,7 @@ function createCodeCell(overrides: Partial<IPositronNotebookCodeCell> = {}): IPo
 }
 
 describe('positronNotebookAgentCommands', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	/** Registers a notebook instance as the one open at NOTEBOOK_URI. */
 	function stubTargetNotebook(instance: IPositronNotebookInstance) {

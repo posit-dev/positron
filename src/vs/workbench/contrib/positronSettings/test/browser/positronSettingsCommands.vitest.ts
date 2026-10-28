@@ -11,7 +11,7 @@ import { IConfigurationData, IConfigurationModel, IConfigurationOverrides, IConf
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { IUserDataProfile } from '../../../../../platform/userDataProfile/common/userDataProfile.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
 import { IUserDataProfileService } from '../../../../services/userDataProfile/common/userDataProfile.js';
@@ -193,7 +193,7 @@ function createConfigurationService(targets: ITargetValues): IConfigurationServi
 }
 
 describe('getConfiguredSettings', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 	const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 
 	beforeAll(() => {
@@ -766,7 +766,7 @@ describe('getConfiguredSettings', () => {
 });
 
 describe('findSettings', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 	const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 
 	beforeAll(() => {

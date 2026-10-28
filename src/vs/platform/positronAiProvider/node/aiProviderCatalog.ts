@@ -40,7 +40,9 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 	private loadOptions(): import('ai-config/node').LoadCatalogOptions {
 		return {
 			configPath: this._options?.configPath,
-			envVars: this._options?.envVars,
+			// ai-config requires an explicit environment. Positron doesn't scrub
+			// its control variables from `process.env`, so a live read is correct.
+			envVars: this._options?.envVars ?? process.env,
 			// PROVIDER-SETTINGS-MIGRATION(legacy-positron): keep the legacy
 			// POSITRON_ENFORCED_SETTINGS admin channel applying above the user
 			// file. The user-set legacy settings reader is deliberately NOT

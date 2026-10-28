@@ -11,7 +11,7 @@ import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContri
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { DiscoverAllRuntimesAction, DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguage, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAgentSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
 import { DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -155,7 +155,7 @@ describe('selectNewLanguageRuntime', () => {
 	// Stubbed at describe scope so vi.spyOn can attach in individual tests.
 	const rediscoverAllRuntimes = vi.fn(async (_quiet?: boolean) => undefined);
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IRuntimeStartupService, {
 			getPreferredRuntime: (langId: string) => preferredByLanguage.get(langId),
@@ -805,7 +805,7 @@ describe('selectNewLanguageRuntime', () => {
 
 describe('selectLanguage', () => {
 	let pick: TestQuickPick<IQuickPickItem>;
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({
 			createQuickPick: (() => pick.asQuickPick()) as IQuickInputService['createQuickPick'],
@@ -862,7 +862,7 @@ describe('selectLanguageRuntimeSession - agent session icon', () => {
 		getRuntimeState: () => RuntimeState.Idle,
 	});
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			foregroundSession: undefined,
@@ -899,7 +899,7 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 	let foregroundSession: ILanguageRuntimeSession | undefined;
 	let activeEditor: EditorInput | undefined;
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			get foregroundSession() { return foregroundSession; },
@@ -1032,7 +1032,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 	const notifyError = vi.fn();
 	let foregroundSession: ILanguageRuntimeSession | undefined;
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			get foregroundSession() { return foregroundSession; },
@@ -1128,7 +1128,7 @@ describe('StartNewConsoleSessionAction', () => {
 	let pick: TestQuickPick<IQuickPickItem>;
 	let preferredByLanguage: Map<string, ILanguageRuntimeMetadata>;
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({ startNewRuntimeSession }))
 		.stub(ICommandService, { executeCommand })
@@ -1243,7 +1243,7 @@ describe('StartNewConsoleSessionAction', () => {
 });
 
 describe('startNewAgentSession', () => {
-	const ctx = createTestContainer().withRuntimeServices().build();
+	const ctx = createLightTestContainer().withRuntimeServices().build();
 
 	async function startAgentSessionBesideUserSession() {
 		const runtimeSessionService = ctx.get(IRuntimeSessionService);
@@ -1294,7 +1294,7 @@ describe('SelectSessionAction', () => {
 	let foregroundSession: ILanguageRuntimeSession | undefined;
 	let sessionsById: Map<string, ILanguageRuntimeSession>;
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			get foregroundSession() { return foregroundSession; },
@@ -1453,7 +1453,7 @@ describe('EvaluateCodeAction', () => {
 	let uiClient: UiClientInstance | undefined;
 	let ensureUiClientFails: boolean;
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			get foregroundSession() { return foregroundSession; },
@@ -1564,7 +1564,7 @@ describe('EvaluateCodeAction', () => {
 
 describe('DiscoverAllRuntimesAction', () => {
 	const discovery = { current: new DeferredPromise<void>() };
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IRuntimeStartupService, stubInterface<IRuntimeStartupService>({
 			rediscoverAllRuntimes: () => discovery.current.p,

@@ -19,7 +19,7 @@ import {
 } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IPathService } from '../../../path/common/pathService.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { RuntimeDiscoveryCache } from '../../common/runtimeDiscoveryCache.js';
 import {
 	IRuntimeRootSignature,
@@ -117,7 +117,7 @@ describe('RuntimeDiscoveryCache', () => {
 	let config: TestConfigurationService = undefined!;
 	let files: FakeFileService = undefined!;
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IStorageService, {})
 		.stub(IConfigurationService, {})
 		.stub(IFileService, {})

@@ -1097,6 +1097,7 @@
                 "python.locator": {
                     "default": "native",
                     "markdownDescription": "%python.locator.description%",
+                    "markdownDeprecationMessage": "%python.locator.markdownDeprecationMessage%",
                     "enum": [
                         "js",
                         "native"

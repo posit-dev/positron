@@ -9,7 +9,7 @@ import { CommandsRegistry } from '../../../../../platform/commands/common/comman
 import { IPositronAcademicLicenseService } from '../../../../../platform/positronLicense/common/positronAcademicLicenseService.js';
 import { IStorageService } from '../../../../../platform/storage/common/storage.js';
 import { IBannerService } from '../../../../services/banner/browser/bannerService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { SHOW_ACADEMIC_LICENSE_BANNER_COMMAND_ID } from '../../browser/positronAcademicLicenseBanner.contribution.js';
 
 // The banner contribution itself bails out before the license check on any non-web build
@@ -22,7 +22,7 @@ describe('positron.showAcademicLicenseBanner', () => {
 	// captured once at build() time, but the getter resolves when the command handler asks.
 	let isAcademic = false;
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IBannerService, { show: bannerShow })
 		.stub(IStorageService, { getBoolean: () => false, store: vi.fn() })
 		.stub(IPositronAcademicLicenseService, { get isAcademic() { return isAcademic; } })

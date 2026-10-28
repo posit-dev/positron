@@ -5,11 +5,11 @@
 
 /// <reference types="vitest/globals" />
 
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from '../../browser/copyJsonUtils.js';
 
 describe('copyJsonUtils', () => {
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	describe('serializeJsonOutput', () => {
 		it('pretty-prints JSON data with two-space indentation', () => {

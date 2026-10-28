@@ -9,7 +9,7 @@ import { CommandsRegistry } from '../../../../../platform/commands/common/comman
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageVulnerability } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -85,7 +85,7 @@ function advisory(id: string, score?: number): IPackageVulnerability {
 }
 
 describe('getAllPackages', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	/**
 	 * Wires the services the command reads. `instance` is what the packages
@@ -265,7 +265,7 @@ describe('getAllPackages', () => {
 });
 
 describe('getPackages', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	function stubServices(
 		instance: IPositronPackagesInstance | undefined,

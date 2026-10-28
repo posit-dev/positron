@@ -36,11 +36,15 @@ const productGallery: ExtensionGalleryConfig = {
 
 const validEnv = JSON.stringify({ serviceUrl: 'https://env.example.com/gallery' });
 
+// The value Posit Workbench injects to disable the marketplace for users who
+// cannot write to the global extensions directory (posit-dev/positron#16199).
+const workbenchDisabledEnv = '{"serviceUrl": ""}';
+
 describe('WebExtensionGalleryManifestService', () => {
 
 	const disposables = ensureNoLeakedDisposables();
 
-	function createService(opts: { env?: string; gallerySource?: string; confirmReload?: boolean } = {}) {
+	function createService(opts: { env?: string; gallerySource?: string; confirmReload?: boolean; productGallery?: ExtensionGalleryConfig } = {}) {
 		const onDidChangeConfiguration = disposables.add(new Emitter<IConfigurationChangeEvent>());
 		const logService = new NullLogService();
 		const notificationService = stubInterface<INotificationService>({ notify: vi.fn(), info: vi.fn() });
@@ -52,7 +56,7 @@ describe('WebExtensionGalleryManifestService', () => {
 			getValue: () => opts.gallerySource,
 			onDidChangeConfiguration: onDidChangeConfiguration.event,
 		});
-		const productService = stubInterface<IProductService>({ extensionsGallery: productGallery, nameLong: 'Positron' });
+		const productService = stubInterface<IProductService>({ extensionsGallery: opts.productGallery ?? productGallery, nameLong: 'Positron' });
 		const remoteAgentService = stubInterface<IRemoteAgentService>({ getConnection: () => null });
 
 		const service = disposables.add(new WebExtensionGalleryManifestService(
@@ -94,6 +98,19 @@ describe('WebExtensionGalleryManifestService', () => {
 			expect(notificationService.notify).toHaveBeenCalledOnce();
 		});
 
+		it('disables the gallery for the Workbench sentinel, even with gallerySource custom', async () => {
+			// The server's product.ts applies the same env var, so the forwarded
+			// product gallery carries the empty serviceUrl too.
+			const { service, notificationService } = createService({
+				env: workbenchDisabledEnv,
+				gallerySource: 'custom',
+				productGallery: { ...productGallery, serviceUrl: '' },
+			});
+			expect(await service.getExtensionGalleryManifest()).toBeNull();
+			expect(service.extensionGalleryManifestStatus).toBe('unavailable');
+			expect(notificationService.notify).not.toHaveBeenCalled();
+		});
+
 		it('reports the env outcome once even across repeated manifest requests', async () => {
 			const { service, logService } = createService({ env: validEnv, gallerySource: 'open-vsx' });
 			const infoSpy = vi.spyOn(logService, 'info');
@@ -104,6 +121,14 @@ describe('WebExtensionGalleryManifestService', () => {
 	});
 
 	describe('gallery source setting change', () => {
+
+		it('notifies that the gallery is disabled and does not prompt to reload for the Workbench sentinel', () => {
+			const { dialogService, notificationService, fireSettingChange } = createService({ env: workbenchDisabledEnv, gallerySource: 'custom' });
+			fireSettingChange();
+			expect(notificationService.info).toHaveBeenCalledOnce();
+			expect(vi.mocked(notificationService.info).mock.calls[0][0]).toContain('disabled');
+			expect(dialogService.confirm).not.toHaveBeenCalled();
+		});
 
 		it('prompts to reload when there is no env override', () => {
 			const { dialogService, fireSettingChange } = createService({ gallerySource: 'open-vsx' });

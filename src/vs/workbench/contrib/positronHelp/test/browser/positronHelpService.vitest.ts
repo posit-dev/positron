@@ -17,14 +17,18 @@ vi.hoisted(() => {
 	});
 });
 
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Event } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { PositronHelpService } from '../../browser/positronHelpService.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { HelpClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
+import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { HelpTopicResult, PositronHelpService } from '../../browser/positronHelpService.js';
 
 const START_PROXY_COMMAND = 'positronProxy.startHelpProxyServer';
 const TARGET_URL = 'http://localhost:1234/library/graphics/html/plot.html';
@@ -40,7 +44,7 @@ describe('PositronHelpService', () => {
 	);
 	const notifyError = vi.fn();
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(ICommandService, { executeCommand })
 		.stub(INotificationService, { error: notifyError })
@@ -49,7 +53,7 @@ describe('PositronHelpService', () => {
 		// internally and only affects the HTML the pane would render.
 		.stub(IFileService, { readFile: () => Promise.reject(new Error('not needed')) })
 		.stub(IThemeService, { onDidColorThemeChange: Event.None })
-		.stub(IRuntimeSessionService, { onDidChangeRuntimeState: Event.None })
+		.stub(IRuntimeSessionService, { onDidChangeRuntimeState: Event.None, onDidChangeForegroundSession: Event.None })
 		.build();
 
 	const createService = () =>
@@ -112,5 +116,123 @@ describe('PositronHelpService', () => {
 			  "sourceUrl": undefined,
 			}
 		`);
+	});
+
+	describe('foreground help requests', () => {
+		let session: ILanguageRuntimeSession;
+		let foregroundSession: ILanguageRuntimeSession | undefined;
+		let state: RuntimeState;
+		let service: PositronHelpService;
+		const showHelpTopic = vi.fn<HelpClientInstance['showHelpTopic']>();
+		const searchHelp = vi.fn<HelpClientInstance['searchHelp']>();
+
+		beforeEach(() => {
+			session = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'r-session',
+				getRuntimeState: () => state,
+				onDidChangeRuntimeState: Event.None,
+			});
+			foregroundSession = session;
+			state = RuntimeState.Idle;
+			ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+				get foregroundSession() { return foregroundSession; },
+				onDidChangeForegroundSession: Event.None,
+				onDidChangeRuntimeState: Event.None,
+			}));
+			service = createService();
+			showHelpTopic.mockReset().mockResolvedValue(true);
+			searchHelp.mockReset().mockResolvedValue(false);
+		});
+
+		const attachClient = () => service.attachClientInstance(session, stubInterface<HelpClientInstance>({
+			showHelpTopic,
+			searchHelp,
+			onDidEmitHelpContent: Event.None,
+			onDidClose: Event.None,
+			dispose: () => { },
+		}));
+
+		describe('exact topics', () => {
+			it.each([
+				{ found: true, result: HelpTopicResult.Found },
+				{ found: false, result: HelpTopicResult.NotFound },
+			])('returns $result when the foreground client returns $found', async ({ found, result }) => {
+				attachClient();
+				showHelpTopic.mockResolvedValue(found);
+
+				expect({
+					result: await service.showHelpTopicForForegroundSession('plot', undefined, CancellationToken.None),
+					requests: showHelpTopic.mock.calls,
+				}).toEqual({ result, requests: [['plot', undefined]] });
+			});
+
+			it('forwards a literal alias and its package unchanged', async () => {
+				attachClient();
+				showHelpTopic.mockResolvedValue(true);
+				expect(await service.showHelpTopicForForegroundSession(':=', 'data.table', CancellationToken.None)).toBe(HelpTopicResult.Found);
+				expect(showHelpTopic).toHaveBeenCalledExactlyOnceWith(':=', 'data.table');
+			});
+
+			it('returns unavailable when the foreground session has ended', async () => {
+				attachClient();
+				state = RuntimeState.Exited;
+				await expect(service.showHelpTopicForForegroundSession('plot', undefined, CancellationToken.None)).resolves.toBe(HelpTopicResult.Unavailable);
+				expect(showHelpTopic).not.toHaveBeenCalled();
+			});
+
+			it('returns unavailable without a foreground session even when another client is attached', async () => {
+				attachClient();
+				foregroundSession = undefined;
+
+				expect({
+					result: await service.showHelpTopicForForegroundSession('plot', undefined, CancellationToken.None),
+					requests: showHelpTopic.mock.calls,
+				}).toEqual({ result: HelpTopicResult.Unavailable, requests: [] });
+			});
+
+			it('propagates a genuine topic request error', async () => {
+				attachClient();
+				const error = new Error('Help request failed');
+				showHelpTopic.mockRejectedValue(error);
+
+				await expect(service.showHelpTopicForForegroundSession('plot', undefined, CancellationToken.None)).rejects.toBe(error);
+			});
+		});
+
+		describe('search', () => {
+			it('returns false when the foreground session has ended', async () => {
+				attachClient();
+				state = RuntimeState.Exited;
+				await expect(service.searchHelp('linear model', CancellationToken.None)).resolves.toBe(false);
+				expect(searchHelp).not.toHaveBeenCalled();
+			});
+
+			it('returns false without a foreground session even when another client is attached', async () => {
+				attachClient();
+				foregroundSession = undefined;
+
+				expect({
+					result: await service.searchHelp('linear model', CancellationToken.None),
+					requests: searchHelp.mock.calls,
+				}).toEqual({ result: false, requests: [] });
+			});
+
+			it('returns false when the foreground client does not accept the search', async () => {
+				attachClient();
+
+				expect({
+					result: await service.searchHelp('linear model', CancellationToken.None),
+					requests: searchHelp.mock.calls,
+				}).toEqual({ result: false, requests: [['linear model', expect.any(String)]] });
+			});
+
+			it('propagates a genuine search request error', async () => {
+				attachClient();
+				const error = new Error('Help search failed');
+				searchHelp.mockRejectedValue(error);
+
+				await expect(service.searchHelp('linear model', CancellationToken.None)).rejects.toBe(error);
+			});
+		});
 	});
 });

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
-import { addFields, type Finding, type Reproduction } from './finding.ts';
+import { addFields, type Finding, type HotSpot, type Reproduction } from './finding.ts';
 import { SKILL_PREFIX } from './scope.ts';
 
 /** The report's plain-language account, one sentence each; a session may leave any of them out. */
@@ -176,4 +176,37 @@ export function placeSections(sections: { id: string; last: string }[], listed: 
 	const last = new Map<string, string>();
 	for (const l of listed) { if (want.has(l.group)) { last.set(l.group, l.name); } }
 	return [...last].map(([id, name]) => ({ id, last: name }));
+}
+
+/** A fix's lines are a hot spot when this many commits within HOT_SPOT_DAYS changed them (the one that wrote them counts). */
+export const HOT_SPOT_COMMITS = 3;
+export const HOT_SPOT_DAYS = 30;
+
+/** The old-side line ranges a `-U0` diff changes in scripts/, for `git log -L`; an insertion counts the line it follows. */
+export function changedRanges(diff: string): { file: string; start: number; end: number }[] {
+	const out: { file: string; start: number; end: number }[] = [];
+	let file = '';
+	for (const l of diff.split('\n')) {
+		if (l.startsWith('--- ')) {
+			const m = l.match(/^--- a\/(.+)$/);
+			file = m && m[1].startsWith(`${SKILL_PREFIX}scripts/`) ? m[1] : '';
+			continue;
+		}
+		const h = file ? l.match(/^@@ -(\d+)(?:,(\d+))? /) : null;
+		if (!h) { continue; }
+		const start = Math.max(1, Number(h[1]));
+		out.push({ file, start, end: start + Math.max(1, h[2] === undefined ? 1 : Number(h[2])) - 1 });
+	}
+	return out;
+}
+
+/** The hot spots among a fix's ranges, given each file's `git log -L --format=commit:%h` output. */
+export function hotSpots(ranges: { file: string; start: number; end: number }[], log: (file: string, ranges: { start: number; end: number }[]) => string): HotSpot[] {
+	const byFile = new Map<string, { start: number; end: number }[]>();
+	for (const r of ranges) { byFile.set(r.file, [...(byFile.get(r.file) ?? []), r]); }
+	return [...byFile].flatMap(([file, rs]) => {
+		const commits = new Set([...log(file, rs).matchAll(/^commit:([0-9a-f]+)$/gm)].map(m => m[1])).size;
+		const lines = `${Math.min(...rs.map(r => r.start))}-${Math.max(...rs.map(r => r.end))}`;
+		return commits >= HOT_SPOT_COMMITS ? [{ file: file.slice(SKILL_PREFIX.length), lines, commits }] : [];
+	});
 }

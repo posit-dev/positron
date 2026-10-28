@@ -10,7 +10,7 @@ import { appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readJson } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
-import { renderPrComment, buildShotsBaseUrl } from './lib.mjs';
+import { renderPrComment, buildShotsBaseUrl, failedStep } from './lib.mjs';
 
 const API = 'https://api.github.com';
 
@@ -49,8 +49,27 @@ function readReport(workDir) {
 	return workDir ? readJson(join(workDir, 'report.json')) : null;
 }
 
+/** The step that failed in this run attempt, or null when none did or the jobs can't be read. */
+export async function findFailedStep({ fetchImpl, token, repo, runId, attempt }) {
+	try {
+		const { jobs } = await gh(fetchImpl, token, `/repos/${repo}/actions/runs/${runId}/attempts/${attempt}/jobs?per_page=100`);
+		return failedStep(jobs);
+	} catch (err) {
+		console.log(`[comment] could not read the run's jobs: ${err instanceof Error ? err.message : String(err)}`);
+		return null;
+	}
+}
+
 async function main() {
 	const state = process.env.COMMENT_STATE === 'running' ? 'running' : (process.env.OUTCOME || '');
+	// Only a run that failed before the agent ran needs the step that broke.
+	const failure = state ? null : await findFailedStep({
+		fetchImpl: fetch,
+		token: process.env.GH_TOKEN,
+		repo: process.env.GITHUB_REPOSITORY,
+		runId: process.env.GITHUB_RUN_ID,
+		attempt: process.env.GITHUB_RUN_ATTEMPT || '1',
+	});
 	const body = renderPrComment({
 		state,
 		report: state === 'running' ? null : readReport(process.env.WORK_DIR),
@@ -60,6 +79,7 @@ async function main() {
 		reason: process.env.DECLINE_REASON || '',
 		focus: process.env.FOCUS || '',
 		autoRun: process.env.AUTO_RUN === 'true',
+		failure,
 	});
 	const { action, id } = await postOrEditComment({
 		fetchImpl: fetch,

@@ -13,14 +13,19 @@ import pydoc
 import re
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import quote_plus
 
 from .help_comm import (
+    GetHelpTopicsRequest,
     HelpBackendMessageContent,
     HelpFrontendEvent,
+    HelpTopicSuggestion,
+    SearchHelpRequest,
     ShowHelpKind,
     ShowHelpParams,
     ShowHelpTopicRequest,
 )
+from .help_index import suggest
 from .positron_comm import CommMessage, PositronComm
 from .pydoc import member_summaries, render_markdown, start_server
 from .utils import JsonData, JsonRecord, get_module_name, get_qualname
@@ -255,6 +260,22 @@ class HelpService:
                 self._comm.send_result(data=True)
             self.show_help(request.params.topic)
 
+        elif isinstance(request, SearchHelpRequest):
+            shown = self.search_help(request.params.query, request.params.search_id)
+            if self._comm is not None:
+                self._comm.send_result(data=shown)
+
+        elif isinstance(request, GetHelpTopicsRequest):
+            if self._comm is not None:
+                self._comm.send_result(
+                    data=[
+                        topic.dict(exclude_none=True)
+                        for topic in self.get_help_topics(
+                            request.params.query, request.params.limit
+                        )
+                    ]
+                )
+
         else:
             logger.warning(f"Unhandled request: {request}")
 
@@ -303,4 +324,25 @@ class HelpService:
         # Submit the event to the frontend service
         event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True)
         if self._comm is not None:
-            self._comm.send_event(name=HelpFrontendEvent.ShowHelp.value, payload=event.dict())
+            self._comm.send_event(
+                name=HelpFrontendEvent.ShowHelp.value, payload=event.dict(exclude_none=True)
+            )
+
+    def search_help(self, query: str, search_id: str) -> bool:
+        """Show pydoc's search results page for `query`."""
+        if self._pydoc_thread is None or not self._pydoc_thread.serving or self._comm is None:
+            logger.warning("Ignoring help search, the pydoc server or comm is not available")
+            return False
+
+        url = f"{self._pydoc_thread.url}search?key={quote_plus(query)}"
+        event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True, search_id=search_id)
+        self._comm.send_event(
+            name=HelpFrontendEvent.ShowHelp.value, payload=event.dict(exclude_none=True)
+        )
+        return True
+
+    def get_help_topics(self, query: str, limit: int) -> list[HelpTopicSuggestion]:
+        """Return module names that match `query`, without importing any modules."""
+        if not 1 <= limit <= 50:
+            raise ValueError("Help suggestion limit must be between 1 and 50")
+        return [HelpTopicSuggestion(label=name, topic=name) for name in suggest(query, limit)]
