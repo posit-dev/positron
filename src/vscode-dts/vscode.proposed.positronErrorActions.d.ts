@@ -22,11 +22,6 @@ declare module 'positron' {
 		 * before it's registered activates its extension, and waits for that.
 		 * The handler says what's missing when it's asked.
 		 *
-		 * Throws if the id isn't declared by this extension, is reserved, or is
-		 * already registered in this extension host. An id already registered in
-		 * another extension host is refused with a logged error and a disposable
-		 * is returned that does nothing.
-		 *
 		 * @param id The id the handler is declared with.
 		 * @param handler The handler.
 		 * @returns A disposable that unregisters the handler.
@@ -42,8 +37,8 @@ declare module 'positron' {
 			 * When the handler can't take the error because of a problem the
 			 * user can fix (e.g. the agent or its command isn't installed, or a
 			 * setting), tell the user why, with a way to fix it where there is
-			 * one, and resolve. Reject only on unexpected
-			 * failures; Positron reports them to the user.
+			 * one, and resolve. Reject only on unexpected failures;
+			 * Positron reports them to the user.
 			 */
 			ask(action: ErrorAction, context: ErrorActionContext, options: ErrorActionOptions): Thenable<void>;
 		}
