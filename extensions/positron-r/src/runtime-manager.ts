@@ -594,8 +594,10 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			throw new Error(`R installation at ${binpath} is not usable. Reason: ${friendlyReason(inst.reasonRejected)}`);
 		}
 		// Save the path as given, so a link keeps leading to the R it points
-		// to after an upgrade. Discovery follows the link.
-		const savedPath = path.normalize(binpath);
+		// to after an upgrade. Discovery follows the link. On Windows, save
+		// the `bin\x64\R.exe` that is registered, since discovery of saved
+		// paths doesn't make that change.
+		const savedPath = listedRBinary(path.normalize(binpath));
 		const config = vscode.workspace.getConfiguration('positron.r');
 		const binaries = config.inspect<string[]>('customBinaries')?.globalValue ?? [];
 		if (!binaries.includes(savedPath)) {

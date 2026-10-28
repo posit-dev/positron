@@ -137,13 +137,14 @@ describe('chooseStartupR', () => {
 				.toEqual({ name: 'pinned', startupBehavior: 'implicit' });
 		});
 
-		it('starts no R when nothing is pinned, without looking for other Rs', async () => {
+		it('starts no R when nothing is pinned, without checking the folder or looking for other Rs', async () => {
+			const looksLikeRProject = vi.fn(async () => true);
 			const currentR = vi.fn(async () => current);
 			const fullSearch = vi.fn(async () => [r('4.5.1')]);
 			expect({
-				choice: await choose(inputs({ pinOnly: true, currentR, fullSearch })),
-				searches: [currentR.mock.calls.length, fullSearch.mock.calls.length],
-			}).toEqual({ choice: undefined, searches: [0, 0] });
+				choice: await choose(inputs({ pinOnly: true, looksLikeRProject, currentR, fullSearch })),
+				searches: [looksLikeRProject.mock.calls.length, currentR.mock.calls.length, fullSearch.mock.calls.length],
+			}).toEqual({ choice: undefined, searches: [0, 0, 0] });
 		});
 	});
 

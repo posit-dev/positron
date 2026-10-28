@@ -232,21 +232,32 @@ export function rVersionsEntryForR<E extends { readonly path?: string }>(
  *   nothing is returned.
  * - A pinned R starts right away in a folder that looks like an R project, and
  *   otherwise when R is needed.
- * - Otherwise, when only a pinned R can be returned, nothing is returned.
+ * - Otherwise, when only a pinned R can be returned, nothing is returned, and
+ *   the folder isn't checked.
  * - Otherwise, in a folder that looks like an R project, the R the search
  *   lists first starts right away.
  * - Otherwise nothing is returned.
  */
 export async function chooseStartupR<T extends RStartupCandidate>(inputs: RStartupInputs<T>): Promise<RStartupChoice<T> | undefined> {
-	// Look up the pin while the folder is searched for R files.
-	const [pinned, rProject] = await Promise.all([
-		inputs.pinnedR(),
-		inputs.manualStartup ? Promise.resolve(false) : inputs.looksLikeRProject(),
-	]);
+	const isRProject = () => inputs.manualStartup ? Promise.resolve(false) : inputs.looksLikeRProject();
+	let pinned: T | undefined;
+	let rProject: boolean;
+	if (inputs.pinOnly) {
+		// Only the pin can be returned, so check the folder only when there
+		// is one. Every language's first console waits for this answer.
+		pinned = await inputs.pinnedR();
+		if (!pinned) {
+			return undefined;
+		}
+		rProject = await isRProject();
+	} else {
+		// Look up the pin while the folder is searched for R files.
+		[pinned, rProject] = await Promise.all([inputs.pinnedR(), isRProject()]);
+	}
 	if (pinned) {
 		return { installation: pinned, startupBehavior: rProject ? 'immediate' : 'implicit' };
 	}
-	if (!rProject || inputs.pinOnly) {
+	if (!rProject) {
 		return undefined;
 	}
 	const installation = await pickStartupR(inputs);
