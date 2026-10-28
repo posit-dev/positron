@@ -1397,7 +1397,7 @@ describe('RuntimeStartupService - restored sessions', () => {
 describe('RuntimeStartupService - reconnect after a reload', () => {
 	const ephemeralState = new Map<string, unknown>();
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: async <T>(key: string) => ephemeralState.get(key) as T | undefined,
@@ -2299,7 +2299,7 @@ class StartupBehaviorConfigurationService extends TestConfigurationService {
  */
 describe('RuntimeStartupService - startup sequence', () => {
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
@@ -2905,9 +2905,8 @@ describe('RuntimeStartupService - startup sequence', () => {
 			});
 			const affiliatedBeforeAnswer = storedAffiliation('r')?.runtimeId;
 
-			// The check keeps running, but its answer applies only from the
-			// next launch, so the console that started stays the affiliated
-			// runtime.
+			// The check runs again on the next launch, so the console that
+			// started stays the affiliated runtime and the pin isn't registered.
 			await lateAnswer.complete(pinnedR);
 			await timeout(0);
 
@@ -2916,11 +2915,13 @@ describe('RuntimeStartupService - startup sequence', () => {
 				affiliatedBeforeAnswer,
 				affiliatedAfterAnswer: service.getAffiliatedRuntimeMetadata('r')?.runtimeId,
 				storedAfterAnswer: storedAffiliation('r')?.runtimeId,
+				pinRegistered: ctx.get(ILanguageRuntimeService).getRegisteredRuntime(pinnedR.runtimeId) !== undefined,
 			}).toEqual({
 				started: [{ runtimeId: oldR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
 				affiliatedBeforeAnswer: oldR.runtimeId,
 				affiliatedAfterAnswer: oldR.runtimeId,
 				storedAfterAnswer: oldR.runtimeId,
+				pinRegistered: false,
 			});
 		});
 
