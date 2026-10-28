@@ -42,7 +42,7 @@ export class PositronDataExplorerUri {
 		// extension-backend identifier such as "duckdb:$PATH" (file backends) or
 		// "sqlite:$CONNECTION:$KIND:$NAME" (data connection drivers).
 		const match = resource.path.match(
-			/^positron-data-explorer-(?:([0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})|([a-z][a-z0-9+.-]*:.+))$/
+			/^positron-data-explorer-(?:([0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})|([a-zA-Z][a-zA-Z0-9+.-]*:.+))$/
 		);
 
 		const uuid = match?.[1];
@@ -67,10 +67,12 @@ export class PositronDataExplorerUri {
 	public static backingUri(resource: URI): URI | undefined {
 		const identifier = PositronDataExplorerUri.parse(resource);
 		// Runtime comm IDs have no originating URIs.
-		if (!identifier || !identifier.startsWith('duckdb:')) {
+		// URI schemes are case-insensitive, so "DuckDB:" also matches.
+		const duckdbPrefix = 'duckdb:';
+		if (!identifier || identifier.slice(0, duckdbPrefix.length).toLowerCase() !== duckdbPrefix) {
 			return undefined;
 		}
 		// This will be something like "duckdb:file:///path/to/file.csv".
-		return URI.parse(identifier.replace('duckdb:', ''));
+		return URI.parse(identifier.slice(duckdbPrefix.length));
 	}
 }
