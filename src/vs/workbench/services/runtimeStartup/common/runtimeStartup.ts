@@ -219,6 +219,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// does not auto-start it before the recommendation chooses what to start.
 	private _suppressRegistrationAutoStart = false;
 
+	// The latest ask after discovery, once one has begun. A runtime that
+	// registers after it (e.g. a .venv made in the folder) can change the
+	// answer, so its language is asked again.
+	private _recommendAfterDiscovery: Promise<void> | undefined;
+
+	// Languages to ask again, and the ask in flight, if any.
+	private readonly _staleRecommendationLanguageIds = new Set<string>();
+	private _refreshingRecommendations: Promise<void> | undefined;
+
 	// A map of each extension host and its runtime discovery completion state.
 	// This is keyed by the the extension host's mainThreadLanguageRuntime's id
 	// This map is used to determine if runtime discovery has been completed
@@ -411,8 +420,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 				// Languages that had no recommendation at startup get a second
 				// chance now that their interpreters are discovered.
-				this.recommendAfterDiscovery().catch(err =>
+				this._recommendAfterDiscovery = this.recommendAfterDiscovery().catch(err =>
 					this._logService.error(`[Runtime startup] Error recommending runtimes after discovery: ${err}`));
+				this.refreshStaleRecommendations();
 
 				// Persist the count of registered runtimes so the next session
 				// can show a determinate progress bar during discovery.
@@ -488,6 +498,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Language IDs are tracked above even while auto-start is suppressed.
 			if (this._suppressRegistrationAutoStart) {
 				return;
+			}
+
+			if (this._recommendAfterDiscovery &&
+				runtime.runtimeId !== this._recommendedRuntimesByLanguageId.get(runtime.languageId)?.runtimeId) {
+				this._staleRecommendationLanguageIds.add(runtime.languageId);
+				if (this._startupPhase === RuntimeStartupPhase.Complete) {
+					this.refreshStaleRecommendations();
+				}
 			}
 
 			// Automatically start the language runtime under the following conditions:
@@ -2149,6 +2167,62 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}
 		await Promise.all(recommendations.values());
+	}
+
+	/**
+	 * Asks again for each language marked stale, and remembers the new answer
+	 * for `getPreferredRuntime`. Unlike the ask after discovery, the answer
+	 * never starts. One ask runs at a time; languages marked during it are
+	 * asked when it finishes.
+	 */
+	private refreshStaleRecommendations(): void {
+		if (this._refreshingRecommendations) {
+			return;
+		}
+		this._refreshingRecommendations = (async () => {
+			await this._recommendAfterDiscovery;
+			while (this._staleRecommendationLanguageIds.size > 0 &&
+				this._startupPhase === RuntimeStartupPhase.Complete) {
+				const languageIds = Array.from(this._staleRecommendationLanguageIds);
+				this._staleRecommendationLanguageIds.clear();
+				await Promise.all(languageIds.map(languageId => this.refreshRecommendation(languageId)));
+			}
+		})().catch(err =>
+			this._logService.error(`[Runtime startup] Error recommending runtimes again: ${err}`)
+		).finally(() => {
+			this._refreshingRecommendations = undefined;
+			// Languages marked after the loop's last check.
+			if (this._staleRecommendationLanguageIds.size > 0 &&
+				this._startupPhase === RuntimeStartupPhase.Complete) {
+				this.refreshStaleRecommendations();
+			}
+		});
+	}
+
+	private async refreshRecommendation(languageId: string): Promise<void> {
+		// A language with no recommendation is asked on the next discovery
+		// pass instead, which can also start its answer.
+		if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled ||
+			!this._recommendedRuntimesByLanguageId.has(languageId)) {
+			return;
+		}
+		const otherLanguageIds = Array.from(new Set([
+			...this._languageRuntimeService.registeredRuntimes.map(metadata => metadata.languageId),
+			...this._languagePacks.keys(),
+		])).filter(id => id !== languageId);
+		const metadata = await Promise.all(this._runtimeManagers.map(manager =>
+			manager.recommendWorkspaceRuntimes(otherLanguageIds, true)));
+		const answer = metadata.flat().find(({ metadata: recommended }) => recommended.languageId === languageId);
+		if (!answer) {
+			return;
+		}
+		this._suppressRegistrationAutoStart = true;
+		try {
+			const runtime = this.rememberRecommendation(answer.metadata, answer.isProjectDefault);
+			this._logService.debug(`[Runtime startup] Recommended again after a runtime registered: ${formatLanguageRuntimeMetadata(runtime)}`);
+		} finally {
+			this._suppressRegistrationAutoStart = false;
+		}
 	}
 
 	/**

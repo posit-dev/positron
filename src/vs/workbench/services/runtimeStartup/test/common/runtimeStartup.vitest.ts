@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { isWeb } from '../../../../../base/common/platform.js';
@@ -1655,6 +1656,78 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			preferred: 'rt-conda',
 			reason: PreferredRuntimeReason.Recommended,
 		});
+	});
+
+	it('asks again when a runtime registers after the recommendation, without starting the new answer', async () => {
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const autoStartRuntime = vi.spyOn(ctx.get(IRuntimeSessionService), 'autoStartRuntime').mockResolvedValue('');
+
+		// With no project env, the extension recommends a global Python.
+		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(global));
+		let answer = global;
+		const manager = makeManager({ id: 1, owns: [] });
+		manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) =>
+			afterDiscovery ? [{ metadata: answer, isProjectDefault: false }] : [];
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+		await vi.waitFor(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-global' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+
+		// A .venv made in the folder registers Explicit, like every discovered
+		// Python, and is now the extension's answer, which would start Immediate.
+		const venv = {
+			...metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' }),
+			startupBehavior: LanguageRuntimeStartupBehavior.Explicit,
+		};
+		answer = {
+			...venv,
+			startupBehavior: LanguageRuntimeStartupBehavior.Immediate,
+			picker: { group: 'Project environments', groupOrder: 0, label: 'Python 3.12.0', recommendationReason: 'project environment' },
+		};
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(venv));
+
+		await vi.waitFor(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+			recommendationReason: 'project environment',
+		}));
+		expect(autoStartRuntime).not.toHaveBeenCalled();
+	});
+
+	it('asks again when a runtime registers while the first ask after discovery is answering', async () => {
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(global));
+
+		// The first ask answers the global Python, but only after the .venv registers.
+		const firstAnswer = new DeferredPromise<void>();
+		let asks = 0;
+		const manager = makeManager({ id: 1, owns: [] });
+		manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) => {
+			if (!afterDiscovery) {
+				return [];
+			}
+			if (++asks === 1) {
+				await firstAnswer.p;
+				return [{ metadata: global, isProjectDefault: false }];
+			}
+			return [{ metadata: venv, isProjectDefault: false }];
+		};
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(venv));
+		firstAnswer.complete();
+
+		await vi.waitFor(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
 	});
 
 	it('saves a recommendation that does not start as the project default only if its manager allows it', async () => {
