@@ -28,10 +28,12 @@ Creates polished demo videos of Positron features through a collaborative script
 
 The recording scripts work the same from Git Bash or PowerShell. Two things differ:
 
-- **R demos cannot be recorded from an agent session.** Ark's libzmq aborts when Positron is a
-  descendant of a Claude Code process, so an R console never starts. Python is unaffected. For a
-  demo that needs R, hand the user the `npm run demo:record` command to run in their own terminal
-  and continue from the output they paste back.
+- **Recording from an agent session needs `--detached`.** Ark's libzmq aborts when Positron is a
+  descendant of a Claude Code process, so an R console never starts (Python is unaffected).
+  `npm run demo:record -- <name> --detached` re-runs the recording through Explorer, outside that
+  process tree, and streams the output back, so pass it for every recording an agent starts on
+  Windows rather than working out whether the demo touches R. A minimised console window appears
+  for the duration of the run.
 - Write scratch frames for verification to a temp directory that exists in the shell you are
   using. `/tmp/` resolves only under Git Bash.
 

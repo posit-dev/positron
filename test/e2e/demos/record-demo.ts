@@ -20,14 +20,22 @@
 
 import { spawnSync } from 'child_process';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 const DEMO_DIR = path.dirname(process.argv[1]);
 const ROOT = path.resolve(DEMO_DIR, '../../..');
 
 const args = process.argv.slice(2);
+if (args.includes('--detached')) {
+	if (process.platform === 'win32') {
+		await recordDetached(args.filter(a => a !== '--detached'));
+	} else {
+		console.log('--detached only applies to Windows; recording in this process.');
+	}
+}
 const keepWebm = args.includes('--keep-webm');
-const rest = args.filter(a => a !== '--keep-webm');
+const rest = args.filter(a => a !== '--keep-webm' && a !== '--detached');
 const target = rest[0] && !rest[0].startsWith('-') ? rest[0] : null;
 const passthrough = target ? rest.slice(1) : rest;
 
@@ -93,6 +101,74 @@ const post = spawnSync(process.execPath, [
 ], { cwd: ROOT, stdio: 'inherit' });
 
 process.exit(post.status ?? 0);
+
+/**
+ * Re-run this script outside the caller's process tree and relay its output.
+ *
+ * On Windows, Ark's libzmq cannot initialise its I/O poller when the kernel is a descendant of an
+ * agent session such as Claude Code, so an R session never starts and an R demo recorded from one
+ * fails at the `r` fixture. The constraint is on ancestry, not on any single launch, and Playwright
+ * has to spawn Electron itself, so the escape is to start the whole recording through Explorer:
+ * it becomes the parent of cmd, node, Playwright, Electron, the supervisor and Ark. Output goes to
+ * a log file that is streamed back here and the exit code comes back through a marker file, so to
+ * the caller this behaves like a normal run.
+ */
+async function recordDetached(childArgs: string[]): Promise<never> {
+	const runDir = fs.mkdtempSync(path.join(os.tmpdir(), 'demo-record-'));
+	const logFile = path.join(runDir, 'output.log');
+	const exitFile = path.join(runDir, 'exit.txt');
+	const launcher = path.join(runDir, 'record.cmd');
+	const quote = (s: string) => `"${s}"`;
+
+	fs.writeFileSync(launcher, [
+		'@echo off',
+		// Explorer runs the script in a visible console. Re-enter minimised and let that window go.
+		'if "%~1"=="" (start "" /min "%~f0" run & exit /b 0)',
+		`cd /d ${quote(ROOT)}`,
+		`${quote(process.execPath)} --experimental-strip-types ${quote(process.argv[1])} ${childArgs.map(quote).join(' ')} > ${quote(logFile)} 2>&1`,
+		'set RC=%ERRORLEVEL%',
+		// The space before the redirect matters: `echo 1> file` is a handle redirect, not output.
+		`echo %RC% > ${quote(exitFile)}`,
+		'',
+	].join('\r\n'));
+
+	console.log(`Recording outside this process tree via Explorer; log at ${logFile}`);
+	spawnSync('explorer.exe', [launcher], { stdio: 'ignore' });
+
+	let offset = 0;
+	const drain = () => {
+		if (!fs.existsSync(logFile)) {
+			return;
+		}
+		const fd = fs.openSync(logFile, 'r');
+		try {
+			const size = fs.fstatSync(fd).size;
+			if (size > offset) {
+				const chunk = Buffer.alloc(size - offset);
+				fs.readSync(fd, chunk, 0, chunk.length, offset);
+				process.stdout.write(chunk);
+				offset = size;
+			}
+		} finally {
+			fs.closeSync(fd);
+		}
+	};
+
+	const startedAt = Date.now();
+	for (; ;) {
+		drain();
+		if (fs.existsSync(exitFile)) {
+			drain();
+			const code = Number(fs.readFileSync(exitFile, 'utf-8').trim());
+			process.exit(Number.isNaN(code) ? 1 : code);
+		}
+		if (offset === 0 && Date.now() - startedAt > 60_000) {
+			console.error(`The detached recording never started; nothing was written to ${logFile}.`);
+			process.exit(1);
+		}
+		await new Promise(resolve => setTimeout(resolve, 500));
+	}
+}
 
 /** Accept either a path or a bare demo name. */
 function resolveSpec(value: string): string {
