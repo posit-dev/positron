@@ -43,9 +43,9 @@ import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../posit
 import { ILanguageRuntimeSession, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { createInterpreterVariant } from '../../../languageRuntime/common/interpreterDefinitions.js';
-import { RuntimeStartupService } from '../../common/runtimeStartup.js';
+import { choosePreferredRuntime, firstInPickerOrder, IPreferredRuntimeSources, RuntimeStartupService } from '../../common/runtimeStartup.js';
 import { RuntimeDiscoveryCache } from '../../common/runtimeDiscoveryCache.js';
-import { SerializedSessionMetadata } from '../../common/runtimeStartupService.js';
+import { PreferredRuntimeReason, SerializedSessionMetadata } from '../../common/runtimeStartupService.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import {
@@ -1392,6 +1392,80 @@ describe('RuntimeStartupService - restored sessions', () => {
 	});
 });
 
+describe('choosePreferredRuntime', () => {
+	const sources: Required<IPreferredRuntimeSources> = {
+		activeConsole: metadata({ runtimeId: 'rt-console' }),
+		affiliated: metadata({ runtimeId: 'rt-affiliated' }),
+		recentlyStarted: metadata({ runtimeId: 'rt-recent' }),
+		recommended: {
+			...metadata({ runtimeId: 'rt-recommended' }),
+			picker: { group: 'Project environments', groupOrder: 0, label: 'Python 3.12', recommendationReason: 'project environment' },
+		},
+		fallback: metadata({ runtimeId: 'rt-fallback' }),
+	};
+
+	/** Looks up a runtime in `sources`, as if all of them except `unregistered` were registered. */
+	function registeredExcept(...unregistered: string[]) {
+		return (runtimeId: string) => Object.values(sources)
+			.find(runtime => runtime.runtimeId === runtimeId && !unregistered.includes(runtimeId));
+	}
+
+	it.each([
+		{ omitted: [], expected: { runtimeId: 'rt-console', reason: PreferredRuntimeReason.RunningConsole } },
+		{ omitted: ['activeConsole'], expected: { runtimeId: 'rt-affiliated', reason: PreferredRuntimeReason.WorkspaceAffiliation } },
+		{ omitted: ['activeConsole', 'affiliated'], expected: { runtimeId: 'rt-recent', reason: PreferredRuntimeReason.RecentlyStarted } },
+		{ omitted: ['activeConsole', 'affiliated', 'recentlyStarted'], expected: { runtimeId: 'rt-recommended', reason: PreferredRuntimeReason.Recommended } },
+		{ omitted: ['activeConsole', 'affiliated', 'recentlyStarted', 'recommended'], expected: { runtimeId: 'rt-fallback', reason: PreferredRuntimeReason.Fallback } },
+	])('picks $expected.runtimeId when no higher source is known', ({ omitted, expected }) => {
+		const known = Object.fromEntries(Object.entries(sources).filter(([key]) => !omitted.includes(key)));
+		const preferred = choosePreferredRuntime(known, registeredExcept());
+		expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual(expected);
+	});
+
+	it('goes on to the next source when a runtime is no longer registered', () => {
+		const preferred = choosePreferredRuntime(sources, registeredExcept('rt-console', 'rt-affiliated'));
+		expect(preferred?.runtime.runtimeId).toBe('rt-recent');
+	});
+
+	it('passes on the extension\'s reason for a recommendation', () => {
+		const { recommended, fallback } = sources;
+		expect(choosePreferredRuntime({ recommended, fallback }, registeredExcept())?.recommendationReason).toBe('project environment');
+	});
+
+	it('returns undefined when no source names a registered runtime', () => {
+		expect(choosePreferredRuntime(sources, () => undefined)).toBeUndefined();
+	});
+});
+
+describe('firstInPickerOrder', () => {
+	/** A runtime with picker info, or without it when `groupOrder` is undefined. */
+	function runtime(runtimeId: string, groupOrder?: number, rowOrder?: number, version = '3.12.0'): ILanguageRuntimeMetadata {
+		return {
+			...metadata({ runtimeId }),
+			languageVersion: version,
+			picker: groupOrder === undefined ? undefined : { group: `group ${groupOrder}`, groupOrder, rowOrder, label: `Python ${version}` },
+		};
+	}
+
+	// Each list is in registration order; the expected runtime is not first.
+	it.each([
+		{ name: 'the lowest groupOrder', runtimes: [runtime('rt-global', 1), runtime('rt-project', 0)], expected: 'rt-project' },
+		{ name: 'the lowest rowOrder within a group', runtimes: [runtime('rt-other', 0, 1), runtime('rt-current', 0, 0)], expected: 'rt-current' },
+		{ name: 'the newest version within a row order', runtimes: [runtime('rt-old', 0, 0, '3.10.0'), runtime('rt-new', 0, 0, '3.13.0')], expected: 'rt-new' },
+		{ name: 'a runtime with picker info over one without', runtimes: [runtime('rt-legacy'), runtime('rt-picker', 1)], expected: 'rt-picker' },
+	])('picks $name', ({ runtimes, expected }) => {
+		expect(firstInPickerOrder(runtimes)?.runtimeId).toBe(expected);
+	});
+
+	it('picks the first registered runtime when none has picker info', () => {
+		expect(firstInPickerOrder([runtime('rt-first'), runtime('rt-second')])?.runtimeId).toBe('rt-first');
+	});
+
+	it('returns undefined when there are no runtimes', () => {
+		expect(firstInPickerOrder([])).toBeUndefined();
+	});
+});
+
 describe('RuntimeStartupService - getPreferredRuntime', () => {
 
 	const ctx = createLightTestContainer()
@@ -1450,6 +1524,87 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		expect(svc.getPreferredRuntime(sessionRuntime.languageId)?.runtimeId).toBe(sessionRuntime.runtimeId);
 	});
 
+	describe('reason', () => {
+		function createService() {
+			return ctx.disposables.add(
+				ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		}
+
+		function register(runtime: ILanguageRuntimeMetadata) {
+			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(runtime));
+			return runtime;
+		}
+
+		it('is RunningConsole when a console session backs the language', async () => {
+			const svc = createService();
+			const sessionRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: sessionRuntime });
+
+			const preferred = svc.getPreferredRuntimeWithReason(sessionRuntime.languageId);
+			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
+				runtimeId: sessionRuntime.runtimeId,
+				reason: PreferredRuntimeReason.RunningConsole,
+			});
+		});
+
+		it('is RunningConsole when the runtime has a running console that is not the language\'s in front', async () => {
+			const svc = createService();
+			const sessionRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: sessionRuntime });
+			// A console that started behind another language's is neither in front
+			// nor the last one used for its language.
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'getConsoleSessionForLanguage').mockReturnValue(undefined);
+
+			const preferred = svc.getPreferredRuntimeWithReason(sessionRuntime.languageId);
+			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
+				runtimeId: sessionRuntime.runtimeId,
+				reason: PreferredRuntimeReason.RunningConsole,
+			});
+		});
+
+		it('is WorkspaceAffiliation when the workspace has an affiliated runtime', () => {
+			const svc = createService();
+			const affiliated = register(metadata({ runtimeId: 'rt-affiliated' }));
+			register(metadata({ runtimeId: 'rt-other' }));
+			vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(affiliated);
+
+			const preferred = svc.getPreferredRuntimeWithReason('python');
+			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
+				runtimeId: affiliated.runtimeId,
+				reason: PreferredRuntimeReason.WorkspaceAffiliation,
+			});
+		});
+
+		it('is Fallback when the runtime is only registered', () => {
+			const svc = createService();
+			const only = register(metadata({ runtimeId: 'rt-only' }));
+
+			const preferred = svc.getPreferredRuntimeWithReason('python');
+			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
+				runtimeId: only.runtimeId,
+				reason: PreferredRuntimeReason.Fallback,
+			});
+		});
+
+		it('falls back to the runtime the picker lists first, not the first registered', () => {
+			const svc = createService();
+			const rRuntime = (runtimeId: string, version: string, current: boolean): ILanguageRuntimeMetadata => ({
+				...metadata({ languageId: 'r', runtimeId }),
+				languageVersion: version,
+				picker: { group: 'R', groupOrder: 0, rowOrder: current ? 0 : 1, label: `R ${version}` },
+			});
+			// The discovery cache can register a newer, non-current R first.
+			register(rRuntime('rt-r-4.6', '4.6.0', false));
+			const current = register(rRuntime('rt-r-4.5', '4.5.1', true));
+
+			const preferred = svc.getPreferredRuntimeWithReason('r');
+			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
+				runtimeId: current.runtimeId,
+				reason: PreferredRuntimeReason.Fallback,
+			});
+		});
+	});
+
 	it('goes on to the recommendations when the affiliated runtime fails to start', async () => {
 		ctx.instantiationService.stub(IPositronNewFolderService, {
 			onDidChangeNewFolderStartupPhase: Event.None,
@@ -1499,12 +1654,15 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 
 		await (svc as unknown as { recommendAfterDiscovery: () => Promise<void> }).recommendAfterDiscovery();
 
+		const preferred = svc.getPreferredRuntimeWithReason('python');
 		expect({
 			asks,
-			preferred: svc.getPreferredRuntime('python')?.runtimeId,
+			preferred: preferred?.runtime.runtimeId,
+			reason: preferred?.reason,
 		}).toEqual({
 			asks: [[[], true]],
 			preferred: 'rt-conda',
+			reason: PreferredRuntimeReason.Recommended,
 		});
 	});
 
@@ -2146,7 +2304,7 @@ class StartupBehaviorConfigurationService extends TestConfigurationService {
  */
 describe('RuntimeStartupService - startup sequence', () => {
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
@@ -2703,23 +2861,26 @@ describe('RuntimeStartupService - startup sequence', () => {
 			expect(cache.getEntries(rLanguage.extensionId, 'r').map(entry => entry.metadata.runtimePath)).toEqual([oldR.runtimePath]);
 		});
 
-		it('starts the affiliated runtime when the pin takes over 20 seconds, then saves the late pin without starting it', async () => {
+		it('starts the affiliated runtime when the pin takes over 20 seconds, and ignores the late pin', async () => {
 			const lateAnswer = new DeferredPromise<ILanguageRuntimeMetadata | undefined>();
 			const { started } = await runStartupSequenceWithClock(21_000, {
 				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
 				startupBehavior: { default: LanguageStartupBehavior.Auto },
 				manager: { pinnedWorkspaceRuntime: () => lateAnswer.p },
 			});
-			const affiliatedBeforeAnswer = storedAffiliation('r')?.runtimeId;
 
-			// The check keeps running, so the next launch starts the pin.
+			// The check runs again on the next launch, which starts the pin.
 			await lateAnswer.complete(pinnedR);
 			await timeout(0);
 
-			expect({ started, affiliatedBeforeAnswer, affiliatedAfterAnswer: storedAffiliation('r')?.runtimeId }).toEqual({
+			expect({
+				started,
+				affiliated: storedAffiliation('r')?.runtimeId,
+				pinRegistered: ctx.get(ILanguageRuntimeService).getRegisteredRuntime(pinnedR.runtimeId) !== undefined,
+			}).toEqual({
 				started: [{ runtimeId: oldR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
-				affiliatedBeforeAnswer: oldR.runtimeId,
-				affiliatedAfterAnswer: pinnedR.runtimeId,
+				affiliated: oldR.runtimeId,
+				pinRegistered: false,
 			});
 		});
 

@@ -2177,6 +2177,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			label: item.label,
 			detail: item.detail,
 			separatorLabel: item.separatorLabel,
+			suggested: item.suggested,
 		}));
 	}
 

@@ -40,6 +40,7 @@ function makeTestMetadata(overrides: Partial<ILanguageRuntimeMetadata>): ILangua
 		languageId: 'testLanguageId',
 		runtimePath: '',
 		runtimeDisplayPath: undefined,
+		picker: undefined,
 		languageName: 'testLanguage',
 		languageVersion: '1.0.0',
 		base64EncodedIconSvg: undefined,

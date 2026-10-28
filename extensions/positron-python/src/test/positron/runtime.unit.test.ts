@@ -34,6 +34,7 @@ suite('getRuntimeSourceAndShortName', () => {
             runtimeSource: EnvironmentType.Module,
             runtimeSourceOrder: getEnvironmentTypeRank(EnvironmentType.Module),
             runtimeShortName: '3.12.8 (Module: Python-Leaves)',
+            envName: 'Python-Leaves',
         });
 
         // The rank has to follow the module metadata too, or the picker would file the
@@ -54,6 +55,7 @@ suite('getRuntimeSourceAndShortName', () => {
             runtimeSource: EnvironmentType.Venv,
             runtimeSourceOrder: getEnvironmentTypeRank(EnvironmentType.Venv),
             runtimeShortName: '3.10.17 (Venv: my-python-project)',
+            envName: 'my-python-project',
         });
     });
 
@@ -70,6 +72,7 @@ suite('getRuntimeSourceAndShortName', () => {
             runtimeSource: EnvironmentType.System,
             runtimeSourceOrder: getEnvironmentTypeRank(EnvironmentType.System),
             runtimeShortName: '3.12.3 (System)',
+            envName: '3.12.3',
         });
     });
 

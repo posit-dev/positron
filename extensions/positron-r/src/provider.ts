@@ -790,16 +790,8 @@ export async function makeMetadata(
 	if (rInst.packagerMetadata && isRVersionsMetadata(rInst.packagerMetadata) && rInst.packagerMetadata.label) {
 		runtimeName = rInst.packagerMetadata.label;
 	} else {
-		let packagerAmendment = '';
-		if (runtimeSource === RRuntimeSource.module && rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
-			packagerAmendment = ` (Module: ${rInst.packagerMetadata.environmentName})`;
-		} else if (runtimeSource === RRuntimeSource.conda && rInst.packagerMetadata && isCondaMetadata(rInst.packagerMetadata)) {
-			packagerAmendment = ` (Conda: ${path.basename(rInst.packagerMetadata.environmentPath)})`;
-		} else if (runtimeSource === RRuntimeSource.pixi && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
-			packagerAmendment = ` (Pixi: ${rInst.packagerMetadata.environmentName || path.basename(rInst.packagerMetadata.environmentPath)})`;
-		} else if (runtimeSource === RRuntimeSource.homebrew) {
-			packagerAmendment = ' (Homebrew)';
-		}
+		const packagerText = packagerDescription(rInst, runtimeSource);
+		const packagerAmendment = packagerText ? ` (${packagerText})` : '';
 		runtimeName = `R ${runtimeShortName}${packagerAmendment}`;
 	}
 
@@ -859,9 +851,55 @@ export async function makeMetadata(
 		uiSubscriptions,
 		extraRuntimeData,
 		cacheable,
+		picker: createRPickerInfo(rInst, runtimeSource, includeArch),
 	};
 
 	return metadata;
+}
+
+/**
+ * Text naming the packager that governs an R installation (e.g. "Conda: myenv"),
+ * or an empty string when there is none.
+ */
+function packagerDescription(rInst: RInstallation, runtimeSource: RRuntimeSource): string {
+	const metadata = rInst.packagerMetadata;
+	if (runtimeSource === RRuntimeSource.module && metadata && isModuleMetadata(metadata)) {
+		return `Module: ${metadata.environmentName}`;
+	} else if (runtimeSource === RRuntimeSource.conda && metadata && isCondaMetadata(metadata)) {
+		return `Conda: ${path.basename(metadata.environmentPath)}`;
+	} else if (runtimeSource === RRuntimeSource.pixi && metadata && isPixiMetadata(metadata)) {
+		return `Pixi: ${metadata.environmentName || path.basename(metadata.environmentPath)}`;
+	} else if (runtimeSource === RRuntimeSource.homebrew) {
+		return 'Homebrew';
+	}
+	return '';
+}
+
+/**
+ * Builds the interpreter picker info for an R installation: one "R" group with
+ * the current R first.
+ */
+export function createRPickerInfo(
+	rInst: RInstallation,
+	runtimeSource: RRuntimeSource,
+	includeArch: boolean
+): positron.RuntimePickerInfo {
+	const metadata = rInst.packagerMetadata;
+	const label = metadata && isRVersionsMetadata(metadata) && metadata.label
+		? metadata.label
+		: `R ${rInst.version}`;
+	const parts = [packagerDescription(rInst, runtimeSource)];
+	if (includeArch) {
+		parts.push(rInst.arch);
+	}
+	const description = parts.filter(part => part).join(' \u00B7 ');
+	return {
+		group: 'R',
+		groupOrder: 0,
+		rowOrder: rInst.current ? 0 : 1,
+		label,
+		description: description || undefined,
+	};
 }
 
 // functions relating to the current R binary

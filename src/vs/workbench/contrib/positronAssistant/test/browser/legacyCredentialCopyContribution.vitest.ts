@@ -45,11 +45,11 @@ describe('LegacyCredentialCopyContribution', () => {
 			whenInitialized: Promise.resolve(),
 			get status() { return catalogStatus; },
 			getProviders: () => [
-				{ id: 'anthropic', enabled: true, connection: {} },
-				{ id: 'my-gateway', enabled: true, connection: {}, custom: true },
+				{ id: 'anthropic', enabled: true },
+				{ id: 'my-gateway', enabled: true, custom: true },
 			],
 			getProvider: id => id === 'positai'
-				? { id, enabled: true, connection: { positaiLogin: { scope: 'prism' } } }
+				? { id, enabled: true, positaiLoginScope: 'prism' }
 				: undefined,
 		}))
 		.stub(ILogService, new NullLogService())

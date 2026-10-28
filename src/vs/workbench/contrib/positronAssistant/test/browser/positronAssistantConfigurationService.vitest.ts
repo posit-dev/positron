@@ -18,7 +18,7 @@ describe('PositronAssistantConfigurationService', () => {
 		.stub(IAiProviderService, {
 			// The catalog "knows" exactly the ids in catalogEnabled.
 			getProvider: (id: string) => catalogEnabled.has(id)
-				? { id, enabled: catalogEnabled.get(id) === true, connection: {} }
+				? { id, enabled: catalogEnabled.get(id) === true }
 				: undefined,
 			isEnabled: (id: string) => catalogEnabled.get(id) === true,
 			onDidChangeProviders: onDidChangeProvidersEmitter.event,
