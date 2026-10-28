@@ -3060,6 +3060,39 @@ describe('RuntimeStartupService - startup sequence', () => {
 			]);
 		});
 
+		it('an R file that opens while R\'s pin check runs does not start the R the pin replaces', async () => {
+			// Python was used last, so R's affiliated runtime starts in the
+			// background once R's pin check answers. The search doesn't wait
+			// for that check, and R's discovery finishes before it answers.
+			const rPinCheck = new DeferredPromise<ILanguageRuntimeMetadata | undefined>();
+			const { started } = await runStartupSequence({
+				languages: [
+					{ ...rLanguage, affiliated: { metadata: oldR, lastUsed: 2, lastStarted: 1 } },
+					{ ...pythonLanguage, discovered: [python], affiliated: { metadata: python, lastUsed: 3, lastStarted: 1 } },
+				],
+				startupBehavior: { default: LanguageStartupBehavior.Auto },
+				manager: {
+					pinnedWorkspaceRuntime: async (_extensionId, languageId) => languageId === 'r' ? rPinCheck.p : undefined,
+				},
+				discover: async service => {
+					service.registerDiscoveredRuntime({ ...oldR, startupBehavior: LanguageRuntimeStartupBehavior.Explicit });
+					service.registerDiscoveredRuntime({ ...pinnedR, startupBehavior: LanguageRuntimeStartupBehavior.Explicit });
+					service.completeLanguageDiscovery(1, 'r');
+					await timeout(0);
+					ctx.get(ILanguageService).requestRichLanguageFeatures('r');
+					await timeout(0);
+					rPinCheck.complete(pinnedR);
+					service.registerDiscoveredRuntime(python);
+					service.completeDiscovery(1);
+				},
+			});
+
+			expect(started).toEqual([
+				{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime },
+				{ runtimeId: pinnedR.runtimeId, reason: SessionStartReasonId.PinnedRuntime },
+			]);
+		});
+
 		describe('with recommendations', () => {
 			/** The runtime as R's and Python's discovery register it. */
 			function startsWhenPicked(runtime: ILanguageRuntimeMetadata): ILanguageRuntimeMetadata {

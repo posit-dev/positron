@@ -156,6 +156,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// a runtime for it. Each starts once it is asked after discovery.
 	private readonly _languagesOpenedBeforeAsked = new Set<string>();
 
+	// The languages whose affiliated runtime starts in the background and
+	// has not started yet. Opening a file of one starts nothing, so it can't
+	// start a second console, or the runtime the pinned check replaces.
+	private readonly _affiliationStartsPending = new Set<string>();
+
 	// A map of most recently started runtimes. This is keyed by the languageId
 	// (metadata.languageId) of the runtime.
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
@@ -2021,6 +2026,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private startForOpenFile(languageId: string, options?: { afterOpen?: boolean }): void {
 		if (this._runtimeSessionService.hasStartingOrRunningConsole(languageId) ||
+			this._affiliationStartsPending.has(languageId) ||
 			this._runtimeSessionService.implicitStartupSuppressed ||
 			!options?.afterOpen && this._languageRuntimeService.registeredRuntimes.some(metadata =>
 				metadata.languageId === languageId &&
@@ -2499,8 +2505,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// do not need to block the startup sequence.
 		for (let i = 1; i < affiliations.length; i++) {
 			const affiliation = affiliations[i];
-			this.activateExtensionsForLanguages([affiliation.metadata.languageId]).then(async () => {
-				this.startAffiliatedRuntime(await this.pinnedAffiliation(affiliation), false);
+			const languageId = affiliation.metadata.languageId;
+			this._affiliationStartsPending.add(languageId);
+			this.activateExtensionsForLanguages([languageId]).then(async () => {
+				try {
+					await this.startAffiliatedRuntime(await this.pinnedAffiliation(affiliation), false);
+				} finally {
+					this._affiliationStartsPending.delete(languageId);
+				}
 			});
 		}
 	}
