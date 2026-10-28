@@ -30,10 +30,12 @@ The recording scripts work the same from Git Bash or PowerShell. Two things diff
 
 - **Recording from an agent session needs `--detached`.** Ark's libzmq aborts when Positron is a
   descendant of a Claude Code process, so an R console never starts (Python is unaffected).
-  `npm run demo:record -- <name> --detached` re-runs the recording through Explorer, outside that
+  `npm run demo:record -- <name> --detached` re-runs the recording through WMI, outside that
   process tree, and streams the output back, so pass it for every recording an agent starts on
-  Windows rather than working out whether the demo touches R. A minimised console window appears
-  for the duration of the run.
+  Windows rather than working out whether the demo touches R. Ctrl+C stops the detached run. The
+  child gets the caller's environment (passed in memory, never written to disk) minus the agent
+  session's own `ANTHROPIC_*`, `CLAUDE*` and `ELECTRON_RUN_AS_NODE` variables, so `BUILD` and
+  the other e2e knobs work as usual.
 - Write scratch frames for verification to a temp directory that exists in the shell you are
   using. `/tmp/` resolves only under Git Bash.
 
