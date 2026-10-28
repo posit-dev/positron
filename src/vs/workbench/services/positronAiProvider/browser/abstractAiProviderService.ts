@@ -3,8 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { disposableTimeout } from '../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -30,6 +31,8 @@ export abstract class AbstractAiProviderService extends Disposable implements IA
 	private _status: AiProviderServiceStatus = 'initializing';
 	private _lastError: Error | undefined;
 	private _client: IAiProviderCatalog | undefined;
+	private _changeCount = 0;
+	private readonly _retry = this._register(new MutableDisposable());
 	readonly whenInitialized: Promise<void>;
 
 	/** Create the catalog client for this environment, or `undefined` if none is reachable. */
@@ -43,38 +46,60 @@ export abstract class AbstractAiProviderService extends Disposable implements IA
 		// Defer the first fetch off the super() stack: createCatalogClient() reads
 		// subclass parameter-properties not yet assigned while the base constructor
 		// runs, so a synchronous call here would throw and strand status 'error'.
-		this.whenInitialized = Promise.resolve().then(() => this.initialize());
+		this.whenInitialized = Promise.resolve().then(() => this.fetchCatalog(0));
 	}
 
-	private async initialize(): Promise<void> {
+	private async fetchCatalog(attempt: number): Promise<void> {
+		const changesBefore = this._changeCount;
 		try {
 			const client = this.getClient();
 			if (!client) {
 				throw new Error('No AI provider catalog channel available');
 			}
-			let receivedChange = false;
-			this._register(client.onDidChangeCatalog(change => {
-				receivedChange = true;
-				this.setSnapshot(change.catalog);
-				this._onDidChangeProviders.fire(change);
-			}));
 			const initial = await client.getCatalog();
 			// Don't let the stale initial load overwrite a change that raced it.
-			if (!receivedChange) {
+			if (this._changeCount === changesBefore) {
 				this.setSnapshot(initial);
+				// Listeners saw an empty list after the failure; tell them it recovered.
+				if (attempt > 0) {
+					this._onDidChangeProviders.fire({ catalog: initial, enabledChanged: true, connectionChanged: true, modelsChanged: true });
+				}
 			}
 			this._status = 'ready';
 		} catch (error) {
+			// A change that arrived during the request already installed a newer catalog.
+			if (this._changeCount !== changesBefore) {
+				return;
+			}
 			this._status = 'error';
 			this._lastError = error instanceof Error ? error : new Error(String(error));
-			this._logService.error('[AI Provider Service] initial catalog fetch failed', error);
+			if (attempt === 0) {
+				this._logService.error('[AI Provider Service] initial catalog fetch failed', error);
+			} else {
+				this._logService.trace(`[AI Provider Service] catalog fetch retry ${attempt} failed`, error);
+			}
 			// Keep whatever snapshot we have (empty on first failure); never reject.
+			if (!this._store.isDisposed) {
+				const delay = Math.min(1000 * 2 ** attempt, 30_000);
+				this._retry.value = disposableTimeout(() => this.fetchCatalog(attempt + 1), delay);
+			}
 		}
 	}
 
 	/** Lazily create the catalog client, retrying creation while it stays absent. */
 	private getClient(): IAiProviderCatalog | undefined {
-		return this._client ??= this.createCatalogClient();
+		if (!this._client) {
+			this._client = this.createCatalogClient();
+			if (this._client) {
+				this._register(this._client.onDidChangeCatalog(change => {
+					this._changeCount++;
+					this._retry.clear();
+					this.setSnapshot(change.catalog);
+					this._onDidChangeProviders.fire(change);
+				}));
+			}
+		}
+		return this._client;
 	}
 
 	private setSnapshot(catalog: readonly IResolvedProviderData[]): void {

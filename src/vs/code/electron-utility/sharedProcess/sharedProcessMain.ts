@@ -27,6 +27,7 @@ import { IDiagnosticsService } from '../../../platform/diagnostics/common/diagno
 import { HEADLESS_LM_ENGINE_CHANNEL } from '../../../platform/positronHeadlessLanguageModel/common/engine.js';
 import { HeadlessLanguageModelEngine } from '../../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngine.js';
 import { HeadlessLanguageModelEngineChannel } from '../../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngineChannel.js';
+import { HeadlessProviderModule } from '../../../platform/positronHeadlessLanguageModel/node/headlessProviderModule.js';
 import { POSITRON_AI_PROVIDER_CHANNEL } from '../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { AiProviderCatalog } from '../../../platform/positronAiProvider/node/aiProviderCatalog.js';
 import { AiProviderCatalogChannel } from '../../../platform/positronAiProvider/node/aiProviderCatalogChannel.js';
@@ -512,17 +513,26 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		this.server.registerChannel('customEndpointTelemetry', customEndpointTelemetryChannel);
 
 		// --- Start Positron ---
+		// One provider module (Posit Assistant's, else the compiled-in copy)
+		// serves both the catalog and the engine below.
+		const providerModule = this._store.add(new HeadlessProviderModule(
+			accessor.get(IExtensionManagementService),
+			accessor.get(IUserDataProfilesService),
+			accessor.get(IProductService),
+			accessor.get(ILogService),
+		));
+
 		// AI provider catalog: resolves providers.json + enforced/default env
 		// fragments where they live (this process's HOME/env); the workbench
 		// reads it over this channel.
-		const aiProviderCatalog = this._store.add(new AiProviderCatalog(accessor.get(ILogService)));
+		const aiProviderCatalog = this._store.add(new AiProviderCatalog(providerModule));
 		this.server.registerChannel(POSITRON_AI_PROVIDER_CHANNEL, new AiProviderCatalogChannel(aiProviderCatalog));
 
 		// Headless Language Model engine: local-desktop egress runs here in the
-		// shared process; the workbench reaches it over this channel. The engine
-		// applies the catalog's model policy so a listing never offers a model
-		// providers.json excludes.
-		const headlessLmEngine = new HeadlessLanguageModelEngine(accessor.get(ILogService), aiProviderCatalog);
+		// shared process; the workbench reaches it over this channel. The
+		// provider module applies the catalog's model policy so a listing never
+		// offers a model providers.json excludes.
+		const headlessLmEngine = new HeadlessLanguageModelEngine(providerModule);
 		this.server.registerChannel(HEADLESS_LM_ENGINE_CHANNEL, new HeadlessLanguageModelEngineChannel(headlessLmEngine));
 		// --- End Positron ---
 

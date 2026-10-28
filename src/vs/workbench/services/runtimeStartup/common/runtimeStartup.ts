@@ -13,8 +13,8 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
+import { comparePickerRuntimes, IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
+import { IPreferredRuntime, IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, PreferredRuntimeReason, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
 import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../languageRuntime/common/interpreterDefinitions.js';
@@ -110,6 +110,73 @@ const languageRuntimeExtPoint =
 			}
 		}
 	});
+
+/**
+ * The runtimes that could be a language's preferred runtime, one per rule.
+ */
+export interface IPreferredRuntimeSources {
+	/** The runtime backing the active console session for the language. */
+	readonly activeConsole?: ILanguageRuntimeMetadata;
+	/** The runtime affiliated with the workspace, unless the language's startup behavior is Recommended. */
+	readonly affiliated?: ILanguageRuntimeMetadata;
+	/** The most recently started runtime for the language. */
+	readonly recentlyStarted?: ILanguageRuntimeMetadata;
+	/** The runtime the language's extension recommended for the workspace. */
+	readonly recommended?: ILanguageRuntimeMetadata;
+	/** A registered runtime for the language; see `firstInPickerOrder`. */
+	readonly fallback?: ILanguageRuntimeMetadata;
+}
+
+/**
+ * The runtime the interpreter picker lists first (e.g. the current R), or the
+ * first registered one when none has picker info. Registration order follows
+ * discovery and the discovery cache, so it differs from window to window.
+ *
+ * @param runtimes The registered runtimes for one language.
+ * @returns The runtime to fall back to, or undefined if there are none.
+ */
+export function firstInPickerOrder(runtimes: readonly ILanguageRuntimeMetadata[]): ILanguageRuntimeMetadata | undefined {
+	const pickerRuntimes = runtimes.filter(runtime => runtime.picker);
+	return pickerRuntimes.length > 0 ? [...pickerRuntimes].sort(comparePickerRuntimes)[0] : runtimes[0];
+}
+
+/**
+ * Picks the preferred runtime from `sources`, and the rule that picked it.
+ *
+ * Preference order:
+ *   1. The runtime backing the active console session for the language
+ *   2. The runtime affiliated with the workspace, unless the language's
+ *      startup behavior is Recommended
+ *   3. The most recently started runtime for the language
+ *   4. The runtime the language's extension recommended for the workspace
+ *   5. The runtime the interpreter picker lists first (see `firstInPickerOrder`)
+ *
+ * A source can outlive the runtime it names (e.g. a session restored across a
+ * window reload), so a runtime `getRegisteredRuntime` doesn't know falls
+ * through to the next source rather than being returned.
+ *
+ * @param sources The candidate runtimes, one per rule.
+ * @param getRegisteredRuntime Looks up a registered runtime by id.
+ * @returns The preferred runtime and the reason, or undefined if no source names a registered runtime.
+ */
+export function choosePreferredRuntime(
+	sources: IPreferredRuntimeSources,
+	getRegisteredRuntime: (runtimeId: string) => ILanguageRuntimeMetadata | undefined
+): IPreferredRuntime | undefined {
+	const found = (metadata: ILanguageRuntimeMetadata | undefined, reason: PreferredRuntimeReason) => {
+		const runtime = metadata && getRegisteredRuntime(metadata.runtimeId);
+		return runtime ? { runtime, reason } : undefined;
+	};
+	const fromRecommendation = () => {
+		const preferred = found(sources.recommended, PreferredRuntimeReason.Recommended);
+		return preferred && { ...preferred, recommendationReason: sources.recommended?.picker?.recommendationReason };
+	};
+	return found(sources.activeConsole, PreferredRuntimeReason.RunningConsole)
+		?? found(sources.affiliated, PreferredRuntimeReason.WorkspaceAffiliation)
+		?? found(sources.recentlyStarted, PreferredRuntimeReason.RecentlyStarted)
+		?? fromRecommendation()
+		?? found(sources.fallback, PreferredRuntimeReason.Fallback);
+}
 
 export class RuntimeStartupService extends Disposable implements IRuntimeStartupService {
 
@@ -1855,33 +1922,52 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Gets the preferred runtime for a language
 	 *
-	 * A preference source can outlive the runtime it names (e.g. a session
-	 * restored across a window reload), so an unregistered id falls through
-	 * to the next source rather than being returned.
-	 *
 	 * @param languageId The language identifier
 	 * @returns The preferred runtime metadata, or undefined if no preferred
 	 *  runtime is available.
 	 */
 	public getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata | undefined {
-		const registered = (metadata: ILanguageRuntimeMetadata | undefined) =>
-			metadata
-				? this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId)
-				: undefined;
+		return this.getPreferredRuntimeWithReason(languageId)?.runtime;
+	}
 
-		// Preference order:
-		//   1. The runtime backing the active console session for the language
-		//   2. The runtime affiliated with the workspace, unless the
-		//      language's startup behavior is Recommended
-		//   3. The most recently started runtime for the language
-		//   4. The runtime the language's extension recommended for the workspace
-		//   5. Any registered runtime for the language
-		const consoleSession = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
-		return registered(consoleSession?.runtimeMetadata)
-			?? registered(this.affiliationFor(languageId))
-			?? registered(this._mostRecentlyStartedRuntimesByLanguageId.get(languageId))
-			?? registered(this._recommendedRuntimesByLanguageId.get(languageId))
-			?? this._languageRuntimeService.registeredRuntimes.find(info => info.languageId === languageId);
+	/**
+	 * Gets the preferred runtime for a language and the rule that picked it
+	 * (see `choosePreferredRuntime`).
+	 *
+	 * @param languageId The language identifier
+	 * @returns The preferred runtime and the reason, or undefined if no
+	 *  preferred runtime is available.
+	 */
+	public getPreferredRuntimeWithReason(languageId: string): IPreferredRuntime | undefined {
+		const preferred = choosePreferredRuntime({
+			activeConsole: this._runtimeSessionService.getConsoleSessionForLanguage(languageId)?.runtimeMetadata,
+			affiliated: this.affiliationFor(languageId),
+			recentlyStarted: this._mostRecentlyStartedRuntimesByLanguageId.get(languageId),
+			recommended: this._recommendedRuntimesByLanguageId.get(languageId),
+			fallback: firstInPickerOrder(this._languageRuntimeService.registeredRuntimes.filter(info => info.languageId === languageId)),
+		}, runtimeId => this._languageRuntimeService.getRegisteredRuntime(runtimeId));
+
+		// The active console rule only sees the language's console in front or
+		// last used, so a console that started behind another language's is
+		// missed. The pick stands; only the reason says the console is running.
+		if (preferred && preferred.reason !== PreferredRuntimeReason.RunningConsole &&
+			this.hasRunningConsole(preferred.runtime.runtimeId)) {
+			return { runtime: preferred.runtime, reason: PreferredRuntimeReason.RunningConsole };
+		}
+		return preferred;
+	}
+
+	/**
+	 * Whether a console session for the runtime has started and not exited.
+	 */
+	private hasRunningConsole(runtimeId: string): boolean {
+		return this._runtimeSessionService.activeSessions.some(session =>
+			session.runtimeMetadata.runtimeId === runtimeId &&
+			session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
+			session.getRuntimeState() !== RuntimeState.Uninitialized &&
+			session.getRuntimeState() !== RuntimeState.Initializing &&
+			session.getRuntimeState() !== RuntimeState.Exited
+		);
 	}
 
 	public async registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata> {

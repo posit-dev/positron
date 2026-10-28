@@ -106,10 +106,6 @@ export function buildESMPackageDependencies(outdir: string = 'out/esm-package-de
 		// Pure ESM with named exports already; listed so the renderer's importmap
 		// (workbench*.html) can resolve the bare specifier. The CJS post-processing
 		// below is a no-op for it (no default export).
-		'ai-provider-bridge/credential-shaping': [
-			'CONFIG_KEY_OVERRIDES',
-			'shapeCredentials',
-		],
 		'ai-credentials/types': [
 			'POSITRON_LEGACY_AUTH_PROVIDER_IDS',
 			'storageKeyFor',

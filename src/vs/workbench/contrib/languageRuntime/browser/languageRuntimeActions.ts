@@ -10,12 +10,12 @@ import { Categories } from '../../../../platform/action/common/actionCommonCateg
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { IQuickInputButton, IQuickInputService, IQuickPick, IQuickPickItem, QuickInputButtonLocation, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { compareLanguages, getLanguageOrder } from '../../../services/languageRuntime/common/languageOrder.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { comparePickerRuntimes, getRuntimeDisplayPath, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -23,7 +23,7 @@ import { IModelService } from '../../../../editor/common/services/model.js';
 import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
 import '../../positronConsole/browser/agentSessionIcon.css';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../positronNotebook/common/positronNotebookCommon.js';
-import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IPreferredRuntime, IRuntimeStartupService, PreferredRuntimeReason } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IRuntimeDiscoveryCache } from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
 import { CommandsRegistry, ICommandMetadata, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { DisposableStore, dispose } from '../../../../base/common/lifecycle.js';
@@ -32,6 +32,9 @@ import { ExplorerFolderContext } from '../../files/common/files.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { createCSSRule } from '../../../../base/browser/domStylesheets.js';
+import { asCSSUrl } from '../../../../base/browser/cssValue.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { PositronConsoleInstancesExistContext, PositronConsoleTabFocused } from '../../../common/contextkeys.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
@@ -68,6 +71,30 @@ function getSessionDisplayNameWithRuntime(session: ILanguageRuntimeSession): str
 interface LanguageRuntimeQuickPickItem extends IQuickPickItem { runtime: ILanguageRuntimeMetadata }
 interface RuntimeClientTypeQuickPickItem extends IQuickPickItem { runtimeClientType: RuntimeClientType }
 interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<unknown, unknown> }
+
+/** Sorts a group without picker info: version descending, unsupported last, then name. */
+function compareLegacyRuntimes(a: ILanguageRuntimeMetadata, b: ILanguageRuntimeMetadata): number {
+	// If both have version numbers, compare them
+	if (a.languageVersion && b.languageVersion) {
+		const aVersion = a.languageVersion.split('.').map(Number);
+		const bVersion = b.languageVersion.split('.').map(Number);
+
+		// Always list unsupported versions last
+		const aSupported = !!(a.extraRuntimeData as { supported?: boolean })?.supported;
+		const bSupported = !!(b.extraRuntimeData as { supported?: boolean })?.supported;
+		if (aSupported !== bSupported) {
+			return aSupported ? -1 : 1;
+		}
+		for (let i = 0; i < 3; i++) {
+			if (aVersion[i] !== bVersion[i]) {
+				return bVersion[i] - aVersion[i];
+			}
+		}
+	}
+
+	// If versions are equal or not found, sort alphabetically
+	return a.runtimeName.localeCompare(b.runtimeName);
+}
 
 // Action IDs
 export const LANGUAGE_RUNTIME_SELECT_SESSION_ID = 'workbench.action.language.runtime.selectSession';
@@ -510,7 +537,41 @@ async function applySelectedSession(
 interface IInterpreterGroup {
 	primaryRuntime: ILanguageRuntimeMetadata;
 	alternateRuntimes: ILanguageRuntimeMetadata[];
+	reasonText: string | undefined;
 }
+
+/**
+ * Gets the text that says why a runtime is suggested.
+ * @param preferred The preferred runtime and the rule that picked it.
+ * @returns The reason text, or undefined for the fallback rule.
+ */
+function getSuggestedReasonText(preferred: IPreferredRuntime): string | undefined {
+	switch (preferred.reason) {
+		case PreferredRuntimeReason.RunningConsole:
+			return localize('positron.languageRuntime.suggestedReason.running', "running");
+		case PreferredRuntimeReason.WorkspaceAffiliation:
+			return localize('positron.languageRuntime.suggestedReason.workspaceAffiliation', "last used in this workspace");
+		case PreferredRuntimeReason.RecentlyStarted:
+			return localize('positron.languageRuntime.suggestedReason.recentlyStarted', "started recently");
+		case PreferredRuntimeReason.Recommended:
+			return preferred.recommendationReason
+				?? localize('positron.languageRuntime.suggestedReason.recommended', "recommended");
+		case PreferredRuntimeReason.Fallback:
+			return undefined;
+	}
+}
+
+/**
+ * The languages the interpreter picker can filter to, with the CSS class that
+ * draws each filter button (see languageRuntimeActions.css).
+ */
+const PICKER_FILTER_LANGUAGES: ReadonlyMap<string, string> = new Map([
+	['python', 'positron-picker-filter positron-picker-filter-python'],
+	['r', 'positron-picker-filter positron-picker-filter-r'],
+]);
+
+/** The languages whose filter button has a logo rule in the shared stylesheet. */
+const pickerFilterLogoLanguages = new Set<string>();
 
 /**
  * Creates an IInterpreterGroup array representing the available language runtimes.
@@ -522,29 +583,30 @@ const createInterpreterGroups = (
 	runtimeAffiliationService: IRuntimeStartupService,
 	order: readonly string[]
 ) => {
-	const preferredRuntimeByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
+	const preferredRuntimeByLanguageId = new Map<string, IPreferredRuntime>();
 	const languageRuntimeGroups = new Map<string, IInterpreterGroup>();
 	for (const runtime of languageRuntimeService.registeredRuntimes) {
 		const languageId = runtime.languageId;
 
 		// Get the preferred runtime for the language.
-		let preferredRuntime = preferredRuntimeByLanguageId.get(languageId);
-		if (!preferredRuntime) {
-			preferredRuntime = runtimeAffiliationService.getPreferredRuntime(languageId);
-			if (preferredRuntime) {
-				preferredRuntimeByLanguageId.set(languageId, preferredRuntime);
+		let preferred = preferredRuntimeByLanguageId.get(languageId);
+		if (!preferred) {
+			preferred = runtimeAffiliationService.getPreferredRuntimeWithReason(languageId);
+			if (preferred) {
+				preferredRuntimeByLanguageId.set(languageId, preferred);
 			}
 		}
 
 		// If we didn't find a preferred runtime, skip this one.
-		if (!preferredRuntime) {
+		if (!preferred) {
 			continue;
 		}
+		const preferredRuntime = preferred.runtime;
 
 		// Create the language runtime group if it doesn't exist.
 		let languageRuntimeGroup = languageRuntimeGroups.get(languageId);
 		if (!languageRuntimeGroup) {
-			languageRuntimeGroup = { primaryRuntime: preferredRuntime, alternateRuntimes: [] };
+			languageRuntimeGroup = { primaryRuntime: preferredRuntime, alternateRuntimes: [], reasonText: getSuggestedReasonText(preferred) };
 			languageRuntimeGroups.set(languageId, languageRuntimeGroup);
 		}
 
@@ -558,6 +620,240 @@ const createInterpreterGroups = (
 	return Array.from(languageRuntimeGroups.values()).sort((a, b) =>
 		compareLanguages(a.primaryRuntime, b.primaryRuntime, order));
 };
+
+/**
+ * A picker contribution and the items it returned.
+ */
+interface IContributionResult {
+	contribution: IRuntimePickerContribution;
+	items: IRuntimePickerItem[];
+}
+
+/**
+ * Gets the picker row for a runtime.
+ * @param runtime The runtime.
+ * @returns The row: its label and gray text, with its path as the detail.
+ */
+function runtimeRow(runtime: ILanguageRuntimeMetadata): IQuickPickItem {
+	return {
+		id: runtime.runtimeId,
+		label: runtime.picker?.label ?? runtime.runtimeName,
+		description: runtime.picker?.description,
+		detail: getRuntimeDisplayPath(runtime),
+		iconPath: {
+			dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+		},
+		// Marks interpreter rows for languageRuntimeActions.css and the e2e sessions page.
+		iconClasses: ['positron-picker-runtime'],
+		neverShowWhenFiltered: false
+	};
+}
+
+/**
+ * Gets the picker row id of a contributed item. It includes the contribution's
+ * handle, so items from different contributions never share an id.
+ */
+function contributedItemId(contribution: IRuntimePickerContribution, item: IRuntimePickerItem): string {
+	return `${CONTRIBUTED_ITEM_PREFIX}${contribution.handle}_${item.id}`;
+}
+
+/**
+ * The picker row for a contributed item. A leading `$(icon)` in its label,
+ * e.g. '$(add) Create Python Environment', goes in the icon column, aligned
+ * with the interpreter logos.
+ */
+function contributedRow(contribution: IRuntimePickerContribution, item: IRuntimePickerItem): IQuickPickItem {
+	const id = contributedItemId(contribution, item);
+	const match = /^(?<icon>\$\([^)]+\))\s*(?<label>.*)$/.exec(item.label);
+	const icon = match?.groups && ThemeIcon.fromString(match.groups.icon);
+	return icon
+		? { id, label: match.groups!.label, detail: item.detail, iconClass: `${ThemeIcon.asClassName(icon)} positron-picker-action-icon` }
+		: { id, label: item.label, detail: item.detail };
+}
+
+/**
+ * A language's rows in the Suggested section.
+ */
+interface ISuggestedLanguage {
+	languageId: string;
+	languageName: string;
+	/** Its contributed items marked suggested, e.g. Create Python Environment. */
+	setupRows: IQuickPickItem[];
+	/** Its preferred interpreter, with why it is suggested. */
+	interpreterRow?: IQuickPickItem;
+}
+
+/**
+ * Gets the rows of the Suggested section: for each language, in language
+ * order, its suggested setup items and then its preferred interpreter.
+ * @param groups The interpreter groups shown, one per language.
+ * @param contributions The contributed items shown.
+ * @param languageOrder The user's language order.
+ * @returns The rows, without the section's separator.
+ */
+function suggestedRows(groups: IInterpreterGroup[], contributions: IContributionResult[], languageOrder: readonly string[]): IQuickPickItem[] {
+	const languages = new Map<string, ISuggestedLanguage>();
+	for (const { primaryRuntime: runtime, reasonText } of groups) {
+		const description = [runtime.picker?.description, reasonText]
+			.filter(part => !!part).join(' \u00B7 ') || undefined;
+		languages.set(runtime.languageId, {
+			languageId: runtime.languageId,
+			languageName: runtime.languageName,
+			setupRows: [],
+			interpreterRow: { ...runtimeRow(runtime), description },
+		});
+	}
+	for (const { contribution, items } of contributions) {
+		const { languageId } = contribution;
+		for (const item of items.filter(item => item.suggested)) {
+			if (!languages.has(languageId)) {
+				// A setup item can come without an interpreter (e.g. Install Python with
+				// no Python), so its language ID stands in for the language name.
+				languages.set(languageId, { languageId, languageName: languageId, setupRows: [] });
+			}
+			languages.get(languageId)!.setupRows.push(contributedRow(contribution, item));
+		}
+	}
+	return [...languages.values()]
+		.sort((a, b) => compareLanguages(a, b, languageOrder))
+		.flatMap(({ setupRows, interpreterRow }) => interpreterRow ? [...setupRows, interpreterRow] : setupRows);
+}
+
+/** The interpreter picker: a quick pick whose list has separators. */
+type InterpreterQuickPick = IQuickPick<IQuickPickItem, { useSeparators: true }>;
+
+/**
+ * The language toggles in the picker's search box (Python and R) and the
+ * language the user filtered to.
+ */
+class PickerLanguageFilter {
+	/** The language the user filtered to, if any. */
+	private _languageId: string | undefined;
+	/** The languages that have a toggle, in order. */
+	private _languages: { languageId: string; languageName: string; icon?: string }[] = [];
+	private readonly _buttonLanguages = new Map<IQuickInputButton, string>();
+
+	/** @param _enabled False when the caller already restricted the picker to one language. */
+	constructor(
+		private readonly _quickPick: InterpreterQuickPick,
+		private readonly _enabled: boolean,
+	) { }
+
+	/** Whether the filter lets a language's rows through. */
+	shows(languageId: string): boolean {
+		return !this._languageId || languageId === this._languageId;
+	}
+
+	/**
+	 * Shows one toggle per filterable language that has interpreters, in
+	 * language order. A lone toggle would hide nothing, so one language gets none.
+	 */
+	update(groups: IInterpreterGroup[]): void {
+		const filterable = this._enabled
+			? groups
+				.map(({ primaryRuntime: { languageId, languageName, base64EncodedIconSvg } }) => ({ languageId, languageName, icon: base64EncodedIconSvg }))
+				.filter(({ languageId }) => PICKER_FILTER_LANGUAGES.has(languageId))
+			: [];
+		const languages = filterable.length > 1 ? filterable : [];
+		// The picker rebuilds on every runtime registration, and assigning
+		// buttons re-renders the toggles under the user's mouse and keyboard,
+		// so only reassign them when the languages change.
+		if (languages.map(l => l.languageId).join() === this._languages.map(l => l.languageId).join()) {
+			return;
+		}
+		this._languages = languages;
+		if (this._languageId && !languages.some(language => language.languageId === this._languageId)) {
+			this._languageId = undefined;
+		}
+		this.render();
+	}
+
+	/**
+	 * Applies a click on a button. Turning a toggle on turns the other off;
+	 * turning it off shows every language.
+	 * @returns Whether the button was one of the language toggles.
+	 */
+	toggle(button: IQuickInputButton): boolean {
+		const languageId = this._buttonLanguages.get(button);
+		if (!languageId) {
+			return false;
+		}
+		this._languageId = this._languageId === languageId ? undefined : languageId;
+		this.render();
+		return true;
+	}
+
+	private render(): void {
+		this._buttonLanguages.clear();
+		this._quickPick.buttons = this._languages.map(({ languageId, languageName, icon }) => {
+			// Draw the button with the same logo as the language's rows.
+			if (icon && !pickerFilterLogoLanguages.has(languageId)) {
+				createCSSRule(
+					`.monaco-custom-toggle.positron-picker-filter-${languageId}`,
+					`background-image: ${asCSSUrl(URI.parse(`data:image/svg+xml;base64,${icon}`))}`
+				);
+				pickerFilterLogoLanguages.add(languageId);
+			}
+			const button: IQuickInputButton = {
+				iconClass: PICKER_FILTER_LANGUAGES.get(languageId),
+				tooltip: localize('positron.languageRuntime.filterToLanguage', "Show only {0}", languageName),
+				toggle: { checked: languageId === this._languageId },
+				location: QuickInputButtonLocation.Input,
+				alwaysVisible: true,
+			};
+			this._buttonLanguages.set(button, languageId);
+			return button;
+		});
+	}
+}
+
+/**
+ * Keeps the picker's focus on the row the user chose across rebuilds: the row
+ * they moved to, or else the caller's current runtime. With neither, the first
+ * row is focused, so a suggested item that arrives late gets focus.
+ */
+class PickerFocus {
+	private _chosenId: string | undefined;
+	/**
+	 * True while setItems runs: assigning items focuses the first row and
+	 * fires onDidChangeActive, and that is not the user's choice.
+	 */
+	private _settingItems = false;
+
+	constructor(
+		private readonly _quickPick: InterpreterQuickPick,
+		currentRuntimeId: string | undefined,
+	) {
+		this._chosenId = currentRuntimeId;
+	}
+
+	/** Records a focus change the user made. */
+	onDidChangeActive(active: readonly IQuickPickItem[]): void {
+		// While searching, the quick pick's filtering moves focus on every
+		// keystroke; that is not the user's choice either.
+		if (!this._settingItems && !this._quickPick.value) {
+			this._chosenId = active[0]?.id;
+		}
+	}
+
+	/** Sets the picker's items, then focuses the chosen row. */
+	setItems(items: QuickPickItem[]): void {
+		this._settingItems = true;
+		try {
+			this._quickPick.items = items;
+			// While searching, leave focus to the quick pick's own filtering.
+			if (!this._quickPick.value) {
+				const rows = items.filter((item): item is IQuickPickItem => item.type !== 'separator');
+				const row = rows.find(item => item.id === this._chosenId) ?? rows[0];
+				if (row) {
+					this._quickPick.activeItems = [row];
+				}
+			}
+		} finally {
+			this._settingItems = false;
+		}
+	}
+}
 
 /**
  * Helper function that asks the user to select a language runtime from
@@ -589,9 +885,18 @@ export const selectNewLanguageRuntime = async (
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 	const configurationService = accessor.get(IConfigurationService);
 
-	// Map to track which contribution owns which item
-	const contributedItemMap = new Map<string, { contribution: IRuntimePickerContribution; originalId: string }>();
-	let contributionResults: { contribution: IRuntimePickerContribution; items: IRuntimePickerItem[] }[] = [];
+	let contributionResults: IContributionResult[] = [];
+
+	// The contribution and item behind a contributed row's id.
+	const findContributedItem = (id: string) => {
+		for (const { contribution, items } of contributionResults) {
+			const item = items.find(item => contributedItemId(contribution, item) === id);
+			if (item) {
+				return { contribution, item };
+			}
+		}
+		return undefined;
+	};
 
 	// Get contributed items from extensions (e.g., "Install Python via uv").
 	// Only show contributed items after discovery is complete.
@@ -616,54 +921,43 @@ export const selectNewLanguageRuntime = async (
 		);
 	};
 
-	const buildItems = (): QuickPickItem[] => {
-		// Generate quick pick items for runtimes.
-		const items: QuickPickItem[] = [];
-		contributedItemMap.clear();
-
-		// Group runtimes by language. Re-evaluated on each rebuild so newly
-		// registered runtimes show up. Restricted to options.languageId when set.
-		const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService, getLanguageOrder(configurationService))
+	// Groups runtimes by language. Re-evaluated once per rebuild so newly
+	// registered runtimes show up. Restricted to options.languageId when set.
+	const getInterpreterGroups = () =>
+		createInterpreterGroups(languageRuntimeService, runtimeStartupService, getLanguageOrder(configurationService))
 			.filter(group => !options?.languageId || group.primaryRuntime.languageId === options.languageId);
 
-		// Add separator for suggested runtimes
-		const suggestedRuntimes = interpreterGroups
-			.map(group => group.primaryRuntime);
 
-		if (suggestedRuntimes.length > 0) {
-			items.push({
-				type: 'separator',
-				label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
-			});
+	const buildItems = (groups: IInterpreterGroup[], languageFilter: PickerLanguageFilter): QuickPickItem[] => {
+		const items: QuickPickItem[] = [];
 
-			suggestedRuntimes.forEach(runtime => {
-				items.push({
-					id: runtime.runtimeId,
-					label: runtime.runtimeName,
-					detail: getRuntimeDisplayPath(runtime),
-					iconPath: {
-						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-					},
-					neverShowWhenFiltered: false
-				});
-			});
+		// What the language filter leaves: every language, or just the filtered one.
+		const interpreterGroups = groups.filter(group => languageFilter.shows(group.primaryRuntime.languageId));
+		const shownContributions = contributionResults.filter(({ contribution }) => languageFilter.shows(contribution.languageId));
+
+		// First, Suggested: each language's suggested setup items and preferred interpreter.
+		const suggested = suggestedRows(interpreterGroups, shownContributions, getLanguageOrder(configurationService));
+		if (suggested.length > 0) {
+			items.push(
+				{ type: 'separator', label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested') },
+				...suggested,
+			);
 		}
 
-
+		// Then each language's other interpreters, under their picker groups.
 		interpreterGroups.forEach(group => {
-			// Group runtimes by environment type
+			// Group runtimes by picker group, or by environment type when the
+			// runtime does not describe its picker group.
 			const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
 			const envTypeOrder = new Map<string, number>();
-			const allRuntimes = group.alternateRuntimes;
-
-			allRuntimes.forEach(runtime => {
-				const envType = `${runtime.runtimeSource}`;
+			group.alternateRuntimes.forEach(runtime => {
+				const envType = runtime.picker?.group ?? `${runtime.runtimeSource}`;
 				if (!runtimesByEnvType.has(envType)) {
 					runtimesByEnvType.set(envType, []);
 				}
 				runtimesByEnvType.get(envType)!.push(runtime);
 
-				const order = runtime.runtimeSourceOrder ?? Number.MAX_SAFE_INTEGER;
+				const order = runtime.picker?.groupOrder ?? runtime.runtimeSourceOrder ?? Number.MAX_SAFE_INTEGER;
 				envTypeOrder.set(envType, Math.min(envTypeOrder.get(envType) ?? order, order));
 			});
 
@@ -673,73 +967,29 @@ export const selectNewLanguageRuntime = async (
 			const envTypes = Array.from(runtimesByEnvType.keys())
 				.sort((a, b) => envTypeOrder.get(a)! - envTypeOrder.get(b)!);
 
-			// Sort runtimes by version (decreasing), then alphabetically
 			envTypes.forEach(envType => {
 				items.push({ type: 'separator', label: envType });
-				runtimesByEnvType.get(envType)!
-					.sort((a, b) => {
-						// If both have version numbers, compare them
-						if (a.languageVersion && b.languageVersion) {
-							const aVersion = a.languageVersion.split('.').map(Number);
-							const bVersion = b.languageVersion.split('.').map(Number);
-
-							// Always list unsupported versions last
-							if (!(a.extraRuntimeData as { supported?: boolean })?.supported) {
-								return 1;
-							}
-							if (!(b.extraRuntimeData as { supported?: boolean })?.supported) {
-								return -1;
-							}
-							// Compare major version
-							if (aVersion[0] !== bVersion[0]) {
-								return bVersion[0] - aVersion[0];
-							}
-
-							// Compare minor version
-							if (aVersion[1] !== bVersion[1]) {
-								return bVersion[1] - aVersion[1];
-							}
-
-							// Compare patch version
-							if (aVersion[2] !== bVersion[2]) {
-								return bVersion[2] - aVersion[2];
-							}
-						}
-
-						// If versions are equal or not found, sort alphabetically
-						return a.runtimeName.localeCompare(b.runtimeName);
-					})
-					.forEach(runtime => {
-						items.push({
-							id: runtime.runtimeId,
-							label: runtime.runtimeName,
-							detail: getRuntimeDisplayPath(runtime),
-							iconPath: {
-								dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-							},
-							neverShowWhenFiltered: false
-						});
-					});
-
+				const runtimes = runtimesByEnvType.get(envType)!;
+				// A group holding any picker runtime uses the picker comparator.
+				const compare = runtimes.some(runtime => runtime.picker)
+					? comparePickerRuntimes
+					: compareLegacyRuntimes;
+				runtimes.sort(compare).forEach(runtime => items.push(runtimeRow(runtime)));
 			});
 		});
 
-		// TODO: right now, these are added to the end of the list, but we may want to
-		// group by language in the future
-		for (const { contribution, items: contribItems } of contributionResults) {
+		// Last, the contributed items not already in Suggested.
+		// TODO: group these by language too.
+		for (const { contribution, items: contribItems } of shownContributions) {
 			for (const item of contribItems) {
-				// Create a unique ID for this item that includes the contribution handle
-				const uniqueId = `${CONTRIBUTED_ITEM_PREFIX}${contribution.handle}_${item.id}`;
-				contributedItemMap.set(uniqueId, { contribution, originalId: item.id });
-
-				if (item.separatorLabel) {
-					items.push({ type: 'separator', label: item.separatorLabel });
+				if (item.suggested) {
+					continue;
 				}
-				items.push({
-					id: uniqueId,
-					label: item.label,
-					detail: item.detail,
-				});
+				// The divider stays; its label would only repeat the row's own title.
+				if (item.separatorLabel) {
+					items.push({ type: 'separator' });
+				}
+				items.push(contributedRow(contribution, item));
 			}
 		}
 
@@ -752,6 +1002,11 @@ export const selectNewLanguageRuntime = async (
 	quickPick.canSelectMany = false;
 	// Each row's detail is its interpreter path; make it searchable.
 	quickPick.matchOnDetail = true;
+	// The gray text carries the tool and environment name; make it searchable.
+	quickPick.matchOnDescription = true;
+	// Searching only hides rows. Sorting matches by label would let the shortest
+	// label win a tie and pull rows away from their group headers.
+	quickPick.sortByLabel = false;
 
 	// Reflect discovery state in the picker: a busy spinner while runtimes are
 	// still being discovered, and an explanatory placeholder for an empty list.
@@ -769,40 +1024,27 @@ export const selectNewLanguageRuntime = async (
 		}
 	};
 
-	// Reassigning quickPick.items resets activeItems to the first row, so
-	// rebuilds via this helper preserve the previously focused item (whether
-	// it was the caller's currentRuntimeId or a row the user keyboard-
-	// navigated to). Falls back to the default reset if the previous item
-	// is no longer present.
+	const languageFilter = new PickerLanguageFilter(quickPick, !options?.languageId);
+	const pickerFocus = new PickerFocus(quickPick, options?.currentRuntimeId);
+	disposables.add(quickPick.onDidChangeActive(active => pickerFocus.onDidChangeActive(active)));
+
 	const rebuildItems = () => {
-		const previouslyActiveId = quickPick.activeItems[0]?.id;
-		quickPick.items = buildItems();
-		if (previouslyActiveId) {
-			const stillPresent = quickPick.items.find(
-				(item): item is IQuickPickItem => item.type !== 'separator' && item.id === previouslyActiveId
-			);
-			if (stillPresent) {
-				quickPick.activeItems = [stillPresent];
-			}
-		}
+		const groups = getInterpreterGroups();
+		languageFilter.update(groups);
+		pickerFocus.setItems(buildItems(groups, languageFilter));
 		updateDiscoveryProgress();
 	};
 
-	quickPick.items = buildItems();
-
-	// Pre-focus the caller-supplied current runtime, if any. Subsequent
-	// rebuilds carry this forward via rebuildItems' restore logic.
-	if (options?.currentRuntimeId) {
-		const currentItem = quickPick.items.find(
-			(item): item is IQuickPickItem => item.type !== 'separator' && item.id === options.currentRuntimeId
-		);
-		if (currentItem) {
-			quickPick.activeItems = [currentItem];
+	disposables.add(quickPick.onDidTriggerButton(button => {
+		if (languageFilter.toggle(button)) {
+			rebuildItems();
+			// Clicking a toggle leaves focus on it; put it back so typing still searches.
+			quickPick.focusOnInput();
 		}
-	}
+	}));
 
-	// Set the initial busy/placeholder state for the phase the picker opened in.
-	updateDiscoveryProgress();
+	// Also sets the busy/placeholder state for the phase the picker opened in.
+	rebuildItems();
 
 	// Rebuild when a new runtime registers - covers late initial discovery
 	// and post-startup rediscovery.
@@ -854,13 +1096,13 @@ export const selectNewLanguageRuntime = async (
 
 			// Handle contributed items
 			if (selectedRuntime.id.startsWith(CONTRIBUTED_ITEM_PREFIX)) {
-				const contributedItem = contributedItemMap.get(selectedRuntime.id);
-				if (!contributedItem) {
+				const contributed = findContributedItem(selectedRuntime.id);
+				if (!contributed) {
 					resolve(undefined);
 					return;
 				}
 				try {
-					const runtimeId = await contributedItem.contribution.onSelect(contributedItem.originalId);
+					const runtimeId = await contributed.contribution.onSelect(contributed.item.id);
 					if (runtimeId) {
 						// Use quiet mode to suppress notifications since the picker
 						// contribution already handled registration.
@@ -1157,6 +1399,33 @@ export class StartNewAgentSessionAction extends Action2 {
 }
 
 /**
+ * Action that rediscovers all installed interpreters.
+ */
+export class DiscoverAllRuntimesAction extends Action2 {
+	constructor() {
+		super({
+			id: LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID,
+			title: localize2('workbench.action.language.runtime.discoverAllRuntimes', "Discover All Interpreters"),
+			f1: true,
+			category,
+			metadata: {
+				description: localize('positron.languageRuntime.discoverAllRuntimes.description', "Rediscover all installed interpreters so newly installed environments become available."),
+				agentCompatible: true,
+				readOnly: true,
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const runtimeStartupService = accessor.get(IRuntimeStartupService);
+
+		// Wait for discovery to finish, so a caller that lists interpreters
+		// next (such as an agent) sees the newly discovered ones.
+		await runtimeStartupService.rediscoverAllRuntimes();
+	}
+}
+
+/**
  * Action that allows the user to change the foreground session.
  */
 export class SelectSessionAction extends Action2 {
@@ -1172,6 +1441,7 @@ export class SelectSessionAction extends Action2 {
 			metadata: {
 				description: localize('positron.languageRuntime.selectSession.description', "Select the session to make active."),
 				agentCompatible: true,
+				readOnly: true,
 				args: [
 					{
 						name: 'sessionId',
@@ -1636,31 +1906,7 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 
-	registerAction2(class extends Action2 {
-		/**
-		 * Constructor.
-		 */
-		constructor() {
-			super({
-				id: LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID,
-				title: localize2('workbench.action.language.runtime.discoverAllRuntimes', "Discover All Interpreters"),
-				f1: true,
-				category,
-				metadata: {
-					description: localize('positron.languageRuntime.discoverAllRuntimes.description', "Rediscover all installed interpreters so newly installed environments become available."),
-					agentCompatible: true,
-				},
-			});
-		}
-
-		async run(accessor: ServicesAccessor) {
-			// Access service.
-			const runtimeStartupService = accessor.get(IRuntimeStartupService);
-
-			// Kick off discovery.
-			runtimeStartupService.rediscoverAllRuntimes();
-		}
-	});
+	registerAction2(DiscoverAllRuntimesAction);
 
 	registerAction2(class extends Action2 {
 		constructor() {
@@ -1671,6 +1917,7 @@ export function registerLanguageRuntimeActions() {
 				metadata: {
 					description: localize('positron.languageRuntime.getRegisteredRuntimes.description', "List the interpreters registered with Positron, across all languages. Use before creating an environment or starting a session to see what is already available."),
 					agentCompatible: true,
+					readOnly: true,
 					args: [
 						{
 							name: 'languageId',
@@ -1738,6 +1985,7 @@ export function registerLanguageRuntimeActions() {
 				metadata: {
 					description: localize('positron.languageRuntime.getActiveSessions.description', "List the interpreter sessions currently running in Positron. Use before selecting a session to see which sessions exist and which one is active."),
 					agentCompatible: true,
+					readOnly: true,
 					args: [
 						{
 							name: 'languageId',
