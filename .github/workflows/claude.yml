@@ -253,7 +253,7 @@ jobs:
           fi
           echo "needs_build=false" >> "$GITHUB_OUTPUT"
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${NUMBER}/comments" \
+          gh api --silent --method POST "repos/${GITHUB_REPOSITORY}/issues/${NUMBER}/comments" \
             -f body="The handoff to the build job failed. See ${RUN_URL}." || true
           echo "::error::Claude returned no valid handoff"
           exit 1
