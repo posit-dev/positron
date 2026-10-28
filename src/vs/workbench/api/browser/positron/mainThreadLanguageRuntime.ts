@@ -2166,6 +2166,11 @@ export class MainThreadLanguageRuntime
 		this._runtimeStartupService.completeDiscovery(this._id);
 	}
 
+	// Signals that language runtime discovery is complete for one language.
+	$completeLanguageRuntimeDiscoveryForLanguage(languageId: string): void {
+		this._runtimeStartupService.completeLanguageDiscovery(this._id, languageId);
+	}
+
 	// Called by the extension host to unregister a language runtime
 	$unregisterLanguageRuntime(runtimeId: string): void {
 		const runtime = this._registeredRuntimes.get(runtimeId);

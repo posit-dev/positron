@@ -8,6 +8,7 @@ import {
 	ILanguageRuntimeMetadata,
 	IRuntimeRootEntry,
 	IRuntimeRootSignature,
+	LanguageRuntimeStartupBehavior,
 	signaturesEqual,
 } from '../../languageRuntime/common/languageRuntimeService.js';
 
@@ -22,6 +23,20 @@ export type {
 	IRuntimeRootSignature,
 };
 export { signaturesEqual };
+
+/**
+ * The runtime metadata as the cache stores it. Every folder shares the cache,
+ * but whether an interpreter starts right away depends on the open folder, so
+ * `Immediate` is stored as `Implicit` (#16376). The language's recommendation
+ * decides whether to start right away in each folder.
+ *
+ * @param metadata The runtime metadata to cache.
+ */
+export function cachedRuntimeMetadata(metadata: ILanguageRuntimeMetadata): ILanguageRuntimeMetadata {
+	return metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate ?
+		{ ...metadata, startupBehavior: LanguageRuntimeStartupBehavior.Implicit } :
+		metadata;
+}
 
 export const IRuntimeDiscoveryCache =
 	createDecorator<IRuntimeDiscoveryCache>('runtimeDiscoveryCache');
@@ -73,8 +88,11 @@ export const RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT = 1;
  * one and both orderings are wrong. Changing an extension's rank values means
  * bumping this version.
  *
- * v5: entries carry `picker`. Older entries lack it and would render the old
- * way next to new ones.
+ * v5: entries carry `picker`, and R's discovered runtimes are `Explicit`, so
+ * opening an R file starts R's recommendation. Older entries lack `picker`
+ * and are `Implicit`, and a cache hit replays them as-is. Changing the
+ * startup behavior an extension gives its discovered runtimes means bumping
+ * this version.
  */
 export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 5;
 

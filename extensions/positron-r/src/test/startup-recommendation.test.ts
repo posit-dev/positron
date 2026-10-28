@@ -29,12 +29,12 @@ suite('R startup recommendation', () => {
 		assert.strictEqual(runtimeManager.recommendationIsProjectDefault, false);
 	});
 
-	test('the search never asks for R to start right away', async () => {
+	test('the search finds Rs that start only when picked', async () => {
 		const runtimes = await searchAll();
 		assert.ok(runtimes.length > 0, 'expected the search to find R');
 		assert.deepStrictEqual(
 			runtimes.map(runtime => runtime.startupBehavior),
-			runtimes.map(() => positron.LanguageRuntimeStartupBehavior.Implicit),
+			runtimes.map(() => positron.LanguageRuntimeStartupBehavior.Explicit),
 		);
 	});
 

@@ -15,7 +15,7 @@ import { IEphemeralStateService } from '../../../../platform/ephemeralState/comm
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { comparePickerRuntimes, IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IPreferredRuntime, IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, PreferredRuntimeReason, SerializedSessionMetadata } from './runtimeStartupService.js';
-import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
+import { cachedRuntimeMetadata, IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
 import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../languageRuntime/common/interpreterDefinitions.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
@@ -93,6 +93,20 @@ const PERSISTENT_WORKSPACE_SESSIONS = 'positron.workspaceSessionList.v3';
  * console "Discovering interpreters" UI.
  */
 const LAST_DISCOVERY_RUNTIME_COUNT_KEY = 'positron.runtime.lastDiscoveryRuntimeCount';
+
+/**
+ * Orders sessions to restore: the console the user focused last first, then
+ * the rest by last used time, most recent first. Reconnecting brings the first
+ * console to the front, and the console in front is saved as the language's
+ * affiliated runtime, so the order decides which runtime starts next time.
+ * Defaults to 0 so we can restore sessions that didn't persist a last used time.
+ */
+function compareRestoredSessions(a: SerializedSessionMetadata, b: SerializedSessionMetadata): number {
+	if (!!a.isLastActiveConsole !== !!b.isLastActiveConsole) {
+		return a.isLastActiveConsole ? -1 : 1;
+	}
+	return (b.lastUsed ?? 0) - (a.lastUsed ?? 0);
+}
 
 const languageRuntimeExtPoint =
 	ExtensionsRegistry.registerExtensionPoint<ILanguageRuntimeProviderMetadata[]>({
@@ -206,6 +220,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// The set of encountered languages.
 	private readonly _encounteredLanguagesByLanguageId = new Set<string>();
 
+	// The languages whose first file opened before the language could start
+	// a runtime for it. Each starts once it is asked after discovery.
+	private readonly _languagesOpenedBeforeAsked = new Set<string>();
+
+	// The languages whose affiliated runtime starts in the background and
+	// has not started yet. Opening a file of one starts nothing, so it can't
+	// start a second console, or the runtime the pinned check replaces.
+	private readonly _affiliationStartsPending = new Set<string>();
+
 	// A map of most recently started runtimes. This is keyed by the languageId
 	// (metadata.languageId) of the runtime.
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
@@ -220,6 +243,27 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	// Whether the post-discovery start for languages set to Always has run.
 	private _alwaysStartRan = false;
+
+	// The languages each extension host is still discovering on this
+	// discovery pass, keyed by runtime manager ID.
+	private readonly _languagesDiscoveringByManagerId = new Map<number, Set<string>>();
+
+	// Whether every extension host's languages are known on this discovery
+	// pass. If not, no language is asked for its recommendation until every
+	// language finished discovery.
+	private _discoveringLanguagesKnown = false;
+
+	// The languages whose discovery finished on this pass before every
+	// language finished, and that were asked for a recommendation then.
+	private readonly _languagesDiscovered = new Set<string>();
+
+	// The ask after discovery for each language asked on this pass. A
+	// language is asked at most once per pass.
+	private readonly _asksAfterDiscovery = new Map<string, Promise<ILanguageRuntimeMetadata[]>>();
+
+	// For each language asked before every language finished discovery, the
+	// ask and the start of an Implicit answer.
+	private readonly _earlyRecommendationsAfterDiscovery = new Map<string, Promise<void>>();
 
 	// Set while the recommendation code registers a runtime, so registration
 	// does not auto-start it before the recommendation chooses what to start.
@@ -241,10 +285,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// the first time the language's extensions are activated.
 	private readonly _pinnedChecks = new Map<string, Promise<void>>();
 
-	// The languages whose default interpreter, set in the language's
-	// settings, was saved as the affiliated runtime on this launch.
-	// startAffiliatedRuntime() gives these the pinned start reason.
-	private readonly _pinnedLanguageIds = new Set<string>();
+	// The default interpreter set in each language's settings, keyed by
+	// language ID, with the times of the affiliated runtime it stands in for.
+	// getAffiliatedRuntime() returns it in place of the saved affiliation for
+	// the rest of this launch, but it is never saved itself: it is only saved
+	// when it starts, like any other runtime. Saving any affiliation for the
+	// language removes it. startAffiliatedRuntime() gives it the pinned start
+	// reason.
+	private readonly _pinnedAffiliations = new Map<string, IAffiliatedRuntimeMetadata>();
 
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
@@ -474,23 +522,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Add the language to the set of encountered languages.
 			this._encounteredLanguagesByLanguageId.add(languageId);
 
-			// Start the language's remembered recommendation, if it is Implicit.
-			// The runtime session service starts the first registered Implicit
-			// runtime on file open, but the registry keeps the first copy of a
-			// runtime it sees, so a recommendation made after discovery stays
-			// registered with the discovered (Explicit) behavior. Leave it to
-			// that service when it has an Implicit runtime to start.
-			const recommended = this._recommendedRuntimesByLanguageId.get(languageId);
-			if (recommended?.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
-				this._startupPhase === RuntimeStartupPhase.Complete &&
-				!this._runtimeSessionService.hasStartingOrRunningConsole(languageId) &&
-				!this.affiliationFor(languageId) &&
-				!this._runtimeSessionService.implicitStartupSuppressed &&
-				!this._languageRuntimeService.registeredRuntimes.some(metadata =>
-					metadata.languageId === languageId &&
-					metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit) &&
-				this._languageRuntimeService.getRegisteredRuntime(recommended.runtimeId)) {
-				this.autoStartRuntime(recommended, { id: SessionStartReasonId.LanguageFileOpened }, true);
+			// A language asked once its own discovery finished needn't wait for
+			// the rest. Otherwise, wait until the language is asked after
+			// discovery.
+			if (this._startupPhase === RuntimeStartupPhase.Complete || this._languagesDiscovered.has(languageId)) {
+				this.startForOpenFile(languageId);
+			} else {
+				this._languagesOpenedBeforeAsked.add(languageId);
 			}
 		}));
 
@@ -590,6 +628,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this.saveWorkspaceSessions();
 		}));
 
+		// Save the workspace sessions whenever a different session comes to
+		// the front. The reconnect after a reload needs to know which console
+		// the user focused last. Saving only before a reload isn't enough in
+		// web builds, which can't finish an async save while the page unloads.
+		this._register(this._runtimeSessionService.onDidChangeForegroundSession(() => {
+			if (!this._shuttingDown) {
+				this.saveWorkspaceSessions();
+			}
+		}));
+
 		// Register a shutdown event handler so that we have a chance to save
 		// state before a reload.
 		this._register(this._lifecycleService.onBeforeShutdown((e) => {
@@ -687,6 +735,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param languageId The language ID of the runtime to clear.
 	 */
 	clearAffiliatedRuntime(languageId: string): void {
+		this._pinnedAffiliations.delete(languageId);
 		this._storageService.remove(`${this.storageKey}.${languageId}`, this.affiliationStorageScope());
 		this._logService.debug(`[Runtime startup] Cleared affiliated runtime for language ID '${languageId}'`);
 	}
@@ -751,9 +800,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				`(data: ${JSON.stringify(storedSessions)})`);
 		}
 
-		// Sort the sessions by last used time, descending, so that the most recently used
-		// sessions are at the top.
-		this._restoredSessions.sort((a, b) => b.lastUsed - a.lastUsed);
+		// Sort the console the user focused last to the top, then the rest by last
+		// used time, descending, so that the most recently used sessions are next.
+		this._restoredSessions.sort(compareRestoredSessions);
 	}
 
 	/**
@@ -853,10 +902,25 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		// The saved affiliation is newer than the pinned interpreter: either
+		// the pinned interpreter is starting, or another runtime was used.
+		this._pinnedAffiliations.delete(affiliated.metadata.languageId);
+
 		this._storageService.store(this.storageKeyForRuntime(affiliated.metadata),
 			JSON.stringify(affiliated),
 			this.affiliationStorageScope(),
 			StorageTarget.MACHINE);
+	}
+
+	/**
+	 * Signals that an extension host finished discovering one language's
+	 * runtimes. Once no extension host is still discovering the language, it
+	 * is asked for its recommendation, without waiting for the other
+	 * languages.
+	 */
+	public completeLanguageDiscovery(id: number, languageId: string): void {
+		this._languagesDiscoveringByManagerId.get(id)?.delete(languageId);
+		this.recommendAfterLanguageDiscovery(languageId);
 	}
 
 	/**
@@ -1081,6 +1145,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				const affiliatedRuntimeId = affiliated.metadata.runtimeId;
 				if (session.runtimeMetadata.runtimeId === affiliatedRuntimeId) {
 					// Remove the affiliation
+					this._pinnedAffiliations.delete(session.runtimeMetadata.languageId);
 					this._storageService.remove(this.storageKeyForRuntime(session.runtimeMetadata),
 						this.affiliationStorageScope());
 				}
@@ -1132,6 +1197,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return true;
 		});
 
+		// Each discovery pass asks every language again.
+		this._languagesDiscoveringByManagerId.clear();
+		this._discoveringLanguagesKnown = false;
+		this._languagesDiscovered.clear();
+		this._asksAfterDiscovery.clear();
+		this._earlyRecommendationsAfterDiscovery.clear();
+
 		// Activate all extensions that contribute language runtimes. Where an
 		// affiliated runtime can still start as it registers, wait for the
 		// language's pinned check too, so the pinned interpreter starts in
@@ -1149,7 +1221,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		let activate = true;
 		for (const languageId of waitingLanguageIds) {
 			const affiliation = this.getAffiliatedRuntime(languageId);
-			if (affiliation && this._pinnedLanguageIds.has(languageId) &&
+			if (affiliation && this._pinnedAffiliations.has(languageId) &&
 				this.canStartAffiliationAtRegistration(languageId)) {
 				this.startAffiliatedRuntime(affiliation, activate).catch(err => {
 					this._logService.error(`[Runtime startup] Error starting the pinned runtime for language ID '${languageId}': ${err}`);
@@ -1235,6 +1307,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					this._discoveryCompleteByExtHostId.set(manager.id, true);
 				}
 			}
+
+			// Note which languages each extension host is about to discover,
+			// so each language can be asked for its recommendation as soon as
+			// its own discovery finishes. A plan with no contributions runs
+			// every language its extension host hosts, which isn't known here.
+			this._discoveringLanguagesKnown = plans.every(plan => plan.runContributions.length > 0);
+			for (const plan of plans) {
+				this._languagesDiscoveringByManagerId.set(plan.manager.id, new Set(plan.runContributions
+					.map(contribution => contribution.languageId)
+					.filter(languageId => !disabledLanguages.includes(languageId))));
+			}
 			const reason = options.bypassCache
 				? 'user-triggered'
 				: this._lastFullDiscoveryReason;
@@ -1267,6 +1350,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					}
 				}
 				plan.manager.discoverAllRuntimes(disabledLanguages, plan.skipLanguageIds);
+			}
+
+			// The languages the cache covers on this pass have no discovery
+			// to wait for.
+			for (const languageId of new Set(plans.flatMap(plan => plan.skipLanguageIds))) {
+				this.recommendAfterLanguageDiscovery(languageId);
 			}
 		}
 
@@ -1681,6 +1770,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			if (task.metadata.definitionOnly) {
 				validated = { ...validated, definitionOnly: true };
 			}
+			// A cached record never starts right away, including when it is
+			// registered again below.
+			validated = cachedRuntimeMetadata(validated);
 			this._discoveryCache.sessionCounters.revalidationsSucceeded++;
 			// Registry swap: if the validator returned different metadata,
 			// register it (the registry tolerates re-registration on the same
@@ -1744,13 +1836,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
-		// Get the runtime metadata that is affiliated with this workspace, if any.
-		const affiliatedRuntimeMetadataStr = this._storageService.get(
-			this.storageKeyForRuntime(metadata), this.affiliationStorageScope());
-		if (!affiliatedRuntimeMetadataStr) {
+		// Get the runtime metadata that is affiliated with this workspace, if
+		// any. This is the pinned interpreter, if the pinned check found one.
+		const affiliated = this.getAffiliatedRuntime(metadata.languageId);
+		if (!affiliated) {
 			return;
 		}
-		const affiliated = JSON.parse(affiliatedRuntimeMetadataStr) as IAffiliatedRuntimeMetadata;
 		const affiliatedRuntimeId = affiliated.metadata.runtimeId;
 
 		// If the runtime is affiliated with this workspace, start it.
@@ -1761,11 +1852,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// extraRuntimeData: the extension reads it when validating the
 			// affiliation, and it records facts from when the runtime was chosen
 			// (e.g. R's `current` flag, which makes the affiliation follow the
-			// current R instead of this binary).
-			this.saveAffiliatedRuntime({
-				...affiliated,
-				metadata: { ...metadata, extraRuntimeData: affiliated.metadata.extraRuntimeData },
-			});
+			// current R instead of this binary). The pinned interpreter came
+			// from the extension on this launch, so it has nothing to heal, and
+			// it is saved only if it starts.
+			if (!this._pinnedAffiliations.has(metadata.languageId)) {
+				this.saveAffiliatedRuntime({
+					...affiliated,
+					metadata: { ...metadata, extraRuntimeData: affiliated.metadata.extraRuntimeData },
+				});
+			}
 
 			try {
 
@@ -1916,6 +2011,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	private getAffiliatedRuntime(languageId: string): IAffiliatedRuntimeMetadata | undefined {
+		const pinned = this._pinnedAffiliations.get(languageId);
+		if (pinned) {
+			return pinned;
+		}
 		const stored = this._storageService.get(`${this.storageKey}.${languageId}`,
 			this.affiliationStorageScope());
 		if (!stored) {
@@ -2018,6 +2117,79 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		);
 	}
 
+	/**
+	 * Starts what running code in the language would start, as a file of the
+	 * language opens: its affiliated runtime, else the one started last, else
+	 * its remembered recommendation. The runtime session service starts the
+	 * first registered Implicit runtime on file open, but discovered runtimes
+	 * start only when picked (Explicit), and the registry keeps the first copy
+	 * of a runtime it sees, so a recommendation made after discovery stays
+	 * registered as Explicit. Leave it to that service when it has an Implicit
+	 * runtime to start.
+	 *
+	 * @param options.afterOpen The file opened earlier, so that service
+	 *  already ran its start for the file, and nothing is left to it.
+	 */
+	private startForOpenFile(languageId: string, options?: { afterOpen?: boolean }): void {
+		if (this._runtimeSessionService.hasStartingOrRunningConsole(languageId) ||
+			this._affiliationStartsPending.has(languageId) ||
+			this._runtimeSessionService.implicitStartupSuppressed ||
+			!options?.afterOpen && this._languageRuntimeService.registeredRuntimes.some(metadata =>
+				metadata.languageId === languageId &&
+				metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit)) {
+			return;
+		}
+		const runtime = this.chosenRuntime(languageId, { forOpenFile: true });
+		if (runtime) {
+			this.autoStartRuntime(runtime, { id: SessionStartReasonId.LanguageFileOpened }, true);
+		}
+	}
+
+	/**
+	 * Starts what opening a file of the language starts, if its first file
+	 * opened before the language was asked after discovery. Called once the
+	 * language is asked, whether or not it recommended anything: a language
+	 * that already had a recommendation is not asked again, so its start
+	 * would otherwise be lost.
+	 */
+	private startForFileOpenedBeforeAsked(languageId: string): void {
+		if (this._languagesOpenedBeforeAsked.delete(languageId)) {
+			this.startForOpenFile(languageId, { afterOpen: true });
+		}
+	}
+
+	/**
+	 * Gets the registered runtime chosen for a language, as
+	 * `getPreferredRuntime` picks it but without its fallback to any
+	 * registered runtime.
+	 *
+	 * @param languageId The language identifier
+	 * @param options.forOpenFile Skip what opening a file must not start: a
+	 *  Manual runtime, an affiliation saved without being started or used
+	 *  that starts only when picked (as startup skips it), and a
+	 *  recommendation that starts only when picked.
+	 */
+	private chosenRuntime(languageId: string, options?: { forOpenFile?: boolean }): ILanguageRuntimeMetadata | undefined {
+		const forOpenFile = options?.forOpenFile === true;
+		const affiliation = this.getAffiliatedRuntime(languageId);
+		const affiliationOnlyPicked = forOpenFile &&
+			affiliation?.lastStarted === 0 &&
+			affiliation.lastUsed === 0 &&
+			affiliation.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Explicit;
+		const recommended = this._recommendedRuntimesByLanguageId.get(languageId);
+		return choosePreferredRuntime({
+			activeConsole: this._runtimeSessionService.getConsoleSessionForLanguage(languageId)?.runtimeMetadata,
+			affiliated: affiliationOnlyPicked ? undefined : this.affiliationFor(languageId),
+			recentlyStarted: this._mostRecentlyStartedRuntimesByLanguageId.get(languageId),
+			recommended: forOpenFile && recommended?.startupBehavior === LanguageRuntimeStartupBehavior.Explicit ?
+				undefined : recommended,
+		}, runtimeId => {
+			const runtime = this._languageRuntimeService.getRegisteredRuntime(runtimeId);
+			return forOpenFile && runtime?.startupBehavior === LanguageRuntimeStartupBehavior.Manual ?
+				undefined : runtime;
+		})?.runtime;
+	}
+
 	public async registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata> {
 		// Check up front, since the manager persists the path before the
 		// registration reaches the language runtime service.
@@ -2114,64 +2286,38 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * once they were discovered. The answer is remembered for
 	 * `getPreferredRuntime`. An `Immediate` answer starts when no console is
 	 * starting or running and the language has no affiliation that was started
-	 * or used (ignored in `Recommended` mode); an
-	 * `Implicit` one starts if a file of the language is already open. It is
-	 * never saved as an affiliation.
+	 * or used (ignored in `Recommended` mode). Otherwise, if a file of the
+	 * language is already open, what opening it now would start starts (see
+	 * `chosenRuntime`). It is never saved as an affiliation.
+	 *
+	 * A language whose own discovery finished before the others was already
+	 * asked then (see `recommendAfterLanguageDiscovery`); it is not asked
+	 * again, and only an `Immediate` answer is acted on now. A file of the
+	 * language that opened before it was asked starts what opening it now
+	 * would start, also if asking failed.
 	 */
 	private async recommendAfterDiscovery(): Promise<void> {
 		// Languages in runtime registration order, so a runtime recommended at
 		// startup (registered before discovery) goes first for Always.
-		const languageIds = Array.from(new Set([
-			...this._languageRuntimeService.registeredRuntimes.map(metadata => metadata.languageId),
-			...this._recommendedRuntimesByLanguageId.keys(),
-			...this._languagePacks.keys(),
-		]));
+		const languageIds = this.languageIdsToRecommendAfterDiscovery();
 
-		// Ask for each language on its own, so a language whose extension is
-		// slow to recommend doesn't hold up the others or their Always start.
+		// Each language on its own, so a language whose extension is slow to
+		// recommend doesn't hold up the others or their Always start.
 		const recommendLanguage = async (languageId: string) => {
-			if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled ||
-				this._recommendedRuntimesByLanguageId.has(languageId)) {
-				return;
-			}
-			const otherLanguageIds = languageIds.filter(id => id !== languageId);
-			const metadata = await Promise.all(this._runtimeManagers.map(manager =>
-				manager.recommendWorkspaceRuntimes(otherLanguageIds, true)));
-
-			for (const { metadata: recommended, isProjectDefault } of metadata.flat()) {
-				if (recommended.languageId !== languageId) {
-					continue;
-				}
-				// Register the base (its variants register with it) without
-				// auto-starting it.
-				this._suppressRegistrationAutoStart = true;
-				let runtime: ILanguageRuntimeMetadata;
-				try {
-					runtime = this.rememberRecommendation(recommended, isProjectDefault);
-				} finally {
-					this._suppressRegistrationAutoStart = false;
-				}
-				this._logService.debug(`[Runtime startup] Recommended after discovery: ${formatLanguageRuntimeMetadata(runtime)}`);
-
-				if (this._runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId)) {
-					continue;
-				}
-				if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
-					// Only this language's own affiliation holds it back, and only
-					// one that was started or used. Recommended mode ignores it.
-					const affiliation = this.getStartupBehavior(runtime.languageId) === LanguageStartupBehavior.Recommended ?
-						undefined : this.getAffiliatedRuntime(runtime.languageId);
-					const usedAffiliation = affiliation && (affiliation.lastStarted !== 0 || affiliation.lastUsed !== 0);
-					if (!usedAffiliation &&
-						!this._runtimeSessionService.hasStartingOrRunningConsole()) {
-						await this.autoStartRuntime(runtime, { id: SessionStartReasonId.ExtensionRecommendedRuntime }, true);
+			// A language asked early may have started its recommendation
+			// already; let that finish first. It acted on every answer then,
+			// except an Immediate one, which waited for now.
+			const early = this._earlyRecommendationsAfterDiscovery.get(languageId);
+			await early;
+			try {
+				for (const runtime of await this.askAfterDiscovery(languageId)) {
+					if (early && runtime.startupBehavior !== LanguageRuntimeStartupBehavior.Immediate) {
+						continue;
 					}
-				} else if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
-					this._encounteredLanguagesByLanguageId.has(runtime.languageId) &&
-					!this.affiliationFor(runtime.languageId) &&
-					!this._runtimeSessionService.implicitStartupSuppressed) {
-					await this.autoStartRuntime(runtime, { id: SessionStartReasonId.LanguageFileOpenedAtRegistration }, true);
+					await this.startRecommendationAfterDiscovery(runtime, true);
 				}
+			} finally {
+				this.startForFileOpenedBeforeAsked(languageId);
 			}
 		};
 		const recommendations = new Map(languageIds.map(languageId => [languageId,
@@ -2231,6 +2377,134 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}
 		await Promise.all(recommendations.values());
+	}
+
+	/**
+	 * The languages to ask for a recommendation after discovery, in runtime
+	 * registration order.
+	 */
+	private languageIdsToRecommendAfterDiscovery(): string[] {
+		return Array.from(new Set([
+			...this._languageRuntimeService.registeredRuntimes.map(metadata => metadata.languageId),
+			...this._recommendedRuntimesByLanguageId.keys(),
+			...this._languagePacks.keys(),
+		]));
+	}
+
+	/**
+	 * Asks the language's extensions for a recommendation after discovery,
+	 * unless the language already has one, and remembers the answers. Asks
+	 * at most once per discovery pass.
+	 *
+	 * @returns The remembered runtimes, if the language was asked.
+	 */
+	private askAfterDiscovery(languageId: string): Promise<ILanguageRuntimeMetadata[]> {
+		let ask = this._asksAfterDiscovery.get(languageId);
+		if (!ask) {
+			ask = this.doAskAfterDiscovery(languageId);
+			this._asksAfterDiscovery.set(languageId, ask);
+		}
+		return ask;
+	}
+
+	private async doAskAfterDiscovery(languageId: string): Promise<ILanguageRuntimeMetadata[]> {
+		if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled ||
+			this._recommendedRuntimesByLanguageId.has(languageId)) {
+			return [];
+		}
+		const otherLanguageIds = this.languageIdsToRecommendAfterDiscovery().filter(id => id !== languageId);
+		const metadata = await Promise.all(this._runtimeManagers.map(manager =>
+			manager.recommendWorkspaceRuntimes(otherLanguageIds, true)));
+
+		const remembered: ILanguageRuntimeMetadata[] = [];
+		for (const { metadata: recommended, isProjectDefault } of metadata.flat()) {
+			if (recommended.languageId !== languageId) {
+				continue;
+			}
+			// Register the base (its variants register with it) without
+			// auto-starting it.
+			this._suppressRegistrationAutoStart = true;
+			let runtime: ILanguageRuntimeMetadata;
+			try {
+				runtime = this.rememberRecommendation(recommended, isProjectDefault);
+			} finally {
+				this._suppressRegistrationAutoStart = false;
+			}
+			this._logService.debug(`[Runtime startup] Recommended after discovery: ${formatLanguageRuntimeMetadata(runtime)}`);
+			remembered.push(runtime);
+		}
+		return remembered;
+	}
+
+	/**
+	 * Starts a recommendation made after discovery, if it should start now.
+	 *
+	 * @param runtime The remembered recommendation.
+	 * @param immediate Whether an `Immediate` recommendation can start. Only
+	 *   once every language finished discovery, so it can't start in front of
+	 *   an affiliated runtime that starts as discovery registers it.
+	 */
+	private async startRecommendationAfterDiscovery(runtime: ILanguageRuntimeMetadata, immediate: boolean): Promise<void> {
+		if (this._runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId)) {
+			return;
+		}
+		if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
+			if (!immediate) {
+				return;
+			}
+			// Only this language's own affiliation holds it back, and only
+			// one that was started or used. Recommended mode ignores it.
+			const affiliation = this.getStartupBehavior(runtime.languageId) === LanguageStartupBehavior.Recommended ?
+				undefined : this.getAffiliatedRuntime(runtime.languageId);
+			const usedAffiliation = affiliation && (affiliation.lastStarted !== 0 || affiliation.lastUsed !== 0);
+			if (!usedAffiliation &&
+				!this._runtimeSessionService.hasStartingOrRunningConsole()) {
+				await this.autoStartRuntime(runtime, { id: SessionStartReasonId.ExtensionRecommendedRuntime }, true);
+			}
+		} else if (this._encounteredLanguagesByLanguageId.has(runtime.languageId) &&
+			!this._runtimeSessionService.implicitStartupSuppressed) {
+			// A file of the language is open: start what opening it now would
+			// start.
+			const forFile = this.chosenRuntime(runtime.languageId, { forOpenFile: true });
+			if (forFile) {
+				await this.autoStartRuntime(forFile, { id: SessionStartReasonId.LanguageFileOpenedAtRegistration }, true);
+			}
+		}
+	}
+
+	/**
+	 * Asks a language for its recommendation as soon as its own discovery
+	 * finished, without waiting for the other languages. If a file of the
+	 * language is already open, what opening it now would start starts; an
+	 * `Immediate` answer waits for `recommendAfterDiscovery`, once every
+	 * language finished.
+	 *
+	 * Skipped unless discovery is running, the language is not being
+	 * discovered by any extension host, and every extension host's languages
+	 * are known.
+	 */
+	private recommendAfterLanguageDiscovery(languageId: string): void {
+		if (this._startupPhase !== RuntimeStartupPhase.Discovering ||
+			!this._discoveringLanguagesKnown ||
+			this._languagesDiscovered.has(languageId) ||
+			Array.from(this._languagesDiscoveringByManagerId.values()).some(languageIds => languageIds.has(languageId))) {
+			return;
+		}
+		this._languagesDiscovered.add(languageId);
+		this._earlyRecommendationsAfterDiscovery.set(languageId, (async () => {
+			try {
+				for (const runtime of await this.askAfterDiscovery(languageId)) {
+					await this.startRecommendationAfterDiscovery(runtime, false);
+				}
+			} finally {
+				// Like an Immediate answer, a file opened earlier then waits for
+				// every language, or it would start that answer now.
+				if (this._recommendedRuntimesByLanguageId.get(languageId)?.startupBehavior !== LanguageRuntimeStartupBehavior.Immediate) {
+					this.startForFileOpenedBeforeAsked(languageId);
+				}
+			}
+		})().catch(err =>
+			this._logService.error(`[Runtime startup] Error recommending a runtime for '${languageId}' after its discovery: ${err}`)));
 	}
 
 	/**
@@ -2332,16 +2606,22 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// do not need to block the startup sequence.
 		for (let i = 1; i < affiliations.length; i++) {
 			const affiliation = affiliations[i];
-			this.activateExtensionsForLanguages([affiliation.metadata.languageId]).then(async () => {
-				this.startAffiliatedRuntime(await this.pinnedAffiliation(affiliation), false);
+			const languageId = affiliation.metadata.languageId;
+			this._affiliationStartsPending.add(languageId);
+			this.activateExtensionsForLanguages([languageId]).then(async () => {
+				try {
+					await this.startAffiliatedRuntime(await this.pinnedAffiliation(affiliation), false);
+				} finally {
+					this._affiliationStartsPending.delete(languageId);
+				}
 			});
 		}
 	}
 
 	/**
 	 * Waits for the language's pinned check, then reads its affiliated
-	 * runtime again, since the check may have written the pinned interpreter
-	 * over the copy read before the extension was activated.
+	 * runtime again, since the check may have put the pinned interpreter in
+	 * place of the copy read before the extension was activated.
 	 *
 	 * @param affiliation The affiliated runtime as read before activation.
 	 */
@@ -2353,9 +2633,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/**
 	 * Starts the language's pinned check, once per window, without waiting
-	 * for it. The check can write the pinned interpreter over the language's
-	 * affiliated runtime. Callers that need the result use
-	 * waitForPinnedChecks().
+	 * for it. The check can put the pinned interpreter in place of the
+	 * language's affiliated runtime for this launch. Callers that need the
+	 * result use waitForPinnedChecks().
 	 *
 	 * @param languageId The language ID.
 	 */
@@ -2412,12 +2692,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/**
 	 * Asks the language's extensions for the interpreter the language's pin
-	 * setting names, and writes it over the language's affiliated runtime.
-	 * The old last-started and last-used times are kept, so
-	 * startAffiliatedLanguageRuntimes() starts or skips the pinned
-	 * interpreter the same way it would have the old one.
+	 * setting names, and puts it in place of the language's affiliated
+	 * runtime for the rest of this launch. The old last-started and last-used
+	 * times are kept, so startAffiliatedLanguageRuntimes() starts or skips the
+	 * pinned interpreter the same way it would have the old one.
 	 *
-	 * Skipped when there's nothing to write over (the recommendation handles
+	 * The pinned interpreter is saved as the affiliated runtime only if it
+	 * starts. Saving it here would make it the "last used" interpreter even
+	 * when it never runs, for example after a reload that reconnects to other
+	 * consoles, and a later launch without the pin would start it.
+	 *
+	 * Skipped when there's nothing to replace (the recommendation handles
 	 * the pin then), when the New Folder flow just picked the interpreter (it
 	 * starts on this launch; the pin applies from the next one), and under
 	 * `recommended` (the recommendation handles the pin).
@@ -2462,8 +2747,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// pinned path would start, if any.
 		const runtime = this.definitionVariantFor(pinned);
 
-		// Read the affiliation again, so the write keeps the newest
-		// last-started and last-used times. They can change while the
+		// Read the affiliation again, so the pinned interpreter keeps the
+		// newest last-started and last-used times. They can change while the
 		// extension looks up the pin, for example when a reconnected console
 		// comes to the front.
 		const affiliated = this.getAffiliatedRuntime(languageId);
@@ -2475,8 +2760,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				`${formatLanguageRuntimeMetadata(runtime)} replaces affiliated runtime ` +
 				`${formatLanguageRuntimeMetadata(affiliated.metadata)}`);
 		}
-		this.saveAffiliatedRuntime({ ...affiliated, metadata: runtime });
-		this._pinnedLanguageIds.add(languageId);
+		this._pinnedAffiliations.set(languageId, { ...affiliated, metadata: runtime });
 	}
 
 	/**
@@ -2608,13 +2892,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
-		// Save the start time of the affiliated runtime.
+		// Read the start reason before saving, since saving removes the
+		// pinned interpreter from _pinnedAffiliations.
+		const pinned = this._pinnedAffiliations.get(affiliatedRuntimeMetadata.languageId);
+		const reason = pinned?.metadata.runtimeId === affiliatedRuntimeMetadata.runtimeId ?
+			SessionStartReasonId.PinnedRuntime :
+			SessionStartReasonId.AffiliatedRuntime;
+
+		// Save the start time of the affiliated runtime. For the pinned
+		// interpreter, this is where it is first saved.
 		affiliatedRuntime.lastStarted = Date.now();
 		this.saveAffiliatedRuntime(affiliatedRuntime);
 
-		const reason = this._pinnedLanguageIds.has(affiliatedRuntimeMetadata.languageId) ?
-			SessionStartReasonId.PinnedRuntime :
-			SessionStartReasonId.AffiliatedRuntime;
 		// autoStartRuntime() announces the runtime again, so the Console pane
 		// shows the pinned runtime and not the one announced before activation.
 		await this.autoStartRuntime(affiliatedRuntimeMetadata, { id: reason }, activate);
@@ -2655,10 +2944,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this.setStartupPhase(RuntimeStartupPhase.Reconnecting);
 
-		// Sort the sessions by last used time, so that we reconnect to the
-		// most recently used sessions first. Default 0 so we can restore
-		// sessions that didn't persist this information.
-		sessions.sort((a, b) => (b.lastUsed ?? 0) - (a.lastUsed ?? 0));
+		// Sort the console the user focused last first, so that it is the one
+		// brought to the front again, then the most recently used sessions.
+		sessions.sort(compareRestoredSessions);
 
 		// Let the UI know we're about to try reconnecting to this session
 		this._onWillAutoStartRuntime.fire({
@@ -2743,9 +3031,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._logService.debug(`Reconnecting to sessions: ` +
 			sessions.map(session => session.sessionName).join(', '));
 
-		// Keep track of whether we are expecting to see the first console
-		// session
-		let firstConsole = true;
+		// Activate (i.e. make foreground) the first console session in the
+		// sorted list. Notebook sessions are never activated as part of
+		// reconnection; the foreground session for a notebook is set by the
+		// editor focus path when the user activates the corresponding editor
+		// (so reconnected sessions for background tabs do not steal
+		// foreground from the active editor).
+		const isConsoleSession = (session: SerializedSessionMetadata) => !session.metadata.notebookUri;
+		const activatedSession = sessions.find(isConsoleSession);
+
+		// The console sessions that reconnect, in the sorted order.
+		const reconnectedConsoleIds = new Set<string>();
 
 		await Promise.all(sessions.map(async (session, idx) => {
 			const marker =
@@ -2761,24 +3057,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._logService.debug(`${marker}: Restoring session for ` +
 				`${session.sessionName}`);
 
-			// Activate (i.e. make foreground) the first console session
-			// we reconnect to. Notebook sessions are never activated as
-			// part of reconnection; the foreground session for a notebook
-			// is set by the editor focus path when the user activates
-			// the corresponding editor (so reconnected sessions for
-			// background tabs do not steal foreground from the active
-			// editor).
-			const isConsoleSession = !session.metadata.notebookUri;
-			const activate = firstConsole && isConsoleSession;
-			if (isConsoleSession) {
-				firstConsole = false;
-			}
-
 			try {
-				// Reconnect to the session; activate it if it is the first console
-				// session
+				// Reconnect to the session. Only the activated console comes
+				// to the front; another console that finishes reconnecting
+				// first must not take the front while it is empty, or the
+				// front would switch consoles once per reconnect.
 				await this._runtimeSessionService.restoreRuntimeSession(
-					session.runtimeMetadata, session.metadata, session.sessionName, session.hasConsole, activate);
+					session.runtimeMetadata, session.metadata, session.sessionName, session.hasConsole,
+					session === activatedSession, false);
+				if (isConsoleSession(session)) {
+					reconnectedConsoleIds.add(session.metadata.sessionId);
+				}
 			} catch (err) {
 				// If an error occurs, fire an event to clean up provisional copies
 				const error: ISessionRestoreFailedEvent = {
@@ -2788,6 +3077,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				this._onSessionRestoreFailure.fire(error);
 			}
 		}));
+
+		// If nothing is in front (e.g. the activated console failed to
+		// reconnect), bring the first console that did reconnect to the front.
+		if (!this._runtimeSessionService.foregroundSession) {
+			const fallback = sessions
+				.filter(session => reconnectedConsoleIds.has(session.metadata.sessionId))
+				.map(session => this._runtimeSessionService.getSession(session.metadata.sessionId))
+				.find(session => session !== undefined);
+			if (fallback) {
+				this._runtimeSessionService.foregroundSession = fallback;
+			}
+		}
 	}
 
 	/**
@@ -2813,6 +3114,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * process.
 	 */
 	private async saveWorkspaceSessions(removeSessionId?: string): Promise<boolean> {
+		// The console the user focused last. When a notebook is in front, this
+		// is the console that was in front before it.
+		const lastActiveConsoleSessionId = this._runtimeSessionService.getLastActiveConsoleSession()?.sessionId;
+
 		// Derive the set of sessions that are currently active
 		const activeSessions = this._runtimeSessionService.activeSessions
 			.filter(session =>
@@ -2832,6 +3137,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					workingDirectory: activeSession?.workingDirectory || '',
 					hasConsole: activeSession?.hasConsole || false,
 					lastUsed: session.lastUsed,
+					isLastActiveConsole: session.sessionId === lastActiveConsoleSessionId,
 					localWindowId: this._localWindowId,
 				};
 

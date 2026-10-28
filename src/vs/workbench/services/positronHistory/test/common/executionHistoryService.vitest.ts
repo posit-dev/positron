@@ -365,6 +365,10 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 		// No-op in test implementation
 	}
 
+	completeLanguageDiscovery(_id: number, _languageId: string): void {
+		// No-op in test implementation
+	}
+
 	public async rediscoverAllRuntimes() {
 		// No-op in test implementation
 	}
