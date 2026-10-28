@@ -6,6 +6,7 @@
 import { test, expect, tags } from '../_test.setup';
 import { createBrowserLaunchShim } from '../../utils/browserLaunchShim';
 import { completeSnowflakeSdkOAuth } from '../../utils/snowflakeOAuth';
+import { readPositronServiceAccountCredentials } from '../../utils/oktaSignIn';
 
 // Intercepts the browser launch snowflake-sdk makes during External Browser sign-in. Created at
 // module scope because `test.use({ extraEnv })` below is evaluated when this file is collected, so
@@ -20,7 +21,7 @@ test.use({
 });
 
 // Snowflake connection details. The account comes from the environment (the project's .env file
-// locally, 1Password in CI). The sign-in credentials are the shared IDE service account's, because
+// locally, 1Password in CI). The sign-in credentials are the Positron service account's, because
 // this account federates to Okta -- see snowflakeOAuth.ts.
 //
 // The env-backed values are read at runtime inside beforeAll, not here: `.env.e2e` is applied by the
@@ -76,15 +77,15 @@ test.describe('Data Connections - Snowflake (External Browser)', {
 		// the auto `envVars` worker fixture, which has run by the time this hook executes.
 		const account = process.env.SNOWFLAKE_ACCOUNT || '';
 		// The sign-in is Okta's, not Snowflake's: the account federates, so the browser leg uses the
-		// shared IDE service account rather than any SNOWFLAKE_USER/SNOWFLAKE_USERNAME value. Guard on
-		// what is actually consumed, so a rig with the account but no Okta credentials skips instead
-		// of failing halfway through the browser flow.
-		const otpSecret = process.env.IDE_SERVICE_ACCOUNT_OTP_SECRET || '';
+		// Positron service account (passkey) rather than any SNOWFLAKE_USER/SNOWFLAKE_USERNAME value.
+		// Guard on what is actually consumed, so a rig with the account but no Okta credentials skips
+		// instead of failing halfway through the browser flow.
+		const passkeyCredential = process.env.POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL || '';
 
 		// These are secrets. Where they are not provisioned (no .env locally, no 1Password in a given
 		// CI rig) the sign-in cannot happen, so skip the whole suite rather than fail. Follows the
 		// convention the Redshift tests use.
-		test.skip(!account || !otpSecret, 'Snowflake test credentials not configured (SNOWFLAKE_ACCOUNT / IDE_SERVICE_ACCOUNT_OTP_SECRET unset)');
+		test.skip(!account || !passkeyCredential, 'Snowflake test credentials not configured (SNOWFLAKE_ACCOUNT / POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL unset)');
 
 		// The budget covers the interactive sign-in plus a warehouse that may be resuming from idle:
 		// the first metadata query restarts a suspended warehouse, which takes appreciably longer than
@@ -121,7 +122,7 @@ test.describe('Data Connections - Snowflake (External Browser)', {
 		await completeSnowflakeSdkOAuth(
 			shim,
 			() => dataConnections.expandConnection(connectionName),
-			{ logger: app.code.logger },
+			{ logger: app.code.logger, credentials: readPositronServiceAccountCredentials() },
 		);
 
 		await test.step('Expand the tree down to tables', async () => {
