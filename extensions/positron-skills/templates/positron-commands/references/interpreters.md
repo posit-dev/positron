@@ -64,7 +64,8 @@ Hands the interpreter at a path to the language's extension, which registers it
 and saves the path in its settings so it stays available in later sessions. Use
 it when a rescan didn't find an interpreter the user knows is installed, or when
 the user asks to make a specific interpreter available. The path must be the
-interpreter executable (e.g. `.../bin/python` or `.../bin/R`), not its folder;
+interpreter executable (e.g. `.../bin/python` or `.../bin/R`; on Windows
+`...\Scripts\python.exe` or `...\bin\R.exe`), not its folder;
 if the user names an environment rather than a path, find the executable first
 (for example with `which` or the environment manager's own listing).
 
