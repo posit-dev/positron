@@ -36,7 +36,8 @@ export class PositronPlotsGalleryEditorContribution extends Disposable {
 			{
 				id: PositronPlotsGalleryEditorInput.EditorID,
 				label: localize('positronPlotsGalleryEditor', 'Plots Gallery'),
-				priority: RegisteredEditorPriority.builtin
+				// Only this editor can open its scheme, so user editor associations must not override it.
+				priority: RegisteredEditorPriority.exclusive
 			},
 			{
 				singlePerResource: true,

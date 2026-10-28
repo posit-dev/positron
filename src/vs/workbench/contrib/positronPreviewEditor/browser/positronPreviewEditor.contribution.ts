@@ -33,7 +33,8 @@ export class PositronPreviewEditorContribution extends Disposable {
 			{
 				id: PositronPreviewEditorInput.EditorID,
 				label: localize('positronPreivewEditor', 'Editor Preview Tab'),
-				priority: RegisteredEditorPriority.builtin
+				// Only this editor can open its scheme, so user editor associations must not override it.
+				priority: RegisteredEditorPriority.exclusive
 			},
 			{
 				singlePerResource: true,

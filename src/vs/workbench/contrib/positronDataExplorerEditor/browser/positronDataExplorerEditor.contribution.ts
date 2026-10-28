@@ -90,10 +90,11 @@ export class PositronDataExplorerContribution extends Disposable {
 			options: dataExplorerEditorOptions(options)
 		});
 
-		// Register the editor.
+		// Register the editor. Only the Data Explorer can open its scheme, so it is exclusive. This
+		// stops a user editor association (for example "*": "default") from sending it elsewhere.
 		this._register(editorResolverService.registerEditor(
 			`${Schemas.positronDataExplorer}:**/**`,
-			editorInfo,
+			{ ...editorInfo, priority: RegisteredEditorPriority.exclusive },
 			{
 				singlePerResource: true,
 				canSupportResource: resource => resource.scheme === Schemas.positronDataExplorer
