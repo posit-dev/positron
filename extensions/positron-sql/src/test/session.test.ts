@@ -297,6 +297,28 @@ suite('SqlSession', () => {
 		await until(() => resolved(session, saved) === 'connection:a', 'the saved file to take over the connection');
 	});
 
+	test('a file saved takes the connection of the file it was saved from, not of another with the same text', async () => {
+		// The same query in two files, one against each database, comparing them: Save As from the
+		// one in front of the user takes its connection.
+		const text = 'SELECT * FROM orders;';
+		const local = sqlFile('local.sql', text);
+		const warehouse = sqlFile('warehouse.sql', text);
+		const copy = sqlFile('copy.sql', text);
+		const api = new FakeConnections();
+		api.connections = [summary('a', true), summary('b', true)];
+		const session = startSession(api, memento({
+			connectionByDocument: { [local.toString()]: ref('a'), [warehouse.toString()]: ref('b') },
+		}));
+		await session.whenRead();
+		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(local));
+		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(warehouse));
+
+		const saved = await vscode.workspace.openTextDocument(copy);
+
+		await until(() => resolved(session, saved) !== 'none', 'the saved file to take over a connection');
+		assert.strictEqual(resolved(session, saved), 'connection:b');
+	});
+
 	test('a file with the same text, opened while the other is in front, does not take its connection', async () => {
 		// The same moment as Save As, but the file was written long before: a copy of a query the
 		// user opens while looking at the original.

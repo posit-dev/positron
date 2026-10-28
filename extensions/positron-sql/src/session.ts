@@ -15,7 +15,7 @@ import { collectLinks } from './links';
 import { SqlLog } from './log';
 import { ConnectionRef, DataConnectionsApi, EMPTY_SCHEMA, SchemaReader, schemaOfProfile, SqlSchema } from './schema';
 import { SchemaIndex } from './schemaIndex';
-import { ConnectionSelection, EffectiveSelection, resolveSelection } from './selection';
+import { ConnectionSelection, Donor, EffectiveSelection, resolveSelection } from './selection';
 import { SqlStatementRangeProvider } from './statementRange';
 import { AUTOMATIC, ConnectionStatusBar, describeSelection, DialectInUse, explainDataConnectionsOff, pickConnection } from './statusBar';
 
@@ -584,11 +584,11 @@ export class SqlSession implements vscode.Disposable {
 	}
 
 	/**
-	 * Gives a document the choice of a buffer just closed with the same text, if it has none of its
-	 * own, and brings everything that depends on the choice along with it.
+	 * Gives a document the choice of the document it was saved from, if it has none of its own,
+	 * and brings everything that depends on the choice along with it.
 	 */
 	private async _adopt(document: vscode.TextDocument): Promise<void> {
-		if (!this._mayAdopt(document) || this._donorsFor(document).length === 0 && !this._selection.hasTransient) {
+		if (!this._mayAdopt(document) || !this._donorFor(document)) {
 			return;
 		}
 		// Only a file Save As has just written. Otherwise opening a file that holds the same text as
@@ -597,7 +597,8 @@ export class SqlSession implements vscode.Disposable {
 		if (!await this._justWritten(document.uri) || this._disposed || !this._mayAdopt(document)) {
 			return;
 		}
-		if (!this._selection.adopt(document.uri, document.getText(), this._donorsFor(document))) {
+		const donor = this._donorFor(document);
+		if (!donor || !this._selection.adopt(document.uri, document.getText(), donor)) {
 			return;
 		}
 		this._log.debug(`${document.uri.toString(true)} took over the connection`
@@ -617,17 +618,21 @@ export class SqlSession implements vscode.Disposable {
 	}
 
 	/**
-	 * The open documents a document may have been saved from, with their text.
+	 * The document a document may have been saved from: the SQL document the user was last in
+	 * before it, which is where Save As is run from, with its text if it is still open.
 	 *
 	 * An open file on disk can be the one, not only an untitled buffer: Save As from a file leaves it
-	 * open beside the new one, with the same text. But only the file the user was just looking at,
-	 * which is where Save As is run from.
+	 * open beside the new one, with the same text. An untitled buffer may have closed already.
 	 */
-	private _donorsFor(document: vscode.TextDocument): { uri: vscode.Uri; text: string }[] {
-		return vscode.workspace.textDocuments
-			.filter(open => open !== document && !open.isClosed && this._selection.get(open.uri) !== undefined
-				&& (open.uri.scheme === 'untitled' || this._recentlyActive.includes(open.uri.toString())))
-			.map(open => ({ uri: open.uri, text: open.getText() }));
+	private _donorFor(document: vscode.TextDocument): Donor | undefined {
+		const self = document.uri.toString();
+		const previous = this._recentlyActive.filter(uri => uri !== self).at(-1);
+		if (!previous) {
+			return undefined;
+		}
+		const open = vscode.workspace.textDocuments.find(candidate =>
+			!candidate.isClosed && candidate.uri.toString() === previous);
+		return { uri: open?.uri ?? vscode.Uri.parse(previous), text: open?.getText() };
 	}
 
 	/** Whether a file was written in the last {@link JUST_WRITTEN_MS}, as one Save As wrote is. */

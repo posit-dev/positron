@@ -200,7 +200,7 @@ suite('ConnectionSelection', () => {
 
 		// Saving closes the buffer and opens the file, with the same text.
 		selection.forgetIfTransient(SCRATCH, 'SELECT * FROM orders');
-		const adopted = selection.adopt(REPORT, 'SELECT * FROM orders');
+		const adopted = selection.adopt(REPORT, 'SELECT * FROM orders', { uri: SCRATCH });
 
 		assert.deepStrictEqual([adopted, selection.get(REPORT)], [true, WAREHOUSE]);
 	});
@@ -212,8 +212,8 @@ suite('ConnectionSelection', () => {
 		selection.set(SCRATCH, WAREHOUSE);
 		selection.forgetIfTransient(SCRATCH, 'SELECT * FROM orders');
 
-		const onOpen = selection.adopt(REPORT, '');
-		const onFirstChange = selection.adopt(REPORT, 'SELECT * FROM orders');
+		const onOpen = selection.adopt(REPORT, '', { uri: SCRATCH });
+		const onFirstChange = selection.adopt(REPORT, 'SELECT * FROM orders', { uri: SCRATCH });
 
 		assert.deepStrictEqual([onOpen, onFirstChange, selection.get(REPORT)], [false, true, WAREHOUSE]);
 	});
@@ -223,10 +223,24 @@ suite('ConnectionSelection', () => {
 		const selection = new ConnectionSelection(store());
 		selection.set(SCRATCH, WAREHOUSE);
 
-		const adopted = selection.adopt(REPORT, 'SELECT 1', [{ uri: SCRATCH, text: 'SELECT 1' }]);
-		const unrelated = selection.adopt(MIGRATION, 'SELECT 2', [{ uri: SCRATCH, text: 'SELECT 1' }]);
+		const adopted = selection.adopt(REPORT, 'SELECT 1', { uri: SCRATCH, text: 'SELECT 1' });
+		const unrelated = selection.adopt(MIGRATION, 'SELECT 2', { uri: SCRATCH, text: 'SELECT 1' });
 
 		assert.deepStrictEqual([adopted, unrelated, selection.get(REPORT)], [true, false, WAREHOUSE]);
+	});
+
+	test('only the buffer the file was saved from hands its choice over, not another with the same text', () => {
+		// The same query pasted into two buffers, each against a different database.
+		const other = vscode.Uri.parse('untitled:Untitled-2');
+		const selection = new ConnectionSelection(store());
+		selection.set(SCRATCH, WAREHOUSE);
+		selection.set(other, LOCAL);
+		selection.forgetIfTransient(other, 'SELECT 1');
+
+		const fromOpen = selection.adopt(REPORT, 'SELECT 1', { uri: SCRATCH, text: 'SELECT 1' });
+		const closedCopy = selection.adopt(MIGRATION, 'SELECT 1', { uri: SCRATCH });
+
+		assert.deepStrictEqual([fromOpen, closedCopy, selection.get(REPORT)], [true, false, WAREHOUSE]);
 	});
 
 	test('a buffer reopened with its text, after changing language, keeps its choice', () => {
@@ -254,9 +268,9 @@ suite('ConnectionSelection', () => {
 		selection.set(SCRATCH, WAREHOUSE);
 		selection.forgetIfTransient(SCRATCH, 'SELECT * FROM orders');
 
-		const other = selection.adopt(MIGRATION, 'SELECT 1');
-		const first = selection.adopt(REPORT, 'SELECT * FROM orders');
-		const second = selection.adopt(vscode.Uri.file('/elsewhere.sql'), 'SELECT * FROM orders');
+		const other = selection.adopt(MIGRATION, 'SELECT 1', { uri: SCRATCH });
+		const first = selection.adopt(REPORT, 'SELECT * FROM orders', { uri: SCRATCH });
+		const second = selection.adopt(vscode.Uri.file('/elsewhere.sql'), 'SELECT * FROM orders', { uri: SCRATCH });
 
 		assert.deepStrictEqual([other, first, second], [false, true, false]);
 	});
@@ -266,7 +280,7 @@ suite('ConnectionSelection', () => {
 		selection.set(SCRATCH, WAREHOUSE);
 		selection.forgetIfTransient(SCRATCH, '');
 
-		assert.strictEqual(selection.adopt(REPORT, ''), false);
+		assert.strictEqual(selection.adopt(REPORT, '', { uri: SCRATCH }), false);
 	});
 
 	test('a renamed file, or a file in a renamed folder, keeps its choice', () => {
@@ -310,7 +324,7 @@ suite('ConnectionSelection', () => {
 		const adopted = selection.adopt(
 			vscode.Uri.file('/reports/quarterly-v2.sql'),
 			'SELECT * FROM orders',
-			[{ uri: REPORT, text: 'SELECT * FROM orders' }],
+			{ uri: REPORT, text: 'SELECT * FROM orders' },
 		);
 
 		assert.deepStrictEqual(

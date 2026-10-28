@@ -94,10 +94,11 @@ const CLOSED_KEPT_MS = 10 * 60 * 1000;
 /** How many closed buffers' choices to keep at once. */
 const MAX_CLOSED = 50;
 
-/** An open document that may hand its choice to another: what saving an untitled buffer leaves. */
+/** The document another may have been saved from, which may hand its choice to it. */
 export interface Donor {
 	readonly uri: vscode.Uri;
-	readonly text: string;
+	/** Its text while it is open; a buffer that has closed is matched by the text it closed with. */
+	readonly text?: string;
 }
 
 /**
@@ -195,40 +196,38 @@ export class ConnectionSelection {
 	}
 
 	/**
-	 * Gives a document that has no choice of its own the choice of a transient buffer holding the
-	 * same text, which is what saving an untitled buffer looks like from here.
+	 * Gives a document that has no choice of its own the choice of the document it was saved from,
+	 * if that holds the same text.
 	 *
-	 * The buffer may still be open when the file it was saved as receives its text, or may already
-	 * have closed, depending on the order the editor reports the two in, so both are looked at.
+	 * Only the one document: any other holding the same text -- the same query pasted into two
+	 * buffers, each against a different database -- is a copy, not the source. An untitled buffer
+	 * may still be open when the file it was saved as receives its text, or may already have
+	 * closed, depending on the order the editor reports the two in, so both are looked at.
 	 *
-	 * @param donors The transient buffers still open, with their text.
+	 * @param donor The document the user was just in, which is where Save As is run from.
 	 * @returns Whether a choice was taken over.
 	 */
-	public adopt(file: vscode.Uri, text: string, donors: readonly Donor[] = []): boolean {
+	public adopt(file: vscode.Uri, text: string, donor: Donor): boolean {
 		if (this._byFile.has(file.toString()) || text.trim().length === 0) {
 			return false;
 		}
-		const donor = donors.find(candidate =>
-			candidate.text === text && this._byFile.has(candidate.uri.toString()));
-		if (donor) {
-			this.set(file, this._byFile.get(donor.uri.toString())!);
+		const key = donor.uri.toString();
+		if (donor.text !== undefined) {
+			const connection = this._byFile.get(key);
+			if (donor.text !== text || !connection) {
+				return false;
+			}
+			this.set(file, connection);
 			return true;
 		}
 		this._prune();
-		for (const [uri, closed] of this._closed) {
-			if (closed.text === text) {
-				this._closed.delete(uri);
-				this.set(file, closed.connection);
-				return true;
-			}
+		const closed = this._closed.get(key);
+		if (closed?.text !== text) {
+			return false;
 		}
-		return false;
-	}
-
-	/** Whether a transient buffer that could hand its choice over is open or recently closed. */
-	public get hasTransient(): boolean {
-		return this._closed.size > 0
-			|| [...this._byFile.keys()].some(file => !isPersistable(vscode.Uri.parse(file)));
+		this._closed.delete(key);
+		this.set(file, closed.connection);
+		return true;
 	}
 
 	private _prune(): void {
