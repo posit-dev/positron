@@ -31,7 +31,7 @@
 		"errorActionHandlers": [
 			{
 				"id": "claude-code",
-				"label": "Claude Code"
+				"label": "%errorActionHandler.label%"
 			}
 		]
 	},

@@ -1,4 +1,5 @@
 {
 	"displayName": "Positron Claude Code Integration",
-	"description": "Integrates Claude Code with Positron. Requires the Claude Code extension or the claude command-line tool."
+	"description": "Integrates Claude Code with Positron. Requires the Claude Code extension or the claude command-line tool.",
+	"errorActionHandler.label": "Claude Code"
 }
