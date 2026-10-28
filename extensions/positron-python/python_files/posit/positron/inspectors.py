@@ -114,6 +114,10 @@ def _remap_ibis_classnames(value):
 
     import ibis
 
+    # Route all Table subclasses, such as Join, to the table inspector
+    if isinstance(value, ibis.Table):
+        return "ibis.Table"
+
     if isinstance(value, ibis.Expr):
         return "ibis.Expr"
 
