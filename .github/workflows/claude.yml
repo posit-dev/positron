@@ -14,8 +14,39 @@ on:
     paths:
       - '.github/workflows/claude.yml'
 
+env:
+  # Prompt text that the triage and build jobs share.
+  SHARED_PROMPT: |
+    Respond to comments and issues that mention you by creating pull requests, summarizing research, updating issues, and otherwise providing actionable advice.
+    Apply the Simple English output style to issue and pull request comments and descriptions, review summaries, and progress and failure messages.
+    Keep issue and pull request text brief.
+    Lead with the result.
+    Include only actionable findings.
+    Do not repeat resolved findings or successful checks unless they affect the result.
+
+    When you make changes for an issue, create a pull request using
+    mcp__github__create_pull_request. Before creating the PR, use the positron-pr-helper
+    skill to write the PR body. You are running non-interactively, so answer the skill's
+    questions yourself from the issue, the triggering comment, and your changes.
+    This replaces the default instruction to provide a link to create the PR manually.
+    If PR creation fails, push the branch and include a link to create the PR in your comment.
+
+    The repository is a shallow clone. When you need history for `git log` or `git blame`,
+    run `git fetch --deepen=<n>` (or `git fetch --unshallow` if you need all of it).
+
+    You may review pull requests with the pending review tools, but submit reviews as
+    comments only. Never approve or request changes. This replaces the default instruction
+    that you cannot submit formal reviews.
+
+    When labeling an issue or pull request, only apply labels that already exist in the
+    repository - never create a new one. First list the existing labels with
+    `gh label list --limit 300`, then choose the closest existing match.
+    If no existing label is a good fit, leave the item unlabeled instead of creating a new label.
+
 jobs:
-  claude-code-action:
+  # Answers questions and makes non-code changes without installing dependencies, so it stays fast.
+  # Hands code changes to the build job.
+  triage:
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
@@ -31,6 +62,13 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
+    outputs:
+      needs_build: ${{ steps.handoff.outputs.needs_build }}
+      handoff: ${{ steps.claude.outputs.structured_output }}
+      assignee: ${{ steps.assignee.outputs.value }}
+      branch_prefix: ${{ steps.branch-prefix.outputs.value }}
+      ack_target: ${{ steps.ack.outputs.target }}
+      ack_reaction_id: ${{ steps.ack.outputs.reaction_id }}
     env:
       # positron-projects[bot] is intentionally allowed: it needs to trigger Claude,
       # even though this workflow also runs as that App.
@@ -172,61 +210,196 @@ jobs:
               "outputStyle": "simple-english:simple-english"
             }
           prompt: |
-            Respond to comments and issues that mention you by creating pull requests, summarizing research, updating issues, and otherwise providing actionable advice.
-            Apply the Simple English output style to issue and pull request comments and descriptions, review summaries, and progress and failure messages.
-            Keep issue and pull request text brief.
-            Lead with the result.
-            Include only actionable findings.
-            Do not repeat resolved findings or successful checks unless they affect the result.
+            ${{ env.SHARED_PROMPT }}
 
-            When you implement code changes for an issue, create a pull request using
-            mcp__github__create_pull_request. Before creating the PR, use the positron-pr-helper
-            skill to write the PR body. You are running non-interactively, so answer the skill's
-            questions yourself from the issue, the triggering comment, and your changes.
-            This replaces the default instruction to provide a link to create the PR manually.
-            If PR creation fails, push the branch and include a link to create the PR in your comment.
+            Node dependencies are not installed in this job, so you cannot run tests, eslint, or
+            precommit. A second job with dependencies makes code changes.
 
-            Node dependencies are not installed, and you cannot install them in this job. You
-            cannot run Vitest, eslint, `npm run precommit`, or any other tests. Do not try.
+            Before you edit a file, look at its path. If the path starts with `src/`, `extensions/`,
+            `build/`, `scripts/`, or `test/`, do not edit it. Instead, set `needs_build` to true and
+            fill the handoff: `summary` says what to change and why, `files` lists the files you
+            expect to change, and `findings` gives what you learned that the second job needs, for
+            example the cause of a bug. If the request needs edits to code and to other files, hand
+            off the whole request and edit nothing.
+            When you hand off, end your progress comment with a short note that a second job
+            continues the work, linked to ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
 
-            If your change is fixing a bug, write or modify a test that reproduces the bug, next to
-            the existing tests. If you are modifying existing code, check if there are existing tests
-            and update them or put new tests alongside the old ones. Choose the test level from the
-            table in CLAUDE.md, and use the author-vitest-tests skill when you write new Vitest tests.
-            Say in the PR body that the tests did not run in this job and that CI runs them on the PR.
-            Never write that a test passed or failed unless you saw it run.
-
-            For any task involving real code changes, commit and push progress to your branch
-            after each logical increment rather than waiting until the whole task is done to make
-            your first commit. A commit that only exists locally is equivalent to no commit at all once this job's
-            runner is torn down - only what is pushed survives a timeout or cancellation.
-
-            The repository is a shallow clone. When you need history for `git log` or `git blame`,
-            run `git fetch --deepen=<n>` (or `git fetch --unshallow` if you need all of it).
-
-            You may review pull requests with the pending review tools, but submit reviews as
-            comments only. Never approve or request changes. This replaces the default instruction
-            that you cannot submit formal reviews.
+            Open a PR only if every changed file is outside those paths. Say in the PR body that no
+            tests ran. When you only answer, review, or make such non-code changes, set `needs_build`
+            to false.
 
             If the triggering user (${{ github.triggering_actor }}) is not a bot, after creating a PR, add a reviewer and assignee.
             add them with: gh pr edit <PR_NUMBER> --add-reviewer ${{ github.triggering_actor }} --add-assignee ${{ steps.assignee.outputs.value }}
             Likewise after creating an issue, add an assignee: gh issue edit <ISSUE_NUMBER> --add-assignee ${{ steps.assignee.outputs.value }}
-
-            When labeling an issue or pull request, only apply labels that already exist in the
-            repository - never create a new one. First list the existing labels with
-            `gh label list --limit 300`, then choose the closest existing match.
-            If no existing label is a good fit, leave the item unlabeled instead of creating a new label.
           claude_args: |
             --model opus
+            --json-schema '{"type":"object","properties":{"needs_build":{"type":"boolean"},"summary":{"type":"string"},"files":{"type":"array","items":{"type":"string"}},"findings":{"type":"string"}},"required":["needs_build","summary","files","findings"]}'
             --fallback-model sonnet
             --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
 
+      # Missing or malformed output must not start the build job, and must not fail silently.
+      - name: Read handoff
+        id: handoff
+        if: always() && steps.claude.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUT: ${{ steps.claude.outputs.structured_output }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          if NEEDS=$(jq -r 'if (.needs_build | type) == "boolean" then .needs_build else error end' <<<"$OUT" 2>/dev/null) && [ -n "$NEEDS" ]; then
+            echo "needs_build=${NEEDS}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "needs_build=false" >> "$GITHUB_OUTPUT"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${NUMBER}/comments" \
+            -f body="The handoff to the build job failed. See ${RUN_URL}." || true
+          echo "::error::Claude returned no valid handoff"
+          exit 1
+
+      # On a handoff the build job swaps the reaction when it finishes.
       - name: Replace eyes with result reaction
-        if: always() && steps.ack.outputs.target != ''
+        if: always() && steps.ack.outputs.target != '' && steps.handoff.outputs.needs_build != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET: ${{ steps.ack.outputs.target }}
           REACTION_ID: ${{ steps.ack.outputs.reaction_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ -n "$REACTION_ID" ]; then
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions/${REACTION_ID}" \
+              || echo "Failed to remove eyes reaction (non-fatal)"
+          fi
+          if [ "$JOB_STATUS" = "success" ]; then FINAL=rocket; else FINAL=confused; fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions" \
+            -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
+
+  # Code changes: installs core dependencies so Claude can run Vitest, eslint, and precommit.
+  # Runs only through triage, which already checked the actor's permission.
+  build:
+    needs: triage
+    if: needs.triage.outputs.needs_build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    env:
+      ALLOWED_BOTS: "posit-connect-projects[bot],positron-projects[bot]"
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+    steps:
+      - name: Generate token for GitHub App
+        id: generate-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          permission-actions: read
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+          permission-members: read
+          owner: posit-dev
+          repositories: positron
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          token: ${{ steps.generate-token.outputs.token }}
+          persist-credentials: false
+
+      - name: Checkout Simple English plugin
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: AminBlg/SimpleEnglish
+          ref: dfd0ca7615eb6f9297d2261c932f44807a8f4c0b # v1.2.0
+          path: .claude-plugins/simple-english
+          persist-credentials: false
+
+      - name: Load secret
+        id: load_secrets
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Setup Claude sandbox
+        uses: ./.github/actions/setup-claude-sandbox
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup core dependencies
+        uses: ./.github/actions/setup-claude-build-deps
+
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        with:
+          anthropic_api_key: ${{ steps.load_secrets.outputs.ANTHROPIC_KEY }}
+          github_token: ${{ steps.generate-token.outputs.token }}
+          branch_prefix: ${{ needs.triage.outputs.branch_prefix }}
+          additional_permissions: "actions: read"
+          allowed_bots: ${{ env.ALLOWED_BOTS }}
+          track_progress: true
+          plugin_marketplaces: |
+            ./.claude-plugins/simple-english
+          plugins: |
+            simple-english@simple-english
+          settings: |
+            {
+              "outputStyle": "simple-english:simple-english"
+            }
+          prompt: |
+            ${{ env.SHARED_PROMPT }}
+
+            A first job read this request and handed it to you because it needs a code change.
+            Its handoff, as JSON:
+            ${{ needs.triage.outputs.handoff }}
+
+            Root and build/ node dependencies are installed. You can run Vitest on tests under
+            `src/`, `npx eslint`, `node scripts/format.mts`, and `npm run precommit`. Vitest tests
+            under `extensions/` that import that extension's own dependencies cannot run here.
+            Core Mocha, extension host, and e2e tests cannot run here either.
+            Write each command out in full. Commands that use shell variables are rejected.
+            Vitest logs an EROFS error about the step summary after the run. Ignore it; read the
+            "Test Files" line for the result.
+
+            If your change is fixing a bug, first write a test that reproduces the bug, next to the
+            existing tests. Run it with `npx vitest run <file>` and make sure that it fails for the
+            expected reason. Commit the test before the fix. After the fix, run it again. If you
+            are modifying existing code, check if there are existing tests and update them or put
+            new tests alongside the old ones. Choose the test level from the table in CLAUDE.md,
+            and use the author-vitest-tests skill when you write new Vitest tests.
+            Before each commit, run `npm run precommit -- <changed files>`.
+            In the PR body, list each command that you ran and its result. Say which tests could
+            not run here and that CI runs them on the PR. Never write that a test passed or failed
+            unless you saw it run.
+
+            Commit and push progress to your branch after each logical increment rather than
+            waiting until the whole task is done to make your first commit. A commit that only
+            exists locally is equivalent to no commit at all once this job's runner is torn down -
+            only what is pushed survives a timeout or cancellation.
+
+            If the triggering user (${{ github.triggering_actor }}) is not a bot, after creating a PR, add a reviewer and assignee.
+            add them with: gh pr edit <PR_NUMBER> --add-reviewer ${{ github.triggering_actor }} --add-assignee ${{ needs.triage.outputs.assignee }}
+            Likewise after creating an issue, add an assignee: gh issue edit <ISSUE_NUMBER> --add-assignee ${{ needs.triage.outputs.assignee }}
+          claude_args: |
+            --model opus
+            --fallback-model sonnet
+            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*)"
+
+      - name: Replace eyes with result reaction
+        if: always() && needs.triage.outputs.ack_target != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ needs.triage.outputs.ack_target }}
+          REACTION_ID: ${{ needs.triage.outputs.ack_reaction_id }}
           JOB_STATUS: ${{ job.status }}
         run: |
           if [ -n "$REACTION_ID" ]; then
