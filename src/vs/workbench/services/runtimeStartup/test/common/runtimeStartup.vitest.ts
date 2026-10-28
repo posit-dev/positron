@@ -1417,7 +1417,7 @@ describe('RuntimeStartupService - restored sessions', () => {
 describe('RuntimeStartupService - reconnect after a reload', () => {
 	const ephemeralState = new Map<string, unknown>();
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: async <T>(key: string) => ephemeralState.get(key) as T | undefined,
@@ -2319,7 +2319,7 @@ class StartupBehaviorConfigurationService extends TestConfigurationService {
  */
 describe('RuntimeStartupService - startup sequence', () => {
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
