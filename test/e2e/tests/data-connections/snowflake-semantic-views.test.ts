@@ -6,6 +6,7 @@
 import { test, tags } from '../_test.setup';
 import { createBrowserLaunchShim } from '../../utils/browserLaunchShim';
 import { completeSnowflakeSdkOAuth } from '../../utils/snowflakeOAuth';
+import { readPositronServiceAccountCredentials } from '../../utils/oktaSignIn';
 
 // Intercepts the browser launch snowflake-sdk makes during External Browser sign-in. Created at
 // module scope because `test.use({ extraEnv })` below is evaluated when this file is collected.
@@ -39,8 +40,8 @@ test.describe('Data Connections - Snowflake Semantic Views', {
 
 	test.beforeAll(async function ({ app }) {
 		const account = process.env.SNOWFLAKE_ACCOUNT || '';
-		const otpSecret = process.env.IDE_SERVICE_ACCOUNT_OTP_SECRET || '';
-		test.skip(!account || !otpSecret, 'Snowflake test credentials not configured (SNOWFLAKE_ACCOUNT / IDE_SERVICE_ACCOUNT_OTP_SECRET unset)');
+		const passkeyCredential = process.env.POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL || '';
+		test.skip(!account || !passkeyCredential, 'Snowflake test credentials not configured (SNOWFLAKE_ACCOUNT / POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL unset)');
 
 		// Covers the interactive sign-in plus a warehouse that may be resuming from idle.
 		test.setTimeout(900_000);
@@ -63,7 +64,7 @@ test.describe('Data Connections - Snowflake Semantic Views', {
 		await completeSnowflakeSdkOAuth(
 			shim,
 			() => dataConnections.expandConnection(connectionName),
-			{ logger: app.code.logger },
+			{ logger: app.code.logger, credentials: readPositronServiceAccountCredentials() },
 		);
 
 		await test.step('Expand the tree down to the semantic view', async () => {
