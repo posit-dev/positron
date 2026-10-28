@@ -102,19 +102,27 @@ export function resolveSessionlessStaticCallbackRoute(): string {
 }
 // --- End PWB ---
 
-// --- Start PWB: Workbench 2026.05+ ships the nginx route for /<product-label>-static/...; ---
-// older Workbenches must use session-scoped URLs.
-function hasStaticRoute(): boolean {
-	const v = process.env['RSTUDIO_VERSION'];
-	if (!v) {
+// --- Start PWB: Workbench version gates ---
+// rserver stamps RSTUDIO_VERSION on every session, e.g. "2026.11.0+123.pro1" (release) or
+// "2026.11.0-daily+83.pro1" (daily). Absent or unparseable means "assume an older Workbench".
+export function isWorkbenchVersionAtLeast(version: string | undefined, year: number, month: number): boolean {
+	if (!version) {
 		return false;
 	}
-	const [year, month] = v.split(/[-+]/)[0].split('.').map(Number);
-	if (!Number.isFinite(year) || !Number.isFinite(month)) {
+	const [vYear, vMonth] = version.split(/[-+]/)[0].split('.').map(Number);
+	if (!Number.isFinite(vYear) || !Number.isFinite(vMonth)) {
 		return false;
 	}
-	return year > 2026 || (year === 2026 && month >= 5);
+	return vYear > year || (vYear === year && vMonth >= month);
 }
 
-export const HAS_STATIC_ROUTE = hasStaticRoute();
+// Workbench 2026.05+ ships the nginx route for /<product-label>-static/...; older Workbenches must
+// use session-scoped URLs.
+export const HAS_STATIC_ROUTE = isWorkbenchVersionAtLeast(process.env['RSTUDIO_VERSION'], 2026, 5);
+
+// Workbench 2026.11+ sets POSITRON_WORKBENCH_STATIC_COMMIT on, and only on, Positron preview
+// sessions, carrying the commit of the Positron build its nginx serves statically. On those
+// Workbenches an absent commit therefore means "not a preview session".
+export const WORKBENCH_SENDS_PREVIEW_STATIC_COMMIT = isWorkbenchVersionAtLeast(process.env['RSTUDIO_VERSION'], 2026, 11);
+export const WORKBENCH_STATIC_COMMIT: string | undefined = process.env['POSITRON_WORKBENCH_STATIC_COMMIT'] || undefined;
 // --- End PWB ---
