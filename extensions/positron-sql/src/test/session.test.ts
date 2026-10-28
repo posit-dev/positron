@@ -234,6 +234,26 @@ suite('SqlSession', () => {
 		assert.deepStrictEqual(api.opened, ['p']);
 	});
 
+	test('a connection the user closes is not opened again for the next file against it', async () => {
+		const first = sqlFile('first.sql', 'SELECT 1;');
+		const second = sqlFile('second.sql', 'SELECT 2;');
+		const api = new FakeConnections();
+		api.connections = [summary('p', true)];
+		const session = startSession(api, memento({
+			connectionByDocument: { [first.toString()]: ref('p'), [second.toString()]: ref('p') },
+		}));
+		await session.whenRead();
+
+		await vscode.workspace.openTextDocument(first);
+		// Disconnected on purpose, from the Data Connections pane.
+		api.connections = [summary('p', false)];
+		await session.refreshSchema();
+		await vscode.workspace.openTextDocument(second);
+		await new Promise(resolve => setTimeout(resolve, 20));
+
+		assert.deepStrictEqual(api.opened, []);
+	});
+
 	test('a renamed file keeps its connection and its diagnostics', async () => {
 		const before = sqlFile('before.sql', 'SELECT * FROM missing;');
 		const after = vscode.Uri.file(path.join(path.dirname(before.fsPath), 'after.sql'));

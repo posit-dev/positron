@@ -444,6 +444,9 @@ export class SqlSession implements vscode.Disposable {
 			return;
 		}
 		if (this._payload.connections.some(open => open.profileId === chosen.profileId)) {
+			// Seen open is as good as opened here: if the user closes it later, that is on purpose,
+			// and the next file against it must not open it again.
+			this._attempted.add(chosen.profileId);
 			return;
 		}
 
