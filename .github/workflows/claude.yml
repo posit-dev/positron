@@ -216,19 +216,19 @@ jobs:
             Node dependencies are not installed in this job, so you cannot run tests, eslint, or
             precommit. A second job with dependencies makes code changes.
 
-            In this job you can edit only Markdown (`.md`) files outside `src/`, `extensions/`,
-            `build/`, `scripts/`, `test/`, `cli/`, `remote/`, and `positron/`. Edits to other files
-            are blocked. If the request needs a change to any other file, do not edit anything.
-            Instead, set `needs_build` to true and fill the handoff: `summary` says what to change
-            and why, `files` lists the files you expect to change, and `findings` gives what you
-            learned that the second job needs, for example the cause of a bug. If the request needs
-            edits to Markdown files and to other files, hand off the whole request.
+            In this job you can edit docs and similar files that need no tests, such as Markdown.
+            You cannot edit code: anything under `src/`, `extensions/`, `build/`, `scripts/`, `test/`,
+            `cli/`, `remote/`, or `positron/`, and source, config, or style files anywhere. Those
+            edits are blocked. If the request needs a code change, do not edit anything. Instead,
+            set `needs_build` to true and fill the handoff: `summary` says what to change and why,
+            `files` lists the files you expect to change, and `findings` gives what you learned that
+            the second job needs, for example the cause of a bug. If the request needs edits to code
+            and to other files, hand off the whole request.
             When you hand off, end your progress comment with a short note that a second job
             continues the work, linked to ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
 
-            Open a PR only if every changed file is such a Markdown file. Say in the PR body that no
-            tests ran. When you only answer, review, or make such Markdown changes, set `needs_build`
-            to false.
+            Open a PR only if no changed file is code. Say in the PR body that no tests ran. When you
+            only answer, review, or make such non-code changes, set `needs_build` to false.
 
             If the triggering user (${{ github.triggering_actor }}) is not a bot, after creating a PR, add a reviewer and assignee.
             add them with: gh pr edit <PR_NUMBER> --add-reviewer ${{ github.triggering_actor }} --add-assignee ${{ steps.assignee.outputs.value }}
@@ -237,8 +237,8 @@ jobs:
             --model opus
             --json-schema '{"type":"object","properties":{"needs_build":{"type":"boolean"},"summary":{"type":"string"},"files":{"type":"array","items":{"type":"string"}},"findings":{"type":"string"}},"required":["needs_build","summary","files","findings"]}'
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
-            --disallowedTools "Edit(/src/**),Edit(/extensions/**),Edit(/build/**),Edit(/scripts/**),Edit(/test/**),Edit(/cli/**),Edit(/remote/**),Edit(/positron/**),Edit(/.eslint-plugin-local/**),Edit(/ai-lib/**),Edit(**/*.ts),Edit(**/*.tsx),Edit(**/*.mts),Edit(**/*.js),Edit(**/*.mjs),Edit(**/*.cjs),Edit(**/*.json),Edit(**/*.rs),Edit(**/*.py),Edit(**/*.R),Edit(**/*.sh),Edit(**/*.ps1),Edit(**/*.cmd),Edit(**/*.toml),Edit(**/*.yml),Edit(**/*.yaml),Edit(**/*.css),Edit(**/*.html),Edit(/.npmrc),Edit(/.nvmrc),Edit(/.python-version)"
+            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(git blame:*),Bash(git status:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git fetch:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
+            --disallowedTools "Edit(/src/**),Edit(/extensions/**),Edit(/build/**),Edit(/scripts/**),Edit(/test/**),Edit(/cli/**),Edit(/remote/**),Edit(/positron/**),Edit(/.eslint-plugin-local/**),Edit(/ai-lib/**),Edit(**/*.ts),Edit(**/*.tsx),Edit(**/*.mts),Edit(**/*.js),Edit(**/*.mjs),Edit(**/*.cjs),Edit(**/*.json),Edit(**/*.rs),Edit(**/*.py),Edit(**/*.R),Edit(**/*.sh),Edit(**/*.ps1),Edit(**/*.cmd),Edit(**/*.toml),Edit(**/*.yml),Edit(**/*.yaml),Edit(**/*.css),Edit(**/*.scss),Edit(**/*.less),Edit(**/*.svg),Edit(**/*.html),Edit(**/Dockerfile*),Edit(/.npmrc),Edit(/.nvmrc),Edit(/.python-version),Bash(git rm:*)"
 
       # Missing or malformed output must not start the build job, and must not fail silently.
       - name: Read handoff
