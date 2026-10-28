@@ -128,22 +128,37 @@ export function formatNumericStat(value: unknown, displayType: ColumnDisplayType
 	// `min_value`/`max_value` (which are stringified directly). The whole-value guard matters because
 	// the median is not necessarily one: several drivers compute it with `percentile_cont`, which
 	// returns a double and yields something like 1.5 on an even number of rows.
-	if (displayType === ColumnDisplayType.Integer && isWholeValue(value)) {
-		return formatInteger(value, opts);
+	if (displayType === ColumnDisplayType.Integer) {
+		const whole = wholeValue(value);
+		if (whole !== undefined) {
+			return formatInteger(whole, opts);
+		}
 	}
 	return isDecimalLiteral(value) ? formatDecimal(value, opts) : formatFloat(Number(value), opts);
 }
 
 /**
- * Whether a value is a whole number that `formatInteger` can print without narrowing it: a bigint, a
- * canonical digit string, or a number with no fractional part. A `bigint` and a digit string are
- * exact by construction; a whole `number` is already as precise as it will ever be, so printing it
- * as an integer loses nothing that `Number()` had not already lost.
+ * The value as a whole number that `formatInteger` can print without narrowing it, or undefined when
+ * it is not one: a bigint, a canonical digit string, or a number with no fractional part. A `bigint`
+ * and a digit string are exact by construction; a whole `number` is already as precise as it will
+ * ever be, so printing it as an integer loses nothing that `Number()` had not already lost.
+ *
+ * A decimal literal whose fraction is all zeros is whole too, and comes back as its integral digits.
+ * An exact `percentile_cont` can return a wider scale than its input, so the median of an integer
+ * column may arrive as '20.000'; it should still read as 20, like the column's cells.
  */
-function isWholeValue(value: unknown): value is number | bigint | string {
-	return typeof value === 'bigint'
-		|| isIntegerLiteral(value)
-		|| (typeof value === 'number' && Number.isInteger(value));
+function wholeValue(value: unknown): number | bigint | string | undefined {
+	if (typeof value === 'bigint' || isIntegerLiteral(value) || (typeof value === 'number' && Number.isInteger(value))) {
+		return value;
+	}
+	const zeroFraction = typeof value === 'string' ? /^(?<integral>-?\d+)\.0*$/.exec(value) : null;
+	const integral = zeroFraction?.groups?.integral;
+	if (integral === undefined) {
+		return undefined;
+	}
+	// A non-canonical integral part ('-0', or zero-padded) goes through Number() to be normalized,
+	// just as it would have without the fraction.
+	return isIntegerLiteral(integral) ? integral : Number(integral);
 }
 
 /** Truncates a string to the configured maximum formatted length. */

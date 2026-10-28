@@ -119,6 +119,9 @@ export interface IProductConfiguration {
 
 	/** The linux package type (DEB or RPM) */
 	readonly packageType?: string;
+
+	/** Extensions the build bootstraps into the install, with the version it bundles */
+	readonly bootstrapExtensions?: readonly { readonly name: string; readonly version: string }[];
 	// --- End Positron ---
 
 	readonly date?: string;

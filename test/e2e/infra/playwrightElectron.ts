@@ -35,11 +35,14 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 	// --use-mock-keychain is macOS-only and ignored elsewhere.
 	args.push('--password-store=basic');
 	args.push('--use-mock-keychain');
+	// Containers cap /dev/shm at 64 MiB and k8s runner pods lack /.dockerenv, so gate on Linux.
+	if (process.platform === 'linux') {
+		args.push('--disable-dev-shm-usage');
+	}
 	// --- End Positron ---
 
 	// the following args are required for running in docker as root
 	if (isDocker()) {
-		args.push('--disable-dev-shm-usage'); // required for docker
 		args.push('--no-sandbox'); // required for root
 		args.push('--enable-unsafe-swiftshader'); // minimize warnings related to GPU
 		args.push('--use-gl=swiftshader'); // minimize warnings related to GPU

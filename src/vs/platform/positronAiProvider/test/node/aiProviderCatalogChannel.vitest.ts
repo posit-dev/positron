@@ -11,7 +11,7 @@ import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedProviderData }
 import { AiProviderCatalogChannel } from '../../node/aiProviderCatalogChannel.js';
 
 const providers: IResolvedProviderData[] = [
-	{ id: 'anthropic', enabled: true, connection: {} },
+	{ id: 'anthropic', enabled: true },
 ];
 
 const change: IProviderCatalogChangeData = {

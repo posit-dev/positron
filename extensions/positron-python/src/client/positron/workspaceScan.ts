@@ -76,6 +76,8 @@ export interface WorkspaceScan {
     nestedEnvDirs: string[];
     hasPythonSignals: boolean;
     pythonVersion: string | undefined;
+    /** Whether the root holds nothing but dot entries such as `.git`. */
+    isEmpty: boolean;
 }
 
 function isSignalFile(fileName: string): boolean {
@@ -216,12 +218,19 @@ export function scanWorkspace(root: string, rescan = false): Promise<WorkspaceSc
         return latest;
     }
     // A failed scan finds nothing and isn't kept, so the next caller reads the folder again.
+    // It doesn't claim the folder is empty either, so the picker doesn't suggest a new env.
     const scan: Promise<WorkspaceScan> = readWorkspace(root).catch((error) => {
         traceWarn(`Could not scan ${root}: ${error}`);
         if (latestScans.get(root) === scan) {
             latestScans.delete(root);
         }
-        return { rootProjectEnvs: [], nestedEnvDirs: [], hasPythonSignals: false, pythonVersion: undefined };
+        return {
+            rootProjectEnvs: [],
+            nestedEnvDirs: [],
+            hasPythonSignals: false,
+            pythonVersion: undefined,
+            isEmpty: false,
+        };
     });
     latestScans.set(root, scan);
     return scan;
@@ -240,6 +249,7 @@ async function readWorkspace(root: string): Promise<WorkspaceScan> {
         nestedEnvDirs: children.nestedEnvDirs,
         hasPythonSignals: hasSignalFile(rootEntries) || children.hasPythonSignals,
         pythonVersion,
+        isEmpty: rootEntries.every((entry) => entry.name.startsWith('.')),
     };
 }
 

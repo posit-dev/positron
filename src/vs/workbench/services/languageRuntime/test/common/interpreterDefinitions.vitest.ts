@@ -73,6 +73,12 @@ describe('createInterpreterVariant', () => {
 		expect(variant.runtimeId).toMatch(/^[0-9a-f]{32}$/);
 	});
 
+	it('relabels the base picker row with the definition label', () => {
+		const picker = { group: 'R', groupOrder: 0, label: 'R 4.4.3', description: 'System' };
+		expect(createInterpreterVariant({ ...base, picker }, xx).picker).toEqual({ ...picker, label: 'R 4.4.3 (XX libs)' });
+		expect(createInterpreterVariant(base, xx).picker).toBeUndefined();
+	});
+
 	it('derives a stable ID that differs per label and per base', () => {
 		const id = createInterpreterVariant(base, xx).runtimeId;
 		expect(createInterpreterVariant(base, xx).runtimeId).toBe(id);

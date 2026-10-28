@@ -155,7 +155,7 @@ function rootProjectIndex(interpreter: PythonEnvironment, context: RankingContex
 }
 
 /** Which env one level deep this interpreter belongs to (found order), or -1. */
-function nestedIndex(interpreter: PythonEnvironment, context: RankingContext): number {
+function nestedIndex(interpreter: PythonEnvironment, context: Pick<RankingContext, 'nestedEnvDirs'>): number {
     return context.nestedEnvDirs.findIndex((dir) => isUnder(interpreter.path, dir));
 }
 
@@ -164,7 +164,10 @@ function nestedIndex(interpreter: PythonEnvironment, context: RankingContext): n
  * the folder, or, when the folder contains the home folder, only an env one level down.
  * The same test exempts an interpreter from the ipykernel check in the recommendation.
  */
-export function isWorkspaceEnv(interpreter: PythonEnvironment, context: RankingContext): boolean {
+export function isWorkspaceEnv(
+    interpreter: PythonEnvironment,
+    context: Pick<RankingContext, 'workspacePath' | 'homeInsideWorkspace' | 'nestedEnvDirs'>,
+): boolean {
     if (!context.workspacePath) {
         return false;
     }
@@ -178,7 +181,8 @@ function configuredIndex(interpreter: PythonEnvironment, context: RankingContext
     return context.configuredPaths.findIndex((p) => isUnder(interpreter.path, p) || isUnder(interpreter.envPath, p));
 }
 
-function isPyenvVirtualenv(interpreter: PythonEnvironment): boolean {
+/** Whether this is a pyenv virtualenv rather than a pyenv-installed Python version. */
+export function isPyenvVirtualenv(interpreter: PythonEnvironment): boolean {
     return (
         interpreter.envType === EnvironmentType.Pyenv &&
         interpreter.nativeKind === NativePythonEnvironmentKind.PyenvVirtualEnv
@@ -201,7 +205,11 @@ function isOtherFolderCondaPrefixEnv(interpreter: PythonEnvironment, context: Ra
     );
 }
 
-function isUvBase(interpreter: PythonEnvironment, context: RankingContext): boolean {
+/** Whether this is a base Python installed by `uv python install`. */
+export function isUvBase(
+    interpreter: PythonEnvironment,
+    context: Pick<RankingContext, 'uvPythonInstallDirs'>,
+): boolean {
     // uv venvs live elsewhere; only uv-managed base Pythons are under its install dirs.
     // A uv Python reached through a link (`~/.local/bin/python3.15`) has the real prefix
     // as `envPath`/`sysPrefix`; a uv venv's own `sysPrefix` is its folder, not the install dir.

@@ -28,6 +28,13 @@ export interface IInterpreterAutoSelectionService extends IInterpreterAutoSelect
     autoSelectInterpreter(resource: Resource): Promise<void>;
     getAutoSelectedInterpreter(resource: Resource): PythonEnvironment | undefined;
     setGlobalInterpreter(interpreter: PythonEnvironment | undefined): Promise<void>;
+    // --- Start Positron ---
+    /**
+     * Auto-selects Positron's recommended interpreter for the workspace, the one shown as "Suggested".
+     * Upstream auto-selection does not replace it afterwards.
+     */
+    setPositronRecommendedInterpreter(resource: Uri, interpreter: PythonEnvironment): Promise<void>;
+    // --- End Positron ---
 }
 
 export enum AutoSelectionRule {

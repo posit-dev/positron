@@ -72,8 +72,11 @@ export const RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT = 1;
  * so a replayed entry from an older scale sorts against a freshly discovered
  * one and both orderings are wrong. Changing an extension's rank values means
  * bumping this version.
+ *
+ * v5: entries carry `picker`. Older entries lack it and would render the old
+ * way next to new ones.
  */
-export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 4;
+export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 5;
 
 /**
  * Storage key under which all cache state is persisted. Embeds the schema
