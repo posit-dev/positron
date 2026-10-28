@@ -6,9 +6,9 @@
 /// <reference types="vitest/globals" />
 
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
-import { IPickOptions, IQuickInputService, IQuickPickItem, QuickInputHideReason, QuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
+import { IPickOptions, IQuickInputService, IQuickPickItem, QuickInputButtonLocation, QuickInputHideReason, QuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IRuntimeStartupService, PreferredRuntimeReason } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
@@ -146,6 +146,8 @@ describe('summarizeActiveSession', () => {
 
 describe('selectNewLanguageRuntime', () => {
 	let preferredByLanguage: Map<string, ILanguageRuntimeMetadata>;
+	let preferredReason: PreferredRuntimeReason;
+	let preferredRecommendationReason: string | undefined;
 	// `pick` is reassigned in beforeEach (and once mid-test in the title fallback
 	// case). The IQuickInputService stub captures it by closure so each
 	// createQuickPick() call returns whichever double is current.
@@ -157,7 +159,12 @@ describe('selectNewLanguageRuntime', () => {
 	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IRuntimeStartupService, {
-			getPreferredRuntime: (langId: string) => preferredByLanguage.get(langId),
+			getPreferredRuntimeWithReason: (langId: string) => {
+				const runtime = preferredByLanguage.get(langId);
+				return runtime
+					? { runtime, reason: preferredReason, recommendationReason: preferredRecommendationReason }
+					: undefined;
+			},
 			rediscoverAllRuntimes,
 		})
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({
@@ -170,6 +177,8 @@ describe('selectNewLanguageRuntime', () => {
 		.build();
 
 	beforeEach(() => {
+		preferredReason = PreferredRuntimeReason.Fallback;
+		preferredRecommendationReason = undefined;
 		preferredByLanguage = new Map();
 		pick = ctx.disposables.add(new TestQuickPick<IQuickPickItem>());
 		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
@@ -188,6 +197,21 @@ describe('selectNewLanguageRuntime', () => {
 		await vi.waitFor(() => expect(pick.show).toHaveBeenCalled());
 	}
 
+	type PickerOptions = Parameters<typeof selectNewLanguageRuntime>[1];
+
+	/** Opens the picker, runs `body`, then cancels the picker even when `body` fails. */
+	async function withOpenPicker(...args: [body: () => unknown] | [options: PickerOptions, body: () => unknown]): Promise<void> {
+		const [options, body] = args.length === 1 ? [undefined, args[0]] : args;
+		const promise = runPicker(options);
+		try {
+			await waitUntilOpened();
+			await body();
+		} finally {
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		}
+	}
+
 	async function registerRuntime(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata> {
 		const runtimeService = ctx.get(ILanguageRuntimeService);
 		ctx.disposables.add(runtimeService.registerRuntime(metadata));
@@ -202,6 +226,18 @@ describe('selectNewLanguageRuntime', () => {
 	/** The separator labels of the built picker, which are the environment type headings. */
 	function separatorLabels(): string[] {
 		return pick.items.filter(item => item.type === 'separator').map(item => item.label ?? '');
+	}
+
+	/** The ids of the runtime rows, in picker order. */
+	function rowIds(): (string | undefined)[] {
+		return pick.items
+			.filter((item): item is IQuickPickItem => item.type !== 'separator')
+			.map(item => item.id);
+	}
+
+	/** The picker shape: headers in brackets (`[---]` for a divider with no label), rows by id. */
+	function shape(): string[] {
+		return pick.items.map(item => item.type === 'separator' ? `[${item.label ?? '---'}]` : `${item.id}`);
 	}
 
 	function pickItemById(id: string): IQuickPickItem | undefined {
@@ -221,6 +257,26 @@ describe('selectNewLanguageRuntime', () => {
 	async function waitForItemByLabel(label: string): Promise<IQuickPickItem> {
 		await vi.waitFor(() => expect(pickItemByLabel(label)).toBeDefined());
 		return pickItemByLabel(label)!;
+	}
+
+	/**
+	 * Registers a picker contribution for `languageId`. Its items resolve at
+	 * once, or, with `later`, when the returned function is called.
+	 */
+	function contribute(handle: number, languageId: string, items: IRuntimePickerItem[], later = false): () => void {
+		let release = () => { };
+		const ready = later ? new Promise<void>(resolve => { release = resolve; }) : Promise.resolve();
+		const contribution: IRuntimePickerContribution = {
+			handle,
+			languageId,
+			getItems: vi.fn(async () => {
+				await ready;
+				return items;
+			}),
+			onSelect: vi.fn(),
+		};
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerPickerContribution(contribution));
+		return () => release();
 	}
 
 
@@ -262,25 +318,21 @@ describe('selectNewLanguageRuntime', () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-1', languageId: 'python', languageName: 'Python' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'r-1', languageId: 'r', languageName: 'R', runtimeName: 'R 4.4' }));
 
-			const promise = runPicker({ languageId: 'python' });
-			await waitUntilOpened();
-			const ids = pick.items
-				.filter((item): item is IQuickPickItem => item.type !== 'separator')
-				.map(item => item.id);
-			expect(ids).toContain('py-1');
-			expect(ids).not.toContain('r-1');
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker({ languageId: 'python' }, async () => {
+				const ids = pick.items
+					.filter((item): item is IQuickPickItem => item.type !== 'separator')
+					.map(item => item.id);
+				expect(ids).toContain('py-1');
+				expect(ids).not.toContain('r-1');
+			});
 		});
 
 		it('passes languageId through to getPickerContributions', async () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			const spy = vi.spyOn(ctx.get(ILanguageRuntimeService), 'getPickerContributions');
-			const promise = runPicker({ languageId: 'python' });
-			await waitUntilOpened();
-			expect(spy).toHaveBeenCalledWith('python');
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker({ languageId: 'python' }, async () => {
+				expect(spy).toHaveBeenCalledWith('python');
+			});
 		});
 	});
 
@@ -289,21 +341,17 @@ describe('selectNewLanguageRuntime', () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0', runtimeName: 'Python 3.10' }));
 
-			const promise = runPicker({ currentRuntimeId: 'py-2' });
-			await waitUntilOpened();
-			expect(pick.activeItems).toHaveLength(1);
-			expect(pick.activeItems[0].id).toBe('py-2');
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker({ currentRuntimeId: 'py-2' }, async () => {
+				expect(pick.activeItems).toHaveLength(1);
+				expect(pick.activeItems[0].id).toBe('py-2');
+			});
 		});
 
-		it('leaves activeItems untouched when no item matches the id', async () => {
+		it('falls back to the first row when no item matches the id', async () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
-			const promise = runPicker({ currentRuntimeId: 'unknown-id' });
-			await waitUntilOpened();
-			expect(pick.activeItems).toEqual([]);
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker({ currentRuntimeId: 'unknown-id' }, async () => {
+				await vi.waitFor(() => expect(pick.activeItems[0]?.id).toBe('py-1'));
+			});
 		});
 	});
 
@@ -321,58 +369,50 @@ describe('selectNewLanguageRuntime', () => {
 			setLanguageOrder(ctx.get(IConfigurationService), ['r']);
 			await registerRuntime(makeRuntime({ runtimeId: 'py', languageId: 'python', languageName: 'Python', runtimeName: 'Python 3.12' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'r', languageId: 'r', languageName: 'R', runtimeName: 'R 4.4' }));
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(runtimeLabels()).toEqual(['R 4.4', 'Python 3.12']);
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				expect(runtimeLabels()).toEqual(['R 4.4', 'Python 3.12']);
+			});
 		});
 
 		it('keeps alphabetical order when the setting is unset', async () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'r', languageId: 'r', languageName: 'R', runtimeName: 'R 4.4' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py', languageId: 'python', languageName: 'Python', runtimeName: 'Python 3.12' }));
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(runtimeLabels()).toEqual(['Python 3.12', 'R 4.4']);
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				expect(runtimeLabels()).toEqual(['Python 3.12', 'R 4.4']);
+			});
 		});
 
 		it('groups Suggested + per-environment-type runtimes with separators', async () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-system', runtimeSource: 'System', runtimeName: 'Python (System)' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeName: 'Python (Conda)' }));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-			const shape = pick.items.map(item =>
-				item.type === 'separator' ? `[${item.label}]` : `${item.id}=${item.label}`
-			);
-			// The suggested (primary) runtime appears only under "Suggested", not
-			// again under its own environment type -- so its "System" group is
-			// omitted entirely since it had no other members.
-			expect(shape).toMatchInlineSnapshot(`
-				[
-				  "[Suggested]",
-				  "py-system=Python (System)",
-				  "[Conda]",
-				  "py-conda=Python (Conda)",
-				]
-			`);
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				const shape = pick.items.map(item =>
+					item.type === 'separator' ? `[${item.label}]` : `${item.id}=${item.label}`
+				);
+				// The suggested (primary) runtime appears only under "Suggested", not
+				// again under its own environment type -- so its "System" group is
+				// omitted entirely since it had no other members.
+				expect(shape).toMatchInlineSnapshot(`
+					[
+					  "[Suggested]",
+					  "py-system=Python (System)",
+					  "[Conda]",
+					  "py-conda=Python (Conda)",
+					]
+				`);
+			});
 		});
 
 		it('does not duplicate the suggested runtime under its environment type', async () => {
 			registerRuntime(makeRuntime({ runtimeId: 'py-system', runtimeSource: 'System', runtimeName: 'Python (System)' }));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-			const suggestedRuntimeItems = pick.items.filter(
-				(item): item is IQuickPickItem => item.type !== 'separator' && item.id === 'py-system'
-			);
-			expect(suggestedRuntimeItems).toHaveLength(1);
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				const suggestedRuntimeItems = pick.items.filter(
+					(item): item is IQuickPickItem => item.type !== 'separator' && item.id === 'py-system'
+				);
+				expect(suggestedRuntimeItems).toHaveLength(1);
+			});
 		});
 
 		it('keeps every single-listed runtime searchable when the picker is filtered', async () => {
@@ -383,14 +423,12 @@ describe('selectNewLanguageRuntime', () => {
 			registerRuntime(makeRuntime({ runtimeId: 'py-system', runtimeSource: 'System', runtimeName: 'Python (System)' }));
 			registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeName: 'Python (Conda)' }));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-			const runtimeItems = pick.items.filter(
-				(item): item is IQuickPickItem => item.type !== 'separator'
-			);
-			expect(runtimeItems.every(item => item.neverShowWhenFiltered !== true)).toBe(true);
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				const runtimeItems = pick.items.filter(
+					(item): item is IQuickPickItem => item.type !== 'separator'
+				);
+				expect(runtimeItems.every(item => item.neverShowWhenFiltered !== true)).toBe(true);
+			});
 		});
 
 		it('searches interpreter paths as well as names', async () => {
@@ -400,15 +438,13 @@ describe('selectNewLanguageRuntime', () => {
 				runtimePath: '/opt/python/bin/python3',
 			}));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-			const item = pick.items.find(
-				(item): item is IQuickPickItem => item.type !== 'separator' && item.id === 'py-opt'
-			);
-			expect(item?.detail).toBe('/opt/python/bin/python3');
-			expect(pick.matchOnDetail).toBe(true);
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				const item = pick.items.find(
+					(item): item is IQuickPickItem => item.type !== 'separator' && item.id === 'py-opt'
+				);
+				expect(item?.detail).toBe('/opt/python/bin/python3');
+				expect(pick.matchOnDetail).toBe(true);
+			});
 		});
 
 		it('orders the environment type headings by runtimeSourceOrder, not registration order', async () => {
@@ -419,11 +455,9 @@ describe('selectNewLanguageRuntime', () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeSourceOrder: 20 }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-uv', runtimeSource: 'uv', runtimeSourceOrder: 10 }));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(separatorLabels()).toEqual(['Suggested', 'uv', 'Conda', 'System']);
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				expect(separatorLabels()).toEqual(['Suggested', 'uv', 'Conda', 'System']);
+			});
 		});
 
 		it('lists unranked environment types after ranked ones, in registration order', async () => {
@@ -435,11 +469,9 @@ describe('selectNewLanguageRuntime', () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-mystery', runtimeSource: 'Mystery' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeSourceOrder: 20 }));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(separatorLabels()).toEqual(['Suggested', 'Conda', 'Other', 'Mystery']);
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				expect(separatorLabels()).toEqual(['Suggested', 'Conda', 'Other', 'Mystery']);
+			});
 		});
 
 		it('ranks a source by its best-ranked runtime when only some carry a rank', async () => {
@@ -451,17 +483,19 @@ describe('selectNewLanguageRuntime', () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-sys-cached', runtimeSource: 'System' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-global', runtimeSource: 'Global', runtimeSourceOrder: 40 }));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(separatorLabels()).toEqual(['Suggested', 'System', 'Global']);
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				expect(separatorLabels()).toEqual(['Suggested', 'System', 'Global']);
+			});
 		});
 
 		it('sorts within an env type by version descending, unsupported runtimes last', async () => {
-			// Register a preferred runtime first so the three runtimes under test
+			// Register a preferred runtime first so the runtimes under test
 			// are all alternates (the primary is shown only under "Suggested").
 			await registerRuntime(makeRuntime({ runtimeId: 'py-pref', runtimeName: 'Python (preferred)' }));
+			await registerRuntime(makeRuntime({
+				runtimeId: 'py-older', languageVersion: '3.7.0', runtimeName: 'Python 3.7 (unsupported)',
+				extraRuntimeData: { supported: false },
+			}));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-310', languageVersion: '3.10.0', runtimeName: 'Python 3.10' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-312', languageVersion: '3.12.0', runtimeName: 'Python 3.12' }));
 			await registerRuntime(makeRuntime({
@@ -469,62 +503,415 @@ describe('selectNewLanguageRuntime', () => {
 				extraRuntimeData: { supported: false },
 			}));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-			// Find the System group (everything is runtimeSource: 'System' here) and read the order after the separator.
-			const items = pick.items;
-			const systemIdx = items.findIndex(i => i.type === 'separator' && i.label === 'System');
-			const groupIds = items.slice(systemIdx + 1)
-				.filter((item): item is IQuickPickItem => item.type !== 'separator')
-				.map(item => item.id);
-			expect(groupIds).toEqual(['py-312', 'py-310', 'py-old']);
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				// Find the System group (everything is runtimeSource: 'System' here) and read the order after the separator.
+				const items = pick.items;
+				const systemIdx = items.findIndex(i => i.type === 'separator' && i.label === 'System');
+				const groupIds = items.slice(systemIdx + 1)
+					.filter((item): item is IQuickPickItem => item.type !== 'separator')
+					.map(item => item.id);
+				expect(groupIds).toEqual(['py-312', 'py-310', 'py-old', 'py-older']);
+			});
+		});
+
+		it('uses picker.group and groupOrder for headings', async () => {
+			await registerRuntime(makeRuntime({ runtimeId: 'py-pref' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-global', picker: { group: 'Global environments', groupOrder: 1, label: 'Python 3.11.0' } }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-proj', picker: { group: 'Project environments', groupOrder: 0, label: 'Python 3.12.0' } }));
+
+			await withOpenPicker(async () => {
+				expect(separatorLabels()).toEqual(['Suggested', 'Project environments', 'Global environments']);
+			});
+		});
+
+		it('uses picker.label and picker.description on rows', async () => {
+			await registerRuntime(makeRuntime({ runtimeId: 'py-pref' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-uv', runtimePath: '/opt/uv/bin/python', picker: { group: 'Project environments', groupOrder: 0, label: 'Python 3.12.4', description: 'uv: myproject' } }));
+
+			await withOpenPicker(async () => {
+				const item = pickItemById('py-uv');
+				expect({ label: item?.label, description: item?.description, detail: item?.detail }).toEqual({
+					label: 'Python 3.12.4',
+					description: 'uv: myproject',
+					detail: '/opt/uv/bin/python',
+				});
+			});
+		});
+
+		it.each([
+			{ reason: PreferredRuntimeReason.RunningConsole, text: 'running' },
+			{ reason: PreferredRuntimeReason.WorkspaceAffiliation, text: 'last used in this workspace' },
+			{ reason: PreferredRuntimeReason.RecentlyStarted, text: 'started recently' },
+		])('shows the reason on the Suggested row ($text)', async ({ reason, text }) => {
+			preferredReason = reason;
+			await registerRuntime(makeRuntime({ runtimeId: 'py-uv', picker: { group: 'Project environments', groupOrder: 0, label: 'Python 3.12.4', description: 'uv: myproject' } }));
+
+			await withOpenPicker(async () => {
+				expect(pickItemById('py-uv')?.description).toBe(`uv: myproject \u00B7 ${text}`);
+			});
+		});
+
+		it('shows the reason alone on a Suggested row with no gray text', async () => {
+			preferredReason = PreferredRuntimeReason.RunningConsole;
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+
+			await withOpenPicker(async () => {
+				expect(pickItemById('py-1')?.description).toBe('running');
+			});
+		});
+
+		it.each([
+			{ recommendationReason: 'project environment', expected: 'uv: myproject \u00B7 project environment' },
+			{ recommendationReason: undefined, expected: 'uv: myproject \u00B7 recommended' },
+		])('shows the extension reason for a recommendation ($recommendationReason)', async ({ recommendationReason, expected }) => {
+			preferredReason = PreferredRuntimeReason.Recommended;
+			preferredRecommendationReason = recommendationReason;
+			await registerRuntime(makeRuntime({ runtimeId: 'py-uv', picker: { group: 'Project environments', groupOrder: 0, label: 'Python 3.12.4', description: 'uv: myproject' } }));
+
+			await withOpenPicker(async () => {
+				expect(pickItemById('py-uv')?.description).toBe(expected);
+			});
+		});
+
+		it('shows no reason for the fallback rule', async () => {
+			preferredReason = PreferredRuntimeReason.Fallback;
+			await registerRuntime(makeRuntime({ runtimeId: 'py-uv', picker: { group: 'Project environments', groupOrder: 0, label: 'Python 3.12.4', description: 'uv: myproject' } }));
+
+			await withOpenPicker(async () => {
+				expect(pickItemById('py-uv')?.description).toBe('uv: myproject');
+			});
+		});
+
+		it('sorts rows by rowOrder, then version descending, then label', async () => {
+			const group = { group: 'Project environments', groupOrder: 0 };
+			await registerRuntime(makeRuntime({ runtimeId: 'py-pref' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-313', languageVersion: '3.13.0', picker: { ...group, rowOrder: 1, label: 'Python 3.13.0' } }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-311', languageVersion: '3.11.2', picker: { ...group, rowOrder: 0, label: 'Python 3.11.2' } }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-312', languageVersion: '3.12.1', picker: { ...group, rowOrder: 0, label: 'Python 3.12.1' } }));
+
+			await withOpenPicker(async () => {
+				expect(rowIds().filter(id => id !== 'py-pref')).toEqual(['py-312', 'py-311', 'py-313']);
+			});
+		});
+
+		it('keeps runtimeName and the runtimeSource header for a runtime without picker info', async () => {
+			await registerRuntime(makeRuntime({ runtimeId: 'py-pref' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-legacy', runtimeSource: 'Conda', runtimeName: 'Python (legacy)' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-new', picker: { group: 'Global environments', groupOrder: 1, label: 'Python 3.12.0' } }));
+
+			await withOpenPicker(async () => {
+				expect(separatorLabels()).toEqual(['Suggested', 'Global environments', 'Conda']);
+				expect(pickItemById('py-legacy')?.label).toBe('Python (legacy)');
+				expect(pickItemById('py-new')?.label).toBe('Python 3.12.0');
+			});
+		});
+
+		it('matches on the gray text', async () => {
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await withOpenPicker(async () => {
+				expect(pick.matchOnDescription).toBe(true);
+			});
+		});
+
+		it('keeps the picker order when searching', async () => {
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await withOpenPicker(async () => {
+				expect(pick.sortByLabel).toBe(false);
+			});
+		});
+	});
+
+	describe('language filters', () => {
+		const python = { languageId: 'python', languageName: 'Python' };
+		const r = { languageId: 'r', languageName: 'R' };
+
+		beforeEach(() => {
+			setLanguageOrder(ctx.get(IConfigurationService), []);
+		});
+
+		/** Clicks the filter button whose tooltip names `languageName`. */
+		function clickFilter(languageName: string): void {
+			const button = pick.buttons.find(b => b.tooltip === `Show only ${languageName}`);
+			expect(button).toBeDefined();
+			pick.triggerButton(button!);
+		}
+
+		it('adds Python and R toggles in language order', async () => {
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1' }));
+			await withOpenPicker(async () => {
+				expect(pick.buttons).toEqual([
+					{ iconClass: 'positron-picker-filter positron-picker-filter-python', tooltip: 'Show only Python', toggle: { checked: false }, location: QuickInputButtonLocation.Input, alwaysVisible: true },
+					{ iconClass: 'positron-picker-filter positron-picker-filter-r', tooltip: 'Show only R', toggle: { checked: false }, location: QuickInputButtonLocation.Input, alwaysVisible: true },
+				]);
+			});
+		});
+
+		it('adds no toggles when options.languageId is set', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			await withOpenPicker({ languageId: 'python' }, async () => {
+				expect(pick.buttons).toEqual([]);
+			});
+		});
+
+		it('adds no toggles when only one filterable language has runtimes', async () => {
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-2' }));
+			await withOpenPicker(async () => {
+				expect(pick.buttons).toEqual([]);
+			});
+		});
+
+		// Filters narrow a list of interpreters; a setup item alone is not one to narrow.
+		it('adds no toggles when the other language has only a setup item', async () => {
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			contribute(1, 'python', [{ id: 'install', label: 'Install Python via uv', suggested: true }]);
+			await withOpenPicker(async () => {
+				await waitForItemByLabel('Install Python via uv');
+				expect(pick.buttons).toEqual([]);
+			});
+		});
+
+		it('shows only the chosen language, under Suggested, when a toggle is on', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1', runtimeSource: 'System' }));
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-2', runtimeSource: 'Conda' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			await withOpenPicker(async () => {
+				clickFilter('Python');
+				expect(shape()).toEqual(['[Suggested]', 'py-1', '[Conda]', 'py-2']);
+			});
+		});
+
+		it('turns the other toggle off', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			await withOpenPicker(async () => {
+				clickFilter('Python');
+				clickFilter('R');
+				expect(pick.buttons.map(b => b.toggle?.checked)).toEqual([false, true]);
+				expect(rowIds()).toEqual(['r-1']);
+
+				clickFilter('R');
+				expect(pick.buttons.map(b => b.toggle?.checked)).toEqual([false, false]);
+				expect(shape()).toEqual(['[Suggested]', 'py-1', 'r-1']);
+			});
+		});
+
+		it('keeps the suggested runtime in Suggested, with its reason, when a filter is on', async () => {
+			preferredReason = PreferredRuntimeReason.RunningConsole;
+			const projectGroup = { group: 'Project environments', groupOrder: 0 };
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-uv', languageVersion: '3.11.0', picker: { ...projectGroup, label: 'Python 3.11.0', description: 'uv: myproject' } }));
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-venv', languageVersion: '3.13.0', picker: { ...projectGroup, label: 'Python 3.13.0' } }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			await withOpenPicker(async () => {
+				clickFilter('Python');
+				expect(shape()).toEqual(['[Suggested]', 'py-uv', '[Project environments]', 'py-venv']);
+				expect(pickItemById('py-uv')?.description).toBe('uv: myproject \u00B7 running');
+			});
+		});
+
+		it('keeps Suggested while the search box has text', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1', runtimeSource: 'System' }));
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-2', runtimeSource: 'Conda' }));
+			await withOpenPicker(async () => {
+				pick.typeValue('py');
+				expect(shape()).toEqual(['[Suggested]', 'py-1', '[Conda]', 'py-2']);
+			});
+		});
+
+
+		it('hides Python contributed items when the R filter is on', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			contribute(1, 'python', [{ id: 'setup', label: 'Install Python via uv' }]);
+			await withOpenPicker(async () => {
+				await waitForItemByLabel('Install Python via uv');
+				clickFilter('R');
+				expect(pickItemByLabel('Install Python via uv')).toBeUndefined();
+				clickFilter('R');
+				expect(pickItemByLabel('Install Python via uv')).toBeDefined();
+			});
+		});
+
+		it('lists a suggested contributed item first in Suggested', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1' }));
+			contribute(1, 'python', [{ id: 'setup', label: 'Create Python Environment', separatorLabel: 'Create Environment', suggested: true }]);
+			await withOpenPicker(async () => {
+				await waitForItemByLabel('Create Python Environment');
+				expect(shape().slice(0, 3)).toEqual(['[Suggested]', '__contributed__1_setup', 'py-1']);
+				expect(separatorLabels()).not.toContain('Create Environment');
+			});
+		});
+
+		it('shows a contributed item\'s leading icon in the icon column, not in its label', async () => {
+			contribute(1, 'python', [{ id: 'setup', label: '$(add) Create Python Environment' }]);
+			await withOpenPicker(async () => {
+				const item = await waitForItemByLabel('Create Python Environment');
+				expect({ label: item.label, iconClass: item.iconClass }).toEqual({ label: 'Create Python Environment', iconClass: 'codicon codicon-add positron-picker-action-icon' });
+			});
+		});
+
+		it('divides a contributed item with a separator label from the rows above, without the label', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1' }));
+			contribute(1, 'python', [{ id: 'setup', label: 'Create Python Environment', separatorLabel: 'Create Environment' }]);
+			await withOpenPicker(async () => {
+				await waitForItemByLabel('Create Python Environment');
+				expect(shape().slice(-2)).toEqual(['[---]', '__contributed__1_setup']);
+			});
+		});
+
+		it('orders Suggested by the language order, with a language\'s setup item before its interpreter', async () => {
+			setLanguageOrder(ctx.get(IConfigurationService), ['r']);
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			contribute(1, 'python', [{ id: 'setup', label: 'Create Python Environment', suggested: true }]);
+			await withOpenPicker(async () => {
+				await waitForItemByLabel('Create Python Environment');
+				expect(shape().slice(0, 4)).toEqual(['[Suggested]', 'r-1', '__contributed__1_setup', 'py-1']);
+			});
+		});
+
+		it('orders a suggested setup item for a language with no interpreters by the language order', async () => {
+			setLanguageOrder(ctx.get(IConfigurationService), ['r']);
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			contribute(1, 'python', [{ id: 'install', label: 'Install Python via uv', suggested: true }]);
+			await withOpenPicker(async () => {
+				await waitForItemByLabel('Install Python via uv');
+				expect(shape().slice(0, 3)).toEqual(['[Suggested]', 'r-1', '__contributed__1_install']);
+			});
+		});
+
+		it('keeps a suggested contributed item first in Suggested when a filter is on', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1', runtimeSource: 'System' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			contribute(1, 'python', [{ id: 'setup', label: 'Create Python Environment', suggested: true }]);
+			await withOpenPicker(async () => {
+				await waitForItemByLabel('Create Python Environment');
+				clickFilter('Python');
+				expect(shape()).toEqual(['[Suggested]', '__contributed__1_setup', 'py-1']);
+			});
+		});
+
+		it('shows the R header under Suggested when the R filter is on', async () => {
+			const rGroup = { group: 'R', groupOrder: 0 };
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1', languageVersion: '4.4.0', picker: { ...rGroup, label: 'R 4.4.0' } }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-2', languageVersion: '4.3.0', picker: { ...rGroup, label: 'R 4.3.0' } }));
+			await withOpenPicker(async () => {
+				clickFilter('R');
+				expect(shape()).toEqual(['[Suggested]', 'r-1', '[R]', 'r-2']);
+			});
+		});
+
+		it('lists currentRuntimeId once with a filter and search text', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-pref' }));
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-2', languageVersion: '3.10.0' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			await withOpenPicker({ currentRuntimeId: 'py-2' }, async () => {
+				clickFilter('Python');
+				pick.typeValue('py');
+				expect(rowIds().filter(id => id === 'py-2')).toHaveLength(1);
+				expect(rowIds().filter(id => id === 'py-pref')).toHaveLength(1);
+			});
+		});
+
+		it('refocuses currentRuntimeId when a filter that hid it is turned off', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-pref' }));
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-2', languageVersion: '3.10.0' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			await withOpenPicker({ currentRuntimeId: 'py-2' }, async () => {
+				clickFilter('R');
+				clickFilter('R');
+				expect(pick.activeItems[0]?.id).toBe('py-2');
+				// Still kept, so a later rebuild does not move it.
+				await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-3', languageVersion: '3.11.0' }));
+				expect(pick.activeItems[0]?.id).toBe('py-2');
+			});
+		});
+
+		it('refocuses the row the user moved to when a filter that hid it is turned off', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-pref' }));
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-2', languageVersion: '3.10.0' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			await withOpenPicker(async () => {
+				pick.moveFocus(pickItemById('py-2')!);
+				clickFilter('R');
+				clickFilter('R');
+				expect(pick.activeItems[0]?.id).toBe('py-2');
+			});
+		});
+
+		it('keeps the row the user moved to while a filter was on', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-pref' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-2', languageVersion: '4.3.0' }));
+			await withOpenPicker({ currentRuntimeId: 'py-pref' }, async () => {
+				clickFilter('R');
+				pick.moveFocus(pickItemById('r-2')!);
+				clickFilter('R');
+				expect(pick.activeItems[0]?.id).toBe('r-2');
+			});
+		});
+
+		it('leaves focus to the search when a filter is toggled while searching', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-pref', languageVersion: '3.12.0' }));
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-2', languageVersion: '3.10.0' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1', languageVersion: '4.4.0' }));
+			await withOpenPicker({ currentRuntimeId: 'py-2' }, async () => {
+				pick.typeValue('3.1');
+				clickFilter('Python');
+				// The quick pick's filtering focuses the first match, not currentRuntimeId.
+				expect(pick.activeItems[0]?.id).toBe('py-pref');
+			});
+		});
+
+		it('moves focus back to the search box after a filter is clicked', async () => {
+			await registerRuntime(makeRuntime({ ...python, runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ ...r, runtimeId: 'r-1' }));
+			await withOpenPicker(async () => {
+				clickFilter('R');
+				expect(pick.focusOnInput).toHaveBeenCalledOnce();
+			});
 		});
 	});
 
 	describe('reactive rebuild', () => {
 		it('rebuilds when onDidRegisterRuntime fires mid-pick', async () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(pickItemById('py-1')).toBeDefined();
-			expect(pickItemById('py-2')).toBeUndefined();
+			await withOpenPicker(async () => {
+				expect(pickItemById('py-1')).toBeDefined();
+				expect(pickItemById('py-2')).toBeUndefined();
 
-			await registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
-			expect(pickItemById('py-2')).toBeDefined();
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+				await registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
+				expect(pickItemById('py-2')).toBeDefined();
+			});
 		});
 
 		it('rebuilds when onDidUnregisterRuntime fires mid-pick', async () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(pickItemById('py-1')).toBeDefined();
-			expect(pickItemById('py-2')).toBeDefined();
+			await withOpenPicker(async () => {
+				expect(pickItemById('py-1')).toBeDefined();
+				expect(pickItemById('py-2')).toBeDefined();
 
-			// De-duplication collapsing an alias retracts a runtime while the
-			// picker is open; the removed runtime must drop out of the rebuilt list.
-			ctx.get(ILanguageRuntimeService).unregisterRuntime('py-2');
-			expect(pickItemById('py-2')).toBeUndefined();
-			expect(pickItemById('py-1')).toBeDefined();
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+				// De-duplication collapsing an alias retracts a runtime while the
+				// picker is open; the removed runtime must drop out of the rebuilt list.
+				ctx.get(ILanguageRuntimeService).unregisterRuntime('py-2');
+				expect(pickItemById('py-2')).toBeUndefined();
+				expect(pickItemById('py-1')).toBeDefined();
+			});
 		});
 
 		it('preserves the previously focused item across rebuilds', async () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
-			const promise = runPicker({ currentRuntimeId: 'py-2' });
-			await waitUntilOpened();
-			expect(pick.activeItems[0].id).toBe('py-2');
+			await withOpenPicker({ currentRuntimeId: 'py-2' }, async () => {
+				expect(pick.activeItems[0].id).toBe('py-2');
 
-			await registerRuntime(makeRuntime({ runtimeId: 'py-3', languageVersion: '3.13.0' }));
-			expect(pick.activeItems[0].id).toBe('py-2');
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+				await registerRuntime(makeRuntime({ runtimeId: 'py-3', languageVersion: '3.13.0' }));
+				expect(pick.activeItems[0].id).toBe('py-2');
+			});
 		});
 	});
 
@@ -542,23 +929,20 @@ describe('selectNewLanguageRuntime', () => {
 			};
 			ctx.disposables.add(runtimeService.registerPickerContribution(contribution));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-			// While in Discovering, contributions are skipped.
-			const labels = pick.items.map(i => i.label);
-			expect(labels).not.toContain('Install Python via uv');
+			await withOpenPicker(async () => {
+				// While in Discovering, contributions are skipped.
+				const labels = pick.items.map(i => i.label);
+				expect(labels).not.toContain('Install Python via uv');
 
-			runtimeService.setStartupPhase(RuntimeStartupPhase.Complete);
-			// The async listener fetches contributions and rebuilds; poll until
-			// the contributed item appears in the items array.
-			await vi.waitFor(() => {
-				const refreshed = pick.items.map(i => i.label);
-				expect(refreshed).toContain('Install Python via uv');
+				runtimeService.setStartupPhase(RuntimeStartupPhase.Complete);
+				// The async listener fetches contributions and rebuilds; poll until
+				// the contributed item appears in the items array.
+				await vi.waitFor(() => {
+					const refreshed = pick.items.map(i => i.label);
+					expect(refreshed).toContain('Install Python via uv');
+				});
+				expect(contribution.getItems).toHaveBeenCalled();
 			});
-			expect(contribution.getItems).toHaveBeenCalled();
-
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
 		});
 
 		it('skips contributions when phase is not yet Complete', async () => {
@@ -573,11 +957,9 @@ describe('selectNewLanguageRuntime', () => {
 			};
 			ctx.disposables.add(runtimeService.registerPickerContribution(contribution));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(contribution.getItems).not.toHaveBeenCalled();
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				expect(contribution.getItems).not.toHaveBeenCalled();
+			});
 		});
 
 		it('shows a busy spinner and discovering placeholder while phase is not Complete', async () => {
@@ -585,61 +967,49 @@ describe('selectNewLanguageRuntime', () => {
 			runtimeService.setStartupPhase(RuntimeStartupPhase.Discovering);
 			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(pick.busy).toBe(true);
-			expect(pick.placeholder).toBe('Discovering interpreters...');
+			await withOpenPicker(async () => {
+				expect(pick.busy).toBe(true);
+				expect(pick.placeholder).toBe('Discovering interpreters...');
 
-			runtimeService.setStartupPhase(RuntimeStartupPhase.Complete);
-			// The Complete handler is async (re-fetches contributions); poll for busy to clear.
-			await vi.waitFor(() => expect(pick.busy).toBe(false));
-			expect(pick.placeholder).toBeUndefined();
-
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+				runtimeService.setStartupPhase(RuntimeStartupPhase.Complete);
+				// The Complete handler is async (re-fetches contributions); poll for busy to clear.
+				await vi.waitFor(() => expect(pick.busy).toBe(false));
+				expect(pick.placeholder).toBeUndefined();
+			});
 		});
 
 		it('shows "No interpreters found" when discovery completes with no runtimes', async () => {
 			// beforeEach leaves the phase at Complete; register nothing.
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(pick.busy).toBe(false);
-			expect(pick.placeholder).toBe('No interpreters found');
-
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				expect(pick.busy).toBe(false);
+				expect(pick.placeholder).toBe('No interpreters found');
+			});
 		});
 
 		it('does not show a spinner when discovery is already complete on open', async () => {
 			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(pick.busy).toBe(false);
-			expect(pick.placeholder).toBeUndefined();
-
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				expect(pick.busy).toBe(false);
+				expect(pick.placeholder).toBeUndefined();
+			});
 		});
 
 		it('toggles the spinner back on when phase leaves Complete while the picker is open', async () => {
 			const runtimeService = ctx.get(ILanguageRuntimeService);
 			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			// beforeEach leaves the phase at Complete.
-			const promise = runPicker();
-			await waitUntilOpened();
-			expect(pick.busy).toBe(false);
+			await withOpenPicker(async () => {
+				expect(pick.busy).toBe(false);
 
-			// Phase leaving Complete (e.g. a user-triggered rediscovery) must flip
-			// the spinner back on -- the regression the broadened handler fixes.
-			runtimeService.setStartupPhase(RuntimeStartupPhase.Discovering);
-			expect(pick.busy).toBe(true);
-			expect(pick.placeholder).toBe('Discovering interpreters...');
+				// Phase leaving Complete (e.g. a user-triggered rediscovery) must flip
+				// the spinner back on -- the regression the broadened handler fixes.
+				runtimeService.setStartupPhase(RuntimeStartupPhase.Discovering);
+				expect(pick.busy).toBe(true);
+				expect(pick.placeholder).toBe('Discovering interpreters...');
 
-			runtimeService.setStartupPhase(RuntimeStartupPhase.Complete);
-			await vi.waitFor(() => expect(pick.busy).toBe(false));
-
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+				runtimeService.setStartupPhase(RuntimeStartupPhase.Complete);
+				await vi.waitFor(() => expect(pick.busy).toBe(false));
+			});
 		});
 
 		it('shows no empty-state placeholder when only contributed items are present at Complete', async () => {
@@ -653,17 +1023,13 @@ describe('selectNewLanguageRuntime', () => {
 			};
 			ctx.disposables.add(runtimeService.registerPickerContribution(contribution));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-
-			// A contributed item counts as a selectable row, so once it arrives the
-			// empty-state placeholder must NOT appear even though there are no runtimes.
-			await waitForItemByLabel('Install Python via uv');
-			expect(pick.busy).toBe(false);
-			expect(pick.placeholder).toBeUndefined();
-
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				// A contributed item counts as a selectable row, so once it arrives the
+				// empty-state placeholder must NOT appear even though there are no runtimes.
+				await waitForItemByLabel('Install Python via uv');
+				expect(pick.busy).toBe(false);
+				expect(pick.placeholder).toBeUndefined();
+			});
 		});
 	});
 
@@ -702,6 +1068,29 @@ describe('selectNewLanguageRuntime', () => {
 
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
+		});
+
+		it('focuses a suggested contributed item that arrives after the picker opens', async () => {
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			const resolveItems = contribute(10, 'python', [{ id: 'setup', label: 'Create Python Environment', suggested: true }], true);
+			await withOpenPicker(async () => {
+				resolveItems();
+				const setup = await waitForItemByLabel('Create Python Environment');
+				expect(pick.activeItems[0]).toBe(setup);
+			});
+		});
+
+		it('keeps the row the user moved to when contributed items arrive', async () => {
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
+			const resolveItems = contribute(10, 'python', [{ id: 'setup', label: 'Create Python Environment', suggested: true }], true);
+			await withOpenPicker(async () => {
+				pick.moveFocus(pickItemById('py-2')!);
+
+				resolveItems();
+				await waitForItemByLabel('Create Python Environment');
+				expect(pick.activeItems[0]?.id).toBe('py-2');
+			});
 		});
 
 		it('resolves the registered runtime and triggers a quiet rediscovery on selection', async () => {
@@ -790,14 +1179,10 @@ describe('selectNewLanguageRuntime', () => {
 			ctx.disposables.add(runtimeService.registerPickerContribution(failing));
 			ctx.disposables.add(runtimeService.registerPickerContribution(working));
 
-			const promise = runPicker();
-			await waitUntilOpened();
-
-			await waitForItemByLabel('Working option');
-			expect(consoleErrorSpy).toHaveBeenCalled();
-
-			pick.cancel(QuickInputHideReason.Gesture);
-			await promise;
+			await withOpenPicker(async () => {
+				await waitForItemByLabel('Working option');
+				expect(consoleErrorSpy).toHaveBeenCalled();
+			});
 		});
 	});
 });
@@ -887,8 +1272,8 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 	const changeNotebookSessionLabel = 'Change Notebook Session...';
 
 	let pickItems: QuickPickItem[] = [];
-	let pickOptions: IPickOptions<QuickPickItem> | undefined;
-	const pickFn = vi.fn(async (items: QuickPickItem[], options?: IPickOptions<QuickPickItem>): Promise<QuickPickItem | undefined> => {
+	let pickOptions: IPickOptions<IQuickPickItem> | undefined;
+	const pickFn = vi.fn(async (items: QuickPickItem[], options?: IPickOptions<IQuickPickItem>): Promise<QuickPickItem | undefined> => {
 		pickItems = items;
 		pickOptions = options;
 		return undefined; // user cancels by default; specific tests override
@@ -1134,7 +1519,10 @@ describe('StartNewConsoleSessionAction', () => {
 		// The picker only lists a language once it has a preferred runtime for it,
 		// so registerRuntime below records each runtime as its language's preferred.
 		.stub(IRuntimeStartupService, {
-			getPreferredRuntime: (languageId: string) => preferredByLanguage.get(languageId),
+			getPreferredRuntimeWithReason: (languageId: string) => {
+				const runtime = preferredByLanguage.get(languageId);
+				return runtime ? { runtime, reason: PreferredRuntimeReason.Fallback } : undefined;
+			},
 		})
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({
 			createQuickPick: (() => pick.asQuickPick()) as IQuickInputService['createQuickPick'],

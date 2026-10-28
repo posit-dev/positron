@@ -31,10 +31,11 @@ function groupHeader(group: PythonPickerGroup): string {
     switch (group) {
         case PythonPickerGroup.Project:
             return vscode.l10n.t('Project environments');
+        // Base interpreters share the Global header: both are places to pip
+        // install. Base's higher groupOrder keeps its rows last in the group.
         case PythonPickerGroup.Global:
-            return vscode.l10n.t('Global environments');
         case PythonPickerGroup.Base:
-            return vscode.l10n.t('Base interpreters');
+            return vscode.l10n.t('Global environments');
         case PythonPickerGroup.ExternallyManaged:
             return vscode.l10n.t('Externally managed');
     }

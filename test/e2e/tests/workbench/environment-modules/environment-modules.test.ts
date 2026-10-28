@@ -40,10 +40,10 @@ test.describe('Environment Modules', { tag: [tags.WORKBENCH, tags.ENVIRONMENT_MO
 			['python/3.12.10']
 		);
 
-		// Verify the module environment was created with the correct category
+		// Verify the module environment was created and is labeled as a module
 		await expect(async () => {
 			const runtimes = await app.workbench.sessions.getAllAvailableRuntimes();
-			const pythonModule = runtimes.find(r => r.name.includes('Python 3.12.10') && r.category.includes('Module'));
+			const pythonModule = runtimes.find(r => r.name.includes('Python 3.12.10') && r.description.includes('Module'));
 			expect(pythonModule).toBeDefined();
 		}).toPass({ timeout: 30000 });
 
@@ -61,10 +61,10 @@ test.describe('Environment Modules', { tag: [tags.WORKBENCH, tags.ENVIRONMENT_MO
 			['R/4.4.1']
 		);
 
-		// Verify the module environment was created with the correct category
+		// Verify the module environment was created and is labeled as a module
 		await expect(async () => {
 			const runtimes = await app.workbench.sessions.getAllAvailableRuntimes();
-			const rModule = runtimes.find(r => r.name.includes('R 4.4.1') && r.category.includes('Module'));
+			const rModule = runtimes.find(r => r.name.includes('R 4.4.1') && r.description.includes('Module'));
 			expect(rModule).toBeDefined();
 		}).toPass({ timeout: 30000 });
 
