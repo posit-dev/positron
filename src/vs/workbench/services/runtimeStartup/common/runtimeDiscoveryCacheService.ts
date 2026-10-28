@@ -88,13 +88,15 @@ export const RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT = 1;
  * one and both orderings are wrong. Changing an extension's rank values means
  * bumping this version.
  *
- * v5: entries carry `picker`, and R's discovered runtimes are `Explicit`, so
- * opening an R file starts R's recommendation. Older entries lack `picker`
- * and are `Implicit`, and a cache hit replays them as-is. Changing the
- * startup behavior an extension gives its discovered runtimes means bumping
- * this version.
+ * v5: entries carry `picker`. Older entries lack it and would render the old
+ * way next to new ones.
+ *
+ * v6: R's discovered runtimes are `Explicit`, so opening an R file starts R's
+ * recommendation. Older entries are `Implicit`, and a cache hit replays them
+ * as-is. Changing the startup behavior an extension gives its discovered
+ * runtimes means bumping this version.
  */
-export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 5;
+export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 6;
 
 /**
  * Storage key under which all cache state is persisted. Embeds the schema
