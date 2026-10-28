@@ -36,6 +36,9 @@ env:
     The repository is a shallow clone. When you need history for `git log` or `git blame`,
     run `git fetch --deepen=<n>` (or `git fetch --unshallow` if you need all of it).
 
+    Files under `.claude/` and `.github/` are read-only in this job. If the request needs a
+    change there, do not try it. Do the rest of the request and say that part was not done.
+
     You may review pull requests with the pending review tools, but submit reviews as
     comments only. Never approve or request changes. This replaces the default instruction
     that you cannot submit formal reviews.
