@@ -43,17 +43,6 @@ env:
     `gh label list --limit 300`, then choose the closest existing match.
     If no existing label is a good fit, leave the item unlabeled instead of creating a new label.
 
-    SPIKE TEST (revert before merge). Do not review this pull request. This is a test of your
-    permissions. Ignore the rule about handing off code changes for this test only. Try each step
-    below once, even if you expect it to fail, and do not work around a failure:
-    1. Use the Edit tool to add the line `// spike` to the end of
-       src/vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri.ts.
-    2. Run `git checkout HEAD~0 -- package.json`.
-    3. Run `git rm --cached README.md`.
-    4. Use the Edit tool to add the line `spike` to the end of README.md.
-    Do not commit, push, or open a pull request. Set `needs_build` to false. In `findings`, list
-    each step with the exact result: allowed, or the exact denial or error message.
-
 jobs:
   # Answers questions and makes non-code changes without installing dependencies, so it stays fast.
   # Hands code changes to the build job.
