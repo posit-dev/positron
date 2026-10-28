@@ -1733,12 +1733,11 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		}));
 	});
 
-	it('forgets the recommended runtime when it is unregistered and nothing replaces it', async () => {
+	it('asks again on the next discovery pass after the recommended runtime is unregistered and nothing replaces it', async () => {
 		const svc = ctx.disposables.add(
 			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
-		const recommended = (svc as unknown as { _recommendedRuntimesByLanguageId: Map<string, ILanguageRuntimeMetadata> })
-			._recommendedRuntimesByLanguageId;
 		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		const venv2 = metadata({ runtimeId: 'rt-venv2', runtimePath: '/project/.venv2/bin/python' });
 		const venvRegistration = ctx.get(ILanguageRuntimeService).registerRuntime(venv);
 		let asks = 0;
 		let answers = [{ metadata: venv, isProjectDefault: false }];
@@ -1752,15 +1751,27 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		};
 		ctx.disposables.add(svc.registerRuntimeManager(manager));
 		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
-		await vi.waitFor(() => expect(recommended.get('python')?.runtimeId).toBe('rt-venv'));
+		await vi.waitFor(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+		// Registered while the .venv is still the answer, so it does not replace it.
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(venv2));
+		await vi.waitFor(() => expect(asks).toBe(2));
 
-		// The .venv is deleted, and there is no other Python to recommend. A
-		// dead entry would make the next discovery pass skip the language.
+		// The .venv is deleted, and there is no other Python to recommend.
 		answers = [];
 		venvRegistration.dispose();
+		await vi.waitFor(() => expect(asks).toBe(3));
 
-		await vi.waitFor(() => expect(asks).toBe(2));
-		await vi.waitFor(() => expect(recommended.has('python')).toBe(false));
+		// The next discovery pass asks again, rather than skipping the language.
+		answers = [{ metadata: venv2, isProjectDefault: false }];
+		await (svc as unknown as { recommendAfterDiscovery: () => Promise<void> }).recommendAfterDiscovery();
+
+		expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv2' },
+			reason: PreferredRuntimeReason.Recommended,
+		});
 	});
 
 	it('asks once for a burst of runtimes registering after the recommendation', async () => {
@@ -1829,37 +1840,41 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		async function setup(newRuntimePath: string, { runningConsole = false } = {}) {
 			const svc = ctx.disposables.add(
 				ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
-			const internals = svc as unknown as {
-				_mostRecentlyStartedRuntimesByLanguageId: Map<string, ILanguageRuntimeMetadata>;
-				_recommendedRuntimesByLanguageId: Map<string, ILanguageRuntimeMetadata>;
-			};
+			const recommended = (svc as unknown as { _recommendedRuntimesByLanguageId: Map<string, ILanguageRuntimeMetadata> })
+				._recommendedRuntimesByLanguageId;
 			const recent = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 			const languageId = recent.languageId;
 			const created = metadata({ languageId, runtimeId: 'rt-new', runtimePath: newRuntimePath });
-			let answer = recent;
+			let answer: ILanguageRuntimeMetadata | undefined = recent;
 			const manager = makeManager({ id: 1, owns: [] });
 			manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) =>
-				afterDiscovery ? [{ metadata: answer, isProjectDefault: false }] : [];
+				afterDiscovery && answer ? [{ metadata: answer, isProjectDefault: false }] : [];
 			ctx.disposables.add(svc.registerRuntimeManager(manager));
 			ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
-			await vi.waitFor(() => expect(internals._recommendedRuntimesByLanguageId.get(languageId)?.runtimeId).toBe(recent.runtimeId));
-			let session: Awaited<ReturnType<typeof startTestLanguageRuntimeSession>> | undefined;
-			if (runningConsole) {
-				session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
-				// A console that started behind another language's is neither in front
-				// nor the last one used for its language.
-				vi.spyOn(ctx.get(IRuntimeSessionService), 'getConsoleSessionForLanguage').mockReturnValue(undefined);
-				// Starting saved it as the affiliation, which would outrank the rule under test.
-				vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(undefined);
-			} else {
-				internals._mostRecentlyStartedRuntimesByLanguageId.set(languageId, recent);
+			await vi.waitFor(() => expect(recommended.get(languageId)?.runtimeId).toBe(recent.runtimeId));
+			const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
+			// A console that started behind another language's is neither in front
+			// nor the last one used for its language.
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'getConsoleSessionForLanguage').mockReturnValue(undefined);
+			// Starting saved it as the affiliation, which would outrank the rule under test.
+			vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(undefined);
+			await vi.waitFor(() => expect(session.getRuntimeState()).toBe(RuntimeState.Ready));
+			if (!runningConsole) {
+				session.setRuntimeState(RuntimeState.Exited);
 			}
 
 			// A new env appears, and the extension now recommends it.
 			answer = created;
-			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(created));
-			await vi.waitFor(() => expect(internals._recommendedRuntimesByLanguageId.get(languageId)?.runtimeId).toBe('rt-new'));
-			return { svc, preferred: svc.getPreferredRuntimeWithReason(languageId), recent, session };
+			const createdRegistration = ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(created));
+			await vi.waitFor(() => expect(recommended.get(languageId)?.runtimeId).toBe('rt-new'));
+			return {
+				svc,
+				preferred: svc.getPreferredRuntimeWithReason(languageId),
+				recent,
+				session,
+				createdRegistration,
+				recommend: (runtime: ILanguageRuntimeMetadata | undefined) => { answer = runtime; },
+			};
 		}
 
 		function inWorkspaceFolder(...segments: string[]) {
@@ -1896,12 +1911,51 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		it('prefers the new recommendation once the recent runtime\'s console exits', async () => {
 			const { svc, recent, session } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'), { runningConsole: true });
 
-			session!.setRuntimeState(RuntimeState.Exited);
+			session.setRuntimeState(RuntimeState.Exited);
 
 			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
 				runtime: { runtimeId: 'rt-new' },
 				reason: PreferredRuntimeReason.Recommended,
 			});
+		});
+
+		it('prefers the recent runtime again once it is started again', async () => {
+			const { svc, recent } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
+
+			const again = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
+			await vi.waitFor(() => expect(again.getRuntimeState()).toBe(RuntimeState.Ready));
+			again.setRuntimeState(RuntimeState.Exited);
+
+			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
+				runtime: { runtimeId: recent.runtimeId },
+				reason: PreferredRuntimeReason.RecentlyStarted,
+			});
+		});
+
+		it('prefers the recent runtime again when the recommendation moves outside the workspace folder', async () => {
+			const { svc, recent, recommend } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
+
+			const other = metadata({ languageId: recent.languageId, runtimeId: 'rt-other', runtimePath: '/envs/other/bin/python' });
+			recommend(other);
+			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(other));
+
+			await vi.waitFor(() => expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
+				runtime: { runtimeId: recent.runtimeId },
+				reason: PreferredRuntimeReason.RecentlyStarted,
+			}));
+		});
+
+		it('prefers the recent runtime again when the new recommendation goes away', async () => {
+			const { svc, recent, recommend, createdRegistration } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
+
+			// The new .venv is deleted, and there is nothing else to recommend.
+			recommend(undefined);
+			createdRegistration.dispose();
+
+			await vi.waitFor(() => expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
+				runtime: { runtimeId: recent.runtimeId },
+				reason: PreferredRuntimeReason.RecentlyStarted,
+			}));
 		});
 	});
 
