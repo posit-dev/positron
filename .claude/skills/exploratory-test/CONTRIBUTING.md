@@ -87,8 +87,9 @@ skipped with a reply linking to that run; one with a focus runs alongside it.
 variables > Actions > Variables): GitHub logins separated by commas. Edit it
 to add or remove someone; empty it to end the experiment. No PR needed.
 
-An automatic run is named `Exploratory auto-run #<PR>`, and the suggest
-workflow skips a PR that already has a run by that name. If starting the run
+An automatic run's name starts with `Exploratory auto-run #<PR>`, followed by
+the branch, and the suggest workflow skips a PR that already has a run with
+that prefix. If starting the run
 fails, it posts the tip instead.
 
 Its PR comment says it was started automatically and, once there is a
@@ -113,8 +114,8 @@ change addresses it, on your own `claude` login. Older runs published only the p
 read from it. Read every "fixed" row before trusting the numbers.
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
-turns those rows into the Shipping impact page: how many findings developers fixed before
-merging, a bar of every outcome, the fix rate by severity, and collapsible
+turns those rows into the PR outcomes page: how many findings developers fixed, and how many
+before merging, a bar of every outcome, the fix rate by severity, and collapsible
 By PR and Evidence sections. Clicking a bar segment opens the evidence for
 that outcome, with links to each report, PR and fixing commit or issue.
 A date picker narrows everything to findings whose run was posted in the last
@@ -138,7 +139,12 @@ final: a matching issue moves it to filed as an issue, and a later fix, or that
 issue closing as completed, moves it to fixed later. For a not-fixed
 finding on a merged PR, the answer to whether the PR fixed it is
 kept too, since that diff can't change; the checks for a later fix on main or
-a matching issue still run every night. In
+a matching issue still run every night. A merged PR that no longer changes
+any of the finding's files, though the tested commit did, is change dropped:
+what the run found never shipped, so it is left out of the % fixed. An answer read from a diff that
+was cut for length is never kept, so it is asked again. To check every
+finding again, as after a change to the checks, run the workflow by hand
+with `recheck` on. In
 CI the model is reached through the API (`--api`), and a call that takes
 more than 10 minutes counts as unclear.
 
@@ -150,7 +156,7 @@ where it stands today: completed, in a release or backlog milestone, in
 Future, closed another way, or awaiting triage (no milestone). Severity comes
 from the report and the skill version from the run's `stats.json`. Issues
 with no report link are left out, unless `--outcomes rows.jsonl` (the
-Shipping impact rows) matched one to a finding and it mentions the PR the
+PR outcomes rows) matched one to a finding and it mentions the PR the
 report ran on; those are marked matched. The model match alone isn't enough,
 since someone could find the same bug on their own. It makes no model calls.
 
@@ -158,7 +164,7 @@ since someone could find the same bug on their own. It makes no model calls.
 turns that into the Triage outcomes page: a bar of every outcome, the same
 outcomes by severity and by feature, the type, source and skill version
 counts, and every issue. Selecting a bar segment lists those issues, and
-`?issue=N` lists one, which is how the Shipping impact page links to it.
+`?issue=N` lists one, which is how the PR outcomes page links to it.
 
 The two pages share a top row (a switch between them and the date picker)
 and a footer, from `explore-pages.mjs`. The same nightly workflow builds

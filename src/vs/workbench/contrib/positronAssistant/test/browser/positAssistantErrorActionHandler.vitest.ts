@@ -18,12 +18,12 @@ import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
-import { getPositAssistantChatOptions, PositAssistantErrorAssistantContribution } from '../../browser/positAssistantErrorAssistant.js';
+import { getPositAssistantChatOptions, PositAssistantErrorActionHandlerContribution } from '../../browser/positAssistantErrorActionHandler.js';
 import { POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } from '../../browser/positAssistantChat.js';
-import { ErrorAssistantAction, IErrorAssistantContext, IErrorAssistantOptions, IErrorAssistantService } from '../../common/errorAssistant.js';
+import { ErrorAction, IErrorActionContext, IErrorActionOptions, IErrorActionHandlerService } from '../../common/errorAction.js';
 import { AI_ENABLED_KEY } from '../../common/positronAIConfiguration.js';
 
-describe('PositAssistantErrorAssistantContribution', () => {
+describe('PositAssistantErrorActionHandlerContribution', () => {
 	const executeCommand = vi.fn();
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
@@ -37,7 +37,7 @@ describe('PositAssistantErrorAssistantContribution', () => {
 	let contextKeyService: ContextKeyService;
 	let extensions: IExtensionDescription[];
 	let onDidChangeExtensions: Emitter<{ readonly added: IExtensionDescription[]; readonly removed: IExtensionDescription[] }>;
-	let errorAssistantService: IErrorAssistantService;
+	let errorActionHandlerService: IErrorActionHandlerService;
 
 	beforeEach(() => {
 		executeCommand.mockResolvedValue(undefined);
@@ -52,42 +52,42 @@ describe('PositAssistantErrorAssistantContribution', () => {
 			onDidChangeExtensions: onDidChangeExtensions.event,
 		});
 
-		errorAssistantService = ctx.get(IErrorAssistantService);
+		errorActionHandlerService = ctx.get(IErrorActionHandlerService);
 	});
 
 	function createContribution() {
-		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorAssistantContribution));
+		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionHandlerContribution));
 	}
 
 	it('takes errors only while Posit Assistant has a chat model', () => {
 		const hasChatModels = contextKeyService.createKey<boolean>(POSIT_HAS_CHAT_MODELS_KEY, false);
 		createContribution();
-		expect(errorAssistantService.activeAssistant).toBeUndefined();
+		expect(errorActionHandlerService.activeHandler).toBeUndefined();
 
 		hasChatModels.set(true);
-		expect(errorAssistantService.activeAssistant).toEqual(expect.objectContaining({
+		expect(errorActionHandlerService.activeHandler).toEqual(expect.objectContaining({
 			id: 'posit-assistant',
 			label: 'Posit Assistant',
 			supportsChatContinuation: true,
 		}));
 
 		hasChatModels.set(false);
-		expect(errorAssistantService.activeAssistant).toBeUndefined();
+		expect(errorActionHandlerService.activeHandler).toBeUndefined();
 	});
 
 	it('takes errors only while Posit Assistant is installed', () => {
 		contextKeyService.createKey(POSIT_HAS_CHAT_MODELS_KEY, true);
 		extensions = [];
 		createContribution();
-		expect(errorAssistantService.activeAssistant).toBeUndefined();
+		expect(errorActionHandlerService.activeHandler).toBeUndefined();
 
 		extensions = [positAssistant];
 		onDidChangeExtensions.fire({ added: [], removed: [] });
-		expect(errorAssistantService.activeAssistant).toBeDefined();
+		expect(errorActionHandlerService.activeHandler).toBeDefined();
 
 		extensions = [];
 		onDidChangeExtensions.fire({ added: [], removed: [] });
-		expect(errorAssistantService.activeAssistant).toBeUndefined();
+		expect(errorActionHandlerService.activeHandler).toBeUndefined();
 	});
 
 	it('opens a Posit Assistant chat, naming documents relative to the workspace', async () => {
@@ -95,7 +95,7 @@ describe('PositAssistantErrorAssistantContribution', () => {
 		createContribution();
 		const cell = { languageId: 'python', code: 'x', startLine: 1, endLine: 1 };
 
-		await errorAssistantService.ask('posit-assistant', 'fix', { kind: 'quarto', error: 'boom', uri: URI.file('/report.qmd'), cell }, { continueChat: true });
+		await errorActionHandlerService.ask('posit-assistant', 'fix', { kind: 'quarto', error: 'boom', uri: URI.file('/report.qmd'), cell }, { continueChat: true });
 
 		expect(executeCommand).toHaveBeenCalledWith(POSIT_NEW_CHAT_COMMAND, expect.objectContaining({
 			prompt: 'Fix the error from the python code chunk at lines 1-1 of report.qmd. The failing code and its error output are attached; fix only this error.',
@@ -108,7 +108,7 @@ describe('getPositAssistantChatOptions', () => {
 	const constraint = 'Do not make changes or edit any files; just explain the error.';
 
 	/** The newChat options for an action, with attachments decoded. */
-	function getOptions(action: ErrorAssistantAction, context: IErrorAssistantContext, options: IErrorAssistantOptions = {}) {
+	function getOptions(action: ErrorAction, context: IErrorActionContext, options: IErrorActionOptions = {}) {
 		const chatOptions = getPositAssistantChatOptions(action, context, options, uri => uri.path.slice(1));
 		return {
 			...chatOptions,
@@ -117,7 +117,7 @@ describe('getPositAssistantChatOptions', () => {
 	}
 
 	it('sends console errors verbatim, and constrains Explain', () => {
-		const context: IErrorAssistantContext = { kind: 'console', error: '  Error: boom\n', sessionId: 'python-1', sessionName: 'Python 3.12.1', languageId: 'python' };
+		const context: IErrorActionContext = { kind: 'console', error: '  Error: boom\n', sessionId: 'python-1', sessionName: 'Python 3.12.1', languageId: 'python' };
 		expect([getOptions('fix', context, { continueChat: true }), getOptions('explain', context, { continueChat: true })]).toEqual([
 			{ prompt: 'Fix this console error.', target: 'auto', behavior: 'submit', files: [{ name: 'Console Error', content: '  Error: boom\n' }] },
 			{ prompt: `Explain this console error. ${constraint}`, target: 'auto', behavior: 'submit', files: [{ name: 'Console Error', content: '  Error: boom\n' }] },
@@ -125,7 +125,7 @@ describe('getPositAssistantChatOptions', () => {
 	});
 
 	it('trims whitespace from notebook errors, and constrains Explain', () => {
-		const context: IErrorAssistantContext = { kind: 'notebook', error: '\n ValueError: boom\n', uri: URI.file('/analysis.ipynb') };
+		const context: IErrorActionContext = { kind: 'notebook', error: '\n ValueError: boom\n', uri: URI.file('/analysis.ipynb') };
 		expect([getOptions('fix', context), getOptions('explain', context)]).toEqual([
 			{ prompt: 'Fix this notebook cell error.', target: 'new', behavior: 'submit', files: [{ name: 'Notebook Cell Error', content: 'ValueError: boom' }] },
 			{ prompt: `Explain this notebook cell error. ${constraint}`, target: 'new', behavior: 'submit', files: [{ name: 'Notebook Cell Error', content: 'ValueError: boom' }] },
@@ -133,7 +133,7 @@ describe('getPositAssistantChatOptions', () => {
 	});
 
 	it('names a Quarto cell and attaches its code above the error', () => {
-		const context: IErrorAssistantContext = {
+		const context: IErrorActionContext = {
 			kind: 'quarto',
 			error: 'ValueError: boom\n',
 			uri: URI.file('/report.qmd'),
@@ -155,7 +155,7 @@ describe('getPositAssistantChatOptions', () => {
 	});
 
 	it('attaches only the error when the Quarto cell is not known', () => {
-		const context: IErrorAssistantContext = { kind: 'quarto', error: 'NameError: x', uri: URI.file('/report.qmd') };
+		const context: IErrorActionContext = { kind: 'quarto', error: 'NameError: x', uri: URI.file('/report.qmd') };
 		expect([getOptions('fix', context, { continueChat: true }), getOptions('explain', context, { continueChat: true })]).toEqual([
 			{ prompt: 'Fix this Quarto inline output error.', target: 'auto', behavior: 'submit', files: [{ name: 'Quarto Output Error', content: 'NameError: x' }] },
 			{ prompt: `Explain this Quarto inline output error. ${constraint}`, target: 'auto', behavior: 'submit', files: [{ name: 'Quarto Output Error', content: 'NameError: x' }] },

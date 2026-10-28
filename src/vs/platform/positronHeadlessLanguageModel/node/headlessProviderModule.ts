@@ -116,7 +116,8 @@ export class HeadlessProviderModule extends Disposable {
 		private readonly _profiles: IUserDataProfilesService,
 		private readonly _productService: IProductService,
 		private readonly _logService: ILogService,
-		private readonly _catalog?: HeadlessProvidersOptions['catalog'],
+		// Positron doesn't scrub its control variables from `process.env`, so a live read is correct.
+		private readonly _catalog: HeadlessProvidersOptions['catalog'] = { envVars: process.env },
 	) {
 		super();
 		const reselectFor = (ids: IExtensionIdentifier[]) => {

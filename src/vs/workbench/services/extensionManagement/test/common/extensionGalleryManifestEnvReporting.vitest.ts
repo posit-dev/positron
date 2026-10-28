@@ -48,6 +48,16 @@ describe('reportExtensionsGalleryEnv', () => {
 		expect(svc.notificationService.notify).not.toHaveBeenCalled();
 	});
 
+	it('returns the disabled config and logs it without a warning or notification', () => {
+		const svc = makeServices();
+		const result = reportExtensionsGalleryEnv('{"serviceUrl": ""}', 'custom', svc.logService, svc.notificationService, svc.openLog);
+		expect(result).toEqual({ serviceUrl: '' });
+		expect(svc.logService.info).toHaveBeenCalledOnce();
+		expect(svc.logService.info.mock.calls[0][0]).toContain('disabled');
+		expect(svc.logService.warn).not.toHaveBeenCalled();
+		expect(svc.notificationService.notify).not.toHaveBeenCalled();
+	});
+
 	it('returns undefined and warns + notifies when the env var is malformed JSON', () => {
 		const svc = makeServices();
 		const result = reportExtensionsGalleryEnv('not-json', 'open-vsx', svc.logService, svc.notificationService, svc.openLog);
@@ -79,6 +89,15 @@ describe('handleGallerySourceSettingChange', () => {
 		const requestRestart = vi.fn();
 		handleGallerySourceSettingChange(validConfig, notificationService, requestRestart);
 		expect(notificationService.info).toHaveBeenCalledOnce();
+		expect(requestRestart).not.toHaveBeenCalled();
+	});
+
+	it('notifies that the gallery is disabled and skips the restart when the env gallery is disabled', () => {
+		const notificationService = { info: vi.fn() };
+		const requestRestart = vi.fn();
+		handleGallerySourceSettingChange({ ...validConfig, serviceUrl: '' }, notificationService, requestRestart);
+		expect(notificationService.info).toHaveBeenCalledOnce();
+		expect(notificationService.info.mock.calls[0][0]).toContain('disabled');
 		expect(requestRestart).not.toHaveBeenCalled();
 	});
 

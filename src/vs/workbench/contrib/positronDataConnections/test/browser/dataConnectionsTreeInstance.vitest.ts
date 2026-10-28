@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
@@ -14,7 +15,7 @@ import { IConfigurationChangeEvent } from '../../../../../platform/configuration
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { DataConnectionNode, DataConnectionsTreeInstance, reloadKey } from '../../browser/classes/dataConnectionsTreeInstance.js';
+import { DataConnectionNode, DataConnectionsTreeInstance, formatGroupCount, reloadKey } from '../../browser/classes/dataConnectionsTreeInstance.js';
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { DataConnectionNodeDetailsEditorInput } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
@@ -151,6 +152,16 @@ describe('dataConnectionsTreeInstance reloadKey', () => {
 	});
 });
 
+describe('dataConnectionsTreeInstance formatGroupCount', () => {
+	it('shows the count in parentheses, including none', () => {
+		expect([formatGroupCount(14), formatGroupCount(0)]).toEqual(['(14)', '(0)']);
+	});
+
+	it('formats the count for the locale', () => {
+		expect(formatGroupCount(12345)).toBe(`(${(12345).toLocaleString()})`);
+	});
+});
+
 describe('DataConnectionsTreeInstance', () => {
 	const ctx = createTestContainer().build();
 
@@ -277,7 +288,7 @@ describe('DataConnectionsTreeInstance', () => {
 	 */
 	function createTreeOverNodes(
 		rootDtos: IDataConnectionNodeDTO[],
-		childrenOf: (nodeHandle: number) => IDataConnectionNodeDTO[],
+		childrenOf: (nodeHandle: number) => IDataConnectionNodeDTO[] | Promise<IDataConnectionNodeDTO[]>,
 		profiles: IDataConnectionProfile[] = [profile],
 		// Defaulted to the setting's own default, so a test that says nothing gets what a user gets:
 		// a lone schema dropped from the tree. The breadcrumb tests below opt in explicitly.
@@ -452,7 +463,11 @@ describe('DataConnectionsTreeInstance', () => {
 	 * whatever `views` returns at the time it is asked. The lone schema is elided by default, so
 	 * Tables and Views sit directly under the connection.
 	 */
-	function lonePublicSchema(views: () => IDataConnectionNodeDTO[], viewsGroup: Partial<IDataConnectionNodeDTO> = {}) {
+	function lonePublicSchema(
+		views: () => IDataConnectionNodeDTO[] | Promise<IDataConnectionNodeDTO[]>,
+		viewsGroup: Partial<IDataConnectionNodeDTO> = {},
+		profiles?: IDataConnectionProfile[]
+	) {
 		return createTreeOverNodes(
 			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
 			nodeHandle => nodeHandle === 1
@@ -464,7 +479,8 @@ describe('DataConnectionsTreeInstance', () => {
 					]
 					: nodeHandle === 4
 						? views()
-						: []
+						: [],
+			profiles
 		);
 	}
 
@@ -540,6 +556,27 @@ describe('DataConnectionsTreeInstance', () => {
 		});
 	});
 
+	it('goes back to the source when a collapsed group that kept its look-ahead is refreshed', async () => {
+		// Refreshing a collapsed row keeps its id, so the query parked for it before the refresh
+		// must not answer its next expand. A schema created in between shows up.
+		let schemas = [
+			nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' }),
+			nodeDto({ nodeHandle: 3, name: 'staging', kind: 'schema' }),
+		];
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+			nodeHandle => nodeHandle === 1 ? schemas : []
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		schemas = [...schemas, nodeDto({ nodeHandle: 4, name: 'analytics', kind: 'schema' })];
+		await tree.reload('dto:1:1');
+		await tree.expand('dto:1:1');
+
+		expect(rows(tree).map(row => row.name)).toEqual(['connection', 'Schemas', 'public', 'staging', 'analytics']);
+	});
+
 	it('drops an empty Views group from a lone schema\'s contents', async () => {
 		const { tree } = lonePublicSchema(() => []);
 		await tree.refresh();
@@ -574,7 +611,13 @@ describe('DataConnectionsTreeInstance', () => {
 	});
 
 	it('keeps a Views group whose look-ahead fails, and shows the error when it is opened', async () => {
-		const { tree } = lonePublicSchema(() => { throw new Error('boom'); });
+		// The failed look-ahead is not reused: opening the row sends the query again, and that
+		// second failure is the one the row shows.
+		let viewsQueries = 0;
+		const { tree } = lonePublicSchema(() => {
+			viewsQueries++;
+			throw new Error('boom');
+		});
 		await tree.refresh();
 		await tree.expand(ENTRY_ID);
 
@@ -583,9 +626,271 @@ describe('DataConnectionsTreeInstance', () => {
 		expect({
 			rows: rows(tree).map(row => row.name),
 			error: tree.getError('dto:1:4'),
+			viewsQueries,
 		}).toEqual({
 			rows: ['connection', 'Tables', 'Views'],
 			error: new Error('boom'),
+			viewsQueries: 2,
+		});
+	});
+
+	describe('look-ahead deadline', () => {
+		beforeEach(() => {
+			vi.useFakeTimers();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		/**
+		 * Expands a row whose look-aheads are pending, through the level's deadline. Returns the row
+		 * names just short of it, when the level has not rendered yet.
+		 */
+		async function expandThroughDeadline(tree: DataConnectionsTreeInstance, id = ENTRY_ID) {
+			const expanding = tree.expand(id);
+			await vi.advanceTimersByTimeAsync(4_999);
+			const beforeDeadline = rows(tree).map(row => row.name);
+			await vi.advanceTimersByTimeAsync(1);
+			await expanding;
+			return beforeDeadline;
+		}
+
+		it('keeps a Views group when its look-ahead times out, and opens it with the same query', async () => {
+			// A metadata query that never answers must not pin the level. Tables needed no look-ahead
+			// of its own, and the Views row stays so the user can open it. Opening awaits the query
+			// that is already running instead of sending it again.
+			const lookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
+			const lateView = nodeDto({ nodeHandle: 6, name: 'v_late', kind: 'view', hasGetChildren: false });
+			let viewsQueries = 0;
+			const { tree, nodeGetChildren } = lonePublicSchema(() => {
+				viewsQueries++;
+				return lookAhead.p;
+			});
+			await tree.refresh();
+
+			const beforeDeadline = await expandThroughDeadline(tree);
+			const callsBeforeExpanding = nodeGetChildren.mock.calls.length;
+
+			// The in-flight query answers after the row is opened. The expand waits for it and shows
+			// what it returns, and does not send a second query.
+			const opening = tree.expand('dto:1:4');
+			lookAhead.complete([lateView]);
+			await opening;
+
+			expect({
+				beforeDeadline,
+				rows: rows(tree).map(row => row.name),
+				viewsQueries,
+				callsAfterExpanding: nodeGetChildren.mock.calls.length,
+			}).toEqual({
+				beforeDeadline: ['connection'],
+				rows: ['connection', 'Tables', 'Views', 'v_late'],
+				viewsQueries: 1,
+				callsAfterExpanding: callsBeforeExpanding,
+			});
+		});
+
+		it('retries a Views look-ahead that fails after the timeout when the row is opened', async () => {
+			const lookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
+			const retriedView = nodeDto({ nodeHandle: 6, name: 'v_retry', kind: 'view', hasGetChildren: false });
+			let viewsQueries = 0;
+			const { tree } = lonePublicSchema(() => {
+				viewsQueries++;
+				return viewsQueries === 1 ? lookAhead.p : [retriedView];
+			});
+			await tree.refresh();
+			await expandThroughDeadline(tree);
+
+			lookAhead.error(new Error('late boom'));
+			await vi.advanceTimersByTimeAsync(0);
+			await tree.expand('dto:1:4');
+
+			expect({
+				rows: rows(tree).map(row => row.name),
+				error: tree.getError('dto:1:4'),
+				viewsQueries,
+			}).toEqual({
+				rows: ['connection', 'Tables', 'Views', 'v_retry'],
+				error: undefined,
+				viewsQueries: 2,
+			});
+		});
+
+		it('does not let a look-ahead from before a reload drop the one after it', async () => {
+			// The first Views query times out and is still running when the connection is reloaded.
+			// The reload sends a fresh query for the same row. When the old query then fails, it must
+			// not remove the fresh one, so opening the row sends no third query.
+			const firstLookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
+			let viewsQueries = 0;
+			const { tree } = lonePublicSchema(() => {
+				viewsQueries++;
+				return viewsQueries === 1 ? firstLookAhead.p : [view];
+			});
+			await tree.refresh();
+			await expandThroughDeadline(tree);
+
+			await tree.reload(ENTRY_ID);
+			firstLookAhead.error(new Error('stale boom'));
+			await vi.advanceTimersByTimeAsync(0);
+			await tree.expand('dto:1:4');
+
+			expect({
+				rows: rows(tree).map(row => row.name),
+				error: tree.getError('dto:1:4'),
+				viewsQueries,
+			}).toEqual({
+				rows: ['connection', 'Tables', 'Views', 'v_orders'],
+				error: undefined,
+				viewsQueries: 2,
+			});
+		});
+
+		it('keeps another connection\'s in-flight look-ahead when one connection reloads', async () => {
+			// Both connections' Views queries time out and stay in flight. Reloading the first sends
+			// its own query again, but the second's parked query is untouched, so opening its Views
+			// row sends nothing new.
+			const second = createProfile({ id: 'conn-2', connectionName: 'Second Connection' });
+			const lookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
+			let viewsQueries = 0;
+			const { tree } = lonePublicSchema(() => {
+				viewsQueries++;
+				return lookAhead.p;
+			}, {}, [profile, second]);
+			await tree.refresh();
+			await expandThroughDeadline(tree);
+			await expandThroughDeadline(tree, 'entry:conn-2');
+
+			const reloading = tree.reload(ENTRY_ID);
+			await vi.advanceTimersByTimeAsync(5_000);
+			await reloading;
+			const opening = tree.expand('dto:2:4');
+			lookAhead.complete([view]);
+			await opening;
+
+			expect({
+				opened: tree.isExpanded('dto:2:4'),
+				viewsQueries,
+			}).toEqual({
+				opened: true,
+				viewsQueries: 3,
+			});
+		});
+
+		it('keeps a namespace group as a plain row when its look-ahead times out, and opens it with the same query', async () => {
+			// The group is not breadcrumbed, even though it turns out to hold one schema: the tree
+			// cannot wait for the answer to decide. Opening the group awaits the query that is
+			// already running.
+			const lookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
+			let schemasQueries = 0;
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+				nodeHandle => {
+					if (nodeHandle === 1) {
+						schemasQueries++;
+						return lookAhead.p;
+					}
+					return [];
+				}
+			);
+			await tree.refresh();
+
+			const beforeDeadline = await expandThroughDeadline(tree);
+			const afterDeadline = rows(tree).map(row => row.name);
+
+			const opening = tree.expand('dto:1:1');
+			lookAhead.complete([nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]);
+			await opening;
+
+			expect({
+				beforeDeadline,
+				afterDeadline,
+				opened: rows(tree),
+				schemasQueries,
+			}).toEqual({
+				beforeDeadline: ['connection'],
+				afterDeadline: ['connection', 'Schemas'],
+				opened: [
+					{ name: 'connection', prefix: undefined, expanded: true },
+					{ name: 'Schemas', prefix: undefined, expanded: true },
+					{ name: 'public', prefix: undefined, expanded: false },
+				],
+				schemasQueries: 1,
+			});
+		});
+
+		it('breadcrumbs a lone schema whose own look-ahead times out, and opens it with the same query', async () => {
+			// The Schemas group answers at once with one schema, but the schema's contents do not
+			// answer by the deadline, so it cannot be elided. It falls back to "Schemas / public",
+			// which opens on its own and awaits the query that is already running.
+			const lookAhead = new DeferredPromise<IDataConnectionNodeDTO[]>();
+			let schemaQueries = 0;
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+				nodeHandle => {
+					if (nodeHandle === 1) {
+						return [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })];
+					}
+					if (nodeHandle === 2) {
+						schemaQueries++;
+						return lookAhead.p;
+					}
+					return [];
+				}
+			);
+			await tree.refresh();
+
+			// Not expandThroughDeadline: the expand also opens the breadcrumbed row, which waits
+			// for the query, so it does not settle until the query answers.
+			const expanding = tree.expand(ENTRY_ID);
+			await vi.advanceTimersByTimeAsync(5_000);
+			const atDeadline = rows(tree).map(row => [row.prefix, row.name]);
+			lookAhead.complete([nodeDto({ nodeHandle: 3, name: 'Tables', kind: 'group-tables' })]);
+			await expanding;
+
+			expect({
+				atDeadline,
+				opened: rows(tree),
+				schemaQueries,
+			}).toEqual({
+				atDeadline: [[undefined, 'connection'], ['Schemas', 'public']],
+				opened: [
+					{ name: 'connection', prefix: undefined, expanded: true },
+					{ name: 'public', prefix: 'Schemas', expanded: true },
+					{ name: 'Tables', prefix: undefined, expanded: false },
+				],
+				schemaQueries: 1,
+			});
+		});
+
+		it('holds a level for one timeout in total, however many look-aheads it chains', async () => {
+			// Each query on the single-schema path takes 2s: the Schemas group, then public, then
+			// Views. One after another that is 6s, but the level renders at 5s. The Views look-ahead
+			// runs out of time, so its group is kept even though it turns out to be empty.
+			const slowly = (children: IDataConnectionNodeDTO[]) =>
+				new Promise<IDataConnectionNodeDTO[]>(resolve => setTimeout(() => resolve(children), 2_000));
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+				nodeHandle => nodeHandle === 1
+					? slowly([nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })])
+					: nodeHandle === 2
+						? slowly([
+							nodeDto({ nodeHandle: 3, name: 'Tables', kind: 'group-tables' }),
+							nodeDto({ nodeHandle: 4, name: 'Views', kind: 'group-views' }),
+						])
+						: slowly([])
+			);
+			await tree.refresh();
+
+			const beforeDeadline = await expandThroughDeadline(tree);
+
+			expect({
+				beforeDeadline,
+				atDeadline: rows(tree).map(row => row.name),
+			}).toEqual({
+				beforeDeadline: ['connection'],
+				atDeadline: ['connection', 'Tables', 'Views'],
+			});
 		});
 	});
 
@@ -735,6 +1040,301 @@ describe('DataConnectionsTreeInstance', () => {
 			{ name: 'connection', prefix: undefined, expanded: true },
 			{ name: 'Tables', prefix: undefined, expanded: false },
 		]);
+	});
+
+	describe('group counts', () => {
+		// The node id of the Tables group these tests expand.
+		const TABLES_ID = 'dto:1:1';
+
+		/**
+		 * A connection holding a Tables group of three tables and a notice. `tablesError` makes the
+		 * Tables group fail to load.
+		 */
+		function tablesTree(tablesError?: Error) {
+			return createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+				nodeHandle => {
+					switch (nodeHandle) {
+						case 1:
+							if (tablesError) {
+								throw tablesError;
+							}
+							return [
+								nodeDto({ nodeHandle: 2, name: 'customers', kind: 'table' }),
+								nodeDto({ nodeHandle: 3, name: 'orders', kind: 'table' }),
+								nodeDto({ nodeHandle: 4, name: 'products', kind: 'table' }),
+								nodeDto({ nodeHandle: 5, name: 'Only the first 3 tables were listed', kind: 'notice', hasGetChildren: false }),
+							];
+						default:
+							return [];
+					}
+				}
+			);
+		}
+
+		/** The count of every visible row that has one, by row name. */
+		function counts(tree: DataConnectionsTreeInstance) {
+			return Object.fromEntries(tree.visibleNodes.flatMap((visible, index) => {
+				const count = tree.groupCount(index);
+				return count === undefined || visible.node.data.kind !== 'dto' ? [] : [[visible.node.data.dto.name, count]];
+			}));
+		}
+
+		it('has no count for a group whose children have not been loaded', async () => {
+			const { tree } = tablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+
+			expect(counts(tree)).toEqual({});
+		});
+
+		it('counts the rows of an opened group, leaving out notices', async () => {
+			const { tree } = tablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+
+			expect(counts(tree)).toEqual({ Tables: 3 });
+		});
+
+		it('keeps the count of a group that was opened and closed again', async () => {
+			const { tree } = tablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+			tree.collapse(TABLES_ID);
+
+			expect(counts(tree)).toEqual({ Tables: 3 });
+		});
+
+		it('counts a group that turned out to be empty as holding none', async () => {
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+				() => []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+
+			expect(counts(tree)).toEqual({ Tables: 0 });
+		});
+
+		it('has no count for a group whose children failed to load', async () => {
+			const { tree } = tablesTree(new Error('permission denied'));
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+
+			expect({ error: tree.getError(TABLES_ID) !== undefined, counts: counts(tree) }).toEqual({ error: true, counts: {} });
+		});
+
+		it('counts a group by what its driver says it holds, before it is opened', async () => {
+			const { tree, nodeGetChildren } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables', childCount: 14 })],
+				() => []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+
+			expect({ counts: counts(tree), fetched: nodeGetChildren.mock.calls.length }).toEqual({ counts: { Tables: 14 }, fetched: 0 });
+		});
+
+		it('counts what an opened group holds, whatever its driver said before', async () => {
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables', childCount: 99 })],
+				nodeHandle => nodeHandle === 1
+					? [
+						nodeDto({ nodeHandle: 2, name: 'customers', kind: 'table' }),
+						nodeDto({ nodeHandle: 3, name: 'orders', kind: 'table' }),
+					]
+					: []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			const before = counts(tree);
+			await tree.expand(TABLES_ID);
+
+			// The driver's count can be stale by the time the group is opened; the rows are what is there.
+			expect({ before, after: counts(tree) }).toEqual({ before: { Tables: 99 }, after: { Tables: 2 } });
+		});
+
+		/**
+		 * A connection holding a Schemas group of two schemas and a notice, whose driver sent a count
+		 * the look-ahead will find stale, beside a Tables group of one table.
+		 */
+		function schemasAndTablesTree() {
+			return createTreeOverNodes(
+				[
+					nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas', childCount: 9 }),
+					nodeDto({ nodeHandle: 4, name: 'Tables', kind: 'group-tables' }),
+				],
+				nodeHandle => {
+					switch (nodeHandle) {
+						case 1:
+							return [
+								nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' }),
+								nodeDto({ nodeHandle: 3, name: 'staging', kind: 'schema' }),
+								nodeDto({ nodeHandle: 6, name: 'Only the first 2 schemas were listed', kind: 'notice', hasGetChildren: false }),
+							];
+						case 4:
+							return [nodeDto({ nodeHandle: 5, name: 'flights', kind: 'table' })];
+						default:
+							return [];
+					}
+				}
+			);
+		}
+
+		it('counts a group the look-ahead has already looked into, before it is opened, over its driver\'s count', async () => {
+			const { tree } = schemasAndTablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+
+			expect({ expanded: tree.isExpanded('dto:1:1'), counts: counts(tree) }).toEqual({ expanded: false, counts: { Schemas: 2 } });
+		});
+
+		/** The views the look-ahead finds in the Views groups below: two, and a notice about them. */
+		const twoViewsAndANotice = () => [
+			nodeDto({ nodeHandle: 5, name: 'v_orders', kind: 'view', hasGetChildren: false }),
+			nodeDto({ nodeHandle: 7, name: 'v_customers', kind: 'view', hasGetChildren: false }),
+			nodeDto({ nodeHandle: 8, name: 'Only the first 2 views were listed', kind: 'notice', hasGetChildren: false }),
+		];
+
+		it('counts a Views group by what the look-ahead found in it, before it is opened', async () => {
+			// No childCount from the driver, as on Snowflake: the look-ahead is the only source.
+			const { tree } = createTreeOverNodes(
+				[
+					nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' }),
+					nodeDto({ nodeHandle: 4, name: 'Views', kind: 'group-views' }),
+				],
+				nodeHandle => nodeHandle === 4 ? twoViewsAndANotice() : []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+
+			expect({ expanded: tree.isExpanded('dto:1:4'), counts: counts(tree) }).toEqual({ expanded: false, counts: { Views: 2 } });
+		});
+
+		it('counts a Views group standing in for a dropped lone schema, and keeps it standing in for that schema', async () => {
+			const { tree } = lonePublicSchema(twoViewsAndANotice);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			const views = tree.visibleNodes.find(visible => visible.node.id === 'dto:1:4')?.node.data;
+
+			expect({
+				counts: counts(tree),
+				elidedSchema: views?.kind === 'dto' ? views.elidedSchema : undefined,
+			}).toEqual({ counts: { Views: 2 }, elidedSchema: 'public' });
+		});
+
+		it('shows no count for a group whose listing failed, even one its driver counted', async () => {
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables', childCount: 14 })],
+				() => {
+					throw new Error('permission denied');
+				}
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+
+			expect({ error: tree.getError(TABLES_ID) !== undefined, counts: counts(tree) }).toEqual({ error: true, counts: {} });
+		});
+
+		it('keeps a closed group\'s look-ahead count when some other row is refreshed', async () => {
+			const { tree } = schemasAndTablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand('dto:1:4');
+			await tree.reload('dto:1:4');
+
+			expect(counts(tree)).toEqual({ Schemas: 2, Tables: 1 });
+		});
+
+		it('drops a Views group its driver says is empty, without looking into it', async () => {
+			const { tree, nodeGetChildren } = createTreeOverNodes(
+				[
+					nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables', childCount: 2 }),
+					nodeDto({ nodeHandle: 2, name: 'Views', kind: 'group-views', childCount: 0 }),
+				],
+				() => []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+
+			expect({ rows: rows(tree).map(row => row.name), fetched: nodeGetChildren.mock.calls }).toEqual({ rows: ['connection', 'Tables'], fetched: [] });
+		});
+
+		/**
+		 * A Tables group whose driver counted two tables when the connection was opened, and whose
+		 * listing returns however many tables `tables.count` says at the time.
+		 */
+		function growingTablesTree() {
+			const tables = { count: 2 };
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables', childCount: 2 })],
+				nodeHandle => nodeHandle === 1
+					? Array.from({ length: tables.count }, (_, index) => nodeDto({ nodeHandle: 100 + index, name: `table${index}`, kind: 'table' }))
+					: []
+			);
+			return { tree, tables };
+		}
+
+		it('shows no count for a group refreshed while collapsed after being opened, until it is opened again', async () => {
+			const { tree, tables } = growingTablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+			tables.count = 5;
+			await tree.reload(TABLES_ID);
+			tree.collapse(TABLES_ID);
+			const collapsed = counts(tree);
+			await tree.reload(TABLES_ID);
+			// The refresh fetched nothing, and the driver's count is from before it.
+			const refreshedWhileCollapsed = counts(tree);
+			await tree.expand(TABLES_ID);
+
+			expect({ collapsed, refreshedWhileCollapsed, reopened: counts(tree) }).toEqual({
+				collapsed: { Tables: 5 },
+				refreshedWhileCollapsed: {},
+				reopened: { Tables: 5 },
+			});
+		});
+
+		it('shows no count for a group never opened once it is refreshed, until it is opened', async () => {
+			const { tree, tables } = growingTablesTree();
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			const fromDriver = counts(tree);
+			tables.count = 3;
+			await tree.reload(TABLES_ID);
+			const refreshed = counts(tree);
+			await tree.expand(TABLES_ID);
+
+			expect({ fromDriver, refreshed, opened: counts(tree) }).toEqual({
+				fromDriver: { Tables: 2 },
+				refreshed: {},
+				opened: { Tables: 3 },
+			});
+		});
+
+		it('counts what a group holds after a refresh', async () => {
+			let tableCount = 2;
+			const { tree } = createTreeOverNodes(
+				[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+				nodeHandle => nodeHandle === 1
+					? Array.from({ length: tableCount }, (_, index) => nodeDto({ nodeHandle: 100 + index, name: `table${index}`, kind: 'table' }))
+					: []
+			);
+			await tree.refresh();
+			await tree.expand(ENTRY_ID);
+			await tree.expand(TABLES_ID);
+			const before = counts(tree);
+			tableCount = 5;
+			await tree.reload(ENTRY_ID);
+
+			expect({ before, after: counts(tree) }).toEqual({ before: { Tables: 2 }, after: { Tables: 5 } });
+		});
 	});
 
 	it('inherits the workbench tree indent until its own setting overrides it, and follows both live', async () => {

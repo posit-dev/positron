@@ -72,7 +72,7 @@ const HOME_RELATIVE_PATHS: readonly string[] = [
  *        as a legacy fallback; uv still honors it when it exists.
  *      - Windows: `%APPDATA%\uv\python` (Roaming, matching uv).
  */
-function getUvPythonInstallDirs(): string[] {
+export function getUvPythonInstallDirs(): string[] {
     const installDirOverride = process.env['UV_PYTHON_INSTALL_DIR'];
     if (installDirOverride) {
         return [installDirOverride];
@@ -182,7 +182,7 @@ function getDefaultInterpreterParent(): string | undefined {
  *   - Windows-known Python install roots (LOCALAPPDATA / ProgramFiles).
  *   - The parent of `python.defaultInterpreterPath`.
  *   - Discovery-gating settings (`python.interpreters.include` / `.exclude` /
- *     `.override`, `python.locator`, `python.useEnvironmentsExtension`)
+ *     `.override`, `python.useEnvironmentsExtension`)
  *     folded into the opaque digest so a settings change flips the signature
  *     and re-runs discovery.
  *
@@ -279,22 +279,29 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
 }
 
 /**
+ * Bump when the startup flags of discovered runtimes change, so cached runtimes
+ * from an older build are rediscovered once.
+ */
+export const DISCOVERY_POLICY_VERSION = 2;
+
+/**
  * Digest of every Python setting that gates discovery but doesn't move an
  * on-disk root. Folded into the signature's opaque blob so a settings change
  * flips the signature even though no scan-root mtime moved -- without this
  * the cache would keep serving entries that the new setting would now filter
- * or that a different locator implementation wouldn't have found.
+ * or that a different discovery provider wouldn't have found.
  *
  * Settings covered:
  *   - `interpreters.include` / `.exclude` / `.override`: post-discovery
  *     filters (`shouldIncludeInterpreter`); a freshly-added exclude would
  *     otherwise leave the now-excluded interpreter registered from cache.
- *   - `locator`: switches between the JS locator and the native locator,
- *     which enumerate different sets of interpreters.
  *   - `useEnvironmentsExtension`: switches discovery to the external Python
  *     Environments extension; the cache must rebuild when this flips.
  *   - Positron's `interpreters.discovery`: switching to or from
  *     `definitionsOnly` changes which interpreters exist at all.
+ *
+ * It also covers `DISCOVERY_POLICY_VERSION`, so a build that changes what
+ * discovery registers rediscovers instead of serving an older build's cache.
  *
  * `interpreters.include`, `.exclude`, and `.override` are hashed after replacing
  * `${workspaceFolder}`, so two workspaces with the same setting text don't
@@ -304,10 +311,10 @@ function getFilterSettingsDigest(): string {
     const config = vscode.workspace.getConfiguration('python');
     const filterPaths = getResolvedFilterSettingPaths();
     const payload = {
+        policyVersion: DISCOVERY_POLICY_VERSION,
         include: filterPaths.include,
         exclude: filterPaths.exclude,
         override: filterPaths.override,
-        locator: config.get<string>('locator') ?? '',
         useEnvironmentsExtension: config.get<boolean>('useEnvironmentsExtension') ?? false,
         // Only included when set, so the digest is unchanged for everyone else.
         ...(isDefinitionsOnlyDiscovery() ? { definitionsOnly: true } : {}),

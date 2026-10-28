@@ -8,19 +8,19 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { ChatModeKind } from '../../../chat/common/constants.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { useContextKey } from '../../../../../base/browser/positronReactHooks.js';
+import { useContextKey, usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { isFileExcludedFromAI } from '../../../chat/browser/tools/utils.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 import { IHeadlessLanguageModelService } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
-import { INotebookContextDTO } from '../../../../common/positron/notebookAssistant.js';
-import { generateNotebookSuggestions, INotebookSuggestion } from './notebookSuggestions.js';
+import { generateSuggestions, INotebookSuggestion, ISuggestionsRequest } from './notebookSuggestions.js';
 import { NOTEBOOK_SUGGESTIONS_MODEL_KEY } from './notebookSuggestionsConfig.js';
 import { TwinklingSparkleIcon } from './TwinklingSparkleIcon.js';
 
@@ -46,43 +46,95 @@ interface PredefinedAction {
 }
 
 /**
- * Predefined assistant actions.
+ * The kind of document the panel acts on. Notebooks are Positron notebooks;
+ * documents are text documents such as Quarto files.
  */
-const PREDEFINED_ACTIONS: PredefinedAction[] = [
-	{
-		id: 'explain',
-		label: localize('assistantPanel.action.explain', 'Explain This Notebook'),
-		detail: localize('assistantPanel.action.explain.detail', 'Summarize what this notebook does and how it works'),
-		query: 'Explain this notebook: 1) Summarize the overall purpose and what it accomplishes, 2) Describe the key steps or workflow, 3) Highlight important code sections or techniques used, 4) Note any assumptions or prerequisites',
-		mode: ChatModeKind.Ask,
-		iconClass: 'codicon-book'
+export type AssistantPanelDocumentKind = 'notebook' | 'document';
+
+/**
+ * Predefined assistant actions for each document kind.
+ */
+const PREDEFINED_ACTIONS: Record<AssistantPanelDocumentKind, PredefinedAction[]> = {
+	notebook: [
+		{
+			id: 'explain',
+			label: localize('assistantPanel.action.explain', 'Explain This Notebook'),
+			detail: localize('assistantPanel.action.explain.detail', 'Summarize what this notebook does and how it works'),
+			query: 'Explain this notebook: 1) Summarize the overall purpose and what it accomplishes, 2) Describe the key steps or workflow, 3) Highlight important code sections or techniques used, 4) Note any assumptions or prerequisites',
+			mode: ChatModeKind.Ask,
+			iconClass: 'codicon-book'
+		},
+		{
+			id: 'fix',
+			label: localize('assistantPanel.action.fix', 'Fix Errors and Issues'),
+			detail: localize('assistantPanel.action.fix.detail', 'Debug problems and suggest improvements'),
+			query: 'Fix issues in the notebook: 1) Identify and resolve any errors or warnings, 2) Explain what was wrong and why it occurred, 3) Suggest code quality improvements if applicable, 4) Provide corrected code following best practices',
+			mode: ChatModeKind.Edit,
+			iconClass: 'codicon-wrench'
+		},
+		{
+			id: 'improve',
+			label: localize('assistantPanel.action.improve', 'Improve This Notebook'),
+			detail: localize('assistantPanel.action.improve.detail', 'Add documentation and enhance readability'),
+			query: 'Improve this notebook: 1) Add markdown documentation explaining what the notebook does, 2) Add comments to complex code sections, 3) Organize cells into logical sections, 4) Remove redundant code or cells, 5) Suggest structural improvements for clarity',
+			mode: ChatModeKind.Edit,
+			iconClass: 'codicon-edit'
+		}
+	],
+	document: [
+		{
+			id: 'explain',
+			label: localize('assistantPanel.action.explainDocument', 'Explain This Document'),
+			detail: localize('assistantPanel.action.explainDocument.detail', 'Summarize what this document does and how it works'),
+			query: 'Explain this document: 1) Summarize the overall purpose and what it accomplishes, 2) Describe the key steps or workflow, 3) Highlight important code chunks or techniques used, 4) Note any assumptions or prerequisites',
+			mode: ChatModeKind.Ask,
+			iconClass: 'codicon-book'
+		},
+		{
+			id: 'fix',
+			label: localize('assistantPanel.action.fix', 'Fix Errors and Issues'),
+			detail: localize('assistantPanel.action.fix.detail', 'Debug problems and suggest improvements'),
+			query: 'Fix issues in the document: 1) Identify and resolve any errors or warnings, 2) Explain what was wrong and why it occurred, 3) Suggest code quality improvements if applicable, 4) Provide corrected code following best practices',
+			mode: ChatModeKind.Edit,
+			iconClass: 'codicon-wrench'
+		},
+		{
+			id: 'improve',
+			label: localize('assistantPanel.action.improveDocument', 'Improve This Document'),
+			detail: localize('assistantPanel.action.improveDocument.detail', 'Add documentation and enhance readability'),
+			query: 'Improve this document: 1) Add prose explaining what the document does, 2) Add comments to complex code chunks, 3) Organize content into logical sections with headings, 4) Remove redundant code or chunks, 5) Suggest structural improvements for clarity',
+			mode: ChatModeKind.Edit,
+			iconClass: 'codicon-edit'
+		}
+	]
+};
+
+/**
+ * Strings that mention the document kind.
+ */
+const KIND_STRINGS: Record<AssistantPanelDocumentKind, { noSuggestions: string; generatingDetail: string; generateDetail: string }> = {
+	notebook: {
+		noSuggestions: localize('assistantPanel.noSuggestions', 'No suggestions available. The assistant couldn\'t identify specific actions for this notebook. Try using the pre-built actions above or enter a custom prompt.'),
+		generatingDetail: localize('assistantPanel.action.generating.detail', 'Suggestions based on notebook content'),
+		generateDetail: localize('assistantPanel.action.generate.detail', 'Analyze notebook and suggest actions'),
 	},
-	{
-		id: 'fix',
-		label: localize('assistantPanel.action.fix', 'Fix Errors and Issues'),
-		detail: localize('assistantPanel.action.fix.detail', 'Debug problems and suggest improvements'),
-		query: 'Fix issues in the notebook: 1) Identify and resolve any errors or warnings, 2) Explain what was wrong and why it occurred, 3) Suggest code quality improvements if applicable, 4) Provide corrected code following best practices',
-		mode: ChatModeKind.Edit,
-		iconClass: 'codicon-wrench'
+	document: {
+		noSuggestions: localize('assistantPanel.noSuggestionsDocument', 'No suggestions available. The assistant couldn\'t identify specific actions for this document. Try using the pre-built actions above or enter a custom prompt.'),
+		generatingDetail: localize('assistantPanel.action.generatingDocument.detail', 'Suggestions based on document content'),
+		generateDetail: localize('assistantPanel.action.generateDocument.detail', 'Analyze document and suggest actions'),
 	},
-	{
-		id: 'improve',
-		label: localize('assistantPanel.action.improve', 'Improve This Notebook'),
-		detail: localize('assistantPanel.action.improve.detail', 'Add documentation and enhance readability'),
-		query: 'Improve this notebook: 1) Add markdown documentation explaining what the notebook does, 2) Add comments to complex code sections, 3) Organize cells into logical sections, 4) Remove redundant code or cells, 5) Suggest structural improvements for clarity',
-		mode: ChatModeKind.Edit,
-		iconClass: 'codicon-edit'
-	}
-];
+};
 
 /**
  * AssistantPanelActionsProps interface.
  */
 export interface AssistantPanelActionsProps {
-	notebook: IPositronNotebookInstance;
+	kind: AssistantPanelDocumentKind;
+	uri: URI;
 	configurationService: IConfigurationService;
 	headlessLmService: IHeadlessLanguageModelService;
-	notebookContext: INotebookContextDTO | undefined;
+	/** The request used to generate suggestions; undefined while the document context is loading */
+	suggestionsRequest: ISuggestionsRequest | undefined;
 	notificationService: INotificationService;
 	onActionSelected: (query: string, mode: ChatModeKind) => void;
 	onClose: () => void;
@@ -93,12 +145,15 @@ export interface AssistantPanelActionsProps {
  * Displays custom prompt input and predefined action buttons.
  */
 export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
-	const { notebook, configurationService, headlessLmService, notebookContext, notificationService, onActionSelected } = props;
+	const { kind, uri, configurationService, headlessLmService, suggestionsRequest, notificationService, onActionSelected } = props;
+	const strings = KIND_STRINGS[kind];
 
-	// Composite notebook AI gate (global ai.enabled AND notebook.ai.enabled), kept
-	// in sync by bindNotebookAIEnabledContextKey. Read reactively so toggling it
-	// without a window reload updates the gate. undefined reads as enabled.
+	// Notebooks use the composite notebook AI gate (global ai.enabled AND
+	// notebook.ai.enabled), kept in sync by bindNotebookAIEnabledContextKey; other
+	// documents use ai.enabled alone. Read reactively so toggling either without a
+	// window reload updates the gate. undefined reads as enabled.
 	const notebookAiEnabled = useContextKey<boolean>(NotebookContextKeys.aiEnabled);
+	const globalAiEnabled = usePositronConfiguration<boolean | undefined>(AI_ENABLED_KEY);
 
 	const [customPrompt, setCustomPrompt] = useState('');
 	const [isGenerating, setIsGenerating] = useState(false);
@@ -139,19 +194,13 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 			return;
 		}
 
-		const notifyNoSuggestions = () => notificationService.info(
-			localize(
-				'assistantPanel.noSuggestions',
-				'No suggestions available. The assistant couldn\'t identify specific actions for this notebook. Try using the pre-built actions above or enter a custom prompt.'
-			)
-		);
+		const notifyNoSuggestions = () => notificationService.info(strings.noSuggestions);
 
-		// Honor the composite notebook AI gate and the per-file exclusion the user
-		// configured: never send a notebook to a model when AI is disabled or the
-		// file is excluded. notebookAiEnabled defaults to enabled, so only an
-		// explicit disable (either AI switch off) blocks generation.
-		const aiEnabled = notebookAiEnabled !== false;
-		if (!notebookContext || !aiEnabled || isFileExcludedFromAI(configurationService, notebook.uri.path)) {
+		// Honor the AI gate and the per-file exclusion the user configured: never
+		// send a document to a model when AI is disabled or the file is excluded.
+		// Both gates default to enabled, so only an explicit disable blocks generation.
+		const aiEnabled = (kind === 'notebook' ? notebookAiEnabled : globalAiEnabled) !== false;
+		if (!suggestionsRequest || !aiEnabled || isFileExcludedFromAI(configurationService, uri.path)) {
 			notifyNoSuggestions();
 			return;
 		}
@@ -173,9 +222,9 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 
 		try {
 			const modelSetting = configurationService.getValue<string[]>(NOTEBOOK_SUGGESTIONS_MODEL_KEY);
-			const suggestions = await generateNotebookSuggestions(
+			const suggestions = await generateSuggestions(
 				headlessLmService,
-				notebookContext,
+				suggestionsRequest,
 				modelSetting,
 				cancellationTokenSource.token,
 				setAiSuggestions,
@@ -211,7 +260,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 			setIsGenerating(false);
 			cancellationTokenSourceRef.current = null;
 		}
-	}, [isGenerating, notebook, notebookContext, notebookAiEnabled, configurationService, headlessLmService, notificationService]);
+	}, [isGenerating, kind, uri, suggestionsRequest, strings, notebookAiEnabled, globalAiEnabled, configurationService, headlessLmService, notificationService]);
 
 	const handleActionClick = useCallback((action: PredefinedAction) => {
 		onActionSelected(action.query, action.mode);
@@ -252,7 +301,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 		<div className='assistant-panel-section'>
 			<div className='assistant-panel-section-content'>
 				{/* Predefined actions */}
-				{PREDEFINED_ACTIONS.map((action) => (
+				{PREDEFINED_ACTIONS[kind].map((action) => (
 					<button
 						key={action.id}
 						className='assistant-panel-action'
@@ -312,10 +361,10 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 						</div>
 						<div className='suggestions-button-detail'>
 							{isGenerating
-								? localize('assistantPanel.action.generating.detail', 'Suggestions based on notebook content')
+								? strings.generatingDetail
 								: aiSuggestions.length > 0
 									? localize('assistantPanel.action.regenerate.detail', 'Click to regenerate suggestions')
-									: localize('assistantPanel.action.generate.detail', 'Analyze notebook and suggest actions')}
+									: strings.generateDetail}
 						</div>
 					</div>
 					<TwinklingSparkleIcon animating={isGenerating} />

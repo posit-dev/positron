@@ -99,10 +99,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.11.3",
+			"version": "2026.11.5",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "e720845f744710bbad5e83c78b7f00739b29dd3484f60f931e032eb9625a33cb",
+			"sha256": "0292ae56723befcf184bf049190e0efedc67cc69b3c668d4bc615374fee82de7",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -121,7 +121,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.88.0",
+			"version": "2026.90.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -309,8 +309,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "1.9.0",
-			"sha256": "be8e633e3d95cd75215c02554d2e8597370cd264cca794a7885ded14d39f96a1",
+			"version": "1.9.1",
+			"sha256": "98a78112e42c864a424e6e688cc903b0f2581a72bfdf948a184291587b721349",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"

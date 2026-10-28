@@ -18,7 +18,13 @@ import {
     IInterpreterQuickPick,
     IPythonPathUpdaterServiceManager,
 } from '../../../client/interpreter/configuration/types';
-import { registerCreateEnvironmentFeatures } from '../../../client/pythonEnvironments/creation/createEnvApi';
+// --- Start Positron ---
+// import { registerCreateEnvironmentFeatures } from '../../../client/pythonEnvironments/creation/createEnvApi';
+import {
+    isCreatingEnvironment,
+    registerCreateEnvironmentFeatures,
+} from '../../../client/pythonEnvironments/creation/createEnvApi';
+// --- End Positron ---
 import * as windowApis from '../../../client/common/vscodeApis/windowApis';
 import { handleCreateEnvironmentCommand } from '../../../client/pythonEnvironments/creation/createEnvironment';
 import {
@@ -47,6 +53,8 @@ import { CONDA_PROVIDER_ID } from '../../../client/pythonEnvironments/creation/p
 import { CreateEnvironmentOptionsInternal } from '../../../client/pythonEnvironments/creation/types';
 import * as createEnvironment from '../../../client/pythonEnvironments/creation/createEnvironment';
 import { reusedEnvironmentResult } from '../../../client/pythonEnvironments/creation/reusedEnvironment';
+import * as commonUtils from '../../../client/pythonEnvironments/creation/common/commonUtils';
+import { Interpreters } from '../../../client/common/utils/localize';
 // --- End Positron ---
 
 chaiUse(chaiAsPromised.default);
@@ -114,6 +122,10 @@ suite('Create Environment APIs', () => {
     teardown(() => {
         disposables.forEach((d) => d.dispose());
         sinon.restore();
+        // --- Start Positron ---
+        // A leaked hold would silence the prompt in every later test, so fail where it starts.
+        assert.isFalse(isCreatingEnvironment(), 'a test leaked the creation hold');
+        // --- End Positron ---
     });
 
     [true, false].forEach((selectEnvironment) => {
@@ -326,6 +338,50 @@ suite('Create Environment APIs', () => {
             await runCommand();
 
             pythonRuntimeManager.verifyAll();
+        });
+
+        test('holds the creation flag from ranking the providers until the console has started', async () => {
+            // Ranking the providers checks for uv, so record the flag there too.
+            let busyWhileRanking = false;
+            isUvInstalledStub.callsFake(async () => {
+                busyWhileRanking = isCreatingEnvironment();
+                return false;
+            });
+            // The stub bypasses the provider's own busy counter, so this records only the hold.
+            let busyWhileCreating = false;
+            sinon.stub(createEnvironment, 'handleCreateEnvironmentCommand').callsFake(async () => {
+                busyWhileCreating = isCreatingEnvironment();
+                return { path: venvPython };
+            });
+            let busyDuringSelect = false;
+            pythonRuntimeManager
+                .setup((m) => m.selectLanguageRuntimeFromPath(venvPython, true))
+                .returns(async () => {
+                    busyDuringSelect = isCreatingEnvironment();
+                    return 'runtime-id';
+                });
+
+            await runCommand();
+
+            assert.deepStrictEqual(
+                { busyWhileRanking, busyWhileCreating, busyDuringSelect, busyAfter: isCreatingEnvironment() },
+                { busyWhileRanking: true, busyWhileCreating: true, busyDuringSelect: true, busyAfter: false },
+            );
+        });
+
+        test('shows an error when the new environment cannot be selected', async () => {
+            sinon.stub(createEnvironment, 'handleCreateEnvironmentCommand').resolves({ path: venvPython });
+            const showErrorStub = sinon.stub(commonUtils, 'showPositronErrorMessageWithLogs').resolves();
+            pythonRuntimeManager
+                .setup((m) => m.selectLanguageRuntimeFromPath(venvPython, true))
+                .returns(() => Promise.resolve(undefined));
+
+            const result = await runCommand();
+
+            assert.deepStrictEqual(
+                { path: result?.path, errors: showErrorStub.args },
+                { path: venvPython, errors: [[Interpreters.environmentSessionStartFailed(venvPython)]] },
+            );
         });
 
         test('Selects an existing environment it reused without recreating its runtime', async () => {

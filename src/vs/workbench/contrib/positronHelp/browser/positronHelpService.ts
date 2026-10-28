@@ -3,11 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { DeferredPromise, raceCancellationError } from '../../../../base/common/async.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../base/common/errors.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
 import { AppResourcePath, FileAccess } from '../../../../base/common/network.js';
 import { join } from '../../../../base/common/path.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -18,10 +22,10 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IOpenerService, OpenExternalOptions } from '../../../../platform/opener/common/opener.js';
 import { WebviewThemeDataProvider } from '../../webview/browser/themeing.js';
 import { HelpEntry, IHelpEntry } from './helpEntry.js';
-import { ShowHelpEvent } from '../../../services/languageRuntime/common/positronHelpComm.js';
+import { HelpTopicSuggestion, ShowHelpEvent } from '../../../services/languageRuntime/common/positronHelpComm.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService, createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { HelpClientInstance } from '../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
+import { HELP_SEARCH_TIMEOUT_MS, HelpClientInstance } from '../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
@@ -45,6 +49,15 @@ export const POSITRON_HELP_VIEW_ID = 'workbench.panel.positronHelp';
  * Positron help service ID.
  */
 export const POSITRON_HELP_SERVICE_ID = 'positronHelpService';
+
+/**
+ * The outcome of showing a topic with the foreground interpreter's help client.
+ */
+export enum HelpTopicResult {
+	Found = 'found',
+	NotFound = 'notFound',
+	Unavailable = 'unavailable',
+}
 
 /**
  * IPositronHelpService interface.
@@ -106,6 +119,36 @@ export interface IPositronHelpService {
 	showHelpTopic(languageId: string, topic: string): Promise<boolean>;
 
 	/**
+	 * Searches help with the foreground session and shows the results page. Waits
+	 * until the session has started and is idle. Only one search is pending at a
+	 * time; a new search cancels the previous one.
+	 * @param query The search query.
+	 * @param token Cancels the search. A cancelled search never shows its results.
+	 * @returns Whether the results page was shown.
+	 */
+	searchHelp(query: string, token: CancellationToken): Promise<boolean>;
+
+	/**
+	 * Gets autocomplete topics from the foreground session. Waits until the
+	 * session has started and is idle.
+	 * @param query The text to match.
+	 * @param limit The maximum number of topics, from 1 to 50.
+	 * @param token Cancels the request while it waits.
+	 * @returns The matching topics.
+	 */
+	getHelpTopics(query: string, limit: number, token: CancellationToken): Promise<HelpTopicSuggestion[]>;
+
+	/**
+	 * Shows an exact topic with the foreground session. Waits until the session
+	 * has started and is idle.
+	 * @param topic The topic.
+	 * @param packageName The package that contains the topic, if known.
+	 * @param token Cancels the request while it waits.
+	 * @returns Whether the topic was found, or whether no interpreter can show it.
+	 */
+	showHelpTopicForForegroundSession(topic: string, packageName: string | undefined, token: CancellationToken): Promise<HelpTopicResult>;
+
+	/**
 	 * Navigates the help service.
 	 * @param fromHelpEntry The help entry the navigation came from.
 	 * @param toTargetUrl The target URL to navigate to.
@@ -163,6 +206,16 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * Gets the help clients. Keyed by the runtime session ID.
 	 */
 	private readonly _helpClients = new Map<string, HelpClientInstance>();
+
+	/**
+	 * The pending search, if any. A search is current only while it is this one.
+	 */
+	private _search?: PendingSearch;
+
+	/**
+	 * Fires when a help client is attached.
+	 */
+	private readonly _onDidAttachClientEmitter = this._register(new Emitter<void>());
 
 	/**
 	 * The onDidFocusHelp event emitter.
@@ -255,6 +308,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			await this.setProxyServerStyles();
 		}));
 
+		this._register(this._runtimeSessionService.onDidChangeForegroundSession(() => this.cancelSearch()));
+
 		// Register onDidReceiveRuntimeEvent handler.
 		this._register(
 			this._runtimeSessionService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
@@ -284,10 +339,142 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		return Promise.resolve(false);
 	}
 
+	async searchHelp(query: string, token: CancellationToken): Promise<boolean> {
+		this.cancelSearch();
+		const search: PendingSearch = {
+			id: generateUuid(),
+			cts: new CancellationTokenSource(token),
+			shown: new DeferredPromise<void>(),
+		};
+		this._search = search;
+		// However the search is cancelled, it stops being current at once.
+		const clearOnCancel = search.cts.token.onCancellationRequested(() => {
+			if (this._search === search) {
+				this._search = undefined;
+			}
+		});
+		const session = this._runtimeSessionService.foregroundSession;
+		let cancelOnEnd: IDisposable | undefined;
+		let deadline: ReturnType<typeof setTimeout> | undefined;
+		let timedOut = false;
+		try {
+			const client = await this.idleForegroundClient(search.cts.token);
+			if (!client) {
+				return false;
+			}
+			search.client = client;
+
+			// Restart interrupts a busy session, so the session can be idle for
+			// a moment before it restarts. A search sent then would show a page
+			// from the help server of the old process.
+			cancelOnEnd = session?.onDidChangeRuntimeState(state => {
+				if (SESSION_ENDED_STATES.includes(state)) {
+					search.cts.cancel();
+				}
+			});
+
+			// One deadline covers the request and the results page it shows. It
+			// starts after the wait, which the user can see and cancel.
+			deadline = setTimeout(() => {
+				timedOut = true;
+				search.cts.cancel();
+			}, HELP_SEARCH_TIMEOUT_MS);
+
+			// The show help event can arrive before or after the reply.
+			const accepted = await raceCancellationError(client.searchHelp(query, search.id), search.cts.token);
+			if (accepted) {
+				await raceCancellationError(search.shown.p, search.cts.token);
+			}
+			return accepted;
+		} catch (error) {
+			if (timedOut) {
+				throw new Error(localize('positronHelpSearch.timeout', "Help search timed out."));
+			}
+			throw error;
+		} finally {
+			clearTimeout(deadline);
+			cancelOnEnd?.dispose();
+			clearOnCancel.dispose();
+			search.cts.dispose();
+			if (this._search === search) {
+				this._search = undefined;
+			}
+		}
+	}
+
+	async getHelpTopics(query: string, limit: number, token: CancellationToken): Promise<HelpTopicSuggestion[]> {
+		const client = await this.idleForegroundClient(token);
+		return client ? client.getHelpTopics(query, limit) : [];
+	}
+
+	async showHelpTopicForForegroundSession(topic: string, packageName: string | undefined, token: CancellationToken): Promise<HelpTopicResult> {
+		const client = await this.idleForegroundClient(token);
+		if (!client) {
+			return HelpTopicResult.Unavailable;
+		}
+		return await client.showHelpTopic(topic, packageName) ? HelpTopicResult.Found : HelpTopicResult.NotFound;
+	}
+
+	/**
+	 * Cancels the pending search, if any.
+	 */
+	private cancelSearch(): void {
+		this._search?.cts.cancel();
+	}
+
+	/**
+	 * Waits until the foreground session has a help client and is idle, so that
+	 * a request sent now runs at once. While the session starts, its help client
+	 * is attached when it becomes ready.
+	 * @param token Cancels the wait.
+	 * @returns The help client, or undefined if there is no foreground session or
+	 *   it ends while waiting. Rejects with a cancellation error if the token is
+	 *   cancelled or the foreground session changes while waiting.
+	 */
+	private async idleForegroundClient(token: CancellationToken): Promise<HelpClientInstance | undefined> {
+		const session = this._runtimeSessionService.foregroundSession;
+		const client = await new Promise<HelpClientInstance | undefined>((resolve, reject) => {
+			if (token.isCancellationRequested) {
+				reject(new CancellationError());
+				return;
+			}
+			if (!session) {
+				resolve(undefined);
+				return;
+			}
+			const disposables = new DisposableStore();
+			const settle = (done: () => void) => {
+				disposables.dispose();
+				done();
+			};
+			const check = () => {
+				const state = session.getRuntimeState();
+				const client = this._helpClients.get(session.sessionId);
+				if (SESSION_ENDED_STATES.includes(state)) {
+					settle(() => resolve(undefined));
+				} else if (client && (state === RuntimeState.Idle || state === RuntimeState.Ready)) {
+					settle(() => resolve(client));
+				}
+			};
+			const cancel = () => settle(() => reject(new CancellationError()));
+			disposables.add(token.onCancellationRequested(cancel));
+			disposables.add(this._runtimeSessionService.onDidChangeForegroundSession(cancel));
+			disposables.add(session.onDidChangeRuntimeState(check));
+			disposables.add(this._onDidAttachClientEmitter.event(check));
+			check();
+		});
+		// The token can be cancelled after the wait ends but before this runs.
+		if (token.isCancellationRequested) {
+			throw new CancellationError();
+		}
+		return client;
+	}
+
 	/**
 	 * dispose override method.
 	 */
 	public override dispose(): void {
+		this.cancelSearch();
 		// Dispose of the help entries.
 		this._helpEntries.forEach(helpEntry => helpEntry.dispose());
 
@@ -690,6 +877,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			PositronHelpService already has a client for session ${sessionId}; ` +
 				`it will be replaced.`);
 			const oldClient = this._helpClients.get(sessionId);
+			if (this._search?.client === oldClient) {
+				this.cancelSearch();
+			}
 			if (oldClient) {
 				oldClient.dispose();
 			}
@@ -699,16 +889,32 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		this._register(client);
 		this._helpClients.set(sessionId, client);
 
-		// When the client emits help content, show it in the Help pane.
+		// When the client emits help content, show it in the Help pane. Content
+		// tagged with a search ID is shown only while that search is pending.
 		this._register(client.onDidEmitHelpContent(helpContent => {
-			this.handleShowHelpEvent(session, helpContent);
+			const search = helpContent.search_id ? this._search : undefined;
+			if (helpContent.search_id && search?.id !== helpContent.search_id) {
+				return;
+			}
+			const isCurrent = () => this._helpClients.get(sessionId) === client &&
+				(!search || this._search === search);
+			void this.handleShowHelpEvent(session, helpContent, isCurrent)
+				.catch(error => this._logService.error(error))
+				.finally(() => search?.shown.complete());
 		}));
 
 		// When the client closes, delete the help entries for the runtime.
 		this._register(client.onDidClose(() => {
-			this.deleteLanguageRuntimeHelpEntries(sessionId);
-			this._helpClients.delete(sessionId);
+			if (this._helpClients.get(sessionId) === client) {
+				if (this._search?.client === client) {
+					this.cancelSearch();
+				}
+				this.deleteLanguageRuntimeHelpEntries(sessionId);
+				this._helpClients.delete(sessionId);
+			}
 		}));
+
+		this._onDidAttachClientEmitter.fire();
 	}
 
 	showWelcomePage() {
@@ -717,9 +923,20 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		this.addHelpEntry(this.createHelpEntry(this._welcomeHTML, '', '', '', 'welcome.html'));
 	}
 
+	/**
+	 * Shows help content from a runtime session.
+	 * @param session The session that sent the content.
+	 * @param showHelpEvent The content to show.
+	 * @param isCurrent Whether the content should still be shown. Checked again
+	 *   after the Help view opens, because the content can become stale meanwhile.
+	 */
 	private async handleShowHelpEvent(
 		session: ILanguageRuntimeSession,
-		showHelpEvent: ShowHelpEvent) {
+		showHelpEvent: ShowHelpEvent,
+		isCurrent: () => boolean) {
+		if (!isCurrent()) {
+			return;
+		}
 
 		// Only url help events are supported.
 		if (showHelpEvent.kind !== 'url') {
@@ -761,6 +978,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 		// Open the help view.
 		await this._viewsService.openView(POSITRON_HELP_VIEW_ID, false);
+		if (!isCurrent()) {
+			return;
+		}
 
 		// Create the help entry. The help entry resolves the proxied source URL
 		// it loads from on its own, when it loads; see resolveSourceUrl.
@@ -783,6 +1003,24 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 	//#endregion Private Methods
 }
+
+/**
+ * A search from the Help pane that has not finished.
+ */
+interface PendingSearch {
+	/** The search ID. The interpreter tags the results page it shows with this ID. */
+	readonly id: string;
+	/** The help client that runs the search, once it is known. */
+	client?: HelpClientInstance;
+	readonly cts: CancellationTokenSource;
+	/** Completes when the results page has been handled. */
+	readonly shown: DeferredPromise<void>;
+}
+
+/**
+ * The runtime states in which a session can no longer run a request.
+ */
+const SESSION_ENDED_STATES = [RuntimeState.Restarting, RuntimeState.Exiting, RuntimeState.Exited, RuntimeState.Offline];
 
 /**
  * Format HTML string that contains an error message when a file could not be read.

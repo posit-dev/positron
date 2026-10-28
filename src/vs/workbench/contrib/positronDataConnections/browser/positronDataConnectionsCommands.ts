@@ -9,11 +9,12 @@ import { CommandsRegistry } from '../../../../platform/commands/common/commands.
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from './positronDataConnectionsConfiguration.js';
-import { quoteCompactToken } from '../../../services/positronDataConnections/common/dataConnectionCompactFormat.js';
+import { parseCompactPath, quoteCompactToken } from '../../../services/positronDataConnections/common/dataConnectionCompactFormat.js';
 import { IDataConnectionInstance } from '../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IDataConnectionNodeStep, IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionNodeKind, DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { DataConnectionNodeKind, DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionLineageRequest, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionSchemaSummary, IDataConnectionSchemaSummaryOptions, summarizeDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
+import { renderLineageLines } from '../../../services/positronDataConnections/common/dataConnectionLineageSummary.js';
 
 /**
  * Whether the data connections commands should produce a payload at all: they go quiet when the
@@ -461,12 +462,38 @@ export interface IDataConnectionSchemaUnavailableResult {
 export type DataConnectionSchemaCommandResult =
 	IDataConnectionSchemaSummary | IDataConnectionSchemaUnavailableResult;
 
-// What resolveSchemaTarget found: a connection to summarize, or the reason there isn't one. Tagged
-// rather than returning the instance or the result directly, so narrowing reads `kind` off a plain
+/**
+ * Why a command that needs a live connection found none to use. Shared by getSchema and getLineage,
+ * which resolve their target the same way (see {@link resolveCommandTarget}) and each report these
+ * under their own result shape.
+ *
+ * - `not-found`: no saved or discovered profile has the id the caller named.
+ * - `no-driver`: the target profile's driver is unregistered -- its extension isn't installed, or
+ *   hasn't activated yet -- so there is nothing to connect with.
+ * - `connect-failed`: the target profile isn't live and the automatic connection attempt failed.
+ * - `no-connections`: nothing is live and no connection is saved or discovered, so there is
+ *   nothing to use or connect.
+ * - `ambiguous`: the caller named no profile and there are several candidates -- the live
+ *   connections, or every saved and discovered connection when none is live.
+ */
+type DataConnectionTargetUnavailableReason =
+	| 'not-found'
+	| 'no-driver'
+	| 'connect-failed'
+	| 'no-connections'
+	| 'ambiguous';
+
+// What resolveCommandTarget found: a connection to use, or the reason there isn't one. Tagged
+// rather than returning the instance or the reason directly, so narrowing reads `kind` off a plain
 // object instead of probing a property on the instance.
-type SchemaTarget =
+type CommandTarget =
 	| { readonly kind: 'instance'; readonly instance: IDataConnectionInstance }
-	| { readonly kind: 'unavailable'; readonly result: IDataConnectionSchemaUnavailableResult };
+	| {
+		readonly kind: 'unavailable';
+		readonly reason: DataConnectionTargetUnavailableReason;
+		// The profiles the caller could name, present when `reason` is `ambiguous`.
+		readonly candidateProfileIds?: string[];
+	};
 
 /**
  * Produces a live connection for the given profile, connecting it when it isn't live yet. The
@@ -475,16 +502,18 @@ type SchemaTarget =
  * throw, so `not-found` and `no-driver` come back as their own reasons rather than folding into
  * `connect-failed`.
  * @param dataConnectionsService The data connections service.
- * @param profileId The profile to summarize.
+ * @param profileId The profile to use.
+ * @param commandName The calling command's name, for log lines.
  * @param logService The log service.
  */
-async function connectSchemaTarget(
+async function connectCommandTarget(
 	dataConnectionsService: IPositronDataConnectionsService,
 	profileId: string,
+	commandName: string,
 	logService: ILogService,
-): Promise<SchemaTarget> {
-	// An already-live connection is summarized as-is: it shouldn't stop working because its driver
-	// was unregistered after it connected, so the driver check below applies only to a new connect.
+): Promise<CommandTarget> {
+	// An already-live connection is used as-is: it shouldn't stop working because its driver was
+	// unregistered after it connected, so the driver check below applies only to a new connect.
 	const instance = dataConnectionsService.getInstanceForProfile(profileId);
 	if (instance) {
 		return { kind: 'instance', instance };
@@ -492,40 +521,42 @@ async function connectSchemaTarget(
 
 	const profile = dataConnectionsService.getProfile(profileId);
 	if (!profile) {
-		logService.warn(`[DataConnections] getSchema: no profile with id ${profileId}.`);
-		return { kind: 'unavailable', result: { connected: false, reason: 'not-found' } };
+		logService.warn(`[DataConnections] ${commandName}: no profile with id ${profileId}.`);
+		return { kind: 'unavailable', reason: 'not-found' };
 	}
 
 	if (!dataConnectionsService.driverManager.getDriver(profile.driverMetadata.id)) {
-		logService.warn(`[DataConnections] getSchema: driver ${profile.driverMetadata.id} is not registered.`);
-		return { kind: 'unavailable', result: { connected: false, reason: 'no-driver' } };
+		logService.warn(`[DataConnections] ${commandName}: driver ${profile.driverMetadata.id} is not registered.`);
+		return { kind: 'unavailable', reason: 'no-driver' };
 	}
 
 	try {
 		return { kind: 'instance', instance: await dataConnectionsService.connect(profileId) };
 	} catch (err) {
-		logService.error(`[DataConnections] getSchema: connecting profile ${profileId} failed: ${err}`);
-		return { kind: 'unavailable', result: { connected: false, reason: 'connect-failed' } };
+		logService.error(`[DataConnections] ${commandName}: connecting profile ${profileId} failed: ${err}`);
+		return { kind: 'unavailable', reason: 'connect-failed' };
 	}
 }
 
 /**
- * Resolves which connection getSchema should summarize, connecting it first when it isn't live. A
- * named profile is always the target; unnamed, the target is the one live connection, or -- when
- * nothing is live -- the one saved or discovered connection. Reports the reason rather than
- * guessing when there's no unambiguous answer, since a summary of the wrong connection is worse
- * for the caller than none at all.
+ * Resolves which connection a command should use, connecting it first when it isn't live. A named
+ * profile is always the target; unnamed, the target is the one live connection, or -- when nothing
+ * is live -- the one saved or discovered connection. Reports the reason rather than guessing when
+ * there's no unambiguous answer, since an answer about the wrong connection is worse for the caller
+ * than none at all.
  * @param dataConnectionsService The data connections service.
  * @param profileId The requested profile id, if the caller named one.
+ * @param commandName The calling command's name, for log lines.
  * @param logService The log service.
  */
-async function resolveSchemaTarget(
+async function resolveCommandTarget(
 	dataConnectionsService: IPositronDataConnectionsService,
 	profileId: string | undefined,
+	commandName: string,
 	logService: ILogService,
-): Promise<SchemaTarget> {
+): Promise<CommandTarget> {
 	if (profileId !== undefined) {
-		return connectSchemaTarget(dataConnectionsService, profileId, logService);
+		return connectCommandTarget(dataConnectionsService, profileId, commandName, logService);
 	}
 
 	const instances = dataConnectionsService.getInstances();
@@ -534,14 +565,11 @@ async function resolveSchemaTarget(
 	}
 
 	if (instances.length > 1) {
-		logService.warn(`[DataConnections] getSchema: ${instances.length} live data connections; pass profileId to choose one.`);
+		logService.warn(`[DataConnections] ${commandName}: ${instances.length} live data connections; pass profileId to choose one.`);
 		return {
 			kind: 'unavailable',
-			result: {
-				connected: false,
-				reason: 'ambiguous',
-				candidateProfileIds: instances.map(instance => instance.profileId),
-			},
+			reason: 'ambiguous',
+			candidateProfileIds: instances.map(instance => instance.profileId),
 		};
 	}
 
@@ -556,22 +584,19 @@ async function resolveSchemaTarget(
 	// candidates, so the caller can retry with an explicit id.
 	const profiles = dataConnectionsService.getAllProfiles();
 	if (profiles.length === 1) {
-		return connectSchemaTarget(dataConnectionsService, profiles[0].id, logService);
+		return connectCommandTarget(dataConnectionsService, profiles[0].id, commandName, logService);
 	}
 
 	if (profiles.length === 0) {
-		logService.warn('[DataConnections] getSchema: no data connections to summarize.');
-		return { kind: 'unavailable', result: { connected: false, reason: 'no-connections' } };
+		logService.warn(`[DataConnections] ${commandName}: no data connections to use.`);
+		return { kind: 'unavailable', reason: 'no-connections' };
 	}
 
-	logService.warn(`[DataConnections] getSchema: ${profiles.length} configured data connections and none live; pass profileId to choose one.`);
+	logService.warn(`[DataConnections] ${commandName}: ${profiles.length} configured data connections and none live; pass profileId to choose one.`);
 	return {
 		kind: 'unavailable',
-		result: {
-			connected: false,
-			reason: 'ambiguous',
-			candidateProfileIds: profiles.map(profile => profile.id),
-		},
+		reason: 'ambiguous',
+		candidateProfileIds: profiles.map(profile => profile.id),
 	};
 }
 
@@ -580,7 +605,7 @@ async function resolveSchemaTarget(
  * for Assistant to reason about the tables and columns a connection exposes. The walk needs a live
  * connection -- it reads the real schema over RPC -- but the target doesn't have to be live up
  * front: an unambiguous target that isn't connected yet is connected automatically first (see
- * {@link connectSchemaTarget}). When there is no unambiguous target, or the connect fails, it
+ * {@link connectCommandTarget}). When there is no unambiguous target, or the connect fails, it
  * reports why instead (see {@link IDataConnectionSchemaUnavailableResult}).
  * @param accessor The services accessor.
  * @param args The command arguments; see {@link IDataConnectionSchemaCommandArgs}.
@@ -596,17 +621,255 @@ export async function getDataConnectionSchema(
 		return { connected: false, reason: 'disabled' };
 	}
 
-	const target = await resolveSchemaTarget(
+	const target = await resolveCommandTarget(
 		accessor.get(IPositronDataConnectionsService),
 		args.profileId,
+		'getSchema',
 		accessor.get(ILogService),
 	);
 	if (target.kind === 'unavailable') {
-		return target.result;
+		return target.candidateProfileIds === undefined
+			? { connected: false, reason: target.reason }
+			: { connected: false, reason: target.reason, candidateProfileIds: target.candidateProfileIds };
 	}
 
 	// args carries the summary bounds directly, so it doubles as the options object.
 	return summarizeDataConnectionSchema(target.instance.connectionHandle, args);
+}
+
+// The lineage bounds. Depth is capped at Snowflake's own limit for GET_LINEAGE, and defaults lower
+// so a first call stays small; the edge cap keeps a busy object's lineage from flooding the reply.
+const LINEAGE_MIN_DEPTH = 1;
+const LINEAGE_MAX_DEPTH = 5;
+const LINEAGE_DEFAULT_DEPTH = 2;
+const LINEAGE_MAX_EDGES = 1000;
+const LINEAGE_DEFAULT_MAX_EDGES = 200;
+
+/**
+ * Arguments for the getLineage command.
+ */
+export interface IDataConnectionLineageCommandArgs {
+	// The profile whose connection to read lineage from, saved or discovered. Connected
+	// automatically when it isn't live yet. Optional on the same terms as getSchema's profileId.
+	profileId?: string;
+
+	// The fully qualified object name, as a schema summary or lineage line spells it:
+	// database.schema.table, or database.schema.table.column, with a name containing a delimiter
+	// quoted as a JSON string. Parsed into exact names, so `SALES.PUBLIC.orders` means the table
+	// whose name is lowercase `orders`.
+	objectName: string;
+
+	// Which way to follow the data: where it comes from, or where it goes.
+	direction: 'upstream' | 'downstream';
+
+	// Whether objectName names a table (or view, or other table-like object) or a column. Defaults
+	// to 'table'.
+	domain?: 'table' | 'column';
+
+	// How many hops to follow, clamped to 1-5. Defaults to 2.
+	depth?: number;
+
+	// The most edges to return, nearest first, clamped to 1-1000. Defaults to 200.
+	maxEdges?: number;
+}
+
+/**
+ * Why getLineage produced no lineage. As with getSchema, each reason calls for a different next
+ * step, and Assistant can't read the log line that says which happened.
+ *
+ * - `disabled`: the dataConnections.enabled feature flag is off.
+ * - `invalid-arguments`: objectName is missing or isn't a dot-joined name, or direction or domain
+ *   isn't one of the allowed values.
+ * - `not-found`, `no-driver`, `connect-failed`, `no-connections`, `ambiguous`: there is no
+ *   connection to read from; see {@link DataConnectionTargetUnavailableReason}.
+ * - `unsupported-driver`: the connection's driver doesn't provide lineage.
+ * - `lineage-unavailable`: the data source declined the request -- the object doesn't exist or
+ *   isn't accessible, doesn't support lineage, or the account lacks the feature. `message` carries
+ *   the data source's own explanation.
+ * - `query-failed`: the connection failed while reading the lineage.
+ */
+export type DataConnectionLineageUnavailableReason =
+	| 'disabled'
+	| 'invalid-arguments'
+	| DataConnectionTargetUnavailableReason
+	| 'unsupported-driver'
+	| 'lineage-unavailable'
+	| 'query-failed';
+
+/**
+ * What getLineage returns in place of lineage. `available: false` is the discriminant against
+ * {@link IDataConnectionLineageCommandResult} (which has no such field). Not getSchema's
+ * `connected: false`: most of these reasons arise on a connection that is live.
+ */
+export interface IDataConnectionLineageUnavailableResult {
+	available: false;
+
+	reason: DataConnectionLineageUnavailableReason;
+
+	// The profiles the caller could name, present when `reason` is `ambiguous`.
+	candidateProfileIds?: string[];
+
+	// The data source's explanation, present when `reason` is `lineage-unavailable`.
+	message?: string;
+}
+
+/**
+ * An object's lineage, as returned by getLineage: the request as it was carried out (with depth
+ * after clamping), and one line per edge -- see {@link renderLineageLines} for the grammar.
+ */
+export interface IDataConnectionLineageCommandResult {
+	profileId: string;
+	objectName: string;
+	domain: 'table' | 'column';
+	direction: 'upstream' | 'downstream';
+	depth: number;
+	lines: string[];
+
+	// True when maxEdges left edges out.
+	truncated: boolean;
+}
+
+/**
+ * What getLineage resolves to: the lineage, or the reason there isn't any.
+ */
+export type DataConnectionLineageCommandResult =
+	IDataConnectionLineageCommandResult | IDataConnectionLineageUnavailableResult;
+
+/**
+ * Narrows a value to one of the allowed strings, case-insensitively -- an agent is as likely to
+ * send `UPSTREAM`, as Snowflake spells it, as `upstream`.
+ */
+function parseChoice<T extends string>(value: unknown, choices: readonly T[]): T | undefined {
+	if (typeof value !== 'string') {
+		return undefined;
+	}
+	const lower = value.toLowerCase();
+	return choices.find(choice => choice === lower);
+}
+
+/**
+ * Clamps a numeric bound into range, rounding a fraction. Undefined or null takes the default;
+ * anything else that isn't a finite number is rejected.
+ */
+function parseBound(value: unknown, min: number, max: number, defaultValue: number): number | undefined {
+	if (value === undefined || value === null) {
+		return defaultValue;
+	}
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		return undefined;
+	}
+	return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/**
+ * Narrows getLineage's arguments, which arrive untyped from an agent, to a profile id and a request
+ * the driver can run. Out-of-range bounds are clamped rather than rejected (the result reports the
+ * depth actually used); a missing or malformed value that has no sensible default is rejected. An
+ * optional argument sent as null is treated as left out, since tool-calling models often fill
+ * every field of a schema.
+ * @param args The raw command arguments.
+ */
+function parseLineageArgs(args: unknown): { profileId?: string; objectName: string; request: IDataConnectionLineageRequest } | undefined {
+	if (typeof args !== 'object' || args === null) {
+		return undefined;
+	}
+	const { profileId, objectName, direction, domain, depth, maxEdges } = args as Record<string, unknown>;
+	if (profileId !== undefined && profileId !== null && typeof profileId !== 'string') {
+		return undefined;
+	}
+	if (typeof objectName !== 'string') {
+		return undefined;
+	}
+	// The name in the form getSchema and getLineage print it, split back into the exact names it was
+	// built from -- so a driver can quote each one, and a lowercase or mixed-case name resolves to
+	// the object it names rather than to its uppercased namesake.
+	const path = parseCompactPath(objectName.trim());
+	if (path === undefined) {
+		return undefined;
+	}
+
+	const parsedDirection = parseChoice(direction, ['upstream', 'downstream'] as const);
+	const parsedDomain = domain === undefined || domain === null ? 'table' : parseChoice(domain, ['table', 'column'] as const);
+	const parsedDepth = parseBound(depth, LINEAGE_MIN_DEPTH, LINEAGE_MAX_DEPTH, LINEAGE_DEFAULT_DEPTH);
+	const parsedMaxEdges = parseBound(maxEdges, 1, LINEAGE_MAX_EDGES, LINEAGE_DEFAULT_MAX_EDGES);
+	if (parsedDirection === undefined || parsedDomain === undefined || parsedDepth === undefined || parsedMaxEdges === undefined) {
+		return undefined;
+	}
+
+	return {
+		profileId: profileId ?? undefined,
+		objectName: objectName.trim(),
+		request: {
+			path,
+			domain: parsedDomain,
+			direction: parsedDirection,
+			depth: parsedDepth,
+			maxEdges: parsedMaxEdges,
+		},
+	};
+}
+
+/**
+ * Builds the getLineage payload: the objects an object's data comes from (upstream) or flows into
+ * (downstream), one compact line per edge, for Assistant to answer "where does this come from?"
+ * and "what breaks if I change this?". The target connection is resolved -- and connected, if it
+ * isn't live -- exactly as getSchema's is (see {@link resolveCommandTarget}). Only drivers whose data
+ * source tracks lineage provide it; every other connection reports `unsupported-driver`.
+ *
+ * Never throws for an expected condition: a failure in the driver comes back as `query-failed`,
+ * since an opaque error tells Assistant nothing it can act on.
+ * @param accessor The services accessor.
+ * @param args The command arguments; see {@link IDataConnectionLineageCommandArgs}.
+ */
+export async function getDataConnectionLineage(
+	accessor: ServicesAccessor,
+	args?: unknown,
+): Promise<DataConnectionLineageCommandResult> {
+	if (!isDataConnectionsCommandEnabled(accessor.get(IConfigurationService))) {
+		return { available: false, reason: 'disabled' };
+	}
+
+	const dataConnectionsService = accessor.get(IPositronDataConnectionsService);
+	const logService = accessor.get(ILogService);
+
+	const parsed = parseLineageArgs(args);
+	if (!parsed) {
+		logService.warn('[DataConnections] getLineage: malformed arguments.');
+		return { available: false, reason: 'invalid-arguments' };
+	}
+
+	const target = await resolveCommandTarget(dataConnectionsService, parsed.profileId, 'getLineage', logService);
+	if (target.kind === 'unavailable') {
+		return target.candidateProfileIds === undefined
+			? { available: false, reason: target.reason }
+			: { available: false, reason: target.reason, candidateProfileIds: target.candidateProfileIds };
+	}
+
+	const { instance } = target;
+	let lineage;
+	try {
+		lineage = await instance.connectionHandle.getLineage(parsed.request);
+	} catch (err) {
+		logService.error(`[DataConnections] getLineage: reading lineage from profile ${instance.profileId} failed: ${err}`);
+		return { available: false, reason: 'query-failed' };
+	}
+
+	if (lineage === undefined) {
+		return { available: false, reason: 'unsupported-driver' };
+	}
+	if (!lineage.available) {
+		return { available: false, reason: 'lineage-unavailable', message: lineage.message };
+	}
+
+	return {
+		profileId: instance.profileId,
+		objectName: parsed.objectName,
+		domain: parsed.request.domain,
+		direction: parsed.request.direction,
+		depth: parsed.request.depth,
+		lines: renderLineageLines(lineage.edges),
+		truncated: lineage.truncated,
+	};
 }
 
 /**
@@ -672,12 +935,13 @@ export async function revealDataConnectionNode(accessor: ServicesAccessor, args:
 	await accessor.get(IPositronDataConnectionsService).revealNode(request);
 }
 
-// The ids of the three payload commands. One command per payload, matching every other
+// The ids of the four payload commands. One command per payload, matching every other
 // agentCompatible command in the workbench, so each carries its own argument schema and each shows
 // up on its own in the positron-commands skill's reference file (#15343).
 export const GET_CONNECTIONS_COMMAND_ID = 'positronDataConnections.getConnections';
 export const GET_CONNECTION_CODE_COMMAND_ID = 'positronDataConnections.getConnectionCode';
 export const GET_SCHEMA_COMMAND_ID = 'positronDataConnections.getSchema';
+export const GET_LINEAGE_COMMAND_ID = 'positronDataConnections.getLineage';
 
 // The id of the reveal command. Followed from a `command:` document link, so the id is part of
 // the contract with the SQL extension (see extensions/positron-sql/src/links.ts).
@@ -687,6 +951,12 @@ export const REVEAL_NODE_COMMAND_ID = 'positronDataConnections.revealNode';
 // Command Palette slot: running one would show the user nothing, since the return value is for a
 // programmatic caller. The Command Palette entries that display these payloads live in
 // positronDataConnectionsInspectActions.ts.
+//
+// All four payload commands are marked readOnly, so Assistant runs them without asking the user each
+// time: they report the user's connections, connection code, schema and lineage and change nothing.
+// getConnectionCode returns code but doesn't run it. getSchema and getLineage may open a connection
+// that isn't live yet, and run a metadata query on it -- a change to what the pane shows, which
+// readOnly allows, rather than to the user's work or data.
 //
 // That also means none has a precondition -- registerAction2 only records one in MenuRegistry when
 // f1 is set, and MenuRegistry is the only place the agent path reads preconditions from. This is the
@@ -703,6 +973,8 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		// Read-only, so an agent may run it without asking; see the note above the registrations.
+		readOnly: true,
 		returns: 'An array of connection profiles -- the user\'s saved connections first, then connections detected on this machine (e.g. ODBC data sources) -- without connection code (ask positronDataConnections.getConnectionCode for that, once you know which profile you want). Each entry has profileId, connected, and a one-line summary of the rest: name=<name> | driver=<id> | mechanism=<id>[ | discovered=true][ | description=<one line on where a detected connection points>] | languages=<languageId>, ... | parameters=<key>=<value>, ... -- the driver\'s own parameters all nest inside the single parameters= field (split it at its first = only), with every value the driver can redact shown in that redacted form and a secret it cannot redact left out. discovered=true marks a detected connection; its profileId works with getConnectionCode and getSchema just like a saved one, but it is ephemeral -- it stops resolving when the user saves that connection (the saved profile gets a fresh profileId) or the driver stops reporting it -- so re-read this catalog rather than reusing a stored one. `languages` is absent when the driver\'s extension is not installed or has not activated, and present but empty when the driver generates no code. Empty when no connection is configured or detected, or when the dataConnections.enabled setting is off.',
 	},
 });
@@ -717,6 +989,8 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		// Read-only, so an agent may run it without asking; see the note above the registrations.
+		readOnly: true,
 		args: [{
 			name: 'args',
 			description: 'Which connection to generate code for, and for which language.',
@@ -789,6 +1063,8 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		// Read-only, so an agent may run it without asking; see the note above the registrations.
+		readOnly: true,
 		args: [{
 			name: 'args',
 			description: 'Which connection to summarize, and how far to walk its schema.',
@@ -819,5 +1095,57 @@ CommandsRegistry.registerCommand({
 			},
 		}],
 		returns: 'The schema as one line per object in `lines`, each of the form `<path> [<kind>][ <dataType>][ PK][ (<column>:<type>, ...)][ +<n> more]`: a dot-joined path from the root, the object\'s kind, a table\'s columns folded onto its own line, and a count of children a cap left out (root-level objects a cap left out appear as a bare trailing `+<n> more` line). A name containing a delimiter is quoted as a JSON string. `truncated` is set when any cap applied. When there is no summary to give, an object with connected: false and a reason of \'disabled\', \'not-found\', \'no-driver\', \'connect-failed\', \'no-connections\', or \'ambiguous\' -- the last of which also lists candidateProfileIds to choose from.',
+	},
+});
+
+CommandsRegistry.registerCommand({
+	id: GET_LINEAGE_COMMAND_ID,
+	handler: getDataConnectionLineage,
+	metadata: {
+		description: localize(
+			'positron.dataConnections.getLineage.description',
+			"Read the lineage of a table, view or column in a data connection -- the objects its data comes from, or the objects it flows into -- connecting it first when it is not live yet."
+		),
+		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
+		agentCompatible: true,
+		// Read-only, so an agent may run it without asking; see the note above the registrations.
+		readOnly: true,
+		args: [{
+			name: 'args',
+			description: 'Which object to trace, in which direction, and how far.',
+			schema: {
+				type: 'object',
+				required: ['objectName', 'direction'],
+				properties: {
+					profileId: {
+						type: 'string',
+						description: 'The profile whose connection to read from, as reported by positronDataConnections.getConnections (saved or discovered); it is connected automatically when it is not live yet. Optional on the same terms as for positronDataConnections.getSchema.',
+					},
+					objectName: {
+						type: 'string',
+						description: 'The fully qualified object name: database.schema.table for a table or view, database.schema.table.column for a column. Copy it from the start of a positronDataConnections.getSchema line (or a getLineage line) exactly, keeping its case and any JSON-quoted parts: each part is matched exactly, so `SALES.PUBLIC.orders` names a table called lowercase `orders`.',
+					},
+					direction: {
+						type: 'string',
+						enum: ['upstream', 'downstream'],
+						description: '\'upstream\' for where the data comes from; \'downstream\' for what is built from it (what breaks if it changes).',
+					},
+					domain: {
+						type: 'string',
+						enum: ['table', 'column'],
+						description: 'Whether objectName names a table (including views) or a column. Defaults to \'table\'.',
+					},
+					depth: {
+						type: 'number',
+						description: 'How many hops to follow, 1 to 5. Defaults to 2.',
+					},
+					maxEdges: {
+						type: 'number',
+						description: 'The most edges to return, nearest first, 1 to 1000. Defaults to 200.',
+					},
+				},
+			},
+		}],
+		returns: 'The request as carried out (profileId, objectName, domain, direction, and depth after clamping), plus one line per edge in `lines`, nearest first, of the form `<distance> <source> -> <target>`: data flows from source to target whichever direction was asked for, and distance 1 is a direct relationship. Each end is a dot-joined path (database.schema.object, plus .column for a column edge), followed by ` [<domain>]` when it is not a table or column (a stage, say) -- on a column edge, the kind of object holding the column (e.g. [view]); an object the role may not see shows as `<masked>`, and a name containing a delimiter is quoted as a JSON string. `truncated` is set when maxEdges left edges out. An empty `lines` means no lineage in that direction. When there is no lineage to give, an object with available: false and a reason of \'disabled\', \'invalid-arguments\', \'not-found\', \'no-driver\', \'connect-failed\', \'no-connections\', \'ambiguous\' (with candidateProfileIds), \'unsupported-driver\', \'lineage-unavailable\' (with the data source\'s message), or \'query-failed\'.',
 	},
 });

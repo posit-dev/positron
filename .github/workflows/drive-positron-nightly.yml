@@ -47,7 +47,7 @@ jobs:
       actions: read
       issues: read
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1
       options: --user 0:0 --init
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
@@ -62,7 +62,8 @@ jobs:
       HOME: /root
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
-      RETICULATE_PYTHON: /root/.venv/bin/python
+      # reticulate 1.47 cannot run on Python 3.14 (rstudio/reticulate#1930); bind the 3.13
+      RETICULATE_PYTHON: /root/.pyenv/versions/3.13.0/bin/python
       APP_ARGS: --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --disable-gpu-compositing --password-store=basic
     steps:
       # For the Fixer's time budget.

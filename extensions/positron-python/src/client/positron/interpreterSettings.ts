@@ -482,6 +482,14 @@ function mapInterpreterToInstallDir(interpreterPath: string): string | undefined
 }
 
 /**
+ * A `python.defaultInterpreterPath` value, resolved, or undefined when it is unset.
+ * `python` is the setting's default and means unset.
+ */
+export function resolveDefaultInterpreterPath(value: string | undefined, description: string): string | undefined {
+    return value && value !== 'python' ? resolveSettingPath(value, description) : undefined;
+}
+
+/**
  * Retrieves the user's default Python interpreter path from VS Code settings
  *
  * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths
@@ -501,16 +509,8 @@ export function getUserDefaultInterpreter(scope?: Resource): InspectInterpreterS
     const defaultInterpreterPath: InspectInterpreterSettingType =
         configuration?.inspect<string>('defaultInterpreterPath') ?? {};
 
-    const processPath = (value: string | undefined): string => {
-        // 'python' is the default for this setting. we only want to know if it has changed
-        if (value === 'python') {
-            return '';
-        }
-        if (value) {
-            return resolveSettingPath(value, '[getUserDefaultInterpreter]: interpreter path') ?? '';
-        }
-        return value ?? '';
-    };
+    const processPath = (value: string | undefined): string =>
+        resolveDefaultInterpreterPath(value, '[getUserDefaultInterpreter]: interpreter path') ?? '';
 
     defaultInterpreterPath.globalValue = processPath(defaultInterpreterPath.globalValue);
     defaultInterpreterPath.workspaceValue = processPath(defaultInterpreterPath.workspaceValue);

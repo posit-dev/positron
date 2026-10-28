@@ -302,6 +302,32 @@ test('checkoutProblems names a checkout off its head, a stale or missing build, 
 	assert.deepEqual(check({ mtimeMs: path => path.endsWith('.exe') ? 1 : null }), []);
 });
 
+test('checkoutProblems judges the build by when the changed src/ files were written, not when they were committed', () => {
+	const STALE = 'the build is older than the last change to src/; rebuild with npm run build-start, then npm run build-check';
+	const check = ({ committed = [], modified = [], untracked = [], fileMs = {} }) => checkoutProblems({
+		head: 'bbb',
+		git: args => ({
+			'rev-parse HEAD': 'bbb',
+			'rev-parse bbb^{commit}': 'bbb',
+			// Committed after the build.
+			'log -1 --format=%ct -- src': '300',
+			'log -1 --format= --name-only -- src': committed.join('\n'),
+			'diff --name-only HEAD -- src': modified.join('\n'),
+			'ls-files --others --exclude-standard -- src': untracked.join('\n'),
+		})[args.join(' ')] ?? '',
+		mtimeMs: path => path in fileMs ? fileMs[path] : (path.endsWith('.exe') ? null : 1),
+		builtMs: 200_000,
+	});
+	// The files were written before the build; only the commit came after.
+	assert.deepEqual(check({ committed: ['src/a.ts'], fileMs: { 'src/a.ts': 150_000 } }), []);
+	// A committed, an uncommitted or a new file written after the build.
+	assert.deepEqual(check({ committed: ['src/a.ts'], fileMs: { 'src/a.ts': 250_000 } }), [STALE]);
+	assert.deepEqual(check({ committed: ['src/a.ts'], modified: ['src/b.ts'], fileMs: { 'src/a.ts': 150_000, 'src/b.ts': 250_000 } }), [STALE]);
+	assert.deepEqual(check({ untracked: ['src/c.ts'], fileMs: { 'src/c.ts': 250_000 } }), [STALE]);
+	// With every changed file deleted, the commit time decides.
+	assert.deepEqual(check({ committed: ['src/gone.ts'], fileMs: { 'src/gone.ts': null } }), [STALE]);
+});
+
 test('the Environment lines read as lint and the issue button read them, with 0 as a build number', () => {
 	const lines = environmentLines({ product: { positronVersion: '2026.11.0', positronBuildNumber: 0 }, codeVersion: '1.134.0', commit: '9c6fd69592', os: 'macOS 27.0 (Darwin arm64)', ark: '0.1.252', kallichore: '0.1.71' });
 	assert.deepEqual(lines, [

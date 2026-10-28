@@ -14,8 +14,8 @@ import { IAction } from '../../../../../base/common/actions.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IErrorAssistant, IErrorAssistantContext, IErrorAssistantService } from '../../../positronAssistant/common/errorAssistant.js';
-import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
+import { IErrorActionHandler, IErrorActionContext, IErrorActionHandlerService } from '../../../positronAssistant/common/errorAction.js';
+import { registerTestErrorActionHandler } from '../../../positronAssistant/test/browser/errorActionTestUtils.js';
 import { AssistantErrorQuickFix } from '../../browser/notebookCells/AssistantErrorQuickFix.js';
 
 describe('AssistantErrorQuickFix', () => {
@@ -31,18 +31,18 @@ describe('AssistantErrorQuickFix', () => {
 		ask.mockReset().mockResolvedValue(undefined);
 	});
 
-	const errorContext: IErrorAssistantContext = {
+	const errorContext: IErrorActionContext = {
 		kind: 'notebook',
 		error: 'NameError: name "x" is not defined',
 		uri: URI.file('/analysis.ipynb'),
 	};
 
-	/** Register an assistant errors are sent to, and render the quick fix for it. */
-	function renderQuickFix(options: Partial<IErrorAssistant> = {}, overrides: Partial<ComponentProps<typeof AssistantErrorQuickFix>> = {}) {
-		registerTestErrorAssistant(ctx, { ask, ...options });
+	/** Register a handler errors are sent to, and render the quick fix for it. */
+	function renderQuickFix(options: Partial<IErrorActionHandler> = {}, overrides: Partial<ComponentProps<typeof AssistantErrorQuickFix>> = {}) {
+		registerTestErrorActionHandler(ctx, { ask, ...options });
 		return rtl.render(
 			<AssistantErrorQuickFix
-				assistant={ctx.get(IErrorAssistantService).activeAssistant!}
+				handler={ctx.get(IErrorActionHandlerService).activeHandler!}
 				getErrorContext={() => errorContext}
 				groupAriaLabel='Error quick fix actions'
 				{...overrides}
@@ -92,7 +92,7 @@ describe('AssistantErrorQuickFix', () => {
 		expect(ask.mock.calls[0][1].error).toBe('fresh location');
 	});
 
-	it('names the assistant in the dropdown actions', async () => {
+	it('names the handler in the dropdown actions', async () => {
 		const user = userEvent.setup();
 		renderQuickFix();
 		await user.click(screen.getByRole('button', { name: 'More fix options' }));
@@ -103,7 +103,7 @@ describe('AssistantErrorQuickFix', () => {
 		expect(labels).toEqual([['Ask Test Assistant to fix in current chat'], ['Ask Test Assistant to explain in current chat']]);
 	});
 
-	it('offers no dropdowns when the assistant cannot continue the active chat', () => {
+	it('offers no dropdowns when the handler cannot continue the active chat', () => {
 		renderQuickFix({ supportsChatContinuation: false });
 
 		expect(screen.getByRole('button', { name: 'Ask Test Assistant to fix in new chat' })).toBeInTheDocument();

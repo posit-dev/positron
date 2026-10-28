@@ -7,7 +7,7 @@ import { toAction } from '../../../../base/common/actions.js';
 import { localize } from '../../../../nls.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ExtensionGalleryConfig } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
-import { parseExtensionsGalleryEnv } from '../../../../platform/extensionManagement/common/extensionsGalleryEnv.js';
+import { isExtensionsGalleryDisabled, parseExtensionsGalleryEnv } from '../../../../platform/extensionManagement/common/extensionsGalleryEnv.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
@@ -15,7 +15,8 @@ import { showWindowLogActionId } from '../../../services/log/common/logConstants
 
 /**
  * Parses the EXTENSIONS_GALLERY value and reports the outcome to the user:
- * a warning notification + log on parse failure, an info log on success.
+ * a warning notification + log on parse failure, an info log on success. A
+ * config that disables the marketplace is logged as such, with no notification.
  *
  * Shared by the desktop (electron-browser) and web (browser) gallery manifest
  * services. On desktop the value comes from the local process env; on web it is
@@ -52,7 +53,9 @@ export function reportExtensionsGalleryEnv(
 			}
 		});
 	});
-	if (parsed) {
+	if (parsed && isExtensionsGalleryDisabled(parsed)) {
+		logService.info('[Marketplace] Extension gallery disabled by EXTENSIONS_GALLERY env var (empty serviceUrl).');
+	} else if (parsed) {
 		logService.info(`[Marketplace] Using extension gallery from EXTENSIONS_GALLERY env var: ${parsed.serviceUrl}`);
 	}
 	return parsed;
@@ -70,6 +73,12 @@ export function handleGallerySourceSettingChange(
 	notificationService: Pick<INotificationService, 'info'>,
 	requestRestart: () => void,
 ): void {
+	if (envGallery && isExtensionsGalleryDisabled(envGallery)) {
+		notificationService.info(localize(
+			'positron.extensionsGallery.settingIgnoredByDisabledEnv',
+			"The extension gallery is disabled by the EXTENSIONS_GALLERY environment variable, so the extension gallery source setting has no effect."));
+		return;
+	}
 	if (envGallery) {
 		notificationService.info(localize(
 			'positron.extensionsGallery.settingIgnoredByEnv',

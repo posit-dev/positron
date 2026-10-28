@@ -49,8 +49,10 @@ if [ -z "$GITHUB_TOKEN" ]; then
   exit 1
 fi
 
-# Fetch existing comments on the PR
-COMMENTS=$(gh api repos/${REPO}/issues/${PR_NUMBER}/comments --header "Authorization: token $GITHUB_TOKEN")
+# Fetch all existing comments on the PR. --paginate matters: the API returns 30
+# per page, and on a busy PR the tags comment can sit past the first page.
+# Each page is its own JSON array; jq below reads them all as a stream.
+COMMENTS=$(gh api repos/${REPO}/issues/${PR_NUMBER}/comments --paginate --header "Authorization: token $GITHUB_TOKEN")
 
 # Check if a comment with the marker already exists. Update the first; any
 # others are duplicates from an older race between runs and get deleted below.

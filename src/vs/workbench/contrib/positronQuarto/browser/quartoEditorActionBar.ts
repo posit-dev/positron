@@ -18,7 +18,7 @@ import { IQuartoKernelManager } from './quartoKernelManager.js';
 // Per-pane lang-id check: the global IS_QUARTO_DOCUMENT context key would
 // leak this entry into adjacent editor groups, the same way it would for the
 // kernel status widget (see comment in positronQuarto.contribution.ts).
-const QUARTO_LANG_WHEN = ContextKeyExpr.or(
+export const QUARTO_LANG_WHEN = ContextKeyExpr.or(
 	...QUARTO_LANGUAGE_IDS.map(id => ContextKeyExpr.equals(ResourceContextKey.LangId.key, id))
 );
 

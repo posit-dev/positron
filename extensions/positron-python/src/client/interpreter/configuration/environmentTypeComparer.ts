@@ -256,8 +256,8 @@ export function isProblematicCondaEnvironment(environment: PythonEnvironment): b
         return false;
     }
     // Check if Python is not installed in the conda environment:
-    // - JS locator case: path is just 'python'
-    // - Native locator case: path is a predicted full path that doesn't exist
+    // - No prefix: the path is just 'python'
+    // - Otherwise: the path is a predicted full path that doesn't exist
     const executablePath = environment.path;
     if (executablePath === 'python') {
         return true;
@@ -285,7 +285,7 @@ export function isProblematicCondaEnvironment(environment: PythonEnvironment): b
  * Compare 2 Python versions in decending order, most recent one comes first.
  */
 // --- Start Positron ---
-// We export this function for Positron to use in sortInterpreters function.
+// We export this function for Positron's interpreter ranking (interpreterRanking.ts) to use.
 export function comparePythonVersionDescending(a: PythonVersion | undefined, b: PythonVersion | undefined): number {
     // --- End Positron ---
     if (!a) {
@@ -421,13 +421,25 @@ function isVirtualEnvName(versionName: string): boolean {
 }
 
 /**
+ * The first version named in the contents of a pyenv version file (`.python-version`,
+ * or pyenv's global `version`), or undefined if it names none.
+ */
+export function parsePythonVersionFile(content: string): string | undefined {
+    return content
+        .replace(/^\uFEFF/, '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line.length > 0);
+}
+
+/**
  * Return the path to the local pyenv version file, or the global pyenv version file if the local version file does not exist.
  * If neither file exists, return undefined.
  */
 export function getPyenvVersion(workspacePath: string | undefined): string | undefined {
     const localPyenvVersion = workspacePath ? path.join(workspacePath, '.python-version') : '';
     if (pathExistsSync(localPyenvVersion)) {
-        return readFileSync(localPyenvVersion).trim();
+        return parsePythonVersionFile(readFileSync(localPyenvVersion));
     }
     // if the local pyenv version file does not exist in the workspace, we need to check parents of the workspace
     if (workspacePath) {
@@ -436,26 +448,27 @@ export function getPyenvVersion(workspacePath: string | undefined): string | und
             maxDepth: 10,
         });
         if (parentPyenvVersion) {
-            return readFileSync(parentPyenvVersion).trim();
+            return parsePythonVersionFile(readFileSync(parentPyenvVersion));
         }
     }
 
     const globalPyenvVersion = path.join(getPyenvDir(), 'version');
     if (pathExistsSync(globalPyenvVersion)) {
-        return readFileSync(globalPyenvVersion).trim();
+        return parsePythonVersionFile(readFileSync(globalPyenvVersion));
     }
     return undefined;
 }
 
 /**
  * Check if a version is supported (i.e. >= the minimum supported version and < the maximum).
+ * Support is decided by major and minor version only, so patch, build, and prerelease are ignored.
  * Also returns true if the version could not be determined.
  */
 export function isVersionSupported(version: PythonVersion | undefined): boolean {
-    return (
-        !version ||
-        (comparePythonVersionDescending(MINIMUM_PYTHON_VERSION, version) >= 0 &&
-            comparePythonVersionDescending(MAXIMUM_PYTHON_VERSION_EXCLUSIVE, version) < 0)
-    );
+    if (!version) {
+        return true;
+    }
+    const compareMinor = (other: PythonVersion) => version.major - other.major || version.minor - other.minor;
+    return compareMinor(MINIMUM_PYTHON_VERSION) >= 0 && compareMinor(MAXIMUM_PYTHON_VERSION_EXCLUSIVE) < 0;
 }
 // --- End Positron ---

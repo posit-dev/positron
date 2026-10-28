@@ -38,6 +38,7 @@ describe('getMatchingDefinitions', () => {
 			{ ...xx, label: 'Other language', language: 'python' },
 			{ ...xx, label: '' },
 			{ ...xx, label: 'Bad env', env: ['R_LIBS_SITE=/bad'] },
+			{ ...xx, label: 'Bad modules', modules: 'R/4.4.3' },
 			{ ...xx, label: 'Bad startup script', startupScript: 42 },
 			{ ...xx, env: { R_LIBS_SITE: '/dup' } },
 		];

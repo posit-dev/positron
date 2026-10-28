@@ -5,15 +5,20 @@
 
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-import { Uri, WorkspaceFolder } from 'vscode';
+import { Disposable, Uri, WorkspaceFolder } from 'vscode';
 import { CreateEnvironmentOptionsInternal } from '../pythonEnvironments/creation/types';
 import {
     CreateEnvironmentOptions,
     CreateEnvironmentProvider,
     CreateEnvironmentResult,
 } from '../pythonEnvironments/creation/proposed.createEnvApis';
-import { handleCreateEnvironmentCommand } from '../pythonEnvironments/creation/createEnvironment';
+import {
+    handleCreateEnvironmentCommand,
+    holdCreatingEnvironment,
+} from '../pythonEnvironments/creation/createEnvironment';
 import { IPythonRuntimeManager } from './manager';
+import { PythonRuntimeExtraData } from './runtime';
+import { arePathsSame } from '../pythonEnvironments/common/externalDependencies';
 import { getExtension } from '../common/vscodeApis/extensionsApi';
 import { PythonExtension } from '../api/types';
 import { PVSC_EXTENSION_ID } from '../common/constants';
@@ -50,7 +55,21 @@ type CreateEnvironmentAndRegisterResult = CreateEnvironmentResult & { metadata?:
 export interface CreateEnvironmentAndRegisterOptions
     extends Omit<CreateEnvironmentOptions & CreateEnvironmentOptionsInternal, 'workspaceFolder'> {
     workspaceFolder?: string;
+    /**
+     * Set when the caller will start a session for the new environment itself (the New Folder
+     * flow). The new-environment prompt is then suppressed, not delayed, from creation until that
+     * session starts, or for at most `SESSION_START_HOLD_MS`. A watcher event that arrives in that
+     * window is dropped, so if no session starts (e.g. Manual startup), no prompt appears.
+     */
+    sessionWillStart?: boolean;
 }
+
+/**
+ * The longest time `createEnvironmentAndRegister` keeps the new-environment prompt quiet while
+ * it waits for the caller to start a session (`sessionWillStart`). It covers a session that
+ * never starts, such as with Manual startup.
+ */
+export const SESSION_START_HOLD_MS = 60_000;
 
 /**
  * Rehydrates a workspace folder URI string into a `WorkspaceFolder`.
@@ -115,16 +134,97 @@ export async function createEnvironmentAndRegister(
     if (!workspaceFolder && (getWorkspaceFolders() ?? []).length === 0) {
         throw new Error(CreateEnv.noWorkspace);
     }
+    const { sessionWillStart, ...providerOptions } = options;
     const resolvedOptions: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal = {
-        ...options,
+        ...providerOptions,
         workspaceFolder,
     };
-    const result = await handleCreateEnvironmentCommand(providers, resolvedOptions);
+    if (!sessionWillStart) {
+        return createAndRegister(providers, pythonRuntimeManager, resolvedOptions);
+    }
+
+    // Raise the hold before creating, so the watcher event for the new interpreter cannot show the
+    // prompt, and keep it up after returning: the caller starts the session only once this
+    // command resolves (#16584).
+    let endHold!: () => void;
+    const held = new Promise<void>((resolve) => {
+        endHold = resolve;
+    });
+    void holdCreatingEnvironment(() => held);
+    let result: CreateEnvironmentAndRegisterResult | undefined;
+    try {
+        result = await createAndRegister(providers, pythonRuntimeManager, resolvedOptions);
+    } catch (ex) {
+        endHold();
+        throw ex;
+    }
+    if (!result?.path) {
+        endHold();
+        return result;
+    }
+    const pythonPaths = [result.path];
+    const registeredPath = (result.metadata?.extraRuntimeData as PythonRuntimeExtraData | undefined)?.pythonPath;
+    if (registeredPath) {
+        pythonPaths.push(registeredPath);
+    }
+    void waitForSessionStart(pythonRuntimeManager, pythonPaths, SESSION_START_HOLD_MS).then(endHold);
+    return result;
+}
+
+/**
+ * Creates an environment with the given options and registers it with the Python runtime manager.
+ */
+async function createAndRegister(
+    providers: readonly CreateEnvironmentProvider[],
+    pythonRuntimeManager: IPythonRuntimeManager,
+    options: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
+): Promise<CreateEnvironmentAndRegisterResult | undefined> {
+    const result = await handleCreateEnvironmentCommand(providers, options);
     if (result?.path) {
         const metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.path);
         return { ...result, metadata };
     }
     return result;
+}
+
+/**
+ * Resolves when a session for one of the given interpreter paths leaves the Uninitialized state,
+ * or after `timeoutMs`. A session only counts as running once it leaves Uninitialized, so
+ * resolving when it is created would leave a gap for the new-environment prompt.
+ */
+function waitForSessionStart(
+    pythonRuntimeManager: IPythonRuntimeManager,
+    pythonPaths: string[],
+    timeoutMs: number,
+): Promise<void> {
+    return new Promise<void>((resolve) => {
+        const disposables: Disposable[] = [];
+        const done = () => {
+            disposables.forEach((d) => d.dispose());
+            resolve();
+        };
+        const timer = setTimeout(done, timeoutMs);
+        disposables.push({ dispose: () => clearTimeout(timer) });
+        disposables.push(
+            pythonRuntimeManager.onDidCreateSession((session) => {
+                const extraData = session.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
+                if (!pythonPaths.some((p) => arePathsSame(p, extraData.pythonPath))) {
+                    return;
+                }
+                if (session.getRuntimeState() !== positron.RuntimeState.Uninitialized) {
+                    done();
+                    return;
+                }
+                disposables.push(
+                    session.onDidChangeRuntimeState((state) => {
+                        if (state !== positron.RuntimeState.Uninitialized) {
+                            done();
+                        }
+                    }),
+                );
+            }),
+        );
+    });
 }
 
 /**

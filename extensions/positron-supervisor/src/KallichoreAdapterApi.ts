@@ -18,14 +18,13 @@ import { isAxiosError } from 'axios';
 import { KallichoreServerState } from './ServerState.js';
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreInstances } from './KallichoreInstances.js';
-import { DefinitionTerminalEnvironment, findInterpreterDefinition, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
+import { DefinitionTerminalEnvironment, findInterpreterDefinition, getModuleInitScript, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
 import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
-import { McpLaunch, mcpLaunch } from './McpAgents.js';
-import { MCP_TOKEN_ENV_VAR, MCP_URL_ENV_VAR, mcpConnectionsDirectory } from './mcpConnection.js';
+import { MCP_ENV_VARS } from './mcpConnection.js';
 import { McpClientsStatusBar, SHOW_CONNECTED_AGENTS_COMMAND, showConnectedAgents } from './McpClientsStatusBar.js';
 
 /**
@@ -350,8 +349,9 @@ export class KCApi implements PositronSupervisorApi {
 			() => loadMcpState(_context.workspaceState),
 			state => saveMcpState(_context.workspaceState, state),
 			() => this._sessions.map(session => session.metadata.sessionId),
+			() => this.getKallichorePath(),
 			mcpFeatureEnabled,
-			() => onMcpRegistered(_context, () => this.mcpLaunch(), message => this.log(message)),
+			launch => onMcpRegistered(_context, launch, message => this.log(message)),
 			() => removeConfiguredAgents(_context, message => this.log(message)));
 		this._disposables.push(this._mcp);
 
@@ -371,7 +371,7 @@ export class KCApi implements PositronSupervisorApi {
 		// definition, if it has one. MCP's variables share the collection.
 		this._terminalEnvironment = new DefinitionTerminalEnvironment(
 			_context.environmentVariableCollection,
-			[MCP_URL_ENV_VAR, MCP_TOKEN_ENV_VAR],
+			MCP_ENV_VARS,
 			sessionId => positron.runtime.getSession(sessionId),
 			session => this.getTerminalDefinitionEnv(session));
 		_context.subscriptions.push(positron.runtime.onDidChangeForegroundSession(sessionId => {
@@ -416,7 +416,7 @@ export class KCApi implements PositronSupervisorApi {
 		}));
 
 		this._context.subscriptions.push(vscode.commands.registerCommand(CONFIGURE_AGENT_COMMAND, (agentId?: string) => {
-			return configureAgent(this._context, () => this.mcpLaunch(), agentId);
+			return configureAgent(this._context, this._mcp.launch, agentId);
 		}));
 
 		// Listen for changes to the idle shutdown hours config setting; if the
@@ -1439,15 +1439,15 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
-	 * Get the environment variables an interpreter definition sets, running its
-	 * startup script to capture the variables the script sets.
+	 * Get the environment variables an interpreter definition sets, loading its
+	 * modules and running its startup script to capture the variables they set.
 	 *
 	 * @param definition The interpreter definition
 	 * @param kernelEnv The environment variables the kernel spec sets, if any
 	 */
 	private async resolveDefinitionEnv(definition: InterpreterDefinition, kernelEnv: NodeJS.ProcessEnv | undefined): Promise<Record<string, string>> {
-		if (definition.startupScript && process.platform === 'win32') {
-			this.log(`Ignoring startupScript for "${definition.label}": startup scripts are not supported on Windows`);
+		if ((definition.startupScript || definition.modules?.length) && process.platform === 'win32') {
+			this.log(`Ignoring startupScript and modules for "${definition.label}": they are not supported on Windows`);
 		}
 		const baseEnv: Record<string, string> = {};
 		for (const [name, value] of Object.entries({ ...process.env, ...kernelEnv })) {
@@ -1457,10 +1457,11 @@ export class KCApi implements PositronSupervisorApi {
 		}
 		let env: Record<string, string>;
 		try {
-			env = await resolveDefinitionEnv(definition, baseEnv, process.platform);
+			const moduleInit = definition.startupScript || definition.modules?.length ? await getModuleInitScript() : undefined;
+			env = await resolveDefinitionEnv(definition, baseEnv, process.platform, moduleInit);
 		} catch (err) {
 			throw new Error(vscode.l10n.t(
-				'The startup script for the interpreter "{0}" failed: {1}',
+				'Setting up the interpreter "{0}" failed: {1}',
 				definition.label, summarizeError(err)));
 		}
 		this.log(`Applying interpreter definition "${definition.label}" (env: ${Object.keys(env).join(', ') || 'none'})`);
@@ -2002,18 +2003,6 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Dispose of any other disposables
 		this._disposables.forEach(disposable => disposable.dispose());
-	}
-
-	/**
-	 * The command line an agent runs to start Positron's MCP server: this
-	 * supervisor binary's stdio bridge.
-	 *
-	 * @throws An error if the server binary cannot be found.
-	 */
-	private mcpLaunch(): McpLaunch {
-		return mcpLaunch(
-			this.getKallichorePath(),
-			mcpConnectionsDirectory(this._context.globalStorageUri));
 	}
 
 	/**

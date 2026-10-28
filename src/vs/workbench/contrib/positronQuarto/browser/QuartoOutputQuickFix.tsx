@@ -8,8 +8,8 @@ import { useLayoutEffect } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { IErrorAssistantContext, IQuartoErroredCell } from '../../positronAssistant/common/errorAssistant.js';
-import { useActiveErrorAssistant } from '../../positronAssistant/browser/useActiveErrorAssistant.js';
+import { IErrorActionContext, IQuartoErroredCell } from '../../positronAssistant/common/errorAction.js';
+import { useActiveErrorActionHandler } from '../../positronAssistant/browser/useActiveErrorActionHandler.js';
 import { AssistantErrorQuickFix } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
@@ -32,14 +32,14 @@ interface QuartoOutputQuickFixProps {
 }
 
 /**
- * Quick fix buttons for Quarto inline output errors, hidden while no assistant
+ * Quick fix buttons for Quarto inline output errors, hidden while no handler
  * can take errors.
  */
 export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
-	// Read here rather than in AssistantErrorQuickFix so that an assistant
+	// Read here rather than in AssistantErrorQuickFix so that a handler
 	// change re-renders this component and runs the layout effect below,
 	// re-measuring the host view zone when the buttons appear or disappear.
-	const assistant = useActiveErrorAssistant();
+	const handler = useActiveErrorActionHandler();
 	const services = usePositronReactServicesContext();
 
 	const { errorContent, documentUri, cell, onLayout } = props;
@@ -51,7 +51,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		onLayout?.();
 	});
 
-	const getErrorContext = (): IErrorAssistantContext => {
+	const getErrorContext = (): IErrorActionContext => {
 		// A chunk whose language isn't the document's runs in that language's
 		// console, not the document's kernel (quartoExecutionManager's
 		// _executeRangeViaConsole), so the kernel is the wrong session for it.
@@ -69,13 +69,13 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		};
 	};
 
-	if (!assistant) {
+	if (!handler) {
 		return null;
 	}
 
 	return (
 		<AssistantErrorQuickFix
-			assistant={assistant}
+			handler={handler}
 			getErrorContext={getErrorContext}
 			groupAriaLabel={localize('positron.quarto.quickFixGroup', "Output quick fix actions")}
 		/>

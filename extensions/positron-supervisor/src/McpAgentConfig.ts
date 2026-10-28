@@ -47,19 +47,14 @@ const AUTO_CONFIGURED_AGENT_ID = 'claude-code';
 /**
  * One harness Positron has written into, and what it was told.
  *
- * Recorded so an entry can be put right when the bridge moves -- a Positron
- * update in a versioned install directory, say -- and taken away when the
- * feature is turned off.
+ * Recorded so an entry written with an older command line can be put right,
+ * and so the entry can be taken away when the feature is turned off.
  */
 interface ConfiguredAgent {
 	/** The harness's {@link McpAgent.id}. */
 	id: string;
 
-	/**
-	 * The command line the entry was written with. Absent from records written
-	 * before agents were configured to start the bridge, whose entries are
-	 * rewritten on the next registration.
-	 */
+	/** The command line the entry was written with, if one was recorded. */
 	launch?: McpLaunch;
 }
 
@@ -78,17 +73,22 @@ interface InstallResult {
  * entry.
  *
  * @param context The extension context, which remembers what we configure.
- * @param launch The command line that starts the bridge.
+ * @param launch The command line that starts the launcher, if it is installed.
  * @param agentId The harness to configure. Omitted when the user ran the
  *  command from the palette, in which case they are asked to pick one.
  */
 export async function configureAgent(
 	context: vscode.ExtensionContext,
-	launch: () => McpLaunch,
+	launch: McpLaunch | undefined,
 	agentId?: string,
 ): Promise<void> {
 	if (!mcpFeatureEnabled()) {
 		await warnNotRunning();
+		return;
+	}
+	if (!launch) {
+		await vscode.window.showWarningMessage(vscode.l10n.t(
+			"Positron's MCP server is not ready yet. See the Kernel Supervisor output for details."));
 		return;
 	}
 
@@ -98,15 +98,13 @@ export async function configureAgent(
 	}
 
 	let result: InstallResult;
-	let written: McpLaunch;
 	try {
-		written = launch();
-		result = await installAgent(agent, written);
+		result = await installAgent(agent, launch);
 	} catch (err) {
 		await vscode.window.showErrorMessage(summarizeError(err));
 		return;
 	}
-	await recordConfiguredAgent(context, agent, written);
+	await recordConfiguredAgent(context, agent, launch);
 
 	const open = vscode.l10n.t("Open File");
 	const choice = await vscode.window.showInformationMessage(
@@ -135,13 +133,12 @@ export async function configureAgent(
  */
 export async function onMcpRegistered(
 	context: vscode.ExtensionContext,
-	launch: () => McpLaunch,
+	launch: McpLaunch,
 	log: (message: string) => void,
 ): Promise<void> {
 	try {
-		const current = launch();
-		await autoConfigureClaudeCode(context, current, log);
-		await refreshConfiguredAgents(context, current, log);
+		await autoConfigureClaudeCode(context, launch, log);
+		await refreshConfiguredAgents(context, launch, log);
 	} catch (err) {
 		log(`Could not update the configured coding agents: ${summarizeError(err)}`);
 	}
@@ -197,10 +194,7 @@ async function autoConfigureClaudeCode(
 }
 
 /**
- * Rewrite the entries whose command line has since moved.
- *
- * An entry names the supervisor binary, which moves when Positron is updated in
- * a versioned install directory, and when a developer switches between builds.
+ * Rewrite the entries written with another command line.
  *
  * @param context The extension context, which remembers what we configure.
  * @param launch The command line that starts the bridge.

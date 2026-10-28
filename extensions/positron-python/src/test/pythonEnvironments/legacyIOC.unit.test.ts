@@ -10,24 +10,29 @@ import { EventEmitter, Uri, WorkspaceFolder } from 'vscode';
 import { FileChangeType } from '../../client/common/platform/fileSystemWatcher';
 import { IComponentAdapter } from '../../client/interpreter/contracts';
 import { IServiceManager } from '../../client/ioc/types';
-import { PythonEnvKind } from '../../client/pythonEnvironments/base/info';
+import { PythonEnvInfo, PythonEnvKind } from '../../client/pythonEnvironments/base/info';
 import { IDiscoveryAPI } from '../../client/pythonEnvironments/base/locator';
 import { PythonEnvCollectionChangedEvent } from '../../client/pythonEnvironments/base/watcher';
 import { registerNewDiscoveryForIOC } from '../../client/pythonEnvironments/legacyIOC';
 import { mockedVSCodeNamespaces } from '../vscode-mock';
 
-type FakeChangedEvent = PythonEnvCollectionChangedEvent & { envPath?: string };
+function nativeEnv(filename: string): PythonEnvInfo {
+    return {
+        executable: { filename, sysPrefix: '', ctime: -1, mtime: -1 },
+        kind: PythonEnvKind.Venv,
+    } as unknown as PythonEnvInfo;
+}
 
 suite('Component Adapter - onDidCreate', () => {
     const workspaceUri = Uri.file('/workspace');
     const workspaceFolder: WorkspaceFolder = { uri: workspaceUri, name: 'workspace', index: 0 };
     const resource = Uri.file('/workspace/some-file.py');
 
-    let onChangedEmitter: EventEmitter<FakeChangedEvent>;
+    let onChangedEmitter: EventEmitter<PythonEnvCollectionChangedEvent>;
     let adapter: IComponentAdapter;
 
     setup(() => {
-        onChangedEmitter = new EventEmitter<FakeChangedEvent>();
+        onChangedEmitter = new EventEmitter<PythonEnvCollectionChangedEvent>();
 
         const discoveryApi = TypeMoq.Mock.ofType<IDiscoveryAPI>();
         discoveryApi.setup((a) => a.onChanged).returns(() => onChangedEmitter.event);
@@ -49,19 +54,6 @@ suite('Component Adapter - onDidCreate', () => {
         onChangedEmitter.dispose();
     });
 
-    test('js locator shape: callback receives envPath', () => {
-        const received: string[] = [];
-        adapter.onDidCreate(resource, (envPath) => received.push(envPath));
-
-        onChangedEmitter.fire({
-            type: FileChangeType.Created,
-            searchLocation: workspaceUri,
-            envPath: `${workspaceUri.fsPath}/.venv/bin/python`,
-        });
-
-        assert.deepStrictEqual(received, [`${workspaceUri.fsPath}/.venv/bin/python`]);
-    });
-
     test('native locator shape: callback receives new.executable.filename', () => {
         const received: string[] = [];
         adapter.onDidCreate(resource, (envPath) => received.push(envPath));
@@ -69,16 +61,7 @@ suite('Component Adapter - onDidCreate', () => {
         onChangedEmitter.fire({
             type: FileChangeType.Created,
             searchLocation: workspaceUri,
-            new: {
-                executable: {
-                    filename: `${workspaceUri.fsPath}/.venv/bin/python`,
-                    sysPrefix: '',
-                    ctime: -1,
-                    mtime: -1,
-                },
-                kind: PythonEnvKind.Venv,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any,
+            new: nativeEnv(`${workspaceUri.fsPath}/.venv/bin/python`),
         });
 
         assert.deepStrictEqual(received, [`${workspaceUri.fsPath}/.venv/bin/python`]);
@@ -90,7 +73,7 @@ suite('Component Adapter - onDidCreate', () => {
 
         onChangedEmitter.fire({
             type: FileChangeType.Created,
-            envPath: `${workspaceUri.fsPath}/.venv/bin/python`,
+            new: nativeEnv(`${workspaceUri.fsPath}/.venv/bin/python`),
         });
 
         assert.deepStrictEqual(received, []);
@@ -103,7 +86,7 @@ suite('Component Adapter - onDidCreate', () => {
         onChangedEmitter.fire({
             type: FileChangeType.Created,
             searchLocation: Uri.file('/somewhere/else'),
-            envPath: '/somewhere/else/.venv/bin/python',
+            new: nativeEnv('/somewhere/else/.venv/bin/python'),
         });
 
         assert.deepStrictEqual(received, []);
@@ -117,7 +100,7 @@ suite('Component Adapter - onDidCreate', () => {
             onChangedEmitter.fire({
                 type,
                 searchLocation: workspaceUri,
-                envPath: `${workspaceUri.fsPath}/.venv/bin/python`,
+                new: nativeEnv(`${workspaceUri.fsPath}/.venv/bin/python`),
             });
 
             assert.deepStrictEqual(received, []);

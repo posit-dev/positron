@@ -82,30 +82,51 @@ export function createSchemasGroupNode(client: PostgreSQLClient, host: IPostgres
 }
 
 /**
- * Creates a schema node that expands to two category groups: Tables and Views. Exported so
- * unit tests can construct a schema node directly against a mocked client without having to
- * walk through the root Schemas group.
+ * Creates a schema node that expands to two category groups: Tables and Views, with how many each
+ * holds. Exported so unit tests can construct a schema node directly against a mocked client
+ * without having to walk through the root Schemas group.
  */
 export function createSchemaNode(client: PostgreSQLClient, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: schemaName,
 		kind: positron.DataConnectionNodeKind.Schema,
 		async getChildren() {
+			const counts = await countRelations(client, schemaName);
 			return [
-				createTablesGroupNode(client, host, database, schemaName),
-				createViewsGroupNode(client, host, database, schemaName),
+				createTablesGroupNode(client, host, database, schemaName, counts?.table),
+				createViewsGroupNode(client, host, database, schemaName, counts?.view),
 			];
 		},
 	};
 }
 
 /**
+ * Counts the base tables and views in a schema, in one query with the same filters as the Tables
+ * and Views listings. The counts only decorate the group rows, so a failure leaves them off rather
+ * than failing the schema's expand.
+ */
+async function countRelations(client: PostgreSQLClient, schemaName: string): Promise<{ table: number; view: number } | undefined> {
+	try {
+		const result = await client.query(
+			`SELECT table_type, count(*)::int AS n FROM information_schema.tables WHERE table_schema = $1 AND table_type IN ('BASE TABLE', 'VIEW') GROUP BY table_type`,
+			[schemaName]
+		);
+		// A type with nothing in it has no row at all.
+		const count = (type: string) => Number(result.rows.find(row => row.table_type === type)?.n ?? 0);
+		return { table: count('BASE TABLE'), view: count('VIEW') };
+	} catch {
+		return undefined;
+	}
+}
+
+/**
  * Creates the "Tables" group inside a schema. Lists base tables in the schema.
  */
-function createTablesGroupNode(client: PostgreSQLClient, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
+function createTablesGroupNode(client: PostgreSQLClient, host: IPostgresPreviewHost, database: string | undefined, schemaName: string, childCount: number | undefined): positron.DataConnectionNode {
 	return {
 		name: 'Tables',
 		kind: positron.DataConnectionNodeKind.GroupTables,
+		childCount,
 		async getChildren() {
 			const result = await client.query(
 				`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE' ORDER BY table_name`,
@@ -119,10 +140,11 @@ function createTablesGroupNode(client: PostgreSQLClient, host: IPostgresPreviewH
 /**
  * Creates the "Views" group inside a schema. Lists views in the schema.
  */
-function createViewsGroupNode(client: PostgreSQLClient, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
+function createViewsGroupNode(client: PostgreSQLClient, host: IPostgresPreviewHost, database: string | undefined, schemaName: string, childCount: number | undefined): positron.DataConnectionNode {
 	return {
 		name: 'Views',
 		kind: positron.DataConnectionNodeKind.GroupViews,
+		childCount,
 		async getChildren() {
 			const result = await client.query(
 				`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'VIEW' ORDER BY table_name`,

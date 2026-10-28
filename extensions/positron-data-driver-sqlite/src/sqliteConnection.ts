@@ -87,8 +87,8 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 	}
 
 	/**
-	 * Returns top-level children: two category group nodes (Tables, Views). Each group defers its
-	 * schema query until it is itself expanded.
+	 * Returns top-level children: two category group nodes (Tables, Views), with how many each
+	 * holds. Each group defers its listing until it is itself expanded.
 	 */
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();

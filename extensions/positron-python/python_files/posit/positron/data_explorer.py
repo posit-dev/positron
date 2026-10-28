@@ -933,6 +933,12 @@ def _box_datetime_stats(
         if x is None:
             return None
 
+        import pandas as pd
+
+        # NaT has strftime but raises on it, so render it the way the "ns" branch does
+        if pd.isna(x):
+            return str(x)
+
         utc_offset = _format_utc_offset(x)
         if time_unit == "s":
             return format_no_micros(x, utc_offset)

@@ -8,10 +8,11 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import { addedKeys, affectedHelpers, postSections, readGraph, selectorUsers } from './affected.ts';
 
-const scripts = join(dirname(new URL(import.meta.url).pathname), '../scripts');
+const scripts = join(dirname(fileURLToPath(import.meta.url)), '../scripts');
 const g = readGraph(scripts);
 const P = '.claude/skills/drive-positron/';
 const hit = (...paths: string[]) => { const a = affectedHelpers(paths.map(p => P + p), g); return a === 'all' ? 'all' : [...a].sort(); };

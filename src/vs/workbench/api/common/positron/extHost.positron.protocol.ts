@@ -5,7 +5,7 @@
 
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
-import { IHostedLanguageContribution, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, IRuntimeRootSignature, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, IRuntimeRootSignature, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, ExtHostQuickOpenShape, ITextEditorAddData, IEditorPropertiesChangeData } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
@@ -19,7 +19,7 @@ import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, Environmen
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IGenerateAssistantPromptRequest } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionLineageDTO, IDataConnectionLineageRequestDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { IDataImporterMetadata, IDataImportRequestDto, IDataImportResult } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
@@ -91,7 +91,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined, requestingExtensionId: string, options: RuntimeSessionStartOptions | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
-	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>, callerSessionId?: string): Promise<string>;
+	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>, callerSessionId?: string, preserveActiveTab?: boolean): Promise<string>;
 	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
@@ -157,7 +157,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$getLaunchInfo(handle: number): Promise<ILanguageRuntimeLaunchInfo | undefined>;
 	$discoverLanguageRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): void;
 	$markRuntimeDiscoveryComplete(skipLanguageIds?: string[]): void;
-	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
+	$recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeRecommendation[]>;
 	$getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
 	$getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]>;
 	$registerLanguageRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined>;
@@ -410,6 +410,11 @@ export interface ExtHostDataConnectionsShape {
 	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
 	$connectionIsConnected(connectionHandle: number): Promise<boolean>;
+	/**
+	 * Reads an object's lineage from the connection. Resolves to undefined when the connection does
+	 * not implement getLineage.
+	 */
+	$connectionGetLineage(connectionHandle: number, request: IDataConnectionLineageRequestDTO): Promise<IDataConnectionLineageDTO | undefined>;
 	$nodeGetChildren(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$nodePreview(connectionHandle: number, nodeHandle: number): Promise<string | undefined>;
 	$nodeGetDetails(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO>;

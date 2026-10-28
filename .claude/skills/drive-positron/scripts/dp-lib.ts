@@ -12,9 +12,11 @@
 // A function sent to the page is turned into source text, so it may use only
 // its arguments: `page`, `args` and `lib`.
 
-import { execFileSync } from 'child_process';
-import { appendFileSync, existsSync, readFileSync } from 'fs';
+import { execFileSync, spawnSync, type SpawnSyncOptions, type SpawnSyncReturns } from 'child_process';
+import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { basename, dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import type { Page } from 'playwright';
 import { makeLib, type Lib } from './page-lib.ts';
 import { css, names } from './selectors.ts';
@@ -22,9 +24,18 @@ import { css, names } from './selectors.ts';
 export type Json = { ok: boolean; [key: string]: unknown };
 export type PageFn<A> = (page: Page, args: A, lib: Lib) => Promise<Json>;
 
-const here = dirname(new URL(import.meta.url).pathname);
+// fileURLToPath, not URL.pathname: on Windows the pathname is /C:/..., which
+// path functions read as C:\C:\..., and it keeps a space as %20 everywhere.
+const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, '../../../..');
-const cli = existsSync(join(repo, 'node_modules/.bin/playwright-cli')) ? join(repo, 'node_modules/.bin/playwright-cli') : 'playwright-cli';
+// The CLI's own script, run with this Node: on Windows execFileSync cannot
+// start node_modules/.bin/playwright-cli, a shell script there (ENOENT).
+const cliScript = join(repo, 'node_modules/@playwright/cli/playwright-cli.js');
+const [cli, ...cliArgs] = existsSync(cliScript) ? [process.execPath, cliScript] : ['playwright-cli'];
+/** Runs a playwright-cli command the way the helpers do; test/ uses it too. */
+export function playwrightCli(args: string[], options: SpawnSyncOptions = {}): SpawnSyncReturns<string> {
+	return spawnSync(cli, [...cliArgs, ...args], { cwd: repo, encoding: 'utf8', ...options }) as SpawnSyncReturns<string>;
+}
 export const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
 // makeLib's source with the registry as its argument, built once per command.
 const libSource = `(${makeLib.toString()})(page, ${JSON.stringify({ css, names })})`;
@@ -81,13 +92,19 @@ function runInPage<A>(session: string, fn: PageFn<A>, args: A): Json {
 		try { r = await (${fn.toString()})(page, ${JSON.stringify(args)}, lib); }
 		catch (e) { r = await lib.failure(e); }
 		return JSON.stringify(await lib.explain(r)); }`;
+	// The code, with lib and the selectors in it, runs past Windows' 32K command
+	// line (ENAMETOOLONG), so there it goes through a file.
+	const file = process.platform === 'win32' ? join(tmpdir(), `dp-run-code-${process.pid}.js`) : '';
 	let raw: string;
 	try {
-		raw = execFileSync(cli, [...(session ? [`-s=${session}`] : []), '--raw', 'run-code', code], { cwd: repo, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+		if (file) { writeFileSync(file, code); }
+		raw = execFileSync(cli, [...cliArgs, ...(session ? [`-s=${session}`] : []), '--raw', 'run-code', ...(file ? [`--filename=${file}`] : [code])], { cwd: repo, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 	} catch (e) {
 		const err = e as { stdout?: string; stderr?: string; message: string };
 		const text = `${err.stdout ?? ''}${err.stderr ?? ''}`.replace(/^### Error\s*/m, '').replace(/\u001b\[[0-9;]*m/g, '').trim() || err.message;
 		return { ok: false, error: text.split('\n').filter(Boolean).slice(0, 3).join(' | '), cliFailed: true };
+	} finally {
+		if (file) { rmSync(file, { force: true }); }
 	}
 	try {
 		const once = JSON.parse(raw.trim());
@@ -104,7 +121,7 @@ function runInPage<A>(session: string, fn: PageFn<A>, args: A): Json {
  */
 export function cliRun(session: string, args: string[]): string {
 	try {
-		return execFileSync(cli, [`-s=${session}`, ...args], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60_000 });
+		return execFileSync(cli, [...cliArgs, `-s=${session}`, ...args], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60_000 });
 	} catch (e) {
 		const err = e as { stdout?: string; stderr?: string; message: string };
 		throw new Error(`${err.stdout ?? ''}${err.stderr ?? ''}`.trim().split('\n').slice(0, 3).join(' | ') || err.message);

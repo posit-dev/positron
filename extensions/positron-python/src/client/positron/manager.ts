@@ -32,13 +32,12 @@ import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import {
     shouldIncludeInterpreter,
-    getUserDefaultInterpreter,
     getInterpreterDefinitionPaths,
     isDefinitionsOnlyDiscovery,
 } from './interpreterSettings';
-import { hasFiles, resolveInterpreterWithRetry } from './util';
+import { resolveInterpreterWithRetry } from './util';
+import { recommendWorkspaceRuntime } from './interpreterRecommendation';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
-import { untildify } from '../common/helpers';
 import {
     pendingModuleRuntimeRegistrations,
     getEnvironmentModulesApi,
@@ -87,6 +86,18 @@ export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
     triggerInterpreterRefresh(): Promise<void>;
 }
 
+/** Refuses an interpreter that `python.interpreters.exclude` or `override` filters out. */
+function throwIfFilteredOut(pythonPath: string): void {
+    if (!shouldIncludeInterpreter(pythonPath)) {
+        throw new Error(
+            vscode.l10n.t(
+                'Python interpreter {0} is filtered out by the python.interpreters.exclude or python.interpreters.override setting.',
+                pythonPath,
+            ),
+        );
+    }
+}
+
 /**
  * Provides Python language runtime metadata and sessions to Positron;
  * implements positron.LanguageRuntimeManager.
@@ -97,6 +108,13 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      * A map of Python interpreter paths to their language runtime metadata.
      */
     readonly registeredPythonRuntimes: Map<string, positron.LanguageRuntimeMetadata> = new Map();
+
+    /**
+     * Positron registers the recommendation and uses it when it needs a Python
+     * runtime, but must not save it as the workspace's default: the ranking is
+     * recomputed every time the folder opens.
+     */
+    readonly recommendationIsProjectDefault = false;
 
     private disposables: IDisposable[] = [];
 
@@ -356,65 +374,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
     }
 
     /**
-     * Get the recommended Python interpreter path for the workspace.
-     * Returns an object with the path and whether it should be immediately selected.
-     */
-    private async recommendedWorkspaceInterpreterPath(
-        workspaceUri: vscode.Uri | undefined,
-    ): Promise<{ path: string | undefined; isImmediate: boolean }> {
-        const userInterpreterSettings = getUserDefaultInterpreter(workspaceUri);
-        let interpreterPath: string | undefined;
-        let isImmediate = false;
-
-        if (!workspaceUri) {
-            if (userInterpreterSettings.globalValue) {
-                interpreterPath = userInterpreterSettings.globalValue;
-                isImmediate = true;
-            } else {
-                return { path: undefined, isImmediate };
-            }
-        } else if (await hasFiles(['.venv/**/*'])) {
-            interpreterPath =
-                os.platform() === 'win32'
-                    ? path.join(workspaceUri.fsPath, '.venv', 'Scripts', 'python.exe')
-                    : path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
-            isImmediate = true;
-        } else if (await hasFiles(['.conda/**/*'])) {
-            interpreterPath =
-                os.platform() === 'win32'
-                    ? path.join(workspaceUri.fsPath, '.conda', 'Scripts', 'python.exe')
-                    : path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
-            isImmediate = true;
-        } else if (await hasFiles(['*/bin/python', '*/Scripts/python.exe'])) {
-            // if we found */bin/python or */Scripts/python.exe but not .venv or .conda, use the first one we find
-            const files = await vscode.workspace.findFiles(
-                os.platform() === 'win32' ? '*/Scripts/python.exe' : '*/bin/python',
-                '**/node_modules/**',
-            );
-            if (files.length > 0) {
-                interpreterPath = files[0].fsPath;
-                isImmediate = true;
-            }
-        } else {
-            interpreterPath =
-                userInterpreterSettings.workspaceValue ||
-                userInterpreterSettings.workspaceFolderValue ||
-                userInterpreterSettings.globalValue;
-        }
-
-        // if user has startup set to manual, isImmediate should be false even if we find a recommended interpreter
-        // Check both the general interpreters setting and the Python-specific override
-        const generalStartupBehavior = getConfiguration('interpreters').get<string>('startupBehavior');
-        const pythonStartupBehavior = getConfiguration('interpreters', { languageId: 'python' }).get<string>(
-            'startupBehavior',
-        );
-        if (generalStartupBehavior === 'manual' || pythonStartupBehavior === 'manual') {
-            isImmediate = false;
-        }
-        return { path: interpreterPath, isImmediate };
-    }
-
-    /**
      * Snapshot the directories this extension scans for Python interpreters.
      * Used by Positron to detect newly-installed Python interpreters between
      * startups without having to rerun a full discovery pass. See
@@ -425,39 +384,26 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
     }
 
     /**
-     * Recommend a Python language runtime based on the workspace.
+     * Recommend the top eligible interpreter in the ranking for the workspace.
+     * See interpreterRanking.ts for the order.
+     *
+     * @param afterDiscovery Set by core when it asks again after discovery. Without it,
+     * only interpreters named by path are considered, so the call never waits for PET.
      */
-    async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
-        // When discovery is limited to definitions, nothing outside them is recommended.
-        if (isDefinitionsOnlyDiscovery()) {
-            return undefined;
-        }
-
+    async recommendedWorkspaceRuntime(afterDiscovery?: boolean): Promise<positron.LanguageRuntimeMetadata | undefined> {
         // TODO: may need other handling for multiroot workspaces
         const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
-        let { path: interpreterPath, isImmediate } = await this.recommendedWorkspaceInterpreterPath(workspaceUri);
-
-        if (interpreterPath) {
-            interpreterPath = untildify(interpreterPath);
-            // This runs during startup, before interpreter discovery has necessarily
-            // resolved this path. A cold resolve returns undefined, which would drop the
-            // workspace default entirely, since it is never re-queried after discovery.
-            // The helper triggers a refresh and retries once so the default is
-            // recommended reliably.
-            const interpreter = await resolveInterpreterWithRetry(
+        try {
+            return await recommendWorkspaceRuntime(
+                this.serviceContainer,
                 this.interpreterService,
-                interpreterPath,
                 workspaceUri,
+                !!afterDiscovery,
             );
-
-            if (interpreter) {
-                const metadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, isImmediate);
-                traceInfo(`Recommended runtime for workspace: ${interpreter.path}`);
-                return metadata;
-            }
+        } catch (err) {
+            traceError(`Failed to recommend a Python runtime for the workspace: ${err}`);
+            return undefined;
         }
-        traceInfo('No recommended workspace runtime found.');
-        return undefined;
     }
 
     /**
@@ -543,6 +489,11 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         if (!extraData || !extraData.pythonPath) {
             throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(extraData)}`);
         }
+
+        // Exclude and override always win, including for an affiliated runtime or
+        // one picked before the settings changed. Running sessions are restored
+        // through restoreSession, which is not affected.
+        throwIfFilteredOut(extraData.pythonPath);
 
         // When the user explicitly picks an externally-managed Python, offer to create a
         // virtual environment instead. Aborting here is invisible to the user: the console
@@ -699,6 +650,11 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(extraData)}`);
         }
 
+        // Exclude and override always win. Refusing here keeps Positron from
+        // registering a filtered-out interpreter it was asked to start, such as the
+        // workspace's saved default, so it never becomes the preferred runtime.
+        throwIfFilteredOut(extraData.pythonPath);
+
         // Ensure that the Python interpreter exists
         const exists = await fs.pathExists(extraData.pythonPath);
         if (!exists) {
@@ -742,7 +698,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         return createPythonRuntimeMetadata(
             definitionPath ? { ...interpreter, path: resolvePath } : interpreter,
             this.serviceContainer,
-            false,
         );
     }
 
@@ -830,6 +785,12 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // Positron hides these and shows only the variants created from the
         // definitions, so they are not saved with the discovered runtimes.
         for (const pythonPath of getInterpreterDefinitionPaths()) {
+            if (!shouldIncludeInterpreter(pythonPath)) {
+                traceInfo(
+                    `Ignoring Python interpreter ${pythonPath} from interpreters.definitions: filtered out by settings`,
+                );
+                continue;
+            }
             if (this.registeredPythonRuntimes.has(pythonPath)) {
                 continue;
             }
@@ -849,7 +810,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 const runtime = await createPythonRuntimeMetadata(
                     { ...interpreter, path: pythonPath },
                     this.serviceContainer,
-                    false,
                 );
                 yield { ...runtime, definitionOnly: true };
             } catch (err) {
@@ -892,9 +852,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         const interpreter = await this.interpreterService.getInterpreterDetails(pythonPath);
         // Create the runtime and register it with Positron.
         if (interpreter) {
-            // Set recommendedForWorkspace to false, since we change the active runtime
-            // in the onDidChangeActiveEnvironmentPath listener.
-            const newRuntime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
+            const newRuntime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer);
             // On a forceRefresh, if the resolved runtime matches what's already
             // registered for this path, there's nothing to do. If it differs (e.g.
             // the real version supersedes a stale one from discovery),

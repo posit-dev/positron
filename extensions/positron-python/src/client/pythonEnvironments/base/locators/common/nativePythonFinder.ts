@@ -37,6 +37,8 @@ import { traceVerbose } from '../../../../logging';
 import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
 import { PythonEnvSource } from '../../info/index';
 import { getUvDirs } from '../../../common/environmentManagers/uv';
+import { scanWorkspace } from '../../../../positron/workspaceScan';
+import { isParentPath } from '../../../common/externalDependencies';
 // --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
@@ -663,7 +665,11 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
             refreshOptions.searchKind = options;
         }
         trackPromiseAndNotifyOnCompletion(
-            this.configure()
+            // --- Start Positron ---
+            // this.configure()
+            // Only a full refresh scans the workspace folders for nested envs.
+            this.configure(!refreshOptions.searchKind && !refreshOptions.searchPaths)
+                // --- End Positron ---
                 .then(() =>
                     // --- Start Positron ---
                     // this.connection
@@ -714,6 +720,13 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
     private lastConfiguration?: ConfigurationOptions;
 
     // --- Start Positron ---
+    private nestedEnvDirs: string[] = [];
+
+    /** Whether a refresh has scanned the workspace folders yet. */
+    private scannedWorkspace = false;
+    // --- End Positron ---
+
+    // --- Start Positron ---
     // Serializes configure requests. PET (as of 2026.12) reports zero environments
     // if a `refresh` is processed while a `configure` is still in flight. At startup
     // the constructor fires `void this.configure()` and the first refresh
@@ -730,16 +743,16 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
      * Must be invoked when ever there are changes to any data related to the configuration details.
      */
     // --- Start Positron ---
-    private configure(): Promise<void> {
+    private configure(scanNestedEnvs = false): Promise<void> {
         this.beginRequest();
-        const next = this.configureQueue.then(() => this.configureImpl());
+        const next = this.configureQueue.then(() => this.configureImpl(scanNestedEnvs));
         // A failed configure must not poison the queue for later callers; the
         // returned promise still rejects so this caller observes the failure.
         this.configureQueue = next.catch(() => undefined);
         return next.finally(() => this.endRequest());
     }
 
-    private async configureImpl() {
+    private async configureImpl(scanNestedEnvs: boolean) {
         // Assembling the options reads settings and the filesystem, so it can
         // throw. Report it and rethrow: the caller must not go on to send
         // `refresh` against a stale or absent configuration, and a successful
@@ -747,7 +760,7 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         // caller's catch settles the operation without hanging discovery.
         let options: ConfigurationOptions;
         try {
-            options = await this.configurationOptions();
+            options = await this.configurationOptions(scanNestedEnvs);
         } catch (ex) {
             this.outputChannel.error('Failed to assemble the Python Locator configuration', ex);
             this._lastDiscoveryError = `Configure error: ${ex instanceof Error ? ex.message : String(ex)}`;
@@ -777,9 +790,26 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
      * `configureImpl` so that a failure while it is assembled can be handled
      * there without the throw reaching the caller's refresh.
      */
-    private async configurationOptions(): Promise<ConfigurationOptions> {
+    private async configurationOptions(scanNestedEnvs: boolean): Promise<ConfigurationOptions> {
+        const workspaceFolders = getWorkspaceFolderPaths();
+        // Envs one level below each workspace folder (e.g. <folder>/app/.venv). PET
+        // reports a workspace directory that is itself an env and stops there. The
+        // scan runs only for a full refresh; other configures reuse the last result
+        // for the folders still open, though one queued behind a refresh's configure
+        // waits for its scan. The first refresh shares the scan the interpreter ranking
+        // reads at startup, so the folder is read once; later refreshes read it again.
+        // A scan that fails finds nothing, so it never stops discovery.
+        if (scanNestedEnvs) {
+            const rescan = this.scannedWorkspace;
+            this.scannedWorkspace = true;
+            const scans = await Promise.all(workspaceFolders.map((folder) => scanWorkspace(folder, rescan)));
+            this.nestedEnvDirs = scans.flatMap((scan) => scan.nestedEnvDirs);
+        }
+        const nestedEnvDirs = this.nestedEnvDirs.filter((dir) =>
+            workspaceFolders.some((folder) => isParentPath(dir, folder)),
+        );
         return {
-            workspaceDirectories: getWorkspaceFolderPaths(),
+            workspaceDirectories: [...workspaceFolders, ...nestedEnvDirs],
             // We do not want to mix this with `search_paths`
             // environmentDirectories: getCustomVirtualEnvDirs(),
             environmentDirectories: await getEnvironmentDirs(),
@@ -844,7 +874,11 @@ type ConfigurationOptions = {
 /**
  * Gets all custom virtual environment locations to look for environments.
  */
-function getCustomVirtualEnvDirs(): string[] {
+// --- Start Positron ---
+// Exported so the interpreter ranking reuses PET's resolution of venvPath and venvFolders.
+// function getCustomVirtualEnvDirs(): string[] {
+export function getCustomVirtualEnvDirs(): string[] {
+    // --- End Positron ---
     const venvDirs: string[] = [];
     const venvPath = getPythonSettingAndUntildify<string>(VENVPATH_SETTING_KEY);
     if (venvPath) {
@@ -881,7 +915,6 @@ export async function getAdditionalEnvDirs(): Promise<string[]> {
     const additionalDirs: string[] = [];
 
     // Add additional dirs to search for Python environments on non-Windows platforms.
-    // See JS locator equivalent `getAdditionalPosixBinaries` in extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/posixKnownPathsLocator.ts
     if (!isWindows()) {
         additionalDirs.push(...ADDITIONAL_POSIX_BIN_PATHS);
     }
@@ -891,7 +924,6 @@ export async function getAdditionalEnvDirs(): Promise<string[]> {
     additionalDirs.push(...uvDirs);
 
     // Add user-specified Python search directories.
-    // See JS locator equivalent in extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/userSpecifiedEnvLocator.ts
     const customEnvDirs = getCustomEnvDirs();
     additionalDirs.push(...customEnvDirs);
 

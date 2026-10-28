@@ -7,11 +7,14 @@
 import nox
 
 
-@nox.session(venv_backend="uv", python="3.9")
-@nox.parametrize(["pandas", "numpy"], [("1.*", "1.*"), ("2.*", "2.*")])
+@nox.session(venv_backend="uv", python="3.10")
+# ibis 12 reads pandas options that only exist in pandas 2, although it allows pandas 1.
+@nox.parametrize(
+    ["pandas", "numpy", "ibis"], [("1.*", "1.*", "11.*"), ("2.*", "2.*", "12.*")]
+)
 @nox.parametrize("torch", ["1.*"])
 @nox.parametrize("lightning", ["2.1.*"])
-def test_minimum_reqs(session, pandas, numpy, torch, lightning):
+def test_minimum_reqs(session, pandas, numpy, ibis, torch, lightning):
     session.run(
         "uv",
         "sync",
@@ -24,6 +27,9 @@ def test_minimum_reqs(session, pandas, numpy, torch, lightning):
 
     # Install lightning first, since it may override numpy/torch.
     session.install("--force-reinstall", f"lightning=={lightning}")
+
+    # Install ibis before pandas and numpy, since it may override them.
+    session.install("--force-reinstall", f"ibis-framework[duckdb]=={ibis}")
 
     session.install("--force-reinstall", f"pandas=={pandas}")
     session.install("--force-reinstall", f"numpy=={numpy}")

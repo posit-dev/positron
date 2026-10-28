@@ -31,6 +31,9 @@
 #                       discarded. Use /private/tmp, not /tmp, on macOS. On
 #                       Windows build it with cygpath -m:
 #                       --folder-uri "file:///$(cygpath -m /tmp/ws)"
+#                       It reaches the app as --folder-uri=URL (--file-uri
+#                       too): Electron on Windows exits silently when any
+#                       argument follows a separate URL-like one.
 #   --log debug         Without it the "[Runtime startup] Phase changed" lines
 #                       are missing, and code.log has no logsPath: line.
 #
@@ -164,6 +167,39 @@ cmd_escape() {
 	printf '%s' "${1//%/%%}"
 }
 
+# Sets EXTRA_ARGS to the app arguments given, each URI flag joined to its value.
+#
+# Electron on Windows exits with -1, before it logs anything, when an argument
+# that looks like a URL (a scheme and a colon, as file:///C:/ws is) has any
+# other argument after it, short of a `--`: its guard against a URL protocol
+# handler smuggling in switches (CVE-2018-1000006). So `--folder-uri URL --log
+# debug` never opens a window. Pass --folder-uri and --file-uri with their
+# values as one argument, --folder-uri=URL, which the app reads the same way,
+# and on Windows refuse any other URL that has arguments after it. A flag in
+# the value's place (--folder-uri --log) is no value: it is left for the app to
+# report. Nothing after a `--` is touched; the app reads it all as file names.
+# test/launch-args.test.ts runs this function alone.
+join_uri_args() {
+	local args=("$@") arg i
+	EXTRA_ARGS=()
+	for (( i = 0; i < ${#args[@]}; i++ )); do
+		arg="${args[i]}"
+		if [[ "$arg" == --folder-uri || "$arg" == --file-uri ]] && (( i + 1 < ${#args[@]} )) && [[ "${args[i + 1]}" != -* ]]; then
+			EXTRA_ARGS+=("$arg=${args[i + 1]}")
+			i=$(( i + 1 ))
+			continue
+		fi
+		if [[ "$IS_WINDOWS" == "1" && "$arg" =~ ^[A-Za-z][^:[:space:]]+: ]] && (( i + 1 < ${#args[@]} )); then
+			usage_error "$arg looks like a URL to Electron, which exits on Windows when arguments follow one; put it last, or join it to its flag as --flag=URL"
+		fi
+		if [[ "$arg" == -- ]]; then
+			EXTRA_ARGS+=("${args[@]:i}")
+			return
+		fi
+		EXTRA_ARGS+=("$arg")
+	done
+}
+
 # Copy a directory tree, honoring rsync-style exclude patterns.
 #
 # Prefers rsync where it exists so the established macOS and Linux behavior is
@@ -239,6 +275,7 @@ while [[ $# -gt 0 ]]; do
 		*) usage_error "unknown argument $1" ;;
 	esac
 done
+join_uri_args ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
 
 if [[ -z "$REPO" ]]; then
 	if [[ -x "$PWD/scripts/code.sh" ]]; then

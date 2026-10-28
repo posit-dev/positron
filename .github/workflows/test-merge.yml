@@ -8,14 +8,45 @@ on:
       - "release/**"
 
 jobs:
+  # Decides whether this push to main changes only docs or tooling (see
+  # scripts/lib/pr-docs-only-lib.sh), checking against the workflows this file
+  # calls. If so, the test jobs below are skipped, except unit-tests, which
+  # keeps saving the Ubuntu caches PRs restore from. (e2e-windows saves the
+  # Windows caches, so those can go stale over a run of docs-only pushes.)
+  # Release and prerelease branches always run the tests.
+  #
+  # Fails open: the jobs below run even if this job fails or is skipped
+  # (`!cancelled()`), and an empty output means "not docs-only".
+  docs-only:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.docs-only.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github
+            scripts
+          filter: blob:none
+      - name: Check for a docs-only change
+        id: docs-only
+        run: bash scripts/pr-docs-only.sh
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          CI_WORKFLOW: .github/workflows/test-merge.yml
+
   setup:
     name: setup
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
 
   e2e-electron:
     name: e2e
     needs: [setup]
+    if: ${{ !cancelled() && needs.setup.result == 'success' }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
@@ -32,6 +63,8 @@ jobs:
 
   e2e-windows:
     name: e2e
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-e2e-windows-run.yml
     secrets: inherit
     with:
@@ -47,6 +80,7 @@ jobs:
   e2e-ubuntu-chromium:
     name: e2e
     needs: [setup]
+    if: ${{ !cancelled() && needs.setup.result == 'success' }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
@@ -70,6 +104,8 @@ jobs:
 
   ext-host-tests:
     name: test
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-ext-host.yml
     secrets: inherit
     with:
@@ -77,6 +113,8 @@ jobs:
 
   ext-host-tests-windows:
     name: test
+    needs: docs-only
+    if: ${{ !cancelled() && needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-ext-host-windows.yml
     secrets: inherit
 
@@ -84,6 +122,7 @@ jobs:
     if: always()
     needs:
       [
+        docs-only,
         setup,
         unit-tests,
         ext-host-tests,
@@ -109,7 +148,9 @@ jobs:
           tailscale_oauth_client_id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
           tailscale_oauth_secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
           repo_id: "positron"
-          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host(-win)?)$"
+          # A docs-only push runs only unit-tests; leave out the skipped jobs.
+          hide_skipped: ${{ needs.docs-only.outputs.docs_only == 'true' }}
+          filter_jobs: "(e2e / ([^0-9]*)|vscode|vitest|ext-host(-win)?)$"
 
   analyze-e2e-failures:
     if: ${{ always() && contains(needs.*.result, 'failure') }}

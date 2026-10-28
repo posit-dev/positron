@@ -9,7 +9,7 @@ source "$HERE/../lib/pr-tags-lib.sh"
 fail=0
 # Clean up every temp resource on exit (including SIGINT/SIGTERM), so an
 # interrupted run doesn't leave files behind. Vars are empty until each mktemp.
-trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" "${LAST_MEMBER_ENUM:-}" "${LAST_MEMBER_MAP:-}" "${EMPTY_TESTS_DIR:-}" "${JSON_MAP:-}" "${EMPTY_JSON_MAP:-}" "${CRUFT_ROOT:-}" "${CRUFT_MAP:-}" "${APPLY_DIR:-}" "${DERIVE_DIR:-}" 2>/dev/null || true' EXIT
+trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" "${LAST_MEMBER_ENUM:-}" "${LAST_MEMBER_MAP:-}" "${EMPTY_TESTS_DIR:-}" "${JSON_MAP:-}" "${EMPTY_JSON_MAP:-}" "${CRUFT_ROOT:-}" "${CRUFT_MAP:-}" "${APPLY_DIR:-}" "${DERIVE_DIR:-}" "${GH_STUB_DIR:-}" 2>/dev/null || true' EXIT
 
 assert_eq() {
 	local desc="$1" expected="$2" actual="$3"
@@ -1332,6 +1332,37 @@ assert_eq "lane summary: single-shard lanes show only the count" \
 assert_eq "lane summary: sharded lanes show the split" \
 	"Test count: Linux: 467 tests across 3 shards, Windows: 379 tests across 2 shards, Web: 202 tests across 2 shards." \
 	"$(render_lane_summary "linux=467/3,win=379/2,web=202/2")"
+
+# --- pr-e2e-comment.sh: finds the tags comment past the first page ---
+# A fake `gh` serves 30 unrelated comments on page 1 and the tags comment (plus
+# a duplicate) on page 2. Without --paginate only page 1 comes back, so the
+# script would post a second tags comment instead of updating the first.
+GH_STUB_DIR="$(mktemp -d)"
+cat > "$GH_STUB_DIR/gh" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >> "$GH_STUB_DIR/calls.log"
+case "$*" in
+	*"-X PATCH"*|*"-X DELETE"*|*"-F body"*) exit 0 ;;
+	*"/pulls/"*"/files"*) exit 0 ;;
+	*"/issues/"*"/comments"*)
+		jq -n '[range(1;31) | {id: ., body: "unrelated"}]'
+		if [[ " $* " == *" --paginate "* ]]; then
+			jq -n '[{id: 999, body: "<!-- PR Tags -->\nold"}, {id: 1000, body: "<!-- PR Tags -->\ndup"}]'
+		fi
+		;;
+esac
+STUB
+chmod +x "$GH_STUB_DIR/gh"
+PATH="$GH_STUB_DIR:$PATH" GH_STUB_DIR="$GH_STUB_DIR" GITHUB_REPOSITORY=o/r \
+	GITHUB_PR_NUMBER=1 GITHUB_TOKEN=t \
+	bash "$HERE/../pr-e2e-comment.sh" "<!-- PR Tags -->" "@:critical" >/dev/null 2>&1
+assert_eq "comment: updates the tags comment on page 2" "1" \
+	"$(grep -c 'issues/comments/999 -X PATCH' "$GH_STUB_DIR/calls.log")"
+assert_eq "comment: does not post a second tags comment" "0" \
+	"$(grep -c 'issues/1/comments -F body' "$GH_STUB_DIR/calls.log")"
+assert_eq "comment: deletes the duplicate on page 2" "1" \
+	"$(grep -c 'issues/comments/1000 -X DELETE' "$GH_STUB_DIR/calls.log")"
+rm -rf "$GH_STUB_DIR"
 
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail

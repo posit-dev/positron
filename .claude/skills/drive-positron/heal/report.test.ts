@@ -282,3 +282,10 @@ test('a finding from a lead says what it cost the agent in a real run', () => {
 	const led = f('l', { outcome: 'product', lead: 'https://run/1', cost: { kind: 'gave up', evidence: 'took a shot, then opened settings #2' } });
 	assert.match(summaryMarkdown(night({ findings: [led] }), 'u'), /- \*\*In a real run:\*\* the agent gave up: took a shot, then opened settings `#2`/);
 });
+
+test('a kept fix to lines earlier commits keep patching names the hot spot', () => {
+	const hotSpots = [{ file: 'scripts/page-lib.ts', lines: '223-264', commits: 4 }];
+	assert.match(summaryMarkdown(night({ findings: [f('h', { outcome: 'fixed', commit: 'c', hotSpots })], state: { gate: 'pass' } }), 'u'),
+		/- \*\*Hot spot:\*\* `scripts\/page-lib\.ts` lines 223-264 \(4 earlier commits in 30 days\); worth a refactor by a person\./);
+	assert.doesNotMatch(summaryMarkdown(night({ findings: [f('r', { outcome: 'fixed', commit: 'c', rejected: 'smoke did not run', hotSpots })] }), 'u'), /Hot spot/);
+});

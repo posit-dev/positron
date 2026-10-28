@@ -5,7 +5,7 @@
 
 import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
-import { IHostedLanguageContribution, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, IRuntimeRootSignature, LanguageRuntimeSessionMode, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, IRuntimeRootSignature, LanguageRuntimeSessionMode, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -1240,7 +1240,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return { extensionId: m.extension.identifier, ...runtime };
 	}
 
-	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
+	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeRecommendation[]> {
 		// Get the recommended runtimes from each provider
 		const metadata = await Promise.all(
 			this._runtimeManagers.filter(m => {
@@ -1249,19 +1249,22 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			}
 			).map(async m => {
 				// Get the recommended runtime from the provider, if any
-				const recommended = await m.manager.recommendedWorkspaceRuntime();
+				const recommended = await m.manager.recommendedWorkspaceRuntime(afterDiscovery);
 				if (recommended) {
 					return {
-						extensionId: m.extension.identifier,
-						...recommended
+						metadata: {
+							extensionId: m.extension.identifier,
+							...recommended
+						},
+						isProjectDefault: m.manager.recommendationIsProjectDefault !== false,
 					};
 				}
 				return undefined;
 			})
 		);
 
-		// Return all the metadata from the providers
-		return metadata.filter(metadata => metadata !== undefined) as ILanguageRuntimeMetadata[];
+		// Return all the recommendations from the providers
+		return metadata.filter(metadata => metadata !== undefined) as ILanguageRuntimeRecommendation[];
 	}
 
 	/**
@@ -1731,7 +1734,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		sessionId?: string,
 		documentUri?: URI,
 		executionMetadata?: Record<string, unknown>,
-		attributionMetadata?: Record<string, unknown>): Promise<Record<string, unknown>> {
+		attributionMetadata?: Record<string, unknown>,
+		preserveActiveTab?: boolean): Promise<Record<string, unknown>> {
 
 		// Create a UUID and an observer for this execution request
 		const executionId = generateUuid();
@@ -1745,7 +1749,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// more or less fixed since it's part of the public API, but the
 		// internal parameter order can be more logical.
 		this._proxy.$executeCode(
-			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId, documentUri, executionMetadata, attributionMetadata).then(
+			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId, documentUri, executionMetadata, attributionMetadata, undefined, preserveActiveTab).then(
 				(sessionId) => {
 					// Bind the session ID to the observer so we can use it later
 					executionObserver.sessionId = sessionId;

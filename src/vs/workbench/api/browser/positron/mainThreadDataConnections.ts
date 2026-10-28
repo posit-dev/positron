@@ -10,7 +10,7 @@ import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../../contrib/positron
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk, walkDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter, IDataConnectionParameterValidation, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { closeDataConnectionHandle, DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionLineageRequest, IDataConnectionLineageResult, IDataConnectionMechanism, IDataConnectionParameter, IDataConnectionParameterValidation, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
@@ -114,8 +114,9 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	// The disposable store.
 	private readonly _disposableStore = new DisposableStore();
 
-	// Connection handles created via $connectToDataConnectionDriver, keyed by handle number.
-	private readonly _connectionHandles = new Map<number, IDataConnectionHandle>();
+	// Connection handles created via $connectToDataConnectionDriver, keyed by handle number, with the
+	// id of the driver each was opened through.
+	private readonly _connectionHandles = new Map<number, { readonly driverId: string; readonly handle: IDataConnectionHandle }>();
 
 	/**
 	 * Constructor.
@@ -227,11 +228,18 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	}
 
 	/**
-	 * Called by the ext host when a driver is unregistered (its Disposable was disposed).
+	 * Called by the ext host when a driver is unregistered. Closes the driver's API-opened connections; the service closes the user's.
 	 * @param driverId The unique identifier for the driver to remove.
 	 */
 	$removeDataConnectionDriver(driverId: string): void {
 		this._dataConnectionsService.driverManager.removeDriver(driverId);
+
+		for (const [connectionHandle, entry] of this._connectionHandles) {
+			if (entry.driverId === driverId) {
+				this._connectionHandles.delete(connectionHandle);
+				void closeDataConnectionHandle(entry.handle, this._logService, `connection handle ${connectionHandle}`);
+			}
+		}
 	}
 
 	/**
@@ -254,13 +262,19 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * round trip.
 	 */
 	async $connectToDataConnectionDriver(driverId: string, mechanismId: string, params: DataConnectionParameterValues): Promise<number> {
-		const drivers = this._dataConnectionsService.driverManager.getDrivers();
-		const driver = drivers.find(d => d.id === driverId);
+		const driver = this._dataConnectionsService.driverManager.getDriver(driverId);
 		if (!driver) {
 			throw new Error(`Data connection driver '${driverId}' not found`);
 		}
 		const handle = await driver.connect(mechanismId, params);
-		this._connectionHandles.set(handle.handle, handle);
+
+		// Removed while connecting, so nothing else would close this one (checked by id: a re-register keeps it).
+		if (!this._dataConnectionsService.driverManager.getDriver(driverId)) {
+			await closeDataConnectionHandle(handle, this._logService, `connection handle ${handle.handle}`);
+			throw new Error(`Data connection driver '${driverId}' was removed while connecting`);
+		}
+
+		this._connectionHandles.set(handle.handle, { driverId, handle });
 		return handle.handle;
 	}
 
@@ -285,11 +299,10 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		return this._getHandle(connectionHandle).isReadOnly();
 	}
 
-	/**
-	 * Checks connection status through the main thread handle.
-	 */
+	/** Checks connection status through the main thread handle. Returns false for unknown handles rather than throwing. */
 	async $connectionIsConnectedViaService(connectionHandle: number): Promise<boolean> {
-		return this._getHandle(connectionHandle).isConnected();
+		const entry = this._connectionHandles.get(connectionHandle);
+		return entry ? entry.handle.isConnected() : false;
 	}
 
 	/**
@@ -319,19 +332,19 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * Releases a connection handle through the main thread handle.
 	 */
 	$releaseConnectionViaService(connectionHandle: number): void {
-		const handle = this._connectionHandles.get(connectionHandle);
-		if (handle) {
-			handle.release();
+		const entry = this._connectionHandles.get(connectionHandle);
+		if (entry) {
+			entry.handle.release();
 			this._connectionHandles.delete(connectionHandle);
 		}
 	}
 
 	private _getHandle(connectionHandle: number): IDataConnectionHandle {
-		const handle = this._connectionHandles.get(connectionHandle);
-		if (!handle) {
+		const entry = this._connectionHandles.get(connectionHandle);
+		if (!entry) {
 			throw new Error(`Connection handle ${connectionHandle} not found on the main thread`);
 		}
-		return handle;
+		return entry.handle;
 	}
 
 	// Called by the extension host manager when the extension host disconnects.
@@ -487,6 +500,14 @@ class MainThreadDataConnectionHandleAdapter implements IDataConnectionHandle {
 	 */
 	async nodeGetDetails(nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO> {
 		return this._proxy.$nodeGetDetails(this.handle, nodeHandle);
+	}
+
+	/**
+	 * Reads an object's lineage from the extension-side connection, resolving to undefined when its
+	 * driver does not support lineage.
+	 */
+	async getLineage(request: IDataConnectionLineageRequest): Promise<IDataConnectionLineageResult | undefined> {
+		return this._proxy.$connectionGetLineage(this.handle, request);
 	}
 
 	/**

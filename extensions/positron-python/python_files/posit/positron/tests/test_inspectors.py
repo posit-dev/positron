@@ -903,7 +903,6 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
     assert get_inspector(child).equals(expected)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="requires Python 3.10 or higher")
 @pytest.mark.skipif(ibis is None, reason="ibis not available")
 def test_inspect_ibis_exprs() -> None:
     assert ibis

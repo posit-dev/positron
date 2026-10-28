@@ -6,6 +6,9 @@
 import { Architecture } from '../../common/utils/platform';
 import { PythonEnvType } from '../base/info';
 import { PythonVersion } from './pythonVersion';
+// --- Start Positron ---
+import type { NativePythonEnvironmentKind } from '../base/locators/common/nativePythonUtils';
+// --- End Positron ---
 
 /**
  * The supported Python environment types.
@@ -113,6 +116,10 @@ export type PythonEnvironment = InterpreterInformation & {
     envPath?: string;
     cachedEntry?: boolean;
     type?: PythonEnvType;
+    // --- Start Positron ---
+    /** PET's environment kind; see `PythonEnvInfo.nativeKind`. */
+    nativeKind?: NativePythonEnvironmentKind;
+    // --- End Positron ---
 };
 
 /**

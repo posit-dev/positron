@@ -9,6 +9,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { createDuckDBReadPlan } from './duckdbReadPlan.js';
+import { catalogFilter, quoteIdentifier } from './duckdbSql.js';
 import { IDuckDBQueryClient } from './duckdbWorkerClient.js';
 import { DuckDBSchemaEntry, DuckDBTableView, duckdbDisplayType, IDuckDBTableCodeGenerator } from './duckdbTableView.js';
 import {
@@ -54,9 +55,9 @@ export interface IDuckDBDataExplorerHost {
 	 * Builds and registers a table view for a table or view under the given dataset id. See
 	 * {@link OpenTableViewOptions} for the display name, Convert-to-Code override, and close hook.
 	 */
-	openTableView(datasetId: string, client: IDuckDBQueryClient, schemaName: string, tableName: string, kind: 'table' | 'view', options?: OpenTableViewOptions): Promise<void>;
+	openTableView(datasetId: string, client: IDuckDBQueryClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', options?: OpenTableViewOptions): Promise<void>;
 	/** Builds and registers a single-column view of a table or view under the given dataset id. */
-	openColumnView(datasetId: string, client: IDuckDBQueryClient, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+	openColumnView(datasetId: string, client: IDuckDBQueryClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
 	/** Drops a dataset's view (without invoking its close hook), e.g. when its connection disconnects. */
 	closeTableView(datasetId: string): void;
 }
@@ -105,15 +106,16 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 	async openTableView(
 		datasetId: string,
 		client: IDuckDBQueryClient,
+		database: string | undefined,
 		schemaName: string,
 		tableName: string,
 		kind: 'table' | 'view',
 		options: OpenTableViewOptions = {},
 	): Promise<void> {
-		const schema = await buildDuckDBSchema(client, schemaName, tableName);
+		const schema = await buildDuckDBSchema(client, database, schemaName, tableName);
 		const readPlan = createDuckDBReadPlan(
-			client, tableRef(schemaName, tableName), kind, schema.map(c => c.column_name));
-		this._setView(datasetId, new DuckDBTableView(client, tableRef(schemaName, tableName), options.displayName ?? tableName, readPlan, schema, options.codeGenerator));
+			client, tableRef(database, schemaName, tableName), kind, schema.map(c => c.column_name));
+		this._setView(datasetId, new DuckDBTableView(client, tableRef(database, schemaName, tableName), options.displayName ?? tableName, readPlan, schema, options.codeGenerator));
 		if (options.onClose) {
 			this._onClose.set(datasetId, options.onClose);
 		} else {
@@ -128,21 +130,22 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 	async openColumnView(
 		datasetId: string,
 		client: IDuckDBQueryClient,
+		database: string | undefined,
 		schemaName: string,
 		tableName: string,
 		kind: 'table' | 'view',
 		columnName: string,
 	): Promise<void> {
-		const schema = await buildDuckDBSchema(client, schemaName, tableName);
+		const schema = await buildDuckDBSchema(client, database, schemaName, tableName);
 		const column = schema.find(c => c.column_name === columnName);
 		if (!column) {
-			throw new Error(`Column '${columnName}' not found in '${schemaName}.${tableName}'`);
+			throw new Error(`Column '${columnName}' not found in '${database === undefined ? '' : database + '.'}${schemaName}.${tableName}'`);
 		}
 		// The plan is given every column the relation has, not just the requested one: what it needs to
 		// know is whether the relation emits a column named `rowid`, which the restricted schema hides.
 		const readPlan = createDuckDBReadPlan(
-			client, tableRef(schemaName, tableName), kind, schema.map(c => c.column_name));
-		this._setView(datasetId, new DuckDBTableView(client, tableRef(schemaName, tableName), tableName, readPlan, [column]));
+			client, tableRef(database, schemaName, tableName), kind, schema.map(c => c.column_name));
+		this._setView(datasetId, new DuckDBTableView(client, tableRef(database, schemaName, tableName), tableName, readPlan, [column]));
 	}
 
 	/**
@@ -251,26 +254,31 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 	}
 }
 
-/** Builds a schema-qualified, double-quote-escaped table reference (e.g. `"main"."t"`). */
-function tableRef(schemaName: string, tableName: string): string {
-	const quote = (name: string) => '"' + name.replace(/"/g, '""') + '"';
-	return `${quote(schemaName)}.${quote(tableName)}`;
+/**
+ * Builds a schema-qualified, double-quote-escaped table reference (e.g. `"main"."t"`). A defined
+ * `database` is prepended (e.g. `"db"."main"."t"`).
+ */
+function tableRef(database: string | undefined, schemaName: string, tableName: string): string {
+	const schemaAndTable = `${quoteIdentifier(schemaName)}.${quoteIdentifier(tableName)}`;
+	return database === undefined ? schemaAndTable : `${quoteIdentifier(database)}.${schemaAndTable}`;
 }
 
 /**
  * Reads a table or view's column schema via information_schema.columns and resolves each column's
- * display type.
+ * display type. An undefined `database` means the current database.
  */
 export async function buildDuckDBSchema(
 	client: IDuckDBQueryClient,
+	database: string | undefined,
 	schemaName: string,
 	relationName: string,
 ): Promise<DuckDBSchemaEntry[]> {
+	const catalog = catalogFilter(database);
 	const rows = await client.runQuery(
 		`SELECT column_name, data_type FROM information_schema.columns ` +
-		`WHERE table_catalog = current_database() AND table_schema = $schema ` +
-		`AND table_name = $relation ORDER BY ordinal_position`,
-		{ schema: schemaName, relation: relationName }
+		`WHERE table_catalog = ${catalog.expr} ` +
+		`AND table_schema = $schema AND table_name = $relation ORDER BY ordinal_position`,
+		{ ...catalog.params, schema: schemaName, relation: relationName }
 	);
 	return rows.map(row => {
 		const dataType = String(row.data_type);

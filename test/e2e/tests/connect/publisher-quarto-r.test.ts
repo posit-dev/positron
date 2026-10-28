@@ -110,7 +110,8 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.CONNECT, tags
 		if (publishWizardPresent) {
 			// First run: need to complete setup wizard
 			await test.step('Enter title for application through quick-input', async () => {
-				await app.workbench.quickInput.waitForQuickInputOpened();
+				// Publisher inspects the project before it shows the title picker
+				await app.workbench.quickInput.waitForQuickInputOpened({ timeout: 30000 });
 				await app.workbench.quickInput.type('quarto-r-example');
 				await page.keyboard.press('Enter');
 			});

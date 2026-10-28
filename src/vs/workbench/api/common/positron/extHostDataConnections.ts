@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverSummaryDTO, IDataConnectionLineageDTO, IDataConnectionLineageEdgeDTO, IDataConnectionLineageObjectDTO, IDataConnectionLineageRequestDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../extHostTypes.js';
 
@@ -98,6 +98,51 @@ function detailsToDTO(details: positron.DataConnectionNodeDetails): IDataConnect
 }
 
 /**
+ * Converts one end of a driver's lineage edge into a DTO, coercing every value to the type the wire
+ * promises. Returns undefined for an end that identifies nothing -- no name and not masked -- since
+ * an edge to an unnamed, unmasked object says nothing a caller can use.
+ */
+function lineageObjectToDTO(object: positron.DataConnectionLineageObject | undefined): IDataConnectionLineageObjectDTO | undefined {
+	if (!object) {
+		return undefined;
+	}
+	const name = optionalDetailsText(object.name);
+	const masked = object.masked === true;
+	if (!name && !masked) {
+		return undefined;
+	}
+	return {
+		database: optionalDetailsText(object.database),
+		schema: optionalDetailsText(object.schema),
+		name,
+		column: optionalDetailsText(object.column),
+		domain: detailsText(object.domain),
+		masked: masked || undefined,
+	};
+}
+
+/**
+ * Converts a driver's lineage into a DTO. Edges are kept in the driver's order (nearest first); an
+ * edge with an end that identifies nothing, or a distance that isn't a positive number, is dropped
+ * rather than put on the wire for the main thread to trip over.
+ */
+function lineageToDTO(lineage: positron.DataConnectionLineage): IDataConnectionLineageDTO {
+	if (lineage.available === false) {
+		return { available: false, message: detailsText(lineage.message) };
+	}
+	const edges: IDataConnectionLineageEdgeDTO[] = [];
+	for (const edge of Array.isArray(lineage.edges) ? lineage.edges : []) {
+		const source = lineageObjectToDTO(edge?.source);
+		const target = lineageObjectToDTO(edge?.target);
+		const distance = Number(edge?.distance);
+		if (source && target && Number.isFinite(distance) && distance > 0) {
+			edges.push({ source, target, distance });
+		}
+	}
+	return { available: true, edges, truncated: lineage.truncated === true };
+}
+
+/**
  * Extension host implementation for the `positron.dataConnections` API namespace.
  *
  * DataConnection and DataConnectionNode objects live in the extension process and
@@ -110,8 +155,9 @@ function detailsToDTO(details: positron.DataConnectionNodeDetails): IDataConnect
  *   extension (e.g. to expand a tree node or disconnect).
  *
  * Handle lifecycle:
- * - Connection handles are created in $driverConnect and freed by $releaseConnection
- *   or when the driver is unregistered.
+ * - Connection handles are created in $driverConnect and freed only by $releaseConnection. Every
+ *   handle is held by the main thread, which owns the connection's lifecycle; unregistering a
+ *   driver tells the main thread, which disconnects and releases that driver's connections.
  * - Node handles are created each time getChildren returns and are stored per-connection.
  *   They are bulk-cleared when $connectionGetChildren is called (top-level refresh) or
  *   when $releaseConnection frees the entire connection.
@@ -136,9 +182,6 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	 * without serializing the node objects themselves.
 	 */
 	private readonly _nodes = new Map<number, Map<number, positron.DataConnectionNode>>();
-
-	/** Tracks which connection handles belong to which driver for cleanup on dispose. */
-	private readonly _driverConnections = new Map<string, Set<number>>();
 
 	/** Fires when the user's connections change; see {@link onDidChangeConnections}. */
 	private readonly _onDidChangeConnections = new Emitter<void>();
@@ -208,11 +251,10 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 	/**
 	 * Registers a data connection driver. Sends serializable metadata to the main thread and
-	 * returns a Disposable that cleans up the driver and all connections it created.
+	 * returns a Disposable that unregisters the driver.
 	 */
 	public registerDriver(driver: positron.DataConnectionDriver): Disposable {
 		this._drivers.set(driver.id, driver);
-		this._driverConnections.set(driver.id, new Set());
 
 		this._proxy.$registerDataConnectionDriver(driver.id, this._driverMetadata(driver));
 
@@ -227,17 +269,14 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 		return new Disposable(() => {
 			changeListener?.dispose();
+
+			// A stale registration must not remove a replacement registered under the same id.
+			if (this._drivers.get(driver.id) !== driver) {
+				return;
+			}
 			this._drivers.delete(driver.id);
 
-			// Release all connections created by this driver.
-			const connectionHandles = this._driverConnections.get(driver.id);
-			if (connectionHandles) {
-				for (const handle of connectionHandles) {
-					this._releaseConnectionHandle(handle);
-				}
-				this._driverConnections.delete(driver.id);
-			}
-
+			// Connections are left open; the main thread closes them so the pane stays accurate.
 			this._proxy.$removeDataConnectionDriver(driver.id);
 		});
 	}
@@ -291,9 +330,6 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		const handle = this._nextConnectionHandle++;
 		this._connections.set(handle, connection);
 		this._nodes.set(handle, new Map());
-
-		// Track this connection under its driver for cleanup on driver dispose.
-		this._driverConnections.get(driverId)?.add(handle);
 
 		return handle;
 	}
@@ -423,6 +459,22 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		return connection.isConnected();
 	}
 
+	/**
+	 * Reads an object's lineage from the connection. Resolves to undefined when the connection does
+	 * not implement getLineage -- most drivers don't -- so the main thread can tell "not supported"
+	 * from a failure without tracking which drivers opted in. A failure in the driver propagates.
+	 */
+	async $connectionGetLineage(connectionHandle: number, request: IDataConnectionLineageRequestDTO): Promise<IDataConnectionLineageDTO | undefined> {
+		const connection = this._connections.get(connectionHandle);
+		if (!connection) {
+			throw new Error(`Connection handle ${connectionHandle} not found`);
+		}
+		if (!connection.getLineage) {
+			return undefined;
+		}
+		return lineageToDTO(await connection.getLineage(request));
+	}
+
 	/** Expands a node in the tree by calling its getChildren method. */
 	async $nodeGetChildren(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]> {
 		const nodeMap = this._nodes.get(connectionHandle);
@@ -471,7 +523,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 	/** Frees a connection handle and all its associated node handles. */
 	$releaseConnection(connectionHandle: number): void {
-		this._releaseConnectionHandle(connectionHandle);
+		this._connections.delete(connectionHandle);
+		this._nodes.delete(connectionHandle);
 	}
 
 	// --- Private helpers ---
@@ -498,19 +551,6 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	}
 
 	/**
-	 * Releases a connection handle, its node map, and removes it from driver tracking so it is no
-	 * longer cleaned up on driver dispose.
-	 */
-	private _releaseConnectionHandle(connectionHandle: number): void {
-		this._connections.delete(connectionHandle);
-		this._nodes.delete(connectionHandle);
-
-		for (const handles of this._driverConnections.values()) {
-			handles.delete(connectionHandle);
-		}
-	}
-
-	/**
 	 * Converts an array of extension-side DataConnectionNode objects into serializable DTOs,
 	 * assigning each node a handle for future callbacks.
 	 */
@@ -527,6 +567,9 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 				isPrimaryKey: node.isPrimaryKey,
 				path: typeof node.path === 'string' && node.path.length > 0 ? node.path : undefined,
 				defaultAction: node.defaultAction === 'details' || node.defaultAction === 'preview' ? node.defaultAction : undefined,
+				// A count is shown to the user as is, so anything that isn't one is dropped rather than
+				// shown as "NaN" or "-1".
+				childCount: typeof node.childCount === 'number' && Number.isSafeInteger(node.childCount) && node.childCount >= 0 ? node.childCount : undefined,
 				hasGetChildren: !!node.getChildren,
 				hasPreview: !!node.preview,
 				hasDetails: !!node.getDetails,
@@ -642,6 +685,7 @@ class ExtHostDataConnectionProxy implements positron.DataConnection {
 			dataType: dto.dataType,
 			path: dto.path,
 			defaultAction: dto.defaultAction,
+			childCount: dto.childCount,
 		};
 
 		if (dto.hasGetChildren) {

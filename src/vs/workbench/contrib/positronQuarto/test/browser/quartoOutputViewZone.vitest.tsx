@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 /// <reference types="vitest/globals" />
+/// <reference types="@testing-library/jest-dom/vitest" />
 
 import { act } from '@testing-library/react';
 import { Event } from '../../../../../base/common/event.js';
@@ -14,9 +15,11 @@ import { EditorOption } from '../../../../../editor/common/config/editorOptions.
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { ICellOutput } from '../../common/quartoExecutionTypes.js';
+import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { CellExecutionState, ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputViewZone } from '../../browser/quartoOutputViewZone.js';
-import { registerTestErrorAssistant } from '../../../positronAssistant/test/browser/errorAssistantTestUtils.js';
+import { registerTestErrorActionHandler } from '../../../positronAssistant/test/browser/errorActionTestUtils.js';
 
 // The inline-output webview is a fixed-position overlay anchored to a
 // placeholder inside the editor view zone. It must be shown only while its view
@@ -181,6 +184,94 @@ describe('QuartoOutputViewZone collapse across a re-execution', () => {
 	});
 });
 
+// The VS Code `notebook.showCellStatusBar` setting also controls the
+// execution status bar (icon, duration, relative time) above inline output.
+describe('QuartoOutputViewZone status bar visibility setting', () => {
+	function createViewZone(configurationService: TestConfigurationService): QuartoOutputViewZone {
+		const containerDomNode = document.createElement('div');
+		const editor = stubInterface<ICodeEditor>({
+			getContainerDomNode: () => containerDomNode,
+			onDidChangeConfiguration: Event.None,
+			onDidLayoutChange: Event.None,
+			onDidScrollChange: Event.None,
+			onDidContentSizeChange: Event.None,
+			onDidChangeHiddenAreas: Event.None,
+			onMouseMove: Event.None,
+			onMouseLeave: Event.None,
+			getOption: ((id: EditorOption) => {
+				if (id !== EditorOption.fontInfo) {
+					throw new Error(`unexpected getOption(${id})`);
+				}
+				return BareFontInfo._create('monospace', 'normal', 12, '', '', 18, 0, 1, false);
+			}) as ICodeEditor['getOption'],
+		});
+		const zone = new QuartoOutputViewZone(editor, 'cell-1', 1, undefined, undefined, 40, configurationService);
+		// toBeVisible needs the element to be attached to the document.
+		document.body.appendChild(zone.domNode);
+		return zone;
+	}
+
+	function getStatusBar(zone: QuartoOutputViewZone): HTMLElement {
+		// eslint-disable-next-line no-restricted-syntax -- the status bar is a plain div built by the zone, with no role or label
+		return zone.domNode.querySelector<HTMLElement>('.quarto-output-status-bar')!;
+	}
+
+	function setShowCellStatusBar(configurationService: TestConfigurationService, value: string): void {
+		configurationService.setUserConfiguration('notebook.showCellStatusBar', value);
+		configurationService.onDidChangeConfigurationEmitter.fire(
+			stubInterface<IConfigurationChangeEvent>({
+				affectsConfiguration: (key: string) => key === 'notebook.showCellStatusBar',
+			})
+		);
+	}
+
+	it('shows the status bar for a completed cell by default', () => {
+		const zone = createViewZone(new TestConfigurationService({ 'notebook.showCellStatusBar': 'visible' }));
+		zone.setExecutionInfo(CellExecutionState.Completed, 1000, 2234);
+
+		expect(getStatusBar(zone)).toBeVisible();
+
+		zone.dispose();
+		zone.domNode.remove();
+	});
+
+	it('hides the status bar when notebook.showCellStatusBar is hidden', () => {
+		const zone = createViewZone(new TestConfigurationService({ 'notebook.showCellStatusBar': 'hidden' }));
+		zone.setExecutionInfo(CellExecutionState.Completed, 1000, 2234);
+
+		expect(getStatusBar(zone)).not.toBeVisible();
+
+		zone.dispose();
+		zone.domNode.remove();
+	});
+
+	it('hides the status bar while a cell runs when notebook.showCellStatusBar is hidden', () => {
+		const zone = createViewZone(new TestConfigurationService({ 'notebook.showCellStatusBar': 'hidden' }));
+		zone.setExecutionInfo(CellExecutionState.Running, Date.now());
+
+		expect(getStatusBar(zone)).not.toBeVisible();
+
+		zone.dispose();
+		zone.domNode.remove();
+	});
+
+	it('updates the status bar when the setting changes', () => {
+		const configurationService = new TestConfigurationService({ 'notebook.showCellStatusBar': 'visible' });
+		const zone = createViewZone(configurationService);
+		zone.setExecutionInfo(CellExecutionState.Completed, 1000, 2234);
+		expect(getStatusBar(zone)).toBeVisible();
+
+		setShowCellStatusBar(configurationService, 'hidden');
+		expect(getStatusBar(zone)).not.toBeVisible();
+
+		setShowCellStatusBar(configurationService, 'visible');
+		expect(getStatusBar(zone)).toBeVisible();
+
+		zone.dispose();
+		zone.domNode.remove();
+	});
+});
+
 // The Fix/Explain quick-fix buttons mount asynchronously (a React root), so
 // they are not in the DOM when addOutput() measures the zone synchronously.
 // The original code relied solely on a ResizeObserver to grow the zone once
@@ -249,8 +340,8 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 	}
 
 	it('grows to fit the async quick-fix buttons on the first run and again on a re-run', async () => {
-		// Register an assistant so the Fix/Explain buttons actually render.
-		registerTestErrorAssistant(ctx);
+		// Register a handler so the Fix/Explain buttons actually render.
+		registerTestErrorActionHandler(ctx);
 		// The view zone renders the buttons through a PositronReactRenderer,
 		// which reads the services singleton; bridge the test container in.
 		PositronReactServices.services = ctx.reactServices;

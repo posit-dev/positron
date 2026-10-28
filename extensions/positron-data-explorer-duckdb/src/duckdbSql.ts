@@ -12,3 +12,14 @@ export function quoteIdentifier(name: string): string {
 export function quoteLiteral(value: string): string {
 	return value.replace(/'/g, '\'\'');
 }
+
+/**
+ * Returns the SQL expression that names the catalog a metadata query targets, plus the parameters
+ * to bind. A named database is bound as `$database`; `undefined` targets the current database. No
+ * query string is built from a database name.
+ */
+export function catalogFilter(database: string | undefined): { expr: string; params: Record<string, string> } {
+	return database === undefined
+		? { expr: 'current_database()', params: {} }
+		: { expr: '$database', params: { database } };
+}

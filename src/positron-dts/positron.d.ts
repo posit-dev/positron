@@ -1219,8 +1219,29 @@ declare module 'positron' {
 		 * metadata is respected here; use `Immediately` to start the runtime
 		 * right away, or any other value to save the runtime as the project
 		 * default without starting it.
+		 *
+		 * Core asks once during startup, before discovery. If a language has no
+		 * recommendation then, core asks again once discovery has completed,
+		 * with `afterDiscovery` set; that answer is used as the preferred runtime
+		 * but never saved as the project default. An `Immediate` answer starts
+		 * only when no console is starting or running and the language has no
+		 * affiliated runtime that was started or used (in `Recommended` mode,
+		 * its affiliation is ignored); an `Implicit` one starts when a file of its
+		 * language is open.
+		 *
+		 * @param afterDiscovery Whether runtime discovery has completed.
 		 */
-		recommendedWorkspaceRuntime(): Thenable<LanguageRuntimeMetadata | undefined>;
+		recommendedWorkspaceRuntime(afterDiscovery?: boolean): Thenable<LanguageRuntimeMetadata | undefined>;
+
+		/**
+		 * Whether a recommendation that is not started right away is saved as
+		 * the project default (an affiliation that has never been started or
+		 * used). Defaults to `true`. Set to `false` when the manager decides its
+		 * recommendation afresh every time the folder opens: core then uses the
+		 * recommendation for this window only and never saves it, so it can't
+		 * start on a later open as "the last interpreter used".
+		 */
+		readonly recommendationIsProjectDefault?: boolean;
 
 		/**
 		 * An optional snapshot of the directories this manager scans for
@@ -2694,6 +2715,18 @@ declare module 'positron' {
 		defaultAction?: 'preview' | 'details';
 
 		/**
+		 * The number of nodes `getChildren` would return, for a node whose driver knows it without
+		 * fetching them -- e.g. a "Tables" group built from a listing the driver already holds, or
+		 * counted by one cheap catalog query. Positron shows it on a group node's row (one of the
+		 * `Group*` kinds) before the node is expanded, as "Tables (14)"; once expanded, the children
+		 * themselves are counted instead. Leave notice nodes (`DataConnectionNodeKind.Notice`) out of
+		 * the count; Positron does not count them as children.
+		 * Leave it unset rather than guess, or run a query per node just to fill it: a "Views" group
+		 * with a count of 0, for one, is left out of the tree without being listed.
+		 */
+		childCount?: number;
+
+		/**
 		 * Retrieve child nodes (e.g., tables in a schema, fields in a table).
 		 */
 		getChildren?(): Thenable<DataConnectionNode[]>;
@@ -2943,7 +2976,109 @@ declare module 'positron' {
 		 * Test whether the connection is still connected.
 		 */
 		isConnected(): Thenable<boolean>;
+
+		/**
+		 * Reads the lineage of an object: the objects its data flows from (upstream) or into
+		 * (downstream). Optional; implemented only by drivers whose data source tracks lineage.
+		 *
+		 * Resolves to `{ available: false, message }` when the data source declines the request --
+		 * the object does not exist or is not accessible, does not support lineage, or the account
+		 * lacks the feature -- and rejects when the connection itself fails.
+		 *
+		 * @param request Which object, which direction, and how far to follow it.
+		 */
+		getLineage?(request: DataConnectionLineageRequest): Thenable<DataConnectionLineage>;
 	}
+
+	/**
+	 * A request for an object's lineage. See {@link DataConnection.getLineage}.
+	 */
+	export interface DataConnectionLineageRequest {
+		/**
+		 * The object's path from the top of the data source, one exact name per level: e.g.
+		 * `[database, schema, table]` for a table, view or other table-like object, and
+		 * `[database, schema, table, column]` for a column. Each name is as the data source spells
+		 * it, case and all; a driver quotes them as its data source requires.
+		 */
+		path: string[];
+
+		/**
+		 * Whether the object is a table (including views and other table-like objects) or a column.
+		 */
+		domain: 'table' | 'column';
+
+		/**
+		 * Whether to follow the objects the data comes from (`upstream`) or the objects it flows
+		 * into (`downstream`).
+		 */
+		direction: 'upstream' | 'downstream';
+
+		/**
+		 * How many hops to follow, from 1 up to the data source's own limit.
+		 */
+		depth: number;
+
+		/**
+		 * The most edges to return. A driver returns the nearest edges first and sets `truncated`
+		 * when it left any out.
+		 */
+		maxEdges: number;
+	}
+
+	/**
+	 * One end of a lineage edge.
+	 */
+	export interface DataConnectionLineageObject {
+		/** The database holding the object. Absent for an object outside the data source. */
+		database?: string;
+
+		/** The schema holding the object. Absent for an object outside the data source. */
+		schema?: string;
+
+		/** The object's unqualified name. Absent when the object is masked. */
+		name?: string;
+
+		/** The column, when the edge is between columns. */
+		column?: string;
+
+		/** The kind of object, in the data source's own terms, e.g. `table` or `stage`. */
+		domain: string;
+
+		/** Set when the caller is not allowed to see the object, so its name is withheld. */
+		masked?: boolean;
+	}
+
+	/**
+	 * One edge in an object's lineage: data flows from `source` to `target`.
+	 */
+	export interface DataConnectionLineageEdge {
+		source: DataConnectionLineageObject;
+		target: DataConnectionLineageObject;
+
+		/** How many hops from the requested object this edge is. A direct relationship is 1. */
+		distance: number;
+	}
+
+	/**
+	 * An object's lineage, or the data source's reason for not providing it. See
+	 * {@link DataConnection.getLineage}.
+	 */
+	export type DataConnectionLineage =
+		| {
+			available: true;
+
+			/** The edges, nearest first. Empty when the object has no lineage in this direction. */
+			edges: DataConnectionLineageEdge[];
+
+			/** Whether `maxEdges` left edges out. */
+			truncated: boolean;
+		}
+		| {
+			available: false;
+
+			/** The data source's explanation, suitable for showing to the user. */
+			message: string;
+		};
 
 	/**
 	 * A summary of a registered data connection driver, returned by getDrivers().
@@ -3532,6 +3667,9 @@ declare module 'positron' {
 		 *  are merged into `attribution.metadata` on the resulting
 		 *  `CodeExecutionEvent`. Positron retains sole authority over
 		 *  `attribution.source`; callers cannot set it.
+		 * @param preserveActiveTab Whether to avoid switching the active tab when
+		 *  revealing the Console and Plots. If another tab is showing where the
+		 *  Console or Plots live, it stays showing. Ignored when `focus` is true.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
@@ -3545,7 +3683,8 @@ declare module 'positron' {
 			sessionId?: string,
 			documentUri?: vscode.Uri,
 			executionMetadata?: Record<string, any>,
-			attributionMetadata?: Record<string, any>): Thenable<Record<string, any>>;
+			attributionMetadata?: Record<string, any>,
+			preserveActiveTab?: boolean): Thenable<Record<string, any>>;
 
 		/**
 		 * Evaluates code silently in a language runtime, without displaying

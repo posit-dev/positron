@@ -12,7 +12,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
 import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, OBJECT_EXPLORER_MIME_TYPE, CellExecutionState } from '../common/quartoExecutionTypes.js';
-import { IQuartoErroredCell } from '../../positronAssistant/common/errorAssistant.js';
+import { IQuartoErroredCell } from '../../positronAssistant/common/errorAction.js';
 import { InlineObjectExplorer } from '../../../browser/positronObjectExplorer/inlineObjectExplorer.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
@@ -43,6 +43,7 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { getDefaultHoverDelegate } from '../../../../base/browser/ui/hover/hoverDelegateFactory.js';
 import { IManagedHover } from '../../../../base/browser/ui/hover/hover.js';
 import { QuartoOutputQuickFix } from './QuartoOutputQuickFix.js';
+import { NotebookSetting } from '../../notebook/common/notebookCommon.js';
 
 /**
  * Minimum height for a view zone in pixels.
@@ -386,6 +387,14 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _erroredCell: IQuartoErroredCell | undefined;
 	private _quickFixRenderer: PositronReactRenderer | undefined;
 
+	// The last execution info passed to setExecutionInfo, so the status bar
+	// can be re-applied when `notebook.showCellStatusBar` changes.
+	private _lastExecutionInfo: { state: CellExecutionState; startTime?: number; endTime?: number } | undefined;
+
+	// True when the zone was removed from the editor because the status bar
+	// is hidden by setting and there are no outputs to show.
+	private _hiddenForHiddenStatusBar = false;
+
 	constructor(
 		private readonly _editor: ICodeEditor,
 		public readonly cellId: string,
@@ -515,6 +524,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				this._applyEditorFont();
 			}
 		}));
+
+		// Re-apply the status bar when the user shows or hides it
+		if (this._configurationService) {
+			this._register(this._configurationService.onDidChangeConfiguration(e => {
+				if (e.affectsConfiguration(NotebookSetting.showCellStatusBar) && this._lastExecutionInfo) {
+					const { state, startTime, endTime } = this._lastExecutionInfo;
+					this.setExecutionInfo(state, startTime, endTime);
+				}
+			}));
+		}
 
 		// Listen for layout changes to update width
 		this._register(this._editor.onDidLayoutChange(() => {
@@ -720,17 +739,21 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	/**
 	 * Set execution information to display in the status bar.
-	 * Hides the status bar when no meaningful info is available (e.g. cached outputs).
+	 * Hides the status bar when no meaningful info is available (e.g. cached outputs)
+	 * or when the user hides it with `notebook.showCellStatusBar`.
 	 */
 	setExecutionInfo(state: CellExecutionState, startTime?: number, endTime?: number): void {
-		// Hide status bar when idle with no timing info
-		if (state === CellExecutionState.Idle && !startTime) {
+		this._lastExecutionInfo = { state, startTime, endTime };
+
+		// Hide status bar when idle with no timing info, or when hidden by setting
+		if ((state === CellExecutionState.Idle && !startTime) || this._isStatusBarHiddenBySetting()) {
 			this._statusBar.style.display = 'none';
 			this._stopTimer();
 			this._stopTimestampRefresh();
 			this._stopSparkline(true);
 			this._updateStatusOnlyState();
 			this._updateHeight();
+			this._updateVisibilityForHiddenStatusBar();
 			return;
 		}
 
@@ -770,6 +793,30 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		this._updateStatusOnlyState();
 		this._updateHeight();
+		this._updateVisibilityForHiddenStatusBar();
+	}
+
+	/**
+	 * Whether the user hid the cell status bar with `notebook.showCellStatusBar`.
+	 */
+	private _isStatusBarHiddenBySetting(): boolean {
+		return this._configurationService?.getValue<string>(NotebookSetting.showCellStatusBar) === 'hidden';
+	}
+
+	/**
+	 * Remove the zone from the editor when the status bar is hidden by setting
+	 * and there are no outputs, so no empty space is left below the cell.
+	 * Add the zone back when there is something to show again.
+	 */
+	private _updateVisibilityForHiddenStatusBar(): void {
+		const shouldHide = this._isStatusBarHiddenBySetting() && this._outputs.length === 0;
+		if (shouldHide && this._zoneId) {
+			this.hide();
+			this._hiddenForHiddenStatusBar = true;
+		} else if (!shouldHide && this._hiddenForHiddenStatusBar) {
+			this._hiddenForHiddenStatusBar = false;
+			this.show();
+		}
 	}
 
 	/**
@@ -1088,6 +1135,13 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Add an output to the view zone.
 	 */
 	addOutput(output: ICellOutput): void {
+		// Add the zone back if it was removed only because the status bar is
+		// hidden by setting and there were no outputs yet.
+		if (this._hiddenForHiddenStatusBar) {
+			this._hiddenForHiddenStatusBar = false;
+			this.show();
+		}
+
 		// If we're in recomputing state and this is the first new output,
 		// clear the old outputs and exit recomputing state
 		if (this._isRecomputing) {
@@ -1188,6 +1242,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._stopTimer();
 		this._stopTimestampRefresh();
 		this._stopSparkline(true);
+		this._lastExecutionInfo = undefined;
+		this._hiddenForHiddenStatusBar = false;
 
 		this._isStatusOnly = false;
 		this.hide();
@@ -2686,7 +2742,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Mount Fix/Explain quick-fix buttons for current-session errors.
 		// QuartoOutputQuickFix renders nothing while there is no active error
-		// assistant to send the error to.
+		// handler to send the error to.
 		if (this._quickFixEnabled && this._documentUri) {
 			const quickFixContainer = document.createElement('div');
 			quickFixContainer.setAttribute('aria-live', 'off');

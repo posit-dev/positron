@@ -69,7 +69,14 @@
 #   pick TEXT             the open quick pick's row whose label is TEXT; when
 #                         several rows share it, TEXT as the error's "shown"
 #                         writes the row, "label (description)", or --nth N
-#                         for the Nth of them in list order
+#                         for the Nth of them in list order. The list draws
+#                         only the rows near its scroll position: when it has
+#                         rows not drawn and the drawn ones hold no match (or
+#                         one, which another row could make ambiguous), pick
+#                         reads every row (as quickpick-enum.sh does, up to
+#                         100), scrolls to the one it takes, and adds
+#                         "walked": true; a list it could not read to the end
+#                         says so in the error
 #
 # Flags:
 #   --session NAME  the @playwright/cli session attached to the instance (or $PW_SESSION)

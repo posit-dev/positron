@@ -78,6 +78,9 @@ export interface IDataConnectionNodeDTO {
 	isPrimaryKey?: boolean;
 	path?: string;
 	defaultAction?: 'preview' | 'details';
+	// How many children the driver says the node has, when it knows without fetching them. A
+	// non-negative integer when present; the extension host drops any other value.
+	childCount?: number;
 	hasGetChildren: boolean;
 	hasPreview: boolean;
 	hasDetails: boolean;
@@ -121,6 +124,45 @@ export interface IDataConnectionNodeDetailsDTO {
 	sections: IDataConnectionNodeDetailsSectionDTO[];
 	tabs?: IDataConnectionNodeDetailsTabDTO[];
 }
+
+/**
+ * Serializable lineage request. Mirrors positron.DataConnectionLineageRequest.
+ */
+export interface IDataConnectionLineageRequestDTO {
+	path: string[];
+	domain: 'table' | 'column';
+	direction: 'upstream' | 'downstream';
+	depth: number;
+	maxEdges: number;
+}
+
+/**
+ * Serializable end of a lineage edge. Mirrors positron.DataConnectionLineageObject.
+ */
+export interface IDataConnectionLineageObjectDTO {
+	database?: string;
+	schema?: string;
+	name?: string;
+	column?: string;
+	domain: string;
+	masked?: boolean;
+}
+
+/**
+ * Serializable lineage edge. Mirrors positron.DataConnectionLineageEdge.
+ */
+export interface IDataConnectionLineageEdgeDTO {
+	source: IDataConnectionLineageObjectDTO;
+	target: IDataConnectionLineageObjectDTO;
+	distance: number;
+}
+
+/**
+ * Serializable lineage result. Mirrors positron.DataConnectionLineage.
+ */
+export type IDataConnectionLineageDTO =
+	| { available: true; edges: IDataConnectionLineageEdgeDTO[]; truncated: boolean }
+	| { available: false; message: string };
 
 /**
  * Serializable form of a single named connection code variant (e.g. Python `sqlite3` vs

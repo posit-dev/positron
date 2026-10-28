@@ -134,7 +134,8 @@ Viewer by default, or wherever the user's preview mode setting points.
 **Data connections and schemas** -- [references/data-connections.md]({{skill_dir}}/references/data-connections.md)
 Read when the user asks about: the database or warehouse connections they have
 configured, which of them are connected, the tables and columns a live
-connection exposes, or writing a query against one of their connections.
+connection exposes, where a table's or column's data comes from or what is
+built from it (lineage), or writing a query against one of their connections.
 
 **Notebooks** -- [references/notebooks.md]({{skill_dir}}/references/notebooks.md)
 Read when the user wants to create a Jupyter notebook, or read, insert, edit,

@@ -92,6 +92,11 @@ function convertEnvInfo(info: PythonEnvInfo): PythonEnvironment {
     env.displayName = info.display;
     env.detailedDisplayName = info.detailedDisplayName;
     env.type = info.type;
+    // --- Start Positron ---
+    if (info.nativeKind) {
+        env.nativeKind = info.nativeKind;
+    }
+    // --- End Positron ---
     // We do not worry about using distro.defaultDisplayName.
 
     return env;
@@ -134,16 +139,14 @@ class ComponentAdapter implements IComponentAdapter {
 
     // Call callback if an environment gets created within the resource provided.
     // --- Start Positron ---
-    // Locator events store the executable path in different fields: `envPath` for the JS locator and
-    // `new.executable.filename` for the native locator. The callback receives that path instead of
-    // taking no arguments.
+    // The callback receives the new environment's executable path instead of taking no arguments.
     public onDidCreate(resource: Resource, callback: (envPath: string) => void): vscode.Disposable {
         const workspaceFolder = resource ? vscode.workspace.getWorkspaceFolder(resource) : undefined;
-        return this.api.onChanged((e: PythonEnvCollectionChangedEvent & { envPath?: string }) => {
+        return this.api.onChanged((e: PythonEnvCollectionChangedEvent) => {
             if (!workspaceFolder || !e.searchLocation || e.type !== FileChangeType.Created) {
                 return;
             }
-            const envPath = e.envPath ?? e.new?.executable.filename;
+            const envPath = e.new?.executable.filename;
             if (!envPath) {
                 return;
             }

@@ -57,7 +57,9 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	const label = `${a.role} "${a.name}"${a.scope ? ' in ' + a.scope : ''}`;
 	if (n === 0) {
 		const roles = await lib.snapshot(scope, 40);
-		return { ok: false, error: `no visible ${label}`, hint: 'the view as it reads now is in "view"', view: roles };
+		// Quarto inline output is drawn in the editor but hidden from the tree (Monaco's view zones).
+		const quarto = await scope.locator(lib.css.qmd.output).filter({ visible: true }).count() > 0;
+		return { ok: false, error: `no visible ${label}${quarto ? '; Quarto inline output is on screen, and its links and buttons are not in the accessibility tree: click one with qmd.sh --file FILE link N TEXT' : ''}`, hint: 'the view as it reads now is in "view"', view: roles };
 	}
 	if (n > 1 && !a.nth) {
 		const names = await shown.evaluateAll(es => es.map(e => (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 60)));
@@ -90,8 +92,8 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	// Only an overlay that was not on screen before counts (lib.markOverlays marks
 	// those): a menu item that opens a quick pick closes its menu, so the number
 	// of overlays stays the same ("Start Another..." in Quick Launch Session).
-	await lib.markOverlays();
-	const fresh = () => page.locator(lib.css.overlay.any).filter({ visible: true }).and(page.locator(`${lib.css.overlay.notInToasts}:not([data-dp-seen])`)).count();
+	const mark = await lib.markOverlays();
+	const fresh = () => page.locator(lib.css.overlay.any).filter({ visible: true }).and(page.locator(`${lib.css.overlay.notInToasts}:not([data-dp-seen="${mark}"])`)).count();
 	const toastsBefore = await lib.toasts();
 	const acted = Date.now();
 	let checked: Record<string, unknown> = {};
@@ -262,16 +264,18 @@ const typeText: PageFn<{ scope: string; text: string; enter: boolean }> = async 
 // runs in run-code
 const pickRow: PageFn<{ text: string; nth: number }> = async (page, a, lib) => {
 	if (!await lib.quickOpen()) { return { ok: false, error: 'no quick pick is open' }; }
-	const p = await lib.pick({ exact: a.text, nth: a.nth });
+	const p = await lib.pick({ exact: a.text, nth: a.nth, walk: true });
 	if (!p.ok) {
 		// Rows that share a label: the row as "shown" writes it tells them apart, unless they look the same.
 		const shown = (p as { shown?: string[] }).shown ?? [];
 		const how = new Set(shown).size === shown.length ? 'give the row as "shown" writes it, "label (description)", or pass --nth (1 = first)' : 'pass --nth (1 = first), in list order';
-		return / rows match "[^"]*"$/.test(p.error) ? { ...p, error: `${p.error}; ${how}` } : p;
+		if (/ rows match "[^"]*"$/.test(p.error)) { return { ...p, error: `${p.error}; ${how}` }; }
+		// A list pick could not read or scroll through: a filter shortens it.
+		return (p as { partial?: boolean }).partial ? { ...p, error: `${p.error}; filter it with ui.sh type TEXT --in quickpick, then pick` } : p;
 	}
 	await lib.clickRow(p.row);
 	await lib.sleep(200);
-	return { ok: true, chose: p.row.label, description: p.row.description, closed: !await lib.quickOpen() };
+	return { ok: true, chose: p.row.label, description: p.row.description, ...(p.walked ? { walked: true } : {}), closed: !await lib.quickOpen() };
 };
 
 /**

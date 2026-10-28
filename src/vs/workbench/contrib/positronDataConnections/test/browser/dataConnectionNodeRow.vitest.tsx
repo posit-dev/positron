@@ -296,4 +296,35 @@ describe('DataConnectionNodeRow', () => {
 			expect(previewNode).not.toHaveBeenCalled();
 		});
 	});
+
+	describe('count', () => {
+		function renderGroupRow(countLabel?: string) {
+			rtl.render(
+				<DataConnectionNodeRow
+					countLabel={countLabel}
+					dto={createDto({ kind: 'group-tables', name: 'Tables', hasGetChildren: true, hasPreview: false })}
+					handle={stubInterface<IDataConnectionHandle>({ handle: 1 })}
+					stale={false}
+					onMenuOpening={vi.fn((): IDisposable => ({ dispose: vi.fn() }))}
+					onOpenDetails={vi.fn(async () => { })}
+					onOpeningDataExplorer={vi.fn()}
+					onPinDetails={vi.fn(async () => { })}
+					onRefresh={vi.fn()}
+				/>
+			);
+		}
+
+		it('shows the count the tree gives it right after the name', () => {
+			renderGroupRow('(14)');
+
+			expect(screen.getByTestId('data-connection-node-count')).toHaveTextContent('(14)');
+			expect(screen.getByText('Tables').parentElement).toHaveTextContent(/^Tables \(14\)$/);
+		});
+
+		it('shows no count when the tree gives it none', () => {
+			renderGroupRow();
+
+			expect(screen.queryByTestId('data-connection-node-count')).not.toBeInTheDocument();
+		});
+	});
 });

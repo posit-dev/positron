@@ -18,7 +18,11 @@ test.describe('Default Interpreters - Python', {
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
-		await settings.set({ 'interpreters.startupBehavior': 'always' });
+		await settings.set({
+			'interpreters.startupBehavior': 'always',
+			// test-files has R files, so R's recommendation would start R too.
+			'[r]': { 'interpreters.startupBehavior': 'manual' },
+		});
 		await deletePositronHistoryFiles();
 
 		// Build environment-aware path for default interpreter

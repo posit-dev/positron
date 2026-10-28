@@ -342,7 +342,15 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 					return _clipboardService.readText(type === 'p' ? 'selection' : 'clipboard');
 				},
 				async writeText(type: string, text: string): Promise<void> {
-					return _clipboardService.writeText(text, type === 'p' ? 'selection' : 'clipboard');
+					// --- Start PWB: Optionally omit type so browser clients write to the system clipboard ---
+					if (type === 'p') {
+						return _clipboardService.writeText(text, 'selection');
+					}
+					if (_terminalConfigurationService.config.allowProgramsToCopyToClipboard) {
+						await _clipboardService.writeText(text);
+					}
+					return _clipboardService.writeText(text, 'clipboard');
+					// --- End PWB ---
 				}
 			});
 			this.raw.loadAddon(this._clipboardAddon);

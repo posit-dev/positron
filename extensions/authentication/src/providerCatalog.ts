@@ -48,6 +48,15 @@ export interface ProviderCatalogOptions {
 	envVars?: Record<string, string | undefined>;
 }
 
+/**
+ * ai-config requires an explicit environment so hosts that scrub control
+ * variables from `process.env` can't lose admin tiers by default. Positron
+ * doesn't scrub them, so a live `process.env` read is correct.
+ */
+function catalogEnv(options: ProviderCatalogOptions): Record<string, string | undefined> {
+	return options.envVars ?? process.env;
+}
+
 let cache = new Map<string, ResolvedProviderLike>();
 let watcher: { dispose(): void } | undefined;
 let currentOptions: ProviderCatalogOptions | undefined;
@@ -109,7 +118,7 @@ async function loadCatalog(options: ProviderCatalogOptions): Promise<readonly Re
 	const { loadResolvedProviderCatalog } = await import('ai-config/node');
 	return loadResolvedProviderCatalog({
 		configPath: options.configPath,
-		envVars: options.envVars,
+		envVars: catalogEnv(options),
 		// PROVIDER-SETTINGS-MIGRATION(legacy-positron): keep the legacy
 		// POSITRON_ENFORCED_SETTINGS admin channel applying above the user file.
 		// The user-set legacy settings reader is deliberately NOT passed: this
@@ -143,7 +152,7 @@ export async function initProviderCatalog(
 		(change: ProviderCatalogChange) => applyCatalog(change.catalog),
 		{
 			configPath: options.configPath,
-			envVars: options.envVars,
+			envVars: catalogEnv(options),
 			// PROVIDER-SETTINGS-MIGRATION(legacy-positron): same opt-in as
 			// loadCatalog — enforced channel only, no user-set reader.
 			legacyPositronEnforcedSettings: true,
@@ -173,7 +182,7 @@ async function logDisabledProviders(options: ProviderCatalogOptions): Promise<vo
 	}
 	const { loadConfigSources } = await import('ai-config/node');
 	// No logger: loadCatalog has already reported these sources' issues.
-	const sources = await loadConfigSources({ configPath: options.configPath, env: options.envVars });
+	const sources = await loadConfigSources({ configPath: options.configPath, env: catalogEnv(options) });
 	const layer = (kind: ProviderConfigSourceKind) => sources.find(source => source.kind === kind);
 	const enforced = layer('enforced');
 	const user = layer('user');
@@ -198,7 +207,7 @@ async function logDisabledProviders(options: ProviderCatalogOptions): Promise<vo
 /** Whether the admin default layer (POSIT_AI_PROVIDERS_DEFAULT) decides a provider's `enabled`. */
 export async function adminDefaultDecidesEnabled(id: string, options: ProviderCatalogOptions = {}): Promise<boolean> {
 	const { loadConfigSources } = await import('ai-config/node');
-	const sources = await loadConfigSources({ configPath: options.configPath, env: options.envVars });
+	const sources = await loadConfigSources({ configPath: options.configPath, env: catalogEnv(options) });
 	return definesEnabled(sources.find(source => source.kind === 'default'), id);
 }
 

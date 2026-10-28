@@ -8,7 +8,7 @@ import * as chaiAsPromised from 'chai-as-promised';
 import * as sinon from 'sinon';
 import * as typemoq from 'typemoq';
 import { assert, use as chaiUse } from 'chai';
-import { Uri, WorkspaceConfiguration } from 'vscode';
+import { EventEmitter, Uri, WorkspaceConfiguration } from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as path from 'path';
@@ -17,11 +17,19 @@ import * as commandApis from '../../client/common/vscodeApis/commandApis';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as createEnvironmentApis from '../../client/pythonEnvironments/creation/createEnvironment';
 import { IDisposableRegistry, IPathUtils } from '../../client/common/types';
-import { registerCreateEnvironmentFeatures } from '../../client/pythonEnvironments/creation/createEnvApi';
+import {
+    isCreatingEnvironment,
+    registerCreateEnvironmentFeatures,
+} from '../../client/pythonEnvironments/creation/createEnvApi';
 import { CreateEnvironmentProvider } from '../../client/pythonEnvironments/creation/proposed.createEnvApis';
 import { IPythonRuntimeManager } from '../../client/positron/manager';
 import { IInterpreterQuickPick, IPythonPathUpdaterServiceManager } from '../../client/interpreter/configuration/types';
-import { createEnvironmentAndRegister, CreateEnvironmentAndRegisterOptions } from '../../client/positron/createEnvApi';
+import {
+    createEnvironmentAndRegister,
+    CreateEnvironmentAndRegisterOptions,
+    SESSION_START_HOLD_MS,
+} from '../../client/positron/createEnvApi';
+import { PythonRuntimeSession } from '../../client/positron/session';
 import { createTypeMoq } from '../mocks/helper';
 
 chaiUse(chaiAsPromised.default);
@@ -42,6 +50,7 @@ suite('Positron Create Environment APIs', () => {
     let interpreterQuickPick: typemoq.IMock<IInterpreterQuickPick>;
     let interpreterPathService: typemoq.IMock<IPythonPathUpdaterServiceManager>;
     let workspaceConfig: typemoq.IMock<WorkspaceConfiguration>;
+    let sessionCreated: EventEmitter<PythonRuntimeSession>;
 
     // Test workspace
     const workspace1 = {
@@ -81,6 +90,8 @@ suite('Positron Create Environment APIs', () => {
         interpreterQuickPick = createTypeMoq<IInterpreterQuickPick>();
         interpreterPathService = createTypeMoq<IPythonPathUpdaterServiceManager>();
         workspaceConfig = createTypeMoq<WorkspaceConfiguration>();
+        sessionCreated = new EventEmitter<PythonRuntimeSession>();
+        pythonRuntimeManager.setup((m) => m.onDidCreateSession).returns(() => sessionCreated.event);
 
         getConfigurationStub = sinon.stub(workspaceApis, 'getConfiguration');
         getConfigurationStub.callsFake((section?: string) => {
@@ -117,6 +128,8 @@ suite('Positron Create Environment APIs', () => {
     teardown(() => {
         disposables.forEach((d) => d.dispose());
         sinon.restore();
+        sessionCreated.dispose();
+        assert.isFalse(isCreatingEnvironment(), 'a test leaked the creation hold');
     });
 
     Object.entries(envOptionsWithInfo).forEach(([optionsName, options]) => {
@@ -239,5 +252,210 @@ suite('Positron Create Environment APIs', () => {
             /Workspace folder not found/,
         );
         assert.isTrue(handleCreateEnvironmentCommandStub.notCalled);
+    });
+
+    suite('sessionWillStart', () => {
+        const resultPath = '/path/to/created/env/bin/python';
+
+        function fakeSession(pythonPath: string): {
+            session: PythonRuntimeSession;
+            setState: (state: positron.RuntimeState) => void;
+        } {
+            let state = positron.RuntimeState.Uninitialized;
+            const stateChanged = new EventEmitter<positron.RuntimeState>();
+            const session = {
+                runtimeMetadata: { extraRuntimeData: { pythonPath } },
+                getRuntimeState: () => state,
+                onDidChangeRuntimeState: stateChanged.event,
+            };
+            return {
+                session: session as unknown as PythonRuntimeSession,
+                setState: (newState) => {
+                    state = newState;
+                    stateChanged.fire(newState);
+                },
+            };
+        }
+
+        /** Lets the promise chain that ends the hold run to completion. */
+        function settle(): Promise<void> {
+            return new Promise((resolve) => setImmediate(resolve));
+        }
+
+        /** Ends a hold that a test left up, by starting a session for the new environment. */
+        function startMatchingSession(): void {
+            const { session, setState } = fakeSession(resultPath);
+            sessionCreated.fire(session);
+            setState(positron.RuntimeState.Starting);
+        }
+
+        setup(() => {
+            pythonRuntimeManager
+                .setup((p) => p.registerLanguageRuntimeFromPath(resultPath))
+                .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object));
+        });
+
+        test('holds the flag from creation until a session for the new environment starts', async () => {
+            let busyWhileCreating = false;
+            handleCreateEnvironmentCommandStub.callsFake(async () => {
+                busyWhileCreating = isCreatingEnvironment();
+                return { path: resultPath };
+            });
+            await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+                ...envOptions,
+                sessionWillStart: true,
+            });
+            const busyAfterReturn = isCreatingEnvironment();
+            startMatchingSession();
+            await settle();
+            assert.deepStrictEqual(
+                { busyWhileCreating, busyAfterReturn, busyAfterStart: isCreatingEnvironment() },
+                { busyWhileCreating: true, busyAfterReturn: true, busyAfterStart: false },
+            );
+        });
+
+        test('keeps the flag up while the new session is still uninitialized', async () => {
+            handleCreateEnvironmentCommandStub.resolves({ path: resultPath });
+            await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+                ...envOptions,
+                sessionWillStart: true,
+            });
+            const { session, setState } = fakeSession(resultPath);
+            sessionCreated.fire(session);
+            await settle();
+            const busyWhileUninitialized = isCreatingEnvironment();
+            setState(positron.RuntimeState.Starting);
+            await settle();
+            assert.deepStrictEqual(
+                { busyWhileUninitialized, busyAfterStart: isCreatingEnvironment() },
+                { busyWhileUninitialized: true, busyAfterStart: false },
+            );
+        });
+
+        test('releases the flag at once for a session that already left uninitialized', async () => {
+            handleCreateEnvironmentCommandStub.resolves({ path: resultPath });
+            await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+                ...envOptions,
+                sessionWillStart: true,
+            });
+            const { session, setState } = fakeSession(resultPath);
+            setState(positron.RuntimeState.Ready);
+            sessionCreated.fire(session);
+            await settle();
+            assert.isFalse(isCreatingEnvironment());
+        });
+
+        test('ends the hold for a session on the registered interpreter path', async () => {
+            const registeredPath = '/resolved/env/bin/python';
+            const metadata = { extraRuntimeData: { pythonPath: registeredPath } };
+            pythonRuntimeManager.reset();
+            pythonRuntimeManager.setup((m) => m.onDidCreateSession).returns(() => sessionCreated.event);
+            pythonRuntimeManager
+                .setup((p) => p.registerLanguageRuntimeFromPath(resultPath))
+                .returns(() => Promise.resolve(metadata as unknown as positron.LanguageRuntimeMetadata));
+            handleCreateEnvironmentCommandStub.resolves({ path: resultPath });
+            await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+                ...envOptions,
+                sessionWillStart: true,
+            });
+            const { session, setState } = fakeSession(registeredPath);
+            sessionCreated.fire(session);
+            setState(positron.RuntimeState.Starting);
+            await settle();
+            assert.isFalse(isCreatingEnvironment());
+        });
+
+        test('ignores sessions for other interpreters', async () => {
+            handleCreateEnvironmentCommandStub.resolves({ path: resultPath });
+            await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+                ...envOptions,
+                sessionWillStart: true,
+            });
+            const other = fakeSession('/other/bin/python');
+            sessionCreated.fire(other.session);
+            other.setState(positron.RuntimeState.Starting);
+            await settle();
+            const busyAfterOtherStart = isCreatingEnvironment();
+            startMatchingSession();
+            await settle();
+            assert.deepStrictEqual(
+                { busyAfterOtherStart, busyAfterMatchingStart: isCreatingEnvironment() },
+                { busyAfterOtherStart: true, busyAfterMatchingStart: false },
+            );
+        });
+
+        test('releases the flag at the time limit when no session starts', async () => {
+            const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+            try {
+                handleCreateEnvironmentCommandStub.resolves({ path: resultPath });
+                await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+                    ...envOptions,
+                    sessionWillStart: true,
+                });
+                clock.tick(SESSION_START_HOLD_MS - 1);
+                await settle();
+                const busyBeforeLimit = isCreatingEnvironment();
+                clock.tick(1);
+                await settle();
+                assert.deepStrictEqual(
+                    { busyBeforeLimit, busyAtLimit: isCreatingEnvironment() },
+                    { busyBeforeLimit: true, busyAtLimit: false },
+                );
+            } finally {
+                clock.restore();
+            }
+        });
+
+        test('releases the flag when creation throws', async () => {
+            handleCreateEnvironmentCommandStub.rejects(new Error('creation failed'));
+            await assert.isRejected(
+                createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+                    ...envOptions,
+                    sessionWillStart: true,
+                }),
+                /creation failed/,
+            );
+            await settle();
+            assert.isFalse(isCreatingEnvironment());
+        });
+
+        test('releases the flag when creation returns no path', async () => {
+            handleCreateEnvironmentCommandStub.resolves({
+                path: undefined,
+                workspaceFolder: undefined,
+                action: undefined,
+                error: new Error('x'),
+            });
+            await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+                ...envOptions,
+                sessionWillStart: true,
+            });
+            await settle();
+            assert.isFalse(isCreatingEnvironment());
+        });
+
+        test('does not hold the flag without sessionWillStart', async () => {
+            let busyWhileCreating = false;
+            handleCreateEnvironmentCommandStub.callsFake(async () => {
+                busyWhileCreating = isCreatingEnvironment();
+                return { path: resultPath };
+            });
+            await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, { ...envOptions });
+            assert.deepStrictEqual(
+                { busyWhileCreating, busyAfter: isCreatingEnvironment() },
+                { busyWhileCreating: false, busyAfter: false },
+            );
+        });
+
+        test('does not pass sessionWillStart to the providers', async () => {
+            handleCreateEnvironmentCommandStub.resolves({ path: resultPath });
+            await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+                ...envOptions,
+                sessionWillStart: true,
+            });
+            startMatchingSession();
+            await settle();
+            assert.notProperty(handleCreateEnvironmentCommandStub.firstCall.args[1], 'sessionWillStart');
+        });
     });
 });

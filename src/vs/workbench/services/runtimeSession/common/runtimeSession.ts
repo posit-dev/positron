@@ -286,16 +286,34 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			for (const extensionId of e) {
 				for (const s of this._disconnectedSessions.values()) {
 					const session = s.session;
-					if (session.runtimeMetadata.extensionId.value === extensionId.value) {
-						// Remove the session from the disconnected sessions so we don't
-						// try to reconnect it again (no matter the outcome below)
-						this._disconnectedSessions.delete(session.sessionId);
+					if (session.runtimeMetadata.extensionId.value !== extensionId.value) {
+						continue;
+					}
 
-						// Attempt to reconnect the session.
-						this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
-							`attempting to reconnect session ${session.sessionId}`);
+					// Remove the session from the disconnected sessions so we don't
+					// try to reconnect it again (no matter the outcome below)
+					this._disconnectedSessions.delete(session.sessionId);
+
+					(async () => {
 						try {
-							this.restoreRuntimeSession(session.runtimeMetadata,
+							// Don't reconnect to a kernel that is no longer alive; the
+							// session stays as it is (exited or disconnected), keeping
+							// its console and scrollback.
+							const valid = await this.validateRuntimeSession(session.runtimeMetadata, session.sessionId)
+								.catch(err => {
+									this._logService.error(`Error validating session ${session.sessionId}: ${err}`);
+									return false;
+								});
+							if (!valid) {
+								this._logService.info(`Extension ${extensionId.value} has been reloaded, ` +
+									`but session ${session.sessionId} was not reconnected because the kernel is no longer running`);
+								return;
+							}
+
+							// Attempt to reconnect the session.
+							this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
+								`attempting to reconnect session ${session.sessionId}`);
+							await this.restoreRuntimeSession(session.runtimeMetadata,
 								session.metadata,
 								session.dynState.sessionName,
 								s.hasConsole,
@@ -312,7 +330,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 								);
 							}
 						}
-					}
+					})();
 				}
 			}
 		}
@@ -876,7 +894,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		if (!languageRuntime) {
 			this._logService.debug(`[Reconnect ${sessionMetadata.sessionId}]: ` +
 				`Registering runtime ${runtimeMetadata.runtimeName}`);
-			this._languageRuntimeService.registerRuntime(runtimeMetadata);
+			try {
+				this._languageRuntimeService.registerRuntime(runtimeMetadata);
+			} catch (err) {
+				// Registration fails when the language is disabled. The
+				// session can still be reconnected without a registry entry.
+				this._logService.info(`[Reconnect ${sessionMetadata.sessionId}]: ` +
+					`Could not register runtime ${runtimeMetadata.runtimeName}; ` +
+					`reconnecting anyway: ${err instanceof Error ? err.message : String(err)}`);
+			}
 		}
 
 		const runningSessionId = this.validateRuntimeSessionStart(

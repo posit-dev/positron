@@ -21,7 +21,7 @@ import { ActivityItemInput } from '../../browser/classes/activityItemInput.js';
 import { CodeSubmissionResult, IConsoleFindWidget, IConsoleFindWidgetFactory, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { ConsoleErrorFollowupService, IConsoleErrorFollowupService } from '../../common/consoleErrorFollowup.js';
 import { CodeAttributionSource, COMPLETENESS_VERIFIED_METADATA_KEY } from '../../common/positronConsoleCodeExecution.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeOnlineState, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -408,5 +408,129 @@ describe('PositronConsoleInstance.enqueueCode (statement range provenance)', () 
 		session.setRuntimeState(RuntimeState.Idle);
 		await waitFor(() => executedCode.includes('x <- 1'));
 		expect(completeSpy).not.toHaveBeenCalled();
+	});
+});
+
+describe('PositronConsoleInstance.enqueueCode (preserveActiveTab)', () => {
+	const disposables = new DisposableStore();
+
+	afterEach(() => {
+		disposables.clear();
+	});
+
+	it.each([2, 101])('preserves the active tab for all %s statements the code is split into', async statementCount => {
+		const { instance, languageFeaturesService, session } = createInstance(disposables);
+		registerBoundaryProvider(disposables, languageFeaturesService, Array.from({ length: statementCount }, (_, i) => ({
+			range: { start: i, end: i + 1 }, kind: 'complete',
+		})));
+
+		const executionIds: string[] = [];
+		const preserved: boolean[] = [];
+		disposables.add(instance.onDidExecuteCode(e => {
+			executionIds.push(e.executionId);
+			preserved.push(instance.shouldPreserveActiveTab(e.executionId));
+		}));
+
+		await instance.enqueueCode(Array.from({ length: statementCount }, (_, i) => `x <- ${i}`).join('\n'), { source: CodeAttributionSource.Extension },
+			false, RuntimeCodeExecutionMode.Interactive, undefined, 'exec-1', undefined, true);
+		expect(instance.shouldPreserveActiveTab('exec-1')).toBe(true);
+		for (let i = 1; i < statementCount; i++) {
+			session.receiveStateMessage({ parent_id: executionIds[i - 1], state: RuntimeOnlineState.Idle });
+			session.setRuntimeState(RuntimeState.Busy);
+			session.setRuntimeState(RuntimeState.Idle);
+			await waitFor(() => executionIds.length === i + 1);
+		}
+
+		expect(executionIds[0]).toBe('exec-1');
+		expect(preserved).toEqual(Array(statementCount).fill(true));
+	});
+
+	it('retains running and queued policies when more than 100 requests are pending', async () => {
+		const { instance, session } = createInstance(disposables);
+		await instance.enqueueCode('plot(1)', { source: CodeAttributionSource.Extension }, true,
+			RuntimeCodeExecutionMode.NonInteractive, undefined, 'exec-running', undefined, true);
+		session.setRuntimeState(RuntimeState.Busy);
+		for (let i = 0; i < 101; i++) {
+			await instance.enqueueCode(`x <- ${i}`, { source: CodeAttributionSource.Extension }, true,
+				RuntimeCodeExecutionMode.NonInteractive, undefined, `exec-queued-${i}`, undefined, true);
+		}
+		expect(['exec-running', 'exec-queued-0', 'exec-queued-100'].map(id => instance.shouldPreserveActiveTab(id)))
+			.toEqual([true, true, true]);
+	});
+
+	it('bounds completed history without evicting a running execution', async () => {
+		const { instance, session } = createInstance(disposables);
+		vi.spyOn(session, 'execute').mockResolvedValue();
+		await instance.enqueueCode('plot(1)', { source: CodeAttributionSource.Extension }, true,
+			RuntimeCodeExecutionMode.NonInteractive, undefined, 'exec-running', undefined, true);
+		for (let i = 0; i < 101; i++) {
+			const id = `exec-completed-${i}`;
+			await instance.enqueueCode('1', { source: CodeAttributionSource.Extension }, true,
+				RuntimeCodeExecutionMode.Silent, undefined, id, undefined, true);
+			session.receiveStateMessage({ parent_id: id, state: RuntimeOnlineState.Idle });
+		}
+		expect(['exec-running', 'exec-completed-0', 'exec-completed-100'].map(id => instance.shouldPreserveActiveTab(id)))
+			.toEqual([true, false, true]);
+	});
+
+	it('forgets queued policies when pending input is interrupted', async () => {
+		const { instance, session } = createInstance(disposables);
+		vi.spyOn(session, 'interrupt').mockResolvedValue();
+		session.setRuntimeState(RuntimeState.Busy);
+		await instance.enqueueCode('plot(1)', { source: CodeAttributionSource.Extension }, true,
+			RuntimeCodeExecutionMode.NonInteractive, undefined, 'exec-queued', undefined, true);
+		instance.interrupt();
+		expect(instance.shouldPreserveActiveTab('exec-queued')).toBe(false);
+	});
+
+	it('forgets the policy when the submitted code is incomplete', async () => {
+		const { instance, languageFeaturesService } = createInstance(disposables);
+		registerBoundaryProvider(disposables, languageFeaturesService, [{ range: { start: 0, end: 1 }, kind: 'incomplete' }]);
+		await instance.enqueueCode('2 +', { source: CodeAttributionSource.Extension }, false,
+			RuntimeCodeExecutionMode.Interactive, undefined, 'exec-incomplete', undefined, true);
+		expect(instance.shouldPreserveActiveTab('exec-incomplete')).toBe(false);
+	});
+
+	it.each([false, true])('forgets the policy when execution is rejected (queued: %s)', async queued => {
+		const { instance, session } = createInstance(disposables);
+		vi.spyOn(session, 'execute').mockRejectedValue(new Error('Execution rejected'));
+		vi.spyOn(session, 'isCodeFragmentComplete').mockResolvedValue(RuntimeCodeFragmentStatus.Complete);
+		if (queued) {
+			session.setRuntimeState(RuntimeState.Busy);
+		}
+		await instance.enqueueCode('plot(1)', { source: CodeAttributionSource.Extension }, true,
+			RuntimeCodeExecutionMode.NonInteractive, undefined, 'exec-rejected', undefined, true);
+		if (queued) {
+			expect(instance.shouldPreserveActiveTab('exec-rejected')).toBe(true);
+			session.setRuntimeState(RuntimeState.Idle);
+		}
+		await waitFor(() => !instance.shouldPreserveActiveTab('exec-rejected'));
+	});
+
+	it('bounds policies when a runtime exits without execution idle messages', async () => {
+		const { instance, session } = createInstance(disposables);
+		vi.spyOn(session, 'execute').mockResolvedValue();
+		for (let i = 0; i < 101; i++) {
+			await instance.enqueueCode('1', { source: CodeAttributionSource.Extension }, true,
+				RuntimeCodeExecutionMode.Silent, undefined, `exec-${i}`, undefined, true);
+		}
+		session.endSession();
+		expect(['exec-0', 'exec-100'].map(id => instance.shouldPreserveActiveTab(id))).toEqual([false, true]);
+	});
+
+	it('retains queued policies across runtime reattachment', async () => {
+		const { instance, session } = createInstance(disposables);
+		vi.spyOn(session, 'isCodeFragmentComplete').mockResolvedValue(RuntimeCodeFragmentStatus.Complete);
+		session.setRuntimeState(RuntimeState.Busy);
+		await instance.enqueueCode('plot(1)', { source: CodeAttributionSource.Extension }, true,
+			RuntimeCodeExecutionMode.NonInteractive, undefined, 'exec-queued', undefined, true);
+		session.endSession();
+		expect(instance.shouldPreserveActiveTab('exec-queued')).toBe(true);
+
+		instance.attachRuntimeSession(session, SessionAttachMode.Reconnecting);
+		const executed = Event.toPromise(instance.onDidExecuteCode);
+		session.setRuntimeState(RuntimeState.Ready);
+		expect((await executed).executionId).toBe('exec-queued');
+		expect(instance.shouldPreserveActiveTab('exec-queued')).toBe(true);
 	});
 });

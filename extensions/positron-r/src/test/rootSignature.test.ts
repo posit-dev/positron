@@ -9,24 +9,13 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { computeRootSignatureEntries, rCurrentSymlinks } from '../provider';
+import * as vscode from 'vscode';
+import { computeRootSignatureEntries, getRDiscoveryRootSignature, rCurrentSymlinks } from '../provider';
+import { withPlatform } from './kit';
 
-/**
- * Set `process.platform` for the duration of a callback and restore it after.
- * `process.platform` is read at call time by `rCurrentSymlinks()`, so PR CI
- * (R discovery runs Linux-only) can't exercise the darwin / win32 branches
- * without this -- we assert all three explicitly.
- */
-function withPlatform(platform: NodeJS.Platform, fn: () => void): void {
-	const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
-	Object.defineProperty(process, 'platform', { value: platform });
-	try {
-		fn();
-	} finally {
-		Object.defineProperty(process, 'platform', original);
-	}
-}
-
+// `rCurrentSymlinks()` reads `process.platform` at call time, so PR CI (R
+// discovery runs Linux-only) can't exercise the darwin / win32 branches
+// without `withPlatform()` -- we assert all three explicitly.
 suite('R discovery-root signature', () => {
 
 	// `withPlatform()` fakes `process.platform` but not the `path` module, so
@@ -100,6 +89,31 @@ suite('R discovery-root signature', () => {
 				{ path: realHq, exists: true, mtimeMs: fs.statSync(hq).mtimeMs },
 				{ path: path.join(hq, 'current'), exists: false, mtimeMs: 0 },
 			]);
+		});
+	});
+
+	// The settings hash is the signature's `opaque` part. When it changes, core
+	// throws away R's cached interpreters and runs a full R search.
+	suite('settings hash', () => {
+		const config = () => vscode.workspace.getConfiguration('positron.r');
+
+		teardown(async () => {
+			await config().update('interpreters.default', undefined, vscode.ConfigurationTarget.Global);
+			await config().update('interpreters.exclude', undefined, vscode.ConfigurationTarget.Global);
+		});
+
+		test('changing only interpreters.default does not change it', async () => {
+			const before = (await getRDiscoveryRootSignature()).opaque;
+			await config().update('interpreters.default', '/opt/R/4.4.1/bin/R', vscode.ConfigurationTarget.Global);
+			const after = (await getRDiscoveryRootSignature()).opaque;
+			assert.strictEqual(after, before);
+		});
+
+		test('changing interpreters.exclude changes it', async () => {
+			const before = (await getRDiscoveryRootSignature()).opaque;
+			await config().update('interpreters.exclude', ['/opt/R/4.4.1'], vscode.ConfigurationTarget.Global);
+			const after = (await getRDiscoveryRootSignature()).opaque;
+			assert.notStrictEqual(after, before);
 		});
 	});
 });

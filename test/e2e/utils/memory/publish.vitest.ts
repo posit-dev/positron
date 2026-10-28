@@ -31,7 +31,7 @@ vi.mock('../metrics/metric-base.js', async (importOriginal) => {
 		CONNECT_API_KEY: 'fake-key-for-testing',
 		LOCAL_API_URL: 'http://localhost:3000/metrics',
 		PROD_API_URL: 'https://api.example.com/metrics',
-		positronVersion: buildUnderTest
+		getRunPositronVersion: () => buildUnderTest
 	};
 });
 
@@ -72,8 +72,8 @@ describe('containerImageFromEnv', () => {
 	});
 
 	test('reads MEMORY_CONTAINER_IMAGE when set', () => {
-		process.env.MEMORY_CONTAINER_IMAGE = 'ghcr.io/posit-dev/positron-ubuntu24:24.18.0';
-		expect(containerImageFromEnv()).toBe('ghcr.io/posit-dev/positron-ubuntu24:24.18.0');
+		process.env.MEMORY_CONTAINER_IMAGE = 'ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1';
+		expect(containerImageFromEnv()).toBe('ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1');
 	});
 });
 

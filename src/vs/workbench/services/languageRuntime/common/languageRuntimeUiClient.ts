@@ -65,6 +65,8 @@ export interface IUiClientMessageOutputEvent
 export interface IShowHtmlUriEvent {
 	uri: URI;
 	event: ShowHtmlFileEvent;
+	/** The ID of the execution that showed the file, if the runtime reported one. */
+	executionId?: string;
 }
 
 /**
@@ -171,6 +173,7 @@ export class UiClientInstance extends Disposable {
 
 		// Wrap the ShowHtmlFile event to start a proxy server for the HTML file.
 		this._register(this._comm.onDidShowHtmlFile(async e => {
+			const executionId = this._comm.eventParentId;
 			try {
 				// Start an HTML proxy server for the file
 				const uri = await this.startHtmlProxyServer(e.path);
@@ -192,6 +195,7 @@ export class UiClientInstance extends Disposable {
 				const resolvedEvent: IShowHtmlUriEvent = {
 					uri,
 					event: e,
+					executionId,
 				};
 
 				this._onDidShowHtmlFileEmitter.fire(resolvedEvent);

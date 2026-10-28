@@ -6,14 +6,14 @@
 // Other dependencies.
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { useEventState } from '../../../../base/browser/ui/react/useEventState.js';
-import { IErrorAssistantInfo, IErrorAssistantService } from '../common/errorAssistant.js';
+import { IErrorActionHandlerInfo, IErrorActionHandlerService } from '../common/errorAction.js';
 
 /**
- * The active error assistant, which errors are sent to, kept current as it
+ * The active error action handler, which errors are sent to, kept current as it
  * changes.
- * @returns The assistant, or undefined when there is nowhere to send errors.
+ * @returns The handler, or undefined when there is nowhere to send errors.
  */
-export function useActiveErrorAssistant(): IErrorAssistantInfo | undefined {
-	const errorAssistantService = usePositronReactServicesContext().get(IErrorAssistantService);
-	return useEventState(errorAssistantService.onDidChangeActiveAssistant, () => errorAssistantService.activeAssistant);
+export function useActiveErrorActionHandler(): IErrorActionHandlerInfo | undefined {
+	const errorActionHandlerService = usePositronReactServicesContext().get(IErrorActionHandlerService);
+	return useEventState(errorActionHandlerService.onDidChangeActiveHandler, () => errorActionHandlerService.activeHandler);
 }

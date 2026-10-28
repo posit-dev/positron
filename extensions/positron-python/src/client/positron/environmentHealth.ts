@@ -28,7 +28,7 @@ import { getIpykernelBundle } from './ipykernel';
 import { isUvInstalled } from '../pythonEnvironments/common/environmentManagers/uv';
 import { noop } from '../common/utils/misc';
 
-// Human-readable inclusive supported range (e.g. "3.9-3.14") for user-facing messages, derived from
+// Human-readable inclusive supported range for user-facing messages, derived from
 // the version bounds so it stays in sync when they change. The exclusive maximum is set at a minor
 // boundary (e.g. 3.15.0), so the last supported minor is one below it.
 const SUPPORTED_PYTHON_VERSION_RANGE = `${MINIMUM_PYTHON_VERSION.major}.${MINIMUM_PYTHON_VERSION.minor}-${
