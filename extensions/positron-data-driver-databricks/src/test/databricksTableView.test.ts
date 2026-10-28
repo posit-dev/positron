@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileType, ColumnSchema, ExportFormat, FilterComparisonOp, FormatOptions, RowFilter, RowFilterCondition, RowFilterType, TableSelectionKind, TextSearchType } from 'positron-data-explorer-protocol';
+import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileType, ColumnSchema, FilterComparisonOp, FormatOptions, RowFilter, RowFilterCondition, RowFilterType, TextSearchType } from 'positron-data-explorer-protocol';
 import { IDatabricksQueryClient, makeWhereExpr, DatabricksSchemaEntry, DatabricksTableView } from '../databricksTableView.js';
 
 // Minimal format options; only the numeric-summary path reads them.
@@ -377,25 +377,6 @@ suite('Databricks Cell Formatting', () => {
 
 		assert.strictEqual(await firstCell(entryToRead, ' 1.5 '), '1.50');
 		assert.strictEqual(await firstCell(entryToRead, 1.5), '1.50');
-	});
-});
-
-suite('Databricks Row Index Queries', () => {
-
-	test('the row-number window falls back to the first sortable column, skipping complex ones', async () => {
-		// Spark rejects ORDER BY over a MAP outright, so a table whose first column is complex must not
-		// seed the window with it.
-		const schema = [entry('tags', ColumnDisplayType.Object, 'map<string,string>'), entry('id', ColumnDisplayType.Integer)];
-		const { client, queries } = recordingClient((sql) => isCountQuery(sql) ? [{ n: 5 }] : []);
-		const view = new DatabricksTableView(client, '`main`.`sales`.`t`', 't', 'table', schema);
-
-		await view.exportDataSelection({
-			format: ExportFormat.Csv,
-			selection: { kind: TableSelectionKind.RowIndices, selection: { indices: [0, 2] } },
-		});
-
-		const exportQuery = queries.find(sql => /ROW_NUMBER/.test(sql))!;
-		assert.match(exportQuery, /ROW_NUMBER\(\) OVER \(ORDER BY `id`\)/);
 	});
 });
 

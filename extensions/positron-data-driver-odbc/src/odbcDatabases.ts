@@ -33,6 +33,13 @@ export interface OdbcDialect {
 	 *   standard one.
 	 */
 	readonly pagination: 'limit-offset' | 'offset-fetch';
+
+	/**
+	 * Whether the backend enforces a declared primary key, so the columns SQLPrimaryKeys reports are
+	 * unique. Only then are rows paged in place by the key. Elsewhere a declared key can be
+	 * informational (Snowflake, BigQuery, the Hive family) and rows are read from a result window.
+	 */
+	readonly enforcesPrimaryKeys?: boolean;
 }
 
 /** The conservative dialect used for any ODBC driver we do not recognize. */
@@ -117,7 +124,7 @@ export const ODBC_DATABASE_PROFILES: readonly OdbcDatabaseProfile[] = [
 		id: 'mariadb',
 		name: 'MariaDB',
 		driverNamePatterns: [/mariadb/i],
-		dialect: BACKTICK_LIMIT_OFFSET,
+		dialect: { ...BACKTICK_LIMIT_OFFSET, enforcesPrimaryKeys: true },
 		defaultPort: 3306,
 		attributeKeys: { server: 'Server', port: 'Port', database: 'Database', user: 'User', password: 'Password' },
 		registerDriver: true,
@@ -126,7 +133,7 @@ export const ODBC_DATABASE_PROFILES: readonly OdbcDatabaseProfile[] = [
 		id: 'mysql',
 		name: 'MySQL',
 		driverNamePatterns: [/mysql/i],
-		dialect: BACKTICK_LIMIT_OFFSET,
+		dialect: { ...BACKTICK_LIMIT_OFFSET, enforcesPrimaryKeys: true },
 		defaultPort: 3306,
 		attributeKeys: { server: 'Server', port: 'Port', database: 'Database', user: 'User', password: 'Password' },
 		registerDriver: true,
@@ -136,6 +143,8 @@ export const ODBC_DATABASE_PROFILES: readonly OdbcDatabaseProfile[] = [
 		name: 'SQL Server',
 		// "ODBC Driver 18 for SQL Server", "SQL Server Native Client 11.0", "Posit SQL Server".
 		driverNamePatterns: [/sql\s*server/i, /msodbcsql/i],
+		// Keys are not trusted here, although SQL Server enforces them: these drivers also reach Azure
+		// Synapse and Fabric warehouses, whose primary keys must be declared NOT ENFORCED.
 		dialect: { identifierQuote: '"', pagination: 'offset-fetch' },
 		// No port key and no defaultPort: Microsoft's driver has no Port connection-string keyword.
 		// The port goes inside Server, comma-separated -- `Server=myhost,1433`. A port key here
@@ -219,6 +228,9 @@ export const ODBC_DATABASE_PROFILES: readonly OdbcDatabaseProfile[] = [
 		id: 'postgresql',
 		name: 'PostgreSQL',
 		driverNamePatterns: [/postgres/i, /psqlodbc/i],
+		// Keys are not trusted here, although PostgreSQL enforces them: a key on an inheritance parent
+		// covers only the parent's own rows, and these drivers also reach Redshift, which does not
+		// enforce keys. The native PostgreSQL driver checks both before paging by a key.
 		dialect: LIMIT_OFFSET,
 		defaultPort: 5432,
 		attributeKeys: { server: 'Servername', port: 'Port', database: 'Database', user: 'UID', password: 'PWD' },

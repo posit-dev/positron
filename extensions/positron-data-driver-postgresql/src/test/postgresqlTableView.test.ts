@@ -142,7 +142,7 @@ suite('PostgreSQL Data Explorer Tests', () => {
 					{ c0: 3, c1: Infinity },
 				];
 			});
-			const view = new PostgresTableView(client, '"public"."people"', 'people', 'table', schema);
+			const view = new PostgresTableView(client, '"public"."people"', 'people', schema);
 			const data = await view.getDataValues({
 				columns: [
 					{ column_index: 0, spec: { first_index: 0, last_index: 2 } },
@@ -150,7 +150,7 @@ suite('PostgreSQL Data Explorer Tests', () => {
 				],
 				format_options: FORMAT,
 			});
-			const dataQuery = client.queries.find(q => q.includes('OFFSET'))!;
+			const dataQuery = client.queries.find(q => q.includes('LIMIT'))!;
 			assert.deepStrictEqual(
 				{
 					fromQualifiedTable: dataQuery.includes('FROM "public"."people"'),
@@ -176,7 +176,7 @@ suite('PostgreSQL Data Explorer Tests', () => {
 			const client = new FakeQueryClient(sql => sql.includes('count(*)')
 				? [{ n: 3 }]
 				: [{ c0: '9007199254740993' }, { c0: '9223372036854775807' }, { c0: '-9223372036854775808' }]);
-			const view = new PostgresTableView(client, '"public"."people"', 'people', 'table', bigints);
+			const view = new PostgresTableView(client, '"public"."people"', 'people', bigints);
 
 			const data = await view.getDataValues({
 				columns: [{ column_index: 0, spec: { first_index: 0, last_index: 2 } }],
@@ -194,7 +194,7 @@ suite('PostgreSQL Data Explorer Tests', () => {
 			const client = new FakeQueryClient(sql => sql.includes('count(*)')
 				? [{ n: 2 }]
 				: [{ c0: ' 42 ' }, { c0: 7 }]);
-			const view = new PostgresTableView(client, '"public"."people"', 'people', 'table', ints);
+			const view = new PostgresTableView(client, '"public"."people"', 'people', ints);
 
 			const data = await view.getDataValues({
 				columns: [{ column_index: 0, spec: { first_index: 0, last_index: 1 } }],
@@ -212,7 +212,7 @@ suite('PostgreSQL Data Explorer Tests', () => {
 			];
 			const client = new FakeQueryClient(sql =>
 				sql.includes('count(*)') ? [{ n: 2 }] : [{ c0: 1.5 }, { c0: 2.5 }]);
-			const view = new PostgresTableView(client, '"public"."people"', 'people', 'table', oneColumn);
+			const view = new PostgresTableView(client, '"public"."people"', 'people', oneColumn);
 
 			const state = await view.getState();
 			const data = await view.getDataValues({

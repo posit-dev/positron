@@ -20,6 +20,11 @@ function metadataRows(sql: string): Array<Record<string, unknown>> | undefined {
 	if (/count\(\*\) AS [`"]?n[`"]? FROM/.test(sql)) {
 		return [{ n: 10 }];
 	}
+	// A result-window read returns as many rows as the count.
+	const window = / AS [`\"]?c0[`\"]?[\s\S]*(?:LIMIT|FETCH NEXT) (?<limit>\d+)/.exec(sql);
+	if (window?.groups) {
+		return Array.from({ length: Math.min(10, Number(window.groups.limit)) }, (_, i) => ({ c0: i }));
+	}
 	return undefined;
 }
 
@@ -87,6 +92,14 @@ function changingTable() {
 					await hold;
 				}
 				return [{ n: table.rows }];
+			}
+			// A result-window read returns as many rows as the table holds.
+			const window = / AS [`\"]?c0[`\"]?[\s\S]*(?:LIMIT|FETCH NEXT) (?<limit>\d+)/.exec(sql);
+			if (window?.groups) {
+				if (!table.exists) {
+					throw new Error('relation does not exist');
+				}
+				return Array.from({ length: Math.min(table.rows, Number(window.groups.limit)) }, (_, i) => ({ c0: i }));
 			}
 			return [];
 		},
@@ -279,6 +292,8 @@ suite('Redshift Data Explorer RPC Handler', () => {
 			const { table, client } = changingTable();
 			try {
 				await openTableView(handler, client);
+				// The Data Explorer reads the view's state as it opens, so the view holds its rows.
+				await rowCount(registered());
 				table.exists = false;
 				await assert.rejects(Promise.resolve(registered()?.refreshDataset?.('ds1')));
 				assert.strictEqual(await rowCount(registered()), 10);
@@ -316,6 +331,8 @@ suite('Redshift Data Explorer RPC Handler', () => {
 				const refreshing = Promise.resolve(registered()?.refreshDataset?.('ds1'));
 				table.rows = 20;
 				await openTableView(handler, client);
+				// The Data Explorer reads the reopened view's state as it opens, so the view holds 20 rows.
+				await rowCount(registered());
 				// Had the overtaken refresh been installed, it would report this count.
 				table.rows = 30;
 				schemaLookup.release();

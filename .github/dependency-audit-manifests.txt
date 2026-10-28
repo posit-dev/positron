@@ -25,6 +25,7 @@ extensions/positron-data-driver-sqlite
 extensions/positron-data-explorer-duckdb
 extensions/positron-data-explorer-formatting
 extensions/positron-data-explorer-protocol
+extensions/positron-data-explorer-window
 extensions/positron-dev-containers
 extensions/positron-duckdb
 extensions/positron-environment

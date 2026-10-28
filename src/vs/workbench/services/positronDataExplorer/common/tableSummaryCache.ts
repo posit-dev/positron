@@ -153,7 +153,8 @@ export class TableSummaryCache extends Disposable {
 	private _columns = 0;
 
 	/**
-	 * Gets or sets the rows.
+	 * Gets or sets the rows the column profiles describe: the full result, which can be more than the
+	 * rows a backend serves (see BackendState.total_num_rows).
 	 */
 	private _rows = 0;
 
@@ -271,7 +272,7 @@ export class TableSummaryCache extends Disposable {
 	}
 
 	/**
-	 * Gets the rows.
+	 * Gets the rows the column profiles describe.
 	 */
 	get rows() {
 		return this._rows;
@@ -399,7 +400,7 @@ export class TableSummaryCache extends Disposable {
 			// Get the size of the data.
 			const tableState = await this._dataExplorerClientInstance.getBackendState();
 			this._columns = tableState.table_shape.num_columns;
-			this._rows = tableState.table_shape.num_rows;
+			this._rows = tableState.total_num_rows ?? tableState.table_shape.num_rows;
 
 			// The visible window of columns this update is for.
 			const visibleIndices = updateDescriptor.columnIndices;
@@ -510,7 +511,7 @@ export class TableSummaryCache extends Disposable {
 		// Get the size of the data.
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		this._columns = tableState.table_shape.num_columns;
-		this._rows = tableState.table_shape.num_rows;
+		this._rows = tableState.total_num_rows ?? tableState.table_shape.num_rows;
 
 		// Update the column profile cache.
 		await this.updateColumnProfileCache(

@@ -101,6 +101,7 @@
   "extensions/positron-data-explorer-duckdb/": ["@:connections"],
   "extensions/positron-data-explorer-formatting/": ["@:connections", "@:data-explorer"],
   "extensions/positron-data-explorer-protocol/": ["@:data-explorer"],
+  "extensions/positron-data-explorer-window/": ["@:connections", "@:data-explorer"],
   "extensions/positron-dev-containers/": [],
   "extensions/positron-environment/": [],
   "extensions/positron-environment-modules/": ["@:environment-modules"],
