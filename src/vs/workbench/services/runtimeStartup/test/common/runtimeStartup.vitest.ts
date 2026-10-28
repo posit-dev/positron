@@ -1730,6 +1730,68 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		}));
 	});
 
+	it('asks once for a burst of runtimes registering after the recommendation', async () => {
+		vi.useFakeTimers();
+		try {
+			const svc = ctx.disposables.add(
+				ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+			const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(global));
+			let asks = 0;
+			const manager = makeManager({ id: 1, owns: [] });
+			manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) => {
+				if (!afterDiscovery) {
+					return [];
+				}
+				asks++;
+				return [{ metadata: global, isProjectDefault: false }];
+			};
+			ctx.disposables.add(svc.registerRuntimeManager(manager));
+			ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+			await vi.waitFor(() => expect(asks).toBe(1));
+
+			// e.g. cached runtimes registering again on folder open, 100ms apart.
+			for (const id of ['rt-a', 'rt-b', 'rt-c']) {
+				ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
+					metadata({ runtimeId: id, runtimePath: `/envs/${id}/bin/python` })));
+				await vi.advanceTimersByTimeAsync(100);
+			}
+			await vi.advanceTimersByTimeAsync(1000);
+
+			expect(asks).toBe(2);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('asks again when the recommended runtime is unregistered', async () => {
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(global));
+		const venvRegistration = ctx.get(ILanguageRuntimeService).registerRuntime(venv);
+		let answer = venv;
+		const manager = makeManager({ id: 1, owns: [] });
+		manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) =>
+			afterDiscovery ? [{ metadata: answer, isProjectDefault: false }] : [];
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+		await vi.waitFor(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+
+		// The .venv is deleted; the extension now recommends the global Python.
+		answer = global;
+		venvRegistration.dispose();
+
+		await vi.waitFor(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-global' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+	});
+
 	it('saves a recommendation that does not start as the project default only if its manager allows it', async () => {
 		const svc = ctx.disposables.add(
 			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
