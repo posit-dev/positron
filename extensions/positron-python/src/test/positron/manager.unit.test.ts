@@ -844,7 +844,7 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         sinon
             .stub(workspaceApis, 'getWorkspaceFolder')
             .callsFake((uri) =>
-                uri?.fsPath.startsWith('/project/')
+                uri?.path.startsWith('/project/')
                     ? ({ uri: vscode.Uri.file('/project') } as vscode.WorkspaceFolder)
                     : undefined,
             );
