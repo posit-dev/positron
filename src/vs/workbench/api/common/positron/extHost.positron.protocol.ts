@@ -92,6 +92,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$selectLanguageRuntime(runtimeId: string, requestingExtensionId: string): Promise<void>;
 	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined, requestingExtensionId: string, options: RuntimeSessionStartOptions | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
+	$completeLanguageRuntimeDiscoveryForLanguage(languageId: string): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
 	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>, callerSessionId?: string, preserveActiveTab?: boolean): Promise<string>;
 	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void>;

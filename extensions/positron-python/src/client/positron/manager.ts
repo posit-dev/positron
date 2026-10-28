@@ -33,10 +33,11 @@ import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import {
     shouldIncludeInterpreter,
     getInterpreterDefinitionPaths,
+    getPinnedInterpreterPath,
     isDefinitionsOnlyDiscovery,
 } from './interpreterSettings';
-import { resolveInterpreterWithRetry } from './util';
-import { recommendWorkspaceRuntime } from './interpreterRecommendation';
+import { resolveInterpreterOnce, resolveInterpreterWithRetry } from './util';
+import { canBeModuleEnv, recommendWorkspaceRuntime } from './interpreterRecommendation';
 import { IInterpreterAutoSelectionService } from '../interpreter/autoSelection/types';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import {
@@ -410,6 +411,50 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             traceError(`Failed to recommend a Python runtime for the workspace: ${err}`);
             return undefined;
         }
+    }
+
+    /**
+     * The Python that `python.defaultInterpreterPath` names for the first
+     * workspace folder. Positron writes it over the workspace's affiliated
+     * Python. Looks up only that path, and never starts a refresh of every
+     * interpreter.
+     */
+    async pinnedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+        const pinnedPath = getPinnedInterpreterPath(workspaceUri);
+        if (!pinnedPath) {
+            return undefined;
+        }
+        // Without this check, looking up a missing path runs a full interpreter search before it gives up.
+        if (!(await fs.pathExists(pinnedPath))) {
+            traceInfo(`[pinnedWorkspaceRuntime] Pinned interpreter ${pinnedPath} does not exist`);
+            return undefined;
+        }
+        if (!shouldIncludeInterpreter(pinnedPath)) {
+            return undefined;
+        }
+        if (isDefinitionsOnlyDiscovery() && !getInterpreterDefinitionPaths().includes(pinnedPath)) {
+            traceInfo(
+                `[pinnedWorkspaceRuntime] Pinned interpreter ${pinnedPath} is not in interpreters.definitions, and discovery is limited to it`,
+            );
+            return undefined;
+        }
+        // Not resolveInterpreterWithRetry(): on a miss it refreshes every interpreter, which can take a minute or more.
+        const interpreter = await resolveInterpreterOnce(this.interpreterService, pinnedPath, workspaceUri);
+        if (!interpreter) {
+            traceInfo(`[pinnedWorkspaceRuntime] No Python found at pinned path ${pinnedPath}`);
+            return undefined;
+        }
+        traceInfo(`[pinnedWorkspaceRuntime] Pinned interpreter: ${interpreter.path}`);
+        // Positron matches interpreters.definitions on the exact path, so keep the path as written there,
+        // as the recommendation does. Implicit, like a recommendation that doesn't start right away, so
+        // opening a Python file starts the pin.
+        return createPythonRuntimeMetadata(
+            isDefinitionsOnlyDiscovery() ? { ...interpreter, path: pinnedPath } : interpreter,
+            this.serviceContainer,
+            positron.LanguageRuntimeStartupBehavior.Implicit,
+            { skipModuleWait: !canBeModuleEnv(interpreter.envType) },
+        );
     }
 
     /**
