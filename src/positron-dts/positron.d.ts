@@ -3656,8 +3656,8 @@ declare module 'positron' {
 		 * @param sessionId An optional session ID to execute the code in. If
 		 *  not provided, an appropriate session will be chosen, and if no
 		 *  session for the desired language is running at all, a new session
-		 *  will be started. A notebook session's console is shown if it isn't
-		 *  already.
+		 *  will be started. A notebook session gets a console if it doesn't
+		 *  have one; with `preserveActiveTab`, it is created in the background.
 		 * @param documentUri An optional URI of the document in which the code to execute is located.
 		 * @param executionMetadata An optional object containing additional
 		 *  metadata to pass to the language runtime. Will be included in the

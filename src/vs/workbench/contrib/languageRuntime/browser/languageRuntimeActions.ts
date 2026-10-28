@@ -1033,16 +1033,6 @@ export class StartNewConsoleSessionAction extends Action2 {
 			},
 			metadata: {
 				description: localize('positron.languageRuntime.startNewConsoleSession.description', "Start a new console session for a language runtime."),
-				agentCompatible: true,
-				args: [
-					{
-						name: 'runtimeId',
-						description: 'Runtime id to start a console session for. Always supply this when running the command programmatically: with no id the command opens a runtime picker and waits for the user to choose one.',
-						schema: { type: 'string' },
-					},
-				],
-				returns: 'An object with started, sessionId, and message. started is true when a console session was started, with sessionId identifying it; when started is false, message explains why (the user dismissed the runtime picker).',
-				agentCommand: LANGUAGE_RUNTIME_START_NEW_AGENT_CONSOLE_SESSION_ID,
 			},
 		});
 	}
@@ -1060,7 +1050,7 @@ export class StartNewConsoleSessionAction extends Action2 {
  */
 export async function startNewConsoleSession(
 	accessor: ServicesAccessor,
-	runtimeId: unknown,
+	runtimeId: string | undefined,
 	owner: RuntimeSessionOwner,
 ): Promise<IStartNewConsoleSessionResult> {
 	// Access services.
@@ -1102,17 +1092,17 @@ export async function startNewConsoleSession(
 	// Drive focus into the Positron console.
 	commandService.executeCommand('workbench.panel.positronConsole.focus');
 
+	const startReasonId = owner === 'agent' ? SessionStartReasonId.ExtensionStartedAgentSession :
+		suppliedRuntimeId ? SessionStartReasonId.NewConsoleCommand : SessionStartReasonId.UserSelectedRuntime;
 	const sessionId = await runtimeSessionService.startNewRuntimeSession(
 		selectedRuntime.runtimeId,
 		selectedRuntime.runtimeName,
 		LanguageRuntimeSessionMode.Console,
 		undefined,
-		suppliedRuntimeId ?
-			{ id: SessionStartReasonId.NewConsoleCommand } :
-			{ id: SessionStartReasonId.UserSelectedRuntime },
+		{ id: startReasonId },
 		RuntimeStartMode.Starting,
 		true,
-		{ userSelected: !suppliedRuntimeId, owner }
+		{ userSelected: !suppliedRuntimeId && owner === 'user', owner }
 	);
 	return { started: true, sessionId };
 }
@@ -1358,9 +1348,29 @@ export function registerLanguageRuntimeActions() {
 
 	registerAction2(StartNewAgentSessionAction);
 
-	// What an agent runs for the start new console session command.
-	CommandsRegistry.registerCommand(LANGUAGE_RUNTIME_START_NEW_AGENT_CONSOLE_SESSION_ID,
-		(accessor, runtimeId?: unknown) => startNewConsoleSession(accessor, runtimeId, 'agent'));
+	// The agent's counterpart to the start new console session command. The session is
+	// agent-owned while agent sessions are enabled.
+	CommandsRegistry.registerCommand({
+		id: LANGUAGE_RUNTIME_START_NEW_AGENT_CONSOLE_SESSION_ID,
+		handler: (accessor, runtimeId?: string) => {
+			const configurationService = accessor.get(IConfigurationService);
+			const agentOwned = configurationService.getValue<boolean>(AI_ENABLED_KEY) === true &&
+				configurationService.getValue<boolean>(AGENT_SESSIONS_ENABLED_KEY) === true;
+			return startNewConsoleSession(accessor, runtimeId, agentOwned ? 'agent' : 'user');
+		},
+		metadata: {
+			description: localize('positron.languageRuntime.startNewAgentConsoleSession.description', "Start a new console session for a language runtime."),
+			agentCompatible: true,
+			args: [
+				{
+					name: 'runtimeId',
+					description: 'Runtime id to start a console session for. Always supply this: with no id the command opens a runtime picker and waits for the user to choose one.',
+					schema: { type: 'string' },
+				},
+			],
+			returns: 'An object with started, sessionId, and message. started is true when a console session was started, with sessionId identifying it; when started is false, message explains why (the user dismissed the runtime picker).',
+		},
+	});
 
 	/**
 	 * Action that allows the user to rename an active session.

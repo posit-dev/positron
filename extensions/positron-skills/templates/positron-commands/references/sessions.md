@@ -77,7 +77,7 @@ means the picker was dismissed; report that rather than retrying.
 
 ## Starting a new session
 
-### `workbench.action.language.runtime.startNewConsoleSession`
+### `positron.languageRuntime.startNewAgentConsoleSession`
 
 Starts a brand-new console session for a registered interpreter. Use when the
 user wants a fresh session rather than switching to one they already have. It
@@ -88,4 +88,4 @@ match the one the user asked for, and pass its `runtimeId`. Don't call this
 without an id -- that opens a picker and waits on the user. A `started: false`
 result means the picker was dismissed; report that rather than retrying.
 
-{{command:workbench.action.language.runtime.startNewConsoleSession}}
+{{command:positron.languageRuntime.startNewAgentConsoleSession}}

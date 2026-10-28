@@ -148,5 +148,20 @@ describe('PositronConsoleService', () => {
 			expect(ctx.get(IRuntimeSessionService).foregroundSession?.sessionId).toBe(foreground.sessionId);
 			expect(consoleService.activePositronConsoleInstance?.sessionId).toBe(foreground.sessionId);
 		});
+
+		it('activates a notebook session\'s new console when no console is active', async () => {
+			const consoleService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(PositronConsoleService));
+			const notebook = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+				sessionMode: LanguageRuntimeSessionMode.Notebook,
+				notebookUri: URI.file('/test/notebook.ipynb'),
+			});
+			expect(consoleService.activePositronConsoleInstance).toBeUndefined();
+
+			await consoleService.executeCode(notebook.runtimeMetadata.languageId, notebook.sessionId, '1 + 1',
+				attribution, false, true, undefined, undefined, 'exec-1', undefined, undefined, true);
+
+			expect(consoleService.activePositronConsoleInstance?.sessionId).toBe(notebook.sessionId);
+		});
 	});
 });

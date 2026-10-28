@@ -1192,7 +1192,7 @@ describe('StartNewConsoleSessionAction', () => {
 			'Python 3.12 (System)',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			{ id: SessionStartReasonId.NewConsoleCommand },
+			{ id: SessionStartReasonId.ExtensionStartedAgentSession },
 			RuntimeStartMode.Starting,
 			true,
 			{ userSelected: false, owner: 'agent' }

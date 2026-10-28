@@ -66,12 +66,6 @@ export interface ICommandMetadata {
 	 * screen, such as revealing a pane.
 	 */
 	readonly readOnly?: boolean;
-
-	/**
-	 * The command to run instead, with the same arguments, when an agent runs
-	 * this one through `positron.ai.validateAndExecuteCommand()`.
-	 */
-	readonly agentCommand?: string;
 	// --- End Positron ---
 }
 
