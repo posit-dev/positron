@@ -210,10 +210,9 @@ jobs:
             Say in the PR body that the tests did not run in this job and that CI runs them on the PR.
             Never write that a test passed or failed unless you saw it run.
 
-            For any task involving real build/test work, commit and push progress to your branch
-            after each logical, verified increment (for example, once backend tests pass, and again
-            once UI tests pass) rather than waiting until the whole task is done to make your first
-            commit. A commit that only exists locally is equivalent to no commit at all once this job's
+            For any task involving real code changes, commit and push progress to your branch
+            after each logical increment rather than waiting until the whole task is done to make
+            your first commit. A commit that only exists locally is equivalent to no commit at all once this job's
             runner is torn down - only what is pushed survives a timeout or cancellation.
 
             The repository is a shallow clone. When you need history for `git log` or `git blame`,
@@ -234,7 +233,7 @@ jobs:
           claude_args: |
             --model opus
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(npm run:*),Bash(npx vitest:*),Bash(npx eslint:*),Bash(node scripts/format.mts:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
+            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
 
       - name: Replace eyes with result reaction
         if: always() && steps.ack.outputs.target != ''
