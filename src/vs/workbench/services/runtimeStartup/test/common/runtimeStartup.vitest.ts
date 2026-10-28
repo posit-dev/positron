@@ -2391,6 +2391,37 @@ describe('RuntimeStartupService - startup sequence', () => {
 		}).toEqual({ started: [], affiliated: [], v2: undefined });
 	});
 
+	it('keeps an affiliated runtime under the new key over one saved by an earlier version', async () => {
+		const olderPython = metadata({ extensionId: 'ms-python.python', languageId: 'python', runtimeId: 'python-3.11' });
+		ctx.get(IStorageService).store('positron.affiliatedRuntimeMetadata.v2.python',
+			JSON.stringify({ metadata: olderPython, lastUsed: 4, lastStarted: 3 }), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		const { started } = await runStartupSequence({
+			languages: [{ ...pythonLanguage, discovered: [python, olderPython], affiliated: { metadata: python, lastUsed: 2, lastStarted: 1 } }],
+			startupBehavior: { default: LanguageStartupBehavior.Auto },
+		});
+
+		expect({ started, affiliated: storedAffiliation('python')?.runtimeId }).toEqual({
+			started: [{ runtimeId: python.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
+			affiliated: python.runtimeId,
+		});
+	});
+
+	it('removes affiliated runtimes saved by an earlier version that cannot be read', async () => {
+		ctx.get(IStorageService).store('positron.affiliatedRuntimeMetadata.v2.python', '{not json', StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		ctx.get(IStorageService).store('positron.affiliatedRuntimeMetadata.v2.r', 'null', StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		const { service, started } = await runStartupSequence({
+			languages: [{ ...pythonLanguage, discovered: [python] }],
+			startupBehavior: { default: LanguageStartupBehavior.Auto },
+		});
+
+		expect({
+			started,
+			affiliated: service.getAffiliatedRuntimes(),
+			v2: ['python', 'r'].map(languageId =>
+				ctx.get(IStorageService).get(`positron.affiliatedRuntimeMetadata.v2.${languageId}`, StorageScope.WORKSPACE)),
+		}).toEqual({ started: [], affiliated: [], v2: [undefined, undefined] });
+	});
+
 	it('starts a recommendation marked to start right away when no runtime is affiliated', async () => {
 		const { started } = await runStartupSequence({
 			languages: [{ ...rLanguage, discovered: [r] }],

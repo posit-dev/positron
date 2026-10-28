@@ -56,15 +56,16 @@ export function arePathsSameFile(path1: string, path2: string): boolean {
 }
 
 /**
- * The file a path leads to, with every link on the way followed, including
- * links to folders. Discovery resolves ad hoc and custom binaries the same
- * way, so the result matches discovery's path. A path that can't be read is
- * returned as given.
+ * The file a symlink at a path leads to, with every link on the way followed.
+ * A path that isn't a symlink, or can't be read, is returned as given.
+ * A link to a folder earlier in the path is kept, because discovery lists Rs
+ * in the folders it scans, such as `/opt/R`, and in r-versions entries
+ * without following links.
  * @param filePath The path to follow
  */
 export function followLink(filePath: string): string {
 	try {
-		return fs.realpathSync(filePath);
+		return fs.lstatSync(filePath).isSymbolicLink() ? fs.realpathSync(filePath) : filePath;
 	} catch {
 		return filePath;
 	}

@@ -61,8 +61,9 @@ describe.skipIf(process.platform === 'win32')('paths in an R layout with links',
 			expect(followLink(path.join(root, 'bin', 'R'))).toBe(versioned('4.6'));
 		});
 
-		it('follows links to folders on the way to a file that is not a link', () => {
-			expect(followLink(path.join(root, 'R.framework', 'Resources', 'bin', 'R'))).toBe(versioned('4.6'));
+		it('keeps a file that is not a link as given, even inside a linked folder', () => {
+			const throughLinkedFolder = path.join(root, 'R.framework', 'Resources', 'bin', 'R');
+			expect(followLink(throughLinkedFolder)).toBe(throughLinkedFolder);
 		});
 
 		it('keeps a path that does not exist as given', () => {

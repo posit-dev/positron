@@ -1835,8 +1835,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					`since it was never started or used`);
 				continue;
 			}
-			const languageId = key.substring(this.v2StorageKey.length + 1);
-			if (!this.getAffiliatedRuntime(languageId)) {
+			if (!this.getAffiliatedRuntime(affiliated.metadata.languageId)) {
 				this.saveAffiliatedRuntime(affiliated);
 			}
 		}
