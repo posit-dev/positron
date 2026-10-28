@@ -53,6 +53,7 @@ describe('headless provider module', () => {
 	const options: HeadlessProvidersOptions = {
 		logger: { info() { }, warn() { }, error() { }, debug() { }, trace() { } },
 		userAgent: 'Positron/headless',
+		catalog: { envVars: {} },
 	};
 
 	function installFolder(indexSource: string | undefined): string {
