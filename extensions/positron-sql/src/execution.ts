@@ -43,6 +43,12 @@ export const GGSQL_LANGUAGE_ID = 'ggsql';
 export const GGSQL_EXTENSION_ID = 'ggsql.ggsql';
 
 /**
+ * How long a finished `@connect` line waits for Positron's report of the move. The report follows
+ * the line within milliseconds; this only bounds a connect that finished without moving.
+ */
+const CONNECT_REPORT_TIMEOUT_MS = 5000;
+
+/**
  * The part of Positron this module drives.
  *
  * Injected rather than imported so the flow above can be tested without ggsql installed: every
@@ -55,6 +61,9 @@ export interface ExecutionApi {
 	/** The `@connect` line for the database a session is on, or undefined if unknown. */
 	getSessionConnectionCode(sessionId: string): Thenable<string | undefined>;
 	readonly onDidChangeSessionConnectionCode: vscode.Event<positron.SessionConnectionCodeChangeEvent>;
+
+	/** Calls back once a session has exited, or soon after if it has already. */
+	onDidEndSession(sessionId: string, listener: () => void): vscode.Disposable;
 
 	getForegroundSession(): Thenable<positron.BaseLanguageRuntimeSession | undefined>;
 	getActiveSessions(): Thenable<positron.BaseLanguageRuntimeSession[]>;
@@ -112,6 +121,32 @@ export function positronExecutionApi(): ExecutionApi {
 		},
 		getSessionConnectionCode: sessionId => positron.dataConnections.getSessionConnectionCode(sessionId),
 		onDidChangeSessionConnectionCode: positron.dataConnections.onDidChangeSessionConnectionCode,
+		onDidEndSession: (sessionId, listener) => {
+			let subscription: vscode.Disposable | undefined;
+			let disposed = false;
+			positron.runtime.getSession(sessionId).then(session => {
+				if (disposed) {
+					return;
+				}
+				if (!session || session.getRuntimeState?.() === positron.RuntimeState.Exited) {
+					listener();
+					return;
+				}
+				subscription = session.onDidChangeRuntimeState?.(state => {
+					if (state === positron.RuntimeState.Exited) {
+						listener();
+					}
+				});
+			}, () => {
+				if (!disposed) {
+					listener();
+				}
+			});
+			return new vscode.Disposable(() => {
+				disposed = true;
+				subscription?.dispose();
+			});
+		},
 		getForegroundSession: () => positron.runtime.getForegroundSession(),
 		getActiveSessions: () => positron.runtime.getActiveSessions(),
 		getPreferredRuntime: languageId => positron.runtime.getPreferredRuntime(languageId),
@@ -187,9 +222,14 @@ export function sessionOn(
  */
 export class StatementRunner {
 
+	/**
+	 * @param _reportTimeoutMs How long a finished `@connect` line waits for Positron to report the
+	 *   session on the database before the connect counts as failed.
+	 */
 	constructor(
 		private readonly _api: ExecutionApi,
 		private readonly _log: SqlLog,
+		private readonly _reportTimeoutMs = CONNECT_REPORT_TIMEOUT_MS,
 	) { }
 
 	/**
@@ -268,48 +308,58 @@ export class StatementRunner {
 		}
 
 		this._log.info(`Connecting ggsql session ${sessionId} to ${connection.name}.`);
-		const code = await this._connect(sessionId, connectCode);
-		if (code === connectCode) {
-			return { kind: 'connected', sessionId };
+		switch (await this._connect(sessionId, connectCode)) {
+			case 'connected':
+				return { kind: 'connected', sessionId };
+			case 'exited':
+				this._log.warn(`ggsql session ${sessionId} exited before it connected to ${connection.name}.`);
+				return { kind: 'exited' };
+			case 'failed':
+				this._log.warn(`ggsql session ${sessionId} did not connect to ${connection.name}.`);
+				return { kind: 'connect-failed' };
 		}
-		if (code === undefined) {
-			this._log.warn(`ggsql session ${sessionId} exited before it connected to ${connection.name}.`);
-			return { kind: 'exited' };
-		}
-		this._log.warn(`ggsql session ${sessionId} did not connect to ${connection.name}; it is`
-			+ ` still on ${code}.`);
-		return { kind: 'connect-failed' };
 	}
 
 	/**
-	 * Sends the `@connect` line and resolves to where the session is afterwards.
+	 * Sends the `@connect` line and resolves to how that went.
 	 *
-	 * Whichever comes first: Positron reporting the session on the database, the session exiting,
-	 * or the line finishing without either -- which is a connection that failed, the session still
-	 * where it was, and ggsql's error in the console saying why. The exit is watched for because an
-	 * execution in a session that exits never finishes.
+	 * Connected once Positron reports the session on the database. Failed if the line fails -- the
+	 * session is still where it was, and ggsql's error in the console says why -- or if it finishes
+	 * and no report follows within a few seconds. Exited if the session exits first, which is
+	 * watched for because an execution in a session that exits never finishes.
+	 *
+	 * The report is what counts, not the line finishing: it travels apart from the line's result
+	 * and can land on either side of it, and until it lands the session does not read as on the
+	 * database, so the next run would start another one.
 	 */
-	private async _connect(sessionId: string, connectCode: string): Promise<string | undefined> {
+	private async _connect(sessionId: string, connectCode: string): Promise<'connected' | 'failed' | 'exited'> {
 		const store: vscode.Disposable[] = [];
+		let timer: ReturnType<typeof setTimeout> | undefined;
 		try {
-			const settled = new Promise<void>(resolve => {
+			return await new Promise(resolve => {
 				store.push(this._api.onDidChangeSessionConnectionCode(e => {
 					// The startup connection can arrive after this is listening, and is not the
 					// answer being waited for.
-					if (e.sessionId === sessionId && (e.code === connectCode || e.code === undefined)) {
-						resolve();
+					if (e.sessionId === sessionId && e.code === connectCode) {
+						resolve('connected');
 					}
 				}));
+				store.push(this._api.onDidEndSession(sessionId, () => resolve('exited')));
 				// Not attributed to the file: the line is Positron's doing, not a statement the
 				// user ran from it.
-				this._api.executeCode(connectCode, sessionId).then(() => resolve(), error => {
+				this._api.executeCode(connectCode, sessionId).then(() => {
+					timer = setTimeout(() => {
+						this._log.warn(`Connecting ggsql session ${sessionId} finished, but Positron did`
+							+ ` not report it on the database within ${this._reportTimeoutMs} ms.`);
+						resolve('failed');
+					}, this._reportTimeoutMs);
+				}, error => {
 					this._log.warn(`Connecting ggsql session ${sessionId} failed: ${errorMessage(error)}`);
-					resolve();
+					resolve('failed');
 				});
 			});
-			await settled;
-			return await this._api.getSessionConnectionCode(sessionId);
 		} finally {
+			clearTimeout(timer);
 			store.forEach(disposable => disposable.dispose());
 		}
 	}
@@ -326,7 +376,7 @@ type StartOutcome =
  * A runtime error arrives as a plain object with a message rather than as an Error, and would
  * otherwise be logged as `[object Object]`.
  */
-function errorMessage(error: unknown): string {
+export function errorMessage(error: unknown): string {
 	if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
 		return error.message;
 	}

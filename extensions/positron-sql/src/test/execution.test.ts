@@ -111,6 +111,53 @@ suite('StatementRunner', () => {
 		);
 	});
 
+	test('a connect that succeeds counts, even when Positron reports the move after it', async () => {
+		// The report travels apart from the line's result, so reading where the session is once
+		// the line finishes would find it still on its startup database.
+		const api = new FakeApi();
+		api.onConnect = 'connect-reported-late';
+
+		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+
+		assert.deepStrictEqual(outcome, { kind: 'executed', sessionId: 'new-1' });
+	});
+
+	test('the next run reuses a session whose move was reported late', async () => {
+		// The run waits for the report, so the session reads as on the database by the time the
+		// next one looks, and no second session is started.
+		const api = new FakeApi();
+		api.onConnect = 'connect-reported-late';
+
+		await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 2');
+
+		assert.deepStrictEqual({ outcome, started: api.started }, { outcome: { kind: 'executed', sessionId: 'new-1' }, started: 1 });
+	});
+
+	test('a connect line that finishes without Positron reporting the move counts as failed', async () => {
+		// The statement would otherwise run against the in-memory database the session started on.
+		const api = new FakeApi();
+		api.onConnect = 'unreported';
+
+		const outcome = await runner(api, 10).run(await document(), CONNECTION, 'SELECT 1');
+
+		assert.deepStrictEqual(
+			{ outcome, executed: api.executed },
+			{ outcome: { kind: 'connect-failed' }, executed: [['new-1', SHOP]] },
+		);
+	});
+
+	test('a failed connect is reported as such before the startup database is known', async () => {
+		// Not as an exit: the session is still running.
+		const api = new FakeApi();
+		api.startCode = undefined;
+		api.onConnect = 'fail';
+
+		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+
+		assert.deepStrictEqual(outcome, { kind: 'connect-failed' });
+	});
+
 	test('a session that exits while connecting does not hold the run up', async () => {
 		// An execution in a session that has exited never finishes, so the exit is what ends the
 		// wait. Without it, the run guard would stay set and every later Cmd+Enter would do nothing.
@@ -164,8 +211,8 @@ suite('StatementRunner', () => {
 	});
 });
 
-function runner(api: ExecutionApi): StatementRunner {
-	return new StatementRunner(api, testLog().log);
+function runner(api: ExecutionApi, reportTimeoutMs?: number): StatementRunner {
+	return new StatementRunner(api, testLog().log, reportTimeoutMs);
 }
 
 function document(): Thenable<vscode.TextDocument> {
@@ -193,8 +240,15 @@ class FakeApi implements ExecutionApi {
 		{ runtimeId: 'ggsql', runtimeName: 'ggsql' } as positron.LanguageRuntimeMetadata;
 	public startError: Error | undefined;
 
-	/** What a session does with an `@connect` line: move, report an error, or exit. */
-	public onConnect: 'connect' | 'fail' | 'exit' = 'connect';
+	/**
+	 * What a session does with an `@connect` line: move, move with Positron's report of it
+	 * landing after the line finishes, finish without Positron ever reporting a move, report an
+	 * error, or exit.
+	 */
+	public onConnect: 'connect' | 'connect-reported-late' | 'unreported' | 'fail' | 'exit' = 'connect';
+
+	/** Where a new session starts, as far as Positron has heard by the time it is connected. */
+	public startCode: string | undefined = MEMORY;
 
 	/** Whether the user's statements finish. */
 	public statementsSettle = true;
@@ -206,10 +260,21 @@ class FakeApi implements ExecutionApi {
 	private readonly _codes = new Map<string, string>();
 	private readonly _onDidChange = new vscode.EventEmitter<positron.SessionConnectionCodeChangeEvent>();
 	public readonly onDidChangeSessionConnectionCode = this._onDidChange.event;
+	private readonly _onDidEnd = new vscode.EventEmitter<string>();
 
-	public addSession(sessionId: string, code: string, mode = positron.LanguageRuntimeSessionMode.Console): void {
+	public addSession(sessionId: string, code: string | undefined, mode = positron.LanguageRuntimeSessionMode.Console): void {
 		this._sessions.push(session(sessionId, mode));
-		this._codes.set(sessionId, code);
+		if (code !== undefined) {
+			this._codes.set(sessionId, code);
+		}
+	}
+
+	onDidEndSession(sessionId: string, listener: () => void): vscode.Disposable {
+		return this._onDidEnd.event(ended => {
+			if (ended === sessionId) {
+				listener();
+			}
+		});
 	}
 
 	async getConnectCode(): Promise<ConnectCode> {
@@ -239,7 +304,7 @@ class FakeApi implements ExecutionApi {
 		this.started += 1;
 		const sessionId = `new-${this.started}`;
 		// A new ggsql session starts on an in-memory database.
-		this.addSession(sessionId, MEMORY);
+		this.addSession(sessionId, this.startCode);
 		return sessionId;
 	}
 
@@ -253,11 +318,22 @@ class FakeApi implements ExecutionApi {
 				this._codes.set(sessionId, code);
 				this._onDidChange.fire({ sessionId, code });
 				return Promise.resolve();
+			case 'connect-reported-late':
+				return Promise.resolve().then(() => {
+					// After the runner has had the chance to act on the line's result.
+					setTimeout(() => {
+						this._codes.set(sessionId, code);
+						this._onDidChange.fire({ sessionId, code });
+					}, 0);
+				});
+			case 'unreported':
+				return Promise.resolve();
 			case 'fail':
 				return Promise.reject({ message: 'Could not set lock on file' });
 			case 'exit':
 				this._codes.delete(sessionId);
 				this._onDidChange.fire({ sessionId, code: undefined });
+				this._onDidEnd.fire(sessionId);
 				return new Promise(() => { });
 		}
 	}
