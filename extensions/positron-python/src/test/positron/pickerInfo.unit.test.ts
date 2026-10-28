@@ -174,7 +174,7 @@ suite('pickerInfo', () => {
                     description: 'Homebrew',
                 },
                 {
-                    group: 'Base interpreters',
+                    group: 'Global environments',
                     groupOrder: 2,
                     rowOrder: 1,
                     label: 'Python 3.13.1',

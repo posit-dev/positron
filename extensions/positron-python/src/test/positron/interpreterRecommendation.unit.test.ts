@@ -503,7 +503,7 @@ suite('interpreterRecommendation', () => {
             async (interpreter: PythonEnvironment) =>
                 ({
                     runtimePath: interpreter.path,
-                    picker: { group: 'Base interpreters', groupOrder: 2, label: 'Python 3.12.0' },
+                    picker: { group: 'Global environments', groupOrder: 2, label: 'Python 3.12.0' },
                 } as unknown as positron.LanguageRuntimeMetadata),
         );
         context.hasPythonSignals = true;
