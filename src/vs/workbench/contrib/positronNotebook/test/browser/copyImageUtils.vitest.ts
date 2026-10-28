@@ -5,12 +5,12 @@
 
 /// <reference types="vitest/globals" />
 
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { isCopyImageMenuArg } from '../../browser/copyImageUtils.js';
 
 // Base64 normalization is tested with the shared image-data-URL helpers.
 describe('copyImageUtils', () => {
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	describe('isCopyImageMenuArg', () => {
 		it('returns true for valid arg', () => {

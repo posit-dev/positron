@@ -18,7 +18,7 @@ import { IRequestService } from '../../../../../platform/request/common/request.
 import { InMemoryStorageService, IStorageService } from '../../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { NullTelemetryService } from '../../../../../platform/telemetry/common/telemetryUtils.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { TestProductService } from '../../../../test/common/workbenchTestServices.js';
 import { IAuthenticationAccessService } from '../../../authentication/browser/authenticationAccessService.js';
 import { AllowedExtension, IAuthenticationExtensionsService, IAuthenticationService } from '../../../authentication/common/authentication.js';
@@ -30,7 +30,7 @@ import { DefaultAccountProvider } from '../../browser/defaultAccount.js';
 describe('DefaultAccountProvider Copilot access', () => {
 	const updateAllowedExtensions = vi.fn<(providerId: string, accountName: string, extensions: AllowedExtension[]) => void>();
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IConfigurationService, new TestConfigurationService())
 		.stub(IAuthenticationService, {
 			declaredProviders: [],

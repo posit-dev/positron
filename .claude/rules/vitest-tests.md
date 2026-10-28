@@ -28,9 +28,11 @@ That's it. No builder, no services, no setup.
 
 Use the builder to wire test services. Pick the lowest preset that covers your dependencies (see `positronTestContainer.ts` JSDoc); start low and let "missing service" errors guide you up.
 
+If you need no more than the Bare or Runtime preset, import `createLightTestContainer()` from `lightTestContainer.ts`. The full `createTestContainer()` loads the Notebook and Workbench presets, which adds ~7s of import to every test file that imports it, and a lint rule flags it if you import it without using one of them.
+
 ```ts
 describe('MyService', () => {
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IMyService, { getData: vi.fn() })
 		.build();
@@ -101,7 +103,7 @@ Sharing code across extensions is possible through a local `file:` package, as `
 
 ## The Builder
 
-`createTestContainer()` is the builder -- a chained API (`.withX().stub().build()`) that wires up the DI services your test needs. Pick the lowest preset that covers your dependencies ([full preset hierarchy](../../src/vs/test/vitest/positronTestContainer.ts)). Start low and let errors guide you up:
+`createTestContainer()` is the builder -- a chained API (`.withX().stub().build()`) that wires up the DI services your test needs. Pick the lowest preset that covers your dependencies ([full preset hierarchy](../../src/vs/test/vitest/positronTestContainer.ts)); for Bare or Runtime, use `createLightTestContainer()` (same API, without the heavy presets). Start low and let errors guide you up:
 
 1. Run the test. If it passes, you're done.
 2. "X is not a function" or "Cannot read properties of undefined" -- add `.stub(IMissingService, {})`
@@ -127,7 +129,7 @@ Positron-specific rules not covered by a public lint plugin. The `review-vitest-
 
 - **Avoid `workbenchInstantiationService()`** (upstream VS Code helper) -- use `createTestContainer().withWorkbenchServices().build()`.
 
-- **Avoid `createRuntimeServices()`** -- use `createTestContainer().withRuntimeServices().build()`.
+- **Avoid `createRuntimeServices()`** -- use `createLightTestContainer().withRuntimeServices().build()`.
 
 - **Avoid hand-rolled `as unknown as PositronReactServices` accessor** -- use `createTestContainer().withReactServices().stub(IService, ...).build()` + `setupRTLRenderer(() => ctx.reactServices)`.
 
@@ -166,7 +168,7 @@ vi.mock('../path/to/module.js', () => ({ renderFoo: mockRender }));
 
 Prefer `.stub()` via the builder for DI services -- `vi.mock` is the escape hatch for module-level things outside the container.
 
-**Disposables in plain tests:** The builder handles disposable-leak detection automatically via `createTestContainer().build()`. Plain tests that allocate disposables directly (without the builder) still need `ensureNoLeakedDisposables()` in `beforeEach` -- see [`src/vs/test/vitest/vitestUtils.ts`](../../src/vs/test/vitest/vitestUtils.ts).
+**Disposables in plain tests:** The builder handles disposable-leak detection automatically via `.build()` on either `createTestContainer()` or `createLightTestContainer()`. Plain tests that allocate disposables directly (without the builder) still need `ensureNoLeakedDisposables()` in `beforeEach` -- see [`src/vs/test/vitest/vitestUtils.ts`](../../src/vs/test/vitest/vitestUtils.ts).
 
 **Inline snapshots:** Use `toMatchInlineSnapshot()` when you'd rather diff a known-good shape than maintain many separate assertions. Specifically: multi-property output (parser results, component markup), **exact-preservation** tests (round-trip fidelity, character-exact strings), **arrays of structured objects with 3+ entries**, **single objects projected to 3+ fields**, or when you'd otherwise write **3+ separate `.toBe()`/`.toEqual()` assertions against the same object** -- a known-good shape is easier to eyeball than a literal and survives field renames. Project structured objects to the relevant fields first: `expect({ kind, source, language }).toMatchInlineSnapshot(...)` beats snapshotting whole objects with irrelevant nested fields. For simple values, prefer `.toBe(...)`. Vitest fills and updates snapshots with `--update`; when one fails, read the diff before accepting.
 

@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { constObservable } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
@@ -155,7 +155,7 @@ describe('collectCellOutputDTOs', () => {
 });
 
 describe('resolveNotebookInstance', () => {
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	function createNotebookInstance(uriString: string): IPositronNotebookInstance {
 		return stubInterface<IPositronNotebookInstance>({ uri: URI.parse(uriString) });

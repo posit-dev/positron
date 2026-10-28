@@ -21,7 +21,7 @@ import {
 import { ILanguageConfigurationService, ResolvedLanguageConfiguration } from '../../../../../editor/common/languages/languageConfigurationRegistry.js';
 import { IEditorWorkerService } from '../../../../../editor/common/services/editorWorker.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IQuartoVirtualCell, IQuartoVirtualNotebookService } from '../../browser/quartoVirtualNotebookService.js';
 import {
@@ -66,7 +66,7 @@ function shapes(edits: readonly TextEdit[]): string[] {
 }
 
 describe('quartoEmbeddedFormatting', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 	const logService = new NullLogService();
 
 	let languageFeatures: LanguageFeaturesService;

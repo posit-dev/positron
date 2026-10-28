@@ -17,7 +17,7 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { IHeadlessLanguageModelService, StreamTextResult, UnavailableReason } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { ISCMInput, ISCMProvider, ISCMRepository, ISCMResource, ISCMResourceGroup, ISCMService } from '../../../scm/common/scm.js';
 import { CommitMessageMenuContribution, GenerateCommitMessageAction, GIT_SUGGESTIONS_MODEL_KEY } from '../../browser/commitMessageAction.js';
@@ -68,7 +68,7 @@ describe('GenerateCommitMessageAction', () => {
 	let repository: ISCMRepository | undefined;
 	let inputValues: string[];
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(ISCMService, {
 			get repositories() { return repository ? [repository] : []; },
 		})
@@ -175,7 +175,7 @@ describe('GenerateCommitMessageAction', () => {
 });
 
 describe('CommitMessageMenuContribution', () => {
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IConfigurationService, new TestConfigurationService())
 		.build();
 

@@ -19,7 +19,7 @@ import {
 } from '../../../../../editor/common/languages.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { QUARTO_NATIVE_LANGUAGE_FEATURES_KEY } from '../../common/positronQuartoConfig.js';
 import { IQuartoVirtualCell, IQuartoVirtualNotebookService } from '../../browser/quartoVirtualNotebookService.js';
@@ -64,7 +64,7 @@ function tokenStream(line: number, startChar: number, tokenType: number, tokenMo
 }
 
 describe('QuartoEmbeddedSemanticTokens', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	let languageFeatures: LanguageFeaturesService;
 	let configurationService: TestConfigurationService;
