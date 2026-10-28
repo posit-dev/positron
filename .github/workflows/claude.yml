@@ -216,17 +216,18 @@ jobs:
             Node dependencies are not installed in this job, so you cannot run tests, eslint, or
             precommit. A second job with dependencies makes code changes.
 
-            Before you edit a file, look at its path. If the path starts with `src/`, `extensions/`,
-            `build/`, `scripts/`, or `test/`, do not edit it. Instead, set `needs_build` to true and
-            fill the handoff: `summary` says what to change and why, `files` lists the files you
-            expect to change, and `findings` gives what you learned that the second job needs, for
-            example the cause of a bug. If the request needs edits to code and to other files, hand
-            off the whole request and edit nothing.
+            In this job you can edit only Markdown (`.md`) files outside `src/`, `extensions/`,
+            `build/`, `scripts/`, `test/`, `cli/`, `remote/`, and `positron/`. Edits to other files
+            are blocked. If the request needs a change to any other file, do not edit anything.
+            Instead, set `needs_build` to true and fill the handoff: `summary` says what to change
+            and why, `files` lists the files you expect to change, and `findings` gives what you
+            learned that the second job needs, for example the cause of a bug. If the request needs
+            edits to Markdown files and to other files, hand off the whole request.
             When you hand off, end your progress comment with a short note that a second job
             continues the work, linked to ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
 
-            Open a PR only if every changed file is outside those paths. Say in the PR body that no
-            tests ran. When you only answer, review, or make such non-code changes, set `needs_build`
+            Open a PR only if every changed file is such a Markdown file. Say in the PR body that no
+            tests ran. When you only answer, review, or make such Markdown changes, set `needs_build`
             to false.
 
             If the triggering user (${{ github.triggering_actor }}) is not a bot, after creating a PR, add a reviewer and assignee.
@@ -237,6 +238,7 @@ jobs:
             --json-schema '{"type":"object","properties":{"needs_build":{"type":"boolean"},"summary":{"type":"string"},"files":{"type":"array","items":{"type":"string"}},"findings":{"type":"string"}},"required":["needs_build","summary","files","findings"]}'
             --fallback-model sonnet
             --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
+            --disallowedTools "Edit(/src/**),Edit(/extensions/**),Edit(/build/**),Edit(/scripts/**),Edit(/test/**),Edit(/cli/**),Edit(/remote/**),Edit(/positron/**),Edit(/.eslint-plugin-local/**),Edit(/ai-lib/**),Edit(**/*.ts),Edit(**/*.tsx),Edit(**/*.mts),Edit(**/*.js),Edit(**/*.mjs),Edit(**/*.cjs),Edit(**/*.json),Edit(**/*.rs),Edit(**/*.py),Edit(**/*.R),Edit(**/*.sh),Edit(**/*.ps1),Edit(**/*.cmd),Edit(**/*.toml),Edit(**/*.yml),Edit(**/*.yaml),Edit(**/*.css),Edit(**/*.html),Edit(/.npmrc),Edit(/.nvmrc),Edit(/.python-version)"
 
       # Missing or malformed output must not start the build job, and must not fail silently.
       - name: Read handoff
@@ -370,9 +372,11 @@ jobs:
             `src/`, `npx eslint`, `node scripts/format.mts`, and `npm run precommit`. Vitest tests
             under `extensions/` that import that extension's own dependencies cannot run here.
             Core Mocha, extension host, and e2e tests cannot run here either.
-            The dependencies come from the lockfiles of the default branch. If this is a pull request
-            that changes `package.json` or a lockfile, a "module not found" error can come from that
-            difference. Say so in your comment instead of treating it as a test failure.
+            On a comment in an issue or pull request conversation, the dependencies come from the
+            lockfiles of the default branch, not the pull request. If such a pull request changes
+            `package.json` or a lockfile, a "module not found" error can come from that difference.
+            Say so in your comment instead of treating it as a test failure. On a review or review
+            comment, the dependencies come from the pull request's own lockfiles.
             Write each command out in full. Commands that use shell variables are rejected.
             Vitest logs an EROFS error about the step summary after the run. Ignore it; read the
             "Test Files" line for the result.
