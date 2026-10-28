@@ -20,6 +20,10 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { PositronConnectionsDriverManager } from './positronConnectionsDrivers.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../positronDataConnections/common/positronDataConnectionsConfiguration.js';
+import { raceTimeout } from '../../../../base/common/async.js';
+
+/** How long a connection comm already open at startup has to say what it is before it is closed. */
+const STARTUP_METADATA_TIMEOUT_MS = 5000;
 
 export class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -61,7 +65,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 			this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
 				this.closeRuntimeConnections(session);
 			}));
-			this._register(this.runtimeSessionService.onDidDeleteRuntimeSession((sessionId) => {
+			this._register(this.runtimeSessionService.onDidDeleteRuntimeSession(sessionId => {
 				this.closeConnectionsListeners.deleteAndDispose(sessionId);
 			}));
 			return;
@@ -156,14 +160,19 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	 * session without firing onDidStartRuntime again, and that kernel opens comms of its own.
 	 */
 	private async closeRuntimeConnections(session: ILanguageRuntimeSession) {
+		// Whether a comm has opened, or the session has ended, since the comms already open were
+		// listed. Either is newer than anything those comms report, which then must not replace it.
+		let superseded = false;
 		const store = new DisposableStore();
 		store.add(session.onDidCreateClientInstance(({ message, client }) => {
 			if (client.getClientType() === RuntimeClientType.Connection) {
+				superseded = true;
 				this.setSessionConnectionCode(session.sessionId, (message.data as Partial<IConnectionMetadata> | undefined)?.code);
 				client.dispose();
 			}
 		}));
 		store.add(session.onDidEndSession(() => {
+			superseded = true;
 			// Whatever the runtime was connected to went with it.
 			this.setSessionConnectionCode(session.sessionId, undefined);
 		}));
@@ -174,7 +183,11 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 			await Promise.all(clients.map(async client => {
 				const connection = new ConnectionsClientInstance(client);
 				try {
-					this.setSessionConnectionCode(session.sessionId, (await connection.getMetadata()).code);
+					// Bounded, so a comm that never answers is still closed.
+					const metadata = await raceTimeout(connection.getMetadata(), STARTUP_METADATA_TIMEOUT_MS);
+					if (metadata && !superseded) {
+						this.setSessionConnectionCode(session.sessionId, metadata.code);
+					}
 				} finally {
 					connection.dispose();
 					client.dispose();

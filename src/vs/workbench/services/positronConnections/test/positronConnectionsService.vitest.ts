@@ -13,12 +13,17 @@ import { TestSecretStorageService } from '../../../../platform/secrets/test/comm
 import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
 import { createLightTestContainer } from '../../../../test/vitest/lightTestContainer.js';
 import { startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
-import { RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { IRuntimeClientOutput, RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { TestRuntimeClientInstance } from '../../languageRuntime/test/common/testRuntimeClientInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { RuntimeExitReason } from '../../languageRuntime/common/languageRuntimeService.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { DeferredPromise } from '../../../../base/common/async.js';
+import { stubInterface } from '../../../../test/vitest/stubInterface.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
+import { TestLanguageRuntimeSession } from '../../runtimeSession/test/common/testLanguageRuntimeSession.js';
 
 
 describe('Positron - Connections Service', () => {
@@ -194,6 +199,66 @@ describe('Positron - Connections Service', () => {
 			await session.createClient(RuntimeClientType.Connection, memory);
 
 			expect(service.getSessionConnectionCode(session.sessionId)).toBe(memory.code);
+		});
+
+		describe('a comm already open when the session starts', () => {
+			/**
+			 * A service told of a session's start by hand, so the session can have opened a comm
+			 * before the service hears of it.
+			 */
+			function createServiceWatchingStarts() {
+				const onDidStartRuntime = ctx.disposables.add(new Emitter<ILanguageRuntimeSession>());
+				const instantiationService = ctx.disposables.add(ctx.instantiationService.createChild(new ServiceCollection(
+					[IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': true })],
+					[IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+						onDidStartRuntime: onDidStartRuntime.event,
+						onDidDeleteRuntimeSession: Event.None,
+					})],
+				)));
+				const service = ctx.disposables.add(instantiationService.createInstance(PositronConnectionsService));
+				return { service, onDidStartRuntime };
+			}
+
+			/** A startup comm whose metadata reply is held until the test releases it. */
+			async function openStartupComm(session: TestLanguageRuntimeSession) {
+				const reply = new DeferredPromise<void>();
+				const client = await session.createClient(RuntimeClientType.Connection, memory);
+				client.rpcHandler = async (): Promise<IRuntimeClientOutput<unknown>> => {
+					await reply.p;
+					return { data: { result: memory } };
+				};
+				return { client, reply };
+			}
+
+			it('does not replace a comm opened after it, when its reply arrives late', async () => {
+				const session = ctx.disposables.add(await createSession());
+				const { client, reply } = await openStartupComm(session);
+				const disposeSpy = vi.spyOn(client, 'dispose');
+				const { service, onDidStartRuntime } = createServiceWatchingStarts();
+
+				onDidStartRuntime.fire(session);
+				await session.createClient(RuntimeClientType.Connection, file);
+				reply.complete();
+				await waitUntilOk(() => expect(disposeSpy).toHaveBeenCalled());
+
+				expect(service.getSessionConnectionCode(session.sessionId)).toBe(file.code);
+			});
+
+			it('is closed even when it never answers', async () => {
+				const session = ctx.disposables.add(await createSession());
+				const { client } = await openStartupComm(session);
+				const disposeSpy = vi.spyOn(client, 'dispose');
+				const { onDidStartRuntime } = createServiceWatchingStarts();
+				vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+				try {
+					onDidStartRuntime.fire(session);
+					await vi.advanceTimersByTimeAsync(5000);
+
+					expect(disposeSpy).toHaveBeenCalled();
+				} finally {
+					vi.useRealTimers();
+				}
+			});
 		});
 	});
 
