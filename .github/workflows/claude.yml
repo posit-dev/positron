@@ -199,6 +199,7 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Run Claude Code Action
+        id: claude
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         with:
           anthropic_api_key: ${{ steps.load_secrets.outputs.ANTHROPIC_KEY }}
