@@ -2146,7 +2146,7 @@ class StartupBehaviorConfigurationService extends TestConfigurationService {
  */
 describe('RuntimeStartupService - startup sequence', () => {
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
@@ -2640,23 +2640,26 @@ describe('RuntimeStartupService - startup sequence', () => {
 			expect(cache.getEntries(rLanguage.extensionId, 'r').map(entry => entry.metadata.runtimePath)).toEqual([oldR.runtimePath]);
 		});
 
-		it('starts the affiliated runtime when the pin takes over 20 seconds, then saves the late pin without starting it', async () => {
+		it('starts the affiliated runtime when the pin takes over 20 seconds, and ignores the late pin', async () => {
 			const lateAnswer = new DeferredPromise<ILanguageRuntimeMetadata | undefined>();
 			const { started } = await runStartupSequenceWithClock(21_000, {
 				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
 				startupBehavior: { default: LanguageStartupBehavior.Auto },
 				manager: { pinnedWorkspaceRuntime: () => lateAnswer.p },
 			});
-			const affiliatedBeforeAnswer = storedAffiliation('r')?.runtimeId;
 
-			// The check keeps running, so the next launch starts the pin.
+			// The check runs again on the next launch, which starts the pin.
 			await lateAnswer.complete(pinnedR);
 			await timeout(0);
 
-			expect({ started, affiliatedBeforeAnswer, affiliatedAfterAnswer: storedAffiliation('r')?.runtimeId }).toEqual({
+			expect({
+				started,
+				affiliated: storedAffiliation('r')?.runtimeId,
+				pinRegistered: ctx.get(ILanguageRuntimeService).getRegisteredRuntime(pinnedR.runtimeId) !== undefined,
+			}).toEqual({
 				started: [{ runtimeId: oldR.runtimeId, reason: SessionStartReasonId.AffiliatedRuntime }],
-				affiliatedBeforeAnswer: oldR.runtimeId,
-				affiliatedAfterAnswer: pinnedR.runtimeId,
+				affiliated: oldR.runtimeId,
+				pinRegistered: false,
 			});
 		});
 

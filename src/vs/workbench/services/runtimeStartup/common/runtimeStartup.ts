@@ -30,6 +30,7 @@ import { IWorkbenchEnvironmentService } from '../../environment/common/environme
 import { isWeb } from '../../../../base/common/platform.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Barrier, Limiter, raceTimeout } from '../../../../base/common/async.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { arch as systemArch } from '../../../../base/common/process.js';
 
 interface ILanguageRuntimeProviderMetadata {
@@ -1069,11 +1070,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// The pinned check registered each pin before the cache or the search
 		// could, so registering it again starts nothing. Start the pins here,
 		// where the affiliated runtime would have started as it registered.
+		// Only the first pin to start activates its console, as in
+		// startAffiliatedLanguageRuntimes().
+		let activate = true;
 		for (const languageId of waitingLanguageIds) {
 			const affiliation = this.getAffiliatedRuntime(languageId);
 			if (affiliation && this._pinnedLanguageIds.has(languageId) &&
 				this.canStartAffiliationAtRegistration(languageId)) {
-				this.startAffiliatedRuntime(affiliation, true);
+				this.startAffiliatedRuntime(affiliation, activate).catch(err => {
+					this._logService.error(`[Runtime startup] Error starting the pinned runtime for language ID '${languageId}': ${err}`);
+				});
+				activate = false;
 			}
 		}
 
@@ -2222,13 +2229,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (this._pinnedChecks.has(languageId)) {
 			return;
 		}
-		const check = this.checkPinnedRuntime(languageId).catch(err => {
+		const cts = new CancellationTokenSource();
+		const check = this.checkPinnedRuntime(languageId, cts.token).catch(err => {
 			this._logService.error(`[Runtime startup] Error checking the pinned runtime for language ID '${languageId}': ${err}`);
-		});
-		this._pinnedChecks.set(languageId, raceTimeout(check, RuntimeStartupService.PINNED_CHECK_TIMEOUT_MS, () =>
+		}).finally(() => cts.dispose());
+		this._pinnedChecks.set(languageId, raceTimeout(check, RuntimeStartupService.PINNED_CHECK_TIMEOUT_MS, () => {
+			cts.cancel();
 			this._logService.warn(`[Runtime startup] The pinned check for language ID '${languageId}' ` +
 				`took more than ${RuntimeStartupService.PINNED_CHECK_TIMEOUT_MS} ms; ` +
-				`starting the affiliated runtime as saved`)));
+				`starting the affiliated runtime as saved`);
+		}));
 	}
 
 	/**
@@ -2244,9 +2254,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * How long startup waits for a language's pinned check. It's longer than
 	 * the extensions' own lookup limits (Python gives up after 15 seconds), so
-	 * it only stops a check that never answers. A check that takes longer
-	 * keeps running, so a late answer is still saved as the affiliated
-	 * runtime and starts on the next launch.
+	 * it only stops a check that never answers. A late answer is ignored, so
+	 * it can't stop the saved affiliated runtime from starting; the check runs
+	 * again on the next launch.
 	 */
 	private static readonly PINNED_CHECK_TIMEOUT_MS = 20_000;
 
@@ -2279,8 +2289,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * `recommended` (the recommendation handles the pin).
 	 *
 	 * @param languageId The language ID to check.
+	 * @param token Cancelled when startup stops waiting for the check.
 	 */
-	private async checkPinnedRuntime(languageId: string): Promise<void> {
+	private async checkPinnedRuntime(languageId: string, token: CancellationToken): Promise<void> {
 		if (!this.getAffiliatedRuntime(languageId) ||
 			languageId === this._newFolderService.newFolderRuntimeMetadata?.languageId ||
 			this.getStartupBehavior(languageId) === LanguageStartupBehavior.Recommended) {
@@ -2288,7 +2299,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		const answer = await this.getPinnedRuntime(languageId);
-		if (!answer) {
+		if (!answer || token.isCancellationRequested) {
 			return;
 		}
 
