@@ -12,6 +12,7 @@
 // the extension host stable when DuckDB runs out of memory.
 
 import { DuckDBConnection, DuckDBInstance } from '@duckdb/node-api';
+import { materializeRows } from './duckdbRows';
 import {
 	MOTHERDUCK_TOKEN_ENV,
 	WorkerOpenConfig,
@@ -89,10 +90,8 @@ process.on('message', (request: WorkerQueryRequest) => {
 		try {
 			const reader = await connection.runAndReadAll(request.sql, request.params);
 			// Materialize to plain JS up front so the result can cross the IPC
-			// boundary. `getRowObjectsJS` coerces values to plain JS (Date, number,
-			// bigint, string, null), all of which the host receives via V8
-			// "advanced" serialization.
-			send({ kind: 'result', id: request.id, rows: reader.getRowObjectsJS() });
+			// boundary, keeping DECIMAL values exact (see `materializeRows`).
+			send({ kind: 'result', id: request.id, rows: materializeRows(reader) });
 		} catch (error) {
 			send({ kind: 'error', id: request.id, error: error instanceof Error ? error.message : String(error) });
 		}
