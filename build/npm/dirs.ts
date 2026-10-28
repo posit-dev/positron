@@ -155,7 +155,8 @@ export const volatileExtensions = [
 // Usage: Set POSITRON_EXTENSIONS_FILTER=volatile|stable|core to install subset
 //   - volatile: Install only frequently-changed extensions (python, assistant, r)
 //   - stable: Install all other extensions
-//   - core: Install only the root and build/ (used by the @claude workflow)
+//   - core: Install only the root, build/, and its rspack/vite subfolders (used by the @claude workflow).
+//     The subfolders are kept to match the npm-core cache; they add ~3s on a cache miss.
 //   - unset/empty: Install all extensions (default behavior)
 const POSITRON_EXTENSIONS_FILTER = process.env.POSITRON_EXTENSIONS_FILTER;
 
@@ -197,7 +198,7 @@ if (POSITRON_EXTENSIONS_FILTER) {
 		const baseDirs = dirs.filter(d => !d.startsWith('extensions/') || d === 'extensions');
 		dirs = [...baseDirs, ...stableExtensions];
 	} else if (POSITRON_EXTENSIONS_FILTER === 'core') {
-		console.log('Installing core dependencies only (root and build/)');
+		console.log('Installing core dependencies only (root, build/, build/rspack, build/vite)');
 		dirs = dirs.filter(d => d === '' || d === 'build' || d.startsWith('build/'));
 	}
 }
