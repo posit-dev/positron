@@ -199,7 +199,7 @@ further by hand, then confirm with `npm ci --dry-run`.
 
 #### Check for new postinstall artifacts
 
-The `test / unit` CI job fails with `npm install created N files outside
+The `test / vscode` CI job fails with `npm install created N files outside
 node_modules/` if postinstall writes a file that isn't in
 `.github/cache-scripts/cache-paths.sh`. On a cache hit postinstall is skipped, so
 an uncached artifact would be missing. Upstream changes to the install scripts

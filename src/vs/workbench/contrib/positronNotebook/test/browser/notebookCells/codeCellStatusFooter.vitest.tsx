@@ -7,6 +7,8 @@
 
 import { act, screen } from '@testing-library/react';
 import { observableValue } from '../../../../../../base/common/observable.js';
+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
@@ -158,6 +160,63 @@ describe('CodeCellStatusFooter', () => {
 		} else {
 			expect(screen.queryByTestId('cell-footer-metadata')).not.toBeInTheDocument();
 		}
+	});
+
+	describe('when notebook.showCellStatusBar is hidden', () => {
+		let configurationService: TestConfigurationService;
+
+		beforeEach(() => {
+			configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+			configurationService.setUserConfiguration('notebook.showCellStatusBar', 'hidden');
+		});
+
+		afterEach(() => {
+			configurationService.setUserConfiguration('notebook.showCellStatusBar', 'visible');
+		});
+
+		it('collapses the footer and hides the duration and relative time of a completed cell', () => {
+			renderFooter({ ...completedState, executionStatus: 'idle', lastRunSuccess: true });
+
+			const footer = getFooter({ hidden: true });
+			expect(footer).toHaveClass('collapsed');
+			expect(footer).not.toHaveAttribute('aria-label');
+			expect(screen.queryByTestId('cell-footer-metadata')).not.toBeInTheDocument();
+			expect(screen.queryByText(/Just now|seconds ago/)).not.toBeInTheDocument();
+		});
+
+		it('collapses the footer while a cell runs', () => {
+			renderFooter({ executionStatus: 'running' });
+
+			const footer = getFooter({ hidden: true });
+			expect(footer).toHaveClass('collapsed');
+			expect(footer).toHaveAttribute('aria-live', 'off');
+		});
+
+		it('keeps the tags visible without execution metadata', () => {
+			renderFooter({ ...completedState, executionStatus: 'idle', lastRunSuccess: true, tags: ['wip'] });
+
+			const footer = getFooter();
+			expect(footer).not.toHaveClass('collapsed');
+			expect(footer).not.toHaveAttribute('aria-label');
+			expect(screen.queryByTestId('cell-footer-metadata')).not.toBeInTheDocument();
+		});
+
+		it('shows the execution metadata again when the setting changes to visible', async () => {
+			renderFooter({ ...completedState, executionStatus: 'idle', lastRunSuccess: true });
+			expect(screen.queryByTestId('cell-footer-metadata')).not.toBeInTheDocument();
+
+			await act(async () => {
+				configurationService.setUserConfiguration('notebook.showCellStatusBar', 'visible');
+				configurationService.onDidChangeConfigurationEmitter.fire(
+					stubInterface<IConfigurationChangeEvent>({
+						affectsConfiguration: (key: string) => key === 'notebook.showCellStatusBar',
+					})
+				);
+			});
+
+			expect(screen.getByTestId('cell-footer-metadata')).toBeInTheDocument();
+			expect(getFooter()).not.toHaveClass('collapsed');
+		});
 	});
 
 	it('refreshes the relative time for each footer in a one minute interval', async () => {

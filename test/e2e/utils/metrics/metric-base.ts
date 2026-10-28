@@ -9,7 +9,7 @@ import type { SessionStartShortcutOptions } from './metric-sessions.js';
 import type { ConsoleShortcutOptions } from './metric-console.js';
 // The leaf module, not test-setup: that one reaches electron.ts and its `ncp`
 // dependency, which does not resolve in the root vitest lane.
-import { getPositronVersion } from '../../infra/test-runner/positron-version.js';
+import { getPositronVersion, PositronVersion } from '../../infra/test-runner/positron-version.js';
 import { readArkVersion } from '../ark-version.js';
 
 export const CONNECT_API_KEY = process.env.CONNECT_API_KEY!;
@@ -32,14 +32,27 @@ export const platformOs = (() => {
 
 export const platformVersion = os.release();
 
-export const positronVersion = getPositronVersion();
+let cachedPositronVersion: PositronVersion | null | undefined;
+
+/**
+ * The version of the build under test, read on first use and then reused.
+ *
+ * Lazy because `playwright test --list` imports every test file, and in dev mode
+ * the lookup runs the version script, which needs full git history.
+ */
+export function getRunPositronVersion(): PositronVersion | null {
+	if (cachedPositronVersion === undefined) {
+		cachedPositronVersion = getPositronVersion();
+	}
+	return cachedPositronVersion;
+}
 
 /**
  * Which ark the build under test bundles, or undefined when it shipped no
  * sidecar to read it from.
  *
- * Read once at module load, beside positronVersion and from the same BUILD
- * root, so every metric row of a run reports the same value and the read is not
+ * Read once at module load, from the same BUILD root as
+ * getRunPositronVersion, so every metric row of a run reports the same value and the read is not
  * repeated per metric.
  */
 export const arkVersion = readArkVersion();

@@ -14,7 +14,7 @@ import { IQuickInputService } from '../../../../../platform/quickinput/common/qu
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IDataConnectionsDriverManager } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionsDriverManager.js';
 import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionLineageResult, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
@@ -88,7 +88,7 @@ function createInstance(profileId: string, handle: number): IDataConnectionInsta
 }
 
 describe('data connections inspect actions', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	let pick: ReturnType<typeof vi.fn<(items: readonly IPickAnswer[]) => Promise<IPickAnswer | undefined>>>;
 	let input: ReturnType<typeof vi.fn<IQuickInputService['input']>>;

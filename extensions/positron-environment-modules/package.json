@@ -67,6 +67,11 @@
 									"type": "string"
 								},
 								"description": "%configuration.environments.modules.description%"
+							},
+							"purge": {
+								"type": "boolean",
+								"default": true,
+								"description": "%configuration.environments.purge.description%"
 							}
 						},
 						"required": [

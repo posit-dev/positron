@@ -7,7 +7,7 @@
 
 import { URI } from '../../../../../base/common/uri.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { DATA_IMPORTER_ACTIVATION_EVENT, IDataImporter, IDataImportRequest, IDataImportResult } from '../../common/positronDataImporterRegistry.js';
 import { PositronDataImporterRegistry } from '../../browser/positronDataImporterRegistry.js';
 
@@ -27,7 +27,7 @@ function makeImporter(overrides: Partial<IDataImporter> = {}): IDataImporter {
 }
 
 describe('PositronDataImporterRegistry', () => {
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IExtensionService, {
 			activateByEvent: async (event: string) => { activatedEvents.push(event); }
 		})

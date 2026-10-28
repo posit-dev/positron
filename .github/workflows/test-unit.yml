@@ -32,22 +32,21 @@ permissions:
   packages: read
 
 jobs:
-  unit-tests:
-    name: unit
+  vscode-tests:
+    name: vscode
     runs-on: ubuntu-latest-amd64-4-core
     # The three test steps only account for ~5m; almost all of the wall clock is
     # npm install plus the cache save, and both scale with how many npm caches
-    # missed. A warm-ish run lands at ~35m, but a run that misses all three npm
-    # caches (e.g. run 33655268940) pays ~14m of cold install *and* ~30m of
-    # cache save (npm-core 8m, extensions-volatile 4m, extensions-stable 18m),
-    # reaching the Electron tests at ~57m. 60m cancelled that run 3m into the
-    # first test step. 75m covers the fully-cold ~62m path with headroom while
-    # still capping a genuinely hung run.
-    timeout-minutes: 75
+    # missed. A run that misses all three npm caches (e.g. run 33655268940) pays
+    # ~14m of cold install *and* ~30m of cache save (npm-core 8m,
+    # extensions-volatile 4m, extensions-stable 18m). With Vitest moved to its
+    # own job, that fully-cold path is ~52m; 65m leaves headroom while still
+    # capping a genuinely hung run.
+    timeout-minutes: 65
     # Run inside the shared CI image, which bakes in the system dependencies,
     # Node (matching .nvmrc), and R 4.6.1 + test-files deps that this
     # job used to install at runtime. Built from docker/images/ubuntu24_04.
-    container:
+    container: &container
       image: ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1
       # --shm-size: the Electron unit runner loads each test file's full module
       # graph over file://. A wide graph (>~256 parallel fetches) exhausts the
@@ -58,7 +57,7 @@ jobs:
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
-    env:
+    env: &env
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
       _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
@@ -71,11 +70,13 @@ jobs:
       # reticulate 1.47 cannot run on Python 3.14 (rstudio/reticulate#1930); bind the 3.13
       RETICULATE_PYTHON: /root/.pyenv/versions/3.13.0/bin/python
     steps:
-      - uses: actions/checkout@v7
+      - &checkout
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - name: Checkout specific commit
+      - &checkout-commit
+        name: Checkout specific commit
         if: ${{ inputs.commit != '' }}
         run: |
           git checkout ${{ inputs.commit }}
@@ -87,7 +88,8 @@ jobs:
         with:
           emit-summary: 'true'
 
-      - name: Install node dependencies
+      - &install-node-deps
+        name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
@@ -138,9 +140,6 @@ jobs:
         run: |
           find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-after-npm-install.txt
           .github/cache-scripts/check-uncached-artifacts.sh /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt
-
-      - name: 🧪 Run Vitest Tests
-        run: npm run test:positron
 
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
@@ -207,3 +206,31 @@ jobs:
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: DISPLAY=:10 npm run test-browser-no-install -- --browser chromium
+
+  # Vitest needs only node_modules (no compile, Electron, or browsers), so it
+  # runs beside the unit job instead of adding ~10m to its critical path. Same
+  # container as the unit job so the restored npm caches match. Never saves
+  # caches; the unit job owns that.
+  vitest:
+    name: vitest
+    runs-on: ubuntu-latest-amd64-4-core
+    # Container + restore (~6m), a cold install (~15m), and Vitest (~12m), plus
+    # room for one install retry after a hung 30m attempt.
+    timeout-minutes: 70
+    container: *container
+    env: *env
+    steps:
+      - *checkout
+      - *checkout-commit
+
+      - name: 📦 Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+        with:
+          restore-builtins: 'false'
+          restore-playwright: 'false'
+
+      - *install-node-deps
+
+      - name: 🧪 Run Vitest Tests
+        run: npm run test:positron

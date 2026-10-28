@@ -1635,6 +1635,26 @@ suite('Snowflake Semantic Views', () => {
 			});
 	});
 
+	test('a semantic view\'s groups say how many members they hold, before they are expanded', async () => {
+		const semanticView = await semanticViewOf(createSemanticViewClient());
+		const groups = await semanticView.getChildren!();
+		const [refEntities] = await groups[0].getChildren!();
+		const tableGroups = await refEntities.getChildren!();
+		// Each group's count is what expanding it then lists.
+		const countAndListed = async (group: positron.DataConnectionNode) =>
+			`${group.name}: ${group.childCount} of ${(await group.getChildren!()).length}`;
+
+		assert.deepStrictEqual(
+			{
+				view: await Promise.all(groups.map(countAndListed)),
+				table: await Promise.all(tableGroups.map(countAndListed)),
+			},
+			{
+				view: ['Logical Tables: 2 of 2', 'Derived Metrics: 0 of 0', 'Relationships: 1 of 1'],
+				table: ['Dimensions: 2 of 2', 'Time Dimensions: 1 of 1', 'Facts: 1 of 1', 'Named Filters: 1 of 1', 'Metrics: 0 of 0'],
+			});
+	});
+
 	test('a semantic view\'s Definition holds its DDL, fetched with its name as a bind', async () => {
 		const queries: { sql: string; binds?: any[] }[] = [];
 		const semanticView = await semanticViewOf(createSemanticViewClient(undefined, queries));

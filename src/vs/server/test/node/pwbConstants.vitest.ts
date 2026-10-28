@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { computeDeploymentPrefix } from '../../node/pwbConstants.js';
+import { computeDeploymentPrefix, isWorkbenchVersionAtLeast } from '../../node/pwbConstants.js';
 import { shouldUseSessionLessStaticCallbackRoute, shouldUseSessionLessStaticRoute } from '../../node/positronStaticRoute.js';
 
 describe('PWB computeDeploymentPrefix', () => {
@@ -103,10 +103,45 @@ describe('sessionless static route gates', () => {
 	it('keeps the daily-build exception scoped to cacheable assets', () => {
 		expect({
 			callback: shouldUseSessionLessStaticCallbackRoute(true, true),
-			asset: shouldUseSessionLessStaticRoute(true, true, 'dailies')
+			asset: shouldUseSessionLessStaticRoute({
+					isWorkbench: true,
+					hasStaticRoute: true,
+					quality: 'dailies',
+					sessionCommit: 'abc123',
+					workbenchSendsPreviewCommit: false,
+					workbenchStaticCommit: undefined
+				})
 		}).toEqual({
 			callback: true,
 			asset: false
 		});
+	});
+});
+
+describe('isWorkbenchVersionAtLeast', () => {
+	it('accepts release and daily Workbench version strings at or past the threshold', () => {
+		expect(isWorkbenchVersionAtLeast('2026.11.0+123.pro1', 2026, 11)).toBe(true);
+		expect(isWorkbenchVersionAtLeast('2026.11.0-daily+83.pro1', 2026, 11)).toBe(true);
+		expect(isWorkbenchVersionAtLeast('2026.12.1+5.pro2', 2026, 11)).toBe(true);
+		expect(isWorkbenchVersionAtLeast('2027.01.0-daily+1.pro1', 2026, 11)).toBe(true);
+	});
+
+	it('rejects versions before the threshold', () => {
+		expect(isWorkbenchVersionAtLeast('2026.10.2+456.pro3', 2026, 11)).toBe(false);
+		expect(isWorkbenchVersionAtLeast('2026.10.0-daily+300.pro1', 2026, 11)).toBe(false);
+		expect(isWorkbenchVersionAtLeast('2025.12.0+1.pro1', 2026, 11)).toBe(false);
+	});
+
+	it('treats absent or unparseable versions as too old', () => {
+		expect(isWorkbenchVersionAtLeast(undefined, 2026, 11)).toBe(false);
+		expect(isWorkbenchVersionAtLeast('', 2026, 11)).toBe(false);
+		expect(isWorkbenchVersionAtLeast('2026', 2026, 11)).toBe(false);
+		expect(isWorkbenchVersionAtLeast('daily', 2026, 11)).toBe(false);
+		expect(isWorkbenchVersionAtLeast('v2026.11.0', 2026, 11)).toBe(false);
+	});
+
+	it('preserves the existing 2026.05 static-route threshold', () => {
+		expect(isWorkbenchVersionAtLeast('2026.05.0+218.pro1', 2026, 5)).toBe(true);
+		expect(isWorkbenchVersionAtLeast('2026.04.1+4.pro1', 2026, 5)).toBe(false);
 	});
 });

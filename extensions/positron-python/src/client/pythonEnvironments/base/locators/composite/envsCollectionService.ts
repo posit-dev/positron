@@ -8,10 +8,6 @@ import { StopWatch } from '../../../../common/utils/stopWatch';
 import { traceError, traceInfo, traceVerbose } from '../../../../logging';
 import { sendTelemetryEvent } from '../../../../telemetry';
 import { EventName } from '../../../../telemetry/constants';
-// --- Start Positron ---
-// Import untildify.
-import { untildify } from '../../../../common/helpers';
-// --- End Positron ---
 import { normalizePath } from '../../../common/externalDependencies';
 import { PythonEnvInfo, PythonEnvKind } from '../../info';
 import { getEnvPath } from '../../info/env';
@@ -90,10 +86,6 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
     }
 
     public async resolveEnv(path: string): Promise<PythonEnvInfo | undefined> {
-        // --- Start Positron ---
-        // Positron uses tildes to represent the home dir, remove it.
-        path = untildify(path);
-        // --- End Positron ---
         path = normalizePath(path);
         // Note cache may have incomplete info when a refresh is happening.
         // This API is supposed to return complete info by definition, so
@@ -289,9 +281,6 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
             const venvEnvs = envs.filter((e) => e.kind === PythonEnvKind.Venv).length;
             const virtualEnvEnvs = envs.filter((e) => e.kind === PythonEnvKind.VirtualEnv).length;
             const virtualEnvWrapperEnvs = envs.filter((e) => e.kind === PythonEnvKind.VirtualEnvWrapper).length;
-            // --- Start Positron ---
-            const uvEnvs = envs.filter((e) => e.kind === PythonEnvKind.Uv).length;
-            // --- End Positron ---
 
             // Intent is to capture time taken for discovery of all envs to complete the first time.
             sendTelemetryEvent(EventName.PYTHON_INTERPRETER_DISCOVERY, stopWatch.elapsedTime, {
@@ -313,9 +302,6 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
                 venvEnvs,
                 virtualEnvEnvs,
                 virtualEnvWrapperEnvs,
-                // --- Start Positron ---
-                uvEnvs,
-                // --- End Positron ---
             });
         }
         this.hasRefreshFinishedForQuery.set(query, true);

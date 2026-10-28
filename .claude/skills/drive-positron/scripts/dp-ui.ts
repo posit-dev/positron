@@ -57,7 +57,9 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	const label = `${a.role} "${a.name}"${a.scope ? ' in ' + a.scope : ''}`;
 	if (n === 0) {
 		const roles = await lib.snapshot(scope, 40);
-		return { ok: false, error: `no visible ${label}`, hint: 'the view as it reads now is in "view"', view: roles };
+		// Quarto inline output is drawn in the editor but hidden from the tree (Monaco's view zones).
+		const quarto = await scope.locator(lib.css.qmd.output).filter({ visible: true }).count() > 0;
+		return { ok: false, error: `no visible ${label}${quarto ? '; Quarto inline output is on screen, and its links and buttons are not in the accessibility tree: click one with qmd.sh --file FILE link N TEXT' : ''}`, hint: 'the view as it reads now is in "view"', view: roles };
 	}
 	if (n > 1 && !a.nth) {
 		const names = await shown.evaluateAll(es => es.map(e => (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 60)));

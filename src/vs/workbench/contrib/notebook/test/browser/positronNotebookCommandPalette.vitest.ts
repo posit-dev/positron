@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { MenuId, MenuRegistry, isIMenuItem } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyValue, IContext } from '../../../../../platform/contextkey/common/contextkey.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../positronNotebook/common/positronNotebookCommon.js';
@@ -42,7 +42,7 @@ function createContext(values: Record<string, ContextKeyValue>): IContext {
 }
 
 describe('Positron Notebook Command Palette Visibility', () => {
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	it('POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR evaluates correctly', () => {
 		expect(

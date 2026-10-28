@@ -7,7 +7,7 @@
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IContextKey, IContextKeyService, ContextKeyValue } from '../../../../../platform/contextkey/common/contextkey.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -52,7 +52,7 @@ describe('MissingPackagesContextKeyContribution', () => {
 	let activeSession: ILanguageRuntimeSession | undefined;
 	let supported: boolean | undefined;
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IContextKeyService, {
 			onDidChangeContext: Event.None,
 			bufferChangeEvents: (callback: () => void) => callback(),

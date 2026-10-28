@@ -10,7 +10,7 @@ import { IInlineCompletionsService } from '../../../../../editor/browser/service
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IContextKeyChangeEvent, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IStatusbarEntry, IStatusbarService } from '../../../../services/statusbar/browser/statusbar.js';
 import { NES_CONTEXT_AVAILABLE, NES_CONTEXT_BUSY, NES_CONTEXT_FILE_ENABLED, NES_ENABLE_SETTING } from '../../browser/nextEditSuggestionsDashboard.js';
@@ -31,7 +31,7 @@ describe('NextEditSuggestionsStatusBarEntry', () => {
 
 	const config = new TestConfigurationService();
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IInlineCompletionsService, {
 			isSnoozing: () => snoozing,
 			onDidChangeIsSnoozing: onDidChangeIsSnoozing.event,

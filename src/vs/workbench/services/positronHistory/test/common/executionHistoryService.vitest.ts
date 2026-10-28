@@ -25,7 +25,7 @@ import { ActiveRuntimeSession } from '../../../runtimeSession/common/activeRunti
 import { UiClientInstance } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 
 class TestWorkspaceContextService implements IWorkspaceContextService {
 	private readonly _onWillChangeWorkspaceFolders = new Emitter<IWorkspaceFoldersWillChangeEvent>();
@@ -651,7 +651,7 @@ describe('ExecutionHistoryService', () => {
 	// Build at describe scope -- the builder registers its own beforeEach to
 	// create a fresh instantiation service each test. We re-stub with fresh
 	// mock instances in the following beforeEach, which runs after the builder's.
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.build();
 

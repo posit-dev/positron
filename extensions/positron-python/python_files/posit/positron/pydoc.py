@@ -15,11 +15,11 @@ import pkgutil
 import pydoc
 import re
 import sys
+import urllib.parse
 import warnings
 from dataclasses import dataclass
 from functools import partial
 from pydoc import (
-    ModuleScanner,
     _is_bound_method,  # type: ignore
     describe,
     isdata,
@@ -35,6 +35,7 @@ from ._vendor.pygments.formatters.html import HtmlFormatter
 from ._vendor.pygments.lexers import get_lexer_by_name
 from ._vendor.pygments.util import ClassNotFound
 from .docstrings import convert_docstring
+from .help_index import search
 from .utils import get_module_name, get_qualname, is_numpy_ufunc
 
 if TYPE_CHECKING:
@@ -584,21 +585,11 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
     def html_search(self, key):
         """Search results page."""
-        # scan for modules
-        search_result = []
-
-        def callback(_path, modname, desc):
-            if modname[-9:] == ".__init__":
-                modname = modname[:-9] + " (package)"
-            search_result.append((modname, desc and "- " + desc))
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")  # ignore problems during import
-
-            def onerror(modname):
-                pass
-
-            ModuleScanner().run(callback, key, onerror=onerror)
+        # --- Start Positron ---
+        # Find modules without importing them, instead of with pydoc.ModuleScanner,
+        # which imports every installed package into the user's session.
+        search_result = search(key)
+        # --- End Positron ---
 
         # format page
         def bltinlink(name):
@@ -608,9 +599,15 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         heading = self.heading(
             '<strong class="title">Search Results</strong>',
         )
-        for name, desc in search_result:
-            results.append(bltinlink(name) + desc)
-        contents = heading + self.bigsection(f"key = {key}", "index", "<br>".join(results))
+        # --- Start Positron ---
+        # Escape the query and summaries, which can contain HTML.
+        for name, summary in search_result:
+            description = " - " + self.escape(summary) if summary else ""
+            results.append(bltinlink(name) + description)
+        contents = heading + self.bigsection(
+            f"key = {self.escape(key)}", "index", "<br>".join(results)
+        )
+        # --- End Positron ---
         return "Search Results", contents
 
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
@@ -718,7 +715,10 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             elif "=" in url:
                 op, _, url = url.partition("=")
                 if op == "search?key":
-                    title, content = self.html_search(url)
+                    # --- Start Positron ---
+                    # Decode the query, so that "linear+algebra" searches for "linear algebra".
+                    title, content = self.html_search(urllib.parse.unquote_plus(url))
+                    # --- End Positron ---
                 elif op == "topic?key":
                     # try topics first, then objects.
                     try:

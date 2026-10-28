@@ -198,6 +198,9 @@ suite('PostgreSQL Driver Tests', () => {
 
 	test('schema getChildren returns Tables and Views groups', async () => {
 		const mock = createMockClient((sql) => {
+			if (sql.includes('count(*)')) {
+				return { rows: [{ table_type: 'BASE TABLE', n: 2 }, { table_type: 'VIEW', n: 1 }] };
+			}
 			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
 				return {
 					rows: [
@@ -221,6 +224,7 @@ suite('PostgreSQL Driver Tests', () => {
 		assert.strictEqual(groups.length, 2);
 		assert.strictEqual(groups[0].kind, positron.DataConnectionNodeKind.GroupTables);
 		assert.strictEqual(groups[1].kind, positron.DataConnectionNodeKind.GroupViews);
+		assert.deepStrictEqual(groups.map(g => g.childCount), [2, 1]);
 
 		// Tables.
 		const tables = await tablesOf(schemaNode);
@@ -240,6 +244,29 @@ suite('PostgreSQL Driver Tests', () => {
 			assert.ok(v.getChildren, `${v.name} should have getChildren`);
 			assert.ok(v.preview, `${v.name} should have preview`);
 		});
+	});
+
+	test('schema groups count a type with no rows as none', async () => {
+		// count(*)::int still arrives as whatever the client makes of it; GROUP BY omits empty types.
+		const mock = createMockClient((sql) => sql.includes('count(*)') ? { rows: [{ table_type: 'BASE TABLE', n: '3' }] } : { rows: [] });
+
+		const groups = await createSchemaNode(mock, noopHost, undefined, 'public').getChildren!();
+		assert.deepStrictEqual(groups.map(g => g.childCount), [3, 0]);
+	});
+
+	test('schema groups are still listed, without counts, when counting fails', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('count(*)')) {
+				throw new Error('permission denied for information_schema');
+			}
+			return { rows: [] };
+		});
+
+		const groups = await createSchemaNode(mock, noopHost, undefined, 'public').getChildren!();
+		assert.deepStrictEqual(groups.map(g => [g.kind, g.childCount]), [
+			[positron.DataConnectionNodeKind.GroupTables, undefined],
+			[positron.DataConnectionNodeKind.GroupViews, undefined],
+		]);
 	});
 
 	// --- Field nodes (under each table's Columns group) ---

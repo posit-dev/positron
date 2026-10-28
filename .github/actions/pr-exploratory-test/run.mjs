@@ -17,7 +17,7 @@ import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TI
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
-import { buildTaskLine, describeChange, gitIn, mustEnv, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, describeChange, gitIn, mustEnv, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -307,7 +307,8 @@ async function main() {
 	}
 
 	if (STEP_SUMMARY) {
-		appendFileSync(STEP_SUMMARY, renderSummaryTarget(BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER, FOCUS, TIME_LIMIT) + summary);
+		// What was tested is announce's summary, written when the run started.
+		appendFileSync(STEP_SUMMARY, summary);
 	}
 	// The full report still goes to the action log. It is the one copy that
 	// survives an artifact upload or a CDN publish that did not happen.

@@ -126,6 +126,7 @@ suite('SQLite Driver Tests', () => {
 		const dbPath = createTestDb('empty.db');
 		const conn = await connect(dbPath);
 
+		assert.deepStrictEqual((await conn.getChildren()).map(g => g.childCount), [0, 0]);
 		assert.strictEqual((await groupChildren(conn, 'Tables')).length, 0);
 		assert.strictEqual((await groupChildren(conn, 'Views')).length, 0);
 
@@ -145,6 +146,9 @@ suite('SQLite Driver Tests', () => {
 		});
 
 		const conn = await connect(dbPath);
+
+		// Each group says how many it holds before it is expanded.
+		assert.deepStrictEqual((await conn.getChildren()).map(g => [g.name, g.childCount]), [['Tables', 2], ['Views', 1]]);
 
 		const tables = await groupChildren(conn, 'Tables');
 		assert.deepStrictEqual(tables.map(t => t.name).sort(), ['orders', 'users']);
@@ -169,6 +173,8 @@ suite('SQLite Driver Tests', () => {
 		const names = (await groupChildren(conn, 'Tables')).map(t => t.name);
 		assert.ok(!names.some(n => n.startsWith('sqlite_')), 'Internal sqlite_ tables should be hidden');
 		assert.ok(names.includes('items'));
+		// Nor counted: AUTOINCREMENT created sqlite_sequence alongside items.
+		assert.strictEqual((await conn.getChildren())[0].childCount, 1);
 
 		await conn.disconnect();
 	});

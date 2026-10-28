@@ -25,6 +25,12 @@
 # keyboard shortcuts never reach the workbench. Use --dry-run to learn a title
 # that is not what you expect.
 #
+# A command registered twice is listed twice, with its id beside each row
+# ("View: Hide Panel (workbench.action.closePanel)"): rows that read the same
+# are one command, so it clicks the first and reports "copies":2. When
+# different commands share the title, it runs none and lists them in "shown"
+# with their ids.
+#
 # A command can answer with a toast or a dialog instead of doing it at once
 # (restarting a busy session asks "The runtime is busy... interrupt it and
 # restart?"): it reports a toast that came within a second as

@@ -32,7 +32,7 @@ import { htmlAttributeEncodeValue } from '../../base/common/strings.js';
 // --- Start PWB: Server proxy support ---
 // eslint-disable-next-line local/code-import-patterns
 import httpProxy from 'http-proxy';
-import { HAS_STATIC_ROUTE, kProxyRegex, resolveSessionlessStaticCallbackRoute, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX } from './pwbConstants.js';
+import { HAS_STATIC_ROUTE, kProxyRegex, resolveSessionlessStaticCallbackRoute, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX, WORKBENCH_SENDS_PREVIEW_STATIC_COMMIT, WORKBENCH_STATIC_COMMIT } from './pwbConstants.js';
 import { getListeningPortUid, isProxyPortOwnershipEnforced, ISocketOwnershipCheck } from './socketOwnership.js';
 import type * as net from 'net';
 // --- End PWB ---
@@ -262,7 +262,14 @@ export class WebClientServer {
 
 	// --- Start Positron ---
 	private get _useSessionLessStaticRoute(): boolean {
-		return shouldUseSessionLessStaticRoute(isWorkbench, HAS_STATIC_ROUTE, this._productService.quality);
+		return shouldUseSessionLessStaticRoute({
+			isWorkbench,
+			hasStaticRoute: HAS_STATIC_ROUTE,
+			quality: this._productService.quality,
+			sessionCommit: this._productService.commit,
+			workbenchSendsPreviewCommit: WORKBENCH_SENDS_PREVIEW_STATIC_COMMIT,
+			workbenchStaticCommit: WORKBENCH_STATIC_COMMIT
+		});
 	}
 
 	private get _useSessionLessStaticCallbackRoute(): boolean {

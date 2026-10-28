@@ -143,6 +143,41 @@ suite('createRootNodes', () => {
 		);
 	});
 
+	test('says how many each group holds before it is expanded, at every level', async () => {
+		const tables: OdbcTableRef[] = [
+			{ catalog: 'sales', schema: 'public', name: 'orders', kind: 'table' },
+			{ catalog: 'sales', schema: 'public', name: 'customers', kind: 'table' },
+			{ catalog: 'sales', schema: 'public', name: 'order_totals', kind: 'view' },
+			{ catalog: 'sales', schema: 'staging', name: 'raw_orders', kind: 'table' },
+			{ catalog: 'hr', schema: 'public', name: 'people', kind: 'table' },
+		];
+
+		// Every node that carries a count, as `path: count`, walking the whole tree.
+		const counts = async (nodes: readonly positron.DataConnectionNode[], path = ''): Promise<string[]> => {
+			const lines: string[] = [];
+			for (const node of nodes) {
+				const nodePath = `${path}/${node.name}`;
+				if (node.childCount !== undefined) {
+					lines.push(`${nodePath}: ${node.childCount}`);
+				}
+				if (node.getChildren) {
+					lines.push(...await counts(await node.getChildren(), nodePath));
+				}
+			}
+			return lines;
+		};
+
+		assert.deepStrictEqual(await counts(createRootNodes(tables, createFakeClient({ columns: [] }), noopPreviewHost)), [
+			'/Catalogs: 2',
+			'/Catalogs/hr/Schemas: 1',
+			'/Catalogs/hr/Schemas/public/Tables: 1',
+			'/Catalogs/sales/Schemas: 2',
+			'/Catalogs/sales/Schemas/public/Tables: 2',
+			'/Catalogs/sales/Schemas/public/Views: 1',
+			'/Catalogs/sales/Schemas/staging/Tables: 1',
+		]);
+	});
+
 	test('marks primary key columns on tables and tolerates a driver without SQLPrimaryKeys', async () => {
 		const columns = [
 			{ COLUMN_NAME: 'actor_id', TYPE_NAME: 'int4', COLUMN_SIZE: 10, ORDINAL_POSITION: 1, DATA_TYPE: 4 },

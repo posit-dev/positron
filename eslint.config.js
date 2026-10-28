@@ -271,6 +271,10 @@ export default defineConfig(
 			// Prefer `screen.getByX` over destructuring queries from render --
 			// avoids needing to update destructuring as queries change.
 			'testing-library/prefer-screen-queries': 'error',
+
+			// Bare/Runtime tests use createLightTestContainer() to skip ~7s of
+			// Notebook/Workbench preset imports per file.
+			'local/code-vitest-light-test-container': 'error',
 		},
 	},
 	// --- End Positron ---

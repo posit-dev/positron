@@ -27,8 +27,29 @@ const onCreateEnvironmentExitedEvent = new EventEmitter<EnvironmentDidCreateEven
 
 let startedEventCount = 0;
 
+// --- Start Positron ---
+let heldCount = 0;
+
+/**
+ * Keeps `isCreatingEnvironment()` true while `task` runs. Wrap the work that follows creating an
+ * environment, such as starting its console, so that the new-environment prompt does not offer a
+ * second console for an environment Positron is still setting up (#16584).
+ */
+export async function holdCreatingEnvironment<T>(task: () => Promise<T>): Promise<T> {
+    heldCount += 1;
+    try {
+        return await task();
+    } finally {
+        heldCount -= 1;
+    }
+}
+// --- End Positron ---
+
 function isBusyCreatingEnvironment(): boolean {
-    return startedEventCount > 0;
+    // --- Start Positron ---
+    // return startedEventCount > 0;
+    return startedEventCount > 0 || heldCount > 0;
+    // --- End Positron ---
 }
 
 function fireStartedEvent(options?: CreateEnvironmentOptions): void {

@@ -14,11 +14,19 @@ import { log } from './logger.js';
  *
  * This function is language-agnostic - it accepts options that specify
  * how to find the interpreter binary and parse its version.
+ *
+ * @param config The module environment configuration
+ * @param options Options specifying how to find and parse the interpreter
+ * @param initScript Optional path to the module init script
+ * @param purge Whether to run `module purge` before loading the modules. This
+ *   applies to discovery and to the returned startup command, so the
+ *   discovered interpreter matches the one the kernel runs.
  */
 export async function resolveModuleInterpreter(
 	config: ModuleEnvironmentConfig,
 	options: ResolveInterpreterOptions,
-	initScript?: string
+	initScript?: string,
+	purge?: boolean
 ): Promise<ModuleResolvedInterpreter | undefined> {
 	try {
 		// Build a command to find the interpreter using 'which'
@@ -31,7 +39,8 @@ export async function resolveModuleInterpreter(
 				const whichResult = await executeWithModules(
 					config.modules,
 					`which ${binaryName}`,
-					initScript
+					initScript,
+					purge
 				);
 				if (whichResult && whichResult.length > 0) {
 					interpreterPath = whichResult;
@@ -58,7 +67,8 @@ export async function resolveModuleInterpreter(
 			versionOutput = await executeWithModules(
 				config.modules,
 				versionCommand,
-				initScript
+				initScript,
+				purge
 			);
 		} catch (error) {
 			log.warn(`Failed to get version for interpreter at ${interpreterPath}: ${error}`);
@@ -69,7 +79,7 @@ export async function resolveModuleInterpreter(
 		const version = options.parseVersion(versionOutput) || 'unknown';
 
 		// Build the startup command
-		const startupCommand = buildModuleLoadCommand(config.modules, initScript);
+		const startupCommand = buildModuleLoadCommand(config.modules, initScript, undefined, purge);
 
 		log.info(`Resolved interpreter from module environment "${options.environmentName}": ${interpreterPath} (${version})`);
 

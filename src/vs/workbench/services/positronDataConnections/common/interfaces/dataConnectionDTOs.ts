@@ -78,6 +78,9 @@ export interface IDataConnectionNodeDTO {
 	isPrimaryKey?: boolean;
 	path?: string;
 	defaultAction?: 'preview' | 'details';
+	// How many children the driver says the node has, when it knows without fetching them. A
+	// non-negative integer when present; the extension host drops any other value.
+	childCount?: number;
 	hasGetChildren: boolean;
 	hasPreview: boolean;
 	hasDetails: boolean;

@@ -28,7 +28,7 @@ inputs:
     required: false
     default: ""
   branch:
-    description: "Explore and gate modes: branch under test"
+    description: "Explore, gate and summary modes: branch under test"
     required: false
     default: ""
   pr-body-file:
@@ -44,14 +44,15 @@ inputs:
     required: false
     default: ""
   head-sha:
-    description: "Head SHA"
-    required: true
+    description: "Explore and gate modes: head SHA. Comment mode shows it when given"
+    required: false
+    default: ""
   model:
     description: "Anthropic model identifier (a tier alias like 'opus' always resolves to the latest)"
     required: false
     default: "opus"
   focus:
-    description: "Explore mode: what the person asked to test. Replaces the diff as the target; empty tests the diff."
+    description: "Explore and summary modes: what the person asked to test. Replaces the diff as the target; empty tests the diff."
     required: false
     default: ""
   effort:
@@ -63,7 +64,7 @@ inputs:
     required: false
     default: "200"
   time-limit:
-    description: "Explore mode: minutes to explore, as 20 or 20m. The agent is told when they are up and stopped 10 minutes later. Empty runs without a limit."
+    description: "Explore and summary modes: minutes to explore, as 20 or 20m. The agent is told when they are up and stopped 10 minutes later. Empty runs without a limit."
     required: false
     default: ""
   report-base-url:
@@ -79,7 +80,7 @@ inputs:
     required: false
     default: "true"
   mode:
-    description: "gate (read the diff and rule on it), explore (the full run), or comment (post or edit a /test run's PR comment)"
+    description: "gate (read the diff and rule on it), explore (the full run), comment (post or edit a /test run's PR comment), or summary (write the run's target line to the step summary)"
     required: false
     default: "explore"
   comment-state:
@@ -95,11 +96,11 @@ inputs:
     required: false
     default: ""
   pr-number:
-    description: "Comment mode: the PR to comment on. Explore mode: the PR the report header links to"
+    description: "Comment mode: the PR to comment on. Explore and summary modes: the PR the report header and step summary link to"
     required: false
     default: ""
   github-token:
-    description: "Comment mode: token with issues: write"
+    description: "Comment mode: token with issues: write, and actions: read to name the step a failed run broke at"
     required: false
     default: ""
   comment-id:
@@ -129,11 +130,11 @@ outputs:
 runs:
   using: composite
   steps:
-    # Comment mode runs in the ack and report jobs on the runner's own Node and
-    # never calls the SDK. Those jobs check out only the harness, so there is
-    # no .nvmrc for setup-node to read.
+    # Comment and summary modes run in the announce, ack-auto and report jobs on the
+    # runner's own Node and never call the SDK. Those jobs check out only the
+    # harness, so there is no .nvmrc for setup-node to read.
     - name: Set up Node
-      if: inputs.mode != 'comment'
+      if: inputs.mode != 'comment' && inputs.mode != 'summary'
       uses: actions/setup-node@v6
       with:
         # Track the repo's .nvmrc. On Node 20 the agent's shell could not run
@@ -144,20 +145,21 @@ runs:
         node-version-file: .nvmrc
 
     - name: Install action dependencies
-      if: inputs.mode != 'comment'
+      if: inputs.mode != 'comment' && inputs.mode != 'summary'
       shell: bash
       working-directory: ${{ github.action_path }}
       run: npm ci --no-audit --no-fund
 
-    # Every mode needs the renderer's parser, comment mode included, so the
-    # callers' harness checkouts must carry the skill directory.
+    # Every mode needs the renderer's parser, comment and summary included, so the
+    # callers' harness checkouts must carry the skill directory. A job that
+    # calls this action twice, as announce does, installs once.
     - name: Install renderer dependencies
       shell: bash
       working-directory: ${{ github.action_path }}/../../../.claude/skills/exploratory-test/renderer
-      run: npm ci --no-audit --no-fund
+      run: '[ -d node_modules ] || npm ci --no-audit --no-fund'
 
     - name: Install Claude Code CLI
-      if: inputs.mode != 'comment'
+      if: inputs.mode != 'comment' && inputs.mode != 'summary'
       # Workaround for an Agent SDK bug that resolves the musl-variant binary
       # before the glibc one on Linux runners (claude-agent-sdk-typescript#296).
       shell: bash
@@ -199,4 +201,4 @@ runs:
         # VERIFY is deliberately absent: it defaults on, a job-level env var still reaches it for
         # debugging, and verification is what makes an unattended report worth
         # trusting, so it is not a dispatch-time choice.
-      run: node ${{ inputs.mode == 'gate' && 'gate.mjs' || inputs.mode == 'comment' && 'comment.mjs' || 'run.mjs' }}
+      run: node ${{ inputs.mode == 'gate' && 'gate.mjs' || inputs.mode == 'comment' && 'comment.mjs' || inputs.mode == 'summary' && 'summary.mjs' || 'run.mjs' }}

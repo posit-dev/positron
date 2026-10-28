@@ -943,6 +943,32 @@ def test_inspect_ibis_exprs() -> None:
     )
 
 
+@pytest.mark.skipif(ibis is None, reason="ibis not available")
+def test_inspect_ibis_table_subclass() -> None:
+    # Table subclasses like Join must use the table inspector (#11301)
+    assert ibis
+    ibis.options.interactive = True
+
+    main = ibis.memtable({"a": [1, 2, 3]})
+    other = ibis.memtable({"a": [1, 2, 3], "b": [4, 5, 6]})
+    joined = main.left_join(other, "a")
+    assert type(joined) is not ibis.Table
+    columns = len(joined.columns)
+
+    verify_inspector(
+        value=joined,
+        display_value=f"[{columns} columns] ibis.Table",
+        kind=VariableKind.Table,
+        display_type=f"{type(joined).__name__} [{columns} columns]",
+        type_info=get_type_as_str(joined),
+        has_children=True,
+        is_truncated=True,
+        length=columns,
+        mutable=False,
+        has_viewer=True,
+    )
+
+
 # TODO(wesm): these size values are only currently used for computing
 # comparison costs. We should align on # of cells vs. # of bytes for
 # these comparisons (possibly based on more experiments)

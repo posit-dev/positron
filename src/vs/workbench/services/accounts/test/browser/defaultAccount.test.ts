@@ -1947,6 +1947,7 @@ suite('DefaultAccountProvider sign in scopes', () => {
 		instantiationService.stub(IAuthenticationAccessService, {
 			onDidChangeExtensionSessionAccess: Event.None,
 			isAccessAllowed: () => true,
+			updateAllowedExtensions: () => { },
 		});
 		// --- End Positron ---
 
