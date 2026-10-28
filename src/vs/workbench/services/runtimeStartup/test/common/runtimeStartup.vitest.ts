@@ -1795,48 +1795,69 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 	});
 
 	describe('when a runtime was started recently', () => {
-		async function setup(newRuntimePath: string) {
+		async function setup(newRuntimePath: string, { runningConsole = false } = {}) {
 			const svc = ctx.disposables.add(
 				ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
 			const internals = svc as unknown as {
 				_mostRecentlyStartedRuntimesByLanguageId: Map<string, ILanguageRuntimeMetadata>;
 				_recommendedRuntimesByLanguageId: Map<string, ILanguageRuntimeMetadata>;
 			};
-			const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
-			const created = metadata({ runtimeId: 'rt-new', runtimePath: newRuntimePath });
-			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(global));
-			let answer = global;
+			const recent = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			const languageId = recent.languageId;
+			const created = metadata({ languageId, runtimeId: 'rt-new', runtimePath: newRuntimePath });
+			let answer = recent;
 			const manager = makeManager({ id: 1, owns: [] });
 			manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) =>
 				afterDiscovery ? [{ metadata: answer, isProjectDefault: false }] : [];
 			ctx.disposables.add(svc.registerRuntimeManager(manager));
 			ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
-			await vi.waitFor(() => expect(internals._recommendedRuntimesByLanguageId.get('python')?.runtimeId).toBe('rt-global'));
-			internals._mostRecentlyStartedRuntimesByLanguageId.set('python', global);
+			await vi.waitFor(() => expect(internals._recommendedRuntimesByLanguageId.get(languageId)?.runtimeId).toBe(recent.runtimeId));
+			if (runningConsole) {
+				await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
+				// A console that started behind another language's is neither in front
+				// nor the last one used for its language.
+				vi.spyOn(ctx.get(IRuntimeSessionService), 'getConsoleSessionForLanguage').mockReturnValue(undefined);
+				// Starting saved it as the affiliation, which would outrank the rule under test.
+				vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(undefined);
+			} else {
+				internals._mostRecentlyStartedRuntimesByLanguageId.set(languageId, recent);
+			}
 
 			// A new env appears, and the extension now recommends it.
 			answer = created;
 			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(created));
-			await vi.waitFor(() => expect(internals._recommendedRuntimesByLanguageId.get('python')?.runtimeId).toBe('rt-new'));
-			return svc;
+			await vi.waitFor(() => expect(internals._recommendedRuntimesByLanguageId.get(languageId)?.runtimeId).toBe('rt-new'));
+			return { preferred: svc.getPreferredRuntimeWithReason(languageId), recent };
+		}
+
+		function inWorkspaceFolder(...segments: string[]) {
+			return URI.joinPath(ctx.get(IWorkspaceContextService).getWorkspace().folders[0].uri, ...segments).fsPath;
 		}
 
 		it('prefers a new recommendation inside the workspace folder', async () => {
-			const folder = ctx.get(IWorkspaceContextService).getWorkspace().folders[0].uri;
-			const svc = await setup(URI.joinPath(folder, '.venv', 'bin', 'python').fsPath);
+			const { preferred } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
 
-			expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			expect(preferred).toMatchObject({
 				runtime: { runtimeId: 'rt-new' },
 				reason: PreferredRuntimeReason.Recommended,
 			});
 		});
 
 		it('keeps the recent runtime over a new recommendation outside the workspace folder', async () => {
-			const svc = await setup('/envs/other/bin/python');
+			const { preferred, recent } = await setup('/envs/other/bin/python');
 
-			expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
-				runtime: { runtimeId: 'rt-global' },
+			expect(preferred).toMatchObject({
+				runtime: { runtimeId: recent.runtimeId },
 				reason: PreferredRuntimeReason.RecentlyStarted,
+			});
+		});
+
+		it('keeps the recent runtime while its console runs, even if it is not the active console', async () => {
+			const { preferred, recent } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'), { runningConsole: true });
+
+			expect(preferred).toMatchObject({
+				runtime: { runtimeId: recent.runtimeId },
+				reason: PreferredRuntimeReason.RunningConsole,
 			});
 		});
 	});
