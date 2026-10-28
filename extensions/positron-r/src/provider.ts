@@ -344,10 +344,8 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// Sort the R installations
 	rInstallations.sort(compareRInstallations);
 
-	// Construct and yield the metadata for each R installation. Each one
-	// starts only when picked: the discovery cache shares these records with
-	// every folder, so whether R should start in this folder, and which R, is
-	// decided by R's recommendation instead (see chooseStartupR).
+	// Construct and yield the metadata for each R installation, with the
+	// startup behavior that discoveredStartupBehavior gives it.
 	for (const rInst of rInstallations) {
 		// If there is another R installation with the same version but different architecture,
 		// we need to disambiguate the runtime name by appending the architecture.
@@ -360,7 +358,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 			}
 		}
 
-		const metadata = makeMetadata(rInst, positron.LanguageRuntimeStartupBehavior.Explicit, needsArch);
+		const metadata = makeMetadata(rInst, discoveredStartupBehavior(rInst), needsArch);
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		yield metadata;
@@ -389,7 +387,7 @@ export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<stri
 			LOGGER.warn(`Ignoring R binary ${binpath} from interpreters.definitions, reason: ${friendlyReason(rInst.reasonRejected)}.`);
 			continue;
 		}
-		const metadata = await makeMetadata(rInst);
+		const metadata = await makeMetadata(rInst, positron.LanguageRuntimeStartupBehavior.Explicit);
 		yield { ...metadata, definitionOnly: true };
 	}
 }
@@ -411,7 +409,7 @@ export async function* rPixiRuntimeDiscoverer(): AsyncGenerator<positron.Languag
 			LOGGER.info(`Filtering out ${rInst.binpath}, reason: ${friendlyReason(rInst.reasonRejected)}.`);
 			continue;
 		}
-		const metadata = await makeMetadata(rInst);
+		const metadata = await makeMetadata(rInst, discoveredStartupBehavior(rInst));
 		yield metadata;
 	}
 }
@@ -754,6 +752,19 @@ export function classifyRRuntimeSource(
 		return RRuntimeSource.user;
 	}
 	return RRuntimeSource.system;
+}
+
+/**
+ * The startup behavior of an R that discovery finds. Most discovered Rs start
+ * only when picked: the discovery cache shares their records with every
+ * folder, so whether R starts in this folder, and which R, is decided by R's
+ * recommendation instead (see chooseStartupR). A Pixi R is never cached and
+ * belongs to the project, so it starts when an R file opens, as before.
+ */
+export function discoveredStartupBehavior(rInst: RInstallation): positron.LanguageRuntimeStartupBehavior {
+	return rInst.packagerMetadata !== undefined && isPixiMetadata(rInst.packagerMetadata) ?
+		positron.LanguageRuntimeStartupBehavior.Implicit :
+		positron.LanguageRuntimeStartupBehavior.Explicit;
 }
 
 /**

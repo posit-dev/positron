@@ -12,7 +12,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as Sinon from 'sinon';
 import * as pixi from '../provider-pixi';
-import { makeMetadata, rPixiRuntimeDiscoverer, RBinary, RRuntimeSource } from '../provider';
+import { discoveredStartupBehavior, makeMetadata, rPixiRuntimeDiscoverer, RBinary, RRuntimeSource } from '../provider';
 import { PixiMetadata, ReasonDiscovered, RInstallation } from '../r-installation';
 import { RRuntimeManager } from '../runtime-manager';
 
@@ -103,6 +103,28 @@ suite('Pixi R runtimes', () => {
 		const fromFullDiscovery = await makeMetadata(
 			new RInstallation(binpath, true, [ReasonDiscovered.PATH, ReasonDiscovered.PIXI], pixiMetadata));
 		assert.strictEqual(runtime.runtimeId, fromFullDiscovery.runtimeId);
+	});
+
+	test('yields runtimes that start when an R file opens', async () => {
+		// Pixi Rs are never cached, so unlike other discovered Rs they can
+		// start on file open, as the R of the project.
+		discoverStub.resolves([{ path: binpath, reasons: [ReasonDiscovered.PIXI], packagerMetadata: pixiMetadata }]);
+
+		const [runtime] = await collect();
+
+		assert.strictEqual(runtime.startupBehavior, positron.LanguageRuntimeStartupBehavior.Implicit);
+	});
+
+	test('full discovery gives a Pixi R the same startup behavior', () => {
+		// Both searches register the same runtime ID, and the first one
+		// registered is kept.
+		const fromFullDiscovery = new RInstallation(binpath, true, [ReasonDiscovered.PATH, ReasonDiscovered.PIXI], pixiMetadata);
+		const notPixi = new RInstallation(binpath, true, [ReasonDiscovered.PATH]);
+
+		assert.deepStrictEqual(
+			[discoveredStartupBehavior(fromFullDiscovery), discoveredStartupBehavior(notPixi)],
+			[positron.LanguageRuntimeStartupBehavior.Implicit, positron.LanguageRuntimeStartupBehavior.Explicit],
+		);
 	});
 
 	test('skips binaries that are not usable R installations', async () => {
