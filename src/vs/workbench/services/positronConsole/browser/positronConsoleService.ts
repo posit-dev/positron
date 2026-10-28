@@ -813,7 +813,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 *   (e.g. for tracking execution history). If not provided, one will be assigned.
 	 * @param executionMetadata Optional metadata to pass to the language runtime.
 	 * @param preserveActiveTab Whether to avoid switching the active tab when revealing the
-	 *   Console (and Plots, for plots this execution produces). Ignored when `focus` is true.
+	 *   Console (and Plots, for plots this execution produces), and to keep the foreground
+	 *   session. Ignored when `focus` is true.
 	 * @returns The session ID that will be used to execute the code.
 	 */
 	async executeCode(languageId: string,
@@ -841,6 +842,14 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		let positronConsoleInstance: PositronConsoleInstance | undefined;
 
 		if (sessionId) {
+			// A notebook session has no console unless one has been shown for it; start one in
+			// the background so the code runs somewhere the user can see it.
+			const session = this._runtimeSessionService.getSession(sessionId);
+			if (!this._positronConsoleInstancesBySessionId.has(sessionId) &&
+				session?.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+				this.startPositronConsoleInstance(session, SessionAttachMode.Connected, false);
+			}
+
 			const existingInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
 			// Just a sanity check
 			if (existingInstance) {
@@ -926,8 +935,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				`(attempting to execute ${code})`);
 		}
 
-		// Activate the Positron console instance.
-		if (positronConsoleInstance !== this._activePositronConsoleInstance) {
+		// Activate the Positron console instance, unless the caller asked to leave the user's
+		// view alone.
+		if (positronConsoleInstance !== this._activePositronConsoleInstance && !preserveActiveTab) {
 			this.setActivePositronConsoleInstance(positronConsoleInstance);
 
 			// Set the foreground session so that other panes (e.g. Variables)

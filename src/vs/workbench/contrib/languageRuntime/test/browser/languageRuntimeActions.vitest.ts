@@ -12,7 +12,7 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguage, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAgentSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguage, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAgentSession, startNewConsoleSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -1177,7 +1177,25 @@ describe('StartNewConsoleSessionAction', () => {
 			{ id: SessionStartReasonId.NewConsoleCommand },
 			RuntimeStartMode.Starting,
 			true,
-			{ userSelected: false }
+			{ userSelected: false, owner: 'user' }
+		);
+	});
+
+	it('starts a session the agent owns when an agent runs it', async () => {
+		registerRuntime('py-1', 'Python 3.12 (System)');
+
+		await ctx.instantiationService.invokeFunction(accessor =>
+			startNewConsoleSession(accessor, 'py-1', 'agent'));
+
+		expect(startNewRuntimeSession).toHaveBeenCalledWith(
+			'py-1',
+			'Python 3.12 (System)',
+			LanguageRuntimeSessionMode.Console,
+			undefined,
+			{ id: SessionStartReasonId.NewConsoleCommand },
+			RuntimeStartMode.Starting,
+			true,
+			{ userSelected: false, owner: 'agent' }
 		);
 	});
 
@@ -1209,7 +1227,7 @@ describe('StartNewConsoleSessionAction', () => {
 			{ id: SessionStartReasonId.UserSelectedRuntime },
 			RuntimeStartMode.Starting,
 			true,
-			{ userSelected: true }
+			{ userSelected: true, owner: 'user' }
 		);
 	});
 

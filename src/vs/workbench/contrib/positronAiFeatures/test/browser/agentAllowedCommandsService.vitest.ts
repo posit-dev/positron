@@ -386,6 +386,20 @@ describe('AgentAllowedCommandsService', () => {
 			expect(executeCommand).toHaveBeenCalledWith('test.agent.happy', 'a', 1);
 		});
 
+		it('runs the command\'s agent command instead when it names one', async () => {
+			store.add(CommandsRegistry.registerCommand({
+				id: 'test.agent.redirected',
+				handler: () => { },
+				metadata: { description: 'Redirected', agentCommand: 'test.agent.forAgents' },
+			}));
+			const executeCommand = vi.fn(async () => undefined) as unknown as ICommandService['executeCommand'];
+			const service = makeService({ executeCommand });
+
+			await service.validateAndExecute('test.agent.redirected', ['a']);
+
+			expect(executeCommand).toHaveBeenCalledWith('test.agent.forAgents', 'a');
+		});
+
 		it('returns { ok: false, reason: "not-found" } for an unregistered id', async () => {
 			const service = makeService();
 			const result = await service.validateAndExecute('test.agent.nonexistent');

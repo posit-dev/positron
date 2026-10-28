@@ -299,7 +299,8 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 			};
 		}
 		try {
-			const result = await this._commandService.executeCommand(commandId, ...(args ?? []));
+			const agentCommandId = CommandsRegistry.getCommand(commandId)?.metadata?.agentCommand ?? commandId;
+			const result = await this._commandService.executeCommand(agentCommandId, ...(args ?? []));
 			return { ok: true, result };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
