@@ -236,6 +236,53 @@ suite('PositronRunApp', () => {
 		);
 	});
 
+	suite('URL detection timeout in the terminal', () => {
+		// Runs the test app as a server that prints its URL only after the
+		// detection timeout below, as a slow-starting app does.
+		const slowAppOptions: RunAppOptions = {
+			name: 'Test Slow App',
+			getTerminalOptions(runtime, document) {
+				return { command: runtime.runtimePath, args: [document.uri.fsPath, '--url-delay=3000', '--keep-running'] };
+			},
+			urlDetectionTimeout: 500,
+		};
+
+		let showWarningMessageStub: sinon.SinonStub;
+
+		setup(() => {
+			showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+		});
+
+		teardown(async () => {
+			await stopApp(uri);
+		});
+
+		test('explains that the app is still running when URL detection times out', async () => {
+			await runAppApi.runApplication(slowAppOptions);
+
+			sinon.assert.notCalled(previewUrlStub);
+			// These options set `urlDetectionTimeout`, which overrides
+			// `positron.runApp.urlDetectionTimeout`, so the warning must not offer
+			// to change that setting: changing it would have no effect.
+			sinon.assert.calledOnceWithExactly(
+				showWarningMessageStub,
+				sinon.match(/terminal output/),
+				'Show Terminal',
+				'Show Log',
+			);
+		});
+
+		test('previews the app URL that appears after the detection timeout', async () => {
+			// The run task ends at the timeout so that a re-run is never blocked.
+			// The watch for the app's URL outlives it.
+			await runAppApi.runApplication(slowAppOptions);
+			sinon.assert.notCalled(previewUrlStub);
+
+			await waitFor(() => previewUrlStub.called, 'Timed out waiting for the app to be previewed', 15_000);
+			sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+		});
+	});
+
 	/** The listed app named `name`, as an agent sees it through the command. */
 	async function listedApp(name: string): Promise<AppSummary | undefined> {
 		const apps = await vscode.commands.executeCommand<AppSummary[]>('positronRunApp.listApps');
