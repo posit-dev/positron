@@ -72,6 +72,11 @@ export interface SerializedSessionMetadata {
 	/// The time at which the session was last used, in milliseconds since the epoch.
 	lastUsed: number;
 
+	/// Whether this was the last console the user focused when the session was
+	/// serialized. When a notebook is in front, this is the console that was in
+	/// front before it. Missing for sessions serialized before this was recorded.
+	isLastActiveConsole?: boolean;
+
 	/// The metadata of the runtime associated with the session.
 	runtimeMetadata: ILanguageRuntimeMetadata;
 
@@ -199,6 +204,15 @@ export interface IRuntimeStartupService {
 	 * @param id the id of the MainThreadLanguageRuntime instance for the extension host
 	 */
 	completeDiscovery(id: number): void;
+
+	/**
+	 * Signal that an extension host finished discovering the runtimes for one
+	 * language, before it finished discovering every language.
+	 *
+	 * @param id the id of the MainThreadLanguageRuntime instance for the extension host
+	 * @param languageId the language whose discovery finished
+	 */
+	completeLanguageDiscovery(id: number, languageId: string): void;
 
 	/**
 	 * Kick off a user-driven refresh of runtime discovery, after the initial discovery.

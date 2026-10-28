@@ -25,12 +25,16 @@ async function searchAll(): Promise<positron.LanguageRuntimeMetadata[]> {
 
 // The tests that call the R search run the real search, so they need R installed.
 suite('R startup recommendation', () => {
-	test('the search never asks for R to start right away', async () => {
+	test('is not saved as the workspace default by Positron', () => {
+		assert.strictEqual(runtimeManager.recommendationIsProjectDefault, false);
+	});
+
+	test('the search finds Rs that start only when picked', async () => {
 		const runtimes = await searchAll();
 		assert.ok(runtimes.length > 0, 'expected the search to find R');
 		assert.deepStrictEqual(
 			runtimes.map(runtime => runtime.startupBehavior),
-			runtimes.map(() => positron.LanguageRuntimeStartupBehavior.Implicit),
+			runtimes.map(() => positron.LanguageRuntimeStartupBehavior.Explicit),
 		);
 	});
 

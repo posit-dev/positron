@@ -5,7 +5,7 @@
 
 import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
-import { IHostedLanguageContribution, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, IRuntimeRootSignature, LanguageRuntimeSessionMode, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, IRuntimeRootSignature, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -1229,6 +1229,38 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return m.manager.getDiscoveryRootSignature();
 	}
 
+	/**
+	 * Ask the manager that `extensionId` registered for `languageId` for the
+	 * interpreter its pin setting names. Returns `undefined` when no such
+	 * manager is registered, the manager doesn't implement
+	 * `pinnedWorkspaceRuntime`, or the manager throws, so one extension's
+	 * error can't stop startup. The answer is always `Implicit`, since the
+	 * pin decides which interpreter starts, not when.
+	 */
+	public async $pinnedWorkspaceRuntime(extensionId: string, languageId: string): Promise<ILanguageRuntimeMetadata | undefined> {
+		// Match on the extension ID as well as the language, for the same
+		// reason as `$getDiscoveryRootSignature`.
+		const m = this._runtimeManagers.find(m =>
+			m.languageId === languageId && m.extension.identifier.value === extensionId);
+		if (!m || !m.manager.pinnedWorkspaceRuntime) {
+			return undefined;
+		}
+		try {
+			const pinned = await m.manager.pinnedWorkspaceRuntime();
+			if (!pinned) {
+				return undefined;
+			}
+			// The pin changes which interpreter starts, not whether one starts.
+			// Core registers the pinned interpreter, and core starts a registered
+			// Immediate interpreter on its own, so an Immediate pin could open a
+			// console that startup chose not to open.
+			return { extensionId: m.extension.identifier, ...pinned, startupBehavior: LanguageRuntimeStartupBehavior.Implicit };
+		} catch (err) {
+			this._logService.error(`${extensionId} failed to report its pinned ${languageId} runtime: ${err}`);
+			return undefined;
+		}
+	}
+
 	public async $registerLanguageRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined> {
 		const m = this._runtimeManagers.find(m =>
 			m.languageId === languageId && m.manager.registerRuntimeFromPath);
@@ -1394,6 +1426,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		interface Discoverer {
 			extension: IExtensionDescription;
 			manager: positron.LanguageRuntimeManager;
+			languageId: string;
 			discoverer: AsyncGenerator<positron.LanguageRuntimeMetadata, void, unknown>;
 		}
 
@@ -1454,6 +1487,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					// from the list of discoverers we're waiting on
 					nextPromises[index] = never;
 					count--;
+
+					// Once every provider for this language is done, tell the
+					// main thread, so it can ask the language for its
+					// recommendation without waiting for the other languages.
+					const languageId = discoverers[index].languageId;
+					if (discoverers.every((other, otherIndex) =>
+						other.languageId !== languageId || nextPromises[otherIndex] === never)) {
+						this._proxy.$completeLanguageRuntimeDiscoveryForLanguage(languageId);
+					}
 				} else if (result.value !== undefined) {
 					// Otherwise, move on to the next runtime from the provider
 					// and register the runtime it returned

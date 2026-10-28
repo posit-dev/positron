@@ -143,6 +143,10 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 		// No-op in test implementation
 	}
 
+	public completeLanguageDiscovery(id: number, languageId: string): void {
+		// No-op in test implementation
+	}
+
 	/**
 	 * {@inheritDoc}
 	 */
