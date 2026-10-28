@@ -153,7 +153,6 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Run Claude Code Action
-        id: claude
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         with:
           anthropic_api_key: ${{ steps.load_secrets.outputs.ANTHROPIC_KEY }}
@@ -219,17 +218,8 @@ jobs:
             If no existing label is a good fit, leave the item unlabeled instead of creating a new label.
           claude_args: |
             --model opus
-            --json-schema '{"type":"object","properties":{"needs_build":{"type":"boolean"},"summary":{"type":"string"},"files":{"type":"array","items":{"type":"string"}},"findings":{"type":"string"}},"required":["needs_build","summary","files","findings"]}'
             --fallback-model sonnet
             --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
-
-      - name: SPIKE print structured output
-        if: always()
-        env:
-          OUT: ${{ steps.claude.outputs.structured_output }}
-        run: |
-          echo "raw: $OUT"
-          echo "$OUT" | jq .
 
       - name: Replace eyes with result reaction
         if: always() && steps.ack.outputs.target != ''
