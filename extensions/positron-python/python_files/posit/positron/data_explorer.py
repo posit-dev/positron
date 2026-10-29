@@ -2127,9 +2127,13 @@ def _polars_summarize_number(
         if not _builtin_isinf(min_val) and not _builtin_isinf(max_val):
             # These stats are not defined when there is an
             # inf/-inf in the data
-            mean_val = float_format(col.mean())
-            median_val = float_format(col.median())
-            std_val = float_format(col.std())
+            mean = col.mean()
+            median = col.median()
+            # std() (ddof=1) returns None when there is one non-null value
+            std = col.std()
+            mean_val = None if mean is None else float_format(mean)
+            median_val = None if median is None else float_format(median)
+            std_val = None if std is None else float_format(std)
 
         if display_type == ColumnDisplayType.Integer:
             min_val = str(min_val)
