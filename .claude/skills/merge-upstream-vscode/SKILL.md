@@ -335,6 +335,43 @@ edits. Watch for all of them, not just the first:
   `positronVersion` or gating on `update.positron.channel`) but the upstream
   test still exercises the pre-Positron behavior. Update the test to set up the
   Positron inputs the production code now reads.
+- **A Positron vitest copy of an upstream test goes stale.** Some upstream
+  (mostly vscode-server) Mocha tests have a Positron `.vitest.ts` port next to
+  them (e.g. `socketOwnership.test.ts` and `socketOwnership.vitest.ts`). When
+  upstream changes the module and its `.test.ts`, the port doesn't conflict and
+  isn't updated, so it fails. In 1.143, `socketOwnership` became async and the
+  vitest port compared un-awaited Promises. Many of these ports are
+  `describe.runIf(linux)`, so they're skipped on macOS and fail only in the
+  `test / vitest` CI job. For each upstream `.test.ts` the merge changed, check
+  for a sibling port and apply the same change to it:
+
+  ```bash
+  git diff --name-only <pre-merge-commit> HEAD -- '*.test.ts' \
+    | sed 's/\.test\.ts$/.vitest.ts/' | xargs ls 2>/dev/null
+  ```
+- **The browser runner fails to resolve a bare package import.** The `test /
+  vscode` job runs the core suite three times: Electron (`scripts/test.sh`), node
+  (`npm run test-node`), and Chromium (`npm run test-browser-no-install`). The
+  Electron and browser runners each have an import map
+  (`test/unit/{electron,browser}/renderer.html`), and each maps Positron's ESM
+  package dependencies (React, `@dnd-kit`, etc.) to `out/esm-package-dependencies`.
+  Before 1.143 the browser map had no Positron entries. Any test file whose
+  imports reached Positron React code was silently dropped: the log shows `BAD
+  <file>` and no failure. That was 380 files. A *dynamic* `import()` in
+  `suiteSetup` fails instead, with `Failed to resolve module specifier
+  "react/jsx-runtime"`. If you see that error, or the `BAD` count climbs, check
+  that both maps list the same packages. To reproduce: `npm run
+  test-browser-no-install -- --browser chromium --run <file>.test.ts`. The `BAD`
+  lines only show in a full run.
+- **The browser runner's Chromium is not Electron's.** The browser runner uses
+  the Chromium that `@playwright/test` pins, which can be several major versions
+  ahead of Electron's. A test that asserts a CSSOM string can pass under Electron
+  and fail in Chromium. In 1.143, `paneCompositePart.test.ts` expected
+  `element.style.height` to read back `calc(100% + 0px)` after the code set
+  `calc(100% - 0px)`. That's true in Chromium 139-150 (Electron 43 ships 150),
+  but Chromium 156 (Playwright 1.64) returns `calc(100% - 0px)` unchanged. Don't
+  pin either spelling. Compare against what the current engine returns for the
+  same input.
 
 #### Extension host tests
 
@@ -403,6 +440,7 @@ failures and fix them if they are caused by the merge.
 
 A merge rarely breaks dozens of features at once. When a Full Suite run shows many e2e failures across unrelated areas, look for one page-object helper they all go through before debugging tests one by one. In 1.143, all 75 failures on three platforms (connections, apps, autocomplete, data explorer, and more) were one race in `QuickInput.selectQuickInputElement`.
 
+- If the merge job fails with `Missing blob reports for shards` and `Directory does not exist: ...all-blob-reports`, the shards crashed before running any tests, usually in a setup step. Find the failing step in each shard's log (`##[error]` near an `outcome=failure` line) before suspecting the merge. In 1.143, both Windows shards failed in `setup-r-windows` with `there is no package called 'pak'`. That happened because R 4.6.2 was released before its Windows installer was on CRAN, so the `rig add` above it got a 404. Main had already fixed this (#16996), so merging `origin/main` into the merge branch was the whole fix. For infrastructure failures like this, check `git log HEAD..origin/main -- .github/` before writing a fix of your own.
 - The shard jobs (`e2e / electron-1` ... `-4`) report success even when tests fail. Only the merge job (`e2e / electron`, `e2e / chromium`, `e2e / electron-win`) goes red. Its "Check test results" step lists the failing tests.
 - The merge job's log prints `REPORT_URL`. Its directory also serves `results.json`. Group the failures in that file by the top non-`node_modules` stack frame, and by the deepest failing `test.step` title (e.g. `Run command: workbench.action.clearEditorHistory`). One frame for every failure means one helper fix.
 - `results.json` attachment paths point into the runner's blob-report directory and can't be downloaded. For the trace and error-context of a single test, decode the base64 zip embedded in the report's `index.html`. Its per-file JSON maps each attachment to `data/<sha>.<ext>` under the report URL. Then read the click/expect call logs from `trace.trace` inside the trace zip.

@@ -128,6 +128,14 @@ suite('Pane composite part layout', () => {
 		part.layout(300, 200, 0, 0);
 		const restoredClassic = captureState();
 
+		// --- Start Positron ---
+		// The serialized form of calc(100% - 0px) differs across Chromium versions ("+ 0px"
+		// up to 150, "- 0px" in 156), and the browser unit test runner's Playwright Chromium
+		// is newer than Electron's. Compare against what the current engine serializes.
+		const zeroMarginHeight = $('div');
+		zeroMarginHeight.style.height = 'calc(100% - 0px)';
+		// --- End Positron ---
+
 		assert.deepStrictEqual({
 			classicTop,
 			classicRight,
@@ -157,7 +165,10 @@ suite('Pane composite part layout', () => {
 				outerEdges: { left: true, right: true, top: false, bottom: true },
 			},
 			floatingCompact: {
-				height: 'calc(100% + 0px)',
+				// --- Start Positron ---
+				// height: 'calc(100% + 0px)',
+				height: zeroMarginHeight.style.height,
+				// --- End Positron ---
 				contentDimension: { width: 298.4, height: 198.4 },
 				outerEdges: { left: true, right: true, top: false, bottom: true },
 			},
