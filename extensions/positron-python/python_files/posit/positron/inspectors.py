@@ -736,16 +736,24 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
     def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         if level >= len(MAX_ITEMS_BY_LEVEL):
             return f"numpy.array({ELLIPSIS})", True
-        return (
-            _numpy().array2string(
-                self.value,
-                max_line_width=ARRAY_MAX_LINE_WIDTH,
-                threshold=ARRAY_THRESHOLD,
-                edgeitems=ARRAY_EDGEITEMS,
-                separator=",",
-            ),
-            True,
+        display_value = _numpy().array2string(
+            self.value,
+            max_line_width=ARRAY_MAX_LINE_WIDTH,
+            threshold=ARRAY_THRESHOLD,
+            edgeitems=ARRAY_EDGEITEMS,
+            separator=",",
         )
+        # NumPy pads elements to align them, e.g. "[ 3,10]". With the compact
+        # separator, the padding looks like a typo, so remove it. With NumPy's
+        # default formatting, elements of these dtypes never contain spaces, so
+        # any space that is not line indentation is padding. A user's custom
+        # print formatter can emit spaces, so leave its output alone. Removing
+        # padding afterwards, rather than formatting each element separately,
+        # keeps NumPy's array-wide format choices (e.g. scientific notation for
+        # every element).
+        if self.value.dtype.kind in "biufcmM" and _numpy().get_printoptions()["formatter"] is None:
+            display_value = re.sub(r"(?<=\S) +", "", display_value)
+        return display_value, True
 
     def equals(self, value: np.ndarray) -> bool:
         return _numpy().array_equal(self.value, value)

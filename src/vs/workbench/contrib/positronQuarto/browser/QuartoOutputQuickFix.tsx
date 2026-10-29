@@ -32,8 +32,8 @@ interface QuartoOutputQuickFixProps {
 }
 
 /**
- * Quick fix buttons for Quarto inline output errors, hidden while no handler
- * can take errors.
+ * Quick fix buttons for Quarto inline output errors, hidden while there is no
+ * active error action handler.
  */
 export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	// Read here rather than in AssistantErrorQuickFix so that a handler

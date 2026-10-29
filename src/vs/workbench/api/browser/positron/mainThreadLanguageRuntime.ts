@@ -1897,6 +1897,16 @@ export class MainThreadLanguageRuntime
 	}
 
 	/**
+	 * Ask the extension for the interpreter its pin setting names for this
+	 * workspace.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 */
+	async pinnedWorkspaceRuntime(extensionId: string, languageId: string): Promise<ILanguageRuntimeMetadata | undefined> {
+		return this._proxy.$pinnedWorkspaceRuntime(extensionId, languageId);
+	}
+
+	/**
 	 * (part of implementation of IRuntimeManager)
 	 */
 	async registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined> {
@@ -2154,6 +2164,11 @@ export class MainThreadLanguageRuntime
 	// Signals that language runtime discovery is complete.
 	$completeLanguageRuntimeDiscovery(): void {
 		this._runtimeStartupService.completeDiscovery(this._id);
+	}
+
+	// Signals that language runtime discovery is complete for one language.
+	$completeLanguageRuntimeDiscoveryForLanguage(languageId: string): void {
+		this._runtimeStartupService.completeLanguageDiscovery(this._id, languageId);
 	}
 
 	// Called by the extension host to unregister a language runtime

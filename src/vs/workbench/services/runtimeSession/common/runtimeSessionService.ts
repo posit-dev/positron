@@ -93,6 +93,9 @@ export enum SessionStartReasonId {
 	/** Interpreter discovery found the runtime this workspace used last, and it had not been started yet. */
 	AffiliatedRuntimeAtRegistration = 'affiliatedRuntimeAtRegistration',
 
+	/** At startup, the default interpreter set in the language's settings was started. */
+	PinnedRuntime = 'pinnedRuntime',
+
 	/** When discovery finished with no saved runtime and no console, a runtime marked to start immediately was started. */
 	ExtensionRequestedImmediateStart = 'extensionRequestedImmediateStart',
 
@@ -1119,13 +1122,17 @@ export interface IRuntimeSessionService {
 	 * @param sessionName A human-readable (displayed) name for the session.
 	 * @param createConsole Whether to create a console for the session.
 	 * @param activate Whether to activate/focus the session after it is reconnected.
+	 * @param takeForegroundIfEmpty Whether a console session that isn't
+	 *   activated still becomes the foreground session when there is none.
+	 *   Defaults to true.
 	 */
 	restoreRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
 		sessionName: string,
 		createConsole: boolean,
-		activate: boolean): Promise<void>;
+		activate: boolean,
+		takeForegroundIfEmpty?: boolean): Promise<void>;
 
 	/**
 	 * Automatically starts a runtime.

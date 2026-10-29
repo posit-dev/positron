@@ -17,4 +17,9 @@ ThirdPartyNotices.txt eol=crlf
 
 # --- Start Positron ---
 .devcontainer/ci-arm/*.sh text eol=lf
+# The SQL analyzer is rebuilt from its crate whenever the crate changes, so committing it as a
+# blob would add a version of it to every clone's history each time. A checkout without git-lfs
+# gets a pointer, which the extension's postinstall replaces with the module; see
+# extensions/positron-sql/scripts/fetch-analyzer.mts.
+extensions/positron-sql/resources/sql-analyzer.wasm filter=lfs diff=lfs merge=lfs -text
 # --- End Positron ---

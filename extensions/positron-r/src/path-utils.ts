@@ -38,6 +38,40 @@ export function arePathsSame(path1: string, path2: string): boolean {
 }
 
 /**
+ * Whether two paths name the same file once symlinks are followed. A path
+ * that can't be resolved, for example because it doesn't exist, is compared
+ * as given.
+ * @param path1 The first path
+ * @param path2 The second path
+ */
+export function arePathsSameFile(path1: string, path2: string): boolean {
+	const resolve = (filePath: string) => {
+		try {
+			return fs.realpathSync(filePath);
+		} catch {
+			return filePath;
+		}
+	};
+	return arePathsSame(path1, path2) || arePathsSame(resolve(path1), resolve(path2));
+}
+
+/**
+ * The file a symlink at a path leads to, with every link on the way followed.
+ * A path that isn't a symlink, or can't be read, is returned as given.
+ * A link to a folder earlier in the path is kept, because discovery lists Rs
+ * in the folders it scans, such as `/opt/R`, and in r-versions entries
+ * without following links.
+ * @param filePath The path to follow
+ */
+export function followLink(filePath: string): string {
+	try {
+		return fs.lstatSync(filePath).isSymbolicLink() ? fs.realpathSync(filePath) : filePath;
+	} catch {
+		return filePath;
+	}
+}
+
+/**
  * Copied from the function of the same name in extensions/positron-python/src/client/common/helpers.ts.
  * NOTE: We do not export this since in all known cases, normalizeUserPath()
  * is the better choice.

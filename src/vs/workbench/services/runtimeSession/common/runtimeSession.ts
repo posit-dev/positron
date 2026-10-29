@@ -868,13 +868,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param sessionName A human readable name for the session.
 	 * @param activate Whether to activate/focus the session after it is
 	 * reconnected.
+	 * @param takeForegroundIfEmpty Whether a console session that isn't
+	 * activated still becomes the foreground session when there is none.
 	 */
 	async restoreRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
 		sessionName: string,
 		createConsole: boolean,
-		activate: boolean): Promise<void> {
+		activate: boolean,
+		takeForegroundIfEmpty = true): Promise<void> {
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
@@ -929,7 +932,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		try {
 			const sessionId = await this.doRestoreRuntimeSession(
-				sessionMetadata, runtimeMetadata, sessionName, createConsole, activate);
+				sessionMetadata, runtimeMetadata, sessionName, createConsole, activate, takeForegroundIfEmpty);
 			startPromise.complete(sessionId);
 		} catch (err) {
 			startPromise.error(err);
@@ -948,6 +951,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		sessionName: string,
 		createConsole: boolean,
 		activate: boolean,
+		takeForegroundIfEmpty: boolean,
 	) {
 		// We should already have a session manager registered, since we can't
 		// get here until the extension host has been activated.
@@ -976,7 +980,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			sessionManager,
 			RuntimeStartMode.Reconnecting,
 			createConsole,
-			activate);
+			activate,
+			takeForegroundIfEmpty);
 
 		return sessionMetadata.sessionId;
 
@@ -2127,12 +2132,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param startMode The mode in which the session is starting.
 	 * @param createConsole Whether to create a console for the new session.
 	 * @param activate Whether to activate/focus the session after it is started.
+	 * @param takeForegroundIfEmpty Whether a console session that isn't
+	 * activated still becomes the foreground session when there is none.
 	 */
 	private async doStartRuntimeSession(session: ILanguageRuntimeSession,
 		manager: ILanguageRuntimeSessionManager,
 		startMode: RuntimeStartMode,
 		createConsole: boolean,
-		activate: boolean):
+		activate: boolean,
+		takeForegroundIfEmpty = true):
 		Promise<void> {
 		// Fire the onWillStartRuntime event.
 		const evt: IRuntimeSessionWillStartEvent = {
@@ -2174,9 +2182,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// Make the newly-started runtime the foreground runtime if it's a console session.
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				// Make this the foreground session if there isn't one already,
-				// or if the caller requested to activate it.
-				if (!this.foregroundSession || activate) {
+				// Make this the foreground session if the caller requested to
+				// activate it, or if there isn't one already (unless the caller
+				// asked it not to).
+				if (activate || (!this.foregroundSession && takeForegroundIfEmpty)) {
 					this.foregroundSession = session;
 				}
 			}

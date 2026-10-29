@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
 import { IAgentAllowedCommandsService } from '../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
 import { ChatViewId } from '../../../contrib/chat/browser/chat.js';
 import { ChatViewPane } from '../../../contrib/chat/browser/widgetHosts/viewPane/chatViewPane.js';
@@ -19,11 +19,16 @@ import { PromptRenderer } from '../../../contrib/positronAssistant/browser/promp
 import { getPositronContextPrompts } from '../../../contrib/positronAssistant/browser/prompts/positronContextPrompts.js';
 import { getForegroundSessionInfo } from '../../../contrib/positronAssistant/browser/prompts/promptSessions.js';
 import * as xml from '../../../contrib/positronAssistant/common/xml.js';
+import { IErrorActionHandlerService } from '../../../contrib/positronAssistant/common/errorAction.js';
+import { POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID } from '../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadAiFeatures)
 export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeaturesShape {
 
 	private readonly _proxy: ExtHostAiFeaturesShape;
+	/** Error action handlers registered from the extension host, by handle. */
+	private readonly _errorActionHandlerRegistrations = this._register(new DisposableMap<number>());
 	private _promptRenderer: PromptRenderer | undefined;
 
 	constructor(
@@ -34,6 +39,8 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		@IFileService private readonly _fileService: IFileService,
 		@IAgentAllowedCommandsService private readonly _agentAllowedCommandsService: IAgentAllowedCommandsService,
 		@IAiProviderService private readonly _aiProviderService: IAiProviderService,
+		@IErrorActionHandlerService private readonly _errorActionHandlerService: IErrorActionHandlerService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
 		// Create the proxy for the extension host.
@@ -58,6 +65,34 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 			}
 			lastEnabled = current;
 		}));
+	}
+
+	/**
+	 * Register an error action handler implemented in the extension host. Refuses
+	 * with a logged error when using a reserved id or if the id is already taken.
+	 * The extension host throws for those it knows about first, so this catches
+	 * ids taken in another extension host.
+	 */
+	$registerErrorActionHandler(handle: number, id: string, label: string, supportsChatContinuation: boolean): void {
+		if (id === POSIT_ASSISTANT_ERROR_ACTION_HANDLER_ID) {
+			this._logService.error(`Cannot register the error action handler '${id}': the id is reserved for Positron`);
+			return;
+		}
+		try {
+			this._errorActionHandlerRegistrations.set(handle, this._errorActionHandlerService.register({
+				id,
+				label,
+				supportsChatContinuation,
+				ask: (action, context, options) => this._proxy.$askErrorActionHandler(handle, action, context, options.continueChat === true),
+			}));
+		} catch (error) {
+			this._logService.error(`Cannot register the error action handler '${id}'`, error);
+		}
+	}
+
+	/** Unregister an error action handler implemented in the extension host. */
+	$unregisterErrorActionHandler(handle: number): void {
+		this._errorActionHandlerRegistrations.deleteAndDispose(handle);
 	}
 
 	/**
@@ -157,6 +192,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	async $getAgentAllowedCommands(options?: { includeDisabled?: boolean }): Promise<ISerializedAgentCommand[]> {
 		return this._agentAllowedCommandsService.getAgentAllowedCommands({ enabledOnly: !options?.includeDisabled }).map(cmd => ({
 			id: cmd.id,
+			title: cmd.title,
 			description: cmd.description,
 			args: cmd.args?.map(a => ({
 				name: a.name,

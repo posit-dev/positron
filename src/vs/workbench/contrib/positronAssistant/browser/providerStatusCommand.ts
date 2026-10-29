@@ -133,12 +133,14 @@ CommandsRegistry.registerCommand({
 	id: ASSISTANT_GET_PROVIDER_STATUS_COMMAND_ID,
 	handler: getProviderStatus,
 	metadata: {
+		title: localize('positron.assistant.getProviderStatus.title', "Get AI Provider Status"),
 		description: localize(
 			'positron.assistant.getProviderStatus.description',
 			"Report the AI language model providers this Positron knows: which are enabled in the provider catalog, and whose connection settings have been customized. Does not report sign-in state. Changes nothing and shows the user nothing. Reads live state, not any file, so it is correct on desktop, on the web, over a remote connection, and on Posit Workbench."
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		readOnly: true,
 		returns: 'An object with catalogStatus and providers. catalogStatus is the provider catalog\'s lifecycle: \'ready\' when the resolved catalog (providers.json plus any administrator-enforced layers) has been read; \'error\' when it could not be; \'initializing\' when the first load had not completed within this command\'s short wait. When catalogStatus is not \'ready\', enablement is unknown: every entry omits enabled rather than guessing. providers is one entry per catalog provider, enabled ones first, then known-disabled ones, alphabetical within each band. Each entry carries: id, the provider\'s name in the provider catalog, which for a custom provider is the entry name the user chose; enabled, the catalog\'s verdict with administrator-enforced layers already folded in -- false means turned off in providers.json or by an administrator, and absent means the catalog could not be read and enablement is unknown, not false; custom, present and true only for a provider defined by a custom providers.json entry; customizedConnection, the names of connection fields whose value differs from this build\'s built-in defaults (e.g. \'baseUrl\', \'aws.profile\', \'customHeaders\'), meaning the user or an administrator set them -- a stock install reports none, and a provider\'s default endpoint never appears here. Names only, never values, deliberately: if the user needs the actual URL or value, direct them to open providers.json rather than guessing at it. This payload does NOT report sign-in state: credentials belong to the extensions that register the authentication providers, so enabled does not mean signed in, and a provider being enabled says nothing about whether a credential resolves for it.',
 	},
 });

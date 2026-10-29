@@ -53,6 +53,7 @@ suite('PositronRunApp', () => {
 
 	let uri: vscode.Uri;
 	let previewUrlStub: sinon.SinonStub;
+	let executeCommandStub: sinon.SinonStub;
 	let runAppApi: PositronRunAppApiImpl;
 
 	setup(async () => {
@@ -76,7 +77,7 @@ suite('PositronRunApp', () => {
 		// Call through for every other command: tests rely on real commands
 		// (e.g. workbench.action.closeAllEditors), which a bare stub would
 		// silently turn into no-ops.
-		const executeCommandStub = sinon.stub(vscode.commands, 'executeCommand');
+		executeCommandStub = sinon.stub(vscode.commands, 'executeCommand');
 		executeCommandStub.callThrough();
 		executeCommandStub
 			.withArgs('positronProxy.startPendingProxyServer')
@@ -351,6 +352,7 @@ suite('PositronRunApp', () => {
 		let observer: positron.runtime.ExecutionObserver | undefined;
 		let finishExecution: (() => void) | undefined;
 		let showWarningMessageStub: sinon.SinonStub;
+		let focusSessionStub: sinon.SinonStub;
 
 		setup(() => {
 			observer = undefined;
@@ -361,7 +363,7 @@ suite('PositronRunApp', () => {
 			sinon.stub(positron.runtime, 'getSession').resolves(undefined);
 			sinon.stub(positron.runtime, 'startLanguageRuntime')
 				.resolves({ metadata: { sessionId: 'test-session' } } as positron.LanguageRuntimeSession);
-			sinon.stub(positron.runtime, 'focusSession');
+			focusSessionStub = sinon.stub(positron.runtime, 'focusSession');
 
 			// Capture the observer so the test can drive console output, and
 			// capture a resolver so a test can end the execution: the real
@@ -483,6 +485,46 @@ suite('PositronRunApp', () => {
 				'Show Console',
 				'Show Log',
 			);
+		});
+
+		test('reveals the console when Show Console is selected after a failed start', async () => {
+			// Focusing the session alone only changes the foreground session. If
+			// the Console view is hidden (the panel is minimized or another tab is
+			// active), the user would see nothing, so the view must be revealed too.
+			const showErrorMessageStub: sinon.SinonStub = sinon.stub(vscode.window, 'showErrorMessage');
+			showErrorMessageStub.resolves('Show Console');
+			const focusConsoleStub = executeCommandStub
+				.withArgs('workbench.panel.positronConsole.focus')
+				.resolves();
+
+			const runPromise = runAppApi.runApplicationInConsole({
+				...consoleAppOptions,
+				urlDetectionTimeout: 120_000,
+			});
+
+			await waitFor(() => finishExecution !== undefined, 'Timed out waiting for code execution');
+			finishExecution!();
+			await runPromise;
+
+			await waitFor(() => focusConsoleStub.called, 'The Console view was never revealed');
+			sinon.assert.calledOnceWithExactly(focusSessionStub, 'test-session');
+			sinon.assert.callOrder(focusSessionStub, focusConsoleStub);
+		});
+
+		test('reveals the console when Show Console is selected after a timeout', async () => {
+			showWarningMessageStub.resolves('Show Console');
+			const focusConsoleStub = executeCommandStub
+				.withArgs('workbench.panel.positronConsole.focus')
+				.resolves();
+
+			await runAppApi.runApplicationInConsole({
+				...consoleAppOptions,
+				urlDetectionTimeout: 500,
+			});
+
+			await waitFor(() => focusConsoleStub.called, 'The Console view was never revealed');
+			sinon.assert.calledOnceWithExactly(focusSessionStub, 'test-session');
+			sinon.assert.callOrder(focusSessionStub, focusConsoleStub);
 		});
 
 		test('stops watching when the console execution finishes without a URL', async () => {

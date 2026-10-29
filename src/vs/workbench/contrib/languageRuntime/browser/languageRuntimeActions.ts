@@ -1399,6 +1399,33 @@ export class StartNewAgentSessionAction extends Action2 {
 }
 
 /**
+ * Action that rediscovers all installed interpreters.
+ */
+export class DiscoverAllRuntimesAction extends Action2 {
+	constructor() {
+		super({
+			id: LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID,
+			title: localize2('workbench.action.language.runtime.discoverAllRuntimes', "Discover All Interpreters"),
+			f1: true,
+			category,
+			metadata: {
+				description: localize('positron.languageRuntime.discoverAllRuntimes.description', "Rediscover all installed interpreters so newly installed environments become available."),
+				agentCompatible: true,
+				readOnly: true,
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const runtimeStartupService = accessor.get(IRuntimeStartupService);
+
+		// Wait for discovery to finish, so a caller that lists interpreters
+		// next (such as an agent) sees the newly discovered ones.
+		await runtimeStartupService.rediscoverAllRuntimes();
+	}
+}
+
+/**
  * Action that allows the user to change the foreground session.
  */
 export class SelectSessionAction extends Action2 {
@@ -1414,6 +1441,7 @@ export class SelectSessionAction extends Action2 {
 			metadata: {
 				description: localize('positron.languageRuntime.selectSession.description', "Select the session to make active."),
 				agentCompatible: true,
+				readOnly: true,
 				args: [
 					{
 						name: 'sessionId',
@@ -1878,31 +1906,7 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 
-	registerAction2(class extends Action2 {
-		/**
-		 * Constructor.
-		 */
-		constructor() {
-			super({
-				id: LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID,
-				title: localize2('workbench.action.language.runtime.discoverAllRuntimes', "Discover All Interpreters"),
-				f1: true,
-				category,
-				metadata: {
-					description: localize('positron.languageRuntime.discoverAllRuntimes.description', "Rediscover all installed interpreters so newly installed environments become available."),
-					agentCompatible: true,
-				},
-			});
-		}
-
-		async run(accessor: ServicesAccessor) {
-			// Access service.
-			const runtimeStartupService = accessor.get(IRuntimeStartupService);
-
-			// Kick off discovery.
-			runtimeStartupService.rediscoverAllRuntimes();
-		}
-	});
+	registerAction2(DiscoverAllRuntimesAction);
 
 	registerAction2(class extends Action2 {
 		constructor() {
@@ -1913,6 +1917,7 @@ export function registerLanguageRuntimeActions() {
 				metadata: {
 					description: localize('positron.languageRuntime.getRegisteredRuntimes.description', "List the interpreters registered with Positron, across all languages. Use before creating an environment or starting a session to see what is already available."),
 					agentCompatible: true,
+					readOnly: true,
 					args: [
 						{
 							name: 'languageId',
@@ -1980,6 +1985,7 @@ export function registerLanguageRuntimeActions() {
 				metadata: {
 					description: localize('positron.languageRuntime.getActiveSessions.description', "List the interpreter sessions currently running in Positron. Use before selecting a session to see which sessions exist and which one is active."),
 					agentCompatible: true,
+					readOnly: true,
 					args: [
 						{
 							name: 'languageId',

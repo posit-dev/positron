@@ -57,6 +57,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			focusCommand: {
 				id: `${POSITRON_PLOTS_VIEW_ID}.focus`,
 				agentCompatible: true,
+				readOnly: true,
 			},
 		}
 	],

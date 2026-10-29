@@ -51,6 +51,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 					primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyV),
 				},
 				agentCompatible: true,
+				readOnly: true,
 			}
 		}
 	],
