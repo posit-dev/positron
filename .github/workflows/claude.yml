@@ -58,7 +58,7 @@ env:
     that checks behavior the code already has. In the PR body, list each test command you ran,
     how long it took, and its result, and the output of `git status --short` before your first
     commit." Do not push to the branch of this pull request. Run
-    `git fetch --depth 1 origin main`, create the branch `claude/spike-python-tests` from
+    `git fetch --depth 1 origin main`, create the branch `claude/spike-python-tests-2` from
     `origin/main`, and open a draft pull request from it to `main`.
 
 jobs:
