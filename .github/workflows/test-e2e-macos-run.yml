@@ -199,12 +199,8 @@ jobs:
           # r-lib/actions/setup-r uses -- so they track the current R release
           # instead of being pinned. Emitted as step outputs for the
           # POSITRON_R_VER_SEL / POSITRON_R_ALT_VER_SEL selectors below.
-          # Ask for the macOS release (`r-release-macos`), not the generic
-          # `r-release`: the generic endpoint flips to a new version the
-          # moment its source tarball lands on CRAN, while the macOS installer
-          # follows a day or more later. In that window `rig add <version>`
-          # 404s on CRAN. `r-release-macos` only advances once the installer
-          # exists.
+          # `r-release-macos` (not the generic `r-release`) only advances once
+          # the macOS installer is on CRAN, which can lag the source release.
           R_VERSION=$(curl -fsSL --retry 3 --retry-delay 2 https://api.r-hub.io/rversions/r-release-macos | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
           R_ALTERNATE_VERSION=$(curl -fsSL --retry 3 --retry-delay 2 https://api.r-hub.io/rversions/r-oldrel/2 | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
           echo "Resolved R release=$R_VERSION, oldrel-2=$R_ALTERNATE_VERSION"

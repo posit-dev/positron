@@ -27,12 +27,9 @@ runs:
 
     # The release version is resolved dynamically from the r-hub rversions
     # API -- the same service r-lib/actions/setup-r uses -- so it tracks the
-    # current R release instead of being pinned. Ask for the Windows release
-    # (`r-release-win`), not the generic `r-release`: the generic endpoint
-    # flips to a new version the moment its source tarball lands on CRAN,
-    # while the Windows installer follows a day or more later. In that window
-    # `rig add <new version>` 404s on CRAN and nothing (not even pak) gets
-    # installed. `r-release-win` only advances once the installer exists.
+    # current R release instead of being pinned. `r-release-win` (not the
+    # generic `r-release`) only advances once the Windows installer is on
+    # CRAN, which can lag the source release by a day or more.
     - name: Install R release
       id: r-version
       shell: pwsh
