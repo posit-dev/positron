@@ -374,13 +374,13 @@ jobs:
             "Test Files" line for the result.
 
             If the handoff lists files under `extensions/positron-python/python_files/posit/`, the
-            kernel's Python test dependencies are installed. Run one test file, with `-k` to pick
-            tests. The file path is relative to `extensions/positron-python`:
-            `uv --directory extensions/positron-python run --active pytest <test file> -k <name>`.
+            kernel's Python test dependencies are installed. Run only the test files you need, with
+            `-k` to pick tests. File paths are relative to `extensions/positron-python`:
+            `uv --directory extensions/positron-python run --active pytest <test files> -k <name>`.
             If the handoff lists files under `extensions/positron-python/src/`, that extension is
             installed and compiled. Before each test run, recompile with
             `npm exec --prefix extensions/positron-python -- tsc -p extensions/positron-python`,
-            then run one suite with
+            then run only the suites you need, with a regex such as `"<suite A>|<suite B>"`:
             `npm run --prefix extensions/positron-python test:unittests -- --grep "<suite title>"`.
             Do not run either suite in full. If you need one of them and it was not set up, say so
             in the PR body.
