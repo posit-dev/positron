@@ -262,47 +262,72 @@ const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
 const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 
 /**
- * The change mark: the verifier's call that a confirmed finding's most direct
- * fix likely goes in code the change under test touched. Only on a run with a
- * usable base. The glyph is hidden from screen readers, which read the text
- * instead; the last row's tooltip opens upward, away from the panel's edge.
+ * A finding's likely origin, as the verifier judged it from the change under
+ * test: 'introduced', 'exposed', 'inherited', or '' when not determined. A
+ * finding not confirmed, or one whose fix didn't hold, is never given one.
+ * Null on a run with no usable base, which has no Origin column.
  */
-function changeMark(report, f, base, last) {
-	const words = changeWords(report, f, base);
-	if (!words) {
+function originOf(report, f, base, ki) {
+	if (base?.usable !== true) {
+		return null;
+	}
+	if (statusWord(f) !== 'confirmed' || ki?.fixFailed.has(f.n)) {
 		return '';
 	}
-	return `<span class="chg${last ? ' chg-up' : ''}"><span aria-hidden="true">&Delta;</span>`
-		+ `<span class="chg-sr">${words.title}. ${words.text}</span>`
-		+ changeTip(words) + '</span>';
+	return report.verification?.origin?.get(f.n) ?? '';
+}
+
+function originText(report, origin) {
+	const change = report.pr ? 'PR' : 'branch';
+	return {
+		introduced: `Likely caused by this ${change}. The suspected fix is in changed code.`,
+		exposed: `The suspected fix is in existing code, but this ${change} changed something that now triggers it.`,
+		inherited: `The suspected fix is in existing code this ${change} didn&rsquo;t change. Found while testing it, so worth a look.`,
+	}[origin];
+}
+
+const originTip = (title, text, hidden = true) => `<span class="og-tip"${hidden ? ' aria-hidden="true"' : ''} role="tooltip">${title ? `<b>${title}</b>` : ''}<span>${text}</span></span>`;
+
+/** The Origin header, whose tooltip says once that every value is a judgement. */
+function originHead(report, base) {
+	const text = `Likely origin, judged from this ${report.pr ? 'PR' : 'branch'}&rsquo;s diff. Not tested against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`;
+	return `<span><span class="og og-h" tabindex="0">Origin${originTip('Origin', text, false)}</span></span>`;
 }
 
 /**
- * The same mark after a card's title. The title is not a link, so the mark
- * takes focus itself and its label carries the text.
+ * A finding row's Origin cell. The row is a link, so nothing in it takes
+ * focus: the tooltip opens on hover and on the row's focus, and a screen
+ * reader hears the word, or "Origin not determined". The last row's tooltip
+ * opens upward, away from the panel's edge.
  */
-function cardChangeMark(report, f, base) {
-	const words = changeWords(report, f, base);
-	if (!words) {
+function originCell(report, origin, last) {
+	const up = last ? ' og-up' : '';
+	if (!origin) {
+		return `<span class="og-cell"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">Origin not determined</span>`
+			+ `${originTip('', 'Not enough evidence in the diff to determine origin.')}</span></span>`;
+	}
+	const word = capitalize(origin);
+	return `<span class="og-cell"><span class="og${up}">${word}${originTip(word, originText(report, origin))}</span></span>`;
+}
+
+/** The Origin word in a card's meta line, after the severity pill. Nothing when not determined. */
+function cardOrigin(report, origin) {
+	if (!origin) {
 		return '';
 	}
-	return `<span class="chg chg-card" tabindex="0" role="img" aria-label="${words.title}. ${words.text}"><span aria-hidden="true">&Delta;</span>`
-		+ changeTip(words) + '</span>';
+	const word = capitalize(origin);
+	return `<span class="og og-meta" tabindex="0">${word}${originTip(word, originText(report, origin), false)}</span>`;
 }
 
-function changeWords(report, f, base) {
-	if (base?.usable !== true || !report.verification?.change?.has(f.n) || statusWord(f) !== 'confirmed') {
-		return null;
-	}
-	return {
-		title: `Likely related to this ${report.pr ? 'PR' : 'branch'}`,
-		text: `Based on code changes. Not verified against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`,
-	};
+/** A finding that reproduced in some attempts but not all, as `[n, m]`; null otherwise. */
+function flakyRate(f) {
+	const [, n, m] = /^(\d+)\/(\d+)$/.exec(f.reproduced ?? '') ?? [];
+	return Number(n) > 0 && Number(n) < Number(m) ? [n, m] : null;
 }
-
-const changeTip = ({ title, text }) => `<span class="chg-tip" aria-hidden="true"><b>${title}</b><span>${text}</span></span>`;
 
 function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
+	const withOrigin = changeBase?.usable === true;
+	const grid = withOrigin ? 'findings-grid og-grid' : 'findings-grid';
 	const rows = report.findings.map((f, i) => {
 		const word = statusWord(f);
 		const verdict = word === 'confirmed'
@@ -325,18 +350,19 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : '';
 		// A match closed as not planned: the team chose to leave this behavior.
 		const wontFix = f.intended?.length ? `Won&rsquo;t fix? ${first(f.intended)}` : '';
-		const below = [issueLine, ...matches.map(m => m.label(first(m.numbers))), wontFix].filter(Boolean).map(line => `<span class="ki-state">${line}</span>`);
+		const flaky = flakyRate(f);
+		const below = [issueLine, ...matches.map(m => m.label(first(m.numbers))), wontFix, flaky ? `Flaky ${flaky[0]}/${flaky[1]}` : ''].filter(Boolean).map(line => `<span class="ki-state">${line}</span>`);
 		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
-		return `<a href="#f${f.n}" class="row findings-grid">`
+		return `<a href="#f${f.n}" class="row ${grid}">`
 			+ `<span>${pill(f.severity)}</span>`
-			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}${changeMark(report, f, changeBase, i === report.findings.length - 1)}</span></span>`
-			+ `<span class="rate">${escapeHtml(f.reproduced)}</span>`
+			+ (withOrigin ? originCell(report, originOf(report, f, changeBase, ki), i === report.findings.length - 1) : '')
+			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span></span>`
 			+ status
 			+ '</a>';
 	});
 
 	const head = rows.length
-		? '<div class="row row-head findings-grid"><span>Severity</span><span>Finding</span><span class="right">Reproduced</span><span class="right">Status</span></div>\n'
+		? `<div class="row row-head ${grid}"><span>Severity</span>${withOrigin ? originHead(report, changeBase) : ''}<span>Finding</span><span class="right">Status</span></div>\n`
 		: '';
 
 	return `<section id="findings" class="section">
@@ -703,7 +729,7 @@ function renderFindingCard(f, report, options) {
 	const contextHtml = context.join('<span class="sep" aria-hidden="true">&middot;</span>');
 
 	const meta = '<div class="meta">'
-		+ `<span class="group identity"><span class="who">Finding ${f.n}</span>${pill(f.severity)}</span>`
+		+ `<span class="group identity"><span class="who">Finding ${f.n}</span>${pill(f.severity)}${cardOrigin(report, originOf(report, f, options.changeBase, options.ki))}</span>`
 		+ '<span class="rule" aria-hidden="true"></span>'
 		+ `<span class="group context">${contextHtml}</span>`
 		+ renderIssueButton(f, issue)
@@ -712,7 +738,7 @@ function renderFindingCard(f, report, options) {
 		+ '</div>';
 
 	const head = `<header>${meta}`
-		+ `<h2 class="card-title">${escapeHtml(f.title)}${cardChangeMark(report, f, options.changeBase)}</h2>`
+		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);

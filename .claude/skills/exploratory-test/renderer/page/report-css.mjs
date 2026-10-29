@@ -112,10 +112,7 @@ const PROFESSIONAL = `
 	--tip-border: #E7E4DC;
 	--tip-text: #3D4148;
 	--tip-shadow: 0 1px 2px rgba(28,31,35,0.06);
-	--chg-shadow: 0 4px 14px rgba(0,0,0,.08);
-	/* Brighter than --link for small marks on white rows; too faint for text on tinted ones. */
-	--accent-mark: #2A7D6A;
-	--chg-weight: 500;
+	--og-shadow: 0 4px 14px rgba(0,0,0,.08);
 	--code-blk-bg: #F1EFEA;
 	--rt-tag-bg: #EFEDE7;
 	--rt-tag-ink: #3D4148;
@@ -249,9 +246,7 @@ const PARTY = `
 	--tip-border: #5B4F92;
 	--tip-text: #F5F1FF;
 	--tip-shadow: none;
-	--chg-shadow: 0 4px 14px rgba(0,0,0,.35);
-	--accent-mark: #5CE1E6;
-	--chg-weight: 400;
+	--og-shadow: 0 4px 14px rgba(0,0,0,.35);
 	--code-blk-bg: #19132F;
 	--rt-tag-bg: #3A2F6B;
 	--rt-tag-ink: #F5F1FF;
@@ -413,7 +408,8 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
-.findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 140px}
+.findings-grid{grid-template-columns:110px minmax(0,1fr) 140px}
+.findings-grid.og-grid{grid-template-columns:110px 104px minmax(0,1fr) 140px}
 .coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px;padding:12px 20px}
 .right{text-align:right}
 
@@ -429,22 +425,22 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .finding-cell{display:flex;flex-direction:column;gap:4px}
 .finding-cell .claim{font-size:15px;font-weight:500;color:var(--ink);line-height:1.4}
 .finding-cell .claim .n{font-family:var(--mono);color:var(--faint);margin-right:8px}
-/* Change mark: the verifier's call that the most direct fix is in code the
-   change under test touched. The row is a link, so the tooltip also opens on
-   the row's keyboard focus rather than on a focusable mark. */
-.chg{position:relative;display:inline-block;margin-left:8px;font-size:15px;font-weight:var(--chg-weight);line-height:1;color:var(--accent-mark);cursor:help}
-.chg-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-.chg-tip{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:2px;width:max-content;max-width:340px;padding:7px 10px;border-radius:6px;background:var(--tip-bg);border:1px solid var(--tip-border);box-shadow:var(--chg-shadow);font-family:var(--sans);font-size:12px;font-weight:400;letter-spacing:0;line-height:1.45;color:var(--muted);text-align:left;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;z-index:5;transition:opacity .12s ease,visibility 0s linear .12s}
-.chg-tip b{font-weight:600;color:var(--tip-text)}
-.chg:hover .chg-tip,a.row:focus-visible .chg-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
-.chg-up .chg-tip{top:auto;bottom:calc(100% + 8px)}
-/* After a card's title: larger to hold its own beside the 24px title, in the
-   sans so it's the table's glyph, and focusable since the title is no link. */
-.chg-card{margin-left:10px;font-family:var(--sans);font-size:18px;vertical-align:baseline}
-.chg-card:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:3px}
-.chg-card:focus-visible .chg-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
-@media (prefers-reduced-motion:reduce){.chg-tip{transition:none}}
-.rate{text-align:right;font-family:var(--mono);font-size:13px;color:var(--body)}
+/* Origin: the verifier's judgement, from the diff, of where a confirmed
+   finding's fix likely goes. Rows are links, so the tooltip also opens on the
+   row's keyboard focus rather than on a focusable cell. */
+.og{position:relative;display:inline-block;cursor:help}
+.og-tip{position:absolute;top:calc(100% + 8px);left:0;display:flex;flex-direction:column;gap:2px;width:max-content;max-width:340px;padding:7px 10px;border-radius:6px;background:var(--tip-bg);border:1px solid var(--tip-border);box-shadow:var(--og-shadow);font-family:var(--sans);font-size:12px;font-weight:400;letter-spacing:0;line-height:1.45;color:var(--muted);text-align:left;text-transform:none;text-decoration:none;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;z-index:5;transition:opacity .12s ease,visibility 0s linear .12s}
+.og-tip b{font-weight:600;color:var(--tip-text)}
+.og-cell{font-size:13px;line-height:21px;color:var(--body)}
+.og-none{color:var(--faint)}
+.og-h{text-decoration:underline dotted;text-underline-offset:3px}
+.og-h:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:3px}
+.og-meta{font-size:12px;color:var(--muted);font-weight:400;text-decoration:underline dotted;text-decoration-color:currentColor;text-underline-offset:3px}
+.og-meta:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:3px}
+.og-up .og-tip{top:auto;bottom:calc(100% + 8px)}
+.og:hover .og-tip,.og:focus-visible .og-tip,a.row:focus-visible .og-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
+.og-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+@media (prefers-reduced-motion:reduce){.og-tip{transition:none}}
 .status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
 .status-check{stroke:var(--success)}
 .status.muted{color:var(--muted)}
@@ -922,7 +918,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.fv-m{display:none}
 	.fv-b{padding:0 7px}
 	.card{padding:20px}
-	.rate,.status{text-align:left;justify-content:flex-start}
+	.status{text-align:left;justify-content:flex-start}
 	.ki-st{align-items:flex-start;text-align:left}
 	.to-top{right:16px;bottom:16px}
 	h1.title{font-size:28px}

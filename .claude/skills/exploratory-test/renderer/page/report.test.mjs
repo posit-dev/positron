@@ -364,7 +364,7 @@ const issueCopied = (html, n) => issueBlock(html, n).replace(/<\\(?=\/script|!--
 const tiles = html => between(html, '<section class="tiles">', '</section>');
 const coverageOf = html => between(html, 'id="coverage"', '</section>');
 const findingsOf = html => between(html, 'id="findings"', '</section>');
-const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid">[\\s\\S]*?</a>(?=\\n)`).exec(html)?.[0] ?? '';
+const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid[^"]*">[\\s\\S]*?</a>(?=\\n)`).exec(html)?.[0] ?? '';
 const runDetails = html => between(html, '<details id="run-details">', '</details></section>');
 const footer = html => between(html, '<footer', '</footer>');
 const foldLabels = html => [...runDetails(html).matchAll(/<div class="fold-label">([^<]+)<\/div>/g)].map(m => m[1]).join(', ');
@@ -1018,7 +1018,11 @@ const LONG_LEDGER = ledgerOf([
 	...Array.from({ length: 12 }, (_, i) => [`N${String(i + 1).padStart(2, '0')}`, `skip ${i}`, 'later']),
 ]);
 const KNOWN = fullWith(1, { known: [15102, 14991] });
-const CHANGED = { ...FULL, verification: { ...FULL.verification, related: [1, 2] } };
+const ORIGINS = {
+	...FULL,
+	findings: [...FULL.findings, fnd(3, { title: 'a flaky claim', verified: 'confirmed', reproduced: { n: 2, m: 3 } }), fnd(4, { title: 'a disputed claim', verified: 'disputed' })],
+	verification: { ...FULL.verification, origin: { 1: 'introduced', 2: 'exposed', 4: 'inherited' } },
+};
 const USABLE = { usable: true, name: 'release/2026.10' };
 const ISSUE_REFS = [
 	{ number: 2330, kind: 'issue', state: 'open', title: 'Zoom spec', createdAt: '2026-08-20T00:00:00Z', summary: 'sizes' },
@@ -1141,18 +1145,22 @@ const SCENES = {
 		const json = { ...fullWith(1, { expected: 'it should have stopped, as #2330 says, since #8126.' }), verification: { failed: false, text: 'A second agent.\n\nSearches returned only #3698 (open).' } };
 		return [between(card(fullHtml(json, { issueRefs: ISSUE_REFS }), 1), '<div class="f-cmp', '</div></div>'), between(fullHtml(json, { issueRefs: ISSUE_REFS }), 'Searches returned', '</p>'), between(card(fullHtml(json), 1), '<div class="f-cmp', '</div></div>')].join('\n--\n');
 	},
-	'the change mark: a confirmed related finding on a run with a usable base, opening upward on the last row': () => findingsOf(fullHtml(CHANGED, { changeBase: USABLE })),
-	'no change mark on a disputed finding, without a usable base, or with no base recorded': () => [
-		findingRow(fullHtml({ ...CHANGED, findings: [CHANGED.findings[0], { ...CHANGED.findings[1], verified: 'disputed' }] }, { changeBase: USABLE }), 2),
-		findingRow(fullHtml(CHANGED, { changeBase: { usable: false, name: 'main' } }), 1),
-		findingRow(fullHtml(CHANGED), 1),
+	'the Origin column on a run with a usable base: a word per judged finding, a dash for one left out or not confirmed, Flaky on a partial repro, the last tooltip opening upward': () => findingsOf(fullHtml(ORIGINS, { changeBase: USABLE })),
+	'no Origin column without a usable base, or with no base recorded': () => [
+		between(findingsOf(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } })), '<div class="row row-head', '</div>'),
+		findingRow(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } }), 1),
+		findingRow(fullHtml(ORIGINS), 3),
 	].join('\n--\n'),
-	'a card with the change mark shows it after its title, focusable with the tooltip text as its label; other cards do not': () => {
-		const title = (html, n) => between(card(html, n), '<h2 class="card-title">', '</h2>');
-		const html = fullHtml({ ...CHANGED, findings: [CHANGED.findings[0], { ...CHANGED.findings[1], verified: 'disputed' }] }, { changeBase: USABLE });
-		return [title(html, 1), title(html, 2), title(fullHtml(CHANGED), 1)].join('\n--\n');
+	'a card shows its Origin word after the severity pill, focusable with its tooltip; a card with none shows nothing': () => {
+		const identity = (html, n) => between(card(html, n), '<span class="group identity">', '<span class="rule"');
+		const html = fullHtml(ORIGINS, { changeBase: USABLE });
+		return [identity(html, 1), identity(html, 3), identity(html, 4), identity(fullHtml(ORIGINS), 1)].join('\n--\n');
 	},
-	'a PR run\'s change mark says PR, and a base with no name says the base branch': () => findingRow(fullHtml({ ...CHANGED, header: { ...CHANGED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: { usable: true, name: null } }), 1),
+	'a PR run\'s Origin says PR, and a base with no name says the base branch': () => {
+		const html = fullHtml({ ...ORIGINS, header: { ...ORIGINS.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: { usable: true, name: null } });
+		return [between(findingsOf(html), '<div class="row row-head', '</div>'), findingRow(html, 1)].join('\n--\n');
+	},
+	'a fix that did not hold gets a dash, even with an origin': () => findingRow(render({ ...kiWith(1, { verified: 'confirmed' }), verification: { failed: false, text: 'x', origin: { 1: 'introduced' } } }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, changeBase: USABLE }), 1),
 
 	// Coverage.
 	'issues, then passes, then not run; passes past the first 4 collapse behind Show all': () => coverageOf(render(rep(), { ledger: LONG_LEDGER })),
