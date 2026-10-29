@@ -398,6 +398,9 @@ jobs:
             `npm exec --prefix extensions/positron-python -- tsc -p extensions/positron-python`,
             then run only the suites you need, with a regex such as `"<suite A>|<suite B>"`:
             `npm run --prefix extensions/positron-python test:unittests -- --grep "<suite title>"`.
+            Some test files print "failed" lines with stack traces when they load, even when they
+            don't match `--grep`. Ignore them; use only mocha's "passing"/"failing" summary. If it
+            says `0 passing`, your `--grep` matched no suite, so fix the pattern.
             Do not run either suite in full.
             positron-python has its own formatters, which `npm run precommit` does not run. Format
             each changed file in that area before you commit it: ruff when the kernel setup is
