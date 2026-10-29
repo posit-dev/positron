@@ -582,18 +582,18 @@ def test_inspect_property(value: property) -> None:
 
 
 @pytest.mark.parametrize(
-    "value",
+    ("value", "display_value"),
     [
-        np.array([1, 2, 3], dtype=np.int64),  # 1D
-        np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64),  # 2D
+        (np.array([1, 2, 3], dtype=np.int64), "[1,2,3]"),  # 1D
+        (np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64), "[[1,2,3],\n [4,5,6]]"),  # 2D
     ],
 )
-def test_inspect_numpy_array(value: np.ndarray) -> None:
+def test_inspect_numpy_array(value: np.ndarray, display_value: str) -> None:
     shape = value.shape
     display_shape = f"({shape[0]})" if len(shape) == 1 else str(tuple(shape))
     verify_inspector(
         value=value,
-        display_value=np.array2string(value, separator=","),
+        display_value=display_value,
         kind=VariableKind.Collection,
         display_type=f"numpy.int64 {display_shape}",
         type_info="numpy.ndarray",
@@ -615,6 +615,8 @@ def test_inspect_numpy_array(value: np.ndarray) -> None:
         (np.array([1 / 3, 10.0]), "[0.33333333,10.]"),
         (np.array([True, False]), "[True,False]"),
         (np.array([1 + 2j, 10 + 20j]), "[1.+2.j,10.+20.j]"),
+        (np.array([1, 100], dtype="m8[s]"), "[1,100]"),
+        (np.array(["2020-01-01", "NaT"], dtype="M8[D]"), "['2020-01-01','NaT']"),
         (np.array(["a b", "c"]), "['a b','c']"),
     ],
 )
@@ -632,7 +634,7 @@ def test_numpy_array_display_value_has_no_padding(value: np.ndarray, expected: s
 def test_inspect_numpy_array_0d(value: np.ndarray) -> None:
     verify_inspector(
         value=value,
-        display_value=np.array2string(value, separator=","),
+        display_value="1",
         kind=VariableKind.Number,
         display_type="numpy.int64",
         type_info="numpy.ndarray",

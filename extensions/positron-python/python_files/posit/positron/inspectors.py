@@ -746,9 +746,10 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
         # NumPy pads elements to align them, e.g. "[ 3,10]". With the compact
         # separator, the padding looks like a typo, so remove it. Elements of
         # these dtypes never contain spaces, so any space that is not line
-        # indentation is padding. A custom formatter would also remove the
-        # padding, but it loses NumPy's per-dtype formatting (e.g. float precision).
-        if self.value.dtype.kind in "biufcm":
+        # indentation is padding. Removing it afterwards, rather than formatting
+        # each element separately, keeps NumPy's array-wide format choices
+        # (e.g. scientific notation for every element).
+        if self.value.dtype.kind in "biufcmM":
             display_value = re.sub(r"(?<=\S) +", "", display_value)
         return display_value, True
 
