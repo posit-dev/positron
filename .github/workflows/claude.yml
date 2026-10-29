@@ -103,6 +103,8 @@ jobs:
 
       # Ack the trigger right away; the action's own progress comment takes a minute or more.
       # Reviews have no reactions API, so they get no ack.
+      # GitHub sometimes starts this workflow twice for one comment. The reactions API returns 200
+      # instead of 201 when our eyes reaction already exists, so the later run skips Claude.
       - name: Add eyes reaction
         id: ack
         env:
@@ -110,6 +112,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           COMMENT_ID: ${{ github.event.comment.id }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           case "$EVENT_NAME" in
             issue_comment) TARGET="issues/comments/${COMMENT_ID}" ;;
@@ -117,9 +120,19 @@ jobs:
             issues) TARGET="issues/${ISSUE_NUMBER}" ;;
             *) exit 0 ;;
           esac
+          if ! RESPONSE=$(gh api --include --method POST "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions" -f content=eyes); then
+            echo "Failed to add eyes reaction (non-fatal)"
+            RESPONSE=""
+          fi
+          STATUS=$(awk 'NR==1{print $2}' <<<"$RESPONSE")
+          # A manual re-run is never a duplicate, even if a crashed attempt left its reaction behind.
+          if [ "$STATUS" = "200" ] && [ "$RUN_ATTEMPT" = "1" ]; then
+            echo "::notice::Another run already handles this trigger; skipping Claude."
+            echo "duplicate=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
-          REACTION_ID=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions" \
-            -f content=eyes --jq '.id') || echo "Failed to add eyes reaction (non-fatal)"
+          REACTION_ID=$(sed '1,/^\r*$/d' <<<"$RESPONSE" | jq -r '.id // empty' 2>/dev/null) || REACTION_ID=""
           echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Generate token for GitHub App
@@ -174,12 +187,14 @@ jobs:
 
       - name: Setup Claude
         id: setup
+        if: steps.ack.outputs.duplicate != 'true'
         uses: ./.github/actions/setup-claude
         with:
           op-service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Run Claude Code Action
         id: claude
+        if: steps.ack.outputs.duplicate != 'true'
         uses: anthropics/claude-code-action@e4a6faad497d33dbc7144135c75e41f82f0bf6c0 # v1.0.255
         with:
           anthropic_api_key: ${{ steps.setup.outputs.anthropic-key }}
