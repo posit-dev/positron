@@ -742,7 +742,8 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
                 max_line_width=ARRAY_MAX_LINE_WIDTH,
                 threshold=ARRAY_THRESHOLD,
                 edgeitems=ARRAY_EDGEITEMS,
-                separator=",",
+                # Match the separator that repr() uses in a console.
+                separator=", ",
             ),
             True,
         )
