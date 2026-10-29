@@ -228,4 +228,16 @@ suite('Interpreters - selector', () => {
             );
         }
     });
+
+    // --- Start Positron ---
+    test('Should return no suggestions when there are no interpreters', async () => {
+        interpreterService
+            .setup((x) => x.getAllInterpreters(TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve([]));
+
+        const result = await selector.getAllSuggestions(undefined);
+
+        assert.deepStrictEqual(result, []);
+    });
+    // --- End Positron ---
 });
