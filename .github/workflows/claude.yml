@@ -326,6 +326,8 @@ jobs:
 
       - name: Setup Python test dependencies
         if: steps.python-setups.outputs.kernel == 'true' || steps.python-setups.outputs.extension == 'true'
+        # Optional extras: if this fails, Claude still runs and reports the tests it could not run.
+        continue-on-error: true
         uses: ./.github/actions/setup-claude-python-deps
         with:
           kernel: ${{ steps.python-setups.outputs.kernel }}

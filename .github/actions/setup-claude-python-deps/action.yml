@@ -34,6 +34,12 @@ runs:
         uv run --active scripts/vendor.py
         uv sync --active --inexact --frozen --project python_files/posit
 
+    # Claude's sandbox can't write the uv cache, and uv run locks it even with nothing to sync.
+    - name: Turn off the uv cache for Claude
+      if: inputs.kernel == 'true'
+      shell: bash
+      run: echo "UV_NO_CACHE=1" >> "$GITHUB_ENV"
+
     # --ignore-scripts skips postinstall (Python libs + PET download); the unit tests don't need it.
     - name: Install and compile positron-python
       if: inputs.extension == 'true'
