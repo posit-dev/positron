@@ -751,10 +751,7 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
         # padding afterwards, rather than formatting each element separately,
         # keeps NumPy's array-wide format choices (e.g. scientific notation for
         # every element).
-        if (
-            self.value.dtype.kind in "biufcmM"
-            and _numpy().get_printoptions()["formatter"] is None
-        ):
+        if self.value.dtype.kind in "biufcmM" and _numpy().get_printoptions()["formatter"] is None:
             display_value = re.sub(r"(?<=\S) +", "", display_value)
         return display_value, True
 
