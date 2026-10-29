@@ -206,7 +206,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
 	// When each language was recommended a new env in the workspace folder,
-	// which beats the console, affiliated and recent runtimes once their consoles stop, until
+	// which beats the affiliated and recent runtimes once their consoles stop, until
 	// a session requested after that starts.
 	private readonly _newFolderEnvTimes = new Map<string, number>();
 
@@ -1953,7 +1953,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const consoleSession = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
 		const activeConsole = consoleSession?.getRuntimeState() === RuntimeState.Exited ? undefined : consoleSession?.runtimeMetadata;
 		const preferred = choosePreferredRuntime({
-			activeConsole: this.unlessNewFolderEnv(languageId, activeConsole),
+			activeConsole,
 			affiliated: this.unlessNewFolderEnv(languageId, this.affiliationFor(languageId)),
 			recentlyStarted: this.unlessNewFolderEnv(languageId,
 				this._mostRecentlyStartedRuntimesByLanguageId.get(languageId)),
@@ -2278,8 +2278,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * `runtime`, unless a new env in the folder (e.g. a .venv made after a
 	 * global Python ran) was recommended since and `runtime`'s console no
-	 * longer runs. A console ended by `exit()` stays the language's console
-	 * and keeps its affiliation, so all three are checked.
+	 * longer runs. A console ended by `exit()` keeps its affiliation, so the
+	 * affiliation is checked too.
 	 */
 	private unlessNewFolderEnv(languageId: string, runtime: ILanguageRuntimeMetadata | undefined): ILanguageRuntimeMetadata | undefined {
 		if (runtime && this._newFolderEnvTimes.has(languageId) && !this.hasRunningConsole(runtime.runtimeId)) {
