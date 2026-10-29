@@ -5,8 +5,9 @@
 
 /// <reference types="vitest/globals" />
 
+import { AppError } from '../appError';
 import { AppOutput } from '../appOutput';
-import { AppController, AppError, AppInfo, AppRegistry, AppStatus, ReadOutputResult, RESULT_BUDGET, RunningApp, UNTRUSTED_NOTE } from '../appRegistry';
+import { AppController, AppInfo, AppRegistry, AppStatus, ReadOutputResult, RESULT_BUDGET, RunningApp, UNTRUSTED_NOTE } from '../appRegistry';
 
 /** Short enough to keep the suite fast, long enough not to race the fakes. */
 const TIMEOUT = 50;
@@ -356,31 +357,6 @@ describe('reading an app\'s output', () => {
 		app.failed({ name: 'Interrupted', message: 'The user interrupted the code execution.', traceback: [] });
 
 		expect(readOk(app.read({})).error).toEqual({ name: 'Interrupted', message: 'The user interrupted the code execution.', traceback: [] });
-	});
-
-	it('cuts a long error message and long frames, and keeps the start and end of a long traceback', () => {
-		const app = appWithOutput(shiny);
-		app.failed({
-			name: 'Error',
-			message: 'm'.repeat(5_000),
-			traceback: ['f'.repeat(5_000), ...Array.from({ length: 199 }, (_, i) => `frame ${i + 2}`)],
-		});
-
-		const { traceback, message } = readOk(app.read({})).error!;
-
-		expect({
-			message,
-			frames: traceback.length,
-			first: traceback[0],
-			around: traceback.slice(9, 12),
-			last: traceback.at(-1),
-		}).toEqual({
-			message: 'm'.repeat(1_000) + ' [truncated]',
-			frames: 51,
-			first: 'f'.repeat(1_000) + ' [truncated]',
-			around: ['frame 10', '[150 frames left out]', 'frame 161'],
-			last: 'frame 200',
-		});
 	});
 
 	it('pages back through every kept line once when the budget cuts each page short', () => {

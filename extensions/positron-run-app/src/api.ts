@@ -10,7 +10,8 @@ import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { log } from './extension';
 import { DebugAppOptions, PositronRunApp, PreviewMode, RunAppOptions, RunConsoleAppOptions } from './positron-run-app';
 import { AppUrlDetector } from './appUrlDetector';
-import { AppError, AppRegistry, AppSummary, ReadOutputResult, RunningApp, StopAppResult } from './appRegistry';
+import { toAppError } from './appError';
+import { AppRegistry, AppSummary, ReadOutputResult, RunningApp, StopAppResult } from './appRegistry';
 import { AppOutput, ReadOptions } from './appOutput';
 import { buildCommandLine, raceTimeout, SequencerByKey } from './utils';
 import { DAP_CONFIGURATION_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, LATE_URL_DETECTION_TIMEOUT, SHELL_INTEGRATION_TIMEOUT, STOP_APP_TIMEOUT } from './constants.js';
@@ -89,23 +90,6 @@ function readExecution(
 	// must not go unhandled. Callers that await it still see the rejection.
 	ended.catch(error => log.error(`Error reading terminal output: ${error}`));
 	return ended;
-}
-
-/**
- * The error that ended a console execution, as an agent reads it. The runtime's
- * error arrives as a plain object whose `stack` is its traceback; an `Error` is
- * from failing to run the code at all, and its JavaScript stack would be noise.
- */
-function toAppError(error: unknown): AppError {
-	if (error instanceof Error) {
-		return { name: error.name, message: error.message, traceback: [] };
-	}
-	const { name, message, stack } = (error ?? {}) as { name?: unknown; message?: unknown; stack?: unknown };
-	return {
-		name: typeof name === 'string' ? name : 'Error',
-		message: typeof message === 'string' ? message : String(error),
-		traceback: typeof stack === 'string' && stack ? stack.split('\n') : [],
-	};
 }
 
 function readDefaultPreviewMode(): PreviewMode {
