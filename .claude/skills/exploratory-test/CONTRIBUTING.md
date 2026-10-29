@@ -106,9 +106,12 @@ harness.
 decides, for each confirmed finding on PRs with a result comment, whether it
 was fixed in the PR, fixed later (on main, or its matching issue was closed
 as completed), filed as an issue (a matching issue opened after the run is
-still open), not fixed (the PR merged or closed with no fix found), or is
+still open), won't fix (the verifier matched it to an issue closed as not
+planned, or a matching issue opened after the run was closed that way), not
+fixed (the PR merged or closed with no fix found), or is
 pending while its PR is open. A filed issue counts as a finding acted on but
-not as a fix. It diffs the files the
+not as a fix. Won't fix is left out of the % fixed, like a change that never
+shipped: the team chose to leave the behavior. It diffs the files the
 finding's cause names and asks Opus (`--model` picks another) whether the
 change addresses it, on your own `claude` login. Older runs published only the page, so their findings are
 read from it. Read every "fixed" row before trusting the numbers.

@@ -1076,7 +1076,10 @@ const SCENES = {
 		return [between(card(html, 1), '<details class="lc regtest">', '</summary>'), promptText(html, 1)].join('\n--\n');
 	},
 	'a finding the verifier matched to an issue says Dupe? on its card, row and prompt': () => [card(fullHtml(KNOWN), 1), findingRow(fullHtml(KNOWN), 1), promptText(fullHtml(KNOWN), 1)].join('\n--\n'),
-	'a finding matched to a not-planned issue says Intended?': () => [card(fullHtml(fullWith(2, { intended: [14210] })), 2), promptText(fullHtml(fullWith(2, { intended: [14210] })), 2)].join('\n--\n'),
+	'a finding matched to a not-planned issue says Won\'t fix? on its card and row': () => {
+		const html = fullHtml(fullWith(2, { intended: [14210] }));
+		return [card(html, 2), findingRow(html, 2), promptText(html, 2)].join('\n--\n');
+	},
 	'a cause the verifier revised says so on the card, prompt and issue, and a revised observed does not': () => {
 		const html = render(rep({ findings: [fnd(1, { verified: 'confirmed', observed: 'The tab shows `Pytho...`.', cause: 'A width gate skips the dot.', corrected: ['cause', 'observed'], explorer: { cause: 'The CSS squeezes the dot.', observed: 'The tab shows its full name.' } })] }));
 		return [card(html, 1), promptText(html, 1), issueCopied(html, 1)].join('\n--\n');

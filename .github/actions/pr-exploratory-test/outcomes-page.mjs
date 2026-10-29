@@ -15,23 +15,25 @@ import { accordion, day, FONTS, footer, inlineJson, inlineScript, PAGES, rangeTe
 
 export { resolveRange, runUrl };
 
-// In this order everywhere. `group` is the evidence filter: fixed, filed, not fixed, not merged, or no outcome yet;
+// In this order everywhere, counted outcomes first. `group` is the evidence filter: fixed, filed, not fixed, won't fix, not merged, or no outcome yet;
 // `def` explains it under the bar, `brief` under its evidence group.
 const OUTCOMES = [
 	{ key: 'fixed-in-pr', label: 'Fixed in the PR', group: 'fixed', def: 'A commit pushed to the PR after the run fixed it.', brief: 'Fixed by a later commit on the PR.' },
 	{ key: 'fixed-later', label: 'Fixed later', group: 'fixed', def: 'Fixed on main after the merge, or its issue was closed as completed.', brief: 'Fixed on main after merging.' },
 	{ key: 'filed-issue', label: 'Filed as issue', group: 'filed', def: 'An issue matching the finding was opened after the run, and nothing has fixed it yet.', brief: 'Tracked in an issue, not fixed yet.' },
 	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged with no fix. Moves to Filed as issue or Fixed later if that happens afterwards.', brief: 'Merged without a fix.' },
+	{ key: 'wont-fix', label: 'Won\'t fix', group: 'wont-fix', def: 'A matching issue was closed as not planned, so the team chose to leave it.', brief: 'Its issue was closed as not planned.' },
 	{ key: 'didnt-ship', label: 'Not merged', group: 'didnt-ship', def: 'The code this finding was about never reached main: the PR closed, or merged without it.', brief: 'The code it was about never reached main.' },
 	{ key: 'pending', label: 'PR still open', group: 'open', def: 'The PR hasn\'t merged or closed yet.', brief: 'Waiting for the PR to merge or close.' },
 	{ key: 'unclear', label: 'Unclear', group: 'open', def: 'A check failed or the model couldn\'t say.', brief: 'Couldn\'t tell from the diff.' },
 	{ key: 'no-paths', label: 'No files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.', brief: 'No files named, so main couldn\'t be checked.' },
 ];
-const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['not', 'Not fixed'], ['didnt-ship', 'Not merged'], ['open', 'No outcome yet']];
+const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['not', 'Not fixed'], ['wont-fix', 'Won\'t fix'], ['didnt-ship', 'Not merged'], ['open', 'No outcome yet']];
 const DECIDED_BY = {
 	'diff+model': 'The diff, read by the model',
 	'issue+model': 'A matching issue, confirmed by the model',
 	'issue-closed': 'Its issue was closed as completed',
+	'issue-not-planned': 'A matching issue was closed as not planned',
 	'pr-open': 'PR is still open',
 	'merged-no-fix': 'Merged with no fix found',
 	'closed-unmerged': 'PR closed without merging',
@@ -45,6 +47,7 @@ const STEPS = [
 	[['pending'], 'Is the PR still open? Then nothing is decided yet. It\'s checked again on the next build.'],
 	[['fixed-in-pr'], 'Did the PR merge with commits pushed after the /explore run? The model reads that diff against the finding and decides whether it fixes it.'],
 	[['fixed-later'], 'After the PR merged or closed, did a commit on main change the files the finding names, and does the model judge it a fix? Or was the finding\'s issue closed as completed?'],
+	[['wont-fix'], 'Did the run match the finding to an issue closed as not planned, or was a matching issue opened after the run closed as not planned? The team chose to leave it, so it isn\'t counted.'],
 	[['filed-issue'], 'Was an issue opened after the run that matches the finding (confirmed by the model) and isn\'t fixed yet?'],
 	[['didnt-ship'], 'Did the PR close without merging, or merge without the code the finding is about? Then it never reached main, so it isn\'t counted.'],
 	[['unclear', 'no-paths'], 'A check failed or the model couldn\'t decide: Unclear. The finding names no files, so main can\'t be searched: No files named.'],
@@ -62,7 +65,7 @@ const codeSpans = text => escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const isFixed = r => r.outcome === 'fixed-in-pr' || r.outcome === 'fixed-later';
 // Outcomes in the % fixed; the rest are counted apart.
-const isCounted = o => o.group !== 'open' && o.group !== 'didnt-ship';
+const isCounted = o => o.group !== 'open' && o.group !== 'didnt-ship' && o.group !== 'wont-fix';
 
 /** Counts for `rows`; rows marked `dupOf` are dropped first. */
 export function summarize(rows) {
@@ -218,7 +221,7 @@ function evidence(own, s) {
 			+ `<div class="rows">${items.map(r => findingRow(r, ++n)).join('\n')}</div></div>`
 			: '';
 	}).join('\n');
-	const counts = { fixed: s.fixed, filed: s.counts['filed-issue'], not: s.counts['not-fixed'], 'didnt-ship': s.counts['didnt-ship'], open: s.notCounted - s.counts['didnt-ship'] };
+	const counts = { fixed: s.fixed, filed: s.counts['filed-issue'], not: s.counts['not-fixed'], 'wont-fix': s.counts['wont-fix'], 'didnt-ship': s.counts['didnt-ship'], open: s.notCounted - s.counts['wont-fix'] - s.counts['didnt-ship'] };
 	const filters = [`<button type="button" class="filter" data-filter="all" aria-pressed="true">All ${s.total}</button>`,
 	...FILTERS.filter(([k]) => counts[k]).map(([k, label]) => `<button type="button" class="filter" data-filter="${k}" aria-pressed="false">${label} ${counts[k]}</button>`)].join('');
 	const controls = `<div class="controls"><div role="group" aria-label="Filter by outcome">${filters}</div><button type="button" class="toggle-all">Expand all</button></div>`;
@@ -272,6 +275,7 @@ const CSS = `
 .o-unclear{background:#EEEBE4;color:#3A3833}
 .o-no-paths{background:#E6E2D9;color:#5A5751}
 .o-didnt-ship{background:#F5F4F0;color:#5A5751;border:1.5px solid #B5B1A7}
+.o-wont-fix{background:#ECE9E2;color:#5A5751;border:1.5px solid #CFC8BB}
 .how-steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;border-top:1px solid #2B2A27}
 .how-steps li{display:grid;grid-template-columns:22px minmax(150px,190px) minmax(0,1fr);gap:14px;align-items:baseline;padding:10px 0;border-bottom:1px solid #E4E1D9;line-height:1.5}
 .how-steps li:last-child{border-bottom:0}

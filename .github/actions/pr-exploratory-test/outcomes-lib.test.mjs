@@ -96,13 +96,27 @@ test('decideOutcome: a matching issue is filed as issue, carrying the issue, and
 	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open', 'no')] }).outcome, 'not-fixed');
 });
 
-test('decideOutcome: an issue closed as completed is fixed later; closed as not planned stays filed', () => {
+test('decideOutcome: an issue closed as completed is fixed later; closed as not planned is won\'t fix', () => {
 	const done = decideOutcome({ ...base, laterChecks: [issue('closed as completed')] });
 	assert.equal(done.outcome, 'fixed-later');
 	assert.equal(done.decidedBy, 'issue-closed');
 	assert.equal(done.issue.number, 9);
-	assert.equal(decideOutcome({ ...base, laterChecks: [issue('closed as not planned')] }).outcome, 'filed-issue');
+	assert.deepEqual(decideOutcome({ ...base, laterChecks: [issue('closed as not planned')] }),
+		{ outcome: 'wont-fix', decidedBy: 'issue-not-planned', evidence: 'issue #9: same bug', issue: issue('closed as not planned').issue });
+	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open'), issue('closed as not planned')] }).outcome, 'wont-fix');
 	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open'), issue('closed as completed')] }).outcome, 'fixed-later');
+	assert.equal(decideOutcome({ ...base, laterChecks: [issue('closed as not planned', 'no')] }).outcome, 'not-fixed');
+});
+
+test('decideOutcome: a match the run made to a not-planned issue is won\'t fix, even on an open PR, unless something fixed it', () => {
+	const intended = [{ number: 7, url: 'https://github.com/o/r/issues/7', state: 'closed as not planned' }];
+	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc'), intended }),
+		{ outcome: 'wont-fix', decidedBy: 'issue-not-planned', evidence: 'issue #7: the run matched it, closed as not planned', issue: intended[0] });
+	assert.equal(decideOutcome({ ...base, prState: 'open', intended }).outcome, 'wont-fix');
+	assert.equal(decideOutcome({ ...base, prState: 'closed', intended }).outcome, 'wont-fix');
+	assert.equal(decideOutcome({ ...base, laterChecks: [issue('open')], intended }).outcome, 'wont-fix');
+	assert.equal(decideOutcome({ ...base, prCheck: yes('commit abc'), intended }).outcome, 'fixed-in-pr');
+	assert.equal(decideOutcome({ ...base, laterChecks: [yes('main def')], intended }).outcome, 'fixed-later');
 });
 
 test('droppedPaths names the tested files the merged PR no longer changes, and none if it still changes any', () => {

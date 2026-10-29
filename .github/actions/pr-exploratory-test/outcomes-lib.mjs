@@ -123,8 +123,10 @@ export function droppedPaths({ paths, tested, merged }) {
 /**
  * One finding's outcome from its checks. `Check` is `{ answer, reason, source, cut? }`; a fix read from a cut diff keeps `cut`.
  * `dropped` is `droppedPaths` for a merged PR. A closed PR or a dropped change didn't ship, so even a fix in the PR doesn't count.
+ * `intended` is the issues (as `issueOf` gives them) the run matched that were closed as not planned. Such a match, or a matching issue
+ * closed as not planned after the run, is won't fix: the team chose to leave it, so only a fix beats it.
  */
-export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped = [] }) {
+export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped = [], intended = [] }) {
 	const cutOf = c => c.cut ? { cut: true } : {};
 	if (prCheck?.answer === 'yes' && prState !== 'closed') {
 		return { outcome: 'fixed-in-pr', decidedBy: 'diff+model', evidence: evidenceOf(prCheck), ...cutOf(prCheck) };
@@ -137,6 +139,13 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped
 	const done = yesLater.find(c => c.issue?.state === 'closed as completed');
 	if (done) {
 		return { outcome: 'fixed-later', decidedBy: 'issue-closed', evidence: evidenceOf(done), issue: done.issue };
+	}
+	const notPlanned = yesLater.find(c => c.issue?.state === 'closed as not planned');
+	if (notPlanned) {
+		return { outcome: 'wont-fix', decidedBy: 'issue-not-planned', evidence: evidenceOf(notPlanned), issue: notPlanned.issue };
+	}
+	if (intended.length) {
+		return { outcome: 'wont-fix', decidedBy: 'issue-not-planned', evidence: `issue #${intended[0].number}: the run matched it, closed as not planned`, issue: intended[0] };
 	}
 	if (prState === 'open') {
 		return { outcome: 'pending', decidedBy: 'pr-open', evidence: '' };
