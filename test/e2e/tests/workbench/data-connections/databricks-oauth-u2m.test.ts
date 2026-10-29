@@ -5,8 +5,8 @@
 
 import { expect, Locator, Page } from '@playwright/test';
 import { test, tags } from '../../_test.setup';
-import { generateTOTP } from '../../../utils/totp.js';
-import { isOktaLockedOut, otpRetryDelayMs } from '../../../utils/otpRetry.js';
+import { Logger } from '../../../infra/logger.js';
+import { installPasskey, OktaPasskeyCredentials, readPositronServiceAccountCredentials, selectPasskeyFactor } from '../../../utils/oktaSignIn.js';
 
 test.use({
 	suiteId: __filename,
@@ -24,11 +24,9 @@ test.describe('Data Connections - Databricks OAuth U2M', {
 		test.setTimeout(300_000);
 		const host = process.env.DATABRICKS_URL ? new URL(process.env.DATABRICKS_URL).host : '';
 		const httpPath = process.env.DATABRICKS_HTTP_PATH || '';
-		const email = process.env.IDE_SERVICE_ACCOUNT_EMAIL;
-		const password = process.env.IDE_SERVICE_ACCOUNT_PASSWORD;
-		const otpSecret = process.env.IDE_SERVICE_ACCOUNT_OTP_SECRET;
-		test.skip(!host || !httpPath || !email || !password || !otpSecret,
-			'Needs DATABRICKS_URL, DATABRICKS_HTTP_PATH, and the IDE_SERVICE_ACCOUNT_* credentials');
+		const passkeyCredential = process.env.POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL;
+		test.skip(!host || !httpPath || !passkeyCredential,
+			'Needs DATABRICKS_URL, DATABRICKS_HTTP_PATH, and the POSITRON_SERVICE_ACCOUNT_* credentials');
 
 		const { dataConnections, quickInput } = app.workbench;
 		const page = app.code.driver.currentPage;
@@ -73,7 +71,7 @@ test.describe('Data Connections - Databricks OAuth U2M', {
 				}
 			});
 
-			await signInWithSso(popup, () => authorizeUrl, callbackUrl, { email: email!, password: password!, otpSecret: otpSecret! }, app.code.logger);
+			await signInWithSso(popup, () => authorizeUrl, callbackUrl, readPositronServiceAccountCredentials(), app.code.logger);
 			const callback = await Promise.race([
 				callbackUrl,
 				popup.waitForTimeout(90_000).then(() => { throw new Error('No redirect to the callback within 90s'); }),
@@ -99,9 +97,10 @@ test.describe('Data Connections - Databricks OAuth U2M', {
 
 /**
  * Signs in on the Databricks login page through "Continue with SSO", which federates to
- * posit.okta.com: password, then a TOTP code. Mirrors the Workbench auth page's Azure flow.
+ * posit.okta.com: password, then the Positron service account's passkey, answered by a virtual
+ * authenticator (see oktaSignIn.ts). Mirrors the Workbench auth page's Azure flow.
  */
-async function signInWithSso(popup: Page, authorizeUrl: () => string, callbackUrl: Promise<string>, account: { email: string; password: string; otpSecret: string }, logger: { log(message: string): void }): Promise<void> {
+async function signInWithSso(popup: Page, authorizeUrl: () => string, callbackUrl: Promise<string>, account: OktaPasskeyCredentials, logger: Logger): Promise<void> {
 	const step = (name: string) => logger.log(`[u2m] ${name}: ${popup.url().split('?')[0]}`);
 	// Databricks may answer the authorize request by redirecting to the callback at once (an
 	// OAuth error, or a session it already trusts); the caller reads that callback, so stop here.
@@ -126,6 +125,7 @@ async function signInWithSso(popup: Page, authorizeUrl: () => string, callbackUr
 	}
 	await sso.click();
 	await popup.waitForURL(/okta\.com/, { timeout: 60_000 });
+	await installPasskey(popup, account.passkeyCredential);
 	await popup.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => { });
 	step('okta');
 
@@ -142,32 +142,9 @@ async function signInWithSso(popup: Page, authorizeUrl: () => string, callbackUr
 	await popup.getByRole('button', { name: /^(Verify|Next|Sign in)$/ }).first().click();
 	step('after-password');
 
-	// Okta may offer a choice of factors before the code field.
-	const codeFactor = popup.getByRole('link', { name: /Google Authenticator|Enter a code|Okta Verify/ }).first();
-	if (await codeFactor.isVisible({ timeout: 10_000 }).catch(() => false)) {
-		await codeFactor.click();
-		step('after-factor');
-	}
-
-	const otpField = popup.locator('input[autocomplete="one-time-code"], input[name="credentials.passcode"], input[type="tel"]').first();
-	await expect(otpField).toBeVisible({ timeout: 30_000 });
-	await popup.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => { });
-	for (let attempt = 1; attempt <= 3; attempt++) {
-		await typeInto(otpField, generateTOTP(account.otpSecret));
-		await popup.getByRole('button', { name: /^Verify$/ }).first().click();
-		const left = await popup.waitForURL(url => !url.hostname.endsWith('okta.com'), { timeout: 45_000 }).then(() => true, () => false);
-		if (left) {
-			break;
-		}
-		if (attempt === 3) {
-			throw new Error('OTP authentication failed after 3 attempts');
-		}
-		const lockedOut = await isOktaLockedOut(popup);
-		const delay = otpRetryDelayMs(lockedOut);
-		logger.log(`[u2m] OTP not accepted (attempt ${attempt}/3, lockedOut=${lockedOut}); backing off ${delay}ms`);
-		await popup.waitForTimeout(delay);
-	}
-	step('after-otp');
+	await selectPasskeyFactor(popup, logger, 'u2m');
+	await popup.waitForURL(url => !url.hostname.endsWith('okta.com'), { timeout: 45_000 });
+	step('after-passkey');
 
 	// Databricks may ask the user to approve the app before redirecting.
 	const consent = popup.getByRole('button', { name: /^(Allow|Authorize|Continue|Accept)$/ });
