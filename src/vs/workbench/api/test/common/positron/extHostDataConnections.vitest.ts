@@ -6,6 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import type * as positron from 'positron';
+import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ExtHostDataConnections } from '../../../common/positron/extHostDataConnections.js';
 import { IMainPositronContext, MainThreadDataConnectionsShape } from '../../../common/positron/extHost.positron.protocol.js';
@@ -469,5 +471,102 @@ describe('ExtHostDataConnections unregistering a driver', () => {
 			answeredBy: ['new'],
 			removalsAfterCurrentDispose: [['test-driver']],
 		});
+	});
+});
+
+describe('ExtHostDataConnections node handles', () => {
+	const group = (): positron.DataConnectionNode => ({
+		name: 'Tables',
+		kind: 'group-tables' as positron.DataConnectionNodeKind,
+		getChildren: async () => [{ name: 'orders', kind: 'table' as positron.DataConnectionNodeKind }],
+	});
+
+	it('frees every node handle on an ordinary top-level fetch, which is a refresh', async () => {
+		const { extHost, connectionHandle, dtos } = await connectWithNodes([group()]);
+
+		await extHost.$connectionGetChildren(connectionHandle);
+
+		await expect(extHost.$nodeGetChildren(connectionHandle, dtos[0].nodeHandle))
+			.rejects.toThrow('does not support getChildren');
+	});
+
+	it('keeps the handles already handed out when a walk beside the tree fetches the top level', async () => {
+		// The schema summary walks the tree while the Data Connections pane holds handles into it.
+		const { extHost, connectionHandle, dtos } = await connectWithNodes([group()]);
+
+		const walked = await extHost.$connectionGetChildren(connectionHandle, true);
+		const children = await extHost.$nodeGetChildren(connectionHandle, dtos[0].nodeHandle);
+		extHost.$releaseNodes(connectionHandle, walked.map(dto => dto.nodeHandle));
+
+		expect(children.map(child => child.name)).toEqual(['orders']);
+		await expect(extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle))
+			.rejects.toThrow('does not support getChildren');
+	});
+
+	it('keeps a walk\'s handles when the tree refreshes between two of its levels', async () => {
+		// The Data Connections pane refreshes when a connection is expanded, reloaded or revealed,
+		// whatever a schema read beside it is doing.
+		const { extHost, connectionHandle } = await connectWithNodes([group()]);
+
+		const walked = await extHost.$connectionGetChildren(connectionHandle, true);
+		await extHost.$connectionGetChildren(connectionHandle);
+		const children = await extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle);
+
+		expect(children.map(child => child.name)).toEqual(['orders']);
+	});
+
+	it('frees a walk\'s handles when it releases them after failing partway', async () => {
+		const failing: positron.DataConnectionNode = {
+			name: 'Broken',
+			kind: 'group-tables' as positron.DataConnectionNodeKind,
+			getChildren: async () => { throw new Error('connection lost'); },
+		};
+		const { extHost, connectionHandle } = await connectWithNodes([group(), failing]);
+
+		const walked = await extHost.$connectionGetChildren(connectionHandle, true);
+		const children = await extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle);
+		await expect(extHost.$nodeGetChildren(connectionHandle, walked[1].nodeHandle)).rejects.toThrow('connection lost');
+		const collected = [...walked, ...children].map(dto => dto.nodeHandle);
+		extHost.$releaseNodes(connectionHandle, collected);
+		// A refresh after the release keeps nothing of the walk.
+		await extHost.$connectionGetChildren(connectionHandle);
+
+		await expect(extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle))
+			.rejects.toThrow('does not support getChildren');
+	});
+});
+
+describe('ExtHostDataConnections getSchema', () => {
+	const schema = { nodes: [], truncated: false };
+
+	it('rejects as soon as the token is cancelled, without waiting for the walk to answer', async () => {
+		// The main thread only looks at the token before each query, so its answer can come late.
+		let answer!: (walk: typeof schema) => void;
+		const extHost = createExtHost({
+			$getDataConnectionSchema: () => new Promise(resolve => answer = resolve),
+		});
+		const source = new CancellationTokenSource();
+
+		const read = extHost.getSchema('p', {}, source.token);
+		source.cancel();
+		answer(schema);
+
+		await expect(read).rejects.toThrow(CancellationError);
+		source.dispose();
+	});
+
+	it('does not start a walk for a token already cancelled', async () => {
+		const walk = vi.fn(async () => schema);
+		const extHost = createExtHost({ $getDataConnectionSchema: walk });
+
+		await expect(extHost.getSchema('p', {}, CancellationToken.Cancelled)).rejects.toThrow(CancellationError);
+		expect(walk).not.toHaveBeenCalled();
+	});
+
+	it('answers with the schema when nothing cancels it', async () => {
+		const extHost = createExtHost({ $getDataConnectionSchema: async () => schema });
+
+		await expect(extHost.getSchema('p', {}, CancellationToken.None))
+			.resolves.toEqual({ profileId: 'p', nodes: [], truncated: false });
 	});
 });

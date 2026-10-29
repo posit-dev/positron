@@ -6,7 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { summarizeDataConnectionSchema } from '../../common/dataConnectionSchemaSummary.js';
+import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { summarizeDataConnectionSchema, walkDataConnectionSchema } from '../../common/dataConnectionSchemaSummary.js';
 import { IDataConnectionNodeDTO } from '../../common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionHandle } from '../../common/interfaces/dataConnectionDriver.js';
 
@@ -19,6 +20,8 @@ interface IFakeSchemaNode {
 	dataType?: string;
 	isPrimaryKey?: boolean;
 	children?: IFakeSchemaNode[];
+	// Set to make listing this node's children fail, as a driver losing its connection would.
+	failsWith?: string;
 }
 
 // Builds a fake IDataConnectionHandle backed by an in-memory tree, assigning each node a
@@ -27,14 +30,24 @@ interface IFakeSchemaNode {
 // `expanded`, when supplied, collects the name of every node the walk asked to expand. Expanding a
 // node is a round-trip to the driver, so a test can assert that a node was summarized without its
 // children being listed at all.
-function createFakeHandle(roots: IFakeSchemaNode[], connectionHandle = 1, expanded: string[] = []): IDataConnectionHandle {
+function createFakeHandle(
+	roots: IFakeSchemaNode[],
+	connectionHandle = 1,
+	expanded: string[] = [],
+	calls: { retained: (boolean | undefined)[]; released: number[]; handedOut?: number[] } = { retained: [], released: [] },
+): IDataConnectionHandle {
 	let nextNodeHandle = 1;
 	const childrenByNodeHandle = new Map<number, IFakeSchemaNode[]>();
 	const nameByNodeHandle = new Map<number, string>();
+	const failureByNodeHandle = new Map<number, string>();
 
 	const toDto = (node: IFakeSchemaNode): IDataConnectionNodeDTO => {
 		const nodeHandle = nextNodeHandle++;
+		calls.handedOut?.push(nodeHandle);
 		nameByNodeHandle.set(nodeHandle, node.name);
+		if (node.failsWith) {
+			failureByNodeHandle.set(nodeHandle, node.failsWith);
+		}
 		if (node.children) {
 			childrenByNodeHandle.set(nodeHandle, node.children);
 		}
@@ -52,9 +65,17 @@ function createFakeHandle(roots: IFakeSchemaNode[], connectionHandle = 1, expand
 
 	return stubInterface<IDataConnectionHandle>({
 		handle: connectionHandle,
-		getChildren: async () => roots.map(toDto),
+		getChildren: async options => {
+			calls.retained.push(options?.retainNodes);
+			return roots.map(toDto);
+		},
+		releaseNodes: nodeHandles => { calls.released.push(...nodeHandles); },
 		nodeGetChildren: async (nodeHandle: number) => {
 			expanded.push(nameByNodeHandle.get(nodeHandle) ?? `#${nodeHandle}`);
+			const failure = failureByNodeHandle.get(nodeHandle);
+			if (failure) {
+				throw new Error(failure);
+			}
 			return (childrenByNodeHandle.get(nodeHandle) ?? []).map(toDto);
 		},
 	});
@@ -72,6 +93,59 @@ function createChain(depth: number, kind = 'database'): IFakeSchemaNode {
 }
 
 describe('summarizeDataConnectionSchema', () => {
+	it('leaves the handles the Data Connections pane holds alone, and frees every one of its own', async () => {
+		// The walk shares the connection's node handles with the pane. An ordinary top-level fetch
+		// frees them all, which left an expanded "Tables" row unable to expand again.
+		const calls = { retained: [] as (boolean | undefined)[], released: [] as number[] };
+		const handle = createFakeHandle([
+			{ name: 'Tables', kind: 'groupTables', children: [{ name: 'orders', kind: 'table', children: [{ name: 'id', kind: 'field' }] }] },
+		], 1, [], calls);
+
+		await summarizeDataConnectionSchema(handle);
+
+		expect({ retained: calls.retained, released: [...calls.released].sort((a, b) => a - b) })
+			.toEqual({ retained: [true], released: [1, 2, 3] });
+	});
+
+	it('frees every handle it was given when a fetch fails partway through the walk', async () => {
+		// A walk that throws is still holding handles the ext host keeps through the pane's
+		// refreshes; left unreleased, they would stay until the connection closes.
+		const calls = { retained: [] as (boolean | undefined)[], released: [] as number[], handedOut: [] as number[] };
+		const handle = createFakeHandle([
+			{ name: 'Tables', kind: 'groupTables', children: [{ name: 'orders', kind: 'table', children: [{ name: 'id', kind: 'field' }] }] },
+			{ name: 'Views', kind: 'groupViews', children: [], failsWith: 'connection lost' },
+		], 1, [], calls);
+
+		await expect(summarizeDataConnectionSchema(handle)).rejects.toThrow('connection lost');
+
+		expect([...calls.released].sort((a, b) => a - b)).toEqual(calls.handedOut);
+	});
+
+	it('stops at its next fetch once cancelled, and frees what it was given', async () => {
+		const calls = { retained: [] as (boolean | undefined)[], released: [] as number[], handedOut: [] as number[] };
+		const expanded: string[] = [];
+		const fake = createFakeHandle([
+			{ name: 'Tables', kind: 'groupTables', children: [{ name: 'orders', kind: 'table', children: [] }] },
+		], 1, expanded, calls);
+		const cancellation = new CancellationTokenSource();
+		// Cancelled between the top level and the first level below it.
+		const handle = stubInterface<IDataConnectionHandle>({
+			handle: 1,
+			getChildren: async options => {
+				const children = await fake.getChildren(options);
+				cancellation.cancel();
+				return children;
+			},
+			nodeGetChildren: nodeHandle => fake.nodeGetChildren(nodeHandle),
+			releaseNodes: nodeHandles => fake.releaseNodes(nodeHandles),
+		});
+
+		await expect(walkDataConnectionSchema(handle, undefined, cancellation.token)).rejects.toThrow('Canceled');
+
+		expect({ expanded, released: calls.released }).toEqual({ expanded: [], released: calls.handedOut });
+		cancellation.dispose();
+	});
+
 	it('returns an empty summary for a connection with no schema', async () => {
 		const handle = createFakeHandle([], 42);
 

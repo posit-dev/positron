@@ -1,0 +1,206 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { ConnectionRef, EMPTY_SCHEMA, SqlSchema, SqlTable } from './schema';
+
+/**
+ * The table metadata read from the user's connections, indexed for the lookups the editor
+ * features run against it.
+ *
+ * Identifiers are matched case insensitively. Most engines fold unquoted identifiers to one case,
+ * the case a connection reports is not necessarily the case the user typed, and a completion list
+ * that goes empty because someone wrote `FROM customers` against a `CUSTOMERS` table is worse than
+ * the rare wrong match on an engine that really is case sensitive.
+ */
+export class SchemaIndex {
+
+	private readonly _byName = new Map<string, SqlTable[]>();
+
+	/**
+	 * Namespace parts that can qualify a table, e.g. the `sales` of `sales.orders`. Kept as a
+	 * folded-name to display-case map, so completing a qualifier offers the case the connection
+	 * uses rather than the case it was looked up by.
+	 */
+	private readonly _namespaces = new Map<string, string>();
+
+	/**
+	 * @param _schema What the connection reported.
+	 * @param _defaultSchema The schema the engine reads an unqualified name from -- `main` in
+	 *   DuckDB, `public` in PostgreSQL -- if it has a fixed one. Decides which table an unqualified
+	 *   name means when several schemas have one by that name, and which tables a completion has to
+	 *   qualify.
+	 */
+	constructor(
+		private readonly _schema: SqlSchema = EMPTY_SCHEMA,
+		private readonly _defaultSchema?: string,
+	) {
+		for (const table of _schema.tables) {
+			const key = fold(table.name);
+			const existing = this._byName.get(key);
+			if (existing) {
+				existing.push(table);
+			} else {
+				this._byName.set(key, [table]);
+			}
+
+			for (const part of [table.catalog, table.schema]) {
+				if (part && !this._namespaces.has(fold(part))) {
+					this._namespaces.set(fold(part), part);
+				}
+			}
+		}
+	}
+
+	public get tables(): readonly SqlTable[] {
+		return this._schema.tables;
+	}
+
+	/**
+	 * The connections these tables came from.
+	 *
+	 * What a message about a name should say it was looked for in: with a file scoped to one
+	 * database, "not in the connected data connections" names a set of one and sounds like it
+	 * searched more than it did.
+	 */
+	public get connections(): readonly ConnectionRef[] {
+		return this._schema.connections;
+	}
+
+	/** Whether anything at all is known, which decides whether there is a list to offer. */
+	public get isEmpty(): boolean {
+		return this._schema.tables.length === 0;
+	}
+
+	/**
+	 * Whether the schema is a full picture, and so can be used to judge a table name unknown. A
+	 * column is judged against its own table instead; see {@link columnsComplete}.
+	 *
+	 * A schema with no tables (nothing connected), or one where any connection it covers was read
+	 * only in part (more tables than the node caps allow, or a read that failed), cannot tell a
+	 * name that is wrong from one it simply never saw, and guessing wrong here means squiggles on
+	 * SQL the user knows is correct.
+	 */
+	public get isComplete(): boolean {
+		return !this.isEmpty && this._schema.incompleteProfiles.length === 0;
+	}
+
+	/**
+	 * Whether a table's column list is the whole of it, and so can be used to judge a column
+	 * unknown.
+	 *
+	 * Finer than {@link isComplete}: a read cut short by the node caps usually still has every
+	 * column of most of the tables it reached, and what it lacks is tables. A table that does not
+	 * say -- one built by a test, say -- is as complete as its connection's read.
+	 */
+	public columnsComplete(table: SqlTable): boolean {
+		return table.columnsComplete
+			?? (table.profileId === undefined || !this._schema.incompleteProfiles.includes(table.profileId));
+	}
+
+	/** Whether any table was reported under a catalog or a schema, rather than at the root. */
+	public get hasNamespaces(): boolean {
+		return this._namespaces.size > 0;
+	}
+
+	/**
+	 * Whether an unqualified name reads this table: it is in the engine's default schema, or the
+	 * engine has none this knows of, or it has no schema at all.
+	 */
+	public isDefault(table: SqlTable): boolean {
+		return this._defaultSchema === undefined
+			|| table.schema === undefined
+			|| fold(table.schema) === fold(this._defaultSchema);
+	}
+
+	/** Whether a name is the catalog or schema of some known table. */
+	public isNamespace(name: string): boolean {
+		return this._namespaces.has(fold(name));
+	}
+
+	/** Every known table with the given unqualified name. */
+	public tablesNamed(name: string): readonly SqlTable[] {
+		return this._byName.get(fold(name)) ?? [];
+	}
+
+	/**
+	 * Every known table matching a reference, which may name only part of its namespace.
+	 *
+	 * A reference that omits a namespace part matches tables regardless of that part, so
+	 * `FROM orders` finds `sales.orders`. A reference that names one only matches tables that
+	 * agree on it. An unqualified name that several schemas have reads the one in the default
+	 * schema, as the engine would, when one of them is there.
+	 */
+	public resolve(name: string, schema?: string, catalog?: string): readonly SqlTable[] {
+		let matches = this.tablesNamed(name);
+		if (schema === undefined && catalog === undefined && matches.length > 1) {
+			const preferred = matches.filter(table => this.isDefault(table));
+			if (preferred.length > 0) {
+				matches = preferred;
+			}
+		}
+		if (schema !== undefined) {
+			// Either level, because a two-part name is `schema.table` on most engines and
+			// `catalog.table` on the ones with no schema level at all.
+			matches = matches.filter(table =>
+				fold(table.schema ?? '') === fold(schema) || fold(table.catalog ?? '') === fold(schema));
+		}
+		if (catalog !== undefined) {
+			matches = matches.filter(table => fold(table.catalog ?? '') === fold(catalog));
+		}
+		return matches;
+	}
+
+	/**
+	 * Every known table whose catalog or schema is the given name, or, given a catalog as well,
+	 * every table in that schema of that catalog: the `warehouse.sales.` of a three-part name.
+	 */
+	public tablesInNamespace(name: string, catalog?: string): readonly SqlTable[] {
+		if (catalog !== undefined) {
+			return this._schema.tables.filter(table =>
+				fold(table.schema ?? '') === fold(name) && fold(table.catalog ?? '') === fold(catalog));
+		}
+		return this._schema.tables.filter(table =>
+			fold(table.schema ?? '') === fold(name) || fold(table.catalog ?? '') === fold(name));
+	}
+
+	/**
+	 * The fewest leading namespace parts a reference to a table needs to name it and nothing else:
+	 * none for a table an unqualified name reads, its schema for one outside the default schema,
+	 * and its catalog too when another catalog has a table under the same schema and name.
+	 *
+	 * Inserting less than this lets the engine bind the name to a different table than the one the
+	 * user picked.
+	 */
+	public namespaceFor(table: SqlTable): string[] {
+		const reads = (matches: readonly SqlTable[]) => matches.length === 1 && matches[0] === table;
+		if (this.isDefault(table) && reads(this.resolve(table.name))) {
+			return [];
+		}
+		if (table.schema !== undefined && reads(this.resolve(table.name, table.schema))) {
+			return [table.schema];
+		}
+		return [table.catalog, table.schema].filter((part): part is string => !!part);
+	}
+}
+
+/** The dotted name of a table, using whichever namespace parts the connection reported. */
+export function qualifiedName(table: SqlTable): string {
+	return [table.catalog, table.schema, table.name].filter(part => part).join('.');
+}
+
+/**
+ * The dotted name of a table as a message should show it: a part that is not a plain identifier
+ * quoted, so `main."Order Items"` reads as two parts rather than as a sentence.
+ */
+export function displayName(table: SqlTable): string {
+	return [table.catalog, table.schema, table.name]
+		.filter((part): part is string => !!part)
+		.map(part => /^[A-Za-z_][A-Za-z0-9_]*$/.test(part) ? part : `"${part.replace(/"/g, '""')}"`)
+		.join('.');
+}
+
+function fold(name: string): string {
+	return name.toLowerCase();
+}

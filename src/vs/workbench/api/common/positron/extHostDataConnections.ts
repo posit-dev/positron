@@ -6,6 +6,9 @@
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverSummaryDTO, IDataConnectionLineageDTO, IDataConnectionLineageEdgeDTO, IDataConnectionLineageObjectDTO, IDataConnectionLineageRequestDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { raceCancellationError } from '../../../../base/common/async.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../base/common/errors.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../extHostTypes.js';
 
@@ -160,7 +163,9 @@ function lineageToDTO(lineage: positron.DataConnectionLineage): IDataConnectionL
  *   driver tells the main thread, which disconnects and releases that driver's connections.
  * - Node handles are created each time getChildren returns and are stored per-connection.
  *   They are bulk-cleared when $connectionGetChildren is called (top-level refresh) or
- *   when $releaseConnection frees the entire connection.
+ *   when $releaseConnection frees the entire connection. A walk that runs beside the pane --
+ *   the schema summary -- fetches the top level with `retainNodes`, which leaves the pane's
+ *   handles alone, and frees exactly its own with $releaseNodes.
  */
 export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnectionsShape {
 
@@ -182,6 +187,14 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	 * without serializing the node objects themselves.
 	 */
 	private readonly _nodes = new Map<number, Map<number, positron.DataConnectionNode>>();
+
+	/**
+	 * Per-connection handles that a `retainNodes` walk holds: the walk's top level and everything
+	 * fetched beneath it. A plain top-level fetch -- the Data Connections pane refreshing -- frees
+	 * every other handle but keeps these, so a walk that is between two levels when the pane
+	 * refreshes can still call back into the nodes it has. Freed by `$releaseNodes`.
+	 */
+	private readonly _retained = new Map<number, Set<number>>();
 
 	/** Fires when the user's connections change; see {@link onDidChangeConnections}. */
 	private readonly _onDidChangeConnections = new Emitter<void>();
@@ -222,12 +235,21 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	 *
 	 * One call rather than a tree to walk, because walking costs a round trip per node. Resolves
 	 * to `undefined` when the profile has no live connection.
+	 *
+	 * @param token Cancelling it cancels the call, which stops the walk on the main thread.
 	 */
 	public async getSchema(
 		profileId: string,
 		options: positron.DataConnectionSchemaOptions = {},
+		token: CancellationToken = CancellationToken.None,
 	): Promise<positron.DataConnectionSchema | undefined> {
-		const walk = await this._proxy.$getDataConnectionSchema(profileId, options);
+		if (token.isCancellationRequested) {
+			throw new CancellationError();
+		}
+		// Raced rather than awaited: the main thread only looks at the token before each query, so
+		// its reply can come a query later than the cancellation, or carry a schema the caller has
+		// already given up on. It still frees the walk's handles when the walk does stop.
+		const walk = await raceCancellationError(this._proxy.$getDataConnectionSchema(profileId, options, token), token);
 		if (!walk) {
 			return undefined;
 		}
@@ -426,19 +448,60 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 	/**
 	 * Gets the top-level children of a connection. Clears any previously cached node handles for
-	 * this connection since a top-level call implies a full tree refresh.
+	 * this connection since a top-level call implies a full tree refresh -- unless `retainNodes`
+	 * says the caller is walking beside the tree rather than refreshing it, whose handles must
+	 * survive.
 	 */
-	async $connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]> {
+	async $connectionGetChildren(connectionHandle: number, retainNodes = false): Promise<IDataConnectionNodeDTO[]> {
 		const connection = this._connections.get(connectionHandle);
 		if (!connection) {
 			throw new Error(`Connection handle ${connectionHandle} not found`);
 		}
 
-		// Clear existing node handles to prevent unbounded growth on refresh.
-		this._nodes.set(connectionHandle, new Map());
+		// Clear existing node handles to prevent unbounded growth on refresh, except those a walk
+		// beside the tree still holds.
+		const nodeMap = this._nodes.get(connectionHandle);
+		if (!retainNodes || !nodeMap) {
+			const retained = this._retained.get(connectionHandle);
+			this._nodes.set(connectionHandle, new Map(nodeMap && retained
+				? [...retained].flatMap(nodeHandle => {
+					const node = nodeMap.get(nodeHandle);
+					return node ? [[nodeHandle, node] as const] : [];
+				})
+				: []));
+		}
 
 		const children = await connection.getChildren();
-		return this._serializeNodes(connectionHandle, children);
+		const dtos = this._serializeNodes(connectionHandle, children);
+		if (retainNodes) {
+			this._retain(connectionHandle, dtos);
+		}
+		return dtos;
+	}
+
+	/** Frees the node handles a `retainNodes` walk collected. Unknown handles are ignored. */
+	$releaseNodes(connectionHandle: number, nodeHandles: number[]): void {
+		const nodeMap = this._nodes.get(connectionHandle);
+		const retained = this._retained.get(connectionHandle);
+		for (const nodeHandle of nodeHandles) {
+			nodeMap?.delete(nodeHandle);
+			retained?.delete(nodeHandle);
+		}
+		if (retained?.size === 0) {
+			this._retained.delete(connectionHandle);
+		}
+	}
+
+	/** Marks handles as held by a `retainNodes` walk; see {@link _retained}. */
+	private _retain(connectionHandle: number, dtos: readonly IDataConnectionNodeDTO[]): void {
+		let retained = this._retained.get(connectionHandle);
+		if (!retained) {
+			retained = new Set();
+			this._retained.set(connectionHandle, retained);
+		}
+		for (const dto of dtos) {
+			retained.add(dto.nodeHandle);
+		}
 	}
 
 	/** Disconnects but does not release the handle (the UI may still reference it). */
@@ -487,7 +550,12 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		}
 
 		const children = await node.getChildren();
-		return this._serializeNodes(connectionHandle, children);
+		const dtos = this._serializeNodes(connectionHandle, children);
+		// The children of a node a walk holds are the walk's too.
+		if (this._retained.get(connectionHandle)?.has(nodeHandle)) {
+			this._retain(connectionHandle, dtos);
+		}
+		return dtos;
 	}
 
 	/**
@@ -525,6 +593,7 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	$releaseConnection(connectionHandle: number): void {
 		this._connections.delete(connectionHandle);
 		this._nodes.delete(connectionHandle);
+		this._retained.delete(connectionHandle);
 	}
 
 	// --- Private helpers ---

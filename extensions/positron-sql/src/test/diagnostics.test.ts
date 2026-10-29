@@ -1,0 +1,129 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as assert from 'assert';
+import * as vscode from 'vscode';
+import { collectDiagnostics } from '../diagnostics';
+import { SchemaIndex } from '../schemaIndex';
+import { partialPayloadOf, schemaOf, sqlDocument, testAnalyzer } from './support';
+
+const SCHEMA = schemaOf('sales.orders: id, total', 'customers: id, name');
+
+/** The diagnostics for a document, as `severity "text under the squiggle": message`. */
+async function report(
+	text: string,
+	schema: SchemaIndex = SCHEMA,
+	reportUnknownNames = true,
+): Promise<string[]> {
+	const document = await sqlDocument(text);
+	const analysis = testAnalyzer().analyze(text, '');
+	return collectDiagnostics(document, analysis, schema, reportUnknownNames).map(diagnostic => {
+		const severity = diagnostic.severity === vscode.DiagnosticSeverity.Error ? 'error' : 'warning';
+		return `${severity} "${document.getText(diagnostic.range)}": ${diagnostic.message}`;
+	});
+}
+
+suite('collectDiagnostics', () => {
+
+	test('valid SQL against a known schema has no diagnostics', async () => {
+		assert.deepStrictEqual(await report('SELECT total FROM orders'), []);
+	});
+
+	test('a syntax error is a warning on the offending token', async () => {
+		// A warning: sqlparser is not the engine's own grammar, and rejects some correct SQL in
+		// every dialect.
+		assert.deepStrictEqual(
+			await report('SELECT * FRM orders'),
+			['warning "FRM": Expected: end of statement, found: FRM.'],
+		);
+	});
+
+	test('an unknown table is a warning on its name, and names where it was looked for', async () => {
+		assert.deepStrictEqual(
+			await report('SELECT * FROM invoices'),
+			[`warning "invoices": No table named 'invoices' in Test Connection. If it is new, run "SQL: Refresh Database Schema".`],
+		);
+	});
+
+	test('an unknown column names the table it is not in', async () => {
+		assert.deepStrictEqual(
+			await report('SELECT quantity FROM orders'),
+			[`warning "quantity": No column named 'quantity' in sales.orders.`],
+		);
+	});
+
+	test('an unknown column names every table it was looked for in', async () => {
+		assert.deepStrictEqual(
+			await report('SELECT quantity FROM orders, customers'),
+			[`warning "quantity": No column named 'quantity' in sales.orders, customers.`],
+		);
+	});
+
+	test('a syntax error is still reported with a schema to check against', async () => {
+		// The two kinds are independent: an unparseable statement still reports its syntax.
+		assert.deepStrictEqual(
+			await report('SELECT * FRM invoices'),
+			['warning "FRM": Expected: end of statement, found: FRM.'],
+		);
+	});
+
+	test('a column of a table whose name needs quoting is named with its quotes', async () => {
+		const schema = schemaOf('main.Order Items: sku');
+
+		assert.deepStrictEqual(
+			await report('SELECT price FROM "Order Items"', schema),
+			[`warning "price": No column named 'price' in main."Order Items".`],
+		);
+	});
+
+	test('nothing is reported without a schema', async () => {
+		// Nothing is connected, so a name the schema does not have says nothing about the name.
+		assert.deepStrictEqual(await report('SELECT quantity FROM invoices', new SchemaIndex()), []);
+	});
+
+	test('nothing is reported from a schema that was read only in part', async () => {
+		const partial = new SchemaIndex(partialPayloadOf('orders: id'));
+
+		assert.deepStrictEqual(await report('SELECT quantity FROM invoices', partial), []);
+	});
+
+	test('a schema read only in part still judges the columns of a table read in full', async () => {
+		// The caps cut tables short far more often than they cut a table's columns, so a missing
+		// table says nothing, but a misspelled column of a table read in full is still a mistake.
+		const payload = partialPayloadOf('orders: id, total', 'wide: id');
+		const partial = new SchemaIndex({
+			...payload,
+			tables: payload.tables.map(table => ({ ...table, columnsComplete: table.name === 'orders' })),
+		});
+
+		assert.deepStrictEqual(await report('SELECT totl FROM orders; SELECT nme FROM wide; SELECT * FROM invoices', partial), [
+			`warning "totl": No column named 'totl' in orders.`,
+		]);
+	});
+
+	test('the setting turns unknown names off without touching syntax errors', async () => {
+		assert.deepStrictEqual(await report('SELECT * FROM invoices', SCHEMA, false), []);
+		assert.strictEqual((await report('SELECT * FRM orders', SCHEMA, false)).length, 1);
+	});
+
+	test('every statement in a document is checked', async () => {
+		assert.deepStrictEqual(
+			await report('SELECT * FROM invoices;\nSELECT * FROM receipts'),
+			[
+				`warning "invoices": No table named 'invoices' in Test Connection. If it is new, run "SQL: Refresh Database Schema".`,
+				`warning "receipts": No table named 'receipts' in Test Connection. If it is new, run "SQL: Refresh Database Schema".`,
+			],
+		);
+	});
+
+	test('diagnostics carry a source, so the Problems panel says where they came from', async () => {
+		const document = await sqlDocument('SELECT * FRM orders');
+		const analysis = testAnalyzer().analyze(document.getText(), '');
+
+		for (const diagnostic of collectDiagnostics(document, analysis, SCHEMA, true)) {
+			assert.strictEqual(diagnostic.source, 'sql');
+		}
+	});
+});
