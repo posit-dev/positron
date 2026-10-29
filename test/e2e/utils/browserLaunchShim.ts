@@ -14,9 +14,8 @@ import { delimiter, join } from 'path';
 // This is the sibling of externalUrl.ts, and the choice between them is about who opens the
 // browser. When Positron runs the flow, `vscode.env.openExternal` reaches `shell.openExternal`
 // in the Electron main process and externalUrl.ts patches it there. But a dependency running
-// its own OAuth never touches that path: @databricks/sql's AuthorizationCode calls the `open`
-// npm package directly, and its OAuthManager.getTokenU2M never passes the `openAuthUrl`
-// override the SDK supports -- so there is no seam inside the process to patch.
+// its own OAuth never touches that path: snowflake-sdk's external browser authenticator calls
+// the `open` npm package directly -- so there is no seam inside the process to patch.
 //
 // What `open` does expose is PATH. It spawns `open` (macOS) or `xdg-open` (Linux) with no
 // shell, so PATH decides which binary runs; on Linux the bundled copy is skipped whenever
