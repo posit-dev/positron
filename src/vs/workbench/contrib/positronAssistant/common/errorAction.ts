@@ -6,6 +6,7 @@
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
+import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 
 /** An action the user can take on an error. */
@@ -98,30 +99,60 @@ export interface IErrorActionHandlerInfo {
 }
 
 /**
- * A coding agent's handling of the error Fix and Explain actions, e.g. Posit
- * Assistant's. Register it while it exists, e.g. while its extension is
- * installed, not only while it can take errors.
+ * An error action handler an extension declares in its package.json, under
+ * `contributes.errorActionHandlers`. An extension can only register the
+ * handlers it declares.
+ */
+export interface IErrorActionHandlerContribution {
+	/** The id the extension registers the handler with. */
+	readonly id: string;
+	/** The handler's name, shown in the setting and the actions. */
+	readonly label: string;
+	/** Whether the handler can continue the user's active chat. Defaults to false. */
+	readonly supportsChatContinuation?: boolean;
+}
+
+/** The well-formed handlers an extension contributes. */
+export function getErrorActionHandlerContributions(extension: IExtensionDescription): IErrorActionHandlerContribution[] {
+	const contributions = (extension.contributes as { errorActionHandlers?: unknown } | undefined)?.errorActionHandlers;
+	if (!Array.isArray(contributions)) {
+		return [];
+	}
+	return contributions.filter((contribution): contribution is IErrorActionHandlerContribution =>
+		typeof contribution?.id === 'string'
+		&& typeof contribution?.label === 'string'
+		&& (contribution.supportsChatContinuation === undefined || typeof contribution.supportsChatContinuation === 'boolean'));
+}
+
+/**
+ * A coding agent's handling of the error Fix and Explain actions. An extension
+ * registers it on activation, whether or not the agent itself is installed,
+ * and says what's missing when asked. Only the default handler registers only
+ * while it can take errors.
  */
 export interface IErrorActionHandler extends IErrorActionHandlerInfo {
 	/**
 	 * Ask the handler to take the action on the error. When it can't because
-	 * of a problem the user can fix (e.g. a missing CLI or a setting), tell the
-	 * user why, with a way to fix it, and resolve. Reject only on unexpected
-	 * failures; the service reports them to the user.
+	 * of a problem the user can fix (e.g. the agent or its CLI isn't installed,
+	 * or a setting), tell the user why, with a way to fix it where there is
+	 * one, and resolve. Reject only on unexpected failures; the service reports
+	 * them to the user.
 	 */
 	ask(action: ErrorAction, context: IErrorActionContext, options: IErrorActionOptions): Promise<void>;
 }
 
 export const IErrorActionHandlerService = createDecorator<IErrorActionHandlerService>('errorActionHandlerService');
 
-/** Sends errors to the active handler when the user presses Fix or Explain. */
+/** Sends errors to the chosen handler when the user presses Fix or Explain. */
 export interface IErrorActionHandlerService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * The handler errors are sent to: the first registered handler, while
-	 * `ai.enabled` is true. Undefined otherwise. A handler that unregisters
-	 * and registers again goes behind any others.
+	 * The handler errors are sent to: the one the `ai.errorActions.agent`
+	 * setting chooses, never another. Show the Fix and Explain actions while
+	 * it's defined. Undefined while `ai.enabled` is off, or while the default is
+	 * chosen and not registered. Any other choice is active even while it isn't
+	 * registered, named by its id, since choosing it is the opt-in.
 	 */
 	readonly activeHandler: IErrorActionHandlerInfo | undefined;
 
@@ -129,16 +160,16 @@ export interface IErrorActionHandlerService {
 	readonly onDidChangeActiveHandler: Event<IErrorActionHandlerInfo | undefined>;
 
 	/**
-	 * Register a handler. Throws if one with the same id is already
-	 * registered.
+	 * Register a handler, which lists it in the `ai.errorActions.agent`
+	 * setting. Throws if one with the same id is already registered.
 	 * @returns A disposable that unregisters the handler.
 	 */
 	register(handler: IErrorActionHandler): IDisposable;
 
 	/**
 	 * Ask a handler to take an action on an error. Does nothing while
-	 * `ai.enabled` is off. Logs and notifies the user when no handler has
-	 * the id or the handler fails; never rejects.
+	 * `ai.enabled` is off. Tells the user when the handler isn't available
+	 * or fails; never rejects.
 	 * @param handlerId The id of the handler the user saw named.
 	 */
 	ask(handlerId: string, action: ErrorAction, context: IErrorActionContext, options: IErrorActionOptions): Promise<void>;

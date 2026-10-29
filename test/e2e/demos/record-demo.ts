@@ -34,88 +34,92 @@ const ROOT = path.resolve(DEMO_DIR, '../../..');
  */
 const WITHHELD_ENV = '^(ANTHROPIC_|CLAUDE|ELECTRON_RUN_AS_NODE$|ELECTRON_NO_ATTACH_CONSOLE$)';
 
-const args = process.argv.slice(2);
-if (args.includes('--detached')) {
-	if (process.platform === 'win32') {
-		await recordDetached(args.filter(a => a !== '--detached'));
-	} else {
-		console.log('--detached only applies to Windows; recording in this process.');
-	}
-}
-const keepWebm = args.includes('--keep-webm');
-const rest = args.filter(a => a !== '--keep-webm' && a !== '--detached');
-const target = rest[0] && !rest[0].startsWith('-') ? rest[0] : null;
-const passthrough = target ? rest.slice(1) : rest;
+main();
 
-const specPath = target ? resolveSpec(target) : soleSpec();
-if (!fs.existsSync(path.resolve(ROOT, specPath))) {
-	console.error(`No demo spec at ${specPath}`);
-	process.exit(1);
-}
-
-const name = path.basename(specPath).replace(/\.demo\.test\.ts$/, '');
-
-// Stale captures would make the post-processing step pick the wrong file.
-for (const file of fs.existsSync(path.join(ROOT, 'demo-videos')) ? fs.readdirSync(path.join(ROOT, 'demo-videos')) : []) {
-	if (file.endsWith('.webm')) {
-		try {
-			fs.rmSync(path.join(ROOT, 'demo-videos', file), { force: true });
-		} catch (err) {
-			// On Windows a capture that another process is still writing cannot be removed.
-			console.error(`Could not remove the stale capture ${file}: ${err}`);
-			console.error('If an earlier --detached recording is still running, stop it first (its PID is in %TEMP%\\demo-record-*\\pid.txt).');
-			process.exit(1);
+async function main(): Promise<void> {
+	const args = process.argv.slice(2);
+	if (args.includes('--detached')) {
+		if (process.platform === 'win32') {
+			await recordDetached(args.filter(a => a !== '--detached'));
+		} else {
+			console.log('--detached only applies to Windows; recording in this process.');
 		}
 	}
+	const keepWebm = args.includes('--keep-webm');
+	const rest = args.filter(a => a !== '--keep-webm' && a !== '--detached');
+	const target = rest[0] && !rest[0].startsWith('-') ? rest[0] : null;
+	const passthrough = target ? rest.slice(1) : rest;
+
+	const specPath = target ? resolveSpec(target) : soleSpec();
+	if (!fs.existsSync(path.resolve(ROOT, specPath))) {
+		console.error(`No demo spec at ${specPath}`);
+		process.exit(1);
+	}
+
+	const name = path.basename(specPath).replace(/\.demo\.test\.ts$/, '');
+
+	// Stale captures would make the post-processing step pick the wrong file.
+	for (const file of fs.existsSync(path.join(ROOT, 'demo-videos')) ? fs.readdirSync(path.join(ROOT, 'demo-videos')) : []) {
+		if (file.endsWith('.webm')) {
+			try {
+				fs.rmSync(path.join(ROOT, 'demo-videos', file), { force: true });
+			} catch (err) {
+				// On Windows a capture that another process is still writing cannot be removed.
+				console.error(`Could not remove the stale capture ${file}: ${err}`);
+				console.error('If an earlier --detached recording is still running, stop it first (its PID is in %TEMP%\\demo-record-*\\pid.txt).');
+				process.exit(1);
+			}
+		}
+	}
+
+	// Playwright captures video through its own ffmpeg build, a separate download from the system
+	// ffmpeg the post-processing step uses. When the build matching the installed Playwright version
+	// is missing (a Playwright bump with no `playwright install` afterwards), page initialization
+	// hangs silently until the app fixture times out and no capture is ever written. `install ffmpeg`
+	// is a quick no-op when the build is already present.
+	const ffmpegInstall = spawnSync(process.execPath, [
+		path.join(ROOT, 'node_modules', 'playwright', 'cli.js'), 'install', 'ffmpeg',
+	], { cwd: ROOT, stdio: 'inherit' });
+	if (ffmpegInstall.status !== 0) {
+		console.error('\nCould not install the ffmpeg build Playwright needs for video capture.');
+		process.exit(ffmpegInstall.status ?? 1);
+	}
+
+	// Run the Playwright CLI through the current node binary rather than through `npx`. On Windows
+	// `npx` is a `.cmd` shim, which `spawnSync` cannot start without a shell (ENOENT), and going
+	// through a shell would mean quoting every pass-through argument. The entry point is the same
+	// file the `npx playwright` shim ends up loading.
+	const playwrightCli = path.join(ROOT, 'node_modules', '@playwright', 'test', 'cli.js');
+	// Playwright treats the file argument as a regex over POSIX-style paths, so a backslash-joined
+	// Windows path matches nothing and regex metacharacters in a name change what matches.
+	const specFilter = specPath.split(path.sep).join('/').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const playwright = spawnSync(process.execPath, [
+		playwrightCli, 'test', specFilter,
+		'--project', 'e2e-electron',
+		'--reporter', 'list',
+		'--timeout', '300000',
+		'--workers', '1',
+		...passthrough,
+	], {
+		cwd: ROOT,
+		stdio: 'inherit',
+		env: { ...process.env, DEMO_RECORD_VIDEO: '1' },
+	});
+
+	if (playwright.status !== 0) {
+		console.error('\nRecording failed; not post-processing. The raw capture is in demo-videos/.');
+		process.exit(playwright.status ?? 1);
+	}
+
+	const post = spawnSync(process.execPath, [
+		'--experimental-strip-types',
+		path.join(DEMO_DIR, 'postprocess-demo-video.ts'),
+		'--name', name,
+		...(keepWebm ? ['--keep-webm'] : []),
+	], { cwd: ROOT, stdio: 'inherit' });
+
+	process.exit(post.status ?? 0);
 }
-
-// Playwright captures video through its own ffmpeg build, a separate download from the system
-// ffmpeg the post-processing step uses. When the build matching the installed Playwright version
-// is missing (a Playwright bump with no `playwright install` afterwards), page initialization
-// hangs silently until the app fixture times out and no capture is ever written. `install ffmpeg`
-// is a quick no-op when the build is already present.
-const ffmpegInstall = spawnSync(process.execPath, [
-	path.join(ROOT, 'node_modules', 'playwright', 'cli.js'), 'install', 'ffmpeg',
-], { cwd: ROOT, stdio: 'inherit' });
-if (ffmpegInstall.status !== 0) {
-	console.error('\nCould not install the ffmpeg build Playwright needs for video capture.');
-	process.exit(ffmpegInstall.status ?? 1);
-}
-
-// Run the Playwright CLI through the current node binary rather than through `npx`. On Windows
-// `npx` is a `.cmd` shim, which `spawnSync` cannot start without a shell (ENOENT), and going
-// through a shell would mean quoting every pass-through argument. The entry point is the same
-// file the `npx playwright` shim ends up loading.
-const playwrightCli = path.join(ROOT, 'node_modules', '@playwright', 'test', 'cli.js');
-// Playwright treats the file argument as a regex over POSIX-style paths, so a backslash-joined
-// Windows path matches nothing and regex metacharacters in a name change what matches.
-const specFilter = specPath.split(path.sep).join('/').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const playwright = spawnSync(process.execPath, [
-	playwrightCli, 'test', specFilter,
-	'--project', 'e2e-electron',
-	'--reporter', 'list',
-	'--timeout', '300000',
-	'--workers', '1',
-	...passthrough,
-], {
-	cwd: ROOT,
-	stdio: 'inherit',
-	env: { ...process.env, DEMO_RECORD_VIDEO: '1' },
-});
-
-if (playwright.status !== 0) {
-	console.error('\nRecording failed; not post-processing. The raw capture is in demo-videos/.');
-	process.exit(playwright.status ?? 1);
-}
-
-const post = spawnSync(process.execPath, [
-	'--experimental-strip-types',
-	path.join(DEMO_DIR, 'postprocess-demo-video.ts'),
-	'--name', name,
-	...(keepWebm ? ['--keep-webm'] : []),
-], { cwd: ROOT, stdio: 'inherit' });
-
-process.exit(post.status ?? 0);
 
 /**
  * Re-run this script outside the caller's process tree and relay its output.

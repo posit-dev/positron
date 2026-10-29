@@ -17,6 +17,10 @@ import { IViewsService } from '../../../../services/views/common/viewsService.js
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { IAgentAllowedCommandsService, IAgentCommandDescriptor } from '../../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
+import { IErrorActionHandler, IErrorActionHandlerService } from '../../../../contrib/positronAssistant/common/errorAction.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
+import { toDisposable } from '../../../../../base/common/lifecycle.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { ExtHostAiFeaturesShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { MainThreadAiFeatures } from '../../../browser/positron/mainThreadAiFeatures.js';
 
@@ -30,6 +34,9 @@ describe('MainThreadAiFeatures', () => {
 	let catalog: IResolvedProviderData[];
 	let onDidChangeProviders: Emitter<IProviderCatalogChangeData>;
 	let onDidChangeProviderEnablement: ReturnType<typeof vi.fn<(id: string, enabled: boolean) => void>>;
+	let askErrorActionHandler: ReturnType<typeof vi.fn<ExtHostAiFeaturesShape['$askErrorActionHandler']>>;
+	let errorActionHandlers: Map<string, IErrorActionHandler>;
+	let logError: ReturnType<typeof vi.fn<ILogService['error']>>;
 
 	/**
 	 * Constructs a MainThreadAiFeatures with the given initial catalog and returns it. The
@@ -40,6 +47,9 @@ describe('MainThreadAiFeatures', () => {
 		catalog = initialCatalog;
 		onDidChangeProviders = disposables.add(new Emitter<IProviderCatalogChangeData>());
 		onDidChangeProviderEnablement = vi.fn<(id: string, enabled: boolean) => void>();
+		askErrorActionHandler = vi.fn<ExtHostAiFeaturesShape['$askErrorActionHandler']>(async () => { });
+		errorActionHandlers = new Map();
+		logError = vi.fn<ILogService['error']>();
 
 		const aiProviderService = stubInterface<IAiProviderService>({
 			whenInitialized,
@@ -51,6 +61,7 @@ describe('MainThreadAiFeatures', () => {
 		const extHostContext = stubInterface<IExtHostContext>({
 			getProxy: (<T>() => stubInterface<ExtHostAiFeaturesShape>({
 				$onDidChangeProviderEnablement: onDidChangeProviderEnablement,
+				$askErrorActionHandler: askErrorActionHandler,
 			}) as T) as IExtHostContext['getProxy'],
 		});
 
@@ -62,6 +73,16 @@ describe('MainThreadAiFeatures', () => {
 			stubInterface<IFileService>({}),
 			stubInterface<IAgentAllowedCommandsService>({ getAgentAllowedCommands: () => agentCommands }),
 			aiProviderService,
+			stubInterface<IErrorActionHandlerService>({
+				register: handler => {
+					if (errorActionHandlers.has(handler.id)) {
+						throw new Error('taken');
+					}
+					errorActionHandlers.set(handler.id, handler);
+					return toDisposable(() => errorActionHandlers.delete(handler.id));
+				},
+			}),
+			stubInterface<ILogService>({ error: logError }),
 		));
 
 		// Let the whenInitialized microtask (which captures the enablement baseline) settle.
@@ -137,5 +158,36 @@ describe('MainThreadAiFeatures', () => {
 		onDidChangeProviders.fire({ catalog, enabledChanged: false, connectionChanged: true, modelsChanged: false });
 
 		expect(onDidChangeProviderEnablement).not.toHaveBeenCalled();
+	});
+
+	describe('error action handlers', () => {
+		it('registers an error action handler from the extension host and passes asks through', async () => {
+			const mainThread = await createMainThread([]);
+			const context = { kind: 'notebook' as const, error: 'boom', uri: URI.file('/a.ipynb') };
+
+			mainThread.$registerErrorActionHandler(7, 'test-agent', 'Test Agent', false);
+			const handler = errorActionHandlers.get('test-agent')!;
+			expect({ id: handler.id, label: handler.label, supportsChatContinuation: handler.supportsChatContinuation })
+				.toEqual({ id: 'test-agent', label: 'Test Agent', supportsChatContinuation: false });
+
+			await handler.ask('explain', context, {});
+			expect(askErrorActionHandler).toHaveBeenCalledWith(7, 'explain', context, false);
+
+			mainThread.$unregisterErrorActionHandler(7);
+			expect(errorActionHandlers.size).toBe(0);
+		});
+
+		it('refuses Posit Assistant\'s reserved id and taken ids, with a logged error', async () => {
+			const mainThread = await createMainThread([]);
+			mainThread.$registerErrorActionHandler(1, 'test-agent', 'Test Agent', false);
+
+			mainThread.$registerErrorActionHandler(2, 'posit-assistant', 'Imposter', true);
+			mainThread.$registerErrorActionHandler(3, 'test-agent', 'Again', false);
+			// Unregistering a refused handle leaves the others alone.
+			mainThread.$unregisterErrorActionHandler(3);
+
+			expect([...errorActionHandlers.keys()]).toEqual(['test-agent']);
+			expect(logError).toHaveBeenCalledTimes(2);
+		});
 	});
 });

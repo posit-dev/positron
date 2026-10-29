@@ -43,3 +43,11 @@ runs:
         NPM_CONFIG_AUDIT: "false"
         NPM_CONFIG_FUND: "false"
       run: npm ci
+
+    # NPM_CONFIG_CACHE is relative, so each `npm ci` dir grows a .npm-cache/ that .gitignore misses.
+    - name: Exclude npm caches from git status
+      shell: bash
+      run: |
+        EXCLUDE="$(git rev-parse --git-path info/exclude)"
+        mkdir -p "$(dirname "$EXCLUDE")"
+        echo '.npm-cache/' >> "$EXCLUDE"

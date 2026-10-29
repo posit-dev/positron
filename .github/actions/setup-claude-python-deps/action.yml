@@ -1,0 +1,56 @@
+name: "Setup Claude Python Test Dependencies"
+description: "Install what the positron-python kernel pytest suite and TS unit tests need, so Claude can run them"
+
+# Never saves a cache: @claude runs on comment events use the cache scope of main, so a saved
+# entry would be readable by every branch.
+# Run actions/setup-node with .nvmrc before this action.
+inputs:
+  kernel:
+    description: "Set up the kernel pytest suite (python_files/posit)"
+    default: 'false'
+  extension:
+    description: "Set up the positron-python TS unit tests"
+    default: 'false'
+
+runs:
+  using: "composite"
+  steps:
+    # Activates a repo-root .venv for later steps, which `uv run --active` uses.
+    - name: Setup uv and Python
+      if: inputs.kernel == 'true'
+      uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+      with:
+        python-version: '3.12'
+        enable-cache: true
+        save-cache: false
+        activate-environment: true
+
+    - name: Install kernel test dependencies
+      if: inputs.kernel == 'true'
+      shell: bash
+      working-directory: extensions/positron-python
+      run: |
+        uv pip install pip ruff
+        uv run --active scripts/vendor.py
+        uv sync --active --inexact --frozen --project python_files/posit
+
+    # Claude's sandbox can't write the uv cache, and uv run locks it even with nothing to sync.
+    - name: Turn off the uv cache for Claude
+      if: inputs.kernel == 'true'
+      shell: bash
+      run: echo "UV_NO_CACHE=1" >> "$GITHUB_ENV"
+
+    # --ignore-scripts skips postinstall (Python libs + PET download); the unit tests don't need it.
+    - name: Install and compile positron-python
+      if: inputs.extension == 'true'
+      shell: bash
+      working-directory: extensions/positron-python
+      env:
+        NPM_CONFIG_AUDIT: "false"
+        NPM_CONFIG_FUND: "false"
+      # Type errors (maybe the bug Claude is fixing) still emit out/, and Claude recompiles before
+      # each test run, so only a missing build fails this step.
+      run: |
+        npm ci --ignore-scripts
+        npx tsc -p ./ || true
+        test -f out/test/unittests.js

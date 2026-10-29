@@ -15,6 +15,7 @@ on:
       - '.github/workflows/claude.yml'
       - '.github/actions/setup-claude/**'
       - '.github/actions/setup-claude-build-deps/**'
+      - '.github/actions/setup-claude-python-deps/**'
 
 env:
   # Prompt text that the triage and build jobs share.
@@ -311,6 +312,37 @@ jobs:
       - name: Setup core dependencies
         uses: ./.github/actions/setup-claude-build-deps
 
+      # Both Python test setups run when the handoff lists any positron-python file, since triage
+      # can guess the wrong side of the kernel/extension split.
+      - name: Decide Python setups
+        id: python-setups
+        env:
+          HANDOFF: ${{ needs.triage.outputs.handoff }}
+        run: |
+          FILTER='[.files[]? | strings] | "python=\(any(.[]; test("(^|/)extensions/positron-python/")))"'
+          if ! OUT=$(jq -r "$FILTER" <<<"$HANDOFF" 2>/dev/null) || [ -z "$OUT" ]; then
+            OUT='python=false'
+          fi
+          echo "$OUT" | tee -a "$GITHUB_OUTPUT"
+
+      # Optional extras, set up separately so one failing doesn't skip the other. The prompt
+      # gets each step's outcome, so Claude reports a failed setup instead of running its tests.
+      - name: Setup kernel test dependencies
+        id: kernel-deps
+        if: steps.python-setups.outputs.python == 'true'
+        continue-on-error: true
+        uses: ./.github/actions/setup-claude-python-deps
+        with:
+          kernel: 'true'
+
+      - name: Setup positron-python unit test dependencies
+        id: extension-deps
+        if: steps.python-setups.outputs.python == 'true'
+        continue-on-error: true
+        uses: ./.github/actions/setup-claude-python-deps
+        with:
+          extension: 'true'
+
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@e4a6faad497d33dbc7144135c75e41f82f0bf6c0 # v1.0.255
         with:
@@ -344,19 +376,49 @@ jobs:
             Core Mocha, extension host, and e2e tests cannot run here either.
             On a comment in an issue or pull request conversation, the dependencies come from the
             lockfiles of the default branch, not the pull request. If such a pull request changes
-            `package.json` or a lockfile, a "module not found" error can come from that difference.
+            `package.json`, a lockfile, or a Python requirements file, a "module not found" or
+            import error can come from that difference.
             Say so in your comment instead of treating it as a test failure. On a review or review
             comment, the dependencies come from the pull request's own lockfiles.
-            Write each command out in full. Commands that use shell variables are rejected.
+            Write each command out in full. Commands that use shell variables or pipes are rejected.
             Vitest logs an EROFS error about the step summary after the run. Ignore it; read the
             "Test Files" line for the result.
 
+            Python test setup results: kernel pytest `${{ steps.kernel-deps.outcome }}`,
+            positron-python unit tests `${{ steps.extension-deps.outcome }}`. `success` means the
+            suite is ready. `skipped` means the handoff listed no positron-python files. `failure`
+            means the setup failed and the suite cannot run here. Only run a suite whose setup is
+            `success`. If you need one that is not, say so in the PR body.
+            Use the commands below, not the ones in `extensions/positron-python/CLAUDE.md`. Its
+            venv activation, `cd`, and format scripts are blocked here.
+            Kernel pytest: run only the test files you need, with `-k` to pick tests. File paths
+            are relative to `extensions/positron-python`:
+            `uv --directory extensions/positron-python run --active pytest <test files> -k <name>`.
+            positron-python unit tests: before each test run, recompile with
+            `npm exec --prefix extensions/positron-python -- tsc -p extensions/positron-python`,
+            then run only the suites you need, with a regex such as `"<suite A>|<suite B>"`:
+            `npm run --prefix extensions/positron-python test:unittests -- --grep "<suite title>"`.
+            Some test files print "failed" lines with stack traces when they load, even when they
+            don't match `--grep`. Ignore them; use only mocha's "passing"/"failing" summary. If it
+            says `0 passing` and has no "failing" line, no test ran: your `--grep` matched no
+            suite, so fix the pattern.
+            Do not run either suite in full.
+            positron-python has its own formatters, which `npm run precommit` does not run. Format
+            each changed file in that area before you commit it: ruff when the kernel setup is
+            `success`, prettier when the unit test setup is `success`. Python file paths are
+            relative to `extensions/positron-python`:
+            `uv --directory extensions/positron-python run --active ruff format <files>` and
+            `uv --directory extensions/positron-python run --active ruff check --fix <files>`.
+            `.ts` file paths are relative to the repository root:
+            `npm exec --prefix extensions/positron-python -- prettier --write <files>`.
+
             If your change is fixing a bug, first write a test that reproduces the bug, next to the
-            existing tests. Run it with `npx vitest run <file>` and make sure that it fails for the
-            expected reason. Commit the test before the fix. After the fix, run it again. If you
-            are modifying existing code, check if there are existing tests and update them or put
-            new tests alongside the old ones. Choose the test level from the table in CLAUDE.md,
-            and use the author-vitest-tests skill when you write new Vitest tests.
+            existing tests. Run it with `npx vitest run <file>`, or the pytest or mocha command
+            above, and make sure that it fails for the expected reason. Commit the test before the
+            fix. After the fix, run it again. If you are modifying existing code, check if there
+            are existing tests and update them or put new tests alongside the old ones. Choose the
+            test level from the table in CLAUDE.md, and use the author-vitest-tests skill when you
+            write new Vitest tests.
             Before each commit, run `npm run precommit -- <changed files>`.
             In the PR body, list each command that you ran and its result. Say which tests could
             not run here and that CI runs them on the PR. Never write that a test passed or failed
@@ -373,7 +435,7 @@ jobs:
           claude_args: |
             --model opus
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*)"
+            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*),Bash(uv --directory extensions/positron-python run --active ruff:*),Bash(npm exec --prefix extensions/positron-python -- prettier:*)"
 
       - name: Replace eyes with result reaction
         if: always() && needs.triage.outputs.ack_target != ''
