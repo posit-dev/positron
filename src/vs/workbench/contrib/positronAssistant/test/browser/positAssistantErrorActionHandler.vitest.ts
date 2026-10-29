@@ -32,7 +32,7 @@ describe('PositAssistantErrorActionHandlerContribution', () => {
 		.stub(ILabelService, { getUriLabel: (uri: URI, options?: { relative?: boolean }) => options?.relative ? uri.path.slice(1) : uri.path })
 		.build();
 
-	const positAssistant = stubInterface<IExtensionDescription>({ identifier: new ExtensionIdentifier('posit.assistant') });
+	const positAssistant = stubInterface<IExtensionDescription>({ identifier: new ExtensionIdentifier('posit.assistant'), contributes: undefined });
 
 	let contextKeyService: ContextKeyService;
 	let extensions: IExtensionDescription[];
@@ -50,6 +50,7 @@ describe('PositAssistantErrorActionHandlerContribution', () => {
 		ctx.instantiationService.stub(IExtensionService, {
 			get extensions() { return extensions; },
 			onDidChangeExtensions: onDidChangeExtensions.event,
+			whenInstalledExtensionsRegistered: async () => true,
 		});
 
 		errorActionHandlerService = ctx.get(IErrorActionHandlerService);
