@@ -2452,9 +2452,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 			const languageIds = Array.from(this._staleRecommendationLanguageIds);
 			this._staleRecommendationLanguageIds.clear();
-			await Promise.all(languageIds.map(languageId => this.refreshRecommendation(languageId)));
-		} catch (err) {
-			this._logService.error(`[Runtime startup] Error recommending runtimes again: ${err}`);
+			// Each language on its own, so one failing ask doesn't end the
+			// others' early. A failed language waits for the next change.
+			await Promise.all(languageIds.map(languageId => this.refreshRecommendation(languageId).catch(err =>
+				this._logService.error(`[Runtime startup] Error recommending a runtime for '${languageId}' again: ${err}`))));
 		} finally {
 			this._refreshingRecommendations = undefined;
 			// Languages marked while this ask ran.

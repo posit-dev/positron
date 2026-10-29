@@ -2058,6 +2058,52 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		expect(asks).toBe(2);
 	});
 
+	it('keeps asking one at a time when one language fails to answer', async () => {
+		const python = metadata({ runtimeId: 'rt-python', runtimePath: '/usr/bin/python3' });
+		const r = metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R' });
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(python));
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(r));
+		const pythonAnswer = new DeferredPromise<void>();
+		let pythonAsks = 0;
+		let rAsks = 0;
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const manager = makeManager({ id: 1, owns: [] });
+		// Each language is asked with the other languages disabled.
+		manager.recommendWorkspaceRuntimes = async disabledLanguageIds => {
+			if (disabledLanguageIds.includes('r')) {
+				if (++pythonAsks > 1) {
+					await pythonAnswer.p;
+				}
+				return [{ metadata: python, isProjectDefault: false }];
+			}
+			if (++rAsks > 1) {
+				throw new Error('R failed');
+			}
+			return [{ metadata: r, isProjectDefault: false }];
+		};
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+		await afterDebounce(() => expect([pythonAsks, rAsks]).toEqual([1, 1]));
+
+		// Both languages are asked again; R fails while Python is still answering.
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
+			metadata({ runtimeId: 'rt-python-2', runtimePath: '/envs/a/bin/python' })));
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
+			metadata({ languageId: 'r', runtimeId: 'rt-r-2', runtimePath: '/envs/a/bin/R' })));
+		await afterDebounce(() => expect([pythonAsks, rAsks]).toEqual([2, 2]));
+
+		// Python is marked again; its ask waits for the one in flight.
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
+			metadata({ runtimeId: 'rt-python-3', runtimePath: '/envs/b/bin/python' })));
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(pythonAsks).toBe(2);
+
+		pythonAnswer.complete();
+		await afterDebounce(() => expect(pythonAsks).toBe(3));
+		expect(svc.getPreferredRuntimeWithReason('python')?.runtime.runtimeId).toBe('rt-python');
+	});
+
 	it('does not ask when a runtime registers for a language that never had a recommendation', async () => {
 		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
 			metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' })));
