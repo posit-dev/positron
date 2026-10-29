@@ -393,11 +393,12 @@ jobs:
             `npm exec --prefix extensions/positron-python -- prettier --write <files>`.
 
             If your change is fixing a bug, first write a test that reproduces the bug, next to the
-            existing tests. Run it with `npx vitest run <file>`, or the pytest or mocha command above, and make sure that it fails for the
-            expected reason. Commit the test before the fix. After the fix, run it again. If you
-            are modifying existing code, check if there are existing tests and update them or put
-            new tests alongside the old ones. Choose the test level from the table in CLAUDE.md,
-            and use the author-vitest-tests skill when you write new Vitest tests.
+            existing tests. Run it with `npx vitest run <file>`, or the pytest or mocha command
+            above, and make sure that it fails for the expected reason. Commit the test before the
+            fix. After the fix, run it again. If you are modifying existing code, check if there
+            are existing tests and update them or put new tests alongside the old ones. Choose the
+            test level from the table in CLAUDE.md, and use the author-vitest-tests skill when you
+            write new Vitest tests.
             Before each commit, run `npm run precommit -- <changed files>`.
             In the PR body, list each command that you ran and its result. Say which tests could
             not run here and that CI runs them on the PR. Never write that a test passed or failed
