@@ -9,7 +9,7 @@ import { Action2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -169,6 +169,8 @@ export interface IAIDiagnosticsInputs {
 	readonly settings: readonly IAIDiagnosticsSetting[];
 	/** Settings a Workbench admin enforced. */
 	readonly enforcedSettings: readonly IAIDiagnosticsEnforcedSetting[];
+	/** Posit Assistant's settings report as Markdown, or why it couldn't be collected. */
+	readonly assistantSettingsReport: string;
 	readonly logs: readonly IAIDiagnosticsLogSection[];
 	/** Assistant diagnostics bundle result (path or status); omitted when not requested. */
 	readonly bundle?: string;
@@ -296,7 +298,7 @@ ${inputs.enforcedSettings.map(s => `- \`${s.key}\`: ${s.value}`).join('\n')}
 
 Generated: ${inputs.generatedAt}
 
-**Privacy Notice**: This report includes extension versions, non-default configuration settings, provider connection config, system information, and recent log entries. Known secret fields are redacted: API keys, tokens, and custom header values are replaced with \`<redacted>\`, and keys/tokens are stored separately from settings and providers.json to begin with. Everything else is shown as you configured it, including base URLs (which may reveal internal endpoints) and connection settings. Please read through the whole report and remove anything sensitive before you share it.
+**Privacy Notice**: This report includes extension versions, non-default configuration settings, provider connection config, the Posit Assistant settings report (setting values, file paths, and where each credential comes from), system information, and recent log entries. Known secret fields are redacted: API keys, tokens, and custom header values are replaced with \`<redacted>\`, and keys/tokens are stored separately from settings and providers.json to begin with. Everything else is shown as you configured it, including base URLs (which may reveal internal endpoints) and connection settings. Please read through the whole report and remove anything sensitive before you share it.
 
 ## Version Information
 
@@ -345,8 +347,32 @@ Non-default AI-related settings:
 ${settingsBlock}
 \`\`\`
 ${enforcedBlock}
+## Posit Assistant Settings
+
+${nestMarkdownHeadings(inputs.assistantSettingsReport.trim(), 2)}
+
 ${logsBlock}
 ${inputs.bundle ? `\n## Assistant Diagnostics Bundle\n\n${inputs.bundle}\n` : ''}`;
+}
+
+/**
+ * Pushes every Markdown heading down `levels` levels (capped at `######`) so a
+ * standalone document nests under one of our sections. Code fences are left alone.
+ */
+export function nestMarkdownHeadings(markdown: string, levels: number): string {
+	let inFence = false;
+	return markdown.split('\n').map(line => {
+		if (/^\s*(```|~~~)/.test(line)) {
+			inFence = !inFence;
+			return line;
+		}
+		const match = inFence ? undefined : /^(?<hashes>#{1,6})(?<rest>\s.*|$)/.exec(line);
+		if (!match?.groups) {
+			return line;
+		}
+		const depth = Math.min(match.groups.hashes.length + levels, 6);
+		return '#'.repeat(depth) + match.groups.rest;
+	}).join('\n');
 }
 
 /** Setting-key prefixes that identify AI-related settings. */
@@ -440,6 +466,7 @@ const AI_LOG_SOURCES: readonly { label: string; id: string; command: string }[] 
 /** The Posit Assistant extension and its bridge command producing the diagnostics bundle. */
 const ASSISTANT_EXTENSION_ID = 'posit.assistant';
 const ASSISTANT_BUNDLE_COMMAND = 'posit.assistant.collectDiagnosticsBundle';
+const ASSISTANT_SETTINGS_REPORT_COMMAND = 'posit.assistant.getSettingsReport';
 
 /** The Next Edit Suggestions extension. */
 const NES_EXTENSION_ID = 'positron.next-edit-suggestions';
@@ -640,6 +667,7 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 			progress.report({ message: localize('positron.ai.diagnostics.collectingProviders', "Reading provider configuration") });
 			const providers = await collectProviderDiagnostics(aiProviderService, authenticationService);
 			const providerConfig = await collectProvidersConfig(aiProviderService, fileService);
+			const assistantSettingsReport = await collectAssistantSettingsReport(assistantPresence, extensionService, commandService);
 
 			// Independent sources, so run them together: the section's worst case is
 			// one timeout, not two. Either coming back undefined leaves the report
@@ -695,6 +723,7 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 				providersConfigPath: providerConfig.path,
 				settings,
 				enforcedSettings,
+				assistantSettingsReport,
 				logs,
 				bundle,
 			});
@@ -908,15 +937,59 @@ async function collectBridgedLogs(
 	} catch {
 		// Fall through to the bridge call.
 	}
+	const result = await executeBridgeCommand(commandService, source.command);
+	if (result.failure !== undefined) {
+		return `Logs unavailable: ${result.failure}`;
+	}
+	return typeof result.value === 'string' ? capLogLines(result.value) : 'No log entries available';
+}
+
+/**
+ * Runs a bridge command, bounded by {@link BRIDGE_TIMEOUT_MS}. Returns the
+ * command's value, or why there isn't one.
+ */
+async function executeBridgeCommand(commandService: ICommandService, command: string): Promise<{ readonly value?: unknown; readonly failure?: string }> {
 	try {
 		let timedOut = false;
-		const content = await raceTimeout(commandService.executeCommand<string>(source.command), BRIDGE_TIMEOUT_MS, () => { timedOut = true; });
+		const value = await raceTimeout(commandService.executeCommand<unknown>(command), BRIDGE_TIMEOUT_MS, () => { timedOut = true; });
 		return timedOut
-			? `Logs unavailable: timed out after ${BRIDGE_TIMEOUT_MS}ms (extension may be stuck activating)`
-			: capLogLines(content ?? 'No log entries available');
+			? { failure: `timed out after ${BRIDGE_TIMEOUT_MS}ms (extension may be stuck activating)` }
+			: { value };
 	} catch (error) {
-		return `Logs unavailable: ${error instanceof Error ? error.message : String(error)}`;
+		return { failure: error instanceof Error ? error.message : String(error) };
 	}
+}
+
+/**
+ * Asks Posit Assistant for its settings report (Markdown, secrets masked). Returns
+ * a short explanation instead when it can't be had, so the report still opens.
+ */
+export async function collectAssistantSettingsReport(
+	presence: AIDiagnosticsExtensionPresence,
+	extensionService: IExtensionService,
+	commandService: ICommandService,
+): Promise<string> {
+	if (presence !== 'running') {
+		return PRESENCE_LABELS[presence];
+	}
+	try {
+		await activateWithTimeout(extensionService, ASSISTANT_EXTENSION_ID);
+	} catch {
+		// Fall through: the command may be registered anyway.
+	}
+	// Checked up front because executing an unknown command waits on activating
+	// every extension before it fails.
+	if (!CommandsRegistry.getCommand(ASSISTANT_SETTINGS_REPORT_COMMAND)) {
+		return 'Settings report unavailable: this version of Posit Assistant does not provide it, or Posit Assistant has not finished starting.';
+	}
+	const result = await executeBridgeCommand(commandService, ASSISTANT_SETTINGS_REPORT_COMMAND);
+	if (result.failure !== undefined) {
+		return `Settings report unavailable: ${result.failure}`;
+	}
+	// Assistant updates on its own schedule, so don't trust the return type.
+	return typeof result.value === 'string' && result.value
+		? result.value
+		: 'Settings report unavailable: Posit Assistant returned no report.';
 }
 
 /**
