@@ -1721,6 +1721,28 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		return svc;
 	}
 
+	it('waits for discovery to complete before asking again', async () => {
+		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(global));
+		let answer = global;
+		let asks = 0;
+		const svc = createRecommending(async () => { asks++; return [answer]; });
+		await afterDebounce(() => expect(asks).toBe(1));
+
+		answer = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(answer));
+		// Discovery starts again before the ask runs, so a registration then could start the affiliated runtime.
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Discovering);
+		await vi.advanceTimersByTimeAsync(500);
+		expect(asks).toBe(1);
+
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+		await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+	});
+
 	it('asks again when a runtime registers after the recommendation, without starting the new answer', async () => {
 		const autoStartRuntime = vi.spyOn(ctx.get(IRuntimeSessionService), 'autoStartRuntime').mockResolvedValue('');
 
