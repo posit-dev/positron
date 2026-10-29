@@ -345,6 +345,17 @@ suite('interpreterRanking', () => {
         assert.deepEqual(order([unknown, rc]), [rc.path, unknown.path]);
     });
 
+    test('a resolved stable Python is not demoted as a pre-release', () => {
+        const python = env(p('/usr/local/python3.12/bin/python'), EnvironmentType.Global, '3.12.1');
+        const resolved = env(p('/home/u/.pyenv/versions/3.15.0/bin/python'), EnvironmentType.Pyenv, '3.15.0', {
+            version: { major: 3, minor: 15, patch: 0, raw: '3.15.0', build: [], prerelease: ['final', '0'] },
+        });
+        assert.deepEqual(
+            rankInterpreters([python, resolved], emptyContext).map((r) => r.interpreter.path),
+            [resolved.path, python.path],
+        );
+    });
+
     test('a uv Python reached through ~/.local/bin is uv base, first in GlobalEnv', () => {
         const uvDir = p('/home/u/.local/share/uv/python/cpython-3.15.0-linux-x86_64-gnu');
         const linked = env(p('/home/u/.local/bin/python3.15'), EnvironmentType.Unknown, '3.15.0', {

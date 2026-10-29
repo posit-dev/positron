@@ -222,7 +222,9 @@ export function isUvBase(
 /** Whether the version is an alpha, beta or release candidate. */
 function isPrerelease(interpreter: PythonEnvironment): boolean {
     const version = interpreter.version;
-    return !!version && (version.prerelease.length > 0 || /\d(?:a|b|rc)\d*$/.test(version.raw));
+    // A resolved stable version carries the release level 'final'.
+    const level = version?.prerelease[0];
+    return !!version && ((!!level && level !== 'final') || /\d(?:a|b|rc)\d*$/.test(version.raw));
 }
 
 /**
