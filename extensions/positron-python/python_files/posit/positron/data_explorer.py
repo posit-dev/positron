@@ -2129,7 +2129,10 @@ def _polars_summarize_number(
             # inf/-inf in the data
             mean_val = float_format(col.mean())
             median_val = float_format(col.median())
-            std_val = float_format(col.std())
+            # polars std() uses ddof=1 and returns None for one non-null value
+            std = col.std()
+            if std is not None:
+                std_val = float_format(std)
 
         if display_type == ColumnDisplayType.Integer:
             min_val = str(min_val)
