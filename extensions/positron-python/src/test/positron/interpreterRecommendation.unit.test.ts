@@ -524,7 +524,7 @@ suite('interpreterRecommendation', () => {
         discovered = [];
         const remembered = await reason(false);
 
-        assert.deepEqual([ranked, remembered], ['no project environment found', 'no project environment found']);
+        assert.deepEqual([ranked, remembered], ['no project environment', 'no project environment']);
     });
 
     test('returns a recommended runtime without picker info unchanged', async () => {
@@ -562,24 +562,24 @@ suite('interpreterRecommendation', () => {
             );
         });
 
-        test('says no project env was found for lower tiers in a Python folder', () => {
+        test('says there is no project env for lower tiers in a Python folder', () => {
             assert.strictEqual(
                 recommendationReason(homebrew, ranking.Tier.GlobalEnv, { ...context, hasPythonSignals: true }),
-                'no project environment found',
+                'no project environment',
             );
         });
 
-        test('falls back to a generic reason in a folder without Python files', () => {
+        test('says there is no project env for lower tiers in a folder without Python files', () => {
             assert.strictEqual(
                 recommendationReason(homebrew, ranking.Tier.GlobalEnv, context),
-                'best available Python',
+                'no project environment',
             );
         });
 
-        test('falls back to a generic reason with no folder open', () => {
+        test('says no folder is open for lower tiers with no folder open', () => {
             assert.strictEqual(
                 recommendationReason(homebrew, ranking.Tier.GlobalEnv, { ...context, workspacePath: undefined }),
-                'best available Python',
+                'no folder open',
             );
         });
     });
