@@ -180,12 +180,16 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 
 		try {
 			const clients = await session.listClients(RuntimeClientType.Connection);
+			// With several open, nothing says which the session opened last, so none of them says
+			// where it is. Left unknown rather than guessed: a wrong code would have a SQL file's
+			// statement run in a session on another database.
+			const sole = clients.length === 1;
 			await Promise.all(clients.map(async client => {
 				const connection = new ConnectionsClientInstance(client);
 				try {
 					// Bounded, so a comm that never answers is still closed.
 					const metadata = await raceTimeout(connection.getMetadata(), STARTUP_METADATA_TIMEOUT_MS);
-					if (metadata && !superseded) {
+					if (metadata && sole && !superseded) {
 						this.setSessionConnectionCode(session.sessionId, metadata.code);
 					}
 				} finally {

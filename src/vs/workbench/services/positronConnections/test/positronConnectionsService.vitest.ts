@@ -220,15 +220,43 @@ describe('Positron - Connections Service', () => {
 			}
 
 			/** A startup comm whose metadata reply is held until the test releases it. */
-			async function openStartupComm(session: TestLanguageRuntimeSession) {
+			async function openStartupComm(session: TestLanguageRuntimeSession, metadata = memory) {
 				const reply = new DeferredPromise<void>();
-				const client = await session.createClient(RuntimeClientType.Connection, memory);
+				const client = await session.createClient(RuntimeClientType.Connection, metadata);
 				client.rpcHandler = async (): Promise<IRuntimeClientOutput<unknown>> => {
 					await reply.p;
-					return { data: { result: memory } };
+					return { data: { result: metadata } };
 				};
 				return { client, reply };
 			}
+
+			it('is recorded when it is the only one', async () => {
+				const session = ctx.disposables.add(await createSession());
+				const { client, reply } = await openStartupComm(session);
+				const disposeSpy = vi.spyOn(client, 'dispose');
+				const { service, onDidStartRuntime } = createServiceWatchingStarts();
+
+				onDidStartRuntime.fire(session);
+				reply.complete();
+				await waitUntilOk(() => expect(disposeSpy).toHaveBeenCalled());
+
+				expect(service.getSessionConnectionCode(session.sessionId)).toBe(memory.code);
+			});
+
+			it('is not recorded when another is open too, since which is current is unknown', async () => {
+				const session = ctx.disposables.add(await createSession());
+				const first = await openStartupComm(session, memory);
+				const second = await openStartupComm(session, file);
+				const disposeSpies = [vi.spyOn(first.client, 'dispose'), vi.spyOn(second.client, 'dispose')];
+				const { service, onDidStartRuntime } = createServiceWatchingStarts();
+
+				onDidStartRuntime.fire(session);
+				first.reply.complete();
+				second.reply.complete();
+				await waitUntilOk(() => disposeSpies.forEach(spy => expect(spy).toHaveBeenCalled()));
+
+				expect(service.getSessionConnectionCode(session.sessionId)).toBeUndefined();
+			});
 
 			it('does not replace a comm opened after it, when its reply arrives late', async () => {
 				const session = ctx.disposables.add(await createSession());
