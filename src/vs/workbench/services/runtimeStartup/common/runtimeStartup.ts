@@ -232,6 +232,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	// Languages to ask again, and the ask in flight, if any.
 	private readonly _staleRecommendationLanguageIds = new Set<string>();
+	// Languages whose recommendation went away, asked again when a runtime registers.
+	private readonly _droppedRecommendationLanguageIds = new Set<string>();
 	private _refreshingRecommendations: Promise<void> | undefined;
 
 	// Asks again once registrations settle, so a burst of them (e.g. on
@@ -2235,10 +2237,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	private async refreshRecommendation(languageId: string): Promise<void> {
-		// A language with no recommendation is asked on the next discovery
-		// pass instead, which can also start its answer.
+		// A language that never had a recommendation is asked on the next
+		// discovery pass instead, which can also start its answer.
 		if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled ||
-			!this._recommendedRuntimesByLanguageId.has(languageId)) {
+			(!this._recommendedRuntimesByLanguageId.has(languageId) &&
+				!this._droppedRecommendationLanguageIds.has(languageId))) {
 			return;
 		}
 		const otherLanguageIds = Array.from(new Set([
@@ -2249,15 +2252,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			manager.recommendWorkspaceRuntimes(otherLanguageIds, true)));
 		const answer = metadata.flat().find(({ metadata: recommended }) => recommended.languageId === languageId);
 		if (!answer) {
-			// Drop a recommendation that went away (e.g. its .venv was deleted),
-			// so the next discovery pass asks for the language again.
+			// Drop a recommendation that went away (e.g. its .venv was deleted).
 			const recommended = this._recommendedRuntimesByLanguageId.get(languageId);
 			if (recommended && !this._languageRuntimeService.getRegisteredRuntime(recommended.runtimeId)) {
 				this._recommendedRuntimesByLanguageId.delete(languageId);
+				this._droppedRecommendationLanguageIds.add(languageId);
 				this._newFolderEnvTimes.delete(languageId);
 			}
 			return;
 		}
+		this._droppedRecommendationLanguageIds.delete(languageId);
 		const previous = this._recommendedRuntimesByLanguageId.get(languageId);
 		this._suppressRegistrationAutoStart = true;
 		try {
