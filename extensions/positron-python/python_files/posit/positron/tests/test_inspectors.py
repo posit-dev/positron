@@ -582,18 +582,20 @@ def test_inspect_property(value: property) -> None:
 
 
 @pytest.mark.parametrize(
-    "value",
+    ("value", "display_value"),
     [
-        np.array([1, 2, 3], dtype=np.int64),  # 1D
-        np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64),  # 2D
+        (np.array([1, 2, 3], dtype=np.int64), "[1, 2, 3]"),  # 1D
+        (np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64), "[[1, 2, 3],\n [4, 5, 6]]"),  # 2D
+        # Elements are padded to the widest element, like repr() in a console.
+        (np.array([3, 10], dtype=np.int64), "[ 3, 10]"),
     ],
 )
-def test_inspect_numpy_array(value: np.ndarray) -> None:
+def test_inspect_numpy_array(value: np.ndarray, display_value: str) -> None:
     shape = value.shape
     display_shape = f"({shape[0]})" if len(shape) == 1 else str(tuple(shape))
     verify_inspector(
         value=value,
-        display_value=np.array2string(value, separator=","),
+        display_value=display_value,
         kind=VariableKind.Collection,
         display_type=f"numpy.int64 {display_shape}",
         type_info="numpy.ndarray",
@@ -614,7 +616,7 @@ def test_inspect_numpy_array(value: np.ndarray) -> None:
 def test_inspect_numpy_array_0d(value: np.ndarray) -> None:
     verify_inspector(
         value=value,
-        display_value=np.array2string(value, separator=","),
+        display_value=np.array2string(value),
         kind=VariableKind.Number,
         display_type="numpy.int64",
         type_info="numpy.ndarray",

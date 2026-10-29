@@ -41,6 +41,6 @@ test.describe('Reticulate - Variables pane support', {
 		await console.waitForExecutionComplete();
 
 		await variables.expectVariableToBe('np', /^<module \'numpy\' from/);
-		await variables.expectVariableToBe('arr', '[1,2,3]');
+		await variables.expectVariableToBe('arr', '[1, 2, 3]');
 	});
 });

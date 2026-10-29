@@ -593,16 +593,16 @@ def variable(display_name: str, display_value: str, children: list[dict[str, Any
             np.array([[0, 1], [2, 3]]),
             lambda varname: variable(
                 varname,
-                "[[0,1],\n [2,3]]",
+                "[[0, 1],\n [2, 3]]",
                 children=[
                     variable(
                         "0",
-                        "[0,1]",
+                        "[0, 1]",
                         children=[variable("0", "0"), variable("1", "1")],
                     ),
                     variable(
                         "1",
-                        "[2,3]",
+                        "[2, 3]",
                         children=[variable("0", "2"), variable("1", "3")],
                     ),
                 ],
