@@ -606,6 +606,24 @@ def test_inspect_numpy_array(value: np.ndarray) -> None:
 
 
 @pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (np.array([3, 10]), "[3,10]"),
+        (np.array([-1, 10]), "[-1,10]"),
+        (np.array([[1, 2], [10, 20]]), "[[1,2],\n [10,20]]"),
+        (np.array([1.5, 10.25]), "[1.5,10.25]"),
+        (np.array([1 / 3, 10.0]), "[0.33333333,10.]"),
+        (np.array([True, False]), "[True,False]"),
+        (np.array([1 + 2j, 10 + 20j]), "[1.+2.j,10.+20.j]"),
+        (np.array(["a b", "c"]), "['a b','c']"),
+    ],
+)
+def test_numpy_array_display_value_has_no_padding(value: np.ndarray, expected: str) -> None:
+    display_value, _ = get_inspector(value).get_display_value()
+    assert display_value == expected
+
+
+@pytest.mark.parametrize(
     "value",
     [
         np.array(1, dtype=np.int64),
