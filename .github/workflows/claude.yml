@@ -318,7 +318,7 @@ jobs:
         env:
           HANDOFF: ${{ needs.triage.outputs.handoff }}
         run: |
-          FILTER='[.files[]? | strings] | "kernel=\(any(.[]; startswith("extensions/positron-python/python_files/posit/")))", "extension=\(any(.[]; startswith("extensions/positron-python/src/")))"'
+          FILTER='[.files[]? | strings] | "kernel=\(any(.[]; test("(^|/)extensions/positron-python/python_files/posit/")))", "extension=\(any(.[]; test("(^|/)extensions/positron-python/src/")))"'
           if ! OUT=$(jq -r "$FILTER" <<<"$HANDOFF" 2>/dev/null) || [ -z "$OUT" ]; then
             OUT=$'kernel=false\nextension=false'
           fi
@@ -369,15 +369,16 @@ jobs:
             `package.json` or a lockfile, a "module not found" error can come from that difference.
             Say so in your comment instead of treating it as a test failure. On a review or review
             comment, the dependencies come from the pull request's own lockfiles.
-            Write each command out in full. Commands that use shell variables are rejected.
+            Write each command out in full. Commands that use shell variables or pipes are rejected.
             Vitest logs an EROFS error about the step summary after the run. Ignore it; read the
             "Test Files" line for the result.
 
             If the handoff lists files under `extensions/positron-python/python_files/posit/`, the
             kernel's Python test dependencies are installed. Run one test file, with `-k` to pick
-            tests: `uv --directory extensions/positron-python run --active pytest python_files/posit/positron/tests/<file>.py -k <name>`.
+            tests. The file path is relative to `extensions/positron-python`:
+            `uv --directory extensions/positron-python run --active pytest <test file> -k <name>`.
             If the handoff lists files under `extensions/positron-python/src/`, that extension is
-            installed and compiled. After each change to its `.ts` files, recompile with
+            installed and compiled. Before each test run, recompile with
             `npm exec --prefix extensions/positron-python -- tsc -p extensions/positron-python`,
             then run one suite with
             `npm run --prefix extensions/positron-python test:unittests -- --grep "<suite title>"`.
