@@ -4382,6 +4382,24 @@ def test_polars_profile_summary_stats_integer_min_max(
     assert stats["number_stats"]["max_value"] == ex_max
 
 
+@pytest.mark.parametrize(
+    ("values", "dtype"),
+    [
+        ([None, 1.5, None], pl.Float64),
+        ([None, 7, None], pl.Int64),
+    ],
+)
+def test_polars_profile_summary_stats_one_non_null(dxf: DataExplorerFixture, values, dtype):
+    # With one non-null value, polars std() (ddof=1) returns None. See #16528.
+    dxf.register_table("df", pl.DataFrame({"n": pl.Series(values, dtype=dtype)}))
+
+    results = dxf.get_column_profiles("df", [_get_summary_stats(0)])
+    number_stats = results[0]["summary_stats"]["number_stats"]
+    assert number_stats.get("stdev") is None
+    assert number_stats["mean"] is not None
+    assert number_stats["median"] is not None
+
+
 @pytest.mark.skipif(ibis is None, reason="ibis is not available")
 def test_ibis_supported_features(dxf: DataExplorerFixture):
     dxf.register_table("example", SIMPLE_IBIS_DF)
