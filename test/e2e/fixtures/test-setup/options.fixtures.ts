@@ -97,6 +97,11 @@ export function OptionsFixture() {
 			// these inspector ports before sampling; see utils/memory/gc.ts.
 			...(isMemoryScenario(process.env.MEMORY_SCENARIO) && !browser
 				? { extraArgs: GC_TARGETS.map(t => `${t.flag}=${t.port}`) }
+				: {}),
+			// Release screenshots disable the bundled Pug extension. The snippets
+			// picker sorts languages by name, so "Pug (jade)" sits just above Python.
+			...(workerInfo.project.name === 'release-screenshots' && !browser
+				? { extraArgs: ['--disable-extension=vscode.pug'] }
 				: {})
 			// --- End Positron ---
 		};
