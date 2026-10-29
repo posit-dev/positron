@@ -1557,6 +1557,28 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			});
 		});
 
+		it('is not RunningConsole for a console ended by exit() that is still in front', async () => {
+			const svc = createService();
+			const exitedRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			const exited = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: exitedRuntime });
+			const laterRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			const later = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: laterRuntime });
+			await vi.waitFor(() => expect(exited.getRuntimeState()).toBe(RuntimeState.Ready));
+			await vi.waitFor(() => expect(later.getRuntimeState()).toBe(RuntimeState.Ready));
+			exited.setRuntimeState(RuntimeState.Exited);
+			later.setRuntimeState(RuntimeState.Exited);
+			// The later console was deleted, so the exited one is back in front.
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'getConsoleSessionForLanguage').mockReturnValue(exited);
+			// Covered by the affiliation rule, which is not under test.
+			vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(undefined);
+
+			const preferred = svc.getPreferredRuntimeWithReason(exitedRuntime.languageId);
+			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
+				runtimeId: laterRuntime.runtimeId,
+				reason: PreferredRuntimeReason.RecentlyStarted,
+			});
+		});
+
 		it('is WorkspaceAffiliation when the workspace has an affiliated runtime', () => {
 			const svc = createService();
 			const affiliated = register(metadata({ runtimeId: 'rt-affiliated' }));

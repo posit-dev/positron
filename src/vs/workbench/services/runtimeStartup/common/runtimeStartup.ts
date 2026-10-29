@@ -1949,9 +1949,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *  preferred runtime is available.
 	 */
 	public getPreferredRuntimeWithReason(languageId: string): IPreferredRuntime | undefined {
+		// A console ended by `exit()` stays the language's console after it exits.
+		const consoleSession = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
+		const activeConsole = consoleSession?.getRuntimeState() === RuntimeState.Exited ? undefined : consoleSession?.runtimeMetadata;
 		const preferred = choosePreferredRuntime({
-			activeConsole: this.unlessNewFolderEnv(languageId,
-				this._runtimeSessionService.getConsoleSessionForLanguage(languageId)?.runtimeMetadata),
+			activeConsole: this.unlessNewFolderEnv(languageId, activeConsole),
 			affiliated: this.unlessNewFolderEnv(languageId, this.affiliationFor(languageId)),
 			recentlyStarted: this.unlessNewFolderEnv(languageId,
 				this._mostRecentlyStartedRuntimesByLanguageId.get(languageId)),
