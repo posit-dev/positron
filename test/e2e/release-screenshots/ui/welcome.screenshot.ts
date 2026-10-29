@@ -71,8 +71,8 @@ test.describe('Release Screenshots - Welcome Page', () => {
 			variableName: 'gc_frame',
 			action: 'expand',
 		});
-		// Scroll down 4 rows (26px each) so the gc_frame children show.
-		await variables.scroll({ y: 104 });
+		// 4 rows of 26px, so fig is the top row and the gc_frame children show.
+		await variables.scrollTo(104);
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);

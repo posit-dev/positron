@@ -90,12 +90,13 @@ export class Variables {
 	}
 
 	/**
-	 * Scroll the variables list by wheel. Positive y scrolls down, negative scrolls up.
+	 * Scroll the variables list to an exact pixel offset from the top. Sets
+	 * scrollTop directly, because a mouse wheel delta does not map 1:1 to pixels
+	 * in Electron.
 	 */
-	async scroll(delta: { y: number }): Promise<void> {
-		const list = this.code.driver.currentPage.locator('.variables-instance').first();
-		await list.hover();
-		await this.code.driver.currentPage.mouse.wheel(0, delta.y);
+	async scrollTo(offset: number): Promise<void> {
+		const list = this.code.driver.currentPage.locator('.variables-instance .list').first();
+		await list.evaluate((el, top) => { el.scrollTop = top; }, offset);
 	}
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
