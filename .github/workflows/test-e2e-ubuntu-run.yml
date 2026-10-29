@@ -179,6 +179,12 @@ jobs:
           IDE_SERVICE_ACCOUNT_EMAIL: "op://Positron/RStudioIDE_Service_Account/service-account-email"
           IDE_SERVICE_ACCOUNT_PASSWORD: "op://Positron/RStudioIDE_Service_Account/service-account-password"
           IDE_SERVICE_ACCOUNT_OTP_SECRET: "op://Positron/RStudioIDE_Service_Account/service-account-otp-secret"
+          # Positron service account, used by the data-connections Snowflake tests. Its second
+          # factor is a WebAuthn passkey rather than a TOTP, so parallel jobs signing in as it
+          # do not collide on one-time codes the way they do on the RStudioIDE account.
+          POSITRON_SERVICE_ACCOUNT_EMAIL: "op://Positron/Positron Service/username"
+          POSITRON_SERVICE_ACCOUNT_PASSWORD: "op://Positron/Positron Service/password"
+          POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL: "op://Positron/Positron Service/passkey-credential"
           # Snowflake programmatic access token for the posit-assistant Snowflake Cortex
           # test. Pairs with the SNOWFLAKE_ACCOUNT secret already exported above, which
           # doubles as the account identifier that test signs in with.

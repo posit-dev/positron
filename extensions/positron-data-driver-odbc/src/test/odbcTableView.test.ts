@@ -20,6 +20,7 @@ import {
 	RowFilterType,
 	TextSearchType,
 } from 'positron-data-explorer-protocol';
+import { RESULT_WINDOW_ROWS } from 'positron-data-explorer-window';
 
 /** Format options for the data reads below; the exact numbers do not matter to these assertions. */
 const FORMAT_OPTIONS: FormatOptions = {
@@ -80,14 +81,15 @@ function lastQuery(client: { queries: string[] }): string {
 function createView(
 	dialect: OdbcDialect,
 	ref?: Partial<OdbcTableRef>,
-	options: { schema?: OdbcSchemaEntry[]; client?: IOdbcQueryClient & { queries: string[] } } = {}
+	options: { schema?: OdbcSchemaEntry[]; client?: IOdbcQueryClient & { queries: string[] }; rowIdentity?: string[] } = {}
 ) {
 	const client = options.client ?? createRecordingClient();
 	const view = new OdbcTableView(
 		client,
 		{ schema: 'public', name: 'actor', kind: 'table', ...ref },
 		dialect,
-		options.schema ?? SCHEMA
+		options.schema ?? SCHEMA,
+		options.rowIdentity
 	);
 	return { client, view };
 }
@@ -134,7 +136,31 @@ suite('odbcDisplayType', () => {
 });
 
 suite('OdbcTableView SQL', () => {
-	test('writes the row window in the backend\'s own syntax', async () => {
+	test('pages a keyed table in the backend\'s own syntax', async () => {
+		const limitOffset = createView({ ...LIMIT_OFFSET, enforcesPrimaryKeys: true }, undefined, { rowIdentity: ['actor_id'] });
+		const offsetFetch = createView({ ...OFFSET_FETCH, enforcesPrimaryKeys: true }, undefined, { rowIdentity: ['actor_id'] });
+		const request = {
+			columns: [{ column_index: 0, spec: { first_index: 10, last_index: 12 } }],
+			format_options: FORMAT_OPTIONS,
+		};
+
+		await limitOffset.view.getDataValues(request);
+		await offsetFetch.view.getDataValues(request);
+
+		assert.deepStrictEqual(
+			{
+				limitOffset: lastQuery(limitOffset.client),
+				offsetFetch: lastQuery(offsetFetch.client),
+			},
+			{
+				// The key is the paging tiebreaker.
+				limitOffset: 'SELECT "actor_id" AS c0 FROM "public"."actor"\nORDER BY "actor_id" LIMIT 3 OFFSET 10',
+				offsetFetch: 'SELECT "actor_id" AS c0 FROM "public"."actor"\nORDER BY "actor_id" OFFSET 10 ROWS FETCH NEXT 3 ROWS ONLY',
+			}
+		);
+	});
+
+	test('reads a keyless relation\'s window in the backend\'s own syntax', async () => {
 		const limitOffset = createView(LIMIT_OFFSET);
 		const offsetFetch = createView(OFFSET_FETCH);
 		const request = {
@@ -151,11 +177,10 @@ suite('OdbcTableView SQL', () => {
 				offsetFetch: lastQuery(offsetFetch.client),
 			},
 			{
-				// These views are built without a resolved row identity, so the first column stands
-				// in as the paging tiebreaker. Where SQLPrimaryKeys reports a key, its columns are
-				// used instead -- see odbcPaging.test.ts.
-				limitOffset: 'SELECT "actor_id" AS c0 FROM "public"."actor"\nORDER BY "actor_id" LIMIT 3 OFFSET 10',
-				offsetFetch: 'SELECT "actor_id" AS c0 FROM "public"."actor"\nORDER BY "actor_id" OFFSET 10 ROWS FETCH NEXT 3 ROWS ONLY',
+				// One statement for every column, one row past the window to tell whether there are more.
+				limitOffset: `SELECT "actor_id" AS c0, "first_name" AS c1 FROM "public"."actor" LIMIT ${RESULT_WINDOW_ROWS + 1} OFFSET 0`,
+				// SQL Server rejects OFFSET ... FETCH without an ORDER BY, so the first column supplies one.
+				offsetFetch: `SELECT "actor_id" AS c0, "first_name" AS c1 FROM "public"."actor"\nORDER BY "actor_id" OFFSET 0 ROWS FETCH NEXT ${RESULT_WINDOW_ROWS + 1} ROWS ONLY`,
 			}
 		);
 	});
@@ -235,7 +260,7 @@ suite('OdbcTableView SQL', () => {
 		assert.deepStrictEqual(
 			{ sql: lastQuery(client), values: data.columns },
 			{
-				sql: 'SELECT "category_id" AS c0, {fn OCTET_LENGTH("picture")} AS c1 FROM "public"."categories"\nORDER BY "category_id" LIMIT 1 OFFSET 0',
+				sql: `SELECT "category_id" AS c0, {fn OCTET_LENGTH("picture")} AS c1 FROM "public"."categories" LIMIT ${RESULT_WINDOW_ROWS + 1} OFFSET 0`,
 				values: [['1'], ['[BINARY 11626 bytes]']],
 			}
 		);
@@ -244,7 +269,7 @@ suite('OdbcTableView SQL', () => {
 	test('falls back to a presence check when the backend rejects the length escape', async () => {
 		const { client, view } = createView(LIMIT_OFFSET, { name: 'categories' }, {
 			schema: BINARY_SCHEMA,
-			client: createRecordingClient({ rejectOctetLength: true, rows: [{ c0: 1 }] }),
+			client: createRecordingClient({ rejectOctetLength: true, rows: [{ c0: 1, c1: 1 }] }),
 		});
 
 		const data = await view.getDataValues({
@@ -256,7 +281,7 @@ suite('OdbcTableView SQL', () => {
 			{ sql: lastQuery(client), values: data.columns },
 			{
 				// Plain SQL every backend accepts: 0 for null, 1 for present.
-				sql: 'SELECT CASE WHEN "picture" IS NULL THEN 0 ELSE 1 END AS c0 FROM "public"."categories"\nORDER BY "category_id" LIMIT 1 OFFSET 0',
+				sql: `SELECT "category_id" AS c0, CASE WHEN "picture" IS NULL THEN 0 ELSE 1 END AS c1 FROM "public"."categories" LIMIT ${RESULT_WINDOW_ROWS + 1} OFFSET 0`,
 				values: [['[BINARY]']],
 			}
 		);
@@ -285,8 +310,23 @@ suite('OdbcTableView SQL', () => {
 		);
 	});
 
+	test('orders an unsorted OFFSET/FETCH window by a declared key the backend does not enforce', async () => {
+		// The key is not trusted to be unique, so it is not paged by, but it still supplies the ORDER BY
+		// that OFFSET ... FETCH requires, and is likelier to be sortable than the first column.
+		const { client, view } = createView(OFFSET_FETCH, undefined, { rowIdentity: ['first_name'] });
+		await view.getDataValues({
+			columns: [{ column_index: 0, spec: { first_index: 0, last_index: 0 } }],
+			format_options: FORMAT_OPTIONS,
+		});
+
+		assert.strictEqual(
+			lastQuery(client),
+			`SELECT "actor_id" AS c0, "first_name" AS c1 FROM "public"."actor"\nORDER BY "first_name" OFFSET 0 ROWS FETCH NEXT ${RESULT_WINDOW_ROWS + 1} ROWS ONLY`
+		);
+	});
+
 	test('omits the paging tiebreaker from the SQL it hands the user', async () => {
-		const { view } = createView(OFFSET_FETCH);
+		const { view } = createView({ ...OFFSET_FETCH, enforcesPrimaryKeys: true }, undefined, { rowIdentity: ['actor_id'] });
 		await view.setSortColumns({ sort_keys: [{ column_index: 1, ascending: false }] });
 
 		assert.deepStrictEqual(

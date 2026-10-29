@@ -14,6 +14,28 @@ export const IRuntimeStartupService =
 
 
 /**
+ * Which preference rule picked the preferred runtime for a language.
+ */
+export const enum PreferredRuntimeReason {
+	/** The runtime has a running console, whether or not it is the one in front. */
+	RunningConsole,
+	WorkspaceAffiliation,
+	RecentlyStarted,
+	Recommended,
+	Fallback,
+}
+
+/**
+ * A preferred runtime and the rule that picked it.
+ */
+export interface IPreferredRuntime {
+	readonly runtime: ILanguageRuntimeMetadata;
+	readonly reason: PreferredRuntimeReason;
+	/** Why the extension recommended the runtime, if the reason is Recommended and the extension said. */
+	readonly recommendationReason?: string;
+}
+
+/**
  * An event that is emitted when a runtime is automatically started.
  */
 export interface IRuntimeAutoStartEvent {
@@ -49,6 +71,11 @@ export interface SerializedSessionMetadata {
 
 	/// The time at which the session was last used, in milliseconds since the epoch.
 	lastUsed: number;
+
+	/// Whether this was the last console the user focused when the session was
+	/// serialized. When a notebook is in front, this is the console that was in
+	/// front before it. Missing for sessions serialized before this was recorded.
+	isLastActiveConsole?: boolean;
 
 	/// The metadata of the runtime associated with the session.
 	runtimeMetadata: ILanguageRuntimeMetadata;
@@ -93,6 +120,15 @@ export interface IRuntimeStartupService {
 	 *  undefined if no runtimes are registered for the given language identifier.
 	 */
 	getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata | undefined;
+
+	/**
+	 * Like getPreferredRuntime, but also says which preference rule picked the runtime.
+	 *
+	 * @param languageId The language identifier.
+	 * @returns The preferred runtime and the reason, or undefined if no runtimes
+	 *  are registered for the given language identifier.
+	 */
+	getPreferredRuntimeWithReason(languageId: string): IPreferredRuntime | undefined;
 
 	/**
 	 * Asks the language's runtime manager to make the interpreter at a path
@@ -168,6 +204,15 @@ export interface IRuntimeStartupService {
 	 * @param id the id of the MainThreadLanguageRuntime instance for the extension host
 	 */
 	completeDiscovery(id: number): void;
+
+	/**
+	 * Signal that an extension host finished discovering the runtimes for one
+	 * language, before it finished discovering every language.
+	 *
+	 * @param id the id of the MainThreadLanguageRuntime instance for the extension host
+	 * @param languageId the language whose discovery finished
+	 */
+	completeLanguageDiscovery(id: number, languageId: string): void;
 
 	/**
 	 * Kick off a user-driven refresh of runtime discovery, after the initial discovery.

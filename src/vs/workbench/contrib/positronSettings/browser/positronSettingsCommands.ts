@@ -495,12 +495,14 @@ CommandsRegistry.registerCommand({
 	id: SETTINGS_GET_CONFIGURED_SETTINGS_COMMAND_ID,
 	handler: getConfiguredSettings,
 	metadata: {
+		title: localize('positron.settings.getConfiguredSettings.title', "Get Configured Settings"),
 		description: localize(
 			'positron.settings.getConfiguredSettings.description',
 			"Read the settings the user has explicitly configured, with the value each configuration target holds and an explicit reason when a setting they set is having no effect. Changes nothing and shows the user nothing. Names no file path, so it is correct on desktop, on the web, over a remote connection, and on Posit Workbench."
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		readOnly: true,
 		args: [
 			{
 				name: 'filter',
@@ -699,12 +701,14 @@ CommandsRegistry.registerCommand({
 	id: SETTINGS_FIND_SETTINGS_COMMAND_ID,
 	handler: findSettings,
 	metadata: {
+		title: localize('positron.settings.findSettings.title', "Find Settings"),
 		description: localize(
 			'positron.settings.findSettings.description',
 			"Search the settings this Positron build registers: what exists, what each setting does, its default, its current value, and whether it is a preview/experimental feature or deprecated. Answers questions about settings whether or not the user has configured them. Changes nothing and shows the user nothing."
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
+		readOnly: true,
 		args: [
 			{
 				name: 'query',

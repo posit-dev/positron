@@ -11,7 +11,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../../pla
 import { ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionStartReason, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryService, ExecutionEntryType, IExecutionHistoryEntry, projectExecutionEntriesToConsoleHistory, DEFAULT_CONSOLE_HISTORY_ENTRY_COUNT, CONSOLE_HISTORY_API_ENABLED_KEY } from '../../common/executionHistoryService.js';
 import { getConsoleHistory } from '../../common/helpers/sessionConsoleHistory.js';
-import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IPreferredRuntime, IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ExecutionHistoryService } from '../../common/executionHistory.js';
 import { IWorkspace, IWorkspaceContextService, IWorkspaceFoldersWillChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
@@ -330,6 +330,10 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 		throw new Error('Method not implemented.');
 	}
 
+	getPreferredRuntimeWithReason(languageId: string): IPreferredRuntime | undefined {
+		throw new Error('Method not implemented.');
+	}
+
 	registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata> {
 		throw new Error('Method not implemented.');
 	}
@@ -358,6 +362,10 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 	}
 
 	completeDiscovery(_id: number): void {
+		// No-op in test implementation
+	}
+
+	completeLanguageDiscovery(_id: number, _languageId: string): void {
 		// No-op in test implementation
 	}
 

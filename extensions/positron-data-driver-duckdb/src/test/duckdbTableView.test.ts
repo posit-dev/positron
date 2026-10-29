@@ -18,6 +18,8 @@ import {
 import {
 	BackendState,
 	ColumnDisplayType,
+	ColumnHistogramParamsMethod,
+	ColumnProfileType,
 	ColumnValue,
 	DataExplorerBackendRequest,
 	DataExplorerResponse,
@@ -338,6 +340,54 @@ suite('DuckDB Data Explorer Tests', () => {
 			await assert.rejects(
 				handler.openColumnView('ds', client, ATTACHED, 'main', 't', 'table', 'nope'),
 				{ message: `Column 'nope' not found in 'my "db".main.t'` });
+		});
+	});
+
+	suite('wide DECIMAL profiles', () => {
+		let client: DuckDBWorkerClient;
+
+		setup(async () => {
+			client = new DuckDBWorkerClient({ databasePath: ':memory:', readOnly: false });
+			await client.runQuery(
+				`CREATE TABLE main.wide AS SELECT * FROM (VALUES ` +
+				`(CAST(-9007199254740993.01 AS DECIMAL(38,2)), CAST(1 AS DECIMAL(38,0))), ` +
+				`(CAST(123456789012345678901234567890.12 AS DECIMAL(38,2)), CAST(12345678901234567890123456789012345678 AS DECIMAL(38,0)))` +
+				`) AS t(d, i)`);
+		});
+
+		teardown(() => {
+			client.dispose();
+		});
+
+		test('summarizes wide values without overflowing DECIMAL arithmetic', async () => {
+			// Summing or squaring these in DECIMAL overflows 38 digits, and the failed query used to
+			// leave the column with no statistics at all. The range still comes back exact.
+			const schema = await buildDuckDBSchema(client, undefined, 'main', 'wide');
+			const view = new DuckDBTableView(client, '"main"."wide"', 'wide', rowidReadPlan('"main"."wide"'), schema);
+			const { profiles } = await view.computeColumnProfiles({
+				callback_id: 'cb',
+				format_options: FORMAT,
+				profiles: schema.map((_, column_index) => ({
+					column_index,
+					profiles: [
+						{ profile_type: ColumnProfileType.SummaryStats },
+						{ profile_type: ColumnProfileType.SmallHistogram, params: { method: ColumnHistogramParamsMethod.Fixed, num_bins: 2 } },
+					],
+				})),
+			});
+
+			assert.deepStrictEqual(
+				profiles.map(p => ({ stats: p.summary_stats?.number_stats, bins: p.small_histogram?.bin_counts })),
+				[
+					{
+						stats: { min_value: '-9007199254740993.01', max_value: '123456789012345678901234567890.12', mean: '6.17e+28', median: '-9.01e+15', stdev: '8.73e+28' },
+						bins: [1, 1],
+					},
+					{
+						stats: { min_value: '1', max_value: '12345678901234567890123456789012345678', mean: '6.17e+36', median: '1.00', stdev: '8.73e+36' },
+						bins: [1, 1],
+					},
+				]);
 		});
 	});
 });

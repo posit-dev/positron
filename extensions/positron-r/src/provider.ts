@@ -344,10 +344,8 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// Sort the R installations
 	rInstallations.sort(compareRInstallations);
 
-	// Construct and yield the metadata for each R installation. None of them
-	// asks to start right away: the discovery cache shares these records with
-	// every folder, so whether R should start in this folder is decided by
-	// R's recommendation instead (see chooseStartupR).
+	// Construct and yield the metadata for each R installation, with the
+	// startup behavior that discoveredStartupBehavior gives it.
 	for (const rInst of rInstallations) {
 		// If there is another R installation with the same version but different architecture,
 		// we need to disambiguate the runtime name by appending the architecture.
@@ -360,7 +358,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 			}
 		}
 
-		const metadata = makeMetadata(rInst, positron.LanguageRuntimeStartupBehavior.Implicit, needsArch);
+		const metadata = makeMetadata(rInst, discoveredStartupBehavior(rInst), needsArch);
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		yield metadata;
@@ -389,7 +387,7 @@ export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<stri
 			LOGGER.warn(`Ignoring R binary ${binpath} from interpreters.definitions, reason: ${friendlyReason(rInst.reasonRejected)}.`);
 			continue;
 		}
-		const metadata = await makeMetadata(rInst);
+		const metadata = await makeMetadata(rInst, positron.LanguageRuntimeStartupBehavior.Explicit);
 		yield { ...metadata, definitionOnly: true };
 	}
 }
@@ -411,7 +409,7 @@ export async function* rPixiRuntimeDiscoverer(): AsyncGenerator<positron.Languag
 			LOGGER.info(`Filtering out ${rInst.binpath}, reason: ${friendlyReason(rInst.reasonRejected)}.`);
 			continue;
 		}
-		const metadata = await makeMetadata(rInst);
+		const metadata = await makeMetadata(rInst, discoveredStartupBehavior(rInst));
 		yield metadata;
 	}
 }
@@ -756,9 +754,33 @@ export function classifyRRuntimeSource(
 	return RRuntimeSource.system;
 }
 
+/**
+ * The startup behavior of an R that discovery finds. Most discovered Rs start
+ * only when picked: the discovery cache shares their records with every
+ * folder, so whether R starts in this folder, and which R, is decided by R's
+ * recommendation instead (see chooseStartupR). A Pixi R is never cached and
+ * belongs to the project, so it starts when an R file opens, as before. As
+ * for the cache (see isRRuntimeCacheable), either Pixi metadata or the Pixi
+ * reason marks a Pixi R.
+ */
+export function discoveredStartupBehavior(rInst: RInstallation): positron.LanguageRuntimeStartupBehavior {
+	const isPixi = (rInst.packagerMetadata !== undefined && isPixiMetadata(rInst.packagerMetadata)) ||
+		rInst.reasonDiscovered?.includes(ReasonDiscovered.PIXI) === true;
+	return isPixi ?
+		positron.LanguageRuntimeStartupBehavior.Implicit :
+		positron.LanguageRuntimeStartupBehavior.Explicit;
+}
+
+/**
+ * Builds the runtime metadata for an R installation.
+ *
+ * @param startupBehavior `Explicit` unless the R is R's recommendation or the
+ *   pinned R, so opening an R file starts the recommendation rather than
+ *   whichever R registered first.
+ */
 export async function makeMetadata(
 	rInst: RInstallation,
-	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
+	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Explicit,
 	includeArch: boolean = false
 ): Promise<positron.LanguageRuntimeMetadata> {
 	// Is the runtime path within the user's home directory?
@@ -790,16 +812,8 @@ export async function makeMetadata(
 	if (rInst.packagerMetadata && isRVersionsMetadata(rInst.packagerMetadata) && rInst.packagerMetadata.label) {
 		runtimeName = rInst.packagerMetadata.label;
 	} else {
-		let packagerAmendment = '';
-		if (runtimeSource === RRuntimeSource.module && rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
-			packagerAmendment = ` (Module: ${rInst.packagerMetadata.environmentName})`;
-		} else if (runtimeSource === RRuntimeSource.conda && rInst.packagerMetadata && isCondaMetadata(rInst.packagerMetadata)) {
-			packagerAmendment = ` (Conda: ${path.basename(rInst.packagerMetadata.environmentPath)})`;
-		} else if (runtimeSource === RRuntimeSource.pixi && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
-			packagerAmendment = ` (Pixi: ${rInst.packagerMetadata.environmentName || path.basename(rInst.packagerMetadata.environmentPath)})`;
-		} else if (runtimeSource === RRuntimeSource.homebrew) {
-			packagerAmendment = ' (Homebrew)';
-		}
+		const packagerText = packagerDescription(rInst, runtimeSource);
+		const packagerAmendment = packagerText ? ` (${packagerText})` : '';
 		runtimeName = `R ${runtimeShortName}${packagerAmendment}`;
 	}
 
@@ -859,9 +873,55 @@ export async function makeMetadata(
 		uiSubscriptions,
 		extraRuntimeData,
 		cacheable,
+		picker: createRPickerInfo(rInst, runtimeSource, includeArch),
 	};
 
 	return metadata;
+}
+
+/**
+ * Text naming the packager that governs an R installation (e.g. "Conda: myenv"),
+ * or an empty string when there is none.
+ */
+function packagerDescription(rInst: RInstallation, runtimeSource: RRuntimeSource): string {
+	const metadata = rInst.packagerMetadata;
+	if (runtimeSource === RRuntimeSource.module && metadata && isModuleMetadata(metadata)) {
+		return `Module: ${metadata.environmentName}`;
+	} else if (runtimeSource === RRuntimeSource.conda && metadata && isCondaMetadata(metadata)) {
+		return `Conda: ${path.basename(metadata.environmentPath)}`;
+	} else if (runtimeSource === RRuntimeSource.pixi && metadata && isPixiMetadata(metadata)) {
+		return `Pixi: ${metadata.environmentName || path.basename(metadata.environmentPath)}`;
+	} else if (runtimeSource === RRuntimeSource.homebrew) {
+		return 'Homebrew';
+	}
+	return '';
+}
+
+/**
+ * Builds the interpreter picker info for an R installation: one "R" group with
+ * the current R first.
+ */
+export function createRPickerInfo(
+	rInst: RInstallation,
+	runtimeSource: RRuntimeSource,
+	includeArch: boolean
+): positron.RuntimePickerInfo {
+	const metadata = rInst.packagerMetadata;
+	const label = metadata && isRVersionsMetadata(metadata) && metadata.label
+		? metadata.label
+		: `R ${rInst.version}`;
+	const parts = [packagerDescription(rInst, runtimeSource)];
+	if (includeArch) {
+		parts.push(rInst.arch);
+	}
+	const description = parts.filter(part => part).join(' \u00B7 ');
+	return {
+		group: 'R',
+		groupOrder: 0,
+		rowOrder: rInst.current ? 0 : 1,
+		label,
+		description: description || undefined,
+	};
 }
 
 // functions relating to the current R binary
@@ -1316,6 +1376,21 @@ export function rCurrentSymlinks(hqDirs: readonly string[]): string[] {
 	// macOS uses 'Current' (uppercase 'C'); Linux uses 'current' (lowercase).
 	const name = process.platform === 'darwin' ? 'Current' : 'current';
 	return hqDirs.map(dir => path.join(dir, name));
+}
+
+/**
+ * The R binary that discovery lists for the R at `binpath`. On Windows, CRAN's
+ * installer puts R at both `bin\R.exe` and `bin\x64\R.exe`, and discovery
+ * lists the one `binFragments()` prefers. Elsewhere, `binpath` itself.
+ *
+ * @param binpath The path to an R binary
+ */
+export function listedRBinary(binpath: string): string {
+	if (process.platform !== 'win32') {
+		return binpath;
+	}
+	const home = getRHomePath(binpath);
+	return (home && firstExisting(home, binFragments())) || binpath;
 }
 
 function firstExisting(base: string, fragments: string[]): string {

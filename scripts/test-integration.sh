@@ -393,7 +393,21 @@ start_suite "Positron Skills tests"
 run_extension_suite npm run test-extension -- -l positron-skills
 kill_app
 
-start_suite "Positron Code Cells tests"
+echo
+echo "### Positron Claude Code tests"
+echo
+run_extension_suite npm run test-extension -- -l positron-claude-code
+kill_app
+
+echo
+echo "### Positron SQL tests"
+echo
+run_extension_suite npm run test-extension -- -l positron-sql
+kill_app
+
+echo
+echo "### Positron Code Cells tests"
+echo
 run_extension_suite npm run test-extension -- -l positron-code-cells
 kill_app
 

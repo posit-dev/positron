@@ -7,3 +7,55 @@
 	max-height: 300px;
 	overflow: auto;
 }
+
+/**
+ * Interpreter picker filter buttons show their language's logo, a little
+ * smaller than the row logos so the toggle's border has room. The image is set
+ * per language from the runtime's icon (see PickerLanguageFilter).
+ */
+.quick-input-widget .monaco-action-bar .monaco-custom-toggle.positron-picker-filter {
+	background-size: 14px;
+	background-repeat: no-repeat;
+	background-position: center;
+}
+
+/* Keep a 2px gap so one button's border never touches the other. */
+.monaco-action-bar .action-item:has(> .positron-picker-filter) + .action-item:has(> .positron-picker-filter) {
+	margin-left: 2px;
+}
+
+/*
+ * Interpreter rows lead with the version. Light themes draw the gray text at
+ * 0.95 opacity, almost as strong as the version, so use dark themes' 0.7.
+ */
+.monaco-workbench:not(.hc-black):not(.hc-light) .quick-input-list .monaco-icon-label.positron-picker-runtime .label-name {
+	font-weight: 500;
+}
+
+.monaco-workbench:not(.hc-black):not(.hc-light) .quick-input-list .monaco-icon-label.positron-picker-runtime > .monaco-icon-label-container > .monaco-icon-description-container > .label-description {
+	opacity: 0.7;
+}
+
+.monaco-workbench:not(.hc-black):not(.hc-light) .quick-input-list .quick-input-list-rows:has(.positron-picker-runtime) .quick-input-list-label-meta {
+	font-size: 12px;
+	opacity: 0.55;
+}
+
+.monaco-workbench:not(.hc-black):not(.hc-light) .quick-input-list .monaco-list-row.focused .quick-input-list-rows:has(.positron-picker-runtime) .quick-input-list-label-meta {
+	opacity: 1;
+}
+
+/*
+ * Action rows (Create environment, Install Python) put their codicon in the
+ * icon column, a little smaller than the logos with a slightly heavier stroke
+ * so it balances against them without looking heavier.
+ */
+.monaco-workbench .quick-input-list .quick-input-list-icon.positron-picker-action-icon {
+	/*
+	 * The codicon rule's display can win over the icon column's flex centering
+	 * (it does in Positron Web), leaving the glyph at the top of the row.
+	 */
+	display: flex;
+	font-size: 14px;
+	-webkit-text-stroke: 0.5px currentColor;
+}

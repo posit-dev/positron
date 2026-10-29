@@ -1,0 +1,15 @@
+# ---------------------------------------------------------------------------------------------
+# Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+# Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+# ---------------------------------------------------------------------------------------------
+
+# Pinned so that everyone builds the committed module with the same compiler: a different rustc
+# (or LLVM) produces a different module from the same crate. This file is one of the inputs in
+# wasm-fingerprint.txt, so bumping it means rebuilding resources/sql-analyzer.wasm in the same
+# change, which CI enforces.
+[toolchain]
+channel = "1.97.1"
+profile = "minimal"
+# The minimal profile leaves these out, and CI runs both.
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]

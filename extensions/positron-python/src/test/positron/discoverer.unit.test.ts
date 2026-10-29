@@ -4,13 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { assert } from 'chai';
+import * as path from 'path';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as TypeMoq from 'typemoq';
+import * as vscode from 'vscode';
+import { IWorkspaceService } from '../../client/common/application/types';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { IServiceContainer } from '../../client/ioc/types';
 import { pythonRuntimeDiscoverer } from '../../client/positron/discoverer';
+import * as interpreterRanking from '../../client/positron/interpreterRanking';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import * as runtime from '../../client/positron/runtime';
 import { createTypeMoq } from '../mocks/helper';
@@ -42,6 +46,10 @@ suite('pythonRuntimeDiscoverer', () => {
         interpreterService.setup((s) => s.getInterpreters(TypeMoq.It.isAny())).returns(() => [system, venv]);
         const serviceContainer = createTypeMoq<IServiceContainer>();
         serviceContainer.setup((c) => c.get(IInterpreterService)).returns(() => interpreterService.object);
+        const workspaceService = createTypeMoq<IWorkspaceService>();
+        workspaceService.setup((w) => w.workspaceFolders).returns(() => undefined);
+        serviceContainer.setup((c) => c.get(IWorkspaceService)).returns(() => workspaceService.object);
+        sinon.stub(interpreterRanking, 'buildRankingContext').resolves({} as interpreterRanking.RankingContext);
 
         sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').returns(true);
         const create = sinon
@@ -60,6 +68,47 @@ suite('pythonRuntimeDiscoverer', () => {
             [
                 [system.path, undefined],
                 [venv.path, undefined],
+            ],
+        );
+    });
+
+    test('groups each interpreter with the workspace folder that holds it', async () => {
+        const first = { uri: vscode.Uri.file('/work/first'), name: 'first', index: 0 };
+        const second = { uri: vscode.Uri.file('/work/second'), name: 'second', index: 1 };
+        const inSecond = { ...makeInterpreter(EnvironmentType.Venv, '3.13.5'), path: '/work/second/.venv/bin/python' };
+        const global = makeInterpreter(EnvironmentType.System, '3.12.7');
+        const interpreterService = createTypeMoq<IInterpreterService>();
+        interpreterService.setup((s) => s.triggerRefresh(TypeMoq.It.isAny())).returns(() => Promise.resolve());
+        interpreterService.setup((s) => s.getInterpreters(TypeMoq.It.isAny())).returns(() => [inSecond, global]);
+        const serviceContainer = createTypeMoq<IServiceContainer>();
+        serviceContainer.setup((c) => c.get(IInterpreterService)).returns(() => interpreterService.object);
+        const workspaceService = createTypeMoq<IWorkspaceService>();
+        workspaceService.setup((w) => w.workspaceFolders).returns(() => [first, second]);
+        workspaceService
+            .setup((w) => w.getWorkspaceFolder(TypeMoq.It.isAny()))
+            .returns((uri: vscode.Uri) =>
+                [first, second].find((folder) => uri.fsPath.startsWith(folder.uri.fsPath + path.sep)),
+            );
+        serviceContainer.setup((c) => c.get(IWorkspaceService)).returns(() => workspaceService.object);
+        sinon
+            .stub(interpreterRanking, 'buildRankingContext')
+            .callsFake(async (_, uri) => ({ workspacePath: uri?.fsPath } as interpreterRanking.RankingContext));
+
+        sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').returns(true);
+        const create = sinon
+            .stub(runtime, 'createPythonRuntimeMetadata')
+            .callsFake(async (interpreter) => ({ runtimePath: interpreter.path } as positron.LanguageRuntimeMetadata));
+
+        for await (const _ of pythonRuntimeDiscoverer(serviceContainer.object)) {
+            // drain
+        }
+
+        // An interpreter outside every folder falls back to the first folder.
+        assert.deepEqual(
+            create.getCalls().map((call) => [call.args[0].path, call.args[3]?.pickerContext?.workspacePath]),
+            [
+                [inSecond.path, second.uri.fsPath],
+                [global.path, first.uri.fsPath],
             ],
         );
     });

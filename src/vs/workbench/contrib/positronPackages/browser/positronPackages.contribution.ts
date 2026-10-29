@@ -77,6 +77,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			focusCommand: {
 				id: `${POSITRON_PACKAGES_VIEW_ID}.focus`,
 				agentCompatible: true,
+				readOnly: true,
 			},
 		}
 	],
@@ -348,6 +349,7 @@ class RefreshPackagesAction extends Action2 {
 			metadata: {
 				description: nls.localize('positronPackages.refreshPackages.description', "Refresh the list of installed packages in the active runtime session."),
 				agentCompatible: true,
+				readOnly: true,
 			},
 		});
 	}

@@ -457,6 +457,7 @@ function registerOpenEditorAPICommands(): void {
 			// and document the argument they should pass. A plain path string works:
 			// it is parsed into a file URI by the opener service.
 			agentCompatible: true,
+			title: localize('positron.vscodeOpen.title', "Open"),
 			// args: [{ name: 'Uri' }]
 			args: [{
 				name: 'Uri',

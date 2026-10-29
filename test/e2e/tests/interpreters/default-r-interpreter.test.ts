@@ -25,34 +25,35 @@ test.describe('Default Interpreters - R', {
 	tag: [tags.INTERPRETER, tags.ARK]
 }, () => {
 
-	test.describe('always start for all languages', () => {
+	test.describe('default R in a folder with R and Python files', () => {
 
 		test.beforeAll(async function ({ settings }) {
+			// The default startup behavior, so only the folder's files decide what starts right away.
 			await settings.remove(['interpreters.startupBehavior']);
-			await settings.set({ 'interpreters.startupBehavior': 'always' });
 
 			await deletePositronHistoryFiles();
 
 			await settings.set({ 'positron.r.interpreters.default': hiddenR().path }, { reload: true });
 		});
 
-		test('R - The Python recommendation starts instead of the default R', async function ({ sessions, hotKeys }) {
-			// Set for all languages, `always` starts one language only. The folder has Python
-			// files, so Python's recommendation starts immediately and R does not start.
+		test('R - The default R and the Python recommendation both start in a folder with R and Python files', async function ({ sessions, hotKeys }) {
+			// The folder has R and Python files. The default R starts right away in a folder that
+			// looks like an R project, and so does Python's recommendation, so both consoles start.
 			//
 			// The beforeAll set the default interpreter and reloaded in one call. That reload cancels
 			// the in-flight (extension-requested) session creation, so a session may not appear.
-			// Wait for one before reading metadata, and reload once if none does -- but only after
-			// the wait, so we never reload a session mid-start (see #14901).
+			// Wait for both before reading them, and reload once if they don't appear -- but only
+			// after the wait, so we never reload a session mid-start (see #14901).
 			try {
-				await sessions.expectSessionCountToBe(1);
+				await sessions.expectSessionCountToBe(2);
 			} catch {
 				await hotKeys.reloadWindow(true);
-				await sessions.expectSessionCountToBe(1);
+				await sessions.expectSessionCountToBe(2);
 			}
 
-			const { name } = await sessions.getMetadata();
-			expect(name).toMatch(/^Python /);
+			const names = (await sessions.getActiveSessions()).map(session => session.name);
+			expect(names.find(name => name.startsWith('R '))).toMatch(new RegExp(`R ${hiddenR().escapedVersion}`));
+			expect(names.some(name => name.startsWith('Python '))).toBe(true);
 		});
 	});
 

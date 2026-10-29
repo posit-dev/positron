@@ -216,10 +216,10 @@ export class QuickInput {
 
 	async selectQuickInputElementContaining(
 		text: string,
-		{ timeout, force = true, deprioritize }: { timeout?: number; force?: boolean; deprioritize?: string[] } = {},
+		{ timeout, force = true, deprioritize, ignoreCase = false }: { timeout?: number; force?: boolean; deprioritize?: (string | RegExp)[]; ignoreCase?: boolean } = {},
 	): Promise<string> {
 		const matches = this.code.driver.currentPage
-			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`);
+			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"${ignoreCase ? ' i' : ''}]`);
 
 		// By default select the first matching row. When `deprioritize` is set and
 		// several rows share `text` (e.g. a project venv and a base pyenv both
@@ -234,7 +234,7 @@ export class QuickInput {
 			for (let i = 0; i < count; i++) {
 				const row = matches.nth(i);
 				const ariaLabel = (await row.getAttribute('aria-label')) ?? '';
-				if (!deprioritize.some(source => ariaLabel.includes(source))) {
+				if (!deprioritize.some(source => typeof source === 'string' ? ariaLabel.includes(source) : source.test(ariaLabel))) {
 					target = row;
 					break;
 				}

@@ -114,12 +114,17 @@ fi
 #       together). Cached with dist so a restored dist doesn't read as an unfinished build.
 # .build/typings: electron.d.ts, downloaded by postinstall (build/npm/electronTypes.ts) and
 #       referenced by src/tsconfig.base.json. Missing on a cache hit = "Cannot find module 'electron'".
+# .build/sql-analyzer: the SQL analyzer module, fetched from Git LFS by postinstall
+#       (extensions/positron-sql/scripts/fetch-analyzer.mts) because the checkout leaves a pointer.
+#       Kept by SHA-256, so download-binaries restores it from here on a cache hit rather than
+#       spending LFS bandwidth. A module newer than the cache is fetched, and cached at the next key.
 #       NOTE: entries are read line-by-line, so no inline comments inside the heredoc.
 read -r -d '' NPM_CORE_PATHS << EOF || true
 .npm-cache
 $NODE_GYP_CACHE
 .build/esm-package-dependencies
 .build/typings
+.build/sql-analyzer
 node_modules
 build/node_modules
 remote/node_modules

@@ -6,15 +6,14 @@
 import { Browser, BrowserContext, chromium } from '@playwright/test';
 import { Logger } from '../infra/logger.js';
 import { BrowserLaunchShim } from './browserLaunchShim.js';
-import { completeOktaSignIn } from './oktaSignIn.js';
+import { completeOktaSignIn, OktaCredentials } from './oktaSignIn.js';
 
 // The data connections Snowflake driver's External Browser sign-in.
 //
 // Despite the name, this is not Snowflake's own login form. The account federates to Okta, so the
-// SSO URL the SDK requests redirects to an Okta SAML endpoint and the credentials entered are the
-// shared IDE service account's -- the same identity, and the same TOTP secret, the Databricks flows
-// use. The Okta steps themselves live in oktaSignIn.ts; what is Snowflake-specific is only which
-// URL is captured and what "done" looks like.
+// SSO URL the SDK requests redirects to an Okta SAML endpoint and the credentials entered are an
+// Okta service account's. The Okta steps themselves live in oktaSignIn.ts; what is
+// Snowflake-specific is only which URL is captured and what "done" looks like.
 //
 // (Posit Workbench's Session Credentials widget reaches Snowflake by a different route -- an OAuth
 // client against Snowflake, which does show Snowflake's native username/password form. That flow
@@ -47,15 +46,18 @@ import { completeOktaSignIn } from './oktaSignIn.js';
  * @param shim The PATH shim capturing the SDK's browser launch.
  * @param trigger Starts the connect (expands the connection entry). Started, not awaited.
  * @param options.logger Where to report progress; callers pass `code.logger`.
+ * @param options.credentials Which Okta account signs in. Defaults to the shared IDE service
+ * account; the Snowflake suites pass the Positron service account, whose passkey second factor
+ * cannot collide across parallel jobs the way a TOTP does.
  * @param options.headless Whether to run the sign-in browser headless. Defaults to false, matching
  * the other IdP flows: these pages are not reliably renderable headless.
  */
 export async function completeSnowflakeSdkOAuth(
 	shim: BrowserLaunchShim,
 	trigger: () => Promise<void>,
-	options: { logger: Logger; headless?: boolean }
+	options: { logger: Logger; credentials?: OktaCredentials; headless?: boolean }
 ): Promise<void> {
-	const { logger, headless = false } = options;
+	const { logger, credentials, headless = false } = options;
 
 	shim.arm();
 
@@ -88,6 +90,7 @@ export async function completeSnowflakeSdkOAuth(
 		await page.goto(loginUrl);
 		await completeOktaSignIn(page, {
 			logger,
+			credentials,
 			label: 'DataConnections/Snowflake',
 			// Okta posts the SAML assertion back to Snowflake, which redirects to the SDK's loopback
 			// server on an ephemeral port. Landing on localhost is what tells us the handoff completed;

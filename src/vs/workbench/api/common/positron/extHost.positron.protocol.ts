@@ -18,6 +18,7 @@ export type { INotebookCellOutputDTO };
 import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeConsoleError, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, RuntimeSessionStartOptions, type notebooks, type dataExplorer } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
+import { ErrorAction, IErrorActionContext } from '../../../contrib/positronAssistant/common/errorAction.js';
 import { IGenerateAssistantPromptRequest } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionParameterValidationDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionLineageDTO, IDataConnectionLineageRequestDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
@@ -82,6 +83,8 @@ export interface IRuntimePickerItem {
 	label: string;
 	detail?: string;
 	separatorLabel?: string;
+	/** List this item at the top of the Suggested section. */
+	suggested?: boolean;
 }
 
 // This is the interface that the main process exposes to the extension host
@@ -90,6 +93,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$selectLanguageRuntime(runtimeId: string, requestingExtensionId: string): Promise<void>;
 	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined, requestingExtensionId: string, options: RuntimeSessionStartOptions | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
+	$completeLanguageRuntimeDiscoveryForLanguage(languageId: string): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
 	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>, callerSessionId?: string, preserveActiveTab?: boolean): Promise<string>;
 	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void>;
@@ -159,6 +163,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$markRuntimeDiscoveryComplete(skipLanguageIds?: string[]): void;
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeRecommendation[]>;
 	$getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
+	$pinnedWorkspaceRuntime(extensionId: string, languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]>;
 	$registerLanguageRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$onDidRegisterLanguageRuntime(metadata: ILanguageRuntimeMetadata): void;
@@ -472,6 +477,7 @@ export interface ISerializedAgentCommandSource {
 
 export interface ISerializedAgentCommand {
 	id: string;
+	title?: string;
 	description?: string;
 	args?: ISerializedAgentCommandArg[];
 	returns?: string;
@@ -505,10 +511,13 @@ export interface MainThreadAiFeaturesShape {
 		commandId: string,
 		args: unknown[] | undefined,
 	): Promise<ISerializedValidateAndExecuteCommandResult>;
+	$registerErrorActionHandler(handle: number, id: string, label: string, supportsChatContinuation: boolean): void;
+	$unregisterErrorActionHandler(handle: number): void;
 }
 
 export interface ExtHostAiFeaturesShape {
 	$onDidChangeProviderEnablement(id: string, enabled: boolean): void;
+	$askErrorActionHandler(handle: number, action: ErrorAction, context: IErrorActionContext, continueChat: boolean): Promise<void>;
 }
 
 export interface MainThreadPlotsServiceShape {

@@ -28,6 +28,7 @@ vscode.db
 /.profile-oss
 tags
 /cli/target
+/extensions/positron-sql/sql-analyzer/target
 /cli/openssl
 /copilot_shim/target
 product.overrides.json

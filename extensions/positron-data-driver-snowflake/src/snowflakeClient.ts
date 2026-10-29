@@ -84,6 +84,8 @@ interface SnowflakeError {
  */
 interface ISdkStatement {
 	getNumRows(): number;
+	/** The result's column metadata; `getType()` is the SDK's lowercase type name (e.g. 'fixed', 'real'). */
+	getColumns(): Array<{ getName(): string; getType(): string }> | undefined;
 	streamRows(options: { start: number; end: number }): {
 		on(event: 'data', listener: (row: Record<string, unknown>) => void): unknown;
 		on(event: 'end', listener: () => void): unknown;
@@ -98,6 +100,9 @@ interface SdkExecuteOptions {
 	// When set, `complete` gets no rows; they are read from the statement with streamRows instead,
 	// so a large result need not be fetched whole.
 	streamResult?: boolean;
+	// SDK data types to return as the raw text Snowflake sent rather than converting. 'Number' covers
+	// both FIXED (NUMBER) and REAL (FLOAT) columns.
+	fetchAsString?: Array<'Number'>;
 	complete: (err: SnowflakeError | undefined, stmt: ISdkStatement, rows: Array<Record<string, unknown>> | undefined) => void;
 }
 
@@ -125,6 +130,16 @@ export interface ISnowflakeSdkConnection {
 /** The shape a query resolves to: rows as plain objects keyed by (case-preserved) column name. */
 export interface SnowflakeQueryResult {
 	rows: Array<Record<string, unknown>>;
+}
+
+/** Options for a single query. */
+export interface SnowflakeQueryOptions {
+	/**
+	 * Return NUMBER values as their exact digit strings (e.g. '9007199254740993.01') instead of JS
+	 * numbers, which cannot hold a wide NUMBER(p,s) and round a NUMBER(38,0) past 2^53. FLOAT values
+	 * are still returned as JS numbers, and NULLs as null.
+	 */
+	exactNumbers?: boolean;
 }
 
 /** The shape a capped query resolves to: its first rows, and how many rows the result had in all. */
@@ -200,6 +215,52 @@ const CONNECT_MAX_ATTEMPTS = 5;
 const CONNECT_RETRY_BASE_DELAY_MS = 1_000;
 const CONNECT_RETRY_MAX_DELAY_MS = 10_000;
 
+/**
+ * Undoes the side effects of `fetchAsString: ['Number']`, so that a NUMBER's exact text is the only
+ * thing the option changes, apart from one deliberate fix to FLOAT infinity. Rows are converted in
+ * place.
+ *
+ * - A NULL in any numeric column arrives as the string 'NULL' (the SDK's `representNullAsStringNull`
+ *   defaults to on), so it is turned back into null. In a numeric column the string can mean nothing
+ *   else.
+ * - A FLOAT is converted back to a JS number. The option is all-or-nothing across numeric types, but a
+ *   FLOAT is a double either way, and its raw text need not be in the plain notation a cell or an
+ *   export should show. The conversion is the SDK's own `Number()`, except that it reads Snowflake's
+ *   'inf' and '-inf' as infinity rather than NaN (see `parseFloatText`).
+ */
+function normalizeNumericColumns(stmt: ISdkStatement, rows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+	const columns = (stmt.getColumns() ?? [])
+		.filter(column => column.getType() === 'fixed' || column.getType() === 'real')
+		.map(column => ({ name: column.getName(), isFloat: column.getType() === 'real' }));
+	if (columns.length === 0) {
+		return rows;
+	}
+	for (const row of rows) {
+		for (const { name, isFloat } of columns) {
+			const value = row[name];
+			if (value === 'NULL') {
+				row[name] = null;
+			} else if (isFloat && typeof value === 'string') {
+				row[name] = parseFloatText(value);
+			}
+		}
+	}
+	return rows;
+}
+
+/**
+ * Parses a FLOAT's raw text as Snowflake sends it. This is `Number()`, which is what the SDK applies,
+ * except for infinity: Snowflake spells it 'inf' and '-inf', which `Number()` reads as NaN, so an
+ * infinite value would otherwise display as NaN.
+ */
+function parseFloatText(text: string): number {
+	const infinity = /^(?<sign>[+-]?)inf(?:inity)?$/i.exec(text);
+	if (infinity) {
+		return infinity.groups?.sign === '-' ? -Infinity : Infinity;
+	}
+	return Number(text);
+}
+
 /** Resolves after the given number of milliseconds. */
 function defaultSleep(ms: number): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, ms));
@@ -230,7 +291,7 @@ export function isFatalConnectionError(err: unknown): boolean {
 		lower.includes('network error') ||
 		lower.includes('socket hang up') ||
 		lower.includes('session does not exist') ||
-		lower.includes("session doesn't exist") ||
+		lower.includes('session doesn\'t exist') ||
 		lower.includes('session token') ||
 		lower.includes('not connected');
 }
@@ -343,8 +404,8 @@ export class SnowflakeClient {
 	 * error (bad SQL, missing object) is thrown without a retry. `binds` supplies positional `?`
 	 * parameters.
 	 */
-	async query(sqlText: string, binds?: unknown[]): Promise<SnowflakeQueryResult> {
-		return this._withReconnect(() => this._queryOnce(sqlText, binds));
+	async query(sqlText: string, binds?: unknown[], options?: SnowflakeQueryOptions): Promise<SnowflakeQueryResult> {
+		return this._withReconnect(() => this._queryOnce(sqlText, binds, options));
 	}
 
 	/**
@@ -422,20 +483,30 @@ export class SnowflakeClient {
 	}
 
 	/** Issues a single statement against the current connection, promisifying execute(). */
-	private _queryOnce(sqlText: string, binds?: unknown[]): Promise<SnowflakeQueryResult> {
+	private _queryOnce(sqlText: string, binds?: unknown[], options?: SnowflakeQueryOptions): Promise<SnowflakeQueryResult> {
 		const conn = this._conn;
 		if (!conn) {
 			return Promise.reject(new Error('Snowflake client is closed'));
 		}
+		const exactNumbers = options?.exactNumbers === true;
 		return new Promise<SnowflakeQueryResult>((resolve, reject) => {
 			conn.execute({
 				sqlText,
 				binds,
-				complete: (err, _stmt, rows) => {
+				// The SDK converts NUMBER with Number(), which is where the precision goes; fetching
+				// as a string hands back the text Snowflake sent, which the SDK already holds.
+				fetchAsString: exactNumbers ? ['Number'] : undefined,
+				complete: (err, stmt, rows) => {
 					if (err) {
 						reject(err);
-					} else {
-						resolve({ rows: rows ?? [] });
+						return;
+					}
+					// The SDK calls this outside the promise's executor, so a throw reading the result
+					// must be caught here or the promise would never settle.
+					try {
+						resolve({ rows: exactNumbers ? normalizeNumericColumns(stmt, rows ?? []) : rows ?? [] });
+					} catch (error) {
+						reject(error);
 					}
 				},
 			});

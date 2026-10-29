@@ -7,7 +7,7 @@
 
 import { Emitter } from '../../base/common/event.js';
 import { Disposable } from '../../base/common/lifecycle.js';
-import { IQuickInputHideEvent, IQuickPick, IQuickPickItem, QuickInputHideReason, QuickPickInput } from '../../platform/quickinput/common/quickInput.js';
+import { IQuickInputButton, IQuickInputHideEvent, IQuickPick, IQuickPickItem, QuickInputHideReason, QuickPickInput } from '../../platform/quickinput/common/quickInput.js';
 import { stubInterface } from './stubInterface.js';
 
 /**
@@ -44,8 +44,8 @@ import { stubInterface } from './stubInterface.js';
  * });
  * ```
  *
- * If your test needs a property not implement here (e.g. `step`, `buttons`,
- * `onDidTriggerButton`), add it here. The goal is for this to stay reusable
+ * If your test needs a property not implement here (e.g. `step`), add it
+ * here. The goal is for this to stay reusable
  * as more pickers adopt it.
  */
 export class TestQuickPick<T extends IQuickPickItem> extends Disposable {
@@ -54,12 +54,13 @@ export class TestQuickPick<T extends IQuickPickItem> extends Disposable {
 	private readonly _onDidHide = this._register(new Emitter<IQuickInputHideEvent>());
 	private readonly _onDidChangeActive = this._register(new Emitter<readonly T[]>());
 	private readonly _onDidChangeSelection = this._register(new Emitter<readonly T[]>());
+	private readonly _onDidTriggerButton = this._register(new Emitter<IQuickInputButton>());
+	private readonly _onDidChangeValue = this._register(new Emitter<string>());
 
 	title: string | undefined;
 	placeholder: string | undefined;
 	description: string | undefined;
 	canSelectMany = false;
-	items: ReadonlyArray<QuickPickInput<T>> = [];
 	activeItems: ReadonlyArray<T> = [];
 	selectedItems: ReadonlyArray<T> = [];
 	busy = false;
@@ -68,16 +69,42 @@ export class TestQuickPick<T extends IQuickPickItem> extends Disposable {
 	matchOnDetail = false;
 	matchOnLabel = true;
 	sortByLabel = true;
+	buttons: ReadonlyArray<IQuickInputButton> = [];
+	value = '';
+
+	private _items: ReadonlyArray<QuickPickInput<T>> = [];
+
+	/** Like the real picker, assigning items focuses the first row and fires
+	 *  onDidChangeActive. (The real picker focuses the first row that matches the
+	 *  search text; this double does not filter.) Setting `activeItems` directly
+	 *  fires nothing, as in the real picker. */
+	get items(): ReadonlyArray<QuickPickInput<T>> {
+		return this._items;
+	}
+
+	set items(items: ReadonlyArray<QuickPickInput<T>>) {
+		this._items = items;
+		const first = items.find((item): item is T => item.type !== 'separator');
+		if (first !== this.activeItems[0]) {
+			this.activeItems = first ? [first] : [];
+			this._onDidChangeActive.fire(this.activeItems);
+		}
+	}
 
 	readonly onDidAccept = this._onDidAccept.event;
 	readonly onDidHide = this._onDidHide.event;
 	readonly onDidChangeActive = this._onDidChangeActive.event;
 	readonly onDidChangeSelection = this._onDidChangeSelection.event;
+	readonly onDidTriggerButton = this._onDidTriggerButton.event;
+	readonly onDidChangeValue = this._onDidChangeValue.event;
 
 	/** Spy: the helper calls `show()` once setup is complete. Tests typically
 	 *  await `vi.waitFor(() => expect(pick.show).toHaveBeenCalled())` to
 	 *  synchronize on "picker is open and ready for interaction." */
 	readonly show = vi.fn();
+
+	/** Spy: the helper moves focus back to the search box after a filter click. */
+	readonly focusOnInput = vi.fn();
 
 	/** Spy: the helper calls `hide()` after accepting. We mirror the real
 	 *  picker's behavior by firing `onDidHide` so the helper's hide-handler
@@ -93,6 +120,28 @@ export class TestQuickPick<T extends IQuickPickItem> extends Disposable {
 		this.activeItems = [item];
 		this.selectedItems = [item];
 		this._onDidAccept.fire();
+	}
+
+	/** Simulate the user moving focus to `item` (e.g. with the arrow keys). */
+	moveFocus(item: T): void {
+		this.activeItems = [item];
+		this._onDidChangeActive.fire(this.activeItems);
+	}
+
+	/** Simulate the user clicking `button`. Like the real picker, a toggle
+	 *  button flips its `checked` state before onDidTriggerButton fires. */
+	triggerButton(button: IQuickInputButton): void {
+		if (button.toggle) {
+			button.toggle.checked = !button.toggle.checked;
+		}
+		this._onDidTriggerButton.fire(button);
+	}
+
+	/** Simulate the user typing `text` into the search box: sets value, then
+	 *  fires onDidChangeValue. */
+	typeValue(text: string): void {
+		this.value = text;
+		this._onDidChangeValue.fire(text);
 	}
 
 	/** Simulate the user dismissing the picker. */

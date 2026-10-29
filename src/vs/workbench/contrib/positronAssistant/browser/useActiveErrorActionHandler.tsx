@@ -11,7 +11,8 @@ import { IErrorActionHandlerInfo, IErrorActionHandlerService } from '../common/e
 /**
  * The active error action handler, which errors are sent to, kept current as it
  * changes.
- * @returns The handler, or undefined when there is nowhere to send errors.
+ * @returns The handler, or undefined while the Fix and Explain actions
+ * should hide. See {@link IErrorActionHandlerService.activeHandler}.
  */
 export function useActiveErrorActionHandler(): IErrorActionHandlerInfo | undefined {
 	const errorActionHandlerService = usePositronReactServicesContext().get(IErrorActionHandlerService);

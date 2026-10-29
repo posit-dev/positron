@@ -693,6 +693,27 @@ declare module 'positron' {
 	}
 
 	/**
+	 * How the interpreter picker groups and labels a runtime.
+	 */
+	export interface RuntimePickerInfo {
+		/** Header of the picker group, e.g. 'Project environments' or 'R'. */
+		group: string;
+		/** Orders groups within a language; lower first. */
+		groupOrder: number;
+		/** Orders rows within a group, before version; lower first. Default 0. */
+		rowOrder?: number;
+		/** Short row label, e.g. 'Python 3.12.4'. */
+		label: string;
+		/** Gray text after the label, e.g. 'uv: myproject'. */
+		description?: string;
+		/**
+		 * Why the runtime is recommended for the workspace, e.g. 'project environment'.
+		 * Set only on the runtime returned as the workspace recommendation.
+		 */
+		recommendationReason?: string;
+	}
+
+	/**
 	 * LanguageRuntimeMetadata contains information about a language runtime that is known
 	 * before the runtime is started.
 	 */
@@ -733,6 +754,9 @@ declare module 'positron' {
 		 * language, so ranking one source and not another mixes them up.
 		 */
 		runtimeSourceOrder?: number;
+
+		/** How the interpreter picker shows this runtime. Runtimes without it use `runtimeSource` and `runtimeName`. */
+		picker?: RuntimePickerInfo;
 
 		/** The free-form, user-friendly name of the language this runtime can execute; e.g. "R" */
 		languageName: string;
@@ -1242,6 +1266,28 @@ declare module 'positron' {
 		 * start on a later open as "the last interpreter used".
 		 */
 		readonly recommendationIsProjectDefault?: boolean;
+
+		/**
+		 * The runtime metadata for the interpreter pinned for this workspace:
+		 * the one that the extension's default interpreter setting names.
+		 * Returns `undefined` if the setting isn't set, the path doesn't lead to
+		 * an interpreter this extension can start, or a filter setting blocks it.
+		 *
+		 * A pinned interpreter starts in place of the one the workspace used
+		 * last. Positron calls this right after it activates the extension, and
+		 * writes the answer over the workspace's affiliated runtime for the
+		 * language. Positron doesn't call it when the language has no affiliated
+		 * runtime, when the New Folder flow just picked the interpreter, or when
+		 * the language's startup behavior is `recommended`, so
+		 * `recommendedWorkspaceRuntime` must return the pinned interpreter too.
+		 *
+		 * Positron waits for this answer before it starts the workspace's
+		 * interpreters, for at most 20 seconds. After that, it starts the
+		 * affiliated runtime as saved. The pin decides which interpreter starts,
+		 * not when, so Positron treats the answer as `Implicit`, whatever its
+		 * `startupBehavior`.
+		 */
+		pinnedWorkspaceRuntime?(): Thenable<LanguageRuntimeMetadata | undefined>;
 
 		/**
 		 * An optional snapshot of the directories this manager scans for
@@ -3962,8 +4008,13 @@ declare module 'positron' {
 			label: string;
 			/** Optional detail text shown below the label */
 			detail?: string;
-			/** Optional separator label to show before this item */
+			/**
+			 * Set to put a divider before this item. The picker draws the divider
+			 * without the text, since the item's own label names it.
+			 */
 			separatorLabel?: string;
+			/** List this item at the top of the Suggested section. */
+			suggested?: boolean;
 		}
 
 		/**
@@ -4877,6 +4928,12 @@ declare module 'positron' {
 		export interface AgentCommand {
 			/** Unique command identifier (e.g. `workbench.action.files.save`). */
 			id: string;
+			/**
+			 * Short, localized display name (e.g. `Save`), for an agent to show
+			 * the user when it runs the command, in place of the id. Absent when
+			 * the command has no title; show the id then.
+			 */
+			title?: string;
 			/** Model-facing description of what the command does. */
 			description?: string;
 			/** Ordered list of positional arguments the command accepts. */

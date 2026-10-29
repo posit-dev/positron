@@ -210,6 +210,14 @@ export interface BackendState {
 	 */
 	available_sheets?: Array<string>;
 
+	/**
+	 * Set when the backend serves only the leading rows of a larger result:
+	 * table_shape.num_rows is then the number of rows served, and this is
+	 * the number of rows in the full filtered result. Absent when
+	 * table_shape covers every row.
+	 */
+	total_num_rows?: number;
+
 }
 
 /**

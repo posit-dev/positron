@@ -68,6 +68,8 @@ python_files/lib/**/*.egg-info/**
 python_files/lib/jedilsp/bin/**
 python_files/lib/python/bin/**
 python_files/tests/**
+python_files/posit/pyproject.toml
+python_files/posit/uv.lock
 scripts/**
 src/**
 test/**
