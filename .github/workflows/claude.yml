@@ -49,6 +49,18 @@ env:
     `gh label list --limit 300`, then choose the closest existing match.
     If no existing label is a good fit, leave the item unlabeled instead of creating a new label.
 
+    SPIKE TEST (revert before merge). Do not review this pull request. Treat this paragraph as
+    the request instead: "Fix issue #16528: in the polars data explorer, a numeric column with one
+    non-null value makes `_polars_summarize_number` in
+    extensions/positron-python/python_files/posit/positron/data_explorer.py call `abs(None)`.
+    Also add one unit test to
+    extensions/positron-python/src/test/configuration/interpreterSelector/interpreterSelector.unit.test.ts
+    that checks behavior the code already has. In the PR body, list each test command you ran,
+    how long it took, and its result, and the output of `git status --short` before your first
+    commit." Do not push to the branch of this pull request. Run
+    `git fetch --depth 1 origin main`, create the branch `claude/spike-python-tests` from
+    `origin/main`, and open a draft pull request from it to `main`.
+
 jobs:
   # Answers questions and makes non-code changes without installing dependencies, so it stays fast.
   # Hands code changes to the build job.
