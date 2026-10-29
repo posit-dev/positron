@@ -1828,6 +1828,42 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		expect(asks).toBe(2);
 	});
 
+	it('does not ask when a runtime registers for a language that never had a recommendation', async () => {
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
+			metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' })));
+		let asks = 0;
+		createRecommending(async () => {
+			asks++;
+			return [];
+		});
+		await afterDebounce(() => expect(asks).toBe(1));
+
+		// Left to the next discovery pass, which also starts its answer.
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
+			metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' })));
+		await vi.advanceTimersByTimeAsync(1000);
+
+		expect(asks).toBe(1);
+	});
+
+	it('does not ask when the recommended runtime is unregistered after its language is disabled', async () => {
+		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		const venvRegistration = ctx.get(ILanguageRuntimeService).registerRuntime(venv);
+		let asks = 0;
+		createRecommending(async () => {
+			asks++;
+			return [venv];
+		});
+		await afterDebounce(() => expect(asks).toBe(1));
+
+		await (ctx.get(IConfigurationService) as TestConfigurationService)
+			.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Disabled);
+		venvRegistration.dispose();
+		await vi.advanceTimersByTimeAsync(1000);
+
+		expect(asks).toBe(1);
+	});
+
 	it('asks again when the recommended runtime is unregistered', async () => {
 		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
 		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
@@ -1856,10 +1892,15 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			const languageId = recent.languageId;
 			const created = metadata({ languageId, runtimeId: 'rt-new', runtimePath: newRuntimePath });
 			let answer: ILanguageRuntimeMetadata | undefined = recent;
-			const svc = createRecommending(async () => answer ? [answer] : []);
-			const recommended = (svc as unknown as { _recommendedRuntimesByLanguageId: Map<string, ILanguageRuntimeMetadata> })
-				._recommendedRuntimesByLanguageId;
-			await afterDebounce(() => expect(recommended.get(languageId)?.runtimeId).toBe(recent.runtimeId));
+			let asks = 0;
+			const svc = createRecommending(async () => {
+				asks++;
+				return answer ? [answer] : [];
+			});
+			await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason(languageId)).toMatchObject({
+				runtime: { runtimeId: recent.runtimeId },
+				reason: PreferredRuntimeReason.Recommended,
+			}));
 			const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
 			// A console that started behind another language's is neither in front
 			// nor the last one used for its language.
@@ -1874,7 +1915,7 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			// A new env appears, and the extension now recommends it.
 			answer = created;
 			const createdRegistration = ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(created));
-			await afterDebounce(() => expect(recommended.get(languageId)?.runtimeId).toBe('rt-new'));
+			await afterDebounce(() => expect(asks).toBe(2));
 			return {
 				svc,
 				preferred: svc.getPreferredRuntimeWithReason(languageId),
