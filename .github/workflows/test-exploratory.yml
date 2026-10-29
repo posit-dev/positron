@@ -104,7 +104,8 @@ jobs:
   # read-only; that layer is not available here, since running the PR's code is
   # the point. So BOTH the commenter and the PR author must be active
   # positron-dev members: an outsider cannot bait a member into commenting
-  # `/test` on their PR. Fails closed on any error.
+  # `/test` on their PR. A PR opened by the @claude workflow's App counts as a
+  # member's. Fails closed on any error.
   #
   # Dispatching already takes write access, so there is no team lookup, but
   # `ref` must be a branch of this repo: refs/pull/N/head and bare SHAs also
@@ -216,7 +217,14 @@ jobs:
             done | head -n 1
           }
 
-          if ! is_member "$COMMENTER" || ! is_member "$PR_AUTHOR"; then
+          # claude.yml opens PRs as positron-projects[bot], which cannot join a
+          # team. Only users with write access can invoke it, and the head-repo
+          # check below still applies.
+          author_ok() {
+            [ "$1" = "positron-projects[bot]" ] || is_member "$1"
+          }
+
+          if ! is_member "$COMMENTER" || ! author_ok "$PR_AUTHOR"; then
             echo "Membership gate: blocked (commenter=$COMMENTER, author=$PR_AUTHOR)"
             exit 0
           fi
