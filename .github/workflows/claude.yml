@@ -101,8 +101,10 @@ jobs:
           fi
           echo "Actor ${{ github.actor }} authorized with '$PERMISSION' permission"
 
+      # A token failure fails the job after the ack below, so the trigger still gets a reaction.
       - name: Generate token for GitHub App
         id: generate-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
@@ -123,11 +125,12 @@ jobs:
       - name: Add eyes reaction
         id: ack
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || github.token }}
           EVENT_NAME: ${{ github.event_name }}
           COMMENT_ID: ${{ github.event.comment.id }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
+          APP_TOKEN: ${{ steps.generate-token.outcome == 'success' }}
         run: |
           case "$EVENT_NAME" in
             issue_comment) TARGET="issues/comments/${COMMENT_ID}" ;;
@@ -141,14 +144,23 @@ jobs:
           fi
           STATUS=$(awk 'NR==1{print $2}' <<<"$RESPONSE")
           # A manual re-run is never a duplicate, even if a crashed attempt left its reaction behind.
-          if [ "$STATUS" = "200" ] && [ "$RUN_ATTEMPT" = "1" ]; then
+          # Without the App token the 200 may be another workflow's eyes, so it proves nothing.
+          if [ "$STATUS" = "200" ] && [ "$RUN_ATTEMPT" = "1" ] && [ "$APP_TOKEN" = "true" ]; then
             echo "::notice::Another run already handles this trigger; skipping Claude."
             echo "duplicate=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
           REACTION_ID=$(sed '1,/^\r*$/d' <<<"$RESPONSE" | jq -r '.id // empty' 2>/dev/null) || REACTION_ID=""
+          # Don't remove another workflow's eyes later.
+          if [ "$STATUS" = "200" ] && [ "$APP_TOKEN" != "true" ]; then REACTION_ID=""; fi
           echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if the App token is missing
+        if: steps.generate-token.outcome == 'failure'
+        run: |
+          echo "::error::Failed to generate the GitHub App token"
+          exit 1
 
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -268,8 +280,8 @@ jobs:
       - name: Replace eyes with result reaction
         if: always() && steps.ack.outputs.target != '' && steps.handoff.outputs.needs_build != 'true'
         env:
-          # The App added the eyes, and only the reacting account can remove it.
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          # Only the account that added the eyes can remove it; match the ack's token.
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || github.token }}
           TARGET: ${{ steps.ack.outputs.target }}
           REACTION_ID: ${{ steps.ack.outputs.reaction_id }}
           JOB_STATUS: ${{ job.status }}
