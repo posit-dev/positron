@@ -129,7 +129,7 @@ export async function showUrlDetectionTimedOutMessage(
 	const selection = await vscode.window.showWarningMessage(message, ...actions);
 
 	if (selection === showConsole && options?.sessionId) {
-		positron.runtime.focusSession(options.sessionId);
+		await showConsoleSession(options.sessionId);
 	} else if (selection === showTerminal && options?.terminal) {
 		options.terminal.show();
 	} else if (selection === changeTimeout && options?.timeoutSetting) {
@@ -168,12 +168,24 @@ export async function showAppFailedToStartMessage(
 	const selection = await vscode.window.showErrorMessage(message, ...actions);
 
 	if (selection === showConsole && options.sessionId) {
-		positron.runtime.focusSession(options.sessionId);
+		await showConsoleSession(options.sessionId);
 	} else if (selection === showTerminal && options.terminal) {
 		options.terminal.show();
 	} else if (selection === showLog) {
 		log.show();
 	}
+}
+
+/**
+ * Make a console session the foreground session and reveal the Console view.
+ * Focusing the session alone does not reveal the view, so the user would see
+ * nothing if the panel is minimized or another tab is active.
+ * @param sessionId The console session to show.
+ */
+async function showConsoleSession(sessionId: string): Promise<void> {
+	// Focus the session first, so that the Console view shows it when revealed.
+	positron.runtime.focusSession(sessionId);
+	await vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
 }
 
 /**
