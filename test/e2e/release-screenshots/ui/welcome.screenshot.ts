@@ -59,7 +59,9 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await hotKeys.closePrimarySidebar();
 		await plots.alterPlotArea(0, -55);
 		await layouts.resizeAuxiliaryBar({ x: -300 });
-		await layouts.resizePanel({ y: -100 });
+		// Absolute height, so a change to the default panel size does not
+		// shift the editor and console framing.
+		await layouts.resizePanelToHeight(330);
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
 		});
@@ -69,7 +71,8 @@ test.describe('Release Screenshots - Welcome Page', () => {
 			variableName: 'gc_frame',
 			action: 'expand',
 		});
-		// await variables.scroll({ y: 300 });
+		// Scroll down 4 rows (26px each) so the gc_frame children show.
+		await variables.scroll({ y: 104 });
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
