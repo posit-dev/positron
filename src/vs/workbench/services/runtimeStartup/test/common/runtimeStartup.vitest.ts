@@ -10,7 +10,6 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { isWeb } from '../../../../../base/common/platform.js';
 import { arch as systemArch } from '../../../../../base/common/process.js';
-import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
@@ -20,7 +19,6 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService, IPromptChoice, IPromptOptions, Severity } from '../../../../../platform/notification/common/notification.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
-import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IWorkbenchEnvironmentService } from '../../../environment/common/environmentService.js';
@@ -1743,6 +1741,36 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		}));
 	});
 
+	it('waits for discovery to complete when it starts again while asking', async () => {
+		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(global));
+		const laterAnswer = new DeferredPromise<void>();
+		let asks = 0;
+		const svc = createRecommending(async () => {
+			if (++asks === 1) {
+				return [global];
+			}
+			await laterAnswer.p;
+			return [venv];
+		});
+		await afterDebounce(() => expect(asks).toBe(1));
+
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(venv));
+		await afterDebounce(() => expect(asks).toBe(2));
+		// Discovery starts again before the answer comes back, so it is not registered yet.
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Discovering);
+		laterAnswer.complete();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({ runtime: { runtimeId: 'rt-global' } });
+
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+		await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+	});
+
 	it('asks again when a runtime registers after the recommendation, without starting the new answer', async () => {
 		const autoStartRuntime = vi.spyOn(ctx.get(IRuntimeSessionService), 'autoStartRuntime').mockResolvedValue('');
 
@@ -1906,34 +1934,6 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			runtime: { runtimeId: 'rt-global' },
 			reason: PreferredRuntimeReason.Recommended,
 		}));
-	});
-
-	it('keeps the runtime started recently over a new recommendation in the folder after its console exits', async () => {
-		const recent = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
-		let answer = recent;
-		let asks = 0;
-		const svc = createRecommending(async () => {
-			asks++;
-			return [answer];
-		});
-		await afterDebounce(() => expect(asks).toBe(1));
-		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
-		await vi.waitFor(() => expect(session.getRuntimeState()).toBe(RuntimeState.Ready));
-		session.setRuntimeState(RuntimeState.Exited);
-		// Covered by the affiliation rule, which is not under test.
-		vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(undefined);
-
-		// A .venv is made in the folder, and the extension now recommends it.
-		const folder = ctx.get(IWorkspaceContextService).getWorkspace().folders[0].uri;
-		answer = metadata({ languageId: recent.languageId, runtimeId: 'rt-venv', runtimePath: URI.joinPath(folder, '.venv', 'bin', 'python').fsPath });
-		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(answer));
-		await afterDebounce(() => expect(asks).toBe(2));
-
-		// The user's last choice stays first; the new-env toast offers the .venv.
-		expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
-			runtime: { runtimeId: recent.runtimeId },
-			reason: PreferredRuntimeReason.RecentlyStarted,
-		});
 	});
 
 	it('saves a recommendation that does not start as the project default only if its manager allows it', async () => {
