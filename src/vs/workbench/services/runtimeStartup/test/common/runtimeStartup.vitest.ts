@@ -2061,6 +2061,7 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 	it('keeps asking one at a time when one language fails to answer', async () => {
 		const python = metadata({ runtimeId: 'rt-python', runtimePath: '/usr/bin/python3' });
 		const r = metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R' });
+		const newPython = metadata({ runtimeId: 'rt-python-3', runtimePath: '/envs/b/bin/python' });
 		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(python));
 		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(r));
 		const pythonAnswer = new DeferredPromise<void>();
@@ -2075,9 +2076,9 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 				if (++pythonAsks > 1) {
 					await pythonAnswer.p;
 				}
-				return [{ metadata: python, isProjectDefault: false }];
+				return [{ metadata: pythonAsks > 2 ? newPython : python, isProjectDefault: false }];
 			}
-			if (++rAsks > 1) {
+			if (++rAsks === 2) {
 				throw new Error('R failed');
 			}
 			return [{ metadata: r, isProjectDefault: false }];
@@ -2094,14 +2095,18 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		await afterDebounce(() => expect([pythonAsks, rAsks]).toEqual([2, 2]));
 
 		// Python is marked again; its ask waits for the one in flight.
-		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
-			metadata({ runtimeId: 'rt-python-3', runtimePath: '/envs/b/bin/python' })));
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(newPython));
 		await vi.advanceTimersByTimeAsync(1000);
 		expect(pythonAsks).toBe(2);
 
 		pythonAnswer.complete();
 		await afterDebounce(() => expect(pythonAsks).toBe(3));
-		expect(svc.getPreferredRuntimeWithReason('python')?.runtime.runtimeId).toBe('rt-python');
+		expect(svc.getPreferredRuntimeWithReason('python')?.runtime.runtimeId).toBe('rt-python-3');
+
+		// R is asked again on its next change.
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
+			metadata({ languageId: 'r', runtimeId: 'rt-r-3', runtimePath: '/envs/b/bin/R' })));
+		await afterDebounce(() => expect(rAsks).toBe(3));
 	});
 
 	it('does not ask when a runtime registers for a language that never had a recommendation', async () => {
