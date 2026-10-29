@@ -108,6 +108,9 @@ export interface IAIDiagnosticsEnforcedSetting {
 	readonly value: string;
 }
 
+/** Posit Assistant's settings report as Markdown, or why it couldn't be collected. */
+export type AIDiagnosticsAssistantSettingsReport = { readonly markdown: string } | { readonly markdown?: undefined; readonly unavailable: string };
+
 /**
  * Everything the report needs, gathered by the action and passed to the pure
  * {@link generateAIDiagnosticsReport} formatter so the formatting is testable
@@ -161,7 +164,8 @@ export interface IAIDiagnosticsInputs {
 	/**
 	 * Contents of providers.json, redacted and rendered inside a JSON fence. A
 	 * `// ...` comment line when the file is missing or the catalog is unavailable
-	 * (mirrors the settings block's placeholder).
+	 * (mirrors the settings block's placeholder). Only shown when the Assistant
+	 * settings report is missing, since that report already includes providers.json.
 	 */
 	readonly providersConfig: string;
 	/** Path to providers.json, shown so support knows where the config lives; omitted when unknown. */
@@ -169,8 +173,7 @@ export interface IAIDiagnosticsInputs {
 	readonly settings: readonly IAIDiagnosticsSetting[];
 	/** Settings a Workbench admin enforced. */
 	readonly enforcedSettings: readonly IAIDiagnosticsEnforcedSetting[];
-	/** Posit Assistant's settings report as Markdown, or why it couldn't be collected. */
-	readonly assistantSettingsReport: string;
+	readonly assistantSettingsReport: AIDiagnosticsAssistantSettingsReport;
 	readonly logs: readonly IAIDiagnosticsLogSection[];
 	/** Assistant diagnostics bundle result (path or status); omitted when not requested. */
 	readonly bundle?: string;
@@ -294,6 +297,21 @@ ${inputs.enforcedSettings.map(s => `- \`${s.key}\`: ${s.value}`).join('\n')}
 		...inputs.features.map(f => `- ${f.label} (\`${f.setting}\`): ${f.state}`),
 	].join('\n');
 
+	// Assistant's settings report already shows providers.json with each layer, so
+	// only dump the file ourselves when that report is missing.
+	const assistantReport = inputs.assistantSettingsReport;
+	const providersConfigBlock = assistantReport.markdown !== undefined
+		? ''
+		: `### Configuration
+
+Provider configuration from \`providers.json\`${inputs.providersConfigPath ? ` (\`${inputs.providersConfigPath}\`)` : ''}:
+
+\`\`\`json
+${inputs.providersConfig}
+\`\`\`
+
+`;
+
 	return `# AI Diagnostic Report
 
 Generated: ${inputs.generatedAt}
@@ -331,15 +349,7 @@ ${providerModuleBlock}Models each provider offers (${totalModels} total).${incom
 
 ${modelsBlock}
 
-### Configuration
-
-Provider configuration from \`providers.json\`${inputs.providersConfigPath ? ` (\`${inputs.providersConfigPath}\`)` : ''}:
-
-\`\`\`json
-${inputs.providersConfig}
-\`\`\`
-
-## Configuration Settings
+${providersConfigBlock}## Configuration Settings
 
 Non-default AI-related settings:
 
@@ -349,7 +359,7 @@ ${settingsBlock}
 ${enforcedBlock}
 ## Posit Assistant Settings
 
-${nestMarkdownHeadings(inputs.assistantSettingsReport.trim(), 2)}
+${assistantReport.markdown !== undefined ? nestMarkdownHeadings(assistantReport.markdown.trim(), 2) : assistantReport.unavailable}
 
 ${logsBlock}
 ${inputs.bundle ? `\n## Assistant Diagnostics Bundle\n\n${inputs.bundle}\n` : ''}`;
@@ -968,9 +978,9 @@ export async function collectAssistantSettingsReport(
 	presence: AIDiagnosticsExtensionPresence,
 	extensionService: IExtensionService,
 	commandService: ICommandService,
-): Promise<string> {
+): Promise<AIDiagnosticsAssistantSettingsReport> {
 	if (presence !== 'running') {
-		return PRESENCE_LABELS[presence];
+		return { unavailable: PRESENCE_LABELS[presence] };
 	}
 	try {
 		await activateWithTimeout(extensionService, ASSISTANT_EXTENSION_ID);
@@ -980,16 +990,16 @@ export async function collectAssistantSettingsReport(
 	// Checked up front because executing an unknown command waits on activating
 	// every extension before it fails.
 	if (!CommandsRegistry.getCommand(ASSISTANT_SETTINGS_REPORT_COMMAND)) {
-		return 'Settings report unavailable: this version of Posit Assistant does not provide it, or Posit Assistant has not finished starting.';
+		return { unavailable: 'Settings report unavailable: this version of Posit Assistant does not provide it, or Posit Assistant has not finished starting.' };
 	}
 	const result = await executeBridgeCommand(commandService, ASSISTANT_SETTINGS_REPORT_COMMAND);
 	if (result.failure !== undefined) {
-		return `Settings report unavailable: ${result.failure}`;
+		return { unavailable: `Settings report unavailable: ${result.failure}` };
 	}
 	// Assistant updates on its own schedule, so don't trust the return type.
 	return typeof result.value === 'string' && result.value
-		? result.value
-		: 'Settings report unavailable: Posit Assistant returned no report.';
+		? { markdown: result.value }
+		: { unavailable: 'Settings report unavailable: Posit Assistant returned no report.' };
 }
 
 /**

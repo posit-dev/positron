@@ -69,7 +69,7 @@ function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsIn
 			{ key: 'nextEditSuggestions.enabled', value: { python: true } },
 		],
 		enforcedSettings: [],
-		assistantSettingsReport: '# Settings report\n\n## Settings\n\n- `model`: global file',
+		assistantSettingsReport: { markdown: '# Settings report\n\n## Settings\n\n- `model`: global file' },
 		logs: [
 			{ label: 'Authentication', content: '[2026-07-23T00:00:00.000Z] TRACE signed in' },
 			{ label: 'Posit AI NES', content: 'Extension not installed' },
@@ -141,21 +141,6 @@ describe('generateAIDiagnosticsReport', () => {
 			**deepseek** (0)
 
 			Queried, but returned no models.
-
-			### Configuration
-
-			Provider configuration from \`providers.json\` (\`/home/user/.posit/ai/providers.json\`):
-
-			\`\`\`json
-			{
-			  "version": 1,
-			  "providers": {
-			    "anthropic": {
-			      "enabled": true
-			    }
-			  }
-			}
-			\`\`\`
 
 			## Configuration Settings
 
@@ -342,8 +327,13 @@ describe('generateAIDiagnosticsReport', () => {
 		expect(report).toContain('**positai** (2)');
 	});
 
+	it('shows providers.json itself when the Assistant settings report is missing', () => {
+		expect(generateAIDiagnosticsReport(inputs({ assistantSettingsReport: { unavailable: 'Not installed' } })))
+			.toContain('Provider configuration from `providers.json` (`/home/user/.posit/ai/providers.json`):\n\n```json\n{\n  "version": 1,');
+	});
+
 	it('renders a placeholder in the JSON fence and omits the path when providers.json is unavailable', () => {
-		const report = generateAIDiagnosticsReport(inputs({ providersConfig: '// Provider catalog unavailable', providersConfigPath: undefined }));
+		const report = generateAIDiagnosticsReport(inputs({ assistantSettingsReport: { unavailable: 'Not installed' }, providersConfig: '// Provider catalog unavailable', providersConfigPath: undefined }));
 		expect(report).toContain('Provider configuration from `providers.json`:\n\n```json\n// Provider catalog unavailable\n```');
 	});
 
@@ -360,7 +350,7 @@ describe('generateAIDiagnosticsReport', () => {
 	});
 
 	it('shows why the Assistant settings report is missing in place of the report', () => {
-		expect(generateAIDiagnosticsReport(inputs({ assistantSettingsReport: 'Not installed' })))
+		expect(generateAIDiagnosticsReport(inputs({ assistantSettingsReport: { unavailable: 'Not installed' } })))
 			.toContain('## Posit Assistant Settings\n\nNot installed\n');
 	});
 });
@@ -371,7 +361,7 @@ describe('collectAssistantSettingsReport', () => {
 	it('says the command is unavailable instead of calling a command that is not registered', async () => {
 		const executeCommand = vi.fn();
 		const report = await collectAssistantSettingsReport('running', extensionService, stubInterface<ICommandService>({ executeCommand }));
-		expect(report).toContain('Settings report unavailable');
+		expect(report).toEqual({ unavailable: expect.stringContaining('Settings report unavailable') });
 		expect(executeCommand).not.toHaveBeenCalled();
 	});
 
@@ -380,7 +370,7 @@ describe('collectAssistantSettingsReport', () => {
 		try {
 			const commandService = stubInterface<ICommandService>({ executeCommand: vi.fn().mockResolvedValue({ markdown: '# Settings report' }) });
 			expect(await collectAssistantSettingsReport('running', extensionService, commandService))
-				.toBe('Settings report unavailable: Posit Assistant returned no report.');
+				.toEqual({ unavailable: 'Settings report unavailable: Posit Assistant returned no report.' });
 		} finally {
 			registration.dispose();
 		}
