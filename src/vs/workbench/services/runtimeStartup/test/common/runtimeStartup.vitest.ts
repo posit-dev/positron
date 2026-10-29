@@ -1886,164 +1886,31 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		}));
 	});
 
-	describe('when a runtime was started recently', () => {
-		async function setup(newRuntimePath: string, { runningConsole = false } = {}) {
-			const recent = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
-			const languageId = recent.languageId;
-			const created = metadata({ languageId, runtimeId: 'rt-new', runtimePath: newRuntimePath });
-			let answer: ILanguageRuntimeMetadata | undefined = recent;
-			let asks = 0;
-			const svc = createRecommending(async () => {
-				asks++;
-				return answer ? [answer] : [];
-			});
-			await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason(languageId)).toMatchObject({
-				runtime: { runtimeId: recent.runtimeId },
-				reason: PreferredRuntimeReason.Recommended,
-			}));
-			const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
-			// A console that started behind another language's is neither in front
-			// nor the last one used for its language.
-			vi.spyOn(ctx.get(IRuntimeSessionService), 'getConsoleSessionForLanguage').mockReturnValue(undefined);
-			// Starting saved it as the affiliation, which would outrank the rule under test.
-			vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(undefined);
-			await vi.waitFor(() => expect(session.getRuntimeState()).toBe(RuntimeState.Ready));
-			if (!runningConsole) {
-				session.setRuntimeState(RuntimeState.Exited);
-			}
-
-			// A new env appears, and the extension now recommends it.
-			answer = created;
-			const createdRegistration = ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(created));
-			await afterDebounce(() => expect(asks).toBe(2));
-			return {
-				svc,
-				preferred: svc.getPreferredRuntimeWithReason(languageId),
-				recent,
-				session,
-				createdRegistration,
-				recommend: (runtime: ILanguageRuntimeMetadata | undefined) => { answer = runtime; },
-			};
-		}
-
-		function inWorkspaceFolder(...segments: string[]) {
-			return URI.joinPath(ctx.get(IWorkspaceContextService).getWorkspace().folders[0].uri, ...segments).fsPath;
-		}
-
-		it('prefers a new recommendation inside the workspace folder', async () => {
-			const { preferred } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
-
-			expect(preferred).toMatchObject({
-				runtime: { runtimeId: 'rt-new' },
-				reason: PreferredRuntimeReason.Recommended,
-			});
+	it('keeps the runtime started recently over a new recommendation in the folder after its console exits', async () => {
+		const recent = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		let answer = recent;
+		let asks = 0;
+		const svc = createRecommending(async () => {
+			asks++;
+			return [answer];
 		});
+		await afterDebounce(() => expect(asks).toBe(1));
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
+		await vi.waitFor(() => expect(session.getRuntimeState()).toBe(RuntimeState.Ready));
+		session.setRuntimeState(RuntimeState.Exited);
+		// Covered by the affiliation rule, which is not under test.
+		vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(undefined);
 
-		it('keeps the recent runtime over a new recommendation outside the workspace folder', async () => {
-			const { preferred, recent } = await setup('/envs/other/bin/python');
+		// A .venv is made in the folder, and the extension now recommends it.
+		const folder = ctx.get(IWorkspaceContextService).getWorkspace().folders[0].uri;
+		answer = metadata({ languageId: recent.languageId, runtimeId: 'rt-venv', runtimePath: URI.joinPath(folder, '.venv', 'bin', 'python').fsPath });
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(answer));
+		await afterDebounce(() => expect(asks).toBe(2));
 
-			expect(preferred).toMatchObject({
-				runtime: { runtimeId: recent.runtimeId },
-				reason: PreferredRuntimeReason.RecentlyStarted,
-			});
-		});
-
-		it('keeps the recent runtime while its console runs, even if it is not the active console', async () => {
-			const { preferred, recent } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'), { runningConsole: true });
-
-			expect(preferred).toMatchObject({
-				runtime: { runtimeId: recent.runtimeId },
-				reason: PreferredRuntimeReason.RunningConsole,
-			});
-		});
-
-		it('prefers the new recommendation once the recent runtime\'s console exits', async () => {
-			const { svc, recent, session } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'), { runningConsole: true });
-
-			session.setRuntimeState(RuntimeState.Exited);
-
-			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
-				runtime: { runtimeId: 'rt-new' },
-				reason: PreferredRuntimeReason.Recommended,
-			});
-		});
-
-		it('prefers the new recommendation over the affiliation an exited console left', async () => {
-			const { svc, recent } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
-
-			// exit() never enters Exiting, so the affiliation is kept.
-			vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(recent);
-
-			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
-				runtime: { runtimeId: 'rt-new' },
-				reason: PreferredRuntimeReason.Recommended,
-			});
-		});
-
-		it('keeps the affiliated runtime over a new recommendation while its console runs', async () => {
-			const { svc, recent } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'), { runningConsole: true });
-
-			vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(recent);
-
-			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
-				runtime: { runtimeId: recent.runtimeId },
-				reason: PreferredRuntimeReason.RunningConsole,
-			});
-		});
-
-		it('prefers the recent runtime again once it is started again', async () => {
-			const { svc, recent } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
-
-			const again = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
-			await vi.waitFor(() => expect(again.getRuntimeState()).toBe(RuntimeState.Ready));
-			again.setRuntimeState(RuntimeState.Exited);
-
-			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
-				runtime: { runtimeId: recent.runtimeId },
-				reason: PreferredRuntimeReason.RecentlyStarted,
-			});
-		});
-
-		it('prefers the new recommendation after a start that was requested before it', async () => {
-			const { svc, recent } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
-
-			// e.g. the old recommendation was starting as the new env appeared.
-			const now = vi.spyOn(Date, 'now').mockReturnValue(0);
-			const late = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: recent });
-			now.mockRestore();
-			await vi.waitFor(() => expect(late.getRuntimeState()).toBe(RuntimeState.Ready));
-			late.setRuntimeState(RuntimeState.Exited);
-
-			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
-				runtime: { runtimeId: 'rt-new' },
-				reason: PreferredRuntimeReason.Recommended,
-			});
-		});
-
-		it('prefers the recent runtime again when the recommendation moves outside the workspace folder', async () => {
-			const { svc, recent, recommend } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
-
-			const other = metadata({ languageId: recent.languageId, runtimeId: 'rt-other', runtimePath: '/envs/other/bin/python' });
-			recommend(other);
-			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(other));
-
-			await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
-				runtime: { runtimeId: recent.runtimeId },
-				reason: PreferredRuntimeReason.RecentlyStarted,
-			}));
-		});
-
-		it('prefers the recent runtime again when the new recommendation goes away', async () => {
-			const { svc, recent, recommend, createdRegistration } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
-
-			// The new .venv is deleted, and there is nothing else to recommend.
-			recommend(undefined);
-			createdRegistration.dispose();
-
-			await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
-				runtime: { runtimeId: recent.runtimeId },
-				reason: PreferredRuntimeReason.RecentlyStarted,
-			}));
+		// The user's last choice stays first; the new-env toast offers the .venv.
+		expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
+			runtime: { runtimeId: recent.runtimeId },
+			reason: PreferredRuntimeReason.RecentlyStarted,
 		});
 	});
 

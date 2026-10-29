@@ -31,7 +31,6 @@ import { isWeb } from '../../../../base/common/platform.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Barrier, Limiter, raceTimeout, RunOnceScheduler } from '../../../../base/common/async.js';
 import { arch as systemArch } from '../../../../base/common/process.js';
-import { URI } from '../../../../base/common/uri.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -205,11 +204,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// (metadata.languageId) of the runtime.
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
-	// When each language was recommended a new env in the workspace folder,
-	// which beats the affiliated and recent runtimes once their consoles stop, until
-	// a session requested after that starts.
-	private readonly _newFolderEnvTimes = new Map<string, number>();
-
 	// The runtime each language's extension recommended for this workspace,
 	// from the ask at startup or the ask after discovery. Keyed by languageId.
 	private readonly _recommendedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
@@ -365,12 +359,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// runtimes for each language.
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
 
-			// A start requested before the new env was recommended (e.g. by the
-			// old recommendation) is not a choice made after it.
-			const languageId = session.runtimeMetadata.languageId;
-			if (session.metadata.createdTimestamp >= (this._newFolderEnvTimes.get(languageId) ?? 0)) {
-				this._newFolderEnvTimes.delete(languageId);
-			}
 			this._mostRecentlyStartedRuntimesByLanguageId.set(session.runtimeMetadata.languageId,
 				session.runtimeMetadata);
 
@@ -1956,9 +1944,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const activeConsole = consoleSession?.getRuntimeState() === RuntimeState.Exited ? undefined : consoleSession?.runtimeMetadata;
 		const preferred = choosePreferredRuntime({
 			activeConsole,
-			affiliated: this.unlessNewFolderEnv(languageId, this.affiliationFor(languageId)),
-			recentlyStarted: this.unlessNewFolderEnv(languageId,
-				this._mostRecentlyStartedRuntimesByLanguageId.get(languageId)),
+			affiliated: this.affiliationFor(languageId),
+			recentlyStarted: this._mostRecentlyStartedRuntimesByLanguageId.get(languageId),
 			recommended: this._recommendedRuntimesByLanguageId.get(languageId),
 			fallback: firstInPickerOrder(this._languageRuntimeService.registeredRuntimes.filter(info => info.languageId === languageId)),
 		}, runtimeId => this._languageRuntimeService.getRegisteredRuntime(runtimeId));
@@ -2257,47 +2244,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			if (recommended && !this._languageRuntimeService.getRegisteredRuntime(recommended.runtimeId)) {
 				this._recommendedRuntimesByLanguageId.delete(languageId);
 				this._droppedRecommendationLanguageIds.add(languageId);
-				this._newFolderEnvTimes.delete(languageId);
 			}
 			return;
 		}
 		this._droppedRecommendationLanguageIds.delete(languageId);
-		const previous = this._recommendedRuntimesByLanguageId.get(languageId);
 		this._suppressRegistrationAutoStart = true;
 		try {
 			const runtime = this.rememberRecommendation(answer.metadata, answer.isProjectDefault);
 			this._logService.debug(`[Runtime startup] Recommended again after the runtimes changed: ${formatLanguageRuntimeMetadata(runtime)}`);
-			if (runtime.runtimeId !== previous?.runtimeId) {
-				if (this.isInWorkspaceFolder(runtime.runtimePath)) {
-					this._newFolderEnvTimes.set(languageId, Date.now());
-				} else {
-					this._newFolderEnvTimes.delete(languageId);
-				}
-			}
 		} finally {
 			this._suppressRegistrationAutoStart = false;
 		}
-	}
-
-	/**
-	 * `runtime`, unless a new env in the folder (e.g. a .venv made after a
-	 * global Python ran) was recommended since and `runtime`'s console no
-	 * longer runs. A console ended by `exit()` keeps its affiliation, so the
-	 * affiliation is checked too.
-	 */
-	private unlessNewFolderEnv(languageId: string, runtime: ILanguageRuntimeMetadata | undefined): ILanguageRuntimeMetadata | undefined {
-		if (runtime && this._newFolderEnvTimes.has(languageId) && !this.hasRunningConsole(runtime.runtimeId)) {
-			return undefined;
-		}
-		return runtime;
-	}
-
-	/** Whether `runtimePath` is inside one of the workspace folders. */
-	private isInWorkspaceFolder(runtimePath: string): boolean {
-		// The workspace's own lookup follows the file system's path casing.
-		const path = URI.file(runtimePath).path;
-		return this._workspaceContextService.getWorkspace().folders.some(folder =>
-			this._workspaceContextService.isInsideWorkspace(folder.uri.with({ path })));
 	}
 
 	/**
