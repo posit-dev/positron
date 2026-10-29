@@ -1,0 +1,99 @@
+name: Claude Python deps spike
+
+# Throwaway: measures Python test setups for the @claude build job. Do not merge.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/claude-python-deps-spike.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  kernel:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extensions/positron-python
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup uv and Python
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          python-version: '3.12'
+          enable-cache: true
+          save-cache: false
+          activate-environment: true
+      - run: uv pip install pip
+      - name: Vendor
+        run: uv run --active scripts/vendor.py
+      - name: Sync
+        run: uv sync --active --inexact --frozen --project python_files/posit
+      - name: One test
+        run: uv run --active pytest python_files/posit/positron/tests/test_data_explorer.py -k polars_profile_summary_stats
+      - name: Rerun (warm)
+        run: uv run --active pytest python_files/posit/positron/tests/test_data_explorer.py -k polars_profile_summary_stats
+      - run: uv run --active python -c "import sys; print(sys.prefix)"
+      - run: git status --short
+
+  ext:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [plain, ignore-scripts, ignore-scripts-cache]
+    defaults:
+      run:
+        working-directory: extensions/positron-python
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Restore npm cache (read-only)
+        if: matrix.variant == 'ignore-scripts-cache'
+        id: npm-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ~/.npm
+          key: node-cache-${{ runner.os }}-${{ runner.arch }}-npm-${{ hashFiles('extensions/positron-python/package-lock.json') }}
+      - run: echo "cache-hit=${{ steps.npm-cache.outputs.cache-hit }}"
+      - name: npm ci
+        env:
+          ARGS: ${{ matrix.variant == 'plain' && '' || '--ignore-scripts' }}
+        run: npm ci --no-audit --no-fund $ARGS
+      - name: Compile (full)
+        run: npx tsc -p ./ --incremental --tsBuildInfoFile out/.tsbuildinfo
+      - name: One unit test file
+        run: npx mocha --require out/test/unittests.js --ui tdd --timeout 180000 out/test/configuration/interpreterSelector/interpreterSelector.unit.test.js
+      - name: Compile (incremental, after an edit)
+        run: |
+          echo "// spike" >> src/client/common/utils/async.ts
+          npx tsc -p ./ --incremental --tsBuildInfoFile out/.tsbuildinfo
+          git checkout -- src/client/common/utils/async.ts
+      - run: git status --short
+
+  parallel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Start extension install in background
+        run: |
+          (cd extensions/positron-python && npm ci --no-audit --no-fund --ignore-scripts > "$RUNNER_TEMP/ext.log" 2>&1; echo $? > "$RUNNER_TEMP/ext.rc") &
+      - name: Setup core dependencies
+        uses: ./.github/actions/setup-claude-build-deps
+      - name: Join extension install
+        run: |
+          while [ ! -f "$RUNNER_TEMP/ext.rc" ]; do sleep 2; done
+          tail -5 "$RUNNER_TEMP/ext.log"
+          exit "$(cat "$RUNNER_TEMP/ext.rc")"
+      - run: git status --short
