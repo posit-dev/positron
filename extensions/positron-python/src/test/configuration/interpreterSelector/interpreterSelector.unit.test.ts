@@ -150,6 +150,22 @@ suite('Interpreters - selector', () => {
         });
     });
 
+    test('Quick pick item uses Python label and cached prefix for a cached entry without a display name', () => {
+        const interpreter: PythonEnvironment = {
+            ...info,
+            displayName: '',
+            path: path.join('a', 'global', 'env', 'python'),
+            envType: EnvironmentType.Global,
+            cachedEntry: true,
+        };
+
+        const item = selector.suggestionToQuickPickItem(interpreter);
+
+        assert.strictEqual(item.label, 'Python');
+        assert.ok(item.description?.startsWith('(cached) '), `Unexpected description '${item.description}'.`);
+        assert.strictEqual(item.path, interpreter.path);
+    });
+
     test('Should sort environments with local ones first', async () => {
         const workspacePath = path.join('path', 'to', 'workspace');
 
