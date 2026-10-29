@@ -618,11 +618,26 @@ def test_inspect_numpy_array(value: np.ndarray, display_value: str) -> None:
         (np.array([1, 100], dtype="m8[s]"), "[1,100]"),
         (np.array(["2020-01-01", "NaT"], dtype="M8[D]"), "['2020-01-01','NaT']"),
         (np.array(["a b", "c"]), "['a b','c']"),
+        (np.arange(100), "[0,1,2,3,4,5,6,7,8,...,91,92,93,94,95,96,97,98,99]"),
     ],
 )
 def test_numpy_array_display_value_has_no_padding(value: np.ndarray, expected: str) -> None:
     display_value, _ = get_inspector(value).get_display_value()
     assert display_value == expected
+
+
+def test_numpy_array_display_value_keeps_row_indentation_when_summarized() -> None:
+    display_value, _ = get_inspector(np.arange(60).reshape(20, 3)).get_display_value()
+    lines = display_value.split("\n")
+    assert lines[0] == "[[0,1,2],"
+    assert lines[9] == " ...,"
+    assert lines[-1] == " [57,58,59]]"
+
+
+def test_numpy_array_display_value_keeps_custom_formatter_spaces() -> None:
+    with np.printoptions(formatter={"float": lambda x: f"{x} kg"}):
+        display_value, _ = get_inspector(np.array([1.5, 2.0])).get_display_value()
+    assert display_value == "[1.5 kg,2.0 kg]"
 
 
 @pytest.mark.parametrize(
