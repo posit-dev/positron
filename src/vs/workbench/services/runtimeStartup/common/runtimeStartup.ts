@@ -206,7 +206,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
 	// When each language was recommended a new env in the workspace folder,
-	// which beats the runtime started recently once its console stops, until
+	// which beats the console, affiliated and recent runtimes once their consoles stop, until
 	// a session requested after that starts.
 	private readonly _newFolderEnvTimes = new Map<string, number>();
 
@@ -1950,9 +1950,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	public getPreferredRuntimeWithReason(languageId: string): IPreferredRuntime | undefined {
 		const preferred = choosePreferredRuntime({
-			activeConsole: this._runtimeSessionService.getConsoleSessionForLanguage(languageId)?.runtimeMetadata,
-			affiliated: this.affiliationFor(languageId),
-			recentlyStarted: this.recentlyStartedFor(languageId),
+			activeConsole: this.unlessNewFolderEnv(languageId,
+				this._runtimeSessionService.getConsoleSessionForLanguage(languageId)?.runtimeMetadata),
+			affiliated: this.unlessNewFolderEnv(languageId, this.affiliationFor(languageId)),
+			recentlyStarted: this.unlessNewFolderEnv(languageId,
+				this._mostRecentlyStartedRuntimesByLanguageId.get(languageId)),
 			recommended: this._recommendedRuntimesByLanguageId.get(languageId),
 			fallback: firstInPickerOrder(this._languageRuntimeService.registeredRuntimes.filter(info => info.languageId === languageId)),
 		}, runtimeId => this._languageRuntimeService.getRegisteredRuntime(runtimeId));
@@ -2272,16 +2274,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * The runtime started most recently for `languageId`, unless a new env in
-	 * the folder (e.g. a .venv made after a global Python ran) was recommended
-	 * since and the recent runtime's console no longer runs.
+	 * `runtime`, unless a new env in the folder (e.g. a .venv made after a
+	 * global Python ran) was recommended since and `runtime`'s console no
+	 * longer runs. A console ended by `exit()` stays the language's console
+	 * and keeps its affiliation, so all three are checked.
 	 */
-	private recentlyStartedFor(languageId: string): ILanguageRuntimeMetadata | undefined {
-		const recent = this._mostRecentlyStartedRuntimesByLanguageId.get(languageId);
-		if (recent && this._newFolderEnvTimes.has(languageId) && !this.hasRunningConsole(recent.runtimeId)) {
+	private unlessNewFolderEnv(languageId: string, runtime: ILanguageRuntimeMetadata | undefined): ILanguageRuntimeMetadata | undefined {
+		if (runtime && this._newFolderEnvTimes.has(languageId) && !this.hasRunningConsole(runtime.runtimeId)) {
 			return undefined;
 		}
-		return recent;
+		return runtime;
 	}
 
 	/** Whether `runtimePath` is inside one of the workspace folders. */

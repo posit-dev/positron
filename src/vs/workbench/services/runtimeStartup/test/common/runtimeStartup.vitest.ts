@@ -1919,6 +1919,41 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			});
 		});
 
+		it('prefers the new recommendation over an exited console still in front', async () => {
+			const { svc, recent, session } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
+
+			// e.g. the console was ended by typing exit().
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'getConsoleSessionForLanguage').mockReturnValue(session);
+
+			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
+				runtime: { runtimeId: 'rt-new' },
+				reason: PreferredRuntimeReason.Recommended,
+			});
+		});
+
+		it('prefers the new recommendation over the affiliation an exited console left', async () => {
+			const { svc, recent } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
+
+			// exit() never enters Exiting, so the affiliation is kept.
+			vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(recent);
+
+			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
+				runtime: { runtimeId: 'rt-new' },
+				reason: PreferredRuntimeReason.Recommended,
+			});
+		});
+
+		it('keeps the affiliated runtime over a new recommendation while its console runs', async () => {
+			const { svc, recent } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'), { runningConsole: true });
+
+			vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(recent);
+
+			expect(svc.getPreferredRuntimeWithReason(recent.languageId)).toMatchObject({
+				runtime: { runtimeId: recent.runtimeId },
+				reason: PreferredRuntimeReason.RunningConsole,
+			});
+		});
+
 		it('prefers the recent runtime again once it is started again', async () => {
 			const { svc, recent } = await setup(inWorkspaceFolder('.venv', 'bin', 'python'));
 
