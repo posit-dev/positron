@@ -30,7 +30,7 @@ runs:
       shell: bash
       working-directory: extensions/positron-python
       run: |
-        uv pip install pip
+        uv pip install pip ruff
         uv run --active scripts/vendor.py
         uv sync --active --inexact --frozen --project python_files/posit
 

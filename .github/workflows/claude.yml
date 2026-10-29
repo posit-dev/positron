@@ -396,6 +396,13 @@ jobs:
             `npm run --prefix extensions/positron-python test:unittests -- --grep "<suite title>"`.
             Do not run either suite in full. If you need one of them and it was not set up, say so
             in the PR body.
+            positron-python has its own formatters, which `npm run precommit` does not run. When its
+            setup ran, format each changed file in that area before you commit it. Python file
+            paths are relative to `extensions/positron-python`:
+            `uv --directory extensions/positron-python run --active ruff format <files>` and
+            `uv --directory extensions/positron-python run --active ruff check --fix <files>`.
+            `.ts` file paths are relative to the repository root:
+            `npm exec --prefix extensions/positron-python -- prettier --write <files>`.
 
             If your change is fixing a bug, first write a test that reproduces the bug, next to the
             existing tests. Run it with `npx vitest run <file>`, or the pytest or mocha command above, and make sure that it fails for the
@@ -419,7 +426,7 @@ jobs:
           claude_args: |
             --model opus
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*)"
+            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*),Bash(uv --directory extensions/positron-python run --active ruff:*),Bash(npm exec --prefix extensions/positron-python -- prettier:*)"
 
       - name: Replace eyes with result reaction
         if: always() && needs.triage.outputs.ack_target != ''
