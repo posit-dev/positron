@@ -15,6 +15,7 @@ on:
       - '.github/workflows/claude.yml'
       - '.github/actions/setup-claude/**'
       - '.github/actions/setup-claude-build-deps/**'
+      - '.github/actions/setup-claude-python-deps/**'
 
 env:
   # Prompt text that the triage and build jobs share.
@@ -311,6 +312,25 @@ jobs:
       - name: Setup core dependencies
         uses: ./.github/actions/setup-claude-build-deps
 
+      # Python test setups run only when the handoff lists files in their area.
+      - name: Decide Python setups
+        id: python-setups
+        env:
+          HANDOFF: ${{ needs.triage.outputs.handoff }}
+        run: |
+          FILTER='[.files[]? | strings] | "kernel=\(any(.[]; startswith("extensions/positron-python/python_files/posit/")))", "extension=\(any(.[]; startswith("extensions/positron-python/src/")))"'
+          if ! OUT=$(jq -r "$FILTER" <<<"$HANDOFF" 2>/dev/null) || [ -z "$OUT" ]; then
+            OUT=$'kernel=false\nextension=false'
+          fi
+          echo "$OUT" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Setup Python test dependencies
+        if: steps.python-setups.outputs.kernel == 'true' || steps.python-setups.outputs.extension == 'true'
+        uses: ./.github/actions/setup-claude-python-deps
+        with:
+          kernel: ${{ steps.python-setups.outputs.kernel }}
+          extension: ${{ steps.python-setups.outputs.extension }}
+
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@e4a6faad497d33dbc7144135c75e41f82f0bf6c0 # v1.0.255
         with:
@@ -351,8 +371,19 @@ jobs:
             Vitest logs an EROFS error about the step summary after the run. Ignore it; read the
             "Test Files" line for the result.
 
+            If the handoff lists files under `extensions/positron-python/python_files/posit/`, the
+            kernel's Python test dependencies are installed. Run one test file, with `-k` to pick
+            tests: `uv --directory extensions/positron-python run --active pytest python_files/posit/positron/tests/<file>.py -k <name>`.
+            If the handoff lists files under `extensions/positron-python/src/`, that extension is
+            installed and compiled. After each change to its `.ts` files, recompile with
+            `npm exec --prefix extensions/positron-python -- tsc -p extensions/positron-python`,
+            then run one suite with
+            `npm run --prefix extensions/positron-python test:unittests -- --grep "<suite title>"`.
+            Do not run either suite in full. If you need one of them and it was not set up, say so
+            in the PR body.
+
             If your change is fixing a bug, first write a test that reproduces the bug, next to the
-            existing tests. Run it with `npx vitest run <file>` and make sure that it fails for the
+            existing tests. Run it with `npx vitest run <file>`, or the pytest or mocha command above, and make sure that it fails for the
             expected reason. Commit the test before the fix. After the fix, run it again. If you
             are modifying existing code, check if there are existing tests and update them or put
             new tests alongside the old ones. Choose the test level from the table in CLAUDE.md,
@@ -373,7 +404,7 @@ jobs:
           claude_args: |
             --model opus
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*)"
+            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*)"
 
       - name: Replace eyes with result reaction
         if: always() && needs.triage.outputs.ack_target != ''
