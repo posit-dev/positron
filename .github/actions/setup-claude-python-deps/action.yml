@@ -48,6 +48,9 @@ runs:
       env:
         NPM_CONFIG_AUDIT: "false"
         NPM_CONFIG_FUND: "false"
+      # Type errors (maybe the bug Claude is fixing) still emit out/, and Claude recompiles before
+      # each test run, so only a missing build fails this step.
       run: |
         npm ci --ignore-scripts
-        npx tsc -p ./
+        npx tsc -p ./ || true
+        test -f out/test/unittests.js
