@@ -730,6 +730,13 @@ class _BaseArrayInspector(_BaseCollectionInspector[Array], ABC):
         return True
 
 
+def _format_array_element(x: Any) -> str:
+    # NumPy pads each element to the width of the widest element in the array,
+    # e.g. "[ 3,10]". Format each element as a 0-d array instead, which keeps
+    # NumPy's dtype-aware formatting (e.g. float precision) but has no padding.
+    return _numpy().array2string(_numpy().asarray(x))
+
+
 class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
     CLASS_QNAME = "numpy.ndarray"
 
@@ -743,6 +750,14 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
                 threshold=ARRAY_THRESHOLD,
                 edgeitems=ARRAY_EDGEITEMS,
                 separator=",",
+                # Strings and objects are not padded by NumPy, so they keep the default formatter.
+                formatter={
+                    "bool": _format_array_element,
+                    "int_kind": _format_array_element,
+                    "float_kind": _format_array_element,
+                    "complex_kind": _format_array_element,
+                    "datetime": _format_array_element,
+                },
             ),
             True,
         )
