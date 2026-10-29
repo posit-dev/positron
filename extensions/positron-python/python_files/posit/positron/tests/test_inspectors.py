@@ -582,18 +582,18 @@ def test_inspect_property(value: property) -> None:
 
 
 @pytest.mark.parametrize(
-    "value",
+    ("value", "display_value"),
     [
-        np.array([1, 2, 3], dtype=np.int64),  # 1D
-        np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64),  # 2D
+        (np.array([1, 2, 3], dtype=np.int64), "[1,2,3]"),  # 1D
+        (np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64), "[[1,2,3],\n [4,5,6]]"),  # 2D
     ],
 )
-def test_inspect_numpy_array(value: np.ndarray) -> None:
+def test_inspect_numpy_array(value: np.ndarray, display_value: str) -> None:
     shape = value.shape
     display_shape = f"({shape[0]})" if len(shape) == 1 else str(tuple(shape))
     verify_inspector(
         value=value,
-        display_value=np.array2string(value, separator=","),
+        display_value=display_value,
         kind=VariableKind.Collection,
         display_type=f"numpy.int64 {display_shape}",
         type_info="numpy.ndarray",
@@ -606,6 +606,41 @@ def test_inspect_numpy_array(value: np.ndarray) -> None:
 
 
 @pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (np.array([3, 10]), "[3,10]"),
+        (np.array([-1, 10]), "[-1,10]"),
+        (np.array([[1, 2], [10, 20]]), "[[1,2],\n [10,20]]"),
+        (np.array([1.5, 10.25]), "[1.5,10.25]"),
+        (np.array([1 / 3, 10.0]), "[0.33333333,10.]"),
+        (np.array([True, False]), "[True,False]"),
+        (np.array([1 + 2j, 10 + 20j]), "[1.+2.j,10.+20.j]"),
+        (np.array([1, 100], dtype="m8[s]"), "[1,100]"),
+        (np.array(["2020-01-01", "NaT"], dtype="M8[D]"), "['2020-01-01','NaT']"),
+        (np.array(["a b", "c"]), "['a b','c']"),
+        (np.arange(100), "[0,1,2,3,4,5,6,7,8,...,91,92,93,94,95,96,97,98,99]"),
+    ],
+)
+def test_numpy_array_display_value_has_no_padding(value: np.ndarray, expected: str) -> None:
+    display_value, _ = get_inspector(value).get_display_value()
+    assert display_value == expected
+
+
+def test_numpy_array_display_value_keeps_row_indentation_when_summarized() -> None:
+    display_value, _ = get_inspector(np.arange(60).reshape(20, 3)).get_display_value()
+    lines = display_value.split("\n")
+    assert lines[0] == "[[0,1,2],"
+    assert lines[9] == " ...,"
+    assert lines[-1] == " [57,58,59]]"
+
+
+def test_numpy_array_display_value_keeps_custom_formatter_spaces() -> None:
+    with np.printoptions(formatter={"float": lambda x: f"{x} kg"}):
+        display_value, _ = get_inspector(np.array([1.5, 2.0])).get_display_value()
+    assert display_value == "[1.5 kg,2.0 kg]"
+
+
+@pytest.mark.parametrize(
     "value",
     [
         np.array(1, dtype=np.int64),
@@ -614,7 +649,7 @@ def test_inspect_numpy_array(value: np.ndarray) -> None:
 def test_inspect_numpy_array_0d(value: np.ndarray) -> None:
     verify_inspector(
         value=value,
-        display_value=np.array2string(value, separator=","),
+        display_value="1",
         kind=VariableKind.Number,
         display_type="numpy.int64",
         type_info="numpy.ndarray",

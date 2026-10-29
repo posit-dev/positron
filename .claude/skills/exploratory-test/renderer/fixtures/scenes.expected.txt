@@ -443,15 +443,17 @@ Commit: abc1234
 
 Please investigate this finding using the repository and the evidence above.
 
-==== a finding matched to a not-planned issue says Intended?
+==== a finding matched to a not-planned issue says Won't fix? on its card and row
 <article id="f2" class="card">
-<header><div class="meta"><span class="group identity"><span class="who">Finding 2</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span><span class="sep" aria-hidden="true">&middot;</span><span class="f-ki">Intended? <a class="ki-num" href="https://github.com/posit-dev/positron/issues/14210" target="_blank" rel="noopener">#14210</a></span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 2 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f2" aria-label="Copy prompt for an agent: finding 2"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f2" data-tip="Copy link" aria-label="Copy link to finding 2"><svg><svg></button></div><h2 class="card-title">a second claim</h2></header>
+<header><div class="meta"><span class="group identity"><span class="who">Finding 2</span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="rule" aria-hidden="true"></span><span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 1/1</span><span class="sep" aria-hidden="true">&middot;</span><span class="f-ki">Won&rsquo;t fix? <a class="ki-num" href="https://github.com/posit-dev/positron/issues/14210" target="_blank" rel="noopener">#14210</a></span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 2 (opens GitHub in a new tab)"><svg></a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f2" aria-label="Copy prompt for an agent: finding 2"><svg><svg></button><button type="button" class="ln-btn" data-link-to="f2" data-tip="Copy link" aria-label="Copy link to finding 2"><svg><svg></button></div><h2 class="card-title">a second claim</h2></header>
 <div class="f-cmp minor"><div class="f-cmp-o"><div class="f-lab">Observed</div><p class="f-txt">the icon touches the text.</p></div><div class="f-cmp-e"><div class="f-lab">Expected</div><p class="f-txt">a 6 px gap.</p></div></div>
 
 
 
 
 
+--
+<a href="#f2" class="row findings-grid"><span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="finding-cell"><span class="claim"><span class="n">2</span>a second claim</span></span><span class="rate">1/1</span><span class="ki-st"><span class="status"><svg>Confirmed</span><span class="ki-state">Won&rsquo;t fix? <span class="ki-num-t">#14210</span></span></span></a>
 --
 ## Finding 2 — Minor
 

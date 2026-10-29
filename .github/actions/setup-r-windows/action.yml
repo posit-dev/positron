@@ -27,12 +27,14 @@ runs:
 
     # The release version is resolved dynamically from the r-hub rversions
     # API -- the same service r-lib/actions/setup-r uses -- so it tracks the
-    # current R release instead of being pinned.
+    # current R release instead of being pinned. `r-release-win` (not the
+    # generic `r-release`) only advances once the Windows installer is on
+    # CRAN, which can lag the source release by a day or more.
     - name: Install R release
       id: r-version
       shell: pwsh
       run: |
-        $release = (Invoke-RestMethod -Uri 'https://api.r-hub.io/rversions/r-release' -MaximumRetryCount 3 -RetryIntervalSec 5).version
+        $release = (Invoke-RestMethod -Uri 'https://api.r-hub.io/rversions/r-release-win' -MaximumRetryCount 3 -RetryIntervalSec 5).version
         Write-Host "Resolved R release=$release"
         "r_version=$release" >> $env:GITHUB_OUTPUT
         rig add $release

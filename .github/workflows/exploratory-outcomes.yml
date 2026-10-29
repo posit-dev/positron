@@ -10,7 +10,8 @@ name: "Exploratory: Outcome Pages"
 # runs after publish, even a failed one, to read the rows it published.
 on:
   schedule:
-    - cron: "0 6 * * *"
+    # 6am Central and 4pm Eastern during daylight time (5am and 3pm in winter).
+    - cron: "0 11,20 * * *"
   workflow_dispatch:
     inputs:
       recheck:

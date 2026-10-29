@@ -323,7 +323,9 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 		// One issue per line: the finding's own, then its matches below it.
 		const first = list => `${nums(list.slice(0, 1))}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
 		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : '';
-		const below = [issueLine, ...matches.map(m => m.label(first(m.numbers)))].filter(Boolean).map(line => `<span class="ki-state">${line}</span>`);
+		// A match closed as not planned: the team chose to leave this behavior.
+		const wontFix = f.intended?.length ? `Won&rsquo;t fix? ${first(f.intended)}` : '';
+		const below = [issueLine, ...matches.map(m => m.label(first(m.numbers))), wontFix].filter(Boolean).map(line => `<span class="ki-state">${line}</span>`);
 		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
 		return `<a href="#f${f.n}" class="row findings-grid">`
 			+ `<span>${pill(f.severity)}</span>`
@@ -678,7 +680,7 @@ function cardIssueItems(f, word, ki, refs) {
 		items.push(item(m.label, m.numbers));
 	}
 	if (f.intended?.length) {
-		items.push(item('Intended?', f.intended));
+		items.push(item('Won&rsquo;t fix?', f.intended));
 	}
 	return items;
 }
