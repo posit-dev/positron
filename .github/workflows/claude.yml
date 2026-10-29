@@ -101,14 +101,29 @@ jobs:
           fi
           echo "Actor ${{ github.actor }} authorized with '$PERMISSION' permission"
 
+      - name: Generate token for GitHub App
+        id: generate-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          permission-actions: read
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+          permission-members: read
+          owner: posit-dev
+          repositories: positron
+
       # Ack the trigger right away; the action's own progress comment takes a minute or more.
       # Reviews have no reactions API, so they get no ack.
       # GitHub sometimes starts this workflow twice for one comment. The reactions API returns 200
-      # instead of 201 when our eyes reaction already exists, so the later run skips Claude.
+      # instead of 201 when this account's eyes reaction already exists, so the later run skips
+      # Claude. React as the App, not github-actions[bot], which other workflows also react as.
       - name: Add eyes reaction
         id: ack
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           EVENT_NAME: ${{ github.event_name }}
           COMMENT_ID: ${{ github.event.comment.id }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -134,20 +149,6 @@ jobs:
           echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
           REACTION_ID=$(sed '1,/^\r*$/d' <<<"$RESPONSE" | jq -r '.id // empty' 2>/dev/null) || REACTION_ID=""
           echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
-
-      - name: Generate token for GitHub App
-        id: generate-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
-          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
-          permission-actions: read
-          permission-contents: write
-          permission-pull-requests: write
-          permission-issues: write
-          permission-members: read
-          owner: posit-dev
-          repositories: positron
 
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -267,7 +268,8 @@ jobs:
       - name: Replace eyes with result reaction
         if: always() && steps.ack.outputs.target != '' && steps.handoff.outputs.needs_build != 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          # The App added the eyes, and only the reacting account can remove it.
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           TARGET: ${{ steps.ack.outputs.target }}
           REACTION_ID: ${{ steps.ack.outputs.reaction_id }}
           JOB_STATUS: ${{ job.status }}
@@ -455,7 +457,8 @@ jobs:
       - name: Replace eyes with result reaction
         if: always() && needs.triage.outputs.ack_target != ''
         env:
-          GH_TOKEN: ${{ github.token }}
+          # The App added the eyes, and only the reacting account can remove it.
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           TARGET: ${{ needs.triage.outputs.ack_target }}
           REACTION_ID: ${{ needs.triage.outputs.ack_reaction_id }}
           JOB_STATUS: ${{ job.status }}
