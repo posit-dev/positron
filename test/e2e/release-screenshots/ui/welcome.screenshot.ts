@@ -72,10 +72,10 @@ test.describe('Release Screenshots - Welcome Page', () => {
 			action: 'expand',
 		});
 		// Wait for the gc_frame children to load, because a list refresh can
-		// reset the scroll position. Then scroll 4 rows of 26px, so fig is the
-		// top row and the gc_frame children show.
+		// reset the scroll position. Then scroll so fig is the top row and the
+		// gc_frame children show.
 		await variables.waitForVariableRow('cartesian');
-		await variables.scrollTo(104);
+		await variables.scrollVariableToTop('fig');
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
