@@ -227,8 +227,7 @@ function isPrerelease(interpreter: PythonEnvironment): boolean {
     const version = interpreter.version;
     return (
         !!version &&
-        ((version.prerelease.length > 0 && version.prerelease[0] !== 'final') ||
-            /\d(?:a|b|rc)\d*$/.test(version.raw))
+        ((version.prerelease.length > 0 && version.prerelease[0] !== 'final') || /\d(?:a|b|rc)\d*$/.test(version.raw))
     );
 }
 
