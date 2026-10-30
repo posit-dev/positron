@@ -95,8 +95,9 @@ export class Variables {
 	 * in Electron.
 	 */
 	async scrollTo(offset: number): Promise<void> {
-		const list = this.code.driver.currentPage.locator('.variables-instance .list').first();
+		const list = this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} .list`);
 		await list.evaluate((el, top) => { el.scrollTop = top; }, offset);
+		await expect.poll(() => list.evaluate(el => el.scrollTop)).toBe(offset);
 	}
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
