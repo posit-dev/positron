@@ -67,11 +67,11 @@ export enum Tier {
     PositronDefaultEnv,
     /** Conda named envs, then pyenv virtualenvs. */
     NamedEnv,
-    /** uv base Pythons, conda base, pyenv versions, then global virtualenvs. */
+    /** Conda base, pyenv versions, then global virtualenvs. */
     GlobalEnv,
     /** python.org, Windows Store and registry, other PATH Pythons. Start only when picked. */
     BaseInstall,
-    /** Homebrew, Xcode/CLT, distro Pythons, anything with an EXTERNALLY-MANAGED marker. Start only when picked. */
+    /** uv base Pythons, Homebrew, Xcode/CLT, distro Pythons, anything with an EXTERNALLY-MANAGED marker. Start only when picked. */
     ExternallyManaged,
 }
 
@@ -323,15 +323,10 @@ export function tierOf(interpreter: PythonEnvironment, context: RankingContext):
     ) {
         return Tier.NamedEnv;
     }
-    // Before the externally managed check: uv installs its Pythons with an EXTERNALLY-MANAGED marker.
-    if (
-        isUvBase(interpreter, context) ||
-        isBaseCondaEnvironment(interpreter) ||
-        interpreter.envType === EnvironmentType.Pyenv
-    ) {
+    if (isBaseCondaEnvironment(interpreter) || interpreter.envType === EnvironmentType.Pyenv) {
         return Tier.GlobalEnv;
     }
-    if (context.externallyManagedPaths.has(interpreter.path)) {
+    if (isUvBase(interpreter, context) || context.externallyManagedPaths.has(interpreter.path)) {
         return Tier.ExternallyManaged;
     }
     if (
@@ -374,13 +369,10 @@ function orderWithinTier(interpreter: PythonEnvironment, tier: Tier, context: Ra
         case Tier.NamedEnv:
             return isPyenvVirtualenv(interpreter) ? 1 : 0;
         case Tier.GlobalEnv:
-            if (isUvBase(interpreter, context)) {
+            if (isBaseCondaEnvironment(interpreter)) {
                 return 0;
             }
-            if (isBaseCondaEnvironment(interpreter)) {
-                return 1;
-            }
-            return interpreter.envType === EnvironmentType.Pyenv ? 2 : 3;
+            return interpreter.envType === EnvironmentType.Pyenv ? 1 : 2;
         default:
             return 0;
     }
