@@ -79,33 +79,38 @@ describe('reportableLanguages', function () {
 	// A fixed "now" so age math is deterministic.
 	const now = Date.parse('2026-07-11T09:00:00Z');
 
-	it('returns the languages when the record is from yesterday', () => {
-		// The core design intent: report the last active day at cold start.
-		const record: IActiveLanguageRecord = { day: '2026-07-10', languages: ['python'] };
+	it('returns a language last used yesterday', () => {
+		// The core design intent: report recent usage at cold start.
+		const record: IActiveLanguageRecord = { lastUsed: { python: '2026-07-10' } };
 		expect(reportableLanguages(record, now, maxAgeDays)).toEqual(['python']);
 	});
 
-	it('returns the languages at exactly the max age boundary', () => {
-		const record: IActiveLanguageRecord = { day: '2026-07-04', languages: ['r'] };
+	it('returns a language at exactly the max age boundary', () => {
+		const record: IActiveLanguageRecord = { lastUsed: { r: '2026-07-04' } };
 		expect(reportableLanguages(record, now, maxAgeDays)).toEqual(['r']);
 	});
 
-	it('returns empty when the record is older than the max age', () => {
-		const record: IActiveLanguageRecord = { day: '2026-07-03', languages: ['python'] };
-		expect(reportableLanguages(record, now, maxAgeDays)).toEqual([]);
+	it('returns every language used within the window, even on different days', () => {
+		const record: IActiveLanguageRecord = { lastUsed: { r: '2026-07-06', python: '2026-07-10' } };
+		expect(reportableLanguages(record, now, maxAgeDays)).toEqual(['python', 'r']);
+	});
+
+	it('omits only the languages older than the max age', () => {
+		const record: IActiveLanguageRecord = { lastUsed: { r: '2026-07-03', python: '2026-07-10' } };
+		expect(reportableLanguages(record, now, maxAgeDays)).toEqual(['python']);
 	});
 
 	it('returns empty when the record is undefined', () => {
 		expect(reportableLanguages(undefined, now, maxAgeDays)).toEqual([]);
 	});
 
-	it('returns empty when the record day is malformed', () => {
-		const record: IActiveLanguageRecord = { day: 'not-a-date', languages: ['python'] };
+	it('omits a language whose day is malformed', () => {
+		const record: IActiveLanguageRecord = { lastUsed: { python: 'not-a-date' } };
 		expect(reportableLanguages(record, now, maxAgeDays)).toEqual([]);
 	});
 
-	it('returns empty when the record is dated in the future (clock skew)', () => {
-		const record: IActiveLanguageRecord = { day: '2026-07-12', languages: ['python'] };
+	it('omits a language dated in the future (clock skew)', () => {
+		const record: IActiveLanguageRecord = { lastUsed: { python: '2026-07-12' } };
 		expect(reportableLanguages(record, now, maxAgeDays)).toEqual([]);
 	});
 });
@@ -116,43 +121,41 @@ describe('reportableLanguages', function () {
 describe('active-language reporting (service logic)', function () {
 	const maxAgeDays = 7;
 	const now = Date.parse('2026-07-11T09:00:00Z');
+	const nextDay = Date.parse('2026-07-12T09:00:00Z');
 
 	describe('mergeActiveLanguageRecord', function () {
-		it('stores the day and languages for a non-empty set', () => {
-			const stored = mergeActiveLanguageRecord(undefined, ['python', 'r'], now);
-			expect(JSON.parse(stored!)).toEqual({ day: '2026-07-11', languages: ['python', 'r'] });
+		it('stores today for each language in a non-empty set', () => {
+			const stored = mergeActiveLanguageRecord(undefined, ['python', 'r'], now, maxAgeDays);
+			expect(JSON.parse(stored!)).toEqual({ lastUsed: { python: '2026-07-11', r: '2026-07-11' } });
 		});
 
-		it('does not store an empty set, so a usage-free day cannot clobber a stored day', () => {
-			expect(mergeActiveLanguageRecord(undefined, [], now)).toBeUndefined();
+		it('does not store an empty set, so a usage-free push cannot rewrite the record', () => {
+			const afterR = mergeActiveLanguageRecord(undefined, ['r'], now, maxAgeDays);
+			expect(mergeActiveLanguageRecord(afterR, [], nextDay, maxAgeDays)).toBeUndefined();
 		});
 
 		it('unions a new language into the same day (e.g. R and Python in separate windows)', () => {
-			// One window reports R, another reports Python on the same day; both count.
-			const afterR = mergeActiveLanguageRecord(undefined, ['r'], now);
-			const afterPython = mergeActiveLanguageRecord(afterR, ['python'], now);
-			expect(JSON.parse(afterPython!)).toEqual({ day: '2026-07-11', languages: ['python', 'r'] });
+			const afterR = mergeActiveLanguageRecord(undefined, ['r'], now, maxAgeDays);
+			const afterPython = mergeActiveLanguageRecord(afterR, ['python'], now, maxAgeDays);
+			expect(JSON.parse(afterPython!)).toEqual({ lastUsed: { python: '2026-07-11', r: '2026-07-11' } });
 		});
 
-		it('preserves the stored day when a window reports nothing', () => {
-			const afterR = mergeActiveLanguageRecord(undefined, ['r'], now);
-			expect(mergeActiveLanguageRecord(afterR, [], now)).toEqual(afterR);
+		it('keeps a language from an earlier day when a different language is used today', () => {
+			const yesterday = mergeActiveLanguageRecord(undefined, ['r'], now, maxAgeDays);
+			const today = mergeActiveLanguageRecord(yesterday, ['python'], nextDay, maxAgeDays);
+			expect(JSON.parse(today!)).toEqual({ lastUsed: { python: '2026-07-12', r: '2026-07-11' } });
 		});
 
-		it('resets to only the new day when the stored record is from an earlier day', () => {
-			const yesterday = mergeActiveLanguageRecord(undefined, ['r'], now);
-			const nextDay = Date.parse('2026-07-12T09:00:00Z');
-			const today = mergeActiveLanguageRecord(yesterday, ['python'], nextDay);
-			expect(JSON.parse(today!)).toEqual({ day: '2026-07-12', languages: ['python'] });
+		it('drops languages older than the max age when it writes', () => {
+			const old = JSON.stringify({ lastUsed: { r: '2026-07-01' } });
+			const stored = mergeActiveLanguageRecord(old, ['python'], now, maxAgeDays);
+			expect(JSON.parse(stored!)).toEqual({ lastUsed: { python: '2026-07-11' } });
 		});
 
-		it('does not clobber an earlier stored day when the new day has no usage yet', () => {
-			// A new UTC day dawns before any code runs: the empty push must leave
-			// yesterday's stored languages intact (returns undefined, so the caller
-			// skips the write) rather than resetting them to nothing.
-			const yesterday = mergeActiveLanguageRecord(undefined, ['r'], now);
-			const nextDay = Date.parse('2026-07-12T09:00:00Z');
-			expect(mergeActiveLanguageRecord(yesterday, [], nextDay)).toBeUndefined();
+		it('converts a record in the earlier single-day format', () => {
+			const legacy = JSON.stringify({ day: '2026-07-10', languages: ['r'] });
+			const stored = mergeActiveLanguageRecord(legacy, ['python'], now, maxAgeDays);
+			expect(JSON.parse(stored!)).toEqual({ lastUsed: { python: '2026-07-11', r: '2026-07-10' } });
 		});
 	});
 
@@ -168,13 +171,22 @@ describe('active-language reporting (service logic)', function () {
 		it('returns undefined when the stored record is missing required fields', () => {
 			expect(parseActiveLanguageRecord('{"day":"2026-07-11"}')).toBeUndefined();
 		});
+
+		it('reads a record in the earlier single-day format', () => {
+			const legacy = JSON.stringify({ day: '2026-07-10', languages: ['python', 'r'] });
+			expect(parseActiveLanguageRecord(legacy)).toEqual({ lastUsed: { python: '2026-07-10', r: '2026-07-10' } });
+		});
+
+		it('ignores entries whose day is not a string', () => {
+			expect(parseActiveLanguageRecord('{"lastUsed":{"python":"2026-07-10","r":5}}')).toEqual({ lastUsed: { python: '2026-07-10' } });
+		});
 	});
 
-	it('round-trips a stored day into the next launch report', () => {
-		// Session 1 persists today's usage; session 2 launches the next day with no
-		// live usage yet and reports what was stored.
-		const stored = mergeActiveLanguageRecord(undefined, ['python', 'r'], now);
-		const nextDay = Date.parse('2026-07-12T09:00:00Z');
-		expect(reportableLanguages(parseActiveLanguageRecord(stored), nextDay, maxAgeDays)).toEqual(['python', 'r']);
+	it('reports languages used on different days within the window on the next launch', () => {
+		// R on day 1, Python on day 2; a launch on day 3 reports both.
+		const dayOne = mergeActiveLanguageRecord(undefined, ['r'], now, maxAgeDays);
+		const dayTwo = mergeActiveLanguageRecord(dayOne, ['python'], nextDay, maxAgeDays);
+		const dayThree = Date.parse('2026-07-13T09:00:00Z');
+		expect(reportableLanguages(parseActiveLanguageRecord(dayTwo), dayThree, maxAgeDays)).toEqual(['python', 'r']);
 	});
 });
