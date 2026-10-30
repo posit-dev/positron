@@ -132,8 +132,11 @@ export async function resolveDataFrameAtPosition(
 	const languageName = languageService.getLanguageName(languageId) ?? languageId;
 
 	// Notebook cells run in a per-notebook kernel session, which owns any
-	// variables defined by running the cells. Scripts use the language's console
-	// session instead.
+	// variables defined by running the cells. Quarto documents with inline
+	// output enabled likewise run chunks in a notebook-mode session bound to the
+	// document URI; use it only if it matches the chunk's language, since a
+	// Quarto document can mix languages. Scripts (and Quarto documents without
+	// an inline output session) use the language's console session instead.
 	//
 	// For scripts: getConsoleSessionForLanguage returns the foreground session
 	// (if it matches the language) or the last one brought to the foreground. A
@@ -142,9 +145,14 @@ export async function resolveDataFrameAtPosition(
 	// the lookup in PositronConsoleService.executeCode so "run code" and "view
 	// data frame" agree on which session to use.
 	const cellInfo = CellUri.parse(model.uri);
+	const getDocumentSession = () => {
+		const documentSession = runtimeSessionService.getNotebookSessionForNotebookUri(model.uri);
+		return documentSession?.runtimeMetadata.languageId === languageId ? documentSession : undefined;
+	};
 	const session = cellInfo
 		? runtimeSessionService.getNotebookSessionForNotebookUri(cellInfo.notebook)
-		: runtimeSessionService.getConsoleSessionForLanguage(languageId)
+		: getDocumentSession()
+		?? runtimeSessionService.getConsoleSessionForLanguage(languageId)
 		?? runtimeSessionService.activeSessions.find(s =>
 			s.runtimeMetadata.languageId === languageId &&
 			s.metadata.sessionMode === LanguageRuntimeSessionMode.Console,

@@ -335,6 +335,68 @@ describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			expect(viewStub).toHaveBeenCalledTimes(1);
 			expect(notificationInfo).not.toHaveBeenCalled();
 		});
+
+		describe('Quarto documents with inline output', () => {
+			const qmdUri = URI.parse('file:///test.qmd');
+
+			it('uses the notebook session bound to the document URI', async () => {
+				const viewStub = vi.fn().mockResolvedValue(undefined);
+				const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
+				// Inline output runs chunks in a notebook-mode session keyed by the
+				// .qmd URI, separate from the R console session.
+				const quartoSession = makeSession('r', 'quarto-session') as unknown as INotebookLanguageRuntimeSession;
+				session = makeSession('r', 'console-session');
+				activeEditor = makeCodeEditor({ word: 'df', languageId: 'quarto', languageIdAtPosition: 'r', uri: qmdUri });
+				getNotebookSessionForNotebookUri = vi.fn(
+					(uri: URI) => uri.toString() === qmdUri.toString() ? quartoSession : undefined,
+				);
+				variablesInstances = [
+					makeVariablesInstance([], 'console-session'),
+					makeVariablesInstance([item], 'quarto-session'),
+				];
+
+				await runAction();
+
+				expect(getConsoleSessionForLanguage).not.toHaveBeenCalled();
+				expect(viewStub).toHaveBeenCalledTimes(1);
+				expect(notificationInfo).not.toHaveBeenCalled();
+			});
+
+			it('falls back to the console session when no notebook session exists', async () => {
+				const viewStub = vi.fn().mockResolvedValue(undefined);
+				const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
+				session = makeSession('r');
+				activeEditor = makeCodeEditor({ word: 'df', languageId: 'quarto', languageIdAtPosition: 'r', uri: qmdUri });
+				variablesInstances = [makeVariablesInstance([item])];
+
+				await runAction();
+
+				expect(getConsoleSessionForLanguage.mock.calls[0]).toEqual(['r']);
+				expect(viewStub).toHaveBeenCalledTimes(1);
+				expect(notificationInfo).not.toHaveBeenCalled();
+			});
+
+			it('falls back to the console session when the notebook session language differs', async () => {
+				const viewStub = vi.fn().mockResolvedValue(undefined);
+				const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
+				// The document's inline-output session is R, but the cursor is in a
+				// Python chunk, so the Python console session owns the variable.
+				const quartoSession = makeSession('r', 'quarto-session') as unknown as INotebookLanguageRuntimeSession;
+				session = makeSession('python', 'console-session');
+				activeEditor = makeCodeEditor({ word: 'df', languageId: 'quarto', languageIdAtPosition: 'python', uri: qmdUri });
+				getNotebookSessionForNotebookUri = vi.fn().mockReturnValue(quartoSession);
+				variablesInstances = [
+					makeVariablesInstance([], 'quarto-session'),
+					makeVariablesInstance([item], 'console-session'),
+				];
+
+				await runAction();
+
+				expect(getConsoleSessionForLanguage.mock.calls[0]).toEqual(['python']);
+				expect(viewStub).toHaveBeenCalledTimes(1);
+				expect(notificationInfo).not.toHaveBeenCalled();
+			});
+		});
 	});
 });
 
