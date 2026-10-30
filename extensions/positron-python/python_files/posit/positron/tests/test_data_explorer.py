@@ -4361,6 +4361,27 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
 
 
 @pytest.mark.parametrize(
+    ("values", "dtype", "ex_result"),
+    [
+        (["foo", "", None, "foo"], pl.String, {"num_empty": 1, "num_unique": 3}),
+        ([b"ab", b"", None, b"ab"], pl.Binary, {"num_empty": 1, "num_unique": 3}),
+        (["a", "b", "a"], pl.Categorical, {"num_empty": 0, "num_unique": 2}),
+        (["a", "", None, "a"], pl.Categorical, {"num_empty": 1, "num_unique": 3}),
+    ],
+)
+def test_polars_profile_summary_stats_string_like(
+    dxf: DataExplorerFixture, values, dtype, ex_result
+):
+    df = pl.DataFrame({"x": pl.Series(values, dtype=dtype)})
+    dxf.register_table("df", df)
+
+    results = dxf.get_column_profiles("df", [_get_summary_stats(0)])
+    stats = results[0]["summary_stats"]
+    assert stats["type_display"] == ColumnDisplayType.String
+    assert_summary_stats_equal(stats["type_display"], stats, ex_result)
+
+
+@pytest.mark.parametrize(
     ("values", "dtype", "ex_min", "ex_max"),
     [
         ([1, 500, 1500], pl.Int64, "1", "1500"),

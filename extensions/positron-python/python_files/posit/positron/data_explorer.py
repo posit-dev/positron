@@ -2153,7 +2153,18 @@ def _polars_summarize_integer(col: pl.Series, options: FormatOptions):
 
 
 def _polars_summarize_string(col: pl.Series, _):
-    num_empty = (col.str.len_chars() == 0).sum()
+    import polars as pl
+
+    # Binary and Categorical also use the string display type, but the
+    # .str namespace only accepts String
+    if col.dtype.is_(pl.Binary):
+        # col == b"" segfaults in polars
+        str_col = col.bin.encode("hex")
+    elif not col.dtype.is_(pl.String):
+        str_col = col.cast(pl.String)
+    else:
+        str_col = col
+    num_empty = (str_col.str.len_chars() == 0).sum()
     num_unique = col.n_unique()
     return _box_string_stats(num_empty, num_unique)
 
