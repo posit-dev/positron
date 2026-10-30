@@ -125,8 +125,9 @@ export const css = {
 		clear: '.notification-toast .codicon-notifications-clear',
 	},
 	menu: {
-		// Positron's context menu items are buttons, not menu items.
-		items: '[role=menuitem], [role=menuitemcheckbox], [role=menuitemradio], [role=option], .custom-context-menu-item',
+		// Positron's context menu items are buttons, not menu items. A select box's
+		// rows are options, except on macOS, where VS Code gives them no role (listitem).
+		items: '[role=menuitem], [role=menuitemcheckbox], [role=menuitemradio], [role=option], .custom-context-menu-item, .select-box-dropdown-list-container .monaco-list-row',
 		cellItems: '[role=menuitem], [role=menuitemcheckbox], .custom-context-menu-item',
 		sessionItems: '[role=menuitem], .custom-context-menu-item',
 		treeItems: '.context-view .action-menu-item, .monaco-menu .action-menu-item, .custom-context-menu-item, [role=menu] [role=menuitem]',
