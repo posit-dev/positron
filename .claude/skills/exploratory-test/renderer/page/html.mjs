@@ -668,7 +668,8 @@ function renderShotLinks(f, comparisonOf = () => null) {
 	// A real link to the raw image, so it still works without JavaScript; the
 	// script intercepts the click and opens the lightbox, which links the step back.
 	const link = (id, item, i, lb, extra = '') => `<a class="shot" id="${id}" href="${escapeHtml(item.src)}" data-lb="${lb}" data-i="${i}"`
-		+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`
+		// The viewer shows the caption as plain text, so code marks are dropped rather than shown.
+		+ ` data-caption="${escapeHtml(String(item.caption ?? '').replace(/`([^`]*)`/g, '$1'))}" data-file="${escapeHtml(item.file)}"`
 		+ ` data-step="${escapeHtml(item.step.label)}" data-step-href="#f${n}-s${item.step.order}"${extra} hidden></a>`;
 	const links = [...groups].sort(([a], [b]) => a - b).map(([k, group], g) => {
 		const cmp = comparisonOf(k);

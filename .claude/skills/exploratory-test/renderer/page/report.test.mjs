@@ -1531,3 +1531,14 @@ test('a compared view keeps the arrows in the panel\'s margins, off the screensh
 	assert.match(REPORT_CSS, /\.lb-cmp img\.shot-full\[hidden\]\{display:none\}/);
 	assert.match(REPORT_CSS, /\.lb-none\{[^}]*display:flex;[^}]*aspect-ratio:16\/10;/);
 });
+
+test('a screenshot\'s caption in the viewer drops the code marks the viewer would show literally', () => {
+	const other = { kind: 'shot', path: 'shots/S02-01.png', scenario: 'S02', caption: 'The `id` column shows Min `8`' };
+	const json = rep({
+		findings: [fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, evidence: [other], main: mainStep(0, 2) })],
+		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
+	});
+	const captions = shotLinks(grouped(json), 1).map(t => attr(t, 'data-caption'));
+	assert.ok(captions.includes('The id column shows Min 8'), captions.join(' | '));
+	assert.ok(captions.every(c => !c.includes('`')), captions.join(' | '));
+});
