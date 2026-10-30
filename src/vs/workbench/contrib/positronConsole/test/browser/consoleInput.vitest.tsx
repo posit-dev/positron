@@ -304,7 +304,7 @@ describe('ConsoleInput parameter hints', () => {
 		// eslint-disable-next-line testing-library/prefer-user-event -- the console reads keyCode, which user-event leaves at 0
 		fireEvent.keyDown(textbox, { key: 'Enter', code: 'Enter', keyCode: 13 });
 
-		expect(instance.submitCode).toHaveBeenCalledWith('f()', expect.anything());
+		await vi.waitFor(() => expect(instance.submitCode).toHaveBeenCalledWith('f()', expect.anything()));
 		await vi.waitFor(() => expect(widget).not.toHaveClass('visible'));
 	});
 });
