@@ -280,11 +280,15 @@ async function requestPath(webClientServer: WebClientServer, pathname: string): 
 }
 
 describe('WebClientServer /proxy/ port ownership gate', () => {
+	// `process.getuid` does not exist on Windows, so a spy cannot be installed there: swap the
+	// function in by hand and put the original back afterwards.
+	const originalGetuid = process.getuid;
 	beforeEach(() => {
-		vi.spyOn(process, 'getuid').mockReturnValue(ourUid);
+		process.getuid = () => ourUid;
 	});
 
 	afterEach(() => {
+		process.getuid = originalGetuid;
 		vi.restoreAllMocks();
 	});
 

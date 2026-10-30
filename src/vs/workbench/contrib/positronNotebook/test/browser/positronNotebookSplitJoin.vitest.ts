@@ -28,6 +28,14 @@ function enterEditModeWithCursor(
 	editor.setSelections(selections);
 }
 
+/**
+ * Normalizes content to LF. A single-line cell takes the platform's default EOL (CRLF on
+ * Windows) and a join uses the first cell's EOL, so the merged text is compared on its lines.
+ */
+function lf(content: string): string {
+	return content.replace(/\r\n/g, '\n');
+}
+
 describe('Split and Join Cells', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
 
@@ -249,7 +257,7 @@ describe('Split and Join Cells', () => {
 
 			const newCells = notebook.cells.get();
 			expect(newCells.length, 'Should have 1 cell after join').toBe(1);
-			expect(newCells[0].getContent(), 'Content should be merged with newline').toBe('line1\nline2');
+			expect(lf(newCells[0].getContent()), 'Content should be merged with newline').toBe('line1\nline2');
 		});
 
 		it('joins three selected cells in document order', () => {
@@ -271,7 +279,7 @@ describe('Split and Join Cells', () => {
 
 			const newCells = notebook.cells.get();
 			expect(newCells.length).toBe(1);
-			expect(newCells[0].getContent()).toBe('a\nb\nc');
+			expect(lf(newCells[0].getContent())).toBe('a\nb\nc');
 		});
 
 		it('with single cell selected, joins with cell below', () => {
@@ -290,7 +298,7 @@ describe('Split and Join Cells', () => {
 
 			const newCells = notebook.cells.get();
 			expect(newCells.length, 'Should join with cell below').toBe(1);
-			expect(newCells[0].getContent()).toBe('line1\nline2');
+			expect(lf(newCells[0].getContent())).toBe('line1\nline2');
 		});
 
 		it('joins cells of different types using first cell type', () => {
@@ -310,7 +318,7 @@ describe('Split and Join Cells', () => {
 
 			const newCells = notebook.cells.get();
 			expect(newCells.length, 'Should join mixed cell types').toBe(1);
-			expect(newCells[0].getContent()).toBe('code cell\n# markdown');
+			expect(lf(newCells[0].getContent())).toBe('code cell\n# markdown');
 			expect(newCells[0].kind, 'Should use first cell type').toBe(CellKind.Code);
 		});
 
@@ -405,8 +413,8 @@ describe('Split and Join Cells', () => {
 			const newCells = notebook.cells.get();
 			// Non-contiguous selected cells are merged; unselected cell 1 remains
 			expect(newCells.length).toBe(2);
-			expect(newCells[0].getContent()).toBe('a\nc');
-			expect(newCells[1].getContent()).toBe('b');
+			expect(lf(newCells[0].getContent())).toBe('a\nc');
+			expect(lf(newCells[1].getContent())).toBe('b');
 		});
 	});
 
@@ -428,7 +436,7 @@ describe('Split and Join Cells', () => {
 
 			const newCells = notebook.cells.get();
 			expect(newCells.length).toBe(1);
-			expect(newCells[0].getContent()).toBe('above\nbelow');
+			expect(lf(newCells[0].getContent())).toBe('above\nbelow');
 		});
 
 		it('does nothing when active cell is first cell', () => {
@@ -465,7 +473,7 @@ describe('Split and Join Cells', () => {
 
 			const newCells = notebook.cells.get();
 			expect(newCells.length, 'Should join different cell types').toBe(1);
-			expect(newCells[0].getContent()).toBe('# markdown\ncode');
+			expect(lf(newCells[0].getContent())).toBe('# markdown\ncode');
 			expect(newCells[0].kind, 'Should use active cell type').toBe(CellKind.Code);
 		});
 
@@ -527,7 +535,7 @@ describe('Split and Join Cells', () => {
 
 			const newCells = notebook.cells.get();
 			expect(newCells.length).toBe(1);
-			expect(newCells[0].getContent()).toBe('above\nbelow');
+			expect(lf(newCells[0].getContent())).toBe('above\nbelow');
 		});
 
 		it('does nothing when active cell is last cell', () => {
@@ -564,7 +572,7 @@ describe('Split and Join Cells', () => {
 
 			const newCells = notebook.cells.get();
 			expect(newCells.length, 'Should join different cell types').toBe(1);
-			expect(newCells[0].getContent()).toBe('code\n# markdown');
+			expect(lf(newCells[0].getContent())).toBe('code\n# markdown');
 			expect(newCells[0].kind, 'Should use active cell type').toBe(CellKind.Code);
 		});
 
@@ -638,7 +646,7 @@ describe('Split and Join Cells', () => {
 			// Join inserts an EOL between segments, so the content has a newline
 			// where the split was. This is expected: split+join at a mid-line
 			// position turns the split point into a line break.
-			expect(newCells[0].getContent()).toBe('hello\n world');
+			expect(lf(newCells[0].getContent())).toBe('hello\n world');
 		});
 	});
 });

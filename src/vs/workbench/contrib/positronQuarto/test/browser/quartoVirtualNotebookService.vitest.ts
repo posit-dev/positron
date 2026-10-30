@@ -9,7 +9,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
-import { ITextModel } from '../../../../../editor/common/model.js';
+import { EndOfLinePreference, ITextModel } from '../../../../../editor/common/model.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
@@ -510,7 +510,8 @@ describe('QuartoVirtualNotebookService', () => {
 		const after = service.getCells(source.uri)[0];
 
 		expect({
-			text: after.textModel.getValue(),
+			// The cell model takes the platform's default EOL (CRLF on Windows); the edit is what matters.
+			text: after.textModel.getValue(EndOfLinePreference.LF),
 			codeEndLine: after.codeEndLine,
 			uriPreserved: after.cellUri.toString() === beforeUri,
 			handlePreserved: after.handle === beforeHandle,

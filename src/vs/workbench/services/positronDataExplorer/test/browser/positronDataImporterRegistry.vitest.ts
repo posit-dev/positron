@@ -21,7 +21,7 @@ function makeImporter(overrides: Partial<IDataImporter> = {}): IDataImporter {
 		fileExtensions: ['csv', 'tsv'],
 		reservedNames: ['class', 'import'],
 		generateCode: async (request: IDataImportRequest): Promise<IDataImportResult | undefined> =>
-			({ code: `${request.variableName} = load(${request.fileUri.fsPath})` }),
+			({ code: `${request.variableName} = load(${request.fileUri.path})` }),
 		...overrides
 	};
 }

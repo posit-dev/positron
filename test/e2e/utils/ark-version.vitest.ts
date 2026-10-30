@@ -9,14 +9,16 @@ import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { arkResourceDirs, readArkVersion } from './ark-version.js';
 
+// The candidates come from the host's path.join, so the expectations are built the same way:
+// on Windows they carry backslashes.
 describe('arkResourceDirs', () => {
 	test('looks under the macOS app bundle first on darwin', () => {
 		const [first] = arkResourceDirs('/build', 'darwin');
-		expect(first).toBe('/build/Contents/Resources/app/extensions/positron-r/resources/ark');
+		expect(first).toBe(join('/build', 'Contents', 'Resources', 'app', 'extensions', 'positron-r', 'resources', 'ark'));
 	});
 
 	test('looks under resources/app first on linux and windows', () => {
-		const expected = '/build/resources/app/extensions/positron-r/resources/ark';
+		const expected = join('/build', 'resources', 'app', 'extensions', 'positron-r', 'resources', 'ark');
 		expect(arkResourceDirs('/build', 'linux')[0]).toBe(expected);
 		expect(arkResourceDirs('/build', 'win32')[0]).toBe(expected);
 	});
@@ -28,7 +30,7 @@ describe('arkResourceDirs', () => {
 	test('falls back to the build root, so the server lane resolves too', () => {
 		for (const platform of ['darwin', 'linux', 'win32'] as const) {
 			expect(arkResourceDirs('/build', platform)).toContain(
-				'/build/extensions/positron-r/resources/ark');
+				join('/build', 'extensions', 'positron-r', 'resources', 'ark'));
 		}
 	});
 });
