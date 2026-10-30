@@ -45,8 +45,12 @@ fi
 git checkout HEAD -- "$subdir/package-lock.json"
 
 # Upstream sometimes commits build artifacts that Positron ignores (e.g. *.tsbuildinfo).
-# This runs after the patch so it sees the merged .gitignore files.
+# This runs after the patch so it sees the merged .gitignore files. Paths Positron already
+# tracks are left alone, even when ignored.
 while IFS= read -r file; do
+	if git cat-file -e "HEAD:$subdir/$file" 2>/dev/null; then
+		continue
+	fi
 	# --no-index: git apply --3way has already staged the new file.
 	if [ -f "$subdir/$file" ] && git check-ignore -q --no-index "$subdir/$file"; then
 		git rm -q -f -- "$subdir/$file"
