@@ -241,13 +241,13 @@ describe('headless provider module', () => {
 		it('falls back when the headless contract version differs', async () => {
 			const root = installFolder(`export const HEADLESS_CONTRACT_VERSION = 2;\n${FACTORY}`);
 			const { source } = await select(extensionsByProfile({ default: [extension(root, '1.0.0')] }), product());
-			expect(source).toEqual({ kind: 'compiled-in', reason: 'Posit Assistant 1.0.0 has headless contract 2, not 1' });
+			expect(source).toEqual({ kind: 'compiled-in', reason: 'Posit Assistant 1.0.0 has headless contract 2, expected 1' });
 		});
 
 		it('falls back when the headless contract version is missing', async () => {
 			const root = installFolder(FACTORY);
 			const { source } = await select(extensionsByProfile({ default: [extension(root, '1.0.0')] }), product());
-			expect(source).toEqual({ kind: 'compiled-in', reason: 'Posit Assistant 1.0.0 has headless contract none, not 1' });
+			expect(source).toEqual({ kind: 'compiled-in', reason: 'Posit Assistant 1.0.0 has no headless contract version, expected 1' });
 		});
 
 		it('falls back when the factory export is missing', async () => {
