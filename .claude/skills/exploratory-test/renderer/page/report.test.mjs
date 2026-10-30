@@ -1390,3 +1390,16 @@ test('a finding whose verification did not finish is Unknown, not verified', () 
 test('the tabs wrap at narrow widths instead of running off the page', () => {
 	assert.match(REPORT_CSS, /@media \(max-width:820px\)\{\.ffi\{display:none\}\.ff \.cf-tabs\{flex-wrap:wrap;row-gap:8px\}/);
 });
+
+test('a card shows the screenshots from the latest build, and fails differently is Unknown with what main showed', () => {
+	const twoStep = [act('Open the file.'), fail('the chunks stay open', 2, { shots: ['shots/P2.png'] })];
+	const json = { ...REPLAYED, findings: REPLAYED.findings.map(f => (f.n === 2 ? { ...f, steps: twoStep, main: { steps: [{ step: 2, n: 2, m: 2, saw: 'collapsed', same: true, shots: ['shots/M2.png'] }] } } : f.n === 6 ? { ...f, main: { steps: [{ step: 3, n: 1, m: 1, saw: 'a different error', same: false, shots: ['shots/M6.png'] }] } } : f)),
+		verification: { ...REPLAYED.verification, origin: { 1: 'introduced', 2: 'inherited', 3: 'introduced' }, originReason: { ...REPLAYED.verification.originReason, 6: { reason: 'fails differently', detail: '' } } } };
+	const html = grouped(json);
+	// The main build's shot joins the change's on the step it checks.
+	assert.match(card(html, 2), /aria-label="2 screenshots for this step"/);
+	assert.match(html, /M2\.png/);
+	assert.match(html, /Latest build, step 2: collapsed/);
+	assert.equal(cardGroup(html, 6), 'Unknown: fails differently on the latest build');
+	assert.deepEqual(badgeTip(html, 6), ['Unknown', 'It also failed on the latest build, but differently (a different error), so this run can&rsquo;t say whether it&rsquo;s the same issue.']);
+});

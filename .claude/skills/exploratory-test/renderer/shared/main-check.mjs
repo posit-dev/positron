@@ -49,8 +49,10 @@ export function originFromMain({ main, reproduced, drift, hasMainBuild }) {
 	if (drift === true || drift === 'drift') {
 		return none('drift');
 	}
-	if (main.steps.some(s => s.n > 0)) {
-		return label('inherited');
+	// Failing on main counts only when it fails the same way; a different failure may be a different bug.
+	const failed = main.steps.filter(s => s.n > 0);
+	if (failed.length) {
+		return failed.some(s => s.same !== false) ? label('inherited') : none('fails differently');
 	}
 	const tries = Math.min(...main.steps.map(s => s.m));
 	if (!enoughTries(reproduced, tries)) {

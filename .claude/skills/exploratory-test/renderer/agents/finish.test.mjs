@@ -390,14 +390,14 @@ const withMain = (main1, main2) => ({ ...REPORT, findings: [{ ...REPORT.findings
 
 test('a finding that fails on main is inherited, and one that does not is introduced', () => withTmpDir('drift-', dir => {
 	const { repo, after } = driftRepo(dir);
-	const out = applyVerification(withMain({ steps: [{ step: 2, n: 3, m: 3, saw: 'x' }] }, { steps: [{ step: 2, n: 0, m: 2, saw: 'y' }] }), parseVerifyReply(reply(verdicts([1, 'confirmed', { fix: ['a.ts'] }], [2, 'confirmed', { fix: ['a.ts'] }]))), { mainBuild: { ...MAIN, commit: after }, repoRoot: repo, baseSha: after });
+	const out = applyVerification(withMain({ steps: [{ step: 2, n: 3, m: 3, saw: 'x', shots: ['shots/M.png'], same: true }] }, { steps: [{ step: 2, n: 0, m: 2, saw: 'y', shots: ['shots/M.png'] }] }), parseVerifyReply(reply(verdicts([1, 'confirmed', { fix: ['a.ts'] }], [2, 'confirmed', { fix: ['a.ts'] }]))), { mainBuild: { ...MAIN, commit: after }, repoRoot: repo, baseSha: after });
 	assert.deepEqual(out.verification.origin, { 1: 'inherited', 2: 'introduced' });
 	assert.equal(out.verification.originReason, undefined);
 }));
 
 test('a finding with no fix files, or one in neither commit, is not Introduced when main and the base differ', () => withTmpDir('drift-', dir => {
 	const { repo, before, after } = driftRepo(dir);
-	const clean = { steps: [{ step: 2, n: 0, m: 3, saw: 'y' }] };
+	const clean = { steps: [{ step: 2, n: 0, m: 3, saw: 'y', shots: ['shots/M.png'] }] };
 	const out = applyVerification(withMain(clean, clean), parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'confirmed', { fix: ['nowhere.ts'] }]))), { mainBuild: { ...MAIN, commit: before }, repoRoot: repo, baseSha: after });
 	assert.equal(out.verification.origin, undefined);
 	assert.deepEqual(out.verification.originReason, { 1: { reason: 'drift unchecked', detail: '' }, 2: { reason: 'drift unchecked', detail: '' } });
@@ -407,7 +407,7 @@ test('a finding with no fix files, or one in neither commit, is not Introduced w
 
 test('a main record lint rejects gives no Origin', () => withTmpDir('drift-', dir => {
 	const { repo, after } = driftRepo(dir);
-	const out = applyVerification(withMain({ steps: [{ step: 1, n: 0, m: 4, saw: 'x' }] }, { missing: ['a'], steps: [{ step: 2, n: 2, m: 2, saw: 'y' }] }), parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'confirmed']))), { mainBuild: { ...MAIN, commit: after }, repoRoot: repo, baseSha: after });
+	const out = applyVerification(withMain({ steps: [{ step: 1, n: 0, m: 4, saw: 'x', shots: ['shots/M.png'] }] }, { missing: ['a'], steps: [{ step: 2, n: 2, m: 2, saw: 'y', shots: ['shots/M.png'], same: true }] }), parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'confirmed']))), { mainBuild: { ...MAIN, commit: after }, repoRoot: repo, baseSha: after });
 	assert.equal(out.verification.origin, undefined);
 	assert.deepEqual(out.verification.originReason, { 1: { reason: 'could not run', detail: 'its replay record is incomplete' }, 2: { reason: 'could not run', detail: 'its replay record is incomplete' } });
 }));
@@ -428,7 +428,7 @@ function driftRepo(dir) {
 test('drift leaves no label', () => withTmpDir('drift-', dir => {
 	const { repo, before, after } = driftRepo(dir);
 	const parsed = parseVerifyReply(reply(verdicts([1, 'confirmed', { fix: ['a.ts'] }], [2, 'confirmed', { fix: ['b.ts'] }])));
-	const main = { steps: [{ step: 2, n: 3, m: 3, saw: 'x' }] };
+	const main = { steps: [{ step: 2, n: 3, m: 3, saw: 'x', shots: ['shots/M.png'], same: true }] };
 	const out = applyVerification(withMain(main, main), parsed, { mainBuild: { ...MAIN, commit: before }, repoRoot: repo, baseSha: after });
 	assert.deepEqual(out.verification.origin, { 2: 'inherited' });
 	assert.deepEqual(out.verification.originReason, { 1: { reason: 'drift', detail: '' } });
@@ -487,6 +487,6 @@ test('a missing ID counts only when the head has it and main does not', () => wi
 }));
 
 test('a verification that did not finish gives each finding Unknown, not verified', () => {
-	const out = applyVerification(withMain({ steps: [{ step: 2, n: 2, m: 2, saw: 'x' }] }, undefined), parseVerifyReply(''), { failed: true, text: 'x', mainBuild: MAIN });
+	const out = applyVerification(withMain({ steps: [{ step: 2, n: 2, m: 2, saw: 'x', shots: ['shots/M.png'], same: true }] }, undefined), parseVerifyReply(''), { failed: true, text: 'x', mainBuild: MAIN });
 	assert.deepEqual(out.verification.originReason, { 1: { reason: 'not verified', detail: '' }, 2: { reason: 'not verified', detail: '' } });
 });

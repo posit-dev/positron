@@ -183,7 +183,7 @@ test('a report with no main build and no main fields has no main problems', () =
 });
 
 test('a main replay of every failing step has no main problems', () => {
-	assert.deepEqual(mainProblems({ steps: [{ step: 3, n: 0, m: 2, saw: 'the accessor' }] }), []);
+	assert.deepEqual(mainProblems({ steps: [{ step: 3, n: 0, m: 2, saw: 'the accessor', shots: ['shots/M.png'] }] }), []);
 	assert.deepEqual(mainProblems({ missing: ['positron.copyAccessor'] }), []);
 	assert.deepEqual(mainProblems({ couldNotRun: 'Python did not start' }), []);
 });
@@ -194,44 +194,79 @@ test('main-missing: a run with a main build needs a main replay on each finding'
 
 test('main-shape: main holds exactly one of missing, steps or couldNotRun', () => {
 	assert.equal(mainProblems({}).length, 1);
-	assert.match(mainProblems({ missing: ['x'], steps: [{ step: 3, n: 0, m: 2, saw: 'y' }] })[0], /^main-shape: /);
+	assert.match(mainProblems({ missing: ['x'], steps: [{ step: 3, n: 0, m: 2, saw: 'y', shots: ['shots/M.png'] }] })[0], /^main-shape: /);
 });
 
 test('main-steps: main counts each failing verify step, and only those', () => {
-	assert.deepEqual(mainProblems({ steps: [{ step: 1, n: 0, m: 2, saw: 'x' }] }), [
+	assert.deepEqual(mainProblems({ steps: [{ step: 1, n: 0, m: 2, saw: 'x', shots: ['shots/M.png'] }] }), [
 		'main-steps: report: Finding 1 main.steps names step 1, which is not a failing check; count only steps 3',
 		'main-steps: report: Finding 1 main.steps leaves out failing step 3; count every one, a step left out may be the one main fails',
 	]);
 });
 
 test('main-rate: a main count is N/M with N no more than M and M at least 1', () => {
-	assert.deepEqual(mainProblems({ steps: [{ step: 3, n: 3, m: 2, saw: 'x' }] }), ['main-rate: report: Finding 1 main step 3 is 3/2; give N/M with N no more than M, M at least 1']);
-	assert.equal(mainProblems({ steps: [{ step: 3, n: 0, m: 0, saw: 'x' }] }).length, 1);
+	assert.deepEqual(mainProblems({ steps: [{ step: 3, n: 3, m: 2, saw: 'x', shots: ['shots/M.png'], same: true }] }), ['main-rate: report: Finding 1 main step 3 is 3/2; give N/M with N no more than M, M at least 1']);
+	assert.equal(mainProblems({ steps: [{ step: 3, n: 0, m: 0, saw: 'x', shots: ['shots/M.png'] }] }).length, 1);
 });
 
 test('schemaProblems checks needs and main', () => {
 	const header = { title: 't', branch: 'b', sha: 'abc1234567', result: 'r', tested: 't', notExercised: 'n' };
 	const f = { n: 1, severity: 'minor', reproduced: { n: 1, m: 1 }, feature: 'f', title: 't', observed: 'o', expected: 'e', steps: [], tests: { cases: [], related: [] } };
-	assert.deepEqual(schemaProblems({ header, findings: [{ ...f, needs: ['a.b'], main: { steps: [{ step: 1, n: 0, m: 2, saw: 'x' }] } }] }), []);
+	assert.deepEqual(schemaProblems({ header, findings: [{ ...f, needs: ['a.b'], main: { steps: [{ step: 1, n: 0, m: 2, saw: 'x', shots: ['shots/M.png'] }] } }] }), []);
 	assert.ok(schemaProblems({ header, findings: [{ ...f, needs: [1] }] }).some(p => /needs/.test(p)));
 	assert.ok(schemaProblems({ header, findings: [{ ...f, main: { steps: [{ step: 1 }] } }] }).some(p => /main\.steps\[0\]\.n is missing/.test(p)));
 });
 
 test('main-steps: a failing check counted twice is flagged', () => {
-	assert.deepEqual(mainProblems({ steps: [{ step: 3, n: 0, m: 2, saw: 'x' }, { step: 3, n: 1, m: 2, saw: 'y' }] }), [
+	assert.deepEqual(mainProblems({ steps: [{ step: 3, n: 0, m: 2, saw: 'x', shots: ['shots/M.png'] }, { step: 3, n: 1, m: 2, saw: 'y', shots: ['shots/M.png'], same: true }] }), [
 		'main-steps: report: Finding 1 main.steps counts step 3 more than once; give each failing check one count',
 	]);
 });
 
 test('main-steps: a finding with no failing check says so', () => {
 	const j = json();
-	Object.assign(j.findings[0], { title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.', steps: [{ kind: 'action', text: 'Click it.' }], main: { steps: [{ step: 1, n: 0, m: 2, saw: 'x' }] } });
+	Object.assign(j.findings[0], { title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.', steps: [{ kind: 'action', text: 'Click it.' }], main: { steps: [{ step: 1, n: 0, m: 2, saw: 'x', shots: ['shots/M.png'] }] } });
 	assert.deepEqual(formatProblems(j, LEDGER, { mainBuild: MAIN_BUILD }).filter(p => p.rule === 'main-steps').map(p => p.text), [
 		'report: Finding 1 main.steps names step 1, which is not a failing check; this finding has no failing check to count',
 	]);
 });
 
 test('main-rate: a count that is not a whole number is flagged', () => {
-	assert.equal(mainProblems({ steps: [{ step: 3, n: null, m: 2, saw: 'x' }] }).length, 1);
-	assert.equal(mainProblems({ steps: [{ step: 3, n: 0, m: 1.5, saw: 'x' }] }).length, 1);
+	assert.equal(mainProblems({ steps: [{ step: 3, n: null, m: 2, saw: 'x', shots: ['shots/M.png'] }] }).length, 1);
+	assert.equal(mainProblems({ steps: [{ step: 3, n: 0, m: 1.5, saw: 'x', shots: ['shots/M.png'] }] }).length, 1);
+});
+
+// The main replay has to show its work: a screenshot per check, whether a failure matches, and where it is in the action log.
+const LOG = [
+	'2026-10-30T17:11:27Z open-file.sh -s=et-1: scores.csv',
+	'2026-10-30T17:18:51Z open-file.sh -s=et-1-main: scores.csv',
+	'2026-10-30T17:18:58Z raw -s=et-1-main: click the row',
+	'2026-10-30T17:19:01Z ui.sh -s=et-1-main: read the panel',
+].join('\n');
+const shown = { step: 3, n: 0, m: 2, saw: 'x', shots: ['shots/M1.png'] };
+const audited = (main, options = {}) => {
+	const j = json();
+	Object.assign(j.findings[0], { title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.', main });
+	return formatProblems(j, LEDGER, { mainBuild: MAIN_BUILD, actionsLog: LOG, ...options }).filter(p => p.rule.startsWith('main-')).map(p => p.rule);
+};
+
+test('a main replay with shots, a match flag and its log range has no main problems', () => {
+	assert.deepEqual(audited({ steps: [shown], log: [2, 4] }), []);
+	assert.deepEqual(audited({ steps: [{ ...shown, n: 2, same: true }], log: [2, 4] }), []);
+});
+
+test('main-shot: each check on main needs a screenshot', () => {
+	assert.deepEqual(audited({ steps: [{ ...shown, shots: [] }], log: [2, 4] }), ['main-shot']);
+});
+
+test('main-same: a check that failed on main says whether it failed the same way', () => {
+	assert.deepEqual(audited({ steps: [{ ...shown, n: 1 }], log: [2, 4] }), ['main-same']);
+});
+
+test('main-log: the replay names its lines in the action log, all from the main session, enough of them', () => {
+	assert.deepEqual(audited({ steps: [shown] }), ['main-log']);
+	assert.deepEqual(audited({ steps: [shown], log: [1, 4] }), ['main-log'], 'a line from the change\'s own session');
+	assert.deepEqual(audited({ steps: [shown], log: [3, 3] }), ['main-log'], 'fewer actions than the finding has action steps');
+	assert.deepEqual(audited({ steps: [shown], log: [2, 9] }), ['main-log'], 'past the end of the log');
+	assert.deepEqual(audited({ steps: [shown] }, { actionsLog: undefined }), [], 'no log to check against');
 });

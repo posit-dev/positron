@@ -334,7 +334,7 @@ const CORRECTABLE = ['title', 'feature', 'cause', 'observed', 'tests'];
  * findings are unreviewed" is not a detail to hide behind a click, and
  * changes no finding.
  */
-export function applyVerification(json, reply, { failed = false, text = '', gaps = [], mainBuild = null, repoRoot = '', baseSha = '', headSha = '' } = {}) {
+export function applyVerification(json, reply, { failed = false, text = '', gaps = [], mainBuild = null, repoRoot = '', baseSha = '', headSha = '', actionsLog } = {}) {
 	if (failed) {
 		// Nothing was checked, so no finding is grouped by its replay; each says why.
 		const originReason = Object.fromEntries((json.findings ?? []).map(f => [f.n, { reason: 'not verified', detail: '' }]));
@@ -367,7 +367,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			continue;
 		}
 		// A record lint rejects (a failing check left out, two kinds of result) cannot be read as counts.
-		if (mainBuild && f.main && mainProblems(f.n, f.main, f.steps ?? [], { mainBuild }).length) {
+		if (mainBuild && f.main && mainProblems(f.n, f.main, f.steps ?? [], { mainBuild, actionsLog, files: (f.preconditions ?? []).map(p => p.file).filter(Boolean) }).length) {
 			originReason[f.n] = { reason: 'could not run', detail: 'its replay record is incomplete' };
 			continue;
 		}
@@ -555,6 +555,6 @@ export function applyVerifyReply(dir, reply, { error = '', final = false, opened
 	const why = error ? `: ${error}` : mismatch ? `: ${mismatch}` : !reply ? '' : parsed.problem ? `: ${parsed.problem}` : ': the reply gave no verdicts';
 	const text = `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`;
 	const mainBuild = readJson(join(dir, 'main-build.json'));
-	writeReport(path, applyVerification(report, parsed, { failed, text, gaps, mainBuild, repoRoot: repo, baseSha: base, headSha: head }));
+	writeReport(path, applyVerification(report, parsed, { failed, text, gaps, mainBuild, repoRoot: repo, baseSha: base, headSha: head, actionsLog }));
 	return { failed, logLines: verifyLogLines(knownIssues, ledger, failed ? parseVerifyReply('') : parsed) };
 }

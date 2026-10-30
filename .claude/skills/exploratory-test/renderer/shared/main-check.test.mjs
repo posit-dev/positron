@@ -98,3 +98,8 @@ test('a rate with no tries is never enough', () => {
 	assert.equal(enoughTries({ n: 0, m: 0 }, 0), false);
 	assert.equal(origin({ steps: [step(0, 3)] }, { reproduced: { n: 0, m: 0 } }).reason, 'too few tries');
 });
+
+test('a check that fails differently on main is not Also in latest build', () => {
+	assert.deepEqual(origin({ steps: [{ step: 5, n: 2, m: 2, saw: 'x', same: false }] }), { origin: '', reason: 'fails differently', detail: '' });
+	assert.equal(origin({ steps: [{ step: 5, n: 2, m: 2, saw: 'x', same: false }, { step: 9, n: 1, m: 2, saw: 'y', same: true }] }).origin, 'inherited');
+});

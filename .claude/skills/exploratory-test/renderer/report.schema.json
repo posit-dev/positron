@@ -291,6 +291,18 @@
 										"saw": {
 											"type": "string",
 											"description": "What that check showed on main, in a phrase."
+										},
+										"shots": {
+											"type": "array",
+											"items": {
+												"type": "string",
+												"pattern": "^shots/"
+											},
+											"description": "Screenshots of this check on the main build."
+										},
+										"same": {
+											"type": "boolean",
+											"description": "For a check that failed on main: whether it failed the same way as on the change."
 										}
 									}
 								},
@@ -299,6 +311,13 @@
 							"couldNotRun": {
 								"type": "string",
 								"description": "Why the replay could not reach the starting state on main."
+							},
+							"log": {
+								"type": "array",
+								"items": {
+									"type": "integer"
+								},
+								"description": "The first and last lines of actions.log that hold the replay on main."
 							}
 						},
 						"description": "The finding replayed on a build of main, which decides its Origin. Exactly one of missing, steps or couldNotRun."
@@ -547,7 +566,8 @@
 									"too few tries",
 									"drift",
 									"drift unchecked",
-									"not verified"
+									"not verified",
+									"fails differently"
 								]
 							},
 							"detail": {

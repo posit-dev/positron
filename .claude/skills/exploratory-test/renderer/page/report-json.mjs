@@ -41,6 +41,11 @@ function stepFromJson(s) {
 }
 
 /** A schema evidence item as the page lays it out. */
+/** A main replay's screenshots as evidence on the step each checks, captioned with what main showed. */
+function mainShots(main) {
+	return (main?.steps ?? []).flatMap(s => (s.shots ?? []).map(path => ({ kind: 'shot', path, step: s.step, caption: `Latest build, step ${s.step}: ${s.saw}` })));
+}
+
 function evidenceFromJson(e) {
 	if (e.kind === 'shot') {
 		const src = safeUrl(e.path);
@@ -110,7 +115,8 @@ function findingFromJson(f) {
 		preconditions: preconditions.map(t => (t.includes('\n') ? block(t) : inline(t))),
 		preconditionNames: named.map(p => (p.name ? inline(p.name) : '')),
 		steps,
-		evidence: arrangeEvidence(steps, (f.evidence ?? []).map(evidenceFromJson).filter(Boolean), f.n),
+		// The replay's screenshots from the main build follow the change's own.
+		evidence: arrangeEvidence(steps, [...(f.evidence ?? []), ...mainShots(f.main)].map(evidenceFromJson).filter(Boolean), f.n),
 		causeHtml: f.cause ? inline(f.cause) : '',
 		errors: (f.errors ?? []).map(errorFromJson),
 		tests: { cases, related },

@@ -305,6 +305,7 @@ function unknownShort(report, f) {
 		'drift': 'main has changed in this area',
 		'drift unchecked': 'cause not traced',
 		'not verified': 'not verified',
+		'fails differently': 'fails differently on the latest build',
 	}[reason] ?? 'not replayed on the latest build';
 }
 
@@ -339,6 +340,7 @@ function groupEvidence(report, f, group, ki) {
 	return {
 		'no main build': 'No build of main was available for this run.',
 		'not verified': 'Verification didn&rsquo;t finish, so this finding&rsquo;s comparison with main wasn&rsquo;t checked.',
+		'fails differently': `It also failed on the latest build, but differently (${escapeHtml(f.main?.steps?.find(s => s.n > 0)?.saw ?? '')}), so this run can&rsquo;t say whether it&rsquo;s the same issue.`,
 		'could not run': detail ? `It couldn&rsquo;t run on the latest build: ${escapeHtml(detail.replace(/\.$/, ''))}.` : 'It couldn&rsquo;t run on the latest build.',
 		'drift': `Main has changed the code where the fix likely goes, so the latest build can&rsquo;t show how this behaved before this ${change}.`,
 		'drift unchecked': `It didn&rsquo;t reproduce on the latest build, but its cause wasn&rsquo;t traced, so main may have changed in this area since this ${change} started.`,

@@ -192,7 +192,7 @@ export function formatProblems(json, ledger, options = {}) {
 			problems.push(problem('feature-missing', `report: Finding ${f.n} has no feature; name the area of Positron it is in, such as "data explorer"`));
 		}
 		problems.push(...rateProblems(f.n, f.severity, f.reproduced ? `${f.reproduced.n}/${f.reproduced.m}` : ''));
-		problems.push(...mainProblems(f.n, f.main, f.steps ?? [], options));
+		problems.push(...mainProblems(f.n, f.main, f.steps ?? [], { ...options, files: (f.preconditions ?? []).map(p => p.file).filter(Boolean) }));
 		const steps = (f.steps ?? []).map((s, i) => ({ n: String(i + 1), verify: s.kind === 'verify', text: s.text, result: s.result?.toUpperCase() }));
 		problems.push(...findingProblems(f.n, {
 			title: f.title,

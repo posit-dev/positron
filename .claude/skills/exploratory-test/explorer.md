@@ -555,8 +555,13 @@ feature, set the old way, and whether users on it hit the bug is the question.
 Try each failing check at least as many times as `reproduced` has tries, and
 twice as many when it failed in under half of them. Record each in
 `main.steps` as `{ "step": <its number in steps>, "n": <fails>, "m": <tries>,
-"saw": "<what it showed, in a phrase>" }`. Then collect the instance's logs and
-stop it.
+"saw": "<what it showed, in a phrase>", "shots": ["shots/<file>"] }`, with a
+screenshot of the check on main, as for the change. When it failed on main,
+add `"same"`: `true` only when it failed the way it did on the change, the same
+symptom from the same steps; a different error or a different wrong value is
+`false`. Then collect the instance's logs and stop it, and give `main.log` as
+`[<first line>, <last line>]` of `actions.log` that hold the replay: only the
+main session's lines, from its launch to its last check.
 
 If main cannot reach the starting state (a runtime does not start, a file is
 missing), or a step cannot be done on it (a control or view the step uses is
@@ -610,8 +615,6 @@ field it can have:
 	"n": 1,
 	"severity": "moderate",
 	"reproduced": { "n": 3, "m": 3 },
-	"needs": ["<a setting, command or view ID the steps use that the change adds or alters>"],
-	"main": { "steps": [{ "step": 4, "n": 0, "m": 3, "saw": "<what that check showed on main>" }] },
 	"feature": "<feature>",
 	"title": "<concise claim>",
 	"impact": "<how the bug affects users, in one or two sentences>",
@@ -624,6 +627,8 @@ field it can have:
 		{ "kind": "action", "text": "<one action>" },
 		{ "kind": "verify", "text": "<the expectation>", "result": "fail", "finding": 1, "observed": "<what happened instead, one line>", "shots": ["shots/<file>"], "log": { "source": "logs/<file>:<line>", "body": "<the lines it logged>" } }
 	],
+	"needs": ["<a setting, command or view ID the steps use that the change adds or alters>"],
+	"main": { "steps": [{ "step": 4, "n": 0, "m": 3, "saw": "<what that check showed on main>", "shots": ["shots/<file>"] }], "log": [212, 240] },
 	"observed": "<exactly what happened, in one or two sentences, plus one for a fact you saw that makes it worse or gets past it>",
 	"expected": "<what should have happened, in one or two sentences>",
 	"evidence": [
