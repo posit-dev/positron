@@ -71,7 +71,8 @@ export interface RStartupInputs<T extends RStartupCandidate> {
 	/**
 	 * Whether only a pinned R can be returned. True when `interpreters.discovery`
 	 * is `definitionsOnly` for R, since the search can find Rs outside the
-	 * definitions.
+	 * definitions, and when an environment module is pinned, so a module that
+	 * fails to load doesn't start an R without it.
 	 */
 	readonly pinOnly: boolean;
 	/** Whether the open folder has R files, or is empty and you use RStudio. */
@@ -81,6 +82,15 @@ export interface RStartupInputs<T extends RStartupCandidate> {
 	fullSearchTriggers(current: T | undefined): RFullSearchTriggers;
 	/** Every R the full search finds, usable or not, or undefined if the search ran out of time. */
 	fullSearch(): Promise<T[] | undefined>;
+}
+
+/**
+ * Whether a `positron.r.interpreters.default` value names an environment
+ * module rather than a path: it isn't absolute, and doesn't start with `~`,
+ * `.`, a variable such as `${workspaceFolder}`, or a Windows drive letter.
+ */
+export function isModuleName(value: string): boolean {
+	return !path.isAbsolute(value) && !/^([~.$\\]|[A-Za-z]:[\\/])/.test(value);
 }
 
 /**

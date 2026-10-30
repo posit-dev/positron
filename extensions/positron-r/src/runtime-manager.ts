@@ -14,8 +14,8 @@ import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
 import { LOGGER, supervisorApi } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
-import { getDefaultInterpreterPath, getInterpreterDefinitionLabels, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery } from './interpreter-settings.js';
-import { getEnvironmentModulesApi } from './provider-module.js';
+import { DefaultInterpreter, getDefaultInterpreter, getInterpreterDefinitionLabels, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery } from './interpreter-settings.js';
+import { getEnvironmentModulesApi, resolveModuleBinary } from './provider-module.js';
 import { packagerMetadataForPath } from './packager-detection.js';
 import { rVersionsMetadataForPath } from './provider-rversions.js';
 import { setupArkJupyterKernel } from './kernel';
@@ -58,6 +58,13 @@ function getModulesFromMetadata(packagerMetadata: PackagerMetadata | undefined):
 	return [];
 }
 
+/**
+ * Whether `positron.r.interpreters.default` names an environment module.
+ */
+async function isModulePinned(): Promise<boolean> {
+	return (await getDefaultInterpreter())?.kind === 'module';
+}
+
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	private readonly onDidDiscoverRuntimeEmitter = new vscode.EventEmitter<positron.LanguageRuntimeMetadata>();
@@ -85,6 +92,15 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	private readonly _pinnedRLookup = new InFlightLookup<string | undefined, RInstallation | undefined>();
 
 	/**
+	 * Each pinned module's R, looked up once per session, since each lookup
+	 * runs shells that load the module. Cleared when the module settings change.
+	 */
+	private readonly _moduleRBinaries = new Map<string, Promise<RBinary>>();
+
+	/** The pinned modules that failed to load and that the user was told about. */
+	private readonly _reportedModuleFailures = new Set<string>();
+
+	/**
 	 * Positron uses the recommendation when it needs an R runtime, but must
 	 * not save it as the workspace's default: whether R starts right away is
 	 * decided again in the open folder every time it opens.
@@ -110,6 +126,11 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		this._context.subscriptions.push(
 			RSessionManager.instance.onDidActivateConsoleSession((session) => {
 				this.updateEnvironment(session.runtimeMetadata);
+			}),
+			vscode.workspace.onDidChangeConfiguration(e => {
+				if (e.affectsConfiguration('positron.environmentModules')) {
+					this._moduleRBinaries.clear();
+				}
 			})
 		);
 	}
@@ -202,7 +223,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// When discovery is limited to definitions, nothing outside them is
 		// recommended. A pin is only found when it is one of them. After
 		// discovery, without a defined pin, R answers with the first defined R.
-		const pinOnly = isDefinitionsOnlyDiscovery();
+		// A pinned module is never replaced by another R.
 
 		// Decide here, in the folder that's open now, whether R starts right
 		// away: Positron never caches the recommendation. The search's records
@@ -211,6 +232,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			if (afterDiscovery) {
 				return await this.recommendationAfterDiscovery(await this.pinnedRInstallation());
 			}
+			const pinOnly = isDefinitionsOnlyDiscovery() || await isModulePinned();
 			const pinnedLookup = this.pinnedRInstallation();
 			const choice = await chooseStartupR({
 				pinnedR: () => pinnedLookup,
@@ -257,6 +279,9 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		if (pinned) {
 			LOGGER.info(`[recommendedWorkspaceRuntime] Recommending the pinned R ${pinned.version} at ${pinned.binpath} to start when R is needed`);
 			return makeMetadata(pinned, implicit);
+		}
+		if (await isModulePinned()) {
+			return undefined;
 		}
 		const registeredRs = (await positron.runtime.getRegisteredRuntimes())
 			.filter(runtime => runtime.languageId === 'r');
@@ -310,22 +335,26 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 * The R installation that `positron.r.interpreters.default` names, if that
 	 * R can start here. See `choosePinnedR()`.
 	 */
-	private pinnedRInstallation(): Promise<RInstallation | undefined> {
-		const pinnedPath = getDefaultInterpreterPath();
-		return this._pinnedRLookup.run(pinnedPath, () => this.lookUpPinnedR(pinnedPath));
+	private async pinnedRInstallation(): Promise<RInstallation | undefined> {
+		const pin = await getDefaultInterpreter();
+		const key = pin && (pin.kind === 'module' ? `module:${pin.module}` : pin.path);
+		return this._pinnedRLookup.run(key, () => this.lookUpPinnedR(pin));
 	}
 
 	/**
-	 * Looks up the R installation at the pinned path. Use
-	 * `pinnedRInstallation()`, which shares a lookup that is running.
+	 * Looks up the pinned R installation. Use `pinnedRInstallation()`, which
+	 * shares a lookup that is running.
 	 *
-	 * @param pinnedPath The resolved value of `positron.r.interpreters.default`.
+	 * @param pin The resolved value of `positron.r.interpreters.default`.
 	 */
-	private async lookUpPinnedR(pinnedPath: string | undefined): Promise<RInstallation | undefined> {
+	private async lookUpPinnedR(pin: DefaultInterpreter | undefined): Promise<RInstallation | undefined> {
 		const definitionsOnly = isDefinitionsOnlyDiscovery();
+		if (pin?.kind === 'module') {
+			return definitionsOnly ? undefined : this.lookUpModulePinnedR(pin.module);
+		}
 		return choosePinnedR<RInstallation, PackagerMetadata>({
 			definitionsOnly,
-			pinnedPath,
+			pinnedPath: pin?.path,
 			isDefined: binpath => {
 				const defined = getInterpreterDefinitionPaths().includes(binpath);
 				if (!defined) {
@@ -354,6 +383,59 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 				return inst;
 			},
 		});
+	}
+
+	/**
+	 * Looks up the R that a pinned environment module provides.
+	 *
+	 * @param name The module environment or module from `positron.r.interpreters.default`.
+	 */
+	private async lookUpModulePinnedR(name: string): Promise<RInstallation | undefined> {
+		let lookup = this._moduleRBinaries.get(name);
+		if (!lookup) {
+			lookup = resolveModuleBinary(name);
+			this._moduleRBinaries.set(name, lookup);
+		}
+		let rbin: RBinary;
+		try {
+			rbin = await lookup;
+		} catch (err) {
+			LOGGER.error(`[pinnedRInstallation] No R starts, since the module '${name}' from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' could not be loaded: ${err}`);
+			this.reportModuleFailure(name);
+			return undefined;
+		}
+		const currentPath = (await currentRBinary())?.path;
+		const current = currentPath !== undefined && arePathsSameFile(currentPath, rbin.path);
+		const inst = new RInstallation(rbin.path, current, rbin.reasons, rbin.packagerMetadata);
+		if (!inst.usable) {
+			LOGGER.info(`[pinnedRInstallation] R at ${rbin.path} from module '${name}' is not usable. Reason: ${friendlyReason(inst.reasonRejected)}`);
+			return undefined;
+		}
+		return inst;
+	}
+
+	/**
+	 * Tells the user, once per module, that the pinned module's R didn't start
+	 * because the module could not be loaded.
+	 *
+	 * @param name The module environment or module from `positron.r.interpreters.default`.
+	 */
+	private async reportModuleFailure(name: string): Promise<void> {
+		if (this._reportedModuleFailures.has(name)) {
+			return;
+		}
+		this._reportedModuleFailures.add(name);
+		const showLog = vscode.l10n.t('Show Log');
+		const openSetting = vscode.l10n.t('Open Setting');
+		const choice = await vscode.window.showWarningMessage(
+			vscode.l10n.t('The R from environment module \'{0}\' in settings did not start because the module could not be loaded.', name),
+			showLog,
+			openSetting);
+		if (choice === showLog) {
+			LOGGER.show();
+		} else if (choice === openSetting) {
+			await vscode.commands.executeCommand('workbench.action.openSettings', `@id:${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}`);
+		}
 	}
 
 	async createSession(
