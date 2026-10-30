@@ -94,6 +94,13 @@ export function writeChangeBase(dir, base) {
 	writeFileSync(join(dir, 'change-base.json'), `${JSON.stringify({ usable: base.usable, name: base.name })}\n`);
 }
 
+/**
+ * The file a run directory holds when main replay was switched off on purpose
+ * (the workflow's main_replay input, or --no-main-build): its findings get no
+ * groups at all, rather than "Unknown: no main build".
+ */
+export const MAIN_REPLAY_OFF = 'main-replay-off';
+
 const VERDICTS = { 'confirmed': 'confirmed', 'false positive': 'disputed', 'unresolved': 'unresolved' };
 const SEVERITIES = ['major', 'moderate', 'minor'];
 
@@ -334,8 +341,11 @@ const CORRECTABLE = ['title', 'feature', 'cause', 'observed', 'tests'];
  * findings are unreviewed" is not a detail to hide behind a click, and
  * changes no finding.
  */
-export function applyVerification(json, reply, { failed = false, text = '', gaps = [], mainBuild = null, repoRoot = '', baseSha = '', headSha = '', actionsLog } = {}) {
+export function applyVerification(json, reply, { failed = false, text = '', gaps = [], mainBuild = null, repoRoot = '', baseSha = '', headSha = '', actionsLog, replay = true } = {}) {
 	if (failed) {
+		if (!replay) {
+			return { ...json, verification: { failed, text } };
+		}
 		// Nothing was checked, so no finding is grouped by its replay; each says why.
 		const originReason = Object.fromEntries((json.findings ?? []).map(f => [f.n, { reason: 'not verified', detail: '' }]));
 		return { ...json, verification: { failed, text, ...(Object.keys(originReason).length ? { originReason } : {}) } };
@@ -361,7 +371,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 	// Each confirmed finding's Origin from its replay on main, or why it has none.
 	const origin = {};
 	const originReason = {};
-	for (const f of json.findings ?? []) {
+	for (const f of replay ? json.findings ?? [] : []) {
 		const v = reply.findings.get(f.n);
 		if (v?.verified !== 'confirmed') {
 			continue;
@@ -557,6 +567,6 @@ export function applyVerifyReply(dir, reply, { error = '', final = false, opened
 	const why = error ? `: ${error}` : mismatch ? `: ${mismatch}` : !reply ? '' : parsed.problem ? `: ${parsed.problem}` : ': the reply gave no verdicts';
 	const text = `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`;
 	const mainBuild = readJson(join(dir, 'main-build.json'));
-	writeReport(path, applyVerification(report, parsed, { failed, text, gaps, mainBuild, repoRoot: repo, baseSha: base, headSha: head, actionsLog }));
+	writeReport(path, applyVerification(report, parsed, { failed, text, gaps, mainBuild, repoRoot: repo, baseSha: base, headSha: head, actionsLog, replay: !existsSync(join(dir, MAIN_REPLAY_OFF)) }));
 	return { failed, logLines: verifyLogLines(knownIssues, ledger, failed ? parseVerifyReply('') : parsed) };
 }

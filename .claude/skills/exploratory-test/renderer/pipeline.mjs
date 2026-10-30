@@ -23,7 +23,7 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude, stopAgents, WRAP_UP_MINUTES } from './agents/claude-cli.mjs';
-import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
+import { applyVerifyReply, MAIN_REPLAY_OFF, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
 import { ensureCommit, localMainBuild, mainBuildBrief } from './main-build.mjs';
 
@@ -526,6 +526,10 @@ async function main(argv) {
 		}
 		if (mainBuild) {
 			writeFileSync(join(dir, 'main-build.json'), `${JSON.stringify(mainBuild, null, 2)}\n`);
+		}
+		// Switched off on purpose, so the report shows no groups rather than "no main build".
+		if (values['no-main-build']) {
+			writeFileSync(join(dir, MAIN_REPLAY_OFF), '');
 		}
 		console.log(`run directory: ${dir}`);
 		log(minutes === 'none' ? 'exploring with no time limit' : `exploring for ${minutes} minutes${mainBuild ? `, ${MAIN_REPLAY_MINUTES} of them for replays on main ${mainBuild.version}` : ''}; write other minutes to ${timeLimitPath} to change it, or 0 to stop now`);

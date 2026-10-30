@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { missingFiles, readRunDir, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/page/html.mjs';
 import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
 import { reportFromJson } from '../../../.claude/skills/exploratory-test/renderer/page/report-json.mjs';
-import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/agents/finish.mjs';
+import { MAIN_REPLAY_OFF, readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/agents/finish.mjs';
 import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TIME_UP, readEnvironment, withMainReplay } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 import { ensureCommit, mainBuildBrief, readMainBuild } from '../../../.claude/skills/exploratory-test/renderer/main-build.mjs';
 import { mainReplayMs } from '../../../.claude/skills/exploratory-test/renderer/shared/main-check.mjs';
@@ -174,13 +174,18 @@ async function main() {
 	// it has none; the explorer replays each finding on it, which decides Origin.
 	// Without main's commit in the checkout, every `needs` lookup would fail and
 	// read as missing. Here, not at load, since the commit may need a fetch.
-	const found = process.env.MAIN_BUILD ? readMainBuild(process.env.MAIN_BUILD) : null;
+	// MAIN_REPLAY=off (the workflow's main_replay input) switches it off: no build, no groups.
+	const replayOff = process.env.MAIN_REPLAY === 'off';
+	const found = !replayOff && process.env.MAIN_BUILD ? readMainBuild(process.env.MAIN_BUILD) : null;
 	const MAIN_BUILD = found && ensureCommit(REPO_ROOT, found.commit) ? found : null;
 	// Minutes of exploring, or null for no limit, with time for the main replays
 	// added. The agent is not told the limit, only when it is up, and is stopped
 	// WRAP_UP_MINUTES later.
 	const TIME_LIMIT = withMainReplay(parseTimeLimit(process.env.TIME_LIMIT), MAIN_BUILD);
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
+	if (replayOff) {
+		writeFileSync(join(WORK_DIR, MAIN_REPLAY_OFF), '');
+	}
 	// Fetched by the workflow while the build ran; the verifier and renderer read it from the run directory.
 	if (process.env.KNOWN_ISSUES && existsSync(process.env.KNOWN_ISSUES)) {
 		copyFileSync(process.env.KNOWN_ISSUES, join(WORK_DIR, 'known-issues.json'));

@@ -71,6 +71,15 @@ on:
         required: false
         default: true
         type: boolean
+      # Replays each finding on main's latest daily build to group it (Only in
+      # PR, Also in latest build, Unknown). Off: no download, no replays, and
+      # the report has no groups. The repo variable EXPLORE_MAIN_REPLAY=off
+      # turns it off for every run, /explore included.
+      main_replay:
+        description: "Compare findings with main's latest build"
+        required: false
+        default: true
+        type: boolean
       # Set by test-exploratory-suggest.yml for the auto-run experiment
       # (#16610). The run then posts to this PR like a `/explore`, but only
       # once the worthiness check passes it: a decline stays off the PR.
@@ -644,6 +653,8 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0
+      # on or off: whether findings are replayed on main's latest daily build.
+      MAIN_REPLAY: ${{ ((github.event_name == 'workflow_dispatch' && !inputs.main_replay) || vars.EXPLORE_MAIN_REPLAY == 'off') && 'off' || 'on' }}
       HOME: /root
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
@@ -679,6 +690,7 @@ jobs:
       # the PR builds: a process a step starts lives until the job ends. Main
       # daily ready below picks it up; a failure only means no Origins.
       - name: Download main daily (background)
+        if: env.MAIN_REPLAY == 'on'
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/positron-main"
@@ -787,6 +799,7 @@ jobs:
       # finished by now. Without a main build the run goes on, and no finding
       # gets an Origin.
       - name: Main daily ready
+        if: env.MAIN_REPLAY == 'on'
         continue-on-error: true
         shell: bash
         run: |

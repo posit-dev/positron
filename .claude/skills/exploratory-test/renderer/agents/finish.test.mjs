@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withTmpDir } from '../shared/tmp-dirs.mjs';
-import { applyVerification, applyVerifyReply, buildVerifyPrompt, changeBase, findingNumbers, fixDrift, unconfirmedMissing, issueMatches, isVerified, checkGaps, checkMessage, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines, writeVerifyPrompt } from './finish.mjs';
+import { applyVerification, applyVerifyReply, buildVerifyPrompt, changeBase, findingNumbers, fixDrift, MAIN_REPLAY_OFF, unconfirmedMissing, issueMatches, isVerified, checkGaps, checkMessage, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines, writeVerifyPrompt } from './finish.mjs';
 
 /** report.json with two findings, as the explorer writes them. */
 const REPORT = {
@@ -495,4 +495,21 @@ test('a missing ID is matched whole, not as part of a longer ID', () => withTmpD
 	const { repo, main, head } = changeRepo(dir);
 	assert.deepEqual(unconfirmedMissing(repo, main, head, ['positron.brand']), ['positron.brand'], 'only positron.brandNew is in the head');
 	assert.deepEqual(unconfirmedMissing(repo, main, head, ['positron.brandNew']), []);
+}));
+
+// Main replay switched off on purpose: no groups at all, so the page is the plain table.
+test('with main replay off, no finding gets an Origin or a reason, even when verification fails', () => {
+	const ok = applyVerification(withMain(undefined, undefined), parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'confirmed']))), { replay: false });
+	assert.equal(ok.verification.origin, undefined);
+	assert.equal(ok.verification.originReason, undefined);
+	const failed = applyVerification(withMain(undefined, undefined), parseVerifyReply(''), { failed: true, text: 'x', replay: false });
+	assert.deepEqual(failed.verification, { failed: true, text: 'x' });
+});
+
+test('a run directory marked main-replay-off verifies with no groups', () => withRun(REPORT, dir => {
+	writeFileSync(join(dir, MAIN_REPLAY_OFF), '');
+	applyVerifyReply(dir, reply(verdicts([1, 'confirmed'], [2, 'confirmed'])));
+	const v = readJson(dir).verification;
+	assert.equal(v.origin, undefined);
+	assert.equal(v.originReason, undefined);
 }));
