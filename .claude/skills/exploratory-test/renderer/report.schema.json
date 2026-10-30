@@ -247,6 +247,62 @@
 							"$ref": "#/$defs/step"
 						}
 					},
+					"needs": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"description": "Setting, command or view IDs the steps use that the change adds or alters. Looked up on the main build: one it lacks means the finding is new in the change."
+					},
+					"main": {
+						"type": "object",
+						"properties": {
+							"missing": {
+								"type": "array",
+								"items": {
+									"type": "string"
+								},
+								"description": "The needs IDs the main build lacks; the finding was not replayed."
+							},
+							"steps": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"required": [
+										"step",
+										"n",
+										"m",
+										"saw"
+									],
+									"properties": {
+										"step": {
+											"type": "integer",
+											"minimum": 1,
+											"description": "The 1-based number of a step in steps whose check failed on the change."
+										},
+										"n": {
+											"type": "integer",
+											"minimum": 0
+										},
+										"m": {
+											"type": "integer",
+											"minimum": 0
+										},
+										"saw": {
+											"type": "string",
+											"description": "What that check showed on main, in a phrase."
+										}
+									}
+								},
+								"description": "Each failing check, replayed on the main build: N/M is fails in tries."
+							},
+							"couldNotRun": {
+								"type": "string",
+								"description": "Why the replay could not reach the starting state on main."
+							}
+						},
+						"description": "The finding replayed on a build of main, which decides its Origin. Exactly one of missing, steps or couldNotRun."
+					},
 					"evidence": {
 						"type": "array",
 						"items": {
@@ -447,7 +503,7 @@
 							"inherited"
 						]
 					},
-					"description": "Each finding's likely origin by number, judged from the change under test: introduced (the fix is in changed code), exposed (the fix is in older code a change now reaches) or inherited (neither). A finding left out was not determined."
+					"description": "Each finding's Origin by number: inherited (it happens on main) or introduced (it does not). Reports before main replays also used exposed, judged from the diff, and gave introduced and inherited that meaning too. A finding left out has no label; originReason says why."
 				},
 				"linked": {
 					"type": "array",
@@ -471,6 +527,33 @@
 						}
 					},
 					"description": "The verifier's severity for each linked issue the run ran into."
+				},
+				"originReason": {
+					"type": "object",
+					"propertyNames": {
+						"pattern": "^[0-9]+$"
+					},
+					"additionalProperties": {
+						"type": "object",
+						"required": [
+							"reason"
+						],
+						"properties": {
+							"reason": {
+								"enum": [
+									"no main build",
+									"not replayed",
+									"could not run",
+									"too few tries",
+									"drift"
+								]
+							},
+							"detail": {
+								"type": "string"
+							}
+						}
+					},
+					"description": "Why a confirmed finding has no Origin, by number."
 				}
 			},
 			"description": "The verifier's notes, as the page's Verification details show them, and what it said about the change and linked issues. Written by the pipeline after the explorer; the explorer leaves it out."

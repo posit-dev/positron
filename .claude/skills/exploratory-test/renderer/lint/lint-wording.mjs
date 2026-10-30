@@ -320,6 +320,38 @@ export function resultProblems(result) {
 	return problems;
 }
 
+/**
+ * The rules on a finding's replay on a build of main: present on every finding
+ * when the run has one, one kind of result, and a count for each check that
+ * failed on the change and only those, since one left out may be the step
+ * main fails.
+ */
+export function mainProblems(n, main, steps, { mainBuild } = {}) {
+	if (main === undefined) {
+		return mainBuild ? [problem('main-missing', `report: Finding ${n} has no main; replay it on the main build, or record main.missing or main.couldNotRun`)] : [];
+	}
+	const kinds = ['missing', 'steps', 'couldNotRun'].filter(k => main[k] !== undefined);
+	if (kinds.length !== 1) {
+		return [problem('main-shape', `report: Finding ${n} main must hold exactly one of missing, steps or couldNotRun, not ${kinds.length ? kinds.join(' and ') : 'none'}`)];
+	}
+	if (!main.steps) {
+		return [];
+	}
+	const failing = steps.map((s, i) => (s.kind === 'verify' && s.result === 'fail' ? i + 1 : 0)).filter(Boolean);
+	const counted = main.steps.map(s => s.step);
+	const problems = [];
+	for (const at of counted.filter(at => !failing.includes(at))) {
+		problems.push(problem('main-steps', `report: Finding ${n} main.steps names step ${at}, which is not a failing check; count only steps ${failing.join(', ')}`));
+	}
+	for (const at of failing.filter(at => !counted.includes(at))) {
+		problems.push(problem('main-steps', `report: Finding ${n} main.steps leaves out failing step ${at}; count every one, a step left out may be the one main fails`));
+	}
+	for (const s of main.steps.filter(s => !(s.m >= 1 && s.n <= s.m))) {
+		problems.push(problem('main-rate', `report: Finding ${n} main step ${s.step} is ${s.n}/${s.m}; give N/M with N no more than M, M at least 1`));
+	}
+	return problems;
+}
+
 /** The rules on a finding's severity and its rate, "N/M". */
 export function rateProblems(n, severity, reproduction) {
 	const problems = [];

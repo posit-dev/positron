@@ -166,3 +166,53 @@ test('schemaProblems checks header.headSha is a string', () => {
 	assert.deepEqual(schemaProblems({ header: { ...header, headSha: 'a'.repeat(40) }, findings: [] }).filter(p => /headSha/.test(p)), []);
 	assert.ok(schemaProblems({ header: { ...header, headSha: 7 }, findings: [] }).some(p => /headSha/.test(p)));
 });
+
+// A finding's replay on a build of main: its counts decide the Origin, so each failing step must be in it.
+const MAIN_BUILD = { version: '2026.11.0-236', commit: 'c'.repeat(40), pubDate: '', platform: 'mac/arm64', binary: '/x' };
+const mainProblems = (main, options = { mainBuild: MAIN_BUILD }) => {
+	const j = json();
+	Object.assign(j.findings[0], { title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.' });
+	if (main !== undefined) {
+		j.findings[0].main = main;
+	}
+	return formatProblems(j, LEDGER, options).filter(p => p.rule.startsWith('main-')).map(p => `${p.rule}: ${p.text}`);
+};
+
+test('a report with no main build and no main fields has no main problems', () => {
+	assert.deepEqual(mainProblems(undefined, {}), []);
+});
+
+test('a main replay of every failing step has no main problems', () => {
+	assert.deepEqual(mainProblems({ steps: [{ step: 3, n: 0, m: 2, saw: 'the accessor' }] }), []);
+	assert.deepEqual(mainProblems({ missing: ['positron.copyAccessor'] }), []);
+	assert.deepEqual(mainProblems({ couldNotRun: 'Python did not start' }), []);
+});
+
+test('main-missing: a run with a main build needs a main replay on each finding', () => {
+	assert.deepEqual(mainProblems(undefined), ['main-missing: report: Finding 1 has no main; replay it on the main build, or record main.missing or main.couldNotRun']);
+});
+
+test('main-shape: main holds exactly one of missing, steps or couldNotRun', () => {
+	assert.equal(mainProblems({}).length, 1);
+	assert.match(mainProblems({ missing: ['x'], steps: [{ step: 3, n: 0, m: 2, saw: 'y' }] })[0], /^main-shape: /);
+});
+
+test('main-steps: main counts each failing verify step, and only those', () => {
+	assert.deepEqual(mainProblems({ steps: [{ step: 1, n: 0, m: 2, saw: 'x' }] }), [
+		'main-steps: report: Finding 1 main.steps names step 1, which is not a failing check; count only steps 3',
+		'main-steps: report: Finding 1 main.steps leaves out failing step 3; count every one, a step left out may be the one main fails',
+	]);
+});
+
+test('main-rate: a main count is N/M with N no more than M and M at least 1', () => {
+	assert.deepEqual(mainProblems({ steps: [{ step: 3, n: 3, m: 2, saw: 'x' }] }), ['main-rate: report: Finding 1 main step 3 is 3/2; give N/M with N no more than M, M at least 1']);
+	assert.equal(mainProblems({ steps: [{ step: 3, n: 0, m: 0, saw: 'x' }] }).length, 1);
+});
+
+test('schemaProblems checks needs and main', () => {
+	const header = { title: 't', branch: 'b', sha: 'abc1234567', result: 'r', tested: 't', notExercised: 'n' };
+	const f = { n: 1, severity: 'minor', reproduced: { n: 1, m: 1 }, feature: 'f', title: 't', observed: 'o', expected: 'e', steps: [], tests: { cases: [], related: [] } };
+	assert.deepEqual(schemaProblems({ header, findings: [{ ...f, needs: ['a.b'], main: { steps: [{ step: 1, n: 0, m: 2, saw: 'x' }] } }] }), []);
+	assert.ok(schemaProblems({ header, findings: [{ ...f, needs: [1] }] }).some(p => /needs/.test(p)));
+	assert.ok(schemaProblems({ header, findings: [{ ...f, main: { steps: [{ step: 1 }] } }] }).some(p => /main\.steps\[0\]\.n is missing/.test(p)));
+});

@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { absolutePathProblems, modelProblems, rateProblem, runProblems } from './lint/lint-ledger.mjs';
 import { problem, splitProblems } from './lint/lint-rules.mjs';
-import { findingProblems, rateProblems, resultProblems } from './lint/lint-wording.mjs';
+import { findingProblems, mainProblems, rateProblems, resultProblems } from './lint/lint-wording.mjs';
 import { readRunDir } from './page/html.mjs';
 import { reportFromJson } from './page/report-json.mjs';
 import { recordCheck } from './stats.mjs';
@@ -192,6 +192,7 @@ export function formatProblems(json, ledger, options = {}) {
 			problems.push(problem('feature-missing', `report: Finding ${f.n} has no feature; name the area of Positron it is in, such as "data explorer"`));
 		}
 		problems.push(...rateProblems(f.n, f.severity, f.reproduced ? `${f.reproduced.n}/${f.reproduced.m}` : ''));
+		problems.push(...mainProblems(f.n, f.main, f.steps ?? [], options));
 		const steps = (f.steps ?? []).map((s, i) => ({ n: String(i + 1), verify: s.kind === 'verify', text: s.text, result: s.result?.toUpperCase() }));
 		problems.push(...findingProblems(f.n, {
 			title: f.title,

@@ -1229,6 +1229,8 @@ export function readRunDir(dir) {
 		knownIssues: readKnownIssues(dir) ?? undefined,
 		issueRefs: readIssueRefs(dir),
 		changeBase: readJson(join(dir, 'change-base.json'), undefined),
+		// The build of main the explorer replayed findings on, when the run had one.
+		mainBuild: readJson(join(dir, 'main-build.json'), undefined),
 		fileExists,
 		readFile: path => (fileExists(path) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null),
 		// Every file saved under files/, so lint can find one the ledger never listed.
