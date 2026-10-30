@@ -160,6 +160,7 @@
   "src/vs/platform/positronLicense/": [],
   "src/vs/platform/positronMemoryUsage/": ["@:variables"],
   "src/vs/platform/positronStandaloneMode/": [],
+  "src/vs/platform/remote/": ["@:remote-ssh", "@:remote-wsl"],
   "src/vs/platform/update/": ["@:update"],
   "src/vs/platform/webview/": ["@:viewer"],
   "src/vs/workbench/browser/actions/": [],

@@ -14,6 +14,13 @@ import { RemoteAgentConnectionStatusListener, RemoteMarkers } from './remote.js'
 import { RemoteStatusIndicator } from './remoteIndicator.js';
 import { AutomaticPortForwarding, ForwardedPortsView, PortRestore, TOGGLE_VIEW_ACTION_ID } from './remoteExplorer.js';
 import { InitialRemoteConnectionHealthContribution } from './remoteConnectionHealth.js';
+// --- Start PWB: Stop reconnecting once Workbench reports the session exited ---
+import { PwbSessionExitListener } from './pwbSessionExitListener.js';
+// --- End PWB ---
+// --- Start PWB: login-aware reconnection backoff ---
+import { PwbReconnectionGateContribution } from './pwbReconnectionGate.js';
+import { isWorkbench } from '../../../../base/common/platform.js';
+// --- End PWB ---
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { TUNNEL_VIEW_ID } from '../../../services/remote/common/remoteExplorerService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -46,3 +53,10 @@ workbenchContributionsRegistry.registerWorkbenchContribution(PortRestore, Lifecy
 workbenchContributionsRegistry.registerWorkbenchContribution(AutomaticPortForwarding, LifecyclePhase.Eventually);
 workbenchContributionsRegistry.registerWorkbenchContribution(RemoteMarkers, LifecyclePhase.Eventually);
 workbenchContributionsRegistry.registerWorkbenchContribution(InitialRemoteConnectionHealthContribution, LifecyclePhase.Restored);
+// --- Start PWB: Stop reconnecting once Workbench reports the session exited, and back off while logged out ---
+// Only in Workbench: both depend on rsLoginCheck.js, which desktop and non-Workbench servers don't include.
+if (isWorkbench) {
+	registerWorkbenchContribution2(PwbSessionExitListener.ID, PwbSessionExitListener, WorkbenchPhase.BlockRestore);
+	registerWorkbenchContribution2(PwbReconnectionGateContribution.ID, PwbReconnectionGateContribution, WorkbenchPhase.BlockStartup);
+}
+// --- End PWB ---

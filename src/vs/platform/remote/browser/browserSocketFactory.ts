@@ -6,6 +6,10 @@
 import * as dom from '../../../base/browser/dom.js';
 import { RunOnceScheduler } from '../../../base/common/async.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
+// --- Start PWB: Close a still-connecting WebSocket when the caller gives up (rstudio-pro#13201) ---
+import { CancellationToken } from '../../../base/common/cancellation.js';
+import { CancellationError } from '../../../base/common/errors.js';
+// --- End PWB ---
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../base/common/lifecycle.js';
 import { ISocket, SocketCloseEvent, SocketCloseEventType, SocketDiagnostics, SocketDiagnosticsEventType } from '../../../base/parts/ipc/common/ipc.net.js';
@@ -279,7 +283,9 @@ export class BrowserSocketFactory implements ISocketFactory<RemoteConnectionType
 		return true;
 	}
 
-	connect({ host, port }: WebSocketRemoteConnection, path: string, query: string, debugLabel: string): Promise<ISocket> {
+	// --- Start PWB: Close a still-connecting WebSocket when the caller gives up ---
+	connect({ host, port }: WebSocketRemoteConnection, path: string, query: string, debugLabel: string, cancellationToken?: CancellationToken): Promise<ISocket> {
+		// --- End PWB ---
 		return new Promise<ISocket>((resolve, reject) => {
 			const webSocketSchema = (/^https:/.test(mainWindow.location.href) ? 'wss' : 'ws');
 			// Start PWB: path-prefix
@@ -292,6 +298,16 @@ export class BrowserSocketFactory implements ISocketFactory<RemoteConnectionType
 				disposables.dispose();
 				resolve(new BrowserSocket(socket, debugLabel));
 			}));
+			// --- Start PWB: Close a still-connecting WebSocket when the caller gives up, so Firefox
+			// releases the per-IP connecting slot it would otherwise hold for up to 60 s ---
+			if (cancellationToken) {
+				disposables.add(cancellationToken.onCancellationRequested(() => {
+					disposables.dispose();
+					socket.close();
+					reject(new CancellationError());
+				}));
+			}
+			// --- End PWB ---
 		});
 	}
 }
