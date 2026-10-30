@@ -37,7 +37,8 @@ vi.mock('ai-provider-bridge/headless', () => ({ createHeadlessProviders: compile
 const FAKE_INSTALLS = fileURLToPath(new URL('../../../../../../.build/headless-provider-module-tests', import.meta.url));
 
 const CONTRACT = 'export const HEADLESS_CONTRACT_VERSION = 1;\n';
-const GOOD_MODULE = `${CONTRACT}export function createHeadlessProviders() { return { configPath: 'assistant', dispose() {} }; }\n`;
+const FACTORY = `export function createHeadlessProviders() { return { configPath: 'assistant', dispose() {} }; }\n`;
+const GOOD_MODULE = `${CONTRACT}${FACTORY}`;
 
 function fakeProviders(tag: string): HeadlessProviders {
 	return stubInterface<HeadlessProviders>({ configPath: tag, dispose: vi.fn() });
@@ -238,13 +239,13 @@ describe('headless provider module', () => {
 		});
 
 		it('falls back when the headless contract version differs', async () => {
-			const root = installFolder(GOOD_MODULE.replace('= 1;', '= 2;'));
+			const root = installFolder(`export const HEADLESS_CONTRACT_VERSION = 2;\n${FACTORY}`);
 			const { source } = await select(extensionsByProfile({ default: [extension(root, '1.0.0')] }), product());
 			expect(source).toEqual({ kind: 'compiled-in', reason: 'Posit Assistant 1.0.0 has headless contract 2, not 1' });
 		});
 
 		it('falls back when the headless contract version is missing', async () => {
-			const root = installFolder(GOOD_MODULE.replace(CONTRACT, ''));
+			const root = installFolder(FACTORY);
 			const { source } = await select(extensionsByProfile({ default: [extension(root, '1.0.0')] }), product());
 			expect(source).toEqual({ kind: 'compiled-in', reason: 'Posit Assistant 1.0.0 has headless contract none, not 1' });
 		});
