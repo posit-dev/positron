@@ -55,6 +55,11 @@ export async function buildUserEnvironment(startParamsEnv: { [key: string]: stri
 		VSCODE_NLS_CONFIG: JSON.stringify(nlsConfig)
 	};
 
+	// --- Start PWB ---
+	// Admin-enforced settings must come from the server, not the user's shell or the client.
+	restoreServerValues(env, processEnv, WORKBENCH_ENFORCED_ENV_VARS);
+	// --- End PWB ---
+
 	const binFolder = environmentService.isBuilt ? join(environmentService.appRoot, 'bin') : join(environmentService.appRoot, 'resources', 'server', 'bin-dev');
 	const remoteCliBinFolder = join(binFolder, 'remote-cli'); // contains the `code` command that can talk to the remote server
 
@@ -76,6 +81,25 @@ export async function buildUserEnvironment(startParamsEnv: { [key: string]: stri
 	removeNulls(env);
 	return env;
 }
+
+// --- Start PWB ---
+/** Admin-enforced settings that Workbench gives the server. */
+export const WORKBENCH_ENFORCED_ENV_VARS = [
+	'POSITRON_ENFORCED_SETTINGS',
+	'POSIT_AI_PROVIDERS_ENFORCED',
+	'POSIT_ASSISTANT_SETTINGS_ENFORCED',
+];
+
+/** Sets each name back to the server's value. Leaves it alone if the server has none. */
+export function restoreServerValues(env: IProcessEnvironment, serverEnv: IProcessEnvironment, names: readonly string[]): void {
+	for (const name of names) {
+		const value = serverEnv[name];
+		if (value !== undefined) {
+			env[name] = value;
+		}
+	}
+}
+// --- End PWB ---
 
 class ConnectionData {
 	constructor(
