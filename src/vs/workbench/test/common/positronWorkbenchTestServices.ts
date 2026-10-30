@@ -6,7 +6,7 @@
 import { Emitter, Event } from '../../../base/common/event.js';
 import { IDisposable } from '../../../base/common/lifecycle.js';
 import { posix } from '../../../base/common/path.js';
-import { IProcessEnvironment } from '../../../base/common/platform.js';
+import { IProcessEnvironment, OperatingSystem } from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
 import { ICommandService, ICommandEvent, CommandsRegistry } from '../../../platform/commands/common/commands.js';
 import { IFileService, IFileStatWithMetadata } from '../../../platform/files/common/files.js';
@@ -281,6 +281,19 @@ export class TestPathService implements IPathService {
 
 	fileURI(_path: string): Promise<URI> {
 		throw new Error('Method not implemented.');
+	}
+
+	async getOperatingSystem(_resource: URI): Promise<OperatingSystem | undefined> {
+		// Matches the posix path library returned by `path`.
+		return OperatingSystem.Linux;
+	}
+
+	getPath(_resource: URI): Promise<any> {
+		return this.path;
+	}
+
+	registerPathProvider(): IDisposable {
+		return { dispose: () => { } };
 	}
 }
 

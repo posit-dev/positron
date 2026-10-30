@@ -15,7 +15,8 @@ import { IStorageService } from '../../../../platform/storage/common/storage.js'
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { NullTelemetryService } from '../../../../platform/telemetry/common/telemetryUtils.js';
 import { MainThreadAuthentication } from '../../browser/mainThreadAuthentication.js';
-import { ExtHostContext, MainContext } from '../../common/extHost.protocol.js';
+import { ExtHostAuthenticationShape, ExtHostContext, MainContext } from '../../common/extHost.protocol.js';
+import { upcastPartial } from '../../../../base/test/common/mock.js';
 import { IActivityService } from '../../../services/activity/common/activity.js';
 import { AuthenticationService } from '../../../services/authentication/browser/authenticationService.js';
 import { IAuthenticationExtensionsService, IAuthenticationService } from '../../../services/authentication/common/authentication.js';
@@ -41,7 +42,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/c
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 // --- Start Positron ---
-import { AuthenticationGetSessionOptions } from '../../browser/mainThreadAuthentication.js';
+import { AuthenticationGetSessionOptions } from '../../common/extHost.protocol.js';
 // --- End Positron ---
 
 class TestAuthUsageService implements IAuthenticationUsageService {
@@ -217,6 +218,28 @@ suite('MainThreadAuthentication', () => {
 
 		// Success if we reach here without timeout
 		assert.ok(true, 'Concurrent registrations and unregistrations completed successfully');
+	});
+
+	test('never lets an extension send workbench-only session options to a provider', async () => {
+		const received: unknown[] = [];
+		rpcProtocol.set(ExtHostContext.ExtHostAuthentication, upcastPartial<ExtHostAuthenticationShape>({
+			$getSessions: (_id, _scopes, options) => {
+				received.push(options);
+				return Promise.resolve([]);
+			},
+		}));
+		await mainThreadAuthentication.$registerAuthenticationProvider({ id: 'test-reserved', label: 'Test Reserved', supportsMultipleAccounts: false });
+
+		await mainThreadAuthentication.$getSession('test-reserved', ['scope'], 'publisher.extension', 'Extension', {
+			silent: true,
+			clientId: 'client',
+			_workbenchIncludeUnapprovedAccounts: true,
+			_workbenchEntraExchangeProbe: { subjectTokens: ['token'] }
+		});
+		await mainThreadAuthentication.$unregisterAuthenticationProvider('test-reserved');
+
+		// Undefined options do not survive the trip to the extension host.
+		assert.deepStrictEqual(received, [{ clientId: 'client', silent: true }]);
 	});
 });
 

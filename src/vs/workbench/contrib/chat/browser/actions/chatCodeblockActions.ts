@@ -33,7 +33,10 @@ import { reviewEdits } from './reviewEdits.js';
 import { ITerminalEditorService, ITerminalGroupService, ITerminalService } from '../../../terminal/browser/terminal.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { ChatCopyKind, IChatService } from '../../common/chatService/chatService.js';
-import { isAgentHostSessionResource } from '../../common/chatSessionsService.js';
+import { getAgentHostProviderForTelemetry, IChatSessionsService, isAgentHostSessionResource } from '../../common/chatSessionsService.js';
+import { getChatSessionType } from '../../common/model/chatUri.js';
+import { getChatSessionTelemetryIds } from '../../common/chatService/chatServiceTelemetry.js';
+import { IAgentHostConnectionsService } from '../../../../../platform/agentHost/common/agentHostConnectionsService.js';
 import { IChatRequestViewModel, IChatResponseViewModel, isRequestVM, isResponseVM } from '../../common/model/chatViewModel.js';
 import { ChatAgentLocation } from '../../common/constants.js';
 import { IChatCodeBlockContextProviderService, IChatWidgetService } from '../chat.js';
@@ -159,7 +162,7 @@ export function registerChatCodeBlockActions() {
 			});
 		}
 
-		run(accessor: ServicesAccessor, ...args: unknown[]) {
+		async run(accessor: ServicesAccessor, ...args: unknown[]) {
 			const context = args[0];
 			if (!isCodeBlockActionContext(context) || isResponseFiltered(context)) {
 				return;
@@ -167,10 +170,12 @@ export function registerChatCodeBlockActions() {
 
 			const clipboardService = accessor.get(IClipboardService);
 			const aiEditTelemetryService = accessor.get(IAiEditTelemetryService);
-			clipboardService.writeText(context.code);
+			const chatService = accessor.get(IChatService);
+			const chatSessionsService = accessor.get(IChatSessionsService);
+			const sessionTelemetry = isResponseVM(context.element) ? getChatSessionTelemetryIds(context.element.sessionResource, accessor.get(IAgentHostConnectionsService)) : undefined;
+			await clipboardService.writeText(context.code);
 
 			if (isResponseVM(context.element)) {
-				const chatService = accessor.get(IChatService);
 				const requestId = context.element.requestId;
 				const request = context.element.session.getItems().find(item => item.id === requestId && isRequestVM(item)) as IChatRequestViewModel | undefined;
 				chatService.notifyUserAction({
@@ -205,8 +210,10 @@ export function registerChatCodeBlockActions() {
 					presentation: 'codeBlock',
 					applyCodeBlockSuggestionId: undefined,
 					source: undefined,
-					sourceRequestId: undefined,
+					sourceRequestId: requestId,
+					...sessionTelemetry,
 					isAgentHostSession: isAgentHostSessionResource(context.element.sessionResource),
+					provider: getAgentHostProviderForTelemetry(getChatSessionType(context.element.sessionResource), chatSessionsService),
 				});
 			}
 		}
@@ -235,11 +242,15 @@ export function registerChatCodeBlockActions() {
 			editor.getSelections()?.reduce((acc, selection) => acc + editorModel.getValueInRange(selection), '') ?? '';
 		const totalCharacters = editorModel.getValueLength();
 
-		// Report copy to extensions
 		const chatService = accessor.get(IChatService);
 		const aiEditTelemetryService = accessor.get(IAiEditTelemetryService);
-		const element = context.element as IChatResponseViewModel | undefined;
-		if (isResponseVM(element)) {
+		const chatSessionsService = accessor.get(IChatSessionsService);
+		const sessionTelemetry = isResponseVM(context.element) ? getChatSessionTelemetryIds(context.element.sessionResource, accessor.get(IAgentHostConnectionsService)) : undefined;
+		const element = context.element;
+		const reportCopy = () => {
+			if (!isResponseVM(element)) {
+				return;
+			}
 			const requestId = element.requestId;
 			const request = element.session.getItems().find(item => item.id === requestId && isRequestVM(item)) as IChatRequestViewModel | undefined;
 			chatService.notifyUserAction({
@@ -274,17 +285,23 @@ export function registerChatCodeBlockActions() {
 				presentation: 'codeBlock',
 				applyCodeBlockSuggestionId: undefined,
 				source: undefined,
-				sourceRequestId: undefined,
+				sourceRequestId: requestId,
+				...sessionTelemetry,
 				isAgentHostSession: isAgentHostSessionResource(element.sessionResource),
+				provider: getAgentHostProviderForTelemetry(getChatSessionType(element.sessionResource), chatSessionsService),
 			});
-		}
+		};
 
 		// Copy full cell if no selection, otherwise fall back on normal editor implementation
 		if (noSelection) {
-			accessor.get(IClipboardService).writeText(context.code);
-			return true;
+			const clipboardService = accessor.get(IClipboardService);
+			return (async () => {
+				await clipboardService.writeText(context.code);
+				reportCopy();
+			})();
 		}
 
+		reportCopy();
 		return false;
 	});
 
@@ -409,10 +426,12 @@ export function registerChatCodeBlockActions() {
 			const editorService = accessor.get(IEditorService);
 			const chatService = accessor.get(IChatService);
 			const aiEditTelemetryService = accessor.get(IAiEditTelemetryService);
+			const chatSessionsService = accessor.get(IChatSessionsService);
+			const sessionTelemetry = isResponseVM(context.element) ? getChatSessionTelemetryIds(context.element.sessionResource, accessor.get(IAgentHostConnectionsService)) : undefined;
 
-			editorService.openEditor({ contents: context.code, languageId: context.languageId, resource: undefined } satisfies IUntitledTextResourceEditorInput);
+			const editor = await editorService.openEditor({ contents: context.code, languageId: context.languageId, resource: undefined } satisfies IUntitledTextResourceEditorInput);
 
-			if (isResponseVM(context.element)) {
+			if (editor && isResponseVM(context.element)) {
 				const requestId = context.element.requestId;
 				const request = context.element.session.getItems().find(item => item.id === requestId && isRequestVM(item)) as IChatRequestViewModel | undefined;
 				chatService.notifyUserAction({
@@ -445,8 +464,10 @@ export function registerChatCodeBlockActions() {
 					presentation: 'codeBlock',
 					applyCodeBlockSuggestionId: undefined,
 					source: undefined,
-					sourceRequestId: undefined,
+					sourceRequestId: requestId,
+					...sessionTelemetry,
 					isAgentHostSession: isAgentHostSessionResource(context.element.sessionResource),
+					provider: getAgentHostProviderForTelemetry(getChatSessionType(context.element.sessionResource), chatSessionsService),
 				});
 			}
 		}
@@ -556,7 +577,7 @@ export function registerChatCodeBlockActions() {
 		const elementId = curCodeBlockInfo?.elementId;
 		const element = elementId ? widget.viewModel?.getItems().find(item => item.id === elementId) : undefined;
 		const currentResponse = element ??
-			(focusedResponse ?? widget.viewModel?.getItems().reverse().find((item): item is IChatResponseViewModel => isResponseVM(item)));
+			(focusedResponse ?? widget.viewModel?.getItems().findLast((item): item is IChatResponseViewModel => isResponseVM(item)));
 		if (!currentResponse || !isResponseVM(currentResponse)) {
 			return;
 		}

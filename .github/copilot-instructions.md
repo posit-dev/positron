@@ -60,14 +60,22 @@ Run a targeted type check or build when you are not fully confident in the chang
 - `npm run gulp compile-extensions` for built-in extensions
 - `npm run typecheck` from the `build` folder for build tooling
 
+Development compile tasks already type-check their inputs. Do not run `npm run typecheck-client` immediately before `npm run compile` or `npm run compile-client`; choose the command that covers the required validation. When tests only need fresh client output, use `npm run build-fast -- --client-only`. It supports cold builds and file-granular incremental updates without starting a watcher or building extensions. Use `npm run build-fast` when extension and Copilot outputs are also needed. The client and extension JavaScript lanes transpile rather than type-check; extension media retains its existing type checks. Run explicit type checks when the change warrants them. Reserve `npm run transpile-client` for an intentional clean client rebuild.
+
+Reuse successful validation while its relevant inputs remain unchanged, including when moving into review, commit, or PR creation. Batch related test selectors in one invocation. Prefer `npm run eslint -- <changed files>` for targeted linting; this wrapper caches results by file content. Install dependencies only when dependency inputs change or validation identifies missing dependencies; use `npm run install-fast` for a needed refresh, which skips up-to-date installations and falls back to `npm install` when required. Never share or symlink `node_modules` between worktrees.
+
 ### TypeScript validation steps
 - Use the run test tool if you need to run tests. If that tool is not available:
   - Vitest tests (`.vitest.ts` / `.vitest.tsx`, in `src/vs/`): `npx vitest run <file>` (no build daemons needed). Preferred for new Positron code.
   - Core Mocha tests (`.test.ts` or `.integrationTest.ts` in `src/vs/`): `scripts/test.sh` (or `scripts\test.bat` on Windows), add `--grep <pattern>` to filter. Upstream VS Code's suite.
   - Extension host tests (in `extensions/<name>/`): `npm run test-extension -- -l <name>`, or `scripts/test-integration.sh` / `scripts\test-integration.bat` for the full driver.
-- Use `npm run valid-layers-check` to check for layering issues
+- Run `npm run valid-layers-check` only when a change may affect module layering.
 
 ## Coding Guidelines
+
+### Markdown
+
+- Do not hard-wrap Markdown prose to a fixed line width. Keep each paragraph on one source line and let the editor or renderer wrap it naturally. Preserve structural line breaks in lists, tables, code blocks, and intentional Markdown hard breaks.
 
 ### Indentation
 

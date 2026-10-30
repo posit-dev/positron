@@ -193,6 +193,7 @@ export class DebugService implements IDebugService {
 			this.debugStorage.storeDebugUxState(debugUxValue);
 		}));
 		this.disposables.add(this.model.onDidChangeCallStack(() => {
+			this.viewModel.updateFocusedThreadHasMultipleStackFrames();
 			// --- Start Positron ---
 			// The implementation of this handler is called in two different places in Positron.
 			// If the VS Code impl changes, please update the following method accordingly.

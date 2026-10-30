@@ -15,11 +15,13 @@ import { IConfigurationService } from '../../../configuration/common/configurati
 import { IDialogMainService } from '../../../dialogs/electron-main/dialogMainService.js';
 import { IEnvironmentMainService } from '../../../environment/electron-main/environmentMainService.js';
 import { IGlobalKeybindingsMainService } from '../../../globalKeybindings/electron-main/globalKeybindingsMainService.js';
+import { IGPUProcessMainService } from '../../../gpu/electron-main/gpuProcessMainService.js';
 import { IInstantiationService } from '../../../instantiation/common/instantiation.js';
 import { ILifecycleMainService } from '../../../lifecycle/electron-main/lifecycleMainService.js';
 import { IPositronStandaloneModeMainService } from '../../../positronStandaloneMode/common/positronStandaloneMode.js';
 import { IProductService } from '../../../product/common/productService.js';
 import { IRequestService } from '../../../request/common/request.js';
+import { IApplicationStorageMainService } from '../../../storage/electron-main/storageMainService.js';
 import { IThemeMainService } from '../../../theme/electron-main/themeMainService.js';
 import { ICodeWindow } from '../../../window/electron-main/window.js';
 import { IWindowsMainService } from '../../../windows/electron-main/windows.js';
@@ -100,6 +102,7 @@ describe('NativeHostMainService hideWindow/showWindow', () => {
 				onDidUnmaximizeWindow: Event.None,
 				onDidChangeFullScreen: Event.None,
 				onDidChangeWindowsCount: Event.None,
+				onDidDestroyWindow: Event.None,
 			}),
 			stubInterface<IAuxiliaryWindowsMainService>({
 				onDidTriggerSystemContextMenu: Event.None,
@@ -109,7 +112,7 @@ describe('NativeHostMainService hideWindow/showWindow', () => {
 				onDidChangeAlwaysOnTop: Event.None,
 			}),
 			stubInterface<IDialogMainService>({}),
-			stubInterface<ILifecycleMainService>({}),
+			stubInterface<ILifecycleMainService>({ onWillLoadWindow: Event.None }),
 			stubInterface<IEnvironmentMainService>({}),
 			new NullLogService(),
 			stubInterface<IProductService>({}),
@@ -120,6 +123,8 @@ describe('NativeHostMainService hideWindow/showWindow', () => {
 			stubInterface<IProxyAuthService>({}),
 			stubInterface<IInstantiationService>({}),
 			stubInterface<IGlobalKeybindingsMainService>({}),
+			stubInterface<IGPUProcessMainService>({ featureStatus: undefined, onDidUpdateFeatureStatus: Event.None }),
+			stubInterface<IApplicationStorageMainService>({}),
 			stubInterface<IPositronStandaloneModeMainService>({ onDidChange: claimChanges.event }),
 		));
 		return { service, windows, claimChanges };

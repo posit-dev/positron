@@ -32,8 +32,6 @@ import { htmlAttributeEncodeValue } from '../../base/common/strings.js';
 // --- Start PWB: Server proxy support ---
 // eslint-disable-next-line local/code-import-patterns
 import httpProxy from 'http-proxy';
-// eslint-disable-next-line no-duplicate-imports
-import { existsSync } from 'fs';
 import { HAS_STATIC_ROUTE, kProxyRegex, resolveSessionlessStaticCallbackRoute, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX, WORKBENCH_SENDS_PREVIEW_STATIC_COMMIT, WORKBENCH_STATIC_COMMIT } from './pwbConstants.js';
 import { getListeningPortUid, isProxyPortOwnershipEnforced, ISocketOwnershipCheck } from './socketOwnership.js';
 import type * as net from 'net';
@@ -208,7 +206,7 @@ export class WebClientServer {
 	private readonly _webExtensionResourceUrlTemplate: URI | undefined;
 	// --- Start PWB ---
 	private readonly _proxyServer;
-	private readonly _rsLoginCheckScriptTag: string;
+	private readonly _rsLoginCheckScriptTag: Promise<string>;
 	private _loggedProxyOwnershipDisabled = false;
 	private _socketOwnershipCheck: ISocketOwnershipCheck = { getListeningPortUid, isProxyPortOwnershipEnforced };
 
@@ -253,11 +251,12 @@ export class WebClientServer {
 			}
 		});
 
-		// Cache rsLoginCheck.js existence at startup to avoid synchronous file check on every request
+		// Check rsLoginCheck.js existence once at startup (async) rather than on every request
 		const rsLoginCheckPath = join(APP_ROOT, 'out/vs/code/browser/workbench/rsLoginCheck.js');
-		this._rsLoginCheckScriptTag = existsSync(rsLoginCheckPath)
-			? `<script nonce="{{SCRIPT_NONCE}}" src="{{VS_BASE}}{{STATIC_ROUTE}}/out/vs/code/browser/workbench/rsLoginCheck.js"></script>`
-			: '';
+		this._rsLoginCheckScriptTag = promises.access(rsLoginCheckPath).then(
+			() => `<script nonce="{{SCRIPT_NONCE}}" src="{{VS_BASE}}{{STATIC_ROUTE}}/out/vs/code/browser/workbench/rsLoginCheck.js"></script>`,
+			() => ''
+		);
 		// --- End PWB ---
 	}
 
@@ -322,7 +321,7 @@ export class WebClientServer {
 			if (kProxyRegex.test(pathname)) {
 				// Refuse to proxy to a localhost port owned by another user (rstudio-pro#11470).
 				const proxyPort = this._parseProxyPort(pathname);
-				if (proxyPort !== undefined && !this._verifyProxyPortOwnership(proxyPort)) {
+				if (proxyPort !== undefined && !await this._verifyProxyPortOwnership(proxyPort)) {
 					return serveError(req, res, 403, 'Access to the requested port is forbidden.');
 				}
 
@@ -360,26 +359,37 @@ export class WebClientServer {
 	async handleUpgrade(req: http.IncomingMessage, socket: unknown, upgradeHead: unknown, parsedUrl: string): Promise<void> {
 		// Refuse to proxy to a localhost port owned by another user (rstudio-pro#11470). There is no
 		// response object on the upgrade path, so on failure we just destroy the socket.
-		const proxyPort = this._parseProxyPort(parsedUrl);
-		if (proxyPort !== undefined && !this._verifyProxyPortOwnership(proxyPort)) {
-			(socket as net.Socket).destroy();
-			return;
+		const clientSocket = socket as net.Socket;
+		// Node removes its own 'error' listener before emitting 'upgrade', and nothing re-attaches one
+		// until _proxyServer.ws() runs. Attach one now so a client reset while the async ownership
+		// check is in flight doesn't surface as an uncaught exception.
+		clientSocket.on('error', err => this._logService.trace(`Proxy upgrade socket error: ${err.message}`));
+		try {
+			const proxyPort = this._parseProxyPort(parsedUrl);
+			if (proxyPort !== undefined && !await this._verifyProxyPortOwnership(proxyPort)) {
+				clientSocket.destroy();
+				return;
+			}
+
+			let path: string = parsedUrl.replace('/proxy/', 'http://0.0.0.0:');
+
+			// Append query string if it exists. The caller passes only the pathname, so the query
+			// string must be recovered from req.url; websocket apps like marimo require it
+			// (e.g. /ws?session_id=...).
+			const search = new URL(req.url ?? '', 'http://localhost').search;
+			if (search) {
+				path = path.concat(search);
+			}
+
+			return this._proxyServer.ws(req, socket, upgradeHead, {
+				ignorePath: true,
+				target: path
+			});
+		} catch (error) {
+			// The caller does not await this method, so a rejection here would go unhandled.
+			this._logService.error(error);
+			clientSocket.destroy();
 		}
-
-		let path: string = parsedUrl.replace('/proxy/', 'http://0.0.0.0:');
-
-		// Append query string if it exists. The caller passes only the pathname, so the query
-		// string must be recovered from req.url; websocket apps like marimo require it
-		// (e.g. /ws?session_id=...).
-		const search = new URL(req.url ?? '', 'http://localhost').search;
-		if (search) {
-			path = path.concat(search);
-		}
-
-		return this._proxyServer.ws(req, socket, upgradeHead, {
-			ignorePath: true,
-			target: path
-		});
 	}
 
 	/**
@@ -403,14 +413,14 @@ export class WebClientServer {
 	 * unreadable); fails closed (returns false) when the check runs but no matching listener is
 	 * owned by us.
 	 */
-	private _verifyProxyPortOwnership(port: number): boolean {
+	private async _verifyProxyPortOwnership(port: number): Promise<boolean> {
 		const verifyPortOwnerArg = this._environmentService.args['www-proxy-localhost-verify-port-owner'];
 		if (verifyPortOwnerArg === '0' || verifyPortOwnerArg === 'false') {
 			return true;
 		}
 
 		const uid = process.getuid?.() ?? 0;
-		if (!this._socketOwnershipCheck.isProxyPortOwnershipEnforced(uid)) {
+		if (!await this._socketOwnershipCheck.isProxyPortOwnershipEnforced(uid)) {
 			if (!this._loggedProxyOwnershipDisabled && uid !== 0) {
 				this._loggedProxyOwnershipDisabled = true;
 				this._logService.warn(`Cannot verify which local ports belong to your session, so requests will be forwarded to any port on this server without verifying ownership.`);
@@ -418,7 +428,7 @@ export class WebClientServer {
 			return true;
 		}
 
-		const ownerUid = this._socketOwnershipCheck.getListeningPortUid(port);
+		const ownerUid = await this._socketOwnershipCheck.getListeningPortUid(port);
 		if (ownerUid === uid) {
 			return true;
 		}
@@ -754,9 +764,9 @@ export class WebClientServer {
 		}
 
 		// --- Start PWB: Conditionally inject rsLoginCheck.js script if it exists in the build ---
-		// Uses cached value from constructor to avoid blocking I/O on every request.
+		// Awaits the promise created in the constructor, so there is no per-request I/O.
 		const scriptNonce = createScriptNonce();
-		const rsLoginCheckScript = this._rsLoginCheckScriptTag
+		const rsLoginCheckScript = (await this._rsLoginCheckScriptTag)
 			.replace('{{SCRIPT_NONCE}}', scriptNonce)
 			.replace('{{VS_BASE}}', htmlAttributeEncodeValue(effectiveVsBase))
 			.replace('{{STATIC_ROUTE}}', htmlAttributeEncodeValue(effectiveStaticRoute));

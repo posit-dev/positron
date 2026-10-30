@@ -19,6 +19,7 @@ import { IOverlayWebview } from '../../webview/browser/webview.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /** Minimal stub for IPositronNotebookInstance */
 function stubNotebookInstance(id: string, uri = URI.file('/workspace/notebook.ipynb')): IPositronNotebookInstance {
@@ -87,6 +88,7 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 			ipyWidgetsService,
 			commandService,
 			editorService,
+			stubInterface<IInstantiationService>({}),
 		));
 
 		service.attachNotebookInstance(notebookInstance);
@@ -195,6 +197,9 @@ describe('PositronWebviewPreloadService - PDF notebook rendering', () => {
 			ipyWidgetsService,
 			commandService,
 			editorService,
+			stubInterface<IInstantiationService>({
+				createInstance: vi.fn().mockReturnValue({ pick: vi.fn().mockResolvedValue({ override: 'test.pdfEditor' }) }),
+			}),
 		));
 
 		service.attachNotebookInstance(notebookInstance);
@@ -257,11 +262,10 @@ describe('PositronWebviewPreloadService - PDF notebook rendering', () => {
 			}
 		});
 
-		expect(editorService.openEditor).toHaveBeenCalledWith(
-			expect.objectContaining({
-				resource: URI.file('/workspace/report.pdf'),
-			})
-		);
+		await vi.waitFor(() => expect(editorService.openEditor).toHaveBeenCalledWith({
+			resource: URI.file('/workspace/report.pdf'),
+			options: { override: 'test.pdfEditor' },
+		}));
 	});
 
 	it('calls unregisterPdf on notebook disposal', async () => {

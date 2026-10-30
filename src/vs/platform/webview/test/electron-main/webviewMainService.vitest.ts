@@ -19,10 +19,14 @@ const { fromId } = vi.hoisted(() => ({ fromId: vi.fn() }));
 
 // Electron's native objects cannot be loaded in Vitest. Keep the real service
 // and protocol provider; only stub their Electron boundary.
-vi.mock('electron', () => ({
-	webContents: { fromId },
-	protocol: { handle: vi.fn(), unhandle: vi.fn() },
-}));
+vi.mock('electron', () => {
+	const electron = {
+		webContents: { fromId },
+		protocol: { handle: vi.fn(), unhandle: vi.fn() },
+	};
+	// The service reads both named exports and the default export (`electron.webContents`).
+	return { ...electron, default: electron };
+});
 
 function createContents(id: number) {
 	const events = new EventEmitter();
@@ -57,7 +61,7 @@ describe('WebviewMainService menu shortcut ownership', () => {
 	function setupWindow(windowId = 1, contentsId = 10) {
 		const target = createContents(contentsId);
 		windows.set(windowId, stubInterface<ICodeWindow>({
-			win: stubInterface<BrowserWindow>({ webContents: target.contents }),
+			win: stubInterface<BrowserWindow>({ isDestroyed: () => false, webContents: target.contents }),
 		}));
 		return target;
 	}

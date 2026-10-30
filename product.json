@@ -36,6 +36,7 @@
 	"darwinBundleIdentifier": "co.posit.positron",
 	"darwinProfileUUID": "0501C5DF-0DC9-4217-9C18-A5595A125743",
 	"darwinProfilePayloadUUID": "BEA2CCD2-3F74-4174-9C0E-606A6F13B050",
+	"linuxDesktopName": "positron",
 	"linuxIconName": "co.posit.positron",
 	"licenseFileName": "LICENSE.txt",
 	"reportIssueUrl": "https://github.com/posit-dev/positron/issues/new",
@@ -67,8 +68,8 @@
 		},
 		{
 			"name": "ms-vscode.js-debug",
-			"version": "1.117.0",
-			"sha256": "854eeb8a785b1f41ba2bd02d7ccd4fdbe10021b61473293973c7e96d036c7fb8",
+			"version": "1.140.0",
+			"sha256": "d535f02a47031671f8c988bb7e79d6fec1a881883d9c9fa15ff81f28eae98500",
 			"repo": "https://github.com/microsoft/vscode-js-debug",
 			"metadata": {
 				"id": "25629058-ddac-4e17-abba-74678e126c5d",
@@ -415,6 +416,7 @@
 		"manageOverageUrl": "https://aka.ms/github-copilot-manage-overage",
 		"tokenEntitlementUrl": "https://api.github.com/copilot_internal/v2/token",
 		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry",
+		"mcpConnectorsUrl": "https://api.github.com/copilot-connectors/api/v1",
 		"managedSettingsUrl": "https://api.github.com/copilot_internal/managed_settings"
 	},
 	"extensionsEnabledWithApiProposalVersion": [

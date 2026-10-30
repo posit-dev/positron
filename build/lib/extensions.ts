@@ -108,7 +108,7 @@ function sharedDuckdbRuntimeStream(): Stream {
 }
 // --- End Positron ---
 
-function fromLocal(extensionPath: string, forWeb: boolean, disableMangle: boolean): Stream {
+function fromLocal(extensionPath: string, forWeb: boolean): Stream {
 
 	let esbuildConfigFileName = forWeb
 		? 'esbuild.browser.mts'
@@ -152,7 +152,7 @@ function fromLocal(extensionPath: string, forWeb: boolean, disableMangle: boolea
 		isBundled = true;
 		// --- Start Positron ---
 	} else if (hasWebpack) {
-		input = fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle);
+		input = fromLocalWebpack(extensionPath, webpackConfigFileName);
 		isBundled = true;
 		// --- End Positron ---
 	} else {
@@ -214,7 +214,7 @@ function fromLocalNormal(extensionPath: string): Stream {
 // that npm's hoister cannot resolve under the repo's legacy-peer-deps=true
 // setting. positron-python ships its own webpack 5 install where the tree is
 // internally consistent, so shelling out there sidesteps the problem entirely.
-function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, _disableMangle: boolean): Stream {
+function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string): Stream {
 	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
 	const result = es.through();
 	const extensionName = path.basename(extensionPath);
@@ -688,11 +688,10 @@ export function isWebExtension(manifest: IExtensionManifest): boolean {
 /**
  * Package local extensions that are known to not have native dependencies. Mutually exclusive to {@link packageNativeLocalExtensionsStream}.
  * @param forWeb build the extensions that have web targets
- * @param disableMangle disable the mangler
  * @returns a stream
  */
-export function packageNonNativeLocalExtensionsStream(forWeb: boolean, disableMangle: boolean): Stream {
-	return doPackageLocalExtensionsStream(forWeb, disableMangle, false);
+export function packageNonNativeLocalExtensionsStream(forWeb: boolean): Stream {
+	return doPackageLocalExtensionsStream(forWeb, false);
 }
 
 /**
@@ -701,32 +700,29 @@ export function packageNonNativeLocalExtensionsStream(forWeb: boolean, disableMa
  * but we simplify the logic here by having a flat list of extensions (See {@link nativeExtensions}) that are known to have native
  * dependencies on some platform and thus should be packaged on the platform that they are building for.
  * @param forWeb build the extensions that have web targets
- * @param disableMangle disable the mangler
  * @returns a stream
  */
-export function packageNativeLocalExtensionsStream(forWeb: boolean, disableMangle: boolean): Stream {
-	return doPackageLocalExtensionsStream(forWeb, disableMangle, true);
+export function packageNativeLocalExtensionsStream(forWeb: boolean): Stream {
+	return doPackageLocalExtensionsStream(forWeb, true);
 }
 
 /**
  * Package all the local extensions... both those that are known to have native dependencies and those that are not.
  * @param forWeb build the extensions that have web targets
- * @param disableMangle disable the mangler
  * @returns a stream
  */
-export function packageAllLocalExtensionsStream(forWeb: boolean, disableMangle: boolean): Stream {
+export function packageAllLocalExtensionsStream(forWeb: boolean): Stream {
 	return es.merge([
-		packageNonNativeLocalExtensionsStream(forWeb, disableMangle),
-		packageNativeLocalExtensionsStream(forWeb, disableMangle)
+		packageNonNativeLocalExtensionsStream(forWeb),
+		packageNativeLocalExtensionsStream(forWeb)
 	]);
 }
 
 /**
  * @param forWeb build the extensions that have web targets
- * @param disableMangle disable the mangler
  * @param native build the extensions that are marked as having native dependencies
  */
-function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean, native: boolean): Stream {
+function doPackageLocalExtensionsStream(forWeb: boolean, native: boolean): Stream {
 	const nativeExtensionsSet = new Set(nativeExtensions);
 	const localExtensionsDescriptions = (
 		(glob.sync('extensions/*/package.json') as string[])
@@ -760,7 +756,7 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 		if (!extension) {
 			return;
 		}
-		const stream = fromLocal(extension.path, forWeb, disableMangle)
+		const stream = fromLocal(extension.path, forWeb)
 			.pipe(rename(p => p.dirname = `extensions/${extension.name}/${p.dirname}`))
 			.pipe(es.through(undefined, processNext));
 
@@ -810,7 +806,7 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
  * This is used by non-CI local builds where copilot is not downloaded as a VSIX
  * but must be compiled from source and included in the build.
  */
-export function packageCopilotExtensionStream(disableMangle: boolean): Stream {
+export function packageCopilotExtensionStream(): Stream {
 	const extensionPath = path.join(root, 'extensions', 'copilot');
 	if (!fs.existsSync(extensionPath)) {
 		return es.readArray([]);
@@ -829,7 +825,7 @@ export function packageCopilotExtensionStream(disableMangle: boolean): Stream {
 		// activation through configureDevPackages(), which require()s
 		// `source-map-support` and `dotenv` -- both devDependencies that are not
 		// present in the production node_modules of the packaged extension.
-		updateExtensionPackageJSON(fromLocal(extensionPath, false, disableMangle), (data: any) => {
+		updateExtensionPackageJSON(fromLocal(extensionPath, false), (data: any) => {
 			data.buildType = 'prod';
 			return data;
 		})
@@ -860,12 +856,28 @@ export function packageCopilotExtensionStream(disableMangle: boolean): Stream {
 	// const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat();
 	// --- End Positron ---
 
+	// --- Start PWB: keep the extension's own @github/copilot package ---
+	// build/.moduleignore strips `@github/copilot/**` because the agent host uses the runtime
+	// bundled with @github/copilot-sdk. The built-in Copilot extension still loads
+	// `@github/copilot/sdk` at runtime, and prepareBuiltInCopilotRipgrepShim materializes native
+	// files into that folder. Upstream CI ships the extension from a VSIX so it is unaffected, but
+	// local builds (which PWB uses) would otherwise drop the package. Package it separately,
+	// stripping only the standalone CLI payloads the extension doesn't use.
+	const extensionCopilotPackage = path.relative(root, path.join(extensionPath, 'node_modules', '@github', 'copilot'));
+	const extensionCopilotPackageSrc = [
+		`${extensionCopilotPackage}/**`,
+		...['prebuilds', 'clipboard', 'ripgrep', 'pvrecorder', 'foundry-local-sdk', 'mxc-bin', 'sharp'].map(dir => `!${extensionCopilotPackage}/${dir}/**`),
+		`!${extensionCopilotPackage}/**/keytar.node`,
+	];
+
 	return es.merge(
 		localExtensionsStream,
-		gulp.src(dependenciesSrc, { base: '.' })
+		gulp.src([...dependenciesSrc, `!${extensionCopilotPackage}/**`], { base: '.' })
 			.pipe(util2.cleanNodeModules(path.join(root, 'build', '.moduleignore')))
-			.pipe(util2.cleanNodeModules(path.join(root, 'build', `.moduleignore.${process.platform}`)))
+			.pipe(util2.cleanNodeModules(path.join(root, 'build', `.moduleignore.${process.platform}`))),
+		gulp.src(extensionCopilotPackageSrc, { base: '.', allowEmpty: true })
 	).pipe(util2.setExecutableBit(['**/*.sh']));
+	// --- End PWB ---
 }
 
 export function packageMarketplaceExtensionsStream(forWeb: boolean): Stream {

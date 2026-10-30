@@ -73,6 +73,7 @@
 		"test/smoke/out/**": true,
 		"test/automation/out/**": true,
 		"src/vs/platform/agentHost/common/state/protocol/**": true,
+		"src/vs/platform/agentHost/common/meta/copilotd/generated/**": true,
 		"src/vs/platform/agentHost/node/codex/protocol/generated/**": true,
 		"test/integration/browser/out/**": true,
 		// "src/vs/sessions/**": true
@@ -185,8 +186,11 @@
 		"eslint": "warning"
 	},
 	"git.worktreeIncludeFiles": [
-		"product.overrides.json",
-		"**/node_modules/**",
+		".build/typings/electron.d.ts",
+		"product.overrides.json"
+	],
+	"git.worktreeSymlinkFolders": [
+		"node_modules/"
 	],
 	// --- GitHub ---
 	"githubPullRequests.experimental.createView": true,
@@ -231,7 +235,8 @@
 	"emmet.excludeLanguages": [],
 	"gulp.autoDetect": "off",
 	"rust-analyzer.linkedProjects": [
-		"cli/Cargo.toml"
+		"cli/Cargo.toml",
+		"copilot_shim/Cargo.toml"
 	],
 	"conventionalCommits.scopes": [
 		"tree",
@@ -245,6 +250,7 @@
 	],
 	// --- Workbench ---
 	"editor.aiStats.enabled": true, // Team selfhosting on ai stats
+	"multiDiffEditor.experimental.fileList": true,
 	"azureMcp.enabledServices": [
 		"kusto" // Needed for kusto tool in data.prompt.md
 	],

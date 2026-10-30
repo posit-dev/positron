@@ -108,9 +108,11 @@ export interface IWebviewManagerService {
 	setIgnoreMenuShortcuts(id: WebviewMenuShortcutsTarget, enabled: boolean): Promise<void>;
 	// --- End Positron ---
 
-	findInFrame(windowId: WebviewWindowId, frameName: string, text: string, options: FindInFrameOptions): Promise<void>;
+	/** Requests for unavailable hosts or frames are ignored. */
+	findInFrame(id: WebviewWebContentsId | WebviewWindowId, frameName: string, text: string, options: FindInFrameOptions): Promise<void>;
 
-	stopFindInFrame(windowId: WebviewWindowId, frameName: string, options: { keepSelection?: boolean }): Promise<void>;
+	/** Requests for unavailable hosts or frames are ignored. */
+	stopFindInFrame(id: WebviewWebContentsId | WebviewWindowId, frameName: string, options: { keepSelection?: boolean }): Promise<void>;
 
 	// --- Start Positron ---
 	/**

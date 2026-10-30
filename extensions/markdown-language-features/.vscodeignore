@@ -13,3 +13,8 @@ package-lock.json
 preview-src/**
 .gitignore
 **/*.d.ts
+# --- Start Positron ---
+# Upstream ships the markdown editor webview sources alongside the bundled
+# markdown-editor-out; exclude them to keep the packaged file count down.
+markdown-editor-src/**
+# --- End Positron ---
