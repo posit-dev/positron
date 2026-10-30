@@ -300,6 +300,20 @@ function originText(report, origin, f, mainBuild) {
 	}[origin];
 }
 
+/**
+ * The word a replayed report shows for an Origin: Main when the finding
+ * happens on main, This PR (or branch) when it does not, Unknown when the
+ * replay did not settle it. An older report shows its judged value.
+ */
+function originWord(report, origin) {
+	if (!replayed(report)) {
+		return capitalize(origin);
+	}
+	return { inherited: 'Main', introduced: `This ${report.pr ? 'PR' : 'branch'}` }[origin] ?? 'Unknown';
+}
+/** Whether a replayed report has a reason, and so an Unknown, for a finding with no Origin. */
+const isUnknown = (report, f) => replayed(report) && report.verification?.originReason?.has(f.n);
+
 /** Why a finding has no Origin. */
 function noOriginText(report, f, mainBuild) {
 	if (!replayed(report)) {
@@ -338,16 +352,24 @@ function originHead(report, base, mainBuild) {
  */
 function originCell(report, f, origin, last, mainBuild) {
 	const up = last ? ' og-up' : '';
+	if (!origin && isUnknown(report, f)) {
+		return `<span class="og-cell"><span class="og${up}">Unknown${originTip('Unknown', noOriginText(report, f, mainBuild))}</span></span>`;
+	}
 	if (!origin) {
 		return `<span class="og-cell"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">Origin not determined</span>`
 			+ `${originTip('', noOriginText(report, f, mainBuild))}</span></span>`;
 	}
-	const word = capitalize(origin);
+	const word = originWord(report, origin);
 	return `<span class="og-cell"><span class="og${up}">${word}${originTip(word, originText(report, origin, f, mainBuild))}</span></span>`;
 }
 
 /** The Origin word in a card's meta line, after "Reproduced x/y". Nothing when not determined. */
 function cardOrigin(report, f, origin, mainBuild) {
+	if (replayed(report) && (origin || isUnknown(report, f))) {
+		const word = originWord(report, origin);
+		const text = origin ? originText(report, origin, f, mainBuild) : noOriginText(report, f, mainBuild);
+		return `<span class="og og-meta" tabindex="0">Origin: ${word}${originTip(word, text, false)}</span>`;
+	}
 	if (!origin) {
 		return '';
 	}

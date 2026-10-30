@@ -1289,7 +1289,6 @@ test('a finding with no Origin says why', () => {
 	assert.equal(tipOf(html, 5), 'Not settled: not seen in 2 tries on main, fewer than this branch needed.');
 	assert.equal(tipOf(html, 6), 'Not settled: main (daily 2026.11.0-236) and the base differ in the files of the fix.');
 	assert.equal(tipOf(html, 7), 'Not checked on main: the finding was not replayed there.');
-	assert.match(findingRow(html, 4), /&mdash;/);
 	const none = render({ ...REPLAYED, verification: { failed: false, text: 'x', originReason: { 1: { reason: 'no main build', detail: '' } } } }, { changeBase: USABLE });
 	assert.equal(tipOf(none, 1), 'Not checked on main: no main build for this run.');
 });
@@ -1309,4 +1308,21 @@ test('a PR run\'s replayed Origin says PR', () => {
 test('a card shows the replayed Origin with the same tooltip', () => {
 	const html = render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD });
 	assert.ok(card(html, 2).includes('Also happens on main (daily 2026.11.0-236): step 5 0/2, step 9 2/2.'));
+});
+
+test('a replayed report labels Origin Main, This branch or Unknown, and a PR run says This PR', () => {
+	const word = (html, n) => /<span class="og-cell"><span class="og[^"]*">(?:<span aria-hidden="true">)?([^<]*)/.exec(findingRow(html, n))?.[1];
+	const html = render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD });
+	assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map(n => word(html, n)), ['This branch', 'Main', 'This branch', 'Unknown', 'Unknown', 'Unknown', 'Unknown']);
+	assert.match(findingRow(html, 8), /&mdash;/, 'a finding not confirmed is not judged');
+	const pr = render({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: USABLE, mainBuild: MAIN_BUILD });
+	assert.equal(word(pr, 1), 'This PR');
+});
+
+test('a replayed card says Origin and its bucket, Unknown included', () => {
+	const html = render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD });
+	assert.match(card(html, 2), /<span class="og og-meta" tabindex="0">Origin: Main<span class="og-tip"/);
+	assert.match(card(html, 1), /Origin: This branch<span class="og-tip"/);
+	assert.match(card(html, 4), /Origin: Unknown<span class="og-tip"[^>]*><b>Unknown<\/b><span>Not checked on main: R did not start\.<\/span>/);
+	assert.doesNotMatch(card(html, 8), /Origin:/);
 });

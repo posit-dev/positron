@@ -735,8 +735,8 @@ first." Describe the old code's behavior, not the run you did not do. When the
 diff changes what unchanged code is given, write "reachable through this
 change; cannot tell if it predates it without a base build". Otherwise, if the
 diff does not settle it, leave that sentence out, and never label a finding new or
-pre-existing. A finding's Origin in the findings list (Introduced or
-Inherited) comes from its replay on main, not from this sentence.
+pre-existing. A finding's Origin in the findings list (Main, This PR or
+Unknown) comes from its replay on main, not from this sentence.
 
 To see which language client served a request, turn on its LSP trace: the
 extension's trace setting (`<server>.trace.server` at `verbose`) and its
