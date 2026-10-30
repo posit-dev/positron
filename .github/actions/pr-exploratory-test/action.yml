@@ -40,7 +40,7 @@ inputs:
     required: false
     default: ""
   base-ref:
-    description: "Explore mode: the base branch's name, which the Findings table's change mark names"
+    description: "Explore mode: the base branch's name, which the Findings table's Origin tooltip names"
     required: false
     default: ""
   head-sha:

@@ -210,7 +210,7 @@ All in `.claude/skills/drive-positron/scripts/`.
 | Toasts and modal dialogs, and their buttons | `notifications.sh` |
 | Run a shell command in a terminal, send a key, read it | `terminal-run.sh` |
 | Click an editor's Run App button | `run-app.sh` |
-| Take and log a screenshot, of any app window | `shot.sh` (`--list`, `--window N`, `--view 'active console'`) |
+| Take and log a screenshot, of any app window | `shot.sh` (`--list`, `--window N`, `--view 'active console'`, `--crop` to also save the region) |
 | Set a user or workspace setting, merged into its settings.json | `settings.sh` |
 | Read the clipboard's text, or save its image (macOS) | `clipboard.sh` |
 | Read every row of an open quick pick | `quickpick-enum.sh` |

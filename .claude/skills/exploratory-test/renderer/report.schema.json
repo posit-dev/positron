@@ -435,12 +435,19 @@
 				"text": {
 					"$ref": "#/$defs/md"
 				},
-				"related": {
-					"type": "array",
-					"items": {
-						"type": "integer"
+				"origin": {
+					"type": "object",
+					"propertyNames": {
+						"pattern": "^[0-9]+$"
 					},
-					"description": "The findings whose fix likely belongs to the change under test."
+					"additionalProperties": {
+						"enum": [
+							"introduced",
+							"exposed",
+							"inherited"
+						]
+					},
+					"description": "Each finding's likely origin by number, judged from the change under test: introduced (the fix is in changed code), exposed (the fix is in older code a change now reaches) or inherited (neither). A finding left out was not determined."
 				},
 				"linked": {
 					"type": "array",

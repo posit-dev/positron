@@ -145,8 +145,7 @@ suite('interpreterRanking', () => {
         nestedEnvDirs: [p('/proj/a/.venv'), p('/proj/b/.venv')],
         configuredPaths: [p('/srv/venvs')],
         modulePaths: new Set([externalDependencies.normCasePath(moduleByMetadata.path)]),
-        // uv installs its Pythons with an EXTERNALLY-MANAGED marker; uv base is still GlobalEnv.
-        externallyManagedPaths: new Set([homebrew.path, uvBase.path]),
+        externallyManagedPaths: new Set([homebrew.path]),
     };
 
     test('ranks every kind of interpreter in tier order', () => {
@@ -195,12 +194,12 @@ suite('interpreterRanking', () => {
             [positronDefault.path, 'PositronDefaultEnv'],
             [condaNamed.path, 'NamedEnv'],
             [pyenvVirtualenv.path, 'NamedEnv'],
-            [uvBase.path, 'GlobalEnv'],
             [condaBase.path, 'GlobalEnv'],
             [pyenv.path, 'GlobalEnv'],
             [globalVirtualenv.path, 'GlobalEnv'],
             [pythonOrg.path, 'BaseInstall'],
             [homebrew.path, 'ExternallyManaged'],
+            [uvBase.path, 'ExternallyManaged'],
             [unknown.path, 'never'],
         ]);
     });
@@ -345,18 +344,18 @@ suite('interpreterRanking', () => {
         assert.deepEqual(order([unknown, rc]), [rc.path, unknown.path]);
     });
 
-    test('a resolved stable Python is not demoted as a pre-release', () => {
-        const python = env(p('/usr/local/python3.12/bin/python'), EnvironmentType.Global, '3.12.1');
-        const resolved = env(p('/home/u/.pyenv/versions/3.15.0/bin/python'), EnvironmentType.Pyenv, '3.15.0', {
-            version: { major: 3, minor: 15, patch: 0, raw: '3.15.0', build: [], prerelease: ['final', '0'] },
+    test('a stable version with a final release level is not a pre-release', () => {
+        const pyenv = env(p('/home/u/.pyenv/versions/3.14.7/bin/python'), EnvironmentType.Pyenv, '3.14.7', {
+            version: { major: 3, minor: 14, patch: 7, raw: '3.14.7', build: [], prerelease: ['final', '0'] },
         });
+        const baseInstall = env(p('/usr/local/bin/python3'), EnvironmentType.System, '3.15.0');
         assert.deepEqual(
-            rankInterpreters([python, resolved], emptyContext).map((r) => r.interpreter.path),
-            [resolved.path, python.path],
+            rankInterpreters([baseInstall, pyenv], emptyContext).map((r) => r.interpreter.path),
+            [pyenv.path, baseInstall.path],
         );
     });
 
-    test('a uv Python reached through ~/.local/bin is uv base, first in GlobalEnv', () => {
+    test('a uv Python reached through ~/.local/bin is uv base, in ExternallyManaged', () => {
         const uvDir = p('/home/u/.local/share/uv/python/cpython-3.15.0-linux-x86_64-gnu');
         const linked = env(p('/home/u/.local/bin/python3.15'), EnvironmentType.Unknown, '3.15.0', {
             envType: EnvironmentType.Global,
@@ -364,12 +363,10 @@ suite('interpreterRanking', () => {
             sysPrefix: uvDir,
         });
         const linkedByEnvPath = { ...linked, path: p('/home/u/.local/bin/python3.14'), envPath: uvDir, sysPrefix: '' };
-        const pyenvNewer = env(p('/home/u/.pyenv/versions/3.16.0/bin/python'), EnvironmentType.Pyenv, '3.16.0');
         assert.deepEqual(
             [tierOf(linked, emptyContext), tierOf(linkedByEnvPath, emptyContext)],
-            [Tier.GlobalEnv, Tier.GlobalEnv],
+            [Tier.ExternallyManaged, Tier.ExternallyManaged],
         );
-        assert.equal(rankInterpreters([pyenvNewer, linked], emptyContext)[0].interpreter, linked);
     });
 
     test('buildRankingContext reads defaultInterpreterPath with get(), never selects, and scans the folder', async () => {

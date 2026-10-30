@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Browser, BrowserContext, chromium, expect, Locator, Page } from '@playwright/test';
+import { Code } from '../infra/code.js';
 import { Logger } from '../infra/logger.js';
-import { BrowserLaunchShim } from './browserLaunchShim.js';
-import { completeOktaSignIn } from './oktaSignIn.js';
+import { armExternalUrlCapture, waitForExternalUrl } from './externalUrl.js';
+import { completeOktaSignIn, OktaCredentials } from './oktaSignIn.js';
 
-// The Okta-fronted Databricks sign-in for the shared IDE service account, driven on a
-// page the caller already put in front of the Databricks authorize endpoint. Two callers
+// The Okta-fronted Databricks sign-in for an Okta service account, driven on a page the
+// caller already put in front of the Databricks authorize endpoint. Two callers
 // reach this point by different routes and neither one's plumbing belongs here:
 //
 //   - Posit Workbench's Session Credentials widget opens the authorize URL in a new tab
@@ -17,9 +18,9 @@ import { completeOktaSignIn } from './oktaSignIn.js';
 //   - Positron Desktop's Databricks LLM provider hands the URL to the system browser via
 //     vscode.env.openExternal, so the e2e test intercepts it and replays it in a browser
 //     it controls (see modelProviderShared.ts).
-//   - The data connections Databricks driver hands off to @databricks/sql, which runs its own
-//     OAuth and launches the browser through the `open` npm package -- intercepted with a PATH
-//     shim instead (see completeDatabricksSdkOAuth below).
+//   - The data connections Databricks driver runs the flow itself and opens the browser the
+//     same way, so the URL is captured in the Electron main process (see
+//     completeDatabricksDriverOAuth below).
 //
 // Everything between "we are on the workspace login page" and "the provider redirected
 // back to the callback" is identical, and that is what lives here.
@@ -34,6 +35,12 @@ export interface DatabricksOktaSignInOptions {
 	logger: Logger;
 	/** Prefix for log lines, so interleaved shards stay readable (e.g. 'Workbench'). */
 	label: string;
+	/**
+	 * Which Okta account signs in. Defaults to the shared IDE service account (TOTP). Every
+	 * current caller passes the Positron service account, whose passkey second factor cannot
+	 * collide across parallel jobs.
+	 */
+	credentials?: OktaCredentials;
 }
 
 /**
@@ -63,13 +70,14 @@ async function clickConsentControl(control: Locator, label: string, logger: Logg
  * @returns true if the flow was observed reaching `completionUrl`.
  */
 export async function completeDatabricksOktaSignIn(page: Page, options: DatabricksOktaSignInOptions): Promise<boolean> {
-	const { completionUrl, logger, label } = options;
+	const { completionUrl, logger, label, credentials } = options;
 
 	return completeOktaSignIn(page, {
 		logger,
 		label,
-		// After Okta accepts the OTP, Databricks walks through up to two OAuth consent screens before
-		// completing the redirect to our callback:
+		credentials,
+		// After Okta accepts the second factor, Databricks walks through up to two OAuth consent
+		// screens before completing the redirect to our callback:
 		//   1. "Authorize as" -- account picker with a Continue control
 		//      (<a data-component-id="oauth.select-group.continue">).
 		//   2. "Permission Requested" -- consent screen with an Authorize control.
@@ -93,16 +101,14 @@ export async function completeDatabricksOktaSignIn(page: Page, options: Databric
 }
 
 /**
- * Completes the Databricks OAuth sign-in for a flow the *SDK* runs, rather than one Positron
- * runs -- currently the data connections driver's OAuth User-to-Machine mechanism.
+ * Completes the Databricks OAuth sign-in the data connections driver runs when a connection
+ * using the OAuth User-to-Machine mechanism first connects.
  *
- * The distinction matters because it decides where the authorize URL is intercepted. The
- * assistant's Databricks provider is Positron's own OAuth, so its URL is captured by patching
- * `shell.openExternal` (see completeDatabricksLoopbackOAuth in modelProviderShared.ts). Here
- * the driver only hands connection options to @databricks/sql, which runs authorization code
- * + PKCE itself against its own loopback server on port 8030 and launches the browser through
- * the `open` npm package -- nothing goes through Positron's opener service. So the capture
- * point is a PATH shim instead; see browserLaunchShim.ts.
+ * The driver runs authorization code + PKCE itself (databricksSignIn.ts in the driver
+ * extension), listening for the redirect on localhost:8030 and opening the browser through
+ * `vscode.env.openExternal`. That reaches `shell.openExternal` in the Electron main process,
+ * so the authorize URL is captured there (see externalUrl.ts), the same seam the assistant's
+ * Databricks provider uses. Electron only, for that reason.
  *
  * `trigger` must be the action that establishes the connection, and note that it does *not*
  * resolve until sign-in completes: the driver connects eagerly, and Positron only calls it
@@ -110,20 +116,29 @@ export async function completeDatabricksOktaSignIn(page: Page, options: Databric
  * trigger is started and deliberately left pending while the browser leg runs, then awaited at
  * the end. Awaiting it up front would deadlock.
  *
- * @param shim The armed PATH shim capturing the SDK's browser launch.
+ * @param code The running app, used for its Electron handle and logger.
  * @param trigger Starts the connect (expands the connection entry). Started, not awaited.
- * @param options.logger Where to report progress; callers pass `code.logger`.
+ * @param options.credentials Which Okta account signs in; see DatabricksOktaSignInOptions.
  * @param options.headless Whether to run the OAuth browser headless. Defaults to false,
  * matching the other IdP flows: these pages are not reliably renderable headless.
  */
-export async function completeDatabricksSdkOAuth(
-	shim: BrowserLaunchShim,
+export async function completeDatabricksDriverOAuth(
+	code: Code,
 	trigger: () => Promise<void>,
-	options: { logger: Logger; headless?: boolean }
+	options: { credentials?: OktaCredentials; headless?: boolean } = {}
 ): Promise<void> {
-	const { logger, headless = false } = options;
+	const { credentials, headless = false } = options;
 
-	shim.arm();
+	const electronApp = code.electronApp;
+	if (!electronApp) {
+		throw new Error(
+			'Databricks OAuth U2M sign-in requires the Electron build: the authorize URL is captured '
+			+ 'in the Electron main process. The Workbench variant lives in '
+			+ 'tests/workbench/data-connections/databricks-oauth-u2m.test.ts.'
+		);
+	}
+
+	await armExternalUrlCapture(electronApp);
 
 	// Start the connect and leave it pending. Attach a no-op catch now so that a failure while
 	// we are busy with the browser does not surface as an unhandled rejection; the awaited
@@ -131,13 +146,12 @@ export async function completeDatabricksSdkOAuth(
 	const pending = trigger();
 	pending.catch(() => { /* reported by the await at the end */ });
 
-	// The workspace's OIDC authorize endpoint. The SDK uses /oidc/oauth2/v2.0/authorize, which
-	// is a different endpoint from the /oidc/v1/authorize the assistant's provider discovers,
-	// so match the shared prefix rather than either exact path.
-	const authorizeUrl = await shim.waitForUrl(/\/oidc\/.*authorize/);
+	// The workspace's OIDC authorize endpoint. The budget covers the driver's connect, which
+	// discovers the endpoints over the network before it opens the browser.
+	const authorizeUrl = await waitForExternalUrl(electronApp, /\/oidc\/.*authorize/, 60000);
 
-	// The SDK's own callback (http://localhost:8030 by default -- DatabricksOAuthManager's
-	// defaultCallbackPorts). Landing there is what tells us Databricks completed the handoff.
+	// The driver's own callback (http://localhost:8030, the redirect Databricks registers for
+	// its public clients). Landing there is what tells us Databricks completed the handoff.
 	const redirectUri = new URL(authorizeUrl).searchParams.get('redirect_uri');
 	if (!redirectUri) {
 		throw new Error('Databricks authorize URL carried no redirect_uri');
@@ -153,8 +167,9 @@ export async function completeDatabricksSdkOAuth(
 		await page.goto(authorizeUrl);
 		await completeDatabricksOktaSignIn(page, {
 			completionUrl: new RegExp(loopbackHost.replace(/\./g, '\\.')),
-			logger,
+			logger: code.logger,
 			label: 'DataConnections',
+			credentials,
 		});
 	} finally {
 		if (context) { await context.close(); }

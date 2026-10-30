@@ -10,6 +10,8 @@
 #   scripts/shot.sh --session NAME --window 2 S03-03.png
 #   scripts/shot.sh --session NAME --view 'active console' S03-04.png
 #   scripts/shot.sh --session NAME --view Plots S03-05.png
+#   scripts/shot.sh --session NAME --crop --view Variables S03-06.png
+#   scripts/shot.sh --session NAME --crop e153 S03-07.png
 #
 #   NAME.png    the file; a bare name goes in $DRIVE_POSITRON_SHOTS (the run's
 #               shots/ folder) when that is set, else the current directory.
@@ -30,8 +32,12 @@
 #                   Variables, dialog, panel), or "active console": the console
 #                   in front alone, since every session's console is laid out
 #                   under it and a selector for one matches them all
+#   --crop          shoot the whole window as NAME.png, and the SELECTOR or
+#                   --view region, with 16px around it, as NAME.crop.png; the
+#                   log line gives both files and their CSS sizes. A crop over
+#                   1000px wide is written with a warning to pick a smaller region
 #
-# Stdout: the path written (--list: one JSON line). Exit code: 0 when the file was written, 1 when not, 2 on a usage error (such as --window abc).
+# Stdout: the path written, then the crop's path with --crop (--list: one JSON line). Exit code: 0 when the file was written, 1 when not, 2 on a usage error (such as --window abc).
 
 # Implemented in dp-shot.ts.
 exec node "$(dirname "${BASH_SOURCE[0]}")/dp.ts" shot "$@"

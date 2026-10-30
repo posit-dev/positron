@@ -389,7 +389,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * Resolves to `undefined` when the profile has no live connection. Rejects when the feature is
 	 * disabled.
 	 */
-	$getDataConnectionSchema(profileId: string, options: IDataConnectionSchemaSummaryOptions): Promise<IDataConnectionSchemaWalk | undefined>;
+	$getDataConnectionSchema(profileId: string, options: IDataConnectionSchemaSummaryOptions, token: CancellationToken): Promise<IDataConnectionSchemaWalk | undefined>;
 }
 
 /**
@@ -412,7 +412,8 @@ export interface ExtHostDataConnectionsShape {
 	$validateParameters(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionParameterValidationDTO>;
 	$discoverConnections(driverId: string): Promise<IDiscoveredDataConnectionDTO[]>;
 	$connectionIsReadOnly(connectionHandle: number): Promise<boolean>;
-	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
+	$connectionGetChildren(connectionHandle: number, retainNodes?: boolean): Promise<IDataConnectionNodeDTO[]>;
+	$releaseNodes(connectionHandle: number, nodeHandles: number[]): void;
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
 	$connectionIsConnected(connectionHandle: number): Promise<boolean>;
 	/**

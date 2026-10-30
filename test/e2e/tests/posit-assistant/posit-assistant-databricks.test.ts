@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
+import { readPositronServiceAccountCredentials } from '../../utils/oktaSignIn';
 
 const provider = 'databricks';
 
@@ -47,17 +48,17 @@ test.describe.fixme('Posit Assistant - Databricks OAuth', {
 	test('Sign in with OAuth, send hello, sign out', async function ({ app }) {
 		// The Okta credentials are wired per lane, so skip rather than fail where they
 		// are absent (the same convention the Redshift data-connection tests follow).
-		test.skip(!process.env.DATABRICKS_URL || !process.env.IDE_SERVICE_ACCOUNT_OTP_SECRET,
-			'Databricks OAuth requires DATABRICKS_URL and the IDE service account credentials');
+		test.skip(!process.env.DATABRICKS_URL || !process.env.POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL,
+			'Databricks OAuth requires DATABRICKS_URL and the Positron service account credentials');
 
-		// Okta's TOTP is shared with other shards, and a rejected code costs a 31-46s
-		// backoff before the retry (see otpRetry.ts). Two of those blow the default
-		// 2-minute budget on their own.
+		// The browser leg (Okta, the passkey challenge, two Databricks consent screens) plus
+		// the token exchange does not fit the default 2-minute budget reliably.
 		test.slow();
 
 		await app.workbench.providerManager.loginModelProvider(provider, {
 			authMethod: 'oauth',
 			baseUrl: process.env.DATABRICKS_URL,
+			credentials: readPositronServiceAccountCredentials(),
 		});
 
 		try {
@@ -84,8 +85,7 @@ test.describe.fixme('Posit Assistant - Databricks OAuth', {
 // WIN covers the Windows lane and, because the e2e-macOS-ci project greps /@:win/, the
 // macOS one too. Both workflows export DATABRICKS_WORKSPACE and DATABRICKS_PAT for this
 // API-key case. The OAuth case stays off those lanes deliberately: it would need the
-// Okta secrets added to two more workflows and would put two more consumers on the
-// shared TOTP.
+// Okta secrets added to two more workflows.
 test.describe('Posit Assistant - Databricks API Key', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {

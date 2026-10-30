@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -63,4 +63,38 @@ export const checkFolderName = async (
 
 	// The folder name is valid, so don't return any feedback.
 	return undefined;
+};
+
+/**
+ * The maximum number of suffixed folder names to try in getUniqueFolderName.
+ */
+const MAX_UNIQUE_FOLDER_NAME_ATTEMPTS = 1000;
+
+/**
+ * Gets a folder name that does not exist in the parent folder. If the base name exists, appends
+ * -2, -3, and so on until a name that does not exist is found.
+ * @param baseName The preferred folder name.
+ * @param parentFolder The parent folder.
+ * @param fileService The file service.
+ * @returns A promise that resolves to the unique folder name, or the base name if no unique name
+ * was found.
+ */
+export const getUniqueFolderName = async (
+	baseName: string,
+	parentFolder: URI,
+	fileService: IFileService
+) => {
+	if (!await fileService.exists(URI.joinPath(parentFolder, baseName))) {
+		return baseName;
+	}
+
+	for (let i = 2; i <= MAX_UNIQUE_FOLDER_NAME_ATTEMPTS; i++) {
+		const candidate = `${baseName}-${i}`;
+		if (!await fileService.exists(URI.joinPath(parentFolder, candidate))) {
+			return candidate;
+		}
+	}
+
+	// No unique name was found, so fall back to the base name and let validation report it.
+	return baseName;
 };

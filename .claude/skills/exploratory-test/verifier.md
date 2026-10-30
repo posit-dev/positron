@@ -99,7 +99,7 @@ to mark each finding, so nothing else goes in it:
 ```json
 {
 	"findings": [
-		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": [{ "file": "S04-03.png", "shows": "Median N/A beside Mean 2.5" }], "setup": [{ "what": "dataExplorer.summaryCollapsed set to false", "log": 18, "alone": false, "why": "only sets whether the summary panel starts open (summaryPanel.tsx:88)" }], "related": true },
+		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": [{ "file": "S04-03.png", "shows": "Median N/A beside Mean 2.5" }], "setup": [{ "what": "dataExplorer.summaryCollapsed set to false", "log": 18, "alone": false, "why": "only sets whether the summary panel starts open (summaryPanel.tsx:88)" }], "origin": "introduced" },
 		{ "n": 2, "verdict": "confirmed", "log": [150, 171], "shots": [{ "file": "S05-02.png", "shows": "the filter chip is red" }], "setup": [], "cause": "the chip turns red for any filter on a string column (filterChip.tsx:54), not only an invalid one", "observed": "the filter chip is red after a valid filter on a string column" },
 		{ "n": 3, "verdict": "unresolved", "log": [201, 233], "shots": [{ "file": "S07-04.png", "shows": "the picker lists R 4.4 once" }], "setup": [{ "what": "a second window opened on the same folder", "log": null, "alone": true, "why": "a second window holds the lock (duckdb.ts:212); the log never opens one, and no case ran without it" }], "known": [15102], "feature": "new folder flow" }
 	],
@@ -158,12 +158,14 @@ to mark each finding, so nothing else goes in it:
   or two sentences of what happened; `tests` has the report's `cases` and
   `related` lists. A correction does not change the verdict: the bug can be
   real with its cause wrong.
-- `related`: `true` for a finding whose fix likely belongs to the change under
-  test. {{CHANGE_SCOPE}}
+- `origin`: where the most direct fix for the finding likely goes, judged
+  from the change under test: `introduced`, `exposed` or `inherited`.
+  {{CHANGE_SCOPE}}
 
-Leave out any field that does not apply. Mark a finding `related` only when
-you CONFIRM it and traced its cause to the lines a fix would change. For each
-one:
+Leave out any field that does not apply. Give `origin` only for a finding you
+CONFIRM and whose cause you traced to the lines a fix would change, and never
+for one the ledger marks `fix did not hold`: that is an old bug the change
+tried to fix. For each one:
 
 1. Name the most direct fix: the file and lines it would change. Not any fix
    that would work: almost every bug has one that touches the diff, such as a
@@ -174,12 +176,17 @@ one:
    moved line with the commit that first wrote it, which a plain diff does not.
 3. If the fix restores or changes a line the diff deleted, count it as in the
    change. Blame cannot see a deleted line.
-4. Mark it related if any line from step 2 or 3 is in the change. Leave it
-   unmarked otherwise, including when the fix is in older code the change
-   newly reaches.
+4. `introduced`: any line from step 2 or 3 is in the change.
+5. `exposed`: no fix line is in the change, but you can name the changed line
+   that now leads to it: a new call, a removed check, a timing or order
+   change, a changed setting or default. If you cannot name one, it is not
+   `exposed`.
+6. `inherited`: no fix line is in the change, and you read the path to it and
+   found nothing in the diff on it.
 
-This says where the fix likely goes, not who caused the bug, and nothing was
-run against the base.
+When you are unsure between two values, leave `origin` out. Do not pick the
+gentler one. This says where the fix likely goes, not who caused the bug, and
+nothing was run against the base.
 
 After the block, keep it short. The verdict on each finding is what a reviewer reads; this
 section is for what the verdict cannot say.
@@ -220,8 +227,10 @@ section is for what the verdict cannot say.
   severity.
 - A finding with a new `feature`, `title`, `cause`, `observed` or `tests`
   gets one line per field: what moved it.
-- A finding marked `related` gets one line: the fix you named, and the
-  commit in the change or the deleted line it touches.
+- A finding with an `origin` gets one line: the fix you named, and for
+  `introduced` the commit in the change or the deleted line it touches, for
+  `exposed` the changed line that leads to it, or for `inherited` the path you
+  checked.
 - A finding you dispute or cannot resolve gets a short paragraph: the evidence
   that contradicts it, or what is missing.
 - End with one line naming anything the report claimed but could not have

@@ -56,7 +56,7 @@
             "tsql"
           ],
           "enumItemLabels": [
-            "%configuration.dialect.generic%",
+            "%configuration.dialect.automatic%",
             "ANSI SQL",
             "Athena",
             "BigQuery",
@@ -78,8 +78,52 @@
             "Transact-SQL"
           ],
           "markdownDescription": "%configuration.dialect.description%"
+        },
+        "sql.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "order": 2,
+          "description": "%configuration.diagnostics.enabled.description%"
+        },
+        "sql.diagnostics.unknownNames": {
+          "type": "boolean",
+          "default": true,
+          "order": 3,
+          "markdownDescription": "%configuration.diagnostics.unknownNames.description%"
+        },
+        "sql.connectOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "order": 4,
+          "description": "%configuration.connectOnOpen.description%"
         }
       }
+    },
+    "commands": [
+      {
+        "command": "sql.refreshDatabaseSchema",
+        "title": "%command.refreshDatabaseSchema.title%",
+        "category": "SQL",
+        "enablement": "config.sql.enabled"
+      },
+      {
+        "command": "sql.selectDataConnection",
+        "title": "%command.selectDataConnection.title%",
+        "category": "SQL",
+        "enablement": "config.sql.enabled && editorLangId == sql"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "sql.refreshDatabaseSchema",
+          "when": "config.sql.enabled"
+        },
+        {
+          "command": "sql.selectDataConnection",
+          "when": "config.sql.enabled"
+        }
+      ]
     }
   },
   "scripts": {

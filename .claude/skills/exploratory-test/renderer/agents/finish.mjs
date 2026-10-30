@@ -42,7 +42,7 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 		CHANGE_RANGE: `${baseSha}..${headSha}`,
 		CHANGE_SCOPE: changeBase?.usable
 			? `The change under test is the commits in \`${baseSha}..${headSha}\`.`
-			: `This run has no usable base (${changeBase?.reason ?? 'none was given'}), so mark no finding related and skip the steps below.`,
+			: `This run has no usable base (${changeBase?.reason ?? 'none was given'}), so give no finding an \`origin\` and skip the steps below.`,
 		SEARCH: `node ${join(dirname(fileURLToPath(import.meta.url)), '..', 'known-issues.mjs')} --search`,
 	};
 	const used = new Set();
@@ -63,8 +63,8 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 }
 
 /**
- * Whether the run has a base the change mark can be judged against: a base
- * SHA, not the head, with commits between them. A main run has none. `name`
+ * Whether the run has a base a finding's origin can be judged against: a base
+ * SHA, not the head, with commits and a diff between them. A main run has none. `name`
  * is the base ref the reader knows, when the caller has it.
  */
 export function changeBase(repoRoot, baseSha, headSha, name) {
@@ -77,9 +77,18 @@ export function changeBase(repoRoot, baseSha, headSha, name) {
 	}
 	try {
 		const count = execFileSync('git', ['-C', repoRoot, 'rev-list', '--count', `${baseSha}..${headSha}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-		return out(count === '0' ? 'no commits between the base and the head' : '');
+		if (count === '0') {
+			return out('no commits between the base and the head');
+		}
 	} catch {
 		return out('git could not list the commits between the base and the head');
+	}
+	try {
+		execFileSync('git', ['-C', repoRoot, 'diff', '--quiet', `${baseSha}...${headSha}`], { stdio: 'ignore' });
+		return out('the diff is empty');
+	} catch (e) {
+		// --quiet exits 1 when there is a diff.
+		return out(e.status === 1 ? '' : 'git could not diff the base and the head');
 	}
 }
 
@@ -90,12 +99,13 @@ export function writeChangeBase(dir, base) {
 
 const VERDICTS = { 'confirmed': 'confirmed', 'false positive': 'disputed', 'unresolved': 'unresolved' };
 const SEVERITIES = ['major', 'moderate', 'minor'];
+const ORIGINS = ['introduced', 'exposed', 'inherited'];
 
 /**
  * The verifier's reply: the fenced `json` block it opens with, and its notes
  * after the block. Anything before the block is its notes to itself, and is
  * dropped. `findings` maps a finding number to `{ verified, known, intended,
- * feature, title, related }`, `linked` an issue number to its severity, and
+ * feature, title, origin }`, `linked` an issue number to its severity, and
  * `problem` says why the block could not be read, or is ''. An entry it
  * cannot read is skipped, so one bad entry costs only that finding.
  */
@@ -132,7 +142,7 @@ export function parseVerifyReply(text) {
 			const setup = Array.isArray(f.setup)
 				? f.setup.filter(x => x && typeof x === 'object').map(x => ({ what: typeof x.what === 'string' ? x.what.trim() : '', log: Number.isInteger(x.log) ? x.log : null, alone: x.alone === true, why: typeof x.why === 'string' ? x.why.trim() : '' }))
 				: null;
-			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), related: f.related === true, log, shots, setup });
+			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), origin: ORIGINS.includes(f.origin) ? f.origin : null, log, shots, setup });
 		}
 	}
 	for (const l of Array.isArray(data?.linked) ? data.linked : []) {
@@ -350,7 +360,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			...(corrected.length ? { corrected, explorer: Object.fromEntries(corrected.map(key => [key, f[key] ?? null])) } : {}),
 		};
 	});
-	const related = [...reply.findings].filter(([, f]) => f.related).map(([n]) => n);
+	const origin = Object.fromEntries([...reply.findings].filter(([, f]) => f.origin).map(([n, f]) => [n, f.origin]));
 	const unchecked = Object.fromEntries(['log', 'shots', 'setup'].map(kind => [kind, [...new Set(gaps.filter(g => g.kind === kind).map(g => g.n))]]).filter(([, ns]) => ns.length));
 	const named = ns => ns.map(n => `Finding ${n}`).join(', ');
 	const skipped = [
@@ -367,7 +377,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			// A skipped check is said, so "No process issues" is not read as one that passed.
 			// Its own all-clear would contradict what the pipeline found missing.
 			text: [PREAMBLE, skipped ? reply.notes.replace(/\n*No process issues\.?\s*$/, '') : reply.notes, skipped ? `_The verifier did not show it checked ${skipped}._` : ''].filter(Boolean).join('\n\n'),
-			...(related.length ? { related } : {}),
+			...(Object.keys(origin).length ? { origin } : {}),
 			...(linked.length ? { linked } : {}),
 			...(skipped ? { unchecked } : {}),
 		},
@@ -409,7 +419,7 @@ function readRun(dir) {
 /**
  * Writes <run dir>/change-base.json, and <run dir>/verify-prompt.md and returns
  * its path, or null when there is nothing to verify. Linked issues the run ran
- * into still need a severity. `baseName` is the base branch, for the change mark.
+ * into still need a severity. `baseName` is the base branch, for the Origin column.
  */
 export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
 	const changed = changeBase(repo, base, head, baseName);

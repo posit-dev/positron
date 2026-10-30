@@ -4,25 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect, tags } from '../_test.setup';
-import { createBrowserLaunchShim } from '../../utils/browserLaunchShim';
-import { completeDatabricksSdkOAuth } from '../../utils/databricksOAuth';
-
-// Intercepts the browser launch the Databricks SDK makes during OAuth sign-in. Created at module
-// scope because `test.use({ extraEnv })` below is evaluated when this file is collected, so the
-// PATH value has to exist by then.
-const shim = createBrowserLaunchShim();
+import { completeDatabricksDriverOAuth } from '../../utils/databricksOAuth';
+import { readPositronServiceAccountCredentials } from '../../utils/oktaSignIn';
 
 test.use({
 	suiteId: __filename,
-	// Put the shim ahead of the real browser opener for the launched app. The extension host
-	// inherits this, which is where @databricks/sql runs.
-	extraEnv: shim.env,
 });
 
 // Databricks connection details. The workspace and warehouse come from the environment (the
-// project's .env file locally, 1Password in CI); the sign-in itself uses the shared IDE service
-// account, the same one the assistant's Databricks OAuth test and the Workbench managed-credentials
-// tests use.
+// project's .env file locally, 1Password in CI); the sign-in itself uses the Positron service
+// account (passkey), the same one the Snowflake suites and the assistant's Databricks OAuth test
+// use.
 //
 // The env-backed values are read at runtime inside beforeAll, not here: `.env.e2e` is applied by the
 // auto `envVars` worker fixture, which runs after this file is evaluated during test collection, so a
@@ -57,40 +49,31 @@ const accuweatherTables = [
 const accuweatherTable = accuweatherTables[0];
 const accuweatherTableColumnCount = 88;
 
-// Desktop only, and not Windows. Both limits come from how the browser launch is intercepted, not
-// from the OAuth flow itself, which is the same everywhere:
-//
-//   - Web and Workbench: the shim reaches the extension host through `extraEnv`, and only the
-//     Electron launch path applies that (infra/electron.ts). playwrightBrowser.ts and
-//     playwrightExternalServer.ts build the server's env from process.env alone, so the shim never
-//     reaches the process running @databricks/sql -- it would launch a real browser instead.
-//     Plumbing extraEnv through those paths would make a web variant possible.
-//   - Windows: the shim cannot work at all. `open` invokes PowerShell by absolute path and never
-//     consults PATH, so there is nothing to put ourselves ahead of.
-//
-// See browserLaunchShim.ts.
+// Desktop only: the authorize URL is captured by patching `shell.openExternal` in the Electron
+// main process (see externalUrl.ts), which web and Workbench builds have no equivalent of. The
+// Workbench variant, which pastes the redirect back into Positron's prompt, is
+// tests/workbench/data-connections/databricks-oauth-u2m.test.ts.
 test.describe('Data Connections - Databricks (OAuth U2M)', {
 	tag: [tags.CONNECTIONS]
 }, () => {
 
-	// Signing in is a one-time, stateful action and it spends a code from the shared TOTP secret, so
-	// it happens exactly once for the whole suite rather than per test. The app is worker-scoped, so
-	// the connection persists across every test here. Per-test state that must not leak (an open Data
-	// Explorer tab) is reset in afterEach.
+	// Signing in is a one-time, stateful action, so it happens exactly once for the whole suite
+	// rather than per test. The app is worker-scoped, so the connection persists across every test
+	// here. Per-test state that must not leak (an open Data Explorer tab) is reset in afterEach.
 	test.beforeAll(async function ({ app }) {
 		// Read the env-backed connection details now (not at module scope): `.env.e2e` is applied by
 		// the auto `envVars` worker fixture, which has run by the time this hook executes.
 		const host = process.env.DATABRICKS_URL || '';
 		const httpPath = process.env.DATABRICKS_HTTP_PATH || '';
+		const passkeyCredential = process.env.POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL || '';
 
 		// The workspace, the warehouse, and the service account are all secrets. Where they are not
 		// provisioned (no .env locally, no 1Password in a given CI rig) the sign-in cannot happen, so
 		// skip the whole suite rather than fail. Follows the convention the Redshift tests use.
-		test.skip(!host || !httpPath, 'Databricks test credentials not configured (DATABRICKS_URL / DATABRICKS_HTTP_PATH unset)');
+		test.skip(!host || !httpPath || !passkeyCredential, 'Databricks test credentials not configured (DATABRICKS_URL / DATABRICKS_HTTP_PATH / POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL unset)');
 
-		// The budget here covers the interactive sign-in end to end: the Okta SSO hop, a TOTP that may
-		// be retried with backoff when a parallel consumer of the shared secret takes the same code,
-		// two Databricks consent screens, and the token exchange.
+		// The budget here covers the interactive sign-in end to end: the Okta SSO hop, the passkey
+		// challenge, two Databricks consent screens, and the token exchange.
 		//
 		// It also has to absorb a cold SQL warehouse. The warehouse auto-stops when idle, and the
 		// first metadata query restarts it, which for serverless routinely takes several minutes --
@@ -121,12 +104,12 @@ test.describe('Data Connections - Databricks (OAuth U2M)', {
 		await dataConnections.expectConnectionInTree(connectionName);
 
 		// Expanding the entry is what connects, and the driver connects eagerly, so this is where the
-		// SDK runs OAuth. The expand cannot be awaited until sign-in finishes; the helper starts it,
-		// drives the browser, then awaits it.
-		await completeDatabricksSdkOAuth(
-			shim,
+		// driver runs OAuth. The expand cannot be awaited until sign-in finishes; the helper starts
+		// it, drives the browser, then awaits it.
+		await completeDatabricksDriverOAuth(
+			app.code,
 			() => dataConnections.expandConnection(connectionName),
-			{ logger: app.code.logger },
+			{ credentials: readPositronServiceAccountCredentials() },
 		);
 
 		await test.step('Expand the tree down to tables', async () => {
@@ -147,10 +130,6 @@ test.describe('Data Connections - Databricks (OAuth U2M)', {
 	// expanded tree remain in the worker-scoped app.
 	test.afterEach(async function ({ app }) {
 		await app.workbench.hotKeys.closeAllEditors();
-	});
-
-	test.afterAll(async function () {
-		shim.dispose();
 	});
 
 	test('Verify the workspace catalogs are listed', async function ({ app }) {

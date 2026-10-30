@@ -88,12 +88,8 @@ jobs:
     runs-on: ubuntu-latest-amd64-8-core
     strategy:
       fail-fast: false
-      # One shard at a time: the snowflake, databricks and azure shards all sign
-      # in with the same service-account TOTP secret, and parallel sign-ins
-      # collide on the OTP window. The lanes calling this workflow are chained
-      # with `needs` for the same reason. Mirrors positron-builds'
-      # test-e2e-workbench-ubuntu.yml.
-      max-parallel: 1
+      # Shards run in parallel: the snowflake and databricks sign-ins use a
+      # passkey, and the azure shard, the only TOTP left, runs once per lane.
       matrix:
         shard: ${{ fromJSON(needs.shards.outputs.matrix) }}
 
@@ -157,6 +153,9 @@ jobs:
           IDE_SERVICE_ACCOUNT_EMAIL: "op://Positron/RStudioIDE_Service_Account/service-account-email"
           IDE_SERVICE_ACCOUNT_PASSWORD: "op://Positron/RStudioIDE_Service_Account/service-account-password"
           IDE_SERVICE_ACCOUNT_OTP_SECRET: "op://Positron/RStudioIDE_Service_Account/service-account-otp-secret"
+          POSITRON_SERVICE_ACCOUNT_EMAIL: "op://Positron/Positron Service/username"
+          POSITRON_SERVICE_ACCOUNT_PASSWORD: "op://Positron/Positron Service/password"
+          POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL: "op://Positron/Positron Service/passkey-credential"
           SNOWFLAKE_ACCOUNT: "op://Positron/Snowflake-WB-Auto/account"
           SNOWFLAKE_CLIENT_ID: "op://Positron/Snowflake-WB-Auto/client-id"
           SNOWFLAKE_CLIENT_SECRET: "op://Positron/Snowflake-WB-Auto/client-secret"

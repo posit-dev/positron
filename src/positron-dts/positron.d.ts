@@ -3702,7 +3702,8 @@ declare module 'positron' {
 		 * @param sessionId An optional session ID to execute the code in. If
 		 *  not provided, an appropriate session will be chosen, and if no
 		 *  session for the desired language is running at all, a new session
-		 *  will be started.
+		 *  will be started. A notebook session gets a console if it doesn't
+		 *  have one; with `preserveActiveTab`, it is created in the background.
 		 * @param documentUri An optional URI of the document in which the code to execute is located.
 		 * @param executionMetadata An optional object containing additional
 		 *  metadata to pass to the language runtime. Will be included in the
@@ -3715,7 +3716,8 @@ declare module 'positron' {
 		 *  `attribution.source`; callers cannot set it.
 		 * @param preserveActiveTab Whether to avoid switching the active tab when
 		 *  revealing the Console and Plots. If another tab is showing where the
-		 *  Console or Plots live, it stays showing. Ignored when `focus` is true.
+		 *  Console or Plots live, it stays showing, and the foreground session
+		 *  doesn't change. Ignored when `focus` is true.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
@@ -4252,10 +4254,13 @@ declare module 'positron' {
 		 *
 		 * @param profileId The connection to read, from {@link DataConnectionSummary.profileId}.
 		 * @param options Bounds for the walk. Defaults are sized for a summary, not a full schema.
+		 * @param token Stops the walk. Without it, a caller that stops waiting leaves the walk
+		 *   querying the database until it is done.
 		 * @returns The schema, or `undefined` if the connection is not currently connected. Rejects
-		 *   when the `dataConnections.enabled` setting is off.
+		 *   when the `dataConnections.enabled` setting is off, and with a cancellation error once
+		 *   `token` is cancelled.
 		 */
-		export function getSchema(profileId: string, options?: DataConnectionSchemaOptions): Thenable<DataConnectionSchema | undefined>;
+		export function getSchema(profileId: string, options?: DataConnectionSchemaOptions, token?: vscode.CancellationToken): Thenable<DataConnectionSchema | undefined>;
 
 		/**
 		 * Fires when a connection is opened or closed, or a profile is added, renamed or removed.

@@ -28,7 +28,26 @@ command's Arguments and Returns sections, labels included:
 {{command:workbench.panel.positronConsole.focus}}
 ```
 
-Everything else in a template is prose and passes through untouched.
+Guidance that only applies in some environments goes in a block, with each
+marker on its own line. The block is kept only when its flag is set in the
+environment the skill is generated in:
+
+```
+{{if:web}}
+Positron is running in a browser, so ...
+{{endif}}
+```
+
+The flags are `web` (Positron's UI runs in a browser) and `remote` (Positron is
+connected to a remote host). Inside a `remote` block, `{{remote_root}}` expands
+to the remote file system's root URI, e.g. `vscode-remote://ssh-remote+myhost`.
+Add a flag only when a passage needs it, and only for a fact that is fixed for
+the session, since the output is not regenerated until the next launch;
+anything that can change mid-session, such as a setting, belongs in prose that
+tells the model to check it. Blocks don't nest and have no `else` or negation.
+
+Everything else in a template is prose and passes through untouched, including
+other `{{...}}` text such as Jinja in a code example.
 
 ## How it works
 
@@ -37,15 +56,16 @@ On activation (`onAiEnabled`, so it loads only once the `ai.enabled` setting is 
 1. Read the bundled templates under `templates/`.
 2. Load command metadata, including commands disabled in the current UI state
    (so a Data Explorer command is documented even when no Data Explorer is open).
-3. Expand each `{{command:id}}` directive.
+3. Keep the conditional blocks that apply to this environment, then expand
+   each `{{command:id}}` directive.
 4. Write the result to `<globalStorage>/skills` and register it via
    `positron.ai.registerAgentSkillRoot`.
 
 Output is rewritten only when its inputs change: a digest of the Positron build,
-the extension version, the templates, and the command metadata is stored
-alongside the output, so an ordinary launch does no writing. The write is staged
-in a sibling directory and swapped in, so the assistant never reads a
-half-written root.
+the extension version, the environment flags, the remote root, the templates,
+and the command metadata is stored alongside the output, so an ordinary launch
+does no writing. The write is staged in a sibling directory and swapped in, so
+the assistant never reads a half-written root.
 
 ## Adding or changing a skill
 
@@ -60,4 +80,7 @@ directives for its facts. That is all -- the facts fill themselves in.
   facts block and is logged as a warning at generation time.
 - `agentSkillDrift.vitest.ts` (in `positronAiFeatures`) fails when a command id
   named in a template no longer resolves in the workbench source.
-- `src/templateExpander.test.ts` covers the expansion itself.
+- A malformed conditional block (an unknown flag, or an unmatched marker) is
+  logged as a warning at generation time, and no marker reaches the output.
+- `src/test/templateExpander.test.ts` covers the expansion itself, and fails on a
+  malformed conditional block in any bundled template.

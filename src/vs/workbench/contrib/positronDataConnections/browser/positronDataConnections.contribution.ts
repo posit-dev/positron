@@ -109,7 +109,8 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 					original: 'Data Connections'
 				},
 				icon: positronDataConnectionsViewIcon,
-				order: 2,
+				// Between Run and Debug (3) and Remote Explorer / Extensions (4).
+				order: 3.5,
 				ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_DATA_CONNECTIONS_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 				storageId: POSITRON_DATA_CONNECTIONS_VIEW_ID,
 				hideIfEmpty: false,

@@ -193,7 +193,7 @@ export enum SessionStartReasonId {
 	/** An extension started the runtime through the Positron API's `startLanguageRuntime`. */
 	ExtensionApiStart = 'extensionApiStart',
 
-	/** An extension started the runtime through the Positron API's `startLanguageRuntime`, as a session owned by an AI agent. */
+	/** An extension started a session owned by an AI agent, through the Positron API's `startLanguageRuntime` or an agent's start new console session command. */
 	ExtensionStartedAgentSession = 'extensionStartedAgentSession',
 }
 

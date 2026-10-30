@@ -6,6 +6,7 @@
 import { expect, chromium, Browser, BrowserContext, Locator, Page } from '@playwright/test';
 import { Code } from '../infra/code';
 import { completeDatabricksOktaSignIn } from '../utils/databricksOAuth.js';
+import { OktaCredentials } from '../utils/oktaSignIn.js';
 import { armExternalUrlCapture, waitForExternalUrl } from '../utils/externalUrl.js';
 
 // Helpers for authenticating against model providers, kept free of any particular
@@ -106,6 +107,11 @@ export interface LoginModelProviderOptions {
 	 * default, which is whatever the provider screen preselects.
 	 */
 	authMethod?: 'oauth' | 'apiKey';
+	/**
+	 * Which Okta account signs in for providers that federate to Okta (currently
+	 * Databricks OAuth). Defaults to the shared IDE service account (TOTP).
+	 */
+	credentials?: OktaCredentials;
 }
 
 export function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
@@ -290,7 +296,7 @@ export async function completeDatabricksLoopbackOAuth(
 ): Promise<void> {
 	// Headed by default, matching the Posit device-code flow: these IdP pages are not
 	// reliably renderable headless.
-	const { headless = false } = options;
+	const { headless = false, credentials } = options;
 
 	const electronApp = code.electronApp;
 	if (!electronApp) {
@@ -327,6 +333,7 @@ export async function completeDatabricksLoopbackOAuth(
 			completionUrl: new RegExp(loopbackHost.replace(/\./g, '\\.')),
 			logger: code.logger,
 			label: 'Desktop',
+			credentials,
 		});
 	} finally {
 		if (context) { await context.close(); }

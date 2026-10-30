@@ -1292,7 +1292,7 @@ function processListQueue() {
 // CopyWebpackPlugin, binaries are UTF corrupted and lose executable
 // permissions), so we need to do it in a separate task.
 export async function copyExtensionBinaries(outputRoot: string) {
-	return new Promise<void>((resolve, _reject) => {
+	return new Promise<void>((resolve) => {
 		// Collect all the Positron extension metadata for binaries that need to
 		// be copied.  The Positron extension metadata lives in the
 		// `positron.json` file in the extension's root directory.
@@ -1315,17 +1315,8 @@ export async function copyExtensionBinaries(outputRoot: string) {
 								return result;
 							}
 
-							// Check the executable bit. Gulp can lose this on
-							// copy, so we may need to restore it later.
-							const src = path.join(path.dirname(metadataPath), bin.from);
-							let isExecutable = false;
-							if (fs.existsSync(src)) {
-								const stat = fs.statSync(src);
-								isExecutable = (stat.mode & 0o100) !== 0;
-							}
 							result.push({
 								...bin,
-								exe: isExecutable,
 								base: path.basename(path.dirname(metadataPath)),
 							});
 
@@ -1338,24 +1329,17 @@ export async function copyExtensionBinaries(outputRoot: string) {
 
 		fancyLog(`Copying ${binaryMetadata.length} binary sets for built-in Positron extensions`);
 
-		// Create a stream of all the binaries.
+		// Copy each set of binaries from the source to the destination. The
+		// destination keeps the source's file mode, including the executable bit.
 		es.merge(
-			// Map the metadata to a stream of Vinyl files from the source to the
-			// destination.
 			...binaryMetadata.map((bin: any) => {
 				const srcLoc = path.resolve('extensions', bin.base, bin.from);
 				const destLoc = path.resolve(outputRoot, bin.base, bin.to);
 				return gulp.src(srcLoc).pipe(
 					gulp.dest(destLoc)
 				);
-			}),
-
-			// Restore the executable bit on the binaries that had it.
-			util2.setExecutableBit(binaryMetadata
-				.filter((bin: any) => bin.exe)
-				.map((bin: any) => path.join(outputRoot, bin.base, bin.to))));
-
-		resolve();
+			})
+		).on('end', () => resolve());
 	});
 }
 // --- End PWB: from Positron ---
