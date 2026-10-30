@@ -1095,7 +1095,7 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         display_value = _get_simplified_qualname(self.value)
         if hasattr(self.value, "shape"):
             shape = self.value.shape
-            display_value = f"[{shape[0]} rows x {shape[1]} columns] {display_value}"
+            display_value = f"[{shape[1]} rows x {shape[0]} columns] {display_value}"
 
         return (_maybe_truncate_string(display_value, level=level)[0], True)
 
