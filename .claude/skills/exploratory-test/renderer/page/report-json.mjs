@@ -43,7 +43,7 @@ function stepFromJson(s) {
 /** A schema evidence item as the page lays it out. */
 /** A main replay's screenshots as evidence on the step each checks, captioned with what main showed. */
 function mainShots(main) {
-	return (main?.steps ?? []).flatMap(s => (s.shots ?? []).map(path => ({ kind: 'shot', path, step: s.step, caption: `Latest build, step ${s.step}: ${s.saw}` })));
+	return (main?.steps ?? []).flatMap(s => (s.shots ?? []).map(path => ({ kind: 'shot', path, step: s.step, main: true, caption: `Latest build, step ${s.step}: ${s.saw}` })));
 }
 
 function evidenceFromJson(e) {
@@ -57,6 +57,8 @@ function evidenceFromJson(e) {
 			...(e.scenario ? { scenario: e.scenario } : {}),
 			caption: e.caption || basename(src),
 			...(e.featured ? { featured: true } : {}),
+			// From the replay on main: the page pairs it with the change's own shot of the step.
+			...(e.main ? { main: true } : {}),
 		} : null;
 	}
 	if (e.kind === 'log') {

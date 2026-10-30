@@ -203,9 +203,9 @@ function matchesByKind(numbers, refs) {
 		return ref?.kind !== 'pr' ? 'issue' : ref.state === 'merged' ? 'merged' : ref.state === 'open' ? 'open' : null;
 	};
 	return [
-		{ numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `Dupe? ${nums}` },
-		{ numbers: numbers.filter(n => kind(n) === 'open'), label: nums => `Fix in PR? ${nums}` },
-		{ numbers: numbers.filter(n => kind(n) === 'merged'), label: nums => `Fixed in ${nums}?` },
+		{ numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `Dupe? ${nums}`, noun: 'possible duplicates' },
+		{ numbers: numbers.filter(n => kind(n) === 'open'), label: nums => `Fix in PR? ${nums}`, noun: 'possible fixes' },
+		{ numbers: numbers.filter(n => kind(n) === 'merged'), label: nums => `Fixed in ${nums}?`, noun: 'possible fixes' },
 	].filter(m => m.numbers.length);
 }
 
@@ -316,7 +316,7 @@ function groupEvidence(report, f, group, ki) {
 	if (group === 'pr') {
 		return f.main?.missing?.length
 			? `Main doesn&rsquo;t have ${f.main.missing.map(escapeHtml).join(', ')} yet.`
-			: `Didn&rsquo;t reproduce on main (0 of ${fewestTries(f.main)} tries).`;
+			: `Didn&rsquo;t reproduce in the latest build (0 of ${fewestTries(f.main)} tries).`;
 	}
 	if (group === 'ex') {
 		const failed = ki?.fixFailed.get(f.n);
@@ -399,13 +399,14 @@ function groupTabs(report, groups, mainBuild) {
 		ex: `Issues that already exist. They also reproduced in the latest build of main, so they weren&rsquo;t caused by this ${change}&rsquo;s changes.`,
 		un: 'Not enough evidence to tell. Hover a finding&rsquo;s number to see why.',
 	};
-	const rows = kinds.filter(k => k.id !== 'all').map(k => `<span class="ffi-row"><b>${k.label}</b><span>${explain[k.id]}</span></span>`).join('');
+	const rows = kinds.filter(k => k.id !== 'all').map(k => `<div class="ffi-row"><b>${k.label}</b><span>${explain[k.id]}</span></div>`).join('');
 	const commit = String(mainBuild?.commit ?? '');
 	const build = mainBuild?.version && /^[0-9a-f]{7,40}$/.test(commit)
 		? `Compared with the latest build of main: <a href="${REPO_URL}/commit/${commit}" target="_blank" rel="noopener">daily ${escapeHtml(mainBuild.version)} (${commit.slice(0, 7)})</a>`
 		: 'No build of main was available for this run.';
-	const info = `<div class="ffi"><button type="button" class="ffi-btn" aria-label="How findings are grouped">${INFO_ICON}</button>`
-		+ `<div class="ffi-pop" role="tooltip"><span class="ffi-h">How findings are grouped</span>${rows}<span class="ffi-f">${build}</span></div></div>`;
+	// The button names the popover, so a screen reader reads the explanation too.
+	const info = `<span class="ffi"><button type="button" class="ffi-btn" aria-label="How findings are grouped" aria-describedby="ffi-pop">${INFO_ICON}</button>`
+		+ `<span class="ffi-pop" id="ffi-pop" role="tooltip"><span class="ffi-h">How findings are grouped</span>${rows}<span class="ffi-f">${build}</span></span></span>`;
 	return { radios, bar: `<div class="cf-tabs" role="group" aria-label="Filter findings by whether they happen on main">${tabs}${info}</div>` };
 }
 
@@ -452,8 +453,11 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null, m
 		const word = statusWord(f);
 		// Plain numbers, not links: the whole row is already a link to the card. They still preview on hover.
 		const num = n => `<span class="ki-num-t"${kiData(refs?.byNumber.get(n), refs)}>#${Number(n)}</span>`;
-		// Several of one kind: the first number and a count; the card lists them all.
-		const first = list => `${num(list[0])}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
+		// Two of one kind show both; three or more the first and "+N more", with
+		// the rest in a tooltip. The card lists them all, for screen readers too.
+		const first = (list, noun) => (list.length <= 2 ? list.map(num).join(' ')
+			: `${num(list[0])}<span class="ki-more">+${list.length - 1} more<span class="og-tip" aria-hidden="true" role="tooltip"><b>${list.length - 1} more ${noun}</b>`
+			+ `${list.slice(1).map(n => `<span>#${Number(n)} ${escapeHtml(refs?.byNumber.get(n)?.title ?? '')}</span>`).join('')}</span></span>`);
 		const failed = ki?.fixFailed.get(f.n)?.map(i => i.number) ?? [];
 		const back = ki?.cameBack.get(f.n)?.map(i => i.number) ?? [];
 		const line = html => `<span class="ki-mt">${html}</span>`;
@@ -463,14 +467,14 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null, m
 		// that came back: it keeps only the issue's number.
 		const rejected = isRejected(word);
 		if (failed.length || back.length) {
-			const own = first(failed.length ? failed : back);
+			const own = first(failed.length ? failed : back, failed.length ? 'fixes that didn&rsquo;t hold' : 'issues that came back');
 			lines.push(rejected ? muted(own) : line(`<span class="ki-reg">${ICON.x}${failed.length ? (failed.some(n => ki.partly?.has(n)) ? 'Partly fixed' : 'Not fixed') : 'Regressed'}</span><span class="ki-state">${own}</span>`));
 		}
 		// Every match the card shows, linked to the PR or found by search, one line per kind.
-		lines.push(...matchesByKind(possiblyKnown(f, ki), refs).map(m => muted(m.label(first(m.numbers)))));
+		lines.push(...matchesByKind(possiblyKnown(f, ki), refs).map(m => muted(m.label(first(m.numbers, m.noun)))));
 		// A match closed as not planned: the team chose to leave this behavior.
 		if (f.intended?.length) {
-			lines.push(muted(`Won&rsquo;t fix? ${first(f.intended)}`));
+			lines.push(muted(`Won&rsquo;t fix? ${first(f.intended, 'issues closed as not planned')}`));
 		}
 		const up = i === report.findings.length - 1 ? ' og-up' : '';
 		const status = lines.length
@@ -601,9 +605,36 @@ function renderStep(step, { id = '', observed = false, tail = '', ev = '' } = {}
 	return `<li${attr}><span class="st-v">${step.html}</span>${result}${ev}${obs}${tail}${withCodeCopy(step.blockHtml)}</li>`;
 }
 
-/** A finding's screenshots, in step order. */
+/** A finding's screenshots, in step order; the replay on main's are paired with them instead. */
 function findingShots(f) {
-	return f.evidence.filter(item => item.kind === 'shot');
+	return f.evidence.filter(item => item.kind === 'shot' && !item.main);
+}
+
+/**
+ * A confirmed finding's step whose check the replay on main screenshotted:
+ * the change's shots and main's, paired by order, and each side's result.
+ * Null for any other step, which shows its shots as before.
+ */
+function stepComparison(report, f, group, mainBuild, k) {
+	if (!['pr', 'ex', 'un'].includes(group)) {
+		return null;
+	}
+	const mains = f.evidence.filter(e => e.kind === 'shot' && e.main && e.step?.order === k);
+	if (!mains.length) {
+		return null;
+	}
+	const prs = findingShots(f).map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k);
+	const counted = f.main?.steps?.find(s => s.step === k);
+	const result = !counted ? ''
+		: counted.n > 0 ? (counted.same === false ? 'Fails differently' : 'Also fails')
+			: group === 'pr' ? 'Passes' : `Didn&rsquo;t fail in ${counted.m} ${counted.m === 1 ? 'try' : 'tries'}`;
+	const daily = mainBuild?.version ? `daily ${escapeHtml(mainBuild.version)}` : '';
+	return {
+		pairs: Array.from({ length: Math.max(prs.length, mains.length) }, (_, j) => ({ pr: prs[j] ?? null, main: mains[j] ?? null })),
+		prH: `This ${changeWord(report)}`,
+		prR: 'Fails',
+		mainR: [daily, result].filter(Boolean).join(' &middot; '),
+	};
 }
 
 /** Whether a screenshot opens from one of the card's steps. */
@@ -618,7 +649,7 @@ function onStep(f, item) {
  * shot that names no step on the card has nowhere to open from, so lint
  * requires one; it stays in the agent prompt's Evidence.
  */
-function renderShotLinks(f) {
+function renderShotLinks(f, comparisonOf = () => null) {
 	const n = f.n;
 	const groups = new Map();
 	findingShots(f).forEach((item, i) => {
@@ -626,11 +657,24 @@ function renderShotLinks(f) {
 			groups.set(item.step.order, [...(groups.get(item.step.order) ?? []), { item, i }]);
 		}
 	});
+	// A step only main screenshotted still opens its comparison.
+	for (const k of f.steps.map((_, i) => i + 1).filter(k => !groups.has(k) && comparisonOf(k))) {
+		groups.set(k, []);
+	}
 	// A real link to the raw image, so it still works without JavaScript; the
 	// script intercepts the click and opens the lightbox, which links the step back.
-	const links = [...groups.values()].map((group, g) => group.map(({ item, i }) => `<a class="shot" id="shot-f${n}-${i + 1}" href="${escapeHtml(item.src)}" data-lb="f${n}-g${g + 1}" data-i="${i}"`
+	const link = (id, item, i, g, extra = '') => `<a class="shot" id="${id}" href="${escapeHtml(item.src)}" data-lb="f${n}-g${g + 1}" data-i="${i}"`
 		+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`
-		+ ` data-step="${escapeHtml(item.step.label)}" data-step-href="#f${n}-s${item.step.order}" hidden></a>`).join('')).join('');
+		+ ` data-step="${escapeHtml(item.step.label)}" data-step-href="#f${n}-s${item.step.order}"${extra} hidden></a>`;
+	const links = [...groups].sort(([a], [b]) => a - b).map(([k, group], g) => {
+		const cmp = comparisonOf(k);
+		if (!cmp) {
+			return group.map(({ item, i }) => link(`shot-f${n}-${i + 1}`, item, i, g)).join('');
+		}
+		// One link per pair: the viewer shows both builds side by side.
+		return cmp.pairs.map(({ pr, main }, j) => link(pr ? `shot-f${n}-${pr.i + 1}` : `shot-f${n}-m${k}-${j + 1}`, pr?.item ?? main, j, g,
+			` data-pr="${escapeHtml(pr?.item.src ?? '')}" data-main="${escapeHtml(main?.src ?? '')}" data-pr-h="${cmp.prH}" data-pr-r="${cmp.prR}" data-main-r="${cmp.mainR}"`)).join('');
+	}).join('');
 	return links ? `<div class="shot-links" hidden>${links}</div>` : '';
 }
 
@@ -660,11 +704,15 @@ function shotPreview(src, readFile) {
  * it is fixed to the window so a wide one is never cut off. Lazy, so it loads
  * only once it shows; sized, so it keeps its space while it does.
  */
-function evPop(src, readFile, count = 1) {
+function evPop(src, readFile, count = 1, compareAs = '') {
 	const p = shotPreview(src, readFile);
 	const size = p.width ? ` width="${p.width}" height="${p.height}"` : '';
-	return '<span class="ev-pop" aria-hidden="true">'
-		+ `<img class="${p.cls}" src="${escapeHtml(p.src)}" alt=""${size} loading="lazy">`
+	const img = `<img class="${p.cls}" src="${escapeHtml(p.src)}" alt=""${size} loading="lazy">`;
+	// A comparison names the build it shows, and what a click does, above the image.
+	if (compareAs) {
+		return `<span class="ev-pop" aria-hidden="true"><span class="ev-hd"><b>${compareAs}</b><span>Click to compare with latest build</span></span>${img}</span>`;
+	}
+	return `<span class="ev-pop" aria-hidden="true">${img}`
 		+ `<span class="ev-cap">${count > 1 ? `1 of ${count} &middot; click for full window` : 'Click for full window'}</span></span>`;
 }
 
@@ -672,7 +720,14 @@ function evPop(src, readFile, count = 1) {
  * A finding step's screenshot icon: previews the first of that step's shots
  * and opens it full size, with a count when there is more than one.
  */
-function stepShotIcon(f, k, readFile) {
+function stepShotIcon(f, k, readFile, cmp = null) {
+	if (cmp) {
+		const first = cmp.pairs[0];
+		const id = first.pr ? `shot-f${f.n}-${first.pr.i + 1}` : `shot-f${f.n}-m${k}-1`;
+		const preview = first.pr ? evPop(first.pr.item.src, readFile, 1, cmp.prH) : evPop(first.main.src, readFile, 1, 'Latest build');
+		return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#${id}" data-open="${id}"`
+			+ ` aria-label="Compare screenshots from this ${cmp.prH.replace(/^This /, '')} and the latest build">${preview}${ICON.photo}<span class="st-cmp">PR vs latest build</span></a>`;
+	}
 	const shots = findingShots(f);
 	const mine = shots.map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k);
 	if (!mine.length) {
@@ -951,9 +1006,12 @@ function renderFindingCard(f, report, options) {
 	// two failed checks saw different things.
 	const failed = f.steps.filter(st => st.result === 'fail');
 	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
+	// A step the replay on main screenshotted compares the two builds.
+	const group = groupOf(report, f, options.changeBase, options.ki);
+	const comparisonOf = k => stepComparison(report, f, group, options.mainBuild, k);
 	const steps = f.steps.length
 		? '<div class="repro-group steps">'
-		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1, options.readFile) : '' })).join('\n')}</ol></div>`
+		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1, options.readFile, comparisonOf(k + 1)) : '' })).join('\n')}</ol></div>`
 		: '';
 	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.
 	const repro = (preconditions || steps)
@@ -967,7 +1025,7 @@ ${linkIssues(linkFiles(`${head}
 ${comparison}
 ${repro}
 ${details}`, files), options.refs)}
-${renderShotLinks(f)}
+${renderShotLinks(f, comparisonOf)}
 ${feedback}
 ${promptBlock}
 </article>`;
@@ -1294,6 +1352,7 @@ ${renderSignature(options.startedAt, options.skillVersion)}
 <button type="button" class="lb-backdrop" tabindex="-1" aria-label="Close"></button>
 <div class="lb-panel">
 <div class="lb-img"><img alt="">
+<div class="lb-cmp" hidden><div><div class="lb-cmp-h"><b></b><span></span></div><img class="shot-full" alt=""><p class="lb-none" hidden></p></div><div><div class="lb-cmp-h"><b>Latest build</b><span></span></div><img class="shot-full" alt=""><p class="lb-none" hidden></p></div></div>
 <button type="button" class="lb-nav lb-prev" hidden>${ICON.prev}</button>
 <button type="button" class="lb-nav lb-next" hidden>${ICON.next}</button>
 </div>

@@ -1302,7 +1302,7 @@ test('findings are grouped by the replay on main, and a finding not confirmed ha
 test('the tabs show All and each non-empty group, in order, with no tooltips', () => {
 	const html = grouped();
 	assert.deepEqual(tabs(html), ['All 11', 'Only in branch 2', 'Also in latest build 2', 'Unknown 6']);
-	assert.doesNotMatch(between(html, '<div class="cf-tabs"', '<div class="ffi"'), /og-tip/);
+	assert.doesNotMatch(between(html, '<div class="cf-tabs"', '<span class="ffi">'), /og-tip/);
 	const pr = grouped({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } });
 	assert.deepEqual(tabs(pr).slice(0, 2), ['All 11', 'Only in PR 2']);
 	const noUnknown = grouped({ ...REPLAYED, findings: REPLAYED.findings.slice(0, 3) });
@@ -1311,7 +1311,7 @@ test('the tabs show All and each non-empty group, in order, with no tooltips', (
 
 test('a finding number\'s tooltip gives the evidence for its group', () => {
 	const html = grouped();
-	assert.deepEqual(badgeTip(html, 1), ['Only in branch', 'Didn&rsquo;t reproduce on main (0 of 2 tries).']);
+	assert.deepEqual(badgeTip(html, 1), ['Only in branch', 'Didn&rsquo;t reproduce in the latest build (0 of 2 tries).']);
 	assert.deepEqual(badgeTip(html, 3), ['Only in branch', 'Main doesn&rsquo;t have positron.foo, bar.baz yet.']);
 	assert.deepEqual(badgeTip(html, 2), ['Also in latest build', 'Also reproduced in the latest build: step 9 (2 of 2 tries).']);
 	assert.deepEqual(badgeTip(html, 6), ['Also in latest build', 'Also reproduced in the latest build (1 of 1 tries).']);
@@ -1348,9 +1348,12 @@ test('a Not fixed finding is Also in latest build, citing its issue, with no gro
 });
 
 test('the info button explains the visible groups and links the daily build', () => {
-	const info = html => between(html, '<div class="ffi"', '</div></div>');
+	const info = html => between(html, '<span class="ffi">', '</span></span></div>');
 	const html = info(grouped());
 	assert.match(html, /How findings are grouped/);
+	assert.match(html, /<button type="button" class="ffi-btn" aria-label="How findings are grouped" aria-describedby="ffi-pop">/);
+	assert.match(html, /<span class="ffi-pop" id="ffi-pop" role="tooltip">/);
+	assert.match(html, /<div class="ffi-row"><b>Only in branch<\/b>/);
 	assert.match(html, /<b>Only in branch<\/b><span>Reproduced on this branch&rsquo;s build but not in the latest build of main\.<\/span>/);
 	assert.match(html, /<b>Also in latest build<\/b><span>Issues that already exist\. They also reproduced in the latest build of main, so they weren&rsquo;t caused by this branch&rsquo;s changes\.<\/span>/);
 	assert.match(html, /<b>Unknown<\/b><span>Not enough evidence to tell\. Hover a finding&rsquo;s number to see why\.<\/span>/);
@@ -1396,10 +1399,9 @@ test('a card shows the screenshots from the latest build, and fails differently 
 	const json = { ...REPLAYED, findings: REPLAYED.findings.map(f => (f.n === 2 ? { ...f, steps: twoStep, main: { steps: [{ step: 2, n: 2, m: 2, saw: 'collapsed', same: true, shots: ['shots/M2.png'] }] } } : f.n === 6 ? { ...f, main: { steps: [{ step: 3, n: 1, m: 1, saw: 'a different error', same: false, shots: ['shots/M6.png'] }] } } : f)),
 		verification: { ...REPLAYED.verification, origin: { 1: 'introduced', 2: 'inherited', 3: 'introduced' }, originReason: { ...REPLAYED.verification.originReason, 6: { reason: 'fails differently', detail: '' } } } };
 	const html = grouped(json);
-	// The main build's shot joins the change's on the step it checks.
-	assert.match(card(html, 2), /aria-label="2 screenshots for this step"/);
-	assert.match(html, /M2\.png/);
-	assert.match(html, /Latest build, step 2: collapsed/);
+	// The main build's shot pairs with the change's on the step it checks.
+	assert.match(card(html, 2), /<span class="st-cmp">PR vs latest build<\/span>/);
+	assert.match(html, /data-pr="shots\/P2\.png" data-main="shots\/M2\.png"/);
 	assert.equal(cardGroup(html, 6), 'Unknown: fails differently on the latest build');
 	assert.deepEqual(badgeTip(html, 6), ['Unknown', 'It also failed on the latest build, but differently (a different error), so this run can&rsquo;t say whether it&rsquo;s the same issue.']);
 });
@@ -1420,4 +1422,82 @@ test('a fix that held in one scenario and failed in another is Partly fixed in t
 	assert.doesNotMatch(between(html, 'id="ki-list-fix"', '</div></div>'), /#11/);
 	assert.match(between(html, 'id="ki-list-part"', '</div></div>'), /#11.*passed in &ldquo;fix one&rdquo;, failed in &ldquo;fix two&rdquo;/s);
 	assert.match(issueCopied(html, 1), /The fix for #11 in #100 held only in part\./);
+});
+
+// ---- Screenshots from this PR next to the latest build ----------------------
+
+const CMP_STEPS = [act('Open the file.'), fail('the Min is right', 1, { shots: ['shots/P1.png'] }), pass('the table loads', { shots: ['shots/P3a.png', 'shots/P3b.png'] })];
+const mainStep = (n, m, more = {}) => ({ steps: [{ step: 2, n, m, saw: 'x', shots: ['shots/M1.png'], ...(n > 0 ? { same: true } : {}), ...more }] });
+const COMPARED = rep({
+	findings: [
+		fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, main: mainStep(0, 2) }),
+		fnd(2, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, main: mainStep(2, 2) }),
+		fnd(3, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, main: mainStep(0, 1) }),
+		fnd(4, { verified: 'disputed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, main: mainStep(2, 2) }),
+		fnd(5, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, main: { steps: [{ step: 2, n: 0, m: 2, saw: 'x', shots: ['shots/M5a.png', 'shots/M5b.png'] }] } }),
+	],
+	verification: { failed: false, text: 'x', origin: { 1: 'introduced', 2: 'inherited', 5: 'introduced' }, originReason: { 3: { reason: 'too few tries', detail: '' } } },
+});
+const stepLi = (html, n, k) => new RegExp(`<li id="f${n}-s${k}"[\\s\\S]*?</li>`).exec(card(html, n))?.[0] ?? '';
+const shotLinks = (html, n) => [...html.matchAll(new RegExp(`<a class="shot" id="shot-f${n}-[^"]+"[^>]*>`, 'g'))].map(m => m[0]);
+const attr = (tag, name) => new RegExp(`${name}="([^"]*)"`).exec(tag)?.[1];
+
+test('a failing step with a screenshot from the latest build compares the two', () => {
+	const html = grouped(COMPARED);
+	const li = stepLi(html, 1, 2);
+	assert.match(li, /aria-label="Compare screenshots from this branch and the latest build"/);
+	assert.match(li, /<span class="st-cmp">PR vs latest build<\/span>/);
+	assert.match(li, /<span class="ev-hd"><b>This branch<\/b><span>Click to compare with latest build<\/span><\/span>/);
+	assert.doesNotMatch(li, /ev-cap/);
+	const links = shotLinks(html, 1).filter(t => attr(t, 'data-step') === 'Step 2');
+	assert.equal(links.length, 1, 'one pair, not a stack of both builds');
+	assert.equal(attr(links[0], 'data-pr'), 'shots/P1.png');
+	assert.equal(attr(links[0], 'data-main'), 'shots/M1.png');
+	assert.equal(attr(links[0], 'data-pr-h'), 'This branch');
+	assert.equal(attr(links[0], 'data-pr-r'), 'Fails');
+	assert.equal(attr(links[0], 'data-main-r'), 'daily 2026.11.0-236 &middot; Passes');
+});
+
+test('the latest build\'s result follows the finding\'s counts', () => {
+	const html = grouped(COMPARED);
+	const mainResult = n => attr(shotLinks(html, n).find(t => attr(t, 'data-step') === 'Step 2'), 'data-main-r');
+	assert.equal(mainResult(2), 'daily 2026.11.0-236 &middot; Also fails');
+	assert.equal(mainResult(3), 'daily 2026.11.0-236 &middot; Didn&rsquo;t fail in 1 try');
+});
+
+test('screenshots pair by order, and a side with fewer says so', () => {
+	const pairs = shotLinks(grouped(COMPARED), 5).filter(t => attr(t, 'data-step') === 'Step 2');
+	assert.deepEqual(pairs.map(t => [attr(t, 'data-pr'), attr(t, 'data-main')]), [['shots/P1.png', 'shots/M5a.png'], ['', 'shots/M5b.png']]);
+	assert.match(stepLi(grouped(COMPARED), 5, 2), /PR vs latest build/);
+});
+
+test('passing steps and findings not confirmed show screenshots as before', () => {
+	const html = grouped(COMPARED);
+	assert.match(stepLi(html, 1, 3), /aria-label="2 screenshots for this step"/);
+	assert.doesNotMatch(stepLi(html, 1, 3), /st-cmp|ev-hd/);
+	assert.doesNotMatch(stepLi(html, 4, 2), /st-cmp|ev-hd/);
+	assert.match(stepLi(html, 4, 2), /aria-label="Screenshot for this step"/);
+	assert.ok(shotLinks(html, 4).every(t => !t.includes('M1.png')), 'the latest build\'s shots stay out of a disputed finding');
+});
+
+test('the viewer has two columns for a comparison, stacking under 900px, and every preview is clickable', () => {
+	const html = grouped(COMPARED);
+	assert.match(html, /<div class="lb-cmp" hidden><div><div class="lb-cmp-h"><b><\/b><span><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><div><div class="lb-cmp-h"><b>Latest build<\/b><span><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><\/div>/);
+	assert.match(REPORT_CSS, /\.lb-cmp\{display:grid;grid-template-columns:1fr 1fr;/);
+	assert.match(REPORT_CSS, /@media \(max-width:900px\)\{\.lb-cmp\{grid-template-columns:1fr\}\}/);
+	assert.match(REPORT_CSS, /a\.st-ev:hover \.ev-pop,a\.st-ev:focus-visible \.ev-pop\{pointer-events:auto;cursor:pointer\}/);
+});
+
+// ---- Several matches of one kind ---------------------------------------------
+
+const MORE_REFS = [3, 4, 5].map(i => ({ number: 5700 + i, kind: 'issue', state: 'open', title: `Bug ${i}`, createdAt: '2026-08-20T00:00:00Z', summary: '' }));
+
+test('two matches show both numbers; three or more show +N more with a tooltip, and the card lists them all', () => {
+	const two = fullHtml(fullWith(1, { known: [5703, 5704] }), { issueRefs: MORE_REFS });
+	assert.match(findingRow(two, 1), /Dupe\? <span class="ki-num-t"[^>]*>#5703<\/span> <span class="ki-num-t"[^>]*>#5704<\/span>/);
+	assert.doesNotMatch(findingRow(two, 1), /\+1|ki-more/);
+	const three = fullHtml(fullWith(1, { known: [5703, 5704, 5705] }), { issueRefs: MORE_REFS });
+	assert.match(findingRow(three, 1), /#5703<\/span><span class="ki-more">\+2 more<span class="og-tip" aria-hidden="true" role="tooltip"><b>2 more possible duplicates<\/b><span>#5704 Bug 4<\/span><span>#5705 Bug 5<\/span><\/span><\/span>/);
+	assert.match(card(three, 1), /#5703[\s\S]*#5704[\s\S]*#5705/);
+	assert.match(REPORT_CSS, /\.ki-more:hover \.og-tip\{opacity:1;visibility:visible;transition:opacity \.15s ease \.4s,visibility 0s linear \.4s\}/);
 });

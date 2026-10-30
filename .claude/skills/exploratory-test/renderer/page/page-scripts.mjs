@@ -59,7 +59,9 @@ p.style.left=left+'px';p.style.top=Math.max(m,top)+'px';}
 // full-size screenshot.
 var lb=document.getElementById('lightbox');
 if(lb){
-var img=lb.querySelector('img'),cap=lb.querySelector('.lb-cap'),file=lb.querySelector('.lb-file');
+var img=lb.querySelector('img'),cap=lb.querySelector('.lb-cap'),file=lb.querySelector('.lb-file'),cmp=lb.querySelector('.lb-cmp');
+// A comparison column: its header, and its screenshot or a note that this build has none.
+function fill(col,h,r,src,none){if(h){col.querySelector('b').textContent=h;}col.querySelector('span').textContent=r;var im=col.querySelector('img'),p=col.querySelector('.lb-none');im.hidden=!src;p.hidden=!!src;if(src){im.src=src;}else{im.removeAttribute('src');p.textContent=none;}}
 var closeBtn=lb.querySelector('.lb-close'),backdrop=lb.querySelector('.lb-backdrop'),pos=lb.querySelector('.lb-pos');
 var prev=lb.querySelector('.lb-prev'),next=lb.querySelector('.lb-next');
 var shots=Array.prototype.slice.call(document.querySelectorAll('a.shot,a.st-ev[data-lb]'));
@@ -67,7 +69,9 @@ var group=[],at=0,opener=null;
 // A group is one step's stack, or one Coverage row's shots. It stops at
 // either end rather than wrapping, so the position always reads true.
 function show(i){if(i<0||i>=group.length){return;}at=i;var a=group[at];
-img.src=a.getAttribute('href');img.alt=a.dataset.caption||'';
+var both=a.dataset.main!==undefined;img.hidden=both;cmp.hidden=!both;
+if(both){var h=a.dataset.prH||'This PR';fill(cmp.children[0],h,a.dataset.prR||'',a.dataset.pr,'No screenshot from '+h.replace(/^This/,'this'));fill(cmp.children[1],'',a.dataset.mainR||'',a.dataset.main,'No screenshot from the latest build');}
+else{img.src=a.getAttribute('href');}img.alt=a.dataset.caption||'';
 cap.textContent='';
 if(a.dataset.step){var st=document.createElement(a.dataset.stepHref?'a':'span');st.className='lb-step';
 st.textContent=a.dataset.step;if(a.dataset.stepHref){st.href=a.dataset.stepHref;
@@ -93,7 +97,7 @@ lb.setAttribute('aria-label',a.dataset.file||'Screenshot');}
 function open(a){opener=a;
 group=shots.filter(function(s){return s.dataset.lb===a.dataset.lb;});
 show(group.indexOf(a));lb.hidden=false;closeBtn.focus();}
-function close(){lb.hidden=true;img.removeAttribute('src');
+function close(){lb.hidden=true;img.removeAttribute('src');cmp.querySelectorAll('img').forEach(function(i){i.removeAttribute('src');});
 if(opener){opener.focus();opener=null;}}
 shots.forEach(function(a){a.addEventListener('click',function(e){
 // Let a modified click do what the reader asked: a new tab on the raw image.

@@ -825,6 +825,31 @@ span.rt-file{color:var(--body)}
 .ev-cap{font-family:var(--sans);font-size:11.5px;font-weight:400;line-height:1.3;letter-spacing:0;color:var(--muted)}
 a.st-ev:hover .ev-pop,a.st-ev:focus-visible .ev-pop{visibility:visible;opacity:1;transition:opacity .12s ease .12s,visibility 0s linear .12s}
 @media (prefers-reduced-motion:reduce){.ev-pop{transition:none}}
+/* Every preview is clickable: it stays open as the pointer crosses into it, and a click opens the viewer. */
+a.st-ev:hover .ev-pop,a.st-ev:focus-visible .ev-pop{pointer-events:auto;cursor:pointer}
+.ev-pop::before,.ev-pop::after{content:"";position:absolute;left:0;right:0;height:14px}
+.ev-pop::before{top:-14px}
+.ev-pop::after{bottom:-14px}
+/* A step compared with the latest build: a note in place of the count, and a header on the preview. */
+.st-cmp{font-size:12.5px;color:var(--muted);margin-left:4px}
+.ev-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:var(--sans);font-size:12px;line-height:1.3;padding:0 2px 2px}
+.ev-hd b{font-weight:600;color:var(--ink)}
+.ev-hd span{color:var(--muted)}
+a.st-ev:hover .ev-pop .ev-hd span{text-decoration:underline;text-underline-offset:2px}
+/* The viewer's two builds side by side, stacked on a narrow screen. */
+.lb-cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px;line-height:normal;padding:0 0 2px}
+.lb-cmp[hidden],.lb-cmp img[hidden],.lb-img>img[hidden]{display:none}
+.lb-cmp>div{display:flex;flex-direction:column;gap:8px;min-width:0}
+.lb-cmp-h{display:flex;align-items:baseline;gap:8px;font-family:var(--sans);font-size:13px;line-height:1.3}
+.lb-cmp-h b{font-weight:600;color:var(--ink)}
+.lb-cmp-h span{color:var(--muted)}
+.lb-cmp img.shot-full{display:block;width:100%;height:auto;max-height:calc(100vh - 220px);border-radius:6px;border:1px solid var(--border);object-fit:contain}
+.lb-none{margin:0;padding:40px 12px;border:1px dashed var(--border);border-radius:6px;font-family:var(--sans);font-size:13px;color:var(--muted);text-align:center}
+@media (max-width:900px){.lb-cmp{grid-template-columns:1fr}}
+/* Three or more matches of one kind: "+N more", the rest in a tooltip. */
+.ki-more{position:relative;margin-left:4px;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
+.ki-more .og-tip{left:auto;right:0;transform:none;white-space:normal;width:300px;top:calc(100% + 6px)}
+.ki-more:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
 .steps li:target{background:var(--st-target)}
