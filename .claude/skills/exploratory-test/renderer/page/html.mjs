@@ -304,6 +304,7 @@ function unknownShort(report, f) {
 		'too few tries': n < m ? 'intermittent, needs more tries on the latest build' : 'needs more tries on the latest build',
 		'drift': 'main has changed in this area',
 		'drift unchecked': 'cause not traced',
+		'not verified': 'not verified',
 	}[reason] ?? 'not replayed on the latest build';
 }
 
@@ -337,6 +338,7 @@ function groupEvidence(report, f, group, ki) {
 	}
 	return {
 		'no main build': 'No build of main was available for this run.',
+		'not verified': 'Verification didn&rsquo;t finish, so this finding&rsquo;s comparison with main wasn&rsquo;t checked.',
 		'could not run': detail ? `It couldn&rsquo;t run on the latest build: ${escapeHtml(detail.replace(/\.$/, ''))}.` : 'It couldn&rsquo;t run on the latest build.',
 		'drift': `Main has changed the code where the fix likely goes, so the latest build can&rsquo;t show how this behaved before this ${change}.`,
 		'drift unchecked': `It didn&rsquo;t reproduce on the latest build, but its cause wasn&rsquo;t traced, so main may have changed in this area since this ${change} started.`,

@@ -496,7 +496,7 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .ffi-row b{font-weight:600;color:var(--body)}
 .ffi-f{padding-top:10px;border-top:1px solid var(--border)}
 .ffi-f a{color:var(--link);text-decoration:underline;text-underline-offset:2px}
-@media (max-width:820px){.ffi{display:none}.ff-card .row>:last-child{padding-left:0}}
+@media (max-width:820px){.ffi{display:none}.ff .cf-tabs{flex-wrap:wrap;row-gap:8px}.ff-card .row>:last-child{padding-left:0}}
 @media (prefers-reduced-motion:reduce){.ffi-pop,.ffi:hover .ffi-pop{transition:none}}
 
 /* Known issues: the Findings table's Status labels and "Linked issues" row,

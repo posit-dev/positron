@@ -302,7 +302,7 @@ async function verifyFindings(dir, range, ask, stop, log, opened = () => null) {
 	if (best && session && parseVerifyReply(best).problem) {
 		best = (await ask({ ...verifier, purpose: 'reformat', resume: session, prompt: REFORMAT_MESSAGE })).text || best;
 	}
-	let result = applyVerifyReply(dir, best, { error: best ? '' : first.error, opened: opened(), repo: range.repo, base: range.base });
+	let result = applyVerifyReply(dir, best, { error: best ? '' : first.error, opened: opened(), repo: range.repo, base: range.base, head: range.head });
 	// One more ask when its numbers do not match the report's, or it does not
 	// show a check it was asked to make (the action log, the screenshots). After
 	// that, wrong numbers mark the findings unreviewed and a missing check is
@@ -310,7 +310,7 @@ async function verifyFindings(dir, range, ask, stop, log, opened = () => null) {
 	if (result.retry) {
 		const again = session ? await ask({ ...verifier, purpose: 'recheck', resume: session, prompt: result.retry }) : { text: '' };
 		const usable = again.text && !parseVerifyReply(again.text).problem;
-		result = applyVerifyReply(dir, usable ? again.text : best, { final: true, opened: opened(), repo: range.repo, base: range.base });
+		result = applyVerifyReply(dir, usable ? again.text : best, { final: true, opened: opened(), repo: range.repo, base: range.base, head: range.head });
 	}
 	(result.logLines ?? []).forEach(line => log(line));
 }

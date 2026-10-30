@@ -1378,3 +1378,15 @@ test('the findings table is Severity, Finding and Matches, with no Origin column
 	assert.match(REPORT_CSS, /\.findings-grid\{grid-template-columns:110px minmax\(0,1fr\) 156px\}/);
 	assert.doesNotMatch(grouped(), /og-cell|og-grid|og-hc/);
 });
+
+test('a finding whose verification did not finish is Unknown, not verified', () => {
+	const json = { ...REPLAYED, verification: { failed: true, text: 'x', originReason: { 1: { reason: 'not verified', detail: '' } } } };
+	const html = grouped(json);
+	assert.equal(groupOfRow(html, 1), 'un');
+	assert.deepEqual(badgeTip(html, 1), ['Unknown', 'Verification didn&rsquo;t finish, so this finding&rsquo;s comparison with main wasn&rsquo;t checked.']);
+	assert.equal(cardGroup(html, 1), 'Unknown: not verified');
+});
+
+test('the tabs wrap at narrow widths instead of running off the page', () => {
+	assert.match(REPORT_CSS, /@media \(max-width:820px\)\{\.ffi\{display:none\}\.ff \.cf-tabs\{flex-wrap:wrap;row-gap:8px\}/);
+});

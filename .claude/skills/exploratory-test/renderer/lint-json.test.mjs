@@ -230,3 +230,8 @@ test('main-steps: a finding with no failing check says so', () => {
 		'report: Finding 1 main.steps names step 1, which is not a failing check; this finding has no failing check to count',
 	]);
 });
+
+test('main-rate: a count that is not a whole number is flagged', () => {
+	assert.equal(mainProblems({ steps: [{ step: 3, n: null, m: 2, saw: 'x' }] }).length, 1);
+	assert.equal(mainProblems({ steps: [{ step: 3, n: 0, m: 1.5, saw: 'x' }] }).length, 1);
+});

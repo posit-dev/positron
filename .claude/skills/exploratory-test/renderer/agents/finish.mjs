@@ -334,9 +334,11 @@ const CORRECTABLE = ['title', 'feature', 'cause', 'observed', 'tests'];
  * findings are unreviewed" is not a detail to hide behind a click, and
  * changes no finding.
  */
-export function applyVerification(json, reply, { failed = false, text = '', gaps = [], mainBuild = null, repoRoot = '', baseSha = '' } = {}) {
+export function applyVerification(json, reply, { failed = false, text = '', gaps = [], mainBuild = null, repoRoot = '', baseSha = '', headSha = '' } = {}) {
 	if (failed) {
-		return { ...json, verification: { failed, text } };
+		// Nothing was checked, so no finding is grouped by its replay; each says why.
+		const originReason = Object.fromEntries((json.findings ?? []).map(f => [f.n, { reason: 'not verified', detail: '' }]));
+		return { ...json, verification: { failed, text, ...(Object.keys(originReason).length ? { originReason } : {}) } };
 	}
 	const findings = (json.findings ?? []).map(f => {
 		const v = reply.findings.get(f.n);
@@ -369,7 +371,13 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			originReason[f.n] = { reason: 'could not run', detail: 'its replay record is incomplete' };
 			continue;
 		}
-		const drift = mainBuild ? fixDrift(repoRoot, mainBuild.commit, baseSha, v.fix) : 'none';
+		// The explorer's word that main lacks an ID is checked: the head must have it, and main must not.
+		const unconfirmed = mainBuild && f.main?.missing?.length ? unconfirmedMissing(repoRoot, mainBuild.commit, headSha, f.main.missing) : [];
+		if (unconfirmed.length) {
+			originReason[f.n] = { reason: 'could not run', detail: `what it says main lacks could not be confirmed: ${unconfirmed.join(', ')}` };
+			continue;
+		}
+		const drift = mainBuild ? fixDrift(repoRoot, mainBuild.commit, baseSha, v.fix, headSha) : 'none';
 		const o = originFromMain({ main: f.main, reproduced: f.reproduced, drift, hasMainBuild: Boolean(mainBuild) });
 		if (o.origin) {
 			origin[f.n] = o.origin;
@@ -408,7 +416,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
  * when there is nothing to compare (no files, or none in either commit);
  * 'none' when they are the same, or main is the base.
  */
-export function fixDrift(repoRoot, mainCommit, baseSha, files) {
+export function fixDrift(repoRoot, mainCommit, baseSha, files, headSha = '') {
 	if (!repoRoot || !mainCommit || !baseSha) {
 		return 'unchecked';
 	}
@@ -427,8 +435,10 @@ export function fixDrift(repoRoot, mainCommit, baseSha, files) {
 	if (mainCommit === baseSha) {
 		return 'none';
 	}
-	// A path in neither commit matches nothing, and would pass for "no change".
-	if (!files?.length || files.some(f => !ok(['cat-file', '-e', `${mainCommit}:${f}`]) && !ok(['cat-file', '-e', `${baseSha}:${f}`]))) {
+	// A path in neither commit matches nothing, and would pass for "no change",
+	// unless the change adds it: new code cannot have changed on main.
+	const has = (commit, f) => Boolean(commit) && ok(['cat-file', '-e', `${commit}:${f}`]);
+	if (!files?.length || files.some(f => !has(mainCommit, f) && !has(baseSha, f) && !has(headSha, f))) {
 		return 'unchecked';
 	}
 	try {
@@ -436,6 +446,27 @@ export function fixDrift(repoRoot, mainCommit, baseSha, files) {
 	} catch {
 		return 'drift';
 	}
+}
+
+/**
+ * The IDs a finding says main lacks that git does not bear out: each must be
+ * in the head (else it is not a real ID) and not in main. All of them when
+ * the checkout or a commit is not there to ask.
+ */
+export function unconfirmedMissing(repoRoot, mainCommit, headSha, ids) {
+	if (!repoRoot || !mainCommit || !headSha) {
+		return [...ids];
+	}
+	// 0: found; 1: not found; anything else: git could not tell.
+	const found = (commit, id) => {
+		try {
+			execFileSync('git', ['-C', repoRoot, 'grep', '-q', '-F', '-e', id, commit, '--', 'src', 'extensions'], { stdio: 'ignore' });
+			return true;
+		} catch (err) {
+			return err.status === 1 ? false : null;
+		}
+	};
+	return ids.filter(id => !(found(headSha, id) === true && found(mainCommit, id) === false));
 }
 
 /** True once report.json carries a verification, so it is never added twice. */
@@ -503,7 +534,7 @@ export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
  * verification did not complete rather than leaving the findings looking
  * reviewed. Otherwise returns `{ failed, logLines }`.
  */
-export function applyVerifyReply(dir, reply, { error = '', final = false, opened = null, repo = '', base = '' } = {}) {
+export function applyVerifyReply(dir, reply, { error = '', final = false, opened = null, repo = '', base = '', head = '' } = {}) {
 	const { path, report, ledger, actionsLog, knownIssues } = readRun(dir);
 	if (isVerified(report)) {
 		return { already: true };
@@ -524,6 +555,6 @@ export function applyVerifyReply(dir, reply, { error = '', final = false, opened
 	const why = error ? `: ${error}` : mismatch ? `: ${mismatch}` : !reply ? '' : parsed.problem ? `: ${parsed.problem}` : ': the reply gave no verdicts';
 	const text = `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`;
 	const mainBuild = readJson(join(dir, 'main-build.json'));
-	writeReport(path, applyVerification(report, parsed, { failed, text, gaps, mainBuild, repoRoot: repo, baseSha: base }));
+	writeReport(path, applyVerification(report, parsed, { failed, text, gaps, mainBuild, repoRoot: repo, baseSha: base, headSha: head }));
 	return { failed, logLines: verifyLogLines(knownIssues, ledger, failed ? parseVerifyReply('') : parsed) };
 }

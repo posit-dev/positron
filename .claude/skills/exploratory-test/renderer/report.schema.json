@@ -546,7 +546,8 @@
 									"could not run",
 									"too few tries",
 									"drift",
-									"drift unchecked"
+									"drift unchecked",
+									"not verified"
 								]
 							},
 							"detail": {

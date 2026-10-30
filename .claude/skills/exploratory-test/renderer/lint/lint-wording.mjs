@@ -349,7 +349,7 @@ export function mainProblems(n, main, steps, { mainBuild } = {}) {
 	for (const at of failing.filter(at => !counted.includes(at))) {
 		problems.push(problem('main-steps', `report: Finding ${n} main.steps leaves out failing step ${at}; count every one, a step left out may be the one main fails`));
 	}
-	for (const s of main.steps.filter(s => !(s.m >= 1 && s.n <= s.m))) {
+	for (const s of main.steps.filter(s => !(Number.isInteger(s.n) && Number.isInteger(s.m) && s.n >= 0 && s.m >= 1 && s.n <= s.m))) {
 		problems.push(problem('main-rate', `report: Finding ${n} main step ${s.step} is ${s.n}/${s.m}; give N/M with N no more than M, M at least 1`));
 	}
 	return problems;

@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withTmpDir } from '../shared/tmp-dirs.mjs';
 import { applyVerification, applyVerifyReply, buildVerifyPrompt, changeBase, findingNumbers, fixDrift, issueMatches, isVerified, checkGaps, checkMessage, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines, writeVerifyPrompt } from './finish.mjs';
@@ -112,7 +112,7 @@ test('applyVerification replaces a corrected field, keeps the explorer\'s under 
 test('applyVerification changes no finding on a failed pass, and keeps what was said', () => {
 	const out = applyVerification(REPORT, parseVerifyReply(reply(verdicts([1, 'confirmed', { feature: 'new folder flow', title: 'other' }]))), { failed: true, text: '_Verification did not complete._' });
 	assert.deepEqual(out.findings, REPORT.findings);
-	assert.deepEqual(out.verification, { failed: true, text: '_Verification did not complete._' });
+	assert.deepEqual(out.verification, { failed: true, text: '_Verification did not complete._', originReason: { 1: { reason: 'not verified', detail: '' }, 2: { reason: 'not verified', detail: '' } } });
 	assert.ok(isVerified(out));
 });
 
@@ -448,4 +448,45 @@ test('no main build gives every confirmed finding a reason', () => {
 	const out = applyVerification(withMain(undefined, undefined), parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'unresolved']))));
 	assert.equal(out.verification.origin, undefined);
 	assert.deepEqual(out.verification.originReason, { 1: { reason: 'no main build', detail: '' } });
+});
+
+/** A repo with a base, a later main, and a head that adds a file and a setting: `{ repo, base, main, head }`. */
+function changeRepo(dir) {
+	const git = (...args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8' }).trim();
+	const commit = message => {
+		git('add', '.');
+		git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', message);
+		return git('rev-parse', 'HEAD');
+	};
+	git('init', '-q');
+	mkdirSync(join(dir, 'src'));
+	writeFileSync(join(dir, 'src', 'old.ts'), 'register("positron.old");\n');
+	const base = commit('base');
+	writeFileSync(join(dir, 'src', 'other.ts'), 'unrelated\n');
+	const main = commit('main moves on');
+	writeFileSync(join(dir, 'src', 'new.ts'), 'register("positron.brandNew");\n');
+	const head = commit('the change adds a file');
+	return { repo: dir, base, main, head };
+}
+
+test('fixDrift: a fix file the change adds cannot have drifted', () => withTmpDir('drift-', dir => {
+	const { repo, base, main, head } = changeRepo(dir);
+	assert.equal(fixDrift(repo, main, base, ['src/new.ts'], head), 'none');
+	assert.equal(fixDrift(repo, main, base, ['src/typo.ts'], head), 'unchecked');
+}));
+
+test('a missing ID counts only when the head has it and main does not', () => withTmpDir('drift-', dir => {
+	const { repo, base, main, head } = changeRepo(dir);
+	const report = { ...REPORT, findings: [
+		{ ...REPORT.findings[0], steps: failingAt2(1), main: { missing: ['positron.brandNew'] } },
+		{ ...REPORT.findings[1], steps: failingAt2(2), main: { missing: ['positron.old', 'positron.typo'] } },
+	] };
+	const out = applyVerification(report, parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'confirmed']))), { mainBuild: { ...MAIN, commit: main }, repoRoot: repo, baseSha: base, headSha: head });
+	assert.deepEqual(out.verification.origin, { 1: 'introduced' });
+	assert.deepEqual(out.verification.originReason, { 2: { reason: 'could not run', detail: 'what it says main lacks could not be confirmed: positron.old, positron.typo' } });
+}));
+
+test('a verification that did not finish gives each finding Unknown, not verified', () => {
+	const out = applyVerification(withMain({ steps: [{ step: 2, n: 2, m: 2, saw: 'x' }] }, undefined), parseVerifyReply(''), { failed: true, text: 'x', mainBuild: MAIN });
+	assert.deepEqual(out.verification.originReason, { 1: { reason: 'not verified', detail: '' }, 2: { reason: 'not verified', detail: '' } });
 });
