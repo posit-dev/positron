@@ -1400,7 +1400,7 @@ test('a card shows the screenshots from the latest build, and fails differently 
 		verification: { ...REPLAYED.verification, origin: { 1: 'introduced', 2: 'inherited', 3: 'introduced' }, originReason: { ...REPLAYED.verification.originReason, 6: { reason: 'fails differently', detail: '' } } } };
 	const html = grouped(json);
 	// The main build's shot pairs with the change's on the step it checks.
-	assert.match(card(html, 2), /<span class="st-cmp">PR vs latest build<\/span>/);
+	assert.match(card(html, 2), /<path d="M8 3v10"><\/path>/);
 	assert.match(html, /data-pr="shots\/P2\.png" data-main="shots\/M2\.png"/);
 	assert.equal(cardGroup(html, 6), 'Unknown: fails differently on the latest build');
 	assert.deepEqual(badgeTip(html, 6), ['Unknown', 'It also failed on the latest build, but differently (a different error), so this run can&rsquo;t say whether it&rsquo;s the same issue.']);
@@ -1446,7 +1446,9 @@ test('a failing step with a screenshot from the latest build compares the two', 
 	const html = grouped(COMPARED);
 	const li = stepLi(html, 1, 2);
 	assert.match(li, /aria-label="Compare screenshots from this branch and the latest build"/);
-	assert.match(li, /<span class="st-cmp">PR vs latest build<\/span>/);
+	// A split-frame icon the size of the normal one, with no text, so the step never wraps.
+	assert.match(li, /<svg aria-hidden="true" width="1em" height="1em" viewBox="0 0 16 16"[^>]*><rect x="1\.5" y="3" width="13" height="10" rx="1\.5"><\/rect><path d="M8 3v10"><\/path>/);
+	assert.doesNotMatch(li, /PR vs latest build|st-cmp/);
 	assert.match(li, /<span class="ev-hd"><b>This branch<\/b><span>Click to compare with latest build<\/span><\/span>/);
 	assert.doesNotMatch(li, /ev-cap/);
 	const links = shotLinks(html, 1).filter(t => attr(t, 'data-step') === 'Step 2');
@@ -1468,14 +1470,14 @@ test('the latest build\'s result follows the finding\'s counts', () => {
 test('screenshots pair by order, and a side with fewer says so', () => {
 	const pairs = shotLinks(grouped(COMPARED), 5).filter(t => attr(t, 'data-step') === 'Step 2');
 	assert.deepEqual(pairs.map(t => [attr(t, 'data-pr'), attr(t, 'data-main')]), [['shots/P1.png', 'shots/M5a.png'], ['', 'shots/M5b.png']]);
-	assert.match(stepLi(grouped(COMPARED), 5, 2), /PR vs latest build/);
+	assert.match(stepLi(grouped(COMPARED), 5, 2), /M8 3v10/);
 });
 
 test('passing steps and findings not confirmed show screenshots as before', () => {
 	const html = grouped(COMPARED);
 	assert.match(stepLi(html, 1, 3), /aria-label="2 screenshots for this step"/);
-	assert.doesNotMatch(stepLi(html, 1, 3), /st-cmp|ev-hd/);
-	assert.doesNotMatch(stepLi(html, 4, 2), /st-cmp|ev-hd/);
+	assert.doesNotMatch(stepLi(html, 1, 3), /M8 3v10|ev-hd/);
+	assert.doesNotMatch(stepLi(html, 4, 2), /M8 3v10|ev-hd/);
 	assert.match(stepLi(html, 4, 2), /aria-label="Screenshot for this step"/);
 	assert.ok(shotLinks(html, 4).every(t => !t.includes('M1.png')), 'the latest build\'s shots stay out of a disputed finding');
 });

@@ -831,8 +831,7 @@ a.st-ev:hover .ev-pop,a.st-ev:focus-visible .ev-pop{pointer-events:auto;cursor:p
 .ev-pop::before,.ev-pop::after{content:"";position:absolute;left:0;right:0;height:14px}
 .ev-pop::before{top:-14px}
 .ev-pop::after{bottom:-14px}
-/* A step compared with the latest build: a note in place of the count, and a header on the preview. */
-.st-cmp{font-size:12.5px;color:var(--muted);margin-left:4px}
+/* A step compared with the latest build: a header on the preview. */
 .ev-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:var(--sans);font-size:12px;line-height:1.3;padding:0 2px 2px}
 .ev-hd b{font-weight:600;color:var(--ink)}
 .ev-hd span{color:var(--muted)}

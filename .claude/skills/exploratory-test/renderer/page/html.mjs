@@ -733,7 +733,7 @@ function stepShotIcon(f, k, readFile, cmp = null) {
 		const id = first.pr ? `shot-f${f.n}-${first.pr.i + 1}` : `shot-f${f.n}-m${k}-1`;
 		const preview = first.pr ? evPop(first.pr.item.src, readFile, 1, cmp.prH) : evPop(first.main.src, readFile, 1, 'Latest build');
 		return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#${id}" data-open="${id}"`
-			+ ` aria-label="Compare screenshots from this ${cmp.prH.replace(/^This /, '')} and the latest build">${preview}${ICON.photo}<span class="st-cmp">PR vs latest build</span></a>`;
+			+ ` aria-label="Compare screenshots from this ${cmp.prH.replace(/^This /, '')} and the latest build">${preview}${ICON.compare}</a>`;
 	}
 	const shots = findingShots(f);
 	const mine = shots.map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k);
