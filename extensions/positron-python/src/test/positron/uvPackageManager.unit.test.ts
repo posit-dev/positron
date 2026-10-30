@@ -492,6 +492,53 @@ version = "0.1.0"`;
                 '/path/to/python',
             ]);
         });
+
+        suite('with autoUpdateRequirements enabled', () => {
+            let reqContent: string;
+
+            setup(() => {
+                reqContent = 'flask==2.2.0\nrequests==2.28.2\n';
+                (fileSystem.readFile as sinon.SinonStub).withArgs(reqPath).callsFake(() => Promise.resolve(reqContent));
+                (fileSystem.writeFile as sinon.SinonStub).withArgs(reqPath).callsFake((_p: string, text: string) => {
+                    reqContent = text;
+                    return Promise.resolve();
+                });
+                vscode.workspace.getConfiguration = (section?: string) =>
+                    ({
+                        get: (key: string, defaultValue?: unknown) =>
+                            section === 'packages.python' && key === 'autoUpdateRequirements' ? true : defaultValue,
+                        inspect: () => ({ globalValue: true }),
+                    } as any);
+            });
+
+            test('installPackages adds the installed package to requirements.txt', async () => {
+                session.callMethod = sinon
+                    .stub()
+                    .withArgs('getPackagesInstalled')
+                    .resolves([{ name: 'flask' }, { name: 'requests' }, { name: 'pandas' }]);
+
+                await uvPackageManager.installPackages([{ name: 'pandas' }]);
+
+                expect(reqContent).to.equal('flask==2.2.0\nrequests==2.28.2\npandas  # added by Positron\n');
+            });
+
+            test('uninstallPackages comments out the uninstalled package', async () => {
+                session.callMethod = sinon
+                    .stub()
+                    .withArgs('getPackagesInstalled')
+                    .resolves([{ name: 'flask' }]);
+
+                await uvPackageManager.uninstallPackages(['requests']);
+
+                expect(reqContent).to.equal('flask==2.2.0\n# requests removed by Positron\n');
+            });
+
+            test('updatePackages leaves requirements.txt alone', async () => {
+                await uvPackageManager.updatePackages([{ name: 'flask', version: '3.0.0' }]);
+
+                expect((fileSystem.writeFile as sinon.SinonStub).calledWith(reqPath)).to.equal(false);
+            });
+        });
     });
 
     suite('with python.packageManager.useRequirementsFile disabled', () => {
