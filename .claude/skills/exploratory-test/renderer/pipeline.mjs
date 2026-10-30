@@ -30,13 +30,14 @@ import { ensureCommit, localMainBuild, mainBuildBrief } from './main-build.mjs';
 export const ISOLATE_MINUTES = 12;
 export const EXPLORE_MINUTES = 30;
 // Added to the time limit when the run has a main build, so replaying findings
-// on main does not cut into exploring. To be tuned from stats' mainReplayMinutes.
+// on main does not cut into exploring. 6 covers the most any run used (5.3,
+// across seven runs on 2026-10-30); tune it from stats' mainReplayMinutes.
 export const MAIN_REPLAY_MINUTES = replayMinutes(process.env.MAIN_REPLAY_MINUTES);
 
-/** Minutes from MAIN_REPLAY_MINUTES: a whole number, 0 included, else 10. */
+/** Minutes from MAIN_REPLAY_MINUTES: a whole number, 0 included, else 6. */
 export function replayMinutes(raw) {
 	const minutes = /^\d+$/.test(String(raw ?? '').trim()) ? Number(raw) : NaN;
-	return Number.isInteger(minutes) ? minutes : 10;
+	return Number.isInteger(minutes) ? minutes : 6;
 }
 
 /** A time limit in minutes, or null for none, with the main replays' minutes added when there is a main build. */

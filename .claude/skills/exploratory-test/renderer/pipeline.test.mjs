@@ -407,11 +407,11 @@ test('the brief has a Main build section only when one is given', () => {
 	assert.match(prompt, /# Brief\n\nTest it\.\n\n## Main build\n\nBinary: `\/x\/Positron`\n/);
 });
 
-test('replayMinutes reads MAIN_REPLAY_MINUTES, 0 included, and falls back to 10', () => {
-	assert.equal(replayMinutes(undefined), 10);
-	assert.equal(replayMinutes(''), 10);
+test('replayMinutes reads MAIN_REPLAY_MINUTES, 0 included, and falls back to 6', () => {
+	assert.equal(replayMinutes(undefined), 6);
+	assert.equal(replayMinutes(''), 6);
 	assert.equal(replayMinutes('0'), 0);
 	assert.equal(replayMinutes('15'), 15);
-	assert.equal(replayMinutes('ten'), 10);
-	assert.equal(replayMinutes('-5'), 10);
+	assert.equal(replayMinutes('ten'), 6);
+	assert.equal(replayMinutes('-5'), 6);
 });
