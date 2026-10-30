@@ -10,6 +10,7 @@ import { FileChangeType } from '../../../../common/platform/fileSystemWatcher';
 import * as path from 'path';
 import { pathExists } from '../../../common/externalDependencies';
 import { sleep } from '../../../../common/utils/async';
+import { getOSType, OSType } from '../../../../common/utils/platform';
 // --- End Positron ---
 
 export interface PythonWorkspaceEnvEvent {
@@ -119,8 +120,10 @@ class PythonWatcherImpl implements PythonWatcher {
         // watcher above, so it adds no file system watcher.
         // On Linux, a new folder is reported but not what is created inside it
         // before the folder is watched, so `uv venv` may never match the pattern
-        // above either. Look for an env executable in each created path.
-        const folderWatcher = createFileSystemWatcher(new RelativePattern(wf, '**'), false, true, false);
+        // above either. Look for an env executable in each created path. The
+        // macOS and Windows watchers are recursive, so they report the executable.
+        const watchCreates = getOSType() === OSType.Linux;
+        const folderWatcher = createFileSystemWatcher(new RelativePattern(wf, '**'), !watchCreates, true, false);
         let disposed = false;
         disposables.push(
             folderWatcher,

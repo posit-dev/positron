@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as sinon from 'sinon';
 import { EventEmitter, FileSystemWatcher, GlobPattern, RelativePattern, Uri, WorkspaceFolder } from 'vscode';
 import { FileChangeType } from '../../../../../client/common/platform/fileSystemWatcher';
+import * as platform from '../../../../../client/common/utils/platform';
 import * as workspaceApis from '../../../../../client/common/vscodeApis/workspaceApis';
 import {
     createPythonWatcher,
@@ -33,9 +34,12 @@ suite('Python watcher', () => {
         index: 0,
     };
     let watchers: FakeWatcher[];
+    let osType: sinon.SinonStub;
 
     setup(() => {
         watchers = [];
+        // Created folders are looked into on Linux only.
+        osType = sinon.stub(platform, 'getOSType').returns(platform.OSType.Linux);
         sinon.stub(workspaceApis, 'getWorkspaceFolder').returns(workspaceFolder);
         sinon
             .stub(workspaceApis, 'createFileSystemWatcher')
@@ -94,6 +98,19 @@ suite('Python watcher', () => {
             },
         );
         watcher.dispose();
+    });
+
+    test('on macOS and Windows, created paths are left to the executable watcher', () => {
+        // Their watchers are recursive, so they report the executable itself.
+        const ignored = [platform.OSType.OSX, platform.OSType.Windows].map((os) => {
+            watchers = [];
+            osType.returns(os);
+            const watcher = createPythonWatcher();
+            watcher.watchWorkspace(workspaceFolder);
+            watcher.dispose();
+            return watchers.find((w) => w.pattern === '**')?.ignoreCreateEvents;
+        });
+        assert.deepStrictEqual(ignored, [true, true]);
     });
 
     suite('a created folder', () => {
