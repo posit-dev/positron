@@ -127,9 +127,8 @@ the app". Read it
 **before** starting any app server yourself -- app servers must not be started by
 running code in a session or a raw terminal command for supported app frameworks. The
 commands it documents manage the terminal, detect the app URL, set up any
-proxying the environment requires (on Posit Workbench, raw `localhost`
-URLs are not reachable from the user's browser), and preview the app -- in the
-Viewer by default, or wherever the user's preview mode setting points.
+proxying the environment requires, and preview the app -- in the Viewer by
+default, or wherever the user's preview mode setting points.
 
 **Data connections and schemas** -- [references/data-connections.md]({{skill_dir}}/references/data-connections.md)
 Read when the user asks about: the database or warehouse connections they have

@@ -13,8 +13,16 @@
  *   {{command:some.command.id}}   -> renders the command's Arguments and
  *                                    Returns sections, labels included.
  *
+ * Guidance that only applies in some environments sits in a block, with each
+ * marker on its own line:
+ *   {{if:web}}
+ *   ...                           -> kept only when the `web` flag is set.
+ *   {{endif}}
+ * Blocks don't nest and have no `else` or negation.
+ *
  * Everything else in the template -- the when-to-use prose, the caveats the
- * metadata gets wrong -- is authored by hand and passes through verbatim.
+ * metadata gets wrong -- is authored by hand and passes through verbatim,
+ * including any other `{{...}}` text, such as Jinja in a code example.
  */
 
 /** Minimal view of a JSON Schema; only the parts we render are typed. */
@@ -41,15 +49,33 @@ export interface AgentCommand {
 	readonly returns?: string;
 }
 
+/**
+ * The facts about the environment a block can be conditioned on. Each must be
+ * fixed for the session, since the output is only regenerated on the next
+ * launch.
+ */
+export interface TemplateFlags {
+	/** Positron's UI runs in a browser, so apps are served through a proxy. */
+	readonly web: boolean;
+}
+
 export interface ExpandResult {
 	/** The template with every directive replaced. */
 	readonly text: string;
 	/** Command ids named by a directive that were absent from the metadata. */
 	readonly unresolved: readonly string[];
+	/** Malformed conditional blocks, one message each, with line numbers. */
+	readonly problems: readonly string[];
 }
 
 /** Matches `{{command:ID}}`, capturing the id. */
 const DIRECTIVE = /\{\{command:([^}]+)\}\}/g;
+
+/** Matches a line that is only an `{{if:FLAG}}` or `{{endif}}` marker. */
+const BLOCK_MARKER_LINE = /^\s*\{\{(?:if:(?<flag>[^}]*)|endif)\}\}\s*$/;
+
+/** Matches a block marker anywhere in a line. */
+const BLOCK_MARKER = /\{\{(?:if:[^}]*|endif)\}\}/g;
 
 /**
  * A compact, faithful type description for a schema, e.g. `boolean`,
@@ -110,18 +136,95 @@ function renderCommand(command: AgentCommand): string {
 	return `${args}\n\n**Returns:** ${renderReturns(command)}`;
 }
 
+function isFlag(name: string, flags: TemplateFlags): name is keyof TemplateFlags {
+	return Object.prototype.hasOwnProperty.call(flags, name);
+}
+
 /**
- * Replace every directive in `template` with facts from `commandsById`. An id
- * with no matching command degrades to an empty section (never a leaked
- * `{{...}}`) and is reported in {@link ExpandResult.unresolved} so the caller
- * can treat it as drift.
+ * Keep the blocks whose flag is set in `flags` and drop the rest, along with
+ * every marker line. A dropped block takes one adjacent blank line with it, so
+ * it leaves no gap behind. A malformed block is reported in `problems` and
+ * never leaks a marker: an unknown flag or an unclosed block is dropped, and a
+ * stray, nested, or inline marker is removed.
+ */
+function applyBlocks(template: string, flags: TemplateFlags, problems: string[]): string {
+	const output: string[] = [];
+	// The open block, if any: its flag's value, the line it opened on, and how
+	// many nested markers are open inside it. A nested marker's `{{endif}}`
+	// closes the nested marker, not the block, so a dropped block stays dropped.
+	let block: { readonly keep: boolean; readonly line: number; nested: number } | undefined;
+	let skipBlank = false;
+	const lines = template.split('\n');
+	for (let index = 0; index < lines.length; index++) {
+		const line = lines[index];
+		const lineNumber = index + 1;
+		const marker = BLOCK_MARKER_LINE.exec(line);
+		if (marker) {
+			const flag = marker.groups?.flag;
+			if (flag === undefined) {
+				if (!block) {
+					problems.push(`line ${lineNumber}: {{endif}} with no open {{if:...}}`);
+					continue;
+				}
+				if (block.nested > 0) {
+					block.nested--;
+					continue;
+				}
+				// A dropped block takes the blank line after it when there is
+				// one before it too, or when it opened the file.
+				const last = output.at(-1);
+				skipBlank = !block.keep && (last === undefined || last.trim() === '');
+				block = undefined;
+				continue;
+			}
+			if (block) {
+				problems.push(`line ${lineNumber}: {{if:${flag}}} is nested in the block opened on line ${block.line}`);
+				block.nested++;
+				continue;
+			}
+			const name = flag.trim();
+			const known = isFlag(name, flags);
+			if (!known) {
+				problems.push(`line ${lineNumber}: unknown flag '${name}'`);
+			}
+			block = { keep: known && flags[name], line: lineNumber, nested: 0 };
+			continue;
+		}
+		if (skipBlank) {
+			skipBlank = false;
+			if (line.trim() === '') {
+				continue;
+			}
+		}
+		if (block && !block.keep) {
+			continue;
+		}
+		const stripped = line.replace(BLOCK_MARKER, '');
+		if (stripped !== line) {
+			problems.push(`line ${lineNumber}: a block marker must be on a line of its own`);
+		}
+		output.push(stripped);
+	}
+	if (block) {
+		problems.push(`line ${block.line}: {{if:...}} has no {{endif}}`);
+	}
+	return output.join('\n');
+}
+
+/**
+ * Keep the blocks in `template` that apply under `flags`, then replace every
+ * directive with facts from `commandsById`. An id with no matching command
+ * degrades to an empty section (never a leaked `{{...}}`) and is reported in
+ * {@link ExpandResult.unresolved} so the caller can treat it as drift.
  */
 export function expandTemplate(
 	template: string,
 	commandsById: ReadonlyMap<string, AgentCommand>,
+	flags: TemplateFlags,
 ): ExpandResult {
 	const unresolved = new Set<string>();
-	const text = template.replace(DIRECTIVE, (_match, rawId: string) => {
+	const problems: string[] = [];
+	const text = applyBlocks(template, flags, problems).replace(DIRECTIVE, (_match, rawId: string) => {
 		const id = rawId.trim();
 		const command = commandsById.get(id);
 		if (!command) {
@@ -130,5 +233,5 @@ export function expandTemplate(
 		}
 		return renderCommand(command);
 	});
-	return { text, unresolved: [...unresolved] };
+	return { text, unresolved: [...unresolved], problems };
 }
