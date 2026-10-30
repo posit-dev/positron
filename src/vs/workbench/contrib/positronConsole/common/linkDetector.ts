@@ -4,17 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * A hyperlink found in a string of text.
- */
-export interface HyperlinkMatch {
-	/** The text of the hyperlink. */
-	readonly text: string;
-
-	/** The index of the hyperlink in the searched text. */
-	readonly index: number;
-}
-
-/**
  *
  * Detects hyperlinks in a string of text.
  *
@@ -23,11 +12,9 @@ export interface HyperlinkMatch {
  * though these characters are technically allowed in a URL.
  *
  * @param text The text to search for hyperlinks.
- * @returns An array of hyperlinks found in the text, in order, if any.
+ * @returns An array of hyperlinks found in the text, if any.
  */
-export function detectHyperlinks(text: string): Array<HyperlinkMatch> {
-	return Array.from(
-		text.matchAll(/\bhttps?:\/\/[^'">)}\s]+/g),
-		match => ({ text: match[0], index: match.index })
-	);
+export function detectHyperlinks(text: string): Array<string> {
+	const matches = text.match(/\bhttps?:\/\/[^'">)}\s]+/g);
+	return matches ? matches : [];
 }
