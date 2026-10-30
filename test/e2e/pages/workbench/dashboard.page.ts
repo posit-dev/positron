@@ -7,7 +7,7 @@ import { expect, BrowserContext } from '@playwright/test';
 import { Code } from '../../infra/code.js';
 import { QuickInput } from '../quickInput.js';
 import { completeDatabricksOktaSignIn } from '../../utils/databricksOAuth.js';
-import { completeOktaSignIn } from '../../utils/oktaSignIn.js';
+import { completeOktaSignIn, readPositronServiceAccountCredentials } from '../../utils/oktaSignIn.js';
 
 export class DashboardPage {
 	get title() { return this.code.driver.currentPage.getByRole('link', { name: 'Workbench projects' }); }
@@ -199,6 +199,30 @@ export class DashboardPage {
 		}
 	}
 
+	// Workbench 2026.11 daily 185 renamed Disabled/Enabled to Select/Selected.
+	private credentialWidget(provider: 'Databricks' | 'Snowflake', states: string[]) {
+		const selector = states.map(state => `[aria-label="${provider} Credential Selection - ${state}"]`).join(', ');
+		return this.code.driver.currentPage.locator(selector);
+	}
+
+	private async ensureCredentialSelected(provider: 'Databricks' | 'Snowflake'): Promise<void> {
+		const selectedWidget = this.credentialWidget(provider, ['Enabled', 'Selected']);
+		const selectableWidget = this.credentialWidget(provider, ['Disabled', 'Select']);
+
+		// After the OAuth round trip Workbench still exchanges the code for a token before the
+		// widget settles, which took longer than 15s in CI.
+		await expect(async () => {
+			if (await selectedWidget.isVisible().catch(() => false)) {
+				return;
+			}
+			if (await selectableWidget.isVisible().catch(() => false)) {
+				await selectableWidget.click();
+				this.code.logger.log(`Clicked the ${provider} credential to select it`);
+			}
+			await expect(selectedWidget).toBeVisible({ timeout: 2000 });
+		}).toPass({ timeout: 30000 });
+	}
+
 	/**
 	 * Sets up Databricks managed credential via OAuth flow
 	 * @param context BrowserContext for handling OAuth in new tab
@@ -207,7 +231,7 @@ export class DashboardPage {
 		const page = this.code.driver.currentPage;
 
 		// Check if already enabled - wait 3 seconds for state to stabilize
-		const enabledWidget = page.locator('[aria-label*="Databricks"][aria-label*="Enabled"]');
+		const enabledWidget = this.credentialWidget('Databricks', ['Enabled', 'Selected']);
 		try {
 			await expect(enabledWidget).toBeVisible({ timeout: 3000 });
 			this.code.logger.log('Databricks credential already configured, skipping setup');
@@ -231,6 +255,7 @@ export class DashboardPage {
 			completionUrl: /oauth_redirect_callback|localhost:8787/,
 			logger: this.code.logger,
 			label: 'Workbench',
+			credentials: readPositronServiceAccountCredentials(),
 		});
 
 		try {
@@ -244,8 +269,7 @@ export class DashboardPage {
 			this.code.logger.log('OAuth page closed or timed out (may be expected)');
 		}
 
-		// Verify credentials are enabled
-		await expect(enabledWidget).toBeVisible({ timeout: 30000 });
+		await this.ensureCredentialSelected('Databricks');
 		this.code.logger.log('Databricks OAuth setup complete');
 	}
 
@@ -257,7 +281,7 @@ export class DashboardPage {
 		const page = this.code.driver.currentPage;
 
 		// Check if already enabled - wait 3 seconds for state to stabilize
-		const enabledWidget = page.locator('[aria-label*="Snowflake"][aria-label*="Enabled"]');
+		const enabledWidget = this.credentialWidget('Snowflake', ['Enabled', 'Selected']);
 		try {
 			await expect(enabledWidget).toBeVisible({ timeout: 3000 });
 			this.code.logger.log('Snowflake credential already configured, skipping setup');
@@ -276,7 +300,7 @@ export class DashboardPage {
 		]);
 
 		// Snowflake shows its native username/password form first, but the account federates to
-		// Okta and the shared IDE service account has no Snowflake password, so take the SSO hop.
+		// Okta and the Positron service account has no Snowflake password, so take the SSO hop.
 		// From there the flow is the same Okta sign-in the other providers drive and lives in the
 		// shared helper. What is Snowflake-specific is the tail: an "Allow" consent screen that may
 		// appear the first time a client is authorized, then the redirect to Workbench's callback.
@@ -288,6 +312,7 @@ export class DashboardPage {
 		const reachedCallback = await completeOktaSignIn(oauthPage, {
 			logger: this.code.logger,
 			label: 'Workbench/Snowflake',
+			credentials: readPositronServiceAccountCredentials(),
 			afterOtp: async signInPage => {
 				const allowButton = signInPage.getByRole('button', { name: 'Allow' });
 				try {
@@ -312,30 +337,7 @@ export class DashboardPage {
 			this.code.logger.log('Snowflake OAuth page closed or timed out (may be expected)');
 		}
 
-		// Wait for OAuth to complete and widget to reach its final state
-		// Use expect.toPass to handle the race between widget state updates. The budget matches the
-		// Databricks flow above: after the Okta SAML round trip, Workbench still has to exchange the
-		// code for a token before the widget flips to Enabled, which took longer than 15s in CI.
-		await expect(async () => {
-			// Check if already enabled - if so, we're done
-			const isEnabled = await enabledWidget.isVisible().catch(() => false);
-			if (isEnabled) {
-				this.code.logger.log('Snowflake credential already enabled after OAuth');
-				return;
-			}
-
-			// Otherwise, look for disabled widget and click to enable
-			const disabledWidget = page.locator('[aria-label*="Snowflake"][aria-label*="Disabled"]');
-			const isDisabled = await disabledWidget.isVisible().catch(() => false);
-			if (isDisabled) {
-				await disabledWidget.click();
-				this.code.logger.log('Clicked disabled widget to enable Snowflake credential');
-			}
-
-			// Verify it's now enabled
-			await expect(enabledWidget).toBeVisible({ timeout: 2000 });
-		}).toPass({ timeout: 30000 });
-
+		await this.ensureCredentialSelected('Snowflake');
 		this.code.logger.log('Snowflake OAuth setup complete');
 	}
 
