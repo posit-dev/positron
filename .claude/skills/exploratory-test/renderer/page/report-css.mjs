@@ -838,7 +838,8 @@ a.st-ev:hover .ev-pop,a.st-ev:focus-visible .ev-pop{pointer-events:auto;cursor:p
 a.st-ev:hover .ev-pop .ev-hd span{text-decoration:underline;text-underline-offset:2px}
 /* The viewer's two builds side by side, stacked on a narrow screen. */
 .lb-cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px;line-height:normal;padding:0 0 2px}
-.lb-cmp[hidden],.lb-cmp img[hidden],.lb-img>img[hidden]{display:none}
+.lb-cmp[hidden],.lb-img>img[hidden]{display:none}
+.lb-cmp img.shot-full[hidden]{display:none}
 .lb-cmp>div{display:flex;flex-direction:column;gap:8px;min-width:0}
 .lb-cmp-h{display:flex;align-items:baseline;gap:8px;font-family:var(--sans);font-size:13px;line-height:1.3}
 .lb-cmp-h b{font-weight:600;color:var(--ink)}

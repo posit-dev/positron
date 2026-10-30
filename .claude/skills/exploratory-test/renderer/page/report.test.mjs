@@ -1527,5 +1527,7 @@ test('the arrows move between a finding\'s compared steps', () => {
 
 test('a compared view keeps the arrows in the panel\'s margins, off the screenshots, and a missing side is a full-size placeholder', () => {
 	assert.match(REPORT_CSS, /\.lb\.is-cmp \.lb-img\{padding:0 48px\}/);
+	// A hidden screenshot leaves nothing behind, not an empty bordered box.
+	assert.match(REPORT_CSS, /\.lb-cmp img\.shot-full\[hidden\]\{display:none\}/);
 	assert.match(REPORT_CSS, /\.lb-none\{[^}]*display:flex;[^}]*aspect-ratio:16\/10;/);
 });
