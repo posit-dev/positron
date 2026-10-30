@@ -25,6 +25,7 @@ const lintActionsLog = (...a) => texts(ledgerLint.lintActionsLog(...a));
 const lintLedgerOnly = (...a) => texts(ledgerLint.lintLedgerOnly(...a));
 const lintShotNames = (...a) => texts(ledgerLint.lintShotNames(...a));
 const lintShotTiming = (...a) => texts(ledgerLint.lintShotTiming(...a));
+const lintShotCrops = (...a) => texts(ledgerLint.lintShotCrops(...a));
 const lintReportJson = (...a) => texts(lintReportJsonRaw(...a));
 import { applyVerification, parseVerifyReply } from '../agents/finish.mjs';
 import { withTmpDir } from '../shared/tmp-dirs.mjs';
@@ -429,6 +430,12 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 	'a shot taken twice: a warning when its last capture falls at its check, an error when not': () => {
 		const ledger = ['## S01 - x', 'Status: pass', '', 'Steps:', '1. VERIFY a -> PASS', '   Evidence: S01-01.png', '2. VERIFY b -> PASS', '   Evidence: S01-02.png', '3. VERIFY c -> PASS', '   Evidence: S01-03.png', ''].join('\n');
 		return each((...names) => lintShotTiming(ledger, names.map((n, i) => `20:00:0${i}Z shot.sh -s=p: screenshot ${n}`).join('\n')), [['S01-01.png', 'S01-02.png', 'S01-02.png', 'S01-03.png'], ['S01-01.png', 'S01-02.png', 'S01-03.png', 'S01-02.png']]);
+	},
+	'a run that cites shots but never took a crop: one warning; none once any shot has a crop': () => {
+		const ledger = '## S01 - x\nStatus: pass\n\nSteps:\n1. VERIFY a -> PASS\n   Evidence: S01-01.png\n2. VERIFY b -> PASS\n   Evidence: S01-02.png\n';
+		const plain = '20:00:01Z shot.sh -s=p: screenshot S01-01.png\n20:00:02Z shot.sh -s=p: screenshot S01-02.png\n';
+		const cropped = '20:00:01Z shot.sh -s=p: screenshot S01-01.png 1530x1080, crop S01-01.crop.png 640x320 of the active console\n20:00:02Z shot.sh -s=p: screenshot S01-02.png\n';
+		return [...lintShotCrops(ledger, plain), '--', ...lintShotCrops(ledger, cropped)];
 	},
 	'a shot named for another scenario means the scenarios were renumbered': () => lintLedgerOnly('# Test ledger\n\n## S05 - x\nStatus: pass\nResult: ok\n\nSteps:\n1. Click Run.\n2. VERIFY it runs -> PASS\n   Evidence: S06-01.png\n3. VERIFY it stays -> PASS\n   Evidence: S05-02.png\n', { fileExists: () => true }),
 

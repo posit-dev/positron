@@ -132,6 +132,7 @@ export const LINT_RULES = {
 	'shot-retaken-in-place': 'warning',
 	'shot-retaken': 'error',
 	'shot-out-of-order': 'error',
+	'shot-no-crop': 'warning',
 };
 
 /** One lint problem: its rule, that rule's severity, the line shown, and anything else the caller keys it by. */

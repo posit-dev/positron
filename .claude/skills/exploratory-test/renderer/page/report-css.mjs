@@ -760,14 +760,14 @@ span.rt-file{color:var(--body)}
 /* The tag already separates the icon from the text */
 .st-rs+.st-sep{display:none}
 .st-ev .st-n{font-size:.86em;margin-left:2px}
-/* A finding step's screenshot, previewed above its icon on hover or focus;
-   below it when there is no room above. Clicking still opens the lightbox. */
-a.st-ev{position:relative}
-.ev-pop{position:absolute;bottom:calc(100% + 8px);left:-12px;z-index:6;width:260px;box-sizing:border-box;padding:8px;border-radius:10px;background:var(--card);border:1px solid var(--pop-border);box-shadow:var(--pop-shadow);display:flex;flex-direction:column;gap:6px;white-space:normal;cursor:zoom-in;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .12s ease,visibility 0s linear .12s}
-.ev-pop img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top center;border:1px solid var(--thumb-border);border-radius:6px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 8px,var(--thumb-b) 8px 16px)}
+/* A step's screenshot, previewed on hover or focus: its crop at full size, or
+   the whole window fitted. Fixed to the window and placed by the page script,
+   above the icon when there is room, so a wide one is never cut off.
+   Clicking opens the whole window in the lightbox. */
+.ev-pop{position:fixed;left:-9999px;top:-9999px;z-index:60;width:max-content;max-width:min(1000px,calc(100vw - 24px));box-sizing:border-box;padding:8px;border-radius:10px;background:var(--card);border:1px solid var(--pop-border);box-shadow:var(--pop-shadow);display:flex;flex-direction:column;gap:6px;white-space:normal;cursor:zoom-in;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .12s ease,visibility 0s linear .12s}
+.ev-pop img{display:block;max-width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:6px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 8px,var(--thumb-b) 8px 16px)}
 .ev-cap{font-family:var(--sans);font-size:11.5px;font-weight:400;line-height:1.3;letter-spacing:0;color:var(--muted)}
 a.st-ev:hover .ev-pop,a.st-ev:focus-visible .ev-pop{visibility:visible;opacity:1;transition:opacity .12s ease .12s,visibility 0s linear .12s}
-a.st-ev.ev-below .ev-pop{bottom:auto;top:calc(100% + 8px)}
 @media (prefers-reduced-motion:reduce){.ev-pop{transition:none}}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
@@ -851,8 +851,8 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .lb[hidden]{display:none}
 .lb{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:32px;background:var(--lb-backdrop)}
 .lb-backdrop{position:absolute;inset:0;border:0;padding:0;background:transparent;cursor:zoom-out}
-.lb-panel{position:relative;width:min(1040px,100%);max-height:100%;overflow:auto;padding:16px;border-radius:12px;background:var(--card);border:1px solid var(--border);box-shadow:var(--lb-shadow);display:flex;flex-direction:column;gap:12px}
-.lb-panel img{display:block;width:100%;height:auto;max-height:calc(100vh - 220px);object-fit:contain;border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 12px,var(--thumb-b) 12px 24px)}
+.lb-panel{position:relative;width:min(1562px,100%);max-height:100%;overflow:auto;padding:16px;border-radius:12px;background:var(--card);border:1px solid var(--border);box-shadow:var(--lb-shadow);display:flex;flex-direction:column;gap:12px}
+.lb-panel img{display:block;width:auto;max-width:100%;height:auto;max-height:calc(100vh - 140px);margin:0 auto;object-fit:contain;border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 12px,var(--thumb-b) 12px 24px)}
 .lb-img{position:relative}
 .lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;padding:0;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--lb-nav-bg);border:1px solid var(--lb-nav-border);color:var(--lb-nav-text);box-shadow:0 1px 3px rgba(0,0,0,.14);cursor:pointer}
 .lb-nav[hidden]{display:none}

@@ -109,6 +109,7 @@ Then update the rule's row here in the same PR.
 | Merge a wait into its action, naming what it waits for, never a time. | Not recorded. | Lint (`fixed-wait`, `wait-only-step`): a fixed-time wait, a wait-only step. | - | #16355 |
 | Write a VERIFY before you look, with one expected outcome. | A check that passes on either outcome checks nothing. | Verifier | - | #16221 |
 | A number in a VERIFY or Observed comes from `actions.log` or the screenshot. | Not recorded. | Nothing | - | #16233 |
+| Take each check's shot with `--crop` and the region it is about, unless it is about the whole window. | A whole window shrunk to fit a hover preview has text about 2px high, so readers clicked every shot. | Lint warning (`shot-no-crop`): a run whose shots never had a crop. Nothing checks the region chosen. | - | - |
 | A check about something off screen still gets a shot, plus the saved output in `logs/`. | Every check has a picture of the app. | Lint (`verify-no-shot`): VERIFY cites no screenshot. | - | #16421 |
 | Save every test file to `files/` before using it, with a unique name, and list it. | A reader can't reproduce from a description of a file. | Lint (`file-not-saved`, `files-saved-unlisted`, `files-named-unlisted`): a file named but not saved, or saved but not listed. | - | #16233 |
 | Collect logs before `stop.sh`, diff listeners, then clean up. | `stop.sh` deletes the instance's logs. | Nothing | - | #16221 |

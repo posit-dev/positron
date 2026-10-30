@@ -486,11 +486,45 @@ function renderShotLinks(f) {
 	return links ? `<div class="shot-links" hidden>${links}</div>` : '';
 }
 
+/** A PNG's width and height in CSS px, read from its header; shots are taken at CSS scale. */
+function pngSize(bytes) {
+	return bytes?.length >= 24 && bytes.toString('latin1', 12, 16) === 'IHDR'
+		? { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+		: null;
+}
+
+/**
+ * What a screenshot icon previews: the crop shot.sh saved beside the shot, at
+ * its own size, or else the whole window fitted to the preview. A whole
+ * window shrunk that far has text about 2px high, so the crop is the point.
+ */
+function shotPreview(src, readFile) {
+	const crop = String(src).replace(/\.png$/i, '.crop.png');
+	const cropSize = crop !== src && readFile ? pngSize(readFile(crop)) : null;
+	if (cropSize) {
+		return { src: crop, cls: 'shot-crop', ...cropSize };
+	}
+	return { src, cls: 'shot-full', ...(readFile ? pngSize(readFile(src)) : null) };
+}
+
+/**
+ * The preview on an icon's hover or focus. Placed by the page script, since
+ * it is fixed to the window so a wide one is never cut off. Lazy, so it loads
+ * only once it shows; sized, so it keeps its space while it does.
+ */
+function evPop(src, readFile, count = 1) {
+	const p = shotPreview(src, readFile);
+	const size = p.width ? ` width="${p.width}" height="${p.height}"` : '';
+	return '<span class="ev-pop" aria-hidden="true">'
+		+ `<img class="${p.cls}" src="${escapeHtml(p.src)}" alt=""${size} loading="lazy">`
+		+ `<span class="ev-cap">${count > 1 ? `1 of ${count} &middot; click for full window` : 'Click for full window'}</span></span>`;
+}
+
 /**
  * A finding step's screenshot icon: previews the first of that step's shots
  * and opens it full size, with a count when there is more than one.
  */
-function stepShotIcon(f, k) {
+function stepShotIcon(f, k, readFile) {
 	const shots = findingShots(f);
 	const mine = shots.map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k);
 	if (!mine.length) {
@@ -499,12 +533,9 @@ function stepShotIcon(f, k) {
 	const count = mine.length;
 	const label = count > 1 ? `${count} screenshots for this step` : 'Screenshot for this step';
 	// A preview on hover or focus keeps the screenshot a glance away without
-	// putting it in the reading flow. Lazy, so it loads only once it shows.
-	const pop = '<span class="ev-pop" aria-hidden="true">'
-		+ `<img src="${escapeHtml(mine[0].item.src)}" alt="" loading="lazy">`
-		+ `<span class="ev-cap">${count > 1 ? `1 of ${count} &middot; click to enlarge` : 'Click to enlarge'}</span></span>`;
+	// putting it in the reading flow.
 	return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f${f.n}-${mine[0].i + 1}" data-open="shot-f${f.n}-${mine[0].i + 1}"`
-		+ ` aria-label="${label}">${pop}${ICON.photo}${count > 1 ? `<span class="st-n">${count}</span>` : ''}</a>`;
+		+ ` aria-label="${label}">${evPop(mine[0].item.src, readFile, count)}${ICON.photo}${count > 1 ? `<span class="st-n">${count}</span>` : ''}</a>`;
 }
 
 /** Every file beside the report the page links to as a log, for a check that each exists. */
@@ -769,7 +800,7 @@ function renderFindingCard(f, report, options) {
 	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
 	const steps = f.steps.length
 		? '<div class="repro-group steps">'
-		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1) : '' })).join('\n')}</ol></div>`
+		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1, options.readFile) : '' })).join('\n')}</ol></div>`
 		: '';
 	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.
 	const repro = (preconditions || steps)
@@ -828,7 +859,7 @@ function renderCoverage(report, options = {}) {
 		const name = row.scenario;
 		return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="${escapeHtml(shot.href)}" data-lb="cv-${i}"`
 			+ ` data-caption="${escapeHtml(name)}" data-file="${escapeHtml(shot.file)}"`
-			+ ` aria-label="Screenshot for this step: ${escapeHtml(name)}">${ICON.photo}</a>`;
+			+ ` aria-label="Screenshot for this step: ${escapeHtml(name)}">${evPop(shot.href, options.readFile)}${ICON.photo}</a>`;
 	};
 	// The dot lives in the scenario cell rather than a column of its own, so it
 	// reads as that scenario's status instead of as a first field.

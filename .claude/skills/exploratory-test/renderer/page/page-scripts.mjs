@@ -46,11 +46,14 @@ function openRun(){var d=document.getElementById('run-details');if(d){d.open=tru
 document.querySelectorAll('a[href="#run-details"]').forEach(function(a){a.addEventListener('click',openRun);});
 window.addEventListener('hashchange',function(){if(location.hash==='#run-details'){openRun();}});
 if(location.hash==='#run-details'){openRun();}
-// A step's screenshot preview opens above its icon, or below when that would
-// run off the top of the window.
-document.querySelectorAll('a.st-ev .ev-pop').forEach(function(p){var a=p.parentNode;
-function place(){a.classList.toggle('ev-below',a.getBoundingClientRect().top<p.offsetHeight+16);}
-a.addEventListener('mouseenter',place);a.addEventListener('focus',place);});
+// A step's screenshot preview is fixed to the window: centred on its icon,
+// 12px inside the edges, above it when there is room, else below.
+function placePop(a){var p=a.querySelector('.ev-pop');if(!p){return;}
+var r=a.getBoundingClientRect(),w=p.offsetWidth,h=p.offsetHeight,m=12;
+var left=Math.min(Math.max(m,r.left+r.width/2-w/2),window.innerWidth-w-m);
+var top=r.top-h-8;if(top<m){top=Math.min(r.bottom+8,window.innerHeight-h-m);}
+p.style.left=left+'px';p.style.top=Math.max(m,top)+'px';}
+['mouseover','focusin'].forEach(function(t){document.addEventListener(t,function(e){var a=e.target.closest&&e.target.closest('a.st-ev');if(a){placePop(a);}});});
 // Lightbox. The thumbnails are links to the raw image, so everything here is an
 // enhancement: without it, or before it runs, clicking one still shows the
 // full-size screenshot.

@@ -1120,7 +1120,15 @@ const SCENES = {
 			evidence: [{ kind: 'shot', path: 'https://cdn.example/shots/a.png', step: 2, caption: 'first' }, { kind: 'shot', path: 'https://cdn.example/shots/b.png', step: 2, caption: 'second' }],
 		})],
 	})), 1),
-	'a shot a step cites reaches its step with no Evidence item, and a check with no result gets none': () => card(render(rep({
+	'a step shot previews its crop at its own size, and the whole window, fitted, when it has none': () => {
+		const png = (w, h) => { const b = Buffer.alloc(24); b.write('IHDR', 12, 'latin1'); b.writeUInt32BE(w, 16); b.writeUInt32BE(h, 20); return b; };
+		const files = { 'shots/S01-01.png': png(1530, 1080), 'shots/S01-01.crop.png': png(640, 320), 'shots/S01-03.png': png(1530, 1080) };
+		const html = render(rep({
+			findings: [fnd(1, { steps: [pass('the panel opens', { shots: ['shots/S01-01.png'] }), act('Click Retry.'), fail('it loads', 1, { observed: 'empty', shots: ['shots/S01-03.png'] })] })],
+		}), { readFile: p => files[p] ?? null });
+		return [...card(html, 1).matchAll(/<span class="ev-pop"[\s\S]*?<\/span><\/span>/g)].map(m => m[0]).join('\n--\n');
+	},
+	'a shot a step cites reaches its step with no Evidence item, and a check with no result gets none':() => card(render(rep({
 		findings: [fnd(1, {
 			steps: [pass('the panel opens', { shots: ['shots/S01-01.png'] }), act('Click Retry.'), fail('it loads', 1, { observed: 'empty', shots: ['shots/S01-03.png'] }), { kind: 'verify', text: 'confirm the dialog closes' }],
 			evidence: [{ kind: 'shot', path: 'shots/S01-03.png', step: 3, caption: 'empty panel' }],
