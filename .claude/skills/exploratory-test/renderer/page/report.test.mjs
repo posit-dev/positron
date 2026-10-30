@@ -1542,3 +1542,7 @@ test('a screenshot\'s caption in the viewer drops the code marks the viewer woul
 	assert.ok(captions.includes('The id column shows Min 8'), captions.join(' | '));
 	assert.ok(captions.every(c => !c.includes('`')), captions.join(' | '));
 });
+
+test('a hover preview never grows taller than the window', () => {
+	assert.match(REPORT_CSS, /\.ev-pop img\{[^}]*width:auto;[^}]*max-height:calc\(100vh - 72px\);[^}]*object-fit:contain/);
+});

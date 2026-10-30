@@ -49,6 +49,8 @@ if(location.hash==='#run-details'){openRun();}
 // A step's screenshot preview is fixed to the window: centred on its icon,
 // 12px inside the edges, above it when there is room, else below.
 function placePop(a){var p=a.querySelector('.ev-pop');if(!p){return;}
+// A lazy image changes the preview's size when it arrives, so place it again then.
+var im=p.querySelector('img');if(im&&!im.complete){im.addEventListener('load',function(){placePop(a);},{once:true});}
 var r=a.getBoundingClientRect(),w=p.offsetWidth,h=p.offsetHeight,m=12;
 var left=Math.min(Math.max(m,r.left+r.width/2-w/2),window.innerWidth-w-m);
 var top=r.top-h-8;if(top<m){top=Math.min(r.bottom+8,window.innerHeight-h-m);}

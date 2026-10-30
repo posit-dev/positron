@@ -821,7 +821,8 @@ span.rt-file{color:var(--body)}
    above the icon when there is room, so a wide one is never cut off.
    Clicking opens the whole window in the lightbox. */
 .ev-pop{position:fixed;left:-9999px;top:-9999px;z-index:60;width:max-content;max-width:min(1000px,calc(100vw - 24px));box-sizing:border-box;padding:8px;border-radius:10px;background:var(--card);border:1px solid var(--pop-border);box-shadow:var(--pop-shadow);display:flex;flex-direction:column;gap:6px;white-space:normal;cursor:zoom-in;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .12s ease,visibility 0s linear .12s}
-.ev-pop img{display:block;max-width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:6px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 8px,var(--thumb-b) 8px 16px)}
+/* A tall crop is fitted to the window, keeping its shape, so a laptop screen shows all of it. */
+.ev-pop img{display:block;width:auto;max-width:100%;height:auto;max-height:calc(100vh - 72px);object-fit:contain;border:1px solid var(--thumb-border);border-radius:6px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 8px,var(--thumb-b) 8px 16px)}
 .ev-cap{font-family:var(--sans);font-size:11.5px;font-weight:400;line-height:1.3;letter-spacing:0;color:var(--muted)}
 a.st-ev:hover .ev-pop,a.st-ev:focus-visible .ev-pop{visibility:visible;opacity:1;transition:opacity .12s ease .12s,visibility 0s linear .12s}
 @media (prefers-reduced-motion:reduce){.ev-pop{transition:none}}
