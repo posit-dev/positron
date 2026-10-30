@@ -1349,15 +1349,22 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 
 		// Make window visible if it did not open in N seconds because this indicates an error
 		// Only do this when running out of sources and not when running tests
-		if (!this.environmentMainService.isBuilt && !this.environmentMainService.extensionTestsLocationURI) {
-			this._register(new RunOnceScheduler(() => {
+		// --- Start Positron ---
+		// Only for a window that has never been shown: once it has opened, a
+		// later hide is deliberate (Canvas mode hides the IDE window), not an
+		// error, and must not be undone.
+		if (!this.environmentMainService.isBuilt && !this.environmentMainService.extensionTestsLocationURI && !this._win.isVisible()) {
+			const openWatchdog = this._register(new RunOnceScheduler(() => {
 				if (this._win && !this._win.isVisible() && !this._win.isMinimized()) {
 					this._win.show();
 					this.focus({ mode: FocusMode.Force });
 					this._win.webContents.openDevTools();
 				}
-			}, 10000)).schedule();
+			}, 10000));
+			this._register(Event.once(Event.fromNodeEventEmitter(this._win, 'show'))(() => openWatchdog.dispose()));
+			openWatchdog.schedule();
 		}
+		// --- End Positron ---
 
 		// Event
 		this._onWillLoad.fire({ workspace: configuration.workspace, reason: options.isReload ? LoadReason.RELOAD : wasLoaded ? LoadReason.LOAD : LoadReason.INITIAL });
