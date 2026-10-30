@@ -305,6 +305,6 @@ describe('ConsoleInput parameter hints', () => {
 		fireEvent.keyDown(textbox, { key: 'Enter', code: 'Enter', keyCode: 13 });
 
 		expect(instance.submitCode).toHaveBeenCalledWith('f()', expect.anything());
-		expect(widget).not.toHaveClass('visible');
+		await vi.waitFor(() => expect(widget).not.toHaveClass('visible'));
 	});
 });
