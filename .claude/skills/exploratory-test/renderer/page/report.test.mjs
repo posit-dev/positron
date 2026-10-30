@@ -1159,6 +1159,14 @@ const SCENES = {
 		findingRow(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } }), 1),
 		findingRow(fullHtml(ORIGINS), 3),
 	].join('\n--\n'),
+	'an Origin tooltip shows the fix lines and what blame found there, for each value': () => {
+		const evidence = {
+			1: { fix: { file: 'src/a/summary.ts', start: 120, end: 131 }, commits: ['0123456789abcdef0123'], deleted: false },
+			2: { fix: { file: 'src/a/queue.ts', start: 40, end: 40 }, trigger: { file: 'src/a/panel.tsx', start: 88, end: 88 }, commits: ['fedcba9876543210fedc'], deleted: false },
+		};
+		const html = fullHtml({ ...ORIGINS, verification: { ...ORIGINS.verification, originEvidence: evidence } }, { changeBase: USABLE });
+		return [1, 2].map(n => between(findingRow(html, n), '<span class="og-cell">', '</span></span></span>')).join('\n--\n');
+	},
 	'a card shows its Origin word after Reproduced x/y, focusable with its tooltip; a card with none shows nothing': () => {
 		const context = (html, n) => between(card(html, n), '<span class="group context">', '<button');
 		const html = fullHtml(ORIGINS, { changeBase: USABLE });

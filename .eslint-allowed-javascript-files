@@ -221,6 +221,8 @@ test/unit/reporter.js
 .github/actions/pr-exploratory-test/outcomes-lib.test.mjs
 .github/actions/pr-exploratory-test/outcomes.mjs
 .github/actions/pr-exploratory-test/outcomes-page.mjs
+.github/actions/pr-exploratory-test/origin-accuracy.mjs
+.github/actions/pr-exploratory-test/origin-accuracy.test.mjs
 .github/actions/pr-exploratory-test/outcomes-page.test.mjs
 .github/actions/pr-exploratory-test/outcomes-publish.mjs
 .github/actions/pr-exploratory-test/outcomes-publish.test.mjs
@@ -237,6 +239,8 @@ test/unit/reporter.js
 .claude/skills/exploratory-test/renderer/explorer-format.test.mjs
 .claude/skills/exploratory-test/renderer/agents/finish.mjs
 .claude/skills/exploratory-test/renderer/agents/finish.test.mjs
+.claude/skills/exploratory-test/renderer/agents/origin-check.mjs
+.claude/skills/exploratory-test/renderer/agents/origin-check.test.mjs
 .claude/skills/exploratory-test/renderer/agents/edit.mjs
 .claude/skills/exploratory-test/renderer/agents/edit.test.mjs
 .claude/skills/exploratory-test/renderer/agents/claude-cli.mjs

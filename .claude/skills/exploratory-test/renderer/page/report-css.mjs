@@ -437,6 +437,9 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .og{position:relative;display:inline-block;cursor:help}
 .og-tip{position:absolute;top:calc(100% + 8px);left:0;display:flex;flex-direction:column;gap:2px;width:max-content;max-width:340px;padding:7px 10px;border-radius:6px;background:var(--tip-bg);border:1px solid var(--tip-border);box-shadow:var(--og-shadow);font-family:var(--sans);font-size:12px;font-weight:400;letter-spacing:0;line-height:1.45;color:var(--muted);text-align:left;text-transform:none;text-decoration:none;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;z-index:5;transition:opacity .12s ease,visibility 0s linear .12s}
 .og-tip b{font-weight:600;color:var(--tip-text)}
+/* The lines an origin rests on: a path breaks anywhere rather than widening the tooltip. */
+.og-ev{margin-top:4px}
+.og-ev code{font-family:var(--mono);font-size:11.5px;word-break:break-all}
 /* In the table the tip opens leftward from the Origin cell; in a card's meta line, rightward. */
 .og .og-tip{left:auto;right:0}
 .og-meta .og-tip{left:0;right:auto}

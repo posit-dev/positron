@@ -80,6 +80,12 @@ jobs:
           if [ "$RECHECK" = true ]; then set -- --recheck; fi
           node outcomes.mjs --api --model claude-opus-5-5 --previous "$RUNNER_TEMP/previous.jsonl" "$@" --out "$RUNNER_TEMP/rows.jsonl" >> "$GITHUB_STEP_SUMMARY"
 
+      # Measures Origin against where fixes landed; a report, so it never fails the job.
+      - name: Origin accuracy
+        continue-on-error: true
+        working-directory: .github/actions/pr-exploratory-test
+        run: node origin-accuracy.mjs "$RUNNER_TEMP/rows.jsonl" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build and publish the page
         working-directory: .github/actions/pr-exploratory-test
         env:

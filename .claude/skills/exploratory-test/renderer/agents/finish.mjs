@@ -101,11 +101,21 @@ const VERDICTS = { 'confirmed': 'confirmed', 'false positive': 'disputed', 'unre
 const SEVERITIES = ['major', 'moderate', 'minor'];
 const ORIGINS = ['introduced', 'exposed', 'inherited'];
 
+/** `path:12` or `path:12-30` as `{ file, start, end }`; null for anything else. */
+export function parseLines(value) {
+	const m = /^\s*([^\s:][^:]*):(\d+)(?:-(\d+))?\s*$/.exec(typeof value === 'string' ? value : '');
+	if (!m) {
+		return null;
+	}
+	const [start, end] = [Number(m[2]), Number(m[3] ?? m[2])];
+	return start >= 1 && start <= end ? { file: m[1].trim().replace(/^\.\//, ''), start, end } : null;
+}
+
 /**
  * The verifier's reply: the fenced `json` block it opens with, and its notes
  * after the block. Anything before the block is its notes to itself, and is
  * dropped. `findings` maps a finding number to `{ verified, known, intended,
- * feature, title, origin }`, `linked` an issue number to its severity, and
+ * feature, title, origin, fix, trigger }` (`fix` and `trigger` as `{ file, start, end }`), `linked` an issue number to its severity, and
  * `problem` says why the block could not be read, or is ''. An entry it
  * cannot read is skipped, so one bad entry costs only that finding.
  */
@@ -142,7 +152,7 @@ export function parseVerifyReply(text) {
 			const setup = Array.isArray(f.setup)
 				? f.setup.filter(x => x && typeof x === 'object').map(x => ({ what: typeof x.what === 'string' ? x.what.trim() : '', log: Number.isInteger(x.log) ? x.log : null, alone: x.alone === true, why: typeof x.why === 'string' ? x.why.trim() : '' }))
 				: null;
-			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), origin: ORIGINS.includes(f.origin) ? f.origin : null, log, shots, setup });
+			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), origin: ORIGINS.includes(f.origin) ? f.origin : null, fix: parseLines(f.fix), trigger: parseLines(f.trigger), log, shots, setup });
 		}
 	}
 	for (const l of Array.isArray(data?.linked) ? data.linked : []) {
@@ -361,6 +371,8 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 		};
 	});
 	const origin = Object.fromEntries([...reply.findings].filter(([, f]) => f.origin).map(([n, f]) => [n, f.origin]));
+	// Where the verifier put each fix, for checkOrigins to check against the change.
+	const originEvidence = Object.fromEntries([...reply.findings].filter(([, f]) => f.origin).map(([n, f]) => [n, { fix: f.fix ?? null, ...(f.trigger ? { trigger: f.trigger } : {}) }]));
 	const unchecked = Object.fromEntries(['log', 'shots', 'setup'].map(kind => [kind, [...new Set(gaps.filter(g => g.kind === kind).map(g => g.n))]]).filter(([, ns]) => ns.length));
 	const named = ns => ns.map(n => `Finding ${n}`).join(', ');
 	const skipped = [
@@ -377,7 +389,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			// A skipped check is said, so "No process issues" is not read as one that passed.
 			// Its own all-clear would contradict what the pipeline found missing.
 			text: [PREAMBLE, skipped ? reply.notes.replace(/\n*No process issues\.?\s*$/, '') : reply.notes, skipped ? `_The verifier did not show it checked ${skipped}._` : ''].filter(Boolean).join('\n\n'),
-			...(Object.keys(origin).length ? { origin } : {}),
+			...(Object.keys(origin).length ? { origin, originEvidence } : {}),
 			...(linked.length ? { linked } : {}),
 			...(skipped ? { unchecked } : {}),
 		},

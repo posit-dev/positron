@@ -45,16 +45,16 @@ test('parseVerifyReply says why it read nothing, and keeps the whole reply as no
 test('parseVerifyReply skips each entry it cannot read, and keeps the rest', () => {
 	const r = parseVerifyReply(reply({
 		findings: [
-			{ n: 1, verdict: 'confirmed', known: [15102, 15102, 'x'], feature: 'new folder flow', title: 'a | b', origin: 'exposed', log: [12, 30], shots: ['shots/S01-02.png', 3] },
+			{ n: 1, verdict: 'confirmed', known: [15102, 15102, 'x'], feature: 'new folder flow', title: 'a | b', origin: 'exposed', fix: './src/a/b.ts:120-131', trigger: 'src/c.ts:88', log: [12, 30], shots: ['shots/S01-02.png', 3] },
 			{ n: '2', verdict: 'confirmed' },
 			{ n: 3, verdict: 'maybe' },
-			{ n: 4, verdict: 'unresolved', intended: [14210], origin: 'unclear', log: [30, 12] },
+			{ n: 4, verdict: 'unresolved', intended: [14210], origin: 'unclear', fix: 'src/a.ts:30-12', trigger: 'nowhere', log: [30, 12] },
 		],
 		linked: [{ issue: 5678, severity: 'Moderate' }, { issue: 5301, severity: 'awful' }, { issue: '9', severity: 'minor' }],
 	}));
 	assert.deepEqual(Object.fromEntries(r.findings), {
-		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, cause: null, observed: null, tests: null, origin: 'exposed', log: [12, 30], shots: [{ file: 'S01-02.png', shows: '' }], setup: null },
-		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, cause: null, observed: null, tests: null, origin: null, log: null, shots: null, setup: null },
+		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, cause: null, observed: null, tests: null, origin: 'exposed', fix: { file: 'src/a/b.ts', start: 120, end: 131 }, trigger: { file: 'src/c.ts', start: 88, end: 88 }, log: [12, 30], shots: [{ file: 'S01-02.png', shows: '' }], setup: null },
+		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, cause: null, observed: null, tests: null, origin: null, fix: null, trigger: null, log: null, shots: null, setup: null },
 	});
 	assert.deepEqual([...r.linked], [[5678, 'moderate']]);
 	assert.deepEqual([...issueMatches(r, 'known')], [[1, [15102]]]);
@@ -70,11 +70,12 @@ test('applyVerification marks each finding with its verdict, and only the ones i
 });
 
 test('applyVerification keeps each finding\'s origin and linked severities beside the notes', () => {
-	const out = apply(REPORT, { ...verdicts([1, 'confirmed', { origin: 'introduced' }], [2, 'confirmed']), linked: [{ issue: 20, severity: 'minor' }] }, '- 1: holds.');
+	const out = apply(REPORT, { ...verdicts([1, 'confirmed', { origin: 'introduced', fix: 'src/a.ts:3-5' }], [2, 'confirmed']), linked: [{ issue: 20, severity: 'minor' }] }, '- 1: holds.');
 	assert.deepEqual(out.verification, {
 		failed: false,
 		text: 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was removed. A title, feature, cause, observed or test list it corrected replaces the explorer\'s, and a corrected cause or observed is marked on its finding.\n\n- 1: holds.',
 		origin: { 1: 'introduced' },
+		originEvidence: { 1: { fix: { file: 'src/a.ts', start: 3, end: 5 } } },
 		linked: [{ issue: 20, severity: 'minor' }],
 	});
 	assert.ok(isVerified(out));

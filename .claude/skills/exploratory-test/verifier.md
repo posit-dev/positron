@@ -99,7 +99,7 @@ to mark each finding, so nothing else goes in it:
 ```json
 {
 	"findings": [
-		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": [{ "file": "S04-03.png", "shows": "Median N/A beside Mean 2.5" }], "setup": [{ "what": "dataExplorer.summaryCollapsed set to false", "log": 18, "alone": false, "why": "only sets whether the summary panel starts open (summaryPanel.tsx:88)" }], "origin": "introduced" },
+		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": [{ "file": "S04-03.png", "shows": "Median N/A beside Mean 2.5" }], "setup": [{ "what": "dataExplorer.summaryCollapsed set to false", "log": 18, "alone": false, "why": "only sets whether the summary panel starts open (summaryPanel.tsx:88)" }], "origin": "introduced", "fix": "src/vs/workbench/contrib/positronDataExplorer/browser/summaryRow.tsx:120-131" },
 		{ "n": 2, "verdict": "confirmed", "log": [150, 171], "shots": [{ "file": "S05-02.png", "shows": "the filter chip is red" }], "setup": [], "cause": "the chip turns red for any filter on a string column (filterChip.tsx:54), not only an invalid one", "observed": "the filter chip is red after a valid filter on a string column" },
 		{ "n": 3, "verdict": "unresolved", "log": [201, 233], "shots": [{ "file": "S07-04.png", "shows": "the picker lists R 4.4 once" }], "setup": [{ "what": "a second window opened on the same folder", "log": null, "alone": true, "why": "a second window holds the lock (duckdb.ts:212); the log never opens one, and no case ran without it" }], "known": [15102], "feature": "new folder flow" }
 	],
@@ -161,15 +161,19 @@ to mark each finding, so nothing else goes in it:
 - `origin`: where the most direct fix for the finding likely goes, judged
   from the change under test: `introduced`, `exposed` or `inherited`.
   {{CHANGE_SCOPE}}
+- `fix`: with every `origin`, the lines the most direct fix would change, as
+  `path:start-end` from the repository root, at the head.
+- `trigger`: with `exposed`, the changed line that leads to the fix lines, as
+  `path:line`.
 
 Leave out any field that does not apply. Give `origin` only for a finding you
 CONFIRM and whose cause you traced to the lines a fix would change, and never
 for one the ledger marks `fix did not hold`: that is an old bug the change
 tried to fix. For each one:
 
-1. Name the most direct fix: the file and lines it would change. Not any fix
-   that would work: almost every bug has one that touches the diff, such as a
-   guard at a new call site.
+1. Name the most direct fix: the file and lines it would change, as `fix`.
+   Not any fix that would work: almost every bug has one that touches the
+   diff, such as a guard at a new call site.
 2. Run `git -C {{REPO}} blame -w -M -C {{HEAD}} -L <start>,<end> -- <file>` on
    those lines, and check each blamed commit against
    `git -C {{REPO}} rev-list {{CHANGE_RANGE}}`. The flags keep a reformatted or
@@ -178,15 +182,17 @@ tried to fix. For each one:
    change. Blame cannot see a deleted line.
 4. `introduced`: any line from step 2 or 3 is in the change.
 5. `exposed`: no fix line is in the change, but you can name the changed line
-   that now leads to it: a new call, a removed check, a timing or order
-   change, a changed setting or default. If you cannot name one, it is not
-   `exposed`.
+   that now leads to it, as `trigger`: a new call, a removed check, a timing
+   or order change, a changed setting or default. If you cannot name one, it
+   is not `exposed`.
 6. `inherited`: no fix line is in the change, and you read the path to it and
    found nothing in the diff on it.
 
 When you are unsure between two values, leave `origin` out. Do not pick the
 gentler one. This says where the fix likely goes, not who caused the bug, and
-nothing was run against the base.
+nothing was run against the base. The pipeline runs the same blame on your
+`fix` and `trigger` lines and drops an `origin` they do not bear out, so name
+the lines you checked, not nearby ones.
 
 After the block, keep it short. The verdict on each finding is what a reviewer reads; this
 section is for what the verdict cannot say.

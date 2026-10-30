@@ -758,6 +758,11 @@ id="findings" class="section">
 --
 <a href="#f3" class="row findings-grid"><span><span class="pill sev-minor"><span class="dot"></span>Minor</span></span><span class="finding-cell"><span class="claim"><span class="n">3</span>a flaky claim</span></span><span class="ki-st"><span class="og og-none"><span aria-hidden="true">&mdash;</span><span class="og-sr">No matches</span><span class="og-tip" aria-hidden="true" role="tooltip"><span>No matching issues or PRs found.</span></span></span></span></a>
 
+==== an Origin tooltip shows the fix lines and what blame found there, for each value
+<span class="og-cell"><span class="og">Introduced<span class="og-tip" aria-hidden="true" role="tooltip"><b>Introduced</b><span>Likely caused by this branch. The suspected fix is in changed code.</span><span class="og-ev">Fix likely in <code>src/a/summary.ts:120-131</code>: blame gives <code>0123456789</code>, in this branch.
+--
+<span class="og-cell"><span class="og">Exposed<span class="og-tip" aria-hidden="true" role="tooltip"><b>Exposed</b><span>The suspected fix is in existing code, but this branch changed something that now triggers it.</span><span class="og-ev">Fix likely in <code>src/a/queue.ts:40</code>, which this branch didn&rsquo;t change. Changed line that leads to it: <code>src/a/panel.tsx:88</code> (blame gives <code>fedcba9876</code>, in this branch).
+
 ==== a card shows its Origin word after Reproduced x/y, focusable with its tooltip; a card with none shows nothing
 <span class="group context"><span class="confirmed"><svg>Confirmed</span><span class="sep" aria-hidden="true">&middot;</span><span class="reproduced">Reproduced 3/3</span><span class="sep" aria-hidden="true">&middot;</span><span class="og og-meta" tabindex="0">Introduced<span class="og-tip" role="tooltip"><b>Introduced</b><span>Likely caused by this branch. The suspected fix is in changed code.</span></span></span></span><a class="gh-btn" href="(new issue)" target="_blank" rel="noopener" data-tip="File a GitHub issue" aria-label="File a GitHub issue for finding 1 (opens GitHub in a new tab)"><svg></a>
 --

@@ -277,13 +277,31 @@ function originOf(report, f, base, ki) {
 	return report.verification?.origin?.get(f.n) ?? '';
 }
 
-function originText(report, origin) {
+function originText(report, origin, ev) {
 	const change = report.pr ? 'PR' : 'branch';
-	return {
+	const text = {
 		introduced: `Likely caused by this ${change}. The suspected fix is in changed code.`,
 		exposed: `The suspected fix is in existing code, but this ${change} changed something that now triggers it.`,
 		inherited: `The suspected fix is in existing code this ${change} didn&rsquo;t change. Found while testing it, so worth a look.`,
 	}[origin];
+	return ev?.fix ? `${text}</span><span class="og-ev">${originEvidenceText(change, origin, ev)}` : text;
+}
+
+/**
+ * What the reader can check for an origin: the lines the verifier put the fix
+ * in, and what git found there, as checkOrigins recorded it.
+ */
+function originEvidenceText(change, origin, ev) {
+	const at = l => `<code>${escapeHtml(l.file)}:${l.start}${l.end > l.start ? `-${l.end}` : ''}</code>`;
+	const commits = (ev.commits ?? []).map(c => `<code>${escapeHtml(String(c).slice(0, 10))}</code>`).join(', ');
+	const found = commits ? `blame gives ${commits}, in this ${change}` : ev.deleted ? `this ${change} deleted a line there` : '';
+	if (origin === 'introduced') {
+		return `Fix likely in ${at(ev.fix)}: ${found}.`;
+	}
+	if (origin === 'exposed' && ev.trigger) {
+		return `Fix likely in ${at(ev.fix)}, which this ${change} didn&rsquo;t change. Changed line that leads to it: ${at(ev.trigger)}${found ? ` (${found})` : ''}.`;
+	}
+	return `Fix likely in ${at(ev.fix)}: no line there is in this ${change}.`;
 }
 
 const originTip = (title, text, hidden = true) => `<span class="og-tip"${hidden ? ' aria-hidden="true"' : ''} role="tooltip">${title ? `<b>${title}</b>` : ''}<span>${text}</span></span>`;
@@ -300,23 +318,23 @@ function originHead(report, base) {
  * reader hears the word, or "Origin not determined". The last row's tooltip
  * opens upward, away from the panel's edge.
  */
-function originCell(report, origin, last) {
+function originCell(report, origin, last, ev) {
 	const up = last ? ' og-up' : '';
 	if (!origin) {
 		return `<span class="og-cell"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">Origin not determined</span>`
 			+ `${originTip('', 'Not enough evidence in the diff to determine origin.')}</span></span>`;
 	}
 	const word = capitalize(origin);
-	return `<span class="og-cell"><span class="og${up}">${word}${originTip(word, originText(report, origin))}</span></span>`;
+	return `<span class="og-cell"><span class="og${up}">${word}${originTip(word, originText(report, origin, ev))}</span></span>`;
 }
 
 /** The Origin word in a card's meta line, after "Reproduced x/y". Nothing when not determined. */
-function cardOrigin(report, origin) {
+function cardOrigin(report, origin, ev) {
 	if (!origin) {
 		return '';
 	}
 	const word = capitalize(origin);
-	return `<span class="og og-meta" tabindex="0">${word}${originTip(word, originText(report, origin), false)}</span>`;
+	return `<span class="og og-meta" tabindex="0">${word}${originTip(word, originText(report, origin, ev), false)}</span>`;
 }
 
 /** A verdict other than Confirmed: verify rejected the finding, or it was never shown to hold. */
@@ -390,7 +408,7 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 		return `<a href="#f${f.n}" class="row ${grid}${rejected ? ' is-rej' : ''}">`
 			+ `<span>${pill(f.severity)}</span>`
 			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${title}</span></span>`
-			+ (withOrigin ? originCell(report, originOf(report, f, changeBase, ki), i === report.findings.length - 1) : '')
+			+ (withOrigin ? originCell(report, originOf(report, f, changeBase, ki), i === report.findings.length - 1, report.verification?.originEvidence?.get(f.n)) : '')
 			+ status
 			+ '</a>';
 	});
@@ -791,7 +809,7 @@ function renderFindingCard(f, report, options) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
 	}
 	// After the verdict and its rate, as in the table, before the linked issues.
-	const origin = cardOrigin(report, originOf(report, f, options.changeBase, options.ki));
+	const origin = cardOrigin(report, originOf(report, f, options.changeBase, options.ki), report.verification?.originEvidence?.get(f.n));
 	if (origin) {
 		context.push(origin);
 	}

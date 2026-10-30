@@ -213,6 +213,7 @@ function verificationFromJson(json) {
 		verdicts: (json.findings ?? []).filter(f => f.verified).map(f => ({ n: f.n, word: f.verified })),
 		linked: new Map((v.linked ?? []).map(l => [l.issue, l.severity])),
 		origin: new Map(Object.entries(v.origin ?? {}).map(([n, o]) => [Number(n), o])),
+		originEvidence: new Map(Object.entries(v.originEvidence ?? {}).map(([n, e]) => [Number(n), e])),
 		bodyHtml: block(lines.slice(at + 1).join('\n')),
 	};
 }

@@ -184,12 +184,14 @@ test('the verdicts and the isolation\'s revision land in report.json, and the pa
 	}, {
 		leadHtml: 'Two things broke.',
 		verdicts: [{ n: 1, word: 'confirmed' }, { n: 2, word: 'disputed' }],
-		origin: [[1, 'exposed']],
+		// The verifier named no fix lines, so git has nothing to bear the origin out: it is dropped, with why.
+		origin: [],
 		findings: [
 			{ n: 1, title: 'first claim', feature: 'Console', verified: 'confirmed', known: [15102], intended: [], opening: { summary: 'It broke.', where: '' } },
 			{ n: 2, title: 'second claim, with the setting off', feature: 'Plot settings', verified: 'disputed', known: [], intended: [999], opening: null },
 		],
 	});
+	assert.deepEqual(run.report.verification.originDropped, { 1: { claimed: 'exposed', reason: 'no fix location was given', fix: null } });
 });
 
 test('costPasses sums each later role over its sessions, after the explorer', () => {

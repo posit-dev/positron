@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude, stopAgents, WRAP_UP_MINUTES } from './agents/claude-cli.mjs';
 import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
+import { checkOrigins } from './agents/origin-check.mjs';
 import { readCheckedReport } from './lint-json.mjs';
 
 export const ISOLATE_MINUTES = 12;
@@ -297,6 +298,8 @@ async function verifyFindings(dir, range, ask, stop, log, opened = () => null) {
 		result = applyVerifyReply(dir, usable ? again.text : best, { final: true, opened: opened() });
 	}
 	(result.logLines ?? []).forEach(line => log(line));
+	// Whether each origin's fix lines are in the change is git's to say, not the verifier's.
+	checkOrigins(dir, range).forEach(line => log(line));
 }
 
 /**
