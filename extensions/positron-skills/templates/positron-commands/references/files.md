@@ -39,6 +39,16 @@ workspace: it is parsed as a URI and ends up rooted at the filesystem root, so
 `data.csv` becomes `/data.csv` and silently opens the wrong thing (or nothing).
 Resolve it against the workspace folder yourself and pass the absolute result.
 
+{{if:remote}}
+Positron is connected to a remote host, and the user's files live there, not on
+the machine running the editor. The Arguments entry above describes a local
+window: here a bare path or `file://` URI points at the editor's machine, so it
+opens an editor that cannot read the file, and the command still reports
+success. Put `{{remote_root}}` in front of the absolute path instead, e.g.
+`{{remote_root}}/home/me/project/data.csv`. It is parsed as a URI, so
+percent-encode any `%`, `#` or `?` in the path (`%25`, `%23`, `%3F`).
+{{endif}}
+
 On Windows a bare drive-letter path is worse than wrong-looking -- it does not
 parse as a path at all. In `C:/Users/me/data.csv` the leading `C:` is read as a
 URI scheme, so pass `file:///C:/Users/me/data.csv` instead.
