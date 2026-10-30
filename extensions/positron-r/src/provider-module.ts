@@ -151,6 +151,9 @@ function moduleBinary(resolved: ModuleResolvedInterpreter): RBinary {
 	};
 }
 
+/** Characters allowed in a module name, which is passed to `module load` in a shell. */
+const MODULE_NAME_PATTERN = /^[\w.+\-/@:]+$/;
+
 /**
  * Resolves the R that a module name provides. The name is an R environment in
  * `positron.environmentModules.environments`, or else a module to load.
@@ -162,10 +165,21 @@ export async function resolveModuleBinary(name: string): Promise<RBinary | undef
 		LOGGER.warn(`Cannot resolve R from module "${name}": environment modules are not available`);
 		return undefined;
 	}
-	const environments = await api.getEnvironmentsForLanguage('r');
-	const resolved = environments.has(name) ?
-		await api.resolveInterpreter({ environmentName: name, ...R_RESOLVE_OPTIONS }) :
-		await api.resolveInterpreterFromModules([name], { environmentName: name, ...R_RESOLVE_OPTIONS });
+	let resolved: ModuleResolvedInterpreter | undefined;
+	try {
+		const environments = await api.getEnvironmentsForLanguage('r');
+		if (environments.has(name)) {
+			resolved = await api.resolveInterpreter({ environmentName: name, ...R_RESOLVE_OPTIONS });
+		} else if (MODULE_NAME_PATTERN.test(name)) {
+			resolved = await api.resolveInterpreterFromModules([name], { environmentName: name, ...R_RESOLVE_OPTIONS });
+		} else {
+			LOGGER.warn(`Cannot load module "${name}": module names may only contain letters, digits, and . _ + - / @ :`);
+			return undefined;
+		}
+	} catch (err) {
+		LOGGER.warn(`Failed to resolve R from module "${name}": ${err}`);
+		return undefined;
+	}
 	if (!resolved) {
 		LOGGER.warn(`Failed to resolve R from module "${name}"`);
 		return undefined;
