@@ -3702,7 +3702,8 @@ declare module 'positron' {
 		 * @param sessionId An optional session ID to execute the code in. If
 		 *  not provided, an appropriate session will be chosen, and if no
 		 *  session for the desired language is running at all, a new session
-		 *  will be started.
+		 *  will be started. A notebook session gets a console if it doesn't
+		 *  have one; with `preserveActiveTab`, it is created in the background.
 		 * @param documentUri An optional URI of the document in which the code to execute is located.
 		 * @param executionMetadata An optional object containing additional
 		 *  metadata to pass to the language runtime. Will be included in the
@@ -3715,7 +3716,8 @@ declare module 'positron' {
 		 *  `attribution.source`; callers cannot set it.
 		 * @param preserveActiveTab Whether to avoid switching the active tab when
 		 *  revealing the Console and Plots. If another tab is showing where the
-		 *  Console or Plots live, it stays showing. Ignored when `focus` is true.
+		 *  Console or Plots live, it stays showing, and the foreground session
+		 *  doesn't change. Ignored when `focus` is true.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
