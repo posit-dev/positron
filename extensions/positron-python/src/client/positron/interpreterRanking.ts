@@ -219,10 +219,17 @@ export function isUvBase(
     );
 }
 
-/** Whether the version is an alpha, beta or release candidate. */
+/**
+ * Whether the version is an alpha, beta or release candidate. A version read by running the
+ * interpreter has a release level even when stable (`['final', '0']`), so that level is not one.
+ */
 function isPrerelease(interpreter: PythonEnvironment): boolean {
     const version = interpreter.version;
-    return !!version && (version.prerelease.length > 0 || /\d(?:a|b|rc)\d*$/.test(version.raw));
+    return (
+        !!version &&
+        ((version.prerelease.length > 0 && version.prerelease[0] !== 'final') ||
+            /\d(?:a|b|rc)\d*$/.test(version.raw))
+    );
 }
 
 /**

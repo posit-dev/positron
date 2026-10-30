@@ -345,6 +345,20 @@ suite('interpreterRanking', () => {
         assert.deepEqual(order([unknown, rc]), [rc.path, unknown.path]);
     });
 
+    test('a stable version with a final release level is not a pre-release', () => {
+        const uvBase = env(
+            p('/home/u/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/bin/python'),
+            EnvironmentType.Global,
+            '3.14.7',
+            { version: { major: 3, minor: 14, patch: 7, raw: '3.14.7', build: [], prerelease: ['final', '0'] } },
+        );
+        const baseInstall = env(p('/usr/local/bin/python3'), EnvironmentType.System, '3.15.0');
+        assert.deepEqual(
+            rankInterpreters([baseInstall, uvBase], emptyContext).map((r) => r.interpreter.path),
+            [uvBase.path, baseInstall.path],
+        );
+    });
+
     test('a uv Python reached through ~/.local/bin is uv base, first in GlobalEnv', () => {
         const uvDir = p('/home/u/.local/share/uv/python/cpython-3.15.0-linux-x86_64-gnu');
         const linked = env(p('/home/u/.local/bin/python3.15'), EnvironmentType.Unknown, '3.15.0', {
