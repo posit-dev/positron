@@ -2824,3 +2824,5 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() { }
+
+// Null test for the exploratory main replay (do not merge): this comment changes no behavior.
