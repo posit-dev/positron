@@ -9,7 +9,8 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { runtimeManager } from '../extension';
-import { currentRInstallation } from '../provider';
+import { currentRInstallation, makeMetadata } from '../provider';
+import { ModuleMetadata, ReasonDiscovered, RInstallation } from '../r-installation';
 import { delay } from '../util';
 
 // Pins the machine's current R, so these tests need R installed.
@@ -55,6 +56,19 @@ suite('R pinned runtime', () => {
 
 	test('returns nothing when no pin is set', async () => {
 		assert.strictEqual(await runtimeManager.pinnedWorkspaceRuntime(), undefined);
+	});
+
+	test('gives an R from each module environment its own runtime ID', async function () {
+		const current = await currentRInstallation();
+		if (!current?.usable) {
+			this.skip();
+		}
+		const moduleMetadata = (environmentName: string): ModuleMetadata =>
+			({ type: 'module', environmentName, modules: ['R'], startupCommand: 'module load R' });
+		const ids = await Promise.all([undefined, moduleMetadata('a'), moduleMetadata('b')].map(async metadata =>
+			(await makeMetadata(new RInstallation(current.binpath, true, [ReasonDiscovered.MODULE], metadata))).runtimeId));
+
+		assert.strictEqual(new Set(ids).size, 3);
 	});
 
 	// Whether the recommendation starts R right away depends on the open folder, which
