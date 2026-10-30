@@ -299,4 +299,68 @@ suite('PipPackageManager update Tests', () => {
             });
         });
     });
+
+    suite('requirements.txt sync with autoUpdateRequirements enabled', () => {
+        let reqPath: string;
+        let reqContent: string;
+
+        setup(() => {
+            const workspaceFolder = { uri: Uri.file('/workspace'), name: 'ws', index: 0 };
+            reqPath = path.join(workspaceFolder.uri.fsPath, 'requirements.txt');
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            fileSystem.fileExists.withArgs(reqPath).resolves(true);
+
+            reqContent = 'flask==2.2.0\nrequests==2.28.2\n';
+            (fileSystem as any).readFile = sinon.stub().callsFake(() => Promise.resolve(reqContent));
+            fileSystem.writeFile.withArgs(reqPath).callsFake((_p: string, text: string) => {
+                reqContent = text;
+                return Promise.resolve();
+            });
+
+            vscode.workspace.getConfiguration = (section?: string) =>
+                ({
+                    get: (key: string, defaultValue?: unknown) =>
+                        section === 'packages.python' && key === 'autoUpdateRequirements' ? true : defaultValue,
+                    inspect: () => ({ globalValue: true }),
+                } as any);
+        });
+
+        test('installPackages adds the installed package to requirements.txt', async () => {
+            session.callMethod = sinon
+                .stub()
+                .withArgs('getPackagesInstalled')
+                .resolves([{ name: 'flask' }, { name: 'requests' }, { name: 'pandas' }]);
+
+            await manager.installPackages([{ name: 'pandas', version: '2.2.0' }]);
+
+            expect(reqContent).to.equal('flask==2.2.0\nrequests==2.28.2\npandas  # added by Positron\n');
+        });
+
+        test('uninstallPackages comments out the uninstalled package', async () => {
+            session.callMethod = sinon
+                .stub()
+                .withArgs('getPackagesInstalled')
+                .resolves([{ name: 'flask' }]);
+
+            await manager.uninstallPackages(['requests']);
+
+            expect(reqContent).to.equal('flask==2.2.0\n# requests removed by Positron\n');
+        });
+
+        test('updatePackages leaves requirements.txt alone', async () => {
+            await manager.updatePackages([{ name: 'flask', version: '3.0.0' }]);
+
+            expect(fileSystem.writeFile.calledWith(reqPath)).to.equal(false);
+        });
+
+        test('updateAllPackages leaves requirements.txt alone', async () => {
+            pythonService.execModule
+                .withArgs('pip', sinon.match.array.startsWith(['list', '--outdated']))
+                .resolves({ stdout: JSON.stringify([{ name: 'flask', latest_version: '3.0.0' }]), stderr: '' });
+
+            await manager.updateAllPackages();
+
+            expect(fileSystem.writeFile.calledWith(reqPath)).to.equal(false);
+        });
+    });
 });
