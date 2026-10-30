@@ -652,7 +652,7 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 		const shape = createProxyShape(fakeSessionDto({ runtimeState: RuntimeState.Busy }));
 		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
 
-		const session = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		const session = await runtime.getSession('s1', 'test.extension') as ExtHostRuntimeSessionProxy;
 		disposables.add(session);
 
 		// The proxy exposes the synchronous accessor seeded from the DTO...
@@ -665,7 +665,7 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 		const shape = createProxyShape(fakeSessionDto({ runtimeState: RuntimeState.Idle }));
 		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
 
-		const session = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		const session = await runtime.getSession('s1', 'test.extension') as ExtHostRuntimeSessionProxy;
 		disposables.add(session);
 
 		let disconnects = 0;
@@ -687,7 +687,7 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 		const shape = createProxyShape(fakeSessionDto({ runtimeState: RuntimeState.Idle }));
 		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
 
-		const session = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		const session = await runtime.getSession('s1', 'test.extension') as ExtHostRuntimeSessionProxy;
 		disposables.add(session);
 
 		const stateChanges: RuntimeState[] = [];
@@ -704,7 +704,7 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 		const shape = createProxyShape(fakeSessionDto());
 		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
 
-		const session = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		const session = await runtime.getSession('s1', 'test.extension') as ExtHostRuntimeSessionProxy;
 		session.dispose();
 
 		expect(shape.unsubscribed).toEqual(['s1']);
@@ -714,9 +714,9 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 		const shape = createProxyShape(fakeSessionDto());
 		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
 
-		const first = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		const first = await runtime.getSession('s1', 'test.extension') as ExtHostRuntimeSessionProxy;
 		disposables.add(first);
-		const second = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		const second = await runtime.getSession('s1', 'test.extension') as ExtHostRuntimeSessionProxy;
 
 		// Cached: same object, and we only subscribe once.
 		expect(second).toBe(first);
@@ -733,6 +733,95 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 			runtime.$notifyProxySessionDisconnected('s-unknown');
 			runtime.$notifyProxySessionReconnected('s-unknown');
 		}).not.toThrow();
+	});
+});
+
+describe('ExtHostLanguageRuntime - managed session', function () {
+
+	/** A session whose lifecycle methods record the calls that reach it. */
+	class LifecycleSession extends TestSession {
+		override restart = vi.fn(async () => { });
+		override interrupt = vi.fn(async () => { });
+		override shutdown = vi.fn(async (_exitReason: positron.RuntimeExitReason) => { });
+		override async forceQuit(): Promise<void> {
+			await this.shutdown(RuntimeExitReason.ForcedQuit as unknown as positron.RuntimeExitReason);
+		}
+	}
+
+	class ManagedSessionProxy extends TestProxy {
+		override $restartSession = vi.fn(async () => true);
+		override $interruptSession = vi.fn(async () => { });
+		override $shutdownSession = vi.fn(async () => { });
+		override async $getSession(sessionId: string): Promise<IActiveRuntimeSessionMetadataDto | undefined> {
+			return fakeSessionDto({ metadata: { sessionId, sessionMode: LanguageRuntimeSessionMode.Console } });
+		}
+	}
+
+	let proxy: ManagedSessionProxy;
+	let runtime: ExtHostLanguageRuntime;
+	let session: LifecycleSession;
+
+	beforeEach(async () => {
+		proxy = new ManagedSessionProxy();
+		runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(proxy) as unknown as IMainPositronContext, new NullLogService());
+		session = new LifecycleSession();
+		runtime.registerLanguageRuntimeManager(extension, 'r', new TestManager(session));
+		await runtime.$createLanguageRuntimeSession(runtimeMetadata, sessionMetadata, 'test');
+	});
+
+	it('hands out a cached wrapper per extension that keeps the session prototype', async () => {
+		const first = await runtime.getSession('test-session', 'ext.a');
+		const second = await runtime.getSession('test-session', 'ext.a');
+		const other = await runtime.getSession('test-session', 'ext.b');
+
+		expect({
+			isSession: first === session,
+			isInstance: first instanceof LifecycleSession,
+			sameForExtension: second === first,
+			sameForOtherExtension: other === first,
+		}).toEqual({ isSession: false, isInstance: true, sameForExtension: true, sameForOtherExtension: false });
+	});
+
+	it('routes restart, interrupt, and shutdown through the main thread', async () => {
+		const managed = await runtime.getSession('test-session', 'ext.a') as positron.LanguageRuntimeSession;
+
+		await managed.restart('/elsewhere');
+		await managed.interrupt();
+		await managed.shutdown(RuntimeExitReason.Shutdown as unknown as positron.RuntimeExitReason);
+
+		expect({
+			restart: proxy.$restartSession.mock.calls,
+			interrupt: proxy.$interruptSession.mock.calls,
+			shutdown: proxy.$shutdownSession.mock.calls,
+			reachedSession: [session.restart, session.interrupt, session.shutdown].some(fn => fn.mock.calls.length > 0),
+		}).toEqual({
+			restart: [['test-session', 'ext.a', false]],
+			interrupt: [['test-session']],
+			shutdown: [['test-session', RuntimeExitReason.Shutdown]],
+			reachedSession: false,
+		});
+	});
+
+	it('rejects restart when core does not restart the session', async () => {
+		proxy.$restartSession.mockResolvedValue(false);
+		const managed = await runtime.getSession('test-session', 'ext.a') as positron.LanguageRuntimeSession;
+
+		await expect(managed.restart()).rejects.toThrow(`Session 'test-session' was not restarted.`);
+	});
+
+	it('forwards other members to the session itself', async () => {
+		const managed = await runtime.getSession('test-session', 'ext.a') as positron.LanguageRuntimeSession;
+		const states: positron.RuntimeState[] = [];
+		const listener = managed.onDidChangeRuntimeState(state => states.push(state));
+
+		session.stateEmitter.fire(RuntimeState.Busy);
+		// A method that calls `this.shutdown()` reaches the session's own
+		// method, not the wrapper's.
+		await managed.forceQuit();
+		listener.dispose();
+
+		expect({ states, dynState: await managed.getDynState(), shutdownCalls: session.shutdown.mock.calls.length, routedShutdowns: proxy.$shutdownSession.mock.calls.length })
+			.toEqual({ states: [RuntimeState.Busy], dynState: { inputPrompt: '>', continuationPrompt: '+', sessionName: 'test' }, shutdownCalls: 1, routedShutdowns: 0 });
 	});
 });
 

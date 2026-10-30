@@ -105,7 +105,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getNotebookSession(notebookUri: URI): Promise<IActiveRuntimeSessionMetadataDto | undefined>;
 	$subscribeToSession(sessionId: string): void;
 	$unsubscribeFromSession(sessionId: string): void;
-	$restartSession(sessionId: string, requestingExtensionId: string): Promise<boolean>;
+	$restartSession(sessionId: string, requestingExtensionId: string, interrupt: boolean): Promise<boolean>;
 	$interruptSession(sessionId: string): Promise<void>;
 	$focusSession(sessionId: string): void;
 	$deleteSession(sessionId: string): Promise<boolean>;
