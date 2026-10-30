@@ -185,6 +185,21 @@ async function laterChecks(finding, paths, pr, postedAt, timeline) {
 	return [...main, ...issues];
 }
 
+/** The issues the run matched that are closed as not planned now: a known one closed since, or a not-planned one not reopened. */
+async function notPlanned(numbers) {
+	const issues = [];
+	for (const n of numbers) {
+		const issue = await gh(`/repos/${REPO}/issues/${n}`).catch(err => {
+			console.error(`[outcomes] issue #${n} not read, so not counted as won't fix: ${err}`);
+			return null;
+		});
+		if (issue?.state === 'closed' && issue.state_reason === 'not_planned') {
+			issues.push(issueOf(issue));
+		}
+	}
+	return issues;
+}
+
 async function prRows(number) {
 	const pr = await gh(`/repos/${REPO}/pulls/${number}`);
 	const prState = pr.merged_at ? 'merged' : pr.state === 'open' ? 'open' : 'closed';
@@ -212,7 +227,8 @@ async function prRows(number) {
 		}
 		const stats = await fetchJson(`${parsed.reportBase}/stats.json`);
 		const tested = await resolveTestedSha({ headSha: report.header?.headSha, shortSha: parsed.shortSha, lookup: async s => (await gh(`/repos/${REPO}/commits/${s}`)).sha });
-		const related = new Set(report.verification?.related ?? []);
+		// A report from before the Origin column lists only the findings whose fix was in the change.
+		const origin = new Map([...(report.verification?.related ?? []).map(n => [n, 'introduced']), ...Object.entries(report.verification?.origin ?? {}).map(([n, o]) => [Number(n), o])]);
 		for (const finding of (report.findings ?? []).filter(f => f.verified === 'confirmed')) {
 			// A fix in a PR that later closed never shipped, so it's decided again.
 			const kept = SETTLED.get(`${parsed.run}#${finding.n}`);
@@ -227,15 +243,16 @@ async function prRows(number) {
 			const inPr = saved ?? (tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null);
 			const later = prState === 'open' ? [] : await laterChecks(finding, paths, pr, comment.created_at, timeline);
 			const dropped = prState === 'merged' && tested.sha ? droppedPaths({ paths, tested: testedFiles(tested.sha, pr), merged: mergedFiles }) : [];
+			const intended = await notPlanned([...(finding.intended ?? []), ...(finding.known ?? [])]);
 			// A closed PR didn't ship whatever was tested, so it needs no tested commit.
 			const decided = tested.sha || prState === 'closed'
-				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later, dropped })
+				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later, dropped, intended })
 				: { outcome: 'pending', decidedBy: 'sha', evidence: tested.reason };
 			rows.push({
 				pr: number, run: parsed.run, trigger: parsed.trigger, postedAt: comment.created_at, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
 				skillVersion: stats?.version ?? null, model: stats?.model ?? null,
 				finding: finding.n, title: finding.title, severity: finding.severity, feature: finding.feature, verified: finding.verified,
-				related: report.fromPage ? null : related.has(finding.n), paths, ...decided, prCheck: prState === 'merged' ? inPr : null, decidedAt: new Date().toISOString().slice(0, 10), prPreview: preview,
+				origin: report.fromPage ? null : origin.get(finding.n) ?? null, paths, ...decided, prCheck: prState === 'merged' ? inPr : null, decidedAt: new Date().toISOString().slice(0, 10), prPreview: preview,
 			});
 			console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${decided.outcome}${saved ? ' (PR check kept from --previous)' : ''}`);
 		}

@@ -262,79 +262,142 @@ const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
 const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 
 /**
- * The change mark: the verifier's call that a confirmed finding's most direct
- * fix likely goes in code the change under test touched. Only on a run with a
- * usable base. The glyph is hidden from screen readers, which read the text
- * instead; the last row's tooltip opens upward, away from the panel's edge.
+ * A finding's likely origin, as the verifier judged it from the change under
+ * test: 'introduced', 'exposed', 'inherited', or '' when not determined. A
+ * finding not confirmed, or one whose fix didn't hold, is never given one.
+ * Null on a run with no usable base, which has no Origin column.
  */
-function changeMark(report, f, base, last) {
-	const words = changeWords(report, f, base);
-	if (!words) {
+function originOf(report, f, base, ki) {
+	if (base?.usable !== true) {
+		return null;
+	}
+	if (statusWord(f) !== 'confirmed' || ki?.fixFailed.has(f.n)) {
 		return '';
 	}
-	return `<span class="chg${last ? ' chg-up' : ''}"><span aria-hidden="true">&Delta;</span>`
-		+ `<span class="chg-sr">${words.title}. ${words.text}</span>`
-		+ changeTip(words) + '</span>';
+	return report.verification?.origin?.get(f.n) ?? '';
+}
+
+function originText(report, origin) {
+	const change = report.pr ? 'PR' : 'branch';
+	return {
+		introduced: `Likely caused by this ${change}. The suspected fix is in changed code.`,
+		exposed: `The suspected fix is in existing code, but this ${change} changed something that now triggers it.`,
+		inherited: `The suspected fix is in existing code this ${change} didn&rsquo;t change. Found while testing it, so worth a look.`,
+	}[origin];
+}
+
+const originTip = (title, text, hidden = true) => `<span class="og-tip"${hidden ? ' aria-hidden="true"' : ''} role="tooltip">${title ? `<b>${title}</b>` : ''}<span>${text}</span></span>`;
+
+/** The Origin header, whose tooltip says once that every value is a judgement. */
+function originHead(report, base) {
+	const text = `Likely origin, judged from this ${report.pr ? 'PR' : 'branch'}&rsquo;s diff. Not tested against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`;
+	return `<span class="og-hc"><span class="og og-h" tabindex="0">Origin${originTip('Origin', text, false)}</span></span>`;
 }
 
 /**
- * The same mark after a card's title. The title is not a link, so the mark
- * takes focus itself and its label carries the text.
+ * A finding row's Origin cell. The row is a link, so nothing in it takes
+ * focus: the tooltip opens on hover and on the row's focus, and a screen
+ * reader hears the word, or "Origin not determined". The last row's tooltip
+ * opens upward, away from the panel's edge.
  */
-function cardChangeMark(report, f, base) {
-	const words = changeWords(report, f, base);
-	if (!words) {
+function originCell(report, origin, last) {
+	const up = last ? ' og-up' : '';
+	if (!origin) {
+		return `<span class="og-cell"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">Origin not determined</span>`
+			+ `${originTip('', 'Not enough evidence in the diff to determine origin.')}</span></span>`;
+	}
+	const word = capitalize(origin);
+	return `<span class="og-cell"><span class="og${up}">${word}${originTip(word, originText(report, origin))}</span></span>`;
+}
+
+/** The Origin word in a card's meta line, after "Reproduced x/y". Nothing when not determined. */
+function cardOrigin(report, origin) {
+	if (!origin) {
 		return '';
 	}
-	return `<span class="chg chg-card" tabindex="0" role="img" aria-label="${words.title}. ${words.text}"><span aria-hidden="true">&Delta;</span>`
-		+ changeTip(words) + '</span>';
+	const word = capitalize(origin);
+	return `<span class="og og-meta" tabindex="0">${word}${originTip(word, originText(report, origin), false)}</span>`;
 }
 
-function changeWords(report, f, base) {
-	if (base?.usable !== true || !report.verification?.change?.has(f.n) || statusWord(f) !== 'confirmed') {
-		return null;
+/** A verdict other than Confirmed: verify rejected the finding, or it was never shown to hold. */
+function isRejected(word) {
+	return Boolean(word) && word !== 'confirmed';
+}
+
+const VERDICT_TIPS = {
+	disputed: 'The verifier thinks this may not be a bug. The finding explains why.',
+	unresolved: 'The verifier couldn&rsquo;t confirm or rule this out. The finding has the details.',
+	// The run's own label for a finding seen but reproduced 0 times; a verifier's verdict replaces it.
+	unproven: 'The run saw this but couldn&rsquo;t reproduce it, and verification didn&rsquo;t check it.',
+};
+const VERDICT_TIP_OTHER = 'The verifier didn&rsquo;t confirm this finding. The finding has the details.';
+
+/** The square tag that marks a rejected finding: in its table row, or focusable in its card's meta line. */
+function verdictTag(word, focusable = true) {
+	const label = escapeHtml(capitalize(word));
+	const tip = originTip(label, VERDICT_TIPS[word] ?? VERDICT_TIP_OTHER, !focusable);
+	return `<span class="og vtag"${focusable ? ' tabindex="0"' : ''}>${label}${tip}</span>`;
+}
+
+/** `html` with `tag` after its last word, the two kept on one line so the tag never wraps alone. */
+function withLastWord(html, tag) {
+	// The last space outside a tag starts the last word.
+	let depth = 0;
+	let at = -1;
+	for (let i = 0; i < html.length; i++) {
+		depth += html[i] === '<' ? 1 : html[i] === '>' ? -1 : 0;
+		if (html[i] === ' ' && depth === 0) {
+			at = i;
+		}
 	}
-	return {
-		title: `Likely related to this ${report.pr ? 'PR' : 'branch'}`,
-		text: `Based on code changes. Not verified against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`,
-	};
+	return `${html.slice(0, at + 1)}<span class="nowrap">${html.slice(at + 1)}${tag}</span>`;
 }
-
-const changeTip = ({ title, text }) => `<span class="chg-tip" aria-hidden="true"><b>${title}</b><span>${text}</span></span>`;
 
 function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
+	const withOrigin = changeBase?.usable === true;
+	const grid = withOrigin ? 'findings-grid og-grid' : 'findings-grid';
 	const rows = report.findings.map((f, i) => {
 		const word = statusWord(f);
-		const verdict = word === 'confirmed'
-			? `<span class="status">${ICON.statusCheck}Confirmed</span>`
-			: word
-				? `<span class="status muted">${capitalize(word)}</span>`
-				: '<span class="status muted"></span>';
 		// Plain numbers, not links: the whole row is already a link to the card. They still preview on hover.
-		const nums = numbers => numbers.map(n => `<span class="ki-num-t"${kiData(refs?.byNumber.get(n), refs)}>#${Number(n)}</span>`).join(', ');
-		const failed = ki?.fixFailed.get(f.n)?.map(i => i.number);
-		const back = ki?.cameBack.get(f.n)?.map(i => i.number);
+		const num = n => `<span class="ki-num-t"${kiData(refs?.byNumber.get(n), refs)}>#${Number(n)}</span>`;
+		// Several of one kind: the first number and a count; the card lists them all.
+		const first = list => `${num(list[0])}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
+		const failed = ki?.fixFailed.get(f.n)?.map(i => i.number) ?? [];
+		const back = ki?.cameBack.get(f.n)?.map(i => i.number) ?? [];
+		const line = html => `<span class="ki-mt">${html}</span>`;
+		const muted = text => line(`<span class="ki-state">${text}</span>`);
+		const lines = [];
+		// A finding verify rejected never reads as a fix that failed or an issue
+		// that came back: it keeps only the issue's number.
+		const rejected = isRejected(word);
+		if (failed.length || back.length) {
+			const own = first(failed.length ? failed : back);
+			lines.push(rejected ? muted(own) : line(`<span class="ki-reg">${ICON.x}${failed.length ? 'Not fixed' : 'Regressed'}</span><span class="ki-state">${own}</span>`));
+		}
 		// Every match the card shows, linked to the PR or found by search, one line per kind.
-		const matches = matchesByKind(possiblyKnown(f, ki), refs);
-		// A verdict other than Confirmed takes the label's place, so the table
-		// never says a fix failed when verify rejected the finding.
-		const label = failed ? 'Fix didn&rsquo;t hold' : back ? 'Regressed' : '';
-		const top = label && (!word || word === 'confirmed') ? `<span class="ki-reg">${ICON.x}${label}</span>` : verdict;
-		// One issue per line: the finding's own, then its matches below it.
-		const first = list => `${nums(list.slice(0, 1))}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
-		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : '';
-		const below = [issueLine, ...matches.map(m => m.label(first(m.numbers)))].filter(Boolean).map(line => `<span class="ki-state">${line}</span>`);
-		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
-		return `<a href="#f${f.n}" class="row findings-grid">`
+		lines.push(...matchesByKind(possiblyKnown(f, ki), refs).map(m => muted(m.label(first(m.numbers)))));
+		// A match closed as not planned: the team chose to leave this behavior.
+		if (f.intended?.length) {
+			lines.push(muted(`Won&rsquo;t fix? ${first(f.intended)}`));
+		}
+		const up = i === report.findings.length - 1 ? ' og-up' : '';
+		const status = lines.length
+			? `<span class="ki-st">${lines.join('')}</span>`
+			: `<span class="ki-st"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">No matches</span>`
+				+ `${originTip('', 'No matching issues or PRs found.')}</span></span>`;
+		// The tag is read as part of the row link, so its tooltip is hidden from screen readers.
+		const title = rejected ? withLastWord(f.rowTitle, verdictTag(word, false)) : f.rowTitle;
+		return `<a href="#f${f.n}" class="row ${grid}${rejected ? ' is-rej' : ''}">`
 			+ `<span>${pill(f.severity)}</span>`
-			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}${changeMark(report, f, changeBase, i === report.findings.length - 1)}</span></span>`
-			+ `<span class="rate">${escapeHtml(f.reproduced)}</span>`
+			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${title}</span></span>`
+			+ (withOrigin ? originCell(report, originOf(report, f, changeBase, ki), i === report.findings.length - 1) : '')
 			+ status
 			+ '</a>';
 	});
 
+	const matchesHead = `<span><span class="og og-h" tabindex="0">Matches${originTip('Matches', 'Existing GitHub issues or PRs that match or may match this finding. A dash means no match was found.', false)}</span></span>`;
 	const head = rows.length
-		? '<div class="row row-head findings-grid"><span>Severity</span><span>Finding</span><span class="right">Reproduced</span><span class="right">Status</span></div>\n'
+		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${withOrigin ? originHead(report, changeBase) : ''}${matchesHead}</div>\n`
 		: '';
 
 	return `<section id="findings" class="section">
@@ -458,11 +521,45 @@ function renderShotLinks(f) {
 	return links ? `<div class="shot-links" hidden>${links}</div>` : '';
 }
 
+/** A PNG's width and height in CSS px, read from its header; shots are taken at CSS scale. */
+function pngSize(bytes) {
+	return bytes?.length >= 24 && bytes.toString('latin1', 12, 16) === 'IHDR'
+		? { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+		: null;
+}
+
+/**
+ * What a screenshot icon previews: the crop shot.sh saved beside the shot, at
+ * its own size, or else the whole window fitted to the preview. A whole
+ * window shrunk that far has text about 2px high, so the crop is the point.
+ */
+function shotPreview(src, readFile) {
+	const crop = String(src).replace(/\.png$/i, '.crop.png');
+	const cropSize = crop !== src && readFile ? pngSize(readFile(crop)) : null;
+	if (cropSize) {
+		return { src: crop, cls: 'shot-crop', ...cropSize };
+	}
+	return { src, cls: 'shot-full', ...(readFile ? pngSize(readFile(src)) : null) };
+}
+
+/**
+ * The preview on an icon's hover or focus. Placed by the page script, since
+ * it is fixed to the window so a wide one is never cut off. Lazy, so it loads
+ * only once it shows; sized, so it keeps its space while it does.
+ */
+function evPop(src, readFile, count = 1) {
+	const p = shotPreview(src, readFile);
+	const size = p.width ? ` width="${p.width}" height="${p.height}"` : '';
+	return '<span class="ev-pop" aria-hidden="true">'
+		+ `<img class="${p.cls}" src="${escapeHtml(p.src)}" alt=""${size} loading="lazy">`
+		+ `<span class="ev-cap">${count > 1 ? `1 of ${count} &middot; click for full window` : 'Click for full window'}</span></span>`;
+}
+
 /**
  * A finding step's screenshot icon: previews the first of that step's shots
  * and opens it full size, with a count when there is more than one.
  */
-function stepShotIcon(f, k) {
+function stepShotIcon(f, k, readFile) {
 	const shots = findingShots(f);
 	const mine = shots.map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k);
 	if (!mine.length) {
@@ -471,12 +568,9 @@ function stepShotIcon(f, k) {
 	const count = mine.length;
 	const label = count > 1 ? `${count} screenshots for this step` : 'Screenshot for this step';
 	// A preview on hover or focus keeps the screenshot a glance away without
-	// putting it in the reading flow. Lazy, so it loads only once it shows.
-	const pop = '<span class="ev-pop" aria-hidden="true">'
-		+ `<img src="${escapeHtml(mine[0].item.src)}" alt="" loading="lazy">`
-		+ `<span class="ev-cap">${count > 1 ? `1 of ${count} &middot; click to enlarge` : 'Click to enlarge'}</span></span>`;
+	// putting it in the reading flow.
 	return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f${f.n}-${mine[0].i + 1}" data-open="shot-f${f.n}-${mine[0].i + 1}"`
-		+ ` aria-label="${label}">${pop}${ICON.photo}${count > 1 ? `<span class="st-n">${count}</span>` : ''}</a>`;
+		+ ` aria-label="${label}">${evPop(mine[0].item.src, readFile, count)}${ICON.photo}${count > 1 ? `<span class="st-n">${count}</span>` : ''}</a>`;
 }
 
 /** Every file beside the report the page links to as a log, for a check that each exists. */
@@ -660,7 +754,7 @@ function renderCardDetails(f, report, options = {}) {
  * When verify rejected the finding, its issue line stands in without the claim.
  */
 function cardIssueItems(f, word, ki, refs) {
-	const rejected = word && word !== 'confirmed';
+	const rejected = isRejected(word);
 	const failed = ki?.fixFailed.get(f.n) ?? [];
 	const back = ki?.cameBack.get(f.n) ?? [];
 	// A label is a prefix, or a function of the numbers when they sit mid-label (`Fixed in #N?`).
@@ -670,7 +764,7 @@ function cardIssueItems(f, word, ki, refs) {
 	};
 	const items = [];
 	if (failed.length) {
-		items.push(item(rejected ? 'Fixes' : 'Fix didn&rsquo;t hold', failed.map(i => i.number)));
+		items.push(item(rejected ? 'Fixes' : 'Not fixed', failed.map(i => i.number)));
 	} else if (back.length) {
 		items.push(item(rejected ? 'Closed &middot;' : 'Regressed', back.map(i => i.number)));
 	}
@@ -678,7 +772,7 @@ function cardIssueItems(f, word, ki, refs) {
 		items.push(item(m.label, m.numbers));
 	}
 	if (f.intended?.length) {
-		items.push(item('Intended?', f.intended));
+		items.push(item('Won&rsquo;t fix?', f.intended));
 	}
 	return items;
 }
@@ -691,10 +785,15 @@ function renderFindingCard(f, report, options) {
 	if (word === 'confirmed') {
 		context.push(`<span class="confirmed">${ICON.check(12)}Confirmed</span>`);
 	} else if (word) {
-		context.push(`<span class="confirmed">${escapeHtml(capitalize(word))}</span>`);
+		context.push(verdictTag(word));
 	}
 	if (f.reproduced) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
+	}
+	// After the verdict and its rate, as in the table, before the linked issues.
+	const origin = cardOrigin(report, originOf(report, f, options.changeBase, options.ki));
+	if (origin) {
+		context.push(origin);
 	}
 	// Linked issues describe the finding as these do, so they close the meta line.
 	context.push(...cardIssueItems(f, word, options.ki, options.refs));
@@ -710,7 +809,7 @@ function renderFindingCard(f, report, options) {
 		+ '</div>';
 
 	const head = `<header>${meta}`
-		+ `<h2 class="card-title">${escapeHtml(f.title)}${cardChangeMark(report, f, options.changeBase)}</h2>`
+		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);
@@ -741,7 +840,7 @@ function renderFindingCard(f, report, options) {
 	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
 	const steps = f.steps.length
 		? '<div class="repro-group steps">'
-		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1) : '' })).join('\n')}</ol></div>`
+		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1, options.readFile) : '' })).join('\n')}</ol></div>`
 		: '';
 	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.
 	const repro = (preconditions || steps)
@@ -780,13 +879,17 @@ function renderCoverage(report, options = {}) {
 	const ki = options.ki;
 	// What the row showed about the linked issues leads its result, after any
 	// finding link. One tag per outcome, listing its issues: "Also observed #1, #2".
+	// The issues of findings verify rejected: never "Not fixed" or "Regressed".
+	const rejectedIssues = new Set((report.findings ?? []).filter(f => isRejected(statusWord(f)))
+		.flatMap(f => [...(ki?.fixFailed.get(f.n) ?? []), ...(ki?.cameBack.get(f.n) ?? [])].map(i => i.number)));
 	const kiTags = row => {
 		const groups = new Map();
 		for (const { n, kind } of row.issues ?? []) {
 			const issue = ki?.byNumber.get(n);
+			const rejected = rejectedIssues.has(n);
 			const label = !issue ? null
-				: issue.relation === 'fixes' ? (kind === 'held' ? 'Fix verified for' : 'Fix didn&rsquo;t hold for')
-					: kind === 'observed' ? 'Also observed' : kind === 'back' ? 'Regressed' : null;
+				: issue.relation === 'fixes' ? (kind === 'held' ? 'Fix verified for' : rejected ? 'Fixes' : 'Not fixed')
+					: kind === 'observed' ? 'Also observed' : kind === 'back' ? (rejected ? 'Closed &middot;' : 'Regressed') : null;
 			if (label) { groups.set(label, [...(groups.get(label) ?? []), kiNum(n, ki)]); }
 		}
 		return [...groups].map(([label, nums]) => `${label} ${nums.join(', ')}`);
@@ -800,7 +903,7 @@ function renderCoverage(report, options = {}) {
 		const name = row.scenario;
 		return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="${escapeHtml(shot.href)}" data-lb="cv-${i}"`
 			+ ` data-caption="${escapeHtml(name)}" data-file="${escapeHtml(shot.file)}"`
-			+ ` aria-label="Screenshot for this step: ${escapeHtml(name)}">${ICON.photo}</a>`;
+			+ ` aria-label="Screenshot for this step: ${escapeHtml(name)}">${evPop(shot.href, options.readFile)}${ICON.photo}</a>`;
 	};
 	// The dot lives in the scenario cell rather than a column of its own, so it
 	// reads as that scenario's status instead of as a first field.

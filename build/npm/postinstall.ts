@@ -521,6 +521,46 @@ function ensureAgentHarnessLink(sourceRelativePath: string, linkPath: string): '
 	}
 }
 
+// --- Start Positron ---
+/**
+ * Returns the dirs that take `file:` dependencies on other dirs, along with
+ * those dependencies, ordered dependencies first. Installing a dir runs the
+ * `prepare` script of each linked dependency, which compiles into that
+ * dependency's out/ in place, so these dirs must not be installed concurrently.
+ */
+function getLinkedDirs(): string[] {
+	const deps = new Map<string, string[]>();
+	for (const dir of dirs) {
+		const packageJsonPath = path.join(root, dir, 'package.json');
+		if (dir === '' || !fs.existsSync(packageJsonPath)) {
+			continue;
+		}
+		const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+		const linked = Object.values<string>({ ...packageJson.dependencies, ...packageJson.devDependencies })
+			.filter(spec => spec.startsWith('file:'))
+			.map(spec => path.posix.join(dir, spec.slice('file:'.length)))
+			.filter(linkedDir => dirs.includes(linkedDir));
+		if (linked.length > 0) {
+			deps.set(dir, linked);
+		}
+	}
+
+	const ordered: string[] = [];
+	const visit = (dir: string) => {
+		if (!ordered.includes(dir)) {
+			for (const dep of deps.get(dir) ?? []) {
+				visit(dep);
+			}
+			ordered.push(dir);
+		}
+	};
+	for (const dir of deps.keys()) {
+		visit(dir);
+	}
+	return ordered;
+}
+// --- End Positron ---
+
 async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: number): Promise<void> {
 	const errors: Error[] = [];
 	let index = 0;
@@ -553,7 +593,7 @@ async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: n
  *
  * These emit dist/ via tsc, and Positron imports them at COMPILE time (the
  * authentication extension imports `ai-config/node`; core imports
- * `ai-provider-bridge/credential-shaping`), resolved by each package's exports
+ * `ai-provider-bridge/headless`), resolved by each package's exports
  * map to dist/. The build used to be a side effect of the authentication
  * extension's own postinstall, but npm skips that postinstall whenever the
  * extension's node_modules is restored from cache -- so on cache-hit runs (the
@@ -586,6 +626,25 @@ async function buildAiLib({ force }: { force: boolean }): Promise<void> {
 	// shell: true is required on Windows, where `npm` resolves to npm.cmd -- Node's
 	// child_process.spawn refuses to launch a .cmd directly (EINVAL) without it.
 	await spawnAsync(npm, ['run', 'build:ai-lib'], { cwd: root, shell: true });
+}
+
+/**
+ * Replace the SQL analyzer's Git LFS pointer with the module, when the checkout was made without
+ * git-lfs. A no-op when the module is already there. positron-sql has no npm install of its own to
+ * hang this on, and an extension's postinstall is skipped on a cache hit anyway, so it runs here
+ * on every install, like the steps above. See extensions/positron-sql/scripts/fetch-analyzer.mts.
+ */
+async function fetchSqlAnalyzer(): Promise<void> {
+	// A warning rather than a failure: only the SQL extension needs the module, and it says what is
+	// missing when it loads, so an install without network access still completes.
+	try {
+		const output = await spawnAsync(process.execPath, [path.join(root, 'extensions', 'positron-sql', 'scripts', 'fetch-analyzer.mts')], { cwd: root });
+		if (output.trim()) {
+			log('extensions/positron-sql', output.trim());
+		}
+	} catch (error) {
+		console.warn(`[positron-sql] Warning: the SQL analyzer was not fetched. ${error instanceof Error ? error.message : error}`);
+	}
 }
 
 // --- End Positron ---
@@ -623,6 +682,9 @@ async function main() {
 		// at compile time). Nothing changed, so skip the rebuild if they're already
 		// there.
 		await buildAiLib({ force: false });
+		// --- Start Positron ---
+		await fetchSqlAnalyzer();
+		// --- End Positron ---
 		child_process.execSync('git config pull.rebase merges');
 		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
 		return;
@@ -632,6 +694,9 @@ async function main() {
 
 	const nativeTasks: (() => Promise<void>)[] = [];
 	const parallelTasks: (() => Promise<void>)[] = [];
+	// --- Start Positron ---
+	const linkedDirs = getLinkedDirs();
+	// --- End Positron ---
 
 	for (const dir of dirs) {
 		if (dir === '') {
@@ -717,6 +782,10 @@ async function main() {
 			});
 			continue;
 		}
+
+		if (linkedDirs.includes(dir)) {
+			continue;
+		}
 		// --- End Positron ---
 
 		const taskDir = dir;
@@ -726,6 +795,18 @@ async function main() {
 			return npmInstallAsync(taskDir, { env });
 		});
 	}
+
+	// --- Start Positron ---
+	// Linked dirs run one at a time, alongside the other parallel installs.
+	// Queued first since this chain is the longest task.
+	parallelTasks.unshift(async () => {
+		for (const dir of linkedDirs) {
+			const env = { ...process.env };
+			clearInheritedNpmrcConfig(dir, env);
+			await npmInstallAsync(dir, { env });
+		}
+	});
+	// --- End Positron ---
 
 	// Native dirs (build, remote) run sequentially to avoid node-gyp conflicts
 	for (const task of nativeTasks) {
@@ -742,11 +823,12 @@ async function main() {
 	// extension host (plain Node, a different ABI than the desktop Electron host).
 	await buildSqliteServerBinding();
 	// Build the ai-lib packages' dist/ (imported by Positron at compile time, and
-	// by the esm package bundling below via ai-provider-bridge/credential-shaping).
+	// by the esm package bundling below via ai-credentials/types).
 	// Kept here rather than in the authentication postinstall, which npm skips
 	// whenever that extension is restored from cache. Deps just changed, so force a
 	// rebuild rather than trusting a possibly-stale dist/.
 	await buildAiLib({ force: true });
+	await fetchSqlAnalyzer();
 	// --- End Positron ---
 
 	child_process.execSync('git config pull.rebase merges');

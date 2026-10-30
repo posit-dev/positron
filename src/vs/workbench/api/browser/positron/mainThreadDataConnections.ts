@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -188,6 +189,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	async $getDataConnectionSchema(
 		profileId: string,
 		options: IDataConnectionSchemaSummaryOptions,
+		token: CancellationToken = CancellationToken.None,
 	): Promise<IDataConnectionSchemaWalk | undefined> {
 		this._throwIfDisabled();
 		const instance = this._dataConnectionsService.getInstanceForProfile(profileId);
@@ -195,7 +197,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 			this._logService.warn(`[DataConnections] getSchema: profile ${profileId} has no live connection.`);
 			return undefined;
 		}
-		const walk = await walkDataConnectionSchema(instance.connectionHandle, options);
+		const walk = await walkDataConnectionSchema(instance.connectionHandle, options, token);
 		if (walk.truncated) {
 			this._logService.trace(`[DataConnections] getSchema: profile ${profileId} was truncated by the caller's bounds.`);
 		}
@@ -462,8 +464,17 @@ class MainThreadDataConnectionHandleAdapter implements IDataConnectionHandle {
 	/**
 	 * Fetches top-level children (databases, schemas, etc.) from the ext host.
 	 */
-	async getChildren(): Promise<IDataConnectionNodeDTO[]> {
-		return this._proxy.$connectionGetChildren(this.handle);
+	async getChildren(options?: { retainNodes?: boolean }): Promise<IDataConnectionNodeDTO[]> {
+		return this._proxy.$connectionGetChildren(this.handle, options?.retainNodes);
+	}
+
+	/**
+	 * Frees node handles a `retainNodes` walk collected.
+	 */
+	releaseNodes(nodeHandles: readonly number[]): void {
+		if (nodeHandles.length > 0) {
+			this._proxy.$releaseNodes(this.handle, [...nodeHandles]);
+		}
 	}
 
 	/**

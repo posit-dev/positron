@@ -48,6 +48,7 @@ import { IExtHostStorage } from '../extHostStorage.js';
 import { ExtHostLifecycle } from './extHostLifecycle.js';
 import { ExtHostFileTransfer } from './extHostFileTransfer.js';
 import { IExtHostDocs } from './extHostDocs.js';
+import { checkProposedApiEnabled } from '../../../services/extensions/common/extensions.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -392,10 +393,11 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			 * Reads the tables and columns a live connection exposes, bounded by `options`.
 			 * @param profileId The connection to read.
 			 * @param options Bounds for the walk.
+			 * @param token Stops the walk.
 			 * @returns The schema, or undefined if the connection is not currently connected.
 			 */
-			getSchema(profileId: string, options?: positron.DataConnectionSchemaOptions): Thenable<positron.DataConnectionSchema | undefined> {
-				return extHostDataConnections.getSchema(profileId, options);
+			getSchema(profileId: string, options?: positron.DataConnectionSchemaOptions, token?: vscode.CancellationToken): Thenable<positron.DataConnectionSchema | undefined> {
+				return extHostDataConnections.getSchema(profileId, options, token);
 			},
 
 			/** Fires when the user's connections change. */
@@ -570,6 +572,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				args?: unknown[],
 			): Thenable<positron.ai.ValidateAndExecuteCommandResult> {
 				return extHostAiFeatures.validateAndExecuteCommand(commandId, args);
+			},
+			registerErrorActionHandler(id: string, handler: positron.ai.ErrorActionHandler): vscode.Disposable {
+				checkProposedApiEnabled(extension, 'positronErrorActions');
+				return extHostAiFeatures.registerErrorActionHandler(extension, id, handler);
 			},
 		};
 

@@ -11,14 +11,13 @@
 //   - The text filters escape the LIKE wildcards in the user's search term and name an explicit escape
 //     character, so searching for `10%` or `a_b` matches those strings rather than treating them as
 //     patterns. The sibling drivers do not do this yet (see `escapeLikeWildcards`).
-//   - No stable per-row identifier (no ctid). ROW_NUMBER() windows fall back to ordering by the first
-//     column when no sort is set, because Spark requires an ORDER BY inside the window.
+//   - No stable per-row identifier (no ctid) and no enforced keys, so rows are served from a result
+//     window (positron-data-explorer-window) rather than paged with LIMIT/OFFSET.
 //   - Complex values (ARRAY, MAP, STRUCT, VARIANT) are rendered as their JSON text, and binary as
 //     hex, both for display and for grouping -- Spark cannot GROUP BY a MAP at all, so the grouping
 //     expressions go through the same normalization (see `_groupableExpr`).
 
 import {
-	ArraySelection,
 	BackendState,
 	CodeSyntaxName,
 	ColumnDisplayType,
@@ -37,11 +36,6 @@ import {
 	ColumnValue,
 	ConvertedCode,
 	ConvertToCodeParams,
-	DataSelectionCellIndices,
-	DataSelectionCellRange,
-	DataSelectionIndices,
-	DataSelectionRange,
-	DataSelectionSingleCell,
 	ExportDataSelectionParams,
 	ExportedData,
 	ExportFormat,
@@ -67,7 +61,6 @@ import {
 	SupportStatus,
 	TableData,
 	TableSchema,
-	TableSelectionKind,
 	TextSearchType,
 } from 'positron-data-explorer-protocol';
 import {
@@ -79,6 +72,13 @@ import {
 	isIntegerLiteral,
 	truncate,
 } from 'positron-data-explorer-formatting';
+import {
+	ResultWindow,
+	windowDataValues,
+	windowExport,
+	windowRowCounts,
+	windowRowLimit,
+} from 'positron-data-explorer-window';
 import type * as positron from 'positron';
 import { quoteAlias, quoteIdentifier, quoteLiteral } from './databricksSql.js';
 
@@ -272,9 +272,14 @@ interface HistogramPlan {
 /**
  * Serves Data Explorer requests for a single Databricks table or view. Translates each protocol
  * method into SQL run through the connection's session. Values are fetched raw and formatted in
- * TypeScript, while filtering, sorting, counts, and aggregations are pushed into SQL.
+ * TypeScript, while filtering, sorting, counts, and aggregations are pushed into SQL. Rows are read
+ * from a result window, one statement per sort and filter state, because separate LIMIT/OFFSET
+ * statements over a relation with no unique order can repeat or skip rows.
  */
 export class DatabricksTableView {
+	private readonly _window = new ResultWindow<Record<string, unknown>>(
+		limit => this._fetchWindow(limit), () => windowRowLimit(this.schema.length));
+
 	private sortKeys: Array<ColumnSortKey> = [];
 	private rowFilters: Array<RowFilter> = [];
 	/** Numbers setRowFilters calls in the order they were made. */
@@ -391,59 +396,21 @@ export class DatabricksTableView {
 	}
 
 	async getDataValues(params: GetDataValuesParams): Promise<TableData> {
-		const filteredRows = await this._filteredRows;
-		if (filteredRows === 0 || params.columns.length === 0) {
-			return { columns: Array.from({ length: params.columns.length }, () => []) };
-		}
+		const { rows } = await this._window.rows();
+		return windowDataValues(params, rows, (row, columnIndex) => this._formatValue(
+			row[`c${columnIndex}`], this.schema[columnIndex].type_display, params.format_options));
+	}
 
-		// Find the overall row range covering every requested column selection.
-		let lowerLimit = Infinity;
-		let upperLimit = -Infinity;
-		for (const column of params.columns) {
-			if (isSelectionRange(column.spec)) {
-				lowerLimit = Math.min(lowerLimit, column.spec.first_index);
-				upperLimit = Math.max(upperLimit, column.spec.last_index);
-			} else {
-				lowerLimit = Math.min(lowerLimit, ...column.spec.indices);
-				upperLimit = Math.max(upperLimit, ...column.spec.indices);
-			}
-		}
-		if (!isFinite(lowerLimit) || !isFinite(upperLimit)) {
-			return { columns: Array.from({ length: params.columns.length }, () => []) };
-		}
-		const numRows = upperLimit - lowerLimit + 1;
-
-		// Select each requested column under a positional alias so duplicates are unambiguous.
-		const selectors = params.columns.map((column, i) =>
-			`${quoteIdentifier(this.schema[column.column_index].column_name)} AS ${quoteAlias(`c${i}`)}`);
-		const query = `SELECT ${selectors.join(', ')} FROM ${this._quotedTable}` +
-			`${this._whereClause}${this._orderClause()} LIMIT ${numRows} OFFSET ${lowerLimit}`;
-		const rows = await this.client.runQuery(query);
-
-		const result: TableData = { columns: [] };
-		for (let i = 0; i < params.columns.length; i++) {
-			const column = params.columns[i];
-			const displayType = this.schema[column.column_index].type_display;
-			const format = (absIndex: number): ColumnValue => {
-				const row = rows[absIndex - lowerLimit];
-				return row === undefined
-					? SENTINEL_NULL
-					: this._formatValue(row[`c${i}`], displayType, params.format_options);
-			};
-
-			const spec = column.spec;
-			if (isSelectionRange(spec)) {
-				const lastIndex = Math.min(spec.last_index, lowerLimit + rows.length - 1);
-				const values: ColumnValue[] = [];
-				for (let r = spec.first_index; r <= lastIndex; r++) {
-					values.push(format(r));
-				}
-				result.columns.push(values);
-			} else {
-				result.columns.push(spec.indices.map(format));
-			}
-		}
-		return result;
+	/**
+	 * Fetches the current state's rows for the result window: every column, under the alias of its
+	 * schema index, in the view's sort order.
+	 */
+	private _fetchWindow(limit: number): Promise<Array<Record<string, unknown>>> {
+		const selectors = this.schema.map((entry, i) =>
+			`${quoteIdentifier(entry.column_name)} AS ${quoteAlias(`c${i}`)}`);
+		// A constant keeps the statement valid, and the row count right, for a view with no columns.
+		return this.client.runQuery(`SELECT ${selectors.join(', ') || '1'} FROM ${this._quotedTable}` +
+			`${this._whereClause}${this._sortClause} LIMIT ${limit}`);
 	}
 
 	/**
@@ -569,6 +536,7 @@ export class DatabricksTableView {
 			this.rowFilters = rowFilters;
 			this._whereClause = whereClause;
 			this._filteredRows = filteredRows;
+			this._window.invalidate();
 		}
 		return { selected_num_rows: selectedRows };
 	}
@@ -576,12 +544,12 @@ export class DatabricksTableView {
 	async setSortColumns(params: SetSortColumnsParams): Promise<void> {
 		this.sortKeys = params.sort_keys;
 		this._sortClause = this._buildSortClause(this.sortKeys);
+		this._window.invalidate();
 	}
 
 	/**
-	 * Builds an ORDER BY clause for the given sort keys. Databricks has no ctid (or any per-row
-	 * identifier), so no tiebreaker is appended and pagination over a non-unique key may not be stable
-	 * across pages.
+	 * Builds an ORDER BY clause for the given sort keys. No tiebreaker is needed: the result window
+	 * reads every row of a state from one statement, so ties keep that statement's order.
 	 */
 	private _buildSortClause(sortKeys: Array<ColumnSortKey>): string {
 		const exprs = sortKeys.map(key => {
@@ -591,18 +559,16 @@ export class DatabricksTableView {
 		return exprs.length > 0 ? `\nORDER BY ${exprs.join(', ')}` : '';
 	}
 
-	/** The ORDER BY clause used for data/export queries. */
-	private _orderClause(): string {
-		return this._sortClause;
-	}
-
 	async getState(): Promise<BackendState> {
-		const [unfilteredRows, filteredRows] = await Promise.all([this._unfilteredRows, this._filteredRows]);
+		const [unfilteredRows, filteredRows, held] = await Promise.all([
+			this._unfilteredRows, this._filteredRows, this._window.rows().catch(() => undefined)]);
+		const { num_rows, total_num_rows } = windowRowCounts(held, filteredRows, this._window.limit);
 		const numColumns = this.schema.length;
 		return {
 			display_name: this.displayName,
-			table_shape: { num_rows: filteredRows, num_columns: numColumns },
+			table_shape: { num_rows, num_columns: numColumns },
 			table_unfiltered_shape: { num_rows: unfilteredRows, num_columns: numColumns },
+			total_num_rows,
 			has_row_labels: false,
 			column_filters: [],
 			row_filters: this.rowFilters,
@@ -674,95 +640,9 @@ export class DatabricksTableView {
 	}
 
 	async exportDataSelection(params: ExportDataSelectionParams): Promise<ExportedData> {
-		const kind = params.selection.kind;
-		const order = this._orderClause();
-
-		const runExport = async (query: string, columns: Array<DatabricksSchemaEntry>): Promise<ExportedData> => {
-			const rows = await this.client.runQuery(query);
-			const matrix = [
-				columns.map(c => c.column_name),
-				...rows.map(row => columns.map((_, i) => stringifyExportCell(row[`c${i}`]))),
-			];
-			return { data: formatExport(matrix, params.format), format: params.format };
-		};
-
-		const selectorsFor = (columns: Array<DatabricksSchemaEntry>) =>
-			columns.map((c, i) => `${quoteIdentifier(c.column_name)} AS ${quoteAlias(`c${i}`)}`).join(', ');
-
-		switch (kind) {
-			case TableSelectionKind.SingleCell: {
-				const sel = params.selection.selection as DataSelectionSingleCell;
-				const column = this.schema[sel.column_index];
-				const query = `SELECT ${quoteIdentifier(column.column_name)} AS ${quoteAlias('c0')} FROM ${this._quotedTable}` +
-					`${this._whereClause}${order} LIMIT 1 OFFSET ${sel.row_index}`;
-				const rows = await this.client.runQuery(query);
-				return { data: stringifyExportCell(rows[0]?.c0), format: params.format };
-			}
-			case TableSelectionKind.CellRange: {
-				const sel = params.selection.selection as DataSelectionCellRange;
-				const columns = this.schema.slice(sel.first_column_index, sel.last_column_index + 1);
-				const query = `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}` +
-					`${this._whereClause}${order} LIMIT ${sel.last_row_index - sel.first_row_index + 1} OFFSET ${sel.first_row_index}`;
-				return runExport(query, columns);
-			}
-			case TableSelectionKind.RowRange: {
-				const sel = params.selection.selection as DataSelectionRange;
-				const query = `SELECT ${selectorsFor(this.schema)} FROM ${this._quotedTable}` +
-					`${this._whereClause}${order} LIMIT ${sel.last_index - sel.first_index + 1} OFFSET ${sel.first_index}`;
-				return runExport(query, this.schema);
-			}
-			case TableSelectionKind.ColumnRange: {
-				const sel = params.selection.selection as DataSelectionRange;
-				const columns = this.schema.slice(sel.first_index, sel.last_index + 1);
-				const query = `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}${this._whereClause}${order}`;
-				return runExport(query, columns);
-			}
-			case TableSelectionKind.ColumnIndices: {
-				const sel = params.selection.selection as DataSelectionIndices;
-				const columns = sel.indices.map(i => this.schema[i]);
-				const query = `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}${this._whereClause}${order}`;
-				return runExport(query, columns);
-			}
-			case TableSelectionKind.RowIndices: {
-				const sel = params.selection.selection as DataSelectionIndices;
-				const query = this._rowIndexQuery(selectorsFor(this.schema), sel.indices);
-				return runExport(query, this.schema);
-			}
-			case TableSelectionKind.CellIndices: {
-				const sel = params.selection.selection as DataSelectionCellIndices;
-				const columns = sel.column_indices.map(i => this.schema[i]);
-				const query = this._rowIndexQuery(selectorsFor(columns), sel.row_indices);
-				return runExport(query, columns);
-			}
-		}
-	}
-
-	/**
-	 * Builds a query that selects specific (post-sort, post-filter) row positions in the requested
-	 * order. Uses a ROW_NUMBER() window so it works for both tables and views. Spark requires an
-	 * ORDER BY inside the window, so when no sort is set the window falls back to ordering by the first
-	 * column (Databricks has no ctid to use as a stable identifier).
-	 */
-	private _rowIndexQuery(selectors: string, rowIndices: number[]): string {
-		// Spark cannot sort by a complex value at all (ORDER BY over a MAP is rejected outright), so the
-		// fallback picks the first column that is actually sortable rather than blindly taking column 0.
-		// With nothing sortable, order by a constant: the window still needs an ORDER BY, and an
-		// arbitrary-but-accepted order beats a statement the server refuses.
-		const sortable = this.schema.find(entry =>
-			entry.type_display !== ColumnDisplayType.Array &&
-			entry.type_display !== ColumnDisplayType.Struct &&
-			entry.type_display !== ColumnDisplayType.Object &&
-			entry.type_display !== ColumnDisplayType.Unknown);
-		const fallbackOrder = sortable
-			? `ORDER BY ${quoteIdentifier(sortable.column_name)}`
-			: 'ORDER BY 1';
-		const ordering = this._sortClause ? this._sortClause.replace(/^\n/, '') : fallbackOrder;
-		const numbered = `SELECT *, ROW_NUMBER() OVER (${ordering}) - 1 AS ${quoteAlias('__row_index')} ` +
-			`FROM ${this._quotedTable}${this._whereClause}`;
-		const order = rowIndices.map((rowIdx, i) => `WHEN ${rowIdx} THEN ${i}`).join(' ');
-		const inList = rowIndices.join(', ');
-		return `SELECT ${selectors} FROM (${numbered}) sub WHERE ${quoteAlias('__row_index')} IN (${inList}) ` +
-			`ORDER BY CASE ${quoteAlias('__row_index')} ${order} END`;
+		const { rows } = await this._window.rows();
+		return windowExport(params, rows, this.schema.map(entry => entry.column_name),
+			(row, columnIndex) => stringifyExportCell(row[`c${columnIndex}`]));
 	}
 
 	/**
@@ -1327,11 +1207,6 @@ export class DatabricksTableView {
 	}
 }
 
-/** Type guard distinguishing a contiguous index range from an explicit index set. */
-function isSelectionRange(spec: ArraySelection): spec is DataSelectionRange {
-	return (spec as DataSelectionRange).first_index !== undefined;
-}
-
 /**
  * Stringifies a raw Databricks value, rendering complex ARRAY/MAP/STRUCT values (which the SDK
  * returns as parsed JS objects) as their JSON text rather than `[object Object]`.
@@ -1359,18 +1234,4 @@ function stringifyExportCell(value: unknown): string {
 		return `[${value.byteLength} bytes]`;
 	}
 	return stringifyValue(value);
-}
-
-/** Renders an export matrix (header row + data rows) into the requested format. */
-function formatExport(matrix: string[][], format: ExportFormat): string {
-	switch (format) {
-		case ExportFormat.Csv:
-			return matrix.map(row => row.join(',')).join('\n');
-		case ExportFormat.Tsv:
-			return matrix.map(row => row.join('\t')).join('\n');
-		case ExportFormat.Html:
-			return matrix.map(row => `<tr><td>${row.join('</td><td>')}</td></tr>`).join('\n');
-		default:
-			throw new Error(`Unknown export format: ${format}`);
-	}
 }

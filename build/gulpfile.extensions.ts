@@ -58,12 +58,16 @@ const compilations = [
 	// Shared Data Explorer value formatting consumed by the data driver extensions. Depends on the
 	// protocol package above; compiled before its consumers.
 	'extensions/positron-data-explorer-formatting/tsconfig.json',
+	// Shared Data Explorer result window consumed by the server data driver extensions. Depends on the
+	// protocol package above; compiled before its consumers.
+	'extensions/positron-data-explorer-window/tsconfig.json',
 	// Shared DuckDB-backed Data Explorer backend consumed by the DuckDB (and later pins) data
 	// driver extensions. Depends on the two packages above; compiled before its consumers.
 	'extensions/positron-data-explorer-duckdb/tsconfig.json',
 	'extensions/authentication/tsconfig.json',
 	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/next-edit-suggestions/tsconfig.json',
+	'extensions/positron-claude-code/tsconfig.json',
 	'extensions/positron-code-cells/tsconfig.json',
 	'extensions/positron-connections/tsconfig.json',
 	'extensions/positron-dev-containers/tsconfig.json',
@@ -91,6 +95,7 @@ const compilations = [
 	'extensions/positron-run-app/tsconfig.json',
 	'extensions/positron-runtime-debugger/tsconfig.json',
 	'extensions/positron-skills/tsconfig.json',
+	'extensions/positron-sql/tsconfig.json',
 	'extensions/positron-supervisor/tsconfig.json',
 	'extensions/positron-viewer/tsconfig.json',
 	'extensions/positron-zed/tsconfig.json',
@@ -331,6 +336,7 @@ task.task(transpileExtensionsTask);
 const orderedPrerequisites = [
 	'extensions/positron-data-explorer-protocol/tsconfig.json',
 	'extensions/positron-data-explorer-formatting/tsconfig.json',
+	'extensions/positron-data-explorer-window/tsconfig.json',
 	'extensions/positron-data-explorer-duckdb/tsconfig.json',
 ]
 	.map(tsconfig => compilations.indexOf(tsconfig))
@@ -377,7 +383,7 @@ task.task(compileExtensionMediaBuildTask);
 
 // --- Start Positron ---
 
-export const copyExtensionBinariesTask = task.define('copy-extension-binaries', () => { ext.copyExtensionBinaries('.build/extensions'); });
+export const copyExtensionBinariesTask = task.define('copy-extension-binaries', () => ext.copyExtensionBinaries('.build/extensions'));
 task.task(copyExtensionBinariesTask);
 
 // --- End Positron ---

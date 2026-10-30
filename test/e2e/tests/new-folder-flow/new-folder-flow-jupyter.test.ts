@@ -25,11 +25,11 @@ test.describe('New Folder Flow: Jupyter Project', {
 		await settings.set({ 'interpreters.startupBehavior': 'auto' }, { waitMs: 5000 });
 	});
 
-	// No WIN tag: the #14163 workaround below switches the notebook kernel to the
+	// No WIN tag: the #16454 workaround below switches the notebook kernel to the
 	// global interpreter (POSITRON_PY_VER_SEL = System Python 3.10.10 on Windows),
 	// which fails to start as a notebook kernel on the Windows runner ("Starting
 	// Python 3.10.10 (System) interpreter ... failed"), so the kernel never reaches
-	// idle. Restore the WIN tag once #14163 is fixed and the workaround is removed.
+	// idle. Restore the WIN tag once #16454 is fixed and the workaround is removed.
 	test('Jupyter Folder Defaults', {
 		tag: [tags.CRITICAL, tags.INTERPRETER]
 	}, async function ({ app }) {
@@ -55,10 +55,10 @@ test.describe('New Folder Flow: Jupyter Project', {
 				.or(app.workbench.toasts.toastNotification.filter({ hasText: 'No notebook editor is open' }))
 		).toBeVisible({ timeout: 30000 });
 
-		// Workaround for https://github.com/posit-dev/positron/issues/14163
-		// Shouldn't have to re-select the kernel. Remove lines 40-45 when fixed.
+		// Workaround for #16454: the flow's own binding never reaches idle, so re-pick the
+		// kernel. The re-pick cold-starts a kernel, so wait with the kernel boot budget.
 		await notebooksPositron.kernel.change('Python');
-		await notebooksPositron.kernel.expectStatusToBe('idle');
+		await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'Python' });
 
 		await verifyNotebookKernelPythonVersion(app);
 		await verifyPyprojectTomlNotCreated(app);
@@ -76,7 +76,7 @@ async function verifyNotebookKernelPythonVersion(app: Application) {
 	const { sessions, notebooksPositron } = app.workbench;
 
 	await sessions.expectSessionPickerToBe(/Untitled-1\.ipynb/);
-	// Concrete version, not just "Python". Folder name not checked: the #14163
+	// Concrete version, not just "Python". Folder name not checked: the #16454
 	// workaround rebinds the kernel to the global Python, not the project runtime.
 	await notebooksPositron.kernel.expectBadgeToContain(/Python \d+\.\d+\.\d+/);
 }

@@ -11,7 +11,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../../pla
 import { ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionStartReason, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryService, ExecutionEntryType, IExecutionHistoryEntry, projectExecutionEntriesToConsoleHistory, DEFAULT_CONSOLE_HISTORY_ENTRY_COUNT, CONSOLE_HISTORY_API_ENABLED_KEY } from '../../common/executionHistoryService.js';
 import { getConsoleHistory } from '../../common/helpers/sessionConsoleHistory.js';
-import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IPreferredRuntime, IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ExecutionHistoryService } from '../../common/executionHistory.js';
 import { IWorkspace, IWorkspaceContextService, IWorkspaceFoldersWillChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
@@ -25,7 +25,7 @@ import { ActiveRuntimeSession } from '../../../runtimeSession/common/activeRunti
 import { UiClientInstance } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 
 class TestWorkspaceContextService implements IWorkspaceContextService {
 	private readonly _onWillChangeWorkspaceFolders = new Emitter<IWorkspaceFoldersWillChangeEvent>();
@@ -330,6 +330,10 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 		throw new Error('Method not implemented.');
 	}
 
+	getPreferredRuntimeWithReason(languageId: string): IPreferredRuntime | undefined {
+		throw new Error('Method not implemented.');
+	}
+
 	registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata> {
 		throw new Error('Method not implemented.');
 	}
@@ -358,6 +362,10 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 	}
 
 	completeDiscovery(_id: number): void {
+		// No-op in test implementation
+	}
+
+	completeLanguageDiscovery(_id: number, _languageId: string): void {
 		// No-op in test implementation
 	}
 
@@ -651,7 +659,7 @@ describe('ExecutionHistoryService', () => {
 	// Build at describe scope -- the builder registers its own beforeEach to
 	// create a fresh instantiation service each test. We re-stub with fresh
 	// mock instances in the following beforeEach, which runs after the builder's.
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.build();
 

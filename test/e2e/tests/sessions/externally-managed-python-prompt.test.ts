@@ -51,8 +51,11 @@ test.describe('Sessions: Externally managed Python prompt', {
 		cachedVersion ??= execSync('/usr/bin/python3 -V').toString().trim().replace('Python ', '');
 		return cachedVersion;
 	}
-	function systemPythonLabel(): string {
-		return `Python ${systemPythonVersion()} (System)`;
+	// Match the row by its path: the aria-label puts a Suggested reason such as "started
+	// recently" between the label and the path. Discovery may list it as /usr/bin/python
+	// or python3, so match the prefix; a pyenv or uv Python has another path.
+	function systemPythonRowMatch(): string {
+		return ', /usr/bin/python';
 	}
 
 	async function pickSystemPython(app: Application): Promise<void> {
@@ -60,7 +63,7 @@ test.describe('Sessions: Externally managed Python prompt', {
 		await sessions.openStartNewSessionQuickPick();
 		await quickInput.waitForInterpreterDiscoveryToComplete();
 		await quickInput.type(`Python ${systemPythonVersion()}`);
-		await quickInput.selectQuickInputElementContaining(systemPythonLabel());
+		await quickInput.selectQuickInputElementContaining(systemPythonRowMatch());
 	}
 
 	test('Prompts with all three buttons when a system Python is picked', async function ({ app }) {

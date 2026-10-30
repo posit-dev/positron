@@ -19,7 +19,7 @@ import { IPositronVariablesService } from '../../../../services/positronVariable
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { Event } from '../../../../../base/common/event.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { PositronDataExplorerCommandId } from '../../browser/positronDataExplorerActions.js';
 import { PositronDataExplorerCodeActionProvider } from '../../browser/positronDataExplorerCodeActionProvider.js';
 
@@ -70,7 +70,7 @@ describe('PositronDataExplorerCodeActionProvider', () => {
 	let openViewStub: ReturnType<typeof vi.fn<(...args: unknown[]) => Promise<unknown>>>;
 	let dataConnectionsEnabled: boolean | undefined;
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IConfigurationService, {
 			getValue: (key: string) => key === 'dataConnections.enabled' ? dataConnectionsEnabled : undefined,
 		})

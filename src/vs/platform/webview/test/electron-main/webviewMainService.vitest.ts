@@ -8,7 +8,7 @@
 
 import type { BrowserWindow, WebContents } from 'electron';
 import { EventEmitter } from 'events';
-import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../test/vitest/stubInterface.js';
 import { IFileService } from '../../../files/common/files.js';
 import { ICodeWindow } from '../../../window/electron-main/window.js';
@@ -44,7 +44,7 @@ function createContents(id: number) {
 
 describe('WebviewMainService menu shortcut ownership', () => {
 	const windows = new Map<number, ICodeWindow>();
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IFileService, {})
 		.stub(IWindowsMainService, { getWindowById: (id: number) => windows.get(id) })
 		.build();

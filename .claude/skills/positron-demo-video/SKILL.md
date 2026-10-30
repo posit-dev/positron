@@ -17,7 +17,27 @@ Creates polished demo videos of Positron features through a collaborative script
 ## Prerequisites
 
 - Positron must be built (`npm run build-ps` to check)
-- ffmpeg installed (`brew install ffmpeg`) -- required, not optional
+- ffmpeg installed -- required, not optional. macOS: `brew install ffmpeg`. Windows:
+  `scoop install ffmpeg` or `winget install Gyan.FFmpeg`. It must be on `PATH` as a real
+  executable; the scripts spawn it without a shell.
+- Playwright's own ffmpeg build, which it uses for the capture itself. `demo:record` installs it
+  when missing (`npx playwright install ffmpeg`). Without it the app fixture hangs for its full
+  timeout and `demo-videos/` is never created, with no error pointing at ffmpeg.
+
+### Windows
+
+The recording scripts work the same from Git Bash or PowerShell. Two things differ:
+
+- **Recording from an agent session needs `--detached`.** Ark's libzmq aborts when Positron is a
+  descendant of a Claude Code process, so an R console never starts (Python is unaffected).
+  `npm run demo:record -- <name> --detached` re-runs the recording through WMI, outside that
+  process tree, and streams the output back, so pass it for every recording an agent starts on
+  Windows rather than working out whether the demo touches R. Ctrl+C stops the detached run. The
+  child gets the caller's environment (passed in memory, never written to disk) minus the agent
+  session's own `ANTHROPIC_*`, `CLAUDE*` and `ELECTRON_RUN_AS_NODE` variables, so `BUILD` and
+  the other e2e knobs work as usual.
+- Write scratch frames for verification to a temp directory that exists in the shell you are
+  using. `/tmp/` resolves only under Git Bash.
 
 ## Workflow
 
@@ -134,8 +154,10 @@ payoff legible.
 >
 > ```bash
 > ffprobe -v error -show_entries format=duration,size -of csv=p=0 demo-videos/<name>.mp4
-> ffmpeg -y -ss <t> -i demo-videos/<name>.mp4 -frames:v 1 /tmp/frame_<t>.jpg
+> ffmpeg -y -ss <t> -i demo-videos/<name>.mp4 -frames:v 1 <scratch-dir>/frame_<t>.jpg
 > ```
+>
+> (`<scratch-dir>` is `/tmp` on macOS or Git Bash and `$env:TEMP` in PowerShell.)
 
 Once the subagent reports back, relay the results to the user:
 - The video file path (for drag-and-drop into a PR or issue)

@@ -967,6 +967,7 @@ CommandsRegistry.registerCommand({
 	id: GET_CONNECTIONS_COMMAND_ID,
 	handler: getDataConnections,
 	metadata: {
+		title: localize('positron.dataConnections.getConnections.title', "Get Data Connections"),
 		description: localize(
 			'positron.dataConnections.getConnections.description',
 			"Read the data connections the user has configured or that were detected on this machine, whether or not they are currently connected."
@@ -983,6 +984,7 @@ CommandsRegistry.registerCommand({
 	id: GET_CONNECTION_CODE_COMMAND_ID,
 	handler: getDataConnectionCode,
 	metadata: {
+		title: localize('positron.dataConnections.getConnectionCode.title', "Get Data Connection Code"),
 		description: localize(
 			'positron.dataConnections.getConnectionCode.description',
 			"Read the code that opens one of the data connections the user has configured."
@@ -1057,6 +1059,7 @@ CommandsRegistry.registerCommand({
 	id: GET_SCHEMA_COMMAND_ID,
 	handler: getDataConnectionSchema,
 	metadata: {
+		title: localize('positron.dataConnections.getSchema.title', "Get Data Connection Schema"),
 		description: localize(
 			'positron.dataConnections.getSchema.description',
 			"Read the schema -- the tables and columns -- of a data connection, connecting it first when it is not live yet."
@@ -1102,6 +1105,7 @@ CommandsRegistry.registerCommand({
 	id: GET_LINEAGE_COMMAND_ID,
 	handler: getDataConnectionLineage,
 	metadata: {
+		title: localize('positron.dataConnections.getLineage.title', "Get Data Lineage"),
 		description: localize(
 			'positron.dataConnections.getLineage.description',
 			"Read the lineage of a table, view or column in a data connection -- the objects its data comes from, or the objects it flows into -- connecting it first when it is not live yet."

@@ -6,7 +6,7 @@
 import { Event } from '../../../../base/common/event.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { ILanguageModelMessage } from '../../../../platform/positronHeadlessLanguageModel/common/engine.js';
+import { ILanguageModelMessage, IProviderModuleSource } from '../../../../platform/positronHeadlessLanguageModel/common/engine.js';
 
 /**
  * The headless language model service: one reusable seam any Positron feature
@@ -185,6 +185,8 @@ export interface IModelWithProvider extends IAvailableModel {
 
 /** What the AI diagnostic report needs to explain a provider's contribution. */
 export interface IModelListingDiagnostics {
+	/** Which provider module copy serves the listing; absent when there is no engine. */
+	readonly providerModule?: IProviderModuleSource;
 	/**
 	 * Providers actually queried, whether or not they returned anything. A
 	 * provider missing here was skipped before the call: disabled in the catalog,

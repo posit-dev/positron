@@ -17,7 +17,7 @@ import { PositronPlotsEditor } from './positronPlotsEditor.js';
 import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 
-class PositronPlotsEditorContribution extends Disposable {
+export class PositronPlotsEditorContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronPlotsEditor';
 
 	constructor(
@@ -32,7 +32,8 @@ class PositronPlotsEditorContribution extends Disposable {
 			{
 				id: PositronPlotsEditorInput.EditorID,
 				label: localize('positronPlotsEditor', 'Editor Plot Tab'),
-				priority: RegisteredEditorPriority.builtin
+				// Only this editor can open its scheme, so user editor associations must not override it.
+				priority: RegisteredEditorPriority.exclusive
 			},
 			{
 				singlePerResource: true,

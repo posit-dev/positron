@@ -11,7 +11,7 @@ import { IConfigurationData, IConfigurationModel, IConfigurationOverrides, IConf
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { IUserDataProfile } from '../../../../../platform/userDataProfile/common/userDataProfile.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
 import { IUserDataProfileService } from '../../../../services/userDataProfile/common/userDataProfile.js';
@@ -193,7 +193,7 @@ function createConfigurationService(targets: ITargetValues): IConfigurationServi
 }
 
 describe('getConfiguredSettings', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 	const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 
 	beforeAll(() => {
@@ -748,15 +748,17 @@ describe('getConfiguredSettings', () => {
 		]);
 	});
 
-	it('is registered as an agent-compatible command with a return contract', () => {
+	it('is registered as a read-only agent-compatible command with a return contract', () => {
 		const command = CommandsRegistry.getCommand(SETTINGS_GET_CONFIGURED_SETTINGS_COMMAND_ID);
 
 		expect({
 			agentCompatible: command?.metadata?.agentCompatible,
+			readOnly: command?.metadata?.readOnly,
 			hasReturns: (command?.metadata?.returns?.length ?? 0) > 0,
 			argNames: command?.metadata?.args?.map(arg => arg.name),
 		}).toEqual({
 			agentCompatible: true,
+			readOnly: true,
 			hasReturns: true,
 			argNames: ['filter', 'includeDescriptions'],
 		});
@@ -764,7 +766,7 @@ describe('getConfiguredSettings', () => {
 });
 
 describe('findSettings', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 	const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 
 	beforeAll(() => {
@@ -917,15 +919,17 @@ describe('findSettings', () => {
 		expect(result.total).toBeGreaterThanOrEqual(9);
 	});
 
-	it('is registered as an agent-compatible command with a return contract', () => {
+	it('is registered as a read-only agent-compatible command with a return contract', () => {
 		const command = CommandsRegistry.getCommand(SETTINGS_FIND_SETTINGS_COMMAND_ID);
 
 		expect({
 			agentCompatible: command?.metadata?.agentCompatible,
+			readOnly: command?.metadata?.readOnly,
 			hasReturns: (command?.metadata?.returns?.length ?? 0) > 0,
 			argNames: command?.metadata?.args?.map(arg => arg.name),
 		}).toEqual({
 			agentCompatible: true,
+			readOnly: true,
 			hasReturns: true,
 			argNames: ['query', 'keys', 'tag', 'limit'],
 		});

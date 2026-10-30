@@ -13,6 +13,7 @@ import { SnowflakeClient, SnowflakeConnectionOptions } from './snowflakeClient.j
 import { createDatabasesGroupNode, ISnowflakePreviewHost } from './snowflakeNodes.js';
 import { ISnowflakeDataExplorerHost, SNOWFLAKE_DATA_EXPLORER_PROVIDER_ID } from './snowflakeDataExplorerRpcHandler.js';
 import { getSnowflakeLineage } from './snowflakeLineage.js';
+import { ISnowflakeQueryClient } from './snowflakeTableView.js';
 
 /** Monotonically increasing id so each connection's previewed datasets get a unique key. */
 let nextConnectionId = 1;
@@ -29,6 +30,15 @@ function datasetKey(connectionId: string, kind: string, ...parts: string[]): str
 
 /** The connection configuration passed from the driver: the normalized snowflake-sdk options. */
 export type SnowflakeConnectionConfig = SnowflakeConnectionOptions;
+
+/**
+ * A query client over the given sdk client, for the Data Explorer table views. NUMBER values arrive
+ * as exact digit strings so the table view can format them without rounding through a double; every
+ * other read of a numeric result in the table view coerces it explicitly.
+ */
+export function dataExplorerQueryClient(client: Pick<SnowflakeClient, 'query'>): ISnowflakeQueryClient {
+	return { runQuery: async (sql: string) => (await client.query(sql, undefined, { exactNumbers: true })).rows };
+}
 
 /**
  * A live Snowflake connection. Connects via a reconnecting snowflake-sdk client and provides schema
@@ -106,7 +116,7 @@ export class SnowflakeConnection implements positron.DataConnection, ISnowflakeP
 	async previewObject(client: SnowflakeClient, database: string, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string> {
 		this._ensureConnected();
 		const datasetId = datasetKey(this._connectionId, kind, database, schemaName, tableName);
-		await this._dataExplorerHandler.openTableView(datasetId, this._queryClient(client), database, schemaName, tableName, kind);
+		await this._dataExplorerHandler.openTableView(datasetId, dataExplorerQueryClient(client), database, schemaName, tableName, kind);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
 			providerId: SNOWFLAKE_DATA_EXPLORER_PROVIDER_ID,
@@ -124,7 +134,7 @@ export class SnowflakeConnection implements positron.DataConnection, ISnowflakeP
 	async previewColumn(client: SnowflakeClient, database: string, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string> {
 		this._ensureConnected();
 		const datasetId = datasetKey(this._connectionId, 'column', database, schemaName, tableName, columnName);
-		await this._dataExplorerHandler.openColumnView(datasetId, this._queryClient(client), database, schemaName, tableName, kind, columnName);
+		await this._dataExplorerHandler.openColumnView(datasetId, dataExplorerQueryClient(client), database, schemaName, tableName, kind, columnName);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
 			providerId: SNOWFLAKE_DATA_EXPLORER_PROVIDER_ID,
@@ -132,11 +142,6 @@ export class SnowflakeConnection implements positron.DataConnection, ISnowflakeP
 			displayName: `${tableName}.${columnName}`,
 		});
 		return datasetId;
-	}
-
-	/** A query client over the given sdk client, for the Data Explorer table views. */
-	private _queryClient(client: SnowflakeClient) {
-		return { runQuery: async (sql: string) => (await client.query(sql)).rows };
 	}
 
 	/** Closes the connection and releases any previewed table views. Idempotent. */

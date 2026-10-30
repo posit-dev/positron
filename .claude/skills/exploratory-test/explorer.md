@@ -381,6 +381,15 @@ its step. `shot.sh` refuses a name already taken and prints the next free one. T
 depends on, such as the same panel still loading 15 s later. Leave a shot no
 check cites where it is; it is harmless.
 
+Pass `--crop` with the region the check is about: its view (`--view
+Variables`, `--view 'active console'`) or a snapshot ref of the panel, tooltip
+or dialog, with its header or tab strip, so a reader can tell where it is.
+`shot.sh` still saves the whole window under the name you cite, and saves the
+region beside it as `<name>.crop.png`, which the report shows on hover at full
+size. Aim for a region 300 to 900 px wide; pick a smaller one if `shot.sh`
+warns it is over 1000. Leave out `--crop` only when the check is about the
+whole window, such as the layout. Cite the whole-window name, never the crop.
+
 A check about something off screen, such as a log line, a file's content on
 disk or a port that should be closed, still gets a shot of the app as it stood,
 and cites a saved output beside it: copy the file, or save the command's
@@ -695,9 +704,9 @@ first." Describe the old code's behavior, not the run you did not do. When the
 diff changes what unchanged code is given, write "reachable through this
 change; cannot tell if it predates it without a base build". Otherwise, if the
 diff does not settle it, leave origin out, and never label a finding new or
-pre-existing. The verifier reads that sentence and decides which findings the
-findings list marks as likely related to the change; add no field or mark for
-it yourself.
+pre-existing. The verifier reads that sentence and decides each finding's
+Origin in the findings list (Introduced, Exposed or Inherited); add no field or
+mark for it yourself.
 
 To see which language client served a request, turn on its LSP trace: the
 extension's trace setting (`<server>.trace.server` at `verbose`) and its

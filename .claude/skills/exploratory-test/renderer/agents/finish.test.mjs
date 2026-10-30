@@ -45,16 +45,16 @@ test('parseVerifyReply says why it read nothing, and keeps the whole reply as no
 test('parseVerifyReply skips each entry it cannot read, and keeps the rest', () => {
 	const r = parseVerifyReply(reply({
 		findings: [
-			{ n: 1, verdict: 'confirmed', known: [15102, 15102, 'x'], feature: 'new folder flow', title: 'a | b', log: [12, 30], shots: ['shots/S01-02.png', 3] },
+			{ n: 1, verdict: 'confirmed', known: [15102, 15102, 'x'], feature: 'new folder flow', title: 'a | b', origin: 'exposed', log: [12, 30], shots: ['shots/S01-02.png', 3] },
 			{ n: '2', verdict: 'confirmed' },
 			{ n: 3, verdict: 'maybe' },
-			{ n: 4, verdict: 'unresolved', intended: [14210], related: 'yes', log: [30, 12] },
+			{ n: 4, verdict: 'unresolved', intended: [14210], origin: 'unclear', log: [30, 12] },
 		],
 		linked: [{ issue: 5678, severity: 'Moderate' }, { issue: 5301, severity: 'awful' }, { issue: '9', severity: 'minor' }],
 	}));
 	assert.deepEqual(Object.fromEntries(r.findings), {
-		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, cause: null, observed: null, tests: null, related: false, log: [12, 30], shots: [{ file: 'S01-02.png', shows: '' }], setup: null },
-		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, cause: null, observed: null, tests: null, related: false, log: null, shots: null, setup: null },
+		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, cause: null, observed: null, tests: null, origin: 'exposed', log: [12, 30], shots: [{ file: 'S01-02.png', shows: '' }], setup: null },
+		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, cause: null, observed: null, tests: null, origin: null, log: null, shots: null, setup: null },
 	});
 	assert.deepEqual([...r.linked], [[5678, 'moderate']]);
 	assert.deepEqual([...issueMatches(r, 'known')], [[1, [15102]]]);
@@ -69,12 +69,12 @@ test('applyVerification marks each finding with its verdict, and only the ones i
 	assert.equal(apply(REPORT, verdicts([1, 'confirmed'])).findings[1].verified, undefined);
 });
 
-test('applyVerification keeps the related findings and linked severities beside the notes', () => {
-	const out = apply(REPORT, { ...verdicts([1, 'confirmed', { related: true }], [2, 'confirmed']), linked: [{ issue: 20, severity: 'minor' }] }, '- 1: holds.');
+test('applyVerification keeps each finding\'s origin and linked severities beside the notes', () => {
+	const out = apply(REPORT, { ...verdicts([1, 'confirmed', { origin: 'introduced' }], [2, 'confirmed']), linked: [{ issue: 20, severity: 'minor' }] }, '- 1: holds.');
 	assert.deepEqual(out.verification, {
 		failed: false,
 		text: 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was removed. A title, feature, cause, observed or test list it corrected replaces the explorer\'s, and a corrected cause or observed is marked on its finding.\n\n- 1: holds.',
-		related: [1],
+		origin: { 1: 'introduced' },
 		linked: [{ issue: 20, severity: 'minor' }],
 	});
 	assert.ok(isVerified(out));
@@ -267,20 +267,24 @@ test('apply refuses verdicts keyed to other numbers, writes nothing, and takes a
 	});
 });
 
-/** Calls `fn` with a throwaway repo with two commits, for changeBase's rev-list. */
+/** Calls `fn` with a throwaway repo: a base, a commit that changes a file, and an empty one on top. */
 function withTwoCommitRepo(fn) {
 	return withTmpDir('finish-git-', repo => {
 		const git = (...args) => execFileSync('git', ['-C', repo, '-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { encoding: 'utf8' }).trim();
 		git('init', '-q');
 		git('commit', '-q', '--allow-empty', '-m', 'base');
 		const base = git('rev-parse', 'HEAD');
-		git('commit', '-q', '--allow-empty', '-m', 'change');
-		return fn({ repo, base, head: git('rev-parse', 'HEAD') });
+		writeFileSync(join(repo, 'a.txt'), 'a\n');
+		git('add', 'a.txt');
+		git('commit', '-q', '-m', 'change');
+		const head = git('rev-parse', 'HEAD');
+		git('commit', '-q', '--allow-empty', '-m', 'empty');
+		return fn({ repo, base, head, empty: git('rev-parse', 'HEAD') });
 	});
 }
 
-test('changeBase is usable only with commits between the base and the head', () => {
-	withTwoCommitRepo(({ repo, base, head }) => {
+test('changeBase is usable only with commits and a diff between the base and the head', () => {
+	withTwoCommitRepo(({ repo, base, head, empty }) => {
 		assert.deepEqual(changeBase(repo, base, head, 'main'), { usable: true, reason: '', name: 'main' });
 		assert.deepEqual(changeBase(repo, base, head), { usable: true, reason: '', name: null });
 		assert.equal(changeBase(repo, '', head, 'main').usable, false);
@@ -288,17 +292,18 @@ test('changeBase is usable only with commits between the base and the head', () 
 		// A main run: the head is behind or at the base, so nothing is the change's.
 		assert.deepEqual(changeBase(repo, head, base, 'main'), { usable: false, reason: 'no commits between the base and the head', name: 'main' });
 		assert.equal(changeBase('/no/such/repo', base, head).usable, false);
+		assert.deepEqual(changeBase(repo, head, empty, 'main'), { usable: false, reason: 'the diff is empty', name: 'main' });
 	});
 });
 
-test('buildVerifyPrompt asks for related findings only when the base is usable', () => {
+test('buildVerifyPrompt asks for an origin only when the base is usable', () => {
 	const usable = buildVerifyPrompt(VERIFIER, { ...RUN, changeBase: { usable: true } });
 	assert.match(usable, /The change under test is the commits in `aaaa1111\.\.bbbb2222`\./);
-	assert.match(usable, /`related`: `true` for a finding whose fix likely belongs/);
+	assert.match(usable, /`origin`: where the most direct fix for the finding likely goes/);
 	assert.match(usable, /git -C \/repo blame -w -M -C bbbb2222 -L <start>,<end> -- <file>/);
 	assert.match(usable, /git -C \/repo rev-list aaaa1111\.\.bbbb2222/);
 	const none = buildVerifyPrompt(VERIFIER, { ...RUN, changeBase: { usable: false, reason: 'the base is the head' } });
-	assert.match(none, /This run has no usable base \(the base is the head\), so mark no finding related/);
+	assert.match(none, /This run has no usable base \(the base is the head\), so give no finding an `origin`/);
 	assert.match(buildVerifyPrompt(VERIFIER, RUN), /no usable base \(none was given\)/);
 });
 

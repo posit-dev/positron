@@ -80,6 +80,7 @@ export function createInterpreterVariant(base: ILanguageRuntimeMetadata, definit
 		runtimeId: sha.digest().substring(0, 32),
 		runtimeName: definition.label,
 		interpreterDefinition: definition.label,
+		picker: base.picker && { ...base.picker, label: definition.label },
 		definitionOnly: false,
 		cacheable: false,
 	};

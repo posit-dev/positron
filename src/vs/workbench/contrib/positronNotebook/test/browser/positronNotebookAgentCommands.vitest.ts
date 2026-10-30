@@ -6,14 +6,14 @@
 /// <reference types="vitest/globals" />
 
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { constObservable } from '../../../../../base/common/observable.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -26,6 +26,12 @@ import {
 	deleteNotebookCellsCommand,
 	getNotebookCells,
 	insertNotebookCell,
+	NOTEBOOK_CREATE_COMMAND_ID,
+	NOTEBOOK_DELETE_CELLS_COMMAND_ID,
+	NOTEBOOK_GET_CELLS_COMMAND_ID,
+	NOTEBOOK_INSERT_CELL_COMMAND_ID,
+	NOTEBOOK_RUN_CELLS_COMMAND_ID,
+	NOTEBOOK_UPDATE_CELL_CONTENT_COMMAND_ID,
 	runNotebookCellsCommand,
 	updateNotebookCell,
 } from '../../browser/positronNotebookAgentCommands.js';
@@ -53,7 +59,7 @@ function createCodeCell(overrides: Partial<IPositronNotebookCodeCell> = {}): IPo
 }
 
 describe('positronNotebookAgentCommands', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	/** Registers a notebook instance as the one open at NOTEBOOK_URI. */
 	function stubTargetNotebook(instance: IPositronNotebookInstance) {
@@ -388,5 +394,21 @@ describe('positronNotebookAgentCommands', () => {
 				error: 'Created the notebook file at notebook.ipynb, but it did not open in the Positron notebook editor.',
 			});
 		}, 7000);
+	});
+});
+
+describe('positronNotebookAgentCommands registration', () => {
+	it('marks only the command that reads cells as read-only', () => {
+		const ids = [
+			NOTEBOOK_CREATE_COMMAND_ID,
+			NOTEBOOK_GET_CELLS_COMMAND_ID,
+			NOTEBOOK_INSERT_CELL_COMMAND_ID,
+			NOTEBOOK_UPDATE_CELL_CONTENT_COMMAND_ID,
+			NOTEBOOK_DELETE_CELLS_COMMAND_ID,
+			NOTEBOOK_RUN_CELLS_COMMAND_ID,
+		];
+
+		expect(ids.filter(id => CommandsRegistry.getCommand(id)?.metadata?.readOnly === true))
+			.toEqual([NOTEBOOK_GET_CELLS_COMMAND_ID]);
 	});
 });

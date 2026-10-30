@@ -57,7 +57,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	};
 
 	// Only show buttons if notebook AI is enabled, notebook mode is enabled, and
-	// a handler can take errors.
+	// there is an active error action handler.
 	const showQuickFix = notebookAiEnabled !== false && enableNotebookMode;
 
 	// Don't render if assistant features are not enabled

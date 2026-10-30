@@ -215,12 +215,23 @@ test('didn\'t ship is its own group, first of the not counted, left out of the %
 	assert.match(text(html), /1 Not merged The code this finding was about never reached main: the PR closed, or merged without it\./);
 });
 
+test('won\'t fix is its own group, counted in the % fixed but never as a fix', () => {
+	const html = render([row('fixed-in-pr'), row('not-fixed'), row('wont-fix', { decidedBy: 'issue-not-planned' }), row('didnt-ship', { decidedBy: 'dropped' }), row('pending')]);
+	assert.match(text(section(html, 'all-h')), /Findings by outcome \? Outcome known 3 Not counted 2/);
+	assert.match(text(section(html, 'ev-h')), /All 5 Fixed 1 Won't fix 1 Not fixed 1 Not merged 1 No outcome yet 1 Expand all/);
+	assert.match(html, /<div class="group" data-group="wont-fix">/);
+	const bar = html.match(/<div class="bar big">([\s\S]*?)<\/div>/)[1];
+	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'wont-fix', 'not-fixed', 'didnt-ship', 'pending']);
+	assert.match(text(html), /Developers fixed 1 of 3 findings \(33%\)/);
+	assert.match(text(section(html, 'ev-h')), /Won't fix 1 Its issue was closed as not planned\. .*Decided by Its issue was closed as not planned/);
+});
+
 test('the ? opens how each finding is checked, in decideOutcome\'s order, and is kept across range changes', () => {
 	const html = render(today);
 	assert.match(html, /<h2 id="all-h">Findings by outcome<\/h2><button type="button" class="how" aria-expanded="false" aria-controls="how" aria-label="How outcomes are counted"/);
 	const panel = html.match(/<div class="how-panel" id="how" hidden>[\s\S]*?<div class="notes">[\s\S]*?<\/div><\/div>/)[0];
 	const steps = [...panel.matchAll(/<li><span class="step">(\d)<\/span><span class="outs">(.*?)<\/span><\/span><span>/g)].map(m => `${m[1]} ${m[2].replace(/<[^>]+>/g, ' ').trim().replace(/\s+/g, ' ')}`);
-	assert.deepEqual(steps, ['1 PR still open', '2 Fixed in the PR', '3 Fixed later', '4 Filed as issue', '5 Not merged', '6 Unclear No files named', '7 Not fixed']);
+	assert.deepEqual(steps, ['1 PR still open', '2 Fixed in the PR', '3 Fixed later', '4 Filed as issue', '5 Won\'t fix', '6 Not merged', '7 Unclear No files named', '8 Not fixed']);
 	assert.match(panel, /Outcomes can move later/);
 	assert.match(html, /let howOpen = false;/);
 	assert.match(html, /setHow\(howOpen\);/);

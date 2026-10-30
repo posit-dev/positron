@@ -10,11 +10,13 @@ import { OdbcSchemaEntry, OdbcTableView, resolveOdbcRowIdentity } from '../odbcT
 import { IOdbcQueryClient } from '../odbcWorkerClient.js';
 import { OdbcRow } from '../odbcWorkerProtocol.js';
 import {
+	BackendState,
 	ColumnDisplayType,
 	ExportFormat,
 	FormatOptions,
 	TableSelectionKind,
 } from 'positron-data-explorer-protocol';
+import { RESULT_WINDOW_ROWS } from 'positron-data-explorer-window';
 
 const FORMAT: FormatOptions = {
 	large_num_digits: 2,
@@ -25,6 +27,8 @@ const FORMAT: FormatOptions = {
 
 const LIMIT_OFFSET: OdbcDialect = { identifierQuote: '"', pagination: 'limit-offset' };
 const OFFSET_FETCH: OdbcDialect = { identifierQuote: '"', pagination: 'offset-fetch' };
+const ENFORCED_KEYS: OdbcDialect = { ...LIMIT_OFFSET, enforcesPrimaryKeys: true };
+const ENFORCED_OFFSET_FETCH: OdbcDialect = { ...OFFSET_FETCH, enforcesPrimaryKeys: true };
 
 /**
  * A low-cardinality first column, so the fallback tiebreaker is the weakest one a real table could
@@ -53,7 +57,7 @@ const statusOf = (id: number) => `s${id % STATUSES}`;
  * diff.
  */
 class UnstableOrderClient implements IOdbcQueryClient {
-	/** Reads that scan the base relation, i.e. the expensive ones a snapshot should not multiply. */
+	/** Statements that read rows of the relation, as opposed to counting them. */
 	baseRelationReads = 0;
 
 	private rotation = 0;
@@ -85,21 +89,29 @@ class UnstableOrderClient implements IOdbcQueryClient {
 			order.push(...group.slice(by), ...group.slice(0, by));
 		}
 
-		// Both dialects the driver emits: LIMIT/OFFSET and the SQL:2008 OFFSET ... FETCH form.
-		const window = /LIMIT (\d+) OFFSET (\d+)/.exec(sql);
-		const fetch = /OFFSET (\d+) ROWS FETCH NEXT (\d+) ROWS ONLY/.exec(sql);
-		let offset = 0;
-		let limit = this.rowCount;
-		if (window) {
-			[offset, limit] = [Number(window[2]), Number(window[1])];
-		} else if (fetch) {
-			[offset, limit] = [Number(fetch[1]), Number(fetch[2])];
+		// A ROW_NUMBER() read selects listed positions of that order; any other read, a span of it, in
+		// either dialect the driver emits: LIMIT/OFFSET and the SQL:2008 OFFSET ... FETCH form.
+		let positions: number[];
+		const listed = /IN \((?<list>[\d, ]+)\)/.exec(sql);
+		if (sql.includes('ROW_NUMBER()') && listed?.groups) {
+			positions = listed.groups.list.split(',').map(Number);
+		} else {
+			const window = /LIMIT (\d+) OFFSET (\d+)/.exec(sql);
+			const fetch = /OFFSET (\d+) ROWS FETCH NEXT (\d+) ROWS ONLY/.exec(sql);
+			let offset = 0;
+			let limit = this.rowCount;
+			if (window) {
+				[offset, limit] = [Number(window[2]), Number(window[1])];
+			} else if (fetch) {
+				[offset, limit] = [Number(fetch[1]), Number(fetch[2])];
+			}
+			positions = Array.from({ length: Math.max(0, Math.min(limit, this.rowCount - offset)) }, (_, i) => offset + i);
 		}
 		// Selectors are aliased by request position rather than schema position, so the row has to be
 		// keyed the way the caller actually asked for it.
 		const selected = [...sql.matchAll(/"(\w+)" AS (c\d+)/g)]
 			.map(match => ({ name: match[1], alias: match[2] }));
-		return order.slice(offset, offset + limit).map(id => {
+		return positions.map(position => order[position]).map(id => {
 			const row: OdbcRow = {};
 			for (const { name, alias } of selected) {
 				row[alias] = name === 'id' ? id : statusOf(id);
@@ -196,6 +208,25 @@ function pagingInvariants(dialect: OdbcDialect, rowIdentity: ReadonlyArray<strin
 		assert.deepStrictEqual(ids, shown);
 	});
 
+	test('copied cells match the rows shown at those positions', async () => {
+		const view = open();
+		const shown = await readPage(view, 0, ROWS);
+		// Copy sends cell indices, in the order the rows are laid out in the grid.
+		const rows = [900, 3, 501];
+
+		const exported = await view.exportDataSelection({
+			selection: {
+				kind: TableSelectionKind.CellIndices,
+				selection: { row_indices: rows, column_indices: [0, 1] },
+			},
+			format: ExportFormat.Csv,
+		});
+		const ids = exported.data.trim().split('\n').slice(1)
+			.map(line => Number(line.split(',')[1]));
+
+		assert.deepStrictEqual(ids, rows.map(row => shown[row]));
+	});
+
 	test('a sweep sorted by a low-cardinality column returns every row exactly once', async () => {
 		const view = open();
 		// Sorting by `status` groups the rows correctly but leaves ~333 of them tied at a time, so
@@ -250,23 +281,95 @@ suite('ODBC paging stability', () => {
 	});
 
 	suite('primary key tiebreaker, LIMIT/OFFSET', () => {
-		pagingInvariants(LIMIT_OFFSET, ['id']);
+		pagingInvariants(ENFORCED_KEYS, ['id']);
 	});
 
 	suite('primary key tiebreaker, OFFSET/FETCH', () => {
-		pagingInvariants(OFFSET_FETCH, ['id']);
+		pagingInvariants(ENFORCED_OFFSET_FETCH, ['id']);
 	});
 
 	// A composite key appends every column, so paging stays exact even when the leading key column
 	// is not unique on its own.
 	suite('composite key tiebreaker', () => {
-		pagingInvariants(LIMIT_OFFSET, ['status', 'id']);
+		pagingInvariants(ENFORCED_KEYS, ['status', 'id']);
 	});
 
-	// With no key to be had -- a view, or a table without one -- the first column stands in, which is
-	// not unique, so rows tied on it still swap between pages. Pending the materialized-snapshot
-	// work; see https://github.com/posit-dev/positron/issues/15361.
-	suite.skip('no row identity', () => {
+	// A declared key on a backend that does not enforce keys need not be unique, so it is not paged by.
+	suite('unenforced key', () => {
+		pagingInvariants(LIMIT_OFFSET, ['id']);
+
+		test('a sweep reads the relation once', async () => {
+			const client = new UnstableOrderClient(ROWS);
+			await sweep(new OdbcTableView(client, REF, LIMIT_OFFSET, SCHEMA, ['id']));
+			assert.strictEqual(client.baseRelationReads, 1);
+		});
+	});
+
+	// With no key to be had -- a view, a table without one, or a backend that does not enforce keys --
+	// rows are read from a result window.
+	suite('no row identity, LIMIT/OFFSET', () => {
 		pagingInvariants(LIMIT_OFFSET, []);
+
+		test('a sweep reads the relation once', async () => {
+			const client = new UnstableOrderClient(ROWS);
+			await sweep(new OdbcTableView(client, REF, LIMIT_OFFSET, SCHEMA));
+			assert.strictEqual(client.baseRelationReads, 1);
+		});
+
+		test('a relation longer than the window serves the window and reports the total', async () => {
+			const view = new OdbcTableView(new UnstableOrderClient(RESULT_WINDOW_ROWS + 10), REF, LIMIT_OFFSET, SCHEMA);
+			const state: BackendState = await view.getState();
+			assert.deepStrictEqual(
+				{ rows: state.table_shape.num_rows, total: state.total_num_rows },
+				{ rows: RESULT_WINDOW_ROWS, total: RESULT_WINDOW_ROWS + 10 },
+			);
+		});
+
+		test('a window that cannot be read leaves the view open with its count, and its rows fail', async () => {
+			// As a sort on a column the engine cannot order by does: the count runs, the rows do not.
+			const client: IOdbcQueryClient = {
+				runQuery: async (sql: string) => {
+					if (sql.includes('count(*)')) {
+						return [{ n: ROWS }];
+					}
+					throw new Error('cannot read');
+				},
+				tables: async () => [],
+				columns: async () => [],
+				primaryKeys: async () => [],
+			};
+			const view = new OdbcTableView(client, REF, LIMIT_OFFSET, SCHEMA);
+			const state = await view.getState();
+			await assert.rejects(readPage(view, 0, PAGE), /cannot read/);
+			assert.deepStrictEqual(
+				{ rows: state.table_shape.num_rows, total: state.total_num_rows },
+				{ rows: ROWS, total: undefined },
+			);
+		});
+
+		test('a relation within the window reports no total', async () => {
+			const state = await new OdbcTableView(new UnstableOrderClient(ROWS), REF, LIMIT_OFFSET, SCHEMA).getState();
+			assert.deepStrictEqual(
+				{ rows: state.table_shape.num_rows, total: state.total_num_rows },
+				{ rows: ROWS, total: undefined },
+			);
+		});
+
+		test('a sort change reads the new order rather than the rows held for the old one', async () => {
+			const view = new OdbcTableView(new UnstableOrderClient(ROWS), REF, LIMIT_OFFSET, SCHEMA);
+			await readPage(view, 0, PAGE);
+			await view.setSortColumns({ sort_keys: [{ column_index: 0, ascending: true }] });
+			const statuses = (await view.getDataValues({
+				columns: [{ column_index: 0, spec: { first_index: 0, last_index: ROWS - 1 } }],
+				format_options: FORMAT,
+			})).columns[0];
+			assert.deepStrictEqual(statuses, [...statuses].sort());
+		});
+	});
+
+	// SQL Server rejects OFFSET ... FETCH without an ORDER BY, so an unsorted window orders by the
+	// first column, only to make the statement valid.
+	suite('no row identity, OFFSET/FETCH', () => {
+		pagingInvariants(OFFSET_FETCH, []);
 	});
 });

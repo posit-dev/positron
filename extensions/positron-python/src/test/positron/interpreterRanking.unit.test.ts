@@ -377,6 +377,7 @@ suite('interpreterRanking', () => {
             nestedEnvDirs: [],
             hasPythonSignals: true,
             pythonVersion: undefined,
+            isEmpty: false,
         });
         const launch = createTypeMoq<IActivatedEnvironmentLaunch>();
         launch.setup((a) => a.getActivatedEnvPrefix()).returns(() => Promise.resolve(p('/home/u/envs/active')));

@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { EphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralStateService.js';
 import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
@@ -23,7 +23,7 @@ function createMockWorkspaceContextService(): IWorkspaceContextService {
 
 describe('MainThreadPositronEphemeralStorage', function () {
 
-	createTestContainer().build();
+	createLightTestContainer().build();
 
 	let ephemeralStateService: EphemeralStateService;
 	let storage: MainThreadPositronEphemeralStorage;

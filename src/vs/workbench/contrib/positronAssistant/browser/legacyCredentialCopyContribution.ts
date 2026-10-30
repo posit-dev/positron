@@ -71,7 +71,7 @@ export class LegacyCredentialCopyContribution extends Disposable implements IWor
 				},
 			}, {
 				customEntryIds: this._aiProviders.getProviders().filter(p => p.custom === true).map(p => p.id),
-				positaiScope: this._aiProviders.getProvider('positai')?.connection.positaiLogin?.scope ?? DEFAULT_POSITAI_SCOPE,
+				positaiScope: this._aiProviders.getProvider('positai')?.positaiLoginScope ?? DEFAULT_POSITAI_SCOPE,
 				generation: generateUuid,
 				log: (level, message) => this._log[level](`[legacy-credential-copy] ${message}`),
 			});

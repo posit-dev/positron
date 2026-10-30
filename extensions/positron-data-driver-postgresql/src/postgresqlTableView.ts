@@ -5,10 +5,10 @@
 
 // Structurally mirrors positron-data-driver-sqlite's sqliteTableView.ts (the canonical template);
 // only the dialect-specific parts differ (display-type mapping, schema-qualified table reference,
-// `~`/`~*` regex operators, boolean literals, `ctid` tiebreaker, Date coercion, FLOOR cast).
+// `~`/`~*` regex operators, boolean literals, key tiebreaker or result window, Date coercion, FLOOR
+// cast).
 
 import {
-	ArraySelection,
 	BackendState,
 	CodeSyntaxName,
 	ColumnDisplayType,
@@ -69,6 +69,15 @@ import {
 	isIntegerLiteral,
 	truncate,
 } from 'positron-data-explorer-formatting';
+import {
+	formatExport,
+	isSelectionRange,
+	ResultWindow,
+	windowDataValues,
+	windowExport,
+	windowRowCounts,
+	windowRowLimit,
+} from 'positron-data-explorer-window';
 
 /** The query surface the table view needs. Implemented by the connection over its `pg` client. */
 export interface IPostgresQueryClient {
@@ -255,8 +264,16 @@ export function makeWhereExpr(rowFilter: RowFilter): string {
  * Serves Data Explorer requests for a single PostgreSQL table or view. Translates each protocol
  * method into SQL run through the connection's `pg` client. Values are fetched raw and formatted in
  * TypeScript, while filtering, sorting, counts, and aggregations are pushed into SQL.
+ *
+ * A relation with an enforced unique key is paged in place with LIMIT/OFFSET, ordered by the key
+ * after any user sort, so every row has one position. Any other relation is read from a result
+ * window, one statement per sort and filter state, because separate LIMIT/OFFSET statements over a
+ * relation with no unique order can repeat or skip rows.
  */
 export class PostgresTableView {
+	private readonly _window = new ResultWindow<Record<string, unknown>>(
+		limit => this._fetchWindow(limit), () => windowRowLimit(this.schema.length));
+
 	private sortKeys: Array<ColumnSortKey> = [];
 	private rowFilters: Array<RowFilter> = [];
 	/** Numbers setRowFilters calls in the order they were made. */
@@ -274,18 +291,25 @@ export class PostgresTableView {
 	 * @param client The query client for the owning connection.
 	 * @param tableRef The schema-qualified, already-quoted table reference (e.g. `"public"."t"`).
 	 * @param displayName The unqualified table/view name for display.
-	 * @param objectKind Whether this is a table (has a stable ctid) or a view.
 	 * @param schema The resolved column schema.
+	 * @param rowIdentity The columns of an enforced unique key (see resolvePostgresRowIdentity), or
+	 *   none, in which case rows are read from a result window.
 	 */
 	constructor(
 		private readonly client: IPostgresQueryClient,
 		private readonly tableRef: string,
 		private readonly displayName: string,
-		private readonly objectKind: 'table' | 'view',
 		private readonly schema: Array<PostgresSchemaEntry>,
+		private readonly rowIdentity: ReadonlyArray<string> = [],
 	) {
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
+		this._sortClause = this._buildSortClause([], true);
+	}
+
+	/** Whether rows are paged in place by a unique key, rather than read from a result window. */
+	private get _keyed(): boolean {
+		return this.rowIdentity.length > 0;
 	}
 
 	/** The (schema-qualified, quoted) table reference for use in FROM clauses. */
@@ -364,6 +388,12 @@ export class PostgresTableView {
 	}
 
 	async getDataValues(params: GetDataValuesParams): Promise<TableData> {
+		if (!this._keyed) {
+			const { rows } = await this._window.rows();
+			return windowDataValues(params, rows, (row, columnIndex) => this._formatValue(
+				row[`c${columnIndex}`], this.schema[columnIndex].type_display, params.format_options));
+		}
+
 		const filteredRows = await this._filteredRows;
 		if (filteredRows === 0 || params.columns.length === 0) {
 			return { columns: Array.from({ length: params.columns.length }, () => []) };
@@ -390,7 +420,7 @@ export class PostgresTableView {
 		const selectors = params.columns.map((column, i) =>
 			`${quoteIdentifier(this.schema[column.column_index].column_name)} AS c${i}`);
 		const query = `SELECT ${selectors.join(', ')} FROM ${this._quotedTable}` +
-			`${this._whereClause}${this._orderClause()} LIMIT ${numRows} OFFSET ${lowerLimit}`;
+			`${this._whereClause}${this._sortClause} LIMIT ${numRows} OFFSET ${lowerLimit}`;
 		const rows = await this.client.runQuery(query);
 
 		const result: TableData = { columns: [] };
@@ -417,6 +447,17 @@ export class PostgresTableView {
 			}
 		}
 		return result;
+	}
+
+	/**
+	 * Fetches the current state's rows for the result window: every column, under the alias of its
+	 * schema index, in the view's sort order.
+	 */
+	private _fetchWindow(limit: number): Promise<Array<Record<string, unknown>>> {
+		const selectors = this.schema.map((entry, i) => `${quoteIdentifier(entry.column_name)} AS c${i}`);
+		// A constant keeps the statement valid, and the row count right, for a relation with no columns.
+		return this.client.runQuery(`SELECT ${selectors.join(', ') || '1'} FROM ${this._quotedTable}` +
+			`${this._whereClause}${this._sortClause} LIMIT ${limit}`);
 	}
 
 	/**
@@ -539,6 +580,7 @@ export class PostgresTableView {
 			this.rowFilters = rowFilters;
 			this._whereClause = whereClause;
 			this._filteredRows = filteredRows;
+			this._window.invalidate();
 		}
 		return { selected_num_rows: selectedRows };
 	}
@@ -546,35 +588,37 @@ export class PostgresTableView {
 	async setSortColumns(params: SetSortColumnsParams): Promise<void> {
 		this.sortKeys = params.sort_keys;
 		this._sortClause = this._buildSortClause(this.sortKeys, true);
+		this._window.invalidate();
 	}
 
 	/**
-	 * Builds an ORDER BY clause for the given sort keys. For tables a trailing `ctid` is appended as
-	 * a stable tiebreaker so pagination is deterministic; views have no ctid, so they omit it.
+	 * Builds an ORDER BY clause for the given sort keys. When paging by a key, its columns are appended
+	 * as the tiebreaker, so every row has exactly one position under any sort. A result window needs
+	 * none: it reads every row of a state from one statement, so ties keep that statement's order.
 	 */
-	private _buildSortClause(sortKeys: Array<ColumnSortKey>, includeRowidTiebreaker: boolean): string {
+	private _buildSortClause(sortKeys: Array<ColumnSortKey>, includeKeyTiebreaker: boolean): string {
 		const exprs = sortKeys.map(key => {
 			const quotedName = quoteIdentifier(this.schema[key.column_index].column_name);
 			return `${quotedName}${key.ascending ? '' : ' DESC'}`;
 		});
-		if (includeRowidTiebreaker && this.objectKind === 'table') {
-			exprs.push('ctid');
+		if (includeKeyTiebreaker) {
+			exprs.push(...this.rowIdentity.map(quoteIdentifier));
 		}
 		return exprs.length > 0 ? `\nORDER BY ${exprs.join(', ')}` : '';
 	}
 
-	/** The ORDER BY clause used for data/export queries. */
-	private _orderClause(): string {
-		return this._sortClause;
-	}
-
 	async getState(): Promise<BackendState> {
-		const [unfilteredRows, filteredRows] = await Promise.all([this._unfilteredRows, this._filteredRows]);
+		const [unfilteredRows, filteredRows, held] = await Promise.all([
+			this._unfilteredRows, this._filteredRows, this._keyed ? undefined : this._window.rows().catch(() => undefined)]);
+		const { num_rows, total_num_rows } = this._keyed ?
+			{ num_rows: filteredRows, total_num_rows: undefined } :
+			windowRowCounts(held, filteredRows, this._window.limit);
 		const numColumns = this.schema.length;
 		return {
 			display_name: this.displayName,
-			table_shape: { num_rows: filteredRows, num_columns: numColumns },
+			table_shape: { num_rows, num_columns: numColumns },
 			table_unfiltered_shape: { num_rows: unfilteredRows, num_columns: numColumns },
+			total_num_rows,
 			has_row_labels: false,
 			column_filters: [],
 			row_filters: this.rowFilters,
@@ -646,8 +690,14 @@ export class PostgresTableView {
 	}
 
 	async exportDataSelection(params: ExportDataSelectionParams): Promise<ExportedData> {
+		if (!this._keyed) {
+			const { rows } = await this._window.rows();
+			return windowExport(params, rows, this.schema.map(entry => entry.column_name),
+				(row, columnIndex) => stringifyExportCell(row[`c${columnIndex}`]));
+		}
+
 		const kind = params.selection.kind;
-		const order = this._orderClause();
+		const order = this._sortClause;
 
 		const runExport = async (query: string, columns: Array<PostgresSchemaEntry>): Promise<ExportedData> => {
 			const rows = await this.client.runQuery(query);
@@ -711,11 +761,11 @@ export class PostgresTableView {
 
 	/**
 	 * Builds a query that selects specific (post-sort, post-filter) row positions in the requested
-	 * order. Uses a ROW_NUMBER() window so it works for both tables and views without relying on
-	 * ctid, mirroring the requested-row ordering.
+	 * order. Numbers the rows with ROW_NUMBER() over the same key-terminated order the pages use, so
+	 * an export holds exactly the rows the grid shows at those positions.
 	 */
 	private _rowIndexQuery(selectors: string, rowIndices: number[]): string {
-		const ordering = this._sortClause ? this._sortClause.replace(/^\n/, '') : '';
+		const ordering = this._sortClause.replace(/^\n/, '');
 		const numbered = `SELECT *, ROW_NUMBER() OVER (${ordering}) - 1 AS __row_index ` +
 			`FROM ${this._quotedTable}${this._whereClause}`;
 		const order = rowIndices.map((rowIdx, i) => `WHEN ${rowIdx} THEN ${i}`).join(' ');
@@ -987,11 +1037,6 @@ export class PostgresTableView {
 	}
 }
 
-/** Type guard distinguishing a contiguous index range from an explicit index set. */
-function isSelectionRange(spec: ArraySelection): spec is DataSelectionRange {
-	return (spec as DataSelectionRange).first_index !== undefined;
-}
-
 /** Stringifies a raw PostgreSQL value for export, rendering null as 'NULL' and dates as ISO. */
 function stringifyExportCell(value: unknown): string {
 	if (value === null || value === undefined) {
@@ -1004,18 +1049,4 @@ function stringifyExportCell(value: unknown): string {
 		return `[bytea ${value.byteLength} bytes]`;
 	}
 	return String(value);
-}
-
-/** Renders an export matrix (header row + data rows) into the requested format. */
-function formatExport(matrix: string[][], format: ExportFormat): string {
-	switch (format) {
-		case ExportFormat.Csv:
-			return matrix.map(row => row.join(',')).join('\n');
-		case ExportFormat.Tsv:
-			return matrix.map(row => row.join('\t')).join('\n');
-		case ExportFormat.Html:
-			return matrix.map(row => `<tr><td>${row.join('</td><td>')}</td></tr>`).join('\n');
-		default:
-			throw new Error(`Unknown export format: ${format}`);
-	}
 }

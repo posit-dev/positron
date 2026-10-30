@@ -151,6 +151,18 @@ suite('Shared Decimal Formatting', () => {
 		], ['9,007,199,254,740,993', '9,007,199,254,740,993', '42', '3']);
 	});
 
+	test('an integer column\'s exact median with a zero fraction formats as an integer', () => {
+		// An exact percentile_cont (Snowflake's on a NUMBER) can widen the scale, so a whole median
+		// arrives as '20.000'. A fraction that is not all zeros is still a decimal, and a negative zero
+		// normalizes as it would without the fraction.
+		assert.deepStrictEqual([
+			formatNumericStat('20.000', ColumnDisplayType.Integer, DISPLAY),
+			formatNumericStat('9007199254740993.000', ColumnDisplayType.Integer, SEPARATED),
+			formatNumericStat('-0.000', ColumnDisplayType.Integer, DISPLAY),
+			formatNumericStat('1.500', ColumnDisplayType.Integer, DISPLAY),
+		], ['20', '9,007,199,254,740,993', '0', '1.50']);
+	});
+
 	test('a fractional median of an integer column still renders as a decimal', () => {
 		// Several drivers compute the median with `percentile_cont`, which returns a double and
 		// yields a half value on an even number of rows. That is not a whole number and must not be

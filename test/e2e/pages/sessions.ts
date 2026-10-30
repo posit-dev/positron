@@ -16,6 +16,15 @@ const getAlternateR = () => process.env.POSITRON_R_ALT_VER_SEL;
 const getHiddenPython = () => process.env.POSITRON_HIDDEN_PY;
 const getHiddenR = () => process.env.POSITRON_HIDDEN_R;
 
+/**
+ * Splits a version that names its source, as "3.12.10 (Conda)" or
+ * "3.12.10 Module", into the version and the source. A bare version has no source.
+ */
+function splitVersionSource(version: string): { version: string; source?: string } {
+	const match = /^(?<version>\S+)\s+\(?(?<source>[^()]+)\)?$/.exec(version.trim());
+	return match?.groups ? { version: match.groups.version, source: match.groups.source } : { version };
+}
+
 export const ACTIVE_STATUS_ICON = '.codicon-positron-runtime-status-active';
 export const IDLE_STATUS_ICON = '.codicon-positron-runtime-status-idle';
 export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-disconnected';
@@ -23,9 +32,16 @@ export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-discon
 // Python interpreter source markers to deprioritize when selecting an interpreter
 // by version. Several interpreters can share a version (e.g. a project venv and a
 // base pyenv both shown as "Python 3.10.12"); when that happens we want the real
-// environment, not the base install. The values match the "(<source>" portion of
-// the quick pick label produced by getRuntimeSourceAndShortName.
-export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown'];
+// environment, not the base install. They match the row's aria-label.
+export const DEPRIORITIZED_PYTHON_SOURCES: (string | RegExp)[] = [
+	// Notebook kernel pickers label rows with runtimeName ("Python 3.10.12 (Pyenv)").
+	'(Pyenv', '(Global', '(System', '(Unknown',
+	// The session picker's aria-label is "<label>, <gray text>, <path>". A base install's
+	// gray text is just its tool; an environment's adds its name ("uv: .venv").
+	/, (pyenv|uv|Homebrew|Xcode|Command Line Tools|python\.org)( \u00B7 [^,]*)?, /,
+	// A base install with no known tool has no gray text: the label runs into the path.
+	/^Python [^,]*, (\/|[A-Za-z]:\\)/,
+];
 
 // Quickpick labels - keep in sync with languageRuntimeActions.ts
 const INTERPRETER_SESSIONS_LABEL = 'Interpreter Sessions';
@@ -540,9 +556,14 @@ export class Sessions {
 				// uv base install) over the intended interpreter of the same version.
 				await this.quickinput.waitForInterpreterDiscoveryToComplete();
 
+				// The interpreter picker shows the source in "3.12.10 (Conda)" as gray
+				// text after the label, and its search matches one field at a time, so
+				// type the bare version and match the source in the row's aria-label.
+				// python.setInterpreter's picker still labels rows "Python 3.12.10 (Conda)".
+				const sourced = version && triggerMode !== 'quickaccess' ? splitVersionSource(version) : undefined;
 				let input = language;
 				if (version) {
-					input += ` ${version}`;
+					input += ` ${sourced?.source ? sourced.version : version}`;
 				}
 				if (options.disambiguator) {
 					input += ` ${options.disambiguator}`;
@@ -554,8 +575,12 @@ export class Sessions {
 				// We need to click instead of using 'enter' because the Python select interpreter command
 				// may include additional items above the desired interpreter string.
 				try {
-					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, {
+					const rowText = sourced?.source
+						? `${language} ${sourced.version}, ${sourced.source}`
+						: `${language} ${version}`;
+					await this.quickinput.selectQuickInputElementContaining(rowText, {
 						timeout: 2000,
+						ignoreCase: !!sourced?.source,
 						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
 					});
 				} catch (e) {
@@ -1316,9 +1341,10 @@ export class Sessions {
 		// Verify expected sessions appear in the given order
 		let currentIndex = 0;
 		for (const { session } of sessionList) {
+			// Match on the path: a row shows the picker label and gray text
+			// ("Python 3.10.15 pyenv"), not the session name ("Python 3.10.15 (Pyenv)").
 			const nextIndex = actualEntries.findIndex((entry, i) =>
 				i >= currentIndex &&
-				entry.name === session.name &&
 				entry.path === session.path
 			);
 
@@ -1437,13 +1463,13 @@ export class SessionQuickPick {
 				// Read every rendered entry in a single DOM pass rather than with per-element
 				// locators. quickInputList.ts always renders both `.quick-input-list-row`
 				// elements and the separator, but the *inner* `.label-name
-				// .monaco-highlighted-label` only exists when that row has content. Not every
-				// entry is a runtime -- extensions contribute action items with a label and no
-				// detail (e.g. "$(add) Create Python Environment"), whose second row is empty.
-				// A chained locator read on those waits for an element that never appears,
-				// which surfaced as an opaque "waiting on the predicate" timeout in the caller.
-				// Reading in-page yields '' for a missing node instead of blocking, and keeps
-				// this cheap enough to poll.
+				// .monaco-highlighted-label` only exists when that row has content, so a
+				// chained locator read on a row without a detail waits forever. Reading
+				// in-page yields '' for a missing node instead of blocking, and keeps this
+				// cheap enough to poll. Not every entry is a runtime: extensions contribute
+				// action items (e.g. "$(add) Create Python Environment") that can also have a
+				// detail line, so runtimes are identified by the `positron-picker-runtime`
+				// class the picker puts on interpreter rows.
 				const entryData = await this.code.driver.currentPage
 					.locator('.quick-input-list-entry')
 					.evaluateAll(entries => entries.map(entry => {
@@ -1452,21 +1478,23 @@ export class SessionQuickPick {
 							root?.querySelector('.label-name .monaco-highlighted-label')?.textContent ?? '';
 
 						return {
+							isRuntime: !!entry.querySelector('.positron-picker-runtime'),
 							name: labelText(rows[0]),
+							description: rows[0]?.querySelector('.label-description')?.textContent ?? '',
 							path: labelText(rows[1]),
 							category: entry.querySelector('.quick-input-list-separator')?.textContent ?? ''
 						};
 					}));
 
 				let newEntriesFound = false;
-				for (const { name, path, category } of entryData) {
-					// Entries without a path are not runtimes (contributed action items)
-					if (name && path) {
+				for (const { isRuntime, name, description, path, category } of entryData) {
+					if (isRuntime && name && path) {
 						const key = `${name}||${path}`;
 						if (!seen.has(key)) {
 							seen.add(key);
 							runtimes.push({
 								name: name.trim(),
+								description: description.trim(),
 								path: path.trim(),
 								category: category.trim()
 							});
@@ -1523,6 +1551,8 @@ export type QuickPickSessionInfo = {
 
 export type RuntimeInfo = {
 	name: string;
+	// Gray text after the label, e.g. "uv: .venv" or "Module: R 4.4.1 Module"
+	description: string;
 	path: string;
 	category: string;
 };
@@ -1550,6 +1580,8 @@ export type SessionMetaData = {
 	state: SessionState;
 	source: string;
 	path: string;
+	/** Why the session was started. Only read through the smoke-test command, so absent on external servers. */
+	startReasonId?: string;
 };
 
 export type SessionState = 'active' | 'idle' | 'disconnected' | 'exited';

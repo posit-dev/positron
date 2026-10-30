@@ -18,6 +18,7 @@ import { optionalValue, positronClassNames } from '../../../../base/common/posit
 interface ActionBarRegionProps {
 	gap?: number;
 	width?: number;
+	minWidth?: number;
 	location: 'left' | 'center' | 'right';
 	justify?: 'left' | 'center' | 'right';
 }
@@ -41,7 +42,7 @@ export const ActionBarRegion = (props: PropsWithChildren<ActionBarRegionProps>) 
 			style={{
 				gap: optionalValue(props.gap, 0),
 				width: optionalValue(props.width, 'auto'),
-				minWidth: optionalValue(props.width, 'auto')
+				minWidth: optionalValue(props.minWidth, optionalValue(props.width, 'auto'))
 			}}>
 			{props.children}
 		</div>

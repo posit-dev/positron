@@ -18,7 +18,7 @@ import { IEditorResolverService, RegisteredEditorPriority } from '../../../servi
 
 export const POSITRON_EDITOR_PREVIEW = 'application.experimental.positronPreviewEditor';
 
-class PositronPreviewEditorContribution extends Disposable {
+export class PositronPreviewEditorContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronPreviewEditor';
 
 	constructor(
@@ -33,7 +33,8 @@ class PositronPreviewEditorContribution extends Disposable {
 			{
 				id: PositronPreviewEditorInput.EditorID,
 				label: localize('positronPreivewEditor', 'Editor Preview Tab'),
-				priority: RegisteredEditorPriority.builtin
+				// Only this editor can open its scheme, so user editor associations must not override it.
+				priority: RegisteredEditorPriority.exclusive
 			},
 			{
 				singlePerResource: true,

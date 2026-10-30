@@ -11,7 +11,7 @@ import { IDriver } from '../common/interfaces/positronConnectionsDriver.js';
 import { TestConnectionInstance } from './positronConnectionInstanceMock.js';
 import { TestSecretStorageService } from '../../../../platform/secrets/test/common/testSecretStorageService.js';
 import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
-import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../test/vitest/lightTestContainer.js';
 import { startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { TestRuntimeClientInstance } from '../../languageRuntime/test/common/testRuntimeClientInstance.js';
@@ -22,7 +22,7 @@ import { ServiceCollection } from '../../../../platform/instantiation/common/ser
 
 describe('Positron - Connections Service', () => {
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(ISecretStorageService, new TestSecretStorageService())
 		// The service only handles runtime connections when Data Connections is off.

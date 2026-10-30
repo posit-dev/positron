@@ -9,16 +9,16 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { PositronAssistantConfigurationService } from '../../browser/positronAssistantService.js';
 import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
 import { IProviderCatalogChangeData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 
 describe('PositronAssistantConfigurationService', () => {
 	const catalogEnabled = new Map<string, boolean>();
 	const onDidChangeProvidersEmitter = new Emitter<IProviderCatalogChangeData>();
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.stub(IAiProviderService, {
 			// The catalog "knows" exactly the ids in catalogEnabled.
 			getProvider: (id: string) => catalogEnabled.has(id)
-				? { id, enabled: catalogEnabled.get(id) === true, connection: {} }
+				? { id, enabled: catalogEnabled.get(id) === true }
 				: undefined,
 			isEnabled: (id: string) => catalogEnabled.get(id) === true,
 			onDidChangeProviders: onDidChangeProvidersEmitter.event,

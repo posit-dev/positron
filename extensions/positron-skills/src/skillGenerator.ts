@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 
-import { AgentCommand, expandTemplate } from './templateExpander';
+import { AgentCommand, expandTemplate, TemplateFlags } from './templateExpander';
 
 /** Subdirectory of the extension holding the skill templates. */
 const TEMPLATES_DIR = 'templates';
@@ -25,6 +25,26 @@ export interface GenerateResult {
 	readonly regenerated: boolean;
 	/** Command ids named by a template that no command provides -- i.e. drift. */
 	readonly unresolved: readonly string[];
+}
+
+/**
+ * The URI of the remote host's file system root, e.g.
+ * `vscode-remote://ssh-remote+myhost`, or undefined in a local window. A bare
+ * path passed to `vscode.open` resolves to the user's machine, so the remote
+ * guidance tells the model to put this in front of it.
+ */
+function currentRemoteRoot(): string | undefined {
+	const authority = vscode.env.remoteAuthority;
+	return authority === undefined ? undefined : `vscode-remote://${authority}`;
+}
+
+/** The environment facts the templates' conditional blocks are resolved against. */
+function currentFlags(remoteRoot: string | undefined): TemplateFlags {
+	return {
+		// The same check positron-run-app uses to decide whether to proxy an app.
+		web: vscode.env.uiKind === vscode.UIKind.Web,
+		remote: remoteRoot !== undefined,
+	};
 }
 
 interface TemplateFile {
@@ -75,17 +95,22 @@ async function loadCommands(): Promise<ReadonlyMap<string, AgentCommand>> {
 
 /**
  * A digest of everything the output depends on: the Positron build, the
- * extension version, the templates, and the command metadata. When it is
- * unchanged the cached output is reused, so an ordinary launch does no writing.
+ * extension version, the environment flags, the remote root, the templates, and
+ * the command metadata. When it is unchanged the cached output is reused, so an
+ * ordinary launch does no writing.
  */
 function computeStamp(
 	templates: readonly TemplateFile[],
 	commandsById: ReadonlyMap<string, AgentCommand>,
 	extensionVersion: string,
+	flags: TemplateFlags,
+	remoteRoot: string | undefined,
 ): string {
 	const hash = crypto.createHash('sha256');
 	hash.update(`positron:${vscode.version}\n`);
 	hash.update(`extension:${extensionVersion}\n`);
+	hash.update(`flags:${JSON.stringify(flags)}\n`);
+	hash.update(`remoteRoot:${remoteRoot ?? ''}\n`);
 	for (const template of [...templates].sort((a, b) => a.relativePath.localeCompare(b.relativePath))) {
 		hash.update(`template:${template.relativePath}\n${template.content}\n`);
 	}
@@ -118,7 +143,9 @@ export async function generateSkills(
 	// load turns every directive into apparent drift, and this line tells them apart.
 	log.debug(`Loaded ${commandsById.size} agent command(s).`);
 	const extensionVersion = (context.extension.packageJSON as { version?: string }).version ?? '0.0.0';
-	const stamp = computeStamp(templates, commandsById, extensionVersion);
+	const remoteRoot = currentRemoteRoot();
+	const flags = currentFlags(remoteRoot);
+	const stamp = computeStamp(templates, commandsById, extensionVersion, flags, remoteRoot);
 
 	const existingStamp = await fs.readFile(stampPath, 'utf8').catch(() => undefined);
 	const outputExists = await fs.stat(skillRoot).then(() => true, () => false);
@@ -128,18 +155,27 @@ export async function generateSkills(
 	}
 
 	const unresolved = new Set<string>();
+	const problems: string[] = [];
 	const runId = crypto.randomUUID();
 	const stageDir = path.join(storageDir, `${SKILLS_DIR}.staging-${runId}`);
 	const backupDir = path.join(storageDir, `${SKILLS_DIR}.old-${runId}`);
 	try {
 		for (const template of templates) {
-			const result = expandTemplate(template.content, commandsById);
+			const result = expandTemplate(template.content, commandsById, flags);
 			result.unresolved.forEach(id => unresolved.add(id));
+			result.problems.forEach(problem => problems.push(`${template.relativePath} ${problem}`));
+			if (remoteRoot === undefined && result.text.includes('{{remote_root}}')) {
+				problems.push(`${template.relativePath} has {{remote_root}} outside an {{if:remote}} block`);
+			}
 			// Resolve `{{skill_dir}}` to the skill's final absolute directory so
 			// reference links are absolute. The assistant reads a bare relative link
 			// relative to the user's workspace, where the skill does not live.
 			const skillDir = path.join(skillRoot, template.relativePath.split(path.sep)[0]);
-			const text = result.text.split('{{skill_dir}}').join(skillDir);
+			// `{{remote_root}}` belongs only in `{{if:remote}}` blocks, so in a
+			// local window there should be none left to empty.
+			const text = result.text
+				.split('{{skill_dir}}').join(skillDir)
+				.split('{{remote_root}}').join(remoteRoot ?? '');
 			const target = path.join(stageDir, template.relativePath);
 			await fs.mkdir(path.dirname(target), { recursive: true });
 			await fs.writeFile(target, text, 'utf8');
@@ -177,6 +213,9 @@ export async function generateSkills(
 			`Templates name ${unresolved.size} command id(s) that no command provides; ` +
 			`their argument and return blocks were left empty: ${[...unresolved].join(', ')}`,
 		);
+	}
+	if (problems.length > 0) {
+		log.warn(`Templates have ${problems.length} conditional block problem(s): ${problems.join('; ')}`);
 	}
 	log.info(`Generated ${templates.length} skill file(s) at ${skillRoot}.`);
 	return { skillRoot, regenerated: true, unresolved: [...unresolved] };

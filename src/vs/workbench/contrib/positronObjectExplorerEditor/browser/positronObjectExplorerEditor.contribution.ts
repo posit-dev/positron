@@ -30,7 +30,7 @@ import { POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR } from './positronObjectExplo
 /**
  * PositronObjectExplorerContribution class.
  */
-class PositronObjectExplorerContribution extends Disposable {
+export class PositronObjectExplorerContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronObjectExplorer';
 
 	/**
@@ -51,7 +51,8 @@ class PositronObjectExplorerContribution extends Disposable {
 			{
 				id: PositronObjectExplorerEditorInput.EditorID,
 				label: localize('positron.objectExplorer.editorLabel', "Object Explorer"),
-				priority: RegisteredEditorPriority.builtin
+				// Only this editor can open its scheme, so user editor associations must not override it.
+				priority: RegisteredEditorPriority.exclusive
 			},
 			{
 				singlePerResource: true,

@@ -161,7 +161,7 @@ fi
 
 # Only emit a summary for restore operations, and only when the caller opts in
 # via EMIT_CACHE_SUMMARY=true. Cache state is identical across jobs in a
-# workflow, so we opt in from one job (test/unit) to avoid duplication.
+# workflow, so we opt in from one job (test/vscode) to avoid duplication.
 # Save events are redundant with restore misses (a save only happens because
 # the matching restore missed), so we never emit a save summary.
 if [[ -z "${GITHUB_STEP_SUMMARY:-}" \

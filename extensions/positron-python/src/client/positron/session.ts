@@ -42,6 +42,13 @@ import { getActiveInterpreterConfigTarget, resolveInterpreterWithRetry, whenTime
 import { PackageManagerFactory } from './packages/packageManagerFactory';
 import { IPackageManager } from './packages/types';
 import { listMissingPythonPackages, pythonMissingPackageProbe } from './missingPackages';
+import { IDiagnosticsService } from '../application/diagnostics/types';
+import { DiagnosticCodes } from '../application/diagnostics/constants';
+import {
+    UnsupportedPythonVersionDiagnostic,
+    UnsupportedPythonVersionServiceId,
+} from '../application/diagnostics/checks/unsupportedPythonVersion';
+import { isVersionSupported } from '../interpreter/configuration/environmentTypeComparer';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
@@ -577,6 +584,32 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 startSession: false,
                 source: 'positron-session-start',
             });
+        }
+
+        if (
+            this.kernelSpec &&
+            this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console &&
+            interpreter.version?.raw &&
+            !isVersionSupported(interpreter.version)
+        ) {
+            // Warn about an unsupported Python version only when a new console session starts with it,
+            // not when an existing session is restored.
+            const diagnosticsService = this.serviceContainer.get<IDiagnosticsService>(
+                IDiagnosticsService,
+                UnsupportedPythonVersionServiceId,
+            );
+            const { folderUri } = getActiveInterpreterConfigTarget(
+                this.serviceContainer.get<IWorkspaceService>(IWorkspaceService),
+            );
+            diagnosticsService
+                .handle([
+                    new UnsupportedPythonVersionDiagnostic(
+                        DiagnosticCodes.UnsupportedPythonVersion,
+                        folderUri,
+                        interpreter.version.raw,
+                    ),
+                ])
+                .ignoreErrors();
         }
 
         // Register for console width changes, if we haven't already

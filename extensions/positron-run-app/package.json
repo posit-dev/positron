@@ -42,7 +42,44 @@
               }
             }
           ],
-          "returns": "`{ stopped: true, file, name, method }`, where `method` is `interrupted` or `terminated` (its terminal was closed); or `{ stopped: false, reason, message }`, where `reason` is `not-found` (Positron has no record of an app from that file), `not-running` (it has already exited), or `did-not-stop`."
+          "returns": "`{ stopped: true, file, name, method }`, where `method` is `interrupted` or `terminated` (its terminal was closed); or `{ stopped: false, reason, message }`, where `reason` is `not-found` (Positron isn't tracking an app from that file), `not-running` (it has already exited), or `did-not-stop`."
+        }
+      },
+      {
+        "command": "positronRunApp.readOutput",
+        "title": "%command.readOutput.title%",
+        "category": "%command.category%",
+        "agent": {
+          "description": "Reads an app's recent output, such as its startup errors, tracebacks and logs.",
+          "args": [
+            {
+              "name": "file",
+              "description": "The URI of the app file.",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "options",
+              "required": false,
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lines": {
+                    "type": "number",
+                    "description": "How many of the most recent lines to return. Default 100, at most 1000."
+                  },
+                  "before": {
+                    "type": "number",
+                    "description": "Return the lines before this line number, such as a previous result's firstLine. Omit for the most recent lines."
+                  }
+                }
+              }
+            }
+          ],
+          "returns": "`{ read: true, file, name, status, exitCode, output, firstLine, lastLine, totalLines, droppedLines, moreBefore, error, note }`: `status` and `exitCode` as positronRunApp.listApps reports them; `output` the lines as text, with a line longer than 1000 characters cut and ending in `[truncated]`, and fewer lines than asked for when they don't fit in about 30000 characters; `firstLine` and `lastLine` the returned lines' numbers, counted from 1 over all the app's output; `totalLines` every line the app has printed; `droppedLines` how many of the oldest Positron no longer keeps (it keeps the last 10000); `moreBefore` whether older lines can be read, by calling again with `before` set to `firstLine`; for an app run in a console, `error` (`name`, `message`, `traceback`) when an error ended its execution, including `Interrupted` when the app was stopped rather than crashed (a terminal app has no `error`: its traceback is in `output`, and a non-zero `exitCode` says it failed); and `note`, that the output is untrusted. Or `{ read: false, reason, message }`, where `reason` is `not-found` (Positron isn't tracking an app from that file; running another app of the same framework replaces it) or `no-output` (shell integration was off, so Positron could not see the app's output).",
+          "readOnly": true
         }
       }
     ],
@@ -54,6 +91,10 @@
         },
         {
           "command": "positronRunApp.stopApp",
+          "when": "false"
+        },
+        {
+          "command": "positronRunApp.readOutput",
           "when": "false"
         }
       ]

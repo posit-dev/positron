@@ -4,36 +4,75 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect, Page } from '@playwright/test';
+import type { Protocol } from 'playwright-core/types/protocol';
 import { Logger } from '../infra/logger.js';
 import { generateTOTP } from './totp.js';
 import { isOktaLockedOut, otpRetryDelayMs } from './otpRetry.js';
 
-// The Okta sign-in for the shared IDE service account, driven on a page the caller has already
-// pointed at a provider's login (or at Okta directly).
+// The Okta sign-in for a service account, driven on a page the caller has already pointed at a
+// provider's login (or at Okta directly).
 //
 // Several providers federate to the same Okta tenant, and everything between "we are on the login
-// page" and "Okta accepted the one-time code" is identical for all of them. What differs is only
-// what happens *after* the code is accepted -- Databricks walks through OAuth consent screens
-// before redirecting to its loopback server, while Snowflake posts a SAML assertion back and
-// redirects to the SDK's. That tail is supplied by the caller as `afterOtp`.
+// page" and "Okta accepted the second factor" is identical for all of them. What differs is only
+// what happens *after* that -- Databricks walks through OAuth consent screens before redirecting
+// to its loopback server, while Snowflake posts a SAML assertion back and redirects to the SDK's.
+// That tail is supplied by the caller as `afterOtp`.
 //
-// `afterOtp` runs inside the OTP retry loop on purpose. A rejected code and a stalled post-OTP
+// Two accounts, two second factors:
+//
+//   - The shared IDE service account (IDE_SERVICE_ACCOUNT_*) enrols a TOTP authenticator. Codes
+//     roll every 30s and Okta rejects reused ones, so parallel CI jobs signing in as this account
+//     collide; the retry loop below papers over that.
+//   - The Positron service account (POSITRON_SERVICE_ACCOUNT_*) enrols a WebAuthn passkey. The
+//     credential is installed into a virtual authenticator over CDP, so any number of jobs can
+//     sign in at once with nothing to collide on. Chromium only, since it relies on CDP.
+//
+// `afterOtp` runs inside the TOTP retry loop on purpose. A rejected code and a stalled post-OTP
 // redirect are indistinguishable from the outside, so a failure there re-enters the loop with a
 // fresh code rather than failing the run.
 
 const MAX_OTP_ATTEMPTS = 3;
 
+export interface OktaTotpCredentials {
+	email: string;
+	password: string;
+	/** Base32 TOTP seed. */
+	otpSecret: string;
+}
+
+export interface OktaPasskeyCredentials {
+	email: string;
+	password: string;
+	/**
+	 * JSON list of Chromium `WebAuthn.Credential` records (credentialId, rpId, privateKey,
+	 * userHandle, signCount, ...), as exported from a virtual authenticator.
+	 */
+	passkeyCredential: string;
+}
+
+export type OktaCredentials = OktaTotpCredentials | OktaPasskeyCredentials;
+
 export interface OktaSignInOptions {
 	/**
-	 * Runs once Okta has accepted the one-time code, and must reject (or throw) until the flow has
-	 * demonstrably completed -- typically by waiting for the provider's callback URL. Called inside
-	 * the retry loop, so it may run more than once.
+	 * Runs once Okta has accepted the second factor, and must reject (or throw) until the flow has
+	 * demonstrably completed -- typically by waiting for the provider's callback URL. On the TOTP
+	 * path it is called inside the retry loop, so it may run more than once.
 	 */
 	afterOtp: (page: Page) => Promise<void>;
 	/** Where to report progress; callers pass `code.logger`. */
 	logger: Logger;
 	/** Prefix for log lines, so interleaved shards stay readable (e.g. 'Workbench'). */
 	label: string;
+	/** Which account to sign in as. Defaults to the shared IDE service account (TOTP). */
+	credentials?: OktaCredentials;
+}
+
+function readRequiredEnv(purpose: string, names: string[]): string[] {
+	const missing = names.filter(name => !process.env[name]);
+	if (missing.length > 0) {
+		throw new Error(`Okta sign-in requires the ${purpose} credentials. Missing: ${missing.join(', ')}`);
+	}
+	return names.map(name => process.env[name]!);
 }
 
 /**
@@ -41,22 +80,84 @@ export interface OktaSignInOptions {
  * than letting an undefined value reach a form field (where it surfaces much later as an opaque
  * Okta error).
  */
-export function readServiceAccountCredentials(): { email: string; password: string; otpSecret: string } {
-	const email = process.env.IDE_SERVICE_ACCOUNT_EMAIL;
-	const password = process.env.IDE_SERVICE_ACCOUNT_PASSWORD;
-	const otpSecret = process.env.IDE_SERVICE_ACCOUNT_OTP_SECRET;
+export function readServiceAccountCredentials(): OktaTotpCredentials {
+	const [email, password, otpSecret] = readRequiredEnv('IDE service account', [
+		'IDE_SERVICE_ACCOUNT_EMAIL',
+		'IDE_SERVICE_ACCOUNT_PASSWORD',
+		'IDE_SERVICE_ACCOUNT_OTP_SECRET',
+	]);
+	return { email, password, otpSecret };
+}
 
-	const missing = [
-		['IDE_SERVICE_ACCOUNT_EMAIL', email],
-		['IDE_SERVICE_ACCOUNT_PASSWORD', password],
-		['IDE_SERVICE_ACCOUNT_OTP_SECRET', otpSecret],
-	].filter(([, value]) => !value).map(([name]) => name);
+/**
+ * Reads the Positron service account credentials (passkey second factor), failing with the missing
+ * variable names.
+ */
+export function readPositronServiceAccountCredentials(): OktaPasskeyCredentials {
+	const [email, password, passkeyCredential] = readRequiredEnv('Positron service account', [
+		'POSITRON_SERVICE_ACCOUNT_EMAIL',
+		'POSITRON_SERVICE_ACCOUNT_PASSWORD',
+		'POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL',
+	]);
+	return { email, password, passkeyCredential };
+}
 
-	if (missing.length > 0) {
-		throw new Error(`Okta sign-in requires the IDE service account credentials. Missing: ${missing.join(', ')}`);
+function isPasskeyCredentials(credentials: OktaCredentials): credentials is OktaPasskeyCredentials {
+	return 'passkeyCredential' in credentials;
+}
+
+/**
+ * Installs the account's passkey into a virtual authenticator attached to `page`, so Okta's
+ * WebAuthn challenge is answered without any user presence or verification prompt.
+ */
+export async function installPasskey(page: Page, passkeyCredential: string): Promise<void> {
+	const records = JSON.parse(passkeyCredential) as Protocol.WebAuthn.Credential[];
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('WebAuthn.enable');
+	const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
+		options: {
+			protocol: 'ctap2',
+			transport: 'internal',
+			hasResidentKey: true,
+			hasUserVerification: true,
+			isUserVerified: true,
+			automaticPresenceSimulation: true,
+		},
+	});
+	for (const credential of records) {
+		await cdp.send('WebAuthn.addCredential', { authenticatorId, credential });
 	}
+}
 
-	return { email: email!, password: password!, otpSecret: otpSecret! };
+/**
+ * Gets Okta onto the passkey challenge. After the password, Okta shows one of: the challenge
+ * itself (passkey is the default factor), the factor picker, or another factor's challenge with a
+ * "Verify with something else" link back to the picker. Once the challenge is showing, the virtual
+ * authenticator answers it with no further input.
+ */
+export async function selectPasskeyFactor(page: Page, logger: Logger, label: string): Promise<void> {
+	// The picker lists each factor under a heading of its own name, so the challenge is matched on
+	// its full title; the picker's control is the "Select" link, named after the factor by aria-label.
+	const challenge = page.getByRole('heading', { name: 'Verify with Security Key or Biometric Authenticator' });
+	const passkeyFactor = page.getByRole('link', { name: /Select Security Key or Biometric Authenticator/ });
+	const somethingElse = page.getByRole('link', { name: /Verify with something else/ });
+
+	await expect(challenge.or(passkeyFactor).or(somethingElse).first()).toBeVisible({ timeout: 15000 });
+
+	if (await passkeyFactor.isVisible()) {
+		await passkeyFactor.click();
+		logger.log(`[${label}] Selected the passkey factor from the picker`);
+		return;
+	}
+	if (await challenge.isVisible()) {
+		logger.log(`[${label}] Passkey challenge shown as the default factor`);
+		return;
+	}
+	logger.log(`[${label}] Another factor is the default; opening the factor picker`);
+	await somethingElse.click();
+	await expect(passkeyFactor).toBeVisible({ timeout: 15000 });
+	await passkeyFactor.click();
+	logger.log(`[${label}] Selected the passkey factor from the picker`);
 }
 
 /**
@@ -70,7 +171,8 @@ export function readServiceAccountCredentials(): { email: string; password: stri
  */
 export async function completeOktaSignIn(page: Page, options: OktaSignInOptions): Promise<boolean> {
 	const { afterOtp, logger, label } = options;
-	const { email, password, otpSecret } = readServiceAccountCredentials();
+	const credentials = options.credentials ?? readServiceAccountCredentials();
+	const { email, password } = credentials;
 
 	// Some providers show their own login page first, offering an SSO hop; others (or an authorize
 	// endpoint that redirects straight to the IdP) land on Okta directly. A missing button is not a
@@ -83,6 +185,10 @@ export async function completeOktaSignIn(page: Page, options: OktaSignInOptions)
 		logger.log(`[${label}] No "Continue with SSO" button; assuming the login page redirected to the IdP directly`);
 	}
 	await page.waitForURL(/okta\.com/, { timeout: 15000 });
+
+	if (isPasskeyCredentials(credentials)) {
+		await installPasskey(page, credentials.passkeyCredential);
+	}
 
 	// Enter Okta credentials
 	const usernameField = page.locator('#input28');
@@ -98,20 +204,35 @@ export async function completeOktaSignIn(page: Page, options: OktaSignInOptions)
 	await passwordField.fill(password);
 	await expect(verifyButton).toBeVisible({ timeout: 10000 });
 	await verifyButton.click();
+	await page.waitForLoadState('networkidle', { timeout: 10000 });
+
+	if (isPasskeyCredentials(credentials)) {
+		await selectPasskeyFactor(page, logger, label);
+		try {
+			await afterOtp(page);
+			return true;
+		} catch {
+			if (page.isClosed()) {
+				logger.log(`[${label}] Sign-in page closed before completion; treating as completed and deferring to the caller's state check`);
+			} else {
+				logger.log(`[${label}] Passkey sign-in did not reach completion; falling through to the caller's state check`);
+			}
+			return false;
+		}
+	}
 
 	// Complete 2FA authentication. TOTPs roll every 30s and Okta rejects reused codes, so a parallel
 	// shard consuming the same code seconds earlier can knock us out, or rapid duplicate submissions
 	// can lock the account ("too many attempts"). Retry up to 3 times, backing off with jitter
 	// between attempts so we de-align from the competing shard and land in a different TOTP window
 	// (and back off longer on lockout). See otpRetry.ts.
-	await page.waitForLoadState('networkidle', { timeout: 10000 });
 	const otpField = page.locator('input[type="text"], input[type="tel"], input[autocomplete="one-time-code"]').first();
 	const verifyOtpButton = page.locator('button:has-text("Verify"), input[value="Verify"]');
 
 	for (let attempt = 1; attempt <= MAX_OTP_ATTEMPTS; attempt++) {
 		await expect(otpField).toBeVisible({ timeout: 15000 });
 		await otpField.fill('');
-		await otpField.fill(generateTOTP(otpSecret));
+		await otpField.fill(generateTOTP(credentials.otpSecret));
 		logger.log(`[${label}] Submitted TOTP code (attempt ${attempt}/${MAX_OTP_ATTEMPTS})`);
 		await expect(verifyOtpButton).toBeVisible({ timeout: 10000 });
 		await verifyOtpButton.click();

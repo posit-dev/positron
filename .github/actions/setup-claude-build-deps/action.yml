@@ -1,0 +1,53 @@
+name: "Setup Claude Build Dependencies"
+description: "Restore or install only the root and build/ node dependencies, so Claude can run Vitest, eslint, and precommit"
+
+# Never saves a cache: @claude runs on comment events use the cache scope of main, so a saved
+# entry would be readable by every branch.
+# Run actions/setup-node with .nvmrc before this action.
+outputs:
+  npm-core-hit:
+    description: "Whether the npm-core cache was restored"
+    value: ${{ steps.restore.outputs.cache-npm-core-hit }}
+
+runs:
+  using: "composite"
+  steps:
+    # The root package.json has file: dependencies into ai-lib.
+    - name: Init ai-lib submodule
+      shell: bash
+      run: git submodule update --init --depth 1 ai-lib
+
+    - name: Restore npm-core cache
+      id: restore
+      uses: ./.github/actions/restore-build-caches
+      with:
+        restore-npm-extensions: 'false'
+        restore-builtins: 'false'
+        restore-playwright: 'false'
+
+    - name: Install native build dependencies
+      if: steps.restore.outputs.cache-npm-core-hit != 'true'
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends libkrb5-dev libxkbfile-dev pkg-config
+
+    # npm ci installs build/ through postinstall, so no separate `npm --prefix build ci`.
+    - name: Install core node dependencies
+      if: steps.restore.outputs.cache-npm-core-hit != 'true'
+      shell: bash
+      env:
+        POSITRON_EXTENSIONS_FILTER: core
+        ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        NPM_CONFIG_AUDIT: "false"
+        NPM_CONFIG_FUND: "false"
+      run: npm ci
+
+    # NPM_CONFIG_CACHE is relative, so each `npm ci` dir grows a .npm-cache/ that .gitignore misses.
+    - name: Exclude npm caches from git status
+      shell: bash
+      run: |
+        EXCLUDE="$(git rev-parse --git-path info/exclude)"
+        mkdir -p "$(dirname "$EXCLUDE")"
+        echo '.npm-cache/' >> "$EXCLUDE"

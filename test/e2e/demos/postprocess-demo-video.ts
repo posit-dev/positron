@@ -213,7 +213,7 @@ function run(cmd: string, args: string[], options: { captureStderr?: boolean; bi
 	});
 
 	if ((result.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
-		fail(`${cmd} not found on PATH. Install it (brew install ffmpeg) and re-run.`);
+		fail(`${cmd} not found on PATH. Install it (brew install ffmpeg, scoop install ffmpeg, or winget install Gyan.FFmpeg) and re-run.`);
 	}
 	// blackdetect reports on stderr, so that output is the result rather than a failure.
 	if (options.captureStderr) {

@@ -150,7 +150,7 @@ jobs:
           repo_id: "positron"
           # A docs-only push runs only unit-tests; leave out the skipped jobs.
           hide_skipped: ${{ needs.docs-only.outputs.docs_only == 'true' }}
-          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host(-win)?)$"
+          filter_jobs: "(e2e / ([^0-9]*)|vscode|vitest|ext-host(-win)?)$"
 
   analyze-e2e-failures:
     if: ${{ always() && contains(needs.*.result, 'failure') }}

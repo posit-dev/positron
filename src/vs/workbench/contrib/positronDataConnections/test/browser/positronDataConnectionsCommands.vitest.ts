@@ -8,7 +8,7 @@
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionLineageResult, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
@@ -125,7 +125,7 @@ function createDataConnectionsService(options: CreateServiceOptions = {}): IPosi
 }
 
 describe('getDataConnections', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	function run(dataConnectionsService: IPositronDataConnectionsService, enabled: boolean = true) {
 		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
@@ -361,7 +361,7 @@ const PYTHON_CODE = { code: 'import x\n\nconn = x.connect()\n', variableName: 'c
 const R_CODE = { code: 'con <- DBI::dbConnect(x)\n', variableName: 'con' };
 
 describe('getDataConnectionCode', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	function run(dataConnectionsService: IPositronDataConnectionsService, args: IDataConnectionCodeCommandArgs, enabled: boolean = true) {
 		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
@@ -506,6 +506,7 @@ function createInstance(profileId: string, handle: number, tableNames: string[])
 		profileId,
 		connectionHandle: stubInterface<IDataConnectionHandle>({
 			handle,
+			releaseNodes: () => { },
 			getChildren: vi.fn(async () => tableNames.map((name, index) => ({
 				nodeHandle: index + 1,
 				name,
@@ -554,7 +555,7 @@ function createInstancesService(
 }
 
 describe('getDataConnectionSchema', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	function run(dataConnectionsService: IPositronDataConnectionsService, args?: IDataConnectionSchemaCommandArgs, enabled: boolean = true) {
 		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
@@ -786,7 +787,7 @@ const ORDERS_LINEAGE: IDataConnectionLineageResult = {
 };
 
 describe('getDataConnectionLineage', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	function run(dataConnectionsService: IPositronDataConnectionsService, args?: unknown, enabled: boolean = true) {
 		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
@@ -983,7 +984,7 @@ describe('getDataConnectionLineage', () => {
 
 
 describe('revealDataConnectionNode', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 
 	function run(args: unknown) {
 		const revealNode = vi.fn(async () => { });

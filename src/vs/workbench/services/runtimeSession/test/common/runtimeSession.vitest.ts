@@ -26,7 +26,7 @@ import { IExtensionService } from '../../../extensions/common/extensions.js';
 import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
 import { NotebookSetting } from '../../../../contrib/notebook/common/notebookCommon.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY } from '../../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 
 type IStartSessionTask = (runtime: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
@@ -42,7 +42,7 @@ describe('Positron - RuntimeSessionService', () => {
 	const notebookUri = URI.file('/path/to/notebook');
 	const notebookParent = '/path/to';
 
-	const ctx = createTestContainer()
+	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.build();
 

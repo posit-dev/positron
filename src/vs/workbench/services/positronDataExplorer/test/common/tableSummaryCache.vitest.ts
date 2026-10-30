@@ -121,6 +121,7 @@ describe('TableSummaryCache', () => {
 	let getSchema: ReturnType<typeof vi.fn>;
 	let getColumnProfiles: ReturnType<typeof vi.fn>;
 	let getSupportedFeatures: ReturnType<typeof vi.fn>;
+	let getBackendState: ReturnType<typeof vi.fn>;
 	let cache: TableSummaryCache;
 
 	beforeEach(() => {
@@ -132,12 +133,13 @@ describe('TableSummaryCache', () => {
 		}));
 		getColumnProfiles = vi.fn().mockResolvedValue([]);
 		getSupportedFeatures = vi.fn().mockReturnValue(state.supported_features);
+		getBackendState = vi.fn().mockResolvedValue(state);
 
 		const client: Partial<DataExplorerClientInstance> = {
 			onDidSchemaUpdate: new Emitter<SchemaUpdateEvent>().event,
 			onDidDataUpdate: new Emitter<void>().event,
 			onDidUpdateBackendState: new Emitter<BackendState>().event,
-			getBackendState: vi.fn().mockResolvedValue(state),
+			getBackendState: getBackendState as DataExplorerClientInstance['getBackendState'],
 			getSupportedFeatures: getSupportedFeatures as DataExplorerClientInstance['getSupportedFeatures'],
 			getSchema: getSchema as DataExplorerClientInstance['getSchema'],
 			getColumnProfiles: getColumnProfiles as DataExplorerClientInstance['getColumnProfiles'],
@@ -399,5 +401,19 @@ describe('TableSummaryCache', () => {
 			secondWindowRequested: true,
 			secondWindowCached: 100,
 		});
+	});
+
+	it('counts the full result\'s rows when the backend serves only its leading rows', async () => {
+		// Profiles describe the whole result, so a null count over it must be divided by its size,
+		// not by the rows the grid was given.
+		const windowed = backendState(10_000);
+		getBackendState.mockResolvedValue({ ...windowed, table_shape: { ...windowed.table_shape, num_rows: 100 }, total_num_rows: 5000 });
+		await cache.update({ invalidateCache: true, columnIndices: [0] });
+		const windowedRows = cache.rows;
+
+		getBackendState.mockResolvedValue(backendState(10_000));
+		await cache.update({ invalidateCache: true, columnIndices: [0] });
+
+		expect({ windowedRows, wholeRows: cache.rows }).toEqual({ windowedRows: 5000, wholeRows: 100 });
 	});
 });

@@ -10,7 +10,9 @@ import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { log } from './extension';
 import { DebugAppOptions, PositronRunApp, PreviewMode, RunAppOptions, RunConsoleAppOptions } from './positron-run-app';
 import { AppUrlDetector } from './appUrlDetector';
-import { AppRegistry, AppSummary, RunningApp, StopAppResult } from './appRegistry';
+import { toAppError } from './appError';
+import { AppRegistry, AppSummary, ReadOutputResult, RunningApp, StopAppResult } from './appRegistry';
+import { AppOutput, ReadOptions } from './appOutput';
 import { buildCommandLine, raceTimeout, SequencerByKey } from './utils';
 import { DAP_CONFIGURATION_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, LATE_URL_DETECTION_TIMEOUT, SHELL_INTEGRATION_TIMEOUT, STOP_APP_TIMEOUT } from './constants.js';
 import { AppPreviewOptions, Config, PositronProxyInfo, UrlDetectionResult, UrlDetectionStatus } from './types.js';
@@ -47,6 +49,47 @@ async function detectAppUrl(
 		onTimeout,
 	);
 	return result ?? { status: UrlDetectionStatus.TimedOut };
+}
+
+/** The preview source for an app run in the terminal with process ID `terminalPid`. */
+function terminalPreviewSource(terminalPid: number | undefined): positron.PreviewSource | undefined {
+	return terminalPid !== undefined
+		? { type: positron.PreviewSourceType.Terminal, id: String(terminalPid) }
+		: undefined;
+}
+
+/**
+ * Read an execution's output from the start, feeding it to `output` (if any)
+ * and to `detector` (if any) until the detector finds the URL. With an
+ * `output`, keeps reading after the URL, so `output` keeps filling; without
+ * one, stops once the URL is found.
+ *
+ * @returns Resolves when the stream ends, or when the URL is found with no
+ *   `output`; rejects if reading throws.
+ */
+function readExecution(
+	execution: vscode.TerminalShellExecution,
+	detector: AppUrlDetector | undefined,
+	output: AppOutput | undefined,
+): Promise<void> {
+	const ended = (async () => {
+		let found = false;
+		for await (const data of execution.read()) {
+			log.trace('Execution:', execution.commandLine.value, data);
+			output?.append(data);
+			if (detector && !found) {
+				found = detector.processOutput(data);
+			}
+			// With no output to keep, there is nothing left to read for.
+			if (found && !output) {
+				break;
+			}
+		}
+	})();
+	// Nothing may await this, such as when previewing is off, so a rejection
+	// must not go unhandled. Callers that await it still see the rejection.
+	ended.catch(error => log.error(`Error reading terminal output: ${error}`));
+	return ended;
 }
 
 function readDefaultPreviewMode(): PreviewMode {
@@ -113,6 +156,10 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 	public stopApp(file: vscode.Uri): Promise<StopAppResult> {
 		return this._apps.stop(file.toString(), STOP_APP_TIMEOUT);
+	}
+
+	public readOutput(file: vscode.Uri, options: ReadOptions): ReadOutputResult {
+		return this._apps.read(file.toString(), options);
 	}
 
 	public setShellIntegrationSupported(supported: boolean): Thenable<void> {
@@ -311,12 +358,18 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			// Remember that shell integration is supported.
 			await this.setShellIntegrationSupported(true);
 
+			// Create the detector before the command runs, so it sees the
+			// output from the first chunk.
+			const detector = preview !== 'none'
+				? new AppUrlDetector(options.appUrlStrings, options.appReadyMessage)
+				: undefined;
+
 			// Execute the command.
 			const execution = shellIntegration.executeCommand(commandLine);
-			const app = this.addTerminalApp(document, options.name, preview, terminal, execution);
+			const { app, ended } = this.addTerminalApp(document, options.name, preview, terminal, execution, detector);
 
 			// Wait for the server URL in the execution output.
-			if (preview !== 'none') {
+			if (detector && ended && preview !== 'none') {
 				const previewOptions: AppPreviewOptions = {
 					appName: options.name,
 					preview,
@@ -324,13 +377,11 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 					terminalPid: await terminal.processId,
 					proxyInfo,
 					urlPath: options.urlPath,
-					appReadyMessage: options.appReadyMessage,
-					appUrlStrings: options.appUrlStrings,
 					urlDetectionTimeout: options.urlDetectionTimeout,
 					app,
 				};
 
-				const result = await this.previewUrlInExecutionOutput(execution, previewOptions);
+				const result = await this.previewUrlInExecutionOutput(detector, ended, previewOptions);
 				if (preview === 'manual') {
 					switch (result.status) {
 						case UrlDetectionStatus.Found:
@@ -358,7 +409,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 			// Execute the command without shell integration.
 			terminal.sendText(commandLine, true);
-			this.addTerminalApp(document, options.name, preview, terminal, undefined);
+			this.addTerminalApp(document, options.name, preview, terminal, undefined, undefined);
 
 			// Remember that shell integration is not supported to display the guide in future runs.
 			await this.setShellIntegrationSupported(false);
@@ -369,9 +420,14 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	/**
+	 * Track a terminal app, and start reading its output.
+	 *
 	 * @param execution Undefined without shell integration, in which case
-	 *   Positron cannot see the app's process and only learns when its terminal
-	 *   closes.
+	 *   Positron cannot see the app's process or its output, and only learns
+	 *   when its terminal closes.
+	 * @param detector Fed the output until it finds the app's URL.
+	 * @returns The app, and when there is an execution, a promise that
+	 *   resolves when its output ends and rejects if it could not be read.
 	 */
 	private addTerminalApp(
 		document: vscode.TextDocument,
@@ -379,7 +435,9 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		preview: PreviewMode,
 		terminal: vscode.Terminal,
 		execution: vscode.TerminalShellExecution | undefined,
-	): RunningApp {
+		detector: AppUrlDetector | undefined,
+	): { app: RunningApp; ended: Promise<void> | undefined } {
+		const output = execution && new AppOutput();
 		const app = new RunningApp(
 			{ file: document.uri.toString(), name, runsIn: 'terminal', preview },
 			{
@@ -389,8 +447,10 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				terminate: async () => terminal.dispose(),
 			},
 			!execution ? 'unknown' : preview === 'none' ? 'running' : 'starting',
+			output,
 		);
 		this._apps.add(app);
+		const ended = execution && readExecution(execution, detector, output);
 
 		const listeners: vscode.Disposable[] = [];
 		const exited = (exitCode?: number) => {
@@ -414,7 +474,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}));
 		listeners.forEach(listener => this._appListeners.add(listener));
 
-		return app;
+		return { app, ended };
 	}
 
 	private async doRunApplicationInConsole(
@@ -518,10 +578,12 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			const preview = parsePreviewMode(options.preview);
 
 			const appSessionId = sessionId;
+			const output = new AppOutput();
 			const app = new RunningApp(
 				{ file: document.uri.toString(), name: options.name, runsIn: 'console', preview, sessionId: appSessionId },
 				{ interrupt: async () => { await positron.runtime.interruptSession(appSessionId); } },
 				preview === 'none' ? 'running' : 'starting',
+				output,
 			);
 			this._apps.add(app);
 
@@ -533,14 +595,14 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			// observer's token interrupts the session, which would kill the
 			// user's app. The app outlives URL detection, so we never cancel.
 			const observer: positron.runtime.ExecutionObserver = {
-				onOutput: (data) => detector.processOutput(data),
-				onError: (data) => detector.processOutput(data),
+				onOutput: (data) => { output.append(data); detector.processOutput(data); },
+				onError: (data) => { output.append(data); detector.processOutput(data); },
 			};
 
 			// Execute the code in the console session. Don't await: the Thenable
 			// resolves only when the app stops. `executionFinished` never
-			// rejects, so an execution error is logged and treated the same as
-			// the app stopping.
+			// rejects, so an execution error is logged, recorded as the app's
+			// error, and treated the same as the app stopping.
 			const executionFinished = Promise.resolve(positron.runtime.executeCode(
 				document.languageId,
 				consoleCode.code,
@@ -550,8 +612,10 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				positron.RuntimeErrorBehavior.Continue,
 				observer,
 				sessionId,
-			)).then(() => { }, (error: Error) => {
-				log.error(`Console execution error: ${error.message}`);
+			)).then(() => { }, (error: unknown) => {
+				const appError = toAppError(error);
+				log.error(`Console execution error: ${appError.message}`);
+				app.failed(appError);
 			}).then(() => app.exited());
 
 			switch (preview) {
@@ -600,7 +664,10 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 							preview,
 							proxyInfo,
 							urlPath: options.urlPath,
-							sessionId,
+							previewSource: {
+								type: positron.PreviewSourceType.Runtime,
+								id: sessionId,
+							},
 							app,
 						});
 
@@ -752,14 +819,16 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 									terminalPid: processId,
 									proxyInfo,
 									urlPath: options.urlPath,
-									appReadyMessage: options.appReadyMessage,
-									appUrlStrings: options.appUrlStrings,
 									urlDetectionTimeout: options.urlDetectionTimeout,
 								};
+								// Detect the URL only: debugged apps are not tracked,
+								// so their output is not kept.
+								const detector = new AppUrlDetector(options.appUrlStrings, options.appReadyMessage);
+								const ended = readExecution(e.execution, detector, undefined);
 								// Resolve even when the URL was not found, so that the
 								// progress notification ends with URL detection rather
 								// than waiting out the outer timeout.
-								const result = await this.previewUrlInExecutionOutput(e.execution, previewOptions);
+								const result = await this.previewUrlInExecutionOutput(detector, ended, previewOptions);
 								resolve(result.status === UrlDetectionStatus.Found);
 							}
 						});
@@ -884,25 +953,22 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		return isShellIntegrationEnabled;
 	}
 
-	private async previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, options: AppPreviewOptions): Promise<TerminalAppPreviewResult> {
-		// Wait for the server URL to appear in the terminal output, or a timeout.
-		const stream = execution.read();
-		const detector = new AppUrlDetector(options.appUrlStrings, options.appReadyMessage);
-
-		// Feed the stream into the detector. The loop breaks once the URL is
-		// found, or ends when the terminal process exits.
-		const streamEnded = (async () => {
-			for await (const data of stream) {
-				log.trace('Execution:', execution.commandLine.value, data);
-				if (detector.processOutput(data)) {
-					break;
-				}
-			}
-		})();
-
+	/**
+	 * Wait for the server URL to appear in the terminal output, or a timeout,
+	 * and preview it.
+	 *
+	 * @param detector Fed the execution's output by `readExecution`.
+	 * @param ended From `readExecution`: resolves when the output ends, and
+	 *   rejects if it could not be read.
+	 */
+	private async previewUrlInExecutionOutput(
+		detector: AppUrlDetector,
+		ended: Promise<void>,
+		options: AppPreviewOptions,
+	): Promise<TerminalAppPreviewResult> {
 		const result = await detectAppUrl(
 			detector.found,
-			streamEnded,
+			ended,
 			options.urlDetectionTimeout ?? readUrlDetectionTimeout(),
 			() => log.error('Timed out waiting for server output in terminal'),
 		);
@@ -918,8 +984,32 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				}
 				return result;
 			case UrlDetectionStatus.TimedOut:
-				log.error('Cannot preview URL. App is not ready or URL not found in terminal output.');
-				options.app?.stoppedWatchingForUrl();
+				// The caller reports a manual preview's failure itself.
+				if (options.preview === 'manual') {
+					options.app?.stoppedWatchingForUrl();
+					return result;
+				}
+				// Keep watching for the URL. `readExecution` keeps feeding
+				// the detector, so `detector.found` still resolves if the app
+				// prints its URL later. Don't await: holding the run task open
+				// would block a re-run and pin the progress notification.
+				this.watchForLateAppUrl(detector.found, ended, {
+					appName: options.appName,
+					preview: options.preview,
+					proxyInfo: options.proxyInfo,
+					urlPath: options.urlPath,
+					terminalPid: options.terminalPid,
+					previewSource: terminalPreviewSource(options.terminalPid),
+					app: options.app,
+				});
+				showUrlDetectionTimedOutMessage(options.appName, {
+					terminal: options.terminal,
+					// Only offer to change our own timeout setting when it was
+					// the one in effect. A caller-supplied timeout overrides it.
+					timeoutSetting: options.urlDetectionTimeout === undefined
+						? Config.UrlDetectionTimeout
+						: undefined,
+				}).catch(() => { });
 				return result;
 			case UrlDetectionStatus.DetectionFailed:
 				log.error(`Cannot preview URL. Error reading terminal output: ${result.error}`);
@@ -932,9 +1022,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			proxyInfo: options.proxyInfo,
 			urlPath: options.urlPath,
 			terminalPid: options.terminalPid,
-			previewSource: options.terminalPid !== undefined
-				? { type: positron.PreviewSourceType.Terminal, id: String(options.terminalPid) }
-				: undefined,
+			previewSource: terminalPreviewSource(options.terminalPid),
 			app: options.app,
 		});
 		return { status: UrlDetectionStatus.Found, previewUri };
@@ -944,51 +1032,51 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	 * Keep watching for an app's URL after URL detection timed out, and preview
 	 * the app if the URL eventually appears.
 	 *
-	 * Bounded by the console execution: an app that stops without ever printing
-	 * a URL is never going to print one. Also capped, so a running session with
+	 * Bounded by the app's execution: an app that stops without ever printing
+	 * a URL is never going to print one. Also capped, so a running app with
 	 * a URL we will never match does not leave a preview armed indefinitely.
 	 *
 	 * Nothing awaits this, so it must never reject.
 	 *
 	 * @param found Resolves with the app's URL if it appears in the output.
-	 * @param executionFinished Resolves when the console execution ends.
+	 * @param executionFinished Settles when the app's console execution or
+	 *  terminal output ends.
 	 */
 	private async watchForLateAppUrl(
 		found: Promise<URL>,
 		executionFinished: Promise<void>,
 		options: {
 			appName: string;
-			preview: Exclude<PreviewMode, 'none'>;
+			preview?: Exclude<PreviewMode, 'none'>;
 			proxyInfo?: PositronProxyInfo;
 			urlPath?: string;
-			sessionId: string;
+			terminalPid?: number;
+			previewSource?: positron.PreviewSource;
 			app?: RunningApp;
 		},
 	): Promise<void> {
 		try {
 			const url = await raceTimeout(
-				Promise.race([found, executionFinished.then(() => undefined)]),
+				Promise.race([found, executionFinished.then(() => undefined, () => undefined)]),
 				LATE_URL_DETECTION_TIMEOUT,
-				() => log.debug(`Stopped waiting for the ${options.appName} app URL in console output`),
+				() => log.debug(`Stopped waiting for the ${options.appName} app URL in its output`),
 			);
 
 			if (!url) {
 				// Either the app stopped without printing a URL, or the cap
 				// expired. Either way there is nothing left to preview.
-				log.debug(`No late ${options.appName} app URL found in console output`);
+				log.debug(`No late ${options.appName} app URL found in its output`);
 				options.app?.stoppedWatchingForUrl();
 				return;
 			}
 
-			log.info(`Found the ${options.appName} app URL in console output after detection timed out`);
+			log.info(`Found the ${options.appName} app URL in its output after detection timed out`);
 			await this.previewApp(url, {
 				preview: options.preview,
 				proxyInfo: options.proxyInfo,
 				urlPath: options.urlPath,
-				previewSource: {
-					type: positron.PreviewSourceType.Runtime,
-					id: options.sessionId,
-				},
+				terminalPid: options.terminalPid,
+				previewSource: options.previewSource,
 				app: options.app,
 			});
 		} catch (error) {

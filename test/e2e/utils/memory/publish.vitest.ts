@@ -31,7 +31,7 @@ vi.mock('../metrics/metric-base.js', async (importOriginal) => {
 		CONNECT_API_KEY: 'fake-key-for-testing',
 		LOCAL_API_URL: 'http://localhost:3000/metrics',
 		PROD_API_URL: 'https://api.example.com/metrics',
-		positronVersion: buildUnderTest
+		getRunPositronVersion: () => buildUnderTest
 	};
 });
 

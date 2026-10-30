@@ -44,6 +44,7 @@ import { capture, when } from 'ts-mockito';
 import * as positron from 'positron';
 import { mockedPositronNamespaces } from '../../vscode-mock';
 import { Commands } from '../../../client/common/constants';
+import { PROJECT_GROUP_ORDER } from '../../../client/positron/pickerInfo';
 import * as uvUtils from '../../../client/pythonEnvironments/creation/provider/uvUtils';
 import * as uvPythonInstaller from '../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import * as globalEnvironment from '../../../client/pythonEnvironments/common/environmentManagers/globalEnvironment';
@@ -55,6 +56,7 @@ import * as createEnvironment from '../../../client/pythonEnvironments/creation/
 import { reusedEnvironmentResult } from '../../../client/pythonEnvironments/creation/reusedEnvironment';
 import * as commonUtils from '../../../client/pythonEnvironments/creation/common/commonUtils';
 import { Interpreters } from '../../../client/common/utils/localize';
+import * as workspaceScan from '../../../client/positron/workspaceScan';
 // --- End Positron ---
 
 chaiUse(chaiAsPromised.default);
@@ -176,11 +178,29 @@ suite('Create Environment APIs', () => {
     // --- Start Positron ---
     suite('Runtime picker contribution', () => {
         let executeCommandStub: sinon.SinonStub;
+        let scanWorkspaceStub: sinon.SinonStub;
 
         setup(() => {
             executeCommandStub = sinon.stub(commandApis, 'executeCommand');
             executeCommandStub.resolves(undefined);
+            sinon
+                .stub(workspaceApis, 'getWorkspaceFolders')
+                .returns([{ uri: Uri.file('/project'), name: 'project', index: 0 }]);
+            stubFolder({ isEmpty: true, hasPythonSignals: false });
         });
+
+        function stubFolder(
+            scan: Pick<workspaceScan.WorkspaceScan, 'isEmpty' | 'hasPythonSignals'> &
+                Partial<Pick<workspaceScan.WorkspaceScan, 'rootProjectEnvs'>>,
+        ): void {
+            scanWorkspaceStub?.restore();
+            scanWorkspaceStub = sinon.stub(workspaceScan, 'scanWorkspace').resolves({
+                rootProjectEnvs: [],
+                nestedEnvDirs: [],
+                pythonVersion: undefined,
+                ...scan,
+            });
+        }
 
         function capturedContribution(): positron.runtime.RuntimePickerContribution {
             // The outer setup() calls registerCreateEnvironmentFeatures, which registers
@@ -189,13 +209,17 @@ suite('Create Environment APIs', () => {
             return contribution;
         }
 
-        function stubRegisteredRuntimes(sources: string[]): void {
+        function stubRegisteredRuntimes(sources: string[], withProjectEnv = false): void {
             const runtimes = sources.map(
                 (runtimeSource, i) =>
                     ({
                         runtimeId: `runtime-${i}`,
                         languageId: 'python',
                         runtimeSource,
+                        picker:
+                            withProjectEnv && runtimeSource === 'Venv'
+                                ? { groupOrder: PROJECT_GROUP_ORDER }
+                                : undefined,
                     } as unknown as positron.LanguageRuntimeMetadata),
             );
             when(mockedPositronNamespaces.runtime!.getRegisteredRuntimes()).thenReturn(Promise.resolve(runtimes));
@@ -229,14 +253,125 @@ suite('Create Environment APIs', () => {
             const items = await capturedContribution().getItems();
 
             assert.deepEqual(
-                items.map((item) => ({ id: item.id, label: item.label, separatorLabel: item.separatorLabel })),
+                items.map((item) => ({
+                    id: item.id,
+                    label: item.label,
+                    detail: item.detail,
+                    separatorLabel: item.separatorLabel,
+                })),
                 [
                     {
                         id: 'create-python-env',
                         label: '$(add) Create Python Environment',
+                        detail: 'Make a .venv or .conda environment in this folder',
                         separatorLabel: 'Create Environment',
                     },
                 ],
+            );
+        });
+
+        test('getItems marks the create item suggested in an empty folder', async () => {
+            stubRegisteredRuntimes(['System', 'Venv']);
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => item.suggested),
+                [true],
+            );
+        });
+
+        test('getItems leaves the install item unsuggested in an empty folder', async () => {
+            stubRegisteredRuntimes([]);
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => item.suggested),
+                [false],
+            );
+        });
+
+        test('getItems marks the item suggested in a folder with Python files', async () => {
+            stubFolder({ isEmpty: false, hasPythonSignals: true });
+            stubRegisteredRuntimes(['System']);
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => item.suggested),
+                [true],
+            );
+        });
+
+        test('getItems reads the folder again rather than reusing the startup scan', async () => {
+            stubRegisteredRuntimes(['System', 'Venv']);
+
+            await capturedContribution().getItems();
+
+            assert.deepEqual(scanWorkspaceStub.args, [[Uri.file('/project').fsPath, true]]);
+        });
+
+        test('getItems leaves the item unsuggested in a folder with no Python files', async () => {
+            stubFolder({ isEmpty: false, hasPythonSignals: false });
+            stubRegisteredRuntimes(['System', 'Venv']);
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => item.suggested),
+                [false],
+            );
+        });
+
+        test('getItems leaves the item unsuggested when no workspace folder is open', async () => {
+            (workspaceApis.getWorkspaceFolders as sinon.SinonStub).returns(undefined);
+            stubRegisteredRuntimes(['System']);
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => item.suggested),
+                [false],
+            );
+        });
+
+        test('getItems leaves "in this folder" out of the create detail when no workspace folder is open', async () => {
+            (workspaceApis.getWorkspaceFolders as sinon.SinonStub).returns(undefined);
+            stubRegisteredRuntimes(['System', 'Venv']);
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => item.detail),
+                ['Make a .venv or .conda environment'],
+            );
+        });
+
+        test('getItems leaves the item unsuggested when a project environment exists', async () => {
+            stubRegisteredRuntimes(['System', 'Venv'], true);
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => item.suggested),
+                [false],
+            );
+        });
+
+        test('getItems leaves the item unsuggested when a project environment is on disk but not yet discovered', async () => {
+            stubFolder({
+                isEmpty: true,
+                hasPythonSignals: false,
+                rootProjectEnvs: [{ envDir: '/project/.venv', executable: '/project/.venv/bin/python' }],
+            });
+            stubRegisteredRuntimes(['System', 'Venv']);
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => item.suggested),
+                [false],
             );
         });
 

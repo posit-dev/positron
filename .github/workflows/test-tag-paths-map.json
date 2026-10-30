@@ -51,6 +51,7 @@
   "extensions/positron-viewer/": ["@:viewer"],
   "extensions/positron-duckdb/": ["@:duck-db"],
   "extensions/positron-skills/": [],
+  "extensions/positron-claude-code/": [],
 
   "src/vs/workbench/contrib/positronTelemetry/": [],
   "src/vs/workbench/contrib/positronIdleReporter/": [],
@@ -101,6 +102,7 @@
   "extensions/positron-data-explorer-duckdb/": ["@:connections"],
   "extensions/positron-data-explorer-formatting/": ["@:connections", "@:data-explorer"],
   "extensions/positron-data-explorer-protocol/": ["@:data-explorer"],
+  "extensions/positron-data-explorer-window/": ["@:connections", "@:data-explorer"],
   "extensions/positron-dev-containers/": [],
   "extensions/positron-environment/": [],
   "extensions/positron-environment-modules/": ["@:environment-modules"],
@@ -130,6 +132,7 @@
   "extensions/positron-r/": ["@:ark"],
   "extensions/positron-r/src/testing/": ["@:test-explorer"],
   "extensions/positron-runtime-debugger/": ["@:debug"],
+  "extensions/positron-sql/": [],
   "extensions/positron-supervisor/": ["@:sessions", "@:console", "@:interpreter", "@:mcp"],
   "extensions/positron-zed/": [],
 
@@ -183,6 +186,9 @@
   "src/vs/workbench/contrib/extensions/electron-browser/positronCustomGalleryValidation.ts": ["@:extensions"],
   "src/vs/workbench/contrib/inlineChat/": [],
   "src/vs/workbench/contrib/inlineChat/browser/positronNotebookUtils.ts": ["@:positron-notebooks", "@:assistant"],
+  "src/vs/workbench/contrib/notebook/": [],
+  "src/vs/workbench/contrib/notebook/common/notebookSaveSettings.ts": ["@:notebooks", "@:positron-notebooks"],
+  "src/vs/workbench/contrib/notebook/common/notebookWorkingDirectoryUtils.ts": ["@:positron-notebooks"],
   "src/vs/workbench/contrib/preferences/": [],
   "src/vs/workbench/contrib/preferences/common/positronSettingBadges.ts": ["@:vscode-settings"],
   "src/vs/workbench/contrib/remote/": [],

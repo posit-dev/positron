@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
@@ -76,7 +77,7 @@ describe('MainThreadDataConnections', () => {
 	function instance(profileId: string, handle: Partial<IDataConnectionHandle>): IDataConnectionInstance {
 		return stubInterface<IDataConnectionInstance>({
 			profileId,
-			connectionHandle: stubInterface<IDataConnectionHandle>({ handle: 1, ...handle }),
+			connectionHandle: stubInterface<IDataConnectionHandle>({ handle: 1, releaseNodes: () => { }, ...handle }),
 		});
 	}
 
@@ -371,6 +372,23 @@ describe('MainThreadDataConnections', () => {
 			const schema = await mainThread.$getDataConnectionSchema('p1', { maxNodesPerLevel: 1 });
 
 			expect(schema?.truncated).toBe(true);
+		});
+
+		it('stops a schema walk the extension cancels, before its next query', async () => {
+			// A caller that stopped waiting would otherwise leave the walk querying the database.
+			const cancellation = new CancellationTokenSource();
+			const nodeGetChildren = vi.fn(async () => []);
+			instances = [instance('p1', {
+				getChildren: async () => {
+					cancellation.cancel();
+					return [{ name: 'orders', kind: 'table', nodeHandle: 2, hasGetChildren: true, hasPreview: true, hasDetails: false }];
+				},
+				nodeGetChildren,
+			})];
+
+			await expect(mainThread.$getDataConnectionSchema('p1', {}, cancellation.token)).rejects.toThrow('Canceled');
+			expect(nodeGetChildren).not.toHaveBeenCalled();
+			cancellation.dispose();
 		});
 
 		it('has no schema for a connection that is not live', async () => {

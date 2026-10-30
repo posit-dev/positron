@@ -270,6 +270,10 @@ export default defineConfig(
 			// Prefer `screen.getByX` over destructuring queries from render --
 			// avoids needing to update destructuring as queries change.
 			'testing-library/prefer-screen-queries': 'error',
+
+			// Bare/Runtime tests use createLightTestContainer() to skip ~7s of
+			// Notebook/Workbench preset imports per file.
+			'local/code-vitest-light-test-container': 'error',
 		},
 	},
 	// --- End Positron ---
@@ -1773,13 +1777,8 @@ export default defineConfig(
 						'zlib',
 						'chrome-remote-interface',
 						// --- Start Positron ---
-						// Headless language model engine (Node egress): the provider
-						// bridge it streams through, plus its pure credential shaper.
-						'ai-provider-bridge',
-						'ai-provider-bridge/providers',
-						'ai-provider-bridge/credential-shaping',
-						// AI provider catalog (Node egress).
-						'ai-config/node',
+						// Headless provider module (Node egress).
+						'ai-provider-bridge/headless',
 						// --- End Positron ---
 					]
 				},
@@ -2002,30 +2001,6 @@ export default defineConfig(
 						'vs/workbench/contrib/terminalContrib/*/~'
 					]
 				},
-				// --- Start Positron ---
-				// Must precede the generic 'src/vs/workbench/services/*/~' entry:
-				// the rule uses the first matching target, so this scopes the
-				// ai-provider-bridge allowance to the headless LM service only.
-				{
-					'target': 'src/vs/workbench/services/positronHeadlessLanguageModel/~',
-					'restrictions': [
-						'vs/base/~',
-						'vs/base/parts/*/~',
-						'vs/platform/*/~',
-						'vs/editor/~',
-						'vs/editor/contrib/*/~',
-						'vs/workbench/~',
-						'vs/workbench/services/*/~',
-						{
-							'when': 'test',
-							'pattern': 'vs/workbench/contrib/*/~'
-						},
-						// The bridge's pure, vscode-free credential shaper (no
-						// AI-SDK/Node deps -- safe in the renderer).
-						'ai-provider-bridge/credential-shaping'
-					]
-				},
-				// --- End Positron ---
 				{
 					'target': 'src/vs/workbench/services/*/~',
 					'restrictions': [

@@ -7,7 +7,7 @@
 
 import { URI } from '../../../../../base/common/uri.js';
 import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
@@ -76,7 +76,7 @@ describe('shouldSkipFirstCommandFinished', () => {
 });
 
 describe('QuartoExecutionManager', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createLightTestContainer().build();
 	const logService = new NullLogService();
 
 	let executionManager: QuartoExecutionManager;
