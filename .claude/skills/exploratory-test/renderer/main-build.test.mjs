@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { fetchDaily, mainBuildBrief, platformFor, readMainBuild } from './main-build.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
 
@@ -81,6 +81,10 @@ test('mainBuildBrief names the binary, commit and launch command', () => {
 	assert.match(brief, /^## Main build/m);
 	assert.ok(brief.includes('/tmp/main/Positron.app/Contents/MacOS/Positron'));
 	assert.ok(brief.includes('launch.sh --app /tmp/main/Positron.app/Contents/MacOS/Positron'));
+	// The launcher beside this renderer, which has --app, not the one on a branch that may predate it.
+	const launcher = /`(\S+launch\.sh) --app /.exec(brief)?.[1];
+	assert.ok(launcher && isAbsolute(launcher) && existsSync(launcher), launcher);
+	assert.ok(readFileSync(launcher, 'utf8').includes('--app)'));
 	assert.ok(brief.includes('57b03d33f537a868e49c48c7acd0c59d84f9b453'));
 	assert.ok(brief.includes('2026.11.0-236'));
 	assert.ok(brief.includes('git -C /repo grep -q <id> 57b03d33f537a868e49c48c7acd0c59d84f9b453 -- src extensions'));

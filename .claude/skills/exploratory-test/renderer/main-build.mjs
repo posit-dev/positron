@@ -17,7 +17,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { accessSync, constants, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { readJson } from './shared/text.mjs';
@@ -28,7 +28,10 @@ const BINARY = {
 	'mac/arm64': join('Positron.app', 'Contents', 'MacOS', 'Positron'),
 	'deb/x86_64': join('usr', 'share', 'positron', 'positron'),
 };
-const LAUNCH = '.claude/skills/drive-positron/scripts/launch.sh';
+// The launcher beside this renderer, which has --app. In CI the renderer comes
+// from the harness while the helpers come from the branch under test, which
+// may predate --app.
+const LAUNCH = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'drive-positron', 'scripts', 'launch.sh');
 
 /**
  * @typedef {{ version: string, commit: string, pubDate: string, platform: string, binary: string }} MainBuild

@@ -670,8 +670,22 @@ jobs:
           sparse-checkout: |
             .github/actions
             .claude/skills/exploratory-test
+            .claude/skills/drive-positron/scripts
           sparse-checkout-cone-mode: false
           persist-credentials: false
+
+      # A build of main for the explorer to replay each finding on, which
+      # decides the finding's Origin. One download, run in the background while
+      # the PR builds: a process a step starts lives until the job ends. Main
+      # daily ready below picks it up; a failure only means no Origins.
+      - name: Download main daily (background)
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/positron-main"
+          nohup node .harness/.claude/skills/exploratory-test/renderer/main-build.mjs fetch \
+            --out "$RUNNER_TEMP/positron-main" --platform deb/x86_64 \
+            > "$RUNNER_TEMP/positron-main.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/positron-main.pid"
 
       # The explorer's instructions come from the harness, the helpers from the
       # branch under test. A branch older than the helper rewrite lacks the
@@ -768,6 +782,34 @@ jobs:
 
       - name: Prelaunch
         run: npm run prelaunch
+
+      # Waits for the download started before the build, which has usually
+      # finished by now. Without a main build the run goes on, and no finding
+      # gets an Origin.
+      - name: Main daily ready
+        continue-on-error: true
+        shell: bash
+        run: |
+          DIR="$RUNNER_TEMP/positron-main"
+          PID=$(cat "$RUNNER_TEMP/positron-main.pid" 2>/dev/null || true)
+          for _ in $(seq 1 300); do
+            if [[ -z "$PID" ]] || ! kill -0 "$PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
+            kill "$PID" || true
+          fi
+          if [[ ! -f "$DIR/main-build.json" ]]; then
+            echo "::warning::No main build, so no finding gets an Origin: $(tail -n 5 "$RUNNER_TEMP/positron-main.log" 2>/dev/null | tr '\n' ' ')"
+            exit 0
+          fi
+          # The verifier's drift check diffs the fix files between main's commit and the base.
+          COMMIT=$(node -p 'require(process.argv[1]).commit' "$DIR/main-build.json")
+          if ! git cat-file -e "$COMMIT^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$COMMIT" || echo "::warning::Could not fetch main at $COMMIT; findings whose fix files cannot be compared will be Unknown"
+          fi
+          echo "MAIN_BUILD=$DIR/main-build.json" >> "$GITHUB_ENV"
+          echo "Main build: $(cat "$DIR/main-build.json")"
 
       - name: Set permissions on SUID sandbox helper
         run: |
