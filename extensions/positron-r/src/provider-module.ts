@@ -138,6 +138,13 @@ async function availableModulesApi(): Promise<EnvironmentModulesApi | undefined>
 	return api;
 }
 
+/**
+ * Whether environment modules are enabled and a module system was detected here.
+ */
+export async function modulesAvailable(): Promise<boolean> {
+	return await availableModulesApi() !== undefined;
+}
+
 function moduleBinary(resolved: ModuleResolvedInterpreter): RBinary {
 	const moduleMetadata: ModuleMetadata = {
 		type: 'module',

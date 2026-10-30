@@ -306,7 +306,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// If no R binaries are found, log to output and end discovery.
 	if (rAll.length === 0) {
 		LOGGER.warn('Positron could not find any R installations. Please verify that you have R installed and review any custom settings.');
-		printInterpreterSettingsInfo();
+		await printInterpreterSettingsInfo();
 		return;
 	}
 

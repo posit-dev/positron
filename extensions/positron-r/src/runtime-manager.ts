@@ -61,8 +61,8 @@ function getModulesFromMetadata(packagerMetadata: PackagerMetadata | undefined):
 /**
  * Whether `positron.r.interpreters.default` names an environment module.
  */
-function isModulePinned(): boolean {
-	return getDefaultInterpreter()?.kind === 'module';
+async function isModulePinned(): Promise<boolean> {
+	return (await getDefaultInterpreter())?.kind === 'module';
 }
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
@@ -224,7 +224,6 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// recommended. A pin is only found when it is one of them. After
 		// discovery, without a defined pin, R answers with the first defined R.
 		// A pinned module is never replaced by another R.
-		const pinOnly = isDefinitionsOnlyDiscovery() || isModulePinned();
 
 		// Decide here, in the folder that's open now, whether R starts right
 		// away: Positron never caches the recommendation. The search's records
@@ -233,6 +232,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			if (afterDiscovery) {
 				return await this.recommendationAfterDiscovery(await this.pinnedRInstallation());
 			}
+			const pinOnly = isDefinitionsOnlyDiscovery() || await isModulePinned();
 			const pinnedLookup = this.pinnedRInstallation();
 			const choice = await chooseStartupR({
 				pinnedR: () => pinnedLookup,
@@ -280,7 +280,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			LOGGER.info(`[recommendedWorkspaceRuntime] Recommending the pinned R ${pinned.version} at ${pinned.binpath} to start when R is needed`);
 			return makeMetadata(pinned, implicit);
 		}
-		if (isModulePinned()) {
+		if (await isModulePinned()) {
 			return undefined;
 		}
 		const registeredRs = (await positron.runtime.getRegisteredRuntimes())
@@ -335,8 +335,8 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 * The R installation that `positron.r.interpreters.default` names, if that
 	 * R can start here. See `choosePinnedR()`.
 	 */
-	private pinnedRInstallation(): Promise<RInstallation | undefined> {
-		const pin = getDefaultInterpreter();
+	private async pinnedRInstallation(): Promise<RInstallation | undefined> {
+		const pin = await getDefaultInterpreter();
 		const key = pin && (pin.kind === 'module' ? `module:${pin.module}` : pin.path);
 		return this._pinnedRLookup.run(key, () => this.lookUpPinnedR(pin));
 	}

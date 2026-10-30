@@ -9,6 +9,7 @@ import { LOGGER } from './extension';
 import { arePathsSame, isParentPath, normalizeUserPath } from './path-utils';
 import { SubstitutionResult, substituteWorkspaceFolder } from './setting-variables';
 import { isModuleName } from './startup-choice';
+import { modulesAvailable } from './provider-module';
 
 /**
  * Replaces `${workspaceFolder}` in a path from an R interpreter setting with the first
@@ -196,7 +197,8 @@ export function isExcludedInstallation(binpath: string): boolean | undefined {
 
 /**
  * The R that `positron.r.interpreters.default` names: the path to an R binary,
- * or an environment module (see `isModuleName`).
+ * or an environment module (see `isModuleName`) when environment modules are
+ * available.
  */
 export type DefaultInterpreter =
 	{ readonly kind: 'path'; readonly path: string } |
@@ -207,14 +209,13 @@ export type DefaultInterpreter =
  * For a path, replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are ignored.
  * @returns The default R interpreter specified in the settings, or undefined if not set.
  */
-export function getDefaultInterpreter(): DefaultInterpreter | undefined {
+export async function getDefaultInterpreter(): Promise<DefaultInterpreter | undefined> {
 	const config = vscode.workspace.getConfiguration('positron.r');
 	const setting = config.get<string>('interpreters.default')?.trim();
 	if (!setting) {
 		return undefined;
 	}
-	// Module systems are only supported on Linux
-	if (process.platform !== 'win32' && process.platform !== 'darwin' && isModuleName(setting)) {
+	if (isModuleName(setting) && await modulesAvailable()) {
 		LOGGER.info(`Default R environment module specified in 'positron.r.interpreters.default': ${setting}`);
 		return { kind: 'module', module: setting };
 	}
@@ -240,10 +241,10 @@ export function getResolvedExcludePaths(): string[] {
 /**
  * Print the R interpreter settings info to the log.
  */
-export function printInterpreterSettingsInfo(): void {
+export async function printInterpreterSettingsInfo(): Promise<void> {
 	const interpreterSettingsInfo = {
 		// eslint-disable-next-line @typescript-eslint/naming-convention
-		'interpreters.default': getDefaultInterpreter(),
+		'interpreters.default': await getDefaultInterpreter(),
 		// eslint-disable-next-line @typescript-eslint/naming-convention
 		'interpreters.override': getInterpreterOverridePaths(),
 		// eslint-disable-next-line @typescript-eslint/naming-convention
