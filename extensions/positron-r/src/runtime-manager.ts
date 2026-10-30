@@ -91,6 +91,9 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 */
 	private readonly _pinnedRLookup = new InFlightLookup<string | undefined, RInstallation | undefined>();
 
+	/** The pinned modules that failed to load and that the user was told about. */
+	private readonly _reportedModuleFailures = new Set<string>();
+
 	/**
 	 * Positron uses the recommendation when it needs an R runtime, but must
 	 * not save it as the workspace's default: whether R starts right away is
@@ -377,9 +380,12 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 * @param name The module environment or module from `positron.r.interpreters.default`.
 	 */
 	private async lookUpModulePinnedR(name: string): Promise<RInstallation | undefined> {
-		const rbin = await resolveModuleBinary(name);
-		if (!rbin) {
-			LOGGER.warn(`[pinnedRInstallation] No R starts, since the module from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' could not be loaded: ${name}`);
+		let rbin: RBinary;
+		try {
+			rbin = await resolveModuleBinary(name);
+		} catch (err) {
+			LOGGER.error(`[pinnedRInstallation] No R starts, since the module '${name}' from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' could not be loaded: ${err}`);
+			this.reportModuleFailure(name);
 			return undefined;
 		}
 		const currentPath = (await currentRBinary())?.path;
@@ -390,6 +396,30 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			return undefined;
 		}
 		return inst;
+	}
+
+	/**
+	 * Tells the user, once per module, that R didn't start because the pinned
+	 * module could not be loaded.
+	 *
+	 * @param name The module environment or module from `positron.r.interpreters.default`.
+	 */
+	private async reportModuleFailure(name: string): Promise<void> {
+		if (this._reportedModuleFailures.has(name)) {
+			return;
+		}
+		this._reportedModuleFailures.add(name);
+		const showLog = vscode.l10n.t('Show Log');
+		const openSetting = vscode.l10n.t('Open Setting');
+		const choice = await vscode.window.showWarningMessage(
+			vscode.l10n.t('R did not start because the environment module \'{0}\' could not be loaded.', name),
+			showLog,
+			openSetting);
+		if (choice === showLog) {
+			LOGGER.show();
+		} else if (choice === openSetting) {
+			await vscode.commands.executeCommand('workbench.action.openSettings', `@id:${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}`);
+		}
 	}
 
 	async createSession(

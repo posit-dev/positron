@@ -32,6 +32,7 @@ interface ResolveInterpreterOptions {
 	interpreterBinaryNames: string[];
 	versionArgs: string[];
 	parseVersion: (output: string) => string | undefined;
+	throwOnError?: boolean;
 }
 
 /**
@@ -158,31 +159,27 @@ const MODULE_NAME_PATTERN = /^[\w.+\-/@:]+$/;
  * Resolves the R that a module name provides. The name is an R environment in
  * `positron.environmentModules.environments`, or else a module to load.
  * Loads only that environment or module, so it doesn't search.
+ *
+ * @throws An error describing why the module doesn't provide R, including the
+ *   output of the failed module commands.
  */
-export async function resolveModuleBinary(name: string): Promise<RBinary | undefined> {
+export async function resolveModuleBinary(name: string): Promise<RBinary> {
 	const api = await availableModulesApi();
 	if (!api) {
-		LOGGER.warn(`Cannot resolve R from module "${name}": environment modules are not available`);
-		return undefined;
+		throw new Error('environment modules are not available');
 	}
+	const options = { environmentName: name, ...R_RESOLVE_OPTIONS, throwOnError: true };
 	let resolved: ModuleResolvedInterpreter | undefined;
-	try {
-		const environments = await api.getEnvironmentsForLanguage('r');
-		if (environments.has(name)) {
-			resolved = await api.resolveInterpreter({ environmentName: name, ...R_RESOLVE_OPTIONS });
-		} else if (MODULE_NAME_PATTERN.test(name)) {
-			resolved = await api.resolveInterpreterFromModules([name], { environmentName: name, ...R_RESOLVE_OPTIONS });
-		} else {
-			LOGGER.warn(`Cannot load module "${name}": module names may only contain letters, digits, and . _ + - / @ :`);
-			return undefined;
-		}
-	} catch (err) {
-		LOGGER.warn(`Failed to resolve R from module "${name}": ${err}`);
-		return undefined;
+	const environments = await api.getEnvironmentsForLanguage('r');
+	if (environments.has(name)) {
+		resolved = await api.resolveInterpreter(options);
+	} else if (MODULE_NAME_PATTERN.test(name)) {
+		resolved = await api.resolveInterpreterFromModules([name], options);
+	} else {
+		throw new Error('module names may only contain letters, digits, and . _ + - / @ :');
 	}
 	if (!resolved) {
-		LOGGER.warn(`Failed to resolve R from module "${name}"`);
-		return undefined;
+		throw new Error('R was not found');
 	}
 	LOGGER.info(`Found R at ${resolved.interpreterPath} from module "${name}"`);
 	return moduleBinary(resolved);
