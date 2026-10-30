@@ -545,7 +545,8 @@
 									"not replayed",
 									"could not run",
 									"too few tries",
-									"drift"
+									"drift",
+									"drift unchecked"
 								]
 							},
 							"detail": {

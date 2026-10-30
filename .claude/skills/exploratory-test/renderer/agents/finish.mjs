@@ -14,6 +14,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { knownFixLines, knownIssueOutcomes } from '../known-issues.mjs';
 import { lintActionsLog } from '../lint/lint-ledger.mjs';
+import { mainProblems } from '../lint/lint-wording.mjs';
 import { parseLedger } from '../shared/ledger.mjs';
 import { originFromMain } from '../shared/main-check.mjs';
 import { readJson } from '../shared/text.mjs';
@@ -363,8 +364,13 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 		if (v?.verified !== 'confirmed') {
 			continue;
 		}
-		const drift = Boolean(mainBuild) && fixDrifted(repoRoot, mainBuild.commit, baseSha, v.fix);
-		const o = originFromMain({ main: f.main, reproduced: f.reproduced ?? { n: 1, m: 1 }, drift, hasMainBuild: Boolean(mainBuild) });
+		// A record lint rejects (a failing check left out, two kinds of result) cannot be read as counts.
+		if (mainBuild && f.main && mainProblems(f.n, f.main, f.steps ?? [], { mainBuild }).length) {
+			originReason[f.n] = { reason: 'could not run', detail: 'its replay record is incomplete' };
+			continue;
+		}
+		const drift = mainBuild ? fixDrift(repoRoot, mainBuild.commit, baseSha, v.fix) : 'none';
+		const o = originFromMain({ main: f.main, reproduced: f.reproduced, drift, hasMainBuild: Boolean(mainBuild) });
 		if (o.origin) {
 			origin[f.n] = o.origin;
 		} else {
@@ -397,17 +403,38 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 
 /**
  * Whether the files of a finding's fix differ between the main build and the
- * base, so main's behavior there may not be the base's. True when git cannot
- * tell, such as a main commit the checkout does not have. False with no files.
+ * base, so main's behavior there may not be the base's: 'drift' when they do,
+ * or when git cannot tell (a commit the checkout does not have); 'unchecked'
+ * when there is nothing to compare (no files, or none in either commit);
+ * 'none' when they are the same, or main is the base.
  */
-export function fixDrifted(repoRoot, mainCommit, baseSha, files) {
-	if (!files?.length) {
-		return false;
+export function fixDrift(repoRoot, mainCommit, baseSha, files) {
+	if (!repoRoot || !mainCommit || !baseSha) {
+		return 'unchecked';
+	}
+	const git = args => execFileSync('git', ['-C', repoRoot, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+	const ok = args => {
+		try {
+			git(args);
+			return true;
+		} catch {
+			return false;
+		}
+	};
+	if (!ok(['cat-file', '-e', `${mainCommit}^{commit}`]) || !ok(['cat-file', '-e', `${baseSha}^{commit}`])) {
+		return 'drift';
+	}
+	if (mainCommit === baseSha) {
+		return 'none';
+	}
+	// A path in neither commit matches nothing, and would pass for "no change".
+	if (!files?.length || files.some(f => !ok(['cat-file', '-e', `${mainCommit}:${f}`]) && !ok(['cat-file', '-e', `${baseSha}:${f}`]))) {
+		return 'unchecked';
 	}
 	try {
-		return execFileSync('git', ['-C', repoRoot, 'diff', '--name-only', mainCommit, baseSha, '--', ...files], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() !== '';
+		return git(['diff', '--name-only', mainCommit, baseSha, '--', ...files]).trim() ? 'drift' : 'none';
 	} catch {
-		return true;
+		return 'drift';
 	}
 }
 

@@ -119,8 +119,37 @@ export function readMainBuild(path) {
 	return build;
 }
 
-/** The brief's section that hands the explorer the main build. */
-export function mainBuildBrief(build, { repo, base }) {
+/**
+ * Whether the checkout has main's commit, fetching it when it does not. The
+ * `needs` lookup and the drift check both read it, and a failed lookup must
+ * not pass for a missing ID.
+ */
+export function ensureCommit(repo, commit) {
+	const has = () => {
+		try {
+			execFileSync('git', ['-C', repo, 'cat-file', '-e', `${commit}^{commit}`], { stdio: 'ignore' });
+			return true;
+		} catch {
+			return false;
+		}
+	};
+	if (has()) {
+		return true;
+	}
+	try {
+		execFileSync('git', ['-C', repo, 'fetch', '--no-tags', '--depth=1', 'origin', commit], { stdio: 'ignore', timeout: 120_000 });
+	} catch {
+		return false;
+	}
+	return has();
+}
+
+/**
+ * The brief's section that hands the explorer the main build. `appArgs` are the
+ * app arguments the PR instance was launched with, when the run knows them
+ * (CI); otherwise the explorer reuses its own.
+ */
+export function mainBuildBrief(build, { repo, base, appArgs = '' }) {
 	return [
 		'## Main build',
 		'',
@@ -128,8 +157,10 @@ export function mainBuildBrief(build, { repo, base }) {
 		'',
 		`- Version ${build.version}, built from main at \`${build.commit}\`${build.pubDate ? ` (published ${build.pubDate})` : ''}. The base of this change is \`${base}\`; the daily is main as of its build, not the base.`,
 		`- Binary: \`${build.binary}\``,
-		`- Launch: \`${LAUNCH} --app ${build.binary}\`, followed by the same launcher flags and app arguments as your PR instance.`,
-		`- Whether main has a \`needs\` ID: \`git -C ${repo} grep -q <id> ${build.commit} -- src extensions\` (exit 0: main has it).`,
+		appArgs
+			? `- Launch: \`${LAUNCH} --app ${build.binary} -- ${appArgs}\`, with the same launcher flags (before the \`--\`) as your PR instance.`
+			: `- Launch: \`${LAUNCH} --app ${build.binary}\`, followed by the same launcher flags and app arguments as your PR instance.`,
+		`- Whether main has a \`needs\` ID: \`git -C ${repo} grep -q <id> ${build.commit} -- src extensions\` (exit 0: main has it; exit 1: main lacks it; any other exit: the lookup failed, so record \`couldNotRun\`).`,
 	].join('\n');
 }
 

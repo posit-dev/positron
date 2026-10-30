@@ -25,7 +25,7 @@ import { parseArgs } from 'node:util';
 import { runClaude, stopAgents, WRAP_UP_MINUTES } from './agents/claude-cli.mjs';
 import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
-import { mainBuildBrief, readMainBuild } from './main-build.mjs';
+import { ensureCommit, mainBuildBrief, readMainBuild } from './main-build.mjs';
 
 export const ISOLATE_MINUTES = 12;
 export const EXPLORE_MINUTES = 30;
@@ -499,9 +499,13 @@ async function main(argv) {
 		});
 	}
 	// A build of main the explorer replays each finding on; without one, no finding gets an Origin.
-	const mainBuild = fresh && values['main-build'] ? readMainBuild(join(values['main-build'], 'main-build.json')) : null;
+	const found = fresh && values['main-build'] ? readMainBuild(join(values['main-build'], 'main-build.json')) : null;
+	// Without main's commit in the checkout, every `needs` lookup would fail and read as missing.
+	const mainBuild = found && ensureCommit(values.repo, found.commit) ? found : null;
 	if (fresh && values['main-build'] && !mainBuild) {
-		log(`no usable main build in ${values['main-build']} (fetch one with main-build.mjs fetch); exploring without one`);
+		log(found
+			? `main's commit ${found.commit.slice(0, 10)} is not in ${values.repo} and could not be fetched; exploring without a main build`
+			: `no usable main build in ${values['main-build']} (fetch one with main-build.mjs fetch); exploring without one`);
 	}
 	if (fresh) {
 		// The agents and the helpers they run inherit it, so a call that leaves

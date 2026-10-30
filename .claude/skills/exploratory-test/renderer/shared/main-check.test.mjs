@@ -86,3 +86,15 @@ test('mainReplayMs sums only -main sessions', () => {
 	assert.equal(mainReplayMs(log), 2 * 60_000 + 30_000);
 	assert.equal(mainReplayMs(''), 0);
 });
+
+test('an unchecked drift blocks only Introduced: Main stays Main', () => {
+	assert.deepEqual(origin({ steps: [step(0, 2)] }, { drift: 'unchecked' }), { origin: '', reason: 'drift unchecked', detail: '' });
+	assert.equal(origin({ steps: [step(2, 2)] }, { drift: 'unchecked' }).origin, 'inherited');
+	assert.equal(origin({ missing: ['x'] }, { drift: 'unchecked' }).origin, 'introduced');
+	assert.equal(origin({ steps: [step(2, 2)] }, { drift: 'drift' }).reason, 'drift');
+});
+
+test('a rate with no tries is never enough', () => {
+	assert.equal(enoughTries({ n: 0, m: 0 }, 0), false);
+	assert.equal(origin({ steps: [step(0, 3)] }, { reproduced: { n: 0, m: 0 } }).reason, 'too few tries');
+});

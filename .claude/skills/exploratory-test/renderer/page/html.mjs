@@ -327,6 +327,7 @@ function noOriginText(report, f, mainBuild) {
 		'could not run': `Not checked on main: ${escapeHtml(detail)}.`,
 		'too few tries': `Not settled: ${escapeHtml(detail)}, fewer than this ${change} needed.`,
 		'drift': `Not settled: ${onMain(mainBuild)} and the base differ in the files of the fix.`,
+		'drift unchecked': `Not settled: not seen on ${onMain(mainBuild)}, but the fix was not traced, so main may differ from the base there.`,
 	}[reason] ?? 'Origin is given only for a confirmed finding.';
 }
 

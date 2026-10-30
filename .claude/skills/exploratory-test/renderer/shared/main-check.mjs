@@ -14,6 +14,9 @@
  * saw it in under half its tries.
  */
 export function enoughTries(pr, mainTries) {
+	if (!(pr?.m >= 1)) {
+		return false;
+	}
 	const needed = pr.n / pr.m < 0.5 ? 2 * pr.m : pr.m;
 	return mainTries >= needed;
 }
@@ -23,8 +26,11 @@ const label = origin => ({ origin, reason: '', detail: '' });
 
 /**
  * A finding's Origin from its `main` field: `{ origin, reason, detail }`, with
- * `origin` '' and a `reason` when the replay does not settle it. `drift` is
- * whether the files of the fix differ between the main build and the base.
+ * `origin` '' and a `reason` when the replay does not settle it. `drift` says
+ * whether the files of the fix differ between the main build and the base:
+ * 'none', 'drift', or 'unchecked' when there were no files to compare. An
+ * unchecked drift leaves Inherited standing, since main showed the bug, but
+ * not Introduced, since main may have fixed it after the base.
  */
 export function originFromMain({ main, reproduced, drift, hasMainBuild }) {
 	if (!hasMainBuild) {
@@ -40,14 +46,17 @@ export function originFromMain({ main, reproduced, drift, hasMainBuild }) {
 	if (main.couldNotRun || !main.steps?.length) {
 		return none('could not run', main.couldNotRun ?? '');
 	}
-	if (drift) {
+	if (drift === true || drift === 'drift') {
 		return none('drift');
 	}
 	if (main.steps.some(s => s.n > 0)) {
 		return label('inherited');
 	}
 	const tries = Math.min(...main.steps.map(s => s.m));
-	return enoughTries(reproduced, tries) ? label('introduced') : none('too few tries', `not seen in ${tries} tries on main`);
+	if (!enoughTries(reproduced, tries)) {
+		return none('too few tries', `not seen in ${tries} tries on main`);
+	}
+	return drift === 'unchecked' ? none('drift unchecked') : label('introduced');
 }
 
 /** The main counts as the page shows them: `step 5 0/2, step 9 2/2`. */

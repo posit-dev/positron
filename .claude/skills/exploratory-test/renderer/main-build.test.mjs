@@ -5,10 +5,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { fetchDaily, mainBuildBrief, platformFor, readMainBuild } from './main-build.mjs';
+import { ensureCommit, fetchDaily, mainBuildBrief, platformFor, readMainBuild } from './main-build.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
 
 const BODY = Buffer.from('zip');
@@ -89,3 +90,22 @@ test('mainBuildBrief names the binary, commit and launch command', () => {
 	assert.ok(brief.includes('2026.11.0-236'));
 	assert.ok(brief.includes('git -C /repo grep -q <id> 57b03d33f537a868e49c48c7acd0c59d84f9b453 -- src extensions'));
 });
+
+test('mainBuildBrief says a failed lookup is not a missing ID', () => {
+	const brief = mainBuildBrief({ version: 'v', commit: 'c'.repeat(40), pubDate: '', platform: 'mac/arm64', binary: '/b' }, { repo: '/repo', base: 'abc' });
+	assert.match(brief, /exit 0: main has it; exit 1: main lacks it; any other exit: the lookup failed, so record `couldNotRun`/);
+});
+
+test('mainBuildBrief gives the app arguments when the run knows them', () => {
+	const build = { version: 'v', commit: 'c'.repeat(40), pubDate: '', platform: 'deb/x86_64', binary: '/b' };
+	assert.match(mainBuildBrief(build, { repo: '/r', base: 'a', appArgs: '--no-sandbox --log debug' }), /--app \/b -- --no-sandbox --log debug`/);
+	assert.match(mainBuildBrief(build, { repo: '/r', base: 'a' }), /the same launcher flags and app arguments as your PR instance/);
+});
+
+test('ensureCommit is true for a commit the checkout has, and false for one it cannot fetch', () => withTmpDir('main-commit-', dir => {
+	const git = (...args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8' }).trim();
+	git('init', '-q');
+	git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'one');
+	assert.equal(ensureCommit(dir, git('rev-parse', 'HEAD')), true);
+	assert.equal(ensureCommit(dir, 'f'.repeat(40)), false);
+}));

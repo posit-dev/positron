@@ -900,17 +900,14 @@ jobs:
           # any Positron code runs, and hangs until launch.sh times out. Each
           # attempt gets a fresh profile and ports, so a retry is clean once the
           # hung instance is killed.
+          # The explorer's brief gives these to the main build's launch too.
+          APP_ARGS=(--folder-uri file:///tmp/exploratory-workspace --log debug --no-sandbox
+            --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader
+            --disable-gpu-compositing --password-store=basic)
+          echo "APP_ARGS=${APP_ARGS[*]}" >> "$GITHUB_ENV"
           for attempt in 1 2 3; do
             if LAUNCH_JSON=$(.claude/skills/drive-positron/scripts/launch.sh \
-              --source-user-data-dir /tmp/positron-seed -- \
-              --folder-uri file:///tmp/exploratory-workspace \
-              --log debug \
-              --no-sandbox \
-              --disable-dev-shm-usage \
-              --use-gl=swiftshader \
-              --enable-unsafe-swiftshader \
-              --disable-gpu-compositing \
-              --password-store=basic); then
+              --source-user-data-dir /tmp/positron-seed -- "${APP_ARGS[@]}"); then
               break
             fi
             if [[ "$attempt" == 3 ]]; then

@@ -1326,3 +1326,8 @@ test('a replayed card says Origin and its bucket, Unknown included', () => {
 	assert.match(card(html, 4), /Origin: Unknown<span class="og-tip"[^>]*><b>Unknown<\/b><span>Not checked on main: R did not start\.<\/span>/);
 	assert.doesNotMatch(card(html, 8), /Origin:/);
 });
+
+test('an Unknown whose fix was not traced says main may differ from the base', () => {
+	const json = { ...REPLAYED, verification: { failed: false, text: 'x', originReason: { 1: { reason: 'drift unchecked', detail: '' } } } };
+	assert.equal(tipOf(render(json, { changeBase: USABLE, mainBuild: MAIN_BUILD }), 1), 'Not settled: not seen on main (daily 2026.11.0-236), but the fix was not traced, so main may differ from the base there.');
+});

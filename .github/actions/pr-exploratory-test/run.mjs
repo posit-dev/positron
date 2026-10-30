@@ -14,7 +14,7 @@ import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/
 import { reportFromJson } from '../../../.claude/skills/exploratory-test/renderer/page/report-json.mjs';
 import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/agents/finish.mjs';
 import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TIME_UP, readEnvironment, withMainReplay } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
-import { mainBuildBrief, readMainBuild } from '../../../.claude/skills/exploratory-test/renderer/main-build.mjs';
+import { ensureCommit, mainBuildBrief, readMainBuild } from '../../../.claude/skills/exploratory-test/renderer/main-build.mjs';
 import { mainReplayMs } from '../../../.claude/skills/exploratory-test/renderer/shared/main-check.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
@@ -38,7 +38,9 @@ const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
 // The build of main the workflow downloaded while the PR built, or null when
 // it has none; the explorer replays each finding on it, which decides Origin.
-const MAIN_BUILD = process.env.MAIN_BUILD ? readMainBuild(process.env.MAIN_BUILD) : null;
+// Without main's commit in the checkout, every `needs` lookup would fail and read as missing.
+const FOUND_MAIN = process.env.MAIN_BUILD ? readMainBuild(process.env.MAIN_BUILD) : null;
+const MAIN_BUILD = FOUND_MAIN && ensureCommit(REPO_ROOT, FOUND_MAIN.commit) ? FOUND_MAIN : null;
 // Minutes of exploring, or null for no limit, with time for the main replays
 // added. The agent is not told the limit, only when it is up, and is stopped
 // WRAP_UP_MINUTES later.
@@ -215,7 +217,8 @@ async function main() {
 		buildTaskLine(FOCUS, upstream),
 		'',
 		...(knownBrief ? [knownBrief, ''] : []),
-		...(MAIN_BUILD ? [mainBuildBrief(MAIN_BUILD, { repo: REPO_ROOT, base: BASE_SHA }), ''] : []),
+		// The app arguments the workflow launched the PR instance with, which a packaged build needs too (--no-sandbox as root).
+		...(MAIN_BUILD ? [mainBuildBrief(MAIN_BUILD, { repo: REPO_ROOT, base: BASE_SHA, appArgs: process.env.APP_ARGS ?? '' }), ''] : []),
 		environmentBrief(environmentLines(readEnvironment(REPO_ROOT))),
 		'',
 		'Write the report to `report.json` in the run directory. Return a two or three line summary and nothing else.',
