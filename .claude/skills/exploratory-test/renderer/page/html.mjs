@@ -291,7 +291,7 @@ const originTip = (title, text, hidden = true) => `<span class="og-tip"${hidden 
 /** The Origin header, whose tooltip says once that every value is a judgement. */
 function originHead(report, base) {
 	const text = `Likely origin, judged from this ${report.pr ? 'PR' : 'branch'}&rsquo;s diff. Not tested against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`;
-	return `<span><span class="og og-h" tabindex="0">Origin${originTip('Origin', text, false)}</span></span>`;
+	return `<span class="og-hc"><span class="og og-h" tabindex="0">Origin${originTip('Origin', text, false)}</span></span>`;
 }
 
 /**
@@ -319,40 +319,38 @@ function cardOrigin(report, origin) {
 	return `<span class="og og-meta" tabindex="0">${word}${originTip(word, originText(report, origin), false)}</span>`;
 }
 
-/** A finding that reproduced in some attempts but not all, as `[n, m]`; null otherwise. */
-function flakyRate(f) {
-	const [, n, m] = /^(\d+)\/(\d+)$/.exec(f.reproduced ?? '') ?? [];
-	return Number(n) > 0 && Number(n) < Number(m) ? [n, m] : null;
-}
-
 function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 	const withOrigin = changeBase?.usable === true;
 	const grid = withOrigin ? 'findings-grid og-grid' : 'findings-grid';
 	const rows = report.findings.map((f, i) => {
 		const word = statusWord(f);
-		const verdict = word === 'confirmed'
-			? `<span class="status">${ICON.statusCheck}Confirmed</span>`
-			: word
-				? `<span class="status muted">${capitalize(word)}</span>`
-				: '<span class="status muted"></span>';
 		// Plain numbers, not links: the whole row is already a link to the card. They still preview on hover.
-		const nums = numbers => numbers.map(n => `<span class="ki-num-t"${kiData(refs?.byNumber.get(n), refs)}>#${Number(n)}</span>`).join(', ');
-		const failed = ki?.fixFailed.get(f.n)?.map(i => i.number);
-		const back = ki?.cameBack.get(f.n)?.map(i => i.number);
+		const num = n => `<span class="ki-num-t"${kiData(refs?.byNumber.get(n), refs)}>#${Number(n)}</span>`;
+		// Several of one kind: the first number and a count; the card lists them all.
+		const first = list => `${num(list[0])}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
+		const failed = ki?.fixFailed.get(f.n)?.map(i => i.number) ?? [];
+		const back = ki?.cameBack.get(f.n)?.map(i => i.number) ?? [];
+		const line = html => `<span class="ki-mt">${html}</span>`;
+		const muted = text => line(`<span class="ki-state">${text}</span>`);
+		const lines = [];
+		// A finding verify rejected never reads as a fix that failed or an issue
+		// that came back: its verdict stands in for that line.
+		if (word && word !== 'confirmed') {
+			lines.push(muted(capitalize(word)));
+		} else if (failed.length || back.length) {
+			lines.push(line(`<span class="ki-reg">${ICON.x}${failed.length ? 'Not fixed' : 'Regressed'}</span><span class="ki-state">${first(failed.length ? failed : back)}</span>`));
+		}
 		// Every match the card shows, linked to the PR or found by search, one line per kind.
-		const matches = matchesByKind(possiblyKnown(f, ki), refs);
-		// A verdict other than Confirmed takes the label's place, so the table
-		// never says a fix failed when verify rejected the finding.
-		const label = failed ? 'Fix didn&rsquo;t hold' : back ? 'Regressed' : '';
-		const top = label && (!word || word === 'confirmed') ? `<span class="ki-reg">${ICON.x}${label}</span>` : verdict;
-		// One issue per line: the finding's own, then its matches below it.
-		const first = list => `${nums(list.slice(0, 1))}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
-		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : '';
+		lines.push(...matchesByKind(possiblyKnown(f, ki), refs).map(m => muted(m.label(first(m.numbers)))));
 		// A match closed as not planned: the team chose to leave this behavior.
-		const wontFix = f.intended?.length ? `Won&rsquo;t fix? ${first(f.intended)}` : '';
-		const flaky = flakyRate(f);
-		const below = [issueLine, ...matches.map(m => m.label(first(m.numbers))), wontFix, flaky ? `Flaky ${flaky[0]}/${flaky[1]}` : ''].filter(Boolean).map(line => `<span class="ki-state">${line}</span>`);
-		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
+		if (f.intended?.length) {
+			lines.push(muted(`Won&rsquo;t fix? ${first(f.intended)}`));
+		}
+		const up = i === report.findings.length - 1 ? ' og-up' : '';
+		const status = lines.length
+			? `<span class="ki-st">${lines.join('')}</span>`
+			: `<span class="ki-st"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">No matches</span>`
+				+ `${originTip('', 'No matching issues or PRs found.')}</span></span>`;
 		return `<a href="#f${f.n}" class="row ${grid}">`
 			+ `<span>${pill(f.severity)}</span>`
 			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span></span>`
@@ -361,8 +359,9 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 			+ '</a>';
 	});
 
+	const matchesHead = `<span><span class="og og-h" tabindex="0">Matches${originTip('Matches', 'Existing GitHub issues or PRs that match or may match this finding. A dash means no match was found.', false)}</span></span>`;
 	const head = rows.length
-		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${withOrigin ? originHead(report, changeBase) : ''}<span class="right">Status</span></div>\n`
+		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${withOrigin ? originHead(report, changeBase) : ''}${matchesHead}</div>\n`
 		: '';
 
 	return `<section id="findings" class="section">
@@ -729,7 +728,7 @@ function cardIssueItems(f, word, ki, refs) {
 	};
 	const items = [];
 	if (failed.length) {
-		items.push(item(rejected ? 'Fixes' : 'Fix didn&rsquo;t hold', failed.map(i => i.number)));
+		items.push(item(rejected ? 'Fixes' : 'Not fixed', failed.map(i => i.number)));
 	} else if (back.length) {
 		items.push(item(rejected ? 'Closed &middot;' : 'Regressed', back.map(i => i.number)));
 	}
@@ -849,7 +848,7 @@ function renderCoverage(report, options = {}) {
 		for (const { n, kind } of row.issues ?? []) {
 			const issue = ki?.byNumber.get(n);
 			const label = !issue ? null
-				: issue.relation === 'fixes' ? (kind === 'held' ? 'Fix verified for' : 'Fix didn&rsquo;t hold for')
+				: issue.relation === 'fixes' ? (kind === 'held' ? 'Fix verified for' : 'Not fixed')
 					: kind === 'observed' ? 'Also observed' : kind === 'back' ? 'Regressed' : null;
 			if (label) { groups.set(label, [...(groups.get(label) ?? []), kiNum(n, ki)]); }
 		}

@@ -1153,7 +1153,7 @@ const SCENES = {
 		const json = { ...fullWith(1, { expected: 'it should have stopped, as #2330 says, since #8126.' }), verification: { failed: false, text: 'A second agent.\n\nSearches returned only #3698 (open).' } };
 		return [between(card(fullHtml(json, { issueRefs: ISSUE_REFS }), 1), '<div class="f-cmp', '</div></div>'), between(fullHtml(json, { issueRefs: ISSUE_REFS }), 'Searches returned', '</p>'), between(card(fullHtml(json), 1), '<div class="f-cmp', '</div></div>')].join('\n--\n');
 	},
-	'the Origin column on a run with a usable base: a word per judged finding, a dash for one left out or not confirmed, Flaky on a partial repro, the last tooltip opening upward': () => findingsOf(fullHtml(ORIGINS, { changeBase: USABLE })),
+	'the Origin column on a run with a usable base: a word per judged finding, a dash for one left out or not confirmed, nothing extra for a partial repro, the last tooltips opening upward': () => findingsOf(fullHtml(ORIGINS, { changeBase: USABLE })),
 	'no Origin column without a usable base, or with no base recorded': () => [
 		between(findingsOf(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } })), '<div class="row row-head', '</div>'),
 		findingRow(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } }), 1),

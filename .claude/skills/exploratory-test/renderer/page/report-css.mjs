@@ -408,8 +408,8 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
-.findings-grid{grid-template-columns:110px minmax(0,1fr) 140px}
-.findings-grid.og-grid{grid-template-columns:110px minmax(0,1fr) 104px 140px}
+.findings-grid{grid-template-columns:110px minmax(0,1fr) 132px}
+.findings-grid.og-grid{grid-template-columns:110px minmax(0,1fr) 102px 132px}
 .coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px;padding:12px 20px}
 .right{text-align:right}
 
@@ -434,6 +434,7 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 /* In the table the tip opens leftward from the Origin cell; in a card's meta line, rightward. */
 .og .og-tip{left:auto;right:0}
 .og-meta .og-tip{left:0;right:auto}
+.og-cell,.og-hc{padding-left:12px}
 .og-cell{font-size:13px;line-height:21px;color:var(--body)}
 .og-none{color:var(--faint)}
 .og-h{text-decoration:underline dotted;text-underline-offset:3px}
@@ -444,16 +445,15 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .og:hover .og-tip,.og:focus-visible .og-tip,a.row:focus-visible .og-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
 .og-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 @media (prefers-reduced-motion:reduce){.og-tip{transition:none}}
-.status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
-.status-check{stroke:var(--success)}
-.status.muted{color:var(--muted)}
 
 /* Known issues: the Findings table's Status labels and "Linked issues" row,
    the card's linked issues, GitHub issue links, and their preview card */
-.ki-st{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;font-size:13px;color:var(--body)}
+/* Matches: one line per match, left-aligned so the icons and labels line up. */
+.ki-st{display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;font-size:13px;line-height:21px;color:var(--body)}
+.ki-mt{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .ki-reg{display:inline-flex;align-items:center;gap:6px;color:var(--body);font-weight:400}
 .ki-x{display:inline-flex;color:var(--danger)}
-.ki-st .ki-state{font-size:12.5px;color:var(--muted)}
+.ki-st .ki-state{font-size:13px;color:var(--muted)}
 .ki-bar{display:grid;grid-template-columns:110px minmax(0,1fr);gap:16px;align-items:center;padding:11px 20px;background:var(--thead);border-top:1px solid var(--border);font-size:12.5px;color:var(--faint)}
 .ki-grp .ki-lbl{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
 .ki-bar b{font-weight:600;color:var(--body)}
@@ -921,8 +921,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.fv-m{display:none}
 	.fv-b{padding:0 7px}
 	.card{padding:20px}
-	.status{text-align:left;justify-content:flex-start}
-	.ki-st{align-items:flex-start;text-align:left}
+	.og-cell{padding-left:0 !important}
 	.to-top{right:16px;bottom:16px}
 	h1.title{font-size:28px}
 }
