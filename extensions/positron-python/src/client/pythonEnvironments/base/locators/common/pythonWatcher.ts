@@ -118,13 +118,11 @@ class PythonWatcherImpl implements PythonWatcher {
         // file inside it, so `rm -rf .venv` may never match the pattern above.
         // Report every deleted path. This sends the same watch request as the
         // watcher above, so it adds no file system watcher.
-        // On Linux, a new folder is reported but not what is created inside it
-        // before the folder is watched, so `uv venv` may never match the pattern
-        // above either. Look for an env executable in each created path. The
-        // macOS and Windows watchers are recursive, so they report the executable.
+        // On Linux, a new folder is reported but not what was created in it before
+        // it was watched, so `uv venv` may miss the pattern above too; look inside
+        // each created path. The macOS and Windows watchers report the executable.
         const watchCreates = getOSType() === OSType.Linux;
         const folderWatcher = createFileSystemWatcher(new RelativePattern(wf, '**'), !watchCreates, true, false);
-        let disposed = false;
         disposables.push(
             folderWatcher,
             folderWatcher.onDidDelete((uri) => {
@@ -132,15 +130,10 @@ class PythonWatcherImpl implements PythonWatcher {
             }),
             folderWatcher.onDidCreate(async (uri) => {
                 const executable = await findCreatedEnvExecutable(uri.fsPath);
-                if (executable && !disposed) {
+                if (executable) {
                     this.fireWorkspaceEvent(FileChangeType.Created, wf, Uri.file(executable));
                 }
             }),
-            {
-                dispose: () => {
-                    disposed = true;
-                },
-            },
         );
         // --- End Positron ---
 

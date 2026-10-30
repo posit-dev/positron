@@ -565,8 +565,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				return;
 			}
 
-			if (this._recommendAfterDiscovery &&
-				runtime.runtimeId !== this._recommendedRuntimesByLanguageId.get(runtime.languageId)?.runtimeId) {
+			if (this._recommendAfterDiscovery) {
 				this.markRecommendationStale(runtime.languageId);
 			}
 
