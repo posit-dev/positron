@@ -140,6 +140,8 @@ const cases: Case[] = [
 	{ name: 'palette-run restart while busy (toast)', run: ['palette-run.sh', 'Interpreter: Restart Active Interpreter Session'], check: o => includes(o.json!.notification, 'The runtime is busy') || logged('-> toast Warning: The runtime is busy') },
 	{ name: 'notifications click No (keep it running)', run: ['notifications.sh', '--click', 'No', '--match', 'runtime is busy'], check: o => o.json!.clicked !== 'No' && `clicked ${o.json!.clicked}` },
 	{ name: 'shot the active console', run: ['shot.sh', '--view', 'active console', 'smoke-console.png'], check: o => !existsSync(o.text.trim()) && `no file ${o.text.trim()}` || logged('screenshot smoke-console.png of the active console') },
+	{ name: 'shot --crop the active console', run: ['shot.sh', '--crop', '--view', 'active console', 'smoke-crop.png'], check: o => o.text.trim().split('\n').find(p => !existsSync(p)) && `no file ${o.text.trim()}` || logged('crop smoke-crop.crop.png') },
+	{ name: 'shot --crop with no region is a usage error', run: ['shot.sh', '--crop', 'smoke-no-region.png'], fail: true },
 	{ name: 'shot --view missing view', run: ['shot.sh', '--view', 'No Such View', 'smoke-none-view.png'], fail: true },
 	{ name: 'shot --view with no value is a usage error', run: ['shot.sh', 'smoke-no-view.png', '--view'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--view needs a value') },
 

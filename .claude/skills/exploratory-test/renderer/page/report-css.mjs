@@ -112,10 +112,10 @@ const PROFESSIONAL = `
 	--tip-border: #E7E4DC;
 	--tip-text: #3D4148;
 	--tip-shadow: 0 1px 2px rgba(28,31,35,0.06);
-	--chg-shadow: 0 4px 14px rgba(0,0,0,.08);
-	/* Brighter than --link for small marks on white rows; too faint for text on tinted ones. */
-	--accent-mark: #2A7D6A;
-	--chg-weight: 500;
+	--og-shadow: 0 4px 14px rgba(0,0,0,.08);
+	--rej-title: #A3A7AD;
+	--vtag-border: #C9C4B9;
+	--vtag-bg: #F4F2EC;
 	--code-blk-bg: #F1EFEA;
 	--rt-tag-bg: #EFEDE7;
 	--rt-tag-ink: #3D4148;
@@ -249,9 +249,10 @@ const PARTY = `
 	--tip-border: #5B4F92;
 	--tip-text: #F5F1FF;
 	--tip-shadow: none;
-	--chg-shadow: 0 4px 14px rgba(0,0,0,.35);
-	--accent-mark: #5CE1E6;
-	--chg-weight: 400;
+	--og-shadow: 0 4px 14px rgba(0,0,0,.35);
+	--rej-title: #6F6799;
+	--vtag-border: #6A5FA0;
+	--vtag-bg: #2A2250;
 	--code-blk-bg: #19132F;
 	--rt-tag-bg: #3A2F6B;
 	--rt-tag-ink: #F5F1FF;
@@ -413,7 +414,8 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
-.findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 140px}
+.findings-grid{grid-template-columns:110px minmax(0,1fr) 132px}
+.findings-grid.og-grid{grid-template-columns:110px minmax(0,1fr) 102px 132px}
 .coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px;padding:12px 20px}
 .right{text-align:right}
 
@@ -429,32 +431,44 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .finding-cell{display:flex;flex-direction:column;gap:4px}
 .finding-cell .claim{font-size:15px;font-weight:500;color:var(--ink);line-height:1.4}
 .finding-cell .claim .n{font-family:var(--mono);color:var(--faint);margin-right:8px}
-/* Change mark: the verifier's call that the most direct fix is in code the
-   change under test touched. The row is a link, so the tooltip also opens on
-   the row's keyboard focus rather than on a focusable mark. */
-.chg{position:relative;display:inline-block;margin-left:8px;font-size:15px;font-weight:var(--chg-weight);line-height:1;color:var(--accent-mark);cursor:help}
-.chg-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-.chg-tip{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:2px;width:max-content;max-width:340px;padding:7px 10px;border-radius:6px;background:var(--tip-bg);border:1px solid var(--tip-border);box-shadow:var(--chg-shadow);font-family:var(--sans);font-size:12px;font-weight:400;letter-spacing:0;line-height:1.45;color:var(--muted);text-align:left;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;z-index:5;transition:opacity .12s ease,visibility 0s linear .12s}
-.chg-tip b{font-weight:600;color:var(--tip-text)}
-.chg:hover .chg-tip,a.row:focus-visible .chg-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
-.chg-up .chg-tip{top:auto;bottom:calc(100% + 8px)}
-/* After a card's title: larger to hold its own beside the 24px title, in the
-   sans so it's the table's glyph, and focusable since the title is no link. */
-.chg-card{margin-left:10px;font-family:var(--sans);font-size:18px;vertical-align:baseline}
-.chg-card:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:3px}
-.chg-card:focus-visible .chg-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
-@media (prefers-reduced-motion:reduce){.chg-tip{transition:none}}
-.rate{text-align:right;font-family:var(--mono);font-size:13px;color:var(--body)}
-.status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
-.status-check{stroke:var(--success)}
-.status.muted{color:var(--muted)}
+/* Origin: the verifier's judgement, from the diff, of where a confirmed
+   finding's fix likely goes. Rows are links, so the tooltip also opens on the
+   row's keyboard focus rather than on a focusable cell. */
+.og{position:relative;display:inline-block;cursor:help}
+.og-tip{position:absolute;top:calc(100% + 8px);left:0;display:flex;flex-direction:column;gap:2px;width:max-content;max-width:340px;padding:7px 10px;border-radius:6px;background:var(--tip-bg);border:1px solid var(--tip-border);box-shadow:var(--og-shadow);font-family:var(--sans);font-size:12px;font-weight:400;letter-spacing:0;line-height:1.45;color:var(--muted);text-align:left;text-transform:none;text-decoration:none;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;z-index:5;transition:opacity .12s ease,visibility 0s linear .12s}
+.og-tip b{font-weight:600;color:var(--tip-text)}
+/* In the table the tip opens leftward from the Origin cell; in a card's meta line, rightward. */
+.og .og-tip{left:auto;right:0}
+.og-meta .og-tip{left:0;right:auto}
+.og-cell,.og-hc{padding-left:12px}
+.og-cell{font-size:13px;line-height:21px;color:var(--body)}
+.og-none{color:var(--faint)}
+.og-h{text-decoration:underline dotted;text-underline-offset:3px}
+.og-h:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:3px}
+.og-meta{font-size:12px;color:var(--muted);font-weight:400;text-decoration:underline dotted;text-decoration-color:currentColor;text-underline-offset:3px}
+.og-meta:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:3px}
+.og-up .og-tip{top:auto;bottom:calc(100% + 8px)}
+.og:hover .og-tip,.og:focus-visible .og-tip,a.row:focus-visible .og-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
+/* A finding verify rejected: the row fades, and a square tag after the title (not a pill) says why. */
+.row.is-rej>:not(:nth-child(2)){opacity:.5}
+.row.is-rej .claim{color:var(--rej-title)}
+.row.is-rej .claim .n{opacity:.7}
+.vtag{display:inline-block;padding:0 6px;border:1px solid var(--vtag-border);background:var(--vtag-bg);border-radius:4px;font-size:12px;font-weight:500;line-height:18px;color:var(--body);vertical-align:1px;white-space:nowrap;cursor:help}
+.row .vtag{margin-left:8px}
+.og.vtag .og-tip{left:0;right:auto}
+.vtag:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.nowrap{white-space:nowrap}
+.og-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+@media (prefers-reduced-motion:reduce){.og-tip{transition:none}}
 
 /* Known issues: the Findings table's Status labels and "Linked issues" row,
    the card's linked issues, GitHub issue links, and their preview card */
-.ki-st{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;font-size:13px;color:var(--body)}
+/* Matches: one line per match, left-aligned so the icons and labels line up. */
+.ki-st{display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;font-size:13px;line-height:21px;color:var(--body)}
+.ki-mt{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .ki-reg{display:inline-flex;align-items:center;gap:6px;color:var(--body);font-weight:400}
 .ki-x{display:inline-flex;color:var(--danger)}
-.ki-st .ki-state{font-size:12.5px;color:var(--muted)}
+.ki-st .ki-state{font-size:13px;color:var(--muted)}
 .ki-bar{display:grid;grid-template-columns:110px minmax(0,1fr);gap:16px;align-items:center;padding:11px 20px;background:var(--thead);border-top:1px solid var(--border);font-size:12.5px;color:var(--faint)}
 .ki-grp .ki-lbl{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
 .ki-bar b{font-weight:600;color:var(--body)}
@@ -764,14 +778,14 @@ span.rt-file{color:var(--body)}
 /* The tag already separates the icon from the text */
 .st-rs+.st-sep{display:none}
 .st-ev .st-n{font-size:.86em;margin-left:2px}
-/* A finding step's screenshot, previewed above its icon on hover or focus;
-   below it when there is no room above. Clicking still opens the lightbox. */
-a.st-ev{position:relative}
-.ev-pop{position:absolute;bottom:calc(100% + 8px);left:-12px;z-index:6;width:260px;box-sizing:border-box;padding:8px;border-radius:10px;background:var(--card);border:1px solid var(--pop-border);box-shadow:var(--pop-shadow);display:flex;flex-direction:column;gap:6px;white-space:normal;cursor:zoom-in;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .12s ease,visibility 0s linear .12s}
-.ev-pop img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top center;border:1px solid var(--thumb-border);border-radius:6px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 8px,var(--thumb-b) 8px 16px)}
+/* A step's screenshot, previewed on hover or focus: its crop at full size, or
+   the whole window fitted. Fixed to the window and placed by the page script,
+   above the icon when there is room, so a wide one is never cut off.
+   Clicking opens the whole window in the lightbox. */
+.ev-pop{position:fixed;left:-9999px;top:-9999px;z-index:60;width:max-content;max-width:min(1000px,calc(100vw - 24px));box-sizing:border-box;padding:8px;border-radius:10px;background:var(--card);border:1px solid var(--pop-border);box-shadow:var(--pop-shadow);display:flex;flex-direction:column;gap:6px;white-space:normal;cursor:zoom-in;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .12s ease,visibility 0s linear .12s}
+.ev-pop img{display:block;max-width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:6px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 8px,var(--thumb-b) 8px 16px)}
 .ev-cap{font-family:var(--sans);font-size:11.5px;font-weight:400;line-height:1.3;letter-spacing:0;color:var(--muted)}
 a.st-ev:hover .ev-pop,a.st-ev:focus-visible .ev-pop{visibility:visible;opacity:1;transition:opacity .12s ease .12s,visibility 0s linear .12s}
-a.st-ev.ev-below .ev-pop{bottom:auto;top:calc(100% + 8px)}
 @media (prefers-reduced-motion:reduce){.ev-pop{transition:none}}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
@@ -855,8 +869,8 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .lb[hidden]{display:none}
 .lb{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:32px;background:var(--lb-backdrop)}
 .lb-backdrop{position:absolute;inset:0;border:0;padding:0;background:transparent;cursor:zoom-out}
-.lb-panel{position:relative;width:min(1040px,100%);max-height:100%;overflow:auto;padding:16px;border-radius:12px;background:var(--card);border:1px solid var(--border);box-shadow:var(--lb-shadow);display:flex;flex-direction:column;gap:12px}
-.lb-panel img{display:block;width:100%;height:auto;max-height:calc(100vh - 220px);object-fit:contain;border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 12px,var(--thumb-b) 12px 24px)}
+.lb-panel{position:relative;width:min(1562px,100%);max-height:100%;overflow:auto;padding:16px;border-radius:12px;background:var(--card);border:1px solid var(--border);box-shadow:var(--lb-shadow);display:flex;flex-direction:column;gap:12px}
+.lb-panel img{display:block;width:auto;max-width:100%;height:auto;max-height:calc(100vh - 140px);margin:0 auto;object-fit:contain;border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 12px,var(--thumb-b) 12px 24px)}
 .lb-img{position:relative}
 .lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;padding:0;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--lb-nav-bg);border:1px solid var(--lb-nav-border);color:var(--lb-nav-text);box-shadow:0 1px 3px rgba(0,0,0,.14);cursor:pointer}
 .lb-nav[hidden]{display:none}
@@ -922,8 +936,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.fv-m{display:none}
 	.fv-b{padding:0 7px}
 	.card{padding:20px}
-	.rate,.status{text-align:left;justify-content:flex-start}
-	.ki-st{align-items:flex-start;text-align:left}
+	.og-cell{padding-left:0 !important}
 	.to-top{right:16px;bottom:16px}
 	h1.title{font-size:28px}
 }

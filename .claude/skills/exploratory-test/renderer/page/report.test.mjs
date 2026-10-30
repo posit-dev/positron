@@ -364,7 +364,7 @@ const issueCopied = (html, n) => issueBlock(html, n).replace(/<\\(?=\/script|!--
 const tiles = html => between(html, '<section class="tiles">', '</section>');
 const coverageOf = html => between(html, 'id="coverage"', '</section>');
 const findingsOf = html => between(html, 'id="findings"', '</section>');
-const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid">[\\s\\S]*?</a>(?=\\n)`).exec(html)?.[0] ?? '';
+const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid[^"]*">[\\s\\S]*?</a>(?=\\n)`).exec(html)?.[0] ?? '';
 const runDetails = html => between(html, '<details id="run-details">', '</details></section>');
 const footer = html => between(html, '<footer', '</footer>');
 const foldLabels = html => [...runDetails(html).matchAll(/<div class="fold-label">([^<]+)<\/div>/g)].map(m => m[1]).join(', ');
@@ -1018,7 +1018,11 @@ const LONG_LEDGER = ledgerOf([
 	...Array.from({ length: 12 }, (_, i) => [`N${String(i + 1).padStart(2, '0')}`, `skip ${i}`, 'later']),
 ]);
 const KNOWN = fullWith(1, { known: [15102, 14991] });
-const CHANGED = { ...FULL, verification: { ...FULL.verification, related: [1, 2] } };
+const ORIGINS = {
+	...FULL,
+	findings: [...FULL.findings, fnd(3, { title: 'a flaky claim', verified: 'confirmed', reproduced: { n: 2, m: 3 } }), fnd(4, { title: 'a disputed claim', verified: 'disputed' })],
+	verification: { ...FULL.verification, origin: { 1: 'introduced', 2: 'exposed', 4: 'inherited' } },
+};
 const USABLE = { usable: true, name: 'release/2026.10' };
 const ISSUE_REFS = [
 	{ number: 2330, kind: 'issue', state: 'open', title: 'Zoom spec', createdAt: '2026-08-20T00:00:00Z', summary: 'sizes' },
@@ -1116,7 +1120,15 @@ const SCENES = {
 			evidence: [{ kind: 'shot', path: 'https://cdn.example/shots/a.png', step: 2, caption: 'first' }, { kind: 'shot', path: 'https://cdn.example/shots/b.png', step: 2, caption: 'second' }],
 		})],
 	})), 1),
-	'a shot a step cites reaches its step with no Evidence item, and a check with no result gets none': () => card(render(rep({
+	'a step shot previews its crop at its own size, and the whole window, fitted, when it has none': () => {
+		const png = (w, h) => { const b = Buffer.alloc(24); b.write('IHDR', 12, 'latin1'); b.writeUInt32BE(w, 16); b.writeUInt32BE(h, 20); return b; };
+		const files = { 'shots/S01-01.png': png(1530, 1080), 'shots/S01-01.crop.png': png(640, 320), 'shots/S01-03.png': png(1530, 1080) };
+		const html = render(rep({
+			findings: [fnd(1, { steps: [pass('the panel opens', { shots: ['shots/S01-01.png'] }), act('Click Retry.'), fail('it loads', 1, { observed: 'empty', shots: ['shots/S01-03.png'] })] })],
+		}), { readFile: p => files[p] ?? null });
+		return [...card(html, 1).matchAll(/<span class="ev-pop"[\s\S]*?<\/span><\/span>/g)].map(m => m[0]).join('\n--\n');
+	},
+	'a shot a step cites reaches its step with no Evidence item, and a check with no result gets none':() => card(render(rep({
 		findings: [fnd(1, {
 			steps: [pass('the panel opens', { shots: ['shots/S01-01.png'] }), act('Click Retry.'), fail('it loads', 1, { observed: 'empty', shots: ['shots/S01-03.png'] }), { kind: 'verify', text: 'confirm the dialog closes' }],
 			evidence: [{ kind: 'shot', path: 'shots/S01-03.png', step: 3, caption: 'empty panel' }],
@@ -1141,18 +1153,22 @@ const SCENES = {
 		const json = { ...fullWith(1, { expected: 'it should have stopped, as #2330 says, since #8126.' }), verification: { failed: false, text: 'A second agent.\n\nSearches returned only #3698 (open).' } };
 		return [between(card(fullHtml(json, { issueRefs: ISSUE_REFS }), 1), '<div class="f-cmp', '</div></div>'), between(fullHtml(json, { issueRefs: ISSUE_REFS }), 'Searches returned', '</p>'), between(card(fullHtml(json), 1), '<div class="f-cmp', '</div></div>')].join('\n--\n');
 	},
-	'the change mark: a confirmed related finding on a run with a usable base, opening upward on the last row': () => findingsOf(fullHtml(CHANGED, { changeBase: USABLE })),
-	'no change mark on a disputed finding, without a usable base, or with no base recorded': () => [
-		findingRow(fullHtml({ ...CHANGED, findings: [CHANGED.findings[0], { ...CHANGED.findings[1], verified: 'disputed' }] }, { changeBase: USABLE }), 2),
-		findingRow(fullHtml(CHANGED, { changeBase: { usable: false, name: 'main' } }), 1),
-		findingRow(fullHtml(CHANGED), 1),
+	'the Origin column on a run with a usable base: a word per judged finding, a dash for one left out or not confirmed, nothing extra for a partial repro, the last tooltips opening upward': () => findingsOf(fullHtml(ORIGINS, { changeBase: USABLE })),
+	'no Origin column without a usable base, or with no base recorded': () => [
+		between(findingsOf(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } })), '<div class="row row-head', '</div>'),
+		findingRow(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } }), 1),
+		findingRow(fullHtml(ORIGINS), 3),
 	].join('\n--\n'),
-	'a card with the change mark shows it after its title, focusable with the tooltip text as its label; other cards do not': () => {
-		const title = (html, n) => between(card(html, n), '<h2 class="card-title">', '</h2>');
-		const html = fullHtml({ ...CHANGED, findings: [CHANGED.findings[0], { ...CHANGED.findings[1], verified: 'disputed' }] }, { changeBase: USABLE });
-		return [title(html, 1), title(html, 2), title(fullHtml(CHANGED), 1)].join('\n--\n');
+	'a card shows its Origin word after Reproduced x/y, focusable with its tooltip; a card with none shows nothing': () => {
+		const context = (html, n) => between(card(html, n), '<span class="group context">', '<button');
+		const html = fullHtml(ORIGINS, { changeBase: USABLE });
+		return [context(html, 1), context(html, 3), context(html, 4), context(fullHtml(ORIGINS), 1)].join('\n--\n');
 	},
-	'a PR run\'s change mark says PR, and a base with no name says the base branch': () => findingRow(fullHtml({ ...CHANGED, header: { ...CHANGED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: { usable: true, name: null } }), 1),
+	'a PR run\'s Origin says PR, and a base with no name says the base branch': () => {
+		const html = fullHtml({ ...ORIGINS, header: { ...ORIGINS.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: { usable: true, name: null } });
+		return [between(findingsOf(html), '<div class="row row-head', '</div>'), findingRow(html, 1)].join('\n--\n');
+	},
+	'a fix that did not hold gets a dash, even with an origin': () => findingRow(render({ ...kiWith(1, { verified: 'confirmed' }), verification: { failed: false, text: 'x', origin: { 1: 'introduced' } } }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, changeBase: USABLE }), 1),
 
 	// Coverage.
 	'issues, then passes, then not run; passes past the first 4 collapse behind Show all': () => coverageOf(render(rep(), { ledger: LONG_LEDGER })),
@@ -1193,6 +1209,24 @@ const SCENES = {
 	// Known issues.
 	'Linked issues leaves out a zero count': () => findingsOf(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace('Issue: #10 fix held\n', '') })).split('<div class="ki-list"')[0].slice(-700),
 	'Linked issues with nothing observed': () => between(findingsOf(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace(/^Issue: #2[236] observed\n/gm, '') })), '<div class="ki-grp">', '<div class="ki-list"'),
+	'every verdict tag, in a row or on a card, has a tooltip: Unproven and any other verdict too': () => {
+		const html = kiHtml({ ...KI_REPORT, findings: [
+			...KI_REPORT.findings,
+			fnd(4, { severity: 'minor', reproduced: { n: 0, m: 3 }, title: 'Seen once', observed: 'it flickered.', expected: 'it stays.' }),
+			fnd(5, { severity: 'minor', reproduced: { n: 1, m: 1 }, title: 'Odd verdict', verified: 'withdrawn', observed: 'x.', expected: 'y.' }),
+		] });
+		const tags = [...html.matchAll(/<span class="og vtag"[^>]*>([^<]*)(<span class="og-tip"[^>]*>(?:<b>[^<]*<\/b>)?<span>([^<]*)<\/span>)?/g)];
+		assert.equal(tags.length, 8, `expected a tag per rejected row and card (4 findings), saw ${tags.length}`);
+		const missing = tags.filter(t => !t[3]).map(t => t[1]);
+		assert.deepEqual(missing, [], `tags with no tooltip: ${missing.join(', ')}`);
+		return [...new Set(tags.map(t => `${t[1]}: ${t[3]}`))].join('\n');
+	},
+	'a disputed finding whose fix did not hold: a faded row with its tag and plain number, Fixes on its card and in Coverage, never Not fixed': () => {
+		const html = kiHtml(kiWith(1, { verified: 'disputed' }));
+		const context = between(card(html, 1), '<span class="group context">', '<a class="gh-btn"');
+		const coverage = /<div class="row coverage-grid[^"]*" id="cv-row-1">[\s\S]*?<\/div>/.exec(coverageOf(html))?.[0] ?? '';
+		return [findingRow(html, 1), context, coverage, html.includes('Not fixed') ? 'says Not fixed' : 'never says Not fixed'].join('\n--\n');
+	},
 	'no Linked issues row when a failed fix is a finding and an unexercised one is in Coverage': () => between(findingsOf(kiHtml(KI_REPORT, { knownIssues: { pr: 100, issues: KI_ISSUES.issues.filter(i => [11, 12].includes(i.number)) } })), '<div class="ki-grp">', '</div></div>') || '(none)',
 	'an issue no scenario reached is listed as not observed': () => between(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace(/^Issue: #22 observed\n/m, '') }), 'id="ki-list-no"', '</div></div>'),
 	'a confirmed regression says Regressed with a red x': () => findingRow(render(kiWith(2, { verified: 'confirmed' }), { ledger: KI_LEDGER, knownIssues: KI_ISSUES }), 2),
