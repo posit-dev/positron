@@ -16,10 +16,14 @@ Use this skill when:
 
 ## Prerequisites
 
-The upstream remote must be configured:
+The upstream remote must be configured. If `git remote -v` doesn't show it, set it up:
 ```bash
-git remote -v   # should show: upstream → git@github.com:rstudio/vscode-server.git (push disabled)
+git remote add upstream git@github.com:rstudio/vscode-server.git
+git remote set-url --push upstream DISABLE
+gh repo set-default posit-dev/positron   # gh otherwise treats the "upstream" remote as the base repo
 ```
+
+Without the `gh repo set-default`, `gh pr create` targets rstudio/vscode-server and fails with "No commits between main and ...".
 
 ## Workflow
 
