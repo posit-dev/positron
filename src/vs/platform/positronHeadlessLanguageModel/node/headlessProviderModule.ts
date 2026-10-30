@@ -72,8 +72,8 @@ async function loadFromAssistant(
 	const entry = join(found.folder, 'index.js');
 	const module: Partial<ProviderModule> = await import(/* @vite-ignore */ pathToFileURL(entry).href);
 	if (module.HEADLESS_CONTRACT_VERSION !== SUPPORTED_CONTRACT_VERSION) {
-		const version = module.HEADLESS_CONTRACT_VERSION ?? 'none';
-		return { reason: `Posit Assistant ${found.version} has headless contract ${version}, not ${SUPPORTED_CONTRACT_VERSION}` };
+		const version = module.HEADLESS_CONTRACT_VERSION === undefined ? 'no headless contract version' : `headless contract ${module.HEADLESS_CONTRACT_VERSION}`;
+		return { reason: `Posit Assistant ${found.version} has ${version}, expected ${SUPPORTED_CONTRACT_VERSION}` };
 	}
 	if (typeof module.createHeadlessProviders !== 'function') {
 		throw new Error(`${entry}: missing createHeadlessProviders export`);
