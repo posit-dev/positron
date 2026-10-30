@@ -97,6 +97,11 @@ export function OptionsFixture() {
 			// these inspector ports before sampling; see utils/memory/gc.ts.
 			...(isMemoryScenario(process.env.MEMORY_SCENARIO) && !browser
 				? { extraArgs: GC_TARGETS.map(t => `${t.flag}=${t.port}`) }
+				: {}),
+			// Release screenshots disable the bundled Pug extension. The snippets
+			// picker sorts languages by name, so "Pug (jade)" sits just above Python.
+			...(workerInfo.project.name === 'release-screenshots' && !browser
+				? { extraArgs: ['--disable-extension=vscode.pug'] }
 				: {})
 			// --- End Positron ---
 		};
@@ -107,7 +112,7 @@ export function OptionsFixture() {
 	};
 }
 
-export function UserDataDirFixture() {
+export function UserDataDirFixture(projectName?: string) {
 	return async (options: ApplicationOptions) => {
 		if (!options.userDataDir) {
 			throw new Error('Cannot create user data dir from undefined userDataDir');
@@ -117,7 +122,7 @@ export function UserDataDirFixture() {
 
 		// Copy keybindings and settings fixtures to the user data directory
 		await copyFixtureFile('keybindings.json', userDir, true);
-		await copyUserSettings(userDir);
+		await copyUserSettings(userDir, projectName);
 
 		// Pre-populate storage to dismiss prompts that would interfere with tests
 		const storageFile = new StorageFile(userDir);

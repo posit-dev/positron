@@ -90,12 +90,20 @@ export class Variables {
 	}
 
 	/**
-	 * Scroll the variables list by wheel. Positive y scrolls down, negative scrolls up.
+	 * Scroll the variables list so the named variable is the top row. Sets
+	 * scrollTop directly, because a mouse wheel delta does not map 1:1 to pixels
+	 * in Electron, and reads the row offset from the DOM so group headers and
+	 * other rows above the variable do not need to be counted.
 	 */
-	async scroll(delta: { y: number }): Promise<void> {
-		const list = this.code.driver.currentPage.locator('.variables-instance').first();
-		await list.hover();
-		await this.code.driver.currentPage.mouse.wheel(0, delta.y);
+	async scrollVariableToTop(variableName: string): Promise<void> {
+		const list = this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} .list`);
+		const row = (await this.waitForVariableRow(variableName)).locator('xpath=ancestor::div[contains(@class, "variable-item")][1]');
+		const offset = await row.evaluate(el => (el as HTMLElement).offsetTop);
+		await list.evaluate((el, top) => { el.scrollTop = top; }, offset);
+		await expect.poll(async () => {
+			const [listBox, rowBox] = await Promise.all([list.boundingBox(), row.boundingBox()]);
+			return Math.round((rowBox?.y ?? -1) - (listBox?.y ?? 0));
+		}).toBe(0);
 	}
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
