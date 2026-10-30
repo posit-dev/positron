@@ -213,7 +213,8 @@ export function getDefaultInterpreter(): DefaultInterpreter | undefined {
 	if (!setting) {
 		return undefined;
 	}
-	if (isModuleName(setting)) {
+	// Module systems are only supported on Linux
+	if (process.platform !== 'win32' && process.platform !== 'darwin' && isModuleName(setting)) {
 		LOGGER.info(`Default R environment module specified in 'positron.r.interpreters.default': ${setting}`);
 		return { kind: 'module', module: setting };
 	}
