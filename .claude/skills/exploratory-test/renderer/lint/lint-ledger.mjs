@@ -499,6 +499,7 @@ export function runProblems(text, ledger, { needs = [], findingNumbers, notExerc
 		if (actionsLog !== undefined) {
 			problems.push(...lintShotNames(ledger, actionsLog));
 			problems.push(...lintShotTiming(ledger, actionsLog));
+			problems.push(...lintShotCrops(ledger, actionsLog));
 		}
 	}
 	if (actionsLog !== undefined) {
@@ -521,7 +522,7 @@ export function lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, act
 		problems.push(...lintKnownIssues(ledger, knownIssues, { final: false }));
 	}
 	if (actionsLog !== undefined) {
-		problems.push(...lintShotNames(ledger, actionsLog), ...lintShotTiming(ledger, actionsLog), ...lintActionsLog(actionsLog, { session }));
+		problems.push(...lintShotNames(ledger, actionsLog), ...lintShotTiming(ledger, actionsLog), ...lintShotCrops(ledger, actionsLog), ...lintActionsLog(actionsLog, { session }));
 	}
 	return problems;
 }
@@ -596,6 +597,20 @@ export function lintShotNames(ledger, actionsLog) {
 	return [...cited]
 		.filter(f => !new RegExp(`(^|[^\\w-])${escapeRegExp(f.replace(/\.png$/i, ''))}(\\.png)?(?![\\w-])`, 'm').test(actionsLog))
 		.map(f => problem('shot-name-unlogged', `ledger: ${f} is cited as Evidence but actions.log never takes a shot by that name; keep the name a shot was taken with, or log the rename`));
+}
+
+/**
+ * A screenshot's hover preview in the report is its crop, so a run that
+ * cites shots but never took one with --crop shows only shrunken windows.
+ * One warning for the run: a shot of the whole window rightly has none.
+ */
+export function lintShotCrops(ledger, actionsLog) {
+	const cites = prose(ledger).some(({ line }) => /^\s+Evidence:.*\.png/i.test(line));
+	const taken = String(actionsLog ?? '').split('\n').filter(line => /\bshot\.sh\b[^:]*:\s*screenshot\s+\S+?\.png\b/i.test(line));
+	if (!cites || !taken.length || taken.some(line => /, crop \S+\.crop\.png\b/.test(line))) {
+		return [];
+	}
+	return [problem('shot-no-crop', `actions.log: none of the ${taken.length} screenshots was taken with --crop; take each check's shot with --crop and the region it is about, so the report can show it readably`)];
 }
 
 /**

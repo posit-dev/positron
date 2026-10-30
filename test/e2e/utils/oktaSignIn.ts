@@ -110,7 +110,7 @@ function isPasskeyCredentials(credentials: OktaCredentials): credentials is Okta
  * Installs the account's passkey into a virtual authenticator attached to `page`, so Okta's
  * WebAuthn challenge is answered without any user presence or verification prompt.
  */
-async function installPasskey(page: Page, passkeyCredential: string): Promise<void> {
+export async function installPasskey(page: Page, passkeyCredential: string): Promise<void> {
 	const records = JSON.parse(passkeyCredential) as Protocol.WebAuthn.Credential[];
 	const cdp = await page.context().newCDPSession(page);
 	await cdp.send('WebAuthn.enable');
@@ -135,24 +135,29 @@ async function installPasskey(page: Page, passkeyCredential: string): Promise<vo
  * "Verify with something else" link back to the picker. Once the challenge is showing, the virtual
  * authenticator answers it with no further input.
  */
-async function selectPasskeyFactor(page: Page, logger: Logger, label: string): Promise<void> {
-	const challenge = page.getByRole('heading', { name: /Security Key or Biometric Authenticator/ });
-	const passkeyFactor = page.getByRole('link', { name: /Security Key or Biometric Authenticator/ });
+export async function selectPasskeyFactor(page: Page, logger: Logger, label: string): Promise<void> {
+	// The picker lists each factor under a heading of its own name, so the challenge is matched on
+	// its full title; the picker's control is the "Select" link, named after the factor by aria-label.
+	const challenge = page.getByRole('heading', { name: 'Verify with Security Key or Biometric Authenticator' });
+	const passkeyFactor = page.getByRole('link', { name: /Select Security Key or Biometric Authenticator/ });
 	const somethingElse = page.getByRole('link', { name: /Verify with something else/ });
 
 	await expect(challenge.or(passkeyFactor).or(somethingElse).first()).toBeVisible({ timeout: 15000 });
 
+	if (await passkeyFactor.isVisible()) {
+		await passkeyFactor.click();
+		logger.log(`[${label}] Selected the passkey factor from the picker`);
+		return;
+	}
 	if (await challenge.isVisible()) {
 		logger.log(`[${label}] Passkey challenge shown as the default factor`);
 		return;
 	}
-	if (!await passkeyFactor.isVisible()) {
-		logger.log(`[${label}] Another factor is the default; opening the factor picker`);
-		await somethingElse.click();
-		await expect(passkeyFactor).toBeVisible({ timeout: 15000 });
-	}
+	logger.log(`[${label}] Another factor is the default; opening the factor picker`);
+	await somethingElse.click();
+	await expect(passkeyFactor).toBeVisible({ timeout: 15000 });
 	await passkeyFactor.click();
-	logger.log(`[${label}] Selected the passkey factor`);
+	logger.log(`[${label}] Selected the passkey factor from the picker`);
 }
 
 /**

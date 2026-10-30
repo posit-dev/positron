@@ -32,7 +32,7 @@ you expected one to be there, force a rescan with
 before concluding it's missing.
 
 Each entry's `runtimeId` is the internal id you pass to
-`workbench.action.language.runtime.startNewConsoleSession` (see
+`positron.languageRuntime.startNewAgentConsoleSession` (see
 [sessions.md]({{skill_dir}}/references/sessions.md)) to start a session for that
 interpreter. It appears nowhere in the Positron UI, so use it to make the call
 but never show it to the user -- refer to the interpreter by name.
@@ -64,7 +64,8 @@ Hands the interpreter at a path to the language's extension, which registers it
 and saves the path in its settings so it stays available in later sessions. Use
 it when a rescan didn't find an interpreter the user knows is installed, or when
 the user asks to make a specific interpreter available. The path must be the
-interpreter executable (e.g. `.../bin/python` or `.../bin/R`), not its folder;
+interpreter executable (e.g. `.../bin/python` or `.../bin/R`; on Windows
+`...\Scripts\python.exe` or `...\bin\R.exe`), not its folder;
 if the user names an environment rather than a path, find the executable first
 (for example with `which` or the environment manager's own listing).
 

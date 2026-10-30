@@ -201,7 +201,7 @@ function stepText(step) {
 
 /**
  * Verification details: the preamble, a chip per verdict, the verifier's
- * notes, the findings it marked related to the change, and its severity for
+ * notes, each finding's origin it judged from the change, and its severity for
  * each linked issue the run ran into.
  */
 function verificationFromJson(json) {
@@ -212,7 +212,7 @@ function verificationFromJson(json) {
 		preambleHtml: at === -1 ? '' : inline(lines[at].trim()),
 		verdicts: (json.findings ?? []).filter(f => f.verified).map(f => ({ n: f.n, word: f.verified })),
 		linked: new Map((v.linked ?? []).map(l => [l.issue, l.severity])),
-		change: new Set(v.related ?? []),
+		origin: new Map(Object.entries(v.origin ?? {}).map(([n, o]) => [Number(n), o])),
 		bodyHtml: block(lines.slice(at + 1).join('\n')),
 	};
 }

@@ -227,7 +227,8 @@ async function prRows(number) {
 		}
 		const stats = await fetchJson(`${parsed.reportBase}/stats.json`);
 		const tested = await resolveTestedSha({ headSha: report.header?.headSha, shortSha: parsed.shortSha, lookup: async s => (await gh(`/repos/${REPO}/commits/${s}`)).sha });
-		const related = new Set(report.verification?.related ?? []);
+		// A report from before the Origin column lists only the findings whose fix was in the change.
+		const origin = new Map([...(report.verification?.related ?? []).map(n => [n, 'introduced']), ...Object.entries(report.verification?.origin ?? {}).map(([n, o]) => [Number(n), o])]);
 		for (const finding of (report.findings ?? []).filter(f => f.verified === 'confirmed')) {
 			// A fix in a PR that later closed never shipped, so it's decided again.
 			const kept = SETTLED.get(`${parsed.run}#${finding.n}`);
@@ -251,7 +252,7 @@ async function prRows(number) {
 				pr: number, run: parsed.run, trigger: parsed.trigger, postedAt: comment.created_at, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
 				skillVersion: stats?.version ?? null, model: stats?.model ?? null,
 				finding: finding.n, title: finding.title, severity: finding.severity, feature: finding.feature, verified: finding.verified,
-				related: report.fromPage ? null : related.has(finding.n), paths, ...decided, prCheck: prState === 'merged' ? inPr : null, decidedAt: new Date().toISOString().slice(0, 10), prPreview: preview,
+				origin: report.fromPage ? null : origin.get(finding.n) ?? null, paths, ...decided, prCheck: prState === 'merged' ? inPr : null, decidedAt: new Date().toISOString().slice(0, 10), prPreview: preview,
 			});
 			console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${decided.outcome}${saved ? ' (PR check kept from --previous)' : ''}`);
 		}

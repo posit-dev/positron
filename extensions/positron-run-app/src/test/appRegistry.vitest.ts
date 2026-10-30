@@ -5,7 +5,9 @@
 
 /// <reference types="vitest/globals" />
 
-import { AppController, AppInfo, AppRegistry, AppStatus, RunningApp } from '../appRegistry';
+import { AppError } from '../appError';
+import { AppOutput } from '../appOutput';
+import { AppController, AppInfo, AppRegistry, AppStatus, ReadOutputResult, RESULT_BUDGET, RunningApp, UNTRUSTED_NOTE } from '../appRegistry';
 
 /** Short enough to keep the suite fast, long enough not to race the fakes. */
 const TIMEOUT = 50;
@@ -23,6 +25,7 @@ function makeApp(info: AppInfo, options: {
 	stopsOn?: 'interrupt' | 'terminate' | 'never';
 	canTerminate?: boolean;
 	throws?: ReadonlyArray<'interrupt' | 'terminate'>;
+	output?: AppOutput;
 } = {}) {
 	const { status = 'starting', stopsOn = 'interrupt', canTerminate = true, throws = [] } = options;
 	const calls: string[] = [];
@@ -46,7 +49,7 @@ function makeApp(info: AppInfo, options: {
 			}
 		} : undefined,
 	};
-	const app = new RunningApp(info, controller, status);
+	const app = new RunningApp(info, controller, status, options.output);
 	const preview = { dispose: vi.fn() };
 	app.setPreview(preview);
 	return { app, calls, preview };
@@ -235,7 +238,7 @@ describe('stopping an app', () => {
 		expect(await registry.stop('file:///proj/unknown.py', TIMEOUT)).toEqual({
 			stopped: false,
 			reason: 'not-found',
-			message: 'Positron has no record of running an app from file:///proj/unknown.py.',
+			message: 'Positron isn\'t tracking an app from file:///proj/unknown.py. Running another app of the same framework replaces the one before it.',
 		});
 	});
 
@@ -254,5 +257,149 @@ describe('stopping an app', () => {
 
 		expect({ stopped: result.stopped && result.name, listed: registry.list().map(app => app.name) })
 			.toEqual({ stopped: 'Streamlit', listed: ['Flask', 'Streamlit', 'Gradio'] });
+	});
+});
+
+describe('reading an app\'s output', () => {
+	/** An app whose output is `printed`. */
+	function appWithOutput(info: AppInfo, printed = '', options: Parameters<typeof makeApp>[1] = {}) {
+		const output = new AppOutput();
+		output.append(printed);
+		return makeApp(info, { ...options, output }).app;
+	}
+
+	/** The fields of a successful read, failing the test on any other. */
+	function readOk(result: ReadOutputResult) {
+		if (!result.read) {
+			expect.fail(`expected a read, got ${result.reason}: ${result.message}`);
+		}
+		return result;
+	}
+
+	const keyError: AppError = {
+		name: 'KeyError',
+		message: '\x1b[31m\'API_KEY\'\x1b[0m',
+		traceback: ['\x1b[1mTraceback (most recent call last):\x1b[0m', '  File "app.py", line 3'],
+	};
+
+	it('returns the app\'s recent output, its state, and that the output is untrusted', () => {
+		const registry = new AppRegistry();
+		const app = appWithOutput(streamlit, 'Starting\nKeyError: \'API_KEY\'\n');
+		registry.add(app);
+		app.exited(1);
+
+		expect(registry.read(streamlit.file, {})).toEqual({
+			read: true,
+			file: streamlit.file,
+			name: 'Streamlit',
+			status: 'exited',
+			exitCode: 1,
+			output: 'Starting\nKeyError: \'API_KEY\'',
+			firstLine: 1,
+			lastLine: 2,
+			totalLines: 2,
+			droppedLines: 0,
+			moreBefore: false,
+			note: UNTRUSTED_NOTE,
+		});
+	});
+
+	it('reads the app stopping would stop', () => {
+		// The same lookup as stopping: the newest still-running app from the file.
+		const registry = new AppRegistry();
+		registry.add(appWithOutput(streamlit, 'streamlit\n'));
+		registry.add(appWithOutput({ ...streamlit, name: 'Flask' }, 'flask\n'));
+		const gradio = appWithOutput({ ...streamlit, name: 'Gradio' }, 'gradio\n');
+		registry.add(gradio);
+		gradio.exited(1);
+
+		expect(readOk(registry.read(streamlit.file, {})).output).toBe('flask');
+	});
+
+	it('reports a file Positron is not tracking an app from', () => {
+		const registry = new AppRegistry();
+		registry.add(appWithOutput(streamlit));
+
+		expect(registry.read('file:///proj/unknown.py', {})).toEqual({
+			read: false,
+			reason: 'not-found',
+			message: 'Positron isn\'t tracking an app from file:///proj/unknown.py. Running another app of the same framework replaces the one before it.',
+		});
+	});
+
+	it('says why there is no output for an app run without shell integration, even after its terminal closes', () => {
+		const { app } = makeApp(streamlit, { status: 'unknown' });
+		const before = app.read({});
+		app.exited();
+
+		expect([before, app.read({})]).toEqual(Array(2).fill({
+			read: false,
+			reason: 'no-output',
+			message: 'Shell integration was off when the Streamlit app ran, so Positron could not see its output.',
+		}));
+	});
+
+	it('gives the error that ended a console app, stripped of escapes, outside the lines', () => {
+		const app = appWithOutput(shiny, 'one\ntwo\n');
+		app.failed(keyError);
+
+		const result = readOk(app.read({ lines: 1 }));
+
+		expect({ output: result.output, error: result.error }).toEqual({
+			output: 'two',
+			error: { name: 'KeyError', message: '\'API_KEY\'', traceback: ['Traceback (most recent call last):', '  File "app.py", line 3'] },
+		});
+	});
+
+	it('records an interrupt like any other error, and keeps the latest', () => {
+		const app = appWithOutput(shiny);
+		app.failed(keyError);
+		app.failed({ name: 'Interrupted', message: 'The user interrupted the code execution.', traceback: [] });
+
+		expect(readOk(app.read({})).error).toEqual({ name: 'Interrupted', message: 'The user interrupted the code execution.', traceback: [] });
+	});
+
+	it('pages back through every kept line once when the budget cuts each page short', () => {
+		const output = new AppOutput();
+		for (let n = 1; n <= 3_000; n++) {
+			output.append(`${n} `.padEnd(80, 'x') + '\n');
+		}
+		const { app } = makeApp(streamlit, { output });
+
+		const pages: string[] = [];
+		let page = readOk(app.read({ lines: 1000 }));
+		pages.unshift(page.output);
+		while (page.moreBefore) {
+			page = readOk(app.read({ lines: 1000, before: page.firstLine }));
+			pages.unshift(page.output);
+		}
+
+		const read = pages.join('\n').split('\n').map(line => Number(line.split(' ')[0]));
+		expect({ pages: pages.length > 3, read }).toEqual({
+			pages: true,
+			read: Array.from({ length: 3_000 }, (_, i) => i + 1),
+		});
+	});
+
+	it('stays within the budget with a large error and long lines', () => {
+		const output = new AppOutput();
+		for (let i = 0; i < 2_000; i++) {
+			output.append('"' + 'x'.repeat(2_000) + '"\n');
+		}
+		const { app } = makeApp(shiny, { output });
+		app.failed({
+			name: 'Error',
+			message: '"'.repeat(5_000),
+			traceback: Array.from({ length: 200 }, () => '\\'.repeat(5_000)),
+		});
+
+		const result = readOk(app.read({ lines: 1000 }));
+
+		expect({
+			size: JSON.stringify(result).length <= RESULT_BUDGET,
+			errorSize: JSON.stringify(result.error).length <= RESULT_BUDGET / 2,
+			hasOutput: result.lastLine === 2_000 && result.firstLine < result.lastLine,
+			note: result.note,
+		}).toEqual({ size: true, errorSize: true, hasOutput: true, note: UNTRUSTED_NOTE });
 	});
 });

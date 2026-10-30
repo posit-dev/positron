@@ -6,14 +6,14 @@ description: >
   showing or reading an HTML file, URL or app in the Viewer, finding or adding
   interpreters, listing, switching, starting, restarting or interrupting
   sessions, setting up Python, reading, installing or updating a session's
-  packages, starting, listing, stopping or debugging a web app (Shiny, Flask,
-  Dash, Streamlit, FastAPI, Gradio, marimo), reading Data Connections and
-  their tables and columns, creating, editing or running notebook cells, and
-  reading help. Use when the user wants Positron itself to act or to
-  know what is installed, not to run R or Python code. Triggers: "show the
+  packages, running, stopping, debugging or troubleshooting a web app
+  (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio, marimo), reading Data
+  Connections and their tables and columns, creating, editing or running
+  notebook cells, and reading help. Use when the user wants Positron itself
+  to act or to know what is installed, not to run code. Triggers: "show the
   variables pane", "open data.csv", "show this HTML in the Viewer", "switch to
   my R session", "my session is stuck", "is pandas installed?", "set up a
-  Python environment", "run or stop my shiny app", "what tables are in my
+  Python environment", "why won't my shiny app start", "what tables are in my
   warehouse", "add a cell to this notebook".
 ---
 
@@ -121,15 +121,15 @@ out which interpreter is currently active.
 
 **Interactive web apps** -- [references/interactive-apps.md]({{skill_dir}}/references/interactive-apps.md)
 Read when the user wants a web app running, stopped or debugged, or asks about
-one that is running: "run my app", "start the shiny/flask/dash/streamlit/marimo
-app", "preview my dashboard", "is my app up?", "what's my app's URL?", "stop
-the app". Read it
+one that is running or broken: "run my app", "start the
+shiny/flask/dash/streamlit/marimo app", "preview my dashboard", "is my app
+up?", "what's my app's URL?", "stop the app", "my app is broken", "my app
+crashed", "why isn't my app working?". Read it
 **before** starting any app server yourself -- app servers must not be started by
 running code in a session or a raw terminal command for supported app frameworks. The
 commands it documents manage the terminal, detect the app URL, set up any
-proxying the environment requires (on Posit Workbench, raw `localhost`
-URLs are not reachable from the user's browser), and preview the app -- in the
-Viewer by default, or wherever the user's preview mode setting points.
+proxying the environment requires, and preview the app -- in the Viewer by
+default, or wherever the user's preview mode setting points.
 
 **Data connections and schemas** -- [references/data-connections.md]({{skill_dir}}/references/data-connections.md)
 Read when the user asks about: the database or warehouse connections they have

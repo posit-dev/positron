@@ -567,6 +567,10 @@ S01-01.png | S01-02.png | S01-03.png | S01-02.png
   -> ledger: S01-02.png was taken 2 times in actions.log, so the file is only the last capture; give each capture its own name and cite the one taken at the check
   -> ledger: S01 step 3 cites S01-03.png, which actions.log took before S01-02.png (step 2); cite the shot taken at each check
 
+==== a run that cites shots but never took a crop: one warning; none once any shot has a crop
+actions.log: none of the 2 screenshots was taken with --crop; take each check's shot with --crop and the region it is about, so the report can show it readably
+--
+
 ==== a shot named for another scenario means the scenarios were renumbered
 ledger: S05 step 2 cites S06-01.png, a shot named for S06; IDs are never renumbered, so give the scenario back the ID its shots were taken under
 ledger: no ## Environment section

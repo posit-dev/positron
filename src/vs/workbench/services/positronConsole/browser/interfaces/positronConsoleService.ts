@@ -173,7 +173,8 @@ export interface IPositronConsoleService {
 	 *   the backend will be notified that this is the source of code execution.
 	 * @param executionMetadata Optional metadata to pass to the language runtime.
 	 * @param preserveActiveTab Whether to avoid switching the active tab when revealing the
-	 *   Console (and Plots, for plots this execution produces). Ignored when `focus` is true.
+	 *   Console (and Plots, for plots this execution produces), and to keep the foreground
+	 *   session. Ignored when `focus` is true.
 	 * @returns The session ID that was assigned to execute the code.
 	 */
 	executeCode(languageId: string,

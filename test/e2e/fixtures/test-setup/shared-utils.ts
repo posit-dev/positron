@@ -43,8 +43,9 @@ export async function captureScreenshotOnError(app: Application, logsPath: strin
  * If running in a Docker environment, merges standard settings with Docker-specific overrides.
  *
  * @param userDir The user data directory to copy settings into
+ * @param projectName The Playwright project name, used to merge project-specific overrides
  */
-export async function copyUserSettings(userDir: string): Promise<string> {
+export async function copyUserSettings(userDir: string, projectName?: string): Promise<string> {
 	const settingsFileName = 'settings.json';
 	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
 	const settingsFile = path.join(fixturesDir, settingsFileName);
@@ -88,6 +89,19 @@ export async function copyUserSettings(userDir: string): Promise<string> {
 			mergedSettings = {
 				...mergedSettings,
 				...memorySettings,
+			};
+		}
+	}
+
+	// 4. Merge release-screenshot settings, which keep editor noise (such as
+	// lint squiggles) out of the docs screenshots.
+	if (projectName === 'release-screenshots') {
+		const screenshotSettingsFile = path.join(fixturesDir, 'settingsReleaseScreenshots.json');
+		if (fs.existsSync(screenshotSettingsFile)) {
+			const screenshotSettings = JSON.parse(fs.readFileSync(screenshotSettingsFile, 'utf8'));
+			mergedSettings = {
+				...mergedSettings,
+				...screenshotSettings,
 			};
 		}
 	}

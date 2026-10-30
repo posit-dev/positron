@@ -51,7 +51,8 @@ const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensio
 	icon: Codicon.package,
 	alwaysUseContainerInfo: true,
 	hideIfEmpty: true,
-	order: 51,
+	// Between Remote Explorer / Extensions (4) and Testing (6).
+	order: 5,
 	openCommandActionDescriptor: {
 		id: 'workbench.action.positron.openPackages',
 		title: nls.localize2('positronPackages.openPackages', 'Packages'),

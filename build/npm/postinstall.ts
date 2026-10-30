@@ -522,6 +522,46 @@ function ensureAgentHarnessLink(sourceRelativePath: string, linkPath: string): '
 	}
 }
 
+// --- Start Positron ---
+/**
+ * Returns the dirs that take `file:` dependencies on other dirs, along with
+ * those dependencies, ordered dependencies first. Installing a dir runs the
+ * `prepare` script of each linked dependency, which compiles into that
+ * dependency's out/ in place, so these dirs must not be installed concurrently.
+ */
+function getLinkedDirs(): string[] {
+	const deps = new Map<string, string[]>();
+	for (const dir of dirs) {
+		const packageJsonPath = path.join(root, dir, 'package.json');
+		if (dir === '' || !fs.existsSync(packageJsonPath)) {
+			continue;
+		}
+		const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+		const linked = Object.values<string>({ ...packageJson.dependencies, ...packageJson.devDependencies })
+			.filter(spec => spec.startsWith('file:'))
+			.map(spec => path.posix.join(dir, spec.slice('file:'.length)))
+			.filter(linkedDir => dirs.includes(linkedDir));
+		if (linked.length > 0) {
+			deps.set(dir, linked);
+		}
+	}
+
+	const ordered: string[] = [];
+	const visit = (dir: string) => {
+		if (!ordered.includes(dir)) {
+			for (const dep of deps.get(dir) ?? []) {
+				visit(dep);
+			}
+			ordered.push(dir);
+		}
+	};
+	for (const dir of deps.keys()) {
+		visit(dir);
+	}
+	return ordered;
+}
+// --- End Positron ---
+
 async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: number): Promise<void> {
 	const errors: Error[] = [];
 	let index = 0;
@@ -656,6 +696,9 @@ async function main() {
 
 	const nativeTasks: (() => Promise<void>)[] = [];
 	const parallelTasks: (() => Promise<void>)[] = [];
+	// --- Start Positron ---
+	const linkedDirs = getLinkedDirs();
+	// --- End Positron ---
 
 	for (const dir of dirs) {
 		if (dir === '') {
@@ -741,6 +784,10 @@ async function main() {
 			});
 			continue;
 		}
+
+		if (linkedDirs.includes(dir)) {
+			continue;
+		}
 		// --- End Positron ---
 
 		const taskDir = dir;
@@ -750,6 +797,18 @@ async function main() {
 			return npmInstallAsync(taskDir, { env });
 		});
 	}
+
+	// --- Start Positron ---
+	// Linked dirs run one at a time, alongside the other parallel installs.
+	// Queued first since this chain is the longest task.
+	parallelTasks.unshift(async () => {
+		for (const dir of linkedDirs) {
+			const env = { ...process.env };
+			clearInheritedNpmrcConfig(dir, env);
+			await npmInstallAsync(dir, { env });
+		}
+	});
+	// --- End Positron ---
 
 	// Native dirs (build, remote) run sequentially to avoid node-gyp conflicts
 	for (const task of nativeTasks) {

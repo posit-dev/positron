@@ -393,10 +393,11 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			 * Reads the tables and columns a live connection exposes, bounded by `options`.
 			 * @param profileId The connection to read.
 			 * @param options Bounds for the walk.
+			 * @param token Stops the walk.
 			 * @returns The schema, or undefined if the connection is not currently connected.
 			 */
-			getSchema(profileId: string, options?: positron.DataConnectionSchemaOptions): Thenable<positron.DataConnectionSchema | undefined> {
-				return extHostDataConnections.getSchema(profileId, options);
+			getSchema(profileId: string, options?: positron.DataConnectionSchemaOptions, token?: vscode.CancellationToken): Thenable<positron.DataConnectionSchema | undefined> {
+				return extHostDataConnections.getSchema(profileId, options, token);
 			},
 
 			/** Fires when the user's connections change. */

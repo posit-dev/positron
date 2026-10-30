@@ -124,7 +124,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			await use('');
 		} else {
 			// Default case for e2e-electron, e2e-chromium, and other projects
-			const userDataDirFixture = UserDataDirFixture();
+			const userDataDirFixture = UserDataDirFixture(projectName);
 			const userDir = await userDataDirFixture(options);
 			await use(userDir);
 		}

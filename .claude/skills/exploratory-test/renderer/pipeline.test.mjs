@@ -76,7 +76,7 @@ test('a clean verify is the only agent, and it is recorded', async () => {
 	assert.deepEqual({ ...verify, prompt: undefined }, { model: 'opus', role: 'verify', purpose: 'verify', tools: ['Bash', 'Read', 'Glob', 'Grep'], cwd: '/repo', prompt: undefined });
 	assert.match(verify.prompt, /aaaa1111/);
 	assert.equal(run.report.findings[1].verified, 'confirmed');
-	assert.equal(run.changeBase.name, 'main', 'the base branch reaches the change mark');
+	assert.equal(run.changeBase.name, 'main', 'the base branch reaches the Origin column');
 	assert.equal(run.stops, 1);
 	assert.deepEqual(run.passes, [
 		{ role: 'verify', model: 'opus', durationMs: 1000, turns: 2, costUsd: 0.5 },
@@ -172,19 +172,19 @@ test('the verdicts and the isolation\'s revision land in report.json, and the pa
 			writeFileSync(join(dir, 'isolation.md'), '## Finding 2\n\nThe setting decides it.');
 			return 'done';
 		},
-		revise: () => verdicts([[1, 'confirmed', { known: [15102], related: true }], [2, 'false positive', { intended: [999], feature: 'Plot settings', title: 'second claim, with the setting off' }]], '- 2: the setting decides it.'),
+		revise: () => verdicts([[1, 'confirmed', { known: [15102], origin: 'exposed' }], [2, 'false positive', { intended: [999], feature: 'Plot settings', title: 'second claim, with the setting off' }]], '- 2: the setting decides it.'),
 	});
 	assert.match(run.steps[1].prompt, /Report: `[^`]*\/report\.json`/);
 	const page = reportFromJson(run.report);
 	assert.deepEqual({
 		leadHtml: page.leadHtml,
 		verdicts: page.verification.verdicts,
-		change: [...page.verification.change],
+		origin: [...page.verification.origin],
 		findings: page.findings.map(f => ({ n: f.n, title: f.title, feature: f.feature, verified: f.verified, known: f.known, intended: f.intended, opening: f.text.opening })),
 	}, {
 		leadHtml: 'Two things broke.',
 		verdicts: [{ n: 1, word: 'confirmed' }, { n: 2, word: 'disputed' }],
-		change: [1],
+		origin: [[1, 'exposed']],
 		findings: [
 			{ n: 1, title: 'first claim', feature: 'Console', verified: 'confirmed', known: [15102], intended: [], opening: { summary: 'It broke.', where: '' } },
 			{ n: 2, title: 'second claim, with the setting off', feature: 'Plot settings', verified: 'disputed', known: [], intended: [999], opening: null },

@@ -66,6 +66,7 @@ function createInstance(profileId: string, handle: number): IDataConnectionInsta
 		driverName: 'Test Driver',
 		connectionHandle: stubInterface<IDataConnectionHandle>({
 			handle,
+			releaseNodes: () => { },
 			getChildren: vi.fn(async () => [{
 				nodeHandle: 1,
 				name: `${profileId}-table`,
