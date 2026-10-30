@@ -1353,7 +1353,7 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		// Only for a window that has never been shown: once it has opened, a
 		// later hide is deliberate (Canvas mode hides the IDE window), not an
 		// error, and must not be undone.
-		if (!this.environmentMainService.isBuilt && !this.environmentMainService.extensionTestsLocationURI && !this._win.isVisible()) {
+		if (!this.environmentMainService.isBuilt && !this.environmentMainService.extensionTestsLocationURI && !wasLoaded && !this._win.isVisible()) {
 			const openWatchdog = this._register(new RunOnceScheduler(() => {
 				if (this._win && !this._win.isVisible() && !this._win.isMinimized()) {
 					this._win.show();
