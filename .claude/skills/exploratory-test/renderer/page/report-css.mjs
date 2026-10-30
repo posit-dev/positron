@@ -409,7 +409,7 @@ a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
 .findings-grid{grid-template-columns:110px minmax(0,1fr) 140px}
-.findings-grid.og-grid{grid-template-columns:110px 104px minmax(0,1fr) 140px}
+.findings-grid.og-grid{grid-template-columns:110px minmax(0,1fr) 104px 140px}
 .coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px;padding:12px 20px}
 .right{text-align:right}
 
@@ -431,6 +431,9 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .og{position:relative;display:inline-block;cursor:help}
 .og-tip{position:absolute;top:calc(100% + 8px);left:0;display:flex;flex-direction:column;gap:2px;width:max-content;max-width:340px;padding:7px 10px;border-radius:6px;background:var(--tip-bg);border:1px solid var(--tip-border);box-shadow:var(--og-shadow);font-family:var(--sans);font-size:12px;font-weight:400;letter-spacing:0;line-height:1.45;color:var(--muted);text-align:left;text-transform:none;text-decoration:none;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;z-index:5;transition:opacity .12s ease,visibility 0s linear .12s}
 .og-tip b{font-weight:600;color:var(--tip-text)}
+/* In the table the tip opens leftward from the Origin cell; in a card's meta line, rightward. */
+.og .og-tip{left:auto;right:0}
+.og-meta .og-tip{left:0;right:auto}
 .og-cell{font-size:13px;line-height:21px;color:var(--body)}
 .og-none{color:var(--faint)}
 .og-h{text-decoration:underline dotted;text-underline-offset:3px}

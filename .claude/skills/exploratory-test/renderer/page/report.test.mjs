@@ -1159,10 +1159,10 @@ const SCENES = {
 		findingRow(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } }), 1),
 		findingRow(fullHtml(ORIGINS), 3),
 	].join('\n--\n'),
-	'a card shows its Origin word after the severity pill, focusable with its tooltip; a card with none shows nothing': () => {
-		const identity = (html, n) => between(card(html, n), '<span class="group identity">', '<span class="rule"');
+	'a card shows its Origin word after Reproduced x/y, focusable with its tooltip; a card with none shows nothing': () => {
+		const context = (html, n) => between(card(html, n), '<span class="group context">', '<button');
 		const html = fullHtml(ORIGINS, { changeBase: USABLE });
-		return [identity(html, 1), identity(html, 3), identity(html, 4), identity(fullHtml(ORIGINS), 1)].join('\n--\n');
+		return [context(html, 1), context(html, 3), context(html, 4), context(fullHtml(ORIGINS), 1)].join('\n--\n');
 	},
 	'a PR run\'s Origin says PR, and a base with no name says the base branch': () => {
 		const html = fullHtml({ ...ORIGINS, header: { ...ORIGINS.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: { usable: true, name: null } });

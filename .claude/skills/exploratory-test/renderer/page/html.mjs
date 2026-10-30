@@ -310,7 +310,7 @@ function originCell(report, origin, last) {
 	return `<span class="og-cell"><span class="og${up}">${word}${originTip(word, originText(report, origin))}</span></span>`;
 }
 
-/** The Origin word in a card's meta line, after the severity pill. Nothing when not determined. */
+/** The Origin word in a card's meta line, after "Reproduced x/y". Nothing when not determined. */
 function cardOrigin(report, origin) {
 	if (!origin) {
 		return '';
@@ -355,14 +355,14 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
 		return `<a href="#f${f.n}" class="row ${grid}">`
 			+ `<span>${pill(f.severity)}</span>`
-			+ (withOrigin ? originCell(report, originOf(report, f, changeBase, ki), i === report.findings.length - 1) : '')
 			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span></span>`
+			+ (withOrigin ? originCell(report, originOf(report, f, changeBase, ki), i === report.findings.length - 1) : '')
 			+ status
 			+ '</a>';
 	});
 
 	const head = rows.length
-		? `<div class="row row-head ${grid}"><span>Severity</span>${withOrigin ? originHead(report, changeBase) : ''}<span>Finding</span><span class="right">Status</span></div>\n`
+		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${withOrigin ? originHead(report, changeBase) : ''}<span class="right">Status</span></div>\n`
 		: '';
 
 	return `<section id="findings" class="section">
@@ -755,12 +755,17 @@ function renderFindingCard(f, report, options) {
 	if (f.reproduced) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
 	}
+	// After the verdict and its rate, as in the table, before the linked issues.
+	const origin = cardOrigin(report, originOf(report, f, options.changeBase, options.ki));
+	if (origin) {
+		context.push(origin);
+	}
 	// Linked issues describe the finding as these do, so they close the meta line.
 	context.push(...cardIssueItems(f, word, options.ki, options.refs));
 	const contextHtml = context.join('<span class="sep" aria-hidden="true">&middot;</span>');
 
 	const meta = '<div class="meta">'
-		+ `<span class="group identity"><span class="who">Finding ${f.n}</span>${pill(f.severity)}${cardOrigin(report, originOf(report, f, options.changeBase, options.ki))}</span>`
+		+ `<span class="group identity"><span class="who">Finding ${f.n}</span>${pill(f.severity)}</span>`
 		+ '<span class="rule" aria-hidden="true"></span>'
 		+ `<span class="group context">${contextHtml}</span>`
 		+ renderIssueButton(f, issue)
