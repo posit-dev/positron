@@ -846,6 +846,8 @@ a.st-ev:hover .ev-pop .ev-hd span{text-decoration:underline;text-underline-offse
 .lb-cmp img.shot-full{display:block;width:100%;height:auto;max-height:calc(100vh - 220px);border-radius:6px;border:1px solid var(--border);object-fit:contain}
 .lb-none{margin:0;padding:40px 12px;border:1px dashed var(--border);border-radius:6px;font-family:var(--sans);font-size:13px;color:var(--muted);text-align:center}
 @media (max-width:900px){.lb-cmp{grid-template-columns:1fr}}
+/* Stacked, each build gets half the height, so both fit with the caption and close button. */
+@media (max-width:900px){.lb-cmp img.shot-full{max-height:calc(50vh - 130px)}}
 /* Three or more matches of one kind: "+N more", the rest in a tooltip. */
 .ki-more{position:relative;margin-left:4px;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
 .ki-more .og-tip{left:auto;right:0;transform:none;white-space:normal;width:300px;top:calc(100% + 6px)}
