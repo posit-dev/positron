@@ -399,8 +399,8 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	}
 
 	/**
-	 * Tells the user, once per module, that R didn't start because the pinned
-	 * module could not be loaded.
+	 * Tells the user, once per module, that the pinned module's R didn't start
+	 * because the module could not be loaded.
 	 *
 	 * @param name The module environment or module from `positron.r.interpreters.default`.
 	 */
@@ -412,7 +412,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		const showLog = vscode.l10n.t('Show Log');
 		const openSetting = vscode.l10n.t('Open Setting');
 		const choice = await vscode.window.showWarningMessage(
-			vscode.l10n.t('R did not start because the environment module \'{0}\' could not be loaded.', name),
+			vscode.l10n.t('The R from environment module \'{0}\' in settings did not start because the module could not be loaded.', name),
 			showLog,
 			openSetting);
 		if (choice === showLog) {
