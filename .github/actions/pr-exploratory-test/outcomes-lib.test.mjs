@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, markDuplicates, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -38,6 +38,29 @@ test('extractPaths takes backticked repo paths from the cause and test case path
 	]);
 	assert.deepEqual(extractPaths({ cause: 'only `positronPlotsActions.ts` is named' }), []);
 	assert.deepEqual(extractPaths({}), []);
+});
+
+test('extractPaths reads paths outside backticks and drops line ranges, resolving partial paths and bare names against the repo', () => {
+	const files = ['src/vs/a/positronCanvasService.ts', 'src/vs/platform/lifecycle/electron-main/lifecycleMainService.ts', 'src/vs/workbench/services/lifecycle/electron-browser/lifecycleService.ts', 'src/a/dup.ts', 'src/b/dup.ts'];
+	const finding = {
+		cause: 'The handler (src/vs/a/positronCanvasService.ts:534-552) keeps `positron.canvasMode.active` only when set in handleWillShutdown (lifecycle/electron-browser/lifecycleService.ts:159). '
+			+ 'lifecycleMainService.registerAuxWindow (lifecycleMainService.ts:485-497) checks session.metadata.owner. Also dup.ts, e.g. https://example.com/x/index.html.',
+	};
+	assert.deepEqual(extractPaths(finding, files), [
+		'src/vs/a/positronCanvasService.ts',
+		'src/vs/platform/lifecycle/electron-main/lifecycleMainService.ts',
+		'src/vs/workbench/services/lifecycle/electron-browser/lifecycleService.ts',
+	]);
+});
+
+test('packDiffs groups commits in order up to the limit, and gives a commit past it a group of its own', () => {
+	const parts = [{ sha: 'a', diff: 'xxxx' }, { sha: 'b', diff: 'yyy' }, { sha: 'c', diff: 'z'.repeat(20) }, { sha: 'd', diff: 'w' }];
+	assert.deepEqual(packDiffs(parts, 10), [
+		{ shas: ['a', 'b'], diff: 'xxxx\nyyy' },
+		{ shas: ['c'], diff: 'z'.repeat(20) },
+		{ shas: ['d'], diff: 'w' },
+	]);
+	assert.deepEqual(packDiffs([], 10), []);
 });
 
 test('searchTerms keeps up to six plain words from a title', () => {
