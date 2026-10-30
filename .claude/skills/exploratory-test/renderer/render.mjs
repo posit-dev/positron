@@ -50,10 +50,11 @@ const { splitProblems } = await import('./lint/lint-rules.mjs');
 const { reportFromJson } = await import('./page/report-json.mjs');
 const { loadIssueRefs } = await import('./known-issues.mjs');
 const { buildStats, passStats, readChecks } = await import('./stats.mjs');
+const { mainReplayMs } = await import('./shared/main-check.mjs');
 const { ranInCi, reportUsageOnce } = await import('./shared/usage.mjs');
 
 const dir = dirname(resolve(input));
-const { ledger, actionsLog, session, knownIssues, changeBase, fileExists, readFile, listFiles } = readRunDir(dir);
+const { ledger, actionsLog, session, knownIssues, changeBase, mainBuild, fileExists, readFile, listFiles } = readRunDir(dir);
 
 // The ledger alone, while the run is still exploring.
 if (flags.check) {
@@ -92,6 +93,7 @@ const stats = passes.length && !flags.out && !ranInCi(dir) ? buildStats({
 	...passStats(passes),
 	parsed,
 	checks: readChecks(dir),
+	mainReplayMs: mainBuild ? mainReplayMs(actionsLog ?? '') : undefined,
 }) : null;
 if (stats) {
 	writeFileSync(join(dir, 'stats.json'), `${JSON.stringify(stats, null, 2)}\n`);
@@ -127,6 +129,7 @@ await writeRunPage(out, parsed, {
 	knownIssues,
 	issueRefs,
 	changeBase,
+	mainBuild,
 });
 console.log(out);
 

@@ -1252,3 +1252,61 @@ const SCENES = {
 // pages, and by the tests that read the links' answers and bodies.
 const trimScene = out => out.replace(/<svg[\s\S]*?<\/svg>/g, '<svg>').replace(/<div class="fb" .*?<\/div>/g, '<div class="fb">').replace(/href="https:\/\/github\.com\/posit-dev\/positron\/issues\/new\?[^"]*"/g, 'href="(new issue)"');
 test('every scene renders as saved', () => checkScenes('scenes.expected.txt', SCENES, { trim: trimScene }));
+
+// ---- Origin from a replay on main -------------------------------------------
+
+const MAIN_BUILD = { version: '2026.11.0-236', commit: '57b03d33f537a868e49c48c7acd0c59d84f9b453', pubDate: '', platform: 'mac/arm64', binary: '/x' };
+const twoSteps = (a, b) => ({ steps: [{ step: 9, n: b, m: 2, saw: 'y' }, { step: 5, n: a, m: 2, saw: 'x' }] });
+const REPLAYED = rep({
+	findings: [
+		fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, main: twoSteps(0, 0) }),
+		fnd(2, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, main: twoSteps(0, 2) }),
+		fnd(3, { verified: 'confirmed', main: { missing: ['positron.foo', 'bar.baz'] } }),
+		fnd(4, { verified: 'confirmed', main: { couldNotRun: 'R did not start' } }),
+		fnd(5, { verified: 'confirmed', reproduced: { n: 1, m: 4 }, main: twoSteps(0, 0) }),
+		fnd(6, { verified: 'confirmed', main: twoSteps(1, 1) }),
+		fnd(7, { verified: 'confirmed' }),
+		fnd(8, { verified: 'disputed' }),
+	],
+	verification: {
+		failed: false, text: 'x',
+		origin: { 1: 'introduced', 2: 'inherited', 3: 'introduced' },
+		originReason: { 4: { reason: 'could not run', detail: 'R did not start' }, 5: { reason: 'too few tries', detail: 'not seen in 2 tries on main' }, 6: { reason: 'drift', detail: '' }, 7: { reason: 'not replayed', detail: '' } },
+	},
+});
+const tipOf = (html, n) => /<span class="og-tip"[^>]*>(?:<b>[^<]*<\/b>)?<span>([^<]*)<\/span>/.exec(findingRow(html, n))?.[1];
+
+test('a replayed finding\'s Origin tooltip says what main did', () => {
+	const html = render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD });
+	assert.equal(tipOf(html, 1), 'Does not happen on main (daily 2026.11.0-236): step 5 0/2, step 9 0/2. Happens on this branch.');
+	assert.equal(tipOf(html, 2), 'Also happens on main (daily 2026.11.0-236): step 5 0/2, step 9 2/2.');
+	assert.equal(tipOf(html, 3), 'Main (daily 2026.11.0-236) does not have positron.foo, bar.baz, so this branch added it.');
+});
+
+test('a finding with no Origin says why', () => {
+	const html = render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD });
+	assert.equal(tipOf(html, 4), 'Not checked on main: R did not start.');
+	assert.equal(tipOf(html, 5), 'Not settled: not seen in 2 tries on main, fewer than this branch needed.');
+	assert.equal(tipOf(html, 6), 'Not settled: main (daily 2026.11.0-236) and the base differ in the files of the fix.');
+	assert.equal(tipOf(html, 7), 'Not checked on main: the finding was not replayed there.');
+	assert.match(findingRow(html, 4), /&mdash;/);
+	const none = render({ ...REPLAYED, verification: { failed: false, text: 'x', originReason: { 1: { reason: 'no main build', detail: '' } } } }, { changeBase: USABLE });
+	assert.equal(tipOf(none, 1), 'Not checked on main: no main build for this run.');
+});
+
+test('the Origin header says it comes from a replay on main, or that none ran', () => {
+	const head = html => between(findingsOf(html), '<div class="row row-head', '</div>');
+	assert.match(head(render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD })), /Whether the finding happens on main, from a replay on the daily \(2026\.11\.0-236, 57b03d3\)\./);
+	assert.match(head(render(REPLAYED, { changeBase: USABLE })), /Whether the finding happens on main\. Not checked in this run\./);
+	assert.match(head(render(ORIGINS, { changeBase: USABLE })), /Likely origin, judged from this branch&rsquo;s diff/);
+});
+
+test('a PR run\'s replayed Origin says PR', () => {
+	const html = render({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: USABLE, mainBuild: MAIN_BUILD });
+	assert.equal(tipOf(html, 1), 'Does not happen on main (daily 2026.11.0-236): step 5 0/2, step 9 0/2. Happens on this PR.');
+});
+
+test('a card shows the replayed Origin with the same tooltip', () => {
+	const html = render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD });
+	assert.ok(card(html, 2).includes('Also happens on main (daily 2026.11.0-236): step 5 0/2, step 9 2/2.'));
+});

@@ -101,6 +101,8 @@ function findingFromJson(f) {
 		corrected: f.corrected ?? [],
 		known: f.known ?? [],
 		intended: f.intended ?? [],
+		// The finding replayed on a build of main, which decides its Origin.
+		main: f.main ?? null,
 		// The explorer's opening sentence for the issue.
 		summaryHtml: f.summary ? inline(f.summary) : '',
 		observedHtml: f.observed ? inline(f.observed) : '',
@@ -213,6 +215,8 @@ function verificationFromJson(json) {
 		verdicts: (json.findings ?? []).filter(f => f.verified).map(f => ({ n: f.n, word: f.verified })),
 		linked: new Map((v.linked ?? []).map(l => [l.issue, l.severity])),
 		origin: new Map(Object.entries(v.origin ?? {}).map(([n, o]) => [Number(n), o])),
+		// Why a confirmed finding has no Origin, when it came from a replay on main.
+		originReason: new Map(Object.entries(v.originReason ?? {}).map(([n, r]) => [Number(n), r])),
 		bodyHtml: block(lines.slice(at + 1).join('\n')),
 	};
 }

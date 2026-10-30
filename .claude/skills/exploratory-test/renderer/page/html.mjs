@@ -16,6 +16,7 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileProcess, isPositronLog } from '../shared/ledger.mjs';
+import { formatCounts } from '../shared/main-check.mjs';
 import { basename, escapeHtml, isNewTestFile, readJson } from '../shared/text.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel, readIssueRefs } from '../known-issues.mjs';
@@ -262,10 +263,10 @@ const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
 const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 
 /**
- * A finding's likely origin, as the verifier judged it from the change under
- * test: 'introduced', 'exposed', 'inherited', or '' when not determined. A
- * finding not confirmed, or one whose fix didn't hold, is never given one.
- * Null on a run with no usable base, which has no Origin column.
+ * A finding's Origin: 'introduced', 'inherited', or '' when not determined. A
+ * report from before main replays may also say 'exposed', judged from the
+ * diff. A finding not confirmed, or one whose fix didn't hold, is never given
+ * one. Null on a run with no usable base, which has no Origin column.
  */
 function originOf(report, f, base, ki) {
 	if (base?.usable !== true) {
@@ -277,8 +278,21 @@ function originOf(report, f, base, ki) {
 	return report.verification?.origin?.get(f.n) ?? '';
 }
 
-function originText(report, origin) {
+/** Whether the report's Origins come from replays on main, not from the verifier's reading of the diff. */
+const replayed = report => Boolean(report.verification?.originReason?.size) || report.findings.some(f => f.main);
+const onMain = mainBuild => (mainBuild?.version ? `main (daily ${escapeHtml(mainBuild.version)})` : 'main');
+
+function originText(report, origin, f, mainBuild) {
 	const change = report.pr ? 'PR' : 'branch';
+	if (replayed(report)) {
+		const main = onMain(mainBuild);
+		if (origin === 'introduced' && f.main?.missing?.length) {
+			return `${capitalize(main)} does not have ${f.main.missing.map(escapeHtml).join(', ')}, so this ${change} added it.`;
+		}
+		return origin === 'introduced'
+			? `Does not happen on ${main}: ${formatCounts(f.main)}. Happens on this ${change}.`
+			: `Also happens on ${main}: ${formatCounts(f.main)}.`;
+	}
 	return {
 		introduced: `Likely caused by this ${change}. The suspected fix is in changed code.`,
 		exposed: `The suspected fix is in existing code, but this ${change} changed something that now triggers it.`,
@@ -286,10 +300,32 @@ function originText(report, origin) {
 	}[origin];
 }
 
+/** Why a finding has no Origin. */
+function noOriginText(report, f, mainBuild) {
+	if (!replayed(report)) {
+		return 'Not enough evidence in the diff to determine origin.';
+	}
+	const change = report.pr ? 'PR' : 'branch';
+	const { reason, detail } = report.verification?.originReason?.get(f.n) ?? {};
+	return {
+		'no main build': 'Not checked on main: no main build for this run.',
+		'not replayed': 'Not checked on main: the finding was not replayed there.',
+		'could not run': `Not checked on main: ${escapeHtml(detail)}.`,
+		'too few tries': `Not settled: ${escapeHtml(detail)}, fewer than this ${change} needed.`,
+		'drift': `Not settled: ${onMain(mainBuild)} and the base differ in the files of the fix.`,
+	}[reason] ?? 'Origin is given only for a confirmed finding.';
+}
+
 const originTip = (title, text, hidden = true) => `<span class="og-tip"${hidden ? ' aria-hidden="true"' : ''} role="tooltip">${title ? `<b>${title}</b>` : ''}<span>${text}</span></span>`;
 
-/** The Origin header, whose tooltip says once that every value is a judgement. */
-function originHead(report, base) {
+/** The Origin header, whose tooltip says once where every value comes from. */
+function originHead(report, base, mainBuild) {
+	if (replayed(report)) {
+		const text = mainBuild?.version
+			? `Whether the finding happens on main, from a replay on the daily (${escapeHtml(mainBuild.version)}, ${escapeHtml(String(mainBuild.commit ?? '').slice(0, 7))}).`
+			: 'Whether the finding happens on main. Not checked in this run.';
+		return `<span class="og-hc"><span class="og og-h" tabindex="0">Origin${originTip('Origin', text, false)}</span></span>`;
+	}
 	const text = `Likely origin, judged from this ${report.pr ? 'PR' : 'branch'}&rsquo;s diff. Not tested against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`;
 	return `<span class="og-hc"><span class="og og-h" tabindex="0">Origin${originTip('Origin', text, false)}</span></span>`;
 }
@@ -300,23 +336,23 @@ function originHead(report, base) {
  * reader hears the word, or "Origin not determined". The last row's tooltip
  * opens upward, away from the panel's edge.
  */
-function originCell(report, origin, last) {
+function originCell(report, f, origin, last, mainBuild) {
 	const up = last ? ' og-up' : '';
 	if (!origin) {
 		return `<span class="og-cell"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">Origin not determined</span>`
-			+ `${originTip('', 'Not enough evidence in the diff to determine origin.')}</span></span>`;
+			+ `${originTip('', noOriginText(report, f, mainBuild))}</span></span>`;
 	}
 	const word = capitalize(origin);
-	return `<span class="og-cell"><span class="og${up}">${word}${originTip(word, originText(report, origin))}</span></span>`;
+	return `<span class="og-cell"><span class="og${up}">${word}${originTip(word, originText(report, origin, f, mainBuild))}</span></span>`;
 }
 
 /** The Origin word in a card's meta line, after "Reproduced x/y". Nothing when not determined. */
-function cardOrigin(report, origin) {
+function cardOrigin(report, f, origin, mainBuild) {
 	if (!origin) {
 		return '';
 	}
 	const word = capitalize(origin);
-	return `<span class="og og-meta" tabindex="0">${word}${originTip(word, originText(report, origin), false)}</span>`;
+	return `<span class="og og-meta" tabindex="0">${word}${originTip(word, originText(report, origin, f, mainBuild), false)}</span>`;
 }
 
 /** A verdict other than Confirmed: verify rejected the finding, or it was never shown to hold. */
@@ -353,7 +389,7 @@ function withLastWord(html, tag) {
 	return `${html.slice(0, at + 1)}<span class="nowrap">${html.slice(at + 1)}${tag}</span>`;
 }
 
-function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
+function renderFindingsList(report, ki = null, refs = null, changeBase = null, mainBuild = null) {
 	const withOrigin = changeBase?.usable === true;
 	const grid = withOrigin ? 'findings-grid og-grid' : 'findings-grid';
 	const rows = report.findings.map((f, i) => {
@@ -390,14 +426,14 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 		return `<a href="#f${f.n}" class="row ${grid}${rejected ? ' is-rej' : ''}">`
 			+ `<span>${pill(f.severity)}</span>`
 			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${title}</span></span>`
-			+ (withOrigin ? originCell(report, originOf(report, f, changeBase, ki), i === report.findings.length - 1) : '')
+			+ (withOrigin ? originCell(report, f, originOf(report, f, changeBase, ki), i === report.findings.length - 1, mainBuild) : '')
 			+ status
 			+ '</a>';
 	});
 
 	const matchesHead = `<span><span class="og og-h" tabindex="0">Matches${originTip('Matches', 'Existing GitHub issues or PRs that match or may match this finding. A dash means no match was found.', false)}</span></span>`;
 	const head = rows.length
-		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${withOrigin ? originHead(report, changeBase) : ''}${matchesHead}</div>\n`
+		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${withOrigin ? originHead(report, changeBase, mainBuild) : ''}${matchesHead}</div>\n`
 		: '';
 
 	return `<section id="findings" class="section">
@@ -791,7 +827,7 @@ function renderFindingCard(f, report, options) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
 	}
 	// After the verdict and its rate, as in the table, before the linked issues.
-	const origin = cardOrigin(report, originOf(report, f, options.changeBase, options.ki));
+	const origin = cardOrigin(report, f, originOf(report, f, options.changeBase, options.ki), options.mainBuild);
 	if (origin) {
 		context.push(origin);
 	}
@@ -1166,7 +1202,7 @@ ${report.leadHtml ? `<p class="lead">${linkIssues(report.leadHtml, options.refs)
 
 ${renderTiles(report)}
 
-${renderFindingsList(report, ki, options.refs, options.changeBase)}
+${renderFindingsList(report, ki, options.refs, options.changeBase, options.mainBuild)}
 
 ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
