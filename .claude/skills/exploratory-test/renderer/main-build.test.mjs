@@ -7,10 +7,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ensureCommit, fetchDaily, mainBuildBrief, platformFor, readMainBuild } from './main-build.mjs';
+import { cachedDaily, ensureCommit, fetchDaily, localMainBuild, mainBuildBrief, platformFor, readMainBuild } from './main-build.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
 
 const BODY = Buffer.from('zip');
@@ -131,3 +131,46 @@ test('main-build.mjs needs nothing but Node: no package in its imports, all the 
 	walk(fileURLToPath(new URL('./main-build.mjs', import.meta.url)));
 	assert.deepEqual(bare, []);
 });
+
+/** A fetch over a feed whose version can change, counting downloads. */
+function versionedFetch() {
+	const state = { version: '2026.11.0-236', downloads: 0 };
+	state.fetch = async url => {
+		if (url.endsWith('/releases.json')) {
+			return new Response(JSON.stringify({ version: state.version, pub_date: '', url: `https://cdn.posit.co/x/Positron-${state.version}.zip`, commit: 'c'.repeat(40), sha256hash: sha(BODY) }));
+		}
+		state.downloads++;
+		return new Response(BODY);
+	};
+	return state;
+}
+
+test('cachedDaily downloads a daily once, and replaces it when a newer one is out', () => withTmpDir('main-cache-', async dir => {
+	const feed = versionedFetch();
+	const first = await cachedDaily({ platform: 'mac/arm64', cacheDir: dir, fetchImpl: feed.fetch, extract: fakeExtract });
+	assert.equal(first.version, '2026.11.0-236');
+	await cachedDaily({ platform: 'mac/arm64', cacheDir: dir, fetchImpl: feed.fetch, extract: fakeExtract });
+	assert.equal(feed.downloads, 1, 'the second run reuses the cached build');
+	feed.version = '2026.11.0-237';
+	const next = await cachedDaily({ platform: 'mac/arm64', cacheDir: dir, fetchImpl: feed.fetch, extract: fakeExtract });
+	assert.equal(next.version, '2026.11.0-237');
+	assert.equal(feed.downloads, 2);
+	assert.deepEqual(readdirSync(dir), ['2026.11.0-237'], 'only the newest daily is kept');
+}));
+
+test('localMainBuild: skipped, given, no daily for the platform, or a failed fetch', () => withTmpDir('main-local-', async dir => {
+	const lines = [];
+	const log = line => lines.push(line);
+	const never = async () => assert.fail('should not fetch');
+	assert.equal(await localMainBuild({ skip: true, platform: 'mac/arm64', cacheDir: dir, fetch: never, log }), null);
+	assert.equal(await localMainBuild({ platform: null, cacheDir: dir, fetch: never, log }), null);
+	assert.match(lines.at(-1), /no daily build of main for this platform/);
+	assert.equal(await localMainBuild({ platform: 'mac/arm64', cacheDir: dir, fetch: async () => { throw new Error('feed answered 503'); }, log }), null);
+	assert.match(lines.at(-1), /could not fetch a daily build of main: feed answered 503/);
+	const built = { version: 'v', commit: 'c', pubDate: '', platform: 'mac/arm64', binary: '/b' };
+	assert.equal(await localMainBuild({ platform: 'mac/arm64', cacheDir: dir, fetch: async () => built, log }), built);
+	// A directory given by hand is read, not fetched.
+	fakeExtract(null, dir);
+	writeFileSync(join(dir, 'main-build.json'), JSON.stringify({ ...built, binary: join(dir, 'Positron.app', 'Contents', 'MacOS', 'Positron') }));
+	assert.equal((await localMainBuild({ given: dir, platform: 'mac/arm64', cacheDir: dir, fetch: never, log }))?.version, 'v');
+}));

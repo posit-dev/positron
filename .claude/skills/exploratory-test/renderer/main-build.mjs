@@ -16,7 +16,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { accessSync, constants, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { accessSync, constants, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -98,6 +98,54 @@ export async function fetchDaily({ platform, outDir, fetchImpl = fetch, extract 
 	const build = { version: feed.version, commit: feed.commit, pubDate: feed.pub_date ?? '', platform, binary };
 	writeFileSync(join(outDir, 'main-build.json'), `${JSON.stringify(build, null, 2)}\n`);
 	return build;
+}
+
+/**
+ * The latest daily for `platform`, kept in `cacheDir/<version>`: downloaded
+ * once, reused by later runs, and replaced when a newer one is published.
+ * Only the newest is kept.
+ * @returns {Promise<MainBuild>}
+ */
+export async function cachedDaily({ platform, cacheDir, fetchImpl = fetch, extract = defaultExtract }) {
+	const res = await fetchImpl(`${FEED}/${platform}/releases.json`);
+	if (!res.ok) {
+		throw new Error(`feed answered ${res.status}`);
+	}
+	const { version } = await res.json();
+	if (typeof version !== 'string' || !/^[\w.-]+$/.test(version)) {
+		throw new Error('feed has no usable version');
+	}
+	const dir = join(cacheDir, version);
+	const build = readMainBuild(join(dir, 'main-build.json')) ?? await fetchDaily({ platform, outDir: dir, fetchImpl, extract });
+	for (const old of readdirSync(cacheDir).filter(name => name !== version)) {
+		rmSync(join(cacheDir, old), { recursive: true, force: true });
+	}
+	return build;
+}
+
+/**
+ * The main build for a local run, or null with the reason logged: the one in
+ * `given` when a directory was named, none when `skip`, else the cached daily
+ * for this machine. A run without one still runs; its findings get no Origin.
+ */
+export async function localMainBuild({ given, skip = false, platform = platformFor(), cacheDir, fetch: fetchBuild = cachedDaily, log = () => { } }) {
+	if (skip) {
+		return null;
+	}
+	if (given) {
+		return readMainBuild(join(given, 'main-build.json'));
+	}
+	if (!platform) {
+		log(`no daily build of main for this platform (${process.platform}/${process.arch}); exploring without one, so no finding gets an Origin`);
+		return null;
+	}
+	try {
+		mkdirSync(cacheDir, { recursive: true });
+		return await fetchBuild({ platform, cacheDir });
+	} catch (err) {
+		log(`could not fetch a daily build of main: ${err.message}; exploring without one, so no finding gets an Origin`);
+		return null;
+	}
 }
 
 function isExecutable(path) {

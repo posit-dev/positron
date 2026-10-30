@@ -17,7 +17,7 @@
 //     replays a run from its explorer's report.json; the explorer's figures fill the Run tile.
 
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, machine, release, type } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,7 +25,7 @@ import { parseArgs } from 'node:util';
 import { runClaude, stopAgents, WRAP_UP_MINUTES } from './agents/claude-cli.mjs';
 import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
-import { ensureCommit, mainBuildBrief, readMainBuild } from './main-build.mjs';
+import { ensureCommit, localMainBuild, mainBuildBrief } from './main-build.mjs';
 
 export const ISOLATE_MINUTES = 12;
 export const EXPLORE_MINUTES = 30;
@@ -456,7 +456,7 @@ async function main(argv) {
 		allowPositionals: true,
 		options: {
 			repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' },
-			brief: { type: 'string' }, 'time-limit': { type: 'string' }, 'main-build': { type: 'string' },
+			brief: { type: 'string' }, 'time-limit': { type: 'string' }, 'main-build': { type: 'string' }, 'no-main-build': { type: 'boolean' },
 			'duration-ms': { type: 'string' }, turns: { type: 'string' }, model: { type: 'string' },
 			'no-agent-prompts': { type: 'boolean' }, 'skip-checkout-check': { type: 'boolean' },
 		},
@@ -466,7 +466,7 @@ async function main(argv) {
 	const replay = given && existsSync(join(given, 'report.json'));
 	const fresh = !given && values.brief && existsSync(values.brief) && (limit === 'none' || /^\d+$/.test(limit));
 	if (command !== 'run' || !(replay || fresh)) {
-		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--main-build <dir>] [--no-agent-prompts] [--skip-checkout-check]');
+		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--main-build <dir> | --no-main-build] [--no-agent-prompts] [--skip-checkout-check]');
 		console.error('       node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]');
 		return 2;
 	}
@@ -499,13 +499,14 @@ async function main(argv) {
 		});
 	}
 	// A build of main the explorer replays each finding on; without one, no finding gets an Origin.
-	const found = fresh && values['main-build'] ? readMainBuild(join(values['main-build'], 'main-build.json')) : null;
+	// By default the latest daily, downloaded once a day into the state directory.
+	const found = fresh ? await localMainBuild({ given: values['main-build'], skip: values['no-main-build'], cacheDir: join(STATE_DIR, 'main'), log }) : null;
 	// Without main's commit in the checkout, every `needs` lookup would fail and read as missing.
 	const mainBuild = found && ensureCommit(values.repo, found.commit) ? found : null;
-	if (fresh && values['main-build'] && !mainBuild) {
-		log(found
-			? `main's commit ${found.commit.slice(0, 10)} is not in ${values.repo} and could not be fetched; exploring without a main build`
-			: `no usable main build in ${values['main-build']} (fetch one with main-build.mjs fetch); exploring without one`);
+	if (found && !mainBuild) {
+		log(`main's commit ${found.commit.slice(0, 10)} is not in ${values.repo} and could not be fetched; exploring without a main build`);
+	} else if (fresh && values['main-build'] && !found) {
+		log(`no usable main build in ${values['main-build']}; exploring without one`);
 	}
 	if (fresh) {
 		// The agents and the helpers they run inherit it, so a call that leaves
@@ -517,7 +518,7 @@ async function main(argv) {
 			writeFileSync(timeLimitPath, `${minutes}\n`);
 		}
 		if (mainBuild) {
-			copyFileSync(join(values['main-build'], 'main-build.json'), join(dir, 'main-build.json'));
+			writeFileSync(join(dir, 'main-build.json'), `${JSON.stringify(mainBuild, null, 2)}\n`);
 		}
 		console.log(`run directory: ${dir}`);
 		log(minutes === 'none' ? 'exploring with no time limit' : `exploring for ${minutes} minutes${mainBuild ? `, ${MAIN_REPLAY_MINUTES} of them for replays on main ${mainBuild.version}` : ''}; write other minutes to ${timeLimitPath} to change it, or 0 to stop now`);
