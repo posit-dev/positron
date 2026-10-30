@@ -3,12 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { existsSync } from 'fs';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { watchForFileCreation } from './connectionsFileArrival.js';
 import { connectionsFilePath, isSameConnectionsFile, readConnectionsFile, SnowflakeConnectionsFileEntry } from './snowflakeConnectionsFile.js';
 import { createSnowflakeDriver } from './snowflakeDriver.js';
 import { SnowflakeDataExplorerRpcHandler } from './snowflakeDataExplorerRpcHandler.js';
+import { isWorkbenchManaged } from './workbenchCredentials.js';
 
 /**
  * How long connections.toml has to be quiet before it is re-read. An editor or the Snowflake CLI
@@ -52,6 +55,10 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
+	// Checked before the first read, so a file created between the two is still waited for. If the
+	// file arrives after this check, the wait sees it at once and the reload finds nothing new.
+	const missingAtStart = !existsSync(filePath);
+
 	// What the driver currently offers, to tell a real edit from a file event that changed nothing.
 	let current = read() ?? {};
 
@@ -62,7 +69,12 @@ export function activate(context: vscode.ExtensionContext) {
 	// connections.toml is edited outside Positron -- by the Snowflake CLI, or by the user with a
 	// text editor -- so the driver is updated when the file changes rather than only at startup.
 	// The driver is updated in place, so the connections the user has open stay open.
-	context.subscriptions.push(watchConnectionsFile(filePath, () => {
+	//
+	// Workbench writes the file for managed credentials as the session starts, and sometimes after
+	// this extension activates. Only then is a missing file expected to appear, so only then is it
+	// polled for.
+	const waitForCreation = isWorkbenchManaged('SNOWFLAKE_HOME') && missingAtStart;
+	context.subscriptions.push(watchConnectionsFile(filePath, waitForCreation, () => {
 		const connections = read();
 		if (connections === undefined) {
 			// Keep offering what the last good reading found until the file parses again.
@@ -84,9 +96,14 @@ export function activate(context: vscode.ExtensionContext) {
  * The file sits outside any workspace folder, so this uses an absolute-path watcher rather than a
  * workspace-relative glob, correlated to the one file rather than to the (busy) directory holding
  * it.
+ *
+ * The watcher does not report a file created together with its directory, if the directory did not
+ * exist when watching started. With waitForCreation, the file path is also polled until the file
+ * exists.
  */
 function watchConnectionsFile(
 	filePath: string,
+	waitForCreation: boolean,
 	onChange: () => void,
 	logger: positron.DataConnectionLogger
 ): vscode.Disposable {
@@ -106,11 +123,13 @@ function watchConnectionsFile(
 	watcher.onDidCreate(reload);
 	watcher.onDidChange(reload);
 	watcher.onDidDelete(reload);
+	const creationWatch = waitForCreation ? watchForFileCreation(filePath, reload) : undefined;
 	return new vscode.Disposable(() => {
 		if (timer !== undefined) {
 			clearTimeout(timer);
 		}
 		watcher.dispose();
+		creationWatch?.dispose();
 	});
 }
 
