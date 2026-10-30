@@ -175,7 +175,7 @@ const mainProblems = (main, options = { mainBuild: MAIN_BUILD }) => {
 	if (main !== undefined) {
 		j.findings[0].main = main;
 	}
-	return formatProblems(j, LEDGER, options).filter(p => p.rule.startsWith('main-')).map(p => `${p.rule}: ${p.text}`);
+	return formatProblems(j, LEDGER, options).filter(p => p.rule.startsWith('main-') && p.rule !== 'main-shot-count').map(p => `${p.rule}: ${p.text}`);
 };
 
 test('a report with no main build and no main fields has no main problems', () => {
@@ -247,7 +247,7 @@ const shown = { step: 3, n: 0, m: 2, saw: 'x', shots: ['shots/M1.png'] };
 const audited = (main, options = {}) => {
 	const j = json();
 	Object.assign(j.findings[0], { title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.', main });
-	return formatProblems(j, LEDGER, { mainBuild: MAIN_BUILD, actionsLog: LOG, ...options }).filter(p => p.rule.startsWith('main-')).map(p => p.rule);
+	return formatProblems(j, LEDGER, { mainBuild: MAIN_BUILD, actionsLog: LOG, ...options }).filter(p => p.rule.startsWith('main-') && p.rule !== 'main-shot-count').map(p => p.rule);
 };
 
 test('a main replay with shots, a match flag and its log range has no main problems', () => {
@@ -269,4 +269,17 @@ test('main-log: the replay names its lines in the action log, all from the main 
 	assert.deepEqual(audited({ steps: [shown], log: [3, 3] }), ['main-log'], 'fewer actions than the finding has action steps');
 	assert.deepEqual(audited({ steps: [shown], log: [2, 9] }), ['main-log'], 'past the end of the log');
 	assert.deepEqual(audited({ steps: [shown] }, { actionsLog: undefined }), [], 'no log to check against');
+});
+
+test('step-shots: a check proves its result with one screenshot; main-shot-count: main captures the same', () => {
+	const j = json();
+	Object.assign(j.findings[0], { title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.' });
+	j.findings[0].steps[2].shots = ['shots/A.png', 'shots/B.png'];
+	j.findings[0].main = { steps: [{ step: 3, n: 0, m: 2, saw: 'x', shots: ['shots/M.png'] }], log: [2, 4] };
+	const rules = formatProblems(j, LEDGER, { mainBuild: MAIN_BUILD, actionsLog: LOG }).map(p => `${p.rule}:${p.severity}`);
+	assert.ok(rules.includes('step-shots:warning'), rules.join(' '));
+	assert.ok(rules.includes('main-shot-count:warning'), rules.join(' '));
+	j.findings[0].steps[2].shots = ['shots/A.png'];
+	const clean = formatProblems(j, LEDGER, { mainBuild: MAIN_BUILD, actionsLog: LOG }).map(p => p.rule);
+	assert.ok(!clean.includes('step-shots') && !clean.includes('main-shot-count'), clean.join(' '));
 });

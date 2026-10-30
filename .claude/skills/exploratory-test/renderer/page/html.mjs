@@ -623,7 +623,11 @@ function stepComparison(report, f, group, mainBuild, k) {
 	if (!mains.length) {
 		return null;
 	}
-	const prs = findingShots(f).map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k);
+	// The step's own screenshot pairs with main's; evidence from another scenario
+	// that opens from this step has no counterpart, so it comes after.
+	const own = new Set((f.steps[k - 1]?.evidence ?? []).map(e => e.file));
+	const prs = findingShots(f).map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k)
+		.sort((a, b) => Number(own.has(b.item.file)) - Number(own.has(a.item.file)));
 	const counted = f.main?.steps?.find(s => s.step === k);
 	const result = !counted ? ''
 		: counted.n > 0 ? (counted.same === false ? 'Fails differently' : 'Also fails')
@@ -663,17 +667,19 @@ function renderShotLinks(f, comparisonOf = () => null) {
 	}
 	// A real link to the raw image, so it still works without JavaScript; the
 	// script intercepts the click and opens the lightbox, which links the step back.
-	const link = (id, item, i, g, extra = '') => `<a class="shot" id="${id}" href="${escapeHtml(item.src)}" data-lb="f${n}-g${g + 1}" data-i="${i}"`
+	const link = (id, item, i, lb, extra = '') => `<a class="shot" id="${id}" href="${escapeHtml(item.src)}" data-lb="${lb}" data-i="${i}"`
 		+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`
 		+ ` data-step="${escapeHtml(item.step.label)}" data-step-href="#f${n}-s${item.step.order}"${extra} hidden></a>`;
 	const links = [...groups].sort(([a], [b]) => a - b).map(([k, group], g) => {
 		const cmp = comparisonOf(k);
 		if (!cmp) {
-			return group.map(({ item, i }) => link(`shot-f${n}-${i + 1}`, item, i, g)).join('');
+			return group.map(({ item, i }) => link(`shot-f${n}-${i + 1}`, item, i, `f${n}-g${g + 1}`)).join('');
 		}
-		// One link per pair: the viewer shows both builds side by side.
-		return cmp.pairs.map(({ pr, main }, j) => link(pr ? `shot-f${n}-${pr.i + 1}` : `shot-f${n}-m${k}-${j + 1}`, pr?.item ?? main, j, g,
-			` data-pr="${escapeHtml(pr?.item.src ?? '')}" data-main="${escapeHtml(main?.src ?? '')}" data-pr-h="${cmp.prH}" data-pr-r="${cmp.prR}" data-main-r="${cmp.mainR}"`)).join('');
+		// One link per pair, the viewer showing both builds side by side; the
+		// arrows move through every compared step of the finding.
+		return cmp.pairs.map(({ pr, main }, j) => link(pr ? `shot-f${n}-${pr.i + 1}` : `shot-f${n}-m${k}-${j + 1}`, pr?.item ?? main, j, `f${n}-cmp`,
+			` data-pr="${escapeHtml(pr?.item.src ?? '')}" data-main="${escapeHtml(main?.src ?? '')}" data-pr-h="${cmp.prH}" data-pr-r="${cmp.prR}" data-main-r="${cmp.mainR}"`
+			+ ` data-pair="${j + 1}" data-pairs="${cmp.pairs.length}"`)).join('');
 	}).join('');
 	return links ? `<div class="shot-links" hidden>${links}</div>` : '';
 }

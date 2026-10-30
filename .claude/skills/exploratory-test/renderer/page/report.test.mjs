@@ -1501,3 +1501,31 @@ test('two matches show both numbers; three or more show +N more with a tooltip, 
 	assert.match(card(three, 1), /#5703[\s\S]*#5704[\s\S]*#5705/);
 	assert.match(REPORT_CSS, /\.ki-more:hover \.og-tip\{opacity:1;visibility:visible;transition:opacity \.15s ease \.4s,visibility 0s linear \.4s\}/);
 });
+
+test('a step\'s own screenshot pairs with the latest build\'s; another scenario\'s evidence pairs with nothing', () => {
+	const other = { kind: 'shot', path: 'shots/S02-01.png', scenario: 'S02', caption: 'the same bug in another case' };
+	const json = rep({
+		findings: [fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, evidence: [other], main: mainStep(0, 2) })],
+		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
+	});
+	const links = shotLinks(grouped(json), 1).filter(t => attr(t, 'data-step') === 'Step 2');
+	assert.deepEqual(links.map(t => [attr(t, 'data-pr'), attr(t, 'data-main'), attr(t, 'data-pair'), attr(t, 'data-pairs')]), [
+		['shots/P1.png', 'shots/M1.png', '1', '2'],
+		['shots/S02-01.png', '', '2', '2'],
+	]);
+});
+
+test('the arrows move between a finding\'s compared steps', () => {
+	const steps = [act('Open.'), fail('first', 1, { shots: ['shots/P1.png'] }), fail('second', 1, { shots: ['shots/P2.png'] })];
+	const json = rep({
+		findings: [fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps, main: { steps: [2, 3].map(step => ({ step, n: 0, m: 2, saw: 'x', shots: [`shots/M${step}.png`] })) } })],
+		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
+	});
+	const groups = shotLinks(grouped(json), 1).map(t => attr(t, 'data-lb'));
+	assert.deepEqual(groups, ['f1-cmp', 'f1-cmp']);
+});
+
+test('a compared view keeps the arrows in the panel\'s margins, off the screenshots, and a missing side is a full-size placeholder', () => {
+	assert.match(REPORT_CSS, /\.lb\.is-cmp \.lb-img\{padding:0 48px\}/);
+	assert.match(REPORT_CSS, /\.lb-none\{[^}]*display:flex;[^}]*aspect-ratio:16\/10;/);
+});

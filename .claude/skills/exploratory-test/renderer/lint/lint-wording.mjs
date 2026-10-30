@@ -355,6 +355,10 @@ export function mainProblems(n, main, steps, { mainBuild, actionsLog, files = []
 	for (const s of main.steps.filter(s => !Array.isArray(s.shots) || !s.shots.length)) {
 		problems.push(problem('main-shot', `report: Finding ${n} main step ${s.step} has no screenshot; take one of the check on the main build and list it in shots`));
 	}
+	// Main captures the view the change's screenshot of the step shows, so the two pair one to one.
+	for (const s of main.steps.filter(s => Array.isArray(s.shots) && s.shots.length && s.shots.length !== (steps[s.step - 1]?.shots ?? []).length)) {
+		problems.push(problem('main-shot-count', `report: Finding ${n} main step ${s.step} has ${s.shots.length} screenshots and the step has ${(steps[s.step - 1]?.shots ?? []).length}; capture on main the same view the step's screenshot shows`));
+	}
 	for (const s of main.steps.filter(s => s.n > 0 && typeof s.same !== 'boolean')) {
 		problems.push(problem('main-same', `report: Finding ${n} main step ${s.step} failed on main; say in same whether it failed the same way as on the change`));
 	}

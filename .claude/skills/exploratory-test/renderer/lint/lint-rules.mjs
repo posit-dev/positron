@@ -75,6 +75,8 @@ export const LINT_RULES = {
 	'main-shot': 'error',
 	'main-same': 'error',
 	'main-log': 'error',
+	'main-shot-count': 'warning',
+	'step-shots': 'warning',
 	'feature-code-name': 'error',
 	'points-at-finding': 'error',
 	'finding-scenario-id': 'error',

@@ -377,9 +377,16 @@ Take it with drive-positron's `shot.sh` in the same tool call as the check, so
 it shows the state the check judged and costs no extra turn. Name it for the
 scenario and the order you took it in, `S03-01.png`, `S03-02.png`, never for a
 step number, and never reuse or rename one: the `Evidence:` line ties a shot to
-its step. `shot.sh` refuses a name already taken and prints the next free one. Take a second only when it shows a different moment the check
-depends on, such as the same panel still loading 15 s later. Leave a shot no
-check cites where it is; it is harmless.
+its step. `shot.sh` refuses a name already taken and prints the next free one.
+
+One screenshot per check: the view that proves its PASS or FAIL. A check that
+judges two things is two checks, each with its own result and shot. A moment
+before and a moment after are two steps, such as an action and the check that
+the panel is still loading 15 s later. A check tried several times keeps one
+shot and says the rest in its text: "Same in 2 of 2 tries". Only when the
+evidence cannot fit one view, crop one region that holds it all; take a second
+shot only when even that is impossible. Leave a shot no check cites where it
+is; it is harmless.
 
 Pass `--crop` with the region the check is about: its view (`--view
 Variables`, `--view 'active console'`) or a snapshot ref of the panel, tooltip
@@ -556,7 +563,8 @@ Try each failing check at least as many times as `reproduced` has tries, and
 twice as many when it failed in under half of them. Record each in
 `main.steps` as `{ "step": <its number in steps>, "n": <fails>, "m": <tries>,
 "saw": "<what it showed, in a phrase>", "shots": ["shots/<file>"] }`, with a
-screenshot of the check on main, as for the change. When it failed on main,
+screenshot on main of the same view, with the same crop, as the change's
+screenshot of that step, so the two pair one to one. When it failed on main,
 add `"same"`: `true` only when it failed the way it did on the change, the same
 symptom from the same steps; a different error or a different wrong value is
 `false`. Then collect the instance's logs and stop it, and give `main.log` as

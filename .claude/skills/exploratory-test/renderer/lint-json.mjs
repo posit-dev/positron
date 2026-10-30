@@ -193,6 +193,11 @@ export function formatProblems(json, ledger, options = {}) {
 		}
 		problems.push(...rateProblems(f.n, f.severity, f.reproduced ? `${f.reproduced.n}/${f.reproduced.m}` : ''));
 		problems.push(...mainProblems(f.n, f.main, f.steps ?? [], { ...options, files: (f.preconditions ?? []).map(p => p.file).filter(Boolean) }));
+		(f.steps ?? []).forEach((s, i) => {
+			if (s.kind === 'verify' && (s.shots ?? []).length > 1) {
+				problems.push(problem('step-shots', `report: Finding ${f.n} step ${i + 1} has ${s.shots.length} screenshots; keep the one that proves its result, say repeated tries in the step ("Same in 2 of 2 tries"), and split a step that checks two things`));
+			}
+		});
 		const steps = (f.steps ?? []).map((s, i) => ({ n: String(i + 1), verify: s.kind === 'verify', text: s.text, result: s.result?.toUpperCase() }));
 		problems.push(...findingProblems(f.n, {
 			title: f.title,

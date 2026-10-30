@@ -844,7 +844,11 @@ a.st-ev:hover .ev-pop .ev-hd span{text-decoration:underline;text-underline-offse
 .lb-cmp-h b{font-weight:600;color:var(--ink)}
 .lb-cmp-h span{color:var(--muted)}
 .lb-cmp img.shot-full{display:block;width:100%;height:auto;max-height:calc(100vh - 220px);border-radius:6px;border:1px solid var(--border);object-fit:contain}
-.lb-none{margin:0;padding:40px 12px;border:1px dashed var(--border);border-radius:6px;font-family:var(--sans);font-size:13px;color:var(--muted);text-align:center}
+.lb-none{margin:0;box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:16/10;max-height:calc(100vh - 220px);padding:12px;border:1px dashed var(--border);border-radius:6px;font-family:var(--sans);font-size:13px;color:var(--muted);text-align:center}
+.lb-none[hidden]{display:none}
+/* A comparison keeps the arrows in the panel's side margins, off both screenshots. */
+.lb.is-cmp .lb-img{padding:0 48px}
+.lb.is-cmp .lb-prev{left:4px}.lb.is-cmp .lb-next{right:4px}
 @media (max-width:900px){.lb-cmp{grid-template-columns:1fr}}
 /* Stacked, each build gets half the height, so both fit with the caption and close button. */
 @media (max-width:900px){.lb-cmp img.shot-full{max-height:calc(50vh - 130px)}}

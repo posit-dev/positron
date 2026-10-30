@@ -366,8 +366,8 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 		if (v?.verified !== 'confirmed') {
 			continue;
 		}
-		// A record lint rejects (a failing check left out, two kinds of result) cannot be read as counts.
-		if (mainBuild && f.main && mainProblems(f.n, f.main, f.steps ?? [], { mainBuild, actionsLog, files: (f.preconditions ?? []).map(p => p.file).filter(Boolean) }).length) {
+		// A record lint rejects (a failing check left out, two kinds of result) cannot be read as counts; a warning does not void it.
+		if (mainBuild && f.main && mainProblems(f.n, f.main, f.steps ?? [], { mainBuild, actionsLog, files: (f.preconditions ?? []).map(p => p.file).filter(Boolean) }).some(p => p.severity === 'error')) {
 			originReason[f.n] = { reason: 'could not run', detail: 'its replay record is incomplete' };
 			continue;
 		}
