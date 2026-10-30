@@ -1132,6 +1132,12 @@ def make_slow(ncols=20, nrows=1000, delay=0.002):
 <div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum"><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-fix">1 fix verified</span><span class="ki-dot" aria-hidden="true">&middot;</span><span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="ki-list-no">4 not observed</span></span></div></div>
 
 
+==== every verdict tag, in a row or on a card, has a tooltip: Unproven and any other verdict too
+Unresolved: The verifier couldn&rsquo;t confirm or rule this out. The finding has the details.
+Disputed: The verifier thinks this may not be a bug. The finding explains why.
+Unproven: The run saw this but couldn&rsquo;t reproduce it, and verification didn&rsquo;t check it.
+Withdrawn: The verifier didn&rsquo;t confirm this finding. The finding has the details.
+
 ==== a disputed finding whose fix did not hold: a faded row with its tag and plain number, Fixes on its card and in Coverage, never Not fixed
 <a href="#f1" class="row findings-grid is-rej"><span><span class="pill sev-major"><span class="dot"></span>Major</span></span><span class="finding-cell"><span class="claim"><span class="n">1</span>Still <span class="nowrap">jumps<span class="og vtag">Disputed<span class="og-tip" aria-hidden="true" role="tooltip"><b>Disputed</b><span>The verifier thinks this may not be a bug. The finding explains why.</span></span></span></span></span></span><span class="ki-st"><span class="ki-mt"><span class="ki-state"><span class="ki-num-t" data-state="open" data-opened="Opened Aug 20" data-title="failed" data-summary="x">#11</span></span></span><span class="ki-mt"><span class="ki-state">Dupe? <span class="ki-num-t">#15102</span></span></span></span></a>
 --

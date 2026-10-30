@@ -327,13 +327,16 @@ function isRejected(word) {
 const VERDICT_TIPS = {
 	disputed: 'The verifier thinks this may not be a bug. The finding explains why.',
 	unresolved: 'The verifier couldn&rsquo;t confirm or rule this out. The finding has the details.',
+	// The run's own label for a finding seen but reproduced 0 times; a verifier's verdict replaces it.
+	unproven: 'The run saw this but couldn&rsquo;t reproduce it, and verification didn&rsquo;t check it.',
 };
+const VERDICT_TIP_OTHER = 'The verifier didn&rsquo;t confirm this finding. The finding has the details.';
 
 /** The square tag that marks a rejected finding: in its table row, or focusable in its card's meta line. */
 function verdictTag(word, focusable = true) {
 	const label = escapeHtml(capitalize(word));
-	const tip = VERDICT_TIPS[word] ? originTip(label, VERDICT_TIPS[word], !focusable) : '';
-	return `<span class="og vtag"${focusable && tip ? ' tabindex="0"' : ''}>${label}${tip}</span>`;
+	const tip = originTip(label, VERDICT_TIPS[word] ?? VERDICT_TIP_OTHER, !focusable);
+	return `<span class="og vtag"${focusable ? ' tabindex="0"' : ''}>${label}${tip}</span>`;
 }
 
 /** `html` with `tag` after its last word, the two kept on one line so the tag never wraps alone. */

@@ -1209,6 +1209,18 @@ const SCENES = {
 	// Known issues.
 	'Linked issues leaves out a zero count': () => findingsOf(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace('Issue: #10 fix held\n', '') })).split('<div class="ki-list"')[0].slice(-700),
 	'Linked issues with nothing observed': () => between(findingsOf(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace(/^Issue: #2[236] observed\n/gm, '') })), '<div class="ki-grp">', '<div class="ki-list"'),
+	'every verdict tag, in a row or on a card, has a tooltip: Unproven and any other verdict too': () => {
+		const html = kiHtml({ ...KI_REPORT, findings: [
+			...KI_REPORT.findings,
+			fnd(4, { severity: 'minor', reproduced: { n: 0, m: 3 }, title: 'Seen once', observed: 'it flickered.', expected: 'it stays.' }),
+			fnd(5, { severity: 'minor', reproduced: { n: 1, m: 1 }, title: 'Odd verdict', verified: 'withdrawn', observed: 'x.', expected: 'y.' }),
+		] });
+		const tags = [...html.matchAll(/<span class="og vtag"[^>]*>([^<]*)(<span class="og-tip"[^>]*>(?:<b>[^<]*<\/b>)?<span>([^<]*)<\/span>)?/g)];
+		assert.equal(tags.length, 8, `expected a tag per rejected row and card (4 findings), saw ${tags.length}`);
+		const missing = tags.filter(t => !t[3]).map(t => t[1]);
+		assert.deepEqual(missing, [], `tags with no tooltip: ${missing.join(', ')}`);
+		return [...new Set(tags.map(t => `${t[1]}: ${t[3]}`))].join('\n');
+	},
 	'a disputed finding whose fix did not hold: a faded row with its tag and plain number, Fixes on its card and in Coverage, never Not fixed': () => {
 		const html = kiHtml(kiWith(1, { verified: 'disputed' }));
 		const context = between(card(html, 1), '<span class="group context">', '<a class="gh-btn"');
