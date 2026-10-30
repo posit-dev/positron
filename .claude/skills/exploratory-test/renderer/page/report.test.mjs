@@ -1403,3 +1403,21 @@ test('a card shows the screenshots from the latest build, and fails differently 
 	assert.equal(cardGroup(html, 6), 'Unknown: fails differently on the latest build');
 	assert.deepEqual(badgeTip(html, 6), ['Unknown', 'It also failed on the latest build, but differently (a different error), so this run can&rsquo;t say whether it&rsquo;s the same issue.']);
 });
+
+// A fix that held in one scenario and failed in another: partly fixed, said the same way everywhere.
+const PARTLY_LEDGER = KI_LEDGER.replace('Issue: #10 fix held', 'Issue: #10 fix held\nIssue: #11 fix held');
+
+test('a fix that held in one scenario and failed in another is Partly fixed in the row, the card and the footer', () => {
+	const json = { ...kiWith(1, { verified: 'confirmed' }), verification: { failed: false, text: 'x', originReason: { 1: { reason: 'not replayed', detail: '' } } } };
+	const html = render(json, { ledger: PARTLY_LEDGER, knownIssues: KI_ISSUES, changeBase: USABLE, mainBuild: MAIN_BUILD });
+	assert.match(findingRow(html, 1), /Partly fixed<\/span><span class="ki-state">.*#11/);
+	assert.doesNotMatch(findingRow(html, 1), /Not fixed/);
+	assert.match(card(html, 1), /Partly fixed .*#11/);
+	assert.deepEqual(badgeTip(html, 1), ['Also in latest build', 'Fixed in &ldquo;fix one&rdquo;, but still happens in &ldquo;fix two&rdquo;. #11 is open for it.']);
+	const sum = between(html, '<span class="ki-sum">', '</div>');
+	assert.match(sum, /1 fix verified/);
+	assert.match(sum, /1 partly fixed/);
+	assert.doesNotMatch(between(html, 'id="ki-list-fix"', '</div></div>'), /#11/);
+	assert.match(between(html, 'id="ki-list-part"', '</div></div>'), /#11.*passed in &ldquo;fix one&rdquo;, failed in &ldquo;fix two&rdquo;/s);
+	assert.match(issueCopied(html, 1), /The fix for #11 in #100 held only in part\./);
+});

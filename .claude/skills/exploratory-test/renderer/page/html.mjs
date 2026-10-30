@@ -249,6 +249,7 @@ function renderNoFindings(report, ki) {
 		notRun ? `<b>${notRun}</b> not run` : '',
 		...kiCounts(ki, {
 			fix: n => `${plural(n, 'fix', 'fixes')} verified`,
+			part: n => `${plural(n, 'fix', 'fixes')} partly held`,
 			obs: n => `${plural(n, 'known issue', 'known issues')} observed`,
 			no: n => `${plural(n, 'linked issue', 'linked issues')} not observed`,
 		}),
@@ -320,7 +321,10 @@ function groupEvidence(report, f, group, ki) {
 	if (group === 'ex') {
 		const failed = ki?.fixFailed.get(f.n);
 		if (failed?.length) {
-			return `Still happens. #${Number(failed[0].number)} is open for it.`;
+			const part = ki.fixesPartly?.find(p => p.issue.number === failed[0].number);
+			return part
+				? `Fixed in &ldquo;${part.held[0].scenarioHtml}&rdquo;, but still happens in &ldquo;${part.failed[0].scenarioHtml}&rdquo;. #${Number(failed[0].number)} is open for it.`
+				: `Still happens. #${Number(failed[0].number)} is open for it.`;
 		}
 		const steps = [...(f.main?.steps ?? [])].sort((a, b) => a.step - b.step);
 		if (steps.length === 1) {
@@ -460,7 +464,7 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null, m
 		const rejected = isRejected(word);
 		if (failed.length || back.length) {
 			const own = first(failed.length ? failed : back);
-			lines.push(rejected ? muted(own) : line(`<span class="ki-reg">${ICON.x}${failed.length ? 'Not fixed' : 'Regressed'}</span><span class="ki-state">${own}</span>`));
+			lines.push(rejected ? muted(own) : line(`<span class="ki-reg">${ICON.x}${failed.length ? (failed.some(n => ki.partly?.has(n)) ? 'Partly fixed' : 'Not fixed') : 'Regressed'}</span><span class="ki-state">${own}</span>`));
 		}
 		// Every match the card shows, linked to the PR or found by search, one line per kind.
 		lines.push(...matchesByKind(possiblyKnown(f, ki), refs).map(m => muted(m.label(first(m.numbers)))));
@@ -517,8 +521,8 @@ ${body}
 
 /** The linked-issue counts above zero, fix verified first, each opening its list. */
 function kiCounts(ki, label) {
-	const n = { fix: ki?.fixesHeld?.length ?? 0, obs: ki?.observed?.length ?? 0, no: ki?.notObserved?.length ?? 0 };
-	return ['fix', 'obs', 'no'].filter(k => n[k]).map(k => kiCnt(`ki-list-${k}`, label[k](n[k])));
+	const n = { fix: ki?.fixesHeld?.length ?? 0, part: ki?.fixesPartly?.length ?? 0, obs: ki?.observed?.length ?? 0, no: ki?.notObserved?.length ?? 0 };
+	return ['fix', 'part', 'obs', 'no'].filter(k => n[k] && label[k]).map(k => kiCnt(`ki-list-${k}`, label[k](n[k])));
 }
 
 /**
@@ -529,8 +533,9 @@ function kiCounts(ki, label) {
 function renderLinkedIssues(report, ki, noFindings = false) {
 	const observed = ki?.observed ?? [];
 	const held = ki?.fixesHeld ?? [];
+	const partly = ki?.fixesPartly ?? [];
 	const unseen = ki?.notObserved ?? [];
-	if (!observed.length && !held.length && !unseen.length) {
+	if (!observed.length && !held.length && !partly.length && !unseen.length) {
 		return '';
 	}
 	const { rowId } = coverageOrder(report.coverage);
@@ -549,11 +554,12 @@ function renderLinkedIssues(report, ki, noFindings = false) {
 	const skipped = ki?.skipped ?? new Set();
 	const lists = list('ki-list-obs', 'Known issues observed this run', observed.map(o => item(o.issue, seen(o))))
 		+ list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in ${quote(h.rows[0])}`)))
+		+ list('ki-list-part', 'Partly fixed this run', partly.map(p => item(p.issue, `passed in ${quote(p.held[0])}, failed in ${quote(p.failed[0])}`)))
 		+ list('ki-list-no', 'Linked to this PR, not observed', unseen.map(i => item(i, skipped.has(i.number) ? 'skipped on purpose, see Coverage' : 'no scenario reached it')));
 	if (noFindings) {
 		return lists;
 	}
-	const counts = kiCounts(ki, { fix: n => `${n} fix verified`, obs: n => `${n} observed`, no: n => `${n} not observed` }).join(KI_DOT);
+	const counts = kiCounts(ki, { fix: n => `${n} fix verified`, part: n => `${n} partly fixed`, obs: n => `${n} observed`, no: n => `${n} not observed` }).join(KI_DOT);
 	return `<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${counts}</span></div></div>\n${lists}`;
 }
 
@@ -871,7 +877,7 @@ function cardIssueItems(f, word, ki, refs) {
 	};
 	const items = [];
 	if (failed.length) {
-		items.push(item(rejected ? 'Fixes' : 'Not fixed', failed.map(i => i.number)));
+		items.push(item(rejected ? 'Fixes' : failed.some(i => ki.partly?.has(i.number)) ? 'Partly fixed' : 'Not fixed', failed.map(i => i.number)));
 	} else if (back.length) {
 		items.push(item(rejected ? 'Closed &middot;' : 'Regressed', back.map(i => i.number)));
 	}

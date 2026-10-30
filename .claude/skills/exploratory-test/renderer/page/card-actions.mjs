@@ -308,7 +308,15 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 		out.unshift(`${refs(back)} regressed${inPr}.`, '');
 	}
 	if (failedFixes) {
-		out.unshift(`The fix for ${refs(failedFixes)}${inPr} didn't hold.`, '');
+		// A fix that held in another scenario held in part, not not at all.
+		const partly = failedFixes.filter(i => options.ki?.partly?.has(i.number));
+		const whole = failedFixes.filter(i => !options.ki?.partly?.has(i.number));
+		if (whole.length) {
+			out.unshift(`The fix for ${refs(whole)}${inPr} didn't hold.`, '');
+		}
+		if (partly.length) {
+			out.unshift(`The fix for ${refs(partly)}${inPr} held only in part.`, '');
+		}
 	}
 	const section = (heading, body) => {
 		if (body) {
