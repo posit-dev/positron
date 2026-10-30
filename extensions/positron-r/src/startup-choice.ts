@@ -87,10 +87,10 @@ export interface RStartupInputs<T extends RStartupCandidate> {
 /**
  * Whether a `positron.r.interpreters.default` value names an environment
  * module rather than a path: it isn't absolute, and doesn't start with `~`,
- * `.`, or a variable such as `${workspaceFolder}`.
+ * `.`, a variable such as `${workspaceFolder}`, or a Windows drive letter.
  */
 export function isModuleName(value: string): boolean {
-	return !path.isAbsolute(value) && !/^[~.$\\]/.test(value);
+	return !path.isAbsolute(value) && !/^([~.$\\]|[A-Za-z]:[\\/])/.test(value);
 }
 
 /**
