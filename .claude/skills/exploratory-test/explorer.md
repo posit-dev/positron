@@ -703,10 +703,9 @@ the change, but with no budget it used to finish; now the 30 s budget runs out
 first." Describe the old code's behavior, not the run you did not do. When the
 diff changes what unchanged code is given, write "reachable through this
 change; cannot tell if it predates it without a base build". Otherwise, if the
-diff does not settle it, leave origin out, and never label a finding new or
-pre-existing. The verifier reads that sentence and decides each finding's
-Origin in the findings list (Introduced, Exposed or Inherited); add no field or
-mark for it yourself.
+diff does not settle it, leave that sentence out, and never label a finding new or
+pre-existing. A finding's Origin in the findings list (Introduced or
+Inherited) comes from its replay on main, not from this sentence.
 
 To see which language client served a request, turn on its LSP trace: the
 extension's trace setting (`<server>.trace.server` at `verbose`) and its

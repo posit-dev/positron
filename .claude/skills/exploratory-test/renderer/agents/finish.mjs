@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { knownFixLines, knownIssueOutcomes } from '../known-issues.mjs';
 import { lintActionsLog } from '../lint/lint-ledger.mjs';
 import { parseLedger } from '../shared/ledger.mjs';
+import { originFromMain } from '../shared/main-check.mjs';
 import { readJson } from '../shared/text.mjs';
 
 /**
@@ -23,7 +24,7 @@ import { readJson } from '../shared/text.mjs';
  * unless `actionsLog` is given. A placeholder with no value, or a value with
  * no placeholder, throws, so the template and this list cannot drift apart quietly.
  */
-export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha, actionsLog, changeBase, session, reportFile = join(workDir, 'report.json') }) {
+export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha, actionsLog, session, reportFile = join(workDir, 'report.json') }) {
 	const logPath = join(workDir, 'actions.log');
 	const log = actionsLog ?? (existsSync(logPath) ? readFileSync(logPath, 'utf8') : undefined);
 	const logProblems = log === undefined ? [] : lintActionsLog(log, { session });
@@ -38,11 +39,6 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 		KNOWN_ISSUES: `${workDir}/known-issues.json`,
 		REPO: repoRoot,
 		DIFF: `${baseSha}...${headSha}`,
-		HEAD: headSha,
-		CHANGE_RANGE: `${baseSha}..${headSha}`,
-		CHANGE_SCOPE: changeBase?.usable
-			? `The change under test is the commits in \`${baseSha}..${headSha}\`.`
-			: `This run has no usable base (${changeBase?.reason ?? 'none was given'}), so give no finding an \`origin\` and skip the steps below.`,
 		SEARCH: `node ${join(dirname(fileURLToPath(import.meta.url)), '..', 'known-issues.mjs')} --search`,
 	};
 	const used = new Set();
@@ -99,13 +95,12 @@ export function writeChangeBase(dir, base) {
 
 const VERDICTS = { 'confirmed': 'confirmed', 'false positive': 'disputed', 'unresolved': 'unresolved' };
 const SEVERITIES = ['major', 'moderate', 'minor'];
-const ORIGINS = ['introduced', 'exposed', 'inherited'];
 
 /**
  * The verifier's reply: the fenced `json` block it opens with, and its notes
  * after the block. Anything before the block is its notes to itself, and is
  * dropped. `findings` maps a finding number to `{ verified, known, intended,
- * feature, title, origin }`, `linked` an issue number to its severity, and
+ * feature, title, fix }`, `linked` an issue number to its severity, and
  * `problem` says why the block could not be read, or is ''. An entry it
  * cannot read is skipped, so one bad entry costs only that finding.
  */
@@ -142,7 +137,7 @@ export function parseVerifyReply(text) {
 			const setup = Array.isArray(f.setup)
 				? f.setup.filter(x => x && typeof x === 'object').map(x => ({ what: typeof x.what === 'string' ? x.what.trim() : '', log: Number.isInteger(x.log) ? x.log : null, alone: x.alone === true, why: typeof x.why === 'string' ? x.why.trim() : '' }))
 				: null;
-			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), origin: ORIGINS.includes(f.origin) ? f.origin : null, log, shots, setup });
+			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), fix: Array.isArray(f.fix) ? f.fix.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()) : [], log, shots, setup });
 		}
 	}
 	for (const l of Array.isArray(data?.linked) ? data.linked : []) {
@@ -338,7 +333,7 @@ const CORRECTABLE = ['title', 'feature', 'cause', 'observed', 'tests'];
  * findings are unreviewed" is not a detail to hide behind a click, and
  * changes no finding.
  */
-export function applyVerification(json, reply, { failed = false, text = '', gaps = [] } = {}) {
+export function applyVerification(json, reply, { failed = false, text = '', gaps = [], mainBuild = null, repoRoot = '', baseSha = '' } = {}) {
 	if (failed) {
 		return { ...json, verification: { failed, text } };
 	}
@@ -360,7 +355,22 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			...(corrected.length ? { corrected, explorer: Object.fromEntries(corrected.map(key => [key, f[key] ?? null])) } : {}),
 		};
 	});
-	const origin = Object.fromEntries([...reply.findings].filter(([, f]) => f.origin).map(([n, f]) => [n, f.origin]));
+	// Each confirmed finding's Origin from its replay on main, or why it has none.
+	const origin = {};
+	const originReason = {};
+	for (const f of json.findings ?? []) {
+		const v = reply.findings.get(f.n);
+		if (v?.verified !== 'confirmed') {
+			continue;
+		}
+		const drift = Boolean(mainBuild) && fixDrifted(repoRoot, mainBuild.commit, baseSha, v.fix);
+		const o = originFromMain({ main: f.main, reproduced: f.reproduced ?? { n: 1, m: 1 }, drift, hasMainBuild: Boolean(mainBuild) });
+		if (o.origin) {
+			origin[f.n] = o.origin;
+		} else {
+			originReason[f.n] = { reason: o.reason, detail: o.detail };
+		}
+	}
 	const unchecked = Object.fromEntries(['log', 'shots', 'setup'].map(kind => [kind, [...new Set(gaps.filter(g => g.kind === kind).map(g => g.n))]]).filter(([, ns]) => ns.length));
 	const named = ns => ns.map(n => `Finding ${n}`).join(', ');
 	const skipped = [
@@ -378,10 +388,27 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			// Its own all-clear would contradict what the pipeline found missing.
 			text: [PREAMBLE, skipped ? reply.notes.replace(/\n*No process issues\.?\s*$/, '') : reply.notes, skipped ? `_The verifier did not show it checked ${skipped}._` : ''].filter(Boolean).join('\n\n'),
 			...(Object.keys(origin).length ? { origin } : {}),
+			...(Object.keys(originReason).length ? { originReason } : {}),
 			...(linked.length ? { linked } : {}),
 			...(skipped ? { unchecked } : {}),
 		},
 	};
+}
+
+/**
+ * Whether the files of a finding's fix differ between the main build and the
+ * base, so main's behavior there may not be the base's. True when git cannot
+ * tell, such as a main commit the checkout does not have. False with no files.
+ */
+export function fixDrifted(repoRoot, mainCommit, baseSha, files) {
+	if (!files?.length) {
+		return false;
+	}
+	try {
+		return execFileSync('git', ['-C', repoRoot, 'diff', '--name-only', mainCommit, baseSha, '--', ...files], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() !== '';
+	} catch {
+		return true;
+	}
 }
 
 /** True once report.json carries a verification, so it is never added twice. */
@@ -430,7 +457,7 @@ export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
 	}
 	const out = join(dir, 'verify-prompt.md');
 	writeFileSync(out, buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
-		workDir: dir, repoRoot: repo, baseSha: base, headSha: head, changeBase: changed, reportFile: path,
+		workDir: dir, repoRoot: repo, baseSha: base, headSha: head, reportFile: path,
 		// Set by a local pipeline run, as for the explorer's own check; CI drives its own session.
 		session: process.env.PW_SESSION || undefined,
 	}));
@@ -449,7 +476,7 @@ export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
  * verification did not complete rather than leaving the findings looking
  * reviewed. Otherwise returns `{ failed, logLines }`.
  */
-export function applyVerifyReply(dir, reply, { error = '', final = false, opened = null } = {}) {
+export function applyVerifyReply(dir, reply, { error = '', final = false, opened = null, repo = '', base = '' } = {}) {
 	const { path, report, ledger, actionsLog, knownIssues } = readRun(dir);
 	if (isVerified(report)) {
 		return { already: true };
@@ -469,6 +496,7 @@ export function applyVerifyReply(dir, reply, { error = '', final = false, opened
 	const unreviewed = findings ? 'The findings above are unreviewed.' : 'The known issues above are unrated.';
 	const why = error ? `: ${error}` : mismatch ? `: ${mismatch}` : !reply ? '' : parsed.problem ? `: ${parsed.problem}` : ': the reply gave no verdicts';
 	const text = `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`;
-	writeReport(path, applyVerification(report, parsed, { failed, text, gaps }));
+	const mainBuild = readJson(join(dir, 'main-build.json'));
+	writeReport(path, applyVerification(report, parsed, { failed, text, gaps, mainBuild, repoRoot: repo, baseSha: base }));
 	return { failed, logLines: verifyLogLines(knownIssues, ledger, failed ? parseVerifyReply('') : parsed) };
 }

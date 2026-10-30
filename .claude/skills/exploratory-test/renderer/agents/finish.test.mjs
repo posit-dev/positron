@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withTmpDir } from '../shared/tmp-dirs.mjs';
-import { applyVerification, applyVerifyReply, buildVerifyPrompt, changeBase, findingNumbers, issueMatches, isVerified, checkGaps, checkMessage, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines, writeVerifyPrompt } from './finish.mjs';
+import { applyVerification, applyVerifyReply, buildVerifyPrompt, changeBase, findingNumbers, fixDrifted, issueMatches, isVerified, checkGaps, checkMessage, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines, writeVerifyPrompt } from './finish.mjs';
 
 /** report.json with two findings, as the explorer writes them. */
 const REPORT = {
@@ -45,7 +45,7 @@ test('parseVerifyReply says why it read nothing, and keeps the whole reply as no
 test('parseVerifyReply skips each entry it cannot read, and keeps the rest', () => {
 	const r = parseVerifyReply(reply({
 		findings: [
-			{ n: 1, verdict: 'confirmed', known: [15102, 15102, 'x'], feature: 'new folder flow', title: 'a | b', origin: 'exposed', log: [12, 30], shots: ['shots/S01-02.png', 3] },
+			{ n: 1, verdict: 'confirmed', known: [15102, 15102, 'x'], feature: 'new folder flow', title: 'a | b', origin: 'exposed', fix: ['src/a.ts', 3, ' '], log: [12, 30], shots: ['shots/S01-02.png', 3] },
 			{ n: '2', verdict: 'confirmed' },
 			{ n: 3, verdict: 'maybe' },
 			{ n: 4, verdict: 'unresolved', intended: [14210], origin: 'unclear', log: [30, 12] },
@@ -53,8 +53,8 @@ test('parseVerifyReply skips each entry it cannot read, and keeps the rest', () 
 		linked: [{ issue: 5678, severity: 'Moderate' }, { issue: 5301, severity: 'awful' }, { issue: '9', severity: 'minor' }],
 	}));
 	assert.deepEqual(Object.fromEntries(r.findings), {
-		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, cause: null, observed: null, tests: null, origin: 'exposed', log: [12, 30], shots: [{ file: 'S01-02.png', shows: '' }], setup: null },
-		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, cause: null, observed: null, tests: null, origin: null, log: null, shots: null, setup: null },
+		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, cause: null, observed: null, tests: null, fix: ['src/a.ts'], log: [12, 30], shots: [{ file: 'S01-02.png', shows: '' }], setup: null },
+		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, cause: null, observed: null, tests: null, fix: [], log: null, shots: null, setup: null },
 	});
 	assert.deepEqual([...r.linked], [[5678, 'moderate']]);
 	assert.deepEqual([...issueMatches(r, 'known')], [[1, [15102]]]);
@@ -69,12 +69,12 @@ test('applyVerification marks each finding with its verdict, and only the ones i
 	assert.equal(apply(REPORT, verdicts([1, 'confirmed'])).findings[1].verified, undefined);
 });
 
-test('applyVerification keeps each finding\'s origin and linked severities beside the notes', () => {
-	const out = apply(REPORT, { ...verdicts([1, 'confirmed', { origin: 'introduced' }], [2, 'confirmed']), linked: [{ issue: 20, severity: 'minor' }] }, '- 1: holds.');
+test('applyVerification keeps linked severities beside the notes, and takes no origin from the verifier', () => {
+	const out = apply(REPORT, { ...verdicts([1, 'confirmed', { origin: 'introduced' }], [2, 'false positive']), linked: [{ issue: 20, severity: 'minor' }] }, '- 1: holds.');
 	assert.deepEqual(out.verification, {
 		failed: false,
 		text: 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was removed. A title, feature, cause, observed or test list it corrected replaces the explorer\'s, and a corrected cause or observed is marked on its finding.\n\n- 1: holds.',
-		origin: { 1: 'introduced' },
+		originReason: { 1: { reason: 'no main build', detail: '' } },
 		linked: [{ issue: 20, severity: 'minor' }],
 	});
 	assert.ok(isVerified(out));
@@ -296,15 +296,10 @@ test('changeBase is usable only with commits and a diff between the base and the
 	});
 });
 
-test('buildVerifyPrompt asks for an origin only when the base is usable', () => {
-	const usable = buildVerifyPrompt(VERIFIER, { ...RUN, changeBase: { usable: true } });
-	assert.match(usable, /The change under test is the commits in `aaaa1111\.\.bbbb2222`\./);
-	assert.match(usable, /`origin`: where the most direct fix for the finding likely goes/);
-	assert.match(usable, /git -C \/repo blame -w -M -C bbbb2222 -L <start>,<end> -- <file>/);
-	assert.match(usable, /git -C \/repo rev-list aaaa1111\.\.bbbb2222/);
-	const none = buildVerifyPrompt(VERIFIER, { ...RUN, changeBase: { usable: false, reason: 'the base is the head' } });
-	assert.match(none, /This run has no usable base \(the base is the head\), so give no finding an `origin`/);
-	assert.match(buildVerifyPrompt(VERIFIER, RUN), /no usable base \(none was given\)/);
+test('buildVerifyPrompt asks for the files of the fix, not an origin', () => {
+	const prompt = buildVerifyPrompt(VERIFIER, { ...RUN, changeBase: { usable: true } });
+	assert.match(prompt, /`fix`: the files the most direct fix would change/);
+	assert.doesNotMatch(prompt, /`origin`|git -C \S+ blame/);
 });
 
 test('prompt writes the verifier prompt beside the report, and records the base for the renderer, named when given', () => {
@@ -314,7 +309,6 @@ test('prompt writes the verifier prompt beside the report, and records the base 
 		const prompt = readFileSync(join(dir, 'verify-prompt.md'), 'utf8');
 		assert.ok(prompt.includes(`Report: \`${dir}/report.json\``));
 		assert.ok(prompt.includes(`git -C ${repo} diff ${base}...${head}`));
-		assert.match(prompt, /The change under test is the commits in/);
 	}));
 });
 
@@ -386,4 +380,49 @@ test('applyVerification says which checks the verifier did not show it made', ()
 	assert.match(out.verification.text, /\n\n_The verifier did not show it checked the steps of Finding 2 against the action log, or the Observed of Finding 1, Finding 2 against its screenshots, or Finding 1 against the run's setup\._$/);
 	assert.match(apply(REPORT, verdicts([1, 'confirmed']), 'No process issues.').verification.text, /No process issues\.$/);
 	assert.equal(apply(REPORT, verdicts([1, 'confirmed'])).verification.unchecked, undefined);
+});
+
+// Origin comes from each finding's replay on a build of main, not from the verifier.
+const MAIN = { version: '2026.11.0-236', commit: '', pubDate: '', platform: 'mac/arm64', binary: '/x' };
+const withMain = (main1, main2) => ({ ...REPORT, findings: [{ ...REPORT.findings[0], main: main1 }, { ...REPORT.findings[1], main: main2 }] });
+
+test('a finding that fails on main is inherited, and one that does not is introduced', () => {
+	const out = applyVerification(withMain({ steps: [{ step: 2, n: 3, m: 3, saw: 'x' }] }, { steps: [{ step: 2, n: 0, m: 2, saw: 'y' }] }), parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'confirmed']))), { mainBuild: MAIN });
+	assert.deepEqual(out.verification.origin, { 1: 'inherited', 2: 'introduced' });
+	assert.equal(out.verification.originReason, undefined);
+});
+
+/** A repo whose fix file changes between two commits: `{ repo, before, after }`. */
+function driftRepo(dir) {
+	const git = (...args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8' }).trim();
+	git('init', '-q');
+	writeFileSync(join(dir, 'a.ts'), 'one\n');
+	git('add', '.');
+	git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'one');
+	const before = git('rev-parse', 'HEAD');
+	writeFileSync(join(dir, 'a.ts'), 'two\n');
+	git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-am', 'two');
+	return { repo: dir, before, after: git('rev-parse', 'HEAD') };
+}
+
+test('drift leaves no label', () => withTmpDir('drift-', dir => {
+	const { repo, before, after } = driftRepo(dir);
+	const parsed = parseVerifyReply(reply(verdicts([1, 'confirmed', { fix: ['a.ts'] }], [2, 'confirmed', { fix: ['b.ts'] }])));
+	const main = { steps: [{ step: 2, n: 3, m: 3, saw: 'x' }] };
+	const out = applyVerification(withMain(main, main), parsed, { mainBuild: { ...MAIN, commit: before }, repoRoot: repo, baseSha: after });
+	assert.deepEqual(out.verification.origin, { 2: 'inherited' });
+	assert.deepEqual(out.verification.originReason, { 1: { reason: 'drift', detail: '' } });
+}));
+
+test('fixDrifted is true when the daily commit is unknown, and false with no fix files', () => withTmpDir('drift-', dir => {
+	const { repo, after } = driftRepo(dir);
+	assert.equal(fixDrifted(repo, 'f'.repeat(40), after, ['a.ts']), true);
+	assert.equal(fixDrifted(repo, 'f'.repeat(40), after, []), false);
+	assert.equal(fixDrifted(repo, after, after, ['a.ts']), false);
+}));
+
+test('no main build gives every confirmed finding a reason', () => {
+	const out = applyVerification(withMain(undefined, undefined), parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'unresolved']))));
+	assert.equal(out.verification.origin, undefined);
+	assert.deepEqual(out.verification.originReason, { 1: { reason: 'no main build', detail: '' } });
 });

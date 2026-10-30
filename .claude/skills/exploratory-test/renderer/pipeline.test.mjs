@@ -184,7 +184,8 @@ test('the verdicts and the isolation\'s revision land in report.json, and the pa
 	}, {
 		leadHtml: 'Two things broke.',
 		verdicts: [{ n: 1, word: 'confirmed' }, { n: 2, word: 'disputed' }],
-		origin: [[1, 'exposed']],
+		// The verifier's origin is not read: Origin comes from a main replay, and this run had no main build.
+		origin: [],
 		findings: [
 			{ n: 1, title: 'first claim', feature: 'Console', verified: 'confirmed', known: [15102], intended: [], opening: { summary: 'It broke.', where: '' } },
 			{ n: 2, title: 'second claim, with the setting off', feature: 'Plot settings', verified: 'disputed', known: [], intended: [999], opening: null },
