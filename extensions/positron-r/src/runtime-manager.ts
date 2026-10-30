@@ -91,6 +91,12 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 */
 	private readonly _pinnedRLookup = new InFlightLookup<string | undefined, RInstallation | undefined>();
 
+	/**
+	 * Each pinned module's R, looked up once per session, since each lookup
+	 * runs shells that load the module. Cleared when the module settings change.
+	 */
+	private readonly _moduleRBinaries = new Map<string, Promise<RBinary>>();
+
 	/** The pinned modules that failed to load and that the user was told about. */
 	private readonly _reportedModuleFailures = new Set<string>();
 
@@ -120,6 +126,11 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		this._context.subscriptions.push(
 			RSessionManager.instance.onDidActivateConsoleSession((session) => {
 				this.updateEnvironment(session.runtimeMetadata);
+			}),
+			vscode.workspace.onDidChangeConfiguration(e => {
+				if (e.affectsConfiguration('positron.environmentModules')) {
+					this._moduleRBinaries.clear();
+				}
 			})
 		);
 	}
@@ -380,9 +391,14 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 * @param name The module environment or module from `positron.r.interpreters.default`.
 	 */
 	private async lookUpModulePinnedR(name: string): Promise<RInstallation | undefined> {
+		let lookup = this._moduleRBinaries.get(name);
+		if (!lookup) {
+			lookup = resolveModuleBinary(name);
+			this._moduleRBinaries.set(name, lookup);
+		}
 		let rbin: RBinary;
 		try {
-			rbin = await resolveModuleBinary(name);
+			rbin = await lookup;
 		} catch (err) {
 			LOGGER.error(`[pinnedRInstallation] No R starts, since the module '${name}' from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' could not be loaded: ${err}`);
 			this.reportModuleFailure(name);
