@@ -16,7 +16,6 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileProcess, isPositronLog } from '../shared/ledger.mjs';
-import { formatCounts } from '../shared/main-check.mjs';
 import { basename, escapeHtml, isNewTestFile, readJson } from '../shared/text.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel, readIssueRefs } from '../known-issues.mjs';
@@ -262,120 +261,144 @@ function renderNoFindings(report, ki) {
 const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
 const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 
+/** Whether the report's findings were replayed on main, which groups them. */
+const replayed = report => Boolean(report.verification?.originReason?.size) || report.findings.some(f => f.main);
+
 /**
- * A finding's Origin: 'introduced', 'inherited', or '' when not determined. A
- * report from before main replays may also say 'exposed', judged from the
- * diff. A finding not confirmed, or one whose fix didn't hold, is never given
- * one. Null on a run with no usable base, which has no Origin column.
+ * A finding's group from its replay on main's latest daily build: 'pr' when
+ * it did not reproduce there (or main lacks what it needs), 'ex' when it did
+ * (or it is a fix that did not hold), 'un' when the replay did not settle it,
+ * and 'none' for a finding not confirmed. Null on a run with no comparison,
+ * a run on main or a report from before main replays, which shows no groups.
  */
-function originOf(report, f, base, ki) {
-	if (base?.usable !== true) {
+function groupOf(report, f, base, ki) {
+	if (base?.usable !== true || !replayed(report)) {
 		return null;
 	}
-	if (statusWord(f) !== 'confirmed' || ki?.fixFailed.has(f.n)) {
-		return '';
+	if (statusWord(f) !== 'confirmed') {
+		return 'none';
 	}
-	return report.verification?.origin?.get(f.n) ?? '';
+	if (ki?.fixFailed.has(f.n)) {
+		return 'ex';
+	}
+	return { introduced: 'pr', inherited: 'ex' }[report.verification?.origin?.get(f.n)] ?? 'un';
 }
 
-/** Whether the report's Origins come from replays on main, not from the verifier's reading of the diff. */
-const replayed = report => Boolean(report.verification?.originReason?.size) || report.findings.some(f => f.main);
-const onMain = mainBuild => (mainBuild?.version ? `main (daily ${escapeHtml(mainBuild.version)})` : 'main');
+const changeWord = report => (report.pr ? 'PR' : 'branch');
+const groupLabel = (report, group) => ({ pr: `Only in ${changeWord(report)}`, ex: 'Also in latest build', un: 'Unknown' })[group];
+const fewestTries = main => Math.min(...(main?.steps ?? []).map(s => s.m));
+/** A finding's rate on the change, `{ n, m }`, from its "N/M". */
+const rateOf = f => {
+	const [n, m] = String(f.reproduced ?? '').split('/').map(Number);
+	return { n, m };
+};
 
-function originText(report, origin, f, mainBuild) {
-	const change = report.pr ? 'PR' : 'branch';
-	if (replayed(report)) {
-		const main = onMain(mainBuild);
-		if (origin === 'introduced' && f.main?.missing?.length) {
-			return `${capitalize(main)} does not have ${f.main.missing.map(escapeHtml).join(', ')}, so this ${change} added it.`;
+/** Why a finding is Unknown, in a phrase for its card. */
+function unknownShort(report, f) {
+	const { reason } = report.verification?.originReason?.get(f.n) ?? {};
+	const { n, m } = rateOf(f);
+	return {
+		'no main build': 'no main build',
+		'not replayed': 'not replayed on the latest build',
+		'could not run': 'couldn&rsquo;t run on the latest build',
+		'too few tries': n < m ? 'intermittent, needs more tries on the latest build' : 'needs more tries on the latest build',
+		'drift': 'main has changed in this area',
+		'drift unchecked': 'cause not traced',
+	}[reason] ?? 'not replayed on the latest build';
+}
+
+/** The evidence for a finding's group, for its number's tooltip and its card. */
+function groupEvidence(report, f, group, ki) {
+	const change = changeWord(report);
+	if (group === 'pr') {
+		return f.main?.missing?.length
+			? `Main doesn&rsquo;t have ${f.main.missing.map(escapeHtml).join(', ')} yet.`
+			: `Didn&rsquo;t reproduce on main (0 of ${fewestTries(f.main)} tries).`;
+	}
+	if (group === 'ex') {
+		const failed = ki?.fixFailed.get(f.n);
+		if (failed?.length) {
+			return `Still happens. #${Number(failed[0].number)} is open for it.`;
 		}
-		return origin === 'introduced'
-			? `Does not happen on ${main}: ${formatCounts(f.main)}. Happens on this ${change}.`
-			: `Also happens on ${main}: ${formatCounts(f.main)}.`;
+		const steps = [...(f.main?.steps ?? [])].sort((a, b) => a.step - b.step);
+		if (steps.length === 1) {
+			return `Also reproduced in the latest build (${steps[0].n} of ${steps[0].m} tries).`;
+		}
+		const seen = steps.filter(s => s.n > 0).map(s => `step ${s.step} (${s.n} of ${s.m} tries)`);
+		return seen.length ? `Also reproduced in the latest build: ${seen.join(', ')}.` : 'Also reproduced in the latest build.';
 	}
-	return {
-		introduced: `Likely caused by this ${change}. The suspected fix is in changed code.`,
-		exposed: `The suspected fix is in existing code, but this ${change} changed something that now triggers it.`,
-		inherited: `The suspected fix is in existing code this ${change} didn&rsquo;t change. Found while testing it, so worth a look.`,
-	}[origin];
-}
-
-/**
- * The word a replayed report shows for an Origin: Main when the finding
- * happens on main, This PR (or branch) when it does not, Unknown when the
- * replay did not settle it. An older report shows its judged value.
- */
-function originWord(report, origin) {
-	if (!replayed(report)) {
-		return capitalize(origin);
-	}
-	return { inherited: 'Main', introduced: `This ${report.pr ? 'PR' : 'branch'}` }[origin] ?? 'Unknown';
-}
-/** Whether a replayed report has a reason, and so an Unknown, for a finding with no Origin. */
-const isUnknown = (report, f) => replayed(report) && report.verification?.originReason?.has(f.n);
-
-/** Why a finding has no Origin. */
-function noOriginText(report, f, mainBuild) {
-	if (!replayed(report)) {
-		return 'Not enough evidence in the diff to determine origin.';
-	}
-	const change = report.pr ? 'PR' : 'branch';
 	const { reason, detail } = report.verification?.originReason?.get(f.n) ?? {};
+	if (reason === 'too few tries') {
+		const { n, m } = rateOf(f);
+		const k = fewestTries(f.main);
+		return n < m
+			? `This issue only shows up sometimes (${n} of ${m} tries here). It didn&rsquo;t show up in ${k} tries on the latest build, but that could be luck, so we can&rsquo;t say either way.`
+			: `It showed up every time here (${n} of ${m} tries), but the latest build was tried only ${k} time${k === 1 ? '' : 's'}, so we can&rsquo;t say yet.`;
+	}
 	return {
-		'no main build': 'Not checked on main: no main build for this run.',
-		'not replayed': 'Not checked on main: the finding was not replayed there.',
-		'could not run': `Not checked on main: ${escapeHtml(detail)}.`,
-		'too few tries': `Not settled: ${escapeHtml(detail)}, fewer than this ${change} needed.`,
-		'drift': `Not settled: ${onMain(mainBuild)} and the base differ in the files of the fix.`,
-		'drift unchecked': `Not settled: not seen on ${onMain(mainBuild)}, but the fix was not traced, so main may differ from the base there.`,
-	}[reason] ?? 'Origin is given only for a confirmed finding.';
+		'no main build': 'No build of main was available for this run.',
+		'could not run': detail ? `It couldn&rsquo;t run on the latest build: ${escapeHtml(detail.replace(/\.$/, ''))}.` : 'It couldn&rsquo;t run on the latest build.',
+		'drift': `Main has changed the code where the fix likely goes, so the latest build can&rsquo;t show how this behaved before this ${change}.`,
+		'drift unchecked': `It didn&rsquo;t reproduce on the latest build, but its cause wasn&rsquo;t traced, so main may have changed in this area since this ${change} started.`,
+	}[reason] ?? 'This finding wasn&rsquo;t replayed on the latest build.';
 }
 
 const originTip = (title, text, hidden = true) => `<span class="og-tip"${hidden ? ' aria-hidden="true"' : ''} role="tooltip">${title ? `<b>${title}</b>` : ''}<span>${text}</span></span>`;
 
-/** The Origin header, whose tooltip says once where every value comes from. */
-function originHead(report, base, mainBuild) {
-	if (replayed(report)) {
-		const text = mainBuild?.version
-			? `Whether the finding happens on main, from a replay on the daily (${escapeHtml(mainBuild.version)}, ${escapeHtml(String(mainBuild.commit ?? '').slice(0, 7))}).`
-			: 'Whether the finding happens on main. Not checked in this run.';
-		return `<span class="og-hc"><span class="og og-h" tabindex="0">Origin${originTip('Origin', text, false)}</span></span>`;
-	}
-	const text = `Likely origin, judged from this ${report.pr ? 'PR' : 'branch'}&rsquo;s diff. Not tested against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`;
-	return `<span class="og-hc"><span class="og og-h" tabindex="0">Origin${originTip('Origin', text, false)}</span></span>`;
-}
-
 /**
- * A finding row's Origin cell. The row is a link, so nothing in it takes
- * focus: the tooltip opens on hover and on the row's focus, and a screen
- * reader hears the word, or "Origin not determined". The last row's tooltip
- * opens upward, away from the panel's edge.
+ * A finding row's number. With a comparison it is a badge that marks its
+ * group (a ring for Only in PR, plain for Also in latest build, a dashed ring
+ * for Unknown) and opens the evidence on hover; the row is a link, so the
+ * tooltip is hidden from screen readers, which hear the group in the row.
  */
-function originCell(report, f, origin, last, mainBuild) {
-	const up = last ? ' og-up' : '';
-	if (!origin && isUnknown(report, f)) {
-		return `<span class="og-cell"><span class="og${up}">Unknown${originTip('Unknown', noOriginText(report, f, mainBuild))}</span></span>`;
+function findingNumber(report, f, group, ki) {
+	if (group === null) {
+		return `<span class="n">${f.n}</span>`;
 	}
-	if (!origin) {
-		return `<span class="og-cell"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">Origin not determined</span>`
-			+ `${originTip('', noOriginText(report, f, mainBuild))}</span></span>`;
+	if (group === 'none') {
+		return `<span class="f-b f-n">${f.n}</span>`;
 	}
-	const word = originWord(report, origin);
-	return `<span class="og-cell"><span class="og${up}">${word}${originTip(word, originText(report, origin, f, mainBuild))}</span></span>`;
+	return `<span class="f-b f-b-${group}">${f.n}${originTip(groupLabel(report, group), groupEvidence(report, f, group, ki))}</span>`;
 }
 
-/** The Origin word in a card's meta line, after "Reproduced x/y". Nothing when not determined. */
-function cardOrigin(report, f, origin, mainBuild) {
-	if (replayed(report) && (origin || isUnknown(report, f))) {
-		const word = originWord(report, origin);
-		const text = origin ? originText(report, origin, f, mainBuild) : noOriginText(report, f, mainBuild);
-		return `<span class="og og-meta" tabindex="0">Origin: ${word}${originTip(word, text, false)}</span>`;
-	}
-	if (!origin) {
+/** A card's group in its meta line, after "Reproduced x/y": none for a finding not confirmed or a fix that did not hold. */
+function cardGroup(report, f, group, ki) {
+	if (!group || group === 'none' || ki?.fixFailed.has(f.n)) {
 		return '';
 	}
-	const word = capitalize(origin);
-	return `<span class="og og-meta" tabindex="0">${word}${originTip(word, originText(report, origin, f, mainBuild), false)}</span>`;
+	const label = groupLabel(report, group);
+	const text = group === 'un' ? `Unknown: ${unknownShort(report, f)}` : label;
+	return `<span class="og og-meta" tabindex="0">${text}${originTip(label, groupEvidence(report, f, group, ki), false)}</span>`;
+}
+
+const INFO_ICON = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.25"/><path d="M8 7.2v3.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/><circle cx="8" cy="5" r=".8" fill="currentColor"/></svg>';
+
+/** The tabs over the findings table, one per group with findings, and the button that explains them. */
+function groupTabs(report, groups, mainBuild) {
+	const count = id => groups.filter(g => g === id).length;
+	const kinds = [
+		{ id: 'all', label: 'All', n: groups.length },
+		...['pr', 'ex', 'un'].map(id => ({ id, label: groupLabel(report, id), n: count(id) })),
+	].filter(k => k.id === 'all' || k.n > 0);
+	const radios = kinds.map(k => `<input type="radio" name="ff" id="ff-${k.id}" class="cf-radio"${k.id === 'all' ? ' checked' : ''}>`).join('');
+	// The hidden semibold copy reserves the selected width, so the row never shifts.
+	const tabs = kinds.map(k => `<label for="ff-${k.id}" class="cf-tab ff-tab ff-tab-${k.id}">`
+		+ `<span class="cf-l">${k.label} <span class="cf-cnt">${k.n}</span></span>`
+		+ `<span class="cf-g" aria-hidden="true">${k.label} ${k.n}</span></label>`).join('');
+	const change = changeWord(report);
+	const explain = {
+		pr: `Reproduced on this ${change}&rsquo;s build but not in the latest build of main.`,
+		ex: `Issues that already exist. They also reproduced in the latest build of main, so they weren&rsquo;t caused by this ${change}&rsquo;s changes.`,
+		un: 'Not enough evidence to tell. Hover a finding&rsquo;s number to see why.',
+	};
+	const rows = kinds.filter(k => k.id !== 'all').map(k => `<span class="ffi-row"><b>${k.label}</b><span>${explain[k.id]}</span></span>`).join('');
+	const commit = String(mainBuild?.commit ?? '');
+	const build = mainBuild?.version && /^[0-9a-f]{7,40}$/.test(commit)
+		? `Compared with the latest build of main: <a href="${REPO_URL}/commit/${commit}" target="_blank" rel="noopener">daily ${escapeHtml(mainBuild.version)} (${commit.slice(0, 7)})</a>`
+		: 'No build of main was available for this run.';
+	const info = `<div class="ffi"><button type="button" class="ffi-btn" aria-label="How findings are grouped">${INFO_ICON}</button>`
+		+ `<div class="ffi-pop" role="tooltip"><span class="ffi-h">How findings are grouped</span>${rows}<span class="ffi-f">${build}</span></div></div>`;
+	return { radios, bar: `<div class="cf-tabs" role="group" aria-label="Filter findings by whether they happen on main">${tabs}${info}</div>` };
 }
 
 /** A verdict other than Confirmed: verify rejected the finding, or it was never shown to hold. */
@@ -413,9 +436,11 @@ function withLastWord(html, tag) {
 }
 
 function renderFindingsList(report, ki = null, refs = null, changeBase = null, mainBuild = null) {
-	const withOrigin = changeBase?.usable === true;
-	const grid = withOrigin ? 'findings-grid og-grid' : 'findings-grid';
+	const grid = 'findings-grid';
+	const groups = report.findings.map(f => groupOf(report, f, changeBase, ki));
+	const grouped = groups.some(g => g !== null);
 	const rows = report.findings.map((f, i) => {
+		const group = groups[i];
 		const word = statusWord(f);
 		// Plain numbers, not links: the whole row is already a link to the card. They still preview on hover.
 		const num = n => `<span class="ki-num-t"${kiData(refs?.byNumber.get(n), refs)}>#${Number(n)}</span>`;
@@ -446,23 +471,42 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null, m
 				+ `${originTip('', 'No matching issues or PRs found.')}</span></span>`;
 		// The tag is read as part of the row link, so its tooltip is hidden from screen readers.
 		const title = rejected ? withLastWord(f.rowTitle, verdictTag(word, false)) : f.rowTitle;
-		return `<a href="#f${f.n}" class="row ${grid}${rejected ? ' is-rej' : ''}">`
-			+ `<span>${pill(f.severity)}</span>`
-			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${title}</span></span>`
-			+ (withOrigin ? originCell(report, f, originOf(report, f, changeBase, ki), i === report.findings.length - 1, mainBuild) : '')
+		// The number's tooltip is hidden from screen readers, so the row starts with the group.
+		const heard = group && group !== 'none' ? `<span class="og-sr">${groupLabel(report, group)}, </span>` : '';
+		const claim = group === null
+			? `<span class="claim">${findingNumber(report, f, group, ki)}${title}</span>`
+			: `<span class="claim f-t">${findingNumber(report, f, group, ki)}<span>${title}</span></span>`;
+		return `<a href="#f${f.n}"${group ? ` data-og="${group}"` : ''} class="row ${grid}${rejected ? ' is-rej' : ''}">`
+			+ `<span>${heard}${pill(f.severity)}</span>`
+			+ `<span class="finding-cell">${claim}</span>`
 			+ status
 			+ '</a>';
 	});
 
 	const matchesHead = `<span><span class="og og-h" tabindex="0">Matches${originTip('Matches', 'Existing GitHub issues or PRs that match or may match this finding. A dash means no match was found.', false)}</span></span>`;
 	const head = rows.length
-		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${withOrigin ? originHead(report, changeBase, mainBuild) : ''}${matchesHead}</div>\n`
+		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${matchesHead}</div>\n`
 		: '';
-
-	return `<section id="findings" class="section">
+	const body = `${head}${[...(rows.length ? rows : [renderNoFindings(report, ki)]), renderLinkedIssues(report, ki, !rows.length)].filter(Boolean).join('\n')}`;
+	if (!grouped) {
+		return `<section id="findings" class="section">
 <h2 class="section-label">Findings</h2>
 <div class="panel">
-${head}${[...(rows.length ? rows : [renderNoFindings(report, ki)]), renderLinkedIssues(report, ki, !rows.length)].filter(Boolean).join('\n')}
+${body}
+</div>
+</section>`;
+	}
+	// Visually hidden radios ahead of the tabs and the table, so CSS can filter
+	// the rows by group, as Coverage does.
+	const { radios, bar } = groupTabs(report, groups, mainBuild);
+	return `<section id="findings" class="section">
+<h2 class="section-label">Findings</h2>
+<div class="cf ff">
+${radios}
+${bar}
+<div class="panel ff-card">
+${body}
+</div>
 </div>
 </section>`;
 }
@@ -850,7 +894,7 @@ function renderFindingCard(f, report, options) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
 	}
 	// After the verdict and its rate, as in the table, before the linked issues.
-	const origin = cardOrigin(report, f, originOf(report, f, options.changeBase, options.ki), options.mainBuild);
+	const origin = cardGroup(report, f, groupOf(report, f, options.changeBase, options.ki), options.ki);
 	if (origin) {
 		context.push(origin);
 	}

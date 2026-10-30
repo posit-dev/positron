@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { parseLedger, parseSystemLine } from '../shared/ledger.mjs';
 import { modelDisplayName, safeUrl } from '../shared/text.mjs';
 import { renderReportHtml } from './html.mjs';
+import { REPORT_CSS } from './report-css.mjs';
 import { skillVersion } from './page-common.mjs';
 import { reportFromJson } from './report-json.mjs';
 import { checkScenes } from '../shared/scene-check.mjs';
@@ -364,7 +365,7 @@ const issueCopied = (html, n) => issueBlock(html, n).replace(/<\\(?=\/script|!--
 const tiles = html => between(html, '<section class="tiles">', '</section>');
 const coverageOf = html => between(html, 'id="coverage"', '</section>');
 const findingsOf = html => between(html, 'id="findings"', '</section>');
-const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid[^"]*">[\\s\\S]*?</a>(?=\\n)`).exec(html)?.[0] ?? '';
+const findingRow = (html, n) => new RegExp(`<a href="#f${n}"[^>]*class="row findings-grid[^"]*"[^>]*>[\\s\\S]*?</a>(?=\\n)`).exec(html)?.[0] ?? '';
 const runDetails = html => between(html, '<details id="run-details">', '</details></section>');
 const footer = html => between(html, '<footer', '</footer>');
 const foldLabels = html => [...runDetails(html).matchAll(/<div class="fold-label">([^<]+)<\/div>/g)].map(m => m[1]).join(', ');
@@ -1153,22 +1154,22 @@ const SCENES = {
 		const json = { ...fullWith(1, { expected: 'it should have stopped, as #2330 says, since #8126.' }), verification: { failed: false, text: 'A second agent.\n\nSearches returned only #3698 (open).' } };
 		return [between(card(fullHtml(json, { issueRefs: ISSUE_REFS }), 1), '<div class="f-cmp', '</div></div>'), between(fullHtml(json, { issueRefs: ISSUE_REFS }), 'Searches returned', '</p>'), between(card(fullHtml(json), 1), '<div class="f-cmp', '</div></div>')].join('\n--\n');
 	},
-	'the Origin column on a run with a usable base: a word per judged finding, a dash for one left out or not confirmed, nothing extra for a partial repro, the last tooltips opening upward': () => findingsOf(fullHtml(ORIGINS, { changeBase: USABLE })),
-	'no Origin column without a usable base, or with no base recorded': () => [
+	'grouped findings: tabs for each non-empty group, the info button, and a badge per group; a finding not confirmed has a plain number': () => findingsOf(grouped()),
+	'no groups without a comparison: a run on main, or a report from before main replays': () => [
 		between(findingsOf(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } })), '<div class="row row-head', '</div>'),
 		findingRow(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } }), 1),
-		findingRow(fullHtml(ORIGINS), 3),
+		findingRow(fullHtml(ORIGINS, { changeBase: USABLE }), 3),
 	].join('\n--\n'),
-	'a card shows its Origin word after Reproduced x/y, focusable with its tooltip; a card with none shows nothing': () => {
+	'a card shows its group after Reproduced x/y, focusable with its tooltip; a finding not confirmed shows none': () => {
 		const context = (html, n) => between(card(html, n), '<span class="group context">', '<button');
-		const html = fullHtml(ORIGINS, { changeBase: USABLE });
-		return [context(html, 1), context(html, 3), context(html, 4), context(fullHtml(ORIGINS), 1)].join('\n--\n');
+		const html = grouped();
+		return [context(html, 1), context(html, 2), context(html, 4), context(html, 8)].join('\n--\n');
 	},
-	'a PR run\'s Origin says PR, and a base with no name says the base branch': () => {
-		const html = fullHtml({ ...ORIGINS, header: { ...ORIGINS.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: { usable: true, name: null } });
-		return [between(findingsOf(html), '<div class="row row-head', '</div>'), findingRow(html, 1)].join('\n--\n');
+	'a PR run says Only in PR on its tab, its info button and its badges': () => {
+		const html = grouped({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } });
+		return [between(findingsOf(html), '<div class="cf-tabs"', '<div class="panel ff-card">'), findingRow(html, 1)].join('\n--\n');
 	},
-	'a fix that did not hold gets a dash, even with an origin': () => findingRow(render({ ...kiWith(1, { verified: 'confirmed' }), verification: { failed: false, text: 'x', origin: { 1: 'introduced' } } }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, changeBase: USABLE }), 1),
+	'a fix that did not hold is Also in latest build, citing its issue': () => findingRow(render({ ...kiWith(1, { verified: 'confirmed' }), verification: { failed: false, text: 'x', originReason: { 1: { reason: 'not replayed', detail: '' } } } }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, changeBase: USABLE, mainBuild: MAIN_BUILD }), 1),
 
 	// Coverage.
 	'issues, then passes, then not run; passes past the first 4 collapse behind Show all': () => coverageOf(render(rep(), { ledger: LONG_LEDGER })),
@@ -1253,7 +1254,7 @@ const SCENES = {
 const trimScene = out => out.replace(/<svg[\s\S]*?<\/svg>/g, '<svg>').replace(/<div class="fb" .*?<\/div>/g, '<div class="fb">').replace(/href="https:\/\/github\.com\/posit-dev\/positron\/issues\/new\?[^"]*"/g, 'href="(new issue)"');
 test('every scene renders as saved', () => checkScenes('scenes.expected.txt', SCENES, { trim: trimScene }));
 
-// ---- Origin from a replay on main -------------------------------------------
+// ---- Grouping by the replay on main's latest daily build ---------------------
 
 const MAIN_BUILD = { version: '2026.11.0-236', commit: '57b03d33f537a868e49c48c7acd0c59d84f9b453', pubDate: '', platform: 'mac/arm64', binary: '/x' };
 const twoSteps = (a, b) => ({ steps: [{ step: 9, n: b, m: 2, saw: 'y' }, { step: 5, n: a, m: 2, saw: 'x' }] });
@@ -1264,70 +1265,116 @@ const REPLAYED = rep({
 		fnd(3, { verified: 'confirmed', main: { missing: ['positron.foo', 'bar.baz'] } }),
 		fnd(4, { verified: 'confirmed', main: { couldNotRun: 'R did not start' } }),
 		fnd(5, { verified: 'confirmed', reproduced: { n: 1, m: 4 }, main: twoSteps(0, 0) }),
-		fnd(6, { verified: 'confirmed', main: twoSteps(1, 1) }),
+		fnd(6, { verified: 'confirmed', main: { steps: [{ step: 3, n: 1, m: 1, saw: 'x' }] } }),
 		fnd(7, { verified: 'confirmed' }),
 		fnd(8, { verified: 'disputed' }),
+		fnd(9, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, main: { steps: [{ step: 3, n: 0, m: 1, saw: 'x' }] } }),
+		fnd(10, { verified: 'confirmed', main: twoSteps(0, 0) }),
+		fnd(11, { verified: 'confirmed', main: twoSteps(0, 0) }),
 	],
 	verification: {
 		failed: false, text: 'x',
-		origin: { 1: 'introduced', 2: 'inherited', 3: 'introduced' },
-		originReason: { 4: { reason: 'could not run', detail: 'R did not start' }, 5: { reason: 'too few tries', detail: 'not seen in 2 tries on main' }, 6: { reason: 'drift', detail: '' }, 7: { reason: 'not replayed', detail: '' } },
+		origin: { 1: 'introduced', 2: 'inherited', 3: 'introduced', 6: 'inherited' },
+		originReason: {
+			4: { reason: 'could not run', detail: 'R did not start' },
+			5: { reason: 'too few tries', detail: 'not seen in 2 tries on main' },
+			7: { reason: 'not replayed', detail: '' },
+			9: { reason: 'too few tries', detail: 'not seen in 1 tries on main' },
+			10: { reason: 'drift', detail: '' },
+			11: { reason: 'drift unchecked', detail: '' },
+		},
 	},
 });
-const tipOf = (html, n) => /<span class="og-tip"[^>]*>(?:<b>[^<]*<\/b>)?<span>([^<]*)<\/span>/.exec(findingRow(html, n))?.[1];
+const grouped = (json = REPLAYED, options = {}) => render(json, { changeBase: USABLE, mainBuild: MAIN_BUILD, ...options });
+const groupOfRow = (html, n) => /data-og="([a-z]+)"/.exec(findingRow(html, n))?.[1];
+const badge = (html, n) => /<span class="f-b ([^"]*)">/.exec(findingRow(html, n))?.[1];
+const badgeTip = (html, n) => /<span class="f-b[^"]*">\d+<span class="og-tip"[^>]*><b>([^<]*)<\/b><span>([^<]*)<\/span>/.exec(findingRow(html, n))?.slice(1, 3);
+const tabs = html => [...between(html, 'id="findings"', 'ff-card').matchAll(/<span class="cf-l">([^<]*) <span class="cf-cnt">(\d+)<\/span>/g)].map(m => `${m[1]} ${m[2]}`);
+const cardGroup = (html, n) => /<span class="og og-meta" tabindex="0">([^<]*)<span class="og-tip"/.exec(card(html, n))?.[1];
 
-test('a replayed finding\'s Origin tooltip says what main did', () => {
-	const html = render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD });
-	assert.equal(tipOf(html, 1), 'Does not happen on main (daily 2026.11.0-236): step 5 0/2, step 9 0/2. Happens on this branch.');
-	assert.equal(tipOf(html, 2), 'Also happens on main (daily 2026.11.0-236): step 5 0/2, step 9 2/2.');
-	assert.equal(tipOf(html, 3), 'Main (daily 2026.11.0-236) does not have positron.foo, bar.baz, so this branch added it.');
+test('findings are grouped by the replay on main, and a finding not confirmed has no group', () => {
+	const html = grouped();
+	assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => groupOfRow(html, n)), ['pr', 'ex', 'pr', 'un', 'un', 'ex', 'un', 'none', 'un', 'un', 'un']);
+	assert.deepEqual([1, 2, 4, 8].map(n => badge(html, n)), ['f-b-pr', 'f-b-ex', 'f-b-un', 'f-n']);
+	assert.equal(badgeTip(html, 8), undefined, 'a finding with no group has no tooltip');
 });
 
-test('a finding with no Origin says why', () => {
-	const html = render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD });
-	assert.equal(tipOf(html, 4), 'Not checked on main: R did not start.');
-	assert.equal(tipOf(html, 5), 'Not settled: not seen in 2 tries on main, fewer than this branch needed.');
-	assert.equal(tipOf(html, 6), 'Not settled: main (daily 2026.11.0-236) and the base differ in the files of the fix.');
-	assert.equal(tipOf(html, 7), 'Not checked on main: the finding was not replayed there.');
-	const none = render({ ...REPLAYED, verification: { failed: false, text: 'x', originReason: { 1: { reason: 'no main build', detail: '' } } } }, { changeBase: USABLE });
-	assert.equal(tipOf(none, 1), 'Not checked on main: no main build for this run.');
+test('the tabs show All and each non-empty group, in order, with no tooltips', () => {
+	const html = grouped();
+	assert.deepEqual(tabs(html), ['All 11', 'Only in branch 2', 'Also in latest build 2', 'Unknown 6']);
+	assert.doesNotMatch(between(html, '<div class="cf-tabs"', '<div class="ffi"'), /og-tip/);
+	const pr = grouped({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } });
+	assert.deepEqual(tabs(pr).slice(0, 2), ['All 11', 'Only in PR 2']);
+	const noUnknown = grouped({ ...REPLAYED, findings: REPLAYED.findings.slice(0, 3) });
+	assert.deepEqual(tabs(noUnknown), ['All 3', 'Only in branch 2', 'Also in latest build 1']);
 });
 
-test('the Origin header says it comes from a replay on main, or that none ran', () => {
-	const head = html => between(findingsOf(html), '<div class="row row-head', '</div>');
-	assert.match(head(render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD })), /Whether the finding happens on main, from a replay on the daily \(2026\.11\.0-236, 57b03d3\)\./);
-	assert.match(head(render(REPLAYED, { changeBase: USABLE })), /Whether the finding happens on main\. Not checked in this run\./);
-	assert.match(head(render(ORIGINS, { changeBase: USABLE })), /Likely origin, judged from this branch&rsquo;s diff/);
+test('a finding number\'s tooltip gives the evidence for its group', () => {
+	const html = grouped();
+	assert.deepEqual(badgeTip(html, 1), ['Only in branch', 'Didn&rsquo;t reproduce on main (0 of 2 tries).']);
+	assert.deepEqual(badgeTip(html, 3), ['Only in branch', 'Main doesn&rsquo;t have positron.foo, bar.baz yet.']);
+	assert.deepEqual(badgeTip(html, 2), ['Also in latest build', 'Also reproduced in the latest build: step 9 (2 of 2 tries).']);
+	assert.deepEqual(badgeTip(html, 6), ['Also in latest build', 'Also reproduced in the latest build (1 of 1 tries).']);
+	assert.deepEqual(badgeTip(html, 4), ['Unknown', 'It couldn&rsquo;t run on the latest build: R did not start.']);
+	assert.deepEqual(badgeTip(html, 5), ['Unknown', 'This issue only shows up sometimes (1 of 4 tries here). It didn&rsquo;t show up in 2 tries on the latest build, but that could be luck, so we can&rsquo;t say either way.']);
+	assert.deepEqual(badgeTip(html, 9), ['Unknown', 'It showed up every time here (2 of 2 tries), but the latest build was tried only 1 time, so we can&rsquo;t say yet.']);
+	assert.deepEqual(badgeTip(html, 7), ['Unknown', 'This finding wasn&rsquo;t replayed on the latest build.']);
+	assert.deepEqual(badgeTip(html, 10), ['Unknown', 'Main has changed the code where the fix likely goes, so the latest build can&rsquo;t show how this behaved before this branch.']);
+	assert.deepEqual(badgeTip(html, 11), ['Unknown', 'It didn&rsquo;t reproduce on the latest build, but its cause wasn&rsquo;t traced, so main may have changed in this area since this branch started.']);
+	const none = grouped({ ...REPLAYED, verification: { failed: false, text: 'x', originReason: { 1: { reason: 'no main build', detail: '' } } } }, { mainBuild: undefined });
+	assert.deepEqual(badgeTip(none, 1), ['Unknown', 'No build of main was available for this run.']);
 });
 
-test('a PR run\'s replayed Origin says PR', () => {
-	const html = render({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: USABLE, mainBuild: MAIN_BUILD });
-	assert.equal(tipOf(html, 1), 'Does not happen on main (daily 2026.11.0-236): step 5 0/2, step 9 0/2. Happens on this PR.');
+test('a card shows its group after Reproduced, Unknown with its reason, and nothing for a finding not confirmed', () => {
+	const html = grouped();
+	assert.equal(cardGroup(html, 1), 'Only in branch');
+	assert.equal(cardGroup(html, 2), 'Also in latest build');
+	assert.equal(cardGroup(html, 4), 'Unknown: couldn&rsquo;t run on the latest build');
+	assert.equal(cardGroup(html, 5), 'Unknown: intermittent, needs more tries on the latest build');
+	assert.equal(cardGroup(html, 9), 'Unknown: needs more tries on the latest build');
+	assert.equal(cardGroup(html, 7), 'Unknown: not replayed on the latest build');
+	assert.equal(cardGroup(html, 10), 'Unknown: main has changed in this area');
+	assert.equal(cardGroup(html, 11), 'Unknown: cause not traced');
+	assert.equal(cardGroup(html, 8), undefined);
+	assert.ok(card(html, 2).includes('Also reproduced in the latest build: step 9 (2 of 2 tries).'), 'the card has the number\'s tooltip');
 });
 
-test('a card shows the replayed Origin with the same tooltip', () => {
-	const html = render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD });
-	assert.ok(card(html, 2).includes('Also happens on main (daily 2026.11.0-236): step 5 0/2, step 9 2/2.'));
+test('a Not fixed finding is Also in latest build, citing its issue, with no group label on its card', () => {
+	const json = { ...kiWith(1, { verified: 'confirmed' }), verification: { failed: false, text: 'x', originReason: { 1: { reason: 'not replayed', detail: '' } } } };
+	const html = render(json, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, changeBase: USABLE, mainBuild: MAIN_BUILD });
+	assert.equal(groupOfRow(html, 1), 'ex');
+	assert.match(badgeTip(html, 1)?.[1] ?? '', /^Still happens\. #\d+ is open for it\.$/);
+	assert.equal(cardGroup(html, 1), undefined);
 });
 
-test('a replayed report labels Origin Main, This branch or Unknown, and a PR run says This PR', () => {
-	const word = (html, n) => /<span class="og-cell"><span class="og[^"]*">(?:<span aria-hidden="true">)?([^<]*)/.exec(findingRow(html, n))?.[1];
-	const html = render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD });
-	assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map(n => word(html, n)), ['This branch', 'Main', 'This branch', 'Unknown', 'Unknown', 'Unknown', 'Unknown']);
-	assert.match(findingRow(html, 8), /&mdash;/, 'a finding not confirmed is not judged');
-	const pr = render({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: USABLE, mainBuild: MAIN_BUILD });
-	assert.equal(word(pr, 1), 'This PR');
+test('the info button explains the visible groups and links the daily build', () => {
+	const info = html => between(html, '<div class="ffi"', '</div></div>');
+	const html = info(grouped());
+	assert.match(html, /How findings are grouped/);
+	assert.match(html, /<b>Only in branch<\/b><span>Reproduced on this branch&rsquo;s build but not in the latest build of main\.<\/span>/);
+	assert.match(html, /<b>Also in latest build<\/b><span>Issues that already exist\. They also reproduced in the latest build of main, so they weren&rsquo;t caused by this branch&rsquo;s changes\.<\/span>/);
+	assert.match(html, /<b>Unknown<\/b><span>Not enough evidence to tell\. Hover a finding&rsquo;s number to see why\.<\/span>/);
+	assert.match(html, /Compared with the latest build of main: <a href="https:\/\/github\.com\/posit-dev\/positron\/commit\/57b03d33f537a868e49c48c7acd0c59d84f9b453"[^>]*>daily 2026\.11\.0-236 \(57b03d3\)<\/a>/);
+	assert.doesNotMatch(info(grouped({ ...REPLAYED, findings: REPLAYED.findings.slice(0, 3) })), /<b>Unknown<\/b>/);
+	assert.match(info(grouped(REPLAYED, { mainBuild: undefined })), /No build of main was available for this run\./);
 });
 
-test('a replayed card says Origin and its bucket, Unknown included', () => {
-	const html = render(REPLAYED, { changeBase: USABLE, mainBuild: MAIN_BUILD });
-	assert.match(card(html, 2), /<span class="og og-meta" tabindex="0">Origin: Main<span class="og-tip"/);
-	assert.match(card(html, 1), /Origin: This branch<span class="og-tip"/);
-	assert.match(card(html, 4), /Origin: Unknown<span class="og-tip"[^>]*><b>Unknown<\/b><span>Not checked on main: R did not start\.<\/span>/);
-	assert.doesNotMatch(card(html, 8), /Origin:/);
+test('screen readers hear the group first, in the severity cell', () => {
+	const html = grouped();
+	assert.match(findingRow(html, 1), /<span><span class="og-sr">Only in branch, <\/span><span class="pill/);
+	assert.doesNotMatch(findingRow(html, 8), /og-sr">[^<]*, </);
 });
 
-test('an Unknown whose fix was not traced says main may differ from the base', () => {
-	const json = { ...REPLAYED, verification: { failed: false, text: 'x', originReason: { 1: { reason: 'drift unchecked', detail: '' } } } };
-	assert.equal(tipOf(render(json, { changeBase: USABLE, mainBuild: MAIN_BUILD }), 1), 'Not settled: not seen on main (daily 2026.11.0-236), but the fix was not traced, so main may differ from the base there.');
+test('a run with no comparison shows no tabs, info, badges or group labels', () => {
+	for (const html of [grouped(REPLAYED, { changeBase: { usable: false, name: 'main' } }), render(ORIGINS, { ledger: FULL_LEDGER, changeBase: USABLE })]) {
+		const list = findingsOf(html);
+		assert.doesNotMatch(list, /ff-tab|class="ffi"|f-b|data-og/);
+		assert.doesNotMatch(list, /Introduced|Exposed|Inherited|Origin/);
+	}
+	assert.equal(cardGroup(render(ORIGINS, { ledger: FULL_LEDGER, changeBase: USABLE }), 1), undefined);
+});
+
+test('the findings table is Severity, Finding and Matches, with no Origin column', () => {
+	assert.match(REPORT_CSS, /\.findings-grid\{grid-template-columns:110px minmax\(0,1fr\) 156px\}/);
+	assert.doesNotMatch(grouped(), /og-cell|og-grid|og-hc/);
 });
