@@ -13,7 +13,8 @@ dependencies = [
     "holoviews>=1.20",
     "hvplot",
     "ibis-framework[duckdb] ; python_full_version < '3.15'",
-    "ipykernel",
+    # Match the shipped bundle's pin in scripts/pip-compile-ipykernel.py.
+    "ipykernel<7",
     "ipython",
     "ipywidgets",
     "lightning ; python_full_version < '3.15'",
