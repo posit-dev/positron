@@ -7,7 +7,7 @@ import { expect, BrowserContext } from '@playwright/test';
 import { Code } from '../../infra/code.js';
 import { QuickInput } from '../quickInput.js';
 import { completeDatabricksOktaSignIn } from '../../utils/databricksOAuth.js';
-import { completeOktaSignIn } from '../../utils/oktaSignIn.js';
+import { completeOktaSignIn, readPositronServiceAccountCredentials } from '../../utils/oktaSignIn.js';
 
 export class DashboardPage {
 	get title() { return this.code.driver.currentPage.getByRole('link', { name: 'Workbench projects' }); }
@@ -231,6 +231,7 @@ export class DashboardPage {
 			completionUrl: /oauth_redirect_callback|localhost:8787/,
 			logger: this.code.logger,
 			label: 'Workbench',
+			credentials: readPositronServiceAccountCredentials(),
 		});
 
 		try {
@@ -276,7 +277,7 @@ export class DashboardPage {
 		]);
 
 		// Snowflake shows its native username/password form first, but the account federates to
-		// Okta and the shared IDE service account has no Snowflake password, so take the SSO hop.
+		// Okta and the Positron service account has no Snowflake password, so take the SSO hop.
 		// From there the flow is the same Okta sign-in the other providers drive and lives in the
 		// shared helper. What is Snowflake-specific is the tail: an "Allow" consent screen that may
 		// appear the first time a client is authorized, then the redirect to Workbench's callback.
@@ -288,6 +289,7 @@ export class DashboardPage {
 		const reachedCallback = await completeOktaSignIn(oauthPage, {
 			logger: this.code.logger,
 			label: 'Workbench/Snowflake',
+			credentials: readPositronServiceAccountCredentials(),
 			afterOtp: async signInPage => {
 				const allowButton = signInPage.getByRole('button', { name: 'Allow' });
 				try {
