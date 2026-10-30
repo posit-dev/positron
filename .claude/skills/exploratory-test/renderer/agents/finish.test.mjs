@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withTmpDir } from '../shared/tmp-dirs.mjs';
-import { applyVerification, applyVerifyReply, buildVerifyPrompt, changeBase, findingNumbers, fixDrift, issueMatches, isVerified, checkGaps, checkMessage, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines, writeVerifyPrompt } from './finish.mjs';
+import { applyVerification, applyVerifyReply, buildVerifyPrompt, changeBase, findingNumbers, fixDrift, unconfirmedMissing, issueMatches, isVerified, checkGaps, checkMessage, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines, writeVerifyPrompt } from './finish.mjs';
 
 /** report.json with two findings, as the explorer writes them. */
 const REPORT = {
@@ -490,3 +490,9 @@ test('a verification that did not finish gives each finding Unknown, not verifie
 	const out = applyVerification(withMain({ steps: [{ step: 2, n: 2, m: 2, saw: 'x', shots: ['shots/M.png'], same: true }] }, undefined), parseVerifyReply(''), { failed: true, text: 'x', mainBuild: MAIN });
 	assert.deepEqual(out.verification.originReason, { 1: { reason: 'not verified', detail: '' }, 2: { reason: 'not verified', detail: '' } });
 });
+
+test('a missing ID is matched whole, not as part of a longer ID', () => withTmpDir('drift-', dir => {
+	const { repo, main, head } = changeRepo(dir);
+	assert.deepEqual(unconfirmedMissing(repo, main, head, ['positron.brand']), ['positron.brand'], 'only positron.brandNew is in the head');
+	assert.deepEqual(unconfirmedMissing(repo, main, head, ['positron.brandNew']), []);
+}));

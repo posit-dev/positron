@@ -457,10 +457,12 @@ export function unconfirmedMissing(repoRoot, mainCommit, headSha, ids) {
 	if (!repoRoot || !mainCommit || !headSha) {
 		return [...ids];
 	}
+	// The whole ID, not part of a longer one: `positron.brand` must not match `positron.brandNew`.
+	const whole = id => `(^|[^A-Za-z0-9_.-])${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^A-Za-z0-9_.-])`;
 	// 0: found; 1: not found; anything else: git could not tell.
 	const found = (commit, id) => {
 		try {
-			execFileSync('git', ['-C', repoRoot, 'grep', '-q', '-F', '-e', id, commit, '--', 'src', 'extensions'], { stdio: 'ignore' });
+			execFileSync('git', ['-C', repoRoot, 'grep', '-q', '-E', '-e', whole(id), commit, '--', 'src', 'extensions'], { stdio: 'ignore' });
 			return true;
 		} catch (err) {
 			return err.status === 1 ? false : null;

@@ -40,12 +40,12 @@ function stepFromJson(s) {
 	};
 }
 
-/** A schema evidence item as the page lays it out. */
 /** A main replay's screenshots as evidence on the step each checks, captioned with what main showed. */
 function mainShots(main) {
 	return (main?.steps ?? []).flatMap(s => (s.shots ?? []).map(path => ({ kind: 'shot', path, step: s.step, main: true, caption: `Latest build, step ${s.step}: ${s.saw}` })));
 }
 
+/** A schema evidence item as the page lays it out. */
 function evidenceFromJson(e) {
 	if (e.kind === 'shot') {
 		const src = safeUrl(e.path);

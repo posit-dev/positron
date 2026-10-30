@@ -308,7 +308,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 		out.unshift(`${refs(back)} regressed${inPr}.`, '');
 	}
 	if (failedFixes) {
-		// A fix that held in another scenario held in part, not not at all.
+		// A fix that held in another scenario held in part, so it is partly fixed rather than not fixed.
 		const partly = failedFixes.filter(i => options.ki?.partly?.has(i.number));
 		const whole = failedFixes.filter(i => !options.ki?.partly?.has(i.number));
 		if (whole.length) {
