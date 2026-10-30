@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { isAbsolute, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ensureCommit, fetchDaily, mainBuildBrief, platformFor, readMainBuild } from './main-build.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
 
@@ -109,3 +110,24 @@ test('ensureCommit is true for a commit the checkout has, and false for one it c
 	assert.equal(ensureCommit(dir, git('rev-parse', 'HEAD')), true);
 	assert.equal(ensureCommit(dir, 'f'.repeat(40)), false);
 }));
+
+// CI runs it before any npm install, in the background while the PR builds.
+test('main-build.mjs needs nothing but Node: no package in its imports, all the way down', () => {
+	const seen = new Set();
+	const bare = [];
+	const walk = file => {
+		if (seen.has(file)) {
+			return;
+		}
+		seen.add(file);
+		for (const [, spec] of readFileSync(file, 'utf8').matchAll(/^import\s[^'"]*['"]([^'"]+)['"]/gm)) {
+			if (spec.startsWith('.')) {
+				walk(join(dirname(file), spec));
+			} else if (!spec.startsWith('node:')) {
+				bare.push(`${file.slice(file.indexOf('renderer/'))} imports ${spec}`);
+			}
+		}
+	};
+	walk(fileURLToPath(new URL('./main-build.mjs', import.meta.url)));
+	assert.deepEqual(bare, []);
+});

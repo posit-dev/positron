@@ -16,11 +16,10 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { accessSync, constants, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { accessSync, constants, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { readJson } from './shared/text.mjs';
 
 const FEED = 'https://cdn.posit.co/positron/dailies';
 // Where each platform's download keeps the executable, relative to the extract.
@@ -112,7 +111,12 @@ function isExecutable(path) {
 
 /** The main build described in `path`, or null when it is missing, unreadable, or its binary cannot run. */
 export function readMainBuild(path) {
-	const build = readJson(path);
+	let build;
+	try {
+		build = JSON.parse(readFileSync(path, 'utf8'));
+	} catch {
+		return null;
+	}
 	if (!build || typeof build.commit !== 'string' || typeof build.binary !== 'string' || !isExecutable(build.binary)) {
 		return null;
 	}
