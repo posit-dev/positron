@@ -107,8 +107,11 @@ export async function fetchDaily({ platform, outDir, fetchImpl = fetch, extract 
 		rmSync(file, { force: true });
 		throw new Error(`sha256 mismatch: the feed says ${feed.sha256hash}, the download is ${hash}`);
 	}
-	extract(file, outDir);
-	rmSync(file, { force: true });
+	try {
+		extract(file, outDir);
+	} finally {
+		rmSync(file, { force: true });
+	}
 	const binary = join(resolve(outDir), BINARY[platform]);
 	if (!isExecutable(binary)) {
 		throw new Error(`no executable at ${binary} after extracting`);
@@ -124,7 +127,7 @@ export async function fetchDaily({ platform, outDir, fetchImpl = fetch, extract 
  * Only the newest is kept.
  * @returns {Promise<MainBuild>}
  */
-export async function cachedDaily({ platform, cacheDir, fetchImpl = fetch, extract = defaultExtract }) {
+export async function cachedDaily({ platform, cacheDir, fetchImpl = fetch, extract = defaultExtract, remove = path => rmSync(path, { recursive: true, force: true }) }) {
 	const res = await fetchImpl(`${FEED}/${platform}/releases.json`);
 	if (!res.ok) {
 		throw new Error(`feed answered ${res.status}`);
@@ -135,8 +138,13 @@ export async function cachedDaily({ platform, cacheDir, fetchImpl = fetch, extra
 	}
 	const dir = join(cacheDir, version);
 	const build = readMainBuild(join(dir, 'main-build.json')) ?? await fetchDaily({ platform, outDir: dir, fetchImpl, extract });
+	// A build that cannot be cleared is left for the next run; it never costs this one its build.
 	for (const old of readdirSync(cacheDir).filter(name => name !== version)) {
-		rmSync(join(cacheDir, old), { recursive: true, force: true });
+		try {
+			remove(join(cacheDir, old));
+		} catch {
+			// Kept until a later run can remove it.
+		}
 	}
 	return build;
 }
@@ -183,7 +191,7 @@ export function readMainBuild(path) {
 	} catch {
 		return null;
 	}
-	if (!build || typeof build.commit !== 'string' || typeof build.binary !== 'string' || !isExecutable(build.binary)) {
+	if (!build || typeof build.version !== 'string' || typeof build.commit !== 'string' || typeof build.binary !== 'string' || !isExecutable(build.binary)) {
 		return null;
 	}
 	return build;

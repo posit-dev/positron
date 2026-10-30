@@ -36,15 +36,6 @@ const FOCUS = process.env.FOCUS || '';
 // Unset leaves each model at its own default effort.
 const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
-// The build of main the workflow downloaded while the PR built, or null when
-// it has none; the explorer replays each finding on it, which decides Origin.
-// Without main's commit in the checkout, every `needs` lookup would fail and read as missing.
-const FOUND_MAIN = process.env.MAIN_BUILD ? readMainBuild(process.env.MAIN_BUILD) : null;
-const MAIN_BUILD = FOUND_MAIN && ensureCommit(REPO_ROOT, FOUND_MAIN.commit) ? FOUND_MAIN : null;
-// Minutes of exploring, or null for no limit, with time for the main replays
-// added. The agent is not told the limit, only when it is up, and is stopped
-// WRAP_UP_MINUTES later.
-const TIME_LIMIT = withMainReplay(parseTimeLimit(process.env.TIME_LIMIT), MAIN_BUILD);
 // Set when the hard stop fires, so the outcome and stats can say so.
 let timedOut = false;
 let timeWasUp = false;
@@ -179,6 +170,16 @@ async function runAgent(step) {
 }
 
 async function main() {
+	// The build of main the workflow downloaded while the PR built, or null when
+	// it has none; the explorer replays each finding on it, which decides Origin.
+	// Without main's commit in the checkout, every `needs` lookup would fail and
+	// read as missing. Here, not at load, since the commit may need a fetch.
+	const found = process.env.MAIN_BUILD ? readMainBuild(process.env.MAIN_BUILD) : null;
+	const MAIN_BUILD = found && ensureCommit(REPO_ROOT, found.commit) ? found : null;
+	// Minutes of exploring, or null for no limit, with time for the main replays
+	// added. The agent is not told the limit, only when it is up, and is stopped
+	// WRAP_UP_MINUTES later.
+	const TIME_LIMIT = withMainReplay(parseTimeLimit(process.env.TIME_LIMIT), MAIN_BUILD);
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
 	// Fetched by the workflow while the build ran; the verifier and renderer read it from the run directory.
 	if (process.env.KNOWN_ISSUES && existsSync(process.env.KNOWN_ISSUES)) {

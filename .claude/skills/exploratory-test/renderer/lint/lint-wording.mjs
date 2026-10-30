@@ -341,10 +341,10 @@ export function mainProblems(n, main, steps, { mainBuild } = {}) {
 	const counted = main.steps.map(s => s.step);
 	const problems = [];
 	for (const at of [...new Set(counted.filter((at, i) => counted.indexOf(at) !== i))]) {
-		problems.push(problem('main-steps', `report: Finding ${n} main.steps counts step ${at} twice; give each failing check one count`));
+		problems.push(problem('main-steps', `report: Finding ${n} main.steps counts step ${at} more than once; give each failing check one count`));
 	}
 	for (const at of counted.filter(at => !failing.includes(at))) {
-		problems.push(problem('main-steps', `report: Finding ${n} main.steps names step ${at}, which is not a failing check; count only steps ${failing.join(', ')}`));
+		problems.push(problem('main-steps', `report: Finding ${n} main.steps names step ${at}, which is not a failing check; ${failing.length ? `count only steps ${failing.join(', ')}` : 'this finding has no failing check to count'}`));
 	}
 	for (const at of failing.filter(at => !counted.includes(at))) {
 		problems.push(problem('main-steps', `report: Finding ${n} main.steps leaves out failing step ${at}; count every one, a step left out may be the one main fails`));

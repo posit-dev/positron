@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage, sessionName, replayMinutes, withMainReplay } from './pipeline.mjs';
+import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage, MAIN_REPLAY_MINUTES, sessionName, replayMinutes, withMainReplay } from './pipeline.mjs';
 import { parseSystemLine } from './shared/ledger.mjs';
 import { reportFromJson } from './page/report-json.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
@@ -395,7 +395,7 @@ test('a verifier that does not show it checked the action log and the screenshot
 const BUILD = { version: '2026.11.0-236', commit: 'c'.repeat(40), pubDate: '', platform: 'mac/arm64', binary: '/x/Positron' };
 
 test('withMainReplay adds the main replay minutes to a time limit, only with a main build', () => {
-	assert.equal(withMainReplay(30, BUILD), 40);
+	assert.equal(withMainReplay(30, BUILD), 30 + MAIN_REPLAY_MINUTES);
 	assert.equal(withMainReplay(null, BUILD), null);
 	assert.equal(withMainReplay(30, null), 30);
 });

@@ -219,6 +219,14 @@ test('schemaProblems checks needs and main', () => {
 
 test('main-steps: a failing check counted twice is flagged', () => {
 	assert.deepEqual(mainProblems({ steps: [{ step: 3, n: 0, m: 2, saw: 'x' }, { step: 3, n: 1, m: 2, saw: 'y' }] }), [
-		'main-steps: report: Finding 1 main.steps counts step 3 twice; give each failing check one count',
+		'main-steps: report: Finding 1 main.steps counts step 3 more than once; give each failing check one count',
+	]);
+});
+
+test('main-steps: a finding with no failing check says so', () => {
+	const j = json();
+	Object.assign(j.findings[0], { title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.', steps: [{ kind: 'action', text: 'Click it.' }], main: { steps: [{ step: 1, n: 0, m: 2, saw: 'x' }] } });
+	assert.deepEqual(formatProblems(j, LEDGER, { mainBuild: MAIN_BUILD }).filter(p => p.rule === 'main-steps').map(p => p.text), [
+		'report: Finding 1 main.steps names step 1, which is not a failing check; this finding has no failing check to count',
 	]);
 });

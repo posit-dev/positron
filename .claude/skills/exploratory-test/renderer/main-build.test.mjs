@@ -175,3 +175,25 @@ test('localMainBuild: skipped, given, no daily for the platform, or a failed fet
 	writeFileSync(join(dir, 'main-build.json'), JSON.stringify({ ...built, binary: join(dir, 'Positron.app', 'Contents', 'MacOS', 'Positron') }));
 	assert.equal((await localMainBuild({ given: dir, platform: 'mac/arm64', cacheDir: dir, fetch: never, log }))?.version, 'v');
 }));
+
+test('fetchDaily removes the archive when extracting fails', () => withTmpDir('main-build-', async dir => {
+	const broken = () => { throw new Error('unzip failed'); };
+	await assert.rejects(fetchDaily({ platform: 'mac/arm64', outDir: dir, fetchImpl: fakeFetch(sha(BODY)), extract: broken }), /unzip failed/);
+	assert.deepEqual(readdirSync(dir), []);
+}));
+
+test('readMainBuild returns null for a build with no version', () => withTmpDir('main-build-', dir => {
+	fakeExtract(null, dir);
+	const binary = join(dir, 'Positron.app', 'Contents', 'MacOS', 'Positron');
+	writeFileSync(join(dir, 'main-build.json'), JSON.stringify({ commit: 'c', pubDate: '', platform: 'mac/arm64', binary }));
+	assert.equal(readMainBuild(join(dir, 'main-build.json')), null);
+}));
+
+test('cachedDaily keeps a good build when an old one cannot be removed', () => withTmpDir('main-cache-', async dir => {
+	mkdirSync(join(dir, '2026.11.0-100'));
+	const feed = versionedFetch();
+	let tried = false;
+	const build = await cachedDaily({ platform: 'mac/arm64', cacheDir: dir, fetchImpl: feed.fetch, extract: fakeExtract, remove: () => { tried = true; throw new Error('EBUSY'); } });
+	assert.ok(tried, 'the old build was due for removal');
+	assert.equal(build?.version, '2026.11.0-236');
+}));
