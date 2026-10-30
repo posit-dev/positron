@@ -340,6 +340,9 @@ export function mainProblems(n, main, steps, { mainBuild } = {}) {
 	const failing = steps.map((s, i) => (s.kind === 'verify' && s.result === 'fail' ? i + 1 : 0)).filter(Boolean);
 	const counted = main.steps.map(s => s.step);
 	const problems = [];
+	for (const at of [...new Set(counted.filter((at, i) => counted.indexOf(at) !== i))]) {
+		problems.push(problem('main-steps', `report: Finding ${n} main.steps counts step ${at} twice; give each failing check one count`));
+	}
 	for (const at of counted.filter(at => !failing.includes(at))) {
 		problems.push(problem('main-steps', `report: Finding ${n} main.steps names step ${at}, which is not a failing check; count only steps ${failing.join(', ')}`));
 	}

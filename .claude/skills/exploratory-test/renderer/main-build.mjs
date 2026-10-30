@@ -16,7 +16,8 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { accessSync, constants, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { accessSync, constants, createWriteStream, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { once } from 'node:events';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -81,14 +82,31 @@ export async function fetchDaily({ platform, outDir, fetchImpl = fetch, extract 
 	if (!res.ok) {
 		throw new Error(`download answered ${res.status}`);
 	}
-	const body = Buffer.from(await res.arrayBuffer());
-	const hash = createHash('sha256').update(body).digest('hex');
-	if (hash !== feed.sha256hash.toLowerCase()) {
-		throw new Error(`sha256 mismatch: the feed says ${feed.sha256hash}, the download is ${hash}`);
-	}
+	// Streamed to disk and hashed on the way: the daily is a few hundred MB, and
+	// in CI it downloads beside the PR's compile.
 	mkdirSync(outDir, { recursive: true });
 	const file = join(outDir, basename(new URL(feed.url).pathname));
-	writeFileSync(file, body);
+	const sha = createHash('sha256');
+	const out = createWriteStream(file);
+	try {
+		for await (const chunk of res.body) {
+			sha.update(chunk);
+			if (!out.write(chunk)) {
+				await once(out, 'drain');
+			}
+		}
+		out.end();
+		await once(out, 'finish');
+	} catch (err) {
+		out.destroy();
+		rmSync(file, { force: true });
+		throw err;
+	}
+	const hash = sha.digest('hex');
+	if (hash !== feed.sha256hash.toLowerCase()) {
+		rmSync(file, { force: true });
+		throw new Error(`sha256 mismatch: the feed says ${feed.sha256hash}, the download is ${hash}`);
+	}
 	extract(file, outDir);
 	rmSync(file, { force: true });
 	const binary = join(resolve(outDir), BINARY[platform]);

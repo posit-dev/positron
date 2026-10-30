@@ -52,6 +52,7 @@ test('fetchDaily rejects a hash mismatch', () => withTmpDir('main-build-', async
 		/sha256 mismatch/,
 	);
 	assert.equal(existsSync(join(dir, 'main-build.json')), false);
+	assert.deepEqual(readdirSync(dir), [], 'a download that fails its check is not left behind');
 }));
 
 test('fetchDaily writes main-build.json', () => withTmpDir('main-build-', async dir => {

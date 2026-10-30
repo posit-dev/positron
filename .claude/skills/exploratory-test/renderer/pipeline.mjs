@@ -31,7 +31,13 @@ export const ISOLATE_MINUTES = 12;
 export const EXPLORE_MINUTES = 30;
 // Added to the time limit when the run has a main build, so replaying findings
 // on main does not cut into exploring. To be tuned from stats' mainReplayMinutes.
-export const MAIN_REPLAY_MINUTES = Number(process.env.MAIN_REPLAY_MINUTES) || 10;
+export const MAIN_REPLAY_MINUTES = replayMinutes(process.env.MAIN_REPLAY_MINUTES);
+
+/** Minutes from MAIN_REPLAY_MINUTES: a whole number, 0 included, else 10. */
+export function replayMinutes(raw) {
+	const minutes = /^\d+$/.test(String(raw ?? '').trim()) ? Number(raw) : NaN;
+	return Number.isInteger(minutes) ? minutes : 10;
+}
 
 /** A time limit in minutes, or null for none, with the main replays' minutes added when there is a main build. */
 export function withMainReplay(timeLimit, mainBuild) {

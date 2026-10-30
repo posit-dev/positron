@@ -216,3 +216,9 @@ test('schemaProblems checks needs and main', () => {
 	assert.ok(schemaProblems({ header, findings: [{ ...f, needs: [1] }] }).some(p => /needs/.test(p)));
 	assert.ok(schemaProblems({ header, findings: [{ ...f, main: { steps: [{ step: 1 }] } }] }).some(p => /main\.steps\[0\]\.n is missing/.test(p)));
 });
+
+test('main-steps: a failing check counted twice is flagged', () => {
+	assert.deepEqual(mainProblems({ steps: [{ step: 3, n: 0, m: 2, saw: 'x' }, { step: 3, n: 1, m: 2, saw: 'y' }] }), [
+		'main-steps: report: Finding 1 main.steps counts step 3 twice; give each failing check one count',
+	]);
+});

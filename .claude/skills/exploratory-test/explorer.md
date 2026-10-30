@@ -559,7 +559,11 @@ twice as many when it failed in under half of them. Record each in
 stop it.
 
 If main cannot reach the starting state (a runtime does not start, a file is
-missing), record `"main": { "couldNotRun": "<why>" }` and stop trying. Never
+missing), or a step cannot be done on it (a control or view the step uses is
+not there), record `"main": { "couldNotRun": "<why, naming the step>" }` and
+stop trying. A check you could not reach is not a check that passed, and a
+part of the app you could not find is not proof that main lacks it: only the
+`needs` lookup proves that. Never
 make a file the finding did not save, and never explore on main: it answers
 one question per finding.
 
