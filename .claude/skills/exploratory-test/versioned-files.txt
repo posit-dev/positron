@@ -14,6 +14,8 @@
 .claude/skills/exploratory-test/renderer/lint/lint-rules.mjs
 .claude/skills/exploratory-test/renderer/known-issues.mjs
 .claude/skills/exploratory-test/renderer/pipeline.mjs
+.claude/skills/exploratory-test/renderer/main-build.mjs
+.claude/skills/exploratory-test/renderer/shared/main-check.mjs
 .claude/skills/exploratory-test/renderer/agents/finish.mjs
 .claude/skills/exploratory-test/renderer/agents/claude-cli.mjs
 .claude/skills/exploratory-test/renderer/time-up-hook.mjs

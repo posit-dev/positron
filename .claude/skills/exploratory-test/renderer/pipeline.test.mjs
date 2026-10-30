@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage, sessionName } from './pipeline.mjs';
+import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage, sessionName, withMainReplay } from './pipeline.mjs';
 import { parseSystemLine } from './shared/ledger.mjs';
 import { reportFromJson } from './page/report-json.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
@@ -390,4 +390,19 @@ test('a verifier that does not show it checked the action log and the screenshot
 	const skipped = await runWith(report, { verify: () => verdicts([[1, 'confirmed'], [2, 'confirmed', { log: [3, 5] }]], 'No process issues.'), recheck: () => 'no block' }, { files });
 	assert.deepEqual(skipped.report.verification.unchecked, { log: [1], shots: [1, 2] });
 	assert.deepEqual(skipped.report.findings.map(f => f.verified), ['confirmed', 'confirmed']);
+});
+
+const BUILD = { version: '2026.11.0-236', commit: 'c'.repeat(40), pubDate: '', platform: 'mac/arm64', binary: '/x/Positron' };
+
+test('withMainReplay adds the main replay minutes to a time limit, only with a main build', () => {
+	assert.equal(withMainReplay(30, BUILD), 40);
+	assert.equal(withMainReplay(null, BUILD), null);
+	assert.equal(withMainReplay(30, null), 30);
+});
+
+test('the brief has a Main build section only when one is given', () => {
+	const brief = prompt => prompt.slice(prompt.indexOf('\n# Brief\n'));
+	assert.doesNotMatch(brief(explorePrompt('/run', 'Test it.')), /## Main build/);
+	const prompt = explorePrompt('/run', 'Test it.', [], '## Main build\n\nBinary: `/x/Positron`');
+	assert.match(prompt, /# Brief\n\nTest it\.\n\n## Main build\n\nBinary: `\/x\/Positron`\n/);
 });

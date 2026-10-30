@@ -17,7 +17,7 @@
 //     replays a run from its explorer's report.json; the explorer's figures fill the Run tile.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, machine, release, type } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,9 +25,18 @@ import { parseArgs } from 'node:util';
 import { runClaude, stopAgents, WRAP_UP_MINUTES } from './agents/claude-cli.mjs';
 import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
+import { mainBuildBrief, readMainBuild } from './main-build.mjs';
 
 export const ISOLATE_MINUTES = 12;
 export const EXPLORE_MINUTES = 30;
+// Added to the time limit when the run has a main build, so replaying findings
+// on main does not cut into exploring. To be tuned from stats' mainReplayMinutes.
+export const MAIN_REPLAY_MINUTES = Number(process.env.MAIN_REPLAY_MINUTES) || 10;
+
+/** A time limit in minutes, or null for none, with the main replays' minutes added when there is a main build. */
+export function withMainReplay(timeLimit, mainBuild) {
+	return timeLimit && mainBuild ? timeLimit + MAIN_REPLAY_MINUTES : timeLimit;
+}
 const READ_TOOLS = ['Bash', 'Read', 'Glob', 'Grep'];
 const EXPLORER_PATH = fileURLToPath(new URL('../explorer.md', import.meta.url));
 const ISOLATOR_PATH = fileURLToPath(new URL('../isolator.md', import.meta.url));
@@ -128,8 +137,8 @@ export function sessionName(dir) {
 	return `et-${basename(dir).replace(/^.*-/, '')}`;
 }
 
-/** The explorer's prompt: explorer.md, the brief, the Environment lines, and what a local run sets up for it. */
-export function explorePrompt(dir, brief, environment = []) {
+/** The explorer's prompt: explorer.md, the brief, the main build, the Environment lines, and what a local run sets up for it. */
+export function explorePrompt(dir, brief, environment = [], mainBrief = '') {
 	return [
 		readFileSync(EXPLORER_PATH, 'utf8').trim(),
 		'',
@@ -139,6 +148,7 @@ export function explorePrompt(dir, brief, environment = []) {
 		'',
 		brief.trim(),
 		'',
+		...(mainBrief ? [mainBrief.trim(), ''] : []),
 		...(environment.length ? [environmentBrief(environment), ''] : []),
 		`Run directory: \`${dir}\``,
 		'',
@@ -156,8 +166,8 @@ export function explorePrompt(dir, brief, environment = []) {
  * `{ role, model, durationMs, turns, costUsd }`, or null when it failed. Its
  * time limit is the minutes in `timeLimitPath`, if any.
  */
-export async function explore(dir, { brief, repo, runAgent, model = 'opus', timeLimitPath = null, environment = environmentLines(readEnvironment(repo)), log = () => { } }) {
-	const prompt = explorePrompt(dir, brief, environment);
+export async function explore(dir, { brief, repo, runAgent, model = 'opus', timeLimitPath = null, environment = environmentLines(readEnvironment(repo)), mainBrief = '', log = () => { } }) {
+	const prompt = explorePrompt(dir, brief, environment, mainBrief);
 	writeFileSync(join(dir, 'explore-prompt.md'), prompt);
 	log('new explore agent');
 	try {
@@ -446,7 +456,7 @@ async function main(argv) {
 		allowPositionals: true,
 		options: {
 			repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' },
-			brief: { type: 'string' }, 'time-limit': { type: 'string' },
+			brief: { type: 'string' }, 'time-limit': { type: 'string' }, 'main-build': { type: 'string' },
 			'duration-ms': { type: 'string' }, turns: { type: 'string' }, model: { type: 'string' },
 			'no-agent-prompts': { type: 'boolean' }, 'skip-checkout-check': { type: 'boolean' },
 		},
@@ -456,7 +466,7 @@ async function main(argv) {
 	const replay = given && existsSync(join(given, 'report.json'));
 	const fresh = !given && values.brief && existsSync(values.brief) && (limit === 'none' || /^\d+$/.test(limit));
 	if (command !== 'run' || !(replay || fresh)) {
-		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts] [--skip-checkout-check]');
+		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--main-build <dir>] [--no-agent-prompts] [--skip-checkout-check]');
 		console.error('       node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]');
 		return 2;
 	}
@@ -488,17 +498,27 @@ async function main(argv) {
 			process.exit(code);
 		});
 	}
+	// A build of main the explorer replays each finding on; without one, no finding gets an Origin.
+	const mainBuild = fresh && values['main-build'] ? readMainBuild(join(values['main-build'], 'main-build.json')) : null;
+	if (fresh && values['main-build'] && !mainBuild) {
+		log(`no usable main build in ${values['main-build']} (fetch one with main-build.mjs fetch); exploring without one`);
+	}
 	if (fresh) {
 		// The agents and the helpers they run inherit it, so a call that leaves
 		// out the session still drives this run's window.
 		process.env.PW_SESSION = process.env.PLAYWRIGHT_CLI_SESSION = sessionName(dir);
 		const timeLimitPath = timeLimitFile(dir);
-		if (limit !== 'none') {
-			writeFileSync(timeLimitPath, `${limit}\n`);
+		const minutes = limit === 'none' ? 'none' : String(withMainReplay(Number(limit), mainBuild));
+		if (minutes !== 'none') {
+			writeFileSync(timeLimitPath, `${minutes}\n`);
+		}
+		if (mainBuild) {
+			copyFileSync(join(values['main-build'], 'main-build.json'), join(dir, 'main-build.json'));
 		}
 		console.log(`run directory: ${dir}`);
-		log(limit === 'none' ? 'exploring with no time limit' : `exploring for ${limit} minutes; write other minutes to ${timeLimitPath} to change it, or 0 to stop now`);
-		explored = await explore(dir, { brief: readFileSync(values.brief, 'utf8'), repo: values.repo, runAgent, timeLimitPath, log });
+		log(minutes === 'none' ? 'exploring with no time limit' : `exploring for ${minutes} minutes${mainBuild ? `, ${MAIN_REPLAY_MINUTES} of them for replays on main ${mainBuild.version}` : ''}; write other minutes to ${timeLimitPath} to change it, or 0 to stop now`);
+		const mainBrief = mainBuild ? mainBuildBrief(mainBuild, { repo: values.repo, base: values.base }) : '';
+		explored = await explore(dir, { brief: readFileSync(values.brief, 'utf8'), repo: values.repo, runAgent, timeLimitPath, mainBrief, log });
 	}
 	const explorer = explored ?? { model: values.model ?? 'opus', durationMs: number(values['duration-ms']), turns: number(values.turns), costUsd: null };
 	// A replay keeps the check its run recorded.

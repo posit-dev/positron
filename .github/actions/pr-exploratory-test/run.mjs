@@ -13,7 +13,9 @@ import { missingFiles, readRunDir, writeRunPage } from '../../../.claude/skills/
 import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
 import { reportFromJson } from '../../../.claude/skills/exploratory-test/renderer/page/report-json.mjs';
 import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/agents/finish.mjs';
-import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TIME_UP, readEnvironment } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
+import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TIME_UP, readEnvironment, withMainReplay } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
+import { mainBuildBrief, readMainBuild } from '../../../.claude/skills/exploratory-test/renderer/main-build.mjs';
+import { mainReplayMs } from '../../../.claude/skills/exploratory-test/renderer/shared/main-check.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
@@ -34,9 +36,13 @@ const FOCUS = process.env.FOCUS || '';
 // Unset leaves each model at its own default effort.
 const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
-// Minutes of exploring, or null for no limit. The agent is not told the limit,
-// only when it is up, and is stopped WRAP_UP_MINUTES later.
-const TIME_LIMIT = parseTimeLimit(process.env.TIME_LIMIT);
+// The build of main the workflow downloaded while the PR built, or null when
+// it has none; the explorer replays each finding on it, which decides Origin.
+const MAIN_BUILD = process.env.MAIN_BUILD ? readMainBuild(process.env.MAIN_BUILD) : null;
+// Minutes of exploring, or null for no limit, with time for the main replays
+// added. The agent is not told the limit, only when it is up, and is stopped
+// WRAP_UP_MINUTES later.
+const TIME_LIMIT = withMainReplay(parseTimeLimit(process.env.TIME_LIMIT), MAIN_BUILD);
 // Set when the hard stop fires, so the outcome and stats can say so.
 let timedOut = false;
 let timeWasUp = false;
@@ -178,6 +184,9 @@ async function main() {
 	}
 	const knownIssues = readKnownIssues(WORK_DIR);
 	const knownBrief = buildKnownIssuesBrief(knownIssues);
+	if (MAIN_BUILD) {
+		copyFileSync(process.env.MAIN_BUILD, join(WORK_DIR, 'main-build.json'));
+	}
 
 	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
 	const git = gitIn(REPO_ROOT);
@@ -206,12 +215,13 @@ async function main() {
 		buildTaskLine(FOCUS, upstream),
 		'',
 		...(knownBrief ? [knownBrief, ''] : []),
+		...(MAIN_BUILD ? [mainBuildBrief(MAIN_BUILD, { repo: REPO_ROOT, base: BASE_SHA }), ''] : []),
 		environmentBrief(environmentLines(readEnvironment(REPO_ROOT))),
 		'',
 		'Write the report to `report.json` in the run directory. Return a two or three line summary and nothing else.',
 	].join('\n');
 
-	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} effort=${EFFORT || 'default'} maxTurns=${MAX_TURNS} timeLimit=${TIME_LIMIT ? `${TIME_LIMIT}m` : 'none'}`);
+	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} effort=${EFFORT || 'default'} maxTurns=${MAX_TURNS} timeLimit=${TIME_LIMIT ? `${TIME_LIMIT}m` : 'none'} mainBuild=${MAIN_BUILD ? `${MAIN_BUILD.version} (${MAIN_BUILD.commit.slice(0, 10)})` : 'none'}`);
 	console.log(`[exploratory] user prompt:\n${userPrompt}`);
 
 	const session = await runSession({
@@ -270,6 +280,7 @@ async function main() {
 			parsed,
 			checks: readChecks(WORK_DIR),
 			timeLimit: TIME_LIMIT ? { minutes: TIME_LIMIT, reached: timeWasUp, stopped: timedOut } : null,
+			mainReplayMs: MAIN_BUILD ? mainReplayMs(existsSync(join(WORK_DIR, 'actions.log')) ? readFileSync(join(WORK_DIR, 'actions.log'), 'utf8') : '') : undefined,
 		});
 		writeFileSync(join(WORK_DIR, 'stats.json'), `${JSON.stringify(stats, null, 2)}\n`);
 		console.log(`[exploratory] stats: ${JSON.stringify(stats)}`);

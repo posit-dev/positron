@@ -535,6 +535,34 @@ trigger up (more files, sessions or rows) until it fails every try, then cold
 replay that version twice and make it the finding's steps. Name the smaller
 version and its rate in the finding.
 
+### On main
+
+When the brief has a `## Main build`, replay every finding on it before you
+write the finding up. Whether the finding happens on main decides its Origin;
+nothing you reason from the diff does.
+
+First list in `needs` each setting, command or view ID that the finding's
+steps use and the diff adds or changes, and look each one up with the brief's
+`git grep`. When main lacks one, record `"main": { "missing": [<the IDs>] }`
+and do not replay.
+
+Otherwise stop any cold-replay instance first, so no more than two instances
+run. Launch the main build with the brief's launch command under its own
+Playwright session (your session's name plus `-main`), open the finding's
+files from `files/`, and do only what its preconditions and steps say, on
+main's defaults. A default the change flips is not missing: main has the
+feature, set the old way, and whether users on it hit the bug is the question.
+Try each failing check at least as many times as `reproduced` has tries, and
+twice as many when it failed in under half of them. Record each in
+`main.steps` as `{ "step": <its number in steps>, "n": <fails>, "m": <tries>,
+"saw": "<what it showed, in a phrase>" }`. Then collect the instance's logs and
+stop it.
+
+If main cannot reach the starting state (a runtime does not start, a file is
+missing), record `"main": { "couldNotRun": "<why>" }` and stop trying. Never
+make a file the finding did not save, and never explore on main: it answers
+one question per finding.
+
 ### Steps and preconditions
 
 A finding's steps are the minimal sequence from the scenario that found it,
@@ -578,6 +606,8 @@ field it can have:
 	"n": 1,
 	"severity": "moderate",
 	"reproduced": { "n": 3, "m": 3 },
+	"needs": ["<a setting, command or view ID the steps use that the change adds or alters>"],
+	"main": { "steps": [{ "step": 4, "n": 0, "m": 3, "saw": "<what that check showed on main>" }] },
 	"feature": "<feature>",
 	"title": "<concise claim>",
 	"impact": "<how the bug affects users, in one or two sentences>",
@@ -609,8 +639,9 @@ field it can have:
 }
 ```
 
-Leave out `preconditions` when nothing is needed, and `evidence`, `errors` and
-`cause` when there is nothing for them. A step's `log` is on a scenario's first
+Leave out `preconditions` when nothing is needed, `evidence`, `errors` and
+`cause` when there is nothing for them, and `needs` and `main` when the brief
+has no main build. A step's `log` is on a scenario's first
 FAIL, as the ledger has it, with `"source": "none found in logs/<file>"` when
 nothing was logged. A step that pastes a file or a block of code into the app
 puts it in `code`, as a fenced markdown block. Text fields take markdown: code

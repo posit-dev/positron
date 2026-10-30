@@ -7,7 +7,7 @@ metadata:
   # told or allowed, or what is done with its reply. versioned-files.txt lists
   # the files that count. Feedback is grouped by it, so a change to how the
   # page looks does not count.
-  version: "1.75"
+  version: "1.76"
 ---
 
 # Exploratory testing
@@ -43,6 +43,12 @@ prints nothing when there are no linked issues, and a failed fetch only warns.
 Write the brief to a file in your scratch directory. The pipeline adds
 `explorer.md`, the run directory and the renderer to it.
 
+Fetch a build of main for the run:
+`node <base>/renderer/main-build.mjs fetch --out <scratch dir>/main`, and pass
+`--main-build <scratch dir>/main` below. The explorer replays each finding on
+it, which decides the finding's Origin. Without it, or if the fetch fails, the
+run goes on and no finding gets an Origin.
+
 ## Run it
 
 Run this as a background command, with values in place of shell variables.
@@ -50,7 +56,7 @@ Its first line is what the person sees in the background shell list:
 
 ```
 # explore: <feature>, <minutes> min
-node <base>/renderer/pipeline.mjs run --brief <brief file> --repo <checkout> --base <base sha> --head <head sha> --base-name <base branch> --time-limit <minutes>
+node <base>/renderer/pipeline.mjs run --brief <brief file> --repo <checkout> --base <base sha> --head <head sha> --base-name <base branch> --time-limit <minutes> --main-build <scratch dir>/main
 ```
 
 It first checks the checkout: at the head SHA, built since the last change to
