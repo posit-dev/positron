@@ -16,6 +16,7 @@ import { PythonExtension } from '../api/types';
 import { IServiceContainer } from '../ioc/types';
 import {
     getEnvDisplayName,
+    getEnvTypeForTelemetry,
     getToolResponseIfNotebook,
     IResourceReference,
     isCancellationError,
@@ -53,6 +54,7 @@ export class InstallPackagesTool
     ): Promise<LanguageModelToolResult> {
         const packageCount = options.input.packageList.length;
         const packagePlurality = packageCount === 1 ? 'package' : 'packages';
+        this.extraTelemetryProperties.packageCount = String(packageCount);
         const notebookResponse = getToolResponseIfNotebook(resourcePath);
         if (notebookResponse) {
             return notebookResponse;
@@ -86,9 +88,11 @@ export class InstallPackagesTool
                     'noEnvFound',
                 );
             }
+            this.extraTelemetryProperties.envType = getEnvTypeForTelemetry(environment);
             const isConda = isCondaEnv(environment);
             const installers = this.serviceContainer.getAll<IModuleInstaller>(IModuleInstaller);
             const installerType = isConda ? ModuleInstallerType.Conda : ModuleInstallerType.Pip;
+            this.extraTelemetryProperties.installerType = isConda ? 'conda' : 'pip';
             const installer = installers.find((i) => i.type === installerType);
             if (!installer) {
                 throw new ErrorWithTelemetrySafeReason(

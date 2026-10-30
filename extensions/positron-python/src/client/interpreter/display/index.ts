@@ -24,7 +24,7 @@ import {
     IInterpreterService,
     IInterpreterStatusbarVisibilityFilter,
 } from '../contracts';
-import { useEnvExtension } from '../../envExt/api.internal';
+import { shouldEnvExtHandleActivation } from '../../envExt/api.internal';
 
 /**
  * Based on https://github.com/microsoft/vscode-python/issues/18040#issuecomment-992567670.
@@ -68,7 +68,7 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
     }
 
     public async activate(): Promise<void> {
-        if (useEnvExtension()) {
+        if (shouldEnvExtHandleActivation()) {
             return;
         }
         const application = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
@@ -118,7 +118,7 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
         }
     }
     private async updateDisplay(workspaceFolder?: Uri) {
-        if (useEnvExtension()) {
+        if (shouldEnvExtHandleActivation()) {
             this.statusBar?.hide();
             this.languageStatus?.dispose();
             this.languageStatus = undefined;
@@ -148,7 +148,7 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
                     );
                     this.currentlySelectedInterpreterPath = interpreter.path;
                 }
-                // --- Start Positron --
+                // --- Start Positron ---
                 // status bar text should be interpreter path, relative to workspace
                 let text = this.pathUtils.getDisplayName(interpreter.path, workspaceFolder?.fsPath);
                 // --- End Positron ---

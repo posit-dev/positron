@@ -48,6 +48,7 @@ import { getNativePythonFinder } from './base/locators/common/nativePythonFinder
 import { createNativeEnvironmentsApi } from './nativeAPI';
 import { useEnvExtension } from '../envExt/api.internal';
 import { createEnvExtApi } from '../envExt/envExtApi';
+import { Conda } from './common/environmentManagers/conda';
 
 // --- Start Positron ---
 import { createNativeEnvironmentsApiWithModules } from './nativeAPI';
@@ -73,6 +74,10 @@ export async function initialize(ext: ExtensionState): Promise<IDiscoveryAPI> {
     initializeLegacyExternalDependencies(ext.legacyIOC.serviceContainer);
 
     if (useEnvExtension()) {
+        // The Python Environments extension (via pet) owns environment discovery,
+        // including locating conda. Skip the legacy registry/known-path conda probing,
+        // which is redundant here and was a significant startup cost.
+        Conda.setSkipDeepProbe(true);
         const api = await createEnvExtApi(ext.disposables);
         registerNewDiscoveryForIOC(
             // These are what get wrapped in the legacy adapter.
