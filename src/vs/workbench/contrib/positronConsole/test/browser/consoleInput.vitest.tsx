@@ -5,10 +5,12 @@
 
 /// <reference types="vitest/globals" />
 
-import { act, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -19,7 +21,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { CodeSubmissionResult, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { ConsoleInput } from '../../browser/components/consoleInput.js';
 import { PositronConsoleContextProvider, usePositronConsoleContext } from '../../browser/positronConsoleContext.js';
@@ -52,9 +54,9 @@ vi.mock('../../browser/components/consoleInputModel.js', () => ({
 }));
 
 /**
- * Creates a console instance stub with no session attached.
+ * Creates a console instance stub with no session attached, unless overridden.
  */
-function createConsoleInstance(sessionId: string): IPositronConsoleInstance {
+function createConsoleInstance(sessionId: string, overrides: Partial<IPositronConsoleInstance> = {}): IPositronConsoleInstance {
 	return stubInterface<IPositronConsoleInstance>({
 		sessionId,
 		sessionMetadata: stubInterface<IPositronConsoleInstance['sessionMetadata']>({
@@ -75,6 +77,7 @@ function createConsoleInstance(sessionId: string): IPositronConsoleInstance {
 		onDidClearInputHistory: Event.None,
 		onDidSetPendingCode: Event.None,
 		onDidExecuteCode: Event.None,
+		...overrides,
 	});
 }
 
@@ -232,5 +235,76 @@ describe('ConsoleInput focus', () => {
 			expect(elsewhere).toHaveFocus();
 			expect(editor).not.toHaveFocus();
 		});
+	});
+});
+
+describe('ConsoleInput parameter hints', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IUserInteractionService, new UserInteractionService())
+		.stub(IExecutionHistoryService, { getSessionInputEntries: () => [] })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	beforeEach(() => {
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		configurationService.setUserConfiguration('editor', {});
+		configurationService.setUserConfiguration('console', {});
+	});
+
+	// The R language server answers signature help on the R thread, so it can't answer while the
+	// submitted code runs. Simulate that with a provider that answers once and then never again,
+	// and a submission that never finishes.
+	it('closes when code is submitted while the language server is busy', async () => {
+		let requests = 0;
+		ctx.disposables.add(ctx.get(ILanguageFeaturesService).signatureHelpProvider.register('*', {
+			signatureHelpTriggerCharacters: ['('],
+			provideSignatureHelp: () => {
+				if (requests++ > 0) {
+					return new Promise(() => { });
+				}
+				return {
+					value: { signatures: [{ label: 'f(x)', parameters: [] }], activeSignature: 0, activeParameter: 0 },
+					dispose: () => { },
+				};
+			},
+		}));
+		const instance = createConsoleInstance('this-console', {
+			attachedRuntimeSession: stubInterface<NonNullable<IPositronConsoleInstance['attachedRuntimeSession']>>({
+				dynState: stubInterface<NonNullable<IPositronConsoleInstance['attachedRuntimeSession']>['dynState']>({
+					inputPrompt: '>',
+					continuationPrompt: '+',
+				}),
+				onDidReceiveRuntimeMessagePromptConfig: Event.None,
+			}),
+			submitCode: vi.fn(() => new Promise<CodeSubmissionResult>(() => { })),
+		});
+		rtl.render(
+			<PositronConsoleContextProvider>
+				<ConsoleInput
+					hidden={false}
+					positronConsoleInstance={instance}
+					width={400}
+					onCodeExecuted={() => { }}
+					onSelectAll={() => { }}
+				/>
+			</PositronConsoleContextProvider>
+		);
+		const user = userEvent.setup();
+		const textbox = screen.getByRole('textbox');
+		await user.click(textbox);
+
+		await user.keyboard('f(');
+		const widget = await vi.waitFor(() => {
+			// eslint-disable-next-line no-restricted-syntax -- the hints widget is upstream editor DOM with no role or test id
+			const element = document.querySelector('.parameter-hints-widget');
+			expect(element).toHaveClass('visible');
+			return element;
+		});
+		// eslint-disable-next-line testing-library/prefer-user-event -- the console reads keyCode, which user-event leaves at 0
+		fireEvent.keyDown(textbox, { key: 'Enter', code: 'Enter', keyCode: 13 });
+
+		expect(instance.submitCode).toHaveBeenCalledWith('f()', expect.anything());
+		expect(widget).not.toHaveClass('visible');
 	});
 });
