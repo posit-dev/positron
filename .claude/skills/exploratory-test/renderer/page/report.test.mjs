@@ -1548,3 +1548,11 @@ test('a screenshot\'s caption in the viewer drops the code marks the viewer woul
 test('a hover preview never grows taller than the window', () => {
 	assert.match(REPORT_CSS, /\.ev-pop img\{[^}]*width:auto;[^}]*max-height:calc\(100vh - 72px\);[^}]*object-fit:contain/);
 });
+
+test('an Only in PR finding whose replay could not run says the code is new', () => {
+	const json = rep({
+		findings: [fnd(1, { verified: 'confirmed', main: { couldNotRun: 'the Export button is not in the toolbar' } })],
+		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
+	});
+	assert.deepEqual(badgeTip(grouped(json), 1), ['Only in branch', 'The code involved is new in this branch, so the latest build couldn&rsquo;t run it: the Export button is not in the toolbar.']);
+});

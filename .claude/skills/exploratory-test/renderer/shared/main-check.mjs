@@ -30,9 +30,11 @@ const label = origin => ({ origin, reason: '', detail: '' });
  * whether the files of the fix differ between the main build and the base:
  * 'none', 'drift', or 'unchecked' when there were no files to compare. An
  * unchecked drift leaves Inherited standing, since main showed the bug, but
- * not Introduced, since main may have fixed it after the base.
+ * not Introduced, since main may have fixed it after the base. `newCode` says
+ * every file of the fix is new in the change, so a replay that could not run
+ * on main could not have: the finding is Introduced.
  */
-export function originFromMain({ main, reproduced, drift, hasMainBuild }) {
+export function originFromMain({ main, reproduced, drift, hasMainBuild, newCode = false }) {
 	if (!hasMainBuild) {
 		return none('no main build');
 	}
@@ -44,7 +46,8 @@ export function originFromMain({ main, reproduced, drift, hasMainBuild }) {
 		return label('introduced');
 	}
 	if (main.couldNotRun || !main.steps?.length) {
-		return none('could not run', main.couldNotRun ?? '');
+		// Main cannot run what the change added: the code the fix is in is new.
+		return newCode ? label('introduced') : none('could not run', main.couldNotRun ?? '');
 	}
 	if (drift === true || drift === 'drift') {
 		return none('drift');

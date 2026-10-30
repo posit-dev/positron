@@ -314,6 +314,9 @@ function unknownShort(report, f) {
 function groupEvidence(report, f, group, ki) {
 	const change = changeWord(report);
 	if (group === 'pr') {
+		if (f.main?.couldNotRun) {
+			return `The code involved is new in this ${change}, so the latest build couldn&rsquo;t run it: ${escapeHtml(f.main.couldNotRun.replace(/\.$/, ''))}.`;
+		}
 		return f.main?.missing?.length
 			? `Main doesn&rsquo;t have ${f.main.missing.map(escapeHtml).join(', ')} yet.`
 			: `Didn&rsquo;t reproduce in the latest build (0 of ${fewestTries(f.main)} tries).`;

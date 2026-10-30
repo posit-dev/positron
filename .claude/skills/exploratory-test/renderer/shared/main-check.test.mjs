@@ -103,3 +103,8 @@ test('a check that fails differently on main is not Also in latest build', () =>
 	assert.deepEqual(origin({ steps: [{ step: 5, n: 2, m: 2, saw: 'x', same: false }] }), { origin: '', reason: 'fails differently', detail: '' });
 	assert.equal(origin({ steps: [{ step: 5, n: 2, m: 2, saw: 'x', same: false }, { step: 9, n: 1, m: 2, saw: 'y', same: true }] }).origin, 'inherited');
 });
+
+test('a replay that could not run is Only in PR when the code involved is new in the change', () => {
+	assert.equal(origin({ couldNotRun: 'the Export button is not in the toolbar' }, { newCode: true }).origin, 'introduced');
+	assert.equal(origin({ couldNotRun: 'R did not start' }, { newCode: false }).reason, 'could not run');
+});

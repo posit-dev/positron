@@ -513,3 +513,13 @@ test('a run directory marked main-replay-off verifies with no groups', () => wit
 	assert.equal(v.origin, undefined);
 	assert.equal(v.originReason, undefined);
 }));
+
+test('a replay that could not run is introduced when every fix file is new in the change', () => withTmpDir('drift-', dir => {
+	const { repo, base, main, head } = changeRepo(dir);
+	const cnr = { couldNotRun: 'the new panel is not there' };
+	const report = { ...REPORT, findings: [{ ...REPORT.findings[0], steps: failingAt2(1), main: cnr }, { ...REPORT.findings[1], steps: failingAt2(2), main: cnr }] };
+	const parsed = parseVerifyReply(reply(verdicts([1, 'confirmed', { fix: ['src/new.ts'] }], [2, 'confirmed', { fix: ['src/new.ts', 'src/old.ts'] }])));
+	const out = applyVerification(report, parsed, { mainBuild: { ...MAIN, commit: main }, repoRoot: repo, baseSha: base, headSha: head });
+	assert.deepEqual(out.verification.origin, { 1: 'introduced' });
+	assert.deepEqual(out.verification.originReason, { 2: { reason: 'could not run', detail: 'the new panel is not there' } });
+}));

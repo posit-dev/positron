@@ -388,7 +388,8 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			continue;
 		}
 		const drift = mainBuild ? fixDrift(repoRoot, mainBuild.commit, baseSha, v.fix, headSha) : 'none';
-		const o = originFromMain({ main: f.main, reproduced: f.reproduced, drift, hasMainBuild: Boolean(mainBuild) });
+		const newCode = Boolean(mainBuild) && newInChange(repoRoot, mainBuild.commit, baseSha, headSha, v.fix);
+		const o = originFromMain({ main: f.main, reproduced: f.reproduced, drift, hasMainBuild: Boolean(mainBuild), newCode });
 		if (o.origin) {
 			origin[f.n] = o.origin;
 		} else {
@@ -456,6 +457,26 @@ export function fixDrift(repoRoot, mainCommit, baseSha, files, headSha = '') {
 	} catch {
 		return 'drift';
 	}
+}
+
+/**
+ * Whether every file of a finding's fix is new in the change: on the head,
+ * and in neither main nor the base. A replay that could not run on main then
+ * could not have, since main has none of that code. False with no files.
+ */
+export function newInChange(repoRoot, mainCommit, baseSha, headSha, files) {
+	if (!repoRoot || !mainCommit || !baseSha || !headSha || !files?.length) {
+		return false;
+	}
+	const has = (commit, f) => {
+		try {
+			execFileSync('git', ['-C', repoRoot, 'cat-file', '-e', `${commit}:${f}`], { stdio: 'ignore' });
+			return true;
+		} catch {
+			return false;
+		}
+	};
+	return files.every(f => has(headSha, f) && !has(mainCommit, f) && !has(baseSha, f));
 }
 
 /**
