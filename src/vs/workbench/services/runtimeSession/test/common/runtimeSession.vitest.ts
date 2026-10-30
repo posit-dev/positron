@@ -40,7 +40,8 @@ describe('Positron - RuntimeSessionService', () => {
 	/** How log lines and errors describe `startSource`. */
 	const startSourceLogDescription = `${startSourceDescription} [startReasonId: ${SessionStartReasonId.NewConsoleCommand}]`;
 	const notebookUri = URI.file('/path/to/notebook');
-	const notebookParent = '/path/to';
+	// The default working directory is the parent's fsPath, which carries backslashes on Windows.
+	const notebookParent = URI.joinPath(notebookUri, '..').fsPath;
 
 	const ctx = createLightTestContainer()
 		.withRuntimeServices()

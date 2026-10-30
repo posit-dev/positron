@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { join, resolve } from '../../../../base/common/path.js';
+import { URI } from '../../../../base/common/uri.js';
 import product from '../../../product/common/product.js';
 import { OPTIONS, parseArgs } from '../../node/argv.js';
 import { NativeEnvironmentService } from '../../node/environmentService.js';
@@ -116,9 +117,10 @@ describe('NativeEnvironmentService path overrides', () => {
 			policyFile: service.policyFile?.fsPath,
 		}).toEqual({
 			extensionsPath: join(portableDir, 'extensions'),
-			argvResource: join(portableDir, 'argv.json'),
-			appSharedDataHome: join(portableDir, 'shared-data'),
-			policyFile: join(portableDir, 'policy.json'),
+			// The URI-backed paths come back through fsPath, which lowercases a Windows drive letter.
+			argvResource: URI.file(join(portableDir, 'argv.json')).fsPath,
+			appSharedDataHome: URI.file(join(portableDir, 'shared-data')).fsPath,
+			policyFile: URI.file(join(portableDir, 'policy.json')).fsPath,
 		});
 	});
 });

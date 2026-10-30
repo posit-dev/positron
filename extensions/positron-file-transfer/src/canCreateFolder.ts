@@ -40,6 +40,12 @@ export async function canCreateFolderIn(parentPath: string): Promise<boolean | u
 			const code = (err as NodeJS.ErrnoException).code;
 			const parent = path.dirname(folder);
 			if (code === 'ENOENT' && parent !== folder) {
+				// Windows reports a path that runs through a file as ENOENT rather than ENOTDIR, so
+				// stop at a parent that exists but is not a folder instead of walking past it.
+				const parentStat = await fs.promises.stat(parent).catch(() => undefined);
+				if (parentStat && !parentStat.isDirectory()) {
+					return undefined;
+				}
 				folder = parent;
 				continue;
 			}

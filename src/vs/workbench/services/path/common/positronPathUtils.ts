@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { posix } from '../../../../base/common/path.js';
 import { URI } from '../../../../base/common/uri.js';
-import * as resources from '../../../../base/common/resources.js';
 import { IPathService } from './pathService.js';
 
 /**
@@ -23,8 +23,9 @@ export async function expandHomePath(path: string, pathService: IPathService, op
 		return undefined;
 	}
 
-	// Join the segments one at a time, because joinPath does not split on backslashes.
+	// Split into segments here, then join them on the URI's own path. joinPath would use the path
+	// library of the OS running Positron, which on Windows splits a POSIX name on its backslash.
 	const segments = path.slice(1).split(separator).filter(segment => segment.length > 0);
 	const userHome = await pathService.userHome(options);
-	return segments.length > 0 ? resources.joinPath(userHome, ...segments) : userHome;
+	return segments.length > 0 ? userHome.with({ path: posix.join(userHome.path, ...segments) }) : userHome;
 }

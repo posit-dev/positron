@@ -69,11 +69,17 @@ describe('Positron - PositronWelcome Contribution Helpers', () => {
 	});
 
 	testWindows('VSCode settings path: ensure correct Windows', async () => {
-		const pathService: IPathService = new TestPathService(
-			URI.file('C:\\Users\\test')
-		);
-		const path = await getCodeSettingsPathNative(pathService, OperatingSystem.Windows);
-		expect(path).toEqual(URI.file('C:\\Users\\test\\AppData\\Roaming\\Code\\User\\settings.json'));
+		// The Windows location comes from %APPDATA%, so pin it rather than reading this machine's.
+		vi.stubEnv('APPDATA', 'C:\\Users\\test\\AppData\\Roaming');
+		try {
+			const pathService: IPathService = new TestPathService(
+				URI.file('C:\\Users\\test')
+			);
+			const path = await getCodeSettingsPathNative(pathService, OperatingSystem.Windows);
+			expect(path).toEqual(URI.file('C:\\Users\\test\\AppData\\Roaming\\Code\\User\\settings.json'));
+		} finally {
+			vi.unstubAllEnvs();
+		}
 	});
 
 	// testWeb('VSCode settings path: ensure correct Workbench - with env var', async () => {
