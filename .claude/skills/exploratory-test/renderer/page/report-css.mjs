@@ -113,6 +113,9 @@ const PROFESSIONAL = `
 	--tip-text: #3D4148;
 	--tip-shadow: 0 1px 2px rgba(28,31,35,0.06);
 	--og-shadow: 0 4px 14px rgba(0,0,0,.08);
+	--rej-title: #A3A7AD;
+	--vtag-border: #C9C4B9;
+	--vtag-bg: #F4F2EC;
 	--code-blk-bg: #F1EFEA;
 	--rt-tag-bg: #EFEDE7;
 	--rt-tag-ink: #3D4148;
@@ -247,6 +250,9 @@ const PARTY = `
 	--tip-text: #F5F1FF;
 	--tip-shadow: none;
 	--og-shadow: 0 4px 14px rgba(0,0,0,.35);
+	--rej-title: #6F6799;
+	--vtag-border: #6A5FA0;
+	--vtag-bg: #2A2250;
 	--code-blk-bg: #19132F;
 	--rt-tag-bg: #3A2F6B;
 	--rt-tag-ink: #F5F1FF;
@@ -443,6 +449,15 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .og-meta:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:3px}
 .og-up .og-tip{top:auto;bottom:calc(100% + 8px)}
 .og:hover .og-tip,.og:focus-visible .og-tip,a.row:focus-visible .og-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
+/* A finding verify rejected: the row fades, and a square tag after the title (not a pill) says why. */
+.row.is-rej>:not(:nth-child(2)){opacity:.5}
+.row.is-rej .claim{color:var(--rej-title)}
+.row.is-rej .claim .n{opacity:.7}
+.vtag{display:inline-block;padding:0 6px;border:1px solid var(--vtag-border);background:var(--vtag-bg);border-radius:4px;font-size:12px;font-weight:500;line-height:18px;color:var(--body);vertical-align:1px;white-space:nowrap;cursor:help}
+.row .vtag{margin-left:8px}
+.og.vtag .og-tip{left:0;right:auto}
+.vtag:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.nowrap{white-space:nowrap}
 .og-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 @media (prefers-reduced-motion:reduce){.og-tip{transition:none}}
 

@@ -319,6 +319,37 @@ function cardOrigin(report, origin) {
 	return `<span class="og og-meta" tabindex="0">${word}${originTip(word, originText(report, origin), false)}</span>`;
 }
 
+/** A verdict other than Confirmed: verify rejected the finding, or it was never shown to hold. */
+function isRejected(word) {
+	return Boolean(word) && word !== 'confirmed';
+}
+
+const VERDICT_TIPS = {
+	disputed: 'The verifier thinks this may not be a bug. The finding explains why.',
+	unresolved: 'The verifier couldn&rsquo;t confirm or rule this out. The finding has the details.',
+};
+
+/** The square tag that marks a rejected finding: in its table row, or focusable in its card's meta line. */
+function verdictTag(word, focusable = true) {
+	const label = escapeHtml(capitalize(word));
+	const tip = VERDICT_TIPS[word] ? originTip(label, VERDICT_TIPS[word], !focusable) : '';
+	return `<span class="og vtag"${focusable && tip ? ' tabindex="0"' : ''}>${label}${tip}</span>`;
+}
+
+/** `html` with `tag` after its last word, the two kept on one line so the tag never wraps alone. */
+function withLastWord(html, tag) {
+	// The last space outside a tag starts the last word.
+	let depth = 0;
+	let at = -1;
+	for (let i = 0; i < html.length; i++) {
+		depth += html[i] === '<' ? 1 : html[i] === '>' ? -1 : 0;
+		if (html[i] === ' ' && depth === 0) {
+			at = i;
+		}
+	}
+	return `${html.slice(0, at + 1)}<span class="nowrap">${html.slice(at + 1)}${tag}</span>`;
+}
+
 function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 	const withOrigin = changeBase?.usable === true;
 	const grid = withOrigin ? 'findings-grid og-grid' : 'findings-grid';
@@ -334,11 +365,11 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 		const muted = text => line(`<span class="ki-state">${text}</span>`);
 		const lines = [];
 		// A finding verify rejected never reads as a fix that failed or an issue
-		// that came back: its verdict stands in for that line.
-		if (word && word !== 'confirmed') {
-			lines.push(muted(capitalize(word)));
-		} else if (failed.length || back.length) {
-			lines.push(line(`<span class="ki-reg">${ICON.x}${failed.length ? 'Not fixed' : 'Regressed'}</span><span class="ki-state">${first(failed.length ? failed : back)}</span>`));
+		// that came back: it keeps only the issue's number.
+		const rejected = isRejected(word);
+		if (failed.length || back.length) {
+			const own = first(failed.length ? failed : back);
+			lines.push(rejected ? muted(own) : line(`<span class="ki-reg">${ICON.x}${failed.length ? 'Not fixed' : 'Regressed'}</span><span class="ki-state">${own}</span>`));
 		}
 		// Every match the card shows, linked to the PR or found by search, one line per kind.
 		lines.push(...matchesByKind(possiblyKnown(f, ki), refs).map(m => muted(m.label(first(m.numbers)))));
@@ -351,9 +382,11 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 			? `<span class="ki-st">${lines.join('')}</span>`
 			: `<span class="ki-st"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">No matches</span>`
 				+ `${originTip('', 'No matching issues or PRs found.')}</span></span>`;
-		return `<a href="#f${f.n}" class="row ${grid}">`
+		// The tag is read as part of the row link, so its tooltip is hidden from screen readers.
+		const title = rejected ? withLastWord(f.rowTitle, verdictTag(word, false)) : f.rowTitle;
+		return `<a href="#f${f.n}" class="row ${grid}${rejected ? ' is-rej' : ''}">`
 			+ `<span>${pill(f.severity)}</span>`
-			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span></span>`
+			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${title}</span></span>`
 			+ (withOrigin ? originCell(report, originOf(report, f, changeBase, ki), i === report.findings.length - 1) : '')
 			+ status
 			+ '</a>';
@@ -718,7 +751,7 @@ function renderCardDetails(f, report, options = {}) {
  * When verify rejected the finding, its issue line stands in without the claim.
  */
 function cardIssueItems(f, word, ki, refs) {
-	const rejected = word && word !== 'confirmed';
+	const rejected = isRejected(word);
 	const failed = ki?.fixFailed.get(f.n) ?? [];
 	const back = ki?.cameBack.get(f.n) ?? [];
 	// A label is a prefix, or a function of the numbers when they sit mid-label (`Fixed in #N?`).
@@ -749,7 +782,7 @@ function renderFindingCard(f, report, options) {
 	if (word === 'confirmed') {
 		context.push(`<span class="confirmed">${ICON.check(12)}Confirmed</span>`);
 	} else if (word) {
-		context.push(`<span class="confirmed">${escapeHtml(capitalize(word))}</span>`);
+		context.push(verdictTag(word));
 	}
 	if (f.reproduced) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
@@ -843,13 +876,17 @@ function renderCoverage(report, options = {}) {
 	const ki = options.ki;
 	// What the row showed about the linked issues leads its result, after any
 	// finding link. One tag per outcome, listing its issues: "Also observed #1, #2".
+	// The issues of findings verify rejected: never "Not fixed" or "Regressed".
+	const rejectedIssues = new Set((report.findings ?? []).filter(f => isRejected(statusWord(f)))
+		.flatMap(f => [...(ki?.fixFailed.get(f.n) ?? []), ...(ki?.cameBack.get(f.n) ?? [])].map(i => i.number)));
 	const kiTags = row => {
 		const groups = new Map();
 		for (const { n, kind } of row.issues ?? []) {
 			const issue = ki?.byNumber.get(n);
+			const rejected = rejectedIssues.has(n);
 			const label = !issue ? null
-				: issue.relation === 'fixes' ? (kind === 'held' ? 'Fix verified for' : 'Not fixed')
-					: kind === 'observed' ? 'Also observed' : kind === 'back' ? 'Regressed' : null;
+				: issue.relation === 'fixes' ? (kind === 'held' ? 'Fix verified for' : rejected ? 'Fixes' : 'Not fixed')
+					: kind === 'observed' ? 'Also observed' : kind === 'back' ? (rejected ? 'Closed &middot;' : 'Regressed') : null;
 			if (label) { groups.set(label, [...(groups.get(label) ?? []), kiNum(n, ki)]); }
 		}
 		return [...groups].map(([label, nums]) => `${label} ${nums.join(', ')}`);
