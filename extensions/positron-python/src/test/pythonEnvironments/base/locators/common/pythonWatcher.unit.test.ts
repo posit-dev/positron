@@ -151,9 +151,10 @@ suite('Python watcher', () => {
 
             const events = await eventsAfterCreate(venvDir, 100);
 
+            // The watcher reports a Uri's fsPath, which lowercases a Windows drive letter.
             assert.deepStrictEqual(
                 events.map((e) => ({ type: e.type, executable: e.executable })),
-                [{ type: FileChangeType.Created, executable: path.join(venvDir, executable) }],
+                [{ type: FileChangeType.Created, executable: Uri.file(path.join(venvDir, executable)).fsPath }],
             );
         });
 
@@ -170,7 +171,7 @@ suite('Python watcher', () => {
 
             assert.deepStrictEqual(
                 events.map((e) => ({ type: e.type, executable: e.executable })),
-                [{ type: FileChangeType.Created, executable: path.join(venvDir, executable) }],
+                [{ type: FileChangeType.Created, executable: Uri.file(path.join(venvDir, executable)).fsPath }],
             );
         });
 
