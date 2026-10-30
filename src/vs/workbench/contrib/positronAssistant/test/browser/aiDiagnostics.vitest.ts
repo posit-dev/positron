@@ -5,12 +5,14 @@
 
 /// <reference types="vitest/globals" />
 
+import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService, IConfigurationValue } from '../../../../../platform/configuration/common/configuration.js';
 import { IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { AuthenticationSession, IAuthenticationProvider, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
 import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
-import { capLogLines, collectAISettings, collectProviderDiagnostics, describeExtensionStatus, describeFeatureToggle, featureState, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey, redactProvidersConfig } from '../../browser/aiDiagnostics.js';
+import { capLogLines, collectAISettings, collectAssistantSettingsReport, collectProviderDiagnostics, describeExtensionStatus, describeFeatureToggle, featureState, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey, nestMarkdownHeadings, redactProvidersConfig } from '../../browser/aiDiagnostics.js';
 
 function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsInputs {
 	return {
@@ -67,6 +69,7 @@ function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsIn
 			{ key: 'nextEditSuggestions.enabled', value: { python: true } },
 		],
 		enforcedSettings: [],
+		assistantSettingsReport: { markdown: '# Settings report\n\n## Settings\n\n- `model`: global file' },
 		logs: [
 			{ label: 'Authentication', content: '[2026-07-23T00:00:00.000Z] TRACE signed in' },
 			{ label: 'Posit AI NES', content: 'Extension not installed' },
@@ -82,7 +85,7 @@ describe('generateAIDiagnosticsReport', () => {
 
 			Generated: 2026-07-23T00:00:00.000Z
 
-			**Privacy Notice**: This report includes extension versions, non-default configuration settings, provider connection config, system information, and recent log entries. Known secret fields are redacted: API keys, tokens, and custom header values are replaced with \`<redacted>\`, and keys/tokens are stored separately from settings and providers.json to begin with. Everything else is shown as you configured it, including base URLs (which may reveal internal endpoints) and connection settings. Please read through the whole report and remove anything sensitive before you share it.
+			**Privacy Notice**: This report includes extension versions, non-default configuration settings, provider connection config, the Posit Assistant settings report (setting values, file paths, and where each credential comes from), system information, and recent log entries. Known secret fields are redacted: API keys, tokens, and custom header values are replaced with \`<redacted>\`, and keys/tokens are stored separately from settings and providers.json to begin with. Everything else is shown as you configured it, including base URLs (which may reveal internal endpoints) and connection settings. Please read through the whole report and remove anything sensitive before you share it.
 
 			## Version Information
 
@@ -139,21 +142,6 @@ describe('generateAIDiagnosticsReport', () => {
 
 			Queried, but returned no models.
 
-			### Configuration
-
-			Provider configuration from \`providers.json\` (\`/home/user/.posit/ai/providers.json\`):
-
-			\`\`\`json
-			{
-			  "version": 1,
-			  "providers": {
-			    "anthropic": {
-			      "enabled": true
-			    }
-			  }
-			}
-			\`\`\`
-
 			## Configuration Settings
 
 			Non-default AI-related settings:
@@ -164,6 +152,14 @@ describe('generateAIDiagnosticsReport', () => {
 			    "python": true
 			  }
 			\`\`\`
+
+			## Posit Assistant Settings
+
+			### Settings report
+
+			#### Settings
+
+			- \`model\`: global file
 
 			## Authentication Logs
 
@@ -331,8 +327,13 @@ describe('generateAIDiagnosticsReport', () => {
 		expect(report).toContain('**positai** (2)');
 	});
 
+	it('shows providers.json itself when the Assistant settings report is missing', () => {
+		expect(generateAIDiagnosticsReport(inputs({ assistantSettingsReport: { unavailable: 'Not installed' } })))
+			.toContain('Provider configuration from `providers.json` (`/home/user/.posit/ai/providers.json`):\n\n```json\n{\n  "version": 1,');
+	});
+
 	it('renders a placeholder in the JSON fence and omits the path when providers.json is unavailable', () => {
-		const report = generateAIDiagnosticsReport(inputs({ providersConfig: '// Provider catalog unavailable', providersConfigPath: undefined }));
+		const report = generateAIDiagnosticsReport(inputs({ assistantSettingsReport: { unavailable: 'Not installed' }, providersConfig: '// Provider catalog unavailable', providersConfigPath: undefined }));
 		expect(report).toContain('Provider configuration from `providers.json`:\n\n```json\n// Provider catalog unavailable\n```');
 	});
 
@@ -346,6 +347,56 @@ describe('generateAIDiagnosticsReport', () => {
 		expect(generateAIDiagnosticsReport(inputs({ aiEnabled: false })))
 			.toContain('- AI features (`ai.enabled`): **Disabled - all AI features below are off regardless of their own settings**');
 		expect(generateAIDiagnosticsReport(inputs())).toContain('- AI features (`ai.enabled`): Enabled');
+	});
+
+	it('shows why the Assistant settings report is missing in place of the report', () => {
+		expect(generateAIDiagnosticsReport(inputs({ assistantSettingsReport: { unavailable: 'Not installed' } })))
+			.toContain('## Posit Assistant Settings\n\nNot installed\n');
+	});
+});
+
+describe('collectAssistantSettingsReport', () => {
+	const extensionService = stubInterface<IExtensionService>({ activateById: async () => { } });
+
+	it('says the command is unavailable instead of calling a command that is not registered', async () => {
+		const executeCommand = vi.fn();
+		const report = await collectAssistantSettingsReport('running', extensionService, stubInterface<ICommandService>({ executeCommand }));
+		expect(report).toEqual({ unavailable: expect.stringContaining('Settings report unavailable') });
+		expect(executeCommand).not.toHaveBeenCalled();
+	});
+
+	it('does not pass a non-string result into the report', async () => {
+		const registration = CommandsRegistry.registerCommand('posit.assistant.getSettingsReport', () => { });
+		try {
+			const commandService = stubInterface<ICommandService>({ executeCommand: vi.fn().mockResolvedValue({ markdown: '# Settings report' }) });
+			expect(await collectAssistantSettingsReport('running', extensionService, commandService))
+				.toEqual({ unavailable: 'Settings report unavailable: Posit Assistant returned no report.' });
+		} finally {
+			registration.dispose();
+		}
+	});
+});
+
+describe('nestMarkdownHeadings', () => {
+	it('pushes headings down, caps at level 6, and leaves code fences alone', () => {
+		const markdown = [
+			'# Report',
+			'## Section',
+			'##### Deep',
+			'#not-a-heading',
+			'```jsonc',
+			'# not a heading either',
+			'```',
+		].join('\n');
+		expect(nestMarkdownHeadings(markdown, 2)).toMatchInlineSnapshot(`
+			"### Report
+			#### Section
+			###### Deep
+			#not-a-heading
+			\`\`\`jsonc
+			# not a heading either
+			\`\`\`"
+		`);
 	});
 });
 
