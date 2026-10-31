@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, readFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
@@ -207,3 +207,37 @@ test('showsValue catches a field that shows only the end of a long key', () => {
 	assert.ok(showsValue(`value: ${long.slice(-20)}`, long));
 	assert.ok(showsValue(`value: ${long.slice(0, 20)}`, long));
 });
+
+test('scanShots leaves the run\'s tmp folder out: it is scratch, never published', () => withShots(['clean.png'], async dir => {
+	mkdirSync(join(dir, 'tmp', 'venv'), { recursive: true });
+	copyFileSync(join(SHOTS, 'clean.png'), join(dir, 'tmp', 'venv', 'icon.png'));
+	const seen = [];
+	await scanShots(dir, SECRETS, async file => {
+		seen.push(file.slice(dir.length + 1));
+		return { text: '', lines: [] };
+	});
+	assert.deepEqual(seen, ['clean.png']);
+}));
+
+test('scanShots calls a file that is not an image unreadable, without reading it', () => withTmpDir('scan-shots-', async dir => {
+	writeFileSync(join(dir, 'fake.png'), 'version https://git-lfs.github.com/spec/v1');
+	let reads = 0;
+	const results = await scanShots(dir, SECRETS, async () => {
+		reads++;
+		return { text: '', lines: [] };
+	});
+	assert.equal(reads, 0);
+	assert.deepEqual(results.map(r => r.status), ['unreadable']);
+}));
+
+test('a PNG OCR cannot decode is unreadable, and the scan carries on', () => withShots(['clean.png'], async dir => {
+	// A PNG signature with nothing a decoder can use after it.
+	writeFileSync(join(dir, 'broken.png'), Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 7)]));
+	const ocr = await createReader(1);
+	try {
+		const results = await scanShots(dir, SECRETS, ocr.read);
+		assert.deepEqual(results.map(r => [r.file.slice(dir.length + 1), r.status]), [['broken.png', 'unreadable']]);
+	} finally {
+		await ocr.close();
+	}
+}));

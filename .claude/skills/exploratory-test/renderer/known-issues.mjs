@@ -210,7 +210,10 @@ export function buildKnownIssuesBrief(data, { file } = {}) {
  * matches (finding number to issue numbers):
  * - `observed`: open linked issues the run ran into, by severity, unrated
  *   last. Each has its `rows` and `severity` (or null).
- * - `fixesHeld`: fixes a scenario showed working, with their `rows`.
+ * - `fixesHeld`: fixes a scenario showed working, with their `rows`, and none
+ *   showed failing.
+ * - `fixesPartly`: fixes one scenario showed working and another failing, with
+ *   the `held` and `failed` rows; `partly` holds their numbers.
  * - `fixFailed`, `cameBack`: finding number to the fixes it shows did not
  *   hold, or the closed issues it shows came back.
  * - `known`: finding number to its KNOWN matches, less its own issues.
@@ -231,6 +234,7 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 	const byNumber = new Map(issues.map(i => [i.number, i]));
 	const seen = new Map();
 	const held = new Map();
+	const failedRows = new Map();
 	const fixFailed = new Map();
 	const cameBack = new Map();
 	const accountedFails = new Set();
@@ -250,6 +254,7 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 					push(held, n, row);
 				} else {
 					accountedFails.add(n);
+					push(failedRows, n, row);
 					findingOf(fixFailed);
 				}
 			} else if (kind === 'back') {
@@ -299,7 +304,9 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 	}).sort((a, b) => rank(a) - rank(b));
 	return {
 		observed,
-		fixesHeld: [...held].map(([n, rows]) => ({ issue: byNumber.get(n), rows })),
+		fixesHeld: [...held].filter(([n]) => !failedRows.has(n)).map(([n, rows]) => ({ issue: byNumber.get(n), rows })),
+		fixesPartly: [...held].filter(([n]) => failedRows.has(n)).map(([n, rows]) => ({ issue: byNumber.get(n), held: rows, failed: failedRows.get(n) })),
+		partly: new Set([...held.keys()].filter(n => failedRows.has(n))),
 		fixFailed,
 		cameBack,
 		known,
@@ -448,6 +455,16 @@ export async function loadIssueRefs(dir, markdown, knownIssues, { fetch = fetchR
 	const refs = [...saved, ...await fetch(missing, knownIssues?.repo ?? DEFAULT_REPO)];
 	writeFileSync(join(dir, REFS_FILE), `${JSON.stringify({ refs }, null, '\t')}\n`);
 	return refs;
+}
+
+/**
+ * The issues and PRs a report's page previews: every one it names, its
+ * matches included. Matches are bare numbers in report.json, so they are named
+ * here. Shared by a local render and CI's, so both pages preview the same.
+ */
+export async function pageIssueRefs(dir, json, knownIssues, options = {}) {
+	const matches = (json?.findings ?? []).flatMap(f => [...(f.known ?? []), ...(f.intended ?? [])]).map(n => `#${n}`).join(' ');
+	return loadIssueRefs(dir, `${JSON.stringify(json)} ${matches}`, knownIssues, options);
 }
 
 /**

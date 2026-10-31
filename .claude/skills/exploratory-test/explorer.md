@@ -377,9 +377,16 @@ Take it with drive-positron's `shot.sh` in the same tool call as the check, so
 it shows the state the check judged and costs no extra turn. Name it for the
 scenario and the order you took it in, `S03-01.png`, `S03-02.png`, never for a
 step number, and never reuse or rename one: the `Evidence:` line ties a shot to
-its step. `shot.sh` refuses a name already taken and prints the next free one. Take a second only when it shows a different moment the check
-depends on, such as the same panel still loading 15 s later. Leave a shot no
-check cites where it is; it is harmless.
+its step. `shot.sh` refuses a name already taken and prints the next free one.
+
+One screenshot per check: the view that proves its PASS or FAIL. A check that
+judges two things is two checks, each with its own result and shot. A moment
+before and a moment after are two steps, such as an action and the check that
+the panel is still loading 15 s later. A check tried several times keeps one
+shot and says the rest in its text: "Same in 2 of 2 tries". Only when the
+evidence cannot fit one view, crop one region that holds it all; take a second
+shot only when even that is impossible. Leave a shot no check cites where it
+is; it is harmless.
 
 Pass `--crop` with the region the check is about: its view (`--view
 Variables`, `--view 'active console'`) or a snapshot ref of the panel, tooltip
@@ -535,6 +542,44 @@ trigger up (more files, sessions or rows) until it fails every try, then cold
 replay that version twice and make it the finding's steps. Name the smaller
 version and its rate in the finding.
 
+### On main
+
+When the brief has a `## Main build`, replay every finding on it before you
+write the finding up. Whether the finding happens on main decides its Origin;
+nothing you reason from the diff does.
+
+First list in `needs` each setting, command or view ID that the finding's
+steps use and the diff adds or changes, and look each one up with the brief's
+`git grep`. When main lacks one, record `"main": { "missing": [<the IDs>] }`
+and do not replay.
+
+Otherwise stop any cold-replay instance first, so no more than two instances
+run. Launch the main build with the brief's launch command under its own
+Playwright session (your session's name plus `-main`), open the finding's
+files from `files/`, and do only what its preconditions and steps say, on
+main's defaults. A default the change flips is not missing: main has the
+feature, set the old way, and whether users on it hit the bug is the question.
+Try each failing check at least as many times as `reproduced` has tries, and
+twice as many when it failed in under half of them. Record each in
+`main.steps` as `{ "step": <its number in steps>, "n": <fails>, "m": <tries>,
+"saw": "<what it showed, in a phrase>", "shots": ["shots/<file>"] }`, with a
+screenshot on main of the same view, with the same crop, as the change's
+screenshot of that step, so the two pair one to one. When it failed on main,
+add `"same"`: `true` only when it failed the way it did on the change, the same
+symptom from the same steps; a different error or a different wrong value is
+`false`. Then collect the instance's logs and stop it, and give `main.log` as
+`[<first line>, <last line>]` of `actions.log` that hold the replay: only the
+main session's lines, from its launch to its last check.
+
+If main cannot reach the starting state (a runtime does not start, a file is
+missing), or a step cannot be done on it (a control or view the step uses is
+not there), record `"main": { "couldNotRun": "<why, naming the step>" }` and
+stop trying. A check you could not reach is not a check that passed, and a
+part of the app you could not find is not proof that main lacks it: only the
+`needs` lookup proves that. Never
+make a file the finding did not save, and never explore on main: it answers
+one question per finding.
+
 ### Steps and preconditions
 
 A finding's steps are the minimal sequence from the scenario that found it,
@@ -590,6 +635,8 @@ field it can have:
 		{ "kind": "action", "text": "<one action>" },
 		{ "kind": "verify", "text": "<the expectation>", "result": "fail", "finding": 1, "observed": "<what happened instead, one line>", "shots": ["shots/<file>"], "log": { "source": "logs/<file>:<line>", "body": "<the lines it logged>" } }
 	],
+	"needs": ["<a setting, command or view ID the steps use that the change adds or alters>"],
+	"main": { "steps": [{ "step": 4, "n": 0, "m": 3, "saw": "<what that check showed on main>", "shots": ["shots/<file>"] }], "log": [212, 240] },
 	"observed": "<exactly what happened, in one or two sentences, plus one for a fact you saw that makes it worse or gets past it>",
 	"expected": "<what should have happened, in one or two sentences>",
 	"evidence": [
@@ -609,8 +656,9 @@ field it can have:
 }
 ```
 
-Leave out `preconditions` when nothing is needed, and `evidence`, `errors` and
-`cause` when there is nothing for them. A step's `log` is on a scenario's first
+Leave out `preconditions` when nothing is needed, `evidence`, `errors` and
+`cause` when there is nothing for them, and `needs` and `main` when the brief
+has no main build. A step's `log` is on a scenario's first
 FAIL, as the ledger has it, with `"source": "none found in logs/<file>"` when
 nothing was logged. A step that pastes a file or a block of code into the app
 puts it in `code`, as a fenced markdown block. Text fields take markdown: code
@@ -703,10 +751,9 @@ the change, but with no budget it used to finish; now the 30 s budget runs out
 first." Describe the old code's behavior, not the run you did not do. When the
 diff changes what unchanged code is given, write "reachable through this
 change; cannot tell if it predates it without a base build". Otherwise, if the
-diff does not settle it, leave origin out, and never label a finding new or
-pre-existing. The verifier reads that sentence and decides each finding's
-Origin in the findings list (Introduced, Exposed or Inherited); add no field or
-mark for it yourself.
+diff does not settle it, leave that sentence out, and never label a finding new or
+pre-existing. A finding's Origin in the findings list (Main, This PR or
+Unknown) comes from its replay on main, not from this sentence.
 
 To see which language client served a request, turn on its LSP trace: the
 extension's trace setting (`<server>.trace.server` at `verbose`) and its

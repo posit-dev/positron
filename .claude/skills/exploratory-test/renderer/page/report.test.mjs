@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { parseLedger, parseSystemLine } from '../shared/ledger.mjs';
 import { modelDisplayName, safeUrl } from '../shared/text.mjs';
 import { renderReportHtml } from './html.mjs';
+import { REPORT_CSS } from './report-css.mjs';
 import { skillVersion } from './page-common.mjs';
 import { reportFromJson } from './report-json.mjs';
 import { checkScenes } from '../shared/scene-check.mjs';
@@ -364,7 +365,7 @@ const issueCopied = (html, n) => issueBlock(html, n).replace(/<\\(?=\/script|!--
 const tiles = html => between(html, '<section class="tiles">', '</section>');
 const coverageOf = html => between(html, 'id="coverage"', '</section>');
 const findingsOf = html => between(html, 'id="findings"', '</section>');
-const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid[^"]*">[\\s\\S]*?</a>(?=\\n)`).exec(html)?.[0] ?? '';
+const findingRow = (html, n) => new RegExp(`<a href="#f${n}"[^>]*class="row findings-grid[^"]*"[^>]*>[\\s\\S]*?</a>(?=\\n)`).exec(html)?.[0] ?? '';
 const runDetails = html => between(html, '<details id="run-details">', '</details></section>');
 const footer = html => between(html, '<footer', '</footer>');
 const foldLabels = html => [...runDetails(html).matchAll(/<div class="fold-label">([^<]+)<\/div>/g)].map(m => m[1]).join(', ');
@@ -1153,22 +1154,22 @@ const SCENES = {
 		const json = { ...fullWith(1, { expected: 'it should have stopped, as #2330 says, since #8126.' }), verification: { failed: false, text: 'A second agent.\n\nSearches returned only #3698 (open).' } };
 		return [between(card(fullHtml(json, { issueRefs: ISSUE_REFS }), 1), '<div class="f-cmp', '</div></div>'), between(fullHtml(json, { issueRefs: ISSUE_REFS }), 'Searches returned', '</p>'), between(card(fullHtml(json), 1), '<div class="f-cmp', '</div></div>')].join('\n--\n');
 	},
-	'the Origin column on a run with a usable base: a word per judged finding, a dash for one left out or not confirmed, nothing extra for a partial repro, the last tooltips opening upward': () => findingsOf(fullHtml(ORIGINS, { changeBase: USABLE })),
-	'no Origin column without a usable base, or with no base recorded': () => [
+	'grouped findings: tabs for each non-empty group, the info button, and a badge per group; a finding not confirmed has a plain number': () => findingsOf(grouped()),
+	'no groups without a comparison: a run on main, or a report from before main replays': () => [
 		between(findingsOf(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } })), '<div class="row row-head', '</div>'),
 		findingRow(fullHtml(ORIGINS, { changeBase: { usable: false, name: 'main' } }), 1),
-		findingRow(fullHtml(ORIGINS), 3),
+		findingRow(fullHtml(ORIGINS, { changeBase: USABLE }), 3),
 	].join('\n--\n'),
-	'a card shows its Origin word after Reproduced x/y, focusable with its tooltip; a card with none shows nothing': () => {
+	'a card shows its group after Reproduced x/y, focusable with its tooltip; a finding not confirmed shows none': () => {
 		const context = (html, n) => between(card(html, n), '<span class="group context">', '<button');
-		const html = fullHtml(ORIGINS, { changeBase: USABLE });
-		return [context(html, 1), context(html, 3), context(html, 4), context(fullHtml(ORIGINS), 1)].join('\n--\n');
+		const html = grouped();
+		return [context(html, 1), context(html, 2), context(html, 4), context(html, 8)].join('\n--\n');
 	},
-	'a PR run\'s Origin says PR, and a base with no name says the base branch': () => {
-		const html = fullHtml({ ...ORIGINS, header: { ...ORIGINS.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: { usable: true, name: null } });
-		return [between(findingsOf(html), '<div class="row row-head', '</div>'), findingRow(html, 1)].join('\n--\n');
+	'a PR run says Only in PR on its tab, its info button and its badges': () => {
+		const html = grouped({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } });
+		return [between(findingsOf(html), '<div class="cf-tabs"', '<div class="panel ff-card">'), findingRow(html, 1)].join('\n--\n');
 	},
-	'a fix that did not hold gets a dash, even with an origin': () => findingRow(render({ ...kiWith(1, { verified: 'confirmed' }), verification: { failed: false, text: 'x', origin: { 1: 'introduced' } } }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, changeBase: USABLE }), 1),
+	'a fix that did not hold is Also in latest build, citing its issue': () => findingRow(render({ ...kiWith(1, { verified: 'confirmed' }), verification: { failed: false, text: 'x', originReason: { 1: { reason: 'not replayed', detail: '' } } } }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, changeBase: USABLE, mainBuild: MAIN_BUILD }), 1),
 
 	// Coverage.
 	'issues, then passes, then not run; passes past the first 4 collapse behind Show all': () => coverageOf(render(rep(), { ledger: LONG_LEDGER })),
@@ -1252,3 +1253,306 @@ const SCENES = {
 // pages, and by the tests that read the links' answers and bodies.
 const trimScene = out => out.replace(/<svg[\s\S]*?<\/svg>/g, '<svg>').replace(/<div class="fb" .*?<\/div>/g, '<div class="fb">').replace(/href="https:\/\/github\.com\/posit-dev\/positron\/issues\/new\?[^"]*"/g, 'href="(new issue)"');
 test('every scene renders as saved', () => checkScenes('scenes.expected.txt', SCENES, { trim: trimScene }));
+
+// ---- Grouping by the replay on main's latest daily build ---------------------
+
+const MAIN_BUILD = { version: '2026.11.0-236', commit: '57b03d33f537a868e49c48c7acd0c59d84f9b453', pubDate: '', platform: 'mac/arm64', binary: '/x' };
+const twoSteps = (a, b) => ({ steps: [{ step: 9, n: b, m: 2, saw: 'y' }, { step: 5, n: a, m: 2, saw: 'x' }] });
+const REPLAYED = rep({
+	findings: [
+		fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, main: twoSteps(0, 0) }),
+		fnd(2, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, main: twoSteps(0, 2) }),
+		fnd(3, { verified: 'confirmed', main: { missing: ['positron.foo', 'bar.baz'] } }),
+		fnd(4, { verified: 'confirmed', main: { couldNotRun: 'R did not start' } }),
+		fnd(5, { verified: 'confirmed', reproduced: { n: 1, m: 4 }, main: twoSteps(0, 0) }),
+		fnd(6, { verified: 'confirmed', main: { steps: [{ step: 3, n: 1, m: 1, saw: 'x' }] } }),
+		fnd(7, { verified: 'confirmed' }),
+		fnd(8, { verified: 'disputed' }),
+		fnd(9, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, main: { steps: [{ step: 3, n: 0, m: 1, saw: 'x' }] } }),
+		fnd(10, { verified: 'confirmed', main: twoSteps(0, 0) }),
+		fnd(11, { verified: 'confirmed', main: twoSteps(0, 0) }),
+	],
+	verification: {
+		failed: false, text: 'x',
+		origin: { 1: 'introduced', 2: 'inherited', 3: 'introduced', 6: 'inherited' },
+		originReason: {
+			4: { reason: 'could not run', detail: 'R did not start' },
+			5: { reason: 'too few tries', detail: 'not seen in 2 tries on main' },
+			7: { reason: 'not replayed', detail: '' },
+			9: { reason: 'too few tries', detail: 'not seen in 1 tries on main' },
+			10: { reason: 'drift', detail: '' },
+			11: { reason: 'drift unchecked', detail: '' },
+		},
+	},
+});
+const grouped = (json = REPLAYED, options = {}) => render(json, { changeBase: USABLE, mainBuild: MAIN_BUILD, ...options });
+const groupOfRow = (html, n) => /data-og="([a-z]+)"/.exec(findingRow(html, n))?.[1];
+const badge = (html, n) => /<span class="f-b ([^"]*)">/.exec(findingRow(html, n))?.[1];
+const badgeTip = (html, n) => /<span class="f-b[^"]*">\d+<span class="og-tip"[^>]*><b>([^<]*)<\/b><span>([^<]*)<\/span>/.exec(findingRow(html, n))?.slice(1, 3);
+const tabs = html => [...between(html, 'id="findings"', 'ff-card').matchAll(/<span class="cf-l">([^<]*) <span class="cf-cnt">(\d+)<\/span>/g)].map(m => `${m[1]} ${m[2]}`);
+const cardGroup = (html, n) => /<span class="og og-meta" tabindex="0">([^<]*)<span class="og-tip"/.exec(card(html, n))?.[1];
+
+test('findings are grouped by the replay on main, and a finding not confirmed has no group', () => {
+	const html = grouped();
+	assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => groupOfRow(html, n)), ['pr', 'ex', 'pr', 'un', 'un', 'ex', 'un', 'none', 'un', 'un', 'un']);
+	assert.deepEqual([1, 2, 4, 8].map(n => badge(html, n)), ['f-b-pr', 'f-b-ex', 'f-b-un', 'f-n']);
+	assert.equal(badgeTip(html, 8), undefined, 'a finding with no group has no tooltip');
+});
+
+test('the tabs show All and each non-empty group, in order, with no tooltips', () => {
+	const html = grouped();
+	assert.deepEqual(tabs(html), ['All 11', 'Only in branch 2', 'Also in latest build 2', 'Unknown 6']);
+	assert.doesNotMatch(between(html, '<div class="cf-tabs"', '<span class="ffi">'), /og-tip/);
+	const pr = grouped({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } });
+	assert.deepEqual(tabs(pr).slice(0, 2), ['All 11', 'Only in PR 2']);
+	const noUnknown = grouped({ ...REPLAYED, findings: REPLAYED.findings.slice(0, 3) });
+	assert.deepEqual(tabs(noUnknown), ['All 3', 'Only in branch 2', 'Also in latest build 1']);
+});
+
+test('a finding number\'s tooltip gives the evidence for its group', () => {
+	const html = grouped();
+	assert.deepEqual(badgeTip(html, 1), ['Only in branch', 'Didn&rsquo;t reproduce in the latest build (0 of 2 tries).']);
+	assert.deepEqual(badgeTip(html, 3), ['Only in branch', 'Main doesn&rsquo;t have positron.foo, bar.baz yet.']);
+	assert.deepEqual(badgeTip(html, 2), ['Also in latest build', 'Also reproduced in the latest build: step 9 (2 of 2 tries).']);
+	assert.deepEqual(badgeTip(html, 6), ['Also in latest build', 'Also reproduced in the latest build (1 of 1 tries).']);
+	assert.deepEqual(badgeTip(html, 4), ['Unknown', 'It couldn&rsquo;t run on the latest build: R did not start.']);
+	assert.deepEqual(badgeTip(html, 5), ['Unknown', 'This issue only shows up sometimes (1 of 4 tries here). It didn&rsquo;t show up in 2 tries on the latest build, but that could be luck, so we can&rsquo;t say either way.']);
+	assert.deepEqual(badgeTip(html, 9), ['Unknown', 'It showed up every time here (2 of 2 tries), but the latest build was tried only 1 time, so we can&rsquo;t say yet.']);
+	assert.deepEqual(badgeTip(html, 7), ['Unknown', 'This finding wasn&rsquo;t replayed on the latest build.']);
+	assert.deepEqual(badgeTip(html, 10), ['Unknown', 'Main has changed the code where the fix likely goes, so the latest build can&rsquo;t show how this behaved before this branch.']);
+	assert.deepEqual(badgeTip(html, 11), ['Unknown', 'It didn&rsquo;t reproduce on the latest build, but its cause wasn&rsquo;t traced, so main may have changed in this area since this branch started.']);
+	const none = grouped({ ...REPLAYED, verification: { failed: false, text: 'x', originReason: { 1: { reason: 'no main build', detail: '' } } } }, { mainBuild: undefined });
+	assert.deepEqual(badgeTip(none, 1), ['Unknown', 'No build of main was available for this run.']);
+});
+
+test('a card shows its group after Reproduced, Unknown with its reason, and nothing for a finding not confirmed', () => {
+	const html = grouped();
+	assert.equal(cardGroup(html, 1), 'Only in branch');
+	assert.equal(cardGroup(html, 2), 'Also in latest build');
+	assert.equal(cardGroup(html, 4), 'Unknown: couldn&rsquo;t run on the latest build');
+	assert.equal(cardGroup(html, 5), 'Unknown: intermittent, needs more tries on the latest build');
+	assert.equal(cardGroup(html, 9), 'Unknown: needs more tries on the latest build');
+	assert.equal(cardGroup(html, 7), 'Unknown: not replayed on the latest build');
+	assert.equal(cardGroup(html, 10), 'Unknown: main has changed in this area');
+	assert.equal(cardGroup(html, 11), 'Unknown: cause not traced');
+	assert.equal(cardGroup(html, 8), undefined);
+	assert.ok(card(html, 2).includes('Also reproduced in the latest build: step 9 (2 of 2 tries).'), 'the card has the number\'s tooltip');
+});
+
+test('a Not fixed finding is Also in latest build, citing its issue, with no group label on its card', () => {
+	const json = { ...kiWith(1, { verified: 'confirmed' }), verification: { failed: false, text: 'x', originReason: { 1: { reason: 'not replayed', detail: '' } } } };
+	const html = render(json, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, changeBase: USABLE, mainBuild: MAIN_BUILD });
+	assert.equal(groupOfRow(html, 1), 'ex');
+	assert.match(badgeTip(html, 1)?.[1] ?? '', /^Still happens\. #\d+ is open for it\.$/);
+	assert.equal(cardGroup(html, 1), undefined);
+});
+
+test('the info button explains the visible groups and links the daily build', () => {
+	const info = html => between(html, '<span class="ffi">', '</span></span></div>');
+	const html = info(grouped());
+	assert.match(html, /How findings are grouped/);
+	assert.match(html, /<button type="button" class="ffi-btn" aria-label="How findings are grouped" aria-describedby="ffi-pop">/);
+	assert.match(html, /<span class="ffi-pop" id="ffi-pop" role="tooltip">/);
+	assert.match(html, /<div class="ffi-row"><b>Only in branch<\/b>/);
+	assert.match(html, /<b>Only in branch<\/b><span>Reproduced on this branch&rsquo;s build but not in the latest build of main\.<\/span>/);
+	assert.match(html, /<b>Also in latest build<\/b><span>Issues that already exist\. They also reproduced in the latest build of main, so they weren&rsquo;t caused by this branch&rsquo;s changes\.<\/span>/);
+	assert.match(html, /<b>Unknown<\/b><span>Not enough evidence to tell\. Hover a finding&rsquo;s number to see why\.<\/span>/);
+	assert.match(html, /Compared with the latest build of main: <a href="https:\/\/github\.com\/posit-dev\/positron\/commit\/57b03d33f537a868e49c48c7acd0c59d84f9b453"[^>]*>daily 2026\.11\.0-236 \(57b03d3\)<\/a>/);
+	assert.doesNotMatch(info(grouped({ ...REPLAYED, findings: REPLAYED.findings.slice(0, 3) })), /<b>Unknown<\/b>/);
+	assert.match(info(grouped(REPLAYED, { mainBuild: undefined })), /No build of main was available for this run\./);
+});
+
+test('screen readers hear the group first, in the severity cell', () => {
+	const html = grouped();
+	assert.match(findingRow(html, 1), /<span><span class="og-sr">Only in branch, <\/span><span class="pill/);
+	assert.doesNotMatch(findingRow(html, 8), /og-sr">[^<]*, </);
+});
+
+test('a run with no comparison shows no tabs, info, badges or group labels', () => {
+	for (const html of [grouped(REPLAYED, { changeBase: { usable: false, name: 'main' } }), render(ORIGINS, { ledger: FULL_LEDGER, changeBase: USABLE })]) {
+		const list = findingsOf(html);
+		assert.doesNotMatch(list, /ff-tab|class="ffi"|f-b|data-og/);
+		assert.doesNotMatch(list, /Introduced|Exposed|Inherited|Origin/);
+	}
+	assert.equal(cardGroup(render(ORIGINS, { ledger: FULL_LEDGER, changeBase: USABLE }), 1), undefined);
+});
+
+test('the findings table is Severity, Finding and Matches, with no Origin column', () => {
+	assert.match(REPORT_CSS, /\.findings-grid\{grid-template-columns:110px minmax\(0,1fr\) 156px\}/);
+	assert.doesNotMatch(grouped(), /og-cell|og-grid|og-hc/);
+});
+
+test('a finding whose verification did not finish is Unknown, not verified', () => {
+	const json = { ...REPLAYED, verification: { failed: true, text: 'x', originReason: { 1: { reason: 'not verified', detail: '' } } } };
+	const html = grouped(json);
+	assert.equal(groupOfRow(html, 1), 'un');
+	assert.deepEqual(badgeTip(html, 1), ['Unknown', 'Verification didn&rsquo;t finish, so this finding&rsquo;s comparison with main wasn&rsquo;t checked.']);
+	assert.equal(cardGroup(html, 1), 'Unknown: not verified');
+});
+
+test('the tabs wrap at narrow widths instead of running off the page', () => {
+	assert.match(REPORT_CSS, /@media \(max-width:820px\)\{\.ffi\{display:none\}\.ff \.cf-tabs\{flex-wrap:wrap;row-gap:8px\}/);
+});
+
+test('a card shows the screenshots from the latest build, and fails differently is Unknown with what main showed', () => {
+	const twoStep = [act('Open the file.'), fail('the chunks stay open', 2, { shots: ['shots/P2.png'] })];
+	const json = { ...REPLAYED, findings: REPLAYED.findings.map(f => (f.n === 2 ? { ...f, steps: twoStep, main: { steps: [{ step: 2, n: 2, m: 2, saw: 'collapsed', same: true, shots: ['shots/M2.png'] }] } } : f.n === 6 ? { ...f, main: { steps: [{ step: 3, n: 1, m: 1, saw: 'a different error', same: false, shots: ['shots/M6.png'] }] } } : f)),
+		verification: { ...REPLAYED.verification, origin: { 1: 'introduced', 2: 'inherited', 3: 'introduced' }, originReason: { ...REPLAYED.verification.originReason, 6: { reason: 'fails differently', detail: '' } } } };
+	const html = grouped(json);
+	// The main build's shot pairs with the change's on the step it checks.
+	assert.match(card(html, 2), /<path d="M8 3v10"><\/path>/);
+	assert.match(html, /data-pr="shots\/P2\.png" data-main="shots\/M2\.png"/);
+	assert.equal(cardGroup(html, 6), 'Unknown: fails differently on the latest build');
+	assert.deepEqual(badgeTip(html, 6), ['Unknown', 'It also failed on the latest build, but differently (a different error), so this run can&rsquo;t say whether it&rsquo;s the same issue.']);
+});
+
+// A fix that held in one scenario and failed in another: partly fixed, said the same way everywhere.
+const PARTLY_LEDGER = KI_LEDGER.replace('Issue: #10 fix held', 'Issue: #10 fix held\nIssue: #11 fix held');
+
+test('a fix that held in one scenario and failed in another is Partly fixed in the row, the card and the footer', () => {
+	const json = { ...kiWith(1, { verified: 'confirmed' }), verification: { failed: false, text: 'x', originReason: { 1: { reason: 'not replayed', detail: '' } } } };
+	const html = render(json, { ledger: PARTLY_LEDGER, knownIssues: KI_ISSUES, changeBase: USABLE, mainBuild: MAIN_BUILD });
+	assert.match(findingRow(html, 1), /Partly fixed<\/span><span class="ki-state">.*#11/);
+	assert.doesNotMatch(findingRow(html, 1), /Not fixed/);
+	assert.match(card(html, 1), /Partly fixed .*#11/);
+	assert.deepEqual(badgeTip(html, 1), ['Also in latest build', 'Fixed in &ldquo;fix one&rdquo;, but still happens in &ldquo;fix two&rdquo;. #11 is open for it.']);
+	const sum = between(html, '<span class="ki-sum">', '</div>');
+	assert.match(sum, /1 fix verified/);
+	assert.match(sum, /1 partly fixed/);
+	assert.doesNotMatch(between(html, 'id="ki-list-fix"', '</div></div>'), /#11/);
+	assert.match(between(html, 'id="ki-list-part"', '</div></div>'), /#11.*passed in &ldquo;fix one&rdquo;, failed in &ldquo;fix two&rdquo;/s);
+	assert.match(issueCopied(html, 1), /The fix for #11 in #100 held only in part\./);
+});
+
+// ---- Screenshots from this PR next to the latest build ----------------------
+
+const CMP_STEPS = [act('Open the file.'), fail('the Min is right', 1, { shots: ['shots/P1.png'] }), pass('the table loads', { shots: ['shots/P3a.png', 'shots/P3b.png'] })];
+const mainStep = (n, m, more = {}) => ({ steps: [{ step: 2, n, m, saw: 'x', shots: ['shots/M1.png'], ...(n > 0 ? { same: true } : {}), ...more }] });
+const COMPARED = rep({
+	findings: [
+		fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, main: mainStep(0, 2) }),
+		fnd(2, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, main: mainStep(2, 2) }),
+		fnd(3, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, main: mainStep(0, 1) }),
+		fnd(4, { verified: 'disputed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, main: mainStep(2, 2) }),
+		fnd(5, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, main: { steps: [{ step: 2, n: 0, m: 2, saw: 'x', shots: ['shots/M5a.png', 'shots/M5b.png'] }] } }),
+	],
+	verification: { failed: false, text: 'x', origin: { 1: 'introduced', 2: 'inherited', 5: 'introduced' }, originReason: { 3: { reason: 'too few tries', detail: '' } } },
+});
+const stepLi = (html, n, k) => new RegExp(`<li id="f${n}-s${k}"[\\s\\S]*?</li>`).exec(card(html, n))?.[0] ?? '';
+const shotLinks = (html, n) => [...html.matchAll(new RegExp(`<a class="shot" id="shot-f${n}-[^"]+"[^>]*>`, 'g'))].map(m => m[0]);
+const attr = (tag, name) => new RegExp(`${name}="([^"]*)"`).exec(tag)?.[1];
+
+test('a failing step with a screenshot from the latest build compares the two', () => {
+	const html = grouped(COMPARED);
+	const li = stepLi(html, 1, 2);
+	assert.match(li, /aria-label="Compare screenshots from this branch and the latest build"/);
+	// A split-frame icon the size of the normal one, with no text, so the step never wraps.
+	assert.match(li, /<svg aria-hidden="true" width="1em" height="1em" viewBox="0 0 16 16"[^>]*><rect x="1\.5" y="3" width="13" height="10" rx="1\.5"><\/rect><path d="M8 3v10"><\/path>/);
+	assert.doesNotMatch(li, /PR vs latest build|st-cmp/);
+	assert.match(li, /<span class="ev-hd"><b>This branch<\/b><span>Click to compare with latest build<\/span><\/span>/);
+	assert.doesNotMatch(li, /ev-cap/);
+	const links = shotLinks(html, 1).filter(t => attr(t, 'data-step') === 'Step 2');
+	assert.equal(links.length, 1, 'one pair, not a stack of both builds');
+	assert.equal(attr(links[0], 'data-pr'), 'shots/P1.png');
+	assert.equal(attr(links[0], 'data-main'), 'shots/M1.png');
+	assert.equal(attr(links[0], 'data-pr-h'), 'This branch');
+	assert.equal(attr(links[0], 'data-pr-r'), 'Fails');
+	assert.equal(attr(links[0], 'data-main-r'), 'daily 2026.11.0-236 &middot; Passes');
+});
+
+test('the latest build\'s result follows the finding\'s counts', () => {
+	const html = grouped(COMPARED);
+	const mainResult = n => attr(shotLinks(html, n).find(t => attr(t, 'data-step') === 'Step 2'), 'data-main-r');
+	assert.equal(mainResult(2), 'daily 2026.11.0-236 &middot; Also fails');
+	assert.equal(mainResult(3), 'daily 2026.11.0-236 &middot; Didn&rsquo;t fail in 1 try');
+});
+
+test('screenshots pair by order, and a side with fewer says so', () => {
+	const pairs = shotLinks(grouped(COMPARED), 5).filter(t => attr(t, 'data-step') === 'Step 2');
+	assert.deepEqual(pairs.map(t => [attr(t, 'data-pr'), attr(t, 'data-main')]), [['shots/P1.png', 'shots/M5a.png'], ['', 'shots/M5b.png']]);
+	assert.match(stepLi(grouped(COMPARED), 5, 2), /M8 3v10/);
+});
+
+test('passing steps and findings not confirmed show screenshots as before', () => {
+	const html = grouped(COMPARED);
+	assert.match(stepLi(html, 1, 3), /aria-label="2 screenshots for this step"/);
+	assert.doesNotMatch(stepLi(html, 1, 3), /M8 3v10|ev-hd/);
+	assert.doesNotMatch(stepLi(html, 4, 2), /M8 3v10|ev-hd/);
+	assert.match(stepLi(html, 4, 2), /aria-label="Screenshot for this step"/);
+	assert.ok(shotLinks(html, 4).every(t => !t.includes('M1.png')), 'the latest build\'s shots stay out of a disputed finding');
+});
+
+test('the viewer has two columns for a comparison, stacking under 900px, and every preview is clickable', () => {
+	const html = grouped(COMPARED);
+	assert.match(html, /<div class="lb-cmp" hidden><div><div class="lb-cmp-h"><b><\/b><span><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><div><div class="lb-cmp-h"><b>Latest build<\/b><span><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><\/div>/);
+	assert.match(REPORT_CSS, /\.lb-cmp\{display:grid;grid-template-columns:1fr 1fr;/);
+	assert.match(REPORT_CSS, /@media \(max-width:900px\)\{\.lb-cmp\{grid-template-columns:1fr\}\}/);
+	assert.match(REPORT_CSS, /a\.st-ev:hover \.ev-pop,a\.st-ev:focus-visible \.ev-pop\{pointer-events:auto;cursor:pointer\}/);
+});
+
+// ---- Several matches of one kind ---------------------------------------------
+
+const MORE_REFS = [3, 4, 5].map(i => ({ number: 5700 + i, kind: 'issue', state: 'open', title: `Bug ${i}`, createdAt: '2026-08-20T00:00:00Z', summary: '' }));
+
+test('two matches show both numbers; three or more show +N more with a tooltip, and the card lists them all', () => {
+	const two = fullHtml(fullWith(1, { known: [5703, 5704] }), { issueRefs: MORE_REFS });
+	assert.match(findingRow(two, 1), /Dupe\? <span class="ki-num-t"[^>]*>#5703<\/span> <span class="ki-num-t"[^>]*>#5704<\/span>/);
+	assert.doesNotMatch(findingRow(two, 1), /\+1|ki-more/);
+	const three = fullHtml(fullWith(1, { known: [5703, 5704, 5705] }), { issueRefs: MORE_REFS });
+	assert.match(findingRow(three, 1), /#5703<\/span><span class="ki-more">\+2 more<span class="og-tip" aria-hidden="true" role="tooltip"><b>2 more possible duplicates<\/b><span>#5704 Bug 4<\/span><span>#5705 Bug 5<\/span><\/span><\/span>/);
+	assert.match(card(three, 1), /#5703[\s\S]*#5704[\s\S]*#5705/);
+	assert.match(REPORT_CSS, /\.ki-more:hover \.og-tip\{opacity:1;visibility:visible;transition:opacity \.15s ease \.4s,visibility 0s linear \.4s\}/);
+});
+
+test('a step\'s own screenshot pairs with the latest build\'s; another scenario\'s evidence pairs with nothing', () => {
+	const other = { kind: 'shot', path: 'shots/S02-01.png', scenario: 'S02', caption: 'the same bug in another case' };
+	const json = rep({
+		findings: [fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, evidence: [other], main: mainStep(0, 2) })],
+		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
+	});
+	const links = shotLinks(grouped(json), 1).filter(t => attr(t, 'data-step') === 'Step 2');
+	assert.deepEqual(links.map(t => [attr(t, 'data-pr'), attr(t, 'data-main'), attr(t, 'data-pair'), attr(t, 'data-pairs')]), [
+		['shots/P1.png', 'shots/M1.png', '1', '2'],
+		['shots/S02-01.png', '', '2', '2'],
+	]);
+});
+
+test('the arrows move between a finding\'s compared steps', () => {
+	const steps = [act('Open.'), fail('first', 1, { shots: ['shots/P1.png'] }), fail('second', 1, { shots: ['shots/P2.png'] })];
+	const json = rep({
+		findings: [fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps, main: { steps: [2, 3].map(step => ({ step, n: 0, m: 2, saw: 'x', shots: [`shots/M${step}.png`] })) } })],
+		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
+	});
+	const groups = shotLinks(grouped(json), 1).map(t => attr(t, 'data-lb'));
+	assert.deepEqual(groups, ['f1-cmp', 'f1-cmp']);
+});
+
+test('a compared view keeps the arrows in the panel\'s margins, off the screenshots, and a missing side is a full-size placeholder', () => {
+	assert.match(REPORT_CSS, /\.lb\.is-cmp \.lb-img\{padding:0 48px\}/);
+	// A hidden screenshot leaves nothing behind, not an empty bordered box.
+	assert.match(REPORT_CSS, /\.lb-cmp img\.shot-full\[hidden\]\{display:none\}/);
+	assert.match(REPORT_CSS, /\.lb-none\{[^}]*display:flex;[^}]*aspect-ratio:16\/10;/);
+});
+
+test('a screenshot\'s caption in the viewer drops the code marks the viewer would show literally', () => {
+	const other = { kind: 'shot', path: 'shots/S02-01.png', scenario: 'S02', caption: 'The `id` column shows Min `8`' };
+	const json = rep({
+		findings: [fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: CMP_STEPS, evidence: [other], main: mainStep(0, 2) })],
+		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
+	});
+	const captions = shotLinks(grouped(json), 1).map(t => attr(t, 'data-caption'));
+	assert.ok(captions.includes('The id column shows Min 8'), captions.join(' | '));
+	assert.ok(captions.every(c => !c.includes('`')), captions.join(' | '));
+});
+
+test('a hover preview never grows taller than the window', () => {
+	assert.match(REPORT_CSS, /\.ev-pop img\{[^}]*width:auto;[^}]*max-height:calc\(100vh - 72px\);[^}]*object-fit:contain/);
+});
+
+test('an Only in PR finding whose replay could not run says the code is new', () => {
+	const json = rep({
+		findings: [fnd(1, { verified: 'confirmed', main: { couldNotRun: 'the Export button is not in the toolbar' } })],
+		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
+	});
+	assert.deepEqual(badgeTip(grouped(json), 1), ['Only in branch', 'The code involved is new in this branch, so the latest build couldn&rsquo;t run it: the Export button is not in the toolbar.']);
+});

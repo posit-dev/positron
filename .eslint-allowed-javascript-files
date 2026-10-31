@@ -338,3 +338,7 @@ versions/show-version.cjs
 .claude/skills/exploratory-test/renderer/page/report-json.mjs
 .claude/skills/exploratory-test/renderer/page/report-json.test.mjs
 .claude/skills/exploratory-test/renderer/versioned-files.test.mjs
+.claude/skills/exploratory-test/renderer/main-build.mjs
+.claude/skills/exploratory-test/renderer/main-build.test.mjs
+.claude/skills/exploratory-test/renderer/shared/main-check.mjs
+.claude/skills/exploratory-test/renderer/shared/main-check.test.mjs

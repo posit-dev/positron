@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage, sessionName } from './pipeline.mjs';
+import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage, MAIN_REPLAY_MINUTES, sessionName, replayMinutes, withMainReplay } from './pipeline.mjs';
 import { parseSystemLine } from './shared/ledger.mjs';
 import { reportFromJson } from './page/report-json.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
@@ -184,7 +184,8 @@ test('the verdicts and the isolation\'s revision land in report.json, and the pa
 	}, {
 		leadHtml: 'Two things broke.',
 		verdicts: [{ n: 1, word: 'confirmed' }, { n: 2, word: 'disputed' }],
-		origin: [[1, 'exposed']],
+		// The verifier's origin is not read: Origin comes from a main replay, and this run had no main build.
+		origin: [],
 		findings: [
 			{ n: 1, title: 'first claim', feature: 'Console', verified: 'confirmed', known: [15102], intended: [], opening: { summary: 'It broke.', where: '' } },
 			{ n: 2, title: 'second claim, with the setting off', feature: 'Plot settings', verified: 'disputed', known: [], intended: [999], opening: null },
@@ -242,7 +243,7 @@ test('a stopped run stops the agent it started', () => withTmpDir('pipeline-stop
 	writeFileSync(join(bin, 'claude'), `#!/bin/sh\necho $$ > '${pidFile}'\nexec sleep 60\n`);
 	chmodSync(join(bin, 'claude'), 0o755);
 	writeFileSync(join(home, 'brief.md'), 'Test the Variables pane.\n');
-	const run = spawn('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none', '--skip-checkout-check'], {
+	const run = spawn('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none', '--skip-checkout-check', '--no-main-build'], {
 		env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}` }, stdio: 'ignore',
 	});
 	try {
@@ -275,7 +276,7 @@ test('a fresh run gives its agents its own Playwright session in their environme
 	writeFileSync(join(bin, 'claude'), `#!/bin/sh\ncat > /dev/null\necho "$PW_SESSION $PLAYWRIGHT_CLI_SESSION" > '${seen}'\nexit 1\n`);
 	chmodSync(join(bin, 'claude'), 0o755);
 	writeFileSync(join(home, 'brief.md'), 'Test the Variables pane.\n');
-	const run = spawnSync('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none', '--skip-checkout-check'], {
+	const run = spawnSync('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none', '--skip-checkout-check', '--no-main-build'], {
 		env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, PW_SESSION: 'positron', PLAYWRIGHT_CLI_SESSION: 'positron' }, encoding: 'utf8',
 	});
 	const dir = /run directory: (\S+)/.exec(run.stdout)?.[1];
@@ -389,4 +390,28 @@ test('a verifier that does not show it checked the action log and the screenshot
 	const skipped = await runWith(report, { verify: () => verdicts([[1, 'confirmed'], [2, 'confirmed', { log: [3, 5] }]], 'No process issues.'), recheck: () => 'no block' }, { files });
 	assert.deepEqual(skipped.report.verification.unchecked, { log: [1], shots: [1, 2] });
 	assert.deepEqual(skipped.report.findings.map(f => f.verified), ['confirmed', 'confirmed']);
+});
+
+const BUILD = { version: '2026.11.0-236', commit: 'c'.repeat(40), pubDate: '', platform: 'mac/arm64', binary: '/x/Positron' };
+
+test('withMainReplay adds the main replay minutes to a time limit, only with a main build', () => {
+	assert.equal(withMainReplay(30, BUILD), 30 + MAIN_REPLAY_MINUTES);
+	assert.equal(withMainReplay(null, BUILD), null);
+	assert.equal(withMainReplay(30, null), 30);
+});
+
+test('the brief has a Main build section only when one is given', () => {
+	const brief = prompt => prompt.slice(prompt.indexOf('\n# Brief\n'));
+	assert.doesNotMatch(brief(explorePrompt('/run', 'Test it.')), /## Main build/);
+	const prompt = explorePrompt('/run', 'Test it.', [], '## Main build\n\nBinary: `/x/Positron`');
+	assert.match(prompt, /# Brief\n\nTest it\.\n\n## Main build\n\nBinary: `\/x\/Positron`\n/);
+});
+
+test('replayMinutes reads MAIN_REPLAY_MINUTES, 0 included, and falls back to 6', () => {
+	assert.equal(replayMinutes(undefined), 6);
+	assert.equal(replayMinutes(''), 6);
+	assert.equal(replayMinutes('0'), 0);
+	assert.equal(replayMinutes('15'), 15);
+	assert.equal(replayMinutes('ten'), 6);
+	assert.equal(replayMinutes('-5'), 6);
 });

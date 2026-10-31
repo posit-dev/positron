@@ -5,9 +5,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, rateLimitWait, readIssueRefs, referencedNumbers } from './known-issues.mjs';
+import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, pageIssueRefs, rateLimitWait, readIssueRefs, referencedNumbers } from './known-issues.mjs';
 import { parseLedger } from './shared/ledger.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
 
@@ -199,3 +199,15 @@ test('rateLimitWait waits for a rate limit\'s reset or a minute for a secondary 
 	assert.equal(rateLimitWait(res(403, {}), '{"message":"Resource not accessible by integration"}', now), null);
 	assert.equal(rateLimitWait(res(404, { 'retry-after': '20' }), '', now), null);
 });
+
+test('pageIssueRefs fetches the report\'s matches, which are bare numbers, and saves them for the page', () => withTmpDir('refs-', async dir => {
+	const json = { findings: [{ n: 1, known: [16634], intended: [900], cause: 'See #77.' }] };
+	const asked = [];
+	const refs = await pageIssueRefs(dir, json, null, { fetch: async numbers => {
+		asked.push(...numbers);
+		return numbers.map(number => ({ number, kind: 'issue', state: 'open', title: `t${number}` }));
+	} });
+	assert.deepEqual(asked.sort((a, b) => a - b), [77, 900, 16634]);
+	assert.deepEqual(refs.map(r => r.number).sort((a, b) => a - b), [77, 900, 16634]);
+	assert.ok(existsSync(join(dir, 'issue-refs.json')));
+}));

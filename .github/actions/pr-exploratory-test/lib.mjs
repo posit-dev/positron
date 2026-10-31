@@ -54,6 +54,17 @@ export function buildShotsBaseUrl(reportBaseUrl) {
 	return reportBaseUrl.endsWith('/') ? reportBaseUrl.slice(0, -1) : reportBaseUrl;
 }
 
+/**
+ * The job summary's path, removed from `env` so the agents' commands cannot
+ * write to it: a test an agent runs in CI (Vitest's GitHub reporter) would
+ * otherwise add its own report above the run's.
+ */
+export function takeStepSummary(env = process.env) {
+	const path = env.GITHUB_STEP_SUMMARY;
+	delete env.GITHUB_STEP_SUMMARY;
+	return path;
+}
+
 /** The value of env var `name`; a missing one stops the script, naming it. */
 export function mustEnv(name) {
 	const v = process.env[name];

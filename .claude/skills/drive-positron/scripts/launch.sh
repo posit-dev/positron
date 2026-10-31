@@ -15,6 +15,7 @@
 #
 # Usage:
 #   launch.sh [--agents] [--source-user-data-dir <path>] [--repo <vscode-repo-root>]
+#             [--app <packaged Positron binary>]
 #             [--reuse-profile <run dir>]
 #             [--clone-extensions] [--full] [--no-default-app-args]
 #             [--keep-first-run-prompts] [--no-pyrefly] [-- <extra code.sh args>]
@@ -75,6 +76,11 @@
 #                       app's own --agents, put first among its arguments. The
 #                       JSON line then says "agents": true. Drive its chat
 #                       input with monaco-paste.sh.
+#   --app <binary>      Start a packaged Positron build (a daily or a release)
+#                       instead of the checkout: the executable inside it, such as
+#                       Positron.app/Contents/MacOS/Positron. It gets the same
+#                       profile copy, ports and logs; no checkout is needed and
+#                       pre-launch does not run. Not on Windows.
 #   --source-user-data-dir <path>
 #                       The profile to copy, such as a minimal seed made with
 #                       mkdir -p /tmp/seed/User and a settings.json, or one
@@ -239,6 +245,7 @@ copy_tree() {
 AGENTS=0
 SOURCE_UDD="${POSITRON_DEV_USER_DATA_DIR:-$HOME/.positron-dev}"
 REPO=""
+APP=""
 EXTRA_ARGS=()
 CLONE_EXTENSIONS=0
 FULL=0
@@ -260,10 +267,11 @@ fi
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--source-user-data-dir=*|--repo=*|--reuse-profile=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
+		--source-user-data-dir=*|--repo=*|--reuse-profile=*|--app=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
 		--agents) AGENTS=1; shift ;;
 		--source-user-data-dir) SOURCE_UDD="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		--repo) REPO="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--app) APP="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		--clone-extensions|--copy-extensions) CLONE_EXTENSIONS=1; shift ;;
 		--full) FULL=1; shift ;;
 		--no-default-app-args) DEFAULT_APP_ARGS=0; shift ;;
@@ -277,7 +285,10 @@ while [[ $# -gt 0 ]]; do
 done
 join_uri_args ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
 
-if [[ -z "$REPO" ]]; then
+if [[ -n "$APP" ]]; then
+	[[ "$IS_WINDOWS" == "1" ]] && usage_error "--app is not supported on Windows"
+	[[ -f "$APP" && -x "$APP" ]] || usage_error "--app: no executable at $APP"
+elif [[ -z "$REPO" ]]; then
 	if [[ -x "$PWD/scripts/code.sh" ]]; then
 		REPO="$PWD"
 	else
@@ -492,7 +503,7 @@ fi
 unset ELECTRON_RUN_AS_NODE
 
 CODE_SH="$REPO/scripts/code.sh"
-if [[ ! -x "$CODE_SH" ]]; then
+if [[ -z "$APP" && ! -x "$CODE_SH" ]]; then
 	echo "Could not find an executable Code OSS launcher at $CODE_SH. Pass --repo <vscode-repo-root>." >&2
 	exit 2
 fi
@@ -538,7 +549,7 @@ if (( ${#EXTRA_ARGS[@]} )); then
 fi
 
 LOG_FILE="$RUN_DIR/code.log"
-echo "[launch.sh] launching: $CODE_SH ${ARGS[*]}" >&2
+echo "[launch.sh] launching: ${APP:-$CODE_SH} ${ARGS[*]}" >&2
 echo "[launch.sh] logs: $LOG_FILE" >&2
 
 # Run pre-launch synchronously so download or compilation errors are visible
@@ -549,13 +560,16 @@ echo "[launch.sh] logs: $LOG_FILE" >&2
 # $REPO/.build/electron, and it compiles into $REPO/out when that directory is
 # absent. An interrupted run can leave a built-in extension half-written, which
 # breaks the normal development build until it is re-downloaded. See SKILL.md.
-echo "[launch.sh] running pre-launch (ensures electron + compiled output + built-ins)..." >&2
-echo "[launch.sh] WARNING: pre-launch writes to the shared .build/ and out/ directories in $REPO." >&2
-echo "[launch.sh] WARNING: interrupting it can leave a built-in extension half-written; repair with 'npm run download-builtin-extensions'." >&2
-if ! ( cd "$REPO" && node build/lib/preLaunch.ts ) >>"$LOG_FILE" 2>&1; then
-	echo "[launch.sh] pre-launch FAILED. Log tail:" >&2
-	tail -n 80 "$LOG_FILE" >&2
-	exit 1
+# A packaged build (--app) carries its own Electron, output and built-ins.
+if [[ -z "$APP" ]]; then
+	echo "[launch.sh] running pre-launch (ensures electron + compiled output + built-ins)..." >&2
+	echo "[launch.sh] WARNING: pre-launch writes to the shared .build/ and out/ directories in $REPO." >&2
+	echo "[launch.sh] WARNING: interrupting it can leave a built-in extension half-written; repair with 'npm run download-builtin-extensions'." >&2
+	if ! ( cd "$REPO" && node build/lib/preLaunch.ts ) >>"$LOG_FILE" 2>&1; then
+		echo "[launch.sh] pre-launch FAILED. Log tail:" >&2
+		tail -n 80 "$LOG_FILE" >&2
+		exit 1
+	fi
 fi
 
 # Detach the app after pre-launch. Once CDP responds, Electron has established
@@ -617,8 +631,12 @@ if [[ "$IS_WINDOWS" == "1" ]]; then
 	fi
 	echo "[launch.sh] launched out-of-tree via WMI (wrapper PID $PID)" >&2
 else
-	nohup env VSCODE_SKIP_PRELAUNCH=1 "$CODE_SH" "${ARGS[@]}" \
-		</dev/null >>"$LOG_FILE" 2>&1 &
+	if [[ -n "$APP" ]]; then
+		nohup "$APP" "${ARGS[@]}" </dev/null >>"$LOG_FILE" 2>&1 &
+	else
+		nohup env VSCODE_SKIP_PRELAUNCH=1 "$CODE_SH" "${ARGS[@]}" \
+			</dev/null >>"$LOG_FILE" 2>&1 &
+	fi
 	PID=$!
 	disown $PID 2>/dev/null || true
 fi
@@ -670,8 +688,9 @@ node -e '
 		logFile: process.argv[5],
 		repo: process.argv[6],
 		agents: '"$AGENTS"' === 1,
+		app: process.argv[7] || null,
 	}));
-' "$DEST_UDD" "$EXT_DIR" "$SHARED_DATA_DIR" "$RUN_DIR" "$LOG_FILE" "$REPO"
+' "$DEST_UDD" "$EXT_DIR" "$SHARED_DATA_DIR" "$RUN_DIR" "$LOG_FILE" "$REPO" "$APP"
 
 # One line per start and stop, beside every run directory, so how many
 # instances ran at once can be read without trusting whoever launched them.

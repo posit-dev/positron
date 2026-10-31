@@ -320,6 +320,82 @@ export function resultProblems(result) {
 	return problems;
 }
 
+/**
+ * The rules on a finding's replay on a build of main: present on every finding
+ * when the run has one, one kind of result, and a count for each check that
+ * failed on the change and only those, since one left out may be the step
+ * main fails.
+ */
+export function mainProblems(n, main, steps, { mainBuild, actionsLog, files = [] } = {}) {
+	if (main === undefined) {
+		return mainBuild ? [problem('main-missing', `report: Finding ${n} has no main; replay it on the main build, or record main.missing or main.couldNotRun`)] : [];
+	}
+	const kinds = ['missing', 'steps', 'couldNotRun'].filter(k => main[k] !== undefined);
+	if (kinds.length !== 1) {
+		return [problem('main-shape', `report: Finding ${n} main must hold exactly one of missing, steps or couldNotRun, not ${kinds.length ? kinds.join(' and ') : 'none'}`)];
+	}
+	if (!main.steps) {
+		return [];
+	}
+	const failing = steps.map((s, i) => (s.kind === 'verify' && s.result === 'fail' ? i + 1 : 0)).filter(Boolean);
+	const counted = main.steps.map(s => s.step);
+	const problems = [];
+	for (const at of [...new Set(counted.filter((at, i) => counted.indexOf(at) !== i))]) {
+		problems.push(problem('main-steps', `report: Finding ${n} main.steps counts step ${at} more than once; give each failing check one count`));
+	}
+	for (const at of counted.filter(at => !failing.includes(at))) {
+		problems.push(problem('main-steps', `report: Finding ${n} main.steps names step ${at}, which is not a failing check; ${failing.length ? `count only steps ${failing.join(', ')}` : 'this finding has no failing check to count'}`));
+	}
+	for (const at of failing.filter(at => !counted.includes(at))) {
+		problems.push(problem('main-steps', `report: Finding ${n} main.steps leaves out failing step ${at}; count every one, a step left out may be the one main fails`));
+	}
+	for (const s of main.steps.filter(s => !(Number.isInteger(s.n) && Number.isInteger(s.m) && s.n >= 0 && s.m >= 1 && s.n <= s.m))) {
+		problems.push(problem('main-rate', `report: Finding ${n} main step ${s.step} is ${s.n}/${s.m}; give N/M with N no more than M, M at least 1`));
+	}
+	for (const s of main.steps.filter(s => !Array.isArray(s.shots) || !s.shots.length)) {
+		problems.push(problem('main-shot', `report: Finding ${n} main step ${s.step} has no screenshot; take one of the check on the main build and list it in shots`));
+	}
+	// Main captures the view the change's screenshot of the step shows, so the two pair one to one.
+	for (const s of main.steps.filter(s => Array.isArray(s.shots) && s.shots.length && s.shots.length !== (steps[s.step - 1]?.shots ?? []).length)) {
+		problems.push(problem('main-shot-count', `report: Finding ${n} main step ${s.step} has ${s.shots.length} screenshots and the step has ${(steps[s.step - 1]?.shots ?? []).length}; capture on main the same view the step's screenshot shows`));
+	}
+	for (const s of main.steps.filter(s => s.n > 0 && typeof s.same !== 'boolean')) {
+		problems.push(problem('main-same', `report: Finding ${n} main step ${s.step} failed on main; say in same whether it failed the same way as on the change`));
+	}
+	if (actionsLog !== undefined) {
+		const why = replayLogProblem(main.log, actionsLog, steps.filter(s => s.kind === 'action').length, files);
+		if (why) {
+			problems.push(problem('main-log', `report: Finding ${n} main.log ${why}`));
+		}
+	}
+	return problems;
+}
+
+/**
+ * What is wrong with a main replay's range of action log lines, or '': it
+ * must be in the log, hold only the main session's actions, as many as the
+ * finding has action steps, and open the files the finding needs.
+ */
+function replayLogProblem(range, actionsLog, actions, files) {
+	const lines = String(actionsLog).split('\n');
+	if (!Array.isArray(range) || range.length !== 2 || !range.every(Number.isInteger) || range[0] < 1 || range[0] > range[1] || range[1] > lines.length) {
+		return `must give the first and last lines of the replay in actions.log, as [first, last]; the log has ${lines.length} lines`;
+	}
+	const span = lines.slice(range[0] - 1, range[1]);
+	const sessions = span.map(l => /-s=(\S+?):/.exec(l)?.[1]).filter(Boolean);
+	if (sessions.some(s => !s.endsWith('-main'))) {
+		return `lines ${range[0]}-${range[1]} include actions outside the main replay; give only the replay's lines`;
+	}
+	if (sessions.length < actions) {
+		return `lines ${range[0]}-${range[1]} hold ${sessions.length} actions on main, fewer than the finding's ${actions} action steps`;
+	}
+	const unopened = files.map(f => f.split('/').pop()).filter(name => !span.some(l => l.includes(name)));
+	if (unopened.length) {
+		return `lines ${range[0]}-${range[1]} never open ${unopened.join(', ')}, which the finding needs`;
+	}
+	return '';
+}
+
 /** The rules on a finding's severity and its rate, "N/M". */
 export function rateProblems(n, severity, reproduction) {
 	const problems = [];
