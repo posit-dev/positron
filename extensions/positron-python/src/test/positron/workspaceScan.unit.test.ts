@@ -147,6 +147,17 @@ suite('workspaceScan', () => {
         assert.deepEqual((await scanWorkspace(root)).nestedEnvDirs, [path.join(root, 'b', '.venv')]);
     });
 
+    test('reads a folder once more for a burst of rescans during a read', async () => {
+        const reading = scanWorkspace(root, true);
+        const queued = scanWorkspace(root, true);
+        assert.strictEqual(scanWorkspace(root, true), queued);
+        assert.notStrictEqual(queued, reading);
+        // Written while the first read runs; the queued read starts after it, so it sees the file.
+        fs.writeFileSync(path.join(root, 'main.py'), '');
+        assert.isTrue((await queued).hasPythonSignals);
+        assert.strictEqual(await scanWorkspace(root), await queued);
+    });
+
     test('stops after 1000 child folders', async () => {
         for (let i = 0; i < 1005; i += 1) {
             fs.mkdirSync(path.join(root, `d${String(i).padStart(4, '0')}`));

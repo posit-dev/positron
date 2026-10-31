@@ -29,7 +29,7 @@ import {
 } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
-import { getConfiguration } from '../common/vscodeApis/workspaceApis';
+import { getConfiguration, getWorkspaceFolder } from '../common/vscodeApis/workspaceApis';
 import {
     shouldIncludeInterpreter,
     getInterpreterDefinitionPaths,
@@ -39,6 +39,7 @@ import {
 import { resolveInterpreterOnce, resolveInterpreterWithRetry } from './util';
 import { canBeModuleEnv, recommendWorkspaceRuntime } from './interpreterRecommendation';
 import { IInterpreterAutoSelectionService } from '../interpreter/autoSelection/types';
+import { scanWorkspace } from './workspaceScan';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import {
     pendingModuleRuntimeRegistrations,
@@ -240,6 +241,13 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      *   same interpreter.
      */
     private async handleInterpreterChange(event: PythonEnvironmentsChangedEvent): Promise<void> {
+        // An env made or deleted in a workspace folder changes what the ranking finds there.
+        // Read the folder again before core hears of it; the next ranking waits for this scan.
+        const madeOrDeletedPath = !event.old ? event.new?.path : !event.new ? event.old.path : undefined;
+        const folder = madeOrDeletedPath && getWorkspaceFolder(vscode.Uri.file(madeOrDeletedPath))?.uri.fsPath;
+        if (folder) {
+            scanWorkspace(folder, true);
+        }
         if (!event.old && event.new) {
             await this.registerLanguageRuntimeFromPath(
                 event.new.path,

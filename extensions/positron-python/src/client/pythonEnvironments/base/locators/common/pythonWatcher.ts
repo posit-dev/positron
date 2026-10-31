@@ -6,6 +6,12 @@ import { createFileSystemWatcher, getWorkspaceFolder } from '../../../../common/
 import { isWindows } from '../../../../common/utils/platform';
 import { arePathsSame } from '../../../common/externalDependencies';
 import { FileChangeType } from '../../../../common/platform/fileSystemWatcher';
+// --- Start Positron ---
+import * as path from 'path';
+import { pathExists } from '../../../common/externalDependencies';
+import { sleep } from '../../../../common/utils/async';
+import { getOSType, OSType } from '../../../../common/utils/platform';
+// --- End Positron ---
 
 export interface PythonWorkspaceEnvEvent {
     type: FileChangeType;
@@ -39,6 +45,36 @@ export interface PythonWatcher extends Disposable {
  * │       └── python or python.exe <--- This is what we are looking for.
  */
 const WORKSPACE_PATTERN = isWindows() ? '**/python.exe' : '**/python';
+
+// --- Start Positron ---
+/** Where an env's executable sits in a created folder, matching the tree above. */
+const CREATED_FOLDER_EXECUTABLES = isWindows()
+    ? ['python.exe', path.join('Scripts', 'python.exe')]
+    : ['python', path.join('bin', 'python')];
+
+/**
+ * Looks for an env executable in a created folder. An env still being written (it
+ * has `pyvenv.cfg` but no executable yet) is checked again, up to 10 times 200ms
+ * apart; any other folder is checked once.
+ */
+async function findCreatedEnvExecutable(folder: string): Promise<string | undefined> {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        if (attempt > 0) {
+            await sleep(200);
+        }
+        for (const candidate of CREATED_FOLDER_EXECUTABLES) {
+            const executable = path.join(folder, candidate);
+            if (await pathExists(executable)) {
+                return executable;
+            }
+        }
+        if (!(await pathExists(path.join(folder, 'pyvenv.cfg')))) {
+            return undefined;
+        }
+    }
+    return undefined;
+}
+// --- End Positron ---
 
 class PythonWatcherImpl implements PythonWatcher {
     private disposables: Disposable[] = [];
@@ -82,11 +118,21 @@ class PythonWatcherImpl implements PythonWatcher {
         // file inside it, so `rm -rf .venv` may never match the pattern above.
         // Report every deleted path. This sends the same watch request as the
         // watcher above, so it adds no file system watcher.
-        const deleteWatcher = createFileSystemWatcher(new RelativePattern(wf, '**'), true, true, false);
+        // On Linux, a new folder is reported but not what was created in it before
+        // it was watched, so `uv venv` may miss the pattern above too; look inside
+        // each created path. The macOS and Windows watchers report the executable.
+        const watchCreates = getOSType() === OSType.Linux;
+        const folderWatcher = createFileSystemWatcher(new RelativePattern(wf, '**'), !watchCreates, true, false);
         disposables.push(
-            deleteWatcher,
-            deleteWatcher.onDidDelete((uri) => {
+            folderWatcher,
+            folderWatcher.onDidDelete((uri) => {
                 this.fireWorkspaceEvent(FileChangeType.Deleted, wf, uri);
+            }),
+            folderWatcher.onDidCreate(async (uri) => {
+                const executable = await findCreatedEnvExecutable(uri.fsPath);
+                if (executable) {
+                    this.fireWorkspaceEvent(FileChangeType.Created, wf, Uri.file(executable));
+                }
             }),
         );
         // --- End Positron ---

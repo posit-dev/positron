@@ -4,10 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import { EventEmitter, FileSystemWatcher, GlobPattern, RelativePattern, Uri, WorkspaceFolder } from 'vscode';
 import { FileChangeType } from '../../../../../client/common/platform/fileSystemWatcher';
+import * as platform from '../../../../../client/common/utils/platform';
 import * as workspaceApis from '../../../../../client/common/vscodeApis/workspaceApis';
 import {
     createPythonWatcher,
@@ -20,6 +23,7 @@ interface FakeWatcher {
     ignoreCreateEvents?: boolean;
     ignoreChangeEvents?: boolean;
     ignoreDeleteEvents?: boolean;
+    created: EventEmitter<Uri>;
     deleted: EventEmitter<Uri>;
 }
 
@@ -30,27 +34,35 @@ suite('Python watcher', () => {
         index: 0,
     };
     let watchers: FakeWatcher[];
+    let osType: sinon.SinonStub;
 
     setup(() => {
         watchers = [];
+        // Created folders are looked into on Linux only.
+        osType = sinon.stub(platform, 'getOSType').returns(platform.OSType.Linux);
         sinon.stub(workspaceApis, 'getWorkspaceFolder').returns(workspaceFolder);
         sinon
             .stub(workspaceApis, 'createFileSystemWatcher')
             .callsFake((globPattern: GlobPattern, ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents) => {
+                const created = new EventEmitter<Uri>();
                 const deleted = new EventEmitter<Uri>();
                 watchers.push({
                     pattern: (globPattern as RelativePattern).pattern,
                     ignoreCreateEvents,
                     ignoreChangeEvents,
                     ignoreDeleteEvents,
+                    created,
                     deleted,
                 });
                 const noEvents = () => ({ dispose: () => undefined });
                 return {
-                    onDidCreate: noEvents,
+                    onDidCreate: created.event,
                     onDidChange: noEvents,
                     onDidDelete: deleted.event,
-                    dispose: () => deleted.dispose(),
+                    dispose: () => {
+                        created.dispose();
+                        deleted.dispose();
+                    },
                 } as unknown as FileSystemWatcher;
             });
     });
@@ -67,24 +79,114 @@ suite('Python watcher', () => {
         watcher.onDidWorkspaceEnvChanged((e) => events.push(e));
         watcher.watchWorkspace(workspaceFolder);
 
-        const deleteWatcher = watchers.find((w) => w.pattern === '**');
+        const folderWatcher = watchers.find((w) => w.pattern === '**');
         const venvDir = path.join(workspaceFolder.uri.fsPath, '.venv');
-        deleteWatcher?.deleted.fire(Uri.file(venvDir));
+        folderWatcher?.deleted.fire(Uri.file(venvDir));
 
         assert.deepStrictEqual(
             {
-                deleteWatcher: deleteWatcher && {
-                    ignoreCreateEvents: deleteWatcher.ignoreCreateEvents,
-                    ignoreChangeEvents: deleteWatcher.ignoreChangeEvents,
-                    ignoreDeleteEvents: deleteWatcher.ignoreDeleteEvents,
+                folderWatcher: folderWatcher && {
+                    ignoreCreateEvents: folderWatcher.ignoreCreateEvents,
+                    ignoreChangeEvents: folderWatcher.ignoreChangeEvents,
+                    ignoreDeleteEvents: folderWatcher.ignoreDeleteEvents,
                 },
                 events: events.map((e) => ({ type: e.type, executable: e.executable })),
             },
             {
-                deleteWatcher: { ignoreCreateEvents: true, ignoreChangeEvents: true, ignoreDeleteEvents: false },
+                folderWatcher: { ignoreCreateEvents: false, ignoreChangeEvents: true, ignoreDeleteEvents: false },
                 events: [{ type: FileChangeType.Deleted, executable: venvDir }],
             },
         );
         watcher.dispose();
+    });
+
+    test('on macOS and Windows, created paths are left to the executable watcher', () => {
+        // Their watchers are recursive, so they report the executable itself.
+        const ignored = [platform.OSType.OSX, platform.OSType.Windows].map((os) => {
+            watchers = [];
+            osType.returns(os);
+            const watcher = createPythonWatcher();
+            watcher.watchWorkspace(workspaceFolder);
+            watcher.dispose();
+            return watchers.find((w) => w.pattern === '**')?.ignoreCreateEvents;
+        });
+        assert.deepStrictEqual(ignored, [true, true]);
+    });
+
+    suite('a created folder', () => {
+        // On Linux the file watcher reports a new folder but not what is created inside
+        // it before the folder is watched, so `uv venv` never reaches the `**/python`
+        // watcher.
+        const executable =
+            process.platform === 'win32' ? path.join('Scripts', 'python.exe') : path.join('bin', 'python');
+        let root: string;
+        let folder: WorkspaceFolder;
+
+        setup(() => {
+            root = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-python-watcher-'));
+            folder = { uri: Uri.file(root), name: 'project', index: 0 };
+            (workspaceApis.getWorkspaceFolder as sinon.SinonStub).returns(folder);
+        });
+
+        teardown(() => {
+            fs.rmSync(root, { recursive: true, force: true });
+        });
+
+        /** Watches `folder`, fires a create for `created`, and collects events for `waitMs`. */
+        async function eventsAfterCreate(created: string, waitMs: number): Promise<PythonWorkspaceEnvEvent[]> {
+            const watcher = createPythonWatcher();
+            const events: PythonWorkspaceEnvEvent[] = [];
+            watcher.onDidWorkspaceEnvChanged((e) => events.push(e));
+            watcher.watchWorkspace(folder);
+            watchers.find((w) => w.pattern === '**')?.created.fire(Uri.file(created));
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
+            watcher.dispose();
+            return events;
+        }
+
+        test('reports the env executable inside it as created', async () => {
+            const venvDir = path.join(root, '.venv');
+            fs.mkdirSync(path.join(venvDir, path.dirname(executable)), { recursive: true });
+            fs.writeFileSync(path.join(venvDir, executable), '');
+
+            const events = await eventsAfterCreate(venvDir, 100);
+
+            // The watcher reports a Uri's fsPath, which lowercases a Windows drive letter.
+            assert.deepStrictEqual(
+                events.map((e) => ({ type: e.type, executable: e.executable })),
+                [{ type: FileChangeType.Created, executable: Uri.file(path.join(venvDir, executable)).fsPath }],
+            );
+        });
+
+        test('waits for the executable of an env still being written', async () => {
+            const venvDir = path.join(root, '.venv');
+            fs.mkdirSync(venvDir);
+            fs.writeFileSync(path.join(venvDir, 'pyvenv.cfg'), '');
+            setTimeout(() => {
+                fs.mkdirSync(path.join(venvDir, path.dirname(executable)), { recursive: true });
+                fs.writeFileSync(path.join(venvDir, executable), '');
+            }, 300);
+
+            const events = await eventsAfterCreate(venvDir, 800);
+
+            assert.deepStrictEqual(
+                events.map((e) => ({ type: e.type, executable: e.executable })),
+                [{ type: FileChangeType.Created, executable: Uri.file(path.join(venvDir, executable)).fsPath }],
+            );
+        });
+
+        test('reports nothing for a folder that is not an env', async () => {
+            const dataDir = path.join(root, 'data');
+            fs.mkdirSync(dataDir);
+            // An executable added later is not waited for; the `**/python` watcher sees it.
+            setTimeout(() => {
+                fs.mkdirSync(path.join(dataDir, path.dirname(executable)), { recursive: true });
+                fs.writeFileSync(path.join(dataDir, executable), '');
+            }, 100);
+
+            const events = await eventsAfterCreate(dataDir, 500);
+
+            assert.deepStrictEqual(events, []);
+        });
     });
 });
