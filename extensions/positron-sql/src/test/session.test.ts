@@ -137,7 +137,7 @@ suite('SqlSession', () => {
 	function startSession(api: FakeConnections, store = memento(), log = testLog().log): SqlSession {
 		const extension = vscode.extensions.getExtension('positron.positron-sql')!;
 		const session = new SqlSession(
-			{ extensionPath: extension.extensionPath, workspaceState: store },
+			{ extensionPath: extension.extensionPath, workspaceState: store, globalState: Object.assign(memento(), { setKeysForSync: () => { } }) },
 			log,
 			api,
 			0,
