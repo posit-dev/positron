@@ -221,6 +221,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				// below so the user can finish editing it. Reset the resubmit flag so
 				// an Enter pressed during THIS submission queues a fresh follow-up.
 				setCurrentCodeFragment(undefined);
+				ParameterHintsController.get(codeEditorWidgetRef.current)?.cancel();
 				codeEditorWidgetRef.current.setValue('');
 				resubmitQueuedRef.current = false;
 
