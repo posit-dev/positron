@@ -92,8 +92,13 @@ export function showsValue(text, value) {
 
 const IMAGE = /\.(png|jpe?g|webp)$/i;
 
+// The run's scratch folder: an explorer's venv or build can hold thousands of
+// files, images among them, and none of it is published.
+const SCRATCH = /^tmp(\/|\\|$)/;
+
 function images(dir) {
 	return readdirSync(dir, { recursive: true })
+		.filter(p => !SCRATCH.test(String(p)))
 		.map(p => join(dir, String(p)))
 		.filter(p => IMAGE.test(p) && statSync(p).isFile())
 		.sort();
@@ -244,7 +249,25 @@ const showing = (text, secrets) => secrets.filter(s => showsValue(text, s.value)
  * not a PNG, so it cannot be painted), `unreadable` when OCR failed. A shot a
  * scan skipped would pass a file nobody checked, so unreadable counts as a leak.
  */
+/** Whether a file starts like the PNG, JPEG or WebP it is named as. */
+function looksLikeImage(file) {
+	let head;
+	try {
+		head = readFileSync(file).subarray(0, 12);
+	} catch {
+		return false;
+	}
+	const png = head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+	const jpeg = head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+	const webp = head.toString('latin1', 0, 4) === 'RIFF' && head.toString('latin1', 8, 12) === 'WEBP';
+	return png || jpeg || webp;
+}
+
 async function checkShot(file, secrets, read) {
+	// Not an image at all: nothing to read, and nothing a reader may publish unchecked.
+	if (!looksLikeImage(file)) {
+		return { file, names: ['(unreadable)'], status: 'unreadable' };
+	}
 	let first;
 	try {
 		first = await read(file);
@@ -296,7 +319,9 @@ export async function createReader(workers = Math.min(4, availableParallelism())
 	const langPath = join(dirname(require.resolve('@tesseract.js-data/eng/package.json')), '4.0.0_best_int');
 	const scheduler = createScheduler();
 	for (let i = 0; i < workers; i++) {
-		scheduler.addWorker(await createWorker('eng', 1, { langPath, cacheMethod: 'none' }));
+		// Without a handler, an image the worker cannot decode throws out of the
+		// process; with one, only that image's job fails and is called unreadable.
+		scheduler.addWorker(await createWorker('eng', 1, { langPath, cacheMethod: 'none', errorHandler: () => { } }));
 	}
 	return {
 		read: async file => {

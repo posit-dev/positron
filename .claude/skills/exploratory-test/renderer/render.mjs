@@ -48,7 +48,7 @@ const { skillVersion } = await import('./page/page-common.mjs');
 const { lintLedgerOnly, untaggedShots } = await import('./lint/lint-ledger.mjs');
 const { splitProblems } = await import('./lint/lint-rules.mjs');
 const { reportFromJson } = await import('./page/report-json.mjs');
-const { loadIssueRefs } = await import('./known-issues.mjs');
+const { pageIssueRefs } = await import('./known-issues.mjs');
 const { buildStats, passStats, readChecks } = await import('./stats.mjs');
 const { mainReplayMs } = await import('./shared/main-check.mjs');
 const { ranInCi, reportUsageOnce } = await import('./shared/usage.mjs');
@@ -109,9 +109,7 @@ function gitEmail() {
 }
 
 // Every issue or PR the report names gets its preview card. Not under test, which must not reach GitHub.
-// Matches are bare numbers in report.json, so they are named here: their kind sets their label.
-const matches = (json.findings ?? []).flatMap(f => [...(f.known ?? []), ...(f.intended ?? [])]).map(n => `#${n}`).join(' ');
-const issueRefs = await loadIssueRefs(dir, `${JSON.stringify(json)} ${matches}`, knownIssues, { offline: Boolean(process.env.NODE_TEST_CONTEXT) });
+const issueRefs = await pageIssueRefs(dir, json, knownIssues, { offline: Boolean(process.env.NODE_TEST_CONTEXT) });
 
 const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
 await writeRunPage(out, parsed, {

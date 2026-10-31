@@ -16,7 +16,7 @@ import { MAIN_REPLAY_OFF, readKnownIssues } from '../../../.claude/skills/explor
 import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TIME_UP, readEnvironment, withMainReplay } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 import { ensureCommit, mainBuildBrief, readMainBuild } from '../../../.claude/skills/exploratory-test/renderer/main-build.mjs';
 import { mainReplayMs } from '../../../.claude/skills/exploratory-test/renderer/shared/main-check.mjs';
-import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
+import { buildKnownIssuesBrief, pageIssueRefs } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
 import { buildTaskLine, describeChange, takeStepSummary, gitIn, mustEnv, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
@@ -303,6 +303,11 @@ async function main() {
 		recordStats(parsed);
 		// index.html is what the published run directory's URL already points at.
 		try {
+			// The previews of the issues the page names, matches included, fetched as a local render fetches them.
+			run.issueRefs = await pageIssueRefs(WORK_DIR, report, run.knownIssues).catch(err => {
+				console.error(`[report] WARN: could not fetch the issues the report names: ${err}`);
+				return run.issueRefs;
+			});
 			await writeRunPage(join(WORK_DIR, 'index.html'), parsed, { ...run, skillVersion: skillVersion(), agentPrompts: AGENT_PROMPTS, base: REPORT_BASE_URL || WORK_DIR, diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`, startedAt: STARTED_AT });
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const { logs, files } = missingFiles(parsed, run.fileExists);

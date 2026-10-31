@@ -458,6 +458,16 @@ export async function loadIssueRefs(dir, markdown, knownIssues, { fetch = fetchR
 }
 
 /**
+ * The issues and PRs a report's page previews: every one it names, its
+ * matches included. Matches are bare numbers in report.json, so they are named
+ * here. Shared by a local render and CI's, so both pages preview the same.
+ */
+export async function pageIssueRefs(dir, json, knownIssues, options = {}) {
+	const matches = (json?.findings ?? []).flatMap(f => [...(f.known ?? []), ...(f.intended ?? [])]).map(n => `#${n}`).join(' ');
+	return loadIssueRefs(dir, `${JSON.stringify(json)} ${matches}`, knownIssues, options);
+}
+
+/**
  * Open and closed issues and PRs matching `terms`. PRs are included so an open
  * fix for a finding is found too. Waits out a rate limit; throws on a failed request.
  */
