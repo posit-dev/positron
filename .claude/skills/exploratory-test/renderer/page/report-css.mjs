@@ -114,6 +114,10 @@ const PROFESSIONAL = `
 	--tip-shadow: 0 1px 2px rgba(28,31,35,0.06);
 	--og-shadow: 0 4px 14px rgba(0,0,0,.08);
 	--rej-title: #A3A7AD;
+	--badge-num: #6A6F76;
+	--badge-pr-ring: #8A8F96;
+	--badge-pr-num: #3D4148;
+	--badge-dash: #9A9EA4;
 	--vtag-border: #C9C4B9;
 	--vtag-bg: #F4F2EC;
 	--code-blk-bg: #F1EFEA;
@@ -251,6 +255,10 @@ const PARTY = `
 	--tip-shadow: none;
 	--og-shadow: 0 4px 14px rgba(0,0,0,.35);
 	--rej-title: #6F6799;
+	--badge-num: #9D95C6;
+	--badge-pr-ring: #8A82B8;
+	--badge-pr-num: #CFC8EA;
+	--badge-dash: #8A82B8;
 	--vtag-border: #6A5FA0;
 	--vtag-bg: #2A2250;
 	--code-blk-bg: #19132F;
@@ -414,8 +422,7 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
-.findings-grid{grid-template-columns:110px minmax(0,1fr) 132px}
-.findings-grid.og-grid{grid-template-columns:110px minmax(0,1fr) 102px 132px}
+.findings-grid{grid-template-columns:110px minmax(0,1fr) 156px}
 .coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px;padding:12px 20px}
 .right{text-align:right}
 
@@ -431,17 +438,14 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .finding-cell{display:flex;flex-direction:column;gap:4px}
 .finding-cell .claim{font-size:15px;font-weight:500;color:var(--ink);line-height:1.4}
 .finding-cell .claim .n{font-family:var(--mono);color:var(--faint);margin-right:8px}
-/* Origin: the verifier's judgement, from the diff, of where a confirmed
-   finding's fix likely goes. Rows are links, so the tooltip also opens on the
-   row's keyboard focus rather than on a focusable cell. */
+/* Tooltips in the findings table and on cards. Rows are links, so a row's
+   tooltip also opens on the row's keyboard focus rather than on a focusable cell. */
 .og{position:relative;display:inline-block;cursor:help}
 .og-tip{position:absolute;top:calc(100% + 8px);left:0;display:flex;flex-direction:column;gap:2px;width:max-content;max-width:340px;padding:7px 10px;border-radius:6px;background:var(--tip-bg);border:1px solid var(--tip-border);box-shadow:var(--og-shadow);font-family:var(--sans);font-size:12px;font-weight:400;letter-spacing:0;line-height:1.45;color:var(--muted);text-align:left;text-transform:none;text-decoration:none;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;z-index:5;transition:opacity .12s ease,visibility 0s linear .12s}
 .og-tip b{font-weight:600;color:var(--tip-text)}
-/* In the table the tip opens leftward from the Origin cell; in a card's meta line, rightward. */
+/* In the table the tip opens leftward from its cell; in a card's meta line, rightward. */
 .og .og-tip{left:auto;right:0}
 .og-meta .og-tip{left:0;right:auto}
-.og-cell,.og-hc{padding-left:12px}
-.og-cell{font-size:13px;line-height:21px;color:var(--body)}
 .og-none{color:var(--faint)}
 .og-h{text-decoration:underline dotted;text-underline-offset:3px}
 .og-h:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:3px}
@@ -460,6 +464,40 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .nowrap{white-space:nowrap}
 .og-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 @media (prefers-reduced-motion:reduce){.og-tip{transition:none}}
+
+/* Findings grouped by the replay on main's latest daily build. The tabs reuse
+   the Coverage filter's styles; the finding number marks the group: a ring for
+   Only in PR, plain for Also in latest build, a dashed ring for Unknown. */
+#ff-all:checked~.cf-tabs .ff-tab-all,#ff-pr:checked~.cf-tabs .ff-tab-pr,#ff-ex:checked~.cf-tabs .ff-tab-ex,#ff-un:checked~.cf-tabs .ff-tab-un{color:var(--ink);border-bottom-color:var(--ink)}
+#ff-all:checked~.cf-tabs .ff-tab-all .cf-l,#ff-pr:checked~.cf-tabs .ff-tab-pr .cf-l,#ff-ex:checked~.cf-tabs .ff-tab-ex .cf-l,#ff-un:checked~.cf-tabs .ff-tab-un .cf-l{font-weight:600}
+#ff-all:focus-visible~.cf-tabs .ff-tab-all,#ff-pr:focus-visible~.cf-tabs .ff-tab-pr,#ff-ex:focus-visible~.cf-tabs .ff-tab-ex,#ff-un:focus-visible~.cf-tabs .ff-tab-un{outline:2px solid var(--focus);outline-offset:4px;border-radius:3px}
+#ff-pr:checked~.ff-card a.row[data-og]:not([data-og="pr"]),#ff-ex:checked~.ff-card a.row[data-og]:not([data-og="ex"]),#ff-un:checked~.ff-card a.row[data-og]:not([data-og="un"]){display:none !important}
+.ff-card{overflow:visible}
+.ff-card>.row-head{border-radius:11px 11px 0 0}
+.ff-card .ki-grp{position:relative;margin-top:-1px}
+.ff-card .row>:last-child{padding-left:24px}
+.f-t{display:flex;align-items:flex-start;gap:10px}
+.f-b{position:relative;cursor:help;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-top:.5px;border-radius:50%;box-sizing:border-box;font-family:var(--mono);font-size:11.5px;font-weight:500;line-height:1;color:var(--badge-num)}
+.f-b-pr{box-shadow:inset 0 0 0 1px var(--badge-pr-ring);color:var(--badge-pr-num)}
+.f-b-un{border:1px dashed var(--badge-dash)}
+.f-n{cursor:inherit}
+.f-b .og-tip{left:calc(100% + 10px);right:auto;top:50%;bottom:auto;transform:translateY(-50%);font-family:var(--sans)}
+.f-b:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .7s,visibility 0s linear .7s}
+/* Fade the colour, not the opacity, or the tooltip goes see-through. */
+.row.is-rej .f-b.f-n{opacity:1;color:var(--rej-title)}
+.ffi{margin-left:auto;align-self:center;padding-bottom:10px;position:relative}
+.ffi-btn{display:flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:50%;background:none;color:var(--faint);cursor:pointer}
+.ffi-btn:hover,.ffi:focus-within .ffi-btn{color:var(--ink)}
+.ffi-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.ffi-pop{position:absolute;right:-4px;top:calc(100% - 4px);z-index:60;width:340px;box-sizing:border-box;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:8px;box-shadow:var(--pop-shadow);font-family:var(--sans);font-size:12.5px;line-height:1.45;color:var(--muted);text-align:left;white-space:normal;opacity:0;visibility:hidden;transition:opacity .12s ease .15s,visibility 0s linear .27s}
+.ffi:hover .ffi-pop,.ffi:focus-within .ffi-pop{opacity:1;visibility:visible;transition:opacity .12s ease .15s,visibility 0s linear .15s}
+.ffi-h{font-weight:600;color:var(--ink);font-size:13px}
+.ffi-row{display:flex;flex-direction:column;gap:2px}
+.ffi-row b{font-weight:600;color:var(--body)}
+.ffi-f{padding-top:10px;border-top:1px solid var(--border)}
+.ffi-f a{color:var(--link);text-decoration:underline;text-underline-offset:2px}
+@media (max-width:820px){.ffi{display:none}.ff .cf-tabs{flex-wrap:wrap;row-gap:8px}.ff-card .row>:last-child{padding-left:0}}
+@media (prefers-reduced-motion:reduce){.ffi-pop,.ffi:hover .ffi-pop{transition:none}}
 
 /* Known issues: the Findings table's Status labels and "Linked issues" row,
    the card's linked issues, GitHub issue links, and their preview card */
@@ -783,10 +821,42 @@ span.rt-file{color:var(--body)}
    above the icon when there is room, so a wide one is never cut off.
    Clicking opens the whole window in the lightbox. */
 .ev-pop{position:fixed;left:-9999px;top:-9999px;z-index:60;width:max-content;max-width:min(1000px,calc(100vw - 24px));box-sizing:border-box;padding:8px;border-radius:10px;background:var(--card);border:1px solid var(--pop-border);box-shadow:var(--pop-shadow);display:flex;flex-direction:column;gap:6px;white-space:normal;cursor:zoom-in;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .12s ease,visibility 0s linear .12s}
-.ev-pop img{display:block;max-width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:6px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 8px,var(--thumb-b) 8px 16px)}
+/* A tall crop is fitted to the window, keeping its shape, so a laptop screen shows all of it. */
+.ev-pop img{display:block;width:auto;max-width:100%;height:auto;max-height:calc(100vh - 72px);object-fit:contain;border:1px solid var(--thumb-border);border-radius:6px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 8px,var(--thumb-b) 8px 16px)}
 .ev-cap{font-family:var(--sans);font-size:11.5px;font-weight:400;line-height:1.3;letter-spacing:0;color:var(--muted)}
 a.st-ev:hover .ev-pop,a.st-ev:focus-visible .ev-pop{visibility:visible;opacity:1;transition:opacity .12s ease .12s,visibility 0s linear .12s}
 @media (prefers-reduced-motion:reduce){.ev-pop{transition:none}}
+/* Every preview is clickable: it stays open as the pointer crosses into it, and a click opens the viewer. */
+a.st-ev:hover .ev-pop,a.st-ev:focus-visible .ev-pop{pointer-events:auto;cursor:pointer}
+.ev-pop::before,.ev-pop::after{content:"";position:absolute;left:0;right:0;height:14px}
+.ev-pop::before{top:-14px}
+.ev-pop::after{bottom:-14px}
+/* A step compared with the latest build: a header on the preview. */
+.ev-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:var(--sans);font-size:12px;line-height:1.3;padding:0 2px 2px}
+.ev-hd b{font-weight:600;color:var(--ink)}
+.ev-hd span{color:var(--muted)}
+a.st-ev:hover .ev-pop .ev-hd span{text-decoration:underline;text-underline-offset:2px}
+/* The viewer's two builds side by side, stacked on a narrow screen. */
+.lb-cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px;line-height:normal;padding:0 0 2px}
+.lb-cmp[hidden],.lb-img>img[hidden]{display:none}
+.lb-cmp img.shot-full[hidden]{display:none}
+.lb-cmp>div{display:flex;flex-direction:column;gap:8px;min-width:0}
+.lb-cmp-h{display:flex;align-items:baseline;gap:8px;font-family:var(--sans);font-size:13px;line-height:1.3}
+.lb-cmp-h b{font-weight:600;color:var(--ink)}
+.lb-cmp-h span{color:var(--muted)}
+.lb-cmp img.shot-full{display:block;width:100%;height:auto;max-height:calc(100vh - 220px);border-radius:6px;border:1px solid var(--border);object-fit:contain}
+.lb-none{margin:0;box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:16/10;max-height:calc(100vh - 220px);padding:12px;border:1px dashed var(--border);border-radius:6px;font-family:var(--sans);font-size:13px;color:var(--muted);text-align:center}
+.lb-none[hidden]{display:none}
+/* A comparison keeps the arrows in the panel's side margins, off both screenshots. */
+.lb.is-cmp .lb-img{padding:0 48px}
+.lb.is-cmp .lb-prev{left:4px}.lb.is-cmp .lb-next{right:4px}
+@media (max-width:900px){.lb-cmp{grid-template-columns:1fr}}
+/* Stacked, each build gets half the height, so both fit with the caption and close button. */
+@media (max-width:900px){.lb-cmp img.shot-full{max-height:calc(50vh - 130px)}}
+/* Three or more matches of one kind: "+N more", the rest in a tooltip. */
+.ki-more{position:relative;margin-left:4px;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
+.ki-more .og-tip{left:auto;right:0;transform:none;white-space:normal;width:300px;top:calc(100% + 6px)}
+.ki-more:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
 .steps li:target{background:var(--st-target)}
@@ -936,7 +1006,6 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.fv-m{display:none}
 	.fv-b{padding:0 7px}
 	.card{padding:20px}
-	.og-cell{padding-left:0 !important}
 	.to-top{right:16px;bottom:16px}
 	h1.title{font-size:28px}
 }

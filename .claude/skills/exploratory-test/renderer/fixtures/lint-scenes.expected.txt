@@ -533,8 +533,12 @@ none
   -> report: Finding 1 screenshot a.png names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step
 
 ==== a step with more than two screenshots, or a second that repeats the first
+report: Finding 1 step 2 has 2 screenshots; keep the one that proves its result, say repeated tries in the step ("Same in 2 of 2 tries"), and split a step that checks two things
+report: Finding 1 step 2 has 2 screenshots; keep the one that proves its result, say repeated tries in the step ("Same in 2 of 2 tries"), and split a step that checks two things
 report: Finding 1 step 2's second screenshot b.png repeats the first one's caption; caption it under evidence with what it shows that the first does not
+report: Finding 1 step 2 has 3 screenshots; keep the one that proves its result, say repeated tries in the step ("Same in 2 of 2 tries"), and split a step that checks two things
 report: Finding 1 step 2 has 3 screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out
+report: Finding 1 step 2 has 2 screenshots; keep the one that proves its result, say repeated tries in the step ("Same in 2 of 2 tries"), and split a step that checks two things
 
 ==== a caption may name the scenario that took the shot instead of a step
 S02

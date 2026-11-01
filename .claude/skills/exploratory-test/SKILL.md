@@ -7,7 +7,7 @@ metadata:
   # told or allowed, or what is done with its reply. versioned-files.txt lists
   # the files that count. Feedback is grouped by it, so a change to how the
   # page looks does not count.
-  version: "1.75"
+  version: "1.76"
 ---
 
 # Exploratory testing
@@ -42,6 +42,12 @@ prints nothing when there are no linked issues, and a failed fetch only warns.
 
 Write the brief to a file in your scratch directory. The pipeline adds
 `explorer.md`, the run directory and the renderer to it.
+
+The pipeline fetches the latest daily build of main, once a day, and the
+explorer replays each finding on it, which decides the finding's Origin. Pass
+`--no-main-build` only when the person asks to skip it. On a platform with no
+daily (Intel Mac, Windows), or when the fetch fails, the run goes on and no
+finding gets an Origin; relay the reason the pipeline prints.
 
 ## Run it
 

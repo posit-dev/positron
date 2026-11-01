@@ -87,7 +87,7 @@ export function passStats(passes = []) {
  * One run's stats record. `parsed` is reportFromJson's model of the finished
  * report, so findings and verdicts are counted the way the page shows them.
  */
-export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, isolate, parsed, checks, timeLimit }) {
+export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, isolate, parsed, checks, timeLimit, mainReplayMs }) {
 	const verdicts = {};
 	for (const f of parsed?.findings ?? []) {
 		if (f.verified) {
@@ -108,6 +108,8 @@ export function buildStats({ where, date, run, version, model, turns, maxTurns, 
 		durationMs: durationMs ?? null,
 		// `{ durationMs, turns }` when an isolation pass ran, else null.
 		isolate: isolate ?? null,
+		// Minutes the explorer spent replaying findings on main, when the run had a main build.
+		mainReplayMinutes: typeof mainReplayMs === 'number' ? Math.round(mainReplayMs / 6000) / 10 : null,
 		findings: parsed?.findings?.length ?? 0,
 		severity: parsed?.severityCounts ?? null,
 		verdicts,

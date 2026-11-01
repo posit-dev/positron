@@ -71,6 +71,15 @@ on:
         required: false
         default: true
         type: boolean
+      # Replays each finding on main's latest daily build to group it (Only in
+      # PR, Also in latest build, Unknown). Off: no download, no replays, and
+      # the report has no groups. The repo variable EXPLORE_MAIN_REPLAY=off
+      # turns it off for every run, /explore included.
+      main_replay:
+        description: "Compare findings with main's latest build"
+        required: false
+        default: true
+        type: boolean
       # Set by test-exploratory-suggest.yml for the auto-run experiment
       # (#16610). The run then posts to this PR like a `/explore`, but only
       # once the worthiness check passes it: a decline stays off the PR.
@@ -644,6 +653,8 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0
+      # on or off: whether findings are replayed on main's latest daily build.
+      MAIN_REPLAY: ${{ ((github.event_name == 'workflow_dispatch' && !inputs.main_replay) || vars.EXPLORE_MAIN_REPLAY == 'off') && 'off' || 'on' }}
       HOME: /root
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
@@ -670,8 +681,23 @@ jobs:
           sparse-checkout: |
             .github/actions
             .claude/skills/exploratory-test
+            .claude/skills/drive-positron/scripts
           sparse-checkout-cone-mode: false
           persist-credentials: false
+
+      # A build of main for the explorer to replay each finding on, which
+      # decides the finding's Origin. One download, run in the background while
+      # the PR builds: a process a step starts lives until the job ends. Main
+      # daily ready below picks it up; a failure only means no Origins.
+      - name: Download main daily (background)
+        if: env.MAIN_REPLAY == 'on'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/positron-main"
+          nohup node .harness/.claude/skills/exploratory-test/renderer/main-build.mjs fetch \
+            --out "$RUNNER_TEMP/positron-main" --platform deb/x86_64 \
+            > "$RUNNER_TEMP/positron-main.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/positron-main.pid"
 
       # The explorer's instructions come from the harness, the helpers from the
       # branch under test. A branch older than the helper rewrite lacks the
@@ -769,6 +795,35 @@ jobs:
       - name: Prelaunch
         run: npm run prelaunch
 
+      # Waits for the download started before the build, which has usually
+      # finished by now. Without a main build the run goes on, and no finding
+      # gets an Origin.
+      - name: Main daily ready
+        if: env.MAIN_REPLAY == 'on'
+        continue-on-error: true
+        shell: bash
+        run: |
+          DIR="$RUNNER_TEMP/positron-main"
+          PID=$(cat "$RUNNER_TEMP/positron-main.pid" 2>/dev/null || true)
+          for _ in $(seq 1 300); do
+            if [[ -z "$PID" ]] || ! kill -0 "$PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
+            kill "$PID" || true
+          fi
+          if [[ ! -f "$DIR/main-build.json" ]]; then
+            echo "::warning::No main build, so no finding gets an Origin: $(tail -n 5 "$RUNNER_TEMP/positron-main.log" 2>/dev/null | tr '\n' ' ')"
+            exit 0
+          fi
+          # The verifier's drift check diffs the fix files between main's commit and the base.
+          COMMIT=$(node -p 'require(process.argv[1]).commit' "$DIR/main-build.json")
+          if ! git cat-file -e "$COMMIT^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$COMMIT" || echo "::warning::Could not fetch main at $COMMIT; findings whose fix files cannot be compared will be Unknown"
+          fi
+          echo "MAIN_BUILD=$DIR/main-build.json" >> "$GITHUB_ENV"
+          echo "Main build: $(cat "$DIR/main-build.json")"
+
       - name: Set permissions on SUID sandbox helper
         run: |
           ELECTRON_ROOT=.build/electron
@@ -858,17 +913,14 @@ jobs:
           # any Positron code runs, and hangs until launch.sh times out. Each
           # attempt gets a fresh profile and ports, so a retry is clean once the
           # hung instance is killed.
+          # The explorer's brief gives these to the main build's launch too.
+          APP_ARGS=(--folder-uri file:///tmp/exploratory-workspace --log debug --no-sandbox
+            --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader
+            --disable-gpu-compositing --password-store=basic)
+          echo "APP_ARGS=${APP_ARGS[*]}" >> "$GITHUB_ENV"
           for attempt in 1 2 3; do
             if LAUNCH_JSON=$(.claude/skills/drive-positron/scripts/launch.sh \
-              --source-user-data-dir /tmp/positron-seed -- \
-              --folder-uri file:///tmp/exploratory-workspace \
-              --log debug \
-              --no-sandbox \
-              --disable-dev-shm-usage \
-              --use-gl=swiftshader \
-              --enable-unsafe-swiftshader \
-              --disable-gpu-compositing \
-              --password-store=basic); then
+              --source-user-data-dir /tmp/positron-seed -- "${APP_ARGS[@]}"); then
               break
             fi
             if [[ "$attempt" == 3 ]]; then
@@ -993,8 +1045,11 @@ jobs:
           # The workspace as the run left it, a fallback for a test file the
           # agent did not save to files/. Artifact only, not the published page.
           # Hidden entries (.venv, .git) are already left out by default.
+          # The run's tmp/ is scratch (a venv or build can run to gigabytes) and
+          # never part of the report.
           path: |
             /tmp/exploratory-run
+            !/tmp/exploratory-run/tmp
             /tmp/positron-dev-launch/*/code.log
             /tmp/positron-dev-launch/instances.log
             /tmp/exploratory-workspace
@@ -1075,6 +1130,8 @@ jobs:
           # The raw log tree stays in the artifact: the page lists it unlinked,
           # and the curated files beside it are what a reader opens.
           rm -rf /tmp/exploratory-publish/logs/all
+          # Scratch, never part of the report; older artifacts still carry it.
+          rm -rf /tmp/exploratory-publish/tmp
 
       - name: Upload run directory to S3
         id: s3-upload

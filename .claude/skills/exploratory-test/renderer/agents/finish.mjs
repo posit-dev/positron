@@ -14,7 +14,9 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { knownFixLines, knownIssueOutcomes } from '../known-issues.mjs';
 import { lintActionsLog } from '../lint/lint-ledger.mjs';
+import { mainProblems } from '../lint/lint-wording.mjs';
 import { parseLedger } from '../shared/ledger.mjs';
+import { originFromMain } from '../shared/main-check.mjs';
 import { readJson } from '../shared/text.mjs';
 
 /**
@@ -23,7 +25,7 @@ import { readJson } from '../shared/text.mjs';
  * unless `actionsLog` is given. A placeholder with no value, or a value with
  * no placeholder, throws, so the template and this list cannot drift apart quietly.
  */
-export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha, actionsLog, changeBase, session, reportFile = join(workDir, 'report.json') }) {
+export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha, actionsLog, session, reportFile = join(workDir, 'report.json') }) {
 	const logPath = join(workDir, 'actions.log');
 	const log = actionsLog ?? (existsSync(logPath) ? readFileSync(logPath, 'utf8') : undefined);
 	const logProblems = log === undefined ? [] : lintActionsLog(log, { session });
@@ -38,11 +40,6 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 		KNOWN_ISSUES: `${workDir}/known-issues.json`,
 		REPO: repoRoot,
 		DIFF: `${baseSha}...${headSha}`,
-		HEAD: headSha,
-		CHANGE_RANGE: `${baseSha}..${headSha}`,
-		CHANGE_SCOPE: changeBase?.usable
-			? `The change under test is the commits in \`${baseSha}..${headSha}\`.`
-			: `This run has no usable base (${changeBase?.reason ?? 'none was given'}), so give no finding an \`origin\` and skip the steps below.`,
 		SEARCH: `node ${join(dirname(fileURLToPath(import.meta.url)), '..', 'known-issues.mjs')} --search`,
 	};
 	const used = new Set();
@@ -97,15 +94,21 @@ export function writeChangeBase(dir, base) {
 	writeFileSync(join(dir, 'change-base.json'), `${JSON.stringify({ usable: base.usable, name: base.name })}\n`);
 }
 
+/**
+ * The file a run directory holds when main replay was switched off on purpose
+ * (the workflow's main_replay input, or --no-main-build): its findings get no
+ * groups at all, rather than "Unknown: no main build".
+ */
+export const MAIN_REPLAY_OFF = 'main-replay-off';
+
 const VERDICTS = { 'confirmed': 'confirmed', 'false positive': 'disputed', 'unresolved': 'unresolved' };
 const SEVERITIES = ['major', 'moderate', 'minor'];
-const ORIGINS = ['introduced', 'exposed', 'inherited'];
 
 /**
  * The verifier's reply: the fenced `json` block it opens with, and its notes
  * after the block. Anything before the block is its notes to itself, and is
  * dropped. `findings` maps a finding number to `{ verified, known, intended,
- * feature, title, origin }`, `linked` an issue number to its severity, and
+ * feature, title, fix }`, `linked` an issue number to its severity, and
  * `problem` says why the block could not be read, or is ''. An entry it
  * cannot read is skipped, so one bad entry costs only that finding.
  */
@@ -142,7 +145,7 @@ export function parseVerifyReply(text) {
 			const setup = Array.isArray(f.setup)
 				? f.setup.filter(x => x && typeof x === 'object').map(x => ({ what: typeof x.what === 'string' ? x.what.trim() : '', log: Number.isInteger(x.log) ? x.log : null, alone: x.alone === true, why: typeof x.why === 'string' ? x.why.trim() : '' }))
 				: null;
-			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), origin: ORIGINS.includes(f.origin) ? f.origin : null, log, shots, setup });
+			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), fix: Array.isArray(f.fix) ? f.fix.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()) : [], log, shots, setup });
 		}
 	}
 	for (const l of Array.isArray(data?.linked) ? data.linked : []) {
@@ -338,9 +341,14 @@ const CORRECTABLE = ['title', 'feature', 'cause', 'observed', 'tests'];
  * findings are unreviewed" is not a detail to hide behind a click, and
  * changes no finding.
  */
-export function applyVerification(json, reply, { failed = false, text = '', gaps = [] } = {}) {
+export function applyVerification(json, reply, { failed = false, text = '', gaps = [], mainBuild = null, repoRoot = '', baseSha = '', headSha = '', actionsLog, replay = true } = {}) {
 	if (failed) {
-		return { ...json, verification: { failed, text } };
+		if (!replay) {
+			return { ...json, verification: { failed, text } };
+		}
+		// Nothing was checked, so no finding is grouped by its replay; each says why.
+		const originReason = Object.fromEntries((json.findings ?? []).map(f => [f.n, { reason: 'not verified', detail: '' }]));
+		return { ...json, verification: { failed, text, ...(Object.keys(originReason).length ? { originReason } : {}) } };
 	}
 	const findings = (json.findings ?? []).map(f => {
 		const v = reply.findings.get(f.n);
@@ -360,7 +368,34 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			...(corrected.length ? { corrected, explorer: Object.fromEntries(corrected.map(key => [key, f[key] ?? null])) } : {}),
 		};
 	});
-	const origin = Object.fromEntries([...reply.findings].filter(([, f]) => f.origin).map(([n, f]) => [n, f.origin]));
+	// Each confirmed finding's Origin from its replay on main, or why it has none.
+	const origin = {};
+	const originReason = {};
+	for (const f of replay ? json.findings ?? [] : []) {
+		const v = reply.findings.get(f.n);
+		if (v?.verified !== 'confirmed') {
+			continue;
+		}
+		// A record lint rejects (a failing check left out, two kinds of result) cannot be read as counts; a warning does not void it.
+		if (mainBuild && f.main && mainProblems(f.n, f.main, f.steps ?? [], { mainBuild, actionsLog, files: (f.preconditions ?? []).map(p => p.file).filter(Boolean) }).some(p => p.severity === 'error')) {
+			originReason[f.n] = { reason: 'could not run', detail: 'its replay record is incomplete' };
+			continue;
+		}
+		// The explorer's word that main lacks an ID is checked: the head must have it, and main must not.
+		const unconfirmed = mainBuild && f.main?.missing?.length ? unconfirmedMissing(repoRoot, mainBuild.commit, headSha, f.main.missing) : [];
+		if (unconfirmed.length) {
+			originReason[f.n] = { reason: 'could not run', detail: `what it says main lacks could not be confirmed: ${unconfirmed.join(', ')}` };
+			continue;
+		}
+		const drift = mainBuild ? fixDrift(repoRoot, mainBuild.commit, baseSha, v.fix, headSha) : 'none';
+		const newCode = Boolean(mainBuild) && newInChange(repoRoot, mainBuild.commit, baseSha, headSha, v.fix);
+		const o = originFromMain({ main: f.main, reproduced: f.reproduced, drift, hasMainBuild: Boolean(mainBuild), newCode });
+		if (o.origin) {
+			origin[f.n] = o.origin;
+		} else {
+			originReason[f.n] = { reason: o.reason, detail: o.detail };
+		}
+	}
 	const unchecked = Object.fromEntries(['log', 'shots', 'setup'].map(kind => [kind, [...new Set(gaps.filter(g => g.kind === kind).map(g => g.n))]]).filter(([, ns]) => ns.length));
 	const named = ns => ns.map(n => `Finding ${n}`).join(', ');
 	const skipped = [
@@ -378,10 +413,93 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			// Its own all-clear would contradict what the pipeline found missing.
 			text: [PREAMBLE, skipped ? reply.notes.replace(/\n*No process issues\.?\s*$/, '') : reply.notes, skipped ? `_The verifier did not show it checked ${skipped}._` : ''].filter(Boolean).join('\n\n'),
 			...(Object.keys(origin).length ? { origin } : {}),
+			...(Object.keys(originReason).length ? { originReason } : {}),
 			...(linked.length ? { linked } : {}),
 			...(skipped ? { unchecked } : {}),
 		},
 	};
+}
+
+/**
+ * Whether the files of a finding's fix differ between the main build and the
+ * base, so main's behavior there may not be the base's: 'drift' when they do,
+ * or when git cannot tell (a commit the checkout does not have); 'unchecked'
+ * when there is nothing to compare (no files, or none in either commit);
+ * 'none' when they are the same, or main is the base.
+ */
+export function fixDrift(repoRoot, mainCommit, baseSha, files, headSha = '') {
+	if (!repoRoot || !mainCommit || !baseSha) {
+		return 'unchecked';
+	}
+	const git = args => execFileSync('git', ['-C', repoRoot, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+	const ok = args => {
+		try {
+			git(args);
+			return true;
+		} catch {
+			return false;
+		}
+	};
+	if (!ok(['cat-file', '-e', `${mainCommit}^{commit}`]) || !ok(['cat-file', '-e', `${baseSha}^{commit}`])) {
+		return 'drift';
+	}
+	if (mainCommit === baseSha) {
+		return 'none';
+	}
+	// A path in neither commit matches nothing, and would pass for "no change",
+	// unless the change adds it: new code cannot have changed on main.
+	const has = (commit, f) => Boolean(commit) && ok(['cat-file', '-e', `${commit}:${f}`]);
+	if (!files?.length || files.some(f => !has(mainCommit, f) && !has(baseSha, f) && !has(headSha, f))) {
+		return 'unchecked';
+	}
+	try {
+		return git(['diff', '--name-only', mainCommit, baseSha, '--', ...files]).trim() ? 'drift' : 'none';
+	} catch {
+		return 'drift';
+	}
+}
+
+/**
+ * Whether every file of a finding's fix is new in the change: on the head,
+ * and in neither main nor the base. A replay that could not run on main then
+ * could not have, since main has none of that code. False with no files.
+ */
+export function newInChange(repoRoot, mainCommit, baseSha, headSha, files) {
+	if (!repoRoot || !mainCommit || !baseSha || !headSha || !files?.length) {
+		return false;
+	}
+	const has = (commit, f) => {
+		try {
+			execFileSync('git', ['-C', repoRoot, 'cat-file', '-e', `${commit}:${f}`], { stdio: 'ignore' });
+			return true;
+		} catch {
+			return false;
+		}
+	};
+	return files.every(f => has(headSha, f) && !has(mainCommit, f) && !has(baseSha, f));
+}
+
+/**
+ * The IDs a finding says main lacks that git does not bear out: each must be
+ * in the head (else it is not a real ID) and not in main. All of them when
+ * the checkout or a commit is not there to ask.
+ */
+export function unconfirmedMissing(repoRoot, mainCommit, headSha, ids) {
+	if (!repoRoot || !mainCommit || !headSha) {
+		return [...ids];
+	}
+	// The whole ID, not part of a longer one: `positron.brand` must not match `positron.brandNew`.
+	const whole = id => `(^|[^A-Za-z0-9_.-])${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^A-Za-z0-9_.-])`;
+	// 0: found; 1: not found; anything else: git could not tell.
+	const found = (commit, id) => {
+		try {
+			execFileSync('git', ['-C', repoRoot, 'grep', '-q', '-E', '-e', whole(id), commit, '--', 'src', 'extensions'], { stdio: 'ignore' });
+			return true;
+		} catch (err) {
+			return err.status === 1 ? false : null;
+		}
+	};
+	return ids.filter(id => !(found(headSha, id) === true && found(mainCommit, id) === false));
 }
 
 /** True once report.json carries a verification, so it is never added twice. */
@@ -430,7 +548,7 @@ export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
 	}
 	const out = join(dir, 'verify-prompt.md');
 	writeFileSync(out, buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
-		workDir: dir, repoRoot: repo, baseSha: base, headSha: head, changeBase: changed, reportFile: path,
+		workDir: dir, repoRoot: repo, baseSha: base, headSha: head, reportFile: path,
 		// Set by a local pipeline run, as for the explorer's own check; CI drives its own session.
 		session: process.env.PW_SESSION || undefined,
 	}));
@@ -449,7 +567,7 @@ export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
  * verification did not complete rather than leaving the findings looking
  * reviewed. Otherwise returns `{ failed, logLines }`.
  */
-export function applyVerifyReply(dir, reply, { error = '', final = false, opened = null } = {}) {
+export function applyVerifyReply(dir, reply, { error = '', final = false, opened = null, repo = '', base = '', head = '' } = {}) {
 	const { path, report, ledger, actionsLog, knownIssues } = readRun(dir);
 	if (isVerified(report)) {
 		return { already: true };
@@ -469,6 +587,7 @@ export function applyVerifyReply(dir, reply, { error = '', final = false, opened
 	const unreviewed = findings ? 'The findings above are unreviewed.' : 'The known issues above are unrated.';
 	const why = error ? `: ${error}` : mismatch ? `: ${mismatch}` : !reply ? '' : parsed.problem ? `: ${parsed.problem}` : ': the reply gave no verdicts';
 	const text = `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`;
-	writeReport(path, applyVerification(report, parsed, { failed, text, gaps }));
+	const mainBuild = readJson(join(dir, 'main-build.json'));
+	writeReport(path, applyVerification(report, parsed, { failed, text, gaps, mainBuild, repoRoot: repo, baseSha: base, headSha: head, actionsLog, replay: !existsSync(join(dir, MAIN_REPLAY_OFF)) }));
 	return { failed, logLines: verifyLogLines(knownIssues, ledger, failed ? parseVerifyReply('') : parsed) };
 }

@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, failedStep, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
+import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, failedStep, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange, takeStepSummary } from './lib.mjs';
 import { EXPLORE_TIME_UP } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 
 test('buildCostRecord extracts the fields the spec names', () => {
@@ -583,4 +583,11 @@ test('buildTaskLine targets Positron on top of an upstream merge, unless a focus
 	const upstream = { from: '1.134.0', to: '1.138.0' };
 	assert.match(buildTaskLine('', upstream), /merges upstream Code OSS 1\.134\.0 to 1\.138\.0/);
 	assert.match(buildTaskLine('the console', upstream), /asked you to test this/);
+});
+
+test('takeStepSummary keeps the job summary for the run and hides it from the agents', () => {
+	const env = { GITHUB_STEP_SUMMARY: '/runner/summary.md', PATH: '/bin' };
+	assert.equal(takeStepSummary(env), '/runner/summary.md');
+	assert.deepEqual(env, { PATH: '/bin' }, 'a test an agent runs (Vitest\'s GitHub reporter) cannot write to the job summary');
+	assert.equal(takeStepSummary({}), undefined);
 });

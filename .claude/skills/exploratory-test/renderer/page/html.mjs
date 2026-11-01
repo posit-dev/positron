@@ -203,9 +203,9 @@ function matchesByKind(numbers, refs) {
 		return ref?.kind !== 'pr' ? 'issue' : ref.state === 'merged' ? 'merged' : ref.state === 'open' ? 'open' : null;
 	};
 	return [
-		{ numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `Dupe? ${nums}` },
-		{ numbers: numbers.filter(n => kind(n) === 'open'), label: nums => `Fix in PR? ${nums}` },
-		{ numbers: numbers.filter(n => kind(n) === 'merged'), label: nums => `Fixed in ${nums}?` },
+		{ numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `Dupe? ${nums}`, noun: 'possible duplicates' },
+		{ numbers: numbers.filter(n => kind(n) === 'open'), label: nums => `Fix in PR? ${nums}`, noun: 'possible fixes' },
+		{ numbers: numbers.filter(n => kind(n) === 'merged'), label: nums => `Fixed in ${nums}?`, noun: 'possible fixes' },
 	].filter(m => m.numbers.length);
 }
 
@@ -249,6 +249,7 @@ function renderNoFindings(report, ki) {
 		notRun ? `<b>${notRun}</b> not run` : '',
 		...kiCounts(ki, {
 			fix: n => `${plural(n, 'fix', 'fixes')} verified`,
+			part: n => `${plural(n, 'fix', 'fixes')} partly held`,
 			obs: n => `${plural(n, 'known issue', 'known issues')} observed`,
 			no: n => `${plural(n, 'linked issue', 'linked issues')} not observed`,
 		}),
@@ -261,62 +262,155 @@ function renderNoFindings(report, ki) {
 const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
 const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 
+/** Whether the report's findings were replayed on main, which groups them. */
+const replayed = report => Boolean(report.verification?.originReason?.size) || report.findings.some(f => f.main);
+
 /**
- * A finding's likely origin, as the verifier judged it from the change under
- * test: 'introduced', 'exposed', 'inherited', or '' when not determined. A
- * finding not confirmed, or one whose fix didn't hold, is never given one.
- * Null on a run with no usable base, which has no Origin column.
+ * A finding's group from its replay on main's latest daily build: 'pr' when
+ * it did not reproduce there (or main lacks what it needs), 'ex' when it did
+ * (or it is a fix that did not hold), 'un' when the replay did not settle it,
+ * and 'none' for a finding not confirmed. Null on a run with no comparison,
+ * a run on main or a report from before main replays, which shows no groups.
  */
-function originOf(report, f, base, ki) {
-	if (base?.usable !== true) {
+function groupOf(report, f, base, ki) {
+	if (base?.usable !== true || !replayed(report)) {
 		return null;
 	}
-	if (statusWord(f) !== 'confirmed' || ki?.fixFailed.has(f.n)) {
-		return '';
+	if (statusWord(f) !== 'confirmed') {
+		return 'none';
 	}
-	return report.verification?.origin?.get(f.n) ?? '';
+	if (ki?.fixFailed.has(f.n)) {
+		return 'ex';
+	}
+	return { introduced: 'pr', inherited: 'ex' }[report.verification?.origin?.get(f.n)] ?? 'un';
 }
 
-function originText(report, origin) {
-	const change = report.pr ? 'PR' : 'branch';
+const changeWord = report => (report.pr ? 'PR' : 'branch');
+const groupLabel = (report, group) => ({ pr: `Only in ${changeWord(report)}`, ex: 'Also in latest build', un: 'Unknown' })[group];
+const fewestTries = main => Math.min(...(main?.steps ?? []).map(s => s.m));
+/** A finding's rate on the change, `{ n, m }`, from its "N/M". */
+const rateOf = f => {
+	const [n, m] = String(f.reproduced ?? '').split('/').map(Number);
+	return { n, m };
+};
+
+/** Why a finding is Unknown, in a phrase for its card. */
+function unknownShort(report, f) {
+	const { reason } = report.verification?.originReason?.get(f.n) ?? {};
+	const { n, m } = rateOf(f);
 	return {
-		introduced: `Likely caused by this ${change}. The suspected fix is in changed code.`,
-		exposed: `The suspected fix is in existing code, but this ${change} changed something that now triggers it.`,
-		inherited: `The suspected fix is in existing code this ${change} didn&rsquo;t change. Found while testing it, so worth a look.`,
-	}[origin];
+		'no main build': 'no main build',
+		'not replayed': 'not replayed on the latest build',
+		'could not run': 'couldn&rsquo;t run on the latest build',
+		'too few tries': n < m ? 'intermittent, needs more tries on the latest build' : 'needs more tries on the latest build',
+		'drift': 'main has changed in this area',
+		'drift unchecked': 'cause not traced',
+		'not verified': 'not verified',
+		'fails differently': 'fails differently on the latest build',
+	}[reason] ?? 'not replayed on the latest build';
+}
+
+/** The evidence for a finding's group, for its number's tooltip and its card. */
+function groupEvidence(report, f, group, ki) {
+	const change = changeWord(report);
+	if (group === 'pr') {
+		if (f.main?.couldNotRun) {
+			return `The code involved is new in this ${change}, so the latest build couldn&rsquo;t run it: ${escapeHtml(f.main.couldNotRun.replace(/\.$/, ''))}.`;
+		}
+		return f.main?.missing?.length
+			? `Main doesn&rsquo;t have ${f.main.missing.map(escapeHtml).join(', ')} yet.`
+			: `Didn&rsquo;t reproduce in the latest build (0 of ${fewestTries(f.main)} tries).`;
+	}
+	if (group === 'ex') {
+		const failed = ki?.fixFailed.get(f.n);
+		if (failed?.length) {
+			const part = ki.fixesPartly?.find(p => p.issue.number === failed[0].number);
+			return part
+				? `Fixed in &ldquo;${part.held[0].scenarioHtml}&rdquo;, but still happens in &ldquo;${part.failed[0].scenarioHtml}&rdquo;. #${Number(failed[0].number)} is open for it.`
+				: `Still happens. #${Number(failed[0].number)} is open for it.`;
+		}
+		const steps = [...(f.main?.steps ?? [])].sort((a, b) => a.step - b.step);
+		if (steps.length === 1) {
+			return `Also reproduced in the latest build (${steps[0].n} of ${steps[0].m} tries).`;
+		}
+		const seen = steps.filter(s => s.n > 0).map(s => `step ${s.step} (${s.n} of ${s.m} tries)`);
+		return seen.length ? `Also reproduced in the latest build: ${seen.join(', ')}.` : 'Also reproduced in the latest build.';
+	}
+	const { reason, detail } = report.verification?.originReason?.get(f.n) ?? {};
+	if (reason === 'too few tries') {
+		const { n, m } = rateOf(f);
+		const k = fewestTries(f.main);
+		return n < m
+			? `This issue only shows up sometimes (${n} of ${m} tries here). It didn&rsquo;t show up in ${k} tries on the latest build, but that could be luck, so we can&rsquo;t say either way.`
+			: `It showed up every time here (${n} of ${m} tries), but the latest build was tried only ${k} time${k === 1 ? '' : 's'}, so we can&rsquo;t say yet.`;
+	}
+	return {
+		'no main build': 'No build of main was available for this run.',
+		'not verified': 'Verification didn&rsquo;t finish, so this finding&rsquo;s comparison with main wasn&rsquo;t checked.',
+		'fails differently': `It also failed on the latest build, but differently (${escapeHtml(f.main?.steps?.find(s => s.n > 0)?.saw ?? '')}), so this run can&rsquo;t say whether it&rsquo;s the same issue.`,
+		'could not run': detail ? `It couldn&rsquo;t run on the latest build: ${escapeHtml(detail.replace(/\.$/, ''))}.` : 'It couldn&rsquo;t run on the latest build.',
+		'drift': `Main has changed the code where the fix likely goes, so the latest build can&rsquo;t show how this behaved before this ${change}.`,
+		'drift unchecked': `It didn&rsquo;t reproduce on the latest build, but its cause wasn&rsquo;t traced, so main may have changed in this area since this ${change} started.`,
+	}[reason] ?? 'This finding wasn&rsquo;t replayed on the latest build.';
 }
 
 const originTip = (title, text, hidden = true) => `<span class="og-tip"${hidden ? ' aria-hidden="true"' : ''} role="tooltip">${title ? `<b>${title}</b>` : ''}<span>${text}</span></span>`;
 
-/** The Origin header, whose tooltip says once that every value is a judgement. */
-function originHead(report, base) {
-	const text = `Likely origin, judged from this ${report.pr ? 'PR' : 'branch'}&rsquo;s diff. Not tested against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`;
-	return `<span class="og-hc"><span class="og og-h" tabindex="0">Origin${originTip('Origin', text, false)}</span></span>`;
-}
-
 /**
- * A finding row's Origin cell. The row is a link, so nothing in it takes
- * focus: the tooltip opens on hover and on the row's focus, and a screen
- * reader hears the word, or "Origin not determined". The last row's tooltip
- * opens upward, away from the panel's edge.
+ * A finding row's number. With a comparison it is a badge that marks its
+ * group (a ring for Only in PR, plain for Also in latest build, a dashed ring
+ * for Unknown) and opens the evidence on hover; the row is a link, so the
+ * tooltip is hidden from screen readers, which hear the group in the row.
  */
-function originCell(report, origin, last) {
-	const up = last ? ' og-up' : '';
-	if (!origin) {
-		return `<span class="og-cell"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">Origin not determined</span>`
-			+ `${originTip('', 'Not enough evidence in the diff to determine origin.')}</span></span>`;
+function findingNumber(report, f, group, ki) {
+	if (group === null) {
+		return `<span class="n">${f.n}</span>`;
 	}
-	const word = capitalize(origin);
-	return `<span class="og-cell"><span class="og${up}">${word}${originTip(word, originText(report, origin))}</span></span>`;
+	if (group === 'none') {
+		return `<span class="f-b f-n">${f.n}</span>`;
+	}
+	return `<span class="f-b f-b-${group}">${f.n}${originTip(groupLabel(report, group), groupEvidence(report, f, group, ki))}</span>`;
 }
 
-/** The Origin word in a card's meta line, after "Reproduced x/y". Nothing when not determined. */
-function cardOrigin(report, origin) {
-	if (!origin) {
+/** A card's group in its meta line, after "Reproduced x/y": none for a finding not confirmed or a fix that did not hold. */
+function cardGroup(report, f, group, ki) {
+	if (!group || group === 'none' || ki?.fixFailed.has(f.n)) {
 		return '';
 	}
-	const word = capitalize(origin);
-	return `<span class="og og-meta" tabindex="0">${word}${originTip(word, originText(report, origin), false)}</span>`;
+	const label = groupLabel(report, group);
+	const text = group === 'un' ? `Unknown: ${unknownShort(report, f)}` : label;
+	return `<span class="og og-meta" tabindex="0">${text}${originTip(label, groupEvidence(report, f, group, ki), false)}</span>`;
+}
+
+const INFO_ICON = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.25"/><path d="M8 7.2v3.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/><circle cx="8" cy="5" r=".8" fill="currentColor"/></svg>';
+
+/** The tabs over the findings table, one per group with findings, and the button that explains them. */
+function groupTabs(report, groups, mainBuild) {
+	const count = id => groups.filter(g => g === id).length;
+	const kinds = [
+		{ id: 'all', label: 'All', n: groups.length },
+		...['pr', 'ex', 'un'].map(id => ({ id, label: groupLabel(report, id), n: count(id) })),
+	].filter(k => k.id === 'all' || k.n > 0);
+	const radios = kinds.map(k => `<input type="radio" name="ff" id="ff-${k.id}" class="cf-radio"${k.id === 'all' ? ' checked' : ''}>`).join('');
+	// The hidden semibold copy reserves the selected width, so the row never shifts.
+	const tabs = kinds.map(k => `<label for="ff-${k.id}" class="cf-tab ff-tab ff-tab-${k.id}">`
+		+ `<span class="cf-l">${k.label} <span class="cf-cnt">${k.n}</span></span>`
+		+ `<span class="cf-g" aria-hidden="true">${k.label} ${k.n}</span></label>`).join('');
+	const change = changeWord(report);
+	const explain = {
+		pr: `Reproduced on this ${change}&rsquo;s build but not in the latest build of main.`,
+		ex: `Issues that already exist. They also reproduced in the latest build of main, so they weren&rsquo;t caused by this ${change}&rsquo;s changes.`,
+		un: 'Not enough evidence to tell. Hover a finding&rsquo;s number to see why.',
+	};
+	const rows = kinds.filter(k => k.id !== 'all').map(k => `<div class="ffi-row"><b>${k.label}</b><span>${explain[k.id]}</span></div>`).join('');
+	const commit = String(mainBuild?.commit ?? '');
+	const build = mainBuild?.version && /^[0-9a-f]{7,40}$/.test(commit)
+		? `Compared with the latest build of main: <a href="${REPO_URL}/commit/${commit}" target="_blank" rel="noopener">daily ${escapeHtml(mainBuild.version)} (${commit.slice(0, 7)})</a>`
+		: 'No build of main was available for this run.';
+	// The button names the popover, so a screen reader reads the explanation too.
+	const info = `<span class="ffi"><button type="button" class="ffi-btn" aria-label="How findings are grouped" aria-describedby="ffi-pop">${INFO_ICON}</button>`
+		+ `<span class="ffi-pop" id="ffi-pop" role="tooltip"><span class="ffi-h">How findings are grouped</span>${rows}<span class="ffi-f">${build}</span></span></span>`;
+	return { radios, bar: `<div class="cf-tabs" role="group" aria-label="Filter findings by whether they happen on main">${tabs}${info}</div>` };
 }
 
 /** A verdict other than Confirmed: verify rejected the finding, or it was never shown to hold. */
@@ -353,15 +447,20 @@ function withLastWord(html, tag) {
 	return `${html.slice(0, at + 1)}<span class="nowrap">${html.slice(at + 1)}${tag}</span>`;
 }
 
-function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
-	const withOrigin = changeBase?.usable === true;
-	const grid = withOrigin ? 'findings-grid og-grid' : 'findings-grid';
+function renderFindingsList(report, ki = null, refs = null, changeBase = null, mainBuild = null) {
+	const grid = 'findings-grid';
+	const groups = report.findings.map(f => groupOf(report, f, changeBase, ki));
+	const grouped = groups.some(g => g !== null);
 	const rows = report.findings.map((f, i) => {
+		const group = groups[i];
 		const word = statusWord(f);
 		// Plain numbers, not links: the whole row is already a link to the card. They still preview on hover.
 		const num = n => `<span class="ki-num-t"${kiData(refs?.byNumber.get(n), refs)}>#${Number(n)}</span>`;
-		// Several of one kind: the first number and a count; the card lists them all.
-		const first = list => `${num(list[0])}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
+		// Two of one kind show both; three or more the first and "+N more", with
+		// the rest in a tooltip. The card lists them all, for screen readers too.
+		const first = (list, noun) => (list.length <= 2 ? list.map(num).join(' ')
+			: `${num(list[0])}<span class="ki-more">+${list.length - 1} more<span class="og-tip" aria-hidden="true" role="tooltip"><b>${list.length - 1} more ${noun}</b>`
+			+ `${list.slice(1).map(n => `<span>#${Number(n)} ${escapeHtml(refs?.byNumber.get(n)?.title ?? '')}</span>`).join('')}</span></span>`);
 		const failed = ki?.fixFailed.get(f.n)?.map(i => i.number) ?? [];
 		const back = ki?.cameBack.get(f.n)?.map(i => i.number) ?? [];
 		const line = html => `<span class="ki-mt">${html}</span>`;
@@ -371,14 +470,14 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 		// that came back: it keeps only the issue's number.
 		const rejected = isRejected(word);
 		if (failed.length || back.length) {
-			const own = first(failed.length ? failed : back);
-			lines.push(rejected ? muted(own) : line(`<span class="ki-reg">${ICON.x}${failed.length ? 'Not fixed' : 'Regressed'}</span><span class="ki-state">${own}</span>`));
+			const own = first(failed.length ? failed : back, failed.length ? 'fixes that didn&rsquo;t hold' : 'issues that came back');
+			lines.push(rejected ? muted(own) : line(`<span class="ki-reg">${ICON.x}${failed.length ? (failed.some(n => ki.partly?.has(n)) ? 'Partly fixed' : 'Not fixed') : 'Regressed'}</span><span class="ki-state">${own}</span>`));
 		}
 		// Every match the card shows, linked to the PR or found by search, one line per kind.
-		lines.push(...matchesByKind(possiblyKnown(f, ki), refs).map(m => muted(m.label(first(m.numbers)))));
+		lines.push(...matchesByKind(possiblyKnown(f, ki), refs).map(m => muted(m.label(first(m.numbers, m.noun)))));
 		// A match closed as not planned: the team chose to leave this behavior.
 		if (f.intended?.length) {
-			lines.push(muted(`Won&rsquo;t fix? ${first(f.intended)}`));
+			lines.push(muted(`Won&rsquo;t fix? ${first(f.intended, 'issues closed as not planned')}`));
 		}
 		const up = i === report.findings.length - 1 ? ' og-up' : '';
 		const status = lines.length
@@ -387,31 +486,50 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null) {
 				+ `${originTip('', 'No matching issues or PRs found.')}</span></span>`;
 		// The tag is read as part of the row link, so its tooltip is hidden from screen readers.
 		const title = rejected ? withLastWord(f.rowTitle, verdictTag(word, false)) : f.rowTitle;
-		return `<a href="#f${f.n}" class="row ${grid}${rejected ? ' is-rej' : ''}">`
-			+ `<span>${pill(f.severity)}</span>`
-			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${title}</span></span>`
-			+ (withOrigin ? originCell(report, originOf(report, f, changeBase, ki), i === report.findings.length - 1) : '')
+		// The number's tooltip is hidden from screen readers, so the row starts with the group.
+		const heard = group && group !== 'none' ? `<span class="og-sr">${groupLabel(report, group)}, </span>` : '';
+		const claim = group === null
+			? `<span class="claim">${findingNumber(report, f, group, ki)}${title}</span>`
+			: `<span class="claim f-t">${findingNumber(report, f, group, ki)}<span>${title}</span></span>`;
+		return `<a href="#f${f.n}"${group ? ` data-og="${group}"` : ''} class="row ${grid}${rejected ? ' is-rej' : ''}">`
+			+ `<span>${heard}${pill(f.severity)}</span>`
+			+ `<span class="finding-cell">${claim}</span>`
 			+ status
 			+ '</a>';
 	});
 
 	const matchesHead = `<span><span class="og og-h" tabindex="0">Matches${originTip('Matches', 'Existing GitHub issues or PRs that match or may match this finding. A dash means no match was found.', false)}</span></span>`;
 	const head = rows.length
-		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${withOrigin ? originHead(report, changeBase) : ''}${matchesHead}</div>\n`
+		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${matchesHead}</div>\n`
 		: '';
-
-	return `<section id="findings" class="section">
+	const body = `${head}${[...(rows.length ? rows : [renderNoFindings(report, ki)]), renderLinkedIssues(report, ki, !rows.length)].filter(Boolean).join('\n')}`;
+	if (!grouped) {
+		return `<section id="findings" class="section">
 <h2 class="section-label">Findings</h2>
 <div class="panel">
-${head}${[...(rows.length ? rows : [renderNoFindings(report, ki)]), renderLinkedIssues(report, ki, !rows.length)].filter(Boolean).join('\n')}
+${body}
+</div>
+</section>`;
+	}
+	// Visually hidden radios ahead of the tabs and the table, so CSS can filter
+	// the rows by group, as Coverage does.
+	const { radios, bar } = groupTabs(report, groups, mainBuild);
+	return `<section id="findings" class="section">
+<h2 class="section-label">Findings</h2>
+<div class="cf ff">
+${radios}
+${bar}
+<div class="panel ff-card">
+${body}
+</div>
 </div>
 </section>`;
 }
 
 /** The linked-issue counts above zero, fix verified first, each opening its list. */
 function kiCounts(ki, label) {
-	const n = { fix: ki?.fixesHeld?.length ?? 0, obs: ki?.observed?.length ?? 0, no: ki?.notObserved?.length ?? 0 };
-	return ['fix', 'obs', 'no'].filter(k => n[k]).map(k => kiCnt(`ki-list-${k}`, label[k](n[k])));
+	const n = { fix: ki?.fixesHeld?.length ?? 0, part: ki?.fixesPartly?.length ?? 0, obs: ki?.observed?.length ?? 0, no: ki?.notObserved?.length ?? 0 };
+	return ['fix', 'part', 'obs', 'no'].filter(k => n[k] && label[k]).map(k => kiCnt(`ki-list-${k}`, label[k](n[k])));
 }
 
 /**
@@ -422,8 +540,9 @@ function kiCounts(ki, label) {
 function renderLinkedIssues(report, ki, noFindings = false) {
 	const observed = ki?.observed ?? [];
 	const held = ki?.fixesHeld ?? [];
+	const partly = ki?.fixesPartly ?? [];
 	const unseen = ki?.notObserved ?? [];
-	if (!observed.length && !held.length && !unseen.length) {
+	if (!observed.length && !held.length && !partly.length && !unseen.length) {
 		return '';
 	}
 	const { rowId } = coverageOrder(report.coverage);
@@ -442,11 +561,12 @@ function renderLinkedIssues(report, ki, noFindings = false) {
 	const skipped = ki?.skipped ?? new Set();
 	const lists = list('ki-list-obs', 'Known issues observed this run', observed.map(o => item(o.issue, seen(o))))
 		+ list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in ${quote(h.rows[0])}`)))
+		+ list('ki-list-part', 'Partly fixed this run', partly.map(p => item(p.issue, `passed in ${quote(p.held[0])}, failed in ${quote(p.failed[0])}`)))
 		+ list('ki-list-no', 'Linked to this PR, not observed', unseen.map(i => item(i, skipped.has(i.number) ? 'skipped on purpose, see Coverage' : 'no scenario reached it')));
 	if (noFindings) {
 		return lists;
 	}
-	const counts = kiCounts(ki, { fix: n => `${n} fix verified`, obs: n => `${n} observed`, no: n => `${n} not observed` }).join(KI_DOT);
+	const counts = kiCounts(ki, { fix: n => `${n} fix verified`, part: n => `${n} partly fixed`, obs: n => `${n} observed`, no: n => `${n} not observed` }).join(KI_DOT);
 	return `<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${counts}</span></div></div>\n${lists}`;
 }
 
@@ -488,9 +608,40 @@ function renderStep(step, { id = '', observed = false, tail = '', ev = '' } = {}
 	return `<li${attr}><span class="st-v">${step.html}</span>${result}${ev}${obs}${tail}${withCodeCopy(step.blockHtml)}</li>`;
 }
 
-/** A finding's screenshots, in step order. */
+/** A finding's screenshots, in step order; the replay on main's are paired with them instead. */
 function findingShots(f) {
-	return f.evidence.filter(item => item.kind === 'shot');
+	return f.evidence.filter(item => item.kind === 'shot' && !item.main);
+}
+
+/**
+ * A confirmed finding's step whose check the replay on main screenshotted:
+ * the change's shots and main's, paired by order, and each side's result.
+ * Null for any other step, which shows its shots as before.
+ */
+function stepComparison(report, f, group, mainBuild, k) {
+	if (!['pr', 'ex', 'un'].includes(group)) {
+		return null;
+	}
+	const mains = f.evidence.filter(e => e.kind === 'shot' && e.main && e.step?.order === k);
+	if (!mains.length) {
+		return null;
+	}
+	// The step's own screenshot pairs with main's; evidence from another scenario
+	// that opens from this step has no counterpart, so it comes after.
+	const own = new Set((f.steps[k - 1]?.evidence ?? []).map(e => e.file));
+	const prs = findingShots(f).map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k)
+		.sort((a, b) => Number(own.has(b.item.file)) - Number(own.has(a.item.file)));
+	const counted = f.main?.steps?.find(s => s.step === k);
+	const result = !counted ? ''
+		: counted.n > 0 ? (counted.same === false ? 'Fails differently' : 'Also fails')
+			: group === 'pr' ? 'Passes' : `Didn&rsquo;t fail in ${counted.m} ${counted.m === 1 ? 'try' : 'tries'}`;
+	const daily = mainBuild?.version ? `daily ${escapeHtml(mainBuild.version)}` : '';
+	return {
+		pairs: Array.from({ length: Math.max(prs.length, mains.length) }, (_, j) => ({ pr: prs[j] ?? null, main: mains[j] ?? null })),
+		prH: `This ${changeWord(report)}`,
+		prR: 'Fails',
+		mainR: [daily, result].filter(Boolean).join(' &middot; '),
+	};
 }
 
 /** Whether a screenshot opens from one of the card's steps. */
@@ -505,7 +656,7 @@ function onStep(f, item) {
  * shot that names no step on the card has nowhere to open from, so lint
  * requires one; it stays in the agent prompt's Evidence.
  */
-function renderShotLinks(f) {
+function renderShotLinks(f, comparisonOf = () => null) {
 	const n = f.n;
 	const groups = new Map();
 	findingShots(f).forEach((item, i) => {
@@ -513,11 +664,27 @@ function renderShotLinks(f) {
 			groups.set(item.step.order, [...(groups.get(item.step.order) ?? []), { item, i }]);
 		}
 	});
+	// A step only main screenshotted still opens its comparison.
+	for (const k of f.steps.map((_, i) => i + 1).filter(k => !groups.has(k) && comparisonOf(k))) {
+		groups.set(k, []);
+	}
 	// A real link to the raw image, so it still works without JavaScript; the
 	// script intercepts the click and opens the lightbox, which links the step back.
-	const links = [...groups.values()].map((group, g) => group.map(({ item, i }) => `<a class="shot" id="shot-f${n}-${i + 1}" href="${escapeHtml(item.src)}" data-lb="f${n}-g${g + 1}" data-i="${i}"`
-		+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`
-		+ ` data-step="${escapeHtml(item.step.label)}" data-step-href="#f${n}-s${item.step.order}" hidden></a>`).join('')).join('');
+	const link = (id, item, i, lb, extra = '') => `<a class="shot" id="${id}" href="${escapeHtml(item.src)}" data-lb="${lb}" data-i="${i}"`
+		// The viewer shows the caption as plain text, so code marks are dropped rather than shown.
+		+ ` data-caption="${escapeHtml(String(item.caption ?? '').replace(/`([^`]*)`/g, '$1'))}" data-file="${escapeHtml(item.file)}"`
+		+ ` data-step="${escapeHtml(item.step.label)}" data-step-href="#f${n}-s${item.step.order}"${extra} hidden></a>`;
+	const links = [...groups].sort(([a], [b]) => a - b).map(([k, group], g) => {
+		const cmp = comparisonOf(k);
+		if (!cmp) {
+			return group.map(({ item, i }) => link(`shot-f${n}-${i + 1}`, item, i, `f${n}-g${g + 1}`)).join('');
+		}
+		// One link per pair, the viewer showing both builds side by side; the
+		// arrows move through every compared step of the finding.
+		return cmp.pairs.map(({ pr, main }, j) => link(pr ? `shot-f${n}-${pr.i + 1}` : `shot-f${n}-m${k}-${j + 1}`, pr?.item ?? main, j, `f${n}-cmp`,
+			` data-pr="${escapeHtml(pr?.item.src ?? '')}" data-main="${escapeHtml(main?.src ?? '')}" data-pr-h="${cmp.prH}" data-pr-r="${cmp.prR}" data-main-r="${cmp.mainR}"`
+			+ ` data-pair="${j + 1}" data-pairs="${cmp.pairs.length}"`)).join('');
+	}).join('');
 	return links ? `<div class="shot-links" hidden>${links}</div>` : '';
 }
 
@@ -547,11 +714,15 @@ function shotPreview(src, readFile) {
  * it is fixed to the window so a wide one is never cut off. Lazy, so it loads
  * only once it shows; sized, so it keeps its space while it does.
  */
-function evPop(src, readFile, count = 1) {
+function evPop(src, readFile, count = 1, compareAs = '') {
 	const p = shotPreview(src, readFile);
 	const size = p.width ? ` width="${p.width}" height="${p.height}"` : '';
-	return '<span class="ev-pop" aria-hidden="true">'
-		+ `<img class="${p.cls}" src="${escapeHtml(p.src)}" alt=""${size} loading="lazy">`
+	const img = `<img class="${p.cls}" src="${escapeHtml(p.src)}" alt=""${size} loading="lazy">`;
+	// A comparison names the build it shows, and what a click does, above the image.
+	if (compareAs) {
+		return `<span class="ev-pop" aria-hidden="true"><span class="ev-hd"><b>${compareAs}</b><span>Click to compare with latest build</span></span>${img}</span>`;
+	}
+	return `<span class="ev-pop" aria-hidden="true">${img}`
 		+ `<span class="ev-cap">${count > 1 ? `1 of ${count} &middot; click for full window` : 'Click for full window'}</span></span>`;
 }
 
@@ -559,7 +730,14 @@ function evPop(src, readFile, count = 1) {
  * A finding step's screenshot icon: previews the first of that step's shots
  * and opens it full size, with a count when there is more than one.
  */
-function stepShotIcon(f, k, readFile) {
+function stepShotIcon(f, k, readFile, cmp = null) {
+	if (cmp) {
+		const first = cmp.pairs[0];
+		const id = first.pr ? `shot-f${f.n}-${first.pr.i + 1}` : `shot-f${f.n}-m${k}-1`;
+		const preview = first.pr ? evPop(first.pr.item.src, readFile, 1, cmp.prH) : evPop(first.main.src, readFile, 1, 'Latest build');
+		return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#${id}" data-open="${id}"`
+			+ ` aria-label="Compare screenshots from this ${cmp.prH.replace(/^This /, '')} and the latest build">${preview}${ICON.compare}</a>`;
+	}
 	const shots = findingShots(f);
 	const mine = shots.map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k);
 	if (!mine.length) {
@@ -764,7 +942,7 @@ function cardIssueItems(f, word, ki, refs) {
 	};
 	const items = [];
 	if (failed.length) {
-		items.push(item(rejected ? 'Fixes' : 'Not fixed', failed.map(i => i.number)));
+		items.push(item(rejected ? 'Fixes' : failed.some(i => ki.partly?.has(i.number)) ? 'Partly fixed' : 'Not fixed', failed.map(i => i.number)));
 	} else if (back.length) {
 		items.push(item(rejected ? 'Closed &middot;' : 'Regressed', back.map(i => i.number)));
 	}
@@ -791,7 +969,7 @@ function renderFindingCard(f, report, options) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
 	}
 	// After the verdict and its rate, as in the table, before the linked issues.
-	const origin = cardOrigin(report, originOf(report, f, options.changeBase, options.ki));
+	const origin = cardGroup(report, f, groupOf(report, f, options.changeBase, options.ki), options.ki);
 	if (origin) {
 		context.push(origin);
 	}
@@ -838,9 +1016,12 @@ function renderFindingCard(f, report, options) {
 	// two failed checks saw different things.
 	const failed = f.steps.filter(st => st.result === 'fail');
 	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
+	// A step the replay on main screenshotted compares the two builds.
+	const group = groupOf(report, f, options.changeBase, options.ki);
+	const comparisonOf = k => stepComparison(report, f, group, options.mainBuild, k);
 	const steps = f.steps.length
 		? '<div class="repro-group steps">'
-		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1, options.readFile) : '' })).join('\n')}</ol></div>`
+		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1, options.readFile, comparisonOf(k + 1)) : '' })).join('\n')}</ol></div>`
 		: '';
 	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.
 	const repro = (preconditions || steps)
@@ -854,7 +1035,7 @@ ${linkIssues(linkFiles(`${head}
 ${comparison}
 ${repro}
 ${details}`, files), options.refs)}
-${renderShotLinks(f)}
+${renderShotLinks(f, comparisonOf)}
 ${feedback}
 ${promptBlock}
 </article>`;
@@ -1166,7 +1347,7 @@ ${report.leadHtml ? `<p class="lead">${linkIssues(report.leadHtml, options.refs)
 
 ${renderTiles(report)}
 
-${renderFindingsList(report, ki, options.refs, options.changeBase)}
+${renderFindingsList(report, ki, options.refs, options.changeBase, options.mainBuild)}
 
 ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
@@ -1181,6 +1362,7 @@ ${renderSignature(options.startedAt, options.skillVersion)}
 <button type="button" class="lb-backdrop" tabindex="-1" aria-label="Close"></button>
 <div class="lb-panel">
 <div class="lb-img"><img alt="">
+<div class="lb-cmp" hidden><div><div class="lb-cmp-h"><b></b><span></span></div><img class="shot-full" alt=""><p class="lb-none" hidden></p></div><div><div class="lb-cmp-h"><b>Latest build</b><span></span></div><img class="shot-full" alt=""><p class="lb-none" hidden></p></div></div>
 <button type="button" class="lb-nav lb-prev" hidden>${ICON.prev}</button>
 <button type="button" class="lb-nav lb-next" hidden>${ICON.next}</button>
 </div>
@@ -1229,6 +1411,8 @@ export function readRunDir(dir) {
 		knownIssues: readKnownIssues(dir) ?? undefined,
 		issueRefs: readIssueRefs(dir),
 		changeBase: readJson(join(dir, 'change-base.json'), undefined),
+		// The build of main the explorer replayed findings on, when the run had one.
+		mainBuild: readJson(join(dir, 'main-build.json'), undefined),
 		fileExists,
 		readFile: path => (fileExists(path) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null),
 		// Every file saved under files/, so lint can find one the ledger never listed.

@@ -12,12 +12,14 @@ import { fileURLToPath } from 'node:url';
 import { missingFiles, readRunDir, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/page/html.mjs';
 import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
 import { reportFromJson } from '../../../.claude/skills/exploratory-test/renderer/page/report-json.mjs';
-import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/agents/finish.mjs';
-import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TIME_UP, readEnvironment } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
-import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
+import { MAIN_REPLAY_OFF, readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/agents/finish.mjs';
+import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TIME_UP, readEnvironment, withMainReplay } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
+import { ensureCommit, mainBuildBrief, readMainBuild } from '../../../.claude/skills/exploratory-test/renderer/main-build.mjs';
+import { mainReplayMs } from '../../../.claude/skills/exploratory-test/renderer/shared/main-check.mjs';
+import { buildKnownIssuesBrief, pageIssueRefs } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
-import { buildTaskLine, describeChange, gitIn, mustEnv, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, describeChange, takeStepSummary, gitIn, mustEnv, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -34,9 +36,6 @@ const FOCUS = process.env.FOCUS || '';
 // Unset leaves each model at its own default effort.
 const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
-// Minutes of exploring, or null for no limit. The agent is not told the limit,
-// only when it is up, and is stopped WRAP_UP_MINUTES later.
-const TIME_LIMIT = parseTimeLimit(process.env.TIME_LIMIT);
 // Set when the hard stop fires, so the outcome and stats can say so.
 let timedOut = false;
 let timeWasUp = false;
@@ -52,7 +51,7 @@ const ISOLATE_MAX_TURNS = parsePosIntEnv('ISOLATE_MAX_TURNS', 100, process.env.I
 // Off for teams whose AI policy does not allow the report's copy-for-agent prompts.
 const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
 const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
-const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
+const STEP_SUMMARY = takeStepSummary();
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
 // glibc on Linux): action.yml installs @anthropic-ai/claude-code globally
 // and passes the resolved path here.
@@ -171,13 +170,31 @@ async function runAgent(step) {
 }
 
 async function main() {
+	// The build of main the workflow downloaded while the PR built, or null when
+	// it has none; the explorer replays each finding on it, which decides Origin.
+	// Without main's commit in the checkout, every `needs` lookup would fail and
+	// read as missing. Here, not at load, since the commit may need a fetch.
+	// MAIN_REPLAY=off (the workflow's main_replay input) switches it off: no build, no groups.
+	const replayOff = process.env.MAIN_REPLAY === 'off';
+	const found = !replayOff && process.env.MAIN_BUILD ? readMainBuild(process.env.MAIN_BUILD) : null;
+	const MAIN_BUILD = found && ensureCommit(REPO_ROOT, found.commit) ? found : null;
+	// Minutes of exploring, or null for no limit, with time for the main replays
+	// added. The agent is not told the limit, only when it is up, and is stopped
+	// WRAP_UP_MINUTES later.
+	const TIME_LIMIT = withMainReplay(parseTimeLimit(process.env.TIME_LIMIT), MAIN_BUILD);
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
+	if (replayOff) {
+		writeFileSync(join(WORK_DIR, MAIN_REPLAY_OFF), '');
+	}
 	// Fetched by the workflow while the build ran; the verifier and renderer read it from the run directory.
 	if (process.env.KNOWN_ISSUES && existsSync(process.env.KNOWN_ISSUES)) {
 		copyFileSync(process.env.KNOWN_ISSUES, join(WORK_DIR, 'known-issues.json'));
 	}
 	const knownIssues = readKnownIssues(WORK_DIR);
 	const knownBrief = buildKnownIssuesBrief(knownIssues);
+	if (MAIN_BUILD) {
+		copyFileSync(process.env.MAIN_BUILD, join(WORK_DIR, 'main-build.json'));
+	}
 
 	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
 	const git = gitIn(REPO_ROOT);
@@ -206,12 +223,14 @@ async function main() {
 		buildTaskLine(FOCUS, upstream),
 		'',
 		...(knownBrief ? [knownBrief, ''] : []),
+		// The app arguments the workflow launched the PR instance with, which a packaged build needs too (--no-sandbox as root).
+		...(MAIN_BUILD ? [mainBuildBrief(MAIN_BUILD, { repo: REPO_ROOT, base: BASE_SHA, appArgs: process.env.APP_ARGS ?? '' }), ''] : []),
 		environmentBrief(environmentLines(readEnvironment(REPO_ROOT))),
 		'',
 		'Write the report to `report.json` in the run directory. Return a two or three line summary and nothing else.',
 	].join('\n');
 
-	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} effort=${EFFORT || 'default'} maxTurns=${MAX_TURNS} timeLimit=${TIME_LIMIT ? `${TIME_LIMIT}m` : 'none'}`);
+	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} effort=${EFFORT || 'default'} maxTurns=${MAX_TURNS} timeLimit=${TIME_LIMIT ? `${TIME_LIMIT}m` : 'none'} mainBuild=${MAIN_BUILD ? `${MAIN_BUILD.version} (${MAIN_BUILD.commit.slice(0, 10)})` : 'none'}`);
 	console.log(`[exploratory] user prompt:\n${userPrompt}`);
 
 	const session = await runSession({
@@ -270,6 +289,7 @@ async function main() {
 			parsed,
 			checks: readChecks(WORK_DIR),
 			timeLimit: TIME_LIMIT ? { minutes: TIME_LIMIT, reached: timeWasUp, stopped: timedOut } : null,
+			mainReplayMs: MAIN_BUILD ? mainReplayMs(existsSync(join(WORK_DIR, 'actions.log')) ? readFileSync(join(WORK_DIR, 'actions.log'), 'utf8') : '') : undefined,
 		});
 		writeFileSync(join(WORK_DIR, 'stats.json'), `${JSON.stringify(stats, null, 2)}\n`);
 		console.log(`[exploratory] stats: ${JSON.stringify(stats)}`);
@@ -283,6 +303,11 @@ async function main() {
 		recordStats(parsed);
 		// index.html is what the published run directory's URL already points at.
 		try {
+			// The previews of the issues the page names, matches included, fetched as a local render fetches them.
+			run.issueRefs = await pageIssueRefs(WORK_DIR, report, run.knownIssues).catch(err => {
+				console.error(`[report] WARN: could not fetch the issues the report names: ${err}`);
+				return run.issueRefs;
+			});
 			await writeRunPage(join(WORK_DIR, 'index.html'), parsed, { ...run, skillVersion: skillVersion(), agentPrompts: AGENT_PROMPTS, base: REPORT_BASE_URL || WORK_DIR, diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`, startedAt: STARTED_AT });
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const { logs, files } = missingFiles(parsed, run.fileExists);

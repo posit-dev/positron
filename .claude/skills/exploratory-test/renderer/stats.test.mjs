@@ -166,3 +166,8 @@ test('the stats command rejects a --limit that is not a positive whole number', 
 		assert.match(r.stderr, /--limit must be a positive whole number/);
 	}
 });
+
+test('buildStats records main replay minutes only with a main build', () => {
+	assert.equal(buildStats({ where: 'local', parsed: null, mainReplayMs: 150_000 }).mainReplayMinutes, 2.5);
+	assert.equal(buildStats({ where: 'local', parsed: null }).mainReplayMinutes, null);
+});
