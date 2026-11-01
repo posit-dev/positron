@@ -1656,3 +1656,23 @@ test('the known issues popover is wider and lets the reason tooltip show in full
 	assert.match(REPORT_CSS, /\.ki-sev-minor\{background:var\(--minor-dot\)\}/);
 	assert.match(REPORT_CSS, /\.ki-src:focus-visible \.og-tip/);
 });
+
+test('with a demoted finding, every footer count still opens its list, and only the demoted card is gone', () => {
+	const json = {
+		...KI_REPORT,
+		findings: [...KI_REPORT.findings, fnd(4, { ...fails(twoSteps(0, 2)), title: 'Grid blanks', known: [501], ...dupe(501) })],
+		verification: { ...KI_VERIFICATION, origin: { 4: 'inherited' } },
+	};
+	const html = grouped(json, { ledger: `${KI_LEDGER.replace('## Not run', '## S06 - grid\nStatus: fail - Finding 4\nResult: blank\n\n## Not run')}`, knownIssues: KI_ISSUES, issueRefs: DUPE_REFS });
+	const counts = [...html.matchAll(/<span class="ki-cnt"[^>]*aria-controls="([^"]+)">([^<]*)<\/span>/g)].map(m => [m[1], m[2]]);
+	assert.deepEqual(counts.map(c => c[1]), ['1 fix verified', '4 observed', '1 not observed']);
+	for (const [id] of counts) {
+		assert.match(html, new RegExp(`<div class="ki-list" id="${id}" hidden>`), `${id} has its list`);
+	}
+	assert.match(knownList(html), /#501<\/a><span>Grid goes blank after a filter/);
+	assert.deepEqual([...html.matchAll(/<article id="(f\d+)"/g)].map(m => m[1]), ['f1', 'f3', 'f2']);
+	for (const title of ['Still jumps', 'Old bug back', 'Looks known']) {
+		assert.ok(html.includes(title), title);
+	}
+	assert.ok(!html.includes('Grid blanks'), 'the demoted finding has no row or card');
+});
