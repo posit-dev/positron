@@ -1722,6 +1722,13 @@ test('a failing coverage row with no finding left opens on its steps, as a passi
 	assert.match(html, /function openRow\(\)\{var d=location\.hash&&document\.getElementById\(location\.hash\.slice\(1\)\);if\(d&&d\.tagName==='DETAILS'&&d\.classList\.contains\('cv'\)\)\{d\.open=true;\}\}window\.addEventListener\('hashchange',openRow\);openRow\(\);/);
 });
 
+test('a known issues list taller than the window scrolls, and a shorter one keeps its tooltips unclipped', () => {
+	assert.match(REPORT_CSS, /\.ki-lc\{[^}]*max-height:none;overflow:visible;/);
+	assert.match(REPORT_CSS, /\.ki-lc\.ki-lc-scroll\{max-height:calc\(100vh - 24px\);overflow-y:auto\}/);
+	const html = dupes();
+	assert.match(html, /function place\(a\)\{pop\.classList\.remove\('ki-lc-scroll'\);var r=a\.getBoundingClientRect\(\),w=pop\.offsetWidth,h=pop\.offsetHeight,m=12;\nif\(h>window\.innerHeight-2\*m\)\{pop\.classList\.add\('ki-lc-scroll'\);h=pop\.offsetHeight;\}/);
+});
+
 // A run on main: no comparison, so no groups, but a confirmed duplicate is still a known issue.
 const ON_MAIN = { usable: false, name: 'main' };
 const MAIN_RUN = rep({

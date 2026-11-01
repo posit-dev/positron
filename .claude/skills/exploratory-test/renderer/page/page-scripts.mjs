@@ -229,10 +229,12 @@ export const FILE_FLASH_SCRIPT = `window.addEventListener('hashchange',function(
 
 // The Linked issues counts open their hidden list in one floating panel: on
 // hover (it stays while the pointer is on it), keyboard focus, or tap. Enter or
-// Space pins it, Escape closes it.
+// Space pins it, Escape closes it. A list taller than the window scrolls; a
+// shorter one doesn't, so a tooltip in it can open past its edge.
 export const KI_LIST_SCRIPT = `(function(){var pop=document.createElement('div');pop.className='ki-lc';pop.id='ki-lc';pop.setAttribute('role','dialog');
 document.body.appendChild(pop);var cur=null,pinned=false,t=null;
-function place(a){var r=a.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight,m=12;
+function place(a){pop.classList.remove('ki-lc-scroll');var r=a.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight,m=12;
+if(h>window.innerHeight-2*m){pop.classList.add('ki-lc-scroll');h=pop.offsetHeight;}
 pop.style.left=Math.min(Math.max(m,r.left-12),window.innerWidth-w-m)+'px';
 var top=r.bottom+8;if(top+h>window.innerHeight-m){top=Math.max(m,r.top-h-8);}pop.style.top=top+'px';}
 function show(a,pin){clearTimeout(t);if(cur&&cur!==a){cur.setAttribute('aria-expanded','false');}

@@ -521,6 +521,7 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .ki-cnt{color:var(--muted);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--muted) 50%,transparent);text-underline-offset:3px;cursor:pointer;border-radius:2px}
 .ki-cnt:hover,.ki-cnt[aria-expanded="true"]{color:var(--ink);text-decoration-color:currentColor}
 .ki-lc{position:fixed;z-index:60;width:420px;max-width:calc(100vw - 24px);max-height:none;overflow:visible;box-sizing:border-box;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:10px 12px;display:none;flex-direction:column;font-family:var(--sans);text-align:left}
+.ki-lc.ki-lc-scroll{max-height:calc(100vh - 24px);overflow-y:auto}
 .ki-lc.is-open{display:flex}
 .ki-lc-h{font-size:11.5px;font-weight:600;color:var(--faint);padding:2px 2px 6px}
 .ki-lc-it{display:grid;grid-template-columns:56px 1fr;gap:8px;padding:6px 2px;border-top:1px solid var(--hairline);font-size:12.5px;line-height:1.4;color:var(--body)}
