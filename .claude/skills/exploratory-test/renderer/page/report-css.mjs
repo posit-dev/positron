@@ -452,7 +452,7 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .og-meta{font-size:12px;color:var(--muted);font-weight:400;text-decoration:underline dotted;text-decoration-color:currentColor;text-underline-offset:3px}
 .og-meta:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:3px}
 .og-up .og-tip{top:auto;bottom:calc(100% + 8px)}
-.og:hover .og-tip,.og:focus-visible .og-tip,a.row:focus-visible .og-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
+.og:hover .og-tip,.og:focus-visible .og-tip,a.row:focus-visible .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
 /* A finding verify rejected: the row fades, and a square tag after the title (not a pill) says why. */
 .row.is-rej>:not(:nth-child(2)){opacity:.5}
 .row.is-rej .claim{color:var(--rej-title)}
@@ -482,21 +482,19 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .f-b-un{border:1px dashed var(--badge-dash)}
 .f-n{cursor:inherit}
 .f-b .og-tip{left:calc(100% + 10px);right:auto;top:50%;bottom:auto;transform:translateY(-50%);font-family:var(--sans)}
-.f-b:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .7s,visibility 0s linear .7s}
+.f-b:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
 /* Fade the colour, not the opacity, or the tooltip goes see-through. */
 .row.is-rej .f-b.f-n{opacity:1;color:var(--rej-title)}
 .ffi{margin-left:auto;align-self:center;padding-bottom:10px;position:relative}
 .ffi-btn{display:flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:50%;background:none;color:var(--faint);cursor:pointer}
 .ffi-btn:hover,.ffi:focus-within .ffi-btn{color:var(--ink)}
 .ffi-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.ffi-pop{position:absolute;right:-4px;top:calc(100% - 4px);z-index:60;width:340px;box-sizing:border-box;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:8px;box-shadow:var(--pop-shadow);font-family:var(--sans);font-size:12.5px;line-height:1.45;color:var(--muted);text-align:left;white-space:normal;opacity:0;visibility:hidden;transition:opacity .12s ease .15s,visibility 0s linear .27s}
-.ffi:hover .ffi-pop,.ffi:focus-within .ffi-pop{opacity:1;visibility:visible;transition:opacity .12s ease .15s,visibility 0s linear .15s}
+.ffi-pop{position:absolute;right:-4px;top:calc(100% - 4px);z-index:60;width:300px;box-sizing:border-box;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:8px;box-shadow:var(--pop-shadow);font-family:var(--sans);font-size:12.5px;line-height:1.45;color:var(--muted);text-align:left;white-space:normal;opacity:0;visibility:hidden;transition:opacity .15s ease .15s,visibility 0s linear .3s}
+.ffi:hover .ffi-pop,.ffi:focus-within .ffi-pop{opacity:1;visibility:visible;transition:opacity .15s ease .15s,visibility 0s linear .15s}
 .ffi-h{font-weight:600;color:var(--ink);font-size:13px}
-.ffi-row{display:flex;flex-direction:column;gap:2px}
-.ffi-row b{font-weight:600;color:var(--body)}
-.ffi-f{padding-top:10px;border-top:1px solid var(--border)}
-.ffi-f a{color:var(--link);text-decoration:underline;text-underline-offset:2px}
-@media (max-width:820px){.ffi{display:none}.ff .cf-tabs{flex-wrap:wrap;row-gap:8px}.ff-card .row>:last-child{padding-left:0}}
+.ffi-p{margin:0}
+.ffi-l{align-self:flex-start;color:var(--link);text-decoration:underline;text-underline-offset:2px}
+@media (max-width:820px){.ffi{display:none}.ff .cf-tabs{overflow-x:auto;scrollbar-width:none}.ff .cf-tabs::-webkit-scrollbar{display:none}.ki-bar{grid-template-columns:minmax(0,1fr) !important;gap:4px !important}.ki-sum .ki-cnt{white-space:nowrap}.ff-card .row>:last-child{padding-left:0}}
 @media (prefers-reduced-motion:reduce){.ffi-pop,.ffi:hover .ffi-pop{transition:none}}
 
 /* Known issues: the Findings table's Status labels and "Known issues" row,

@@ -1347,19 +1347,26 @@ test('a Not fixed finding is Also in latest build, citing its issue, with no gro
 	assert.equal(cardGroup(html, 1), undefined);
 });
 
-test('the info button explains the visible groups and links the daily build', () => {
-	const info = html => between(html, '<span class="ffi">', '</span></span></div>');
+test('the info button says only what the groups are compared with, and links the daily build', () => {
+	const info = html => between(html, '<span class="ffi">', '</div>');
 	const html = info(grouped());
-	assert.match(html, /How findings are grouped/);
 	assert.match(html, /<button type="button" class="ffi-btn" aria-label="How findings are grouped" aria-describedby="ffi-pop">/);
-	assert.match(html, /<span class="ffi-pop" id="ffi-pop" role="tooltip">/);
-	assert.match(html, /<div class="ffi-row"><b>Only in branch<\/b>/);
-	assert.match(html, /<b>Only in branch<\/b><span>Reproduced on this branch&rsquo;s build but not in the latest build of main\.<\/span>/);
-	assert.match(html, /<b>Also in latest build<\/b><span>Issues that already exist\. They also reproduced in the latest build of main, so they weren&rsquo;t caused by this branch&rsquo;s changes\.<\/span>/);
-	assert.match(html, /<b>Unknown<\/b><span>Not enough evidence to tell\. Hover a finding&rsquo;s number to see why\.<\/span>/);
-	assert.match(html, /Compared with the latest build of main: <a href="https:\/\/github\.com\/posit-dev\/positron\/commit\/57b03d33f537a868e49c48c7acd0c59d84f9b453"[^>]*>daily 2026\.11\.0-236 \(57b03d3\)<\/a>/);
-	assert.doesNotMatch(info(grouped({ ...REPLAYED, findings: REPLAYED.findings.slice(0, 3) })), /<b>Unknown<\/b>/);
-	assert.match(info(grouped(REPLAYED, { mainBuild: undefined })), /No build of main was available for this run\./);
+	assert.match(html, /<span class="ffi-pop" id="ffi-pop" role="tooltip"><span class="ffi-h">Compared with the latest build<\/span><span class="ffi-p">Each finding was retried on main&rsquo;s latest daily build to see if it also happens there\.<\/span><a class="ffi-l" href="https:\/\/github\.com\/posit-dev\/positron\/commit\/57b03d33f537a868e49c48c7acd0c59d84f9b453" target="_blank" rel="noopener">daily 2026\.11\.0-236 \(57b03d3\) &#8599;<\/a><\/span>/);
+	assert.doesNotMatch(html, /ffi-row|Only in branch|Also in latest build|Unknown/);
+	assert.match(info(grouped(REPLAYED, { mainBuild: undefined })), /<span class="ffi-p">Each finding[^<]*<\/span><span class="ffi-p">No build of main was available for this run\.<\/span><\/span><\/span>$/);
+	assert.match(REPORT_CSS, /\.ffi-pop\{[^}]*width:300px;/);
+});
+
+test('term tooltips wait 0.4s and the info panel 0.15s, and the tabs have none', () => {
+	assert.match(REPORT_CSS, /\.og:hover \.og-tip,\.og:focus-visible \.og-tip,a\.row:focus-visible \.og-tip\{opacity:1;visibility:visible;transition:opacity \.15s ease \.4s,visibility 0s linear \.4s\}/);
+	assert.match(REPORT_CSS, /\.f-b:hover \.og-tip\{opacity:1;visibility:visible;transition:opacity \.15s ease \.4s,visibility 0s linear \.4s\}/);
+	assert.match(REPORT_CSS, /\.ffi:hover \.ffi-pop,\.ffi:focus-within \.ffi-pop\{opacity:1;visibility:visible;transition:opacity \.15s ease \.15s,visibility 0s linear \.15s\}/);
+	const tips = REPORT_CSS.match(/[^}]*:hover[^{]*\.og-tip[^{]*\{[^}]*\}/g);
+	assert.ok(tips.length >= 4);
+	for (const rule of tips) {
+		assert.match(rule, /transition:opacity \.15s ease \.4s,visibility 0s linear \.4s\}$/, rule);
+	}
+	assert.doesNotMatch(REPORT_CSS, /ff-tab[^{,]*\.og-tip/);
 });
 
 test('screen readers hear the group first, in the severity cell', () => {
@@ -1394,8 +1401,9 @@ test('a finding whose verification did not finish is Unknown, not verified', () 
 	assert.equal(cardGroup(html, 1), 'Unknown: not verified');
 });
 
-test('the tabs wrap at narrow widths instead of running off the page', () => {
-	assert.match(REPORT_CSS, /@media \(max-width:820px\)\{\.ffi\{display:none\}\.ff \.cf-tabs\{flex-wrap:wrap;row-gap:8px\}/);
+test('at phone width the tabs scroll sideways, the info button hides, and the footer counts stack without breaking', () => {
+	assert.match(REPORT_CSS, /@media \(max-width:820px\)\{\.ffi\{display:none\}\.ff \.cf-tabs\{overflow-x:auto;scrollbar-width:none\}\.ff \.cf-tabs::-webkit-scrollbar\{display:none\}\.ki-bar\{grid-template-columns:minmax\(0,1fr\) !important;gap:4px !important\}\.ki-sum \.ki-cnt\{white-space:nowrap\}/);
+	assert.doesNotMatch(REPORT_CSS, /flex-wrap:wrap;row-gap:8px/);
 });
 
 test('a card shows the screenshots from the latest build, and fails differently is Unknown with what main showed', () => {
@@ -1593,7 +1601,7 @@ test('a confirmed duplicate of an open issue that also fails on the latest build
 	assert.doesNotMatch(html, /id="f5"/);
 	// The survivors in their order: 2, 3, 4 and 6 become 1 to 4.
 	assert.deepEqual([1, 2, 3, 4].map(n => groupOfRow(html, n)), ['pr', 'un', 'ex', 'ex']);
-	assert.match(html, /<div class="ki-bar"><span class="ki-lbl"><b>Known issues<\/b><\/span><span class="ki-sum">[^\n]*2 observed/);
+	assert.match(html, /<div class="ki-bar"><span class="ki-lbl"><b>Existing issues<\/b><\/span><span class="ki-sum">[^\n]*2 observed/);
 });
 
 test('a duplicate leaves every count: the tiles and the link card count only what is left', () => {

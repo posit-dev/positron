@@ -408,7 +408,7 @@ function cardGroup(report, f, group, ki) {
 
 const INFO_ICON = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.25"/><path d="M8 7.2v3.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/><circle cx="8" cy="5" r=".8" fill="currentColor"/></svg>';
 
-/** The tabs over the findings table, one per group with findings, and the button that explains them. */
+/** The tabs over the findings table, one per group with findings, and the button that says what they compare with. */
 function groupTabs(report, groups, mainBuild) {
 	const count = id => groups.filter(g => g === id).length;
 	const kinds = [
@@ -420,20 +420,15 @@ function groupTabs(report, groups, mainBuild) {
 	const tabs = kinds.map(k => `<label for="ff-${k.id}" class="cf-tab ff-tab ff-tab-${k.id}">`
 		+ `<span class="cf-l">${k.label} <span class="cf-cnt">${k.n}</span></span>`
 		+ `<span class="cf-g" aria-hidden="true">${k.label} ${k.n}</span></label>`).join('');
-	const change = changeWord(report);
-	const explain = {
-		pr: `Reproduced on this ${change}&rsquo;s build but not in the latest build of main.`,
-		ex: `Issues that already exist. They also reproduced in the latest build of main, so they weren&rsquo;t caused by this ${change}&rsquo;s changes.`,
-		un: 'Not enough evidence to tell. Hover a finding&rsquo;s number to see why.',
-	};
-	const rows = kinds.filter(k => k.id !== 'all').map(k => `<div class="ffi-row"><b>${k.label}</b><span>${explain[k.id]}</span></div>`).join('');
 	const commit = String(mainBuild?.commit ?? '');
+	// Dailies have no release page, so the build links to its commit.
 	const build = mainBuild?.version && /^[0-9a-f]{7,40}$/.test(commit)
-		? `Compared with the latest build of main: <a href="${REPO_URL}/commit/${commit}" target="_blank" rel="noopener">daily ${escapeHtml(mainBuild.version)} (${commit.slice(0, 7)})</a>`
-		: 'No build of main was available for this run.';
+		? `<a class="ffi-l" href="${REPO_URL}/commit/${commit}" target="_blank" rel="noopener">daily ${escapeHtml(mainBuild.version)} (${commit.slice(0, 7)}) &#8599;</a>`
+		: '<span class="ffi-p">No build of main was available for this run.</span>';
 	// The button names the popover, so a screen reader reads the explanation too.
 	const info = `<span class="ffi"><button type="button" class="ffi-btn" aria-label="How findings are grouped" aria-describedby="ffi-pop">${INFO_ICON}</button>`
-		+ `<span class="ffi-pop" id="ffi-pop" role="tooltip"><span class="ffi-h">How findings are grouped</span>${rows}<span class="ffi-f">${build}</span></span></span>`;
+		+ `<span class="ffi-pop" id="ffi-pop" role="tooltip"><span class="ffi-h">Compared with the latest build</span>`
+		+ `<span class="ffi-p">Each finding was retried on main&rsquo;s latest daily build to see if it also happens there.</span>${build}</span></span>`;
 	return { radios, bar: `<div class="cf-tabs" role="group" aria-label="Filter findings by whether they happen on main">${tabs}${info}</div>` };
 }
 
@@ -610,7 +605,7 @@ function renderLinkedIssues(report, ki, noFindings = false, demoted = []) {
 		return lists;
 	}
 	const counts = kiCounts(ki, demoted, { fix: n => `${n} fix verified`, part: n => `${n} partly fixed`, obs: n => `${n} observed`, no: n => `${n} not observed` }).join(KI_DOT);
-	return `<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Known issues</b></span><span class="ki-sum">${counts}</span></div></div>\n${lists}`;
+	return `<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Existing issues</b></span><span class="ki-sum">${counts}</span></div></div>\n${lists}`;
 }
 
 const kiState = issue => issue.state === 'closed' ? 'Closed' : 'Open';
