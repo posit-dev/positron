@@ -49,6 +49,11 @@ function readReport(workDir) {
 	return workDir ? readJson(join(workDir, 'report.json')) : null;
 }
 
+/** The numbers of the findings the run's page lists as known issues, from its stats.json. */
+function readDemoted(workDir) {
+	return ((workDir ? readJson(join(workDir, 'stats.json')) : null)?.demoted ?? []).map(d => d.finding);
+}
+
 /** The step that failed in this run attempt, or null when none did or the jobs can't be read. */
 export async function findFailedStep({ fetchImpl, token, repo, runId, attempt }) {
 	try {
@@ -73,6 +78,7 @@ async function main() {
 	const body = renderPrComment({
 		state,
 		report: state === 'running' ? null : readReport(process.env.WORK_DIR),
+		demoted: state === 'running' ? [] : readDemoted(process.env.WORK_DIR),
 		baseUrl: buildShotsBaseUrl(process.env.REPORT_BASE_URL || ''),
 		runUrl: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
 		headSha: process.env.HEAD_SHA || '',

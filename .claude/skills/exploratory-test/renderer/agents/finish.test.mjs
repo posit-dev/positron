@@ -53,12 +53,27 @@ test('parseVerifyReply skips each entry it cannot read, and keeps the rest', () 
 		linked: [{ issue: 5678, severity: 'Moderate' }, { issue: 5301, severity: 'awful' }, { issue: '9', severity: 'minor' }],
 	}));
 	assert.deepEqual(Object.fromEntries(r.findings), {
-		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, cause: null, observed: null, tests: null, fix: ['src/a.ts'], log: [12, 30], shots: [{ file: 'S01-02.png', shows: '' }], setup: null },
-		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, cause: null, observed: null, tests: null, fix: [], log: null, shots: null, setup: null },
+		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, cause: null, observed: null, tests: null, fix: ['src/a.ts'], log: [12, 30], shots: [{ file: 'S01-02.png', shows: '' }], setup: null, dupes: [] },
+		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, cause: null, observed: null, tests: null, fix: [], log: null, shots: null, setup: null, dupes: [] },
 	});
 	assert.deepEqual([...r.linked], [[5678, 'moderate']]);
 	assert.deepEqual([...issueMatches(r, 'known')], [[1, [15102]]]);
 	assert.deepEqual([...issueMatches(r, 'intended')], [[4, [14210]]]);
+});
+
+test('parseVerifyReply keeps a confirmed duplicate only when it is a match with a reason', () => {
+	const r = parseVerifyReply(reply(verdicts([1, 'confirmed', {
+		known: [15102, 15200],
+		intended: [14210],
+		dupes: [{ issue: 15102, why: ' same blank grid after the same filter ' }, { issue: 14210, why: 'same' }, { issue: 15200 }, { issue: 999, why: 'not a match' }, 15102],
+	}])));
+	assert.deepEqual(r.findings.get(1).dupes, [{ issue: 15102, why: 'same blank grid after the same filter' }, { issue: 14210, why: 'same' }]);
+});
+
+test('applyVerification records the confirmed duplicates on their finding', () => {
+	const out = apply(REPORT, verdicts([1, 'confirmed', { known: [15102], dupes: [{ issue: 15102, why: 'same steps' }] }], [2, 'confirmed']));
+	assert.deepEqual(out.findings[0].dupes, [{ issue: 15102, why: 'same steps' }]);
+	assert.equal(out.findings[1].dupes, undefined);
 });
 
 test('applyVerification marks each finding with its verdict, and only the ones it ruled on', () => {

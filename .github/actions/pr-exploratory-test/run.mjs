@@ -9,7 +9,7 @@
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { missingFiles, readRunDir, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/page/html.mjs';
+import { missingFiles, readRunDir, withoutKnownDuplicates, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/page/html.mjs';
 import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
 import { reportFromJson } from '../../../.claude/skills/exploratory-test/renderer/page/report-json.mjs';
 import { MAIN_REPLAY_OFF, readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/agents/finish.mjs';
@@ -279,7 +279,7 @@ async function main() {
 		console.log(nearCap);
 	}
 
-	const recordStats = parsed => {
+	const recordStats = (parsed, demoted) => {
 		const stats = buildStats({
 			where: 'ci',
 			date: STARTED_AT.toISOString(),
@@ -287,6 +287,7 @@ async function main() {
 			version: skillVersion(),
 			...passStats(passes),
 			parsed,
+			demoted,
 			checks: readChecks(WORK_DIR),
 			timeLimit: TIME_LIMIT ? { minutes: TIME_LIMIT, reached: timeWasUp, stopped: timedOut } : null,
 			mainReplayMs: MAIN_BUILD ? mainReplayMs(existsSync(join(WORK_DIR, 'actions.log')) ? readFileSync(join(WORK_DIR, 'actions.log'), 'utf8') : '') : undefined,
@@ -300,15 +301,17 @@ async function main() {
 		// Read after the pipeline, which writes change-base.json.
 		const run = readRunDir(WORK_DIR);
 		const parsed = reportFromJson(report, { ledger: run.ledger });
-		recordStats(parsed);
+		// The previews of the issues the page names, matches included, fetched as a local render fetches them.
+		run.issueRefs = await pageIssueRefs(WORK_DIR, report, run.knownIssues).catch(err => {
+			console.error(`[report] WARN: could not fetch the issues the report names: ${err}`);
+			return run.issueRefs;
+		});
+		// The findings the page lists as known issues, which the stats, the step summary and the PR comment leave out too.
+		const shown = withoutKnownDuplicates(parsed, { ...run, startedAt: STARTED_AT });
+		recordStats(shown.report, shown.demoted);
 		// index.html is what the published run directory's URL already points at.
 		try {
-			// The previews of the issues the page names, matches included, fetched as a local render fetches them.
-			run.issueRefs = await pageIssueRefs(WORK_DIR, report, run.knownIssues).catch(err => {
-				console.error(`[report] WARN: could not fetch the issues the report names: ${err}`);
-				return run.issueRefs;
-			});
-			await writeRunPage(join(WORK_DIR, 'index.html'), parsed, { ...run, skillVersion: skillVersion(), agentPrompts: AGENT_PROMPTS, base: REPORT_BASE_URL || WORK_DIR, diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`, startedAt: STARTED_AT });
+			await writeRunPage(join(WORK_DIR, 'index.html'), parsed, { ...run, shown, skillVersion: skillVersion(), agentPrompts: AGENT_PROMPTS, base: REPORT_BASE_URL || WORK_DIR, diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`, startedAt: STARTED_AT });
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const { logs, files } = missingFiles(parsed, run.fileExists);
 			const missing = [...logs, ...files];
@@ -318,7 +321,7 @@ async function main() {
 		} catch (err) {
 			console.error(`[report] could not render report.json: ${err}`);
 		}
-		summary = renderStepSummary(report, REPORT_BASE_URL);
+		summary = renderStepSummary(report, REPORT_BASE_URL, shown.demoted.map(d => d.f.n));
 	} else if (timedOut) {
 		summary = `## Exploratory test: stopped at the time limit\n\nThe agent was stopped ${WRAP_UP_MINUTES} minutes after its ${TIME_LIMIT}-minute time limit, before writing a report. \`actions.log\` and any screenshots captured so far are in the artifact.\n\n${footer()}\n`;
 	} else if (partial) {

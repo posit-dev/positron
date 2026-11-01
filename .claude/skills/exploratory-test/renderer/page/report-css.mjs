@@ -447,12 +447,16 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .og .og-tip{left:auto;right:0}
 .og-meta .og-tip{left:0;right:auto}
 .og-none{color:var(--faint)}
+.ki-nry{position:relative;font-size:13px;color:var(--faint);text-decoration:underline dotted;text-underline-offset:3px}
+.ki-nry .og-tip{left:auto;right:0;transform:none;width:260px;white-space:normal}
+/* Over the next row, so a tooltip opening down isn't covered. */
+.ff-card a.row:hover{position:relative;z-index:2}
 .og-h{text-decoration:underline dotted;text-underline-offset:3px}
 .og-h:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:3px}
 .og-meta{font-size:12px;color:var(--muted);font-weight:400;text-decoration:underline dotted;text-decoration-color:currentColor;text-underline-offset:3px}
 .og-meta:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:3px}
 .og-up .og-tip{top:auto;bottom:calc(100% + 8px)}
-.og:hover .og-tip,.og:focus-visible .og-tip,a.row:focus-visible .og-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
+.og:hover .og-tip,.og:focus-visible .og-tip,a.row:focus-visible .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
 /* A finding verify rejected: the row fades, and a square tag after the title (not a pill) says why. */
 .row.is-rej>:not(:nth-child(2)){opacity:.5}
 .row.is-rej .claim{color:var(--rej-title)}
@@ -482,26 +486,29 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .f-b-un{border:1px dashed var(--badge-dash)}
 .f-n{cursor:inherit}
 .f-b .og-tip{left:calc(100% + 10px);right:auto;top:50%;bottom:auto;transform:translateY(-50%);font-family:var(--sans)}
-.f-b:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .7s,visibility 0s linear .7s}
+.f-b:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
 /* Fade the colour, not the opacity, or the tooltip goes see-through. */
 .row.is-rej .f-b.f-n{opacity:1;color:var(--rej-title)}
 .ffi{margin-left:auto;align-self:center;padding-bottom:10px;position:relative}
 .ffi-btn{display:flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:50%;background:none;color:var(--faint);cursor:pointer}
 .ffi-btn:hover,.ffi:focus-within .ffi-btn{color:var(--ink)}
 .ffi-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.ffi-pop{position:absolute;right:-4px;top:calc(100% - 4px);z-index:60;width:340px;box-sizing:border-box;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:8px;box-shadow:var(--pop-shadow);font-family:var(--sans);font-size:12.5px;line-height:1.45;color:var(--muted);text-align:left;white-space:normal;opacity:0;visibility:hidden;transition:opacity .12s ease .15s,visibility 0s linear .27s}
-.ffi:hover .ffi-pop,.ffi:focus-within .ffi-pop{opacity:1;visibility:visible;transition:opacity .12s ease .15s,visibility 0s linear .15s}
+.ffi-pop{position:absolute;right:-4px;top:calc(100% - 4px);z-index:60;width:300px;box-sizing:border-box;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:8px;box-shadow:var(--pop-shadow);font-family:var(--sans);font-size:12.5px;line-height:1.45;color:var(--muted);text-align:left;white-space:normal;opacity:0;visibility:hidden;transition:opacity .15s ease .15s,visibility 0s linear .3s}
+.ffi:hover .ffi-pop,.ffi:focus-within .ffi-pop{opacity:1;visibility:visible;transition:opacity .15s ease .15s,visibility 0s linear .15s}
 .ffi-h{font-weight:600;color:var(--ink);font-size:13px}
-.ffi-row{display:flex;flex-direction:column;gap:2px}
-.ffi-row b{font-weight:600;color:var(--body)}
-.ffi-f{padding-top:10px;border-top:1px solid var(--border)}
-.ffi-f a{color:var(--link);text-decoration:underline;text-underline-offset:2px}
-@media (max-width:820px){.ffi{display:none}.ff .cf-tabs{flex-wrap:wrap;row-gap:8px}.ff-card .row>:last-child{padding-left:0}}
+.ffi-p{margin:0}
+.ffi-l{align-self:flex-start;color:var(--link);text-decoration:underline;text-underline-offset:2px}
+@media (max-width:820px){.ffi{display:none}.ff .cf-tabs{overflow-x:auto;scrollbar-width:none}.ff .cf-tabs::-webkit-scrollbar{display:none}.ki-bar{grid-template-columns:minmax(0,1fr) !important;gap:4px !important}.ki-sum .ki-cnt{white-space:nowrap}.ff-card .row>:last-child{padding-left:0}}
+/* At phone width a label near the right edge has no room for its tooltip, and
+   a hidden one still widens the page, so a card label's tooltip spans the meta
+   line, a number's spans the finding title, and the Related column, now under
+   the title, opens its tooltips rightward. */
+@media (max-width:820px){.og-tip{max-width:calc(100vw - 32px)}.card .meta,.ff-card .claim{position:relative}.og-meta,.ff-card .f-b{position:static}.og-meta .og-tip,.ff-card .f-b .og-tip{left:0;right:0;width:auto;max-width:none;transform:none}.ff-card .f-b .og-tip{top:calc(100% + 6px);bottom:auto}.ff-card .row>:last-child .og-tip{left:0;right:auto;transform:none;max-width:calc(100vw - 64px)}}
 @media (prefers-reduced-motion:reduce){.ffi-pop,.ffi:hover .ffi-pop{transition:none}}
 
-/* Known issues: the Findings table's Status labels and "Linked issues" row,
+/* Known issues: the Findings table's Status labels and "Known issues" row,
    the card's linked issues, GitHub issue links, and their preview card */
-/* Matches: one line per match, left-aligned so the icons and labels line up. */
+/* Related: one line per issue or PR, left-aligned so the icons and labels line up. */
 .ki-st{display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;font-size:13px;line-height:21px;color:var(--body)}
 .ki-mt{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .ki-reg{display:inline-flex;align-items:center;gap:6px;color:var(--body);font-weight:400}
@@ -513,7 +520,8 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .ki-dot{color:var(--dot-neutral);margin:0 6px}
 .ki-cnt{color:var(--muted);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--muted) 50%,transparent);text-underline-offset:3px;cursor:pointer;border-radius:2px}
 .ki-cnt:hover,.ki-cnt[aria-expanded="true"]{color:var(--ink);text-decoration-color:currentColor}
-.ki-lc{position:fixed;z-index:60;width:360px;max-width:calc(100vw - 24px);max-height:min(320px,60vh);overflow:auto;box-sizing:border-box;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:10px 12px;display:none;flex-direction:column;font-family:var(--sans);text-align:left}
+.ki-lc{position:fixed;z-index:60;width:420px;max-width:calc(100vw - 24px);max-height:none;overflow:visible;box-sizing:border-box;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:10px 12px;display:none;flex-direction:column;font-family:var(--sans);text-align:left}
+.ki-lc.ki-lc-scroll{max-height:calc(100vh - 24px);overflow-y:auto}
 .ki-lc.is-open{display:flex}
 .ki-lc-h{font-size:11.5px;font-weight:600;color:var(--faint);padding:2px 2px 6px}
 .ki-lc-it{display:grid;grid-template-columns:56px 1fr;gap:8px;padding:6px 2px;border-top:1px solid var(--hairline);font-size:12.5px;line-height:1.4;color:var(--body)}
@@ -580,6 +588,14 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .gh-btn:last-child{margin-right:-6px}
 .gh-btn+.cp-btn{margin-left:-19px}
 .gh-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
+/* A bug nobody has reported: a labelled button, flashed on arrival from its row. */
+.gh-btn.is-file{width:auto;height:30px;gap:6px;padding:0 12px 0 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--body);font-size:12.5px;font-weight:500;white-space:nowrap}
+.gh-btn.is-file:hover{color:var(--ink);background:var(--card);border-color:var(--muted)}
+.gh-btn.is-file::after{display:none}
+.gh-btn.is-file+.cp-btn,.gh-btn.is-file+.ln-btn{margin-left:-12px}
+@keyframes fileFlash{from{outline-color:var(--focus)}to{outline-color:transparent}}
+.gh-btn.is-file.flash{outline:2px solid var(--focus);outline-offset:3px;animation:fileFlash 1.2s ease-out forwards}
+@media (prefers-reduced-motion:reduce){.gh-btn.is-file.flash{animation:none}}
 .gh-toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,8px);display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;background:var(--toast-bg);color:var(--toast-text);border:1px solid var(--toast-border);font-family:var(--sans);font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;z-index:50}
 .gh-toast.show{opacity:1;transform:translate(-50%,0)}
 .gh-toast svg{color:var(--toast-check)}
@@ -857,6 +873,15 @@ a.st-ev:hover .ev-pop .ev-hd span{text-decoration:underline;text-underline-offse
 .ki-more{position:relative;margin-left:4px;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
 .ki-more .og-tip{left:auto;right:0;transform:none;white-space:normal;width:300px;top:calc(100% + 6px)}
 .ki-more:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
+.ki-src,.ki-sim{position:relative;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
+.ki-src .og-tip{left:0;right:auto;transform:none;width:280px;top:calc(100% + 6px);bottom:auto;white-space:normal}
+.ki-sim .og-tip{left:auto;right:0;transform:none;width:260px;white-space:normal}
+.ki-sim-c .og-tip{left:0;right:auto}
+.ki-src:hover .og-tip,.ki-src:focus-visible .og-tip,.ki-sim:hover .og-tip,.ki-sim:focus-visible .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
+.ki-sev{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.ki-sev-major{background:var(--major-dot)}
+.ki-sev-moderate{background:var(--moderate-dot)}
+.ki-sev-minor{background:var(--minor-dot)}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
 .steps li:target{background:var(--st-target)}

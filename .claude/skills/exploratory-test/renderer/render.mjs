@@ -43,7 +43,7 @@ const { dependencies } = JSON.parse(readFileSync(join(here, 'package.json'), 'ut
 if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules', name)))) {
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
-const { missingFiles, readRunDir, writeRunPage } = await import('./page/html.mjs');
+const { missingFiles, readRunDir, withoutKnownDuplicates, writeRunPage } = await import('./page/html.mjs');
 const { skillVersion } = await import('./page/page-common.mjs');
 const { lintLedgerOnly, untaggedShots } = await import('./lint/lint-ledger.mjs');
 const { splitProblems } = await import('./lint/lint-rules.mjs');
@@ -82,16 +82,22 @@ const parsed = reportFromJson(json, { ledger });
 // time reports the epoch, and the footer falls back to now.
 const born = statSync(dir).birthtime;
 
+// Every issue or PR the report names gets its preview card. Not under test, which must not reach GitHub.
+const issueRefs = await pageIssueRefs(dir, json, knownIssues, { offline: Boolean(process.env.NODE_TEST_CONTEXT) });
+const startedAt = born.getTime() > 0 ? born : undefined;
+
 // The pipeline's render is a local run's last: record its stats, as CI's
 // run.mjs does, before the page is written, so the page can link them. A
 // replayed CI run keeps the stats CI recorded, and a publish's render records none.
 const passes = json.cost?.passes ?? [];
+const shown = withoutKnownDuplicates(parsed, { knownIssues, issueRefs, changeBase, startedAt });
 const stats = passes.length && !flags.out && !ranInCi(dir) ? buildStats({
 	where: 'local',
 	date: (born.getTime() > 0 ? born : new Date()).toISOString(),
 	version: skillVersion(),
 	...passStats(passes),
-	parsed,
+	parsed: shown.report,
+	demoted: shown.demoted,
 	checks: readChecks(dir),
 	mainReplayMs: mainBuild ? mainReplayMs(actionsLog ?? '') : undefined,
 }) : null;
@@ -108,9 +114,6 @@ function gitEmail() {
 	}
 }
 
-// Every issue or PR the report names gets its preview card. Not under test, which must not reach GitHub.
-const issueRefs = await pageIssueRefs(dir, json, knownIssues, { offline: Boolean(process.env.NODE_TEST_CONTEXT) });
-
 const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
 await writeRunPage(out, parsed, {
 	// Coverage is built from the run's ledger when it wrote one.
@@ -123,11 +126,12 @@ await writeRunPage(out, parsed, {
 	author: gitEmail(),
 	fileExists,
 	readFile,
-	startedAt: born.getTime() > 0 ? born : undefined,
+	startedAt,
 	knownIssues,
 	issueRefs,
 	changeBase,
 	mainBuild,
+	shown,
 });
 console.log(out);
 

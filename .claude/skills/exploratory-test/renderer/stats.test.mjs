@@ -171,3 +171,9 @@ test('buildStats records main replay minutes only with a main build', () => {
 	assert.equal(buildStats({ where: 'local', parsed: null, mainReplayMs: 150_000 }).mainReplayMinutes, 2.5);
 	assert.equal(buildStats({ where: 'local', parsed: null }).mainReplayMinutes, null);
 });
+
+test('buildStats records the findings the page listed as known issues, by their report.json number', () => {
+	const stats = buildStats({ where: 'ci', parsed: null, demoted: [{ f: { n: 3 }, issue: { number: 16634 } }] });
+	assert.deepEqual(stats.demoted, [{ finding: 3, issue: 16634 }]);
+	assert.deepEqual(buildStats({ where: 'ci', parsed: null }).demoted, []);
+});

@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -415,4 +415,11 @@ test('prPreview takes the first paragraph of prose, skipping headings, reference
 	assert.equal(desc('<img width="10" src="a.png" />\n\nBefore this PR,\nthe Viewer had no stop button.'), 'Before this PR, the Viewer had no stop button.');
 	assert.equal(desc('### Only a heading\n- [x] done'), '');
 	assert.equal(desc('Fixes #13104 .\r\n\r\n### Summary\r\nA missing uv no longer dead-ends the flow.\r\n- Install uv'), 'A missing uv no longer dead-ends the flow.');
+});
+
+test('outcomeFindings takes the confirmed findings, less the ones the page listed as known issues', () => {
+	const report = { findings: [{ n: 1, verified: 'confirmed' }, { n: 2, verified: 'confirmed' }, { n: 3, verified: 'rejected' }] };
+	assert.deepEqual(outcomeFindings(report, { demoted: [{ finding: 2, issue: 16634 }] }).map(f => f.n), [1]);
+	// A run from before stats.json, or before it recorded demotions, keeps every confirmed finding.
+	assert.deepEqual(outcomeFindings(report, null).map(f => f.n), [1, 2]);
 });

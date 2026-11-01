@@ -45,6 +45,8 @@ window.addEventListener('scroll',sync,{passive:true});sync();}
 function openRun(){var d=document.getElementById('run-details');if(d){d.open=true;}}
 document.querySelectorAll('a[href="#run-details"]').forEach(function(a){a.addEventListener('click',openRun);});
 window.addEventListener('hashchange',function(){if(location.hash==='#run-details'){openRun();}});
+// A link to a Coverage row, such as a known issue's evidence, opens it.
+function openRow(){var d=location.hash&&document.getElementById(location.hash.slice(1));if(d&&d.tagName==='DETAILS'&&d.classList.contains('cv')){d.open=true;}}window.addEventListener('hashchange',openRow);openRow();
 if(location.hash==='#run-details'){openRun();}
 // A step's screenshot preview is fixed to the window: centred on its icon,
 // 12px inside the edges, above it when there is room, else below.
@@ -220,12 +222,19 @@ var el=document.getElementById(a.dataset.issue);if(!el){return;}
 var text=el.textContent.replace(/<\\\\(?=\\/script|!--)/gi,'<');
 ${copyScript('text', 'show')}});});})();`;
 
+// Arriving at a card from its "Not reported yet" row flashes its File issue
+// button once, for 1.2s, which also ends the outline when motion is reduced.
+// Only on a hash change, not on load or a scroll.
+export const FILE_FLASH_SCRIPT = `window.addEventListener('hashchange',function(){var c=document.getElementById(location.hash.slice(1));var b=c&&c.querySelector('.gh-btn.is-file');if(!b){return;}clearTimeout(b._flash);b.classList.remove('flash');void b.offsetWidth;b.classList.add('flash');b._flash=setTimeout(function(){b.classList.remove('flash');},1200);});`;
+
 // The Linked issues counts open their hidden list in one floating panel: on
 // hover (it stays while the pointer is on it), keyboard focus, or tap. Enter or
-// Space pins it, Escape closes it.
+// Space pins it, Escape closes it. A list taller than the window scrolls; a
+// shorter one doesn't, so a tooltip in it can open past its edge.
 export const KI_LIST_SCRIPT = `(function(){var pop=document.createElement('div');pop.className='ki-lc';pop.id='ki-lc';pop.setAttribute('role','dialog');
 document.body.appendChild(pop);var cur=null,pinned=false,t=null;
-function place(a){var r=a.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight,m=12;
+function place(a){pop.classList.remove('ki-lc-scroll');var r=a.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight,m=12;
+if(h>window.innerHeight-2*m){pop.classList.add('ki-lc-scroll');h=pop.offsetHeight;}
 pop.style.left=Math.min(Math.max(m,r.left-12),window.innerWidth-w-m)+'px';
 var top=r.bottom+8;if(top+h>window.innerHeight-m){top=Math.max(m,r.top-h-8);}pop.style.top=top+'px';}
 function show(a,pin){clearTimeout(t);if(cur&&cur!==a){cur.setAttribute('aria-expanded','false');}
@@ -265,10 +274,10 @@ function find(t){return t&&t.closest?t.closest(SEL):null;}
 function build(a){var d=a.dataset,st=d.state==='merged'?'merged':d.state==='closed'?'closed':'open',pr=d.kind==='pr';card.textContent='';
 var top=el('div','ki-card-top'),s=el('span','ki-s '+(st==='open'?'is-open':'is-closed'));
 s.innerHTML=pr?ICON[st==='merged'?'merged':'pr']:ICON[st==='open'?'open':'closed'];s.appendChild(document.createTextNode(' '+(pr?'Pull request \\u00b7 ':'')+{open:'Open',closed:'Closed',merged:'Merged'}[st]));
-top.appendChild(s);top.appendChild(el('span','ki-n',a.textContent));if(d.opened){top.appendChild(el('span','ki-d',d.opened));}
+top.appendChild(s);top.appendChild(el('span','ki-n',a.textContent+(a.tagName==='A'?' \\u2197':'')));if(d.opened){top.appendChild(el('span','ki-d',d.opened));}
 card.appendChild(top);card.appendChild(el('div','ki-card-t',d.title||''));
 if(d.summary){card.appendChild(el('div','ki-card-x',d.summary));}
-card.appendChild(el('div','ki-card-f','From the '+(pr?'PR':'issue')+'\\u2019s description'+(a.tagName!=='A'?'':' \\u00b7 '+(pointer==='touch'?'tap again':'click')+' to open on GitHub')));}
+if(a.tagName==='A'&&pointer==='touch'){card.appendChild(el('div','ki-card-f','Tap again to open on GitHub'));}}
 function place(a){var r=a.getBoundingClientRect(),w=card.offsetWidth,h=card.offsetHeight,m=12;
 var left=Math.min(Math.max(m,r.left+r.width/2-w/2),window.innerWidth-w-m);
 var top=r.top-h-8;if(top<m){top=r.bottom+8;}card.style.left=left+'px';card.style.top=top+'px';}

@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, pageIssueRefs, rateLimitWait, readIssueRefs, referencedNumbers } from './known-issues.mjs';
+import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, pageIssueRefs, rateLimitWait, readIssueRefs, referencedNumbers, toIssue } from './known-issues.mjs';
 import { parseLedger } from './shared/ledger.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
 
@@ -211,3 +211,8 @@ test('pageIssueRefs fetches the report\'s matches, which are bare numbers, and s
 	assert.deepEqual(refs.map(r => r.number).sort((a, b) => a - b), [77, 900, 16634]);
 	assert.ok(existsSync(join(dir, 'issue-refs.json')));
 }));
+
+test('toIssue keeps why a closed issue was closed, so a won\'t fix is told from a fix', () => {
+	assert.equal(toIssue({ number: 1, state: 'closed', state_reason: 'not_planned' }, 'mentioned').stateReason, 'not_planned');
+	assert.equal(toIssue({ number: 2, state: 'open', state_reason: 'reopened' }, 'mentioned').stateReason, undefined);
+});

@@ -297,7 +297,13 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const opening = t.opening;
 	// Ticked by whoever reproduces it, with their note before the comment, which shows only while editing.
 	const reproduced = '- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->';
-	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', reproduced, '', systemDetails(report), ''];
+	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, ''];
+	// The PR didn't cause it, so say so up front.
+	if (options.alsoOnMain) {
+		const build = options.mainBuild?.version ? ` (${[options.mainBuild.version, options.mainBuild.commit?.slice(0, 7)].filter(Boolean).join(', ')})` : '';
+		out.push(`Also reproduces on main's latest daily build${build}, so it isn't specific to ${report.pr ? `#${report.pr.number}` : 'this branch'}.`, '');
+	}
+	out.push(reproduced, '', systemDetails(report), '');
 	// Linked both ways, so GitHub cross-references the fix and its PR.
 	const failedFixes = options.ki?.fixFailed.get(f.n);
 	const back = options.ki?.cameBack.get(f.n);
@@ -423,10 +429,11 @@ export function issueLink(f, report, options = {}) {
 }
 
 // A plain link, so it works without JavaScript; the reader files the issue on GitHub with their own account.
-export function renderIssueButton(f, issue) {
-	return `<a class="gh-btn" href="${escapeHtml(issue.href)}" target="_blank" rel="noopener" data-tip="File a GitHub issue"`
+// A bug nobody has reported gets a labelled button, so it isn't missed.
+export function renderIssueButton(f, issue, labelled = false) {
+	return `<a class="gh-btn${labelled ? ' is-file' : ''}" href="${escapeHtml(issue.href)}" target="_blank" rel="noopener"${labelled ? '' : ' data-tip="File a GitHub issue"'}`
 		+ (issue.copy ? ` data-issue="issue-f${f.n}"` : '')
-		+ ` aria-label="File a GitHub issue for finding ${f.n} (opens GitHub in a new tab)">${ICON.bug}</a>`;
+		+ ` aria-label="File a GitHub issue for finding ${f.n} (opens GitHub in a new tab)">${ICON.bug}${labelled ? '<span>File issue</span>' : ''}</a>`;
 }
 
 export function renderIssueBlock(f, issue) {
