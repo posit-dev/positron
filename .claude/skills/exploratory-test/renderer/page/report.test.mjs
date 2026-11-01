@@ -1401,6 +1401,10 @@ test('a finding whose verification did not finish is Unknown, not verified', () 
 	assert.equal(cardGroup(html, 1), 'Unknown: not verified');
 });
 
+test('at phone width a tooltip fits the screen: a card label opens it under the meta line, a number under the finding title, and Related rightward', () => {
+	assert.match(REPORT_CSS, /@media \(max-width:820px\)\{\.og-tip\{max-width:calc\(100vw - 32px\)\}\.card \.meta,\.ff-card \.claim\{position:relative\}\.og-meta,\.ff-card \.f-b\{position:static\}\.og-meta \.og-tip,\.ff-card \.f-b \.og-tip\{left:0;right:0;width:auto;max-width:none;transform:none\}\.ff-card \.f-b \.og-tip\{top:calc\(100% \+ 6px\);bottom:auto\}\.ff-card \.row>:last-child \.og-tip\{left:0;right:auto;transform:none;max-width:calc\(100vw - 64px\)\}\}/);
+});
+
 test('at phone width the tabs scroll sideways, the info button hides, and the footer counts stack without breaking', () => {
 	assert.match(REPORT_CSS, /@media \(max-width:820px\)\{\.ffi\{display:none\}\.ff \.cf-tabs\{overflow-x:auto;scrollbar-width:none\}\.ff \.cf-tabs::-webkit-scrollbar\{display:none\}\.ki-bar\{grid-template-columns:minmax\(0,1fr\) !important;gap:4px !important\}\.ki-sum \.ki-cnt\{white-space:nowrap\}/);
 	assert.doesNotMatch(REPORT_CSS, /flex-wrap:wrap;row-gap:8px/);

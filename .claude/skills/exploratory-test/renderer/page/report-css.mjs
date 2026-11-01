@@ -495,6 +495,11 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .ffi-p{margin:0}
 .ffi-l{align-self:flex-start;color:var(--link);text-decoration:underline;text-underline-offset:2px}
 @media (max-width:820px){.ffi{display:none}.ff .cf-tabs{overflow-x:auto;scrollbar-width:none}.ff .cf-tabs::-webkit-scrollbar{display:none}.ki-bar{grid-template-columns:minmax(0,1fr) !important;gap:4px !important}.ki-sum .ki-cnt{white-space:nowrap}.ff-card .row>:last-child{padding-left:0}}
+/* At phone width a label near the right edge has no room for its tooltip, and
+   a hidden one still widens the page, so a card label's tooltip spans the meta
+   line, a number's spans the finding title, and the Related column, now under
+   the title, opens its tooltips rightward. */
+@media (max-width:820px){.og-tip{max-width:calc(100vw - 32px)}.card .meta,.ff-card .claim{position:relative}.og-meta,.ff-card .f-b{position:static}.og-meta .og-tip,.ff-card .f-b .og-tip{left:0;right:0;width:auto;max-width:none;transform:none}.ff-card .f-b .og-tip{top:calc(100% + 6px);bottom:auto}.ff-card .row>:last-child .og-tip{left:0;right:auto;transform:none;max-width:calc(100vw - 64px)}}
 @media (prefers-reduced-motion:reduce){.ffi-pop,.ffi:hover .ffi-pop{transition:none}}
 
 /* Known issues: the Findings table's Status labels and "Known issues" row,
