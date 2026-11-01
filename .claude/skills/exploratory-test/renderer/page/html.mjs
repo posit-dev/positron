@@ -511,8 +511,8 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null, m
 		const up = i === report.findings.length - 1 ? ' og-up' : '';
 		const status = lines.length
 			? `<span class="ki-st">${lines.join('')}</span>`
-			: `<span class="ki-st"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">No matches</span>`
-				+ `${originTip('', 'No matching issues or PRs found.')}</span></span>`;
+			: `<span class="ki-st"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">Nothing related</span>`
+				+ `${originTip('', 'No related issues or PRs found.')}</span></span>`;
 		// The tag is read as part of the row link, so its tooltip is hidden from screen readers.
 		const title = rejected ? withLastWord(f.rowTitle, verdictTag(word, false)) : f.rowTitle;
 		// The number's tooltip is hidden from screen readers, so the row starts with the group.
@@ -527,9 +527,9 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null, m
 			+ '</a>';
 	});
 
-	const matchesHead = `<span><span class="og og-h" tabindex="0">Matches${originTip('Matches', 'Existing GitHub issues or PRs that match or may match this finding. A dash means no match was found.', false)}</span></span>`;
+	const relatedHead = `<span><span class="og og-h" tabindex="0">Related${originTip('Related', 'Existing GitHub issues or PRs related to this finding: one this PR meant to fix, a possible duplicate, or a PR that may fix it. A dash means none were found.', false)}</span></span>`;
 	const head = rows.length
-		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${matchesHead}</div>\n`
+		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${relatedHead}</div>\n`
 		: '';
 	const body = `${head}${[...(rows.length ? rows : [renderNoFindings(report, ki, demoted)]), renderLinkedIssues(report, ki, !rows.length, demoted)].filter(Boolean).join('\n')}`;
 	if (!grouped) {

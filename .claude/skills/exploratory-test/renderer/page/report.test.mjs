@@ -1377,9 +1377,13 @@ test('a run with no comparison shows no tabs, info, badges or group labels', () 
 	assert.equal(cardGroup(render(ORIGINS, { ledger: FULL_LEDGER, changeBase: USABLE }), 1), undefined);
 });
 
-test('the findings table is Severity, Finding and Matches, with no Origin column', () => {
+test('the findings table is Severity, Finding and Related, with no Origin column', () => {
 	assert.match(REPORT_CSS, /\.findings-grid\{grid-template-columns:110px minmax\(0,1fr\) 156px\}/);
-	assert.doesNotMatch(grouped(), /og-cell|og-grid|og-hc/);
+	const html = grouped();
+	assert.doesNotMatch(html, /og-cell|og-grid|og-hc/);
+	assert.match(html, /<span class="og og-h" tabindex="0">Related<span class="og-tip"[^>]*><b>Related<\/b><span>Existing GitHub issues or PRs related to this finding: one this PR meant to fix, a possible duplicate, or a PR that may fix it\. A dash means none were found\.<\/span>/);
+	assert.match(html, /<span class="og-sr">Nothing related<\/span><span class="og-tip"[^>]*><span>No related issues or PRs found\.<\/span>/);
+	assert.doesNotMatch(html, /Matches|No matching/);
 });
 
 test('a finding whose verification did not finish is Unknown, not verified', () => {

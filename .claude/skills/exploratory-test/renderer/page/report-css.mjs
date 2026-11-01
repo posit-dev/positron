@@ -499,9 +499,9 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 @media (max-width:820px){.ffi{display:none}.ff .cf-tabs{flex-wrap:wrap;row-gap:8px}.ff-card .row>:last-child{padding-left:0}}
 @media (prefers-reduced-motion:reduce){.ffi-pop,.ffi:hover .ffi-pop{transition:none}}
 
-/* Known issues: the Findings table's Status labels and "Linked issues" row,
+/* Known issues: the Findings table's Status labels and "Known issues" row,
    the card's linked issues, GitHub issue links, and their preview card */
-/* Matches: one line per match, left-aligned so the icons and labels line up. */
+/* Related: one line per issue or PR, left-aligned so the icons and labels line up. */
 .ki-st{display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;font-size:13px;line-height:21px;color:var(--body)}
 .ki-mt{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .ki-reg{display:inline-flex;align-items:center;gap:6px;color:var(--body);font-weight:400}
