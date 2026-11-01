@@ -1867,7 +1867,7 @@ function previewCard(act) {
 	return parts;
 }
 
-test('the preview card has no footer for mouse users, an arrow on a linked number, and an italic summary', () => {
+test('the preview card has no footer for mouse users, an arrow on a linked number, and an upright summary', () => {
 	const linked = previewCard(({ handlers, link }) => handlers.mouseover({ target: link('A') }));
 	assert.equal(linked['ki-n'], '#5690 ↗');
 	assert.equal(linked['ki-card-x'], 'From the body.');
@@ -1875,7 +1875,7 @@ test('the preview card has no footer for mouse users, an arrow on a linked numbe
 	const row = previewCard(({ handlers, link }) => handlers.mouseover({ target: link('SPAN') }));
 	assert.equal(row['ki-n'], '#5690');
 	assert.equal(row['ki-card-f'], undefined);
-	assert.match(REPORT_CSS, /\.ki-card-x\{[^}]*font-style:italic/);
+	assert.doesNotMatch(REPORT_CSS, /\.ki-card-x\{[^}]*font-style:italic/);
 });
 
 test('on touch, a linked number\'s card says to tap again to open it on GitHub', () => {
