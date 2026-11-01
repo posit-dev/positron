@@ -393,6 +393,40 @@
 			"result": {}
 		},
 		{
+			"name": "execute_code_in_new_session",
+			"summary": "Execute code in a new session",
+			"description": "Start a new console session of the caller's runtime in the background, without making it the foreground session, and queue code in it. Returns once the code is queued. The code must be complete; it is run as-is without completeness checks.",
+			"params": [
+				{
+					"name": "language_id",
+					"description": "The language ID of the code to execute",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "code",
+					"description": "The code to execute",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "session_name",
+					"description": "The name of the new session",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "string"
+				},
+				"description": "The ID of the new session"
+			}
+		},
+		{
 			"name": "open_workspace",
 			"summary": "Open a workspace",
 			"description": "Use this to open a workspace in Positron",

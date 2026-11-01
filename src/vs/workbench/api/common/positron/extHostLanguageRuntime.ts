@@ -1849,6 +1849,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Start a new background console session of the caller's runtime and queue
+	 * code in it. Resolves with the new session's ID once the code is queued.
+	 *
+	 * `callerSessionId` identifies the kernel session that sent the request, if
+	 * any; the new session uses that session's runtime.
+	 */
+	public executeCodeInNewSession(languageId: string, code: string, sessionName: string, extensionId: string, callerSessionId?: string): Promise<string> {
+		return this._proxy.$executeCodeInNewSession(languageId, code, sessionName, extensionId, callerSessionId);
+	}
+
+	/**
 	 * Evaluate code silently and return a JSON-coerced result.
 	 *
 	 * @param languageId The language ID to evaluate in

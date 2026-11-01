@@ -53,6 +53,7 @@ describe('getSessionStartReasonLabel', () => {
 			  "affiliatedRuntimeAtRegistration": "Positron found the last interpreter used in this workspace and started it",
 			  "aiChatCodeExecutedWithoutSession": "Code from AI chat was run with no R console open",
 			  "codeExecutedWithoutSession": "Code was run with no R console open",
+			  "codeRequestedNewSession": "Code was sent to run in a new background console",
 			  "duplicatedConsoleSession": "You duplicated a console",
 			  "duplicatedNotebookSession": "You started a new console with a notebook's interpreter",
 			  "extensionApiSelect": "An extension selected this interpreter",
@@ -93,6 +94,7 @@ describe('getSessionStartReasonLabel', () => {
 			SessionStartReasonId.ExtensionApiStart,
 			SessionStartReasonId.ExtensionStartedAgentSession,
 			SessionStartReasonId.CodeExecutedWithoutSession,
+			SessionStartReasonId.CodeRequestedNewSession,
 			SessionStartReasonId.ExtensionApiSelect,
 			SessionStartReasonId.RestartUninitializedSession,
 		].map(id => getSessionStartReasonLabel(createSession('detail', id, undefined, 'posit.shiny'), extensions));
@@ -101,6 +103,7 @@ describe('getSessionStartReasonLabel', () => {
 			'The Shiny extension started this interpreter',
 			'The Shiny extension started an agent session for this interpreter',
 			'The Shiny extension ran code with no R console open',
+			'The Shiny extension sent code to run in a new background console',
 			'The Shiny extension selected this interpreter',
 			'The Shiny extension requested a restart before this interpreter had started',
 		]);

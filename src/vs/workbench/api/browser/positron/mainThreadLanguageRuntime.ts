@@ -53,7 +53,7 @@ import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostType
 import { RuntimeOnlineState } from '../../common/extHostTypes.js';
 import { Range, IRange } from '../../../../editor/common/core/range.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
-import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, COMPLETENESS_VERIFIED_METADATA_KEY, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { getSessionVariables, querySessionTables } from '../../../services/positronVariables/common/helpers/sessionVariableQueries.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
@@ -62,6 +62,7 @@ import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../servic
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { LanguageRuntimeDynState, RuntimeSessionStartOptions } from 'positron';
+import { localize } from '../../../../nls.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
 import * as perf from '../../../../base/common/performance.js';
@@ -2180,6 +2181,30 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
+	/**
+	 * Gets the kernel session that relayed code through an extension, if any.
+	 * Extensions can pass any session ID to `positron.methods.call`, so only
+	 * a real session counts; otherwise an extension could hide that it sent
+	 * the code.
+	 */
+	private getRelayedFromSessionId(callerSessionId: string | undefined): string | undefined {
+		return callerSessionId && this._runtimeSessionService.getSession(callerSessionId) ?
+			callerSessionId : undefined;
+	}
+
+	/**
+	 * Creates the attribution metadata for code an extension requested.
+	 * Caller metadata is merged first so that the caller cannot forge
+	 * Positron's own fields.
+	 */
+	private createAttributionMetadata(extensionId: string, callerSessionId: string | undefined, attributionMetadata?: Record<string, unknown>): Record<string, unknown> {
+		return {
+			...attributionMetadata,
+			extensionId: extensionId,
+			callerSessionId: this.getRelayedFromSessionId(callerSessionId),
+		};
+	}
+
 	async $executeCode(languageId: string,
 		extensionId: string,
 		sessionId: string | undefined,
@@ -2206,14 +2231,6 @@ export class MainThreadLanguageRuntime
 		// Positron's own fields (extensionId, callerSessionId, codeLocation)
 		// always win and the caller cannot forge them. Positron retains sole
 		// authority over `source`, which is never caller-supplied.
-		//
-		// `callerSessionId` is set when a kernel sent the code through the
-		// extension, so the extension relayed the code rather than asking for it.
-		// Extensions can pass any session ID to `positron.methods.call`, so it
-		// only counts when it names a real session; otherwise an extension
-		// could hide that it sent the code.
-		const relayedFromSessionId = callerSessionId && this._runtimeSessionService.getSession(callerSessionId) ?
-			callerSessionId : undefined;
 		let attribution: IConsoleCodeAttribution;
 		if (revivedUri) {
 			const codeLocation: ICodeLocation = {
@@ -2225,26 +2242,61 @@ export class MainThreadLanguageRuntime
 			};
 			attribution = {
 				source: CodeAttributionSource.Script,
-				metadata: {
-					...attributionMetadata,
-					extensionId: extensionId,
-					callerSessionId: relayedFromSessionId,
-					codeLocation,
-				}
+				metadata: { ...this.createAttributionMetadata(extensionId, callerSessionId, attributionMetadata), codeLocation },
 			};
 		} else {
 			attribution = {
 				source: CodeAttributionSource.Extension,
-				metadata: {
-					...attributionMetadata,
-					extensionId: extensionId,
-					callerSessionId: relayedFromSessionId,
-				}
+				metadata: this.createAttributionMetadata(extensionId, callerSessionId, attributionMetadata),
 			};
 		}
 
 		return this._positronConsoleService.executeCode(
 			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId, undefined, executionMetadata, preserveActiveTab);
+	}
+
+	/**
+	 * Starts a new background console session and runs code in it, without
+	 * changing the active console or revealing the Console view.
+	 *
+	 * @returns The new session ID, once the code is queued in the session.
+	 */
+	async $executeCodeInNewSession(languageId: string, code: string, sessionName: string, extensionId: string, callerSessionId: string | undefined): Promise<string> {
+		const callerRuntime = callerSessionId ? this._runtimeSessionService.getSession(callerSessionId)?.runtimeMetadata : undefined;
+		const runtime = callerRuntime?.languageId === languageId ?
+			callerRuntime : this._runtimeStartupService.getPreferredRuntime(languageId);
+		if (!runtime) {
+			throw new Error(localize('positron.executeCodeInNewSession.noInterpreter', "No interpreter is available for the language '{0}' to start a new session.", languageId));
+		}
+
+		const newSessionId = await this._runtimeSessionService.startNewRuntimeSession(
+			runtime.runtimeId,
+			sessionName,
+			LanguageRuntimeSessionMode.Console,
+			undefined,
+			// Kernel requests are relayed by the Kernel Supervisor; don't credit it.
+			{ id: SessionStartReasonId.CodeRequestedNewSession, requestingExtensionId: this.getRelayedFromSessionId(callerSessionId) ? undefined : extensionId },
+			RuntimeStartMode.Starting,
+			false,
+			{ owner: 'user', requireNewSession: true, takeForegroundIfEmpty: false });
+		if (!newSessionId) {
+			throw new Error(localize('positron.executeCodeInNewSession.notStarted', "Could not start a new {0} session.", runtime.languageName));
+		}
+
+		const attribution: IConsoleCodeAttribution = {
+			source: CodeAttributionSource.Extension,
+			metadata: {
+				...this.createAttributionMetadata(extensionId, callerSessionId),
+				// Skip completeness checks: the caller is blocked on this request,
+				// so its language server cannot answer an input boundary request.
+				// The kernel already checked that the code parses.
+				[COMPLETENESS_VERIFIED_METADATA_KEY]: true,
+			},
+		};
+		await this._positronConsoleService.executeCode(
+			languageId, newSessionId, code, attribution, false, false, RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Continue,
+			undefined, undefined, undefined, true, false);
+		return newSessionId;
 	}
 
 	$executeInlineCells(_extensionId: string, documentUri: URI, ranges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void> {

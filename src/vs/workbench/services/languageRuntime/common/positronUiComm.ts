@@ -512,6 +512,26 @@ export interface ExecuteCodeParams {
 }
 
 /**
+ * Parameters for the ExecuteCodeInNewSession method.
+ */
+export interface ExecuteCodeInNewSessionParams {
+	/**
+	 * The language ID of the code to execute
+	 */
+	language_id: string;
+
+	/**
+	 * The code to execute
+	 */
+	code: string;
+
+	/**
+	 * The name of the new session
+	 */
+	session_name: string;
+}
+
+/**
  * Parameters for the OpenWorkspace method.
  */
 export interface OpenWorkspaceParams {
@@ -997,6 +1017,32 @@ export interface ExecuteCodeRequest {
 }
 
 /**
+ * Request: Execute code in a new session
+ *
+ * Start a new console session of the caller's runtime in the background,
+ * without making it the foreground session, and queue code in it.
+ * Returns once the code is queued. The code must be complete; it is run
+ * as-is without completeness checks.
+ */
+export interface ExecuteCodeInNewSessionRequest {
+	/**
+	 * The language ID of the code to execute
+	 */
+	language_id: string;
+
+	/**
+	 * The code to execute
+	 */
+	code: string;
+
+	/**
+	 * The name of the new session
+	 */
+	session_name: string;
+
+}
+
+/**
  * Request: Path to the workspace folder
  *
  * Returns the path to the workspace folder, or first folder if there are
@@ -1065,6 +1111,7 @@ export enum UiFrontendRequest {
 	ExecuteCommand = 'execute_command',
 	EvaluateWhenClause = 'evaluate_when_clause',
 	ExecuteCode = 'execute_code',
+	ExecuteCodeInNewSession = 'execute_code_in_new_session',
 	WorkspaceFolder = 'workspace_folder',
 	ModifyEditorSelections = 'modify_editor_selections',
 	LastActiveEditorContext = 'last_active_editor_context'

@@ -23,6 +23,7 @@ import { ExtHostLanguageRuntime } from '../../../common/positron/extHostLanguage
 import { ExtHostMethods } from '../../../common/positron/extHostMethods.js';
 import { ExtHostModalDialogs } from '../../../common/positron/extHostModalDialogs.js';
 import { UiFrontendRequest } from '../../../../services/languageRuntime/common/positronUiComm.js';
+import { JsonRpcErrorCode } from '../../../../services/languageRuntime/common/positronBaseComm.js';
 
 /** A minimal fake `vscode.TextEditor` over a single-line document, with edits recorded. */
 function createFakeEditor(fileName: string, text = 'hello'): vscode.TextEditor & { readonly editedRanges: unknown[] } {
@@ -276,6 +277,45 @@ describe('ExtHostMethods', function () {
 				{ language_id: 'r', code: '1 + 1', focus: false, allow_incomplete: false }, 'r-notebook-1');
 
 			expect(queueCode.mock.calls).toEqual([['r', '1 + 1', 'positron.positron-supervisor', false, false, 'r-notebook-1']]);
+		});
+	});
+
+	describe('call: execute_code_in_new_session', function () {
+		it('passes the code, the session name, and the calling session to the runtime', async function () {
+			const executeCodeInNewSession = vi.fn<ExtHostLanguageRuntime['executeCodeInNewSession']>(async () => 'job-1');
+			const methods = createMethods({ runtime: stubInterface<ExtHostLanguageRuntime>({ executeCodeInNewSession }) });
+
+			const response = await methods.call('positron.positron-supervisor', UiFrontendRequest.ExecuteCodeInNewSession,
+				{ language_id: 'r', code: 'source("a.R")', session_name: 'a.R' }, 'r-console-1');
+
+			expect(response).toEqual({ result: 'job-1' });
+			expect(executeCodeInNewSession.mock.calls).toEqual([['r', 'source("a.R")', 'a.R', 'positron.positron-supervisor', 'r-console-1']]);
+		});
+
+		it('rejects missing params', async function () {
+			const executeCodeInNewSession = vi.fn<ExtHostLanguageRuntime['executeCodeInNewSession']>(async () => 'job-1');
+			const methods = createMethods({ runtime: stubInterface<ExtHostLanguageRuntime>({ executeCodeInNewSession }) });
+
+			const response = await methods.call('positron.positron-supervisor', UiFrontendRequest.ExecuteCodeInNewSession,
+				{ language_id: 'r', code: 'source("a.R")' }, 'r-console-1');
+
+			expect(response).toHaveProperty('error.code', JsonRpcErrorCode.InvalidParams);
+			expect(executeCodeInNewSession).not.toHaveBeenCalled();
+		});
+
+		it.each([
+			{ language_id: 1, code: 'source("a.R")', session_name: 'a.R' },
+			{ language_id: 'r', code: ['source("a.R")'], session_name: 'a.R' },
+			{ language_id: 'r', code: 'source("a.R")', session_name: null },
+		])('rejects params that are not strings (%j)', async function (params) {
+			const executeCodeInNewSession = vi.fn<ExtHostLanguageRuntime['executeCodeInNewSession']>(async () => 'job-1');
+			const methods = createMethods({ runtime: stubInterface<ExtHostLanguageRuntime>({ executeCodeInNewSession }) });
+
+			const response = await methods.call('positron.positron-supervisor', UiFrontendRequest.ExecuteCodeInNewSession,
+				params, 'r-console-1');
+
+			expect(response).toHaveProperty('error.code', JsonRpcErrorCode.InvalidParams);
+			expect(executeCodeInNewSession).not.toHaveBeenCalled();
 		});
 	});
 

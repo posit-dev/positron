@@ -15,7 +15,7 @@ import { IOpener } from '../../../../../platform/opener/common/opener.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, reviveRuntimeSessionMetadata, RuntimeClientType, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, reviveRuntimeSessionMetadata, RuntimeClientType, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId, IStartNewRuntimeSessionOptions } from '../../common/runtimeSessionService.js';
 import { FORCE_QUIT_GRACE_MS, RuntimeSessionService, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
@@ -2126,6 +2126,182 @@ describe('Positron - RuntimeSessionService', () => {
 
 			expect({ owner: result.owner, foregroundSessionId: result.foregroundSessionId })
 				.toEqual({ owner: 'agent', foregroundSessionId: result.userSessionId });
+		});
+	});
+
+	describe('starting a console while another is starting', () => {
+		const startBackgroundConsole = (options?: IStartNewRuntimeSessionOptions) =>
+			runtimeSessionService.startNewRuntimeSession(
+				runtime.runtimeId,
+				sessionName,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				startSource,
+				RuntimeStartMode.Starting,
+				false,
+				options,
+			);
+
+		it('coalesces the requests by default', async () => {
+			const first = startBackgroundConsole();
+			const second = startBackgroundConsole();
+
+			const [firstId, secondId] = await Promise.all([first, second]);
+
+			expect(secondId).toBe(firstId);
+		});
+
+		it('starts a separate session once the first start settles when requireNewSession is set', async () => {
+			const startedSessionIds: string[] = [];
+			let activeSessionIdsWhenSecondWillStart: string[] | undefined;
+			ctx.disposables.add(runtimeSessionService.onWillStartSession(e => {
+				startedSessionIds.push(e.session.sessionId);
+				if (startedSessionIds.length === 2) {
+					activeSessionIdsWhenSecondWillStart = runtimeSessionService.activeSessions.map(s => s.sessionId);
+				}
+			}));
+
+			const first = startBackgroundConsole();
+			const second = startBackgroundConsole({ requireNewSession: true });
+			const [firstId, secondId] = await Promise.all([first, second]);
+
+			expect({
+				distinct: firstId !== secondId,
+				startOrder: startedSessionIds,
+				activeSessionIdsWhenSecondWillStart,
+			}).toEqual({
+				distinct: true,
+				startOrder: [firstId, secondId],
+				activeSessionIdsWhenSecondWillStart: [firstId],
+			});
+		});
+
+		it('gives each of several requireNewSession requests its own session', async () => {
+			const first = startBackgroundConsole();
+			const second = startBackgroundConsole({ requireNewSession: true });
+			const third = startBackgroundConsole({ requireNewSession: true });
+
+			const ids = await Promise.all([first, second, third]);
+
+			expect(new Set(ids).size).toBe(3);
+		});
+
+		it('starts a fresh session when the first start fails and requireNewSession is set', async () => {
+			vi.spyOn(manager, 'createSession').mockImplementationOnce(async (runtimeMetadata, sessionMetadata) => {
+				const failing = new TestLanguageRuntimeSession(sessionMetadata, runtimeMetadata);
+				failing.start = () => Promise.reject(new Error('start failed'));
+				return failing;
+			});
+
+			const first = startBackgroundConsole();
+			const firstOutcome = first.then(() => 'started', () => 'failed');
+			const second = startBackgroundConsole({ requireNewSession: true });
+
+			const secondId = await second;
+			ctx.disposables.add(runtimeSessionService.getSession(secondId)!);
+
+			expect({
+				firstOutcome: await firstOutcome,
+				secondStarted: runtimeSessionService.getSession(secondId) !== undefined,
+			}).toEqual({ firstOutcome: 'failed', secondStarted: true });
+		});
+
+		it('does not join a requireNewSession start in flight', async () => {
+			const first = startBackgroundConsole({ requireNewSession: true });
+			const second = startBackgroundConsole();
+
+			const [firstId, secondId] = await Promise.all([first, second]);
+
+			expect(secondId).not.toBe(firstId);
+		});
+
+		it('does not join a requireNewSession start in flight when auto-starting', async () => {
+			const first = startBackgroundConsole({ requireNewSession: true });
+			const second = runtimeSessionService.autoStartRuntime(runtime, startSource, false);
+
+			const [firstId, secondId] = await Promise.all([first, second]);
+
+			expect(secondId).not.toBe(firstId);
+		});
+
+		it('rejects a requireNewSession start in an untrusted workspace without deferring it', async () => {
+			const startedSessionIds: string[] = [];
+			ctx.disposables.add(runtimeSessionService.onWillStartSession(e => {
+				startedSessionIds.push(e.session.sessionId);
+			}));
+			workspaceTrustManagementService.setWorkspaceTrust(false);
+
+			const outcome = await startBackgroundConsole({ requireNewSession: true }).then(
+				() => 'started', (err: Error) => err.message);
+			workspaceTrustManagementService.setWorkspaceTrust(true);
+			await timeout(0);
+
+			expect({ outcome, startedSessionIds }).toEqual({
+				outcome: `Could not start a new ${runtime.languageName} session because the workspace is not trusted.`,
+				startedSessionIds: [],
+			});
+		});
+
+		it('restarts a running console while another console of its runtime is starting', async () => {
+			const running = await startConsole(runtime);
+			await waitForRuntimeState(running, RuntimeState.Ready);
+			const restart = vi.spyOn(running, 'restart');
+
+			const other = startBackgroundConsole();
+			await Promise.all([
+				other,
+				runtimeSessionService.restartSession(running.sessionId, startReason, false),
+			]);
+
+			expect(restart).toHaveBeenCalledOnce();
+		});
+
+		it('restarts a console once when it is asked to restart twice before its state changes', async () => {
+			const running = await startConsole(runtime);
+			await waitForRuntimeState(running, RuntimeState.Ready);
+			// Delay the state change so that both requests reach the restart
+			// itself instead of waiting for the Restarting state.
+			const restartNow = running.restart.bind(running);
+			const restart = vi.spyOn(running, 'restart').mockImplementation(async workingDirectory => {
+				await timeout(0);
+				return restartNow(workingDirectory);
+			});
+
+			await Promise.all([
+				runtimeSessionService.restartSession(running.sessionId, startReason, false),
+				runtimeSessionService.restartSession(running.sessionId, startReason, false),
+			]);
+
+			expect(restart).toHaveBeenCalledOnce();
+		});
+	});
+
+	describe('takeForegroundIfEmpty', () => {
+		const startBackgroundConsole = async (options?: IStartNewRuntimeSessionOptions) => {
+			const sessionId = await runtimeSessionService.startNewRuntimeSession(
+				runtime.runtimeId,
+				sessionName,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				startSource,
+				RuntimeStartMode.Starting,
+				false,
+				options,
+			);
+			ctx.disposables.add(runtimeSessionService.getSession(sessionId)!);
+			return sessionId;
+		};
+
+		it('becomes the foreground session when none exists, by default', async () => {
+			const sessionId = await startBackgroundConsole();
+
+			expect(runtimeSessionService.foregroundSession?.sessionId).toBe(sessionId);
+		});
+
+		it('leaves the foreground session unset when false and not activated', async () => {
+			await startBackgroundConsole({ takeForegroundIfEmpty: false });
+
+			expect(runtimeSessionService.foregroundSession).toBeUndefined();
 		});
 	});
 
