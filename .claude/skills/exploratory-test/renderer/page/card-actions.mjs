@@ -300,7 +300,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, ''];
 	// The PR didn't cause it, so say so up front.
 	if (options.alsoOnMain) {
-		const build = options.mainBuild?.version ? ` (${options.mainBuild.version}, ${String(options.mainBuild.commit ?? '').slice(0, 7)})` : '';
+		const build = options.mainBuild?.version ? ` (${[options.mainBuild.version, options.mainBuild.commit?.slice(0, 7)].filter(Boolean).join(', ')})` : '';
 		out.push(`Also reproduces on main's latest daily build${build}, so it isn't specific to ${report.pr ? `#${report.pr.number}` : 'this branch'}.`, '');
 	}
 	out.push(reproduced, '', systemDetails(report), '');

@@ -1446,6 +1446,11 @@ test('the File issue body says the bug also reproduces on the latest daily build
 	assert.doesNotMatch(issueBody(grouped(), 1), /Also reproduces on main/);
 });
 
+test('the File issue body names a daily build with no commit by its version alone', () => {
+	const body = issueBody(grouped(REPLAYED, { mainBuild: { version: '2026.11.0-12' } }), 2);
+	assert.match(body, /Also reproduces on main's latest daily build \(2026\.11\.0-12\), so it isn't specific/);
+});
+
 test('arriving at a Not reported yet card through its row flashes the File issue button once', () => {
 	assert.match(REPORT_CSS, /@keyframes fileFlash\{from\{outline-color:var\(--focus\)\}to\{outline-color:transparent\}\}/);
 	assert.match(REPORT_CSS, /\.gh-btn\.is-file\.flash\{outline:2px solid var\(--focus\);outline-offset:3px;animation:fileFlash 1\.2s ease-out forwards\}/);
@@ -1642,13 +1647,11 @@ const DUPE_LEDGER = ledgerOf([['S01', 'filter the grid', 'fail (finding 1)', 'bl
 const dupes = (json = DUPES, options = {}) => grouped(json, { ledger: DUPE_LEDGER, issueRefs: DUPE_REFS, ...options });
 const knownList = html => between(html, 'id="ki-list-obs"', '</div></div>\n') || between(html, 'id="ki-list-obs"', '<section');
 
-test('a confirmed duplicate of an open issue that also fails on the latest build leaves the findings, renumbered with no gaps', () => {
+test('a confirmed duplicate of an open issue that also fails on the latest build leaves the findings', () => {
 	const html = dupes();
 	assert.deepEqual(tabs(html), ['All 4', 'Only in branch 1', 'Also in latest build 2', 'Unknown 1']);
 	assert.equal(findingRow(html, 5), '');
 	assert.doesNotMatch(html, /id="f5"/);
-	// The survivors in their order: 2, 3, 4 and 6 become 1 to 4.
-	assert.deepEqual([1, 2, 3, 4].map(n => groupOfRow(html, n)), ['pr', 'un', 'ex', 'ex']);
 	assert.match(html, /<div class="ki-bar"><span class="ki-lbl"><b>Existing issues<\/b><\/span><span class="ki-sum">[^\n]*2 observed/);
 });
 
@@ -1657,23 +1660,20 @@ test('a duplicate leaves every count: the tiles and the link card count only wha
 	assert.deepEqual(demoted.map(d => [d.issue.number, d.wontFix]), [[503, true], [501, false]]);
 	assert.deepEqual(report.severityCounts, { major: 0, moderate: 0, minor: 4 });
 	assert.equal(report.findingCount, 4);
-	assert.deepEqual(report.findings.map(f => f.n), [1, 2, 3, 4]);
-	assert.deepEqual([...report.verification.origin], [[1, 'introduced'], [3, 'inherited'], [4, 'inherited']]);
-	assert.deepEqual([...report.verification.originReason.keys()], [2]);
 });
 
 test('Only in PR says Similar, Unknown keeps Dupe, and a closed fixed issue reads Regressed', () => {
 	const html = dupes();
 	const tip = '<span class="og-tip" aria-hidden="true" role="tooltip"><b>Similar?</b><span>Didn&rsquo;t reproduce on the latest build, so this is likely a different bug.</span></span>';
-	assert.ok(findingRow(html, 1).includes(`<span class="og ki-sim">Similar?${tip}</span> <span class="ki-num-t"`), findingRow(html, 1));
-	assert.doesNotMatch(findingRow(html, 1), /Dupe\?/);
-	assert.match(card(html, 1), /<span class="og ki-sim ki-sim-c" tabindex="0">Similar\?<span class="og-tip" role="tooltip"><b>Similar\?<\/b><span>Didn&rsquo;t reproduce/);
-	assert.match(findingRow(html, 2), /Dupe\? <span class="ki-num-t"[^>]*>#501/);
-	assert.match(findingRow(html, 3), /Regressed<\/span><span class="ki-state"><span class="ki-num-t"[^>]*>#502/);
-	assert.doesNotMatch(findingRow(html, 3), /Dupe\?/);
-	assert.match(card(html, 3), /Regressed <a class="ki-num"[^>]*>#502/);
+	assert.ok(findingRow(html, 2).includes(`<span class="og ki-sim">Similar?${tip}</span> <span class="ki-num-t"`), findingRow(html, 2));
+	assert.doesNotMatch(findingRow(html, 2), /Dupe\?/);
+	assert.match(card(html, 2), /<span class="og ki-sim ki-sim-c" tabindex="0">Similar\?<span class="og-tip" role="tooltip"><b>Similar\?<\/b><span>Didn&rsquo;t reproduce/);
+	assert.match(findingRow(html, 3), /Dupe\? <span class="ki-num-t"[^>]*>#501/);
+	assert.match(findingRow(html, 4), /Regressed<\/span><span class="ki-state"><span class="ki-num-t"[^>]*>#502/);
+	assert.doesNotMatch(findingRow(html, 4), /Dupe\?/);
+	assert.match(card(html, 4), /Regressed <a class="ki-num"[^>]*>#502/);
 	// A PR match never demotes, and a match the verifier did not confirm stays a Dupe.
-	assert.match(findingRow(html, 4), /Dupe\?[\s\S]*Fix in PR\?/);
+	assert.match(findingRow(html, 6), /Dupe\?[\s\S]*Fix in PR\?/);
 });
 
 test('a demoted finding is listed under known issues, worst first, in two lines, its reason a tooltip on its source', () => {
@@ -1717,7 +1717,7 @@ test('a failing coverage row with no finding left opens on its steps, as a passi
 	// Its evidence link in the known issues list is the row's id.
 	assert.ok(knownList(html).includes(`<a class="ki-ev" href="#${row[1]}">View evidence</a>`));
 	// A row that still links to a finding does not expand: its steps are on the card.
-	assert.match(html, /<div class="row coverage-grid cf-r cf-i" id="cv-row-\d+"><span class="cov-scenario">[^\n]*<span>open the grid<\/span>[^\n]*<a href="#f1" class="cv-f">Finding 1<\/a>/);
+	assert.match(html, /<div class="row coverage-grid cf-r cf-i" id="cv-row-\d+"><span class="cov-scenario">[^\n]*<span>open the grid<\/span>[^\n]*<a href="#f2" class="cv-f">Finding 2<\/a>/);
 	// Following a link to a closed row opens it.
 	assert.match(html, /function openRow\(\)\{var d=location\.hash&&document\.getElementById\(location\.hash\.slice\(1\)\);if\(d&&d\.tagName==='DETAILS'&&d\.classList\.contains\('cv'\)\)\{d\.open=true;\}\}window\.addEventListener\('hashchange',openRow\);openRow\(\);/);
 });
@@ -1743,9 +1743,9 @@ test('an issue closed as a duplicate is still open under another number: never R
 	const html = grouped(json, { ledger: DUPE_LEDGER, issueRefs: refs });
 	assert.match(knownList(html), /#505<\/a><span>Grid blank again<span class="ki-lc-m"><span class="ki-sev ki-sev-moderate" aria-hidden="true"><\/span>Moderate &middot; Duplicate &middot; /);
 	// Only in branch: not Regressed, just a possible match.
-	assert.doesNotMatch(findingRow(html, 1), /Regressed/);
-	assert.match(findingRow(html, 1), /Similar\?/);
-	assert.doesNotMatch(card(html, 1), /Regressed/);
+	assert.doesNotMatch(findingRow(html, 2), /Regressed/);
+	assert.match(findingRow(html, 2), /Similar\?/);
+	assert.doesNotMatch(card(html, 2), /Regressed/);
 });
 
 test('a scenario that hit a known issue and a new bug links the finding and still opens on its steps', () => {
@@ -1768,7 +1768,7 @@ Steps:
 	const html = grouped(json, { ledger, issueRefs: DUPE_REFS });
 	const row = /<details class="cv cf-r cf-i" id="(cv-row-\d+)"><summary class="row coverage-grid">([\s\S]*?)<\/summary><div class="cv-steps">([\s\S]*?)<\/div><\/details>/.exec(html);
 	assert.ok(row, 'the row opens');
-	assert.match(row[2], /<a href="#f1" class="cv-f">Finding 1<\/a> &middot; Known issue <a class="ki-num"[^>]*>#501<\/a>/);
+	assert.match(row[2], /<a href="#f2" class="cv-f">Finding 2<\/a> &middot; Known issue <a class="ki-num"[^>]*>#501<\/a>/);
 	assert.match(row[3], /Verify the grid shows rows[\s\S]*Verify the arrow/);
 	assert.ok(knownList(html).includes(`<a class="ki-ev" href="#${row[1]}">View evidence</a>`));
 });
@@ -1796,7 +1796,7 @@ test('on a run of main, a confirmed duplicate of an open or won\'t-fix issue is 
 	const html = onMain();
 	assert.doesNotMatch(between(html, 'id="findings"', '</section>'), /data-og=|class="cf-tabs"/);
 	assert.match(html, /<span class="ki-sum">[^\n]*2 observed/);
-	assert.match(findingRow(html, 1), /Regressed/);
+	assert.match(findingRow(html, 2), /Regressed/);
 	// A branch run whose change base is unusable is not a run on main: nothing is demoted.
 	const branch = rep({ ...MAIN_RUN, header: { ...HEADER, branch: 'feature/x' } });
 	assert.equal(withoutKnownDuplicates(reportFromJson(branch, { ledger: DUPE_LEDGER }), { changeBase: ON_MAIN, issueRefs: DUPE_REFS }).demoted.length, 0);
@@ -1937,3 +1937,42 @@ test('on touch, a linked number\'s card says to tap again to open it on GitHub',
 	assert.equal(linked['ki-card-f'], 'Tap again to open on GitHub');
 });
 
+
+test('a finding the change says it fixes is never a known issue, even when the explorer did not tag the fix as failed', () => {
+	const fixes = { repo: 'posit-dev/positron', pr: 9, fetchedAt: '', issues: [{ number: 501, url: '', relation: 'fixes', title: 'Grid goes blank after a filter', state: 'open', createdAt: '', summary: '' }] };
+	const { demoted } = withoutKnownDuplicates(reportFromJson(DUPES, { ledger: DUPE_LEDGER }), { changeBase: USABLE, issueRefs: DUPE_REFS, knownIssues: fixes });
+	assert.deepEqual(demoted.map(d => d.issue.number), [503]);
+	assert.notEqual(findingRow(dupes(DUPES, { knownIssues: fixes }), 1), '');
+});
+
+test('a demoted finding keeps report.json\'s numbers on the rest, so the notes and outcomes name the same findings', () => {
+	const { report } = withoutKnownDuplicates(reportFromJson(DUPES, { ledger: DUPE_LEDGER }), { changeBase: USABLE, issueRefs: DUPE_REFS });
+	assert.deepEqual(report.findings.map(f => f.n), [2, 3, 4, 6]);
+	assert.deepEqual([...report.verification.origin], [[2, 'introduced'], [4, 'inherited'], [6, 'inherited']]);
+	assert.deepEqual([...report.verification.originReason.keys()], [3]);
+	const html = dupes();
+	assert.deepEqual([2, 3, 4, 6].map(n => groupOfRow(html, n)), ['pr', 'un', 'ex', 'ex']);
+	assert.doesNotMatch(html, /id="f1"|id="f5"/);
+});
+
+test('a report the known issue check cannot read keeps every finding rather than failing the page', () => {
+	const parsed = reportFromJson(DUPES, { ledger: DUPE_LEDGER });
+	const { report, demoted } = withoutKnownDuplicates({ ...parsed, coverage: undefined }, { changeBase: USABLE, issueRefs: DUPE_REFS });
+	assert.equal(demoted.length, 0);
+	assert.equal(report.findings.length, 6);
+});
+
+test('the page reuses known issues already worked out for it', () => {
+	const parsed = reportFromJson(DUPES, { ledger: DUPE_LEDGER });
+	const shown = withoutKnownDuplicates(parsed, { changeBase: USABLE, issueRefs: DUPE_REFS });
+	// Without the issue previews it could not work them out itself.
+	const html = renderReportHtml(parsed, { changeBase: USABLE, mainBuild: MAIN_BUILD, ledger: DUPE_LEDGER, shown });
+	assert.doesNotMatch(html, /id="f1"|id="f5"/);
+});
+
+test('an issue closed for a reason the saved preview does not record is not called Regressed', () => {
+	const refs = DUPE_REFS.map(r => (r.number === 502 ? { ...r, stateReason: undefined } : r));
+	const html = dupes(DUPES, { issueRefs: refs });
+	assert.doesNotMatch(findingRow(html, 4), /Regressed/);
+	assert.match(findingRow(html, 4), /Dupe\?/);
+});

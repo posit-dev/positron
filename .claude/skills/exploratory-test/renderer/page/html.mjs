@@ -229,8 +229,9 @@ function regressedOf(f, refs) {
 	}
 	return (f.dupes ?? []).map(d => d.issue).filter(n => {
 		const issue = refs?.byNumber.get(n);
-		// Closed as a duplicate is still open under another number, so it did not come back.
-		return issue && issue.kind !== 'pr' && issue.state === 'closed' && !['not_planned', 'duplicate'].includes(issue.stateReason) && !f.intended.includes(n);
+		// Closed as a duplicate is still open under another number, so it did not come back. A preview
+		// saved before state reasons were recorded can't tell, so it is not claimed as a regression.
+		return issue && issue.kind !== 'pr' && issue.state === 'closed' && issue.stateReason && !['not_planned', 'duplicate'].includes(issue.stateReason) && !f.intended.includes(n);
 	});
 }
 
@@ -1372,13 +1373,24 @@ const SEVERITY_RANK = { major: 0, moderate: 1, minor: 2 };
 /**
  * The report without the findings that are known issues, and those findings.
  * A confirmed finding that also fails on the latest build, and that the
- * verifier found is the same bug as an open issue or one closed as not
- * planned, is a known issue this run saw, not a new finding. A fix that did
- * not hold, an issue that came back and a PR never demote one. The rest are
- * renumbered with no gaps, and a Coverage row that cited a demoted finding
- * names its issue instead.
+ * verifier found is the same bug as an open issue, one closed as a duplicate
+ * or one closed as not planned, is a known issue this run saw, not a new
+ * finding. A fix that did not hold, an issue the change says it fixes, an
+ * issue that came back and a PR never demote one. The rest keep report.json's
+ * numbers, which the verifier's notes and outcomes use, and a Coverage row
+ * that cited a demoted finding names its issue instead. A report it cannot
+ * read keeps every finding, so the page and the counts still come out.
  */
 export function withoutKnownDuplicates(report, options = {}) {
+	try {
+		return knownDuplicates(report, options);
+	} catch (err) {
+		console.error(`[report] WARN: could not tell which findings are known issues, so all are kept: ${err}`);
+		return { report, demoted: [] };
+	}
+}
+
+function knownDuplicates(report, options) {
 	const ki = kiOf(report, options);
 	const refs = refsOf(options, ki);
 	const demoted = [];
@@ -1392,7 +1404,7 @@ export function withoutKnownDuplicates(report, options = {}) {
 			continue;
 		}
 		const matches = (f.dupes ?? []).map(d => ({ issue: refs.byNumber.get(d.issue), why: d.why }))
-			.filter(d => d.issue && d.issue.kind !== 'pr')
+			.filter(d => d.issue && d.issue.kind !== 'pr' && d.issue.relation !== 'fixes')
 			.map(d => ({ ...d, wontFix: d.issue.state === 'closed' && (f.intended.includes(d.issue.number) || d.issue.stateReason === 'not_planned'),
 				duplicate: d.issue.state === 'closed' && d.issue.stateReason === 'duplicate' }));
 		// An issue closed as a duplicate is still open under another number.
@@ -1406,24 +1418,22 @@ export function withoutKnownDuplicates(report, options = {}) {
 	}
 	demoted.sort((a, b) => (SEVERITY_RANK[a.f.severity] ?? 3) - (SEVERITY_RANK[b.f.severity] ?? 3) || a.f.n - b.f.n);
 	const gone = new Map(demoted.map(d => [d.f.n, d]));
-	const kept = report.findings.map(f => f.n).filter(n => !gone.has(n)).sort((a, b) => a - b);
-	const to = new Map(kept.map((n, i) => [n, i + 1]));
-	const renumber = n => to.get(n) ?? null;
-	const step = st => (st.finding ? { ...st, finding: renumber(st.finding) } : st);
-	const findings = report.findings.filter(f => to.has(f.n)).map(f => ({ ...f, n: to.get(f.n), steps: f.steps.map(step) }));
+	const kept = n => !gone.has(n);
+	const step = st => (gone.has(st.finding) ? { ...st, finding: null } : st);
+	const findings = report.findings.filter(f => kept(f.n)).map(f => ({ ...f, steps: f.steps.map(step) }));
 	const exercised = report.coverage.exercised.map(row => {
 		const cited = [...new Set([row.finding, ...(row.findings ?? []), ...(row.steps ?? []).map(st => st.finding)].filter(n => gone.has(n)))];
 		const out = {
 			...row,
-			finding: row.finding ? renumber(row.finding) : row.finding,
-			findings: (row.findings ?? []).map(renumber).filter(Boolean),
+			finding: gone.has(row.finding) ? null : row.finding,
+			findings: (row.findings ?? []).filter(kept),
 			steps: (row.steps ?? []).map(step),
 			issues: [...(row.issues ?? []), ...[...new Set(cited.map(n => gone.get(n).issue.number))].map(n => ({ n, kind: 'known' }))],
 		};
 		cited.forEach(n => gone.get(n).rows.push(out));
 		return out;
 	});
-	const byNumber = map => new Map([...map].filter(([n]) => to.has(n)).map(([n, v]) => [to.get(n), v]));
+	const byNumber = map => new Map([...map].filter(([n]) => kept(n)));
 	const v = report.verification;
 	const severityCounts = { major: 0, moderate: 0, minor: 0 };
 	for (const f of findings) {
@@ -1436,7 +1446,7 @@ export function withoutKnownDuplicates(report, options = {}) {
 			severityCounts,
 			findingCount: findings.length,
 			coverage: { ...report.coverage, exercised },
-			verification: v && { ...v, verdicts: v.verdicts.filter(x => to.has(x.n)).map(x => ({ ...x, n: to.get(x.n) })), origin: byNumber(v.origin), originReason: byNumber(v.originReason) },
+			verification: v && { ...v, verdicts: v.verdicts.filter(x => kept(x.n)), origin: byNumber(v.origin), originReason: byNumber(v.originReason) },
 		},
 		demoted,
 	};
@@ -1446,13 +1456,14 @@ export function withoutKnownDuplicates(report, options = {}) {
  * Renders the report model, reportFromJson's, as a self-contained HTML page.
  * `options.ledger` is the run's ledger.md. `options.startedAt` is when the run
  * began, which dates the footer's copyright; it defaults to now.
+ * `options.shown` is withoutKnownDuplicates' result when the caller already has it.
  */
 export function renderReportHtml(report, options = {}) {
 	// `readFile` reads a path beside the report; the viewer, the Test files
 	// list and the prompt all show the same resolved files.
 	options = { ...options, files: resolveFiles(report.files, options.readFile) };
 	// A finding that is a known issue leaves the findings before anything counts them.
-	({ report, demoted: options.demoted } = withoutKnownDuplicates(report, options));
+	({ report, demoted: options.demoted } = options.shown ?? withoutKnownDuplicates(report, options));
 	const ki = kiOf(report, options);
 	options.ki = ki;
 	options.refs = refsOf(options, ki);
@@ -1611,8 +1622,10 @@ export function missingFiles(parsed, fileExists) {
  */
 export async function writeRunPage(out, report, options) {
 	const { base } = options;
-	const ogImage = /^https?:\/\//.test(base ?? '') && await writeCard(join(dirname(out), CARD_FILE), withoutKnownDuplicates(report, options).report.severityCounts)
+	// Worked out once, for the card and the page.
+	const shown = options.shown ?? withoutKnownDuplicates(report, options);
+	const ogImage = /^https?:\/\//.test(base ?? '') && await writeCard(join(dirname(out), CARD_FILE), shown.report.severityCounts)
 		? `${base.replace(/\/$/, '')}/${CARD_FILE}`
 		: undefined;
-	writeFileSync(out, renderReportHtml(report, { ...options, ogImage }));
+	writeFileSync(out, renderReportHtml(report, { ...options, shown, ogImage }));
 }

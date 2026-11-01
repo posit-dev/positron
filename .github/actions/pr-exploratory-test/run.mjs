@@ -307,16 +307,11 @@ async function main() {
 			return run.issueRefs;
 		});
 		// The findings the page lists as known issues, which the stats, the step summary and the PR comment leave out too.
-		let shown = { report: parsed, demoted: [] };
-		try {
-			shown = withoutKnownDuplicates(parsed, { ...run, startedAt: STARTED_AT });
-		} catch (err) {
-			console.error(`[report] WARN: could not tell which findings are known issues, so all are counted: ${err}`);
-		}
+		const shown = withoutKnownDuplicates(parsed, { ...run, startedAt: STARTED_AT });
 		recordStats(shown.report, shown.demoted);
 		// index.html is what the published run directory's URL already points at.
 		try {
-			await writeRunPage(join(WORK_DIR, 'index.html'), parsed, { ...run, skillVersion: skillVersion(), agentPrompts: AGENT_PROMPTS, base: REPORT_BASE_URL || WORK_DIR, diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`, startedAt: STARTED_AT });
+			await writeRunPage(join(WORK_DIR, 'index.html'), parsed, { ...run, shown, skillVersion: skillVersion(), agentPrompts: AGENT_PROMPTS, base: REPORT_BASE_URL || WORK_DIR, diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`, startedAt: STARTED_AT });
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const { logs, files } = missingFiles(parsed, run.fileExists);
 			const missing = [...logs, ...files];

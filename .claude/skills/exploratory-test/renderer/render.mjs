@@ -131,6 +131,7 @@ await writeRunPage(out, parsed, {
 	issueRefs,
 	changeBase,
 	mainBuild,
+	shown,
 });
 console.log(out);
 
