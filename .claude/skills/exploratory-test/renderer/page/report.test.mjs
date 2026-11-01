@@ -1639,7 +1639,7 @@ const DUPES = rep({
 	verification: { failed: false, text: 'x', origin: { 1: 'inherited', 2: 'introduced', 4: 'inherited', 5: 'inherited', 6: 'inherited' }, originReason: { 3: { reason: 'not replayed', detail: '' } } },
 });
 const DUPE_LEDGER = ledgerOf([['S01', 'filter the grid', 'fail (finding 1)', 'blank'], ['S02', 'open the grid', 'fail (finding 2)', 'x'], ['S03', 'by design', 'fail (finding 5)', 'x']]);
-const dupes = (json = DUPES) => grouped(json, { ledger: DUPE_LEDGER, issueRefs: DUPE_REFS });
+const dupes = (json = DUPES, options = {}) => grouped(json, { ledger: DUPE_LEDGER, issueRefs: DUPE_REFS, ...options });
 const knownList = html => between(html, 'id="ki-list-obs"', '</div></div>\n') || between(html, 'id="ki-list-obs"', '<section');
 
 test('a confirmed duplicate of an open issue that also fails on the latest build leaves the findings, renumbered with no gaps', () => {
@@ -1689,6 +1689,37 @@ test('a demoted finding is listed under known issues, worst first, in two lines,
 test('a linked issue the run saw has the same two lines, with its rated severity and linked to the change', () => {
 	const list = knownList(render(KI_REPORT, { ledger: KI_LEDGER, knownIssues: KI_ISSUES }));
 	assert.match(list, /#23<\/a><span>major one<span class="ki-lc-m"><span class="ki-sev ki-sev-major" aria-hidden="true"><\/span>Major &middot; Open &middot; linked to branch &middot; <a class="ki-ev" href="#cv-row-\d+">View evidence<\/a><\/span><\/span><\/div>/);
+});
+
+const STEPS_LEDGER = `## S01 - filter the grid
+Status: fail (finding 1)
+Result: Fails 2/2
+Steps:
+1. Open the grid.
+2. VERIFY the grid shows rows -> FAIL - Finding 1
+   Observed: The grid is blank
+
+## S02 - open the grid
+Status: fail (finding 2)
+Result: x
+Steps:
+1. Open it.
+2. VERIFY rows -> FAIL - Finding 2
+`;
+
+test('a failing coverage row with no finding left opens on its steps, as a passing row does, without the rate', () => {
+	const html = dupes(DUPES, { ledger: STEPS_LEDGER });
+	const row = /<details class="cv cf-r cf-i" id="(cv-row-\d+)"><summary class="row coverage-grid">([\s\S]*?)<\/summary><div class="cv-steps">([\s\S]*?)<\/div><\/details>/.exec(html);
+	assert.ok(row, 'the known issue row is a details');
+	assert.match(row[2], /<span>filter the grid<\/span>[\s\S]*<span class="cov-result">Known issue <a class="ki-num"[^>]*>#501<\/a><\/span>/);
+	assert.doesNotMatch(row[2], /Fails 2\/2/);
+	assert.match(row[3], /<ol class="steps">[\s\S]*Open the grid\.[\s\S]*Verify the grid shows rows<\/span><span class="st-rs st-fail">FAIL/);
+	// Its evidence link in the known issues list is the row's id.
+	assert.ok(knownList(html).includes(`<a class="ki-ev" href="#${row[1]}">View evidence</a>`));
+	// A row that still links to a finding does not expand: its steps are on the card.
+	assert.match(html, /<div class="row coverage-grid cf-r cf-i" id="cv-row-\d+"><span class="cov-scenario">[^\n]*<span>open the grid<\/span>[^\n]*<a href="#f1" class="cv-f">Finding 1<\/a>/);
+	// Following a link to a closed row opens it.
+	assert.match(html, /function openRow\(\)\{var d=location\.hash&&document\.getElementById\(location\.hash\.slice\(1\)\);if\(d&&d\.tagName==='DETAILS'&&d\.classList\.contains\('cv'\)\)\{d\.open=true;\}\}window\.addEventListener\('hashchange',openRow\);openRow\(\);/);
 });
 
 // A run on main: no comparison, so no groups, but a confirmed duplicate is still a known issue.

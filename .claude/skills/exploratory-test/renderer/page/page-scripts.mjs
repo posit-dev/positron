@@ -45,6 +45,8 @@ window.addEventListener('scroll',sync,{passive:true});sync();}
 function openRun(){var d=document.getElementById('run-details');if(d){d.open=true;}}
 document.querySelectorAll('a[href="#run-details"]').forEach(function(a){a.addEventListener('click',openRun);});
 window.addEventListener('hashchange',function(){if(location.hash==='#run-details'){openRun();}});
+// A link to a Coverage row, such as a known issue's evidence, opens it.
+function openRow(){var d=location.hash&&document.getElementById(location.hash.slice(1));if(d&&d.tagName==='DETAILS'&&d.classList.contains('cv')){d.open=true;}}window.addEventListener('hashchange',openRow);openRow();
 if(location.hash==='#run-details'){openRun();}
 // A step's screenshot preview is fixed to the window: centred on its icon,
 // 12px inside the edges, above it when there is room, else below.

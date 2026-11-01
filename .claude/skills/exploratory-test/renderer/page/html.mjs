@@ -1161,9 +1161,9 @@ function renderCoverage(report, options = {}) {
 
 	// A passing row's screenshot hangs off the verify step it proves rather than
 	// a column. A row's shots are one lightbox group.
-	const photo = (row, i, shot) => {
+	const photo = (row, group, shot) => {
 		const name = row.scenario;
-		return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="${escapeHtml(shot.href)}" data-lb="cv-${i}"`
+		return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="${escapeHtml(shot.href)}" data-lb="${group}"`
 			+ ` data-caption="${escapeHtml(name)}" data-file="${escapeHtml(shot.file)}"`
 			+ ` aria-label="Screenshot for this step: ${escapeHtml(name)}">${evPop(shot.href, options.readFile)}${ICON.photo}</a>`;
 	};
@@ -1193,34 +1193,38 @@ function renderCoverage(report, options = {}) {
 			+ `<span class="pre-pop" role="tooltip"><span class="pre-t">Preconditions</span>${items}</span></p>`;
 	};
 
+	// A row's preconditions and steps, each verify step with its screenshots, or '' for none.
+	const stepsOf = (row, group) => preconditions(row) + (row.steps.length
+		? copyableCode(`<ol class="steps">${row.steps.map(st => renderStep(st, { tail: st.evidence.map(e => photo(row, group, e)).join('') })).join('\n')}</ol>`)
+		: '');
+	// A row that opens on its steps, or a plain row when it has none.
+	const expandable = (row, cls, cells, body) => (body
+		? `<details class="cv ${cls}" id="${rowId.get(row)}"><summary class="row coverage-grid">${cells}`
+			+ `<span class="cv-chev-cell">${ICON.disclose('cv-chev')}</span></summary>`
+			+ `<div class="cv-steps">${body}</div></details>`
+		: `<div class="row coverage-grid ${cls}" id="${rowId.get(row)}">${cells}<span></span></div>`);
+
 	// The finding link leads: it is where a reader goes next. A finding row does
 	// not expand: its steps are on the card it links to. It only maps the
-	// scenario to its findings; the card has the bug and its rate.
-	const issueRows = issues.map(row => {
+	// scenario to its findings; the card has the bug and its rate. A row whose
+	// finding was a known issue has no card, so it opens on its steps instead,
+	// and the issue stands in for the rate.
+	const issueRows = issues.map((row, i) => {
 		// Every finding the row hit, not just its first: a step can fail on another.
 		const ns = [...new Set([row.finding, ...(row.findings ?? []), ...(row.steps ?? []).map(st => st.finding)].filter(Boolean).map(Number))].sort((a, b) => a - b);
-		const links = ns.map(n => `<a href="#f${n}" class="cv-f">Finding ${n}</a>`);
-		const html = ns.length ? [...links, ...kiTags(row)].join(' &middot; ') : result(row);
-		return `<div class="row coverage-grid cf-r cf-i" id="${rowId.get(row)}">`
-			+ scenario(row, 'issue')
-			+ `<span class="cov-result">${html}</span>`
-			+ '<span></span></div>';
+		if (ns.length) {
+			const links = ns.map(n => `<a href="#f${n}" class="cv-f">Finding ${n}</a>`);
+			return expandable(row, 'cf-r cf-i', scenario(row, 'issue') + `<span class="cov-result">${[...links, ...kiTags(row)].join(' &middot; ')}</span>`, '');
+		}
+		const known = (row.issues ?? []).some(x => x.kind === 'known');
+		const cells = scenario(row, 'issue') + `<span class="cov-result">${known ? kiTags(row).join(' &middot; ') : result(row)}</span>`;
+		return expandable(row, 'cf-r cf-i', cells, stepsOf(row, `cvi-${i}`));
 	});
 
 	// A passing row opens on its preconditions and the steps that exercised it.
 	const passRows = passes.map((row, i) => {
 		const cls = `cf-r cf-p${i < COVERAGE_PASSES_SHOWN ? '' : ' cov-extra'}`;
-		const cells = scenario(row, 'pass') + `<span class="cov-result">${result(row)}</span>`;
-		const steps = row.steps.length
-			? copyableCode(`<ol class="steps">${row.steps.map(st => renderStep(st, { tail: st.evidence.map(e => photo(row, i, e)).join('') })).join('\n')}</ol>`)
-			: '';
-		const body = preconditions(row) + steps;
-		if (body) {
-			return `<details class="cv ${cls}" id="${rowId.get(row)}"><summary class="row coverage-grid">${cells}`
-				+ `<span class="cv-chev-cell">${ICON.disclose('cv-chev')}</span></summary>`
-				+ `<div class="cv-steps">${body}</div></details>`;
-		}
-		return `<div class="row coverage-grid ${cls}" id="${rowId.get(row)}">${cells}<span></span></div>`;
+		return expandable(row, cls, scenario(row, 'pass') + `<span class="cov-result">${result(row)}</span>`, stepsOf(row, `cv-${i}`));
 	});
 
 	// Not run has no result, so its dot is neutral and its reason takes the
