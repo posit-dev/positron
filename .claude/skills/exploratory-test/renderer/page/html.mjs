@@ -553,8 +553,13 @@ ${body}
 }
 
 /** The linked-issue counts above zero, fix verified first, each opening its list. */
+/** The linked issues the run did not reach. One a demoted finding matched was reached: it is observed. */
+const notObservedOf = (ki, demoted) => (ki?.notObserved ?? []).filter(i => !demoted.some(d => d.issue.number === i.number));
+
 function kiCounts(ki, demoted, label) {
-	const n = { fix: ki?.fixesHeld?.length ?? 0, part: ki?.fixesPartly?.length ?? 0, obs: (ki?.observed?.length ?? 0) + demoted.length, no: ki?.notObserved?.length ?? 0 };
+	// An issue several findings matched, or linked and matched, counts once.
+	const obs = new Set([...(ki?.observed ?? []).map(o => o.issue.number), ...demoted.map(d => d.issue.number)]).size;
+	const n = { fix: ki?.fixesHeld?.length ?? 0, part: ki?.fixesPartly?.length ?? 0, obs, no: notObservedOf(ki, demoted).length };
 	return ['fix', 'part', 'obs', 'no'].filter(k => n[k] && label[k]).map(k => kiCnt(`ki-list-${k}`, label[k](n[k])));
 }
 
@@ -569,7 +574,8 @@ function renderLinkedIssues(report, ki, noFindings = false, demoted = []) {
 	const observed = ki?.observed ?? [];
 	const held = ki?.fixesHeld ?? [];
 	const partly = ki?.fixesPartly ?? [];
-	const unseen = ki?.notObserved ?? [];
+	const unseen = notObservedOf(ki, demoted);
+	const linkedNumbers = new Set((ki?.notObserved ?? []).map(i => i.number));
 	if (!observed.length && !held.length && !partly.length && !unseen.length && !demoted.length) {
 		return '';
 	}
@@ -590,15 +596,35 @@ function renderLinkedIssues(report, ki, noFindings = false, demoted = []) {
 		return `<div class="ki-lc-it"><a class="ki-lc-n" href="${REPO_URL}/issues/${Number(issue.number)}" target="_blank" rel="noopener">#${Number(issue.number)}</a>`
 			+ `<span>${escapeHtml(issue.title)}<span class="ki-lc-m">${meta}</span></span></div>`;
 	};
-	const matched = why => '<span class="og ki-src" tabindex="0">matched a finding<span class="og-tip" role="tooltip">'
-		+ `<b>Same bug as a finding</b><span>${escapeHtml(why)}</span></span></span>`;
-	const known = [
-		...observed.map(o => {
-			const severity = report.verification?.linked?.get(o.issue.number);
-			return { severity, number: o.issue.number, html: observedItem(o.issue, severity, kiState(o.issue), `linked to ${changeWord(report)}`, o.rows) };
-		}),
-		...demoted.map(d => ({ severity: d.f.severity, number: d.issue.number, html: observedItem(d.issue, d.f.severity, d.wontFix ? 'Won&rsquo;t fix' : kiState(d.issue), matched(d.why), d.rows) })),
-	].sort((a, b) => (SEVERITY_RANK[a.severity] ?? 3) - (SEVERITY_RANK[b.severity] ?? 3) || a.number - b.number).map(k => k.html);
+	const matched = ds => {
+		const what = ds.length === 1 ? 'a finding' : `${ds.length} findings`;
+		return `<span class="og ki-src" tabindex="0">matched ${what}<span class="og-tip" role="tooltip">`
+			+ `<b>Same bug as ${what}</b>${ds.map(d => `<span>${escapeHtml(d.why)}</span>`).join('')}</span></span>`;
+	};
+	// One entry per issue: linked, matched by findings, or both. Demoted
+	// findings come worst first, so the worst one's reason and evidence lead.
+	const rank = severity => SEVERITY_RANK[severity] ?? 3;
+	const byIssue = new Map();
+	const entry = issue => byIssue.get(issue.number) ?? byIssue.set(issue.number, { issue, severity: undefined, linked: false, matches: [], rows: [], wontFix: false }).get(issue.number);
+	const worse = (a, b) => (rank(b) < rank(a) ? b : a);
+	for (const o of observed) {
+		const e = entry(o.issue);
+		e.linked = true;
+		e.severity = worse(e.severity, report.verification?.linked?.get(o.issue.number));
+		e.rows.push(...o.rows);
+	}
+	for (const d of demoted) {
+		const e = entry(d.issue);
+		e.linked ||= linkedNumbers.has(d.issue.number);
+		e.matches.push(d);
+		e.severity = worse(e.severity, d.f.severity);
+		e.rows.push(...d.rows);
+		e.wontFix ||= d.wontFix;
+	}
+	const known = [...byIssue.values()]
+		.sort((a, b) => rank(a.severity) - rank(b.severity) || a.issue.number - b.issue.number)
+		.map(e => observedItem(e.issue, e.severity, e.wontFix ? 'Won&rsquo;t fix' : kiState(e.issue),
+			[e.linked && `linked to ${changeWord(report)}`, e.matches.length && matched(e.matches)].filter(Boolean).join(' &middot; '), e.rows));
 	const lists = list('ki-list-obs', 'Known issues observed this run', known)
 		+ list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in ${quote(h.rows[0])}`)))
 		+ list('ki-list-part', 'Partly fixed this run', partly.map(p => item(p.issue, `passed in ${quote(p.held[0])}, failed in ${quote(p.failed[0])}`)))
@@ -1352,8 +1378,13 @@ export function withoutKnownDuplicates(report, options = {}) {
 	const ki = kiOf(report, options);
 	const refs = refsOf(options, ki);
 	const demoted = [];
+	// A run of main itself has no comparison, so no groups, but every bug it finds is on main.
+	const base = options.changeBase;
+	const onMain = base?.usable === false && Boolean(base.name) && report.chips?.[0] === base.name;
 	for (const f of report.findings) {
-		if (groupOf(report, f, options.changeBase, ki) !== 'ex' || ki?.fixFailed.has(f.n) || ki?.cameBack.has(f.n)) {
+		const group = groupOf(report, f, base, ki);
+		const onLatest = group === 'ex' || (group === null && onMain && statusWord(f) === 'confirmed');
+		if (!onLatest || ki?.fixFailed.has(f.n) || ki?.cameBack.has(f.n)) {
 			continue;
 		}
 		const matches = (f.dupes ?? []).map(d => ({ issue: refs.byNumber.get(d.issue), why: d.why }))
@@ -1381,7 +1412,7 @@ export function withoutKnownDuplicates(report, options = {}) {
 			finding: row.finding ? renumber(row.finding) : row.finding,
 			findings: (row.findings ?? []).map(renumber).filter(Boolean),
 			steps: (row.steps ?? []).map(step),
-			issues: [...(row.issues ?? []), ...cited.map(n => ({ n: gone.get(n).issue.number, kind: 'known' }))],
+			issues: [...(row.issues ?? []), ...[...new Set(cited.map(n => gone.get(n).issue.number))].map(n => ({ n, kind: 'known' }))],
 		};
 		cited.forEach(n => gone.get(n).rows.push(out));
 		return out;

@@ -1691,6 +1691,75 @@ test('a linked issue the run saw has the same two lines, with its rated severity
 	assert.match(list, /#23<\/a><span>major one<span class="ki-lc-m"><span class="ki-sev ki-sev-major" aria-hidden="true"><\/span>Major &middot; Open &middot; linked to branch &middot; <a class="ki-ev" href="#cv-row-\d+">View evidence<\/a><\/span><\/span><\/div>/);
 });
 
+// A run on main: no comparison, so no groups, but a confirmed duplicate is still a known issue.
+const ON_MAIN = { usable: false, name: 'main' };
+const MAIN_RUN = rep({
+	header: { ...HEADER, branch: 'main' },
+	findings: [
+		fnd(1, { ...fails(twoSteps(2, 2)), severity: 'moderate', known: [501], ...dupe(501, 'the same blank grid') }),
+		fnd(2, { ...fails(twoSteps(2, 2)), known: [502], ...dupe(502) }),
+		fnd(3, { verified: 'disputed', known: [501], ...dupe(501) }),
+		fnd(4, { ...fails(twoSteps(2, 2)), known: [501] }),
+		fnd(5, { ...fails(twoSteps(2, 2)), known: [503], intended: [503], ...dupe(503, 'closed as by design') }),
+	],
+	verification: { failed: false, text: 'x', origin: {}, originReason: {} },
+});
+const onMain = (json = MAIN_RUN, base = ON_MAIN) => render(json, { ledger: DUPE_LEDGER, issueRefs: DUPE_REFS, changeBase: base, mainBuild: MAIN_BUILD });
+
+test('on a run of main, a confirmed duplicate of an open or won\'t-fix issue is a known issue too, with no groups shown', () => {
+	const { report, demoted } = withoutKnownDuplicates(reportFromJson(MAIN_RUN, { ledger: DUPE_LEDGER }), { changeBase: ON_MAIN, issueRefs: DUPE_REFS });
+	assert.deepEqual(demoted.map(d => [d.f.n, d.issue.number]), [[1, 501], [5, 503]]);
+	// A closed fixed issue came back, a disputed finding is not confirmed, and a loose match is not a duplicate.
+	assert.equal(report.findingCount, 3);
+	const html = onMain();
+	assert.doesNotMatch(between(html, 'id="findings"', '</section>'), /data-og=|class="cf-tabs"/);
+	assert.match(html, /<span class="ki-sum">[^\n]*2 observed/);
+	assert.match(findingRow(html, 1), /Regressed/);
+	// A branch run whose change base is unusable is not a run on main: nothing is demoted.
+	const branch = rep({ ...MAIN_RUN, header: { ...HEADER, branch: 'feature/x' } });
+	assert.equal(withoutKnownDuplicates(reportFromJson(branch, { ledger: DUPE_LEDGER }), { changeBase: ON_MAIN, issueRefs: DUPE_REFS }).demoted.length, 0);
+	assert.equal(withoutKnownDuplicates(reportFromJson(MAIN_RUN, { ledger: DUPE_LEDGER }), { changeBase: undefined, issueRefs: DUPE_REFS }).demoted.length, 0);
+});
+
+// Three findings that are the same bug as one issue, one of them also linked.
+const SAME_ISSUE = rep({
+	findings: [
+		fnd(1, { ...fails(twoSteps(0, 2)), severity: 'minor', known: [501], ...dupe(501, 'first reason'), steps: [act('Open the grid.'), fail('Verify the grid shows rows', 1)] }),
+		fnd(2, { ...fails(twoSteps(0, 2)), severity: 'major', known: [501], ...dupe(501, 'second reason'), steps: [act('Open it.'), fail('Verify rows', 2)] }),
+		fnd(3, { ...fails(twoSteps(0, 2)), severity: 'moderate', known: [501], ...dupe(501, 'third reason') }),
+		fnd(4, { ...fails(twoSteps(0, 0)) }),
+	],
+	verification: { failed: false, text: 'x', origin: { 1: 'inherited', 2: 'inherited', 3: 'inherited', 4: 'introduced' }, originReason: {} },
+});
+const SAME_LEDGER = ledgerOf([['S01', 'filter the grid', 'fail (finding 1)', 'blank'], ['S02', 'open the grid', 'fail (finding 2)', 'x']]);
+
+test('an issue several findings duplicate is listed and counted once, with every reason in its tooltip', () => {
+	const html = grouped(SAME_ISSUE, { ledger: SAME_LEDGER, issueRefs: DUPE_REFS });
+	assert.match(html, /<span class="ki-sum">[^\n]*1 observed/);
+	const list = knownList(html);
+	assert.equal(list.match(/#501<\/a>/g)?.length, 1, list);
+	const source = '<span class="og ki-src" tabindex="0">matched 3 findings<span class="og-tip" role="tooltip"><b>Same bug as 3 findings</b><span>second reason</span><span>third reason</span><span>first reason</span></span></span>';
+	// The worst severity, and the evidence of the worst finding.
+	assert.ok(list.includes(`<span class="ki-sev ki-sev-major" aria-hidden="true"></span>Major &middot; Open &middot; ${source} &middot; <a class="ki-ev" href="#cv-row-`), list);
+	assert.equal(between(html, '<span>open the grid</span>', '</div>').match(/#501/g)?.length, 1);
+	// One coverage row citing two of them names the issue once.
+	const twice = rep({ ...SAME_ISSUE, findings: SAME_ISSUE.findings.map(f => (f.n === 2 ? { ...f, steps: [act('Open it.'), fail('Verify rows', 1)] } : f)) });
+	const one = withoutKnownDuplicates(reportFromJson(twice, { ledger: ledgerOf([['S01', 'filter the grid', 'fail (findings 1, 2)', 'blank']]) }), { changeBase: USABLE, issueRefs: DUPE_REFS });
+	assert.deepEqual(one.report.coverage.exercised.flatMap(r => r.issues ?? []).map(i => i.n), [501]);
+});
+
+test('a linked issue a finding matched is listed once as observed, with both sources, and not as not observed', () => {
+	const linked = { repo: 'posit-dev/positron', pr: 9, fetchedAt: '', issues: [{ number: 501, url: '', relation: 'linked', title: 'Grid goes blank after a filter', state: 'open', createdAt: '', summary: '' }] };
+	const json = { ...SAME_ISSUE, findings: SAME_ISSUE.findings.filter(f => f.n !== 3 && f.n !== 2) };
+	const html = grouped(json, { ledger: ledgerOf([['S01', 'filter the grid', 'fail (finding 1)', 'blank']]), issueRefs: DUPE_REFS, knownIssues: linked });
+	assert.match(html, /<span class="ki-sum">[^\n]*1 observed/);
+	const list = knownList(html);
+	assert.equal(list.match(/#501<\/a>/g)?.length, 1, list);
+	assert.match(list, /Minor &middot; Open &middot; linked to branch &middot; <span class="og ki-src" tabindex="0">matched a finding</);
+	// The finding shows the run reached it, so it is not also listed as not observed.
+	assert.doesNotMatch(html, /id="ki-list-no"|not observed/);
+});
+
 test('a coverage row whose finding was demoted names the known issue instead', () => {
 	const html = dupes();
 	const row = between(html, '<span>filter the grid</span>', '</div>');
