@@ -1729,6 +1729,50 @@ test('a known issues list taller than the window scrolls, and a shorter one keep
 	assert.match(html, /function place\(a\)\{pop\.classList\.remove\('ki-lc-scroll'\);var r=a\.getBoundingClientRect\(\),w=pop\.offsetWidth,h=pop\.offsetHeight,m=12;\nif\(h>window\.innerHeight-2\*m\)\{pop\.classList\.add\('ki-lc-scroll'\);h=pop\.offsetHeight;\}/);
 });
 
+test('an issue closed as a duplicate is still open under another number: never Regressed, and a confirmed match is a known issue', () => {
+	const refs = [...DUPE_REFS, { number: 505, kind: 'issue', state: 'closed', stateReason: 'duplicate', title: 'Grid blank again', createdAt: '2026-02-02T00:00:00Z', summary: '' }];
+	const json = rep({
+		findings: [
+			fnd(1, { ...fails(twoSteps(0, 2)), severity: 'moderate', known: [505], ...dupe(505, 'the same blank grid') }),
+			fnd(2, { ...fails(twoSteps(0, 0)), known: [505], ...dupe(505) }),
+		],
+		verification: { failed: false, text: 'x', origin: { 1: 'inherited', 2: 'introduced' }, originReason: {} },
+	});
+	const { demoted } = withoutKnownDuplicates(reportFromJson(json, { ledger: DUPE_LEDGER }), { changeBase: USABLE, issueRefs: refs });
+	assert.deepEqual(demoted.map(d => [d.f.n, d.issue.number]), [[1, 505]]);
+	const html = grouped(json, { ledger: DUPE_LEDGER, issueRefs: refs });
+	assert.match(knownList(html), /#505<\/a><span>Grid blank again<span class="ki-lc-m"><span class="ki-sev ki-sev-moderate" aria-hidden="true"><\/span>Moderate &middot; Duplicate &middot; /);
+	// Only in branch: not Regressed, just a possible match.
+	assert.doesNotMatch(findingRow(html, 1), /Regressed/);
+	assert.match(findingRow(html, 1), /Similar\?/);
+	assert.doesNotMatch(card(html, 1), /Regressed/);
+});
+
+test('a scenario that hit a known issue and a new bug links the finding and still opens on its steps', () => {
+	const json = rep({
+		findings: [
+			fnd(1, { ...fails(twoSteps(0, 2)), severity: 'moderate', known: [501], ...dupe(501, 'the same blank grid'), steps: [act('Open the grid.'), fail('Verify the grid shows rows', 1)] }),
+			fnd(2, { ...fails(twoSteps(0, 0)), steps: [act('Sort.'), fail('Verify the arrow', 2)] }),
+		],
+		verification: { failed: false, text: 'x', origin: { 1: 'inherited', 2: 'introduced' }, originReason: {} },
+	});
+	const ledger = `## S01 - filter then sort the grid
+Status: fail (finding 1, finding 2)
+Result: x
+Steps:
+1. Open the grid.
+2. VERIFY the grid shows rows -> FAIL - Finding 1
+3. Sort.
+4. VERIFY the arrow -> FAIL - Finding 2
+`;
+	const html = grouped(json, { ledger, issueRefs: DUPE_REFS });
+	const row = /<details class="cv cf-r cf-i" id="(cv-row-\d+)"><summary class="row coverage-grid">([\s\S]*?)<\/summary><div class="cv-steps">([\s\S]*?)<\/div><\/details>/.exec(html);
+	assert.ok(row, 'the row opens');
+	assert.match(row[2], /<a href="#f1" class="cv-f">Finding 1<\/a> &middot; Known issue <a class="ki-num"[^>]*>#501<\/a>/);
+	assert.match(row[3], /Verify the grid shows rows[\s\S]*Verify the arrow/);
+	assert.ok(knownList(html).includes(`<a class="ki-ev" href="#${row[1]}">View evidence</a>`));
+});
+
 // A run on main: no comparison, so no groups, but a confirmed duplicate is still a known issue.
 const ON_MAIN = { usable: false, name: 'main' };
 const MAIN_RUN = rep({
@@ -1892,3 +1936,4 @@ test('on touch, a linked number\'s card says to tap again to open it on GitHub',
 	});
 	assert.equal(linked['ki-card-f'], 'Tap again to open on GitHub');
 });
+

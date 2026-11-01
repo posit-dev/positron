@@ -229,7 +229,8 @@ function regressedOf(f, refs) {
 	}
 	return (f.dupes ?? []).map(d => d.issue).filter(n => {
 		const issue = refs?.byNumber.get(n);
-		return issue && issue.kind !== 'pr' && issue.state === 'closed' && issue.stateReason !== 'not_planned' && !f.intended.includes(n);
+		// Closed as a duplicate is still open under another number, so it did not come back.
+		return issue && issue.kind !== 'pr' && issue.state === 'closed' && !['not_planned', 'duplicate'].includes(issue.stateReason) && !f.intended.includes(n);
 	});
 }
 
@@ -605,7 +606,7 @@ function renderLinkedIssues(report, ki, noFindings = false, demoted = []) {
 	// findings come worst first, so the worst one's reason and evidence lead.
 	const rank = severity => SEVERITY_RANK[severity] ?? 3;
 	const byIssue = new Map();
-	const entry = issue => byIssue.get(issue.number) ?? byIssue.set(issue.number, { issue, severity: undefined, linked: false, matches: [], rows: [], wontFix: false }).get(issue.number);
+	const entry = issue => byIssue.get(issue.number) ?? byIssue.set(issue.number, { issue, severity: undefined, linked: false, matches: [], rows: [], wontFix: false, duplicate: false }).get(issue.number);
 	const worse = (a, b) => (rank(b) < rank(a) ? b : a);
 	for (const o of observed) {
 		const e = entry(o.issue);
@@ -620,10 +621,11 @@ function renderLinkedIssues(report, ki, noFindings = false, demoted = []) {
 		e.severity = worse(e.severity, d.f.severity);
 		e.rows.push(...d.rows);
 		e.wontFix ||= d.wontFix;
+		e.duplicate ||= d.duplicate;
 	}
 	const known = [...byIssue.values()]
 		.sort((a, b) => rank(a.severity) - rank(b.severity) || a.issue.number - b.issue.number)
-		.map(e => observedItem(e.issue, e.severity, e.wontFix ? 'Won&rsquo;t fix' : kiState(e.issue),
+		.map(e => observedItem(e.issue, e.severity, e.wontFix ? 'Won&rsquo;t fix' : e.duplicate ? 'Duplicate' : kiState(e.issue),
 			[e.linked && `linked to ${changeWord(report)}`, e.matches.length && matched(e.matches)].filter(Boolean).join(' &middot; '), e.rows));
 	const lists = list('ki-list-obs', 'Known issues observed this run', known)
 		+ list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in ${quote(h.rows[0])}`)))
@@ -1206,19 +1208,17 @@ function renderCoverage(report, options = {}) {
 
 	// The finding link leads: it is where a reader goes next. A finding row does
 	// not expand: its steps are on the card it links to. It only maps the
-	// scenario to its findings; the card has the bug and its rate. A row whose
-	// finding was a known issue has no card, so it opens on its steps instead,
-	// and the issue stands in for the rate.
+	// scenario to its findings; the card has the bug and its rate. A known
+	// issue has no card, so a row that names one opens on its steps, as does a
+	// row with no finding at all, and the issue stands in for the rate.
 	const issueRows = issues.map((row, i) => {
 		// Every finding the row hit, not just its first: a step can fail on another.
 		const ns = [...new Set([row.finding, ...(row.findings ?? []), ...(row.steps ?? []).map(st => st.finding)].filter(Boolean).map(Number))].sort((a, b) => a - b);
-		if (ns.length) {
-			const links = ns.map(n => `<a href="#f${n}" class="cv-f">Finding ${n}</a>`);
-			return expandable(row, 'cf-r cf-i', scenario(row, 'issue') + `<span class="cov-result">${[...links, ...kiTags(row)].join(' &middot; ')}</span>`, '');
-		}
 		const known = (row.issues ?? []).some(x => x.kind === 'known');
-		const cells = scenario(row, 'issue') + `<span class="cov-result">${known ? kiTags(row).join(' &middot; ') : result(row)}</span>`;
-		return expandable(row, 'cf-r cf-i', cells, stepsOf(row, `cvi-${i}`));
+		const links = ns.map(n => `<a href="#f${n}" class="cv-f">Finding ${n}</a>`);
+		const html = ns.length || known ? [...links, ...kiTags(row)].join(' &middot; ') : result(row);
+		const cells = scenario(row, 'issue') + `<span class="cov-result">${html}</span>`;
+		return expandable(row, 'cf-r cf-i', cells, ns.length && !known ? '' : stepsOf(row, `cvi-${i}`));
 	});
 
 	// A passing row opens on its preconditions and the steps that exercised it.
@@ -1393,8 +1393,10 @@ export function withoutKnownDuplicates(report, options = {}) {
 		}
 		const matches = (f.dupes ?? []).map(d => ({ issue: refs.byNumber.get(d.issue), why: d.why }))
 			.filter(d => d.issue && d.issue.kind !== 'pr')
-			.map(d => ({ ...d, wontFix: d.issue.state === 'closed' && (f.intended.includes(d.issue.number) || d.issue.stateReason === 'not_planned') }));
-		const match = matches.find(d => d.issue.state === 'open') ?? matches.find(d => d.wontFix);
+			.map(d => ({ ...d, wontFix: d.issue.state === 'closed' && (f.intended.includes(d.issue.number) || d.issue.stateReason === 'not_planned'),
+				duplicate: d.issue.state === 'closed' && d.issue.stateReason === 'duplicate' }));
+		// An issue closed as a duplicate is still open under another number.
+		const match = matches.find(d => d.issue.state === 'open') ?? matches.find(d => d.duplicate) ?? matches.find(d => d.wontFix);
 		if (match) {
 			demoted.push({ f, ...match, rows: [] });
 		}
