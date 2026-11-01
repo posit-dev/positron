@@ -1676,3 +1676,52 @@ test('with a demoted finding, every footer count still opens its list, and only 
 	}
 	assert.ok(!html.includes('Grid blanks'), 'the demoted finding has no row or card');
 });
+
+// ---- The issue and PR preview card -------------------------------------------
+
+/** The preview card's parts, by class, after `act` drives the page's card script against a stub DOM. */
+function previewCard(act) {
+	const html = render(KI_REPORT, { ledger: KI_LEDGER, knownIssues: KI_ISSUES });
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes("card.id='ki-card'"));
+	assert.ok(src, 'the page has the preview card script');
+	const el = () => {
+		const node = { children: [], className: '', style: {}, classList: { add() {}, remove() {} }, setAttribute() {}, removeAttribute() {}, appendChild: c => { node.children.push(c); return c; } };
+		Object.defineProperty(node, 'textContent', { get: () => node.text ?? node.children.map(c => c.textContent).join(''), set: v => { node.text = v || null; node.children = []; } });
+		return node;
+	};
+	let card;
+	const handlers = {};
+	const document = {
+		createElement: () => (card ??= el(), card.children.length || card.id ? el() : card),
+		createTextNode: text => ({ textContent: text }),
+		body: { appendChild() {} },
+		addEventListener: (type, fn) => { handlers[type] = fn; },
+	};
+	const window = { innerWidth: 1280, addEventListener() {} };
+	new Function('document', 'window', src)(document, window);
+	const link = tag => ({ tagName: tag, textContent: '#5690', dataset: { state: 'open', title: 'A title', summary: 'From the body.', opened: 'Opened Aug 3' }, closest() { return this; }, matches: () => false, setAttribute() {}, removeAttribute() {}, getBoundingClientRect: () => ({ left: 0, top: 200, bottom: 216, width: 40 }) });
+	act({ handlers, link });
+	const parts = {};
+	const walk = node => { for (const c of node.children ?? []) { if (c.className) { parts[c.className.split(' ')[0]] = c.textContent; } walk(c); } };
+	walk(card);
+	return parts;
+}
+
+test('the preview card has no footer for mouse users, an arrow on a linked number, and an italic summary', () => {
+	const linked = previewCard(({ handlers, link }) => handlers.mouseover({ target: link('A') }));
+	assert.equal(linked['ki-n'], '#5690 ↗');
+	assert.equal(linked['ki-card-x'], 'From the body.');
+	assert.equal(linked['ki-card-f'], undefined);
+	const row = previewCard(({ handlers, link }) => handlers.mouseover({ target: link('SPAN') }));
+	assert.equal(row['ki-n'], '#5690');
+	assert.equal(row['ki-card-f'], undefined);
+	assert.match(REPORT_CSS, /\.ki-card-x\{[^}]*font-style:italic/);
+});
+
+test('on touch, a linked number\'s card says to tap again to open it on GitHub', () => {
+	const linked = previewCard(({ handlers, link }) => {
+		handlers.pointerdown({ pointerType: 'touch' });
+		handlers.click({ target: link('A'), preventDefault() {} });
+	});
+	assert.equal(linked['ki-card-f'], 'Tap again to open on GitHub');
+});

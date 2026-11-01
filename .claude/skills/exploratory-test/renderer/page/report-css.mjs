@@ -543,7 +543,7 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .ki-card-top .ki-n{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
 .ki-card-top .ki-d{margin-left:auto;color:var(--faint)}
 .ki-card-t{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.35}
-.ki-card-x{font-size:12.5px;color:var(--body);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ki-card-x{font-size:12.5px;font-style:italic;color:var(--body);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .ki-card-f{font-size:11.5px;color:var(--faint);border-top:1px solid var(--hairline);padding-top:7px;margin-top:2px}
 
 /* Finding cards */

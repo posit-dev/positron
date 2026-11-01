@@ -265,10 +265,10 @@ function find(t){return t&&t.closest?t.closest(SEL):null;}
 function build(a){var d=a.dataset,st=d.state==='merged'?'merged':d.state==='closed'?'closed':'open',pr=d.kind==='pr';card.textContent='';
 var top=el('div','ki-card-top'),s=el('span','ki-s '+(st==='open'?'is-open':'is-closed'));
 s.innerHTML=pr?ICON[st==='merged'?'merged':'pr']:ICON[st==='open'?'open':'closed'];s.appendChild(document.createTextNode(' '+(pr?'Pull request \\u00b7 ':'')+{open:'Open',closed:'Closed',merged:'Merged'}[st]));
-top.appendChild(s);top.appendChild(el('span','ki-n',a.textContent));if(d.opened){top.appendChild(el('span','ki-d',d.opened));}
+top.appendChild(s);top.appendChild(el('span','ki-n',a.textContent+(a.tagName==='A'?' \\u2197':'')));if(d.opened){top.appendChild(el('span','ki-d',d.opened));}
 card.appendChild(top);card.appendChild(el('div','ki-card-t',d.title||''));
 if(d.summary){card.appendChild(el('div','ki-card-x',d.summary));}
-card.appendChild(el('div','ki-card-f','From the '+(pr?'PR':'issue')+'\\u2019s description'+(a.tagName!=='A'?'':' \\u00b7 '+(pointer==='touch'?'tap again':'click')+' to open on GitHub')));}
+if(a.tagName==='A'&&pointer==='touch'){card.appendChild(el('div','ki-card-f','Tap again to open on GitHub'));}}
 function place(a){var r=a.getBoundingClientRect(),w=card.offsetWidth,h=card.offsetHeight,m=12;
 var left=Math.min(Math.max(m,r.left+r.width/2-w/2),window.innerWidth-w-m);
 var top=r.top-h-8;if(top<m){top=r.bottom+8;}card.style.left=left+'px';card.style.top=top+'px';}
