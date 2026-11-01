@@ -1604,9 +1604,10 @@ test('a duplicate leaves every count: the tiles and the link card count only wha
 
 test('Only in PR says Similar, Unknown keeps Dupe, and a closed fixed issue reads Regressed', () => {
 	const html = dupes();
-	assert.match(findingRow(html, 1), /Similar\?<span class="og-tip" aria-hidden="true" role="tooltip">Didn&rsquo;t reproduce on the latest build, so this is likely a different bug\.<\/span><\/span> <span class="ki-num-t"[^>]*>#501/);
+	const tip = '<span class="og-tip" aria-hidden="true" role="tooltip"><b>Similar?</b><span>Didn&rsquo;t reproduce on the latest build, so this is likely a different bug.</span></span>';
+	assert.ok(findingRow(html, 1).includes(`<span class="og ki-sim">Similar?${tip}</span> <span class="ki-num-t"`), findingRow(html, 1));
 	assert.doesNotMatch(findingRow(html, 1), /Dupe\?/);
-	assert.match(card(html, 1), /Similar\?/);
+	assert.match(card(html, 1), /<span class="og ki-sim ki-sim-c" tabindex="0">Similar\?<span class="og-tip" role="tooltip"><b>Similar\?<\/b><span>Didn&rsquo;t reproduce/);
 	assert.match(findingRow(html, 2), /Dupe\? <span class="ki-num-t"[^>]*>#501/);
 	assert.match(findingRow(html, 3), /Regressed<\/span><span class="ki-state"><span class="ki-num-t"[^>]*>#502/);
 	assert.doesNotMatch(findingRow(html, 3), /Dupe\?/);
@@ -1615,13 +1616,19 @@ test('Only in PR says Similar, Unknown keeps Dupe, and a closed fixed issue read
 	assert.match(findingRow(html, 4), /Dupe\?[\s\S]*Fix in PR\?/);
 });
 
-test('a demoted finding is listed under known issues, worst first, with its reason, evidence and a comment to copy', () => {
+test('a demoted finding is listed under known issues, worst first, in two lines, its reason a tooltip on its source', () => {
 	const list = knownList(dupes());
 	assert.ok(list.indexOf('#503') < list.indexOf('#501'), 'the major one first');
-	assert.match(list, /#503<\/a><span>Judged intended<span class="ki-lc-m">Closed &middot; won&rsquo;t fix &middot; matched a finding &middot; Major &middot; Same as #503: the same message, closed as by design &middot; seen in &ldquo;by design&rdquo; &middot; <a class="ki-ev" href="#cv-row-\d+">View evidence<\/a>/);
-	assert.match(list, /#501<\/a><span>Grid goes blank after a filter<span class="ki-lc-m">Open &middot; matched a finding &middot; Moderate &middot; Same as #501: the same blank grid after the same filter/);
-	const comment = /data-comment="([^"]*)"[^>]*>Copy comment/.exec(list.slice(list.indexOf('#501')))?.[1];
-	assert.equal(comment, 'Still reproduces on daily 2026.11.0-236.\n\nSteps:\n1. Open the grid.\n2. Verify the grid shows rows -&gt; FAIL');
+	const source = why => `<span class="og ki-src" tabindex="0">matched a finding<span class="og-tip" role="tooltip"><b>Same bug as a finding</b><span>${why}</span></span></span>`;
+	const entry = (state, severity, why) => `<span class="ki-lc-m"><span class="ki-sev ki-sev-${severity.toLowerCase()}" aria-hidden="true"></span>${severity} &middot; ${state} &middot; ${source(why)} &middot; <a class="ki-ev" href="#cv-row-`;
+	assert.ok(list.includes(`#503</a><span>Judged intended${entry('Won&rsquo;t fix', 'Major', 'the same message, closed as by design')}`), list);
+	assert.ok(list.includes(`#501</a><span>Grid goes blank after a filter${entry('Open', 'Moderate', 'the same blank grid after the same filter')}`), list);
+	assert.doesNotMatch(list, /ki-copy|Copy comment|seen in/);
+});
+
+test('a linked issue the run saw has the same two lines, with its rated severity and linked to the change', () => {
+	const list = knownList(render(KI_REPORT, { ledger: KI_LEDGER, knownIssues: KI_ISSUES }));
+	assert.match(list, /#23<\/a><span>major one<span class="ki-lc-m"><span class="ki-sev ki-sev-major" aria-hidden="true"><\/span>Major &middot; Open &middot; linked to branch &middot; <a class="ki-ev" href="#cv-row-\d+">View evidence<\/a><\/span><\/span><\/div>/);
 });
 
 test('a coverage row whose finding was demoted names the known issue instead', () => {
@@ -1643,18 +1650,9 @@ test('a duplicate stays a finding on a run with no replay on main', () => {
 	assert.match(findingRow(html, 1), /Dupe\?/);
 });
 
-test('Copy comment copies the comment from the known issues popover and says Copied', () => {
-	const html = dupes();
-	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('ki-copy'));
-	assert.ok(src, 'the page has the copy handler');
-	let click, copied;
-	const document = { addEventListener: (type, fn) => { if (type === 'click') { click = fn; } } };
-	const navigator = { clipboard: { writeText: t => { copied = t; return { then: ok => ok() }; } } };
-	new Function('document', 'navigator', 'window', 'setTimeout', 'clearTimeout', src)(document, navigator, { isSecureContext: true }, () => 0, () => {});
-	const button = { dataset: { comment: 'Still reproduces.' }, textContent: 'Copy comment' };
-	click({ target: { closest: sel => (sel === '.ki-copy' ? button : null) } });
-	assert.equal(copied, 'Still reproduces.');
-	assert.equal(button.textContent, 'Copied');
-	assert.match(REPORT_CSS, /\.ki-sim:hover \.og-tip\{/);
-	assert.match(REPORT_CSS, /button\.ki-copy\{/);
+test('the known issues popover is wider and lets the reason tooltip show in full', () => {
+	assert.match(REPORT_CSS, /\.ki-lc\{[^}]*width:420px;[^}]*max-height:none;[^}]*overflow:visible;/);
+	assert.match(REPORT_CSS, /\.ki-src \.og-tip\{left:0;right:auto;transform:none;width:280px;top:calc\(100% \+ 6px\);bottom:auto;white-space:normal\}/);
+	assert.match(REPORT_CSS, /\.ki-sev-minor\{background:var\(--minor-dot\)\}/);
+	assert.match(REPORT_CSS, /\.ki-src:focus-visible \.og-tip/);
 });

@@ -24,7 +24,7 @@ import { CARD_FILE, CARD_HEIGHT, CARD_WIDTH, writeCard } from './og-card.mjs';
 import { readKnownIssues } from '../agents/finish.mjs';
 import { issueLink, possiblyKnown, renderCopyButton, renderFeedbackRow, renderIssueBlock, renderIssueButton, renderLinkButton, renderPromptBlock } from './card-actions.mjs';
 import { capitalize, ICON, logFile, REPO_URL, SEVERITY_LABEL, statusWord } from './page-common.mjs';
-import { BOOT_SCRIPT, CODE_CHIP_SCRIPT, COPY_SCRIPT, FEEDBACK_SCRIPT, HEADER_ACTIONS, ISSUE_SCRIPT, KI_COPY_SCRIPT, KI_LIST_SCRIPT, KI_SCRIPT, LINK_SCRIPT, PAGE_SCRIPT } from './page-scripts.mjs';
+import { BOOT_SCRIPT, CODE_CHIP_SCRIPT, COPY_SCRIPT, FEEDBACK_SCRIPT, HEADER_ACTIONS, ISSUE_SCRIPT, KI_LIST_SCRIPT, KI_SCRIPT, LINK_SCRIPT, PAGE_SCRIPT } from './page-scripts.mjs';
 
 // The skill that writes these reports. A source link rather than a docs page,
 // because the skill is the documentation: it is the brief the agent followed,
@@ -197,7 +197,7 @@ function kiData(issue, refs) {
  * duplicate nor a fix, so it is left out; a number the run did not fetch
  * counts as an issue.
  */
-function matchesByKind(numbers, refs, group = null) {
+function matchesByKind(numbers, refs, group = null, onCard = false) {
 	const kind = n => {
 		const ref = refs?.byNumber.get(n);
 		return ref?.kind !== 'pr' ? 'issue' : ref.state === 'merged' ? 'merged' : ref.state === 'open' ? 'open' : null;
@@ -205,14 +205,19 @@ function matchesByKind(numbers, refs, group = null) {
 	return [
 		// It did not fail on the latest build, where the issue does: likely another bug.
 		group === 'pr'
-			? { numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `${SIMILAR} ${nums}`, noun: 'similar issues' }
+			? { numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `${similar(onCard)} ${nums}`, noun: 'similar issues' }
 			: { numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `Dupe? ${nums}`, noun: 'possible duplicates' },
 		{ numbers: numbers.filter(n => kind(n) === 'open'), label: nums => `Fix in PR? ${nums}`, noun: 'possible fixes' },
 		{ numbers: numbers.filter(n => kind(n) === 'merged'), label: nums => `Fixed in ${nums}?`, noun: 'possible fixes' },
 	].filter(m => m.numbers.length);
 }
 
-const SIMILAR = '<span class="ki-sim">Similar?<span class="og-tip" aria-hidden="true" role="tooltip">Didn&rsquo;t reproduce on the latest build, so this is likely a different bug.</span></span>';
+/**
+ * "Similar?" with why on hover. In a table row it is read as part of the row
+ * link, so its tooltip is hidden from screen readers; on a card it takes focus.
+ */
+const similar = onCard => `<span class="og ki-sim${onCard ? ' ki-sim-c" tabindex="0' : ''}">Similar?<span class="og-tip"${onCard ? '' : ' aria-hidden="true"'} role="tooltip">`
+	+ '<b>Similar?</b><span>Didn&rsquo;t reproduce on the latest build, so this is likely a different bug.</span></span></span>';
 
 /**
  * The issues a confirmed finding is the same bug as that were closed as
@@ -526,7 +531,7 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null, m
 	const head = rows.length
 		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${matchesHead}</div>\n`
 		: '';
-	const body = `${head}${[...(rows.length ? rows : [renderNoFindings(report, ki, demoted)]), renderLinkedIssues(report, ki, !rows.length, demoted, mainBuild)].filter(Boolean).join('\n')}`;
+	const body = `${head}${[...(rows.length ? rows : [renderNoFindings(report, ki, demoted)]), renderLinkedIssues(report, ki, !rows.length, demoted)].filter(Boolean).join('\n')}`;
 	if (!grouped) {
 		return `<section id="findings" class="section">
 <h2 class="section-label">Findings</h2>
@@ -563,7 +568,7 @@ function kiCounts(ki, demoted, label) {
  * are the linked ones the run saw and the findings that were known issues,
  * worst first.
  */
-function renderLinkedIssues(report, ki, noFindings = false, demoted = [], mainBuild = null) {
+function renderLinkedIssues(report, ki, noFindings = false, demoted = []) {
 	const observed = ki?.observed ?? [];
 	const held = ki?.fixesHeld ?? [];
 	const partly = ki?.fixesPartly ?? [];
@@ -578,18 +583,25 @@ function renderLinkedIssues(report, ki, noFindings = false, demoted = [], mainBu
 		+ `<span>${escapeHtml(issue.title)}<span class="ki-lc-m">${kiState(issue)} &middot; ${meta}</span></span></div>`;
 	const list = (id, heading, items) => items.length ? `<div class="ki-list" id="${id}" hidden><div class="ki-lc-h">${heading}</div>${items.join('')}</div>` : '';
 	const quote = row => `&ldquo;${row.scenarioHtml}&rdquo;`;
-	const seen = o => {
-		const [first, ...rest] = o.rows;
-		const names = rest.length ? `${o.rows.slice(0, -1).map(quote).join(', ')} and ${quote(rest.at(-1))}` : quote(first);
-		const ev = rowId.has(first) ? ` &middot; <a class="ki-ev" href="#${rowId.get(first)}">View evidence</a>` : '';
-		return `seen in ${names}${ev}`;
-	};
 	const skipped = ki?.skipped ?? new Set();
-	const rank = severity => SEVERITY_RANK[severity] ?? 3;
+	// The issues observed, linked ones and demoted findings alike: the
+	// severity, the state, where it came from, and the evidence.
+	const observedItem = (issue, severity, state, source, rows) => {
+		const sev = severity in SEVERITY_RANK ? `<span class="ki-sev ki-sev-${severity}" aria-hidden="true"></span>${severity[0].toUpperCase()}${severity.slice(1)}` : '';
+		const ev = rows.length && rowId.has(rows[0]) ? `<a class="ki-ev" href="#${rowId.get(rows[0])}">View evidence</a>` : '';
+		const meta = [sev, state, source, ev].filter(Boolean).join(' &middot; ');
+		return `<div class="ki-lc-it"><a class="ki-lc-n" href="${REPO_URL}/issues/${Number(issue.number)}" target="_blank" rel="noopener">#${Number(issue.number)}</a>`
+			+ `<span>${escapeHtml(issue.title)}<span class="ki-lc-m">${meta}</span></span></div>`;
+	};
+	const matched = why => '<span class="og ki-src" tabindex="0">matched a finding<span class="og-tip" role="tooltip">'
+		+ `<b>Same bug as a finding</b><span>${escapeHtml(why)}</span></span></span>`;
 	const known = [
-		...observed.map(o => ({ rank: rank(report.verification?.linked?.get(o.issue.number)), html: item(o.issue, `linked to ${changeWord(report)} &middot; ${seen(o)}`) })),
-		...demoted.map(d => ({ rank: rank(d.f.severity), html: item(d.issue, demotedMeta(d, seen, mainBuild)) })),
-	].sort((a, b) => a.rank - b.rank).map(k => k.html);
+		...observed.map(o => {
+			const severity = report.verification?.linked?.get(o.issue.number);
+			return { severity, number: o.issue.number, html: observedItem(o.issue, severity, kiState(o.issue), `linked to ${changeWord(report)}`, o.rows) };
+		}),
+		...demoted.map(d => ({ severity: d.f.severity, number: d.issue.number, html: observedItem(d.issue, d.f.severity, d.wontFix ? 'Won&rsquo;t fix' : kiState(d.issue), matched(d.why), d.rows) })),
+	].sort((a, b) => (SEVERITY_RANK[a.severity] ?? 3) - (SEVERITY_RANK[b.severity] ?? 3) || a.number - b.number).map(k => k.html);
 	const lists = list('ki-list-obs', 'Known issues observed this run', known)
 		+ list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in ${quote(h.rows[0])}`)))
 		+ list('ki-list-part', 'Partly fixed this run', partly.map(p => item(p.issue, `passed in ${quote(p.held[0])}, failed in ${quote(p.failed[0])}`)))
@@ -602,27 +614,6 @@ function renderLinkedIssues(report, ki, noFindings = false, demoted = [], mainBu
 }
 
 const kiState = issue => issue.state === 'closed' ? 'Closed' : 'Open';
-
-/**
- * A demoted finding's line in the known issues list, after the issue's state: where
- * it came from, the finding's severity, why it is the same bug, where the run
- * saw it, and a comment to post on the issue.
- */
-function demotedMeta(d, seen, mainBuild) {
-	const severity = d.f.severity ? `${d.f.severity[0].toUpperCase()}${d.f.severity.slice(1)}` : '';
-	const build = mainBuild?.version ? `daily ${mainBuild.version}` : 'the latest daily build';
-	const steps = d.f.steps.map((st, k) => `${k + 1}. ${st.md}${st.result ? ` -> ${st.result.toUpperCase()}` : ''}`);
-	const comment = [`Still reproduces on ${build}.`, ...(steps.length ? ['', 'Steps:', ...steps] : [])].join('\n');
-	// The list item leads with the issue's state.
-	return [
-		d.wontFix ? 'won&rsquo;t fix' : '',
-		'matched a finding',
-		severity,
-		`Same as #${Number(d.issue.number)}: ${escapeHtml(d.why)}`,
-		d.rows.length ? seen(d) : '',
-		`<button type="button" class="ki-copy" data-comment="${escapeHtml(comment)}">Copy comment</button>`,
-	].filter(Boolean).join(' &middot; ');
-}
 
 const size14 = svg => svg.replace('width="15" height="15"', 'width="14" height="14"');
 const CODE_COPY = '<button type="button" class="code-cp" data-tip="Copy code" aria-label="Copy code">'
@@ -1002,7 +993,7 @@ function cardIssueItems(f, word, ki, refs, group) {
 	if (regressed.length) {
 		items.push(item('Regressed', regressed));
 	}
-	for (const m of matchesByKind(possiblyKnown(f, ki).filter(n => !regressed.includes(n)), refs, group)) {
+	for (const m of matchesByKind(possiblyKnown(f, ki).filter(n => !regressed.includes(n)), refs, group, true)) {
 		items.push(item(m.label, m.numbers));
 	}
 	if (f.intended?.length) {
@@ -1526,7 +1517,6 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 		[page.includes('<code class="cc"'), CODE_CHIP_SCRIPT],
 		[page.includes(' data-title="'), KI_SCRIPT],
 		[page.includes('<span class="ki-cnt"'), KI_LIST_SCRIPT],
-		[page.includes('class="ki-copy"'), KI_COPY_SCRIPT],
 		[page.includes('<div class="fb" '), FEEDBACK_SCRIPT],
 	].filter(([on]) => on).map(([, script]) => `<script>${script}</script>\n`).join('');
 	return `${page}${scripts}</body>

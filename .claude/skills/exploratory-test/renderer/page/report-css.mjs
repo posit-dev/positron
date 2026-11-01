@@ -513,7 +513,7 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .ki-dot{color:var(--dot-neutral);margin:0 6px}
 .ki-cnt{color:var(--muted);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--muted) 50%,transparent);text-underline-offset:3px;cursor:pointer;border-radius:2px}
 .ki-cnt:hover,.ki-cnt[aria-expanded="true"]{color:var(--ink);text-decoration-color:currentColor}
-.ki-lc{position:fixed;z-index:60;width:360px;max-width:calc(100vw - 24px);max-height:min(320px,60vh);overflow:auto;box-sizing:border-box;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:10px 12px;display:none;flex-direction:column;font-family:var(--sans);text-align:left}
+.ki-lc{position:fixed;z-index:60;width:420px;max-width:calc(100vw - 24px);max-height:none;overflow:visible;box-sizing:border-box;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:10px 12px;display:none;flex-direction:column;font-family:var(--sans);text-align:left}
 .ki-lc.is-open{display:flex}
 .ki-lc-h{font-size:11.5px;font-weight:600;color:var(--faint);padding:2px 2px 6px}
 .ki-lc-it{display:grid;grid-template-columns:56px 1fr;gap:8px;padding:6px 2px;border-top:1px solid var(--hairline);font-size:12.5px;line-height:1.4;color:var(--body)}
@@ -857,12 +857,15 @@ a.st-ev:hover .ev-pop .ev-hd span{text-decoration:underline;text-underline-offse
 .ki-more{position:relative;margin-left:4px;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
 .ki-more .og-tip{left:auto;right:0;transform:none;white-space:normal;width:300px;top:calc(100% + 6px)}
 .ki-more:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
-.ki-sim{position:relative;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
-.ki-sim .og-tip{left:auto;right:0;transform:none;white-space:normal;width:260px;top:calc(100% + 6px)}
-.ki-sim:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
-button.ki-copy{font:inherit;color:var(--link);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
-button.ki-copy:hover{color:var(--link-hover)}
-button.ki-copy:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
+.ki-src,.ki-sim{position:relative;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
+.ki-src .og-tip{left:0;right:auto;transform:none;width:280px;top:calc(100% + 6px);bottom:auto;white-space:normal}
+.ki-sim .og-tip{left:auto;right:0;transform:none;width:260px;white-space:normal}
+.ki-sim-c .og-tip{left:0;right:auto}
+.ki-src:hover .og-tip,.ki-src:focus-visible .og-tip,.ki-sim:hover .og-tip,.ki-sim:focus-visible .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
+.ki-sev{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.ki-sev-major{background:var(--major-dot)}
+.ki-sev-moderate{background:var(--moderate-dot)}
+.ki-sev-minor{background:var(--minor-dot)}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
 .steps li:target{background:var(--st-target)}

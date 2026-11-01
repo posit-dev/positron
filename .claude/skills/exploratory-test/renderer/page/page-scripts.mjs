@@ -188,12 +188,6 @@ function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout
 t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},2000);}
 ${copyScript('text', 'done')}});});`;
 
-// Copy comment, in the known issues popover: one listener on the document,
-// since the popover copies the list's buttons in each time it opens.
-export const KI_COPY_SCRIPT = `document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.ki-copy');if(!b){return;}
-var text=b.dataset.comment;function done(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy comment';},2000);}
-${copyScript('text', 'done')}});`;
-
 // Copy link: this page's URL with the finding's anchor. The address bar
 // follows without scrolling or adding a history entry.
 export const LINK_SCRIPT = `document.querySelectorAll('[data-link-to]').forEach(function(b){var t,tip=b.dataset.tip;
