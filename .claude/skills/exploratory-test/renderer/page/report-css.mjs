@@ -857,6 +857,12 @@ a.st-ev:hover .ev-pop .ev-hd span{text-decoration:underline;text-underline-offse
 .ki-more{position:relative;margin-left:4px;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
 .ki-more .og-tip{left:auto;right:0;transform:none;white-space:normal;width:300px;top:calc(100% + 6px)}
 .ki-more:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
+.ki-sim{position:relative;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
+.ki-sim .og-tip{left:auto;right:0;transform:none;white-space:normal;width:260px;top:calc(100% + 6px)}
+.ki-sim:hover .og-tip{opacity:1;visibility:visible;transition:opacity .15s ease .4s,visibility 0s linear .4s}
+button.ki-copy{font:inherit;color:var(--link);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+button.ki-copy:hover{color:var(--link-hover)}
+button.ki-copy:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
 .steps li:target{background:var(--st-target)}

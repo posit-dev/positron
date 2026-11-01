@@ -108,6 +108,8 @@ function findingFromJson(f) {
 		corrected: f.corrected ?? [],
 		known: f.known ?? [],
 		intended: f.intended ?? [],
+		// The matches the verifier confirmed are the same bug, each with why.
+		dupes: f.dupes ?? [],
 		// The finding replayed on a build of main, which decides its Origin.
 		main: f.main ?? null,
 		// The explorer's opening sentence for the issue.

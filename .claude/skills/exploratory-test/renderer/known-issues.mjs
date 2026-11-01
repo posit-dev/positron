@@ -380,13 +380,15 @@ async function github(path, auth, { retries = RATE_RETRIES } = {}) {
 	return res.json();
 }
 
-function toIssue(raw, relation) {
+export function toIssue(raw, relation) {
 	return {
 		number: raw.number,
 		url: raw.html_url,
 		relation,
 		title: raw.title ?? '',
 		state: raw.state === 'closed' ? 'closed' : 'open',
+		// Completed or not_planned: a duplicate of one closed as not planned is a known won't fix.
+		...(raw.state === 'closed' && raw.state_reason ? { stateReason: raw.state_reason } : {}),
 		createdAt: raw.created_at ?? '',
 		summary: extractSummary(raw.body),
 	};

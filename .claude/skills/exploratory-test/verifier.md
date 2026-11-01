@@ -101,7 +101,7 @@ to mark each finding, so nothing else goes in it:
 	"findings": [
 		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": [{ "file": "S04-03.png", "shows": "Median N/A beside Mean 2.5" }], "setup": [{ "what": "dataExplorer.summaryCollapsed set to false", "log": 18, "alone": false, "why": "only sets whether the summary panel starts open (summaryPanel.tsx:88)" }], "fix": ["src/vs/workbench/contrib/positronDataExplorer/browser/summaryPanel.tsx"] },
 		{ "n": 2, "verdict": "confirmed", "log": [150, 171], "shots": [{ "file": "S05-02.png", "shows": "the filter chip is red" }], "setup": [], "cause": "the chip turns red for any filter on a string column (filterChip.tsx:54), not only an invalid one", "observed": "the filter chip is red after a valid filter on a string column" },
-		{ "n": 3, "verdict": "unresolved", "log": [201, 233], "shots": [{ "file": "S07-04.png", "shows": "the picker lists R 4.4 once" }], "setup": [{ "what": "a second window opened on the same folder", "log": null, "alone": true, "why": "a second window holds the lock (duckdb.ts:212); the log never opens one, and no case ran without it" }], "known": [15102], "feature": "new folder flow" }
+		{ "n": 3, "verdict": "unresolved", "log": [201, 233], "shots": [{ "file": "S07-04.png", "shows": "the picker lists R 4.4 once" }], "setup": [{ "what": "a second window opened on the same folder", "log": null, "alone": true, "why": "a second window holds the lock (duckdb.ts:212); the log never opens one, and no case ran without it" }], "known": [15102], "dupes": [{ "issue": 15102, "why": "the same duplicate R 4.4 entry after opening a second window on the folder" }], "feature": "new folder flow" }
 	],
 	"linked": [{ "issue": 5678, "severity": "moderate" }]
 }
@@ -135,6 +135,13 @@ to mark each finding, so nothing else goes in it:
   match does not change the verdict.
 - `intended`: the issues closed as not planned that the finding matched, when
   there are any. It does not change the verdict either.
+- `dupes`: the issues in `known` or `intended` that are the same bug, not
+  just a related one: the issue shows the same symptom after the same steps.
+  One entry per issue: `issue` is its number and `why` says in one line what
+  is the same. Leave out an issue that matches only the feature, the code or
+  another path, and leave out PRs. Leave it out when there are none. The
+  report lists a duplicate as a known issue, not a new finding, when the
+  finding also fails on the latest build.
 - `linked`: one entry per linked issue the ledger marks as observed, rated
   `major`, `moderate` or `minor`. Leave it out when there are none.
 - `feature`: when the evidence puts a finding in a different area than its

@@ -145,7 +145,12 @@ export function parseVerifyReply(text) {
 			const setup = Array.isArray(f.setup)
 				? f.setup.filter(x => x && typeof x === 'object').map(x => ({ what: typeof x.what === 'string' ? x.what.trim() : '', log: Number.isInteger(x.log) ? x.log : null, alone: x.alone === true, why: typeof x.why === 'string' ? x.why.trim() : '' }))
 				: null;
-			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), fix: Array.isArray(f.fix) ? f.fix.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()) : [], log, shots, setup });
+			// A confirmed duplicate is one of the finding's matches, with why it is the same bug.
+			const matched = new Set([...issues(f.known), ...issues(f.intended)]);
+			const dupes = Array.isArray(f.dupes)
+				? f.dupes.filter(x => matched.has(x?.issue) && typeof x.why === 'string' && x.why.trim()).map(x => ({ issue: x.issue, why: x.why.trim() }))
+				: [];
+			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), fix: Array.isArray(f.fix) ? f.fix.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()) : [], log, shots, setup, dupes });
 		}
 	}
 	for (const l of Array.isArray(data?.linked) ? data.linked : []) {
@@ -364,6 +369,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			verified: v.verified,
 			...(v.known.length ? { known: v.known } : {}),
 			...(v.intended.length ? { intended: v.intended } : {}),
+			...(v.dupes.length ? { dupes: v.dupes } : {}),
 			...corrections,
 			...(corrected.length ? { corrected, explorer: Object.fromEntries(corrected.map(key => [key, f[key] ?? null])) } : {}),
 		};

@@ -17,7 +17,7 @@ import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseLedger, parseSystemLine } from '../shared/ledger.mjs';
 import { modelDisplayName, safeUrl } from '../shared/text.mjs';
-import { renderReportHtml } from './html.mjs';
+import { renderReportHtml, withoutKnownDuplicates } from './html.mjs';
 import { REPORT_CSS } from './report-css.mjs';
 import { skillVersion } from './page-common.mjs';
 import { reportFromJson } from './report-json.mjs';
@@ -1555,4 +1555,106 @@ test('an Only in PR finding whose replay could not run says the code is new', ()
 		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
 	});
 	assert.deepEqual(badgeTip(grouped(json), 1), ['Only in branch', 'The code involved is new in this branch, so the latest build couldn&rsquo;t run it: the Export button is not in the toolbar.']);
+});
+
+// ---- Confirmed duplicates: a known issue, not a new finding ------------------
+
+const DUPE_REFS = [
+	{ number: 501, kind: 'issue', state: 'open', title: 'Grid goes blank after a filter', createdAt: '2026-01-02T00:00:00Z', summary: '' },
+	{ number: 502, kind: 'issue', state: 'closed', stateReason: 'completed', title: 'Old fixed bug', createdAt: '2025-03-02T00:00:00Z', summary: '' },
+	{ number: 503, kind: 'issue', state: 'closed', stateReason: 'not_planned', title: 'Judged intended', createdAt: '2025-04-02T00:00:00Z', summary: '' },
+	{ number: 504, kind: 'pr', state: 'open', title: 'Fix the grid', createdAt: '2026-08-02T00:00:00Z', summary: '' },
+];
+const dupe = (issue, why = `same as ${issue}`) => ({ dupes: [{ issue, why }] });
+const fails = main => ({ verified: 'confirmed', reproduced: { n: 2, m: 2 }, main });
+const DUPES = rep({
+	findings: [
+		fnd(1, { ...fails(twoSteps(0, 2)), severity: 'moderate', known: [501], ...dupe(501, 'the same blank grid after the same filter'), steps: [act('Open the grid.'), fail('Verify the grid shows rows', 1)] }),
+		fnd(2, { ...fails(twoSteps(0, 0)), known: [501], ...dupe(501) }),
+		fnd(3, { verified: 'confirmed', known: [501], ...dupe(501) }),
+		fnd(4, { ...fails(twoSteps(0, 2)), known: [502], ...dupe(502) }),
+		fnd(5, { ...fails(twoSteps(0, 2)), severity: 'major', intended: [503], ...dupe(503, 'the same message, closed as by design') }),
+		fnd(6, { ...fails(twoSteps(0, 2)), known: [504, 501] }),
+	],
+	verification: { failed: false, text: 'x', origin: { 1: 'inherited', 2: 'introduced', 4: 'inherited', 5: 'inherited', 6: 'inherited' }, originReason: { 3: { reason: 'not replayed', detail: '' } } },
+});
+const DUPE_LEDGER = ledgerOf([['S01', 'filter the grid', 'fail (finding 1)', 'blank'], ['S02', 'open the grid', 'fail (finding 2)', 'x'], ['S03', 'by design', 'fail (finding 5)', 'x']]);
+const dupes = (json = DUPES) => grouped(json, { ledger: DUPE_LEDGER, issueRefs: DUPE_REFS });
+const knownList = html => between(html, 'id="ki-list-obs"', '</div></div>\n') || between(html, 'id="ki-list-obs"', '<section');
+
+test('a confirmed duplicate of an open issue that also fails on the latest build leaves the findings, renumbered with no gaps', () => {
+	const html = dupes();
+	assert.deepEqual(tabs(html), ['All 4', 'Only in branch 1', 'Also in latest build 2', 'Unknown 1']);
+	assert.equal(findingRow(html, 5), '');
+	assert.doesNotMatch(html, /id="f5"/);
+	// The survivors in their order: 2, 3, 4 and 6 become 1 to 4.
+	assert.deepEqual([1, 2, 3, 4].map(n => groupOfRow(html, n)), ['pr', 'un', 'ex', 'ex']);
+	assert.match(html, /<div class="ki-bar"><span class="ki-lbl"><b>Known issues<\/b><\/span><span class="ki-sum">[^\n]*2 observed/);
+});
+
+test('a duplicate leaves every count: the tiles and the link card count only what is left', () => {
+	const { report, demoted } = withoutKnownDuplicates(reportFromJson(DUPES, { ledger: DUPE_LEDGER }), { changeBase: USABLE, issueRefs: DUPE_REFS });
+	assert.deepEqual(demoted.map(d => [d.issue.number, d.wontFix]), [[503, true], [501, false]]);
+	assert.deepEqual(report.severityCounts, { major: 0, moderate: 0, minor: 4 });
+	assert.equal(report.findingCount, 4);
+	assert.deepEqual(report.findings.map(f => f.n), [1, 2, 3, 4]);
+	assert.deepEqual([...report.verification.origin], [[1, 'introduced'], [3, 'inherited'], [4, 'inherited']]);
+	assert.deepEqual([...report.verification.originReason.keys()], [2]);
+});
+
+test('Only in PR says Similar, Unknown keeps Dupe, and a closed fixed issue reads Regressed', () => {
+	const html = dupes();
+	assert.match(findingRow(html, 1), /Similar\?<span class="og-tip" aria-hidden="true" role="tooltip">Didn&rsquo;t reproduce on the latest build, so this is likely a different bug\.<\/span><\/span> <span class="ki-num-t"[^>]*>#501/);
+	assert.doesNotMatch(findingRow(html, 1), /Dupe\?/);
+	assert.match(card(html, 1), /Similar\?/);
+	assert.match(findingRow(html, 2), /Dupe\? <span class="ki-num-t"[^>]*>#501/);
+	assert.match(findingRow(html, 3), /Regressed<\/span><span class="ki-state"><span class="ki-num-t"[^>]*>#502/);
+	assert.doesNotMatch(findingRow(html, 3), /Dupe\?/);
+	assert.match(card(html, 3), /Regressed <a class="ki-num"[^>]*>#502/);
+	// A PR match never demotes, and a match the verifier did not confirm stays a Dupe.
+	assert.match(findingRow(html, 4), /Dupe\?[\s\S]*Fix in PR\?/);
+});
+
+test('a demoted finding is listed under known issues, worst first, with its reason, evidence and a comment to copy', () => {
+	const list = knownList(dupes());
+	assert.ok(list.indexOf('#503') < list.indexOf('#501'), 'the major one first');
+	assert.match(list, /#503<\/a><span>Judged intended<span class="ki-lc-m">Closed &middot; won&rsquo;t fix &middot; matched a finding &middot; Major &middot; Same as #503: the same message, closed as by design &middot; seen in &ldquo;by design&rdquo; &middot; <a class="ki-ev" href="#cv-row-\d+">View evidence<\/a>/);
+	assert.match(list, /#501<\/a><span>Grid goes blank after a filter<span class="ki-lc-m">Open &middot; matched a finding &middot; Moderate &middot; Same as #501: the same blank grid after the same filter/);
+	const comment = /data-comment="([^"]*)"[^>]*>Copy comment/.exec(list.slice(list.indexOf('#501')))?.[1];
+	assert.equal(comment, 'Still reproduces on daily 2026.11.0-236.\n\nSteps:\n1. Open the grid.\n2. Verify the grid shows rows -&gt; FAIL');
+});
+
+test('a coverage row whose finding was demoted names the known issue instead', () => {
+	const html = dupes();
+	const row = between(html, '<span>filter the grid</span>', '</div>');
+	assert.match(row, /Known issue <a class="ki-num"[^>]*>#501<\/a>/);
+	assert.doesNotMatch(row, /Finding \d/);
+});
+
+test('when every finding is demoted, the page says no new findings and counts the known issues', () => {
+	const html = dupes({ ...DUPES, findings: DUPES.findings.slice(0, 1) });
+	assert.match(findingsOf(html), /<b>No new findings<\/b><span class="ki-empty-sum">.*1 known issue observed/);
+	assert.match(knownList(html), /#501/);
+});
+
+test('a duplicate stays a finding on a run with no replay on main', () => {
+	const html = render(DUPES, { ledger: DUPE_LEDGER, issueRefs: DUPE_REFS });
+	assert.ok(findingRow(html, 5));
+	assert.match(findingRow(html, 1), /Dupe\?/);
+});
+
+test('Copy comment copies the comment from the known issues popover and says Copied', () => {
+	const html = dupes();
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('ki-copy'));
+	assert.ok(src, 'the page has the copy handler');
+	let click, copied;
+	const document = { addEventListener: (type, fn) => { if (type === 'click') { click = fn; } } };
+	const navigator = { clipboard: { writeText: t => { copied = t; return { then: ok => ok() }; } } };
+	new Function('document', 'navigator', 'window', 'setTimeout', 'clearTimeout', src)(document, navigator, { isSecureContext: true }, () => 0, () => {});
+	const button = { dataset: { comment: 'Still reproduces.' }, textContent: 'Copy comment' };
+	click({ target: { closest: sel => (sel === '.ki-copy' ? button : null) } });
+	assert.equal(copied, 'Still reproduces.');
+	assert.equal(button.textContent, 'Copied');
+	assert.match(REPORT_CSS, /\.ki-sim:hover \.og-tip\{/);
+	assert.match(REPORT_CSS, /button\.ki-copy\{/);
 });

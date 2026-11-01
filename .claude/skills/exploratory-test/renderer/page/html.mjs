@@ -24,7 +24,7 @@ import { CARD_FILE, CARD_HEIGHT, CARD_WIDTH, writeCard } from './og-card.mjs';
 import { readKnownIssues } from '../agents/finish.mjs';
 import { issueLink, possiblyKnown, renderCopyButton, renderFeedbackRow, renderIssueBlock, renderIssueButton, renderLinkButton, renderPromptBlock } from './card-actions.mjs';
 import { capitalize, ICON, logFile, REPO_URL, SEVERITY_LABEL, statusWord } from './page-common.mjs';
-import { BOOT_SCRIPT, CODE_CHIP_SCRIPT, COPY_SCRIPT, FEEDBACK_SCRIPT, HEADER_ACTIONS, ISSUE_SCRIPT, KI_LIST_SCRIPT, KI_SCRIPT, LINK_SCRIPT, PAGE_SCRIPT } from './page-scripts.mjs';
+import { BOOT_SCRIPT, CODE_CHIP_SCRIPT, COPY_SCRIPT, FEEDBACK_SCRIPT, HEADER_ACTIONS, ISSUE_SCRIPT, KI_COPY_SCRIPT, KI_LIST_SCRIPT, KI_SCRIPT, LINK_SCRIPT, PAGE_SCRIPT } from './page-scripts.mjs';
 
 // The skill that writes these reports. A source link rather than a docs page,
 // because the skill is the documentation: it is the brief the agent followed,
@@ -197,16 +197,35 @@ function kiData(issue, refs) {
  * duplicate nor a fix, so it is left out; a number the run did not fetch
  * counts as an issue.
  */
-function matchesByKind(numbers, refs) {
+function matchesByKind(numbers, refs, group = null) {
 	const kind = n => {
 		const ref = refs?.byNumber.get(n);
 		return ref?.kind !== 'pr' ? 'issue' : ref.state === 'merged' ? 'merged' : ref.state === 'open' ? 'open' : null;
 	};
 	return [
-		{ numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `Dupe? ${nums}`, noun: 'possible duplicates' },
+		// It did not fail on the latest build, where the issue does: likely another bug.
+		group === 'pr'
+			? { numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `${SIMILAR} ${nums}`, noun: 'similar issues' }
+			: { numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `Dupe? ${nums}`, noun: 'possible duplicates' },
 		{ numbers: numbers.filter(n => kind(n) === 'open'), label: nums => `Fix in PR? ${nums}`, noun: 'possible fixes' },
 		{ numbers: numbers.filter(n => kind(n) === 'merged'), label: nums => `Fixed in ${nums}?`, noun: 'possible fixes' },
 	].filter(m => m.numbers.length);
+}
+
+const SIMILAR = '<span class="ki-sim">Similar?<span class="og-tip" aria-hidden="true" role="tooltip">Didn&rsquo;t reproduce on the latest build, so this is likely a different bug.</span></span>';
+
+/**
+ * The issues a confirmed finding is the same bug as that were closed as
+ * fixed: it came back. One closed as not planned is a won't fix instead.
+ */
+function regressedOf(f, refs) {
+	if (statusWord(f) !== 'confirmed') {
+		return [];
+	}
+	return (f.dupes ?? []).map(d => d.issue).filter(n => {
+		const issue = refs?.byNumber.get(n);
+		return issue && issue.kind !== 'pr' && issue.state === 'closed' && issue.stateReason !== 'not_planned' && !f.intended.includes(n);
+	});
 }
 
 /** Links the fetched issue and PR numbers in rendered text, leaving tags and existing links alone. */
@@ -228,7 +247,7 @@ function linkIssues(html, refs) {
 function coverageOrder(coverage) {
 	// Finding rows in finding order, then passes as they ran, then what was not
 	// run. Sort is stable, so rows citing the same finding keep their run order.
-	const isIssue = r => r.status === 'fail' || Boolean(r.finding);
+	const isIssue = r => r.status === 'fail' || Boolean(r.finding) || Boolean(r.issues?.some(i => i.kind === 'known'));
 	const issues = coverage.exercised.filter(isIssue).sort((a, b) => (a.finding ?? Infinity) - (b.finding ?? Infinity));
 	const passes = coverage.exercised.filter(r => !isIssue(r));
 	const ordered = [...issues, ...passes, ...coverage.notExercised];
@@ -242,12 +261,12 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
  * scenario counts, then every linked-issue count, in the "Linked issues" row's
  * order (there's no such row then).
  */
-function renderNoFindings(report, ki) {
+function renderNoFindings(report, ki, demoted = []) {
 	const { exercised = 0, pass = 0, notRun = 0 } = report.scenarios ?? {};
 	const counts = [
 		pass ? `<b>${pass}</b> passed` : '',
 		notRun ? `<b>${notRun}</b> not run` : '',
-		...kiCounts(ki, {
+		...kiCounts(ki, demoted, {
 			fix: n => `${plural(n, 'fix', 'fixes')} verified`,
 			part: n => `${plural(n, 'fix', 'fixes')} partly held`,
 			obs: n => `${plural(n, 'known issue', 'known issues')} observed`,
@@ -447,7 +466,7 @@ function withLastWord(html, tag) {
 	return `${html.slice(0, at + 1)}<span class="nowrap">${html.slice(at + 1)}${tag}</span>`;
 }
 
-function renderFindingsList(report, ki = null, refs = null, changeBase = null, mainBuild = null) {
+function renderFindingsList(report, ki = null, refs = null, changeBase = null, mainBuild = null, demoted = []) {
 	const grid = 'findings-grid';
 	const groups = report.findings.map(f => groupOf(report, f, changeBase, ki));
 	const grouped = groups.some(g => g !== null);
@@ -473,8 +492,13 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null, m
 			const own = first(failed.length ? failed : back, failed.length ? 'fixes that didn&rsquo;t hold' : 'issues that came back');
 			lines.push(rejected ? muted(own) : line(`<span class="ki-reg">${ICON.x}${failed.length ? (failed.some(n => ki.partly?.has(n)) ? 'Partly fixed' : 'Not fixed') : 'Regressed'}</span><span class="ki-state">${own}</span>`));
 		}
+		// The same bug as an issue closed as fixed: it came back.
+		const regressed = regressedOf(f, refs).filter(n => !back.includes(n));
+		if (regressed.length) {
+			lines.push(line(`<span class="ki-reg">${ICON.x}Regressed</span><span class="ki-state">${first(regressed, 'issues that came back')}</span>`));
+		}
 		// Every match the card shows, linked to the PR or found by search, one line per kind.
-		lines.push(...matchesByKind(possiblyKnown(f, ki), refs).map(m => muted(m.label(first(m.numbers, m.noun)))));
+		lines.push(...matchesByKind(possiblyKnown(f, ki).filter(n => !regressed.includes(n)), refs, group).map(m => muted(m.label(first(m.numbers, m.noun)))));
 		// A match closed as not planned: the team chose to leave this behavior.
 		if (f.intended?.length) {
 			lines.push(muted(`Won&rsquo;t fix? ${first(f.intended, 'issues closed as not planned')}`));
@@ -502,7 +526,7 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null, m
 	const head = rows.length
 		? `<div class="row row-head ${grid}"><span>Severity</span><span>Finding</span>${matchesHead}</div>\n`
 		: '';
-	const body = `${head}${[...(rows.length ? rows : [renderNoFindings(report, ki)]), renderLinkedIssues(report, ki, !rows.length)].filter(Boolean).join('\n')}`;
+	const body = `${head}${[...(rows.length ? rows : [renderNoFindings(report, ki, demoted)]), renderLinkedIssues(report, ki, !rows.length, demoted, mainBuild)].filter(Boolean).join('\n')}`;
 	if (!grouped) {
 		return `<section id="findings" class="section">
 <h2 class="section-label">Findings</h2>
@@ -527,22 +551,24 @@ ${body}
 }
 
 /** The linked-issue counts above zero, fix verified first, each opening its list. */
-function kiCounts(ki, label) {
-	const n = { fix: ki?.fixesHeld?.length ?? 0, part: ki?.fixesPartly?.length ?? 0, obs: ki?.observed?.length ?? 0, no: ki?.notObserved?.length ?? 0 };
+function kiCounts(ki, demoted, label) {
+	const n = { fix: ki?.fixesHeld?.length ?? 0, part: ki?.fixesPartly?.length ?? 0, obs: (ki?.observed?.length ?? 0) + demoted.length, no: ki?.notObserved?.length ?? 0 };
 	return ['fix', 'part', 'obs', 'no'].filter(k => n[k] && label[k]).map(k => kiCnt(`ki-list-${k}`, label[k](n[k])));
 }
 
 /**
- * The "Linked issues" row under the findings: one count per list, each list
+ * The "Known issues" row under the findings: one count per list, each list
  * shown on hover. Nothing when every count is zero; with no findings the counts
- * sit in the empty block instead, leaving only the lists.
+ * sit in the empty block instead, leaving only the lists. The issues observed
+ * are the linked ones the run saw and the findings that were known issues,
+ * worst first.
  */
-function renderLinkedIssues(report, ki, noFindings = false) {
+function renderLinkedIssues(report, ki, noFindings = false, demoted = [], mainBuild = null) {
 	const observed = ki?.observed ?? [];
 	const held = ki?.fixesHeld ?? [];
 	const partly = ki?.fixesPartly ?? [];
 	const unseen = ki?.notObserved ?? [];
-	if (!observed.length && !held.length && !partly.length && !unseen.length) {
+	if (!observed.length && !held.length && !partly.length && !unseen.length && !demoted.length) {
 		return '';
 	}
 	const { rowId } = coverageOrder(report.coverage);
@@ -559,18 +585,44 @@ function renderLinkedIssues(report, ki, noFindings = false) {
 		return `seen in ${names}${ev}`;
 	};
 	const skipped = ki?.skipped ?? new Set();
-	const lists = list('ki-list-obs', 'Known issues observed this run', observed.map(o => item(o.issue, seen(o))))
+	const rank = severity => SEVERITY_RANK[severity] ?? 3;
+	const known = [
+		...observed.map(o => ({ rank: rank(report.verification?.linked?.get(o.issue.number)), html: item(o.issue, `linked to ${changeWord(report)} &middot; ${seen(o)}`) })),
+		...demoted.map(d => ({ rank: rank(d.f.severity), html: item(d.issue, demotedMeta(d, seen, mainBuild)) })),
+	].sort((a, b) => a.rank - b.rank).map(k => k.html);
+	const lists = list('ki-list-obs', 'Known issues observed this run', known)
 		+ list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in ${quote(h.rows[0])}`)))
 		+ list('ki-list-part', 'Partly fixed this run', partly.map(p => item(p.issue, `passed in ${quote(p.held[0])}, failed in ${quote(p.failed[0])}`)))
 		+ list('ki-list-no', 'Linked to this PR, not observed', unseen.map(i => item(i, skipped.has(i.number) ? 'skipped on purpose, see Coverage' : 'no scenario reached it')));
 	if (noFindings) {
 		return lists;
 	}
-	const counts = kiCounts(ki, { fix: n => `${n} fix verified`, part: n => `${n} partly fixed`, obs: n => `${n} observed`, no: n => `${n} not observed` }).join(KI_DOT);
-	return `<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${counts}</span></div></div>\n${lists}`;
+	const counts = kiCounts(ki, demoted, { fix: n => `${n} fix verified`, part: n => `${n} partly fixed`, obs: n => `${n} observed`, no: n => `${n} not observed` }).join(KI_DOT);
+	return `<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Known issues</b></span><span class="ki-sum">${counts}</span></div></div>\n${lists}`;
 }
 
 const kiState = issue => issue.state === 'closed' ? 'Closed' : 'Open';
+
+/**
+ * A demoted finding's line in the known issues list, after the issue's state: where
+ * it came from, the finding's severity, why it is the same bug, where the run
+ * saw it, and a comment to post on the issue.
+ */
+function demotedMeta(d, seen, mainBuild) {
+	const severity = d.f.severity ? `${d.f.severity[0].toUpperCase()}${d.f.severity.slice(1)}` : '';
+	const build = mainBuild?.version ? `daily ${mainBuild.version}` : 'the latest daily build';
+	const steps = d.f.steps.map((st, k) => `${k + 1}. ${st.md}${st.result ? ` -> ${st.result.toUpperCase()}` : ''}`);
+	const comment = [`Still reproduces on ${build}.`, ...(steps.length ? ['', 'Steps:', ...steps] : [])].join('\n');
+	// The list item leads with the issue's state.
+	return [
+		d.wontFix ? 'won&rsquo;t fix' : '',
+		'matched a finding',
+		severity,
+		`Same as #${Number(d.issue.number)}: ${escapeHtml(d.why)}`,
+		d.rows.length ? seen(d) : '',
+		`<button type="button" class="ki-copy" data-comment="${escapeHtml(comment)}">Copy comment</button>`,
+	].filter(Boolean).join(' &middot; ');
+}
 
 const size14 = svg => svg.replace('width="15" height="15"', 'width="14" height="14"');
 const CODE_COPY = '<button type="button" class="code-cp" data-tip="Copy code" aria-label="Copy code">'
@@ -931,7 +983,7 @@ function renderCardDetails(f, report, options = {}) {
  * that did not hold or an issue that came back, then its matches by kind.
  * When verify rejected the finding, its issue line stands in without the claim.
  */
-function cardIssueItems(f, word, ki, refs) {
+function cardIssueItems(f, word, ki, refs, group) {
 	const rejected = isRejected(word);
 	const failed = ki?.fixFailed.get(f.n) ?? [];
 	const back = ki?.cameBack.get(f.n) ?? [];
@@ -946,7 +998,11 @@ function cardIssueItems(f, word, ki, refs) {
 	} else if (back.length) {
 		items.push(item(rejected ? 'Closed &middot;' : 'Regressed', back.map(i => i.number)));
 	}
-	for (const m of matchesByKind(possiblyKnown(f, ki), refs)) {
+	const regressed = regressedOf(f, refs).filter(n => !back.some(i => i.number === n));
+	if (regressed.length) {
+		items.push(item('Regressed', regressed));
+	}
+	for (const m of matchesByKind(possiblyKnown(f, ki).filter(n => !regressed.includes(n)), refs, group)) {
 		items.push(item(m.label, m.numbers));
 	}
 	if (f.intended?.length) {
@@ -969,12 +1025,13 @@ function renderFindingCard(f, report, options) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
 	}
 	// After the verdict and its rate, as in the table, before the linked issues.
-	const origin = cardGroup(report, f, groupOf(report, f, options.changeBase, options.ki), options.ki);
+	const group = groupOf(report, f, options.changeBase, options.ki);
+	const origin = cardGroup(report, f, group, options.ki);
 	if (origin) {
 		context.push(origin);
 	}
 	// Linked issues describe the finding as these do, so they close the meta line.
-	context.push(...cardIssueItems(f, word, options.ki, options.refs));
+	context.push(...cardIssueItems(f, word, options.ki, options.refs, group));
 	const contextHtml = context.join('<span class="sep" aria-hidden="true">&middot;</span>');
 
 	const meta = '<div class="meta">'
@@ -1017,7 +1074,6 @@ function renderFindingCard(f, report, options) {
 	const failed = f.steps.filter(st => st.result === 'fail');
 	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
 	// A step the replay on main screenshotted compares the two builds.
-	const group = groupOf(report, f, options.changeBase, options.ki);
 	const comparisonOf = k => stepComparison(report, f, group, options.mainBuild, k);
 	const steps = f.steps.length
 		? '<div class="repro-group steps">'
@@ -1066,6 +1122,11 @@ function renderCoverage(report, options = {}) {
 	const kiTags = row => {
 		const groups = new Map();
 		for (const { n, kind } of row.issues ?? []) {
+			// A finding demoted to the known issue it is the same bug as.
+			if (kind === 'known') {
+				groups.set('Known issue', [...(groups.get('Known issue') ?? []), kiNum(n, options.refs)]);
+				continue;
+			}
 			const issue = ki?.byNumber.get(n);
 			const rejected = rejectedIssues.has(n);
 			const label = !issue ? null
@@ -1267,6 +1328,89 @@ function renderSignature(startedAt = new Date(), version = null) {
 </footer>`;
 }
 
+/** The issues linked to the PR, fetched before the run, and what it found about each; null with none. */
+function kiOf(report, options) {
+	return options.knownIssues?.issues?.length
+		? { ...knownIssueOutcomes(options.knownIssues, report.coverage, report.verification?.linked, new Map(report.findings.map(f => [f.n, f.known ?? []]))), now: options.startedAt ?? new Date() }
+		: null;
+}
+
+/** Every issue or PR the report names, for its preview card: the PR's list, then the rest it mentions. */
+function refsOf(options, ki) {
+	return {
+		byNumber: new Map([...(options.issueRefs ?? []).map(i => [i.number, i]), ...(ki?.byNumber ?? [])]),
+		now: options.startedAt ?? new Date(),
+	};
+}
+
+const SEVERITY_RANK = { major: 0, moderate: 1, minor: 2 };
+
+/**
+ * The report without the findings that are known issues, and those findings.
+ * A confirmed finding that also fails on the latest build, and that the
+ * verifier found is the same bug as an open issue or one closed as not
+ * planned, is a known issue this run saw, not a new finding. A fix that did
+ * not hold, an issue that came back and a PR never demote one. The rest are
+ * renumbered with no gaps, and a Coverage row that cited a demoted finding
+ * names its issue instead.
+ */
+export function withoutKnownDuplicates(report, options = {}) {
+	const ki = kiOf(report, options);
+	const refs = refsOf(options, ki);
+	const demoted = [];
+	for (const f of report.findings) {
+		if (groupOf(report, f, options.changeBase, ki) !== 'ex' || ki?.fixFailed.has(f.n) || ki?.cameBack.has(f.n)) {
+			continue;
+		}
+		const matches = (f.dupes ?? []).map(d => ({ issue: refs.byNumber.get(d.issue), why: d.why }))
+			.filter(d => d.issue && d.issue.kind !== 'pr')
+			.map(d => ({ ...d, wontFix: d.issue.state === 'closed' && (f.intended.includes(d.issue.number) || d.issue.stateReason === 'not_planned') }));
+		const match = matches.find(d => d.issue.state === 'open') ?? matches.find(d => d.wontFix);
+		if (match) {
+			demoted.push({ f, ...match, rows: [] });
+		}
+	}
+	if (!demoted.length) {
+		return { report, demoted };
+	}
+	demoted.sort((a, b) => (SEVERITY_RANK[a.f.severity] ?? 3) - (SEVERITY_RANK[b.f.severity] ?? 3) || a.f.n - b.f.n);
+	const gone = new Map(demoted.map(d => [d.f.n, d]));
+	const kept = report.findings.map(f => f.n).filter(n => !gone.has(n)).sort((a, b) => a - b);
+	const to = new Map(kept.map((n, i) => [n, i + 1]));
+	const renumber = n => to.get(n) ?? null;
+	const step = st => (st.finding ? { ...st, finding: renumber(st.finding) } : st);
+	const findings = report.findings.filter(f => to.has(f.n)).map(f => ({ ...f, n: to.get(f.n), steps: f.steps.map(step) }));
+	const exercised = report.coverage.exercised.map(row => {
+		const cited = [...new Set([row.finding, ...(row.findings ?? []), ...(row.steps ?? []).map(st => st.finding)].filter(n => gone.has(n)))];
+		const out = {
+			...row,
+			finding: row.finding ? renumber(row.finding) : row.finding,
+			findings: (row.findings ?? []).map(renumber).filter(Boolean),
+			steps: (row.steps ?? []).map(step),
+			issues: [...(row.issues ?? []), ...cited.map(n => ({ n: gone.get(n).issue.number, kind: 'known' }))],
+		};
+		cited.forEach(n => gone.get(n).rows.push(out));
+		return out;
+	});
+	const byNumber = map => new Map([...map].filter(([n]) => to.has(n)).map(([n, v]) => [to.get(n), v]));
+	const v = report.verification;
+	const severityCounts = { major: 0, moderate: 0, minor: 0 };
+	for (const f of findings) {
+		if (f.severity in severityCounts) { severityCounts[f.severity]++; }
+	}
+	return {
+		report: {
+			...report,
+			findings,
+			severityCounts,
+			findingCount: findings.length,
+			coverage: { ...report.coverage, exercised },
+			verification: v && { ...v, verdicts: v.verdicts.filter(x => to.has(x.n)).map(x => ({ ...x, n: to.get(x.n) })), origin: byNumber(v.origin), originReason: byNumber(v.originReason) },
+		},
+		demoted,
+	};
+}
+
 /**
  * Renders the report model, reportFromJson's, as a self-contained HTML page.
  * `options.ledger` is the run's ledger.md. `options.startedAt` is when the run
@@ -1276,16 +1420,11 @@ export function renderReportHtml(report, options = {}) {
 	// `readFile` reads a path beside the report; the viewer, the Test files
 	// list and the prompt all show the same resolved files.
 	options = { ...options, files: resolveFiles(report.files, options.readFile) };
-	// The issues linked to the PR, fetched before the run, and what it found about each.
-	const ki = options.knownIssues?.issues?.length
-		? { ...knownIssueOutcomes(options.knownIssues, report.coverage, report.verification?.linked, new Map(report.findings.map(f => [f.n, f.known ?? []]))), now: options.startedAt ?? new Date() }
-		: null;
+	// A finding that is a known issue leaves the findings before anything counts them.
+	({ report, demoted: options.demoted } = withoutKnownDuplicates(report, options));
+	const ki = kiOf(report, options);
 	options.ki = ki;
-	// Every issue or PR the report names, for its preview card: the PR's list, then the rest it mentions.
-	options.refs = {
-		byNumber: new Map([...(options.issueRefs ?? []).map(i => [i.number, i]), ...(ki?.byNumber ?? [])]),
-		now: options.startedAt ?? new Date(),
-	};
+	options.refs = refsOf(options, ki);
 	// A fix the ledger says nothing about is still listed: an untested fix is never invisible.
 	for (const issue of ki?.unaccounted ?? []) {
 		report.coverage.notExercised.push({
@@ -1347,7 +1486,7 @@ ${report.leadHtml ? `<p class="lead">${linkIssues(report.leadHtml, options.refs)
 
 ${renderTiles(report)}
 
-${renderFindingsList(report, ki, options.refs, options.changeBase, options.mainBuild)}
+${renderFindingsList(report, ki, options.refs, options.changeBase, options.mainBuild, options.demoted)}
 
 ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
@@ -1387,6 +1526,7 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 		[page.includes('<code class="cc"'), CODE_CHIP_SCRIPT],
 		[page.includes(' data-title="'), KI_SCRIPT],
 		[page.includes('<span class="ki-cnt"'), KI_LIST_SCRIPT],
+		[page.includes('class="ki-copy"'), KI_COPY_SCRIPT],
 		[page.includes('<div class="fb" '), FEEDBACK_SCRIPT],
 	].filter(([on]) => on).map(([, script]) => `<script>${script}</script>\n`).join('');
 	return `${page}${scripts}</body>
@@ -1440,7 +1580,7 @@ export function missingFiles(parsed, fileExists) {
  */
 export async function writeRunPage(out, report, options) {
 	const { base } = options;
-	const ogImage = /^https?:\/\//.test(base ?? '') && await writeCard(join(dirname(out), CARD_FILE), report.severityCounts)
+	const ogImage = /^https?:\/\//.test(base ?? '') && await writeCard(join(dirname(out), CARD_FILE), withoutKnownDuplicates(report, options).report.severityCounts)
 		? `${base.replace(/\/$/, '')}/${CARD_FILE}`
 		: undefined;
 	writeFileSync(out, renderReportHtml(report, { ...options, ogImage }));
