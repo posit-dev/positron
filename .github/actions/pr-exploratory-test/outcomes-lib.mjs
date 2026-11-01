@@ -97,6 +97,12 @@ export function parseCheck(text) {
 const evidenceOf = c => `${c.source}: ${c.reason}`;
 const decidedByOf = c => c.source.startsWith('issue') ? 'issue+model' : 'diff+model';
 
+/** The run's confirmed findings, less those its page listed as known issues (stats.json's `demoted`). */
+export function outcomeFindings(report, stats) {
+	const demoted = new Set((stats?.demoted ?? []).map(d => d.finding));
+	return (report.findings ?? []).filter(f => f.verified === 'confirmed' && !demoted.has(f.n));
+}
+
 /** An issue's number, link and state as the page shows it. */
 export function issueOf(i) {
 	const reason = { completed: ' as completed', not_planned: ' as not planned' }[i.state_reason] ?? '';
