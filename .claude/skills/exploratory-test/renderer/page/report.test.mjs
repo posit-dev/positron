@@ -1316,7 +1316,9 @@ test('a finding number\'s tooltip gives the evidence for its group', () => {
 	assert.deepEqual(badgeTip(html, 2), ['Also in latest build', 'Also reproduced in the latest build: step 9 (2 of 2 tries).']);
 	assert.deepEqual(badgeTip(html, 6), ['Also in latest build', 'Also reproduced in the latest build (1 of 1 tries).']);
 	assert.deepEqual(badgeTip(html, 4), ['Unknown', 'It couldn&rsquo;t run on the latest build: R did not start.']);
-	assert.deepEqual(badgeTip(html, 5), ['Unknown', 'This issue only shows up sometimes (1 of 4 tries here). It didn&rsquo;t show up in 2 tries on the latest build, but that could be luck, so we can&rsquo;t say either way.']);
+	assert.deepEqual(badgeTip(html, 5), ['Unknown', 'It&rsquo;s intermittent: it happened in 1 of 4 tries on this branch. It didn&rsquo;t happen in 2 tries on the latest build, but that&rsquo;s too few to rule it out.']);
+	const pr = grouped({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } });
+	assert.match(badgeTip(pr, 5)[1], /^It&rsquo;s intermittent: it happened in 1 of 4 tries on this PR\. /);
 	assert.deepEqual(badgeTip(html, 9), ['Unknown', 'It showed up every time here (2 of 2 tries), but the latest build was tried only 1 time, so we can&rsquo;t say yet.']);
 	assert.deepEqual(badgeTip(html, 7), ['Unknown', 'This finding wasn&rsquo;t replayed on the latest build.']);
 	assert.deepEqual(badgeTip(html, 10), ['Unknown', 'Main has changed the code where the fix likely goes, so the latest build can&rsquo;t show how this behaved before this branch.']);
@@ -1330,7 +1332,7 @@ test('a card shows its group after Reproduced, Unknown with its reason, and noth
 	assert.equal(cardGroup(html, 1), 'Only in branch');
 	assert.equal(cardGroup(html, 2), 'Also in latest build');
 	assert.equal(cardGroup(html, 4), 'Unknown: couldn&rsquo;t run on the latest build');
-	assert.equal(cardGroup(html, 5), 'Unknown: intermittent, needs more tries on the latest build');
+	assert.equal(cardGroup(html, 5), 'Unknown: too few tries on the latest build');
 	assert.equal(cardGroup(html, 9), 'Unknown: needs more tries on the latest build');
 	assert.equal(cardGroup(html, 7), 'Unknown: not replayed on the latest build');
 	assert.equal(cardGroup(html, 10), 'Unknown: main has changed in this area');
@@ -1408,6 +1410,48 @@ test('at phone width a tooltip fits the screen: a card label opens it under the 
 test('at phone width the tabs scroll sideways, the info button hides, and the footer counts stack without breaking', () => {
 	assert.match(REPORT_CSS, /@media \(max-width:820px\)\{\.ffi\{display:none\}\.ff \.cf-tabs\{overflow-x:auto;scrollbar-width:none\}\.ff \.cf-tabs::-webkit-scrollbar\{display:none\}\.ki-bar\{grid-template-columns:minmax\(0,1fr\) !important;gap:4px !important\}\.ki-sum \.ki-cnt\{white-space:nowrap\}/);
 	assert.doesNotMatch(REPORT_CSS, /flex-wrap:wrap;row-gap:8px/);
+});
+
+const NOT_REPORTED = '<span class="ki-st"><span class="og ki-nry">Not reported yet<span class="og-tip" aria-hidden="true" role="tooltip"><b>Not reported yet</b><span>This bug also happens on main and no GitHub issue matches it.</span></span></span></span>';
+const issueButton = (html, n) => /<a class="gh-btn[^"]*"[^>]*>[\s\S]*?<\/a>/.exec(card(html, n))?.[0] ?? '';
+const issueBody = (html, n) => decodeURIComponent(/&amp;body=([^"&]*)/.exec(issueButton(html, n))?.[1] ?? '');
+
+test('a confirmed bug that also happens on main with nothing related reads Not reported yet, and its card has a labelled File issue button', () => {
+	const html = grouped();
+	for (const n of [2, 6]) {
+		assert.ok(findingRow(html, n).includes(NOT_REPORTED), `finding ${n}`);
+		assert.doesNotMatch(findingRow(html, n), /Nothing related/);
+		assert.match(issueButton(html, n), /^<a class="gh-btn is-file" href="[^"]+" target="_blank" rel="noopener" aria-label="File a GitHub issue for finding \d+ \(opens GitHub in a new tab\)"><svg[\s\S]*<\/svg><span>File issue<\/span><\/a>$/);
+	}
+	// Only in branch, Unknown and Disputed keep the dash and the plain icon.
+	for (const n of [1, 5, 8]) {
+		assert.doesNotMatch(findingRow(html, n), /ki-nry/);
+		assert.match(issueButton(html, n), /^<a class="gh-btn" [^>]*data-tip="File a GitHub issue"/);
+	}
+	// A match on GitHub is related, so it is not this case.
+	const known = grouped({ ...REPLAYED, findings: REPLAYED.findings.map(f => (f.n === 2 ? { ...f, known: [5741] } : f)) });
+	assert.doesNotMatch(findingRow(known, 2), /ki-nry/);
+	assert.match(issueButton(known, 2), /^<a class="gh-btn" /);
+	assert.match(REPORT_CSS, /\.ki-nry\{position:relative;font-size:13px;color:var\(--faint\);text-decoration:underline dotted;text-underline-offset:3px\}/);
+	assert.match(REPORT_CSS, /\.ff-card a\.row:hover\{position:relative;z-index:2\}/);
+	// The icons' tight pairing would overlap the labelled button.
+	assert.match(REPORT_CSS, /\.gh-btn\.is-file\+\.cp-btn,\.gh-btn\.is-file\+\.ln-btn\{margin-left:-12px\}/);
+});
+
+test('the File issue body says the bug also reproduces on the latest daily build, after the Reported by line', () => {
+	const branch = issueBody(grouped(), 2);
+	assert.match(branch, /^<sub>Reported by exploratory test[^\n]*<\/sub>\n\nAlso reproduces on main's latest daily build \(2026\.11\.0-236, 57b03d3\), so it isn't specific to this branch\.\n\n- \[ \] Reproduced by a human/);
+	const pr = issueBody(grouped({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }), 2);
+	assert.match(pr, /<\/sub>\n\nAlso reproduces on main's latest daily build \(2026\.11\.0-236, 57b03d3\), so it isn't specific to #1234\.\n/);
+	assert.doesNotMatch(issueBody(grouped(), 1), /Also reproduces on main/);
+});
+
+test('arriving at a Not reported yet card through its row flashes the File issue button once', () => {
+	assert.match(REPORT_CSS, /@keyframes fileFlash\{from\{outline-color:var\(--focus\)\}to\{outline-color:transparent\}\}/);
+	assert.match(REPORT_CSS, /\.gh-btn\.is-file\.flash\{outline:2px solid var\(--focus\);outline-offset:3px;animation:fileFlash 1\.2s ease-out forwards\}/);
+	assert.match(REPORT_CSS, /@media \(prefers-reduced-motion:reduce\)\{\.gh-btn\.is-file\.flash\{animation:none\}\}/);
+	const html = grouped();
+	assert.match(html, /window\.addEventListener\('hashchange',function\(\)\{var c=document\.getElementById\(location\.hash\.slice\(1\)\);var b=c&&c\.querySelector\('\.gh-btn\.is-file'\);if\(!b\)\{return;\}clearTimeout\(b\._flash\);b\.classList\.remove\('flash'\);void b\.offsetWidth;b\.classList\.add\('flash'\);b\._flash=setTimeout\(function\(\)\{b\.classList\.remove\('flash'\);\},1200\);\}\);/);
 });
 
 test('a card shows the screenshots from the latest build, and fails differently is Unknown with what main showed', () => {

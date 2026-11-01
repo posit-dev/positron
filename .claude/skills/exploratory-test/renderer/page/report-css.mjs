@@ -447,6 +447,10 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .og .og-tip{left:auto;right:0}
 .og-meta .og-tip{left:0;right:auto}
 .og-none{color:var(--faint)}
+.ki-nry{position:relative;font-size:13px;color:var(--faint);text-decoration:underline dotted;text-underline-offset:3px}
+.ki-nry .og-tip{left:auto;right:0;transform:none;width:260px;white-space:normal}
+/* Over the next row, so a tooltip opening down isn't covered. */
+.ff-card a.row:hover{position:relative;z-index:2}
 .og-h{text-decoration:underline dotted;text-underline-offset:3px}
 .og-h:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:3px}
 .og-meta{font-size:12px;color:var(--muted);font-weight:400;text-decoration:underline dotted;text-decoration-color:currentColor;text-underline-offset:3px}
@@ -583,6 +587,14 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .gh-btn:last-child{margin-right:-6px}
 .gh-btn+.cp-btn{margin-left:-19px}
 .gh-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
+/* A bug nobody has reported: a labelled button, flashed on arrival from its row. */
+.gh-btn.is-file{width:auto;height:30px;gap:6px;padding:0 12px 0 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--body);font-size:12.5px;font-weight:500;white-space:nowrap}
+.gh-btn.is-file:hover{color:var(--ink);background:var(--card);border-color:var(--muted)}
+.gh-btn.is-file::after{display:none}
+.gh-btn.is-file+.cp-btn,.gh-btn.is-file+.ln-btn{margin-left:-12px}
+@keyframes fileFlash{from{outline-color:var(--focus)}to{outline-color:transparent}}
+.gh-btn.is-file.flash{outline:2px solid var(--focus);outline-offset:3px;animation:fileFlash 1.2s ease-out forwards}
+@media (prefers-reduced-motion:reduce){.gh-btn.is-file.flash{animation:none}}
 .gh-toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,8px);display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;background:var(--toast-bg);color:var(--toast-text);border:1px solid var(--toast-border);font-family:var(--sans);font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;z-index:50}
 .gh-toast.show{opacity:1;transform:translate(-50%,0)}
 .gh-toast svg{color:var(--toast-check)}

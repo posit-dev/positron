@@ -220,6 +220,11 @@ var el=document.getElementById(a.dataset.issue);if(!el){return;}
 var text=el.textContent.replace(/<\\\\(?=\\/script|!--)/gi,'<');
 ${copyScript('text', 'show')}});});})();`;
 
+// Arriving at a card from its "Not reported yet" row flashes its File issue
+// button once, for 1.2s, which also ends the outline when motion is reduced.
+// Only on a hash change, not on load or a scroll.
+export const FILE_FLASH_SCRIPT = `window.addEventListener('hashchange',function(){var c=document.getElementById(location.hash.slice(1));var b=c&&c.querySelector('.gh-btn.is-file');if(!b){return;}clearTimeout(b._flash);b.classList.remove('flash');void b.offsetWidth;b.classList.add('flash');b._flash=setTimeout(function(){b.classList.remove('flash');},1200);});`;
+
 // The Linked issues counts open their hidden list in one floating panel: on
 // hover (it stays while the pointer is on it), keyboard focus, or tap. Enter or
 // Space pins it, Escape closes it.

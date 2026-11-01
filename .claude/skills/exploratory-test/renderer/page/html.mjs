@@ -24,7 +24,7 @@ import { CARD_FILE, CARD_HEIGHT, CARD_WIDTH, writeCard } from './og-card.mjs';
 import { readKnownIssues } from '../agents/finish.mjs';
 import { issueLink, possiblyKnown, renderCopyButton, renderFeedbackRow, renderIssueBlock, renderIssueButton, renderLinkButton, renderPromptBlock } from './card-actions.mjs';
 import { capitalize, ICON, logFile, REPO_URL, SEVERITY_LABEL, statusWord } from './page-common.mjs';
-import { BOOT_SCRIPT, CODE_CHIP_SCRIPT, COPY_SCRIPT, FEEDBACK_SCRIPT, HEADER_ACTIONS, ISSUE_SCRIPT, KI_LIST_SCRIPT, KI_SCRIPT, LINK_SCRIPT, PAGE_SCRIPT } from './page-scripts.mjs';
+import { BOOT_SCRIPT, CODE_CHIP_SCRIPT, COPY_SCRIPT, FEEDBACK_SCRIPT, FILE_FLASH_SCRIPT, HEADER_ACTIONS, ISSUE_SCRIPT, KI_LIST_SCRIPT, KI_SCRIPT, LINK_SCRIPT, PAGE_SCRIPT } from './page-scripts.mjs';
 
 // The skill that writes these reports. A source link rather than a docs page,
 // because the skill is the documentation: it is the brief the agent followed,
@@ -326,7 +326,7 @@ function unknownShort(report, f) {
 		'no main build': 'no main build',
 		'not replayed': 'not replayed on the latest build',
 		'could not run': 'couldn&rsquo;t run on the latest build',
-		'too few tries': n < m ? 'intermittent, needs more tries on the latest build' : 'needs more tries on the latest build',
+		'too few tries': n < m ? 'too few tries on the latest build' : 'needs more tries on the latest build',
 		'drift': 'main has changed in this area',
 		'drift unchecked': 'cause not traced',
 		'not verified': 'not verified',
@@ -365,7 +365,7 @@ function groupEvidence(report, f, group, ki) {
 		const { n, m } = rateOf(f);
 		const k = fewestTries(f.main);
 		return n < m
-			? `This issue only shows up sometimes (${n} of ${m} tries here). It didn&rsquo;t show up in ${k} tries on the latest build, but that could be luck, so we can&rsquo;t say either way.`
+			? `It&rsquo;s intermittent: it happened in ${n} of ${m} tries on this ${change}. It didn&rsquo;t happen in ${k} tries on the latest build, but that&rsquo;s too few to rule it out.`
 			: `It showed up every time here (${n} of ${m} tries), but the latest build was tried only ${k} time${k === 1 ? '' : 's'}, so we can&rsquo;t say yet.`;
 	}
 	return {
@@ -506,7 +506,9 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null, m
 		const up = i === report.findings.length - 1 ? ' og-up' : '';
 		const status = lines.length
 			? `<span class="ki-st">${lines.join('')}</span>`
-			: `<span class="ki-st"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">Nothing related</span>`
+			: notReported(f, word, group, ki, refs)
+				? `<span class="ki-st"><span class="og ki-nry${up}">Not reported yet${originTip('Not reported yet', 'This bug also happens on main and no GitHub issue matches it.')}</span></span>`
+				: `<span class="ki-st"><span class="og og-none${up}"><span aria-hidden="true">&mdash;</span><span class="og-sr">Nothing related</span>`
 				+ `${originTip('', 'No related issues or PRs found.')}</span></span>`;
 		// The tag is read as part of the row link, so its tooltip is hidden from screen readers.
 		const title = rejected ? withLastWord(f.rowTitle, verdictTag(word, false)) : f.rowTitle;
@@ -969,6 +971,11 @@ function renderCardDetails(f, report, options = {}) {
  * that did not hold or an issue that came back, then its matches by kind.
  * When verify rejected the finding, its issue line stands in without the claim.
  */
+/** A confirmed bug that also happens on main with nothing related: nobody has reported it. */
+function notReported(f, word, group, ki, refs) {
+	return word === 'confirmed' && group === 'ex' && !cardIssueItems(f, word, ki, refs, group).length;
+}
+
 function cardIssueItems(f, word, ki, refs, group) {
 	const rejected = isRejected(word);
 	const failed = ki?.fixFailed.get(f.n) ?? [];
@@ -999,9 +1006,11 @@ function cardIssueItems(f, word, ki, refs, group) {
 
 function renderFindingCard(f, report, options) {
 	const prompts = options.agentPrompts !== false;
-	const issue = issueLink(f, report, options);
-	const context = [];
 	const word = statusWord(f);
+	const group = groupOf(report, f, options.changeBase, options.ki);
+	const unreported = notReported(f, word, group, options.ki, options.refs);
+	const issue = issueLink(f, report, unreported ? { ...options, alsoOnMain: true } : options);
+	const context = [];
 	if (word === 'confirmed') {
 		context.push(`<span class="confirmed">${ICON.check(12)}Confirmed</span>`);
 	} else if (word) {
@@ -1011,7 +1020,6 @@ function renderFindingCard(f, report, options) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
 	}
 	// After the verdict and its rate, as in the table, before the linked issues.
-	const group = groupOf(report, f, options.changeBase, options.ki);
 	const origin = cardGroup(report, f, group, options.ki);
 	if (origin) {
 		context.push(origin);
@@ -1024,7 +1032,7 @@ function renderFindingCard(f, report, options) {
 		+ `<span class="group identity"><span class="who">Finding ${f.n}</span>${pill(f.severity)}</span>`
 		+ '<span class="rule" aria-hidden="true"></span>'
 		+ `<span class="group context">${contextHtml}</span>`
-		+ renderIssueButton(f, issue)
+		+ renderIssueButton(f, issue, unreported)
 		+ (prompts ? renderCopyButton(f) : '')
 		+ renderLinkButton(f)
 		+ '</div>';
@@ -1508,6 +1516,7 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	const scripts = [
 		[prompts || page.includes('class="code-cp"'), COPY_SCRIPT],
 		[page.includes(' data-issue="'), ISSUE_SCRIPT],
+		[page.includes('class="gh-btn is-file"'), FILE_FLASH_SCRIPT],
 		[page.includes(' data-link-to="'), LINK_SCRIPT],
 		[page.includes('<code class="cc"'), CODE_CHIP_SCRIPT],
 		[page.includes(' data-title="'), KI_SCRIPT],
