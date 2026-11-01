@@ -252,6 +252,12 @@ jobs:
             echo '.pip-cache/'
             echo '/.playwright-browsers/'
           } >> "$(git rev-parse --git-path info/exclude)"
+          # The extensions cache restores the SQL analyzer over its LFS pointer, so fetch-analyzer
+          # finds no pointer and never sets the clean filter that reads the module as one. Put the
+          # pointer back and fetch again: it takes the module from .build/sql-analyzer and sets it.
+          wasm=extensions/positron-sql/resources/sql-analyzer.wasm
+          git show "HEAD:$wasm" > "$wasm"
+          node extensions/positron-sql/scripts/fetch-analyzer.mts
 
       - name: Show the tree state
         if: ${{ !cancelled() && steps.smoke.outcome == 'success' && steps.rerun.outcome == 'success' }}

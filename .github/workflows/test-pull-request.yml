@@ -305,7 +305,7 @@ jobs:
   # @:workbench-rocky selects the lane, never individual tests, so no test
   # carries it.
   e2e-workbench-rocky:
-    needs: [pr-tags, build-workbench, e2e-workbench]
+    needs: [pr-tags, build-workbench]
     if: ${{ !cancelled() && needs.build-workbench.result == 'success' && needs.pr-tags.outputs.workbench_rocky_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-workbench-linux.yml
@@ -323,7 +323,7 @@ jobs:
   # @:workbench-all sets this lane's flag too (see scripts/pr-tags-parse.sh),
   # which is why there is no separate condition for it here.
   e2e-workbench-suse:
-    needs: [pr-tags, build-workbench, e2e-workbench-rocky]
+    needs: [pr-tags, build-workbench]
     if: ${{ !cancelled() && needs.build-workbench.result == 'success' && needs.pr-tags.outputs.workbench_suse_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-workbench-linux.yml
@@ -335,8 +335,10 @@ jobs:
       upload_logs: false
     secrets: inherit
 
+  # Behind the workbench lane: both run the azure shard, whose TOTP sign-in
+  # collides with itself when two lanes run it at once.
   e2e-workbench-stable:
-    needs: [pr-tags, build-workbench, e2e-workbench-suse]
+    needs: [pr-tags, build-workbench, e2e-workbench]
     if: ${{ !cancelled() && needs.build-workbench.result == 'success' && needs.pr-tags.outputs.workbench_stable_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-workbench-linux.yml

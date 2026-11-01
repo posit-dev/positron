@@ -82,7 +82,8 @@ jobs:
           npm_config_arch: x64
           MANGLER_WORKER_POOL_SIZE: 1
         run: |
-          npm run gulp vscode-reh-web-pwb-linux-x64
+          # In-process TypeScript compile needs more than the 8 GB `npm run gulp` heap (#16869).
+          node --experimental-strip-types --max-old-space-size=10240 ./node_modules/gulp/bin/gulp.js vscode-reh-web-pwb-linux-x64
 
       - name: Package workbench tar.gz
         run: |

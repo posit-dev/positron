@@ -6,6 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import { Event } from '../../../../../base/common/event.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { LanguageRuntimeSessionMode, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
@@ -109,6 +111,74 @@ describe('PositronConsoleService', () => {
 
 			expect(openViewSpy).toHaveBeenCalled();
 			expect(consoleService.shouldPreserveActiveTab('exec-1')).toBe(false);
+		});
+
+		it.each([
+			{ preserveActiveTab: true, expected: 'foreground' as const },
+			{ preserveActiveTab: false, expected: 'background' as const },
+		])('leaves $expected in the foreground after running in a background console when preserveActiveTab is $preserveActiveTab', async ({ preserveActiveTab, expected }) => {
+			const consoleService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(PositronConsoleService));
+			const background = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			const foreground = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			const sessions = { foreground, background };
+
+			await consoleService.executeCode(background.runtimeMetadata.languageId, background.sessionId, '1 + 1',
+				attribution, false, true, undefined, undefined, 'exec-1', undefined, undefined, preserveActiveTab);
+
+			expect(ctx.get(IRuntimeSessionService).foregroundSession?.sessionId).toBe(sessions[expected].sessionId);
+			expect(consoleService.activePositronConsoleInstance?.sessionId).toBe(sessions[expected].sessionId);
+		});
+
+		it('runs code in a notebook session that has no console, in the background', async () => {
+			const consoleService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(PositronConsoleService));
+			const foreground = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			const notebook = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+				sessionMode: LanguageRuntimeSessionMode.Notebook,
+				notebookUri: URI.file('/test/notebook.ipynb'),
+			});
+			notebook.setRuntimeState(RuntimeState.Idle);
+			ctx.get(IRuntimeSessionService).foregroundSession = foreground;
+			expect(consoleService.positronConsoleInstances.map(instance => instance.sessionId)).not.toContain(notebook.sessionId);
+
+			await consoleService.executeCode(notebook.runtimeMetadata.languageId, notebook.sessionId, '1 + 1',
+				attribution, false, true, undefined, undefined, 'exec-1', undefined, undefined, true);
+
+			expect(consoleService.positronConsoleInstances.map(instance => instance.sessionId)).toContain(notebook.sessionId);
+			expect(ctx.get(IRuntimeSessionService).foregroundSession?.sessionId).toBe(foreground.sessionId);
+			expect(consoleService.activePositronConsoleInstance?.sessionId).toBe(foreground.sessionId);
+		});
+
+		it('activates a notebook session\'s new console when no console is active', async () => {
+			const consoleService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(PositronConsoleService));
+			const notebook = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+				sessionMode: LanguageRuntimeSessionMode.Notebook,
+				notebookUri: URI.file('/test/notebook.ipynb'),
+			});
+			notebook.setRuntimeState(RuntimeState.Idle);
+			expect(consoleService.activePositronConsoleInstance).toBeUndefined();
+
+			await consoleService.executeCode(notebook.runtimeMetadata.languageId, notebook.sessionId, '1 + 1',
+				attribution, false, true, undefined, undefined, 'exec-1', undefined, undefined, true);
+
+			expect(consoleService.activePositronConsoleInstance?.sessionId).toBe(notebook.sessionId);
+			expect(ctx.get(IRuntimeSessionService).foregroundSession?.sessionId).toBe(notebook.sessionId);
+		});
+
+		it('does not attach a console to a notebook session that has exited', async () => {
+			const consoleService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(PositronConsoleService));
+			const notebook = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+				sessionMode: LanguageRuntimeSessionMode.Notebook,
+				notebookUri: URI.file('/test/notebook.ipynb'),
+			});
+			notebook.setRuntimeState(RuntimeState.Exited);
+
+			await expect(consoleService.executeCode(notebook.runtimeMetadata.languageId, notebook.sessionId, '1 + 1',
+				attribution, false, true, undefined, undefined, 'exec-1', undefined, undefined, true)).rejects.toThrow();
+			expect(consoleService.positronConsoleInstances.map(instance => instance.sessionId)).not.toContain(notebook.sessionId);
 		});
 	});
 });

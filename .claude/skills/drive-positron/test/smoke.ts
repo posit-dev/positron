@@ -363,8 +363,10 @@ const cases: Case[] = [
 	{ name: 'qmd missing cell', run: ['qmd.sh', '--file', 'report.qmd', 'run', '9'], fail: true },
 	// Two report.qmd: the folder picks one, and the tab is checked by its path.
 	{ name: 'open-file sub/report.qmd', run: ['open-file.sh', 'sub/report.qmd'], check: o => !String(o.json!.path).endsWith('/ws/sub/report.qmd') && `path ${o.json!.path}` },
-	// A cell that prints nothing ran all the same: its execution id says so, each time.
-	{ name: 'qmd run a cell that prints nothing', run: ['qmd.sh', '--file', 'report.qmd', 'run', '1'], check: o => (o.json!.toolbar?.executionId === o.json!.before?.toolbar?.executionId && 'the execution id did not change') || (o.json!.output !== null && 'an output') },
+	// A cell that prints nothing ran all the same: its execution id says so, each time. This
+	// document's kernel is new, so the cell can still be queued when run returns (on macOS it is).
+	{ name: 'qmd run a cell that prints nothing', run: ['qmd.sh', '--file', 'report.qmd', 'run', '1'], check: o => (o.json!.toolbar?.state !== 'queued' && o.json!.toolbar?.executionId === o.json!.before?.toolbar?.executionId && 'neither queued nor a new execution id') || (o.json!.output !== null && 'an output') },
+	{ name: 'qmd wait for the cell that prints nothing', run: ['qmd.sh', '--file', 'report.qmd', 'wait', '1', '30'], check: o => (!o.json!.toolbar?.executionId && 'no execution id') || (o.json!.output !== null && 'an output') },
 	{ name: 'qmd run the cell that reads it', run: ['qmd.sh', '--file', 'report.qmd', 'run', '2'], check: o => !o.json!.changed && 'nothing changed' },
 	{ name: 'qmd wait for it', run: ['qmd.sh', '--file', 'report.qmd', 'wait', '2', '30'], check: o => includes(o.json!.output?.text, 'sub-answer 42') },
 	{ name: 'open-file report.qmd, the root one', run: ['open-file.sh', 'report.qmd'], check: o => !String(o.json!.path).endsWith('/ws/report.qmd') && `path ${o.json!.path}` },
@@ -436,10 +438,11 @@ const cases: Case[] = [
 	{ name: 'settings set --user', run: ['settings.sh', 'set', 'smoke.flag', 'true', '--user'], check: o => (o.json!.scope !== 'user' && `scope ${o.json!.scope}`) || includes(readFileSync(String(o.json!.file), 'utf8'), 'quarto.inlineOutput.enabled') },
 	{ name: 'settings set without a value', run: ['settings.sh', 'set', 'smoke.number'], fail: true },
 	// The Settings editor's More Actions draws its menu inside a shadow root: choose must count it as what opened.
+	// Its name ends in the shortcut, (Shift+F9) or (\u21e7F9) on macOS, so the case names it without one.
 	{ name: 'settings set editor.fontSize --user (for the Settings editor)', run: ['settings.sh', 'set', 'editor.fontSize', '16', '--user'] },
 	{ name: 'palette-run Open Settings (UI)', run: ['palette-run.sh', 'Preferences: Open Settings (UI)'] },
 	{ name: 'ui type editor.fontSize in the Settings dialog', run: ['ui.sh', 'type', 'editor.fontSize', '--in', 'dialog'], check: o => includes(o.json!.diff, 'Editor Font Size. Modified.') },
-	{ name: 'ui choose Reset Setting from a menu drawn in a shadow root', run: ['ui.sh', 'choose', 'button', 'More Actions... (Shift+F9)', 'Reset Setting', '--in', 'dialog', '--nth', '1'], check: o => (o.json!.chose !== 'Reset Setting' && `chose ${o.json!.chose}`) || includes(o.json!.diff, '+ - treeitem "Editor Font Size. Controls the font size in pixels."') },
+	{ name: 'ui choose Reset Setting from a menu drawn in a shadow root', run: ['ui.sh', 'choose', 'button', 'More Actions...', 'Reset Setting', '--in', 'dialog', '--nth', '1'], check: o => (o.json!.chose !== 'Reset Setting' && `chose ${o.json!.chose}`) || includes(o.json!.diff, '+ - treeitem "Editor Font Size. Controls the font size in pixels."') },
 	{ name: 'ui click Close Modal Editor (Settings)', run: ['ui.sh', 'click', 'button', 'Close Modal Editor', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
 	// An enum setting's select box draws its list in the workbench context view, outside the dialog, and reuses that element each time it opens.
 	{ name: 'palette-run Open Settings (UI) (for a select box)', run: ['palette-run.sh', 'Preferences: Open Settings (UI)'] },
