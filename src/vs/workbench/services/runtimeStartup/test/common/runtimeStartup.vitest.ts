@@ -2127,6 +2127,110 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 	});
 });
 
+describe('RuntimeStartupService - console in front', () => {
+
+	const ctx = startupTestContainer()
+		.build();
+
+	const uv = metadata({ runtimeId: 'python-uv' });
+	const pyenv = metadata({ runtimeId: 'python-pyenv' });
+
+	interface IConsole {
+		session: ILanguageRuntimeSession;
+		setState(state: RuntimeState): void;
+		/** How many listeners subscribed to the console's state changes. */
+		stateSubscriptions(): number;
+	}
+
+	function createConsole(runtime: ILanguageRuntimeMetadata, sessionId: string): IConsole {
+		const stateChanges = ctx.disposables.add(new Emitter<RuntimeState>());
+		let state = RuntimeState.Idle;
+		let subscriptions = 0;
+		const session = stubInterface<ILanguageRuntimeSession>({
+			sessionId,
+			runtimeMetadata: runtime,
+			getRuntimeState: () => state,
+			onDidChangeRuntimeState: (listener, thisArgs?, disposables?) => {
+				subscriptions++;
+				return stateChanges.event(listener, thisArgs, disposables);
+			},
+		});
+		return {
+			session,
+			setState: newState => {
+				state = newState;
+				stateChanges.fire(newState);
+			},
+			stateSubscriptions: () => subscriptions,
+		};
+	}
+
+	/** Creates the service, with `bringToFront` standing in for the session service's event. */
+	function createService() {
+		const foreground = ctx.disposables.add(new Emitter<ILanguageRuntimeSession | undefined>());
+		// The container is rebuilt for each test, so this doesn't leak.
+		Object.defineProperty(ctx.get(IRuntimeSessionService), 'onDidChangeForegroundSession', { value: foreground.event });
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		return { svc, bringToFront: (c: IConsole) => foreground.fire(c.session) };
+	}
+
+	it('does not save a console ended by exit() as the last used runtime when it comes back to the front', () => {
+		const { svc, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		// Start uv, then end it with exit(), which skips Exiting.
+		bringToFront(uvConsole);
+		uvConsole.setState(RuntimeState.Exited);
+		// Start pyenv, then delete its console, which shuts it down.
+		bringToFront(pyenvConsole);
+		pyenvConsole.setState(RuntimeState.Exiting);
+		pyenvConsole.setState(RuntimeState.Exited);
+		// The exited uv console comes back to the front.
+		bringToFront(uvConsole);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBeUndefined();
+	});
+
+	it('keeps the running console saved when an exited console\'s tab is clicked', () => {
+		const { svc, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		bringToFront(uvConsole);
+		uvConsole.setState(RuntimeState.Exited);
+		bringToFront(pyenvConsole);
+		bringToFront(uvConsole);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
+	});
+
+	it('listens to a console\'s state once however often it comes to the front', () => {
+		const { svc, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		bringToFront(uvConsole);
+		bringToFront(pyenvConsole);
+		bringToFront(uvConsole);
+		bringToFront(pyenvConsole);
+		bringToFront(uvConsole);
+		// A shutdown still forgets the saved runtime.
+		uvConsole.setState(RuntimeState.Exiting);
+
+		expect({
+			uvSubscriptions: uvConsole.stateSubscriptions(),
+			pyenvSubscriptions: pyenvConsole.stateSubscriptions(),
+			affiliated: svc.getAffiliatedRuntimeMetadata('python')?.runtimeId,
+		}).toEqual({
+			uvSubscriptions: 1,
+			pyenvSubscriptions: 1,
+			affiliated: undefined,
+		});
+	});
+});
+
 describe('RuntimeStartupService - hasLanguageRuntimeProvider', () => {
 
 	const ctx = startupTestContainer()
@@ -3392,7 +3496,12 @@ describe('RuntimeStartupService - startup sequence', () => {
 				reconnected: [oldR],
 				foregroundChanges: foreground.event,
 			});
-			foreground.fire(stubInterface<ILanguageRuntimeSession>({ runtimeMetadata: oldR, onDidChangeRuntimeState: runtimeState.event }));
+			foreground.fire(stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'session-0',
+				runtimeMetadata: oldR,
+				getRuntimeState: () => RuntimeState.Idle,
+				onDidChangeRuntimeState: runtimeState.event,
+			}));
 			await lateAnswer.complete(pinnedR);
 			await timeout(0);
 

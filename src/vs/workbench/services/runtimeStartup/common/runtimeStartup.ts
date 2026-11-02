@@ -5,7 +5,7 @@
 
 import * as nls from '../../../../nls.js';
 import * as perf from '../../../../base/common/performance.js';
-import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -310,6 +310,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// reason.
 	private readonly _pinnedAffiliations = new Map<string, IAffiliatedRuntimeMetadata>();
 
+	// The state listener for each session that has come to the front, keyed
+	// by session ID, so each session is listened to once.
+	private readonly _foregroundSessionStateListeners = this._register(new DisposableMap<string>());
+
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
 
@@ -384,6 +388,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._register(
 			this._runtimeSessionService.onDidChangeForegroundSession(
 				this.onDidChangeActiveRuntime, this));
+		this._register(
+			this._runtimeSessionService.onDidDeleteRuntimeSession(sessionId =>
+				this._foregroundSessionStateListeners.deleteAndDispose(sessionId)));
 
 		this._register(
 			this._languageRuntimeService.onDidRegisterRuntime(
@@ -1145,6 +1152,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		// A console ended by `exit()` comes back to the front when another
+		// console is deleted, or its tab is clicked. That isn't using it.
+		if (session.getRuntimeState() === RuntimeState.Exited) {
+			return;
+		}
+
 		// Get the previous affiliation, if any, to preserve the start time.
 		const oldAffiliation = this.getAffiliatedRuntime(session.runtimeMetadata.languageId);
 		const lastStarted =
@@ -1164,7 +1177,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// `Exiting` state. This state only occurs when the runtime is manually
 		// shut down, so may represent a user's intent to stop using the runtime
 		// for this workspace.
-		this._register(session.onDidChangeRuntimeState((newState) => {
+		if (this._foregroundSessionStateListeners.has(session.sessionId)) {
+			return;
+		}
+		this._foregroundSessionStateListeners.set(session.sessionId, session.onDidChangeRuntimeState((newState) => {
 			if (newState === RuntimeState.Exiting) {
 				// Just to be safe, check that the runtime is still affiliated
 				// before removing the affiliation
