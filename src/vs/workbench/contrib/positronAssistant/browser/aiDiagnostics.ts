@@ -316,7 +316,7 @@ ${inputs.providersConfig}
 
 Generated: ${inputs.generatedAt}
 
-**Privacy Notice**: This report includes extension versions, non-default configuration settings, provider connection config, the Posit Assistant settings report (setting values, file paths, and where each credential comes from), system information, and recent log entries. Known secret fields are redacted: API keys, tokens, and custom header values are replaced with \`<redacted>\`, and keys/tokens are stored separately from settings and providers.json to begin with. Everything else is shown as you configured it, including base URLs (which may reveal internal endpoints) and connection settings. Please read through the whole report and remove anything sensitive before you share it.
+**Privacy Notice**: This report includes extension versions, non-default configuration settings, provider connection config, the Posit Assistant settings report (setting values, file paths, and where each credential comes from), system information, and recent log entries. Known secret fields are hidden: API keys, tokens, and custom header values read \`${REDACTED_VALUE}\` everywhere in the report, including the Posit Assistant Settings section, and keys/tokens are stored separately from settings and providers.json to begin with. Everything else is shown as you configured it, including base URLs (which may reveal internal endpoints) and connection settings. Please read through the whole report and remove anything sensitive before you share it.
 
 ## Version Information
 
