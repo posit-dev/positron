@@ -7,7 +7,9 @@ import { CancelablePromise, createCancelablePromise, promiseWithResolvers } from
 import { VSBuffer } from '../../../base/common/buffer.js';
 import { CancellationToken, CancellationTokenSource } from '../../../base/common/cancellation.js';
 import { isCancellationError, onUnexpectedError } from '../../../base/common/errors.js';
-import { Emitter } from '../../../base/common/event.js';
+// --- Start PWB: login-aware reconnection backoff (adds Event) ---
+import { Emitter, Event } from '../../../base/common/event.js';
+// --- End PWB ---
 import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { RemoteAuthorities } from '../../../base/common/network.js';
 import * as performance from '../../../base/common/performance.js';
@@ -192,7 +194,9 @@ function createSocket<T extends RemoteConnection>(logService: ILogService, remot
 	logService.info(`Creating a socket (${debugLabel})...`);
 	performance.mark(`code/willCreateSocket/${debugConnectionType}`);
 
-	remoteSocketFactoryService.connect(connectTo, path, query, debugLabel).then((socket) => {
+	// --- Start PWB: Close the pending socket when this attempt times out or is cancelled (rstudio-pro#13201) ---
+	remoteSocketFactoryService.connect(connectTo, path, query, debugLabel, timeoutCancellationToken).then((socket) => {
+		// --- End PWB ---
 		if (result.didTimeout) {
 			performance.mark(`code/didCreateSocketError/${debugConnectionType}`);
 			logService.info(`Creating a socket (${debugLabel}) finished after ${sw.elapsed()} ms, but this is too late and has timed out already.`);
@@ -204,6 +208,13 @@ function createSocket<T extends RemoteConnection>(logService: ILogService, remot
 		}
 	}, (err) => {
 		performance.mark(`code/didCreateSocketError/${debugConnectionType}`);
+		// --- Start PWB: The socket factory cancelled this attempt (timed out or permanently failed): expected, not an error ---
+		if (isCancellationError(err)) {
+			logService.info(`Creating a socket (${debugLabel}) was cancelled after ${sw.elapsed()} ms.`);
+			result.reject(err);
+			return;
+		}
+		// --- End PWB ---
 		logService.info(`Creating a socket (${debugLabel}) returned an error after ${sw.elapsed()} ms.`);
 		logService.error(err);
 		result.reject(err);
@@ -537,6 +548,50 @@ export class ReconnectionPermanentFailureEvent {
 }
 export type PersistentConnectionEvent = ConnectionGainEvent | ConnectionLostEvent | ReconnectionWaitEvent | ReconnectionRunningEvent | ReconnectionPermanentFailureEvent;
 
+// --- Start PWB: login-aware reconnection backoff (rstudio-pro#13201) ---
+/**
+ * Whether the user is logged in to Posit Workbench. While logged out the Workbench proxy refuses
+ * every reconnect, so the loop waits PWB_LOGGED_OUT_RECONNECT_WAIT_SECONDS between attempts and
+ * retries at once on login. Installed by the browser workbench (pwbReconnectionGate.ts).
+ */
+export interface IReconnectionGate {
+	readonly isLoggedIn: boolean;
+	readonly onDidLogin: Event<void>;
+}
+
+export const PWB_LOGGED_OUT_RECONNECT_WAIT_SECONDS = 600;
+
+export function pwbReconnectWaitSeconds(gate: IReconnectionGate | undefined, waitSeconds: number): number {
+	return gate && !gate.isLoggedIn ? PWB_LOGGED_OUT_RECONNECT_WAIT_SECONDS : waitSeconds;
+}
+
+/** Cut a reconnect wait short when the user logs back in. */
+export function pwbCancelWaitOnLogin(gate: IReconnectionGate | undefined, wait: CancelablePromise<void>): IDisposable {
+	return gate ? gate.onDidLogin(() => wait.cancel()) : Disposable.None;
+}
+
+export interface IPwbAttemptCancellation extends IDisposable {
+	readonly token: CancellationToken;
+}
+
+/**
+ * Cancellation for one reconnect attempt: it ends when the attempt times out or the connection has
+ * permanently failed. Dispose it when the attempt ends, so it doesn't leave a listener behind on
+ * `permanentFailure`, which lives as long as the connection.
+ */
+export function pwbCreateAttemptCancellation(timeout: CancellationToken, permanentFailure: CancellationToken): IPwbAttemptCancellation {
+	const source = new CancellationTokenSource(permanentFailure);
+	const timeoutListener = timeout.onCancellationRequested(() => source.cancel());
+	return {
+		token: source.token,
+		dispose: () => {
+			timeoutListener.dispose();
+			source.dispose();
+		}
+	};
+}
+// --- End PWB ---
+
 export abstract class PersistentConnection extends Disposable {
 
 	public static triggerPermanentFailure(millisSinceLastIncomingData: number, attempt: number, handled: boolean): void {
@@ -555,6 +610,14 @@ export abstract class PersistentConnection extends Disposable {
 		this._instances.forEach(instance => instance._pauseSocketWriting());
 	}
 
+	// --- Start PWB: login-aware reconnection backoff ---
+	private static _pwbReconnectionGate: IReconnectionGate | undefined;
+
+	public static pwbSetReconnectionGate(gate: IReconnectionGate | undefined): void {
+		this._pwbReconnectionGate = gate;
+	}
+	// --- End PWB ---
+
 	private static _permanentFailure: boolean = false;
 	private static _permanentFailureMillisSinceLastIncomingData: number = 0;
 	private static _permanentFailureAttempt: number = 0;
@@ -572,6 +635,9 @@ export abstract class PersistentConnection extends Disposable {
 	private _isReconnecting: boolean = false;
 	private _isDisposed: boolean = false;
 	private _reconnectionGraceTime: number = ProtocolConstants.ReconnectionGraceTime;
+	// --- Start PWB: Abort an in-flight reconnect attempt once the connection has permanently failed ---
+	private readonly _pwbPermanentFailureCts = this._register(new CancellationTokenSource());
+	// --- End PWB ---
 
 	constructor(
 		private readonly _connectionType: ConnectionType,
@@ -666,16 +732,27 @@ export abstract class PersistentConnection extends Disposable {
 		let attempt = -1;
 		do {
 			attempt++;
-			const waitTime = (attempt < TIMES.length ? TIMES[attempt] : TIMES[TIMES.length - 1]);
+			// --- Start PWB: login-aware reconnection backoff ---
+			const gate = PersistentConnection._pwbReconnectionGate;
+			const waitTime = pwbReconnectWaitSeconds(gate, (attempt < TIMES.length ? TIMES[attempt] : TIMES[TIMES.length - 1]));
+			// --- End PWB ---
 			try {
 				if (waitTime > 0) {
 					const sleepPromise = sleep(waitTime);
 					this._onDidStateChange.fire(new ReconnectionWaitEvent(this.reconnectionToken, this.protocol.getMillisSinceLastIncomingData(), waitTime, sleepPromise));
 
 					this._options.logService.info(`${logPrefix} waiting for ${waitTime} seconds before reconnecting...`);
+					// --- Start PWB: login-aware reconnection backoff: retry as soon as the user logs back in ---
+					const loginListener = pwbCancelWaitOnLogin(gate, sleepPromise);
+					// --- End PWB ---
 					try {
 						await sleepPromise;
 					} catch { } // User canceled timer
+					// --- Start PWB: login-aware reconnection backoff ---
+					finally {
+						loginListener.dispose();
+					}
+					// --- End PWB ---
 				}
 
 				if (this._isPermanentFailure) {
@@ -688,7 +765,14 @@ export abstract class PersistentConnection extends Disposable {
 				this._options.logService.info(`${logPrefix} resolving connection...`);
 				const simpleOptions = await resolveConnectionOptions(this._options, this.reconnectionToken, this.protocol);
 				this._options.logService.info(`${logPrefix} connecting to ${simpleOptions.connectTo}...`);
-				await this._reconnect(simpleOptions, createTimeoutCancellation(RECONNECT_TIMEOUT));
+				// --- Start PWB: Abort an in-flight reconnect attempt once the connection has permanently failed ---
+				const attemptCancellation = pwbCreateAttemptCancellation(createTimeoutCancellation(RECONNECT_TIMEOUT), this._pwbPermanentFailureCts.token);
+				try {
+					await this._reconnect(simpleOptions, attemptCancellation.token);
+				} finally {
+					attemptCancellation.dispose();
+				}
+				// --- End PWB ---
 				this._options.logService.info(`${logPrefix} reconnected!`);
 				this._onDidStateChange.fire(new ConnectionGainEvent(this.reconnectionToken, this.protocol.getMillisSinceLastIncomingData(), attempt + 1));
 
@@ -748,6 +832,9 @@ export abstract class PersistentConnection extends Disposable {
 	}
 
 	private _gotoPermanentFailure(millisSinceLastIncomingData: number, attempt: number, handled: boolean): void {
+		// --- Start PWB: Abort an in-flight reconnect attempt once the connection has permanently failed ---
+		this._pwbPermanentFailureCts.cancel();
+		// --- End PWB ---
 		this._onDidStateChange.fire(new ReconnectionPermanentFailureEvent(this.reconnectionToken, millisSinceLastIncomingData, attempt, handled));
 		safeDisposeProtocolAndSocket(this.protocol);
 	}
