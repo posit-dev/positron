@@ -145,14 +145,17 @@ export function createPythonPickerInfo(args: {
     const group = pickerGroupOf(interpreter, context, externallyManaged);
     const envName = args.envName === pythonVersion ? '' : args.envName;
     const toolAndName = [pythonToolName(interpreter, runtimeSource, context), envName].filter(Boolean).join(': ');
-    const description = [toolAndName, supported ? undefined : vscode.l10n.t('not supported')]
+    const version = `Python ${pythonVersion}`;
+    // The tool and name lead the row; the version sits in the gray text, next to
+    // "not supported". With no tool or name, the version is the label.
+    const description = [toolAndName ? version : undefined, supported ? undefined : vscode.l10n.t('not supported')]
         .filter(Boolean)
         .join(' \u00B7 ');
     return {
         group: groupHeader(group),
         groupOrder: GROUP_ORDER.indexOf(group),
         rowOrder: supported ? 0 : 1,
-        label: `Python ${pythonVersion}`,
+        label: toolAndName || version,
         description: description || undefined,
     };
 }
