@@ -129,7 +129,7 @@ function getQuartoLinux(version) {
  */
 function getQuartoStream() {
     // quarto version
-    const version = '1.10.18';
+    const version = '1.11.9';
     (0, fancy_log_1.default)(`Synchronizing quarto ${version}...`);
     // Get the download/unpack stream for the current platform
     return process.platform === 'win32' ?
